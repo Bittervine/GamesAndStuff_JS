@@ -299,44 +299,16 @@
             font-size: 12px;
         }
 
-        .sysStart {
-            background: #eeeeee;
-        }
-
-        .sysPause {
-            background: #dddddd;
-        }
-
         .sysReset {
-            background: #cccccc;
-        }
-
-        body.colorMode .sysStart {
             background: #86efac;
         }
 
-        body.colorMode .sysPause {
-            background: #fde68a;
-        }
-
-        body.colorMode .sysReset {
-            background: #fca5a5;
-        }
-
         .sysSave {
-            background: #d8d8d8;
+            background: #86efac;
         }
 
         .sysLoad {
-            background: #cfcfcf;
-        }
-
-        body.colorMode .sysSave {
-            background: #93c5fd;
-        }
-
-        body.colorMode .sysLoad {
-            background: #67e8f9;
+            background: #86efac;
         }
 
         body.colorMode .learnCastBtn {
@@ -621,14 +593,9 @@
 
             <div id="rightStack" class="controlStack">
                 <div id="sysPanel" class="panel">
-                    <button type="button" id="startBtn" class="miniBtn sysStart">Start</button>
-                    <button type="button" id="pauseBtn" class="miniBtn sysPause">Pause</button>
                     <button type="button" id="resetBtn" class="miniBtn sysReset">Reset</button>
-                    <div class="sysRow">
-                        <button type="button" id="saveBtn" class="miniBtn sysSave sysHalf">Save</button>
-                        <button type="button" id="loadBtn" class="miniBtn sysLoad sysHalf sysHalfRight">Load</button>
-                    </div>
-                    <label class="sysToggle"><input type="checkbox" id="spriteMode"> Sprites</label>
+                    <button type="button" id="loadBtn" class="miniBtn sysLoad">Load</button>
+                    <button type="button" id="saveBtn" class="miniBtn sysSave">Save</button>
                 </div>
 
                 <div id="messagePanel" class="panel">
@@ -801,6 +768,8 @@
             grass: '#dfdfdf',
             wall: '#6f6f6f',
             wallLine: '#909090',
+            corridorWall: '#544638',
+            corridorWallLine: '#75624e',
             water: '#d6d6d6',
             waterLine: '#ababab',
             fog: '#8f8f8f',
@@ -820,8 +789,10 @@
             floor: '#efe0bd',
             floorDot: '#ccb98e',
             grass: '#8cad55',
-            wall: '#76614a',
-            wallLine: '#9b8266',
+            wall: '#98462f',
+            wallLine: '#e89262',
+            corridorWall: '#4b3321',
+            corridorWallLine: '#6a4a31',
             water: '#74aee2',
             waterLine: '#9fd0ff',
             fog: '#8d7f66',
@@ -864,11 +835,9 @@
         document.getElementById('msg3')
     ];
 
-    var startBtn = document.getElementById('startBtn');
-    var pauseBtn = document.getElementById('pauseBtn');
     var resetBtn = document.getElementById('resetBtn');
-    var saveBtn = document.getElementById('saveBtn');
     var loadBtn = document.getElementById('loadBtn');
+    var saveBtn = document.getElementById('saveBtn');
     var upLeftBtn = document.getElementById('upLeftBtn');
     var upBtn = document.getElementById('upBtn');
     var upRightBtn = document.getElementById('upRightBtn');
@@ -887,13 +856,16 @@
     var learnedCastBtn = document.getElementById('learnedCastBtn');
     var nukeBtn = document.getElementById('nukeBtn');
     var colorModeEl = document.getElementById('colorMode');
-    var spriteModeEl = document.getElementById('spriteMode');
 
     var state = {
         map: [],
         explored: [],
         webs: [],
         grassFire: [],
+        ash: [],
+        frozenWater: [],
+        frozenWaterFresh: [],
+        thawedWaterImmune: [],
         monsters: [],
         items: [],
         decorations: [],
@@ -906,7 +878,6 @@
         gameOver: false,
         victory: false,
         colorMode: true,
-        spriteMode: false,
         messages: [],
         effects: [],
         effectTimer: 0,
@@ -1222,7 +1193,7 @@
 
     function syncUiGlyphs() {
         if (document.body) {
-            document.body.className = (state.colorMode ? 'colorMode' : 'monoMode') + (state.spriteMode ? ' spriteMode' : '');
+            document.body.className = state.colorMode ? 'colorMode' : 'monoMode';
         }
         if (hpGlyph) {
             hpGlyph.innerHTML = activeGlyph(ICON.heart);
@@ -1348,6 +1319,10 @@
 
     function isWater(x, y) {
         return tileAt(x, y) === TILE_WATER;
+    }
+
+    function isFrozenWater(x, y) {
+        return isWater(x, y) && state.frozenWater[y] && state.frozenWater[y][x] > 0;
     }
 
     function isOpenTile(x, y) {
@@ -1524,6 +1499,25 @@
         for (dy = -1; dy <= 1; dy++) {
             for (dx = -1; dx <= 1; dx++) {
                 if ((dx !== 0 || dy !== 0) && tileAt(x + dx, y + dy) !== TILE_WALL) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    function isRoomWall(x, y) {
+        var dx;
+        var dy;
+        if (tileAt(x, y) !== TILE_WALL) {
+            return false;
+        }
+        for (dy = -1; dy <= 1; dy++) {
+            for (dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) {
+                    continue;
+                }
+                if (tileAt(x + dx, y + dy) !== TILE_WALL && roomAt(x + dx, y + dy)) {
                     return true;
                 }
             }
@@ -2776,6 +2770,10 @@
         state.explored = makeGrid(WORLD_W, WORLD_H, 0);
         state.webs = makeGrid(WORLD_W, WORLD_H, 0);
         state.grassFire = makeGrid(WORLD_W, WORLD_H, 0);
+        state.ash = makeGrid(WORLD_W, WORLD_H, 0);
+        state.frozenWater = makeGrid(WORLD_W, WORLD_H, 0);
+        state.frozenWaterFresh = makeGrid(WORLD_W, WORLD_H, 0);
+        state.thawedWaterImmune = makeGrid(WORLD_W, WORLD_H, 0);
         state.rooms = [];
         state.monsters = [];
         state.items = [];
@@ -3028,6 +3026,13 @@
         state.player.hp -= dmg;
         pushMessage(source + ' hits for ' + dmg);
         if (state.player.hp <= 0) {
+            if (state.player.nuke > 0) {
+                state.player.hp = 1;
+                detonatePulseNuke(true);
+                if (state.player.hp > 0) {
+                    return;
+                }
+            }
             state.player.hp = 0;
             state.gameOver = true;
             state.running = false;
@@ -3203,7 +3208,7 @@
         for (i = 0; i < state.decorations.length; i++) {
             deco = state.decorations[i];
             if (isDecorationFlammable(deco) && deco.burn < 1 && chebDistance(mon.x, mon.y, deco.x, deco.y) <= 1) {
-                igniteDecoration(deco, turns);
+                igniteDecoration(deco, turns, true);
                 spawnEffect('chain', 'fire', mon.x, mon.y, deco.x, deco.y, 2);
                 mon.burnSpread = 1;
                 return;
@@ -3211,10 +3216,25 @@
         }
     }
 
-    function igniteGrassAt(x, y, turns) {
+    function igniteGrassAt(x, y, turns, quiet) {
         if (tileAt(x, y) === TILE_GRASS && state.grassFire[y][x] < turns) {
             state.grassFire[y][x] = Math.max(state.grassFire[y][x], turns);
-            spawnEffect('burst', 'fire', x, y, x, y, 2);
+            if (!quiet) {
+                spawnEffect('burst', 'fire', x, y, x, y, 2);
+            }
+        }
+    }
+
+    function freezeWaterAt(x, y, turns, quiet, directSpell) {
+        if (tileAt(x, y) === TILE_WATER && (directSpell || state.thawedWaterImmune[y][x] <= 0) && state.frozenWater[y][x] < turns) {
+            if (state.frozenWater[y][x] <= 0) {
+                state.frozenWaterFresh[y][x] = 1;
+            }
+            state.frozenWater[y][x] = Math.max(state.frozenWater[y][x], turns);
+            state.thawedWaterImmune[y][x] = 0;
+            if (!quiet) {
+                spawnEffect('burst', 'frost', x, y, x, y, 2);
+            }
         }
     }
 
@@ -3225,7 +3245,7 @@
         return deco.type !== 'torch' && deco.type !== 'candelabra' && deco.type !== 'bucket';
     }
 
-    function igniteDecoration(deco, turns) {
+    function igniteDecoration(deco, turns, quiet) {
         if (!deco || !isDecorationFlammable(deco)) {
             return false;
         }
@@ -3234,7 +3254,9 @@
         }
         deco.burn = turns;
         deco.burnAge = 0;
-        spawnEffect('burst', 'fire', deco.x, deco.y, deco.x, deco.y, 2);
+        if (!quiet) {
+            spawnEffect('burst', 'fire', deco.x, deco.y, deco.x, deco.y, 2);
+        }
         return true;
     }
 
@@ -3280,18 +3302,19 @@
                 deco.burn -= 1;
             }
             if (deco.burn <= 0) {
+                leaveAshAt(deco.x, deco.y, 2);
                 removeDecorationAt(deco.x, deco.y);
             }
         }
         for (i = 0; i < toIgnite.length; i++) {
             if (toIgnite[i].kind === 'grass') {
-                igniteGrassAt(toIgnite[i].x, toIgnite[i].y, toIgnite[i].turns);
+                igniteGrassAt(toIgnite[i].x, toIgnite[i].y, toIgnite[i].turns, true);
             } else if (toIgnite[i].kind === 'monster') {
                 if (currentTargetById(toIgnite[i].mon.id) && toIgnite[i].mon.burn < 1) {
                     igniteMonster(toIgnite[i].mon, toIgnite[i].turns, 1);
                 }
             } else if (toIgnite[i].kind === 'decoration') {
-                igniteDecoration(toIgnite[i].deco, toIgnite[i].turns);
+                igniteDecoration(toIgnite[i].deco, toIgnite[i].turns, true);
             }
         }
     }
@@ -3324,7 +3347,7 @@
                             if (mon && !(isWater(mon.x, mon.y) && !hasFlag(mon, 'f')) && mon.burn < 1) {
                                 newMon.push(mon);
                             }
-                            if (igniteDecoration(decorationAt(nx, ny), 2)) {
+                            if (igniteDecoration(decorationAt(nx, ny), 2, true)) {
                                 spawnEffect('chain', 'fire', x, y, nx, ny, 2);
                             }
                         }
@@ -3336,17 +3359,63 @@
                     }
                     if (state.grassFire[y][x] <= 0 && tileAt(x, y) === TILE_GRASS) {
                         setTile(x, y, TILE_FLOOR);
+                        leaveAshAt(x, y, 2);
                     }
                 }
             }
         }
         for (i = 0; i < newGrass.length; i++) {
-            igniteGrassAt(newGrass[i].x, newGrass[i].y, 3);
+            igniteGrassAt(newGrass[i].x, newGrass[i].y, 3, true);
         }
         for (i = 0; i < newMon.length; i++) {
             if (currentTargetById(newMon[i].id) && newMon[i].burn < 1) {
                 igniteMonster(newMon[i], 2, 1);
             }
+        }
+    }
+
+    function tickFrozenWater() {
+        var x;
+        var y;
+        var dx;
+        var dy;
+        var nx;
+        var ny;
+        var newWater = [];
+        var i;
+        for (y = 0; y < WORLD_H; y++) {
+            for (x = 0; x < WORLD_W; x++) {
+                if (state.thawedWaterImmune[y][x] > 0 && state.frozenWater[y][x] <= 0) {
+                    state.thawedWaterImmune[y][x] -= 1;
+                }
+                if (state.frozenWater[y][x] > 0) {
+                    if (state.frozenWaterFresh[y][x] > 0) {
+                        for (dy = -1; dy <= 1; dy++) {
+                            for (dx = -1; dx <= 1; dx++) {
+                                if (dx === 0 && dy === 0) {
+                                    continue;
+                                }
+                                nx = x + dx;
+                                ny = y + dy;
+                                if (tileAt(nx, ny) === TILE_WATER) {
+                                    newWater.push({ x: nx, y: ny });
+                                }
+                            }
+                        }
+                        state.frozenWaterFresh[y][x] = 0;
+                    }
+                    if (roll(100) <= 5 || state.frozenWater[y][x] <= 1) {
+                        state.frozenWater[y][x] = 0;
+                        state.thawedWaterImmune[y][x] = 6;
+                        state.frozenWaterFresh[y][x] = 0;
+                    } else {
+                        state.frozenWater[y][x] -= 1;
+                    }
+                }
+            }
+        }
+        for (i = 0; i < newWater.length; i++) {
+            freezeWaterAt(newWater[i].x, newWater[i].y, 2, true, false);
         }
     }
 
@@ -3433,6 +3502,7 @@
         var i;
         var mon;
         var component;
+        var targetFreezesWater;
         var target = maybeTarget;
         if (!canAct()) {
             return;
@@ -3478,6 +3548,7 @@
         state.player.mp -= cost;
         state.spentManaThisTurn = true;
         spawnEffect('bolt', spell.id, state.player.x, state.player.y, target.x, target.y, 3);
+        targetFreezesWater = isWater(target.x, target.y) && !hasFlag(target, 'f');
 
         if (spell.id === 'fire') {
             result = hitMonster(target, 3 + roll(3), 'fire', 'Fire spell');
@@ -3521,11 +3592,14 @@
             spawnEffect('burst', 'earth', target.x, target.y, target.x, target.y, 3);
         } else if (spell.id === 'frost') {
             result = hitMonster(target, 2 + roll(3), 'frost', 'Frost bolt');
-            if (result !== 'reflect' && currentTargetById(target.id)) {
-                target.slow = Math.max(target.slow, steppedTurns(5));
-                if (isWater(target.x, target.y) && !hasFlag(target, 'f')) {
+            if (result !== 'reflect') {
+                if (currentTargetById(target.id)) {
+                    target.slow = Math.max(target.slow, steppedTurns(5));
+                }
+                if (targetFreezesWater) {
+                    freezeWaterAt(target.x, target.y, 3, false, true);
                     pushMessage(target.name + ' freezes in the water');
-                } else {
+                } else if (currentTargetById(target.id)) {
                     pushMessage(target.name + ' is snared by frost');
                 }
             }
@@ -3648,11 +3722,50 @@
         advanceTurn('cast');
     }
 
-    function pulseNuke() {
+    function detonatePulseNuke(emergency) {
         var radius;
         var dmg;
         var i;
         var mon;
+        var before;
+        var dealt;
+        var heal = 0;
+        if (!state.player || state.player.nuke < 1) {
+            return false;
+        }
+        radius = 1 + Math.floor((state.player.nuke - 1) / 2);
+        dmg = 2 + (state.player.nuke * 2);
+        spawnEffect('nova', 'lightning', state.player.x, state.player.y, state.player.x, state.player.y, 8);
+        spawnEffect('burst', 'lightning', state.player.x, state.player.y, state.player.x, state.player.y, 6);
+        for (i = -radius - 1; i <= radius + 1; i++) {
+            spawnEffect('chain', 'lightning', state.player.x, state.player.y, state.player.x + i, state.player.y - radius - 1, 4);
+            spawnEffect('chain', 'lightning', state.player.x, state.player.y, state.player.x + i, state.player.y + radius + 1, 4);
+            spawnEffect('chain', 'lightning', state.player.x, state.player.y, state.player.x - radius - 1, state.player.y + i, 4);
+            spawnEffect('chain', 'lightning', state.player.x, state.player.y, state.player.x + radius + 1, state.player.y + i, 4);
+        }
+        for (i = state.monsters.length - 1; i >= 0; i--) {
+            mon = state.monsters[i];
+            if (distance(mon.x, mon.y, state.player.x, state.player.y) <= radius) {
+                before = mon.hp;
+                hitMonster(mon, dmg, 'lightning', 'Pulse Nuke');
+                dealt = before - Math.max(0, mon.hp);
+                if (dealt > 0) {
+                    heal += dealt;
+                    spawnEffect('chain', 'drain', mon.x, mon.y, state.player.x, state.player.y, 3);
+                }
+            }
+        }
+        if (heal > 0) {
+            state.player.hp = clamp(state.player.hp + heal, 0, state.player.maxHp);
+            pushMessage((emergency ? 'The dying nuke erupts and restores ' : 'The pulse nova restores ') + heal + ' HP');
+        } else {
+            pushMessage(emergency ? 'The dying nuke erupts' : 'The wizard releases a pulse nova');
+        }
+        state.player.nuke = 0;
+        return true;
+    }
+
+    function pulseNuke() {
         if (!canAct()) {
             return;
         }
@@ -3664,17 +3777,7 @@
             draw();
             return;
         }
-        radius = 1 + Math.floor((state.player.nuke - 1) / 2);
-        dmg = 2 + (state.player.nuke * 2);
-        spawnEffect('burst', 'lightning', state.player.x, state.player.y, state.player.x, state.player.y, 5);
-        for (i = state.monsters.length - 1; i >= 0; i--) {
-            mon = state.monsters[i];
-            if (distance(mon.x, mon.y, state.player.x, state.player.y) <= radius) {
-                hitMonster(mon, dmg, 'lightning', 'Pulse Nuke');
-            }
-        }
-        pushMessage('The wizard releases a pulse nova');
-        state.player.nuke = 0;
+        detonatePulseNuke(false);
         advanceTurn('cast');
     }
 
@@ -4239,6 +4342,11 @@
             if (isWater(mon.x, mon.y) && !hasFlag(mon, 'f')) {
                 mon.energy -= 35;
             }
+            if (isFrozenWater(mon.x, mon.y) && !hasFlag(mon, 'f')) {
+                mon.energy = 0;
+                i += 1;
+                continue;
+            }
             if (mon.slow > 0) {
                 mon.slow -= 1;
                 i += 1;
@@ -4269,6 +4377,7 @@
         state.turn += 1;
         decayWebs();
         tickGrassFires();
+        tickFrozenWater();
         tickDecorationFires();
         monsterPhase();
         if (resolvePendingTileEvent()) {
@@ -4347,6 +4456,10 @@
                 explored: state.explored,
                 webs: state.webs,
                 grassFire: state.grassFire,
+                ash: state.ash,
+                frozenWater: state.frozenWater,
+                frozenWaterFresh: state.frozenWaterFresh,
+                thawedWaterImmune: state.thawedWaterImmune,
                 monsters: state.monsters,
                 items: state.items,
                 decorations: state.decorations,
@@ -4359,7 +4472,6 @@
                 gameOver: state.gameOver,
                 victory: state.victory,
                 colorMode: state.colorMode,
-                spriteMode: state.spriteMode,
                 messages: state.messages,
                 status: state.status,
                 turn: state.turn,
@@ -4413,6 +4525,10 @@
         state.explored = data.explored;
         state.webs = data.webs;
         state.grassFire = data.grassFire;
+        state.ash = data.ash || makeGrid(WORLD_W, WORLD_H, 0);
+        state.frozenWater = data.frozenWater || makeGrid(WORLD_W, WORLD_H, 0);
+        state.frozenWaterFresh = data.frozenWaterFresh || makeGrid(WORLD_W, WORLD_H, 0);
+        state.thawedWaterImmune = data.thawedWaterImmune || makeGrid(WORLD_W, WORLD_H, 0);
         state.monsters = data.monsters || [];
         for (i = 0; i < state.monsters.length; i++) {
             normalizeLoadedMonster(state.monsters[i]);
@@ -4431,7 +4547,6 @@
         state.gameOver = !!data.gameOver;
         state.victory = !!data.victory;
         state.colorMode = data.colorMode !== false;
-        state.spriteMode = !!data.spriteMode;
         state.messages = data.messages || [];
         state.effects = [];
         state.effectTimer = 0;
@@ -4452,9 +4567,6 @@
         rebuildStaticLighting();
         if (colorModeEl) {
             colorModeEl.checked = !!state.colorMode;
-        }
-        if (spriteModeEl) {
-            spriteModeEl.checked = !!state.spriteMode;
         }
         clearGlyphSpriteCache();
         refreshTargetSelection();
@@ -4608,7 +4720,7 @@
         var liveFont = activeFont(font);
         var liveGlyph = activeGlyph(glyph);
         var sprite;
-        if (state.spriteMode && g && g.drawImage) {
+        if (g && g.drawImage) {
             sprite = cachedGlyphSprite(liveGlyph, size, liveFont, color);
             if (sprite) {
                 g.drawImage(sprite, Math.floor(x - (sprite.width / 2)), Math.floor(y - (sprite.height / 2)));
@@ -4627,7 +4739,7 @@
         var liveGlyph = activeGlyph(glyph);
         var baseSize = Math.max(widthSize, heightSize);
         var sprite;
-        if (state.spriteMode && g && g.drawImage) {
+        if (g && g.drawImage) {
             sprite = cachedGlyphSprite(liveGlyph, baseSize, liveFont, color);
             if (sprite) {
                 g.drawImage(
@@ -4694,6 +4806,69 @@
         ctx.stroke();
     }
 
+    function drawBrickPattern(px, py, lineColor) {
+        var rowH = Math.max(3, Math.floor(CELL / 4));
+        var brickW = Math.max(6, Math.floor(CELL / 2));
+        var y1 = py + rowH;
+        var y2 = py + (rowH * 2);
+        var y3 = py + (rowH * 3);
+        ctx.save();
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.62;
+        ctx.beginPath();
+        ctx.moveTo(px, y1);
+        ctx.lineTo(px + CELL, y1);
+        ctx.moveTo(px, y2);
+        ctx.lineTo(px + CELL, y2);
+        ctx.moveTo(px, y3);
+        ctx.lineTo(px + CELL, y3);
+
+        ctx.moveTo(px + brickW, py);
+        ctx.lineTo(px + brickW, y1);
+        ctx.moveTo(px + Math.floor(brickW / 2), y1);
+        ctx.lineTo(px + Math.floor(brickW / 2), y2);
+        ctx.moveTo(px + Math.floor(brickW * 1.5), y1);
+        ctx.lineTo(px + Math.floor(brickW * 1.5), y2);
+        ctx.moveTo(px + brickW, y2);
+        ctx.lineTo(px + brickW, y3);
+        ctx.moveTo(px + Math.floor(brickW / 2), y3);
+        ctx.lineTo(px + Math.floor(brickW / 2), py + CELL);
+        ctx.moveTo(px + Math.floor(brickW * 1.5), y3);
+        ctx.lineTo(px + Math.floor(brickW * 1.5), py + CELL);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function drawGrassReeds(px, py, lineColor) {
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(px + Math.floor(CELL * 0.10), py + CELL - 4);
+        ctx.lineTo(px + Math.floor(CELL * 0.14), py + Math.floor(CELL * 0.68));
+        ctx.moveTo(px + Math.floor(CELL * 0.16), py + CELL - 4);
+        ctx.lineTo(px + Math.floor(CELL * 0.22), py + Math.floor(CELL * 0.58));
+        ctx.moveTo(px + Math.floor(CELL * 0.24), py + CELL - 4);
+        ctx.lineTo(px + Math.floor(CELL * 0.30), py + Math.floor(CELL * 0.64));
+        ctx.moveTo(px + Math.floor(CELL * 0.32), py + CELL - 4);
+        ctx.lineTo(px + Math.floor(CELL * 0.36), py + Math.floor(CELL * 0.56));
+        ctx.moveTo(px + Math.floor(CELL * 0.40), py + CELL - 4);
+        ctx.lineTo(px + Math.floor(CELL * 0.44), py + Math.floor(CELL * 0.66));
+        ctx.moveTo(px + Math.floor(CELL * 0.48), py + CELL - 4);
+        ctx.lineTo(px + Math.floor(CELL * 0.52), py + Math.floor(CELL * 0.54));
+        ctx.moveTo(px + Math.floor(CELL * 0.56), py + CELL - 4);
+        ctx.lineTo(px + Math.floor(CELL * 0.60), py + Math.floor(CELL * 0.62));
+        ctx.moveTo(px + Math.floor(CELL * 0.64), py + CELL - 4);
+        ctx.lineTo(px + Math.floor(CELL * 0.68), py + Math.floor(CELL * 0.55));
+        ctx.moveTo(px + Math.floor(CELL * 0.72), py + CELL - 4);
+        ctx.lineTo(px + Math.floor(CELL * 0.76), py + Math.floor(CELL * 0.67));
+        ctx.moveTo(px + Math.floor(CELL * 0.80), py + CELL - 4);
+        ctx.lineTo(px + Math.floor(CELL * 0.84), py + Math.floor(CELL * 0.59));
+        ctx.moveTo(px + Math.floor(CELL * 0.88), py + CELL - 4);
+        ctx.lineTo(px + Math.floor(CELL * 0.90), py + Math.floor(CELL * 0.69));
+        ctx.stroke();
+    }
+
     function drawMonster(mon, px, py, pal, selected) {
         var fill = mon.tier >= 4 ? pal.badgeDark : pal.badgeLight;
         var text = mon.tier >= 4 ? pal.badgeLight : pal.badgeDark;
@@ -4745,6 +4920,20 @@
         return 'rgb(' + value + ',' + value + ',' + value + ')';
     }
 
+    function mixHexColor(a, b, t) {
+        var mix = clamp(t, 0, 1);
+        var ar = parseInt(a.substr(1, 2), 16);
+        var ag = parseInt(a.substr(3, 2), 16);
+        var ab = parseInt(a.substr(5, 2), 16);
+        var br = parseInt(b.substr(1, 2), 16);
+        var bg = parseInt(b.substr(3, 2), 16);
+        var bb = parseInt(b.substr(5, 2), 16);
+        var rr = Math.round(ar + ((br - ar) * mix));
+        var rg = Math.round(ag + ((bg - ag) * mix));
+        var rb = Math.round(ab + ((bb - ab) * mix));
+        return 'rgb(' + rr + ',' + rg + ',' + rb + ')';
+    }
+
     function drawTile(mapX, mapY, px, py, pal, visible, lightLevel) {
         var tile = tileAt(mapX, mapY);
         var fill = pal.floor;
@@ -4752,6 +4941,13 @@
         var grayFill = grayLightColor(light, 58, 186);
         var grayLine = grayLightColor(light, 42, 142);
         var grayDot = grayLightColor(light, 30, 108);
+        var roomWall = false;
+        var wallFill;
+        var wallLine;
+        var litWallFill;
+        var litWallLine;
+        var hiddenWallFill;
+        var hiddenWallLine;
         if (tile === TILE_WALL && !isBoundaryWall(mapX, mapY)) {
             ctx.fillStyle = '#000000';
             ctx.fillRect(px, py, CELL, CELL);
@@ -4765,23 +4961,31 @@
         }
 
         if (tile === TILE_WALL) {
-            fill = visible ? pal.wall : '#000000';
-            ctx.fillStyle = fill;
+            roomWall = isRoomWall(mapX, mapY);
+            wallFill = roomWall ? pal.wall : pal.corridorWall;
+            wallLine = roomWall ? pal.wallLine : pal.corridorWallLine;
+            litWallFill = mixHexColor(wallFill, state.colorMode ? (roomWall ? '#cf6240' : '#b08a63') : '#cecece', light * 0.55);
+            litWallLine = mixHexColor(wallLine, state.colorMode ? (roomWall ? '#ffd8ba' : '#efd2a5') : '#f0f0f0', light * 0.65);
+            hiddenWallFill = grayLightColor(light, 24, 84);
+            hiddenWallLine = grayLightColor(light, 34, 118);
+            ctx.fillStyle = visible ? litWallFill : hiddenWallFill;
             ctx.fillRect(px, py, CELL, CELL);
-            if (visible) {
-                roundRectPath(ctx, px, py, CELL, CELL, Math.floor(CELL * 0.10));
-                ctx.strokeStyle = pal.shadow;
-                ctx.lineWidth = 1;
-                ctx.stroke();
-            }
             if (CELL >= 18) {
-                drawGlyph(ctx, ICON.brick, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2), Math.floor(CELL * 0.89), FONT_EMOJI, visible ? pal.wallLine : grayDot);
+                if (visible) {
+                    drawBrickPattern(px, py, litWallLine);
+                } else {
+                    drawBrickPattern(px, py, hiddenWallLine);
+                }
             }
             return;
         }
 
         if (tile === TILE_WATER) {
-            fill = visible ? pal.water : grayFill;
+            if (isFrozenWater(mapX, mapY)) {
+                fill = visible ? '#f4fbff' : grayLightColor(light, 150, 220);
+            } else {
+                fill = visible ? pal.water : grayFill;
+            }
         } else if (tile === TILE_GRASS) {
             fill = visible ? pal.grass : grayFill;
         } else {
@@ -4792,28 +4996,49 @@
         ctx.fillRect(px, py, CELL, CELL);
 
         if (tile === TILE_WATER) {
-            ctx.strokeStyle = visible ? pal.waterLine : grayLine;
+            if (isFrozenWater(mapX, mapY)) {
+                ctx.strokeStyle = visible ? '#ffffff' : grayLightColor(light, 176, 236);
+            } else {
+                ctx.strokeStyle = visible ? pal.waterLine : grayLine;
+            }
             ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.moveTo(px + 4, py + Math.floor(CELL * 0.36));
-            ctx.lineTo(px + CELL - 4, py + Math.floor(CELL * 0.36));
-            ctx.moveTo(px + 4, py + Math.floor(CELL * 0.62));
-            ctx.lineTo(px + CELL - 4, py + Math.floor(CELL * 0.62));
+            ctx.moveTo(px + 4, py + Math.floor(CELL * 0.22));
+            ctx.quadraticCurveTo(px + Math.floor(CELL * 0.18), py + Math.floor(CELL * 0.14), px + Math.floor(CELL * 0.34), py + Math.floor(CELL * 0.22));
+            ctx.quadraticCurveTo(px + Math.floor(CELL * 0.50), py + Math.floor(CELL * 0.30), px + Math.floor(CELL * 0.66), py + Math.floor(CELL * 0.22));
+            ctx.quadraticCurveTo(px + CELL - 7, py + Math.floor(CELL * 0.16), px + CELL - 4, py + Math.floor(CELL * 0.22));
+            ctx.moveTo(px + 4, py + Math.floor(CELL * 0.38));
+            ctx.quadraticCurveTo(px + Math.floor(CELL * 0.22), py + Math.floor(CELL * 0.28), px + Math.floor(CELL * 0.40), py + Math.floor(CELL * 0.38));
+            ctx.quadraticCurveTo(px + Math.floor(CELL * 0.58), py + Math.floor(CELL * 0.48), px + Math.floor(CELL * 0.76), py + Math.floor(CELL * 0.38));
+            ctx.quadraticCurveTo(px + CELL - 6, py + Math.floor(CELL * 0.30), px + CELL - 4, py + Math.floor(CELL * 0.38));
+            ctx.moveTo(px + 4, py + Math.floor(CELL * 0.52));
+            ctx.quadraticCurveTo(px + Math.floor(CELL * 0.20), py + Math.floor(CELL * 0.44), px + Math.floor(CELL * 0.38), py + Math.floor(CELL * 0.52));
+            ctx.quadraticCurveTo(px + Math.floor(CELL * 0.56), py + Math.floor(CELL * 0.60), px + Math.floor(CELL * 0.74), py + Math.floor(CELL * 0.52));
+            ctx.quadraticCurveTo(px + CELL - 6, py + Math.floor(CELL * 0.46), px + CELL - 4, py + Math.floor(CELL * 0.52));
+            ctx.moveTo(px + 5, py + Math.floor(CELL * 0.66));
+            ctx.quadraticCurveTo(px + Math.floor(CELL * 0.24), py + Math.floor(CELL * 0.56), px + Math.floor(CELL * 0.42), py + Math.floor(CELL * 0.66));
+            ctx.quadraticCurveTo(px + Math.floor(CELL * 0.60), py + Math.floor(CELL * 0.76), px + Math.floor(CELL * 0.78), py + Math.floor(CELL * 0.66));
+            ctx.quadraticCurveTo(px + CELL - 7, py + Math.floor(CELL * 0.58), px + CELL - 5, py + Math.floor(CELL * 0.66));
             ctx.stroke();
+            if (isFrozenWater(mapX, mapY)) {
+                ctx.strokeStyle = visible ? '#d7eefc' : grayLightColor(light, 168, 214);
+                ctx.beginPath();
+                ctx.moveTo(px + Math.floor(CELL * 0.28), py + Math.floor(CELL * 0.22));
+                ctx.lineTo(px + Math.floor(CELL * 0.58), py + Math.floor(CELL * 0.50));
+                ctx.lineTo(px + Math.floor(CELL * 0.78), py + Math.floor(CELL * 0.18));
+                ctx.moveTo(px + Math.floor(CELL * 0.44), py + Math.floor(CELL * 0.58));
+                ctx.lineTo(px + Math.floor(CELL * 0.66), py + Math.floor(CELL * 0.82));
+                ctx.stroke();
+            }
         } else if (tile === TILE_GRASS) {
-            ctx.strokeStyle = visible ? pal.floorDot : grayLine;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(px + 5, py + CELL - 4);
-            ctx.lineTo(px + 7, py + Math.floor(CELL * 0.45));
-            ctx.moveTo(px + Math.floor(CELL / 2), py + CELL - 4);
-            ctx.lineTo(px + Math.floor(CELL / 2) - 1, py + Math.floor(CELL * 0.4));
-            ctx.moveTo(px + CELL - 6, py + CELL - 4);
-            ctx.lineTo(px + CELL - 8, py + Math.floor(CELL * 0.48));
-            ctx.stroke();
+            drawGrassReeds(px, py, visible ? pal.floorDot : grayLine);
         } else {
             ctx.fillStyle = visible ? pal.floorDot : grayDot;
             ctx.fillRect(px + Math.floor(CELL / 2) - 1, py + Math.floor(CELL / 2) - 1, 2, 2);
+        }
+
+        if (state.ash[mapY][mapX] > 0) {
+            drawGrassReeds(px, py, visible ? '#1c1a18' : grayLightColor(light, 16, 52));
         }
 
         if (state.grassFire[mapY][mapX] > 0) {
@@ -5042,34 +5267,81 @@
                 ctx.lineTo(midx, midy);
                 ctx.lineTo(tx, ty);
                 ctx.stroke();
-            } else {
-                ctx.globalAlpha = state.colorMode ? (0.35 + (alpha * 0.2)) : (0.55 + (alpha * 0.15));
-                ctx.strokeStyle = halo;
-                ctx.lineWidth = eff.hostile ? 5 : 4;
+            } else if (eff.kind === 'nova') {
+                width = Math.max(width + 3, Math.floor(CELL * 0.18));
+                orb = Math.max(10, Math.floor(CELL * (1.2 + ((eff.maxTtl - eff.ttl) * 0.35))));
+                ctx.globalAlpha = state.colorMode ? (0.22 + (alpha * 0.18)) : (0.42 + (alpha * 0.16));
+                ctx.fillStyle = halo;
                 ctx.beginPath();
-                ctx.arc(tx, ty, Math.floor((CELL * 0.22) + ((eff.maxTtl - eff.ttl) * 4)), 0, Math.PI * 2, false);
+                ctx.arc(tx, ty, orb * 2.7, 0, Math.PI * 2, false);
+                ctx.fill();
+
+                ctx.globalAlpha = state.colorMode ? (0.35 + (alpha * 0.22)) : (0.58 + (alpha * 0.18));
+                ctx.strokeStyle = halo;
+                ctx.lineWidth = width + 8;
+                ctx.beginPath();
+                ctx.arc(tx, ty, orb * 1.9, 0, Math.PI * 2, false);
+                ctx.stroke();
+
+                ctx.globalAlpha = state.colorMode ? (0.45 + (alpha * 0.24)) : (0.72 + (alpha * 0.12));
+                ctx.strokeStyle = outline;
+                ctx.lineWidth = width + 3;
+                ctx.beginPath();
+                ctx.arc(tx, ty, orb * 1.55, 0, Math.PI * 2, false);
+                ctx.stroke();
+
+                ctx.globalAlpha = state.colorMode ? (0.82 + (alpha * 0.18)) : (0.95 - ((1 - alpha) * 0.08));
+                ctx.strokeStyle = core;
+                ctx.lineWidth = width;
+                ctx.beginPath();
+                ctx.arc(tx, ty, orb * 1.3, 0, Math.PI * 2, false);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(tx - (orb * 1.8), ty);
+                ctx.lineTo(tx + (orb * 1.8), ty);
+                ctx.moveTo(tx, ty - (orb * 1.8));
+                ctx.lineTo(tx, ty + (orb * 1.8));
+                ctx.moveTo(tx - (orb * 1.2), ty - (orb * 1.2));
+                ctx.lineTo(tx + (orb * 1.2), ty + (orb * 1.2));
+                ctx.moveTo(tx + (orb * 1.2), ty - (orb * 1.2));
+                ctx.lineTo(tx - (orb * 1.2), ty + (orb * 1.2));
+                ctx.stroke();
+            } else {
+                orb = Math.max(8, Math.floor(CELL * (eff.hostile ? 0.34 : 0.30)));
+                ctx.globalAlpha = state.colorMode ? (0.35 + (alpha * 0.2)) : (0.55 + (alpha * 0.15));
+                ctx.fillStyle = halo;
+                ctx.beginPath();
+                ctx.arc(tx, ty, Math.floor((CELL * 0.42) + ((eff.maxTtl - eff.ttl) * 5)), 0, Math.PI * 2, false);
+                ctx.fill();
+
+                ctx.globalAlpha = state.colorMode ? (0.42 + (alpha * 0.22)) : (0.68 + (alpha * 0.14));
+                ctx.strokeStyle = halo;
+                ctx.lineWidth = eff.hostile ? 7 : 6;
+                ctx.beginPath();
+                ctx.arc(tx, ty, Math.floor((CELL * 0.36) + ((eff.maxTtl - eff.ttl) * 5)), 0, Math.PI * 2, false);
                 ctx.stroke();
 
                 ctx.globalAlpha = state.colorMode ? (0.4 + (alpha * 0.25)) : (0.7 + (alpha * 0.12));
                 ctx.strokeStyle = outline;
-                ctx.lineWidth = eff.hostile ? 3 : 2;
+                ctx.lineWidth = eff.hostile ? 4 : 3;
                 ctx.beginPath();
-                ctx.arc(tx, ty, Math.floor((CELL * 0.18) + ((eff.maxTtl - eff.ttl) * 3)), 0, Math.PI * 2, false);
+                ctx.arc(tx, ty, Math.floor((CELL * 0.30) + ((eff.maxTtl - eff.ttl) * 4)), 0, Math.PI * 2, false);
                 ctx.stroke();
 
                 ctx.globalAlpha = state.colorMode ? (0.75 + (alpha * 0.25)) : (0.95 - ((1 - alpha) * 0.15));
                 ctx.strokeStyle = core;
-                ctx.lineWidth = eff.hostile ? 2 : 1;
+                ctx.lineWidth = eff.hostile ? 3 : 2;
                 ctx.beginPath();
-                ctx.arc(tx, ty, Math.floor((CELL * 0.18) + ((eff.maxTtl - eff.ttl) * 3)), 0, Math.PI * 2, false);
+                ctx.arc(tx, ty, Math.floor((CELL * 0.30) + ((eff.maxTtl - eff.ttl) * 4)), 0, Math.PI * 2, false);
                 ctx.stroke();
 
                 ctx.fillStyle = core;
                 ctx.beginPath();
-                ctx.moveTo(tx - 7, ty);
-                ctx.lineTo(tx + 7, ty);
-                ctx.moveTo(tx, ty - 7);
-                ctx.lineTo(tx, ty + 7);
+                ctx.moveTo(tx - Math.floor(CELL * 0.24), ty);
+                ctx.lineTo(tx + Math.floor(CELL * 0.24), ty);
+                ctx.moveTo(tx, ty - Math.floor(CELL * 0.24));
+                ctx.lineTo(tx, ty + Math.floor(CELL * 0.24));
                 ctx.stroke();
             }
 
@@ -5138,10 +5410,20 @@
         lightMap[y][x] = Math.max(lightMap[y][x], level);
     }
 
+    function leaveAshAt(x, y, amount) {
+        if (x < 0 || y < 0 || x >= WORLD_W || y >= WORLD_H) {
+            return;
+        }
+        if (tileAt(x, y) === TILE_WALL || tileAt(x, y) === TILE_WATER) {
+            return;
+        }
+        state.ash[y][x] = Math.max(state.ash[y][x], amount || 1);
+    }
+
     function diffuseLightMap(source) {
         var kernelCenter = 0.60;
         var kernelSide = 0.20;
-        var passes = 7;
+        var passes = 3;
         var cur = cloneGrid(source);
         var tmp = makeGrid(WORLD_W, WORLD_H, 0);
         var out = makeGrid(WORLD_W, WORLD_H, 0);
@@ -5152,7 +5434,18 @@
             for (y = 0; y < WORLD_H; y++) {
                 for (x = 0; x < WORLD_W; x++) {
                     if (tileAt(x, y) === TILE_WALL) {
-                        tmp[y][x] = 0;
+                        if (step === passes - 1) {
+                            tmp[y][x] = 0;
+                            if (x > 0 && tileAt(x - 1, y) !== TILE_WALL) {
+                                tmp[y][x] += cur[y][x - 1] * kernelSide;
+                            }
+                            if (x + 1 < WORLD_W && tileAt(x + 1, y) !== TILE_WALL) {
+                                tmp[y][x] += cur[y][x + 1] * kernelSide;
+                            }
+                            tmp[y][x] = clamp(tmp[y][x], 0, 1);
+                        } else {
+                            tmp[y][x] = 0;
+                        }
                         continue;
                     }
                     tmp[y][x] = cur[y][x] * kernelCenter;
@@ -5168,7 +5461,18 @@
             for (y = 0; y < WORLD_H; y++) {
                 for (x = 0; x < WORLD_W; x++) {
                     if (tileAt(x, y) === TILE_WALL) {
-                        out[y][x] = 0;
+                        if (step === passes - 1) {
+                            out[y][x] = tmp[y][x] * kernelCenter;
+                            if (y > 0 && tileAt(x, y - 1) !== TILE_WALL) {
+                                out[y][x] += tmp[y - 1][x] * kernelSide;
+                            }
+                            if (y + 1 < WORLD_H && tileAt(x, y + 1) !== TILE_WALL) {
+                                out[y][x] += tmp[y + 1][x] * kernelSide;
+                            }
+                            out[y][x] = clamp(out[y][x], 0, 1);
+                        } else {
+                            out[y][x] = 0;
+                        }
                         continue;
                     }
                     out[y][x] = tmp[y][x] * kernelCenter;
@@ -5661,11 +5965,9 @@
         }
     }
 
-    bindPress(startBtn, startGame);
-    bindPress(pauseBtn, togglePause);
     bindPress(resetBtn, resetRun);
-    bindPress(saveBtn, saveGame);
     bindPress(loadBtn, loadGame);
+    bindPress(saveBtn, saveGame);
     bindPress(upLeftBtn, function () { tryMove(-1, -1); });
     bindPress(upBtn, function () { tryMove(0, -1); });
     bindPress(upRightBtn, function () { tryMove(1, -1); });
@@ -5690,14 +5992,6 @@
                 state.effects = [];
                 clearEffectTimer();
             }
-            clearGlyphSpriteCache();
-            draw();
-        };
-    }
-
-    if (spriteModeEl) {
-        spriteModeEl.onclick = function () {
-            state.spriteMode = !!spriteModeEl.checked;
             clearGlyphSpriteCache();
             draw();
         };
