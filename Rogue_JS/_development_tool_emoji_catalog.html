@@ -1,0 +1,511 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Rogue Emoji Catalog</title>
+    <style>
+        @font-face {
+            font-family: "CatalogTwemojiMozilla";
+            src: url("fonts/Twemoji.Mozilla.ttf") format("truetype");
+        }
+
+        @font-face {
+            font-family: "CatalogNotoColorEmoji";
+            src: url("fonts/NotoColorEmoji_WindowsCompatible.ttf") format("truetype");
+        }
+
+        @font-face {
+            font-family: "CatalogNotoSymbols";
+            src: url("fonts/NotoSansSymbols-Regular.ttf") format("truetype");
+        }
+
+        @font-face {
+            font-family: "CatalogNotoSymbols2";
+            src: url("fonts/NotoSansSymbols2-Regular.ttf") format("truetype");
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: #ece8de;
+            color: #111111;
+            font-family: Georgia, "Times New Roman", serif;
+        }
+
+        #wrap {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 12px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+        }
+
+        p {
+            margin: 0 0 10px;
+            font-size: 15px;
+            line-height: 1.35;
+        }
+
+        #toolbar {
+            margin: 0 0 14px;
+            padding: 10px;
+            border: 2px solid #111111;
+            border-radius: 14px;
+            background: #ffffff;
+            box-shadow: inset 0 2px 0 #ffffff, inset 0 -2px 0 #d0d0d0, 0 3px 0 #666666;
+        }
+
+        #query {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px 10px;
+            border: 2px solid #111111;
+            border-radius: 12px;
+            font-size: 16px;
+            font-family: "Trebuchet MS", Verdana, sans-serif;
+        }
+
+        .hint {
+            margin-top: 8px;
+            font-size: 13px;
+        }
+
+        .toolRow {
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .picker {
+            float: left;
+            width: 49%;
+            margin-right: 2%;
+        }
+
+        .pickerLast {
+            margin-right: 0;
+        }
+
+        .pickerLabel {
+            display: block;
+            margin: 0 0 4px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .pickerSelect {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 7px 8px;
+            border: 2px solid #111111;
+            border-radius: 10px;
+            background: #ffffff;
+            color: #111111;
+            font-size: 15px;
+            font-family: "Trebuchet MS", Verdana, sans-serif;
+        }
+
+        .section {
+            margin: 0 0 18px;
+        }
+
+        .sectionTitle {
+            margin: 0 0 8px;
+            padding: 8px 10px;
+            border: 2px solid #111111;
+            border-radius: 12px;
+            background: #f9f7f2;
+            font-size: 18px;
+            font-weight: bold;
+            box-shadow: inset 0 2px 0 #ffffff, inset 0 -2px 0 #d0d0d0, 0 3px 0 #666666;
+        }
+
+        .grid {
+            overflow: hidden;
+        }
+
+        .card {
+            float: left;
+            width: 180px;
+            min-height: 150px;
+            margin: 0 10px 10px 0;
+            padding: 8px;
+            border: 2px solid #111111;
+            border-radius: 14px;
+            background: #ffffff;
+            box-sizing: border-box;
+            box-shadow: inset 0 2px 0 #ffffff, inset 0 -2px 0 #d0d0d0, 0 3px 0 #666666;
+        }
+
+        .glyph {
+            height: 64px;
+            line-height: 64px;
+            text-align: center;
+            font-family: "Segoe UI Emoji", "Segoe UI Symbol", serif;
+            font-size: 50px;
+        }
+
+        .refRow {
+            margin-bottom: 4px;
+        }
+
+        .refBadge {
+            display: inline-block;
+            padding: 2px 8px;
+            border: 2px solid #111111;
+            border-radius: 999px;
+            background: #f2f2f2;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .id {
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+            font-weight: bold;
+            word-break: break-all;
+        }
+
+        .label {
+            margin-top: 4px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .code {
+            margin-top: 4px;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+        }
+
+        .meta {
+            margin-top: 4px;
+            font-size: 12px;
+        }
+
+        .clear {
+            clear: both;
+        }
+    </style>
+</head>
+<body>
+    <div id="wrap">
+        <h1>Rogue Emoji Catalog</h1>
+        <p>Each glyph now has both a short <strong>ref code</strong> like <code>E001</code> and a long <strong>identifier</strong> like <code>hero_mage</code>. You can use either one when pointing me to a specific emoji later.</p>
+        <div id="toolbar">
+            <input type="text" id="query" value="" placeholder="Filter by ref code, identifier, label, or codepoint">
+            <div class="toolRow">
+                <div class="picker">
+                    <label class="pickerLabel" for="fontMode">Font Stack</label>
+                    <select id="fontMode" class="pickerSelect">
+                        <option value="auto">Auto</option>
+                        <option value="twemoji">Embedded Twemoji Mozilla</option>
+                        <option value="notoColor">Embedded Noto Color Emoji</option>
+                        <option value="notoSymbols">Embedded Noto Sans Symbols</option>
+                        <option value="notoSymbols2">Embedded Noto Sans Symbols 2</option>
+                        <option value="emoji">Emoji Font</option>
+                        <option value="symbol">Symbol Font</option>
+                        <option value="serif">Serif</option>
+                        <option value="sans">Sans Serif</option>
+                        <option value="mono">Monospace</option>
+                    </select>
+                </div>
+                <div class="picker pickerLast">
+                    <label class="pickerLabel" for="glyphMode">Glyph Style</label>
+                    <select id="glyphMode" class="pickerSelect">
+                        <option value="plain">Plain Codepoint</option>
+                        <option value="emoji">Emoji Style</option>
+                        <option value="text">Text Style</option>
+                    </select>
+                </div>
+            </div>
+            <div class="hint">Current hero candidates are grouped first so we can compare wizard alternatives quickly. Emoji font switching is best-effort only: many browsers force emoji through one built-in renderer, so distinct codepoint variants are usually more reliable than font changes.</div>
+        </div>
+        <div id="catalog"></div>
+    </div>
+
+    <script>
+    (function () {
+        function cp(code) {
+            var n = code;
+            if (n <= 65535) {
+                return String.fromCharCode(n);
+            }
+            n -= 65536;
+            return String.fromCharCode(55296 + (n >> 10), 56320 + (n & 1023));
+        }
+
+        function cps(list) {
+            var out = '';
+            var i;
+            for (i = 0; i < list.length; i++) {
+                out += cp(list[i]);
+            }
+            return out;
+        }
+
+        var data = [
+            { id: 'hero_mage', code: 0x1F9D9, label: 'Mage', category: 'Hero Candidates' },
+            { id: 'hero_mage_man', codes: [0x1F9D9, 0x200D, 0x2642, 0xFE0F], label: 'Man Mage', category: 'Hero Candidates' },
+            { id: 'hero_mage_woman', codes: [0x1F9D9, 0x200D, 0x2640, 0xFE0F], label: 'Woman Mage', category: 'Hero Candidates' },
+            { id: 'hero_superhero', code: 0x1F9B8, label: 'Superhero', category: 'Hero Candidates' },
+            { id: 'hero_elf', code: 0x1F9DD, label: 'Elf', category: 'Hero Candidates' },
+            { id: 'hero_fairy', code: 0x1F9DA, label: 'Fairy', category: 'Hero Candidates' },
+            { id: 'hero_genie', code: 0x1F9DE, label: 'Genie', category: 'Hero Candidates' },
+            { id: 'hero_person', code: 0x1F9D1, label: 'Person', category: 'Hero Candidates' },
+            { id: 'hero_detective', code: 0x1F575, label: 'Detective', category: 'Hero Candidates' },
+            { id: 'hero_ninja', code: 0x1F977, label: 'Ninja', category: 'Hero Candidates' },
+            { id: 'hero_prince', code: 0x1F934, label: 'Prince', category: 'Hero Candidates' },
+            { id: 'hero_princess', code: 0x1F478, label: 'Princess', category: 'Hero Candidates' },
+
+            { id: 'item_magic_wand', code: 0x1FA84, label: 'Magic Wand', category: 'Items and Symbols' },
+            { id: 'item_crystal_ball', code: 0x1F52E, label: 'Crystal Ball', category: 'Items and Symbols' },
+            { id: 'item_staff', code: 0x1F9AF, label: 'White Cane / Staff', category: 'Items and Symbols' },
+            { id: 'item_ring', code: 0x1F48D, label: 'Ring', category: 'Items and Symbols' },
+            { id: 'item_gem', code: 0x1F48E, label: 'Gem', category: 'Items and Symbols' },
+            { id: 'item_door', code: 0x1F6AA, label: 'Door', category: 'Items and Symbols' },
+            { id: 'item_fire', code: 0x1F525, label: 'Fire', category: 'Items and Symbols' },
+            { id: 'item_bolt', code: 0x26A1, label: 'Lightning', category: 'Items and Symbols' },
+            { id: 'item_rock', code: 0x1FAA8, label: 'Rock', category: 'Items and Symbols' },
+            { id: 'item_frost', code: 0x2744, label: 'Snowflake', category: 'Items and Symbols' },
+            { id: 'item_wind', code: 0x1F32A, label: 'Wind', category: 'Items and Symbols' },
+            { id: 'item_water', code: 0x1F4A7, label: 'Water Drop', category: 'Items and Symbols' },
+            { id: 'terrain_brick', code: 0x1F9F1, label: 'Brick', category: 'Items and Symbols' },
+            { id: 'terrain_tree_ent', code: 0x1F333, label: 'Tree / Ent', category: 'Items and Symbols' },
+
+            { id: 'mon_scurry_rat', code: 0x1F400, label: 'Scurry Rat', category: 'Monsters' },
+            { id: 'mon_tunnel_mouse', code: 0x1F401, label: 'Tunnel Mouse', category: 'Monsters' },
+            { id: 'mon_legion_ant', code: 0x1F41C, label: 'Legion Ant', category: 'Monsters' },
+            { id: 'mon_sting_bee', code: 0x1F41D, label: 'Sting Bee', category: 'Monsters' },
+            { id: 'mon_web_spider', code: 0x1F577, label: 'Web Spider', category: 'Monsters' },
+            { id: 'mon_venom_scorpion', code: 0x1F982, label: 'Venom Scorpion', category: 'Monsters' },
+            { id: 'mon_coil_snake', code: 0x1F40D, label: 'Coil Snake', category: 'Monsters' },
+            { id: 'mon_burrow_worm', code: 0x1FAB1, label: 'Burrow Worm', category: 'Monsters' },
+            { id: 'mon_rift_fly', code: 0x1FAB0, label: 'Rift Fly', category: 'Monsters' },
+            { id: 'mon_blood_mosquito', code: 0x1F99F, label: 'Blood Mosquito', category: 'Monsters' },
+            { id: 'mon_ash_roach', code: 0x1FAB3, label: 'Ash Roach', category: 'Monsters' },
+            { id: 'mon_iron_beetle', code: 0x1FAB2, label: 'Iron Beetle', category: 'Monsters' },
+            { id: 'mon_shell_snail', code: 0x1F40C, label: 'Shell Snail', category: 'Monsters' },
+            { id: 'mon_crusher_crab', code: 0x1F980, label: 'Crusher Crab', category: 'Monsters' },
+            { id: 'mon_pike_shrimp', code: 0x1F990, label: 'Pike Shrimp', category: 'Monsters' },
+            { id: 'mon_spine_lobster', code: 0x1F99E, label: 'Spine Lobster', category: 'Monsters' },
+            { id: 'mon_spite_blowfish', code: 0x1F421, label: 'Spite Blowfish', category: 'Monsters' },
+            { id: 'mon_river_fish', code: 0x1F41F, label: 'River Fish', category: 'Monsters' },
+            { id: 'mon_spark_fish', code: 0x1F420, label: 'Spark Fish', category: 'Monsters' },
+            { id: 'mon_razor_shark', code: 0x1F988, label: 'Razor Shark', category: 'Monsters' },
+            { id: 'mon_grip_octopus', code: 0x1F419, label: 'Grip Octopus', category: 'Monsters' },
+            { id: 'mon_ink_squid', code: 0x1F991, label: 'Ink Squid', category: 'Monsters' },
+            { id: 'mon_surge_dolphin', code: 0x1F42C, label: 'Surge Dolphin', category: 'Monsters' },
+            { id: 'mon_leviathan_whale', code: 0x1F40B, label: 'Leviathan Whale', category: 'Monsters' },
+            { id: 'mon_ice_seal', code: 0x1F9AD, label: 'Ice Seal', category: 'Monsters' },
+            { id: 'mon_mire_crocodile', code: 0x1F40A, label: 'Mire Crocodile', category: 'Monsters' },
+            { id: 'mon_bastion_turtle', code: 0x1F422, label: 'Bastion Turtle', category: 'Monsters' },
+            { id: 'mon_blink_lizard', code: 0x1F98E, label: 'Blink Lizard', category: 'Monsters' },
+            { id: 'mon_thunder_sauropod', code: 0x1F995, label: 'Thunder Sauropod', category: 'Monsters' },
+            { id: 'mon_tyrant_rex', code: 0x1F996, label: 'Tyrant Rex', category: 'Monsters' },
+            { id: 'mon_cinder_dragon', code: 0x1F409, label: 'Cinder Dragon', category: 'Monsters' },
+            { id: 'mon_ember_drake', code: 0x1F432, label: 'Ember Drake', category: 'Monsters' },
+            { id: 'mon_leap_frog', code: 0x1F438, label: 'Leap Frog', category: 'Monsters' },
+            { id: 'mon_chill_penguin', code: 0x1F427, label: 'Chill Penguin', category: 'Monsters' },
+            { id: 'mon_gale_goose', code: 0x1FABF, label: 'Gale Goose', category: 'Monsters' },
+            { id: 'mon_spear_duck', code: 0x1F986, label: 'Spear Duck', category: 'Monsters' },
+            { id: 'mon_tempest_swan', code: 0x1F9A2, label: 'Tempest Swan', category: 'Monsters' },
+            { id: 'mon_sky_eagle', code: 0x1F985, label: 'Sky Eagle', category: 'Monsters' },
+            { id: 'mon_night_owl', code: 0x1F989, label: 'Night Owl', category: 'Monsters' },
+            { id: 'mon_war_turkey', code: 0x1F983, label: 'War Turkey', category: 'Monsters' },
+            { id: 'mon_hex_peacock', code: 0x1F99A, label: 'Hex Peacock', category: 'Monsters' },
+            { id: 'mon_echo_parrot', code: 0x1F99C, label: 'Echo Parrot', category: 'Monsters' },
+            { id: 'mon_mirror_flamingo', code: 0x1F9A9, label: 'Mirror Flamingo', category: 'Monsters' },
+            { id: 'mon_night_bat', code: 0x1F987, label: 'Night Bat', category: 'Monsters' },
+            { id: 'mon_doom_dodo', code: 0x1F9A4, label: 'Doom Dodo', category: 'Monsters' },
+            { id: 'mon_stone_bear', code: 0x1F43B, label: 'Stone Bear', category: 'Monsters' },
+            { id: 'mon_bamboo_panda', code: 0x1F43C, label: 'Bamboo Panda', category: 'Monsters' },
+            { id: 'mon_dream_koala', code: 0x1F428, label: 'Dream Koala', category: 'Monsters' },
+            { id: 'mon_hunt_dog', code: 0x1F415, label: 'Hunt Dog', category: 'Monsters' },
+            { id: 'mon_shade_cat', code: 0x1F408, label: 'Shade Cat', category: 'Monsters' },
+            { id: 'mon_trick_fox', code: 0x1F98A, label: 'Trick Fox', category: 'Monsters' },
+            { id: 'mon_dire_wolf', code: 0x1F43A, label: 'Dire Wolf', category: 'Monsters' },
+            { id: 'mon_claw_tiger', code: 0x1F405, label: 'Claw Tiger', category: 'Monsters' },
+            { id: 'mon_ghost_leopard', code: 0x1F406, label: 'Ghost Leopard', category: 'Monsters' },
+            { id: 'mon_king_lion', code: 0x1F981, label: 'King Lion', category: 'Monsters' },
+            { id: 'mon_gore_boar', code: 0x1F417, label: 'Gore Boar', category: 'Monsters' },
+            { id: 'mon_ancient_ent', code: 0x1F333, label: 'Ancient Ent', category: 'Monsters' },
+            { id: 'mon_siege_buffalo', code: 0x1F403, label: 'Siege Buffalo', category: 'Monsters' },
+            { id: 'mon_iron_ox', code: 0x1F402, label: 'Iron Ox', category: 'Monsters' },
+            { id: 'mon_storm_ram', code: 0x1F40F, label: 'Storm Ram', category: 'Monsters' },
+            { id: 'mon_wild_goat', code: 0x1F410, label: 'Wild Goat', category: 'Monsters' },
+            { id: 'mon_moon_deer', code: 0x1F98C, label: 'Moon Deer', category: 'Monsters' },
+            { id: 'mon_war_horse', code: 0x1F40E, label: 'War Horse', category: 'Monsters' },
+            { id: 'mon_stripe_zebra', code: 0x1F993, label: 'Stripe Zebra', category: 'Monsters' },
+            { id: 'mon_volt_unicorn', code: 0x1F984, label: 'Volt Unicorn', category: 'Monsters' },
+            { id: 'mon_dune_camel', code: 0x1F42A, label: 'Dune Camel', category: 'Monsters' },
+            { id: 'mon_twin_camel', code: 0x1F42B, label: 'Twin Camel', category: 'Monsters' },
+            { id: 'mon_spit_llama', code: 0x1F999, label: 'Spit Llama', category: 'Monsters' },
+            { id: 'mon_titan_elephant', code: 0x1F418, label: 'Titan Elephant', category: 'Monsters' },
+            { id: 'mon_frost_mammoth', code: 0x1F9A3, label: 'Frost Mammoth', category: 'Monsters' },
+            { id: 'mon_horn_rhino', code: 0x1F98F, label: 'Horn Rhino', category: 'Monsters' },
+            { id: 'mon_gloom_hippo', code: 0x1F99B, label: 'Gloom Hippo', category: 'Monsters' },
+            { id: 'mon_tower_giraffe', code: 0x1F992, label: 'Tower Giraffe', category: 'Monsters' },
+            { id: 'mon_iron_gorilla', code: 0x1F98D, label: 'Iron Gorilla', category: 'Monsters' },
+            { id: 'mon_sage_orangutan', code: 0x1F9A7, label: 'Sage Orangutan', category: 'Monsters' },
+            { id: 'mon_mad_monkey', code: 0x1F412, label: 'Mad Monkey', category: 'Monsters' },
+            { id: 'mon_tunnel_badger', code: 0x1F9A1, label: 'Tunnel Badger', category: 'Monsters' },
+            { id: 'mon_stink_skunk', code: 0x1F9A8, label: 'Stink Skunk', category: 'Monsters' },
+            { id: 'mon_trick_raccoon', code: 0x1F99D, label: 'Trick Raccoon', category: 'Monsters' },
+            { id: 'mon_needle_hedgehog', code: 0x1F994, label: 'Needle Hedgehog', category: 'Monsters' },
+            { id: 'mon_ancient_sloth', code: 0x1F9A5, label: 'Ancient Sloth', category: 'Monsters' },
+            { id: 'mon_river_otter', code: 0x1F9A6, label: 'River Otter', category: 'Monsters' },
+            { id: 'mon_dam_beaver', code: 0x1F9AB, label: 'Dam Beaver', category: 'Monsters' },
+            { id: 'mon_war_kangaroo', code: 0x1F998, label: 'War Kangaroo', category: 'Monsters' },
+            { id: 'mon_storm_bison', code: 0x1F9AC, label: 'Storm Bison', category: 'Monsters' },
+            { id: 'mon_night_vampire', code: 0x1F9DB, label: 'Night Vampire', category: 'Monsters' },
+            { id: 'mon_grave_zombie', code: 0x1F9DF, label: 'Grave Zombie', category: 'Monsters' },
+            { id: 'mon_tide_merperson', code: 0x1F9DC, label: 'Tide Merperson', category: 'Monsters' },
+            { id: 'mon_storm_genie', code: 0x1F9DE, label: 'Storm Genie', category: 'Monsters' },
+            { id: 'mon_frost_elf', code: 0x1F9DD, label: 'Frost Elf', category: 'Monsters' },
+            { id: 'mon_mirror_fairy', code: 0x1F9DA, label: 'Mirror Fairy', category: 'Monsters' },
+            { id: 'mon_bridge_troll', code: 0x1F9CC, label: 'Bridge Troll', category: 'Monsters' },
+            { id: 'mon_ogre_brute', code: 0x1F479, label: 'Ogre Brute', category: 'Monsters' },
+            { id: 'mon_goblin_hexer', code: 0x1F47A, label: 'Goblin Hexer', category: 'Monsters' },
+            { id: 'mon_pale_ghost', code: 0x1F47B, label: 'Pale Ghost', category: 'Monsters' },
+            { id: 'mon_gray_alien', code: 0x1F47D, label: 'Gray Alien', category: 'Monsters' },
+            { id: 'mon_devil_grin', code: 0x1F608, label: 'Devil Grin', category: 'Monsters' },
+            { id: 'mon_arc_robot', code: 0x1F916, label: 'Arc Robot', category: 'Monsters' },
+            { id: 'mon_rot_microbe', code: 0x1F9A0, label: 'Rot Microbe', category: 'Monsters' },
+            { id: 'mon_dread_butterfly', code: 0x1F98B, label: 'Dread Butterfly', category: 'Monsters' }
+        ];
+
+        function hex(code) {
+            var out = code.toString(16).toUpperCase();
+            while (out.length < 4) {
+                out = '0' + out;
+            }
+            return 'U+' + out;
+        }
+
+        function fontFamily(mode) {
+            if (mode === 'twemoji') {
+                return '"CatalogTwemojiMozilla", "Segoe UI Emoji", "Segoe UI Symbol", serif';
+            }
+            if (mode === 'notoColor') {
+                return '"CatalogNotoColorEmoji", "Segoe UI Emoji", "Segoe UI Symbol", serif';
+            }
+            if (mode === 'notoSymbols') {
+                return '"CatalogNotoSymbols", "Segoe UI Symbol", "DejaVu Sans", serif';
+            }
+            if (mode === 'notoSymbols2') {
+                return '"CatalogNotoSymbols2", "Segoe UI Symbol", "DejaVu Sans", serif';
+            }
+            if (mode === 'emoji') {
+                return '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", serif';
+            }
+            if (mode === 'symbol') {
+                return '"Segoe UI Symbol", "Noto Sans Symbols 2", "DejaVu Sans", serif';
+            }
+            if (mode === 'serif') {
+                return 'Georgia, "Times New Roman", serif';
+            }
+            if (mode === 'sans') {
+                return '"Trebuchet MS", Verdana, sans-serif';
+            }
+            if (mode === 'mono') {
+                return 'Consolas, "Courier New", monospace';
+            }
+            return '"Segoe UI Emoji", "Segoe UI Symbol", serif';
+        }
+
+        function refCode(index) {
+            var out = String(index);
+            while (out.length < 3) {
+                out = '0' + out;
+            }
+            return 'E' + out;
+        }
+
+        function glyphText(item, mode) {
+            var s = item.codes ? cps(item.codes) : cp(item.code);
+            if (mode === 'emoji') {
+                return s + String.fromCharCode(65039);
+            }
+            if (mode === 'text') {
+                return s + String.fromCharCode(65038);
+            }
+            return s;
+        }
+
+        function codeLabel(item) {
+            var i;
+            var out = [];
+            if (item.codes) {
+                for (i = 0; i < item.codes.length; i++) {
+                    out.push(hex(item.codes[i]));
+                }
+                return out.join(' ');
+            }
+            return hex(item.code);
+        }
+
+        function render() {
+            var q = document.getElementById('query').value.toLowerCase();
+            var fontMode = document.getElementById('fontMode').value;
+            var glyphMode = document.getElementById('glyphMode').value;
+            var target = document.getElementById('catalog');
+            var byCategory = {};
+            var i;
+            var item;
+            var cat;
+            var ref;
+            var html = '';
+            var groups = ['Hero Candidates', 'Items and Symbols', 'Monsters'];
+
+            for (i = 0; i < data.length; i++) {
+                item = data[i];
+                ref = refCode(i + 1);
+                if (q && ref.toLowerCase().indexOf(q) === -1 && item.id.toLowerCase().indexOf(q) === -1 && item.label.toLowerCase().indexOf(q) === -1 && codeLabel(item).toLowerCase().indexOf(q) === -1) {
+                    continue;
+                }
+                cat = item.category;
+                if (!byCategory[cat]) {
+                    byCategory[cat] = [];
+                }
+                item.ref = ref;
+                byCategory[cat].push(item);
+            }
+
+            for (i = 0; i < groups.length; i++) {
+                cat = groups[i];
+                if (!byCategory[cat] || byCategory[cat].length < 1) {
+                    continue;
+                }
+                html += '<div class="section">';
+                html += '<div class="sectionTitle">' + cat + ' (' + byCategory[cat].length + ')</div>';
+                html += '<div class="grid">';
+                for (var j = 0; j < byCategory[cat].length; j++) {
+                    item = byCategory[cat][j];
+                    html += '<div class="card" id="emoji-' + item.ref + '" title="' + item.ref + ' / ' + item.id + '">';
+                    html += '<div class="glyph" style="font-family:' + fontFamily(fontMode) + ';">' + glyphText(item, glyphMode) + '</div>';
+                    html += '<div class="refRow"><span class="refBadge">' + item.ref + '</span></div>';
+                    html += '<div class="id">' + item.id + '</div>';
+                    html += '<div class="label">' + item.label + '</div>';
+                    html += '<div class="code">' + codeLabel(item) + '</div>';
+                    html += '<div class="meta">' + item.category + '</div>';
+                    html += '</div>';
+                }
+                html += '<div class="clear"></div></div></div>';
+            }
+
+            target.innerHTML = html;
+        }
+
+        document.getElementById('query').onkeyup = render;
+        document.getElementById('fontMode').onchange = render;
+        document.getElementById('glyphMode').onchange = render;
+        render();
+    }());
+    </script>
+</body>
+</html>

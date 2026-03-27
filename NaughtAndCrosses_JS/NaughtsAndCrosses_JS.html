@@ -1,0 +1,606 @@
+﻿<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Naught And Crosses JS</title>
+        <style>
+            body {
+                font-family: serif;
+                margin: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="board" width="720" height="720" style="display:block;margin:8px 0"></canvas>
+        <div id="controls">
+            <button id="resetBtn">Reset</button>
+            <button id="takebackBtn">Take Back</button>
+            <label>&nbsp;&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="2" min="1" max="10" style="width:3em"></label>
+            <label>&nbsp;&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="10" min="0" max="100" style="width:3em">&nbsp;%&nbsp;&nbsp;</label>
+            <span id="status"></span>
+        </div>
+
+        <script>
+        // ES5-compatible 30x30 five-in-a-row (gomoku-like) human vs AI
+        (function(){
+            var SIZE = 20;
+            var EMPTY = 0;
+            var O = 1;  // human
+            var X = 2;  // AI
+            var NEED = 5;
+
+            var canvas = document.getElementById('board');
+            var ctx = canvas.getContext && canvas.getContext('2d');
+            var controls = document.getElementById('controls');
+            var statusEl = document.getElementById('status');
+            var depthInput = document.getElementById('depthInput');
+            var clumsyInput = document.getElementById('clumsyInput');
+            document.getElementById('resetBtn').addEventListener('click', reset);
+            document.getElementById('takebackBtn').addEventListener('click', takeBack);
+
+            var board = null;
+            var turn = O;
+            var gameOver = false;
+            var winner = EMPTY;
+            var history = [];
+            var cell = 24;
+            var padding = 12;
+            var lastMove = null;
+            var stoneCount = 0;
+            var influence = null;
+            var tt = {};
+            var boardHash = 0;
+            var zobrist = null;
+
+            var DEPTH_KEY = 'nac_max_depth';
+            var CLUM_KEY = 'nac_clumsiness';
+            try {
+                var savedDepth = localStorage.getItem(DEPTH_KEY);
+                if (savedDepth !== null) depthInput.value = savedDepth;
+                var savedClumsy = localStorage.getItem(CLUM_KEY);
+                if (savedClumsy !== null) clumsyInput.value = savedClumsy;
+            } catch (e) {}
+
+            depthInput.addEventListener('change', function(){
+                try { localStorage.setItem(DEPTH_KEY, depthInput.value); } catch (e) {}
+            });
+            clumsyInput.addEventListener('change', function(){
+                try { localStorage.setItem(CLUM_KEY, clumsyInput.value); } catch (e) {}
+            });
+
+            function createBoard() {
+                var b = [];
+                var r;
+                var c;
+                for (r = 0; r < SIZE; r++) {
+                    b[r] = [];
+                    for (c = 0; c < SIZE; c++) b[r][c] = EMPTY;
+                }
+                return b;
+            }
+
+            function createInfluence() {
+                var inf = [];
+                var r;
+                var c;
+                for (r = 0; r < SIZE; r++) {
+                    inf[r] = [];
+                    for (c = 0; c < SIZE; c++) inf[r][c] = 0;
+                }
+                return inf;
+            }
+
+            function initZobrist() {
+                var z = [[], [], []];
+                var seed = 2463534242;
+                var i;
+                function rand32() {
+                    seed = (seed ^ (seed << 13)) >>> 0;
+                    seed = (seed ^ (seed >>> 17)) >>> 0;
+                    seed = (seed ^ (seed << 5)) >>> 0;
+                    return seed >>> 0;
+                }
+                for (i = 0; i < SIZE * SIZE; i++) {
+                    z[O][i] = rand32();
+                    z[X][i] = rand32();
+                }
+                return z;
+            }
+
+            function clampNum(v, min, max, fallback) {
+                var n = parseInt(v, 10);
+                if (!isFinite(n)) return fallback;
+                if (n < min) return min;
+                if (n > max) return max;
+                return n;
+            }
+
+            function resizeCanvas(){
+                var controlsH = controls ? controls.offsetHeight + 16 : 0;
+                var maxW = (typeof window.innerWidth === 'number' && isFinite(window.innerWidth)) ? window.innerWidth - 16 : 720;
+                var maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - 16 : 720;
+                var size = Math.max(320, Math.floor(Math.min(maxW, maxH) * 0.98));
+                if (controls) {
+                    controls.style.width = size + 'px';
+                    controls.style.boxSizing = 'border-box';
+                    controls.style.textAlign = 'center';
+                    controlsH = controls.offsetHeight + 16;
+                    maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - 16 : 720;
+                    size = Math.max(320, Math.floor(Math.min(maxW, maxH) * 0.98));
+                }
+                var freeW = Math.max(0, maxW - size);
+                canvas.width = size;
+                canvas.height = size;
+                canvas.style.marginLeft = (8 + Math.floor(freeW / 2)) + 'px';
+                canvas.style.marginRight = (8 + Math.ceil(freeW / 2)) + 'px';
+                canvas.style.marginTop = '8px';
+                canvas.style.marginBottom = '8px';
+                if (controls) {
+                    controls.style.width = size + 'px';
+                    controls.style.marginLeft = canvas.style.marginLeft;
+                    controls.style.marginRight = canvas.style.marginRight;
+                    controls.style.marginTop = '0px';
+                    controls.style.marginBottom = '8px';
+                }
+
+                var drawSize = size - padding * 2;
+                cell = drawSize / SIZE;
+                draw();
+            }
+            if (window.addEventListener) window.addEventListener('resize', resizeCanvas);
+
+            function inBounds(r, c){
+                return r >= 0 && r < SIZE && c >= 0 && c < SIZE;
+            }
+
+            function hasFiveFrom(r, c, player){
+                var dirs = [[1,0],[0,1],[1,1],[1,-1]];
+                var i;
+                for (i = 0; i < dirs.length; i++) {
+                    var dr = dirs[i][0];
+                    var dc = dirs[i][1];
+                    var count = 1;
+                    var rr = r + dr;
+                    var cc = c + dc;
+                    while (inBounds(rr, cc) && board[rr][cc] === player) {
+                        count++;
+                        rr += dr;
+                        cc += dc;
+                    }
+                    rr = r - dr;
+                    cc = c - dc;
+                    while (inBounds(rr, cc) && board[rr][cc] === player) {
+                        count++;
+                        rr -= dr;
+                        cc -= dc;
+                    }
+                    if (count >= NEED) return true;
+                }
+                return false;
+            }
+
+            function isBoardFull(){
+                return stoneCount >= SIZE * SIZE;
+            }
+
+            function adjustInfluence(r, c, delta) {
+                var rr;
+                var cc;
+                for (rr = r - 2; rr <= r + 2; rr++) {
+                    for (cc = c - 2; cc <= c + 2; cc++) {
+                        if (!inBounds(rr, cc)) continue;
+                        if (rr === r && cc === c) continue;
+                        influence[rr][cc] += delta;
+                    }
+                }
+            }
+
+            function applyMove(r, c, player){
+                board[r][c] = player;
+                history.push([r, c, player]);
+                lastMove = [r, c, player];
+                stoneCount++;
+                boardHash = (boardHash ^ zobrist[player][r * SIZE + c]) >>> 0;
+                adjustInfluence(r, c, 1);
+            }
+
+            function undoMove(){
+                var m = history.pop();
+                if (!m) return null;
+                board[m[0]][m[1]] = EMPTY;
+                lastMove = history.length ? history[history.length - 1] : null;
+                winner = EMPTY;
+                gameOver = false;
+                stoneCount--;
+                boardHash = (boardHash ^ zobrist[m[2]][m[0] * SIZE + m[1]]) >>> 0;
+                adjustInfluence(m[0], m[1], -1);
+                return m;
+            }
+
+            function takeBack(){
+                if (!history.length) return;
+                undoMove();
+                if (history.length && turn === O) undoMove();
+                turn = O;
+                updateStatus();
+                draw();
+            }
+
+            function scoreWindow(xCount, oCount, openEnds){
+                if (xCount > 0 && oCount > 0) return 0;
+                if (xCount === 0 && oCount === 0) return 0;
+                if (xCount >= NEED) return 10000000;
+                if (oCount >= NEED) return -10000000;
+                if (xCount > 0) {
+                    if (xCount === 4) return openEnds === 2 ? 300000 : 50000;
+                    if (xCount === 3) return openEnds === 2 ? 15000 : 2000;
+                    if (xCount === 2) return openEnds === 2 ? 900 : 120;
+                    if (xCount === 1) return openEnds === 2 ? 40 : 5;
+                }
+                if (oCount > 0) {
+                    if (oCount === 4) return openEnds === 2 ? -320000 : -52000;
+                    if (oCount === 3) return openEnds === 2 ? -17000 : -2500;
+                    if (oCount === 2) return openEnds === 2 ? -1000 : -140;
+                    if (oCount === 1) return openEnds === 2 ? -45 : -6;
+                }
+                return 0;
+            }
+
+            function evaluateBoard(){
+                var dirs = [[1,0],[0,1],[1,1],[1,-1]];
+                var score = 0;
+                var r;
+                var c;
+                var i;
+                for (r = 0; r < SIZE; r++) {
+                    for (c = 0; c < SIZE; c++) {
+                        if (board[r][c] === EMPTY) continue;
+                        for (i = 0; i < dirs.length; i++) {
+                            var dr = dirs[i][0];
+                            var dc = dirs[i][1];
+                            var pr = r - dr;
+                            var pc = c - dc;
+                            if (inBounds(pr, pc) && board[pr][pc] === board[r][c]) continue;
+
+                            var xCount = 0;
+                            var oCount = 0;
+                            var len = 0;
+                            var rr = r;
+                            var cc = c;
+                            while (inBounds(rr, cc) && board[rr][cc] !== EMPTY) {
+                                if (board[rr][cc] === X) xCount++;
+                                else oCount++;
+                                len++;
+                                rr += dr;
+                                cc += dc;
+                            }
+
+                            var openEnds = 0;
+                            if (inBounds(pr, pc) && board[pr][pc] === EMPTY) openEnds++;
+                            if (inBounds(rr, cc) && board[rr][cc] === EMPTY) openEnds++;
+
+                            if (len >= NEED) {
+                                if (xCount >= NEED) return 10000000;
+                                if (oCount >= NEED) return -10000000;
+                            }
+
+                            score += scoreWindow(xCount, oCount, openEnds);
+                        }
+                    }
+                }
+                return score;
+            }
+
+            function isWinningMove(r, c, player){
+                board[r][c] = player;
+                var win = hasFiveFrom(r, c, player);
+                board[r][c] = EMPTY;
+                return win;
+            }
+
+            function localShapeScore(r, c, player){
+                var opp = player === X ? O : X;
+                var friendly = 0;
+                var enemy = 0;
+                var rr;
+                var cc;
+                for (rr = r - 1; rr <= r + 1; rr++) {
+                    for (cc = c - 1; cc <= c + 1; cc++) {
+                        if (!inBounds(rr, cc) || (rr === r && cc === c)) continue;
+                        if (board[rr][cc] === player) friendly++;
+                        else if (board[rr][cc] === opp) enemy++;
+                    }
+                }
+                return friendly * 12 + enemy * 7;
+            }
+
+            function generateCandidates(player, depthLeft){
+                var moves = [];
+                var center = Math.floor(SIZE / 2);
+                var opp = player === X ? O : X;
+                var r;
+                var c;
+                var limit;
+                if (!stoneCount) {
+                    moves.push([center, center]);
+                    return moves;
+                }
+
+                for (r = 0; r < SIZE; r++) {
+                    for (c = 0; c < SIZE; c++) {
+                        if (board[r][c] !== EMPTY) continue;
+                        if (influence[r][c] <= 0) continue;
+                        var priority = localShapeScore(r, c, player) + influence[r][c] * 3;
+                        if (isWinningMove(r, c, player)) priority += 100000000;
+                        else if (isWinningMove(r, c, opp)) priority += 90000000;
+                        priority -= Math.abs(r - center) + Math.abs(c - center);
+                        moves.push([r, c, priority]);
+                    }
+                }
+
+                moves.sort(function(a, b){
+                    return b[2] - a[2];
+                });
+
+                if (depthLeft >= 4) limit = 10;
+                else if (depthLeft === 3) limit = 12;
+                else limit = 16;
+                if (moves.length > limit) moves.length = limit;
+                return moves;
+            }
+
+            function terminalFromLast(){
+                if (!lastMove) return 0;
+                if (hasFiveFrom(lastMove[0], lastMove[1], lastMove[2])) {
+                    return lastMove[2] === X ? 1 : -1;
+                }
+                if (isBoardFull()) return 2;
+                return 0;
+            }
+
+            function minimax(depth, alpha, beta, maximizing){
+                var t = terminalFromLast();
+                if (t === 1) return 10000000 + depth;
+                if (t === -1) return -10000000 - depth;
+                if (t === 2) return 0;
+                if (depth <= 0) return evaluateBoard();
+                var key = boardHash + '|' + depth + '|' + (maximizing ? 1 : 0);
+                if (tt.hasOwnProperty(key)) return tt[key];
+
+                var moves = generateCandidates(maximizing ? X : O, depth);
+                if (!moves.length) {
+                    var noMoveScore = evaluateBoard();
+                    tt[key] = noMoveScore;
+                    return noMoveScore;
+                }
+
+                var i;
+                var move;
+                var val;
+                if (maximizing) {
+                    var best = -2147483647;
+                    for (i = 0; i < moves.length; i++) {
+                        move = moves[i];
+                        applyMove(move[0], move[1], X);
+                        val = minimax(depth - 1, alpha, beta, false);
+                        undoMove();
+                        if (val > best) best = val;
+                        if (best > alpha) alpha = best;
+                        if (beta <= alpha) break;
+                    }
+                    tt[key] = best;
+                    return best;
+                }
+
+                var bestMin = 2147483647;
+                for (i = 0; i < moves.length; i++) {
+                    move = moves[i];
+                    applyMove(move[0], move[1], O);
+                    val = minimax(depth - 1, alpha, beta, true);
+                    undoMove();
+                    if (val < bestMin) bestMin = val;
+                    if (bestMin < beta) beta = bestMin;
+                    if (beta <= alpha) break;
+                }
+                tt[key] = bestMin;
+                return bestMin;
+            }
+
+            function pickEngineMove(){
+                var depth = clampNum(depthInput.value, 1, 10, 2);
+                var clumsy = clampNum(clumsyInput.value, 0, 100, 10);
+                var moves = generateCandidates(X, depth);
+                if (!moves.length) return null;
+
+                var scored = [];
+                var i;
+                for (i = 0; i < moves.length; i++) {
+                    var m = moves[i];
+                    applyMove(m[0], m[1], X);
+                    var score;
+                    if (hasFiveFrom(m[0], m[1], X)) score = 20000000;
+                    else score = minimax(depth - 1, -2147483647, 2147483647, false);
+                    undoMove();
+                    scored.push([m[0], m[1], score]);
+                }
+
+                scored.sort(function(a, b){ return b[2] - a[2]; });
+                var chooseBad = Math.random() < (clumsy / 100);
+                if (!chooseBad) return [scored[0][0], scored[0][1]];
+
+                if (scored.length > 1) return [scored[1][0], scored[1][1]];
+                return [scored[0][0], scored[0][1]];
+            }
+
+            function engineMove(){
+                if (gameOver || turn !== X) return;
+                tt = {};
+                var m = pickEngineMove();
+                if (!m) {
+                    gameOver = true;
+                    winner = EMPTY;
+                    updateStatus();
+                    draw();
+                    return;
+                }
+
+                applyMove(m[0], m[1], X);
+                if (hasFiveFrom(m[0], m[1], X)) {
+                    gameOver = true;
+                    winner = X;
+                } else if (isBoardFull()) {
+                    gameOver = true;
+                    winner = EMPTY;
+                } else {
+                    turn = O;
+                }
+                updateStatus();
+                draw();
+            }
+
+            function updateStatus(){
+                if (!statusEl) return;
+                if (gameOver) {
+                    if (winner === O) statusEl.textContent = 'Game over: Naughts (human) win';
+                    else if (winner === X) statusEl.textContent = 'Game over: Crosses (AI) win';
+                    else statusEl.textContent = 'Game over: draw';
+                    return;
+                }
+                statusEl.textContent = 'Turn: ' + (turn === O ? 'O' : 'X');
+            }
+
+            function drawGrid(){
+                ctx.fillStyle = '#f2f2f2';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = '#2b2b2b';
+                ctx.lineWidth = 1;
+                var i;
+                for (i = 0; i <= SIZE; i++) {
+                    var p = padding + i * cell;
+                    ctx.beginPath();
+                    ctx.moveTo(padding, p);
+                    ctx.lineTo(padding + SIZE * cell, p);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(p, padding);
+                    ctx.lineTo(p, padding + SIZE * cell);
+                    ctx.stroke();
+                }
+            }
+
+            function drawStone(r, c, player){
+                var x = padding + c * cell + cell * 0.5;
+                var y = padding + r * cell + cell * 0.5;
+                var radius = Math.max(3, cell * 0.35);
+                if (player === O) {
+                    ctx.strokeStyle = '#0f4d1f';
+                    ctx.lineWidth = Math.max(1, cell * 0.11);
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2, false);
+                    ctx.stroke();
+                } else {
+                    var s = radius * 0.9;
+                    ctx.strokeStyle = '#0b2a6f';
+                    ctx.lineWidth = Math.max(1, cell * 0.11);
+                    ctx.beginPath();
+                    ctx.moveTo(x - s, y - s);
+                    ctx.lineTo(x + s, y + s);
+                    ctx.moveTo(x + s, y - s);
+                    ctx.lineTo(x - s, y + s);
+                    ctx.stroke();
+                }
+            }
+
+            function drawLastMarker(){
+                if (!lastMove) return;
+                var x = padding + lastMove[1] * cell + cell * 0.5;
+                var y = padding + lastMove[0] * cell + cell * 0.5;
+                var s = Math.max(2, cell * 0.1);
+                ctx.fillStyle = '#222';
+                ctx.fillRect(x - s, y - s, s * 2, s * 2);
+            }
+
+            function draw(){
+                if (!ctx) {
+                    if (statusEl) statusEl.textContent = 'No 2D context';
+                    return;
+                }
+                drawGrid();
+                var r;
+                var c;
+                for (r = 0; r < SIZE; r++) {
+                    for (c = 0; c < SIZE; c++) {
+                        if (board[r][c] !== EMPTY) drawStone(r, c, board[r][c]);
+                    }
+                }
+                drawLastMarker();
+            }
+
+            function screenToCell(x, y){
+                var col = Math.floor((x - padding) / cell);
+                var row = Math.floor((y - padding) / cell);
+                if (!inBounds(row, col)) return null;
+                return [row, col];
+            }
+
+            canvas.addEventListener('click', function(ev){
+                if (gameOver || turn !== O) return;
+                var rect = canvas.getBoundingClientRect();
+                var x = ev.clientX - rect.left;
+                var y = ev.clientY - rect.top;
+                var rc = screenToCell(x, y);
+                if (!rc) return;
+                var r = rc[0];
+                var c = rc[1];
+                if (board[r][c] !== EMPTY) return;
+
+                applyMove(r, c, O);
+                if (hasFiveFrom(r, c, O)) {
+                    gameOver = true;
+                    winner = O;
+                } else if (isBoardFull()) {
+                    gameOver = true;
+                    winner = EMPTY;
+                } else {
+                    turn = X;
+                }
+                updateStatus();
+                draw();
+
+                if (!gameOver) {
+                    setTimeout(function(){ engineMove(); }, 30);
+                }
+            });
+
+            function reset(){
+                board = createBoard();
+                influence = createInfluence();
+                if (!zobrist) zobrist = initZobrist();
+                turn = O;
+                gameOver = false;
+                winner = EMPTY;
+                history = [];
+                lastMove = null;
+                stoneCount = 0;
+                boardHash = 0;
+                tt = {};
+                resizeCanvas();
+                updateStatus();
+            }
+
+            reset();
+        })();
+        </script>
+    </body>
+</html>
+
+
+
+
+
+
+
+
+
+

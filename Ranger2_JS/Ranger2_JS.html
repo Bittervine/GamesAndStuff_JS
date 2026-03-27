@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ranger of Brackenwald - Node Graph Runner</title>
+  <link rel="stylesheet" href="ranger2.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="hero-panel">
+      <h1>Ranger of Brackenwald</h1>
+      <p>In service of Duke Aldric with his horse Thorne as his constant companion.</p>
+    </header>
+
+    <section id="loadingPanel" class="panel">
+      <h2>Loading Story Data</h2>
+      <p id="loadingText">Reading local story scripts...</p>
+    </section>
+
+    <section id="pickerPanel" class="panel hidden">
+      <h2>Choose a Story</h2>
+      <div id="storyList" class="story-grid"></div>
+    </section>
+
+    <section id="gamePanel" class="panel hidden">
+      <div class="toolbar">
+        <button id="backToMenuBtn" type="button">Back to Story Menu</button>
+        <div id="statusLine" class="status-line"></div>
+      </div>
+
+      <article id="turnCard" class="turn-card"></article>
+    </section>
+  </main>
+
+  <aside id="failOverlay" class="fail-overlay hidden" aria-hidden="true">
+    <div class="fail-dialog">
+      <h3 id="failTitle"></h3>
+      <p id="failText"></p>
+      <div class="fail-actions">
+        <button id="undoFailBtn" type="button">Undo Choice</button>
+        <button id="acceptFailBtn" type="button">Accept Fate</button>
+      </div>
+    </div>
+  </aside>
+
+  <script src="ranger2_game.js"></script>
+</body>
+</html>

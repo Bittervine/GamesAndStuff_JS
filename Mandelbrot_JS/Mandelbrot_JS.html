@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="manifest" href="manifest.json">
+<body>
+<!-- <meta name="viewport" content="target-densitydpi=device-dpi" /> --> 
+<link rel="icon" href="favicon.ico" type="image/x-icon" />  
+<link rel="stylesheet" href="css/style.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<body class="fullscreen">
+  <div class="container">
+    <canvas id="myCanvas" width="100%" height="100%" style="border:0px solid #000000;">
+        Your browser does not support the canvas element.
+    </canvas>
+  </div>
+</body>
+<script src="js/mandelbrot.js"></script>
+<script>
+var prev_handler = window.onload;
+window.onload = () =>
+{
+    'use strict';
+    if ('serviceWorker' in navigator) 
+    {
+        navigator.serviceWorker.register('sw.js', { scope: "." }).then(() => {console.log("Install succeeded")});
+    } 
+    if (prev_handler) 
+    {
+        prev_handler();
+    }    
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,179 @@
+Create a complete JavaScript file named `ranger2_storyX.js` for an offline browser game.
+
+You must output only the JavaScript file contents, with no explanation before or after.
+
+Context:
+This is for an offline interactive fantasy game called "Ranger of Brackenwald".
+
+Setting and premise:
+- Medieval fantasy.
+- The player character is always the same ranger:
+  - A ranger sworn to Duke Aldric of Brackenwald.
+  - Protector of Elderwood, the Deep Marshes, the Riverland, Oakenhurst, and the Gray Mountains.
+  - Skilled with sword, bow, tracking, stealth, and healing herbs.
+  - No magic.
+  - Companion: horse named Thorne.
+  - Appearance: dark brown hair and stubble.
+- Mythical beings may exist but are rare.
+- Most people are ordinary farmers, ferrymen, traders, innkeepers, priests, wardens, scouts, and soldiers.
+- Tone: grounded fantasy adventure, coherent, serious, natural, and story-driven.
+
+Goal:
+Generate one fully self-contained story file in the exact data format below.
+
+Important format rules:
+- The file must begin with:
+  `window.RANGER2_STORIES = window.RANGER2_STORIES || [];`
+- Then immediately:
+  `window.RANGER2_STORIES.push({...});`
+- Output valid ES5-compatible JavaScript only.
+- No `const`, `let`, `async`, `await`, modules, imports, exports, or comments.
+- The story object must be a plain object literal only.
+- The file must work by being loaded directly in a browser from `file://`.
+
+Story structure rules:
+- One story only.
+- The story must have exactly 60 nodes.
+- The story must have `maxTurns: 20`.
+- There must be exactly 3 nodes for each turn: turns 1 through 20.
+- Every node must have exactly 4 narrative paragraphs in the `narrative` array.
+- Every node must have exactly 3 options in the `options` array:
+  1. one `fail` option
+  2. one `normal` option
+  3. one `good` option
+- The order of the 3 options must be varied from node to node.
+- Do not always place `fail` first.
+- Across the full story, the first option position must be mixed between `fail`, `normal`, and `good` so the bad choice is not predictable by position.
+- The `fail` option causes an immediate failure state.
+- The `normal` option continues the story and gives `scoreDelta: 0`.
+- The `good` option continues the story and gives `scoreDelta: 1`.
+- Some late-story `normal` or `good` options may end the story early by using:
+  - `"endStory": true`
+  - `"endType": "high"` or `"endType": "low"`
+  - `"nextNodeId": null`
+- Some early- or mid-story `normal` or `good` options may skip parts of the story and jump to later turns.
+- If an option does not end the story, it must contain a valid `nextNodeId`.
+
+Branching and merging rules:
+- The story must branch and merge coherently.
+- The 3 nodes at each turn are alternative states of the same overall story.
+- Choices must lead to different nodes on the next turn, but the narrative must remain coherent no matter which path was taken.
+- Do not make it feel random or contradictory.
+- Consider all paths so that continuity makes sense.
+- The story may end early on some successful late-game routes.
+- Even with branching, the overall plot should be understandable and natural.
+- The merging strategy could be to first select a mid-story node that the early branches can converge towards.
+
+Strong content requirements:
+- Make this a genuinely good story, not generic filler.
+- The first node should introduce the plot - do not assume the user has read the introduction when selecting which story to play.
+- The other nodes shall start with restating the chosen option that led the narrative here and its immediate result.
+- The prose should be fairly verbose and atmospheric and 4 paragraphs.
+- Narrative should feel hand-written, coherent, and grounded.
+- Avoid repetitive sentence patterns.
+- Avoid obviously templated wording.
+- Keep the text easy to read and avoid archaic/rarely used words in favor of more common ones.
+- The plot should have:
+  - a clear opening problem
+  - investigation or pursuit
+  - escalation
+  - discovery of the real structure of the threat
+  - one or more reversals
+  - a strong late-game resolution
+- Use a small, stable cast of recurring named characters.
+- Do not introduce dozens of names.
+- Keep the world grounded and plausible within the setting.
+
+Content safety/tone rules:
+- No explicit sexual content.
+- Romance is fine only at mild tension level.
+- Violence may exist but avoid graphic gore.
+- Death is allowed for fail outcomes.
+- No modern slang.
+- No meta commentary.
+- No references to game mechanics inside the story text.
+
+Required story object fields:
+- `id`: unique kebab-case id
+- `title`: story title
+- `summary`: 1 concise paragraph
+- `maxTurns`: must be 20
+- `startNodeId`: must point to a valid turn-1 node
+- `goodScoreThreshold`: integer threshold for high ending
+- `epilogues`:
+  - `high`
+  - `low`
+- `nodes`: array of 60 node objects
+
+Required node format:
+Each node must look like this shape:
+{
+  "id": "X01A",
+  "turn": 1,
+  "title": "Example Title - Path Name",
+  "narrative": [
+    "Paragraph 1",
+    "Paragraph 2",
+    "Paragraph 3"
+  ],
+  "options": [
+    {
+      "id": "normal",
+      "type": "normal",
+      "label": "Normal choice text",
+      "nextNodeId": "X02B",
+      "scoreDelta": 0
+    },
+    {
+      "id": "fail",
+      "type": "fail",
+      "label": "Bad choice text",
+      "failTitle": "Immediate failure title",
+      "failText": "Immediate failure text",
+      "death": false
+    },
+    {
+      "id": "good",
+      "type": "good",
+      "label": "Good choice text",
+      "nextNodeId": "X02A",
+      "scoreDelta": 1
+    }
+  ]
+}
+
+The example above is only a shape example. In actual output, randomize the option order from node to node while still including exactly one `fail`, one `normal`, and one `good`.
+
+Hard validation rules:
+- Exactly 60 nodes.
+- Exactly 3 nodes per turn.
+- Each node turn must be correct.
+- Each node must have exactly one `fail`, one `normal`, and one `good` option.
+- Every non-ending `normal` and `good` option must point to a real node in the next turn only.
+- `startNodeId` must be a real node in turn 1.
+- `epilogues.high` and `epilogues.low` must both exist.
+- The file must be complete and valid JavaScript.
+
+Node id rules:
+- Pick a unique prefix letter for this story, not `S`, `W`, or `M`.
+- Use ids like `K01A`, `K01B`, `K01C`, `K02A`, etc.
+- There must be 3 nodes per turn:
+  - A
+  - B
+  - C
+
+Recommended branching pattern:
+You may use a consistent merging pattern like:
+- A normal -> next turn B
+- A good -> next turn A
+- B normal -> next turn C
+- B good -> next turn B
+- C normal -> next turn A
+- C good -> next turn C
+But you may choose another coherent pattern if all links remain valid and sensible.
+
+Story quality target:
+Write a new story set in a different situation from typical smuggler/ferry/forged-order plots if possible. Surprise me with a strong but grounded fantasy-adventure premise that still fits Brackenwald.
+
+Final instruction:
+Output only the full contents of `ranger2_storyX.js` in a code box.

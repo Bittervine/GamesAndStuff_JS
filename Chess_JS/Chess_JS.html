@@ -1,0 +1,1460 @@
+﻿<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#1f2937">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Chess JS 2">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20512%20512'%3E%3Crect%20width='512'%20height='512'%20rx='96'%20fill='%231f2937'/%3E%3Crect%20x='64'%20y='64'%20width='384'%20height='384'%20rx='48'%20fill='%23f0d9b5'/%3E%3Cpath%20d='M64%20256h384M256%2064v384M64%20160h384M64%20352h384M160%2064v384M352%2064v384'%20stroke='%23b58863'%20stroke-width='8'%20opacity='0.65'/%3E%3Ctext%20x='256'%20y='325'%20text-anchor='middle'%20font-family='serif'%20font-size='220'%20fill='%23111827'%3EK%3C/text%3E%3C/svg%3E" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20512%20512'%3E%3Crect%20width='512'%20height='512'%20rx='96'%20fill='%231f2937'/%3E%3Crect%20x='64'%20y='64'%20width='384'%20height='384'%20rx='48'%20fill='%23f0d9b5'/%3E%3Cpath%20d='M64%20256h384M256%2064v384M64%20160h384M64%20352h384M160%2064v384M352%2064v384'%20stroke='%23b58863'%20stroke-width='8'%20opacity='0.65'/%3E%3Ctext%20x='256'%20y='325'%20text-anchor='middle'%20font-family='serif'%20font-size='220'%20fill='%23111827'%3EK%3C/text%3E%3C/svg%3E">
+    <title>Chess JS 2</title>
+    <style>
+        @font-face {
+            font-family: 'FreeSerif';
+            src: url('data:font/ttf;base64,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') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'FreeSerif', serif;
+        }
+
+        #controls {
+            font-size: 100%;
+        }
+
+        #controls button,
+        #controls input {
+            font-size: inherit;
+        }
+
+        #searchInfo {
+            margin-top: 0.2em;
+            line-height: 1.2;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="board" width="512" height="512" style="display:block;margin:8px 0"></canvas>
+
+    <div id="controls">
+        <button id="resetBtn">Reset</button>
+        <label>&nbsp;&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="3" min="1" max="9" style="width:1.6em"></label>
+        <label>&nbsp;&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="9" min="0" max="99" style="width:2.0em">&nbsp;%&nbsp;&nbsp;</label>
+        <label><input id="previewInput" type="checkbox"> Preview&nbsp;&nbsp;</label>
+        <button id="takebackBtn">Undo</button>
+        <span id="status"></span>
+        <div id="searchInfo">
+            <strong id="lastMoveLabel">Info:</strong> <span id="lastMoveInfo">Your move...</span>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        'use strict';
+
+        var AI_COLOR = 'b';
+        var PIECE_VALUE = { P: 1, N: 3, B: 3, R: 5, Q: 9, K: 1000 };
+        var SEARCH_INF = 10001;
+        var MATE_SCORE = 1001;
+        var DEADLINE_CHECK_INTERVAL = 128;
+        var BASE_SLICE_MS = 10;
+        var BASE_NODE_BUDGET = 192;
+        var KINDLE_BATCH_BOOST = 100;
+        var HARD_DEADLINE_MS = 30000;
+        var SOFT_DEADLINE_MS = 10000;
+        var PARTIAL_DEPTH_USE_THRESHOLD = 0.5;
+        var DEFAULT_DEPTH_GROWTH = 2.6;
+        var MIN_DEPTH_GROWTH = 1.4;
+        var MAX_DEPTH_GROWTH = 4.5;
+
+        var STORAGE = {
+            depth: 'chess_max_depth',
+            clumsy: 'chess_clumsiness',
+            preview: 'chess_preview_enabled',
+            kindleOverride: 'chess_kindle_override'
+        };
+
+        var LIGHT_SQUARE = '#F0D9B5';
+        var DARK_SQUARE = '#B58863';
+        var MARK_COLOR = '#202020';
+        var PREVIEW_ALPHA = 0.35;
+
+        var boardCanvas = document.getElementById('board');
+        var ctx = boardCanvas.getContext ? boardCanvas.getContext('2d') : null;
+        var controls = document.getElementById('controls');
+        var statusEl = document.getElementById('status');
+        var depthInput = document.getElementById('depthInput');
+        var clumsyInput = document.getElementById('clumsyInput');
+        var previewInput = document.getElementById('previewInput');
+        var infoLabel = document.getElementById('lastMoveLabel');
+        var infoText = document.getElementById('lastMoveInfo');
+
+        var squareSize = 64;
+        var fontWatchHandle = null;
+
+        var userAgent = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+        var kindleAuto = /Kindle|Silk|KF[A-Z0-9]+|KFTT|KFMUWI|KFSUWI|KFDOWI|KFTHWI|KFTRWI/i.test(userAgent);
+        var kindleMode = kindleAuto;
+
+        var game = {
+            board: null,
+            selected: null,
+            turn: 'w',
+            gameOver: false,
+            history: [],
+            lastDouble: null,
+            material: 0,
+            previewMove: null,
+            previewDrawAt: 0,
+            renderBoardSnapshot: null,
+            renderLastDoubleSnapshot: null
+        };
+
+        var engine = {
+            thinking: false,
+            timerId: null,
+            session: null
+        };
+
+        function clampNum(v, lo, hi) {
+            if (v < lo) return lo;
+            if (v > hi) return hi;
+            return v;
+        }
+
+        function safeStorageGet(key) {
+            try {
+                return localStorage.getItem(key);
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function safeStorageSet(key, value) {
+            try {
+                localStorage.setItem(key, value);
+            } catch (err) {
+                // Ignore blocked storage in restricted environments.
+            }
+        }
+
+        function configureKindleMode() {
+            try {
+                var query = (typeof location !== 'undefined' && location.search) ? location.search : '';
+                var queryMatch = /[?&]kindle=(1|0)\b/i.exec(query);
+                if (queryMatch) {
+                    kindleMode = (queryMatch[1] === '1');
+                    safeStorageSet(STORAGE.kindleOverride, kindleMode ? '1' : '0');
+                } else {
+                    var saved = safeStorageGet(STORAGE.kindleOverride);
+                    if (saved === '1' || saved === '0') kindleMode = (saved === '1');
+                }
+            } catch (err) {
+                // Ignore query parsing/storage failures.
+            }
+        }
+
+        function startFreeSerifWatcher() {
+            if (fontWatchHandle || !document.fonts || !document.fonts.load) return;
+            fontWatchHandle = document.fonts.load("10px 'FreeSerif'");
+            fontWatchHandle.then(function () { redraw(); }).catch(function () {});
+        }
+
+        function createPiece(type, color, moved) {
+            return { type: type, color: color, moved: !!moved };
+        }
+
+        function clonePiece(piece) {
+            if (!piece) return null;
+            return createPiece(piece.type, piece.color, piece.moved);
+        }
+
+        function createInitialBoard() {
+            var grid = [];
+            var r;
+            var c;
+            var home = ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'];
+
+            for (r = 0; r < 8; r++) {
+                grid[r] = [];
+                for (c = 0; c < 8; c++) {
+                    grid[r][c] = null;
+                }
+            }
+
+            for (c = 0; c < 8; c++) {
+                grid[1][c] = createPiece('P', 'b', false);
+                grid[6][c] = createPiece('P', 'w', false);
+            }
+
+            for (c = 0; c < 8; c++) {
+                grid[0][c] = createPiece(home[c], 'b', false);
+                grid[7][c] = createPiece(home[c], 'w', false);
+            }
+
+            return grid;
+        }
+
+        function cloneBoard(srcBoard) {
+            var out = [];
+            var r;
+            var c;
+            for (r = 0; r < 8; r++) {
+                out[r] = [];
+                for (c = 0; c < 8; c++) {
+                    out[r][c] = clonePiece(srcBoard[r][c]);
+                }
+            }
+            return out;
+        }
+
+        function signedTypeValue(type, color) {
+            var value = PIECE_VALUE[type] || 0;
+            return color === 'w' ? value : -value;
+        }
+
+        function signedPieceValue(piece) {
+            return piece ? signedTypeValue(piece.type, piece.color) : 0;
+        }
+
+        function promotionSwing(color) {
+            var delta = (PIECE_VALUE.Q || 0) - (PIECE_VALUE.P || 0);
+            return color === 'w' ? delta : -delta;
+        }
+
+        function recomputeMaterial() {
+            var total = 0;
+            var r;
+            var c;
+            for (r = 0; r < 8; r++) {
+                for (c = 0; c < 8; c++) {
+                    total += signedPieceValue(game.board[r][c]);
+                }
+            }
+            game.material = total;
+        }
+
+        function clearEngineState() {
+            if (engine.timerId) {
+                clearTimeout(engine.timerId);
+                engine.timerId = null;
+            }
+            if (engine.session && engine.session.current) {
+                rollbackCurrentRoot(engine.session);
+            }
+
+            engine.session = null;
+            engine.thinking = false;
+            game.previewMove = null;
+            game.previewDrawAt = 0;
+            game.renderBoardSnapshot = null;
+            game.renderLastDoubleSnapshot = null;
+        }
+        function setPreviewMove(move, forceDraw) {
+            game.previewMove = move ? [move[0], move[1], move[2], move[3]] : null;
+            var now = Date.now();
+            if (forceDraw || (now - game.previewDrawAt) >= 100) {
+                game.previewDrawAt = now;
+                redraw();
+            }
+        }
+
+        function showThinkingInfo(depth, startMs) {
+            if (infoLabel) infoLabel.style.display = '';
+            if (infoText) {
+                var elapsedSec = (Date.now() - startMs) / 1000;
+                infoText.textContent = 'Thinking (depth ' + depth + ') for ' + elapsedSec.toFixed(1) + ' s...';
+            }
+        }
+
+        function finishEngineTurn(bestMove, bestScore, reachedDepth, startMs) {
+            if (!bestMove) {
+                engine.thinking = false;
+                game.gameOver = true;
+                refreshStatus();
+                return;
+            }
+
+            game.previewMove = null;
+            game.previewDrawAt = 0;
+            game.renderBoardSnapshot = null;
+            game.renderLastDoubleSnapshot = null;
+
+            if (infoLabel) infoLabel.style.display = '';
+            if (infoText) {
+                var usedSec = (Date.now() - startMs) / 1000;
+                infoText.textContent = (bestScore >= 0 ? '+' : '') + bestScore.toFixed(1) +
+                    ' for depth ' + reachedDepth + ' after ' + usedSec.toFixed(1) + ' s';
+            }
+
+            var token = applyMove(bestMove);
+            game.history.push({ move: bestMove, token: token });
+            game.turn = 'w';
+
+            if (isCheckmate('w') || isStalemate('w')) game.gameOver = true;
+
+            redraw();
+            refreshStatus();
+            engine.thinking = false;
+        }
+
+        function resetGame() {
+            clearEngineState();
+            game.board = createInitialBoard();
+            game.selected = null;
+            game.turn = 'w';
+            game.gameOver = false;
+            game.history = [];
+            game.lastDouble = null;
+            game.previewMove = null;
+            game.previewDrawAt = 0;
+            game.renderBoardSnapshot = null;
+            game.renderLastDoubleSnapshot = null;
+            recomputeMaterial();
+
+            if (infoLabel) infoLabel.style.display = '';
+            if (infoText) infoText.textContent = 'Your move...';
+
+            resizeLayout();
+            refreshStatus();
+            startFreeSerifWatcher();
+        }
+
+        function resizeLayout() {
+            var controlsHeight = controls ? controls.offsetHeight + 16 : 0;
+            var maxW = (typeof window.innerWidth === 'number' && isFinite(window.innerWidth)) ? (window.innerWidth - 16) : 512;
+            var maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? (window.innerHeight - controlsHeight - 16) : 512;
+            var boardSize = Math.max(128, Math.floor(Math.min(maxW, maxH)));
+
+            if (controls) {
+                var testWidth = Math.floor(boardSize * 0.9);
+                controls.style.width = testWidth + 'px';
+                controls.style.fontSize = Math.max(10, Math.round(boardSize * 0.033)) + 'px';
+                controls.style.boxSizing = 'border-box';
+                controls.style.textAlign = 'center';
+
+                controlsHeight = controls.offsetHeight + 16;
+                maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? (window.innerHeight - controlsHeight - 16) : 512;
+                boardSize = Math.max(128, Math.floor(Math.min(maxW, maxH)));
+            }
+
+            var extraW = Math.max(0, maxW - boardSize);
+            var leftMargin = 8 + Math.floor(extraW / 2);
+            var rightMargin = 8 + Math.ceil(extraW / 2);
+
+            boardCanvas.width = boardSize;
+            boardCanvas.height = boardSize;
+            boardCanvas.style.marginLeft = leftMargin + 'px';
+            boardCanvas.style.marginRight = rightMargin + 'px';
+            boardCanvas.style.marginTop = '8px';
+            boardCanvas.style.marginBottom = '8px';
+
+            if (controls) {
+                var controlsWidth = Math.floor(boardSize * 0.9);
+                var sideGap = boardSize - controlsWidth;
+                controls.style.width = controlsWidth + 'px';
+                controls.style.fontSize = Math.max(10, Math.round(boardSize * 0.033)) + 'px';
+                controls.style.marginLeft = (leftMargin + Math.floor(sideGap / 2)) + 'px';
+                controls.style.marginRight = (rightMargin + Math.ceil(sideGap / 2)) + 'px';
+                controls.style.marginTop = '0px';
+                controls.style.marginBottom = '8px';
+            }
+
+            squareSize = boardSize / 8;
+            redraw();
+        }
+
+        function drawPiece(row, col, piece, translucent, forcedType) {
+            if (!piece || !ctx) return;
+
+            var glyphByType = {
+                K: '\u265A',
+                Q: '\u265B',
+                R: '\u265C',
+                B: '\u265D',
+                N: '\u265E',
+                P: '\u265F'
+            };
+
+            var type = forcedType || piece.type;
+            var glyph = glyphByType[type] || '?';
+            var x = col * squareSize + squareSize / 2;
+            var y = row * squareSize + squareSize / 2;
+            var yOffset = squareSize * (kindleMode ? -0.05 : 0.05);
+
+            ctx.font = Math.max(12, Math.floor(squareSize * 0.9)) + "px 'FreeSerif', 'Segoe UI Symbol', 'DejaVu Sans', serif";
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            if (piece.color === 'b') {
+                ctx.strokeStyle = '#ffffff';
+                ctx.fillStyle = '#000000';
+            } else {
+                ctx.strokeStyle = '#000000';
+                ctx.fillStyle = '#ffffff';
+            }
+
+            if (translucent) ctx.globalAlpha = PREVIEW_ALPHA;
+            ctx.lineWidth = Math.max(0.5, squareSize * 0.05);
+            ctx.strokeText(glyph, x, y + yOffset);
+            ctx.fillText(glyph, x, y + yOffset);
+            if (translucent) ctx.globalAlpha = 1;
+        }
+
+        function drawCornerMarks(row, col, color, alpha) {
+            if (!ctx || row < 0 || col < 0) return;
+
+            var x0 = col * squareSize;
+            var y0 = row * squareSize;
+            var segment = squareSize * 0.09;
+            var width = squareSize * 0.04;
+
+            if (typeof alpha === 'number') ctx.globalAlpha = alpha;
+            ctx.strokeStyle = color || MARK_COLOR;
+            ctx.lineWidth = width;
+            ctx.lineCap = 'butt';
+            ctx.beginPath();
+
+            ctx.moveTo(x0, y0 + segment); ctx.lineTo(x0, y0); ctx.lineTo(x0 + segment, y0);
+            ctx.moveTo(x0 + squareSize, y0 + segment); ctx.lineTo(x0 + squareSize, y0); ctx.lineTo(x0 + squareSize - segment, y0);
+            ctx.moveTo(x0, y0 + squareSize - segment); ctx.lineTo(x0, y0 + squareSize); ctx.lineTo(x0 + segment, y0 + squareSize);
+            ctx.moveTo(x0 + squareSize, y0 + squareSize - segment); ctx.lineTo(x0 + squareSize, y0 + squareSize); ctx.lineTo(x0 + squareSize - segment, y0 + squareSize);
+
+            ctx.stroke();
+            if (typeof alpha === 'number') ctx.globalAlpha = 1;
+        }
+
+        function getRenderState() {
+            var renderBoard = game.board;
+            var renderLastDouble = game.lastDouble;
+
+            if (engine.thinking && engine.session && engine.session.current && game.renderBoardSnapshot) {
+                renderBoard = game.renderBoardSnapshot;
+                renderLastDouble = game.renderLastDoubleSnapshot;
+            }
+
+            return {
+                board: renderBoard,
+                lastDouble: renderLastDouble
+            };
+        }
+
+        function previewProjection(renderBoard, renderLastDouble, move) {
+            if (!move || move.length !== 4) return null;
+
+            var fromRow = move[0];
+            var fromCol = move[1];
+            var toRow = move[2];
+            var toCol = move[3];
+
+            if (!inBounds(fromRow, fromCol) || !inBounds(toRow, toCol)) return null;
+
+            var piece = renderBoard[fromRow][fromCol];
+            if (!piece) return null;
+
+            var preview = {
+                fromRow: fromRow,
+                fromCol: fromCol,
+                toRow: toRow,
+                toCol: toCol,
+                piece: piece,
+                promotionType: (piece.type === 'P' && (toRow === 0 || toRow === 7)) ? 'Q' : piece.type,
+                epRow: null,
+                epCol: null,
+                rookFromRow: null,
+                rookFromCol: null,
+                rookToRow: null,
+                rookToCol: null,
+                rookPiece: null
+            };
+            if (piece.type === 'P' && fromCol !== toCol && !renderBoard[toRow][toCol] &&
+                renderLastDouble && renderLastDouble.row === toRow && renderLastDouble.col === toCol) {
+                preview.epRow = (piece.color === 'w') ? (toRow + 1) : (toRow - 1);
+                preview.epCol = toCol;
+            }
+
+            if (piece.type === 'K' && Math.abs(toCol - fromCol) === 2) {
+                preview.rookFromRow = toRow;
+                preview.rookToRow = toRow;
+                if (toCol > fromCol) {
+                    preview.rookFromCol = 7;
+                    preview.rookToCol = fromCol + 1;
+                } else {
+                    preview.rookFromCol = 0;
+                    preview.rookToCol = fromCol - 1;
+                }
+
+                if (inBounds(preview.rookFromRow, preview.rookFromCol)) {
+                    preview.rookPiece = renderBoard[preview.rookFromRow][preview.rookFromCol];
+                }
+            }
+
+            return preview;
+        }
+
+        function skipForPreview(row, col, preview) {
+            if (!preview) return false;
+            if (row === preview.fromRow && col === preview.fromCol) return true;
+            if (row === preview.toRow && col === preview.toCol) return true;
+            if (preview.epRow !== null && row === preview.epRow && col === preview.epCol) return true;
+            if (preview.rookFromRow !== null && row === preview.rookFromRow && col === preview.rookFromCol) return true;
+            if (preview.rookToRow !== null && row === preview.rookToRow && col === preview.rookToCol) return true;
+            return false;
+        }
+
+        function drawBoard(renderBoard, preview) {
+            var row;
+            var col;
+            var piece;
+
+            for (row = 0; row < 8; row++) {
+                for (col = 0; col < 8; col++) {
+                    ctx.fillStyle = ((row + col) % 2 === 0) ? LIGHT_SQUARE : DARK_SQUARE;
+                    ctx.fillRect(col * squareSize, row * squareSize, squareSize, squareSize);
+
+                    piece = renderBoard[row][col];
+                    if (!piece || skipForPreview(row, col, preview)) continue;
+                    drawPiece(row, col, piece, false, null);
+                }
+            }
+        }
+
+        function drawPreview(preview) {
+            if (!preview) return;
+
+            if (preview.rookPiece && preview.rookToRow !== null) {
+                drawPiece(preview.rookToRow, preview.rookToCol, preview.rookPiece, false, null);
+            }
+
+            drawPiece(preview.toRow, preview.toCol, preview.piece, true, preview.promotionType);
+            drawCornerMarks(preview.fromRow, preview.fromCol, MARK_COLOR, PREVIEW_ALPHA);
+            drawCornerMarks(preview.toRow, preview.toCol, MARK_COLOR, PREVIEW_ALPHA);
+        }
+
+        function drawLatestAIMove(renderBoard) {
+            if (!game.history.length) return;
+            var last = game.history[game.history.length - 1].move;
+            var toPiece = renderBoard[last[2]][last[3]];
+            if (toPiece && toPiece.color === AI_COLOR) {
+                drawCornerMarks(last[0], last[1], MARK_COLOR);
+                drawCornerMarks(last[2], last[3], MARK_COLOR);
+            }
+        }
+
+        function drawSelection() {
+            if (!game.selected) return;
+            var row = game.selected[0];
+            var col = game.selected[1];
+
+            ctx.strokeStyle = MARK_COLOR;
+            ctx.lineWidth = Math.max(2, Math.floor(squareSize * 0.06));
+            ctx.strokeRect(col * squareSize + 1.5, row * squareSize + 1.5, squareSize - 3, squareSize - 3);
+        }
+
+        function redraw() {
+            if (!ctx) {
+                if (statusEl) statusEl.textContent = 'No 2D context';
+                return;
+            }
+
+            var renderState = getRenderState();
+            var preview = null;
+
+            if (previewInput && previewInput.checked && engine.thinking) {
+                preview = previewProjection(renderState.board, renderState.lastDouble, game.previewMove);
+            }
+
+            ctx.clearRect(0, 0, boardCanvas.width, boardCanvas.height);
+            drawBoard(renderState.board, preview);
+            drawLatestAIMove(renderState.board);
+            drawPreview(preview);
+            drawSelection();
+        }
+
+        function refreshStatus() {
+            if (!statusEl) return;
+            statusEl.textContent = '';
+
+            if (game.gameOver) {
+                if (infoLabel) infoLabel.style.display = 'none';
+                if (infoText) {
+                    if (isCheckmate('w')) infoText.textContent = 'Checkmate - Black wins';
+                    else if (isCheckmate('b')) infoText.textContent = 'Checkmate - White wins';
+                    else infoText.textContent = 'Stalemate';
+                }
+            } else {
+                if (infoLabel) infoLabel.style.display = '';
+                if (infoText && !infoText.textContent) infoText.textContent = 'Your move...';
+            }
+        }
+
+        function inBounds(row, col) {
+            return row >= 0 && row < 8 && col >= 0 && col < 8;
+        }
+
+        function applyMove(move) {
+            var sr = move[0];
+            var sc = move[1];
+            var tr = move[2];
+            var tc = move[3];
+
+            var board = game.board;
+            var piece = board[sr][sc];
+            var oldLastDouble = game.lastDouble ? { row: game.lastDouble.row, col: game.lastDouble.col } : null;
+            var captured = board[tr][tc];
+            var originalType = piece.type;
+            var originalMoved = piece.moved;
+            var special = null;
+            var promoted = false;
+
+            board[tr][tc] = piece;
+            board[sr][sc] = null;
+
+            if (piece.type === 'P' && sc !== tc && captured === null && oldLastDouble && oldLastDouble.row === tr && oldLastDouble.col === tc) {
+                var epCaptureRow = (piece.color === 'w') ? (tr + 1) : (tr - 1);
+                captured = board[epCaptureRow][tc];
+                board[epCaptureRow][tc] = null;
+                special = {
+                    kind: 'ep',
+                    captureRow: epCaptureRow,
+                    captureCol: tc
+                };
+            }
+
+            if (originalType === 'P' && (tr === 0 || tr === 7)) {
+                piece.type = 'Q';
+                promoted = true;
+            }
+
+            if (piece.type === 'K' && Math.abs(tc - sc) === 2) {
+                if (tc > sc) {
+                    var rookShort = board[tr][7];
+                    board[tr][sc + 1] = rookShort;
+                    board[tr][7] = null;
+                    if (rookShort) {
+                        special = {
+                            kind: 'castle',
+                            rookFrom: [tr, 7],
+                            rookTo: [tr, sc + 1],
+                            rookMovedBefore: rookShort.moved
+                        };
+                        rookShort.moved = true;
+                    }
+                } else {
+                    var rookLong = board[tr][0];
+                    board[tr][sc - 1] = rookLong;
+                    board[tr][0] = null;
+                    if (rookLong) {
+                        special = {
+                            kind: 'castle',
+                            rookFrom: [tr, 0],
+                            rookTo: [tr, sc - 1],
+                            rookMovedBefore: rookLong.moved
+                        };
+                        rookLong.moved = true;
+                    }
+                }
+            }
+
+            if (originalType === 'P' && Math.abs(tr - sr) === 2) {
+                game.lastDouble = { row: (sr + tr) / 2, col: sc };
+            } else {
+                game.lastDouble = null;
+            }
+
+            if (captured) game.material -= signedPieceValue(captured);
+            if (promoted) game.material += promotionSwing(piece.color);
+
+            piece.moved = true;
+
+            return {
+                captured: captured,
+                originalType: originalType,
+                originalMoved: originalMoved,
+                special: special,
+                oldLastDouble: oldLastDouble
+            };
+        }
+
+        function unapplyMove(move, token) {
+            var sr = move[0];
+            var sc = move[1];
+            var tr = move[2];
+            var tc = move[3];
+            var board = game.board;
+            var piece = board[tr][tc];
+            var wasPromotion = !!(piece && token.originalType === 'P' && piece.type === 'Q' && (tr === 0 || tr === 7));
+            if (token.special && token.special.kind === 'ep') {
+                board[sr][sc] = piece;
+                board[tr][tc] = null;
+                board[token.special.captureRow][token.special.captureCol] = token.captured;
+
+                if (piece) {
+                    piece.type = token.originalType;
+                    piece.moved = token.originalMoved;
+                }
+            } else {
+                board[sr][sc] = piece;
+                board[tr][tc] = token.captured;
+
+                if (piece) {
+                    piece.type = token.originalType;
+                    piece.moved = token.originalMoved;
+                }
+
+                if (token.special && token.special.kind === 'castle') {
+                    var rookFrom = token.special.rookFrom;
+                    var rookTo = token.special.rookTo;
+                    var rookPiece = board[rookTo[0]][rookTo[1]];
+
+                    board[rookFrom[0]][rookFrom[1]] = rookPiece;
+                    board[rookTo[0]][rookTo[1]] = null;
+
+                    if (rookPiece) rookPiece.moved = token.special.rookMovedBefore;
+                }
+            }
+
+            game.lastDouble = token.oldLastDouble ? { row: token.oldLastDouble.row, col: token.oldLastDouble.col } : null;
+
+            if (wasPromotion && piece) game.material -= promotionSwing(piece.color);
+            if (token.captured) game.material += signedPieceValue(token.captured);
+        }
+
+        function pseudoMovesFrom(piece, row, col) {
+            var board = game.board;
+            var out = [];
+            var i;
+
+            if (piece.type === 'P') {
+                var dir = (piece.color === 'w') ? -1 : 1;
+                var oneStep = row + dir;
+                if (inBounds(oneStep, col) && !board[oneStep][col]) {
+                    out.push([oneStep, col]);
+
+                    var startRow = (piece.color === 'w') ? 6 : 1;
+                    var twoStep = row + 2 * dir;
+                    if (row === startRow && !board[twoStep][col]) out.push([twoStep, col]);
+                }
+
+                var captureCols = [-1, 1];
+                for (i = 0; i < captureCols.length; i++) {
+                    var cc = col + captureCols[i];
+                    var rr = row + dir;
+                    if (!inBounds(rr, cc)) continue;
+
+                    if (board[rr][cc] && board[rr][cc].color !== piece.color) {
+                        out.push([rr, cc]);
+                    } else if (!board[rr][cc] && game.lastDouble && game.lastDouble.row === rr && game.lastDouble.col === cc) {
+                        out.push([rr, cc]);
+                    }
+                }
+
+                return out;
+            }
+
+            if (piece.type === 'N') {
+                var knightOffsets = [
+                    [2, 1], [2, -1], [-2, 1], [-2, -1],
+                    [1, 2], [1, -2], [-1, 2], [-1, -2]
+                ];
+
+                for (i = 0; i < knightOffsets.length; i++) {
+                    var nr = row + knightOffsets[i][0];
+                    var nc = col + knightOffsets[i][1];
+                    if (!inBounds(nr, nc)) continue;
+                    if (!board[nr][nc] || board[nr][nc].color !== piece.color) out.push([nr, nc]);
+                }
+
+                return out;
+            }
+
+            if (piece.type === 'B' || piece.type === 'R' || piece.type === 'Q') {
+                var rays = [];
+                if (piece.type === 'B' || piece.type === 'Q') {
+                    rays.push([-1, -1], [-1, 1], [1, -1], [1, 1]);
+                }
+                if (piece.type === 'R' || piece.type === 'Q') {
+                    rays.push([-1, 0], [1, 0], [0, -1], [0, 1]);
+                }
+
+                for (i = 0; i < rays.length; i++) {
+                    var dr = rays[i][0];
+                    var dc = rays[i][1];
+                    var rr2 = row + dr;
+                    var cc2 = col + dc;
+                    while (inBounds(rr2, cc2)) {
+                        if (!board[rr2][cc2]) {
+                            out.push([rr2, cc2]);
+                        } else {
+                            if (board[rr2][cc2].color !== piece.color) out.push([rr2, cc2]);
+                            break;
+                        }
+                        rr2 += dr;
+                        cc2 += dc;
+                    }
+                }
+
+                return out;
+            }
+
+            if (piece.type === 'K') {
+                var kr;
+                var kc;
+
+                for (kr = -1; kr <= 1; kr++) {
+                    for (kc = -1; kc <= 1; kc++) {
+                        if (kr === 0 && kc === 0) continue;
+                        var tr = row + kr;
+                        var tc = col + kc;
+                        if (!inBounds(tr, tc)) continue;
+                        if (!board[tr][tc] || board[tr][tc].color !== piece.color) out.push([tr, tc]);
+                    }
+                }
+
+                if (!piece.moved) {
+                    var opponent = (piece.color === 'w') ? 'b' : 'w';
+                    if (!isSquareAttacked(row, col, opponent)) {
+                        var rookKingside = board[row][7];
+                        if (rookKingside && rookKingside.type === 'R' && rookKingside.color === piece.color && !rookKingside.moved) {
+                            var clearK = true;
+                            for (kc = col + 1; kc < 7; kc++) {
+                                if (board[row][kc]) clearK = false;
+                            }
+                            if (clearK && !isSquareAttacked(row, col + 1, opponent) && !isSquareAttacked(row, col + 2, opponent)) {
+                                out.push([row, col + 2]);
+                            }
+                        }
+
+                        var rookQueenside = board[row][0];
+                        if (rookQueenside && rookQueenside.type === 'R' && rookQueenside.color === piece.color && !rookQueenside.moved) {
+                            var clearQ = true;
+                            for (kc = 1; kc < col; kc++) {
+                                if (board[row][kc]) clearQ = false;
+                            }
+                            if (clearQ && !isSquareAttacked(row, col - 1, opponent) && !isSquareAttacked(row, col - 2, opponent)) {
+                                out.push([row, col - 2]);
+                            }
+                        }
+                    }
+                }
+
+                return out;
+            }
+
+            return out;
+        }
+
+        function isSquareAttacked(row, col, byColor) {
+            var board = game.board;
+            var i;
+
+            if (byColor === 'w') {
+                for (i = 0; i < 2; i++) {
+                    var wdc = i === 0 ? -1 : 1;
+                    var wr = row + 1;
+                    var wc = col + wdc;
+                    if (inBounds(wr, wc)) {
+                        var wp = board[wr][wc];
+                        if (wp && wp.color === 'w' && wp.type === 'P') return true;
+                    }
+                }
+            } else {
+                for (i = 0; i < 2; i++) {
+                    var bdc = i === 0 ? -1 : 1;
+                    var br = row - 1;
+                    var bc = col + bdc;
+                    if (inBounds(br, bc)) {
+                        var bp = board[br][bc];
+                        if (bp && bp.color === 'b' && bp.type === 'P') return true;
+                    }
+                }
+            }
+
+            var knight = [
+                [2, 1], [2, -1], [-2, 1], [-2, -1],
+                [1, 2], [1, -2], [-1, 2], [-1, -2]
+            ];
+            for (i = 0; i < knight.length; i++) {
+                var knr = row + knight[i][0];
+                var knc = col + knight[i][1];
+                if (!inBounds(knr, knc)) continue;
+                var np = board[knr][knc];
+                if (np && np.color === byColor && np.type === 'N') return true;
+            }
+
+            var dirs = [
+                [-1, 0], [1, 0], [0, -1], [0, 1],
+                [-1, -1], [-1, 1], [1, -1], [1, 1]
+            ];
+
+            for (i = 0; i < dirs.length; i++) {
+                var dr = dirs[i][0];
+                var dc = dirs[i][1];
+                var rr = row + dr;
+                var cc = col + dc;
+                var dist = 1;
+
+                while (inBounds(rr, cc)) {
+                    var p = board[rr][cc];
+                    if (p) {
+                        if (p.color === byColor) {
+                            if (dist === 1 && p.type === 'K') return true;
+                            if ((dr === 0 || dc === 0) && (p.type === 'R' || p.type === 'Q')) return true;
+                            if ((dr !== 0 && dc !== 0) && (p.type === 'B' || p.type === 'Q')) return true;
+                        }
+                        break;
+                    }
+                    rr += dr;
+                    cc += dc;
+                    dist += 1;
+                }
+            }
+
+            return false;
+        }
+
+        function inCheck(color) {
+            var r;
+            var c;
+            for (r = 0; r < 8; r++) {
+                for (c = 0; c < 8; c++) {
+                    var p = game.board[r][c];
+                    if (p && p.color === color && p.type === 'K') {
+                        return isSquareAttacked(r, c, color === 'w' ? 'b' : 'w');
+                    }
+                }
+            }
+            return false;
+        }
+
+        function generateLegalMoves(color) {
+            var legal = [];
+            var r;
+            var c;
+            for (r = 0; r < 8; r++) {
+                for (c = 0; c < 8; c++) {
+                    var p = game.board[r][c];
+                    if (!p || p.color !== color) continue;
+
+                    var pseudo = pseudoMovesFrom(p, r, c);
+                    for (var i = 0; i < pseudo.length; i++) {
+                        var mv = [r, c, pseudo[i][0], pseudo[i][1]];
+                        var token = applyMove(mv);
+                        var legalMove = !inCheck(color);
+                        unapplyMove(mv, token);
+                        if (legalMove) legal.push(mv);
+                    }
+                }
+            }
+
+            return legal;
+        }
+
+        function hasAnyLegalMove(color) {
+            return generateLegalMoves(color).length > 0;
+        }
+
+        function isCheckmate(color) {
+            return inCheck(color) && !hasAnyLegalMove(color);
+        }
+
+        function isStalemate(color) {
+            return !inCheck(color) && !hasAnyLegalMove(color);
+        }
+
+        function tryMove(sr, sc, tr, tc) {
+            var piece = game.board[sr][sc];
+            if (!piece) return false;
+
+            var target = game.board[tr][tc];
+            if (target && target.color === piece.color) return false;
+
+            var pseudo = pseudoMovesFrom(piece, sr, sc);
+            var found = false;
+            for (var i = 0; i < pseudo.length; i++) {
+                if (pseudo[i][0] === tr && pseudo[i][1] === tc) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) return false;
+
+            var move = [sr, sc, tr, tc];
+            var token = applyMove(move);
+            if (inCheck(piece.color)) {
+                unapplyMove(move, token);
+                return false;
+            }
+
+            game.history.push({ move: move, token: token });
+            return true;
+        }
+
+        function readClumsyProbability() {
+            var raw = parseFloat(clumsyInput.value);
+            if (!isFinite(raw)) raw = 0;
+            return clampNum(raw, 0, 99) / 100;
+        }
+
+        function clumsyRootScore(score, clumsyProb, aiColor) {
+            var adjusted = score + (Math.random() - 0.5) / 100;
+            var roll = Math.random();
+            var hardMiss = clumsyProb * clumsyProb;
+
+            if (roll < hardMiss) return aiColor === 'w' ? (-SEARCH_INF + 1) : (SEARCH_INF - 1);
+            if (roll < clumsyProb) return adjusted + (Math.random() > 0.5 ? -1 : 1);
+            return adjusted;
+        }
+
+        function evaluateMaterial() {
+            var score = game.material;
+            if (score > SEARCH_INF - 1) score = SEARCH_INF - 1;
+            if (score < -SEARCH_INF + 1) score = -SEARCH_INF + 1;
+            return score;
+        }
+
+        function makeFrame(depth, color, alpha, beta, undo) {
+            return {
+                depth: depth,
+                color: color,
+                alpha: alpha,
+                beta: beta,
+                moves: null,
+                moveIndex: 0,
+                best: (color === 'w') ? -SEARCH_INF : SEARCH_INF,
+                entered: false,
+                undo: undo || null
+            };
+        }
+
+        function makeSearchTask(depth, color, alpha, beta, hardDeadline) {
+            return {
+                stack: [makeFrame(depth, color, alpha, beta, null)],
+                hardDeadline: hardDeadline,
+                deadlineCounter: 0,
+                done: false,
+                timedOut: false,
+                value: 0
+            };
+        }
+
+        function unwindTask(task) {
+            while (task && task.stack && task.stack.length) {
+                var frame = task.stack.pop();
+                if (frame.undo) unapplyMove(frame.undo.move, frame.undo.token);
+            }
+            if (task) task.done = true;
+        }
+
+        function rollbackCurrentRoot(session) {
+            if (!session || !session.current) return;
+            if (session.current.task) unwindTask(session.current.task);
+            unapplyMove(session.current.move, session.current.token);
+            session.current = null;
+        }
+
+        function completeNode(task, value) {
+            var frame = task.stack.pop();
+            if (frame.undo) unapplyMove(frame.undo.move, frame.undo.token);
+
+            if (!task.stack.length) {
+                task.done = true;
+                task.value = value;
+                return;
+            }
+
+            var parent = task.stack[task.stack.length - 1];
+            if (parent.color === 'w') {
+                if (value > parent.best) parent.best = value;
+                if (value > parent.alpha) parent.alpha = value;
+            } else {
+                if (value < parent.best) parent.best = value;
+                if (value < parent.beta) parent.beta = value;
+            }
+        }
+
+        function stepSearch(task, nodeBudget) {
+            var visited = 0;
+
+            while (!task.done && visited < nodeBudget) {
+                if (task.deadlineCounter <= 0) {
+                    if (Date.now() >= task.hardDeadline) {
+                        unwindTask(task);
+                        task.timedOut = true;
+                        task.done = true;
+                        task.value = 0;
+                        return;
+                    }
+                    task.deadlineCounter = DEADLINE_CHECK_INTERVAL;
+                }
+                task.deadlineCounter -= 1;
+
+                var frame = task.stack[task.stack.length - 1];
+
+                if (!frame.entered) {
+                    frame.entered = true;
+                    visited += 1;
+
+                    if (frame.depth === 0) {
+                        completeNode(task, evaluateMaterial());
+                        continue;
+                    }
+
+                    frame.moves = generateLegalMoves(frame.color);
+                    if (!frame.moves.length) {
+                        completeNode(task, inCheck(frame.color) ? (frame.color === 'w' ? -MATE_SCORE : MATE_SCORE) : 0);
+                        continue;
+                    }
+
+                    frame.moveIndex = 0;
+                    frame.best = (frame.color === 'w') ? -SEARCH_INF : SEARCH_INF;
+                    continue;
+                }
+
+                if (frame.moveIndex >= frame.moves.length || frame.beta <= frame.alpha) {
+                    completeNode(task, frame.best);
+                    continue;
+                }
+
+                var childMove = frame.moves[frame.moveIndex];
+                frame.moveIndex += 1;
+
+                var childToken = applyMove(childMove);
+                var childColor = frame.color === 'w' ? 'b' : 'w';
+
+                task.stack.push(makeFrame(
+                    frame.depth - 1,
+                    childColor,
+                    frame.alpha,
+                    frame.beta,
+                    { move: childMove, token: childToken }
+                ));
+            }
+        }
+
+        function recordDepthScore(session, move, score) {
+            session.depthEvaluated += 1;
+            if (!session.depthHasScore || score < session.depthBestScore) {
+                session.depthHasScore = true;
+                session.depthBestMove = move;
+                session.depthBestScore = score;
+            }
+
+            if (session.depthHasScore && session.depthBestMove) {
+                setPreviewMove(session.depthBestMove, false);
+            }
+        }
+
+        function pickBestAtDeadline(session) {
+            var usePartial = false;
+            if (session.depthHasScore && session.depthBestMove && session.queue.length > 0) {
+                usePartial = (session.depthEvaluated / session.queue.length) >= PARTIAL_DEPTH_USE_THRESHOLD;
+            }
+            if (usePartial) {
+                return {
+                    move: session.depthBestMove,
+                    score: session.depthBestScore,
+                    depth: session.depth
+                };
+            }
+
+            return {
+                move: session.bestMove,
+                score: session.bestScore,
+                depth: session.reachedDepth > 0 ? session.reachedDepth : 1
+            };
+        }
+
+        function shouldGoDeeper(session, depthElapsedMs, nowMs) {
+            var elapsed = Math.max(1, depthElapsedMs);
+            if (session.prevDepthElapsedMs > 0) {
+                var ratio = elapsed / session.prevDepthElapsedMs;
+                session.depthGrowth = clampNum(ratio, MIN_DEPTH_GROWTH, MAX_DEPTH_GROWTH);
+            }
+
+            var growth = session.depthGrowth || DEFAULT_DEPTH_GROWTH;
+            var predictedMs = elapsed * growth;
+            var safetyMs = Math.max(400, Math.min(2000, predictedMs * 0.10));
+            return (nowMs + predictedMs + safetyMs) < session.hardDeadline;
+        }
+
+        function startNextRootMove(session) {
+            if (session.queueIndex >= session.queue.length) return false;
+
+            var move = session.queue[session.queueIndex];
+            session.queueIndex += 1;
+
+            var token = applyMove(move);
+
+            if (isCheckmate('w')) {
+                unapplyMove(move, token);
+                recordDepthScore(session, move, clumsyRootScore(-MATE_SCORE, session.clumsyProb, AI_COLOR));
+                return true;
+            }
+
+            if (isStalemate('w')) {
+                unapplyMove(move, token);
+                recordDepthScore(session, move, clumsyRootScore(0, session.clumsyProb, AI_COLOR));
+                return true;
+            }
+
+            session.current = {
+                move: move,
+                token: token,
+                task: makeSearchTask(session.depth - 1, 'w', -SEARCH_INF, SEARCH_INF, session.hardDeadline)
+            };
+            return true;
+        }
+
+        function pumpEngine() {
+            engine.timerId = null;
+            var session = engine.session;
+            if (!session || !engine.thinking || game.gameOver || game.turn !== AI_COLOR) return;
+
+            if (Date.now() >= session.hardDeadline) session.timedOut = true;
+
+            showThinkingInfo(session.depth, session.startMs);
+            var batch = kindleMode ? KINDLE_BATCH_BOOST : 1;
+            var sliceEnd = Date.now() + (BASE_SLICE_MS * batch);
+
+            while (Date.now() < sliceEnd) {
+                if (session.timedOut || Date.now() >= session.hardDeadline) {
+                    session.timedOut = true;
+                    break;
+                }
+
+                if (!session.current) {
+                    if (!startNextRootMove(session)) break;
+                    if (!session.current) continue;
+                }
+
+                stepSearch(session.current.task, BASE_NODE_BUDGET * batch);
+                if (!session.current.task.done) break;
+
+                var doneTask = session.current.task;
+                var doneMove = session.current.move;
+                var doneToken = session.current.token;
+                unapplyMove(doneMove, doneToken);
+                session.current = null;
+
+                if (doneTask.timedOut) {
+                    session.timedOut = true;
+                    break;
+                }
+
+                recordDepthScore(session, doneMove, clumsyRootScore(doneTask.value, session.clumsyProb, AI_COLOR));
+            }
+
+            if (session.timedOut || Date.now() >= session.hardDeadline) {
+                if (session.current) rollbackCurrentRoot(session);
+                var deadlineChoice = pickBestAtDeadline(session);
+                engine.session = null;
+                finishEngineTurn(deadlineChoice.move, deadlineChoice.score, deadlineChoice.depth, session.startMs);
+                return;
+            }
+
+            if (!session.current && session.queueIndex >= session.queue.length) {
+                if (session.depthHasScore) {
+                    session.bestMove = session.depthBestMove;
+                    session.bestScore = session.depthBestScore;
+                    session.reachedDepth = session.depth;
+                    if (session.bestMove) setPreviewMove(session.bestMove, true);
+                }
+
+                var depthDoneAt = Date.now();
+                var depthElapsed = depthDoneAt - session.depthStartedAt;
+                if (session.depth >= session.targetDepth || !shouldGoDeeper(session, depthElapsed, depthDoneAt)) {
+                    engine.session = null;
+                    finishEngineTurn(session.bestMove, session.bestScore, session.reachedDepth, session.startMs);
+                    return;
+                }
+
+                session.prevDepthElapsedMs = Math.max(1, depthElapsed);
+                session.depthStartedAt = depthDoneAt;
+                session.depth += 1;
+                session.queueIndex = 0;
+                session.depthHasScore = false;
+                session.depthBestMove = null;
+                session.depthBestScore = SEARCH_INF;
+                session.depthEvaluated = 0;
+            }
+
+            engine.timerId = setTimeout(pumpEngine, 0);
+        }
+
+        function startEngineTurn() {
+            if (engine.thinking || game.gameOver || game.turn !== AI_COLOR) return;
+
+            var roots = generateLegalMoves(AI_COLOR);
+            if (!roots.length) {
+                game.gameOver = true;
+                refreshStatus();
+                return;
+            }
+
+            var startMs = Date.now();
+            engine.thinking = true;
+            engine.session = {
+                startMs: startMs,
+                hardDeadline: startMs + HARD_DEADLINE_MS,
+                softDeadline: startMs + SOFT_DEADLINE_MS,
+                targetDepth: clampNum(parseInt(depthInput.value, 10) || 3, 1, 9),
+                clumsyProb: readClumsyProbability(),
+                depth: 1,
+                depthStartedAt: startMs,
+                prevDepthElapsedMs: 0,
+                depthGrowth: DEFAULT_DEPTH_GROWTH,
+                queue: roots,
+                queueIndex: 0,
+                depthHasScore: false,
+                depthBestMove: null,
+                depthBestScore: SEARCH_INF,
+                depthEvaluated: 0,
+                current: null,
+                bestMove: roots[0],
+                bestScore: 0,
+                reachedDepth: 0,
+                timedOut: false
+            };
+
+            game.previewMove = null;
+            game.previewDrawAt = 0;
+            game.renderBoardSnapshot = cloneBoard(game.board);
+            game.renderLastDoubleSnapshot = game.lastDouble ? { row: game.lastDouble.row, col: game.lastDouble.col } : null;
+
+            showThinkingInfo(1, startMs);
+            engine.timerId = setTimeout(pumpEngine, 0);
+        }
+
+        function takeBack() {
+            clearEngineState();
+            if (!game.history.length) return;
+
+            var plies = game.history.length >= 2 ? 2 : 1;
+            if (game.gameOver && game.turn === 'b') plies = 1;
+
+            for (var i = 0; i < plies && game.history.length > 0; i++) {
+                var entry = game.history.pop();
+                unapplyMove(entry.move, entry.token);
+
+                var piece = game.board[entry.move[0]][entry.move[1]];
+                if (piece && piece.color) game.turn = piece.color;
+            }
+
+            if (plies === 2) game.turn = (AI_COLOR === 'w') ? 'b' : 'w';
+
+            game.gameOver = false;
+            game.selected = null;
+            if (infoLabel) infoLabel.style.display = '';
+            if (infoText) infoText.textContent = 'Move taken back.';
+
+            redraw();
+            refreshStatus();
+        }
+
+        function onBoardClick(ev) {
+            if (game.gameOver || engine.thinking) return;
+
+            var rect = boardCanvas.getBoundingClientRect();
+            var x = ev.clientX - rect.left;
+            var y = ev.clientY - rect.top;
+            var col = Math.floor(x / squareSize);
+            var row = Math.floor(y / squareSize);
+
+            if (!inBounds(row, col)) return;
+
+            var clicked = game.board[row][col];
+
+            if (!game.selected) {
+                if (clicked && clicked.color === game.turn) {
+                    game.selected = [row, col];
+                    redraw();
+                }
+                return;
+            }
+            var sr = game.selected[0];
+            var sc = game.selected[1];
+
+            if (sr === row && sc === col) {
+                game.selected = null;
+                redraw();
+                return;
+            }
+
+            if (tryMove(sr, sc, row, col)) {
+                game.selected = null;
+                redraw();
+
+                game.turn = game.turn === 'w' ? 'b' : 'w';
+                if (isCheckmate(game.turn) || isStalemate(game.turn)) game.gameOver = true;
+
+                refreshStatus();
+                if (!game.gameOver && game.turn === AI_COLOR) {
+                    engine.timerId = setTimeout(startEngineTurn, 50);
+                }
+            } else if (clicked && clicked.color === game.turn) {
+                game.selected = [row, col];
+                redraw();
+            }
+        }
+
+        function initPersistentInputs() {
+            var savedDepth = safeStorageGet(STORAGE.depth);
+            var savedClumsy = safeStorageGet(STORAGE.clumsy);
+            var savedPreview = safeStorageGet(STORAGE.preview);
+            if (savedDepth !== null) depthInput.value = savedDepth;
+            if (savedClumsy !== null) clumsyInput.value = savedClumsy;
+            if (previewInput && (savedPreview === '1' || savedPreview === '0')) {
+                previewInput.checked = (savedPreview === '1');
+            } else if (previewInput) {
+                previewInput.checked = false;
+            }
+
+            depthInput.addEventListener('change', function () {
+                safeStorageSet(STORAGE.depth, depthInput.value);
+            });
+
+            clumsyInput.addEventListener('change', function () {
+                safeStorageSet(STORAGE.clumsy, clumsyInput.value);
+            });
+
+            if (previewInput) {
+                previewInput.addEventListener('change', function () {
+                    safeStorageSet(STORAGE.preview, previewInput.checked ? '1' : '0');
+                    redraw();
+                });
+            }
+        }
+
+        function bindEvents() {
+            document.getElementById('resetBtn').addEventListener('click', resetGame);
+            document.getElementById('takebackBtn').addEventListener('click', takeBack);
+            boardCanvas.addEventListener('click', onBoardClick);
+            if (window.addEventListener) window.addEventListener('resize', resizeLayout);
+        }
+
+        configureKindleMode();
+        initPersistentInputs();
+        bindEvents();
+        resetGame();
+        startFreeSerifWatcher();
+    })();
+    </script>
+    <script>
+    (function () {
+        'use strict';
+        if (!('serviceWorker' in navigator)) return;
+        if (!(location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) return;
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('./sw.js').catch(function () {});
+        });
+    })();
+    </script>
+</body>
+</html>

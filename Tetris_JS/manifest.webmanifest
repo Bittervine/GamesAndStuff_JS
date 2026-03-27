@@ -1,0 +1,16 @@
+﻿{
+  "name": "Tetris JS",
+  "short_name": "Tetris",
+  "start_url": "./tetris_js.html",
+  "display": "standalone",
+  "background_color": "#f3f4f6",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='88' fill='%23111827'/%3E%3Crect x='96' y='96' width='64' height='64' fill='%2306b6d4'/%3E%3Crect x='160' y='96' width='64' height='64' fill='%2306b6d4'/%3E%3Crect x='224' y='96' width='64' height='64' fill='%2306b6d4'/%3E%3Crect x='288' y='96' width='64' height='64' fill='%2306b6d4'/%3E%3Crect x='160' y='176' width='64' height='64' fill='%23a855f7'/%3E%3Crect x='224' y='176' width='64' height='64' fill='%23a855f7'/%3E%3Crect x='288' y='176' width='64' height='64' fill='%23a855f7'/%3E%3Crect x='224' y='240' width='64' height='64' fill='%23a855f7'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
