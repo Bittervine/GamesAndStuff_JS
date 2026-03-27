@@ -108,8 +108,37 @@
             font-family: "Trebuchet MS", Verdana, sans-serif;
         }
 
+        .toggleRow {
+            margin-top: 10px;
+        }
+
+        .toggleLabel {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            font-family: "Trebuchet MS", Verdana, sans-serif;
+            cursor: pointer;
+        }
+
         .section {
             margin: 0 0 18px;
+        }
+
+        #selectionBox {
+            width: 100%;
+            box-sizing: border-box;
+            min-height: 78px;
+            margin-top: 10px;
+            padding: 8px 10px;
+            border: 2px solid #111111;
+            border-radius: 12px;
+            background: #ffffff;
+            color: #111111;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+            resize: vertical;
         }
 
         .sectionTitle {
@@ -148,8 +177,29 @@
             font-size: 50px;
         }
 
+        .glyphCanvas {
+            display: block;
+            width: 64px;
+            height: 64px;
+            margin: 0 auto;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
         .refRow {
             margin-bottom: 4px;
+        }
+
+        .selectRow {
+            margin-bottom: 4px;
+            text-align: right;
+        }
+
+        .pickLabel {
+            font-size: 12px;
+            font-weight: bold;
+            font-family: "Trebuchet MS", Verdana, sans-serif;
+            cursor: pointer;
         }
 
         .refBadge {
@@ -203,11 +253,19 @@
                     <label class="pickerLabel" for="fontMode">Font Stack</label>
                     <select id="fontMode" class="pickerSelect">
                         <option value="auto">Auto</option>
+                        <option value="rareColor" selected="selected">Rare Emoji Priority</option>
+                        <option value="embeddedColor">Embedded Color Emoji Stack</option>
+                        <option value="windowsColor">Windows Color Emoji Stack</option>
+                        <option value="hybridColor">Hybrid Color Emoji Stack</option>
+                        <option value="monoEmoji">Black-and-White Emoji Stack</option>
                         <option value="twemoji">Embedded Twemoji Mozilla</option>
                         <option value="notoColor">Embedded Noto Color Emoji</option>
                         <option value="notoSymbols">Embedded Noto Sans Symbols</option>
                         <option value="notoSymbols2">Embedded Noto Sans Symbols 2</option>
                         <option value="emoji">Emoji Font</option>
+                        <option value="segoeEmoji">Segoe UI Emoji</option>
+                        <option value="segoeSymbol">Segoe UI Symbol</option>
+                        <option value="segoeText">Segoe UI Text</option>
                         <option value="symbol">Symbol Font</option>
                         <option value="serif">Serif</option>
                         <option value="sans">Sans Serif</option>
@@ -223,13 +281,40 @@
                     </select>
                 </div>
             </div>
-            <div class="hint">Current hero candidates are grouped first so we can compare wizard alternatives quickly. Emoji font switching is best-effort only: many browsers force emoji through one built-in renderer, so distinct codepoint variants are usually more reliable than font changes.</div>
+            <div class="toggleRow">
+                <label class="toggleLabel" for="spriteMode">
+                    <input type="checkbox" id="spriteMode" checked="checked">
+                    Canvas sprite rendering
+                </label>
+            </div>
+            <textarea id="selectionBox" readonly="readonly" placeholder="Changes from the current game selection will appear here, one per line."></textarea>
+            <div class="hint">Current hero candidates are grouped first so we can compare wizard alternatives quickly. Rare sequences such as <code>mage</code> and <code>man mage</code> are most likely to appear in the bundled color emoji fonts and in <code>Segoe UI Emoji</code>, so Rare Emoji Priority is now the default. Browser emoji substitution can still override text rendering, but it is less of a problem when canvas sprite rendering is enabled.</div>
         </div>
         <div id="catalog"></div>
     </div>
 
     <script>
     (function () {
+        var selectedIds = {};
+        var baselineSelectedIds = {
+            item_gem: 1,
+            item_door: 1,
+            item_fire: 1,
+            item_bolt: 1,
+            item_rock: 1,
+            item_frost: 1,
+            item_wind: 1,
+            item_water: 1,
+            terrain_brick: 1,
+            decor_chair: 1,
+            decor_couch: 1,
+            decor_candle: 1,
+            decor_mirror: 1,
+            decor_broom: 1,
+            decor_basket: 1,
+            decor_bucket: 1
+        };
+
         function cp(code) {
             var n = code;
             if (n <= 65535) {
@@ -276,6 +361,27 @@
             { id: 'item_water', code: 0x1F4A7, label: 'Water Drop', category: 'Items and Symbols' },
             { id: 'terrain_brick', code: 0x1F9F1, label: 'Brick', category: 'Items and Symbols' },
             { id: 'terrain_tree_ent', code: 0x1F333, label: 'Tree / Ent', category: 'Items and Symbols' },
+
+            { id: 'decor_chair', code: 0x1FA91, label: 'Chair', category: 'Decorative Candidates' },
+            { id: 'decor_couch', code: 0x1F6CB, label: 'Couch', category: 'Decorative Candidates' },
+            { id: 'decor_bed', code: 0x1F6CF, label: 'Bed', category: 'Decorative Candidates' },
+            { id: 'decor_lamp', code: 0x1F4A1, label: 'Lamp', category: 'Decorative Candidates' },
+            { id: 'decor_flashlight', code: 0x1F526, label: 'Flashlight / Torch', category: 'Decorative Candidates' },
+            { id: 'decor_candle', code: 0x1F56F, label: 'Candle', category: 'Decorative Candidates' },
+            { id: 'decor_door', code: 0x1F6AA, label: 'Door', category: 'Decorative Candidates' },
+            { id: 'decor_window', code: 0x1FA9F, label: 'Window', category: 'Decorative Candidates' },
+            { id: 'decor_mirror', code: 0x1FA9E, label: 'Mirror', category: 'Decorative Candidates' },
+            { id: 'decor_key', code: 0x1F511, label: 'Key', category: 'Decorative Candidates' },
+            { id: 'decor_old_key', code: 0x1F5DD, label: 'Old Key', category: 'Decorative Candidates' },
+            { id: 'decor_scroll', code: 0x1F4DC, label: 'Scroll', category: 'Decorative Candidates' },
+            { id: 'decor_broom', code: 0x1F9F9, label: 'Broom', category: 'Decorative Candidates' },
+            { id: 'decor_basket', code: 0x1F9FA, label: 'Basket', category: 'Decorative Candidates' },
+            { id: 'decor_bucket', code: 0x1FAA3, label: 'Bucket', category: 'Decorative Candidates' },
+            { id: 'decor_toolbox', code: 0x1F9F0, label: 'Toolbox', category: 'Decorative Candidates' },
+            { id: 'decor_package', code: 0x1F4E6, label: 'Package / Crate', category: 'Decorative Candidates' },
+            { id: 'decor_jar', code: 0x1FAD9, label: 'Jar', category: 'Decorative Candidates' },
+            { id: 'decor_bell', code: 0x1F514, label: 'Bell', category: 'Decorative Candidates' },
+            { id: 'decor_fire', code: 0x1F525, label: 'Flame', category: 'Decorative Candidates' },
 
             { id: 'mon_scurry_rat', code: 0x1F400, label: 'Scurry Rat', category: 'Monsters' },
             { id: 'mon_tunnel_mouse', code: 0x1F401, label: 'Tunnel Mouse', category: 'Monsters' },
@@ -388,6 +494,21 @@
         }
 
         function fontFamily(mode) {
+            if (mode === 'rareColor') {
+                return '"CatalogNotoColorEmoji", "CatalogTwemojiMozilla", "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Segoe UI Symbol", serif';
+            }
+            if (mode === 'embeddedColor') {
+                return '"CatalogNotoColorEmoji", "CatalogTwemojiMozilla", "Segoe UI Emoji", "Segoe UI Symbol", serif';
+            }
+            if (mode === 'windowsColor') {
+                return '"Segoe UI Emoji", "Segoe UI Symbol", "Apple Color Emoji", "Noto Color Emoji", serif';
+            }
+            if (mode === 'hybridColor') {
+                return '"Segoe UI Emoji", "CatalogNotoColorEmoji", "CatalogTwemojiMozilla", "Segoe UI Symbol", serif';
+            }
+            if (mode === 'monoEmoji') {
+                return '"CatalogTwemojiMozilla", "CatalogNotoSymbols2", "CatalogNotoSymbols", "Segoe UI Symbol", "Segoe UI Emoji", serif';
+            }
             if (mode === 'twemoji') {
                 return '"CatalogTwemojiMozilla", "Segoe UI Emoji", "Segoe UI Symbol", serif';
             }
@@ -402,6 +523,15 @@
             }
             if (mode === 'emoji') {
                 return '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", serif';
+            }
+            if (mode === 'segoeEmoji') {
+                return '"Segoe UI Emoji", "Segoe UI Symbol", serif';
+            }
+            if (mode === 'segoeSymbol') {
+                return '"Segoe UI Symbol", "Segoe UI Emoji", serif';
+            }
+            if (mode === 'segoeText') {
+                return '"Segoe UI", "Segoe UI Symbol", "Segoe UI Emoji", sans-serif';
             }
             if (mode === 'symbol') {
                 return '"Segoe UI Symbol", "Noto Sans Symbols 2", "DejaVu Sans", serif';
@@ -449,10 +579,78 @@
             return hex(item.code);
         }
 
+        function escapeHtml(text) {
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function drawGlyphSprite(canvas, glyph, family) {
+            var srcSize = 64;
+            var dstSize = 64;
+            var src = document.createElement('canvas');
+            var srcCtx = src.getContext('2d');
+            var dstCtx = canvas.getContext('2d');
+            src.width = srcSize;
+            src.height = srcSize;
+
+            srcCtx.clearRect(0, 0, srcSize, srcSize);
+            srcCtx.textAlign = 'center';
+            srcCtx.textBaseline = 'middle';
+            srcCtx.font = '52px ' + family;
+            srcCtx.fillStyle = '#111111';
+            srcCtx.fillText(glyph, srcSize / 2, srcSize / 2 + 0.5);
+
+            dstCtx.clearRect(0, 0, dstSize, dstSize);
+            dstCtx.imageSmoothingEnabled = false;
+            dstCtx.drawImage(src, 0, 0, srcSize, srcSize, 0, 0, dstSize, dstSize);
+        }
+
+        function renderGlyphCanvases() {
+            var canvases = document.querySelectorAll('.glyphCanvas');
+            var i;
+            var canvas;
+            for (i = 0; i < canvases.length; i++) {
+                canvas = canvases[i];
+                drawGlyphSprite(canvas, canvas.getAttribute('data-glyph') || '', canvas.getAttribute('data-font-family') || fontFamily('auto'));
+            }
+        }
+
+        function updateSelectionBox() {
+            var lines = [];
+            var i;
+            var id;
+            var box = document.getElementById('selectionBox');
+            for (i = 0; i < data.length; i++) {
+                id = data[i].id;
+                if (selectedIds[id] && !baselineSelectedIds[id]) {
+                    lines.push('adding ' + id);
+                } else if (!selectedIds[id] && baselineSelectedIds[id]) {
+                    lines.push('removing ' + id);
+                }
+            }
+            box.value = lines.join('\n');
+        }
+
+        function initializeSelection() {
+            var i;
+            for (i = 0; i < data.length; i++) {
+                if (data[i].id.indexOf('mon_') === 0) {
+                    baselineSelectedIds[data[i].id] = 1;
+                }
+                if (baselineSelectedIds[data[i].id]) {
+                    selectedIds[data[i].id] = 1;
+                }
+            }
+        }
+
         function render() {
             var q = document.getElementById('query').value.toLowerCase();
             var fontMode = document.getElementById('fontMode').value;
             var glyphMode = document.getElementById('glyphMode').value;
+            var spriteMode = document.getElementById('spriteMode').checked;
             var target = document.getElementById('catalog');
             var byCategory = {};
             var i;
@@ -460,7 +658,9 @@
             var cat;
             var ref;
             var html = '';
-            var groups = ['Hero Candidates', 'Items and Symbols', 'Monsters'];
+            var groups = ['Hero Candidates', 'Items and Symbols', 'Decorative Candidates', 'Monsters'];
+            var glyph;
+            var family = fontFamily(fontMode);
 
             for (i = 0; i < data.length; i++) {
                 item = data[i];
@@ -486,8 +686,14 @@
                 html += '<div class="grid">';
                 for (var j = 0; j < byCategory[cat].length; j++) {
                     item = byCategory[cat][j];
+                    glyph = glyphText(item, glyphMode);
                     html += '<div class="card" id="emoji-' + item.ref + '" title="' + item.ref + ' / ' + item.id + '">';
-                    html += '<div class="glyph" style="font-family:' + fontFamily(fontMode) + ';">' + glyphText(item, glyphMode) + '</div>';
+                    html += '<div class="selectRow"><label class="pickLabel"><input type="checkbox" class="pickBox" data-id="' + item.id + '"' + (selectedIds[item.id] ? ' checked="checked"' : '') + '> Pick</label></div>';
+                    if (spriteMode) {
+                        html += '<div class="glyph"><canvas class="glyphCanvas" width="64" height="64" data-glyph="' + escapeHtml(glyph) + '" data-font-family="' + escapeHtml(family) + '"></canvas></div>';
+                    } else {
+                        html += '<div class="glyph" style="font-family:' + family + ';">' + escapeHtml(glyph) + '</div>';
+                    }
                     html += '<div class="refRow"><span class="refBadge">' + item.ref + '</span></div>';
                     html += '<div class="id">' + item.id + '</div>';
                     html += '<div class="label">' + item.label + '</div>';
@@ -499,11 +705,32 @@
             }
 
             target.innerHTML = html;
+            if (spriteMode) {
+                renderGlyphCanvases();
+            }
+            updateSelectionBox();
         }
 
         document.getElementById('query').onkeyup = render;
         document.getElementById('fontMode').onchange = render;
         document.getElementById('glyphMode').onchange = render;
+        document.getElementById('spriteMode').onchange = render;
+        document.getElementById('catalog').onchange = function (e) {
+            var target = e.target || e.srcElement;
+            var id;
+            if (!target || target.className.indexOf('pickBox') === -1) {
+                return;
+            }
+            id = target.getAttribute('data-id');
+            if (target.checked) {
+                selectedIds[id] = 1;
+            } else {
+                delete selectedIds[id];
+            }
+            updateSelectionBox();
+        };
+        document.getElementById('fontMode').value = 'rareColor';
+        initializeSelection();
         render();
     }());
     </script>
