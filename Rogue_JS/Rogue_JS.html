@@ -272,6 +272,14 @@
             -webkit-appearance: none;
         }
 
+        .moveBtn .btnInner {
+            padding-top: 2px;
+        }
+
+        .moveBtn .btnIcon {
+            margin: 1px 0 2px;
+        }
+
         .btnInner {
             display: block;
             width: 100%;
@@ -443,63 +451,63 @@
             top: 0;
             left: 34%;
             width: 31%;
-            height: 31%;
+            height: 27%;
         }
 
         .upLeftBtn {
             top: 0;
             left: 0;
             width: 31%;
-            height: 31%;
+            height: 27%;
         }
 
         .upRightBtn {
             top: 0;
             right: 0;
             width: 31%;
-            height: 31%;
+            height: 27%;
         }
 
         .leftBtn {
-            top: 34%;
+            top: 35%;
             left: 0;
             width: 31%;
-            height: 31%;
+            height: 27%;
         }
 
         .centerBtn {
-            top: 34%;
+            top: 35%;
             left: 34%;
             width: 31%;
-            height: 31%;
+            height: 27%;
         }
 
         .rightBtn {
-            top: 34%;
+            top: 35%;
             right: 0;
             width: 31%;
-            height: 31%;
+            height: 27%;
         }
 
         .downLeftBtn {
-            top: 67%;
+            top: 70%;
             left: 0;
             width: 31%;
-            height: 31%;
+            height: 27%;
         }
 
         .downBtn {
-            top: 67%;
+            top: 70%;
             left: 34%;
             width: 31%;
-            height: 31%;
+            height: 27%;
         }
 
         .downRightBtn {
-            top: 67%;
+            top: 70%;
             right: 0;
             width: 31%;
-            height: 31%;
+            height: 27%;
         }
 
         .sysToggle {
@@ -658,7 +666,7 @@
                         </button>
                         <button type="button" id="centerBtn" class="moveBtn centerBtn" title="Rest">
                             <span class="btnInner">
-                                <span class="btnIcon">&#x25A3;</span>
+                                <span class="btnIcon">&#x21BB;</span>
                                 <span class="btnText">Rest</span>
                             </span>
                         </button>
@@ -4758,10 +4766,10 @@
 
         if (tile === TILE_WALL) {
             fill = visible ? pal.wall : '#000000';
-            roundRectPath(ctx, px, py, CELL, CELL, Math.floor(CELL * 0.10));
             ctx.fillStyle = fill;
-            ctx.fill();
+            ctx.fillRect(px, py, CELL, CELL);
             if (visible) {
+                roundRectPath(ctx, px, py, CELL, CELL, Math.floor(CELL * 0.10));
                 ctx.strokeStyle = pal.shadow;
                 ctx.lineWidth = 1;
                 ctx.stroke();
@@ -4780,9 +4788,8 @@
             fill = visible ? pal.floor : grayFill;
         }
 
-        roundRectPath(ctx, px, py, CELL, CELL, Math.floor(CELL * 0.08));
         ctx.fillStyle = fill;
-        ctx.fill();
+        ctx.fillRect(px, py, CELL, CELL);
 
         if (tile === TILE_WATER) {
             ctx.strokeStyle = visible ? pal.waterLine : grayLine;
