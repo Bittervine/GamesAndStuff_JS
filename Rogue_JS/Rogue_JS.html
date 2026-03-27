@@ -6,6 +6,20 @@
     <title>Kindle Rogue II</title>
     <style>
         @font-face {
+            font-family: 'RogueRareNotoColor';
+            src: url('fonts/NotoColorEmoji_WindowsCompatible.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'RogueRareTwemoji';
+            src: url('fonts/Twemoji.Mozilla.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        @font-face {
             font-family: 'RogueSymbols';
             src: url('data:font/ttf;base64,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//wADwAQ//wAEAAR//wAEQAS//sAEgAU//sAEwAU//sAFAAX//sAFQAY//oAFgAY//oAFwAZ//oAGAAa//oAGQAc//kAGgAd//kAGwAe//kAHAAf//kAHQAg//gAHgAh//gAHwAi//gAIAAk//cAIQAk//cAIgAl//cAIwAm//cAJAAn//cAJQAo//YAJgAp//YAJwAq//YAKAAr//UAKQAs//UAKgAu//UAKwAv//QALAAw//QALQAx//QALgAy//QALwAy//QAMAA0//MAMQA1//MAMgA2//MAMwA3//MANAA4//IANQA5//IANgA6//IANwA8//IAOAA8//IAOQA9//EAOgA+//EAOwA///EAPABB//AAPQBC//AAPgBE//AAPwBF//AAQABF/+8AQQBG/+8AQgBH/+8AQwBI/+8ARABJ/+4ARQBK/+4ARgBL/+4ARwBM/+4ASABN/+0ASQBP/+0ASgBQ/+0ASwBR/+0ATABR/+wATQBS/+wATgBU/+wATwBV/+wAUABW/+wAUQBX/+sAUgBY/+sAUwBZ/+sAVABa/+oAVQBb/+oAVgBc/+oAVwBe/+oAWABe/+oAWQBf/+kAWgBh/+kAWwBh/+kAXABj/+gAXQBk/+gAXgBl/+gAXwBm/+cAYABn/+cAYQBp/+cAYgBp/+cAYwBq/+cAZABr/+YAZQBt/+YAZgBu/+YAZwBv/+YAaABw/+UAaQBx/+UAagBy/+UAawBz/+UAbAB1/+QAbQB2/+QAbgB2/+QAbwB3/+QAcAB5/+QAcQB5/+MAcgB7/+MAcwB7/+MAdAB8/+MAdQB9/+IAdgB+/+IAdwCA/+IAeACA/+EAeQCC/+EAegCC/+EAewCE/+EAfACF/+EAfQCG/+AAfgCH/+AAfwCI/+AAgACJ/98AgQCK/98AggCM/98AgwCN/98AhACO/94AhQCO/98AhgCP/94AhwCQ/94AiACS/94AiQCT/90AigCU/90AiwCV/90AjACW/9wAjQCX/9wAjgCZ/9wAjwCa/9wAkACa/9sAkQCb/9sAkgCc/9sAkwCe/9sAlACf/9oAlQCg/9oAlgCh/9oAlwCi/9oAmACj/9kAmQCk/9kAmgCl/9kAmwCm/9kAnACn/9gAnQCo/9gAngCp/9gAnwCr/9gAoACr/9cAoQCt/9cAogCu/9cAowCv/9cApACx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AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgwC8AJQAlP+F/64AUgApBhQArgBGAEb+WAVgAI8AhQCFAFwAVABGAAAAAAAHAFoAAwABBAkAAABkAAAAAwABBAkAAQAeAGQAAwABBAkAAgAOAIIAAwABBAkAAwAeAGQAAwABBAkABAAeAGQAAwABBAkABQAYAJAAAwABBAkABgAaAKgAqQAgADIAMAAyADIAIABNAGkAYwByAG8AcwBvAGYAdAAgAEMAbwByAHAAbwByAGEAdABpAG8AbgAuACAAQQBsAGwAIABSAGkAZwBoAHQAcwAgAFIAZQBzAGUAcgB2AGUAZAAuAFMAZQBnAG8AZQAgAFUASQAgAFMAeQBtAGIAbwBsAFIAZQBnAHUAbABhAHIAVgBlAHIAcwBpAG8AbgAgADYALgAyADQAUwBlAGcAbwBlAFUASQBTAHkAbQBiAG8AbAADAAAAAAAA/04AdwAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAgAIAAr//wAPAAEAAAAMAAAAAAAAAAIAAQAAAAsAAQAAAAEAAAAKAAwADgAAAAAAAAABAAAACgAWABgAAWxhdG4ACAAAAAAAAAAAAAA=') format('truetype');
             font-weight: normal;
@@ -135,7 +149,7 @@
         }
 
         .glyph {
-            font-family: 'RogueEmoji', 'RogueSymbols', 'Segoe UI Emoji', 'Segoe UI Symbol', serif;
+            font-family: 'RogueRareNotoColor', 'RogueRareTwemoji', 'RogueEmoji', 'RogueSymbols', 'Segoe UI Emoji', 'Segoe UI Symbol', serif;
         }
 
         body.monoMode .glyph,
@@ -147,7 +161,7 @@
         body.colorMode .glyph,
         body.colorMode .btnIcon.glyph,
         body.colorMode .hudGlyph.glyph {
-            font-family: 'RogueEmoji', 'RogueSymbols', 'Segoe UI Emoji', 'Segoe UI Symbol', serif;
+            font-family: 'RogueRareNotoColor', 'RogueRareTwemoji', 'RogueEmoji', 'RogueSymbols', 'Segoe UI Emoji', 'Segoe UI Symbol', serif;
         }
 
         .hudGlyph {
@@ -267,13 +281,13 @@
         .btnIcon {
             display: block;
             margin: 3px 0 4px;
-            font-family: 'RogueEmoji', 'RogueSymbols', 'Segoe UI Emoji', 'Segoe UI Symbol', serif;
+            font-family: 'RogueRareNotoColor', 'RogueRareTwemoji', 'RogueEmoji', 'RogueSymbols', 'Segoe UI Emoji', 'Segoe UI Symbol', serif;
             font-size: 28px;
             line-height: 1;
         }
 
         .btnText {
-            display: block;
+            display: none;
             font-size: 12px;
         }
 
@@ -547,43 +561,43 @@
                 <div id="actionDock" class="dock">
                     <div class="actionGrid">
                         <select id="learnedSpellSelect" class="learnSelect"></select>
-                        <button type="button" id="learnedCastBtn" class="actionBtn learnCastBtn">
+                        <button type="button" id="learnedCastBtn" class="actionBtn learnCastBtn" title="Cast">
                             <span class="btnInner">
                                 <span class="btnIcon">&#x2726;</span>
                                 <span class="btnText">Cast</span>
                             </span>
                         </button>
-                        <button type="button" id="spellBtn" class="actionBtn spellBtn">
+                        <button type="button" id="spellBtn" class="actionBtn spellBtn" title="Fire">
                             <span class="btnInner">
                                 <span class="btnIcon">&#x1F525;</span>
                                 <span class="btnText">Fire</span>
                             </span>
                         </button>
-                        <button type="button" id="blastBtn" class="actionBtn blastBtn">
+                        <button type="button" id="blastBtn" class="actionBtn blastBtn" title="Frost">
                             <span class="btnInner">
                                 <span class="btnIcon">&#x2744;</span>
                                 <span class="btnText">Frost</span>
                             </span>
                         </button>
-                        <button type="button" id="waitBtn" class="actionBtn waitBtn">
+                        <button type="button" id="waitBtn" class="actionBtn waitBtn" title="Earth">
                             <span class="btnInner">
                                 <span class="btnIcon">&#x1FAA8;</span>
                                 <span class="btnText">Earth</span>
                             </span>
                         </button>
-                        <button type="button" id="focusBtn" class="actionBtn focusBtn">
+                        <button type="button" id="focusBtn" class="actionBtn focusBtn" title="Volt">
                             <span class="btnInner">
                                 <span class="btnIcon">&#x26A1;</span>
                                 <span class="btnText">Volt</span>
                             </span>
                         </button>
-                        <button type="button" id="infoBtn" class="actionBtn infoBtn">
+                        <button type="button" id="infoBtn" class="actionBtn infoBtn" title="Wind">
                             <span class="btnInner">
                                 <span class="btnIcon">&#x1F32A;</span>
                                 <span class="btnText">Wind</span>
                             </span>
                         </button>
-                        <button type="button" id="nukeBtn" class="actionBtn nukeBtn">
+                        <button type="button" id="nukeBtn" class="actionBtn nukeBtn" title="Nuke">
                             <span class="btnInner">
                                 <span class="btnIcon">&#x2726;</span>
                                 <span class="btnText">Nuke</span>
@@ -606,7 +620,7 @@
                         <button type="button" id="saveBtn" class="miniBtn sysSave sysHalf">Save</button>
                         <button type="button" id="loadBtn" class="miniBtn sysLoad sysHalf sysHalfRight">Load</button>
                     </div>
-                    <label class="sysToggle"><input type="checkbox" id="colorMode" checked="checked"> Color</label>
+                    <label class="sysToggle"><input type="checkbox" id="spriteMode"> Sprites</label>
                 </div>
 
                 <div id="messagePanel" class="panel">
@@ -618,55 +632,55 @@
 
                 <div id="moveDock" class="dock">
                     <div class="moveGrid">
-                        <button type="button" id="upLeftBtn" class="moveBtn upLeftBtn">
+                        <button type="button" id="upLeftBtn" class="moveBtn upLeftBtn" title="Northwest">
                             <span class="btnInner">
                                 <span class="btnIcon">&#x2196;</span>
                                 <span class="btnText">NW</span>
                             </span>
                         </button>
-                        <button type="button" id="upBtn" class="moveBtn upBtn">
+                        <button type="button" id="upBtn" class="moveBtn upBtn" title="North">
                             <span class="btnInner">
                                 <span class="btnIcon">&#x2B06;</span>
                                 <span class="btnText">North</span>
                             </span>
                         </button>
-                        <button type="button" id="upRightBtn" class="moveBtn upRightBtn">
+                        <button type="button" id="upRightBtn" class="moveBtn upRightBtn" title="Northeast">
                             <span class="btnInner">
                                 <span class="btnIcon">&#x2197;</span>
                                 <span class="btnText">NE</span>
                             </span>
                         </button>
-                        <button type="button" id="leftBtn" class="moveBtn leftBtn">
+                        <button type="button" id="leftBtn" class="moveBtn leftBtn" title="West">
                             <span class="btnInner">
                                 <span class="btnIcon">&#x2B05;</span>
                                 <span class="btnText">West</span>
                             </span>
                         </button>
-                        <button type="button" id="centerBtn" class="moveBtn centerBtn">
+                        <button type="button" id="centerBtn" class="moveBtn centerBtn" title="Rest">
                             <span class="btnInner">
                                 <span class="btnIcon">&#x25A3;</span>
                                 <span class="btnText">Rest</span>
                             </span>
                         </button>
-                        <button type="button" id="rightBtn" class="moveBtn rightBtn">
+                        <button type="button" id="rightBtn" class="moveBtn rightBtn" title="East">
                             <span class="btnInner">
                                 <span class="btnIcon">&#x27A1;</span>
                                 <span class="btnText">East</span>
                             </span>
                         </button>
-                        <button type="button" id="downLeftBtn" class="moveBtn downLeftBtn">
+                        <button type="button" id="downLeftBtn" class="moveBtn downLeftBtn" title="Southwest">
                             <span class="btnInner">
                                 <span class="btnIcon">&#x2199;</span>
                                 <span class="btnText">SW</span>
                             </span>
                         </button>
-                        <button type="button" id="downBtn" class="moveBtn downBtn">
+                        <button type="button" id="downBtn" class="moveBtn downBtn" title="South">
                             <span class="btnInner">
                                 <span class="btnIcon">&#x2B07;</span>
                                 <span class="btnText">South</span>
                             </span>
                         </button>
-                        <button type="button" id="downRightBtn" class="moveBtn downRightBtn">
+                        <button type="button" id="downRightBtn" class="moveBtn downRightBtn" title="Southeast">
                             <span class="btnInner">
                                 <span class="btnIcon">&#x2198;</span>
                                 <span class="btnText">SE</span>
@@ -722,7 +736,7 @@
         return out;
     }
 
-    var FONT_EMOJI = '"RogueEmoji", "Segoe UI Emoji", "RogueSymbols", "Segoe UI Symbol", serif';
+    var FONT_EMOJI = '"RogueRareNotoColor", "RogueRareTwemoji", "RogueEmoji", "Segoe UI Emoji", "RogueSymbols", "Segoe UI Symbol", serif';
     var FONT_SYMBOL = '"RogueSymbols", "RogueEmoji", "Segoe UI Symbol", "Segoe UI Emoji", serif';
 
     var ICON = {
@@ -741,6 +755,18 @@
         potion: withVs(0x2764),
         web: cp(0x2733),
         claw: withVs(0x2694)
+    };
+
+    var DECOR_ICON = {
+        bed: cp(0x1F6CF) + cp(0xFE0F),
+        couch: cp(0x1F6CB) + cp(0xFE0F),
+        candle: cp(0x1F56F) + cp(0xFE0F),
+        mirror: cp(0x1FA9E),
+        broom: cp(0x1F9F9),
+        basket: cp(0x1F9FA),
+        bucket: cp(0x1FAA3),
+        toolbox: cp(0x1F9F0),
+        package: cp(0x1F4E6)
     };
 
     var SPELLS = [
@@ -769,7 +795,7 @@
             wallLine: '#909090',
             water: '#d6d6d6',
             waterLine: '#ababab',
-            fog: '#c7c7c7',
+            fog: '#8f8f8f',
             unseen: '#a8a8a8',
             shadow: '#111111',
             text: '#111111',
@@ -790,7 +816,7 @@
             wallLine: '#9b8266',
             water: '#74aee2',
             waterLine: '#9fd0ff',
-            fog: '#cbbfa3',
+            fog: '#8d7f66',
             unseen: '#9b9b9b',
             shadow: '#1f1b18',
             text: '#161311',
@@ -853,6 +879,7 @@
     var learnedCastBtn = document.getElementById('learnedCastBtn');
     var nukeBtn = document.getElementById('nukeBtn');
     var colorModeEl = document.getElementById('colorMode');
+    var spriteModeEl = document.getElementById('spriteMode');
 
     var state = {
         map: [],
@@ -861,6 +888,7 @@
         grassFire: [],
         monsters: [],
         items: [],
+        decorations: [],
         rooms: [],
         exit: { x: -1, y: -1 },
         relicPos: { x: -1, y: -1 },
@@ -870,6 +898,7 @@
         gameOver: false,
         victory: false,
         colorMode: true,
+        spriteMode: false,
         messages: [],
         effects: [],
         effectTimer: 0,
@@ -881,7 +910,13 @@
         targetIndex: 0,
         bossId: 0,
         pendingTileEvent: '',
-        visibleTargets: []
+        visibleTargets: [],
+        autoMovePath: [],
+        autoMoveGoal: null,
+        autoMoveStop: '',
+        autoMoveVisible: {},
+        spentManaThisTurn: false,
+        staticLightEmitters: []
     };
 
     function monster(name, code, tier, power, shield, speed, hp, melee, flags) {
@@ -1140,9 +1175,46 @@
         return font;
     }
 
+    var glyphSpriteCache = {};
+
+    function glyphSpriteKey(glyph, size, font, color) {
+        return [glyph, size, font, color, state.colorMode ? 'color' : 'mono'].join('|');
+    }
+
+    function makeGlyphSprite(glyph, size, font, color) {
+        var pad = Math.max(4, Math.ceil(size * 0.25));
+        var box = Math.max(8, Math.ceil(size + (pad * 2)));
+        var sprite = document.createElement('canvas');
+        var spriteCtx = sprite.getContext ? sprite.getContext('2d') : null;
+        sprite.width = box;
+        sprite.height = box;
+        if (!spriteCtx) {
+            return null;
+        }
+        spriteCtx.clearRect(0, 0, box, box);
+        spriteCtx.font = 'bold ' + size + 'px ' + font;
+        spriteCtx.textAlign = 'center';
+        spriteCtx.textBaseline = 'middle';
+        spriteCtx.fillStyle = color;
+        spriteCtx.fillText(glyph, Math.floor(box / 2), Math.floor(box / 2));
+        return sprite;
+    }
+
+    function cachedGlyphSprite(glyph, size, font, color) {
+        var key = glyphSpriteKey(glyph, size, font, color);
+        if (!glyphSpriteCache[key]) {
+            glyphSpriteCache[key] = makeGlyphSprite(glyph, size, font, color);
+        }
+        return glyphSpriteCache[key];
+    }
+
+    function clearGlyphSpriteCache() {
+        glyphSpriteCache = {};
+    }
+
     function syncUiGlyphs() {
         if (document.body) {
-            document.body.className = state.colorMode ? 'colorMode' : 'monoMode';
+            document.body.className = (state.colorMode ? 'colorMode' : 'monoMode') + (state.spriteMode ? ' spriteMode' : '');
         }
         if (hpGlyph) {
             hpGlyph.innerHTML = activeGlyph(ICON.heart);
@@ -1159,7 +1231,8 @@
         if (!btn) {
             return;
         }
-        btn.innerHTML = '<span class="btnInner"><span class="btnIcon glyph">' + activeGlyph(icon) + '</span><span class="btnText">' + text + '</span></span>';
+        btn.title = text;
+        btn.innerHTML = '<span class="btnInner"><span class="btnIcon glyph">' + activeGlyph(icon) + '</span></span>';
     }
 
     function currentSpell() {
@@ -1278,6 +1351,9 @@
         if (!isOpenTile(x, y)) {
             return false;
         }
+        if (decorationAt(x, y)) {
+            return false;
+        }
         if (monsterAt(x, y)) {
             return false;
         }
@@ -1287,6 +1363,12 @@
     function monsterCanEnter(mon, x, y) {
         var other;
         if (!isOpenTile(x, y)) {
+            return false;
+        }
+        if (hasFlag(mon, 'w') && !isWater(x, y)) {
+            return false;
+        }
+        if (decorationAt(x, y)) {
             return false;
         }
         if (state.player && state.player.x === x && state.player.y === y) {
@@ -1319,6 +1401,21 @@
         return -1;
     }
 
+    function decorationIndexAt(x, y) {
+        var i;
+        for (i = 0; i < state.decorations.length; i++) {
+            if (state.decorations[i].x === x && state.decorations[i].y === y) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    function decorationAt(x, y) {
+        var idx = decorationIndexAt(x, y);
+        return idx >= 0 ? state.decorations[idx] : null;
+    }
+
     function removeMonster(mon) {
         var i;
         for (i = 0; i < state.monsters.length; i++) {
@@ -1342,6 +1439,65 @@
             }
         }
         return null;
+    }
+
+    function isRoomDoorwayTile(x, y) {
+        var room = roomAt(x, y);
+        var dirs;
+        var i;
+        var nx;
+        var ny;
+        if (!room) {
+            return false;
+        }
+        if (!(x === room.x || x === room.x + room.w - 1 || y === room.y || y === room.y + room.h - 1)) {
+            return false;
+        }
+        dirs = [
+            { x: 1, y: 0 },
+            { x: -1, y: 0 },
+            { x: 0, y: 1 },
+            { x: 0, y: -1 }
+        ];
+        for (i = 0; i < dirs.length; i++) {
+            nx = x + dirs[i].x;
+            ny = y + dirs[i].y;
+            if (tileAt(nx, ny) !== TILE_FLOOR) {
+                continue;
+            }
+            if (!roomAt(nx, ny)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function isInFrontOfRoomDoorway(x, y) {
+        var room = roomAt(x, y);
+        var dirs;
+        var i;
+        var nx;
+        var ny;
+        if (!room) {
+            return false;
+        }
+        if (isRoomDoorwayTile(x, y)) {
+            return true;
+        }
+        dirs = [
+            { x: 1, y: 0 },
+            { x: -1, y: 0 },
+            { x: 0, y: 1 },
+            { x: 0, y: -1 }
+        ];
+        for (i = 0; i < dirs.length; i++) {
+            nx = x + dirs[i].x;
+            ny = y + dirs[i].y;
+            if (roomAt(nx, ny) === room && isRoomDoorwayTile(nx, ny)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     function currentRoom() {
@@ -1376,7 +1532,7 @@
         if (room && x >= room.x && x < room.x + room.w && y >= room.y && y < room.y + room.h) {
             return true;
         }
-        return chebDistance(x, y, state.player.x, state.player.y) <= VISION;
+        return chebDistance(x, y, state.player.x, state.player.y) <= VISION && hasLineOfSight(state.player.x, state.player.y, x, y);
     }
 
     function isVisibleCell(x, y) {
@@ -1503,6 +1659,135 @@
         }
     }
 
+    function visibleTargetMap() {
+        var out = {};
+        var i;
+        for (i = 0; i < state.visibleTargets.length; i++) {
+            out[state.visibleTargets[i].id] = 1;
+        }
+        return out;
+    }
+
+    function cancelAutoMove(reason) {
+        state.autoMovePath = [];
+        state.autoMoveGoal = null;
+        state.autoMoveStop = reason || '';
+    }
+
+    function isPlainOpenTile(x, y) {
+        var tile = tileAt(x, y);
+        return tile === TILE_FLOOR || tile === TILE_GRASS || tile === TILE_WATER;
+    }
+
+    function canAutoMoveTo(x, y) {
+        var dx;
+        var dy;
+        if (!state.player || !playerCanStep(x, y)) {
+            return false;
+        }
+        for (dy = -1; dy <= 1; dy++) {
+            for (dx = -1; dx <= 1; dx++) {
+                if ((dx !== 0 || dy !== 0) && monsterAt(x + dx, y + dy)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    function findAutoMovePath(goalX, goalY) {
+        var dirs = [
+            { x: -1, y: -1 }, { x: 0, y: -1 }, { x: 1, y: -1 },
+            { x: -1, y: 0 },                    { x: 1, y: 0 },
+            { x: -1, y: 1 },  { x: 0, y: 1 },  { x: 1, y: 1 }
+        ];
+        var queue = [];
+        var seen = {};
+        var prev = {};
+        var head = 0;
+        var cur;
+        var i;
+        var nx;
+        var ny;
+        var nkey;
+        var key;
+        var path = [];
+
+        if (!state.player) {
+            return null;
+        }
+
+        queue.push({ x: state.player.x, y: state.player.y });
+        seen[keyFor(state.player.x, state.player.y)] = 1;
+
+        while (head < queue.length) {
+            cur = queue[head];
+            head += 1;
+            if (cur.x === goalX && cur.y === goalY) {
+                key = keyFor(goalX, goalY);
+                while (prev[key]) {
+                    path.push({ x: cur.x, y: cur.y });
+                    cur = prev[key];
+                    key = keyFor(cur.x, cur.y);
+                }
+                path.reverse();
+                return path;
+            }
+            for (i = 0; i < dirs.length; i++) {
+                nx = cur.x + dirs[i].x;
+                ny = cur.y + dirs[i].y;
+                nkey = keyFor(nx, ny);
+                if (seen[nkey]) {
+                    continue;
+                }
+                if ((nx !== goalX || ny !== goalY) && !playerCanStep(nx, ny)) {
+                    continue;
+                }
+                if (nx === goalX && ny === goalY && !canAutoMoveTo(nx, ny)) {
+                    continue;
+                }
+                seen[nkey] = 1;
+                prev[nkey] = cur;
+                queue.push({ x: nx, y: ny });
+            }
+        }
+        return null;
+    }
+
+    function runAutoMoveStep() {
+        var step;
+        var dx;
+        var dy;
+        if (!state.autoMovePath || state.autoMovePath.length < 1 || !canAct()) {
+            return;
+        }
+        step = state.autoMovePath[0];
+        dx = step.x - state.player.x;
+        dy = step.y - state.player.y;
+        if (dx < -1 || dx > 1 || dy < -1 || dy > 1) {
+            cancelAutoMove('Path lost');
+            draw();
+            return;
+        }
+        state.autoMovePath.shift();
+        tryMove(dx, dy);
+    }
+
+    function startAutoMove(goalX, goalY) {
+        var path = findAutoMovePath(goalX, goalY);
+        if (!path || path.length < 1) {
+            pushMessage('No safe route');
+            draw();
+            return false;
+        }
+        state.autoMoveGoal = { x: goalX, y: goalY };
+        state.autoMovePath = path;
+        state.autoMoveStop = '';
+        state.autoMoveVisible = visibleTargetMap();
+        runAutoMoveStep();
+        return true;
+    }
+
     function cycleTarget() {
         refreshTargetSelection();
         if (state.visibleTargets.length < 1) {
@@ -1538,8 +1823,8 @@
         monster('Pike Shrimp', 0x1F990, 2, 'pounce', '', 112, 6, 2, 'a'),
         monster('Spine Lobster', 0x1F99E, 2, 'thorns', '', 90, 9, 2, 'a'),
         monster('Spite Blowfish', 0x1F421, 2, 'thorns', '', 88, 7, 2, 'a'),
-        monster('River Fish', 0x1F41F, 1, '', '', 112, 5, 1, 'a'),
-        monster('Spark Fish', 0x1F420, 2, 'shock', '', 106, 7, 2, 'a'),
+        monster('River Fish', 0x1F41F, 1, '', '', 112, 5, 1, 'aw'),
+        monster('Spark Fish', 0x1F420, 2, 'shock', '', 106, 7, 2, 'aw'),
         monster('Razor Shark', 0x1F988, 3, 'charge', '', 118, 9, 3, 'a'),
         monster('Grip Octopus', 0x1F419, 3, 'drain', '', 96, 10, 3, 'a'),
         monster('Ink Squid', 0x1F991, 2, 'curse', '', 104, 7, 2, 'a'),
@@ -1740,11 +2025,11 @@
     }
 
     function monsterCountForDepth(depth) {
-        if (depth === 1) return 6;
-        if (depth === 2) return 11;
-        if (depth === 3) return 18;
-        if (depth === 4) return 28;
-        return clamp(60 + ((depth - 5) * 4), 60, 124);
+        if (depth === 1) return 24;
+        if (depth === 2) return 44;
+        if (depth === 3) return 72;
+        if (depth === 4) return 112;
+        return clamp(240 + ((depth - 5) * 16), 240, 496);
     }
 
     function supplyPlanForDepth(depth) {
@@ -1958,76 +2243,331 @@
         return false;
     }
 
-    function scatterWater(poolCount) {
+    function shuffleRooms(list) {
         var i;
         var j;
-        var seed;
-        var frontier;
-        var spot;
-        var px;
-        var py;
-        var nx;
-        var ny;
-        var dirs = [
-            { x: 1, y: 0 },
-            { x: -1, y: 0 },
-            { x: 0, y: 1 },
-            { x: 0, y: -1 }
-        ];
-        for (i = 0; i < poolCount; i++) {
-            seed = state.rooms[rand(state.rooms.length)];
-            spot = roomCenter(seed);
-            frontier = [{ x: spot.x, y: spot.y }];
-            for (j = 0; j < 22 + rand(18); j++) {
-                if (frontier.length < 1) {
-                    break;
+        var tmp;
+        for (i = list.length - 1; i > 0; i--) {
+            j = rand(i + 1);
+            tmp = list[i];
+            list[i] = list[j];
+            list[j] = tmp;
+        }
+    }
+
+    function roomTiles(room) {
+        var out = [];
+        var x;
+        var y;
+        for (y = room.y; y < room.y + room.h; y++) {
+            for (x = room.x; x < room.x + room.w; x++) {
+                if (tileAt(x, y) === TILE_FLOOR) {
+                    out.push({ x: x, y: y });
                 }
-                spot = frontier[rand(frontier.length)];
-                if (tileAt(spot.x, spot.y) === TILE_FLOOR) {
-                    setTile(spot.x, spot.y, TILE_WATER);
+            }
+        }
+        return out;
+    }
+
+    function growRoomTerrain(room, tileType, targetCount) {
+        var center = roomCenter(room);
+        var seed = {
+            x: clamp(center.x + rand(3) - 1, room.x, room.x + room.w - 1),
+            y: clamp(center.y + rand(3) - 1, room.y, room.y + room.h - 1)
+        };
+        var chosen = {};
+        var frontier = [seed];
+        var used = 0;
+        var pick;
+        var idx;
+        var i;
+        var next;
+        var key;
+        var neighbors;
+        var fallback;
+
+        function pushFrontier(x, y) {
+            if (x < room.x || y < room.y || x >= room.x + room.w || y >= room.y + room.h) {
+                return;
+            }
+            if (tileAt(x, y) !== TILE_FLOOR) {
+                return;
+            }
+            key = x + ',' + y;
+            if (chosen[key]) {
+                return;
+            }
+            frontier.push({ x: x, y: y });
+        }
+
+        while (used < targetCount && frontier.length > 0) {
+            idx = 0;
+            for (i = 1; i < frontier.length; i++) {
+                if (roomDistance(frontier[i], center) < roomDistance(frontier[idx], center)) {
+                    idx = i;
                 }
-                px = spot.x;
-                py = spot.y;
-                nx = px + dirs[rand(4)].x;
-                ny = py + dirs[rand(4)].y;
-                if (tileAt(nx, ny) === TILE_FLOOR && roll(100) <= 70) {
-                    frontier.push({ x: nx, y: ny });
+            }
+            pick = frontier.splice(idx, 1)[0];
+            key = pick.x + ',' + pick.y;
+            if (chosen[key] || tileAt(pick.x, pick.y) !== TILE_FLOOR) {
+                continue;
+            }
+            chosen[key] = 1;
+            setTile(pick.x, pick.y, tileType);
+            used += 1;
+
+            neighbors = [
+                { x: pick.x + 1, y: pick.y },
+                { x: pick.x - 1, y: pick.y },
+                { x: pick.x, y: pick.y + 1 },
+                { x: pick.x, y: pick.y - 1 }
+            ];
+            for (i = 0; i < neighbors.length; i++) {
+                next = neighbors[(i + rand(neighbors.length)) % neighbors.length];
+                if (roll(100) <= 88) {
+                    pushFrontier(next.x, next.y);
                 }
+            }
+        }
+
+        if (used >= targetCount) {
+            return;
+        }
+
+        fallback = roomTiles(room);
+        fallback.sort(function (a, b) {
+            return roomDistance(a, center) - roomDistance(b, center);
+        });
+        for (i = 0; i < fallback.length && used < targetCount; i++) {
+            key = fallback[i].x + ',' + fallback[i].y;
+            if (!chosen[key]) {
+                chosen[key] = 1;
+                setTile(fallback[i].x, fallback[i].y, tileType);
+                used += 1;
             }
         }
     }
 
-    function scatterGrass(patchCount) {
+    function decorateRoomTerrain(room, tileType) {
+        var area = room.w * room.h;
+        var target = Math.max(1, Math.floor(area * (0.30 + (rand(41) / 100))));
+        growRoomTerrain(room, tileType, target);
+    }
+
+    function decorateRooms() {
+        var rooms = state.rooms.slice(0);
+        var terrainRooms;
+        var waterCount;
+        var grassCount;
         var i;
-        var j;
-        var seed;
-        var frontier;
-        var spot;
-        var dirs = [
-            { x: 1, y: 0 },
-            { x: -1, y: 0 },
-            { x: 0, y: 1 },
-            { x: 0, y: -1 }
+
+        if (rooms.length < 1) {
+            return;
+        }
+
+        shuffleRooms(rooms);
+        terrainRooms = rooms.length;
+        waterCount = Math.floor(terrainRooms * 0.30);
+        grassCount = Math.floor(terrainRooms * 0.30);
+
+        for (i = 0; i < waterCount && i < rooms.length; i++) {
+            decorateRoomTerrain(rooms[i], TILE_WATER);
+        }
+        for (i = waterCount; i < waterCount + grassCount && i < rooms.length; i++) {
+            decorateRoomTerrain(rooms[i], TILE_GRASS);
+        }
+    }
+
+    function tryPlaceTorchPair(room) {
+        var midX = room.x + Math.floor(room.w / 2);
+        var midY = room.y + Math.floor(room.h / 2);
+        var placed = 0;
+        if (room.w >= room.h) {
+            if (addDecoration('torch', midX, room.y, { facing: 'north' })) {
+                placed += 1;
+            }
+            if (addDecoration('torch', midX, room.y + room.h - 1, { facing: 'south' })) {
+                placed += 1;
+            }
+        } else {
+            if (addDecoration('torch', room.x, midY, { facing: 'west' })) {
+                placed += 1;
+            }
+            if (addDecoration('torch', room.x + room.w - 1, midY, { facing: 'east' })) {
+                placed += 1;
+            }
+        }
+        return placed;
+    }
+
+    function tryPlaceTableSet(room) {
+        var cx = room.x + Math.floor(room.w / 2);
+        var cy = room.y + Math.floor(room.h / 2);
+        var seats;
+        var i;
+        if (!addDecoration('table', cx, cy, { group: 'table' })) {
+            return false;
+        }
+        seats = [
+            { x: cx, y: cy + 1, facing: 'south' },
+            { x: cx - 1, y: cy, facing: 'west' }
         ];
-        for (i = 0; i < patchCount; i++) {
-            seed = state.rooms[rand(state.rooms.length)];
-            spot = roomCenter(seed);
-            frontier = [{ x: spot.x, y: spot.y }];
-            for (j = 0; j < 14 + rand(18); j++) {
-                if (frontier.length < 1) {
-                    break;
-                }
-                spot = frontier[rand(frontier.length)];
-                if (tileAt(spot.x, spot.y) === TILE_FLOOR) {
-                    setTile(spot.x, spot.y, TILE_GRASS);
-                }
-                spot = {
-                    x: spot.x + dirs[rand(4)].x,
-                    y: spot.y + dirs[rand(4)].y
-                };
-                if (tileAt(spot.x, spot.y) === TILE_FLOOR && roll(100) <= 75) {
-                    frontier.push(spot);
-                }
+        if (room.w >= 10) {
+            seats.push({ x: cx + 1, y: cy, facing: 'east' });
+        }
+        for (i = 0; i < seats.length; i++) {
+            addDecoration('chair', seats[i].x, seats[i].y, { facing: seats[i].facing, group: 'table' });
+        }
+        return true;
+    }
+
+    function tryPlaceCandelabra(room) {
+        var insetX = Math.max(2, Math.floor(room.w / 4));
+        var insetY = Math.max(2, Math.floor(room.h / 4));
+        var spots = [
+            { x: room.x + insetX, y: room.y + insetY },
+            { x: room.x + room.w - 1 - insetX, y: room.y + insetY },
+            { x: room.x + insetX, y: room.y + room.h - 1 - insetY },
+            { x: room.x + room.w - 1 - insetX, y: room.y + room.h - 1 - insetY }
+        ];
+        var i;
+        var placed = 0;
+        for (i = 0; i < spots.length; i++) {
+            if (addDecoration('candelabra', spots[i].x, spots[i].y, { group: 'candelabra' })) {
+                placed += 1;
+            }
+        }
+        return placed >= 3;
+    }
+
+    function tryPlaceCouch(room) {
+        var cx = room.x + Math.floor(room.w / 2);
+        var cy = room.y + Math.floor(room.h / 2);
+        var spots = [
+            { x: cx, y: room.y + 1, facing: 'north' },
+            { x: cx, y: room.y + room.h - 2, facing: 'south' },
+            { x: room.x + 1, y: cy, facing: 'west' },
+            { x: room.x + room.w - 2, y: cy, facing: 'east' }
+        ];
+        var i;
+        for (i = 0; i < spots.length; i++) {
+            if (addDecoration('couch', spots[i].x, spots[i].y, { facing: spots[i].facing, group: 'couch' })) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function tryPlaceBed(room) {
+        var cx = room.x + Math.floor(room.w / 2);
+        var cy = room.y + Math.floor(room.h / 2);
+        var spots = [
+            { x: cx, y: room.y + 1, facing: 'north' },
+            { x: cx, y: room.y + room.h - 2, facing: 'south' },
+            { x: room.x + 1, y: cy, facing: 'west' },
+            { x: room.x + room.w - 2, y: cy, facing: 'east' }
+        ];
+        var i;
+        for (i = 0; i < spots.length; i++) {
+            if (addDecoration('bed', spots[i].x, spots[i].y, { facing: spots[i].facing, group: 'bed' })) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function tryPlaceMirror(room) {
+        var cx = room.x + Math.floor(room.w / 2);
+        var cy = room.y + Math.floor(room.h / 2);
+        var spots = [
+            { x: cx, y: room.y, facing: 'north' },
+            { x: cx, y: room.y + room.h - 1, facing: 'south' },
+            { x: room.x, y: cy, facing: 'west' },
+            { x: room.x + room.w - 1, y: cy, facing: 'east' }
+        ];
+        var i;
+        for (i = 0; i < spots.length; i++) {
+            if (addDecoration('mirror', spots[i].x, spots[i].y, { facing: spots[i].facing, group: 'mirror' })) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function tryPlaceCornerClutter(room) {
+        var corners = [
+            { x: room.x + 1, y: room.y + 1, type: 'broom' },
+            { x: room.x + room.w - 2, y: room.y + 1, type: 'basket' },
+            { x: room.x + 1, y: room.y + room.h - 2, type: 'bucket' },
+            { x: room.x + room.w - 2, y: room.y + room.h - 2, type: 'toolbox' }
+        ];
+        var i;
+        for (i = 0; i < corners.length; i++) {
+            addDecoration(corners[i].type, corners[i].x, corners[i].y, { group: 'clutter' });
+        }
+    }
+
+    function tryPlacePackage(room) {
+        var spots = [
+            { x: room.x + 2, y: room.y + room.h - 2 },
+            { x: room.x + room.w - 3, y: room.y + 1 },
+            { x: room.x + room.w - 2, y: room.y + room.h - 3 }
+        ];
+        var i;
+        for (i = 0; i < spots.length; i++) {
+            if (addDecoration('package', spots[i].x, spots[i].y, { group: 'storage' })) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function tryPlaceCandles(room) {
+        var cx = room.x + Math.floor(room.w / 2);
+        var cy = room.y + Math.floor(room.h / 2);
+        var spots = [
+            { x: cx - 1, y: cy - 1 },
+            { x: cx + 1, y: cy - 1 },
+            { x: cx - 1, y: cy + 1 },
+            { x: cx + 1, y: cy + 1 }
+        ];
+        var i;
+        for (i = 0; i < spots.length; i++) {
+            addDecoration('candle', spots[i].x, spots[i].y, { group: 'candles' });
+        }
+    }
+
+    function furnishRooms() {
+        var i;
+        var room;
+        for (i = 0; i < state.rooms.length; i++) {
+            room = state.rooms[i];
+            if (room.w >= 10 && room.h >= 10 && Math.abs(room.w - room.h) <= 2) {
+                tryPlaceCandelabra(room);
+            }
+            if (room.w >= 8 && room.h >= 8) {
+                tryPlaceTorchPair(room);
+            }
+            if (room.w >= 7 && room.h >= 7 && roll(100) <= 55) {
+                tryPlaceTableSet(room);
+            }
+            if (room.w >= 9 && room.h >= 8 && roll(100) <= 40) {
+                tryPlaceCouch(room);
+            }
+            if (room.w >= 9 && room.h >= 8 && roll(100) <= 28) {
+                tryPlaceBed(room);
+            }
+            if (room.w >= 8 && room.h >= 8 && roll(100) <= 35) {
+                tryPlaceMirror(room);
+            }
+            if (room.w >= 8 && room.h >= 8 && roll(100) <= 45) {
+                tryPlaceCornerClutter(room);
+            }
+            if (room.w >= 8 && room.h >= 7 && roll(100) <= 38) {
+                tryPlacePackage(room);
+            }
+            if (room.w >= 7 && room.h >= 7 && roll(100) <= 35) {
+                tryPlaceCandles(room);
             }
         }
     }
@@ -2038,12 +2578,16 @@
         var x;
         var y;
         var tile;
+        var waterOnly = wantWater === 2;
         for (tries = 0; tries < 900; tries++) {
             room = state.rooms[rand(state.rooms.length)];
             x = room.x + 1 + rand(room.w - 2);
             y = room.y + 1 + rand(room.h - 2);
             tile = tileAt(x, y);
             if (!isOpenTile(x, y)) {
+                continue;
+            }
+            if (decorationAt(x, y)) {
                 continue;
             }
             if (state.player && distance(x, y, state.player.x, state.player.y) < minDist) {
@@ -2058,7 +2602,10 @@
             if (monsterAt(x, y) || itemIndexAt(x, y) !== -1) {
                 continue;
             }
-            if (wantWater && !(tile === TILE_WATER || nearWater(x, y))) {
+            if (waterOnly && tile !== TILE_WATER) {
+                continue;
+            }
+            if (!waterOnly && wantWater && !(tile === TILE_WATER || nearWater(x, y))) {
                 continue;
             }
             return { x: x, y: y };
@@ -2068,6 +2615,50 @@
 
     function addItem(type, x, y) {
         state.items.push({ type: type, x: x, y: y });
+    }
+
+    function canPlaceDecoration(x, y) {
+        if (tileAt(x, y) !== TILE_FLOOR) {
+            return false;
+        }
+        if (isInFrontOfRoomDoorway(x, y)) {
+            return false;
+        }
+        if (decorationAt(x, y) || monsterAt(x, y) || itemIndexAt(x, y) !== -1) {
+            return false;
+        }
+        if (state.player && state.player.x === x && state.player.y === y) {
+            return false;
+        }
+        if ((state.exit.x === x && state.exit.y === y) || (state.relicPos.x === x && state.relicPos.y === y)) {
+            return false;
+        }
+        return true;
+    }
+
+    function addDecoration(type, x, y, meta) {
+        if (!canPlaceDecoration(x, y)) {
+            return false;
+        }
+        state.decorations.push({
+            type: type,
+            x: x,
+            y: y,
+            facing: meta && meta.facing ? meta.facing : '',
+            group: meta && meta.group ? meta.group : '',
+            burn: meta && typeof meta.burn === 'number' ? meta.burn : 0,
+            burnAge: meta && typeof meta.burnAge === 'number' ? meta.burnAge : 0
+        });
+        return true;
+    }
+
+    function removeDecorationAt(x, y) {
+        var idx = decorationIndexAt(x, y);
+        if (idx >= 0) {
+            state.decorations.splice(idx, 1);
+            return true;
+        }
+        return false;
     }
 
     function createMonster(template, x, y, bossFlag) {
@@ -2122,7 +2713,7 @@
         var minDist = spawnDistanceForDepth(depth);
         for (i = 0; i < count; i++) {
             template = chooseTemplateForDepth(depth, pool);
-            spot = randomOpenTile(minDist, hasFlag(template, 'a'));
+            spot = randomOpenTile(minDist, hasFlag(template, 'w') ? 2 : (hasFlag(template, 'a') ? 1 : 0));
             if (!spot) {
                 continue;
             }
@@ -2180,6 +2771,7 @@
         state.rooms = [];
         state.monsters = [];
         state.items = [];
+        state.decorations = [];
         state.messages = [];
         state.effects = [];
         state.effectTimer = 0;
@@ -2194,6 +2786,12 @@
         state.selectedTargetId = 0;
         state.bossId = 0;
         state.pendingTileEvent = '';
+        state.autoMovePath = [];
+        state.autoMoveGoal = null;
+        state.autoMoveStop = '';
+        state.autoMoveVisible = {};
+        state.spentManaThisTurn = false;
+        state.staticLightEmitters = [];
         state.exit = { x: -1, y: -1 };
         state.relicPos = { x: -1, y: -1 };
         state.player = playerRef;
@@ -2239,8 +2837,7 @@
             state.rooms.push({ x: WORLD_W - 24, y: WORLD_H - 24, w: 14, h: 14 });
         }
 
-        scatterWater(3 + Math.min(depth, 7));
-        scatterGrass(3 + Math.min(depth, 7));
+        decorateRooms();
 
         center = roomCenter(state.rooms[0]);
         if (!state.player) {
@@ -2260,6 +2857,9 @@
             state.exit = roomCenter(exitRoom);
             setTile(state.exit.x, state.exit.y, TILE_EXIT);
         }
+
+        furnishRooms();
+        rebuildStaticLighting();
 
         supplies = supplyPlanForDepth(depth);
         for (i = 0; i < supplies.potions; i++) {
@@ -2405,6 +3005,7 @@
         if (!state.player || state.gameOver || state.victory) {
             return;
         }
+        cancelAutoMove('Interrupted');
         if (type === 'shock' && isWater(state.player.x, state.player.y)) {
             dmg += 2;
         }
@@ -2558,17 +3159,18 @@
         if (!currentTargetById(mon.id)) {
             return;
         }
-        mon.burn = turns;
+        mon.burn = Math.max(mon.burn, turns);
         mon.burnAge = 0;
         if (!fromSpread) {
             mon.burnSpread = 0;
         }
-        pushMessage(mon.name + ' burns for ' + turns + ' turns');
+        pushMessage(mon.name + ' catches fire');
     }
 
     function spreadBurn(mon) {
         var i;
         var other;
+        var deco;
         var turns = mon.burn - 1;
         if (turns > 2) {
             turns = 2;
@@ -2590,12 +3192,99 @@
                 return;
             }
         }
+        for (i = 0; i < state.decorations.length; i++) {
+            deco = state.decorations[i];
+            if (isDecorationFlammable(deco) && deco.burn < 1 && chebDistance(mon.x, mon.y, deco.x, deco.y) <= 1) {
+                igniteDecoration(deco, turns);
+                spawnEffect('chain', 'fire', mon.x, mon.y, deco.x, deco.y, 2);
+                mon.burnSpread = 1;
+                return;
+            }
+        }
     }
 
     function igniteGrassAt(x, y, turns) {
         if (tileAt(x, y) === TILE_GRASS && state.grassFire[y][x] < turns) {
-            state.grassFire[y][x] = turns;
+            state.grassFire[y][x] = Math.max(state.grassFire[y][x], turns);
             spawnEffect('burst', 'fire', x, y, x, y, 2);
+        }
+    }
+
+    function isDecorationFlammable(deco) {
+        if (!deco) {
+            return false;
+        }
+        return deco.type !== 'torch' && deco.type !== 'candelabra' && deco.type !== 'bucket';
+    }
+
+    function igniteDecoration(deco, turns) {
+        if (!deco || !isDecorationFlammable(deco)) {
+            return false;
+        }
+        if (deco.burn >= turns) {
+            return false;
+        }
+        deco.burn = turns;
+        deco.burnAge = 0;
+        spawnEffect('burst', 'fire', deco.x, deco.y, deco.x, deco.y, 2);
+        return true;
+    }
+
+    function tickDecorationFires() {
+        var i;
+        var deco;
+        var dx;
+        var dy;
+        var nx;
+        var ny;
+        var mon;
+        var other;
+        var toIgnite = [];
+        for (i = state.decorations.length - 1; i >= 0; i--) {
+            deco = state.decorations[i];
+            if (!deco || deco.burn < 1) {
+                continue;
+            }
+            deco.burnAge += 1;
+            for (dy = -1; dy <= 1; dy++) {
+                for (dx = -1; dx <= 1; dx++) {
+                    if (dx === 0 && dy === 0) {
+                        continue;
+                    }
+                    nx = deco.x + dx;
+                    ny = deco.y + dy;
+                    if (tileAt(nx, ny) === TILE_GRASS) {
+                        toIgnite.push({ kind: 'grass', x: nx, y: ny, turns: 2 });
+                    }
+                    mon = monsterAt(nx, ny);
+                    if (mon && !(isWater(mon.x, mon.y) && !hasFlag(mon, 'f')) && mon.burn < 1) {
+                        toIgnite.push({ kind: 'monster', mon: mon, turns: 2 });
+                    }
+                    other = decorationAt(nx, ny);
+                    if (other && other !== deco && isDecorationFlammable(other) && other.burn < 1) {
+                        toIgnite.push({ kind: 'decoration', deco: other, turns: 2 });
+                    }
+                }
+            }
+            if (roll(100) <= 25) {
+                deco.burn = 0;
+            } else {
+                deco.burn -= 1;
+            }
+            if (deco.burn <= 0) {
+                removeDecorationAt(deco.x, deco.y);
+            }
+        }
+        for (i = 0; i < toIgnite.length; i++) {
+            if (toIgnite[i].kind === 'grass') {
+                igniteGrassAt(toIgnite[i].x, toIgnite[i].y, toIgnite[i].turns);
+            } else if (toIgnite[i].kind === 'monster') {
+                if (currentTargetById(toIgnite[i].mon.id) && toIgnite[i].mon.burn < 1) {
+                    igniteMonster(toIgnite[i].mon, toIgnite[i].turns, 1);
+                }
+            } else if (toIgnite[i].kind === 'decoration') {
+                igniteDecoration(toIgnite[i].deco, toIgnite[i].turns);
+            }
         }
     }
 
@@ -2627,9 +3316,16 @@
                             if (mon && !(isWater(mon.x, mon.y) && !hasFlag(mon, 'f')) && mon.burn < 1) {
                                 newMon.push(mon);
                             }
+                            if (igniteDecoration(decorationAt(nx, ny), 2)) {
+                                spawnEffect('chain', 'fire', x, y, nx, ny, 2);
+                            }
                         }
                     }
-                    state.grassFire[y][x] -= 1;
+                    if (roll(100) <= 25) {
+                        state.grassFire[y][x] = 0;
+                    } else if (state.grassFire[y][x] > 0) {
+                        state.grassFire[y][x] -= 1;
+                    }
                     if (state.grassFire[y][x] <= 0 && tileAt(x, y) === TILE_GRASS) {
                         setTile(x, y, TILE_FLOOR);
                     }
@@ -2772,11 +3468,13 @@
             return;
         }
         state.player.mp -= cost;
+        state.spentManaThisTurn = true;
         spawnEffect('bolt', spell.id, state.player.x, state.player.y, target.x, target.y, 3);
 
         if (spell.id === 'fire') {
             result = hitMonster(target, 3 + roll(3), 'fire', 'Fire spell');
             igniteGrassAt(target.x, target.y, 3);
+            igniteDecoration(decorationAt(target.x, target.y), 3);
             if (result !== 'reflect' && currentTargetById(target.id)) {
                 igniteMonster(target, steppedTurns(6), 0);
                 spawnEffect('burst', 'fire', target.x, target.y, target.x, target.y, 3);
@@ -2784,6 +3482,12 @@
                     mon = state.monsters[i];
                     if (mon.id !== target.id && distance(mon.x, mon.y, target.x, target.y) <= 1) {
                         hitMonster(mon, 1 + rand(2), 'fire', 'Splash fire');
+                    }
+                }
+                for (i = state.decorations.length - 1; i >= 0; i--) {
+                    mon = state.decorations[i];
+                    if (distance(mon.x, mon.y, target.x, target.y) <= 1) {
+                        igniteDecoration(mon, 2);
                     }
                 }
             }
@@ -2871,6 +3575,7 @@
             return;
         }
         state.player.mp -= cost;
+        state.spentManaThisTurn = true;
 
         if (spell.id === 'heal') {
             state.player.hp = clamp(state.player.hp + 10, 0, state.player.maxHp);
@@ -2993,10 +3698,12 @@
         ny = state.player.y + dy;
         mon = monsterAt(nx, ny);
         if (mon) {
+            cancelAutoMove('Enemy blocks the way');
             meleeTarget(mon);
             return;
         }
         if (!playerCanStep(nx, ny)) {
+            cancelAutoMove('Path blocked');
             pushMessage('Stone blocks the path');
             draw();
             return;
@@ -3051,18 +3758,26 @@
     }
 
     function updatePlayerAfterTurn(kind) {
+        var moveDrainsMana;
         if (!state.player) {
             return;
         }
+        moveDrainsMana = kind === 'move' && isWater(state.player.x, state.player.y) && state.player.mp > 0;
         if (kind === 'wait') {
             gainMp(2);
             state.player.hp = clamp(state.player.hp + 2, 0, state.player.maxHp);
+        } else if (kind === 'cast') {
+            if (state.spentManaThisTurn) {
+                gainMp(1);
+            }
         } else if (kind !== 'cast') {
-            gainMp(1);
+            if (!moveDrainsMana) {
+                gainMp(1);
+            }
             state.player.hp = clamp(state.player.hp + 1, 0, state.player.maxHp);
         }
 
-        if (isWater(state.player.x, state.player.y) && state.player.mp > 0) {
+        if (moveDrainsMana) {
             state.player.mp -= 1;
             pushMessage('Levitation over water drains mana');
         }
@@ -3078,7 +3793,11 @@
         }
         if (state.player.burn > 0) {
             hurtPlayer(1, 'fire', 'Burn');
-            state.player.burn -= 1;
+            if (roll(100) <= 25) {
+                state.player.burn = 0;
+            } else {
+                state.player.burn -= 1;
+            }
         }
         if (state.player.slow > 0) {
             state.player.slow -= 1;
@@ -3086,6 +3805,7 @@
         if (state.player.cursed > 0) {
             state.player.cursed -= 1;
         }
+        state.spentManaThisTurn = false;
     }
 
     function tryActivateShield(mon) {
@@ -3124,7 +3844,11 @@
             if (tileAt(mon.x, mon.y) === TILE_GRASS) {
                 igniteGrassAt(mon.x, mon.y, 3);
             }
-            mon.burn -= 1;
+            if (roll(100) <= 25) {
+                mon.burn = 0;
+            } else {
+                mon.burn -= 1;
+            }
             mon.hp -= hasFlag(mon, 'B') ? 2 : 1;
             if (mon.hp <= 0) {
                 removeDeadMonster(mon, 'burns away');
@@ -3526,12 +4250,18 @@
     }
 
     function advanceTurn(kind) {
+        var previousVisible;
+        var nowVisible;
+        var key;
+        var discovered = false;
         if (!state.player) {
             return;
         }
+        previousVisible = state.autoMovePath && state.autoMovePath.length > 0 ? state.autoMoveVisible : null;
         state.turn += 1;
         decayWebs();
         tickGrassFires();
+        tickDecorationFires();
         monsterPhase();
         if (resolvePendingTileEvent()) {
             return;
@@ -3546,7 +4276,24 @@
         }
         markExplored();
         refreshTargetSelection();
+        if (previousVisible) {
+            nowVisible = visibleTargetMap();
+            for (key in nowVisible) {
+                if (nowVisible.hasOwnProperty(key) && !previousVisible[key]) {
+                    discovered = true;
+                    break;
+                }
+            }
+            if (discovered) {
+                cancelAutoMove('Monster spotted');
+            } else {
+                state.autoMoveVisible = nowVisible;
+            }
+        }
         syncLayout();
+        if (state.autoMovePath && state.autoMovePath.length > 0 && !state.gameOver && !state.victory && !state.paused) {
+            runAutoMoveStep();
+        }
     }
 
     function startGame() {
@@ -3594,6 +4341,7 @@
                 grassFire: state.grassFire,
                 monsters: state.monsters,
                 items: state.items,
+                decorations: state.decorations,
                 rooms: state.rooms,
                 exit: state.exit,
                 relicPos: state.relicPos,
@@ -3603,6 +4351,7 @@
                 gameOver: state.gameOver,
                 victory: state.victory,
                 colorMode: state.colorMode,
+                spriteMode: state.spriteMode,
                 messages: state.messages,
                 status: state.status,
                 turn: state.turn,
@@ -3631,6 +4380,19 @@
         return mon;
     }
 
+    function normalizeLoadedDecoration(deco) {
+        if (!deco) {
+            return deco;
+        }
+        if (typeof deco.burn !== 'number') {
+            deco.burn = 0;
+        }
+        if (typeof deco.burnAge !== 'number') {
+            deco.burnAge = 0;
+        }
+        return deco;
+    }
+
     function applyLoadedState(snapshot) {
         var data;
         var i;
@@ -3648,6 +4410,10 @@
             normalizeLoadedMonster(state.monsters[i]);
         }
         state.items = data.items || [];
+        state.decorations = data.decorations || [];
+        for (i = 0; i < state.decorations.length; i++) {
+            normalizeLoadedDecoration(state.decorations[i]);
+        }
         state.rooms = data.rooms || [];
         state.exit = data.exit || { x: -1, y: -1 };
         state.relicPos = data.relicPos || { x: -1, y: -1 };
@@ -3657,6 +4423,7 @@
         state.gameOver = !!data.gameOver;
         state.victory = !!data.victory;
         state.colorMode = data.colorMode !== false;
+        state.spriteMode = !!data.spriteMode;
         state.messages = data.messages || [];
         state.effects = [];
         state.effectTimer = 0;
@@ -3669,9 +4436,19 @@
         state.bossId = data.bossId || 0;
         state.pendingTileEvent = data.pendingTileEvent || '';
         state.visibleTargets = [];
+        state.autoMovePath = [];
+        state.autoMoveGoal = null;
+        state.autoMoveStop = '';
+        state.autoMoveVisible = {};
+        state.spentManaThisTurn = false;
+        rebuildStaticLighting();
         if (colorModeEl) {
             colorModeEl.checked = !!state.colorMode;
         }
+        if (spriteModeEl) {
+            spriteModeEl.checked = !!state.spriteMode;
+        }
+        clearGlyphSpriteCache();
         refreshTargetSelection();
         pushMessage('Game loaded');
         syncLayout();
@@ -3820,11 +4597,50 @@
     }
 
     function drawGlyph(g, glyph, x, y, size, font, color) {
-        g.font = 'bold ' + size + 'px ' + activeFont(font);
+        var liveFont = activeFont(font);
+        var liveGlyph = activeGlyph(glyph);
+        var sprite;
+        if (state.spriteMode && g && g.drawImage) {
+            sprite = cachedGlyphSprite(liveGlyph, size, liveFont, color);
+            if (sprite) {
+                g.drawImage(sprite, Math.floor(x - (sprite.width / 2)), Math.floor(y - (sprite.height / 2)));
+                return;
+            }
+        }
+        g.font = 'bold ' + size + 'px ' + liveFont;
         g.textAlign = 'center';
         g.textBaseline = 'middle';
         g.fillStyle = color;
-        g.fillText(activeGlyph(glyph), x, y);
+        g.fillText(liveGlyph, x, y);
+    }
+
+    function drawGlyphScaled(g, glyph, x, y, widthSize, heightSize, font, color) {
+        var liveFont = activeFont(font);
+        var liveGlyph = activeGlyph(glyph);
+        var baseSize = Math.max(widthSize, heightSize);
+        var sprite;
+        if (state.spriteMode && g && g.drawImage) {
+            sprite = cachedGlyphSprite(liveGlyph, baseSize, liveFont, color);
+            if (sprite) {
+                g.drawImage(
+                    sprite,
+                    Math.floor(x - (widthSize / 2)),
+                    Math.floor(y - (heightSize / 2)),
+                    Math.floor(widthSize),
+                    Math.floor(heightSize)
+                );
+                return;
+            }
+        }
+        g.save();
+        g.translate(x, y);
+        g.scale(widthSize / baseSize, heightSize / baseSize);
+        g.font = 'bold ' + baseSize + 'px ' + liveFont;
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        g.fillStyle = color;
+        g.fillText(liveGlyph, 0, 0);
+        g.restore();
     }
 
     function viewLeft() {
@@ -3915,9 +4731,19 @@
         drawGlyph(ctx, ICON.wizard, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2) + 1, Math.floor(CELL * 0.98), FONT_EMOJI, pal.text);
     }
 
-    function drawTile(mapX, mapY, px, py, pal, visible) {
+    function grayLightColor(level, dark, light) {
+        var t = clamp(level, 0, 1);
+        var value = Math.floor(dark + ((light - dark) * t));
+        return 'rgb(' + value + ',' + value + ',' + value + ')';
+    }
+
+    function drawTile(mapX, mapY, px, py, pal, visible, lightLevel) {
         var tile = tileAt(mapX, mapY);
         var fill = pal.floor;
+        var light = lightLevel || 0;
+        var grayFill = grayLightColor(light, 58, 186);
+        var grayLine = grayLightColor(light, 42, 142);
+        var grayDot = grayLightColor(light, 30, 108);
         if (tile === TILE_WALL && !isBoundaryWall(mapX, mapY)) {
             ctx.fillStyle = '#000000';
             ctx.fillRect(px, py, CELL, CELL);
@@ -3925,39 +4751,41 @@
         }
 
         if (!state.explored[mapY][mapX]) {
-            ctx.fillStyle = pal.unseen;
+            ctx.fillStyle = '#000000';
             ctx.fillRect(px, py, CELL, CELL);
             return;
         }
 
         if (tile === TILE_WALL) {
-            fill = visible ? pal.wall : pal.fog;
-            roundRectPath(ctx, px + 1, py + 1, CELL - 2, CELL - 2, Math.floor(CELL * 0.14));
+            fill = visible ? pal.wall : '#000000';
+            roundRectPath(ctx, px, py, CELL, CELL, Math.floor(CELL * 0.10));
             ctx.fillStyle = fill;
             ctx.fill();
-            ctx.strokeStyle = pal.shadow;
-            ctx.lineWidth = 1;
-            ctx.stroke();
+            if (visible) {
+                ctx.strokeStyle = pal.shadow;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
             if (CELL >= 18) {
-                drawGlyph(ctx, ICON.brick, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2), Math.floor(CELL * 0.68), FONT_EMOJI, visible ? pal.wallLine : pal.shadow);
+                drawGlyph(ctx, ICON.brick, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2), Math.floor(CELL * 0.89), FONT_EMOJI, visible ? pal.wallLine : grayDot);
             }
             return;
         }
 
         if (tile === TILE_WATER) {
-            fill = visible ? pal.water : pal.fog;
+            fill = visible ? pal.water : grayFill;
         } else if (tile === TILE_GRASS) {
-            fill = visible ? pal.grass : pal.fog;
+            fill = visible ? pal.grass : grayFill;
         } else {
-            fill = visible ? pal.floor : pal.fog;
+            fill = visible ? pal.floor : grayFill;
         }
 
-        roundRectPath(ctx, px + 1, py + 1, CELL - 2, CELL - 2, Math.floor(CELL * 0.12));
+        roundRectPath(ctx, px, py, CELL, CELL, Math.floor(CELL * 0.08));
         ctx.fillStyle = fill;
         ctx.fill();
 
         if (tile === TILE_WATER) {
-            ctx.strokeStyle = visible ? pal.waterLine : pal.shadow;
+            ctx.strokeStyle = visible ? pal.waterLine : grayLine;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(px + 4, py + Math.floor(CELL * 0.36));
@@ -3966,7 +4794,7 @@
             ctx.lineTo(px + CELL - 4, py + Math.floor(CELL * 0.62));
             ctx.stroke();
         } else if (tile === TILE_GRASS) {
-            ctx.strokeStyle = visible ? pal.floorDot : pal.shadow;
+            ctx.strokeStyle = visible ? pal.floorDot : grayLine;
             ctx.lineWidth = 1;
             ctx.beginPath();
             ctx.moveTo(px + 5, py + CELL - 4);
@@ -3977,12 +4805,140 @@
             ctx.lineTo(px + CELL - 8, py + Math.floor(CELL * 0.48));
             ctx.stroke();
         } else {
-            ctx.fillStyle = visible ? pal.floorDot : pal.shadow;
+            ctx.fillStyle = visible ? pal.floorDot : grayDot;
             ctx.fillRect(px + Math.floor(CELL / 2) - 1, py + Math.floor(CELL / 2) - 1, 2, 2);
         }
 
         if (state.grassFire[mapY][mapX] > 0) {
             drawGlyph(ctx, ICON.fire, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2), Math.floor(CELL * 0.55), FONT_EMOJI, state.colorMode ? '#ff8a37' : pal.text);
+        }
+    }
+
+    function drawDecoration(px, py, deco, pal, visible) {
+        var wood = visible ? '#7b5a36' : pal.fog;
+        var woodDark = visible ? '#4b3420' : pal.shadow;
+        var metal = visible ? '#d7c07b' : pal.shadow;
+        var flame = visible ? '#ffb347' : pal.shadow;
+        var cx = px + Math.floor(CELL / 2);
+        var cy = py + Math.floor(CELL / 2);
+        function drawBurnOverlay() {
+            if (deco.burn > 0) {
+                drawGlyph(ctx, ICON.fire, px + CELL - 8, py + 8, Math.floor(CELL * 0.28), FONT_EMOJI, state.colorMode ? '#ff8f44' : pal.text);
+            }
+        }
+
+        if (deco.type === 'table') {
+            roundRectPath(ctx, px + Math.floor(CELL * 0.18), py + Math.floor(CELL * 0.24), Math.floor(CELL * 0.64), Math.floor(CELL * 0.34), Math.floor(CELL * 0.08));
+            ctx.fillStyle = wood;
+            ctx.fill();
+            ctx.strokeStyle = woodDark;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.fillStyle = woodDark;
+            ctx.fillRect(px + Math.floor(CELL * 0.24), py + Math.floor(CELL * 0.54), Math.floor(CELL * 0.07), Math.floor(CELL * 0.20));
+            ctx.fillRect(px + Math.floor(CELL * 0.69), py + Math.floor(CELL * 0.54), Math.floor(CELL * 0.07), Math.floor(CELL * 0.20));
+            drawBurnOverlay();
+            return;
+        }
+
+        if (deco.type === 'chair') {
+            ctx.fillStyle = wood;
+            ctx.fillRect(px + Math.floor(CELL * 0.30), py + Math.floor(CELL * 0.46), Math.floor(CELL * 0.34), Math.floor(CELL * 0.12));
+            ctx.fillStyle = woodDark;
+            if (deco.facing === 'north') {
+                ctx.fillRect(px + Math.floor(CELL * 0.30), py + Math.floor(CELL * 0.22), Math.floor(CELL * 0.34), Math.floor(CELL * 0.18));
+            } else if (deco.facing === 'south') {
+                ctx.fillRect(px + Math.floor(CELL * 0.30), py + Math.floor(CELL * 0.60), Math.floor(CELL * 0.34), Math.floor(CELL * 0.18));
+            } else if (deco.facing === 'west') {
+                ctx.fillRect(px + Math.floor(CELL * 0.18), py + Math.floor(CELL * 0.30), Math.floor(CELL * 0.18), Math.floor(CELL * 0.34));
+            } else {
+                ctx.fillRect(px + Math.floor(CELL * 0.64), py + Math.floor(CELL * 0.30), Math.floor(CELL * 0.18), Math.floor(CELL * 0.34));
+            }
+            drawBurnOverlay();
+            return;
+        }
+
+        if (deco.type === 'torch') {
+            ctx.strokeStyle = woodDark;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(cx, py + Math.floor(CELL * 0.72));
+            ctx.lineTo(cx, py + Math.floor(CELL * 0.34));
+            ctx.stroke();
+            drawGlyph(ctx, ICON.fire, cx, py + Math.floor(CELL * 0.20), Math.floor(CELL * 0.34), FONT_EMOJI, flame);
+            drawBurnOverlay();
+            return;
+        }
+
+        if (deco.type === 'candelabra') {
+            ctx.strokeStyle = metal;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(cx, py + Math.floor(CELL * 0.74));
+            ctx.lineTo(cx, py + Math.floor(CELL * 0.34));
+            ctx.moveTo(px + Math.floor(CELL * 0.28), py + Math.floor(CELL * 0.74));
+            ctx.lineTo(px + Math.floor(CELL * 0.72), py + Math.floor(CELL * 0.74));
+            ctx.moveTo(px + Math.floor(CELL * 0.34), py + Math.floor(CELL * 0.42));
+            ctx.lineTo(px + Math.floor(CELL * 0.66), py + Math.floor(CELL * 0.42));
+            ctx.stroke();
+            drawGlyph(ctx, ICON.fire, px + Math.floor(CELL * 0.34), py + Math.floor(CELL * 0.28), Math.floor(CELL * 0.22), FONT_EMOJI, flame);
+            drawGlyph(ctx, ICON.fire, cx, py + Math.floor(CELL * 0.22), Math.floor(CELL * 0.22), FONT_EMOJI, flame);
+            drawGlyph(ctx, ICON.fire, px + Math.floor(CELL * 0.66), py + Math.floor(CELL * 0.28), Math.floor(CELL * 0.22), FONT_EMOJI, flame);
+            drawBurnOverlay();
+            return;
+        }
+
+        if (deco.type === 'couch') {
+            drawGlyph(ctx, DECOR_ICON.couch, cx, cy + 1, Math.floor(CELL * 0.76), FONT_EMOJI, pal.text);
+            drawBurnOverlay();
+            return;
+        }
+
+        if (deco.type === 'bed') {
+            drawGlyph(ctx, DECOR_ICON.bed, cx, cy + 1, Math.floor(CELL * 0.78), FONT_EMOJI, pal.text);
+            drawBurnOverlay();
+            return;
+        }
+
+        if (deco.type === 'candle') {
+            drawGlyph(ctx, DECOR_ICON.candle, cx, cy, Math.floor(CELL * 0.60), FONT_EMOJI, pal.text);
+            drawBurnOverlay();
+            return;
+        }
+
+        if (deco.type === 'mirror') {
+            drawGlyph(ctx, DECOR_ICON.mirror, cx, cy, Math.floor(CELL * 0.70), FONT_EMOJI, pal.text);
+            drawBurnOverlay();
+            return;
+        }
+
+        if (deco.type === 'broom') {
+            drawGlyph(ctx, DECOR_ICON.broom, cx, cy, Math.floor(CELL * 0.68), FONT_EMOJI, pal.text);
+            drawBurnOverlay();
+            return;
+        }
+
+        if (deco.type === 'basket') {
+            drawGlyph(ctx, DECOR_ICON.basket, cx, cy, Math.floor(CELL * 0.66), FONT_EMOJI, pal.text);
+            drawBurnOverlay();
+            return;
+        }
+
+        if (deco.type === 'bucket') {
+            drawGlyph(ctx, DECOR_ICON.bucket, cx, cy, Math.floor(CELL * 0.66), FONT_EMOJI, pal.text);
+            drawBurnOverlay();
+            return;
+        }
+
+        if (deco.type === 'toolbox') {
+            drawGlyph(ctx, DECOR_ICON.toolbox, cx, cy, Math.floor(CELL * 0.66), FONT_EMOJI, pal.text);
+            drawBurnOverlay();
+            return;
+        }
+
+        if (deco.type === 'package') {
+            drawGlyph(ctx, DECOR_ICON.package, cx, cy, Math.floor(CELL * 0.66), FONT_EMOJI, pal.text);
+            drawBurnOverlay();
         }
     }
 
@@ -4131,6 +5087,136 @@
         }
     }
 
+    function cloneGrid(grid) {
+        var out = [];
+        var y;
+        var x;
+        for (y = 0; y < grid.length; y++) {
+            out[y] = [];
+            for (x = 0; x < grid[y].length; x++) {
+                out[y][x] = grid[y][x];
+            }
+        }
+        return out;
+    }
+
+    function lightLineClearX(y, ax, bx) {
+        var x;
+        var from = Math.min(ax, bx);
+        var to = Math.max(ax, bx);
+        for (x = from + 1; x < to; x++) {
+            if (tileAt(x, y) === TILE_WALL) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function lightLineClearY(x, ay, by) {
+        var y;
+        var from = Math.min(ay, by);
+        var to = Math.max(ay, by);
+        for (y = from + 1; y < to; y++) {
+            if (tileAt(x, y) === TILE_WALL) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function setLightEmitter(lightMap, x, y, level) {
+        if (x < 0 || y < 0 || x >= WORLD_W || y >= WORLD_H) {
+            return;
+        }
+        lightMap[y][x] = Math.max(lightMap[y][x], level);
+    }
+
+    function diffuseLightMap(source) {
+        var kernelCenter = 0.60;
+        var kernelSide = 0.20;
+        var passes = 7;
+        var cur = cloneGrid(source);
+        var tmp = makeGrid(WORLD_W, WORLD_H, 0);
+        var out = makeGrid(WORLD_W, WORLD_H, 0);
+        var x;
+        var y;
+        var step;
+        for (step = 0; step < passes; step++) {
+            for (y = 0; y < WORLD_H; y++) {
+                for (x = 0; x < WORLD_W; x++) {
+                    if (tileAt(x, y) === TILE_WALL) {
+                        tmp[y][x] = 0;
+                        continue;
+                    }
+                    tmp[y][x] = cur[y][x] * kernelCenter;
+                    if (x > 0 && tileAt(x - 1, y) !== TILE_WALL) {
+                        tmp[y][x] += cur[y][x - 1] * kernelSide;
+                    }
+                    if (x + 1 < WORLD_W && tileAt(x + 1, y) !== TILE_WALL) {
+                        tmp[y][x] += cur[y][x + 1] * kernelSide;
+                    }
+                    tmp[y][x] = Math.max(cur[y][x], clamp(tmp[y][x], 0, 1));
+                }
+            }
+            for (y = 0; y < WORLD_H; y++) {
+                for (x = 0; x < WORLD_W; x++) {
+                    if (tileAt(x, y) === TILE_WALL) {
+                        out[y][x] = 0;
+                        continue;
+                    }
+                    out[y][x] = tmp[y][x] * kernelCenter;
+                    if (y > 0 && tileAt(x, y - 1) !== TILE_WALL) {
+                        out[y][x] += tmp[y - 1][x] * kernelSide;
+                    }
+                    if (y + 1 < WORLD_H && tileAt(x, y + 1) !== TILE_WALL) {
+                        out[y][x] += tmp[y + 1][x] * kernelSide;
+                    }
+                    out[y][x] = Math.max(tmp[y][x], clamp(out[y][x], 0, 1));
+                }
+            }
+            cur = cloneGrid(out);
+        }
+        return cur;
+    }
+
+    function rebuildStaticLighting() {
+        var emitters = makeGrid(WORLD_W, WORLD_H, 0);
+        var x;
+        var y;
+        var i;
+        var deco;
+        for (y = 0; y < WORLD_H; y++) {
+            for (x = 0; x < WORLD_W; x++) {
+                if (roomAt(x, y) && tileAt(x, y) !== TILE_WALL) {
+                    setLightEmitter(emitters, x, y, 0.34);
+                }
+            }
+        }
+        for (i = 0; i < state.decorations.length; i++) {
+            deco = state.decorations[i];
+            if (deco.type === 'torch') {
+                setLightEmitter(emitters, deco.x, deco.y, 0.95);
+            } else if (deco.type === 'candelabra') {
+                setLightEmitter(emitters, deco.x, deco.y, 1.10);
+            }
+        }
+        state.staticLightEmitters = emitters;
+    }
+
+    function buildActiveLightMap() {
+        var emitters = state.staticLightEmitters && state.staticLightEmitters.length ? cloneGrid(state.staticLightEmitters) : makeGrid(WORLD_W, WORLD_H, 0);
+        if (state.player) {
+            setLightEmitter(emitters, state.player.x, state.player.y, 1.25);
+        }
+        return diffuseLightMap(emitters);
+    }
+
+    function lightShadeAt(lightMap, x, y) {
+        var light = lightMap[y][x];
+        var lit = clamp(light, 0, 1);
+        return (1 - lit) * (state.colorMode ? 0.34 : 0.30);
+    }
+
     function drawBoard() {
         var pal = usePalette();
         var vx = viewLeft();
@@ -4145,12 +5231,16 @@
         var item;
         var mon;
         var target = currentTarget();
+        var visible;
+        var lightMap;
+        var shade;
         if (!ctx) {
             return;
         }
 
         ctx.fillStyle = pal.panel;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        lightMap = buildActiveLightMap();
 
         for (y = 0; y < VIEW_ROWS; y++) {
             for (x = 0; x < VIEW_COLS; x++) {
@@ -4158,11 +5248,30 @@
                 mapY = vy + y;
                 px = x * CELL;
                 py = y * CELL;
-                drawTile(mapX, mapY, px, py, pal, isVisibleCell(mapX, mapY));
+                visible = isVisibleCell(mapX, mapY);
+                drawTile(mapX, mapY, px, py, pal, visible, lightMap[mapY][mapX]);
+                shade = visible ? lightShadeAt(lightMap, mapX, mapY) : 0;
+                if (shade > 0.01) {
+                    ctx.fillStyle = state.colorMode ? ('rgba(18,14,10,' + shade + ')') : ('rgba(17,17,17,' + Math.min(0.30, shade + 0.02) + ')');
+                    ctx.fillRect(px, py, CELL, CELL);
+                }
                 if (state.explored[mapY][mapX] && state.webs[mapY][mapX] > 0) {
                     drawWeb(px, py, pal);
                 }
             }
+        }
+
+        for (i = 0; i < state.decorations.length; i++) {
+            item = state.decorations[i];
+            if (!isVisibleCell(item.x, item.y)) {
+                continue;
+            }
+            if (item.x < vx || item.x >= vx + VIEW_COLS || item.y < vy || item.y >= vy + VIEW_ROWS) {
+                continue;
+            }
+            px = (item.x - vx) * CELL;
+            py = (item.y - vy) * CELL;
+            drawDecoration(px, py, item, pal, true);
         }
 
         for (i = 0; i < state.items.length; i++) {
@@ -4374,6 +5483,7 @@
                 }
                 return false;
             }
+            cancelAutoMove('');
             fn();
             return false;
         };
@@ -4382,6 +5492,7 @@
             if (e && e.preventDefault) {
                 e.preventDefault();
             }
+            cancelAutoMove('');
             fn();
             return false;
         };
@@ -4444,6 +5555,11 @@
         mapY = viewTop() + cellY;
         mon = monsterAt(mapX, mapY);
         if (mon && isVisibleCell(mon.x, mon.y) && isMonsterVisible(mon)) {
+            if (chebDistance(state.player.x, state.player.y, mon.x, mon.y) <= 1) {
+                cancelAutoMove('');
+                meleeTarget(mon);
+                return true;
+            }
             state.selectedTargetId = mon.id;
             pushMessage('Target ' + mon.name);
             draw();
@@ -4452,8 +5568,42 @@
         return false;
     }
 
+    function autoMoveTargetAtEvent(e) {
+        var rect;
+        var clientX;
+        var clientY;
+        var px;
+        var py;
+        var cellX;
+        var cellY;
+        var mapX;
+        var mapY;
+        if (!canvas || !state.player) {
+            return false;
+        }
+        rect = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : { left: 0, top: 0 };
+        if (e && e.touches && e.touches[0]) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = e.clientX;
+            clientY = e.clientY;
+        }
+        px = clientX - rect.left;
+        py = clientY - rect.top;
+        cellX = Math.floor(px / CELL);
+        cellY = Math.floor(py / CELL);
+        mapX = viewLeft() + cellX;
+        mapY = viewTop() + cellY;
+        if (!canAutoMoveTo(mapX, mapY)) {
+            return false;
+        }
+        return startAutoMove(mapX, mapY);
+    }
+
     function onKey(e) {
         var code = e.which || e.keyCode;
+        cancelAutoMove('');
         if (code === 37 || code === 65) {
             tryMove(-1, 0);
         } else if (code === 38 || code === 87) {
@@ -4533,6 +5683,15 @@
                 state.effects = [];
                 clearEffectTimer();
             }
+            clearGlyphSpriteCache();
+            draw();
+        };
+    }
+
+    if (spriteModeEl) {
+        spriteModeEl.onclick = function () {
+            state.spriteMode = !!spriteModeEl.checked;
+            clearGlyphSpriteCache();
             draw();
         };
     }
@@ -4551,7 +5710,9 @@
             if (e && e.preventDefault) {
                 e.preventDefault();
             }
-            targetMonsterAtEvent(e || window.event);
+            if (!targetMonsterAtEvent(e || window.event)) {
+                autoMoveTargetAtEvent(e || window.event);
+            }
             return false;
         };
         canvas.ontouchstart = function (e) {
@@ -4559,7 +5720,9 @@
             if (e && e.preventDefault) {
                 e.preventDefault();
             }
-            targetMonsterAtEvent(e || window.event);
+            if (!targetMonsterAtEvent(e || window.event)) {
+                autoMoveTargetAtEvent(e || window.event);
+            }
             return false;
         };
     }
