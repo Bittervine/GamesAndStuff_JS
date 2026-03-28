@@ -737,6 +737,7 @@
     var HISTORY_LINES = 2;
     var MAX_DEPTH = 10;
     var DEBUG_EXIT_IN_START_ROOM = false;
+    var DEBUG_SPIDER_IN_START_ROOM = false;
 
     var TILE_WALL = '#';
     var TILE_FLOOR = '.';
@@ -3280,6 +3281,29 @@
         }
 
         if (depth === 1) {
+            if (DEBUG_SPIDER_IN_START_ROOM) {
+                room = state.rooms[0];
+                spawn = null;
+                for (i = 0; i < 60; i++) {
+                    prev = {
+                        x: room.x + 1 + rand(room.w - 2),
+                        y: room.y + 1 + rand(room.h - 2)
+                    };
+                    if (isOpenTile(prev.x, prev.y) &&
+                            !monsterAt(prev.x, prev.y) &&
+                            itemIndexAt(prev.x, prev.y) === -1 &&
+                            !decorationAt(prev.x, prev.y) &&
+                            !(state.exit.x === prev.x && state.exit.y === prev.y) &&
+                            !(state.relicPos.x === prev.x && state.relicPos.y === prev.y) &&
+                            distance(prev.x, prev.y, state.player.x, state.player.y) >= 3) {
+                        spawn = prev;
+                        break;
+                    }
+                }
+                if (spawn) {
+                    state.monsters.push(createMonster(templateByName('Web Spider'), spawn.x, spawn.y, 0));
+                }
+            }
             room = state.rooms[0];
             spawn = null;
             for (i = 0; i < 60; i++) {
@@ -3371,12 +3395,23 @@
         state.player.mp = clamp(state.player.mp + amount, 0, state.player.maxMp);
     }
 
+    function webSnareTurns() {
+        return 1 + rand(4);
+    }
+
+    function applyWebSnare(minTurns) {
+        var turns = webSnareTurns();
+        if (typeof minTurns === 'number' && turns < minTurns) {
+            turns = minTurns;
+        }
+        state.player.webbed = Math.max(state.player.webbed, turns);
+    }
+
     function consumeSnare() {
         if (!canAct()) {
             return true;
         }
         if (state.player.webbed > 0) {
-            state.player.webbed -= 1;
             pushMessage('The web holds the wizard fast');
             advanceTurn('snared');
             return true;
@@ -4032,9 +4067,6 @@
         if (!canAct()) {
             return;
         }
-        if (consumeSnare()) {
-            return;
-        }
         refreshTargetSelection();
         if (typeof spellOrTarget === 'string') {
             spell = quickSpellById(spellOrTarget);
@@ -4166,9 +4198,6 @@
         if (!canAct()) {
             return;
         }
-        if (consumeSnare()) {
-            return;
-        }
         refreshTargetSelection();
         spell = selectedLearnedSpell();
         target = currentTarget();
@@ -4283,9 +4312,6 @@
         if (!canAct()) {
             return;
         }
-        if (consumeSnare()) {
-            return;
-        }
         if (state.player.nuke < 1) {
             pushMessage('No pulse vials are charged');
             draw();
@@ -4330,7 +4356,7 @@
         }
         if (!playerCanStep(nx, ny)) {
             cancelAutoMove('Path blocked');
-            pushMessage('Stone blocks the path');
+            pushMessage('The path is blocked');
             draw();
             return;
         }
@@ -4338,7 +4364,7 @@
         state.player.y = ny;
         if (state.webs[ny][nx] > 0) {
             state.webs[ny][nx] = 0;
-            state.player.webbed = Math.max(state.player.webbed, 1);
+            applyWebSnare();
             pushMessage('The wizard steps into a web');
         }
         tileEvent = pickupTileThings();
@@ -4365,18 +4391,12 @@
         if (!canAct()) {
             return;
         }
-        if (consumeSnare()) {
-            return;
-        }
         pushMessage('The wizard watches and waits');
         advanceTurn('wait');
     }
 
     function focusAction() {
         if (!canAct()) {
-            return;
-        }
-        if (consumeSnare()) {
             return;
         }
         pushMessage('The wizard gathers mana');
@@ -4437,6 +4457,9 @@
         }
         if (state.player.cursed > 0) {
             state.player.cursed -= 1;
+        }
+        if (state.player.webbed > 0) {
+            state.player.webbed -= 1;
         }
         state.spentManaThisTurn = false;
     }
@@ -4527,7 +4550,7 @@
             pushMessage(mon.name + ' injects venom');
         }
         if (mon.power === 'web' && roll(100) <= 45) {
-            state.player.webbed = Math.max(state.player.webbed, 1);
+            applyWebSnare();
             state.webs[state.player.y][state.player.x] = 2;
             pushMessage(mon.name + ' wraps the wizard in web');
         }
@@ -4643,7 +4666,7 @@
             spawnEffect('chain', 'web', mon.x, mon.y, state.player.x, state.player.y, 4, true);
             spawnEffect('burst', 'web', state.player.x, state.player.y, state.player.x, state.player.y, 3, true);
             state.webs[state.player.y][state.player.x] = 2;
-            state.player.webbed = Math.max(state.player.webbed, 1);
+            applyWebSnare();
             pushMessage(mon.name + ' casts a web net');
             return true;
         }
@@ -6607,7 +6630,7 @@
             castSpellAt('earth');
         } else if (keyCode === 'Numpad0' || keyCode === 'NumpadDecimal') {
             castSpellAt('wind');
-        } else if (keyCode === 'NumpadEnter' || keyCode === 'Enter') {
+        } else if (keyCode === 'Enter') {
             pulseNuke();
         } else if (code === 37 || code === 65) {
             tryMove(-1, 0);
