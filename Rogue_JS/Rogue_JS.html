@@ -5418,10 +5418,7 @@
         }
 
         if (selected) {
-            roundRectPath(ctx, px, py, CELL, CELL, r + 3);
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = pal.target;
-            ctx.stroke();
+            drawTargetMarker(px, py, pal, r + 3);
         }
 
         drawGlyph(ctx, mon.glyph, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2) + 1, Math.floor(CELL * 0.86), FONT_EMOJI, text);
@@ -5431,6 +5428,14 @@
         } else if (mon.slow > 0) {
             drawGlyph(ctx, ICON.frost, px + CELL - 8, py + 8, Math.floor(CELL * 0.28), FONT_EMOJI, state.colorMode ? '#90e4ff' : pal.text);
         }
+    }
+
+    function drawTargetMarker(px, py, pal, radius) {
+        var r = radius || Math.floor(CELL * 0.22);
+        roundRectPath(ctx, px, py, CELL, CELL, r);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = pal.target;
+        ctx.stroke();
     }
 
     function drawPlayer(px, py, pal) {
@@ -5585,7 +5590,7 @@
         }
     }
 
-    function drawDecoration(px, py, deco, pal, visible) {
+    function drawDecoration(px, py, deco, pal, visible, selected) {
         var wood = visible ? '#7b5a36' : pal.fog;
         var woodDark = visible ? '#4b3420' : pal.shadow;
         var metal = visible ? '#d7c07b' : pal.shadow;
@@ -5595,6 +5600,9 @@
         function drawBurnOverlay() {
             if (deco.burn > 0) {
                 drawGlyph(ctx, ICON.fire, px + CELL - 8, py + 8, Math.floor(CELL * 0.28), FONT_EMOJI, state.colorMode ? '#ff8f44' : pal.text);
+            }
+            if (selected) {
+                drawTargetMarker(px, py, pal);
             }
         }
 
@@ -6167,7 +6175,7 @@
             }
             px = (item.x - vx) * CELL;
             py = (item.y - vy) * CELL;
-            drawDecoration(px, py, item, pal, true);
+            drawDecoration(px, py, item, pal, true, target && target.kind === 'decoration' && target.id === targetKeyForDecoration(item));
         }
 
         for (i = 0; i < state.items.length; i++) {
@@ -6645,7 +6653,7 @@
             pulseNuke();
         } else if (code === 70) {
             focusAction();
-        } else if (code === 84) {
+        } else if (keyCode === 'Tab' || code === 9 || code === 84) {
             cycleTarget();
         } else if (code === 80) {
             togglePause();
