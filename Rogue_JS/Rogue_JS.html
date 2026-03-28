@@ -13,7 +13,21 @@
         }
 
         @font-face {
+            font-family: 'CatalogNotoColorEmoji';
+            src: url('fonts/NotoColorEmoji_WindowsCompatible.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        @font-face {
             font-family: 'RogueRareTwemoji';
+            src: url('fonts/Twemoji.Mozilla.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'CatalogTwemojiMozilla';
             src: url('fonts/Twemoji.Mozilla.ttf') format('truetype');
             font-weight: normal;
             font-style: normal;
@@ -679,7 +693,7 @@
     var CELL = 24;
     var VISION = 3;
     var HISTORY_LINES = 2;
-    var MAX_DEPTH = 20;
+    var MAX_DEPTH = 10;
 
     var TILE_WALL = '#';
     var TILE_FLOOR = '.';
@@ -895,6 +909,7 @@
         autoMoveStop: '',
         autoMoveVisible: {},
         spentManaThisTurn: false,
+        manaQuietTurns: 0,
         staticLightEmitters: []
     };
 
@@ -911,6 +926,8 @@
             flags: flags || ''
         };
     }
+
+    var TRAINING_DUMMY_TEMPLATE = monster('Training Dummy', 0x1FAB5, 1, '', '', 0, 9999, 0, 'D');
 
     function rand(max) {
         return Math.floor(Math.random() * max);
@@ -937,6 +954,8 @@
         save: 'rogue_single_save'
     };
 
+    var audioCtx = null;
+
     function safeStorageGet(key) {
         try {
             return localStorage.getItem(key);
@@ -952,6 +971,103 @@
         } catch (err) {
             return false;
         }
+    }
+
+    function ensureAudio() {
+        var Ctx;
+        if (audioCtx) {
+            if (audioCtx.state === 'suspended' && audioCtx.resume) {
+                try {
+                    audioCtx.resume();
+                } catch (err) {
+                }
+            }
+            return audioCtx;
+        }
+        Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) {
+            return null;
+        }
+        try {
+            audioCtx = new Ctx();
+            if (audioCtx.state === 'suspended' && audioCtx.resume) {
+                audioCtx.resume();
+            }
+        } catch (err2) {
+            audioCtx = null;
+        }
+        return audioCtx;
+    }
+
+    function playTone(freq, duration, type, volume, whenOffset, sweepTo) {
+        var ctxAudio = ensureAudio();
+        var osc;
+        var gain;
+        var startAt;
+        var endAt;
+        if (!ctxAudio) {
+            return;
+        }
+        osc = ctxAudio.createOscillator();
+        gain = ctxAudio.createGain();
+        startAt = ctxAudio.currentTime + (whenOffset || 0);
+        endAt = startAt + duration;
+        osc.type = type || 'sine';
+        osc.frequency.setValueAtTime(freq, startAt);
+        if (typeof sweepTo === 'number') {
+            osc.frequency.exponentialRampToValueAtTime(Math.max(20, sweepTo), endAt);
+        }
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume || 0.03), startAt + Math.min(0.02, duration * 0.35));
+        gain.gain.exponentialRampToValueAtTime(0.0001, endAt);
+        osc.connect(gain);
+        gain.connect(ctxAudio.destination);
+        osc.start(startAt);
+        osc.stop(endAt + 0.01);
+    }
+
+    function playSpellImpactSound(spellId) {
+        if (spellId === 'fire') {
+            playTone(260, 0.10, 'triangle', 0.040, 0, 180);
+            playTone(180, 0.08, 'square', 0.018, 0.02, 120);
+        } else if (spellId === 'frost') {
+            playTone(780, 0.10, 'sine', 0.028, 0, 620);
+            playTone(1040, 0.08, 'triangle', 0.018, 0.015, 820);
+        } else if (spellId === 'earth') {
+            playTone(150, 0.12, 'square', 0.030, 0, 90);
+            playTone(96, 0.10, 'triangle', 0.020, 0.02, 70);
+        } else if (spellId === 'lightning') {
+            playTone(920, 0.05, 'sawtooth', 0.032, 0, 700);
+            playTone(680, 0.06, 'square', 0.020, 0.015, 440);
+        } else if (spellId === 'wind') {
+            playTone(540, 0.09, 'triangle', 0.022, 0, 420);
+            playTone(420, 0.08, 'sine', 0.015, 0.02, 320);
+        } else {
+            playTone(420, 0.08, 'triangle', 0.020, 0, 300);
+        }
+    }
+
+    function playNukeSound() {
+        playTone(72, 1.20, 'sawtooth', 0.060, 0.00, 34);
+        playTone(108, 1.00, 'triangle', 0.040, 0.02, 48);
+        playTone(180, 0.62, 'square', 0.032, 0.10, 72);
+        playTone(420, 0.46, 'sawtooth', 0.030, 0.16, 160);
+        playTone(860, 0.20, 'triangle', 0.026, 0.24, 220);
+        playTone(1240, 0.16, 'sine', 0.022, 0.28, 320);
+        playTone(240, 0.72, 'square', 0.022, 0.34, 82);
+        playTone(520, 0.54, 'triangle', 0.020, 0.42, 180);
+        playTone(96, 0.90, 'sawtooth', 0.020, 0.48, 40);
+        playTone(1560, 0.12, 'sine', 0.014, 0.50, 460);
+    }
+
+    function playMeleeHitSound() {
+        playTone(210, 0.05, 'square', 0.024, 0, 150);
+        playTone(320, 0.04, 'triangle', 0.018, 0.018, 240);
+    }
+
+    function playHurtSound() {
+        playTone(240, 0.08, 'sawtooth', 0.022, 0, 180);
+        playTone(180, 0.09, 'square', 0.016, 0.02, 120);
     }
 
     function oddClamp(v, lo, hi) {
@@ -1155,6 +1271,7 @@
     }
 
     var glyphSpriteCache = {};
+    var emojiFontsReady = !(document.fonts && document.fonts.ready);
 
     function glyphSpriteKey(glyph, size, font, color) {
         return [glyph, size, font, color, state.colorMode ? 'color' : 'mono'].join('|');
@@ -1171,7 +1288,7 @@
             return null;
         }
         spriteCtx.clearRect(0, 0, box, box);
-        spriteCtx.font = 'bold ' + size + 'px ' + font;
+        spriteCtx.font = size + 'px ' + font;
         spriteCtx.textAlign = 'center';
         spriteCtx.textBaseline = 'middle';
         spriteCtx.fillStyle = color;
@@ -1189,6 +1306,25 @@
 
     function clearGlyphSpriteCache() {
         glyphSpriteCache = {};
+    }
+
+    function refreshGlyphsAfterFontsReady() {
+        if (!document.fonts || !document.fonts.ready) {
+            return;
+        }
+        document.fonts.ready.then(function () {
+            emojiFontsReady = true;
+            clearGlyphSpriteCache();
+            draw();
+            setTimeout(function () {
+                clearGlyphSpriteCache();
+                draw();
+            }, 60);
+            setTimeout(function () {
+                clearGlyphSpriteCache();
+                draw();
+            }, 220);
+        });
     }
 
     function syncUiGlyphs() {
@@ -1915,10 +2051,9 @@
     var BOSS_TEMPLATE = monster('Rift Warden', 0x1F432, 6, 'shock', 'wind', 112, 26, 7, 'f');
 
     var EARLY_FLOOR_NAMES = {
-        1: ['Scurry Rat', 'Tunnel Mouse', 'Burrow Worm', 'Ash Roach'],
-        2: ['Scurry Rat', 'Tunnel Mouse', 'Burrow Worm', 'Ash Roach', 'Coil Snake', 'Leap Frog'],
-        3: ['Scurry Rat', 'Tunnel Mouse', 'Burrow Worm', 'Ash Roach', 'Coil Snake', 'Leap Frog', 'Web Spider', 'Rift Fly', 'Spear Duck'],
-        4: ['Scurry Rat', 'Tunnel Mouse', 'Burrow Worm', 'Ash Roach', 'Coil Snake', 'Leap Frog', 'Web Spider', 'Rift Fly', 'Spear Duck', 'Iron Beetle', 'Storm Ram', 'Chill Penguin']
+        1: ['Scurry Rat', 'Tunnel Mouse', 'Burrow Worm', 'Ash Roach', 'Coil Snake', 'Leap Frog', 'Web Spider', 'Rift Fly', 'Spear Duck'],
+        2: ['Scurry Rat', 'Tunnel Mouse', 'Burrow Worm', 'Ash Roach', 'Coil Snake', 'Leap Frog', 'Web Spider', 'Rift Fly', 'Spear Duck', 'Iron Beetle', 'Storm Ram', 'Chill Penguin', 'Venom Scorpion', 'Wild Goat', 'Moon Deer', 'Mad Monkey', 'Rot Microbe'],
+        3: ['Scurry Rat', 'Tunnel Mouse', 'Burrow Worm', 'Ash Roach', 'Coil Snake', 'Leap Frog', 'Web Spider', 'Rift Fly', 'Spear Duck', 'Iron Beetle', 'Storm Ram', 'Chill Penguin', 'Venom Scorpion', 'Wild Goat', 'Moon Deer', 'Mad Monkey', 'Rot Microbe', 'Blink Lizard', 'Blood Mosquito', 'Ink Squid', 'Spark Fish', 'Dream Koala', 'Hunt Dog', 'Shade Cat', 'Trick Fox', 'Gale Goose', 'Echo Parrot', 'Dune Camel', 'Twin Camel', 'Stink Skunk', 'Needle Hedgehog', 'River Otter', 'Dam Beaver']
     };
 
     function currentDepth() {
@@ -1974,6 +2109,86 @@
         return need;
     }
 
+    function progressionRatio(depth) {
+        if (MAX_DEPTH <= 1) {
+            return 1;
+        }
+        return clamp((depth - 1) / (MAX_DEPTH - 1), 0, 1);
+    }
+
+    function lerp(a, b, t) {
+        return a + ((b - a) * t);
+    }
+
+    function remapProgressDepth(depth) {
+        return 1 + (progressionRatio(depth) * 19);
+    }
+
+    function scaledTemplateMinDepth(template) {
+        var need = templateMinDepth(template);
+        return clamp(1 + Math.ceil(((need - 1) * (MAX_DEPTH - 1)) / 19), 1, MAX_DEPTH);
+    }
+
+    function oldMonsterCountAt(progressDepth) {
+        if (progressDepth <= 1) return 24;
+        if (progressDepth <= 2) return lerp(24, 44, progressDepth - 1);
+        if (progressDepth <= 3) return lerp(44, 72, progressDepth - 2);
+        if (progressDepth <= 4) return lerp(72, 112, progressDepth - 3);
+        return clamp(240 + ((progressDepth - 5) * 16), 240, 496);
+    }
+
+    function oldSupplyPlanAt(progressDepth) {
+        if (progressDepth <= 1) {
+            return { potions: 10, ether: 2, vials: 8 };
+        }
+        if (progressDepth <= 2) {
+            return { potions: 8, ether: 2, vials: 7 };
+        }
+        if (progressDepth <= 3) {
+            return { potions: 7, ether: 2, vials: 6 };
+        }
+        if (progressDepth <= 4) {
+            return { potions: 6, ether: 2, vials: 5 };
+        }
+        return {
+            potions: clamp(6 - Math.floor((progressDepth - 5) / 5), 3, 6),
+            ether: clamp(2 - Math.floor((progressDepth - 5) / 8), 0, 2),
+            vials: clamp(5 - Math.floor((progressDepth - 5) / 6), 3, 5) + (progressDepth >= 10 ? 1 : 0)
+        };
+    }
+
+    function oldHpScaleAt(progressDepth) {
+        if (progressDepth <= 1) return 0.30;
+        if (progressDepth <= 2) return lerp(0.30, 0.44, progressDepth - 1);
+        if (progressDepth <= 3) return lerp(0.44, 0.60, progressDepth - 2);
+        if (progressDepth <= 4) return lerp(0.60, 0.80, progressDepth - 3);
+        return 1 + ((progressDepth - 5) * 0.045);
+    }
+
+    function oldMeleeScaleAt(progressDepth) {
+        if (progressDepth <= 1) return 0.20;
+        if (progressDepth <= 2) return lerp(0.20, 0.34, progressDepth - 1);
+        if (progressDepth <= 3) return lerp(0.34, 0.52, progressDepth - 2);
+        if (progressDepth <= 4) return lerp(0.52, 0.74, progressDepth - 3);
+        return 1 + ((progressDepth - 5) * 0.04);
+    }
+
+    function oldSpeedAdjustAt(progressDepth) {
+        if (progressDepth <= 1) return -26;
+        if (progressDepth <= 2) return lerp(-26, -18, progressDepth - 1);
+        if (progressDepth <= 3) return lerp(-18, -12, progressDepth - 2);
+        if (progressDepth <= 4) return lerp(-12, -6, progressDepth - 3);
+        return Math.floor((progressDepth - 5) / 2) + Math.floor((progressDepth - 5) / 6);
+    }
+
+    function oldSpawnDistanceAt(progressDepth) {
+        if (progressDepth <= 1) return 26;
+        if (progressDepth <= 2) return lerp(26, 20, progressDepth - 1);
+        if (progressDepth <= 3) return lerp(20, 16, progressDepth - 2);
+        if (progressDepth <= 4) return lerp(16, 13, progressDepth - 3);
+        return 10;
+    }
+
     function monsterPoolForDepth(depth) {
         var names = EARLY_FLOOR_NAMES[depth];
         var out = [];
@@ -1982,7 +2197,7 @@
             return templatesByNames(names);
         }
         for (i = 0; i < ROSTER.length; i++) {
-            if (templateMinDepth(ROSTER[i]) <= depth) {
+            if (scaledTemplateMinDepth(ROSTER[i]) <= depth) {
                 out.push(ROSTER[i]);
             }
         }
@@ -1997,7 +2212,7 @@
         if (template.shield) {
             score += 2;
         }
-        score += clamp(depth - templateMinDepth(template), 0, 8);
+        score += clamp(depth - scaledTemplateMinDepth(template), 0, 8);
         return score;
     }
 
@@ -2027,63 +2242,27 @@
     }
 
     function monsterCountForDepth(depth) {
-        if (depth === 1) return 24;
-        if (depth === 2) return 44;
-        if (depth === 3) return 72;
-        if (depth === 4) return 112;
-        return clamp(240 + ((depth - 5) * 16), 240, 496);
+        return Math.round(oldMonsterCountAt(remapProgressDepth(depth)));
     }
 
     function supplyPlanForDepth(depth) {
-        if (depth === 1) {
-            return { potions: 10, ether: 8, vials: 2 };
-        }
-        if (depth === 2) {
-            return { potions: 8, ether: 7, vials: 2 };
-        }
-        if (depth === 3) {
-            return { potions: 7, ether: 6, vials: 2 };
-        }
-        if (depth === 4) {
-            return { potions: 6, ether: 5, vials: 2 };
-        }
-        return {
-            potions: clamp(6 - Math.floor((depth - 5) / 5), 3, 6),
-            ether: clamp(5 - Math.floor((depth - 5) / 5), 3, 5),
-            vials: 2 + (depth >= 10 ? 1 : 0)
-        };
+        return oldSupplyPlanAt(remapProgressDepth(depth));
     }
 
     function hpScaleForDepth(depth) {
-        if (depth === 1) return 0.30;
-        if (depth === 2) return 0.44;
-        if (depth === 3) return 0.60;
-        if (depth === 4) return 0.80;
-        return 1 + ((depth - 5) * 0.045);
+        return oldHpScaleAt(remapProgressDepth(depth));
     }
 
     function meleeScaleForDepth(depth) {
-        if (depth === 1) return 0.20;
-        if (depth === 2) return 0.34;
-        if (depth === 3) return 0.52;
-        if (depth === 4) return 0.74;
-        return 1 + ((depth - 5) * 0.04);
+        return oldMeleeScaleAt(remapProgressDepth(depth));
     }
 
     function speedAdjustForDepth(depth) {
-        if (depth === 1) return -26;
-        if (depth === 2) return -18;
-        if (depth === 3) return -12;
-        if (depth === 4) return -6;
-        return Math.floor((depth - 5) / 2) + Math.floor((depth - 5) / 6);
+        return Math.round(oldSpeedAdjustAt(remapProgressDepth(depth)));
     }
 
     function spawnDistanceForDepth(depth) {
-        if (depth === 1) return 26;
-        if (depth === 2) return 20;
-        if (depth === 3) return 16;
-        if (depth === 4) return 13;
-        return 10;
+        return Math.round(oldSpawnDistanceAt(remapProgressDepth(depth)));
     }
 
     function createFreshPlayer(x, y) {
@@ -2103,6 +2282,7 @@
             selectedLearned: 'heal',
             relic: false,
             nuke: 0,
+            manaQuietTurns: 0,
             webbed: 0,
             slow: 0,
             poison: 0,
@@ -2665,7 +2845,7 @@
 
     function createMonster(template, x, y, bossFlag) {
         var depth = currentDepth();
-        var hp = Math.max(2, Math.floor(template.hp * hpScaleForDepth(depth)));
+        var hp = Math.max(2, Math.floor(template.hp * hpScaleForDepth(depth))) * 2;
         var melee = Math.max(1, Math.floor(template.melee * meleeScaleForDepth(depth)));
         var speed = clamp(template.speed + speedAdjustForDepth(depth), 60, 140);
         if (bossFlag) {
@@ -2801,6 +2981,9 @@
         state.exit = { x: -1, y: -1 };
         state.relicPos = { x: -1, y: -1 };
         state.player = playerRef;
+        if (state.player) {
+            state.player.manaQuietTurns = state.player.manaQuietTurns || 0;
+        }
 
         for (attempts = 0; attempts < 260 && roomCount < 26; attempts++) {
             room = {
@@ -2862,6 +3045,30 @@
             exitRoom = farthestRoomFrom(center, 0);
             state.exit = roomCenter(exitRoom);
             setTile(state.exit.x, state.exit.y, TILE_EXIT);
+        }
+
+        if (depth === 1) {
+            room = state.rooms[0];
+            spawn = null;
+            for (i = 0; i < 60; i++) {
+                prev = {
+                    x: room.x + 1 + rand(room.w - 2),
+                    y: room.y + 1 + rand(room.h - 2)
+                };
+                if (isOpenTile(prev.x, prev.y) &&
+                        !monsterAt(prev.x, prev.y) &&
+                        itemIndexAt(prev.x, prev.y) === -1 &&
+                        !decorationAt(prev.x, prev.y) &&
+                        !(state.exit.x === prev.x && state.exit.y === prev.y) &&
+                        !(state.relicPos.x === prev.x && state.relicPos.y === prev.y) &&
+                        distance(prev.x, prev.y, state.player.x, state.player.y) >= 3) {
+                    spawn = prev;
+                    break;
+                }
+            }
+            if (spawn) {
+                state.monsters.push(createMonster(TRAINING_DUMMY_TEMPLATE, spawn.x, spawn.y, 0));
+            }
         }
 
         furnishRooms();
@@ -3025,6 +3232,9 @@
         dmg = clamp(dmg, 0, 99);
         state.player.hp -= dmg;
         pushMessage(source + ' hits for ' + dmg);
+        if (dmg > 0) {
+            playHurtSound();
+        }
         if (state.player.hp <= 0) {
             if (state.player.nuke > 0) {
                 state.player.hp = 1;
@@ -3125,6 +3335,11 @@
 
     function hitMonster(mon, dmg, spellId, source) {
         var shielded = applyMonsterShield(mon, spellId, dmg);
+        if (hasFlag(mon, 'D')) {
+            pushMessage(source + ' hits ' + mon.name + ' for ' + shielded.dmg);
+            pushMessage(mon.name + ' absorbs the test strike');
+            return 'hit';
+        }
         if (shielded.reflected) {
             pushMessage(mon.name + ' reflects the spell');
             hurtPlayer(Math.max(1, Math.floor(dmg / 2)), spellId, mon.name);
@@ -3503,6 +3718,8 @@
         var mon;
         var component;
         var targetFreezesWater;
+        var hitX;
+        var hitY;
         var target = maybeTarget;
         if (!canAct()) {
             return;
@@ -3548,15 +3765,18 @@
         state.player.mp -= cost;
         state.spentManaThisTurn = true;
         spawnEffect('bolt', spell.id, state.player.x, state.player.y, target.x, target.y, 3);
+        hitX = target.x;
+        hitY = target.y;
         targetFreezesWater = isWater(target.x, target.y) && !hasFlag(target, 'f');
 
         if (spell.id === 'fire') {
             result = hitMonster(target, 3 + roll(3), 'fire', 'Fire spell');
+            playSpellImpactSound('fire');
+            spawnEffect('burst', 'fire', target.x, target.y, target.x, target.y, 4);
             igniteGrassAt(target.x, target.y, 3);
             igniteDecoration(decorationAt(target.x, target.y), 3);
             if (result !== 'reflect' && currentTargetById(target.id)) {
                 igniteMonster(target, steppedTurns(6), 0);
-                spawnEffect('burst', 'fire', target.x, target.y, target.x, target.y, 3);
                 for (i = state.monsters.length - 1; i >= 0; i--) {
                     mon = state.monsters[i];
                     if (mon.id !== target.id && distance(mon.x, mon.y, target.x, target.y) <= 1) {
@@ -3572,9 +3792,10 @@
             }
         } else if (spell.id === 'lightning') {
             result = hitMonster(target, 4 + roll(3), 'lightning', 'Lightning');
+            playSpellImpactSound('lightning');
+            spawnEffect('burst', 'lightning', target.x, target.y, target.x, target.y, 4);
             if (isWater(target.x, target.y)) {
                 component = collectWaterComponent(target.x, target.y);
-                spawnEffect('burst', 'lightning', target.x, target.y, target.x, target.y, 4);
                 for (i = state.monsters.length - 1; i >= 0; i--) {
                     mon = state.monsters[i];
                     if (mon.id !== target.id && component[keyFor(mon.x, mon.y)]) {
@@ -3589,9 +3810,11 @@
             }
         } else if (spell.id === 'earth') {
             result = hitMonster(target, 6 + roll(4), 'earth', 'Earth spike');
-            spawnEffect('burst', 'earth', target.x, target.y, target.x, target.y, 3);
+            playSpellImpactSound('earth');
+            spawnEffect('burst', 'earth', target.x, target.y, target.x, target.y, 4);
         } else if (spell.id === 'frost') {
             result = hitMonster(target, 2 + roll(3), 'frost', 'Frost bolt');
+            playSpellImpactSound('frost');
             if (result !== 'reflect') {
                 if (currentTargetById(target.id)) {
                     target.slow = Math.max(target.slow, steppedTurns(5));
@@ -3603,15 +3826,16 @@
                     pushMessage(target.name + ' is snared by frost');
                 }
             }
-            spawnEffect('burst', 'frost', target.x, target.y, target.x, target.y, 3);
+            spawnEffect('burst', 'frost', target.x, target.y, target.x, target.y, 4);
         } else if (spell.id === 'wind') {
             result = hitMonster(target, 1 + roll(2), 'wind', 'Wind lash');
+            playSpellImpactSound('wind');
             if (result !== 'reflect' && currentTargetById(target.id)) {
                 if (pushMonster(target, state.player.x, state.player.y, 1 + rand(3)) > 0) {
                     pushMessage(target.name + ' is hurled backward');
                 }
             }
-            spawnEffect('burst', 'wind', target.x, target.y, target.x, target.y, 3);
+            spawnEffect('burst', 'wind', hitX, hitY, hitX, hitY, 4);
         }
 
         advanceTurn('cast');
@@ -3735,6 +3959,7 @@
         }
         radius = 1 + Math.floor((state.player.nuke - 1) / 2);
         dmg = 2 + (state.player.nuke * 2);
+        playNukeSound();
         spawnEffect('nova', 'lightning', state.player.x, state.player.y, state.player.x, state.player.y, 8);
         spawnEffect('burst', 'lightning', state.player.x, state.player.y, state.player.x, state.player.y, 6);
         for (i = -radius - 1; i <= radius + 1; i++) {
@@ -3790,6 +4015,7 @@
         if (mon.power === 'thorns') {
             hurtPlayer(1 + rand(2), 'melee', mon.name + ' thorns');
         }
+        playMeleeHitSound();
         hitMonster(mon, dmg, 'melee', 'Wizard blade');
         advanceTurn('melee');
     }
@@ -3870,19 +4096,26 @@
 
     function updatePlayerAfterTurn(kind) {
         var moveDrainsMana;
+        var spentMana;
+        var canRegenMana;
         if (!state.player) {
             return;
         }
         moveDrainsMana = kind === 'move' && isWater(state.player.x, state.player.y) && state.player.mp > 0;
+        spentMana = !!state.spentManaThisTurn || moveDrainsMana;
+        if (spentMana) {
+            state.player.manaQuietTurns = 0;
+        } else {
+            state.player.manaQuietTurns = (state.player.manaQuietTurns || 0) + 1;
+        }
+        canRegenMana = state.player.manaQuietTurns >= 3;
         if (kind === 'wait') {
-            gainMp(2);
-            state.player.hp = clamp(state.player.hp + 2, 0, state.player.maxHp);
-        } else if (kind === 'cast') {
-            if (state.spentManaThisTurn) {
-                gainMp(1);
+            if (canRegenMana) {
+                gainMp(2);
             }
+            state.player.hp = clamp(state.player.hp + 2, 0, state.player.maxHp);
         } else if (kind !== 'cast') {
-            if (!moveDrainsMana) {
+            if (!moveDrainsMana && canRegenMana) {
                 gainMp(1);
             }
             state.player.hp = clamp(state.player.hp + 1, 0, state.player.maxHp);
@@ -4279,6 +4512,9 @@
         if (!state.player || state.gameOver || state.victory) {
             return;
         }
+        if (hasFlag(mon, 'D')) {
+            return;
+        }
         if (chebDistance(mon.x, mon.y, state.player.x, state.player.y) <= VISION + 2) {
             mon.awake = 1;
         }
@@ -4564,6 +4800,7 @@
         state.autoMoveStop = '';
         state.autoMoveVisible = {};
         state.spentManaThisTurn = false;
+        state.player.manaQuietTurns = state.player.manaQuietTurns || 0;
         rebuildStaticLighting();
         if (colorModeEl) {
             colorModeEl.checked = !!state.colorMode;
@@ -4699,7 +4936,7 @@
             if (state.effects.length > 0) {
                 startEffectLoop();
             }
-        }, 100);
+        }, 120);
     }
 
     function roundRectPath(g, x, y, w, h, r) {
@@ -4904,13 +5141,9 @@
     }
 
     function drawPlayer(px, py, pal) {
-        ctx.beginPath();
-        ctx.arc(px + Math.floor(CELL / 2), py + Math.floor(CELL / 2), Math.floor(CELL * 0.43), 0, Math.PI * 2, false);
-        ctx.fillStyle = pal.badgeLight;
-        ctx.fill();
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = pal.playerRing;
-        ctx.stroke();
+        if (!emojiFontsReady) {
+            return;
+        }
         drawGlyph(ctx, ICON.wizard, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2) + 1, Math.floor(CELL * 0.98), FONT_EMOJI, pal.text);
     }
 
@@ -5182,6 +5415,12 @@
         var fy;
         var tx;
         var ty;
+        var lineFx;
+        var lineFy;
+        var lineDx;
+        var lineDy;
+        var lineLen;
+        var lineInset;
         var midx;
         var midy;
         var core;
@@ -5205,36 +5444,46 @@
             core = state.colorMode ? effectColor(eff.element) : '#111111';
             halo = state.colorMode ? '#fff6d2' : '#ffffff';
             outline = state.colorMode ? '#1a1410' : '#111111';
-            width = eff.kind === 'chain' ? 4 : 3;
+            width = eff.kind === 'chain' ? 6 : 5;
             if (eff.hostile) {
                 width += 2;
             }
-            orb = Math.max(3, Math.floor(CELL * (eff.hostile ? 0.16 : 0.11)));
+            orb = Math.max(5, Math.floor(CELL * (eff.hostile ? 0.24 : 0.17)));
             ctx.save();
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
             if (eff.kind === 'bolt') {
+                lineFx = fx;
+                lineFy = fy;
+                lineDx = tx - fx;
+                lineDy = ty - fy;
+                lineLen = Math.sqrt((lineDx * lineDx) + (lineDy * lineDy));
+                if (lineLen > 0.001) {
+                    lineInset = Math.min(Math.floor(CELL * 0.42), Math.max(8, Math.floor(lineLen * 0.35)));
+                    lineFx += (lineDx / lineLen) * lineInset;
+                    lineFy += (lineDy / lineLen) * lineInset;
+                }
                 ctx.globalAlpha = state.colorMode ? (0.35 + (alpha * 0.25)) : (0.55 + (alpha * 0.2));
                 ctx.strokeStyle = halo;
-                ctx.lineWidth = width + 5;
+                ctx.lineWidth = width + 7;
                 ctx.beginPath();
-                ctx.moveTo(fx, fy);
+                ctx.moveTo(lineFx, lineFy);
                 ctx.lineTo(tx, ty);
                 ctx.stroke();
 
                 ctx.globalAlpha = state.colorMode ? (0.4 + (alpha * 0.3)) : (0.7 + (alpha * 0.15));
                 ctx.strokeStyle = outline;
-                ctx.lineWidth = width + 2;
+                ctx.lineWidth = width + 3;
                 ctx.beginPath();
-                ctx.moveTo(fx, fy);
+                ctx.moveTo(lineFx, lineFy);
                 ctx.lineTo(tx, ty);
                 ctx.stroke();
 
                 ctx.globalAlpha = state.colorMode ? (0.75 + (alpha * 0.25)) : (0.95 - ((1 - alpha) * 0.15));
                 ctx.strokeStyle = core;
-                ctx.lineWidth = width;
+                ctx.lineWidth = width + 1;
                 ctx.beginPath();
-                ctx.moveTo(fx, fy);
+                ctx.moveTo(lineFx, lineFy);
                 ctx.lineTo(tx, ty);
                 ctx.stroke();
             } else if (eff.kind === 'chain') {
@@ -5243,7 +5492,7 @@
 
                 ctx.globalAlpha = state.colorMode ? (0.35 + (alpha * 0.25)) : (0.55 + (alpha * 0.2));
                 ctx.strokeStyle = halo;
-                ctx.lineWidth = width + 5;
+                ctx.lineWidth = width + 7;
                 ctx.beginPath();
                 ctx.moveTo(fx, fy);
                 ctx.lineTo(midx, midy);
@@ -5252,7 +5501,7 @@
 
                 ctx.globalAlpha = state.colorMode ? (0.4 + (alpha * 0.3)) : (0.7 + (alpha * 0.15));
                 ctx.strokeStyle = outline;
-                ctx.lineWidth = width + 2;
+                ctx.lineWidth = width + 3;
                 ctx.beginPath();
                 ctx.moveTo(fx, fy);
                 ctx.lineTo(midx, midy);
@@ -5261,7 +5510,7 @@
 
                 ctx.globalAlpha = state.colorMode ? (0.75 + (alpha * 0.25)) : (0.95 - ((1 - alpha) * 0.15));
                 ctx.strokeStyle = core;
-                ctx.lineWidth = width;
+                ctx.lineWidth = width + 1;
                 ctx.beginPath();
                 ctx.moveTo(fx, fy);
                 ctx.lineTo(midx, midy);
@@ -5269,7 +5518,7 @@
                 ctx.stroke();
             } else if (eff.kind === 'nova') {
                 width = Math.max(width + 3, Math.floor(CELL * 0.18));
-                orb = Math.max(10, Math.floor(CELL * (1.2 + ((eff.maxTtl - eff.ttl) * 0.35))));
+                orb = Math.max(12, Math.floor(CELL * (1.45 + ((eff.maxTtl - eff.ttl) * 0.42))));
                 ctx.globalAlpha = state.colorMode ? (0.22 + (alpha * 0.18)) : (0.42 + (alpha * 0.16));
                 ctx.fillStyle = halo;
                 ctx.beginPath();
@@ -5308,32 +5557,32 @@
                 ctx.lineTo(tx - (orb * 1.2), ty + (orb * 1.2));
                 ctx.stroke();
             } else {
-                orb = Math.max(8, Math.floor(CELL * (eff.hostile ? 0.34 : 0.30)));
-                ctx.globalAlpha = state.colorMode ? (0.35 + (alpha * 0.2)) : (0.55 + (alpha * 0.15));
+                orb = Math.max(14, Math.floor(CELL * 0.57));
+                ctx.globalAlpha = state.colorMode ? (0.38 + (alpha * 0.22)) : (0.58 + (alpha * 0.15));
                 ctx.fillStyle = halo;
                 ctx.beginPath();
-                ctx.arc(tx, ty, Math.floor((CELL * 0.42) + ((eff.maxTtl - eff.ttl) * 5)), 0, Math.PI * 2, false);
+                ctx.arc(tx, ty, Math.floor((CELL * 0.75) + ((eff.maxTtl - eff.ttl) * 7)), 0, Math.PI * 2, false);
                 ctx.fill();
 
-                ctx.globalAlpha = state.colorMode ? (0.42 + (alpha * 0.22)) : (0.68 + (alpha * 0.14));
+                ctx.globalAlpha = state.colorMode ? (0.44 + (alpha * 0.24)) : (0.70 + (alpha * 0.14));
                 ctx.strokeStyle = halo;
-                ctx.lineWidth = eff.hostile ? 7 : 6;
+                ctx.lineWidth = 10;
                 ctx.beginPath();
-                ctx.arc(tx, ty, Math.floor((CELL * 0.36) + ((eff.maxTtl - eff.ttl) * 5)), 0, Math.PI * 2, false);
+                ctx.arc(tx, ty, Math.floor((CELL * 0.64) + ((eff.maxTtl - eff.ttl) * 7)), 0, Math.PI * 2, false);
                 ctx.stroke();
 
-                ctx.globalAlpha = state.colorMode ? (0.4 + (alpha * 0.25)) : (0.7 + (alpha * 0.12));
+                ctx.globalAlpha = state.colorMode ? (0.42 + (alpha * 0.25)) : (0.72 + (alpha * 0.12));
                 ctx.strokeStyle = outline;
-                ctx.lineWidth = eff.hostile ? 4 : 3;
+                ctx.lineWidth = 6;
                 ctx.beginPath();
-                ctx.arc(tx, ty, Math.floor((CELL * 0.30) + ((eff.maxTtl - eff.ttl) * 4)), 0, Math.PI * 2, false);
+                ctx.arc(tx, ty, Math.floor((CELL * 0.53) + ((eff.maxTtl - eff.ttl) * 6)), 0, Math.PI * 2, false);
                 ctx.stroke();
 
                 ctx.globalAlpha = state.colorMode ? (0.75 + (alpha * 0.25)) : (0.95 - ((1 - alpha) * 0.15));
                 ctx.strokeStyle = core;
-                ctx.lineWidth = eff.hostile ? 3 : 2;
+                ctx.lineWidth = 5;
                 ctx.beginPath();
-                ctx.arc(tx, ty, Math.floor((CELL * 0.30) + ((eff.maxTtl - eff.ttl) * 4)), 0, Math.PI * 2, false);
+                ctx.arc(tx, ty, Math.floor((CELL * 0.53) + ((eff.maxTtl - eff.ttl) * 6)), 0, Math.PI * 2, false);
                 ctx.stroke();
 
                 ctx.fillStyle = core;
@@ -5595,18 +5844,34 @@
             }
             px = (item.x - vx) * CELL;
             py = (item.y - vy) * CELL;
+            if (item.type === 'vial') {
+                ctx.save();
+                ctx.globalAlpha = state.colorMode ? 0.40 : 0.24;
+                ctx.strokeStyle = state.colorMode ? '#ffcc45' : pal.text;
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.arc(px + Math.floor(CELL / 2), py + Math.floor(CELL / 2), Math.floor(CELL * 0.34), 0, Math.PI * 2, false);
+                ctx.stroke();
+                ctx.globalAlpha = state.colorMode ? 0.28 : 0.16;
+                ctx.strokeStyle = state.colorMode ? '#ff5a2f' : pal.text;
+                ctx.lineWidth = 9;
+                ctx.beginPath();
+                ctx.arc(px + Math.floor(CELL / 2), py + Math.floor(CELL / 2), Math.floor(CELL * 0.26), 0, Math.PI * 2, false);
+                ctx.stroke();
+                ctx.restore();
+            }
             drawGlyph(
                 ctx,
-                item.type === 'potion' ? ICON.heart : (item.type === 'ether' ? ICON.spark : ICON.bolt),
+                item.type === 'potion' ? ICON.heart : ICON.spark,
                 px + Math.floor(CELL / 2),
                 py + Math.floor(CELL / 2),
                 Math.floor(CELL * 0.72),
                 item.type === 'potion' ? FONT_EMOJI : FONT_SYMBOL,
-                pal.text
+                item.type === 'vial' && state.colorMode ? '#ffd24a' : pal.text
             );
         }
 
-        if (!state.player.relic && state.relicPos.x >= 0 && state.relicPos.x >= vx && state.relicPos.x < vx + VIEW_COLS && state.relicPos.y >= vy && state.relicPos.y < vy + VIEW_ROWS && isVisibleCell(state.relicPos.x, state.relicPos.y)) {
+        if (state.player && !state.player.relic && state.relicPos.x >= 0 && state.relicPos.x >= vx && state.relicPos.x < vx + VIEW_COLS && state.relicPos.y >= vy && state.relicPos.y < vy + VIEW_ROWS && isVisibleCell(state.relicPos.x, state.relicPos.y)) {
             px = (state.relicPos.x - vx) * CELL;
             py = (state.relicPos.y - vy) * CELL;
             drawGlyph(ctx, ICON.gem, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2), Math.floor(CELL * 0.78), FONT_EMOJI, pal.text);
@@ -5617,6 +5882,8 @@
             py = (state.exit.y - vy) * CELL;
             drawGlyph(ctx, ICON.door, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2), Math.floor(CELL * 0.76), FONT_EMOJI, pal.text);
         }
+
+        drawEffects(vx, vy);
 
         for (i = 0; i < state.monsters.length; i++) {
             mon = state.monsters[i];
@@ -5636,8 +5903,6 @@
             py = (state.player.y - vy) * CELL;
             drawPlayer(px, py, pal);
         }
-
-        drawEffects(vx, vy);
 
         if (state.paused) {
             drawBanner('Paused');
@@ -5706,7 +5971,7 @@
             }
         }
 
-        if (!state.player.relic && state.relicPos.x >= 0 && state.relicPos.y >= 0) {
+        if (state.player && !state.player.relic && state.relicPos.x >= 0 && state.relicPos.y >= 0) {
             legendCtx.fillStyle = state.colorMode ? '#ffd84a' : '#111111';
             legendCtx.fillRect(Math.floor(state.relicPos.x * cw), Math.floor(state.relicPos.y * ch), Math.ceil(cw) + 1, Math.ceil(ch) + 1);
         }
@@ -5724,8 +5989,10 @@
             legendCtx.fillRect(tx, ty, Math.ceil(cw), Math.ceil(ch));
         }
 
-        legendCtx.fillStyle = state.colorMode ? '#f2b43a' : '#ffffff';
-        legendCtx.fillRect(Math.floor(state.player.x * cw), Math.floor(state.player.y * ch), Math.ceil(cw) + 1, Math.ceil(ch) + 1);
+        if (state.player) {
+            legendCtx.fillStyle = state.colorMode ? '#f2b43a' : '#ffffff';
+            legendCtx.fillRect(Math.floor(state.player.x * cw), Math.floor(state.player.y * ch), Math.ceil(cw) + 1, Math.ceil(ch) + 1);
+        }
         legendCtx.strokeStyle = pal.shadow;
         legendCtx.lineWidth = 2;
         legendCtx.strokeRect(1, 1, w - 2, h - 2);
@@ -5794,6 +6061,7 @@
                 }
                 return false;
             }
+            ensureAudio();
             cancelAutoMove('');
             fn();
             return false;
@@ -5803,6 +6071,7 @@
             if (e && e.preventDefault) {
                 e.preventDefault();
             }
+            ensureAudio();
             cancelAutoMove('');
             fn();
             return false;
@@ -5914,6 +6183,7 @@
 
     function onKey(e) {
         var code = e.which || e.keyCode;
+        ensureAudio();
         cancelAutoMove('');
         if (code === 37 || code === 65) {
             tryMove(-1, 0);
@@ -6011,6 +6281,7 @@
             if (e && e.preventDefault) {
                 e.preventDefault();
             }
+            ensureAudio();
             if (!targetMonsterAtEvent(e || window.event)) {
                 autoMoveTargetAtEvent(e || window.event);
             }
@@ -6021,6 +6292,7 @@
             if (e && e.preventDefault) {
                 e.preventDefault();
             }
+            ensureAudio();
             if (!targetMonsterAtEvent(e || window.event)) {
                 autoMoveTargetAtEvent(e || window.event);
             }
@@ -6048,6 +6320,7 @@
     setTimeout(draw, 120);
     setTimeout(syncLayout, 300);
     setTimeout(draw, 700);
+    refreshGlyphsAfterFontsReady();
 }());
 
 

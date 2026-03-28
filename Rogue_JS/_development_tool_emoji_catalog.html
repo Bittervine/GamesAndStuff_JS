@@ -141,6 +141,60 @@
             resize: vertical;
         }
 
+        #wizardSizePanel {
+            margin: 0 0 18px;
+            padding: 10px;
+            border: 2px solid #111111;
+            border-radius: 14px;
+            background: #ffffff;
+            box-sizing: border-box;
+            box-shadow: inset 0 2px 0 #ffffff, inset 0 -2px 0 #d0d0d0, 0 3px 0 #666666;
+        }
+
+        .wizardSizeGrid {
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .wizardSizeCard {
+            float: left;
+            width: 120px;
+            min-height: 130px;
+            margin: 0 10px 10px 0;
+            padding: 8px;
+            border: 2px solid #111111;
+            border-radius: 12px;
+            background: #f8f5ee;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        .wizardSizeLabel {
+            display: block;
+            margin-top: 6px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .wizardSizeMeta {
+            margin-top: 4px;
+            font-size: 11px;
+            line-height: 1.2;
+        }
+
+        #wizardSizeChoice {
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 10px;
+            padding: 8px 10px;
+            border: 2px solid #111111;
+            border-radius: 12px;
+            background: #ffffff;
+            color: #111111;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 12px;
+        }
+
         .sectionTitle {
             margin: 0 0 8px;
             padding: 8px 10px;
@@ -290,12 +344,20 @@
             <textarea id="selectionBox" readonly="readonly" placeholder="Changes from the current game selection will appear here, one per line."></textarea>
             <div class="hint">Current hero candidates are grouped first so we can compare wizard alternatives quickly. Rare sequences such as <code>mage</code> and <code>man mage</code> are most likely to appear in the bundled color emoji fonts and in <code>Segoe UI Emoji</code>, so Rare Emoji Priority is now the default. Browser emoji substitution can still override text rendering, but it is less of a problem when canvas sprite rendering is enabled.</div>
         </div>
+        <div id="wizardSizePanel">
+            <div class="sectionTitle">Hero Wizard Size Test</div>
+            <div class="hint">These all use <code>hero_mage_man</code> with the current <code>Font Stack</code>, <code>Glyph Style</code>, and sprite settings. Pick the one that looks correct and I can lock the game to that raster source size.</div>
+            <div id="wizardSizeGrid" class="wizardSizeGrid"></div>
+            <input type="text" id="wizardSizeChoice" readonly="readonly" placeholder="Pick a wizard size above and this box will show the exact setting to send me.">
+            <div class="clear"></div>
+        </div>
         <div id="catalog"></div>
     </div>
 
     <script>
     (function () {
         var selectedIds = {};
+        var chosenWizardSize = null;
         var baselineSelectedIds = {
             item_gem: 1,
             item_door: 1,
@@ -588,8 +650,9 @@
         }
 
         function drawGlyphSprite(canvas, glyph, family) {
-            var srcSize = 64;
+            var srcSize = parseInt(canvas.getAttribute('data-src-size') || '64', 10);
             var dstSize = 64;
+            var fontPx = parseInt(canvas.getAttribute('data-font-size') || String(Math.max(12, Math.round(srcSize * 0.8125))), 10);
             var src = document.createElement('canvas');
             var srcCtx = src.getContext('2d');
             var dstCtx = canvas.getContext('2d');
@@ -599,7 +662,7 @@
             srcCtx.clearRect(0, 0, srcSize, srcSize);
             srcCtx.textAlign = 'center';
             srcCtx.textBaseline = 'middle';
-            srcCtx.font = '52px ' + family;
+            srcCtx.font = fontPx + 'px ' + family;
             srcCtx.fillStyle = '#111111';
             srcCtx.fillText(glyph, srcSize / 2, srcSize / 2 + 0.5);
 
@@ -616,6 +679,61 @@
                 canvas = canvases[i];
                 drawGlyphSprite(canvas, canvas.getAttribute('data-glyph') || '', canvas.getAttribute('data-font-family') || fontFamily('auto'));
             }
+        }
+
+        function refreshAfterFontsReady() {
+            if (!document.fonts || !document.fonts.ready) {
+                return;
+            }
+            document.fonts.ready.then(function () {
+                render();
+                setTimeout(render, 60);
+                setTimeout(render, 220);
+            });
+        }
+
+        function updateWizardSizeChoice() {
+            var box = document.getElementById('wizardSizeChoice');
+            var glyphMode = document.getElementById('glyphMode').value;
+            var fontMode = document.getElementById('fontMode').value;
+            if (!chosenWizardSize) {
+                box.value = '';
+                return;
+            }
+            box.value = 'hero_mage_man size=' + chosenWizardSize + ' font=' + Math.max(12, Math.round(chosenWizardSize * 0.8125)) + ' fontMode=' + fontMode + ' glyphMode=' + glyphMode;
+        }
+
+        function renderWizardSizeTest() {
+            var sizes = [24, 32, 40, 48, 52, 56, 64, 72, 80];
+            var target = document.getElementById('wizardSizeGrid');
+            var family = fontFamily(document.getElementById('fontMode').value);
+            var glyph = glyphText(data[1], document.getElementById('glyphMode').value);
+            var spriteMode = document.getElementById('spriteMode').checked;
+            var html = '';
+            var i;
+            var size;
+            var fontPx;
+
+            for (i = 0; i < sizes.length; i++) {
+                size = sizes[i];
+                fontPx = Math.max(12, Math.round(size * 0.8125));
+                html += '<div class="wizardSizeCard">';
+                html += '<label class="pickLabel"><input type="radio" name="wizardSizePick" value="' + size + '"' + (chosenWizardSize === size ? ' checked="checked"' : '') + '> Pick</label>';
+                if (spriteMode) {
+                    html += '<div class="glyph"><canvas class="glyphCanvas" width="64" height="64" data-glyph="' + escapeHtml(glyph) + '" data-font-family="' + escapeHtml(family) + '" data-src-size="' + size + '" data-font-size="' + fontPx + '"></canvas></div>';
+                } else {
+                    html += '<div class="glyph" style="font-family:' + family + ';">' + escapeHtml(glyph) + '</div>';
+                }
+                html += '<span class="wizardSizeLabel">src ' + size + 'x' + size + '</span>';
+                html += '<div class="wizardSizeMeta">font ' + fontPx + 'px</div>';
+                html += '</div>';
+            }
+            html += '<div class="clear"></div>';
+            target.innerHTML = html;
+            if (spriteMode) {
+                renderGlyphCanvases();
+            }
+            updateWizardSizeChoice();
         }
 
         function updateSelectionBox() {
@@ -708,6 +826,7 @@
             if (spriteMode) {
                 renderGlyphCanvases();
             }
+            renderWizardSizeTest();
             updateSelectionBox();
         }
 
@@ -729,9 +848,18 @@
             }
             updateSelectionBox();
         };
+        document.getElementById('wizardSizePanel').onchange = function (e) {
+            var target = e.target || e.srcElement;
+            if (!target || target.name !== 'wizardSizePick') {
+                return;
+            }
+            chosenWizardSize = parseInt(target.value, 10) || null;
+            updateWizardSizeChoice();
+        };
         document.getElementById('fontMode').value = 'rareColor';
         initializeSelection();
         render();
+        refreshAfterFontsReady();
     }());
     </script>
 </body>
