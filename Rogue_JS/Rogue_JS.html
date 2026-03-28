@@ -42,18 +42,22 @@
         }
 
         #cabinet {
+            display: flex;
+            flex-wrap: nowrap;
+            justify-content: center;
+            align-items: flex-start;
             height: 100%;
             overflow: hidden;
         }
 
         .controlStack {
             position: relative;
-            float: left;
+            flex: 0 0 auto;
             width: 15%;
         }
 
         #boardWrap {
-            float: left;
+            flex: 0 0 auto;
             width: 68%;
             margin: 0 1%;
         }
@@ -85,27 +89,28 @@
 
         #hud {
             top: 0;
-            height: 16%;
+            bottom: 72%;
             padding: 6px 6px 4px;
             font-size: 12px;
             line-height: 1.15;
         }
 
         #legendPanel {
-            top: 18%;
-            height: 27%;
+            top: auto;
+            bottom: 54%;
+            height: 15%;
             padding: 4px;
         }
 
         #sysPanel {
             top: 0;
-            height: 114px;
-            min-height: 114px;
-            padding: 5px 5px 3px;
+            height: 122px;
+            min-height: 122px;
+            padding: 5px 5px 10px;
         }
 
         #messagePanel {
-            top: 118px;
+            top: 136px;
             height: 25%;
             padding: 6px 6px 4px;
             font-size: 11px;
@@ -216,11 +221,26 @@
             height: 52%;
         }
 
+        #moveDock {
+            display: flex;
+            justify-content: flex-end;
+            align-items: flex-end;
+        }
+
         .actionGrid,
         .moveGrid {
             position: relative;
             width: 100%;
             height: 100%;
+        }
+
+        .moveGrid {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 1 / 1;
+            max-width: 100%;
+            max-height: 100%;
+            margin: auto 0 0 auto;
         }
 
         .learnSelect {
@@ -459,63 +479,63 @@
             top: 0;
             left: 34%;
             width: 31%;
-            height: 27%;
+            height: 31%;
         }
 
         .upLeftBtn {
             top: 0;
             left: 0;
             width: 31%;
-            height: 27%;
+            height: 31%;
         }
 
         .upRightBtn {
             top: 0;
             right: 0;
             width: 31%;
-            height: 27%;
+            height: 31%;
         }
 
         .leftBtn {
-            top: 35%;
+            top: 33%;
             left: 0;
             width: 31%;
-            height: 27%;
+            height: 31%;
         }
 
         .centerBtn {
-            top: 35%;
+            top: 33%;
             left: 34%;
             width: 31%;
-            height: 27%;
+            height: 31%;
         }
 
         .rightBtn {
-            top: 35%;
+            top: 33%;
             right: 0;
             width: 31%;
-            height: 27%;
+            height: 31%;
         }
 
         .downLeftBtn {
-            top: 70%;
+            top: 66%;
             left: 0;
             width: 31%;
-            height: 27%;
+            height: 31%;
         }
 
         .downBtn {
-            top: 70%;
+            top: 66%;
             left: 34%;
             width: 31%;
-            height: 27%;
+            height: 31%;
         }
 
         .downRightBtn {
-            top: 70%;
+            top: 66%;
             right: 0;
             width: 31%;
-            height: 27%;
+            height: 31%;
         }
 
         .sysToggle {
@@ -6145,19 +6165,23 @@
             px = (item.x - vx) * CELL;
             py = (item.y - vy) * CELL;
             if (item.type === 'vial') {
+                var cxGlow = px + Math.floor(CELL / 2);
+                var cyGlow = py + Math.floor(CELL / 2);
+                var glowR = Math.floor(CELL * 0.48);
+                var glow = ctx.createRadialGradient(cxGlow, cyGlow, Math.floor(CELL * 0.08), cxGlow, cyGlow, glowR);
                 ctx.save();
-                ctx.globalAlpha = state.colorMode ? 0.40 : 0.24;
-                ctx.strokeStyle = state.colorMode ? '#ffcc45' : pal.text;
-                ctx.lineWidth = 5;
-                ctx.beginPath();
-                ctx.arc(px + Math.floor(CELL / 2) - 1, py + Math.floor(CELL / 2) - 1, Math.floor(CELL * 0.34), 0, Math.PI * 2, false);
-                ctx.stroke();
-                ctx.globalAlpha = state.colorMode ? 0.28 : 0.16;
-                ctx.strokeStyle = state.colorMode ? '#ff5a2f' : pal.text;
-                ctx.lineWidth = 9;
-                ctx.beginPath();
-                ctx.arc(px + Math.floor(CELL / 2) - 1, py + Math.floor(CELL / 2) - 1, Math.floor(CELL * 0.26), 0, Math.PI * 2, false);
-                ctx.stroke();
+                if (state.colorMode) {
+                    glow.addColorStop(0, 'rgba(255,244,140,0.72)');
+                    glow.addColorStop(0.45, 'rgba(255,196,0,0.38)');
+                    glow.addColorStop(0.78, 'rgba(255,96,32,0.18)');
+                    glow.addColorStop(1, 'rgba(255,96,32,0)');
+                } else {
+                    glow.addColorStop(0, 'rgba(255,255,255,0.26)');
+                    glow.addColorStop(0.70, 'rgba(255,255,255,0.10)');
+                    glow.addColorStop(1, 'rgba(255,255,255,0)');
+                }
+                ctx.fillStyle = glow;
+                ctx.fillRect(px, py, CELL, CELL);
                 ctx.restore();
             }
             drawGlyph(
