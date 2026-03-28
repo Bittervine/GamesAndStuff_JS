@@ -1959,11 +1959,27 @@
         return out;
     }
 
+    function visibleCrystalBallTargets() {
+        var out = [];
+        var i;
+        var deco;
+        for (i = 0; i < state.decorations.length; i++) {
+            deco = state.decorations[i];
+            if (deco.type === 'crystal_ball' && isVisibleCell(deco.x, deco.y)) {
+                out.push(makeDecorationTarget(deco));
+            }
+        }
+        out.sort(function (a, b) {
+            return distance(a.x, a.y, state.player.x, state.player.y) - distance(b.x, b.y, state.player.x, state.player.y);
+        });
+        return out;
+    }
+
     function refreshTargetSelection() {
         var i;
         var found = false;
         var current = currentTarget();
-        state.visibleTargets = state.player ? visibleMonsters() : [];
+        state.visibleTargets = state.player ? visibleMonsters().concat(visibleCrystalBallTargets()) : [];
         if (current && current.kind === 'decoration') {
             return;
         }
@@ -3731,11 +3747,11 @@
     }
 
     function freezeWaterAt(x, y, turns, quiet, directSpell) {
-        if (tileAt(x, y) === TILE_WATER && (directSpell || state.thawedWaterImmune[y][x] <= 0) && state.frozenWater[y][x] < turns) {
+        if (tileAt(x, y) === TILE_WATER && (directSpell || state.thawedWaterImmune[y][x] <= 0) && state.frozenWater[y][x] <= 0) {
             if (state.frozenWater[y][x] <= 0) {
                 state.frozenWaterFresh[y][x] = 1;
             }
-            state.frozenWater[y][x] = Math.max(state.frozenWater[y][x], turns);
+            state.frozenWater[y][x] = 5;
             state.thawedWaterImmune[y][x] = 0;
             if (!quiet) {
                 spawnEffect('burst', 'frost', x, y, x, y, 2);
@@ -3907,12 +3923,12 @@
                         }
                         state.frozenWaterFresh[y][x] = 0;
                     }
-                    if (roll(100) <= 5 || state.frozenWater[y][x] <= 1) {
-                        state.frozenWater[y][x] = 0;
-                        state.thawedWaterImmune[y][x] = 6;
-                        state.frozenWaterFresh[y][x] = 0;
-                    } else {
+                    if (state.frozenWater[y][x] > 1) {
                         state.frozenWater[y][x] -= 1;
+                    } else if (roll(100) <= 25) {
+                        state.frozenWater[y][x] = 0;
+                        state.thawedWaterImmune[y][x] = 3;
+                        state.frozenWaterFresh[y][x] = 0;
                     }
                 }
             }
