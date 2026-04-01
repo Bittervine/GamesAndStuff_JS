@@ -5361,29 +5361,15 @@
     }
 
     function viewLeft() {
-        var room;
-        var innerCols;
         if (!state.player) {
             return 0;
-        }
-        room = currentRoom();
-        if (room) {
-            innerCols = room.w + 2;
-            return clamp(room.x - 1 - Math.floor((VIEW_COLS - innerCols) / 2), 0, WORLD_W - VIEW_COLS);
         }
         return clamp(state.player.x - Math.floor(VIEW_COLS / 2), 0, WORLD_W - VIEW_COLS);
     }
 
     function viewTop() {
-        var room;
-        var innerRows;
         if (!state.player) {
             return 0;
-        }
-        room = currentRoom();
-        if (room) {
-            innerRows = room.h + 2;
-            return clamp(room.y - 1 - Math.floor((VIEW_ROWS - innerRows) / 2), 0, WORLD_H - VIEW_ROWS);
         }
         return clamp(state.player.y - Math.floor(VIEW_ROWS / 2), 0, WORLD_H - VIEW_ROWS);
     }
@@ -6443,15 +6429,9 @@
         var gutter = clamp(Math.floor(cabinetW * 0.01), 8, 18);
         var boardW = Math.max(220, cabinetW - (stackW * 2) - (gutter * 2));
         var totalW;
-        var room = currentRoom();
-        var desiredCols = room ? room.w + 2 : 7;
-        var desiredRows = room ? room.h + 2 : 7;
-        var roomyCell = 36;
-        var maxRoomCols = Math.min(WORLD_W, Math.max(desiredCols + 8, Math.floor(totalW / roomyCell)));
-        var maxRoomRows = Math.min(WORLD_H, Math.max(desiredRows + 8, Math.floor(totalH / roomyCell)));
-        var maxOpenCols = Math.min(WORLD_W, Math.max(15, Math.floor(totalW / roomyCell)));
-        var maxOpenRows = Math.min(WORLD_H, Math.max(15, Math.floor(totalH / roomyCell)));
         var targetCell;
+        var maxOpenCols;
+        var maxOpenRows;
         var drawW;
         var drawH;
         if (!canvas) {
@@ -6469,14 +6449,11 @@
             boardWrap.style.marginRight = gutter + 'px';
         }
         totalW = boardWrap ? (boardWrap.clientWidth || boardW || 400) : 400;
-        targetCell = clamp(Math.floor(Math.min(totalW / desiredCols, totalH / desiredRows)), 20, 64);
-        if (room) {
-            VIEW_COLS = clamp(Math.floor(totalW / targetCell), desiredCols, maxRoomCols);
-            VIEW_ROWS = clamp(Math.floor(totalH / targetCell), desiredRows, maxRoomRows);
-        } else {
-            VIEW_COLS = oddClamp(Math.floor(totalW / targetCell), 7, maxOpenCols);
-            VIEW_ROWS = oddClamp(Math.floor(totalH / targetCell), 7, maxOpenRows);
-        }
+        targetCell = 32;
+        maxOpenCols = Math.min(WORLD_W, Math.max(15, Math.floor(totalW / targetCell)));
+        maxOpenRows = Math.min(WORLD_H, Math.max(15, Math.floor(totalH / targetCell)));
+        VIEW_COLS = oddClamp(Math.floor(totalW / targetCell), 15, maxOpenCols);
+        VIEW_ROWS = oddClamp(Math.floor(totalH / targetCell), 15, maxOpenRows);
         CELL = clamp(Math.floor(Math.min(totalW / VIEW_COLS, totalH / VIEW_ROWS)), 20, 64);
         drawW = VIEW_COLS * CELL;
         drawH = VIEW_ROWS * CELL;
