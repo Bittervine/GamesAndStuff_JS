@@ -1350,6 +1350,7 @@
         messages: [],
         effects: [],
         effectTimer: 0,
+        bannerTimer: 0,
         bannerUntil: 0,
         bannerLines: null,
         status: 'Ready',
@@ -1930,7 +1931,15 @@
     }
 
     function showBanner(lines, duration) {
+        var ttl;
         if (!lines) {
+            if (state.bannerTimer) {
+                try {
+                    clearTimeout(state.bannerTimer);
+                } catch (err) {
+                }
+                state.bannerTimer = 0;
+            }
             state.bannerLines = null;
             state.bannerUntil = 0;
             return;
@@ -1939,7 +1948,22 @@
             lines = [lines];
         }
         state.bannerLines = lines;
-        state.bannerUntil = Date.now() + (duration || 1400);
+        ttl = Math.min(3000, (duration || 1400));
+        state.bannerUntil = Date.now() + ttl;
+        if (state.bannerTimer) {
+            try {
+                clearTimeout(state.bannerTimer);
+            } catch (err2) {
+            }
+        }
+        state.bannerTimer = setTimeout(function () {
+            state.bannerTimer = 0;
+            if (state.bannerUntil && Date.now() >= state.bannerUntil) {
+                state.bannerUntil = 0;
+                state.bannerLines = null;
+                draw();
+            }
+        }, ttl + 20);
     }
 
     function setNukeButtonFace(btn, icon, text, charges) {
@@ -2921,6 +2945,7 @@
             xp: 0,
             nextLevel: 10,
             spellIndex: 0,
+            lastBasicSpell: 'earth',
             selectedLearned: 'heal',
             relic: false,
             nuke: 0,
@@ -3632,6 +3657,7 @@
         var supplies;
 
         clearEffectTimer();
+        clearBannerTimer();
         state.map = makeGrid(WORLD_W, WORLD_H, TILE_WALL);
         state.explored = makeGrid(WORLD_W, WORLD_H, 0);
         state.webs = makeGrid(WORLD_W, WORLD_H, 0);
@@ -3906,7 +3932,7 @@
                 state.player.mp = clamp(state.player.mp + 4, 0, state.player.maxMp);
                 pushMessage('Mana crystal refills power');
             } else if (item.type === 'vial') {
-                state.player.nuke += 1;
+                state.player.nuke = Math.min(9, state.player.nuke + 1);
                 pushMessage('Pulse vial charges the nuke');
             } else if (item.type === 'double_damage_6' || item.type === 'double_damage_10') {
                 state.player.damageMult *= 2;
@@ -4563,6 +4589,9 @@
         if (!spell) {
             spell = currentSpell();
         }
+        if (spell && spell.id) {
+            state.player.lastBasicSpell = spell.id;
+        }
         cost = spellCost(spell);
         if (state.player.mp < cost) {
             pushMessage('Not enough mana');
@@ -4659,6 +4688,53 @@
         }
 
         advanceTurn('cast');
+    }
+
+    function repeatTargetSpellFor(mon) {
+        if (mon && chebDistance(state.player.x, state.player.y, mon.x, mon.y) <= 1) {
+            return 'wind';
+        }
+        if (mon && isWater(mon.x, mon.y)) {
+            return 'frost';
+        }
+        if (mon && tileAt(mon.x, mon.y) === TILE_GRASS) {
+            return 'fire';
+        }
+        return (state.player && state.player.lastBasicSpell) ? state.player.lastBasicSpell : 'earth';
+    }
+
+    function activateSelectedTarget() {
+        var target;
+        var mon;
+        var deco;
+        var repeatSpellId;
+        if (!state.player) {
+            return false;
+        }
+        refreshTargetSelection();
+        target = currentTarget();
+        if (!target) {
+            return false;
+        }
+        cancelAutoMove('');
+        if (target.kind === 'monster' && target.ref && currentTargetById(target.ref.id)) {
+            mon = target.ref;
+            repeatSpellId = repeatTargetSpellFor(mon);
+            if (repeatSpellId === 'wind' && chebDistance(state.player.x, state.player.y, mon.x, mon.y) <= 1 && state.player.mp < spellCost(quickSpellById('wind'))) {
+                meleeTarget(mon);
+            } else {
+                castSpellAt(repeatSpellId, makeMonsterTarget(mon));
+            }
+            return true;
+        }
+        if (target.kind === 'decoration') {
+            deco = target.ref || decorationAt(target.x, target.y);
+            if (deco) {
+                castSpellAt(state.player.lastBasicSpell || 'earth', makeDecorationTarget(deco));
+                return true;
+            }
+        }
+        return false;
     }
 
     function castLearnedSpell() {
@@ -5473,6 +5549,17 @@
         state.effectTimer = 0;
     }
 
+    function clearBannerTimer() {
+        if (!state.bannerTimer) {
+            return;
+        }
+        try {
+            clearTimeout(state.bannerTimer);
+        } catch (err) {
+        }
+        state.bannerTimer = 0;
+    }
+
     function buildSaveSnapshot() {
         return {
             version: 1,
@@ -5546,6 +5633,7 @@
             return false;
         }
         clearEffectTimer();
+        clearBannerTimer();
         data = snapshot.state;
         state.map = data.map;
         state.explored = data.explored;
@@ -5571,6 +5659,9 @@
         state.player = data.player;
         if (typeof state.player.damageMult !== 'number' || state.player.damageMult < 1) {
             state.player.damageMult = 1;
+        }
+        if (!state.player.lastBasicSpell) {
+            state.player.lastBasicSpell = 'earth';
         }
         state.player.damageScroll6Taken = !!state.player.damageScroll6Taken;
         state.player.damageScroll10Taken = !!state.player.damageScroll10Taken;
@@ -7032,6 +7123,9 @@
         }
         mon = monsterAt(mapX, mapY);
         if (mon && isVisibleCell(mon.x, mon.y) && isMonsterVisible(mon)) {
+            if (state.selectedTargetId === targetKeyForMonster(mon)) {
+                return activateSelectedTarget();
+            }
             if (chebDistance(state.player.x, state.player.y, mon.x, mon.y) <= 1) {
                 cancelAutoMove('');
                 meleeTarget(mon);
@@ -7044,6 +7138,9 @@
         }
         deco = decorationAt(mapX, mapY);
         if (deco && isVisibleCell(deco.x, deco.y)) {
+            if (state.selectedTargetId === targetKeyForDecoration(deco)) {
+                return activateSelectedTarget();
+            }
             state.selectedTargetId = targetKeyForDecoration(deco);
             pushMessage('Target ' + decorationName(deco));
             draw();
@@ -7115,11 +7212,13 @@
         } else if (keyCode === 'NumpadSubtract') {
             castSpellAt('lightning');
         } else if (keyCode === 'NumpadAdd') {
-            castSpellAt('earth');
+            cycleTarget();
         } else if (keyCode === 'Numpad0' || keyCode === 'NumpadDecimal') {
             castSpellAt('wind');
-        } else if (keyCode === 'Enter') {
-            pulseNuke();
+        } else if (keyCode === 'Enter' || keyCode === 'NumpadEnter') {
+            if (!activateSelectedTarget()) {
+                return;
+            }
         } else if (code === 37 || code === 65) {
             tryMove(-1, 0);
         } else if (code === 38 || code === 87) {
