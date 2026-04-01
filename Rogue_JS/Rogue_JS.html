@@ -290,12 +290,6 @@
             padding-top: 0;
         }
 
-        .nukeBtn .btnInner {
-            position: relative;
-            padding-top: 4px;
-            height: 100%;
-        }
-
         .btnIcon {
             display: block;
             margin: 0;
@@ -304,44 +298,41 @@
             line-height: 1;
         }
 
-        .nukeBtn .btnIcon {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            margin: 0;
-            transform: translate(-50%, -50%);
-            z-index: 2;
-            font-size: 30px;
+        #nukeBtn {
+            width: calc(var(--bar-btn-size) * 4);
+            min-width: calc(var(--bar-btn-size) * 4);
+            flex: 0 0 auto;
+            padding: 0 16px;
+            overflow: visible;
         }
 
-        .nukeChargeRing {
-            position: absolute;
-            left: calc(50% - 1px);
-            top: 50%;
-            width: 0;
-            height: 0;
-            border-radius: 50%;
-            border: 2px solid rgba(255, 245, 157, 0.88);
-            box-shadow: 0 0 5px rgba(255, 196, 0, 0.95), 0 0 10px rgba(239, 68, 68, 0.65);
-            transform: translate(-50%, -50%);
-            pointer-events: none;
-            z-index: 1;
+        #nukeBtn .btnInner {
+            gap: 0;
+            padding-top: 0;
+            justify-content: center;
         }
 
-        .nukeChargeCount {
-            position: absolute;
-            right: 3px;
-            bottom: 2px;
-            min-width: 16px;
-            padding: 0 3px;
-            border-radius: 10px;
-            background: rgba(120, 20, 20, 0.92);
-            color: #fff7b3;
-            font-size: 11px;
-            line-height: 15px;
+        #nukeBtn .btnIcon {
+            font-size: clamp(15px, 4.4vw, 22px);
+        }
+
+        .nukeChargeLabel {
+            display: inline-block;
+            min-width: 0;
+            margin-left: -1px;
+            color: #111111;
+            font-family: "Trebuchet MS", Verdana, sans-serif;
+            font-size: 12px;
+            line-height: 1;
             font-weight: bold;
-            box-shadow: 0 0 6px rgba(255, 160, 0, 0.75);
-            z-index: 3;
+            text-align: left;
+            text-transform: none;
+        }
+
+        .nukeChargeLabel .prefix {
+            font-size: 9px;
+            vertical-align: baseline;
+            text-transform: lowercase;
         }
 
         .btnText {
@@ -412,13 +403,13 @@
         .spellBtn .btnIcon,
         .waitBtn .btnIcon,
         .focusBtn .btnIcon {
-            font-size: 30px;
+            font-size: inherit;
         }
 
         .moveBtn .btnIcon {
             font-family: 'RogueSymbols', 'Segoe UI Symbol', serif;
             color: #111111;
-            font-size: 22px;
+            font-size: inherit;
         }
 
         .spellBtn {
@@ -627,7 +618,7 @@
         }
 
         .topMiniBtn,
-        .spellIconBtn {
+        #topBar .spellIconBtn {
             width: auto;
             min-width: 0;
             flex: 0 1 var(--bar-btn-size);
@@ -638,23 +629,36 @@
         }
 
         .topMiniBtn .btnInner,
-        .spellIconBtn .btnInner {
+        #topBar .spellIconBtn .btnInner {
             gap: 0;
         }
 
         .topMiniBtn .btnIcon,
-        .spellIconBtn .btnIcon {
-            font-size: clamp(15px, 4.4vw, 22px);
+        #topBar .spellIconBtn .btnIcon {
+            font-size: clamp(13px, 4vw, 20px);
             line-height: 1;
         }
 
         .topMiniBtn .btnText,
-        .spellIconBtn .btnText {
+        #topBar .spellIconBtn .btnText {
             display: none;
         }
 
+        #topBar #nukeBtn {
+            width: calc(var(--bar-btn-size) * 2.5);
+            min-width: calc(var(--bar-btn-size) * 2.5);
+            flex: 0 0 calc(var(--bar-btn-size) * 2.5);
+            padding: 0 12px;
+            overflow: visible;
+        }
+
+        #topBar #nukeBtn .btnInner {
+            gap: 0;
+            justify-content: center;
+        }
+
         #compactStatus {
-            flex: 0 1 26%;
+            flex: 1 1 auto;
             min-width: 0;
             height: calc(var(--top-bar-h) - 8px);
             padding: 0 8px;
@@ -673,8 +677,8 @@
         }
 
         #spellSlot {
-            flex: 1 1 0;
-            min-width: 0;
+            flex: 0 0 clamp(88px, 24vw, 140px);
+            min-width: clamp(88px, 24vw, 140px);
             height: calc(var(--top-bar-h) - 8px);
             display: flex;
             align-items: stretch;
@@ -687,19 +691,6 @@
             position: static;
             font-size: clamp(10px, 2.8vw, 13px);
             padding: 0 8px;
-        }
-
-        #spellStrip {
-            flex: 0 1 auto;
-            min-width: 0;
-            display: flex;
-            align-items: center;
-            gap: var(--bar-gap);
-        }
-
-        #spellStrip .spellIconBtn {
-            flex: 0 1 var(--bar-btn-size);
-            min-width: 0;
         }
 
         #cabinet {
@@ -733,11 +724,11 @@
             position: absolute;
             left: auto;
             right: calc(10px + env(safe-area-inset-right, 0px));
-            bottom: calc(var(--bottom-bar-h) + 66px + env(safe-area-inset-bottom, 0px));
-            width: min(34vw, 152px);
-            height: min(34vw, 152px);
+            bottom: calc(var(--bottom-bar-h) + 56px + env(safe-area-inset-bottom, 0px));
+            width: calc((var(--bar-btn-size) * 3) + 12px);
+            height: calc((var(--top-bar-h) - 8px) * 3 + 12px);
             max-width: calc(100% - 20px);
-            max-height: calc(100% - var(--bottom-bar-h) - 76px);
+            max-height: calc(100% - var(--bottom-bar-h) - 66px);
             z-index: 20;
         }
 
@@ -751,20 +742,61 @@
             z-index: 25;
         }
 
+        #spellDock {
+            position: absolute;
+            top: 10px;
+            left: calc(10px + env(safe-area-inset-left, 0px));
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 25;
+        }
+
+        #spellDock .spellIconBtn {
+            width: var(--bar-btn-size);
+            height: calc(var(--top-bar-h) - 8px);
+            min-width: 0;
+            min-height: 0;
+            padding: 0;
+            border-radius: 12px;
+            display: block;
+        }
+
+        #spellDock .spellIconBtn .btnInner {
+            gap: 0;
+            height: 100%;
+        }
+
+        #spellDock .spellIconBtn .btnIcon {
+            font-size: clamp(14px, 4.6vw, 24px);
+            line-height: 1;
+        }
+
+        #spellDock .spellIconBtn .btnText {
+            display: none;
+        }
+
         .moveGrid {
             width: 100%;
             height: 100%;
             margin: 0;
             aspect-ratio: auto;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 6px;
         }
 
         .moveBtn {
+            position: relative;
             background: rgba(255, 255, 255, 0.18);
             color: #111111;
             border-color: rgba(17, 17, 17, 0.72);
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 2px 8px rgba(0,0,0,0.18);
             backdrop-filter: blur(3px);
             -webkit-backdrop-filter: blur(3px);
+            width: auto;
+            height: auto;
         }
 
         .moveBtn .btnText {
@@ -772,8 +804,35 @@
         }
 
         .moveBtn .btnIcon {
-            font-size: clamp(18px, 5vw, 24px);
+            font-size: clamp(16px, 4.6vw, 22px);
         }
+
+        .upLeftBtn,
+        .upBtn,
+        .upRightBtn,
+        .leftBtn,
+        .centerBtn,
+        .rightBtn,
+        .downLeftBtn,
+        .downBtn,
+        .downRightBtn {
+            top: auto;
+            right: auto;
+            bottom: auto;
+            left: auto;
+            width: auto;
+            height: auto;
+        }
+
+        .upLeftBtn { grid-column: 1; grid-row: 1; }
+        .upBtn { grid-column: 2; grid-row: 1; }
+        .upRightBtn { grid-column: 3; grid-row: 1; }
+        .leftBtn { grid-column: 1; grid-row: 2; }
+        .centerBtn { grid-column: 2; grid-row: 2; }
+        .rightBtn { grid-column: 3; grid-row: 2; }
+        .downLeftBtn { grid-column: 1; grid-row: 3; }
+        .downBtn { grid-column: 2; grid-row: 3; }
+        .downRightBtn { grid-column: 3; grid-row: 3; }
 
         #bottomBar {
             position: absolute;
@@ -930,26 +989,9 @@
                     <span class="btnText">Cast</span>
                 </span>
             </button>
-            <div id="spellStrip">
-                <button type="button" id="spellBtn" class="spellIconBtn" title="Fire">
-                    <span class="btnInner"><span class="btnIcon">&#x1F525;</span><span class="btnText">Fire</span></span>
-                </button>
-                <button type="button" id="blastBtn" class="spellIconBtn" title="Frost">
-                    <span class="btnInner"><span class="btnIcon">&#x2744;</span><span class="btnText">Frost</span></span>
-                </button>
-                <button type="button" id="waitBtn" class="spellIconBtn" title="Earth">
-                    <span class="btnInner"><span class="btnIcon">&#x1FAA8;</span><span class="btnText">Earth</span></span>
-                </button>
-                <button type="button" id="focusBtn" class="spellIconBtn" title="Volt">
-                    <span class="btnInner"><span class="btnIcon">&#x26A1;</span><span class="btnText">Volt</span></span>
-                </button>
-                <button type="button" id="infoBtn" class="spellIconBtn" title="Wind">
-                    <span class="btnInner"><span class="btnIcon">&#x1F32A;</span><span class="btnText">Wind</span></span>
-                </button>
-                <button type="button" id="nukeBtn" class="spellIconBtn" title="Nuke">
-                    <span class="btnInner"><span class="btnIcon">&#x2726;</span><span class="btnText">Nuke</span></span>
-                </button>
-            </div>
+            <button type="button" id="nukeBtn" class="spellIconBtn" title="Nuke">
+                <span class="btnInner"><span class="btnIcon">&#x2726;</span><span class="btnText">Nuke</span></span>
+            </button>
         </div>
 
         <div id="menuPanel">
@@ -961,6 +1003,23 @@
         <div id="cabinet">
             <div id="boardWrap">
                 <canvas id="game" width="480" height="480"></canvas>
+                <div id="spellDock">
+                    <button type="button" id="spellBtn" class="spellIconBtn" title="Fire">
+                        <span class="btnInner"><span class="btnIcon">&#x1F525;</span><span class="btnText">Fire</span></span>
+                    </button>
+                    <button type="button" id="blastBtn" class="spellIconBtn" title="Frost">
+                        <span class="btnInner"><span class="btnIcon">&#x2744;</span><span class="btnText">Frost</span></span>
+                    </button>
+                    <button type="button" id="waitBtn" class="spellIconBtn" title="Earth">
+                        <span class="btnInner"><span class="btnIcon">&#x1FAA8;</span><span class="btnText">Earth</span></span>
+                    </button>
+                    <button type="button" id="focusBtn" class="spellIconBtn" title="Volt">
+                        <span class="btnInner"><span class="btnIcon">&#x26A1;</span><span class="btnText">Volt</span></span>
+                    </button>
+                    <button type="button" id="infoBtn" class="spellIconBtn" title="Wind">
+                        <span class="btnInner"><span class="btnIcon">&#x1F32A;</span><span class="btnText">Wind</span></span>
+                    </button>
+                </div>
                 <div id="playZoomControls">
                     <button type="button" id="playZoomOutBtn" class="topMiniBtn" title="Zoom Out">
                         <span class="btnInner"><span class="btnIcon">&#x2212;</span><span class="btnText">Out</span></span>
@@ -987,11 +1046,11 @@
 
         <div id="bottomBar">
             <div id="latestMessage">Press Start</div>
-            <button type="button" id="mapBtn" class="topMiniBtn" title="Map">
-                <span class="btnInner"><span class="btnIcon">&#x25A3;</span><span class="btnText">Map</span></span>
-            </button>
             <button type="button" id="logToggleBtn" class="topMiniBtn" title="History">
                 <span class="btnInner"><span class="btnIcon">&#x2637;</span><span class="btnText">Log</span></span>
+            </button>
+            <button type="button" id="mapBtn" class="topMiniBtn" title="Map">
+                <span class="btnInner"><span class="btnIcon">&#x25A3;</span><span class="btnText">Map</span></span>
             </button>
         </div>
 
@@ -1040,10 +1099,12 @@
     var VIEW_COLS = 21;
     var VIEW_ROWS = 21;
     var CELL = 24;
+    var BOARD_OFFSET_X = 0;
+    var BOARD_OFFSET_Y = 0;
     var VISION = 3;
     var HISTORY_LINES = 60;
     var MAX_DEPTH = 10;
-    var DEBUG = true;
+    var DEBUG = false
 
     var TILE_WALL = '#';
     var TILE_FLOOR = '.';
@@ -1279,7 +1340,7 @@
         autoMoveVisible: {},
         spentManaThisTurn: false,
         manaQuietTurns: 0,
-        playZoom: 1,
+        playZoom: 0.5,
         mapZoom: 1,
         staticLightEmitters: []
     };
@@ -1740,13 +1801,14 @@
         if (!messageHistory) {
             return;
         }
-        for (i = 0; i < state.messages.length; i++) {
+        for (i = state.messages.length - 1; i >= 0; i--) {
             html += '<div class="historyLine">' + state.messages[i] + '</div>';
         }
         if (!html) {
             html = '<div class="historyLine">' + objectiveText() + '</div>';
         }
         messageHistory.innerHTML = html;
+        messageHistory.scrollTop = messageHistory.scrollHeight;
     }
 
     function activeGlyph(glyph) {
@@ -1855,23 +1917,13 @@
 
     function setNukeButtonFace(btn, icon, text, charges) {
         var html;
-        var rings;
-        var i;
-        var size;
+        var count;
         if (!btn) {
             return;
         }
-        rings = Math.max(0, Math.min(6, charges || 0));
-        html = '<span class="btnInner"><span class="btnIcon glyph">' + activeGlyph(icon) + '</span>';
-        for (i = 0; i < rings; i++) {
-            size = 24 + (i * 6);
-            html += '<span class="nukeChargeRing" style="width:' + size + 'px;height:' + size + 'px;"></span>';
-        }
-        if ((charges || 0) > 6) {
-            html += '<span class="nukeChargeCount">' + charges + '</span>';
-        }
-        html += '</span>';
-        btn.title = text + ((charges || 0) > 0 ? (' (' + charges + ')') : '');
+        count = Math.max(0, charges || 0);
+        html = '<span class="btnInner"><span class="btnIcon glyph">' + activeGlyph(icon) + '</span><span class="nukeChargeLabel"><span class="prefix">x</span>' + count + '</span></span>';
+        btn.title = text + ' x' + count;
         btn.innerHTML = html;
     }
 
@@ -6177,10 +6229,10 @@
         for (i = 0; i < state.effects.length; i++) {
             eff = state.effects[i];
             alpha = eff.ttl / eff.maxTtl;
-            fx = (eff.fromX - vx) * CELL + Math.floor(CELL / 2);
-            fy = (eff.fromY - vy) * CELL + Math.floor(CELL / 2);
-            tx = (eff.toX - vx) * CELL + Math.floor(CELL / 2);
-            ty = (eff.toY - vy) * CELL + Math.floor(CELL / 2);
+            fx = BOARD_OFFSET_X + ((eff.fromX - vx) * CELL) + Math.floor(CELL / 2);
+            fy = BOARD_OFFSET_Y + ((eff.fromY - vy) * CELL) + Math.floor(CELL / 2);
+            tx = BOARD_OFFSET_X + ((eff.toX - vx) * CELL) + Math.floor(CELL / 2);
+            ty = BOARD_OFFSET_Y + ((eff.toY - vy) * CELL) + Math.floor(CELL / 2);
             if (tx < -CELL || ty < -CELL || tx > canvas.width + CELL || ty > canvas.height + CELL) {
                 continue;
             }
@@ -6534,6 +6586,10 @@
         var pal = usePalette();
         var vx = viewLeft();
         var vy = viewTop();
+        var minViewX = vx - 1;
+        var maxViewX = vx + VIEW_COLS;
+        var minViewY = vy - 1;
+        var maxViewY = vy + VIEW_ROWS;
         var x;
         var y;
         var mapX;
@@ -6555,20 +6611,20 @@
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         lightMap = buildActiveLightMap();
 
-        for (y = 0; y < VIEW_ROWS; y++) {
-            for (x = 0; x < VIEW_COLS; x++) {
+        for (y = -1; y <= VIEW_ROWS; y++) {
+            for (x = -1; x <= VIEW_COLS; x++) {
                 mapX = vx + x;
                 mapY = vy + y;
-                px = x * CELL;
-                py = y * CELL;
+                px = BOARD_OFFSET_X + (x * CELL);
+                py = BOARD_OFFSET_Y + (y * CELL);
                 visible = isVisibleCell(mapX, mapY);
-                drawTile(mapX, mapY, px, py, pal, visible, lightMap[mapY][mapX]);
-                shade = visible ? lightShadeAt(lightMap, mapX, mapY) : 0;
+                drawTile(mapX, mapY, px, py, pal, visible, (lightMap[mapY] && typeof lightMap[mapY][mapX] !== 'undefined') ? lightMap[mapY][mapX] : 0);
+                shade = (visible && lightMap[mapY] && typeof lightMap[mapY][mapX] !== 'undefined') ? lightShadeAt(lightMap, mapX, mapY) : 0;
                 if (shade > 0.01) {
                     ctx.fillStyle = state.colorMode ? ('rgba(18,14,10,' + shade + ')') : ('rgba(17,17,17,' + Math.min(0.30, shade + 0.02) + ')');
                     ctx.fillRect(px, py, CELL, CELL);
                 }
-                if (state.explored[mapY][mapX] && state.webs[mapY][mapX] > 0) {
+                if (state.explored[mapY] && state.webs[mapY] && state.explored[mapY][mapX] && state.webs[mapY][mapX] > 0) {
                     drawWeb(px, py, pal);
                 }
             }
@@ -6579,11 +6635,11 @@
             if (!isVisibleCell(item.x, item.y)) {
                 continue;
             }
-            if (item.x < vx || item.x >= vx + VIEW_COLS || item.y < vy || item.y >= vy + VIEW_ROWS) {
+            if (item.x < minViewX || item.x > maxViewX || item.y < minViewY || item.y > maxViewY) {
                 continue;
             }
-            px = (item.x - vx) * CELL;
-            py = (item.y - vy) * CELL;
+            px = BOARD_OFFSET_X + ((item.x - vx) * CELL);
+            py = BOARD_OFFSET_Y + ((item.y - vy) * CELL);
             drawDecoration(px, py, item, pal, true, target && target.kind === 'decoration' && target.id === targetKeyForDecoration(item));
         }
 
@@ -6592,11 +6648,11 @@
             if (!isVisibleCell(item.x, item.y)) {
                 continue;
             }
-            if (item.x < vx || item.x >= vx + VIEW_COLS || item.y < vy || item.y >= vy + VIEW_ROWS) {
+            if (item.x < minViewX || item.x > maxViewX || item.y < minViewY || item.y > maxViewY) {
                 continue;
             }
-            px = (item.x - vx) * CELL;
-            py = (item.y - vy) * CELL;
+            px = BOARD_OFFSET_X + ((item.x - vx) * CELL);
+            py = BOARD_OFFSET_Y + ((item.y - vy) * CELL);
             if (item.type === 'vial') {
                 var cxGlow = px + Math.floor(CELL / 2);
                 var cyGlow = py + Math.floor(CELL / 2);
@@ -6628,15 +6684,15 @@
             );
         }
 
-        if (state.player && !state.player.relic && state.relicPos.x >= 0 && state.relicPos.x >= vx && state.relicPos.x < vx + VIEW_COLS && state.relicPos.y >= vy && state.relicPos.y < vy + VIEW_ROWS && isVisibleCell(state.relicPos.x, state.relicPos.y)) {
-            px = (state.relicPos.x - vx) * CELL;
-            py = (state.relicPos.y - vy) * CELL;
+        if (state.player && !state.player.relic && state.relicPos.x >= 0 && state.relicPos.x >= minViewX && state.relicPos.x <= maxViewX && state.relicPos.y >= minViewY && state.relicPos.y <= maxViewY && isVisibleCell(state.relicPos.x, state.relicPos.y)) {
+            px = BOARD_OFFSET_X + ((state.relicPos.x - vx) * CELL);
+            py = BOARD_OFFSET_Y + ((state.relicPos.y - vy) * CELL);
             drawGlyph(ctx, ICON.gem, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2), Math.floor(CELL * 0.78), FONT_EMOJI, pal.text);
         }
 
-        if (state.exit.x >= 0 && state.exit.x >= vx && state.exit.x < vx + VIEW_COLS && state.exit.y >= vy && state.exit.y < vy + VIEW_ROWS && state.explored[state.exit.y][state.exit.x]) {
-            px = (state.exit.x - vx) * CELL;
-            py = (state.exit.y - vy) * CELL;
+        if (state.exit.x >= 0 && state.exit.x >= minViewX && state.exit.x <= maxViewX && state.exit.y >= minViewY && state.exit.y <= maxViewY && state.explored[state.exit.y][state.exit.x]) {
+            px = BOARD_OFFSET_X + ((state.exit.x - vx) * CELL);
+            py = BOARD_OFFSET_Y + ((state.exit.y - vy) * CELL);
             drawGlyph(ctx, ICON.hole, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2) + 2, Math.floor(CELL * 0.78), FONT_EMOJI, pal.text);
             drawGlyph(ctx, ICON.ladder, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2) - 4, Math.floor(CELL * 0.64), FONT_EMOJI, pal.text);
         }
@@ -6648,17 +6704,17 @@
             if (!isVisibleCell(mon.x, mon.y) || !isMonsterVisible(mon)) {
                 continue;
             }
-            if (mon.x < vx || mon.x >= vx + VIEW_COLS || mon.y < vy || mon.y >= vy + VIEW_ROWS) {
+            if (mon.x < minViewX || mon.x > maxViewX || mon.y < minViewY || mon.y > maxViewY) {
                 continue;
             }
-            px = (mon.x - vx) * CELL;
-            py = (mon.y - vy) * CELL;
+            px = BOARD_OFFSET_X + ((mon.x - vx) * CELL);
+            py = BOARD_OFFSET_Y + ((mon.y - vy) * CELL);
             drawMonster(mon, px, py, pal, target && target.kind === 'monster' && target.ref && target.ref.id === mon.id);
         }
 
         if (state.player) {
-            px = (state.player.x - vx) * CELL;
-            py = (state.player.y - vy) * CELL;
+            px = BOARD_OFFSET_X + ((state.player.x - vx) * CELL);
+            py = BOARD_OFFSET_Y + ((state.player.y - vy) * CELL);
             drawPlayer(px, py, pal);
         }
 
@@ -6822,8 +6878,10 @@
             viewCols: cols,
             viewRows: rows,
             cell: cell,
-            drawW: cols * cell,
-            drawH: rows * cell
+            drawW: totalW,
+            drawH: totalH,
+            offsetX: Math.floor((totalW - (cols * cell)) / 2),
+            offsetY: Math.floor((totalH - (rows * cell)) / 2)
         };
     }
 
@@ -6835,6 +6893,8 @@
         VIEW_COLS = layout.viewCols;
         VIEW_ROWS = layout.viewRows;
         CELL = layout.cell;
+        BOARD_OFFSET_X = layout.offsetX || 0;
+        BOARD_OFFSET_Y = layout.offsetY || 0;
 
         canvas.width = layout.drawW;
         canvas.height = layout.drawH;
@@ -6931,8 +6991,8 @@
         }
         px = clientX - rect.left;
         py = clientY - rect.top;
-        cellX = Math.floor(px / CELL);
-        cellY = Math.floor(py / CELL);
+        cellX = Math.floor((px - BOARD_OFFSET_X) / CELL);
+        cellY = Math.floor((py - BOARD_OFFSET_Y) / CELL);
         mapX = viewLeft() + cellX;
         mapY = viewTop() + cellY;
         if (state.player.x === mapX && state.player.y === mapY) {
@@ -6985,8 +7045,8 @@
         }
         px = clientX - rect.left;
         py = clientY - rect.top;
-        cellX = Math.floor(px / CELL);
-        cellY = Math.floor(py / CELL);
+        cellX = Math.floor((px - BOARD_OFFSET_X) / CELL);
+        cellY = Math.floor((py - BOARD_OFFSET_Y) / CELL);
         mapX = viewLeft() + cellX;
         mapY = viewTop() + cellY;
         if (!canAutoMoveTo(mapX, mapY)) {
