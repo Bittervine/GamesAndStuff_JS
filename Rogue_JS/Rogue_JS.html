@@ -560,6 +560,8 @@
             --top-bar-h: clamp(34px, 7vh, 52px);
             --bottom-bar-h: clamp(30px, 6vh, 42px);
             --bar-btn-size: clamp(20px, 5.5vw, 32px);
+            --ui-btn-size: calc((var(--top-bar-h) - 8px) * 0.75);
+            --overlay-btn-size: var(--ui-btn-size);
             --bar-gap: 3px;
         }
 
@@ -619,13 +621,14 @@
 
         .topMiniBtn,
         #topBar .spellIconBtn {
-            width: auto;
-            min-width: 0;
-            flex: 0 1 var(--bar-btn-size);
-            height: calc(var(--top-bar-h) - 8px);
+            width: var(--ui-btn-size);
+            min-width: var(--ui-btn-size);
+            flex: 0 0 var(--ui-btn-size);
+            height: var(--ui-btn-size);
             min-height: 0;
             padding: 0;
             border-radius: 12px;
+            aspect-ratio: 1 / 1;
         }
 
         .topMiniBtn .btnInner,
@@ -644,10 +647,27 @@
             display: none;
         }
 
+        #topBar > .topMiniBtn,
+        #bottomBar > .topMiniBtn,
+        #playZoomControls .topMiniBtn,
+        .mapZoomControls .topMiniBtn,
+        #messageSheetHeader .topMiniBtn {
+            inline-size: var(--ui-btn-size);
+            block-size: var(--ui-btn-size);
+            min-inline-size: var(--ui-btn-size);
+            max-inline-size: var(--ui-btn-size);
+            min-block-size: var(--ui-btn-size);
+            max-block-size: var(--ui-btn-size);
+            flex: 0 0 var(--ui-btn-size);
+            padding: 0;
+            aspect-ratio: 1 / 1;
+            box-sizing: border-box;
+        }
+
         #topBar #nukeBtn {
-            width: calc(var(--bar-btn-size) * 2.5);
-            min-width: calc(var(--bar-btn-size) * 2.5);
-            flex: 0 0 calc(var(--bar-btn-size) * 2.5);
+            width: calc(var(--ui-btn-size) * 2.5);
+            min-width: calc(var(--ui-btn-size) * 2.5);
+            flex: 0 0 calc(var(--ui-btn-size) * 2.5);
             padding: 0 12px;
             overflow: visible;
         }
@@ -725,8 +745,8 @@
             left: auto;
             right: calc(10px + env(safe-area-inset-right, 0px));
             bottom: calc(var(--bottom-bar-h) + 56px + env(safe-area-inset-bottom, 0px));
-            width: calc((var(--bar-btn-size) * 3) + 12px);
-            height: calc((var(--top-bar-h) - 8px) * 3 + 12px);
+            width: calc((var(--overlay-btn-size) * 3) + 12px);
+            height: calc((var(--overlay-btn-size) * 3) + 12px);
             max-width: calc(100% - 20px);
             max-height: calc(100% - var(--bottom-bar-h) - 66px);
             z-index: 20;
@@ -753,14 +773,15 @@
         }
 
         #spellDock .spellIconBtn {
-            width: var(--bar-btn-size);
-            height: calc(var(--top-bar-h) - 8px);
-            min-width: 0;
-            min-height: 0;
+            width: var(--overlay-btn-size);
+            height: var(--overlay-btn-size);
+            min-width: var(--overlay-btn-size);
+            min-height: var(--overlay-btn-size);
             padding: 0;
             border-radius: 12px;
             display: block;
             opacity: 0.5;
+            aspect-ratio: 1 / 1;
         }
 
         #spellDock .spellIconBtn .btnInner {
@@ -7136,7 +7157,7 @@
             castSpellAt('lightning');
         } else if (code === 96 || code === 110 || code === 33 || code === 34) {
             castSpellAt('wind');
-        } else if (code === 32 || code === 13) {
+        } else if (code === 32) {
             pulseNuke();
         } else if (code === 70) {
             focusAction();
