@@ -281,18 +281,13 @@
             -webkit-appearance: none;
         }
 
-        .moveBtn .btnInner {
-            padding-top: 2px;
-        }
-
-        .moveBtn .btnIcon {
-            margin: 1px 0 2px;
-        }
-
         .btnInner {
-            display: block;
+            display: flex;
             width: 100%;
-            padding-top: 6px;
+            height: 100%;
+            align-items: center;
+            justify-content: center;
+            padding-top: 0;
         }
 
         .nukeBtn .btnInner {
@@ -303,7 +298,7 @@
 
         .btnIcon {
             display: block;
-            margin: 3px 0 4px;
+            margin: 0;
             font-family: 'RogueRareNotoColor', 'RogueSymbols', serif;
             font-size: 28px;
             line-height: 1;
@@ -570,154 +565,466 @@
             float: right;
         }
 
-        #cabinet:after {
-            content: "";
+        :root {
+            --top-bar-h: clamp(34px, 7vh, 52px);
+            --bottom-bar-h: clamp(30px, 6vh, 42px);
+            --bar-btn-size: clamp(20px, 5.5vw, 32px);
+            --bar-gap: 3px;
+        }
+
+        body {
+            overflow: hidden;
+        }
+
+        #wrap {
+            position: relative;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #topBar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: var(--top-bar-h);
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            gap: var(--bar-gap);
+            background: rgba(247, 247, 247, 0.94);
+            border-bottom: 2px solid #111111;
+            box-sizing: border-box;
+            z-index: 30;
+            overflow: hidden;
+        }
+
+        #menuPanel {
+            position: absolute;
+            top: calc(var(--top-bar-h) + 2px);
+            left: 4px;
+            display: none;
+            width: min(44vw, 180px);
+            padding: 6px;
+            border: 2px solid #111111;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.98);
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.22);
+            box-sizing: border-box;
+            z-index: 40;
+        }
+
+        #menuPanel.open {
             display: block;
-            clear: both;
+        }
+
+        #menuPanel button {
+            margin-bottom: 6px;
+        }
+
+        #menuPanel button:last-child {
+            margin-bottom: 0;
+        }
+
+        .topMiniBtn,
+        .spellIconBtn {
+            width: auto;
+            min-width: 0;
+            flex: 0 1 var(--bar-btn-size);
+            height: calc(var(--top-bar-h) - 8px);
+            min-height: 0;
+            padding: 0;
+            border-radius: 12px;
+        }
+
+        .topMiniBtn .btnInner,
+        .spellIconBtn .btnInner {
+            gap: 0;
+        }
+
+        .topMiniBtn .btnIcon,
+        .spellIconBtn .btnIcon {
+            font-size: clamp(15px, 4.4vw, 22px);
+            line-height: 1;
+        }
+
+        .topMiniBtn .btnText,
+        .spellIconBtn .btnText {
+            display: none;
+        }
+
+        #compactStatus {
+            flex: 0 1 26%;
+            min-width: 0;
+            height: calc(var(--top-bar-h) - 8px);
+            padding: 0 8px;
+            display: flex;
+            align-items: center;
+            border: 2px solid #111111;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.92);
+            font-family: "Trebuchet MS", Verdana, sans-serif;
+            font-size: clamp(10px, 2.7vw, 13px);
+            font-weight: bold;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-sizing: border-box;
+        }
+
+        #spellSlot {
+            flex: 1 1 0;
+            min-width: 0;
+            height: calc(var(--top-bar-h) - 8px);
+            display: flex;
+            align-items: stretch;
+        }
+
+        #learnedSpellSelect {
+            width: 100%;
+            min-width: 0;
+            height: calc(var(--top-bar-h) - 8px);
+            position: static;
+            font-size: clamp(10px, 2.8vw, 13px);
+            padding: 0 8px;
+        }
+
+        #spellStrip {
+            flex: 0 1 auto;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: var(--bar-gap);
+        }
+
+        #spellStrip .spellIconBtn {
+            flex: 0 1 var(--bar-btn-size);
+            min-width: 0;
+        }
+
+        #cabinet {
+            position: absolute;
+            top: var(--top-bar-h);
+            left: 0;
+            right: 0;
+            bottom: var(--bottom-bar-h);
+            display: block;
+        }
+
+        #boardWrap {
+            position: absolute;
+            inset: 0;
+            width: auto;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        #game {
+            border-radius: 0;
+            border-width: 0;
+            box-shadow: none;
+            background: #f6f6f6;
+        }
+
+        #moveDock {
+            position: absolute;
+            left: auto;
+            right: calc(10px + env(safe-area-inset-right, 0px));
+            bottom: calc(var(--bottom-bar-h) + 66px + env(safe-area-inset-bottom, 0px));
+            width: min(34vw, 152px);
+            height: min(34vw, 152px);
+            max-width: calc(100% - 20px);
+            max-height: calc(100% - var(--bottom-bar-h) - 76px);
+            z-index: 20;
+        }
+
+        #playZoomControls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            z-index: 25;
+        }
+
+        .moveGrid {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            aspect-ratio: auto;
+        }
+
+        .moveBtn {
+            background: rgba(255, 255, 255, 0.18);
+            color: #111111;
+            border-color: rgba(17, 17, 17, 0.72);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 2px 8px rgba(0,0,0,0.18);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+        }
+
+        .moveBtn .btnText {
+            display: none;
+        }
+
+        .moveBtn .btnIcon {
+            font-size: clamp(18px, 5vw, 24px);
+        }
+
+        #bottomBar {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: var(--bottom-bar-h);
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            gap: var(--bar-gap);
+            background: rgba(247, 247, 247, 0.96);
+            border-top: 2px solid #111111;
+            box-sizing: border-box;
+            z-index: 30;
+        }
+
+        #latestMessage {
+            flex: 1 1 auto;
+            min-width: 0;
+            height: 100%;
+            padding: 0 8px;
+            display: flex;
+            align-items: center;
+            border: 2px solid #111111;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.92);
+            font-family: "Trebuchet MS", Verdana, sans-serif;
+            font-size: clamp(10px, 2.9vw, 13px);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            box-sizing: border-box;
+        }
+
+        #messageOverlay {
+            position: absolute;
+            inset: 0;
+            display: none;
+            padding: 12px;
+            background: rgba(15, 15, 15, 0.88);
+            box-sizing: border-box;
+            z-index: 60;
+        }
+
+        #messageOverlay.open {
+            display: flex;
+        }
+
+        #messageSheet {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            border: 2px solid #111111;
+            border-radius: 18px;
+            background: #f8f8f8;
+            overflow: hidden;
+        }
+
+        #messageSheetHeader {
+            flex: 0 0 auto;
+            padding: 10px 12px 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            border-bottom: 2px solid #111111;
+            font-family: "Trebuchet MS", Verdana, sans-serif;
+            font-weight: bold;
+        }
+
+        #messageHistory {
+            flex: 1 1 auto;
+            padding: 10px 12px 16px;
+            overflow-y: auto;
+            font-family: "Trebuchet MS", Verdana, sans-serif;
+            font-size: 14px;
+            line-height: 1.35;
+        }
+
+        .historyLine {
+            margin-bottom: 8px;
+            word-break: break-word;
+        }
+
+        #mapOverlay {
+            position: absolute;
+            inset: 0;
+            display: none;
+            padding: 12px;
+            background: rgba(15, 15, 15, 0.88);
+            box-sizing: border-box;
+            z-index: 60;
+        }
+
+        #mapOverlay.open {
+            display: flex;
+        }
+
+        #mapCanvasWrap {
+            flex: 1 1 auto;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f2f2f2;
+        }
+
+        #miniMapCanvas {
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+            border: 2px solid #111111;
+            border-radius: 12px;
+            background: #ffffff;
+            box-sizing: border-box;
+        }
+
+        .mapZoomControls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #leftStack,
+        #rightStack,
+        #hud,
+        #legendPanel,
+        #actionDock,
+        #sysPanel,
+        #messagePanel {
+            display: none;
         }
     </style>
 </head>
 <body class="colorMode">
     <div id="wrap">
-        <div id="cabinet">
-            <div id="leftStack" class="controlStack">
-                <div id="hud" class="panel">
-                    <div class="hudRow"><span class="hudLabel"><span id="hpGlyph" class="hudGlyph glyph">&#x2764;</span>HP</span><span id="hpText" class="hudValue">12/12</span></div>
-                    <div class="hudRow"><span class="hudLabel"><span id="mpGlyph" class="hudGlyph glyph">&#x2726;</span>MP</span><span id="chargeText" class="hudValue">8/8</span></div>
-                    <div class="hudRow"><span class="hudLabel"><span id="spellGlyph" class="hudGlyph glyph">&#x2605;</span>SPELL</span><span id="spellText" class="hudValue">Fire</span></div>
-                    <div class="hudRow"><span class="hudLabel">FOES</span><span id="foeText" class="hudValue">0</span></div>
-                    <div class="hudRow"><span class="hudLabel">AMULET</span><span id="relicText" class="hudValue">No</span></div>
-                    <div class="hudRow"><span class="hudLabel">STATE</span><span id="statusText" class="hudValue">Ready</span></div>
-                </div>
-
-                <div id="legendPanel" class="panel">
-                    <canvas id="legendCanvas" width="120" height="88"></canvas>
-                </div>
-
-                <div id="actionDock" class="dock">
-                    <div class="actionGrid">
-                        <select id="learnedSpellSelect" class="learnSelect"></select>
-                        <button type="button" id="learnedCastBtn" class="actionBtn learnCastBtn" title="Cast">
-                            <span class="btnInner">
-                                <span class="btnIcon">&#x2726;</span>
-                                <span class="btnText">Cast</span>
-                            </span>
-                        </button>
-                        <button type="button" id="spellBtn" class="actionBtn spellBtn" title="Fire">
-                            <span class="btnInner">
-                                <span class="btnIcon">&#x1F525;</span>
-                                <span class="btnText">Fire</span>
-                            </span>
-                        </button>
-                        <button type="button" id="blastBtn" class="actionBtn blastBtn" title="Frost">
-                            <span class="btnInner">
-                                <span class="btnIcon">&#x2744;</span>
-                                <span class="btnText">Frost</span>
-                            </span>
-                        </button>
-                        <button type="button" id="waitBtn" class="actionBtn waitBtn" title="Earth">
-                            <span class="btnInner">
-                                <span class="btnIcon">&#x1FAA8;</span>
-                                <span class="btnText">Earth</span>
-                            </span>
-                        </button>
-                        <button type="button" id="focusBtn" class="actionBtn focusBtn" title="Volt">
-                            <span class="btnInner">
-                                <span class="btnIcon">&#x26A1;</span>
-                                <span class="btnText">Volt</span>
-                            </span>
-                        </button>
-                        <button type="button" id="infoBtn" class="actionBtn infoBtn" title="Wind">
-                            <span class="btnInner">
-                                <span class="btnIcon">&#x1F32A;</span>
-                                <span class="btnText">Wind</span>
-                            </span>
-                        </button>
-                        <button type="button" id="nukeBtn" class="actionBtn nukeBtn" title="Nuke">
-                            <span class="btnInner">
-                                <span class="btnIcon">&#x2726;</span>
-                                <span class="btnText">Nuke</span>
-                            </span>
-                        </button>
-                    </div>
-                </div>
+        <div id="topBar">
+            <button type="button" id="menuBtn" class="topMiniBtn" title="Menu">
+                <span class="btnInner">
+                    <span class="btnIcon">&#x2630;</span>
+                    <span class="btnText">Menu</span>
+                </span>
+            </button>
+            <div id="compactStatus">HP: -- MP: -- Lv: --</div>
+            <div id="spellSlot">
+                <select id="learnedSpellSelect" class="learnSelect"></select>
             </div>
+            <button type="button" id="learnedCastBtn" class="topMiniBtn" title="Cast">
+                <span class="btnInner">
+                    <span class="btnIcon">&#x2726;</span>
+                    <span class="btnText">Cast</span>
+                </span>
+            </button>
+            <div id="spellStrip">
+                <button type="button" id="spellBtn" class="spellIconBtn" title="Fire">
+                    <span class="btnInner"><span class="btnIcon">&#x1F525;</span><span class="btnText">Fire</span></span>
+                </button>
+                <button type="button" id="blastBtn" class="spellIconBtn" title="Frost">
+                    <span class="btnInner"><span class="btnIcon">&#x2744;</span><span class="btnText">Frost</span></span>
+                </button>
+                <button type="button" id="waitBtn" class="spellIconBtn" title="Earth">
+                    <span class="btnInner"><span class="btnIcon">&#x1FAA8;</span><span class="btnText">Earth</span></span>
+                </button>
+                <button type="button" id="focusBtn" class="spellIconBtn" title="Volt">
+                    <span class="btnInner"><span class="btnIcon">&#x26A1;</span><span class="btnText">Volt</span></span>
+                </button>
+                <button type="button" id="infoBtn" class="spellIconBtn" title="Wind">
+                    <span class="btnInner"><span class="btnIcon">&#x1F32A;</span><span class="btnText">Wind</span></span>
+                </button>
+                <button type="button" id="nukeBtn" class="spellIconBtn" title="Nuke">
+                    <span class="btnInner"><span class="btnIcon">&#x2726;</span><span class="btnText">Nuke</span></span>
+                </button>
+            </div>
+        </div>
 
+        <div id="menuPanel">
+            <button type="button" id="resetBtn" class="miniBtn sysReset">Reset</button>
+            <button type="button" id="loadBtn" class="miniBtn sysLoad">Load</button>
+            <button type="button" id="saveBtn" class="miniBtn sysSave">Save</button>
+        </div>
+
+        <div id="cabinet">
             <div id="boardWrap">
                 <canvas id="game" width="480" height="480"></canvas>
-            </div>
-
-            <div id="rightStack" class="controlStack">
-                <div id="sysPanel" class="panel">
-                    <button type="button" id="resetBtn" class="miniBtn sysReset">Reset</button>
-                    <button type="button" id="loadBtn" class="miniBtn sysLoad">Load</button>
-                    <button type="button" id="saveBtn" class="miniBtn sysSave">Save</button>
+                <div id="playZoomControls">
+                    <button type="button" id="playZoomOutBtn" class="topMiniBtn" title="Zoom Out">
+                        <span class="btnInner"><span class="btnIcon">&#x2212;</span><span class="btnText">Out</span></span>
+                    </button>
+                    <button type="button" id="playZoomInBtn" class="topMiniBtn" title="Zoom In">
+                        <span class="btnInner"><span class="btnIcon">&#xFF0B;</span><span class="btnText">In</span></span>
+                    </button>
                 </div>
-
-                <div id="messagePanel" class="panel">
-                    <div id="msg0" class="msgLine msgGoal"></div>
-                    <div id="msg1" class="msgLine"></div>
-                    <div id="msg2" class="msgLine"></div>
-                    <div id="msg3" class="msgLine"></div>
-                </div>
-
                 <div id="moveDock" class="dock">
                     <div class="moveGrid">
-                        <button type="button" id="upLeftBtn" class="moveBtn upLeftBtn" title="Northwest">
-                            <span class="btnInner">
-                                <span class="btnIcon">&#x2196;</span>
-                                <span class="btnText">NW</span>
-                            </span>
+                        <button type="button" id="upLeftBtn" class="moveBtn upLeftBtn" title="Northwest"><span class="btnInner"><span class="btnIcon">&#x2196;</span><span class="btnText">NW</span></span></button>
+                        <button type="button" id="upBtn" class="moveBtn upBtn" title="North"><span class="btnInner"><span class="btnIcon">&#x2B06;</span><span class="btnText">North</span></span></button>
+                        <button type="button" id="upRightBtn" class="moveBtn upRightBtn" title="Northeast"><span class="btnInner"><span class="btnIcon">&#x2197;</span><span class="btnText">NE</span></span></button>
+                        <button type="button" id="leftBtn" class="moveBtn leftBtn" title="West"><span class="btnInner"><span class="btnIcon">&#x2B05;</span><span class="btnText">West</span></span></button>
+                        <button type="button" id="centerBtn" class="moveBtn centerBtn" title="Rest"><span class="btnInner"><span class="btnIcon">&#x21BB;</span><span class="btnText">Rest</span></span></button>
+                        <button type="button" id="rightBtn" class="moveBtn rightBtn" title="East"><span class="btnInner"><span class="btnIcon">&#x27A1;</span><span class="btnText">East</span></span></button>
+                        <button type="button" id="downLeftBtn" class="moveBtn downLeftBtn" title="Southwest"><span class="btnInner"><span class="btnIcon">&#x2199;</span><span class="btnText">SW</span></span></button>
+                        <button type="button" id="downBtn" class="moveBtn downBtn" title="South"><span class="btnInner"><span class="btnIcon">&#x2B07;</span><span class="btnText">South</span></span></button>
+                        <button type="button" id="downRightBtn" class="moveBtn downRightBtn" title="Southeast"><span class="btnInner"><span class="btnIcon">&#x2198;</span><span class="btnText">SE</span></span></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="bottomBar">
+            <div id="latestMessage">Press Start</div>
+            <button type="button" id="mapBtn" class="topMiniBtn" title="Map">
+                <span class="btnInner"><span class="btnIcon">&#x25A3;</span><span class="btnText">Map</span></span>
+            </button>
+            <button type="button" id="logToggleBtn" class="topMiniBtn" title="History">
+                <span class="btnInner"><span class="btnIcon">&#x2637;</span><span class="btnText">Log</span></span>
+            </button>
+        </div>
+
+        <div id="messageOverlay">
+            <div id="messageSheet">
+                <div id="messageSheetHeader">
+                    <span>Adventure Log</span>
+                    <button type="button" id="logCloseBtn" class="topMiniBtn" title="Close">
+                        <span class="btnInner"><span class="btnIcon">&#x2715;</span><span class="btnText">Close</span></span>
+                    </button>
+                </div>
+                <div id="messageHistory"></div>
+            </div>
+        </div>
+
+        <div id="mapOverlay">
+            <div id="messageSheet">
+                <div id="messageSheetHeader">
+                    <span>Mini Map</span>
+                    <div class="mapZoomControls">
+                        <button type="button" id="mapZoomOutBtn" class="topMiniBtn" title="Zoom Out">
+                            <span class="btnInner"><span class="btnIcon">&#x2212;</span><span class="btnText">Out</span></span>
                         </button>
-                        <button type="button" id="upBtn" class="moveBtn upBtn" title="North">
-                            <span class="btnInner">
-                                <span class="btnIcon">&#x2B06;</span>
-                                <span class="btnText">North</span>
-                            </span>
+                        <button type="button" id="mapZoomInBtn" class="topMiniBtn" title="Zoom In">
+                            <span class="btnInner"><span class="btnIcon">&#xFF0B;</span><span class="btnText">In</span></span>
                         </button>
-                        <button type="button" id="upRightBtn" class="moveBtn upRightBtn" title="Northeast">
-                            <span class="btnInner">
-                                <span class="btnIcon">&#x2197;</span>
-                                <span class="btnText">NE</span>
-                            </span>
-                        </button>
-                        <button type="button" id="leftBtn" class="moveBtn leftBtn" title="West">
-                            <span class="btnInner">
-                                <span class="btnIcon">&#x2B05;</span>
-                                <span class="btnText">West</span>
-                            </span>
-                        </button>
-                        <button type="button" id="centerBtn" class="moveBtn centerBtn" title="Rest">
-                            <span class="btnInner">
-                                <span class="btnIcon">&#x21BB;</span>
-                                <span class="btnText">Rest</span>
-                            </span>
-                        </button>
-                        <button type="button" id="rightBtn" class="moveBtn rightBtn" title="East">
-                            <span class="btnInner">
-                                <span class="btnIcon">&#x27A1;</span>
-                                <span class="btnText">East</span>
-                            </span>
-                        </button>
-                        <button type="button" id="downLeftBtn" class="moveBtn downLeftBtn" title="Southwest">
-                            <span class="btnInner">
-                                <span class="btnIcon">&#x2199;</span>
-                                <span class="btnText">SW</span>
-                            </span>
-                        </button>
-                        <button type="button" id="downBtn" class="moveBtn downBtn" title="South">
-                            <span class="btnInner">
-                                <span class="btnIcon">&#x2B07;</span>
-                                <span class="btnText">South</span>
-                            </span>
-                        </button>
-                        <button type="button" id="downRightBtn" class="moveBtn downRightBtn" title="Southeast">
-                            <span class="btnInner">
-                                <span class="btnIcon">&#x2198;</span>
-                                <span class="btnText">SE</span>
-                            </span>
+                        <button type="button" id="mapCloseBtn" class="topMiniBtn" title="Close">
+                            <span class="btnInner"><span class="btnIcon">&#x2715;</span><span class="btnText">Close</span></span>
                         </button>
                     </div>
+                </div>
+                <div id="mapCanvasWrap">
+                    <canvas id="miniMapCanvas" width="600" height="600"></canvas>
                 </div>
             </div>
         </div>
@@ -734,7 +1041,7 @@
     var VIEW_ROWS = 21;
     var CELL = 24;
     var VISION = 3;
-    var HISTORY_LINES = 2;
+    var HISTORY_LINES = 60;
     var MAX_DEPTH = 10;
     var DEBUG = true;
 
@@ -878,6 +1185,25 @@
     var boardWrap = document.getElementById('boardWrap');
     var leftStack = document.getElementById('leftStack');
     var rightStack = document.getElementById('rightStack');
+    var topBar = document.getElementById('topBar');
+    var bottomBar = document.getElementById('bottomBar');
+    var menuBtn = document.getElementById('menuBtn');
+    var mapBtn = document.getElementById('mapBtn');
+    var menuPanel = document.getElementById('menuPanel');
+    var compactStatus = document.getElementById('compactStatus');
+    var latestMessage = document.getElementById('latestMessage');
+    var logToggleBtn = document.getElementById('logToggleBtn');
+    var logCloseBtn = document.getElementById('logCloseBtn');
+    var messageOverlay = document.getElementById('messageOverlay');
+    var messageHistory = document.getElementById('messageHistory');
+    var mapOverlay = document.getElementById('mapOverlay');
+    var mapCloseBtn = document.getElementById('mapCloseBtn');
+    var mapZoomOutBtn = document.getElementById('mapZoomOutBtn');
+    var mapZoomInBtn = document.getElementById('mapZoomInBtn');
+    var playZoomOutBtn = document.getElementById('playZoomOutBtn');
+    var playZoomInBtn = document.getElementById('playZoomInBtn');
+    var miniMapCanvas = document.getElementById('miniMapCanvas');
+    var miniMapCtx = miniMapCanvas && miniMapCanvas.getContext ? miniMapCanvas.getContext('2d') : null;
 
     var hpText = document.getElementById('hpText');
     var hpGlyph = document.getElementById('hpGlyph');
@@ -888,13 +1214,6 @@
     var foeText = document.getElementById('foeText');
     var relicText = document.getElementById('relicText');
     var statusText = document.getElementById('statusText');
-
-    var msgEls = [
-        document.getElementById('msg0'),
-        document.getElementById('msg1'),
-        document.getElementById('msg2'),
-        document.getElementById('msg3')
-    ];
 
     var resetBtn = document.getElementById('resetBtn');
     var loadBtn = document.getElementById('loadBtn');
@@ -960,8 +1279,34 @@
         autoMoveVisible: {},
         spentManaThisTurn: false,
         manaQuietTurns: 0,
+        playZoom: 1,
+        mapZoom: 1,
         staticLightEmitters: []
     };
+
+    function setMenuOpen(open) {
+        if (!menuPanel) {
+            return;
+        }
+        menuPanel.className = open ? 'open' : '';
+    }
+
+    function setLogOpen(open) {
+        if (!messageOverlay) {
+            return;
+        }
+        messageOverlay.className = open ? 'open' : '';
+    }
+
+    function setMapOpen(open) {
+        if (!mapOverlay) {
+            return;
+        }
+        mapOverlay.className = open ? 'open' : '';
+        if (open) {
+            drawLegend();
+        }
+    }
 
     function monster(name, code, tier, power, shield, speed, hp, melee, flags) {
         return {
@@ -1387,14 +1732,21 @@
     }
 
     function renderMessages() {
-        var target = currentTarget();
-        if (!msgEls[0]) {
+        var i;
+        var html = '';
+        if (latestMessage) {
+            latestMessage.innerHTML = state.messages[0] || state.status || objectiveText();
+        }
+        if (!messageHistory) {
             return;
         }
-        msgEls[0].innerHTML = objectiveText();
-        msgEls[1].innerHTML = targetSummary(target);
-        msgEls[2].innerHTML = state.messages[0] || '';
-        msgEls[3].innerHTML = state.messages[1] || '';
+        for (i = 0; i < state.messages.length; i++) {
+            html += '<div class="historyLine">' + state.messages[i] + '</div>';
+        }
+        if (!html) {
+            html = '<div class="historyLine">' + objectiveText() + '</div>';
+        }
+        messageHistory.innerHTML = html;
     }
 
     function activeGlyph(glyph) {
@@ -1579,6 +1931,7 @@
     function updateHud() {
         var spell = selectedLearnedSpell();
         var visible = visibleMonsters().length;
+        var levelText = state.player ? state.player.level : '--';
         syncUiGlyphs();
         if (hpText) {
             hpText.innerHTML = state.player ? (state.player.hp + '/' + state.player.maxHp) : '--';
@@ -1597,6 +1950,9 @@
         }
         if (statusText) {
             statusText.innerHTML = formatStatus();
+        }
+        if (compactStatus) {
+            compactStatus.innerHTML = state.player ? ('HP: ' + state.player.hp + '/' + state.player.maxHp + ' MP: ' + state.player.mp + '/' + state.player.maxMp + ' Lv: ' + levelText) : 'HP: -- MP: -- Lv: --';
         }
         refreshLearnedSpellMenu();
         setButtonFace(learnedCastBtn, spell.icon, 'Cast');
@@ -6344,75 +6700,99 @@
         ctx.restore();
     }
 
-    function drawLegend() {
+    function drawLegendTo(targetCtx, targetCanvas, zoom) {
         var pal = usePalette();
         var w;
         var h;
         var cw;
         var ch;
+        var left;
+        var top;
+        var viewW;
+        var viewH;
         var x;
         var y;
         var tx;
         var ty;
         var mon;
         var target = currentTarget();
-        if (!legendCtx || !legendCanvas) {
+        if (!targetCtx || !targetCanvas) {
             return;
         }
-        w = legendCanvas.width;
-        h = legendCanvas.height;
-        legendCtx.fillStyle = pal.panel;
-        legendCtx.fillRect(0, 0, w, h);
-        cw = w / WORLD_W;
-        ch = h / WORLD_H;
+        zoom = zoom || 1;
+        w = targetCanvas.width;
+        h = targetCanvas.height;
+        targetCtx.fillStyle = pal.panel;
+        targetCtx.fillRect(0, 0, w, h);
+        viewW = Math.max(8, Math.floor(WORLD_W / zoom));
+        viewH = Math.max(8, Math.floor(WORLD_H / zoom));
+        if (zoom > 1 && state.player) {
+            left = clamp(state.player.x - Math.floor(viewW / 2), 0, WORLD_W - viewW);
+            top = clamp(state.player.y - Math.floor(viewH / 2), 0, WORLD_H - viewH);
+        } else {
+            left = 0;
+            top = 0;
+            viewW = WORLD_W;
+            viewH = WORLD_H;
+        }
+        cw = w / viewW;
+        ch = h / viewH;
 
-        for (y = 0; y < WORLD_H; y++) {
-            for (x = 0; x < WORLD_W; x++) {
+        for (y = top; y < top + viewH; y++) {
+            for (x = left; x < left + viewW; x++) {
                 if (tileAt(x, y) === TILE_WALL && !isBoundaryWall(x, y)) {
-                    legendCtx.fillStyle = '#000000';
+                    targetCtx.fillStyle = '#000000';
                 } else if (!state.explored[y][x]) {
-                    legendCtx.fillStyle = pal.unseen;
+                    targetCtx.fillStyle = pal.unseen;
                 } else if (tileAt(x, y) === TILE_WALL) {
-                    legendCtx.fillStyle = pal.wall;
+                    targetCtx.fillStyle = pal.wall;
                 } else if (tileAt(x, y) === TILE_WATER) {
-                    legendCtx.fillStyle = pal.water;
+                    targetCtx.fillStyle = pal.water;
                 } else if (tileAt(x, y) === TILE_GRASS) {
-                    legendCtx.fillStyle = pal.grass;
+                    targetCtx.fillStyle = pal.grass;
                 } else {
-                    legendCtx.fillStyle = pal.floorDot;
+                    targetCtx.fillStyle = pal.floorDot;
                 }
                 if (state.grassFire[y][x] > 0) {
-                    legendCtx.fillStyle = state.colorMode ? '#ff8a37' : pal.shadow;
+                    targetCtx.fillStyle = state.colorMode ? '#ff8a37' : pal.shadow;
                 }
-                legendCtx.fillRect(Math.floor(x * cw), Math.floor(y * ch), Math.ceil(cw), Math.ceil(ch));
+                targetCtx.fillRect(Math.floor((x - left) * cw), Math.floor((y - top) * ch), Math.ceil(cw), Math.ceil(ch));
             }
         }
 
-        if (state.player && !state.player.relic && state.relicPos.x >= 0 && state.relicPos.y >= 0) {
-            legendCtx.fillStyle = state.colorMode ? '#ffd84a' : '#111111';
-            legendCtx.fillRect(Math.floor(state.relicPos.x * cw), Math.floor(state.relicPos.y * ch), Math.ceil(cw) + 1, Math.ceil(ch) + 1);
+        if (state.player && !state.player.relic && state.relicPos.x >= left && state.relicPos.x < left + viewW && state.relicPos.y >= top && state.relicPos.y < top + viewH) {
+            targetCtx.fillStyle = state.colorMode ? '#ffd84a' : '#111111';
+            targetCtx.fillRect(Math.floor((state.relicPos.x - left) * cw), Math.floor((state.relicPos.y - top) * ch), Math.ceil(cw) + 1, Math.ceil(ch) + 1);
         }
 
-        if (state.exit.x >= 0 && state.exit.y >= 0) {
-            legendCtx.fillStyle = state.colorMode ? '#333333' : '#222222';
-            legendCtx.fillRect(Math.floor(state.exit.x * cw), Math.floor(state.exit.y * ch), Math.ceil(cw) + 1, Math.ceil(ch) + 1);
+        if (state.exit.x >= left && state.exit.x < left + viewW && state.exit.y >= top && state.exit.y < top + viewH) {
+            targetCtx.fillStyle = state.colorMode ? '#333333' : '#222222';
+            targetCtx.fillRect(Math.floor((state.exit.x - left) * cw), Math.floor((state.exit.y - top) * ch), Math.ceil(cw) + 1, Math.ceil(ch) + 1);
         }
 
         for (x = 0; x < state.monsters.length; x++) {
             mon = state.monsters[x];
-            tx = Math.floor(mon.x * cw);
-            ty = Math.floor(mon.y * ch);
-            legendCtx.fillStyle = (target && target.kind === 'monster' && target.ref && target.ref.id === mon.id) ? pal.target : pal.shadow;
-            legendCtx.fillRect(tx, ty, Math.ceil(cw), Math.ceil(ch));
+            if (mon.x < left || mon.x >= left + viewW || mon.y < top || mon.y >= top + viewH) {
+                continue;
+            }
+            tx = Math.floor((mon.x - left) * cw);
+            ty = Math.floor((mon.y - top) * ch);
+            targetCtx.fillStyle = (target && target.kind === 'monster' && target.ref && target.ref.id === mon.id) ? pal.target : pal.shadow;
+            targetCtx.fillRect(tx, ty, Math.ceil(cw), Math.ceil(ch));
         }
 
-        if (state.player) {
-            legendCtx.fillStyle = state.colorMode ? '#f2b43a' : '#ffffff';
-            legendCtx.fillRect(Math.floor(state.player.x * cw), Math.floor(state.player.y * ch), Math.ceil(cw) + 1, Math.ceil(ch) + 1);
+        if (state.player && state.player.x >= left && state.player.x < left + viewW && state.player.y >= top && state.player.y < top + viewH) {
+            targetCtx.fillStyle = state.colorMode ? '#f2b43a' : '#ffffff';
+            targetCtx.fillRect(Math.floor((state.player.x - left) * cw), Math.floor((state.player.y - top) * ch), Math.ceil(cw) + 1, Math.ceil(ch) + 1);
         }
-        legendCtx.strokeStyle = pal.shadow;
-        legendCtx.lineWidth = 2;
-        legendCtx.strokeRect(1, 1, w - 2, h - 2);
+        targetCtx.strokeStyle = pal.shadow;
+        targetCtx.lineWidth = 2;
+        targetCtx.strokeRect(1, 1, w - 2, h - 2);
+    }
+
+    function drawLegend() {
+        drawLegendTo(legendCtx, legendCanvas, 1);
+        drawLegendTo(miniMapCtx, miniMapCanvas, state.mapZoom || 1);
     }
 
     function draw() {
@@ -6422,59 +6802,51 @@
         drawLegend();
     }
 
-    function syncLayout() {
-        var totalH = (window.innerHeight || document.documentElement.clientHeight || 700) - 6;
-        var cabinetW = cabinet ? (cabinet.clientWidth || 1000) : (wrap ? (wrap.clientWidth || window.innerWidth || 1000) - 26 : (window.innerWidth || 1000));
-        var stackW = clamp(Math.floor(cabinetW * 0.14), 135, 185);
-        var gutter = clamp(Math.floor(cabinetW * 0.01), 8, 18);
-        var boardW = Math.max(220, cabinetW - (stackW * 2) - (gutter * 2));
+    function layoutForZoom(zoom) {
+        var totalH = boardWrap ? (boardWrap.clientHeight || (window.innerHeight || document.documentElement.clientHeight || 700)) : (window.innerHeight || document.documentElement.clientHeight || 700);
+        var boardW = boardWrap ? (boardWrap.clientWidth || (window.innerWidth || 1000)) : (window.innerWidth || 1000);
         var totalW;
-        var targetCell;
-        var maxOpenCols;
-        var maxOpenRows;
-        var drawW;
-        var drawH;
+        var baseCell;
+        var cols;
+        var rows;
+        var cell;
         if (!canvas) {
-            return;
-        }
-        if (leftStack) {
-            leftStack.style.width = stackW + 'px';
-        }
-        if (rightStack) {
-            rightStack.style.width = stackW + 'px';
-        }
-        if (boardWrap) {
-            boardWrap.style.width = boardW + 'px';
-            boardWrap.style.marginLeft = gutter + 'px';
-            boardWrap.style.marginRight = gutter + 'px';
+            return null;
         }
         totalW = boardWrap ? (boardWrap.clientWidth || boardW || 400) : 400;
-        targetCell = 32;
-        maxOpenCols = Math.min(WORLD_W, Math.max(15, Math.floor(totalW / targetCell)));
-        maxOpenRows = Math.min(WORLD_H, Math.max(15, Math.floor(totalH / targetCell)));
-        VIEW_COLS = oddClamp(Math.floor(totalW / targetCell), 15, maxOpenCols);
-        VIEW_ROWS = oddClamp(Math.floor(totalH / targetCell), 15, maxOpenRows);
-        CELL = clamp(Math.floor(Math.min(totalW / VIEW_COLS, totalH / VIEW_ROWS)), 20, 64);
-        drawW = VIEW_COLS * CELL;
-        drawH = VIEW_ROWS * CELL;
+        baseCell = Math.max(20, Math.floor(Math.min(totalW, totalH) / 12));
+        cell = clamp(Math.round(baseCell * zoom), 20, 64);
+        cols = clamp(Math.floor(totalW / cell), 1, WORLD_W);
+        rows = clamp(Math.floor(totalH / cell), 1, WORLD_H);
+        return {
+            viewCols: cols,
+            viewRows: rows,
+            cell: cell,
+            drawW: cols * cell,
+            drawH: rows * cell
+        };
+    }
 
-        canvas.width = drawW;
-        canvas.height = drawH;
-        canvas.style.width = drawW + 'px';
-        canvas.style.height = drawH + 'px';
+    function syncLayout() {
+        var layout = layoutForZoom(state.playZoom || 1);
+        if (!layout || !canvas) {
+            return;
+        }
+        VIEW_COLS = layout.viewCols;
+        VIEW_ROWS = layout.viewRows;
+        CELL = layout.cell;
 
-        if (boardWrap) {
-            boardWrap.style.height = drawH + 'px';
-        }
-        if (leftStack) {
-            leftStack.style.height = drawH + 'px';
-        }
-        if (rightStack) {
-            rightStack.style.height = drawH + 'px';
-        }
+        canvas.width = layout.drawW;
+        canvas.height = layout.drawH;
+        canvas.style.width = layout.drawW + 'px';
+        canvas.style.height = layout.drawH + 'px';
         if (legendCanvas) {
             legendCanvas.width = legendCanvas.clientWidth || legendCanvas.width;
             legendCanvas.height = legendCanvas.clientHeight || legendCanvas.height;
+        }
+        if (miniMapCanvas) {
+            miniMapCanvas.width = miniMapCanvas.clientWidth || miniMapCanvas.width;
+            miniMapCanvas.height = miniMapCanvas.clientHeight || miniMapCanvas.height;
         }
         draw();
     }
@@ -6563,6 +6935,11 @@
         cellY = Math.floor(py / CELL);
         mapX = viewLeft() + cellX;
         mapY = viewTop() + cellY;
+        if (state.player.x === mapX && state.player.y === mapY) {
+            cancelAutoMove('');
+            waitAction();
+            return true;
+        }
         mon = monsterAt(mapX, mapY);
         if (mon && isVisibleCell(mon.x, mon.y) && isMonsterVisible(mon)) {
             if (chebDistance(state.player.x, state.player.y, mon.x, mon.y) <= 1) {
@@ -6731,6 +7108,109 @@
     bindPress(learnedCastBtn, castLearnedSpell);
     bindPress(nukeBtn, pulseNuke);
 
+    if (menuBtn) {
+        menuBtn.onclick = function (e) {
+            if (e && e.preventDefault) {
+                e.preventDefault();
+            }
+            setMenuOpen(!menuPanel || menuPanel.className !== 'open');
+            return false;
+        };
+    }
+
+    if (mapBtn) {
+        mapBtn.onclick = function (e) {
+            if (e && e.preventDefault) {
+                e.preventDefault();
+            }
+            setMapOpen(!mapOverlay || mapOverlay.className !== 'open');
+            return false;
+        };
+    }
+
+    if (logToggleBtn) {
+        logToggleBtn.onclick = function (e) {
+            if (e && e.preventDefault) {
+                e.preventDefault();
+            }
+            setLogOpen(!messageOverlay || messageOverlay.className !== 'open');
+            return false;
+        };
+    }
+
+    if (logCloseBtn) {
+        logCloseBtn.onclick = function (e) {
+            if (e && e.preventDefault) {
+                e.preventDefault();
+            }
+            setLogOpen(false);
+            return false;
+        };
+    }
+
+    if (mapCloseBtn) {
+        mapCloseBtn.onclick = function (e) {
+            if (e && e.preventDefault) {
+                e.preventDefault();
+            }
+            setMapOpen(false);
+            return false;
+        };
+    }
+
+    if (mapZoomOutBtn) {
+        mapZoomOutBtn.onclick = function (e) {
+            if (e && e.preventDefault) {
+                e.preventDefault();
+            }
+            state.mapZoom = Math.max(1, (state.mapZoom || 1) - 1);
+            drawLegend();
+            return false;
+        };
+    }
+
+    if (mapZoomInBtn) {
+        mapZoomInBtn.onclick = function (e) {
+            if (e && e.preventDefault) {
+                e.preventDefault();
+            }
+            state.mapZoom = Math.min(4, (state.mapZoom || 1) + 1);
+            drawLegend();
+            return false;
+        };
+    }
+
+    if (playZoomOutBtn) {
+        playZoomOutBtn.onclick = function (e) {
+            if (e && e.preventDefault) {
+                e.preventDefault();
+            }
+            state.playZoom = Math.max(0.5, (state.playZoom || 1) - 0.25);
+            syncLayout();
+            return false;
+        };
+    }
+
+    if (playZoomInBtn) {
+        playZoomInBtn.onclick = function (e) {
+            var nextZoom;
+            var currentLayout;
+            var nextLayout;
+            if (e && e.preventDefault) {
+                e.preventDefault();
+            }
+            nextZoom = Math.min(2.5, (state.playZoom || 1) + 0.25);
+            currentLayout = layoutForZoom(state.playZoom || 1);
+            nextLayout = layoutForZoom(nextZoom);
+            if (!currentLayout || !nextLayout || nextLayout.cell <= currentLayout.cell) {
+                return false;
+            }
+            state.playZoom = nextZoom;
+            syncLayout();
+            return false;
+        };
+    }
+
     if (colorModeEl) {
         colorModeEl.onclick = function () {
             state.colorMode = !!colorModeEl.checked;
@@ -6757,6 +7237,7 @@
             if (e && e.preventDefault) {
                 e.preventDefault();
             }
+            setMenuOpen(false);
             ensureAudio();
             if (!targetMonsterAtEvent(e || window.event)) {
                 autoMoveTargetAtEvent(e || window.event);
@@ -6768,6 +7249,7 @@
             if (e && e.preventDefault) {
                 e.preventDefault();
             }
+            setMenuOpen(false);
             ensureAudio();
             if (!targetMonsterAtEvent(e || window.event)) {
                 autoMoveTargetAtEvent(e || window.event);
