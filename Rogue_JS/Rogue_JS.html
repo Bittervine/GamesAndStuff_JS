@@ -677,8 +677,8 @@
         }
 
         #spellSlot {
-            flex: 0 0 clamp(88px, 24vw, 140px);
-            min-width: clamp(88px, 24vw, 140px);
+            flex: 0 0 clamp(132px, 36vw, 210px);
+            min-width: clamp(132px, 36vw, 210px);
             height: calc(var(--top-bar-h) - 8px);
             display: flex;
             align-items: stretch;
@@ -760,6 +760,7 @@
             padding: 0;
             border-radius: 12px;
             display: block;
+            opacity: 0.5;
         }
 
         #spellDock .spellIconBtn .btnInner {
@@ -797,6 +798,11 @@
             -webkit-backdrop-filter: blur(3px);
             width: auto;
             height: auto;
+            opacity: 0.5;
+        }
+
+        #playZoomControls .topMiniBtn {
+            opacity: 0.5;
         }
 
         .moveBtn .btnText {
