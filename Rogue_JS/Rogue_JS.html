@@ -111,7 +111,7 @@
 
         #messagePanel {
             top: 136px;
-            height: 25%;
+            bottom: 52%;
             padding: 6px 6px 4px;
             font-size: 11px;
             line-height: 1.15;
@@ -736,8 +736,7 @@
     var VISION = 3;
     var HISTORY_LINES = 2;
     var MAX_DEPTH = 10;
-    var DEBUG_EXIT_IN_START_ROOM = false;
-    var DEBUG_SPIDER_IN_START_ROOM = false;
+    var DEBUG = true;
 
     var TILE_WALL = '#';
     var TILE_FLOOR = '.';
@@ -789,7 +788,8 @@
         water: cp(0x1F4A7),
         potion: withVs(0x2764),
         web: cp(0x2733),
-        claw: withVs(0x2694)
+        claw: withVs(0x2694),
+        decor_scroll: cp(0x1F4DC)
     };
 
     var DECOR_ICON = {
@@ -1326,6 +1326,9 @@
         }
         if (state.player.webbed > 0) {
             labels.push('Webbed');
+        }
+        if (state.player.damageMult > 1) {
+            labels.push('Double Damage');
         }
         if (state.player.slow > 0) {
             labels.push('Slowed');
@@ -2493,8 +2496,16 @@
             poison: 0,
             burn: 0,
             cursed: 0,
+            damageMult: 1,
+            damageScroll6Taken: false,
+            damageScroll10Taken: false,
             depth: 1
         };
+    }
+
+    function playerDamage(dmg) {
+        var mult = state.player && state.player.damageMult ? state.player.damageMult : 1;
+        return Math.max(1, dmg * mult);
     }
 
     function preparePlayerForNextFloor() {
@@ -3016,6 +3027,25 @@
         state.items.push({ type: type, x: x, y: y });
     }
 
+    function maybePlaceDoubleDamageScroll(depth) {
+        var spot;
+        if (!state.player) {
+            return;
+        }
+        if (depth >= 6 && !state.player.damageScroll6Taken) {
+            spot = randomOpenTile(10, 0);
+            if (spot) {
+                addItem('double_damage_6', spot.x, spot.y);
+            }
+        }
+        if (depth >= 10 && !state.player.damageScroll10Taken) {
+            spot = randomOpenTile(10, 0);
+            if (spot) {
+                addItem('double_damage_10', spot.x, spot.y);
+            }
+        }
+    }
+
     function canPlaceDecoration(x, y) {
         if (tileAt(x, y) !== TILE_FLOOR) {
             return false;
@@ -3267,7 +3297,7 @@
             state.relicPos = roomCenter(goalRoom);
             setTile(state.relicPos.x, state.relicPos.y, TILE_RELIC);
         } else {
-            if (DEBUG_EXIT_IN_START_ROOM) {
+            if (DEBUG) {
                 exitRoom = state.rooms[0];
                 state.exit = {
                     x: Math.min(exitRoom.x + exitRoom.w - 2, center.x + 2),
@@ -3281,7 +3311,7 @@
         }
 
         if (depth === 1) {
-            if (DEBUG_SPIDER_IN_START_ROOM) {
+            if (DEBUG) {
                 room = state.rooms[0];
                 spawn = null;
                 for (i = 0; i < 60; i++) {
@@ -3350,6 +3380,7 @@
                 addItem('vial', spawn.x, spawn.y);
             }
         }
+        maybePlaceDoubleDamageScroll(depth);
 
         placeMonstersForDepth(depth);
         if (depth >= MAX_DEPTH) {
@@ -3396,7 +3427,7 @@
     }
 
     function webSnareTurns() {
-        return 1 + rand(4);
+        return 1 + rand(5);
     }
 
     function applyWebSnare(minTurns) {
@@ -3439,6 +3470,14 @@
             } else if (item.type === 'vial') {
                 state.player.nuke += 1;
                 pushMessage('Pulse vial charges the nuke');
+            } else if (item.type === 'double_damage_6' || item.type === 'double_damage_10') {
+                state.player.damageMult *= 2;
+                if (item.type === 'double_damage_6') {
+                    state.player.damageScroll6Taken = true;
+                } else {
+                    state.player.damageScroll10Taken = true;
+                }
+                pushMessage('Scroll of Double Damage empowers the wizard');
             }
         }
 
@@ -3648,7 +3687,7 @@
 
     function detonatePulseNukeAt(cx, cy, charges, sourceLabel, healPlayer) {
         var radius = 4 + charges;
-        var dmg = 5 + (charges * 3);
+        var dmg = playerDamage(5 + (charges * 3));
         var i;
         var mon;
         var before;
@@ -4113,7 +4152,7 @@
         targetFreezesWater = !!(targetMon && isWater(target.x, target.y) && !hasFlag(targetMon, 'f'));
 
         if (spell.id === 'fire') {
-            result = targetMon ? hitMonster(targetMon, 3 + roll(3), 'fire', 'Fire spell') : hitDecorationBySpell(targetDeco, 'fire', 'Fire spell');
+            result = targetMon ? hitMonster(targetMon, playerDamage(3 + roll(3)), 'fire', 'Fire spell') : hitDecorationBySpell(targetDeco, 'fire', 'Fire spell');
             playSpellImpactSound('fire');
             spawnEffect('burst', 'fire', target.x, target.y, target.x, target.y, 4);
             igniteGrassAt(target.x, target.y, 3);
@@ -4123,7 +4162,7 @@
                 for (i = state.monsters.length - 1; i >= 0; i--) {
                     mon = state.monsters[i];
                     if (mon.id !== targetMon.id && distance(mon.x, mon.y, target.x, target.y) <= 1) {
-                        hitMonster(mon, 1 + rand(2), 'fire', 'Splash fire');
+                        hitMonster(mon, playerDamage(1 + rand(2)), 'fire', 'Splash fire');
                     }
                 }
             }
@@ -4134,7 +4173,7 @@
                 }
             }
         } else if (spell.id === 'lightning') {
-            result = targetMon ? hitMonster(targetMon, 4 + roll(3), 'lightning', 'Lightning') : hitDecorationBySpell(targetDeco, 'lightning', 'Lightning');
+            result = targetMon ? hitMonster(targetMon, playerDamage(4 + roll(3)), 'lightning', 'Lightning') : hitDecorationBySpell(targetDeco, 'lightning', 'Lightning');
             playSpellImpactSound('lightning');
             spawnEffect('burst', 'lightning', target.x, target.y, target.x, target.y, 4);
             if (targetMon && isWater(target.x, target.y)) {
@@ -4142,7 +4181,7 @@
                 for (i = state.monsters.length - 1; i >= 0; i--) {
                     mon = state.monsters[i];
                     if (mon.id !== targetMon.id && component[keyFor(mon.x, mon.y)]) {
-                        hitMonster(mon, 2 + rand(3), 'lightning', 'Water arc');
+                        hitMonster(mon, playerDamage(2 + rand(3)), 'lightning', 'Water arc');
                         spawnEffect('chain', 'lightning', target.x, target.y, mon.x, mon.y, 2);
                     }
                 }
@@ -4152,11 +4191,11 @@
                 }
             }
         } else if (spell.id === 'earth') {
-            result = targetMon ? hitMonster(targetMon, 6 + roll(4), 'earth', 'Earth spike') : hitDecorationBySpell(targetDeco, 'earth', 'Earth spike');
+            result = targetMon ? hitMonster(targetMon, playerDamage(6 + roll(4)), 'earth', 'Earth spike') : hitDecorationBySpell(targetDeco, 'earth', 'Earth spike');
             playSpellImpactSound('earth');
             spawnEffect('burst', 'earth', target.x, target.y, target.x, target.y, 4);
         } else if (spell.id === 'frost') {
-            result = targetMon ? hitMonster(targetMon, 2 + roll(3), 'frost', 'Frost bolt') : hitDecorationBySpell(targetDeco, 'frost', 'Frost bolt');
+            result = targetMon ? hitMonster(targetMon, playerDamage(2 + roll(3)), 'frost', 'Frost bolt') : hitDecorationBySpell(targetDeco, 'frost', 'Frost bolt');
             playSpellImpactSound('frost');
             if (targetMon && result !== 'reflect') {
                 if (currentTargetById(targetMon.id)) {
@@ -4171,7 +4210,7 @@
             }
             spawnEffect('burst', 'frost', target.x, target.y, target.x, target.y, 4);
         } else if (spell.id === 'wind') {
-            result = targetMon ? hitMonster(targetMon, 1 + roll(2), 'wind', 'Wind lash') : hitDecorationBySpell(targetDeco, 'wind', 'Wind lash');
+            result = targetMon ? hitMonster(targetMon, playerDamage(1 + roll(2)), 'wind', 'Wind lash') : hitDecorationBySpell(targetDeco, 'wind', 'Wind lash');
             playSpellImpactSound('wind');
             if (targetMon && result !== 'reflect' && currentTargetById(targetMon.id)) {
                 if (pushMonster(targetMon, state.player.x, state.player.y, 1 + rand(3)) > 0) {
@@ -4236,7 +4275,7 @@
             for (i = state.monsters.length - 1; i >= 0; i--) {
                 mon = state.monsters[i];
                 if (distance(mon.x, mon.y, target.x, target.y) <= 1) {
-                    hitMonster(mon, 1 + rand(2), 'poison', 'Poison cloud');
+                    hitMonster(mon, playerDamage(1 + rand(2)), 'poison', 'Poison cloud');
                     if (currentTargetById(mon.id)) {
                         mon.burn = 0;
                         mon.slow = Math.max(mon.slow, 1);
@@ -4276,14 +4315,14 @@
             spawnEffect('burst', 'earth', state.player.x, state.player.y, state.player.x, state.player.y, 3);
         } else if (spell.id === 'chain_storm') {
             if (targetMon) {
-                hitMonster(targetMon, 4 + roll(3), 'lightning', 'Chain Storm');
+                hitMonster(targetMon, playerDamage(4 + roll(3)), 'lightning', 'Chain Storm');
             } else {
                 hitDecorationBySpell(target.ref, 'lightning', 'Chain Storm');
             }
             for (i = state.monsters.length - 1; i >= 0; i--) {
                 mon = state.monsters[i];
                 if (target && (!targetMon || mon.id !== targetMon.id) && distance(mon.x, mon.y, target.x, target.y) <= 3) {
-                    hitMonster(mon, 2 + rand(3), 'lightning', 'Storm arc');
+                    hitMonster(mon, playerDamage(2 + rand(3)), 'lightning', 'Storm arc');
                     spawnEffect('chain', 'lightning', target.x, target.y, mon.x, mon.y, 2);
                 }
             }
@@ -4326,7 +4365,7 @@
         if (!canAct()) {
             return;
         }
-        dmg = state.player.melee + rand(3);
+        dmg = playerDamage(state.player.melee + rand(3));
         if (mon.power === 'thorns') {
             hurtPlayer(1 + rand(2), 'melee', mon.name + ' thorns');
         }
@@ -5092,6 +5131,11 @@
         state.exit = data.exit || { x: -1, y: -1 };
         state.relicPos = data.relicPos || { x: -1, y: -1 };
         state.player = data.player;
+        if (typeof state.player.damageMult !== 'number' || state.player.damageMult < 1) {
+            state.player.damageMult = 1;
+        }
+        state.player.damageScroll6Taken = !!state.player.damageScroll6Taken;
+        state.player.damageScroll10Taken = !!state.player.damageScroll10Taken;
         state.running = !!data.running;
         state.paused = !!data.paused;
         state.gameOver = !!data.gameOver;
@@ -6233,12 +6277,12 @@
             }
             drawGlyph(
                 ctx,
-                item.type === 'potion' ? ICON.heart : ICON.spark,
+                item.type === 'potion' ? ICON.heart : ((item.type === 'double_damage_6' || item.type === 'double_damage_10') ? ICON.decor_scroll : ICON.spark),
                 px + Math.floor(CELL / 2),
                 py + Math.floor(CELL / 2),
                 Math.floor(CELL * 0.72),
-                item.type === 'potion' ? FONT_EMOJI : FONT_SYMBOL,
-                item.type === 'vial' && state.colorMode ? '#ffd24a' : pal.text
+                item.type === 'potion' || item.type === 'double_damage_6' || item.type === 'double_damage_10' ? FONT_EMOJI : FONT_SYMBOL,
+                item.type === 'vial' && state.colorMode ? '#ffd24a' : ((item.type === 'double_damage_6' || item.type === 'double_damage_10') && state.colorMode ? '#ffd966' : pal.text)
             );
         }
 
