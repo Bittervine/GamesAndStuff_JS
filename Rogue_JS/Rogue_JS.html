@@ -678,9 +678,9 @@
         }
 
         #compactStatus {
-            flex: 1 1 auto;
+            flex: 1 1 18ch;
             min-width: 0;
-            height: calc(var(--top-bar-h) - 8px);
+            height: var(--ui-btn-size);
             padding: 0 8px;
             display: flex;
             align-items: center;
@@ -697,9 +697,9 @@
         }
 
         #spellSlot {
-            flex: 0 0 clamp(132px, 36vw, 210px);
-            min-width: clamp(132px, 36vw, 210px);
-            height: calc(var(--top-bar-h) - 8px);
+            flex: 1 1 18ch;
+            min-width: 0;
+            height: var(--ui-btn-size);
             display: flex;
             align-items: stretch;
         }
@@ -707,7 +707,7 @@
         #learnedSpellSelect {
             width: 100%;
             min-width: 0;
-            height: calc(var(--top-bar-h) - 8px);
+            height: var(--ui-btn-size);
             position: static;
             font-size: clamp(10px, 2.8vw, 13px);
             padding: 0 8px;
@@ -1006,7 +1006,7 @@
                     <span class="btnText">Menu</span>
                 </span>
             </button>
-            <div id="compactStatus">HP: -- MP: -- Lv: --</div>
+            <div id="compactStatus">HP: --/-- MP: --/--</div>
             <div id="spellSlot">
                 <select id="learnedSpellSelect" class="learnSelect"></select>
             </div>
@@ -2010,7 +2010,6 @@
     function updateHud() {
         var spell = selectedLearnedSpell();
         var visible = visibleMonsters().length;
-        var levelText = state.player ? state.player.level : '--';
         syncUiGlyphs();
         if (hpText) {
             hpText.innerHTML = state.player ? (state.player.hp + '/' + state.player.maxHp) : '--';
@@ -2031,7 +2030,7 @@
             statusText.innerHTML = formatStatus();
         }
         if (compactStatus) {
-            compactStatus.innerHTML = state.player ? ('HP: ' + state.player.hp + '/' + state.player.maxHp + ' MP: ' + state.player.mp + '/' + state.player.maxMp + ' Lv: ' + levelText) : 'HP: -- MP: -- Lv: --';
+            compactStatus.innerHTML = state.player ? ('HP: ' + state.player.hp + '/' + state.player.maxHp + ' MP: ' + state.player.mp + '/' + state.player.maxMp) : 'HP: --/-- MP: --/--';
         }
         refreshLearnedSpellMenu();
         setButtonFace(learnedCastBtn, spell.icon, 'Cast');
