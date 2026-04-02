@@ -7101,6 +7101,26 @@ var BITMAP_GLYPH_INDEX = {
         if (USE_FONT_GLYPHS && !emojiFontsReady) {
             return;
         }
+        if (state.player && state.player.nuke > 0) {
+            var cxAura = px + Math.floor(CELL / 2);
+            var cyAura = py + Math.floor(CELL / 2);
+            var auraR = Math.floor(CELL * 0.58);
+            var aura = ctx.createRadialGradient(cxAura, cyAura, Math.floor(CELL * 0.10), cxAura, cyAura, auraR);
+            ctx.save();
+            if (state.colorMode) {
+                aura.addColorStop(0, 'rgba(255,244,140,0.70)');
+                aura.addColorStop(0.45, 'rgba(255,196,0,0.34)');
+                aura.addColorStop(0.78, 'rgba(255,96,32,0.14)');
+                aura.addColorStop(1, 'rgba(255,96,32,0)');
+            } else {
+                aura.addColorStop(0, 'rgba(255,255,255,0.24)');
+                aura.addColorStop(0.70, 'rgba(255,255,255,0.10)');
+                aura.addColorStop(1, 'rgba(255,255,255,0)');
+            }
+            ctx.fillStyle = aura;
+            ctx.fillRect(px, py, CELL, CELL);
+            ctx.restore();
+        }
         if (state.player && state.player.burn > 0) {
             ctx.save();
             ctx.globalAlpha = 0.65;
