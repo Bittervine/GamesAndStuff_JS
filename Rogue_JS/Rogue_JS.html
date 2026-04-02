@@ -8580,7 +8580,9 @@ var BITMAP_GLYPH_INDEX = {
             castSpellAt('lightning');
         } else if (keyCode === 'NumpadAdd') {
             cycleTarget();
-        } else if (keyCode === 'Numpad0' || keyCode === 'NumpadDecimal') {
+        } else if (keyCode === 'Numpad0') {
+            castSpellAt('earth');
+        } else if (keyCode === 'NumpadDecimal') {
             castSpellAt('wind');
         } else if (keyCode === 'Enter' || keyCode === 'NumpadEnter') {
             if (!activateSelectedTarget()) {
