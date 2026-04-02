@@ -6600,6 +6600,7 @@ var BITMAP_GLYPH_INDEX = {
     }
 
     function resetRun() {
+        setMenuOpen(false);
         generateWorld(0);
     }
 
@@ -6768,6 +6769,7 @@ var BITMAP_GLYPH_INDEX = {
 
     function saveGame() {
         var text;
+        setMenuOpen(false);
         if (!window.JSON || !JSON.stringify) {
             pushMessage('Saving is not supported here');
             draw();
@@ -6786,6 +6788,7 @@ var BITMAP_GLYPH_INDEX = {
     function loadGame() {
         var text = safeStorageGet(STORAGE.save);
         var snapshot = null;
+        setMenuOpen(false);
         if (!text) {
             pushMessage('No saved game');
             draw();
