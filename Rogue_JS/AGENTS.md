@@ -61,3 +61,19 @@
 - `Rogue_JS.html`
 - `_atlas_color_generated.png`
 - `_atlas_mono_saved.png`
+
+## Layout Debug Visualizations
+We use a toggle class on `#wrap` to show layout container outlines without hiding content.
+
+Enable outlines:
+- Add the class `layoutDebug` to `#wrap`
+
+Enable outlines + faint fills for tiny slots:
+- Add `fill` alongside `layoutDebug` on `#wrap` (example: `class="layoutDebug fill"`)
+
+Targets:
+- `#panelBlue`, `#panelGray`, `#panelYellow`
+- `#panelPink`, `#panelMagenta`, `#panelCyan`
+
+Notes:
+- Outlines are preferred over solid fills to keep the play area visible.
