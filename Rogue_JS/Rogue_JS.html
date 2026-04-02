@@ -1570,6 +1570,7 @@
     var WORLD_H = 100;
     var VIEW_COLS = 21;
     var VIEW_ROWS = 21;
+    var TERRAIN_SMOOTH_PASSES = 1;
     var CELL = 24;
     var BOARD_OFFSET_X = 0;
     var BOARD_OFFSET_Y = 0;
@@ -2931,7 +2932,7 @@ var BITMAP_GLYPH_INDEX = {
         } else {
             html = '<span class="btnInner"><span class="nukePack"><img class="nukeItem nukeIconBitmap" alt="" src="' + domGlyphDataUrl(icon, 64, '#111111') + '"><span class="nukeItem nukeChargeLabel"><span class="prefix">x</span>' + count + '</span></span></span>';
         }
-        btn.title = text + ' x' + count;
+        btn.title = text;
         btn.innerHTML = html;
     }
 
@@ -3014,13 +3015,13 @@ var BITMAP_GLYPH_INDEX = {
             compactStatus.innerHTML = state.player ? ('HP: ' + state.player.hp + '/' + state.player.maxHp + ' MP: ' + state.player.mp + '/' + state.player.maxMp) : 'HP: --/-- MP: --/--';
         }
         refreshLearnedSpellMenu();
-        setButtonFace(learnedCastBtn, spell.icon, 'Cast');
-        setButtonFace(spellBtn, ICON.fire, 'Fire');
-        setButtonFace(blastBtn, ICON.frost, 'Frost');
-        setButtonFace(waitBtn, ICON.rock, 'Earth');
-        setButtonFace(focusBtn, ICON.bolt, 'Volt');
-        setButtonFace(infoBtn, ICON.wind, 'Wind');
-        setNukeButtonFace(nukeBtn, ICON.spark, 'Nuke', state.player ? state.player.nuke : 0);
+        setButtonFace(learnedCastBtn, spell.icon, 'Cast selected spell');
+        setButtonFace(spellBtn, ICON.fire, 'Firebolt - Hit the enemy for moderate damage and may cause fire to spread.');
+        setButtonFace(blastBtn, ICON.frost, 'Frostbolt - Hit the enemy for moderate damage. May slow affected enemies and freeze water.');
+        setButtonFace(waitBtn, ICON.rock, 'Earth spike - Hit the enemy for high damage, but no extra effect.');
+        setButtonFace(focusBtn, ICON.bolt, 'Lightning - Hit the enemy for moderate damage. May electrify water.');
+        setButtonFace(infoBtn, ICON.wind, 'Wind - Hit the enemy for low damage and push them back.');
+        setNukeButtonFace(nukeBtn, ICON.spark, 'Nuke - Detonate to hurt all enemies near and transfer HP to the wizard. Up to 9 charges can be carried, and all stored charges are released at once. Any charge is released automatically when wizard is about to die as a Hail Mary.', state.player ? state.player.nuke : 0);
     }
 
     function tileAt(x, y) {
@@ -7150,6 +7151,17 @@ var BITMAP_GLYPH_INDEX = {
         return 'rgb(' + rr + ',' + rg + ',' + rb + ')';
     }
 
+    function tileTerrainClassAt(x, y) {
+        var t = tileAt(x, y);
+        if (t === TILE_GRASS) {
+            return 'grass';
+        }
+        if (t === TILE_WATER) {
+            return isFrozenWater(x, y) ? 'ice' : 'water';
+        }
+        return 'clear';
+    }
+
     function drawTile(mapX, mapY, px, py, pal, visible, lightLevel) {
         var tile = tileAt(mapX, mapY);
         var fill = pal.floor;
@@ -7164,6 +7176,113 @@ var BITMAP_GLYPH_INDEX = {
         var litWallLine;
         var hiddenWallFill;
         var hiddenWallLine;
+        function classColor(kind) {
+            if (kind === 'clear') {
+                return visible ? pal.floor : grayFill;
+            }
+            if (kind === 'grass') {
+                return visible ? pal.grass : grayFill;
+            }
+            if (kind === 'ice') {
+                return visible ? '#f4fbff' : grayLightColor(light, 150, 220);
+            }
+            if (kind === 'water') {
+                return visible ? pal.water : grayFill;
+            }
+            return visible ? pal.floor : grayFill;
+        }
+        function drawTerrainSubtilePass1() {
+            var half = Math.floor(CELL * 0.5);
+            var corners = [
+                { bx: mapX - 1, by: mapY - 1, ox: 0, oy: 0 },
+                { bx: mapX, by: mapY - 1, ox: half, oy: 0 },
+                { bx: mapX - 1, by: mapY, ox: 0, oy: half },
+                { bx: mapX, by: mapY, ox: half, oy: half }
+            ];
+            var classes = ['clear', 'water', 'ice', 'grass'];
+            var c;
+            var i;
+            var a;
+            var b;
+            var d;
+            var e;
+            var count;
+            var winner;
+            var sx;
+            var sy;
+            var sw;
+            var sh;
+            function drawSubtileMarker(kind, x, y, w, h, asAsh) {
+                if (kind === 'grass') {
+                    var reedCount = 6;
+                    var r;
+                    var xPos;
+                    var startY;
+                    var reedLen;
+                    var order = [0, 1, 2, 3, 4, 5, 6, 7];
+                    var seed = ((mapX + 37) * 73856093) ^ ((mapY + 53) * 19349663) ^ (Math.floor(x) * 83492791) ^ (Math.floor(y) * 297121507);
+                    var j;
+                    var t;
+                    function nextRand() {
+                        seed = (seed * 1664525 + 1013904223) >>> 0;
+                        return seed;
+                    }
+                    ctx.strokeStyle = asAsh ? (visible ? '#1c1a18' : grayLightColor(light, 16, 52)) : (visible ? pal.floorDot : grayLine);
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    for (j = reedCount - 1; j > 0; j--) {
+                        t = nextRand() % (j + 1);
+                        seed = seed >>> 0;
+                        var tmp = order[j];
+                        order[j] = order[t];
+                        order[t] = tmp;
+                    }
+                    for (r = 0; r < reedCount; r++) {
+                        xPos = x + Math.floor(((r + 1) / (reedCount + 1)) * w);
+                        startY = (y + h - 2) - Math.floor((order[r] / (reedCount - 1)) * (h * 0.5));
+                        reedLen = Math.floor((h * 0.25) + ((r % 3) / 2) * (h * 0.25));
+                        ctx.moveTo(xPos, startY);
+                        ctx.lineTo(xPos, Math.max(y + 1, startY - reedLen));
+                    }
+                    ctx.stroke();
+                    return;
+                }
+                if (kind === 'water' || kind === 'ice') {
+                    ctx.strokeStyle = (kind === 'ice') ? (visible ? '#ffffff' : grayLightColor(light, 176, 236)) : (visible ? pal.waterLine : grayLine);
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    // Two alternating curls so each subtile reads as "wavy", not a single arc.
+                    ctx.moveTo(x + 2, y + Math.floor(h * 0.42));
+                    ctx.quadraticCurveTo(x + Math.floor(w * 0.24), y + Math.floor(h * 0.18), x + Math.floor(w * 0.48), y + Math.floor(h * 0.42));
+                    ctx.quadraticCurveTo(x + Math.floor(w * 0.72), y + Math.floor(h * 0.66), x + w - 2, y + Math.floor(h * 0.42));
+                    ctx.stroke();
+                }
+            }
+            for (c = 0; c < corners.length; c++) {
+                a = tileTerrainClassAt(corners[c].bx, corners[c].by);
+                b = tileTerrainClassAt(corners[c].bx + 1, corners[c].by);
+                d = tileTerrainClassAt(corners[c].bx, corners[c].by + 1);
+                e = tileTerrainClassAt(corners[c].bx + 1, corners[c].by + 1);
+                // Fallback to center tile class so every subtile resolves deterministically.
+                winner = tileTerrainClassAt(mapX, mapY);
+                for (i = 0; i < classes.length; i++) {
+                    count = (a === classes[i] ? 1 : 0) + (b === classes[i] ? 1 : 0) + (d === classes[i] ? 1 : 0) + (e === classes[i] ? 1 : 0);
+                    if (count >= 3) {
+                        winner = classes[i];
+                        break;
+                    }
+                }
+                if (winner) {
+                    sx = px + corners[c].ox;
+                    sy = py + corners[c].oy;
+                    sw = half;
+                    sh = half;
+                    ctx.fillStyle = classColor(winner);
+                    ctx.fillRect(sx, sy, sw, sh);
+                    drawSubtileMarker(winner, sx, sy, sw, sh, false);
+                }
+            }
+        }
         if (tile === TILE_WALL && !isBoundaryWall(mapX, mapY)) {
             ctx.fillStyle = '#000000';
             ctx.fillRect(px, py, CELL, CELL);
@@ -7247,6 +7366,9 @@ var BITMAP_GLYPH_INDEX = {
 
         ctx.fillStyle = fill;
         ctx.fillRect(px, py, CELL, CELL);
+        if (state.colorMode && TERRAIN_SMOOTH_PASSES >= 1 && tile !== TILE_WALL) {
+            drawTerrainSubtilePass1();
+        }
 
         if (state.colorMode && tile !== TILE_WALL) {
             var rCorner = Math.floor(CELL * 0.5);
@@ -7303,50 +7425,54 @@ var BITMAP_GLYPH_INDEX = {
             }
         }
 
-        if (tile === TILE_WATER) {
-            if (isFrozenWater(mapX, mapY)) {
-                ctx.strokeStyle = visible ? '#ffffff' : grayLightColor(light, 176, 236);
-            } else {
-                ctx.strokeStyle = visible ? pal.waterLine : grayLine;
-            }
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(px + 4, py + Math.floor(CELL * 0.22));
-            ctx.quadraticCurveTo(px + Math.floor(CELL * 0.18), py + Math.floor(CELL * 0.14), px + Math.floor(CELL * 0.34), py + Math.floor(CELL * 0.22));
-            ctx.quadraticCurveTo(px + Math.floor(CELL * 0.50), py + Math.floor(CELL * 0.30), px + Math.floor(CELL * 0.66), py + Math.floor(CELL * 0.22));
-            ctx.quadraticCurveTo(px + CELL - 7, py + Math.floor(CELL * 0.16), px + CELL - 4, py + Math.floor(CELL * 0.22));
-            ctx.moveTo(px + 4, py + Math.floor(CELL * 0.38));
-            ctx.quadraticCurveTo(px + Math.floor(CELL * 0.22), py + Math.floor(CELL * 0.28), px + Math.floor(CELL * 0.40), py + Math.floor(CELL * 0.38));
-            ctx.quadraticCurveTo(px + Math.floor(CELL * 0.58), py + Math.floor(CELL * 0.48), px + Math.floor(CELL * 0.76), py + Math.floor(CELL * 0.38));
-            ctx.quadraticCurveTo(px + CELL - 6, py + Math.floor(CELL * 0.30), px + CELL - 4, py + Math.floor(CELL * 0.38));
-            ctx.moveTo(px + 4, py + Math.floor(CELL * 0.52));
-            ctx.quadraticCurveTo(px + Math.floor(CELL * 0.20), py + Math.floor(CELL * 0.44), px + Math.floor(CELL * 0.38), py + Math.floor(CELL * 0.52));
-            ctx.quadraticCurveTo(px + Math.floor(CELL * 0.56), py + Math.floor(CELL * 0.60), px + Math.floor(CELL * 0.74), py + Math.floor(CELL * 0.52));
-            ctx.quadraticCurveTo(px + CELL - 6, py + Math.floor(CELL * 0.46), px + CELL - 4, py + Math.floor(CELL * 0.52));
-            ctx.moveTo(px + 5, py + Math.floor(CELL * 0.66));
-            ctx.quadraticCurveTo(px + Math.floor(CELL * 0.24), py + Math.floor(CELL * 0.56), px + Math.floor(CELL * 0.42), py + Math.floor(CELL * 0.66));
-            ctx.quadraticCurveTo(px + Math.floor(CELL * 0.60), py + Math.floor(CELL * 0.76), px + Math.floor(CELL * 0.78), py + Math.floor(CELL * 0.66));
-            ctx.quadraticCurveTo(px + CELL - 7, py + Math.floor(CELL * 0.58), px + CELL - 5, py + Math.floor(CELL * 0.66));
-            ctx.stroke();
-            if (isFrozenWater(mapX, mapY)) {
-                ctx.strokeStyle = visible ? '#d7eefc' : grayLightColor(light, 168, 214);
-                ctx.beginPath();
-                ctx.moveTo(px + Math.floor(CELL * 0.28), py + Math.floor(CELL * 0.22));
-                ctx.lineTo(px + Math.floor(CELL * 0.58), py + Math.floor(CELL * 0.50));
-                ctx.lineTo(px + Math.floor(CELL * 0.78), py + Math.floor(CELL * 0.18));
-                ctx.moveTo(px + Math.floor(CELL * 0.44), py + Math.floor(CELL * 0.58));
-                ctx.lineTo(px + Math.floor(CELL * 0.66), py + Math.floor(CELL * 0.82));
-                ctx.stroke();
-            }
-        } else if (tile === TILE_GRASS) {
-            drawGrassReeds(px, py, visible ? pal.floorDot : grayLine);
-        } else {
+        if (tile !== TILE_WATER && tile !== TILE_GRASS) {
             ctx.fillStyle = visible ? pal.floorDot : grayDot;
             ctx.fillRect(px + Math.floor(CELL / 2) - 1, py + Math.floor(CELL / 2) - 1, 2, 2);
         }
 
         if (state.ashGrass[mapY][mapX] > 0) {
-            drawGrassReeds(px, py, visible ? '#1c1a18' : grayLightColor(light, 16, 52));
+            var halfAsh = Math.floor(CELL * 0.5);
+            var ashCorners = [
+                { ox: 0, oy: 0 },
+                { ox: halfAsh, oy: 0 },
+                { ox: 0, oy: halfAsh },
+                { ox: halfAsh, oy: halfAsh }
+            ];
+            var ac;
+            var reedCountAsh = 8;
+            var rr;
+            var axPos;
+            var aStartY;
+            var aLen;
+            var aOrder;
+            var aj;
+            var at;
+            var aSeed;
+            function nextAshRand() {
+                aSeed = (aSeed * 1664525 + 1013904223) >>> 0;
+                return aSeed;
+            }
+            for (ac = 0; ac < ashCorners.length; ac++) {
+                aOrder = [0, 1, 2, 3, 4, 5, 6, 7];
+                aSeed = ((mapX + 71) * 951274213) ^ ((mapY + 19) * 1103515245) ^ ((ac + 1) * 2654435761);
+                ctx.strokeStyle = visible ? '#1c1a18' : grayLightColor(light, 16, 52);
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                for (aj = reedCountAsh - 1; aj > 0; aj--) {
+                    at = nextAshRand() % (aj + 1);
+                    var asTmp = aOrder[aj];
+                    aOrder[aj] = aOrder[at];
+                    aOrder[at] = asTmp;
+                }
+                for (rr = 0; rr < reedCountAsh; rr++) {
+                    axPos = px + ashCorners[ac].ox + Math.floor(((rr + 1) / (reedCountAsh + 1)) * halfAsh);
+                    aStartY = (py + ashCorners[ac].oy + halfAsh - 2) - Math.floor((aOrder[rr] / (reedCountAsh - 1)) * (halfAsh * 0.5));
+                    aLen = Math.floor((halfAsh * 0.25) + ((rr % 3) / 2) * (halfAsh * 0.25));
+                    ctx.moveTo(axPos, aStartY);
+                    ctx.lineTo(axPos, Math.max(py + ashCorners[ac].oy + 1, aStartY - aLen));
+                }
+                ctx.stroke();
+            }
         }
 
         if (state.ashDecor[mapY][mapX] > 0) {
