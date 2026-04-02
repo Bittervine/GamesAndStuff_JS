@@ -3089,6 +3089,41 @@ var BITMAP_GLYPH_INDEX = {
         return idx >= 0 ? state.decorations[idx] : null;
     }
 
+    function isLightEmitterDecoration(deco) {
+        return !!deco && (deco.type === 'torch' || deco.type === 'candelabra');
+    }
+
+    function canPushDecorationTo(x, y) {
+        if (!isOpenTile(x, y)) {
+            return false;
+        }
+        if (decorationAt(x, y) || monsterAt(x, y) || itemIndexAt(x, y) !== -1) {
+            return false;
+        }
+        return true;
+    }
+
+    function pushDecorationBy(deco, dx, dy) {
+        var nx;
+        var ny;
+        var oldKey;
+        if (!deco) {
+            return false;
+        }
+        nx = deco.x + dx;
+        ny = deco.y + dy;
+        if (!canPushDecorationTo(nx, ny)) {
+            return false;
+        }
+        oldKey = targetKeyForDecoration(deco);
+        deco.x = nx;
+        deco.y = ny;
+        if (state.selectedTargetId === oldKey) {
+            state.selectedTargetId = targetKeyForDecoration(deco);
+        }
+        return true;
+    }
+
     function removeMonster(mon) {
         var i;
         for (i = 0; i < state.monsters.length; i++) {
@@ -5167,6 +5202,39 @@ var BITMAP_GLYPH_INDEX = {
         pushMessage(mon.name + ' catches fire');
     }
 
+    function spreadFireFromCell(x, y, turns) {
+        var dx;
+        var dy;
+        var nx;
+        var ny;
+        var mon;
+        var deco;
+        for (dy = -1; dy <= 1; dy++) {
+            for (dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0) {
+                    continue;
+                }
+                nx = x + dx;
+                ny = y + dy;
+                if (tileAt(nx, ny) === TILE_GRASS) {
+                    igniteGrassAt(nx, ny, 3, true);
+                }
+                deco = decorationAt(nx, ny);
+                if (isDecorationFlammable(deco) && deco.burn < 1) {
+                    igniteDecoration(deco, turns, true);
+                }
+                mon = monsterAt(nx, ny);
+                if (mon && mon.burn < 1 && !(isWater(mon.x, mon.y) && !hasFlag(mon, 'f'))) {
+                    igniteMonster(mon, turns, 1);
+                }
+                if (state.player && state.player.burn < 1 && state.player.x === nx && state.player.y === ny) {
+                    state.player.burn = Math.max(state.player.burn, turns);
+                    pushMessage('The flames leap to the wizard');
+                }
+            }
+        }
+    }
+
     function spreadBurn(mon) {
         var i;
         var other;
@@ -5178,6 +5246,7 @@ var BITMAP_GLYPH_INDEX = {
         if (turns < 1) {
             return;
         }
+        spreadFireFromCell(mon.x, mon.y, turns);
         for (i = 0; i < state.monsters.length; i++) {
             other = state.monsters[i];
             if (
@@ -5227,7 +5296,7 @@ var BITMAP_GLYPH_INDEX = {
         if (!deco) {
             return false;
         }
-        return deco.type !== 'torch' && deco.type !== 'candelabra' && deco.type !== 'bucket' && deco.type !== 'crystal_ball';
+        return deco.type !== 'torch' && deco.type !== 'candelabra' && deco.type !== 'candle' && deco.type !== 'bucket' && deco.type !== 'crystal_ball';
     }
 
     function igniteDecoration(deco, turns, quiet) {
@@ -5335,6 +5404,7 @@ var BITMAP_GLYPH_INDEX = {
                             igniteDecoration(decorationAt(nx, ny), 2, true);
                         }
                     }
+                    spreadFireFromCell(x, y, 2);
                     if (roll(100) <= 25) {
                         state.grassFire[y][x] = 0;
                     } else if (state.grassFire[y][x] > 0) {
@@ -5818,6 +5888,7 @@ var BITMAP_GLYPH_INDEX = {
         var nx;
         var ny;
         var mon;
+        var deco;
         var tileEvent;
         if (!canAct()) {
             return;
@@ -5831,6 +5902,24 @@ var BITMAP_GLYPH_INDEX = {
         if (mon) {
             cancelAutoMove('Enemy blocks the way');
             meleeTarget(mon);
+            return;
+        }
+        deco = decorationAt(nx, ny);
+        if (deco) {
+            if (isLightEmitterDecoration(deco)) {
+                state.player.burn = Math.max(state.player.burn, 3);
+                pushMessage('The wizard brushes the flames');
+                advanceTurn('move');
+                return;
+            }
+            if (pushDecorationBy(deco, dx, dy)) {
+                pushMessage('The wizard shoves the ' + decorationName(deco).toLowerCase());
+                advanceTurn('move');
+                return;
+            }
+            cancelAutoMove('Path blocked');
+            pushMessage('The decoration will not budge');
+            draw();
             return;
         }
         if (!playerCanStep(nx, ny)) {
@@ -5886,6 +5975,8 @@ var BITMAP_GLYPH_INDEX = {
         var moveDrainsMana;
         var spentMana;
         var canRegenMana;
+        var i;
+        var mon;
         if (!state.player) {
             return;
         }
@@ -5914,6 +6005,20 @@ var BITMAP_GLYPH_INDEX = {
             pushMessage('Levitation over water drains mana');
         }
 
+        if (state.player.burn < 1) {
+            if (state.grassFire[state.player.y] && state.grassFire[state.player.y][state.player.x] > 0) {
+                state.player.burn = Math.max(state.player.burn, 3);
+                pushMessage('The flames lick the wizard');
+            }
+        }
+
+        if (state.player.burn > 0) {
+            spreadFireFromCell(state.player.x, state.player.y, Math.max(1, state.player.burn - 1));
+            if (tileAt(state.player.x, state.player.y) === TILE_GRASS) {
+                igniteGrassAt(state.player.x, state.player.y, 3);
+            }
+        }
+
         if (isWater(state.player.x, state.player.y) && state.player.burn > 0) {
             state.player.burn = 0;
             pushMessage('Water quenches the flames');
@@ -5924,15 +6029,15 @@ var BITMAP_GLYPH_INDEX = {
             state.player.poison -= 1;
         }
         if (state.player.burn > 0) {
-            hurtPlayer(1, 'fire', 'Burn');
-            if (roll(100) <= 25) {
+            hurtPlayer(2, 'fire', 'Burn');
+            if (roll(100) <= 7) {
                 state.player.burn = 0;
-            } else {
-                state.player.burn -= 1;
             }
         }
         if (state.player.slow > 0) {
-            state.player.slow -= 1;
+            if (roll(100) <= 7) {
+                state.player.slow = 0;
+            }
         }
         if (state.player.cursed > 0) {
             state.player.cursed -= 1;
@@ -5973,18 +6078,14 @@ var BITMAP_GLYPH_INDEX = {
 
         if (mon.burn > 0) {
             mon.burnAge += 1;
-            if (!mon.burnSpread && mon.burnAge >= 3) {
-                spreadBurn(mon);
-            }
+            spreadBurn(mon);
             if (tileAt(mon.x, mon.y) === TILE_GRASS) {
                 igniteGrassAt(mon.x, mon.y, 3);
             }
-            if (roll(100) <= 25) {
+            if (roll(100) <= 7) {
                 mon.burn = 0;
-            } else {
-                mon.burn -= 1;
             }
-            mon.hp -= hasFlag(mon, 'B') ? 2 : 1;
+            mon.hp -= hasFlag(mon, 'B') ? 4 : 2;
             if (mon.hp <= 0) {
                 removeDeadMonster(mon, 'burns away');
                 return false;
@@ -6375,9 +6476,12 @@ var BITMAP_GLYPH_INDEX = {
                 continue;
             }
             if (mon.slow > 0) {
-                mon.slow -= 1;
-                i += 1;
-                continue;
+                if (roll(100) <= 7) {
+                    mon.slow = 0;
+                } else {
+                    i += 1;
+                    continue;
+                }
             }
             actions = 0;
             while (mon.energy >= 100 && actions < 2 && !state.gameOver && currentTargetById(mon.id)) {
@@ -6935,6 +7039,13 @@ var BITMAP_GLYPH_INDEX = {
             drawTargetMarker(px, py, pal, r + 3);
         }
 
+        if (mon.burn > 0) {
+            ctx.save();
+            ctx.globalAlpha = 0.65;
+            drawGlyph(ctx, ICON.fire, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2) + 1, Math.floor(CELL * 0.92), FONT_EMOJI, state.colorMode ? '#ff8f44' : pal.text);
+            ctx.restore();
+        }
+
         drawGlyph(ctx, mon.glyph, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2) + 1, Math.floor(CELL * 0.86), FONT_EMOJI, text);
 
         if (mon.burn > 0) {
@@ -6955,6 +7066,12 @@ var BITMAP_GLYPH_INDEX = {
     function drawPlayer(px, py, pal) {
         if (USE_FONT_GLYPHS && !emojiFontsReady) {
             return;
+        }
+        if (state.player && state.player.burn > 0) {
+            ctx.save();
+            ctx.globalAlpha = 0.65;
+            drawGlyph(ctx, ICON.fire, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2) + 1, Math.floor(CELL * 1.05), FONT_EMOJI, state.colorMode ? '#ff8f44' : pal.text);
+            ctx.restore();
         }
         drawGlyph(ctx, ICON.wizard, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2) + 1, Math.floor(CELL * 0.98), FONT_EMOJI, pal.text);
     }
