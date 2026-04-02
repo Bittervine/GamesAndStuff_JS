@@ -61,14 +61,24 @@
     button:active { transform: translateY(1px); }
 
     .controls {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
-      flex-wrap: wrap;
       margin-bottom: 14px;
     }
 
     .controls button {
       margin-bottom: 0;
+      width: 100%;
+      text-align: center;
+    }
+
+    #autoBtn {
+      min-width: 9ch;
+    }
+
+    .done-count {
+      font-weight: 700;
     }
 
     .board {
@@ -107,6 +117,18 @@
       color: #124d3a;
     }
 
+    .cell.hl-target {
+      box-shadow: inset 0 0 0 3px #0f766e;
+    }
+
+    .cell.hl-unit {
+      box-shadow: inset 0 0 0 2px #ca8a04;
+    }
+
+    .cell.hl-blocker {
+      box-shadow: inset 0 0 0 2px #b91c1c;
+    }
+
     .thick-right { border-right: 3px solid var(--line) !important; }
     .thick-bottom { border-bottom: 3px solid var(--line) !important; }
 
@@ -114,6 +136,31 @@
       margin: 12px 0 0;
       font-size: 0.95rem;
       color: #5d5648;
+      white-space: pre-line;
+    }
+
+    #hint {
+      min-height: calc(1.35em * 5);
+      line-height: 1.35;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .info-board {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      background: #f8f2e4;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    }
+
+    .info-board .hint {
+      margin-top: 6px;
+    }
+
+    .info-board .hint:first-child {
+      margin-top: 0;
     }
   </style>
 </head>
@@ -121,13 +168,15 @@
   <main class="app">
     <h1>Soduko Generator</h1>
     <div class="controls">
-      <button id="generateBtn" type="button">Generate Soduko Puzzle</button>
+      <button id="generateBtn" type="button">Generate Puzzle</button>
       <button id="stepBtn" type="button">Solve One Step</button>
       <button id="autoBtn" type="button">Auto</button>
     </div>
     <section id="board" class="board" aria-label="Sudoku board"></section>
-    <p class="hint">Nr of sodukos done: <span id="doneCount">0</span></p>
-    <p id="hint" class="hint">Click the button to generate a new puzzle.</p>
+    <div class="info-board">
+      <p class="hint done-count">Number of sodukos solved: <span id="doneCount">0</span></p>
+      <p id="hint" class="hint">Click the button to generate a new puzzle.</p>
+    </div>
   </main>
 
   <script>
@@ -149,6 +198,7 @@
     let countedCurrentPuzzle = false;
     let autoTimer = null;
     let autoEnabled = false;
+    let lastHighlights = null;
 
     function shuffle(array) {
       for (let i = array.length - 1; i > 0; i--) {
@@ -242,6 +292,60 @@
       return candidates;
     }
 
+    function getBoxStart(index) {
+      return Math.floor(index / BOX) * BOX;
+    }
+
+    function keyOf(row, col) {
+      return row + "," + col;
+    }
+
+    function formatCell(row, col) {
+      return "r" + (row + 1) + "c" + (col + 1);
+    }
+
+    function formatDigits(values) {
+      return values.length ? values.join(", ") : "none";
+    }
+
+    function getBlockers(grid, row, col, value) {
+      const blockers = [];
+      const seen = new Set();
+
+      for (let i = 0; i < SIZE; i++) {
+        if (grid[row][i] === value) {
+          const k = keyOf(row, i);
+          if (!seen.has(k)) {
+            seen.add(k);
+            blockers.push({ row, col: i });
+          }
+        }
+        if (grid[i][col] === value) {
+          const k = keyOf(i, col);
+          if (!seen.has(k)) {
+            seen.add(k);
+            blockers.push({ row: i, col });
+          }
+        }
+      }
+
+      const br = getBoxStart(row);
+      const bc = getBoxStart(col);
+      for (let r = br; r < br + BOX; r++) {
+        for (let c = bc; c < bc + BOX; c++) {
+          if (grid[r][c] === value) {
+            const k = keyOf(r, c);
+            if (!seen.has(k)) {
+              seen.add(k);
+              blockers.push({ row: r, col: c });
+            }
+          }
+        }
+      }
+
+      return blockers;
+    }
+
     function isSolved(grid) {
       for (let r = 0; r < SIZE; r++) {
         for (let c = 0; c < SIZE; c++) {
@@ -315,7 +419,29 @@
           }
           const candidates = getCandidates(grid, r, c);
           if (candidates.length === 1) {
-            return { row: r, col: c, value: candidates[0], method: "Naked single" };
+            const value = candidates[0];
+            const blockers = [];
+            for (let d = 1; d <= 9; d++) {
+              if (d === value) {
+                continue;
+              }
+              blockers.push(...getBlockers(grid, r, c, d));
+            }
+            return {
+              row: r,
+              col: c,
+              value,
+              method: "Naked single",
+              explanation:
+                "Naked single at " + formatCell(r, c) + ".\n" +
+                "Candidates here are [" + formatDigits(candidates) + "], so only " + value + " fits.\n" +
+                "All other digits are blocked by existing digits in this cell's row, column, or 3x3 box.",
+              highlights: {
+                target: [{ row: r, col: c }],
+                unit: [],
+                blockers
+              }
+            };
           }
         }
       }
@@ -325,16 +451,37 @@
     function findHiddenSingleInRow(grid) {
       for (let r = 0; r < SIZE; r++) {
         for (let n = 1; n <= SIZE; n++) {
-          let foundCol = -1;
-          let count = 0;
+          const possibleCols = [];
+          const blocked = [];
           for (let c = 0; c < SIZE; c++) {
-            if (grid[r][c] === EMPTY && getCandidates(grid, r, c).includes(n)) {
-              foundCol = c;
-              count++;
+            if (grid[r][c] !== EMPTY) {
+              continue;
+            }
+            const candidates = getCandidates(grid, r, c);
+            if (candidates.includes(n)) {
+              possibleCols.push(c);
+            } else {
+              blocked.push(...getBlockers(grid, r, c, n));
             }
           }
-          if (count === 1) {
-            return { row: r, col: foundCol, value: n, method: "Hidden single (row)" };
+          if (possibleCols.length === 1) {
+            const c = possibleCols[0];
+            const unit = Array.from({ length: SIZE }, (_, col) => ({ row: r, col }));
+            return {
+              row: r,
+              col: c,
+              value: n,
+              method: "Hidden single (row)",
+              explanation:
+                "Hidden single in row " + (r + 1) + " for digit " + n + ".\n" +
+                "In this row, " + n + " can only go at " + formatCell(r, c) + ".\n" +
+                "Other empty cells in the row cannot take " + n + " because they are blocked by row/column/box constraints.",
+              highlights: {
+                target: [{ row: r, col: c }],
+                unit,
+                blockers: blocked
+              }
+            };
           }
         }
       }
@@ -344,16 +491,37 @@
     function findHiddenSingleInCol(grid) {
       for (let c = 0; c < SIZE; c++) {
         for (let n = 1; n <= SIZE; n++) {
-          let foundRow = -1;
-          let count = 0;
+          const possibleRows = [];
+          const blocked = [];
           for (let r = 0; r < SIZE; r++) {
-            if (grid[r][c] === EMPTY && getCandidates(grid, r, c).includes(n)) {
-              foundRow = r;
-              count++;
+            if (grid[r][c] !== EMPTY) {
+              continue;
+            }
+            const candidates = getCandidates(grid, r, c);
+            if (candidates.includes(n)) {
+              possibleRows.push(r);
+            } else {
+              blocked.push(...getBlockers(grid, r, c, n));
             }
           }
-          if (count === 1) {
-            return { row: foundRow, col: c, value: n, method: "Hidden single (column)" };
+          if (possibleRows.length === 1) {
+            const r = possibleRows[0];
+            const unit = Array.from({ length: SIZE }, (_, row) => ({ row, col: c }));
+            return {
+              row: r,
+              col: c,
+              value: n,
+              method: "Hidden single (column)",
+              explanation:
+                "Hidden single in column " + (c + 1) + " for digit " + n + ".\n" +
+                "In this column, only " + formatCell(r, c) + " can take " + n + ".\n" +
+                "Every other empty cell in the column is blocked by row/column/box constraints.",
+              highlights: {
+                target: [{ row: r, col: c }],
+                unit,
+                blockers: blocked
+              }
+            };
           }
         }
       }
@@ -364,20 +532,44 @@
       for (let br = 0; br < SIZE; br += BOX) {
         for (let bc = 0; bc < SIZE; bc += BOX) {
           for (let n = 1; n <= SIZE; n++) {
-            let foundRow = -1;
-            let foundCol = -1;
-            let count = 0;
+            const spots = [];
+            const blocked = [];
             for (let r = br; r < br + BOX; r++) {
               for (let c = bc; c < bc + BOX; c++) {
-                if (grid[r][c] === EMPTY && getCandidates(grid, r, c).includes(n)) {
-                  foundRow = r;
-                  foundCol = c;
-                  count++;
+                if (grid[r][c] !== EMPTY) {
+                  continue;
+                }
+                const candidates = getCandidates(grid, r, c);
+                if (candidates.includes(n)) {
+                  spots.push({ row: r, col: c });
+                } else {
+                  blocked.push(...getBlockers(grid, r, c, n));
                 }
               }
             }
-            if (count === 1) {
-              return { row: foundRow, col: foundCol, value: n, method: "Hidden single (box)" };
+            if (spots.length === 1) {
+              const target = spots[0];
+              const unit = [];
+              for (let r = br; r < br + BOX; r++) {
+                for (let c = bc; c < bc + BOX; c++) {
+                  unit.push({ row: r, col: c });
+                }
+              }
+              return {
+                row: target.row,
+                col: target.col,
+                value: n,
+                method: "Hidden single (box)",
+                explanation:
+                  "Hidden single in box (" + (Math.floor(br / 3) + 1) + "," + (Math.floor(bc / 3) + 1) + ") for digit " + n + ".\n" +
+                  "Within this 3x3 box, only " + formatCell(target.row, target.col) + " can take " + n + ".\n" +
+                  "All other empty cells in the box are blocked by row/column/box constraints.",
+                highlights: {
+                  target: [target],
+                  unit,
+                  blockers: blocked
+                }
+              };
             }
           }
         }
@@ -402,6 +594,9 @@
 
     function renderBoard(puzzle) {
       boardEl.innerHTML = "";
+      const targetSet = new Set((lastHighlights?.target || []).map((x) => keyOf(x.row, x.col)));
+      const unitSet = new Set((lastHighlights?.unit || []).map((x) => keyOf(x.row, x.col)));
+      const blockerSet = new Set((lastHighlights?.blockers || []).map((x) => keyOf(x.row, x.col)));
 
       for (let r = 0; r < SIZE; r++) {
         for (let c = 0; c < SIZE; c++) {
@@ -426,6 +621,17 @@
             cell.classList.add("thick-bottom");
           }
 
+          const k = keyOf(r, c);
+          if (unitSet.has(k)) {
+            cell.classList.add("hl-unit");
+          }
+          if (blockerSet.has(k)) {
+            cell.classList.add("hl-blocker");
+          }
+          if (targetSet.has(k)) {
+            cell.classList.add("hl-target");
+          }
+
           boardEl.appendChild(cell);
         }
       }
@@ -439,6 +645,7 @@
       fixedMask = currentPuzzle.map((row) => row.map((value) => value !== EMPTY));
       solvedReference = null;
       countedCurrentPuzzle = false;
+      lastHighlights = null;
       renderBoard(currentPuzzle);
       hintEl.textContent = "New puzzle generated. Click Solve One Step to apply scan logic.";
     }
@@ -461,8 +668,9 @@
       const move = solveOneStep(currentPuzzle);
       if (move) {
         solvedReference = null;
+        lastHighlights = move.highlights || null;
         renderBoard(currentPuzzle);
-        hintEl.textContent = move.method + ": placed " + move.value + " at row " + (move.row + 1) + ", col " + (move.col + 1) + ".";
+        hintEl.textContent = move.explanation || (move.method + ": placed " + move.value + " at row " + (move.row + 1) + ", col " + (move.col + 1) + ".");
         if (isSolved(currentPuzzle)) {
           markSolvedIfNeeded();
           hintEl.textContent += " Puzzle solved.";
@@ -483,8 +691,15 @@
           for (let c = 0; c < SIZE; c++) {
             if (currentPuzzle[r][c] === EMPTY) {
               currentPuzzle[r][c] = solvedReference[r][c];
+              lastHighlights = {
+                target: [{ row: r, col: c }],
+                unit: [],
+                blockers: []
+              };
               renderBoard(currentPuzzle);
-              hintEl.textContent = "Advanced search (backtracking): placed " + solvedReference[r][c] + " at row " + (r + 1) + ", col " + (c + 1) + ".";
+              hintEl.textContent =
+                "Advanced search step at " + formatCell(r, c) + ": placed " + solvedReference[r][c] + ".\n" +
+                "No direct scan-only move was available, so controlled trial and contradiction was used to continue consistently.";
               if (isSolved(currentPuzzle)) {
                 markSolvedIfNeeded();
                 hintEl.textContent += " Puzzle solved.";
