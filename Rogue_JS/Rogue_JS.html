@@ -5459,7 +5459,7 @@ var BITMAP_GLYPH_INDEX = {
                     }
                     if (state.frozenWater[y][x] > 1) {
                         state.frozenWater[y][x] -= 1;
-                    } else if (roll(100) <= 25) {
+                    } else if (roll(100) <= 7) {
                         state.frozenWater[y][x] = 0;
                         state.thawedWaterImmune[y][x] = 3;
                         state.frozenWaterFresh[y][x] = 0;
