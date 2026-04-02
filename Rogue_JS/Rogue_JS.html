@@ -845,12 +845,17 @@
         }
 
         #midLeft,
-        #midRight {
-            pointer-events: auto;
+        #midRightGrid,
+        #midRightDock,
+        #midRightTop,
+        #midRightBottom {
+            pointer-events: none;
         }
 
-        #midCenter {
-            pointer-events: none;
+        #spellDock,
+        #midRightDockInner,
+        #moveDock {
+            pointer-events: auto;
         }
 
         #midCenter {
@@ -3674,21 +3679,27 @@ var BITMAP_GLYPH_INDEX = {
     }
 
     function oldSupplyPlanAt(progressDepth) {
+        var ether;
         if (progressDepth <= 1) {
-            return { potions: 10, ether: 2, vials: 8 };
+            ether = 2;
+            return { potions: 10 + ether, ether: 0, vials: 8 };
         }
         if (progressDepth <= 2) {
-            return { potions: 8, ether: 2, vials: 7 };
+            ether = 2;
+            return { potions: 8 + ether, ether: 0, vials: 7 };
         }
         if (progressDepth <= 3) {
-            return { potions: 7, ether: 2, vials: 6 };
+            ether = 2;
+            return { potions: 7 + ether, ether: 0, vials: 6 };
         }
         if (progressDepth <= 4) {
-            return { potions: 6, ether: 2, vials: 5 };
+            ether = 2;
+            return { potions: 6 + ether, ether: 0, vials: 5 };
         }
+        ether = clamp(2 - Math.floor((progressDepth - 5) / 8), 0, 2);
         return {
-            potions: clamp(6 - Math.floor((progressDepth - 5) / 5), 3, 6),
-            ether: clamp(2 - Math.floor((progressDepth - 5) / 8), 0, 2),
+            potions: clamp(6 - Math.floor((progressDepth - 5) / 5), 3, 6) + ether,
+            ether: 0,
             vials: clamp(5 - Math.floor((progressDepth - 5) / 6), 3, 5) + (progressDepth >= 10 ? 1 : 0)
         };
     }
@@ -4761,7 +4772,7 @@ var BITMAP_GLYPH_INDEX = {
     }
 
     function webSnareTurns() {
-        return 1 + rand(5);
+        return Math.max(1, rand(5));
     }
 
     function applyWebSnare(minTurns) {
@@ -4798,9 +4809,6 @@ var BITMAP_GLYPH_INDEX = {
             if (item.type === 'potion') {
                 state.player.hp = clamp(state.player.hp + 8, 0, state.player.maxHp);
                 pushMessage('Potion restores vigor');
-            } else if (item.type === 'ether') {
-                state.player.mp = clamp(state.player.mp + 4, 0, state.player.maxMp);
-                pushMessage('Mana crystal refills power');
             } else if (item.type === 'vial') {
                 state.player.nuke = Math.min(9, state.player.nuke + 1);
                 pushMessage('Pulse vial charges the nuke');
@@ -5833,7 +5841,7 @@ var BITMAP_GLYPH_INDEX = {
         if (!state.player) {
             return;
         }
-        moveDrainsMana = kind === 'move' && isWater(state.player.x, state.player.y) && state.player.mp > 0;
+        moveDrainsMana = kind === 'move' && isWater(state.player.x, state.player.y) && !isFrozenWater(state.player.x, state.player.y) && state.player.mp > 0;
         spentMana = !!state.spentManaThisTurn || moveDrainsMana;
         if (spentMana) {
             state.player.manaQuietTurns = 0;
