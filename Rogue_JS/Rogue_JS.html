@@ -835,37 +835,38 @@
             pointer-events: none;
         }
 
-        #midLeft,
-        #midCenter,
-        #midRight {
+        #panelBlue,
+        #panelGray,
+        #panelYellow {
             position: relative;
             min-height: 0;
             overflow: hidden;
             height: 100%;
         }
 
-        #midLeft,
-        #midRightGrid,
-        #midRightDock,
-        #midRightTop,
-        #midRightBottom {
+        #panelBlue,
+        #panelYellowGrid,
+        #panelPink,
+        #panelMagenta,
+        #panelCyan {
             pointer-events: none;
         }
 
         #spellDock,
-        #midRightDockInner,
+        #panelPinkInner,
         #moveDock {
             pointer-events: auto;
         }
 
-        #midCenter {
+        #panelGray {
             min-width: 0;
         }
-        #midRight {
+
+        #panelYellow {
             min-width: calc((var(--overlay-btn-size, 28px) * 3) + 12px + 16px);
         }
 
-        #midRightGrid {
+        #panelYellowGrid {
             position: absolute;
             inset: 0;
             display: grid;
@@ -880,7 +881,7 @@
             height: 100%;
         }
 
-        #midRightDockInner {
+        #panelPinkInner {
             width: 100%;
             height: 100%;
             display: grid;
@@ -896,7 +897,7 @@
             box-sizing: border-box;
         }
 
-        #wrap.layoutTest #midRight {
+        #wrap.layoutTest #panelYellow {
             min-width: max(
                 clamp(42px, 10vw, 120px),
                 calc((var(--overlay-btn-size) * 3) + 12px + 16px)
@@ -906,26 +907,26 @@
         }
 
         /* Layout test palette:
-           - Yellow: #ffd11e for #midRight
-           - Pink: #ff9ad6 for #midRightDock
-           - Magenta: #d100d1 for #midRightTop
-           - Cyan: #00d6d6 for #midRightBottom
+           - Yellow: #ffd11e for #panelYellow
+           - Pink: #ff9ad6 for #panelPink
+           - Magenta: #d100d1 for #panelMagenta
+           - Cyan: #00d6d6 for #panelCyan
            Restore these when you want the right column debug colors back. */
-        #wrap.layoutTest #midRightDock {
+        #wrap.layoutTest #panelPink {
             min-height: calc(var(--overlay-btn-size, 28px) + 8px);
             /* Debug pink: background: #ff9ad6; */
             background: transparent;
         }
 
-        #wrap.layoutTest #midRightTop {
+        #wrap.layoutTest #panelMagenta {
             background: transparent;
         }
 
-        #wrap.layoutTest #midRightBottom {
+        #wrap.layoutTest #panelCyan {
             background: transparent;
         }
 
-        #midRightBottom {
+        #panelCyan {
             display: grid;
             grid-template-columns: repeat(3, var(--overlay-btn-size, 28px));
             grid-template-rows: repeat(3, var(--overlay-btn-size, 28px));
@@ -938,7 +939,7 @@
             align-self: end;
         }
 
-        #midRightBottom #moveDock {
+        #panelCyan #moveDock {
             grid-column: 1 / -1;
             grid-row: 1 / -1;
             width: 100%;
@@ -947,7 +948,7 @@
             max-height: none;
         }
 
-        #midLeft {
+        #panelBlue {
             display: grid;
             grid-template-rows: repeat(5, auto) 1fr;
             gap: 8px;
@@ -1215,29 +1216,44 @@
             visibility: visible;
         }
 
-        #wrap.layoutTest #midLeft {
+        #wrap.layoutTest #panelBlue {
             background: transparent;
         }
 
-        #wrap.layoutTest #midRight {
+        #wrap.layoutTest #panelYellow {
             /* Debug yellow: background: #ffd11e; */
             background: transparent;
         }
 
         /* Layout debug outlines (toggle with #wrap.layoutDebug) */
-        #wrap.layoutDebug #midLeft,
-        #wrap.layoutDebug #midCenter,
-        #wrap.layoutDebug #midRight,
-        #wrap.layoutDebug #midRightDock,
-        #wrap.layoutDebug #midRightTop,
-        #wrap.layoutDebug #midRightBottom {
-            outline: 1px dashed rgba(0, 120, 255, 0.7);
+        #wrap.layoutDebug #panelBlue {
+            outline: 2px dashed rgba(30, 107, 255, 0.9);
             outline-offset: -2px;
         }
 
-        #wrap.layoutDebug.fill #midRightDock,
-        #wrap.layoutDebug.fill #midRightBottom {
-            background: rgba(255, 0, 255, 0.08);
+        #wrap.layoutDebug #panelGray {
+            outline: 2px dashed rgba(120, 120, 120, 0.8);
+            outline-offset: -2px;
+        }
+
+        #wrap.layoutDebug #panelYellow {
+            outline: 2px dashed rgba(255, 209, 30, 0.9);
+            outline-offset: -2px;
+        }
+
+        #wrap.layoutDebug #panelPink {
+            outline: 2px dashed rgba(255, 154, 214, 0.9);
+            outline-offset: -2px;
+        }
+
+        #wrap.layoutDebug #panelMagenta {
+            outline: 2px dashed rgba(209, 0, 209, 0.9);
+            outline-offset: -2px;
+        }
+
+        #wrap.layoutDebug #panelCyan {
+            outline: 2px dashed rgba(0, 214, 214, 0.9);
+            outline-offset: -2px;
         }
 
         #wrap.layoutTest #leftDock,
@@ -1410,7 +1426,7 @@
                 <div id="boardWrap">
                     <canvas id="game" width="480" height="480"></canvas>
                     <div id="midCols">
-                        <div id="midLeft">
+                        <div id="panelBlue">
                             <div id="spellDock">
                                 <button type="button" id="spellBtn" class="spellIconBtn" title="Fire">
                                     <span class="btnInner"><span class="btnIcon">&#x1F525;</span><span class="btnText">Fire</span></span>
@@ -1429,11 +1445,11 @@
                                 </button>
                             </div>
                         </div>
-                        <div id="midCenter"></div>
-                        <div id="midRight">
-                            <div id="midRightGrid">
-                                <div id="midRightDock">
-                                    <div id="midRightDockInner">
+                        <div id="panelGray"></div>
+                        <div id="panelYellow">
+                            <div id="panelYellowGrid">
+                                <div id="panelPink">
+                                    <div id="panelPinkInner">
                                         <div></div>
                                         <button type="button" id="playZoomOutBtn" class="topMiniBtn" title="Zoom Out">
                                             <span class="btnInner"><span class="btnIcon">&#x2212;</span><span class="btnText">Out</span></span>
@@ -1443,8 +1459,8 @@
                                         </button>
                                     </div>
                                 </div>
-                                <div id="midRightTop"></div>
-                                <div id="midRightBottom">
+                                <div id="panelMagenta"></div>
+                                <div id="panelCyan">
                                     <div id="moveDock" class="dock">
                                         <div class="moveGrid">
                                             <button type="button" id="upLeftBtn" class="moveBtn upLeftBtn" title="Northwest"><span class="btnInner"><span class="btnIcon">&#x2196;</span><span class="btnText">NW</span></span></button>
@@ -7925,8 +7941,8 @@ var BITMAP_GLYPH_INDEX = {
     function syncLayout() {
         var layout = layoutForZoom(state.playZoom || 1);
         var midCols;
-        var midLeft;
-        var midRight;
+        var panelBlue;
+        var panelYellow;
         var spellDock;
         var moveDock;
         var leftW;
@@ -7955,8 +7971,8 @@ var BITMAP_GLYPH_INDEX = {
         }
 
         midCols = document.getElementById('midCols');
-        midLeft = document.getElementById('midLeft');
-        midRight = document.getElementById('midRight');
+        panelBlue = document.getElementById('panelBlue');
+        panelYellow = document.getElementById('panelYellow');
         spellDock = document.getElementById('spellDock');
         moveDock = document.getElementById('moveDock');
         if (midCols && spellDock && moveDock) {
@@ -7965,11 +7981,11 @@ var BITMAP_GLYPH_INDEX = {
             pad = 16;
             if (leftW > 0 && rightW > 0) {
                 midCols.style.gridTemplateColumns = (leftW + pad) + 'px 1fr ' + (rightW + pad) + 'px';
-                if (midLeft) {
-                    midLeft.style.width = (leftW + pad) + 'px';
+                if (panelBlue) {
+                    panelBlue.style.width = (leftW + pad) + 'px';
                 }
-                if (midRight) {
-                    midRight.style.width = (rightW + pad) + 'px';
+                if (panelYellow) {
+                    panelYellow.style.width = (rightW + pad) + 'px';
                 }
             }
         }
