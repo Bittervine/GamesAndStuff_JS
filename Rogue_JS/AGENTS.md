@@ -3,7 +3,7 @@
 ## Glyph Atlas
 
 - The game now has two atlas concepts:
-  - `BITMAP_ATLAS_PNG` in `Rogue_JS.html` is the live in-game atlas.
+  - `BITMAP_ATLAS_COLOR_PNG` in `Rogue_JS.html` is the live in-game atlas.
   - `_atlas_mono_saved.png` is a saved monochrome fallback/reference atlas for later work.
 - The current color atlas review image is `_atlas_color_generated.png`.
 
