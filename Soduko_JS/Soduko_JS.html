@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Soduko JS</title>
+  <style>
+    :root {
+      --bg: #f4f1e8;
+      --panel: #fffaf0;
+      --ink: #2e2a22;
+      --accent: #17624a;
+      --line: #4a4438;
+      --line-soft: #b7b0a4;
+      --fixed-bg: #ece6d7;
+      --empty-bg: #ffffff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 20% 20%, #fffdf6 0%, var(--bg) 60%);
+      color: var(--ink);
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    }
+
+    .app {
+      width: min(92vw, 560px);
+      padding: 18px;
+      background: var(--panel);
+      border: 2px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 1.5rem;
+      letter-spacing: 0.03em;
+    }
+
+    button {
+      appearance: none;
+      border: 2px solid #0f4a37;
+      background: var(--accent);
+      color: #f8fff8;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.08s ease, filter 0.12s ease;
+      margin-bottom: 14px;
+    }
+
+    button:hover { filter: brightness(1.07); }
+    button:active { transform: translateY(1px); }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .controls button {
+      margin-bottom: 0;
+    }
+
+    .board {
+      width: min(90vw, 450px);
+      aspect-ratio: 1 / 1;
+      margin: 0 auto;
+      border: 3px solid var(--line);
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      grid-template-rows: repeat(9, 1fr);
+      background: var(--empty-bg);
+    }
+
+    .cell {
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line-soft);
+      font-size: clamp(18px, 3.5vw, 28px);
+      font-weight: 700;
+      user-select: none;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .cell.fixed {
+      background: var(--fixed-bg);
+    }
+
+    .cell.empty {
+      color: #807969;
+      font-weight: 400;
+    }
+
+    .cell.solved {
+      background: #e0efe8;
+      color: #124d3a;
+    }
+
+    .thick-right { border-right: 3px solid var(--line) !important; }
+    .thick-bottom { border-bottom: 3px solid var(--line) !important; }
+
+    .hint {
+      margin: 12px 0 0;
+      font-size: 0.95rem;
+      color: #5d5648;
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1>Soduko Generator</h1>
+    <div class="controls">
+      <button id="generateBtn" type="button">Generate Soduko Puzzle</button>
+      <button id="stepBtn" type="button">Solve One Step</button>
+      <button id="autoBtn" type="button">Auto</button>
+    </div>
+    <section id="board" class="board" aria-label="Sudoku board"></section>
+    <p class="hint">Nr of sodukos done: <span id="doneCount">0</span></p>
+    <p id="hint" class="hint">Click the button to generate a new puzzle.</p>
+  </main>
+
+  <script>
+    const SIZE = 9;
+    const BOX = 3;
+    const EMPTY = 0;
+    const REMOVE_COUNT = 48;
+
+    const boardEl = document.getElementById("board");
+    const generateBtn = document.getElementById("generateBtn");
+    const stepBtn = document.getElementById("stepBtn");
+    const autoBtn = document.getElementById("autoBtn");
+    const doneCountEl = document.getElementById("doneCount");
+    const hintEl = document.getElementById("hint");
+    let currentPuzzle = createEmptyGrid();
+    let fixedMask = createEmptyGrid().map((row) => row.map(() => false));
+    let solvedReference = null;
+    let doneCount = 0;
+    let countedCurrentPuzzle = false;
+    let autoTimer = null;
+    let autoEnabled = false;
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function createEmptyGrid() {
+      return Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
+    }
+
+    function isValid(grid, row, col, value) {
+      for (let i = 0; i < SIZE; i++) {
+        if (grid[row][i] === value || grid[i][col] === value) {
+          return false;
+        }
+      }
+
+      const boxRow = Math.floor(row / BOX) * BOX;
+      const boxCol = Math.floor(col / BOX) * BOX;
+
+      for (let r = boxRow; r < boxRow + BOX; r++) {
+        for (let c = boxCol; c < boxCol + BOX; c++) {
+          if (grid[r][c] === value) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    }
+
+    function fillGrid(grid) {
+      for (let row = 0; row < SIZE; row++) {
+        for (let col = 0; col < SIZE; col++) {
+          if (grid[row][col] === EMPTY) {
+            const nums = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+            for (const n of nums) {
+              if (isValid(grid, row, col, n)) {
+                grid[row][col] = n;
+                if (fillGrid(grid)) {
+                  return true;
+                }
+              }
+            }
+
+            grid[row][col] = EMPTY;
+            return false;
+          }
+        }
+      }
+
+      return true;
+    }
+
+    function makePuzzle(solution, removeCount) {
+      const puzzle = solution.map((row) => row.slice());
+      const positions = [];
+
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          positions.push([r, c]);
+        }
+      }
+
+      shuffle(positions);
+
+      for (let i = 0; i < removeCount && i < positions.length; i++) {
+        const [r, c] = positions[i];
+        puzzle[r][c] = EMPTY;
+      }
+
+      return puzzle;
+    }
+
+    function getCandidates(grid, row, col) {
+      if (grid[row][col] !== EMPTY) {
+        return [];
+      }
+
+      const candidates = [];
+      for (let n = 1; n <= SIZE; n++) {
+        if (isValid(grid, row, col, n)) {
+          candidates.push(n);
+        }
+      }
+
+      return candidates;
+    }
+
+    function isSolved(grid) {
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if (grid[r][c] === EMPTY) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    function cloneGrid(grid) {
+      return grid.map((row) => row.slice());
+    }
+
+    function findBestEmptyCell(grid) {
+      let best = null;
+      let bestCandidates = null;
+
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if (grid[r][c] !== EMPTY) {
+            continue;
+          }
+
+          const candidates = getCandidates(grid, r, c);
+          if (candidates.length === 0) {
+            return { row: r, col: c, candidates };
+          }
+
+          if (!best || candidates.length < bestCandidates.length) {
+            best = { row: r, col: c };
+            bestCandidates = candidates;
+            if (bestCandidates.length === 1) {
+              return { row: best.row, col: best.col, candidates: bestCandidates };
+            }
+          }
+        }
+      }
+
+      if (!best) {
+        return null;
+      }
+      return { row: best.row, col: best.col, candidates: bestCandidates };
+    }
+
+    function solveWithBacktracking(grid) {
+      const target = findBestEmptyCell(grid);
+      if (!target) {
+        return true;
+      }
+      if (target.candidates.length === 0) {
+        return false;
+      }
+
+      for (const value of target.candidates) {
+        grid[target.row][target.col] = value;
+        if (solveWithBacktracking(grid)) {
+          return true;
+        }
+        grid[target.row][target.col] = EMPTY;
+      }
+      return false;
+    }
+
+    function findNakedSingle(grid) {
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if (grid[r][c] !== EMPTY) {
+            continue;
+          }
+          const candidates = getCandidates(grid, r, c);
+          if (candidates.length === 1) {
+            return { row: r, col: c, value: candidates[0], method: "Naked single" };
+          }
+        }
+      }
+      return null;
+    }
+
+    function findHiddenSingleInRow(grid) {
+      for (let r = 0; r < SIZE; r++) {
+        for (let n = 1; n <= SIZE; n++) {
+          let foundCol = -1;
+          let count = 0;
+          for (let c = 0; c < SIZE; c++) {
+            if (grid[r][c] === EMPTY && getCandidates(grid, r, c).includes(n)) {
+              foundCol = c;
+              count++;
+            }
+          }
+          if (count === 1) {
+            return { row: r, col: foundCol, value: n, method: "Hidden single (row)" };
+          }
+        }
+      }
+      return null;
+    }
+
+    function findHiddenSingleInCol(grid) {
+      for (let c = 0; c < SIZE; c++) {
+        for (let n = 1; n <= SIZE; n++) {
+          let foundRow = -1;
+          let count = 0;
+          for (let r = 0; r < SIZE; r++) {
+            if (grid[r][c] === EMPTY && getCandidates(grid, r, c).includes(n)) {
+              foundRow = r;
+              count++;
+            }
+          }
+          if (count === 1) {
+            return { row: foundRow, col: c, value: n, method: "Hidden single (column)" };
+          }
+        }
+      }
+      return null;
+    }
+
+    function findHiddenSingleInBox(grid) {
+      for (let br = 0; br < SIZE; br += BOX) {
+        for (let bc = 0; bc < SIZE; bc += BOX) {
+          for (let n = 1; n <= SIZE; n++) {
+            let foundRow = -1;
+            let foundCol = -1;
+            let count = 0;
+            for (let r = br; r < br + BOX; r++) {
+              for (let c = bc; c < bc + BOX; c++) {
+                if (grid[r][c] === EMPTY && getCandidates(grid, r, c).includes(n)) {
+                  foundRow = r;
+                  foundCol = c;
+                  count++;
+                }
+              }
+            }
+            if (count === 1) {
+              return { row: foundRow, col: foundCol, value: n, method: "Hidden single (box)" };
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    function solveOneStep(grid) {
+      const move =
+        findNakedSingle(grid) ||
+        findHiddenSingleInRow(grid) ||
+        findHiddenSingleInCol(grid) ||
+        findHiddenSingleInBox(grid);
+
+      if (!move) {
+        return null;
+      }
+
+      grid[move.row][move.col] = move.value;
+      return move;
+    }
+
+    function renderBoard(puzzle) {
+      boardEl.innerHTML = "";
+
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          const cell = document.createElement("div");
+          const value = puzzle[r][c];
+
+          cell.className = "cell";
+          cell.textContent = value === EMPTY ? "" : String(value);
+          if (value === EMPTY) {
+            cell.classList.add("empty");
+          } else if (fixedMask[r][c]) {
+            cell.classList.add("fixed");
+          } else {
+            cell.classList.add("solved");
+          }
+
+          if (c % 3 === 2 && c !== SIZE - 1) {
+            cell.classList.add("thick-right");
+          }
+
+          if (r % 3 === 2 && r !== SIZE - 1) {
+            cell.classList.add("thick-bottom");
+          }
+
+          boardEl.appendChild(cell);
+        }
+      }
+    }
+
+    function generatePuzzle() {
+      const fullGrid = createEmptyGrid();
+      fillGrid(fullGrid);
+      const puzzle = makePuzzle(fullGrid, REMOVE_COUNT);
+      currentPuzzle = puzzle.map((row) => row.slice());
+      fixedMask = currentPuzzle.map((row) => row.map((value) => value !== EMPTY));
+      solvedReference = null;
+      countedCurrentPuzzle = false;
+      renderBoard(currentPuzzle);
+      hintEl.textContent = "New puzzle generated. Click Solve One Step to apply scan logic.";
+    }
+
+    function markSolvedIfNeeded() {
+      if (isSolved(currentPuzzle) && !countedCurrentPuzzle) {
+        doneCount++;
+        doneCountEl.textContent = String(doneCount);
+        countedCurrentPuzzle = true;
+      }
+    }
+
+    function solveStepAndRender() {
+      if (isSolved(currentPuzzle)) {
+        markSolvedIfNeeded();
+        hintEl.textContent = "Puzzle already solved.";
+        return true;
+      }
+
+      const move = solveOneStep(currentPuzzle);
+      if (move) {
+        solvedReference = null;
+        renderBoard(currentPuzzle);
+        hintEl.textContent = move.method + ": placed " + move.value + " at row " + (move.row + 1) + ", col " + (move.col + 1) + ".";
+        if (isSolved(currentPuzzle)) {
+          markSolvedIfNeeded();
+          hintEl.textContent += " Puzzle solved.";
+          return true;
+        }
+        return false;
+      } else {
+        if (!solvedReference) {
+          const working = cloneGrid(currentPuzzle);
+          if (!solveWithBacktracking(working)) {
+            hintEl.textContent = "No valid solution found for this puzzle state.";
+            return;
+          }
+          solvedReference = working;
+        }
+
+        for (let r = 0; r < SIZE; r++) {
+          for (let c = 0; c < SIZE; c++) {
+            if (currentPuzzle[r][c] === EMPTY) {
+              currentPuzzle[r][c] = solvedReference[r][c];
+              renderBoard(currentPuzzle);
+              hintEl.textContent = "Advanced search (backtracking): placed " + solvedReference[r][c] + " at row " + (r + 1) + ", col " + (c + 1) + ".";
+              if (isSolved(currentPuzzle)) {
+                markSolvedIfNeeded();
+                hintEl.textContent += " Puzzle solved.";
+                return true;
+              }
+              return false;
+            }
+          }
+        }
+      }
+      return isSolved(currentPuzzle);
+    }
+
+    function setAutoEnabled(enabled) {
+      autoEnabled = enabled;
+      autoBtn.textContent = autoEnabled ? "Auto: On" : "Auto";
+      autoBtn.setAttribute("aria-pressed", autoEnabled ? "true" : "false");
+    }
+
+    function stopAuto() {
+      if (autoTimer) {
+        clearInterval(autoTimer);
+        autoTimer = null;
+      }
+      setAutoEnabled(false);
+    }
+
+    function autoTick() {
+      if (!autoEnabled) {
+        return;
+      }
+
+      const solvedNow = solveStepAndRender();
+      if (solvedNow) {
+        generatePuzzle();
+      }
+    }
+
+    function toggleAuto() {
+      if (autoEnabled) {
+        stopAuto();
+        hintEl.textContent = "Auto mode stopped.";
+        return;
+      }
+
+      setAutoEnabled(true);
+      hintEl.textContent = "Auto mode running (2 solve steps per second).";
+      autoTimer = setInterval(autoTick, 500);
+    }
+
+    generateBtn.addEventListener("click", generatePuzzle);
+    stepBtn.addEventListener("click", solveStepAndRender);
+    autoBtn.addEventListener("click", toggleAuto);
+    generatePuzzle();
+  </script>
+</body>
+</html>
