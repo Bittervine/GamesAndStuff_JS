@@ -1,0 +1,584 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Editor JS</title>
+  <style>
+    :root {
+      --bg: #c9c9c9;
+      --panel: #e2e2e2;
+      --panel-2: #d4d4d4;
+      --ink: #111111;
+      --bar-h: 38px;
+      --status-h: 34px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI", Tahoma, sans-serif;
+    }
+
+    .app {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      border-left: 2px solid var(--ink);
+      border-right: 2px solid var(--ink);
+      display: grid;
+      grid-template-rows: var(--bar-h) minmax(0, 1fr) var(--status-h);
+      background: var(--panel);
+    }
+
+    .menu-bar {
+      min-height: var(--bar-h);
+      padding: 4px;
+      border-bottom: 2px solid var(--ink);
+      background: var(--panel-2);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+    }
+
+    .menu {
+      position: relative;
+    }
+
+    .menu-btn {
+      min-height: 28px;
+      padding: 0 12px;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      background: #efefef;
+      color: var(--ink);
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .menu-btn:hover,
+    .menu-btn[aria-expanded="true"] {
+      background: #ffffff;
+    }
+
+    .menu-list {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      min-width: 180px;
+      margin: 0;
+      padding: 4px;
+      list-style: none;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      background: #f3f3f3;
+      box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.18);
+      display: none;
+      z-index: 10;
+    }
+
+    .menu-list[aria-hidden="false"] {
+      display: block;
+    }
+
+    .menu-item {
+      width: 100%;
+      min-height: 30px;
+      padding: 0 10px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      text-align: left;
+      color: var(--ink);
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .menu-item:hover,
+    .menu-item:focus-visible {
+      background: #e6e6e6;
+      outline: none;
+    }
+
+    .editor-wrap {
+      min-height: 0;
+      padding: 6px;
+      background: #d8d8d8;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 0;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    #lineNumbers {
+      width: 60px;
+      height: 100%;
+      margin: 0;
+      padding: 10px 8px 10px 6px;
+      border-right: 2px solid var(--ink);
+      background: #f2f2f2;
+      color: #555555;
+      text-align: right;
+      font: 15px/1.45 Consolas, "Courier New", monospace;
+      white-space: pre;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    #editor {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      border-radius: 0;
+      background: #ffffff;
+      color: #111111;
+      font: 15px/1.45 Consolas, "Courier New", monospace;
+      padding: 10px;
+      resize: none;
+      outline: none;
+      tab-size: 4;
+      white-space: pre;
+      overflow-wrap: normal;
+      overflow: auto;
+    }
+
+    .status-bar {
+      min-height: var(--status-h);
+      padding: 4px;
+      border-top: 2px solid var(--ink);
+      background: var(--panel-2);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.94rem;
+    }
+
+    .status-pill {
+      min-height: 24px;
+      padding: 0 8px;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      background: #efefef;
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #statusFile {
+      flex: 1;
+      min-width: 0;
+    }
+
+    dialog {
+      width: min(320px, calc(100% - 24px));
+      border: 2px solid var(--ink);
+      border-radius: 12px;
+      padding: 12px;
+      color: var(--ink);
+      background: #f3f3f3;
+    }
+
+    dialog::backdrop {
+      background: rgba(0, 0, 0, 0.35);
+    }
+
+    .dlg-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .dlg-buttons button {
+      min-height: 30px;
+      padding: 0 12px;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      background: #efefef;
+      color: var(--ink);
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .dlg-buttons button:hover {
+      background: #ffffff;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="menu-bar" aria-label="Top menu bar">
+      <nav class="menu" aria-label="File menu">
+        <button id="fileMenuBtn" class="menu-btn" aria-haspopup="true" aria-expanded="false">File</button>
+        <ul id="fileMenuList" class="menu-list" role="menu" aria-hidden="true">
+          <li role="none"><button class="menu-item" data-action="new" role="menuitem">New</button></li>
+          <li role="none"><button class="menu-item" data-action="open" role="menuitem">Open...</button></li>
+          <li role="none"><button class="menu-item" data-action="save" role="menuitem">Save</button></li>
+          <li role="none"><button class="menu-item" data-action="saveAs" role="menuitem">Save as...</button></li>
+        </ul>
+      </nav>
+      <input id="openInput" type="file" accept="text/*,.txt,.md,.json,.js,.css,.html,.csv,.log" hidden />
+    </header>
+
+    <main class="editor-wrap">
+      <pre id="lineNumbers" aria-hidden="true">1</pre>
+      <textarea id="editor" spellcheck="false" aria-label="Text editor"></textarea>
+    </main>
+
+    <footer class="status-bar">
+      <div id="statusFile" class="status-pill">File: (untitled)</div>
+      <div id="statusDirty" class="status-pill">Saved</div>
+      <div id="statusCaret" class="status-pill">Ln 1, Col 1</div>
+    </footer>
+  </div>
+
+  <dialog id="confirmNewDialog" aria-labelledby="confirmNewTitle">
+    <strong id="confirmNewTitle">Create new document?</strong>
+    <p>Unsaved changes will be lost.</p>
+    <div class="dlg-buttons">
+      <button id="confirmNewNo" type="button">No</button>
+      <button id="confirmNewYes" type="button">Yes</button>
+    </div>
+  </dialog>
+
+  <script>
+    var editor = document.getElementById('editor');
+    var lineNumbers = document.getElementById('lineNumbers');
+    var fileMenuBtn = document.getElementById('fileMenuBtn');
+    var fileMenuList = document.getElementById('fileMenuList');
+    var openInput = document.getElementById('openInput');
+
+    var statusFile = document.getElementById('statusFile');
+    var statusDirty = document.getElementById('statusDirty');
+    var statusCaret = document.getElementById('statusCaret');
+
+    var confirmNewDialog = document.getElementById('confirmNewDialog');
+    var confirmNewYes = document.getElementById('confirmNewYes');
+    var confirmNewNo = document.getElementById('confirmNewNo');
+
+    var currentHandle = null;
+    var currentFileName = '(untitled)';
+    var isDirty = false;
+
+    function setDirty(nextDirty) {
+      isDirty = nextDirty;
+      statusDirty.textContent = isDirty ? 'Modified' : 'Saved';
+      updateFileStatus();
+    }
+
+    function updateFileStatus() {
+      var dirtyMark = isDirty ? ' *' : '';
+      statusFile.textContent = 'File: ' + currentFileName + dirtyMark;
+    }
+
+    function updateCaretStatus() {
+      var pos = editor.selectionStart || 0;
+      var before = editor.value.slice(0, pos);
+      var lines = before.split('\n');
+      var line = lines.length;
+      var col = (lines[lines.length - 1] || '').length + 1;
+      statusCaret.textContent = 'Ln ' + line + ', Col ' + col;
+    }
+
+    function updateLineNumbers() {
+      var totalLines = Math.max(1, editor.value.split('\n').length);
+      var out = '1';
+      var i;
+      for (i = 2; i <= totalLines; i += 1) {
+        out += '\n' + i;
+      }
+      lineNumbers.textContent = out;
+    }
+
+    function syncLineNumberScroll() {
+      lineNumbers.scrollTop = editor.scrollTop;
+    }
+
+    function openFileMenu() {
+      fileMenuBtn.setAttribute('aria-expanded', 'true');
+      fileMenuList.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeFileMenu() {
+      fileMenuBtn.setAttribute('aria-expanded', 'false');
+      fileMenuList.setAttribute('aria-hidden', 'true');
+    }
+
+    function closestByClass(el, className) {
+      while (el) {
+        if (el.classList && el.classList.contains(className)) {
+          return el;
+        }
+        el = el.parentNode;
+      }
+      return null;
+    }
+
+    function confirmNew() {
+      return new Promise(function (resolve) {
+        if (!confirmNewDialog || typeof confirmNewDialog.showModal !== 'function') {
+          resolve(window.confirm('Create new document?\nUnsaved changes will be lost.'));
+          return;
+        }
+
+        confirmNewDialog.showModal();
+
+        var yes = function () {
+          cleanup();
+          confirmNewDialog.close();
+          resolve(true);
+        };
+
+        var no = function () {
+          cleanup();
+          confirmNewDialog.close();
+          resolve(false);
+        };
+
+        var cleanup = function () {
+          confirmNewYes.removeEventListener('click', yes);
+          confirmNewNo.removeEventListener('click', no);
+        };
+
+        confirmNewYes.addEventListener('click', yes);
+        confirmNewNo.addEventListener('click', no);
+      });
+    }
+
+    function sanitizeFileName(name) {
+      return (name || 'untitled.txt').replace(/[\\/:*?"<>|]/g, '_');
+    }
+
+    function downloadFallback(name, text) {
+      var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = sanitizeFileName(name);
+      document.body.appendChild(a);
+      a.click();
+      a.parentNode.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function resetEditorToNew() {
+      editor.value = '';
+      currentHandle = null;
+      currentFileName = '(untitled)';
+      setDirty(false);
+      updateLineNumbers();
+      syncLineNumberScroll();
+      updateCaretStatus();
+      editor.focus();
+    }
+
+    function actionNew() {
+      closeFileMenu();
+      confirmNew().then(function (ok) {
+        if (!ok) {
+          return;
+        }
+        resetEditorToNew();
+      });
+    }
+
+    function actionOpen() {
+      closeFileMenu();
+
+      if ('showOpenFilePicker' in window) {
+        window.showOpenFilePicker({
+          types: [
+            {
+              description: 'Text files',
+              accept: {
+                'text/plain': ['.txt', '.md', '.log', '.csv', '.json', '.js', '.css', '.html']
+              }
+            }
+          ],
+          multiple: false
+        }).then(function (handles) {
+          var handle = handles && handles[0];
+          if (!handle) {
+            return;
+          }
+          return handle.getFile().then(function (file) {
+            return file.text().then(function (text) {
+              editor.value = text;
+              currentHandle = handle;
+              currentFileName = file.name || '(untitled)';
+              setDirty(false);
+              updateLineNumbers();
+              syncLineNumberScroll();
+              updateCaretStatus();
+              editor.focus();
+            });
+          });
+        }).catch(function (err) {
+          if (err && err.name === 'AbortError') {
+            return;
+          }
+          openInput.value = '';
+          openInput.click();
+        });
+        return;
+      }
+
+      openInput.value = '';
+      openInput.click();
+    }
+
+    function writeToHandle(handle, text) {
+      return handle.createWritable().then(function (writable) {
+        return writable.write(text).then(function () {
+          return writable.close();
+        });
+      });
+    }
+
+    function actionSaveAs() {
+      closeFileMenu();
+
+      if ('showSaveFilePicker' in window) {
+        window.showSaveFilePicker({
+          suggestedName: currentFileName === '(untitled)' ? 'untitled.txt' : currentFileName,
+          types: [
+            {
+              description: 'Text files',
+              accept: { 'text/plain': ['.txt', '.md', '.log', '.csv', '.json', '.js', '.css', '.html'] }
+            }
+          ]
+        }).then(function (handle) {
+          if (!handle) {
+            return;
+          }
+          return writeToHandle(handle, editor.value).then(function () {
+            currentHandle = handle;
+            currentFileName = handle.name || currentFileName;
+            setDirty(false);
+          });
+        }).catch(function (err) {
+          if (err && err.name === 'AbortError') {
+            return;
+          }
+          var suggested = currentFileName === '(untitled)' ? 'untitled.txt' : currentFileName;
+          downloadFallback(suggested, editor.value);
+          currentHandle = null;
+          currentFileName = suggested;
+          setDirty(false);
+        });
+        return;
+      }
+
+      (function () {
+        var suggested = currentFileName === '(untitled)' ? 'untitled.txt' : currentFileName;
+        downloadFallback(suggested, editor.value);
+        currentHandle = null;
+        currentFileName = suggested;
+        setDirty(false);
+      })();
+    }
+
+    function actionSave() {
+      closeFileMenu();
+
+      if (currentHandle) {
+        writeToHandle(currentHandle, editor.value).then(function () {
+          setDirty(false);
+        }).catch(function () {
+          actionSaveAs();
+        });
+        return;
+      }
+
+      actionSaveAs();
+    }
+
+    fileMenuBtn.addEventListener('click', function () {
+      var isOpen = fileMenuList.getAttribute('aria-hidden') === 'false';
+      if (isOpen) {
+        closeFileMenu();
+      } else {
+        openFileMenu();
+      }
+    });
+
+    document.addEventListener('click', function (event) {
+      if (!closestByClass(event.target, 'menu')) {
+        closeFileMenu();
+      }
+    });
+
+    fileMenuList.addEventListener('click', function (event) {
+      var item = closestByClass(event.target, 'menu-item');
+      var action;
+      if (!item) {
+        return;
+      }
+
+      action = item.getAttribute('data-action');
+      if (action === 'new') {
+        actionNew();
+      } else if (action === 'open') {
+        actionOpen();
+      } else if (action === 'save') {
+        actionSave();
+      } else if (action === 'saveAs') {
+        actionSaveAs();
+      }
+    });
+
+    openInput.addEventListener('change', function () {
+      var file = (openInput.files && openInput.files[0]) || null;
+      if (!file) {
+        return;
+      }
+
+      var reader = new FileReader();
+      reader.onload = function () {
+        editor.value = String(reader.result || '');
+        currentHandle = null;
+        currentFileName = file.name || '(untitled)';
+        setDirty(false);
+        updateLineNumbers();
+        syncLineNumberScroll();
+        updateCaretStatus();
+        editor.focus();
+      };
+      reader.readAsText(file);
+    });
+
+    editor.addEventListener('input', function () {
+      if (!isDirty) {
+        setDirty(true);
+      }
+      updateLineNumbers();
+      syncLineNumberScroll();
+      updateCaretStatus();
+    });
+
+    editor.addEventListener('keyup', updateCaretStatus);
+    editor.addEventListener('click', updateCaretStatus);
+    editor.addEventListener('select', updateCaretStatus);
+    editor.addEventListener('scroll', syncLineNumberScroll);
+
+    updateFileStatus();
+    updateLineNumbers();
+    syncLineNumberScroll();
+    updateCaretStatus();
+  </script>
+</body>
+</html>
