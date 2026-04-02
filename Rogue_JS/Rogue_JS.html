@@ -7863,8 +7863,10 @@ var BITMAP_GLYPH_INDEX = {
         if (state.exit.x >= 0 && state.exit.x >= minViewX && state.exit.x <= maxViewX && state.exit.y >= minViewY && state.exit.y <= maxViewY && state.explored[state.exit.y][state.exit.x]) {
             px = BOARD_OFFSET_X + ((state.exit.x - vx) * CELL);
             py = BOARD_OFFSET_Y + ((state.exit.y - vy) * CELL);
-            drawGlyph(ctx, ICON.hole, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2) + 2, Math.floor(CELL * 0.78), FONT_EMOJI, pal.text);
-            drawGlyph(ctx, ICON.ladder, px + Math.floor(CELL / 2), py + Math.floor(CELL / 2) - 4, Math.floor(CELL * 0.64), FONT_EMOJI, pal.text);
+            var holeY = py + Math.floor(CELL / 2) + 2;
+            var ladderY = holeY - Math.floor(CELL * 0.2);
+            drawGlyph(ctx, ICON.hole, px + Math.floor(CELL / 2), holeY, Math.floor(CELL * 0.78), FONT_EMOJI, pal.text);
+            drawGlyph(ctx, ICON.ladder, px + Math.floor(CELL / 2), ladderY, Math.floor(CELL * 0.64), FONT_EMOJI, pal.text);
         }
 
         drawEffects(vx, vy);
