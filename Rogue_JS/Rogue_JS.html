@@ -669,7 +669,7 @@
 
         .topMiniBtn .btnIcon,
         #topBar .spellIconBtn .btnIcon {
-            font-size: clamp(12px, calc(var(--ui-btn-size) * 0.52), 18px);
+            font-size: clamp(12px, calc(var(--overlay-btn-size, 28px) * 0.54), 19px);
             line-height: 1;
         }
 
@@ -817,7 +817,7 @@
             /* Debug gray: background: #bdbdbd; */
             background: transparent;
             border-radius: 10px;
-            padding: 4px 6px;
+            padding: 0 6px 4px;
             box-sizing: border-box;
         }
 
@@ -876,7 +876,7 @@
             display: grid;
             grid-template-rows: repeat(5, auto) 1fr;
             gap: 8px;
-            padding: 8px;
+            padding: 8px 8px 8px 8px;
             box-sizing: border-box;
             align-content: start;
             justify-items: start;
@@ -1195,6 +1195,7 @@
             width: 100%;
             height: 100%;
             display: flex;
+            flex: 1 1 auto;
             flex-direction: column;
             border: 2px solid #111111;
             border-radius: 18px;
@@ -1836,7 +1837,24 @@ var BITMAP_GLYPH_INDEX = {
         if (!menuPanel) {
             return;
         }
+        if (open) {
+            positionMenuPanel();
+        }
         menuPanel.className = open ? 'open' : '';
+    }
+
+    function positionMenuPanel() {
+        var rect;
+        var left;
+        var top;
+        if (!menuPanel || !menuBtn || !menuBtn.getBoundingClientRect) {
+            return;
+        }
+        rect = menuBtn.getBoundingClientRect();
+        left = rect.left + (window.pageXOffset || 0);
+        top = rect.bottom + (window.pageYOffset || 0) + 4;
+        menuPanel.style.left = left + 'px';
+        menuPanel.style.top = top + 'px';
     }
 
     function setLogOpen(open) {
