@@ -2728,7 +2728,15 @@ var BITMAP_GLYPH_INDEX = {
         bitmapAtlasCanvas = document.createElement('canvas');
         bitmapAtlasCanvas.width = bitmapAtlasImage.width;
         bitmapAtlasCanvas.height = bitmapAtlasImage.height;
-        bitmapAtlasCtx = bitmapAtlasCanvas.getContext ? bitmapAtlasCanvas.getContext('2d') : null;
+        if (bitmapAtlasCanvas && bitmapAtlasCanvas.getContext) {
+            try {
+                bitmapAtlasCtx = bitmapAtlasCanvas.getContext('2d', { willReadFrequently: true });
+            } catch (errCtx) {
+                bitmapAtlasCtx = bitmapAtlasCanvas.getContext('2d');
+            }
+        } else {
+            bitmapAtlasCtx = null;
+        }
         if (bitmapAtlasCtx) {
             bitmapAtlasCtx.clearRect(0, 0, bitmapAtlasCanvas.width, bitmapAtlasCanvas.height);
             bitmapAtlasCtx.drawImage(bitmapAtlasImage, 0, 0);
@@ -2743,7 +2751,15 @@ var BITMAP_GLYPH_INDEX = {
         bitmapAtlasMonoCanvas = document.createElement('canvas');
         bitmapAtlasMonoCanvas.width = bitmapAtlasMonoImage.width;
         bitmapAtlasMonoCanvas.height = bitmapAtlasMonoImage.height;
-        bitmapAtlasMonoCtx = bitmapAtlasMonoCanvas.getContext ? bitmapAtlasMonoCanvas.getContext('2d') : null;
+        if (bitmapAtlasMonoCanvas && bitmapAtlasMonoCanvas.getContext) {
+            try {
+                bitmapAtlasMonoCtx = bitmapAtlasMonoCanvas.getContext('2d', { willReadFrequently: true });
+            } catch (errCtx2) {
+                bitmapAtlasMonoCtx = bitmapAtlasMonoCanvas.getContext('2d');
+            }
+        } else {
+            bitmapAtlasMonoCtx = null;
+        }
         if (bitmapAtlasMonoCtx) {
             bitmapAtlasMonoCtx.clearRect(0, 0, bitmapAtlasMonoCanvas.width, bitmapAtlasMonoCanvas.height);
             bitmapAtlasMonoCtx.drawImage(bitmapAtlasMonoImage, 0, 0);
@@ -8097,7 +8113,6 @@ var BITMAP_GLYPH_INDEX = {
     function onKey(e) {
         var code = e.which || e.keyCode;
         var keyCode = e.code || '';
-        ensureAudio();
         cancelAutoMove('');
         if (keyCode === 'Numpad7') {
             tryMove(-1, -1);
@@ -8339,7 +8354,6 @@ var BITMAP_GLYPH_INDEX = {
                 e.preventDefault();
             }
             setMenuOpen(false);
-            ensureAudio();
             if (!targetMonsterAtEvent(e || window.event)) {
                 autoMoveTargetAtEvent(e || window.event);
             }
@@ -8351,7 +8365,6 @@ var BITMAP_GLYPH_INDEX = {
                 e.preventDefault();
             }
             setMenuOpen(false);
-            ensureAudio();
             if (!targetMonsterAtEvent(e || window.event)) {
                 autoMoveTargetAtEvent(e || window.event);
             }
