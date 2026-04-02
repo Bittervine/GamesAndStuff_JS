@@ -332,12 +332,38 @@
             flex: 0 0 auto;
             padding: 0 16px;
             overflow: visible;
+            letter-spacing: 0;
         }
 
         #nukeBtn .btnInner {
             gap: 0;
             padding-top: 0;
             justify-content: center;
+            display: flex;
+            align-items: center;
+        }
+
+        #nukeBtn .nukePack {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            margin: 0;
+            width: auto;
+            align-self: center;
+        }
+
+        #nukeBtn .nukeItem {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            margin: 0;
+        }
+
+        #nukeBtn .nukeIconBitmap {
+            width: 2.5em;
+            height: 2.5em;
         }
 
         #nukeBtn .btnIcon {
@@ -345,9 +371,11 @@
         }
 
         .nukeChargeLabel {
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
             min-width: 0;
-            margin-left: -1px;
+            margin-left: 0;
+            padding-left: 2px;
             color: #111111;
             font-family: "Trebuchet MS", Verdana, sans-serif;
             font-size: 12px;
@@ -355,6 +383,7 @@
             font-weight: bold;
             text-align: left;
             text-transform: none;
+            letter-spacing: 0;
         }
 
         .nukeChargeLabel .prefix {
@@ -673,6 +702,11 @@
             line-height: 1;
         }
 
+        #topBar #learnedCastBtn .btnIcon,
+        #topBar #nukeBtn .btnIcon {
+            font-size: clamp(18px, calc(var(--overlay-btn-size, 28px) * 0.81), 28px);
+        }
+
         .topMiniBtn .btnText,
         #topBar .spellIconBtn .btnText {
             display: none;
@@ -695,12 +729,29 @@
             box-sizing: border-box;
         }
 
+        #topBar .topMiniBtn {
+            width: var(--ui-btn-size, 32px);
+            height: var(--ui-btn-size, 32px);
+        }
+
+        #topBar #learnedCastBtn {
+            width: var(--ui-btn-size, 32px);
+            height: var(--ui-btn-size, 32px);
+            min-width: var(--ui-btn-size, 32px);
+            min-height: var(--ui-btn-size, 32px);
+            max-width: var(--ui-btn-size, 32px);
+            max-height: var(--ui-btn-size, 32px);
+        }
+
         #topBar #nukeBtn {
             width: calc(var(--ui-btn-size) * 2.5);
             min-width: calc(var(--ui-btn-size) * 2.5);
             flex: 0 0 calc(var(--ui-btn-size) * 2.5);
             padding: 0 12px;
             overflow: visible;
+            height: var(--ui-btn-size, 32px);
+            min-height: var(--ui-btn-size, 32px);
+            max-height: var(--ui-btn-size, 32px);
         }
 
         #topBar #nukeBtn .btnInner {
@@ -708,10 +759,17 @@
             justify-content: center;
         }
 
+        #topBar #learnedCastBtn .btnIconBitmap,
+        #topBar #nukeBtn .btnIconBitmap {
+            width: 100%;
+            height: 100%;
+        }
+
         #compactStatus {
             flex: 1 1 18ch;
             min-width: 0;
             height: var(--ui-btn-size);
+            min-height: var(--ui-btn-size);
             padding: 0 8px;
             display: flex;
             align-items: center;
@@ -731,6 +789,7 @@
             flex: 1 1 18ch;
             min-width: 0;
             height: var(--ui-btn-size);
+            min-height: var(--ui-btn-size);
             display: flex;
             align-items: stretch;
         }
@@ -739,6 +798,7 @@
             width: 100%;
             min-width: 0;
             height: var(--ui-btn-size);
+            min-height: var(--ui-btn-size);
             position: static;
             font-size: clamp(10px, 2.8vw, 13px);
             padding: 0 8px;
@@ -772,6 +832,7 @@
             justify-items: stretch;
             width: 100%;
             height: 100%;
+            pointer-events: none;
         }
 
         #midLeft,
@@ -781,6 +842,15 @@
             min-height: 0;
             overflow: hidden;
             height: 100%;
+        }
+
+        #midLeft,
+        #midRight {
+            pointer-events: auto;
+        }
+
+        #midCenter {
+            pointer-events: none;
         }
 
         #midCenter {
@@ -1828,7 +1898,7 @@ var BITMAP_GLYPH_INDEX = {
         autoMoveVisible: {},
         spentManaThisTurn: false,
         manaQuietTurns: 0,
-        playZoom: 0.5,
+        playZoom: 1,
         mapZoom: 1,
         staticLightEmitters: []
     };
@@ -2770,9 +2840,9 @@ var BITMAP_GLYPH_INDEX = {
         }
         count = Math.max(0, charges || 0);
         if (USE_FONT_GLYPHS) {
-            html = '<span class="btnInner"><span class="btnIcon glyph">' + activeGlyph(icon) + '</span><span class="nukeChargeLabel"><span class="prefix">x</span>' + count + '</span></span>';
+            html = '<span class="btnInner"><span class="nukePack"><span class="nukeItem btnIcon glyph">' + activeGlyph(icon) + '</span><span class="nukeItem nukeChargeLabel"><span class="prefix">x</span>' + count + '</span></span></span>';
         } else {
-            html = '<span class="btnInner"><img class="btnIconBitmap" alt="" src="' + domGlyphDataUrl(icon, 64, '#111111') + '"><span class="nukeChargeLabel"><span class="prefix">x</span>' + count + '</span></span>';
+            html = '<span class="btnInner"><span class="nukePack"><img class="nukeItem nukeIconBitmap" alt="" src="' + domGlyphDataUrl(icon, 64, '#111111') + '"><span class="nukeItem nukeChargeLabel"><span class="prefix">x</span>' + count + '</span></span></span>';
         }
         btn.title = text + ' x' + count;
         btn.innerHTML = html;
