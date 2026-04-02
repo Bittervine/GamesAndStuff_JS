@@ -7173,6 +7173,62 @@ var BITMAP_GLYPH_INDEX = {
                     drawBrickPattern(px, py, hiddenWallLine);
                 }
             }
+            if (state.colorMode && roomWall) {
+                var rWall = Math.floor(CELL * 0.5);
+                var midWX = px + Math.floor(CELL / 2);
+                var midWY = py + Math.floor(CELL / 2);
+                var floorStyleAt = function (fx, fy) {
+                    var hiddenFloor = grayFill;
+                    var ft = tileAt(fx, fy);
+                    if (ft === TILE_WATER) {
+                        if (isFrozenWater(fx, fy)) {
+                            return visible ? '#f4fbff' : grayLightColor(light, 150, 220);
+                        }
+                        return visible ? pal.water : hiddenFloor;
+                    }
+                    if (ft === TILE_GRASS) {
+                        return visible ? pal.grass : hiddenFloor;
+                    }
+                    if (ft === TILE_EXIT || ft === TILE_RELIC || ft === TILE_FLOOR) {
+                        return visible ? pal.floor : hiddenFloor;
+                    }
+                    return hiddenFloor;
+                };
+                var roundProtrudingCorner = function (maskX, maskY, near) {
+                    var floorCol = floorStyleAt(near.x, near.y);
+                    var wallFillUse = visible ? litWallFill : hiddenWallFill;
+                    var wallLineUse = visible ? litWallLine : hiddenWallLine;
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(maskX, maskY, rWall, rWall);
+                    ctx.clip();
+                    ctx.fillStyle = floorCol;
+                    ctx.fillRect(maskX, maskY, rWall, rWall);
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.arc(midWX, midWY, rWall, 0, Math.PI * 2, false);
+                    ctx.clip();
+                    ctx.fillStyle = wallFillUse;
+                    ctx.fillRect(px, py, CELL, CELL);
+                    if (CELL >= 12) {
+                        drawBrickPattern(px, py, wallLineUse);
+                    }
+                    ctx.restore();
+                    ctx.restore();
+                };
+                if (tileAt(mapX - 1, mapY) !== TILE_WALL && tileAt(mapX, mapY - 1) !== TILE_WALL && tileAt(mapX - 1, mapY - 1) !== TILE_WALL) {
+                    roundProtrudingCorner(px, py, { x: mapX - 1, y: mapY - 1 });
+                }
+                if (tileAt(mapX + 1, mapY) !== TILE_WALL && tileAt(mapX, mapY - 1) !== TILE_WALL && tileAt(mapX + 1, mapY - 1) !== TILE_WALL) {
+                    roundProtrudingCorner(px + CELL - rWall, py, { x: mapX + 1, y: mapY - 1 });
+                }
+                if (tileAt(mapX - 1, mapY) !== TILE_WALL && tileAt(mapX, mapY + 1) !== TILE_WALL && tileAt(mapX - 1, mapY + 1) !== TILE_WALL) {
+                    roundProtrudingCorner(px, py + CELL - rWall, { x: mapX - 1, y: mapY + 1 });
+                }
+                if (tileAt(mapX + 1, mapY) !== TILE_WALL && tileAt(mapX, mapY + 1) !== TILE_WALL && tileAt(mapX + 1, mapY + 1) !== TILE_WALL) {
+                    roundProtrudingCorner(px + CELL - rWall, py + CELL - rWall, { x: mapX + 1, y: mapY + 1 });
+                }
+            }
             return;
         }
 
@@ -7190,6 +7246,61 @@ var BITMAP_GLYPH_INDEX = {
 
         ctx.fillStyle = fill;
         ctx.fillRect(px, py, CELL, CELL);
+
+        if (state.colorMode && tile !== TILE_WALL) {
+            var rCorner = Math.floor(CELL * 0.5);
+            var wallStyleAt = function (wx, wy) {
+                var wallRoom = isRoomWall(wx, wy);
+                var baseFill = wallRoom ? pal.wall : pal.corridorWall;
+                var baseLine = wallRoom ? pal.wallLine : pal.corridorWallLine;
+                if (!visible) {
+                    return {
+                        fill: hiddenWallFill,
+                        line: hiddenWallLine
+                    };
+                }
+                return {
+                    fill: mixHexColor(baseFill, '#cf6240', light * 0.55),
+                    line: mixHexColor(baseLine, '#ffd8ba', light * 0.65)
+                };
+            };
+            var drawCornerWallArc = function (cornerX, cornerY, style) {
+                var midX = px + Math.floor(CELL / 2);
+                var midY = py + Math.floor(CELL / 2);
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(cornerX, cornerY, rCorner, rCorner);
+                ctx.clip();
+                ctx.fillStyle = style.fill;
+                ctx.fillRect(px, py, CELL, CELL);
+                if (CELL >= 12) {
+                    drawBrickPattern(px, py, style.line);
+                }
+                // Carve the circular side with floor color from the tile center.
+                ctx.beginPath();
+                ctx.arc(midX, midY, rCorner, 0, Math.PI * 2, false);
+                ctx.fillStyle = fill;
+                ctx.fill();
+                ctx.restore();
+            };
+            // Only case: this floor-like tile is the lone non-wall in a 2x2 corner (3 wall + 1 floor).
+            if (tileAt(mapX - 1, mapY) === TILE_WALL && tileAt(mapX, mapY - 1) === TILE_WALL && tileAt(mapX - 1, mapY - 1) === TILE_WALL &&
+                    isRoomWall(mapX - 1, mapY) && isRoomWall(mapX, mapY - 1) && isRoomWall(mapX - 1, mapY - 1)) {
+                drawCornerWallArc(px, py, wallStyleAt(mapX - 1, mapY - 1));
+            }
+            if (tileAt(mapX + 1, mapY) === TILE_WALL && tileAt(mapX, mapY - 1) === TILE_WALL && tileAt(mapX + 1, mapY - 1) === TILE_WALL &&
+                    isRoomWall(mapX + 1, mapY) && isRoomWall(mapX, mapY - 1) && isRoomWall(mapX + 1, mapY - 1)) {
+                drawCornerWallArc(px + CELL - rCorner, py, wallStyleAt(mapX + 1, mapY - 1));
+            }
+            if (tileAt(mapX - 1, mapY) === TILE_WALL && tileAt(mapX, mapY + 1) === TILE_WALL && tileAt(mapX - 1, mapY + 1) === TILE_WALL &&
+                    isRoomWall(mapX - 1, mapY) && isRoomWall(mapX, mapY + 1) && isRoomWall(mapX - 1, mapY + 1)) {
+                drawCornerWallArc(px, py + CELL - rCorner, wallStyleAt(mapX - 1, mapY + 1));
+            }
+            if (tileAt(mapX + 1, mapY) === TILE_WALL && tileAt(mapX, mapY + 1) === TILE_WALL && tileAt(mapX + 1, mapY + 1) === TILE_WALL &&
+                    isRoomWall(mapX + 1, mapY) && isRoomWall(mapX, mapY + 1) && isRoomWall(mapX + 1, mapY + 1)) {
+                drawCornerWallArc(px + CELL - rCorner, py + CELL - rCorner, wallStyleAt(mapX + 1, mapY + 1));
+            }
+        }
 
         if (tile === TILE_WATER) {
             if (isFrozenWater(mapX, mapY)) {
@@ -7754,10 +7865,24 @@ var BITMAP_GLYPH_INDEX = {
         var y;
         var i;
         var deco;
+        function isRoomMouthFloor(tx, ty) {
+            var t = tileAt(tx, ty);
+            if (t === TILE_WALL || roomAt(tx, ty)) {
+                return false;
+            }
+            return (
+                !!roomAt(tx - 1, ty) ||
+                !!roomAt(tx + 1, ty) ||
+                !!roomAt(tx, ty - 1) ||
+                !!roomAt(tx, ty + 1)
+            );
+        }
         for (y = 0; y < WORLD_H; y++) {
             for (x = 0; x < WORLD_W; x++) {
                 if (roomAt(x, y) && tileAt(x, y) !== TILE_WALL) {
                     setLightEmitter(emitters, x, y, 0.34);
+                } else if (isRoomMouthFloor(x, y)) {
+                    setLightEmitter(emitters, x, y, 0.30);
                 }
             }
         }
