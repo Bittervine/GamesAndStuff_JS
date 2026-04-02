@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -602,14 +602,15 @@
             padding: 0;
             overflow: hidden;
             display: grid;
-            grid-template-rows: var(--top-bar-h) minmax(0, 1fr) var(--bottom-bar-h);
+            grid-template-rows: auto minmax(0, 1fr) auto;
             width: 100%;
             height: 100%;
         }
 
         #topBar {
             position: relative;
-            height: var(--top-bar-h);
+            height: auto;
+            min-height: var(--top-bar-h);
             padding: 4px;
             display: flex;
             align-items: center;
@@ -748,22 +749,29 @@
             min-height: 0;
             overflow: hidden;
             display: grid;
+            width: 100%;
+            height: 100%;
         }
 
         #midCanvas {
             position: absolute;
             inset: 0;
             z-index: 0;
+            width: 100%;
+            height: 100%;
         }
 
         #midCols {
             position: absolute;
             inset: 0;
             display: grid;
-            grid-template-columns: max-content minmax(0, 1fr) max-content;
             grid-template-rows: 1fr;
             gap: 0;
             z-index: 1;
+            align-items: stretch;
+            justify-items: stretch;
+            width: 100%;
+            height: 100%;
         }
 
         #midLeft,
@@ -772,7 +780,14 @@
             position: relative;
             min-height: 0;
             overflow: hidden;
-            min-width: calc((var(--overlay-btn-size) * 3) + 12px + 16px);
+            height: 100%;
+        }
+
+        #midCenter {
+            min-width: 0;
+        }
+        #midRight {
+            min-width: calc((var(--overlay-btn-size, 28px) * 3) + 12px + 16px);
         }
 
         #midRightGrid {
@@ -781,8 +796,13 @@
             display: grid;
             grid-template-rows: auto 1fr auto;
             gap: 8px;
-            padding: 8px;
+            padding: 8px 8px 8px 8px;
             box-sizing: border-box;
+            align-items: end;
+            justify-items: end;
+            align-content: end;
+            width: 100%;
+            height: 100%;
         }
 
         #midRightDockInner {
@@ -793,6 +813,7 @@
             gap: 6px;
             align-items: center;
             justify-items: end;
+            justify-self: end;
             /* Debug gray: background: #bdbdbd; */
             background: transparent;
             border-radius: 10px;
@@ -816,7 +837,7 @@
            - Cyan: #00d6d6 for #midRightBottom
            Restore these when you want the right column debug colors back. */
         #wrap.layoutTest #midRightDock {
-            min-height: calc(var(--overlay-btn-size) + 8px);
+            min-height: calc(var(--overlay-btn-size, 28px) + 8px);
             /* Debug pink: background: #ff9ad6; */
             background: transparent;
         }
@@ -831,13 +852,15 @@
 
         #midRightBottom {
             display: grid;
-            grid-template-columns: repeat(3, var(--overlay-btn-size));
-            grid-template-rows: repeat(3, var(--overlay-btn-size));
+            grid-template-columns: repeat(3, var(--overlay-btn-size, 28px));
+            grid-template-rows: repeat(3, var(--overlay-btn-size, 28px));
             gap: 6px;
-            align-items: center;
-            justify-items: center;
+            align-items: end;
+            justify-items: end;
             justify-content: end;
             align-content: end;
+            justify-self: end;
+            align-self: end;
         }
 
         #midRightBottom #moveDock {
@@ -860,9 +883,10 @@
         }
 
         #boardWrap {
-            position: absolute;
+            position: relative;
             inset: 0;
-            width: auto;
+            width: 100%;
+            height: 100%;
             margin: 0;
             display: flex;
             align-items: center;
@@ -930,10 +954,10 @@
 
         #moveDock {
             position: static;
-            width: calc((var(--overlay-btn-size) * 3) + 12px);
-            height: calc((var(--overlay-btn-size) * 3) + 12px);
+            width: calc((var(--overlay-btn-size, 28px) * 3) + 12px);
+            height: calc((var(--overlay-btn-size, 28px) * 3) + 12px);
             max-width: calc(100% - 20px);
-            max-height: calc(100% - var(--bottom-bar-h) - 34px);
+            max-height: calc(100% - var(--bottom-bar-h, 36px) - 34px);
             display: grid;
             place-items: stretch;
             grid-column: 3 / 6;
@@ -953,10 +977,10 @@
 
         #moveDock .moveBtn {
             position: static;
-            width: var(--overlay-btn-size);
-            height: var(--overlay-btn-size);
-            min-width: var(--overlay-btn-size);
-            min-height: var(--overlay-btn-size);
+            width: var(--overlay-btn-size, 28px);
+            height: var(--overlay-btn-size, 28px);
+            min-width: var(--overlay-btn-size, 28px);
+            min-height: var(--overlay-btn-size, 28px);
         }
 
         #playZoomControls {
@@ -977,10 +1001,10 @@
         }
 
         #spellDock .spellIconBtn {
-            width: var(--overlay-btn-size);
-            height: var(--overlay-btn-size);
-            min-width: var(--overlay-btn-size);
-            min-height: var(--overlay-btn-size);
+            width: var(--overlay-btn-size, 28px);
+            height: var(--overlay-btn-size, 28px);
+            min-width: var(--overlay-btn-size, 28px);
+            min-height: var(--overlay-btn-size, 28px);
             padding: 0;
             border-radius: 12px;
             display: block;
@@ -994,7 +1018,7 @@
         }
 
         #spellDock .spellIconBtn .btnIcon {
-            font-size: clamp(13px, calc(var(--overlay-btn-size) * 0.54), 19px);
+            font-size: clamp(13px, calc(var(--overlay-btn-size, 28px) * 0.54), 19px);
             line-height: 1;
         }
 
@@ -1087,7 +1111,8 @@
 
         #bottomBar {
             position: relative;
-            height: var(--bottom-bar-h);
+            height: auto;
+            min-height: var(--bottom-bar-h);
             padding: 4px;
             display: flex;
             align-items: center;
@@ -1292,55 +1317,55 @@
             <div id="midCanvas">
                 <div id="boardWrap">
                     <canvas id="game" width="480" height="480"></canvas>
-                </div>
-            </div>
-            <div id="midCols">
-                <div id="midLeft">
-                    <div id="spellDock">
-                        <button type="button" id="spellBtn" class="spellIconBtn" title="Fire">
-                            <span class="btnInner"><span class="btnIcon">&#x1F525;</span><span class="btnText">Fire</span></span>
-                        </button>
-                        <button type="button" id="blastBtn" class="spellIconBtn" title="Frost">
-                            <span class="btnInner"><span class="btnIcon">&#x2744;</span><span class="btnText">Frost</span></span>
-                        </button>
-                        <button type="button" id="waitBtn" class="spellIconBtn" title="Earth">
-                            <span class="btnInner"><span class="btnIcon">&#x1FAA8;</span><span class="btnText">Earth</span></span>
-                        </button>
-                        <button type="button" id="focusBtn" class="spellIconBtn" title="Volt">
-                            <span class="btnInner"><span class="btnIcon">&#x26A1;</span><span class="btnText">Volt</span></span>
-                        </button>
-                        <button type="button" id="infoBtn" class="spellIconBtn" title="Wind">
-                            <span class="btnInner"><span class="btnIcon">&#x1F32A;</span><span class="btnText">Wind</span></span>
-                        </button>
-                    </div>
-                </div>
-                <div id="midCenter"></div>
-                <div id="midRight">
-                    <div id="midRightGrid">
-                        <div id="midRightDock">
-                            <div id="midRightDockInner">
-                                <div></div>
-                                <button type="button" id="playZoomOutBtn" class="topMiniBtn" title="Zoom Out">
-                                    <span class="btnInner"><span class="btnIcon">&#x2212;</span><span class="btnText">Out</span></span>
+                    <div id="midCols">
+                        <div id="midLeft">
+                            <div id="spellDock">
+                                <button type="button" id="spellBtn" class="spellIconBtn" title="Fire">
+                                    <span class="btnInner"><span class="btnIcon">&#x1F525;</span><span class="btnText">Fire</span></span>
                                 </button>
-                                <button type="button" id="playZoomInBtn" class="topMiniBtn" title="Zoom In">
-                                    <span class="btnInner"><span class="btnIcon">&#xFF0B;</span><span class="btnText">In</span></span>
+                                <button type="button" id="blastBtn" class="spellIconBtn" title="Frost">
+                                    <span class="btnInner"><span class="btnIcon">&#x2744;</span><span class="btnText">Frost</span></span>
+                                </button>
+                                <button type="button" id="waitBtn" class="spellIconBtn" title="Earth">
+                                    <span class="btnInner"><span class="btnIcon">&#x1FAA8;</span><span class="btnText">Earth</span></span>
+                                </button>
+                                <button type="button" id="focusBtn" class="spellIconBtn" title="Volt">
+                                    <span class="btnInner"><span class="btnIcon">&#x26A1;</span><span class="btnText">Volt</span></span>
+                                </button>
+                                <button type="button" id="infoBtn" class="spellIconBtn" title="Wind">
+                                    <span class="btnInner"><span class="btnIcon">&#x1F32A;</span><span class="btnText">Wind</span></span>
                                 </button>
                             </div>
                         </div>
-                        <div id="midRightTop"></div>
-                        <div id="midRightBottom">
-                            <div id="moveDock" class="dock">
-                                <div class="moveGrid">
-                                    <button type="button" id="upLeftBtn" class="moveBtn upLeftBtn" title="Northwest"><span class="btnInner"><span class="btnIcon">&#x2196;</span><span class="btnText">NW</span></span></button>
-                                    <button type="button" id="upBtn" class="moveBtn upBtn" title="North"><span class="btnInner"><span class="btnIcon">&#x2B06;</span><span class="btnText">North</span></span></button>
-                                    <button type="button" id="upRightBtn" class="moveBtn upRightBtn" title="Northeast"><span class="btnInner"><span class="btnIcon">&#x2197;</span><span class="btnText">NE</span></span></button>
-                                    <button type="button" id="leftBtn" class="moveBtn leftBtn" title="West"><span class="btnInner"><span class="btnIcon">&#x2B05;</span><span class="btnText">West</span></span></button>
-                                    <button type="button" id="centerBtn" class="moveBtn centerBtn" title="Rest"><span class="btnInner"><span class="btnIcon">&#x21BB;</span><span class="btnText">Rest</span></span></button>
-                                    <button type="button" id="rightBtn" class="moveBtn rightBtn" title="East"><span class="btnInner"><span class="btnIcon">&#x27A1;</span><span class="btnText">East</span></span></button>
-                                    <button type="button" id="downLeftBtn" class="moveBtn downLeftBtn" title="Southwest"><span class="btnInner"><span class="btnIcon">&#x2199;</span><span class="btnText">SW</span></span></button>
-                                    <button type="button" id="downBtn" class="moveBtn downBtn" title="South"><span class="btnInner"><span class="btnIcon">&#x2B07;</span><span class="btnText">South</span></span></button>
-                                    <button type="button" id="downRightBtn" class="moveBtn downRightBtn" title="Southeast"><span class="btnInner"><span class="btnIcon">&#x2198;</span><span class="btnText">SE</span></span></button>
+                        <div id="midCenter"></div>
+                        <div id="midRight">
+                            <div id="midRightGrid">
+                                <div id="midRightDock">
+                                    <div id="midRightDockInner">
+                                        <div></div>
+                                        <button type="button" id="playZoomOutBtn" class="topMiniBtn" title="Zoom Out">
+                                            <span class="btnInner"><span class="btnIcon">&#x2212;</span><span class="btnText">Out</span></span>
+                                        </button>
+                                        <button type="button" id="playZoomInBtn" class="topMiniBtn" title="Zoom In">
+                                            <span class="btnInner"><span class="btnIcon">&#xFF0B;</span><span class="btnText">In</span></span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="midRightTop"></div>
+                                <div id="midRightBottom">
+                                    <div id="moveDock" class="dock">
+                                        <div class="moveGrid">
+                                            <button type="button" id="upLeftBtn" class="moveBtn upLeftBtn" title="Northwest"><span class="btnInner"><span class="btnIcon">&#x2196;</span><span class="btnText">NW</span></span></button>
+                                            <button type="button" id="upBtn" class="moveBtn upBtn" title="North"><span class="btnInner"><span class="btnIcon">&#x2B06;</span><span class="btnText">North</span></span></button>
+                                            <button type="button" id="upRightBtn" class="moveBtn upRightBtn" title="Northeast"><span class="btnInner"><span class="btnIcon">&#x2197;</span><span class="btnText">NE</span></span></button>
+                                            <button type="button" id="leftBtn" class="moveBtn leftBtn" title="West"><span class="btnInner"><span class="btnIcon">&#x2B05;</span><span class="btnText">West</span></span></button>
+                                            <button type="button" id="centerBtn" class="moveBtn centerBtn" title="Rest"><span class="btnInner"><span class="btnIcon">&#x21BB;</span><span class="btnText">Rest</span></span></button>
+                                            <button type="button" id="rightBtn" class="moveBtn rightBtn" title="East"><span class="btnInner"><span class="btnIcon">&#x27A1;</span><span class="btnText">East</span></span></button>
+                                            <button type="button" id="downLeftBtn" class="moveBtn downLeftBtn" title="Southwest"><span class="btnInner"><span class="btnIcon">&#x2199;</span><span class="btnText">SW</span></span></button>
+                                            <button type="button" id="downBtn" class="moveBtn downBtn" title="South"><span class="btnInner"><span class="btnIcon">&#x2B07;</span><span class="btnText">South</span></span></button>
+                                            <button type="button" id="downRightBtn" class="moveBtn downRightBtn" title="Southeast"><span class="btnInner"><span class="btnIcon">&#x2198;</span><span class="btnText">SE</span></span></button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -7771,6 +7796,14 @@ var BITMAP_GLYPH_INDEX = {
 
     function syncLayout() {
         var layout = layoutForZoom(state.playZoom || 1);
+        var midCols;
+        var midLeft;
+        var midRight;
+        var spellDock;
+        var moveDock;
+        var leftW;
+        var rightW;
+        var pad;
         if (!layout || !canvas) {
             return;
         }
@@ -7791,6 +7824,26 @@ var BITMAP_GLYPH_INDEX = {
         if (miniMapCanvas) {
             miniMapCanvas.width = miniMapCanvas.clientWidth || miniMapCanvas.width;
             miniMapCanvas.height = miniMapCanvas.clientHeight || miniMapCanvas.height;
+        }
+
+        midCols = document.getElementById('midCols');
+        midLeft = document.getElementById('midLeft');
+        midRight = document.getElementById('midRight');
+        spellDock = document.getElementById('spellDock');
+        moveDock = document.getElementById('moveDock');
+        if (midCols && spellDock && moveDock) {
+            leftW = spellDock.offsetWidth || 0;
+            rightW = moveDock.offsetWidth || 0;
+            pad = 16;
+            if (leftW > 0 && rightW > 0) {
+                midCols.style.gridTemplateColumns = (leftW + pad) + 'px 1fr ' + (rightW + pad) + 'px';
+                if (midLeft) {
+                    midLeft.style.width = (leftW + pad) + 'px';
+                }
+                if (midRight) {
+                    midRight.style.width = (rightW + pad) + 'px';
+                }
+            }
         }
         draw();
     }
