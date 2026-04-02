@@ -7174,39 +7174,27 @@ var BITMAP_GLYPH_INDEX = {
                 }
             }
             if (state.colorMode && roomWall) {
-                var rWall = Math.floor(CELL * 0.5);
-                var midWX = px + Math.floor(CELL / 2);
-                var midWY = py + Math.floor(CELL / 2);
-                var floorStyleAt = function (fx, fy) {
-                    var hiddenFloor = grayFill;
-                    var ft = tileAt(fx, fy);
-                    if (ft === TILE_WATER) {
-                        if (isFrozenWater(fx, fy)) {
-                            return visible ? '#f4fbff' : grayLightColor(light, 150, 220);
-                        }
-                        return visible ? pal.water : hiddenFloor;
+                var rOuter = Math.floor(CELL * 0.5);
+                var midOuterX = px + Math.floor(CELL / 2);
+                var midOuterY = py + Math.floor(CELL / 2);
+                var wallFillUse = visible ? litWallFill : hiddenWallFill;
+                var wallLineUse = visible ? litWallLine : hiddenWallLine;
+                function isBlackStone(tx, ty) {
+                    return tileAt(tx, ty) === TILE_WALL && !isBoundaryWall(tx, ty);
+                }
+                function roundIntoBlack(maskX, maskY, nearA, nearB, diag) {
+                    if (!isBlackStone(nearA.x, nearA.y) || !isBlackStone(nearB.x, nearB.y) || !isBlackStone(diag.x, diag.y)) {
+                        return;
                     }
-                    if (ft === TILE_GRASS) {
-                        return visible ? pal.grass : hiddenFloor;
-                    }
-                    if (ft === TILE_EXIT || ft === TILE_RELIC || ft === TILE_FLOOR) {
-                        return visible ? pal.floor : hiddenFloor;
-                    }
-                    return hiddenFloor;
-                };
-                var roundProtrudingCorner = function (maskX, maskY, near) {
-                    var floorCol = floorStyleAt(near.x, near.y);
-                    var wallFillUse = visible ? litWallFill : hiddenWallFill;
-                    var wallLineUse = visible ? litWallLine : hiddenWallLine;
                     ctx.save();
                     ctx.beginPath();
-                    ctx.rect(maskX, maskY, rWall, rWall);
+                    ctx.rect(maskX, maskY, rOuter, rOuter);
                     ctx.clip();
-                    ctx.fillStyle = floorCol;
-                    ctx.fillRect(maskX, maskY, rWall, rWall);
+                    ctx.fillStyle = '#000000';
+                    ctx.fillRect(maskX, maskY, rOuter, rOuter);
                     ctx.save();
                     ctx.beginPath();
-                    ctx.arc(midWX, midWY, rWall, 0, Math.PI * 2, false);
+                    ctx.arc(midOuterX, midOuterY, rOuter, 0, Math.PI * 2, false);
                     ctx.clip();
                     ctx.fillStyle = wallFillUse;
                     ctx.fillRect(px, py, CELL, CELL);
@@ -7215,19 +7203,12 @@ var BITMAP_GLYPH_INDEX = {
                     }
                     ctx.restore();
                     ctx.restore();
-                };
-                if (tileAt(mapX - 1, mapY) !== TILE_WALL && tileAt(mapX, mapY - 1) !== TILE_WALL && tileAt(mapX - 1, mapY - 1) !== TILE_WALL) {
-                    roundProtrudingCorner(px, py, { x: mapX - 1, y: mapY - 1 });
                 }
-                if (tileAt(mapX + 1, mapY) !== TILE_WALL && tileAt(mapX, mapY - 1) !== TILE_WALL && tileAt(mapX + 1, mapY - 1) !== TILE_WALL) {
-                    roundProtrudingCorner(px + CELL - rWall, py, { x: mapX + 1, y: mapY - 1 });
-                }
-                if (tileAt(mapX - 1, mapY) !== TILE_WALL && tileAt(mapX, mapY + 1) !== TILE_WALL && tileAt(mapX - 1, mapY + 1) !== TILE_WALL) {
-                    roundProtrudingCorner(px, py + CELL - rWall, { x: mapX - 1, y: mapY + 1 });
-                }
-                if (tileAt(mapX + 1, mapY) !== TILE_WALL && tileAt(mapX, mapY + 1) !== TILE_WALL && tileAt(mapX + 1, mapY + 1) !== TILE_WALL) {
-                    roundProtrudingCorner(px + CELL - rWall, py + CELL - rWall, { x: mapX + 1, y: mapY + 1 });
-                }
+                // External corners only: blend room-wall protrusions into surrounding black stone.
+                roundIntoBlack(px, py, { x: mapX - 1, y: mapY }, { x: mapX, y: mapY - 1 }, { x: mapX - 1, y: mapY - 1 });
+                roundIntoBlack(px + CELL - rOuter, py, { x: mapX + 1, y: mapY }, { x: mapX, y: mapY - 1 }, { x: mapX + 1, y: mapY - 1 });
+                roundIntoBlack(px, py + CELL - rOuter, { x: mapX - 1, y: mapY }, { x: mapX, y: mapY + 1 }, { x: mapX - 1, y: mapY + 1 });
+                roundIntoBlack(px + CELL - rOuter, py + CELL - rOuter, { x: mapX + 1, y: mapY }, { x: mapX, y: mapY + 1 }, { x: mapX + 1, y: mapY + 1 });
             }
             return;
         }
