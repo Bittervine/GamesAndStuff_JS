@@ -174,6 +174,43 @@
             image-rendering: auto;
         }
 
+        #spellTooltip {
+            position: fixed;
+            z-index: 9999;
+            display: none;
+            min-width: 260px;
+            max-width: 360px;
+            padding: 8px 10px;
+            border: 2px solid #111111;
+            border-radius: 10px;
+            background: rgba(252, 252, 252, 0.98);
+            color: #111111;
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
+            pointer-events: none;
+            box-sizing: border-box;
+        }
+
+        #spellTooltip .ttGrid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 4px 8px;
+            align-items: start;
+            font-family: "Trebuchet MS", Verdana, sans-serif;
+            font-size: 12px;
+            line-height: 1.25;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        #spellTooltip .ttKey {
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        #spellTooltip .ttValue {
+            font-weight: normal;
+        }
+
         .hudGlyphBitmap {
             width: 100%;
             height: 100%;
@@ -1578,6 +1615,7 @@
                 </div>
             </div>
         </div>
+        <div id="spellTooltip" aria-hidden="true"></div>
     </div>
 
     <script>
@@ -1845,10 +1883,10 @@ var BITMAP_GLYPH_INDEX = {
     ];
 
     var LEARNED_SPELLS = [
-        { id: 'heal', name: 'Heal', icon: ICON.heal_staff, cost: 3, minLevel: 1 },
+        { id: 'heal', name: 'Heal', icon: ICON.heal_staff, cost: 5, minLevel: 1 },
         { id: 'poison_cloud', name: 'Poison Cloud', icon: ICON.poison_cloud, cost: 4, minLevel: 2, range: 7 },
         { id: 'teleport', name: 'Teleport', icon: ICON.teleport_swirl, cost: 5, minLevel: 3 },
-        { id: 'stone_skin', name: 'Stone Skin', icon: ICON.earth_shield, cost: 4, minLevel: 4 },
+        { id: 'stone_skin', name: 'Stone Skin', icon: ICON.earth_shield, cost: 10, minLevel: 4 },
         { id: 'chain_storm', name: 'Chain Storm', icon: ICON.chain_storm, cost: 6, minLevel: 5, range: 9 },
         { id: 'mana_tide', name: 'Mana Tide', icon: ICON.mana_tide, cost: 5, minLevel: 6 }
     ];
@@ -1959,6 +1997,7 @@ var BITMAP_GLYPH_INDEX = {
     var learnedSpellSelect = document.getElementById('learnedSpellSelect');
     var learnedSpellDock = document.getElementById('spellDock');
     var nukeBtn = document.getElementById('nukeBtn');
+    var spellTooltip = document.getElementById('spellTooltip');
     var colorModeEl = document.getElementById('colorMode');
 
     var state = {
@@ -2428,6 +2467,9 @@ var BITMAP_GLYPH_INDEX = {
         }
         if (state.player.cursed > 0) {
             labels.push('Hexed');
+        }
+        if (state.player.stoneShield > 0) {
+            labels.push('Stone Shield ' + state.player.stoneShield);
         }
         if (labels.length < 1) {
             labels.push(state.status);
@@ -2915,11 +2957,244 @@ var BITMAP_GLYPH_INDEX = {
         setExistingButtonGlyph(downRightBtn, cp(0x2198)); // U+2198
     }
 
+    function escapeHtml(text) {
+        return String(text || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function stripHtml(text) {
+        return String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    function tooltipTableHtml(name, cost, mainEffect, sideEffect) {
+        return '<div class="ttGrid">' +
+            '<div class="ttKey">NAME:</div><div class="ttValue">' + escapeHtml(name) + '</div>' +
+            '<div class="ttKey">COST:</div><div class="ttValue">' + escapeHtml(cost) + '</div>' +
+            '<div class="ttKey">EFFECT:</div><div class="ttValue">' + escapeHtml(mainEffect) + '</div>' +
+            '<div class="ttKey">NOTES:</div><div class="ttValue">' + escapeHtml(sideEffect) + '</div>' +
+            '</div>';
+    }
+
+    function tooltipCostText(spell) {
+        var baseCost = spell && spell.cost ? spell.cost : 0;
+        var liveCost = spellCost(spell || { cost: 0 });
+        if (liveCost !== baseCost) {
+            return liveCost + ' MP (base ' + baseCost + ', +1 while cursed)';
+        }
+        return liveCost + ' MP';
+    }
+
+    function damageRangeText(minBase, maxBase) {
+        var mult = state.player && state.player.damageMult ? state.player.damageMult : 1;
+        var min = minBase * mult;
+        var max = maxBase * mult;
+        if (min === max) {
+            return String(min);
+        }
+        return min + '-' + max;
+    }
+
+    function basicSpellTooltipHtmlById(id) {
+        var spell = quickSpellById(id);
+        if (id === 'fire') {
+            return tooltipTableHtml(
+                'Firebolt - focused flame bolt',
+                tooltipCostText(spell),
+                'Range ' + spell.range + '. Hit one target for ' + damageRangeText(4, 6) + ' HP fire damage.',
+                'Ignites target and nearby flammables; adjacent enemies take ' + damageRangeText(2, 3) + ' HP splash. Burn deals 2 HP/turn and clears at 7% per turn.'
+            );
+        }
+        if (id === 'frost') {
+            return tooltipTableHtml(
+                'Frostbolt - chilling shard',
+                tooltipCostText(spell),
+                'Range ' + spell.range + '. Hit one target for ' + damageRangeText(3, 5) + ' HP frost damage.',
+                'Applies chill/slow (7% clear chance per turn). On unfrozen water targets, also freezes the water tile.'
+            );
+        }
+        if (id === 'earth') {
+            return tooltipTableHtml(
+                'Earth Spike - heavy impact',
+                tooltipCostText(spell),
+                'Range ' + spell.range + '. Hit one target for ' + damageRangeText(7, 10) + ' HP earth damage.',
+                'High direct damage, no extra status effect.'
+            );
+        }
+        if (id === 'lightning') {
+            return tooltipTableHtml(
+                'Lightning - piercing arc',
+                tooltipCostText(spell),
+                'Range ' + spell.range + '. Hit one target for ' + damageRangeText(5, 7) + ' HP lightning damage.',
+                'If target is in water, arcs through connected water for ' + damageRangeText(3, 4) + ' HP to others in that water. Can backlash the wizard.'
+            );
+        }
+        if (id === 'wind') {
+            return tooltipTableHtml(
+                'Wind - force pulse',
+                tooltipCostText(spell),
+                'Range ' + spell.range + '. Hit one target for ' + damageRangeText(2, 3) + ' HP wind damage.',
+                'Pushes target back 1-3 tiles when possible.'
+            );
+        }
+        return tooltipTableHtml('Spell', tooltipCostText(spell), 'Cast a spell.', 'No additional details.');
+    }
+
+    function learnedSpellTooltipHtmlById(id) {
+        var spell = learnedSpellById(id);
+        if (id === 'heal') {
+            return tooltipTableHtml(
+                'Heal - restorative magic',
+                tooltipCostText(spell),
+                'Restore 20% of max HP to the wizard.',
+                'Also removes poison from the wizard.'
+            );
+        }
+        if (id === 'poison_cloud') {
+            return tooltipTableHtml(
+                'Poison Cloud - toxic burst',
+                tooltipCostText(spell),
+                'Range ' + (spell.range || 0) + '. Hit enemies in a 1-tile burst for ' + damageRangeText(2, 3) + ' HP poison damage.',
+                'Applies poison (up to 4 turns at 1 HP/turn), sets slow at least 1 turn, and extinguishes burn on affected monsters.'
+            );
+        }
+        if (id === 'teleport') {
+            return tooltipTableHtml(
+                'Teleport - tactical blink',
+                tooltipCostText(spell),
+                'Blink to a safe explored open tile.',
+                'Prioritizes spots away from monsters. If no monster is nearby, still relocates to a safer distant tile. Can trigger tile pickups/events on landing.'
+            );
+        }
+        if (id === 'stone_skin') {
+            return tooltipTableHtml(
+                'Stone Skin - defensive ward',
+                tooltipCostText(spell),
+                'Add a Stone Shield that absorbs damage equal to 50% of max HP before breaking.',
+                'Recasting resets the Stone Shield to 50% of max HP (does not stack).'
+            );
+        }
+        if (id === 'chain_storm') {
+            return tooltipTableHtml(
+                'Chain Storm - branching lightning',
+                tooltipCostText(spell),
+                'Range ' + (spell.range || 0) + '. Primary hit: ' + damageRangeText(5, 7) + ' HP lightning damage.',
+                'Then arcs up to 3 tiles around target for ' + damageRangeText(3, 4) + ' HP to nearby enemies.'
+            );
+        }
+        if (id === 'mana_tide') {
+            return tooltipTableHtml(
+                'Mana Tide - mana surge',
+                tooltipCostText(spell),
+                'Restore 8 MP to the wizard.',
+                'Also removes curse and chill/slow from the wizard.'
+            );
+        }
+        return tooltipTableHtml('Learned Spell', tooltipCostText(spell), 'Cast the selected learned spell.', 'No additional details.');
+    }
+
+    function nukeTooltipHtml() {
+        var charges = state.player ? Math.max(0, state.player.nuke || 0) : 0;
+        var baseDamage = 5 + (charges * 3);
+        var mult = state.player && state.player.damageMult ? state.player.damageMult : 1;
+        var damage = baseDamage * mult;
+        var radius = 4 + charges;
+        return tooltipTableHtml(
+            'Nuke',
+            '0 MP',
+            'Detonate all charges at once. Current: ' + charges + ' charge(s), radius ' + radius + ', ' + damage + ' HP lightning damage.',
+            'Drains HP from enemies hit to heal the wizard. Up to 9 charges can be stored; auto-detonates on lethal damage.'
+        );
+    }
+
+    function placeSpellTooltip(x, y) {
+        var pad = 12;
+        var vw;
+        var vh;
+        var tw;
+        var th;
+        if (!spellTooltip) {
+            return;
+        }
+        vw = window.innerWidth || document.documentElement.clientWidth || 800;
+        vh = window.innerHeight || document.documentElement.clientHeight || 600;
+        tw = spellTooltip.offsetWidth || 280;
+        th = spellTooltip.offsetHeight || 120;
+        if (x + tw + pad > vw) {
+            x = vw - tw - pad;
+        }
+        if (y + th + pad > vh) {
+            y = vh - th - pad;
+        }
+        if (x < pad) {
+            x = pad;
+        }
+        if (y < pad) {
+            y = pad;
+        }
+        spellTooltip.style.left = x + 'px';
+        spellTooltip.style.top = y + 'px';
+    }
+
+    function hideSpellTooltip() {
+        if (!spellTooltip) {
+            return;
+        }
+        spellTooltip.style.display = 'none';
+        spellTooltip.setAttribute('aria-hidden', 'true');
+    }
+
+    function showSpellTooltip(html, x, y) {
+        if (!spellTooltip || !html) {
+            return;
+        }
+        spellTooltip.innerHTML = html;
+        spellTooltip.style.display = 'block';
+        spellTooltip.setAttribute('aria-hidden', 'false');
+        placeSpellTooltip(x, y);
+    }
+
+    function bindCustomTooltip(btn, html) {
+        if (!btn) {
+            return;
+        }
+        btn.setAttribute('data-tooltip-html', html || '');
+        btn.removeAttribute('title');
+        btn.onmouseenter = function (e) {
+            var tt = btn.getAttribute('data-tooltip-html') || '';
+            if (!tt) {
+                return;
+            }
+            showSpellTooltip(tt, (e.clientX || 0) + 14, (e.clientY || 0) + 16);
+        };
+        btn.onmousemove = function (e) {
+            if (!spellTooltip || spellTooltip.style.display === 'none') {
+                return;
+            }
+            placeSpellTooltip((e.clientX || 0) + 14, (e.clientY || 0) + 16);
+        };
+        btn.onmouseleave = hideSpellTooltip;
+        btn.onblur = hideSpellTooltip;
+        btn.onfocus = function (e) {
+            var tt = btn.getAttribute('data-tooltip-html') || '';
+            var rect;
+            if (!tt) {
+                return;
+            }
+            rect = btn.getBoundingClientRect ? btn.getBoundingClientRect() : { left: 0, right: 0, top: 0 };
+            showSpellTooltip(tt, (rect.right || 0) + 8, (rect.top || 0) + 8);
+        };
+    }
+
     function setButtonFace(btn, icon, text) {
         if (!btn) {
             return;
         }
-        btn.title = text;
+        btn.setAttribute('aria-label', stripHtml(text));
+        bindCustomTooltip(btn, text || '');
         if (USE_FONT_GLYPHS) {
             btn.innerHTML = '<span class="btnInner"><span class="btnIcon glyph">' + activeGlyph(icon) + '</span></span>';
             return;
@@ -2975,7 +3250,8 @@ var BITMAP_GLYPH_INDEX = {
         } else {
             html = '<span class="btnInner"><span class="nukePack"><img class="nukeItem nukeIconBitmap" alt="" src="' + domGlyphDataUrl(icon, 64, '#111111') + '"><span class="nukeItem nukeChargeLabel"><span class="prefix">x</span>' + count + '</span></span></span>';
         }
-        btn.title = text;
+        btn.setAttribute('aria-label', stripHtml(text));
+        bindCustomTooltip(btn, text || '');
         btn.innerHTML = html;
     }
 
@@ -3030,25 +3306,7 @@ var BITMAP_GLYPH_INDEX = {
     }
 
     function learnedSpellTooltipById(id) {
-        if (id === 'heal') {
-            return 'Heal - Restore HP to the wizard.';
-        }
-        if (id === 'poison_cloud') {
-            return 'Poison Cloud - Hit the target for moderate damage and poison nearby enemies.';
-        }
-        if (id === 'teleport') {
-            return 'Teleport - Blink to a safe nearby location.';
-        }
-        if (id === 'stone_skin') {
-            return 'Stone Skin - Gain temporary shield against damage.';
-        }
-        if (id === 'chain_storm') {
-            return 'Chain Storm - Hit multiple enemies with lightning jumps.';
-        }
-        if (id === 'mana_tide') {
-            return 'Mana Tide - Restore mana to the wizard.';
-        }
-        return 'Cast learned spell.';
+        return learnedSpellTooltipHtmlById(id);
     }
 
     function castLearnedSpellById(id) {
@@ -3129,12 +3387,12 @@ var BITMAP_GLYPH_INDEX = {
             compactStatus.innerHTML = state.player ? ('HP: ' + state.player.hp + '/' + state.player.maxHp + ' MP: ' + state.player.mp + '/' + state.player.maxMp + ' Floor: ' + state.player.depth) : 'HP: --/-- MP: --/-- Floor: --';
         }
         refreshLearnedSpellButtons();
-        setButtonFace(spellBtn, ICON.fire, 'Firebolt - Hit the enemy for moderate damage and may cause fire to spread.');
-        setButtonFace(blastBtn, ICON.frost, 'Frostbolt - Hit the enemy for moderate damage. May slow affected enemies and freeze water.');
-        setButtonFace(waitBtn, ICON.rock, 'Earth spike - Hit the enemy for high damage, but no extra effect.');
-        setButtonFace(focusBtn, ICON.bolt, 'Lightning - Hit the enemy for moderate damage. May electrify water.');
-        setButtonFace(infoBtn, ICON.wind, 'Wind - Hit the enemy for low damage and push them back.');
-        setNukeButtonFace(nukeBtn, ICON.nuke_boom, 'Nuke - Detonate to hurt all enemies near and transfer HP to the wizard. Up to 9 charges can be carried, and all stored charges are released at once. Any charge is released automatically when wizard is about to die as a Hail Mary.', state.player ? state.player.nuke : 0);
+        setButtonFace(spellBtn, ICON.fire, basicSpellTooltipHtmlById('fire'));
+        setButtonFace(blastBtn, ICON.frost, basicSpellTooltipHtmlById('frost'));
+        setButtonFace(waitBtn, ICON.rock, basicSpellTooltipHtmlById('earth'));
+        setButtonFace(focusBtn, ICON.bolt, basicSpellTooltipHtmlById('lightning'));
+        setButtonFace(infoBtn, ICON.wind, basicSpellTooltipHtmlById('wind'));
+        setNukeButtonFace(nukeBtn, ICON.nuke_boom, nukeTooltipHtml(), state.player ? state.player.nuke : 0);
     }
 
     function tileAt(x, y) {
@@ -4056,6 +4314,7 @@ var BITMAP_GLYPH_INDEX = {
             maxMp: 9,
             melee: 3,
             armor: 1,
+            stoneShield: 0,
             level: 1,
             xp: 0,
             nextLevel: 10,
@@ -5103,12 +5362,24 @@ var BITMAP_GLYPH_INDEX = {
     }
 
     function hurtPlayer(dmg, type, source) {
+        var absorbed = 0;
         if (!state.player || state.gameOver || state.victory) {
             return;
         }
         cancelAutoMove('Interrupted');
         if (type === 'shock' && isWater(state.player.x, state.player.y)) {
             dmg += 2;
+        }
+        if (state.player.stoneShield > 0 && dmg > 0) {
+            absorbed = Math.min(dmg, state.player.stoneShield);
+            state.player.stoneShield -= absorbed;
+            dmg -= absorbed;
+            if (state.player.stoneShield < 0) {
+                state.player.stoneShield = 0;
+            }
+            if (absorbed > 0) {
+                pushMessage('Stone Shield absorbs ' + absorbed);
+            }
         }
         if (state.player.armor > 0) {
             dmg -= 2;
@@ -5184,7 +5455,7 @@ var BITMAP_GLYPH_INDEX = {
             state.player.nextLevel += 6;
             state.player.maxHp += 3;
             state.player.hp = state.player.maxHp;
-            state.player.maxMp += 1;
+            state.player.maxMp += 2;
             state.player.mp = state.player.maxMp;
             showBanner('Level Up!', 1400);
             playLevelUpSound();
@@ -5885,6 +6156,69 @@ var BITMAP_GLYPH_INDEX = {
         return false;
     }
 
+    function nearestMonsterDistance(x, y) {
+        var i;
+        var d = 999;
+        for (i = 0; i < state.monsters.length; i++) {
+            d = Math.min(d, chebDistance(x, y, state.monsters[i].x, state.monsters[i].y));
+        }
+        return d;
+    }
+
+    function hasMonsterWithin(x, y, radius) {
+        var i;
+        for (i = 0; i < state.monsters.length; i++) {
+            if (chebDistance(x, y, state.monsters[i].x, state.monsters[i].y) <= radius) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function findSafeTeleportSpot() {
+        var tries;
+        var best = null;
+        var candidate;
+        var nowNear = hasMonsterWithin(state.player.x, state.player.y, 4);
+        var hereNearest = nearestMonsterDistance(state.player.x, state.player.y);
+        var candNearest;
+        for (tries = 0; tries < 140; tries++) {
+            candidate = randomOpenTile(12, 0);
+            if (!candidate || !state.explored[candidate.y][candidate.x]) {
+                continue;
+            }
+            if (hasMonsterWithin(candidate.x, candidate.y, 2)) {
+                continue;
+            }
+            candNearest = nearestMonsterDistance(candidate.x, candidate.y);
+            if (nowNear) {
+                if (candNearest <= hereNearest) {
+                    continue;
+                }
+            } else {
+                if (hasMonsterWithin(candidate.x, candidate.y, 4)) {
+                    continue;
+                }
+                if (chebDistance(state.player.x, state.player.y, candidate.x, candidate.y) < 4) {
+                    continue;
+                }
+            }
+            if (!best || candNearest > best.score) {
+                best = { x: candidate.x, y: candidate.y, score: candNearest };
+            }
+        }
+        if (best) {
+            return { x: best.x, y: best.y };
+        }
+        for (tries = 0; tries < 80; tries++) {
+            candidate = randomOpenTile(10, 0);
+            if (candidate && state.explored[candidate.y][candidate.x] && !hasMonsterWithin(candidate.x, candidate.y, 1)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
     function castLearnedSpell() {
         var spell;
         var cost;
@@ -5928,7 +6262,7 @@ var BITMAP_GLYPH_INDEX = {
         state.spentManaThisTurn = true;
 
         if (spell.id === 'heal') {
-            state.player.hp = clamp(state.player.hp + 10, 0, state.player.maxHp);
+            state.player.hp = clamp(state.player.hp + Math.max(1, Math.ceil(state.player.maxHp * 0.2)), 0, state.player.maxHp);
             state.player.poison = 0;
             pushMessage('Healing magic restores the wizard');
             spawnEffect('burst', 'frost', state.player.x, state.player.y, state.player.x, state.player.y, 3);
@@ -5953,14 +6287,7 @@ var BITMAP_GLYPH_INDEX = {
             }
             pushMessage('Poison cloud chokes the chamber');
         } else if (spell.id === 'teleport') {
-            spot = null;
-            for (tries = 0; tries < 80; tries++) {
-                mon = randomOpenTile(8, 0);
-                if (mon && state.explored[mon.y][mon.x]) {
-                    spot = mon;
-                    break;
-                }
-            }
+            spot = findSafeTeleportSpot();
             if (spot) {
                 spawnEffect('chain', 'wind', state.player.x, state.player.y, spot.x, spot.y, 3);
                 state.player.x = spot.x;
@@ -5970,10 +6297,12 @@ var BITMAP_GLYPH_INDEX = {
                     resolvePendingTileEvent();
                     return;
                 }
-                pushMessage('The wizard teleports through the maze');
+                pushMessage('The wizard teleports to safety');
+            } else {
+                pushMessage('No safe teleport destination');
             }
         } else if (spell.id === 'stone_skin') {
-            state.player.armor += 4;
+            state.player.stoneShield = Math.max(1, Math.ceil(state.player.maxHp * 0.5));
             pushMessage('Stone Skin hardens the wizard');
             spawnEffect('burst', 'earth', state.player.x, state.player.y, state.player.x, state.player.y, 3);
         } else if (spell.id === 'chain_storm') {
@@ -6858,6 +7187,9 @@ var BITMAP_GLYPH_INDEX = {
         }
         if (!state.player.lastBasicSpell) {
             state.player.lastBasicSpell = 'earth';
+        }
+        if (typeof state.player.stoneShield !== 'number' || state.player.stoneShield < 0) {
+            state.player.stoneShield = 0;
         }
         state.player.damageScroll6Taken = !!state.player.damageScroll6Taken;
         state.player.damageScroll10Taken = !!state.player.damageScroll10Taken;
@@ -8540,6 +8872,7 @@ var BITMAP_GLYPH_INDEX = {
             return;
         }
         btn.onclick = function (e) {
+            hideSpellTooltip();
             if (state.touchStamp && (new Date().getTime() - state.touchStamp) < 350) {
                 if (e && e.preventDefault) {
                     e.preventDefault();
@@ -8553,6 +8886,7 @@ var BITMAP_GLYPH_INDEX = {
         };
         btn.ontouchstart = function (e) {
             state.touchStamp = new Date().getTime();
+            hideSpellTooltip();
             if (e && e.preventDefault) {
                 e.preventDefault();
             }
@@ -8686,6 +9020,7 @@ var BITMAP_GLYPH_INDEX = {
     function onKey(e) {
         var code = e.which || e.keyCode;
         var keyCode = e.code || '';
+        hideSpellTooltip();
         cancelAutoMove('');
         if (keyCode === 'Numpad7') {
             tryMove(-1, -1);
@@ -8800,6 +9135,7 @@ var BITMAP_GLYPH_INDEX = {
 
     if (menuBtn) {
         menuBtn.onclick = function (e) {
+            hideSpellTooltip();
             if (e && e.preventDefault) {
                 e.preventDefault();
             }
@@ -8810,6 +9146,7 @@ var BITMAP_GLYPH_INDEX = {
 
     if (mapBtn) {
         mapBtn.onclick = function (e) {
+            hideSpellTooltip();
             if (e && e.preventDefault) {
                 e.preventDefault();
             }
@@ -8820,6 +9157,7 @@ var BITMAP_GLYPH_INDEX = {
 
     if (logToggleBtn) {
         logToggleBtn.onclick = function (e) {
+            hideSpellTooltip();
             if (e && e.preventDefault) {
                 e.preventDefault();
             }
@@ -8915,6 +9253,7 @@ var BITMAP_GLYPH_INDEX = {
 
     if (canvas) {
         canvas.onclick = function (e) {
+            hideSpellTooltip();
             if (e && e.preventDefault) {
                 e.preventDefault();
             }
@@ -8926,6 +9265,7 @@ var BITMAP_GLYPH_INDEX = {
         };
         canvas.ontouchstart = function (e) {
             state.touchStamp = new Date().getTime();
+            hideSpellTooltip();
             if (e && e.preventDefault) {
                 e.preventDefault();
             }
