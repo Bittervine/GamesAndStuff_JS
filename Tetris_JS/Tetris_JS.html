@@ -250,11 +250,9 @@
 
                 <button type="button" id="rotBtn" class="towerBtn rotBtn">
                     <span class="btnIcon">&#8635;</span>
-                    <span class="btnText">Rotate</span>
                 </button>
                 <button type="button" id="leftBtn" class="sideBtn leftBtn">
                     <span class="btnIcon">&#9664;</span>
-                    <span class="btnText">Left</span>
                 </button>
             </div>
 
@@ -271,11 +269,9 @@
 
                 <button type="button" id="dropBtn" class="towerBtn dropBtn">
                     <span class="btnIcon">&#8659;</span>
-                    <span class="btnText">Drop</span>
                 </button>
                 <button type="button" id="rightBtn" class="sideBtn rightBtn">
                     <span class="btnIcon">&#9654;</span>
-                    <span class="btnText">Right</span>
                 </button>
             </div>
         </div>
@@ -776,8 +772,8 @@
             navigator.serviceWorker.register('./sw.js').catch(function () {});
         }
 
-        syncLayout();
         resetGame();
+        startGame();
     }());
     </script>
 </body>
