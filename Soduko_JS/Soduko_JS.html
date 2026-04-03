@@ -132,10 +132,11 @@
       place-items: center;
       border: 1px solid var(--line-soft);
       font-size: clamp(18px, 3.5vw, 28px);
-      font-weight: 100;
+      font-weight: 700;
       user-select: none;
       min-width: 0;
       min-height: 0;
+      color: #111111;
     }
 
     .cell.fixed {
@@ -144,17 +145,17 @@
 
     .cell.empty {
       color: #807969;
-      font-weight: 100;
+      font-weight: 400;
     }
 
     .cell.solved {
       background: #e0efe8;
-      color: #124d3a;
+      color: #111111;
     }
 
     .cell.latest-step {
       font-weight: 900 !important;
-      font-size: clamp(21px, 4.1vw, 32px);
+      font-size: clamp(23px, 4.6vw, 34px);
     }
 
     .cell.latest-step.solved {
@@ -162,8 +163,7 @@
     }
 
     .cell.guess-fill {
-      color: #b8bec7 !important;
-      opacity: 0.62;
+      color: #8e96a1 !important;
     }
 
     .cell.hl-target {
