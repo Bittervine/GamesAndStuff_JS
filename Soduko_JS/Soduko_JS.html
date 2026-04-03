@@ -82,7 +82,8 @@
     }
 
     .board {
-      width: min(90vw, 450px);
+      width: 100%;
+      max-width: 450px;
       aspect-ratio: 1 / 1;
       margin: 0 auto;
       border: 3px solid var(--line);
@@ -162,6 +163,58 @@
     .info-board .hint:first-child {
       margin-top: 0;
     }
+
+    .num-popup {
+      position: fixed;
+      inset: 0;
+      background: rgba(20, 16, 10, 0.35);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 20;
+    }
+
+    .num-popup.open {
+      display: flex;
+    }
+
+    .num-popup-card {
+      width: min(92vw, 300px);
+      background: #fffaf0;
+      border: 2px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.25);
+    }
+
+    .num-popup-title {
+      margin: 0 0 10px;
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .num-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .num-btn {
+      appearance: none;
+      border: 1px solid #2a4a3f;
+      border-radius: 8px;
+      background: #f6fff9;
+      color: #1a332b;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: 10px 0;
+      cursor: pointer;
+    }
+
+    .num-btn:hover {
+      filter: brightness(0.98);
+    }
   </style>
 </head>
 <body>
@@ -178,6 +231,12 @@
       <p id="hint" class="hint">Click the button to generate a new puzzle.</p>
     </div>
   </main>
+  <div id="numPopup" class="num-popup" role="dialog" aria-modal="true" aria-label="Enter digit">
+    <div class="num-popup-card">
+      <p id="numPopupTitle" class="num-popup-title">Pick a number</p>
+      <div id="numGrid" class="num-grid"></div>
+    </div>
+  </div>
 
   <script>
     const SIZE = 9;
@@ -191,14 +250,19 @@
     const autoBtn = document.getElementById("autoBtn");
     const doneCountEl = document.getElementById("doneCount");
     const hintEl = document.getElementById("hint");
+    const numPopup = document.getElementById("numPopup");
+    const numPopupTitle = document.getElementById("numPopupTitle");
+    const numGrid = document.getElementById("numGrid");
     let currentPuzzle = createEmptyGrid();
     let fixedMask = createEmptyGrid().map((row) => row.map(() => false));
+    let solutionGrid = createEmptyGrid();
     let solvedReference = null;
     let doneCount = 0;
     let countedCurrentPuzzle = false;
     let autoTimer = null;
     let autoEnabled = false;
     let lastHighlights = null;
+    let selectedCell = null;
 
     function shuffle(array) {
       for (let i = array.length - 1; i > 0; i--) {
@@ -344,6 +408,73 @@
       }
 
       return blockers;
+    }
+
+    function beep() {
+      try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) {
+          return;
+        }
+        const ctx = new Ctx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "square";
+        osc.frequency.value = 440;
+        gain.gain.value = 0.0001;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        const now = ctx.currentTime;
+        gain.gain.exponentialRampToValueAtTime(0.16, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.13);
+        osc.start(now);
+        osc.stop(now + 0.14);
+        osc.onended = () => ctx.close();
+      } catch (err) {
+      }
+    }
+
+    function closeNumberPopup() {
+      numPopup.classList.remove("open");
+      selectedCell = null;
+    }
+
+    function applyUserDigit(value) {
+      if (!selectedCell) {
+        return;
+      }
+      const { row, col } = selectedCell;
+
+      if (solutionGrid[row][col] === value) {
+        currentPuzzle[row][col] = value;
+        lastHighlights = {
+          target: [{ row, col }],
+          unit: [],
+          blockers: []
+        };
+        renderBoard(currentPuzzle);
+        hintEl.textContent = "Placed " + value + " at " + formatCell(row, col) + ".";
+        if (isSolved(currentPuzzle)) {
+          markSolvedIfNeeded();
+          hintEl.textContent += " Puzzle solved.";
+        }
+      } else {
+        currentPuzzle[row][col] = EMPTY;
+        renderBoard(currentPuzzle);
+        beep();
+        hintEl.textContent = "Incorrect!";
+      }
+
+      closeNumberPopup();
+    }
+
+    function openNumberPopup(row, col) {
+      if (fixedMask[row][col] || currentPuzzle[row][col] !== EMPTY) {
+        return;
+      }
+      selectedCell = { row, col };
+      numPopupTitle.textContent = "Pick a number for " + formatCell(row, col);
+      numPopup.classList.add("open");
     }
 
     function isSolved(grid) {
@@ -632,6 +763,11 @@
             cell.classList.add("hl-target");
           }
 
+          if (!fixedMask[r][c] && puzzle[r][c] === EMPTY) {
+            cell.style.cursor = "pointer";
+            cell.addEventListener("click", () => openNumberPopup(r, c));
+          }
+
           boardEl.appendChild(cell);
         }
       }
@@ -640,7 +776,8 @@
     function generatePuzzle() {
       const fullGrid = createEmptyGrid();
       fillGrid(fullGrid);
-      const puzzle = makePuzzle(fullGrid, REMOVE_COUNT);
+      solutionGrid = cloneGrid(fullGrid);
+      const puzzle = makePuzzle(solutionGrid, REMOVE_COUNT);
       currentPuzzle = puzzle.map((row) => row.slice());
       fixedMask = currentPuzzle.map((row) => row.map((value) => value !== EMPTY));
       solvedReference = null;
@@ -731,6 +868,9 @@
       if (!autoEnabled) {
         return;
       }
+      if (selectedCell) {
+        return;
+      }
 
       const solvedNow = solveStepAndRender();
       if (solvedNow) {
@@ -753,6 +893,20 @@
     generateBtn.addEventListener("click", generatePuzzle);
     stepBtn.addEventListener("click", solveStepAndRender);
     autoBtn.addEventListener("click", toggleAuto);
+    numPopup.addEventListener("click", (event) => {
+      if (event.target === numPopup) {
+        closeNumberPopup();
+      }
+    });
+
+    for (let n = 1; n <= 9; n++) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "num-btn";
+      btn.textContent = String(n);
+      btn.addEventListener("click", () => applyUserDigit(n));
+      numGrid.appendChild(btn);
+    }
     generatePuzzle();
   </script>
 </body>
