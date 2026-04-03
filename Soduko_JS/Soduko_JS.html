@@ -87,10 +87,44 @@
       aspect-ratio: 1 / 1;
       margin: 0 auto;
       border: 3px solid var(--line);
+      position: relative;
+      overflow: hidden;
       display: grid;
       grid-template-columns: repeat(9, 1fr);
       grid-template-rows: repeat(9, 1fr);
       background: var(--empty-bg);
+    }
+
+    .board.dead-end::before,
+    .board.dead-end::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 2px;
+      pointer-events: none;
+      z-index: 16;
+    }
+
+    .board.dead-end::before {
+      background: linear-gradient(
+        45deg,
+        transparent calc(50% - 3px),
+        rgba(185, 28, 28, 0.92) calc(50% - 3px),
+        rgba(185, 28, 28, 0.92) calc(50% + 3px),
+        transparent calc(50% + 3px)
+      );
+      filter: drop-shadow(0 0 4px rgba(127, 29, 29, 0.55));
+    }
+
+    .board.dead-end::after {
+      background: linear-gradient(
+        -45deg,
+        transparent calc(50% - 3px),
+        rgba(185, 28, 28, 0.92) calc(50% - 3px),
+        rgba(185, 28, 28, 0.92) calc(50% + 3px),
+        transparent calc(50% + 3px)
+      );
+      filter: drop-shadow(0 0 4px rgba(127, 29, 29, 0.55));
     }
 
     .cell {
@@ -98,7 +132,7 @@
       place-items: center;
       border: 1px solid var(--line-soft);
       font-size: clamp(18px, 3.5vw, 28px);
-      font-weight: 700;
+      font-weight: 100;
       user-select: none;
       min-width: 0;
       min-height: 0;
@@ -110,12 +144,26 @@
 
     .cell.empty {
       color: #807969;
-      font-weight: 400;
+      font-weight: 100;
     }
 
     .cell.solved {
       background: #e0efe8;
       color: #124d3a;
+    }
+
+    .cell.latest-step {
+      font-weight: 900 !important;
+      font-size: clamp(21px, 4.1vw, 32px);
+    }
+
+    .cell.latest-step.solved {
+      background: #cfe9dd;
+    }
+
+    .cell.guess-fill {
+      color: #b8bec7 !important;
+      opacity: 0.62;
     }
 
     .cell.hl-target {
@@ -130,6 +178,44 @@
       box-shadow: inset 0 0 0 2px #b91c1c;
     }
 
+    .cell.impossible {
+      position: relative;
+      background: #f9d9d9 !important;
+    }
+
+    .cell.impossible::after {
+      content: "X";
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: #b91c1c;
+      font-size: clamp(22px, 4.5vw, 36px);
+      font-weight: 900;
+      line-height: 1;
+      pointer-events: none;
+      z-index: 18;
+    }
+
+    .cell.guess-target {
+      position: relative;
+      background: #dbf7e3 !important;
+    }
+
+    .cell.guess-target::after {
+      content: "?";
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      color: #15803d;
+      font-size: clamp(20px, 4.2vw, 34px);
+      font-weight: 900;
+      line-height: 1;
+      pointer-events: none;
+      z-index: 17;
+    }
+
     .thick-right { border-right: 3px solid var(--line) !important; }
     .thick-bottom { border-bottom: 3px solid var(--line) !important; }
 
@@ -137,7 +223,7 @@
       margin: 12px 0 0;
       font-size: 0.95rem;
       color: #5d5648;
-      white-space: pre-line;
+      white-space: normal;
     }
 
     #hint {
@@ -243,7 +329,8 @@
     const SIZE = 9;
     const BOX = 3;
     const EMPTY = 0;
-    const REMOVE_COUNT = 48;
+    const REMOVE_COUNT = 52;
+    const MAX_GENERATION_ATTEMPTS = 25;
 
     const boardEl = document.getElementById("board");
     const generateBtn = document.getElementById("generateBtn");
@@ -256,14 +343,21 @@
     const numGrid = document.getElementById("numGrid");
     let currentPuzzle = createEmptyGrid();
     let fixedMask = createEmptyGrid().map((row) => row.map(() => false));
+    let guessTintMask = createEmptyGrid().map((row) => row.map(() => false));
     let solutionGrid = createEmptyGrid();
-    let solvedReference = null;
+    let guessStack = [];
     let doneCount = 0;
     let countedCurrentPuzzle = false;
     let autoTimer = null;
     let autoEnabled = false;
     let lastHighlights = null;
     let selectedCell = null;
+    let lastSolverPlaced = null;
+    let pendingBacktrack = null;
+    let pendingAlternativeGuess = null;
+    let pendingGuessTarget = null;
+    let showDeadEndOverlay = false;
+    let impossibleCell = null;
 
     function shuffle(array) {
       for (let i = array.length - 1; i > 0; i--) {
@@ -333,13 +427,23 @@
       }
 
       shuffle(positions);
+      let removed = 0;
 
-      for (let i = 0; i < removeCount && i < positions.length; i++) {
+      for (let i = 0; i < positions.length && removed < removeCount; i++) {
         const [r, c] = positions[i];
+        const backup = puzzle[r][c];
         puzzle[r][c] = EMPTY;
+
+        const testGrid = cloneGrid(puzzle);
+        const solutionCount = countSolutions(testGrid, 2);
+        if (solutionCount === 1) {
+          removed++;
+        } else {
+          puzzle[r][c] = backup;
+        }
       }
 
-      return puzzle;
+      return { puzzle, removed };
     }
 
     function getCandidates(grid, row, col) {
@@ -445,22 +549,31 @@
         return;
       }
       const { row, col } = selectedCell;
+      pendingBacktrack = null;
+      pendingAlternativeGuess = null;
+      pendingGuessTarget = null;
+      showDeadEndOverlay = false;
+      impossibleCell = null;
 
       if (solutionGrid[row][col] === value) {
         currentPuzzle[row][col] = value;
+        guessTintMask[row][col] = false;
+        guessStack = [];
+        lastSolverPlaced = null;
         lastHighlights = {
           target: [{ row, col }],
           unit: [],
           blockers: []
         };
         renderBoard(currentPuzzle);
-        hintEl.textContent = "Placed " + value + " at " + formatCell(row, col) + ".";
+        hintEl.textContent = "Good move. We place " + value + " at " + formatCell(row, col) + ". This keeps the row, column, and box consistent.";
         if (isSolved(currentPuzzle)) {
           markSolvedIfNeeded();
           hintEl.textContent += " Puzzle solved.";
         }
       } else {
         currentPuzzle[row][col] = EMPTY;
+        guessTintMask[row][col] = false;
         renderBoard(currentPuzzle);
         beep();
         hintEl.textContent = "Incorrect!";
@@ -524,23 +637,231 @@
       return { row: best.row, col: best.col, candidates: bestCandidates };
     }
 
-    function solveWithBacktracking(grid) {
+    function countSolutions(grid, limit) {
+      const maxSolutions = limit || 2;
       const target = findBestEmptyCell(grid);
       if (!target) {
-        return true;
+        return 1;
       }
       if (target.candidates.length === 0) {
-        return false;
+        return 0;
       }
 
+      let total = 0;
       for (const value of target.candidates) {
         grid[target.row][target.col] = value;
-        if (solveWithBacktracking(grid)) {
-          return true;
+        total += countSolutions(grid, maxSolutions - total);
+        if (total >= maxSolutions) {
+          grid[target.row][target.col] = EMPTY;
+          return total;
         }
-        grid[target.row][target.col] = EMPTY;
       }
-      return false;
+
+      grid[target.row][target.col] = EMPTY;
+      return total;
+    }
+
+    function findSingleMoveSimple(grid) {
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if (grid[r][c] !== EMPTY) {
+            continue;
+          }
+          const candidates = getCandidates(grid, r, c);
+          if (candidates.length === 1) {
+            return { row: r, col: c, value: candidates[0] };
+          }
+        }
+      }
+
+      for (let r = 0; r < SIZE; r++) {
+        for (let n = 1; n <= SIZE; n++) {
+          let foundCol = -1;
+          let count = 0;
+          for (let c = 0; c < SIZE; c++) {
+            if (grid[r][c] === EMPTY && getCandidates(grid, r, c).includes(n)) {
+              foundCol = c;
+              count++;
+            }
+          }
+          if (count === 1) {
+            return { row: r, col: foundCol, value: n };
+          }
+        }
+      }
+
+      for (let c = 0; c < SIZE; c++) {
+        for (let n = 1; n <= SIZE; n++) {
+          let foundRow = -1;
+          let count = 0;
+          for (let r = 0; r < SIZE; r++) {
+            if (grid[r][c] === EMPTY && getCandidates(grid, r, c).includes(n)) {
+              foundRow = r;
+              count++;
+            }
+          }
+          if (count === 1) {
+            return { row: foundRow, col: c, value: n };
+          }
+        }
+      }
+
+      for (let br = 0; br < SIZE; br += BOX) {
+        for (let bc = 0; bc < SIZE; bc += BOX) {
+          for (let n = 1; n <= SIZE; n++) {
+            let foundRow = -1;
+            let foundCol = -1;
+            let count = 0;
+            for (let r = br; r < br + BOX; r++) {
+              for (let c = bc; c < bc + BOX; c++) {
+                if (grid[r][c] === EMPTY && getCandidates(grid, r, c).includes(n)) {
+                  foundRow = r;
+                  foundCol = c;
+                  count++;
+                }
+              }
+            }
+            if (count === 1) {
+              return { row: foundRow, col: foundCol, value: n };
+            }
+          }
+        }
+      }
+
+      return null;
+    }
+
+    function canSolveWithSinglesOnly(grid) {
+      const working = cloneGrid(grid);
+      let safety = 0;
+      const maxSteps = SIZE * SIZE * 2;
+
+      while (!isSolved(working) && safety < maxSteps) {
+        const move = findSingleMoveSimple(working);
+        if (!move) {
+          return false;
+        }
+        working[move.row][move.col] = move.value;
+        safety++;
+      }
+
+      return isSolved(working);
+    }
+
+    function findContradictionCell(grid) {
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          if (grid[r][c] !== EMPTY) {
+            continue;
+          }
+          if (getCandidates(grid, r, c).length === 0) {
+            return { row: r, col: c };
+          }
+        }
+      }
+      return null;
+    }
+
+    function applyGuessStep(target) {
+      if (!target || target.candidates.length <= 1) {
+        return null;
+      }
+
+      const guessedValue = target.candidates[0];
+      guessStack.push({
+        snapshot: cloneGrid(currentPuzzle),
+        tintSnapshot: cloneGrid(guessTintMask),
+        row: target.row,
+        col: target.col,
+        candidates: target.candidates.slice(),
+        nextIndex: 1
+      });
+
+      currentPuzzle[target.row][target.col] = guessedValue;
+      guessTintMask[target.row][target.col] = true;
+      return {
+        explanation:
+          "Step: no direct single-based move is available right now. We save this board state, then make a test guess at " + formatCell(target.row, target.col) + ". Candidates are [" + formatDigits(target.candidates) + "], so we try " + guessedValue + " first and continue from there.",
+        highlights: {
+          target: [{ row: target.row, col: target.col }],
+          unit: [],
+          blockers: []
+        }
+      };
+    }
+
+    function prepareBacktrackStep(deadEnd) {
+      let rewoundLevels = 0;
+
+      while (guessStack.length > 0) {
+        const frame = guessStack[guessStack.length - 1];
+        if (frame.nextIndex < frame.candidates.length) {
+          currentPuzzle = cloneGrid(frame.snapshot);
+          guessTintMask = cloneGrid(frame.tintSnapshot);
+          const rewindLine = rewoundLevels > 0
+            ? " We rewound " + rewoundLevels + " guess level" + (rewoundLevels === 1 ? "" : "s") + " to find a remaining option."
+            : "";
+          const lastGuess = frame.candidates[frame.nextIndex - 1];
+
+          return {
+            explanation:
+              "Step: we return to the last saved guess state at " + formatCell(frame.row, frame.col) + "." + rewindLine + " Last guess there was " + lastGuess + ", and candidates are [" + formatDigits(frame.candidates) + "]. Next step we will try a different candidate.",
+            highlights: {
+              target: [{ row: frame.row, col: frame.col }],
+              unit: [],
+              blockers: [{ row: deadEnd.row, col: deadEnd.col }]
+            },
+            frame,
+            deadEnd,
+            rewoundLevels
+          };
+        }
+        guessStack.pop();
+        rewoundLevels++;
+      }
+
+      return null;
+    }
+
+    function applyAlternativeGuessStep(step) {
+      const frame = step.frame;
+      if (!frame || frame.nextIndex >= frame.candidates.length) {
+        return null;
+      }
+
+      const previousGuess = frame.candidates[frame.nextIndex - 1];
+      const nextValue = frame.candidates[frame.nextIndex];
+      const isTopLevelBinaryCertainty =
+        guessStack.length === 1 &&
+        frame.candidates.length === 2 &&
+        frame.nextIndex === 1;
+      frame.nextIndex += 1;
+      currentPuzzle[frame.row][frame.col] = nextValue;
+      guessTintMask[frame.row][frame.col] = !isTopLevelBinaryCertainty;
+
+      if (isTopLevelBinaryCertainty) {
+        guessStack.pop();
+      }
+
+      const rewindLine = step.rewoundLevels > 0
+        ? " We had to rewind " + step.rewoundLevels + " guess level" + (step.rewoundLevels === 1 ? "" : "s") + " before finding this branch."
+        : "";
+
+      const certaintyLine = isTopLevelBinaryCertainty
+        ? " Because the first branch was impossible and there were only two candidates, " + nextValue + " is now certain (not a guess)."
+        : "";
+
+      return {
+        explanation:
+          "Step: last time we guessed " + previousGuess + " at " + formatCell(frame.row, frame.col) + " when the candidates were [" + formatDigits(frame.candidates) + "], so this time we guess " + nextValue + " instead." + rewindLine + certaintyLine,
+        highlights: {
+          target: [{ row: frame.row, col: frame.col }],
+          unit: [],
+          blockers: step.deadEnd ? [{ row: step.deadEnd.row, col: step.deadEnd.col }] : []
+        },
+        row: frame.row,
+        col: frame.col
+      };
     }
 
     function findNakedSingle(grid) {
@@ -565,9 +886,7 @@
               value,
               method: "Naked single",
               explanation:
-                "Naked single at " + formatCell(r, c) + ".\n" +
-                "Candidates here are [" + formatDigits(candidates) + "], so only " + value + " fits.\n" +
-                "All other digits are blocked by existing digits in this cell's row, column, or 3x3 box.",
+                "Step: naked single at " + formatCell(r, c) + ". Candidates in this cell are [" + formatDigits(candidates) + "], so only " + value + " can go here. Every other digit is blocked by the row, column, or 3x3 box.",
               highlights: {
                 target: [{ row: r, col: c }],
                 unit: [],
@@ -605,9 +924,7 @@
               value: n,
               method: "Hidden single (row)",
               explanation:
-                "Hidden single in row " + (r + 1) + " for digit " + n + ".\n" +
-                "In this row, " + n + " can only go at " + formatCell(r, c) + ".\n" +
-                "Other empty cells in the row cannot take " + n + " because they are blocked by row/column/box constraints.",
+                "Step: hidden single in row " + (r + 1) + " for digit " + n + ". Scanning the row, only " + formatCell(r, c) + " can accept " + n + ". So we must place " + n + " there; every other empty row cell is blocked.",
               highlights: {
                 target: [{ row: r, col: c }],
                 unit,
@@ -645,9 +962,7 @@
               value: n,
               method: "Hidden single (column)",
               explanation:
-                "Hidden single in column " + (c + 1) + " for digit " + n + ".\n" +
-                "In this column, only " + formatCell(r, c) + " can take " + n + ".\n" +
-                "Every other empty cell in the column is blocked by row/column/box constraints.",
+                "Step: hidden single in column " + (c + 1) + " for digit " + n + ". Scanning the column, only " + formatCell(r, c) + " can accept " + n + ". So " + n + " is forced there; all other empty column cells are blocked.",
               highlights: {
                 target: [{ row: r, col: c }],
                 unit,
@@ -693,9 +1008,7 @@
                 value: n,
                 method: "Hidden single (box)",
                 explanation:
-                  "Hidden single in box (" + (Math.floor(br / 3) + 1) + "," + (Math.floor(bc / 3) + 1) + ") for digit " + n + ".\n" +
-                  "Within this 3x3 box, only " + formatCell(target.row, target.col) + " can take " + n + ".\n" +
-                  "All other empty cells in the box are blocked by row/column/box constraints.",
+                  "Step: hidden single in box (" + (Math.floor(br / 3) + 1) + "," + (Math.floor(bc / 3) + 1) + ") for digit " + n + ". Inside this 3x3 box, only " + formatCell(target.row, target.col) + " can accept " + n + ". So we place " + n + " there; all other empty box cells are blocked.",
                 highlights: {
                   target: [target],
                   unit,
@@ -726,9 +1039,13 @@
 
     function renderBoard(puzzle) {
       boardEl.innerHTML = "";
+      boardEl.classList.toggle("dead-end", showDeadEndOverlay);
       const targetSet = new Set((lastHighlights?.target || []).map((x) => keyOf(x.row, x.col)));
       const unitSet = new Set((lastHighlights?.unit || []).map((x) => keyOf(x.row, x.col)));
       const blockerSet = new Set((lastHighlights?.blockers || []).map((x) => keyOf(x.row, x.col)));
+      const latestKey = lastSolverPlaced ? keyOf(lastSolverPlaced.row, lastSolverPlaced.col) : null;
+      const impossibleKey = impossibleCell ? keyOf(impossibleCell.row, impossibleCell.col) : null;
+      const guessKey = pendingGuessTarget ? keyOf(pendingGuessTarget.row, pendingGuessTarget.col) : null;
 
       for (let r = 0; r < SIZE; r++) {
         for (let c = 0; c < SIZE; c++) {
@@ -763,6 +1080,18 @@
           if (targetSet.has(k)) {
             cell.classList.add("hl-target");
           }
+          if (latestKey && k === latestKey) {
+            cell.classList.add("latest-step");
+          }
+          if (impossibleKey && k === impossibleKey) {
+            cell.classList.add("impossible");
+          }
+          if (guessKey && k === guessKey) {
+            cell.classList.add("guess-target");
+          }
+          if (!fixedMask[r][c] && guessTintMask[r][c]) {
+            cell.classList.add("guess-fill");
+          }
 
           if (!fixedMask[r][c] && puzzle[r][c] === EMPTY) {
             cell.style.cursor = "pointer";
@@ -775,17 +1104,50 @@
     }
 
     function generatePuzzle() {
-      const fullGrid = createEmptyGrid();
-      fillGrid(fullGrid);
-      solutionGrid = cloneGrid(fullGrid);
-      const puzzle = makePuzzle(solutionGrid, REMOVE_COUNT);
-      currentPuzzle = puzzle.map((row) => row.slice());
+      let selectedPuzzle = null;
+      let selectedSolution = null;
+      let selectedRemoved = -1;
+      let requiresGuess = false;
+
+      for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
+        const fullGrid = createEmptyGrid();
+        fillGrid(fullGrid);
+        const candidateSolution = cloneGrid(fullGrid);
+        const generated = makePuzzle(candidateSolution, REMOVE_COUNT);
+        const candidatePuzzle = generated.puzzle;
+        const singlesCanSolve = canSolveWithSinglesOnly(candidatePuzzle);
+
+        if (!selectedPuzzle || generated.removed > selectedRemoved) {
+          selectedPuzzle = candidatePuzzle.map((row) => row.slice());
+          selectedSolution = candidateSolution.map((row) => row.slice());
+          selectedRemoved = generated.removed;
+        }
+
+        if (!singlesCanSolve) {
+          selectedPuzzle = candidatePuzzle.map((row) => row.slice());
+          selectedSolution = candidateSolution.map((row) => row.slice());
+          requiresGuess = true;
+          break;
+        }
+      }
+
+      solutionGrid = selectedSolution ? selectedSolution : createEmptyGrid();
+      currentPuzzle = selectedPuzzle ? selectedPuzzle : createEmptyGrid();
       fixedMask = currentPuzzle.map((row) => row.map((value) => value !== EMPTY));
-      solvedReference = null;
+      guessStack = [];
+      guessTintMask = createEmptyGrid().map((row) => row.map(() => false));
+      pendingBacktrack = null;
+      pendingAlternativeGuess = null;
+      pendingGuessTarget = null;
       countedCurrentPuzzle = false;
       lastHighlights = null;
+      lastSolverPlaced = null;
+      showDeadEndOverlay = false;
+      impossibleCell = null;
       renderBoard(currentPuzzle);
-      hintEl.textContent = "New puzzle generated. Click Solve One Step to apply scan logic.";
+      hintEl.textContent = requiresGuess
+        ? "New puzzle ready. This one should require deeper reasoning beyond singles."
+        : "New puzzle ready. Click Solve One Step and we will work through one reasoned step at a time.";
     }
 
     function markSolvedIfNeeded() {
@@ -799,14 +1161,109 @@
     function solveStepAndRender() {
       if (isSolved(currentPuzzle)) {
         markSolvedIfNeeded();
-        hintEl.textContent = "Puzzle already solved.";
+        hintEl.textContent = "Great work. The puzzle is already solved.";
         return true;
       }
 
+      if (pendingBacktrack) {
+        pendingGuessTarget = null;
+        const deadEnd = pendingBacktrack.deadEnd;
+        const backtrackStep = prepareBacktrackStep(deadEnd);
+        pendingBacktrack = null;
+        showDeadEndOverlay = false;
+        impossibleCell = null;
+
+        if (!backtrackStep) {
+          lastSolverPlaced = null;
+          lastHighlights = {
+            target: [{ row: deadEnd.row, col: deadEnd.col }],
+            unit: [],
+            blockers: [{ row: deadEnd.row, col: deadEnd.col }]
+          };
+          renderBoard(currentPuzzle);
+          hintEl.textContent = "Step: we tried to backtrack after the dead-end at " + formatCell(deadEnd.row, deadEnd.col) + ", but there is no earlier guess left to return to.";
+          return false;
+        }
+
+        pendingAlternativeGuess = backtrackStep;
+        lastSolverPlaced = null;
+        lastHighlights = backtrackStep.highlights;
+        renderBoard(currentPuzzle);
+        hintEl.textContent = backtrackStep.explanation;
+        return false;
+      }
+
+      if (pendingAlternativeGuess) {
+        pendingGuessTarget = null;
+        const altGuessStep = applyAlternativeGuessStep(pendingAlternativeGuess);
+        pendingAlternativeGuess = null;
+        showDeadEndOverlay = false;
+        impossibleCell = null;
+
+        if (!altGuessStep) {
+          hintEl.textContent = "Step: no alternative guess is available from the last remembered state.";
+          return false;
+        }
+
+        lastHighlights = altGuessStep.highlights;
+        lastSolverPlaced = { row: altGuessStep.row, col: altGuessStep.col };
+        renderBoard(currentPuzzle);
+        hintEl.textContent = altGuessStep.explanation;
+        if (isSolved(currentPuzzle)) {
+          markSolvedIfNeeded();
+          hintEl.textContent += " Puzzle solved.";
+          return true;
+        }
+        return false;
+      }
+
+      if (pendingGuessTarget) {
+        showDeadEndOverlay = false;
+        impossibleCell = null;
+        const guessStep = applyGuessStep(pendingGuessTarget);
+        pendingGuessTarget = null;
+        if (!guessStep) {
+          hintEl.textContent = "Step: guess setup was invalid, so we recalculated and will choose a new target.";
+          return false;
+        }
+        lastHighlights = guessStep.highlights;
+        lastSolverPlaced = {
+          row: guessStep.highlights.target[0].row,
+          col: guessStep.highlights.target[0].col
+        };
+        renderBoard(currentPuzzle);
+        hintEl.textContent = guessStep.explanation;
+        if (isSolved(currentPuzzle)) {
+          markSolvedIfNeeded();
+          hintEl.textContent += " Puzzle solved.";
+          return true;
+        }
+        return false;
+      }
+
+      const deadEnd = findContradictionCell(currentPuzzle);
+      if (deadEnd) {
+        pendingGuessTarget = null;
+        showDeadEndOverlay = true;
+        pendingBacktrack = { deadEnd };
+        impossibleCell = { row: deadEnd.row, col: deadEnd.col };
+        lastSolverPlaced = null;
+        lastHighlights = {
+          target: [{ row: deadEnd.row, col: deadEnd.col }],
+          unit: [],
+          blockers: [{ row: deadEnd.row, col: deadEnd.col }]
+        };
+        renderBoard(currentPuzzle);
+        hintEl.textContent = "Step: impossible position reached at " + formatCell(deadEnd.row, deadEnd.col) + " because no candidate fits there. This branch is a dead-end, so we mark it with a red X.";
+        return false;
+      }
+
+      showDeadEndOverlay = false;
       const move = solveOneStep(currentPuzzle);
       if (move) {
-        solvedReference = null;
+        guessTintMask[move.row][move.col] = guessStack.length > 0;
         lastHighlights = move.highlights || null;
+        lastSolverPlaced = { row: move.row, col: move.col };
         renderBoard(currentPuzzle);
         hintEl.textContent = move.explanation || (move.method + ": placed " + move.value + " at row " + (move.row + 1) + ", col " + (move.col + 1) + ".");
         if (isSolved(currentPuzzle)) {
@@ -815,39 +1272,28 @@
           return true;
         }
         return false;
-      } else {
-        if (!solvedReference) {
-          const working = cloneGrid(currentPuzzle);
-          if (!solveWithBacktracking(working)) {
-            hintEl.textContent = "No valid solution found for this puzzle state.";
-            return;
-          }
-          solvedReference = working;
-        }
-
-        for (let r = 0; r < SIZE; r++) {
-          for (let c = 0; c < SIZE; c++) {
-            if (currentPuzzle[r][c] === EMPTY) {
-              currentPuzzle[r][c] = solvedReference[r][c];
-              lastHighlights = {
-                target: [{ row: r, col: c }],
-                unit: [],
-                blockers: []
-              };
-              renderBoard(currentPuzzle);
-              hintEl.textContent =
-                "Advanced search step at " + formatCell(r, c) + ": placed " + solvedReference[r][c] + ".\n" +
-                "No direct scan-only move was available, so controlled trial and contradiction was used to continue consistently.";
-              if (isSolved(currentPuzzle)) {
-                markSolvedIfNeeded();
-                hintEl.textContent += " Puzzle solved.";
-                return true;
-              }
-              return false;
-            }
-          }
-        }
       }
+
+      const guessTarget = findBestEmptyCell(currentPuzzle);
+      if (guessTarget && guessTarget.candidates.length > 1) {
+        pendingGuessTarget = {
+          row: guessTarget.row,
+          col: guessTarget.col,
+          candidates: guessTarget.candidates.slice()
+        };
+        lastSolverPlaced = null;
+        lastHighlights = {
+          target: [{ row: guessTarget.row, col: guessTarget.col }],
+          unit: [],
+          blockers: []
+        };
+        renderBoard(currentPuzzle);
+        hintEl.textContent =
+          "Step: singles are exhausted, so a guess is necessary. We mark " + formatCell(guessTarget.row, guessTarget.col) + " with a green question mark because its candidates are [" + formatDigits(guessTarget.candidates) + "]. Next step we will test the first candidate.";
+        return false;
+      }
+
+      hintEl.textContent = "No next step is available from the current state. Check for conflicting user entries or generate a fresh puzzle.";
       return isSolved(currentPuzzle);
     }
 
@@ -882,12 +1328,12 @@
     function toggleAuto() {
       if (autoEnabled) {
         stopAuto();
-        hintEl.textContent = "Auto mode stopped.";
+        hintEl.textContent = "Auto mode stopped. You can continue step-by-step manually.";
         return;
       }
 
       setAutoEnabled(true);
-      hintEl.textContent = "Auto mode started.";
+      hintEl.textContent = "Auto mode started. I will keep explaining each step as it runs.";
       autoTimer = setInterval(autoTick, 100);
     }
 
