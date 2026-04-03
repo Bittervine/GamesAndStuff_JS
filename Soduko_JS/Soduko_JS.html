@@ -544,6 +544,11 @@
       selectedCell = null;
     }
 
+    function setStatus(message) {
+      const depth = guessStack.length;
+      hintEl.textContent = depth > 0 ? (message + " Guess depth: " + depth + ".") : message;
+    }
+
     function applyUserDigit(value) {
       if (!selectedCell) {
         return;
@@ -566,17 +571,18 @@
           blockers: []
         };
         renderBoard(currentPuzzle);
-        hintEl.textContent = "Good move. We place " + value + " at " + formatCell(row, col) + ". This keeps the row, column, and box consistent.";
+        let status = "Good move. We place " + value + " at " + formatCell(row, col) + ". This keeps the row, column, and box consistent.";
         if (isSolved(currentPuzzle)) {
           markSolvedIfNeeded();
-          hintEl.textContent += " Puzzle solved.";
+          status += " Puzzle solved.";
         }
+        setStatus(status);
       } else {
         currentPuzzle[row][col] = EMPTY;
         guessTintMask[row][col] = false;
         renderBoard(currentPuzzle);
         beep();
-        hintEl.textContent = "Incorrect!";
+        setStatus("Incorrect!");
       }
 
       closeNumberPopup();
@@ -1145,9 +1151,9 @@
       showDeadEndOverlay = false;
       impossibleCell = null;
       renderBoard(currentPuzzle);
-      hintEl.textContent = requiresGuess
-        ? "New puzzle ready. This one should require deeper reasoning beyond singles."
-        : "New puzzle ready. Click Solve One Step and we will work through one reasoned step at a time.";
+      setStatus(requiresGuess
+        ? "New puzzle ready. This one should require deeper reasoning beyond singles - i.e. some guessing and potential backgtracking."
+        : "New puzzle ready. Click Solve One Step and we will work through one reasoned step at a time.");
     }
 
     function markSolvedIfNeeded() {
@@ -1161,7 +1167,7 @@
     function solveStepAndRender() {
       if (isSolved(currentPuzzle)) {
         markSolvedIfNeeded();
-        hintEl.textContent = "Great work. The puzzle is already solved.";
+        setStatus("Great work. The puzzle is already solved.");
         return true;
       }
 
@@ -1181,7 +1187,7 @@
             blockers: [{ row: deadEnd.row, col: deadEnd.col }]
           };
           renderBoard(currentPuzzle);
-          hintEl.textContent = "Step: we tried to backtrack after the dead-end at " + formatCell(deadEnd.row, deadEnd.col) + ", but there is no earlier guess left to return to.";
+          setStatus("Step: we tried to backtrack after the dead-end at " + formatCell(deadEnd.row, deadEnd.col) + ", but there is no earlier guess left to return to.");
           return false;
         }
 
@@ -1189,7 +1195,7 @@
         lastSolverPlaced = null;
         lastHighlights = backtrackStep.highlights;
         renderBoard(currentPuzzle);
-        hintEl.textContent = backtrackStep.explanation;
+        setStatus(backtrackStep.explanation);
         return false;
       }
 
@@ -1201,19 +1207,21 @@
         impossibleCell = null;
 
         if (!altGuessStep) {
-          hintEl.textContent = "Step: no alternative guess is available from the last remembered state.";
+          setStatus("Step: no alternative guess is available from the last remembered state.");
           return false;
         }
 
         lastHighlights = altGuessStep.highlights;
         lastSolverPlaced = { row: altGuessStep.row, col: altGuessStep.col };
         renderBoard(currentPuzzle);
-        hintEl.textContent = altGuessStep.explanation;
+        let status = altGuessStep.explanation;
         if (isSolved(currentPuzzle)) {
           markSolvedIfNeeded();
-          hintEl.textContent += " Puzzle solved.";
+          status += " Puzzle solved.";
+          setStatus(status);
           return true;
         }
+        setStatus(status);
         return false;
       }
 
@@ -1223,7 +1231,7 @@
         const guessStep = applyGuessStep(pendingGuessTarget);
         pendingGuessTarget = null;
         if (!guessStep) {
-          hintEl.textContent = "Step: guess setup was invalid, so we recalculated and will choose a new target.";
+          setStatus("Step: guess setup was invalid, so we recalculated and will choose a new target.");
           return false;
         }
         lastHighlights = guessStep.highlights;
@@ -1232,12 +1240,14 @@
           col: guessStep.highlights.target[0].col
         };
         renderBoard(currentPuzzle);
-        hintEl.textContent = guessStep.explanation;
+        let status = guessStep.explanation;
         if (isSolved(currentPuzzle)) {
           markSolvedIfNeeded();
-          hintEl.textContent += " Puzzle solved.";
+          status += " Puzzle solved.";
+          setStatus(status);
           return true;
         }
+        setStatus(status);
         return false;
       }
 
@@ -1254,7 +1264,7 @@
           blockers: [{ row: deadEnd.row, col: deadEnd.col }]
         };
         renderBoard(currentPuzzle);
-        hintEl.textContent = "Step: impossible position reached at " + formatCell(deadEnd.row, deadEnd.col) + " because no candidate fits there. This branch is a dead-end, so we mark it with a red X.";
+        setStatus("Step: impossible position reached at " + formatCell(deadEnd.row, deadEnd.col) + " because no candidate fits there. This branch is a dead-end, so we mark it with a red X.");
         return false;
       }
 
@@ -1265,12 +1275,14 @@
         lastHighlights = move.highlights || null;
         lastSolverPlaced = { row: move.row, col: move.col };
         renderBoard(currentPuzzle);
-        hintEl.textContent = move.explanation || (move.method + ": placed " + move.value + " at row " + (move.row + 1) + ", col " + (move.col + 1) + ".");
+        let status = move.explanation || (move.method + ": placed " + move.value + " at row " + (move.row + 1) + ", col " + (move.col + 1) + ".");
         if (isSolved(currentPuzzle)) {
           markSolvedIfNeeded();
-          hintEl.textContent += " Puzzle solved.";
+          status += " Puzzle solved.";
+          setStatus(status);
           return true;
         }
+        setStatus(status);
         return false;
       }
 
@@ -1288,12 +1300,11 @@
           blockers: []
         };
         renderBoard(currentPuzzle);
-        hintEl.textContent =
-          "Step: singles are exhausted, so a guess is necessary. We mark " + formatCell(guessTarget.row, guessTarget.col) + " with a green question mark because its candidates are [" + formatDigits(guessTarget.candidates) + "]. Next step we will test the first candidate.";
+        setStatus("Step: singles are exhausted, so a guess is necessary. We mark " + formatCell(guessTarget.row, guessTarget.col) + " with a green question mark because its candidates are [" + formatDigits(guessTarget.candidates) + "]. Next step we will test the first candidate.");
         return false;
       }
 
-      hintEl.textContent = "No next step is available from the current state. Check for conflicting user entries or generate a fresh puzzle.";
+      setStatus("No next step is available from the current state. Check for conflicting user entries or generate a fresh puzzle.");
       return isSolved(currentPuzzle);
     }
 
@@ -1328,12 +1339,12 @@
     function toggleAuto() {
       if (autoEnabled) {
         stopAuto();
-        hintEl.textContent = "Auto mode stopped. You can continue step-by-step manually.";
+        setStatus("Auto mode stopped. You can continue step-by-step manually.");
         return;
       }
 
       setAutoEnabled(true);
-      hintEl.textContent = "Auto mode started. I will keep explaining each step as it runs.";
+      setStatus("Auto mode started. I will keep explaining each step as it runs.");
       autoTimer = setInterval(autoTick, 100);
     }
 
