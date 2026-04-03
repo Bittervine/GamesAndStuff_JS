@@ -887,8 +887,8 @@
       }
 
       setAutoEnabled(true);
-      hintEl.textContent = "Auto mode running (2 solve steps per second).";
-      autoTimer = setInterval(autoTick, 500);
+      hintEl.textContent = "Auto mode started.";
+      autoTimer = setInterval(autoTick, 100);
     }
 
     generateBtn.addEventListener("click", generatePuzzle);
