@@ -25,7 +25,7 @@
         <canvas id="board" width="720" height="720" style="display:block;margin:8px 0"></canvas>
         <div id="controls">
             <button id="resetBtn">Reset</button>
-            <label>&nbsp;&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="2" min="1" max="10" style="width:1.6em"></label>
+            <label>&nbsp;&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="5" min="1" max="10" style="width:1.6em"></label>
             <label>&nbsp;&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="10" min="0" max="100" style="width:2.0em">&nbsp;%&nbsp;&nbsp;</label>
             <label><input id="previewInput" type="checkbox"> Preview&nbsp;&nbsp;</label>
             <button id="takebackBtn">Undo</button>
@@ -454,9 +454,12 @@
             function updateStatus(){
                 if (!statusEl) return;
                 if (gameOver) {
-                    if (winner === O) statusEl.textContent = 'Game over: Naughts (human) win';
-                    else if (winner === X) statusEl.textContent = 'Game over: Crosses (AI) win';
-                    else statusEl.textContent = 'Game over: draw';
+                    statusEl.textContent = '';
+                    if (infoText) {
+                        if (winner === O) infoText.textContent = 'Game over: Naughts (human) win';
+                        else if (winner === X) infoText.textContent = 'Game over: Crosses (AI) win';
+                        else infoText.textContent = 'Game over: draw';
+                    }
                     return;
                 }
                 statusEl.textContent = '';
