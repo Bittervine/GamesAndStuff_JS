@@ -503,9 +503,10 @@
                 if (gameOver) {
                     statusEl.textContent = '';
                     if (infoText) {
-                        if (winner === O) infoText.textContent = 'Game over: Naughts (human) win';
-                        else if (winner === X) infoText.textContent = 'Game over: Crosses (AI) win';
-                        else infoText.textContent = 'Game over: draw';
+                        if (infoLabel) infoLabel.style.display = 'none';
+                        if (winner === O) infoText.innerHTML = '<strong>Game over:</strong> Naughts (human) win';
+                        else if (winner === X) infoText.innerHTML = '<strong>Game over:</strong> Crosses (AI) win';
+                        else infoText.innerHTML = '<strong>Game over:</strong> draw';
                     }
                     return;
                 }
@@ -655,8 +656,6 @@
         </script>
     </body>
 </html>
-
-
 
 
 
