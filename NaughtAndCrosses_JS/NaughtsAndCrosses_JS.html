@@ -27,7 +27,7 @@
         <div id="controls">
             <button id="resetBtn">Reset</button>
             <label>&nbsp;&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="5" min="1" max="10" style="width:1.6em"></label>
-            <label>&nbsp;&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="10" min="0" max="100" style="width:2.0em">&nbsp;%&nbsp;&nbsp;</label>
+            <label>&nbsp;&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="5" min="0" max="100" style="width:2.0em">&nbsp;%&nbsp;&nbsp;</label>
             <label><input id="previewInput" type="checkbox"> Preview&nbsp;&nbsp;</label>
             <button id="takebackBtn">Undo</button>
             <span id="status"></span>
@@ -430,8 +430,8 @@
                 }
 
                 var extStartMs = Date.now();
-                var extDepth = clampNum(depthInput.value, 1, 10, 2);
-                var extClumsy = clampNum(clumsyInput.value, 0, 100, 10);
+                var extDepth = clampNum(depthInput.value, 1, 10, 5);
+                var extClumsy = clampNum(clumsyInput.value, 0, 100, 5);
                 var extSession = null;
                 engineThinking = true;
                 showThinkingInfo(1, extStartMs);
@@ -440,7 +440,7 @@
                     if (!engineThinking || gameOver || turn !== X) return;
                     if (!extSession) {
                         externalEngine.loadFromBoardState(board, lastHumanMove);
-                        extSession = externalEngine.startIterativeSession(extDepth, SOFT_DEADLINE_MS, HARD_DEADLINE_MS);
+                        extSession = externalEngine.startIterativeSession(extDepth, SOFT_DEADLINE_MS, HARD_DEADLINE_MS, extClumsy);
                     }
                     var stepped = externalEngine.stepIterativeSession(extSession, 10);
                     extSession = stepped ? stepped.session : extSession;
@@ -654,8 +654,6 @@
         </script>
     </body>
 </html>
-
-
 
 
 
