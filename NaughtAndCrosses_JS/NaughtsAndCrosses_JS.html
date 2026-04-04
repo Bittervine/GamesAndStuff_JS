@@ -2,6 +2,7 @@
 <html>
     <head>
         <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
         <title>Naught And Crosses JS</title>
         <style>
             body {
@@ -139,7 +140,8 @@
                 var controlsH = controls ? (controls.offsetHeight + 20) : 120;
                 var maxW = (typeof window.innerWidth === 'number' && isFinite(window.innerWidth)) ? (window.innerWidth - 16) : 720;
                 var maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? (window.innerHeight - controlsH - 16) : 720;
-                var minCellPx = Math.max(8, mmToCssPx(MIN_CELL_MM));
+                var isCoarsePointer = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+                var minCellPx = Math.max(8, mmToCssPx(MIN_CELL_MM), isCoarsePointer ? 44 : 0);
                 var cols = Math.floor(Math.max(1, maxW - padding * 2) / minCellPx);
                 var rows = Math.floor(Math.max(1, maxH - padding * 2) / minCellPx);
                 if (!isFinite(cols)) cols = 20;
@@ -644,7 +646,6 @@
         </script>
     </body>
 </html>
-
 
 
 
