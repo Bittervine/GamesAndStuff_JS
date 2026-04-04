@@ -29,7 +29,6 @@
             <label>&nbsp;&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="10" min="0" max="100" style="width:2.0em">&nbsp;%&nbsp;&nbsp;</label>
             <label><input id="previewInput" type="checkbox"> Preview&nbsp;&nbsp;</label>
             <button id="takebackBtn">Undo</button>
-            <button id="copyBtn">Copy ASCII</button>
             <span id="status"></span>
             <div id="searchInfo">
                 <strong id="lastMoveLabel">Info:</strong> <span id="lastMoveInfo">Your move...</span>
@@ -55,7 +54,6 @@
             var previewInput = document.getElementById('previewInput');
             var infoLabel = document.getElementById('lastMoveLabel');
             var infoText = document.getElementById('lastMoveInfo');
-            var copyBtn = document.getElementById('copyBtn');
             document.getElementById('resetBtn').addEventListener('click', reset);
             document.getElementById('takebackBtn').addEventListener('click', takeBack);
 
@@ -73,6 +71,8 @@
             var previewDrawAt = 0;
             var engineThinking = false;
             var engineTimerId = null;
+            var debugMoves = [];
+            var debugPly = 0;
             var externalEngine = (typeof window !== 'undefined' && window.NACEngineLib && window.NACEngineLib.createEngine)
                 ? window.NACEngineLib.createEngine()
                 : null;
@@ -279,6 +279,25 @@
                 return out.join(' | ');
             }
 
+            function shortTopForDebug(scored, n){
+                var out = [];
+                var i;
+                if (!scored || !scored.length) return '';
+                for (i = 0; i < scored.length && i < n; i++) {
+                    out.push('#' + (i + 1) + ' r' + (scored[i][0] + 1) + ' c' + (scored[i][1] + 1) + ' ' + scored[i][2]);
+                }
+                return out.join(' ; ');
+            }
+
+            function moveRank(scored, move){
+                var i;
+                if (!scored || !move) return -1;
+                for (i = 0; i < scored.length; i++) {
+                    if (scored[i][0] === move[0] && scored[i][1] === move[1]) return i + 1;
+                }
+                return -1;
+            }
+
             function boardToAscii(){
                 var minR = 0;
                 var minC = 0;
@@ -332,12 +351,23 @@
                 });
             }
 
-            if (copyBtn) {
-                copyBtn.addEventListener('click', function(){
-                    var infoLine = infoText ? infoText.textContent : '';
-                    var payload = 'Info: ' + infoLine + '\n' + boardToAscii();
+            if (window.addEventListener) {
+                window.addEventListener('keydown', function(ev){
+                    var key = ev && ev.key ? ev.key : '';
+                    if (key !== 'c' && key !== 'C') return;
+                    var active = document.activeElement;
+                    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
+                    var lines = [];
+                    lines.push('Info: ' + (infoText ? infoText.textContent : ''));
+                    lines.push('Depth=' + depthInput.value + ' Clumsy=' + clumsyInput.value + '%');
+                    lines.push('Moves:');
+                    if (!debugMoves.length) lines.push('(none)');
+                    else lines = lines.concat(debugMoves);
+                    lines.push('Final board (20x20):');
+                    lines.push(boardToAscii());
+                    var payload = lines.join('\n');
                     copyTextToClipboard(payload).then(function(){
-                        if (infoText) infoText.textContent = 'Copied board + info to clipboard';
+                        if (infoText) infoText.textContent = 'Debug copied to clipboard';
                     }).catch(function(){
                         if (infoText) infoText.textContent = 'Copy failed';
                     });
@@ -391,10 +421,20 @@
                     if (infoText) {
                         var usedSec = (Date.now() - extStartMs) / 1000;
                         var chosenScore = scoreForMove(scored, chosen);
-                        var head = (chosenScore >= 0 ? '+' : '') + chosenScore +
+                        infoText.textContent = (chosenScore >= 0 ? '+' : '') + chosenScore +
                             ' for depth ' + reachedDepth + ' after ' + usedSec.toFixed(1) + ' s';
-                        infoText.textContent = head + ' | Top: ' + formatTopMoves(scored, 3);
                     }
+                    debugPly++;
+                    var chosenRank = moveRank(scored, chosen);
+                    var clumsyMove = chosenRank > 1 ? 'yes' : 'no';
+                    debugMoves.push(
+                        debugPly + '. AI r' + (chosen[0] + 1) + ' c' + (chosen[1] + 1) +
+                        ' score=' + scoreForMove(scored, chosen) +
+                        ' depth=' + reachedDepth +
+                        ' clumsy=' + clumsyMove +
+                        ' rank=' + chosenRank +
+                        ' top3=' + shortTopForDebug(scored, 3)
+                    );
                     applyMove(chosen[0], chosen[1], X);
                     if (hasFiveFrom(chosen[0], chosen[1], X)) {
                         gameOver = true;
@@ -517,6 +557,8 @@
 
                 applyMove(r, c, O);
                 lastHumanMove = [r, c, O];
+                debugPly++;
+                debugMoves.push(debugPly + '. Human r' + (r + 1) + ' c' + (c + 1));
                 if (hasFiveFrom(r, c, O)) {
                     gameOver = true;
                     winner = O;
@@ -544,6 +586,8 @@
                 lastMove = null;
                 lastHumanMove = null;
                 stoneCount = 0;
+                debugMoves = [];
+                debugPly = 0;
                 if (infoLabel) infoLabel.style.display = '';
                 if (infoText) infoText.textContent = 'Your move...';
                 resizeCanvas();
