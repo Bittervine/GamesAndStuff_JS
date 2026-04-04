@@ -8,18 +8,35 @@
                 font-family: serif;
                 margin: 0;
             }
+            #controls {
+                font-size: 100%;
+            }
+            #controls button,
+            #controls input {
+                font-size: inherit;
+            }
+            #searchInfo {
+                margin-top: 0.2em;
+                line-height: 1.2;
+            }
         </style>
     </head>
     <body>
         <canvas id="board" width="720" height="720" style="display:block;margin:8px 0"></canvas>
         <div id="controls">
             <button id="resetBtn">Reset</button>
-            <button id="takebackBtn">Take Back</button>
-            <label>&nbsp;&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="2" min="1" max="10" style="width:3em"></label>
-            <label>&nbsp;&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="10" min="0" max="100" style="width:3em">&nbsp;%&nbsp;&nbsp;</label>
+            <label>&nbsp;&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="2" min="1" max="10" style="width:1.6em"></label>
+            <label>&nbsp;&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="10" min="0" max="100" style="width:2.0em">&nbsp;%&nbsp;&nbsp;</label>
+            <label><input id="previewInput" type="checkbox"> Preview&nbsp;&nbsp;</label>
+            <button id="takebackBtn">Undo</button>
+            <button id="copyBtn">Copy ASCII</button>
             <span id="status"></span>
+            <div id="searchInfo">
+                <strong id="lastMoveLabel">Info:</strong> <span id="lastMoveInfo">Your move...</span>
+            </div>
         </div>
 
+        <script src="./NaughtsAndCrosses_JS.js"></script>
         <script>
         // ES5-compatible 30x30 five-in-a-row (gomoku-like) human vs AI
         (function(){
@@ -35,6 +52,10 @@
             var statusEl = document.getElementById('status');
             var depthInput = document.getElementById('depthInput');
             var clumsyInput = document.getElementById('clumsyInput');
+            var previewInput = document.getElementById('previewInput');
+            var infoLabel = document.getElementById('lastMoveLabel');
+            var infoText = document.getElementById('lastMoveInfo');
+            var copyBtn = document.getElementById('copyBtn');
             document.getElementById('resetBtn').addEventListener('click', reset);
             document.getElementById('takebackBtn').addEventListener('click', takeBack);
 
@@ -46,19 +67,32 @@
             var cell = 24;
             var padding = 12;
             var lastMove = null;
+            var lastHumanMove = null;
             var stoneCount = 0;
-            var influence = null;
-            var tt = {};
-            var boardHash = 0;
-            var zobrist = null;
+            var previewMove = null;
+            var previewDrawAt = 0;
+            var engineThinking = false;
+            var engineTimerId = null;
+            var externalEngine = (typeof window !== 'undefined' && window.NACEngineLib && window.NACEngineLib.createEngine)
+                ? window.NACEngineLib.createEngine()
+                : null;
+
+            var HARD_DEADLINE_MS = 30000;
+            var SOFT_DEADLINE_MS = 10000;
+            var PREVIEW_ALPHA = 0.35;
 
             var DEPTH_KEY = 'nac_max_depth';
             var CLUM_KEY = 'nac_clumsiness';
+            var PREV_KEY = 'nac_preview_enabled';
             try {
                 var savedDepth = localStorage.getItem(DEPTH_KEY);
                 if (savedDepth !== null) depthInput.value = savedDepth;
                 var savedClumsy = localStorage.getItem(CLUM_KEY);
                 if (savedClumsy !== null) clumsyInput.value = savedClumsy;
+                var savedPreview = localStorage.getItem(PREV_KEY);
+                if (previewInput && (savedPreview === '1' || savedPreview === '0')) {
+                    previewInput.checked = (savedPreview === '1');
+                }
             } catch (e) {}
 
             depthInput.addEventListener('change', function(){
@@ -67,6 +101,12 @@
             clumsyInput.addEventListener('change', function(){
                 try { localStorage.setItem(CLUM_KEY, clumsyInput.value); } catch (e) {}
             });
+            if (previewInput) {
+                previewInput.addEventListener('change', function(){
+                    try { localStorage.setItem(PREV_KEY, previewInput.checked ? '1' : '0'); } catch (e) {}
+                    draw();
+                });
+            }
 
             function createBoard() {
                 var b = [];
@@ -77,34 +117,6 @@
                     for (c = 0; c < SIZE; c++) b[r][c] = EMPTY;
                 }
                 return b;
-            }
-
-            function createInfluence() {
-                var inf = [];
-                var r;
-                var c;
-                for (r = 0; r < SIZE; r++) {
-                    inf[r] = [];
-                    for (c = 0; c < SIZE; c++) inf[r][c] = 0;
-                }
-                return inf;
-            }
-
-            function initZobrist() {
-                var z = [[], [], []];
-                var seed = 2463534242;
-                var i;
-                function rand32() {
-                    seed = (seed ^ (seed << 13)) >>> 0;
-                    seed = (seed ^ (seed >>> 17)) >>> 0;
-                    seed = (seed ^ (seed << 5)) >>> 0;
-                    return seed >>> 0;
-                }
-                for (i = 0; i < SIZE * SIZE; i++) {
-                    z[O][i] = rand32();
-                    z[X][i] = rand32();
-                }
-                return z;
             }
 
             function clampNum(v, min, max, fallback) {
@@ -119,14 +131,15 @@
                 var controlsH = controls ? controls.offsetHeight + 16 : 0;
                 var maxW = (typeof window.innerWidth === 'number' && isFinite(window.innerWidth)) ? window.innerWidth - 16 : 720;
                 var maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - 16 : 720;
-                var size = Math.max(320, Math.floor(Math.min(maxW, maxH) * 0.98));
+                var size = Math.max(320, Math.floor(Math.min(maxW, maxH)));
                 if (controls) {
                     controls.style.width = size + 'px';
+                    controls.style.fontSize = Math.max(10, Math.round(size * 0.033)) + 'px';
                     controls.style.boxSizing = 'border-box';
                     controls.style.textAlign = 'center';
                     controlsH = controls.offsetHeight + 16;
                     maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - 16 : 720;
-                    size = Math.max(320, Math.floor(Math.min(maxW, maxH) * 0.98));
+                    size = Math.max(320, Math.floor(Math.min(maxW, maxH)));
                 }
                 var freeW = Math.max(0, maxW - size);
                 canvas.width = size;
@@ -136,9 +149,12 @@
                 canvas.style.marginTop = '8px';
                 canvas.style.marginBottom = '8px';
                 if (controls) {
-                    controls.style.width = size + 'px';
-                    controls.style.marginLeft = canvas.style.marginLeft;
-                    controls.style.marginRight = canvas.style.marginRight;
+                    var controlsWidth = Math.floor(size * 0.9);
+                    var sideGap = size - controlsWidth;
+                    controls.style.width = controlsWidth + 'px';
+                    controls.style.fontSize = Math.max(10, Math.round(size * 0.033)) + 'px';
+                    controls.style.marginLeft = (parseInt(canvas.style.marginLeft, 10) + Math.floor(sideGap / 2)) + 'px';
+                    controls.style.marginRight = (parseInt(canvas.style.marginRight, 10) + Math.ceil(sideGap / 2)) + 'px';
                     controls.style.marginTop = '0px';
                     controls.style.marginBottom = '8px';
                 }
@@ -183,25 +199,11 @@
                 return stoneCount >= SIZE * SIZE;
             }
 
-            function adjustInfluence(r, c, delta) {
-                var rr;
-                var cc;
-                for (rr = r - 2; rr <= r + 2; rr++) {
-                    for (cc = c - 2; cc <= c + 2; cc++) {
-                        if (!inBounds(rr, cc)) continue;
-                        if (rr === r && cc === c) continue;
-                        influence[rr][cc] += delta;
-                    }
-                }
-            }
-
             function applyMove(r, c, player){
                 board[r][c] = player;
                 history.push([r, c, player]);
                 lastMove = [r, c, player];
                 stoneCount++;
-                boardHash = (boardHash ^ zobrist[player][r * SIZE + c]) >>> 0;
-                adjustInfluence(r, c, 1);
             }
 
             function undoMove(){
@@ -212,250 +214,201 @@
                 winner = EMPTY;
                 gameOver = false;
                 stoneCount--;
-                boardHash = (boardHash ^ zobrist[m[2]][m[0] * SIZE + m[1]]) >>> 0;
-                adjustInfluence(m[0], m[1], -1);
                 return m;
             }
 
             function takeBack(){
+                clearEngineState();
                 if (!history.length) return;
                 undoMove();
                 if (history.length && turn === O) undoMove();
+                recomputeLastHumanMove();
                 turn = O;
                 updateStatus();
                 draw();
             }
 
-            function scoreWindow(xCount, oCount, openEnds){
-                if (xCount > 0 && oCount > 0) return 0;
-                if (xCount === 0 && oCount === 0) return 0;
-                if (xCount >= NEED) return 10000000;
-                if (oCount >= NEED) return -10000000;
-                if (xCount > 0) {
-                    if (xCount === 4) return openEnds === 2 ? 300000 : 50000;
-                    if (xCount === 3) return openEnds === 2 ? 15000 : 2000;
-                    if (xCount === 2) return openEnds === 2 ? 900 : 120;
-                    if (xCount === 1) return openEnds === 2 ? 40 : 5;
+            function showThinkingInfo(depth, startMs){
+                if (infoLabel) infoLabel.style.display = '';
+                if (infoText) {
+                    var elapsedSec = (Date.now() - startMs) / 1000;
+                    infoText.textContent = 'Thinking (depth ' + depth + ') for ' + elapsedSec.toFixed(1) + ' s...';
                 }
-                if (oCount > 0) {
-                    if (oCount === 4) return openEnds === 2 ? -320000 : -52000;
-                    if (oCount === 3) return openEnds === 2 ? -17000 : -2500;
-                    if (oCount === 2) return openEnds === 2 ? -1000 : -140;
-                    if (oCount === 1) return openEnds === 2 ? -45 : -6;
-                }
-                return 0;
             }
 
-            function evaluateBoard(){
-                var dirs = [[1,0],[0,1],[1,1],[1,-1]];
-                var score = 0;
-                var r;
-                var c;
+            function setPreviewMove(m, forceDraw){
+                previewMove = m ? [m[0], m[1]] : null;
+                var now = Date.now();
+                if (forceDraw || (now - previewDrawAt) >= 100) {
+                    previewDrawAt = now;
+                    draw();
+                }
+            }
+
+            function clearEngineState(){
+                if (engineTimerId) {
+                    clearTimeout(engineTimerId);
+                    engineTimerId = null;
+                }
+                engineThinking = false;
+                previewMove = null;
+                previewDrawAt = 0;
+            }
+
+            function scoreForMove(scored, move){
                 var i;
-                for (r = 0; r < SIZE; r++) {
-                    for (c = 0; c < SIZE; c++) {
-                        if (board[r][c] === EMPTY) continue;
-                        for (i = 0; i < dirs.length; i++) {
-                            var dr = dirs[i][0];
-                            var dc = dirs[i][1];
-                            var pr = r - dr;
-                            var pc = c - dc;
-                            if (inBounds(pr, pc) && board[pr][pc] === board[r][c]) continue;
-
-                            var xCount = 0;
-                            var oCount = 0;
-                            var len = 0;
-                            var rr = r;
-                            var cc = c;
-                            while (inBounds(rr, cc) && board[rr][cc] !== EMPTY) {
-                                if (board[rr][cc] === X) xCount++;
-                                else oCount++;
-                                len++;
-                                rr += dr;
-                                cc += dc;
-                            }
-
-                            var openEnds = 0;
-                            if (inBounds(pr, pc) && board[pr][pc] === EMPTY) openEnds++;
-                            if (inBounds(rr, cc) && board[rr][cc] === EMPTY) openEnds++;
-
-                            if (len >= NEED) {
-                                if (xCount >= NEED) return 10000000;
-                                if (oCount >= NEED) return -10000000;
-                            }
-
-                            score += scoreWindow(xCount, oCount, openEnds);
-                        }
-                    }
+                if (!scored || !move) return 0;
+                for (i = 0; i < scored.length; i++) {
+                    if (scored[i][0] === move[0] && scored[i][1] === move[1]) return scored[i][2];
                 }
-                return score;
+                return scored.length ? scored[0][2] : 0;
             }
 
-            function isWinningMove(r, c, player){
-                board[r][c] = player;
-                var win = hasFiveFrom(r, c, player);
-                board[r][c] = EMPTY;
-                return win;
-            }
-
-            function localShapeScore(r, c, player){
-                var opp = player === X ? O : X;
-                var friendly = 0;
-                var enemy = 0;
-                var rr;
-                var cc;
-                for (rr = r - 1; rr <= r + 1; rr++) {
-                    for (cc = c - 1; cc <= c + 1; cc++) {
-                        if (!inBounds(rr, cc) || (rr === r && cc === c)) continue;
-                        if (board[rr][cc] === player) friendly++;
-                        else if (board[rr][cc] === opp) enemy++;
-                    }
+            function formatTopMoves(scored, n){
+                var out = [];
+                var i;
+                if (!scored || !scored.length) return '';
+                for (i = 0; i < scored.length && i < n; i++) {
+                    out.push(
+                        '#' + (i + 1) +
+                        ' r' + (scored[i][0] + 1) +
+                        ' c' + (scored[i][1] + 1) +
+                        ' ' + scored[i][2]
+                    );
                 }
-                return friendly * 12 + enemy * 7;
+                return out.join(' | ');
             }
 
-            function generateCandidates(player, depthLeft){
-                var moves = [];
-                var center = Math.floor(SIZE / 2);
-                var opp = player === X ? O : X;
+            function boardToAscii(){
+                var minR = 0;
+                var minC = 0;
+                var maxR = SIZE - 1;
+                var maxC = SIZE - 1;
                 var r;
                 var c;
-                var limit;
-                if (!stoneCount) {
-                    moves.push([center, center]);
-                    return moves;
+                var lines = [];
+                for (r = minR; r <= maxR; r++) {
+                    var line = '';
+                    for (c = minC; c <= maxC; c++) {
+                        if (board[r][c] === O) line += 'O';
+                        else if (board[r][c] === X) line += 'X';
+                        else line += '-';
+                    }
+                    lines.push(line);
                 }
+                return lines.join('\n');
+            }
 
-                for (r = 0; r < SIZE; r++) {
-                    for (c = 0; c < SIZE; c++) {
-                        if (board[r][c] !== EMPTY) continue;
-                        if (influence[r][c] <= 0) continue;
-                        var priority = localShapeScore(r, c, player) + influence[r][c] * 3;
-                        if (isWinningMove(r, c, player)) priority += 100000000;
-                        else if (isWinningMove(r, c, opp)) priority += 90000000;
-                        priority -= Math.abs(r - center) + Math.abs(c - center);
-                        moves.push([r, c, priority]);
+            function recomputeLastHumanMove(){
+                var i;
+                lastHumanMove = null;
+                for (i = history.length - 1; i >= 0; i--) {
+                    if (history[i][2] === O) {
+                        lastHumanMove = [history[i][0], history[i][1], history[i][2]];
+                        return;
                     }
                 }
+            }
 
-                moves.sort(function(a, b){
-                    return b[2] - a[2];
+            function copyTextToClipboard(text){
+                if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+                    return navigator.clipboard.writeText(text);
+                }
+                return new Promise(function(resolve, reject){
+                    try {
+                        var ta = document.createElement('textarea');
+                        ta.value = text;
+                        ta.style.position = 'fixed';
+                        ta.style.left = '-9999px';
+                        document.body.appendChild(ta);
+                        ta.select();
+                        var ok = document.execCommand && document.execCommand('copy');
+                        document.body.removeChild(ta);
+                        if (ok) resolve();
+                        else reject(new Error('copy failed'));
+                    } catch (err) {
+                        reject(err);
+                    }
                 });
-
-                if (depthLeft >= 4) limit = 10;
-                else if (depthLeft === 3) limit = 12;
-                else limit = 16;
-                if (moves.length > limit) moves.length = limit;
-                return moves;
             }
 
-            function terminalFromLast(){
-                if (!lastMove) return 0;
-                if (hasFiveFrom(lastMove[0], lastMove[1], lastMove[2])) {
-                    return lastMove[2] === X ? 1 : -1;
-                }
-                if (isBoardFull()) return 2;
-                return 0;
+            if (copyBtn) {
+                copyBtn.addEventListener('click', function(){
+                    var infoLine = infoText ? infoText.textContent : '';
+                    var payload = 'Info: ' + infoLine + '\n' + boardToAscii();
+                    copyTextToClipboard(payload).then(function(){
+                        if (infoText) infoText.textContent = 'Copied board + info to clipboard';
+                    }).catch(function(){
+                        if (infoText) infoText.textContent = 'Copy failed';
+                    });
+                });
             }
 
-            function minimax(depth, alpha, beta, maximizing){
-                var t = terminalFromLast();
-                if (t === 1) return 10000000 + depth;
-                if (t === -1) return -10000000 - depth;
-                if (t === 2) return 0;
-                if (depth <= 0) return evaluateBoard();
-                var key = boardHash + '|' + depth + '|' + (maximizing ? 1 : 0);
-                if (tt.hasOwnProperty(key)) return tt[key];
-
-                var moves = generateCandidates(maximizing ? X : O, depth);
-                if (!moves.length) {
-                    var noMoveScore = evaluateBoard();
-                    tt[key] = noMoveScore;
-                    return noMoveScore;
-                }
-
-                var i;
-                var move;
-                var val;
-                if (maximizing) {
-                    var best = -2147483647;
-                    for (i = 0; i < moves.length; i++) {
-                        move = moves[i];
-                        applyMove(move[0], move[1], X);
-                        val = minimax(depth - 1, alpha, beta, false);
-                        undoMove();
-                        if (val > best) best = val;
-                        if (best > alpha) alpha = best;
-                        if (beta <= alpha) break;
-                    }
-                    tt[key] = best;
-                    return best;
-                }
-
-                var bestMin = 2147483647;
-                for (i = 0; i < moves.length; i++) {
-                    move = moves[i];
-                    applyMove(move[0], move[1], O);
-                    val = minimax(depth - 1, alpha, beta, true);
-                    undoMove();
-                    if (val < bestMin) bestMin = val;
-                    if (bestMin < beta) beta = bestMin;
-                    if (beta <= alpha) break;
-                }
-                tt[key] = bestMin;
-                return bestMin;
-            }
-
-            function pickEngineMove(){
-                var depth = clampNum(depthInput.value, 1, 10, 2);
-                var clumsy = clampNum(clumsyInput.value, 0, 100, 10);
-                var moves = generateCandidates(X, depth);
-                if (!moves.length) return null;
-
-                var scored = [];
-                var i;
-                for (i = 0; i < moves.length; i++) {
-                    var m = moves[i];
-                    applyMove(m[0], m[1], X);
-                    var score;
-                    if (hasFiveFrom(m[0], m[1], X)) score = 20000000;
-                    else score = minimax(depth - 1, -2147483647, 2147483647, false);
-                    undoMove();
-                    scored.push([m[0], m[1], score]);
-                }
-
-                scored.sort(function(a, b){ return b[2] - a[2]; });
-                var chooseBad = Math.random() < (clumsy / 100);
-                if (!chooseBad) return [scored[0][0], scored[0][1]];
-
-                if (scored.length > 1) return [scored[1][0], scored[1][1]];
-                return [scored[0][0], scored[0][1]];
-            }
 
             function engineMove(){
-                if (gameOver || turn !== X) return;
-                tt = {};
-                var m = pickEngineMove();
-                if (!m) {
-                    gameOver = true;
-                    winner = EMPTY;
-                    updateStatus();
-                    draw();
+                if (engineThinking || gameOver || turn !== X) return;
+                if (!externalEngine || !externalEngine.loadFromBoardState ||
+                    !externalEngine.startIterativeSession || !externalEngine.stepIterativeSession) {
+                    if (infoText) infoText.textContent = 'Engine module unavailable';
                     return;
                 }
 
-                applyMove(m[0], m[1], X);
-                if (hasFiveFrom(m[0], m[1], X)) {
-                    gameOver = true;
-                    winner = X;
-                } else if (isBoardFull()) {
-                    gameOver = true;
-                    winner = EMPTY;
-                } else {
-                    turn = O;
-                }
-                updateStatus();
+                var extStartMs = Date.now();
+                var extDepth = clampNum(depthInput.value, 1, 10, 2);
+                var extClumsy = clampNum(clumsyInput.value, 0, 100, 10);
+                var extSession = null;
+                engineThinking = true;
+                showThinkingInfo(1, extStartMs);
                 draw();
+                engineTimerId = setTimeout(function pumpExternal(){
+                    if (!engineThinking || gameOver || turn !== X) return;
+                    if (!extSession) {
+                        externalEngine.loadFromBoardState(board, lastHumanMove);
+                        extSession = externalEngine.startIterativeSession(extDepth, SOFT_DEADLINE_MS, HARD_DEADLINE_MS);
+                    }
+                    var stepped = externalEngine.stepIterativeSession(extSession, 10);
+                    extSession = stepped ? stepped.session : extSession;
+                    var reachedDepth = extSession && extSession.reachedDepth ? extSession.reachedDepth : 1;
+                    showThinkingInfo(extSession ? extSession.depth : reachedDepth, extStartMs);
+                    if (extSession && extSession.bestMove) setPreviewMove(extSession.bestMove, false);
+
+                    if (!stepped || !stepped.done) {
+                        engineTimerId = setTimeout(pumpExternal, 0);
+                        return;
+                    }
+
+                    var scored = extSession && extSession.bestScored ? extSession.bestScored : [];
+                    var chosen = externalEngine.chooseMoveFromScored(scored, extClumsy);
+                    if (!chosen || !scored.length) {
+                        engineThinking = false;
+                        gameOver = true;
+                        winner = EMPTY;
+                        updateStatus();
+                        draw();
+                        return;
+                    }
+                    if (infoLabel) infoLabel.style.display = '';
+                    if (infoText) {
+                        var usedSec = (Date.now() - extStartMs) / 1000;
+                        var chosenScore = scoreForMove(scored, chosen);
+                        var head = (chosenScore >= 0 ? '+' : '') + chosenScore +
+                            ' for depth ' + reachedDepth + ' after ' + usedSec.toFixed(1) + ' s';
+                        infoText.textContent = head + ' | Top: ' + formatTopMoves(scored, 3);
+                    }
+                    applyMove(chosen[0], chosen[1], X);
+                    if (hasFiveFrom(chosen[0], chosen[1], X)) {
+                        gameOver = true;
+                        winner = X;
+                    } else if (isBoardFull()) {
+                        gameOver = true;
+                        winner = EMPTY;
+                    } else {
+                        turn = O;
+                    }
+                    engineThinking = false;
+                    updateStatus();
+                    draw();
+                }, 0);
             }
 
             function updateStatus(){
@@ -466,7 +419,7 @@
                     else statusEl.textContent = 'Game over: draw';
                     return;
                 }
-                statusEl.textContent = 'Turn: ' + (turn === O ? 'O' : 'X');
+                statusEl.textContent = '';
             }
 
             function drawGrid(){
@@ -489,7 +442,9 @@
                 }
             }
 
-            function drawStone(r, c, player){
+            function drawStone(r, c, player, translucent){
+                var prevAlpha = ctx.globalAlpha;
+                if (translucent) ctx.globalAlpha = PREVIEW_ALPHA;
                 var x = padding + c * cell + cell * 0.5;
                 var y = padding + r * cell + cell * 0.5;
                 var radius = Math.max(3, cell * 0.35);
@@ -510,6 +465,7 @@
                     ctx.lineTo(x - s, y + s);
                     ctx.stroke();
                 }
+                if (translucent) ctx.globalAlpha = prevAlpha;
             }
 
             function drawLastMarker(){
@@ -534,6 +490,10 @@
                         if (board[r][c] !== EMPTY) drawStone(r, c, board[r][c]);
                     }
                 }
+                if (previewInput && previewInput.checked && engineThinking && previewMove &&
+                    inBounds(previewMove[0], previewMove[1]) && board[previewMove[0]][previewMove[1]] === EMPTY) {
+                    drawStone(previewMove[0], previewMove[1], X, true);
+                }
                 drawLastMarker();
             }
 
@@ -545,7 +505,7 @@
             }
 
             canvas.addEventListener('click', function(ev){
-                if (gameOver || turn !== O) return;
+                if (gameOver || turn !== O || engineThinking) return;
                 var rect = canvas.getBoundingClientRect();
                 var x = ev.clientX - rect.left;
                 var y = ev.clientY - rect.top;
@@ -556,6 +516,7 @@
                 if (board[r][c] !== EMPTY) return;
 
                 applyMove(r, c, O);
+                lastHumanMove = [r, c, O];
                 if (hasFiveFrom(r, c, O)) {
                     gameOver = true;
                     winner = O;
@@ -574,17 +535,17 @@
             });
 
             function reset(){
+                clearEngineState();
                 board = createBoard();
-                influence = createInfluence();
-                if (!zobrist) zobrist = initZobrist();
                 turn = O;
                 gameOver = false;
                 winner = EMPTY;
                 history = [];
                 lastMove = null;
+                lastHumanMove = null;
                 stoneCount = 0;
-                boardHash = 0;
-                tt = {};
+                if (infoLabel) infoLabel.style.display = '';
+                if (infoText) infoText.textContent = 'Your move...';
                 resizeCanvas();
                 updateStatus();
             }
