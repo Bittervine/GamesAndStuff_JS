@@ -467,7 +467,8 @@
                     if (infoText) {
                         var usedSec = (Date.now() - extStartMs) / 1000;
                         var chosenScore = scoreForMove(scored, chosen);
-                        infoText.textContent = (chosenScore >= 0 ? '+' : '') + chosenScore +
+                        var displayScore = -chosenScore;
+                        infoText.textContent = (displayScore >= 0 ? '+' : '') + displayScore +
                             ' for depth ' + reachedDepth + ' after ' + usedSec.toFixed(1) + ' s';
                     }
                     debugPly++;
@@ -654,7 +655,6 @@
         </script>
     </body>
 </html>
-
 
 
 
