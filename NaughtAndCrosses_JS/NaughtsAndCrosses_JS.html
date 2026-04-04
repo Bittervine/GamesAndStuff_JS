@@ -136,12 +136,20 @@
                 return mm * 96 / 25.4;
             }
 
+            function dprCellScale(){
+                var dpr = (typeof window.devicePixelRatio === 'number' && isFinite(window.devicePixelRatio))
+                    ? window.devicePixelRatio : 1;
+                if (dpr <= 1) return 1;
+                if (dpr >= 3) return 1.35;
+                return 1 + (dpr - 1) * 0.175;
+            }
+
             function detectGridSizeForNewGame(){
                 var controlsH = controls ? (controls.offsetHeight + 20) : 120;
                 var maxW = (typeof window.innerWidth === 'number' && isFinite(window.innerWidth)) ? (window.innerWidth - 16) : 720;
                 var maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? (window.innerHeight - controlsH - 16) : 720;
                 var isCoarsePointer = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
-                var minCellPx = Math.max(8, mmToCssPx(MIN_CELL_MM), isCoarsePointer ? 44 : 0);
+                var minCellPx = Math.max(8, mmToCssPx(MIN_CELL_MM) * dprCellScale(), isCoarsePointer ? 44 : 0);
                 var cols = Math.floor(Math.max(1, maxW - padding * 2) / minCellPx);
                 var rows = Math.floor(Math.max(1, maxH - padding * 2) / minCellPx);
                 if (!isFinite(cols)) cols = 20;
@@ -646,7 +654,6 @@
         </script>
     </body>
 </html>
-
 
 
 
