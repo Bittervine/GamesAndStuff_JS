@@ -1,7 +1,8 @@
 'use strict';
 
-function createEngine() {
-    var SIZE = 20;
+function createEngine(opts) {
+    var ROWS = (opts && opts.rows) ? (opts.rows | 0) : ((opts && opts.size) ? (opts.size | 0) : 20);
+    var COLS = (opts && opts.cols) ? (opts.cols | 0) : ((opts && opts.size) ? (opts.size | 0) : 20);
     var EMPTY = 0;
     var O = 1;
     var X = 2;
@@ -25,14 +26,16 @@ function createEngine() {
     var searchAbort = false;
     var searchNodeCount = 0;
     var searchRootPly = 0;
+    var searchRootClumsyPct = 0;
+    var searchRootIgnoreMap = null;
 
     function createBoard() {
         var b = [];
         var r;
         var c;
-        for (r = 0; r < SIZE; r++) {
+        for (r = 0; r < ROWS; r++) {
             b[r] = [];
-            for (c = 0; c < SIZE; c++) b[r][c] = EMPTY;
+            for (c = 0; c < COLS; c++) b[r][c] = EMPTY;
         }
         return b;
     }
@@ -41,9 +44,9 @@ function createEngine() {
         var inf = [];
         var r;
         var c;
-        for (r = 0; r < SIZE; r++) {
+        for (r = 0; r < ROWS; r++) {
             inf[r] = [];
-            for (c = 0; c < SIZE; c++) inf[r][c] = 0;
+            for (c = 0; c < COLS; c++) inf[r][c] = 0;
         }
         return inf;
     }
@@ -58,7 +61,7 @@ function createEngine() {
             seed = (seed ^ (seed << 5)) >>> 0;
             return seed >>> 0;
         }
-        for (i = 0; i < SIZE * SIZE; i++) {
+        for (i = 0; i < ROWS * COLS; i++) {
             z[O][i] = rand32();
             z[X][i] = rand32();
         }
@@ -66,7 +69,7 @@ function createEngine() {
     }
 
     function inBounds(r, c) {
-        return r >= 0 && r < SIZE && c >= 0 && c < SIZE;
+        return r >= 0 && r < ROWS && c >= 0 && c < COLS;
     }
 
     function hasFiveFrom(r, c, player) {
@@ -96,7 +99,7 @@ function createEngine() {
     }
 
     function isBoardFull() {
-        return stoneCount >= SIZE * SIZE;
+        return stoneCount >= ROWS * COLS;
     }
 
     function adjustInfluence(r, c, delta) {
@@ -116,7 +119,7 @@ function createEngine() {
         history.push([r, c, player]);
         lastMove = [r, c, player];
         stoneCount++;
-        boardHash = (boardHash ^ zobrist[player][r * SIZE + c]) >>> 0;
+        boardHash = (boardHash ^ zobrist[player][r * COLS + c]) >>> 0;
         adjustInfluence(r, c, 1);
     }
 
@@ -126,7 +129,7 @@ function createEngine() {
         board[m[0]][m[1]] = EMPTY;
         lastMove = history.length ? history[history.length - 1] : null;
         stoneCount--;
-        boardHash = (boardHash ^ zobrist[m[2]][m[0] * SIZE + m[1]]) >>> 0;
+        boardHash = (boardHash ^ zobrist[m[2]][m[0] * COLS + m[1]]) >>> 0;
         adjustInfluence(m[0], m[1], -1);
         return m;
     }
@@ -157,8 +160,8 @@ function createEngine() {
         var r;
         var c;
         var i;
-        for (r = 0; r < SIZE; r++) {
-            for (c = 0; c < SIZE; c++) {
+        for (r = 0; r < ROWS; r++) {
+            for (c = 0; c < COLS; c++) {
                 if (board[r][c] === EMPTY) continue;
                 for (i = 0; i < dirs.length; i++) {
                     var dr = dirs[i][0];
@@ -205,7 +208,14 @@ function createEngine() {
     function threatLevelIfPlace(r, c, player) {
         var dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
         var i;
-        var best = 0;
+        var hasWin = false;
+        var numOpenFours = 0;
+        var numSimpleFours = 0;
+        var numOpenThrees = 0;
+        var hasSplitTwoTwo = false;
+        // Simulate placing one stone and count line patterns by direction.
+        // This function only evaluates single-line patterns. Multi-line
+        // composites (for example double-open-three) are handled elsewhere.
         board[r][c] = player;
         for (i = 0; i < dirs.length; i++) {
             var dr = dirs[i][0];
@@ -230,17 +240,50 @@ function createEngine() {
             if (inBounds(rr, cc) && board[rr][cc] === EMPTY) openEnds++;
 
             if (count >= NEED) {
-                best = 3;
+                hasWin = true;
                 break;
             }
             if (count >= 4 && openEnds >= 1) {
-                if (best < 2) best = 2;
+                if (openEnds >= 2) numOpenFours++;
+                else numSimpleFours++;
             } else if (count >= 3 && openEnds === 2) {
-                if (best < 1) best = 1;
+                numOpenThrees++;
+            }
+
+            // Detect XX-XX along this direction, where the simulated move is part
+            // of the four stones. This is treated as a level-1 forcing threat.
+            var line = [];
+            var k;
+            for (k = -4; k <= 4; k++) {
+                rr = r + dr * k;
+                cc = c + dc * k;
+                line.push(inBounds(rr, cc) ? board[rr][cc] : -1);
+            }
+            // Segment start s maps to offsets [s..s+4] in [-4..4] space.
+            // Center (offset 0) is at line index 4.
+            var s;
+            for (s = 0; s <= 4; s++) {
+                if (!(s <= 4 && 4 <= s + 4)) continue;
+                if (line[s] === player &&
+                    line[s + 1] === player &&
+                    line[s + 2] === EMPTY &&
+                    line[s + 3] === player &&
+                    line[s + 4] === player &&
+                    line[4] === player) {
+                    hasSplitTwoTwo = true;
+                    break;
+                }
+            }
+            if (hasSplitTwoTwo) {
+                // Keep scanning other dirs for higher-priority patterns.
             }
         }
         board[r][c] = EMPTY;
-        return best;
+        if (hasWin) return 3;
+        // A double-open-three is typically a forcing threat (near open-four strength).
+        if (numOpenFours > 0 || numSimpleFours > 0 || numOpenThrees >= 2) return 2;
+        if (numOpenThrees > 0 || hasSplitTwoTwo) return 1;
+        return 0;
     }
 
     function threatFeaturesIfPlace(r, c, player) {
@@ -251,7 +294,9 @@ function createEngine() {
             openFour: false,
             simpleFour: false,
             openThreeCount: 0,
-            doubleOpenThree: false
+            doubleOpenThree: false,
+            splitTwoTwoCount: 0,
+            hasSplitTwoTwo: false
         };
         board[r][c] = player;
         for (i = 0; i < dirs.length; i++) {
@@ -280,9 +325,31 @@ function createEngine() {
             if (count >= 4 && openEnds >= 2) out.openFour = true;
             else if (count >= 4 && openEnds >= 1) out.simpleFour = true;
             if (count >= 3 && openEnds === 2) out.openThreeCount++;
+
+            // Detect XX-XX on this direction around the simulated move.
+            var line = [];
+            var k;
+            for (k = -4; k <= 4; k++) {
+                rr = r + dr * k;
+                cc = c + dc * k;
+                line.push(inBounds(rr, cc) ? board[rr][cc] : -1);
+            }
+            var s;
+            for (s = 0; s <= 4; s++) {
+                if (line[s] === player &&
+                    line[s + 1] === player &&
+                    line[s + 2] === EMPTY &&
+                    line[s + 3] === player &&
+                    line[s + 4] === player &&
+                    line[4] === player) {
+                    out.splitTwoTwoCount++;
+                    break;
+                }
+            }
         }
         board[r][c] = EMPTY;
         out.doubleOpenThree = out.openThreeCount >= 2;
+        out.hasSplitTwoTwo = out.splitTwoTwoCount > 0;
         return out;
     }
 
@@ -300,6 +367,59 @@ function createEngine() {
             }
         }
         return friendly * 12 + enemy * 7;
+    }
+
+    function normalizeRootClumsy(clumsy) {
+        var n = parseInt(clumsy, 10);
+        if (!isFinite(n) || n < 0) return 0;
+        if (n > 99) return 99;
+        return n;
+    }
+
+    function collectRootCandidatesForClumsy() {
+        var out = [];
+        var r;
+        var c;
+        if (!stoneCount) return out;
+        for (r = 0; r < ROWS; r++) {
+            for (c = 0; c < COLS; c++) {
+                if (board[r][c] !== EMPTY) continue;
+                if (influence[r][c] <= 0) continue;
+                out.push([r, c]);
+            }
+        }
+        if (!out.length) {
+            for (r = 0; r < ROWS; r++) {
+                for (c = 0; c < COLS; c++) {
+                    if (board[r][c] === EMPTY) out.push([r, c]);
+                }
+            }
+        }
+        return out;
+    }
+
+    function configureRootClumsy(clumsy) {
+        var i;
+        var key;
+        var candidates;
+        var keptCount = 0;
+        searchRootClumsyPct = normalizeRootClumsy(clumsy);
+        searchRootIgnoreMap = {};
+        if (searchRootClumsyPct <= 0) return;
+        candidates = collectRootCandidatesForClumsy();
+        if (!candidates.length) return;
+        for (i = 0; i < candidates.length; i++) {
+            if (Math.random() < (searchRootClumsyPct / 100)) {
+                key = candidates[i][0] * COLS + candidates[i][1];
+                searchRootIgnoreMap[key] = true;
+            } else {
+                keptCount++;
+            }
+        }
+        if (keptCount <= 0) {
+            key = candidates[0][0] * COLS + candidates[0][1];
+            delete searchRootIgnoreMap[key];
+        }
     }
 
     function prioritizeTTMove(moves, ttMove) {
@@ -321,18 +441,19 @@ function createEngine() {
         var moves = [];
         var mustMap = {};
         var threatClass = {};
-        var center = Math.floor(SIZE / 2);
+        var centerR = Math.floor(ROWS / 2);
+        var centerC = Math.floor(COLS / 2);
         var opp = player === X ? O : X;
         var r;
         var c;
         var limit;
         var isRoot = history.length === searchRootPly;
         if (!stoneCount) {
-            moves.push([center, center]);
+            moves.push([centerR, centerC]);
             return moves;
         }
-        for (r = 0; r < SIZE; r++) {
-            for (c = 0; c < SIZE; c++) {
+        for (r = 0; r < ROWS; r++) {
+            for (c = 0; c < COLS; c++) {
                 if (board[r][c] !== EMPTY) continue;
                 if (influence[r][c] <= 0) continue;
                 var priority = localShapeScore(r, c, player) + influence[r][c] * 3;
@@ -342,7 +463,7 @@ function createEngine() {
                 var oppThreat;
                 var selfFeat;
                 var oppFeat;
-                var key = r * SIZE + c;
+                var key = r * COLS + c;
                 if (selfWin) priority += 100000000;
                 else {
                     oppWin = isWinningMove(r, c, opp);
@@ -368,11 +489,21 @@ function createEngine() {
                     else if (selfFeat.openFour || selfFeat.simpleFour) threatClass[key] = 2;
                     else if (oppFeat.openFour || oppFeat.simpleFour) threatClass[key] = 3;
                     else if (selfFeat.doubleOpenThree) threatClass[key] = 4;
-                    else if (oppFeat.doubleOpenThree || oppFeat.openThreeCount >= 1) threatClass[key] = 5;
+                    else if (oppFeat.doubleOpenThree || oppFeat.openThreeCount >= 1 || oppFeat.hasSplitTwoTwo) threatClass[key] = 5;
                 }
-                priority -= Math.abs(r - center) + Math.abs(c - center);
+                priority -= Math.abs(r - centerR) + Math.abs(c - centerC);
                 moves.push([r, c, priority]);
             }
+        }
+        if (isRoot && player === X && searchRootClumsyPct > 0) {
+            var clumsyFiltered = [];
+            var j;
+            for (j = 0; j < moves.length; j++) {
+                var clumsyKey = moves[j][0] * COLS + moves[j][1];
+                if (searchRootIgnoreMap && searchRootIgnoreMap[clumsyKey]) continue;
+                clumsyFiltered.push(moves[j]);
+            }
+            if (clumsyFiltered.length) moves = clumsyFiltered;
         }
         moves.sort(function (a, b) { return b[2] - a[2]; });
         prioritizeTTMove(moves, ttMove);
@@ -388,13 +519,13 @@ function createEngine() {
                 var forcedClass = -1;
                 if (isRoot && player === X) {
                     for (i = 0; i < moves.length; i++) {
-                        key = moves[i][0] * SIZE + moves[i][1];
+                        key = moves[i][0] * COLS + moves[i][1];
                         if (!threatClass.hasOwnProperty(key)) continue;
                         if (forcedClass < 0 || threatClass[key] < forcedClass) forcedClass = threatClass[key];
                     }
                     if (forcedClass >= 0) {
                         for (i = 0; i < moves.length && kept.length < limit; i++) {
-                            key = moves[i][0] * SIZE + moves[i][1];
+                            key = moves[i][0] * COLS + moves[i][1];
                             if (!threatClass.hasOwnProperty(key) || threatClass[key] !== forcedClass) continue;
                             kept.push(moves[i]);
                             seen[key] = true;
@@ -403,14 +534,14 @@ function createEngine() {
                 }
                 for (i = 0; i < moves.length; i++) {
                     if (kept.length >= limit) break;
-                    key = moves[i][0] * SIZE + moves[i][1];
+                    key = moves[i][0] * COLS + moves[i][1];
                     if (!mustMap[key]) continue;
                     if (seen[key]) continue;
                     kept.push(moves[i]);
                     seen[key] = true;
                 }
                 for (i = 0; i < moves.length && kept.length < limit; i++) {
-                    key = moves[i][0] * SIZE + moves[i][1];
+                    key = moves[i][0] * COLS + moves[i][1];
                     if (seen[key]) continue;
                     kept.push(moves[i]);
                     seen[key] = true;
@@ -520,34 +651,8 @@ function createEngine() {
 
     function chooseMoveFromScored(scored, clumsy) {
         if (!scored || !scored.length) return null;
-        function rootClassOfMove(m) {
-            var r = m[0];
-            var c = m[1];
-            var selfFeat = threatFeaturesIfPlace(r, c, X);
-            var oppFeat = threatFeaturesIfPlace(r, c, O);
-                if (isWinningMove(r, c, X) || selfFeat.win) return 0;
-                if (isWinningMove(r, c, O) || oppFeat.win) return 1;
-                if (selfFeat.openFour || selfFeat.simpleFour) return 2;
-                if (oppFeat.openFour || oppFeat.simpleFour) return 3;
-                if (selfFeat.doubleOpenThree) return 4;
-                if (oppFeat.doubleOpenThree || oppFeat.openThreeCount >= 1) return 5;
-                return 99;
-            }
-
-        var chooseBad = Math.random() < (clumsy / 100);
-        var bestClass = rootClassOfMove(scored[0]);
-        if (bestClass <= 5) {
-            var sameClass = [];
-            var i;
-            for (i = 0; i < scored.length; i++) {
-                if (rootClassOfMove(scored[i]) === bestClass) sameClass.push(scored[i]);
-            }
-            if (!chooseBad || sameClass.length < 2) return [sameClass[0][0], sameClass[0][1]];
-            return [sameClass[1][0], sameClass[1][1]];
-        }
-
-        if (!chooseBad || scored.length < 2) return [scored[0][0], scored[0][1]];
-        return [scored[1][0], scored[1][1]];
+        // Clumsy is applied at root candidate generation time.
+        return [scored[0][0], scored[0][1]];
     }
 
     function resetSearchState() {
@@ -556,7 +661,8 @@ function createEngine() {
         searchNodeCount = 0;
     }
 
-    function scoreRootMovesAtDepth(depth, hardDeadlineMs) {
+    function scoreRootMovesAtDepth(depth, hardDeadlineMs, clumsy) {
+        if (typeof clumsy !== 'undefined' && clumsy !== null) configureRootClumsy(clumsy);
         resetSearchState();
         searchDeadline = Date.now() + hardDeadlineMs;
         searchRootPly = history.length;
@@ -588,16 +694,17 @@ function createEngine() {
         };
     }
 
-    function iterativeRootScoring(targetDepth, softMs, hardMs) {
+    function iterativeRootScoring(targetDepth, softMs, hardMs, clumsy) {
         var startMs = Date.now();
         var softDeadline = startMs + softMs;
         var hardDeadline = startMs + hardMs;
         var d;
         var last = null;
+        configureRootClumsy(clumsy);
         for (d = 1; d <= targetDepth; d++) {
             if (Date.now() >= hardDeadline) break;
             if (d > 1 && Date.now() >= softDeadline) break;
-            last = scoreRootMovesAtDepth(d, Math.max(1, hardDeadline - Date.now()));
+            last = scoreRootMovesAtDepth(d, Math.max(1, hardDeadline - Date.now()), null);
             if (last.timedOut) break;
         }
         return {
@@ -607,9 +714,10 @@ function createEngine() {
         };
     }
 
-    function startIterativeSession(targetDepth, softMs, hardMs) {
+    function startIterativeSession(targetDepth, softMs, hardMs, clumsy) {
         var now = Date.now();
         searchRootPly = history.length;
+        configureRootClumsy(clumsy);
         return {
             startMs: now,
             softDeadline: now + softMs,
@@ -695,6 +803,10 @@ function createEngine() {
     function loadFromAscii(rows7) {
         var r;
         var c;
+        var inRows = rows7.length;
+        var inCols = rows7.length ? rows7[0].length : 0;
+        var startR = Math.max(0, Math.floor((ROWS - inRows) / 2));
+        var startC = Math.max(0, Math.floor((COLS - inCols) / 2));
         board = createBoard();
         influence = createInfluence();
         history = [];
@@ -707,17 +819,18 @@ function createEngine() {
             for (c = 0; c < line.length; c++) {
                 var ch = line.charAt(c);
                 if (ch === 'X' || ch === 'O') {
-                    var rr = r + 6;
-                    var cc = c + 6;
+                    var rr = r + startR;
+                    var cc = c + startC;
+                    if (!inBounds(rr, cc)) continue;
                     var p = ch === 'X' ? X : O;
                     board[rr][cc] = p;
                     stoneCount++;
-                    boardHash = (boardHash ^ zobrist[p][rr * SIZE + cc]) >>> 0;
+                    boardHash = (boardHash ^ zobrist[p][rr * COLS + cc]) >>> 0;
                 }
             }
         }
-        for (r = 0; r < SIZE; r++) {
-            for (c = 0; c < SIZE; c++) {
+        for (r = 0; r < ROWS; r++) {
+            for (c = 0; c < COLS; c++) {
                 if (board[r][c] !== EMPTY) adjustInfluence(r, c, 1);
             }
         }
@@ -733,17 +846,17 @@ function createEngine() {
         stoneCount = 0;
         boardHash = 0;
         tt = {};
-        for (r = 0; r < SIZE; r++) {
-            for (c = 0; c < SIZE; c++) {
+        for (r = 0; r < ROWS; r++) {
+            for (c = 0; c < COLS; c++) {
                 var p = boardIn[r][c];
                 if (p !== O && p !== X) continue;
                 board[r][c] = p;
                 stoneCount++;
-                boardHash = (boardHash ^ zobrist[p][r * SIZE + c]) >>> 0;
+                boardHash = (boardHash ^ zobrist[p][r * COLS + c]) >>> 0;
             }
         }
-        for (r = 0; r < SIZE; r++) {
-            for (c = 0; c < SIZE; c++) {
+        for (r = 0; r < ROWS; r++) {
+            for (c = 0; c < COLS; c++) {
                 if (board[r][c] !== EMPTY) adjustInfluence(r, c, 1);
             }
         }
@@ -769,7 +882,7 @@ function createEngine() {
     }
 
     return {
-        constants: { SIZE: SIZE, EMPTY: EMPTY, O: O, X: X, NEED: NEED, WIN_SCORE: WIN_SCORE },
+        constants: { ROWS: ROWS, COLS: COLS, EMPTY: EMPTY, O: O, X: X, NEED: NEED, WIN_SCORE: WIN_SCORE },
         loadFromAscii: loadFromAscii,
         loadFromBoardState: loadFromBoardState,
         scoreRootMovesAtDepth: scoreRootMovesAtDepth,
