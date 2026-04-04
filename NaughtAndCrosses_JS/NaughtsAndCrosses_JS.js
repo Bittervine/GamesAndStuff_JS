@@ -24,24 +24,7 @@ function createEngine() {
     var searchDeadline = 0;
     var searchAbort = false;
     var searchNodeCount = 0;
-    var searchRootAnchorMove = null;
-    var whitelistEnabled = false;
-    var whitelistMinR = 0;
-    var whitelistMaxR = 0;
-    var whitelistMinC = 0;
-    var whitelistMaxC = 0;
-
-    function configureWhitelistFromAnchor() {
-        if (!searchRootAnchorMove) {
-            whitelistEnabled = false;
-            return;
-        }
-        whitelistEnabled = true;
-        whitelistMinR = Math.max(0, searchRootAnchorMove[0] - 5);
-        whitelistMaxR = Math.min(SIZE - 1, searchRootAnchorMove[0] + 5);
-        whitelistMinC = Math.max(0, searchRootAnchorMove[1] - 5);
-        whitelistMaxC = Math.min(SIZE - 1, searchRootAnchorMove[1] + 5);
-    }
+    var searchRootPly = 0;
 
     function createBoard() {
         var b = [];
@@ -260,6 +243,49 @@ function createEngine() {
         return best;
     }
 
+    function threatFeaturesIfPlace(r, c, player) {
+        var dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+        var i;
+        var out = {
+            win: false,
+            openFour: false,
+            simpleFour: false,
+            openThreeCount: 0,
+            doubleOpenThree: false
+        };
+        board[r][c] = player;
+        for (i = 0; i < dirs.length; i++) {
+            var dr = dirs[i][0];
+            var dc = dirs[i][1];
+            var count = 1;
+            var rr = r + dr;
+            var cc = c + dc;
+            while (inBounds(rr, cc) && board[rr][cc] === player) {
+                count++;
+                rr += dr;
+                cc += dc;
+            }
+            var openEnds = 0;
+            if (inBounds(rr, cc) && board[rr][cc] === EMPTY) openEnds++;
+            rr = r - dr;
+            cc = c - dc;
+            while (inBounds(rr, cc) && board[rr][cc] === player) {
+                count++;
+                rr -= dr;
+                cc -= dc;
+            }
+            if (inBounds(rr, cc) && board[rr][cc] === EMPTY) openEnds++;
+
+            if (count >= NEED) out.win = true;
+            if (count >= 4 && openEnds >= 2) out.openFour = true;
+            else if (count >= 4 && openEnds >= 1) out.simpleFour = true;
+            if (count >= 3 && openEnds === 2) out.openThreeCount++;
+        }
+        board[r][c] = EMPTY;
+        out.doubleOpenThree = out.openThreeCount >= 2;
+        return out;
+    }
+
     function localShapeScore(r, c, player) {
         var opp = player === X ? O : X;
         var friendly = 0;
@@ -294,11 +320,13 @@ function createEngine() {
     function generateCandidatesInternal(player, depthLeft, ttMove, applyLimit) {
         var moves = [];
         var mustMap = {};
+        var threatClass = {};
         var center = Math.floor(SIZE / 2);
         var opp = player === X ? O : X;
         var r;
         var c;
         var limit;
+        var isRoot = history.length === searchRootPly;
         if (!stoneCount) {
             moves.push([center, center]);
             return moves;
@@ -312,6 +340,9 @@ function createEngine() {
                 var oppWin = false;
                 var selfThreat;
                 var oppThreat;
+                var selfFeat;
+                var oppFeat;
+                var key = r * SIZE + c;
                 if (selfWin) priority += 100000000;
                 else {
                     oppWin = isWinningMove(r, c, opp);
@@ -326,14 +357,18 @@ function createEngine() {
                 else if (oppThreat === 1) priority += 450000;
 
                 if (selfWin || oppWin || selfThreat >= 1 || oppThreat >= 1) {
-                    mustMap[r * SIZE + c] = true;
+                    mustMap[key] = true;
                 }
 
-                // Keep local tactical follow-ups near the most recent move.
-                if (whitelistEnabled &&
-                    r >= whitelistMinR && r <= whitelistMaxR &&
-                    c >= whitelistMinC && c <= whitelistMaxC) {
-                    mustMap[r * SIZE + c] = true;
+                if (isRoot && player === X) {
+                    selfFeat = threatFeaturesIfPlace(r, c, player);
+                    oppFeat = threatFeaturesIfPlace(r, c, opp);
+                    if (selfWin || selfFeat.win) threatClass[key] = 0;
+                    else if (oppWin || oppFeat.win) threatClass[key] = 1;
+                    else if (selfFeat.openFour || selfFeat.simpleFour) threatClass[key] = 2;
+                    else if (oppFeat.openFour || oppFeat.simpleFour) threatClass[key] = 3;
+                    else if (selfFeat.doubleOpenThree) threatClass[key] = 4;
+                    else if (oppFeat.doubleOpenThree || oppFeat.openThreeCount >= 1) threatClass[key] = 5;
                 }
                 priority -= Math.abs(r - center) + Math.abs(c - center);
                 moves.push([r, c, priority]);
@@ -350,9 +385,27 @@ function createEngine() {
                 var seen = {};
                 var i;
                 var key;
+                var forcedClass = -1;
+                if (isRoot && player === X) {
+                    for (i = 0; i < moves.length; i++) {
+                        key = moves[i][0] * SIZE + moves[i][1];
+                        if (!threatClass.hasOwnProperty(key)) continue;
+                        if (forcedClass < 0 || threatClass[key] < forcedClass) forcedClass = threatClass[key];
+                    }
+                    if (forcedClass >= 0) {
+                        for (i = 0; i < moves.length && kept.length < limit; i++) {
+                            key = moves[i][0] * SIZE + moves[i][1];
+                            if (!threatClass.hasOwnProperty(key) || threatClass[key] !== forcedClass) continue;
+                            kept.push(moves[i]);
+                            seen[key] = true;
+                        }
+                    }
+                }
                 for (i = 0; i < moves.length; i++) {
+                    if (kept.length >= limit) break;
                     key = moves[i][0] * SIZE + moves[i][1];
                     if (!mustMap[key]) continue;
+                    if (seen[key]) continue;
                     kept.push(moves[i]);
                     seen[key] = true;
                 }
@@ -467,7 +520,32 @@ function createEngine() {
 
     function chooseMoveFromScored(scored, clumsy) {
         if (!scored || !scored.length) return null;
+        function rootClassOfMove(m) {
+            var r = m[0];
+            var c = m[1];
+            var selfFeat = threatFeaturesIfPlace(r, c, X);
+            var oppFeat = threatFeaturesIfPlace(r, c, O);
+                if (isWinningMove(r, c, X) || selfFeat.win) return 0;
+                if (isWinningMove(r, c, O) || oppFeat.win) return 1;
+                if (selfFeat.openFour || selfFeat.simpleFour) return 2;
+                if (oppFeat.openFour || oppFeat.simpleFour) return 3;
+                if (selfFeat.doubleOpenThree) return 4;
+                if (oppFeat.doubleOpenThree || oppFeat.openThreeCount >= 1) return 5;
+                return 99;
+            }
+
         var chooseBad = Math.random() < (clumsy / 100);
+        var bestClass = rootClassOfMove(scored[0]);
+        if (bestClass <= 5) {
+            var sameClass = [];
+            var i;
+            for (i = 0; i < scored.length; i++) {
+                if (rootClassOfMove(scored[i]) === bestClass) sameClass.push(scored[i]);
+            }
+            if (!chooseBad || sameClass.length < 2) return [sameClass[0][0], sameClass[0][1]];
+            return [sameClass[1][0], sameClass[1][1]];
+        }
+
         if (!chooseBad || scored.length < 2) return [scored[0][0], scored[0][1]];
         return [scored[1][0], scored[1][1]];
     }
@@ -481,8 +559,7 @@ function createEngine() {
     function scoreRootMovesAtDepth(depth, hardDeadlineMs) {
         resetSearchState();
         searchDeadline = Date.now() + hardDeadlineMs;
-        searchRootAnchorMove = lastMove ? [lastMove[0], lastMove[1], lastMove[2]] : null;
-        configureWhitelistFromAnchor();
+        searchRootPly = history.length;
         var moves = generateCandidates(X, depth, null);
         var scored = [];
         var i;
@@ -532,8 +609,7 @@ function createEngine() {
 
     function startIterativeSession(targetDepth, softMs, hardMs) {
         var now = Date.now();
-        searchRootAnchorMove = lastMove ? [lastMove[0], lastMove[1], lastMove[2]] : null;
-        configureWhitelistFromAnchor();
+        searchRootPly = history.length;
         return {
             startMs: now,
             softDeadline: now + softMs,
@@ -674,11 +750,6 @@ function createEngine() {
         if (lastHumanMoveIn && lastHumanMoveIn.length === 3) {
             lastMove = [lastHumanMoveIn[0], lastHumanMoveIn[1], lastHumanMoveIn[2]];
             history = [lastMove];
-            searchRootAnchorMove = [lastMove[0], lastMove[1], lastMove[2]];
-            configureWhitelistFromAnchor();
-        } else {
-            searchRootAnchorMove = null;
-            configureWhitelistFromAnchor();
         }
     }
 
