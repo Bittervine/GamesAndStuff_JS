@@ -10,3 +10,7 @@
 - This is developed on a slow/old computer. Give all powershell commands etc 5 times a long timeout as normal.
 - This project contains many separate minor project. Only work in the sub-directory indicated (one at a time). Exception for when updating GamesAndStuff_JS.html.
 - When I ask you to remove a file from the repo, that may still mean that I want to keep the file as a non-revisioned local copy. Ask me if it is unclear what to do.
+
+- Python is usually here: c:\Portable\WinPython\python\python.exe
+- NodeJs is usually here: c:\Portable\NodeJS\node.exe
+- Playwright is usually here: c:\Portable\Playwright
