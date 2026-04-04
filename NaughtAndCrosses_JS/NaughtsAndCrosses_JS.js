@@ -508,9 +508,9 @@ function createEngine(opts) {
         moves.sort(function (a, b) { return b[2] - a[2]; });
         prioritizeTTMove(moves, ttMove);
         if (applyLimit) {
-            if (depthLeft >= 4) limit = 10;
-            else if (depthLeft === 3) limit = 12;
-            else limit = 16;
+            if (depthLeft >= 4) limit = 14;
+            else if (depthLeft === 3) limit = 18;
+            else limit = 24;
             if (moves.length > limit) {
                 var kept = [];
                 var seen = {};
