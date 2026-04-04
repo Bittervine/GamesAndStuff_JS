@@ -285,7 +285,7 @@
             function setPreviewMove(m, forceDraw){
                 previewMove = m ? [m[0], m[1]] : null;
                 var now = Date.now();
-                if (forceDraw || (now - previewDrawAt) >= 100) {
+                if (forceDraw || (now - previewDrawAt) >= 200) {
                     previewDrawAt = now;
                     draw();
                 }
@@ -442,7 +442,7 @@
                         externalEngine.loadFromBoardState(board, lastHumanMove);
                         extSession = externalEngine.startIterativeSession(extDepth, SOFT_DEADLINE_MS, HARD_DEADLINE_MS, extClumsy);
                     }
-                    var stepped = externalEngine.stepIterativeSession(extSession, 10);
+                    var stepped = externalEngine.stepIterativeSession(extSession, 1);
                     extSession = stepped ? stepped.session : extSession;
                     var reachedDepth = extSession && extSession.reachedDepth ? extSession.reachedDepth : 1;
                     showThinkingInfo(extSession ? extSession.depth : reachedDepth, extStartMs);
@@ -656,6 +656,3 @@
         </script>
     </body>
 </html>
-
-
-
