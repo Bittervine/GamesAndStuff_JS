@@ -236,6 +236,15 @@
             box-shadow: inset 0 2px 0 rgba(255,255,255,0.65), inset 0 -2px 0 rgba(17,24,39,0.12), 0 1px 0 #4b5563;
         }
 
+        body.largeGui #topBar,
+        body.largeGui #bottomBar,
+        body.largeGui #menuPanel,
+        body.largeGui #midCols,
+        body.largeGui #messageSheet,
+        body.largeGui #spellTooltip {
+            zoom: 2;
+        }
+
         .miniBtn {
             min-height: 0;
             margin: 0 0 4px;
@@ -1487,6 +1496,10 @@
                 <input type="checkbox" id="colorMode" checked="checked">
                 Color
             </label>
+            <label class="sysToggle" for="largeGui">
+                <input type="checkbox" id="largeGui">
+                Larger
+            </label>
         </div>
 
         <div id="midGrid">
@@ -1977,6 +1990,7 @@ var BITMAP_GLYPH_INDEX = {
     var nukeBtn = document.getElementById('nukeBtn');
     var spellTooltip = document.getElementById('spellTooltip');
     var colorModeEl = document.getElementById('colorMode');
+    var largeGuiEl = document.getElementById('largeGui');
 
     var state = {
         map: [],
@@ -2000,6 +2014,7 @@ var BITMAP_GLYPH_INDEX = {
         gameOver: false,
         victory: false,
         colorMode: true,
+        largeGui: true,
         messages: [],
         effects: [],
         effectTimer: 0,
@@ -2105,7 +2120,9 @@ var BITMAP_GLYPH_INDEX = {
     }
 
     var STORAGE = {
-        save: 'rogue_single_save'
+        save: 'rogue_single_save',
+        colorMode: 'rogue_color_mode',
+        largeGui: 'rogue_large_gui'
     };
 
     var audioCtx = null;
@@ -2124,6 +2141,17 @@ var BITMAP_GLYPH_INDEX = {
             return true;
         } catch (err) {
             return false;
+        }
+    }
+
+    function loadUiPrefs() {
+        var color = safeStorageGet(STORAGE.colorMode);
+        var large = safeStorageGet(STORAGE.largeGui);
+        if (color === '0' || color === '1') {
+            state.colorMode = color === '1';
+        }
+        if (large === '0' || large === '1') {
+            state.largeGui = large === '1';
         }
     }
 
@@ -2904,7 +2932,7 @@ var BITMAP_GLYPH_INDEX = {
 
     function syncUiGlyphs() {
         if (document.body) {
-            document.body.className = state.colorMode ? 'colorMode' : 'monoMode';
+            document.body.className = (state.colorMode ? 'colorMode' : 'monoMode') + (state.largeGui ? ' largeGui' : '');
         }
         if (hpGlyph) {
             hpGlyph.innerHTML = USE_FONT_GLYPHS ? activeGlyph(ICON.heart) : glyphBitmapHtml(ICON.heart, 'hudGlyphBitmap', '#111111');
@@ -7095,6 +7123,7 @@ var BITMAP_GLYPH_INDEX = {
                 gameOver: state.gameOver,
                 victory: state.victory,
                 colorMode: state.colorMode,
+                largeGui: state.largeGui,
                 messages: state.messages,
                 status: state.status,
                 turn: state.turn,
@@ -7186,6 +7215,7 @@ var BITMAP_GLYPH_INDEX = {
         state.gameOver = !!data.gameOver;
         state.victory = !!data.victory;
         state.colorMode = data.colorMode !== false;
+        state.largeGui = !!data.largeGui;
         state.messages = data.messages || [];
         state.effects = [];
         state.effectTimer = 0;
@@ -7209,6 +7239,9 @@ var BITMAP_GLYPH_INDEX = {
         rebuildStaticLighting();
         if (colorModeEl) {
             colorModeEl.checked = !!state.colorMode;
+        }
+        if (largeGuiEl) {
+            largeGuiEl.checked = !!state.largeGui;
         }
         clearGlyphSpriteCache();
         refreshTargetSelection();
@@ -9230,12 +9263,22 @@ var BITMAP_GLYPH_INDEX = {
     if (colorModeEl) {
         colorModeEl.onclick = function () {
             state.colorMode = !!colorModeEl.checked;
+            safeStorageSet(STORAGE.colorMode, state.colorMode ? '1' : '0');
             if (!state.colorMode) {
                 state.effects = [];
                 clearEffectTimer();
             }
             clearGlyphSpriteCache();
             draw();
+        };
+    }
+
+    if (largeGuiEl) {
+        largeGuiEl.checked = !!state.largeGui;
+        largeGuiEl.onclick = function () {
+            state.largeGui = !!largeGuiEl.checked;
+            safeStorageSet(STORAGE.largeGui, state.largeGui ? '1' : '0');
+            syncLayout();
         };
     }
 
@@ -9280,6 +9323,7 @@ var BITMAP_GLYPH_INDEX = {
         window.onresize = syncLayout;
     }
 
+    loadUiPrefs();
     generateWorld(0);
     syncLayout();
     setTimeout(draw, 120);
