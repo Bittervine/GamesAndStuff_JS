@@ -749,6 +749,203 @@
             draw();
         }
 
+        function bindBoardGestures() {
+            var drag = {
+                active: false,
+                startX: 0,
+                startY: 0,
+                lastX: 0,
+                lastY: 0,
+                startMs: 0,
+                lastMoveMs: 0,
+                lastMoveX: 0,
+                lastMoveY: 0,
+                moved: false
+            };
+
+            function pointFromTouchEvent(e, useChanged) {
+                var list = useChanged ? e.changedTouches : e.touches;
+                if (!list || !list.length) return null;
+                return list[0];
+            }
+
+            function boardPoint(clientX, clientY) {
+                var rect = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null;
+                var width = rect ? rect.width : canvas.width;
+                var height = rect ? rect.height : canvas.height;
+                var x;
+                var y;
+                if (!rect) return null;
+                x = clientX - rect.left;
+                y = clientY - rect.top;
+                if (x < 0) x = 0;
+                if (x > width) x = width;
+                if (y < 0) y = 0;
+                if (y > height) y = height;
+                return {
+                    x: x,
+                    y: y,
+                    width: width,
+                    height: height
+                };
+            }
+
+            function handleStart(clientX, clientY) {
+                var nowMs;
+                var p = boardPoint(clientX, clientY);
+                if (!p) return;
+                nowMs = Date.now ? Date.now() : (new Date()).getTime();
+                drag.active = true;
+                drag.startX = p.x;
+                drag.startY = p.y;
+                drag.lastX = p.x;
+                drag.lastY = p.y;
+                drag.startMs = nowMs;
+                drag.lastMoveMs = nowMs;
+                drag.lastMoveX = p.x;
+                drag.lastMoveY = p.y;
+                drag.moved = false;
+            }
+
+            function handleMove(clientX, clientY) {
+                var p;
+                var cellPx;
+                var dx;
+                var dy;
+                var step;
+                var droppedByDrag = 0;
+                var nowMs;
+                if (!drag.active || !state.running || state.paused || state.gameOver) return;
+                p = boardPoint(clientX, clientY);
+                if (!p) return;
+                nowMs = Date.now ? Date.now() : (new Date()).getTime();
+                cellPx = p.width / COLS;
+                if (cellPx < 6) cellPx = 6;
+                dx = p.x - drag.lastX;
+                dy = p.y - drag.lastY;
+                step = 0;
+                while (dx >= cellPx) {
+                    step++;
+                    dx -= cellPx;
+                }
+                while (dx <= -cellPx) {
+                    step--;
+                    dx += cellPx;
+                }
+                while (step > 0) {
+                    move(1);
+                    drag.lastX += cellPx;
+                    drag.moved = true;
+                    step--;
+                }
+                while (step < 0) {
+                    move(-1);
+                    drag.lastX -= cellPx;
+                    drag.moved = true;
+                    step++;
+                }
+                // Downward drag performs repeated soft drops. Upward drag is ignored.
+                while (dy >= cellPx) {
+                    if (collides(state.current, state.current.x, state.current.y + 1)) break;
+                    if (!softDrop()) break;
+                    drag.lastY += cellPx;
+                    drag.moved = true;
+                    droppedByDrag++;
+                    dy -= cellPx;
+                }
+                if (droppedByDrag > 0) scheduleTick();
+                drag.lastMoveMs = nowMs;
+                drag.lastMoveX = p.x;
+                drag.lastMoveY = p.y;
+                draw();
+            }
+
+            function handleEnd(clientX, clientY) {
+                var p;
+                var cellPx;
+                var totalDx;
+                var totalDy;
+                var nowMs;
+                var stillMs;
+                var stillDx;
+                var stillDy;
+                if (!drag.active) return;
+                drag.active = false;
+                p = boardPoint(clientX, clientY);
+                if (!p) return;
+                cellPx = p.width / COLS;
+                if (cellPx < 6) cellPx = 6;
+                totalDx = p.x - drag.startX;
+                totalDy = p.y - drag.startY;
+                nowMs = Date.now ? Date.now() : (new Date()).getTime();
+                stillMs = nowMs - drag.lastMoveMs;
+                stillDx = Math.abs(p.x - drag.lastMoveX);
+                stillDy = Math.abs(p.y - drag.lastMoveY);
+
+                // Quick downward release is a swipe-to-drop unless pointer was held mostly still for >= 200 ms.
+                if (!(stillMs >= 200 && stillDx < cellPx * 0.5 && stillDy < cellPx * 0.5) &&
+                    totalDy > cellPx * 1.2 && totalDy > Math.abs(totalDx)) {
+                    hardDrop();
+                    draw();
+                    return;
+                }
+
+                if (!drag.moved && Math.abs(totalDx) < cellPx * 0.5 && Math.abs(totalDy) < cellPx * 0.5) {
+                    rotate();
+                    draw();
+                }
+            }
+
+            if (!canvas || !canvas.addEventListener) return;
+
+            canvas.addEventListener('mousedown', function (e) {
+                handleStart(e.clientX, e.clientY);
+                if (e && e.preventDefault) e.preventDefault();
+            }, false);
+
+            canvas.addEventListener('mousemove', function (e) {
+                handleMove(e.clientX, e.clientY);
+                if (drag.active && e && e.preventDefault) e.preventDefault();
+            }, false);
+
+            if (document.addEventListener) {
+                document.addEventListener('mouseup', function (e) {
+                    handleEnd(e.clientX, e.clientY);
+                }, false);
+            } else {
+                document.onmouseup = function (e) {
+                    e = e || window.event;
+                    if (!e) return;
+                    handleEnd(e.clientX, e.clientY);
+                };
+            }
+
+            canvas.addEventListener('touchstart', function (e) {
+                var t = pointFromTouchEvent(e, false);
+                if (!t) return;
+                handleStart(t.clientX, t.clientY);
+                if (e && e.preventDefault) e.preventDefault();
+            }, false);
+
+            canvas.addEventListener('touchmove', function (e) {
+                var t = pointFromTouchEvent(e, false);
+                if (!t) return;
+                handleMove(t.clientX, t.clientY);
+                if (e && e.preventDefault) e.preventDefault();
+            }, false);
+
+            canvas.addEventListener('touchend', function (e) {
+                var t = pointFromTouchEvent(e, true);
+                if (!t) return;
+                handleEnd(t.clientX, t.clientY);
+                if (e && e.preventDefault) e.preventDefault();
+            }, false);
+
+            canvas.addEventListener('touchcancel', function () {
+                drag.active = false;
+            }, false);
+        }
+
         bindPress(startBtn, startGame);
         bindPress(pauseBtn, togglePause);
         bindPress(resetBtn, resetGame);
@@ -757,6 +954,7 @@
         bindPress(rotBtn, function () { rotate(); draw(); });
         bindPress(downBtn, function () { softDrop(); draw(); });
         bindPress(dropBtn, function () { hardDrop(); draw(); });
+        bindBoardGestures();
 
         if (document.addEventListener) {
             document.addEventListener('keydown', onKey, false);
@@ -778,7 +976,6 @@
     </script>
 </body>
 </html>
-
 
 
 
