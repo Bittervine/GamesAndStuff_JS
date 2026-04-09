@@ -45,7 +45,7 @@
 
         #controlPanel {
             position: absolute;
-            top: 0;
+            top: 17%;
             left: 0;
             width: 100%;
             height: 18%;
@@ -61,7 +61,7 @@
 
         #nextPanel {
             position: absolute;
-            top: 20%;
+            top: 0;
             left: 0;
             width: 100%;
             height: 15%;
@@ -228,38 +228,40 @@
             image-rendering: pixelated;
         }
 
-        #compactWrap {
-            margin-top: 4px;
-            font-family: "Trebuchet MS", Verdana, sans-serif;
-            font-size: 10px;
-            font-weight: bold;
-            letter-spacing: 0.8px;
-            text-transform: uppercase;
-            line-height: 1.1;
-            text-align: left;
+        .compactBtn {
+            background: #bfdbfe;
         }
 
-        #compactWrap input {
-            vertical-align: middle;
-            margin-right: 3px;
-        }
-
-        .compactMode #rightStack {
-            display: none;
+        .compactBtn.isOn {
+            background: #60a5fa;
+            color: #ffffff;
+            text-shadow: 0 1px 0 #1e3a8a;
         }
 
         .compactMode #leftStack {
+            display: none;
+        }
+
+        .compactMode #rightStack {
             width: 20%;
         }
 
         .compactMode #boardWrap {
             width: 76%;
-            margin-right: 0;
+            margin: 0 2% 0 0;
         }
 
         .compactMode #controlPanel {
-            top: 36%;
+            top: 37%;
             min-height: 70px;
+        }
+
+        .compactMode #hud {
+            top: 0;
+        }
+
+        .compactMode #nextPanel {
+            top: 20%;
         }
 
         .compactMode #dropBtn {
@@ -279,6 +281,11 @@
     <div id="wrap">
         <div id="cabinet">
             <div id="leftStack" class="controlStack">
+                <div id="nextPanel">
+                    <span id="nextLabel">Next</span>
+                    <canvas id="nextCanvas" width="72" height="52"></canvas>
+                </div>
+
                 <div id="hud">
                     <span class="hudLabel">Score</span> <span id="score">0</span>
                     <br>
@@ -287,11 +294,6 @@
                     <span class="hudLabel">Level</span> <span id="level">1</span>
                     <br>
                     <span class="hudLabel">State</span> <span id="status">Ready</span>
-                </div>
-
-                <div id="nextPanel">
-                    <span id="nextLabel">Next</span>
-                    <canvas id="nextCanvas" width="72" height="52"></canvas>
                 </div>
 
                 <button type="button" id="rotBtn" class="towerBtn rotBtn">
@@ -310,7 +312,7 @@
                 <div id="controlPanel">
                     <button type="button" id="restartBtn" class="miniBtn restartBtn">Restart</button>
                     <button type="button" id="pauseBtn" class="miniBtn pauseBtn">Pause</button>
-                    <label id="compactWrap"><input type="checkbox" id="compactChk"> Compact</label>
+                    <button type="button" id="compactBtn" class="miniBtn compactBtn">Compact</button>
                 </div>
 
                 <button type="button" id="dropBtn" class="towerBtn dropBtn">
@@ -362,6 +364,8 @@
         var linesEl = document.getElementById('lines');
         var levelEl = document.getElementById('level');
         var statusEl = document.getElementById('status');
+        var hudPanel = document.getElementById('hud');
+        var nextPanel = document.getElementById('nextPanel');
         var nextCanvas = document.getElementById('nextCanvas');
         var nextCtx = (nextCanvas && nextCanvas.getContext) ? nextCanvas.getContext('2d') : null;
         var wrapEl = document.getElementById('wrap');
@@ -372,7 +376,7 @@
 
         var restartBtn = document.getElementById('restartBtn');
         var pauseBtn = document.getElementById('pauseBtn');
-        var compactChk = document.getElementById('compactChk');
+        var compactBtn = document.getElementById('compactBtn');
         var leftBtn = document.getElementById('leftBtn');
         var rightBtn = document.getElementById('rightBtn');
         var rotBtn = document.getElementById('rotBtn');
@@ -611,15 +615,24 @@
         }
 
         function setCompactMode(enabled) {
-            if (!leftStack || !rightStack || !controlPanel || !dropBtn || !cabinetEl || !wrapEl) return;
+            if (!leftStack || !rightStack || !controlPanel || !dropBtn || !hudPanel || !nextPanel || !rotBtn || !cabinetEl || !wrapEl) return;
             if (enabled) {
-                if (leftStack.appendChild) leftStack.appendChild(controlPanel);
-                if (leftStack.appendChild) leftStack.appendChild(dropBtn);
+                if (rightStack.appendChild) rightStack.appendChild(hudPanel);
+                if (rightStack.appendChild) rightStack.appendChild(nextPanel);
+                if (rightStack.appendChild) rightStack.appendChild(controlPanel);
+                if (rightStack.appendChild) rightStack.appendChild(rotBtn);
+                if (rightStack.appendChild) rightStack.appendChild(dropBtn);
                 if (wrapEl.className.indexOf('compactMode') < 0) wrapEl.className += (wrapEl.className ? ' ' : '') + 'compactMode';
             } else {
+                if (leftStack.appendChild) leftStack.appendChild(hudPanel);
+                if (rightStack.appendChild) rightStack.appendChild(nextPanel);
                 if (rightStack.appendChild) rightStack.appendChild(controlPanel);
+                if (leftStack.appendChild) leftStack.appendChild(rotBtn);
                 if (rightStack.appendChild) rightStack.appendChild(dropBtn);
                 wrapEl.className = wrapEl.className.replace(/\bcompactMode\b/g, '').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+            }
+            if (compactBtn) {
+                compactBtn.className = enabled ? 'miniBtn compactBtn isOn' : 'miniBtn compactBtn';
             }
             syncLayout();
             draw();
@@ -1027,13 +1040,15 @@
         bindPress(dropBtn, function () { hardDrop(); draw(); });
         bindBoardGestures();
 
-        if (compactChk) {
-            compactChk.onclick = function () {
-                setCompactMode(!!compactChk.checked);
+        if (compactBtn) {
+            compactBtn.onclick = function () {
+                var on = wrapEl && wrapEl.className && wrapEl.className.indexOf('compactMode') >= 0;
+                setCompactMode(!on);
             };
-            compactChk.ontouchstart = function () {
-                compactChk.checked = !compactChk.checked;
-                setCompactMode(!!compactChk.checked);
+            compactBtn.ontouchstart = function (e) {
+                var on = wrapEl && wrapEl.className && wrapEl.className.indexOf('compactMode') >= 0;
+                if (e && e.preventDefault) e.preventDefault();
+                setCompactMode(!on);
                 return false;
             };
         }
