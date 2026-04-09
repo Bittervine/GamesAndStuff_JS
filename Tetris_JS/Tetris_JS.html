@@ -43,7 +43,7 @@
             box-sizing: border-box;
         }
 
-        #miniPanel {
+        #controlPanel {
             position: absolute;
             top: 0;
             left: 0;
@@ -51,11 +51,11 @@
             height: 18%;
             min-height: 82px;
             padding: 4px 5px 4px;
-            border: 1px solid #111827;
-            border-radius: 10px;
-            background: #ffffff;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
             text-align: left;
-            box-shadow: inset 0 1px 0 #ffffff, 0 2px 0 #9ca3af;
+            box-shadow: none;
             box-sizing: border-box;
         }
 
@@ -178,7 +178,7 @@
             background: #fde68a;
         }
 
-        .resetBtn {
+        .restartBtn {
             background: #fca5a5;
             margin-bottom: 0;
         }
@@ -227,6 +227,52 @@
             background: #f8fafc;
             image-rendering: pixelated;
         }
+
+        #compactWrap {
+            margin-top: 4px;
+            font-family: "Trebuchet MS", Verdana, sans-serif;
+            font-size: 10px;
+            font-weight: bold;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            line-height: 1.1;
+            text-align: left;
+        }
+
+        #compactWrap input {
+            vertical-align: middle;
+            margin-right: 3px;
+        }
+
+        .compactMode #rightStack {
+            display: none;
+        }
+
+        .compactMode #leftStack {
+            width: 20%;
+        }
+
+        .compactMode #boardWrap {
+            width: 76%;
+            margin-right: 0;
+        }
+
+        .compactMode #controlPanel {
+            top: 36%;
+            min-height: 70px;
+        }
+
+        .compactMode #dropBtn {
+            bottom: 0;
+            height: 26%;
+            padding: 14px 3px;
+            border-radius: 24px;
+        }
+
+        .compactMode #leftBtn,
+        .compactMode #rightBtn {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -261,10 +307,10 @@
             </div>
 
             <div id="rightStack" class="controlStack">
-                <div id="miniPanel">
-                    <button type="button" id="startBtn" class="miniBtn startBtn">Start</button>
+                <div id="controlPanel">
+                    <button type="button" id="restartBtn" class="miniBtn restartBtn">Restart</button>
                     <button type="button" id="pauseBtn" class="miniBtn pauseBtn">Pause</button>
-                    <button type="button" id="resetBtn" class="miniBtn resetBtn">Reset</button>
+                    <label id="compactWrap"><input type="checkbox" id="compactChk"> Compact</label>
                 </div>
 
                 <button type="button" id="dropBtn" class="towerBtn dropBtn">
@@ -319,12 +365,14 @@
         var nextCanvas = document.getElementById('nextCanvas');
         var nextCtx = (nextCanvas && nextCanvas.getContext) ? nextCanvas.getContext('2d') : null;
         var wrapEl = document.getElementById('wrap');
+        var cabinetEl = document.getElementById('cabinet');
         var leftStack = document.getElementById('leftStack');
         var rightStack = document.getElementById('rightStack');
+        var controlPanel = document.getElementById('controlPanel');
 
-        var startBtn = document.getElementById('startBtn');
+        var restartBtn = document.getElementById('restartBtn');
         var pauseBtn = document.getElementById('pauseBtn');
-        var resetBtn = document.getElementById('resetBtn');
+        var compactChk = document.getElementById('compactChk');
         var leftBtn = document.getElementById('leftBtn');
         var rightBtn = document.getElementById('rightBtn');
         var rotBtn = document.getElementById('rotBtn');
@@ -541,21 +589,45 @@
         function syncLayout() {
             var vw;
             var vh;
-            var maxByWidth;
-            var maxByHeight;
+            var boardFraction;
+            var maxWrapByWidth;
+            var maxBoardHeight;
+            var maxWrapByHeight;
             var w;
             var h;
             if (!canvas || !wrapEl) return;
             vw = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth || 600;
             vh = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight || 800;
-            maxByWidth = vw - 8;
-            maxByHeight = Math.floor((vh - 8) / 1.2);
-            w = Math.min(maxByWidth, maxByHeight);
+            boardFraction = (wrapEl.className.indexOf('compactMode') >= 0) ? 0.76 : 0.60;
+            maxWrapByWidth = vw - 8;
+            maxBoardHeight = vh - 8;
+            maxWrapByHeight = Math.floor(maxBoardHeight / (boardFraction * 2));
+            w = Math.min(maxWrapByWidth, maxWrapByHeight);
             if (w < 120) w = 120;
             wrapEl.style.width = w + 'px';
             h = canvas.offsetHeight || 400;
             if (leftStack) leftStack.style.height = h + 'px';
             if (rightStack) rightStack.style.height = h + 'px';
+        }
+
+        function setCompactMode(enabled) {
+            if (!leftStack || !rightStack || !controlPanel || !dropBtn || !cabinetEl || !wrapEl) return;
+            if (enabled) {
+                if (leftStack.appendChild) leftStack.appendChild(controlPanel);
+                if (leftStack.appendChild) leftStack.appendChild(dropBtn);
+                if (wrapEl.className.indexOf('compactMode') < 0) wrapEl.className += (wrapEl.className ? ' ' : '') + 'compactMode';
+            } else {
+                if (rightStack.appendChild) rightStack.appendChild(controlPanel);
+                if (rightStack.appendChild) rightStack.appendChild(dropBtn);
+                wrapEl.className = wrapEl.className.replace(/\bcompactMode\b/g, '').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '');
+            }
+            syncLayout();
+            draw();
+        }
+
+        function restartGame() {
+            resetGame();
+            startGame();
         }
 
         function drawNext() {
@@ -946,15 +1018,25 @@
             }, false);
         }
 
-        bindPress(startBtn, startGame);
+        bindPress(restartBtn, restartGame);
         bindPress(pauseBtn, togglePause);
-        bindPress(resetBtn, resetGame);
         bindPress(leftBtn, function () { move(-1); draw(); });
         bindPress(rightBtn, function () { move(1); draw(); });
         bindPress(rotBtn, function () { rotate(); draw(); });
         bindPress(downBtn, function () { softDrop(); draw(); });
         bindPress(dropBtn, function () { hardDrop(); draw(); });
         bindBoardGestures();
+
+        if (compactChk) {
+            compactChk.onclick = function () {
+                setCompactMode(!!compactChk.checked);
+            };
+            compactChk.ontouchstart = function () {
+                compactChk.checked = !compactChk.checked;
+                setCompactMode(!!compactChk.checked);
+                return false;
+            };
+        }
 
         if (document.addEventListener) {
             document.addEventListener('keydown', onKey, false);
@@ -971,11 +1053,9 @@
         }
 
         resetGame();
+        setCompactMode(false);
         startGame();
     }());
     </script>
 </body>
 </html>
-
-
-
