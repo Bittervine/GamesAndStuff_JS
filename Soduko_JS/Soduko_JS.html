@@ -178,6 +178,18 @@
       box-shadow: inset 0 0 0 2px #b91c1c;
     }
 
+    .cell.hl-elim-box {
+      background: #f7dbe6 !important;
+    }
+
+    .cell.hl-elim-col {
+      background: #f9e4ec !important;
+    }
+
+    .cell.hl-elim-row {
+      background: #f7d0dd !important;
+    }
+
     .cell.impossible {
       position: relative;
       background: #f9d9d9 !important;
@@ -227,9 +239,9 @@
     }
 
     #hint {
-      font-size: 0.85rem;
-      min-height: calc(1.35em * 6);
-      line-height: 1.35;
+      font-size: 0.75rem;
+      min-height: calc(1.3em * 12);
+      line-height: 1.3;
       overflow-y: auto;
       padding-right: 4px;
     }
@@ -513,6 +525,476 @@
       }
 
       return blockers;
+    }
+
+    function getConstraintFlags(grid, row, col, value) {
+      let rowBlocked = false;
+      let colBlocked = false;
+      let boxBlocked = false;
+
+      for (let i = 0; i < SIZE; i++) {
+        if (grid[row][i] === value) {
+          rowBlocked = true;
+        }
+        if (grid[i][col] === value) {
+          colBlocked = true;
+        }
+      }
+
+      const br = getBoxStart(row);
+      const bc = getBoxStart(col);
+      for (let r = br; r < br + BOX; r++) {
+        for (let c = bc; c < bc + BOX; c++) {
+          if (grid[r][c] === value) {
+            boxBlocked = true;
+          }
+        }
+      }
+
+      return { rowBlocked, colBlocked, boxBlocked };
+    }
+
+    function formatConstraintReasonList(reasons) {
+      if (!reasons.length) {
+        return "the row, column, or 3x3 box";
+      }
+      if (reasons.length === 1) {
+        return "the " + reasons[0];
+      }
+      if (reasons.length === 2) {
+        return "the " + reasons[0] + " and " + reasons[1];
+      }
+      return "the " + reasons[0] + ", " + reasons[1] + ", and " + reasons[2];
+    }
+
+    function pickSingleBlocker(grid, row, col, value) {
+      for (let c = 0; c < SIZE; c++) {
+        if (grid[row][c] === value) {
+          return { row, col: c };
+        }
+      }
+      for (let r = 0; r < SIZE; r++) {
+        if (grid[r][col] === value) {
+          return { row: r, col };
+        }
+      }
+      const br = getBoxStart(row);
+      const bc = getBoxStart(col);
+      for (let r = br; r < br + BOX; r++) {
+        for (let c = bc; c < bc + BOX; c++) {
+          if (grid[r][c] === value) {
+            return { row: r, col: c };
+          }
+        }
+      }
+      return null;
+    }
+
+    function uniqueCells(cells) {
+      const seen = new Set();
+      const out = [];
+      for (const cell of cells) {
+        const k = keyOf(cell.row, cell.col);
+        if (!seen.has(k)) {
+          seen.add(k);
+          out.push(cell);
+        }
+      }
+      return out;
+    }
+
+    function listCells(cells) {
+      return cells.map((cell) => formatCell(cell.row, cell.col)).join(", ");
+    }
+
+    function boxLabel(br, bc) {
+      const rowName = ["top", "middle", "bottom"][Math.floor(br / BOX)];
+      const colName = ["left", "center", "right"][Math.floor(bc / BOX)];
+      return rowName + "-" + colName + " 3x3 box";
+    }
+
+    function shareBox(a, b) {
+      return getBoxStart(a.row) === getBoxStart(b.row) && getBoxStart(a.col) === getBoxStart(b.col);
+    }
+
+    function relationLabels(blocker, cell) {
+      const labels = [];
+      if (blocker.row === cell.row) {
+        labels.push("row");
+      }
+      if (blocker.col === cell.col) {
+        labels.push("column");
+      }
+      if (shareBox(blocker, cell)) {
+        labels.push("3x3 box");
+      }
+      return labels;
+    }
+
+    function findExactMinimumCoverMasks(masks, universeMask) {
+      let best = null;
+      const candidatesByBit = Array.from({ length: 32 }, () => []);
+      for (let i = 0; i < masks.length; i++) {
+        const mask = masks[i];
+        for (let bit = 0; bit < 32; bit++) {
+          if (mask & (1 << bit)) {
+            candidatesByBit[bit].push(i);
+          }
+        }
+      }
+
+      function dfs(coveredMask, chosen) {
+        if (coveredMask === universeMask) {
+          if (!best || chosen.length < best.length) {
+            best = chosen.slice();
+          }
+          return;
+        }
+        if (best && chosen.length >= best.length) {
+          return;
+        }
+
+        let missingBit = -1;
+        let smallestOptions = Infinity;
+        for (let bit = 0; bit < 32; bit++) {
+          const bitMask = 1 << bit;
+          if ((universeMask & bitMask) && !(coveredMask & bitMask)) {
+            const options = candidatesByBit[bit];
+            if (!options.length) {
+              return;
+            }
+            if (options.length < smallestOptions) {
+              smallestOptions = options.length;
+              missingBit = bit;
+            }
+          }
+        }
+        if (missingBit === -1) {
+          return;
+        }
+
+        for (const idx of candidatesByBit[missingBit]) {
+          chosen.push(idx);
+          dfs(coveredMask | masks[idx], chosen);
+          chosen.pop();
+        }
+      }
+
+      dfs(0, []);
+      return best || [];
+    }
+
+    function minimizeShadingUnits(rejected, blockers) {
+      const unitCandidates = [];
+      const unitByKey = new Map();
+      const registerUnit = (type, idObj, cellIdx) => {
+        const key = type + ":" + JSON.stringify(idObj);
+        let entry = unitByKey.get(key);
+        if (!entry) {
+          entry = { type, idObj, key, mask: 0 };
+          unitByKey.set(key, entry);
+          unitCandidates.push(entry);
+        }
+        entry.mask |= (1 << cellIdx);
+      };
+
+      for (let i = 0; i < rejected.length; i++) {
+        const cell = rejected[i];
+        for (const blocker of blockers) {
+          if (blocker.row === cell.row) {
+            registerUnit("row", { row: cell.row }, i);
+          }
+          if (blocker.col === cell.col) {
+            registerUnit("col", { col: cell.col }, i);
+          }
+          if (shareBox(blocker, cell)) {
+            const br = getBoxStart(cell.row);
+            const bc = getBoxStart(cell.col);
+            registerUnit("box", { br, bc }, i);
+          }
+        }
+      }
+
+      const universeMask = (1 << rejected.length) - 1;
+      const chosenIdx = findExactMinimumCoverMasks(
+        unitCandidates.map((x) => x.mask),
+        universeMask
+      );
+      return chosenIdx.map((idx) => unitCandidates[idx]);
+    }
+
+    function buildMinimalPlanFromRejected(rejected, value) {
+      if (!rejected.length) {
+        return {
+          blockers: [],
+          shadedBoxes: [],
+          shadedCols: [],
+          shadedRows: [],
+          explanationParts: []
+        };
+      }
+
+      const blockerMap = new Map();
+      for (let i = 0; i < rejected.length; i++) {
+        const cell = rejected[i];
+        const localSeen = new Set();
+        for (const reason of cell.reasons) {
+          for (const blocker of reason.blockers) {
+            const k = keyOf(blocker.row, blocker.col);
+            if (localSeen.has(k)) {
+              continue;
+            }
+            localSeen.add(k);
+            if (!blockerMap.has(k)) {
+              blockerMap.set(k, { cell: blocker, mask: 0 });
+            }
+            blockerMap.get(k).mask |= (1 << i);
+          }
+        }
+      }
+
+      const candidates = Array.from(blockerMap.values()).filter((x) => x.mask !== 0);
+      if (!candidates.length) {
+        return {
+          blockers: [],
+          shadedBoxes: [],
+          shadedCols: [],
+          shadedRows: [],
+          explanationParts: []
+        };
+      }
+
+      const universeMask = (1 << rejected.length) - 1;
+      const chosenIdx = findExactMinimumCoverMasks(candidates.map((x) => x.mask), universeMask);
+      const chosen = chosenIdx.map((idx) => candidates[idx]);
+
+      const blockers = uniqueCells(chosen.map((item) => item.cell));
+      const selectedUnits = minimizeShadingUnits(rejected, blockers);
+
+      const shadedRows = [];
+      const shadedCols = [];
+      const shadedBoxes = [];
+      for (const unit of selectedUnits) {
+        if (unit.type === "row") {
+          shadedRows.push(unit.idObj.row);
+        } else if (unit.type === "col") {
+          shadedCols.push(unit.idObj.col);
+        } else if (unit.type === "box") {
+          shadedBoxes.push({ br: unit.idObj.br, bc: unit.idObj.bc });
+        }
+      }
+
+      const activeRows = new Set(shadedRows);
+      const activeCols = new Set(shadedCols);
+      const activeBoxes = new Set(shadedBoxes.map((b) => keyOf(b.br, b.bc)));
+      const explanationParts = [];
+
+      for (const blocker of blockers) {
+        const coveredCells = [];
+        const relationKinds = new Set();
+        for (let i = 0; i < rejected.length; i++) {
+          const cell = rejected[i];
+          let contributes = false;
+          if (blocker.row === cell.row && activeRows.has(cell.row)) {
+            relationKinds.add("row");
+            contributes = true;
+          }
+          if (blocker.col === cell.col && activeCols.has(cell.col)) {
+            relationKinds.add("column");
+            contributes = true;
+          }
+          if (shareBox(blocker, cell)) {
+            const bk = keyOf(getBoxStart(cell.row), getBoxStart(cell.col));
+            if (activeBoxes.has(bk)) {
+              relationKinds.add("3x3 box");
+              contributes = true;
+            }
+          }
+          if (contributes) {
+            coveredCells.push({ row: cell.row, col: cell.col });
+          }
+        }
+
+        if (!coveredCells.length) {
+          continue;
+        }
+
+        const relationText = formatConstraintReasonList(Array.from(relationKinds));
+        explanationParts.push(
+          "There is already a " +
+            value +
+            " at " +
+            formatCell(blocker.row, blocker.col) +
+            ", so it eliminates " +
+            listCells(uniqueCells(coveredCells)) +
+            " through " +
+            relationText +
+            "."
+        );
+      }
+
+      return {
+        blockers,
+        shadedBoxes,
+        shadedCols,
+        shadedRows,
+        explanationParts
+      };
+    }
+
+    function buildRowEliminationPlan(grid, row, targetCol, value) {
+      const rejected = [];
+      for (let col = 0; col < SIZE; col++) {
+        if (col === targetCol || grid[row][col] !== EMPTY) {
+          continue;
+        }
+
+        const reasons = [];
+        const rowBlockers = [];
+        for (let c = 0; c < SIZE; c++) {
+          if (grid[row][c] === value) {
+            rowBlockers.push({ row, col: c });
+          }
+        }
+        if (rowBlockers.length) {
+          reasons.push({ type: "row", key: "row:" + row, blockers: rowBlockers });
+        }
+
+        const colBlockers = [];
+        for (let r = 0; r < SIZE; r++) {
+          if (grid[r][col] === value) {
+            colBlockers.push({ row: r, col });
+          }
+        }
+        if (colBlockers.length) {
+          reasons.push({ type: "col", key: "col:" + col, blockers: colBlockers, col });
+        }
+
+        const br = getBoxStart(row);
+        const bc = getBoxStart(col);
+        const boxBlockers = [];
+        for (let r = br; r < br + BOX; r++) {
+          for (let c = bc; c < bc + BOX; c++) {
+            if (grid[r][c] === value) {
+              boxBlockers.push({ row: r, col: c });
+            }
+          }
+        }
+        if (boxBlockers.length) {
+          reasons.push({
+            type: "box",
+            key: "box:" + br + "," + bc,
+            blockers: boxBlockers,
+            br,
+            bc
+          });
+        }
+
+        rejected.push({ row, col, reasons });
+      }
+
+      return buildMinimalPlanFromRejected(rejected, value);
+    }
+
+    function buildColEliminationPlan(grid, col, targetRow, value) {
+      const rejected = [];
+      for (let row = 0; row < SIZE; row++) {
+        if (row === targetRow || grid[row][col] !== EMPTY) {
+          continue;
+        }
+
+        const reasons = [];
+        const rowBlockers = [];
+        for (let c = 0; c < SIZE; c++) {
+          if (grid[row][c] === value) {
+            rowBlockers.push({ row, col: c });
+          }
+        }
+        if (rowBlockers.length) {
+          reasons.push({ type: "row", key: "row:" + row, blockers: rowBlockers, row });
+        }
+
+        const colBlockers = [];
+        for (let r = 0; r < SIZE; r++) {
+          if (grid[r][col] === value) {
+            colBlockers.push({ row: r, col });
+          }
+        }
+        if (colBlockers.length) {
+          reasons.push({ type: "col", key: "col:" + col, blockers: colBlockers });
+        }
+
+        const br = getBoxStart(row);
+        const bc = getBoxStart(col);
+        const boxBlockers = [];
+        for (let r = br; r < br + BOX; r++) {
+          for (let c = bc; c < bc + BOX; c++) {
+            if (grid[r][c] === value) {
+              boxBlockers.push({ row: r, col: c });
+            }
+          }
+        }
+        if (boxBlockers.length) {
+          reasons.push({
+            type: "box",
+            key: "box:" + br + "," + bc,
+            blockers: boxBlockers,
+            br,
+            bc
+          });
+        }
+
+        rejected.push({ row, col, reasons });
+      }
+
+      return buildMinimalPlanFromRejected(rejected, value);
+    }
+
+    function buildBoxEliminationPlan(grid, br, bc, targetRow, targetCol, value) {
+      const rejected = [];
+      for (let row = br; row < br + BOX; row++) {
+        for (let col = bc; col < bc + BOX; col++) {
+          if ((row === targetRow && col === targetCol) || grid[row][col] !== EMPTY) {
+            continue;
+          }
+          const reasons = [];
+
+          const rowBlockers = [];
+          for (let c = 0; c < SIZE; c++) {
+            if (grid[row][c] === value) {
+              rowBlockers.push({ row, col: c });
+            }
+          }
+          if (rowBlockers.length) {
+            reasons.push({ type: "row", key: "row:" + row, blockers: rowBlockers, row });
+          }
+
+          const colBlockers = [];
+          for (let r = 0; r < SIZE; r++) {
+            if (grid[r][col] === value) {
+              colBlockers.push({ row: r, col });
+            }
+          }
+          if (colBlockers.length) {
+            reasons.push({ type: "col", key: "col:" + col, blockers: colBlockers, col });
+          }
+
+          const boxBlockers = [];
+          for (let r = br; r < br + BOX; r++) {
+            for (let c = bc; c < bc + BOX; c++) {
+              if (grid[r][c] === value) {
+                boxBlockers.push({ row: r, col: c });
+              }
+            }
+          }
+          if (boxBlockers.length) {
+            reasons.push({ type: "box", key: "box:" + br + "," + bc, blockers: boxBlockers, br, bc });
+          }
+          rejected.push({ row, col, reasons });
+        }
+      }
+
+      return buildMinimalPlanFromRejected(rejected, value);
     }
 
     function beep() {
@@ -880,19 +1362,36 @@
           if (candidates.length === 1) {
             const value = candidates[0];
             const blockers = [];
+            const reasonSet = new Set();
+            const blockerByKey = new Map();
             for (let d = 1; d <= 9; d++) {
               if (d === value) {
                 continue;
               }
-              blockers.push(...getBlockers(grid, r, c, d));
+              const flags = getConstraintFlags(grid, r, c, d);
+              if (flags.rowBlocked) {
+                reasonSet.add("row");
+              }
+              if (flags.colBlocked) {
+                reasonSet.add("column");
+              }
+              if (flags.boxBlocked) {
+                reasonSet.add("3x3 box");
+              }
+              const picked = pickSingleBlocker(grid, r, c, d);
+              if (picked) {
+                blockerByKey.set(keyOf(picked.row, picked.col), picked);
+              }
             }
+            blockers.push(...blockerByKey.values());
+            const reasonText = formatConstraintReasonList(Array.from(reasonSet));
             return {
               row: r,
               col: c,
               value,
               method: "Naked single",
               explanation:
-                "Step: naked single at " + formatCell(r, c) + ". Candidates in this cell are [" + formatDigits(candidates) + "], so only " + value + " can go here. Every other digit is blocked by the row, column, or 3x3 box.",
+                "Step: naked single at " + formatCell(r, c) + ". Candidates in this cell are [" + formatDigits(candidates) + "], so only " + value + " can go here. Every other digit is blocked by " + reasonText + ".",
               highlights: {
                 target: [{ row: r, col: c }],
                 unit: [],
@@ -909,7 +1408,6 @@
       for (let r = 0; r < SIZE; r++) {
         for (let n = 1; n <= SIZE; n++) {
           const possibleCols = [];
-          const blocked = [];
           for (let c = 0; c < SIZE; c++) {
             if (grid[r][c] !== EMPTY) {
               continue;
@@ -917,24 +1415,42 @@
             const candidates = getCandidates(grid, r, c);
             if (candidates.includes(n)) {
               possibleCols.push(c);
-            } else {
-              blocked.push(...getBlockers(grid, r, c, n));
             }
           }
           if (possibleCols.length === 1) {
             const c = possibleCols[0];
             const unit = Array.from({ length: SIZE }, (_, col) => ({ row: r, col }));
+            const plan = buildRowEliminationPlan(grid, r, c, n);
+            const becauseText = plan.explanationParts.length
+              ? " " + plan.explanationParts.join(" ")
+              : "";
             return {
               row: r,
               col: c,
               value: n,
               method: "Hidden single (row)",
               explanation:
-                "Step: hidden single in row " + (r + 1) + " for digit " + n + ". Scanning the row, only " + formatCell(r, c) + " can accept " + n + ". So we must place " + n + " there; every other empty row cell is blocked.",
+                "Step: hidden single in row " +
+                (r + 1) +
+                " for digit " +
+                n +
+                ". The " +
+                n +
+                " must be in " +
+                formatCell(r, c) +
+                " because every other empty cell in the row is eliminated." +
+                becauseText +
+                " So " +
+                formatCell(r, c) +
+                " is the only remaining place for " +
+                n +
+                ".",
               highlights: {
                 target: [{ row: r, col: c }],
                 unit,
-                blockers: blocked
+                blockers: plan.blockers,
+                shadedBoxes: plan.shadedBoxes,
+                shadedCols: plan.shadedCols
               }
             };
           }
@@ -947,7 +1463,6 @@
       for (let c = 0; c < SIZE; c++) {
         for (let n = 1; n <= SIZE; n++) {
           const possibleRows = [];
-          const blocked = [];
           for (let r = 0; r < SIZE; r++) {
             if (grid[r][c] !== EMPTY) {
               continue;
@@ -955,24 +1470,43 @@
             const candidates = getCandidates(grid, r, c);
             if (candidates.includes(n)) {
               possibleRows.push(r);
-            } else {
-              blocked.push(...getBlockers(grid, r, c, n));
             }
           }
           if (possibleRows.length === 1) {
             const r = possibleRows[0];
             const unit = Array.from({ length: SIZE }, (_, row) => ({ row, col: c }));
+            const plan = buildColEliminationPlan(grid, c, r, n);
+            const becauseText = plan.explanationParts.length
+              ? " " + plan.explanationParts.join(" ")
+              : "";
             return {
               row: r,
               col: c,
               value: n,
               method: "Hidden single (column)",
               explanation:
-                "Step: hidden single in column " + (c + 1) + " for digit " + n + ". Scanning the column, only " + formatCell(r, c) + " can accept " + n + ". So " + n + " is forced there; all other empty column cells are blocked.",
+                "Step: hidden single in column " +
+                (c + 1) +
+                " for digit " +
+                n +
+                ". The " +
+                n +
+                " must be in " +
+                formatCell(r, c) +
+                " because every other empty cell in the column is eliminated." +
+                becauseText +
+                " So " +
+                formatCell(r, c) +
+                " is the only remaining place for " +
+                n +
+                ".",
               highlights: {
                 target: [{ row: r, col: c }],
                 unit,
-                blockers: blocked
+                blockers: plan.blockers,
+                shadedBoxes: plan.shadedBoxes,
+                shadedCols: plan.shadedCols,
+                shadedRows: plan.shadedRows
               }
             };
           }
@@ -986,7 +1520,6 @@
         for (let bc = 0; bc < SIZE; bc += BOX) {
           for (let n = 1; n <= SIZE; n++) {
             const spots = [];
-            const blocked = [];
             for (let r = br; r < br + BOX; r++) {
               for (let c = bc; c < bc + BOX; c++) {
                 if (grid[r][c] !== EMPTY) {
@@ -995,8 +1528,6 @@
                 const candidates = getCandidates(grid, r, c);
                 if (candidates.includes(n)) {
                   spots.push({ row: r, col: c });
-                } else {
-                  blocked.push(...getBlockers(grid, r, c, n));
                 }
               }
             }
@@ -1008,17 +1539,38 @@
                   unit.push({ row: r, col: c });
                 }
               }
+              const plan = buildBoxEliminationPlan(grid, br, bc, target.row, target.col, n);
+              const becauseText = plan.explanationParts.length
+                ? " " + plan.explanationParts.join(" ")
+                : "";
               return {
                 row: target.row,
                 col: target.col,
                 value: n,
                 method: "Hidden single (box)",
                 explanation:
-                  "Step: hidden single in box (" + (Math.floor(br / 3) + 1) + "," + (Math.floor(bc / 3) + 1) + ") for digit " + n + ". Inside this 3x3 box, only " + formatCell(target.row, target.col) + " can accept " + n + ". So we place " + n + " there; all other empty box cells are blocked.",
+                  "Step: hidden single in the " +
+                  boxLabel(br, bc) +
+                  " for digit " +
+                  n +
+                  ". The " +
+                  n +
+                  " must be in " +
+                  formatCell(target.row, target.col) +
+                  " because every other empty cell in the box is eliminated." +
+                  becauseText +
+                  " So " +
+                  formatCell(target.row, target.col) +
+                  " is the only remaining place for " +
+                  n +
+                  ".",
                 highlights: {
                   target: [target],
                   unit,
-                  blockers: blocked
+                  blockers: plan.blockers,
+                  shadedBoxes: plan.shadedBoxes,
+                  shadedCols: plan.shadedCols,
+                  shadedRows: plan.shadedRows
                 }
               };
             }
@@ -1049,6 +1601,9 @@
       const targetSet = new Set((lastHighlights?.target || []).map((x) => keyOf(x.row, x.col)));
       const unitSet = new Set((lastHighlights?.unit || []).map((x) => keyOf(x.row, x.col)));
       const blockerSet = new Set((lastHighlights?.blockers || []).map((x) => keyOf(x.row, x.col)));
+      const shadedBoxSet = new Set((lastHighlights?.shadedBoxes || []).map((x) => keyOf(x.br, x.bc)));
+      const shadedColSet = new Set(lastHighlights?.shadedCols || []);
+      const shadedRowSet = new Set(lastHighlights?.shadedRows || []);
       const latestKey = lastSolverPlaced ? keyOf(lastSolverPlaced.row, lastSolverPlaced.col) : null;
       const impossibleKey = impossibleCell ? keyOf(impossibleCell.row, impossibleCell.col) : null;
       const guessKey = pendingGuessTarget ? keyOf(pendingGuessTarget.row, pendingGuessTarget.col) : null;
@@ -1077,6 +1632,16 @@
           }
 
           const k = keyOf(r, c);
+          const boxKey = keyOf(getBoxStart(r), getBoxStart(c));
+          if (shadedBoxSet.has(boxKey)) {
+            cell.classList.add("hl-elim-box");
+          }
+          if (shadedColSet.has(c)) {
+            cell.classList.add("hl-elim-col");
+          }
+          if (shadedRowSet.has(r)) {
+            cell.classList.add("hl-elim-row");
+          }
           if (unitSet.has(k)) {
             cell.classList.add("hl-unit");
           }
