@@ -1,0 +1,1188 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#1f2937">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Reversi JS">
+    <title>Reversi JS</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'FreeSerif', serif;
+        }
+
+        #controls {
+            font-size: 100%;
+        }
+
+        #controls button,
+        #controls input {
+            font-size: inherit;
+        }
+
+        #searchInfo {
+            margin-top: 0.2em;
+            line-height: 1.2;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="board" width="512" height="512" style="display:block;margin:8px 0"></canvas>
+
+    <div id="controls">
+        <button id="resetBtn">Reset</button>
+        <label>&nbsp;&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="3" min="1" max="9" style="width:1.6em"></label>
+        <label>&nbsp;&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="9" min="0" max="99" style="width:2.0em">&nbsp;%&nbsp;&nbsp;</label>
+        <label><input id="previewInput" type="checkbox"> Preview&nbsp;&nbsp;</label>
+        <button id="takebackBtn">Undo</button>
+        <span id="status"></span>
+        <div id="searchInfo">
+            <strong id="lastMoveLabel">Info:</strong> <span id="lastMoveInfo">Your move...</span>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        'use strict';
+
+        var AI_COLOR = 'b';
+        var SEARCH_INF = 10001;
+        var MATE_SCORE = 1001;
+        var DEADLINE_CHECK_INTERVAL = 128;
+        var BASE_SLICE_MS = 10;
+        var BASE_NODE_BUDGET = 224;
+        var KINDLE_BATCH_BOOST = 100;
+        var HARD_DEADLINE_MS = 30000;
+        var PARTIAL_DEPTH_USE_THRESHOLD = 0.5;
+        var DEFAULT_DEPTH_GROWTH = 2.6;
+        var MIN_DEPTH_GROWTH = 1.4;
+        var MAX_DEPTH_GROWTH = 4.5;
+
+        var STORAGE = {
+            depth: 'reversi_max_depth',
+            clumsy: 'reversi_clumsiness',
+            preview: 'reversi_preview_enabled',
+            kindleOverride: 'reversi_kindle_override'
+        };
+
+        var LIGHT_SQUARE = '#F0D9B5';
+        var DARK_SQUARE = '#B58863';
+        var MARK_COLOR = '#202020';
+        var PREVIEW_ALPHA = 0.35;
+
+        var POSITION_WEIGHT = [
+            [120, -20, 20, 5, 5, 20, -20, 120],
+            [-20, -40, -5, -5, -5, -5, -40, -20],
+            [20, -5, 15, 3, 3, 15, -5, 20],
+            [5, -5, 3, 3, 3, 3, -5, 5],
+            [5, -5, 3, 3, 3, 3, -5, 5],
+            [20, -5, 15, 3, 3, 15, -5, 20],
+            [-20, -40, -5, -5, -5, -5, -40, -20],
+            [120, -20, 20, 5, 5, 20, -20, 120]
+        ];
+
+        var DIRECTIONS = [
+            [-1, -1], [-1, 0], [-1, 1],
+            [0, -1],           [0, 1],
+            [1, -1],  [1, 0],  [1, 1]
+        ];
+
+        var boardCanvas = document.getElementById('board');
+        var ctx = boardCanvas.getContext ? boardCanvas.getContext('2d') : null;
+        var controls = document.getElementById('controls');
+        var statusEl = document.getElementById('status');
+        var depthInput = document.getElementById('depthInput');
+        var clumsyInput = document.getElementById('clumsyInput');
+        var previewInput = document.getElementById('previewInput');
+        var infoLabel = document.getElementById('lastMoveLabel');
+        var infoText = document.getElementById('lastMoveInfo');
+
+        var squareSize = 64;
+        var fontWatchHandle = null;
+
+        var userAgent = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+        var kindleAuto = /Kindle|Silk|KF[A-Z0-9]+|KFTT|KFMUWI|KFSUWI|KFDOWI|KFTHWI|KFTRWI/i.test(userAgent);
+        var kindleMode = kindleAuto;
+
+        var game = {
+            board: null,
+            selected: null,
+            turn: 'w',
+            gameOver: false,
+            history: [],
+            discDiff: 0,
+            previewMove: null,
+            previewDrawAt: 0,
+            renderBoardSnapshot: null
+        };
+
+        var engine = {
+            thinking: false,
+            timerId: null,
+            session: null
+        };
+
+        function clampNum(v, lo, hi) {
+            if (v < lo) return lo;
+            if (v > hi) return hi;
+            return v;
+        }
+
+        function safeStorageGet(key) {
+            try {
+                return localStorage.getItem(key);
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function safeStorageSet(key, value) {
+            try {
+                localStorage.setItem(key, value);
+            } catch (err) {
+                // Ignore blocked storage in restricted environments.
+            }
+        }
+
+        function configureKindleMode() {
+            try {
+                var query = (typeof location !== 'undefined' && location.search) ? location.search : '';
+                var queryMatch = /[?&]kindle=(1|0)\b/i.exec(query);
+                if (queryMatch) {
+                    kindleMode = (queryMatch[1] === '1');
+                    safeStorageSet(STORAGE.kindleOverride, kindleMode ? '1' : '0');
+                } else {
+                    var saved = safeStorageGet(STORAGE.kindleOverride);
+                    if (saved === '1' || saved === '0') kindleMode = (saved === '1');
+                }
+            } catch (err) {
+                // Ignore query parsing/storage failures.
+            }
+        }
+
+        function startFreeSerifWatcher() {
+            if (fontWatchHandle || !document.fonts || !document.fonts.load) return;
+            fontWatchHandle = document.fonts.load("10px 'FreeSerif'");
+            fontWatchHandle.then(function () { redraw(); }).catch(function () {});
+        }
+
+        function oppositeColor(color) {
+            return color === 'w' ? 'b' : 'w';
+        }
+
+        function cloneBoard(srcBoard) {
+            var out = [];
+            var row;
+            var col;
+            for (row = 0; row < 8; row++) {
+                out[row] = [];
+                for (col = 0; col < 8; col++) {
+                    out[row][col] = srcBoard[row][col];
+                }
+            }
+            return out;
+        }
+
+        function cloneFlips(flips) {
+            var out = [];
+            var i;
+            for (i = 0; i < flips.length; i++) {
+                out.push([flips[i][0], flips[i][1]]);
+            }
+            return out;
+        }
+
+        function cloneMove(move) {
+            if (!move) return null;
+            return {
+                row: move.row,
+                col: move.col,
+                flips: move.flips ? cloneFlips(move.flips) : []
+            };
+        }
+
+        function createInitialBoard() {
+            var grid = [];
+            var row;
+            var col;
+            for (row = 0; row < 8; row++) {
+                grid[row] = [];
+                for (col = 0; col < 8; col++) {
+                    grid[row][col] = null;
+                }
+            }
+
+            grid[3][3] = 'w';
+            grid[4][4] = 'w';
+            grid[3][4] = 'b';
+            grid[4][3] = 'b';
+            return grid;
+        }
+
+        function recomputeDiscDiff() {
+            var score = 0;
+            var row;
+            var col;
+            for (row = 0; row < 8; row++) {
+                for (col = 0; col < 8; col++) {
+                    if (game.board[row][col] === 'w') score += 1;
+                    else if (game.board[row][col] === 'b') score -= 1;
+                }
+            }
+            game.discDiff = score;
+        }
+
+        function clearEngineState() {
+            if (engine.timerId) {
+                clearTimeout(engine.timerId);
+                engine.timerId = null;
+            }
+            if (engine.session && engine.session.current) {
+                rollbackCurrentRoot(engine.session);
+            }
+
+            engine.session = null;
+            engine.thinking = false;
+            game.previewMove = null;
+            game.previewDrawAt = 0;
+            game.renderBoardSnapshot = null;
+        }
+
+        function setPreviewMove(move, forceDraw) {
+            game.previewMove = move ? cloneMove(move) : null;
+            var now = Date.now();
+            if (forceDraw || (now - game.previewDrawAt) >= 100) {
+                game.previewDrawAt = now;
+                redraw();
+            }
+        }
+
+        function showThinkingInfo(depth, startMs) {
+            if (infoLabel) infoLabel.style.display = '';
+            if (infoText) {
+                var elapsedSec = (Date.now() - startMs) / 1000;
+                infoText.textContent = 'Thinking (depth ' + depth + ') for ' + elapsedSec.toFixed(1) + ' s...';
+            }
+        }
+
+        function finishEngineTurn(bestMove, bestScore, reachedDepth, startMs) {
+            if (!bestMove) {
+                engine.thinking = false;
+                game.gameOver = true;
+                refreshStatus();
+                redraw();
+                return;
+            }
+
+            game.previewMove = null;
+            game.previewDrawAt = 0;
+            game.renderBoardSnapshot = null;
+
+            if (infoLabel) infoLabel.style.display = '';
+            if (infoText) {
+                var usedSec = (Date.now() - startMs) / 1000;
+                infoText.textContent = (bestScore >= 0 ? '+' : '') + bestScore.toFixed(1) +
+                    ' for depth ' + reachedDepth + ' after ' + usedSec.toFixed(1) + ' s';
+            }
+
+            var token = applyMove(bestMove, AI_COLOR);
+            if (!token) {
+                engine.thinking = false;
+                return;
+            }
+
+            game.history.push({ move: bestMove, token: token, color: AI_COLOR });
+            game.turn = 'w';
+            resolvePasses();
+
+            redraw();
+            refreshStatus();
+            engine.thinking = false;
+
+            if (!game.gameOver && game.turn === AI_COLOR) {
+                engine.timerId = setTimeout(startEngineTurn, 50);
+            }
+        }
+
+        function resetGame() {
+            clearEngineState();
+            game.board = createInitialBoard();
+            game.selected = null;
+            game.turn = 'w';
+            game.gameOver = false;
+            game.history = [];
+            game.previewMove = null;
+            game.previewDrawAt = 0;
+            game.renderBoardSnapshot = null;
+            recomputeDiscDiff();
+
+            if (infoLabel) infoLabel.style.display = '';
+            if (infoText) infoText.textContent = 'Your move...';
+
+            resizeLayout();
+            refreshStatus();
+            startFreeSerifWatcher();
+        }
+
+        function resizeLayout() {
+            var controlsHeight = controls ? controls.offsetHeight + 16 : 0;
+            var maxW = (typeof window.innerWidth === 'number' && isFinite(window.innerWidth)) ? (window.innerWidth - 16) : 512;
+            var maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? (window.innerHeight - controlsHeight - 16) : 512;
+            var boardSize = Math.max(128, Math.floor(Math.min(maxW, maxH)));
+
+            if (controls) {
+                var testWidth = Math.floor(boardSize * 0.9);
+                controls.style.width = testWidth + 'px';
+                controls.style.fontSize = Math.max(10, Math.round(boardSize * 0.033)) + 'px';
+                controls.style.boxSizing = 'border-box';
+                controls.style.textAlign = 'center';
+
+                controlsHeight = controls.offsetHeight + 16;
+                maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? (window.innerHeight - controlsHeight - 16) : 512;
+                boardSize = Math.max(128, Math.floor(Math.min(maxW, maxH)));
+            }
+
+            var extraW = Math.max(0, maxW - boardSize);
+            var leftMargin = 8 + Math.floor(extraW / 2);
+            var rightMargin = 8 + Math.ceil(extraW / 2);
+
+            boardCanvas.width = boardSize;
+            boardCanvas.height = boardSize;
+            boardCanvas.style.marginLeft = leftMargin + 'px';
+            boardCanvas.style.marginRight = rightMargin + 'px';
+            boardCanvas.style.marginTop = '8px';
+            boardCanvas.style.marginBottom = '8px';
+
+            if (controls) {
+                var controlsWidth = Math.floor(boardSize * 0.9);
+                var sideGap = boardSize - controlsWidth;
+                controls.style.width = controlsWidth + 'px';
+                controls.style.fontSize = Math.max(10, Math.round(boardSize * 0.033)) + 'px';
+                controls.style.marginLeft = (leftMargin + Math.floor(sideGap / 2)) + 'px';
+                controls.style.marginRight = (rightMargin + Math.ceil(sideGap / 2)) + 'px';
+                controls.style.marginTop = '0px';
+                controls.style.marginBottom = '8px';
+            }
+
+            squareSize = boardSize / 8;
+            redraw();
+        }
+
+        function drawDisc(row, col, color, translucent) {
+            if (!ctx || !color) return;
+
+            var x = col * squareSize + squareSize / 2;
+            var y = row * squareSize + squareSize / 2;
+            var radius = squareSize * (kindleMode ? 0.31 : 0.34);
+
+            if (translucent) ctx.globalAlpha = PREVIEW_ALPHA;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2, false);
+            ctx.fillStyle = (color === 'b') ? '#000000' : '#ffffff';
+            ctx.fill();
+            ctx.lineWidth = Math.max(1, squareSize * 0.03);
+            ctx.strokeStyle = (color === 'b') ? '#ffffff' : '#000000';
+            ctx.stroke();
+            if (translucent) ctx.globalAlpha = 1;
+        }
+
+        function drawCornerMarks(row, col, color, alpha) {
+            if (!ctx || row < 0 || col < 0) return;
+
+            var x0 = col * squareSize;
+            var y0 = row * squareSize;
+            var segment = squareSize * 0.09;
+            var width = squareSize * 0.04;
+
+            if (typeof alpha === 'number') ctx.globalAlpha = alpha;
+            ctx.strokeStyle = color || MARK_COLOR;
+            ctx.lineWidth = width;
+            ctx.lineCap = 'butt';
+            ctx.beginPath();
+
+            ctx.moveTo(x0, y0 + segment); ctx.lineTo(x0, y0); ctx.lineTo(x0 + segment, y0);
+            ctx.moveTo(x0 + squareSize, y0 + segment); ctx.lineTo(x0 + squareSize, y0); ctx.lineTo(x0 + squareSize - segment, y0);
+            ctx.moveTo(x0, y0 + squareSize - segment); ctx.lineTo(x0, y0 + squareSize); ctx.lineTo(x0 + segment, y0 + squareSize);
+            ctx.moveTo(x0 + squareSize, y0 + squareSize - segment); ctx.lineTo(x0 + squareSize, y0 + squareSize); ctx.lineTo(x0 + squareSize - segment, y0 + squareSize);
+
+            ctx.stroke();
+            if (typeof alpha === 'number') ctx.globalAlpha = 1;
+        }
+
+        function getRenderState() {
+            var renderBoard = game.board;
+            if (engine.thinking && engine.session && engine.session.current && game.renderBoardSnapshot) {
+                renderBoard = game.renderBoardSnapshot;
+            }
+            return { board: renderBoard };
+        }
+
+        function previewProjection(renderBoard, move, color) {
+            if (!move) return null;
+            if (!inBounds(move.row, move.col)) return null;
+            if (renderBoard[move.row][move.col] !== null) return null;
+
+            var flips = collectFlipsOnBoard(renderBoard, move.row, move.col, color);
+            if (!flips.length) return null;
+
+            return {
+                row: move.row,
+                col: move.col,
+                color: color,
+                flips: flips
+            };
+        }
+
+        function drawBoard(renderBoard) {
+            var row;
+            var col;
+
+            for (row = 0; row < 8; row++) {
+                for (col = 0; col < 8; col++) {
+                    ctx.fillStyle = ((row + col) % 2 === 0) ? LIGHT_SQUARE : DARK_SQUARE;
+                    ctx.fillRect(col * squareSize, row * squareSize, squareSize, squareSize);
+
+                    if (renderBoard[row][col] !== null) {
+                        drawDisc(row, col, renderBoard[row][col], false);
+                    }
+                }
+            }
+        }
+
+        function drawPreview(preview) {
+            if (!preview) return;
+            drawDisc(preview.row, preview.col, preview.color, true);
+            drawCornerMarks(preview.row, preview.col, MARK_COLOR, PREVIEW_ALPHA);
+
+            var i;
+            for (i = 0; i < preview.flips.length; i++) {
+                drawDisc(preview.flips[i][0], preview.flips[i][1], preview.color, true);
+            }
+        }
+
+        function drawLatestAIMove() {
+            var i;
+            for (i = game.history.length - 1; i >= 0; i--) {
+                var entry = game.history[i];
+                if (!entry.pass && entry.color === AI_COLOR && entry.move) {
+                    drawCornerMarks(entry.move.row, entry.move.col, MARK_COLOR, 1);
+                    return;
+                }
+            }
+        }
+
+        function drawSelection() {
+            if (!game.selected) return;
+            ctx.strokeStyle = MARK_COLOR;
+            ctx.lineWidth = Math.max(2, Math.floor(squareSize * 0.06));
+            ctx.strokeRect(game.selected[1] * squareSize + 1.5, game.selected[0] * squareSize + 1.5, squareSize - 3, squareSize - 3);
+        }
+
+        function redraw() {
+            if (!ctx) {
+                if (statusEl) statusEl.textContent = 'No 2D context';
+                return;
+            }
+
+            var renderState = getRenderState();
+            var preview = null;
+
+            if (previewInput && previewInput.checked && engine.thinking) {
+                preview = previewProjection(renderState.board, game.previewMove, AI_COLOR);
+            }
+
+            ctx.clearRect(0, 0, boardCanvas.width, boardCanvas.height);
+            drawBoard(renderState.board);
+            drawLatestAIMove();
+            drawPreview(preview);
+            drawSelection();
+        }
+
+        function countDiscs() {
+            var w = 0;
+            var b = 0;
+            var row;
+            var col;
+            for (row = 0; row < 8; row++) {
+                for (col = 0; col < 8; col++) {
+                    if (game.board[row][col] === 'w') w += 1;
+                    else if (game.board[row][col] === 'b') b += 1;
+                }
+            }
+            return { w: w, b: b };
+        }
+
+        function refreshStatus() {
+            if (!statusEl) return;
+            statusEl.textContent = '';
+
+            if (game.gameOver) {
+                var counts = countDiscs();
+                if (infoLabel) infoLabel.style.display = 'none';
+                if (infoText) {
+                    if (counts.w > counts.b) infoText.textContent = 'Game over - White wins (' + counts.w + '-' + counts.b + ')';
+                    else if (counts.b > counts.w) infoText.textContent = 'Game over - Black wins (' + counts.b + '-' + counts.w + ')';
+                    else infoText.textContent = 'Game over - Draw (' + counts.w + '-' + counts.b + ')';
+                }
+            } else {
+                if (infoLabel) infoLabel.style.display = '';
+                if (infoText && !infoText.textContent) infoText.textContent = 'Your move...';
+            }
+        }
+
+        function inBounds(row, col) {
+            return row >= 0 && row < 8 && col >= 0 && col < 8;
+        }
+
+        function hasAnyFlipsOnBoard(board, row, col, color) {
+            if (!inBounds(row, col) || board[row][col] !== null) return false;
+            var enemy = oppositeColor(color);
+            var i;
+            for (i = 0; i < DIRECTIONS.length; i++) {
+                var dr = DIRECTIONS[i][0];
+                var dc = DIRECTIONS[i][1];
+                var rr = row + dr;
+                var cc = col + dc;
+                var seenEnemy = false;
+
+                while (inBounds(rr, cc) && board[rr][cc] === enemy) {
+                    rr += dr;
+                    cc += dc;
+                    seenEnemy = true;
+                }
+
+                if (seenEnemy && inBounds(rr, cc) && board[rr][cc] === color) return true;
+            }
+
+            return false;
+        }
+
+        function collectFlipsOnBoard(board, row, col, color) {
+            var flips = [];
+            if (!inBounds(row, col) || board[row][col] !== null) return flips;
+
+            var enemy = oppositeColor(color);
+            var i;
+            for (i = 0; i < DIRECTIONS.length; i++) {
+                var dr = DIRECTIONS[i][0];
+                var dc = DIRECTIONS[i][1];
+                var rr = row + dr;
+                var cc = col + dc;
+                var line = [];
+
+                while (inBounds(rr, cc) && board[rr][cc] === enemy) {
+                    line.push([rr, cc]);
+                    rr += dr;
+                    cc += dc;
+                }
+
+                if (line.length > 0 && inBounds(rr, cc) && board[rr][cc] === color) {
+                    flips = flips.concat(line);
+                }
+            }
+            return flips;
+        }
+
+        function generateLegalMoves(color) {
+            var legal = [];
+            var row;
+            var col;
+            for (row = 0; row < 8; row++) {
+                for (col = 0; col < 8; col++) {
+                    if (game.board[row][col] !== null) continue;
+                    var flips = collectFlipsOnBoard(game.board, row, col, color);
+                    if (flips.length > 0) {
+                        legal.push({ row: row, col: col, flips: flips });
+                    }
+                }
+            }
+            return legal;
+        }
+
+        function hasAnyLegalMove(color) {
+            var row;
+            var col;
+            for (row = 0; row < 8; row++) {
+                for (col = 0; col < 8; col++) {
+                    if (hasAnyFlipsOnBoard(game.board, row, col, color)) return true;
+                }
+            }
+            return false;
+        }
+
+        function countLegalMoves(color) {
+            var count = 0;
+            var row;
+            var col;
+            for (row = 0; row < 8; row++) {
+                for (col = 0; col < 8; col++) {
+                    if (hasAnyFlipsOnBoard(game.board, row, col, color)) count += 1;
+                }
+            }
+            return count;
+        }
+
+        function applyMove(move, color) {
+            if (!move) return null;
+            var row = move.row;
+            var col = move.col;
+            var flips = (move.flips && move.flips.length > 0) ? cloneFlips(move.flips) : collectFlipsOnBoard(game.board, row, col, color);
+            var i;
+
+            if (!flips.length || game.board[row][col] !== null) return null;
+
+            game.board[row][col] = color;
+            if (color === 'w') game.discDiff += 1;
+            else game.discDiff -= 1;
+
+            for (i = 0; i < flips.length; i++) {
+                game.board[flips[i][0]][flips[i][1]] = color;
+            }
+
+            if (color === 'w') game.discDiff += flips.length * 2;
+            else game.discDiff -= flips.length * 2;
+
+            return {
+                row: row,
+                col: col,
+                color: color,
+                flips: flips
+            };
+        }
+
+        function unapplyMove(move, token) {
+            if (!token) return;
+            var i;
+            var enemy = oppositeColor(token.color);
+
+            game.board[token.row][token.col] = null;
+            for (i = 0; i < token.flips.length; i++) {
+                game.board[token.flips[i][0]][token.flips[i][1]] = enemy;
+            }
+
+            if (token.color === 'w') {
+                game.discDiff -= 1;
+                game.discDiff -= token.flips.length * 2;
+            } else {
+                game.discDiff += 1;
+                game.discDiff += token.flips.length * 2;
+            }
+        }
+
+        function resolvePasses() {
+            var passMessage = '';
+
+            while (!game.gameOver) {
+                if (hasAnyLegalMove(game.turn)) break;
+                var other = oppositeColor(game.turn);
+                if (!hasAnyLegalMove(other)) {
+                    game.gameOver = true;
+                    break;
+                }
+
+                passMessage = (game.turn === 'w') ? 'White has no legal move - pass.' : 'Black has no legal move - pass.';
+                game.history.push({ pass: true, color: game.turn });
+                game.turn = other;
+            }
+
+            if (passMessage && infoLabel) infoLabel.style.display = '';
+            if (passMessage && infoText) infoText.textContent = passMessage;
+        }
+
+        function findLegalMoveAt(color, row, col) {
+            var legal = generateLegalMoves(color);
+            var i;
+            for (i = 0; i < legal.length; i++) {
+                if (legal[i].row === row && legal[i].col === col) return legal[i];
+            }
+            return null;
+        }
+
+        function readClumsyProbability() {
+            var raw = parseFloat(clumsyInput.value);
+            if (!isFinite(raw)) raw = 0;
+            return clampNum(raw, 0, 99) / 100;
+        }
+
+        function clumsyRootScore(score, clumsyProb, aiColor) {
+            var adjusted = score + (Math.random() - 0.5) / 100;
+            var roll = Math.random();
+            var hardMiss = clumsyProb * clumsyProb;
+
+            if (roll < hardMiss) return aiColor === 'w' ? (-SEARCH_INF + 1) : (SEARCH_INF - 1);
+            if (roll < clumsyProb) return adjusted + (Math.random() > 0.5 ? -1 : 1);
+            return adjusted;
+        }
+
+        function evaluateTerminal() {
+            var counts = countDiscs();
+            if (counts.w > counts.b) return MATE_SCORE + (counts.w - counts.b) / 100;
+            if (counts.b > counts.w) return -MATE_SCORE - (counts.b - counts.w) / 100;
+            return 0;
+        }
+
+        function evaluateMaterial() {
+            if (!hasAnyLegalMove('w') && !hasAnyLegalMove('b')) {
+                return evaluateTerminal();
+            }
+
+            var row;
+            var col;
+            var score = 0;
+            var white = 0;
+            var black = 0;
+            var empty = 0;
+
+            for (row = 0; row < 8; row++) {
+                for (col = 0; col < 8; col++) {
+                    var piece = game.board[row][col];
+                    if (piece === 'w') {
+                        white += 1;
+                        score += POSITION_WEIGHT[row][col];
+                    } else if (piece === 'b') {
+                        black += 1;
+                        score -= POSITION_WEIGHT[row][col];
+                    } else {
+                        empty += 1;
+                    }
+                }
+            }
+
+            var mobility = countLegalMoves('w') - countLegalMoves('b');
+            var discTerm = (white - black) * (empty < 12 ? 1.5 : 0.3);
+            score += discTerm + (mobility * 2.2);
+
+            if (score > SEARCH_INF - 1) score = SEARCH_INF - 1;
+            if (score < -SEARCH_INF + 1) score = -SEARCH_INF + 1;
+            return score;
+        }
+
+        function makeFrame(depth, color, alpha, beta, undo) {
+            return {
+                depth: depth,
+                color: color,
+                alpha: alpha,
+                beta: beta,
+                moves: null,
+                moveIndex: 0,
+                best: (color === 'w') ? -SEARCH_INF : SEARCH_INF,
+                entered: false,
+                undo: undo || null
+            };
+        }
+
+        function makeSearchTask(depth, color, alpha, beta, hardDeadline) {
+            return {
+                stack: [makeFrame(depth, color, alpha, beta, null)],
+                hardDeadline: hardDeadline,
+                deadlineCounter: 0,
+                done: false,
+                timedOut: false,
+                value: 0
+            };
+        }
+
+        function unwindTask(task) {
+            while (task && task.stack && task.stack.length) {
+                var frame = task.stack.pop();
+                if (frame.undo) unapplyMove(frame.undo.move, frame.undo.token);
+            }
+            if (task) task.done = true;
+        }
+
+        function rollbackCurrentRoot(session) {
+            if (!session || !session.current) return;
+            if (session.current.task) unwindTask(session.current.task);
+            unapplyMove(session.current.move, session.current.token);
+            session.current = null;
+        }
+
+        function completeNode(task, value) {
+            var frame = task.stack.pop();
+            if (frame.undo) unapplyMove(frame.undo.move, frame.undo.token);
+
+            if (!task.stack.length) {
+                task.done = true;
+                task.value = value;
+                return;
+            }
+
+            var parent = task.stack[task.stack.length - 1];
+            if (parent.color === 'w') {
+                if (value > parent.best) parent.best = value;
+                if (value > parent.alpha) parent.alpha = value;
+            } else {
+                if (value < parent.best) parent.best = value;
+                if (value < parent.beta) parent.beta = value;
+            }
+        }
+
+        function stepSearch(task, nodeBudget) {
+            var visited = 0;
+
+            while (!task.done && visited < nodeBudget) {
+                if (task.deadlineCounter <= 0) {
+                    if (Date.now() >= task.hardDeadline) {
+                        unwindTask(task);
+                        task.timedOut = true;
+                        task.done = true;
+                        task.value = 0;
+                        return;
+                    }
+                    task.deadlineCounter = DEADLINE_CHECK_INTERVAL;
+                }
+                task.deadlineCounter -= 1;
+
+                var frame = task.stack[task.stack.length - 1];
+
+                if (!frame.entered) {
+                    frame.entered = true;
+                    visited += 1;
+
+                    if (frame.depth === 0) {
+                        completeNode(task, evaluateMaterial());
+                        continue;
+                    }
+
+                    frame.moves = generateLegalMoves(frame.color);
+                    if (!frame.moves.length) {
+                        var other = oppositeColor(frame.color);
+                        if (!hasAnyLegalMove(other)) {
+                            completeNode(task, evaluateTerminal());
+                        } else {
+                            task.stack.push(makeFrame(
+                                frame.depth - 1,
+                                other,
+                                frame.alpha,
+                                frame.beta,
+                                null
+                            ));
+                        }
+                        continue;
+                    }
+
+                    frame.moveIndex = 0;
+                    frame.best = (frame.color === 'w') ? -SEARCH_INF : SEARCH_INF;
+                    continue;
+                }
+
+                if (frame.moveIndex >= frame.moves.length || frame.beta <= frame.alpha) {
+                    completeNode(task, frame.best);
+                    continue;
+                }
+
+                var childMove = frame.moves[frame.moveIndex];
+                frame.moveIndex += 1;
+
+                var childToken = applyMove(childMove, frame.color);
+                if (!childToken) continue;
+
+                task.stack.push(makeFrame(
+                    frame.depth - 1,
+                    oppositeColor(frame.color),
+                    frame.alpha,
+                    frame.beta,
+                    { move: childMove, token: childToken }
+                ));
+            }
+        }
+
+        function recordDepthScore(session, move, score) {
+            session.depthEvaluated += 1;
+            if (!session.depthHasScore || score < session.depthBestScore) {
+                session.depthHasScore = true;
+                session.depthBestMove = move;
+                session.depthBestScore = score;
+            }
+
+            if (session.depthHasScore && session.depthBestMove) {
+                setPreviewMove(session.depthBestMove, false);
+            }
+        }
+
+        function pickBestAtDeadline(session) {
+            var usePartial = false;
+            if (session.depthHasScore && session.depthBestMove && session.queue.length > 0) {
+                usePartial = (session.depthEvaluated / session.queue.length) >= PARTIAL_DEPTH_USE_THRESHOLD;
+            }
+            if (usePartial) {
+                return {
+                    move: session.depthBestMove,
+                    score: session.depthBestScore,
+                    depth: session.depth
+                };
+            }
+
+            return {
+                move: session.bestMove,
+                score: session.bestScore,
+                depth: session.reachedDepth > 0 ? session.reachedDepth : 1
+            };
+        }
+
+        function shouldGoDeeper(session, depthElapsedMs, nowMs) {
+            var elapsed = Math.max(1, depthElapsedMs);
+            if (session.prevDepthElapsedMs > 0) {
+                var ratio = elapsed / session.prevDepthElapsedMs;
+                session.depthGrowth = clampNum(ratio, MIN_DEPTH_GROWTH, MAX_DEPTH_GROWTH);
+            }
+
+            var growth = session.depthGrowth || DEFAULT_DEPTH_GROWTH;
+            var predictedMs = elapsed * growth;
+            var safetyMs = Math.max(400, Math.min(2000, predictedMs * 0.10));
+            return (nowMs + predictedMs + safetyMs) < session.hardDeadline;
+        }
+
+        function startNextRootMove(session) {
+            if (session.queueIndex >= session.queue.length) return false;
+
+            var move = session.queue[session.queueIndex];
+            session.queueIndex += 1;
+
+            var token = applyMove(move, AI_COLOR);
+            if (!token) {
+                recordDepthScore(session, move, clumsyRootScore(0, session.clumsyProb, AI_COLOR));
+                return true;
+            }
+
+            session.current = {
+                move: move,
+                token: token,
+                task: makeSearchTask(session.depth - 1, oppositeColor(AI_COLOR), -SEARCH_INF, SEARCH_INF, session.hardDeadline)
+            };
+            return true;
+        }
+
+        function pumpEngine() {
+            engine.timerId = null;
+            var session = engine.session;
+            if (!session || !engine.thinking || game.gameOver || game.turn !== AI_COLOR) return;
+
+            if (Date.now() >= session.hardDeadline) session.timedOut = true;
+
+            showThinkingInfo(session.depth, session.startMs);
+            var batch = kindleMode ? KINDLE_BATCH_BOOST : 1;
+            var sliceEnd = Date.now() + (BASE_SLICE_MS * batch);
+
+            while (Date.now() < sliceEnd) {
+                if (session.timedOut || Date.now() >= session.hardDeadline) {
+                    session.timedOut = true;
+                    break;
+                }
+
+                if (!session.current) {
+                    if (!startNextRootMove(session)) break;
+                    if (!session.current) continue;
+                }
+
+                stepSearch(session.current.task, BASE_NODE_BUDGET * batch);
+                if (!session.current.task.done) break;
+
+                var doneTask = session.current.task;
+                var doneMove = session.current.move;
+                var doneToken = session.current.token;
+                unapplyMove(doneMove, doneToken);
+                session.current = null;
+
+                if (doneTask.timedOut) {
+                    session.timedOut = true;
+                    break;
+                }
+
+                recordDepthScore(session, doneMove, clumsyRootScore(doneTask.value, session.clumsyProb, AI_COLOR));
+            }
+
+            if (session.timedOut || Date.now() >= session.hardDeadline) {
+                if (session.current) rollbackCurrentRoot(session);
+                var deadlineChoice = pickBestAtDeadline(session);
+                engine.session = null;
+                finishEngineTurn(deadlineChoice.move, deadlineChoice.score, deadlineChoice.depth, session.startMs);
+                return;
+            }
+
+            if (!session.current && session.queueIndex >= session.queue.length) {
+                if (session.depthHasScore) {
+                    session.bestMove = session.depthBestMove;
+                    session.bestScore = session.depthBestScore;
+                    session.reachedDepth = session.depth;
+                    if (session.bestMove) setPreviewMove(session.bestMove, true);
+                }
+
+                var depthDoneAt = Date.now();
+                var depthElapsed = depthDoneAt - session.depthStartedAt;
+                if (session.depth >= session.targetDepth || !shouldGoDeeper(session, depthElapsed, depthDoneAt)) {
+                    engine.session = null;
+                    finishEngineTurn(session.bestMove, session.bestScore, session.reachedDepth, session.startMs);
+                    return;
+                }
+
+                session.prevDepthElapsedMs = Math.max(1, depthElapsed);
+                session.depthStartedAt = depthDoneAt;
+                session.depth += 1;
+                session.queueIndex = 0;
+                session.depthHasScore = false;
+                session.depthBestMove = null;
+                session.depthBestScore = SEARCH_INF;
+                session.depthEvaluated = 0;
+            }
+
+            engine.timerId = setTimeout(pumpEngine, 0);
+        }
+
+        function startEngineTurn() {
+            if (engine.thinking || game.gameOver || game.turn !== AI_COLOR) return;
+
+            var roots = generateLegalMoves(AI_COLOR);
+            if (!roots.length) {
+                game.history.push({ pass: true, color: AI_COLOR });
+                game.turn = oppositeColor(AI_COLOR);
+                if (infoLabel) infoLabel.style.display = '';
+                if (infoText) infoText.textContent = 'Black has no legal move - pass.';
+                resolvePasses();
+                refreshStatus();
+                redraw();
+                return;
+            }
+
+            var startMs = Date.now();
+            engine.thinking = true;
+            engine.session = {
+                startMs: startMs,
+                hardDeadline: startMs + HARD_DEADLINE_MS,
+                targetDepth: clampNum(parseInt(depthInput.value, 10) || 3, 1, 9),
+                clumsyProb: readClumsyProbability(),
+                depth: 1,
+                depthStartedAt: startMs,
+                prevDepthElapsedMs: 0,
+                depthGrowth: DEFAULT_DEPTH_GROWTH,
+                queue: roots,
+                queueIndex: 0,
+                depthHasScore: false,
+                depthBestMove: null,
+                depthBestScore: SEARCH_INF,
+                depthEvaluated: 0,
+                current: null,
+                bestMove: roots[0],
+                bestScore: 0,
+                reachedDepth: 0,
+                timedOut: false
+            };
+
+            game.previewMove = null;
+            game.previewDrawAt = 0;
+            game.renderBoardSnapshot = cloneBoard(game.board);
+
+            showThinkingInfo(1, startMs);
+            engine.timerId = setTimeout(pumpEngine, 0);
+        }
+
+        function undoEntry(entry) {
+            if (!entry) return;
+            if (entry.pass) {
+                game.turn = entry.color;
+                return;
+            }
+            unapplyMove(entry.move, entry.token);
+            game.turn = entry.color;
+        }
+
+        function takeBack() {
+            clearEngineState();
+            if (!game.history.length) return;
+
+            undoEntry(game.history.pop());
+            while (game.history.length > 0 && game.turn !== 'w') {
+                undoEntry(game.history.pop());
+            }
+            if (!game.history.length) game.turn = 'w';
+
+            game.gameOver = false;
+            game.selected = null;
+            if (infoLabel) infoLabel.style.display = '';
+            if (infoText) infoText.textContent = 'Move taken back.';
+
+            redraw();
+            refreshStatus();
+        }
+
+        function onBoardClick(ev) {
+            if (game.gameOver || engine.thinking || game.turn !== 'w') return;
+
+            var rect = boardCanvas.getBoundingClientRect();
+            var x = ev.clientX - rect.left;
+            var y = ev.clientY - rect.top;
+            var col = Math.floor(x / squareSize);
+            var row = Math.floor(y / squareSize);
+
+            if (!inBounds(row, col)) return;
+
+            var chosen = findLegalMoveAt('w', row, col);
+            if (!chosen) {
+                game.selected = null;
+                redraw();
+                return;
+            }
+
+            game.selected = null;
+            var token = applyMove(chosen, 'w');
+            if (!token) return;
+
+            game.history.push({ move: chosen, token: token, color: 'w' });
+            game.turn = 'b';
+            resolvePasses();
+
+            redraw();
+            refreshStatus();
+
+            if (!game.gameOver && game.turn === AI_COLOR) {
+                engine.timerId = setTimeout(startEngineTurn, 50);
+            }
+        }
+
+        function initPersistentInputs() {
+            var savedDepth = safeStorageGet(STORAGE.depth);
+            var savedClumsy = safeStorageGet(STORAGE.clumsy);
+            var savedPreview = safeStorageGet(STORAGE.preview);
+            if (savedDepth !== null) depthInput.value = savedDepth;
+            if (savedClumsy !== null) clumsyInput.value = savedClumsy;
+            if (previewInput && (savedPreview === '1' || savedPreview === '0')) {
+                previewInput.checked = (savedPreview === '1');
+            } else if (previewInput) {
+                previewInput.checked = false;
+            }
+
+            depthInput.addEventListener('change', function () {
+                safeStorageSet(STORAGE.depth, depthInput.value);
+            });
+
+            clumsyInput.addEventListener('change', function () {
+                safeStorageSet(STORAGE.clumsy, clumsyInput.value);
+            });
+
+            if (previewInput) {
+                previewInput.addEventListener('change', function () {
+                    safeStorageSet(STORAGE.preview, previewInput.checked ? '1' : '0');
+                    redraw();
+                });
+            }
+        }
+
+        function bindEvents() {
+            document.getElementById('resetBtn').addEventListener('click', resetGame);
+            document.getElementById('takebackBtn').addEventListener('click', takeBack);
+            boardCanvas.addEventListener('click', onBoardClick);
+            if (window.addEventListener) window.addEventListener('resize', resizeLayout);
+        }
+
+        configureKindleMode();
+        initPersistentInputs();
+        bindEvents();
+        resetGame();
+        startFreeSerifWatcher();
+    })();
+    </script>
+</body>
+</html>
