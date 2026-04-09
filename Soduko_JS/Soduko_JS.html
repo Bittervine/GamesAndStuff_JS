@@ -21,8 +21,9 @@
     body {
       margin: 0;
       min-height: 100vh;
-      display: grid;
-      place-items: center;
+      min-height: 100dvh;
+      display: flex;
+      justify-content: center;
       background: radial-gradient(circle at 20% 20%, #fffdf6 0%, var(--bg) 60%);
       color: var(--ink);
       font-family: "Trebuchet MS", "Segoe UI", sans-serif;
@@ -30,11 +31,16 @@
 
     .app {
       width: min(92vw, 560px);
+      height: 100vh;
+      height: 100dvh;
       padding: 18px;
       background: var(--panel);
       border: 2px solid var(--line);
       border-radius: 12px;
       box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1);
+      display: grid;
+      grid-template-rows: auto auto auto minmax(0, 1fr);
+      overflow: hidden;
     }
 
     h1 {
@@ -79,11 +85,11 @@
 
     .done-count {
       font-weight: 700;
+      min-height: 1.25em;
     }
 
     .board {
-      width: 100%;
-      max-width: 450px;
+      width: min(100%, 450px, 52vh);
       aspect-ratio: 1 / 1;
       margin: 0 auto;
       border: 3px solid var(--line);
@@ -155,11 +161,11 @@
 
     .cell.latest-step {
       font-weight: 900 !important;
-      font-size: clamp(23px, 4.6vw, 34px);
+      font-size: clamp(27px, 5.8vw, 42px);
     }
 
     .cell.latest-step.solved {
-      background: #cfe9dd;
+      background: #9ee3ba;
     }
 
     .cell.guess-fill {
@@ -179,15 +185,15 @@
     }
 
     .cell.hl-elim-box {
-      background: #f7dbe6 !important;
+      background: #f4e7ed !important;
     }
 
     .cell.hl-elim-col {
-      background: #f9e4ec !important;
+      background: #f6ebef !important;
     }
 
     .cell.hl-elim-row {
-      background: #f7d0dd !important;
+      background: #f3e1e8 !important;
     }
 
     .cell.impossible {
@@ -240,10 +246,116 @@
 
     #hint {
       font-size: 0.75rem;
-      min-height: calc(1.3em * 12);
+      height: auto;
+      max-height: none;
+      min-height: 0;
       line-height: 1.3;
       overflow-y: auto;
       padding-right: 4px;
+      word-break: normal;
+      overflow-wrap: anywhere;
+      scrollbar-gutter: stable both-edges;
+      overflow-anchor: none;
+      overscroll-behavior: contain;
+    }
+
+    #hint .step-title {
+      font-size: 0.86rem;
+      font-weight: 800;
+      color: #2f2a20;
+      margin-bottom: 6px;
+    }
+
+    #hint .step-meta {
+      margin: 4px 0;
+      color: #494338;
+    }
+
+    #hint .step-list {
+      margin: 6px 0 4px 16px;
+      padding: 0;
+    }
+
+    #hint .step-list li {
+      margin: 3px 0;
+    }
+
+    #hint .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin: 6px 0 4px;
+    }
+
+    #hint .chip {
+      display: inline-block;
+      border-radius: 999px;
+      border: 1px solid #948b7d;
+      background: #f2ecdd;
+      color: #3e382f;
+      font-size: 0.68rem;
+      font-weight: 700;
+      line-height: 1.2;
+      padding: 2px 8px;
+    }
+
+    #hint .chip.row {
+      background: #f3e1e8;
+      border-color: #c9a2af;
+    }
+
+    #hint .chip.col {
+      background: #f6ebef;
+      border-color: #cbb1ba;
+    }
+
+    #hint .chip.box {
+      background: #f4e7ed;
+      border-color: #c8a6b2;
+    }
+
+    #hint .chip.target {
+      background: #cdebe6;
+      border-color: #4f9a8f;
+    }
+
+    #hint .step-depth {
+      margin-top: 6px;
+      color: #615a4d;
+      font-style: italic;
+    }
+
+    @media (max-width: 560px) {
+      .app {
+        width: 96vw;
+        height: 100vh;
+        height: 100dvh;
+        padding: 12px;
+        grid-template-rows: auto auto auto minmax(0, 1fr);
+      }
+
+      .info-board {
+        padding: 8px 9px;
+      }
+
+      #hint {
+        font-size: 0.68rem;
+        line-height: 1.25;
+        min-height: 0;
+      }
+
+      #hint .step-title {
+        font-size: 0.76rem;
+      }
+
+      #hint .step-list {
+        margin-left: 12px;
+      }
+
+      #hint .chip {
+        font-size: 0.62rem;
+        padding: 2px 6px;
+      }
     }
 
     .info-board {
@@ -253,6 +365,10 @@
       border-radius: 10px;
       background: #f8f2e4;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      overflow: hidden;
     }
 
     .info-board .hint {
@@ -631,8 +747,12 @@
       return labels;
     }
 
-    function findExactMinimumCoverMasks(masks, universeMask) {
+    function findExactMinimumCoverMasks(masks, universeMask, weights) {
+      const itemWeights = weights && weights.length === masks.length
+        ? weights
+        : masks.map(() => 1);
       let best = null;
+      let bestScore = Infinity;
       const candidatesByBit = Array.from({ length: 32 }, () => []);
       for (let i = 0; i < masks.length; i++) {
         const mask = masks[i];
@@ -643,14 +763,22 @@
         }
       }
 
-      function dfs(coveredMask, chosen) {
+      function dfs(coveredMask, chosen, chosenScore) {
         if (coveredMask === universeMask) {
-          if (!best || chosen.length < best.length) {
+          if (
+            !best ||
+            chosen.length < best.length ||
+            (chosen.length === best.length && chosenScore < bestScore)
+          ) {
             best = chosen.slice();
+            bestScore = chosenScore;
           }
           return;
         }
-        if (best && chosen.length >= best.length) {
+        if (best && chosen.length > best.length) {
+          return;
+        }
+        if (best && chosen.length === best.length && chosenScore >= bestScore) {
           return;
         }
 
@@ -675,12 +803,12 @@
 
         for (const idx of candidatesByBit[missingBit]) {
           chosen.push(idx);
-          dfs(coveredMask | masks[idx], chosen);
+          dfs(coveredMask | masks[idx], chosen, chosenScore + itemWeights[idx]);
           chosen.pop();
         }
       }
 
-      dfs(0, []);
+      dfs(0, [], 0);
       return best || [];
     }
 
@@ -701,24 +829,34 @@
       for (let i = 0; i < rejected.length; i++) {
         const cell = rejected[i];
         for (const blocker of blockers) {
+          if (shareBox(blocker, cell)) {
+            const br = getBoxStart(cell.row);
+            const bc = getBoxStart(cell.col);
+            registerUnit("box", { br, bc }, i);
+          }
           if (blocker.row === cell.row) {
             registerUnit("row", { row: cell.row }, i);
           }
           if (blocker.col === cell.col) {
             registerUnit("col", { col: cell.col }, i);
           }
-          if (shareBox(blocker, cell)) {
-            const br = getBoxStart(cell.row);
-            const bc = getBoxStart(cell.col);
-            registerUnit("box", { br, bc }, i);
-          }
         }
       }
 
       const universeMask = (1 << rejected.length) - 1;
+      const unitWeights = unitCandidates.map((unit) => {
+        if (unit.type === "box") {
+          return 1;
+        }
+        if (unit.type === "row") {
+          return 2;
+        }
+        return 3;
+      });
       const chosenIdx = findExactMinimumCoverMasks(
         unitCandidates.map((x) => x.mask),
-        universeMask
+        universeMask,
+        unitWeights
       );
       return chosenIdx.map((idx) => unitCandidates[idx]);
     }
@@ -833,12 +971,25 @@
         );
       }
 
+      const usedUnitTypes = [];
+      if (shadedRows.length) {
+        usedUnitTypes.push("row");
+      }
+      if (shadedCols.length) {
+        usedUnitTypes.push("column");
+      }
+      if (shadedBoxes.length) {
+        usedUnitTypes.push("3x3 box");
+      }
+
       return {
         blockers,
         shadedBoxes,
         shadedCols,
         shadedRows,
-        explanationParts
+        explanationParts,
+        eliminatedCells: rejected.map((cell) => ({ row: cell.row, col: cell.col })),
+        usedUnitTypes
       };
     }
 
@@ -1029,6 +1180,109 @@
     function setStatus(message) {
       const depth = guessStack.length;
       hintEl.textContent = depth > 0 ? (message + " Guess depth: " + depth + ".") : message;
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function setStatusHtml(html) {
+      const depth = guessStack.length;
+      const depthHtml = depth > 0 ? '<div class="step-depth">Guess depth: ' + depth + ".</div>" : "";
+      hintEl.innerHTML = html + depthHtml;
+    }
+
+    function chipClassForReason(reason) {
+      if (reason === "row") {
+        return "row";
+      }
+      if (reason === "column") {
+        return "col";
+      }
+      if (reason === "3x3 box") {
+        return "box";
+      }
+      return "";
+    }
+
+    function renderReasonChips(reasons) {
+      if (!reasons || !reasons.length) {
+        return "";
+      }
+      const chips = reasons
+        .map((reason) => {
+          const cls = chipClassForReason(reason);
+          return '<span class="chip ' + cls + '">' + escapeHtml(reason.toUpperCase()) + "</span>";
+        })
+        .join("");
+      return '<div class="chip-row"><span class="chip target">USED</span>' + chips + "</div>";
+    }
+
+    function buildMoveStatusHtml(move, solvedNow) {
+      const target = formatCell(move.row, move.col);
+      const out = [];
+      out.push(
+        '<div class="step-title">' +
+          escapeHtml(move.method || "Solve step") +
+          ": place " +
+          escapeHtml(move.value) +
+          " at " +
+          escapeHtml(target) +
+          (solvedNow ? " (Puzzle solved)." : ".") +
+          "</div>"
+      );
+
+      if (move.teaching && move.teaching.summary) {
+        out.push('<div class="step-meta">' + escapeHtml(move.teaching.summary) + "</div>");
+      }
+
+      if (move.teaching && move.teaching.candidates && move.teaching.candidates.length) {
+        out.push(
+          '<div class="step-meta">Candidates at ' +
+            escapeHtml(target) +
+            ": [" +
+            escapeHtml(formatDigits(move.teaching.candidates)) +
+            "]</div>"
+        );
+      }
+
+      if (move.teaching && move.teaching.blockedBy && move.teaching.blockedBy.length) {
+        const blockedItems = move.teaching.blockedBy
+          .map((item) => {
+            return (
+              "<li>" +
+              escapeHtml(String(item.digit)) +
+              " is blocked by " +
+              escapeHtml(formatConstraintReasonList(item.reasons || [])) +
+              ".</li>"
+            );
+          })
+          .join("");
+        out.push('<ul class="step-list">' + blockedItems + "</ul>");
+      }
+
+      if (move.teaching && move.teaching.eliminatedCells && move.teaching.eliminatedCells.length) {
+        out.push(
+          '<div class="step-meta">Competing cells ruled out: ' +
+            escapeHtml(listCells(move.teaching.eliminatedCells)) +
+            ".</div>"
+        );
+      }
+
+      if (move.teaching && move.teaching.whyParts && move.teaching.whyParts.length) {
+        const whyItems = move.teaching.whyParts
+          .map((line) => "<li>" + escapeHtml(line) + "</li>")
+          .join("");
+        out.push('<ul class="step-list">' + whyItems + "</ul>");
+      }
+
+      out.push(renderReasonChips(move.teaching ? move.teaching.usedConstraints : []));
+      return out.join("");
     }
 
     function applyUserDigit(value) {
@@ -1364,19 +1618,27 @@
             const blockers = [];
             const reasonSet = new Set();
             const blockerByKey = new Map();
+            const blockedBy = [];
             for (let d = 1; d <= 9; d++) {
               if (d === value) {
                 continue;
               }
               const flags = getConstraintFlags(grid, r, c, d);
+              const reasons = [];
               if (flags.rowBlocked) {
                 reasonSet.add("row");
+                reasons.push("row");
               }
               if (flags.colBlocked) {
                 reasonSet.add("column");
+                reasons.push("column");
               }
               if (flags.boxBlocked) {
                 reasonSet.add("3x3 box");
+                reasons.push("3x3 box");
+              }
+              if (reasons.length) {
+                blockedBy.push({ digit: d, reasons });
               }
               const picked = pickSingleBlocker(grid, r, c, d);
               if (picked) {
@@ -1396,6 +1658,13 @@
                 target: [{ row: r, col: c }],
                 unit: [],
                 blockers
+              },
+              teaching: {
+                summary:
+                  "A naked single means this cell has only one legal candidate left after checking existing digits.",
+                candidates: candidates.slice(),
+                blockedBy,
+                usedConstraints: Array.from(reasonSet)
               }
             };
           }
@@ -1451,6 +1720,13 @@
                 blockers: plan.blockers,
                 shadedBoxes: plan.shadedBoxes,
                 shadedCols: plan.shadedCols
+              },
+              teaching: {
+                summary:
+                  "In row " + (r + 1) + ", digit " + n + " can only go in one cell.",
+                usedConstraints: plan.usedUnitTypes,
+                eliminatedCells: plan.eliminatedCells,
+                whyParts: plan.explanationParts
               }
             };
           }
@@ -1507,6 +1783,13 @@
                 shadedBoxes: plan.shadedBoxes,
                 shadedCols: plan.shadedCols,
                 shadedRows: plan.shadedRows
+              },
+              teaching: {
+                summary:
+                  "In column " + (c + 1) + ", digit " + n + " can only go in one cell.",
+                usedConstraints: plan.usedUnitTypes,
+                eliminatedCells: plan.eliminatedCells,
+                whyParts: plan.explanationParts
               }
             };
           }
@@ -1571,6 +1854,13 @@
                   shadedBoxes: plan.shadedBoxes,
                   shadedCols: plan.shadedCols,
                   shadedRows: plan.shadedRows
+                },
+                teaching: {
+                  summary:
+                    "Inside the " + boxLabel(br, bc) + ", digit " + n + " has only one valid spot.",
+                  usedConstraints: plan.usedUnitTypes,
+                  eliminatedCells: plan.eliminatedCells,
+                  whyParts: plan.explanationParts
                 }
               };
             }
@@ -1607,6 +1897,16 @@
       const latestKey = lastSolverPlaced ? keyOf(lastSolverPlaced.row, lastSolverPlaced.col) : null;
       const impossibleKey = impossibleCell ? keyOf(impossibleCell.row, impossibleCell.col) : null;
       const guessKey = pendingGuessTarget ? keyOf(pendingGuessTarget.row, pendingGuessTarget.col) : null;
+      const hasFocus =
+        targetSet.size > 0 ||
+        unitSet.size > 0 ||
+        blockerSet.size > 0 ||
+        shadedBoxSet.size > 0 ||
+        shadedColSet.size > 0 ||
+        shadedRowSet.size > 0 ||
+        !!impossibleKey ||
+        !!guessKey;
+      boardEl.classList.toggle("focus-mode", hasFocus);
 
       for (let r = 0; r < SIZE; r++) {
         for (let c = 0; c < SIZE; c++) {
@@ -1662,6 +1962,21 @@
           }
           if (!fixedMask[r][c] && guessTintMask[r][c]) {
             cell.classList.add("guess-fill");
+          }
+
+          if (hasFocus) {
+            const isFocused =
+              targetSet.has(k) ||
+              unitSet.has(k) ||
+              blockerSet.has(k) ||
+              shadedBoxSet.has(boxKey) ||
+              shadedColSet.has(c) ||
+              shadedRowSet.has(r) ||
+              (impossibleKey && k === impossibleKey) ||
+              (guessKey && k === guessKey);
+            if (!isFocused) {
+              cell.classList.add("hl-dim");
+            }
           }
 
           if (!fixedMask[r][c] && puzzle[r][c] === EMPTY) {
@@ -1841,13 +2156,21 @@
         lastSolverPlaced = { row: move.row, col: move.col };
         renderBoard(currentPuzzle);
         let status = move.explanation || (move.method + ": placed " + move.value + " at row " + (move.row + 1) + ", col " + (move.col + 1) + ".");
+        const solvedNow = isSolved(currentPuzzle);
+        if (move.teaching) {
+          setStatusHtml(buildMoveStatusHtml(move, solvedNow));
+        }
         if (isSolved(currentPuzzle)) {
           markSolvedIfNeeded();
           status += " Puzzle solved.";
-          setStatus(status);
+          if (!move.teaching) {
+            setStatus(status);
+          }
           return true;
         }
-        setStatus(status);
+        if (!move.teaching) {
+          setStatus(status);
+        }
         return false;
       }
 
