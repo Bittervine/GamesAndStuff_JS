@@ -5,148 +5,122 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Soduko JS</title>
   <style>
-    :root {
-      --bg: #f4f1e8;
-      --panel: #fffaf0;
-      --ink: #2e2a22;
-      --accent: #17624a;
-      --line: #4a4438;
-      --line-soft: #b7b0a4;
-      --fixed-bg: #ece6d7;
-      --empty-bg: #ffffff;
-    }
-
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      min-height: 100vh;
-      min-height: 100dvh;
-      display: flex;
-      justify-content: center;
-      background: radial-gradient(circle at 20% 20%, #fffdf6 0%, var(--bg) 60%);
-      color: var(--ink);
+      background: #f4f1e8;
+      color: #2e2a22;
       font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      font-size: 16px;
+      overflow-y: scroll;
     }
 
     .app {
-      width: min(92vw, 560px);
-      height: 100vh;
-      height: 100dvh;
-      padding: 18px;
-      background: var(--panel);
-      border: 2px solid var(--line);
-      border-radius: 12px;
-      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1);
-      display: grid;
-      grid-template-rows: auto auto auto minmax(0, 1fr);
-      overflow: hidden;
+      width: 96%;
+      max-width: 560px;
+      margin: 8px auto;
+      padding: 12px;
+      background: #fffaf0;
+      border: 2px solid #4a4438;
+      min-height: 95vh;
+      height: 95vh;
+      display: flex;
+      flex-direction: column;
     }
 
     h1 {
-      margin: 0 0 12px;
-      font-size: 1.5rem;
-      letter-spacing: 0.03em;
+      margin: 0 0 10px;
+      font-size: 22px;
     }
-
-    button {
-      appearance: none;
-      border: 2px solid #0f4a37;
-      background: var(--accent);
-      color: #f8fff8;
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: transform 0.08s ease, filter 0.12s ease;
-      margin-bottom: 14px;
-    }
-
-    button:hover { filter: brightness(1.07); }
-    button:active { transform: translateY(1px); }
 
     .controls {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-
-    .controls button {
-      margin-bottom: 0;
-      width: 100%;
+      margin-bottom: 10px;
       text-align: center;
     }
 
-    #autoBtn {
-      min-width: 9ch;
+    button {
+      border: 2px solid #0f4a37;
+      background: #17624a;
+      color: #f8fff8;
+      padding: 6px 8px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .controls button {
+      display: inline-block;
+      width: 30%;
+      margin: 0 1.5% 8px 0;
+      text-align: center;
+      vertical-align: top;
+    }
+
+    .controls button:last-child {
+      margin-right: 0;
     }
 
     .done-count {
       font-weight: 700;
-      min-height: 1.25em;
+      min-height: 1.2em;
     }
 
     .board {
-      width: min(100%, 450px, 52vh);
-      aspect-ratio: 1 / 1;
+      width: 450px;
+      height: 450px;
+      max-width: 100%;
       margin: 0 auto;
-      border: 3px solid var(--line);
+      border: 3px solid #4a4438;
       position: relative;
       overflow: hidden;
-      display: grid;
-      grid-template-columns: repeat(9, 1fr);
-      grid-template-rows: repeat(9, 1fr);
-      background: var(--empty-bg);
+      background: #ffffff;
     }
 
-    .board.dead-end::before,
-    .board.dead-end::after {
+    .board:after {
+      content: "";
+      display: block;
+      clear: both;
+    }
+
+    .board.dead-end:before,
+    .board.dead-end:after {
       content: "";
       position: absolute;
-      inset: 0;
-      border-radius: 2px;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
       pointer-events: none;
       z-index: 16;
     }
 
-    .board.dead-end::before {
-      background: linear-gradient(
-        45deg,
-        transparent calc(50% - 3px),
-        rgba(185, 28, 28, 0.92) calc(50% - 3px),
-        rgba(185, 28, 28, 0.92) calc(50% + 3px),
-        transparent calc(50% + 3px)
-      );
-      filter: drop-shadow(0 0 4px rgba(127, 29, 29, 0.55));
+    .board.dead-end:before {
+      background-image: linear-gradient(45deg, transparent 48%, #b91c1c 49%, #b91c1c 51%, transparent 52%);
     }
 
-    .board.dead-end::after {
-      background: linear-gradient(
-        -45deg,
-        transparent calc(50% - 3px),
-        rgba(185, 28, 28, 0.92) calc(50% - 3px),
-        rgba(185, 28, 28, 0.92) calc(50% + 3px),
-        transparent calc(50% + 3px)
-      );
-      filter: drop-shadow(0 0 4px rgba(127, 29, 29, 0.55));
+    .board.dead-end:after {
+      background-image: linear-gradient(-45deg, transparent 48%, #b91c1c 49%, #b91c1c 51%, transparent 52%);
     }
 
     .cell {
-      display: grid;
-      place-items: center;
-      border: 1px solid var(--line-soft);
-      font-size: clamp(18px, 3.5vw, 28px);
+      float: left;
+      width: 11.111111%;
+      height: 11.111111%;
+      border: 1px solid #b7b0a4;
+      text-align: center;
+      font-size: 24px;
       font-weight: 700;
-      user-select: none;
-      min-width: 0;
-      min-height: 0;
       color: #111111;
+      line-height: 48px;
+      user-select: none;
+      position: relative;
     }
 
     .cell.fixed {
-      background: var(--fixed-bg);
+      background: #ece6d7;
+      color: #111111;
     }
 
     .cell.empty {
@@ -161,11 +135,11 @@
 
     .cell.latest-step {
       font-weight: 900 !important;
-      font-size: clamp(27px, 5.8vw, 42px);
+      font-size: 39px;
     }
 
     .cell.latest-step.solved {
-      background: #9ee3ba;
+      background: #85dca8;
     }
 
     .cell.guess-fill {
@@ -185,89 +159,105 @@
     }
 
     .cell.hl-elim-box {
-      background: #f4e7ed !important;
+      background: #f7edf2 !important;
     }
 
     .cell.hl-elim-col {
-      background: #f6ebef !important;
+      background: #f8eff3 !important;
     }
 
     .cell.hl-elim-row {
-      background: #f3e1e8 !important;
+      background: #f6e9ee !important;
     }
 
     .cell.impossible {
-      position: relative;
       background: #f9d9d9 !important;
     }
 
-    .cell.impossible::after {
+    .cell.impossible:after {
       content: "X";
       position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
       color: #b91c1c;
-      font-size: clamp(22px, 4.5vw, 36px);
+      font-size: 36px;
       font-weight: 900;
-      line-height: 1;
-      pointer-events: none;
+      line-height: 48px;
+      text-align: center;
       z-index: 18;
+      pointer-events: none;
     }
 
     .cell.guess-target {
-      position: relative;
       background: #dbf7e3 !important;
     }
 
-    .cell.guess-target::after {
+    .cell.guess-target:after {
       content: "?";
       position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
       color: #15803d;
-      font-size: clamp(20px, 4.2vw, 34px);
+      font-size: 32px;
       font-weight: 900;
-      line-height: 1;
-      pointer-events: none;
+      line-height: 48px;
+      text-align: center;
       z-index: 17;
+      pointer-events: none;
     }
 
-    .thick-right { border-right: 3px solid var(--line) !important; }
-    .thick-bottom { border-bottom: 3px solid var(--line) !important; }
+    .thick-right { border-right: 3px solid #4a4438 !important; }
+    .thick-bottom { border-bottom: 3px solid #4a4438 !important; }
+
+    .info-board {
+      margin-top: 10px;
+      padding: 8px 10px;
+      border: 2px solid #4a4438;
+      border-radius: 8px;
+      background: #f8f2e4;
+      flex: 1 0 0;
+      height: 0;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
 
     .hint {
-      margin: 12px 0 0;
-      font-size: 0.95rem;
+      margin: 6px 0 0;
       color: #5d5648;
       white-space: normal;
     }
 
+    .info-board .hint:first-child {
+      margin-top: 0;
+    }
+
     #hint {
-      font-size: 0.75rem;
-      height: auto;
+      font-size: 12px;
+      line-height: 1.25;
       max-height: none;
+      flex: 1 1 auto;
       min-height: 0;
-      line-height: 1.3;
-      overflow-y: auto;
-      padding-right: 4px;
+      overflow-y: scroll;
+      padding-right: 16px;
       word-break: normal;
-      overflow-wrap: anywhere;
-      scrollbar-gutter: stable both-edges;
-      overflow-anchor: none;
-      overscroll-behavior: contain;
+      overflow-wrap: break-word;
     }
 
     #hint .step-title {
-      font-size: 0.86rem;
+      font-size: 13px;
       font-weight: 800;
       color: #2f2a20;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }
 
     #hint .step-meta {
-      margin: 4px 0;
+      margin: 3px 0;
       color: #494338;
     }
 
@@ -281,9 +271,6 @@
     }
 
     #hint .chip-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
       margin: 6px 0 4px;
     }
 
@@ -293,24 +280,25 @@
       border: 1px solid #948b7d;
       background: #f2ecdd;
       color: #3e382f;
-      font-size: 0.68rem;
+      font-size: 10px;
       font-weight: 700;
       line-height: 1.2;
       padding: 2px 8px;
+      margin: 1px 3px 1px 0;
     }
 
     #hint .chip.row {
-      background: #f3e1e8;
+      background: #f6e9ee;
       border-color: #c9a2af;
     }
 
     #hint .chip.col {
-      background: #f6ebef;
+      background: #f8eff3;
       border-color: #cbb1ba;
     }
 
     #hint .chip.box {
-      background: #f4e7ed;
+      background: #f7edf2;
       border-color: #c8a6b2;
     }
 
@@ -325,79 +313,28 @@
       font-style: italic;
     }
 
-    @media (max-width: 560px) {
-      .app {
-        width: 96vw;
-        height: 100vh;
-        height: 100dvh;
-        padding: 12px;
-        grid-template-rows: auto auto auto minmax(0, 1fr);
-      }
-
-      .info-board {
-        padding: 8px 9px;
-      }
-
-      #hint {
-        font-size: 0.68rem;
-        line-height: 1.25;
-        min-height: 0;
-      }
-
-      #hint .step-title {
-        font-size: 0.76rem;
-      }
-
-      #hint .step-list {
-        margin-left: 12px;
-      }
-
-      #hint .chip {
-        font-size: 0.62rem;
-        padding: 2px 6px;
-      }
-    }
-
-    .info-board {
-      margin-top: 12px;
-      padding: 10px 12px;
-      border: 2px solid var(--line);
-      border-radius: 10px;
-      background: #f8f2e4;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
-      min-height: 0;
-      display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
-      overflow: hidden;
-    }
-
-    .info-board .hint {
-      margin-top: 6px;
-    }
-
-    .info-board .hint:first-child {
-      margin-top: 0;
-    }
-
     .num-popup {
       position: fixed;
-      inset: 0;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
       background: rgba(20, 16, 10, 0.35);
       display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
       z-index: 20;
+      text-align: center;
     }
 
     .num-popup.open {
-      display: flex;
+      display: block;
     }
 
     .num-popup-card {
-      width: min(92vw, 300px);
+      width: 92%;
+      max-width: 300px;
+      margin: 40px auto 0;
       background: #fffaf0;
-      border: 2px solid var(--line);
+      border: 2px solid #4a4438;
       border-radius: 12px;
       padding: 12px;
       box-shadow: 0 14px 30px rgba(0, 0, 0, 0.25);
@@ -405,48 +342,92 @@
 
     .num-popup-title {
       margin: 0 0 10px;
-      font-size: 0.95rem;
+      font-size: 15px;
       font-weight: 700;
     }
 
     .num-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
+      width: 100%;
+      text-align: center;
     }
 
     .num-btn {
-      appearance: none;
       border: 1px solid #2a4a3f;
       border-radius: 8px;
       background: #f6fff9;
       color: #1a332b;
       font-weight: 700;
-      font-size: 1rem;
+      font-size: 16px;
       padding: 10px 0;
       cursor: pointer;
+      display: inline-block;
+      width: 31%;
+      margin: 1%;
+      vertical-align: top;
     }
 
-    .num-btn:hover {
-      filter: brightness(0.98);
+    @media (max-width: 560px) {
+      .app {
+        width: 98%;
+        padding: 8px;
+        min-height: 96vh;
+        height: 96vh;
+      }
+
+      .controls button {
+        width: 30%;
+        margin: 0 1.5% 8px 0;
+      }
+
+      .controls button:last-child {
+        margin-right: 0;
+      }
+
+      .board {
+        width: 320px;
+        height: 320px;
+      }
+
+      .cell {
+        line-height: 34px;
+        font-size: 19px;
+      }
+
+      .cell.latest-step {
+        font-size: 31px;
+      }
+
+      .cell.impossible:after {
+        line-height: 34px;
+        font-size: 28px;
+      }
+
+      .cell.guess-target:after {
+        line-height: 34px;
+        font-size: 24px;
+      }
+
+      #hint {
+        font-size: 11px;
+      }
     }
   </style>
 </head>
 <body>
-  <main class="app">
+  <div class="app">
     <h1>Soduko Generator</h1>
     <div class="controls">
       <button id="generateBtn" type="button">Generate Puzzle</button>
       <button id="stepBtn" type="button">Solve One Step</button>
       <button id="autoBtn" type="button">Auto</button>
     </div>
-    <section id="board" class="board" aria-label="Sudoku board"></section>
+    <div id="board" class="board"></div>
     <div class="info-board">
       <p class="hint done-count">Number of sodukos solved: <span id="doneCount">0</span></p>
       <p id="hint" class="hint">Click the button to generate a new puzzle.</p>
     </div>
-  </main>
-  <div id="numPopup" class="num-popup" role="dialog" aria-modal="true" aria-label="Enter digit">
+  </div>
+  <div id="numPopup" class="num-popup">
     <div class="num-popup-card">
       <p id="numPopupTitle" class="num-popup-title">Pick a number</p>
       <div id="numGrid" class="num-grid"></div>
@@ -454,63 +435,214 @@
   </div>
 
   <script>
-    const SIZE = 9;
-    const BOX = 3;
-    const EMPTY = 0;
-    const REMOVE_COUNT = 52;
-    const MAX_GENERATION_ATTEMPTS = 25;
+    var SIZE = 9;
+    var BOX = 3;
+    var EMPTY = 0;
+    var REMOVE_COUNT = 52;
+    var MAX_GENERATION_ATTEMPTS = 25;
 
-    const boardEl = document.getElementById("board");
-    const generateBtn = document.getElementById("generateBtn");
-    const stepBtn = document.getElementById("stepBtn");
-    const autoBtn = document.getElementById("autoBtn");
-    const doneCountEl = document.getElementById("doneCount");
-    const hintEl = document.getElementById("hint");
-    const numPopup = document.getElementById("numPopup");
-    const numPopupTitle = document.getElementById("numPopupTitle");
-    const numGrid = document.getElementById("numGrid");
-    let currentPuzzle = createEmptyGrid();
-    let fixedMask = createEmptyGrid().map((row) => row.map(() => false));
-    let guessTintMask = createEmptyGrid().map((row) => row.map(() => false));
-    let solutionGrid = createEmptyGrid();
-    let guessStack = [];
-    let doneCount = 0;
-    let countedCurrentPuzzle = false;
-    let autoTimer = null;
-    let autoEnabled = false;
-    let lastHighlights = null;
-    let selectedCell = null;
-    let lastSolverPlaced = null;
-    let pendingBacktrack = null;
-    let pendingAlternativeGuess = null;
-    let pendingGuessTarget = null;
-    let showDeadEndOverlay = false;
-    let impossibleCell = null;
+    if (!Array.prototype.includes) {
+      Array.prototype.includes = function (searchElement, fromIndex) {
+        var list = this;
+        var len = list.length >>> 0;
+        if (len === 0) {
+          return false;
+        }
+        var start = fromIndex || 0;
+        if (start < 0) {
+          start = len + start;
+          if (start < 0) {
+            start = 0;
+          }
+        }
+        for (var i = start; i < len; i++) {
+          if (list[i] === searchElement || (searchElement !== searchElement && list[i] !== list[i])) {
+            return true;
+          }
+        }
+        return false;
+      };
+    }
+
+    (function () {
+      function indexOfStrict(arr, value) {
+        for (var i = 0; i < arr.length; i++) {
+          if (arr[i] === value) {
+            return i;
+          }
+        }
+        return -1;
+      }
+
+      if (typeof window.Map !== "function") {
+        function ES5Map(iterable) {
+          this._keys = [];
+          this._values = [];
+          this.size = 0;
+          if (iterable && iterable.length) {
+            for (var i = 0; i < iterable.length; i++) {
+              this.set(iterable[i][0], iterable[i][1]);
+            }
+          }
+        }
+        ES5Map.prototype.has = function (key) {
+          return indexOfStrict(this._keys, key) !== -1;
+        };
+        ES5Map.prototype.get = function (key) {
+          var idx = indexOfStrict(this._keys, key);
+          return idx === -1 ? void 0 : this._values[idx];
+        };
+        ES5Map.prototype.set = function (key, value) {
+          var idx = indexOfStrict(this._keys, key);
+          if (idx === -1) {
+            this._keys.push(key);
+            this._values.push(value);
+            this.size = this._keys.length;
+          } else {
+            this._values[idx] = value;
+          }
+          return this;
+        };
+        ES5Map.prototype.delete = function (key) {
+          var idx = indexOfStrict(this._keys, key);
+          if (idx === -1) {
+            return false;
+          }
+          this._keys.splice(idx, 1);
+          this._values.splice(idx, 1);
+          this.size = this._keys.length;
+          return true;
+        };
+        ES5Map.prototype.clear = function () {
+          this._keys = [];
+          this._values = [];
+          this.size = 0;
+        };
+        ES5Map.prototype.forEach = function (callback, thisArg) {
+          for (var i = 0; i < this._keys.length; i++) {
+            callback.call(thisArg, this._values[i], this._keys[i], this);
+          }
+        };
+        window.Map = ES5Map;
+      }
+
+      if (typeof window.Set !== "function") {
+        function ES5Set(iterable) {
+          this._values = [];
+          this.size = 0;
+          if (iterable && iterable.length) {
+            for (var i = 0; i < iterable.length; i++) {
+              this.add(iterable[i]);
+            }
+          }
+        }
+        ES5Set.prototype.has = function (value) {
+          return indexOfStrict(this._values, value) !== -1;
+        };
+        ES5Set.prototype.add = function (value) {
+          if (!this.has(value)) {
+            this._values.push(value);
+            this.size = this._values.length;
+          }
+          return this;
+        };
+        ES5Set.prototype.delete = function (value) {
+          var idx = indexOfStrict(this._values, value);
+          if (idx === -1) {
+            return false;
+          }
+          this._values.splice(idx, 1);
+          this.size = this._values.length;
+          return true;
+        };
+        ES5Set.prototype.clear = function () {
+          this._values = [];
+          this.size = 0;
+        };
+        ES5Set.prototype.forEach = function (callback, thisArg) {
+          for (var i = 0; i < this._values.length; i++) {
+            callback.call(thisArg, this._values[i], this._values[i], this);
+          }
+        };
+        window.Set = ES5Set;
+      }
+    })();
+
+    var boardEl = document.getElementById("board");
+    var generateBtn = document.getElementById("generateBtn");
+    var stepBtn = document.getElementById("stepBtn");
+    var autoBtn = document.getElementById("autoBtn");
+    var doneCountEl = document.getElementById("doneCount");
+    var hintEl = document.getElementById("hint");
+    var numPopup = document.getElementById("numPopup");
+    var numPopupTitle = document.getElementById("numPopupTitle");
+    var numGrid = document.getElementById("numGrid");
+    var currentPuzzle = createEmptyGrid();
+    var fixedMask = createMaskGrid(false);
+    var guessTintMask = createMaskGrid(false);
+    var solutionGrid = createEmptyGrid();
+    var guessStack = [];
+    var doneCount = 0;
+    var countedCurrentPuzzle = false;
+    var autoTimer = null;
+    var autoEnabled = false;
+    var lastHighlights = null;
+    var selectedCell = null;
+    var lastSolverPlaced = null;
+    var pendingBacktrack = null;
+    var pendingAlternativeGuess = null;
+    var pendingGuessTarget = null;
+    var showDeadEndOverlay = false;
+    var impossibleCell = null;
 
     function shuffle(array) {
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
+      for (var i = array.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = array[i];
+        array[i] = array[j];
+        array[j] = tmp;
       }
       return array;
     }
 
     function createEmptyGrid() {
-      return Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
+      var grid = [];
+      var r;
+      var c;
+      for (r = 0; r < SIZE; r++) {
+        grid[r] = [];
+        for (c = 0; c < SIZE; c++) {
+          grid[r][c] = EMPTY;
+        }
+      }
+      return grid;
+    }
+
+    function createMaskGrid(defaultValue) {
+      var grid = [];
+      var r;
+      var c;
+      for (r = 0; r < SIZE; r++) {
+        grid[r] = [];
+        for (c = 0; c < SIZE; c++) {
+          grid[r][c] = defaultValue;
+        }
+      }
+      return grid;
     }
 
     function isValid(grid, row, col, value) {
-      for (let i = 0; i < SIZE; i++) {
+      for (var i = 0; i < SIZE; i++) {
         if (grid[row][i] === value || grid[i][col] === value) {
           return false;
         }
       }
 
-      const boxRow = Math.floor(row / BOX) * BOX;
-      const boxCol = Math.floor(col / BOX) * BOX;
+      var boxRow = Math.floor(row / BOX) * BOX;
+      var boxCol = Math.floor(col / BOX) * BOX;
 
-      for (let r = boxRow; r < boxRow + BOX; r++) {
-        for (let c = boxCol; c < boxCol + BOX; c++) {
+      for (var r = boxRow; r < boxRow + BOX; r++) {
+        for (var c = boxCol; c < boxCol + BOX; c++) {
           if (grid[r][c] === value) {
             return false;
           }
@@ -521,12 +653,13 @@
     }
 
     function fillGrid(grid) {
-      for (let row = 0; row < SIZE; row++) {
-        for (let col = 0; col < SIZE; col++) {
+      for (var row = 0; row < SIZE; row++) {
+        for (var col = 0; col < SIZE; col++) {
           if (grid[row][col] === EMPTY) {
-            const nums = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+            var nums = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
 
-            for (const n of nums) {
+            for (var ni = 0; ni < nums.length; ni++) {
+              var n = nums[ni];
               if (isValid(grid, row, col, n)) {
                 grid[row][col] = n;
                 if (fillGrid(grid)) {
@@ -545,25 +678,26 @@
     }
 
     function makePuzzle(solution, removeCount) {
-      const puzzle = solution.map((row) => row.slice());
-      const positions = [];
+      var puzzle = cloneGrid(solution);
+      var positions = [];
 
-      for (let r = 0; r < SIZE; r++) {
-        for (let c = 0; c < SIZE; c++) {
+      for (var r = 0; r < SIZE; r++) {
+        for (var c = 0; c < SIZE; c++) {
           positions.push([r, c]);
         }
       }
 
       shuffle(positions);
-      let removed = 0;
+      var removed = 0;
 
-      for (let i = 0; i < positions.length && removed < removeCount; i++) {
-        const [r, c] = positions[i];
-        const backup = puzzle[r][c];
+      for (var i = 0; i < positions.length && removed < removeCount; i++) {
+        var r = positions[i][0];
+        var c = positions[i][1];
+        var backup = puzzle[r][c];
         puzzle[r][c] = EMPTY;
 
-        const testGrid = cloneGrid(puzzle);
-        const solutionCount = countSolutions(testGrid, 2);
+        var testGrid = cloneGrid(puzzle);
+        var solutionCount = countSolutions(testGrid, 2);
         if (solutionCount === 1) {
           removed++;
         } else {
@@ -571,7 +705,7 @@
         }
       }
 
-      return { puzzle, removed };
+      return { puzzle: puzzle, removed: removed };
     }
 
     function getCandidates(grid, row, col) {
@@ -579,8 +713,8 @@
         return [];
       }
 
-      const candidates = [];
-      for (let n = 1; n <= SIZE; n++) {
+      var candidates = [];
+      for (var n = 1; n <= SIZE; n++) {
         if (isValid(grid, row, col, n)) {
           candidates.push(n);
         }
@@ -606,32 +740,32 @@
     }
 
     function getBlockers(grid, row, col, value) {
-      const blockers = [];
-      const seen = new Set();
+      var blockers = [];
+      var seen = new Set();
 
-      for (let i = 0; i < SIZE; i++) {
+      for (var i = 0; i < SIZE; i++) {
         if (grid[row][i] === value) {
-          const k = keyOf(row, i);
+          var k = keyOf(row, i);
           if (!seen.has(k)) {
             seen.add(k);
-            blockers.push({ row, col: i });
+            blockers.push({ row: row, col: i });
           }
         }
         if (grid[i][col] === value) {
-          const k = keyOf(i, col);
+          var k = keyOf(i, col);
           if (!seen.has(k)) {
             seen.add(k);
-            blockers.push({ row: i, col });
+            blockers.push({ row: i, col: col });
           }
         }
       }
 
-      const br = getBoxStart(row);
-      const bc = getBoxStart(col);
-      for (let r = br; r < br + BOX; r++) {
-        for (let c = bc; c < bc + BOX; c++) {
+      var br = getBoxStart(row);
+      var bc = getBoxStart(col);
+      for (var r = br; r < br + BOX; r++) {
+        for (var c = bc; c < bc + BOX; c++) {
           if (grid[r][c] === value) {
-            const k = keyOf(r, c);
+            var k = keyOf(r, c);
             if (!seen.has(k)) {
               seen.add(k);
               blockers.push({ row: r, col: c });
@@ -644,11 +778,11 @@
     }
 
     function getConstraintFlags(grid, row, col, value) {
-      let rowBlocked = false;
-      let colBlocked = false;
-      let boxBlocked = false;
+      var rowBlocked = false;
+      var colBlocked = false;
+      var boxBlocked = false;
 
-      for (let i = 0; i < SIZE; i++) {
+      for (var i = 0; i < SIZE; i++) {
         if (grid[row][i] === value) {
           rowBlocked = true;
         }
@@ -657,17 +791,17 @@
         }
       }
 
-      const br = getBoxStart(row);
-      const bc = getBoxStart(col);
-      for (let r = br; r < br + BOX; r++) {
-        for (let c = bc; c < bc + BOX; c++) {
+      var br = getBoxStart(row);
+      var bc = getBoxStart(col);
+      for (var r = br; r < br + BOX; r++) {
+        for (var c = bc; c < bc + BOX; c++) {
           if (grid[r][c] === value) {
             boxBlocked = true;
           }
         }
       }
 
-      return { rowBlocked, colBlocked, boxBlocked };
+      return { rowBlocked: rowBlocked, colBlocked: colBlocked, boxBlocked: boxBlocked };
     }
 
     function formatConstraintReasonList(reasons) {
@@ -684,20 +818,20 @@
     }
 
     function pickSingleBlocker(grid, row, col, value) {
-      for (let c = 0; c < SIZE; c++) {
+      for (var c = 0; c < SIZE; c++) {
         if (grid[row][c] === value) {
-          return { row, col: c };
+          return { row: row, col: c };
         }
       }
-      for (let r = 0; r < SIZE; r++) {
+      for (var r = 0; r < SIZE; r++) {
         if (grid[r][col] === value) {
-          return { row: r, col };
+          return { row: r, col: col };
         }
       }
-      const br = getBoxStart(row);
-      const bc = getBoxStart(col);
-      for (let r = br; r < br + BOX; r++) {
-        for (let c = bc; c < bc + BOX; c++) {
+      var br = getBoxStart(row);
+      var bc = getBoxStart(col);
+      for (var r = br; r < br + BOX; r++) {
+        for (var c = bc; c < bc + BOX; c++) {
           if (grid[r][c] === value) {
             return { row: r, col: c };
           }
@@ -707,10 +841,11 @@
     }
 
     function uniqueCells(cells) {
-      const seen = new Set();
-      const out = [];
-      for (const cell of cells) {
-        const k = keyOf(cell.row, cell.col);
+      var seen = new Set();
+      var out = [];
+      for (var i = 0; i < cells.length; i++) {
+        var cell = cells[i];
+        var k = keyOf(cell.row, cell.col);
         if (!seen.has(k)) {
           seen.add(k);
           out.push(cell);
@@ -720,12 +855,16 @@
     }
 
     function listCells(cells) {
-      return cells.map((cell) => formatCell(cell.row, cell.col)).join(", ");
+      var labels = [];
+      for (var i = 0; i < cells.length; i++) {
+        labels.push(formatCell(cells[i].row, cells[i].col));
+      }
+      return labels.join(", ");
     }
 
     function boxLabel(br, bc) {
-      const rowName = ["top", "middle", "bottom"][Math.floor(br / BOX)];
-      const colName = ["left", "center", "right"][Math.floor(bc / BOX)];
+      var rowName = ["top", "middle", "bottom"][Math.floor(br / BOX)];
+      var colName = ["left", "center", "right"][Math.floor(bc / BOX)];
       return rowName + "-" + colName + " 3x3 box";
     }
 
@@ -734,7 +873,7 @@
     }
 
     function relationLabels(blocker, cell) {
-      const labels = [];
+      var labels = [];
       if (blocker.row === cell.row) {
         labels.push("row");
       }
@@ -747,16 +886,51 @@
       return labels;
     }
 
+    function mapValuesToArray(mapObj) {
+      var out = [];
+      if (!mapObj || !mapObj.forEach) {
+        return out;
+      }
+      mapObj.forEach(function (value) {
+        out.push(value);
+      });
+      return out;
+    }
+
+    function setValuesToArray(setObj) {
+      var out = [];
+      if (!setObj || !setObj.forEach) {
+        return out;
+      }
+      setObj.forEach(function (value) {
+        out.push(value);
+      });
+      return out;
+    }
+
     function findExactMinimumCoverMasks(masks, universeMask, weights) {
-      const itemWeights = weights && weights.length === masks.length
-        ? weights
-        : masks.map(() => 1);
-      let best = null;
-      let bestScore = Infinity;
-      const candidatesByBit = Array.from({ length: 32 }, () => []);
-      for (let i = 0; i < masks.length; i++) {
-        const mask = masks[i];
-        for (let bit = 0; bit < 32; bit++) {
+      var itemWeights;
+      var i;
+      var bit;
+      if (weights && weights.length === masks.length) {
+        itemWeights = weights;
+      } else {
+        itemWeights = [];
+        for (i = 0; i < masks.length; i++) {
+          itemWeights.push(1);
+        }
+      }
+
+      var best = null;
+      var bestScore = Infinity;
+      var candidatesByBit = [];
+      for (bit = 0; bit < 32; bit++) {
+        candidatesByBit[bit] = [];
+      }
+
+      for (i = 0; i < masks.length; i++) {
+        var mask = masks[i];
+        for (bit = 0; bit < 32; bit++) {
           if (mask & (1 << bit)) {
             candidatesByBit[bit].push(i);
           }
@@ -764,6 +938,7 @@
       }
 
       function dfs(coveredMask, chosen, chosenScore) {
+        var j;
         if (coveredMask === universeMask) {
           if (
             !best ||
@@ -782,12 +957,12 @@
           return;
         }
 
-        let missingBit = -1;
-        let smallestOptions = Infinity;
-        for (let bit = 0; bit < 32; bit++) {
-          const bitMask = 1 << bit;
+        var missingBit = -1;
+        var smallestOptions = Infinity;
+        for (bit = 0; bit < 32; bit++) {
+          var bitMask = 1 << bit;
           if ((universeMask & bitMask) && !(coveredMask & bitMask)) {
-            const options = candidatesByBit[bit];
+            var options = candidatesByBit[bit];
             if (!options.length) {
               return;
             }
@@ -801,7 +976,9 @@
           return;
         }
 
-        for (const idx of candidatesByBit[missingBit]) {
+        var optionList = candidatesByBit[missingBit];
+        for (j = 0; j < optionList.length; j++) {
+          var idx = optionList[j];
           chosen.push(idx);
           dfs(coveredMask | masks[idx], chosen, chosenScore + itemWeights[idx]);
           chosen.pop();
@@ -813,26 +990,28 @@
     }
 
     function minimizeShadingUnits(rejected, blockers) {
-      const unitCandidates = [];
-      const unitByKey = new Map();
-      const registerUnit = (type, idObj, cellIdx) => {
-        const key = type + ":" + JSON.stringify(idObj);
-        let entry = unitByKey.get(key);
+      var unitCandidates = [];
+      var unitByKey = new Map();
+
+      function registerUnit(type, idObj, cellIdx) {
+        var key = type + ":" + JSON.stringify(idObj);
+        var entry = unitByKey.get(key);
         if (!entry) {
-          entry = { type, idObj, key, mask: 0 };
+          entry = { type: type, idObj: idObj, key: key, mask: 0 };
           unitByKey.set(key, entry);
           unitCandidates.push(entry);
         }
         entry.mask |= (1 << cellIdx);
-      };
+      }
 
-      for (let i = 0; i < rejected.length; i++) {
-        const cell = rejected[i];
-        for (const blocker of blockers) {
+      for (var i = 0; i < rejected.length; i++) {
+        var cell = rejected[i];
+        for (var b = 0; b < blockers.length; b++) {
+          var blocker = blockers[b];
           if (shareBox(blocker, cell)) {
-            const br = getBoxStart(cell.row);
-            const bc = getBoxStart(cell.col);
-            registerUnit("box", { br, bc }, i);
+            var br = getBoxStart(cell.row);
+            var bc = getBoxStart(cell.col);
+            registerUnit("box", { br: br, bc: bc }, i);
           }
           if (blocker.row === cell.row) {
             registerUnit("row", { row: cell.row }, i);
@@ -843,22 +1022,27 @@
         }
       }
 
-      const universeMask = (1 << rejected.length) - 1;
-      const unitWeights = unitCandidates.map((unit) => {
+      var universeMask = (1 << rejected.length) - 1;
+      var unitWeights = [];
+      var masks = [];
+      for (i = 0; i < unitCandidates.length; i++) {
+        var unit = unitCandidates[i];
+        masks.push(unit.mask);
         if (unit.type === "box") {
-          return 1;
+          unitWeights.push(1);
+        } else if (unit.type === "row") {
+          unitWeights.push(2);
+        } else {
+          unitWeights.push(3);
         }
-        if (unit.type === "row") {
-          return 2;
-        }
-        return 3;
-      });
-      const chosenIdx = findExactMinimumCoverMasks(
-        unitCandidates.map((x) => x.mask),
-        universeMask,
-        unitWeights
-      );
-      return chosenIdx.map((idx) => unitCandidates[idx]);
+      }
+
+      var chosenIdx = findExactMinimumCoverMasks(masks, universeMask, unitWeights);
+      var chosenUnits = [];
+      for (i = 0; i < chosenIdx.length; i++) {
+        chosenUnits.push(unitCandidates[chosenIdx[i]]);
+      }
+      return chosenUnits;
     }
 
     function buildMinimalPlanFromRejected(rejected, value) {
@@ -872,13 +1056,15 @@
         };
       }
 
-      const blockerMap = new Map();
-      for (let i = 0; i < rejected.length; i++) {
-        const cell = rejected[i];
-        const localSeen = new Set();
-        for (const reason of cell.reasons) {
-          for (const blocker of reason.blockers) {
-            const k = keyOf(blocker.row, blocker.col);
+      var blockerMap = new Map();
+      for (var i = 0; i < rejected.length; i++) {
+        var cell = rejected[i];
+        var localSeen = new Set();
+        for (var ri = 0; ri < cell.reasons.length; ri++) {
+          var reason = cell.reasons[ri];
+          for (var bi = 0; bi < reason.blockers.length; bi++) {
+            var blocker = reason.blockers[bi];
+            var k = keyOf(blocker.row, blocker.col);
             if (localSeen.has(k)) {
               continue;
             }
@@ -891,7 +1077,13 @@
         }
       }
 
-      const candidates = Array.from(blockerMap.values()).filter((x) => x.mask !== 0);
+      var candidates = [];
+      var mapValues = mapValuesToArray(blockerMap);
+      for (i = 0; i < mapValues.length; i++) {
+        if (mapValues[i].mask !== 0) {
+          candidates.push(mapValues[i]);
+        }
+      }
       if (!candidates.length) {
         return {
           blockers: [],
@@ -902,17 +1094,29 @@
         };
       }
 
-      const universeMask = (1 << rejected.length) - 1;
-      const chosenIdx = findExactMinimumCoverMasks(candidates.map((x) => x.mask), universeMask);
-      const chosen = chosenIdx.map((idx) => candidates[idx]);
+      var universeMask = (1 << rejected.length) - 1;
+      var candidateMasks = [];
+      for (i = 0; i < candidates.length; i++) {
+        candidateMasks.push(candidates[i].mask);
+      }
+      var chosenIdx = findExactMinimumCoverMasks(candidateMasks, universeMask);
+      var chosen = [];
+      for (i = 0; i < chosenIdx.length; i++) {
+        chosen.push(candidates[chosenIdx[i]]);
+      }
 
-      const blockers = uniqueCells(chosen.map((item) => item.cell));
-      const selectedUnits = minimizeShadingUnits(rejected, blockers);
+      var chosenCells = [];
+      for (i = 0; i < chosen.length; i++) {
+        chosenCells.push(chosen[i].cell);
+      }
+      var blockers = uniqueCells(chosenCells);
+      var selectedUnits = minimizeShadingUnits(rejected, blockers);
 
-      const shadedRows = [];
-      const shadedCols = [];
-      const shadedBoxes = [];
-      for (const unit of selectedUnits) {
+      var shadedRows = [];
+      var shadedCols = [];
+      var shadedBoxes = [];
+      for (i = 0; i < selectedUnits.length; i++) {
+        var unit = selectedUnits[i];
         if (unit.type === "row") {
           shadedRows.push(unit.idObj.row);
         } else if (unit.type === "col") {
@@ -922,34 +1126,38 @@
         }
       }
 
-      const activeRows = new Set(shadedRows);
-      const activeCols = new Set(shadedCols);
-      const activeBoxes = new Set(shadedBoxes.map((b) => keyOf(b.br, b.bc)));
-      const explanationParts = [];
+      var activeRows = new Set(shadedRows);
+      var activeCols = new Set(shadedCols);
+      var activeBoxes = new Set();
+      for (i = 0; i < shadedBoxes.length; i++) {
+        activeBoxes.add(keyOf(shadedBoxes[i].br, shadedBoxes[i].bc));
+      }
+      var explanationParts = [];
 
-      for (const blocker of blockers) {
-        const coveredCells = [];
-        const relationKinds = new Set();
-        for (let i = 0; i < rejected.length; i++) {
-          const cell = rejected[i];
-          let contributes = false;
-          if (blocker.row === cell.row && activeRows.has(cell.row)) {
+      for (var b = 0; b < blockers.length; b++) {
+        var blocker = blockers[b];
+        var coveredCells = [];
+        var relationKinds = new Set();
+        for (i = 0; i < rejected.length; i++) {
+          var candidateCell = rejected[i];
+          var contributes = false;
+          if (blocker.row === candidateCell.row && activeRows.has(candidateCell.row)) {
             relationKinds.add("row");
             contributes = true;
           }
-          if (blocker.col === cell.col && activeCols.has(cell.col)) {
+          if (blocker.col === candidateCell.col && activeCols.has(candidateCell.col)) {
             relationKinds.add("column");
             contributes = true;
           }
-          if (shareBox(blocker, cell)) {
-            const bk = keyOf(getBoxStart(cell.row), getBoxStart(cell.col));
+          if (shareBox(blocker, candidateCell)) {
+            var bk = keyOf(getBoxStart(candidateCell.row), getBoxStart(candidateCell.col));
             if (activeBoxes.has(bk)) {
               relationKinds.add("3x3 box");
               contributes = true;
             }
           }
           if (contributes) {
-            coveredCells.push({ row: cell.row, col: cell.col });
+            coveredCells.push({ row: candidateCell.row, col: candidateCell.col });
           }
         }
 
@@ -957,7 +1165,7 @@
           continue;
         }
 
-        const relationText = formatConstraintReasonList(Array.from(relationKinds));
+        var relationText = formatConstraintReasonList(setValuesToArray(relationKinds));
         explanationParts.push(
           "There is already a " +
             value +
@@ -971,7 +1179,7 @@
         );
       }
 
-      const usedUnitTypes = [];
+      var usedUnitTypes = [];
       if (shadedRows.length) {
         usedUnitTypes.push("row");
       }
@@ -983,49 +1191,55 @@
       }
 
       return {
-        blockers,
-        shadedBoxes,
-        shadedCols,
-        shadedRows,
-        explanationParts,
-        eliminatedCells: rejected.map((cell) => ({ row: cell.row, col: cell.col })),
-        usedUnitTypes
+        blockers: blockers,
+        shadedBoxes: shadedBoxes,
+        shadedCols: shadedCols,
+        shadedRows: shadedRows,
+        explanationParts: explanationParts,
+        eliminatedCells: (function () {
+          var out = [];
+          for (var i = 0; i < rejected.length; i++) {
+            out.push({ row: rejected[i].row, col: rejected[i].col });
+          }
+          return out;
+        })(),
+        usedUnitTypes: usedUnitTypes
       };
     }
 
     function buildRowEliminationPlan(grid, row, targetCol, value) {
-      const rejected = [];
-      for (let col = 0; col < SIZE; col++) {
+      var rejected = [];
+      for (var col = 0; col < SIZE; col++) {
         if (col === targetCol || grid[row][col] !== EMPTY) {
           continue;
         }
 
-        const reasons = [];
-        const rowBlockers = [];
-        for (let c = 0; c < SIZE; c++) {
+        var reasons = [];
+        var rowBlockers = [];
+        for (var c = 0; c < SIZE; c++) {
           if (grid[row][c] === value) {
-            rowBlockers.push({ row, col: c });
+            rowBlockers.push({ row: row, col: c });
           }
         }
         if (rowBlockers.length) {
           reasons.push({ type: "row", key: "row:" + row, blockers: rowBlockers });
         }
 
-        const colBlockers = [];
-        for (let r = 0; r < SIZE; r++) {
+        var colBlockers = [];
+        for (var r = 0; r < SIZE; r++) {
           if (grid[r][col] === value) {
-            colBlockers.push({ row: r, col });
+            colBlockers.push({ row: r, col: col });
           }
         }
         if (colBlockers.length) {
-          reasons.push({ type: "col", key: "col:" + col, blockers: colBlockers, col });
+          reasons.push({ type: "col", key: "col:" + col, blockers: colBlockers, col: col });
         }
 
-        const br = getBoxStart(row);
-        const bc = getBoxStart(col);
-        const boxBlockers = [];
-        for (let r = br; r < br + BOX; r++) {
-          for (let c = bc; c < bc + BOX; c++) {
+        var br = getBoxStart(row);
+        var bc = getBoxStart(col);
+        var boxBlockers = [];
+        for (var r = br; r < br + BOX; r++) {
+          for (var c = bc; c < bc + BOX; c++) {
             if (grid[r][c] === value) {
               boxBlockers.push({ row: r, col: c });
             }
@@ -1036,50 +1250,50 @@
             type: "box",
             key: "box:" + br + "," + bc,
             blockers: boxBlockers,
-            br,
-            bc
+            br: br,
+            bc: bc
           });
         }
 
-        rejected.push({ row, col, reasons });
+        rejected.push({ row: row, col: col, reasons: reasons });
       }
 
       return buildMinimalPlanFromRejected(rejected, value);
     }
 
     function buildColEliminationPlan(grid, col, targetRow, value) {
-      const rejected = [];
-      for (let row = 0; row < SIZE; row++) {
+      var rejected = [];
+      for (var row = 0; row < SIZE; row++) {
         if (row === targetRow || grid[row][col] !== EMPTY) {
           continue;
         }
 
-        const reasons = [];
-        const rowBlockers = [];
-        for (let c = 0; c < SIZE; c++) {
+        var reasons = [];
+        var rowBlockers = [];
+        for (var c = 0; c < SIZE; c++) {
           if (grid[row][c] === value) {
-            rowBlockers.push({ row, col: c });
+            rowBlockers.push({ row: row, col: c });
           }
         }
         if (rowBlockers.length) {
-          reasons.push({ type: "row", key: "row:" + row, blockers: rowBlockers, row });
+          reasons.push({ type: "row", key: "row:" + row, blockers: rowBlockers, row: row });
         }
 
-        const colBlockers = [];
-        for (let r = 0; r < SIZE; r++) {
+        var colBlockers = [];
+        for (var r = 0; r < SIZE; r++) {
           if (grid[r][col] === value) {
-            colBlockers.push({ row: r, col });
+            colBlockers.push({ row: r, col: col });
           }
         }
         if (colBlockers.length) {
           reasons.push({ type: "col", key: "col:" + col, blockers: colBlockers });
         }
 
-        const br = getBoxStart(row);
-        const bc = getBoxStart(col);
-        const boxBlockers = [];
-        for (let r = br; r < br + BOX; r++) {
-          for (let c = bc; c < bc + BOX; c++) {
+        var br = getBoxStart(row);
+        var bc = getBoxStart(col);
+        var boxBlockers = [];
+        for (var r = br; r < br + BOX; r++) {
+          for (var c = bc; c < bc + BOX; c++) {
             if (grid[r][c] === value) {
               boxBlockers.push({ row: r, col: c });
             }
@@ -1090,58 +1304,58 @@
             type: "box",
             key: "box:" + br + "," + bc,
             blockers: boxBlockers,
-            br,
-            bc
+            br: br,
+            bc: bc
           });
         }
 
-        rejected.push({ row, col, reasons });
+        rejected.push({ row: row, col: col, reasons: reasons });
       }
 
       return buildMinimalPlanFromRejected(rejected, value);
     }
 
     function buildBoxEliminationPlan(grid, br, bc, targetRow, targetCol, value) {
-      const rejected = [];
-      for (let row = br; row < br + BOX; row++) {
-        for (let col = bc; col < bc + BOX; col++) {
+      var rejected = [];
+      for (var row = br; row < br + BOX; row++) {
+        for (var col = bc; col < bc + BOX; col++) {
           if ((row === targetRow && col === targetCol) || grid[row][col] !== EMPTY) {
             continue;
           }
-          const reasons = [];
+          var reasons = [];
 
-          const rowBlockers = [];
-          for (let c = 0; c < SIZE; c++) {
+          var rowBlockers = [];
+          for (var c = 0; c < SIZE; c++) {
             if (grid[row][c] === value) {
-              rowBlockers.push({ row, col: c });
+              rowBlockers.push({ row: row, col: c });
             }
           }
           if (rowBlockers.length) {
-            reasons.push({ type: "row", key: "row:" + row, blockers: rowBlockers, row });
+            reasons.push({ type: "row", key: "row:" + row, blockers: rowBlockers, row: row });
           }
 
-          const colBlockers = [];
-          for (let r = 0; r < SIZE; r++) {
+          var colBlockers = [];
+          for (var r = 0; r < SIZE; r++) {
             if (grid[r][col] === value) {
-              colBlockers.push({ row: r, col });
+              colBlockers.push({ row: r, col: col });
             }
           }
           if (colBlockers.length) {
-            reasons.push({ type: "col", key: "col:" + col, blockers: colBlockers, col });
+            reasons.push({ type: "col", key: "col:" + col, blockers: colBlockers, col: col });
           }
 
-          const boxBlockers = [];
-          for (let r = br; r < br + BOX; r++) {
-            for (let c = bc; c < bc + BOX; c++) {
+          var boxBlockers = [];
+          for (var r = br; r < br + BOX; r++) {
+            for (var c = bc; c < bc + BOX; c++) {
               if (grid[r][c] === value) {
                 boxBlockers.push({ row: r, col: c });
               }
             }
           }
           if (boxBlockers.length) {
-            reasons.push({ type: "box", key: "box:" + br + "," + bc, blockers: boxBlockers, br, bc });
+            reasons.push({ type: "box", key: "box:" + br + "," + bc, blockers: boxBlockers, br: br, bc: bc });
           }
-          rejected.push({ row, col, reasons });
+          rejected.push({ row: row, col: col, reasons: reasons });
         }
       }
 
@@ -1150,35 +1364,67 @@
 
     function beep() {
       try {
-        const Ctx = window.AudioContext || window.webkitAudioContext;
+        var Ctx = window.AudioContext || window.webkitAudioContext;
         if (!Ctx) {
           return;
         }
-        const ctx = new Ctx();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
+        var ctx = new Ctx();
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
         osc.type = "square";
         osc.frequency.value = 440;
         gain.gain.value = 0.0001;
         osc.connect(gain);
         gain.connect(ctx.destination);
-        const now = ctx.currentTime;
+        var now = ctx.currentTime;
         gain.gain.exponentialRampToValueAtTime(0.16, now + 0.01);
         gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.13);
         osc.start(now);
         osc.stop(now + 0.14);
-        osc.onended = () => ctx.close();
+        osc.onended = function () { ctx.close(); };
       } catch (err) {
       }
     }
 
     function closeNumberPopup() {
-      numPopup.classList.remove("open");
+      removeClass(numPopup, "open");
       selectedCell = null;
     }
 
+    function hasClass(el, cls) {
+      var classes = (el.className || "");
+      return (" " + classes + " ").indexOf(" " + cls + " ") !== -1;
+    }
+
+    function addClass(el, cls) {
+      if (el.classList && el.classList.add) {
+        el.classList.add(cls);
+        return;
+      }
+      if (!hasClass(el, cls)) {
+        el.className = (el.className ? (el.className + " ") : "") + cls;
+      }
+    }
+
+    function removeClass(el, cls) {
+      if (el.classList && el.classList.remove) {
+        el.classList.remove(cls);
+        return;
+      }
+      var classes = (" " + (el.className || "") + " ").replace(" " + cls + " ", " ");
+      el.className = classes.replace(/^\s+|\s+$/g, "").replace(/\s+/g, " ");
+    }
+
+    function toggleClass(el, cls, enabled) {
+      if (enabled) {
+        addClass(el, cls);
+      } else {
+        removeClass(el, cls);
+      }
+    }
+
     function setStatus(message) {
-      const depth = guessStack.length;
+      var depth = guessStack.length;
       hintEl.textContent = depth > 0 ? (message + " Guess depth: " + depth + ".") : message;
     }
 
@@ -1192,8 +1438,8 @@
     }
 
     function setStatusHtml(html) {
-      const depth = guessStack.length;
-      const depthHtml = depth > 0 ? '<div class="step-depth">Guess depth: ' + depth + ".</div>" : "";
+      var depth = guessStack.length;
+      var depthHtml = depth > 0 ? '<div class="step-depth">Guess depth: ' + depth + ".</div>" : "";
       hintEl.innerHTML = html + depthHtml;
     }
 
@@ -1214,18 +1460,19 @@
       if (!reasons || !reasons.length) {
         return "";
       }
-      const chips = reasons
-        .map((reason) => {
-          const cls = chipClassForReason(reason);
-          return '<span class="chip ' + cls + '">' + escapeHtml(reason.toUpperCase()) + "</span>";
-        })
-        .join("");
+      var chipsArr = [];
+      for (var i = 0; i < reasons.length; i++) {
+        var reason = reasons[i];
+        var cls = chipClassForReason(reason);
+        chipsArr.push('<span class="chip ' + cls + '">' + escapeHtml(reason.toUpperCase()) + "</span>");
+      }
+      var chips = chipsArr.join("");
       return '<div class="chip-row"><span class="chip target">USED</span>' + chips + "</div>";
     }
 
     function buildMoveStatusHtml(move, solvedNow) {
-      const target = formatCell(move.row, move.col);
-      const out = [];
+      var target = formatCell(move.row, move.col);
+      var out = [];
       out.push(
         '<div class="step-title">' +
           escapeHtml(move.method || "Solve step") +
@@ -1252,17 +1499,18 @@
       }
 
       if (move.teaching && move.teaching.blockedBy && move.teaching.blockedBy.length) {
-        const blockedItems = move.teaching.blockedBy
-          .map((item) => {
-            return (
-              "<li>" +
+        var blockedItemsArr = [];
+        for (var bi = 0; bi < move.teaching.blockedBy.length; bi++) {
+          var item = move.teaching.blockedBy[bi];
+          blockedItemsArr.push(
+            "<li>" +
               escapeHtml(String(item.digit)) +
               " is blocked by " +
               escapeHtml(formatConstraintReasonList(item.reasons || [])) +
               ".</li>"
-            );
-          })
-          .join("");
+          );
+        }
+        var blockedItems = blockedItemsArr.join("");
         out.push('<ul class="step-list">' + blockedItems + "</ul>");
       }
 
@@ -1275,9 +1523,12 @@
       }
 
       if (move.teaching && move.teaching.whyParts && move.teaching.whyParts.length) {
-        const whyItems = move.teaching.whyParts
-          .map((line) => "<li>" + escapeHtml(line) + "</li>")
-          .join("");
+        var whyItemsArr = [];
+        for (var wi = 0; wi < move.teaching.whyParts.length; wi++) {
+          var line = move.teaching.whyParts[wi];
+          whyItemsArr.push("<li>" + escapeHtml(line) + "</li>");
+        }
+        var whyItems = whyItemsArr.join("");
         out.push('<ul class="step-list">' + whyItems + "</ul>");
       }
 
@@ -1289,7 +1540,8 @@
       if (!selectedCell) {
         return;
       }
-      const { row, col } = selectedCell;
+      var row = selectedCell.row;
+      var col = selectedCell.col;
       pendingBacktrack = null;
       pendingAlternativeGuess = null;
       pendingGuessTarget = null;
@@ -1302,12 +1554,12 @@
         guessStack = [];
         lastSolverPlaced = null;
         lastHighlights = {
-          target: [{ row, col }],
+          target: [{ row: row, col: col }],
           unit: [],
           blockers: []
         };
         renderBoard(currentPuzzle);
-        let status = "Good move. We place " + value + " at " + formatCell(row, col) + ". This keeps the row, column, and box consistent.";
+        var status = "Good move. We place " + value + " at " + formatCell(row, col) + ". This keeps the row, column, and box consistent.";
         if (isSolved(currentPuzzle)) {
           markSolvedIfNeeded();
           status += " Puzzle solved.";
@@ -1328,14 +1580,14 @@
       if (fixedMask[row][col] || currentPuzzle[row][col] !== EMPTY) {
         return;
       }
-      selectedCell = { row, col };
+      selectedCell = { row: row, col: col };
       numPopupTitle.textContent = "Pick a number for " + formatCell(row, col);
-      numPopup.classList.add("open");
+      addClass(numPopup, "open");
     }
 
     function isSolved(grid) {
-      for (let r = 0; r < SIZE; r++) {
-        for (let c = 0; c < SIZE; c++) {
+      for (var r = 0; r < SIZE; r++) {
+        for (var c = 0; c < SIZE; c++) {
           if (grid[r][c] === EMPTY) {
             return false;
           }
@@ -1345,20 +1597,24 @@
     }
 
     function cloneGrid(grid) {
-      return grid.map((row) => row.slice());
+      var out = [];
+      for (var r = 0; r < grid.length; r++) {
+        out[r] = grid[r].slice();
+      }
+      return out;
     }
 
     function findBestEmptyCell(grid) {
-      let best = null;
-      let bestCandidates = null;
+      var best = null;
+      var bestCandidates = null;
 
-      for (let r = 0; r < SIZE; r++) {
-        for (let c = 0; c < SIZE; c++) {
+      for (var r = 0; r < SIZE; r++) {
+        for (var c = 0; c < SIZE; c++) {
           if (grid[r][c] !== EMPTY) {
             continue;
           }
 
-          const candidates = getCandidates(grid, r, c);
+          var candidates = getCandidates(grid, r, c);
           if (candidates.length === 0) {
             return { row: r, col: c, candidates };
           }
@@ -1380,8 +1636,8 @@
     }
 
     function countSolutions(grid, limit) {
-      const maxSolutions = limit || 2;
-      const target = findBestEmptyCell(grid);
+      var maxSolutions = limit || 2;
+      var target = findBestEmptyCell(grid);
       if (!target) {
         return 1;
       }
@@ -1389,8 +1645,9 @@
         return 0;
       }
 
-      let total = 0;
-      for (const value of target.candidates) {
+      var total = 0;
+      for (var ci = 0; ci < target.candidates.length; ci++) {
+        var value = target.candidates[ci];
         grid[target.row][target.col] = value;
         total += countSolutions(grid, maxSolutions - total);
         if (total >= maxSolutions) {
@@ -1404,23 +1661,23 @@
     }
 
     function findSingleMoveSimple(grid) {
-      for (let r = 0; r < SIZE; r++) {
-        for (let c = 0; c < SIZE; c++) {
+      for (var r = 0; r < SIZE; r++) {
+        for (var c = 0; c < SIZE; c++) {
           if (grid[r][c] !== EMPTY) {
             continue;
           }
-          const candidates = getCandidates(grid, r, c);
+          var candidates = getCandidates(grid, r, c);
           if (candidates.length === 1) {
             return { row: r, col: c, value: candidates[0] };
           }
         }
       }
 
-      for (let r = 0; r < SIZE; r++) {
-        for (let n = 1; n <= SIZE; n++) {
-          let foundCol = -1;
-          let count = 0;
-          for (let c = 0; c < SIZE; c++) {
+      for (var r = 0; r < SIZE; r++) {
+        for (var n = 1; n <= SIZE; n++) {
+          var foundCol = -1;
+          var count = 0;
+          for (var c = 0; c < SIZE; c++) {
             if (grid[r][c] === EMPTY && getCandidates(grid, r, c).includes(n)) {
               foundCol = c;
               count++;
@@ -1432,11 +1689,11 @@
         }
       }
 
-      for (let c = 0; c < SIZE; c++) {
-        for (let n = 1; n <= SIZE; n++) {
-          let foundRow = -1;
-          let count = 0;
-          for (let r = 0; r < SIZE; r++) {
+      for (var c = 0; c < SIZE; c++) {
+        for (var n = 1; n <= SIZE; n++) {
+          var foundRow = -1;
+          var count = 0;
+          for (var r = 0; r < SIZE; r++) {
             if (grid[r][c] === EMPTY && getCandidates(grid, r, c).includes(n)) {
               foundRow = r;
               count++;
@@ -1448,14 +1705,14 @@
         }
       }
 
-      for (let br = 0; br < SIZE; br += BOX) {
-        for (let bc = 0; bc < SIZE; bc += BOX) {
-          for (let n = 1; n <= SIZE; n++) {
-            let foundRow = -1;
-            let foundCol = -1;
-            let count = 0;
-            for (let r = br; r < br + BOX; r++) {
-              for (let c = bc; c < bc + BOX; c++) {
+      for (var br = 0; br < SIZE; br += BOX) {
+        for (var bc = 0; bc < SIZE; bc += BOX) {
+          for (var n = 1; n <= SIZE; n++) {
+            var foundRow = -1;
+            var foundCol = -1;
+            var count = 0;
+            for (var r = br; r < br + BOX; r++) {
+              for (var c = bc; c < bc + BOX; c++) {
                 if (grid[r][c] === EMPTY && getCandidates(grid, r, c).includes(n)) {
                   foundRow = r;
                   foundCol = c;
@@ -1474,12 +1731,12 @@
     }
 
     function canSolveWithSinglesOnly(grid) {
-      const working = cloneGrid(grid);
-      let safety = 0;
-      const maxSteps = SIZE * SIZE * 2;
+      var working = cloneGrid(grid);
+      var safety = 0;
+      var maxSteps = SIZE * SIZE * 2;
 
       while (!isSolved(working) && safety < maxSteps) {
-        const move = findSingleMoveSimple(working);
+        var move = findSingleMoveSimple(working);
         if (!move) {
           return false;
         }
@@ -1491,8 +1748,8 @@
     }
 
     function findContradictionCell(grid) {
-      for (let r = 0; r < SIZE; r++) {
-        for (let c = 0; c < SIZE; c++) {
+      for (var r = 0; r < SIZE; r++) {
+        for (var c = 0; c < SIZE; c++) {
           if (grid[r][c] !== EMPTY) {
             continue;
           }
@@ -1509,7 +1766,7 @@
         return null;
       }
 
-      const guessedValue = target.candidates[0];
+      var guessedValue = target.candidates[0];
       guessStack.push({
         snapshot: cloneGrid(currentPuzzle),
         tintSnapshot: cloneGrid(guessTintMask),
@@ -1533,17 +1790,17 @@
     }
 
     function prepareBacktrackStep(deadEnd) {
-      let rewoundLevels = 0;
+      var rewoundLevels = 0;
 
       while (guessStack.length > 0) {
-        const frame = guessStack[guessStack.length - 1];
+        var frame = guessStack[guessStack.length - 1];
         if (frame.nextIndex < frame.candidates.length) {
           currentPuzzle = cloneGrid(frame.snapshot);
           guessTintMask = cloneGrid(frame.tintSnapshot);
-          const rewindLine = rewoundLevels > 0
+          var rewindLine = rewoundLevels > 0
             ? " We rewound " + rewoundLevels + " guess level" + (rewoundLevels === 1 ? "" : "s") + " to find a remaining option."
             : "";
-          const lastGuess = frame.candidates[frame.nextIndex - 1];
+          var lastGuess = frame.candidates[frame.nextIndex - 1];
 
           return {
             explanation:
@@ -1553,9 +1810,9 @@
               unit: [],
               blockers: [{ row: deadEnd.row, col: deadEnd.col }]
             },
-            frame,
-            deadEnd,
-            rewoundLevels
+            frame: frame,
+            deadEnd: deadEnd,
+            rewoundLevels: rewoundLevels
           };
         }
         guessStack.pop();
@@ -1566,14 +1823,14 @@
     }
 
     function applyAlternativeGuessStep(step) {
-      const frame = step.frame;
+      var frame = step.frame;
       if (!frame || frame.nextIndex >= frame.candidates.length) {
         return null;
       }
 
-      const previousGuess = frame.candidates[frame.nextIndex - 1];
-      const nextValue = frame.candidates[frame.nextIndex];
-      const isTopLevelBinaryCertainty =
+      var previousGuess = frame.candidates[frame.nextIndex - 1];
+      var nextValue = frame.candidates[frame.nextIndex];
+      var isTopLevelBinaryCertainty =
         guessStack.length === 1 &&
         frame.candidates.length === 2 &&
         frame.nextIndex === 1;
@@ -1585,11 +1842,11 @@
         guessStack.pop();
       }
 
-      const rewindLine = step.rewoundLevels > 0
+      var rewindLine = step.rewoundLevels > 0
         ? " We had to rewind " + step.rewoundLevels + " guess level" + (step.rewoundLevels === 1 ? "" : "s") + " before finding this branch."
         : "";
 
-      const certaintyLine = isTopLevelBinaryCertainty
+      var certaintyLine = isTopLevelBinaryCertainty
         ? " Because the first branch was impossible and there were only two candidates, " + nextValue + " is now certain (not a guess)."
         : "";
 
@@ -1607,24 +1864,24 @@
     }
 
     function findNakedSingle(grid) {
-      for (let r = 0; r < SIZE; r++) {
-        for (let c = 0; c < SIZE; c++) {
+      for (var r = 0; r < SIZE; r++) {
+        for (var c = 0; c < SIZE; c++) {
           if (grid[r][c] !== EMPTY) {
             continue;
           }
-          const candidates = getCandidates(grid, r, c);
+          var candidates = getCandidates(grid, r, c);
           if (candidates.length === 1) {
-            const value = candidates[0];
-            const blockers = [];
-            const reasonSet = new Set();
-            const blockerByKey = new Map();
-            const blockedBy = [];
-            for (let d = 1; d <= 9; d++) {
+            var value = candidates[0];
+            var blockers = [];
+            var reasonSet = new Set();
+            var blockerByKey = new Map();
+            var blockedBy = [];
+            for (var d = 1; d <= 9; d++) {
               if (d === value) {
                 continue;
               }
-              const flags = getConstraintFlags(grid, r, c, d);
-              const reasons = [];
+              var flags = getConstraintFlags(grid, r, c, d);
+              var reasons = [];
               if (flags.rowBlocked) {
                 reasonSet.add("row");
                 reasons.push("row");
@@ -1638,33 +1895,36 @@
                 reasons.push("3x3 box");
               }
               if (reasons.length) {
-                blockedBy.push({ digit: d, reasons });
+                blockedBy.push({ digit: d, reasons: reasons });
               }
-              const picked = pickSingleBlocker(grid, r, c, d);
+              var picked = pickSingleBlocker(grid, r, c, d);
               if (picked) {
                 blockerByKey.set(keyOf(picked.row, picked.col), picked);
               }
             }
-            blockers.push(...blockerByKey.values());
-            const reasonText = formatConstraintReasonList(Array.from(reasonSet));
+            var blockerValues = mapValuesToArray(blockerByKey);
+            for (var bvi = 0; bvi < blockerValues.length; bvi++) {
+              blockers.push(blockerValues[bvi]);
+            }
+            var reasonText = formatConstraintReasonList(setValuesToArray(reasonSet));
             return {
               row: r,
               col: c,
-              value,
+              value: value,
               method: "Naked single",
               explanation:
                 "Step: naked single at " + formatCell(r, c) + ". Candidates in this cell are [" + formatDigits(candidates) + "], so only " + value + " can go here. Every other digit is blocked by " + reasonText + ".",
               highlights: {
                 target: [{ row: r, col: c }],
                 unit: [],
-                blockers
+                blockers: blockers
               },
               teaching: {
                 summary:
                   "A naked single means this cell has only one legal candidate left after checking existing digits.",
                 candidates: candidates.slice(),
-                blockedBy,
-                usedConstraints: Array.from(reasonSet)
+                blockedBy: blockedBy,
+                usedConstraints: setValuesToArray(reasonSet)
               }
             };
           }
@@ -1674,23 +1934,26 @@
     }
 
     function findHiddenSingleInRow(grid) {
-      for (let r = 0; r < SIZE; r++) {
-        for (let n = 1; n <= SIZE; n++) {
-          const possibleCols = [];
-          for (let c = 0; c < SIZE; c++) {
+      for (var r = 0; r < SIZE; r++) {
+        for (var n = 1; n <= SIZE; n++) {
+          var possibleCols = [];
+          for (var c = 0; c < SIZE; c++) {
             if (grid[r][c] !== EMPTY) {
               continue;
             }
-            const candidates = getCandidates(grid, r, c);
+            var candidates = getCandidates(grid, r, c);
             if (candidates.includes(n)) {
               possibleCols.push(c);
             }
           }
           if (possibleCols.length === 1) {
-            const c = possibleCols[0];
-            const unit = Array.from({ length: SIZE }, (_, col) => ({ row: r, col }));
-            const plan = buildRowEliminationPlan(grid, r, c, n);
-            const becauseText = plan.explanationParts.length
+            var c = possibleCols[0];
+            var unit = [];
+            for (var col = 0; col < SIZE; col++) {
+              unit.push({ row: r, col: col });
+            }
+            var plan = buildRowEliminationPlan(grid, r, c, n);
+            var becauseText = plan.explanationParts.length
               ? " " + plan.explanationParts.join(" ")
               : "";
             return {
@@ -1716,7 +1979,7 @@
                 ".",
               highlights: {
                 target: [{ row: r, col: c }],
-                unit,
+                unit: unit,
                 blockers: plan.blockers,
                 shadedBoxes: plan.shadedBoxes,
                 shadedCols: plan.shadedCols
@@ -1736,23 +1999,26 @@
     }
 
     function findHiddenSingleInCol(grid) {
-      for (let c = 0; c < SIZE; c++) {
-        for (let n = 1; n <= SIZE; n++) {
-          const possibleRows = [];
-          for (let r = 0; r < SIZE; r++) {
+      for (var c = 0; c < SIZE; c++) {
+        for (var n = 1; n <= SIZE; n++) {
+          var possibleRows = [];
+          for (var r = 0; r < SIZE; r++) {
             if (grid[r][c] !== EMPTY) {
               continue;
             }
-            const candidates = getCandidates(grid, r, c);
+            var candidates = getCandidates(grid, r, c);
             if (candidates.includes(n)) {
               possibleRows.push(r);
             }
           }
           if (possibleRows.length === 1) {
-            const r = possibleRows[0];
-            const unit = Array.from({ length: SIZE }, (_, row) => ({ row, col: c }));
-            const plan = buildColEliminationPlan(grid, c, r, n);
-            const becauseText = plan.explanationParts.length
+            var r = possibleRows[0];
+            var unit = [];
+            for (var row = 0; row < SIZE; row++) {
+              unit.push({ row: row, col: c });
+            }
+            var plan = buildColEliminationPlan(grid, c, r, n);
+            var becauseText = plan.explanationParts.length
               ? " " + plan.explanationParts.join(" ")
               : "";
             return {
@@ -1778,7 +2044,7 @@
                 ".",
               highlights: {
                 target: [{ row: r, col: c }],
-                unit,
+                unit: unit,
                 blockers: plan.blockers,
                 shadedBoxes: plan.shadedBoxes,
                 shadedCols: plan.shadedCols,
@@ -1799,31 +2065,31 @@
     }
 
     function findHiddenSingleInBox(grid) {
-      for (let br = 0; br < SIZE; br += BOX) {
-        for (let bc = 0; bc < SIZE; bc += BOX) {
-          for (let n = 1; n <= SIZE; n++) {
-            const spots = [];
-            for (let r = br; r < br + BOX; r++) {
-              for (let c = bc; c < bc + BOX; c++) {
+      for (var br = 0; br < SIZE; br += BOX) {
+        for (var bc = 0; bc < SIZE; bc += BOX) {
+          for (var n = 1; n <= SIZE; n++) {
+            var spots = [];
+            for (var r = br; r < br + BOX; r++) {
+              for (var c = bc; c < bc + BOX; c++) {
                 if (grid[r][c] !== EMPTY) {
                   continue;
                 }
-                const candidates = getCandidates(grid, r, c);
+                var candidates = getCandidates(grid, r, c);
                 if (candidates.includes(n)) {
                   spots.push({ row: r, col: c });
                 }
               }
             }
             if (spots.length === 1) {
-              const target = spots[0];
-              const unit = [];
-              for (let r = br; r < br + BOX; r++) {
-                for (let c = bc; c < bc + BOX; c++) {
+              var target = spots[0];
+              var unit = [];
+              for (var r = br; r < br + BOX; r++) {
+                for (var c = bc; c < bc + BOX; c++) {
                   unit.push({ row: r, col: c });
                 }
               }
-              const plan = buildBoxEliminationPlan(grid, br, bc, target.row, target.col, n);
-              const becauseText = plan.explanationParts.length
+              var plan = buildBoxEliminationPlan(grid, br, bc, target.row, target.col, n);
+              var becauseText = plan.explanationParts.length
                 ? " " + plan.explanationParts.join(" ")
                 : "";
               return {
@@ -1849,7 +2115,7 @@
                   ".",
                 highlights: {
                   target: [target],
-                  unit,
+                  unit: unit,
                   blockers: plan.blockers,
                   shadedBoxes: plan.shadedBoxes,
                   shadedCols: plan.shadedCols,
@@ -1871,7 +2137,7 @@
     }
 
     function solveOneStep(grid) {
-      const move =
+      var move =
         findNakedSingle(grid) ||
         findHiddenSingleInRow(grid) ||
         findHiddenSingleInCol(grid) ||
@@ -1887,17 +2153,43 @@
 
     function renderBoard(puzzle) {
       boardEl.innerHTML = "";
-      boardEl.classList.toggle("dead-end", showDeadEndOverlay);
-      const targetSet = new Set((lastHighlights?.target || []).map((x) => keyOf(x.row, x.col)));
-      const unitSet = new Set((lastHighlights?.unit || []).map((x) => keyOf(x.row, x.col)));
-      const blockerSet = new Set((lastHighlights?.blockers || []).map((x) => keyOf(x.row, x.col)));
-      const shadedBoxSet = new Set((lastHighlights?.shadedBoxes || []).map((x) => keyOf(x.br, x.bc)));
-      const shadedColSet = new Set(lastHighlights?.shadedCols || []);
-      const shadedRowSet = new Set(lastHighlights?.shadedRows || []);
-      const latestKey = lastSolverPlaced ? keyOf(lastSolverPlaced.row, lastSolverPlaced.col) : null;
-      const impossibleKey = impossibleCell ? keyOf(impossibleCell.row, impossibleCell.col) : null;
-      const guessKey = pendingGuessTarget ? keyOf(pendingGuessTarget.row, pendingGuessTarget.col) : null;
-      const hasFocus =
+      toggleClass(boardEl, "dead-end", showDeadEndOverlay);
+      var lh = lastHighlights || {};
+      var targetList = lh.target || [];
+      var unitList = lh.unit || [];
+      var blockerList = lh.blockers || [];
+      var shadedBoxesList = lh.shadedBoxes || [];
+      var shadedColsList = lh.shadedCols || [];
+      var shadedRowsList = lh.shadedRows || [];
+      var targetSet = new Set();
+      var unitSet = new Set();
+      var blockerSet = new Set();
+      var shadedBoxSet = new Set();
+      var shadedColSet = new Set();
+      var shadedRowSet = new Set();
+      var i;
+      for (i = 0; i < targetList.length; i++) {
+        targetSet.add(keyOf(targetList[i].row, targetList[i].col));
+      }
+      for (i = 0; i < unitList.length; i++) {
+        unitSet.add(keyOf(unitList[i].row, unitList[i].col));
+      }
+      for (i = 0; i < blockerList.length; i++) {
+        blockerSet.add(keyOf(blockerList[i].row, blockerList[i].col));
+      }
+      for (i = 0; i < shadedBoxesList.length; i++) {
+        shadedBoxSet.add(keyOf(shadedBoxesList[i].br, shadedBoxesList[i].bc));
+      }
+      for (i = 0; i < shadedColsList.length; i++) {
+        shadedColSet.add(shadedColsList[i]);
+      }
+      for (i = 0; i < shadedRowsList.length; i++) {
+        shadedRowSet.add(shadedRowsList[i]);
+      }
+      var latestKey = lastSolverPlaced ? keyOf(lastSolverPlaced.row, lastSolverPlaced.col) : null;
+      var impossibleKey = impossibleCell ? keyOf(impossibleCell.row, impossibleCell.col) : null;
+      var guessKey = pendingGuessTarget ? keyOf(pendingGuessTarget.row, pendingGuessTarget.col) : null;
+      var hasFocus =
         targetSet.size > 0 ||
         unitSet.size > 0 ||
         blockerSet.size > 0 ||
@@ -1906,66 +2198,66 @@
         shadedRowSet.size > 0 ||
         !!impossibleKey ||
         !!guessKey;
-      boardEl.classList.toggle("focus-mode", hasFocus);
+      toggleClass(boardEl, "focus-mode", hasFocus);
 
-      for (let r = 0; r < SIZE; r++) {
-        for (let c = 0; c < SIZE; c++) {
-          const cell = document.createElement("div");
-          const value = puzzle[r][c];
+      for (var r = 0; r < SIZE; r++) {
+        for (var c = 0; c < SIZE; c++) {
+          var cell = document.createElement("div");
+          var value = puzzle[r][c];
 
           cell.className = "cell";
           cell.textContent = value === EMPTY ? "" : String(value);
           if (value === EMPTY) {
-            cell.classList.add("empty");
+            addClass(cell, "empty");
           } else if (fixedMask[r][c]) {
-            cell.classList.add("fixed");
+            addClass(cell, "fixed");
           } else {
-            cell.classList.add("solved");
+            addClass(cell, "solved");
           }
 
           if (c % 3 === 2 && c !== SIZE - 1) {
-            cell.classList.add("thick-right");
+            addClass(cell, "thick-right");
           }
 
           if (r % 3 === 2 && r !== SIZE - 1) {
-            cell.classList.add("thick-bottom");
+            addClass(cell, "thick-bottom");
           }
 
-          const k = keyOf(r, c);
-          const boxKey = keyOf(getBoxStart(r), getBoxStart(c));
+          var k = keyOf(r, c);
+          var boxKey = keyOf(getBoxStart(r), getBoxStart(c));
           if (shadedBoxSet.has(boxKey)) {
-            cell.classList.add("hl-elim-box");
+            addClass(cell, "hl-elim-box");
           }
           if (shadedColSet.has(c)) {
-            cell.classList.add("hl-elim-col");
+            addClass(cell, "hl-elim-col");
           }
           if (shadedRowSet.has(r)) {
-            cell.classList.add("hl-elim-row");
+            addClass(cell, "hl-elim-row");
           }
           if (unitSet.has(k)) {
-            cell.classList.add("hl-unit");
+            addClass(cell, "hl-unit");
           }
           if (blockerSet.has(k)) {
-            cell.classList.add("hl-blocker");
+            addClass(cell, "hl-blocker");
           }
           if (targetSet.has(k)) {
-            cell.classList.add("hl-target");
+            addClass(cell, "hl-target");
           }
           if (latestKey && k === latestKey) {
-            cell.classList.add("latest-step");
+            addClass(cell, "latest-step");
           }
           if (impossibleKey && k === impossibleKey) {
-            cell.classList.add("impossible");
+            addClass(cell, "impossible");
           }
           if (guessKey && k === guessKey) {
-            cell.classList.add("guess-target");
+            addClass(cell, "guess-target");
           }
           if (!fixedMask[r][c] && guessTintMask[r][c]) {
-            cell.classList.add("guess-fill");
+            addClass(cell, "guess-fill");
           }
 
           if (hasFocus) {
-            const isFocused =
+            var isFocused =
               targetSet.has(k) ||
               unitSet.has(k) ||
               blockerSet.has(k) ||
@@ -1975,13 +2267,15 @@
               (impossibleKey && k === impossibleKey) ||
               (guessKey && k === guessKey);
             if (!isFocused) {
-              cell.classList.add("hl-dim");
+              addClass(cell, "hl-dim");
             }
           }
 
           if (!fixedMask[r][c] && puzzle[r][c] === EMPTY) {
             cell.style.cursor = "pointer";
-            cell.addEventListener("click", () => openNumberPopup(r, c));
+            (function (row, col) {
+              cell.addEventListener("click", function () { openNumberPopup(row, col); });
+            })(r, c);
           }
 
           boardEl.appendChild(cell);
@@ -1990,28 +2284,28 @@
     }
 
     function generatePuzzle() {
-      let selectedPuzzle = null;
-      let selectedSolution = null;
-      let selectedRemoved = -1;
-      let requiresGuess = false;
+      var selectedPuzzle = null;
+      var selectedSolution = null;
+      var selectedRemoved = -1;
+      var requiresGuess = false;
 
-      for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
-        const fullGrid = createEmptyGrid();
+      for (var attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt++) {
+        var fullGrid = createEmptyGrid();
         fillGrid(fullGrid);
-        const candidateSolution = cloneGrid(fullGrid);
-        const generated = makePuzzle(candidateSolution, REMOVE_COUNT);
-        const candidatePuzzle = generated.puzzle;
-        const singlesCanSolve = canSolveWithSinglesOnly(candidatePuzzle);
+        var candidateSolution = cloneGrid(fullGrid);
+        var generated = makePuzzle(candidateSolution, REMOVE_COUNT);
+        var candidatePuzzle = generated.puzzle;
+        var singlesCanSolve = canSolveWithSinglesOnly(candidatePuzzle);
 
         if (!selectedPuzzle || generated.removed > selectedRemoved) {
-          selectedPuzzle = candidatePuzzle.map((row) => row.slice());
-          selectedSolution = candidateSolution.map((row) => row.slice());
+          selectedPuzzle = cloneGrid(candidatePuzzle);
+          selectedSolution = cloneGrid(candidateSolution);
           selectedRemoved = generated.removed;
         }
 
         if (!singlesCanSolve) {
-          selectedPuzzle = candidatePuzzle.map((row) => row.slice());
-          selectedSolution = candidateSolution.map((row) => row.slice());
+          selectedPuzzle = cloneGrid(candidatePuzzle);
+          selectedSolution = cloneGrid(candidateSolution);
           requiresGuess = true;
           break;
         }
@@ -2019,9 +2313,14 @@
 
       solutionGrid = selectedSolution ? selectedSolution : createEmptyGrid();
       currentPuzzle = selectedPuzzle ? selectedPuzzle : createEmptyGrid();
-      fixedMask = currentPuzzle.map((row) => row.map((value) => value !== EMPTY));
+      fixedMask = createMaskGrid(false);
+      for (var fr = 0; fr < SIZE; fr++) {
+        for (var fc = 0; fc < SIZE; fc++) {
+          fixedMask[fr][fc] = currentPuzzle[fr][fc] !== EMPTY;
+        }
+      }
       guessStack = [];
-      guessTintMask = createEmptyGrid().map((row) => row.map(() => false));
+      guessTintMask = createMaskGrid(false);
       pendingBacktrack = null;
       pendingAlternativeGuess = null;
       pendingGuessTarget = null;
@@ -2053,8 +2352,8 @@
 
       if (pendingBacktrack) {
         pendingGuessTarget = null;
-        const deadEnd = pendingBacktrack.deadEnd;
-        const backtrackStep = prepareBacktrackStep(deadEnd);
+        var deadEnd = pendingBacktrack.deadEnd;
+        var backtrackStep = prepareBacktrackStep(deadEnd);
         pendingBacktrack = null;
         showDeadEndOverlay = false;
         impossibleCell = null;
@@ -2081,7 +2380,7 @@
 
       if (pendingAlternativeGuess) {
         pendingGuessTarget = null;
-        const altGuessStep = applyAlternativeGuessStep(pendingAlternativeGuess);
+        var altGuessStep = applyAlternativeGuessStep(pendingAlternativeGuess);
         pendingAlternativeGuess = null;
         showDeadEndOverlay = false;
         impossibleCell = null;
@@ -2094,7 +2393,7 @@
         lastHighlights = altGuessStep.highlights;
         lastSolverPlaced = { row: altGuessStep.row, col: altGuessStep.col };
         renderBoard(currentPuzzle);
-        let status = altGuessStep.explanation;
+        var status = altGuessStep.explanation;
         if (isSolved(currentPuzzle)) {
           markSolvedIfNeeded();
           status += " Puzzle solved.";
@@ -2108,7 +2407,7 @@
       if (pendingGuessTarget) {
         showDeadEndOverlay = false;
         impossibleCell = null;
-        const guessStep = applyGuessStep(pendingGuessTarget);
+        var guessStep = applyGuessStep(pendingGuessTarget);
         pendingGuessTarget = null;
         if (!guessStep) {
           setStatus("Step: guess setup was invalid, so we recalculated and will choose a new target.");
@@ -2120,7 +2419,7 @@
           col: guessStep.highlights.target[0].col
         };
         renderBoard(currentPuzzle);
-        let status = guessStep.explanation;
+        var status = guessStep.explanation;
         if (isSolved(currentPuzzle)) {
           markSolvedIfNeeded();
           status += " Puzzle solved.";
@@ -2131,11 +2430,11 @@
         return false;
       }
 
-      const deadEnd = findContradictionCell(currentPuzzle);
+      var deadEnd = findContradictionCell(currentPuzzle);
       if (deadEnd) {
         pendingGuessTarget = null;
         showDeadEndOverlay = true;
-        pendingBacktrack = { deadEnd };
+        pendingBacktrack = { deadEnd: deadEnd };
         impossibleCell = { row: deadEnd.row, col: deadEnd.col };
         lastSolverPlaced = null;
         lastHighlights = {
@@ -2149,14 +2448,14 @@
       }
 
       showDeadEndOverlay = false;
-      const move = solveOneStep(currentPuzzle);
+      var move = solveOneStep(currentPuzzle);
       if (move) {
         guessTintMask[move.row][move.col] = guessStack.length > 0;
         lastHighlights = move.highlights || null;
         lastSolverPlaced = { row: move.row, col: move.col };
         renderBoard(currentPuzzle);
-        let status = move.explanation || (move.method + ": placed " + move.value + " at row " + (move.row + 1) + ", col " + (move.col + 1) + ".");
-        const solvedNow = isSolved(currentPuzzle);
+        var status = move.explanation || (move.method + ": placed " + move.value + " at row " + (move.row + 1) + ", col " + (move.col + 1) + ".");
+        var solvedNow = isSolved(currentPuzzle);
         if (move.teaching) {
           setStatusHtml(buildMoveStatusHtml(move, solvedNow));
         }
@@ -2174,7 +2473,7 @@
         return false;
       }
 
-      const guessTarget = findBestEmptyCell(currentPuzzle);
+      var guessTarget = findBestEmptyCell(currentPuzzle);
       if (guessTarget && guessTarget.candidates.length > 1) {
         pendingGuessTarget = {
           row: guessTarget.row,
@@ -2199,7 +2498,6 @@
     function setAutoEnabled(enabled) {
       autoEnabled = enabled;
       autoBtn.textContent = autoEnabled ? "Auto: On" : "Auto";
-      autoBtn.setAttribute("aria-pressed", autoEnabled ? "true" : "false");
     }
 
     function stopAuto() {
@@ -2218,7 +2516,7 @@
         return;
       }
 
-      const solvedNow = solveStepAndRender();
+      var solvedNow = solveStepAndRender();
       if (solvedNow) {
         generatePuzzle();
       }
@@ -2239,21 +2537,24 @@
     generateBtn.addEventListener("click", generatePuzzle);
     stepBtn.addEventListener("click", solveStepAndRender);
     autoBtn.addEventListener("click", toggleAuto);
-    numPopup.addEventListener("click", (event) => {
+    numPopup.addEventListener("click", function (event) {
       if (event.target === numPopup) {
         closeNumberPopup();
       }
     });
 
-    for (let n = 1; n <= 9; n++) {
-      const btn = document.createElement("button");
+    for (var n = 1; n <= 9; n++) {
+      var btn = document.createElement("button");
       btn.type = "button";
       btn.className = "num-btn";
       btn.textContent = String(n);
-      btn.addEventListener("click", () => applyUserDigit(n));
+      (function (digit) {
+        btn.addEventListener("click", function () { applyUserDigit(digit); });
+      })(n);
       numGrid.appendChild(btn);
     }
     generatePuzzle();
   </script>
 </body>
 </html>
+
