@@ -193,11 +193,15 @@
     }
 
     .exportBtn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       width: auto;
       margin: 0 6px 0 0;
       padding: 3px 6px;
       font-size: 13px;
       line-height: 1.05;
+      height: 24px;
     }
 
     #controlSpacer {
@@ -263,14 +267,17 @@
     #keysGroup:not(.isOpen) #keysPanel .keyBtn[data-action="toggleKeys"],
     #keysGroup:not(.isOpen) #keysPanel #runBtn {
       width: auto;
-      min-width: 0;
+      min-width: 72px;
       flex: 0 0 auto;
       font-size: 15px;
       border-radius: 11px;
-      min-height: 0;
+      min-height: 24px;
     }
 
     .keyBtn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       min-width: 0;
       width: 100%;
       padding: 4px 7px;
@@ -279,6 +286,7 @@
       font-weight: bold;
       line-height: 1.1;
       background: #edf3fa;
+      height: 24px;
     }
     .keySpecial {
       background: #d8ecff;
@@ -354,7 +362,9 @@
     }
 
     button {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       padding: 5px 12px;
       border: 2px solid #1a3a58;
       border-radius: 11px;
@@ -380,6 +390,7 @@
       min-width: 72px;
       padding: 3px 10px;
       line-height: 1.05;
+      height: 24px;
     }
 
     #keysToggleBtn {
@@ -389,9 +400,9 @@
     }
 
     #keysGroup.isOpen #keysToggleBtn {
-      background: #f2a0a0;
-      border-color: #7a1f1f;
-      box-shadow: inset 0 1px 0 #ffdede, 0 1px 0 #b66d6d;
+      background: #a9d3f5;
+      border-color: #1a3a58;
+      box-shadow: inset 0 1px 0 #dff1ff, 0 1px 0 #7da6c9;
       transform: translateY(1px);
     }
 
@@ -487,7 +498,7 @@
         <div class="group" id="runGroup">
           <div id="keysGroup">
           <div id="keysPanel">
-            <button id="keysToggleBtn" class="keyBtn keySpecial" type="button" data-action="toggleKeys">#</button>
+            <button id="keysToggleBtn" class="keyBtn keyLarge keySpecial" type="button" data-action="toggleKeys">#</button>
             <button class="keyBtn keyLarge keySpecial" type="button" data-action="left">&#8592;</button>
             <button class="keyBtn keyLarge keySpecial" type="button" data-action="right">&#8594;</button>
             <button id="runBtn" class="keyBtn keyLarge" type="button">Eval</button>
