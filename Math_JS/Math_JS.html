@@ -76,8 +76,9 @@
 
     .historyInput {
       width: 100%;
-      min-height: 56px;
-      resize: vertical;
+      min-height: 0;
+      height: auto;
+      resize: none;
       margin: 0 0 8px;
       padding: 8px;
       border: 1px solid #a7c2dc;
@@ -158,7 +159,9 @@
       display: block;
       width: 100%;
       min-height: 112px;
-      resize: vertical;
+      height: auto;
+      overflow-y: hidden;
+      resize: none;
       margin: 0 0 10px;
       padding: 10px;
       border: 1px solid #8db2d5;
@@ -345,7 +348,7 @@
 <body>
   <div id="app">
     <h1>Math JS</h1>
-    <p class="intro">Notebook-like math runner in old-browser JavaScript. Helpers: <code>hex()</code>, <code>bin()</code>, <code>dec()</code>, <code>int()</code>, <code>bits()</code>, <code>dword2float()</code>, <code>float2dword()</code>, <code>sin()</code>, <code>cos()</code>, <code>tan()</code>, <code>sqrt()</code>, <code>abs()</code>, <code>log()</code>, <code>log10()</code>, <code>exp()</code>. Constants: <code>pi</code>, <code>C0</code>. Plot uses variable <code>X</code>. History arrays: <code>IN</code>, <code>OUT</code>.</p>
+    <p class="intro">Notebook-like math runner in old-browser JavaScript. Helpers: <code>hex()</code>, <code>bin()</code>, <code>dec()</code>, <code>oct()</code>, <code>asc()</code>, <code>ord()</code>, <code>int()</code>, <code>bits()</code>, <code>and()</code>, <code>or()</code>, <code>xor()</code>, <code>not()</code>, <code>crc32()</code>, <code>dword2float()</code>, <code>float2dword()</code>, <code>sin()</code>, <code>cos()</code>, <code>tan()</code>, <code>sqrt()</code>, <code>abs()</code>, <code>log()</code>, <code>log10()</code>, <code>exp()</code>. Constants: <code>pi</code>, <code>C0</code>. Plot uses variable <code>X</code>. History arrays: <code>IN</code>, <code>OUT</code>.</p>
 
     <div id="history"></div>
 
@@ -410,6 +413,9 @@
       var mode = 'edit';
       var navIndex = -1;
       var intDisplayMode = 'DEC';
+      var lastValue1;
+      var lastValue2;
+      var lastValue3;
       var STORAGE_KEY = 'MathJS_Notebook_State_v1';
       var isRestoringState = false;
 
@@ -419,6 +425,42 @@
 
       function trimEndText(value) {
         return String(value).replace(/\s+$/g, '');
+      }
+
+      function autoSizeHistoryInput(textareaEl, maxRows) {
+        var lineHeight = 19;
+        var computed;
+        var parsedLineHeight;
+        var maxHeight;
+        var minHeight;
+        if (!textareaEl) return;
+        if (window.getComputedStyle) {
+          computed = window.getComputedStyle(textareaEl, null);
+          if (computed && computed.lineHeight) {
+            parsedLineHeight = parseFloat(computed.lineHeight);
+            if (isFinite(parsedLineHeight) && parsedLineHeight > 0) {
+              lineHeight = parsedLineHeight;
+            }
+          }
+        }
+        maxHeight = lineHeight * maxRows + 16;
+        minHeight = lineHeight + 10;
+        textareaEl.style.height = '1px';
+        textareaEl.style.overflowY = 'hidden';
+        if (textareaEl.scrollHeight < minHeight) {
+          textareaEl.style.height = minHeight + 'px';
+        } else if (textareaEl.scrollHeight > maxHeight) {
+          textareaEl.style.height = maxHeight + 'px';
+          textareaEl.style.overflowY = 'auto';
+        } else {
+          textareaEl.style.height = textareaEl.scrollHeight + 'px';
+        }
+      }
+
+      function autoSizeEditor() {
+        if (!editorEl) return;
+        editorEl.style.height = 'auto';
+        editorEl.style.height = editorEl.scrollHeight + 'px';
       }
 
       function escapeHtml(text) {
@@ -503,7 +545,16 @@
         historyRecords = [];
         entryErrorFlags = [];
         navIndex = -1;
+        lastValue1 = undefined;
+        lastValue2 = undefined;
+        lastValue3 = undefined;
         historyEl.innerHTML = '';
+      }
+
+      function pushLastValue(value) {
+        lastValue3 = lastValue2;
+        lastValue2 = lastValue1;
+        lastValue1 = value;
       }
 
       function setIntMode(modeName) {
@@ -776,6 +827,7 @@
         }
         expressionText = trimEndText(inputHistory[navIndex] || '');
         editorEl.value = expressionText;
+        autoSizeEditor();
         setMode('edit');
         focusEditorAtEnd();
         saveSessionState();
@@ -850,6 +902,12 @@
       }
 
       function pyHex(value) {
+        if (Object.prototype.toString.call(value) === '[object Array]') {
+          var outA = [];
+          var iA;
+          for (iA = 0; iA < value.length; iA++) outA[iA] = pyHex(value[iA]);
+          return outA;
+        }
         var n = pyInt(value);
         var sign = '';
         if (n < 0) {
@@ -860,6 +918,12 @@
       }
 
       function pyBin(value) {
+        if (Object.prototype.toString.call(value) === '[object Array]') {
+          var outB = [];
+          var iB;
+          for (iB = 0; iB < value.length; iB++) outB[iB] = pyBin(value[iB]);
+          return outB;
+        }
         var n = pyInt(value);
         var sign = '';
         if (n < 0) {
@@ -870,7 +934,53 @@
       }
 
       function pyDec(value) {
+        if (Object.prototype.toString.call(value) === '[object Array]') {
+          var outD = [];
+          var iD;
+          for (iD = 0; iD < value.length; iD++) outD[iD] = pyDec(value[iD]);
+          return outD;
+        }
         return pyInt(value);
+      }
+
+      function pyOct(value) {
+        if (Object.prototype.toString.call(value) === '[object Array]') {
+          var outO = [];
+          var iO;
+          for (iO = 0; iO < value.length; iO++) outO[iO] = pyOct(value[iO]);
+          return outO;
+        }
+        var n = pyInt(value);
+        var sign = '';
+        if (n < 0) {
+          sign = '-';
+          n = -n;
+        }
+        return sign + '0o' + n.toString(8);
+      }
+
+      function asc(value) {
+        if (Object.prototype.toString.call(value) === '[object Array]') {
+          var outA = [];
+          var iA;
+          for (iA = 0; iA < value.length; iA++) outA[iA] = asc(value[iA]);
+          return outA;
+        }
+        return String.fromCharCode(pyInt(value) & 65535);
+      }
+
+      function ord(value) {
+        if (Object.prototype.toString.call(value) === '[object Array]') {
+          var outO = [];
+          var iO;
+          for (iO = 0; iO < value.length; iO++) outO[iO] = ord(value[iO]);
+          return outO;
+        }
+        var s = String(value);
+        if (!s.length) {
+          throw new Error('ord() expects a non-empty string');
+        }
+        return s.charCodeAt(0);
       }
 
       function bits(value) {
@@ -887,6 +997,98 @@
           }
         }
         return out;
+      }
+
+      function and() {
+        var args = arguments;
+        var values;
+        var i;
+        var out;
+        if (args.length === 1 && Object.prototype.toString.call(args[0]) === '[object Array]') {
+          values = args[0];
+        } else {
+          values = args;
+        }
+        if (!values || values.length < 2) {
+          throw new Error('and() needs at least 2 arguments');
+        }
+        out = (Number(values[0]) | 0);
+        for (i = 1; i < values.length; i++) {
+          out = out & (Number(values[i]) | 0);
+        }
+        return out;
+      }
+
+      function or() {
+        var args = arguments;
+        var values;
+        var i;
+        var out;
+        if (args.length === 1 && Object.prototype.toString.call(args[0]) === '[object Array]') {
+          values = args[0];
+        } else {
+          values = args;
+        }
+        if (!values || values.length < 2) {
+          throw new Error('or() needs at least 2 arguments');
+        }
+        out = (Number(values[0]) | 0);
+        for (i = 1; i < values.length; i++) {
+          out = out | (Number(values[i]) | 0);
+        }
+        return out;
+      }
+
+      function xor() {
+        var args = arguments;
+        var values;
+        var i;
+        var out;
+        if (args.length === 1 && Object.prototype.toString.call(args[0]) === '[object Array]') {
+          values = args[0];
+        } else {
+          values = args;
+        }
+        if (!values || values.length < 2) {
+          throw new Error('xor() needs at least 2 arguments');
+        }
+        out = (Number(values[0]) | 0);
+        for (i = 1; i < values.length; i++) {
+          out = out ^ (Number(values[i]) | 0);
+        }
+        return out;
+      }
+
+      function not(value) {
+        return (~(Number(value) | 0)) >>> 0;
+      }
+
+      function crc32(input) {
+        var crc = 0xFFFFFFFF;
+        var i;
+        var j;
+        var b;
+        var x;
+        if (Object.prototype.toString.call(input) !== '[object Array]') {
+          throw new Error('crc32() expects an array of bytes');
+        }
+        for (i = 0; i < input.length; i++) {
+          b = Number(input[i]);
+          if (!isFinite(b)) {
+            throw new Error('crc32() byte is not finite at index ' + i);
+          }
+          b = b & 255;
+          x = (crc ^ b) & 255;
+          for (j = 0; j < 8; j++) {
+            if ((x & 1) !== 0) {
+              x = (x >>> 1) ^ 0xEDB88320;
+            } else {
+              x = x >>> 1;
+            }
+          }
+          crc = (crc >>> 8) ^ x;
+        }
+        return (crc ^ 0xFFFFFFFF) >>> 0;
       }
 
       function dword2float(value) {
@@ -1105,8 +1307,16 @@
         target.hex = pyHex;
         target.bin = pyBin;
         target.dec = pyDec;
+        target.oct = pyOct;
+        target.asc = asc;
+        target.ord = ord;
         target.int = pyInt;
         target.bits = bits;
+        target.and = and;
+        target.or = or;
+        target.xor = xor;
+        target.not = not;
+        target.crc32 = crc32;
         target.dword2float = dword2float;
         target.float2dword = float2dword;
         target.log = log;
@@ -1119,6 +1329,9 @@
         target.sqrt = Math.sqrt;
         target.pi = Math.PI;
         target.C0 = 299792458;
+        target._ = lastValue1;
+        target.__ = lastValue2;
+        target.___ = lastValue3;
         target.IN = inputHistory;
         target.OUT = outputHistory;
         target.PLOT = plotPoints;
@@ -1134,8 +1347,16 @@
           hex: true,
           bin: true,
           dec: true,
+          oct: true,
+          asc: true,
+          ord: true,
           int: true,
           bits: true,
+          and: true,
+          or: true,
+          xor: true,
+          not: true,
+          crc32: true,
           dword2float: true,
           float2dword: true,
           log: true,
@@ -1148,6 +1369,9 @@
           sqrt: true,
           pi: true,
           C0: true,
+          _: true,
+          __: true,
+          ___: true,
           IN: true,
           OUT: true,
           PLOT: true,
@@ -1198,6 +1422,7 @@
 
       function setEditorFromHistory(expressionText) {
         editorEl.value = trimEndText(expressionText);
+        autoSizeEditor();
         focusEditorAtEnd();
         saveSessionState();
       }
@@ -1205,6 +1430,7 @@
       function normalizeEditorTextForExecute() {
         var cleaned = trimEndText(editorEl.value);
         editorEl.value = cleaned;
+        autoSizeEditor();
         focusEditorAtEnd();
         return cleaned;
       }
@@ -1342,6 +1568,7 @@
         inputField.className = 'historyInput';
         inputField.readOnly = true;
         inputField.value = expressionText;
+        autoSizeHistoryInput(inputField, 20);
 
         outLabel.className = 'recordLabel';
         outLabel.appendChild(document.createTextNode('OUT [' + entryIndex + ']:'));
@@ -1373,9 +1600,13 @@
         record.appendChild(outLabel);
         record.appendChild(outputField);
         historyEl.appendChild(record);
+        autoSizeHistoryInput(inputField, 20);
         historyRecords[entryIndex] = record;
         outputFields[entryIndex] = outputField;
         entryErrorFlags[entryIndex] = !!isError;
+        if (!isError && typeof rawOutput !== 'undefined' && !(rawOutput && rawOutput.type === 'plot')) {
+          pushLastValue(rawOutput);
+        }
         execCount += 1;
 
         if (mode === 'nav') {
@@ -1731,7 +1962,11 @@
           startX: 0,
           startY: 0,
           nowX: 0,
-          nowY: 0
+          nowY: 0,
+          panStartXMin: 0,
+          panStartXMax: 0,
+          panStartYMin: 0,
+          panStartYMax: 0
         };
 
         function setOutLabelText() {
@@ -1830,6 +2065,24 @@
           ctx.lineWidth = 1;
           ctx.fillRect(leftBox, topBox, wBox, hBox);
           ctx.strokeRect(leftBox + 0.5, topBox + 0.5, wBox, hBox);
+        }
+
+        function performPan() {
+          var area = getPlotArea(canvas);
+          var dx = drag.nowX - drag.startX;
+          var dy = drag.nowY - drag.startY;
+          var xWidth = drag.panStartXMax - drag.panStartXMin;
+          var yHeight = drag.panStartYMax - drag.panStartYMin;
+          var xShift = dx * xWidth / area.width;
+          var yShift = -dy * yHeight / area.height;
+          updatePlotRange(
+            drag.panStartXMin - xShift,
+            drag.panStartXMax - xShift,
+            drag.panStartYMin - yShift,
+            drag.panStartYMax - yShift,
+            viewState.focusX - xShift,
+            viewState.focusY - yShift
+          );
         }
 
         function performBoxZoom() {
@@ -2009,6 +2262,7 @@
         inputField.className = 'historyInput';
         inputField.readOnly = true;
         inputField.value = expressionText;
+        autoSizeHistoryInput(inputField, 20);
 
         outLabel.className = 'recordLabel';
         setOutLabelText();
@@ -2034,6 +2288,7 @@
         record.appendChild(outLabel);
         record.appendChild(graphWrap);
         historyEl.appendChild(record);
+        autoSizeHistoryInput(inputField, 20);
         historyRecords[recordIndex] = record;
         plotCanvases[recordIndex] = canvas;
         entryErrorFlags[recordIndex] = false;
@@ -2058,6 +2313,10 @@
           drag.startY = p.y;
           drag.nowX = p.x;
           drag.nowY = p.y;
+          drag.panStartXMin = viewState.xMin;
+          drag.panStartXMax = viewState.xMax;
+          drag.panStartYMin = viewState.yMin;
+          drag.panStartYMax = viewState.yMax;
           if (ev && ev.preventDefault) {
             ev.preventDefault();
           }
@@ -2077,7 +2336,11 @@
           if (Math.abs(drag.nowX - drag.startX) > 2 || Math.abs(drag.nowY - drag.startY) > 2) {
             drag.moved = true;
           }
-          drawDragBox();
+          if (drag.button === 1) {
+            performPan();
+          } else {
+            drawDragBox();
+          }
           if (e && e.preventDefault) {
             e.preventDefault();
           }
@@ -2093,6 +2356,13 @@
             drag.nowY = p.y;
           }
           drag.active = false;
+
+          if (drag.button === 1) {
+            if (e && e.preventDefault) {
+              e.preventDefault();
+            }
+            return;
+          }
 
           if (drag.moved) {
             performBoxZoom();
@@ -2122,6 +2392,14 @@
         canvas.oncontextmenu = function (e) {
           if (e && e.preventDefault) {
             e.preventDefault();
+          }
+          return false;
+        };
+
+        canvas.onauxclick = function (e) {
+          var ev = e || window.event;
+          if (ev && ev.button === 1 && ev.preventDefault) {
+            ev.preventDefault();
           }
           return false;
         };
@@ -2210,6 +2488,7 @@
         if (typeof data.xLow !== 'undefined') xLowEl.value = String(data.xLow);
         if (typeof data.xHigh !== 'undefined') xHighEl.value = String(data.xHigh);
         if (typeof data.editorText !== 'undefined') editorEl.value = String(data.editorText);
+        autoSizeEditor();
 
         for (i = 0; i < data.entries.length; i++) {
           entry = data.entries[i];
@@ -2233,6 +2512,16 @@
               appendTextRecord(String(entry.input || ''), String(entry.outputText || ''), !!entry.isError, String(entry.outputText || ''));
             }
           }
+        }
+
+        // Rebuild _, __, ___ from restored non-plot, non-error outputs.
+        lastValue1 = undefined;
+        lastValue2 = undefined;
+        lastValue3 = undefined;
+        for (i = 0; i < execCount; i++) {
+          if (entryErrorFlags[i]) continue;
+          if (outputHistory[i] && outputHistory[i].type === 'plot') continue;
+          pushLastValue(outputHistory[i]);
         }
 
         isRestoringState = false;
@@ -2415,6 +2704,7 @@
         }
       };
       editorEl.oninput = function () {
+        autoSizeEditor();
         saveSessionState();
       };
       xLowEl.onchange = saveSessionState;
@@ -2433,6 +2723,7 @@
       }
 
       restoreSessionState();
+      autoSizeEditor();
       setMode('edit');
     }());
   </script>
