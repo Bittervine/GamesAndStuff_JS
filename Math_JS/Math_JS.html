@@ -567,7 +567,6 @@
       var lastValue1;
       var lastValue2;
       var lastValue3;
-      var keypadCaretPos = null;
       var STORAGE_KEY = 'MathJS_Notebook_State_v1';
       var isRestoringState = false;
 
@@ -615,31 +614,6 @@
         editorEl.style.height = editorEl.scrollHeight + 'px';
       }
 
-      function getEditorCaretPos(preferStored) {
-        var pos;
-        if (preferStored && typeof keypadCaretPos === 'number') {
-          pos = keypadCaretPos;
-        } else if (typeof editorEl.selectionStart === 'number') {
-          pos = editorEl.selectionStart;
-        } else if (typeof keypadCaretPos === 'number') {
-          pos = keypadCaretPos;
-        } else {
-          pos = editorEl.value.length;
-        }
-        if (pos < 0) pos = 0;
-        if (pos > editorEl.value.length) pos = editorEl.value.length;
-        return pos;
-      }
-
-      function setEditorCaretPos(pos, noFocus) {
-        if (pos < 0) pos = 0;
-        if (pos > editorEl.value.length) pos = editorEl.value.length;
-        keypadCaretPos = pos;
-        if (!noFocus && editorEl.setSelectionRange) {
-          editorEl.setSelectionRange(pos, pos);
-        }
-      }
-
       function insertAtCursor(text, noFocus) {
         var start;
         var end;
@@ -648,17 +622,13 @@
           setMode('edit', { noFocus: !!noFocus });
         }
         value = editorEl.value;
-        if (noFocus) {
-          start = getEditorCaretPos(true);
-          end = start;
-        } else {
-          start = (typeof editorEl.selectionStart === 'number') ? editorEl.selectionStart : value.length;
-          end = (typeof editorEl.selectionEnd === 'number') ? editorEl.selectionEnd : value.length;
-        }
+        start = (typeof editorEl.selectionStart === 'number') ? editorEl.selectionStart : value.length;
+        end = (typeof editorEl.selectionEnd === 'number') ? editorEl.selectionEnd : value.length;
         editorEl.value = value.substring(0, start) + text + value.substring(end);
-        setEditorCaretPos(start + text.length, !!noFocus);
+        if (editorEl.setSelectionRange) {
+          editorEl.setSelectionRange(start + text.length, start + text.length);
+        }
         autoSizeEditor();
-        if (noFocus && editorEl.blur) editorEl.blur();
         saveSessionState();
       }
 
@@ -670,22 +640,16 @@
           setMode('edit', { noFocus: !!noFocus });
         }
         value = editorEl.value;
-        if (noFocus) {
-          start = getEditorCaretPos(true);
-          end = start;
-        } else {
-          start = (typeof editorEl.selectionStart === 'number') ? editorEl.selectionStart : value.length;
-          end = (typeof editorEl.selectionEnd === 'number') ? editorEl.selectionEnd : value.length;
-        }
+        start = (typeof editorEl.selectionStart === 'number') ? editorEl.selectionStart : value.length;
+        end = (typeof editorEl.selectionEnd === 'number') ? editorEl.selectionEnd : value.length;
         if (start !== end) {
           editorEl.value = value.substring(0, start) + value.substring(end);
-          setEditorCaretPos(start, !!noFocus);
+          if (editorEl.setSelectionRange) editorEl.setSelectionRange(start, start);
         } else if (start > 0) {
           editorEl.value = value.substring(0, start - 1) + value.substring(start);
-          setEditorCaretPos(start - 1, !!noFocus);
+          if (editorEl.setSelectionRange) editorEl.setSelectionRange(start - 1, start - 1);
         }
         autoSizeEditor();
-        if (noFocus && editorEl.blur) editorEl.blur();
         saveSessionState();
       }
 
@@ -738,13 +702,17 @@
       function focusEditorAtEnd() {
         var len;
         editorEl.focus();
-        len = editorEl.value.length;
-        setEditorCaretPos(len, false);
+        if (editorEl.setSelectionRange) {
+          len = editorEl.value.length;
+          editorEl.setSelectionRange(len, len);
+        }
       }
 
       function focusEditorAtStart() {
         editorEl.focus();
-        setEditorCaretPos(0, false);
+        if (editorEl.setSelectionRange) {
+          editorEl.setSelectionRange(0, 0);
+        }
       }
 
       function isCaretOnFirstLine() {
@@ -2946,14 +2914,12 @@
           return;
         }
         if (action === 'left') {
-          var leftPos;
           if (mode !== 'edit') {
             setMode('edit', { noFocus: true });
           }
-          leftPos = getEditorCaretPos(true) - 1;
-          if (leftPos < 0) leftPos = 0;
-          setEditorCaretPos(leftPos, true);
-          if (editorEl.blur) editorEl.blur();
+          if (typeof editorEl.selectionStart === 'number' && editorEl.selectionStart > 0 && editorEl.setSelectionRange) {
+            editorEl.setSelectionRange(editorEl.selectionStart - 1, editorEl.selectionStart - 1);
+          }
           return;
         }
         if (action === 'right') {
@@ -2961,10 +2927,11 @@
           if (mode !== 'edit') {
             setMode('edit', { noFocus: true });
           }
-          nextPos = getEditorCaretPos(true) + 1;
-          if (nextPos > editorEl.value.length) nextPos = editorEl.value.length;
-          setEditorCaretPos(nextPos, true);
-          if (editorEl.blur) editorEl.blur();
+          if (typeof editorEl.selectionStart === 'number' && editorEl.setSelectionRange) {
+            nextPos = editorEl.selectionStart + 1;
+            if (nextPos > editorEl.value.length) nextPos = editorEl.value.length;
+            editorEl.setSelectionRange(nextPos, nextPos);
+          }
           return;
         }
         if (action === 'backspace') {
@@ -2976,9 +2943,7 @@
             setMode('edit', { noFocus: true });
           }
           editorEl.value = '';
-          setEditorCaretPos(0, true);
           autoSizeEditor();
-          if (editorEl.blur) editorEl.blur();
           saveSessionState();
           return;
         }
@@ -3018,18 +2983,13 @@
       };
 
       editorEl.onclick = function () {
-        keypadCaretPos = getEditorCaretPos(false);
         if (mode === 'nav') {
           setMode('edit');
         }
       };
       editorEl.oninput = function () {
-        keypadCaretPos = getEditorCaretPos(false);
         autoSizeEditor();
         saveSessionState();
-      };
-      editorEl.onkeyup = function () {
-        keypadCaretPos = getEditorCaretPos(false);
       };
       xLowEl.onchange = saveSessionState;
       xHighEl.onchange = saveSessionState;
