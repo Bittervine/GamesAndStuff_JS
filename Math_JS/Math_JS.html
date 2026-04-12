@@ -148,17 +148,10 @@
       font-weight: bold;
     }
 
-    #modeHint {
-      float: right;
-      color: #365579;
-      font-size: 12px;
-      font-weight: normal;
-    }
-
     #editor {
       display: block;
       width: 100%;
-      min-height: 112px;
+      min-height: 0;
       height: auto;
       overflow-y: hidden;
       resize: none;
@@ -202,7 +195,7 @@
     .exportBtn {
       width: auto;
       margin: 0 6px 0 0;
-      padding: 8px 6px;
+      padding: 6px 6px;
       font-size: 13px;
     }
 
@@ -279,7 +272,7 @@
     .keyBtn {
       min-width: 0;
       width: 100%;
-      padding: 6px 7px;
+      padding: 5px 7px;
       border-radius: 8px;
       font-size: 12px;
       font-weight: bold;
@@ -288,6 +281,9 @@
     }
     .keySpecial {
       background: #d8ecff;
+    }
+    .keyDigit {
+      background: #fbfcfe;
     }
 
     .keySpacer {
@@ -299,9 +295,9 @@
     }
 
     .keyLarge {
-      padding: 8px 14px;
+      padding: 6px 12px;
       font-size: 15px;
-      min-height: 38px;
+      min-height: 0;
     }
 
     .modeTitle {
@@ -356,7 +352,7 @@
 
     button {
       display: inline-block;
-      padding: 8px 14px;
+      padding: 6px 12px;
       border: 2px solid #1a3a58;
       border-radius: 11px;
       background: #b9dfff;
@@ -379,7 +375,7 @@
     #runBtn,
     #keysToggleBtn {
       min-width: 72px;
-      padding: 8px 12px;
+      padding: 6px 12px;
     }
 
     #runBtn {
@@ -389,11 +385,12 @@
     @media (max-width: 700px) {
       #controlRow {
         flex-wrap: wrap;
+        row-gap: 4px;
       }
 
       #exportGroup {
         width: 100%;
-        margin-bottom: 8px;
+        margin-bottom: 0;
         text-align: left;
         white-space: normal;
       }
@@ -419,14 +416,14 @@
 
       #runGroup {
         width: auto;
-        margin-top: 8px;
+        margin-top: 4px;
         margin-left: auto;
       }
 
       #intModeGroup {
         width: 100%;
         white-space: normal;
-        margin-top: 8px;
+        margin-top: 0;
       }
 
       #runBtn {
@@ -447,7 +444,7 @@
     <div id="history"></div>
 
     <div id="composer">
-      <label id="inputLabel" for="editor">Input (JavaScript / expression) <span id="modeHint"></span></label>
+      <label id="inputLabel" for="editor">Input (JavaScript / expression)</label>
       <textarea id="editor" spellcheck="false">sin(X)</textarea>
 
       <div id="controlRow">
@@ -482,12 +479,12 @@
             <button class="keyBtn" type="button" data-key="A">A</button>
             <button class="keyBtn" type="button" data-key="B">B</button>
             <button class="keyBtn" type="button" data-key="C">C</button>
-            <button class="keyBtn keySpecial" type="button" data-action="backspace">&#9003;</button>
+            <button class="keyBtn keySpecial" type="button" data-action="clear">Clear</button>
 
             <button class="keyBtn" type="button" data-key="D">D</button>
             <button class="keyBtn" type="button" data-key="E">E</button>
             <button class="keyBtn" type="button" data-key="F">F</button>
-            <button class="keyBtn" type="button" data-key="X">X</button>
+            <button class="keyBtn keySpecial" type="button" data-action="backspace">&#9003;</button>
 
             <button class="keyBtn" type="button" data-key="sin(">sin</button>
             <button class="keyBtn" type="button" data-key="cos(">cos</button>
@@ -497,29 +494,29 @@
             <button class="keyBtn" type="button" data-key="exp(">exp</button>
             <button class="keyBtn" type="button" data-key="log(">log</button>
             <button class="keyBtn" type="button" data-key="log10(">log10</button>
-            <button class="keyBtn" type="button" data-key="abs(">abs</button>
+            <button class="keyBtn" type="button" data-key="X">X</button>
 
-            <button class="keyBtn" type="button" data-key="(">(</button>
-            <button class="keyBtn" type="button" data-key=")">)</button>
             <button class="keyBtn" type="button" data-key="[">[</button>
             <button class="keyBtn" type="button" data-key="]">]</button>
+            <button class="keyBtn" type="button" data-key="(">(</button>
+            <button class="keyBtn" type="button" data-key=")">)</button>
 
-            <button class="keyBtn" type="button" data-key="7">7</button>
-            <button class="keyBtn" type="button" data-key="8">8</button>
-            <button class="keyBtn" type="button" data-key="9">9</button>
+            <button class="keyBtn keyDigit" type="button" data-key="7">7</button>
+            <button class="keyBtn keyDigit" type="button" data-key="8">8</button>
+            <button class="keyBtn keyDigit" type="button" data-key="9">9</button>
             <button class="keyBtn" type="button" data-key="/">/</button>
 
-            <button class="keyBtn" type="button" data-key="4">4</button>
-            <button class="keyBtn" type="button" data-key="5">5</button>
-            <button class="keyBtn" type="button" data-key="6">6</button>
+            <button class="keyBtn keyDigit" type="button" data-key="4">4</button>
+            <button class="keyBtn keyDigit" type="button" data-key="5">5</button>
+            <button class="keyBtn keyDigit" type="button" data-key="6">6</button>
             <button class="keyBtn" type="button" data-key="*">*</button>
 
-            <button class="keyBtn" type="button" data-key="1">1</button>
-            <button class="keyBtn" type="button" data-key="2">2</button>
-            <button class="keyBtn" type="button" data-key="3">3</button>
+            <button class="keyBtn keyDigit" type="button" data-key="1">1</button>
+            <button class="keyBtn keyDigit" type="button" data-key="2">2</button>
+            <button class="keyBtn keyDigit" type="button" data-key="3">3</button>
             <button class="keyBtn" type="button" data-key="-">-</button>
 
-            <button class="keyBtn" type="button" data-key="0">0</button>
+            <button class="keyBtn keyDigit" type="button" data-key="0">0</button>
             <button class="keyBtn" type="button" data-key=".">.</button>
             <button class="keyBtn" type="button" data-key=",">,</button>
             <button class="keyBtn" type="button" data-key="+">+</button>
@@ -551,7 +548,6 @@
       var xLowEl = document.getElementById('xLow');
       var xHighEl = document.getElementById('xHigh');
       var composerEl = document.getElementById('composer');
-      var modeHintEl = document.getElementById('modeHint');
       var execCount = 0;
       var scope = {};
       var inputHistory = [];
@@ -724,14 +720,6 @@
       }
 
       function updateModeUi() {
-        if (modeHintEl) {
-          if (mode === 'edit') {
-            modeHintEl.innerHTML = 'Mode: Edit (Tab to nav)';
-          } else {
-            modeHintEl.innerHTML = 'Mode: Navigate (Enter to edit)';
-          }
-        }
-
         if (composerEl) {
           if (mode === 'nav') {
             addClass(composerEl, 'navMode');
@@ -2941,6 +2929,16 @@
         }
         if (action === 'backspace') {
           backspaceAtCursor();
+          return;
+        }
+        if (action === 'clear') {
+          if (mode !== 'edit') {
+            setMode('edit');
+          }
+          editorEl.value = '';
+          autoSizeEditor();
+          focusEditorAtStart();
+          saveSessionState();
           return;
         }
         if (action === 'newline') {
