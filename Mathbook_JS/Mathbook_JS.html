@@ -467,7 +467,7 @@
 <body>
   <div id="app">
     <h1>Mathbook JS</h1>
-    <p class="intro">Helpers: <code>hex()</code>, <code>bin()</code>, <code>dec()</code>, <code>oct()</code>, <code>asc()</code>, <code>ord()</code>, <code>int()</code>, <code>bits()</code>, <code>and()</code>, <code>or()</code>, <code>xor()</code>, <code>not()</code>, <code>crc32()</code>, <code>dword2float()</code>, <code>float2dword()</code>, <code>sin()</code>, <code>cos()</code>, <code>tan()</code>, <code>sqrt()</code>, <code>abs()</code>, <code>log()</code>, <code>log10()</code>, <code>exp()</code>. Constants: <code>pi</code>, <code>C0</code>. Plot uses <code>X</code>. History arrays: <code>IN</code>, <code>OUT</code>.</p>
+    <p class="intro">Helpers: <code>hex()</code>, <code>bin()</code>, <code>dec()</code>, <code>oct()</code>, <code>asc()</code>, <code>ord()</code>, <code>int()</code>, <code>bits()</code>, <code>and()</code>, <code>or()</code>, <code>xor()</code>, <code>not()</code>, <code>crc32()</code>, <code>dword2float()</code>, <code>float2dword()</code>, <code>sin()</code>, <code>cos()</code>, <code>tan()</code>, <code>sqrt()</code>, <code>abs()</code>, <code>log()</code>, <code>log10()</code>, <code>exp()</code>, <code>plot(x_array,y_array)</code>. Constants: <code>pi</code>, <code>C0</code>. Plot uses <code>X</code>. History arrays: <code>IN</code>, <code>OUT</code>.</p>
 
     <div id="history"></div>
 
@@ -1445,6 +1445,77 @@
         return Math.exp(value);
       }
 
+      function buildCustomPlot(xArray, yArray) {
+        var xIsArray = Object.prototype.toString.call(xArray) === '[object Array]';
+        var yIsArray = Object.prototype.toString.call(yArray) === '[object Array]';
+        var len;
+        var i;
+        var x;
+        var y;
+        var points = [];
+        var minX;
+        var maxX;
+        var minY;
+        var maxY;
+        var hasValue = false;
+
+        if (!xIsArray || !yIsArray) {
+          throw new Error('plot(x_array, y_array) expects two arrays');
+        }
+        len = xArray.length;
+        if (len !== yArray.length) {
+          throw new Error('plot(x_array, y_array) requires same-length arrays');
+        }
+        if (len < 1) {
+          throw new Error('plot(x_array, y_array) requires at least 1 point');
+        }
+
+        for (i = 0; i < len; i++) {
+          x = Number(xArray[i]);
+          y = Number(yArray[i]);
+          if (!isFinite(x) || !isFinite(y)) {
+            points[i] = null;
+            continue;
+          }
+          points[i] = { x: x, y: y };
+          if (!hasValue) {
+            minX = x;
+            maxX = x;
+            minY = y;
+            maxY = y;
+            hasValue = true;
+          } else {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+
+        if (!hasValue) {
+          throw new Error('plot(x_array, y_array) has no finite points');
+        }
+
+        if (minX === maxX) {
+          minX -= 1;
+          maxX += 1;
+        }
+        if (minY === maxY) {
+          minY -= 1;
+          maxY += 1;
+        }
+
+        return {
+          __mathbookPlotType: 'xy',
+          seriesPoints: [points],
+          minX: minX,
+          maxX: maxX,
+          minY: minY,
+          maxY: maxY,
+          drawPoints: true
+        };
+      }
+
       function formatOutput(value) {
         var text;
         var n;
@@ -1569,6 +1640,7 @@
         target.cos = Math.cos;
         target.tan = Math.tan;
         target.sqrt = Math.sqrt;
+        target.plot = buildCustomPlot;
         target.pi = Math.PI;
         target.C0 = 299792458;
         target._ = lastValue1;
@@ -1609,6 +1681,7 @@
           cos: true,
           tan: true,
           sqrt: true,
+          plot: true,
           pi: true,
           C0: true,
           _: true,
@@ -1690,7 +1763,8 @@
         var normalized = stripStringAndCommentParts(code);
         var usesX = /(^|[^A-Za-z0-9_$\.])[xX]([^A-Za-z0-9_$]|$)/.test(normalized);
         var assignsX = /(^|[^A-Za-z0-9_$])[xX]\s*(\+=|-=|\*=|\/=|%=|=(?!=))/.test(normalized);
-        return usesX && !assignsX;
+        var usesPlotFn = /(^|[^A-Za-z0-9_$\.])plot\s*\(/.test(normalized);
+        return (usesX && !assignsX) || usesPlotFn;
       }
 
       function smartEnterAction() {
@@ -1865,6 +1939,7 @@
         var x;
         var y;
         var yRaw;
+        var firstRaw;
         var isArrayResult;
         var arrLen = 0;
         var j;
@@ -1872,10 +1947,28 @@
         var minY = 0;
         var maxY = 0;
         var hasValue = false;
+        var customPlotResult = null;
+
+        firstRaw = evaluateCode(expressionText, true, xMin, false);
+        if (firstRaw && typeof firstRaw === 'object' && firstRaw.__mathbookPlotType === 'xy') {
+          customPlotResult = firstRaw;
+          return {
+            seriesPoints: customPlotResult.seriesPoints || [],
+            minY: customPlotResult.minY,
+            maxY: customPlotResult.maxY,
+            xMin: customPlotResult.minX,
+            xMax: customPlotResult.maxX,
+            drawPoints: !!customPlotResult.drawPoints
+          };
+        }
 
         for (i = 0; i < sampleCount; i++) {
           x = xMin + (xMax - xMin) * i / (sampleCount - 1);
-          yRaw = evaluateCode(expressionText, true, x, false);
+          if (i === 0) {
+            yRaw = firstRaw;
+          } else {
+            yRaw = evaluateCode(expressionText, true, x, false);
+          }
           isArrayResult = Object.prototype.toString.call(yRaw) === '[object Array]';
 
           if (!isArrayResult) {
@@ -1941,7 +2034,8 @@
         return {
           seriesPoints: seriesPoints,
           minY: minY,
-          maxY: maxY
+          maxY: maxY,
+          drawPoints: false
         };
       }
 
@@ -2029,10 +2123,12 @@
         return fixedText;
       }
 
-      function drawPlotOnCanvas(canvas, seriesPoints, xMin, xMax, yMin, yMax) {
+      function drawPlotOnCanvas(canvas, plotData, xMin, xMax, yMin, yMax) {
         var ctx = canvas.getContext ? canvas.getContext('2d') : null;
         var w = canvas.width;
         var h = canvas.height;
+        var seriesPoints = (plotData && plotData.seriesPoints) ? plotData.seriesPoints : [];
+        var drawPoints = !!(plotData && plotData.drawPoints);
         var area = getPlotArea(canvas);
         var left = area.left;
         var right = area.right;
@@ -2058,6 +2154,7 @@
         var hasSegmentPoint = false;
         var s;
         var series;
+        var pointRadius;
         var seriesColors = ['#1f5a91', '#ad1f3c', '#2c7f36', '#8c4f18', '#6a2f91', '#00818a', '#5a5a0f'];
 
         if (!ctx) {
@@ -2071,6 +2168,11 @@
         yStep = niceStep(yMax - yMin, 16);
         xTickStart = Math.ceil(xMin / xStep) * xStep;
         yTickStart = Math.ceil(yMin / yStep) * yStep;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(left, top, pw, ph);
+        ctx.clip();
 
         ctx.strokeStyle = '#d6e3ef';
         ctx.lineWidth = 1;
@@ -2101,10 +2203,6 @@
             break;
           }
         }
-
-        ctx.strokeStyle = '#7f9bb7';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(left, top, pw, ph);
 
         if (xMin <= 0 && xMax >= 0) {
           axisX = xToPixel(0, xMin, xMax, left, pw);
@@ -2155,7 +2253,27 @@
           if (hasSegmentPoint) {
             ctx.stroke();
           }
+          if (drawPoints) {
+            pointRadius = 3.2;
+            ctx.fillStyle = seriesColors[s % seriesColors.length];
+            for (i = 0; i < series.length; i++) {
+              p = series[i];
+              if (!p) {
+                continue;
+              }
+              px = xToPixel(p.x, xMin, xMax, left, pw);
+              py = yToPixel(p.y, yMin, yMax, top, ph);
+              ctx.beginPath();
+              ctx.arc(px, py, pointRadius, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
         }
+        ctx.restore();
+
+        ctx.strokeStyle = '#7f9bb7';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(left, top, pw, ph);
 
         ctx.fillStyle = '#324a63';
         ctx.font = '12px Trebuchet MS';
@@ -2219,7 +2337,7 @@
         }
 
         function redrawPlot() {
-          drawPlotOnCanvas(canvas, viewState.plotData.seriesPoints, viewState.xMin, viewState.xMax, viewState.yMin, viewState.yMax);
+          drawPlotOnCanvas(canvas, viewState.plotData, viewState.xMin, viewState.xMax, viewState.yMin, viewState.yMax);
         }
 
         function updateHistoryPlotState() {
@@ -2230,6 +2348,7 @@
             minY: viewState.yMin,
             maxY: viewState.yMax,
             seriesPoints: viewState.plotData.seriesPoints,
+            drawPoints: !!viewState.plotData.drawPoints,
             focusX: viewState.focusX,
             focusY: viewState.focusY
           };
@@ -2747,7 +2866,8 @@
               plotData = {
                 seriesPoints: plotState.seriesPoints || [],
                 minY: isFinite(plotState.minY) ? Number(plotState.minY) : -1,
-                maxY: isFinite(plotState.maxY) ? Number(plotState.maxY) : 1
+                maxY: isFinite(plotState.maxY) ? Number(plotState.maxY) : 1,
+                drawPoints: !!plotState.drawPoints
               };
               appendGraphRecord(String(entry.input || ''), Number(plotState.xMin), Number(plotState.xMax), plotData, plotState);
             } catch (plotErr) {
@@ -2821,7 +2941,7 @@
 
         try {
           plotData = createPlotData(code, xMin, xMax, 360);
-          appendGraphRecord(code, xMin, xMax, plotData);
+          appendGraphRecord(code, isFinite(plotData.xMin) ? plotData.xMin : xMin, isFinite(plotData.xMax) ? plotData.xMax : xMax, plotData);
         } catch (err) {
           errText = String(err && err.message ? err.message : err);
           appendTextRecord(code, errText, true, { error: errText });
