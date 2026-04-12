@@ -241,7 +241,7 @@
       max-width: 360px;
       gap: 3px;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      grid-auto-rows: minmax(30px, auto);
+      grid-auto-rows: 24px;
     }
 
     #keysGroup:not(.isOpen) #keysPanel .keyBtn {
@@ -473,7 +473,7 @@
 
     <div id="composer">
       <label id="inputLabel" for="editor">Input (JavaScript / expression)</label>
-      <textarea id="editor" spellcheck="false">sin(X)</textarea>
+      <textarea id="editor" rows="1" spellcheck="false">sin(X)</textarea>
 
       <div id="controlRow">
         <div class="group" id="exportGroup">
@@ -632,9 +632,23 @@
       }
 
       function autoSizeEditor() {
+        var lineHeight = 20;
+        var computed;
+        var parsedLineHeight;
+        var minHeight;
         if (!editorEl) return;
+        if (window.getComputedStyle) {
+          computed = window.getComputedStyle(editorEl, null);
+          if (computed && computed.lineHeight) {
+            parsedLineHeight = parseFloat(computed.lineHeight);
+            if (isFinite(parsedLineHeight) && parsedLineHeight > 0) {
+              lineHeight = parsedLineHeight;
+            }
+          }
+        }
+        minHeight = lineHeight + 20;
         editorEl.style.height = 'auto';
-        editorEl.style.height = editorEl.scrollHeight + 'px';
+        editorEl.style.height = Math.max(editorEl.scrollHeight, minHeight) + 'px';
       }
 
       function insertAtCursor(text, noFocus) {
