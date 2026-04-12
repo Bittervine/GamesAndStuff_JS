@@ -725,6 +725,7 @@
           } else {
             focusEditorAtEnd();
           }
+          scrollToBottomSoon();
         } else {
           if (editorEl.blur) {
             editorEl.blur();
@@ -1236,6 +1237,10 @@
         if (e.preventDefault) {
           e.preventDefault();
         }
+        if (e.stopPropagation) {
+          e.stopPropagation();
+        }
+        e.cancelBubble = true;
         e.returnValue = false;
         return false;
       }
