@@ -8,3 +8,4 @@
 - NodeJs is usually here: c:\Portable\NodeJS\node.exe
 - Playwright is usually here: c:\Portable\Playwright
 - Keep your replies as short as possible
+- If asked for changes that are problematic or leads to fragile solution in current design: Stop, notify the user and ask for confirmation before implementing.
