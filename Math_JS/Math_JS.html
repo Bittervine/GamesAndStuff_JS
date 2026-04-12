@@ -191,6 +191,7 @@
       align-items: center;
       white-space: nowrap;
       max-width: 100%;
+      flex: 0 1 auto;
     }
 
     #exportGroup {
@@ -206,7 +207,7 @@
     }
 
     #controlSpacer {
-      flex: 1 1 auto;
+      flex: 1 1 24px;
       min-width: 0;
     }
 
@@ -223,6 +224,8 @@
       flex: 0 0 auto;
       padding-left: 10px;
       padding-right: 10px;
+      display: inline-flex;
+      align-items: center;
     }
 
     #keysGroup {
@@ -268,7 +271,6 @@
       width: auto;
       min-width: 0;
       flex: 0 0 auto;
-      padding: 8px 14px;
       font-size: 15px;
       border-radius: 11px;
       min-height: 0;
@@ -283,6 +285,9 @@
       font-weight: bold;
       line-height: 1.1;
       background: #edf3fa;
+    }
+    .keySpecial {
+      background: #d8ecff;
     }
 
     .keySpacer {
@@ -320,31 +325,11 @@
       gap: 6px;
     }
 
-    #controlRow:not(.keysExpanded) #exportGroup,
-    #controlRow:not(.keysExpanded) #intModeGroup,
-    #controlRow:not(.keysExpanded) #plotGroup,
-    #controlRow:not(.keysExpanded) #runGroup {
-      min-height: 62px;
-      align-self: stretch;
-    }
-
-
-    #controlRow:not(.keysExpanded) #runGroup {
+    #runGroup {
       justify-content: center;
       align-items: center;
       padding-left: 8px;
       padding-right: 8px;
-    }
-
-    #controlRow.keysExpanded #exportGroup,
-    #controlRow.keysExpanded #intModeGroup,
-    #controlRow.keysExpanded #plotGroup {
-      width: 100%;
-      flex: 0 0 100%;
-    }
-
-    #controlRow.keysExpanded #controlSpacer {
-      display: none;
     }
 
     .miniLabel {
@@ -390,9 +375,14 @@
       background: #bcebd2;
     }
 
+    #plotBtn,
+    #runBtn,
+    #keysToggleBtn {
+      min-width: 72px;
+      padding: 8px 12px;
+    }
+
     #runBtn {
-      width: auto;
-      min-width: 0;
       background: #ffdcb0;
     }
 
@@ -440,7 +430,7 @@
       }
 
       #runBtn {
-        width: 100%;
+        width: auto;
       }
 
       .rangeInput {
@@ -484,15 +474,15 @@
         <div class="group" id="runGroup">
           <div id="keysGroup">
           <div id="keysPanel">
-            <button class="keyBtn" type="button" data-action="toggleKeys">#</button>
-            <button class="keyBtn keyLarge" type="button" data-action="left">&#8592;</button>
-            <button class="keyBtn keyLarge" type="button" data-action="right">&#8594;</button>
+            <button id="keysToggleBtn" class="keyBtn keySpecial" type="button" data-action="toggleKeys">#</button>
+            <button class="keyBtn keyLarge keySpecial" type="button" data-action="left">&#8592;</button>
+            <button class="keyBtn keyLarge keySpecial" type="button" data-action="right">&#8594;</button>
             <button id="runBtn" class="keyBtn keyLarge" type="button">Eval</button>
 
             <button class="keyBtn" type="button" data-key="A">A</button>
             <button class="keyBtn" type="button" data-key="B">B</button>
             <button class="keyBtn" type="button" data-key="C">C</button>
-            <button class="keyBtn" type="button" data-action="backspace">BS</button>
+            <button class="keyBtn keySpecial" type="button" data-action="backspace">&#9003;</button>
 
             <button class="keyBtn" type="button" data-key="D">D</button>
             <button class="keyBtn" type="button" data-key="E">E</button>
@@ -549,6 +539,8 @@
       var resetBtn = document.getElementById('resetBtn');
       var copyBtn = document.getElementById('copyBtn');
       var saveBtn = document.getElementById('saveBtn');
+      var exportGroupEl = document.getElementById('exportGroup');
+      var intModeGroupEl = document.getElementById('intModeGroup');
       var intModeDecEl = document.getElementById('intModeDec');
       var intModeHexEl = document.getElementById('intModeHex');
       var intModeBinEl = document.getElementById('intModeBin');
@@ -626,7 +618,9 @@
         var start;
         var end;
         var value;
-        setMode('edit');
+        if (mode !== 'edit') {
+          setMode('edit');
+        }
         value = editorEl.value;
         start = (typeof editorEl.selectionStart === 'number') ? editorEl.selectionStart : value.length;
         end = (typeof editorEl.selectionEnd === 'number') ? editorEl.selectionEnd : value.length;
@@ -642,7 +636,9 @@
         var start;
         var end;
         var value;
-        setMode('edit');
+        if (mode !== 'edit') {
+          setMode('edit');
+        }
         value = editorEl.value;
         start = (typeof editorEl.selectionStart === 'number') ? editorEl.selectionStart : value.length;
         end = (typeof editorEl.selectionEnd === 'number') ? editorEl.selectionEnd : value.length;
@@ -690,6 +686,16 @@
           addClass(controlRowEl, 'keysExpanded');
         } else {
           removeClass(controlRowEl, 'keysExpanded');
+        }
+      }
+
+      function syncPreferGroupSize() {
+        var h;
+        if (!exportGroupEl || !intModeGroupEl) return;
+        intModeGroupEl.style.minHeight = '';
+        h = exportGroupEl.offsetHeight;
+        if (h > 0) {
+          intModeGroupEl.style.minHeight = h + 'px';
         }
       }
 
@@ -775,6 +781,7 @@
           xLow: xLowEl.value,
           xHigh: xHighEl.value,
           intDisplayMode: intDisplayMode,
+          keysExpanded: hasClass(keysGroupEl, 'isOpen'),
           entries: []
         };
         var i;
@@ -2691,6 +2698,12 @@
         if (typeof data.xLow !== 'undefined') xLowEl.value = String(data.xLow);
         if (typeof data.xHigh !== 'undefined') xHighEl.value = String(data.xHigh);
         if (typeof data.editorText !== 'undefined') editorEl.value = String(data.editorText);
+        if (data.keysExpanded) {
+          addClass(keysGroupEl, 'isOpen');
+        } else {
+          removeClass(keysGroupEl, 'isOpen');
+        }
+        syncKeysExpandedLayout();
         autoSizeEditor();
 
         for (i = 0; i < data.entries.length; i++) {
@@ -2901,10 +2914,14 @@
             addClass(keysGroupEl, 'isOpen');
           }
           syncKeysExpandedLayout();
+          syncPreferGroupSize();
+          saveSessionState();
           return;
         }
         if (action === 'left') {
-          setMode('edit');
+          if (mode !== 'edit') {
+            setMode('edit');
+          }
           if (typeof editorEl.selectionStart === 'number' && editorEl.selectionStart > 0 && editorEl.setSelectionRange) {
             editorEl.setSelectionRange(editorEl.selectionStart - 1, editorEl.selectionStart - 1);
           }
@@ -2912,7 +2929,9 @@
         }
         if (action === 'right') {
           var nextPos;
-          setMode('edit');
+          if (mode !== 'edit') {
+            setMode('edit');
+          }
           if (typeof editorEl.selectionStart === 'number' && editorEl.setSelectionRange) {
             nextPos = editorEl.selectionStart + 1;
             if (nextPos > editorEl.value.length) nextPos = editorEl.value.length;
@@ -2926,6 +2945,18 @@
         }
         if (action === 'newline') {
           insertAtCursor('\n');
+        }
+      };
+      keysPanelEl.onmousedown = function (e) {
+        var ev = e || window.event;
+        var target = ev.target || ev.srcElement;
+        if (target && target.tagName === 'BUTTON') {
+          if (ev.preventDefault) {
+            ev.preventDefault();
+          } else {
+            ev.returnValue = false;
+          }
+          return false;
         }
       };
       resetBtn.onclick = function () {
@@ -2974,7 +3005,13 @@
       restoreSessionState();
       autoSizeEditor();
       syncKeysExpandedLayout();
+      syncPreferGroupSize();
       setMode('edit');
+      if (window.addEventListener) {
+        window.addEventListener('resize', syncPreferGroupSize, false);
+      } else {
+        window.onresize = syncPreferGroupSize;
+      }
     }());
   </script>
 </body>
