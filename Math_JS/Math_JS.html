@@ -176,7 +176,7 @@
     #controlRow {
       width: 100%;
       display: flex;
-      align-items: stretch;
+      align-items: flex-start;
       flex-wrap: wrap;
       gap: 8px;
     }
@@ -225,6 +225,80 @@
       padding-right: 10px;
     }
 
+    #keysGroup {
+      flex: 0 0 auto;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      white-space: normal;
+    }
+
+    #keysPanel {
+      display: grid;
+      width: 100%;
+      max-width: 360px;
+      gap: 4px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-auto-rows: minmax(30px, auto);
+    }
+
+    #keysGroup:not(.isOpen) #keysPanel .keyBtn {
+      display: none;
+    }
+
+    #keysGroup:not(.isOpen) #keysPanel .keyBtn[data-action="toggleKeys"],
+    #keysGroup:not(.isOpen) #keysPanel #runBtn {
+      display: inline-block;
+    }
+
+    #keysGroup:not(.isOpen) #keysPanel {
+      display: inline-flex;
+      width: auto;
+      max-width: none;
+      gap: 6px;
+      grid-template-columns: none;
+      grid-auto-rows: auto;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #keysGroup:not(.isOpen) #keysPanel .keyBtn[data-action="toggleKeys"],
+    #keysGroup:not(.isOpen) #keysPanel #runBtn {
+      width: auto;
+      min-width: 0;
+      flex: 0 0 auto;
+      padding: 8px 14px;
+      font-size: 15px;
+      border-radius: 11px;
+      min-height: 0;
+    }
+
+    .keyBtn {
+      min-width: 0;
+      width: 100%;
+      padding: 6px 7px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: bold;
+      line-height: 1.1;
+      background: #edf3fa;
+    }
+
+    .keySpacer {
+      display: block;
+      width: 100%;
+      height: 1px;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .keyLarge {
+      padding: 8px 14px;
+      font-size: 15px;
+      min-height: 38px;
+    }
+
     .modeTitle {
       margin-right: 8px;
       font-size: 12px;
@@ -241,6 +315,36 @@
     #runGroup {
       flex: 0 0 auto;
       text-align: right;
+      display: inline-flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    #controlRow:not(.keysExpanded) #exportGroup,
+    #controlRow:not(.keysExpanded) #intModeGroup,
+    #controlRow:not(.keysExpanded) #plotGroup,
+    #controlRow:not(.keysExpanded) #runGroup {
+      min-height: 62px;
+      align-self: stretch;
+    }
+
+
+    #controlRow:not(.keysExpanded) #runGroup {
+      justify-content: center;
+      align-items: center;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    #controlRow.keysExpanded #exportGroup,
+    #controlRow.keysExpanded #intModeGroup,
+    #controlRow.keysExpanded #plotGroup {
+      width: 100%;
+      flex: 0 0 100%;
+    }
+
+    #controlRow.keysExpanded #controlSpacer {
+      display: none;
     }
 
     .miniLabel {
@@ -378,7 +482,59 @@
           <button id="plotBtn" type="button">Plot</button>
         </div>
         <div class="group" id="runGroup">
-          <button id="runBtn" type="button">Eval</button>
+          <div id="keysGroup">
+          <div id="keysPanel">
+            <button class="keyBtn" type="button" data-action="toggleKeys">#</button>
+            <button class="keyBtn keyLarge" type="button" data-action="left">&#8592;</button>
+            <button class="keyBtn keyLarge" type="button" data-action="right">&#8594;</button>
+            <button id="runBtn" class="keyBtn keyLarge" type="button">Eval</button>
+
+            <button class="keyBtn" type="button" data-key="A">A</button>
+            <button class="keyBtn" type="button" data-key="B">B</button>
+            <button class="keyBtn" type="button" data-key="C">C</button>
+            <button class="keyBtn" type="button" data-action="backspace">BS</button>
+
+            <button class="keyBtn" type="button" data-key="D">D</button>
+            <button class="keyBtn" type="button" data-key="E">E</button>
+            <button class="keyBtn" type="button" data-key="F">F</button>
+            <button class="keyBtn" type="button" data-key="X">X</button>
+
+            <button class="keyBtn" type="button" data-key="sin(">sin</button>
+            <button class="keyBtn" type="button" data-key="cos(">cos</button>
+            <button class="keyBtn" type="button" data-key="tan(">tan</button>
+            <button class="keyBtn" type="button" data-key="sqrt(">sqrt</button>
+
+            <button class="keyBtn" type="button" data-key="exp(">exp</button>
+            <button class="keyBtn" type="button" data-key="log(">log</button>
+            <button class="keyBtn" type="button" data-key="log10(">log10</button>
+            <button class="keyBtn" type="button" data-key="abs(">abs</button>
+
+            <button class="keyBtn" type="button" data-key="(">(</button>
+            <button class="keyBtn" type="button" data-key=")">)</button>
+            <button class="keyBtn" type="button" data-key="[">[</button>
+            <button class="keyBtn" type="button" data-key="]">]</button>
+
+            <button class="keyBtn" type="button" data-key="7">7</button>
+            <button class="keyBtn" type="button" data-key="8">8</button>
+            <button class="keyBtn" type="button" data-key="9">9</button>
+            <button class="keyBtn" type="button" data-key="/">/</button>
+
+            <button class="keyBtn" type="button" data-key="4">4</button>
+            <button class="keyBtn" type="button" data-key="5">5</button>
+            <button class="keyBtn" type="button" data-key="6">6</button>
+            <button class="keyBtn" type="button" data-key="*">*</button>
+
+            <button class="keyBtn" type="button" data-key="1">1</button>
+            <button class="keyBtn" type="button" data-key="2">2</button>
+            <button class="keyBtn" type="button" data-key="3">3</button>
+            <button class="keyBtn" type="button" data-key="-">-</button>
+
+            <button class="keyBtn" type="button" data-key="0">0</button>
+            <button class="keyBtn" type="button" data-key=".">.</button>
+            <button class="keyBtn" type="button" data-key=",">,</button>
+            <button class="keyBtn" type="button" data-key="+">+</button>
+          </div>
+        </div>
         </div>
       </div>
     </div>
@@ -397,6 +553,9 @@
       var intModeHexEl = document.getElementById('intModeHex');
       var intModeBinEl = document.getElementById('intModeBin');
       var intModeBitsEl = document.getElementById('intModeBits');
+      var keysGroupEl = document.getElementById('keysGroup');
+      var keysPanelEl = document.getElementById('keysPanel');
+      var controlRowEl = document.getElementById('controlRow');
       var xLowEl = document.getElementById('xLow');
       var xHighEl = document.getElementById('xHigh');
       var composerEl = document.getElementById('composer');
@@ -463,6 +622,41 @@
         editorEl.style.height = editorEl.scrollHeight + 'px';
       }
 
+      function insertAtCursor(text) {
+        var start;
+        var end;
+        var value;
+        setMode('edit');
+        value = editorEl.value;
+        start = (typeof editorEl.selectionStart === 'number') ? editorEl.selectionStart : value.length;
+        end = (typeof editorEl.selectionEnd === 'number') ? editorEl.selectionEnd : value.length;
+        editorEl.value = value.substring(0, start) + text + value.substring(end);
+        if (editorEl.setSelectionRange) {
+          editorEl.setSelectionRange(start + text.length, start + text.length);
+        }
+        autoSizeEditor();
+        saveSessionState();
+      }
+
+      function backspaceAtCursor() {
+        var start;
+        var end;
+        var value;
+        setMode('edit');
+        value = editorEl.value;
+        start = (typeof editorEl.selectionStart === 'number') ? editorEl.selectionStart : value.length;
+        end = (typeof editorEl.selectionEnd === 'number') ? editorEl.selectionEnd : value.length;
+        if (start !== end) {
+          editorEl.value = value.substring(0, start) + value.substring(end);
+          if (editorEl.setSelectionRange) editorEl.setSelectionRange(start, start);
+        } else if (start > 0) {
+          editorEl.value = value.substring(0, start - 1) + value.substring(start);
+          if (editorEl.setSelectionRange) editorEl.setSelectionRange(start - 1, start - 1);
+        }
+        autoSizeEditor();
+        saveSessionState();
+      }
+
       function escapeHtml(text) {
         return String(text)
           .replace(/&/g, '&amp;')
@@ -488,6 +682,15 @@
         }
         el.className = (' ' + el.className + ' ').replace(' ' + name + ' ', ' ');
         el.className = el.className.replace(/^\s+|\s+$/g, '').replace(/\s+/g, ' ');
+      }
+
+      function syncKeysExpandedLayout() {
+        if (!controlRowEl || !keysGroupEl) return;
+        if (hasClass(keysGroupEl, 'isOpen')) {
+          addClass(controlRowEl, 'keysExpanded');
+        } else {
+          removeClass(controlRowEl, 'keysExpanded');
+        }
       }
 
       function focusEditorAtEnd() {
@@ -2679,6 +2882,52 @@
         refreshIntegerOutputDisplays();
         saveSessionState();
       };
+      keysPanelEl.onclick = function (e) {
+        var ev = e || window.event;
+        var target = ev.target || ev.srcElement;
+        var keyText;
+        var action;
+        if (!target || target.tagName !== 'BUTTON') return;
+        keyText = target.getAttribute('data-key');
+        action = target.getAttribute('data-action');
+        if (keyText !== null) {
+          insertAtCursor(keyText);
+          return;
+        }
+        if (action === 'toggleKeys') {
+          if (hasClass(keysGroupEl, 'isOpen')) {
+            removeClass(keysGroupEl, 'isOpen');
+          } else {
+            addClass(keysGroupEl, 'isOpen');
+          }
+          syncKeysExpandedLayout();
+          return;
+        }
+        if (action === 'left') {
+          setMode('edit');
+          if (typeof editorEl.selectionStart === 'number' && editorEl.selectionStart > 0 && editorEl.setSelectionRange) {
+            editorEl.setSelectionRange(editorEl.selectionStart - 1, editorEl.selectionStart - 1);
+          }
+          return;
+        }
+        if (action === 'right') {
+          var nextPos;
+          setMode('edit');
+          if (typeof editorEl.selectionStart === 'number' && editorEl.setSelectionRange) {
+            nextPos = editorEl.selectionStart + 1;
+            if (nextPos > editorEl.value.length) nextPos = editorEl.value.length;
+            editorEl.setSelectionRange(nextPos, nextPos);
+          }
+          return;
+        }
+        if (action === 'backspace') {
+          backspaceAtCursor();
+          return;
+        }
+        if (action === 'newline') {
+          insertAtCursor('\n');
+        }
+      };
       resetBtn.onclick = function () {
         clearNotebook();
         editorEl.value = '';
@@ -2724,6 +2973,7 @@
 
       restoreSessionState();
       autoSizeEditor();
+      syncKeysExpandedLayout();
       setMode('edit');
     }());
   </script>
