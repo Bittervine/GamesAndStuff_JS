@@ -402,6 +402,10 @@
         return String(value).replace(/^\s+|\s+$/g, '');
       }
 
+      function trimEndText(value) {
+        return String(value).replace(/\s+$/g, '');
+      }
+
       function escapeHtml(text) {
         return String(text)
           .replace(/&/g, '&amp;')
@@ -685,9 +689,10 @@
         if (navIndex < 0 || navIndex >= execCount) {
           setNavSelection(execCount - 1);
         }
-        expressionText = inputHistory[navIndex] || '';
+        expressionText = trimEndText(inputHistory[navIndex] || '');
         editorEl.value = expressionText;
         setMode('edit');
+        focusEditorAtEnd();
       }
 
       function pyInt(value, base) {
@@ -1082,8 +1087,15 @@
       }
 
       function setEditorFromHistory(expressionText) {
-        editorEl.value = expressionText;
+        editorEl.value = trimEndText(expressionText);
         focusEditorAtEnd();
+      }
+
+      function normalizeEditorTextForExecute() {
+        var cleaned = trimEndText(editorEl.value);
+        editorEl.value = cleaned;
+        focusEditorAtEnd();
+        return cleaned;
       }
 
       function stripStringAndCommentParts(code) {
@@ -1143,6 +1155,60 @@
 
         lineText = value.substring(lineStart, lineEnd);
         return trimText(lineText).length === 0;
+      }
+
+      function currentLineInfo() {
+        var value = editorEl.value;
+        var start = editorEl.selectionStart;
+        var lineStart;
+        var lineEnd;
+        var lineText;
+        if (typeof start !== 'number') {
+          return null;
+        }
+        lineStart = value.lastIndexOf('\n', start - 1);
+        if (lineStart < 0) {
+          lineStart = 0;
+        } else {
+          lineStart += 1;
+        }
+        lineEnd = value.indexOf('\n', start);
+        if (lineEnd < 0) {
+          lineEnd = value.length;
+        }
+        lineText = value.substring(lineStart, lineEnd);
+        return {
+          start: lineStart,
+          end: lineEnd,
+          text: lineText,
+          caret: start
+        };
+      }
+
+      function shouldAutoExecuteFromCurrentLine() {
+        var info = currentLineInfo();
+        var trimmed;
+        var lastChar;
+
+        if (!info) {
+          return false;
+        }
+
+        // Only auto-exec when caret is at line end (allowing trailing spaces).
+        if (trimText(info.text.substring(info.caret - info.start)).length !== 0) {
+          return false;
+        }
+
+        trimmed = trimText(info.text);
+        if (!trimmed.length) {
+          return false;
+        }
+
+        lastChar = trimmed.charAt(trimmed.length - 1);
+        if (lastChar === ';' || lastChar === '{' || lastChar === '}') {
+          return false;
+        }
+        return true;
       }
 
       function appendTextRecord(expressionText, outputText, isError, rawOutput) {
@@ -2002,7 +2068,7 @@
       }
 
       function runCurrentCode() {
-        var code = editorEl.value;
+        var code = normalizeEditorTextForExecute();
         var trimmed = trimText(code);
         var result;
         var errText;
@@ -2022,7 +2088,7 @@
       }
 
       function plotCurrentCode() {
-        var code = editorEl.value;
+        var code = normalizeEditorTextForExecute();
         var trimmed = trimText(code);
         var xMin = Number(xLowEl.value);
         var xMax = Number(xHighEl.value);
@@ -2070,7 +2136,7 @@
           return true;
         }
 
-        if (keyCode === 13 && isCurrentEditorLineBlank()) {
+        if (keyCode === 13 && shouldAutoExecuteFromCurrentLine()) {
           smartEnterAction();
           return stopEvent(e);
         }
