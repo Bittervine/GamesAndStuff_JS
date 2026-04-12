@@ -18,9 +18,9 @@
     }
 
     #app {
-      width: 100%;
+      width: 95%;
       max-width: none;
-      margin: 0;
+      margin: 0 auto;
       padding: 10px 10px 16px;
     }
 
@@ -172,9 +172,9 @@
 
     #controlRow {
       width: 100%;
-      overflow: hidden;
-      position: relative;
-      min-height: 62px;
+      display: flex;
+      align-items: stretch;
+      gap: 8px;
     }
 
     .group {
@@ -182,23 +182,56 @@
       border-radius: 10px;
       background: #f5faff;
       padding: 8px;
-      min-height: 62px;
+      min-height: 0;
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+    }
+
+    #exportGroup {
+      flex: 0 0 auto;
+      text-align: left;
+    }
+
+    .exportBtn {
+      width: auto;
+      margin: 0 6px 0 0;
+      padding: 8px 6px;
+      font-size: 13px;
+    }
+
+    #controlSpacer {
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
     #plotGroup {
-      float: none;
-      margin-right: 130px;
-      height: 62px;
+      flex: 0 0 auto;
+      height: auto;
+    }
+
+    #intModeGroup {
+      flex: 0 0 auto;
+      padding-left: 10px;
+      padding-right: 10px;
+    }
+
+    .modeTitle {
+      margin-right: 8px;
+      font-size: 12px;
+      color: #324861;
+      font-weight: bold;
+    }
+
+    .modeOpt {
+      margin-right: 8px;
+      font-size: 12px;
+      color: #132033;
     }
 
     #runGroup {
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 120px;
+      flex: 0 0 auto;
       text-align: right;
-      min-height: 62px;
-      padding: 8px 8px;
     }
 
     .miniLabel {
@@ -245,23 +278,48 @@
     }
 
     #runBtn {
-      width: 100%;
+      width: auto;
       min-width: 0;
       background: #ffdcb0;
     }
 
     @media (max-width: 700px) {
+      #controlRow {
+        flex-wrap: wrap;
+      }
+
+      #exportGroup {
+        width: 100%;
+        margin-bottom: 8px;
+        text-align: left;
+        white-space: normal;
+      }
+
+      .exportBtn {
+        width: 90px;
+        margin-left: 0;
+        margin-right: 6px;
+      }
+
+      #controlSpacer {
+        display: none;
+      }
+
       #plotGroup {
-        margin-right: 0;
-        height: auto;
+        width: 100%;
+        white-space: nowrap;
       }
 
       #runGroup {
-        position: static;
-        float: none;
-        width: 120px;
+        width: auto;
         margin-top: 8px;
         margin-left: auto;
+      }
+
+      #intModeGroup {
+        width: 100%;
+        white-space: normal;
+        margin-top: 8px;
       }
 
       #runBtn {
@@ -277,7 +335,7 @@
 <body>
   <div id="app">
     <h1>Math JS</h1>
-    <p class="intro">Notebook-like math runner in old-browser JavaScript. Helpers: <code>hex()</code>, <code>bin()</code>, <code>dec()</code>, <code>int()</code>, <code>bits()</code>, <code>dword2float()</code>, <code>float2dword()</code>, <code>sin()</code>, <code>cos()</code>, <code>tan()</code>, <code>sqrt()</code>. Plot uses variable <code>X</code>. History arrays: <code>In</code>, <code>Out</code>.</p>
+    <p class="intro">Notebook-like math runner in old-browser JavaScript. Helpers: <code>hex()</code>, <code>bin()</code>, <code>dec()</code>, <code>int()</code>, <code>bits()</code>, <code>dword2float()</code>, <code>float2dword()</code>, <code>sin()</code>, <code>cos()</code>, <code>tan()</code>, <code>sqrt()</code>. Plot uses variable <code>X</code>. History arrays: <code>IN</code>, <code>OUT</code>.</p>
 
     <div id="history"></div>
 
@@ -286,6 +344,18 @@
       <textarea id="editor" spellcheck="false">sin(X)</textarea>
 
       <div id="controlRow">
+        <div class="group" id="exportGroup">
+          <button id="copyBtn" class="exportBtn" type="button">Copy</button>
+          <button id="saveBtn" class="exportBtn" type="button">Save as HTML</button>
+        </div>
+        <div class="group" id="intModeGroup">
+          <span class="modeTitle">Prefer:</span>
+          <label class="modeOpt"><input type="radio" name="intMode" id="intModeDec" value="DEC" checked> DEC</label>
+          <label class="modeOpt"><input type="radio" name="intMode" id="intModeHex" value="HEX"> HEX</label>
+          <label class="modeOpt"><input type="radio" name="intMode" id="intModeBin" value="BIN"> BIN</label>
+          <label class="modeOpt"><input type="radio" name="intMode" id="intModeBits" value="BITS"> BITS</label>
+        </div>
+        <div id="controlSpacer"></div>
         <div class="group" id="plotGroup">
           <label class="miniLabel" for="xLow">X Min</label>
           <input class="rangeInput" id="xLow" type="text" value="-10">
@@ -306,21 +376,38 @@
       var editorEl = document.getElementById('editor');
       var runBtn = document.getElementById('runBtn');
       var plotBtn = document.getElementById('plotBtn');
+      var copyBtn = document.getElementById('copyBtn');
+      var saveBtn = document.getElementById('saveBtn');
+      var intModeDecEl = document.getElementById('intModeDec');
+      var intModeHexEl = document.getElementById('intModeHex');
+      var intModeBinEl = document.getElementById('intModeBin');
+      var intModeBitsEl = document.getElementById('intModeBits');
       var xLowEl = document.getElementById('xLow');
       var xHighEl = document.getElementById('xHigh');
       var composerEl = document.getElementById('composer');
       var modeHintEl = document.getElementById('modeHint');
       var execCount = 0;
       var scope = {};
-      var inputHistory = [''];
-      var outputHistory = [null];
-      var plotPoints = [null];
-      var historyRecords = [null];
+      var inputHistory = [];
+      var outputHistory = [];
+      var plotPoints = [];
+      var plotCanvases = [];
+      var outputFields = [];
+      var historyRecords = [];
       var mode = 'edit';
       var navIndex = -1;
+      var intDisplayMode = 'DEC';
 
       function trimText(value) {
         return String(value).replace(/^\s+|\s+$/g, '');
+      }
+
+      function escapeHtml(text) {
+        return String(text)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
       }
 
       function hasClass(el, name) {
@@ -351,6 +438,21 @@
         }
       }
 
+      function focusEditorAtStart() {
+        editorEl.focus();
+        if (editorEl.setSelectionRange) {
+          editorEl.setSelectionRange(0, 0);
+        }
+      }
+
+      function isCaretOnFirstLine() {
+        var pos = editorEl.selectionStart;
+        if (typeof pos !== 'number') {
+          return false;
+        }
+        return editorEl.value.lastIndexOf('\n', pos - 1) < 0;
+      }
+
       function updateModeUi() {
         if (modeHintEl) {
           if (mode === 'edit') {
@@ -371,8 +473,120 @@
         editorEl.readOnly = (mode !== 'edit');
       }
 
+      function formatDateStamp() {
+        var d = new Date();
+        function pad(n) { return n < 10 ? ('0' + n) : String(n); }
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+          '_' + pad(d.getHours()) + '-' + pad(d.getMinutes()) + '-' + pad(d.getSeconds());
+      }
+
+      function buildPlainTextExport() {
+        var lines = [];
+        var i;
+        var out;
+        lines[lines.length] = 'Math JS Notebook Export';
+        lines[lines.length] = 'Created: ' + (new Date()).toString();
+        lines[lines.length] = '';
+        for (i = 0; i < execCount; i++) {
+          lines[lines.length] = 'IN [' + i + ']:';
+          lines[lines.length] = String(inputHistory[i] || '');
+          lines[lines.length] = '';
+          out = outputHistory[i];
+          if (out && out.type === 'plot') {
+            lines[lines.length] = 'PLOT[' + i + ']: X=' + out.focusX + ' Y=' + out.focusY;
+            lines[lines.length] = 'X Range: [' + out.xMin + ', ' + out.xMax + ']';
+            lines[lines.length] = 'Y Range: [' + out.minY + ', ' + out.maxY + ']';
+            lines[lines.length] = '';
+          } else {
+            lines[lines.length] = 'OUT [' + i + ']:';
+            lines[lines.length] = formatOutput(out);
+            lines[lines.length] = '';
+          }
+        }
+        return lines.join('\r\n');
+      }
+
+      function buildHtmlExport() {
+        var parts = [];
+        var i;
+        var out;
+        var png;
+        parts[parts.length] = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Math JS Export</title>';
+        parts[parts.length] = '<style>body{font-family:Trebuchet MS,Verdana,Arial,sans-serif;margin:12px;color:#132033}';
+        parts[parts.length] = '.rec{border:1px solid #9bb9d6;border-radius:8px;padding:10px;margin-bottom:12px;background:#fff}';
+        parts[parts.length] = 'pre{white-space:pre-wrap;background:#f7fbff;border:1px solid #cad9ea;padding:8px;border-radius:6px}';
+        parts[parts.length] = 'img{max-width:100%;border:1px solid #99b7d4}</style></head><body>';
+        parts[parts.length] = '<h1>Math JS Notebook Export</h1>';
+        parts[parts.length] = '<p>Created: ' + escapeHtml((new Date()).toString()) + '</p>';
+        for (i = 0; i < execCount; i++) {
+          parts[parts.length] = '<div class="rec">';
+          parts[parts.length] = '<h3>IN [' + i + ']:</h3>';
+          parts[parts.length] = '<pre>' + escapeHtml(String(inputHistory[i] || '')) + '</pre>';
+          out = outputHistory[i];
+          if (out && out.type === 'plot') {
+            parts[parts.length] = '<h3>PLOT[' + i + ']: X=' + escapeHtml(String(out.focusX)) + ' Y=' + escapeHtml(String(out.focusY)) + '</h3>';
+            parts[parts.length] = '<p>X Range: [' + escapeHtml(String(out.xMin)) + ', ' + escapeHtml(String(out.xMax)) + '] ';
+            parts[parts.length] += 'Y Range: [' + escapeHtml(String(out.minY)) + ', ' + escapeHtml(String(out.maxY)) + ']</p>';
+            if (plotCanvases[i] && plotCanvases[i].toDataURL) {
+              png = plotCanvases[i].toDataURL('image/png');
+              parts[parts.length] = '<img alt="Plot ' + i + '" src="' + png + '">';
+            }
+          } else {
+            parts[parts.length] = '<h3>OUT [' + i + ']:</h3>';
+            parts[parts.length] = '<pre>' + escapeHtml(formatOutput(out)) + '</pre>';
+          }
+          parts[parts.length] = '</div>';
+        }
+        parts[parts.length] = '</body></html>';
+        return parts.join('');
+      }
+
+      function saveTextToFile(text, fileName, mimeType) {
+        var blob;
+        var a;
+        if (window.Blob) {
+          blob = new Blob([text], { type: mimeType });
+          if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+            window.navigator.msSaveOrOpenBlob(blob, fileName);
+            return;
+          }
+          if (window.URL && window.URL.createObjectURL) {
+            a = document.createElement('a');
+            a.href = window.URL.createObjectURL(blob);
+            a.download = fileName;
+            document.body.appendChild(a);
+            if (a.click) {
+              a.click();
+            }
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(a.href);
+            return;
+          }
+        }
+        window.location.href = 'data:' + mimeType + ';charset=utf-8,' + encodeURIComponent(text);
+      }
+
+      function copyText(text) {
+        var ta;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).catch(function () {});
+          return;
+        }
+        ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try {
+          document.execCommand('copy');
+        } catch (copyErr) {}
+        document.body.removeChild(ta);
+      }
+
       function clearNavSelection() {
-        if (navIndex >= 1 && navIndex < historyRecords.length) {
+        if (navIndex >= 0 && navIndex < historyRecords.length) {
           removeClass(historyRecords[navIndex], 'navSelected');
         }
         navIndex = -1;
@@ -386,14 +600,14 @@
           return;
         }
 
-        if (nextIndex < 1) {
-          nextIndex = 1;
+        if (nextIndex < 0) {
+          nextIndex = 0;
         }
-        if (nextIndex > execCount) {
-          nextIndex = execCount;
+        if (nextIndex >= execCount) {
+          nextIndex = execCount - 1;
         }
 
-        if (navIndex >= 1 && navIndex < historyRecords.length) {
+        if (navIndex >= 0 && navIndex < historyRecords.length) {
           removeClass(historyRecords[navIndex], 'navSelected');
         }
 
@@ -408,6 +622,7 @@
       }
 
       function setMode(nextMode) {
+        var oldMode = mode;
         if (nextMode !== 'edit' && nextMode !== 'nav') {
           return;
         }
@@ -417,14 +632,18 @@
 
         if (mode === 'edit') {
           clearNavSelection();
-          focusEditorAtEnd();
+          if (oldMode === 'nav') {
+            focusEditorAtStart();
+          } else {
+            focusEditorAtEnd();
+          }
         } else {
           if (editorEl.blur) {
             editorEl.blur();
           }
           if (execCount > 0) {
-            if (navIndex < 1 || navIndex > execCount) {
-              setNavSelection(execCount);
+            if (navIndex < 0 || navIndex >= execCount) {
+              setNavSelection(execCount - 1);
             } else {
               setNavSelection(navIndex);
             }
@@ -446,8 +665,12 @@
         if (execCount < 1) {
           return;
         }
-        if (navIndex < 1 || navIndex > execCount) {
-          setNavSelection(execCount);
+        if (navIndex < 0 || navIndex >= execCount) {
+          setNavSelection(execCount - 1);
+          return;
+        }
+        if (step > 0 && navIndex >= execCount - 1) {
+          setMode('edit');
           return;
         }
         setNavSelection(navIndex + step);
@@ -459,8 +682,8 @@
           setMode('edit');
           return;
         }
-        if (navIndex < 1 || navIndex > execCount) {
-          setNavSelection(execCount);
+        if (navIndex < 0 || navIndex >= execCount) {
+          setNavSelection(execCount - 1);
         }
         expressionText = inputHistory[navIndex] || '';
         editorEl.value = expressionText;
@@ -542,7 +765,7 @@
           sign = '-';
           n = -n;
         }
-        return sign + '0x' + n.toString(16);
+        return sign + '0x' + n.toString(16).toUpperCase();
       }
 
       function pyBin(value) {
@@ -677,6 +900,7 @@
 
       function formatOutput(value) {
         var text;
+        var n;
 
         if (typeof value === 'undefined') {
           return 'undefined';
@@ -686,7 +910,42 @@
           return 'null';
         }
 
-        if (typeof value === 'number' || typeof value === 'boolean') {
+        if (typeof value === 'number') {
+          if (isFinite(value) && Math.floor(value) === value) {
+            n = value;
+            if (intDisplayMode === 'HEX') {
+              if (n < 0) {
+                return '-0x' + (-n).toString(16).toUpperCase();
+              }
+              return '0x' + n.toString(16).toUpperCase();
+            }
+            if (intDisplayMode === 'BIN') {
+              var sign = '';
+              var absN = n;
+              var bitsText;
+              var pad;
+              if (n < 0) {
+                sign = '-';
+                absN = -n;
+              }
+              bitsText = absN.toString(2);
+              pad = bitsText.length % 4;
+              if (pad !== 0) {
+                bitsText = (new Array(5 - pad)).join('0') + bitsText;
+              }
+              if (!bitsText.length) {
+                bitsText = '0000';
+              }
+              return sign + '0b' + bitsText;
+            }
+            if (intDisplayMode === 'BITS') {
+              return formatOutput(bits(n));
+            }
+          }
+          return String(value);
+        }
+
+        if (typeof value === 'boolean') {
           return String(value);
         }
 
@@ -715,6 +974,21 @@
         return String(value);
       }
 
+      function refreshIntegerOutputDisplays() {
+        var i;
+        var value;
+        for (i = 0; i < execCount; i++) {
+          if (!outputFields[i]) {
+            continue;
+          }
+          value = outputHistory[i];
+          if (typeof value === 'number' && isFinite(value) && Math.floor(value) === value) {
+            outputFields[i].innerHTML = '';
+            outputFields[i].appendChild(document.createTextNode(formatOutput(value)));
+          }
+        }
+      }
+
       function copyScopeTo(target) {
         var key;
         for (key in scope) {
@@ -736,8 +1010,8 @@
         target.cos = Math.cos;
         target.tan = Math.tan;
         target.sqrt = Math.sqrt;
-        target.In = inputHistory;
-        target.Out = outputHistory;
+        target.IN = inputHistory;
+        target.OUT = outputHistory;
         target.PLOT = plotPoints;
 
         if (withX) {
@@ -759,8 +1033,8 @@
           cos: true,
           tan: true,
           sqrt: true,
-          In: true,
-          Out: true,
+          IN: true,
+          OUT: true,
           PLOT: true,
           X: true,
           x: true
@@ -872,33 +1146,33 @@
       }
 
       function appendTextRecord(expressionText, outputText, isError, rawOutput) {
+        var entryIndex = execCount;
         var record = document.createElement('div');
         var inLabel = document.createElement('p');
         var inputField = document.createElement('textarea');
         var outLabel = document.createElement('p');
         var outputField = document.createElement('pre');
 
-        execCount += 1;
         record.className = isError ? 'record error clickable' : 'record clickable';
 
         inLabel.className = 'recordLabel';
-        inLabel.appendChild(document.createTextNode('In [' + execCount + ']'));
+        inLabel.appendChild(document.createTextNode('IN [' + entryIndex + ']:'));
 
         inputField.className = 'historyInput';
         inputField.readOnly = true;
         inputField.value = expressionText;
 
         outLabel.className = 'recordLabel';
-        outLabel.appendChild(document.createTextNode('Out [' + execCount + ']'));
+        outLabel.appendChild(document.createTextNode('OUT [' + entryIndex + ']:'));
 
         outputField.className = 'historyOutput';
         outputField.appendChild(document.createTextNode(outputText));
 
-        inputHistory[execCount] = expressionText;
+        inputHistory[entryIndex] = expressionText;
         if (typeof rawOutput === 'undefined') {
-          outputHistory[execCount] = outputText;
+          outputHistory[entryIndex] = outputText;
         } else {
-          outputHistory[execCount] = rawOutput;
+          outputHistory[entryIndex] = rawOutput;
         }
 
         record.onclick = function () {
@@ -918,10 +1192,12 @@
         record.appendChild(outLabel);
         record.appendChild(outputField);
         historyEl.appendChild(record);
-        historyRecords[execCount] = record;
+        historyRecords[entryIndex] = record;
+        outputFields[entryIndex] = outputField;
+        execCount += 1;
 
         if (mode === 'nav') {
-          setNavSelection(execCount);
+          setNavSelection(execCount - 1);
         }
 
         scrollToBottomSoon();
@@ -1278,7 +1554,7 @@
         function setOutLabelText() {
           outLabel.innerHTML = '';
           outLabel.appendChild(document.createTextNode(
-            'PLOT[' + recordIndex + '] X=' + viewState.focusX + '  Y = ' + viewState.focusY
+            'PLOT[' + recordIndex + ']: X=' + viewState.focusX + '  Y = ' + viewState.focusY
           ));
         }
 
@@ -1524,8 +1800,8 @@
           );
         }
 
-        execCount += 1;
         recordIndex = execCount;
+        execCount += 1;
         record.className = 'record';
         viewState = {
           initialXMin: xMin,
@@ -1545,7 +1821,7 @@
         updateHistoryPlotState();
 
         inLabel.className = 'recordLabel';
-        inLabel.appendChild(document.createTextNode('In [' + recordIndex + ']'));
+        inLabel.appendChild(document.createTextNode('IN [' + recordIndex + ']:'));
 
         inputField.className = 'historyInput';
         inputField.readOnly = true;
@@ -1576,9 +1852,10 @@
         record.appendChild(graphWrap);
         historyEl.appendChild(record);
         historyRecords[recordIndex] = record;
+        plotCanvases[recordIndex] = canvas;
 
         if (mode === 'nav') {
-          setNavSelection(recordIndex);
+          setNavSelection(execCount - 1);
         }
 
         redrawPlot();
@@ -1798,6 +2075,11 @@
           return stopEvent(e);
         }
 
+        if (keyCode === 38 && isCaretOnFirstLine()) {
+          setMode('nav');
+          return stopEvent(e);
+        }
+
         return true;
       }
 
@@ -1807,6 +2089,24 @@
 
         if (keyCode === 9) {
           toggleMode();
+          return stopEvent(e);
+        }
+
+        if (keyCode === 33) {
+          if (mode !== 'nav') {
+            setMode('nav');
+            return stopEvent(e);
+          }
+          moveNavSelection(-1);
+          return stopEvent(e);
+        }
+
+        if (keyCode === 34) {
+          if (mode !== 'nav') {
+            setMode('nav');
+            return stopEvent(e);
+          }
+          moveNavSelection(1);
           return stopEvent(e);
         }
 
@@ -1832,6 +2132,28 @@
 
       runBtn.onclick = runCurrentCode;
       plotBtn.onclick = plotCurrentCode;
+      intModeDecEl.onclick = function () {
+        intDisplayMode = 'DEC';
+        refreshIntegerOutputDisplays();
+      };
+      intModeHexEl.onclick = function () {
+        intDisplayMode = 'HEX';
+        refreshIntegerOutputDisplays();
+      };
+      intModeBinEl.onclick = function () {
+        intDisplayMode = 'BIN';
+        refreshIntegerOutputDisplays();
+      };
+      intModeBitsEl.onclick = function () {
+        intDisplayMode = 'BITS';
+        refreshIntegerOutputDisplays();
+      };
+      copyBtn.onclick = function () {
+        copyText(buildPlainTextExport());
+      };
+      saveBtn.onclick = function () {
+        saveTextToFile(buildHtmlExport(), 'MathJS_Export_' + formatDateStamp() + '.html', 'text/html');
+      };
 
       editorEl.onclick = function () {
         if (mode === 'nav') {
