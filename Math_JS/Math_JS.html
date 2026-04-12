@@ -345,6 +345,7 @@
 
       <div id="controlRow">
         <div class="group" id="exportGroup">
+          <button id="resetBtn" class="exportBtn" type="button">Reset</button>
           <button id="copyBtn" class="exportBtn" type="button">Copy</button>
           <button id="saveBtn" class="exportBtn" type="button">Save as HTML</button>
         </div>
@@ -376,6 +377,7 @@
       var editorEl = document.getElementById('editor');
       var runBtn = document.getElementById('runBtn');
       var plotBtn = document.getElementById('plotBtn');
+      var resetBtn = document.getElementById('resetBtn');
       var copyBtn = document.getElementById('copyBtn');
       var saveBtn = document.getElementById('saveBtn');
       var intModeDecEl = document.getElementById('intModeDec');
@@ -394,9 +396,12 @@
       var plotCanvases = [];
       var outputFields = [];
       var historyRecords = [];
+      var entryErrorFlags = [];
       var mode = 'edit';
       var navIndex = -1;
       var intDisplayMode = 'DEC';
+      var STORAGE_KEY = 'MathJS_Notebook_State_v1';
+      var isRestoringState = false;
 
       function trimText(value) {
         return String(value).replace(/^\s+|\s+$/g, '');
@@ -475,6 +480,75 @@
         }
 
         editorEl.readOnly = (mode !== 'edit');
+      }
+
+      function clearNotebook() {
+        execCount = 0;
+        scope = {};
+        inputHistory = [];
+        outputHistory = [];
+        plotPoints = [];
+        plotCanvases = [];
+        outputFields = [];
+        historyRecords = [];
+        entryErrorFlags = [];
+        navIndex = -1;
+        historyEl.innerHTML = '';
+      }
+
+      function setIntMode(modeName) {
+        intDisplayMode = modeName;
+        if (intModeDecEl) intModeDecEl.checked = (modeName === 'DEC');
+        if (intModeHexEl) intModeHexEl.checked = (modeName === 'HEX');
+        if (intModeBinEl) intModeBinEl.checked = (modeName === 'BIN');
+        if (intModeBitsEl) intModeBitsEl.checked = (modeName === 'BITS');
+      }
+
+      function buildSessionState() {
+        var data = {
+          version: 1,
+          editorText: editorEl.value,
+          xLow: xLowEl.value,
+          xHigh: xHighEl.value,
+          intDisplayMode: intDisplayMode,
+          entries: []
+        };
+        var i;
+        var out;
+        var entry;
+        for (i = 0; i < execCount; i++) {
+          out = outputHistory[i];
+          if (out && out.type === 'plot') {
+            entry = {
+              type: 'plot',
+              input: inputHistory[i],
+              plot: out
+            };
+          } else {
+            entry = {
+              type: 'text',
+              input: inputHistory[i],
+              isError: !!entryErrorFlags[i]
+            };
+            if (typeof out === 'number' && isFinite(out) && Math.floor(out) === out) {
+              entry.rawInt = out;
+            } else {
+              entry.outputText = outputFields[i] ? outputFields[i].textContent : formatOutput(out);
+            }
+          }
+          data.entries[data.entries.length] = entry;
+        }
+        return data;
+      }
+
+      function saveSessionState() {
+        var data;
+        if (isRestoringState) return;
+        if (!window.localStorage) return;
+        try {
+          data = buildSessionState();
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        } catch (saveErr) {}
       }
 
       function formatDateStamp() {
@@ -693,6 +767,7 @@
         editorEl.value = expressionText;
         setMode('edit');
         focusEditorAtEnd();
+        saveSessionState();
       }
 
       function pyInt(value, base) {
@@ -1089,6 +1164,7 @@
       function setEditorFromHistory(expressionText) {
         editorEl.value = trimEndText(expressionText);
         focusEditorAtEnd();
+        saveSessionState();
       }
 
       function normalizeEditorTextForExecute() {
@@ -1260,6 +1336,7 @@
         historyEl.appendChild(record);
         historyRecords[entryIndex] = record;
         outputFields[entryIndex] = outputField;
+        entryErrorFlags[entryIndex] = !!isError;
         execCount += 1;
 
         if (mode === 'nav') {
@@ -1267,6 +1344,7 @@
         }
 
         scrollToBottomSoon();
+        saveSessionState();
       }
 
       function createPlotData(expressionText, xMin, xMax, sampleCount) {
@@ -1597,7 +1675,7 @@
         }
       }
 
-      function appendGraphRecord(expressionText, xMin, xMax, plotData) {
+      function appendGraphRecord(expressionText, xMin, xMax, plotData, savedView) {
         var record = document.createElement('div');
         var inLabel = document.createElement('p');
         var inputField = document.createElement('textarea');
@@ -1878,8 +1956,8 @@
           xMax: xMax,
           yMin: plotData.minY,
           yMax: plotData.maxY,
-          focusX: (xMin + xMax) * 0.5,
-          focusY: (plotData.minY + plotData.maxY) * 0.5,
+          focusX: (savedView && isFinite(savedView.focusX)) ? Number(savedView.focusX) : ((xMin + xMax) * 0.5),
+          focusY: (savedView && isFinite(savedView.focusY)) ? Number(savedView.focusY) : ((plotData.minY + plotData.maxY) * 0.5),
           plotData: plotData
         };
 
@@ -1919,6 +1997,7 @@
         historyEl.appendChild(record);
         historyRecords[recordIndex] = record;
         plotCanvases[recordIndex] = canvas;
+        entryErrorFlags[recordIndex] = false;
 
         if (mode === 'nav') {
           setNavSelection(execCount - 1);
@@ -2065,6 +2144,60 @@
         }
 
         scrollToBottomSoon();
+        saveSessionState();
+      }
+
+      function restoreSessionState() {
+        var raw;
+        var data;
+        var i;
+        var entry;
+        var plotState;
+        var plotData;
+        if (!window.localStorage) return;
+        try {
+          raw = window.localStorage.getItem(STORAGE_KEY);
+          if (!raw) return;
+          data = JSON.parse(raw);
+        } catch (parseErr) {
+          return;
+        }
+        if (!data || Object.prototype.toString.call(data.entries) !== '[object Array]') return;
+
+        isRestoringState = true;
+        clearNotebook();
+
+        if (typeof data.intDisplayMode === 'string') setIntMode(data.intDisplayMode);
+        if (typeof data.xLow !== 'undefined') xLowEl.value = String(data.xLow);
+        if (typeof data.xHigh !== 'undefined') xHighEl.value = String(data.xHigh);
+        if (typeof data.editorText !== 'undefined') editorEl.value = String(data.editorText);
+
+        for (i = 0; i < data.entries.length; i++) {
+          entry = data.entries[i];
+          if (!entry || typeof entry !== 'object') continue;
+          if (entry.type === 'plot' && entry.plot) {
+            plotState = entry.plot;
+            try {
+              plotData = {
+                seriesPoints: plotState.seriesPoints || [],
+                minY: isFinite(plotState.minY) ? Number(plotState.minY) : -1,
+                maxY: isFinite(plotState.maxY) ? Number(plotState.maxY) : 1
+              };
+              appendGraphRecord(String(entry.input || ''), Number(plotState.xMin), Number(plotState.xMax), plotData, plotState);
+            } catch (plotErr) {
+              appendTextRecord(String(entry.input || ''), 'Failed to restore plot', true, { error: 'Failed to restore plot' });
+            }
+          } else {
+            if (typeof entry.rawInt === 'number') {
+              appendTextRecord(String(entry.input || ''), formatOutput(entry.rawInt), !!entry.isError, entry.rawInt);
+            } else {
+              appendTextRecord(String(entry.input || ''), String(entry.outputText || ''), !!entry.isError, String(entry.outputText || ''));
+            }
+          }
+        }
+
+        isRestoringState = false;
+        refreshIntegerOutputDisplays();
       }
 
       function runCurrentCode() {
@@ -2199,20 +2332,36 @@
       runBtn.onclick = runCurrentCode;
       plotBtn.onclick = plotCurrentCode;
       intModeDecEl.onclick = function () {
-        intDisplayMode = 'DEC';
+        setIntMode('DEC');
         refreshIntegerOutputDisplays();
+        saveSessionState();
       };
       intModeHexEl.onclick = function () {
-        intDisplayMode = 'HEX';
+        setIntMode('HEX');
         refreshIntegerOutputDisplays();
+        saveSessionState();
       };
       intModeBinEl.onclick = function () {
-        intDisplayMode = 'BIN';
+        setIntMode('BIN');
         refreshIntegerOutputDisplays();
+        saveSessionState();
       };
       intModeBitsEl.onclick = function () {
-        intDisplayMode = 'BITS';
+        setIntMode('BITS');
         refreshIntegerOutputDisplays();
+        saveSessionState();
+      };
+      resetBtn.onclick = function () {
+        clearNotebook();
+        editorEl.value = '';
+        xLowEl.value = '-10';
+        xHighEl.value = '10';
+        setIntMode('DEC');
+        refreshIntegerOutputDisplays();
+        setMode('edit');
+        if (window.localStorage) {
+          try { window.localStorage.removeItem(STORAGE_KEY); } catch (resetErr) {}
+        }
       };
       copyBtn.onclick = function () {
         copyText(buildPlainTextExport());
@@ -2226,6 +2375,11 @@
           setMode('edit');
         }
       };
+      editorEl.oninput = function () {
+        saveSessionState();
+      };
+      xLowEl.onchange = saveSessionState;
+      xHighEl.onchange = saveSessionState;
 
       if (editorEl.addEventListener) {
         editorEl.addEventListener('keydown', handleEditorKeyDown, false);
@@ -2239,6 +2393,7 @@
         document.onkeydown = handleGlobalKeyDown;
       }
 
+      restoreSessionState();
       setMode('edit');
     }());
   </script>
