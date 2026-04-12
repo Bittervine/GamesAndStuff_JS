@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Math JS</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #f4f8ff;
+      color: #132033;
+      font-family: "Trebuchet MS", Verdana, Arial, sans-serif;
+      line-height: 1.35;
+    }
+
+    #app {
+      width: 96%;
+      max-width: 980px;
+      margin: 10px auto 16px;
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .intro {
+      margin: 0 0 10px;
+      color: #32455f;
+      font-size: 14px;
+    }
+
+    #history {
+      min-height: 140px;
+      margin-bottom: 12px;
+    }
+
+    .record {
+      margin-bottom: 12px;
+      padding: 10px;
+      border: 1px solid #7ea6cc;
+      border-radius: 10px;
+      background: #ffffff;
+      box-shadow: 0 2px 0 #b5cde4;
+    }
+
+    .record.error {
+      border-color: #c97474;
+      background: #fff4f4;
+    }
+
+    .record.clickable {
+      cursor: pointer;
+    }
+
+    .recordLabel {
+      margin: 0 0 5px;
+      font-size: 12px;
+      color: #4a5e78;
+      font-weight: bold;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .historyInput {
+      width: 100%;
+      min-height: 56px;
+      resize: vertical;
+      margin: 0 0 8px;
+      padding: 8px;
+      border: 1px solid #a7c2dc;
+      border-radius: 8px;
+      background: #f7fbff;
+      color: #18273b;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 14px;
+      line-height: 1.32;
+      overflow: auto;
+    }
+
+    .historyOutput {
+      margin: 0;
+      padding: 9px 10px;
+      border: 1px solid #cad9ea;
+      border-radius: 8px;
+      background: #f8fbff;
+      color: #1d2e46;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 14px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      min-height: 20px;
+    }
+
+    .record.error .historyOutput {
+      border-color: #d7a4a4;
+      background: #fff8f8;
+      color: #7a1f1f;
+    }
+
+    .graphWrap {
+      margin-top: 2px;
+      padding: 8px;
+      border: 1px solid #cad9ea;
+      border-radius: 8px;
+      background: #f8fbff;
+    }
+
+    .graphCanvas {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      border: 1px solid #99b7d4;
+      background: #ffffff;
+    }
+
+    #composer {
+      padding: 10px;
+      border: 2px solid #7ea6cc;
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 2px 0 #b5cde4;
+    }
+
+    #inputLabel {
+      display: block;
+      margin: 0 0 6px;
+      font-size: 13px;
+      color: #30465f;
+      font-weight: bold;
+    }
+
+    #editor {
+      display: block;
+      width: 100%;
+      min-height: 112px;
+      resize: vertical;
+      margin: 0 0 10px;
+      padding: 10px;
+      border: 1px solid #8db2d5;
+      border-radius: 8px;
+      background: #f7fbff;
+      color: #132033;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 15px;
+      line-height: 1.34;
+    }
+
+    #controlRow {
+      width: 100%;
+      overflow: hidden;
+    }
+
+    .group {
+      border: 1px solid #98b9d8;
+      border-radius: 10px;
+      background: #f5faff;
+      padding: 8px;
+      min-height: 62px;
+    }
+
+    #plotGroup {
+      float: left;
+      width: 74%;
+    }
+
+    #runGroup {
+      float: right;
+      width: 24%;
+      text-align: right;
+    }
+
+    .miniLabel {
+      display: inline-block;
+      margin-right: 4px;
+      font-size: 12px;
+      color: #324861;
+      vertical-align: middle;
+    }
+
+    .rangeInput {
+      display: inline-block;
+      width: 88px;
+      margin-right: 8px;
+      padding: 6px 7px;
+      border: 1px solid #8db2d5;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #132033;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 14px;
+      vertical-align: middle;
+    }
+
+    button {
+      display: inline-block;
+      padding: 8px 14px;
+      border: 2px solid #1a3a58;
+      border-radius: 11px;
+      background: #b9dfff;
+      color: #132033;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 #eff8ff, 0 2px 0 #7da6c9;
+    }
+
+    button:active {
+      box-shadow: inset 0 1px 0 #eff8ff, 0 1px 0 #7da6c9;
+    }
+
+    #plotBtn {
+      background: #bcebd2;
+    }
+
+    #runBtn {
+      min-width: 96px;
+      background: #ffdcb0;
+    }
+
+    @media (max-width: 700px) {
+      #plotGroup,
+      #runGroup {
+        float: none;
+        width: 100%;
+      }
+
+      #runGroup {
+        margin-top: 8px;
+      }
+
+      #runBtn {
+        width: 100%;
+      }
+
+      .rangeInput {
+        width: 78px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <h1>Math JS</h1>
+    <p class="intro">Notebook-like math runner in old-browser JavaScript. Helpers: <code>hex()</code>, <code>bin()</code>, <code>dec()</code>, <code>int()</code>, <code>sin()</code>, <code>cos()</code>, <code>tan()</code>, <code>sqrt()</code>. Plot uses variable <code>X</code>.</p>
+
+    <div id="history"></div>
+
+    <div id="composer">
+      <label id="inputLabel" for="editor">Input (JavaScript / expression)</label>
+      <textarea id="editor" spellcheck="false">sin(X)</textarea>
+
+      <div id="controlRow">
+        <div class="group" id="plotGroup">
+          <label class="miniLabel" for="xLow">X Min</label>
+          <input class="rangeInput" id="xLow" type="text" value="-10">
+          <label class="miniLabel" for="xHigh">X Max</label>
+          <input class="rangeInput" id="xHigh" type="text" value="10">
+          <button id="plotBtn" type="button">Plot</button>
+        </div>
+        <div class="group" id="runGroup">
+          <button id="runBtn" type="button">Run</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var historyEl = document.getElementById('history');
+      var editorEl = document.getElementById('editor');
+      var runBtn = document.getElementById('runBtn');
+      var plotBtn = document.getElementById('plotBtn');
+      var xLowEl = document.getElementById('xLow');
+      var xHighEl = document.getElementById('xHigh');
+      var execCount = 0;
+      var scope = {};
+
+      function trimText(value) {
+        return String(value).replace(/^\s+|\s+$/g, '');
+      }
+
+      function pyInt(value, base) {
+        var num;
+        var str;
+        var sign;
+        var radix = 10;
+        var hasBase = typeof base !== 'undefined' && base !== null;
+
+        if (typeof value === 'number') {
+          if (!isFinite(value)) {
+            throw new Error('int() needs a finite number');
+          }
+          return value < 0 ? Math.ceil(value) : Math.floor(value);
+        }
+
+        if (typeof value === 'boolean') {
+          return value ? 1 : 0;
+        }
+
+        if (value === null || typeof value === 'undefined') {
+          throw new Error('int() needs a value');
+        }
+
+        str = trimText(value);
+        if (!str.length) {
+          throw new Error('int() received an empty string');
+        }
+
+        if (hasBase) {
+          radix = Number(base);
+          if (!isFinite(radix) || radix < 2 || radix > 36) {
+            throw new Error('int() base must be 2..36');
+          }
+        } else {
+          if (/^[-+]?0x[0-9a-f]+$/i.test(str)) {
+            radix = 16;
+            str = str.replace(/^([-+]?)(0x)/i, '$1');
+          } else if (/^[-+]?0b[01]+$/i.test(str)) {
+            radix = 2;
+            str = str.replace(/^([-+]?)(0b)/i, '$1');
+          } else if (/^[-+]?0o[0-7]+$/i.test(str)) {
+            radix = 8;
+            str = str.replace(/^([-+]?)(0o)/i, '$1');
+          } else {
+            radix = 10;
+          }
+        }
+
+        sign = '';
+        if (str.charAt(0) === '+' || str.charAt(0) === '-') {
+          sign = str.charAt(0);
+          str = str.substring(1);
+        }
+
+        if (!str.length) {
+          throw new Error('int() could not parse value');
+        }
+
+        num = parseInt(str, radix);
+        if (isNaN(num)) {
+          throw new Error('int() could not parse value');
+        }
+
+        if (sign === '-') {
+          num = -num;
+        }
+        return num;
+      }
+
+      function pyHex(value) {
+        var n = pyInt(value);
+        var sign = '';
+        if (n < 0) {
+          sign = '-';
+          n = -n;
+        }
+        return sign + '0x' + n.toString(16);
+      }
+
+      function pyBin(value) {
+        var n = pyInt(value);
+        var sign = '';
+        if (n < 0) {
+          sign = '-';
+          n = -n;
+        }
+        return sign + '0b' + n.toString(2);
+      }
+
+      function pyDec(value) {
+        return pyInt(value);
+      }
+
+      function formatOutput(value) {
+        var text;
+
+        if (typeof value === 'undefined') {
+          return 'undefined';
+        }
+
+        if (value === null) {
+          return 'null';
+        }
+
+        if (typeof value === 'number' || typeof value === 'boolean') {
+          return String(value);
+        }
+
+        if (typeof value === 'string') {
+          return value;
+        }
+
+        if (Object.prototype.toString.call(value) === '[object Array]') {
+          try {
+            return JSON.stringify(value);
+          } catch (arrayErr) {
+            return String(value);
+          }
+        }
+
+        if (typeof value === 'object') {
+          try {
+            text = JSON.stringify(value);
+            if (typeof text !== 'undefined') {
+              return text;
+            }
+          } catch (objErr) {}
+          return String(value);
+        }
+
+        return String(value);
+      }
+
+      function copyScopeTo(target) {
+        var key;
+        for (key in scope) {
+          if (scope.hasOwnProperty(key)) {
+            target[key] = scope[key];
+          }
+        }
+      }
+
+      function addBuiltins(target, withX, xValue) {
+        target.hex = pyHex;
+        target.bin = pyBin;
+        target.dec = pyDec;
+        target.int = pyInt;
+        target.sin = Math.sin;
+        target.cos = Math.cos;
+        target.tan = Math.tan;
+        target.sqrt = Math.sqrt;
+
+        if (withX) {
+          target.X = xValue;
+          target.x = xValue;
+        }
+      }
+
+      function saveScopeFrom(contextObj) {
+        var skip = {
+          hex: true,
+          bin: true,
+          dec: true,
+          int: true,
+          sin: true,
+          cos: true,
+          tan: true,
+          sqrt: true,
+          X: true,
+          x: true
+        };
+        var key;
+
+        for (key in contextObj) {
+          if (contextObj.hasOwnProperty(key) && !skip[key]) {
+            scope[key] = contextObj[key];
+          }
+        }
+      }
+
+      function evaluateCode(code, withX, xValue, persistScope) {
+        var contextObj = {};
+        var evaluator;
+        var result;
+
+        copyScopeTo(contextObj);
+        addBuiltins(contextObj, withX, xValue);
+
+        evaluator = new Function('contextObj', 'code', 'with (contextObj) { return eval(code); }');
+        result = evaluator(contextObj, code);
+
+        if (persistScope) {
+          saveScopeFrom(contextObj);
+        }
+
+        return result;
+      }
+
+      function scrollToBottomSoon() {
+        setTimeout(function () {
+          var height = 0;
+          if (document.body && document.body.scrollHeight > height) {
+            height = document.body.scrollHeight;
+          }
+          if (document.documentElement && document.documentElement.scrollHeight > height) {
+            height = document.documentElement.scrollHeight;
+          }
+          if (window.scrollTo) {
+            window.scrollTo(0, height);
+          }
+        }, 20);
+      }
+
+      function setEditorFromHistory(expressionText) {
+        editorEl.value = expressionText;
+        editorEl.focus();
+        if (editorEl.setSelectionRange) {
+          var len = expressionText.length;
+          editorEl.setSelectionRange(len, len);
+        }
+      }
+
+      function appendTextRecord(expressionText, outputText, isError) {
+        var record = document.createElement('div');
+        var inLabel = document.createElement('p');
+        var inputField = document.createElement('textarea');
+        var outLabel = document.createElement('p');
+        var outputField = document.createElement('pre');
+
+        execCount += 1;
+        record.className = isError ? 'record error clickable' : 'record clickable';
+
+        inLabel.className = 'recordLabel';
+        inLabel.appendChild(document.createTextNode('In [' + execCount + ']'));
+
+        inputField.className = 'historyInput';
+        inputField.readOnly = true;
+        inputField.value = expressionText;
+
+        outLabel.className = 'recordLabel';
+        outLabel.appendChild(document.createTextNode('Out [' + execCount + ']'));
+
+        outputField.className = 'historyOutput';
+        outputField.appendChild(document.createTextNode(outputText));
+
+        record.onclick = function () {
+          setEditorFromHistory(expressionText);
+        };
+
+        inputField.onclick = function () {
+          setEditorFromHistory(expressionText);
+        };
+
+        outputField.onclick = function () {
+          setEditorFromHistory(expressionText);
+        };
+
+        record.appendChild(inLabel);
+        record.appendChild(inputField);
+        record.appendChild(outLabel);
+        record.appendChild(outputField);
+        historyEl.appendChild(record);
+        scrollToBottomSoon();
+      }
+
+      function createPlotData(expressionText, xMin, xMax, sampleCount) {
+        var points = [];
+        var i;
+        var x;
+        var y;
+        var minY = 0;
+        var maxY = 0;
+        var hasValue = false;
+
+        for (i = 0; i < sampleCount; i++) {
+          x = xMin + (xMax - xMin) * i / (sampleCount - 1);
+          y = evaluateCode(expressionText, true, x, false);
+          y = Number(y);
+
+          if (!isFinite(y)) {
+            points[points.length] = null;
+            continue;
+          }
+
+          points[points.length] = { x: x, y: y };
+          if (!hasValue) {
+            minY = y;
+            maxY = y;
+            hasValue = true;
+          } else {
+            if (y < minY) {
+              minY = y;
+            }
+            if (y > maxY) {
+              maxY = y;
+            }
+          }
+        }
+
+        if (!hasValue) {
+          throw new Error('Plot has no finite values in this range');
+        }
+
+        if (minY === maxY) {
+          minY -= 1;
+          maxY += 1;
+        }
+
+        return {
+          points: points,
+          minY: minY,
+          maxY: maxY
+        };
+      }
+
+      function xToPixel(x, xMin, xMax, left, width) {
+        return left + (x - xMin) * width / (xMax - xMin);
+      }
+
+      function yToPixel(y, yMin, yMax, top, height) {
+        return top + (yMax - y) * height / (yMax - yMin);
+      }
+
+      function drawPlotOnCanvas(canvas, points, xMin, xMax, yMin, yMax) {
+        var ctx = canvas.getContext ? canvas.getContext('2d') : null;
+        var w = canvas.width;
+        var h = canvas.height;
+        var left = 50;
+        var right = 14;
+        var top = 12;
+        var bottom = 28;
+        var pw = w - left - right;
+        var ph = h - top - bottom;
+        var gridSteps = 8;
+        var i;
+        var p;
+        var px;
+        var py;
+        var axisY;
+        var axisX;
+        var xVal;
+        var yVal;
+        var hasSegmentPoint = false;
+
+        if (!ctx) {
+          return;
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.strokeStyle = '#d6e3ef';
+        ctx.lineWidth = 1;
+        for (i = 0; i <= gridSteps; i++) {
+          px = left + pw * i / gridSteps;
+          py = top + ph * i / gridSteps;
+          ctx.beginPath();
+          ctx.moveTo(px, top);
+          ctx.lineTo(px, top + ph);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(left, py);
+          ctx.lineTo(left + pw, py);
+          ctx.stroke();
+        }
+
+        ctx.strokeStyle = '#7f9bb7';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(left, top, pw, ph);
+
+        if (xMin <= 0 && xMax >= 0) {
+          axisX = xToPixel(0, xMin, xMax, left, pw);
+          ctx.strokeStyle = '#8aa4be';
+          ctx.beginPath();
+          ctx.moveTo(axisX, top);
+          ctx.lineTo(axisX, top + ph);
+          ctx.stroke();
+        }
+
+        if (yMin <= 0 && yMax >= 0) {
+          axisY = yToPixel(0, yMin, yMax, top, ph);
+          ctx.strokeStyle = '#8aa4be';
+          ctx.beginPath();
+          ctx.moveTo(left, axisY);
+          ctx.lineTo(left + pw, axisY);
+          ctx.stroke();
+        }
+
+        ctx.strokeStyle = '#1f5a91';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (i = 0; i < points.length; i++) {
+          p = points[i];
+          if (!p) {
+            if (hasSegmentPoint) {
+              ctx.stroke();
+              ctx.beginPath();
+              hasSegmentPoint = false;
+            }
+            continue;
+          }
+          px = xToPixel(p.x, xMin, xMax, left, pw);
+          py = yToPixel(p.y, yMin, yMax, top, ph);
+          if (!hasSegmentPoint) {
+            ctx.moveTo(px, py);
+            hasSegmentPoint = true;
+          } else {
+            ctx.lineTo(px, py);
+          }
+        }
+        if (hasSegmentPoint) {
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = '#324a63';
+        ctx.font = '12px Trebuchet MS';
+        ctx.textAlign = 'left';
+        ctx.fillText('X: ' + xMin + ' to ' + xMax, left, h - 10);
+        ctx.textAlign = 'right';
+        ctx.fillText('Y: ' + yMin.toFixed(4) + ' to ' + yMax.toFixed(4), w - right, h - 10);
+
+        ctx.textAlign = 'left';
+        for (i = 0; i <= 4; i++) {
+          yVal = yMax - (yMax - yMin) * i / 4;
+          py = yToPixel(yVal, yMin, yMax, top, ph);
+          ctx.fillText(yVal.toFixed(2), 4, py + 4);
+        }
+
+        ctx.textAlign = 'center';
+        for (i = 0; i <= 4; i++) {
+          xVal = xMin + (xMax - xMin) * i / 4;
+          px = xToPixel(xVal, xMin, xMax, left, pw);
+          ctx.fillText(xVal.toFixed(2), px, top + ph + 16);
+        }
+      }
+
+      function appendGraphRecord(expressionText, xMin, xMax, plotData) {
+        var record = document.createElement('div');
+        var inLabel = document.createElement('p');
+        var inputField = document.createElement('textarea');
+        var outLabel = document.createElement('p');
+        var graphWrap = document.createElement('div');
+        var canvas = document.createElement('canvas');
+
+        execCount += 1;
+        record.className = 'record';
+
+        inLabel.className = 'recordLabel';
+        inLabel.appendChild(document.createTextNode('In [' + execCount + ']'));
+
+        inputField.className = 'historyInput';
+        inputField.readOnly = true;
+        inputField.value = expressionText;
+
+        outLabel.className = 'recordLabel';
+        outLabel.appendChild(document.createTextNode('Plot [' + execCount + ']  X=' + xMin + ' .. ' + xMax));
+
+        graphWrap.className = 'graphWrap';
+
+        canvas.className = 'graphCanvas';
+        canvas.width = 860;
+        canvas.height = 330;
+
+        graphWrap.appendChild(canvas);
+        record.appendChild(inLabel);
+        record.appendChild(inputField);
+        record.appendChild(outLabel);
+        record.appendChild(graphWrap);
+        historyEl.appendChild(record);
+
+        drawPlotOnCanvas(canvas, plotData.points, xMin, xMax, plotData.minY, plotData.maxY);
+        scrollToBottomSoon();
+      }
+
+      function runCurrentCode() {
+        var code = editorEl.value;
+        var trimmed = trimText(code);
+        var result;
+
+        if (!trimmed.length) {
+          appendTextRecord('', 'Empty input', true);
+          return;
+        }
+
+        try {
+          result = evaluateCode(code, false, 0, true);
+          appendTextRecord(code, formatOutput(result), false);
+        } catch (err) {
+          appendTextRecord(code, String(err && err.message ? err.message : err), true);
+        }
+      }
+
+      function plotCurrentCode() {
+        var code = editorEl.value;
+        var trimmed = trimText(code);
+        var xMin = Number(xLowEl.value);
+        var xMax = Number(xHighEl.value);
+        var plotData;
+
+        if (!trimmed.length) {
+          appendTextRecord('', 'Empty input', true);
+          return;
+        }
+
+        if (!isFinite(xMin) || !isFinite(xMax)) {
+          appendTextRecord(code, 'X range must be numbers', true);
+          return;
+        }
+
+        if (xMax <= xMin) {
+          appendTextRecord(code, 'X Max must be greater than X Min', true);
+          return;
+        }
+
+        try {
+          plotData = createPlotData(code, xMin, xMax, 360);
+          appendGraphRecord(code, xMin, xMax, plotData);
+        } catch (err) {
+          appendTextRecord(code, String(err && err.message ? err.message : err), true);
+        }
+      }
+
+      runBtn.onclick = runCurrentCode;
+      plotBtn.onclick = plotCurrentCode;
+
+      if (document.addEventListener) {
+        editorEl.addEventListener('keydown', function (event) {
+          var e = event || window.event;
+          var keyCode = e.which || e.keyCode;
+          if (keyCode === 13 && (e.ctrlKey || e.shiftKey)) {
+            runCurrentCode();
+            if (e.preventDefault) {
+              e.preventDefault();
+            }
+            return false;
+          }
+          return true;
+        }, false);
+      }
+    }());
+  </script>
+</body>
+</html>
