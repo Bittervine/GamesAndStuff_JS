@@ -161,9 +161,20 @@
     .tailPair {
       width: 100%;
       height: 100%;
-      display: grid;
-      grid-template-columns: 1fr 2fr;
-      gap: 0.22em;
+      overflow: hidden;
+    }
+
+    .tailPair button {
+      float: left;
+    }
+
+    .tailPair button:first-child {
+      width: 32%;
+      margin-right: 2%;
+    }
+
+    .tailPair button:last-child {
+      width: 66%;
     }
 
     .halfBtn {
@@ -256,6 +267,7 @@
       var exprLineEl = document.getElementById('exprLine');
       var resultLineEl = document.getElementById('resultLine');
       var keysTableEl = document.getElementById('keysTable');
+      var keysWrapEl = document.getElementById('keysWrap');
       var formatRadios = document.getElementsByName('fmt');
 
       var expression = '';
@@ -302,6 +314,39 @@
         if (unit < 11) unit = 11;
         if (unit > 26) unit = 26;
         appEl.style.fontSize = unit + 'px';
+
+        /* Fallback for browsers with weak/no flexbox support. */
+        layoutKeysWrapFallback(h);
+      }
+
+      function getStyleValue(el, prop) {
+        var value = '';
+        if (window.getComputedStyle) {
+          value = window.getComputedStyle(el, null).getPropertyValue(prop) || '';
+        } else if (el.currentStyle) {
+          value = el.currentStyle[prop] || '';
+        }
+        return value;
+      }
+
+      function toPx(value) {
+        var n = parseFloat(value);
+        return isNaN(n) ? 0 : n;
+      }
+
+      function layoutKeysWrapFallback(appHeight) {
+        var topUsed;
+        var borderBottom;
+        var padBottom;
+        var available;
+
+        keysWrapEl.style.height = '';
+        topUsed = keysWrapEl.offsetTop;
+        borderBottom = toPx(getStyleValue(appEl, 'border-bottom-width'));
+        padBottom = toPx(getStyleValue(appEl, 'padding-bottom'));
+        available = appHeight - topUsed - borderBottom - padBottom;
+        if (available < 80) available = 80;
+        keysWrapEl.style.height = Math.floor(available) + 'px';
       }
 
       function escapeHtml(text) {
