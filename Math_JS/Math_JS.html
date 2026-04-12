@@ -335,7 +335,7 @@
 <body>
   <div id="app">
     <h1>Math JS</h1>
-    <p class="intro">Notebook-like math runner in old-browser JavaScript. Helpers: <code>hex()</code>, <code>bin()</code>, <code>dec()</code>, <code>int()</code>, <code>bits()</code>, <code>dword2float()</code>, <code>float2dword()</code>, <code>sin()</code>, <code>cos()</code>, <code>tan()</code>, <code>sqrt()</code>. Plot uses variable <code>X</code>. History arrays: <code>IN</code>, <code>OUT</code>.</p>
+    <p class="intro">Notebook-like math runner in old-browser JavaScript. Helpers: <code>hex()</code>, <code>bin()</code>, <code>dec()</code>, <code>int()</code>, <code>bits()</code>, <code>dword2float()</code>, <code>float2dword()</code>, <code>sin()</code>, <code>cos()</code>, <code>tan()</code>, <code>sqrt()</code>, <code>abs()</code>, <code>log()</code>, <code>log10()</code>, <code>exp()</code>. Constants: <code>pi</code>, <code>C0</code>. Plot uses variable <code>X</code>. History arrays: <code>IN</code>, <code>OUT</code>.</p>
 
     <div id="history"></div>
 
@@ -978,6 +978,18 @@
         return (u >>> 0);
       }
 
+      function log(value) {
+        return Math.log(value);
+      }
+
+      function log10(value) {
+        return Math.log(value) / Math.LN10;
+      }
+
+      function exp(value) {
+        return Math.exp(value);
+      }
+
       function formatOutput(value) {
         var text;
         var n;
@@ -1086,10 +1098,16 @@
         target.bits = bits;
         target.dword2float = dword2float;
         target.float2dword = float2dword;
+        target.log = log;
+        target.log10 = log10;
+        target.exp = exp;
+        target.abs = Math.abs;
         target.sin = Math.sin;
         target.cos = Math.cos;
         target.tan = Math.tan;
         target.sqrt = Math.sqrt;
+        target.pi = Math.PI;
+        target.C0 = 299792458;
         target.IN = inputHistory;
         target.OUT = outputHistory;
         target.PLOT = plotPoints;
@@ -1109,10 +1127,16 @@
           bits: true,
           dword2float: true,
           float2dword: true,
+          log: true,
+          log10: true,
+          exp: true,
+          abs: true,
           sin: true,
           cos: true,
           tan: true,
           sqrt: true,
+          pi: true,
+          C0: true,
           IN: true,
           OUT: true,
           PLOT: true,
