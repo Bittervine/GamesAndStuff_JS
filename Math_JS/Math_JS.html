@@ -208,6 +208,10 @@
     #plotGroup {
       flex: 0 0 auto;
       height: auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
     }
 
     #intModeGroup {
@@ -236,7 +240,7 @@
 
     .miniLabel {
       display: inline-block;
-      margin-right: 4px;
+      margin-right: 0;
       font-size: 12px;
       color: #324861;
       vertical-align: middle;
@@ -245,7 +249,7 @@
     .rangeInput {
       display: inline-block;
       width: 88px;
-      margin-right: 8px;
+      margin-right: 0;
       padding: 6px 7px;
       border: 1px solid #8db2d5;
       border-radius: 6px;
@@ -307,7 +311,11 @@
 
       #plotGroup {
         width: 100%;
-        white-space: nowrap;
+        white-space: normal;
+      }
+
+      #plotBtn {
+        margin-left: auto;
       }
 
       #runGroup {
@@ -347,7 +355,7 @@
         <div class="group" id="exportGroup">
           <button id="resetBtn" class="exportBtn" type="button">Reset</button>
           <button id="copyBtn" class="exportBtn" type="button">Copy</button>
-          <button id="saveBtn" class="exportBtn" type="button">Save as HTML</button>
+          <button id="saveBtn" class="exportBtn" type="button">Save</button>
         </div>
         <div class="group" id="intModeGroup">
           <span class="modeTitle">Prefer:</span>
