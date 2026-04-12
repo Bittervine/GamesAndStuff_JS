@@ -18,9 +18,10 @@
     }
 
     #app {
-      width: 96%;
-      max-width: 980px;
-      margin: 10px auto 16px;
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      padding: 10px 10px 16px;
     }
 
     h1 {
@@ -57,6 +58,11 @@
 
     .record.clickable {
       cursor: pointer;
+    }
+
+    .record.navSelected {
+      border: 3px solid #c62828;
+      box-shadow: 0 0 0 2px #ffd7d7, 0 2px 0 #d69a9a;
     }
 
     .recordLabel {
@@ -128,12 +134,24 @@
       box-shadow: 0 2px 0 #b5cde4;
     }
 
+    #composer.navMode {
+      border-color: #3e6f9d;
+      box-shadow: 0 2px 0 #9cbdd9;
+    }
+
     #inputLabel {
       display: block;
       margin: 0 0 6px;
       font-size: 13px;
       color: #30465f;
       font-weight: bold;
+    }
+
+    #modeHint {
+      float: right;
+      color: #365579;
+      font-size: 12px;
+      font-weight: normal;
     }
 
     #editor {
@@ -155,6 +173,8 @@
     #controlRow {
       width: 100%;
       overflow: hidden;
+      position: relative;
+      min-height: 62px;
     }
 
     .group {
@@ -166,14 +186,19 @@
     }
 
     #plotGroup {
-      float: left;
-      width: 74%;
+      float: none;
+      margin-right: 130px;
+      height: 62px;
     }
 
     #runGroup {
-      float: right;
-      width: 24%;
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 120px;
       text-align: right;
+      min-height: 62px;
+      padding: 8px 8px;
     }
 
     .miniLabel {
@@ -220,19 +245,23 @@
     }
 
     #runBtn {
-      min-width: 96px;
+      width: 100%;
+      min-width: 0;
       background: #ffdcb0;
     }
 
     @media (max-width: 700px) {
-      #plotGroup,
-      #runGroup {
-        float: none;
-        width: 100%;
+      #plotGroup {
+        margin-right: 0;
+        height: auto;
       }
 
       #runGroup {
+        position: static;
+        float: none;
+        width: 120px;
         margin-top: 8px;
+        margin-left: auto;
       }
 
       #runBtn {
@@ -248,12 +277,12 @@
 <body>
   <div id="app">
     <h1>Math JS</h1>
-    <p class="intro">Notebook-like math runner in old-browser JavaScript. Helpers: <code>hex()</code>, <code>bin()</code>, <code>dec()</code>, <code>int()</code>, <code>sin()</code>, <code>cos()</code>, <code>tan()</code>, <code>sqrt()</code>. Plot uses variable <code>X</code>.</p>
+    <p class="intro">Notebook-like math runner in old-browser JavaScript. Helpers: <code>hex()</code>, <code>bin()</code>, <code>dec()</code>, <code>int()</code>, <code>bits()</code>, <code>dword2float()</code>, <code>float2dword()</code>, <code>sin()</code>, <code>cos()</code>, <code>tan()</code>, <code>sqrt()</code>. Plot uses variable <code>X</code>. History arrays: <code>In</code>, <code>Out</code>.</p>
 
     <div id="history"></div>
 
     <div id="composer">
-      <label id="inputLabel" for="editor">Input (JavaScript / expression)</label>
+      <label id="inputLabel" for="editor">Input (JavaScript / expression) <span id="modeHint"></span></label>
       <textarea id="editor" spellcheck="false">sin(X)</textarea>
 
       <div id="controlRow">
@@ -265,7 +294,7 @@
           <button id="plotBtn" type="button">Plot</button>
         </div>
         <div class="group" id="runGroup">
-          <button id="runBtn" type="button">Run</button>
+          <button id="runBtn" type="button">Eval</button>
         </div>
       </div>
     </div>
@@ -279,11 +308,163 @@
       var plotBtn = document.getElementById('plotBtn');
       var xLowEl = document.getElementById('xLow');
       var xHighEl = document.getElementById('xHigh');
+      var composerEl = document.getElementById('composer');
+      var modeHintEl = document.getElementById('modeHint');
       var execCount = 0;
       var scope = {};
+      var inputHistory = [''];
+      var outputHistory = [null];
+      var plotPoints = [null];
+      var historyRecords = [null];
+      var mode = 'edit';
+      var navIndex = -1;
 
       function trimText(value) {
         return String(value).replace(/^\s+|\s+$/g, '');
+      }
+
+      function hasClass(el, name) {
+        return !!el && (' ' + el.className + ' ').indexOf(' ' + name + ' ') >= 0;
+      }
+
+      function addClass(el, name) {
+        if (!el || hasClass(el, name)) {
+          return;
+        }
+        el.className = (el.className ? (el.className + ' ') : '') + name;
+      }
+
+      function removeClass(el, name) {
+        if (!el || !el.className) {
+          return;
+        }
+        el.className = (' ' + el.className + ' ').replace(' ' + name + ' ', ' ');
+        el.className = el.className.replace(/^\s+|\s+$/g, '').replace(/\s+/g, ' ');
+      }
+
+      function focusEditorAtEnd() {
+        var len;
+        editorEl.focus();
+        if (editorEl.setSelectionRange) {
+          len = editorEl.value.length;
+          editorEl.setSelectionRange(len, len);
+        }
+      }
+
+      function updateModeUi() {
+        if (modeHintEl) {
+          if (mode === 'edit') {
+            modeHintEl.innerHTML = 'Mode: Edit (Tab to nav)';
+          } else {
+            modeHintEl.innerHTML = 'Mode: Navigate (Tab to edit)';
+          }
+        }
+
+        if (composerEl) {
+          if (mode === 'nav') {
+            addClass(composerEl, 'navMode');
+          } else {
+            removeClass(composerEl, 'navMode');
+          }
+        }
+
+        editorEl.readOnly = (mode !== 'edit');
+      }
+
+      function clearNavSelection() {
+        if (navIndex >= 1 && navIndex < historyRecords.length) {
+          removeClass(historyRecords[navIndex], 'navSelected');
+        }
+        navIndex = -1;
+      }
+
+      function setNavSelection(nextIndex) {
+        var record;
+
+        if (execCount < 1) {
+          clearNavSelection();
+          return;
+        }
+
+        if (nextIndex < 1) {
+          nextIndex = 1;
+        }
+        if (nextIndex > execCount) {
+          nextIndex = execCount;
+        }
+
+        if (navIndex >= 1 && navIndex < historyRecords.length) {
+          removeClass(historyRecords[navIndex], 'navSelected');
+        }
+
+        navIndex = nextIndex;
+        record = historyRecords[navIndex];
+        if (record) {
+          addClass(record, 'navSelected');
+          if (record.scrollIntoView) {
+            record.scrollIntoView(false);
+          }
+        }
+      }
+
+      function setMode(nextMode) {
+        if (nextMode !== 'edit' && nextMode !== 'nav') {
+          return;
+        }
+
+        mode = nextMode;
+        updateModeUi();
+
+        if (mode === 'edit') {
+          clearNavSelection();
+          focusEditorAtEnd();
+        } else {
+          if (editorEl.blur) {
+            editorEl.blur();
+          }
+          if (execCount > 0) {
+            if (navIndex < 1 || navIndex > execCount) {
+              setNavSelection(execCount);
+            } else {
+              setNavSelection(navIndex);
+            }
+          } else {
+            clearNavSelection();
+          }
+        }
+      }
+
+      function toggleMode() {
+        if (mode === 'edit') {
+          setMode('nav');
+        } else {
+          setMode('edit');
+        }
+      }
+
+      function moveNavSelection(step) {
+        if (execCount < 1) {
+          return;
+        }
+        if (navIndex < 1 || navIndex > execCount) {
+          setNavSelection(execCount);
+          return;
+        }
+        setNavSelection(navIndex + step);
+      }
+
+      function useSelectedNavExpression() {
+        var expressionText;
+        if (execCount < 1) {
+          setMode('edit');
+          return;
+        }
+        if (navIndex < 1 || navIndex > execCount) {
+          setNavSelection(execCount);
+        }
+        expressionText = inputHistory[navIndex] || '';
+        editorEl.value = expressionText;
+        setMode('edit');
       }
 
       function pyInt(value, base) {
@@ -378,6 +559,122 @@
         return pyInt(value);
       }
 
+      function bits(value) {
+        var u = Number(value);
+        var out = [];
+        var bit;
+        if (!isFinite(u)) {
+          throw new Error('bits() needs a finite number');
+        }
+        u = (u >>> 0);
+        for (bit = 0; bit < 32; bit++) {
+          if (((u >>> bit) & 1) === 1) {
+            out[out.length] = bit;
+          }
+        }
+        return out;
+      }
+
+      function dword2float(value) {
+        var u = Number(value);
+        var sign;
+        var exp;
+        var frac;
+        if (!isFinite(u)) {
+          throw new Error('dword2float() needs a finite number');
+        }
+        u = (u >>> 0);
+        sign = ((u >>> 31) === 0) ? 1 : -1;
+        exp = (u >>> 23) & 255;
+        frac = u & 8388607;
+
+        if (exp === 255) {
+          if (frac !== 0) {
+            return NaN;
+          }
+          return sign * Infinity;
+        }
+
+        if (exp === 0) {
+          if (frac === 0) {
+            return sign === 1 ? 0 : -0;
+          }
+          return sign * frac * Math.pow(2, -149);
+        }
+
+        return sign * (1 + frac / 8388608) * Math.pow(2, exp - 127);
+      }
+
+      function float2dword(value) {
+        var f = Number(value);
+        var sign = 0;
+        var absF;
+        var exp;
+        var expBits;
+        var fracBits;
+        var u;
+
+        if (isNaN(f)) {
+          return 2143289344;
+        }
+
+        if (f === Infinity) {
+          return 2139095040;
+        }
+
+        if (f === -Infinity) {
+          return 4286578688;
+        }
+
+        if (f === 0) {
+          if (1 / f === -Infinity) {
+            return 2147483648;
+          }
+          return 0;
+        }
+
+        if (f < 0) {
+          sign = 1;
+          f = -f;
+        }
+
+        absF = f;
+        exp = Math.floor(Math.log(absF) / Math.LN2);
+
+        if (exp < -126) {
+          fracBits = Math.round(absF / Math.pow(2, -149));
+          if (fracBits <= 0) {
+            fracBits = 0;
+          }
+          if (fracBits >= 8388608) {
+            expBits = 1;
+            fracBits = 0;
+          } else {
+            expBits = 0;
+          }
+        } else if (exp > 127) {
+          expBits = 255;
+          fracBits = 0;
+        } else {
+          expBits = exp + 127;
+          fracBits = Math.round((absF / Math.pow(2, exp) - 1) * 8388608);
+          if (fracBits >= 8388608) {
+            expBits += 1;
+            fracBits = 0;
+            if (expBits >= 255) {
+              expBits = 255;
+              fracBits = 0;
+            }
+          }
+          if (fracBits < 0) {
+            fracBits = 0;
+          }
+        }
+
+        u = sign * 2147483648 + (expBits << 23) + fracBits;
+        return (u >>> 0);
+      }
+
       function formatOutput(value) {
         var text;
 
@@ -432,10 +729,16 @@
         target.bin = pyBin;
         target.dec = pyDec;
         target.int = pyInt;
+        target.bits = bits;
+        target.dword2float = dword2float;
+        target.float2dword = float2dword;
         target.sin = Math.sin;
         target.cos = Math.cos;
         target.tan = Math.tan;
         target.sqrt = Math.sqrt;
+        target.In = inputHistory;
+        target.Out = outputHistory;
+        target.PLOT = plotPoints;
 
         if (withX) {
           target.X = xValue;
@@ -449,10 +752,16 @@
           bin: true,
           dec: true,
           int: true,
+          bits: true,
+          dword2float: true,
+          float2dword: true,
           sin: true,
           cos: true,
           tan: true,
           sqrt: true,
+          In: true,
+          Out: true,
+          PLOT: true,
           X: true,
           x: true
         };
@@ -500,14 +809,69 @@
 
       function setEditorFromHistory(expressionText) {
         editorEl.value = expressionText;
-        editorEl.focus();
-        if (editorEl.setSelectionRange) {
-          var len = expressionText.length;
-          editorEl.setSelectionRange(len, len);
+        focusEditorAtEnd();
+      }
+
+      function stripStringAndCommentParts(code) {
+        var stripped = String(code);
+        stripped = stripped.replace(/\/\*[\s\S]*?\*\//g, ' ');
+        stripped = stripped.replace(/\/\/[^\r\n]*/g, ' ');
+        stripped = stripped.replace(/"(?:\\.|[^"\\])*"/g, ' ');
+        stripped = stripped.replace(/'(?:\\.|[^'\\])*'/g, ' ');
+        return stripped;
+      }
+
+      function shouldPlotFromCode(code) {
+        var normalized = stripStringAndCommentParts(code);
+        var usesX = /(^|[^A-Za-z0-9_$\.])[xX]([^A-Za-z0-9_$]|$)/.test(normalized);
+        var assignsX = /(^|[^A-Za-z0-9_$])[xX]\s*(\+=|-=|\*=|\/=|%=|=(?!=))/.test(normalized);
+        return usesX && !assignsX;
+      }
+
+      function smartEnterAction() {
+        if (shouldPlotFromCode(editorEl.value)) {
+          plotCurrentCode();
+        } else {
+          runCurrentCode();
         }
       }
 
-      function appendTextRecord(expressionText, outputText, isError) {
+      function stopEvent(e) {
+        if (e.preventDefault) {
+          e.preventDefault();
+        }
+        e.returnValue = false;
+        return false;
+      }
+
+      function isCurrentEditorLineBlank() {
+        var value = editorEl.value;
+        var start = editorEl.selectionStart;
+        var lineStart;
+        var lineEnd;
+        var lineText;
+
+        if (typeof start !== 'number') {
+          return false;
+        }
+
+        lineStart = value.lastIndexOf('\n', start - 1);
+        if (lineStart < 0) {
+          lineStart = 0;
+        } else {
+          lineStart += 1;
+        }
+
+        lineEnd = value.indexOf('\n', start);
+        if (lineEnd < 0) {
+          lineEnd = value.length;
+        }
+
+        lineText = value.substring(lineStart, lineEnd);
+        return trimText(lineText).length === 0;
+      }
+
+      function appendTextRecord(expressionText, outputText, isError, rawOutput) {
         var record = document.createElement('div');
         var inLabel = document.createElement('p');
         var inputField = document.createElement('textarea');
@@ -530,6 +894,13 @@
         outputField.className = 'historyOutput';
         outputField.appendChild(document.createTextNode(outputText));
 
+        inputHistory[execCount] = expressionText;
+        if (typeof rawOutput === 'undefined') {
+          outputHistory[execCount] = outputText;
+        } else {
+          outputHistory[execCount] = rawOutput;
+        }
+
         record.onclick = function () {
           setEditorFromHistory(expressionText);
         };
@@ -547,39 +918,81 @@
         record.appendChild(outLabel);
         record.appendChild(outputField);
         historyEl.appendChild(record);
+        historyRecords[execCount] = record;
+
+        if (mode === 'nav') {
+          setNavSelection(execCount);
+        }
+
         scrollToBottomSoon();
       }
 
       function createPlotData(expressionText, xMin, xMax, sampleCount) {
-        var points = [];
+        var seriesPoints = [];
         var i;
         var x;
         var y;
+        var yRaw;
+        var isArrayResult;
+        var arrLen = 0;
+        var j;
+        var item;
         var minY = 0;
         var maxY = 0;
         var hasValue = false;
 
         for (i = 0; i < sampleCount; i++) {
           x = xMin + (xMax - xMin) * i / (sampleCount - 1);
-          y = evaluateCode(expressionText, true, x, false);
-          y = Number(y);
+          yRaw = evaluateCode(expressionText, true, x, false);
+          isArrayResult = Object.prototype.toString.call(yRaw) === '[object Array]';
 
-          if (!isFinite(y)) {
-            points[points.length] = null;
+          if (!isArrayResult) {
+            y = Number(yRaw);
+            if (seriesPoints.length < 1) {
+              seriesPoints[0] = [];
+            }
+            if (!isFinite(y)) {
+              seriesPoints[0][i] = null;
+              continue;
+            }
+            seriesPoints[0][i] = { x: x, y: y };
+            if (!hasValue) {
+              minY = y;
+              maxY = y;
+              hasValue = true;
+            } else {
+              if (y < minY) {
+                minY = y;
+              }
+              if (y > maxY) {
+                maxY = y;
+              }
+            }
             continue;
           }
 
-          points[points.length] = { x: x, y: y };
-          if (!hasValue) {
-            minY = y;
-            maxY = y;
-            hasValue = true;
-          } else {
-            if (y < minY) {
-              minY = y;
+          arrLen = yRaw.length;
+          for (j = 0; j < arrLen; j++) {
+            if (seriesPoints.length <= j) {
+              seriesPoints[j] = [];
             }
-            if (y > maxY) {
-              maxY = y;
+            item = Number(yRaw[j]);
+            if (!isFinite(item)) {
+              seriesPoints[j][i] = null;
+              continue;
+            }
+            seriesPoints[j][i] = { x: x, y: item };
+            if (!hasValue) {
+              minY = item;
+              maxY = item;
+              hasValue = true;
+            } else {
+              if (item < minY) {
+                minY = item;
+              }
+              if (item > maxY) {
+                maxY = item;
+              }
             }
           }
         }
@@ -594,7 +1007,7 @@
         }
 
         return {
-          points: points,
+          seriesPoints: seriesPoints,
           minY: minY,
           maxY: maxY
         };
@@ -608,17 +1021,100 @@
         return top + (yMax - y) * height / (yMax - yMin);
       }
 
-      function drawPlotOnCanvas(canvas, points, xMin, xMax, yMin, yMax) {
+      function pixelToX(px, xMin, xMax, left, width) {
+        return xMin + (px - left) * (xMax - xMin) / width;
+      }
+
+      function pixelToY(py, yMin, yMax, top, height) {
+        return yMax - (py - top) * (yMax - yMin) / height;
+      }
+
+      function getPlotArea(canvas) {
+        return {
+          left: 50,
+          right: 14,
+          top: 12,
+          bottom: 28,
+          width: canvas.width - 50 - 14,
+          height: canvas.height - 12 - 28
+        };
+      }
+
+      function clamp(value, low, high) {
+        if (value < low) {
+          return low;
+        }
+        if (value > high) {
+          return high;
+        }
+        return value;
+      }
+
+      function niceStep(range, approxLines) {
+        var raw = range / approxLines;
+        var exp;
+        var base;
+        var norm;
+        if (!isFinite(raw) || raw <= 0) {
+          return 1;
+        }
+        exp = Math.floor(Math.log(raw) / Math.LN10);
+        base = Math.pow(10, exp);
+        norm = raw / base;
+        if (norm <= 1) {
+          return 1 * base;
+        }
+        if (norm <= 2) {
+          return 2 * base;
+        }
+        if (norm <= 5) {
+          return 5 * base;
+        }
+        return 10 * base;
+      }
+
+      function countStepDecimals(step) {
+        var s = String(step);
+        var dotPos = s.indexOf('.');
+        if (dotPos < 0) {
+          return 0;
+        }
+        return s.length - dotPos - 1;
+      }
+
+      function formatTickValue(value, step) {
+        var decimals = countStepDecimals(step);
+        var epsilon = Math.abs(step) * 1e-6;
+        var fixedText;
+        if (Math.abs(value) < epsilon) {
+          return '0';
+        }
+        fixedText = value.toFixed(decimals);
+        fixedText = fixedText.replace(/\.?0+$/, '');
+        if (fixedText === '-0') {
+          fixedText = '0';
+        }
+        return fixedText;
+      }
+
+      function drawPlotOnCanvas(canvas, seriesPoints, xMin, xMax, yMin, yMax) {
         var ctx = canvas.getContext ? canvas.getContext('2d') : null;
         var w = canvas.width;
         var h = canvas.height;
-        var left = 50;
-        var right = 14;
-        var top = 12;
-        var bottom = 28;
-        var pw = w - left - right;
-        var ph = h - top - bottom;
-        var gridSteps = 8;
+        var area = getPlotArea(canvas);
+        var left = area.left;
+        var right = area.right;
+        var top = area.top;
+        var pw = area.width;
+        var ph = area.height;
+        var xStep;
+        var yStep;
+        var xTick;
+        var yTick;
+        var xTickStart;
+        var yTickStart;
+        var xTickCount = 0;
+        var yTickCount = 0;
         var i;
         var p;
         var px;
@@ -628,6 +1124,9 @@
         var xVal;
         var yVal;
         var hasSegmentPoint = false;
+        var s;
+        var series;
+        var seriesColors = ['#1f5a91', '#ad1f3c', '#2c7f36', '#8c4f18', '#6a2f91', '#00818a', '#5a5a0f'];
 
         if (!ctx) {
           return;
@@ -636,19 +1135,39 @@
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, w, h);
 
+        xStep = niceStep(xMax - xMin, 16);
+        yStep = niceStep(yMax - yMin, 16);
+        xTickStart = Math.ceil(xMin / xStep) * xStep;
+        yTickStart = Math.ceil(yMin / yStep) * yStep;
+
         ctx.strokeStyle = '#d6e3ef';
         ctx.lineWidth = 1;
-        for (i = 0; i <= gridSteps; i++) {
-          px = left + pw * i / gridSteps;
-          py = top + ph * i / gridSteps;
+        xTick = xTickStart;
+        while (xTick <= xMax + xStep * 0.5) {
+          px = xToPixel(xTick, xMin, xMax, left, pw);
           ctx.beginPath();
           ctx.moveTo(px, top);
           ctx.lineTo(px, top + ph);
           ctx.stroke();
+          xTick += xStep;
+          xTickCount++;
+          if (xTickCount > 200) {
+            break;
+          }
+        }
+
+        yTick = yTickStart;
+        while (yTick <= yMax + yStep * 0.5) {
+          py = yToPixel(yTick, yMin, yMax, top, ph);
           ctx.beginPath();
           ctx.moveTo(left, py);
           ctx.lineTo(left + pw, py);
           ctx.stroke();
+          yTick += yStep;
+          yTickCount++;
+          if (yTickCount > 200) {
+            break;
+          }
         }
 
         ctx.strokeStyle = '#7f9bb7';
@@ -673,51 +1192,66 @@
           ctx.stroke();
         }
 
-        ctx.strokeStyle = '#1f5a91';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        for (i = 0; i < points.length; i++) {
-          p = points[i];
-          if (!p) {
-            if (hasSegmentPoint) {
-              ctx.stroke();
-              ctx.beginPath();
-              hasSegmentPoint = false;
-            }
+        for (s = 0; s < seriesPoints.length; s++) {
+          series = seriesPoints[s];
+          if (!series) {
             continue;
           }
-          px = xToPixel(p.x, xMin, xMax, left, pw);
-          py = yToPixel(p.y, yMin, yMax, top, ph);
-          if (!hasSegmentPoint) {
-            ctx.moveTo(px, py);
-            hasSegmentPoint = true;
-          } else {
-            ctx.lineTo(px, py);
+          hasSegmentPoint = false;
+          ctx.strokeStyle = seriesColors[s % seriesColors.length];
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          for (i = 0; i < series.length; i++) {
+            p = series[i];
+            if (!p) {
+              if (hasSegmentPoint) {
+                ctx.stroke();
+                ctx.beginPath();
+                hasSegmentPoint = false;
+              }
+              continue;
+            }
+            px = xToPixel(p.x, xMin, xMax, left, pw);
+            py = yToPixel(p.y, yMin, yMax, top, ph);
+            if (!hasSegmentPoint) {
+              ctx.moveTo(px, py);
+              hasSegmentPoint = true;
+            } else {
+              ctx.lineTo(px, py);
+            }
           }
-        }
-        if (hasSegmentPoint) {
-          ctx.stroke();
+          if (hasSegmentPoint) {
+            ctx.stroke();
+          }
         }
 
         ctx.fillStyle = '#324a63';
         ctx.font = '12px Trebuchet MS';
-        ctx.textAlign = 'left';
-        ctx.fillText('X: ' + xMin + ' to ' + xMax, left, h - 10);
-        ctx.textAlign = 'right';
-        ctx.fillText('Y: ' + yMin.toFixed(4) + ' to ' + yMax.toFixed(4), w - right, h - 10);
 
         ctx.textAlign = 'left';
-        for (i = 0; i <= 4; i++) {
-          yVal = yMax - (yMax - yMin) * i / 4;
-          py = yToPixel(yVal, yMin, yMax, top, ph);
-          ctx.fillText(yVal.toFixed(2), 4, py + 4);
+        yTick = yTickStart;
+        yTickCount = 0;
+        while (yTick <= yMax + yStep * 0.5) {
+          py = yToPixel(yTick, yMin, yMax, top, ph);
+          ctx.fillText(formatTickValue(yTick, yStep), 4, py + 4);
+          yTick += yStep;
+          yTickCount++;
+          if (yTickCount > 200) {
+            break;
+          }
         }
 
         ctx.textAlign = 'center';
-        for (i = 0; i <= 4; i++) {
-          xVal = xMin + (xMax - xMin) * i / 4;
-          px = xToPixel(xVal, xMin, xMax, left, pw);
-          ctx.fillText(xVal.toFixed(2), px, top + ph + 16);
+        xTick = xTickStart;
+        xTickCount = 0;
+        while (xTick <= xMax + xStep * 0.5) {
+          px = xToPixel(xTick, xMin, xMax, left, pw);
+          ctx.fillText(formatTickValue(xTick, xStep), px, top + ph + 16);
+          xTick += xStep;
+          xTickCount++;
+          if (xTickCount > 200) {
+            break;
+          }
         }
       }
 
@@ -728,24 +1262,311 @@
         var outLabel = document.createElement('p');
         var graphWrap = document.createElement('div');
         var canvas = document.createElement('canvas');
+        var desiredWidth = 860;
+        var recordIndex;
+        var viewState;
+        var drag = {
+          active: false,
+          moved: false,
+          button: 0,
+          startX: 0,
+          startY: 0,
+          nowX: 0,
+          nowY: 0
+        };
+
+        function setOutLabelText() {
+          outLabel.innerHTML = '';
+          outLabel.appendChild(document.createTextNode(
+            'PLOT[' + recordIndex + '] X=' + viewState.focusX + '  Y = ' + viewState.focusY
+          ));
+        }
+
+        function redrawPlot() {
+          drawPlotOnCanvas(canvas, viewState.plotData.seriesPoints, viewState.xMin, viewState.xMax, viewState.yMin, viewState.yMax);
+        }
+
+        function updateHistoryPlotState() {
+          outputHistory[recordIndex] = {
+            type: 'plot',
+            xMin: viewState.xMin,
+            xMax: viewState.xMax,
+            minY: viewState.yMin,
+            maxY: viewState.yMax,
+            seriesPoints: viewState.plotData.seriesPoints,
+            focusX: viewState.focusX,
+            focusY: viewState.focusY
+          };
+          plotPoints[recordIndex] = [viewState.focusX, viewState.focusY];
+        }
+
+        function updatePlotRange(newMin, newMax, newYMin, newYMax, focusX, focusY) {
+          var nextData;
+          if (!isFinite(newMin) || !isFinite(newMax) || newMax <= newMin) {
+            return;
+          }
+          if (isFinite(newYMin) && isFinite(newYMax) && newYMax <= newYMin) {
+            return;
+          }
+          try {
+            nextData = createPlotData(expressionText, newMin, newMax, 360);
+          } catch (err) {
+            return;
+          }
+          viewState.xMin = newMin;
+          viewState.xMax = newMax;
+          viewState.plotData = nextData;
+          if (isFinite(newYMin) && isFinite(newYMax)) {
+            viewState.yMin = newYMin;
+            viewState.yMax = newYMax;
+          }
+          if (isFinite(focusX) && isFinite(focusY)) {
+            viewState.focusX = focusX;
+            viewState.focusY = focusY;
+          } else {
+            viewState.focusX = (viewState.xMin + viewState.xMax) * 0.5;
+            viewState.focusY = (viewState.yMin + viewState.yMax) * 0.5;
+          }
+          setOutLabelText();
+          updateHistoryPlotState();
+          redrawPlot();
+        }
+
+        function getLocalPoint(e) {
+          var rect = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null;
+          var cx;
+          var cy;
+          if (!rect) {
+            return null;
+          }
+          cx = (e.clientX - rect.left) * canvas.width / rect.width;
+          cy = (e.clientY - rect.top) * canvas.height / rect.height;
+          return { x: cx, y: cy };
+        }
+
+        function drawDragBox() {
+          var ctx = canvas.getContext ? canvas.getContext('2d') : null;
+          var x1;
+          var y1;
+          var x2;
+          var y2;
+          var leftBox;
+          var topBox;
+          var wBox;
+          var hBox;
+          if (!ctx) {
+            return;
+          }
+          redrawPlot();
+          x1 = drag.startX;
+          y1 = drag.startY;
+          x2 = drag.nowX;
+          y2 = drag.nowY;
+          leftBox = (x1 < x2) ? x1 : x2;
+          topBox = (y1 < y2) ? y1 : y2;
+          wBox = Math.abs(x2 - x1);
+          hBox = Math.abs(y2 - y1);
+          ctx.fillStyle = 'rgba(37, 99, 235, 0.14)';
+          ctx.strokeStyle = 'rgba(30, 64, 175, 0.9)';
+          ctx.lineWidth = 1;
+          ctx.fillRect(leftBox, topBox, wBox, hBox);
+          ctx.strokeRect(leftBox + 0.5, topBox + 0.5, wBox, hBox);
+        }
+
+        function performBoxZoom() {
+          var area = getPlotArea(canvas);
+          var x1 = clamp(drag.startX, area.left, area.left + area.width);
+          var x2 = clamp(drag.nowX, area.left, area.left + area.width);
+          var y1 = clamp(drag.startY, area.top, area.top + area.height);
+          var y2 = clamp(drag.nowY, area.top, area.top + area.height);
+          var boxW = Math.abs(x2 - x1);
+          var boxH = Math.abs(y2 - y1);
+          var xMinLocal;
+          var xMaxLocal;
+          var yMinLocal;
+          var yMaxLocal;
+          var centerX;
+          var centerY;
+          var currentWidth;
+          var currentHeight;
+          var zoomOutFactor;
+          var zoomOutFactorY;
+          var newWidth;
+          var newHeight;
+          var zoomOutByDirection;
+          var zoomOut;
+
+          if (boxW < 4 || boxH < 4) {
+            return;
+          }
+
+          xMinLocal = pixelToX((x1 < x2 ? x1 : x2), viewState.xMin, viewState.xMax, area.left, area.width);
+          xMaxLocal = pixelToX((x1 > x2 ? x1 : x2), viewState.xMin, viewState.xMax, area.left, area.width);
+          yMaxLocal = pixelToY((y1 < y2 ? y1 : y2), viewState.yMin, viewState.yMax, area.top, area.height);
+          yMinLocal = pixelToY((y1 > y2 ? y1 : y2), viewState.yMin, viewState.yMax, area.top, area.height);
+
+          zoomOutByDirection = (drag.nowY < drag.startY);
+          zoomOut = (drag.button === 2) ? !zoomOutByDirection : zoomOutByDirection;
+
+          if (!zoomOut) {
+            updatePlotRange(
+              xMinLocal,
+              xMaxLocal,
+              yMinLocal,
+              yMaxLocal,
+              (xMinLocal + xMaxLocal) * 0.5,
+              (yMinLocal + yMaxLocal) * 0.5
+            );
+            return;
+          }
+
+          centerX = pixelToX((x1 + x2) * 0.5, viewState.xMin, viewState.xMax, area.left, area.width);
+          centerY = pixelToY((y1 + y2) * 0.5, viewState.yMin, viewState.yMax, area.top, area.height);
+          currentWidth = viewState.xMax - viewState.xMin;
+          currentHeight = viewState.yMax - viewState.yMin;
+          zoomOutFactor = area.width / boxW;
+          zoomOutFactorY = area.height / boxH;
+          if (zoomOutFactor < 1.05) {
+            zoomOutFactor = 1.05;
+          }
+          if (zoomOutFactorY < 1.05) {
+            zoomOutFactorY = 1.05;
+          }
+          newWidth = currentWidth * zoomOutFactor;
+          newHeight = currentHeight * zoomOutFactorY;
+          updatePlotRange(
+            centerX - newWidth * 0.5,
+            centerX + newWidth * 0.5,
+            centerY - newHeight * 0.5,
+            centerY + newHeight * 0.5,
+            centerX,
+            centerY
+          );
+        }
+
+        function clickZoom(localX, localY, button) {
+          var area = getPlotArea(canvas);
+          var focusX;
+          var focusY;
+          var tx;
+          var ty;
+          var currentWidth;
+          var currentHeight;
+          var factor;
+          var newWidth;
+          var newHeight;
+          var newXMin;
+          var newYMax;
+          if (localX < area.left || localX > area.left + area.width) {
+            return;
+          }
+          if (localY < area.top || localY > area.top + area.height) {
+            return;
+          }
+          focusX = pixelToX(localX, viewState.xMin, viewState.xMax, area.left, area.width);
+          focusY = pixelToY(localY, viewState.yMin, viewState.yMax, area.top, area.height);
+          tx = (localX - area.left) / area.width;
+          ty = (localY - area.top) / area.height;
+          currentWidth = viewState.xMax - viewState.xMin;
+          currentHeight = viewState.yMax - viewState.yMin;
+          factor = (button === 2) ? 2 : 0.5;
+          newWidth = currentWidth * factor;
+          newHeight = currentHeight * factor;
+          newXMin = focusX - tx * newWidth;
+          newYMax = focusY + ty * newHeight;
+          updatePlotRange(
+            newXMin,
+            newXMin + newWidth,
+            newYMax - newHeight,
+            newYMax,
+            focusX,
+            focusY
+          );
+        }
+
+        function wheelZoom(localX, localY, deltaY) {
+          var area = getPlotArea(canvas);
+          var focusX;
+          var focusY;
+          var tx;
+          var ty;
+          var currentWidth;
+          var currentHeight;
+          var factor;
+          var newWidth;
+          var newHeight;
+          var newXMin;
+          var newYMax;
+          if (localX < area.left || localX > area.left + area.width) {
+            return;
+          }
+          if (localY < area.top || localY > area.top + area.height) {
+            return;
+          }
+          focusX = pixelToX(localX, viewState.xMin, viewState.xMax, area.left, area.width);
+          focusY = pixelToY(localY, viewState.yMin, viewState.yMax, area.top, area.height);
+          tx = (localX - area.left) / area.width;
+          ty = (localY - area.top) / area.height;
+          currentWidth = viewState.xMax - viewState.xMin;
+          currentHeight = viewState.yMax - viewState.yMin;
+          factor = (deltaY < 0) ? 0.85 : 1.15;
+          newWidth = currentWidth * factor;
+          newHeight = currentHeight * factor;
+          newXMin = focusX - tx * newWidth;
+          newYMax = focusY + ty * newHeight;
+          updatePlotRange(
+            newXMin,
+            newXMin + newWidth,
+            newYMax - newHeight,
+            newYMax,
+            focusX,
+            focusY
+          );
+        }
 
         execCount += 1;
+        recordIndex = execCount;
         record.className = 'record';
+        viewState = {
+          initialXMin: xMin,
+          initialXMax: xMax,
+          initialYMin: plotData.minY,
+          initialYMax: plotData.maxY,
+          xMin: xMin,
+          xMax: xMax,
+          yMin: plotData.minY,
+          yMax: plotData.maxY,
+          focusX: (xMin + xMax) * 0.5,
+          focusY: (plotData.minY + plotData.maxY) * 0.5,
+          plotData: plotData
+        };
+
+        inputHistory[recordIndex] = expressionText;
+        updateHistoryPlotState();
 
         inLabel.className = 'recordLabel';
-        inLabel.appendChild(document.createTextNode('In [' + execCount + ']'));
+        inLabel.appendChild(document.createTextNode('In [' + recordIndex + ']'));
 
         inputField.className = 'historyInput';
         inputField.readOnly = true;
         inputField.value = expressionText;
 
         outLabel.className = 'recordLabel';
-        outLabel.appendChild(document.createTextNode('Plot [' + execCount + ']  X=' + xMin + ' .. ' + xMax));
+        setOutLabelText();
 
         graphWrap.className = 'graphWrap';
 
         canvas.className = 'graphCanvas';
-        canvas.width = 860;
+        if (historyEl && historyEl.clientWidth) {
+          desiredWidth = historyEl.clientWidth - 36;
+        }
+        if (desiredWidth < 320) {
+          desiredWidth = 320;
+        }
+        if (desiredWidth > 2200) {
+          desiredWidth = 2200;
+        }
+        canvas.width = desiredWidth;
         canvas.height = 330;
 
         graphWrap.appendChild(canvas);
@@ -754,8 +1575,152 @@
         record.appendChild(outLabel);
         record.appendChild(graphWrap);
         historyEl.appendChild(record);
+        historyRecords[recordIndex] = record;
 
-        drawPlotOnCanvas(canvas, plotData.points, xMin, xMax, plotData.minY, plotData.maxY);
+        if (mode === 'nav') {
+          setNavSelection(recordIndex);
+        }
+
+        redrawPlot();
+
+        canvas.onmousedown = function (e) {
+          var ev = e || window.event;
+          var p = getLocalPoint(e || window.event);
+          var btn = (typeof ev.button === 'number') ? ev.button : 0;
+          if (!p) {
+            return;
+          }
+          drag.active = true;
+          drag.moved = false;
+          drag.button = btn;
+          drag.startX = p.x;
+          drag.startY = p.y;
+          drag.nowX = p.x;
+          drag.nowY = p.y;
+          if (ev && ev.preventDefault) {
+            ev.preventDefault();
+          }
+        };
+
+        canvas.onmousemove = function (e) {
+          var p;
+          if (!drag.active) {
+            return;
+          }
+          p = getLocalPoint(e || window.event);
+          if (!p) {
+            return;
+          }
+          drag.nowX = p.x;
+          drag.nowY = p.y;
+          if (Math.abs(drag.nowX - drag.startX) > 2 || Math.abs(drag.nowY - drag.startY) > 2) {
+            drag.moved = true;
+          }
+          drawDragBox();
+          if (e && e.preventDefault) {
+            e.preventDefault();
+          }
+        };
+
+        canvas.onmouseup = function (e) {
+          var p = getLocalPoint(e || window.event);
+          if (!drag.active) {
+            return;
+          }
+          if (p) {
+            drag.nowX = p.x;
+            drag.nowY = p.y;
+          }
+          drag.active = false;
+
+          if (drag.moved) {
+            performBoxZoom();
+            if (e && e.preventDefault) {
+              e.preventDefault();
+            }
+            return;
+          }
+
+          redrawPlot();
+          if (p) {
+            clickZoom(p.x, p.y, drag.button);
+          }
+          if (e && e.preventDefault) {
+            e.preventDefault();
+          }
+        };
+
+        canvas.onmouseleave = function () {
+          if (!drag.active) {
+            return;
+          }
+          drag.active = false;
+          redrawPlot();
+        };
+
+        canvas.oncontextmenu = function (e) {
+          if (e && e.preventDefault) {
+            e.preventDefault();
+          }
+          return false;
+        };
+
+        canvas.ondblclick = function (e) {
+          var ev = e || window.event;
+          var p = getLocalPoint(ev);
+          var area = getPlotArea(canvas);
+          if (!p) {
+            return true;
+          }
+          if (p.x < area.left || p.x > area.left + area.width || p.y < area.top || p.y > area.top + area.height) {
+            updatePlotRange(
+              viewState.initialXMin,
+              viewState.initialXMax,
+              viewState.initialYMin,
+              viewState.initialYMax,
+              (viewState.initialXMin + viewState.initialXMax) * 0.5,
+              (viewState.initialYMin + viewState.initialYMax) * 0.5
+            );
+            if (ev.preventDefault) {
+              ev.preventDefault();
+            }
+            ev.returnValue = false;
+            return false;
+          }
+          return true;
+        };
+
+        canvas.onwheel = function (e) {
+          var ev = e || window.event;
+          var p = getLocalPoint(ev);
+          var delta = 0;
+          if (!p) {
+            return true;
+          }
+          if (typeof ev.deltaY === 'number') {
+            delta = ev.deltaY;
+          } else if (typeof ev.wheelDelta === 'number') {
+            delta = -ev.wheelDelta;
+          } else if (typeof ev.detail === 'number') {
+            delta = ev.detail;
+          }
+          wheelZoom(p.x, p.y, delta);
+          if (ev.preventDefault) {
+            ev.preventDefault();
+          }
+          ev.returnValue = false;
+          return false;
+        };
+
+        if (canvas.addEventListener) {
+          canvas.addEventListener('mousewheel', function (e) {
+            return canvas.onwheel(e);
+          }, false);
+          canvas.addEventListener('DOMMouseScroll', function (e) {
+            return canvas.onwheel(e);
+          }, false);
+        }
+
         scrollToBottomSoon();
       }
 
@@ -763,17 +1728,19 @@
         var code = editorEl.value;
         var trimmed = trimText(code);
         var result;
+        var errText;
 
         if (!trimmed.length) {
-          appendTextRecord('', 'Empty input', true);
+          appendTextRecord('', 'Empty input', true, { error: 'Empty input' });
           return;
         }
 
         try {
           result = evaluateCode(code, false, 0, true);
-          appendTextRecord(code, formatOutput(result), false);
+          appendTextRecord(code, formatOutput(result), false, result);
         } catch (err) {
-          appendTextRecord(code, String(err && err.message ? err.message : err), true);
+          errText = String(err && err.message ? err.message : err);
+          appendTextRecord(code, errText, true, { error: errText });
         }
       }
 
@@ -783,19 +1750,20 @@
         var xMin = Number(xLowEl.value);
         var xMax = Number(xHighEl.value);
         var plotData;
+        var errText;
 
         if (!trimmed.length) {
-          appendTextRecord('', 'Empty input', true);
+          appendTextRecord('', 'Empty input', true, { error: 'Empty input' });
           return;
         }
 
         if (!isFinite(xMin) || !isFinite(xMax)) {
-          appendTextRecord(code, 'X range must be numbers', true);
+          appendTextRecord(code, 'X range must be numbers', true, { error: 'X range must be numbers' });
           return;
         }
 
         if (xMax <= xMin) {
-          appendTextRecord(code, 'X Max must be greater than X Min', true);
+          appendTextRecord(code, 'X Max must be greater than X Min', true, { error: 'X Max must be greater than X Min' });
           return;
         }
 
@@ -803,27 +1771,87 @@
           plotData = createPlotData(code, xMin, xMax, 360);
           appendGraphRecord(code, xMin, xMax, plotData);
         } catch (err) {
-          appendTextRecord(code, String(err && err.message ? err.message : err), true);
+          errText = String(err && err.message ? err.message : err);
+          appendTextRecord(code, errText, true, { error: errText });
         }
+      }
+
+      function handleEditorKeyDown(event) {
+        var e = event || window.event;
+        var keyCode = e.which || e.keyCode;
+
+        if (mode !== 'edit') {
+          return true;
+        }
+
+        if (keyCode === 13 && e.ctrlKey) {
+          smartEnterAction();
+          return stopEvent(e);
+        }
+
+        if (keyCode === 13 && (e.altKey || e.shiftKey)) {
+          return true;
+        }
+
+        if (keyCode === 13 && isCurrentEditorLineBlank()) {
+          smartEnterAction();
+          return stopEvent(e);
+        }
+
+        return true;
+      }
+
+      function handleGlobalKeyDown(event) {
+        var e = event || window.event;
+        var keyCode = e.which || e.keyCode;
+
+        if (keyCode === 9) {
+          toggleMode();
+          return stopEvent(e);
+        }
+
+        if (mode === 'nav') {
+          if (keyCode === 38) {
+            moveNavSelection(-1);
+            return stopEvent(e);
+          }
+
+          if (keyCode === 40) {
+            moveNavSelection(1);
+            return stopEvent(e);
+          }
+
+          if (keyCode === 13) {
+            useSelectedNavExpression();
+            return stopEvent(e);
+          }
+        }
+
+        return true;
       }
 
       runBtn.onclick = runCurrentCode;
       plotBtn.onclick = plotCurrentCode;
 
-      if (document.addEventListener) {
-        editorEl.addEventListener('keydown', function (event) {
-          var e = event || window.event;
-          var keyCode = e.which || e.keyCode;
-          if (keyCode === 13 && (e.ctrlKey || e.shiftKey)) {
-            runCurrentCode();
-            if (e.preventDefault) {
-              e.preventDefault();
-            }
-            return false;
-          }
-          return true;
-        }, false);
+      editorEl.onclick = function () {
+        if (mode === 'nav') {
+          setMode('edit');
+        }
+      };
+
+      if (editorEl.addEventListener) {
+        editorEl.addEventListener('keydown', handleEditorKeyDown, false);
+      } else {
+        editorEl.onkeydown = handleEditorKeyDown;
       }
+
+      if (document.addEventListener) {
+        document.addEventListener('keydown', handleGlobalKeyDown, false);
+      } else {
+        document.onkeydown = handleGlobalKeyDown;
+      }
+
+      setMode('edit');
     }());
   </script>
 </body>
