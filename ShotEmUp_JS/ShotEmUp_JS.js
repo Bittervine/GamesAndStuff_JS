@@ -26,6 +26,7 @@
     queue: [],
     normal: [],
     additive: [],
+    erase: [],
     batchData: null,
     hudSprites: new Map(),
     offsetX: 0,
@@ -265,7 +266,7 @@
     return tex;
   }
 
-  function pushSprite(texture, x, y, w, h, rot, color, alpha, layer, additive) {
+  function pushSprite(texture, x, y, w, h, rot, color, alpha, layer, additive, erase) {
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(w) || !Number.isFinite(h)) return;
     const item = {
       texture: texture,
@@ -277,7 +278,8 @@
       color: colorArray(color, alpha),
       layer: layer || 0
     };
-    (additive ? render.additive : render.normal).push(item);
+    if (erase) render.erase.push(item);
+    else (additive ? render.additive : render.normal).push(item);
   }
 
   function drawSpriteRect(x, y, w, h, color, alpha, layer, additive, rot) {
@@ -314,6 +316,56 @@
       g.shadowBlur = b;
     }
     g.fillText(text, dim * 0.5, dim * 0.5 + Math.round(s * 0.03));
+    sprite = c;
+    render.hudSprites.set(key, sprite);
+    return sprite;
+  }
+
+  function getHudCrackSprite(size, variant) {
+    const s = Math.max(10, Math.round(size));
+    const v = (variant || 0) % 4;
+    const key = ['crack', s, v].join('|');
+    let sprite = render.hudSprites.get(key);
+    if (sprite) return sprite;
+    const pad = Math.max(8, Math.round(s * 0.55));
+    const dim = Math.max(28, Math.ceil(s * 2 + pad * 2));
+    const c = makeDomCanvas(dim, dim);
+    const g = c.getContext('2d');
+    const cx = dim * 0.5;
+    const cy = dim * 0.5;
+    const base = s * 0.42;
+    const lineW = Math.max(1.5, s * 0.14);
+    const stroke = function (pts, width, alpha) {
+      g.save();
+      g.globalAlpha = alpha;
+      g.strokeStyle = '#000000';
+      g.lineCap = 'round';
+      g.lineJoin = 'round';
+      g.lineWidth = width;
+      g.beginPath();
+      g.moveTo(cx + pts[0][0], cy + pts[0][1]);
+      for (let i = 1; i < pts.length; i++) g.lineTo(cx + pts[i][0], cy + pts[i][1]);
+      g.stroke();
+      g.restore();
+    };
+    g.clearRect(0, 0, dim, dim);
+    if (v === 0) {
+      stroke([[-base * 0.15, -base * 1.1], [base * 0.08, -base * 0.52], [-base * 0.08, -base * 0.05], [base * 0.12, base * 0.6]], lineW * 1.1, 1);
+      stroke([[base * 0.02, -base * 0.22], [base * 0.52, -base * 0.65], [base * 0.2, base * 0.02], [base * 0.6, base * 0.5]], lineW * 0.7, 0.86);
+      stroke([[-base * 0.06, base * 0.02], [-base * 0.42, base * 0.28], [-base * 0.2, base * 0.7]], lineW * 0.55, 0.75);
+    } else if (v === 1) {
+      stroke([[-base * 0.5, -base * 0.7], [-base * 0.12, -base * 0.15], [-base * 0.26, base * 0.3], [base * 0.18, base * 0.84]], lineW * 1.05, 1);
+      stroke([[base * 0.08, -base * 0.05], [base * 0.42, -base * 0.42], [base * 0.12, base * 0.18], [base * 0.42, base * 0.64]], lineW * 0.72, 0.84);
+      stroke([[-base * 0.02, base * 0.22], [-base * 0.42, base * 0.12], [-base * 0.34, base * 0.56]], lineW * 0.55, 0.72);
+    } else if (v === 2) {
+      stroke([[-base * 0.08, -base * 0.95], [base * 0.1, -base * 0.3], [-base * 0.18, base * 0.02], [base * 0.1, base * 0.78]], lineW * 1.1, 1);
+      stroke([[-base * 0.22, -base * 0.1], [-base * 0.7, base * 0.18], [-base * 0.34, base * 0.4]], lineW * 0.68, 0.82);
+      stroke([[base * 0.14, base * 0.1], [base * 0.56, base * 0.34], [base * 0.32, base * 0.68]], lineW * 0.6, 0.74);
+    } else {
+      stroke([[-base * 0.2, -base * 1.0], [-base * 0.02, -base * 0.38], [base * 0.26, base * 0.02], [base * 0.02, base * 0.72]], lineW * 1.15, 1);
+      stroke([[base * 0.06, -base * 0.1], [base * 0.52, -base * 0.05], [base * 0.18, base * 0.32], [base * 0.46, base * 0.78]], lineW * 0.66, 0.82);
+      stroke([[-base * 0.12, base * 0.18], [-base * 0.52, base * 0.56], [-base * 0.16, base * 0.82]], lineW * 0.58, 0.7);
+    }
     sprite = c;
     render.hudSprites.set(key, sprite);
     return sprite;
@@ -371,9 +423,12 @@
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     render.normal.sort(function (a, b) { return a.layer - b.layer; });
     render.additive.sort(function (a, b) { return a.layer - b.layer; });
-    function drawList(list, additive) {
+    render.erase.sort(function (a, b) { return a.layer - b.layer; });
+    function drawList(list, mode) {
       if (!list.length) return;
-      gl.blendFunc(additive ? gl.ONE : gl.SRC_ALPHA, additive ? gl.ONE : gl.ONE_MINUS_SRC_ALPHA);
+      if (mode === 'additive') gl.blendFunc(gl.ONE, gl.ONE);
+      else if (mode === 'erase') gl.blendFuncSeparate(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
+      else gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       const data = ensureBatchData(list.length);
       let batchTex = null;
       let batchSprites = 0;
@@ -396,10 +451,12 @@
       }
       flushBatch();
     }
-    drawList(render.normal, false);
-    drawList(render.additive, true);
+    drawList(render.normal, 'normal');
+    drawList(render.additive, 'additive');
+    drawList(render.erase, 'erase');
     render.normal.length = 0;
     render.additive.length = 0;
+    render.erase.length = 0;
   }
 
   function phase(dur, motion, attack) { return { dur: dur, motion: motion, attack: attack }; }
@@ -504,7 +561,7 @@
       shield: 0, bombs: 2,
       weaponMode: 0, weaponTier: 1,
       fireCooldown: 0, rapidTimer: 0, magnetTimer: 0,
-      invuln: 0, fireHeld: false, pointerMode: false,
+      invuln: 0, repairDelay: 0, fireHeld: false, pointerMode: false,
       respawnTimer: 0, respawnDuration: 0,
       respawnStartX: 0, respawnStartY: 0,
       respawnTargetX: 0, respawnTargetY: 0
@@ -577,7 +634,7 @@
 
   function tone(opts) {
     const ctxAudio = audio.ctx;
-    if (!audio.enabled || !ctxAudio || ctxAudio.state !== 'running' || state.muted) return;
+    if (!ctxAudio || ctxAudio.state !== 'running' || state.muted) return;
     const bus = opts && opts.bus === 'music' ? audio.music : audio.sfx;
     const now = ctxAudio.currentTime;
     const osc = ctxAudio.createOscillator();
@@ -598,7 +655,7 @@
 
   function noise(opts) {
     const ctxAudio = audio.ctx;
-    if (!audio.enabled || !ctxAudio || ctxAudio.state !== 'running' || state.muted) return;
+    if (!ctxAudio || ctxAudio.state !== 'running' || state.muted) return;
     const bus = opts && opts.bus === 'music' ? audio.music : audio.sfx;
     const now = ctxAudio.currentTime;
     const source = ctxAudio.createBufferSource();
@@ -703,7 +760,6 @@
 
   function openSettings() {
     if (state.settingsOpen) return;
-    resumeAudio();
     state.settingsOpen = true;
     state.settingsPausedByDialog = state.mode === 'playing' && !state.paused;
     if (state.settingsPausedByDialog) togglePause(true);
@@ -884,6 +940,7 @@
     p.respawnStartY = p.y;
     p.respawnTargetX = p.x;
     p.respawnTargetY = p.y;
+    p.repairDelay = 0;
   }
 
   function resetRun() {
@@ -928,8 +985,8 @@
       setupDebugScene();
     } else {
       state.mode = 'title';
-      setBanner('SHOT EM UP', 'Tap or press Space to start.', 3.5);
-      hint('Drag to fly. Hold to fire. Tap SETTINGS for sound, music, and difficulty.', 5);
+      setBanner('SHOT EM UP', 'Click or press Space to start.', 3.5);
+      hint('Drag to fly. Hold to fire. Click SETTINGS for sound, music, and difficulty.', 5);
     }
     syncSettingsUi();
   }
@@ -947,7 +1004,6 @@
     if (state.debugMode) return;
     state.mode = 'playing';
     beginLevel(0);
-    resumeAudio();
   }
 
   function beginLevel(index) {
@@ -986,7 +1042,7 @@
     state.flash = 0.6;
     state.shake = 18;
     sfx('clear');
-    hint('Victory! Tap or press R to fly again.', 6);
+    hint('Victory! Click or press R to fly again.', 6);
     saveBest();
   }
 
@@ -997,7 +1053,7 @@
     state.bannerTimer = 999;
     state.flash = 0.25;
     state.shake = 18;
-    hint('Game over. Tap or press R to restart.', 6);
+    hint('Game over. Click or press R to restart.', 6);
     saveBest();
   }
 
@@ -1054,6 +1110,7 @@
     p.x = p.respawnStartX;
     p.y = p.respawnStartY;
     p.invuln = 3;
+    p.repairDelay = 0;
     p.fireCooldown = 0.35;
     p.fireHeld = false;
     p.pointerMode = false;
@@ -1344,6 +1401,7 @@
   function hurtPlayer(damage) {
     const p = state.player;
     if (p.invuln > 0 || state.mode !== 'playing') return;
+    const actualDamage = Math.max(1, Math.round(damage * 3));
     if (p.shield > 0) {
       p.shield--;
       p.invuln = 0.6;
@@ -1352,8 +1410,9 @@
       sfx('power');
       return;
     }
-    p.health -= damage;
+    p.health -= actualDamage;
     p.invuln = 1.6;
+    p.repairDelay = 1.8;
     state.shake = Math.max(state.shake, 10);
     state.flash = Math.max(state.flash, 0.12);
     sfx('damage');
@@ -1552,6 +1611,14 @@
       p.y = clamp(p.y, a.top + 10, a.bottom - 10);
       p.fireHeld = !!state.input.fire;
     }
+    if (p.health < p.maxHealth) {
+      p.repairDelay = Math.max(0, p.repairDelay - dt);
+      if (p.repairDelay <= 0 && p.invuln <= 0) {
+        p.health = Math.min(p.maxHealth, p.health + dt * 0.22);
+      }
+    } else {
+      p.repairDelay = 0;
+    }
     if (state.mode === 'playing' && p.fireHeld && p.fireCooldown <= 0) fireWeapon();
   }
 
@@ -1728,7 +1795,7 @@
   }
 
   function updateMusic(dt) {
-    if (!audio.enabled || !audio.ctx || state.muted) return;
+    if (!audio.ctx || audio.ctx.state !== 'running' || state.muted) return;
     if (state.mode !== 'playing' && state.mode !== 'title') return;
     const theme = mainTheme();
     const beat = 60 / theme.music.bpm / 2;
@@ -2125,6 +2192,7 @@
     const rot = -Math.PI * 0.25 + tilt;
     const glow = state.overdrive > 0 ? '#ffe38c' : '#8fd8ff';
     const flashAlpha = p.invuln > 0 ? 0.52 + 0.42 * (0.5 + 0.5 * Math.sin((3 - p.invuln) * 16 + state.musicStep * 0.9)) : 1;
+    const damage = clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1);
     if (state.overdrive > 0) {
       drawGlowCircle(p.x, p.y + 4, 42, '#ffd45e', 0.17, 36);
       drawGlowCircle(p.x, p.y + 4, 24, '#fff3b0', 0.22, 20);
@@ -2135,7 +2203,53 @@
     }
     drawEmojiGlyph(E.plane, p.x, p.y + bob, 36 + (state.overdrive > 0 ? 4 : 0), { rot: rot, alpha: flashAlpha, layer: 4, fill: glow, lighter: false });
     drawEmojiGlyph(E.plane, p.x - 1, p.y + bob - 1, 32 + (state.overdrive > 0 ? 3 : 0), { rot: rot * 0.96, alpha: p.invuln > 0 ? flashAlpha * 0.24 : 0.18, layer: 5, fill: '#ffffff', lighter: true });
+    if (damage > 0.01) drawPlayerDamage(p, bob, rot, damage);
     drawGlowCircle(p.x, p.y + 18 + bob, 5 + p.weaponTier, '#ffd06b', 0.7, 12);
+  }
+
+  function localToWorld(px, py, rot, x, y) {
+    const c = Math.cos(rot);
+    const s = Math.sin(rot);
+    return {
+      x: px + x * c - y * s,
+      y: py + x * s + y * c
+    };
+  }
+
+  function getPlayerCrackTexture(size, variant) {
+    const s = Math.max(12, Math.round(size));
+    const key = 'playercrack|' + s + '|' + (variant || 0);
+    return getTextureFromCanvas(getHudCrackSprite(s, variant), key);
+  }
+
+  function pushEraseSprite(texture, x, y, size, rot, alpha, layer) {
+    pushSprite(texture, x, y, size, size, rot || 0, '#ffffff', alpha == null ? 1 : alpha, layer || 0, false, true);
+  }
+
+  function drawPlayerDamage(p, bob, rot, damage) {
+    const px = p.x;
+    const py = p.y + bob;
+    const stage = Math.max(1, Math.min(8, Math.ceil(damage * 8)));
+    const anchors = [
+      [-13, -13, 0],
+      [0, -16, 1],
+      [13, -13, 2],
+      [-17, -4, 3],
+      [-4, -3, 0],
+      [13, -3, 1],
+      [-16, 7, 2],
+      [0, 11, 3],
+      [15, 8, 0]
+    ];
+    const count = Math.min(anchors.length, 3 + stage);
+    const crackBase = 11 + stage * 1.9 + damage * 18;
+    for (let i = 0; i < count; i++) {
+      const cr = anchors[i];
+      const pos = localToWorld(px, py, rot, cr[0], cr[1]);
+      const size = crackBase + i * (1.1 + damage * 1.8);
+      const tex = getPlayerCrackTexture(size, cr[2]);
+      pushEraseSprite(tex, pos.x, pos.y, size * 1.34, rot + (cr[2] * 0.13) + (damage * 0.06), 0.97, 6 + i);
+    }
   }
 
   function drawHud() {
@@ -2186,11 +2300,11 @@
     if (state.paused) {
       hudCtx.fillStyle = 'rgba(0,0,0,0.28)';
       hudCtx.fillRect(0, 0, view.w, view.h);
-      drawCenterCard('PAUSED', 'Press P or tap PAUSE to resume.', ['The battle is frozen in place.'], theme.accent2, 'Hold FIRE when you are ready.');
+      drawCenterCard('PAUSED', 'Press P or click PAUSE to resume.', ['The battle is frozen in place.'], theme.accent2, 'Hold FIRE when you are ready.');
     } else if (state.mode === 'gameover') {
-      drawCenterCard('GAME OVER', state.bannerSub, ['Score: ' + format(state.score), 'Best: ' + format(state.highScore)], '#ff8b79', 'Tap or press R to retry.');
+      drawCenterCard('GAME OVER', state.bannerSub, ['Score: ' + format(state.score), 'Best: ' + format(state.highScore)], '#ff8b79', 'Click or press R to retry.');
     } else if (state.mode === 'victory') {
-      drawCenterCard('VICTORY', state.bannerSub, ['Score: ' + format(state.score), 'Best: ' + format(state.highScore)], '#ffe78a', 'Tap or press R to fly again.');
+      drawCenterCard('VICTORY', state.bannerSub, ['Score: ' + format(state.score), 'Best: ' + format(state.highScore)], '#ffe78a', 'Click or press R to fly again.');
     }
     hudCtx.restore();
   }
@@ -2205,9 +2319,9 @@
       'Drag to fly. Use FIRE, BOMB, PAUSE, or SETTINGS below.',
       'Hold FIRE to stream shots.',
       'BOMB clears the screen.',
-      'Tap SETTINGS for sound, music, and difficulty.',
+      'Click SETTINGS for sound, music, and difficulty.',
       'Fruit, bugs, gears, chess pieces, storms, and more.'
-    ], theme.accent2, 'Tap or press Space to begin.');
+    ], theme.accent2, 'Click or press Space to begin.');
 
     hudCtx.save();
     hudCtx.textAlign = 'center';
@@ -2245,20 +2359,17 @@
     const next = force == null ? !state.paused : !!force;
     if (next === state.paused) return;
     state.paused = next;
-    if (!state.paused) resumeAudio();
-    setBanner(state.paused ? 'PAUSED' : 'RESUMED', state.paused ? 'Press P or tap PAUSE.' : 'Back in the fight.', 1.0);
+    setBanner(state.paused ? 'PAUSED' : 'RESUMED', state.paused ? 'Press P or click PAUSE.' : 'Back in the fight.', 1.0);
     hint(state.paused ? 'Paused.' : 'Back in action.', 1.3);
   }
 
   function toggleMute(force) {
     state.muted = force == null ? !state.muted : !!force;
-    if (!state.muted) resumeAudio();
     syncSettingsUi();
     hint(state.muted ? 'Sound off.' : 'Sound on.', 1.1);
   }
 
   function pressAction(act, down) {
-    resumeAudio();
     if (act === 'left' || act === 'right' || act === 'up' || act === 'down') {
       state.input[act] = down;
       return;
@@ -2291,6 +2402,9 @@
       pressAction(act, true);
       try { if (button.setPointerCapture) button.setPointerCapture(ev.pointerId); } catch (e) {}
     });
+    button.addEventListener('click', function () {
+      resumeAudio();
+    });
     button.addEventListener('pointerup', release);
     button.addEventListener('pointercancel', release);
     button.addEventListener('pointerleave', release);
@@ -2306,10 +2420,8 @@
   function handleCanvasDown(ev) {
     if (ev.button != null && ev.button !== 0) return;
     ev.preventDefault();
-    resumeAudio();
-    if (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory') startGame();
-    if (state.paused) togglePause(false);
     const pt = canvasPoint(ev);
+    if (state.paused) togglePause(false);
     state.pointerActive = true;
     state.pointerId = ev.pointerId;
     state.pointerX = pt.x;
@@ -2335,12 +2447,15 @@
     try { if (canvas.hasPointerCapture && ev.pointerId != null) canvas.releasePointerCapture(ev.pointerId); } catch (e) {}
   }
 
-  function handleCanvasDblClick(ev) {
+  function handleCanvasClick(ev) {
     if (ev.button != null && ev.button !== 0) return;
-    if (state.mode !== 'playing' || state.paused) return;
     ev.preventDefault();
     resumeAudio();
-    useBomb();
+    if (ev.detail === 2) {
+      if (state.mode === 'playing' && !state.paused) useBomb();
+      return;
+    }
+    if (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory') startGame();
   }
 
   function onKeyDown(ev) {
@@ -2434,7 +2549,7 @@
   canvas.addEventListener('pointermove', handleCanvasMove);
   canvas.addEventListener('pointerup', handleCanvasUp);
   canvas.addEventListener('pointercancel', handleCanvasUp);
-  canvas.addEventListener('dblclick', handleCanvasDblClick);
+  canvas.addEventListener('click', handleCanvasClick);
   canvas.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
