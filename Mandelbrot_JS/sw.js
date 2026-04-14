@@ -3,7 +3,7 @@ var cacheName = 'mandelbrot-pwa';
 var filesToCache = [  
   './',
   './favicon.ico',
-  './index.html',
+  './Mandelbrot_JS.html',
   './manifest.json',  
   './sw.js',
   './css/style.css',  

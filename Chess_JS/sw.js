@@ -1,10 +1,10 @@
 /* global self, caches, fetch */
 'use strict';
 
-var CACHE_NAME = 'chess-js2-v2';
+var CACHE_NAME = 'chess-js2-v3';
 var APP_SHELL = [
     './',
-    './chess_js.html',
+    './Chess_JS.html',
     './manifest.webmanifest'
 ];
 

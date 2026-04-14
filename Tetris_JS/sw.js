@@ -1,5 +1,5 @@
-﻿var CACHE_NAME = 'tetris-js-v1';
-var FILES = ['./', './tetris_js.html', './manifest.webmanifest'];
+var CACHE_NAME = 'tetris-js-v2';
+var FILES = ['./', './Tetris_JS.html', './manifest.webmanifest'];
 
 self.addEventListener('install', function (event) {
     event.waitUntil(
@@ -34,7 +34,7 @@ self.addEventListener('fetch', function (event) {
                 });
                 return response;
             }).catch(function () {
-                return caches.match('./tetris_js.html');
+                return caches.match('./Tetris_JS.html');
             });
         })
     );
