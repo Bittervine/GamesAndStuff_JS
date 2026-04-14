@@ -2259,20 +2259,29 @@
 
     hudCtx.save();
     const compact = view.w < 640;
-    const panelW = clamp(view.w - 24, compact ? 260 : 320, compact ? 520 : 640);
-    const panelH = compact ? 54 : 58;
+    const scoreLine = 'SCORE ' + format(state.score) + '   LIVES ' + state.lives + '   BOMB ' + p.bombs;
+    const detailLine = 'STAGE ' + (state.levelIndex + 1) + '/' + THEMES.length + '  ' + theme.name + '   WEAPON ' + WEAPONS[p.weaponMode].name + ' ' + ['I', 'II', 'III'][p.weaponTier - 1] + '   HIGH ' + format(state.highScore);
+    const scoreFont = compact ? '900 11px "Trebuchet MS", "Segoe UI", sans-serif' : '900 13px "Trebuchet MS", "Segoe UI", sans-serif';
+    const detailFont = compact ? '700 8px "Trebuchet MS", "Segoe UI", sans-serif' : '700 9px "Trebuchet MS", "Segoe UI", sans-serif';
+    hudCtx.font = scoreFont;
+    const scoreW = hudCtx.measureText(scoreLine).width;
+    hudCtx.font = detailFont;
+    const detailW = hudCtx.measureText(detailLine).width;
+    const contentW = Math.max(scoreW, detailW);
+    const panelW = clamp(contentW + (compact ? 26 : 30), compact ? 220 : 260, Math.min(view.w - 24, compact ? 420 : 520));
+    const panelH = compact ? 44 : 48;
     const panelX = (view.w - panelW) * 0.5;
-    const panelY = 10;
+    const panelY = 8;
     const bossBarY = panelY + panelH + 6;
     drawPanel(panelX, panelY, panelW, panelH, theme.accent2);
 
     hudCtx.fillStyle = '#fff';
     hudCtx.textBaseline = 'middle';
     hudCtx.textAlign = 'center';
-    hudCtx.font = compact ? '900 13px "Trebuchet MS", "Segoe UI", sans-serif' : '900 15px "Trebuchet MS", "Segoe UI", sans-serif';
-    hudCtx.fillText('SCORE ' + format(state.score) + '   LIVES ' + state.lives + '   BOMB ' + p.bombs, view.w * 0.5, panelY + 17);
-    hudCtx.font = compact ? '700 9px "Trebuchet MS", "Segoe UI", sans-serif' : '700 10px "Trebuchet MS", "Segoe UI", sans-serif';
-    hudCtx.fillText('STAGE ' + (state.levelIndex + 1) + '/' + THEMES.length + '  ' + theme.name + '   WEAPON ' + WEAPONS[p.weaponMode].name + ' ' + ['I', 'II', 'III'][p.weaponTier - 1] + '   HIGH ' + format(state.highScore), view.w * 0.5, panelY + panelH - 15);
+    hudCtx.font = scoreFont;
+    hudCtx.fillText(scoreLine, view.w * 0.5, panelY + 15);
+    hudCtx.font = detailFont;
+    hudCtx.fillText(detailLine, view.w * 0.5, panelY + panelH - 13);
 
     if (state.bannerTimer > 0 && state.mode === 'playing') {
       const bw = clamp(view.w * 0.42, 220, 420);
@@ -2316,9 +2325,7 @@
     drawEmojiGlyph(E.plane, view.w * 0.5, view.h * 0.22, 76, { alpha: 0.18, rot: -Math.PI * 0.25, layer: 4, fill: theme.glow || '#ffffff', lighter: false });
     drawEmojiGlyph(E.plane, view.w * 0.5 - 1, view.h * 0.22 - 1, 72, { alpha: 0.1, rot: -Math.PI * 0.25, layer: 5, fill: '#ffffff', lighter: true });
     drawCenterCard('SHOT EM UP', 'Whimsical vertical shooter', [
-      'Drag to fly. Use FIRE, BOMB, PAUSE, or SETTINGS below.',
-      'Hold FIRE to stream shots.',
-      'BOMB clears the screen.',
+      'Drag to fly. Doubleclick for a BOMB to clear the screen.',
       'Click SETTINGS for sound, music, and difficulty.',
       'Fruit, bugs, gears, chess pieces, storms, and more.'
     ], theme.accent2, 'Click or press Space to begin.');
