@@ -26,6 +26,8 @@
     queue: [],
     normal: [],
     additive: [],
+    batchData: null,
+    hudSprites: new Map(),
     offsetX: 0,
     offsetY: 0,
     textures: new Map(),
@@ -112,6 +114,13 @@
 
   function makeCanvas(w, h) {
     if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    return c;
+  }
+
+  function makeDomCanvas(w, h) {
     const c = document.createElement('canvas');
     c.width = w;
     c.height = h;
@@ -285,6 +294,67 @@
     pushSprite(tex, x, y, size * 2.1, size * 2.1, o.rot || 0, o.fill || '#ffffff', o.alpha == null ? 1 : o.alpha, o.layer || 0, !!o.lighter);
   }
 
+  function getHudEmojiSprite(text, size, glow, blur) {
+    const s = Math.max(8, Math.round(size));
+    const b = Math.max(0, Math.round(blur || 0));
+    const key = [text, s, glow || '', b].join('|');
+    let sprite = render.hudSprites.get(key);
+    if (sprite) return sprite;
+    const pad = Math.max(8, Math.round(s * 0.6 + b));
+    const dim = Math.max(32, Math.ceil(s * 2.8 + pad * 2));
+    const c = makeDomCanvas(dim, dim);
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, dim, dim);
+    g.font = '900 ' + s + 'px ' + EMOJI_FONT;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#fff';
+    if (glow) {
+      g.shadowColor = glow;
+      g.shadowBlur = b;
+    }
+    g.fillText(text, dim * 0.5, dim * 0.5 + Math.round(s * 0.03));
+    sprite = c;
+    render.hudSprites.set(key, sprite);
+    return sprite;
+  }
+
+  function ensureBatchData(spriteCount) {
+    const need = Math.max(1, spriteCount) * 48;
+    if (render.batchData && render.batchData.length >= need) return render.batchData;
+    let size = render.batchData ? render.batchData.length : 48 * 256;
+    while (size < need) size *= 2;
+    render.batchData = new Float32Array(size);
+    return render.batchData;
+  }
+
+  function appendSpriteQuad(data, offset, s) {
+    const hw = s.w * 0.5;
+    const hh = s.h * 0.5;
+    const c = Math.cos(s.rot);
+    const si = Math.sin(s.rot);
+    const x0 = s.x - hw * c + hh * si;
+    const y0 = s.y - hw * si - hh * c;
+    const x1 = s.x + hw * c + hh * si;
+    const y1 = s.y + hw * si - hh * c;
+    const x2 = s.x + hw * c - hh * si;
+    const y2 = s.y + hw * si + hh * c;
+    const x3 = s.x - hw * c - hh * si;
+    const y3 = s.y - hw * si + hh * c;
+    const r = s.color[0];
+    const g = s.color[1];
+    const b = s.color[2];
+    const a = s.color[3];
+
+    data[offset++] = x0; data[offset++] = y0; data[offset++] = 0; data[offset++] = 0; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
+    data[offset++] = x1; data[offset++] = y1; data[offset++] = 1; data[offset++] = 0; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
+    data[offset++] = x2; data[offset++] = y2; data[offset++] = 1; data[offset++] = 1; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
+    data[offset++] = x0; data[offset++] = y0; data[offset++] = 0; data[offset++] = 0; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
+    data[offset++] = x2; data[offset++] = y2; data[offset++] = 1; data[offset++] = 1; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
+    data[offset++] = x3; data[offset++] = y3; data[offset++] = 0; data[offset++] = 1; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
+    return offset;
+  }
+
   function flushRender() {
     if (!render.ready) {
       if (gl) initRenderer();
@@ -304,41 +374,27 @@
     function drawList(list, additive) {
       if (!list.length) return;
       gl.blendFunc(additive ? gl.ONE : gl.SRC_ALPHA, additive ? gl.ONE : gl.ONE_MINUS_SRC_ALPHA);
+      const data = ensureBatchData(list.length);
+      let batchTex = null;
+      let batchSprites = 0;
+      let batchOffset = 0;
+      function flushBatch() {
+        if (!batchSprites) return;
+        gl.bindTexture(gl.TEXTURE_2D, batchTex || render.white);
+        gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, batchOffset), gl.DYNAMIC_DRAW);
+        gl.drawArrays(gl.TRIANGLES, 0, batchSprites * 6);
+        batchSprites = 0;
+        batchOffset = 0;
+      }
       for (let i = 0; i < list.length; i++) {
         const s = list[i];
-        const hw = s.w * 0.5;
-        const hh = s.h * 0.5;
-        const c = Math.cos(s.rot);
-        const si = Math.sin(s.rot);
-        const corners = [
-          -hw, -hh, 0, 0,
-          hw, -hh, 1, 0,
-          hw, hh, 1, 1,
-          -hw, -hh, 0, 0,
-          hw, hh, 1, 1,
-          -hw, hh, 0, 1
-        ];
-        const data = new Float32Array(6 * 8);
-        for (let v = 0; v < 6; v++) {
-          const ix = corners[v * 4];
-          const iy = corners[v * 4 + 1];
-          const u = corners[v * 4 + 2];
-          const vv = corners[v * 4 + 3];
-          const rx = s.x + ix * c - iy * si;
-          const ry = s.y + ix * si + iy * c;
-          data[v * 8] = rx;
-          data[v * 8 + 1] = ry;
-          data[v * 8 + 2] = u;
-          data[v * 8 + 3] = vv;
-          data[v * 8 + 4] = s.color[0];
-          data[v * 8 + 5] = s.color[1];
-          data[v * 8 + 6] = s.color[2];
-          data[v * 8 + 7] = s.color[3];
-        }
-        gl.bindTexture(gl.TEXTURE_2D, s.texture || render.white);
-        gl.bufferData(gl.ARRAY_BUFFER, data, gl.DYNAMIC_DRAW);
-        gl.drawArrays(gl.TRIANGLES, 0, 6);
+        const tex = s.texture || render.white;
+        if (batchTex && tex !== batchTex) flushBatch();
+        batchTex = tex;
+        batchOffset = appendSpriteQuad(data, batchOffset, s);
+        batchSprites++;
       }
+      flushBatch();
     }
     drawList(render.normal, false);
     drawList(render.additive, true);
@@ -756,7 +812,7 @@
         maxHp: 6,
         r: ENEMIES[item[0]] ? ENEMIES[item[0]].r : 18,
         score: 0,
-        emoji: pick(theme.icons),
+        emoji: theme.icons[i % theme.icons.length] || pick(theme.icons),
         fireCooldown: 999,
         age: 0,
         wobble: i * 0.73,
@@ -1935,38 +1991,24 @@
   }
 
   function drawEnemyOverlay(e, rot) {
-    const r = e.r;
-    const a = e.hitFlash > 0 ? 1 : 0.98;
-    const size = Math.max(18, Math.round(r * (e.kind === 'elite' ? 2.0 : 1.7)));
+    const size = Math.max(18, Math.round(e.r * (e.kind === 'elite' ? 2.0 : 1.7)));
+    const sprite = getHudEmojiSprite(e.emoji || '', size, e.theme.glow || '#ffffff', size * 0.22);
     hudCtx.save();
     hudCtx.translate(e.x, e.y);
     hudCtx.rotate(rot * 0.15 || 0);
-    hudCtx.globalAlpha = a;
-    hudCtx.shadowColor = e.theme.glow || '#ffffff';
-    hudCtx.shadowBlur = size * 0.22;
-    hudCtx.font = '900 ' + size + 'px ' + EMOJI_FONT;
-    hudCtx.textAlign = 'center';
-    hudCtx.textBaseline = 'middle';
-    hudCtx.fillStyle = '#fff';
-    hudCtx.fillText(e.emoji || '', 0, 0);
-
+    hudCtx.globalAlpha = e.hitFlash > 0 ? 1 : 0.98;
+    hudCtx.drawImage(sprite, -sprite.width * 0.5, -sprite.height * 0.5);
     hudCtx.restore();
   }
 
   function drawBossOverlay(b) {
-    hudCtx.save();
-    const p = bossPalette(b);
     const size = Math.max(44, Math.round(b.r * 1.25));
+    const sprite = getHudEmojiSprite(b.emoji || '', size, bossPalette(b).glow, size * 0.22);
+    hudCtx.save();
     hudCtx.translate(b.x, b.y);
     hudCtx.rotate(Math.sin(b.age * 0.8) * 0.06);
     hudCtx.globalAlpha = 0.98;
-    hudCtx.shadowColor = p.glow;
-    hudCtx.shadowBlur = size * 0.22;
-    hudCtx.font = '900 ' + size + 'px ' + EMOJI_FONT;
-    hudCtx.textAlign = 'center';
-    hudCtx.textBaseline = 'middle';
-    hudCtx.fillStyle = '#fff';
-    hudCtx.fillText(b.emoji || '', 0, 0);
+    hudCtx.drawImage(sprite, -sprite.width * 0.5, -sprite.height * 0.5);
     hudCtx.restore();
   }
 
