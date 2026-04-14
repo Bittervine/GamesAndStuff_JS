@@ -1,0 +1,16 @@
+{
+  "name": "Editor JS",
+  "short_name": "Editor JS",
+  "start_url": "./Editor_JS.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#d4d4d4",
+  "theme_color": "#111111",
+  "icons": [
+    {
+      "src": "./pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

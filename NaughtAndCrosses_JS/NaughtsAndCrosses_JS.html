@@ -3,6 +3,8 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+        <link rel="manifest" href="./manifest.webmanifest">
+        <link rel="icon" href="./pwa-icon.svg" type="image/svg+xml">
         <title>Naught And Crosses JS</title>
         <style>
             body {
@@ -651,8 +653,9 @@
                 updateStatus();
             }
 
-            reset();
+        reset();
         })();
         </script>
+        <script src="./pwa-register.js"></script>
     </body>
 </html>

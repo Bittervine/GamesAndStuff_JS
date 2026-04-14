@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./pwa-icon.svg" type="image/svg+xml">
   <title>Editor JS</title>
   <style>
     :root {
@@ -547,5 +549,6 @@
     syncLineNumberScroll();
     updateCaretStatus();
   </script>
+  <script src="./pwa-register.js"></script>
 </body>
 </html>

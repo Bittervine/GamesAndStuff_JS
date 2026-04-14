@@ -2,7 +2,7 @@
   "name": "Chess JS 2",
   "short_name": "ChessJS2",
   "description": "Play chess against the built-in engine.",
-  "start_url": "./chess_js.html",
+  "start_url": "./Chess_JS.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

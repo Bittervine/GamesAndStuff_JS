@@ -1,7 +1,7 @@
 ﻿{
   "name": "Tetris JS",
   "short_name": "Tetris",
-  "start_url": "./tetris_js.html",
+  "start_url": "./Tetris_JS.html",
   "display": "standalone",
   "background_color": "#f3f4f6",
   "theme_color": "#111827",
