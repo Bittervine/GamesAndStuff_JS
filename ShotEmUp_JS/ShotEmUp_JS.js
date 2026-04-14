@@ -713,13 +713,13 @@
   }
 
   function setupDebugScene() {
-    const theme = THEMES[1] || THEMES[0];
+    const theme = THEMES[0] || THEMES[1];
     state.currentTheme = theme;
-    state.levelIndex = 1;
+    state.levelIndex = 0;
     state.mode = 'debug';
     state.paused = false;
     state.banner = 'DEBUG SCENE';
-    state.bannerSub = 'Fixed enemies for render comparison.';
+    state.bannerSub = 'Fixed orchard enemies and boss for render comparison.';
     state.bannerTimer = 0;
     state.shake = 0;
     state.flash = 0;
@@ -767,6 +767,28 @@
         hitFlash: 0
       });
     }
+    state.boss = {
+      theme: theme,
+      name: theme.boss.name,
+      emoji: theme.boss.emoji,
+      color: theme.boss.color,
+      x: view.w * 0.5,
+      y: 132,
+      vx: 0,
+      vy: 0,
+      r: 64,
+      hp: theme.boss.hp,
+      maxHp: theme.boss.hp,
+      phases: theme.boss.phases,
+      phaseIndex: 0,
+      phaseClock: 0,
+      age: 0,
+      fireClock: 999,
+      motionClock: 0,
+      state: {},
+      hitFlash: 0,
+      dead: false
+    };
   }
 
   function resetPlayer() {
@@ -1898,249 +1920,53 @@
     const p = enemyPalette(e);
     const r = e.r;
     const alpha = e.hitFlash > 0 ? 1 : 0.96;
-    const layer = 2;
-    if (e.kind === 'drifter') {
-      drawSpriteCircle(e.x, e.y, r * 1.08, p.base, alpha, layer, false);
-      drawSpriteCircle(e.x - r * 0.3, e.y - r * 0.2, r * 0.54, p.glow, 0.28, layer + 1, false);
-      drawSpriteRect(e.x + r * 0.18, e.y + r * 0.15, r * 1.25, r * 0.16, p.alt, 0.36, layer + 1, false, rot);
-      drawSpriteCircle(e.x + r * 0.2, e.y + r * 0.18, r * 0.14, p.alt, 0.88, layer + 2, false);
-    } else if (e.kind === 'zigzag') {
-      drawSpriteRect(e.x, e.y, r * 1.75, r * 1.75, p.base, alpha, layer, false, Math.PI * 0.25 + rot);
-      drawSpriteRect(e.x, e.y - r * 0.1, r * 0.55, r * 1.15, p.alt, 0.34, layer + 1, false, Math.PI * 0.25 + rot * 0.5);
-      drawSpriteCircle(e.x + r * 0.14, e.y - r * 0.08, r * 0.14, p.alt, 0.9, layer + 2, false);
-    } else if (e.kind === 'swarm') {
-      drawSpriteCircle(e.x, e.y, r * 1.05, p.base, alpha, layer, false);
-      drawSpriteCircle(e.x - r * 0.88, e.y - r * 0.7, r * 0.52, p.glow, 0.28, layer - 1, false);
-      drawSpriteCircle(e.x + r * 0.88, e.y - r * 0.7, r * 0.52, p.glow, 0.28, layer - 1, false);
-      drawSpriteRect(e.x, e.y - r * 0.2, r * 1.1, r * 0.14, p.alt, 0.52, layer + 1, false);
-      drawSpriteRect(e.x, e.y + r * 0.15, r * 1.1, r * 0.14, p.alt, 0.35, layer + 1, false);
-      drawSpriteCircle(e.x, e.y, r * 0.12, p.alt, 0.9, layer + 2, false);
-    } else if (e.kind === 'bomber') {
-      drawSpriteCircle(e.x, e.y, r * 1.08, p.base, alpha, layer, false);
-      drawSpriteRect(e.x, e.y - r * 0.12, r * 1.45, r * 0.18, p.alt, 0.44, layer + 1, false);
-      drawSpriteRect(e.x, e.y + r * 0.42, r * 1.1, r * 0.12, p.glow, 0.26, layer + 1, false);
-      drawSpriteCircle(e.x, e.y - r * 0.18, r * 0.16, p.alt, 0.9, layer + 2, false);
-    } else if (e.kind === 'sniper') {
-      drawSpriteRect(e.x, e.y, r * 1.85, r * 1.15, p.base, alpha, layer, false, Math.PI * 0.25 + rot);
-      drawSpriteRect(e.x, e.y, r * 0.68, r * 0.26, p.alt, 0.46, layer + 1, false, Math.PI * 0.25 + rot);
-      drawSpriteCircle(e.x, e.y, r * 0.14, p.alt, 0.9, layer + 2, false);
-    } else if (e.kind === 'spinner') {
-      drawSpriteCircle(e.x, e.y, r * 0.92, p.base, alpha, layer, false);
-      for (let i = 0; i < 6; i++) {
-        const a = rot + i * (TAU / 6);
-        drawSpriteRect(e.x + Math.cos(a) * r * 0.68, e.y + Math.sin(a) * r * 0.68, r * 0.92, r * 0.12, p.alt, 0.42, layer + 1, false, a);
-      }
-      drawSpriteCircle(e.x, e.y, r * 0.12, p.alt, 0.9, layer + 2, false);
-    } else if (e.kind === 'splitter') {
-      drawSpriteCircle(e.x, e.y, r * 1.0, p.base, alpha, layer, false);
-      drawSpriteRect(e.x, e.y, r * 1.45, r * 0.15, p.alt, 0.48, layer + 1, false, rot);
-      drawSpriteRect(e.x, e.y, r * 0.15, r * 1.45, p.glow, 0.24, layer + 1, false, rot);
-      drawSpriteCircle(e.x - r * 0.26, e.y - r * 0.08, r * 0.08, p.alt, 0.9, layer + 2, false);
-      drawSpriteCircle(e.x + r * 0.26, e.y - r * 0.08, r * 0.08, p.alt, 0.9, layer + 2, false);
-    } else if (e.kind === 'diver') {
-      drawSpriteCircle(e.x, e.y - r * 0.12, r * 0.92, p.base, alpha, layer, false);
-      drawSpriteRect(e.x, e.y + r * 0.46, r * 0.95, r * 0.15, p.alt, 0.36, layer + 1, false, rot);
-      drawSpriteRect(e.x, e.y + r * 0.7, r * 0.4, r * 0.28, p.glow, 0.24, layer + 1, false, rot);
-      drawSpriteCircle(e.x, e.y - r * 0.1, r * 0.12, p.alt, 0.9, layer + 2, false);
-    } else if (e.kind === 'mine') {
-      drawSpriteCircle(e.x, e.y, r * 0.86, p.base, alpha, layer, false);
-      for (let i = 0; i < 8; i++) {
-        const a = i * (TAU / 8);
-        drawSpriteRect(e.x + Math.cos(a) * r * 0.72, e.y + Math.sin(a) * r * 0.72, r * 0.4, r * 0.12, p.alt, 0.38, layer + 1, false, a);
-      }
-      drawSpriteCircle(e.x, e.y, r * 0.12, p.alt, 0.9, layer + 2, false);
-    } else if (e.kind === 'elite') {
-      drawSpriteRect(e.x, e.y, r * 2.0, r * 1.36, p.base, alpha, layer, false, Math.PI * 0.25 + rot);
-      drawSpriteRect(e.x, e.y - r * 0.48, r * 1.1, r * 0.16, p.alt, 0.54, layer + 1, false, Math.PI * 0.25 + rot);
-      drawSpriteRect(e.x, e.y - r * 1.0, r * 0.8, r * 0.14, p.glow, 0.7, layer + 2, false);
-      drawSpriteCircle(e.x, e.y, r * 0.16, p.alt, 0.9, layer + 2, false);
-    } else {
-      drawSpriteCircle(e.x, e.y, r * 0.95, p.base, alpha, layer, false);
-      drawSpriteCircle(e.x, e.y, r * 0.16, p.alt, 0.9, layer + 1, false);
-    }
+    drawGlowCircle(e.x, e.y, r * (e.kind === 'elite' ? 1.85 : 1.35), p.glow, 0.18 + (e.kind === 'elite' ? 0.05 : 0), 16);
+    drawGlowCircle(e.x, e.y, r * 0.9, p.base, 0.18, 10);
+    drawGlowCircle(e.x, e.y, r * 0.35, p.base, alpha * 0.14, 8);
   }
 
   function drawBossBody(b) {
     const p = bossPalette(b);
     const r = b.r;
     const rot = Math.sin(b.age * 0.8) * 0.08;
-    drawSpriteRect(b.x, b.y, r * 2.4, r * 1.7, p.base, 0.98, 3, false, rot + Math.PI * 0.25);
-    drawSpriteCircle(b.x, b.y, r * 0.92, p.alt, 0.5, 4, false);
-    drawSpriteRect(b.x, b.y - r * 0.78, r * 1.28, r * 0.16, p.glow, 0.5, 5, false);
-    drawSpriteRect(b.x, b.y + r * 0.52, r * 1.05, r * 0.14, p.alt, 0.22, 5, false);
-    drawSpriteCircle(b.x, b.y, r * 0.16, p.alt, 0.9, 6, false);
+    drawGlowCircle(b.x, b.y, r * 2.1, p.glow, 0.18, 24);
+    drawGlowCircle(b.x, b.y, r * 1.1, p.base, 0.18, 12);
+    drawGlowCircle(b.x, b.y, r * 0.4, p.base, 0.24, 8);
   }
 
   function drawEnemyOverlay(e, rot) {
-    const p = enemyPalette(e);
     const r = e.r;
-    const a = e.hitFlash > 0 ? 1 : 0.96;
+    const a = e.hitFlash > 0 ? 1 : 0.98;
+    const size = Math.max(18, Math.round(r * (e.kind === 'elite' ? 2.0 : 1.7)));
     hudCtx.save();
     hudCtx.translate(e.x, e.y);
-    hudCtx.rotate(rot || 0);
+    hudCtx.rotate(rot * 0.15 || 0);
     hudCtx.globalAlpha = a;
-    hudCtx.shadowColor = p.glow;
-    hudCtx.shadowBlur = 10;
-    hudCtx.fillStyle = p.base;
-    hudCtx.strokeStyle = p.alt;
-    hudCtx.lineWidth = 2;
-
-    if (e.kind === 'drifter') {
-      hudCtx.beginPath();
-      hudCtx.ellipse(0, 0, r * 1.0, r * 0.8, 0, 0, TAU);
-      hudCtx.fill();
-      hudCtx.shadowBlur = 0;
-      hudCtx.fillStyle = p.alt;
-      hudCtx.beginPath();
-      hudCtx.ellipse(-r * 0.25, -r * 0.18, r * 0.42, r * 0.3, 0, 0, TAU);
-      hudCtx.fill();
-      hudCtx.fillStyle = p.glow;
-      hudCtx.globalAlpha = 0.3;
-      hudCtx.fillRect(-r * 0.8, r * 0.06, r * 1.5, r * 0.15);
-    } else if (e.kind === 'zigzag') {
-      hudCtx.beginPath();
-      hudCtx.moveTo(0, -r * 1.0);
-      hudCtx.lineTo(r * 0.9, 0);
-      hudCtx.lineTo(0, r * 1.0);
-      hudCtx.lineTo(-r * 0.9, 0);
-      hudCtx.closePath();
-      hudCtx.fill();
-      hudCtx.shadowBlur = 0;
-      hudCtx.fillStyle = p.alt;
-      hudCtx.fillRect(-r * 0.12, -r * 0.9, r * 0.24, r * 1.8);
-    } else if (e.kind === 'swarm') {
-      hudCtx.beginPath();
-      hudCtx.ellipse(0, 0, r * 1.0, r * 0.78, 0, 0, TAU);
-      hudCtx.fill();
-      hudCtx.globalAlpha = 0.25;
-      hudCtx.fillStyle = p.glow;
-      hudCtx.beginPath();
-      hudCtx.ellipse(-r * 0.9, -r * 0.65, r * 0.5, r * 0.32, -0.4, 0, TAU);
-      hudCtx.ellipse(r * 0.9, -r * 0.65, r * 0.5, r * 0.32, 0.4, 0, TAU);
-      hudCtx.fill();
-      hudCtx.globalAlpha = 0.95;
-      hudCtx.fillStyle = p.alt;
-      hudCtx.fillRect(-r * 0.8, -r * 0.18, r * 1.6, r * 0.14);
-      hudCtx.fillRect(-r * 0.8, r * 0.14, r * 1.6, r * 0.12);
-    } else if (e.kind === 'bomber') {
-      hudCtx.beginPath();
-      hudCtx.arc(0, 0, r * 1.02, 0, TAU);
-      hudCtx.fill();
-      hudCtx.globalAlpha = 0.92;
-      hudCtx.fillStyle = p.alt;
-      hudCtx.fillRect(-r * 0.72, -r * 0.12, r * 1.44, r * 0.18);
-      hudCtx.fillStyle = p.glow;
-      hudCtx.globalAlpha = 0.22;
-      hudCtx.fillRect(-r * 0.6, r * 0.36, r * 1.2, r * 0.12);
-    } else if (e.kind === 'sniper') {
-      hudCtx.beginPath();
-      hudCtx.moveTo(0, -r * 1.08);
-      hudCtx.lineTo(r * 0.9, 0);
-      hudCtx.lineTo(0, r * 1.08);
-      hudCtx.lineTo(-r * 0.9, 0);
-      hudCtx.closePath();
-      hudCtx.fill();
-      hudCtx.globalAlpha = 0.92;
-      hudCtx.fillStyle = p.alt;
-      hudCtx.fillRect(-r * 0.12, -r * 0.95, r * 0.24, r * 1.9);
-    } else if (e.kind === 'spinner') {
-      hudCtx.beginPath();
-      hudCtx.arc(0, 0, r * 0.9, 0, TAU);
-      hudCtx.fill();
-      hudCtx.globalAlpha = 0.9;
-      hudCtx.fillStyle = p.alt;
-      for (let i = 0; i < 6; i++) {
-        const a2 = (rot || 0) + i * (TAU / 6);
-        hudCtx.save();
-        hudCtx.rotate(a2);
-        hudCtx.fillRect(r * 0.5, -r * 0.08, r * 0.6, r * 0.16);
-        hudCtx.restore();
-      }
-    } else if (e.kind === 'splitter') {
-      hudCtx.beginPath();
-      hudCtx.arc(0, 0, r * 0.98, 0, TAU);
-      hudCtx.fill();
-      hudCtx.globalAlpha = 0.92;
-      hudCtx.fillStyle = p.alt;
-      hudCtx.fillRect(-r * 0.78, -r * 0.08, r * 1.56, r * 0.12);
-      hudCtx.fillRect(-r * 0.08, -r * 0.78, r * 0.12, r * 1.56);
-    } else if (e.kind === 'diver') {
-      hudCtx.beginPath();
-      hudCtx.moveTo(0, -r * 1.06);
-      hudCtx.quadraticCurveTo(r * 0.92, -r * 0.2, r * 0.46, r * 0.98);
-      hudCtx.quadraticCurveTo(0, r * 0.72, -r * 0.46, r * 0.98);
-      hudCtx.quadraticCurveTo(-r * 0.92, -r * 0.2, 0, -r * 1.06);
-      hudCtx.closePath();
-      hudCtx.fill();
-      hudCtx.globalAlpha = 0.9;
-      hudCtx.fillStyle = p.alt;
-      hudCtx.fillRect(-r * 0.1, r * 0.48, r * 0.2, r * 0.5);
-    } else if (e.kind === 'mine') {
-      hudCtx.beginPath();
-      hudCtx.arc(0, 0, r * 0.84, 0, TAU);
-      hudCtx.fill();
-      hudCtx.globalAlpha = 0.92;
-      hudCtx.fillStyle = p.alt;
-      for (let i = 0; i < 8; i++) {
-        const a2 = i * (TAU / 8);
-        hudCtx.save();
-        hudCtx.rotate(a2);
-        hudCtx.fillRect(r * 0.62, -r * 0.06, r * 0.42, r * 0.12);
-        hudCtx.restore();
-      }
-    } else if (e.kind === 'elite') {
-      hudCtx.beginPath();
-      hudCtx.moveTo(0, -r * 1.12);
-      hudCtx.lineTo(r * 0.82, -r * 0.34);
-      hudCtx.lineTo(r * 0.62, r * 0.92);
-      hudCtx.lineTo(0, r * 1.14);
-      hudCtx.lineTo(-r * 0.62, r * 0.92);
-      hudCtx.lineTo(-r * 0.82, -r * 0.34);
-      hudCtx.closePath();
-      hudCtx.fill();
-      hudCtx.globalAlpha = 0.9;
-      hudCtx.fillStyle = p.alt;
-      hudCtx.fillRect(-r * 0.14, -r * 0.95, r * 0.28, r * 1.9);
-      hudCtx.fillStyle = p.glow;
-      hudCtx.globalAlpha = 0.4;
-      hudCtx.fillRect(-r * 0.45, -r * 1.05, r * 0.9, r * 0.12);
-    } else {
-      hudCtx.beginPath();
-      hudCtx.arc(0, 0, r * 0.95, 0, TAU);
-      hudCtx.fill();
-    }
+    hudCtx.shadowColor = e.theme.glow || '#ffffff';
+    hudCtx.shadowBlur = size * 0.22;
+    hudCtx.font = '900 ' + size + 'px ' + EMOJI_FONT;
+    hudCtx.textAlign = 'center';
+    hudCtx.textBaseline = 'middle';
+    hudCtx.fillStyle = '#fff';
+    hudCtx.fillText(e.emoji || '', 0, 0);
 
     hudCtx.restore();
   }
 
   function drawBossOverlay(b) {
-    const p = bossPalette(b);
-    const r = b.r;
     hudCtx.save();
+    const p = bossPalette(b);
+    const size = Math.max(44, Math.round(b.r * 1.25));
     hudCtx.translate(b.x, b.y);
-    hudCtx.rotate(Math.sin(b.age * 0.8) * 0.08);
+    hudCtx.rotate(Math.sin(b.age * 0.8) * 0.06);
     hudCtx.globalAlpha = 0.98;
     hudCtx.shadowColor = p.glow;
-    hudCtx.shadowBlur = 12;
-    hudCtx.fillStyle = p.base;
-    hudCtx.beginPath();
-    hudCtx.moveTo(0, -r * 1.12);
-    hudCtx.lineTo(r * 0.85, -r * 0.34);
-    hudCtx.lineTo(r * 1.0, 0);
-    hudCtx.lineTo(r * 0.8, r * 0.95);
-    hudCtx.lineTo(0, r * 1.18);
-    hudCtx.lineTo(-r * 0.8, r * 0.95);
-    hudCtx.lineTo(-r * 1.0, 0);
-    hudCtx.lineTo(-r * 0.85, -r * 0.34);
-    hudCtx.closePath();
-    hudCtx.fill();
-    hudCtx.shadowBlur = 0;
-    hudCtx.globalAlpha = 0.9;
-    hudCtx.fillStyle = p.alt;
-    hudCtx.fillRect(-r * 0.16, -r * 0.94, r * 0.32, r * 1.8);
-    hudCtx.fillStyle = p.glow;
-    hudCtx.globalAlpha = 0.42;
-    hudCtx.fillRect(-r * 0.55, -r * 1.04, r * 1.1, r * 0.14);
+    hudCtx.shadowBlur = size * 0.22;
+    hudCtx.font = '900 ' + size + 'px ' + EMOJI_FONT;
+    hudCtx.textAlign = 'center';
+    hudCtx.textBaseline = 'middle';
+    hudCtx.fillStyle = '#fff';
+    hudCtx.fillText(b.emoji || '', 0, 0);
     hudCtx.restore();
   }
 
