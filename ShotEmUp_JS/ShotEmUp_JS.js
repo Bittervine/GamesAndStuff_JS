@@ -525,7 +525,8 @@
     sfx: null,
     music: null,
     noise: null,
-    enabled: false
+    enabled: false,
+    resumePromise: null
   };
 
   function ensureAudio() {
@@ -551,9 +552,20 @@
   function resumeAudio() {
     const ctxAudio = ensureAudio();
     if (!ctxAudio) return;
-    if (ctxAudio.state === 'suspended') ctxAudio.resume().catch(function () {});
-    audio.enabled = true;
-    applyMute();
+    if (ctxAudio.state === 'running') {
+      audio.enabled = true;
+      applyMute();
+      return;
+    }
+    if (audio.resumePromise) return;
+    audio.resumePromise = ctxAudio.resume().then(function () {
+      audio.enabled = ctxAudio.state === 'running';
+      applyMute();
+    }).catch(function () {
+      audio.enabled = false;
+    }).finally(function () {
+      audio.resumePromise = null;
+    });
   }
 
   function applyMute() {
@@ -564,8 +576,8 @@
   }
 
   function tone(opts) {
-    const ctxAudio = ensureAudio();
-    if (!ctxAudio || state.muted) return;
+    const ctxAudio = audio.ctx;
+    if (!audio.enabled || !ctxAudio || ctxAudio.state !== 'running' || state.muted) return;
     const bus = opts && opts.bus === 'music' ? audio.music : audio.sfx;
     const now = ctxAudio.currentTime;
     const osc = ctxAudio.createOscillator();
@@ -585,8 +597,8 @@
   }
 
   function noise(opts) {
-    const ctxAudio = ensureAudio();
-    if (!ctxAudio || state.muted) return;
+    const ctxAudio = audio.ctx;
+    if (!audio.enabled || !ctxAudio || ctxAudio.state !== 'running' || state.muted) return;
     const bus = opts && opts.bus === 'music' ? audio.music : audio.sfx;
     const now = ctxAudio.currentTime;
     const source = ctxAudio.createBufferSource();
@@ -1547,6 +1559,7 @@
     const p = state.player;
     for (let i = state.bullets.length - 1; i >= 0; i--) {
       const b = state.bullets[i];
+      if (!b) continue;
       b.age += dt;
       if (b.homing > 0 && state.boss) {
         const ta = ang(b.x, b.y, state.boss.x, state.boss.y);
@@ -1568,6 +1581,7 @@
       }
       for (let j = state.enemies.length - 1; j >= 0; j--) {
         const e = state.enemies[j];
+        if (e.dead) continue;
         if (d2(b.x, b.y, e.x, e.y) < (b.r + e.r) * (b.r + e.r)) {
           damageEnemy(e, b.damage, false);
           if (b.pierce > 0) { b.pierce--; b.life -= 0.18; } else { state.bullets.splice(i, 1); break; }
@@ -1576,6 +1590,7 @@
     }
     for (let i = state.enemyBullets.length - 1; i >= 0; i--) {
       const b = state.enemyBullets[i];
+      if (!b) continue;
       b.age += dt;
       if (b.homing > 0) {
         const ta = ang(b.x, b.y, p.x, p.y);
@@ -1603,6 +1618,7 @@
     const a = playArea();
     for (let i = state.enemies.length - 1; i >= 0; i--) {
       const e = state.enemies[i];
+      if (e.dead) { state.enemies.splice(i, 1); continue; }
       e.age += dt;
       e.fireCooldown -= dt;
       if (e.hitFlash > 0) e.hitFlash -= dt;
@@ -2319,6 +2335,14 @@
     try { if (canvas.hasPointerCapture && ev.pointerId != null) canvas.releasePointerCapture(ev.pointerId); } catch (e) {}
   }
 
+  function handleCanvasDblClick(ev) {
+    if (ev.button != null && ev.button !== 0) return;
+    if (state.mode !== 'playing' || state.paused) return;
+    ev.preventDefault();
+    resumeAudio();
+    useBomb();
+  }
+
   function onKeyDown(ev) {
     const code = ev.code;
     if (state.settingsOpen || settingsDialog.open) {
@@ -2410,6 +2434,7 @@
   canvas.addEventListener('pointermove', handleCanvasMove);
   canvas.addEventListener('pointerup', handleCanvasUp);
   canvas.addEventListener('pointercancel', handleCanvasUp);
+  canvas.addEventListener('dblclick', handleCanvasDblClick);
   canvas.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
