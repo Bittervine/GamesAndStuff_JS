@@ -394,10 +394,16 @@
   };
 
   const DIFFICULTIES = [
-    { label: 'Easy', lives: 5, enemyHp: 0.82, enemySpeed: 0.88, spawnRate: 0.82, spawnCount: 0.84, bulletSpeed: 0.88, bossHp: 0.84, contact: 0.9 },
-    { label: 'Normal', lives: 3, enemyHp: 1, enemySpeed: 1, spawnRate: 1, spawnCount: 1, bulletSpeed: 1, bossHp: 1, contact: 1 },
+    { label: 'Easy', lives: 5, enemyHp: 0.82, enemySpeed: 0.88, spawnRate: 0.82, spawnCount: 0.5, bulletSpeed: 0.88, bossHp: 0.84, contact: 0.9 },
+    { label: 'Normal', lives: 3, enemyHp: 1, enemySpeed: 1, spawnRate: 1, spawnCount: 0.75, bulletSpeed: 1, bossHp: 1, contact: 1 },
     { label: 'Hard', lives: 2, enemyHp: 1.18, enemySpeed: 1.12, spawnRate: 1.16, spawnCount: 1.18, bulletSpeed: 1.14, bossHp: 1.2, contact: 1.12 }
   ];
+
+  const SHOT_PACE = 1.25;
+
+  function shotDelay(v) {
+    return v * SHOT_PACE;
+  }
 
   const state = {
     mode: 'title',
@@ -900,7 +906,7 @@
     const scale = 1 + state.levelIndex * 0.08;
     const diff = currentDifficulty();
     const speedScale = diff.enemySpeed;
-    const fireScale = 1 / diff.spawnRate;
+    const fireScale = SHOT_PACE / diff.spawnRate;
     const e = {
       kind: kind, theme: t, x: x, y: y,
       vx: (opts && opts.vx != null ? opts.vx : rand(-18, 18)) * speedScale,
@@ -973,7 +979,7 @@
     let d = base - (p.weaponTier - 1) * 0.015;
     if (p.rapidTimer > 0) d *= 0.54;
     if (state.overdrive > 0) d *= 0.76;
-    return clamp(d, 0.05, 0.34);
+    return clamp(d * SHOT_PACE, 0.05, 0.42);
   }
 
   function fireWeapon() {
@@ -1183,7 +1189,7 @@
     aimed: function (b) {
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
-      b.fireClock = b.hp < b.maxHp * 0.5 ? 0.34 : 0.52;
+      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.34 : 0.52);
       const pl = state.player;
       const base = ang(b.x, b.y, pl.x, pl.y);
       const n = b.hp < b.maxHp * 0.5 ? 5 : 3;
@@ -1195,13 +1201,13 @@
     ring: function (b) {
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
-      b.fireClock = b.hp < b.maxHp * 0.5 ? 0.88 : 1.2;
+      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.88 : 1.2);
       ringBullets(b.x, b.y, b.hp < b.maxHp * 0.5 ? 20 : 14, b.hp < b.maxHp * 0.5 ? 210 : 180, 1, b.color, 'enemy');
     },
     fan: function (b) {
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
-      b.fireClock = b.hp < b.maxHp * 0.5 ? 0.28 : 0.4;
+      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.28 : 0.4);
       const pl = state.player;
       const base = ang(b.x, b.y, pl.x, pl.y);
       const n = b.hp < b.maxHp * 0.5 ? 7 : 5;
@@ -1213,7 +1219,7 @@
     rain: function (b) {
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
-      b.fireClock = b.hp < b.maxHp * 0.5 ? 0.24 : 0.4;
+      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.24 : 0.4);
       for (let i = 0; i < (b.hp < b.maxHp * 0.5 ? 3 : 2); i++) {
         spawnBullet('enemy', clamp(b.x + rand(-160, 160), 24, view.w - 24), -20, rand(-22, 22), rand(220, 280), { r: 6, color: b.color, damage: 1, kind: 'rain', ay: 18, life: 5 });
       }
@@ -1221,14 +1227,14 @@
     summon: function (b) {
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
-      b.fireClock = b.hp < b.maxHp * 0.5 ? 1.0 : 1.5;
+      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 1.0 : 1.5);
       spawnEnemy(pick(b.theme.enemyKinds), clamp(b.x + rand(-120, 120), 36, view.w - 36), b.y + rand(-10, 18), { vx: rand(-80, 80), vy: rand(120, 152) });
       if (chance(0.4)) spawnEnemy('swarm', clamp(b.x + rand(-120, 120), 36, view.w - 36), b.y + rand(-10, 18), { vx: rand(-80, 80), vy: rand(128, 160) });
     },
     beam: function (b) {
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
-      b.fireClock = b.hp < b.maxHp * 0.5 ? 1.2 : 1.8;
+      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 1.2 : 1.8);
       for (let i = -4; i <= 4; i++) {
         spawnBullet('enemy', b.x + i * 18, b.y + 18, rand(-18, 18), 240 + i * 8, { r: 8, color: b.color, damage: 1, kind: 'beam', life: 4.4 });
       }
@@ -1236,7 +1242,7 @@
     wall: function (b) {
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
-      b.fireClock = b.hp < b.maxHp * 0.5 ? 0.9 : 1.3;
+      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.9 : 1.3);
       const gap = randi(1, 5);
       const cols = 7;
       for (let i = 0; i < cols; i++) {
@@ -1247,7 +1253,7 @@
     spiral: function (b) {
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
-      b.fireClock = b.hp < b.maxHp * 0.5 ? 0.18 : 0.28;
+      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.18 : 0.28);
       const n = 3;
       const spin = b.age * 1.8;
       for (let i = 0; i < n; i++) {
@@ -1410,12 +1416,12 @@
       } else if (e.kind === 'bomber') {
         e.y += e.vy * dt;
         e.x += Math.sin(e.age * 1.5 + e.wobble) * 24 * dt;
-        if (e.fireCooldown <= 0) { e.fireCooldown = 1.05 - state.levelIndex * 0.03; spawnBullet('enemy', e.x, e.y + 14, rand(-34, 34), rand(180, 240), { r: 7, color: e.theme.accent2, damage: 1, kind: 'drop', ay: 58, life: 4.8 }); }
+        if (e.fireCooldown <= 0) { e.fireCooldown = shotDelay(1.05 - state.levelIndex * 0.03); spawnBullet('enemy', e.x, e.y + 14, rand(-34, 34), rand(180, 240), { r: 7, color: e.theme.accent2, damage: 1, kind: 'drop', ay: 58, life: 4.8 }); }
       } else if (e.kind === 'sniper') {
         e.y += e.vy * dt * 0.5;
         e.x += Math.sin(e.age * 1.2 + e.wobble) * 14 * dt;
         if (e.fireCooldown <= 0 && e.y > 100) {
-          e.fireCooldown = 1.4 - Math.min(0.5, state.levelIndex * 0.03);
+          e.fireCooldown = shotDelay(1.4 - Math.min(0.5, state.levelIndex * 0.03));
           const base = ang(e.x, e.y, p.x, p.y);
           for (let k = -1; k <= 1; k++) {
             const aa = base + k * 0.1;
@@ -1425,7 +1431,7 @@
       } else if (e.kind === 'spinner') {
         e.y += e.vy * dt * 0.7;
         e.x += Math.cos(e.age * 1.1 + e.wobble) * 24 * dt;
-        if (e.fireCooldown <= 0 && e.y > 80) { e.fireCooldown = 1.65 - Math.min(0.6, state.levelIndex * 0.04); ringBullets(e.x, e.y, 8 + Math.floor(state.levelIndex / 2), 150 + state.levelIndex * 8, 1, e.theme.accent2, 'enemy'); }
+        if (e.fireCooldown <= 0 && e.y > 80) { e.fireCooldown = shotDelay(1.65 - Math.min(0.6, state.levelIndex * 0.04)); ringBullets(e.x, e.y, 8 + Math.floor(state.levelIndex / 2), 150 + state.levelIndex * 8, 1, e.theme.accent2, 'enemy'); }
       } else if (e.kind === 'splitter') {
         e.y += e.vy * dt;
         e.x += Math.sin(e.age * 2.2 + e.wobble) * 18 * dt;
@@ -1441,7 +1447,7 @@
       } else if (e.kind === 'elite') {
         e.y += e.vy * dt * 0.85;
         e.x += Math.sin(e.age * 1.8 + e.wobble) * 20 * dt;
-        if (e.fireCooldown <= 0) { e.fireCooldown = 0.8; const base = ang(e.x, e.y, p.x, p.y); ringBullets(e.x, e.y, 8, 160, 1, e.theme.accent2, 'enemy'); spawnBullet('enemy', e.x, e.y, Math.cos(base) * 220, Math.sin(base) * 220, { r: 7, color: e.theme.accent, damage: 1, kind: 'elite', life: 4.8 }); }
+        if (e.fireCooldown <= 0) { e.fireCooldown = shotDelay(0.8); const base = ang(e.x, e.y, p.x, p.y); ringBullets(e.x, e.y, 8, 160, 1, e.theme.accent2, 'enemy'); spawnBullet('enemy', e.x, e.y, Math.cos(base) * 220, Math.sin(base) * 220, { r: 7, color: e.theme.accent, damage: 1, kind: 'elite', life: 4.8 }); }
       }
       if (e.y > view.h + 72 || e.x < -90 || e.x > view.w + 90) { state.enemies.splice(i, 1); continue; }
       if (d2(e.x, e.y, p.x, p.y) < (e.r + p.r) * (e.r + p.r)) {
@@ -1621,6 +1627,23 @@
       hudCtx.fillText(label, x + w * 0.5, y + h * 0.52);
     }
     hudCtx.restore();
+  }
+
+  function enemyPalette(e) {
+    const t = (e && e.theme) || mainTheme();
+    const palette = {
+      drifter: { body: t.accent2 || t.accent || '#ffcf72', shine: t.glow || '#ffffff' },
+      zigzag: { body: t.accent || t.accent2 || '#8fd8ff', shine: t.glow || '#ffffff' },
+      swarm: { body: t.glow || t.accent2 || '#c8ff79', shine: '#ffffff' },
+      bomber: { body: t.accent || '#ffb04f', shine: t.accent2 || '#ffd96a' },
+      sniper: { body: t.accent2 || '#d8d8e8', shine: t.glow || '#ffffff' },
+      spinner: { body: t.glow || '#a0f7ff', shine: t.accent2 || '#ffffff' },
+      splitter: { body: t.accent || t.accent2 || '#ffcf72', shine: t.glow || '#ffffff' },
+      diver: { body: t.accent2 || t.glow || '#8fd8ff', shine: t.accent || '#ffffff' },
+      mine: { body: t.glow || '#cfd8ff', shine: t.accent2 || '#ffffff' },
+      elite: { body: t.accent2 || '#ffffff', shine: '#ffffff' }
+    };
+    return palette[e && e.kind] || { body: t.accent2 || '#ffffff', shine: t.glow || '#ffffff' };
   }
 
   function drawBackground() {
@@ -1821,7 +1844,8 @@
   function drawPlayer() {
     const p = state.player;
     const bob = Math.sin((state.musicStep * 0.45) + p.x * 0.01) * 2;
-    const tilt = clamp(((state.input.right ? 1 : 0) - (state.input.left ? 1 : 0)) * 0.18 + (state.pointerActive ? (state.pointerX - p.x) / 320 : 0), -0.35, 0.35);
+    const tilt = clamp(((state.input.right ? 1 : 0) - (state.input.left ? 1 : 0)) * 0.24 + (state.pointerActive ? (state.pointerX - p.x) / 280 : 0), -0.45, 0.45);
+    const rot = -Math.PI * 0.25 + tilt;
     const glow = state.overdrive > 0 ? '#ffe38c' : '#8fd8ff';
     if (state.overdrive > 0) {
       drawGlowCircle(p.x, p.y + 4, 42, '#ffd45e', 0.17, 36);
@@ -1831,7 +1855,8 @@
       drawGlowCircle(p.x, p.y, p.r + 16 + Math.sin(state.musicStep * 0.6) * 1.5, p.shield > 1 ? '#a8ecff' : '#e5fbff', 0.22, 18);
       if (p.shield > 1) drawGlowCircle(p.x, p.y, p.r + 24 + Math.sin(state.musicStep * 0.4) * 1.2, '#ffffff', 0.12, 16);
     }
-    drawEmojiGlyph(E.plane, p.x, p.y + bob, 36 + (state.overdrive > 0 ? 4 : 0), { rot: tilt, alpha: p.invuln > 0 ? 0.75 : 1, layer: 4, lighter: true });
+    drawEmojiGlyph(E.plane, p.x, p.y + bob, 36 + (state.overdrive > 0 ? 4 : 0), { rot: rot, alpha: p.invuln > 0 ? 0.78 : 1, layer: 4, fill: glow, lighter: false });
+    drawEmojiGlyph(E.plane, p.x - 1, p.y + bob - 1, 32 + (state.overdrive > 0 ? 3 : 0), { rot: rot * 0.96, alpha: 0.18, layer: 5, fill: '#ffffff', lighter: true });
     drawGlowCircle(p.x, p.y + 18 + bob, 5 + p.weaponTier, '#ffd06b', 0.7, 12);
   }
 
@@ -1918,7 +1943,8 @@
     const theme = mainTheme();
     const pulse = 0.5 + Math.sin(state.musicStep * 0.4) * 0.5;
     drawGlowCircle(view.w * 0.5, view.h * 0.23, 90 + pulse * 18, theme.glow, 0.18, 44);
-    drawEmojiGlyph(E.plane, view.w * 0.5, view.h * 0.22, 76, { alpha: 0.18, rot: -0.12, layer: 4, lighter: true });
+    drawEmojiGlyph(E.plane, view.w * 0.5, view.h * 0.22, 76, { alpha: 0.18, rot: -Math.PI * 0.25, layer: 4, fill: theme.glow || '#ffffff', lighter: false });
+    drawEmojiGlyph(E.plane, view.w * 0.5 - 1, view.h * 0.22 - 1, 72, { alpha: 0.1, rot: -Math.PI * 0.25, layer: 5, fill: '#ffffff', lighter: true });
     drawCenterCard('SHOT EM UP', 'Whimsical vertical shooter', [
       'Drag or use the buttons to fly.',
       'Hold FIRE to stream shots.',
