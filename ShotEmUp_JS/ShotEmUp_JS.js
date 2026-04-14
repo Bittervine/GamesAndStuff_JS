@@ -19,6 +19,8 @@
 
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
   let currentDt = 0;
+  const urlParams = new URLSearchParams(window.location.search || '');
+  const DEBUG_MODE = urlParams.get('debug') === '1';
   const render = {
     ready: false,
     queue: [],
@@ -454,7 +456,8 @@
     pointerX: 0,
     pointerY: 0,
     musicClock: 0,
-    musicStep: 0
+    musicStep: 0,
+    debugMode: DEBUG_MODE
   };
 
   const audio = {
@@ -709,6 +712,63 @@
     state.background = items;
   }
 
+  function setupDebugScene() {
+    const theme = THEMES[1] || THEMES[0];
+    state.currentTheme = theme;
+    state.levelIndex = 1;
+    state.mode = 'debug';
+    state.paused = false;
+    state.banner = 'DEBUG SCENE';
+    state.bannerSub = 'Fixed enemies for render comparison.';
+    state.bannerTimer = 0;
+    state.shake = 0;
+    state.flash = 0;
+    state.transition = null;
+    clearArray(state.enemies);
+    clearArray(state.bullets);
+    clearArray(state.enemyBullets);
+    clearArray(state.pickups);
+    clearArray(state.particles);
+    state.boss = null;
+    state.background = [];
+    const spec = [
+      ['drifter', view.w * 0.18, view.h * 0.28],
+      ['zigzag', view.w * 0.36, view.h * 0.22],
+      ['swarm', view.w * 0.56, view.h * 0.30],
+      ['bomber', view.w * 0.76, view.h * 0.24],
+      ['sniper', view.w * 0.24, view.h * 0.50],
+      ['spinner', view.w * 0.48, view.h * 0.50],
+      ['splitter', view.w * 0.70, view.h * 0.52],
+      ['diver', view.w * 0.86, view.h * 0.50],
+      ['mine', view.w * 0.58, view.h * 0.72],
+      ['elite', view.w * 0.82, view.h * 0.72]
+    ];
+    for (let i = 0; i < spec.length; i++) {
+      const item = spec[i];
+      state.enemies.push({
+        kind: item[0],
+        theme: theme,
+        x: item[1],
+        y: item[2],
+        vx: 0,
+        vy: 0,
+        hp: 6,
+        maxHp: 6,
+        r: ENEMIES[item[0]] ? ENEMIES[item[0]].r : 18,
+        score: 0,
+        emoji: pick(theme.icons),
+        fireCooldown: 999,
+        age: 0,
+        wobble: i * 0.73,
+        dir: 1,
+        shotSeed: i * 0.51,
+        elite: item[0] === 'elite',
+        dead: false,
+        hitFlash: 0
+      });
+    }
+  }
+
   function resetPlayer() {
     const a = playArea();
     const p = state.player;
@@ -765,8 +825,13 @@
     state.input.up = false;
     state.input.down = false;
     state.input.fire = false;
-    setBanner('SHOT EM UP', 'Tap or press Space to start.', 3.5);
-    hint('Drag to fly. Hold to fire. Tap SETTINGS for sound, music, and difficulty.', 5);
+    if (state.debugMode) {
+      setupDebugScene();
+    } else {
+      state.mode = 'title';
+      setBanner('SHOT EM UP', 'Tap or press Space to start.', 3.5);
+      hint('Drag to fly. Hold to fire. Tap SETTINGS for sound, music, and difficulty.', 5);
+    }
     syncSettingsUi();
   }
 
@@ -780,6 +845,7 @@
   function startGame() {
     closeSettings();
     resetRun();
+    if (state.debugMode) return;
     state.mode = 'playing';
     beginLevel(0);
     resumeAudio();
@@ -1538,6 +1604,7 @@
   function update(dt) {
     currentDt = dt;
     updateBackground(dt);
+    if (state.mode === 'debug') return;
     if (state.mode === 'title') { updateMusic(dt); updateParticles(dt); return; }
     if (state.mode === 'gameover' || state.mode === 'victory') { updateMusic(dt * 0.35); updateParticles(dt); if (state.player.invuln > 0) state.player.invuln = Math.max(0, state.player.invuln - dt); return; }
     if (state.paused) return;
@@ -1627,23 +1694,6 @@
       hudCtx.fillText(label, x + w * 0.5, y + h * 0.52);
     }
     hudCtx.restore();
-  }
-
-  function enemyPalette(e) {
-    const t = (e && e.theme) || mainTheme();
-    const palette = {
-      drifter: { body: t.accent2 || t.accent || '#ffcf72', shine: t.glow || '#ffffff' },
-      zigzag: { body: t.accent || t.accent2 || '#8fd8ff', shine: t.glow || '#ffffff' },
-      swarm: { body: t.glow || t.accent2 || '#c8ff79', shine: '#ffffff' },
-      bomber: { body: t.accent || '#ffb04f', shine: t.accent2 || '#ffd96a' },
-      sniper: { body: t.accent2 || '#d8d8e8', shine: t.glow || '#ffffff' },
-      spinner: { body: t.glow || '#a0f7ff', shine: t.accent2 || '#ffffff' },
-      splitter: { body: t.accent || t.accent2 || '#ffcf72', shine: t.glow || '#ffffff' },
-      diver: { body: t.accent2 || t.glow || '#8fd8ff', shine: t.accent || '#ffffff' },
-      mine: { body: t.glow || '#cfd8ff', shine: t.accent2 || '#ffffff' },
-      elite: { body: t.accent2 || '#ffffff', shine: '#ffffff' }
-    };
-    return palette[e && e.kind] || { body: t.accent2 || '#ffffff', shine: t.glow || '#ffffff' };
   }
 
   function drawBackground() {
@@ -1814,6 +1864,286 @@
     hudCtx.restore();
   }
 
+  function enemyPalette(e) {
+    const t = (e && e.theme) || mainTheme();
+    const fixed = {
+      drifter: '#4fe8ff',
+      zigzag: '#ff6ed1',
+      swarm: '#d7ff5a',
+      bomber: '#ff9a4d',
+      sniper: '#8d7bff',
+      spinner: '#5effd8',
+      splitter: '#ffd15c',
+      diver: '#ff7070',
+      mine: '#9cff6e',
+      elite: '#ffcf6b'
+    };
+    return {
+      base: fixed[e && e.kind] || t.accent2 || t.accent || '#ffffff',
+      alt: '#15151b',
+      glow: t.glow || t.accent2 || '#ffffff'
+    };
+  }
+
+  function bossPalette(b) {
+    const t = (b && b.theme) || mainTheme();
+    return {
+      base: (b && b.color) || '#ffcf6b',
+      alt: t.accent || '#3c315f',
+      glow: t.glow || t.accent2 || '#ffffff'
+    };
+  }
+
+  function drawEnemyBody(e, rot) {
+    const p = enemyPalette(e);
+    const r = e.r;
+    const alpha = e.hitFlash > 0 ? 1 : 0.96;
+    const layer = 2;
+    if (e.kind === 'drifter') {
+      drawSpriteCircle(e.x, e.y, r * 1.08, p.base, alpha, layer, false);
+      drawSpriteCircle(e.x - r * 0.3, e.y - r * 0.2, r * 0.54, p.glow, 0.28, layer + 1, false);
+      drawSpriteRect(e.x + r * 0.18, e.y + r * 0.15, r * 1.25, r * 0.16, p.alt, 0.36, layer + 1, false, rot);
+      drawSpriteCircle(e.x + r * 0.2, e.y + r * 0.18, r * 0.14, p.alt, 0.88, layer + 2, false);
+    } else if (e.kind === 'zigzag') {
+      drawSpriteRect(e.x, e.y, r * 1.75, r * 1.75, p.base, alpha, layer, false, Math.PI * 0.25 + rot);
+      drawSpriteRect(e.x, e.y - r * 0.1, r * 0.55, r * 1.15, p.alt, 0.34, layer + 1, false, Math.PI * 0.25 + rot * 0.5);
+      drawSpriteCircle(e.x + r * 0.14, e.y - r * 0.08, r * 0.14, p.alt, 0.9, layer + 2, false);
+    } else if (e.kind === 'swarm') {
+      drawSpriteCircle(e.x, e.y, r * 1.05, p.base, alpha, layer, false);
+      drawSpriteCircle(e.x - r * 0.88, e.y - r * 0.7, r * 0.52, p.glow, 0.28, layer - 1, false);
+      drawSpriteCircle(e.x + r * 0.88, e.y - r * 0.7, r * 0.52, p.glow, 0.28, layer - 1, false);
+      drawSpriteRect(e.x, e.y - r * 0.2, r * 1.1, r * 0.14, p.alt, 0.52, layer + 1, false);
+      drawSpriteRect(e.x, e.y + r * 0.15, r * 1.1, r * 0.14, p.alt, 0.35, layer + 1, false);
+      drawSpriteCircle(e.x, e.y, r * 0.12, p.alt, 0.9, layer + 2, false);
+    } else if (e.kind === 'bomber') {
+      drawSpriteCircle(e.x, e.y, r * 1.08, p.base, alpha, layer, false);
+      drawSpriteRect(e.x, e.y - r * 0.12, r * 1.45, r * 0.18, p.alt, 0.44, layer + 1, false);
+      drawSpriteRect(e.x, e.y + r * 0.42, r * 1.1, r * 0.12, p.glow, 0.26, layer + 1, false);
+      drawSpriteCircle(e.x, e.y - r * 0.18, r * 0.16, p.alt, 0.9, layer + 2, false);
+    } else if (e.kind === 'sniper') {
+      drawSpriteRect(e.x, e.y, r * 1.85, r * 1.15, p.base, alpha, layer, false, Math.PI * 0.25 + rot);
+      drawSpriteRect(e.x, e.y, r * 0.68, r * 0.26, p.alt, 0.46, layer + 1, false, Math.PI * 0.25 + rot);
+      drawSpriteCircle(e.x, e.y, r * 0.14, p.alt, 0.9, layer + 2, false);
+    } else if (e.kind === 'spinner') {
+      drawSpriteCircle(e.x, e.y, r * 0.92, p.base, alpha, layer, false);
+      for (let i = 0; i < 6; i++) {
+        const a = rot + i * (TAU / 6);
+        drawSpriteRect(e.x + Math.cos(a) * r * 0.68, e.y + Math.sin(a) * r * 0.68, r * 0.92, r * 0.12, p.alt, 0.42, layer + 1, false, a);
+      }
+      drawSpriteCircle(e.x, e.y, r * 0.12, p.alt, 0.9, layer + 2, false);
+    } else if (e.kind === 'splitter') {
+      drawSpriteCircle(e.x, e.y, r * 1.0, p.base, alpha, layer, false);
+      drawSpriteRect(e.x, e.y, r * 1.45, r * 0.15, p.alt, 0.48, layer + 1, false, rot);
+      drawSpriteRect(e.x, e.y, r * 0.15, r * 1.45, p.glow, 0.24, layer + 1, false, rot);
+      drawSpriteCircle(e.x - r * 0.26, e.y - r * 0.08, r * 0.08, p.alt, 0.9, layer + 2, false);
+      drawSpriteCircle(e.x + r * 0.26, e.y - r * 0.08, r * 0.08, p.alt, 0.9, layer + 2, false);
+    } else if (e.kind === 'diver') {
+      drawSpriteCircle(e.x, e.y - r * 0.12, r * 0.92, p.base, alpha, layer, false);
+      drawSpriteRect(e.x, e.y + r * 0.46, r * 0.95, r * 0.15, p.alt, 0.36, layer + 1, false, rot);
+      drawSpriteRect(e.x, e.y + r * 0.7, r * 0.4, r * 0.28, p.glow, 0.24, layer + 1, false, rot);
+      drawSpriteCircle(e.x, e.y - r * 0.1, r * 0.12, p.alt, 0.9, layer + 2, false);
+    } else if (e.kind === 'mine') {
+      drawSpriteCircle(e.x, e.y, r * 0.86, p.base, alpha, layer, false);
+      for (let i = 0; i < 8; i++) {
+        const a = i * (TAU / 8);
+        drawSpriteRect(e.x + Math.cos(a) * r * 0.72, e.y + Math.sin(a) * r * 0.72, r * 0.4, r * 0.12, p.alt, 0.38, layer + 1, false, a);
+      }
+      drawSpriteCircle(e.x, e.y, r * 0.12, p.alt, 0.9, layer + 2, false);
+    } else if (e.kind === 'elite') {
+      drawSpriteRect(e.x, e.y, r * 2.0, r * 1.36, p.base, alpha, layer, false, Math.PI * 0.25 + rot);
+      drawSpriteRect(e.x, e.y - r * 0.48, r * 1.1, r * 0.16, p.alt, 0.54, layer + 1, false, Math.PI * 0.25 + rot);
+      drawSpriteRect(e.x, e.y - r * 1.0, r * 0.8, r * 0.14, p.glow, 0.7, layer + 2, false);
+      drawSpriteCircle(e.x, e.y, r * 0.16, p.alt, 0.9, layer + 2, false);
+    } else {
+      drawSpriteCircle(e.x, e.y, r * 0.95, p.base, alpha, layer, false);
+      drawSpriteCircle(e.x, e.y, r * 0.16, p.alt, 0.9, layer + 1, false);
+    }
+  }
+
+  function drawBossBody(b) {
+    const p = bossPalette(b);
+    const r = b.r;
+    const rot = Math.sin(b.age * 0.8) * 0.08;
+    drawSpriteRect(b.x, b.y, r * 2.4, r * 1.7, p.base, 0.98, 3, false, rot + Math.PI * 0.25);
+    drawSpriteCircle(b.x, b.y, r * 0.92, p.alt, 0.5, 4, false);
+    drawSpriteRect(b.x, b.y - r * 0.78, r * 1.28, r * 0.16, p.glow, 0.5, 5, false);
+    drawSpriteRect(b.x, b.y + r * 0.52, r * 1.05, r * 0.14, p.alt, 0.22, 5, false);
+    drawSpriteCircle(b.x, b.y, r * 0.16, p.alt, 0.9, 6, false);
+  }
+
+  function drawEnemyOverlay(e, rot) {
+    const p = enemyPalette(e);
+    const r = e.r;
+    const a = e.hitFlash > 0 ? 1 : 0.96;
+    hudCtx.save();
+    hudCtx.translate(e.x, e.y);
+    hudCtx.rotate(rot || 0);
+    hudCtx.globalAlpha = a;
+    hudCtx.shadowColor = p.glow;
+    hudCtx.shadowBlur = 10;
+    hudCtx.fillStyle = p.base;
+    hudCtx.strokeStyle = p.alt;
+    hudCtx.lineWidth = 2;
+
+    if (e.kind === 'drifter') {
+      hudCtx.beginPath();
+      hudCtx.ellipse(0, 0, r * 1.0, r * 0.8, 0, 0, TAU);
+      hudCtx.fill();
+      hudCtx.shadowBlur = 0;
+      hudCtx.fillStyle = p.alt;
+      hudCtx.beginPath();
+      hudCtx.ellipse(-r * 0.25, -r * 0.18, r * 0.42, r * 0.3, 0, 0, TAU);
+      hudCtx.fill();
+      hudCtx.fillStyle = p.glow;
+      hudCtx.globalAlpha = 0.3;
+      hudCtx.fillRect(-r * 0.8, r * 0.06, r * 1.5, r * 0.15);
+    } else if (e.kind === 'zigzag') {
+      hudCtx.beginPath();
+      hudCtx.moveTo(0, -r * 1.0);
+      hudCtx.lineTo(r * 0.9, 0);
+      hudCtx.lineTo(0, r * 1.0);
+      hudCtx.lineTo(-r * 0.9, 0);
+      hudCtx.closePath();
+      hudCtx.fill();
+      hudCtx.shadowBlur = 0;
+      hudCtx.fillStyle = p.alt;
+      hudCtx.fillRect(-r * 0.12, -r * 0.9, r * 0.24, r * 1.8);
+    } else if (e.kind === 'swarm') {
+      hudCtx.beginPath();
+      hudCtx.ellipse(0, 0, r * 1.0, r * 0.78, 0, 0, TAU);
+      hudCtx.fill();
+      hudCtx.globalAlpha = 0.25;
+      hudCtx.fillStyle = p.glow;
+      hudCtx.beginPath();
+      hudCtx.ellipse(-r * 0.9, -r * 0.65, r * 0.5, r * 0.32, -0.4, 0, TAU);
+      hudCtx.ellipse(r * 0.9, -r * 0.65, r * 0.5, r * 0.32, 0.4, 0, TAU);
+      hudCtx.fill();
+      hudCtx.globalAlpha = 0.95;
+      hudCtx.fillStyle = p.alt;
+      hudCtx.fillRect(-r * 0.8, -r * 0.18, r * 1.6, r * 0.14);
+      hudCtx.fillRect(-r * 0.8, r * 0.14, r * 1.6, r * 0.12);
+    } else if (e.kind === 'bomber') {
+      hudCtx.beginPath();
+      hudCtx.arc(0, 0, r * 1.02, 0, TAU);
+      hudCtx.fill();
+      hudCtx.globalAlpha = 0.92;
+      hudCtx.fillStyle = p.alt;
+      hudCtx.fillRect(-r * 0.72, -r * 0.12, r * 1.44, r * 0.18);
+      hudCtx.fillStyle = p.glow;
+      hudCtx.globalAlpha = 0.22;
+      hudCtx.fillRect(-r * 0.6, r * 0.36, r * 1.2, r * 0.12);
+    } else if (e.kind === 'sniper') {
+      hudCtx.beginPath();
+      hudCtx.moveTo(0, -r * 1.08);
+      hudCtx.lineTo(r * 0.9, 0);
+      hudCtx.lineTo(0, r * 1.08);
+      hudCtx.lineTo(-r * 0.9, 0);
+      hudCtx.closePath();
+      hudCtx.fill();
+      hudCtx.globalAlpha = 0.92;
+      hudCtx.fillStyle = p.alt;
+      hudCtx.fillRect(-r * 0.12, -r * 0.95, r * 0.24, r * 1.9);
+    } else if (e.kind === 'spinner') {
+      hudCtx.beginPath();
+      hudCtx.arc(0, 0, r * 0.9, 0, TAU);
+      hudCtx.fill();
+      hudCtx.globalAlpha = 0.9;
+      hudCtx.fillStyle = p.alt;
+      for (let i = 0; i < 6; i++) {
+        const a2 = (rot || 0) + i * (TAU / 6);
+        hudCtx.save();
+        hudCtx.rotate(a2);
+        hudCtx.fillRect(r * 0.5, -r * 0.08, r * 0.6, r * 0.16);
+        hudCtx.restore();
+      }
+    } else if (e.kind === 'splitter') {
+      hudCtx.beginPath();
+      hudCtx.arc(0, 0, r * 0.98, 0, TAU);
+      hudCtx.fill();
+      hudCtx.globalAlpha = 0.92;
+      hudCtx.fillStyle = p.alt;
+      hudCtx.fillRect(-r * 0.78, -r * 0.08, r * 1.56, r * 0.12);
+      hudCtx.fillRect(-r * 0.08, -r * 0.78, r * 0.12, r * 1.56);
+    } else if (e.kind === 'diver') {
+      hudCtx.beginPath();
+      hudCtx.moveTo(0, -r * 1.06);
+      hudCtx.quadraticCurveTo(r * 0.92, -r * 0.2, r * 0.46, r * 0.98);
+      hudCtx.quadraticCurveTo(0, r * 0.72, -r * 0.46, r * 0.98);
+      hudCtx.quadraticCurveTo(-r * 0.92, -r * 0.2, 0, -r * 1.06);
+      hudCtx.closePath();
+      hudCtx.fill();
+      hudCtx.globalAlpha = 0.9;
+      hudCtx.fillStyle = p.alt;
+      hudCtx.fillRect(-r * 0.1, r * 0.48, r * 0.2, r * 0.5);
+    } else if (e.kind === 'mine') {
+      hudCtx.beginPath();
+      hudCtx.arc(0, 0, r * 0.84, 0, TAU);
+      hudCtx.fill();
+      hudCtx.globalAlpha = 0.92;
+      hudCtx.fillStyle = p.alt;
+      for (let i = 0; i < 8; i++) {
+        const a2 = i * (TAU / 8);
+        hudCtx.save();
+        hudCtx.rotate(a2);
+        hudCtx.fillRect(r * 0.62, -r * 0.06, r * 0.42, r * 0.12);
+        hudCtx.restore();
+      }
+    } else if (e.kind === 'elite') {
+      hudCtx.beginPath();
+      hudCtx.moveTo(0, -r * 1.12);
+      hudCtx.lineTo(r * 0.82, -r * 0.34);
+      hudCtx.lineTo(r * 0.62, r * 0.92);
+      hudCtx.lineTo(0, r * 1.14);
+      hudCtx.lineTo(-r * 0.62, r * 0.92);
+      hudCtx.lineTo(-r * 0.82, -r * 0.34);
+      hudCtx.closePath();
+      hudCtx.fill();
+      hudCtx.globalAlpha = 0.9;
+      hudCtx.fillStyle = p.alt;
+      hudCtx.fillRect(-r * 0.14, -r * 0.95, r * 0.28, r * 1.9);
+      hudCtx.fillStyle = p.glow;
+      hudCtx.globalAlpha = 0.4;
+      hudCtx.fillRect(-r * 0.45, -r * 1.05, r * 0.9, r * 0.12);
+    } else {
+      hudCtx.beginPath();
+      hudCtx.arc(0, 0, r * 0.95, 0, TAU);
+      hudCtx.fill();
+    }
+
+    hudCtx.restore();
+  }
+
+  function drawBossOverlay(b) {
+    const p = bossPalette(b);
+    const r = b.r;
+    hudCtx.save();
+    hudCtx.translate(b.x, b.y);
+    hudCtx.rotate(Math.sin(b.age * 0.8) * 0.08);
+    hudCtx.globalAlpha = 0.98;
+    hudCtx.shadowColor = p.glow;
+    hudCtx.shadowBlur = 12;
+    hudCtx.fillStyle = p.base;
+    hudCtx.beginPath();
+    hudCtx.moveTo(0, -r * 1.12);
+    hudCtx.lineTo(r * 0.85, -r * 0.34);
+    hudCtx.lineTo(r * 1.0, 0);
+    hudCtx.lineTo(r * 0.8, r * 0.95);
+    hudCtx.lineTo(0, r * 1.18);
+    hudCtx.lineTo(-r * 0.8, r * 0.95);
+    hudCtx.lineTo(-r * 1.0, 0);
+    hudCtx.lineTo(-r * 0.85, -r * 0.34);
+    hudCtx.closePath();
+    hudCtx.fill();
+    hudCtx.shadowBlur = 0;
+    hudCtx.globalAlpha = 0.9;
+    hudCtx.fillStyle = p.alt;
+    hudCtx.fillRect(-r * 0.16, -r * 0.94, r * 0.32, r * 1.8);
+    hudCtx.fillStyle = p.glow;
+    hudCtx.globalAlpha = 0.42;
+    hudCtx.fillRect(-r * 0.55, -r * 1.04, r * 1.1, r * 0.14);
+    hudCtx.restore();
+  }
+
   function drawEnemy(e) {
     if (!e || e.dead) return;
     const glow = e.theme.glow || e.theme.accent2 || e.theme.accent || '#fff';
@@ -1826,8 +2156,8 @@
         drawGlowCircle(e.x + Math.cos(a) * (e.r + 6), e.y + Math.sin(a) * (e.r + 6), 2.2, e.theme.accent2, 0.55, 8);
       }
     }
-    drawEmojiGlyph(e.emoji, e.x, e.y, size, { alpha: e.hitFlash > 0 ? 1 : 0.96, rot: rot, layer: 2, lighter: true });
-    if (e.kind === 'elite') drawEmojiGlyph(E.crown, e.x, e.y - e.r * 1.12, e.r * 0.92, { alpha: 0.95, layer: 3, lighter: true });
+    drawEnemyBody(e, rot);
+    drawEnemyOverlay(e, rot);
     if (e.maxHp > 1 && e.hp > 0) drawBar(e.x - e.r * 0.9, e.y - e.r - 14, e.r * 1.8, 7, e.hp / e.maxHp, e.theme.accent2, 'rgba(0,0,0,0.35)');
     if (e.hitFlash > 0) drawGlowCircle(e.x, e.y, e.r * 1.35, '#ffffff', 0.22, 18);
   }
@@ -1837,7 +2167,8 @@
     const glow = b.color || '#fff';
     drawGlowCircle(b.x, b.y, b.r * 2.4, glow, 0.24, 28);
     drawGlowCircle(b.x, b.y, b.r * 1.2, '#fff', 0.08, 20);
-    drawEmojiGlyph(b.emoji, b.x, b.y, 108, { alpha: b.hitFlash > 0 ? 1 : 0.98, rot: Math.sin(b.age * 0.8) * 0.08, layer: 3, lighter: true });
+    drawBossBody(b);
+    drawBossOverlay(b);
     if (b.hitFlash > 0) drawGlowCircle(b.x, b.y, b.r * 1.45, '#ffffff', 0.18, 24);
   }
 
@@ -1975,13 +2306,13 @@
     drawBullets();
     for (let i = 0; i < state.enemies.length; i++) drawEnemy(state.enemies[i]);
     if (state.boss) drawBoss(state.boss);
-    drawPlayer();
+    if (state.mode !== 'debug') drawPlayer();
     if (state.mode === 'title') drawTitle();
     if (state.flash > 0) {
       drawSpriteRect(view.w * 0.5, view.h * 0.5, view.w, view.h, '#ffffff', state.flash * 0.3, 999, true);
     }
     flushRender();
-    if (state.mode !== 'title') drawHud();
+    if (state.mode !== 'title' && state.mode !== 'debug') drawHud();
   }
 
   function togglePause(force) {
