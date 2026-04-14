@@ -504,7 +504,10 @@
       shield: 0, bombs: 2,
       weaponMode: 0, weaponTier: 1,
       fireCooldown: 0, rapidTimer: 0, magnetTimer: 0,
-      invuln: 0, fireHeld: false, pointerMode: false
+      invuln: 0, fireHeld: false, pointerMode: false,
+      respawnTimer: 0, respawnDuration: 0,
+      respawnStartX: 0, respawnStartY: 0,
+      respawnTargetX: 0, respawnTargetY: 0
     },
     input: { left: false, right: false, up: false, down: false, fire: false },
     pointerActive: false,
@@ -863,6 +866,12 @@
     p.invuln = 0;
     p.fireHeld = false;
     p.pointerMode = false;
+    p.respawnTimer = 0;
+    p.respawnDuration = 0;
+    p.respawnStartX = p.x;
+    p.respawnStartY = p.y;
+    p.respawnTargetX = p.x;
+    p.respawnTargetY = p.y;
   }
 
   function resetRun() {
@@ -948,6 +957,12 @@
       state.player.health = Math.min(state.player.maxHealth, state.player.health + 1);
       state.player.bombs = Math.min(4, state.player.bombs + 1);
     }
+    state.player.respawnTimer = 0;
+    state.player.respawnDuration = 0;
+    state.player.respawnStartX = state.player.x;
+    state.player.respawnStartY = state.player.y;
+    state.player.respawnTargetX = state.player.x;
+    state.player.respawnTargetY = state.player.y;
     setBanner('STAGE ' + (index + 1), state.currentTheme.name, 2.8);
   }
 
@@ -999,6 +1014,37 @@
   function flashBurst(x, y, color) {
     burst(x, y, color, 18, 180, 6, 'spark');
     spawnParticle(x, y, 0, 0, 0.24, 14, color, 'ring');
+  }
+
+  function shipDeathBurst(x, y) {
+    state.flash = Math.max(state.flash, 0.48);
+    state.shake = Math.max(state.shake, 18);
+    sfx('bomb');
+    burst(x, y, '#fff0b5', 42, 280, 8, 'spark');
+    burst(x, y, '#ffd96a', 18, 240, 6, 'spark');
+    flashBurst(x, y, '#fff9d9');
+    for (let i = state.enemyBullets.length - 1; i >= 0; i--) {
+      const b = state.enemyBullets[i];
+      burst(b.x, b.y, '#ffe39a', 4, 120, 4, 'spark');
+      state.enemyBullets.splice(i, 1);
+    }
+  }
+
+  function beginPlayerRespawn() {
+    const p = state.player;
+    const a = playArea();
+    p.respawnTimer = 1.05;
+    p.respawnDuration = 1.05;
+    p.respawnStartX = view.w * 0.5;
+    p.respawnStartY = view.h + 70;
+    p.respawnTargetX = view.w * 0.5;
+    p.respawnTargetY = a.bottom - 92;
+    p.x = p.respawnStartX;
+    p.y = p.respawnStartY;
+    p.invuln = 3;
+    p.fireCooldown = 0.35;
+    p.fireHeld = false;
+    p.pointerMode = false;
   }
 
   function spawnBullet(team, x, y, vx, vy, opts) {
@@ -1303,6 +1349,7 @@
     if (p.health <= 0) {
       state.lives--;
       if (state.lives <= 0) return gameOver();
+      shipDeathBurst(p.x, p.y);
       p.health = p.maxHealth;
       p.shield = Math.max(0, p.shield - 1);
       p.bombs = Math.max(0, p.bombs - 1);
@@ -1314,8 +1361,7 @@
       state.banner = 'SHIP LOST';
       state.bannerSub = 'Rescue plane incoming.';
       state.bannerTimer = 1.5;
-      p.x = view.w * 0.5;
-      p.y = playArea().bottom - 92;
+      beginPlayerRespawn();
       hint('A life lost. Stay sharp.', 2.5);
     }
   }
@@ -1451,7 +1497,6 @@
   function updatePlayer(dt) {
     const p = state.player;
     p.fireCooldown = Math.max(0, p.fireCooldown - dt);
-    p.invuln = Math.max(0, p.invuln - dt);
     p.rapidTimer = Math.max(0, p.rapidTimer - dt);
     p.magnetTimer = Math.max(0, p.magnetTimer - dt);
     if (state.comboTimer > 0) {
@@ -1460,6 +1505,20 @@
     }
     if (state.overdrive > 0) state.overdrive = Math.max(0, state.overdrive - dt);
     if (state.bannerTimer > 0) state.bannerTimer = Math.max(0, state.bannerTimer - dt);
+
+    if (p.respawnTimer > 0) {
+      p.respawnTimer = Math.max(0, p.respawnTimer - dt);
+      const duration = Math.max(0.001, p.respawnDuration || 1);
+      const t = clamp(1 - p.respawnTimer / duration, 0, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      p.x = smooth(p.x, p.respawnTargetX || (view.w * 0.5), 8.5, dt);
+      p.y = lerp(p.respawnStartY || (view.h + 70), p.respawnTargetY || (playArea().bottom - 92), eased);
+      p.fireHeld = false;
+      p.pointerMode = false;
+      if (p.respawnTimer > 0) return;
+      p.x = p.respawnTargetX || (view.w * 0.5);
+      p.y = p.respawnTargetY || (playArea().bottom - 92);
+    }
 
     const a = playArea();
     if (state.pointerActive) {
@@ -1691,16 +1750,18 @@
     if (!state.boss) {
       state.levelClock += dt;
       state.waveClock += dt;
-      const theme = state.currentTheme;
-      const spawnInterval = clamp(1.18 - state.levelIndex * 0.045, 0.56, 1.18);
-      while (state.waveClock >= spawnInterval) { state.waveClock -= spawnInterval; spawnWave(theme); }
-      if (state.levelClock >= 28 + state.levelIndex * 2.8 && !state.transition) spawnBoss(theme);
     }
     updateBullets(dt);
     updateEnemies(dt);
     updatePickups(dt);
     updateParticles(dt);
     updateTransition(dt);
+    if (!state.boss && !state.transition) {
+      const theme = state.currentTheme;
+      const spawnInterval = clamp(1.18 - state.levelIndex * 0.045, 0.56, 1.18);
+      while (state.waveClock >= spawnInterval) { state.waveClock -= spawnInterval; spawnWave(theme); }
+      if (state.levelClock >= 28 + state.levelIndex * 2.8) spawnBoss(theme);
+    }
     updateMusic(dt);
     if (state.flash > 0) state.flash = Math.max(0, state.flash - dt * 0.85);
     if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 12);
@@ -2042,10 +2103,12 @@
 
   function drawPlayer() {
     const p = state.player;
-    const bob = Math.sin((state.musicStep * 0.45) + p.x * 0.01) * 2;
-    const tilt = clamp(((state.input.right ? 1 : 0) - (state.input.left ? 1 : 0)) * 0.24 + (state.pointerActive ? (state.pointerX - p.x) / 280 : 0), -0.45, 0.45);
+    const respawning = p.respawnTimer > 0;
+    const bob = respawning ? Math.sin(state.musicStep * 0.45) * 0.8 : Math.sin((state.musicStep * 0.45) + p.x * 0.01) * 2;
+    const tilt = respawning ? 0 : clamp(((state.input.right ? 1 : 0) - (state.input.left ? 1 : 0)) * 0.24 + (state.pointerActive ? (state.pointerX - p.x) / 280 : 0), -0.45, 0.45);
     const rot = -Math.PI * 0.25 + tilt;
     const glow = state.overdrive > 0 ? '#ffe38c' : '#8fd8ff';
+    const flashAlpha = p.invuln > 0 ? 0.52 + 0.42 * (0.5 + 0.5 * Math.sin((3 - p.invuln) * 16 + state.musicStep * 0.9)) : 1;
     if (state.overdrive > 0) {
       drawGlowCircle(p.x, p.y + 4, 42, '#ffd45e', 0.17, 36);
       drawGlowCircle(p.x, p.y + 4, 24, '#fff3b0', 0.22, 20);
@@ -2054,8 +2117,8 @@
       drawGlowCircle(p.x, p.y, p.r + 16 + Math.sin(state.musicStep * 0.6) * 1.5, p.shield > 1 ? '#a8ecff' : '#e5fbff', 0.22, 18);
       if (p.shield > 1) drawGlowCircle(p.x, p.y, p.r + 24 + Math.sin(state.musicStep * 0.4) * 1.2, '#ffffff', 0.12, 16);
     }
-    drawEmojiGlyph(E.plane, p.x, p.y + bob, 36 + (state.overdrive > 0 ? 4 : 0), { rot: rot, alpha: p.invuln > 0 ? 0.78 : 1, layer: 4, fill: glow, lighter: false });
-    drawEmojiGlyph(E.plane, p.x - 1, p.y + bob - 1, 32 + (state.overdrive > 0 ? 3 : 0), { rot: rot * 0.96, alpha: 0.18, layer: 5, fill: '#ffffff', lighter: true });
+    drawEmojiGlyph(E.plane, p.x, p.y + bob, 36 + (state.overdrive > 0 ? 4 : 0), { rot: rot, alpha: flashAlpha, layer: 4, fill: glow, lighter: false });
+    drawEmojiGlyph(E.plane, p.x - 1, p.y + bob - 1, 32 + (state.overdrive > 0 ? 3 : 0), { rot: rot * 0.96, alpha: p.invuln > 0 ? flashAlpha * 0.24 : 0.18, layer: 5, fill: '#ffffff', lighter: true });
     drawGlowCircle(p.x, p.y + 18 + bob, 5 + p.weaponTier, '#ffd06b', 0.7, 12);
   }
 
@@ -2066,64 +2129,42 @@
 
     hudCtx.save();
     const compact = view.w < 640;
-    const panelY = 12;
-    if (compact) {
-      const fullW = view.w - 24;
-      drawPanel(12, panelY, fullW, 78, theme.accent2);
-      hudCtx.fillStyle = '#fff';
-      hudCtx.textBaseline = 'middle';
-      hudCtx.textAlign = 'left';
-      hudCtx.font = '900 16px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText('SCORE ' + format(state.score), 28, 34);
-      hudCtx.font = '700 11px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText('STAGE ' + (state.levelIndex + 1) + '/' + THEMES.length + '  ' + theme.name, 28, 58);
-      hudCtx.textAlign = 'right';
-      hudCtx.font = '900 16px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText('LIVES ' + state.lives + '   BOMB ' + p.bombs, view.w - 28, 34);
-      hudCtx.font = '700 11px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText('WEAPON ' + WEAPONS[p.weaponMode].name + ' ' + ['I', 'II', 'III'][p.weaponTier - 1] + '   HIGH ' + format(state.highScore), view.w - 28, 58);
-    } else {
-      const leftW = clamp(view.w * 0.46, 260, 410);
-      const rightW = clamp(view.w * 0.32, 240, 320);
-      drawPanel(12, panelY, leftW, 80, theme.accent2);
-      drawPanel(view.w - rightW - 12, panelY, rightW, 80, theme.accent);
+    const panelW = clamp(view.w - 24, compact ? 260 : 320, compact ? 520 : 640);
+    const panelH = compact ? 54 : 58;
+    const panelX = (view.w - panelW) * 0.5;
+    const panelY = 10;
+    const bossBarY = panelY + panelH + 6;
+    drawPanel(panelX, panelY, panelW, panelH, theme.accent2);
 
-      hudCtx.fillStyle = '#fff';
-      hudCtx.textBaseline = 'middle';
-      hudCtx.textAlign = 'left';
-      hudCtx.font = '900 18px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText('SCORE ' + format(state.score), 28, 36);
-      hudCtx.font = '700 12px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText('STAGE ' + (state.levelIndex + 1) + '/' + THEMES.length + '  ' + theme.name, 28, 60);
-
-      hudCtx.textAlign = 'right';
-      hudCtx.font = '900 18px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText('LIVES ' + state.lives + '   BOMB ' + p.bombs, view.w - 28, 36);
-      hudCtx.font = '700 12px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText('WEAPON ' + WEAPONS[p.weaponMode].name + ' ' + ['I', 'II', 'III'][p.weaponTier - 1] + '   HIGH ' + format(state.highScore), view.w - 28, 60);
-    }
+    hudCtx.fillStyle = '#fff';
+    hudCtx.textBaseline = 'middle';
+    hudCtx.textAlign = 'center';
+    hudCtx.font = compact ? '900 13px "Trebuchet MS", "Segoe UI", sans-serif' : '900 15px "Trebuchet MS", "Segoe UI", sans-serif';
+    hudCtx.fillText('SCORE ' + format(state.score) + '   LIVES ' + state.lives + '   BOMB ' + p.bombs, view.w * 0.5, panelY + 17);
+    hudCtx.font = compact ? '700 9px "Trebuchet MS", "Segoe UI", sans-serif' : '700 10px "Trebuchet MS", "Segoe UI", sans-serif';
+    hudCtx.fillText('STAGE ' + (state.levelIndex + 1) + '/' + THEMES.length + '  ' + theme.name + '   WEAPON ' + WEAPONS[p.weaponMode].name + ' ' + ['I', 'II', 'III'][p.weaponTier - 1] + '   HIGH ' + format(state.highScore), view.w * 0.5, panelY + panelH - 15);
 
     if (state.bannerTimer > 0 && state.mode === 'playing') {
-      const bw = clamp(view.w * 0.5, 280, 520);
+      const bw = clamp(view.w * 0.42, 220, 420);
       const bx = (view.w - bw) * 0.5;
-      const by = state.boss ? 126 : 100;
-      drawPanel(bx, by, bw, 60, theme.accent2);
+      const by = state.boss ? bossBarY + 18 : bossBarY + 8;
+      drawPanel(bx, by, bw, 44, theme.accent2);
       hudCtx.textAlign = 'center';
       hudCtx.fillStyle = '#fff';
-      hudCtx.font = '900 20px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText(state.banner || '', view.w * 0.5, by + 23);
-      hudCtx.font = '700 12px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText(state.bannerSub || '', view.w * 0.5, by + 45);
+      hudCtx.font = '900 16px "Trebuchet MS", "Segoe UI", sans-serif';
+      hudCtx.fillText(state.banner || '', view.w * 0.5, by + 17);
+      hudCtx.font = '700 10px "Trebuchet MS", "Segoe UI", sans-serif';
+      hudCtx.fillText(state.bannerSub || '', view.w * 0.5, by + 32);
     }
 
     if (state.boss) {
-      drawBar(12, 100, view.w - 24, 16, state.boss.hp / state.boss.maxHp, theme.accent2, 'rgba(0,0,0,0.42)', 'BOSS ' + state.boss.name);
+      drawBar(12, bossBarY, view.w - 24, compact ? 12 : 14, state.boss.hp / state.boss.maxHp, theme.accent2, 'rgba(0,0,0,0.42)', 'BOSS ' + state.boss.name);
     }
 
     const powerRatio = state.overdrive > 0 ? state.overdrive / 7 : p.rapidTimer > 0 ? p.rapidTimer / 8 : p.magnetTimer > 0 ? p.magnetTimer / 12 : 0;
     if (powerRatio > 0) {
       const label = state.overdrive > 0 ? 'OVERDRIVE' : p.rapidTimer > 0 ? 'RAPID' : 'MAGNET';
-      drawBar(view.w * 0.18, view.h - view.controlsH - 30, view.w * 0.64, 12, powerRatio, theme.accent2, 'rgba(0,0,0,0.35)', label);
+      drawBar(view.w * 0.18, view.h - view.controlsH - 24, view.w * 0.64, 10, powerRatio, theme.accent2, 'rgba(0,0,0,0.35)', label);
     }
 
     if (state.paused) {
@@ -2145,7 +2186,7 @@
     drawEmojiGlyph(E.plane, view.w * 0.5, view.h * 0.22, 76, { alpha: 0.18, rot: -Math.PI * 0.25, layer: 4, fill: theme.glow || '#ffffff', lighter: false });
     drawEmojiGlyph(E.plane, view.w * 0.5 - 1, view.h * 0.22 - 1, 72, { alpha: 0.1, rot: -Math.PI * 0.25, layer: 5, fill: '#ffffff', lighter: true });
     drawCenterCard('SHOT EM UP', 'Whimsical vertical shooter', [
-      'Drag or use the buttons to fly.',
+      'Drag to fly. Use FIRE, BOMB, PAUSE, or SETTINGS below.',
       'Hold FIRE to stream shots.',
       'BOMB clears the screen.',
       'Tap SETTINGS for sound, music, and difficulty.',
