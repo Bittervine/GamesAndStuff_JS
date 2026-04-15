@@ -61,8 +61,8 @@
       font-size: 1.15em;
       line-height: 1.2;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      overflow-x: auto;
+      overflow-y: hidden;
       text-align: left;
     }
 
@@ -396,10 +396,44 @@
           .replace(/"/g, '&quot;');
       }
 
+      function compactBitSumsForDisplay(text) {
+        return String(text).replace(/bit\(\s*-?\d+\s*\)(?:\s*\+\s*bit\(\s*-?\d+\s*\))+/gi, function (chain) {
+          var nums = [];
+          var re = /bit\(\s*(-?\d+)\s*\)/gi;
+          var m;
+          while ((m = re.exec(chain)) !== null) {
+            nums[nums.length] = m[1];
+          }
+          return '[' + nums.join(', ') + ']';
+        });
+      }
+
       function renderExpression() {
         var left = expression.substring(0, cursorPos);
         var right = expression.substring(cursorPos);
+        var caretEl;
+        var pad;
+        var caretLeft;
+        var caretRight;
+        var viewLeft;
+        var viewRight;
         exprLineEl.innerHTML = escapeHtml(left) + (hideCaret ? '' : '<span id="caret">|</span>') + escapeHtml(right);
+        if (hideCaret) {
+          exprLineEl.scrollLeft = exprLineEl.scrollWidth;
+          return;
+        }
+        caretEl = document.getElementById('caret');
+        if (!caretEl) return;
+        pad = 12;
+        caretLeft = caretEl.offsetLeft;
+        caretRight = caretLeft + caretEl.offsetWidth;
+        viewLeft = exprLineEl.scrollLeft;
+        viewRight = viewLeft + exprLineEl.clientWidth;
+        if (caretLeft - pad < viewLeft) {
+          exprLineEl.scrollLeft = Math.max(0, caretLeft - pad);
+        } else if (caretRight + pad > viewRight) {
+          exprLineEl.scrollLeft = caretRight + pad - exprLineEl.clientWidth;
+        }
       }
 
       function isIntegerNumber(n) {
@@ -448,6 +482,12 @@
 
       function setResultText(text) {
         resultLineEl.innerHTML = text;
+        if (currentFormat === 'BITS' && resultLineEl.scrollWidth > resultLineEl.clientWidth) {
+          var compact = compactBitSumsForDisplay(text);
+          if (compact !== text) {
+            resultLineEl.innerHTML = compact;
+          }
+        }
       }
 
       function isDigitChar(ch) {
@@ -571,9 +611,14 @@
               if (input.charAt(i) === '(' && input.charAt(i + 1) === ')') i += 2;
               continue;
             }
-            if (input.substring(i, i + 5).toLowerCase() === 'log') {
+            if (input.substring(i, i + 5).toLowerCase() === 'log10') {
               tokens[tokens.length] = { type: 'function', name: 'log' };
               i += 5;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'log') {
+              tokens[tokens.length] = { type: 'function', name: 'log' };
+              i += 3;
               continue;
             }
             if (input.substring(i, i + 2).toLowerCase() === 'pi') {
@@ -938,6 +983,7 @@
           key === 'acos(' ||
           key === 'atan(' ||
           key === 'ln(' ||
+          key === 'log(' ||
           key === 'log10(' ||
           key === 'bit(' ||
           key === 'inv()' ||
