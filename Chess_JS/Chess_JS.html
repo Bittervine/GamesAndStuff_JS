@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
     <meta name="theme-color" content="#1f2937">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -22,6 +22,8 @@
         body {
             margin: 0;
             font-family: 'FreeSerif', serif;
+            overflow-x: hidden;
+            -webkit-text-size-adjust: 100%;
         }
 
         #controls {
@@ -40,7 +42,7 @@
     </style>
 </head>
 <body>
-    <canvas id="board" width="512" height="512" style="display:block;margin:8px 0"></canvas>
+    <canvas id="board" width="512" height="512" style="display:block;margin:8px auto;max-width:calc(100vw - 16px);height:auto"></canvas>
 
     <div id="controls">
         <button id="resetBtn">Reset</button>
