@@ -545,6 +545,7 @@
     shake: 0,
     nextLevelTimer: 0,
     waveClock: 0,
+    waveIndex: 0,
     levelClock: 0,
     background: [],
     enemies: [],
@@ -956,6 +957,7 @@
     state.shake = 0;
     state.nextLevelTimer = 0;
     state.waveClock = 0;
+    state.waveIndex = 0;
     state.levelClock = 0;
     state.transition = null;
     clearArray(state.enemies);
@@ -1015,6 +1017,7 @@
     clearArray(state.pickups);
     state.boss = null;
     state.waveClock = 0;
+    state.waveIndex = 0;
     state.levelClock = 0;
     state.transition = null;
     regenBackground(state.currentTheme);
@@ -1174,8 +1177,16 @@
       maxHp: Math.max(1, Math.round((opts && opts.hp != null ? opts.hp : d.hp) * scale * diff.enemyHp)),
       r: d.r, score: Math.round((opts && opts.score != null ? opts.score : d.score) * scale),
       emoji: pick(t.icons), fireCooldown: rand(0.8, 1.8) * fireScale, age: 0, wobble: rand(0, TAU), dir: chance(0.5) ? 1 : -1,
-      shotSeed: rand(0, TAU), elite: !!(opts && opts.elite), dead: false, hitFlash: 0
+      shotSeed: rand(0, TAU), elite: !!(opts && opts.elite), dead: false, hitFlash: 0,
+      entry: opts && opts.entry ? opts.entry : null
     };
+    e.flightAngle = Math.atan2(e.vy || 0, e.vx || 1);
+    if (e.entry) {
+      e.x = e.entry.startX;
+      e.y = e.entry.startY;
+      e.wobble = e.entry.phase;
+      e.flightAngle = Math.atan2(e.entry.targetY - e.entry.startY, e.entry.targetX - e.entry.startX);
+    }
     if (kind === 'elite') { e.hp = Math.round(9 * scale * diff.enemyHp); e.maxHp = e.hp; e.score = Math.round(340 * scale); e.r = 24; }
     state.enemies.push(e);
     sfx('hit');
@@ -1201,35 +1212,91 @@
     hint('Boss fight! Stay low, weave, and burn it down.', 3.6);
   }
 
+  function flightProfileForKind(kind) {
+    switch (kind) {
+      case 'drifter': return { routeShift: 4, swirl: 0.95, bend: 1.0, turns: 0.25, duration: 4.8, settleY: 1.0 };
+      case 'zigzag': return { routeShift: 2, swirl: 0.75, bend: 0.9, turns: 0.15, duration: 4.2, settleY: 0.98 };
+      case 'swarm': return { routeShift: 1, swirl: 1.25, bend: 1.0, turns: 0.55, duration: 4.0, settleY: 1.0 };
+      case 'bomber': return { routeShift: 0, swirl: 0.7, bend: 0.82, turns: -0.05, duration: 5.0, settleY: 0.92 };
+      case 'sniper': return { routeShift: 3, swirl: 0.6, bend: 0.82, turns: 0.05, duration: 5.1, settleY: 1.05 };
+      case 'spinner': return { routeShift: 4, swirl: 1.45, bend: 1.08, turns: 0.95, duration: 5.4, settleY: 0.95 };
+      case 'splitter': return { routeShift: 1, swirl: 1.0, bend: 0.95, turns: 0.2, duration: 4.5, settleY: 1.0 };
+      case 'diver': return { routeShift: 0, swirl: 0.9, bend: 0.92, turns: 0.3, duration: 4.3, settleY: 1.08 };
+      case 'mine': return { routeShift: 4, swirl: 0.55, bend: 0.7, turns: 0.0, duration: 4.6, settleY: 1.08 };
+      case 'elite': return { routeShift: 0, swirl: 1.35, bend: 1.1, turns: 0.55, duration: 5.6, settleY: 0.92 };
+      default: return { routeShift: 2, swirl: 1.0, bend: 1.0, turns: 0.35, duration: 4.5, settleY: 1.0 };
+    }
+  }
+
   function spawnWave(theme) {
     const form = theme.forms[(state.levelIndex + ((state.levelClock / 4) | 0) + ((state.waveClock * 2) | 0)) % theme.forms.length];
     const diff = currentDifficulty();
     const count = clamp(Math.round((2 + Math.floor(state.levelIndex / 2) + randi(0, 2)) * diff.spawnCount), 2, 9);
     const margin = 42, top = -34, mid = (count - 1) * 0.5;
+    const waveId = state.waveIndex++;
+    const entryRoutes = [
+      { name: 'rightToLeft', startX: view.w + 96, startY: -84, targetMinX: 0.12, targetMaxX: 0.34, targetY: 34, controlX: 0.72, controlY: 0.12, bend: 0.26, swirl: 22, turns: 1.35, duration: 1.22 },
+      { name: 'rightToLeftWide', startX: view.w + 112, startY: -96, targetMinX: 0.16, targetMaxX: 0.42, targetY: 44, controlX: 0.82, controlY: 0.20, bend: 0.32, swirl: 28, turns: 1.6, duration: 1.4 },
+      { name: 'leftToRight', startX: -96, startY: -84, targetMinX: 0.66, targetMaxX: 0.88, targetY: 34, controlX: 0.28, controlY: 0.12, bend: 0.26, swirl: 22, turns: 1.35, duration: 1.22 },
+      { name: 'leftToRightWide', startX: -112, startY: -96, targetMinX: 0.58, targetMaxX: 0.84, targetY: 44, controlX: 0.18, controlY: 0.20, bend: 0.32, swirl: 28, turns: 1.6, duration: 1.4 },
+      { name: 'centerCorkscrew', startX: view.w * 0.5, startY: -112, targetMinX: 0.34, targetMaxX: 0.66, targetY: 40, controlX: 0.5, controlY: 0.08, bend: 0.18, swirl: 34, turns: 2.1, duration: 1.55 }
+    ];
+    function buildEntry(index, kind) {
+      const profile = flightProfileForKind(kind);
+      const entryRoute = entryRoutes[(waveId + state.levelIndex + profile.routeShift) % entryRoutes.length];
+      const t = count === 1 ? 0.5 : index / (count - 1);
+      const lane = clamp(t + Math.sin((waveId + index) * 0.45) * 0.045, 0, 1);
+      const startX = entryRoute.startX + (index - mid) * 12;
+      const startY = entryRoute.startY - index * 10;
+      const targetX = lerp(view.w * entryRoute.targetMinX, view.w * entryRoute.targetMaxX, lane);
+      const targetY = entryRoute.targetY * profile.settleY + ((index % 3) - 1) * 5;
+      const dx = targetX - startX;
+      const dy = targetY - startY;
+      const len = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+      const nx = -dy / len;
+      const ny = dx / len;
+      return {
+        startX: startX,
+        startY: startY,
+        targetX: targetX,
+        targetY: targetY,
+        controlX: view.w * entryRoute.controlX,
+        controlY: view.h * entryRoute.controlY,
+        normalX: nx,
+        normalY: ny,
+        bend: entryRoute.bend * view.w * profile.bend,
+        swirl: entryRoute.swirl * profile.swirl,
+        turns: entryRoute.turns + profile.turns + lane * 0.35,
+        duration: (entryRoute.duration + lane * 0.12 + index * 0.01) * profile.duration,
+        phase: rand(0, TAU),
+        settle: 0.86 + (index % 2) * 0.08,
+        kind: kind
+      };
+    }
     let i;
     if (form === 'line') {
-      for (i = 0; i < count; i++) spawnEnemy(pick(theme.enemyKinds), lerp(margin, view.w - margin, count === 1 ? 0.5 : i / (count - 1)), top - i * 8, { vy: rand(80, 110) });
+      for (i = 0; i < count; i++) { const kind = pick(theme.enemyKinds); spawnEnemy(kind, lerp(margin, view.w - margin, count === 1 ? 0.5 : i / (count - 1)), top - i * 8, { vy: rand(80, 110), entry: buildEntry(i, kind) }); }
     } else if (form === 'fan') {
-      for (i = 0; i < count; i++) spawnEnemy(pick(theme.enemyKinds), view.w * 0.5 + (i - mid) * 82, top - i * 10, { vx: (i - mid) * 20, vy: rand(92, 126) });
+      for (i = 0; i < count; i++) { const kind = pick(theme.enemyKinds); spawnEnemy(kind, view.w * 0.5 + (i - mid) * 82, top - i * 10, { vx: (i - mid) * 20, vy: rand(92, 126), entry: buildEntry(i, kind) }); }
     } else if (form === 'rain') {
-      for (i = 0; i < count; i++) spawnEnemy(pick(theme.enemyKinds), rand(margin, view.w - margin), top - i * 14, { vx: rand(-26, 26), vy: rand(94, 132) });
+      for (i = 0; i < count; i++) { const kind = pick(theme.enemyKinds); spawnEnemy(kind, rand(margin, view.w - margin), top - i * 14, { vx: rand(-26, 26), vy: rand(94, 132), entry: buildEntry(i, kind) }); }
     } else if (form === 'pair') {
-      for (i = 0; i < count; i++) { const y = top - i * 12; spawnEnemy(pick(theme.enemyKinds), margin + i * 24, y, { vx: rand(22, 52), vy: rand(92, 118) }); spawnEnemy(pick(theme.enemyKinds), view.w - margin - i * 24, y, { vx: -rand(22, 52), vy: rand(92, 118) }); }
+      for (i = 0; i < count; i++) { const y = top - i * 12; const leftKind = pick(theme.enemyKinds); const rightKind = pick(theme.enemyKinds); spawnEnemy(leftKind, margin + i * 24, y, { vx: rand(22, 52), vy: rand(92, 118), entry: buildEntry(i, leftKind) }); spawnEnemy(rightKind, view.w - margin - i * 24, y, { vx: -rand(22, 52), vy: rand(92, 118), entry: buildEntry(i + count, rightKind) }); }
     } else if (form === 'arc') {
-      for (i = 0; i < count; i++) { const t = count === 1 ? 0.5 : i / (count - 1), a = lerp(Math.PI * 0.2, Math.PI * 0.8, t); spawnEnemy(pick(theme.enemyKinds), view.w * 0.5 + Math.cos(a) * 160, top + Math.sin(a) * 60, { vx: Math.cos(a) * 20, vy: rand(92, 118) }); }
+      for (i = 0; i < count; i++) { const t = count === 1 ? 0.5 : i / (count - 1), a = lerp(Math.PI * 0.2, Math.PI * 0.8, t); const kind = pick(theme.enemyKinds); spawnEnemy(kind, view.w * 0.5 + Math.cos(a) * 160, top + Math.sin(a) * 60, { vx: Math.cos(a) * 20, vy: rand(92, 118), entry: buildEntry(i, kind) }); }
     } else if (form === 'swarm') {
-      for (i = 0; i < count + 1; i++) spawnEnemy(pick(theme.enemyKinds), rand(margin, view.w - margin), top - i * 8, { vx: rand(-56, 56), vy: rand(112, 148) });
+      for (i = 0; i < count + 1; i++) { const kind = pick(theme.enemyKinds); spawnEnemy(kind, rand(margin, view.w - margin), top - i * 8, { vx: rand(-56, 56), vy: rand(112, 148), entry: buildEntry(i, kind) }); }
     } else if (form === 'cross') {
-      for (i = 0; i < count; i++) { const y = top - i * 10; spawnEnemy(pick(theme.enemyKinds), margin + i * 40, y, { vx: rand(25, 48), vy: rand(86, 118) }); spawnEnemy(pick(theme.enemyKinds), view.w * 0.5, y - 20, { vx: rand(-22, 22), vy: rand(78, 108) }); }
+      for (i = 0; i < count; i++) { const y = top - i * 10; const leftKind = pick(theme.enemyKinds); const centerKind = pick(theme.enemyKinds); spawnEnemy(leftKind, margin + i * 40, y, { vx: rand(25, 48), vy: rand(86, 118), entry: buildEntry(i, leftKind) }); spawnEnemy(centerKind, view.w * 0.5, y - 20, { vx: rand(-22, 22), vy: rand(78, 108), entry: buildEntry(i + count, centerKind) }); }
     } else if (form === 'ring') {
       const cx = view.w * 0.5, cy = 16;
-      for (i = 0; i < count; i++) { const a = TAU * i / count - Math.PI * 0.5; spawnEnemy(pick(theme.enemyKinds), cx + Math.cos(a) * 150, cy + Math.sin(a) * 26, { vx: Math.cos(a) * 22, vy: rand(88, 118) }); }
+      for (i = 0; i < count; i++) { const a = TAU * i / count - Math.PI * 0.5; const kind = pick(theme.enemyKinds); spawnEnemy(kind, cx + Math.cos(a) * 150, cy + Math.sin(a) * 26, { vx: Math.cos(a) * 22, vy: rand(88, 118), entry: buildEntry(i, kind) }); }
     } else if (form === 'wave') {
-      for (i = 0; i < count; i++) { const t = count === 1 ? 0.5 : i / (count - 1), x = lerp(margin, view.w - margin, t), y = top + Math.sin((state.levelClock * 1.4) + i) * 28; spawnEnemy(pick(theme.enemyKinds), x, y, { vx: Math.sin(i) * 26, vy: rand(90, 124) }); }
+      for (i = 0; i < count; i++) { const t = count === 1 ? 0.5 : i / (count - 1), x = lerp(margin, view.w - margin, t), y = top + Math.sin((state.levelClock * 1.4) + i) * 28; const kind = pick(theme.enemyKinds); spawnEnemy(kind, x, y, { vx: Math.sin(i) * 26, vy: rand(90, 124), entry: buildEntry(i, kind) }); }
     } else {
-      for (i = 0; i < count; i++) spawnEnemy(pick(theme.enemyKinds), rand(margin, view.w - margin), rand(-80, -20), { vx: rand(-48, 48), vy: rand(84, 128) });
+      for (i = 0; i < count; i++) { const kind = pick(theme.enemyKinds); spawnEnemy(kind, rand(margin, view.w - margin), rand(-80, -20), { vx: rand(-48, 48), vy: rand(84, 128), entry: buildEntry(i, kind) }); }
     }
-    if (state.levelIndex >= 4 && chance(0.18 * diff.spawnCount)) spawnEnemy('elite', rand(margin, view.w - margin), top - 40, { vx: rand(-22, 22), vy: rand(82, 102), elite: true });
+    if (state.levelIndex >= 4 && chance(0.18 * diff.spawnCount)) spawnEnemy('elite', rand(margin, view.w - margin), top - 40, { vx: rand(-22, 22), vy: rand(82, 102), elite: true, entry: buildEntry(count + 1, 'elite') });
   }
 
   function weaponDelay() {
@@ -1689,6 +1756,30 @@
       e.age += dt;
       e.fireCooldown -= dt;
       if (e.hitFlash > 0) e.hitFlash -= dt;
+      if (e.entry) {
+        const en = e.entry;
+        en.age = (en.age || 0) + dt;
+        const t = clamp(en.age / en.duration, 0, 1);
+        const ease = t * t * (3 - 2 * t);
+        const spin = ease * TAU * en.turns * 0.01;
+        const sway = Math.sin(spin + en.phase);
+        const swirl = Math.cos(spin + en.phase * 1.35);
+        const bend = Math.sin(ease * Math.PI) * en.bend;
+        const pull = ease * ease;
+        const curveX = lerp(lerp(en.startX, en.controlX, ease), lerp(en.controlX, en.targetX, ease), ease);
+        const curveY = lerp(lerp(en.startY, en.controlY, ease), lerp(en.controlY, en.targetY, ease), ease);
+        e.x = curveX + en.normalX * bend + sway * en.swirl;
+        e.y = curveY + en.normalY * bend + swirl * (en.swirl * 0.62) + pull * -18;
+        e.wobble += dt * 0.03;
+        e.flightAngle = Math.atan2(en.targetY - e.y, en.targetX - e.x);
+        if (t < 1) continue;
+        e.entry = null;
+        e.x = en.targetX;
+        e.y = en.targetY;
+        e.wobble += en.phase;
+      }
+      const beforeX = e.x;
+      const beforeY = e.y;
       if (e.kind === 'drifter') {
         e.y += e.vy * dt;
         e.x += Math.sin(e.age * 3 + e.wobble) * 18 * dt;
@@ -1735,6 +1826,7 @@
         e.x += Math.sin(e.age * 1.8 + e.wobble) * 20 * dt;
         if (e.fireCooldown <= 0) { e.fireCooldown = shotDelay(0.8); const base = ang(e.x, e.y, p.x, p.y); ringBullets(e.x, e.y, 8, 160, 1, e.theme.accent2, 'enemy'); spawnBullet('enemy', e.x, e.y, Math.cos(base) * 220, Math.sin(base) * 220, { r: 7, color: e.theme.accent, damage: 1, kind: 'elite', life: 4.8 }); }
       }
+      e.flightAngle = Math.atan2(e.y - beforeY, e.x - beforeX);
       if (e.y > view.h + 72 || e.x < -90 || e.x > view.w + 90) { state.enemies.splice(i, 1); continue; }
       if (d2(e.x, e.y, p.x, p.y) < (e.r + p.r) * (e.r + p.r)) {
         damageEnemy(e, 999, false);
@@ -2160,7 +2252,8 @@
     if (!e || e.dead) return;
     const glow = e.theme.glow || e.theme.accent2 || e.theme.accent || '#fff';
     const size = e.kind === 'elite' ? e.r * 2.15 : e.r * 1.85;
-    const rot = Math.sin(e.age * 1.8 + e.wobble) * 0.18 + (e.kind === 'zigzag' ? e.dir * 0.08 : 0);
+    const flight = typeof e.flightAngle === 'number' ? e.flightAngle : Math.atan2(e.vy || 0, e.vx || 1);
+    const rot = flight * 0.22 + Math.sin(e.age * 1.8 + e.wobble) * 0.18 + (e.kind === 'zigzag' ? e.dir * 0.08 : 0);
     drawGlowCircle(e.x, e.y, e.r * (e.kind === 'elite' ? 1.95 : 1.55), glow, 0.22 + (e.kind === 'elite' ? 0.08 : 0), 16);
     if (e.kind === 'spinner') {
       for (let i = 0; i < 5; i++) {
