@@ -2087,8 +2087,9 @@
     if (state.pointerActive) {
       p.pointerMode = true;
       p.fireHeld = true;
+      const pointerLead = (36 + (state.overdrive > 0 ? 4 : 0)) * 0.75;
       p.x = smooth(p.x, clamp(state.pointerX, a.left, a.right), 7.5, dt);
-      p.y = smooth(p.y, clamp(state.pointerY, a.top + 10, a.bottom - 10), 7.5, dt);
+      p.y = smooth(p.y, clamp(state.pointerY - pointerLead, a.top + 10, a.bottom - 10), 7.5, dt);
     } else {
       p.pointerMode = false;
       const ax = (state.input.right ? 1 : 0) - (state.input.left ? 1 : 0);
@@ -3067,7 +3068,7 @@
       g.lineCap = 'round';
       g.lineJoin = 'round';
       const cloudBase = Math.max(39, Math.round((Math.max(52, Math.round(width / 28) + 16)) * 0.75));
-      const cloudCount = Math.max(24, Math.round(cloudBase * 0.6));
+      const cloudCount = Math.max(14, Math.round(cloudBase * 0.36));
       for (let i = 0; i < cloudCount; i++) {
         const x = lerp(-width * 0.08, width * 1.08, rng());
         const y = lerp(height * 0.04, height * 0.96, rng());
