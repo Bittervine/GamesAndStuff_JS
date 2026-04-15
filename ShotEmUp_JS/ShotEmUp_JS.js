@@ -2087,7 +2087,7 @@
     if (state.pointerActive) {
       p.pointerMode = true;
       p.fireHeld = true;
-      const pointerLead = (36 + (state.overdrive > 0 ? 4 : 0)) * 0.75;
+      const pointerLead = (36 + (state.overdrive > 0 ? 4 : 0)) * 1.5;
       p.x = smooth(p.x, clamp(state.pointerX, a.left, a.right), 7.5, dt);
       p.y = smooth(p.y, clamp(state.pointerY - pointerLead, a.top + 10, a.bottom - 10), 7.5, dt);
     } else {
@@ -3688,7 +3688,7 @@
     drawCenterCard('SHOT EM UP', 'Whimsical vertical shooter', [
       'Drag to fly. Doubleclick for BOMB the screen.',
       'Click SETTINGS for sound, music, and difficulty.',
-      'Fruit, bugs, gears, chess pieces, storms, and more.'
+      'Shoot fruit, bugs, gears, storms, etc.'
     ], theme.accent2, 'Click or press Space to begin.');
 
     hudCtx.save();
