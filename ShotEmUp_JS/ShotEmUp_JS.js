@@ -2834,6 +2834,59 @@
     g.stroke();
   }
 
+  function makeTwistedPath(x0, y0, x1, y1, sway, curl, rng, segments, phase, pinch) {
+    const pts = [];
+    const segs = Math.max(3, segments || 6);
+    const ph = phase || 0;
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs;
+      const eased = t * t * (3 - 2 * t);
+      const px = lerp(x0, x1, eased);
+      const py = lerp(y0, y1, eased);
+      const wave = Math.sin(t * TAU * 0.95 + ph) * sway + Math.sin(t * TAU * 2.1 + ph * 0.37) * sway * 0.42;
+      const twist = Math.cos(t * TAU * 0.8 + ph * 1.7) * curl + Math.sin(t * TAU * 3.2 + ph * 0.11) * curl * 0.18;
+      const squeeze = pinch ? Math.sin(t * Math.PI) * pinch : 0;
+      pts.push([
+        px + wave + twist * 0.12 + (rng() - 0.5) * sway * 0.16,
+        py + squeeze + (rng() - 0.5) * sway * 0.08
+      ]);
+    }
+    return pts;
+  }
+
+  function bitmapBrushPath(g, points, width, color, alpha, rng, passes, jitter) {
+    if (!points || points.length < 2) return;
+    const passCount = Math.max(1, passes || 3);
+    const wobble = Math.max(0.15, jitter == null ? width * 0.45 : jitter);
+    for (let pass = 0; pass < passCount; pass++) {
+      g.save();
+      g.strokeStyle = rgbaString(color, alpha * (0.56 + pass * 0.1));
+      g.lineCap = 'round';
+      g.lineJoin = 'round';
+      g.lineWidth = Math.max(0.45, width * (0.72 + rng() * 0.25));
+      g.beginPath();
+      const start = points[0];
+      g.moveTo(
+        start[0] + (rng() - 0.5) * wobble * 0.3,
+        start[1] + (rng() - 0.5) * wobble * 0.3
+      );
+      for (let i = 1; i < points.length; i++) {
+        const prev = points[i - 1];
+        const cur = points[i];
+        const dx = cur[0] - prev[0];
+        const dy = cur[1] - prev[1];
+        const len = Math.hypot(dx, dy) || 1;
+        const nx = -dy / len;
+        const ny = dx / len;
+        const phase = i * 1.31 + pass * 0.87 + rng() * 0.25;
+        const off = Math.sin(phase) * wobble * 0.28 + Math.cos(phase * 1.7) * wobble * 0.12 + (rng() - 0.5) * wobble * 0.22;
+        g.lineTo(cur[0] + nx * off, cur[1] + ny * off);
+      }
+      g.stroke();
+      g.restore();
+    }
+  }
+
   function bitmapFillRadialGlow(g, x, y, innerR, outerR, color, alpha, blendMode) {
     const prev = g.globalCompositeOperation;
     if (blendMode) g.globalCompositeOperation = blendMode;
@@ -2905,49 +2958,120 @@
     const trunkColors = palette.trunk;
     const leafColors = palette.leaf;
     const shadowColors = palette.shadow;
-    const trunkH = scale * (52 + rng() * 34 + (variant % 3) * 8);
-    const trunkW = scale * (7 + rng() * 4 + (variant % 2));
-    const trunkTop = groundY - trunkH;
-    const trunkLeft = x - trunkW * 0.5;
     const trunkAlpha = alpha == null ? 1 : alpha;
-    bitmapFillRect(g, trunkLeft, trunkTop + trunkH * 0.12, trunkW, trunkH * 0.88, trunkColors[0], trunkAlpha * 0.95);
-    bitmapFillRect(g, trunkLeft + trunkW * 0.18, trunkTop, trunkW * 0.44, trunkH, trunkColors[1], trunkAlpha * 0.96);
-    bitmapFillRect(g, trunkLeft + trunkW * 0.52, trunkTop + trunkH * 0.08, trunkW * 0.24, trunkH * 0.86, trunkColors[2], trunkAlpha * 0.86);
-    bitmapFillRect(g, trunkLeft - trunkW * 0.08, groundY - trunkH * 0.06, trunkW * 1.16, trunkH * 0.12, shadowColors[0], trunkAlpha * 0.16);
-    const rootCount = 3 + (variant % 3);
+    const trunkH = scale * (60 + rng() * 40 + (variant % 3) * 10);
+    const trunkW = scale * (4.4 + rng() * 2.8 + (variant % 2) * 0.6);
+    const trunkTop = groundY - trunkH;
+    const phase = variant * 0.71 + rng() * 0.5;
+    const trunkStartX = x + (rng() - 0.5) * scale * 5;
+    const trunkLean = (rng() - 0.5) * scale * 22;
+    const trunkCurl = scale * (10 + rng() * 18);
+    const trunkSway = scale * (7 + rng() * 9);
+    const trunkPath = makeTwistedPath(trunkStartX, groundY + scale * 1.4, trunkStartX + trunkLean, trunkTop + scale * (6 + rng() * 6), trunkSway, trunkCurl, rng, 8, phase, scale * 3.4);
+    const baseShadowR = trunkW * (2.2 + rng() * 0.4);
+    bitmapFillCircle(g, trunkStartX, groundY + scale * 0.3, baseShadowR, shadowColors[0], trunkAlpha * 0.15);
+    bitmapFillCircle(g, trunkStartX + (rng() - 0.5) * trunkW, groundY + scale * 0.2, baseShadowR * 0.72, shadowColors[1], trunkAlpha * 0.1);
+    bitmapBrushPath(g, trunkPath, trunkW * 2.84, trunkColors[2], trunkAlpha * 0.56, rng, 4, trunkW * 0.85);
+    bitmapBrushPath(g, trunkPath, trunkW * 2.0, trunkColors[1], trunkAlpha * 0.84, rng, 3, trunkW * 0.58);
+    bitmapBrushPath(g, trunkPath, trunkW * 1.16, trunkColors[0], trunkAlpha * 0.76, rng, 2, trunkW * 0.34);
+    bitmapBrushPath(g, trunkPath, trunkW * 0.56, shadowColors[1], trunkAlpha * 0.36, rng, 2, trunkW * 0.18);
+
+    const barkCount = 7 + (variant % 4);
+    for (let i = 0; i < barkCount; i++) {
+      const idx = 1 + Math.min(trunkPath.length - 3, Math.floor((i + 0.5) / barkCount * (trunkPath.length - 2)));
+      const prev = trunkPath[idx - 1];
+      const cur = trunkPath[idx];
+      const next = trunkPath[idx + 1];
+      const dx = next[0] - prev[0];
+      const dy = next[1] - prev[1];
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len;
+      const ny = dx / len;
+      const side = i % 2 === 0 ? -1 : 1;
+      const sx = cur[0] + nx * side * trunkW * (0.24 + rng() * 0.24);
+      const sy = cur[1] + ny * side * trunkW * (0.24 + rng() * 0.24);
+      const ex = sx + dx / len * scale * (2 + rng() * 4) + nx * side * trunkW * (0.08 + rng() * 0.12);
+      const ey = sy + dy / len * scale * (2 + rng() * 4) + ny * side * trunkW * (0.08 + rng() * 0.12);
+      bitmapBrushPath(g, [[sx, sy], [ex, ey]], trunkW * 0.24, trunkColors[i % trunkColors.length], trunkAlpha * 0.5, rng, 2, trunkW * 0.08);
+    }
+
+    const rootCount = 4 + (variant % 3);
     for (let i = 0; i < rootCount; i++) {
       const side = i % 2 === 0 ? -1 : 1;
-      const rx = x + side * (trunkW * (0.34 + i * 0.08));
-      const ry = groundY + scale * (6 + i * 1.4);
-      bitmapStrokeLine(g, x + side * trunkW * 0.05, groundY - 1, rx, ry, Math.max(1, scale * 1.5 - i * 0.12), trunkColors[i % trunkColors.length], trunkAlpha * 0.7);
+      const rootLen = scale * (12 + rng() * 16 + i * 1.5);
+      const rootRise = scale * (4 + rng() * 6 + i * 0.8);
+      const rootPath = makeTwistedPath(
+        trunkStartX + side * trunkW * 0.12,
+        groundY - 1 + i * 0.25,
+        trunkStartX + side * (rootLen + trunkW * 0.8),
+        groundY + rootRise,
+        side * scale * (2 + rng() * 4),
+        side * scale * (5 + rng() * 6),
+        rng,
+        4,
+        phase + i * 0.37,
+        0
+      );
+      bitmapBrushPath(g, rootPath, trunkW * 0.9, trunkColors[(i + 1) % trunkColors.length], trunkAlpha * 0.72, rng, 3, trunkW * 0.32);
     }
-    const branchCount = 3 + (variant % 4);
+
+    function drawLeafCluster(cx, cy, spread, rot, power) {
+      const puffCount = 4 + (variant % 3) + (rng() * 3 | 0);
+      const softR = spread * (0.28 + rng() * 0.15);
+      bitmapFillCircle(g, cx, cy + spread * 0.12, softR * 0.92, shadowColors[0], trunkAlpha * power * 0.12);
+      for (let i = 0; i < puffCount; i++) {
+        const a = rot + (TAU / puffCount) * i + (rng() - 0.5) * 0.55;
+        const px = cx + Math.cos(a) * spread * (0.32 + rng() * 0.5) + (rng() - 0.5) * spread * 0.22;
+        const py = cy + Math.sin(a * 1.07) * spread * 0.24 + (rng() - 0.5) * spread * 0.2;
+        const r = Math.max(2, spread * (0.16 + rng() * 0.24));
+        const leaf = leafColors[(i + variant) % leafColors.length];
+        bitmapFillCircle(g, px, py, r, leaf, trunkAlpha * power * (0.76 + rng() * 0.2));
+        bitmapFillCircle(g, px - r * 0.18, py - r * 0.16, r * 0.46, leafColors[(i + 1) % leafColors.length], trunkAlpha * power * 0.18);
+      }
+    }
+
+    const branchCount = 5 + (variant % 4) + (rng() * 2 | 0);
+    const tips = [];
     for (let i = 0; i < branchCount; i++) {
-      const side = (i % 2 === 0 ? -1 : 1) * (0.7 + rng() * 0.6);
-      const by = trunkTop + trunkH * (0.18 + i * 0.12);
-      const bx = x + trunkW * 0.1 * side;
-      const len = scale * (18 + rng() * 18);
-      const bend = scale * (10 + rng() * 12);
-      const ex = bx + side * len;
-      const ey = by - bend;
-      bitmapStrokeLine(g, bx, by, ex, ey, Math.max(1, scale * 1.25 - i * 0.05), trunkColors[(i + 1) % trunkColors.length], trunkAlpha * 0.9);
-      bitmapStrokeLine(g, ex, ey, ex + side * scale * (8 + rng() * 7), ey - scale * (5 + rng() * 5), Math.max(0.8, scale * 0.95), trunkColors[(i + 2) % trunkColors.length], trunkAlpha * 0.78);
+      const anchorIndex = 1 + Math.min(trunkPath.length - 3, Math.floor((i + 1) / (branchCount + 1) * (trunkPath.length - 3)));
+      const anchor = trunkPath[anchorIndex];
+      const side = (i % 2 === 0 ? -1 : 1) * (0.78 + rng() * 0.62);
+      const branchLen = scale * (14 + rng() * 24);
+      const branchRise = scale * (12 + rng() * 22);
+      const branchCurl = scale * (6 + rng() * 10);
+      const branchPath = makeTwistedPath(anchor[0], anchor[1], anchor[0] + side * branchLen, anchor[1] - branchRise, side * branchCurl, side * branchCurl * 0.85, rng, 5, phase + i * 0.73, scale * 1.1);
+      bitmapBrushPath(g, branchPath, trunkW * 1.23, trunkColors[(i + 1) % trunkColors.length], trunkAlpha * 0.72, rng, 3, trunkW * 0.44);
+      bitmapBrushPath(g, branchPath, trunkW * 0.69, shadowColors[(i + 2) % shadowColors.length], trunkAlpha * 0.42, rng, 2, trunkW * 0.24);
+
+      const mid = branchPath[2];
+      if (mid) {
+        const side2 = -side * (0.5 + rng() * 0.4);
+        const subLen = branchLen * (0.42 + rng() * 0.18);
+        const subRise = branchRise * (0.42 + rng() * 0.2);
+        const subPath = makeTwistedPath(mid[0], mid[1], mid[0] + side2 * subLen, mid[1] - subRise, side2 * scale * (2 + rng() * 3), side2 * scale * (4 + rng() * 5), rng, 4, phase + i * 0.29, scale * 0.68);
+        bitmapBrushPath(g, subPath, trunkW * 0.66, trunkColors[(i + 2) % trunkColors.length], trunkAlpha * 0.56, rng, 2, trunkW * 0.2);
+        tips.push({ x: subPath[subPath.length - 1][0], y: subPath[subPath.length - 1][1], spread: scale * (10 + rng() * 10), rot: phase + i * 0.5, power: 0.74 });
+      }
+
+      const tip = branchPath[branchPath.length - 1];
+      tips.push({ x: tip[0], y: tip[1], spread: scale * (12 + rng() * 12), rot: phase + i * 0.5, power: 0.86 });
+
+      const twigPath = makeTwistedPath(tip[0], tip[1], tip[0] + side * scale * (4 + rng() * 8), tip[1] - scale * (6 + rng() * 10), side * scale * (1 + rng() * 2), side * scale * (2 + rng() * 3), rng, 3, phase + i * 0.19, 0);
+      bitmapBrushPath(g, twigPath, trunkW * 0.39, trunkColors[(i + 1) % trunkColors.length], trunkAlpha * 0.46, rng, 2, trunkW * 0.1);
+
+      if (rng() < 0.6) {
+        const vinePath = makeTwistedPath(tip[0], tip[1], tip[0] + side * scale * (2 + rng() * 6), tip[1] + scale * (6 + rng() * 12), side * scale * 1.8, side * scale * 2.4, rng, 3, phase + i * 0.13, 0);
+        bitmapBrushPath(g, vinePath, trunkW * 0.27, leafColors[(i + variant) % leafColors.length], trunkAlpha * 0.3, rng, 2, trunkW * 0.08);
+      }
     }
-    const canopyBaseY = trunkTop - scale * (6 + rng() * 12);
-    const spreadX = scale * (18 + rng() * 14 + (variant % 3) * 4);
-    const spreadY = scale * (12 + rng() * 8 + (variant % 2) * 5);
-    const leafCount = 5 + (variant % 3) + (rng() * 2 | 0);
-    for (let i = 0; i < leafCount; i++) {
-      const a = (TAU / leafCount) * i + rng() * 0.42;
-      const px = x + Math.cos(a) * spreadX + (rng() - 0.5) * scale * 6;
-      const py = canopyBaseY + Math.sin(a * 1.1) * spreadY + (rng() - 0.5) * scale * 5;
-      const r = scale * (11 + rng() * 9);
-      bitmapFillCircle(g, px, py, r, leafColors[i % leafColors.length], trunkAlpha * (0.8 + rng() * 0.18));
-      bitmapFillCircle(g, px - r * 0.22, py - r * 0.18, r * 0.58, leafColors[(i + 1) % leafColors.length], trunkAlpha * 0.22);
+
+    const crownTop = trunkPath[Math.max(1, trunkPath.length - 2)];
+    drawLeafCluster(crownTop[0], crownTop[1] - scale * (4 + rng() * 8), scale * (18 + rng() * 14 + (variant % 3) * 4), phase, 0.9);
+    drawLeafCluster(x + (rng() - 0.5) * scale * 5, trunkTop + scale * (8 + rng() * 8), scale * (12 + rng() * 8), phase + 0.8, 0.58);
+    for (let i = 0; i < tips.length; i++) {
+      const tip = tips[i];
+      drawLeafCluster(tip.x, tip.y, tip.spread, tip.rot, tip.power);
     }
-    bitmapFillCircle(g, x, canopyBaseY + spreadY * 0.1, scale * (8 + rng() * 6), leafColors[0], trunkAlpha * 0.22);
-    bitmapFillCircle(g, x - spreadX * 0.18, canopyBaseY + spreadY * 0.05, scale * (6 + rng() * 4), leafColors[1], trunkAlpha * 0.18);
-    bitmapFillCircle(g, x + spreadX * 0.16, canopyBaseY + spreadY * 0.12, scale * (6 + rng() * 4), leafColors[2], trunkAlpha * 0.18);
   }
 
   function paintOrchardBush(g, x, y, scale, rng, palette, alpha) {
@@ -3025,24 +3149,46 @@
       bitmapFillRadialGlow(g, width * 0.28, height * 0.64, height * 0.06, height * 0.28, '#8dff71', 0.07, 'screen');
       bitmapFillRadialGlow(g, width * 0.73, height * 0.72, height * 0.07, height * 0.3, '#76ff67', 0.055, 'screen');
 
-      const treeRows = 7;
-      const cols = Math.max(4, Math.round(width / 230));
+      const placedTrees = [];
+      function canPlaceOrchardTree(cx, cy, scale) {
+        const footprintW = scale * 96;
+        const footprintH = scale * 138;
+        for (let i = 0; i < placedTrees.length; i++) {
+          const p = placedTrees[i];
+          if (Math.abs(cx - p.x) < (footprintW + p.w) * 0.46 && Math.abs(cy - p.y) < (footprintH + p.h) * 0.46) {
+            return false;
+          }
+        }
+        placedTrees.push({ x: cx, y: cy, w: footprintW, h: footprintH });
+        return true;
+      }
+
+      const treeRows = 24;
       for (let row = 0; row < treeRows; row++) {
         const rowT = row / Math.max(1, treeRows - 1);
-        const baseY = lerp(height * 0.18, height * 0.94, rowT);
+        const baseY = lerp(height * 0.08, height * 0.98, rowT);
+        const cols = row & 1 ? 2 : 3;
+        const left = row & 1 ? width * 0.22 : width * 0.08;
+        const right = row & 1 ? width * 0.78 : width * 0.92;
         for (let col = 0; col < cols; col++) {
           const colT = cols === 1 ? 0.5 : col / (cols - 1);
-          const x = lerp(width * 0.08, width * 0.92, colT) + ((row & 1) ? width * 0.04 : -width * 0.015) + (rng() - 0.5) * width * 0.03;
-          const scale = 0.42 + rowT * 1.12 + rng() * 0.12;
-          paintOrchardTree(g, x, baseY + (rng() - 0.5) * height * 0.02, scale, row * cols + col, rng, palette, 0.98);
+          const x = lerp(left, right, colT) + (rng() - 0.5) * width * 0.01;
+          const scale = 0.22 + rowT * 0.68 + rng() * 0.05;
+          const rowLift = ((row & 1) - 0.5) * height * 0.018 + ((row % 3) - 1) * height * 0.005;
+          const y = baseY + rowLift + (rng() - 0.5) * height * 0.008;
+          if (canPlaceOrchardTree(x, y, scale)) {
+            paintOrchardTree(g, x, y, scale, row * 5 + col, rng, palette, 0.98);
+          }
         }
       }
 
-      for (let i = 0; i < 16; i++) {
-        const x = lerp(width * 0.02, width * 0.98, rng());
-        const y = lerp(height * 0.08, height * 0.28, rng()) + Math.sin(rng() * TAU) * height * 0.01;
-        const scale = 0.24 + rng() * 0.14;
-        paintOrchardTree(g, x, y, scale, i, rng, palette, 0.58);
+      for (let i = 0; i < 10; i++) {
+        const x = lerp(width * 0.04, width * 0.96, rng());
+        const y = lerp(height * 0.06, height * 0.2, rng()) + Math.sin(rng() * TAU) * height * 0.008;
+        const scale = 0.16 + rng() * 0.08;
+        if (canPlaceOrchardTree(x, y, scale)) {
+          paintOrchardTree(g, x, y, scale, i + 90, rng, palette, 0.58);
+        }
       }
 
       for (let i = 0; i < 7; i++) {
@@ -3540,7 +3686,7 @@
     const pulse = 0.5 + Math.sin(state.musicStep * 0.4) * 0.5;
     drawEmojiGlyph(E.plane, view.w * 0.5, view.h * 0.22, 76, { alpha: 0.9, rot: -Math.PI * 0.25, layer: 4, fill: theme.accent2 || '#ffffff', lighter: false });
     drawCenterCard('SHOT EM UP', 'Whimsical vertical shooter', [
-      'Drag to fly. Doubleclick for a BOMB to clear the screen.',
+      'Drag to fly. Doubleclick for BOMB the screen.',
       'Click SETTINGS for sound, music, and difficulty.',
       'Fruit, bugs, gears, chess pieces, storms, and more.'
     ], theme.accent2, 'Click or press Space to begin.');
