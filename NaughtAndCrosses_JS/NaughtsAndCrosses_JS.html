@@ -2,7 +2,7 @@
 <html>
     <head>
         <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
         <link rel="manifest" href="./manifest.webmanifest">
         <link rel="icon" href="./pwa-icon.svg" type="image/svg+xml">
         <title>Naught And Crosses JS</title>
@@ -10,6 +10,8 @@
             body {
                 font-family: serif;
                 margin: 0;
+                overflow-x: hidden;
+                -webkit-text-size-adjust: 100%;
             }
             #controls {
                 font-size: 100%;
@@ -25,7 +27,7 @@
         </style>
     </head>
     <body>
-        <canvas id="board" width="720" height="720" style="display:block;margin:8px 0"></canvas>
+        <canvas id="board" width="720" height="720" style="display:block;margin:8px auto;max-width:calc(100vw - 16px);height:auto"></canvas>
         <div id="controls">
             <button id="resetBtn">Reset</button>
             <label>&nbsp;&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="5" min="1" max="10" style="width:1.6em"></label>
