@@ -3335,7 +3335,7 @@
       const ang = Math.atan2(b.vy, b.vx);
       drawSpriteRect(b.x - Math.cos(ang) * trail * 0.5, b.y - Math.sin(ang) * trail * 0.5, trail, b.kind === 'beam' ? 6 : b.team === 'player' ? 4 : 5, b.color, b.team === 'player' ? 0.72 : 0.65, 2, true, ang);
       drawGlowCircle(b.x, b.y, b.r, b.color, b.team === 'player' ? 0.82 : 0.74, 14);
-      if (b.kind === 'rocket') drawSpriteEmoji(E.rocket, b.x, b.y, 14, { rot: ang, alpha: 0.95, layer: 3, lighter: true });
+      if (b.kind === 'rocket') drawSpriteEmoji(E.rocket, b.x, b.y, 14, { rot: ang + Math.PI * 0.25, alpha: 0.95, layer: 3, lighter: true });
     }
     for (let i = 0; i < state.bullets.length; i++) drawShot(state.bullets[i]);
     for (let i = 0; i < state.enemyBullets.length; i++) drawShot(state.enemyBullets[i]);
