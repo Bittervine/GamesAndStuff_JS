@@ -93,10 +93,21 @@
       font-size: 0.9em;
       line-height: 1.2;
       white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 0.35em;
     }
 
     #formatRow label {
       margin-right: 0.75em;
+    }
+
+    .formatActionBtn {
+      width: auto;
+      margin-left: auto;
+      padding: 0.15em 0.45em;
+      font-size: 0.78em;
+      vertical-align: middle;
     }
 
     #keysWrap {
@@ -114,11 +125,15 @@
 
     #keysTable tr:nth-child(1),
     #keysTable tr:nth-child(2) {
-      height: 10%;
+      height: 7.1429%;
     }
 
-    #keysTable tr:nth-child(n + 3) {
-      height: 20%;
+    #keysTable tr:nth-child(-n + 5) {
+      height: 7.1429%;
+    }
+
+    #keysTable tr:nth-child(n + 6) {
+      height: 14.2857%;
     }
 
     td {
@@ -180,7 +195,7 @@
     }
 
     .halfBtn {
-      font-size: 0.88em;
+      font-size: 0.82em;
       padding-top: 0.02em;
       padding-bottom: 0.02em;
     }
@@ -202,6 +217,8 @@
         <label><input type="radio" name="fmt" value="DEC" checked> DEC</label>
         <label><input type="radio" name="fmt" value="HEX"> HEX</label>
         <label><input type="radio" name="fmt" value="BIN"> BIN</label>
+        <label><input type="radio" name="fmt" value="BITS"> BITS</label>
+        <button class="opBtn formatActionBtn" data-action="dwfl" type="button">DW↔FL</button>
       </div>
 
       <div id="keysWrap">
@@ -217,46 +234,65 @@
           <tr>
             <td><button class="opBtn halfBtn" data-key="0x" type="button">0x</button></td>
             <td><button class="opBtn halfBtn" data-key="0b" type="button">0b</button></td>
-            <td><button class="opBtn halfBtn" data-key="sin(" type="button">sin</button></td>
-            <td><button class="opBtn halfBtn" data-key="cos(" type="button">cos</button></td>
-            <td><button class="opBtn halfBtn" data-key="exp(" type="button">exp</button></td>
-            <td><button class="opBtn halfBtn" data-key="ln(" type="button">ln</button></td>
+            <td><button class="opBtn halfBtn" data-key=" and " type="button">AND</button></td>
+            <td><button class="opBtn halfBtn" data-key=" or " type="button">OR</button></td>
+            <td><button class="opBtn halfBtn" data-key=" not " type="button">NOT</button></td>
+            <td><button class="opBtn halfBtn" data-key=" xor " type="button">XOR</button></td>
+          </tr>
+          <tr>
+            <td><button class="opBtn halfBtn" data-key="sin(" type="button">SIN</button></td>
+            <td><button class="opBtn halfBtn" data-key="cos(" type="button">COS</button></td>
+            <td><button class="opBtn halfBtn" data-key="tan(" type="button">TAN</button></td>
+            <td><button class="opBtn halfBtn" data-key="exp(" type="button">EXP</button></td>
+            <td><button class="opBtn halfBtn" data-key="dB()" type="button">→dB</button></td>
+            <td><button class="opBtn halfBtn" data-key="sqrt(" type="button">&#8730;</button></td>
+          </tr>
+          <tr>
+            <td><button class="opBtn halfBtn" data-key="asin(" type="button">ASIN</button></td>
+            <td><button class="opBtn halfBtn" data-key="acos(" type="button">ACOS</button></td>
+            <td><button class="opBtn halfBtn" data-key="atan(" type="button">ATAN</button></td>
+            <td><button class="opBtn halfBtn" data-key="ln(" type="button">LN</button></td>
+            <td><button class="opBtn halfBtn" data-key="dBinv()" type="button">dB→</button></td>
+            <td><button class="opBtn halfBtn" data-key="^" type="button">^</button></td>
+          </tr>
+          <tr>
+            <td><button class="opBtn halfBtn" data-key="c0" type="button">C<sub>0</sub></button></td>
+            <td><button class="opBtn halfBtn" data-key="pi" type="button">π</button></td>
+            <td><button class="opBtn halfBtn" data-key="bit(" type="button">BIT</button></td>
+            <td><button class="opBtn halfBtn" data-key="log(" type="button">LOG10</button></td>
+            <td><button class="opBtn halfBtn" data-key="inv()" type="button">1/x</button></td>
+            <td><button class="opBtn halfBtn" data-key="e" type="button">E</button></td>
           </tr>
           <tr>
             <td><button class="digitBtn" data-key="7" type="button">7</button></td>
             <td><button class="digitBtn" data-key="8" type="button">8</button></td>
             <td><button class="digitBtn" data-key="9" type="button">9</button></td>
             <td><button class="opBtn" data-key="/" type="button">/</button></td>
-            <td><button class="opBtn" data-key="^" type="button">^</button></td>
-            <td><button class="opBtn" data-key="sqrt(" type="button">&#8730;</button></td>
+            <td><button class="opBtn" data-key="(" type="button">(</button></td>
+            <td><button class="opBtn" data-key=")" type="button">)</button></td>
           </tr>
           <tr>
             <td><button class="digitBtn" data-key="4" type="button">4</button></td>
             <td><button class="digitBtn" data-key="5" type="button">5</button></td>
             <td><button class="digitBtn" data-key="6" type="button">6</button></td>
             <td><button class="opBtn" data-key="*" type="button">*</button></td>
-            <td><button class="opBtn" data-key="(" type="button">(</button></td>
-            <td><button class="opBtn" data-key=")" type="button">)</button></td>
+            <td><button class="opBtn" data-action="left" type="button">&#8592;</button></td>
+            <td><button class="opBtn" data-action="right" type="button">&#8594;</button></td>
           </tr>
           <tr>
             <td><button class="digitBtn" data-key="1" type="button">1</button></td>
             <td><button class="digitBtn" data-key="2" type="button">2</button></td>
             <td><button class="digitBtn" data-key="3" type="button">3</button></td>
             <td><button class="opBtn" data-key="-" type="button">-</button></td>
-            <td><button class="opBtn" data-action="left" type="button">&#8592;</button></td>
-            <td><button class="opBtn" data-action="right" type="button">&#8594;</button></td>
+            <td><button class="actBtn" data-action="back" type="button">&#9003;</button></td>
+            <td><button class="actBtn ansBtn" data-action="ans" type="button">Ans</button></td>
           </tr>
           <tr>
             <td><button class="actBtn" data-action="clear" type="button">C</button></td>
             <td><button class="digitBtn" data-key="0" type="button">0</button></td>
             <td><button data-key="." type="button">.</button></td>
             <td><button class="opBtn" data-key="+" type="button">+</button></td>
-            <td colspan="2">
-              <div class="tailPair">
-                <button class="actBtn" data-action="back" type="button">&#9003;</button>
-                <button class="actBtn" data-action="eval" type="button">=</button>
-              </div>
-            </td>
+            <td colspan="2"><button class="actBtn evalBtn" data-action="eval" type="button">=</button></td>
           </tr>
         </table>
       </div>
@@ -277,6 +313,7 @@
       var currentFormat = 'DEC';
       var lastValue = 0;
       var hasValue = true;
+      var hideCaret = false;
 
       function getViewportWidth() {
         return window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth || 320;
@@ -362,11 +399,21 @@
       function renderExpression() {
         var left = expression.substring(0, cursorPos);
         var right = expression.substring(cursorPos);
-        exprLineEl.innerHTML = escapeHtml(left) + '<span id="caret">|</span>' + escapeHtml(right);
+        exprLineEl.innerHTML = escapeHtml(left) + (hideCaret ? '' : '<span id="caret">|</span>') + escapeHtml(right);
       }
 
       function isIntegerNumber(n) {
         return isFinite(n) && Math.floor(n) === n;
+      }
+
+      function formatBits(value) {
+        var n = value >>> 0;
+        var bits = [];
+        var i;
+        for (i = 31; i >= 0; i--) {
+          if ((n >>> i) & 1) bits[bits.length] = 'bit(' + i + ')';
+        }
+        return bits.length ? bits.join('+') : '0';
       }
 
       function formatResult(value) {
@@ -377,6 +424,9 @@
         }
         if (currentFormat === 'DEC') {
           return String(value);
+        }
+        if (currentFormat === 'BITS') {
+          return isIntegerNumber(value) ? formatBits(value) : String(value);
         }
         if (!isIntegerNumber(value)) {
           return String(value);
@@ -410,16 +460,25 @@
           (ch >= 'a' && ch <= 'f');
       }
 
+      function isScientificPartStart(input, index) {
+        var ch = input.charAt(index);
+        var prev = input.charAt(index - 1);
+        return (ch === 'e' || ch === 'E') && /[0-9.]/.test(prev);
+      }
+
       function precedence(op) {
-        if (op === 'u+' || op === 'u-') return 3;
+        if (op === '~' || op === 'u+' || op === 'u-') return 5;
         if (op === '^') return 4;
-        if (op === '*' || op === '/') return 2;
-        if (op === '+' || op === '-') return 1;
+        if (op === '*' || op === '/') return 3;
+        if (op === '+' || op === '-') return 2;
+        if (op === 'and') return 1;
+        if (op === 'xor') return 0;
+        if (op === 'or') return -1;
         return 0;
       }
 
       function isRightAssociative(op) {
-        return op === '^' || op === 'u+' || op === 'u-';
+        return op === '^' || op === '~' || op === 'u+' || op === 'u-';
       }
 
       function tokenizeExpression(expr) {
@@ -466,6 +525,12 @@
               }
               j++;
             }
+            if (j < input.length && isScientificPartStart(input, j)) {
+              j++;
+              if (input.charAt(j) === '+' || input.charAt(j) === '-') j++;
+              if (j >= input.length || !isDigitChar(input.charAt(j))) throw new Error('Bad number');
+              while (j < input.length && isDigitChar(input.charAt(j))) j++;
+            }
             part = input.substring(i, j);
             if (part === '.') throw new Error('Bad number');
             tokens[tokens.length] = { type: 'number', value: Number(part) };
@@ -474,9 +539,51 @@
           }
 
           if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) {
+            if (input.substring(i, i + 4).toLowerCase() === 'asin') {
+              tokens[tokens.length] = { type: 'function', name: 'asin' };
+              i += 4;
+              continue;
+            }
+            if (input.substring(i, i + 4).toLowerCase() === 'acos') {
+              tokens[tokens.length] = { type: 'function', name: 'acos' };
+              i += 4;
+              continue;
+            }
+            if (input.substring(i, i + 4).toLowerCase() === 'atan') {
+              tokens[tokens.length] = { type: 'function', name: 'atan' };
+              i += 4;
+              continue;
+            }
             if (input.substring(i, i + 4).toLowerCase() === 'sqrt') {
               tokens[tokens.length] = { type: 'function', name: 'sqrt' };
               i += 4;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'bit') {
+              tokens[tokens.length] = { type: 'function', name: 'bit' };
+              i += 3;
+              if (input.charAt(i) === '(' && input.charAt(i + 1) === ')') i += 2;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'inv') {
+              tokens[tokens.length] = { type: 'function', name: 'inv' };
+              i += 3;
+              if (input.charAt(i) === '(' && input.charAt(i + 1) === ')') i += 2;
+              continue;
+            }
+            if (input.substring(i, i + 5).toLowerCase() === 'log') {
+              tokens[tokens.length] = { type: 'function', name: 'log' };
+              i += 5;
+              continue;
+            }
+            if (input.substring(i, i + 2).toLowerCase() === 'pi') {
+              tokens[tokens.length] = { type: 'number', value: Math.PI };
+              i += 2;
+              continue;
+            }
+            if (input.substring(i, i + 2).toLowerCase() === 'c0') {
+              tokens[tokens.length] = { type: 'number', value: 299792458 };
+              i += 2;
               continue;
             }
             if (input.substring(i, i + 3).toLowerCase() === 'sin') {
@@ -492,6 +599,43 @@
             if (input.substring(i, i + 3).toLowerCase() === 'exp') {
               tokens[tokens.length] = { type: 'function', name: 'exp' };
               i += 3;
+              continue;
+            }
+            if (input.substring(i, i + 5).toLowerCase() === 'dbinv') {
+              tokens[tokens.length] = { type: 'function', name: 'dbinv' };
+              i += 5;
+              if (input.charAt(i) === '(' && input.charAt(i + 1) === ')') i += 2;
+              continue;
+            }
+            if (input.substring(i, i + 2).toLowerCase() === 'db') {
+              tokens[tokens.length] = { type: 'function', name: 'db' };
+              i += 2;
+              if (input.charAt(i) === '(' && input.charAt(i + 1) === ')') i += 2;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'tan') {
+              tokens[tokens.length] = { type: 'function', name: 'tan' };
+              i += 3;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'and') {
+              tokens[tokens.length] = { type: 'operator', value: 'and' };
+              i += 3;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'xor') {
+              tokens[tokens.length] = { type: 'operator', value: 'xor' };
+              i += 3;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'not') {
+              tokens[tokens.length] = { type: 'operator', value: '~' };
+              i += 3;
+              continue;
+            }
+            if (input.substring(i, i + 2).toLowerCase() === 'or') {
+              tokens[tokens.length] = { type: 'operator', value: 'or' };
+              i += 2;
               continue;
             }
             if (input.substring(i, i + 2).toLowerCase() === 'ln') {
@@ -634,6 +778,12 @@
               stack[stack.length] = value;
               continue;
             }
+            if (token.name === 'bit') {
+              value = Math.pow(2, a);
+              if (!isFinite(value)) throw new Error('Bad bit');
+              stack[stack.length] = value;
+              continue;
+            }
             if (token.name === 'sin') {
               value = Math.sin(a);
               if (!isFinite(value)) throw new Error('Bad sin');
@@ -652,9 +802,57 @@
               stack[stack.length] = value;
               continue;
             }
+            if (token.name === 'log') {
+              value = Math.log(a) / Math.LN10;
+              if (!isFinite(value)) throw new Error('Bad log');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'inv') {
+              value = 1 / a;
+              if (!isFinite(value)) throw new Error('Bad inv');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'db') {
+              value = 10 * Math.log(a) / Math.LN10;
+              if (!isFinite(value)) throw new Error('Bad db');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'tan') {
+              value = Math.tan(a);
+              if (!isFinite(value)) throw new Error('Bad tan');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'asin') {
+              value = Math.asin(a);
+              if (!isFinite(value)) throw new Error('Bad asin');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'acos') {
+              value = Math.acos(a);
+              if (!isFinite(value)) throw new Error('Bad acos');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'atan') {
+              value = Math.atan(a);
+              if (!isFinite(value)) throw new Error('Bad atan');
+              stack[stack.length] = value;
+              continue;
+            }
             if (token.name === 'ln') {
               value = Math.log(a);
               if (!isFinite(value)) throw new Error('Bad ln');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'dbinv') {
+              value = Math.pow(10, a / 10);
+              if (!isFinite(value)) throw new Error('Bad dbinv');
               stack[stack.length] = value;
               continue;
             }
@@ -662,6 +860,13 @@
           }
 
           if (token.type === 'operator') {
+            if (token.value === '~') {
+              if (stack.length < 1) throw new Error('Bad expression');
+              a = stack.pop();
+              stack[stack.length] = (~(a >>> 0)) >>> 0;
+              continue;
+            }
+
             if (token.value === 'u+' || token.value === 'u-') {
               if (stack.length < 1) throw new Error('Bad expression');
               a = stack.pop();
@@ -678,6 +883,9 @@
             else if (token.value === '*') value = a * b;
             else if (token.value === '/') value = a / b;
             else if (token.value === '^') value = Math.pow(a, b);
+            else if (token.value === 'and') value = ((a >>> 0) & (b >>> 0)) >>> 0;
+            else if (token.value === 'xor') value = ((a >>> 0) ^ (b >>> 0)) >>> 0;
+            else if (token.value === 'or') value = ((a >>> 0) | (b >>> 0)) >>> 0;
             else throw new Error('Bad operator');
 
             if (!isFinite(value)) throw new Error('Bad number');
@@ -702,9 +910,13 @@
           }
           lastValue = value;
           hasValue = true;
+          hideCaret = true;
+          renderExpression();
           setResultText(formatResult(value));
         } catch (err) {
           hasValue = false;
+          hideCaret = false;
+          renderExpression();
           setResultText('Error');
         }
       }
@@ -712,13 +924,60 @@
       function insertToken(token) {
         expression = expression.substring(0, cursorPos) + token + expression.substring(cursorPos);
         cursorPos += token.length;
+        hideCaret = false;
         renderExpression();
+      }
+
+      function isWrappedFunctionKey(key) {
+        return key === 'sin(' ||
+          key === 'cos(' ||
+          key === 'tan(' ||
+          key === 'exp(' ||
+          key === 'sqrt(' ||
+          key === 'asin(' ||
+          key === 'acos(' ||
+          key === 'atan(' ||
+          key === 'ln(' ||
+          key === 'log10(' ||
+          key === 'bit(' ||
+          key === 'inv()' ||
+          key === 'dB()' ||
+          key === 'dBinv()';
+      }
+
+      function applyWrappedFunctionKey(key) {
+        var source;
+        if (expression.length > 0) {
+          source = expression;
+        } else if (hasValue) {
+          source = String(lastValue);
+        } else {
+          source = '';
+        }
+        if (!source.length) {
+          insertToken(key);
+          return;
+        }
+        if (key === 'dB()') {
+          expression = 'dB(' + source + ')';
+        } else if (key === 'dBinv()') {
+          expression = 'dBinv(' + source + ')';
+        } else if (key === 'bit(') {
+          expression = 'bit(' + source + ')';
+        } else if (key === 'inv()') {
+          expression = 'inv(' + source + ')';
+        } else {
+          expression = key + source + ')';
+        }
+        cursorPos = expression.length;
+        evaluateExpression();
       }
 
       function moveCursor(step) {
         cursorPos += step;
         if (cursorPos < 0) cursorPos = 0;
         if (cursorPos > expression.length) cursorPos = expression.length;
+        hideCaret = (cursorPos >= expression.length);
         renderExpression();
       }
 
@@ -726,12 +985,41 @@
         if (cursorPos < 1) return;
         expression = expression.substring(0, cursorPos - 1) + expression.substring(cursorPos);
         cursorPos -= 1;
+        hideCaret = false;
         renderExpression();
+      }
+
+      function reinterpretDwFl(value) {
+        var buffer;
+        var view;
+        if (typeof value !== 'number' || !isFinite(value)) throw new Error('Bad value');
+        buffer = new ArrayBuffer(4);
+        view = new DataView(buffer);
+        if (isIntegerNumber(value) && value >= 0 && value <= 4294967295) {
+          view.setUint32(0, value >>> 0, true);
+          return view.getFloat32(0, true);
+        }
+        view.setFloat32(0, value, true);
+        return view.getUint32(0, true) >>> 0;
+      }
+
+      function applyDwFl() {
+        var value;
+        if (hasValue) {
+          value = lastValue;
+        } else {
+          value = 0;
+        }
+        value = reinterpretDwFl(value);
+        lastValue = value;
+        hasValue = true;
+        setResultText(formatResult(value));
       }
 
       function clearAll() {
         expression = '';
         cursorPos = 0;
+        hideCaret = false;
         renderExpression();
         if (hasValue) {
           setResultText(formatResult(lastValue));
@@ -750,7 +1038,14 @@
         action = target.getAttribute('data-action');
 
         if (key !== null) {
+          if (hideCaret && isWrappedFunctionKey(key)) {
+            applyWrappedFunctionKey(key);
+            return;
+          }
           insertToken(key);
+          if (key === 'dB()' || key === 'dBinv()' || key === 'inv()' || key === 'bit(') {
+            moveCursor(-1);
+          }
           return;
         }
         if (action === 'clear') {
@@ -761,12 +1056,20 @@
           backspace();
           return;
         }
+        if (action === 'dwfl') {
+          applyDwFl();
+          return;
+        }
         if (action === 'left') {
           moveCursor(-1);
           return;
         }
         if (action === 'right') {
           moveCursor(1);
+          return;
+        }
+        if (action === 'ans') {
+          insertToken(String(lastValue));
           return;
         }
         if (action === 'eval') {
@@ -798,6 +1101,13 @@
         keysTableEl.addEventListener('click', onKeyButtonClick, false);
       } else {
         keysTableEl.onclick = onKeyButtonClick;
+      }
+
+      var formatRowEl = document.getElementById('formatRow');
+      if (formatRowEl.addEventListener) {
+        formatRowEl.addEventListener('click', onKeyButtonClick, false);
+      } else {
+        formatRowEl.onclick = onKeyButtonClick;
       }
 
       var i;
