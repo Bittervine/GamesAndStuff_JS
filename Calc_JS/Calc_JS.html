@@ -200,6 +200,23 @@
       padding-bottom: 0.02em;
     }
 
+    @media (max-width: 420px) {
+      #formatRow {
+        font-size: 0.72em;
+        gap: 0.2em;
+        padding: 0.2em 0.3em;
+      }
+
+      #formatRow label {
+        margin-right: 0.35em;
+      }
+
+      .formatActionBtn {
+        padding: 0.08em 0.28em;
+        font-size: 0.68em;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -213,12 +230,11 @@
       </div>
 
       <div id="formatRow">
-        <span>Format:</span>
         <label><input type="radio" name="fmt" value="DEC" checked> DEC</label>
         <label><input type="radio" name="fmt" value="HEX"> HEX</label>
         <label><input type="radio" name="fmt" value="BIN"> BIN</label>
         <label><input type="radio" name="fmt" value="BITS"> BITS</label>
-        <button class="opBtn formatActionBtn" data-action="dwfl" type="button">DW↔FL</button>
+        <button class="opBtn formatActionBtn" data-action="dwfl" type="button">DW/FL</button>
       </div>
 
       <div id="keysWrap">
@@ -330,13 +346,23 @@
         var w;
         var h;
         var unit;
+        var widthLimited;
 
-        if (vw / vh > ratio) {
+        widthLimited = (vw / vh <= ratio);
+        if (!widthLimited) {
           h = vh;
           w = Math.floor(h * ratio);
         } else {
           w = vw;
           h = Math.floor(w / ratio);
+        }
+
+        if (widthLimited) {
+          /* More vertical room: allow up to +100% extra height. */
+          h = Math.min(vh, Math.floor(h * 2));
+        } else {
+          /* Height-limited: allow up to +50% extra width if space exists. */
+          w = Math.min(vw, Math.floor(w * 1.5));
         }
 
         if (w < 260) w = 260;
