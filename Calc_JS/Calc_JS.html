@@ -106,7 +106,7 @@
       width: auto;
       margin-left: auto;
       padding: 0.15em 0.45em;
-      font-size: 0.78em;
+      font-size: inherit;
       vertical-align: middle;
     }
 
@@ -157,6 +157,8 @@
       line-height: 1.05;
       user-select: none;
       -webkit-user-select: none;
+      overflow: hidden;
+      white-space: nowrap;
     }
 
     button:active {
@@ -342,46 +344,22 @@
       function layoutApp() {
         var vw = getViewportWidth();
         var vh = getViewportHeight();
-        var ratio = 0.74; /* width / height */
-        var w;
-        var h;
-        var unit;
-        var widthLimited;
+        var baseUnit;
 
-        widthLimited = (vw / vh <= ratio);
-        if (!widthLimited) {
-          h = vh;
-          w = Math.floor(h * ratio);
-        } else {
-          w = vw;
-          h = Math.floor(w / ratio);
-        }
+        appEl.style.width = vw + 'px';
+        appEl.style.height = vh + 'px';
+        appEl.style.left = '0px';
+        appEl.style.top = '0px';
 
-        if (widthLimited) {
-          /* More vertical room: allow up to +100% extra height. */
-          h = Math.min(vh, Math.floor(h * 2));
-        } else {
-          /* Height-limited: allow up to +50% extra width if space exists. */
-          w = Math.min(vw, Math.floor(w * 1.5));
-        }
-
-        if (w < 260) w = 260;
-        if (h < 360) h = 360;
-        if (w > vw) w = vw;
-        if (h > vh) h = vh;
-
-        appEl.style.width = w + 'px';
-        appEl.style.height = h + 'px';
-        appEl.style.left = Math.floor((vw - w) / 2) + 'px';
-        appEl.style.top = Math.floor((vh - h) / 2) + 'px';
-
-        unit = h / 28;
-        if (unit < 11) unit = 11;
-        if (unit > 26) unit = 26;
-        appEl.style.fontSize = unit + 'px';
+        baseUnit = vh / 28;
+        if (baseUnit < 11) baseUnit = 11;
+        if (baseUnit > 26) baseUnit = 26;
+        appEl.style.fontSize = baseUnit + 'px';
 
         /* Fallback for browsers with weak/no flexbox support. */
-        layoutKeysWrapFallback(h);
+        layoutKeysWrapFallback(vh);
+        fitFormatRowText();
+        fitAllButtonText();
       }
 
       function getStyleValue(el, prop) {
@@ -420,6 +398,91 @@
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;');
+      }
+
+      function getButtonTextFontSize(button) {
+        var style;
+        var size;
+        if (window.getComputedStyle) {
+          style = window.getComputedStyle(button, null);
+          size = parseFloat(style.getPropertyValue('font-size'));
+        } else if (button.currentStyle) {
+          size = parseFloat(button.currentStyle.fontSize);
+        }
+        return isNaN(size) ? 16 : size;
+      }
+
+      function fitButtonText(button) {
+        var maxSize;
+        var minSize;
+        var lo;
+        var hi;
+        var mid;
+        var best;
+        if (!button || button.tagName !== 'BUTTON') return;
+        button.style.fontSize = '';
+        maxSize = getButtonTextFontSize(button);
+        minSize = 1;
+        lo = minSize;
+        hi = maxSize;
+        best = minSize;
+        while (lo <= hi) {
+          mid = Math.floor((lo + hi) / 2);
+          button.style.fontSize = mid + 'px';
+          if (button.scrollWidth <= button.clientWidth && button.scrollHeight <= button.clientHeight) {
+            best = mid;
+            lo = mid + 1;
+          } else {
+            hi = mid - 1;
+          }
+        }
+        button.style.fontSize = best + 'px';
+      }
+
+      function fitAllButtonText() {
+        var buttons = document.getElementsByTagName('button');
+        var i;
+        var button;
+        for (i = 0; i < buttons.length; i++) {
+          button = buttons[i];
+          if (button.parentNode && button.parentNode.id === 'formatRow') continue;
+          fitButtonText(button);
+        }
+      }
+
+      function fitFormatRowText() {
+        var row = document.getElementById('formatRow');
+        var style;
+        var size;
+        var minSize;
+        var lo;
+        var hi;
+        var mid;
+        var best;
+        if (!row) return;
+        if (window.getComputedStyle) {
+          style = window.getComputedStyle(row, null);
+          size = parseFloat(style.getPropertyValue('font-size'));
+        } else if (row.currentStyle) {
+          size = parseFloat(row.currentStyle.fontSize);
+        }
+        if (isNaN(size)) size = 14;
+        row.style.fontSize = '';
+        minSize = 7;
+        lo = minSize;
+        hi = size;
+        best = minSize;
+        while (lo <= hi) {
+          mid = Math.floor((lo + hi) / 2);
+          row.style.fontSize = mid + 'px';
+          if (row.scrollWidth <= row.clientWidth && row.scrollHeight <= row.clientHeight) {
+            best = mid;
+            lo = mid + 1;
+          } else {
+            hi = mid - 1;
+          }
+        }
+        row.style.fontSize = best + 'px';
       }
 
       function compactBitSumsForDisplay(text) {
@@ -1105,6 +1168,7 @@
         var target = ev.target || ev.srcElement;
         var key;
         var action;
+        while (target && target.tagName !== 'BUTTON') target = target.parentNode;
         if (!target || target.tagName !== 'BUTTON') return;
         key = target.getAttribute('data-key');
         action = target.getAttribute('data-action');
