@@ -24,6 +24,7 @@
   const render = {
     ready: false,
     queue: [],
+    seq: 0,
     normal: [],
     additive: [],
     erase: [],
@@ -113,6 +114,27 @@
   function loadNum(key, fallback) { try { const v = Number(localStorage.getItem(key)); return Number.isFinite(v) ? v : fallback; } catch (e) { return fallback; } }
   function saveNum(key, v) { try { localStorage.setItem(key, String(v)); } catch (e) {} }
 
+  function hashString(str) {
+    let h = 2166136261 >>> 0;
+    const s = String(str || '');
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  function makeRng(seed) {
+    let s = seed >>> 0;
+    if (!s) s = 0x6D2B79F5;
+    return function () {
+      s = (s + 0x6D2B79F5) >>> 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
   function makeCanvas(w, h) {
     if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
     const c = document.createElement('canvas');
@@ -142,6 +164,11 @@
   function colorArray(color, alpha) {
     const c = Array.isArray(color) ? color : hexToRgb(color || '#ffffff');
     return [c[0] / 255, c[1] / 255, c[2] / 255, alpha == null ? 1 : alpha];
+  }
+
+  function rgbaString(color, alpha) {
+    const c = Array.isArray(color) ? color : hexToRgb(color || '#ffffff');
+    return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (alpha == null ? 1 : alpha) + ')';
   }
 
   function initRenderer() {
@@ -218,12 +245,28 @@
   function makeCircleTexture() {
     const c = makeCanvas(128, 128);
     const g = c.getContext('2d');
-    const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-    grd.addColorStop(0, 'rgba(255,255,255,1)');
-    grd.addColorStop(0.35, 'rgba(255,255,255,0.96)');
-    grd.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = grd;
-    g.fillRect(0, 0, 128, 128);
+    const img = g.createImageData(128, 128);
+    const data = img.data;
+    const cx = 63.5;
+    const cy = 63.5;
+    const radius = 63.5;
+    for (let y = 0; y < 128; y++) {
+      for (let x = 0; x < 128; x++) {
+        const dx = x - cx;
+        const dy = y - cy;
+        const d = Math.sqrt(dx * dx + dy * dy) / radius;
+        const outer = Math.max(0, 1 - d);
+        const core = Math.pow(outer, 2.25);
+        const halo = Math.pow(Math.max(0, 1 - d * 1.45), 4.2);
+        const v = clamp255((Math.min(1, core * 0.72 + halo * 0.42)) * 255);
+        const i = (y * 128 + x) * 4;
+        data[i] = v;
+        data[i + 1] = v;
+        data[i + 2] = v;
+        data[i + 3] = v;
+      }
+    }
+    g.putImageData(img, 0, 0);
     return c;
   }
 
@@ -267,6 +310,10 @@
   }
 
   function pushSprite(texture, x, y, w, h, rot, color, alpha, layer, additive, erase) {
+    let uv = null;
+    if (arguments.length > 11 && arguments[11]) {
+      uv = arguments[11];
+    }
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(w) || !Number.isFinite(h)) return;
     const item = {
       texture: texture,
@@ -276,10 +323,17 @@
       h: h * view.dpr,
       rot: rot || 0,
       color: colorArray(color, alpha),
-      layer: layer || 0
+      layer: layer || 0,
+      order: render.seq++,
+      blend: erase ? 'erase' : (additive ? 'additive' : 'normal'),
+      uv: uv ? {
+        u0: Number.isFinite(uv.u0) ? uv.u0 : 0,
+        v0: Number.isFinite(uv.v0) ? uv.v0 : 0,
+        u1: Number.isFinite(uv.u1) ? uv.u1 : 1,
+        v1: Number.isFinite(uv.v1) ? uv.v1 : 1
+      } : null
     };
-    if (erase) render.erase.push(item);
-    else (additive ? render.additive : render.normal).push(item);
+    render.queue.push(item);
   }
 
   function drawSpriteRect(x, y, w, h, color, alpha, layer, additive, rot) {
@@ -288,6 +342,35 @@
 
   function drawSpriteCircle(x, y, r, color, alpha, layer, additive) {
     pushSprite(render.circle, x, y, r * 2, r * 2, 0, color, alpha, layer, additive);
+  }
+
+  function drawTextureRect(texture, x, y, w, h, opts) {
+    const o = opts || {};
+    pushSprite(texture, x, y, w, h, o.rot || 0, o.fill || '#ffffff', o.alpha == null ? 1 : o.alpha, o.layer || 0, !!o.lighter, !!o.erase, {
+      u0: o.u0 == null ? 0 : o.u0,
+      v0: o.v0 == null ? 0 : o.v0,
+      u1: o.u1 == null ? 1 : o.u1,
+      v1: o.v1 == null ? 1 : o.v1
+    });
+  }
+
+  function drawTextureSlice(texture, x, y, w, h, srcY, srcH, texH, opts) {
+    const totalH = Math.max(1, texH || h || 1);
+    const top = clamp(srcY / totalH, 0, 1);
+    const bottom = clamp((srcY + srcH) / totalH, 0, 1);
+    const o = opts || {};
+    drawTextureRect(texture, x, y, w, h, {
+      rot: o.rot || 0,
+      fill: o.fill || '#ffffff',
+      alpha: o.alpha == null ? 1 : o.alpha,
+      layer: o.layer || 0,
+      lighter: o.lighter,
+      erase: o.erase,
+      u0: 0,
+      v0: top,
+      u1: 1,
+      v1: bottom
+    });
   }
 
   function drawSpriteEmoji(text, x, y, size, opts) {
@@ -334,7 +417,7 @@
     const cx = dim * 0.5;
     const cy = dim * 0.5;
     const base = s * 0.42;
-    const lineW = Math.max(1.5, s * 0.14);
+    const lineW = Math.max(0.9, s * 0.08);
     const stroke = function (pts, width, alpha) {
       g.save();
       g.globalAlpha = alpha;
@@ -350,21 +433,21 @@
     };
     g.clearRect(0, 0, dim, dim);
     if (v === 0) {
-      stroke([[-base * 0.15, -base * 1.1], [base * 0.08, -base * 0.52], [-base * 0.08, -base * 0.05], [base * 0.12, base * 0.6]], lineW * 1.1, 1);
-      stroke([[base * 0.02, -base * 0.22], [base * 0.52, -base * 0.65], [base * 0.2, base * 0.02], [base * 0.6, base * 0.5]], lineW * 0.7, 0.86);
-      stroke([[-base * 0.06, base * 0.02], [-base * 0.42, base * 0.28], [-base * 0.2, base * 0.7]], lineW * 0.55, 0.75);
+      stroke([[-base * 0.15, -base * 1.1], [base * 0.08, -base * 0.52], [-base * 0.08, -base * 0.05], [base * 0.12, base * 0.6]], lineW * 0.8, 1);
+      stroke([[base * 0.02, -base * 0.22], [base * 0.52, -base * 0.65], [base * 0.2, base * 0.02], [base * 0.6, base * 0.5]], lineW * 0.55, 0.86);
+      stroke([[-base * 0.06, base * 0.02], [-base * 0.42, base * 0.28], [-base * 0.2, base * 0.7]], lineW * 0.42, 0.75);
     } else if (v === 1) {
-      stroke([[-base * 0.5, -base * 0.7], [-base * 0.12, -base * 0.15], [-base * 0.26, base * 0.3], [base * 0.18, base * 0.84]], lineW * 1.05, 1);
-      stroke([[base * 0.08, -base * 0.05], [base * 0.42, -base * 0.42], [base * 0.12, base * 0.18], [base * 0.42, base * 0.64]], lineW * 0.72, 0.84);
-      stroke([[-base * 0.02, base * 0.22], [-base * 0.42, base * 0.12], [-base * 0.34, base * 0.56]], lineW * 0.55, 0.72);
+      stroke([[-base * 0.5, -base * 0.7], [-base * 0.12, -base * 0.15], [-base * 0.26, base * 0.3], [base * 0.18, base * 0.84]], lineW * 0.78, 1);
+      stroke([[base * 0.08, -base * 0.05], [base * 0.42, -base * 0.42], [base * 0.12, base * 0.18], [base * 0.42, base * 0.64]], lineW * 0.52, 0.84);
+      stroke([[-base * 0.02, base * 0.22], [-base * 0.42, base * 0.12], [-base * 0.34, base * 0.56]], lineW * 0.42, 0.72);
     } else if (v === 2) {
-      stroke([[-base * 0.08, -base * 0.95], [base * 0.1, -base * 0.3], [-base * 0.18, base * 0.02], [base * 0.1, base * 0.78]], lineW * 1.1, 1);
-      stroke([[-base * 0.22, -base * 0.1], [-base * 0.7, base * 0.18], [-base * 0.34, base * 0.4]], lineW * 0.68, 0.82);
-      stroke([[base * 0.14, base * 0.1], [base * 0.56, base * 0.34], [base * 0.32, base * 0.68]], lineW * 0.6, 0.74);
+      stroke([[-base * 0.08, -base * 0.95], [base * 0.1, -base * 0.3], [-base * 0.18, base * 0.02], [base * 0.1, base * 0.78]], lineW * 0.8, 1);
+      stroke([[-base * 0.22, -base * 0.1], [-base * 0.7, base * 0.18], [-base * 0.34, base * 0.4]], lineW * 0.5, 0.82);
+      stroke([[base * 0.14, base * 0.1], [base * 0.56, base * 0.34], [base * 0.32, base * 0.68]], lineW * 0.44, 0.74);
     } else {
-      stroke([[-base * 0.2, -base * 1.0], [-base * 0.02, -base * 0.38], [base * 0.26, base * 0.02], [base * 0.02, base * 0.72]], lineW * 1.15, 1);
-      stroke([[base * 0.06, -base * 0.1], [base * 0.52, -base * 0.05], [base * 0.18, base * 0.32], [base * 0.46, base * 0.78]], lineW * 0.66, 0.82);
-      stroke([[-base * 0.12, base * 0.18], [-base * 0.52, base * 0.56], [-base * 0.16, base * 0.82]], lineW * 0.58, 0.7);
+      stroke([[-base * 0.2, -base * 1.0], [-base * 0.02, -base * 0.38], [base * 0.26, base * 0.02], [base * 0.02, base * 0.72]], lineW * 0.82, 1);
+      stroke([[base * 0.06, -base * 0.1], [base * 0.52, -base * 0.05], [base * 0.18, base * 0.32], [base * 0.46, base * 0.78]], lineW * 0.48, 0.82);
+      stroke([[-base * 0.12, base * 0.18], [-base * 0.52, base * 0.56], [-base * 0.16, base * 0.82]], lineW * 0.42, 0.7);
     }
     sprite = c;
     render.hudSprites.set(key, sprite);
@@ -385,6 +468,11 @@
     const hh = s.h * 0.5;
     const c = Math.cos(s.rot);
     const si = Math.sin(s.rot);
+    const uv = s.uv || null;
+    const u0 = uv ? uv.u0 : 0;
+    const v0 = uv ? uv.v0 : 0;
+    const u1 = uv ? uv.u1 : 1;
+    const v1 = uv ? uv.v1 : 1;
     const x0 = s.x - hw * c + hh * si;
     const y0 = s.y - hw * si - hh * c;
     const x1 = s.x + hw * c + hh * si;
@@ -398,12 +486,12 @@
     const b = s.color[2];
     const a = s.color[3];
 
-    data[offset++] = x0; data[offset++] = y0; data[offset++] = 0; data[offset++] = 0; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
-    data[offset++] = x1; data[offset++] = y1; data[offset++] = 1; data[offset++] = 0; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
-    data[offset++] = x2; data[offset++] = y2; data[offset++] = 1; data[offset++] = 1; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
-    data[offset++] = x0; data[offset++] = y0; data[offset++] = 0; data[offset++] = 0; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
-    data[offset++] = x2; data[offset++] = y2; data[offset++] = 1; data[offset++] = 1; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
-    data[offset++] = x3; data[offset++] = y3; data[offset++] = 0; data[offset++] = 1; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
+    data[offset++] = x0; data[offset++] = y0; data[offset++] = u0; data[offset++] = v0; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
+    data[offset++] = x1; data[offset++] = y1; data[offset++] = u1; data[offset++] = v0; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
+    data[offset++] = x2; data[offset++] = y2; data[offset++] = u1; data[offset++] = v1; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
+    data[offset++] = x0; data[offset++] = y0; data[offset++] = u0; data[offset++] = v0; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
+    data[offset++] = x2; data[offset++] = y2; data[offset++] = u1; data[offset++] = v1; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
+    data[offset++] = x3; data[offset++] = y3; data[offset++] = u0; data[offset++] = v1; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
     return offset;
   }
 
@@ -420,40 +508,39 @@
     gl.useProgram(render.program);
     gl.uniform2f(render.uViewport, w, h);
     gl.bindBuffer(gl.ARRAY_BUFFER, render.buffer);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-    render.normal.sort(function (a, b) { return a.layer - b.layer; });
-    render.additive.sort(function (a, b) { return a.layer - b.layer; });
-    render.erase.sort(function (a, b) { return a.layer - b.layer; });
-    function drawList(list, mode) {
-      if (!list.length) return;
+    render.queue.sort(function (a, b) { return a.layer === b.layer ? a.order - b.order : a.layer - b.layer; });
+    const data = ensureBatchData(render.queue.length);
+    let batchTex = null;
+    let batchSprites = 0;
+    let batchOffset = 0;
+    let batchBlend = 'normal';
+    function applyBlend(mode) {
       if (mode === 'additive') gl.blendFunc(gl.ONE, gl.ONE);
       else if (mode === 'erase') gl.blendFuncSeparate(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
       else gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-      const data = ensureBatchData(list.length);
-      let batchTex = null;
-      let batchSprites = 0;
-      let batchOffset = 0;
-      function flushBatch() {
-        if (!batchSprites) return;
-        gl.bindTexture(gl.TEXTURE_2D, batchTex || render.white);
-        gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, batchOffset), gl.DYNAMIC_DRAW);
-        gl.drawArrays(gl.TRIANGLES, 0, batchSprites * 6);
-        batchSprites = 0;
-        batchOffset = 0;
-      }
-      for (let i = 0; i < list.length; i++) {
-        const s = list[i];
-        const tex = s.texture || render.white;
-        if (batchTex && tex !== batchTex) flushBatch();
-        batchTex = tex;
-        batchOffset = appendSpriteQuad(data, batchOffset, s);
-        batchSprites++;
-      }
-      flushBatch();
     }
-    drawList(render.normal, 'normal');
-    drawList(render.additive, 'additive');
-    drawList(render.erase, 'erase');
+    function flushBatch() {
+      if (!batchSprites) return;
+      applyBlend(batchBlend);
+      gl.bindTexture(gl.TEXTURE_2D, batchTex || render.white);
+      gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, batchOffset), gl.DYNAMIC_DRAW);
+      gl.drawArrays(gl.TRIANGLES, 0, batchSprites * 6);
+      batchSprites = 0;
+      batchOffset = 0;
+    }
+    for (let i = 0; i < render.queue.length; i++) {
+      const s = render.queue[i];
+      const tex = s.texture || render.white;
+      const blend = s.blend || 'normal';
+      if (batchSprites && (tex !== batchTex || blend !== batchBlend)) flushBatch();
+      batchTex = tex;
+      batchBlend = blend;
+      batchOffset = appendSpriteQuad(data, batchOffset, s);
+      batchSprites++;
+    }
+    flushBatch();
+    render.queue.length = 0;
+    render.seq = 0;
     render.normal.length = 0;
     render.additive.length = 0;
     render.erase.length = 0;
@@ -548,6 +635,11 @@
     waveIndex: 0,
     levelClock: 0,
     background: [],
+    foreground: [],
+    backgroundBitmap: null,
+    foregroundBitmap: null,
+    backgroundSeed: 0,
+    foregroundSeed: 0,
     enemies: [],
     bullets: [],
     enemyBullets: [],
@@ -812,32 +904,365 @@
       state.player.x = clamp(state.player.x || w * 0.5, a.left, a.right);
       state.player.y = clamp(state.player.y || a.bottom - 92, a.top, a.bottom);
     }
+    if (state.backgroundBitmap || state.foregroundBitmap) regenBackground(mainTheme(), { preserveScroll: true });
   }
 
   function clearArray(a) { a.length = 0; }
   function mainTheme() { return state.currentTheme || THEMES[0]; }
 
-  function regenBackground(theme) {
-    const items = [];
-    const count = Math.max(26, Math.floor((view.w * view.h) / 22000));
-    for (let i = 0; i < count; i++) {
-      const isEmoji = chance(0.6);
-      items.push({
-        kind: isEmoji ? 'emoji' : 'dot',
-        emoji: isEmoji ? pick(theme.icons) : E.sparkles,
-        x: rand(0, view.w),
-        y: rand(0, view.h),
-        vx: rand(-4, 4),
-        vy: rand(8, 24),
-        size: rand(10, 28),
-        alpha: rand(0.08, 0.34),
-        wobble: rand(0, TAU),
-        spin: rand(0, TAU),
-        r: rand(1.2, 4.2),
-        color: theme.accent
-      });
+  function resetSceneLayers() {
+    clearArray(state.background);
+    clearArray(state.foreground);
+    destroyBitmapLayer(state.backgroundBitmap);
+    destroyBitmapLayer(state.foregroundBitmap);
+    state.backgroundBitmap = null;
+    state.foregroundBitmap = null;
+  }
+
+  function themeScene(theme) {
+    const t = theme || mainTheme();
+    const name = (t.name || '').toLowerCase();
+    const mood = (t.atmosphere || '').toLowerCase();
+    if (t.scene) return t.scene;
+    if (name.indexOf('orchard') >= 0 || mood === 'leaves') return 'orchard';
+    if (name.indexOf('meadow') >= 0 || mood === 'pollen') return 'meadow';
+    if (name.indexOf('candy') >= 0 || mood === 'sprinkles') return 'candy';
+    if (name.indexOf('clockwork') >= 0 || name.indexOf('junkyard') >= 0 || mood === 'sparks') return 'junkyard';
+    if (name.indexOf('lantern marsh') >= 0 || name.indexOf('marsh') >= 0 || mood === 'motes') return 'marsh';
+    if (name.indexOf('hive') >= 0) return 'hive';
+    if (name.indexOf('crystal') >= 0 || mood === 'shards') return 'gorge';
+    if (name.indexOf('volcano') >= 0) return 'volcano';
+    if (name.indexOf('moon arcade') >= 0 || mood === 'stardust') return 'moonArcade';
+    if (name.indexOf('neon boulevard') >= 0 || mood === 'neon') return 'boulevard';
+    if (name.indexOf('chessboard') >= 0 || mood === 'chess') return 'citadel';
+    if (name.indexOf('storm') >= 0 || mood === 'rain') return 'storm';
+    if (name.indexOf('star crown') >= 0 || mood === 'nova') return 'starcrown';
+    return 'orchard';
+  }
+
+  function makeSceneItem(kind, opts) {
+    const o = opts || {};
+    return {
+      kind: kind,
+      style: o.style || '',
+      x: Number.isFinite(o.x) ? o.x : 0,
+      y: Number.isFinite(o.y) ? o.y : 0,
+      baseX: Number.isFinite(o.baseX) ? o.baseX : (Number.isFinite(o.x) ? o.x : 0),
+      baseY: Number.isFinite(o.baseY) ? o.baseY : (Number.isFinite(o.y) ? o.y : 0),
+      w: Number.isFinite(o.w) ? o.w : 0,
+      h: Number.isFinite(o.h) ? o.h : 0,
+      scale: o.scale == null ? 1 : o.scale,
+      layer: o.layer == null ? 0 : o.layer,
+      speed: o.speed == null ? 0 : o.speed,
+      sway: o.sway == null ? 0 : o.sway,
+      swayRate: o.swayRate == null ? 0.45 : o.swayRate,
+      phase: o.phase == null ? rand(0, TAU) : o.phase,
+      rot: o.rot || 0,
+      side: o.side == null ? 0 : o.side,
+      color: o.color || '',
+      color2: o.color2 || '',
+      accent: o.accent || '',
+      colors: Array.isArray(o.colors) ? o.colors.slice(0, 4) : [],
+      fruit: Array.isArray(o.fruit) ? o.fruit.slice(0, 4) : [],
+      windows: o.windows == null ? 0 : o.windows,
+      wrapTop: Number.isFinite(o.wrapTop) ? o.wrapTop : -160,
+      wrapBottom: Number.isFinite(o.wrapBottom) ? o.wrapBottom : view.h + 160
+    };
+  }
+
+  function pushSceneItem(list, kind, opts) {
+    const item = makeSceneItem(kind, opts);
+    list.push(item);
+    return item;
+  }
+
+  function buildScene(theme) {
+    const t = theme || mainTheme();
+    const scene = themeScene(t);
+    const background = [];
+    const foreground = [];
+    const w = view.w;
+    const h = view.h;
+    const sky = t.skyBottom || '#0c1120';
+    const glow = t.glow || t.accent2 || '#ffffff';
+    const accent = t.accent || glow;
+    const accent2 = t.accent2 || glow;
+    const dim = Math.max(w, h);
+
+    function addRow(kind, count, y, startX, endX, layer, speed, optsFn) {
+      for (let i = 0; i < count; i++) {
+        const t01 = count === 1 ? 0.5 : i / (count - 1);
+        const o = optsFn ? optsFn(i, t01) : {};
+        o.x = o.x == null ? lerp(startX, endX, t01) : o.x;
+        o.y = o.y == null ? y : o.y;
+        o.layer = o.layer == null ? layer + i : o.layer;
+        o.speed = o.speed == null ? speed : o.speed;
+        o.wrapTop = o.wrapTop == null ? -180 : o.wrapTop;
+        o.wrapBottom = o.wrapBottom == null ? h + 180 : o.wrapBottom;
+        pushSceneItem(background, kind, o);
+      }
     }
-    state.background = items;
+
+    function addForegroundRow(kind, count, y, startX, endX, layer, speed, optsFn) {
+      for (let i = 0; i < count; i++) {
+        const t01 = count === 1 ? 0.5 : i / (count - 1);
+        const o = optsFn ? optsFn(i, t01) : {};
+        o.x = o.x == null ? lerp(startX, endX, t01) : o.x;
+        o.y = o.y == null ? y : o.y;
+        o.layer = o.layer == null ? layer + i : o.layer;
+        o.speed = o.speed == null ? speed : o.speed;
+        o.wrapTop = o.wrapTop == null ? -220 : o.wrapTop;
+        o.wrapBottom = o.wrapBottom == null ? h + 220 : o.wrapBottom;
+        pushSceneItem(foreground, kind, o);
+      }
+    }
+
+    function addOrchardTrees(y0, y1, cols, rows, baseLayer) {
+      for (let row = 0; row < rows; row++) {
+        const y = lerp(y0, y1, rows === 1 ? 0.5 : row / (rows - 1));
+        for (let col = 0; col < cols; col++) {
+          const x = w * 0.09 + col * (w * 0.82 / Math.max(1, cols - 1)) + ((row & 1) ? w * 0.03 : 0);
+          pushSceneItem(background, 'tree', {
+            x: x,
+            y: y + row * 8,
+            scale: 0.72 + row * 0.08 + (col % 3) * 0.02,
+            style: 'orchard',
+            layer: baseLayer + row * 6 + col,
+            speed: 7 + row * 2,
+            sway: 4 + row,
+            phase: (row * 0.7 + col * 0.33) % TAU,
+            color: '#2f7a3d',
+            color2: '#225f2f',
+            accent: accent2,
+            fruit: [accent2, '#ff7e67', '#ffb75f']
+          });
+        }
+      }
+    }
+
+    function addSideBranches(count, layer, speed, style, color, color2) {
+      for (let i = 0; i < count; i++) {
+        const left = (i & 1) === 0;
+        const y = h * (0.12 + i * 0.17);
+        pushSceneItem(foreground, 'branch', {
+          x: left ? -24 : w + 24,
+          y: y,
+          scale: 0.9 + i * 0.08,
+          style: style,
+          side: left ? -1 : 1,
+          layer: layer + i * 2,
+          speed: speed + i * 2,
+          sway: 12 + i * 2,
+          phase: i * 0.67,
+          color: color,
+          color2: color2,
+          wrapTop: -220,
+          wrapBottom: h + 220
+        });
+      }
+    }
+
+    function addTallGrass(count, layer, speed, color, color2) {
+      const tint2 = color2 || color;
+      for (let i = 0; i < count; i++) {
+        pushSceneItem(foreground, 'branch', {
+          x: lerp(w * 0.08, w * 0.92, count === 1 ? 0.5 : i / (count - 1)),
+          y: h * 0.88 + (i % 2) * 10,
+          scale: 0.8 + (i % 3) * 0.12,
+          style: 'grass',
+          side: (i & 1) ? 1 : -1,
+          layer: layer + i,
+          speed: speed + (i % 2) * 2,
+          sway: 6 + (i % 3) * 1.5,
+          phase: i * 0.9,
+          color: color,
+          color2: tint2,
+          wrapTop: -120,
+          wrapBottom: h + 180
+        });
+      }
+    }
+
+    switch (scene) {
+      case 'meadow':
+        pushSceneItem(background, 'hill', { x: w * 0.5, y: h * 0.66, w: dim * 1.2, h: h * 0.2, style: 'meadow', layer: -34, speed: 5, sway: 8, color: '#2f6f35', color2: '#4fa846' });
+        pushSceneItem(background, 'hill', { x: w * 0.52, y: h * 0.80, w: dim * 1.35, h: h * 0.17, style: 'meadow', layer: -30, speed: 8, sway: 10, color: '#4f9d40', color2: '#82d95f' });
+        addRow('tree', 5, h * 0.50, w * 0.12, w * 0.88, -24, 8, function (i) {
+          return { scale: 0.62 + (i % 3) * 0.08, style: 'meadow', color: '#2f6e33', color2: '#5ebc59', accent: accent2, fruit: [accent2, '#fff5a8'] };
+        });
+        addRow('flower', 10, h * 0.74, w * 0.08, w * 0.92, -12, 10, function (i) {
+          return { scale: 0.55 + (i % 3) * 0.1, style: 'field', color: accent2, color2: accent, accent: '#ffffff' };
+        });
+        addForegroundRow('branch', 5, h * 0.15, -30, w + 30, 42, 16, function (i, t01) {
+          return { scale: 0.88 + (i % 2) * 0.08, style: 'grass', side: t01 < 0.5 ? -1 : 1, color: '#4d8c47', color2: '#7fd66d' };
+        });
+        break;
+      case 'candy':
+        pushSceneItem(background, 'hill', { x: w * 0.5, y: h * 0.66, w: dim * 1.22, h: h * 0.2, style: 'candy', layer: -34, speed: 4, sway: 6, color: '#8b4ca6', color2: '#ff9ed6' });
+        pushSceneItem(background, 'cloud', { x: w * 0.22, y: h * 0.18, w: dim * 0.3, h: h * 0.16, style: 'fluff', layer: -28, speed: 3, sway: 6, color: '#fff0ff', color2: '#ffd5f0' });
+        pushSceneItem(background, 'cloud', { x: w * 0.78, y: h * 0.2, w: dim * 0.28, h: h * 0.14, style: 'fluff', layer: -27, speed: 4, sway: 8, color: '#fff7fd', color2: '#ffcfef' });
+        addRow('candy', 5, h * 0.55, w * 0.12, w * 0.88, -23, 8, function (i) {
+          return { scale: 0.78 + (i % 2) * 0.12, style: i % 2 ? 'lollipop' : 'cane', color: ['#ff79b6', '#7cf7ff', '#ffd96a'][i % 3], color2: '#ffffff', accent: '#ffefb8' };
+        });
+        addForegroundRow('branch', 4, h * 0.12, -20, w + 20, 44, 18, function (i, t01) {
+          return { scale: 0.95 + (i % 2) * 0.1, style: 'drip', side: t01 < 0.5 ? -1 : 1, color: '#ffbdde', color2: '#ffe5f3' };
+        });
+        break;
+      case 'junkyard':
+        pushSceneItem(background, 'hill', { x: w * 0.5, y: h * 0.70, w: dim * 1.25, h: h * 0.22, style: 'scrap', layer: -34, speed: 5, sway: 6, color: '#3a434d', color2: '#64707d' });
+        pushSceneItem(background, 'building', { x: w * 0.16, y: h * 0.52, w: w * 0.16, h: h * 0.18, scale: 0.95, style: 'factory', layer: -24, speed: 7, sway: 5, color: '#6b5a4a', color2: '#a69b8f', windows: 4 });
+        pushSceneItem(background, 'building', { x: w * 0.52, y: h * 0.47, w: w * 0.12, h: h * 0.24, scale: 1.0, style: 'factory', layer: -22, speed: 8, sway: 4, color: '#4f5b67', color2: '#9fb1c0', windows: 5 });
+        pushSceneItem(background, 'building', { x: w * 0.82, y: h * 0.55, w: w * 0.15, h: h * 0.17, scale: 0.9, style: 'factory', layer: -20, speed: 9, sway: 5, color: '#75695c', color2: '#b7a78f', windows: 3 });
+        addRow('gear', 4, h * 0.72, w * 0.12, w * 0.88, -18, 10, function (i) {
+          return { scale: 0.72 + (i % 2) * 0.12, style: 'scrap', color: '#8f9aa5', color2: '#d2d8df', accent: '#6a7684' };
+        });
+        addForegroundRow('branch', 4, h * 0.16, -24, w + 24, 46, 18, function (i, t01) {
+          return { scale: 0.9 + (i % 2) * 0.1, style: 'cable', side: t01 < 0.5 ? -1 : 1, color: '#61707d', color2: '#b7c3cd' };
+        });
+        break;
+      case 'marsh':
+        pushSceneItem(background, 'hill', { x: w * 0.5, y: h * 0.68, w: dim * 1.2, h: h * 0.18, style: 'water', layer: -34, speed: 4, sway: 5, color: '#1c4854', color2: '#2f7e73' });
+        pushSceneItem(background, 'hill', { x: w * 0.52, y: h * 0.83, w: dim * 1.34, h: h * 0.16, style: 'water', layer: -30, speed: 7, sway: 6, color: '#3e6870', color2: '#5b8f84' });
+        addRow('tree', 4, h * 0.50, w * 0.12, w * 0.88, -24, 7, function (i) {
+          return { scale: 0.76 + (i % 2) * 0.1, style: 'marsh', color: '#274e37', color2: '#5b8758', accent: '#d7d2a2', fruit: ['#d7d2a2', '#7fe08c'] };
+        });
+        addRow('reed', 7, h * 0.72, w * 0.06, w * 0.94, -14, 12, function (i) {
+          return { scale: 0.6 + (i % 3) * 0.1, style: 'marsh', color: '#6e9462', color2: '#99c08d', accent: '#ffd7a5' };
+        });
+        addForegroundRow('branch', 4, h * 0.1, -18, w + 18, 42, 18, function (i, t01) {
+          return { scale: 0.92 + (i % 2) * 0.1, style: 'vine', side: t01 < 0.5 ? -1 : 1, color: '#4e7c58', color2: '#95b77d' };
+        });
+        break;
+      case 'hive':
+        pushSceneItem(background, 'hill', { x: w * 0.5, y: h * 0.67, w: dim * 1.18, h: h * 0.19, style: 'honey', layer: -34, speed: 4, sway: 5, color: '#69401a', color2: '#d88c22' });
+        pushSceneItem(background, 'building', { x: w * 0.18, y: h * 0.50, w: w * 0.16, h: h * 0.2, scale: 0.95, style: 'hive', layer: -24, speed: 7, sway: 4, color: '#7a4b10', color2: '#ffcf59', windows: 3 });
+        pushSceneItem(background, 'building', { x: w * 0.5, y: h * 0.46, w: w * 0.14, h: h * 0.24, scale: 1.0, style: 'hive', layer: -22, speed: 8, sway: 4, color: '#8c5614', color2: '#ffd66f', windows: 4 });
+        pushSceneItem(background, 'building', { x: w * 0.82, y: h * 0.53, w: w * 0.14, h: h * 0.18, scale: 0.92, style: 'hive', layer: -20, speed: 8, sway: 4, color: '#6f4310', color2: '#ffc84c', windows: 3 });
+        addRow('cloud', 3, h * 0.16, w * 0.12, w * 0.88, -28, 4, function (i) {
+          return { scale: 0.7 + (i % 2) * 0.08, style: 'smoke', color: '#ffe6a5', color2: '#ffca5b' };
+        });
+        addForegroundRow('branch', 4, h * 0.14, -20, w + 20, 44, 20, function (i, t01) {
+          return { scale: 0.9 + (i % 2) * 0.08, style: 'wax', side: t01 < 0.5 ? -1 : 1, color: '#ffd36a', color2: '#fff0bf' };
+        });
+        break;
+      case 'gorge':
+        pushSceneItem(background, 'hill', { x: w * 0.5, y: h * 0.66, w: dim * 1.2, h: h * 0.2, style: 'rock', layer: -34, speed: 4, sway: 4, color: '#1d2440', color2: '#4d5b83' });
+        pushSceneItem(background, 'hill', { x: w * 0.52, y: h * 0.82, w: dim * 1.35, h: h * 0.16, style: 'rock', layer: -30, speed: 6, sway: 5, color: '#3c4a67', color2: '#6f7ba0' });
+        addRow('crystal', 4, h * 0.52, w * 0.12, w * 0.88, -24, 7, function (i) {
+          return { scale: 0.82 + (i % 2) * 0.12, style: 'gorge', color: ['#79f6ff', '#a4b7ff', '#d9f1ff', '#7ee3ff'][i % 4], color2: accent2, accent: glow };
+        });
+        pushSceneItem(background, 'arch', { x: w * 0.5, y: h * 0.58, w: w * 0.38, h: h * 0.14, scale: 1, style: 'bridge', layer: -18, speed: 8, sway: 4, color: '#677291', color2: '#c6d2ff' });
+        addForegroundRow('branch', 3, h * 0.1, -18, w + 18, 42, 16, function (i, t01) {
+          return { scale: 0.92 + (i % 2) * 0.08, style: 'shard', side: t01 < 0.5 ? -1 : 1, color: '#9ef8ff', color2: '#f1e7ff' };
+        });
+        break;
+      case 'volcano':
+        pushSceneItem(background, 'hill', { x: w * 0.5, y: h * 0.66, w: dim * 1.22, h: h * 0.2, style: 'lava', layer: -34, speed: 4, sway: 5, color: '#5d2118', color2: '#ff5a2c' });
+        pushSceneItem(background, 'building', { x: w * 0.22, y: h * 0.52, w: w * 0.14, h: h * 0.2, scale: 0.95, style: 'kitchen', layer: -24, speed: 7, sway: 3, color: '#5b4a43', color2: '#ffc05f', windows: 3 });
+        pushSceneItem(background, 'building', { x: w * 0.52, y: h * 0.47, w: w * 0.15, h: h * 0.24, scale: 1.0, style: 'kitchen', layer: -22, speed: 8, sway: 3, color: '#6e4d41', color2: '#ffd06b', windows: 4 });
+        pushSceneItem(background, 'building', { x: w * 0.82, y: h * 0.56, w: w * 0.15, h: h * 0.17, scale: 0.92, style: 'kitchen', layer: -20, speed: 9, sway: 3, color: '#754835', color2: '#ffd88a', windows: 3 });
+        addRow('cloud', 4, h * 0.16, w * 0.12, w * 0.88, -28, 4, function (i) {
+          return { scale: 0.72 + (i % 2) * 0.08, style: 'steam', color: '#fff1d0', color2: '#ffb04f' };
+        });
+        addForegroundRow('branch', 4, h * 0.1, -20, w + 20, 44, 20, function (i, t01) {
+          return { scale: 0.92 + (i % 2) * 0.08, style: 'steam', side: t01 < 0.5 ? -1 : 1, color: '#ffd1a5', color2: '#fff1d6' };
+        });
+        break;
+      case 'moonArcade':
+        pushSceneItem(background, 'hill', { x: w * 0.5, y: h * 0.68, w: dim * 1.18, h: h * 0.2, style: 'city', layer: -34, speed: 4, sway: 4, color: '#17243f', color2: '#314c78' });
+        pushSceneItem(background, 'building', { x: w * 0.15, y: h * 0.50, w: w * 0.16, h: h * 0.22, scale: 0.95, style: 'arcade', layer: -24, speed: 7, sway: 4, color: '#24345c', color2: '#7cf7ff', windows: 5 });
+        pushSceneItem(background, 'building', { x: w * 0.46, y: h * 0.45, w: w * 0.16, h: h * 0.26, scale: 1.0, style: 'arcade', layer: -22, speed: 8, sway: 4, color: '#1d2b50', color2: '#ff7bee', windows: 6 });
+        pushSceneItem(background, 'building', { x: w * 0.79, y: h * 0.54, w: w * 0.15, h: h * 0.18, scale: 0.92, style: 'arcade', layer: -20, speed: 9, sway: 4, color: '#24325b', color2: '#cfd8ff', windows: 4 });
+        addRow('cloud', 3, h * 0.16, w * 0.16, w * 0.84, -28, 3, function (i) {
+          return { scale: 0.68 + (i % 2) * 0.06, style: 'night', color: '#d9e4ff', color2: '#7cf7ff' };
+        });
+        addForegroundRow('branch', 4, h * 0.12, -18, w + 18, 44, 18, function (i, t01) {
+          return { scale: 0.9 + (i % 2) * 0.08, style: 'cable', side: t01 < 0.5 ? -1 : 1, color: '#7cf7ff', color2: '#ff7bee' };
+        });
+        break;
+      case 'boulevard':
+        pushSceneItem(background, 'hill', { x: w * 0.5, y: h * 0.70, w: dim * 1.18, h: h * 0.18, style: 'street', layer: -34, speed: 4, sway: 4, color: '#171c38', color2: '#3d2a76' });
+        pushSceneItem(background, 'building', { x: w * 0.15, y: h * 0.48, w: w * 0.17, h: h * 0.24, scale: 0.95, style: 'city', layer: -24, speed: 7, sway: 4, color: '#201f43', color2: '#63f3ff', windows: 5 });
+        pushSceneItem(background, 'building', { x: w * 0.5, y: h * 0.44, w: w * 0.18, h: h * 0.28, scale: 1.0, style: 'city', layer: -22, speed: 8, sway: 4, color: '#271e57', color2: '#ff7bee', windows: 6 });
+        pushSceneItem(background, 'building', { x: w * 0.82, y: h * 0.53, w: w * 0.16, h: h * 0.2, scale: 0.92, style: 'city', layer: -20, speed: 9, sway: 4, color: '#1b234f', color2: '#ffd56a', windows: 4 });
+        addRow('cloud', 2, h * 0.14, w * 0.18, w * 0.82, -28, 3, function (i) {
+          return { scale: 0.64 + (i % 2) * 0.08, style: 'night', color: '#dbe9ff', color2: '#ff7bee' };
+        });
+        addForegroundRow('branch', 4, h * 0.12, -18, w + 18, 44, 20, function (i, t01) {
+          return { scale: 0.88 + (i % 2) * 0.08, style: 'cable', side: t01 < 0.5 ? -1 : 1, color: '#63f3ff', color2: '#ff7bee' };
+        });
+        break;
+      case 'citadel':
+        pushSceneItem(background, 'hill', { x: w * 0.5, y: h * 0.67, w: dim * 1.2, h: h * 0.19, style: 'stone', layer: -34, speed: 4, sway: 4, color: '#323241', color2: '#5e5a73' });
+        pushSceneItem(background, 'wall', { x: w * 0.17, y: h * 0.52, w: w * 0.22, h: h * 0.2, scale: 0.95, style: 'citadel', layer: -24, speed: 7, sway: 3, color: '#4f4f63', color2: '#d8d8e8' });
+        pushSceneItem(background, 'wall', { x: w * 0.5, y: h * 0.48, w: w * 0.26, h: h * 0.24, scale: 1.0, style: 'citadel', layer: -22, speed: 8, sway: 3, color: '#56546e', color2: '#f0f0ff' });
+        pushSceneItem(background, 'wall', { x: w * 0.82, y: h * 0.56, w: w * 0.2, h: h * 0.18, scale: 0.92, style: 'citadel', layer: -20, speed: 9, sway: 3, color: '#4b4a60', color2: '#d8d8e8' });
+        addRow('cloud', 3, h * 0.14, w * 0.15, w * 0.85, -28, 3, function (i) {
+          return { scale: 0.68 + (i % 2) * 0.06, style: 'mist', color: '#eef0ff', color2: '#bca46b' };
+        });
+        addForegroundRow('branch', 4, h * 0.1, -18, w + 18, 44, 18, function (i, t01) {
+          return { scale: 0.88 + (i % 2) * 0.08, style: 'battlement', side: t01 < 0.5 ? -1 : 1, color: '#d8d8e8', color2: '#bca46b' };
+        });
+        break;
+      case 'storm':
+        pushSceneItem(background, 'hill', { x: w * 0.5, y: h * 0.66, w: dim * 1.2, h: h * 0.18, style: 'stone', layer: -34, speed: 4, sway: 4, color: '#203243', color2: '#4d6eff' });
+        pushSceneItem(background, 'wall', { x: w * 0.18, y: h * 0.53, w: w * 0.2, h: h * 0.2, scale: 0.95, style: 'storm', layer: -24, speed: 7, sway: 3, color: '#32495d', color2: '#8ecbff' });
+        pushSceneItem(background, 'wall', { x: w * 0.52, y: h * 0.49, w: w * 0.24, h: h * 0.24, scale: 1.0, style: 'storm', layer: -22, speed: 8, sway: 3, color: '#39556d', color2: '#d0f3ff' });
+        pushSceneItem(background, 'wall', { x: w * 0.82, y: h * 0.56, w: w * 0.18, h: h * 0.18, scale: 0.92, style: 'storm', layer: -20, speed: 9, sway: 3, color: '#2c4254', color2: '#8ecbff' });
+        addRow('cloud', 4, h * 0.14, w * 0.1, w * 0.9, -28, 3, function (i) {
+          return { scale: 0.72 + (i % 2) * 0.08, style: 'storm', color: '#d9f3ff', color2: '#8ecbff' };
+        });
+        addForegroundRow('branch', 4, h * 0.1, -18, w + 18, 44, 22, function (i, t01) {
+          return { scale: 0.9 + (i % 2) * 0.08, style: 'rain', side: t01 < 0.5 ? -1 : 1, color: '#9fd1ff', color2: '#d0f3ff' };
+        });
+        break;
+      case 'starcrown':
+        pushSceneItem(background, 'hill', { x: w * 0.5, y: h * 0.66, w: dim * 1.18, h: h * 0.18, style: 'sky', layer: -34, speed: 4, sway: 4, color: '#201133', color2: '#6c4da8' });
+        pushSceneItem(background, 'pillar', { x: w * 0.2, y: h * 0.5, w: w * 0.14, h: h * 0.24, scale: 0.95, style: 'crown', layer: -24, speed: 7, sway: 3, color: '#7d6aa8', color2: '#ffe78a' });
+        pushSceneItem(background, 'pillar', { x: w * 0.5, y: h * 0.46, w: w * 0.18, h: h * 0.28, scale: 1.0, style: 'crown', layer: -22, speed: 8, sway: 3, color: '#8d79ba', color2: '#ffffff' });
+        pushSceneItem(background, 'pillar', { x: w * 0.8, y: h * 0.53, w: w * 0.14, h: h * 0.2, scale: 0.92, style: 'crown', layer: -20, speed: 9, sway: 3, color: '#7d6aa8', color2: '#ffe78a' });
+        addRow('cloud', 3, h * 0.14, w * 0.16, w * 0.84, -28, 3, function (i) {
+          return { scale: 0.66 + (i % 2) * 0.08, style: 'halo', color: '#ffe78a', color2: '#ffffff' };
+        });
+        addForegroundRow('branch', 4, h * 0.1, -18, w + 18, 44, 18, function (i, t01) {
+          return { scale: 0.88 + (i % 2) * 0.08, style: 'filigree', side: t01 < 0.5 ? -1 : 1, color: '#ffe78a', color2: '#ffffff' };
+        });
+        break;
+      case 'orchard':
+      default:
+        pushSceneItem(background, 'hill', { x: w * 0.5, y: h * 0.66, w: dim * 1.22, h: h * 0.2, style: 'orchard', layer: -34, speed: 5, sway: 6, color: '#2c5f2f', color2: '#4c8a36' });
+        pushSceneItem(background, 'hill', { x: w * 0.52, y: h * 0.82, w: dim * 1.35, h: h * 0.16, style: 'orchard', layer: -30, speed: 8, sway: 8, color: '#4d8231', color2: '#79b54a' });
+        addOrchardTrees(h * 0.48, h * 0.64, 4, 3, -24);
+        pushSceneItem(background, 'building', { x: w * 0.18, y: h * 0.55, w: w * 0.16, h: h * 0.16, scale: 0.9, style: 'barn', layer: -18, speed: 8, sway: 3, color: '#7f5032', color2: '#ffd06b', windows: 2 });
+        addSideBranches(4, 42, 18, 'orchard', '#6a4a2f', '#9bcf5b');
+        addTallGrass(6, 46, 20, '#5e9e43');
+        break;
+    }
+
+    return { background: background, foreground: foreground, sky: sky };
+  }
+
+  function regenBackground(theme, opts) {
+    const t = theme || mainTheme();
+    const preserveScroll = !!(opts && opts.preserveScroll);
+    const oldBg = state.backgroundBitmap;
+    const oldFg = state.foregroundBitmap;
+    const bgRatio = oldBg && oldBg.maxScroll > 0 ? clamp(oldBg.scroll / oldBg.maxScroll, 0, 1) : 0;
+    const fgRatio = oldFg && oldFg.maxScroll > 0 ? clamp(oldFg.scroll / oldFg.maxScroll, 0, 1) : 0;
+    const bgSeed = preserveScroll && state.backgroundSeed ? state.backgroundSeed : ((Math.random() * 0x7fffffff) >>> 0) || 1;
+    const fgSeed = preserveScroll && state.foregroundSeed ? state.foregroundSeed : ((bgSeed ^ 0x9e3779b9) >>> 0) || 1;
+    state.backgroundSeed = bgSeed;
+    state.foregroundSeed = fgSeed;
+    destroyBitmapLayer(oldBg);
+    destroyBitmapLayer(oldFg);
+    state.backgroundBitmap = null;
+    state.foregroundBitmap = null;
+    clearArray(state.background);
+    clearArray(state.foreground);
+    state.backgroundBitmap = buildOrchardBackgroundBitmap(t, bgSeed);
+    if (state.backgroundBitmap) state.backgroundBitmap.scroll = preserveScroll ? bgRatio * state.backgroundBitmap.maxScroll : state.backgroundBitmap.maxScroll;
+    state.foregroundBitmap = buildCloudForegroundBitmap(fgSeed);
+    if (state.foregroundBitmap) state.foregroundBitmap.scroll = preserveScroll ? fgRatio * state.foregroundBitmap.maxScroll : state.foregroundBitmap.maxScroll;
   }
 
   function setupDebugScene() {
@@ -858,7 +1283,7 @@
     clearArray(state.pickups);
     clearArray(state.particles);
     state.boss = null;
-    state.background = [];
+    regenBackground(theme);
     const spec = [
       ['drifter', view.w * 0.18, view.h * 0.28],
       ['zigzag', view.w * 0.36, view.h * 0.22],
@@ -1873,17 +2298,32 @@
     }
   }
 
-  function updateBackground(dt) {
-    const theme = mainTheme();
-    for (let i = 0; i < state.background.length; i++) {
-      const b = state.background[i];
-      b.y += (b.vy + (state.mode === 'title' ? 12 : 0)) * dt;
-      b.x += Math.sin((b.wobble += dt * 0.8) + i) * 6 * dt + b.vx * dt;
-      if (b.y > view.h + 40) { b.y = -40; b.x = rand(0, view.w); }
-      if (b.x < -40) b.x = view.w + 40;
-      if (b.x > view.w + 40) b.x = -40;
+  function updateSceneLayer(items, dt, titleBoost) {
+    const boost = state.mode === 'title' ? titleBoost : 0;
+    const time = state.levelClock + state.musicStep * 0.05;
+    for (let i = 0; i < items.length; i++) {
+      const b = items[i];
+      const sway = b.sway ? Math.sin((time * b.swayRate) + b.phase + i * 0.11) * b.sway : 0;
+      b.x = b.baseX + sway;
+      b.y += (b.speed + boost) * dt;
+      if (b.y > b.wrapBottom) {
+        b.y = b.wrapTop - rand(0, 120);
+        if (chance(0.45)) b.baseX = clamp(b.baseX + rand(-64, 64), -120, view.w + 120);
+      }
     }
-    if (state.mode === 'title' && chance(0.004)) burst(rand(0, view.w), rand(0, view.h * 0.7), theme.accent2, 3, 80, 3, 'spark');
+  }
+
+  function updateBackground(dt) {
+    if (state.backgroundBitmap) {
+      const bg = state.backgroundBitmap;
+      bg.scroll = clamp(bg.scroll - bg.speed * dt, 0, bg.maxScroll);
+    } else {
+      updateSceneLayer(state.background, dt, 4);
+    }
+    if (state.foregroundBitmap) {
+      const fg = state.foregroundBitmap;
+      fg.scroll = clamp(fg.scroll - fg.speed * dt, 0, fg.maxScroll);
+    }
   }
 
   function updateMusic(dt) {
@@ -1963,8 +2403,9 @@
 
   function drawGlowCircle(x, y, r, color, alpha, blur) {
     const b = blur == null ? Math.max(10, r * 0.8) : blur;
-    drawSpriteCircle(x, y, r + b * 0.45, color, (alpha == null ? 1 : alpha) * 0.12, 0, true);
-    drawSpriteCircle(x, y, r, color, alpha == null ? 1 : alpha, 0, true);
+    const a = alpha == null ? 1 : alpha;
+    drawSpriteCircle(x, y, r + b * 0.6, color, a, 0, true);
+    drawSpriteCircle(x, y, Math.max(1, r * 0.72), color, a, 0, true);
   }
 
   function drawEmojiGlyph(text, x, y, size, opts) {
@@ -2010,14 +2451,666 @@
     hudCtx.restore();
   }
 
+  function drawWorldBar(x, y, w, h, ratio, fill, back, layer) {
+    x = Number.isFinite(x) ? x : 0;
+    y = Number.isFinite(y) ? y : 0;
+    w = Number.isFinite(w) ? w : 0;
+    h = Number.isFinite(h) ? h : 0;
+    const p = clamp(ratio, 0, 1);
+    const l = Number.isFinite(layer) ? layer : 0;
+    const bg = Array.isArray(back) ? back : hexToRgb('#000000');
+    drawSpriteRect(x + w * 0.5, y + h * 0.5, w, h, bg, 0.76, l, false);
+    if (p > 0) {
+      const fillW = Math.max(1, w * p);
+      drawSpriteRect(x + fillW * 0.5, y + h * 0.5, fillW, Math.max(1, h - 2), fill || '#ffffff', 0.96, l + 0.01, false);
+    }
+  }
+
+  function drawSceneHill(o, theme) {
+    const x = o.x;
+    const y = o.y;
+    const w = Math.max(40, o.w || view.w * 1.2);
+    const h = Math.max(18, o.h || view.h * 0.18);
+    const base = o.color || theme.accent || '#4c8a36';
+    const top = o.color2 || theme.accent2 || '#7fd66d';
+    const style = o.style || 'hill';
+    let fill = base;
+    let glow = top;
+    if (style === 'water') { fill = o.color || '#244f59'; glow = o.color2 || '#5dd1c7'; }
+    else if (style === 'lava') { fill = o.color || '#5d2118'; glow = o.color2 || theme.glow || '#ff9b2f'; }
+    else if (style === 'scrap') { fill = o.color || '#3a434d'; glow = o.color2 || '#8f9aa5'; }
+    else if (style === 'rock' || style === 'stone') { fill = o.color || '#2d3851'; glow = o.color2 || '#6f7ba0'; }
+    else if (style === 'candy') { fill = o.color || '#8b4ca6'; glow = o.color2 || '#ff9ed6'; }
+    else if (style === 'honey') { fill = o.color || '#69401a'; glow = o.color2 || '#ffd36a'; }
+    else if (style === 'city' || style === 'street' || style === 'sky') { fill = o.color || '#17243f'; glow = o.color2 || '#6c4da8'; }
+    drawSpriteRect(x, y + h * 0.42, w, h * 0.96, fill, 0.94, o.layer, false);
+    drawGlowCircle(x - w * 0.26, y + h * 0.06, h * 0.72, glow, 0.26, h * 0.48);
+    drawGlowCircle(x, y - h * 0.04, h * 0.82, glow, 0.24, h * 0.5);
+    drawGlowCircle(x + w * 0.26, y + h * 0.06, h * 0.72, glow, 0.26, h * 0.48);
+  }
+
+  function drawSceneTree(o, theme) {
+    const layer = o.layer || 0;
+    const s = Math.max(0.5, o.scale || 1);
+    const x = o.x;
+    const y = o.y;
+    const trunk = o.color || '#6b482d';
+    const leaf = o.color2 || theme.accent || '#5fbf55';
+    const accent = o.accent || theme.accent2 || '#ffd96a';
+    const style = o.style || 'orchard';
+    const trunkW = 8 * s;
+    const trunkH = 20 * s;
+    drawSpriteRect(x, y + trunkH * 0.18, trunkW, trunkH, trunk, 0.95, layer + 0, false);
+    if (style === 'marsh') {
+      drawSpriteRect(x - trunkW * 0.15, y - 6 * s, trunkW * 1.3, 12 * s, leaf, 0.6, layer + 1, false, -0.1);
+      drawGlowCircle(x, y - 18 * s, 14 * s, leaf, 0.26, 10);
+      drawGlowCircle(x - 10 * s, y - 6 * s, 10 * s, leaf, 0.22, 8);
+      drawGlowCircle(x + 9 * s, y - 2 * s, 11 * s, leaf, 0.24, 8);
+    } else {
+      const top = y - 16 * s;
+      drawGlowCircle(x - 10 * s, top + 5 * s, 12 * s, leaf, 0.28, 12);
+      drawGlowCircle(x + 10 * s, top + 5 * s, 12 * s, leaf, 0.28, 12);
+      drawGlowCircle(x, top - 5 * s, 15 * s, leaf, 0.34, 14);
+      drawGlowCircle(x - 2 * s, top + 12 * s, 13 * s, leaf, 0.3, 12);
+      if (style === 'orchard' || style === 'hive') {
+        const fruits = o.fruit.length ? o.fruit : [accent, '#ff7e67', '#ffb75f'];
+        for (let i = 0; i < 4; i++) {
+          const a = (i / 4) * TAU + (o.phase || 0);
+          const fx = x + Math.cos(a) * 10 * s;
+          const fy = top + Math.sin(a * 1.2) * 8 * s;
+          drawGlowCircle(fx, fy, 2.2 * s, fruits[i % fruits.length], 0.95, 4);
+        }
+      }
+    }
+  }
+
+  function drawSceneBranch(o, theme) {
+    const layer = o.layer || 0;
+    const s = Math.max(0.55, o.scale || 1);
+    const x = o.x;
+    const y = o.y;
+    const side = o.side < 0 ? -1 : 1;
+    const style = o.style || 'orchard';
+    const color = o.color || '#6a4a2f';
+    const color2 = o.color2 || theme.accent2 || '#ffffff';
+    const mainLen = 54 * s;
+    const tipLen = 30 * s;
+    const rot = side < 0 ? 0.52 : -0.52;
+    const stemW = 8 * s;
+    if (style === 'grass') {
+      for (let i = 0; i < 4; i++) {
+        const off = (i - 1.5) * 7 * s;
+        const a = (side < 0 ? -0.12 : 0.12) + (i - 1.5) * 0.06;
+        drawSpriteRect(x + off, y - 10 * s, 4 * s, 40 * s, color, 0.72, layer + i, false, a);
+        drawGlowCircle(x + off, y - 18 * s, 3 * s, color2, 0.5, 4);
+      }
+      return;
+    }
+    if (style === 'cable') {
+      drawSpriteRect(x, y, mainLen * 1.05, stemW, '#1b2333', 0.9, layer + 0, false, rot);
+      drawSpriteRect(x + side * 18 * s, y + 6 * s, mainLen * 0.6, stemW * 0.85, '#12161f', 0.88, layer + 1, false, rot * 0.82);
+      drawGlowCircle(x + side * 18 * s, y + 6 * s, 2.4 * s, color2, 0.48, 4);
+      return;
+    }
+    if (style === 'drip') {
+      for (let i = 0; i < 3; i++) {
+        const dx = side * (18 + i * 12) * s;
+        drawSpriteRect(x + dx, y + i * 4 * s, 5 * s, 34 * s + i * 8 * s, color, 0.72, layer + i, false, 0);
+        drawGlowCircle(x + dx, y + 22 * s + i * 5 * s, 5.5 * s, color2, 0.82, 6);
+      }
+      return;
+    }
+    if (style === 'steam' || style === 'rain') {
+      for (let i = 0; i < 4; i++) {
+        const off = side * (10 + i * 7) * s;
+        drawSpriteRect(x + off, y + i * 3 * s, 3 * s, 28 * s + i * 6 * s, color2, 0.7, layer + i, false, side < 0 ? 0.2 : -0.2);
+      }
+      return;
+    }
+    if (style === 'shard') {
+      drawSpriteRect(x, y, 10 * s, 34 * s, color2, 0.84, layer + 0, false, side < 0 ? 0.32 : -0.32);
+      drawSpriteRect(x + side * 10 * s, y + 5 * s, 8 * s, 24 * s, color, 0.74, layer + 1, false, side < 0 ? -0.18 : 0.18);
+      return;
+    }
+    if (style === 'battlement') {
+      for (let i = 0; i < 3; i++) {
+        drawSpriteRect(x + side * (8 + i * 10) * s, y + i * 2 * s, 8 * s, 28 * s, color, 0.9, layer + i, false, side < 0 ? 0.1 : -0.1);
+      }
+      return;
+    }
+    if (style === 'filigree') {
+      drawSpriteRect(x, y, mainLen, stemW * 0.8, color2, 0.64, layer + 0, false, rot);
+      drawSpriteRect(x + side * 14 * s, y - 10 * s, tipLen, stemW * 0.72, color, 0.54, layer + 1, false, rot * 0.8);
+      drawGlowCircle(x + side * 14 * s, y - 10 * s, 3 * s, color2, 0.8, 4);
+      return;
+    }
+    drawSpriteRect(x, y, mainLen, stemW, color, 0.9, layer + 0, false, rot);
+    drawSpriteRect(x + side * 16 * s, y - 2 * s, tipLen, stemW * 0.9, color, 0.85, layer + 1, false, rot * 0.82);
+    drawSpriteRect(x + side * 30 * s, y - 10 * s, 18 * s, stemW * 0.75, color, 0.8, layer + 2, false, rot * 0.72);
+    if (style === 'orchard' || style === 'vine' || style === 'hedge' || style === 'wax') {
+      drawGlowCircle(x + side * 20 * s, y - 4 * s, 6 * s, color2, 0.6, 6);
+      drawGlowCircle(x + side * 32 * s, y - 12 * s, 5 * s, color2, 0.55, 5);
+    }
+  }
+
+  function drawSceneFlower(o, theme) {
+    const layer = o.layer || 0;
+    const s = Math.max(0.4, o.scale || 1);
+    const x = o.x;
+    const y = o.y;
+    const stem = o.color || theme.accent || '#69c26a';
+    const petal = o.color2 || theme.accent2 || '#ffe88b';
+    drawSpriteRect(x, y + 8 * s, 2 * s, 16 * s, stem, 0.8, layer, false);
+    for (let i = 0; i < 5; i++) {
+      const a = TAU * i / 5;
+      drawGlowCircle(x + Math.cos(a) * 4 * s, y + Math.sin(a) * 4 * s, 1.8 * s, petal, 0.9, 3);
+    }
+    drawGlowCircle(x, y, 1.2 * s, '#ffffff', 0.85, 2);
+  }
+
+  function drawSceneBuilding(o, theme) {
+    const layer = o.layer || 0;
+    const s = Math.max(0.5, o.scale || 1);
+    const x = o.x;
+    const y = o.y;
+    const style = o.style || 'city';
+    const base = o.color || '#4f5b67';
+    const glow = o.color2 || theme.accent2 || '#ffffff';
+    const w = Math.max(16, (o.w || 70) * s);
+    const h = Math.max(18, (o.h || 90) * s);
+    drawSpriteRect(x, y + h * 0.2, w, h, base, 0.94, layer, false);
+    if (style === 'barn') {
+      drawSpriteRect(x, y - 10 * s, w * 0.96, 12 * s, glow, 0.6, layer + 1, false, -0.1);
+      drawSpriteRect(x, y + h * 0.42, w * 0.24, h * 0.34, '#5b371f', 0.95, layer + 2, false);
+      drawGlowCircle(x - w * 0.18, y + h * 0.05, 8 * s, glow, 0.6, 4);
+    } else if (style === 'factory') {
+      drawSpriteRect(x - w * 0.1, y - h * 0.18, w * 0.3, h * 0.22, '#666f7a', 0.96, layer + 1, false);
+      drawSpriteRect(x + w * 0.12, y - h * 0.26, w * 0.16, h * 0.3, '#55606a', 0.96, layer + 1, false);
+      drawGlowCircle(x + w * 0.2, y - h * 0.42, 10 * s, glow, 0.6, 6);
+    } else if (style === 'hive') {
+      drawGlowCircle(x, y - h * 0.08, w * 0.42, glow, 0.34, h * 0.18);
+      drawGlowCircle(x - w * 0.15, y + h * 0.02, w * 0.34, glow, 0.3, h * 0.16);
+      drawGlowCircle(x + w * 0.18, y + h * 0.02, w * 0.34, glow, 0.3, h * 0.16);
+      drawSpriteRect(x - w * 0.15, y + h * 0.14, w * 0.3, h * 0.18, '#5c330b', 0.72, layer + 1, false);
+    } else if (style === 'kitchen') {
+      drawSpriteRect(x - w * 0.14, y - h * 0.2, w * 0.18, h * 0.26, '#7d5d49', 0.9, layer + 1, false);
+      drawSpriteRect(x + w * 0.14, y - h * 0.12, w * 0.14, h * 0.18, '#aa7852', 0.9, layer + 1, false);
+      drawGlowCircle(x, y - h * 0.38, 10 * s, glow, 0.56, 6);
+    } else if (style === 'arcade' || style === 'city') {
+      const win = Math.max(3, o.windows || 4);
+      for (let i = 0; i < win; i++) {
+        const wx = x - w * 0.32 + (i + 0.5) * (w * 0.64 / win);
+        drawSpriteRect(wx, y + h * (0.06 + (i % 2) * 0.12), 4 * s, 10 * s, glow, 0.72, layer + 1, false);
+      }
+      drawSpriteRect(x, y - h * 0.18, w * 0.9, 6 * s, glow, 0.8, layer + 1, false);
+    } else if (style === 'citadel' || style === 'storm') {
+      drawSpriteRect(x - w * 0.22, y - h * 0.15, w * 0.12, h * 0.24, glow, 0.8, layer + 1, false);
+      drawSpriteRect(x + w * 0.18, y - h * 0.12, w * 0.12, h * 0.2, glow, 0.8, layer + 1, false);
+      drawSpriteRect(x, y - h * 0.32, w * 0.2, h * 0.14, glow, 0.74, layer + 1, false);
+      drawSpriteRect(x, y + h * 0.28, w * 0.28, h * 0.18, glow, 0.72, layer + 1, false);
+    } else if (style === 'palace') {
+      drawGlowCircle(x, y - h * 0.3, 10 * s, glow, 0.82, 8);
+      drawSpriteRect(x - w * 0.08, y - h * 0.06, w * 0.18, h * 0.36, glow, 0.72, layer + 1, false);
+    }
+  }
+
+  function drawSceneCloud(o, theme) {
+    const layer = o.layer || 0;
+    const s = Math.max(0.5, o.scale || 1);
+    const x = o.x;
+    const y = o.y;
+    const style = o.style || 'fluff';
+    const base = o.color || theme.accent2 || '#ffffff';
+    const glow = o.color2 || theme.glow || base;
+    const alpha = style === 'storm' ? 0.38 : style === 'mist' ? 0.18 : 0.28;
+    const size = 16 * s;
+    drawGlowCircle(x - 12 * s, y + 2 * s, size * 0.9, base, alpha, 14);
+    drawGlowCircle(x, y - 6 * s, size * 1.1, base, alpha + 0.05, 16);
+    drawGlowCircle(x + 14 * s, y + 2 * s, size * 0.92, base, alpha, 14);
+    if (style === 'storm' || style === 'smoke' || style === 'steam') {
+      drawGlowCircle(x + 3 * s, y - 10 * s, size * 0.8, glow, 0.2, 8);
+    }
+  }
+
+  function drawSceneGear(o, theme) {
+    const layer = o.layer || 0;
+    const s = Math.max(0.45, o.scale || 1);
+    const x = o.x;
+    const y = o.y;
+    const base = o.color || '#8f9aa5';
+    const glow = o.color2 || theme.accent2 || '#d2d8df';
+    drawGlowCircle(x, y, 10 * s, base, 0.7, 8);
+    drawGlowCircle(x, y, 4 * s, glow, 0.9, 3);
+    for (let i = 0; i < 6; i++) {
+      const a = TAU * i / 6;
+      drawSpriteRect(x + Math.cos(a) * 9 * s, y + Math.sin(a) * 9 * s, 3 * s, 8 * s, glow, 0.55, layer + i, false, a);
+    }
+  }
+
+  function drawSceneReed(o, theme) {
+    const layer = o.layer || 0;
+    const s = Math.max(0.45, o.scale || 1);
+    const x = o.x;
+    const y = o.y;
+    const stem = o.color || '#6e9462';
+    const tip = o.color2 || theme.accent2 || '#ffd7a5';
+    for (let i = 0; i < 3; i++) {
+      const dx = (i - 1) * 4 * s;
+      drawSpriteRect(x + dx, y + i * 3 * s, 2 * s, 28 * s + i * 4 * s, stem, 0.84, layer + i, false, (i - 1) * 0.06);
+      drawGlowCircle(x + dx, y - 16 * s + i * 3 * s, 2.2 * s, tip, 0.8, 4);
+    }
+  }
+
+  function drawSceneCrystal(o, theme) {
+    const layer = o.layer || 0;
+    const s = Math.max(0.5, o.scale || 1);
+    const x = o.x;
+    const y = o.y;
+    const base = o.color || '#79f6ff';
+    const glow = o.color2 || theme.accent2 || '#f1e7ff';
+    drawGlowCircle(x, y, 12 * s, base, 0.34, 12);
+    drawSpriteRect(x - 8 * s, y + 4 * s, 8 * s, 34 * s, base, 0.78, layer + 0, false, -0.32);
+    drawSpriteRect(x + 4 * s, y + 6 * s, 8 * s, 28 * s, glow, 0.84, layer + 1, false, 0.2);
+    drawSpriteRect(x + 10 * s, y + 10 * s, 5 * s, 22 * s, base, 0.72, layer + 2, false, -0.08);
+  }
+
+  function drawSceneCandy(o, theme) {
+    const layer = o.layer || 0;
+    const s = Math.max(0.5, o.scale || 1);
+    const x = o.x;
+    const y = o.y;
+    const style = o.style || 'lollipop';
+    const base = o.color || '#ff79b6';
+    const glow = o.color2 || theme.accent2 || '#ffffff';
+    if (style === 'cane') {
+      drawSpriteRect(x, y + 6 * s, 5 * s, 30 * s, glow, 0.82, layer + 0, false, -0.12);
+      drawSpriteRect(x + 4 * s, y - 8 * s, 16 * s, 5 * s, base, 0.82, layer + 1, false, 0.56);
+      drawGlowCircle(x + 10 * s, y - 11 * s, 8 * s, glow, 0.74, 7);
+    } else {
+      drawSpriteRect(x, y + 8 * s, 5 * s, 32 * s, glow, 0.82, layer + 0, false, 0);
+      drawGlowCircle(x, y - 8 * s, 12 * s, base, 0.88, 10);
+      drawGlowCircle(x - 4 * s, y - 10 * s, 8 * s, glow, 0.5, 5);
+      drawGlowCircle(x + 5 * s, y - 4 * s, 6 * s, '#ffffff', 0.55, 4);
+    }
+  }
+
+  function drawSceneWall(o, theme) {
+    const layer = o.layer || 0;
+    const s = Math.max(0.6, o.scale || 1);
+    const x = o.x;
+    const y = o.y;
+    const base = o.color || '#4f4f63';
+    const glow = o.color2 || theme.accent2 || '#d8d8e8';
+    const w = Math.max(30, (o.w || 90) * s);
+    const h = Math.max(24, (o.h || 80) * s);
+    drawSpriteRect(x, y + h * 0.18, w, h * 0.9, base, 0.95, layer + 0, false);
+    for (let i = -2; i <= 2; i++) {
+      drawSpriteRect(x + i * 10 * s, y - h * 0.28, 8 * s, 14 * s, glow, 0.78, layer + 1, false);
+    }
+    drawSpriteRect(x - w * 0.2, y - h * 0.06, w * 0.18, h * 0.18, glow, 0.72, layer + 2, false);
+    drawSpriteRect(x + w * 0.08, y - h * 0.06, w * 0.18, h * 0.18, glow, 0.72, layer + 2, false);
+  }
+
+  function drawScenePillar(o, theme) {
+    const layer = o.layer || 0;
+    const s = Math.max(0.6, o.scale || 1);
+    const x = o.x;
+    const y = o.y;
+    const base = o.color || '#7d6aa8';
+    const glow = o.color2 || theme.accent2 || '#ffe78a';
+    const w = Math.max(16, (o.w || 48) * s);
+    const h = Math.max(24, (o.h || 100) * s);
+    drawSpriteRect(x, y + h * 0.15, w, h, base, 0.94, layer + 0, false);
+    drawSpriteRect(x, y - h * 0.16, w * 1.08, 10 * s, glow, 0.84, layer + 1, false);
+    drawGlowCircle(x, y - h * 0.34, 7 * s, glow, 0.82, 8);
+  }
+
+  function drawSceneArch(o, theme) {
+    const layer = o.layer || 0;
+    const s = Math.max(0.6, o.scale || 1);
+    const x = o.x;
+    const y = o.y;
+    const base = o.color || '#677291';
+    const glow = o.color2 || theme.accent2 || '#c6d2ff';
+    const w = Math.max(32, (o.w || 110) * s);
+    const h = Math.max(20, (o.h || 60) * s);
+    drawSpriteRect(x - w * 0.32, y + h * 0.08, 10 * s, h * 0.9, base, 0.9, layer + 0, false);
+    drawSpriteRect(x + w * 0.32, y + h * 0.08, 10 * s, h * 0.9, base, 0.9, layer + 0, false);
+    drawSpriteRect(x, y - h * 0.15, w * 0.72, 10 * s, glow, 0.72, layer + 1, false);
+    drawGlowCircle(x, y - h * 0.25, 8 * s, glow, 0.8, 8);
+  }
+
+  function drawSceneObject(o, theme) {
+    if (!o) return;
+    switch (o.kind) {
+      case 'hill': drawSceneHill(o, theme); break;
+      case 'tree': drawSceneTree(o, theme); break;
+      case 'branch': drawSceneBranch(o, theme); break;
+      case 'flower': drawSceneFlower(o, theme); break;
+      case 'building': drawSceneBuilding(o, theme); break;
+      case 'cloud': drawSceneCloud(o, theme); break;
+      case 'gear': drawSceneGear(o, theme); break;
+      case 'reed': drawSceneReed(o, theme); break;
+      case 'crystal': drawSceneCrystal(o, theme); break;
+      case 'candy': drawSceneCandy(o, theme); break;
+      case 'wall': drawSceneWall(o, theme); break;
+      case 'pillar': drawScenePillar(o, theme); break;
+      case 'arch': drawSceneArch(o, theme); break;
+      default: break;
+    }
+  }
+
+  function drawSceneLayer(items, theme) {
+    for (let i = 0; i < items.length; i++) drawSceneObject(items[i], theme);
+  }
+
+  function destroyBitmapLayer(layer) {
+    if (!layer || !layer.texture || !gl || !gl.deleteTexture) return;
+    try {
+      gl.deleteTexture(layer.texture);
+    } catch (e) {}
+    layer.texture = null;
+  }
+
+  function bitmapFillRect(g, x, y, w, h, color, alpha) {
+    g.fillStyle = rgbaString(color, alpha);
+    g.fillRect(x, y, w, h);
+  }
+
+  function bitmapFillCircle(g, x, y, r, color, alpha) {
+    g.fillStyle = rgbaString(color, alpha);
+    g.beginPath();
+    g.arc(x, y, r, 0, TAU);
+    g.fill();
+  }
+
+  function bitmapStrokeLine(g, x1, y1, x2, y2, width, color, alpha) {
+    g.strokeStyle = rgbaString(color, alpha);
+    g.lineWidth = width;
+    g.beginPath();
+    g.moveTo(x1, y1);
+    g.lineTo(x2, y2);
+    g.stroke();
+  }
+
+  function bitmapFillRadialGlow(g, x, y, innerR, outerR, color, alpha, blendMode) {
+    const prev = g.globalCompositeOperation;
+    if (blendMode) g.globalCompositeOperation = blendMode;
+    const r0 = Math.max(1, innerR);
+    const r1 = Math.max(r0 + 1, outerR);
+    const grd = g.createRadialGradient(x, y, Math.max(1, r0 * 0.08), x, y, r1);
+    grd.addColorStop(0, rgbaString(color, alpha * 0.95));
+    grd.addColorStop(0.25, rgbaString(color, alpha * 0.55));
+    grd.addColorStop(0.58, rgbaString(color, alpha * 0.2));
+    grd.addColorStop(1, rgbaString(color, 0));
+    g.fillStyle = grd;
+    g.beginPath();
+    g.arc(x, y, r1, 0, TAU);
+    g.fill();
+    g.globalCompositeOperation = prev;
+  }
+
+  function bitmapFillLightBeam(g, x, topY, bottomY, spread, color, alpha, sway, blendMode) {
+    const prev = g.globalCompositeOperation;
+    if (blendMode) g.globalCompositeOperation = blendMode;
+    const s = Math.max(1, spread);
+    const drift = sway || 0;
+    const grd = g.createLinearGradient(x - s, topY, x + s, bottomY);
+    grd.addColorStop(0, rgbaString(color, 0));
+    grd.addColorStop(0.18, rgbaString(color, alpha * 0.24));
+    grd.addColorStop(0.5, rgbaString(color, alpha * 0.7));
+    grd.addColorStop(0.82, rgbaString(color, alpha * 0.24));
+    grd.addColorStop(1, rgbaString(color, 0));
+    g.fillStyle = grd;
+    g.beginPath();
+    g.moveTo(x - s * 0.95, topY);
+    g.lineTo(x + s * 0.95, topY);
+    g.lineTo(x + s * 1.18 + drift, bottomY);
+    g.lineTo(x - s * 1.18 + drift, bottomY);
+    g.closePath();
+    g.fill();
+    g.globalCompositeOperation = prev;
+  }
+
+  function makeBitmapLayer(width, height, seed, speed, kind, paint) {
+    const maxTex = gl && gl.getParameter ? gl.getParameter(gl.MAX_TEXTURE_SIZE) : 4096;
+    const safeMax = Number.isFinite(maxTex) && maxTex > 0 ? maxTex : 4096;
+    const scale = Math.min(1, safeMax / Math.max(1, width), safeMax / Math.max(1, height));
+    const texW = Math.max(1, Math.round(width * scale));
+    const texH = Math.max(1, Math.round(height * scale));
+    const canvas = makeCanvas(texW, texH);
+    const g = canvas.getContext('2d');
+    g.imageSmoothingEnabled = true;
+    g.clearRect(0, 0, width, height);
+    if (scale < 1) g.scale(scale, scale);
+    paint(g, width, height, makeRng(seed || 1));
+    return {
+      texture: createTextureFromCanvas(canvas),
+      width: width,
+      height: height,
+      textureWidth: texW,
+      textureHeight: texH,
+      contentScale: scale,
+      viewportH: view.h,
+      scroll: Math.max(0, height - view.h),
+      maxScroll: Math.max(0, height - view.h),
+      speed: speed,
+      seed: seed || 1,
+      kind: kind || ''
+    };
+  }
+
+  function paintOrchardTree(g, x, groundY, scale, variant, rng, palette, alpha) {
+    const trunkColors = palette.trunk;
+    const leafColors = palette.leaf;
+    const shadowColors = palette.shadow;
+    const trunkH = scale * (52 + rng() * 34 + (variant % 3) * 8);
+    const trunkW = scale * (7 + rng() * 4 + (variant % 2));
+    const trunkTop = groundY - trunkH;
+    const trunkLeft = x - trunkW * 0.5;
+    const trunkAlpha = alpha == null ? 1 : alpha;
+    bitmapFillRect(g, trunkLeft, trunkTop + trunkH * 0.12, trunkW, trunkH * 0.88, trunkColors[0], trunkAlpha * 0.95);
+    bitmapFillRect(g, trunkLeft + trunkW * 0.18, trunkTop, trunkW * 0.44, trunkH, trunkColors[1], trunkAlpha * 0.96);
+    bitmapFillRect(g, trunkLeft + trunkW * 0.52, trunkTop + trunkH * 0.08, trunkW * 0.24, trunkH * 0.86, trunkColors[2], trunkAlpha * 0.86);
+    bitmapFillRect(g, trunkLeft - trunkW * 0.08, groundY - trunkH * 0.06, trunkW * 1.16, trunkH * 0.12, shadowColors[0], trunkAlpha * 0.16);
+    const rootCount = 3 + (variant % 3);
+    for (let i = 0; i < rootCount; i++) {
+      const side = i % 2 === 0 ? -1 : 1;
+      const rx = x + side * (trunkW * (0.34 + i * 0.08));
+      const ry = groundY + scale * (6 + i * 1.4);
+      bitmapStrokeLine(g, x + side * trunkW * 0.05, groundY - 1, rx, ry, Math.max(1, scale * 1.5 - i * 0.12), trunkColors[i % trunkColors.length], trunkAlpha * 0.7);
+    }
+    const branchCount = 3 + (variant % 4);
+    for (let i = 0; i < branchCount; i++) {
+      const side = (i % 2 === 0 ? -1 : 1) * (0.7 + rng() * 0.6);
+      const by = trunkTop + trunkH * (0.18 + i * 0.12);
+      const bx = x + trunkW * 0.1 * side;
+      const len = scale * (18 + rng() * 18);
+      const bend = scale * (10 + rng() * 12);
+      const ex = bx + side * len;
+      const ey = by - bend;
+      bitmapStrokeLine(g, bx, by, ex, ey, Math.max(1, scale * 1.25 - i * 0.05), trunkColors[(i + 1) % trunkColors.length], trunkAlpha * 0.9);
+      bitmapStrokeLine(g, ex, ey, ex + side * scale * (8 + rng() * 7), ey - scale * (5 + rng() * 5), Math.max(0.8, scale * 0.95), trunkColors[(i + 2) % trunkColors.length], trunkAlpha * 0.78);
+    }
+    const canopyBaseY = trunkTop - scale * (6 + rng() * 12);
+    const spreadX = scale * (18 + rng() * 14 + (variant % 3) * 4);
+    const spreadY = scale * (12 + rng() * 8 + (variant % 2) * 5);
+    const leafCount = 5 + (variant % 3) + (rng() * 2 | 0);
+    for (let i = 0; i < leafCount; i++) {
+      const a = (TAU / leafCount) * i + rng() * 0.42;
+      const px = x + Math.cos(a) * spreadX + (rng() - 0.5) * scale * 6;
+      const py = canopyBaseY + Math.sin(a * 1.1) * spreadY + (rng() - 0.5) * scale * 5;
+      const r = scale * (11 + rng() * 9);
+      bitmapFillCircle(g, px, py, r, leafColors[i % leafColors.length], trunkAlpha * (0.8 + rng() * 0.18));
+      bitmapFillCircle(g, px - r * 0.22, py - r * 0.18, r * 0.58, leafColors[(i + 1) % leafColors.length], trunkAlpha * 0.22);
+    }
+    bitmapFillCircle(g, x, canopyBaseY + spreadY * 0.1, scale * (8 + rng() * 6), leafColors[0], trunkAlpha * 0.22);
+    bitmapFillCircle(g, x - spreadX * 0.18, canopyBaseY + spreadY * 0.05, scale * (6 + rng() * 4), leafColors[1], trunkAlpha * 0.18);
+    bitmapFillCircle(g, x + spreadX * 0.16, canopyBaseY + spreadY * 0.12, scale * (6 + rng() * 4), leafColors[2], trunkAlpha * 0.18);
+  }
+
+  function paintOrchardBush(g, x, y, scale, rng, palette, alpha) {
+    const colors = palette.leaf;
+    const shadow = palette.shadow;
+    const count = 5 + (rng() * 4 | 0);
+    const base = scale * (16 + rng() * 12);
+    bitmapFillCircle(g, x, y + scale * 2, base * 1.08, shadow[0], alpha * 0.12);
+    for (let i = 0; i < count; i++) {
+      const a = (TAU / count) * i + rng() * 0.4;
+      const px = x + Math.cos(a) * base * 0.28 + (rng() - 0.5) * scale * 6;
+      const py = y + Math.sin(a) * base * 0.16 + (rng() - 0.5) * scale * 4;
+      const r = base * (0.55 + rng() * 0.5);
+      bitmapFillCircle(g, px, py, r, colors[i % colors.length], alpha * (0.72 + rng() * 0.18));
+      bitmapFillCircle(g, px - r * 0.18, py - r * 0.15, r * 0.42, colors[(i + 1) % colors.length], alpha * 0.16);
+    }
+  }
+
+  function buildOrchardBackgroundBitmap(theme, seed) {
+    const w = Math.max(1, Math.round(view.w));
+    const h = Math.max(1, Math.round(view.h * 5));
+    const palette = {
+      base: ['#8ed255', '#6fbe43', '#4f982f'],
+      grass: ['#9ce35a', '#7ac346', '#5aa038', '#417d29'],
+      leaf: ['#2f6f2c', '#3f8d31', '#59a83c', '#7bc54e'],
+      trunk: ['#5d3720', '#7a4b2b', '#9a6a3f'],
+      shadow: ['#23461d', '#315d25', '#3d722d']
+    };
+    const speed = Math.max(18, view.h * 0.035);
+    return makeBitmapLayer(w, h, seed, speed, 'orchard', function (g, width, height, rng) {
+      const sky = g.createLinearGradient(0, 0, 0, height);
+      sky.addColorStop(0, '#8bd34c');
+      sky.addColorStop(0.25, '#7fc645');
+      sky.addColorStop(0.62, '#5fa336');
+      sky.addColorStop(1, '#447a28');
+      g.fillStyle = sky;
+      g.fillRect(0, 0, width, height);
+
+      bitmapFillRadialGlow(g, width * 0.16, height * 0.1, height * 0.08, height * 0.42, '#e7ffb6', 0.14, 'screen');
+      bitmapFillRadialGlow(g, width * 0.5, height * 0.18, height * 0.09, height * 0.5, '#b8ff83', 0.1, 'screen');
+      bitmapFillRadialGlow(g, width * 0.84, height * 0.26, height * 0.07, height * 0.36, '#86ff73', 0.07, 'screen');
+      bitmapFillLightBeam(g, width * 0.21, 0, height * 0.96, width * 0.045, '#cdff97', 0.07, width * 0.012, 'screen');
+      bitmapFillLightBeam(g, width * 0.64, 0, height * 0.96, width * 0.055, '#9dff78', 0.05, -width * 0.02, 'screen');
+
+      for (let i = 0; i < 12; i++) {
+        const y = height * (0.03 + i * 0.078) + (rng() - 0.5) * height * 0.008;
+        const bandH = height * (0.014 + rng() * 0.01);
+        bitmapFillRect(g, 0, y, width, bandH, palette.base[i % palette.base.length], 0.07 + rng() * 0.05);
+      }
+
+      const grassTop = height * 0.25;
+      const grassCount = Math.max(2200, Math.round(width * height * 0.00075));
+      g.lineCap = 'round';
+      for (let i = 0; i < grassCount; i++) {
+        const x = rng() * width;
+        const y = grassTop + rng() * (height - grassTop);
+        const t = (y - grassTop) / Math.max(1, height - grassTop);
+        const len = 8 + rng() * (18 + t * 32);
+        const lean = (rng() - 0.5) * (10 + t * 20);
+        const lineW = 0.7 + rng() * 1.7;
+        const c = palette.grass[(i + (t * 3 | 0)) % palette.grass.length];
+        bitmapStrokeLine(g, x, y, x + lean, y - len, lineW, c, 0.11 + t * 0.2 + rng() * 0.06);
+      }
+
+      const bushRows = 6;
+      for (let row = 0; row < bushRows; row++) {
+        const y = lerp(height * 0.28, height * 0.9, row / Math.max(1, bushRows - 1));
+        const count = 3 + (row % 3);
+        for (let i = 0; i < count; i++) {
+          const x = lerp(width * 0.08, width * 0.92, (i + 0.5) / count) + (row & 1 ? width * 0.045 : -width * 0.018);
+          paintOrchardBush(g, x + (rng() - 0.5) * width * 0.03, y + (rng() - 0.5) * height * 0.02, 0.7 + row * 0.14 + rng() * 0.24, rng, palette, 0.88);
+        }
+      }
+
+      bitmapFillRadialGlow(g, width * 0.28, height * 0.64, height * 0.06, height * 0.28, '#8dff71', 0.07, 'screen');
+      bitmapFillRadialGlow(g, width * 0.73, height * 0.72, height * 0.07, height * 0.3, '#76ff67', 0.055, 'screen');
+
+      const treeRows = 7;
+      const cols = Math.max(4, Math.round(width / 230));
+      for (let row = 0; row < treeRows; row++) {
+        const rowT = row / Math.max(1, treeRows - 1);
+        const baseY = lerp(height * 0.18, height * 0.94, rowT);
+        for (let col = 0; col < cols; col++) {
+          const colT = cols === 1 ? 0.5 : col / (cols - 1);
+          const x = lerp(width * 0.08, width * 0.92, colT) + ((row & 1) ? width * 0.04 : -width * 0.015) + (rng() - 0.5) * width * 0.03;
+          const scale = 0.42 + rowT * 1.12 + rng() * 0.12;
+          paintOrchardTree(g, x, baseY + (rng() - 0.5) * height * 0.02, scale, row * cols + col, rng, palette, 0.98);
+        }
+      }
+
+      for (let i = 0; i < 16; i++) {
+        const x = lerp(width * 0.02, width * 0.98, rng());
+        const y = lerp(height * 0.08, height * 0.28, rng()) + Math.sin(rng() * TAU) * height * 0.01;
+        const scale = 0.24 + rng() * 0.14;
+        paintOrchardTree(g, x, y, scale, i, rng, palette, 0.58);
+      }
+
+      for (let i = 0; i < 7; i++) {
+        const x = lerp(width * 0.06, width * 0.94, rng());
+        const y = lerp(height * 0.1, height * 0.88, rng());
+        const innerR = height * (0.018 + rng() * 0.022);
+        const outerR = innerR * (3.6 + rng() * 1.4);
+        bitmapFillRadialGlow(g, x, y, innerR, outerR, i % 2 === 0 ? '#beff88' : '#73ff68', 0.045 + rng() * 0.03, 'screen');
+      }
+
+      for (let i = 0; i < 18; i++) {
+        const y = height * (0.46 + i * 0.025) + (rng() - 0.5) * height * 0.008;
+        bitmapFillRect(g, 0, y, width, height * 0.0045, palette.shadow[i % palette.shadow.length], 0.045);
+      }
+    });
+  }
+
+  function buildCloudForegroundBitmap(seed) {
+    const w = Math.max(1, Math.round(view.w));
+    const h = Math.max(1, Math.round(view.h * 5));
+    const speed = Math.max(24, view.h * 0.065);
+    return makeBitmapLayer(w, h, seed, speed, 'clouds', function (g, width, height, rng) {
+      g.lineCap = 'round';
+      g.lineJoin = 'round';
+      const cloudBase = Math.max(39, Math.round((Math.max(52, Math.round(width / 28) + 16)) * 0.75));
+      const cloudCount = Math.max(24, Math.round(cloudBase * 0.6));
+      for (let i = 0; i < cloudCount; i++) {
+        const x = lerp(-width * 0.08, width * 1.08, rng());
+        const y = lerp(height * 0.04, height * 0.96, rng());
+        const scale = (0.9 + rng() * 1.8) * 0.48;
+        const puffs = 5 + (rng() * 3 | 0);
+        const span = scale * (56 + rng() * 56);
+        const heightSpan = scale * (14 + rng() * 12);
+        bitmapFillCircle(g, x, y + heightSpan * 0.2, span * 0.48, '#ffffff', 1);
+        for (let p = 0; p < puffs; p++) {
+          const t = puffs === 1 ? 0.5 : p / (puffs - 1);
+          const px = x + lerp(-span * 0.5, span * 0.5, t) + (rng() - 0.5) * scale * 12;
+          const py = y + Math.sin(t * Math.PI) * heightSpan * 0.3 + (rng() - 0.5) * scale * 7;
+          const r = scale * (18 + rng() * 16);
+          bitmapFillCircle(g, px, py, r, '#ffffff', 1);
+          bitmapFillCircle(g, px - r * 0.12, py - r * 0.1, r * 0.54, '#ffffff', 1);
+        }
+        if (rng() < 0.5) {
+          bitmapFillCircle(g, x + span * 0.2, y - heightSpan * 0.2, scale * (12 + rng() * 10), '#ffffff', 1);
+        }
+        if (rng() < 0.28) {
+          bitmapFillCircle(g, x - span * 0.22, y + heightSpan * 0.08, scale * (10 + rng() * 8), '#ffffff', 1);
+        }
+      }
+    });
+  }
+
   function drawBackground() {
     const theme = mainTheme();
+    if (state.backgroundBitmap) {
+      const bgScale = state.backgroundBitmap.contentScale || 1;
+      drawTextureSlice(state.backgroundBitmap.texture, view.w * 0.5, view.h * 0.5, view.w, view.h, state.backgroundBitmap.scroll * bgScale, view.h * bgScale, state.backgroundBitmap.textureHeight || state.backgroundBitmap.height, {
+        layer: -90,
+        alpha: 1
+      });
+      return;
+    }
     const mood = theme.atmosphere || 'default';
     const pulse = 0.5 + Math.sin(state.musicStep * 0.5 + state.levelClock * 0.8) * 0.5;
-    drawSpriteRect(view.w * 0.5, view.h * 0.5, view.w, view.h, theme.skyBottom, 0.03, -10, true);
-    drawSpriteCircle(view.w * 0.2, view.h * 0.18, Math.max(view.w, view.h) * 0.22, theme.glow, 0.06 + pulse * 0.03, -8, true);
-    drawSpriteCircle(view.w * 0.8, view.h * 0.14, Math.max(view.w, view.h) * 0.18, theme.accent2, 0.05 + pulse * 0.02, -8, true);
-    drawSpriteCircle(view.w * 0.5, view.h * 0.92, Math.max(view.w, view.h) * 0.16, theme.accent, 0.04, -8, true);
+    drawSpriteRect(view.w * 0.5, view.h * 0.5, view.w, view.h, theme.skyBottom, 0.04, -40, true);
+    drawSpriteCircle(view.w * 0.2, view.h * 0.18, Math.max(view.w, view.h) * 0.22, theme.glow, 0.06 + pulse * 0.03, -36, true);
+    drawSpriteCircle(view.w * 0.8, view.h * 0.14, Math.max(view.w, view.h) * 0.18, theme.accent2, 0.05 + pulse * 0.02, -36, true);
+    drawSpriteCircle(view.w * 0.5, view.h * 0.92, Math.max(view.w, view.h) * 0.16, theme.accent, 0.04, -36, true);
+    drawSceneLayer(state.background, theme);
 
     if (mood === 'chess') {
       const gridY = view.h * 0.78;
@@ -2035,56 +3128,57 @@
             tile * 0.62 + 1,
             odd ? '#f3f4fb' : '#121521',
             odd ? 0.09 : 0.38,
-            -5,
+            -16,
             false
           );
         }
       }
-      drawSpriteRect(view.w * 0.5, view.h * 0.88, view.w, view.h * 0.24, '#ffffff', 0.045, -6, false);
-    }
-
-    for (let i = 0; i < state.background.length; i++) {
-      const b = state.background[i];
-      if (b.kind === 'emoji') {
-        drawEmojiGlyph(b.emoji, b.x, b.y, b.size, { alpha: b.alpha, glow: theme.glow, blur: b.size * 0.45, rot: b.spin + Math.sin(b.wobble * 0.6) * 0.18, shadow: true });
-      } else {
-        drawGlowCircle(b.x, b.y, b.r, theme.accent2, b.alpha, 14);
-      }
-    }
-
-    if (mood === 'rain') {
+      drawSpriteRect(view.w * 0.5, view.h * 0.88, view.w, view.h * 0.24, '#ffffff', 0.045, -14, false);
+    } else if (mood === 'rain') {
       const offset = (state.levelClock * 220) % 20;
       for (let x = -40; x < view.w + 60; x += 18) {
-        drawSpriteRect(x, -20 + offset, 16, 2, theme.accent2, 0.18, -6, true, -0.7);
+        drawSpriteRect(x, -20 + offset, 16, 2, theme.accent2, 0.18, -14, true, -0.7);
       }
     } else if (mood === 'neon') {
       const step = 46;
       const shift = (state.levelClock * 80) % step;
       for (let y = -step; y < view.h + step; y += step) {
-        drawSpriteRect(view.w * 0.5, y + shift, view.w, 1, theme.accent2, 0.08, -6, true);
+        drawSpriteRect(view.w * 0.5, y + shift, view.w, 1, theme.accent2, 0.08, -14, true);
       }
       for (let x = -step; x < view.w + step; x += step) {
-        drawSpriteRect(x + shift, view.h * 0.5, 1, view.h, theme.accent2, 0.06, -6, true, -0.08);
+        drawSpriteRect(x + shift, view.h * 0.5, 1, view.h, theme.accent2, 0.06, -14, true, -0.08);
       }
     } else if (mood === 'embers') {
       for (let i = 0; i < 18; i++) {
         const x = (i * 79 + state.levelClock * 36) % (view.w + 80) - 40;
         const y = view.h - ((i * 33 + state.levelClock * 120) % (view.h * 0.8));
-        drawSpriteCircle(x, y, 2 + (i % 3), theme.accent2, 0.45, -6, true);
+        drawSpriteCircle(x, y, 2 + (i % 3), theme.accent2, 0.45, -14, true);
       }
     } else if (mood === 'shards') {
       for (let i = 0; i < 12; i++) {
         const x = (i * 91 + state.levelClock * 22) % (view.w + 120) - 60;
         const y = (i * 53 + state.levelClock * 38) % (view.h + 120) - 60;
-        drawSpriteRect(x, y, 10, 28, theme.accent2, 0.12, -6, true, 0.4);
+        drawSpriteRect(x, y, 10, 28, theme.accent2, 0.12, -14, true, 0.4);
       }
     } else if (mood === 'nova') {
       const cx = view.w * 0.5, cy = view.h * 0.26;
       for (let i = 0; i < 10; i++) {
         const a = (TAU / 10) * i + state.levelClock * 0.12;
-        drawSpriteRect(cx + Math.cos(a) * 110, cy + Math.sin(a) * 70, 220, 2, theme.accent2, 0.12, -6, true, a);
+        drawSpriteRect(cx + Math.cos(a) * 110, cy + Math.sin(a) * 70, 220, 2, theme.accent2, 0.12, -14, true, a);
       }
     }
+  }
+
+  function drawForeground() {
+    if (state.foregroundBitmap) {
+      const fgScale = state.foregroundBitmap.contentScale || 1;
+      drawTextureSlice(state.foregroundBitmap.texture, view.w * 0.5, view.h * 0.5, view.w, view.h, state.foregroundBitmap.scroll * fgScale, view.h * fgScale, state.foregroundBitmap.textureHeight || state.foregroundBitmap.height, {
+        layer: 90,
+        alpha: 1
+      });
+      return;
+    }
+    drawSceneLayer(state.foreground, mainTheme());
   }
 
   function drawBullets() {
@@ -2228,24 +3322,15 @@
 
   function drawEnemyOverlay(e, rot) {
     const size = Math.max(18, Math.round(e.r * (e.kind === 'elite' ? 2.0 : 1.7)));
-    const sprite = getHudEmojiSprite(e.emoji || '', size, e.theme.glow || '#ffffff', size * 0.22);
-    hudCtx.save();
-    hudCtx.translate(e.x, e.y);
-    hudCtx.rotate(rot * 0.15 || 0);
-    hudCtx.globalAlpha = e.hitFlash > 0 ? 1 : 0.98;
-    hudCtx.drawImage(sprite, -sprite.width * 0.5, -sprite.height * 0.5);
-    hudCtx.restore();
+    drawEmojiGlyph(e.emoji || '', e.x, e.y, size, { rot: rot * 0.15 || 0, alpha: e.hitFlash > 0 ? 1 : 0.98, layer: 18, fill: e.theme.glow || '#ffffff', lighter: false });
+    drawEmojiGlyph(e.emoji || '', e.x - 1, e.y - 1, size * 0.94, { rot: rot * 0.15 || 0, alpha: 0.18, layer: 19, fill: '#ffffff', lighter: true });
   }
 
   function drawBossOverlay(b) {
     const size = Math.max(44, Math.round(b.r * 1.25));
-    const sprite = getHudEmojiSprite(b.emoji || '', size, bossPalette(b).glow, size * 0.22);
-    hudCtx.save();
-    hudCtx.translate(b.x, b.y);
-    hudCtx.rotate(Math.sin(b.age * 0.8) * 0.06);
-    hudCtx.globalAlpha = 0.98;
-    hudCtx.drawImage(sprite, -sprite.width * 0.5, -sprite.height * 0.5);
-    hudCtx.restore();
+    const rot = Math.sin(b.age * 0.8) * 0.06;
+    drawEmojiGlyph(b.emoji || '', b.x, b.y, size, { rot: rot, alpha: 0.98, layer: 28, fill: bossPalette(b).glow, lighter: false });
+    drawEmojiGlyph(b.emoji || '', b.x - 1, b.y - 1, size * 0.94, { rot: rot, alpha: 0.18, layer: 29, fill: '#ffffff', lighter: true });
   }
 
   function drawEnemy(e) {
@@ -2263,7 +3348,7 @@
     }
     drawEnemyBody(e, rot);
     drawEnemyOverlay(e, rot);
-    if (e.maxHp > 1 && e.hp > 0) drawBar(e.x - e.r * 0.9, e.y - e.r - 14, e.r * 1.8, 7, e.hp / e.maxHp, e.theme.accent2, 'rgba(0,0,0,0.35)');
+    if (e.maxHp > 1 && e.hp > 0) drawWorldBar(e.x - e.r * 0.9, e.y - e.r - 14, e.r * 1.8, 7, e.hp / e.maxHp, e.theme.accent2, 'rgba(0,0,0,0.35)', 17);
     if (e.hitFlash > 0) drawGlowCircle(e.x, e.y, e.r * 1.35, '#ffffff', 0.22, 18);
   }
 
@@ -2286,18 +3371,13 @@
     const glow = state.overdrive > 0 ? '#ffe38c' : '#8fd8ff';
     const flashAlpha = p.invuln > 0 ? 0.52 + 0.42 * (0.5 + 0.5 * Math.sin((3 - p.invuln) * 16 + state.musicStep * 0.9)) : 1;
     const damage = clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1);
-    if (state.overdrive > 0) {
-      drawGlowCircle(p.x, p.y + 4, 42, '#ffd45e', 0.17, 36);
-      drawGlowCircle(p.x, p.y + 4, 24, '#fff3b0', 0.22, 20);
+    const planeSize = 36 + (state.overdrive > 0 ? 4 : 0);
+    if (damage > 0.01) {
+      const tex = getPlayerDamageTexture(planeSize, damage);
+      pushSprite(tex, p.x, p.y + bob, planeSize * 2.1, planeSize * 2.1, rot, glow, flashAlpha, 4, false);
+    } else {
+      drawEmojiGlyph(E.plane, p.x, p.y + bob, planeSize, { rot: rot, alpha: flashAlpha, layer: 4, fill: glow, lighter: false });
     }
-    if (p.shield > 0) {
-      drawGlowCircle(p.x, p.y, p.r + 16 + Math.sin(state.musicStep * 0.6) * 1.5, p.shield > 1 ? '#a8ecff' : '#e5fbff', 0.22, 18);
-      if (p.shield > 1) drawGlowCircle(p.x, p.y, p.r + 24 + Math.sin(state.musicStep * 0.4) * 1.2, '#ffffff', 0.12, 16);
-    }
-    drawEmojiGlyph(E.plane, p.x, p.y + bob, 36 + (state.overdrive > 0 ? 4 : 0), { rot: rot, alpha: flashAlpha, layer: 4, fill: glow, lighter: false });
-    drawEmojiGlyph(E.plane, p.x - 1, p.y + bob - 1, 32 + (state.overdrive > 0 ? 3 : 0), { rot: rot * 0.96, alpha: p.invuln > 0 ? flashAlpha * 0.24 : 0.18, layer: 5, fill: '#ffffff', lighter: true });
-    if (damage > 0.01) drawPlayerDamage(p, bob, rot, damage);
-    drawGlowCircle(p.x, p.y + 18 + bob, 5 + p.weaponTier, '#ffd06b', 0.7, 12);
   }
 
   function localToWorld(px, py, rot, x, y) {
@@ -2311,38 +3391,81 @@
 
   function getPlayerCrackTexture(size, variant) {
     const s = Math.max(12, Math.round(size));
-    const key = 'playercrack|' + s + '|' + (variant || 0);
-    return getTextureFromCanvas(getHudCrackSprite(s, variant), key);
+    const planeSize = 36 + (state.overdrive > 0 ? 4 : 0);
+    const key = 'playercrack|' + planeSize + '|' + s + '|' + (variant || 0);
+    let tex = render.hudSprites.get(key);
+    if (tex) return tex;
+    const pad = Math.max(10, Math.round(s * 0.6));
+    const dim = Math.max(32, Math.ceil(s * 2 + pad * 2));
+    const c = makeDomCanvas(dim, dim);
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, dim, dim);
+    const crack = getHudCrackSprite(s, variant);
+    g.drawImage(crack, (dim - crack.width) * 0.5, (dim - crack.height) * 0.5);
+    g.globalCompositeOperation = 'destination-in';
+    g.font = '900 ' + Math.round(planeSize * 2.05) + 'px ' + EMOJI_FONT;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#fff';
+    g.fillText(E.plane, dim * 0.5, dim * 0.5 + Math.round(s * 0.03));
+    tex = createTextureFromCanvas(c);
+    render.hudSprites.set(key, tex);
+    return tex;
+  }
+
+  function getPlayerDamageTexture(size, damage) {
+    const planeSize = Math.max(16, Math.round(size));
+    const stage = Math.max(1, Math.min(8, Math.ceil(damage * 8)));
+    const key = 'playerdamage|' + planeSize + '|' + stage;
+    let tex = render.hudSprites.get(key);
+    if (tex) return tex;
+    const pad = Math.max(10, Math.round(planeSize * 0.6));
+    const dim = Math.max(32, Math.ceil(planeSize * 2 + pad * 2));
+    const c = makeDomCanvas(dim, dim);
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, dim, dim);
+    g.font = '900 ' + Math.round(planeSize * 2.05) + 'px ' + EMOJI_FONT;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#fff';
+    const centerY = dim * 0.5 + Math.round(planeSize * 0.03);
+    g.fillText(E.plane, dim * 0.5, centerY);
+    const anchors = [
+      [-22, -12, 0],
+      [-12, -14, 1],
+      [-2, -15, 2],
+      [10, -13, 3],
+      [22, -10, 0],
+      [-24, -3, 1],
+      [-12, -3, 2],
+      [0, -2, 3],
+      [12, -3, 0],
+      [24, -1, 1],
+      [-20, 8, 2],
+      [-8, 9, 3],
+      [4, 8, 0],
+      [16, 7, 1],
+      [0, 12, 2],
+      [18, 12, 3]
+    ];
+    const count = Math.min(anchors.length, 6 + stage * 2);
+    const crackBase = 12 + stage * 2.1 + damage * 20;
+    g.save();
+    g.globalCompositeOperation = 'destination-out';
+    for (let i = 0; i < count; i++) {
+      const cr = anchors[i];
+      const crackSize = crackBase + i * (1.2 + damage * 1.5);
+      const crack = getHudCrackSprite(crackSize, cr[2]);
+      g.drawImage(crack, Math.round(dim * 0.5 + cr[0] - crack.width * 0.5), Math.round(centerY + cr[1] - crack.height * 0.5));
+    }
+    g.restore();
+    tex = createTextureFromCanvas(c);
+    render.hudSprites.set(key, tex);
+    return tex;
   }
 
   function pushEraseSprite(texture, x, y, size, rot, alpha, layer) {
     pushSprite(texture, x, y, size, size, rot || 0, '#ffffff', alpha == null ? 1 : alpha, layer || 0, false, true);
-  }
-
-  function drawPlayerDamage(p, bob, rot, damage) {
-    const px = p.x;
-    const py = p.y + bob;
-    const stage = Math.max(1, Math.min(8, Math.ceil(damage * 8)));
-    const anchors = [
-      [-13, -13, 0],
-      [0, -16, 1],
-      [13, -13, 2],
-      [-17, -4, 3],
-      [-4, -3, 0],
-      [13, -3, 1],
-      [-16, 7, 2],
-      [0, 11, 3],
-      [15, 8, 0]
-    ];
-    const count = Math.min(anchors.length, 3 + stage);
-    const crackBase = 11 + stage * 1.9 + damage * 18;
-    for (let i = 0; i < count; i++) {
-      const cr = anchors[i];
-      const pos = localToWorld(px, py, rot, cr[0], cr[1]);
-      const size = crackBase + i * (1.1 + damage * 1.8);
-      const tex = getPlayerCrackTexture(size, cr[2]);
-      pushEraseSprite(tex, pos.x, pos.y, size * 1.34, rot + (cr[2] * 0.13) + (damage * 0.06), 0.97, 6 + i);
-    }
   }
 
   function drawHud() {
@@ -2414,9 +3537,7 @@
   function drawTitle() {
     const theme = mainTheme();
     const pulse = 0.5 + Math.sin(state.musicStep * 0.4) * 0.5;
-    drawGlowCircle(view.w * 0.5, view.h * 0.23, 90 + pulse * 18, theme.glow, 0.18, 44);
-    drawEmojiGlyph(E.plane, view.w * 0.5, view.h * 0.22, 76, { alpha: 0.18, rot: -Math.PI * 0.25, layer: 4, fill: theme.glow || '#ffffff', lighter: false });
-    drawEmojiGlyph(E.plane, view.w * 0.5 - 1, view.h * 0.22 - 1, 72, { alpha: 0.1, rot: -Math.PI * 0.25, layer: 5, fill: '#ffffff', lighter: true });
+    drawEmojiGlyph(E.plane, view.w * 0.5, view.h * 0.22, 76, { alpha: 0.9, rot: -Math.PI * 0.25, layer: 4, fill: theme.accent2 || '#ffffff', lighter: false });
     drawCenterCard('SHOT EM UP', 'Whimsical vertical shooter', [
       'Drag to fly. Doubleclick for a BOMB to clear the screen.',
       'Click SETTINGS for sound, music, and difficulty.',
@@ -2446,6 +3567,7 @@
     for (let i = 0; i < state.enemies.length; i++) drawEnemy(state.enemies[i]);
     if (state.boss) drawBoss(state.boss);
     if (state.mode !== 'debug') drawPlayer();
+    drawForeground();
     if (state.mode === 'title') drawTitle();
     if (state.flash > 0) {
       drawSpriteRect(view.w * 0.5, view.h * 0.5, view.w, view.h, '#ffffff', state.flash * 0.3, 999, true);
