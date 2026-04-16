@@ -1666,14 +1666,19 @@
       { name: 'leftToRightWide', startX: -112, startY: -96, targetMinX: 0.58, targetMaxX: 0.84, targetY: 44, controlX: 0.18, controlY: 0.20, bend: 0.32, swirl: 28, turns: 1.6, duration: 1.4 },
       { name: 'centerCorkscrew', startX: view.w * 0.5, startY: -112, targetMinX: 0.34, targetMaxX: 0.66, targetY: 40, controlX: 0.5, controlY: 0.08, bend: 0.18, swirl: 34, turns: 2.1, duration: 1.55 }
     ];
+    const routePhase = Math.floor((state.levelClock + waveId * 0.85) / rand(2, 5)) % 2;
     function buildEntry(index, kind) {
       const profile = flightProfileForKind(kind);
-      const entryRoute = entryRoutes[(waveId + state.levelIndex + profile.routeShift) % entryRoutes.length];
+      const entryRoute = entryRoutes[(index + profile.routeShift) % entryRoutes.length];
       const t = count === 1 ? 0.5 : index / (count - 1);
       const lane = clamp(t + Math.sin((waveId + index) * 0.45) * 0.045, 0, 1);
-      const startX = entryRoute.startX + (index - mid) * 12;
+      const mirror = routePhase === 1 ? -1 : 1;
+      const startX = mirror < 0 ? view.w - entryRoute.startX : entryRoute.startX;
       const startY = entryRoute.startY - index * 10;
-      const targetX = lerp(view.w * entryRoute.targetMinX, view.w * entryRoute.targetMaxX, lane);
+      const targetMinX = mirror < 0 ? 1 - entryRoute.targetMaxX : entryRoute.targetMinX;
+      const targetMaxX = mirror < 0 ? 1 - entryRoute.targetMinX : entryRoute.targetMaxX;
+      const controlX = mirror < 0 ? 1 - entryRoute.controlX : entryRoute.controlX;
+      const targetX = lerp(view.w * targetMinX, view.w * targetMaxX, lane);
       const targetY = entryRoute.targetY * profile.settleY + ((index % 3) - 1) * 5;
       const dx = targetX - startX;
       const dy = targetY - startY;
@@ -1685,7 +1690,7 @@
         startY: startY,
         targetX: targetX,
         targetY: targetY,
-        controlX: view.w * entryRoute.controlX,
+        controlX: view.w * controlX,
         controlY: view.h * entryRoute.controlY,
         normalX: nx,
         normalY: ny,
@@ -1695,7 +1700,8 @@
         duration: (entryRoute.duration + lane * 0.12 + index * 0.01) * profile.duration,
         phase: rand(0, TAU),
         settle: 0.86 + (index % 2) * 0.08,
-        kind: kind
+        kind: kind,
+        mirror: mirror
       };
     }
     let i;
@@ -2185,6 +2191,10 @@
       if (e.entry) {
         const en = e.entry;
         en.age = (en.age || 0) + dt;
+        const mirror = en.mirror || 1;
+        const sx = mirror < 0 ? view.w - en.startX : en.startX;
+        const tx = mirror < 0 ? view.w - en.targetX : en.targetX;
+        const cx = mirror < 0 ? view.w - en.controlX : en.controlX;
         const t = clamp(en.age / en.duration, 0, 1);
         const ease = t * t * (3 - 2 * t);
         const spin = ease * TAU * en.turns * 0.01;
@@ -2192,15 +2202,15 @@
         const swirl = Math.cos(spin + en.phase * 1.35);
         const bend = Math.sin(ease * Math.PI) * en.bend;
         const pull = ease * ease;
-        const curveX = lerp(lerp(en.startX, en.controlX, ease), lerp(en.controlX, en.targetX, ease), ease);
+        const curveX = lerp(lerp(sx, cx, ease), lerp(cx, tx, ease), ease);
         const curveY = lerp(lerp(en.startY, en.controlY, ease), lerp(en.controlY, en.targetY, ease), ease);
         e.x = curveX + en.normalX * bend + sway * en.swirl;
         e.y = curveY + en.normalY * bend + swirl * (en.swirl * 0.62) + pull * -18;
         e.wobble += dt * 0.03;
-        e.flightAngle = Math.atan2(en.targetY - e.y, en.targetX - e.x);
+        e.flightAngle = Math.atan2(en.targetY - e.y, tx - e.x);
         if (t < 1) continue;
         e.entry = null;
-        e.x = en.targetX;
+        e.x = tx;
         e.y = en.targetY;
         e.wobble += en.phase;
       }
