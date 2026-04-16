@@ -220,6 +220,26 @@
       gap: 4px;
     }
 
+    #keysOpenBtn {
+      min-width: 0;
+      width: 22px;
+      padding: 0;
+      height: 22px;
+      font-size: 12px;
+      line-height: 1;
+      background: #d8ecff;
+      border-color: #1a3a58;
+      box-shadow: inset 0 1px 0 #eff8ff, 0 2px 0 #7da6c9;
+    }
+
+    #controlRow:not(.keysExpanded) #keysOpenBtn {
+      display: inline-flex;
+    }
+
+    #controlRow.keysExpanded #keysOpenBtn {
+      display: none;
+    }
+
     #intModeGroup {
       flex: 0 0 auto;
       padding-left: 4px;
@@ -391,6 +411,10 @@
       padding-right: 8px;
     }
 
+    #controlRow:not(.keysExpanded) #runGroup {
+      display: none;
+    }
+
     #runGroup.keysDensitySplit {
       width: 100%;
       flex: 1 1 100%;
@@ -560,6 +584,7 @@
           <input class="rangeInput" id="xHigh" type="text" value="10">
           <button id="plotBtn" type="button">Plot</button>
           <button id="runBtn" type="button">Eval</button>
+          <button id="keysOpenBtn" type="button" title="Show keypad" aria-label="Show keypad">#</button>
         </div>
         <div class="group" id="runGroup">
           <div id="keysGroup">
@@ -629,6 +654,7 @@
       var resetBtn = document.getElementById('resetBtn');
       var copyBtn = document.getElementById('copyBtn');
       var saveBtn = document.getElementById('saveBtn');
+      var keysOpenBtn = document.getElementById('keysOpenBtn');
       var runGroupEl = document.getElementById('runGroup');
       var exportGroupEl = document.getElementById('exportGroup');
       var intModeGroupEl = document.getElementById('intModeGroup');
@@ -791,6 +817,18 @@
         } else {
           removeClass(controlRowEl, 'keysExpanded');
         }
+      }
+
+      function toggleKeysPanel() {
+        if (!keysGroupEl) return;
+        if (hasClass(keysGroupEl, 'isOpen')) {
+          removeClass(keysGroupEl, 'isOpen');
+        } else {
+          addClass(keysGroupEl, 'isOpen');
+        }
+        syncKeysExpandedLayout();
+        syncPreferGroupSize();
+        saveSessionState();
       }
 
       function clearKeysPanelPlacement() {
@@ -3207,14 +3245,7 @@
           return;
         }
         if (action === 'toggleKeys') {
-          if (hasClass(keysGroupEl, 'isOpen')) {
-            removeClass(keysGroupEl, 'isOpen');
-          } else {
-            addClass(keysGroupEl, 'isOpen');
-          }
-          syncKeysExpandedLayout();
-          syncPreferGroupSize();
-          saveSessionState();
+          toggleKeysPanel();
           return;
         }
         if (action === 'left') {
@@ -3255,6 +3286,9 @@
           insertAtCursor('\n', true);
         }
       };
+      if (keysOpenBtn) {
+        keysOpenBtn.onclick = toggleKeysPanel;
+      }
       keysPanelEl.onmousedown = function (e) {
         var ev = e || window.event;
         var target = ev.target || ev.srcElement;
