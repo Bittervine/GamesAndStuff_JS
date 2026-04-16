@@ -394,8 +394,8 @@
     #runGroup.keysDensitySplit {
       width: 100%;
       flex: 1 1 100%;
-      padding-left: 0;
-      padding-right: 0;
+      padding-left: 4px;
+      padding-right: 4px;
     }
 
     .miniLabel {
@@ -445,8 +445,7 @@
     }
 
     #plotBtn,
-    #runBtn,
-    #keysToggleBtn {
+    #runBtn {
       min-width: 72px;
       padding: 3px 10px;
       line-height: 1.05;
@@ -454,6 +453,12 @@
     }
 
     #keysToggleBtn {
+      min-width: 0;
+      width: 100%;
+      padding: 3px 10px;
+      line-height: 1.05;
+      height: var(--keys-row-h);
+      font-size: var(--keys-large-font-size);
       background: #d8ecff;
       border-color: #1a3a58;
       box-shadow: inset 0 1px 0 #eff8ff, 0 2px 0 #7da6c9;
@@ -850,7 +855,7 @@
           return;
         }
 
-        split = availableWidth >= 760;
+        split = availableWidth >= 400;
         if (split) {
           addClass(keysGroupEl, 'keysDensitySplit');
           if (runGroupEl) {
