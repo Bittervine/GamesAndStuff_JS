@@ -222,10 +222,11 @@
 
     #intModeGroup {
       flex: 0 0 auto;
-      padding-left: 10px;
-      padding-right: 10px;
+      padding-left: 4px;
+      padding-right: 4px;
       display: inline-flex;
       align-items: center;
+      justify-content: center;
     }
 
     #keysGroup {
@@ -235,23 +236,62 @@
       align-items: flex-end;
       gap: 4px;
       white-space: normal;
+      --keys-row-h: 24px;
+      --keys-gap: 3px;
+      --keys-panel-max: 360px;
+      --keys-font-size: 12px;
+      --keys-large-font-size: 15px;
+    }
+
+    #keysGroup.keysDensitySplit {
+      width: 100%;
+      align-items: stretch;
+      --keys-row-h: 23px;
+      --keys-gap: 4px 6px;
+      --keys-panel-max: none;
+      --keys-font-size: 11px;
+      --keys-large-font-size: 13px;
+    }
+
+    #keysGroup.keysDensityCompact {
+      --keys-row-h: 22px;
+      --keys-gap: 2px;
+      --keys-panel-max: 320px;
+      --keys-font-size: 11px;
+      --keys-large-font-size: 14px;
+    }
+
+    #keysGroup.keysDensityTight {
+      --keys-row-h: 20px;
+      --keys-gap: 2px;
+      --keys-panel-max: 288px;
+      --keys-font-size: 10px;
+      --keys-large-font-size: 12px;
     }
 
     #keysPanel {
       display: grid;
       width: 100%;
-      max-width: 360px;
-      gap: 3px;
+      max-width: var(--keys-panel-max);
+      gap: var(--keys-gap);
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      grid-auto-rows: 24px;
+      grid-auto-rows: var(--keys-row-h);
+    }
+
+    #keysGroup.keysDensitySplit #keysPanel {
+      width: 100%;
+      max-width: none;
+      gap: var(--keys-gap);
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      grid-template-rows: repeat(5, var(--keys-row-h));
+      grid-auto-rows: var(--keys-row-h);
     }
 
     #keysGroup:not(.isOpen) #keysPanel .keyBtn {
       display: none;
     }
 
-    #keysGroup:not(.isOpen) #keysPanel .keyBtn[data-action="toggleKeys"],
-    #keysGroup:not(.isOpen) #keysPanel #runBtn {
+    #keysGroup:not(.isOpen) #keysPanel .keyBtn[data-action="toggleKeys"] {
       display: inline-block;
     }
 
@@ -266,8 +306,7 @@
       align-items: center;
     }
 
-    #keysGroup:not(.isOpen) #keysPanel .keyBtn[data-action="toggleKeys"],
-    #keysGroup:not(.isOpen) #keysPanel #runBtn {
+    #keysGroup:not(.isOpen) #keysPanel .keyBtn[data-action="toggleKeys"] {
       width: auto;
       min-width: 72px;
       flex: 0 0 auto;
@@ -284,11 +323,11 @@
       width: 100%;
       padding: 4px 7px;
       border-radius: 8px;
-      font-size: 12px;
+      font-size: var(--keys-font-size);
       font-weight: bold;
       line-height: 1.1;
       background: #edf3fa;
-      height: 24px;
+      height: var(--keys-row-h);
     }
     .keySpecial {
       background: #d8ecff;
@@ -307,7 +346,7 @@
 
     .keyLarge {
       padding: 3px 10px;
-      font-size: 15px;
+      font-size: var(--keys-large-font-size);
       min-height: 0;
       line-height: 1.05;
     }
@@ -319,10 +358,22 @@
       font-weight: bold;
     }
 
-    .modeOpt {
-      margin-right: 8px;
-      font-size: 12px;
+    #intModeGroup .modeOpt {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 2px;
+      font-size: 7px !important;
+      line-height: 1;
+      white-space: nowrap;
       color: #132033;
+    }
+
+    #intModeGroup .modeOpt input {
+      margin: 0 1px 0 0;
+      transform: scale(0.68);
+      transform-origin: center;
+      flex: 0 0 auto;
     }
 
     #runGroup {
@@ -338,6 +389,13 @@
       align-items: center;
       padding-left: 8px;
       padding-right: 8px;
+    }
+
+    #runGroup.keysDensitySplit {
+      width: 100%;
+      flex: 1 1 100%;
+      padding-left: 0;
+      padding-right: 0;
     }
 
     .miniLabel {
@@ -491,11 +549,12 @@
         </div>
         <div id="controlSpacer"></div>
         <div class="group" id="plotGroup">
-          <label class="miniLabel" for="xLow">X Min</label>
+          <label class="miniLabel" for="xLow">X:</label>
           <input class="rangeInput" id="xLow" type="text" value="-10">
-          <label class="miniLabel" for="xHigh">X Max</label>
+          <label class="miniLabel" for="xHigh">-</label>
           <input class="rangeInput" id="xHigh" type="text" value="10">
           <button id="plotBtn" type="button">Plot</button>
+          <button id="runBtn" type="button">Eval</button>
         </div>
         <div class="group" id="runGroup">
           <div id="keysGroup">
@@ -503,7 +562,7 @@
             <button id="keysToggleBtn" class="keyBtn keyLarge keySpecial" type="button" data-action="toggleKeys">#</button>
             <button class="keyBtn keyLarge keySpecial" type="button" data-action="left">&#8592;</button>
             <button class="keyBtn keyLarge keySpecial" type="button" data-action="right">&#8594;</button>
-            <button id="runBtn" class="keyBtn keyLarge" type="button">Eval</button>
+            <button class="keyBtn keyLarge keySpecial" type="button" data-action="backspace">&#9003;</button>
 
             <button class="keyBtn" type="button" data-key="A">A</button>
             <button class="keyBtn" type="button" data-key="B">B</button>
@@ -513,7 +572,7 @@
             <button class="keyBtn" type="button" data-key="D">D</button>
             <button class="keyBtn" type="button" data-key="E">E</button>
             <button class="keyBtn" type="button" data-key="F">F</button>
-            <button class="keyBtn keySpecial" type="button" data-action="backspace">&#9003;</button>
+            <button class="keyBtn" type="button" data-key="_">_</button>
 
             <button class="keyBtn" type="button" data-key="sin(">sin</button>
             <button class="keyBtn" type="button" data-key="cos(">cos</button>
@@ -565,6 +624,7 @@
       var resetBtn = document.getElementById('resetBtn');
       var copyBtn = document.getElementById('copyBtn');
       var saveBtn = document.getElementById('saveBtn');
+      var runGroupEl = document.getElementById('runGroup');
       var exportGroupEl = document.getElementById('exportGroup');
       var intModeGroupEl = document.getElementById('intModeGroup');
       var intModeDecEl = document.getElementById('intModeDec');
@@ -728,6 +788,85 @@
         }
       }
 
+      function clearKeysPanelPlacement() {
+        var i;
+        if (!keysPanelEl || !keysPanelEl.children) return;
+        for (i = 0; i < keysPanelEl.children.length; i++) {
+          if (keysPanelEl.children[i] && keysPanelEl.children[i].style) {
+            keysPanelEl.children[i].style.gridColumn = '';
+            keysPanelEl.children[i].style.gridRow = '';
+          }
+        }
+      }
+
+      function applySplitKeysPanelPlacement() {
+        var i;
+        var child;
+        var block;
+        var within;
+        var row;
+        var col;
+        if (!keysPanelEl || !keysPanelEl.children) return;
+        for (i = 0; i < keysPanelEl.children.length; i++) {
+          child = keysPanelEl.children[i];
+          if (!child || child.tagName !== 'BUTTON') continue;
+          block = i < 20 ? 0 : 1;
+          within = i % 20;
+          row = Math.floor(within / 4) + 1;
+          col = (within % 4) + 1 + block * 4;
+          child.style.gridColumn = String(col);
+          child.style.gridRow = String(row);
+        }
+      }
+
+      function syncKeysDensityLayout() {
+        var availableWidth;
+        var split;
+        if (!keysGroupEl || !keysPanelEl) return;
+
+        availableWidth = 0;
+        if (composerEl && composerEl.getBoundingClientRect) {
+          availableWidth = composerEl.getBoundingClientRect().width || 0;
+        } else if (controlRowEl && controlRowEl.getBoundingClientRect) {
+          availableWidth = controlRowEl.getBoundingClientRect().width || 0;
+        } else if (window.innerWidth) {
+          availableWidth = window.innerWidth;
+        }
+
+        removeClass(keysGroupEl, 'keysDensitySplit');
+        removeClass(keysGroupEl, 'keysDensityCompact');
+        removeClass(keysGroupEl, 'keysDensityTight');
+        if (runGroupEl) {
+          removeClass(runGroupEl, 'keysDensitySplit');
+        }
+        clearKeysPanelPlacement();
+
+        if (!hasClass(keysGroupEl, 'isOpen')) {
+          if (availableWidth < 390) {
+            addClass(keysGroupEl, 'keysDensityTight');
+          } else if (availableWidth < 560) {
+            addClass(keysGroupEl, 'keysDensityCompact');
+          }
+          return;
+        }
+
+        split = availableWidth >= 820;
+        if (split) {
+          addClass(keysGroupEl, 'keysDensitySplit');
+          if (runGroupEl) {
+            addClass(runGroupEl, 'keysDensitySplit');
+          }
+          applySplitKeysPanelPlacement();
+          return;
+        }
+
+        if (availableWidth < 390) {
+          addClass(keysGroupEl, 'keysDensityTight');
+        } else if (availableWidth < 560) {
+          addClass(keysGroupEl, 'keysDensityCompact');
+        }
+      }
+
       function syncPreferGroupSize() {
         var h;
         if (!exportGroupEl || !intModeGroupEl) return;
@@ -736,6 +875,7 @@
         if (h > 0) {
           intModeGroupEl.style.minHeight = h + 'px';
         }
+        syncKeysDensityLayout();
       }
 
       function focusEditorAtEnd() {
