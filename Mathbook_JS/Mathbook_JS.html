@@ -207,7 +207,7 @@
     }
 
     #controlSpacer {
-      flex: 1 1 24px;
+      flex: 0 0 8px;
       min-width: 0;
     }
 
@@ -218,6 +218,7 @@
       flex-wrap: wrap;
       align-items: center;
       gap: 4px;
+      margin-left: auto;
     }
 
     #keysOpenBtn {
@@ -247,6 +248,64 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+    }
+
+    #menuGroup {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      margin-right: 6px;
+    }
+
+    #menuBtn {
+      min-width: 0;
+      width: 22px;
+      padding: 0;
+      height: 22px;
+      font-size: 13px;
+      line-height: 22px;
+      padding-top: 0;
+      padding-bottom: 1px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #d8ecff;
+      border-color: #1a3a58;
+      box-shadow: inset 0 1px 0 #eff8ff, 0 2px 0 #7da6c9;
+    }
+
+    #menuDropdown {
+      position: absolute;
+      left: 0;
+      bottom: calc(100% + 4px);
+      z-index: 30;
+      display: none;
+      min-width: 112px;
+      padding: 4px;
+      border: 1px solid #8fa5bb;
+      border-radius: 10px;
+      background: #f5faff;
+      box-shadow: 0 8px 18px rgba(20, 40, 70, 0.22);
+    }
+
+    #menuGroup.menuOpen #menuDropdown {
+      display: block;
+    }
+
+    #menuDropdown .menuItem {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      margin: 0 0 3px 0;
+      padding: 0 8px;
+      height: 24px;
+      line-height: 1;
+      text-align: left;
+    }
+
+    #menuDropdown .menuItem:last-child {
+      margin-bottom: 0;
     }
 
     #keysGroup {
@@ -502,7 +561,7 @@
       background: #ffdcb0;
     }
 
-    @media (max-width: 700px) {
+    @media (max-width: 600px) {
       #controlRow {
         flex-wrap: wrap;
         row-gap: 4px;
@@ -544,6 +603,11 @@
         width: 100%;
         white-space: normal;
         margin-top: 0;
+        justify-content: flex-start;
+      }
+
+      #menuGroup {
+        margin-right: 4px;
       }
 
       #runBtn {
@@ -568,12 +632,15 @@
       <textarea id="editor" rows="1" spellcheck="false">sin(X)</textarea>
 
       <div id="controlRow">
-        <div class="group" id="exportGroup">
-          <button id="resetBtn" class="exportBtn" type="button">Reset</button>
-          <button id="copyBtn" class="exportBtn" type="button">Copy</button>
-          <button id="saveBtn" class="exportBtn" type="button">Save</button>
-        </div>
         <div class="group" id="intModeGroup">          
+          <div id="menuGroup">
+            <button id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Menu" aria-label="Menu">≡</button>
+            <div id="menuDropdown" role="menu" aria-label="Mathbook menu">
+              <button id="resetBtn" class="exportBtn menuItem" type="button">Reset</button>
+              <button id="copyBtn" class="exportBtn menuItem" type="button">Copy</button>
+              <button id="saveBtn" class="exportBtn menuItem" type="button">Save</button>
+            </div>
+          </div>
           <label class="modeOpt"><input type="radio" name="intMode" id="intModeDec" value="DEC" checked> DEC</label>
           <label class="modeOpt"><input type="radio" name="intMode" id="intModeHex" value="HEX"> HEX</label>
           <label class="modeOpt"><input type="radio" name="intMode" id="intModeBin" value="BIN"> BIN</label>
@@ -657,9 +724,11 @@
       var resetBtn = document.getElementById('resetBtn');
       var copyBtn = document.getElementById('copyBtn');
       var saveBtn = document.getElementById('saveBtn');
+      var menuBtn = document.getElementById('menuBtn');
+      var menuGroupEl = document.getElementById('menuGroup');
+      var menuDropdownEl = document.getElementById('menuDropdown');
       var keysOpenBtn = document.getElementById('keysOpenBtn');
       var runGroupEl = document.getElementById('runGroup');
-      var exportGroupEl = document.getElementById('exportGroup');
       var intModeGroupEl = document.getElementById('intModeGroup');
       var intModeDecEl = document.getElementById('intModeDec');
       var intModeHexEl = document.getElementById('intModeHex');
@@ -915,13 +984,28 @@
 
       function syncPreferGroupSize() {
         var h;
-        if (!exportGroupEl || !intModeGroupEl) return;
+        if (!intModeGroupEl) return;
         intModeGroupEl.style.minHeight = '';
-        h = exportGroupEl.offsetHeight;
+        h = menuGroupEl ? menuGroupEl.offsetHeight : 0;
         if (h > 0) {
           intModeGroupEl.style.minHeight = h + 'px';
         }
         syncKeysDensityLayout();
+      }
+
+      function setMenuOpen(nextOpen) {
+        if (!menuGroupEl || !menuBtn) return;
+        if (nextOpen) {
+          addClass(menuGroupEl, 'menuOpen');
+          menuBtn.setAttribute('aria-expanded', 'true');
+        } else {
+          removeClass(menuGroupEl, 'menuOpen');
+          menuBtn.setAttribute('aria-expanded', 'false');
+        }
+      }
+
+      function toggleMenu() {
+        setMenuOpen(!hasClass(menuGroupEl, 'menuOpen'));
       }
 
       function focusEditorAtEnd() {
@@ -3303,6 +3387,22 @@
       if (keysOpenBtn) {
         keysOpenBtn.onclick = toggleKeysPanel;
       }
+      if (menuBtn) {
+        menuBtn.onclick = function (e) {
+          if (e && e.stopPropagation) {
+            e.stopPropagation();
+          }
+          toggleMenu();
+          return false;
+        };
+      }
+      if (menuDropdownEl) {
+        menuDropdownEl.onclick = function (e) {
+          if (e && e.stopPropagation) {
+            e.stopPropagation();
+          }
+        };
+      }
       keysPanelEl.onmousedown = function (e) {
         var ev = e || window.event;
         var target = ev.target || ev.srcElement;
@@ -3326,12 +3426,15 @@
         if (window.localStorage) {
           try { window.localStorage.removeItem(STORAGE_KEY); } catch (resetErr) {}
         }
+        setMenuOpen(false);
       };
       copyBtn.onclick = function () {
         copyText(buildPlainTextExport());
+        setMenuOpen(false);
       };
       saveBtn.onclick = function () {
         saveTextToFile(buildHtmlExport(), 'MathbookJS_Export_' + formatDateStamp() + '.html', 'text/html');
+        setMenuOpen(false);
       };
 
       editorEl.onclick = function () {
@@ -3354,8 +3457,14 @@
 
       if (document.addEventListener) {
         document.addEventListener('keydown', handleGlobalKeyDown, false);
+        document.addEventListener('click', function () {
+          setMenuOpen(false);
+        }, false);
       } else {
         document.onkeydown = handleGlobalKeyDown;
+        document.onclick = function () {
+          setMenuOpen(false);
+        };
       }
 
       restoreSessionState();
