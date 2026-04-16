@@ -470,10 +470,13 @@
 
     #plotBtn,
     #runBtn {
-      min-width: 72px;
-      padding: 3px 10px;
+      width: auto;
+      margin: 0 6px 0 0;
+      padding: 3px 6px;
+      font-size: 13px;
       line-height: 1.05;
       height: 24px;
+      min-width: 0;
     }
 
     #keysToggleBtn {
@@ -1927,6 +1930,11 @@
         saveSessionState();
       }
 
+      function copyHistoryRecordExpression(expressionText) {
+        setMode('edit', { noFocus: true });
+        setEditorFromHistory(expressionText);
+      }
+
       function normalizeEditorTextForExecute() {
         var cleaned = trimEndText(editorEl.value);
         editorEl.value = cleaned;
@@ -2084,16 +2092,8 @@
           outputHistory[entryIndex] = rawOutput;
         }
 
-        record.onclick = function () {
-          setEditorFromHistory(expressionText);
-        };
-
-        inputField.onclick = function () {
-          setEditorFromHistory(expressionText);
-        };
-
-        outputField.onclick = function () {
-          setEditorFromHistory(expressionText);
+        record.ondblclick = function () {
+          copyHistoryRecordExpression(expressionText);
         };
 
         record.appendChild(inLabel);
@@ -2829,6 +2829,9 @@
         canvas.height = 330;
 
         graphWrap.appendChild(canvas);
+        record.ondblclick = function () {
+          copyHistoryRecordExpression(expressionText);
+        };
         record.appendChild(inLabel);
         record.appendChild(inputField);
         record.appendChild(outLabel);
@@ -2927,6 +2930,13 @@
           }
         };
 
+        canvas.onclick = function (e) {
+          if (e && e.stopPropagation) {
+            e.stopPropagation();
+          }
+          return false;
+        };
+
         canvas.onmouseleave = function () {
           if (!drag.active) {
             return;
@@ -2954,6 +2964,10 @@
           var ev = e || window.event;
           var p = getLocalPoint(ev);
           var area = getPlotArea(canvas);
+          if (ev.stopPropagation) {
+            ev.stopPropagation();
+          }
+          ev.cancelBubble = true;
           if (!p) {
             return true;
           }
