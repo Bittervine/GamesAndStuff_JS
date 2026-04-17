@@ -26,6 +26,18 @@
         #controls button,
         #controls input {
             font-size: inherit;
+            vertical-align: middle;
+        }
+
+        #controls button {
+            width: 2.2em;
+            height: 35px;
+            box-sizing: border-box;
+            line-height: 1;
+            padding-top: 0;
+            padding-bottom: 0;
+            padding-left: 0;
+            padding-right: 0;
         }
 
         #searchInfo {
@@ -38,11 +50,11 @@
     <canvas id="board" width="512" height="512" style="display:block;margin:8px auto;max-width:calc(100vw - 16px);height:auto"></canvas>
 
     <div id="controls">
-        <button id="resetBtn">Reset</button>
+        <button id="resetBtn" title="Reset">↺</button>
         <label>&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="1" min="1" max="9" style="width:1.5em"></label>
         <label>&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="0" min="0" max="99" style="width:1.8em">&nbsp;%</label>
         <label>&nbsp;<input id="previewInput" type="checkbox"> Preview</label>
-        <button id="takebackBtn">Undo</button>
+        <button id="takebackBtn" title="Undo">←</button>
         <span id="status"></span>
         <div id="searchInfo">
             <strong id="lastMoveLabel">Info:</strong> <span id="lastMoveInfo">Your move...</span>
