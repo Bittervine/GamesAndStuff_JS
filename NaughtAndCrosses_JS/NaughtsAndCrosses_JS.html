@@ -14,7 +14,8 @@
                 -webkit-text-size-adjust: 100%;
             }
             #controls {
-                font-size: 100%;
+                font-size: 95%;
+                text-align: center;
             }
             #controls button,
             #controls input {
@@ -30,9 +31,9 @@
         <canvas id="board" width="720" height="720" style="display:block;margin:8px auto;max-width:calc(100vw - 16px);height:auto"></canvas>
         <div id="controls">
             <button id="resetBtn">Reset</button>
-            <label>&nbsp;&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="5" min="1" max="10" style="width:1.6em"></label>
-            <label>&nbsp;&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="5" min="0" max="100" style="width:2.0em">&nbsp;%&nbsp;&nbsp;</label>
-            <label><input id="previewInput" type="checkbox"> Preview&nbsp;&nbsp;</label>
+            <label>&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="5" min="1" max="10" style="width:1.5em"></label>
+            <label>&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="5" min="0" max="100" style="width:1.8em">&nbsp;%</label>
+            <label>&nbsp;<input id="previewInput" type="checkbox"> Preview</label>
             <button id="takebackBtn">Undo</button>
             <span id="status"></span>
             <div id="searchInfo">
