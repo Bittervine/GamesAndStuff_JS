@@ -31,13 +31,47 @@
 
         #controls button {
             width: 2.2em;
-            height: 35px;
             box-sizing: border-box;
             line-height: 1;
             padding-top: 0;
             padding-bottom: 0;
             padding-left: 0;
             padding-right: 0;
+            min-height: 1.8em;
+        }
+
+        #previewBtn {
+            width: auto;
+            min-width: 4.6em;
+            padding-left: 0.3em;
+            padding-right: 0.3em;
+        }
+
+        #previewBtn.is-on {
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+            background: #d9d9d9;
+        }
+
+        #buttonRow {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25em;
+            white-space: nowrap;
+        }
+
+        #buttonRow button,
+        #buttonRow label,
+        #buttonRow input {
+            vertical-align: middle;
+        }
+
+        #buttonRow label {
+            display: inline-flex;
+            align-items: center;
+            line-height: 1;
+            white-space: nowrap;
         }
 
         #searchInfo {
@@ -50,11 +84,13 @@
     <canvas id="board" width="512" height="512" style="display:block;margin:8px auto;max-width:calc(100vw - 16px);height:auto"></canvas>
 
     <div id="controls">
-        <button id="resetBtn" title="Reset">↺</button>
-        <label>&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="1" min="1" max="9" style="width:1.5em"></label>
-        <label>&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="0" min="0" max="99" style="width:1.8em">&nbsp;%</label>
-        <label>&nbsp;<input id="previewInput" type="checkbox"> Preview</label>
-        <button id="takebackBtn" title="Undo">←</button>
+        <div id="buttonRow">
+            <button id="resetBtn" title="Reset">↺</button>
+            <label>&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="1" min="1" max="9" style="width:1.5em"></label>
+            <label>&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="0" min="0" max="99" style="width:1.8em">&nbsp;%</label>
+            <button id="previewBtn" title="Preview">Preview</button>
+            <button id="takebackBtn" title="Undo">⌫</button>
+        </div>
         <span id="status"></span>
         <div id="searchInfo">
             <strong id="lastMoveLabel">Info:</strong> <span id="lastMoveInfo">Your move...</span>
@@ -113,7 +149,7 @@
         var statusEl = document.getElementById('status');
         var depthInput = document.getElementById('depthInput');
         var clumsyInput = document.getElementById('clumsyInput');
-        var previewInput = document.getElementById('previewInput');
+        var previewBtn = document.getElementById('previewBtn');
         var infoLabel = document.getElementById('lastMoveLabel');
         var infoText = document.getElementById('lastMoveInfo');
 
@@ -135,6 +171,8 @@
             previewDrawAt: 0,
             renderBoardSnapshot: null
         };
+
+        var previewEnabled = false;
 
         var engine = {
             thinking: false,
@@ -506,7 +544,7 @@
             var renderState = getRenderState();
             var preview = null;
 
-            if (previewInput && previewInput.checked && engine.thinking) {
+            if (previewEnabled && engine.thinking) {
                 preview = previewProjection(renderState.board, game.previewMove, AI_COLOR);
             }
 
@@ -1164,10 +1202,10 @@
             var savedPreview = safeStorageGet(STORAGE.preview);
             if (savedDepth !== null) depthInput.value = savedDepth;
             if (savedClumsy !== null) clumsyInput.value = savedClumsy;
-            if (previewInput && (savedPreview === '1' || savedPreview === '0')) {
-                previewInput.checked = (savedPreview === '1');
-            } else if (previewInput) {
-                previewInput.checked = false;
+            previewEnabled = (savedPreview === '1');
+            if (previewBtn) {
+                previewBtn.textContent = 'Preview';
+                previewBtn.className = previewEnabled ? 'is-on' : '';
             }
 
             depthInput.addEventListener('change', function () {
@@ -1178,9 +1216,12 @@
                 safeStorageSet(STORAGE.clumsy, clumsyInput.value);
             });
 
-            if (previewInput) {
-                previewInput.addEventListener('change', function () {
-                    safeStorageSet(STORAGE.preview, previewInput.checked ? '1' : '0');
+            if (previewBtn) {
+                previewBtn.addEventListener('click', function () {
+                    previewEnabled = !previewEnabled;
+                    safeStorageSet(STORAGE.preview, previewEnabled ? '1' : '0');
+                    previewBtn.textContent = 'Preview';
+                    previewBtn.className = previewEnabled ? 'is-on' : '';
                     redraw();
                 });
             }
