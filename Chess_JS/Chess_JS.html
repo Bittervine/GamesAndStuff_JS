@@ -82,6 +82,10 @@
             white-space: nowrap;
         }
 
+        #clumsyLabel {
+            margin-right: 0.2em;
+        }
+
         #searchInfo {
             margin-top: 0.2em;
             line-height: 1.2;
@@ -95,7 +99,7 @@
         <div id="buttonRow">
             <button id="resetBtn" title="Reset">↺</button>
             <label>&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="3" min="1" max="9" style="width:1.5em"></label>
-            <label>&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="9" min="0" max="99" style="width:1.8em">&nbsp;%</label>
+            <label id="clumsyLabel">&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="9" min="0" max="99" style="width:1.8em">%</label>
             <button id="previewBtn" title="Preview">Preview</button>
             <button id="takebackBtn" title="Undo">⌫</button>
         </div>
