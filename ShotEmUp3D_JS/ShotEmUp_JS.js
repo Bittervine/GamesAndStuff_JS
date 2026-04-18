@@ -909,8 +909,13 @@
     hudCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (state.player) {
       const a = playArea();
-      state.player.x = clamp(state.player.x || w * 0.5, a.left, a.right);
-      state.player.y = clamp(state.player.y || a.bottom - 92, a.top, a.bottom);
+      if (state.mode === 'title') {
+        state.player.x = w * 0.5;
+        state.player.y = a.bottom - 92;
+      } else {
+        state.player.x = clamp(state.player.x || w * 0.5, a.left, a.right);
+        state.player.y = clamp(state.player.y || a.bottom - 92, a.top, a.bottom);
+      }
     }
     if (state.backgroundBitmap || state.foregroundBitmap) regenBackground(mainTheme(), { preserveScroll: true });
   }
