@@ -171,7 +171,7 @@
   }
 
   function bossArtSource(levelNumber) {
-    return 'boss_' + String(levelNumber).padStart(2, '0') + '.png';
+    return 'Boss_' + String(levelNumber).padStart(2, '0') + '.png';
   }
 
   function ensureBossTexture(levelNumber) {
