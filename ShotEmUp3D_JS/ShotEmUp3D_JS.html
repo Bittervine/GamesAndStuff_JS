@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+  <meta http-equiv="Pragma" content="no-cache">
   <meta name="theme-color" content="#07111d">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./pwa-icon.svg" type="image/svg+xml">
@@ -385,8 +387,17 @@
   <script>
     window.__ShotEmUp3D = window.__ShotEmUp3D || { enabled: true, player: { x: 0, y: 0, rot: 0, bob: 0, tilt: 0, bank: 0, alpha: 0, damage: 0, visible: false } };
   </script>
-  <script src="ShotEmUp_JS.js?v=20260418a"></script>
-  <script src="./pwa-register.js"></script>
+  <script>
+    (function () {
+      var bust = Date.now().toString(36);
+      document.write('<script src="ShotEmUp_JS.js?v=' + bust + '"><\/script>');
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('./sw.js?v=' + bust, { updateViaCache: 'none' }).catch(function () {});
+        });
+      }
+    }());
+  </script>
   <script type="module">
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
