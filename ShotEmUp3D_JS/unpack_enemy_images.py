@@ -9,8 +9,8 @@ from PIL import Image, ImageFilter
 ### SOURCE AND INDEX ###
 
 INPUT_FILENAME_TEMPLATE = "enemy_fighters_{index}.png"
-INPUT_FIRST_INDEX = 11
-INPUT_LAST_INDEX = 13
+INPUT_FIRST_INDEX = 15
+INPUT_LAST_INDEX = 15
 INPUT_NUM_COLUMNS = None  # Optional
 TARGET_SIZE = 128
 FRAME_PAD = 4
