@@ -107,6 +107,63 @@
   titleArt.onload = function () { titleArtReady = true; };
   titleArt.onerror = function () { titleArtReady = false; };
   titleArt.src = 'Thorium_Gap_title.png';
+  const ENEMY_SHIP_COLUMNS = 7;
+  const ENEMY_SHIP_FALLBACK_BATCHES = 10;
+  const ENEMY_SHIP_VARIANT = 'b';
+  const ENEMY_SHIP_MIN_SIZE = 64;
+  const ENEMY_SHIP_MAX_SIZE = 128;
+  const enemyShipLoadKeys = new Set();
+
+  function enemyShipKey(levelNumber, shipIndex) {
+    return 'enemyship|' + levelNumber + '|' + shipIndex;
+  }
+
+  function enemyShipSource(levelNumber, shipIndex) {
+    return 'Enemy_' + String(levelNumber).padStart(3, '0') + String(shipIndex).padStart(2, '0') + ENEMY_SHIP_VARIANT + '.png';
+  }
+
+  function ensureEnemyShipTexture(levelNumber, shipIndex) {
+    const key = enemyShipKey(levelNumber, shipIndex);
+    if (render.textures.has(key) || enemyShipLoadKeys.has(key)) return;
+    enemyShipLoadKeys.add(key);
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = function () {
+      try {
+        render.textures.set(key, createTextureFromCanvas(img));
+      } finally {
+        enemyShipLoadKeys.delete(key);
+      }
+    };
+    img.onerror = function () {
+      enemyShipLoadKeys.delete(key);
+    };
+    img.src = enemyShipSource(levelNumber, shipIndex);
+  }
+
+  function warmEnemyShipBatch(levelNumber) {
+    for (let i = 0; i < ENEMY_SHIP_COLUMNS; i++) ensureEnemyShipTexture(levelNumber, i);
+  }
+
+  function getEnemyShipTexture(levelNumber, shipIndex) {
+    const exactKey = enemyShipKey(levelNumber, shipIndex);
+    const exact = render.textures.get(exactKey);
+    if (exact) return exact;
+    ensureEnemyShipTexture(levelNumber, shipIndex);
+    if (levelNumber > ENEMY_SHIP_FALLBACK_BATCHES) {
+      const fallbackLevel = ((levelNumber - 1) % ENEMY_SHIP_FALLBACK_BATCHES) + 1;
+      const fallbackKey = enemyShipKey(fallbackLevel, shipIndex);
+      const fallback = render.textures.get(fallbackKey);
+      if (fallback) return fallback;
+      ensureEnemyShipTexture(fallbackLevel, shipIndex);
+    }
+    return null;
+  }
+
+  function getEnemyShipRenderSize(levelNumber, shipIndex) {
+    const key = 'shipsize|' + levelNumber + '|' + shipIndex;
+    return ENEMY_SHIP_MIN_SIZE + (hashString(key) % (ENEMY_SHIP_MAX_SIZE - ENEMY_SHIP_MIN_SIZE + 1));
+  }
 
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   function lerp(a, b, t) { return a + (b - a) * t; }
@@ -1499,6 +1556,8 @@
   function beginLevel(index) {
     state.levelIndex = index;
     state.currentTheme = THEMES[index];
+    warmEnemyShipBatch(index + 1);
+    if (index + 1 > ENEMY_SHIP_FALLBACK_BATCHES) warmEnemyShipBatch(((index + 1 - 1) % ENEMY_SHIP_FALLBACK_BATCHES) + 1);
     clearArray(state.enemies);
     clearArray(state.bullets);
     clearArray(state.enemyBullets);
@@ -1657,14 +1716,21 @@
     const diff = currentDifficulty();
     const speedScale = diff.enemySpeed;
     const fireScale = SHOT_PACE / diff.spawnRate;
+    const levelNumber = state.levelIndex + 1;
+    const shipIndex = opts && opts.shipIndex != null ? opts.shipIndex : randi(0, ENEMY_SHIP_COLUMNS - 1);
+    const shipSize = getEnemyShipRenderSize(levelNumber, shipIndex);
+    const sizeScale = shipSize / 64;
+    const hpScale = scale * diff.enemyHp * sizeScale;
+    const baseHp = opts && opts.hp != null ? opts.hp : d.hp;
     const e = {
       kind: kind, theme: t, x: x, y: y,
       vx: (opts && opts.vx != null ? opts.vx : rand(-18, 18)) * speedScale,
       vy: (opts && opts.vy != null ? opts.vy : d.speed * scale) * speedScale,
-      hp: Math.max(1, Math.round((opts && opts.hp != null ? opts.hp : d.hp) * scale * diff.enemyHp)),
-      maxHp: Math.max(1, Math.round((opts && opts.hp != null ? opts.hp : d.hp) * scale * diff.enemyHp)),
-      r: d.r, score: Math.round((opts && opts.score != null ? opts.score : d.score) * scale),
+      hp: Math.max(1, Math.round(baseHp * hpScale)),
+      maxHp: Math.max(1, Math.round(baseHp * hpScale)),
+      r: Math.max(12, Math.round(shipSize * 0.35)), score: Math.round((opts && opts.score != null ? opts.score : d.score) * scale),
       emoji: pick(t.icons), fireCooldown: rand(0.8, 1.8) * fireScale, age: 0, wobble: rand(0, TAU), dir: chance(0.5) ? 1 : -1,
+      shipLevel: levelNumber, shipIndex: shipIndex, shipSize: shipSize,
       shotSeed: rand(0, TAU), elite: !!(opts && opts.elite), dead: false, hitFlash: 0,
       entry: opts && opts.entry ? opts.entry : null
     };
@@ -1675,7 +1741,7 @@
       e.wobble = e.entry.phase;
       e.flightAngle = Math.atan2(e.entry.targetY - e.entry.startY, e.entry.targetX - e.entry.startX);
     }
-    if (kind === 'elite') { e.hp = Math.round(9 * scale * diff.enemyHp); e.maxHp = e.hp; e.score = Math.round(340 * scale); e.r = 24; }
+    if (kind === 'elite') { e.hp = Math.round(9 * hpScale); e.maxHp = e.hp; e.score = Math.round(340 * scale); e.r = Math.max(e.r, Math.round(shipSize * 0.42)); }
     state.enemies.push(e);
     sfx('hit');
     return e;
@@ -1690,7 +1756,8 @@
       hp: Math.round(b.hp * (1 + state.levelIndex * 0.04) * diff.bossHp),
       maxHp: Math.round(b.hp * (1 + state.levelIndex * 0.04) * diff.bossHp),
       phases: b.phases, phaseIndex: 0, phaseClock: 0, age: 0,
-      fireClock: 0, motionClock: 0, state: {}, hitFlash: 0, dead: false
+      fireClock: 0, motionClock: 0, state: {}, hitFlash: 0, dead: false,
+      shipLevel: state.levelIndex + 1, shipIndex: 0
     };
     state.banner = 'BOSS: ' + b.name;
     state.bannerSub = theme.subtitle;
@@ -1918,7 +1985,6 @@
       state.comboTimer = 2.4;
       if (state.combo % 5 === 0) sfx('combo');
       if (state.combo >= 18) { state.combo = 0; activateOverdrive(); }
-      if (e.kind === 'splitter') { spawnEnemy('drifter', e.x - 18, e.y, { vx: rand(-26, 26), vy: rand(104, 138) }); spawnEnemy('drifter', e.x + 18, e.y, { vx: rand(-26, 26), vy: rand(104, 138) }); }
       if (e.kind === 'spinner') ringBullets(e.x, e.y, 10, 180, 1, e.theme.accent2, 'enemy');
       if (e.kind === 'elite' || e.score > 200) maybeDropPickup(e.x, e.y, true, chance(0.35) ? 'shield' : null);
       else if (!fromBomb) maybeDropPickup(e.x, e.y, false);
@@ -2481,6 +2547,15 @@
     const a = alpha == null ? 1 : alpha;
     drawSpriteCircle(x, y, r + b * 0.6, color, a, 0, true);
     drawSpriteCircle(x, y, Math.max(1, r * 0.72), color, a, 0, true);
+  }
+
+  function drawDiffuseGlowCircle(x, y, r, color, alpha, blur) {
+    const b = blur == null ? Math.max(10, r * 0.8) : blur;
+    const a = alpha == null ? 1 : alpha;
+    drawSpriteCircle(x, y, r + b * 0.95, color, a * 0.00625, 0, true);
+    drawSpriteCircle(x, y, r + b * 0.62, color, a * 0.01, 0, true);
+    drawSpriteCircle(x, y, r + b * 0.28, color, a * 0.01625, 0, true);
+    drawSpriteCircle(x, y, Math.max(1, r * 0.76), color, a * 0.01875, 0, true);
   }
 
   function drawEmojiGlyph(text, x, y, size, opts) {
@@ -3454,53 +3529,64 @@
     };
   }
 
-  function drawEnemyBody(e, rot) {
+  function drawEnemyBody(e, rot, shipSize) {
     const p = enemyPalette(e);
-    const r = e.r;
     const alpha = e.hitFlash > 0 ? 1 : 0.96;
-    drawGlowCircle(e.x, e.y, r * (e.kind === 'elite' ? 1.85 : 1.35), p.glow, 0.18 + (e.kind === 'elite' ? 0.05 : 0), 16);
-    drawGlowCircle(e.x, e.y, r * 0.9, p.base, 0.18, 10);
-    drawGlowCircle(e.x, e.y, r * 0.35, p.base, alpha * 0.14, 8);
+    const levelNumber = e.shipLevel || (state.levelIndex + 1);
+    const shipIndex = e.shipIndex || 0;
+    const texture = getEnemyShipTexture(levelNumber, shipIndex);
+    const glowRadius = Math.max(14, shipSize * 0.42);
+    drawGlowCircle(e.x, e.y, glowRadius, p.glow, 0.35, 18);
+    if (texture) {
+      drawTextureRect(texture, e.x, e.y, shipSize, shipSize, { rot: rot, alpha: alpha, layer: 18 });
+    } else {
+      drawGlowCircle(e.x, e.y, shipSize * 0.26, p.base, 0.18, 10);
+      drawGlowCircle(e.x, e.y, shipSize * 0.12, p.base, alpha * 0.14, 8);
+    }
   }
 
   function drawBossBody(b) {
     const p = bossPalette(b);
     const r = b.r;
-    const rot = Math.sin(b.age * 0.8) * 0.08;
+    const rot = Math.sin(b.age * 0.8) * 0.04;
+    const levelNumber = b.shipLevel || (state.levelIndex + 1);
+    const texture = getEnemyShipTexture(levelNumber, b.shipIndex || 0);
+    const size = Math.max(208, getEnemyShipRenderSize(levelNumber, b.shipIndex || 0) * 2.75);
     drawGlowCircle(b.x, b.y, r * 2.1, p.glow, 0.18, 24);
     drawGlowCircle(b.x, b.y, r * 1.1, p.base, 0.18, 12);
     drawGlowCircle(b.x, b.y, r * 0.4, p.base, 0.24, 8);
+    if (texture) drawTextureRect(texture, b.x, b.y, size, size, { rot: rot, alpha: 0.98, layer: 28 });
   }
 
   function drawEnemyOverlay(e, rot) {
-    const size = Math.max(18, Math.round(e.r * (e.kind === 'elite' ? 2.0 : 1.7)));
-    drawEmojiGlyph(e.emoji || '', e.x, e.y, size, { rot: rot * 0.15 || 0, alpha: e.hitFlash > 0 ? 1 : 0.98, layer: 18, fill: e.theme.glow || '#ffffff', lighter: false });
-    drawEmojiGlyph(e.emoji || '', e.x - 1, e.y - 1, size * 0.94, { rot: rot * 0.15 || 0, alpha: 0.18, layer: 19, fill: '#ffffff', lighter: true });
+    if (e.hitFlash > 0) drawGlowCircle(e.x, e.y, e.r * 1.2, '#ffffff', 0.16, 19);
   }
 
   function drawBossOverlay(b) {
-    const size = Math.max(44, Math.round(b.r * 1.25));
-    const rot = Math.sin(b.age * 0.8) * 0.06;
-    drawEmojiGlyph(b.emoji || '', b.x, b.y, size, { rot: rot, alpha: 0.98, layer: 28, fill: bossPalette(b).glow, lighter: false });
-    drawEmojiGlyph(b.emoji || '', b.x - 1, b.y - 1, size * 0.94, { rot: rot, alpha: 0.18, layer: 29, fill: '#ffffff', lighter: true });
+    if (b.hitFlash > 0) drawGlowCircle(b.x, b.y, b.r * 1.35, '#ffffff', 0.16, 29);
   }
 
   function drawEnemy(e) {
     if (!e || e.dead) return;
     const glow = e.theme.glow || e.theme.accent2 || e.theme.accent || '#fff';
-    const size = e.kind === 'elite' ? e.r * 2.15 : e.r * 1.85;
     const flight = typeof e.flightAngle === 'number' ? e.flightAngle : Math.atan2(e.vy || 0, e.vx || 1);
-    const rot = flight * 0.22 + Math.sin(e.age * 1.8 + e.wobble) * 0.18 + (e.kind === 'zigzag' ? e.dir * 0.08 : 0);
-    drawGlowCircle(e.x, e.y, e.r * (e.kind === 'elite' ? 1.95 : 1.55), glow, 0.22 + (e.kind === 'elite' ? 0.08 : 0), 16);
+    const rot = flight + Math.PI * 0.5;
+    const levelNumber = e.shipLevel || (state.levelIndex + 1);
+    const shipIndex = e.shipIndex || 0;
+    const shipSize = e.shipSize || getEnemyShipRenderSize(levelNumber, shipIndex);
     if (e.kind === 'spinner') {
       for (let i = 0; i < 5; i++) {
         const a = e.age * 2.2 + i * (TAU / 5);
         drawGlowCircle(e.x + Math.cos(a) * (e.r + 6), e.y + Math.sin(a) * (e.r + 6), 2.2, e.theme.accent2, 0.55, 8);
       }
     }
-    drawEnemyBody(e, rot);
+    drawEnemyBody(e, rot, shipSize);
     drawEnemyOverlay(e, rot);
-    if (e.maxHp > 1 && e.hp > 0) drawWorldBar(e.x - e.r * 0.9, e.y - e.r - 14, e.r * 1.8, 7, e.hp / e.maxHp, e.theme.accent2, 'rgba(0,0,0,0.35)', 17);
+    if (e.maxHp > 1 && e.hp > 0) {
+      const barW = shipSize * 0.86;
+      const barH = Math.max(6, Math.round(shipSize * 0.08));
+      drawWorldBar(e.x - barW * 0.5, e.y - shipSize * 0.62, barW, barH, e.hp / e.maxHp, e.theme.accent2, 'rgba(0,0,0,0.35)', 17);
+    }
     if (e.hitFlash > 0) drawGlowCircle(e.x, e.y, e.r * 1.35, '#ffffff', 0.22, 18);
   }
 
