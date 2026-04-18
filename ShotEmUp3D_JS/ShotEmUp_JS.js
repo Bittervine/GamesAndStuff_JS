@@ -611,6 +611,7 @@
   ];
 
   const SHOT_PACE = 1.25;
+  const PLAYER_RADIUS = 40;
 
   function shotDelay(v) {
     return v * SHOT_PACE;
@@ -661,7 +662,7 @@
     currentTheme: THEMES[0],
     transition: null,
     player: {
-      x: 0, y: 0, r: 28,
+      x: 0, y: 0, r: PLAYER_RADIUS,
       health: 6, maxHealth: 6,
       shield: 0, bombs: 2,
       weaponMode: 0, weaponTier: 1,
