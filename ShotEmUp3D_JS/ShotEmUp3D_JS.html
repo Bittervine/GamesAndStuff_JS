@@ -726,6 +726,8 @@
       const ventralOffset = -5.2;
       const centerX = x + rearX * rearOffset;
       const centerY = y + rearY * rearOffset + ventralOffset;
+      const glowX = x - rearX * 6 + sx * 1.5;
+      const glowY = y - rearY * 6 + sy * 1.5 + 16;
       const nozzles = [
         { side: -1, hue: '#76ddff', core: '#e7fbff' },
         { side: 1, hue: '#4dbbff', core: '#f4ffff' }
@@ -733,6 +735,26 @@
       
       engineCtx.save();
       engineCtx.globalCompositeOperation = 'lighter';
+      const glowLayers = [
+        [56, 0.16],
+        [82, 0.09],
+        [112, 0.05],
+        [146, 0.025]
+      ];
+      for (let i = 0; i < glowLayers.length; i++) {
+        const layer = glowLayers[i];
+        const r = layer[0];
+        const a = layer[1];
+        const grad = engineCtx.createRadialGradient(glowX, glowY, 0, glowX, glowY, r);
+        grad.addColorStop(0, `rgba(120, 210, 255, ${a})`);
+        grad.addColorStop(0.45, `rgba(85, 185, 255, ${a * 0.7})`);
+        grad.addColorStop(0.8, `rgba(55, 150, 255, ${a * 0.25})`);
+        grad.addColorStop(1, 'rgba(40, 130, 255, 0)');
+        engineCtx.fillStyle = grad;
+        engineCtx.beginPath();
+        engineCtx.arc(glowX, glowY, r, 0, Math.PI * 2);
+        engineCtx.fill();
+      }
       for (const nozzle of nozzles) {
         const nx = centerX + sx * (nozzle.side * nozzleSpread + bankShift);
         const ny = centerY + sy * (nozzle.side * nozzleSpread + bankShift);
