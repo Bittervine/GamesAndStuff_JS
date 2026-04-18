@@ -3527,6 +3527,7 @@
     const rot = -Math.PI * 0.25 + tilt;
     const glow = state.overdrive > 0 ? '#ffe38c' : '#8fd8ff';
     const flashAlpha = p.invuln > 0 ? 0.52 + 0.42 * (0.5 + 0.5 * Math.sin((3 - p.invuln) * 16 + state.musicStep * 0.9)) : 1;
+    const bank = clamp(-tilt * 3.1, -1.57, 1.57);
     const bridge = window.__ShotEmUp3D;
     if (bridge && bridge.enabled) {
       bridge.player = {
@@ -3535,6 +3536,7 @@
         bob: bob,
         rot: rot,
         tilt: tilt,
+        bank: bank,
         alpha: flashAlpha,
         visible: !respawning || p.respawnTimer < 0.98
       };

@@ -36,15 +36,6 @@
       touch-action: none;
     }
     * { box-sizing: border-box; }
-    #world3d {
-      position: fixed;
-      inset: 0;
-      display: block;
-      width: 100vw;
-      height: 100vh;
-      z-index: 0;
-      pointer-events: none;
-    }
     #player3d {
       position: fixed;
       inset: 0;
@@ -279,7 +270,6 @@
   </style>
 </head>
   <body>
-  <canvas id="world3d"></canvas>
   <canvas id="game"></canvas>
   <canvas id="player3d"></canvas>
   <canvas id="hud"></canvas>
@@ -338,19 +328,14 @@
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-    const canvas = document.getElementById('world3d');
-    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight, false);
-    renderer.setClearColor(0x000000, 0);
-
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 0, 12);
-
     const shipCanvas = document.getElementById('player3d');
-    const shipRenderer = new THREE.WebGLRenderer({ canvas: shipCanvas, alpha: true, antialias: true });
-    shipRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const shipRenderer = new THREE.WebGLRenderer({
+      canvas: shipCanvas,
+      alpha: true,
+      antialias: true,
+      powerPreference: 'low-power'
+    });
+    shipRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 0.5));
     shipRenderer.setSize(window.innerWidth, window.innerHeight, false);
     shipRenderer.setClearColor(0x000000, 0);
 
@@ -377,6 +362,7 @@
     const gameBridge = window.__ShotEmUp3D = window.__ShotEmUp3D || {};
     gameBridge.enabled = true;
     gameBridge.player = gameBridge.player || { x: 0, y: 0, rot: 0, bob: 0, alpha: 1, visible: false };
+    let shipBank = 0;
 
     const loader = new GLTFLoader();
     let shipRoot = new THREE.Group();
@@ -408,70 +394,6 @@
       }
     );
 
-    function makeTexture(drawFn, size) {
-      const c = document.createElement('canvas');
-      c.width = c.height = size;
-      const g = c.getContext('2d');
-      drawFn(g, size);
-      const tex = new THREE.CanvasTexture(c);
-      tex.colorSpace = THREE.SRGBColorSpace;
-      tex.needsUpdate = true;
-      return tex;
-    }
-
-    const bgTex = makeTexture((g, s) => {
-      const grd = g.createLinearGradient(0, 0, 0, s);
-      grd.addColorStop(0, '#07111d');
-      grd.addColorStop(0.55, '#0a1630');
-      grd.addColorStop(1, '#030712');
-      g.fillStyle = grd;
-      g.fillRect(0, 0, s, s);
-      g.fillStyle = 'rgba(124, 247, 255, 0.10)';
-      g.beginPath();
-      g.arc(s * 0.18, s * 0.16, s * 0.14, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = 'rgba(255, 143, 232, 0.08)';
-      g.beginPath();
-      g.arc(s * 0.82, s * 0.10, s * 0.16, 0, Math.PI * 2);
-      g.fill();
-    }, 1024);
-
-    const cloudTex = makeTexture((g, s) => {
-      g.clearRect(0, 0, s, s);
-      const blobs = [
-        [0.18, 0.56, 0.16], [0.30, 0.44, 0.20], [0.42, 0.54, 0.18],
-        [0.58, 0.42, 0.21], [0.70, 0.54, 0.16], [0.80, 0.46, 0.14]
-      ];
-      for (const [x, y, r] of blobs) {
-        const grd = g.createRadialGradient(x * s, y * s, r * s * 0.15, x * s, y * s, r * s);
-        grd.addColorStop(0, 'rgba(255,255,255,0.34)');
-        grd.addColorStop(1, 'rgba(255,255,255,0)');
-        g.fillStyle = grd;
-        g.beginPath();
-        g.arc(x * s, y * s, r * s, 0, Math.PI * 2);
-        g.fill();
-      }
-    }, 512);
-
-    const bg = new THREE.Mesh(
-      new THREE.PlaneGeometry(22, 12),
-      new THREE.MeshBasicMaterial({ map: bgTex })
-    );
-    bg.position.set(0, 0, -20);
-    scene.add(bg);
-
-    const clouds = new THREE.Mesh(
-      new THREE.PlaneGeometry(22, 12),
-      new THREE.MeshBasicMaterial({
-        map: cloudTex,
-        transparent: true,
-        opacity: 0.78,
-        depthWrite: false
-      })
-    );
-    clouds.position.set(0, 0.5, -8);
-    scene.add(clouds);
-
     const mouse = { x: 0, y: 0 };
     window.addEventListener('pointermove', (ev) => {
       mouse.x = (ev.clientX / window.innerWidth) * 2 - 1;
@@ -479,10 +401,7 @@
     }, { passive: true });
 
     function resize() {
-      renderer.setSize(window.innerWidth, window.innerHeight, false);
       shipRenderer.setSize(window.innerWidth, window.innerHeight, false);
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
       shipCamera.left = -window.innerWidth * 0.5;
       shipCamera.right = window.innerWidth * 0.5;
       shipCamera.top = window.innerHeight * 0.5;
@@ -493,11 +412,6 @@
 
     function animate() {
       requestAnimationFrame(animate);
-      bg.position.x = mouse.x * 0.15;
-      bg.position.y = mouse.y * 0.08;
-      clouds.position.x = mouse.x * 0.35;
-      clouds.position.y = 0.5 + mouse.y * 0.12;
-      renderer.render(scene, camera);
 
       const player = gameBridge.player;
       shipRoot.visible = shipReady && !!player.visible;
@@ -507,7 +421,11 @@
         shipRoot.position.z = 0;
         shipRoot.rotation.z = -(player.rot || 0) - Math.PI * 0.25;
         shipRoot.rotation.y = (player.tilt || 0) * 0.6;
+        shipBank += ((player.bank || 0) - shipBank) * 0.22;
+        if (shipRoot.children[0]) shipRoot.children[0].rotation.z = shipBank;
         shipRoot.scale.setScalar(1);
+      } else {
+        shipBank += (0 - shipBank) * 0.15;
       }
       shipRenderer.render(shipScene, shipCamera);
     }
