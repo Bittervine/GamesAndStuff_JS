@@ -21,6 +21,7 @@
         #controls {
             font-size: 95%;
             text-align: center;
+            font-family: serif;
         }
 
         #controls button,
@@ -226,6 +227,14 @@
             if (fontWatchHandle || !document.fonts || !document.fonts.load) return;
             fontWatchHandle = document.fonts.load("10px 'FreeSerif'");
             fontWatchHandle.then(function () { redraw(); }).catch(function () {});
+        }
+
+        function applyKindleControlOffsets() {
+            if (!depthInput || !clumsyInput) return;
+            depthInput.style.position = '';
+            clumsyInput.style.position = '';
+            depthInput.style.top = '';
+            clumsyInput.style.top = '';
         }
 
         function oppositeColor(color) {
@@ -1211,6 +1220,7 @@
                 previewBtn.textContent = 'Preview';
                 previewBtn.className = previewEnabled ? 'is-on' : '';
             }
+            applyKindleControlOffsets();
 
             depthInput.addEventListener('change', function () {
                 safeStorageSet(STORAGE.depth, depthInput.value);
