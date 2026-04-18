@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'shotemup-3d-v4';
+var CACHE_NAME = 'shotemup-3d-v5';
 var APP_SHELL = [
   './ShotEmUp3D_JS.html',
   './ShotEmUp_JS.js',
@@ -34,10 +34,10 @@ self.addEventListener('fetch', function (event) {
   var url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname === '/ShotEmUp3D_JS.html' || url.pathname === '/ShotEmUp_JS.js' || url.pathname === '/ShotEmUp3D_JS/ShotEmUp3D_JS.html' || url.pathname === '/ShotEmUp3D_JS/ShotEmUp_JS.js') {
+  if (event.request.mode === 'navigate' || event.request.destination === 'document' || url.pathname === '/ShotEmUp3D_JS.html' || url.pathname === '/ShotEmUp3D_JS/' || url.pathname === '/ShotEmUp_JS.js' || url.pathname === '/ShotEmUp3D_JS/ShotEmUp3D_JS.html' || url.pathname === '/ShotEmUp3D_JS/ShotEmUp_JS.js') {
     event.respondWith(
       fetch(event.request, { cache: 'no-store' }).then(function (response) {
-        if (response && response.ok) {
+        if (response && response.ok && event.request.destination !== 'document' && event.request.mode !== 'navigate') {
           var copy = response.clone();
           caches.open(CACHE_NAME).then(function (cache) {
             cache.put(event.request, copy);
