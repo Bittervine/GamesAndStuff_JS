@@ -113,6 +113,7 @@
   const ENEMY_SHIP_MIN_SIZE = 64;
   const ENEMY_SHIP_MAX_SIZE = 128;
   const enemyShipLoadKeys = new Set();
+  const bossArtLoadKeys = new Set();
 
   function enemyShipKey(levelNumber, shipIndex) {
     return 'enemyship|' + levelNumber + '|' + shipIndex;
@@ -163,6 +164,45 @@
   function getEnemyShipRenderSize(levelNumber, shipIndex) {
     const key = 'shipsize|' + levelNumber + '|' + shipIndex;
     return ENEMY_SHIP_MIN_SIZE + (hashString(key) % (ENEMY_SHIP_MAX_SIZE - ENEMY_SHIP_MIN_SIZE + 1));
+  }
+
+  function bossArtKey(levelNumber) {
+    return 'bossart|' + levelNumber;
+  }
+
+  function bossArtSource(levelNumber) {
+    return 'boss_' + String(levelNumber).padStart(2, '0') + '.png';
+  }
+
+  function ensureBossTexture(levelNumber) {
+    const key = bossArtKey(levelNumber);
+    if (render.textures.has(key) || bossArtLoadKeys.has(key)) return;
+    bossArtLoadKeys.add(key);
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = function () {
+      try {
+        render.textures.set(key, createTextureFromCanvas(img));
+      } finally {
+        bossArtLoadKeys.delete(key);
+      }
+    };
+    img.onerror = function () {
+      bossArtLoadKeys.delete(key);
+    };
+    img.src = bossArtSource(levelNumber);
+  }
+
+  function warmBossArt(levelNumber) {
+    ensureBossTexture(levelNumber);
+  }
+
+  function getBossTexture(levelNumber) {
+    const key = bossArtKey(levelNumber);
+    const tex = render.textures.get(key);
+    if (tex) return tex;
+    ensureBossTexture(levelNumber);
+    return null;
   }
 
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -621,14 +661,14 @@
     theme({ name: 'Ion Collapse', subtitle: 'Ash Sector', skyTop: '#1b1730', skyBottom: '#53265f', glow: '#d19cff', accent: '#9a7cff', accent2: '#f0d0ff', icons: [E.lollipop, E.donut, E.cookie, E.chocolate], forms: ['fan', 'rain', 'cross'], enemyKinds: ['drifter', 'zigzag', 'bomber'], atmosphere: 'sprinkles', music: { bpm: 136, root: 262, pattern: [0, 4, 7, 12, 7, 4, 5, 9] }, boss: { name: 'Baron Null', emoji: E.donut, hp: 188, color: '#c29bff', phases: [phase(7, 'hover', 'fan'), phase(7, 'sweep', 'ring'), phase(8, 'low', 'rain')] } }),
     theme({ name: 'Cold Forge', subtitle: 'Scrap Horizon', skyTop: '#0f1620', skyBottom: '#4d5867', glow: '#96c9ff', accent: '#9fb2c6', accent2: '#d0e0ef', icons: [E.gear, E.battery, E.wrench, E.rocket], forms: ['line', 'pair', 'cross'], enemyKinds: ['zigzag', 'sniper', 'bomber'], atmosphere: 'sparks', music: { bpm: 118, root: 196, pattern: [0, 0, 7, 5, 4, 5, 7, 10] }, boss: { name: 'Scrap Sovereign', emoji: E.gear, hp: 200, color: '#d0d9e1', phases: [phase(7, 'sweep', 'ring'), phase(7.5, 'hover', 'summon'), phase(8, 'dash', 'fan')] } }),
     theme({ name: 'Deadlight Fen', subtitle: 'Echo Tide', skyTop: '#06111d', skyBottom: '#532a40', glow: '#ffbf8a', accent: '#e0a06c', accent2: '#ffc8a1', icons: [E.lantern, E.ghost, E.sparkles, E.star], forms: ['rain', 'arc', 'swarm'], enemyKinds: ['drifter', 'sniper', 'spinner'], atmosphere: 'motes', music: { bpm: 108, root: 196, pattern: [0, 5, 7, 10, 7, 5, 3, 5] }, boss: { name: 'Specter Captain', emoji: E.lantern, hp: 204, color: '#f6b46d', phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Iron Nest', subtitle: 'Sting Vector', skyTop: '#220c0c', skyBottom: '#6d3a13', glow: '#ffd77a', accent: '#c47a19', accent2: '#ffd59f', icons: [E.bee, E.honey, E.fire, E.bolt], forms: ['swarm', 'fan', 'pair'], enemyKinds: ['diver', 'swarm', 'sniper'], atmosphere: 'embers', music: { bpm: 132, root: 246, pattern: [0, 2, 3, 7, 10, 7, 3, 2] }, boss: { name: 'Hive Regent', emoji: E.bee, hp: 216, color: '#e4ba6a', phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'dash', 'rain')] } }),
+    theme({ name: 'Domain of Klaato', subtitle: 'Sting Vector', skyTop: '#220c0c', skyBottom: '#6d3a13', glow: '#ffd77a', accent: '#c47a19', accent2: '#ffd59f', icons: [E.bee, E.honey, E.fire, E.bolt], forms: ['swarm', 'fan', 'pair'], enemyKinds: ['diver', 'swarm', 'sniper'], atmosphere: 'embers', music: { bpm: 132, root: 246, pattern: [0, 2, 3, 7, 10, 7, 3, 2] }, boss: { name: 'Hive Regent', emoji: E.bee, hp: 216, color: '#e4ba6a', phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'dash', 'rain')] } }),
     theme({ name: 'Shard Expanse', subtitle: 'Prism Break', skyTop: '#07142f', skyBottom: '#264e88', glow: '#b0fbff', accent: '#95d5ff', accent2: '#d6c4ff', icons: [E.crystal, E.gem, E.star, E.moon], forms: ['ring', 'line', 'arc'], enemyKinds: ['spinner', 'sniper', 'drifter'], atmosphere: 'shards', music: { bpm: 120, root: 233, pattern: [0, 4, 7, 11, 7, 4, 9, 7] }, boss: { name: 'Shard Devourer', emoji: E.gem, hp: 228, color: '#c9f6ff', phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'ring'), phase(8, 'low', 'beam')] } }),
-    theme({ name: 'Cinder Belt', subtitle: 'Magma Line', skyTop: '#180709', skyBottom: '#6c2919', glow: '#ffab5b', accent: '#de6f2b', accent2: '#ffd08a', icons: [E.fire, E.pepper, E.honey, E.sparkles], forms: ['rain', 'line', 'swarm'], enemyKinds: ['bomber', 'diver', 'splitter'], atmosphere: 'embers', music: { bpm: 140, root: 220, pattern: [0, 3, 7, 10, 7, 3, 5, 10] }, boss: { name: 'Magma Relay', emoji: E.fire, hp: 240, color: '#ff9e53', phases: [phase(7, 'hover', 'rain'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'wall')] } }),
-    theme({ name: 'Lunar Grave', subtitle: 'Low Orbit Ruin', skyTop: '#07111d', skyBottom: '#2d3d61', glow: '#95d7ff', accent: '#aebfe0', accent2: '#95d7ff', icons: [E.moon, E.star, E.rocket, E.comet], forms: ['line', 'wave', 'pair'], enemyKinds: ['drifter', 'zigzag', 'mine'], atmosphere: 'stardust', music: { bpm: 106, root: 185, pattern: [0, 7, 12, 7, 10, 7, 5, 3] }, boss: { name: 'Lunar Reaper', emoji: E.moon, hp: 252, color: '#c3d6ff', phases: [phase(7, 'hover', 'summon'), phase(7.5, 'sweep', 'beam'), phase(8, 'dash', 'ring')] } }),
-    theme({ name: 'Neon Fault', subtitle: 'Laser Grid', skyTop: '#07101c', skyBottom: '#2d1a5a', glow: '#82f6ff', accent: '#6eeaff', accent2: '#d18cff', icons: [E.bolt, E.sparkles, E.disc, E.target], forms: ['wave', 'cross', 'pair'], enemyKinds: ['zigzag', 'sniper', 'bomber'], atmosphere: 'neon', music: { bpm: 144, root: 220, pattern: [0, 7, 12, 10, 7, 4, 9, 12] }, boss: { name: 'Neon Reclaimer', emoji: E.bolt, hp: 264, color: '#8fefff', phases: [phase(7, 'sweep', 'wall'), phase(7.5, 'hover', 'aimed'), phase(8, 'dash', 'ring')] } }),
-    theme({ name: 'Black Citadel', subtitle: 'Knightfall', skyTop: '#0a0c14', skyBottom: '#403f55', glow: '#f0f3ff', accent: '#b6bfd6', accent2: '#9e8e5e', icons: [E.knight, E.rook, E.bishop, E.queen], forms: ['line', 'cross', 'wave'], enemyKinds: ['zigzag', 'sniper', 'elite'], atmosphere: 'chess', music: { bpm: 122, root: 196, pattern: [0, 3, 7, 10, 7, 3, 5, 7] }, boss: { name: 'Grand Wraith', emoji: E.queen, hp: 288, color: '#e7ecff', phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'summon'), phase(8, 'dash', 'ring')] } }),
-    theme({ name: 'Tempest Bastion', subtitle: 'Thunder Line', skyTop: '#0c1821', skyBottom: '#344c84', glow: '#d7f4ff', accent: '#9cc7ff', accent2: '#d7f4ff', icons: [E.cloud, E.rain, E.bolt, E.star], forms: ['rain', 'line', 'swarm'], enemyKinds: ['diver', 'sniper', 'spinner'], atmosphere: 'rain', music: { bpm: 128, root: 196, pattern: [0, 4, 7, 10, 7, 4, 2, 5] }, boss: { name: 'Storm Commander', emoji: E.cloud, hp: 276, color: '#d3edff', phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Eclipse Crown', subtitle: 'Final Descent', skyTop: '#0f081b', skyBottom: '#5b3d18', glow: '#ffe78a', accent: '#ffd77a', accent2: '#ffffff', icons: [E.sun, E.crown, E.star, E.comet], forms: ['ring', 'fan', 'wave'], enemyKinds: ['elite', 'sniper', 'spinner'], atmosphere: 'nova', music: { bpm: 152, root: 262, pattern: [0, 4, 7, 12, 15, 12, 7, 4] }, boss: { name: 'Sun Eater', emoji: E.sun, hp: 320, color: '#fff0bd', phases: [phase(6.5, 'hover', 'aimed'), phase(6.5, 'sweep', 'ring'), phase(6.5, 'dash', 'beam'), phase(7.5, 'low', 'wall')] } })
+    theme({ name: 'Mythic Descent', subtitle: 'Magma Line', skyTop: '#180709', skyBottom: '#6c2919', glow: '#ffab5b', accent: '#de6f2b', accent2: '#ffd08a', icons: [E.fire, E.pepper, E.honey, E.sparkles], forms: ['rain', 'line', 'swarm'], enemyKinds: ['bomber', 'diver', 'splitter'], atmosphere: 'embers', music: { bpm: 140, root: 220, pattern: [0, 3, 7, 10, 7, 3, 5, 10] }, boss: { name: 'Purple Reaper', emoji: E.fire, hp: 240, color: '#ff9e53', phases: [phase(7, 'hover', 'rain'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'wall')] } }),
+    theme({ name: 'Lunar Grave', subtitle: 'Low Orbit Ruin', skyTop: '#07111d', skyBottom: '#2d3d61', glow: '#95d7ff', accent: '#aebfe0', accent2: '#95d7ff', icons: [E.moon, E.star, E.rocket, E.comet], forms: ['line', 'wave', 'pair'], enemyKinds: ['drifter', 'zigzag', 'mine'], atmosphere: 'stardust', music: { bpm: 106, root: 185, pattern: [0, 7, 12, 7, 10, 7, 5, 3] }, boss: { name: 'Lunar Horse', emoji: E.moon, hp: 252, color: '#c3d6ff', phases: [phase(7, 'hover', 'summon'), phase(7.5, 'sweep', 'beam'), phase(8, 'dash', 'ring')] } }),
+    theme({ name: 'Dark Waters', subtitle: 'Laser Grid', skyTop: '#07101c', skyBottom: '#2d1a5a', glow: '#82f6ff', accent: '#6eeaff', accent2: '#d18cff', icons: [E.bolt, E.sparkles, E.disc, E.target], forms: ['wave', 'cross', 'pair'], enemyKinds: ['zigzag', 'sniper', 'bomber'], atmosphere: 'neon', music: { bpm: 144, root: 220, pattern: [0, 7, 12, 10, 7, 4, 9, 12] }, boss: { name: 'Whaling Wraith', emoji: E.bolt, hp: 264, color: '#8fefff', phases: [phase(7, 'sweep', 'wall'), phase(7.5, 'hover', 'aimed'), phase(8, 'dash', 'ring')] } }),
+    theme({ name: 'Black Citadel', subtitle: 'Knightfall', skyTop: '#0a0c14', skyBottom: '#403f55', glow: '#f0f3ff', accent: '#b6bfd6', accent2: '#9e8e5e', icons: [E.knight, E.rook, E.bishop, E.queen], forms: ['line', 'cross', 'wave'], enemyKinds: ['zigzag', 'sniper', 'elite'], atmosphere: 'chess', music: { bpm: 122, root: 196, pattern: [0, 3, 7, 10, 7, 3, 5, 7] }, boss: { name: 'Cyberphisher', emoji: E.queen, hp: 288, color: '#e7ecff', phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'summon'), phase(8, 'dash', 'ring')] } }),
+    theme({ name: 'Submerged Bastion', subtitle: 'Thunder Line', skyTop: '#0c1821', skyBottom: '#344c84', glow: '#d7f4ff', accent: '#9cc7ff', accent2: '#d7f4ff', icons: [E.cloud, E.rain, E.bolt, E.star], forms: ['rain', 'line', 'swarm'], enemyKinds: ['diver', 'sniper', 'spinner'], atmosphere: 'rain', music: { bpm: 128, root: 196, pattern: [0, 4, 7, 10, 7, 4, 2, 5] }, boss: { name: 'Rocket Rager', emoji: E.cloud, hp: 276, color: '#d3edff', phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Throium Gap', subtitle: 'Final Descent', skyTop: '#0f081b', skyBottom: '#5b3d18', glow: '#ffe78a', accent: '#ffd77a', accent2: '#ffffff', icons: [E.sun, E.crown, E.star, E.comet], forms: ['ring', 'fan', 'wave'], enemyKinds: ['elite', 'sniper', 'spinner'], atmosphere: 'nova', music: { bpm: 152, root: 262, pattern: [0, 4, 7, 12, 15, 12, 7, 4] }, boss: { name: 'Sun Eater', emoji: E.sun, hp: 320, color: '#fff0bd', phases: [phase(6.5, 'hover', 'aimed'), phase(6.5, 'sweep', 'ring'), phase(6.5, 'dash', 'beam'), phase(7.5, 'low', 'wall')] } })
   ];
 
   const WEAPONS = [
@@ -1558,6 +1598,7 @@
     state.currentTheme = THEMES[index];
     warmEnemyShipBatch(index + 1);
     if (index + 1 > ENEMY_SHIP_FALLBACK_BATCHES) warmEnemyShipBatch(((index + 1 - 1) % ENEMY_SHIP_FALLBACK_BATCHES) + 1);
+    warmBossArt(index + 1);
     clearArray(state.enemies);
     clearArray(state.bullets);
     clearArray(state.enemyBullets);
@@ -1750,7 +1791,6 @@
   function spawnBoss(theme) {
     const b = theme.boss;
     const diff = currentDifficulty();
-    const shipIndex = randi(0, ENEMY_SHIP_COLUMNS - 1);
     state.boss = {
       theme: theme, name: b.name, emoji: b.emoji, color: b.color,
       x: view.w * 0.5, y: 128, vx: 0, vy: 0, r: 64,
@@ -1758,7 +1798,7 @@
       maxHp: Math.round(b.hp * (1 + state.levelIndex * 0.04) * diff.bossHp),
       phases: b.phases, phaseIndex: 0, phaseClock: 0, age: 0,
       fireClock: 0, motionClock: 0, state: {}, hitFlash: 0, dead: false,
-      shipLevel: state.levelIndex + 1, shipIndex: shipIndex
+      shipLevel: state.levelIndex + 1, shipIndex: 0, facingRight: false
     };
     state.banner = 'BOSS: ' + b.name;
     state.bannerSub = theme.subtitle;
@@ -2171,8 +2211,13 @@
       tx = b.state.dashTarget;
       ty = 148 + Math.sin(b.age * 2.1) * 14;
     }
+    const prevX = b.x;
+    const prevY = b.y;
     b.x = smooth(b.x, clamp(tx, 88, view.w - 88), 2.8, dt);
     b.y = smooth(b.y, clamp(ty, 88, a.bottom - 260), 2.1, dt);
+    b.vx = dt > 0 ? (b.x - prevX) / dt : 0;
+    b.vy = dt > 0 ? (b.y - prevY) / dt : 0;
+    if (Math.abs(b.vx) > 0.5) b.facingRight = b.vx > 0;
   }
 
   function updateBoss(dt) {
@@ -3551,12 +3596,15 @@
     const r = b.r;
     const rot = Math.sin(b.age * 0.8) * 0.04;
     const levelNumber = b.shipLevel || (state.levelIndex + 1);
-    const texture = getEnemyShipTexture(levelNumber, b.shipIndex || 0);
+    const texture = getBossTexture(levelNumber);
     const size = Math.max(208, getEnemyShipRenderSize(levelNumber, b.shipIndex || 0) * 2.75);
     drawGlowCircle(b.x, b.y, r * 2.1, p.glow, 0.18, 24);
     drawGlowCircle(b.x, b.y, r * 1.1, p.base, 0.18, 12);
     drawGlowCircle(b.x, b.y, r * 0.4, p.base, 0.24, 8);
-    if (texture) drawTextureRect(texture, b.x, b.y, size, size, { rot: rot, alpha: 0.98, layer: 28 });
+    if (texture) {
+      const w = b.facingRight ? -size : size;
+      drawTextureRect(texture, b.x, b.y, w, size, { rot: rot, alpha: 0.98, layer: 28 });
+    }
   }
 
   function drawEnemyOverlay(e, rot) {
