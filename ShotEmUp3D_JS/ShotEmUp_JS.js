@@ -3501,10 +3501,10 @@
     g.addColorStop(1, 'rgba(8,12,24,0.48)');
     hudCtx.save();
     hudCtx.fillStyle = g;
-    hudCtx.strokeStyle = 'rgba(255,255,255,0.38)';
+    hudCtx.strokeStyle = 'rgba(132, 188, 255, 0.94)';
     hudCtx.lineWidth = 2;
-    hudCtx.shadowColor = 'rgba(255,255,255,0.22)';
-    hudCtx.shadowBlur = 18;
+    hudCtx.shadowColor = 'rgba(132, 188, 255, 0.94)';
+    hudCtx.shadowBlur = 24;
     roundRect(x, y, w, h, 18);
     hudCtx.fill();
     hudCtx.shadowBlur = 0;

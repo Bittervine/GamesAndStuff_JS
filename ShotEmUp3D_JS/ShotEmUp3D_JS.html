@@ -132,13 +132,13 @@
       width: max-content;
       max-width: calc(100vw - 16px);
       border-radius: 16px;
-      border: 2px solid rgba(255, 255, 255, 0.38);
+      border: 2px solid rgba(132, 188, 255, 0.94);
       background: linear-gradient(180deg, rgba(8, 12, 24, 0.76), rgba(8, 12, 24, 0.48));
       backdrop-filter: blur(10px);
       box-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.22),
+        0 0 0 1px rgba(132, 188, 255, 0.46),
         0 14px 36px rgba(0, 0, 0, 0.34),
-        0 0 22px rgba(255, 255, 255, 0.12);
+        0 0 22px rgba(132, 188, 255, 0.3);
     }
     #controls button {
       appearance: none;
@@ -157,10 +157,13 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
+      background:
+        linear-gradient(180deg, rgba(192, 224, 255, 0.42), rgba(92, 152, 255, 0.22)),
+        linear-gradient(180deg, rgba(8, 12, 24, 0.16), rgba(8, 12, 24, 0.02));
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.28),
-        inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        inset 0 -2px 0 rgba(36, 76, 160, 0.38),
+        0 0 12px rgba(132, 188, 255, 0.18),
         0 6px 14px rgba(0, 0, 0, 0.16);
       cursor: pointer;
       touch-action: manipulation;
@@ -169,10 +172,11 @@
     #controls button:active, #controls button.active {
       transform: translateY(1px) scale(0.99);
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.16),
-        inset 0 -2px 0 rgba(0, 0, 0, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.24),
+        inset 0 -2px 0 rgba(20, 58, 128, 0.5),
+        0 0 16px rgba(132, 188, 255, 0.28),
         0 4px 14px rgba(0, 0, 0, 0.16);
-      filter: saturate(1.2);
+      filter: saturate(1.35) brightness(1.06);
     }
     #controls button[data-act="fire"] {
       background: linear-gradient(180deg, rgba(124, 247, 255, 0.34), rgba(124, 247, 255, 0.1));
