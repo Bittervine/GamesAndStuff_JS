@@ -1,9 +1,9 @@
 'use strict';
 
-var CACHE_NAME = 'shotemup-js-v3';
+var CACHE_NAME = 'shotemup-3d-v4';
 var APP_SHELL = [
-  './',
-  './ShotEmUp_JS.html',
+  './ShotEmUp3D_JS.html',
+  './ShotEmUp_JS.js',
   './manifest.webmanifest',
   './pwa-icon.svg'
 ];
@@ -34,7 +34,7 @@ self.addEventListener('fetch', function (event) {
   var url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (url.pathname === '/ShotEmUp_JS/ShotEmUp_JS.html' || url.pathname === '/ShotEmUp_JS/ShotEmUp_JS.js') {
+  if (url.pathname === '/ShotEmUp3D_JS.html' || url.pathname === '/ShotEmUp_JS.js' || url.pathname === '/ShotEmUp3D_JS/ShotEmUp3D_JS.html' || url.pathname === '/ShotEmUp3D_JS/ShotEmUp_JS.js') {
     event.respondWith(
       fetch(event.request, { cache: 'no-store' }).then(function (response) {
         if (response && response.ok) {
@@ -47,7 +47,7 @@ self.addEventListener('fetch', function (event) {
       }).catch(function () {
         return caches.match(event.request).then(function (cached) {
           if (cached) return cached;
-          return caches.match('./ShotEmUp_JS.html');
+          return caches.match('./ShotEmUp3D_JS.html');
         });
       })
     );
@@ -64,7 +64,7 @@ self.addEventListener('fetch', function (event) {
         });
         return response;
       }).catch(function () {
-        return caches.match('./ShotEmUp_JS.html');
+        return caches.match('./ShotEmUp3D_JS.html');
       });
     })
   );
