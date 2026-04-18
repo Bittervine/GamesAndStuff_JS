@@ -1750,6 +1750,7 @@
   function spawnBoss(theme) {
     const b = theme.boss;
     const diff = currentDifficulty();
+    const shipIndex = randi(0, ENEMY_SHIP_COLUMNS - 1);
     state.boss = {
       theme: theme, name: b.name, emoji: b.emoji, color: b.color,
       x: view.w * 0.5, y: 128, vx: 0, vy: 0, r: 64,
@@ -1757,7 +1758,7 @@
       maxHp: Math.round(b.hp * (1 + state.levelIndex * 0.04) * diff.bossHp),
       phases: b.phases, phaseIndex: 0, phaseClock: 0, age: 0,
       fireClock: 0, motionClock: 0, state: {}, hitFlash: 0, dead: false,
-      shipLevel: state.levelIndex + 1, shipIndex: 0
+      shipLevel: state.levelIndex + 1, shipIndex: shipIndex
     };
     state.banner = 'BOSS: ' + b.name;
     state.bannerSub = theme.subtitle;
@@ -3535,8 +3536,8 @@
     const levelNumber = e.shipLevel || (state.levelIndex + 1);
     const shipIndex = e.shipIndex || 0;
     const texture = getEnemyShipTexture(levelNumber, shipIndex);
-    const glowRadius = Math.max(14, shipSize * 0.42);
-    drawGlowCircle(e.x, e.y, glowRadius, p.glow, 0.35, 18);
+    const glowRadius = Math.max(14, shipSize * 0.42 * 0.75);
+    drawGlowCircle(e.x, e.y, glowRadius, p.glow, 0.35 * 0.75, 18 * 0.75);
     if (texture) {
       drawTextureRect(texture, e.x, e.y, shipSize, shipSize, { rot: rot, alpha: alpha, layer: 18 });
     } else {
