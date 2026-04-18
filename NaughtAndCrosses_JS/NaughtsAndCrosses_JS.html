@@ -142,6 +142,15 @@
             var DEPTH_KEY = 'nac_max_depth';
             var CLUM_KEY = 'nac_clumsiness';
             var PREV_KEY = 'nac_preview_enabled';
+            var userAgent = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+            var kindleMode = /Kindle|Silk|KF[A-Z0-9]+|KFTT|KFMUWI|KFSUWI|KFDOWI|KFTHWI|KFTRWI/i.test(userAgent);
+            function applyKindleControlOffsets() {
+                if (!depthInput || !clumsyInput) return;
+                depthInput.style.position = '';
+                clumsyInput.style.position = '';
+                depthInput.style.top = '';
+                clumsyInput.style.top = '';
+            }
             try {
                 var savedDepth = localStorage.getItem(DEPTH_KEY);
                 if (savedDepth !== null) depthInput.value = savedDepth;
@@ -153,6 +162,7 @@
                     previewBtn.textContent = 'Preview';
                     previewBtn.className = previewEnabled ? 'is-on' : '';
                 }
+                applyKindleControlOffsets();
             } catch (e) {}
 
             depthInput.addEventListener('change', function(){
