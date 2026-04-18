@@ -735,6 +735,7 @@
       
       engineCtx.save();
       engineCtx.globalCompositeOperation = 'lighter';
+      const glowScale = 1.1;
       const glowLayers = [
         [56, 0.16],
         [82, 0.09],
@@ -743,8 +744,8 @@
       ];
       for (let i = 0; i < glowLayers.length; i++) {
         const layer = glowLayers[i];
-        const r = layer[0];
-        const a = layer[1];
+        const r = layer[0] * glowScale;
+        const a = layer[1] * glowScale;
         const grad = engineCtx.createRadialGradient(glowX, glowY, 0, glowX, glowY, r);
         grad.addColorStop(0, `rgba(120, 210, 255, ${a})`);
         grad.addColorStop(0.45, `rgba(85, 185, 255, ${a * 0.7})`);
