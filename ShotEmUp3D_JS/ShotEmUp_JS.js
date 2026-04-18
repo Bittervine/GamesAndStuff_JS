@@ -629,7 +629,7 @@
       sfxVolume: clamp(loadNum('ShotEmUp_JS_sfxVolume', 0.84), 0, 1),
       musicVolume: clamp(loadNum('ShotEmUp_JS_musicVolume', 0.4), 0, 1),
       difficulty: clamp(Math.round(loadNum('ShotEmUp_JS_difficulty', 1)), 0, 2),
-      loadAdvanced3DShipModel: loadBool('ShotEmUp_JS_loadAdvanced3DShipModel', true)
+      loadAdvanced3DShipModel: loadBool('ShotEmUp_JS_loadAdvanced3DShipModel', false)
     },
     lives: 3,
     combo: 0,
