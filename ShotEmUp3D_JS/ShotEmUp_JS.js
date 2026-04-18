@@ -1261,8 +1261,8 @@
     clearArray(state.foreground);
     state.backgroundBitmap = buildOrchardBackgroundBitmap(t, bgSeed);
     if (state.backgroundBitmap) state.backgroundBitmap.scroll = preserveScroll ? bgRatio * state.backgroundBitmap.maxScroll : state.backgroundBitmap.maxScroll;
-    state.foregroundBitmap = buildCloudForegroundBitmap(fgSeed);
-    if (state.foregroundBitmap) state.foregroundBitmap.scroll = preserveScroll ? fgRatio * state.foregroundBitmap.maxScroll : state.foregroundBitmap.maxScroll;
+    // Cloud volume is now drawn by the 3D overlay layer in ShotEmUp3D_JS.html.
+    state.foregroundBitmap = null;
   }
 
   function setupDebugScene() {
