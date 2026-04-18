@@ -3500,6 +3500,7 @@
         tilt: tilt,
         bank: bank,
         alpha: flashAlpha,
+        damage: clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1),
         visible: !respawning || p.respawnTimer < 0.98
       };
       return;
