@@ -439,11 +439,16 @@
 
     const mouse = { x: 0, y: 0 };
     const clouds = [
-      { x: 0.10, y: 0.20, s: 0.20, v: 0.010, a: 0.18 },
-      { x: 0.38, y: 0.14, s: 0.28, v: 0.014, a: 0.14 },
-      { x: 0.68, y: 0.24, s: 0.24, v: 0.011, a: 0.16 },
-      { x: 0.86, y: 0.12, s: 0.18, v: 0.009, a: 0.13 }
+      { x: 0.10, y: 0.20, s: 0.20, v: 0.010, a: 0.18, active: false, respawnAt: 0 },
+      { x: 0.38, y: 0.14, s: 0.28, v: 0.014, a: 0.14, active: false, respawnAt: 0 },
+      { x: 0.68, y: 0.24, s: 0.24, v: 0.011, a: 0.16, active: false, respawnAt: 0 },
+      { x: 0.86, y: 0.12, s: 0.18, v: 0.009, a: 0.13, active: false, respawnAt: 0 }
     ];
+    let cloudStartAt = performance.now();
+    for (const cloud of clouds) {
+      cloud.respawnAt = cloudStartAt;
+      cloudStartAt += Math.random() * 3000;
+    }
     window.addEventListener('pointermove', (ev) => {
       mouse.x = (ev.clientX / window.innerWidth) * 2 - 1;
       mouse.y = (ev.clientY / window.innerHeight) * 2 - 1;
@@ -461,6 +466,16 @@
     }
     window.addEventListener('resize', resize);
 
+    function respawnCloud(cloud) {
+      cloud.x = 0.08 + Math.random() * 0.84;
+      cloud.y = -0.18 - Math.random() * 0.25;
+      cloud.s = 0.16 + Math.random() * 0.14;
+      cloud.v = 0.008 + Math.random() * 0.008;
+      cloud.a = 0.12 + Math.random() * 0.08;
+      cloud.active = true;
+      cloud.respawnAt = 0;
+    }
+
     function drawClouds() {
       const ctx = cloudCtx;
       const w = cloudCanvas.width = window.innerWidth;
@@ -470,9 +485,18 @@
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.005)';
       ctx.fillRect(0, 0, w, h);
+      const now = performance.now();
       for (const cloud of clouds) {
+        if (!cloud.active) {
+          if (now >= cloud.respawnAt) respawnCloud(cloud);
+          continue;
+        }
         cloud.y += 0.012 + cloud.v * 0.0015;
-        if (cloud.y > 1.15) cloud.y = -0.15;
+        if (cloud.y > 1.15) {
+          cloud.active = false;
+          cloud.respawnAt = now + Math.random() * 3000;
+          continue;
+        }
         const px = cloud.x * w;
         const py = cloud.y * h;
         const s = cloud.s * Math.min(w, h) * 1.5;
