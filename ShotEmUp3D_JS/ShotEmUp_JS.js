@@ -724,8 +724,8 @@
     score: 0,
     highScore: loadNum('ShotEmUp_JS_highScore', 0),
     settings: {
-      sfxVolume: clamp(loadNum('ShotEmUp_JS_sfxVolume', 0.84), 0, 1),
-      musicVolume: clamp(loadNum('ShotEmUp_JS_musicVolume', 0.4), 0, 1),
+      sfxVolume: clamp(loadNum('ShotEmUp_JS_sfxVolume', 0.8), 0, 1),
+      musicVolume: clamp(loadNum('ShotEmUp_JS_musicVolume', 0), 0, 1),
       difficulty: clamp(Math.round(loadNum('ShotEmUp_JS_difficulty', 1)), 0, 2),
       loadAdvanced3DShipModel: loadBool('ShotEmUp_JS_loadAdvanced3DShipModel', false)
     },
@@ -2655,10 +2655,10 @@
     const p = clamp(ratio, 0, 1);
     const l = Number.isFinite(layer) ? layer : 0;
     const bg = Array.isArray(back) ? back : hexToRgb('#000000');
-    drawSpriteRect(x + w * 0.5, y + h * 0.5, w, h, bg, 0.76, l, false);
+    drawSpriteRect(x + w * 0.5, y + h * 0.2112, w, h, bg, 0.900, l, false);
     if (p > 0) {
       const fillW = Math.max(1, w * p);
-      drawSpriteRect(x + fillW * 0.5, y + h * 0.5, fillW, Math.max(1, h - 2), fill || '#ffffff', 0.96, l + 0.01, false);
+      drawSpriteRect(x + fillW * 0.5, y + h * 0.5, fillW, Math.max(1, h - 2), fill || '#ffffff', 0.100, l + 0.01, false);
     }
   }
 
@@ -3501,9 +3501,9 @@
     g.addColorStop(1, 'rgba(8,12,24,0.48)');
     hudCtx.save();
     hudCtx.fillStyle = g;
-    hudCtx.strokeStyle = accent || 'rgba(255,255,255,0.18)';
+    hudCtx.strokeStyle = 'rgba(255,255,255,0.38)';
     hudCtx.lineWidth = 2;
-    hudCtx.shadowColor = accent || 'rgba(255,255,255,0.2)';
+    hudCtx.shadowColor = 'rgba(255,255,255,0.22)';
     hudCtx.shadowBlur = 18;
     roundRect(x, y, w, h, 18);
     hudCtx.fill();
@@ -3789,18 +3789,18 @@
     const contentW = Math.max(scoreW, detailW);
     const panelW = clamp(contentW + (compact ? 26 : 30), compact ? 220 : 260, Math.min(view.w - 24, compact ? 420 : 520));
     const panelH = compact ? 44 : 48;
-    const panelX = (view.w - panelW) * 0.5;
+    const panelX = 8;
     const panelY = 8;
     const bossBarY = panelY + panelH + 6;
     drawPanel(panelX, panelY, panelW, panelH, theme.accent2);
 
     hudCtx.fillStyle = '#fff';
     hudCtx.textBaseline = 'middle';
-    hudCtx.textAlign = 'center';
+    hudCtx.textAlign = 'left';
     hudCtx.font = scoreFont;
-    hudCtx.fillText(scoreLine, view.w * 0.5, panelY + 15);
+    hudCtx.fillText(scoreLine, panelX + 14, panelY + 15);
     hudCtx.font = detailFont;
-    hudCtx.fillText(detailLine, view.w * 0.5, panelY + panelH - 13);
+    hudCtx.fillText(detailLine, panelX + 14, panelY + panelH - 13);
 
     if (state.bannerTimer > 0 && state.mode === 'playing') {
       const bw = clamp(view.w * 0.42, 220, 420);
