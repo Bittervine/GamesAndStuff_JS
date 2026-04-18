@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#07111d">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./pwa-icon.svg" type="image/svg+xml">
-  <title>ShotEmUp3D JS</title>
+  <title>Thorium Gap</title>
   <script type="importmap">
     {
       "imports": {
@@ -295,15 +295,15 @@
     <div class="settings-card">
       <div class="settings-head">
         <div>
-          <h2 id="settingsTitle">Settings</h2>
-          <p>Dial in the chaos: separate sound and music levels, plus difficulty.</p>
+          <h2 id="settingsTitle">Command</h2>
+          <p>Tune audio and combat difficulty for the breach run.</p>
         </div>
         <button type="button" class="settings-close" id="settingsClose">CLOSE</button>
       </div>
 
       <div class="settings-group">
         <div class="settings-label">
-          <span>SFX Volume</span>
+          <span>Effects Volume</span>
           <span class="settings-value" id="sfxVolumeValue">100%</span>
         </div>
         <input id="sfxVolume" type="range" min="0" max="1" step="0.01" value="1">
@@ -311,7 +311,7 @@
 
       <div class="settings-group">
         <div class="settings-label">
-          <span>Music Volume</span>
+          <span>Score Volume</span>
           <span class="settings-value" id="musicVolumeValue">100%</span>
         </div>
         <input id="musicVolume" type="range" min="0" max="1" step="0.01" value="1">
@@ -319,7 +319,7 @@
 
       <div class="settings-group">
         <div class="settings-label">
-          <span>Difficulty</span>
+          <span>Combat Intensity</span>
           <span class="settings-value" id="difficultyValue">Normal</span>
         </div>
         <div class="difficulty-buttons" id="difficultyButtons">
@@ -329,9 +329,12 @@
         </div>
       </div>
 
-      <p class="settings-note">Easy gives you more breathing room. Hard sharpens enemy pressure, speed, and boss durability.</p>
+      <p class="settings-note">Low difficulty softens the assault. High difficulty tightens enemy pressure, speed, and boss durability.</p>
     </div>
   </dialog>
+  <script>
+    window.__ShotEmUp3D = window.__ShotEmUp3D || { enabled: true, player: { x: 0, y: 0, rot: 0, bob: 0, tilt: 0, bank: 0, alpha: 0, visible: false } };
+  </script>
   <script src="ShotEmUp_JS.js?v=20260415b"></script>
   <script src="./pwa-register.js"></script>
   <script type="module">
@@ -437,14 +440,14 @@
       ctx.clearRect(0, 0, w, h);
       ctx.save();
       ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.01)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.005)';
       ctx.fillRect(0, 0, w, h);
       for (const cloud of clouds) {
         cloud.y += 0.012 + cloud.v * 0.0015;
         if (cloud.y > 1.15) cloud.y = -0.15;
         const px = cloud.x * w;
         const py = cloud.y * h;
-        const s = cloud.s * Math.min(w, h);
+        const s = cloud.s * Math.min(w, h) * 1.5;
         const puffs = [
           [0.00, 0.00, 0.42],
           [0.24, -0.10, 0.34],
@@ -454,7 +457,7 @@
         for (const [dx, dy, scale] of puffs) {
           const r = s * scale;
           const grad = ctx.createRadialGradient(px + dx * s, py + dy * s, r * 0.1, px + dx * s, py + dy * s, r);
-          grad.addColorStop(0, `rgba(255,255,255,${cloud.a})`);
+          grad.addColorStop(0, `rgba(255,255,255,${cloud.a * 0.5})`);
           grad.addColorStop(1, 'rgba(255,255,255,0)');
           ctx.fillStyle = grad;
           ctx.beginPath();
