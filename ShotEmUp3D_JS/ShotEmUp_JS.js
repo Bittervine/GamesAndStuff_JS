@@ -3527,6 +3527,19 @@
     const rot = -Math.PI * 0.25 + tilt;
     const glow = state.overdrive > 0 ? '#ffe38c' : '#8fd8ff';
     const flashAlpha = p.invuln > 0 ? 0.52 + 0.42 * (0.5 + 0.5 * Math.sin((3 - p.invuln) * 16 + state.musicStep * 0.9)) : 1;
+    const bridge = window.__ShotEmUp3D;
+    if (bridge && bridge.enabled) {
+      bridge.player = {
+        x: p.x,
+        y: p.y,
+        bob: bob,
+        rot: rot,
+        tilt: tilt,
+        alpha: flashAlpha,
+        visible: !respawning || p.respawnTimer < 0.98
+      };
+      return;
+    }
     const damage = clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1);
     const planeSize = 36 + (state.overdrive > 0 ? 4 : 0);
     if (damage > 0.01) {
