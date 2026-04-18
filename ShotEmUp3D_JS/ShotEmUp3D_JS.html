@@ -45,13 +45,22 @@
       z-index: 2;
       pointer-events: none;
     }
+    #enginefx {
+      position: fixed;
+      inset: 0;
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      z-index: 3;
+      pointer-events: none;
+    }
     #damagefx {
       position: fixed;
       inset: 0;
       display: block;
       width: 100vw;
       height: 100vh;
-      z-index: 4;
+      z-index: 5;
       pointer-events: none;
     }
     #cloud3d {
@@ -60,7 +69,7 @@
       display: block;
       width: 100vw;
       height: 100vh;
-      z-index: 3;
+      z-index: 4;
       pointer-events: none;
     }
     #game {
@@ -81,14 +90,14 @@
       height: 100vh;
       pointer-events: none;
       background: transparent;
-      z-index: 5;
+      z-index: 6;
     }
     #hudHint {
       position: fixed;
       left: 50%;
       top: 12px;
       transform: translateX(-50%);
-      z-index: 6;
+      z-index: 7;
       padding: 8px 14px;
       border-radius: 999px;
       border: 1px solid rgba(255, 255, 255, 0.18);
@@ -111,7 +120,7 @@
       right: auto;
       bottom: 12px;
       transform: translateX(-50%);
-      z-index: 6;
+      z-index: 7;
       display: flex;
       flex-wrap: wrap;
       gap: 6px;
@@ -290,6 +299,7 @@
   <body>
   <canvas id="game"></canvas>
   <canvas id="player3d"></canvas>
+  <canvas id="enginefx"></canvas>
   <canvas id="cloud3d"></canvas>
   <canvas id="damagefx"></canvas>
   <canvas id="hud"></canvas>
@@ -343,7 +353,7 @@
     </div>
   </dialog>
   <script>
-    window.__ShotEmUp3D = window.__ShotEmUp3D || { enabled: true, player: { x: 0, y: 0, rot: 0, bob: 0, tilt: 0, bank: 0, alpha: 0, visible: false } };
+    window.__ShotEmUp3D = window.__ShotEmUp3D || { enabled: true, player: { x: 0, y: 0, rot: 0, bob: 0, tilt: 0, bank: 0, alpha: 0, damage: 0, visible: false } };
   </script>
   <script src="ShotEmUp_JS.js?v=20260415b"></script>
   <script src="./pwa-register.js"></script>
@@ -352,6 +362,7 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
     const shipCanvas = document.getElementById('player3d');
+    const engineCanvas = document.getElementById('enginefx');
     const cloudCanvas = document.getElementById('cloud3d');
     const damageCanvas = document.getElementById('damagefx');
     const shipRenderer = new THREE.WebGLRenderer({
@@ -360,6 +371,7 @@
       antialias: true,
       powerPreference: 'low-power'
     });
+    const engineCtx = engineCanvas.getContext('2d');
     const cloudCtx = cloudCanvas.getContext('2d');
     const damageCtx = damageCanvas.getContext('2d');
     shipRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 0.5));
@@ -388,10 +400,12 @@
 
     const gameBridge = window.__ShotEmUp3D = window.__ShotEmUp3D || {};
     gameBridge.enabled = true;
-    gameBridge.player = gameBridge.player || { x: 0, y: 0, rot: 0, bob: 0, alpha: 1, visible: false, damage: 0 };
+    gameBridge.player = gameBridge.player || { x: 0, y: 0, rot: 0, bob: 0, tilt: 0, bank: 0, alpha: 1, visible: false, damage: 0 };
     let shipBank = 0;
     const sparks = [];
     let sparkSeed = 0;
+    let lastEngineX = null;
+    let lastEngineY = null;
 
     const loader = new GLTFLoader();
     let shipRoot = new THREE.Group();
@@ -480,6 +494,90 @@
         }
       }
       ctx.restore();
+    }
+
+    function drawEngineFlames(player) {
+      const w = engineCanvas.width = window.innerWidth;
+      const h = engineCanvas.height = window.innerHeight;
+      engineCtx.clearRect(0, 0, w, h);
+      if (!player.visible) return;
+
+      const x = player.x;
+      const y = player.y + (player.bob || 0);
+      const rot = -(player.rot || 0) + Math.PI * 1.25;
+      const bank = player.bank || 0;
+      const motion = (lastEngineX === null || lastEngineY === null) ? 1 : Math.min(1, Math.hypot(x - lastEngineX, y - lastEngineY) / 18);
+      lastEngineX = x;
+      lastEngineY = y;
+      const flameScale = 0.7 + 0.3 * motion;
+      const sx = Math.sin(rot);
+      const sy = Math.cos(rot);
+      const rearX = Math.cos(rot);
+      const rearY = -Math.sin(rot);
+      const bankShift = Math.sin(bank) * 4.5;
+      const pulse = 0.72 + 0.28 * Math.sin(performance.now() * 0.03);
+      const nozzleSpread = 15.5364 * Math.cos(bank);
+      const rearOffset = 51;
+      const ventralOffset = -5.2;
+      const centerX = x + rearX * rearOffset;
+      const centerY = y + rearY * rearOffset + ventralOffset;
+      const nozzles = [
+        { side: -1, hue: '#76ddff', core: '#e7fbff' },
+        { side: 1, hue: '#4dbbff', core: '#f4ffff' }
+      ];
+
+      engineCtx.save();
+      engineCtx.globalCompositeOperation = 'lighter';
+      for (const nozzle of nozzles) {
+        const nx = centerX + sx * (nozzle.side * nozzleSpread + bankShift);
+        const ny = centerY + sy * (nozzle.side * nozzleSpread + bankShift);
+        const len = (28 + pulse * 16) * flameScale;
+        const flare = (10 + pulse * 8) * flameScale;
+        const tipX = nx + rearX * len;
+        const tipY = ny + rearY * len;
+
+        const beam = engineCtx.createLinearGradient(nx, ny, tipX, tipY);
+        beam.addColorStop(0, nozzle.core);
+        beam.addColorStop(0.22, nozzle.hue);
+        beam.addColorStop(1, 'rgba(0, 140, 255, 0)');
+
+        engineCtx.strokeStyle = beam;
+        engineCtx.fillStyle = beam;
+        engineCtx.lineCap = 'round';
+        engineCtx.lineJoin = 'round';
+
+        engineCtx.globalAlpha = 0.92 * pulse * flameScale;
+        engineCtx.lineWidth = (10 + pulse * 6) * flameScale;
+        engineCtx.beginPath();
+        engineCtx.moveTo(nx, ny);
+        engineCtx.lineTo(nx + rearX * len * 0.72, ny + rearY * len * 0.72);
+        engineCtx.stroke();
+
+        engineCtx.globalAlpha = 0.58 * pulse * flameScale;
+        engineCtx.lineWidth = (4 + pulse * 2) * flameScale;
+        engineCtx.beginPath();
+        engineCtx.moveTo(nx, ny);
+        engineCtx.lineTo(tipX, tipY);
+        engineCtx.stroke();
+
+        const glow = engineCtx.createRadialGradient(nx, ny, 0, nx, ny, flare);
+        glow.addColorStop(0, nozzle.core);
+        glow.addColorStop(0.35, nozzle.hue);
+        glow.addColorStop(1, 'rgba(0, 120, 255, 0)');
+        engineCtx.globalAlpha = 0.7 * pulse * flameScale;
+        engineCtx.fillStyle = glow;
+        engineCtx.beginPath();
+        engineCtx.arc(nx, ny, flare, 0, Math.PI * 2);
+        engineCtx.fill();
+
+        engineCtx.globalAlpha = 0.32 * pulse * flameScale;
+        engineCtx.beginPath();
+        engineCtx.moveTo(nx, ny);
+        engineCtx.quadraticCurveTo(nx + rearX * (len * 0.42) + sx * 3, ny + rearY * (len * 0.42) + sy * 3, tipX, tipY);
+        engineCtx.lineWidth = 2;
+        engineCtx.stroke();
+      }
+      engineCtx.restore();
     }
 
     function drawDamageSparks(player) {
@@ -572,6 +670,7 @@
       drawClouds();
 
       const player = gameBridge.player;
+      drawEngineFlames(player);
       drawDamageSparks(player);
       shipRoot.visible = shipReady && !!player.visible;
       if (shipRoot.visible) {
