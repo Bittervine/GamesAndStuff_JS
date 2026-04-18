@@ -16,6 +16,7 @@
   const musicVolumeValue = document.getElementById('musicVolumeValue');
   const difficultyValue = document.getElementById('difficultyValue');
   const difficultyButtons = Array.from(document.querySelectorAll('[data-difficulty]'));
+  const loadAdvancedShipInput = document.getElementById('loadAdvancedShip');
 
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
   let currentDt = 0;
@@ -119,6 +120,8 @@
   function format(n) { return String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function loadNum(key, fallback) { try { const v = Number(localStorage.getItem(key)); return Number.isFinite(v) ? v : fallback; } catch (e) { return fallback; } }
   function saveNum(key, v) { try { localStorage.setItem(key, String(v)); } catch (e) {} }
+  function loadBool(key, fallback) { try { const v = localStorage.getItem(key); return v === null ? fallback : v === '1' || v === 'true'; } catch (e) { return fallback; } }
+  function saveBool(key, v) { try { localStorage.setItem(key, v ? '1' : '0'); } catch (e) {} }
 
   function hashString(str) {
     let h = 2166136261 >>> 0;
@@ -625,7 +628,8 @@
     settings: {
       sfxVolume: clamp(loadNum('ShotEmUp_JS_sfxVolume', 0.84), 0, 1),
       musicVolume: clamp(loadNum('ShotEmUp_JS_musicVolume', 0.4), 0, 1),
-      difficulty: clamp(Math.round(loadNum('ShotEmUp_JS_difficulty', 1)), 0, 2)
+      difficulty: clamp(Math.round(loadNum('ShotEmUp_JS_difficulty', 1)), 0, 2),
+      loadAdvanced3DShipModel: loadBool('ShotEmUp_JS_loadAdvanced3DShipModel', true)
     },
     lives: 3,
     combo: 0,
@@ -657,7 +661,7 @@
     currentTheme: THEMES[0],
     transition: null,
     player: {
-      x: 0, y: 0, r: 16,
+      x: 0, y: 0, r: 28,
       health: 6, maxHealth: 6,
       shield: 0, bombs: 2,
       weaponMode: 0, weaponTier: 1,
@@ -676,6 +680,11 @@
     musicStep: 0,
     debugMode: DEBUG_MODE
   };
+  const shipBridge = window.__ShotEmUp3D;
+  if (shipBridge) {
+    shipBridge.enabled = true;
+    shipBridge.advancedModelEnabled = !!state.settings.loadAdvanced3DShipModel;
+  }
 
   const audio = {
     ctx: null,
@@ -821,6 +830,8 @@
     saveNum('ShotEmUp_JS_sfxVolume', state.settings.sfxVolume);
     saveNum('ShotEmUp_JS_musicVolume', state.settings.musicVolume);
     saveNum('ShotEmUp_JS_difficulty', state.settings.difficulty);
+    saveBool('ShotEmUp_JS_loadAdvanced3DShipModel', state.settings.loadAdvanced3DShipModel);
+    saveNum('ShotEmUp_JS_highScore', state.highScore);
   }
 
   function syncSettingsUi() {
@@ -829,6 +840,7 @@
     if (sfxVolumeValue) sfxVolumeValue.textContent = Math.round(state.settings.sfxVolume * 100) + '%';
     if (musicVolumeValue) musicVolumeValue.textContent = Math.round(state.settings.musicVolume * 100) + '%';
     if (difficultyValue) difficultyValue.textContent = currentDifficulty().label;
+    if (loadAdvancedShipInput) loadAdvancedShipInput.checked = !!state.settings.loadAdvanced3DShipModel;
     for (let i = 0; i < difficultyButtons.length; i++) {
       const btn = difficultyButtons[i];
       const idx = Number(btn.getAttribute('data-difficulty'));
@@ -857,6 +869,20 @@
     } else {
       hint('Difficulty set to ' + diff.label + '. It affects new waves immediately.', 2.2);
     }
+  }
+
+  function setAdvancedShipLoading(enabled) {
+    state.settings.loadAdvanced3DShipModel = !!enabled;
+    saveSettings();
+    syncSettingsUi();
+    const bridge = window.__ShotEmUp3D;
+    if (bridge) {
+      bridge.enabled = true;
+      bridge.advancedModelEnabled = !!enabled;
+      if (typeof bridge.reinitializeShip === 'function') bridge.reinitializeShip(!!enabled);
+      else if (enabled && typeof bridge.loadAdvancedShipModel === 'function') bridge.loadAdvancedShipModel();
+    }
+    hint(enabled ? 'Advanced 3D ship model enabled.' : 'Advanced 3D ship model disabled.', 1.6);
   }
 
   function openSettings() {
@@ -2301,8 +2327,9 @@
       e.flightAngle = Math.atan2(e.y - beforeY, e.x - beforeX);
       if (e.y > view.h + 72 || e.x < -90 || e.x > view.w + 90) { state.enemies.splice(i, 1); continue; }
       if (d2(e.x, e.y, p.x, p.y) < (e.r + p.r) * (e.r + p.r)) {
-        damageEnemy(e, 999, false);
-        hurtPlayer(currentDifficulty().contact);
+        const contactDamage = currentDifficulty().contact;
+        damageEnemy(e, contactDamage, false);
+        hurtPlayer(contactDamage);
         if (e.kind !== 'mine' || e.hp <= 0) { state.enemies.splice(i, 1); continue; }
       }
     }
@@ -3932,6 +3959,11 @@
   musicVolumeInput.addEventListener('input', function (ev) {
     setVolume('music', ev.target.value);
   });
+  if (loadAdvancedShipInput) {
+    loadAdvancedShipInput.addEventListener('change', function (ev) {
+      setAdvancedShipLoading(ev.target.checked);
+    });
+  }
   for (let i = 0; i < difficultyButtons.length; i++) {
     difficultyButtons[i].addEventListener('click', function () {
       setDifficulty(Number(this.getAttribute('data-difficulty')));
