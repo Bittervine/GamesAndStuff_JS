@@ -116,37 +116,45 @@
     #hudHint.show { opacity: 1; }
     #controls {
       position: fixed;
-      left: 50%;
-      right: auto;
-      bottom: 12px;
-      transform: translateX(-50%);
+      top: 7px;
+      right: 12px;
+      left: auto;
+      bottom: auto;
+      transform: none;
       z-index: 7;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      justify-content: center;
-      padding: 6px 8px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 3px;
+      justify-items: stretch;
+      padding: 3px 8px;
       width: max-content;
       max-width: calc(100vw - 16px);
       border-radius: 16px;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      background: var(--panel);
+      border: 2px solid rgba(255, 255, 255, 0.38);
+      background: linear-gradient(180deg, rgba(8, 12, 24, 0.76), rgba(8, 12, 24, 0.48));
       backdrop-filter: blur(10px);
-      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.34);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.22),
+        0 14px 36px rgba(0, 0, 0, 0.34),
+        0 0 22px rgba(255, 255, 255, 0.12);
     }
     #controls button {
       appearance: none;
       border: 0;
       border-radius: 12px;
-      min-width: 46px;
-      min-height: 28px;
-      padding: 4px 8px;
+      width: 100%;
+      min-width: 88px;
+      height: 17px;
+      padding: 0 8px;
       color: var(--text);
       font: inherit;
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       font-weight: 900;
       letter-spacing: 0.03em;
       line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.28),
@@ -325,11 +333,8 @@
   <canvas id="hud"></canvas>
   <div id="hudHint"></div>
   <div id="controls" aria-label="Game controls">
-    <button data-act="fire" aria-label="Fire weapon">FIRE</button>
-    <button data-act="bomb" aria-label="Use bomb">BOMB</button>
     <button data-act="pause" aria-label="Pause game">PAUSE</button>
     <button data-act="settings" aria-label="Open settings">SETTINGS</button>
-    <button data-act="sound" aria-label="Toggle sound">SOUND</button>
   </div>
   <dialog id="settingsDialog" aria-labelledby="settingsTitle" aria-modal="true">
     <div class="settings-card">
