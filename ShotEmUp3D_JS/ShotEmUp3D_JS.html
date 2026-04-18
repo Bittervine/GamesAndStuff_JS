@@ -45,6 +45,15 @@
       z-index: 2;
       pointer-events: none;
     }
+    #cloud3d {
+      position: fixed;
+      inset: 0;
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      z-index: 3;
+      pointer-events: none;
+    }
     #game {
       position: fixed;
       inset: 0;
@@ -272,6 +281,7 @@
   <body>
   <canvas id="game"></canvas>
   <canvas id="player3d"></canvas>
+  <canvas id="cloud3d"></canvas>
   <canvas id="hud"></canvas>
   <div id="hudHint"></div>
   <div id="controls" aria-label="Game controls">
@@ -329,12 +339,14 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
     const shipCanvas = document.getElementById('player3d');
+    const cloudCanvas = document.getElementById('cloud3d');
     const shipRenderer = new THREE.WebGLRenderer({
       canvas: shipCanvas,
       alpha: true,
       antialias: true,
       powerPreference: 'low-power'
     });
+    const cloudCtx = cloudCanvas.getContext('2d');
     shipRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 0.5));
     shipRenderer.setSize(window.innerWidth, window.innerHeight, false);
     shipRenderer.setClearColor(0x000000, 0);
@@ -395,6 +407,12 @@
     );
 
     const mouse = { x: 0, y: 0 };
+    const clouds = [
+      { x: 0.10, y: 0.20, s: 0.20, v: 0.010, a: 0.18 },
+      { x: 0.38, y: 0.14, s: 0.28, v: 0.014, a: 0.14 },
+      { x: 0.68, y: 0.24, s: 0.24, v: 0.011, a: 0.16 },
+      { x: 0.86, y: 0.12, s: 0.18, v: 0.009, a: 0.13 }
+    ];
     window.addEventListener('pointermove', (ev) => {
       mouse.x = (ev.clientX / window.innerWidth) * 2 - 1;
       mouse.y = (ev.clientY / window.innerHeight) * 2 - 1;
@@ -402,6 +420,8 @@
 
     function resize() {
       shipRenderer.setSize(window.innerWidth, window.innerHeight, false);
+      cloudCanvas.width = window.innerWidth;
+      cloudCanvas.height = window.innerHeight;
       shipCamera.left = -window.innerWidth * 0.5;
       shipCamera.right = window.innerWidth * 0.5;
       shipCamera.top = window.innerHeight * 0.5;
@@ -410,8 +430,45 @@
     }
     window.addEventListener('resize', resize);
 
+    function drawClouds() {
+      const ctx = cloudCtx;
+      const w = cloudCanvas.width = window.innerWidth;
+      const h = cloudCanvas.height = window.innerHeight;
+      ctx.clearRect(0, 0, w, h);
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.01)';
+      ctx.fillRect(0, 0, w, h);
+      for (const cloud of clouds) {
+        cloud.y += 0.012 + cloud.v * 0.0015;
+        if (cloud.y > 1.15) cloud.y = -0.15;
+        const px = cloud.x * w;
+        const py = cloud.y * h;
+        const s = cloud.s * Math.min(w, h);
+        const puffs = [
+          [0.00, 0.00, 0.42],
+          [0.24, -0.10, 0.34],
+          [0.48, 0.04, 0.40],
+          [0.72, -0.06, 0.30]
+        ];
+        for (const [dx, dy, scale] of puffs) {
+          const r = s * scale;
+          const grad = ctx.createRadialGradient(px + dx * s, py + dy * s, r * 0.1, px + dx * s, py + dy * s, r);
+          grad.addColorStop(0, `rgba(255,255,255,${cloud.a})`);
+          grad.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.ellipse(px + dx * s, py + dy * s, r * 1.2, r * 0.72, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
+
     function animate() {
       requestAnimationFrame(animate);
+
+      drawClouds();
 
       const player = gameBridge.player;
       shipRoot.visible = shipReady && !!player.visible;
@@ -423,7 +480,7 @@
         shipRoot.rotation.y = (player.tilt || 0) * 0.6;
         shipBank += ((player.bank || 0) - shipBank) * 0.22;
         if (shipRoot.children[0]) shipRoot.children[0].rotation.z = shipBank;
-        shipRoot.scale.setScalar(1);
+        shipRoot.scale.setScalar(0.8);
       } else {
         shipBank += (0 - shipBank) * 0.15;
       }
