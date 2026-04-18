@@ -1449,7 +1449,7 @@
     } else {
       state.mode = 'title';
       setBanner('THORIUM GAP', 'Click or press Space to launch.', 3.5);
-      hint('Drag to fly. Hold to fire. Open COMMAND for audio and combat settings.', 5);
+      hint('Drag to fly. Hold to fire. Open SETTINGS for audio and combat settings.', 5);
     }
     syncSettingsUi();
   }
@@ -3711,7 +3711,7 @@
     hudCtx.fillText('Click or press Space to begin.', view.w * 0.5, y + cardH - 28);
     hudCtx.globalAlpha = 0.82;
     hudCtx.font = '700 12px "Trebuchet MS", "Segoe UI", sans-serif';
-    hudCtx.fillText('Open COMMAND for sound, music, and combat tuning.', view.w * 0.5, y + cardH - 48);
+    hudCtx.fillText('Open SETTINGS for sound, music, and combat tuning.', view.w * 0.5, y + cardH - 48);
     hudCtx.restore();
 
     hudCtx.save();
