@@ -786,7 +786,7 @@
   ];
 
   const SHOT_PACE = 1.25;
-  const PLAYER_RADIUS = 40;
+  const PLAYER_RADIUS = 50;
 
   function shotDelay(v) {
     return v * SHOT_PACE;
@@ -3755,9 +3755,21 @@
     const bank = clamp(-tilt * 3.1, -1.57, 1.57);
     const bridge = window.__ShotEmUp3D;
     const planeSize = 36 + (state.overdrive > 0 ? 4 : 0);
+    const shieldRing = p.r;
     if (invulnActive) {
       drawGlowCircle(p.x, p.y + bob, planeSize * 1.5, auraColor, 0.22, 22);
       drawGlowCircle(p.x, p.y + bob, planeSize * 0.95, '#e9f8ff', 0.12, 10);
+    }
+    if (p.shield > 0) {
+      hudCtx.save();
+      hudCtx.strokeStyle = 'rgba(152, 226, 255, 0.22)';
+      hudCtx.shadowColor = 'rgba(118, 196, 255, 0.38)';
+      hudCtx.shadowBlur = 8;
+      hudCtx.lineWidth = p.shield > 1 ? 2.5 : 1.5;
+      hudCtx.beginPath();
+      hudCtx.arc(p.x, p.y + bob, shieldRing, 0, TAU);
+      hudCtx.stroke();
+      hudCtx.restore();
     }
     if (bridge && bridge.enabled) {
       bridge.player = {
@@ -3878,7 +3890,7 @@
 
     hudCtx.save();
     const compact = view.w < 640;
-    const scoreLine = 'SCORE ' + format(state.score) + '   LIVES ' + state.lives + '   BOMB ' + p.bombs;
+    const scoreLine = 'SCORE ' + format(state.score) + '   LIVES ' + state.lives + '   BOMB ' + p.bombs + '   SHIELD ' + p.shield;
     const detailLine = 'STAGE ' + (state.levelIndex + 1) + '/' + THEMES.length + '  ' + theme.name + '   WEAPON ' + WEAPONS[p.weaponMode].name + ' ' + ['I', 'II', 'III'][p.weaponTier - 1] + '   HIGH ' + format(state.highScore);
     const scoreFont = compact ? '900 11px "Trebuchet MS", "Segoe UI", sans-serif' : '900 13px "Trebuchet MS", "Segoe UI", sans-serif';
     const detailFont = compact ? '700 8px "Trebuchet MS", "Segoe UI", sans-serif' : '700 9px "Trebuchet MS", "Segoe UI", sans-serif';
@@ -3887,7 +3899,7 @@
     hudCtx.font = detailFont;
     const detailW = hudCtx.measureText(detailLine).width;
     const contentW = Math.max(scoreW, detailW);
-    const panelW = clamp(contentW + (compact ? 26 : 30), compact ? 220 : 260, Math.min(view.w - 24, compact ? 420 : 520));
+    const panelW = clamp(contentW + (compact ? 42 : 46), compact ? 240 : 290, Math.min(view.w - 24, compact ? 460 : 600));
     const panelH = compact ? 44 : 48;
     const panelX = 8;
     const panelY = 8;
