@@ -750,6 +750,26 @@
     theme({ name: 'Throium Gap', subtitle: 'Final Descent', skyTop: '#0f081b', skyBottom: '#5b3d18', glow: '#ffe78a', accent: '#ffd77a', accent2: '#ffffff', icons: [E.sun, E.crown, E.star, E.comet], forms: ['ring', 'fan', 'wave'], enemyKinds: ['elite', 'sniper', 'spinner'], atmosphere: 'nova', music: { bpm: 152, root: 262, pattern: [0, 4, 7, 12, 15, 12, 7, 4] }, boss: { name: 'Sun Eater', emoji: E.sun, hp: 320, color: '#fff0bd', phases: [phase(6.5, 'hover', 'aimed'), phase(6.5, 'sweep', 'ring'), phase(6.5, 'dash', 'beam'), phase(7.5, 'low', 'wall')] } })
   ];
 
+  const FINAL_LEVEL_ENEMY_KINDS = (function () {
+    const kinds = [];
+    const seen = Object.create(null);
+    for (let i = 0; i < THEMES.length - 1; i++) {
+      const list = THEMES[i] && Array.isArray(THEMES[i].enemyKinds) ? THEMES[i].enemyKinds : [];
+      for (let j = 0; j < list.length; j++) {
+        const kind = list[j];
+        if (seen[kind]) continue;
+        seen[kind] = true;
+        kinds.push(kind);
+      }
+    }
+    return kinds.length ? kinds : ['drifter'];
+  }());
+
+  function waveEnemyKinds(theme) {
+    if (state.levelIndex >= THEMES.length - 1) return FINAL_LEVEL_ENEMY_KINDS;
+    return theme && Array.isArray(theme.enemyKinds) && theme.enemyKinds.length ? theme.enemyKinds : ['drifter'];
+  }
+
   const WEAPONS = [
     { name: 'DART', color: '#00ffff' },
     { name: 'TWIN', color: '#00ff00' },
@@ -2012,6 +2032,7 @@
   }
 
   function spawnWave(theme) {
+    const enemyKinds = waveEnemyKinds(theme);
     const form = theme.forms[(state.levelIndex + ((state.levelClock / 4) | 0) + ((state.waveClock * 2) | 0)) % theme.forms.length];
     const diff = currentDifficulty();
     const count = clamp(Math.round((2 + Math.floor(state.levelIndex / 2) + randi(0, 2)) * diff.spawnCount), 2, 9);
@@ -2064,26 +2085,26 @@
     }
     let i;
     if (form === 'line') {
-      for (i = 0; i < count; i++) { const kind = pick(theme.enemyKinds); spawnEnemy(kind, lerp(margin, view.w - margin, count === 1 ? 0.5 : i / (count - 1)), top - i * 8, { vy: rand(80, 110), entry: buildEntry(i, kind) }); }
+      for (i = 0; i < count; i++) { const kind = pick(enemyKinds); spawnEnemy(kind, lerp(margin, view.w - margin, count === 1 ? 0.5 : i / (count - 1)), top - i * 8, { vy: rand(80, 110), entry: buildEntry(i, kind) }); }
     } else if (form === 'fan') {
-      for (i = 0; i < count; i++) { const kind = pick(theme.enemyKinds); spawnEnemy(kind, view.w * 0.5 + (i - mid) * 82, top - i * 10, { vx: (i - mid) * 20, vy: rand(92, 126), entry: buildEntry(i, kind) }); }
+      for (i = 0; i < count; i++) { const kind = pick(enemyKinds); spawnEnemy(kind, view.w * 0.5 + (i - mid) * 82, top - i * 10, { vx: (i - mid) * 20, vy: rand(92, 126), entry: buildEntry(i, kind) }); }
     } else if (form === 'rain') {
-      for (i = 0; i < count; i++) { const kind = pick(theme.enemyKinds); spawnEnemy(kind, rand(margin, view.w - margin), top - i * 14, { vx: rand(-26, 26), vy: rand(94, 132), entry: buildEntry(i, kind) }); }
+      for (i = 0; i < count; i++) { const kind = pick(enemyKinds); spawnEnemy(kind, rand(margin, view.w - margin), top - i * 14, { vx: rand(-26, 26), vy: rand(94, 132), entry: buildEntry(i, kind) }); }
     } else if (form === 'pair') {
-      for (i = 0; i < count; i++) { const y = top - i * 12; const leftKind = pick(theme.enemyKinds); const rightKind = pick(theme.enemyKinds); spawnEnemy(leftKind, margin + i * 24, y, { vx: rand(22, 52), vy: rand(92, 118), entry: buildEntry(i, leftKind) }); spawnEnemy(rightKind, view.w - margin - i * 24, y, { vx: -rand(22, 52), vy: rand(92, 118), entry: buildEntry(i + count, rightKind) }); }
+      for (i = 0; i < count; i++) { const y = top - i * 12; const leftKind = pick(enemyKinds); const rightKind = pick(enemyKinds); spawnEnemy(leftKind, margin + i * 24, y, { vx: rand(22, 52), vy: rand(92, 118), entry: buildEntry(i, leftKind) }); spawnEnemy(rightKind, view.w - margin - i * 24, y, { vx: -rand(22, 52), vy: rand(92, 118), entry: buildEntry(i + count, rightKind) }); }
     } else if (form === 'arc') {
-      for (i = 0; i < count; i++) { const t = count === 1 ? 0.5 : i / (count - 1), a = lerp(Math.PI * 0.2, Math.PI * 0.8, t); const kind = pick(theme.enemyKinds); spawnEnemy(kind, view.w * 0.5 + Math.cos(a) * 160, top + Math.sin(a) * 60, { vx: Math.cos(a) * 20, vy: rand(92, 118), entry: buildEntry(i, kind) }); }
+      for (i = 0; i < count; i++) { const t = count === 1 ? 0.5 : i / (count - 1), a = lerp(Math.PI * 0.2, Math.PI * 0.8, t); const kind = pick(enemyKinds); spawnEnemy(kind, view.w * 0.5 + Math.cos(a) * 160, top + Math.sin(a) * 60, { vx: Math.cos(a) * 20, vy: rand(92, 118), entry: buildEntry(i, kind) }); }
     } else if (form === 'swarm') {
-      for (i = 0; i < count + 1; i++) { const kind = pick(theme.enemyKinds); spawnEnemy(kind, rand(margin, view.w - margin), top - i * 8, { vx: rand(-56, 56), vy: rand(112, 148), entry: buildEntry(i, kind) }); }
+      for (i = 0; i < count + 1; i++) { const kind = pick(enemyKinds); spawnEnemy(kind, rand(margin, view.w - margin), top - i * 8, { vx: rand(-56, 56), vy: rand(112, 148), entry: buildEntry(i, kind) }); }
     } else if (form === 'cross') {
-      for (i = 0; i < count; i++) { const y = top - i * 10; const leftKind = pick(theme.enemyKinds); const centerKind = pick(theme.enemyKinds); spawnEnemy(leftKind, margin + i * 40, y, { vx: rand(25, 48), vy: rand(86, 118), entry: buildEntry(i, leftKind) }); spawnEnemy(centerKind, view.w * 0.5, y - 20, { vx: rand(-22, 22), vy: rand(78, 108), entry: buildEntry(i + count, centerKind) }); }
+      for (i = 0; i < count; i++) { const y = top - i * 10; const leftKind = pick(enemyKinds); const centerKind = pick(enemyKinds); spawnEnemy(leftKind, margin + i * 40, y, { vx: rand(25, 48), vy: rand(86, 118), entry: buildEntry(i, leftKind) }); spawnEnemy(centerKind, view.w * 0.5, y - 20, { vx: rand(-22, 22), vy: rand(78, 108), entry: buildEntry(i + count, centerKind) }); }
     } else if (form === 'ring') {
       const cx = view.w * 0.5, cy = 16;
-      for (i = 0; i < count; i++) { const a = TAU * i / count - Math.PI * 0.5; const kind = pick(theme.enemyKinds); spawnEnemy(kind, cx + Math.cos(a) * 150, cy + Math.sin(a) * 26, { vx: Math.cos(a) * 22, vy: rand(88, 118), entry: buildEntry(i, kind) }); }
+      for (i = 0; i < count; i++) { const a = TAU * i / count - Math.PI * 0.5; const kind = pick(enemyKinds); spawnEnemy(kind, cx + Math.cos(a) * 150, cy + Math.sin(a) * 26, { vx: Math.cos(a) * 22, vy: rand(88, 118), entry: buildEntry(i, kind) }); }
     } else if (form === 'wave') {
-      for (i = 0; i < count; i++) { const t = count === 1 ? 0.5 : i / (count - 1), x = lerp(margin, view.w - margin, t), y = top + Math.sin((state.levelClock * 1.4) + i) * 28; const kind = pick(theme.enemyKinds); spawnEnemy(kind, x, y, { vx: Math.sin(i) * 26, vy: rand(90, 124), entry: buildEntry(i, kind) }); }
+      for (i = 0; i < count; i++) { const t = count === 1 ? 0.5 : i / (count - 1), x = lerp(margin, view.w - margin, t), y = top + Math.sin((state.levelClock * 1.4) + i) * 28; const kind = pick(enemyKinds); spawnEnemy(kind, x, y, { vx: Math.sin(i) * 26, vy: rand(90, 124), entry: buildEntry(i, kind) }); }
     } else {
-      for (i = 0; i < count; i++) { const kind = pick(theme.enemyKinds); spawnEnemy(kind, rand(margin, view.w - margin), rand(-80, -20), { vx: rand(-48, 48), vy: rand(84, 128), entry: buildEntry(i, kind) }); }
+      for (i = 0; i < count; i++) { const kind = pick(enemyKinds); spawnEnemy(kind, rand(margin, view.w - margin), rand(-80, -20), { vx: rand(-48, 48), vy: rand(84, 128), entry: buildEntry(i, kind) }); }
     }
     if (state.levelIndex >= 4 && chance(0.18 * diff.spawnCount)) spawnEnemy('elite', rand(margin, view.w - margin), top - 40, { vx: rand(-22, 22), vy: rand(82, 102), elite: true, entry: buildEntry(count + 1, 'elite') });
   }
