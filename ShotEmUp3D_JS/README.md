@@ -1,6 +1,6 @@
 # ShotEmUp3D_JS Layout
 
-- Game manual: `GAME_MANUAL.md`
+- Game manual: `GameManual.html`
 - `ShotEmUp3D_JS.html` and `ShotEmUp_JS.js` stay in the project root.
 - `serve.py` stays in the project root.
 - Runtime art and models live in `assets/`.
@@ -16,3 +16,9 @@ Runtime asset paths used by the game:
 Development files:
 - `devel/enemy_fighters_*.png`
 - `devel/unpack_enemy_images.py`
+
+You can paste this in the console for debugging weapons etc:
+window.__ShotEmUp3D.debugGiveWeapon('ROCKET', 5)
+window.__ShotEmUp3D.debugGiveWeapon('FAN', 5)
+window.__ShotEmUp3D.debugGiveWeapon('TWIN', 5)
+window.__ShotEmUp3D.debugGiveWeapon('DART', 5)
