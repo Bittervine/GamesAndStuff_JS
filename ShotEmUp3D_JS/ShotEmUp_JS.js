@@ -750,15 +750,23 @@
   ];
 
   const WEAPONS = [
-    { name: 'DART', color: '#bffaff' },
-    { name: 'TWIN', color: '#9df0ff' },
-    { name: 'FAN', color: '#ffe48f' },
-    { name: 'ROCKET', color: '#ffa66f' },
-    { name: 'BEAM', color: '#f7ffff' }
+    { name: 'DART', color: '#00ffff' },
+    { name: 'TWIN', color: '#00ff66' },
+    { name: 'FAN', color: '#ffe600' },
+    { name: 'ROCKET', color: '#005bff' },
+    { name: 'BEAM', color: '#ff2e2e' }
   ];
+  const WEAPON_PICKUP_WEIGHTS = [
+    5,
+    5,
+    2.5,
+    5,
+    5
+  ];
+  const WEAPON_TIER_LABELS = ['I', 'II', 'III', 'IIII', 'V'];
 
   const PICKUPS = {
-    weapon: { emoji: E.wrench, color: '#bffaff' },
+    weapon: { emoji: E.wrench, color: '#00ffff' },
     rapid: { emoji: E.bolt, color: '#ffe97e' },
     shield: { emoji: E.shield, color: '#8fd8ff' },
     bomb: { emoji: E.bomb, color: '#ffd96a' },
@@ -780,9 +788,9 @@
   };
 
   const DIFFICULTIES = [
-    { label: 'Easy', lives: 5, enemyHp: 0.82, enemySpeed: 0.88, spawnRate: 0.82, spawnCount: 0.5, bulletSpeed: 0.88, bossHp: 0.84, contact: 0.9 },
-    { label: 'Normal', lives: 3, enemyHp: 1, enemySpeed: 1, spawnRate: 1, spawnCount: 0.75, bulletSpeed: 1, bossHp: 1, contact: 1 },
-    { label: 'Hard', lives: 2, enemyHp: 1.18, enemySpeed: 1.12, spawnRate: 1.16, spawnCount: 1.18, bulletSpeed: 1.14, bossHp: 1.2, contact: 1.12 }
+    { label: 'Easy', lives: 5, enemyHp: 0.82, enemySpeed: 0.88, spawnRate: 0.82, spawnCount: 0.5, bulletSpeed: 0.88, bossHp: 0.84, contact: 0.9, playerDamage: 1 },
+    { label: 'Normal', lives: 3, enemyHp: 1, enemySpeed: 1, spawnRate: 1, spawnCount: 0.75, bulletSpeed: 1, bossHp: 1, contact: 1, playerDamage: 0.5 },
+    { label: 'Hard', lives: 2, enemyHp: 1.18, enemySpeed: 1.12, spawnRate: 1.16, spawnCount: 1.18, bulletSpeed: 1.14, bossHp: 1.2, contact: 1.12, playerDamage: 0.25 }
   ];
 
   const SHOT_PACE = 1.25;
@@ -841,6 +849,7 @@
       health: 6, maxHealth: 6,
       shield: 0, bombs: 2,
       weaponMode: 0, weaponTier: 1,
+      weaponTiers: Array(WEAPONS.length).fill(1),
       fireCooldown: 0, rapidTimer: 0, magnetTimer: 0,
       invuln: 0, repairDelay: 0, fireHeld: false, pointerMode: false,
       respawnTimer: 0, respawnDuration: 0,
@@ -1591,8 +1600,9 @@
     p.health = p.maxHealth;
     p.shield = 1;
     p.bombs = 2;
+    p.weaponTiers = Array(WEAPONS.length).fill(1);
     p.weaponMode = 0;
-    p.weaponTier = 1;
+    p.weaponTier = p.weaponTiers[0];
     p.fireCooldown = 0;
     p.rapidTimer = 0;
     p.magnetTimer = 0;
@@ -1803,15 +1813,21 @@
   function spawnPickup(type, x, y, opts) {
     const info = PICKUPS[type];
     if (!info) return;
+    const weaponMode = opts && opts.weaponMode != null ? opts.weaponMode : 0;
+    const color = type === 'weapon' ? WEAPONS[weaponMode].color : info.color;
     state.pickups.push({
       type: type, x: x, y: y, vx: opts && opts.vx != null ? opts.vx : rand(-12, 12), vy: opts && opts.vy != null ? opts.vy : rand(36, 58),
-      r: 18, life: 12, color: info.color, emoji: info.emoji, bob: rand(0, TAU), spin: rand(0, TAU)
+      r: 18, life: 12, color: color, emoji: info.emoji, bob: rand(0, TAU), spin: rand(0, TAU),
+      weaponMode: weaponMode,
+      weaponTier: 1
     });
   }
 
   function choosePickup() {
+    const levelNumber = state.levelIndex + 1;
+    const weaponWeight = weaponPickupWeight(levelNumber);
     const list = [
-      { type: 'weapon', w: 3 },
+      { type: 'weapon', w: weaponWeight },
       { type: 'rapid', w: state.player.rapidTimer > 4 ? 1 : 4 },
       { type: 'shield', w: state.player.shield < 2 ? 5 : 2 },
       { type: 'bomb', w: state.player.bombs < 2 ? 5 : 2 },
@@ -1824,9 +1840,53 @@
     return 'score';
   }
 
+  function weaponPickupWeight(levelNumber) {
+    const base = 8;
+    const n = clamp(levelNumber | 0, 1, THEMES.length);
+    let factor;
+    if (n <= 5) factor = lerp(5, 1, (n - 1) / 4);
+    else factor = lerp(1, 0.1, (n - 5) / 8);
+    return base * factor;
+  }
+
+  function chooseWeaponMode(currentMode) {
+    if (Number.isFinite(currentMode) && Math.random() < 0.5) return clamp(currentMode | 0, 0, WEAPONS.length - 1);
+    const pool = [];
+    for (let i = 0; i < WEAPON_PICKUP_WEIGHTS.length; i++) {
+      if (i !== currentMode) pool.push({ mode: i, w: WEAPON_PICKUP_WEIGHTS[i] });
+    }
+    const total = pool.reduce(function (sum, item) { return sum + item.w; }, 0);
+    let roll = Math.random() * total;
+    for (let i = 0; i < pool.length; i++) {
+      roll -= pool[i].w;
+      if (roll <= 0) return pool[i].mode;
+    }
+    return 0;
+  }
+
+  function applyWeaponOverflowUpgrade(p) {
+    const mode = randi(0, WEAPONS.length - 1);
+    const tier = (p.weaponTiers && p.weaponTiers[mode]) || 1;
+    if (tier <= 2) {
+      p.weaponTiers[mode] = Math.min(5, tier + 1);
+      if (mode === p.weaponMode) p.weaponTier = p.weaponTiers[mode];
+      state.banner = WEAPONS[mode].name + ' ' + WEAPON_TIER_LABELS[p.weaponTiers[mode] - 1];
+      state.bannerSub = 'Overflow upgrade.';
+    } else {
+      addScore(250);
+      state.banner = 'EXTRA POWER';
+      state.bannerSub = 'Overflow converted to score.';
+    }
+    state.bannerTimer = 1.15;
+  }
+
   function maybeDropPickup(x, y, elite, forceType) {
     const p = elite ? 0.72 : 0.16 + state.levelIndex * 0.01;
-    if (forceType || Math.random() < p) spawnPickup(forceType || choosePickup(), x, y);
+    if (forceType || Math.random() < p) {
+      const type = forceType || choosePickup();
+      if (type === 'weapon') spawnPickup('weapon', x, y, { weaponMode: chooseWeaponMode(state.player.weaponMode) });
+      else spawnPickup(type, x, y);
+    }
   }
 
   function spawnEnemy(kind, x, y, opts) {
@@ -1982,8 +2042,8 @@
 
   function weaponDelay() {
     const p = state.player;
-    const base = [0.14, 0.15, 0.18, 0.24, 0.3][p.weaponMode] || 0.18;
-    let d = base - (p.weaponTier - 1) * 0.015;
+    const base = [0.16, 0.17, 0.2, 0.26, 0.32][p.weaponMode] || 0.2;
+    let d = base - (p.weaponTier - 1) * 0.012;
     if (p.rapidTimer > 0) d *= 0.54;
     if (state.overdrive > 0) d *= 0.76;
     return clamp(d * SHOT_PACE, 0.05, 0.42);
@@ -1991,41 +2051,58 @@
 
   function fireWeapon() {
     const p = state.player;
+    const diff = currentDifficulty();
     const mode = p.weaponMode;
     const tier = p.weaponTier + (state.overdrive > 0 ? 1 : 0);
     const x = p.x, y = p.y - 18;
-    const color = state.overdrive > 0 ? '#ffe38c' : WEAPONS[mode].color;
-    const dmg = 1 + tier;
+    const color = WEAPONS[mode].color;
+    const dmg = (1 + tier) * (diff.playerDamage || 1);
     if (mode === 0) {
       spawnBullet('player', x, y, 0, -820, { r: 6, color: color, damage: dmg, kind: 'dart', life: 3.8 });
-      if (tier >= 2) { spawnBullet('player', x - 10, y + 4, -52, -792, { r: 5, color: color, damage: dmg, kind: 'dart', life: 3.8 }); spawnBullet('player', x + 10, y + 4, 52, -792, { r: 5, color: color, damage: dmg, kind: 'dart', life: 3.8 }); }
-      if (tier >= 3) spawnBullet('player', x, y - 10, 0, -900, { r: 7, color: '#efffff', damage: dmg + 1, kind: 'dart', pierce: 1, life: 3.4 });
+      if (tier >= 2) spawnBullet('player', x, y - 6, 0, -860, { r: 6, color: color, damage: dmg, kind: 'dart', life: 3.7 });
+      if (tier >= 3) { spawnBullet('player', x - 10, y + 4, -52, -792, { r: 5, color: color, damage: dmg, kind: 'dart', life: 3.8 }); spawnBullet('player', x + 10, y + 4, 52, -792, { r: 5, color: color, damage: dmg, kind: 'dart', life: 3.8 }); }
+      if (tier >= 4) { spawnBullet('player', x - 16, y + 2, -74, -812, { r: 5, color: color, damage: dmg + 1, kind: 'dart', life: 3.6 }); spawnBullet('player', x + 16, y + 2, 74, -812, { r: 5, color: color, damage: dmg + 1, kind: 'dart', life: 3.6 }); }
+      if (tier >= 5) spawnBullet('player', x, y - 10, 0, -920, { r: 7, color: color, damage: dmg + 2, kind: 'dart', pierce: 1, life: 3.4 });
       sfx('shoot');
     } else if (mode === 1) {
       spawnBullet('player', x - 11, y, -40, -820, { r: 6, color: color, damage: dmg, kind: 'dart', life: 3.8 });
       spawnBullet('player', x + 11, y, 40, -820, { r: 6, color: color, damage: dmg, kind: 'dart', life: 3.8 });
-      if (tier >= 2) spawnBullet('player', x, y - 6, 0, -880, { r: 5, color: '#fff', damage: dmg, kind: 'dart', pierce: 1, life: 3.6 });
+      if (tier >= 2) spawnBullet('player', x, y - 6, 0, -880, { r: 5, color: color, damage: dmg, kind: 'dart', pierce: 1, life: 3.6 });
       if (tier >= 3) { spawnBullet('player', x - 20, y + 2, -62, -802, { r: 5, color: color, damage: dmg, kind: 'dart', life: 3.6 }); spawnBullet('player', x + 20, y + 2, 62, -802, { r: 5, color: color, damage: dmg, kind: 'dart', life: 3.6 }); }
+      if (tier >= 4) { spawnBullet('player', x - 30, y + 2, -88, -790, { r: 5, color: color, damage: dmg + 1, kind: 'dart', life: 3.4 }); spawnBullet('player', x + 30, y + 2, 88, -790, { r: 5, color: color, damage: dmg + 1, kind: 'dart', life: 3.4 }); }
+      if (tier >= 5) spawnBullet('player', x, y - 10, 0, -950, { r: 6, color: color, damage: dmg + 2, kind: 'dart', pierce: 1, life: 3.2 });
       sfx('fan');
     } else if (mode === 2) {
-      const spread = tier >= 3 ? 0.42 : tier >= 2 ? 0.30 : 0.20;
-      const shots = tier >= 3 ? 5 : 3;
-      for (let i = 0; i < shots; i++) { const t = shots === 1 ? 0.5 : i / (shots - 1), a = lerp(-spread, spread, t) - Math.PI * 0.5; spawnBullet('player', x + Math.cos(a) * 2, y + Math.sin(a) * 2, Math.cos(a) * 804, Math.sin(a) * 804, { r: 6, color: color, damage: dmg, kind: 'dart', life: 3.5 }); }
-      if (tier >= 2) spawnBullet('player', x, y - 8, 0, -940, { r: 5, color: '#fff', damage: dmg, kind: 'dart', pierce: 1, life: 3.1 });
+      const spread = tier >= 5 ? 0.55 : tier >= 4 ? 0.48 : tier >= 3 ? 0.42 : tier >= 2 ? 0.30 : 0.20;
+      const shots = tier >= 5 ? 9 : tier >= 4 ? 7 : tier >= 3 ? 5 : 3;
+      for (let i = 0; i < shots; i++) { const t = shots === 1 ? 0.5 : i / (shots - 1), a = lerp(-spread, spread, t) - Math.PI * 0.5; spawnBullet('player', x + Math.cos(a) * 2, y + Math.sin(a) * 2, Math.cos(a) * 804, Math.sin(a) * 804, { r: 6, color: color, damage: dmg, kind: 'fan', life: 3.5 }); }
+      if (tier >= 2) spawnBullet('player', x, y - 8, 0, -940, { r: 5, color: color, damage: dmg, kind: 'fan', pierce: 1, life: 3.1 });
+      if (tier >= 4) spawnBullet('player', x, y - 6, 0, -1040, { r: 6, color: color, damage: dmg + 1, kind: 'fan', pierce: 1, life: 3.0 });
+      if (tier >= 5) spawnBullet('player', x, y - 14, 0, -1120, { r: 7, color: color, damage: dmg + 2, kind: 'fan', pierce: 2, life: 2.8 });
       sfx('fan');
     } else if (mode === 3) {
       spawnBullet('player', x, y - 16, rand(-36, 36), -700, { r: 8, color: color, damage: dmg + 1, kind: 'rocket', pierce: 1, life: 4.6, homing: tier >= 2 ? 0.85 : 0.4, turn: 4.5 });
       if (tier >= 2) {
-        spawnBullet('player', x - 12, y - 12, -48, -685, { r: 7, color: '#ffcf87', damage: dmg, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.35, turn: 4.2 });
-        spawnBullet('player', x + 12, y - 12, 48, -685, { r: 7, color: '#ffcf87', damage: dmg, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.35, turn: 4.2 });
+        spawnBullet('player', x - 12, y - 12, -48, -685, { r: 7, color: color, damage: dmg, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.35, turn: 4.2 });
+        spawnBullet('player', x + 12, y - 12, 48, -685, { r: 7, color: color, damage: dmg, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.35, turn: 4.2 });
       }
+      if (tier >= 4) {
+        spawnBullet('player', x - 22, y - 12, -70, -690, { r: 7, color: color, damage: dmg + 1, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
+        spawnBullet('player', x + 22, y - 12, 70, -690, { r: 7, color: color, damage: dmg + 1, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
+      }
+      if (tier >= 5) spawnBullet('player', x, y - 20, 0, -760, { r: 9, color: color, damage: dmg + 2, kind: 'rocket', pierce: 2, life: 4.8, homing: 0.95, turn: 4.8 });
       sfx('rocket');
     } else {
       spawnBullet('player', x, y - 18, 0, -1180, { r: 10, color: color, damage: dmg + 1, kind: 'beam', pierce: 4 + tier, life: 2.2 });
       if (tier >= 2) {
-        spawnBullet('player', x - 16, y - 14, -12, -1080, { r: 8, color: '#f8ffff', damage: dmg, kind: 'beam', pierce: 3 + tier, life: 2.0 });
-        spawnBullet('player', x + 16, y - 14, 12, -1080, { r: 8, color: '#f8ffff', damage: dmg, kind: 'beam', pierce: 3 + tier, life: 2.0 });
+        spawnBullet('player', x - 16, y - 14, -12, -1080, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 2.0 });
+        spawnBullet('player', x + 16, y - 14, 12, -1080, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 2.0 });
       }
+      if (tier >= 4) {
+        spawnBullet('player', x - 28, y - 12, -20, -1120, { r: 8, color: color, damage: dmg + 1, kind: 'beam', pierce: 5 + tier, life: 2.1 });
+        spawnBullet('player', x + 28, y - 12, 20, -1120, { r: 8, color: color, damage: dmg + 1, kind: 'beam', pierce: 5 + tier, life: 2.1 });
+      }
+      if (tier >= 5) spawnBullet('player', x, y - 26, 0, -1260, { r: 11, color: color, damage: dmg + 2, kind: 'beam', pierce: 7 + tier, life: 2.2 });
       sfx('beam');
     }
     p.fireCooldown = weaponDelay();
@@ -2034,30 +2111,79 @@
   function activateOverdrive() {
     if (state.overdrive > 0) return;
     state.overdrive = 7;
-    state.banner = 'OVERDRIVE';
-    state.bannerSub = 'Epic mode engaged.';
-    state.bannerTimer = 1.7;
+    state.banner = '';
+    state.bannerSub = '';
+    state.bannerTimer = 0;
     state.flash = Math.max(state.flash, 0.25);
     sfx('overdrive');
-    hint('OVERDRIVE! The plane is blazing.', 2.4);
+    hint('Combo 10: OVERDRIVE ACTIVE!!', 1.4);
   }
 
-  function collectPickup(type) {
+  function findRocketTarget(b) {
+    const p = state.player;
+    const originX = p.x;
+    const originY = p.y - 18;
+    const maxAngle = lerp(0.26, 0.78, clamp(b.homing || 0, 0, 1));
+    let best = null;
+    let bestScore = Infinity;
+
+    function consider(target) {
+      if (!target) return;
+      const dx = target.x - originX;
+      const dy = originY - target.y;
+      if (dy <= 10) return;
+      const angle = Math.atan2(Math.abs(dx), dy);
+      if (angle > maxAngle) return;
+      const score = dy + Math.abs(dx) * 0.65;
+      if (score < bestScore) {
+        bestScore = score;
+        best = target;
+      }
+    }
+
+    for (let i = 0; i < state.enemies.length; i++) {
+      const e = state.enemies[i];
+      if (!e || e.dead) continue;
+      consider(e);
+    }
+    if (state.boss) consider(state.boss);
+    return best;
+  }
+
+  function collectPickup(item) {
+    const type = typeof item === 'string' ? item : item && item.type;
     const p = state.player;
     if (type === 'weapon') {
-      p.weaponTier++;
-      if (p.weaponTier > 3) { p.weaponTier = 1; p.weaponMode = (p.weaponMode + 1) % WEAPONS.length; }
-      state.banner = WEAPONS[p.weaponMode].name + ' ' + ['I', 'II', 'III'][p.weaponTier - 1];
+      const nextMode = item && item.weaponMode != null ? item.weaponMode : p.weaponMode;
+      const sameFamily = Number.isFinite(nextMode) && (nextMode | 0) === p.weaponMode;
+      if (Number.isFinite(nextMode)) {
+        p.weaponMode = clamp(nextMode | 0, 0, WEAPONS.length - 1);
+        if (!Array.isArray(p.weaponTiers) || p.weaponTiers.length !== WEAPONS.length) p.weaponTiers = Array(WEAPONS.length).fill(1);
+        if (sameFamily) {
+          if ((p.weaponTiers[p.weaponMode] || 1) >= 5) applyWeaponOverflowUpgrade(p);
+          else p.weaponTiers[p.weaponMode] = Math.min(5, (p.weaponTiers[p.weaponMode] || 1) + 1);
+        }
+        p.weaponTier = clamp(p.weaponTiers[p.weaponMode] || 1, 1, 5);
+      } else {
+        p.weaponTier = 1;
+      }
+      state.banner = WEAPONS[p.weaponMode].name + ' ' + WEAPON_TIER_LABELS[p.weaponTier - 1];
       state.bannerSub = 'Weapon upgraded.';
     } else if (type === 'rapid') {
       p.rapidTimer = Math.max(p.rapidTimer, 8);
       state.banner = 'RAPID FIRE';
       state.bannerSub = 'The jet rattles harder.';
     } else if (type === 'shield') {
-      p.shield = Math.min(3, p.shield + 1);
-      state.banner = 'SHIELD UP';
-      state.bannerSub = 'A bright hull wraps around the plane.';
-      sfx('power');
+      if (p.shield >= 3) {
+        addScore(250);
+        state.banner = 'EXTRA SHIELD';
+        state.bannerSub = 'Overflow converted to score.';
+      } else {
+        p.shield = Math.min(3, p.shield + 1);
+        state.banner = 'SHIELD UP';
+        state.bannerSub = 'A bright hull wraps around the plane.';
+        sfx('power');
+      }
     } else if (type === 'bomb') {
       p.bombs = Math.min(4, p.bombs + 1);
       state.banner = 'BOMB +1';
@@ -2075,6 +2201,16 @@
       sfx('power');
     }
     state.bannerTimer = 1.15;
+  }
+
+  function pickWeaponDropKind() {
+    const total = WEAPON_PICKUP_WEIGHTS.reduce(function (sum, weight) { return sum + weight; }, 0);
+    let roll = Math.random() * total;
+    for (let i = 0; i < WEAPON_PICKUP_WEIGHTS.length; i++) {
+      roll -= WEAPON_PICKUP_WEIGHTS[i];
+      if (roll <= 0) return i;
+    }
+    return 0;
   }
 
   function useBomb() {
@@ -2101,10 +2237,15 @@
       flashBurst(e.x, e.y, e.color);
       sfx('boom');
       addScore(e.score);
-      state.combo++;
-      state.comboTimer = 2.4;
-      if (state.combo % 5 === 0) sfx('combo');
-      if (state.combo >= 18) { state.combo = 0; activateOverdrive(); }
+      if (state.overdrive <= 0) {
+        state.combo++;
+        state.comboTimer = 1.2;
+        if (state.combo >= 3) {
+          hint('Combo +' + state.combo, 0.5);
+        }
+        if (state.combo % 5 === 0) sfx('combo');
+        if (state.combo >= 9) { state.combo = 0; activateOverdrive(); }
+      }
       if (e.kind === 'spinner') ringBullets(e.x, e.y, 10, 180, 1, e.theme.accent2, 'enemy');
       if (e.kind === 'elite' || e.score > 200) maybeDropPickup(e.x, e.y, true, chance(0.35) ? 'shield' : null);
       else if (!fromBomb) maybeDropPickup(e.x, e.y, false);
@@ -2171,7 +2312,15 @@
       p.health = p.maxHealth;
       p.shield = Math.max(0, p.shield - 1);
       p.bombs = Math.max(0, p.bombs - 1);
-      p.weaponTier = Math.max(1, p.weaponTier - 1);
+      if (Array.isArray(p.weaponTiers) && p.weaponTiers.length === WEAPONS.length) {
+        p.weaponTiers[p.weaponMode] = Math.max(1, (p.weaponTiers[p.weaponMode] || 1) - 1);
+        p.weaponTier = p.weaponTiers[p.weaponMode];
+      } else {
+        p.weaponTier = Math.max(1, p.weaponTier - 1);
+      }
+      if (state.banner === 'SHIP LOST') {
+        // No extra weapon-grace trigger on death; the tier loss above is the only penalty.
+      }
       p.rapidTimer = 0;
       state.combo = 0;
       state.comboTimer = 0;
@@ -2324,7 +2473,10 @@
     p.magnetTimer = Math.max(0, p.magnetTimer - dt);
     if (state.comboTimer > 0) {
       state.comboTimer -= dt;
-      if (state.comboTimer <= 0) state.combo = 0;
+      if (state.comboTimer <= 0) {
+        if (state.combo >= 3) hint('Combo lost', 1.4);
+        state.combo = 0;
+      }
     }
     if (state.overdrive > 0) state.overdrive = Math.max(0, state.overdrive - dt);
     if (state.bannerTimer > 0) state.bannerTimer = Math.max(0, state.bannerTimer - dt);
@@ -2381,13 +2533,16 @@
       const b = state.bullets[i];
       if (!b) continue;
       b.age += dt;
-      if (b.homing > 0 && state.boss) {
-        const ta = ang(b.x, b.y, state.boss.x, state.boss.y);
-        const sp = Math.hypot(b.vx, b.vy);
-        const cur = Math.atan2(b.vy, b.vx);
-        const next = cur + clamp(ta - cur, -b.turn * dt, b.turn * dt) * b.homing;
-        b.vx = Math.cos(next) * sp;
-        b.vy = Math.sin(next) * sp;
+      if (b.homing > 0) {
+        const target = b.kind === 'rocket' ? findRocketTarget(b) : null;
+        if (target) {
+          const ta = ang(b.x, b.y, target.x, target.y);
+          const sp = Math.hypot(b.vx, b.vy);
+          const cur = Math.atan2(b.vy, b.vx);
+          const next = cur + clamp(ta - cur, -b.turn * dt, b.turn * dt) * b.homing;
+          b.vx = Math.cos(next) * sp;
+          b.vy = Math.sin(next) * sp;
+        }
       }
       b.vx += b.ax * dt;
       b.vy += b.ay * dt;
@@ -2554,7 +2709,7 @@
       if (it.y > view.h + 50 || it.life <= 0) { state.pickups.splice(i, 1); continue; }
       if (d2(it.x, it.y, p.x, p.y) < (it.r + p.r) * (it.r + p.r)) {
         state.pickups.splice(i, 1);
-        collectPickup(it.type);
+        collectPickup(it);
       }
     }
   }
@@ -3541,10 +3696,28 @@
       const speed = Math.max(1, Math.hypot(b.vx, b.vy));
       const trail = clamp(speed * 0.02, 10, 26);
       const ang = Math.atan2(b.vy, b.vx);
-      drawSpriteRect(b.x - Math.cos(ang) * trail * 0.5, b.y - Math.sin(ang) * trail * 0.5, trail, b.kind === 'beam' ? 6 : b.team === 'player' ? 4 : 5, b.color, b.team === 'player' ? 0.72 : 0.65, 2, true, ang);
-      drawGlowCircle(b.x, b.y, b.r * 2.2, b.color, b.team === 'player' ? 0.20 : 0.18, 18);
-      drawGlowCircle(b.x, b.y, b.r * 1.15, b.color, b.team === 'player' ? 0.45 : 0.38, 10);
-      drawGlowCircle(b.x, b.y, b.r, b.color, b.team === 'player' ? 0.95 : 0.85, 6);
+      const beamBody = b.kind === 'beam';
+      const fanBody = b.kind === 'fan';
+      const bodyW = beamBody ? trail * 1.6 : trail;
+      const bodyH = beamBody ? (b.team === 'player' ? 4.5 : 5.2) : (b.team === 'player' ? 4 : 5);
+      const glow1 = beamBody ? b.r * 3.0 : b.r * 2.2;
+      const glow2 = beamBody ? b.r * 1.7 : b.r * 1.15;
+      const glow3 = beamBody ? b.r * 1.15 : b.r;
+      if (beamBody) {
+        drawSpriteRect(b.x - Math.cos(ang) * bodyW * 0.5, b.y - Math.sin(ang) * bodyW * 0.5, bodyW, bodyH, b.color, b.team === 'player' ? 0.72 : 0.65, 2, true, ang);
+        drawGlowCircle(b.x, b.y, glow1, b.color, b.team === 'player' ? 0.20 : 0.18, 20);
+        drawGlowCircle(b.x, b.y, glow2, b.color, b.team === 'player' ? 0.45 : 0.38, 12);
+      } else if (fanBody) {
+        drawSpriteCircle(b.x, b.y, b.r * 0.62, b.color, b.team === 'player' ? 0.90 : 0.80, 2, true);
+        drawGlowCircle(b.x, b.y, b.r * 2.2, b.color, b.team === 'player' ? 0.20 : 0.18, 18);
+        drawGlowCircle(b.x, b.y, b.r * 1.15, b.color, b.team === 'player' ? 0.45 : 0.38, 10);
+        drawGlowCircle(b.x, b.y, b.r, b.color, b.team === 'player' ? 0.95 : 0.85, 6);
+      } else {
+        drawSpriteRect(b.x - Math.cos(ang) * bodyW * 0.5, b.y - Math.sin(ang) * bodyW * 0.5, bodyW, bodyH, b.color, b.team === 'player' ? 0.72 : 0.65, 2, true, ang);
+        drawGlowCircle(b.x, b.y, glow1, b.color, b.team === 'player' ? 0.20 : 0.18, 18);
+        drawGlowCircle(b.x, b.y, glow2, b.color, b.team === 'player' ? 0.45 : 0.38, 10);
+        drawGlowCircle(b.x, b.y, glow3, b.color, b.team === 'player' ? 0.95 : 0.85, 6);
+      }
       if (b.kind === 'rocket') drawSpriteEmoji(E.rocket, b.x, b.y, 14, { rot: ang + Math.PI * 0.25, alpha: 0.95, layer: 3, lighter: true });
     }
     for (let i = 0; i < state.bullets.length; i++) drawShot(state.bullets[i]);
@@ -3555,7 +3728,8 @@
     for (let i = 0; i < state.pickups.length; i++) {
       const p = state.pickups[i];
       const bob = Math.sin(p.bob) * 4;
-      drawGlowCircle(p.x, p.y + bob, 14, p.color, 0.35, 18);
+      drawGlowCircle(p.x, p.y + bob, 16, p.color, 0.48, 22);
+      drawGlowCircle(p.x, p.y + bob, 8, p.color, 0.85, 10);
       drawEmojiGlyph(p.emoji, p.x, p.y + bob, 20, { alpha: 1, rot: Math.sin(p.spin + p.bob * 0.7) * 0.16, layer: 2, lighter: true });
     }
   }
@@ -3899,7 +4073,7 @@
     hudCtx.save();
     const compact = view.w < 640;
     const scoreLine = 'SCORE ' + format(state.score) + '   LIVES ' + state.lives + '   BOMB ' + p.bombs + '   SHIELD ' + p.shield;
-    const detailLine = 'STAGE ' + (state.levelIndex + 1) + '/' + THEMES.length + '  ' + theme.name + '   WEAPON ' + WEAPONS[p.weaponMode].name + ' ' + ['I', 'II', 'III'][p.weaponTier - 1] + '   HIGH ' + format(state.highScore);
+    const detailLine = 'STAGE ' + (state.levelIndex + 1) + '/' + THEMES.length + '  ' + theme.name + '   WEAPON ' + WEAPONS[p.weaponMode].name + ' ' + WEAPON_TIER_LABELS[p.weaponTier - 1] + '   HIGH ' + format(state.highScore);
     const scoreFont = compact ? '900 11px "Trebuchet MS", "Segoe UI", sans-serif' : '900 13px "Trebuchet MS", "Segoe UI", sans-serif';
     const detailFont = compact ? '700 8px "Trebuchet MS", "Segoe UI", sans-serif' : '700 9px "Trebuchet MS", "Segoe UI", sans-serif';
     hudCtx.font = scoreFont;
@@ -3923,16 +4097,20 @@
     hudCtx.fillText(detailLine, panelX + 14, panelY + panelH - 13);
 
     if (state.bannerTimer > 0 && state.mode === 'playing') {
-      const bw = clamp(view.w * 0.42, 220, 420);
-      const bx = (view.w - bw) * 0.5;
+      const compactBanner = state.banner === 'OVERDRIVE';
+      const bw = compactBanner ? 152 : clamp(view.w * 0.42, 220, 420);
+      const bh = compactBanner ? 28 : 44;
+      const bx = compactBanner ? (view.w - bw - 14) : (view.w - bw) * 0.5;
       const by = state.boss ? bossBarY + 18 : bossBarY + 8;
-      drawPanel(bx, by, bw, 44, theme.accent2);
+      drawPanel(bx, by, bw, bh, theme.accent2);
       hudCtx.textAlign = 'center';
       hudCtx.fillStyle = '#fff';
-      hudCtx.font = '900 16px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText(state.banner || '', view.w * 0.5, by + 17);
-      hudCtx.font = '700 10px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText(state.bannerSub || '', view.w * 0.5, by + 32);
+      hudCtx.font = compactBanner ? '900 11px "Trebuchet MS", "Segoe UI", sans-serif' : '900 16px "Trebuchet MS", "Segoe UI", sans-serif';
+      hudCtx.fillText(state.banner || '', compactBanner ? bx + bw * 0.5 : view.w * 0.5, by + (compactBanner ? 14 : 17));
+      if (!compactBanner) {
+        hudCtx.font = '700 10px "Trebuchet MS", "Segoe UI", sans-serif';
+        hudCtx.fillText(state.bannerSub || '', view.w * 0.5, by + 32);
+      }
     }
 
     if (state.boss) {

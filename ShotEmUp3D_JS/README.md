@@ -1,5 +1,6 @@
 # ShotEmUp3D_JS Layout
 
+- Game manual: `GAME_MANUAL.md`
 - `ShotEmUp3D_JS.html` and `ShotEmUp_JS.js` stay in the project root.
 - `serve.py` stays in the project root.
 - Runtime art and models live in `assets/`.
