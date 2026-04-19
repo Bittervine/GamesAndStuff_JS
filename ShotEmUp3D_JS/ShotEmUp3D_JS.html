@@ -461,7 +461,16 @@
     const engineCtx = engineCanvas.getContext('2d');
     const cloudCtx = cloudCanvas.getContext('2d');
     const damageCtx = damageCanvas.getContext('2d');
-    shipRenderer.setPixelRatio(0.5);  // Low for performance, high for quality
+    function chooseShipPixelRatio() {
+      const dpr = window.devicePixelRatio || 1;
+      const cores = navigator.hardwareConcurrency || 4;
+      const memory = navigator.deviceMemory || 4;
+      if (cores >= 8 && memory >= 8 && dpr >= 1.5) return 0.8;
+      if (cores >= 6 && memory >= 4) return 0.65;
+      if (cores >= 4) return 0.55;
+      return 0.5;
+    }
+    shipRenderer.setPixelRatio(chooseShipPixelRatio());
     shipRenderer.setSize(window.innerWidth, window.innerHeight, false);
     shipRenderer.setClearColor(0x000000, 0);
 
