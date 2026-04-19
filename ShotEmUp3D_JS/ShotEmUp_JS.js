@@ -3763,20 +3763,19 @@
     if (p.shield > 0) {
       hudCtx.save();
       hudCtx.globalCompositeOperation = 'lighter';
-      hudCtx.strokeStyle = 'rgba(89, 166, 255, 0.05)';
-      hudCtx.lineWidth = p.shield > 1 ? 7 : 5;
-      hudCtx.shadowColor = 'rgba(126, 196, 255, 0.14)';
-      hudCtx.shadowBlur = 24;
-      hudCtx.beginPath();
-      hudCtx.arc(p.x, p.y + bob, shieldRing, 0, TAU);
-      hudCtx.stroke();
-      hudCtx.strokeStyle = 'rgba(211, 240, 255, 0.08)';
-      hudCtx.lineWidth = p.shield > 1 ? 2 : 1.4;
-      hudCtx.shadowColor = 'rgba(211, 240, 255, 0.10)';
-      hudCtx.shadowBlur = 14;
-      hudCtx.beginPath();
-      hudCtx.arc(p.x, p.y + bob, shieldRing, 0, TAU);
-      hudCtx.stroke();
+      for (let i = 0; i < p.shield; i++) {
+        const ringR = shieldRing + i * 5;
+        const a = (i === 0 ? 0.10 : 0.0625) * 1.25 * 1.25 * 1.25;
+        const w = i === 0 ? 2.2 : 1.6;
+        const blur = i === 0 ? 14 : 10;
+        hudCtx.strokeStyle = 'rgba(48, 112, 255, ' + a + ')';
+        hudCtx.lineWidth = w;
+        hudCtx.shadowColor = 'rgba(48, 112, 255, ' + (a * 2.1) + ')';
+        hudCtx.shadowBlur = blur;
+        hudCtx.beginPath();
+        hudCtx.arc(p.x, p.y + bob, ringR, 0, TAU);
+        hudCtx.stroke();
+      }
       hudCtx.restore();
     }
     if (bridge && bridge.enabled) {
