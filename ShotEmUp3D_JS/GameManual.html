@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+  <meta http-equiv="Pragma" content="no-cache">
+  <title>Thorium Gap Manual</title>
+  <style>
+    :root {
+      --bg: #050b14;
+      --panel: rgba(4, 14, 34, 0.94);
+      --line: rgba(64, 128, 255, 0.98);
+      --text: #f7fbff;
+      --muted: rgba(247, 251, 255, 0.76);
+      --accent: #7cbcff;
+    }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top, rgba(124, 188, 255, 0.14), transparent 28%),
+        linear-gradient(180deg, #07111d 0%, #04070f 100%);
+      color: var(--text);
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    }
+    body { padding: 18px; }
+    .page {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 18px 18px 28px;
+      border-radius: 24px;
+      border: 2px solid var(--line);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(64, 128, 255, 0.24), transparent 24%),
+        linear-gradient(180deg, rgba(3, 14, 44, 0.98), rgba(2, 8, 24, 0.98));
+      box-shadow:
+        0 0 0 2px rgba(34, 118, 255, 0.78),
+        0 0 34px rgba(34, 118, 255, 0.34),
+        0 24px 60px rgba(0, 0, 0, 0.48);
+    }
+    h1, h2, h3 { margin: 0 0 10px; }
+    h1 { font-size: clamp(2rem, 4vw, 3rem); }
+    h2 { margin-top: 28px; font-size: 1.25rem; }
+    h3 { margin-top: 18px; font-size: 1.05rem; }
+    p, li { color: var(--muted); line-height: 1.5; }
+    ul { margin: 8px 0 14px 22px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 14px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.92rem;
+    }
+    th, td {
+      border: 1px solid rgba(124, 188, 255, 0.28);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: #ffffff;
+      background: rgba(34, 118, 255, 0.16);
+    }
+    td {
+      color: #eaf4ff;
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .nav {
+      margin: 10px 0 22px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .nav a {
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 900;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 2px solid var(--line);
+      background: linear-gradient(180deg, rgba(190, 225, 255, 0.22), rgba(34, 118, 255, 0.12));
+      box-shadow: 0 0 16px rgba(34, 118, 255, 0.22);
+    }
+    pre {
+      overflow: auto;
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(164, 206, 255, 0.3);
+      background: rgba(0, 0, 0, 0.22);
+      color: #eaf4ff;
+      line-height: 1.4;
+    }
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.95em;
+      color: #ffffff;
+    }
+    .small { font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <h1>Thorium Gap Manual</h1>
+    <p class="small">A short reference for weapons, pickups, difficulty, combo, and respawn rules.</p>
+    <div class="nav">
+      <a href="ShotEmUp3D_JS.html">Back to game</a>
+      <a href="README.md">Project notes</a>
+    </div>
+
+    <h2>Goal</h2>
+    <p>Survive each stage, score as much as possible, and defeat the boss at the end of every level.</p>
+
+    <h2>Core Flow</h2>
+    <ul>
+      <li>Destroy enemies to score points and make pickups drop.</li>
+      <li>Collect weapon wrenches to upgrade or switch weapons.</li>
+      <li>Collect shields, bombs, rapid-fire, magnet, and score pickups as they appear.</li>
+      <li>Each level ends with a boss battle.</li>
+    </ul>
+
+    <h2>Shield And Health</h2>
+    <ul>
+      <li>Shields are shown as a faint bubble around the ship.</li>
+      <li>Each shield point blocks one hit and is then consumed.</li>
+      <li>If you have no shields, hits damage the ship directly.</li>
+      <li>Ship damage is repaired slowly over time if you avoid taking new hits.</li>
+      <li>Ship body damage is shown visually as sparks on the hull.</li>
+    </ul>
+
+    <h2>Weapons</h2>
+    <p>The game has five weapon families. Each family has five tiers: <code>I</code>, <code>II</code>, <code>III</code>, <code>IIII</code>, and <code>V</code>.</p>
+
+    <h3>Dart</h3>
+    <p>Color: cyan. Style: fast forward shots.</p>
+    <table>
+      <thead>
+        <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>I</td><td>1</td><td>2</td><td>2</td></tr>
+        <tr><td>II</td><td>2</td><td>3</td><td>6</td></tr>
+        <tr><td>III</td><td>4</td><td>4</td><td>16</td></tr>
+        <tr><td>IIII</td><td>6</td><td>5 to 6</td><td>32</td></tr>
+        <tr><td>V</td><td>7</td><td>6 to 8</td><td>42</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Twin</h3>
+    <p>Color: green. Style: paired forward fire.</p>
+    <table>
+      <thead>
+        <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>I</td><td>2</td><td>2</td><td>4</td></tr>
+        <tr><td>II</td><td>3</td><td>3</td><td>9</td></tr>
+        <tr><td>III</td><td>5</td><td>4</td><td>20</td></tr>
+        <tr><td>IIII</td><td>7</td><td>5 to 6</td><td>37</td></tr>
+        <tr><td>V</td><td>8</td><td>6 to 8</td><td>50</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Fan</h3>
+    <p>Color: yellow. Style: spread shot.</p>
+    <table>
+      <thead>
+        <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>I</td><td>3</td><td>2</td><td>6</td></tr>
+        <tr><td>II</td><td>4</td><td>3</td><td>12</td></tr>
+        <tr><td>III</td><td>5</td><td>4</td><td>20</td></tr>
+        <tr><td>IIII</td><td>6</td><td>5</td><td>30</td></tr>
+        <tr><td>V</td><td>7</td><td>6</td><td>42</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Rocket</h3>
+    <p>Color: blue. Style: ez homing rockets. Damage: each rocket projectile always does 1 damage.</p>
+    <table>
+      <thead>
+        <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>I</td><td>1</td><td>1</td><td>1</td></tr>
+        <tr><td>II</td><td>3</td><td>1</td><td>3</td></tr>
+        <tr><td>III</td><td>3</td><td>1</td><td>3</td></tr>
+        <tr><td>IIII</td><td>5</td><td>1</td><td>5</td></tr>
+        <tr><td>V</td><td>6</td><td>1</td><td>6</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Beam</h3>
+    <p>Color: red. Style: long narrow beam shots.</p>
+    <table>
+      <thead>
+        <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>I</td><td>1</td><td>3</td><td>3</td></tr>
+        <tr><td>II</td><td>3</td><td>3</td><td>9</td></tr>
+        <tr><td>III</td><td>3</td><td>3</td><td>9</td></tr>
+        <tr><td>IIII</td><td>5</td><td>5 to 6</td><td>27</td></tr>
+        <tr><td>V</td><td>6</td><td>6 to 8</td><td>58</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Weapon Upgrades</h2>
+    <ul>
+      <li>Picking up a wrench for the same weapon family upgrades that family by one tier.</li>
+      <li>Picking up a wrench for a different family switches to that family and restores the last tier you earned for that family.</li>
+      <li>Each weapon family remembers its own tier separately.</li>
+      <li>If you have never used a family before, it starts at <code>I</code>.</li>
+      <li>If a family is already at <code>V</code> and you pick up that same family again, one random weapon family is rolled.</li>
+      <li>If the rolled family is at <code>I</code> or <code>II</code>, it gains one tier.</li>
+      <li>If the rolled family is already <code>III</code> or higher, the overflow becomes a small score bonus.</li>
+    </ul>
+
+    <h2>Difficulty</h2>
+    <ul>
+      <li>Easy: reference damage model.</li>
+      <li>Medium: player shots do half the Easy damage.</li>
+      <li>Hard: player shots do one quarter the Easy damage.</li>
+    </ul>
+
+    <h2>Weapon Wrench Drop Rate</h2>
+    <ul>
+      <li>Level 1: 500% of the level 5 wrench drop rate.</li>
+      <li>Levels 2 to 5: linearly reduce from level 1 down to the level 5 base rate.</li>
+      <li>Level 5: the base wrench drop rate.</li>
+      <li>Levels 6 to 13: linearly reduce from the level 5 base rate down to 10% of that base rate at level 13.</li>
+    </ul>
+
+    <h2>Weapon Loss On Death</h2>
+    <ul>
+      <li>When a life is lost, only the currently selected weapon family loses one tier.</li>
+      <li>After that penalty is applied, the game switches you to the weapon family with the highest stored tier.</li>
+      <li>The other weapon families keep their stored tiers.</li>
+      <li>If several families are tied for highest, the first one in the weapon list is chosen.</li>
+    </ul>
+
+    <h2>Combo And Overdrive</h2>
+    <ul>
+      <li>The combo counter increases every time you destroy an enemy.</li>
+      <li>The combo timer window is short, so you must keep destroying enemies quickly to keep the chain alive.</li>
+      <li>If you stop killing enemies for too long, the combo resets to <code>0</code>.</li>
+      <li>At combo <code>3</code> and above, the game briefly shows a <code>COMBO +N</code> banner after each kill.</li>
+      <li>At combo <code>9</code>, Overdrive triggers.</li>
+      <li>When Overdrive triggers, the combo counter is cleared and the bonus state begins.</li>
+      <li>Overdrive is a temporary power state that makes the game feel more intense and rewarding for a strong kill streak.</li>
+    </ul>
+
+    <h2>Other Pickups</h2>
+    <ul>
+      <li><code>Rapid Fire</code>: temporarily lowers shot delay.</li>
+      <li><code>Shield</code>: adds a shield point, up to three. Each protects from a single hit and is then consumed. If you already have three shields, the pickup turns into a small score bonus instead.</li>
+      <li><code>Bomb</code>: adds a bomb, up to four.</li>
+      <li><code>Magnet</code>: pulls pickups toward the player for a short time.</li>
+      <li><code>Score</code>: bonus points.</li>
+    </ul>
+
+    <h2>Lives And Respawn</h2>
+    <ul>
+      <li>Losing a ship costs one life.</li>
+      <li>Respawn takes a short time.</li>
+      <li>The ship gets a temporary invulnerability window after respawn.</li>
+    </ul>
+  </main>
+</body>
+</html>
