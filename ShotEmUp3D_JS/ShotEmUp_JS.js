@@ -2170,19 +2170,24 @@
       }
       sfx('rocket');
     } else { // BEAM
-      spawnBullet('player', x - 12, y - 14, -10, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 2.0 });
-      spawnBullet('player', x + 12, y - 14, 10, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 2.0 });
+      const beamY = y - 14;
+      const beamSpacing = 11;
+      spawnBullet('player', x - beamSpacing, beamY-30, 0, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 2.0 });
+      spawnBullet('player', x + beamSpacing, beamY-30, 0, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 2.0 });
       if (tier >= 2) {
-        spawnBullet('player', x, y - 18, 0, -1180, { r: 10, color: color, damage: dmg, kind: 'beam', pierce: 4 + tier, life: 2.2 });
+        spawnBullet('player', x, beamY-30, 0, -1120, { r: 10, color: color, damage: dmg, kind: 'beam', pierce: 4 + tier, life: 2.2 });
       }
       if (tier >= 3) {
-        spawnBullet('player', x + 22, y - 12, 18, -1140, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 5 + tier, life: 2.1 });
+        spawnBullet('player', x - beamSpacing * 2, beamY-20, 0, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 5 + tier, life: 2.1 });
+        spawnBullet('player', x + beamSpacing * 2, beamY-20, 0, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 5 + tier, life: 2.1 });
       }
       if (tier >= 4) {
-        spawnBullet('player', x - 34, y - 10, -24, -1160, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 6 + tier, life: 2.1 });
+        spawnBullet('player', x - beamSpacing * 3, beamY-10, 0, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 6 + tier, life: 2.1 });
+        spawnBullet('player', x + beamSpacing * 3, beamY-10, 0, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 6 + tier, life: 2.1 });
       }
       if (tier >= 5) {
-        spawnBullet('player', x + 46, y - 8, 30, -1180, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 7 + tier, life: 2.2 });
+        spawnBullet('player', x - beamSpacing * 4, beamY, 0, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 7 + tier, life: 2.2 });
+        spawnBullet('player', x + beamSpacing * 4, beamY, 0, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 7 + tier, life: 2.2 });
       }
       sfx('beam');
     }
@@ -2266,10 +2271,17 @@
         sfx('power');
       }
     } else if (type === 'bomb') {
-      p.bombs = Math.min(4, p.bombs + 1);
-      state.banner = 'BOMB +1';
-      state.bannerSub = 'Emergency button restocked.';
-      sfx('power');
+      if (p.bombs >= 4) {
+        addScore(250);
+        state.banner = 'EXTRA BOMB';
+        state.bannerSub = 'Overflow converted to score.';
+        sfx('power');
+      } else {
+        p.bombs = Math.min(4, p.bombs + 1);
+        state.banner = 'BOMB +1';
+        state.bannerSub = 'Emergency button restocked.';
+        sfx('power');
+      }
     } else if (type === 'magnet') {
       p.magnetTimer = Math.max(p.magnetTimer, 12);
       state.banner = 'MAGNET FIELD';
