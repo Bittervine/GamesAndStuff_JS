@@ -4339,18 +4339,24 @@
       }
       return;
     }
-    if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'ArrowUp' || code === 'ArrowDown' || code === 'KeyA' || code === 'KeyD' || code === 'KeyW' || code === 'KeyS' || code === 'Space' || code === 'KeyZ' || code === 'KeyX' || code === 'KeyB' || code === 'KeyP' || code === 'KeyM' || code === 'KeyR' || code === 'Escape' || code === 'KeyO') {
-      ev.preventDefault();
-      resumeAudio();
-    }
+    if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'ArrowUp' || code === 'ArrowDown' || code === 'KeyA' || code === 'KeyD' || code === 'KeyW' || code === 'KeyS' || code === 'Space' || code === 'KeyZ' || code === 'ControlLeft' || code === 'ControlRight' || code === 'Enter' || code === 'KeyX' || code === 'KeyB' || code === 'KeyP' || code === 'KeyM' || code === 'KeyR' || code === 'Escape' || code === 'KeyO') {
+        ev.preventDefault();
+        resumeAudio();
+      }
     if (code === 'ArrowLeft' || code === 'KeyA') state.input.left = true;
     else if (code === 'ArrowRight' || code === 'KeyD') state.input.right = true;
     else if (code === 'ArrowUp' || code === 'KeyW') state.input.up = true;
     else if (code === 'ArrowDown' || code === 'KeyS') state.input.down = true;
-    else if (code === 'Space' || code === 'KeyZ') {
-      if (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory') startGame();
-      else state.input.fire = true;
-      } else if (code === 'KeyX' || code === 'KeyB' || code === 'Space') {
+      else if (code === 'ControlLeft' || code === 'ControlRight' || code === 'Enter') {
+        if (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory') startGame();
+        else state.input.fire = true;
+      } else if (code === 'Space') {
+        if (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory') startGame();
+        else if (state.mode === 'playing' && !ev.repeat) useBomb();
+      } else if (code === 'KeyZ') {
+        if (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory') startGame();
+        else state.input.fire = true;
+      } else if (code === 'KeyX' || code === 'KeyB') {
         if (!ev.repeat) useBomb();
       } else if (code === 'KeyP' || code === 'Escape') {
       if (!ev.repeat) togglePause();
@@ -4369,7 +4375,7 @@
     else if (code === 'ArrowRight' || code === 'KeyD') state.input.right = false;
     else if (code === 'ArrowUp' || code === 'KeyW') state.input.up = false;
     else if (code === 'ArrowDown' || code === 'KeyS') state.input.down = false;
-    else if (code === 'Space' || code === 'KeyZ') state.input.fire = false;
+      else if (code === 'ControlLeft' || code === 'ControlRight' || code === 'Enter' || code === 'KeyZ') state.input.fire = false;
   }
 
   function loop(ts) {
