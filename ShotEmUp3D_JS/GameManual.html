@@ -135,6 +135,7 @@
 
     <h2>Weapons</h2>
     <p>The game has five weapon families. Each family has five tiers: <code>I</code>, <code>II</code>, <code>III</code>, <code>IIII</code>, and <code>V</code>.</p>
+    <p>Base projectile damage is tier-based: on Easy, tier I does 1 damage, tier II does 2 damage, tier III does 3 damage, tier IIII does 4 damage, and tier V does 5 damage. Medium halves this. Hard quarters this. Rocket projectiles then deal one quarter of that tier damage.</p>
 
     <h3>Dart</h3>
     <p>Color: cyan. Style: fast forward shots.</p>
@@ -143,11 +144,11 @@
         <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th></tr>
       </thead>
       <tbody>
-        <tr><td>I</td><td>1</td><td>2</td><td>2</td></tr>
-        <tr><td>II</td><td>2</td><td>3</td><td>6</td></tr>
-        <tr><td>III</td><td>4</td><td>4</td><td>16</td></tr>
-        <tr><td>IIII</td><td>6</td><td>5 to 6</td><td>32</td></tr>
-        <tr><td>V</td><td>7</td><td>6 to 8</td><td>42</td></tr>
+        <tr><td>I</td><td>1</td><td>1</td><td>1</td></tr>
+        <tr><td>II</td><td>2</td><td>2</td><td>4</td></tr>
+        <tr><td>III</td><td>3</td><td>3</td><td>9</td></tr>
+        <tr><td>IIII</td><td>4</td><td>4</td><td>16</td></tr>
+        <tr><td>V</td><td>5</td><td>5</td><td>25</td></tr>
       </tbody>
     </table>
 
@@ -158,56 +159,56 @@
         <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th></tr>
       </thead>
       <tbody>
-        <tr><td>I</td><td>2</td><td>2</td><td>4</td></tr>
-        <tr><td>II</td><td>3</td><td>3</td><td>9</td></tr>
-        <tr><td>III</td><td>5</td><td>4</td><td>20</td></tr>
-        <tr><td>IIII</td><td>7</td><td>5 to 6</td><td>37</td></tr>
-        <tr><td>V</td><td>8</td><td>6 to 8</td><td>50</td></tr>
+        <tr><td>I</td><td>2</td><td>1</td><td>2</td></tr>
+        <tr><td>II</td><td>3</td><td>2</td><td>6</td></tr>
+        <tr><td>III</td><td>4</td><td>3</td><td>12</td></tr>
+        <tr><td>IIII</td><td>5</td><td>4</td><td>20</td></tr>
+        <tr><td>V</td><td>6</td><td>5</td><td>30</td></tr>
       </tbody>
     </table>
 
     <h3>Fan</h3>
-    <p>Color: yellow. Style: spread shot.</p>
+    <p>Color: yellow. Style: spreads shots wide but is difficult to concentrate.</p>
     <table>
       <thead>
         <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th></tr>
       </thead>
       <tbody>
-        <tr><td>I</td><td>3</td><td>2</td><td>6</td></tr>
-        <tr><td>II</td><td>4</td><td>3</td><td>12</td></tr>
-        <tr><td>III</td><td>5</td><td>4</td><td>20</td></tr>
-        <tr><td>IIII</td><td>6</td><td>5</td><td>30</td></tr>
-        <tr><td>V</td><td>7</td><td>6</td><td>42</td></tr>
+        <tr><td>I</td><td>3</td><td>1</td><td>3</td></tr>
+        <tr><td>II</td><td>4</td><td>2</td><td>8</td></tr>
+        <tr><td>III</td><td>5</td><td>3</td><td>15</td></tr>
+        <tr><td>IIII</td><td>6</td><td>4</td><td>24</td></tr>
+        <tr><td>V</td><td>7</td><td>5</td><td>35</td></tr>
       </tbody>
     </table>
 
     <h3>Rocket</h3>
-    <p>Color: blue. Style: ez homing rockets. Damage: each rocket projectile always does 1 damage.</p>
+    <p>Color: blue. Style: homing rockets but each rocket does very little damage.</p>
     <table>
       <thead>
         <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th></tr>
       </thead>
       <tbody>
-        <tr><td>I</td><td>1</td><td>1</td><td>1</td></tr>
-        <tr><td>II</td><td>3</td><td>1</td><td>3</td></tr>
-        <tr><td>III</td><td>3</td><td>1</td><td>3</td></tr>
-        <tr><td>IIII</td><td>5</td><td>1</td><td>5</td></tr>
-        <tr><td>V</td><td>6</td><td>1</td><td>6</td></tr>
+        <tr><td>I</td><td>1</td><td>0.2</td><td>0.2</td></tr>
+        <tr><td>II</td><td>2</td><td>0.4</td><td>0.8</td></tr>
+        <tr><td>III</td><td>3</td><td>0.6</td><td>1.8</td></tr>
+        <tr><td>IIII</td><td>4</td><td>0.8</td><td>3.2</td></tr>
+        <tr><td>V</td><td>5</td><td>1.0</td><td>5.0</td></tr>
       </tbody>
     </table>
 
     <h3>Beam</h3>
-    <p>Color: red. Style: long narrow beam shots.</p>
+    <p>Color: red. Style: long narrow shots that pierce through enemies.</p>
     <table>
       <thead>
         <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th></tr>
       </thead>
       <tbody>
-        <tr><td>I</td><td>1</td><td>3</td><td>3</td></tr>
-        <tr><td>II</td><td>3</td><td>3</td><td>9</td></tr>
-        <tr><td>III</td><td>3</td><td>3</td><td>9</td></tr>
-        <tr><td>IIII</td><td>5</td><td>5 to 6</td><td>27</td></tr>
-        <tr><td>V</td><td>6</td><td>6 to 8</td><td>58</td></tr>
+        <tr><td>I</td><td>2</td><td>1</td><td>2</td></tr>
+        <tr><td>II</td><td>3</td><td>2</td><td>6</td></tr>
+        <tr><td>III</td><td>4</td><td>3</td><td>12</td></tr>
+        <tr><td>IIII</td><td>5</td><td>4</td><td>20</td></tr>
+        <tr><td>V</td><td>6</td><td>5</td><td>30</td></tr>
       </tbody>
     </table>
 
