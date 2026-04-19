@@ -323,6 +323,13 @@
       height: 20px;
       accent-color: #7cf7ff;
     }
+    .settings-toggle:has(input:disabled) {
+      opacity: 0.48;
+      filter: saturate(0.65);
+    }
+    .settings-toggle:has(input:disabled) input {
+      cursor: not-allowed;
+    }
     .difficulty-buttons {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -361,13 +368,16 @@
         gap: 5px;
         padding: 5px 6px;
         max-width: calc(100vw - 12px);
+        align-content: start;
       }
       #controls button {
         min-width: 42px;
+        height: 22px;
         min-height: 22px;
-        padding: 3px 7px;
+        padding: 0 7px;
         border-radius: 10px;
         font-size: 0.68rem;
+        white-space: nowrap;
       }
     }
   </style>
@@ -423,16 +433,25 @@
         </div>
       </div>
 
+      <label class="settings-toggle" for="lowEndMode">
+        <span>Low end mode</span>
+        <input id="lowEndMode" type="checkbox">
+      </label>
       <label class="settings-toggle" for="loadAdvancedShip">
         <span>Load advanced 3D ship model</span>
         <input id="loadAdvancedShip" type="checkbox" checked>
       </label>
-
-      <p class="settings-note">Low difficulty softens the assault. High difficulty tightens enemy pressure, speed, and boss durability.</p>
     </div>
   </dialog>
   <script>
-    window.__ShotEmUp3D = window.__ShotEmUp3D || { enabled: true, player: { x: 0, y: 0, rot: 0, bob: 0, tilt: 0, bank: 0, alpha: 0, damage: 0, visible: false } };
+    window.__ShotEmUp3D = window.__ShotEmUp3D || {
+      enabled: true,
+      lowEndMode: (function () {
+        try { return localStorage.getItem('ShotEmUp_JS_lowEndMode') === '1'; }
+        catch (e) { return false; }
+      }()),
+      player: { x: 0, y: 0, rot: 0, bob: 0, tilt: 0, bank: 0, alpha: 0, damage: 0, visible: false }
+    };
   </script>
   <script>
     (function () {
@@ -463,6 +482,7 @@
     const cloudCtx = cloudCanvas.getContext('2d');
     const damageCtx = damageCanvas.getContext('2d');
     function chooseShipPixelRatio() {
+      if (window.__ShotEmUp3D?.lowEndMode) return 0.35;
       const dpr = window.devicePixelRatio || 1;
       const cores = navigator.hardwareConcurrency || 4;
       const memory = navigator.deviceMemory || 4;
@@ -722,6 +742,7 @@
     }, { passive: true });
 
     function resize() {
+      shipRenderer.setPixelRatio(chooseShipPixelRatio());
       shipRenderer.setSize(window.innerWidth, window.innerHeight, false);
       syncOverlayCanvasSize(cloudCanvas, window.innerWidth, window.innerHeight);
       syncOverlayCanvasSize(engineCanvas, window.innerWidth, window.innerHeight);
@@ -738,6 +759,10 @@
       if (canvas.height !== height) canvas.height = height;
     }
     window.addEventListener('resize', resize);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', resize);
+      window.visualViewport.addEventListener('scroll', resize);
+    }
     resize();
 
     function respawnCloud(cloud) {
@@ -754,13 +779,20 @@
       const ctx = cloudCtx;
       const w = cloudCanvas.width;
       const h = cloudCanvas.height;
+      const lowEnd = !!window.__ShotEmUp3D?.lowEndMode;
+      if (lowEnd) {
+        ctx.clearRect(0, 0, w, h);
+        return;
+      }
+      const cloudLimit = clouds.length;
       ctx.clearRect(0, 0, w, h);
       ctx.save();
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = 'rgba(255, 255, 255, 0.005)';
       ctx.fillRect(0, 0, w, h);
       const now = performance.now();
-      for (const cloud of clouds) {
+      for (let i = 0; i < cloudLimit; i++) {
+        const cloud = clouds[i];
         if (!cloud.active) {
           if (now >= cloud.respawnAt) respawnCloud(cloud);
           continue;
@@ -774,7 +806,11 @@
         const px = cloud.x * w;
         const py = cloud.y * h;
         const s = cloud.s * Math.min(w, h) * 1.5;
-        const puffs = [
+        const puffs = lowEnd ? [
+          [0.00, 0.00, 0.42],
+          [0.44, 0.02, 0.38],
+          [0.76, -0.04, 0.30]
+        ] : [
           [0.00, 0.00, 0.42],
           [0.24, -0.10, 0.34],
           [0.48, 0.04, 0.40],
@@ -798,6 +834,7 @@
       const w = engineCanvas.width;
       const h = engineCanvas.height;
       engineCtx.clearRect(0, 0, w, h);
+      if (window.__ShotEmUp3D?.lowEndMode) return;
       if (!player.visible) return;
 
       const x = player.x;
@@ -930,6 +967,7 @@
       const w = damageCanvas.width;
       const h = damageCanvas.height;
       damageCtx.clearRect(0, 0, w, h);
+      if (window.__ShotEmUp3D?.lowEndMode) return;
       const damage = Math.max(0, Math.min(1, player.damage || 0));
       const visible = !!player.visible;
       const craftW = 64;
