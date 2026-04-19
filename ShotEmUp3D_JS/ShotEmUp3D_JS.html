@@ -713,15 +713,22 @@
 
     function resize() {
       shipRenderer.setSize(window.innerWidth, window.innerHeight, false);
-      cloudCanvas.width = window.innerWidth;
-      cloudCanvas.height = window.innerHeight;
+      syncOverlayCanvasSize(cloudCanvas, window.innerWidth, window.innerHeight);
+      syncOverlayCanvasSize(engineCanvas, window.innerWidth, window.innerHeight);
+      syncOverlayCanvasSize(damageCanvas, window.innerWidth, window.innerHeight);
       shipCamera.left = -window.innerWidth * 0.5;
       shipCamera.right = window.innerWidth * 0.5;
       shipCamera.top = window.innerHeight * 0.5;
       shipCamera.bottom = -window.innerHeight * 0.5;
       shipCamera.updateProjectionMatrix();
     }
+    function syncOverlayCanvasSize(canvas, width, height) {
+      if (!canvas) return;
+      if (canvas.width !== width) canvas.width = width;
+      if (canvas.height !== height) canvas.height = height;
+    }
     window.addEventListener('resize', resize);
+    resize();
 
     function respawnCloud(cloud) {
       cloud.x = 0.08 + Math.random() * 0.84;
@@ -735,8 +742,8 @@
 
     function drawClouds() {
       const ctx = cloudCtx;
-      const w = cloudCanvas.width = window.innerWidth;
-      const h = cloudCanvas.height = window.innerHeight;
+      const w = cloudCanvas.width;
+      const h = cloudCanvas.height;
       ctx.clearRect(0, 0, w, h);
       ctx.save();
       ctx.globalCompositeOperation = 'source-over';
@@ -778,8 +785,8 @@
     }
 
     function drawEngineFlames(player) {
-      const w = engineCanvas.width = window.innerWidth;
-      const h = engineCanvas.height = window.innerHeight;
+      const w = engineCanvas.width;
+      const h = engineCanvas.height;
       engineCtx.clearRect(0, 0, w, h);
       if (!player.visible) return;
 
@@ -910,8 +917,8 @@
     }
 
     function drawDamageSparks(player) {
-      const w = damageCanvas.width = window.innerWidth;
-      const h = damageCanvas.height = window.innerHeight;
+      const w = damageCanvas.width;
+      const h = damageCanvas.height;
       damageCtx.clearRect(0, 0, w, h);
       const damage = Math.max(0, Math.min(1, player.damage || 0));
       const visible = !!player.visible;
