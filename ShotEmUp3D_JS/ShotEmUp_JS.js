@@ -1692,15 +1692,15 @@
   function beginPlayerRespawn() {
     const p = state.player;
     const a = playArea();
-    p.respawnTimer = 1.05;
-    p.respawnDuration = 1.05;
+    p.respawnTimer = 4.0;
+    p.respawnDuration = 4.0;
     p.respawnStartX = view.w * 0.5;
     p.respawnStartY = view.h + 70;
     p.respawnTargetX = view.w * 0.5;
     p.respawnTargetY = a.bottom - 92;
     p.x = p.respawnStartX;
     p.y = p.respawnStartY;
-    p.invuln = 3;
+    p.invuln = 7;
     p.repairDelay = 0;
     p.fireCooldown = 0.35;
     p.fireHeld = false;
@@ -2658,7 +2658,7 @@
     drawSpriteRect(x + w * 0.5, y + h * 0.2112, w, h, bg, 0.900, l, false);
     if (p > 0) {
       const fillW = Math.max(1, w * p);
-      drawSpriteRect(x + fillW * 0.5, y + h * 0.5, fillW, Math.max(1, h - 2), fill || '#ffffff', 0.100, l + 0.01, false);
+      drawSpriteRect(x + fillW * 0.5, y + h * 0.5, fillW, Math.max(1, h - 2), fill || '#ffffff', 0.4, l + 0.01, false);
     }
   }
 
@@ -3497,18 +3497,26 @@
     w = Number.isFinite(w) ? w : 0;
     h = Number.isFinite(h) ? h : 0;
     const g = hudCtx.createLinearGradient(x, y, x, y + h);
-    g.addColorStop(0, 'rgba(8,12,24,0.76)');
-    g.addColorStop(1, 'rgba(8,12,24,0.48)');
+    g.addColorStop(0, 'rgba(3, 14, 44, 0.98)');
+    g.addColorStop(1, 'rgba(2, 8, 24, 0.78)');
     hudCtx.save();
     hudCtx.fillStyle = g;
-    hudCtx.strokeStyle = 'rgba(132, 188, 255, 0.94)';
-    hudCtx.lineWidth = 2;
-    hudCtx.shadowColor = 'rgba(132, 188, 255, 0.94)';
-    hudCtx.shadowBlur = 24;
+    hudCtx.shadowColor = 'rgba(40, 128, 255, 1)';
+    hudCtx.shadowBlur = 38;
     roundRect(x, y, w, h, 18);
     hudCtx.fill();
     hudCtx.shadowBlur = 0;
+    hudCtx.strokeStyle = 'rgba(64, 128, 255, 0.98)';
+    hudCtx.lineWidth = 2;
     hudCtx.stroke();
+    hudCtx.save();
+    hudCtx.strokeStyle = 'rgba(64, 128, 255, 0.98)';
+    hudCtx.lineWidth = 2;
+    hudCtx.shadowColor = 'rgba(64, 128, 255, 0.98)';
+    hudCtx.shadowBlur = 14;
+    roundRect(x, y, w, h, 18);
+    hudCtx.stroke();
+    hudCtx.restore();
     hudCtx.restore();
   }
 
@@ -3633,8 +3641,8 @@
     drawEnemyOverlay(e, rot);
     if (e.maxHp > 1 && e.hp > 0) {
       const barW = shipSize * 0.86;
-      const barH = Math.max(6, Math.round(shipSize * 0.08));
-      drawWorldBar(e.x - barW * 0.5, e.y - shipSize * 0.62, barW, barH, e.hp / e.maxHp, e.theme.accent2, 'rgba(0,0,0,0.35)', 17);
+      const barH = Math.max(6, Math.round(shipSize * 0.03));
+      drawWorldBar(e.x - barW * 0.5, e.y - shipSize * 0.62, barW, barH, e.hp / e.maxHp, '#ff9a4d', 'rgba(0,0,0,0.35)', 17);
     }
     if (e.hitFlash > 0) drawGlowCircle(e.x, e.y, e.r * 1.35, '#ffffff', 0.22, 18);
   }
@@ -3656,9 +3664,16 @@
     const tilt = respawning ? 0 : clamp(((state.input.right ? 1 : 0) - (state.input.left ? 1 : 0)) * 0.24 + (state.pointerActive ? (state.pointerX - p.x) / 280 : 0), -0.45, 0.45);
     const rot = -Math.PI * 0.25 + tilt;
     const glow = state.overdrive > 0 ? '#ffe38c' : '#8fd8ff';
+    const invulnActive = p.invuln > 0;
+    const auraColor = invulnActive ? '#bfe4ff' : glow;
     const flashAlpha = p.invuln > 0 ? 0.52 + 0.42 * (0.5 + 0.5 * Math.sin((3 - p.invuln) * 16 + state.musicStep * 0.9)) : 1;
     const bank = clamp(-tilt * 3.1, -1.57, 1.57);
     const bridge = window.__ShotEmUp3D;
+    const planeSize = 36 + (state.overdrive > 0 ? 4 : 0);
+    if (invulnActive) {
+      drawGlowCircle(p.x, p.y + bob, planeSize * 1.5, auraColor, 0.22, 22);
+      drawGlowCircle(p.x, p.y + bob, planeSize * 0.95, '#e9f8ff', 0.12, 10);
+    }
     if (bridge && bridge.enabled) {
       bridge.player = {
         x: p.x,
@@ -3668,13 +3683,13 @@
         tilt: tilt,
         bank: bank,
         alpha: flashAlpha,
+        invuln: p.invuln,
         damage: clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1),
         visible: !respawning || p.respawnTimer < 0.98
       };
       return;
     }
     const damage = clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1);
-    const planeSize = 36 + (state.overdrive > 0 ? 4 : 0);
     if (damage > 0.01) {
       const tex = getPlayerDamageTexture(planeSize, damage);
       pushSprite(tex, p.x, p.y + bob, planeSize * 2.1, planeSize * 2.1, rot, glow, flashAlpha, 4, false);
@@ -3859,13 +3874,6 @@
       hudCtx.shadowColor = theme.accent2;
       hudCtx.shadowBlur = 18;
       hudCtx.drawImage(titleArt, ix, iy, dw, dh);
-      hudCtx.shadowBlur = 0;
-    } else {
-      hudCtx.fillStyle = '#fff';
-      hudCtx.shadowColor = theme.accent2;
-      hudCtx.shadowBlur = 18;
-      hudCtx.font = '900 ' + Math.round(clamp(cardW * 0.12, 36, 66)) + 'px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText('THORIUM GAP', view.w * 0.5, y + cardH * 0.46);
       hudCtx.shadowBlur = 0;
     }
     hudCtx.fillStyle = '#fff';
