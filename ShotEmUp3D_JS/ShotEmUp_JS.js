@@ -113,6 +113,8 @@
   const ENEMY_SHIP_MIN_SIZE = 64;
   const ENEMY_SHIP_MAX_SIZE = 128;
   const enemyShipLoadKeys = new Set();
+  // Enemy glow colors are cached here after a one-time average-color pass on each loaded ship texture.
+  const enemyShipGlowColors = new Map();
   const bossArtLoadKeys = new Set();
 
   function enemyShipKey(levelNumber, shipIndex) {
@@ -121,6 +123,72 @@
 
   function enemyShipSource(levelNumber, shipIndex) {
     return 'Enemy_' + String(levelNumber).padStart(3, '0') + String(shipIndex).padStart(2, '0') + ENEMY_SHIP_VARIANT + '.png';
+  }
+
+  function averageImageColor(img) {
+    const canvas = document.createElement('canvas');
+    const w = Math.max(1, img.naturalWidth || img.width || 1);
+    const h = Math.max(1, img.naturalHeight || img.height || 1);
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return '#8fd8ff';
+    ctx.drawImage(img, 0, 0);
+    const sampleStep = 4;
+    const data = ctx.getImageData(0, 0, w, h).data;
+    let rs = 0, gs = 0, bs = 0, count = 0;
+    for (let y = 0; y < h; y += sampleStep) {
+      for (let x = 0; x < w; x += sampleStep) {
+        const idx = (y * w + x) * 4;
+        const a = data[idx + 3];
+        if (a < 24) continue;
+        rs += data[idx];
+        gs += data[idx + 1];
+        bs += data[idx + 2];
+        count++;
+      }
+    }
+    if (!count) return '#8fd8ff';
+    const r = Math.round(rs / count);
+    const g = Math.round(gs / count);
+    const b = Math.round(bs / count);
+    return brightHueFromRgb(r, g, b);
+  }
+
+  function brightHueFromRgb(r, g, b) {
+    const nr = r / 255;
+    const ng = g / 255;
+    const nb = b / 255;
+    const max = Math.max(nr, ng, nb);
+    const min = Math.min(nr, ng, nb);
+    const d = max - min;
+    let h = 0;
+    if (d > 0) {
+      if (max === nr) h = ((ng - nb) / d) % 6;
+      else if (max === ng) h = (nb - nr) / d + 2;
+      else h = (nr - ng) / d + 4;
+      h *= 60;
+      if (h < 0) h += 360;
+    }
+    const s = d === 0 ? 0 : d / (1 - Math.abs(2 * 0.5 - 1));
+    const finalS = clamp(0.78 + s * 0.18, 0.78, 0.98);
+    const finalL = 0.66;
+    return hslToHex(h, finalS, finalL);
+  }
+
+  function hslToHex(h, s, l) {
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const hp = ((h % 360) + 360) % 360 / 60;
+    const x = c * (1 - Math.abs((hp % 2) - 1));
+    let r = 0, g = 0, b = 0;
+    if (hp < 1) { r = c; g = x; }
+    else if (hp < 2) { r = x; g = c; }
+    else if (hp < 3) { g = c; b = x; }
+    else if (hp < 4) { g = x; b = c; }
+    else if (hp < 5) { r = x; b = c; }
+    else { r = c; b = x; }
+    const m = l - c / 2;
+    return '#' + [r + m, g + m, b + m].map(v => Math.round(clamp(v * 255, 0, 255)).toString(16).padStart(2, '0')).join('');
   }
 
   function ensureEnemyShipTexture(levelNumber, shipIndex) {
@@ -132,6 +200,7 @@
     img.onload = function () {
       try {
         render.textures.set(key, createTextureFromCanvas(img));
+        enemyShipGlowColors.set(key, averageImageColor(img));
       } finally {
         enemyShipLoadKeys.delete(key);
       }
@@ -159,6 +228,15 @@
       ensureEnemyShipTexture(fallbackLevel, shipIndex);
     }
     return null;
+  }
+
+  function getEnemyShipGlowColor(levelNumber, shipIndex, fallbackTheme) {
+    const key = enemyShipKey(levelNumber, shipIndex);
+    const glow = enemyShipGlowColors.get(key);
+    if (glow) return glow;
+    ensureEnemyShipTexture(levelNumber, shipIndex);
+    const fallback = (fallbackTheme && (fallbackTheme.glow || fallbackTheme.accent2 || fallbackTheme.accent)) || '#8fd8ff';
+    return fallback;
   }
 
   function getEnemyShipRenderSize(levelNumber, shipIndex) {
@@ -1700,7 +1778,7 @@
     p.respawnTargetY = a.bottom - 92;
     p.x = p.respawnStartX;
     p.y = p.respawnStartY;
-    p.invuln = 7;
+    p.invuln = 8;
     p.repairDelay = 0;
     p.fireCooldown = 0.35;
     p.fireHeld = false;
@@ -3594,8 +3672,10 @@
     const levelNumber = e.shipLevel || (state.levelIndex + 1);
     const shipIndex = e.shipIndex || 0;
     const texture = getEnemyShipTexture(levelNumber, shipIndex);
+    const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme);
     const glowRadius = Math.max(14, shipSize * 0.42 * 0.75);
-    drawGlowCircle(e.x, e.y, glowRadius, p.glow, 0.35 * 0.75, 18 * 0.75);
+    drawGlowCircle(e.x, e.y, glowRadius * 1.25, shipGlow, 0.92, 22);
+    drawGlowCircle(e.x, e.y, glowRadius * 0.68, shipGlow, 0.78, 12);
     if (texture) {
       drawTextureRect(texture, e.x, e.y, shipSize, shipSize, { rot: rot, alpha: alpha, layer: 18 });
     } else {
