@@ -751,9 +751,9 @@
 
   const WEAPONS = [
     { name: 'DART', color: '#00ffff' },
-    { name: 'TWIN', color: '#00ff66' },
-    { name: 'FAN', color: '#ffe600' },
-    { name: 'ROCKET', color: '#005bff' },
+    { name: 'TWIN', color: '#00ff00' },
+    { name: 'FAN', color: '#ffFF00' },
+    { name: 'ROCKET', color: '#0000ff' },
     { name: 'BEAM', color: '#ff2e2e' }
   ];
   const WEAPON_PICKUP_WEIGHTS = [
@@ -869,6 +869,19 @@
   if (shipBridge) {
     shipBridge.enabled = true;
     shipBridge.advancedModelEnabled = !!state.settings.loadAdvanced3DShipModel;
+    shipBridge.debugGiveWeapon = function (name, tier) {
+      const idx = WEAPONS.findIndex(function (w) { return w.name === String(name).toUpperCase(); });
+      if (idx < 0) return false;
+      const p = state.player;
+      if (!Array.isArray(p.weaponTiers) || p.weaponTiers.length !== WEAPONS.length) p.weaponTiers = Array(WEAPONS.length).fill(1);
+      p.weaponMode = idx;
+      p.weaponTiers[idx] = clamp(Number.isFinite(tier) ? tier : 5, 1, 5);
+      p.weaponTier = p.weaponTiers[idx];
+      state.banner = WEAPONS[idx].name + ' ' + WEAPON_TIER_LABELS[p.weaponTier - 1];
+      state.bannerSub = 'Debug weapon grant.';
+      state.bannerTimer = 1.2;
+      return true;
+    };
   }
 
   const audio = {
@@ -2073,24 +2086,21 @@
       if (tier >= 5) spawnBullet('player', x, y - 10, 0, -950, { r: 6, color: color, damage: dmg + 2, kind: 'dart', pierce: 1, life: 3.2 });
       sfx('fan');
     } else if (mode === 2) {
-      const spread = tier >= 5 ? 0.55 : tier >= 4 ? 0.48 : tier >= 3 ? 0.42 : tier >= 2 ? 0.30 : 0.20;
-      const shots = tier >= 5 ? 9 : tier >= 4 ? 7 : tier >= 3 ? 5 : 3;
+      const spread = tier >= 5 ? 0.52 : tier >= 4 ? 0.44 : tier >= 3 ? 0.38 : tier >= 2 ? 0.28 : 0.20;
+      const shots = tier >= 5 ? 7 : tier >= 4 ? 6 : tier >= 3 ? 5 : 3;
       for (let i = 0; i < shots; i++) { const t = shots === 1 ? 0.5 : i / (shots - 1), a = lerp(-spread, spread, t) - Math.PI * 0.5; spawnBullet('player', x + Math.cos(a) * 2, y + Math.sin(a) * 2, Math.cos(a) * 804, Math.sin(a) * 804, { r: 6, color: color, damage: dmg, kind: 'fan', life: 3.5 }); }
-      if (tier >= 2) spawnBullet('player', x, y - 8, 0, -940, { r: 5, color: color, damage: dmg, kind: 'fan', pierce: 1, life: 3.1 });
-      if (tier >= 4) spawnBullet('player', x, y - 6, 0, -1040, { r: 6, color: color, damage: dmg + 1, kind: 'fan', pierce: 1, life: 3.0 });
-      if (tier >= 5) spawnBullet('player', x, y - 14, 0, -1120, { r: 7, color: color, damage: dmg + 2, kind: 'fan', pierce: 2, life: 2.8 });
       sfx('fan');
     } else if (mode === 3) {
-      spawnBullet('player', x, y - 16, rand(-36, 36), -700, { r: 8, color: color, damage: dmg + 1, kind: 'rocket', pierce: 1, life: 4.6, homing: tier >= 2 ? 0.85 : 0.4, turn: 4.5 });
-      if (tier >= 2) {
-        spawnBullet('player', x - 12, y - 12, -48, -685, { r: 7, color: color, damage: dmg, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.35, turn: 4.2 });
-        spawnBullet('player', x + 12, y - 12, 48, -685, { r: 7, color: color, damage: dmg, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.35, turn: 4.2 });
-      }
-      if (tier >= 4) {
-        spawnBullet('player', x - 22, y - 12, -70, -690, { r: 7, color: color, damage: dmg + 1, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
-        spawnBullet('player', x + 22, y - 12, 70, -690, { r: 7, color: color, damage: dmg + 1, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
-      }
-      if (tier >= 5) spawnBullet('player', x, y - 20, 0, -760, { r: 9, color: color, damage: dmg + 2, kind: 'rocket', pierce: 2, life: 4.8, homing: 0.95, turn: 4.8 });
+      spawnBullet('player', x, y - 16, rand(-36, 36), -700, { r: 8, color: color, damage: 1, kind: 'rocket', pierce: 1, life: 4.6, homing: tier >= 2 ? 0.85 : 0.4, turn: 4.5 });
+        if (tier >= 2) {
+        spawnBullet('player', x - 12, y - 12, -48, -685, { r: 7, color: color, damage: 1, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.35, turn: 4.2 });
+        spawnBullet('player', x + 12, y - 12, 48, -685, { r: 7, color: color, damage: 1, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.35, turn: 4.2 });
+        }
+        if (tier >= 4) {
+        spawnBullet('player', x - 22, y - 12, -70, -690, { r: 7, color: color, damage: 1, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
+        spawnBullet('player', x + 22, y - 12, 70, -690, { r: 7, color: color, damage: 1, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
+        }
+      if (tier >= 5) spawnBullet('player', x, y - 20, 0, -760, { r: 9, color: color, damage: 1, kind: 'rocket', pierce: 2, life: 4.8, homing: 0.95, turn: 4.8 });
       sfx('rocket');
     } else {
       spawnBullet('player', x, y - 18, 0, -1180, { r: 10, color: color, damage: dmg + 1, kind: 'beam', pierce: 4 + tier, life: 2.2 });
@@ -2168,7 +2178,7 @@
         p.weaponTier = 1;
       }
       state.banner = WEAPONS[p.weaponMode].name + ' ' + WEAPON_TIER_LABELS[p.weaponTier - 1];
-      state.bannerSub = 'Weapon upgraded.';
+      state.bannerSub = sameFamily ? 'Weapon family advanced.' : 'Weapon family switched.';
     } else if (type === 'rapid') {
       p.rapidTimer = Math.max(p.rapidTimer, 8);
       state.banner = 'RAPID FIRE';
@@ -2314,7 +2324,17 @@
       p.bombs = Math.max(0, p.bombs - 1);
       if (Array.isArray(p.weaponTiers) && p.weaponTiers.length === WEAPONS.length) {
         p.weaponTiers[p.weaponMode] = Math.max(1, (p.weaponTiers[p.weaponMode] || 1) - 1);
-        p.weaponTier = p.weaponTiers[p.weaponMode];
+        let bestMode = 0;
+        let bestTier = p.weaponTiers[0] || 1;
+        for (let i = 1; i < p.weaponTiers.length; i++) {
+          const tier = p.weaponTiers[i] || 1;
+          if (tier > bestTier) {
+            bestTier = tier;
+            bestMode = i;
+          }
+        }
+        p.weaponMode = bestMode;
+        p.weaponTier = bestTier;
       } else {
         p.weaponTier = Math.max(1, p.weaponTier - 1);
       }
@@ -3698,11 +3718,12 @@
       const ang = Math.atan2(b.vy, b.vx);
       const beamBody = b.kind === 'beam';
       const fanBody = b.kind === 'fan';
+      const rocketBody = b.kind === 'rocket';
       const bodyW = beamBody ? trail * 1.6 : trail;
       const bodyH = beamBody ? (b.team === 'player' ? 4.5 : 5.2) : (b.team === 'player' ? 4 : 5);
-      const glow1 = beamBody ? b.r * 3.0 : b.r * 2.2;
-      const glow2 = beamBody ? b.r * 1.7 : b.r * 1.15;
-      const glow3 = beamBody ? b.r * 1.15 : b.r;
+      const glow1 = beamBody ? b.r * 3.0 : rocketBody ? b.r * 1.85 : b.r * 2.2;
+      const glow2 = beamBody ? b.r * 1.7 : rocketBody ? b.r * 0.92 : b.r * 1.15;
+      const glow3 = beamBody ? b.r * 1.15 : rocketBody ? b.r * 0.52 : b.r;
       if (beamBody) {
         drawSpriteRect(b.x - Math.cos(ang) * bodyW * 0.5, b.y - Math.sin(ang) * bodyW * 0.5, bodyW, bodyH, b.color, b.team === 'player' ? 0.72 : 0.65, 2, true, ang);
         drawGlowCircle(b.x, b.y, glow1, b.color, b.team === 'player' ? 0.20 : 0.18, 20);
@@ -3712,13 +3733,18 @@
         drawGlowCircle(b.x, b.y, b.r * 2.2, b.color, b.team === 'player' ? 0.20 : 0.18, 18);
         drawGlowCircle(b.x, b.y, b.r * 1.15, b.color, b.team === 'player' ? 0.45 : 0.38, 10);
         drawGlowCircle(b.x, b.y, b.r, b.color, b.team === 'player' ? 0.95 : 0.85, 6);
+      } else if (rocketBody) {
+        drawSpriteRect(b.x - Math.cos(ang) * bodyW * 0.5, b.y - Math.sin(ang) * bodyW * 0.5, bodyW, bodyH, b.color, b.team === 'player' ? 0.72 : 0.65, 2, true, ang);
+        drawGlowCircle(b.x, b.y, glow1, '#0038ff', b.team === 'player' ? 0.12 : 0.10, 12);
+        drawGlowCircle(b.x, b.y, glow2, '#004cff', b.team === 'player' ? 0.18 : 0.14, 8);
+        drawGlowCircle(b.x, b.y, glow3, '#005fff', b.team === 'player' ? 0.24 : 0.18, 5);
       } else {
         drawSpriteRect(b.x - Math.cos(ang) * bodyW * 0.5, b.y - Math.sin(ang) * bodyW * 0.5, bodyW, bodyH, b.color, b.team === 'player' ? 0.72 : 0.65, 2, true, ang);
         drawGlowCircle(b.x, b.y, glow1, b.color, b.team === 'player' ? 0.20 : 0.18, 18);
         drawGlowCircle(b.x, b.y, glow2, b.color, b.team === 'player' ? 0.45 : 0.38, 10);
         drawGlowCircle(b.x, b.y, glow3, b.color, b.team === 'player' ? 0.95 : 0.85, 6);
       }
-      if (b.kind === 'rocket') drawSpriteEmoji(E.rocket, b.x, b.y, 14, { rot: ang + Math.PI * 0.25, alpha: 0.95, layer: 3, lighter: true });
+      if (rocketBody) drawSpriteEmoji(E.rocket, b.x, b.y, 14, { rot: ang + Math.PI * 0.25, alpha: 0.95, layer: 3, lighter: true, fill: '#006dff' });
     }
     for (let i = 0; i < state.bullets.length; i++) drawShot(state.bullets[i]);
     for (let i = 0; i < state.enemyBullets.length; i++) drawShot(state.enemyBullets[i]);
