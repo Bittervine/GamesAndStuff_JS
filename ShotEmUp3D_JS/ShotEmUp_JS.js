@@ -17,6 +17,7 @@
   const difficultyValue = document.getElementById('difficultyValue');
   const difficultyButtons = Array.from(document.querySelectorAll('[data-difficulty]'));
   const loadAdvancedShipInput = document.getElementById('loadAdvancedShip');
+  const lowEndModeInput = document.getElementById('lowEndMode');
 
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
   let currentDt = 0;
@@ -813,7 +814,8 @@
       sfxVolume: clamp(loadNum('ShotEmUp_JS_sfxVolume', 0.8), 0, 1),
       musicVolume: clamp(loadNum('ShotEmUp_JS_musicVolume', 0), 0, 1),
       difficulty: clamp(Math.round(loadNum('ShotEmUp_JS_difficulty', 1)), 0, 2),
-      loadAdvanced3DShipModel: loadBool('ShotEmUp_JS_loadAdvanced3DShipModel', false)
+      loadAdvanced3DShipModel: loadBool('ShotEmUp_JS_loadAdvanced3DShipModel', false),
+      lowEndMode: loadBool('ShotEmUp_JS_lowEndMode', false)
     },
     lives: 3,
     combo: 0,
@@ -869,6 +871,7 @@
   if (shipBridge) {
     shipBridge.enabled = true;
     shipBridge.advancedModelEnabled = !!state.settings.loadAdvanced3DShipModel;
+    shipBridge.lowEndMode = !!state.settings.lowEndMode;
     shipBridge.debugGiveWeapon = function (name, tier) {
       const idx = WEAPONS.findIndex(function (w) { return w.name === String(name).toUpperCase(); });
       if (idx < 0) return false;
@@ -1030,6 +1033,7 @@
     saveNum('ShotEmUp_JS_musicVolume', state.settings.musicVolume);
     saveNum('ShotEmUp_JS_difficulty', state.settings.difficulty);
     saveBool('ShotEmUp_JS_loadAdvanced3DShipModel', state.settings.loadAdvanced3DShipModel);
+    saveBool('ShotEmUp_JS_lowEndMode', state.settings.lowEndMode);
     saveNum('ShotEmUp_JS_highScore', state.highScore);
   }
 
@@ -1040,6 +1044,8 @@
     if (musicVolumeValue) musicVolumeValue.textContent = Math.round(state.settings.musicVolume * 100) + '%';
     if (difficultyValue) difficultyValue.textContent = currentDifficulty().label;
     if (loadAdvancedShipInput) loadAdvancedShipInput.checked = !!state.settings.loadAdvanced3DShipModel;
+    if (lowEndModeInput) lowEndModeInput.checked = !!state.settings.lowEndMode;
+    if (loadAdvancedShipInput) loadAdvancedShipInput.disabled = !!state.settings.lowEndMode;
     for (let i = 0; i < difficultyButtons.length; i++) {
       const btn = difficultyButtons[i];
       const idx = Number(btn.getAttribute('data-difficulty'));
@@ -1071,6 +1077,7 @@
   }
 
   function setAdvancedShipLoading(enabled) {
+    if (state.settings.lowEndMode && enabled) return;
     state.settings.loadAdvanced3DShipModel = !!enabled;
     saveSettings();
     syncSettingsUi();
@@ -1082,6 +1089,25 @@
       else if (enabled && typeof bridge.loadAdvancedShipModel === 'function') bridge.loadAdvancedShipModel();
     }
     hint(enabled ? 'Advanced 3D ship model enabled.' : 'Advanced 3D ship model disabled.', 1.6);
+  }
+
+  function setLowEndMode(enabled) {
+    state.settings.lowEndMode = !!enabled;
+    if (state.settings.lowEndMode && state.settings.loadAdvanced3DShipModel) {
+      state.settings.loadAdvanced3DShipModel = false;
+      const bridge = window.__ShotEmUp3D;
+      if (bridge) {
+        bridge.enabled = true;
+        bridge.advancedModelEnabled = false;
+        if (typeof bridge.reinitializeShip === 'function') bridge.reinitializeShip(false);
+      }
+    }
+    saveSettings();
+    syncSettingsUi();
+    const bridge = window.__ShotEmUp3D;
+    if (bridge) bridge.lowEndMode = !!enabled;
+    window.dispatchEvent(new Event('resize'));
+    hint(enabled ? 'Low end mode enabled.' : 'Low end mode disabled.', 1.6);
   }
 
   function openSettings() {
@@ -1492,7 +1518,14 @@
   }
 
   function ensureStarfield() {
-    const desired = Math.max(480, Math.min(880, Math.round((view.w * view.h) / 3000)));
+    const lowEnd = !!state.settings.lowEndMode;
+    if (lowEnd) {
+      state.starfield = [];
+      return;
+    }
+    const desired = lowEnd
+      ? Math.max(240, Math.min(520, Math.round((view.w * view.h) / 5200)))
+      : Math.max(480, Math.min(880, Math.round((view.w * view.h) / 3000)));
     if (state.starfield.length === desired) return;
     const stars = [];
     for (let i = 0; i < desired; i++) {
@@ -1510,19 +1543,21 @@
   }
 
   function drawStarfield() {
+    drawSpriteRect(view.w * 0.5, view.h * 0.5, view.w, view.h, '#02040a', 1, -120, false);
+    if (state.settings.lowEndMode) return;
     ensureStarfield();
     state.starfieldScroll += 0.012;
-    drawSpriteRect(view.w * 0.5, view.h * 0.5, view.w, view.h, '#02040a', 1, -120, false);
+    const lowEnd = !!state.settings.lowEndMode;
     for (const star of state.starfield) {
       const y = (star.y + state.starfieldScroll * star.speed) % 1.08;
       const px = star.x * view.w;
       const py = y * view.h;
       const tw = 0.7 + Math.sin(state.levelClock * 2.1 + star.tw) * 0.3;
-      const alpha = clamp(star.a * tw * 0.75, 0.06, 1);
-      const size = star.r * (star.tint > 0.86 ? 1.35 : 1);
+      const alpha = clamp(star.a * tw * (lowEnd ? 0.58 : 0.75), 0.06, 1);
+      const size = star.r * (star.tint > 0.86 ? 1.35 : 1) * (lowEnd ? 0.88 : 1);
       const color = star.tint < 0.64 ? '#ffffff' : (star.tint < 0.84 ? '#dfefff' : '#f2e3a8');
-      drawGlowCircle(px, py, size, color, alpha, size * 1.4);
-      if (size > 1.25) drawSpriteRect(px, py, size * 0.6, size * 2.1, color, alpha * 0.35, -119, true);
+      drawGlowCircle(px, py, size, color, alpha, size * (lowEnd ? 1.05 : 1.4));
+      if (!lowEnd && size > 1.25) drawSpriteRect(px, py, size * 0.6, size * 2.1, color, alpha * 0.35, -119, true);
     }
   }
 
@@ -2126,7 +2161,7 @@
     state.bannerTimer = 0;
     state.flash = Math.max(state.flash, 0.25);
     sfx('overdrive');
-    hint('Combo 10: OVERDRIVE ACTIVE!!', 1.4);
+    hint('Combo 10: OVERDRIVE ACTIVE!', 1.4);
   }
 
   function findRocketTarget(b) {
@@ -3875,13 +3910,17 @@
     const texture = getEnemyShipTexture(levelNumber, shipIndex);
     const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme);
     const glowRadius = Math.max(14, shipSize * 0.42 * 0.75);
-    drawGlowCircle(e.x, e.y, glowRadius * 1.25, shipGlow, 0.92, 22);
-    drawGlowCircle(e.x, e.y, glowRadius * 0.68, shipGlow, 0.78, 12);
+    if (!state.settings.lowEndMode) {
+      drawGlowCircle(e.x, e.y, glowRadius * 1.25, shipGlow, 0.92, 22);
+      drawGlowCircle(e.x, e.y, glowRadius * 0.68, shipGlow, 0.78, 12);
+    }
     if (texture) {
       drawTextureRect(texture, e.x, e.y, shipSize, shipSize, { rot: rot, alpha: alpha, layer: 18 });
     } else {
-      drawGlowCircle(e.x, e.y, shipSize * 0.26, p.base, 0.18, 10);
-      drawGlowCircle(e.x, e.y, shipSize * 0.12, p.base, alpha * 0.14, 8);
+      if (!state.settings.lowEndMode) {
+        drawGlowCircle(e.x, e.y, shipSize * 0.26, p.base, 0.18, 10);
+        drawGlowCircle(e.x, e.y, shipSize * 0.12, p.base, alpha * 0.14, 8);
+      }
     }
   }
 
@@ -3892,9 +3931,11 @@
     const levelNumber = b.shipLevel || (state.levelIndex + 1);
     const texture = getBossTexture(levelNumber);
     const size = Math.max(208, getEnemyShipRenderSize(levelNumber, b.shipIndex || 0) * 2.75);
-    drawGlowCircle(b.x, b.y, r * 2.1, p.glow, 0.18, 24);
-    drawGlowCircle(b.x, b.y, r * 1.1, p.base, 0.18, 12);
-    drawGlowCircle(b.x, b.y, r * 0.4, p.base, 0.24, 8);
+    if (!state.settings.lowEndMode) {
+      drawGlowCircle(b.x, b.y, r * 2.1, p.glow, 0.18, 24);
+      drawGlowCircle(b.x, b.y, r * 1.1, p.base, 0.18, 12);
+      drawGlowCircle(b.x, b.y, r * 0.4, p.base, 0.24, 8);
+    }
     if (texture) {
       const w = b.facingRight ? -size : size;
       drawTextureRect(texture, b.x, b.y, w, size, { rot: rot, alpha: 0.98, layer: 28 });
@@ -3902,11 +3943,11 @@
   }
 
   function drawEnemyOverlay(e, rot) {
-    if (e.hitFlash > 0) drawGlowCircle(e.x, e.y, e.r * 1.2, '#ffffff', 0.16, 19);
+    if (!state.settings.lowEndMode && e.hitFlash > 0) drawGlowCircle(e.x, e.y, e.r * 1.2, '#ffffff', 0.16, 19);
   }
 
   function drawBossOverlay(b) {
-    if (b.hitFlash > 0) drawGlowCircle(b.x, b.y, b.r * 1.35, '#ffffff', 0.16, 29);
+    if (!state.settings.lowEndMode && b.hitFlash > 0) drawGlowCircle(b.x, b.y, b.r * 1.35, '#ffffff', 0.16, 29);
   }
 
   function drawEnemy(e) {
@@ -3917,7 +3958,7 @@
     const levelNumber = e.shipLevel || (state.levelIndex + 1);
     const shipIndex = e.shipIndex || 0;
     const shipSize = e.shipSize || getEnemyShipRenderSize(levelNumber, shipIndex);
-    if (e.kind === 'spinner') {
+    if (!state.settings.lowEndMode && e.kind === 'spinner') {
       for (let i = 0; i < 5; i++) {
         const a = e.age * 2.2 + i * (TAU / 5);
         drawGlowCircle(e.x + Math.cos(a) * (e.r + 6), e.y + Math.sin(a) * (e.r + 6), 2.2, e.theme.accent2, 0.55, 8);
@@ -3936,11 +3977,13 @@
   function drawBoss(b) {
     if (!b) return;
     const glow = b.color || '#fff';
-    drawGlowCircle(b.x, b.y, b.r * 2.4, glow, 0.24, 28);
-    drawGlowCircle(b.x, b.y, b.r * 1.2, '#fff', 0.08, 20);
+    if (!state.settings.lowEndMode) {
+      drawGlowCircle(b.x, b.y, b.r * 2.4, glow, 0.24, 28);
+      drawGlowCircle(b.x, b.y, b.r * 1.2, '#fff', 0.08, 20);
+    }
     drawBossBody(b);
     drawBossOverlay(b);
-    if (b.hitFlash > 0) drawGlowCircle(b.x, b.y, b.r * 1.45, '#ffffff', 0.18, 24);
+    if (!state.settings.lowEndMode && b.hitFlash > 0) drawGlowCircle(b.x, b.y, b.r * 1.45, '#ffffff', 0.18, 24);
   }
 
   function drawPlayer() {
@@ -3957,11 +4000,11 @@
     const bridge = window.__ShotEmUp3D;
     const planeSize = 36 + (state.overdrive > 0 ? 4 : 0);
     const shieldRing = p.r;
-    if (invulnActive) {
+    if (invulnActive && !state.settings.lowEndMode) {
       drawGlowCircle(p.x, p.y + bob, planeSize * 1.5, auraColor, 0.22, 22);
       drawGlowCircle(p.x, p.y + bob, planeSize * 0.95, '#e9f8ff', 0.12, 10);
     }
-    if (p.shield > 0) {
+    if (p.shield > 0 && !state.settings.lowEndMode) {
       hudCtx.save();
       hudCtx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < p.shield; i++) {
@@ -4167,7 +4210,7 @@
     const cardW = clamp(view.w * 0.86, 320, 1040);
     const cardH = clamp(view.h * 0.62, 300, 700);
     const x = (view.w - cardW) * 0.5;
-    const y = Math.max(12, (view.h - view.controlsH - cardH) * 0.26);
+    const y = Math.max(10, (view.h - view.controlsH - cardH) * 0.22);
     hudCtx.save();
     hudCtx.textAlign = 'center';
     hudCtx.textBaseline = 'middle';
@@ -4421,6 +4464,11 @@
   if (loadAdvancedShipInput) {
     loadAdvancedShipInput.addEventListener('change', function (ev) {
       setAdvancedShipLoading(ev.target.checked);
+    });
+  }
+  if (lowEndModeInput) {
+    lowEndModeInput.addEventListener('change', function (ev) {
+      setLowEndMode(ev.target.checked);
     });
   }
   for (let i = 0; i < difficultyButtons.length; i++) {
