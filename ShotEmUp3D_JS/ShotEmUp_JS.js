@@ -3762,10 +3762,18 @@
     }
     if (p.shield > 0) {
       hudCtx.save();
-      hudCtx.strokeStyle = 'rgba(152, 226, 255, 0.22)';
-      hudCtx.shadowColor = 'rgba(118, 196, 255, 0.38)';
-      hudCtx.shadowBlur = 8;
-      hudCtx.lineWidth = p.shield > 1 ? 2.5 : 1.5;
+      hudCtx.globalCompositeOperation = 'lighter';
+      hudCtx.strokeStyle = 'rgba(89, 166, 255, 0.05)';
+      hudCtx.lineWidth = p.shield > 1 ? 7 : 5;
+      hudCtx.shadowColor = 'rgba(126, 196, 255, 0.14)';
+      hudCtx.shadowBlur = 24;
+      hudCtx.beginPath();
+      hudCtx.arc(p.x, p.y + bob, shieldRing, 0, TAU);
+      hudCtx.stroke();
+      hudCtx.strokeStyle = 'rgba(211, 240, 255, 0.08)';
+      hudCtx.lineWidth = p.shield > 1 ? 2 : 1.4;
+      hudCtx.shadowColor = 'rgba(211, 240, 255, 0.10)';
+      hudCtx.shadowBlur = 14;
       hudCtx.beginPath();
       hudCtx.arc(p.x, p.y + bob, shieldRing, 0, TAU);
       hudCtx.stroke();
