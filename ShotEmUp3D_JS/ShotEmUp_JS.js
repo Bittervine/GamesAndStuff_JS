@@ -2301,9 +2301,12 @@
 
   function damageBoss(b, damage, fromBomb) {
     if (!b || b.dead) return;
-    b.hp -= damage;
+    const spawnShield = clamp((b.age || 0) / 10, 0, 1);
+    const actualDamage = damage * spawnShield;
+    if (actualDamage <= 0) return;
+    b.hp -= actualDamage;
     b.hitFlash = 0.12;
-    burst(b.x, b.y, b.color, 8 + Math.min(14, damage), 190 + damage * 15, 7, 'spark');
+    burst(b.x, b.y, b.color, 8 + Math.min(14, actualDamage), 190 + actualDamage * 15, 7, 'spark');
     if (b.hp <= 0) {
       b.dead = true;
       state.boss = null;
@@ -3937,7 +3940,7 @@
       drawGlowCircle(b.x, b.y, r * 0.4, p.base, 0.24, 8);
     }
     if (texture) {
-      const w = b.facingRight ? -size : size;
+      const w = levelNumber <= 6 ? size : (b.facingRight ? -size : size);
       drawTextureRect(texture, b.x, b.y, w, size, { rot: rot, alpha: 0.98, layer: 28 });
     }
   }
