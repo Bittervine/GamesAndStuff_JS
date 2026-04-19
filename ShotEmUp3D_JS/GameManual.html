@@ -134,9 +134,12 @@
     </ul>
 
     <h2>Weapons</h2>
-    <p>The game has five weapon families. Each family has five tiers: <code>I</code>, <code>II</code>, <code>III</code>, <code>IIII</code>, and <code>V</code>.</p>
-    <p>Base projectile damage is tier-based: on Easy, tier I does 1 damage, tier II does 2 damage, tier III does 3 damage, tier IIII does 4 damage, and tier V does 5 damage. Medium halves this. Hard quarters this. Rocket projectiles then deal one quarter of that tier damage.</p>
-
+    <ul>
+     <li>The game has five weapon families. Each weapon has five tiers: <code>I</code>, <code>II</code>, <code>III</code>, <code>IIII</code>, and <code>V</code>.</li>
+     <li>Picking up a wrench for current weapon upgrades that to next tier. At <code>V</code>, another weapon may be updated instead (up to <code>III</code>).</li>
+     <li>Picking up a wrench for a different weapon switches to that wepon.</li>     
+     <li>When a ship is lost, the current weapon loses one tier. The new ship use your strongest weapon.</li>
+    </ul>
     <h3>Dart</h3>
     <p>Color: cyan. Style: fast forward shots.</p>
     <table>
@@ -214,35 +217,13 @@
 
     <h2>Weapon Upgrades</h2>
     <ul>
-      <li>Picking up a wrench for the same weapon family upgrades that family by one tier.</li>
-      <li>Picking up a wrench for a different family switches to that family and restores the last tier you earned for that family.</li>
-      <li>Each weapon family remembers its own tier separately.</li>
-      <li>If you have never used a family before, it starts at <code>I</code>.</li>
-      <li>If a family is already at <code>V</code> and you pick up that same family again, one random weapon family is rolled.</li>
-      <li>If the rolled family is at <code>I</code> or <code>II</code>, it gains one tier.</li>
-      <li>If the rolled family is already <code>III</code> or higher, the overflow becomes a small score bonus.</li>
     </ul>
 
     <h2>Difficulty</h2>
     <ul>
-      <li>Easy: reference damage model.</li>
-      <li>Medium: player shots do half the Easy damage.</li>
-      <li>Hard: player shots do one quarter the Easy damage.</li>
-    </ul>
-
-    <h2>Weapon Wrench Drop Rate</h2>
-    <ul>
-      <li>Wrench drops are heavily boosted in the early levels and become rarer in later levels.</li>
-      <li>Level 5 is the baseline rate.</li>
-      <li>Levels 1 to 4 are above baseline, while levels 6 to 13 taper down below baseline.</li>
-    </ul>
-
-    <h2>Weapon Loss On Death</h2>
-    <ul>
-      <li>When a life is lost, only the currently selected weapon family loses one tier.</li>
-      <li>After that penalty is applied, the game switches you to the weapon family with the highest stored tier.</li>
-      <li>The other weapon families keep their stored tiers.</li>
-      <li>If several families are tied for highest, the first one in the weapon list is chosen.</li>
+      <li>Easy: lighter enemy health, slower enemies, lower spawn pressure, and full player damage.</li>
+      <li>Normal: Player does two thirds the damage as on Easy. A little more enemies too.</li>
+      <li>Hard: tougher, faster, and more crowded enemy waves, while player shots do one third of the Easy damage.</li>
     </ul>
 
     <h2>Combo And Overdrive</h2>
@@ -259,17 +240,10 @@
     <h2>Other Pickups</h2>
     <ul>
       <li><code>Rapid Fire</code>: temporarily lowers shot delay.</li>
-      <li><code>Shield</code>: adds a shield point, up to three. Each protects from a single hit and is then consumed. If you already have three shields, the pickup turns into a small score bonus instead.</li>
+      <li><code>Shield</code>: adds a shield point, up to three. Each protects from a single hit and is then consumed.</li>
       <li><code>Bomb</code>: adds a bomb, up to four.</li>
       <li><code>Magnet</code>: pulls pickups toward the player for a short time.</li>
       <li><code>Score</code>: bonus points.</li>
-    </ul>
-
-    <h2>Lives And Respawn</h2>
-    <ul>
-      <li>Losing a ship costs one life.</li>
-      <li>Respawn takes a short time.</li>
-      <li>The ship gets a temporary invulnerability window after respawn.</li>
     </ul>
   </main>
 </body>
