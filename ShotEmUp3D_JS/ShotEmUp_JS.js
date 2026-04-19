@@ -4167,7 +4167,7 @@
     const cardW = clamp(view.w * 0.86, 320, 1040);
     const cardH = clamp(view.h * 0.62, 300, 700);
     const x = (view.w - cardW) * 0.5;
-    const y = Math.max(16, (view.h - view.controlsH - cardH) * 0.34);
+    const y = Math.max(12, (view.h - view.controlsH - cardH) * 0.26);
     hudCtx.save();
     hudCtx.textAlign = 'center';
     hudCtx.textBaseline = 'middle';
