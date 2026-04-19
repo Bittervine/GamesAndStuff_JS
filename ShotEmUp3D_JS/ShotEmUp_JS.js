@@ -2254,7 +2254,7 @@
           hint('Combo +' + state.combo, 0.5);
         }
         if (state.combo % 5 === 0) sfx('combo');
-        if (state.combo >= 9) { state.combo = 0; activateOverdrive(); }
+        if (state.combo >= 10) { state.combo = 0; activateOverdrive(); }
       }
       if (e.kind === 'spinner') ringBullets(e.x, e.y, 10, 180, 1, e.theme.accent2, 'enemy');
       if (e.kind === 'elite' || e.score > 200) maybeDropPickup(e.x, e.y, true, chance(0.35) ? 'shield' : null);
