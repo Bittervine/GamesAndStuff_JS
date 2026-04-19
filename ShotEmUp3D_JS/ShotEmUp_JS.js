@@ -2363,7 +2363,11 @@
       e.age += dt;
       e.fireCooldown -= dt;
       if (e.hitFlash > 0) e.hitFlash -= dt;
+      const prevX = e.x;
+      const prevY = e.y;
+      let entering = false;
       if (e.entry) {
+        entering = true;
         const en = e.entry;
         en.age = (en.age || 0) + dt;
         const mirror = en.mirror || 1;
@@ -2382,30 +2386,31 @@
         e.x = curveX + en.normalX * bend + sway * en.swirl;
         e.y = curveY + en.normalY * bend + swirl * (en.swirl * 0.62) + pull * -18;
         e.wobble += dt * 0.03;
-        e.flightAngle = Math.atan2(en.targetY - e.y, tx - e.x);
-        if (t < 1) continue;
-        e.entry = null;
-        e.x = tx;
-        e.y = en.targetY;
-        e.wobble += en.phase;
+        if (t >= 1) {
+          e.entry = null;
+          e.x = tx;
+          e.y = en.targetY;
+          e.wobble += en.phase;
+          entering = false;
+        }
       }
       const beforeX = e.x;
       const beforeY = e.y;
-      if (e.kind === 'drifter') {
+      if (!entering && e.kind === 'drifter') {
         e.y += e.vy * dt;
         e.x += Math.sin(e.age * 3 + e.wobble) * 18 * dt;
-      } else if (e.kind === 'zigzag') {
+      } else if (!entering && e.kind === 'zigzag') {
         e.y += e.vy * dt;
         e.x += e.dir * (e.vx || 60) * dt;
         if (e.x < a.left || e.x > a.right) { e.dir *= -1; e.x = clamp(e.x, a.left, a.right); }
-      } else if (e.kind === 'swarm') {
+      } else if (!entering && e.kind === 'swarm') {
         e.y += e.vy * dt;
         e.x += Math.sin(e.age * 6 + e.wobble) * 46 * dt;
-      } else if (e.kind === 'bomber') {
+      } else if (!entering && e.kind === 'bomber') {
         e.y += e.vy * dt;
         e.x += Math.sin(e.age * 1.5 + e.wobble) * 24 * dt;
         if (e.fireCooldown <= 0) { e.fireCooldown = shotDelay(1.05 - state.levelIndex * 0.03); spawnBullet('enemy', e.x, e.y + 14, rand(-34, 34), rand(180, 240), { r: 7, color: e.theme.accent2, damage: 1, kind: 'drop', ay: 58, life: 4.8 }); }
-      } else if (e.kind === 'sniper') {
+      } else if (!entering && e.kind === 'sniper') {
         e.y += e.vy * dt * 0.5;
         e.x += Math.sin(e.age * 1.2 + e.wobble) * 14 * dt;
         if (e.fireCooldown <= 0 && e.y > 100) {
@@ -2416,28 +2421,28 @@
             spawnBullet('enemy', e.x, e.y, Math.cos(aa) * 240, Math.sin(aa) * 240, { r: 7, color: e.theme.accent, damage: 1, kind: 'shot', life: 4.6 });
           }
         }
-      } else if (e.kind === 'spinner') {
+      } else if (!entering && e.kind === 'spinner') {
         e.y += e.vy * dt * 0.7;
         e.x += Math.cos(e.age * 1.1 + e.wobble) * 24 * dt;
         if (e.fireCooldown <= 0 && e.y > 80) { e.fireCooldown = shotDelay(1.65 - Math.min(0.6, state.levelIndex * 0.04)); ringBullets(e.x, e.y, 8 + Math.floor(state.levelIndex / 2), 150 + state.levelIndex * 8, 1, e.theme.accent2, 'enemy'); }
-      } else if (e.kind === 'splitter') {
+      } else if (!entering && e.kind === 'splitter') {
         e.y += e.vy * dt;
         e.x += Math.sin(e.age * 2.2 + e.wobble) * 18 * dt;
-      } else if (e.kind === 'diver') {
+      } else if (!entering && e.kind === 'diver') {
         const base = ang(e.x, e.y, p.x, p.y);
         e.vx = lerp(e.vx, Math.cos(base) * 80, 0.018);
         e.vy = lerp(e.vy, 120 + Math.sin(e.age * 2 + e.wobble) * 22, 0.02);
         e.x += e.vx * dt;
         e.y += e.vy * dt;
-      } else if (e.kind === 'mine') {
+      } else if (!entering && e.kind === 'mine') {
         e.y += e.vy * dt;
         e.x += Math.sin(e.age * 1.4 + e.wobble) * 12 * dt;
-      } else if (e.kind === 'elite') {
+      } else if (!entering && e.kind === 'elite') {
         e.y += e.vy * dt * 0.85;
         e.x += Math.sin(e.age * 1.8 + e.wobble) * 20 * dt;
         if (e.fireCooldown <= 0) { e.fireCooldown = shotDelay(0.8); const base = ang(e.x, e.y, p.x, p.y); ringBullets(e.x, e.y, 8, 160, 1, e.theme.accent2, 'enemy'); spawnBullet('enemy', e.x, e.y, Math.cos(base) * 220, Math.sin(base) * 220, { r: 7, color: e.theme.accent, damage: 1, kind: 'elite', life: 4.8 }); }
       }
-      e.flightAngle = Math.atan2(e.y - beforeY, e.x - beforeX);
+      e.flightAngle = Math.atan2(e.y - prevY, e.x - prevX);
       if (e.y > view.h + 72 || e.x < -90 || e.x > view.w + 90) { state.enemies.splice(i, 1); continue; }
       if (d2(e.x, e.y, p.x, p.y) < (e.r + p.r) * (e.r + p.r)) {
         const contactDamage = currentDifficulty().contact;
@@ -3664,7 +3669,7 @@
     const tilt = respawning ? 0 : clamp(((state.input.right ? 1 : 0) - (state.input.left ? 1 : 0)) * 0.24 + (state.pointerActive ? (state.pointerX - p.x) / 280 : 0), -0.45, 0.45);
     const rot = -Math.PI * 0.25 + tilt;
     const glow = state.overdrive > 0 ? '#ffe38c' : '#8fd8ff';
-    const invulnActive = p.invuln > 0;
+    const invulnActive = p.invuln > 0 && !respawning;
     const auraColor = invulnActive ? '#bfe4ff' : glow;
     const flashAlpha = p.invuln > 0 ? 0.52 + 0.42 * (0.5 + 0.5 * Math.sin((3 - p.invuln) * 16 + state.musicStep * 0.9)) : 1;
     const bank = clamp(-tilt * 3.1, -1.57, 1.57);
