@@ -4350,9 +4350,9 @@
     else if (code === 'Space' || code === 'KeyZ') {
       if (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory') startGame();
       else state.input.fire = true;
-    } else if (code === 'KeyX' || code === 'KeyB') {
-      if (!ev.repeat) useBomb();
-    } else if (code === 'KeyP' || code === 'Escape') {
+      } else if (code === 'KeyX' || code === 'KeyB' || code === 'Space') {
+        if (!ev.repeat) useBomb();
+      } else if (code === 'KeyP' || code === 'Escape') {
       if (!ev.repeat) togglePause();
     } else if (code === 'KeyM') {
       if (!ev.repeat) toggleMute();
