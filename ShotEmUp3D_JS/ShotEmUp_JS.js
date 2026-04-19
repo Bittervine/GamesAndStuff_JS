@@ -106,7 +106,7 @@
   titleArt.decoding = 'async';
   titleArt.onload = function () { titleArtReady = true; };
   titleArt.onerror = function () { titleArtReady = false; };
-  titleArt.src = 'Thorium_Gap_title.png';
+  titleArt.src = 'assets/Thorium_Gap_title.png';
   const ENEMY_SHIP_COLUMNS = 7;
   const ENEMY_SHIP_FALLBACK_BATCHES = 10;
   const ENEMY_SHIP_VARIANT = 'b';
@@ -122,7 +122,7 @@
   }
 
   function enemyShipSource(levelNumber, shipIndex) {
-    return 'Enemy_' + String(levelNumber).padStart(3, '0') + String(shipIndex).padStart(2, '0') + ENEMY_SHIP_VARIANT + '.png';
+    return 'assets/Enemy_' + String(levelNumber).padStart(3, '0') + String(shipIndex).padStart(2, '0') + ENEMY_SHIP_VARIANT + '.png';
   }
 
   function averageImageColor(img) {
@@ -249,7 +249,7 @@
   }
 
   function bossArtSource(levelNumber) {
-    return 'Boss_' + String(levelNumber).padStart(2, '0') + '.png';
+    return 'assets/Boss_' + String(levelNumber).padStart(2, '0') + '.png';
   }
 
   function ensureBossTexture(levelNumber) {

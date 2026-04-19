@@ -5,7 +5,10 @@ var APP_SHELL = [
   './ShotEmUp3D_JS.html',
   './ShotEmUp_JS.js',
   './manifest.webmanifest',
-  './pwa-icon.svg'
+  './pwa-icon.svg',
+  './assets/players_spaceship.png',
+  './assets/Thorium_Gap_title.png',
+  './assets/player_spaceship.glb'
 ];
 
 self.addEventListener('install', function (event) {
