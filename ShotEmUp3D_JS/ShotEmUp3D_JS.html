@@ -102,10 +102,13 @@
       z-index: 7;
       padding: 8px 14px;
       border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      background: rgba(6, 12, 24, 0.54);
+      border: 1px solid rgba(190, 225, 255, 0.98);
+      background: rgba(3, 14, 44, 0.88);
       backdrop-filter: blur(10px);
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.34);
+      box-shadow:
+        0 0 0 1px rgba(34, 118, 255, 0.48),
+        0 0 18px rgba(34, 118, 255, 0.56),
+        0 12px 30px rgba(0, 0, 0, 0.34);
       font-size: 13px;
       font-weight: 800;
       letter-spacing: 0.04em;
@@ -132,13 +135,14 @@
       width: max-content;
       max-width: calc(100vw - 16px);
       border-radius: 16px;
-      border: 2px solid rgba(132, 188, 255, 0.94);
-      background: linear-gradient(180deg, rgba(8, 12, 24, 0.76), rgba(8, 12, 24, 0.48));
+      border: 1px solid rgba(64, 128, 255, 0.98);
+      background: linear-gradient(180deg, rgba(3, 14, 44, 0.98), rgba(2, 8, 24, 0.78));
       backdrop-filter: blur(10px);
       box-shadow:
-        0 0 0 1px rgba(132, 188, 255, 0.46),
+        0 0 0 2px rgba(34, 118, 255, 0.78),
         0 14px 36px rgba(0, 0, 0, 0.34),
-        0 0 22px rgba(132, 188, 255, 0.3);
+        0 0 28px rgba(34, 118, 255, 0.76),
+        0 0 42px rgba(34, 118, 255, 0.44);
     }
     #controls button {
       appearance: none;
@@ -148,7 +152,7 @@
       min-width: 88px;
       height: 17px;
       padding: 0 8px;
-      color: var(--text);
+      color: #000;
       font: inherit;
       font-size: 0.68rem;
       font-weight: 900;
@@ -158,12 +162,12 @@
       align-items: center;
       justify-content: center;
       background:
-        linear-gradient(180deg, rgba(192, 224, 255, 0.42), rgba(92, 152, 255, 0.22)),
-        linear-gradient(180deg, rgba(8, 12, 24, 0.16), rgba(8, 12, 24, 0.02));
+        linear-gradient(180deg, rgba(190, 225, 255, 0.9), rgba(34, 118, 255, 0.72)),
+        linear-gradient(180deg, rgba(8, 12, 24, 0.12), rgba(8, 12, 24, 0.02));
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.4),
-        inset 0 -2px 0 rgba(36, 76, 160, 0.38),
-        0 0 12px rgba(132, 188, 255, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9),
+        inset 0 -2px 0 rgba(20, 66, 170, 0.64),
+        0 0 14px rgba(34, 118, 255, 0.5),
         0 6px 14px rgba(0, 0, 0, 0.16);
       cursor: pointer;
       touch-action: manipulation;
@@ -172,20 +176,20 @@
     #controls button:active, #controls button.active {
       transform: translateY(1px) scale(0.99);
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.24),
-        inset 0 -2px 0 rgba(20, 58, 128, 0.5),
-        0 0 16px rgba(132, 188, 255, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.64),
+        inset 0 -2px 0 rgba(20, 58, 128, 0.76),
+        0 0 18px rgba(34, 118, 255, 0.64),
         0 4px 14px rgba(0, 0, 0, 0.16);
-      filter: saturate(1.35) brightness(1.06);
+      filter: saturate(1.85) brightness(1.16);
     }
     #controls button[data-act="fire"] {
-      background: linear-gradient(180deg, rgba(124, 247, 255, 0.34), rgba(124, 247, 255, 0.1));
+      background: linear-gradient(180deg, rgba(140, 196, 255, 0.92), rgba(34, 118, 255, 0.38));
     }
     #controls button[data-act="bomb"] {
       background: linear-gradient(180deg, rgba(255, 214, 111, 0.34), rgba(255, 214, 111, 0.1));
     }
     #controls button[data-act="settings"] {
-      background: linear-gradient(180deg, rgba(198, 164, 255, 0.32), rgba(124, 247, 255, 0.1));
+      background: linear-gradient(180deg, rgba(120, 188, 255, 0.88), rgba(34, 118, 255, 0.34));
     }
 
     #settingsDialog {
@@ -205,12 +209,15 @@
       width: 100%;
       padding: 18px;
       border-radius: 24px;
-      border: 1px solid rgba(255, 255, 255, 0.16);
+      border: 2px solid rgba(225, 250, 255, 0.96);
       background:
-        radial-gradient(circle at 10% 0%, rgba(124, 247, 255, 0.14), transparent 28%),
-        radial-gradient(circle at 92% 6%, rgba(255, 143, 232, 0.14), transparent 32%),
-        linear-gradient(180deg, rgba(12, 18, 34, 0.96), rgba(9, 12, 24, 0.96));
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.48);
+        radial-gradient(circle at 10% 0%, rgba(34, 118, 255, 0.52), transparent 28%),
+        radial-gradient(circle at 92% 6%, rgba(120, 188, 255, 0.38), transparent 32%),
+        linear-gradient(180deg, rgba(3, 14, 44, 0.98), rgba(2, 8, 24, 0.98));
+      box-shadow:
+        0 0 0 2px rgba(64, 128, 255, 0.98),
+        0 0 34px rgba(34, 118, 255, 0.52),
+        0 24px 60px rgba(0, 0, 0, 0.48);
     }
     .settings-head {
       display: flex;
@@ -239,10 +246,11 @@
       font: inherit;
       font-weight: 900;
       letter-spacing: 0.04em;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.08));
+      background: linear-gradient(180deg, rgba(190, 225, 255, 0.96), rgba(34, 118, 255, 0.54));
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.24),
-        inset 0 -2px 0 rgba(0, 0, 0, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.92),
+        inset 0 -2px 0 rgba(20, 66, 170, 0.7),
+        0 0 14px rgba(34, 118, 255, 0.4),
         0 8px 18px rgba(0, 0, 0, 0.22);
       cursor: pointer;
     }
@@ -275,8 +283,8 @@
       min-height: 44px;
       padding: 10px 12px;
       border-radius: 14px;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      background: rgba(255, 255, 255, 0.06);
+      border: 2px solid rgba(64, 128, 255, 0.98);
+      background: rgba(3, 14, 44, 0.82);
     }
     .settings-toggle span {
       font-weight: 800;
@@ -295,17 +303,22 @@
     .difficulty-buttons button {
       min-height: 44px;
       border-radius: 14px;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      background: rgba(255, 255, 255, 0.08);
+      border: 2px solid rgba(64, 128, 255, 0.98);
+      background: linear-gradient(180deg, rgba(190, 225, 255, 0.28), rgba(34, 118, 255, 0.18));
       color: var(--text);
       font: inherit;
       font-weight: 900;
       cursor: pointer;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.58),
+        0 0 12px rgba(34, 118, 255, 0.26);
     }
     .difficulty-buttons button[aria-pressed="true"] {
-      background: linear-gradient(180deg, rgba(124, 247, 255, 0.26), rgba(255, 255, 255, 0.08));
-      border-color: rgba(124, 247, 255, 0.55);
+      background: linear-gradient(180deg, rgba(190, 225, 255, 0.72), rgba(34, 118, 255, 0.4));
+      border-color: rgba(64, 128, 255, 0.98);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.92),
+        0 0 16px rgba(34, 118, 255, 0.44);
     }
     .settings-note {
       margin: 14px 0 0;
@@ -445,7 +458,7 @@
 
     const gameBridge = window.__ShotEmUp3D = window.__ShotEmUp3D || {};
     gameBridge.enabled = true;
-    gameBridge.player = gameBridge.player || { x: 0, y: 0, rot: 0, bob: 0, tilt: 0, bank: 0, alpha: 1, visible: false, damage: 0 };
+    gameBridge.player = gameBridge.player || { x: 0, y: 0, rot: 0, bob: 0, tilt: 0, bank: 0, alpha: 1, visible: false, damage: 0, invuln: 0 };
     const loadAdvancedShipInput = document.getElementById('loadAdvancedShip');
     let shipBank = 0;
     const sparks = [];
@@ -729,6 +742,7 @@
 
       const x = player.x;
       const y = player.y + (player.bob || 0);
+      const invuln = Math.max(0, Math.min(1, (player.invuln || 0) / 2));
       const rot = -(player.rot || 0) + Math.PI * 1.25;
       const bank = player.bank || 0;
       const motion = (lastEngineX === null || lastEngineY === null) ? 1 : Math.min(1, Math.hypot(x - lastEngineX, y - lastEngineY) / 18);
@@ -755,6 +769,30 @@
       
       engineCtx.save();
       engineCtx.globalCompositeOperation = 'lighter';
+      if (invuln > 0.001) {
+        const auraScale = 1.5;
+        const auraPulse = 0.92 + 0.08 * Math.sin(performance.now() * 0.012);
+        const auraX = x;
+        const auraY = y + 8;
+        const auraOuter = engineCtx.createRadialGradient(auraX, auraY, 0, auraX, auraY, 84 * auraScale * auraPulse);
+        auraOuter.addColorStop(0, `rgba(212, 240, 255, ${0.28 * invuln})`);
+        auraOuter.addColorStop(0.32, `rgba(128, 196, 255, ${0.20 * invuln})`);
+        auraOuter.addColorStop(0.72, `rgba(64, 128, 255, ${0.09 * invuln})`);
+        auraOuter.addColorStop(1, 'rgba(64, 128, 255, 0)');
+        engineCtx.fillStyle = auraOuter;
+        engineCtx.beginPath();
+        engineCtx.arc(auraX, auraY, 84 * auraScale * auraPulse, 0, Math.PI * 2);
+        engineCtx.fill();
+
+        const auraInner = engineCtx.createRadialGradient(auraX, auraY, 0, auraX, auraY, 54 * auraScale * auraPulse);
+        auraInner.addColorStop(0, `rgba(245, 252, 255, ${0.22 * invuln})`);
+        auraInner.addColorStop(0.4, `rgba(124, 188, 255, ${0.18 * invuln})`);
+        auraInner.addColorStop(1, 'rgba(64, 128, 255, 0)');
+        engineCtx.fillStyle = auraInner;
+        engineCtx.beginPath();
+        engineCtx.arc(auraX, auraY, 54 * auraScale * auraPulse, 0, Math.PI * 2);
+        engineCtx.fill();
+      }
       const glowScale = 1 + 0.05 * Math.sin(performance.now() * (Math.PI / 500));
       const glowLayers = [
         [56, 0.16],
