@@ -500,7 +500,7 @@
     function ensureFallbackShip() {
       if (shipFallback) return;
       const geometry = new THREE.PlaneGeometry(90, 90);
-      const purpleTexture = textureLoader.load('players_spaceship.png');
+      const purpleTexture = textureLoader.load('assets/players_spaceship.png');
       purpleTexture.colorSpace = THREE.SRGBColorSpace;
       purpleTexture.center.set(0.5, 0.5);
       purpleTexture.rotation = Math.PI;
@@ -620,7 +620,7 @@
     function loadShipModel() {
       if (shipReady || shipModel) return;
       loader.load(
-        'player_spaceship.glb',
+        'assets/player_spaceship.glb',
         (gltf) => {
           disposeFallbackShip();
           shipVisual.clear();
