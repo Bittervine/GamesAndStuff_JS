@@ -969,11 +969,12 @@
     else if (name === 'fan') { tone({ freq: 520, endFreq: 420, dur: 0.06, gain: 0.05, type: 'triangle', pan: -0.12 }); tone({ freq: 760, endFreq: 620, dur: 0.05, gain: 0.045, type: 'triangle', pan: 0.12 }); }
     else if (name === 'rocket') { tone({ freq: 180, endFreq: 98, dur: 0.16, gain: 0.08, type: 'sawtooth' }); noise({ dur: 0.12, gain: 0.04, cutoff: 600, q: 0.7 }); }
     else if (name === 'beam') { tone({ freq: 720, endFreq: 560, dur: 0.08, gain: 0.08, type: 'square' }); tone({ freq: 960, endFreq: 720, dur: 0.06, gain: 0.035, type: 'triangle' }); }
-    else if (name === 'hit') tone({ freq: 210, endFreq: 135, dur: 0.08, gain: 0.08, type: 'square' });
-    else if (name === 'boom') { noise({ dur: 0.22, gain: 0.14, cutoff: 780, q: 0.7 }); tone({ freq: 160, endFreq: 58, dur: 0.24, gain: 0.14, type: 'sawtooth' }); }
+    else if (name === 'hit') { noise({ dur: 0.055, gain: 0.032, cutoff: 3600, q: 0.2 }); tone({ freq: 250, endFreq: 92, dur: 0.075, gain: 0.05, type: 'square' }); noise({ dur: 0.018, gain: 0.012, cutoff: 1800, q: 0.45 }); }
+    else if (name === 'boom') { noise({ dur: 0.8, gain: 0.7, cutoff: 20, q: 0.18 }); tone({ freq: 170, endFreq: 54, dur: 0.22, gain: 0.11, type: 'sawtooth' }); noise({ dur: 0.03, gain: 0.018, cutoff: 1800, q: 0.45 }); }
     else if (name === 'power') { tone({ freq: 440, endFreq: 660, dur: 0.08, gain: 0.06, type: 'triangle', pan: -0.12 }); tone({ freq: 660, endFreq: 990, dur: 0.08, gain: 0.05, type: 'triangle', pan: 0.12 }); tone({ freq: 880, endFreq: 1320, dur: 0.1, gain: 0.04, type: 'sine' }); }
     else if (name === 'bomb') { noise({ dur: 0.32, gain: 0.16, cutoff: 420, q: 0.8 }); tone({ freq: 88, endFreq: 38, dur: 0.32, gain: 0.18, type: 'sawtooth' }); }
     else if (name === 'boss') { tone({ freq: 130, endFreq: 72, dur: 0.5, gain: 0.16, type: 'sawtooth' }); noise({ dur: 0.34, gain: 0.11, cutoff: 520, q: 0.8 }); }
+    else if (name === 'spawn') { noise({ dur: 0.03, gain: 0.02, cutoff: 2600, q: 0.25 }); tone({ freq: 340, endFreq: 460, dur: 0.03, gain: 0.022, type: 'triangle' }); }
     else if (name === 'clear') { tone({ freq: 392, endFreq: 523, dur: 0.13, gain: 0.06, type: 'triangle' }); tone({ freq: 523, endFreq: 784, dur: 0.13, gain: 0.06, type: 'triangle' }); tone({ freq: 659, endFreq: 988, dur: 0.15, gain: 0.05, type: 'triangle' }); }
     else if (name === 'damage') tone({ freq: 98, endFreq: 62, dur: 0.12, gain: 0.09, type: 'square' });
     else if (name === 'combo') tone({ freq: 560, endFreq: 880, dur: 0.08, gain: 0.06, type: 'triangle' });
@@ -1862,7 +1863,7 @@
     }
     if (kind === 'elite') { e.hp = Math.round(9 * hpScale); e.maxHp = e.hp; e.score = Math.round(340 * scale); e.r = Math.max(e.r, Math.round(shipSize * 0.42)); }
     state.enemies.push(e);
-    sfx('hit');
+    sfx('spawn');
     return e;
   }
 
