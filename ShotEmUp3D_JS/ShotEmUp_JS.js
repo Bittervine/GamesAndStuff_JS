@@ -2131,7 +2131,7 @@
 
   function weaponDelay() {
     const p = state.player;
-    const base = [0.16, 0.17, 0.2, 0.26, 0.32][p.weaponMode] || 0.2;
+    const base = [0.16, 0.17, 0.2, 0.26, 0.2][p.weaponMode] || 0.2;
     let d = base - (p.weaponTier - 1) * 0.012;
     if (p.rapidTimer > 0) d *= 0.54;
     if (state.overdrive > 0) d *= 0.76;
@@ -2145,7 +2145,7 @@
     const tier = p.weaponTier + (state.overdrive > 0 ? 1 : 0);
     const x = p.x, y = p.y - 18;
     const color = WEAPONS[mode].color;
-    const dmg = tier*(diff.playerDamage || 1);
+    const dmg = (1+tier)*(diff.playerDamage || 1);
     if (mode === 0) { // DART
       spawnBullet('player', x, y, 0, -820, { r: 6, color: color, damage: dmg, kind: 'dart', life: 3.8 });
       if (tier >= 2) spawnBullet('player', x, y - 6, 0, -860, { r: 6, color: color, damage: dmg, kind: 'dart', life: 3.7 });
@@ -2196,24 +2196,44 @@
       sfx('rocket');
     } else { // BEAM
       const beamY = y+10;
-      const beamSpacing = 11;
-      spawnBullet('player', x - beamSpacing, beamY-30, 0, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 2.0 });
-      spawnBullet('player', x + beamSpacing, beamY-30, 0, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 2.0 });
-      if (tier >= 2) {
-        spawnBullet('player', x, beamY-30, 0, -1120, { r: 10, color: color, damage: dmg, kind: 'beam', pierce: 4 + tier, life: 2.2 });
+      const beamSpacing = 5;
+      if (tier === 1) {
+        spawnBullet('player', x - beamSpacing,     beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x,                   beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing,     beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
       }
-      if (tier >= 3) {
-        spawnBullet('player', x - beamSpacing * 2, beamY-20, 0, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 5 + tier, life: 2.1 });
-        spawnBullet('player', x + beamSpacing * 2, beamY-20, 0, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 5 + tier, life: 2.1 });
+      if (tier === 2) {
+        spawnBullet('player', x - beamSpacing*3/2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing/2,   beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing/2,   beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*3/2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+
       }
-      if (tier >= 4) {
-        spawnBullet('player', x - beamSpacing * 3, beamY-10, 0, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 6 + tier, life: 2.1 });
-        spawnBullet('player', x + beamSpacing * 3, beamY-10, 0, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 6 + tier, life: 2.1 });
+      if (tier === 3) {
+        spawnBullet('player', x - beamSpacing*2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing,   beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x,                 beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing,   beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+      }
+      if (tier === 4) {
+        spawnBullet('player', x - beamSpacing*2,   beamY-25, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*3/2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing/2,   beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing/2,   beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*3/2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*2,   beamY-25, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
       }
       if (tier >= 5) {
-        spawnBullet('player', x - beamSpacing * 4, beamY, 0, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 7 + tier, life: 2.2 });
-        spawnBullet('player', x + beamSpacing * 4, beamY, 0, -1120, { r: 8, color: color, damage: dmg, kind: 'beam', pierce: 7 + tier, life: 2.2 });
+        spawnBullet('player', x - beamSpacing*3, beamY-25, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing,   beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x,                 beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing,   beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*3, beamY-25, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
       }
+
       sfx('beam');
     }
     p.fireCooldown = weaponDelay();
