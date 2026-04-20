@@ -810,8 +810,8 @@
 
   const DIFFICULTIES = [
     { label: 'Easy', lives: 5, enemyHp: 0.82, enemySpeed: 0.88, spawnRate: 0.82, spawnCount: 0.5, bulletSpeed: 0.88, bossHp: 0.84, contact: 0.9, playerDamage: 1 },
-    { label: 'Normal', lives: 3, enemyHp: 1, enemySpeed: 1, spawnRate: 1, spawnCount: 0.75, bulletSpeed: 1, bossHp: 1, contact: 1, playerDamage: 0.67 },
-    { label: 'Hard', lives: 2, enemyHp: 1.18, enemySpeed: 1.12, spawnRate: 1.16, spawnCount: 1.18, bulletSpeed: 1.14, bossHp: 1.2, contact: 1.12, playerDamage: 0.33 }
+    { label: 'Normal', lives: 3, enemyHp: 1, enemySpeed: 1, spawnRate: 1, spawnCount: 0.75, bulletSpeed: 1, bossHp: 1, contact: 1, playerDamage: 0.5 },
+    { label: 'Hard', lives: 2, enemyHp: 1.18, enemySpeed: 1.12, spawnRate: 1.16, spawnCount: 1.18, bulletSpeed: 1.14, bossHp: 1.2, contact: 1.12, playerDamage: 0.25 }
   ];
 
   const SHOT_PACE = 1.25;
