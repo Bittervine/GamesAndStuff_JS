@@ -25,16 +25,10 @@ def smoothstep(edge0: float, edge1: float, x: float) -> float:
 
 
 def falloff_profile(name: str, d: float) -> float:
-    if name == 'a':
-        core = 0.07; mid = 0.62; outer = 1.00; curve = 1.55; halo_boost = 0.10
-    elif name == 'b':
-        core = 0.05; mid = 0.56; outer = 1.05; curve = 1.85; halo_boost = 0.07
-    elif name == 'c':
-        core = 0.03; mid = 0.50; outer = 1.12; curve = 2.10; halo_boost = 0.05
-    elif name == 'e':
+    if name == 'e':
         core = 0.00; mid = 0.28; outer = 1.18; curve = 1.95; halo_boost = 0.02
     else:
-        core = 0.02; mid = 0.44; outer = 1.20; curve = 2.45; halo_boost = 0.03
+        core = 0.00; mid = 0.28; outer = 1.18; curve = 1.95; halo_boost = 0.02
 
     if d <= core:
         return 1.0
@@ -56,7 +50,7 @@ def make_image(profile: str, tint_name: str) -> Image.Image:
     px = img.load()
     tr, tg, tb = tint_for(tint_name)
     base_radius = 96.0
-    alpha_scale = {'a': 1.00, 'b': 0.92, 'c': 0.80, 'd': 0.68, 'e': 0.72}[profile]
+    alpha_scale = {'e': 0.72}[profile]
     for y in range(SIZE):
         dy = y - CENTER
         for x in range(SIZE):
@@ -72,7 +66,7 @@ def make_image(profile: str, tint_name: str) -> Image.Image:
 
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    for profile in 'abcde':
+    for profile in 'e':
         for tint in ('white', 'red', 'green', 'blue'):
             img = make_image(profile, tint)
             out = OUT_DIR / f'glow_{profile}_{tint}.png'
