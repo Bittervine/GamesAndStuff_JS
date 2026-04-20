@@ -99,3 +99,4 @@ Convert the game to a pure 2D default path first, polish the 2D ship effects, th
 
 - 2026-04-20: Added the implementation plan and progress tracker.
 - 2026-04-20: Completed the phase 1 2D cleanup in HTML, JS, and the service worker. Browser verification still pending.
+- 2026-04-20: Created checkpoint commit `f5e67ac` before visual polish work.
