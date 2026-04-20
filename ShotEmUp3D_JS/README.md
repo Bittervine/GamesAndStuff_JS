@@ -12,7 +12,7 @@ Runtime asset paths used by the game:
 - `assets/Thorium_Gap_title.png`
 - `assets/Enemy_*.png`
 - `assets/Boss_*.png`
-- `assets/glow_*.png`
+- `assets/glow_e_*.png`
 
 Development files:
 - `devel/enemy_fighters_*.png`
@@ -33,6 +33,6 @@ Glow note for later:
 - If we need to reproduce it later, start from `drawLayeredFalloffGlow(x, y, r, color, alpha, layers, curve, noise)` instead of the older broad halo helpers.
 
 Glow candidate note:
-- Pre-rendered PNG glow candidates are generated from `devel/generate_glow_candidates.py`.
+- Pre-rendered PNG glow assets are generated from `devel/generate_glow_candidates.py`.
 - They are 256x256 sprites stored directly under `assets/`.
-- The script writes white, red, green, and pure-blue variants from the same falloff mask so color can be rebuilt by overlaying channels later.
+- The script currently emits only the `E` falloff family in white, red, green, and pure-blue variants.

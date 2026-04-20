@@ -17,21 +17,10 @@
   const difficultyValue = document.getElementById('difficultyValue');
   const difficultyButtons = Array.from(document.querySelectorAll('[data-difficulty]'));
   const lowEndModeInput = document.getElementById('lowEndMode');
-  const circleRadiusInput = document.getElementById('circleRadius');
-  const circleAlphaInput = document.getElementById('circleAlpha');
-  const circleSpreadInput = document.getElementById('circleSpread');
-  const circleRadiusValue = document.getElementById('circleRadiusValue');
-  const circleAlphaValue = document.getElementById('circleAlphaValue');
-  const circleSpreadValue = document.getElementById('circleSpreadValue');
 
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
   let currentDt = 0;
   const DEBUG_MODE = true;
-  const circleTune = {
-    radius: clamp(loadNum('ShotEmUp_JS_circleRadius', 45), 20, 120),
-    alpha: clamp(loadNum('ShotEmUp_JS_circleAlpha', 0.2), 0.01, 0.8),
-    spread: clamp(loadNum('ShotEmUp_JS_circleSpread', 48), 0, 120)
-  };
   const render = {
     ready: false,
     queue: [],
@@ -60,8 +49,6 @@
   const PLAYER_DAMAGE_TEXTURE_PREFIX = 'player-damage|';
   let playerShipTextureLoading = false;
   let playerShipSourceImage = null;
-  const TITLE_GLOW_TESTS = true;
-
   function cp(code) {
     if (code <= 0xFFFF) return String.fromCharCode(code);
     code -= 0x10000;
@@ -124,16 +111,8 @@
   titleArt.onload = function () { titleArtReady = true; };
   titleArt.onerror = function () { titleArtReady = false; };
   titleArt.src = 'assets/Thorium_Gap_title.png';
-  const GLOW_CANDIDATE_SPECS = [
-    { id: 'A', label: 'GlowA', src: 'assets/glow_a_red.png' },
-    { id: 'B', label: 'GlowB', src: 'assets/glow_b_green.png' },
-    { id: 'C', label: 'GlowC', src: 'assets/glow_c_blue.png' },
-    { id: 'D', label: 'GlowD', src: 'assets/glow_e_white.png' }
-  ];
-  const glowCandidateTextures = new Map();
-  const glowCandidateLoadKeys = new Set();
-  const glowCandidateImages = new Map();
-  const glowCandidateImageLoads = new Set();
+  const glowImages = new Map();
+  const glowImageLoads = new Set();
   const ENEMY_SHIP_COLUMNS = 7;
   const ENEMY_SHIP_FALLBACK_BATCHES = 10;
   const ENEMY_SHIP_VARIANT = 'a';
@@ -180,43 +159,6 @@
     const g = Math.round(gs / count);
     const b = Math.round(bs / count);
     return brightHueFromRgb(r, g, b);
-  }
-
-  function ensureGlowCandidateTexture(spec) {
-    if (!spec || !spec.src) return null;
-    if (glowCandidateTextures.has(spec.src) || glowCandidateLoadKeys.has(spec.src)) return glowCandidateTextures.get(spec.src) || null;
-    glowCandidateLoadKeys.add(spec.src);
-    const img = new Image();
-    img.decoding = 'async';
-    img.onload = function () {
-      try {
-        glowCandidateTextures.set(spec.src, createTextureFromCanvas(img));
-      } finally {
-        glowCandidateLoadKeys.delete(spec.src);
-      }
-    };
-    img.onerror = function () {
-      glowCandidateLoadKeys.delete(spec.src);
-    };
-    img.src = spec.src;
-    return null;
-  }
-
-  function ensureGlowCandidateImage(src) {
-    if (!src) return null;
-    if (glowCandidateImages.has(src) || glowCandidateImageLoads.has(src)) return glowCandidateImages.get(src) || null;
-    glowCandidateImageLoads.add(src);
-    const img = new Image();
-    img.decoding = 'async';
-    img.onload = function () {
-      glowCandidateImages.set(src, img);
-      glowCandidateImageLoads.delete(src);
-    };
-    img.onerror = function () {
-      glowCandidateImageLoads.delete(src);
-    };
-    img.src = src;
-    return null;
   }
 
   function brightHueFromRgb(r, g, b) {
@@ -273,6 +215,23 @@
       enemyShipLoadKeys.delete(key);
     };
     img.src = enemyShipSource(levelNumber, shipIndex);
+  }
+
+  function ensureGlowImage(src) {
+    if (!src) return null;
+    if (glowImages.has(src) || glowImageLoads.has(src)) return glowImages.get(src) || null;
+    glowImageLoads.add(src);
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = function () {
+      glowImages.set(src, img);
+      glowImageLoads.delete(src);
+    };
+    img.onerror = function () {
+      glowImageLoads.delete(src);
+    };
+    img.src = src;
+    return null;
   }
 
   function warmEnemyShipBatch(levelNumber) {
@@ -590,18 +549,6 @@
 
   function drawSpriteCircle(x, y, r, color, alpha, layer, additive) {
     pushSprite(render.circle, x, y, r * 2, r * 2, 0, color, alpha, layer, additive);
-  }
-
-  function drawCircleTunePreview(x, y) {
-    const r = circleTune.radius;
-    const a = circleTune.alpha;
-    const spread = circleTune.spread;
-    drawSpriteCircle(x, y, r, 'rgba(255,255,255,1)', a, 0, true);
-    if (spread > 0) {
-      drawSpriteCircle(x, y, r + spread * 0.35, 'rgba(255,255,255,1)', a * 0.45, 0, true);
-      drawSpriteCircle(x, y, r + spread * 0.7, 'rgba(255,255,255,1)', a * 0.16, 0, true);
-      drawSpriteCircle(x, y, r + spread, 'rgba(255,255,255,1)', a * 0.04, 0, true);
-    }
   }
 
   function drawTextureRect(texture, x, y, w, h, opts) {
@@ -1120,12 +1067,6 @@
     if (musicVolumeValue) musicVolumeValue.textContent = Math.round(state.settings.musicVolume * 100) + '%';
     if (difficultyValue) difficultyValue.textContent = currentDifficulty().label;
     if (lowEndModeInput) lowEndModeInput.checked = !!state.settings.lowEndMode;
-    if (circleRadiusInput) circleRadiusInput.value = String(circleTune.radius);
-    if (circleAlphaInput) circleAlphaInput.value = String(circleTune.alpha);
-    if (circleSpreadInput) circleSpreadInput.value = String(circleTune.spread);
-    if (circleRadiusValue) circleRadiusValue.textContent = Math.round(circleTune.radius) + 'px';
-    if (circleAlphaValue) circleAlphaValue.textContent = circleTune.alpha.toFixed(2);
-    if (circleSpreadValue) circleSpreadValue.textContent = Math.round(circleTune.spread) + 'px';
     for (let i = 0; i < difficultyButtons.length; i++) {
       const btn = difficultyButtons[i];
       const idx = Number(btn.getAttribute('data-difficulty'));
@@ -3172,16 +3113,6 @@
     hudCtx.restore();
   }
 
-  function setCircleTune(kind, value) {
-    if (kind === 'radius') circleTune.radius = clamp(Number(value), 20, 120);
-    else if (kind === 'alpha') circleTune.alpha = clamp(Number(value), 0.01, 0.8);
-    else if (kind === 'spread') circleTune.spread = clamp(Number(value), 0, 120);
-    saveNum('ShotEmUp_JS_circleRadius', circleTune.radius);
-    saveNum('ShotEmUp_JS_circleAlpha', circleTune.alpha);
-    saveNum('ShotEmUp_JS_circleSpread', circleTune.spread);
-    syncSettingsUi();
-  }
-
   function buildCloudClusterPoints(cx, cy, r, count, seed) {
     const pts = [{ x: cx, y: cy }];
     const rngSeed = (seed | 0) || 1;
@@ -3213,10 +3144,6 @@
     return pts;
   }
 
-  function drawTitleGlowTests(cardX, cardY, cardW, cardH) {
-    if (!TITLE_GLOW_TESTS) return;
-  }
-
   function createScrollingCloud(index) {
     const w = Math.max(1, view.w);
     const h = Math.max(1, view.h);
@@ -3225,6 +3152,7 @@
       y: -h * (0.18 + index * 0.08),
       delay: lerp(3, 5, Math.random()),
       speed: (18 + index * 3) * 5,
+      vx: (Math.random() - 0.5) * 10,
       seed: 37 + index * 19,
       points: null,
       texture: null,
@@ -3262,8 +3190,8 @@
     const g = c.getContext('2d');
     if (!g) return null;
     g.clearRect(0, 0, texW, texH);
-    const whiteImg = ensureGlowCandidateImage('assets/glow_e_white.png');
-    const blueImg = ensureGlowCandidateImage('assets/glow_e_blue.png');
+    const whiteImg = ensureGlowImage('assets/glow_e_white.png');
+    const blueImg = ensureGlowImage('assets/glow_e_blue.png');
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i];
       const px = p.x - minX;
@@ -3291,6 +3219,7 @@
     cloud.y = -Math.max(180, view.h * (0.10 + Math.random() * 0.18));
     cloud.delay = 0;
     cloud.speed = (14 + Math.random() * 16) * 5;
+    cloud.vx = (Math.random() - 0.5) * 12;
     cloud.seed = (Math.random() * 0x7fffffff) | 0;
     cloud.r = 90 + Math.random() * 36;
     cloud.cluster = 8 + ((Math.random() * 5) | 0);
@@ -3313,6 +3242,8 @@
         resetScrollingCloud(c);
       }
       c.y += c.speed * dt;
+      c.x += c.vx * dt;
+      c.vx += Math.sin((state.animClock + i) * 0.7) * dt * 2.2;
       ensureScrollingCloudTexture(c);
       if (c.bounds && c.y + c.bounds.minY > h + c.r * 1.2) {
         c.delay = lerp(3, 5, Math.random());
@@ -3357,11 +3288,11 @@
     });
   }
 
-  function drawBar(x, y, w, h, ratio, fill, back, label) {
-    x = Number.isFinite(x) ? x : 0;
-    y = Number.isFinite(y) ? y : 0;
-    w = Number.isFinite(w) ? w : 0;
-    h = Number.isFinite(h) ? h : 0;
+    function drawBar(x, y, w, h, ratio, fill, back, label) {
+      x = Number.isFinite(x) ? x : 0;
+      y = Number.isFinite(y) ? y : 0;
+      w = Number.isFinite(w) ? w : 0;
+      h = Number.isFinite(h) ? h : 0;
     const p = clamp(ratio, 0, 1);
     hudCtx.save();
     hudCtx.fillStyle = back || 'rgba(255,255,255,0.12)';
@@ -3377,16 +3308,19 @@
       hudCtx.fillStyle = g;
       roundRect(x + 1, y + 1, Math.max(0, (w - 2) * p), h - 2, h * 0.45);
       hudCtx.fill();
+      }
+      if (label) {
+        const prev = hudCtx.globalCompositeOperation;
+        hudCtx.globalCompositeOperation = 'difference';
+        hudCtx.fillStyle = '#fff';
+        hudCtx.font = '700 9px "Segoe UI", sans-serif';
+        hudCtx.textAlign = 'center';
+        hudCtx.textBaseline = 'middle';
+        hudCtx.fillText(label, x + w * 0.5, y + h * 0.52);
+        hudCtx.globalCompositeOperation = prev;
+      }
+      hudCtx.restore();
     }
-    if (label) {
-      hudCtx.fillStyle = '#fff';
-      hudCtx.font = '700 11px "Segoe UI", sans-serif';
-      hudCtx.textAlign = 'center';
-      hudCtx.textBaseline = 'middle';
-      hudCtx.fillText(label, x + w * 0.5, y + h * 0.52);
-    }
-    hudCtx.restore();
-  }
 
   function drawWorldBar(x, y, w, h, ratio, fill, back, layer) {
     x = Number.isFinite(x) ? x : 0;
@@ -4351,19 +4285,19 @@
   function drawEnemyBody(e, rot, shipSize) {
     const p = enemyPalette(e);
     const alpha = e.hitFlash > 0 ? 1 : 0.96;
-    const levelNumber = e.shipLevel || (state.levelIndex + 1);
-    const shipIndex = e.shipIndex || 0;
-    const texture = getEnemyShipTexture(levelNumber, shipIndex);
-    const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme);
-    const glowRadius = Math.max(14, shipSize * 0.42 * 0.75);
-    drawGlowCircle(e.x, e.y, glowRadius * 1.25, shipGlow, 0.92, 22);
-    drawGlowCircle(e.x, e.y, glowRadius * 0.68, shipGlow, 0.78, 12);
-    if (texture) {
-      drawTextureRect(texture, e.x, e.y, shipSize, shipSize, { rot: rot, alpha: alpha, layer: 18 });
-    } else {
-      drawGlowCircle(e.x, e.y, shipSize * 0.26, p.base, 0.18, 10);
-      drawGlowCircle(e.x, e.y, shipSize * 0.12, p.base, alpha * 0.14, 8);
-    }
+      const levelNumber = e.shipLevel || (state.levelIndex + 1);
+      const shipIndex = e.shipIndex || 0;
+      const texture = getEnemyShipTexture(levelNumber, shipIndex);
+      const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme);
+      const glowRadius = Math.max(14, shipSize * 0.42 * 0.675);
+      drawGlowCircle(e.x, e.y, glowRadius * 1.13, shipGlow, 0.68, 22);
+      drawGlowCircle(e.x, e.y, glowRadius * 0.61, shipGlow, 0.57, 12);
+      if (texture) {
+        drawTextureRect(texture, e.x, e.y, shipSize, shipSize, { rot: rot, alpha: alpha, layer: 18 });
+      } else {
+        drawGlowCircle(e.x, e.y, shipSize * 0.23, p.base, 0.125, 10);
+        drawGlowCircle(e.x, e.y, shipSize * 0.11, p.base, alpha * 0.10, 8);
+      }
   }
 
   function drawBossBody(b) {
@@ -4758,15 +4692,15 @@
       }
     }
 
-    if (state.boss) {
-      drawBar(12, bossBarY, view.w - 24, compact ? 12 : 14, state.boss.hp / state.boss.maxHp, theme.accent2, 'rgba(0,0,0,0.42)', 'BOSS ' + state.boss.name);
-    }
+      if (state.boss) {
+      drawBar(12, bossBarY, view.w - 24, compact ? 13 : 15, state.boss.hp / state.boss.maxHp, theme.accent2, 'rgba(0,0,0,0.42)', 'BOSS ' + state.boss.name);
+      }
 
     const powerRatio = state.overdrive > 0 ? state.overdrive / 7 : p.rapidTimer > 0 ? p.rapidTimer / 8 : p.magnetTimer > 0 ? p.magnetTimer / 12 : 0;
-    if (powerRatio > 0) {
-      const label = state.overdrive > 0 ? 'OVERDRIVE' : p.rapidTimer > 0 ? 'RAPID' : 'MAGNET';
-      drawBar(view.w * 0.18, view.h - view.controlsH - 24, view.w * 0.64, 10, powerRatio, theme.accent2, 'rgba(0,0,0,0.35)', label);
-    }
+      if (powerRatio > 0) {
+        const label = state.overdrive > 0 ? 'OVERDRIVE' : p.rapidTimer > 0 ? 'RAPID' : 'MAGNET';
+        drawBar(view.w * 0.18, view.h - view.controlsH - 30, view.w * 0.64, 10, powerRatio, theme.accent2, 'rgba(0,0,0,0.35)', label);
+      }
 
     if (state.paused) {
       hudCtx.fillStyle = 'rgba(0,0,0,0.28)';
@@ -4804,7 +4738,6 @@
       hudCtx.drawImage(titleArt, ix, iy, dw, dh);
       hudCtx.shadowBlur = 0;
     }
-    drawTitleGlowTests(0,0, view.w, view.h);
     hudCtx.fillStyle = '#fff';
     hudCtx.globalAlpha = 0.96;
     hudCtx.font = '800 15px "Trebuchet MS", "Segoe UI", sans-serif';
@@ -5043,9 +4976,6 @@
   musicVolumeInput.addEventListener('input', function (ev) {
     setVolume('music', ev.target.value);
   });
-  if (circleRadiusInput) circleRadiusInput.addEventListener('input', function (ev) { setCircleTune('radius', ev.target.value); });
-  if (circleAlphaInput) circleAlphaInput.addEventListener('input', function (ev) { setCircleTune('alpha', ev.target.value); });
-  if (circleSpreadInput) circleSpreadInput.addEventListener('input', function (ev) { setCircleTune('spread', ev.target.value); });
   if (lowEndModeInput) {
     lowEndModeInput.addEventListener('change', function (ev) {
       setLowEndMode(ev.target.checked);
