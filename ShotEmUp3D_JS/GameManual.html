@@ -142,7 +142,7 @@
     <ul>
       <li>The game has five weapons. Each weapon has five tiers: <code>I</code>, <code>II</code>, <code>III</code>, <code>IIII</code>, and <code>V</code>.</li>
       <li>Picking up a wrench for your current weapon upgrades that weapon by one tier, up to <code>V</code>.</li>
-      <li>Picking up a wrench for a different weapon switches to that weapon and uses its stored tier.</li>
+      <li>Picking up a wrench for a different weapon switches to that weapon and uses its last earned tier - it doesn't get upgraded to the next.</li>
       <li>If your current weapon is already at <code>V</code> and you pick up the same weapon again, the overflow upgrade randomly tries another weapon to upgrade. An overflow upgrade can raise a weapon from <code>I</code> to <code>II</code>, or from <code>II</code> to <code>III</code>. If the selected weapon is already <code>III</code> or higher, the overflow becomes score instead.</li>
       <li>When a ship is lost, the current weapon family loses one tier. The replacement ship then switches to your strongest remaining weapon type.</li>
     </ul>
