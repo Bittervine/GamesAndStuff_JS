@@ -870,7 +870,7 @@
     currentTheme: THEMES[0],
     transition: null,
     player: {
-      x: 0, y: 0, r: PLAYER_RADIUS,
+      x: 0, y: 0, vx: 0, vy: 0, r: PLAYER_RADIUS,
       health: 6, maxHealth: 6,
       shield: 0, bombs: 2,
       weaponMode: 0, weaponTier: 1,
@@ -888,6 +888,7 @@
     pointerY: 0,
     musicClock: 0,
     musicStep: 0,
+    animClock: 0,
     debugMode: DEBUG_MODE
   };
 
@@ -2589,6 +2590,8 @@
 
   function updatePlayer(dt) {
     const p = state.player;
+    const prevX = p.x;
+    const prevY = p.y;
     p.fireCooldown = Math.max(0, p.fireCooldown - dt);
     p.rapidTimer = Math.max(0, p.rapidTimer - dt);
     p.magnetTimer = Math.max(0, p.magnetTimer - dt);
@@ -2646,6 +2649,8 @@
       p.repairDelay = 0;
     }
     if (state.mode === 'playing' && p.fireHeld && p.fireCooldown <= 0) fireWeapon();
+    p.vx = dt > 0 ? (p.x - prevX) / dt : 0;
+    p.vy = dt > 0 ? (p.y - prevY) / dt : 0;
   }
 
   function updateBullets(dt) {
@@ -2903,6 +2908,7 @@
   function update(dt) {
     currentDt = dt;
     updateBackground(dt);
+    state.animClock += dt;
     if (state.mode === 'debug') return;
     if (state.mode === 'title') { updateMusic(dt); updateParticles(dt); return; }
     if (state.mode === 'gameover' || state.mode === 'victory') { updateMusic(dt * 0.35); updateParticles(dt); if (state.player.invuln > 0) state.player.invuln = Math.max(0, state.player.invuln - dt); return; }
@@ -4080,17 +4086,21 @@
     if (!respawning || p.respawnTimer < 0.98) {
       if (flameTexture) {
         const flameAlpha = (state.settings.lowEndMode ? 0.56 : 0.82) * flashAlpha;
-        const flameLen = shipSize * (state.settings.lowEndMode ? 0.42 : 0.5);
-        const flameW = shipSize * (state.settings.lowEndMode ? 0.16 : 0.19);
+        const flameLenPulse = 1 + Math.sin(state.animClock * TAU * 10) * 0.1;
+        const flameWPulse = 1 + Math.sin(state.animClock * TAU * 6) * 0.1;
+        const verticalStretch = clamp(p.vy / 460, -1, 1) * 0.2;
+        const flameLen = shipSize * (state.settings.lowEndMode ? 0.2423925 : 0.2885625) * flameLenPulse * (1 - verticalStretch);
+        const flameW = shipSize * (state.settings.lowEndMode ? 0.24 : 0.285) * flameWPulse;
         const flameOffsets = [
-          { x: -shipSize * 0.16, y: shipSize * 0.34, s: 0.9 },
-          { x: 0, y: shipSize * 0.38, s: 1.08 },
-          { x: shipSize * 0.16, y: shipSize * 0.34, s: 0.9 }
+          { x: -shipSize * 0.17, y: shipSize * 0.36, s: 1.38 },
+          { x: 0, y: shipSize * 0.42, s: 1.59 },
+          { x: shipSize * 0.17, y: shipSize * 0.36, s: 1.38 }
         ];
         for (let i = 0; i < flameOffsets.length; i++) {
           const o = flameOffsets[i];
-          const pos = localToWorld(p.x, shipY, rot, o.x, o.y);
-          drawTextureRect(flameTexture, pos.x, pos.y, flameW * o.s, flameLen * o.s, {
+          const flameLenRoll = 0.7 + (Math.random() * 0.6);
+          const pos = localToWorld(p.x, shipY, rot, o.x, o.y + flameLen * 0.87);
+          drawTextureRect(flameTexture, pos.x, pos.y, flameW * o.s, flameLen * flameLenRoll * o.s, {
             rot: rot,
             alpha: flameAlpha * (i === 1 ? 1 : 0.78),
             layer: 3,
@@ -4152,7 +4162,7 @@
     const key = PLAYER_ENGINE_TEXTURE_PREFIX + frame;
     let tex = render.textures.get(key);
     if (tex) return tex;
-    const c = makeDomCanvas(96, 160);
+    const c = makeDomCanvas(160, 280);
     const g = c.getContext('2d');
     const w = c.width;
     const h = c.height;
