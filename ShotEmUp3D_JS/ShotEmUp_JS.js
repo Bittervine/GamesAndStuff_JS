@@ -20,8 +20,7 @@
 
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
   let currentDt = 0;
-  const urlParams = new URLSearchParams(window.location.search || '');
-  const DEBUG_MODE = urlParams.get('debug') === '1';
+  const DEBUG_MODE = true;
   const render = {
     ready: false,
     queue: [],
@@ -1508,14 +1507,7 @@
   }
 
   function ensureStarfield() {
-    const lowEnd = !!state.settings.lowEndMode;
-    if (lowEnd) {
-      state.starfield = [];
-      return;
-    }
-    const desired = lowEnd
-      ? Math.max(240, Math.min(520, Math.round((view.w * view.h) / 5200)))
-      : Math.max(480, Math.min(880, Math.round((view.w * view.h) / 3000)));
+    const desired = Math.max(480, Math.min(880, Math.round((view.w * view.h) / 3000)));
     if (state.starfield.length === desired) return;
     const stars = [];
     for (let i = 0; i < desired; i++) {
@@ -1534,20 +1526,18 @@
 
   function drawStarfield() {
     drawSpriteRect(view.w * 0.5, view.h * 0.5, view.w, view.h, '#02040a', 1, -120, false);
-    if (state.settings.lowEndMode) return;
     ensureStarfield();
     state.starfieldScroll += 0.012;
-    const lowEnd = !!state.settings.lowEndMode;
     for (const star of state.starfield) {
       const y = (star.y + state.starfieldScroll * star.speed) % 1.08;
       const px = star.x * view.w;
       const py = y * view.h;
       const tw = 0.7 + Math.sin(state.levelClock * 2.1 + star.tw) * 0.3;
-      const alpha = clamp(star.a * tw * (lowEnd ? 0.58 : 0.75), 0.06, 1);
-      const size = star.r * (star.tint > 0.86 ? 1.35 : 1) * (lowEnd ? 0.88 : 1);
+      const alpha = clamp(star.a * tw * 0.75, 0.06, 1);
+      const size = star.r * (star.tint > 0.86 ? 1.35 : 1);
       const color = star.tint < 0.64 ? '#ffffff' : (star.tint < 0.84 ? '#dfefff' : '#f2e3a8');
-      drawGlowCircle(px, py, size, color, alpha, size * (lowEnd ? 1.05 : 1.4));
-      if (!lowEnd && size > 1.25) drawSpriteRect(px, py, size * 0.6, size * 2.1, color, alpha * 0.35, -119, true);
+      drawGlowCircle(px, py, size, color, alpha, size * 1.4);
+      if (size > 1.25) drawSpriteRect(px, py, size * 0.6, size * 2.1, color, alpha * 0.35, -119, true);
     }
   }
 
@@ -1695,13 +1685,9 @@
     state.input.up = false;
     state.input.down = false;
     state.input.fire = false;
-    if (state.debugMode) {
-      setupDebugScene();
-    } else {
-      state.mode = 'title';
-      setBanner('THORIUM GAP', 'Click or press Space to launch.', 3.5);
-      hint('Drag to fly. Hold to fire. Open SETTINGS for audio and combat settings.', 5);
-    }
+    state.mode = 'title';
+    setBanner('THORIUM GAP', 'Click or press Space to launch.', 3.5);
+    hint('Drag to fly. Hold to fire. Open SETTINGS for audio and combat settings.', 5);
     syncSettingsUi();
   }
 
@@ -1715,9 +1701,23 @@
   function startGame() {
     closeSettings();
     resetRun();
-    if (state.debugMode) return;
     state.mode = 'playing';
     beginLevel(0);
+  }
+
+  function spawnCheatDrop(code) {
+    if (!state.debugMode) return;
+    const x = view.w * 0.5;
+    const y = view.h * 0.5;
+    if (code === 'Digit1') spawnPickup('weapon', x, y, { weaponMode: 0 });
+    else if (code === 'Digit2') spawnPickup('weapon', x, y, { weaponMode: 1 });
+    else if (code === 'Digit3') spawnPickup('weapon', x, y, { weaponMode: 2 });
+    else if (code === 'Digit4') spawnPickup('weapon', x, y, { weaponMode: 3 });
+    else if (code === 'Digit5') spawnPickup('weapon', x, y, { weaponMode: 4 });
+    else if (code === 'Digit6') spawnPickup('shield', x, y);
+    else if (code === 'Digit7') spawnPickup('rapid', x, y);
+    else if (code === 'Digit8') spawnPickup('bomb', x, y);
+    else if (code === 'Digit9') spawnPickup('magnet', x, y);
   }
 
   function beginLevel(index) {
@@ -2957,8 +2957,48 @@
   function drawGlowCircle(x, y, r, color, alpha, blur) {
     const b = blur == null ? Math.max(10, r * 0.8) : blur;
     const a = alpha == null ? 1 : alpha;
-    drawSpriteCircle(x, y, r + b * 0.6, color, a, 0, true);
+    drawSpriteCircle(x, y, r + b * 0.82, color, a * 0.32, 0, true);
+    drawSpriteCircle(x, y, r + b * 0.45, color, a * 0.58, 0, true);
     drawSpriteCircle(x, y, Math.max(1, r * 0.72), color, a, 0, true);
+  }
+
+  function drawSoftEdgeGlow(x, y, maxR, color, alpha) {
+    const a = alpha == null ? 1 : alpha;
+    const r = Math.max(1, maxR || 40);
+    drawSpriteCircle(x, y, r * 0.22, color, a * 0.9, 0, true);
+    drawSpriteCircle(x, y, r * 0.42, color, a * 0.58, 0, true);
+    drawSpriteCircle(x, y, r * 0.66, color, a * 0.22, 0, true);
+    drawSpriteCircle(x, y, r * 0.86, color, a * 0.08, 0, true);
+  }
+
+  const SHIELD_RING_TEXTURE_CACHE = new Map();
+
+  function getShieldRingTexture(thickness) {
+    const t = clamp(Math.round(thickness || 2), 1, 6);
+    let tex = SHIELD_RING_TEXTURE_CACHE.get(t);
+    if (tex) return tex;
+    const dim = 128;
+    const c = makeDomCanvas(dim, dim);
+    const g = c.getContext('2d');
+    const cx = dim * 0.5;
+    const cy = dim * 0.5;
+    g.clearRect(0, 0, dim, dim);
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = t;
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+    g.beginPath();
+    g.arc(cx, cy, dim * 0.38, 0, TAU);
+    g.stroke();
+    tex = createTextureFromCanvas(c);
+    SHIELD_RING_TEXTURE_CACHE.set(t, tex);
+    return tex;
+  }
+
+  function drawRingGlow(x, y, outerR, innerR, color, alpha, blur) {
+    const outer = Math.max(1, outerR);
+    const ring = getShieldRingTexture(2);
+    drawTextureRect(ring, x, y, outer * 2, outer * 2, { fill: color || '#ffffff', alpha: alpha == null ? 1 : alpha, layer: 0, lighter: false });
   }
 
   function drawDiffuseGlowCircle(x, y, r, color, alpha, blur) {
@@ -3980,17 +4020,13 @@
     const texture = getEnemyShipTexture(levelNumber, shipIndex);
     const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme);
     const glowRadius = Math.max(14, shipSize * 0.42 * 0.75);
-    if (!state.settings.lowEndMode) {
-      drawGlowCircle(e.x, e.y, glowRadius * 1.25, shipGlow, 0.92, 22);
-      drawGlowCircle(e.x, e.y, glowRadius * 0.68, shipGlow, 0.78, 12);
-    }
+    drawGlowCircle(e.x, e.y, glowRadius * 1.25, shipGlow, 0.92, 22);
+    drawGlowCircle(e.x, e.y, glowRadius * 0.68, shipGlow, 0.78, 12);
     if (texture) {
       drawTextureRect(texture, e.x, e.y, shipSize, shipSize, { rot: rot, alpha: alpha, layer: 18 });
     } else {
-      if (!state.settings.lowEndMode) {
-        drawGlowCircle(e.x, e.y, shipSize * 0.26, p.base, 0.18, 10);
-        drawGlowCircle(e.x, e.y, shipSize * 0.12, p.base, alpha * 0.14, 8);
-      }
+      drawGlowCircle(e.x, e.y, shipSize * 0.26, p.base, 0.18, 10);
+      drawGlowCircle(e.x, e.y, shipSize * 0.12, p.base, alpha * 0.14, 8);
     }
   }
 
@@ -4001,11 +4037,9 @@
     const levelNumber = b.shipLevel || (state.levelIndex + 1);
     const texture = getBossTexture(levelNumber);
     const size = Math.max(208, getEnemyShipRenderSize(levelNumber, b.shipIndex || 0) * 2.75);
-    if (!state.settings.lowEndMode) {
-      drawGlowCircle(b.x, b.y, r * 2.1, p.glow, 0.18, 24);
-      drawGlowCircle(b.x, b.y, r * 1.1, p.base, 0.18, 12);
-      drawGlowCircle(b.x, b.y, r * 0.4, p.base, 0.24, 8);
-    }
+    drawGlowCircle(b.x, b.y, r * 2.1, p.glow, 0.18, 24);
+    drawGlowCircle(b.x, b.y, r * 1.1, p.base, 0.18, 12);
+    drawGlowCircle(b.x, b.y, r * 0.4, p.base, 0.24, 8);
     if (texture) {
       const w = levelNumber <= 6 ? size : (b.facingRight ? -size : size);
       drawTextureRect(texture, b.x, b.y, w, size, { rot: rot, alpha: 0.98, layer: 28 });
@@ -4013,11 +4047,11 @@
   }
 
   function drawEnemyOverlay(e, rot) {
-    if (!state.settings.lowEndMode && e.hitFlash > 0) drawGlowCircle(e.x, e.y, e.r * 1.2, '#ffffff', 0.16, 19);
+    if (e.hitFlash > 0) drawGlowCircle(e.x, e.y, e.r * 1.2, '#ffffff', 0.16, 19);
   }
 
   function drawBossOverlay(b) {
-    if (!state.settings.lowEndMode && b.hitFlash > 0) drawGlowCircle(b.x, b.y, b.r * 1.35, '#ffffff', 0.16, 29);
+    if (b.hitFlash > 0) drawGlowCircle(b.x, b.y, b.r * 1.35, '#ffffff', 0.16, 29);
   }
 
   function drawEnemy(e) {
@@ -4028,7 +4062,7 @@
     const levelNumber = e.shipLevel || (state.levelIndex + 1);
     const shipIndex = e.shipIndex || 0;
     const shipSize = e.shipSize || getEnemyShipRenderSize(levelNumber, shipIndex);
-    if (!state.settings.lowEndMode && e.kind === 'spinner') {
+    if (e.kind === 'spinner') {
       for (let i = 0; i < 5; i++) {
         const a = e.age * 2.2 + i * (TAU / 5);
         drawGlowCircle(e.x + Math.cos(a) * (e.r + 6), e.y + Math.sin(a) * (e.r + 6), 2.2, e.theme.accent2, 0.55, 8);
@@ -4047,13 +4081,11 @@
   function drawBoss(b) {
     if (!b) return;
     const glow = b.color || '#fff';
-    if (!state.settings.lowEndMode) {
-      drawGlowCircle(b.x, b.y, b.r * 2.4, glow, 0.24, 28);
-      drawGlowCircle(b.x, b.y, b.r * 1.2, '#fff', 0.08, 20);
-    }
+    drawGlowCircle(b.x, b.y, b.r * 2.4, glow, 0.24, 28);
+    drawGlowCircle(b.x, b.y, b.r * 1.2, '#fff', 0.08, 20);
     drawBossBody(b);
     drawBossOverlay(b);
-    if (!state.settings.lowEndMode && b.hitFlash > 0) drawGlowCircle(b.x, b.y, b.r * 1.45, '#ffffff', 0.18, 24);
+    if (b.hitFlash > 0) drawGlowCircle(b.x, b.y, b.r * 1.45, '#ffffff', 0.18, 24);
   }
 
   function drawPlayer() {
@@ -4072,25 +4104,27 @@
     const shieldRing = p.r;
     const shipTexture = getPlayerShipTexture();
     const flameTexture = getPlayerEngineFlameTexture((Math.floor(state.musicStep * 6 + p.x * 0.02) & 3));
-    if (invulnActive && !state.settings.lowEndMode) {
+    if (invulnActive) {
       drawGlowCircle(p.x, shipY, shipSize * 0.74, auraColor, 0.2, 20);
       drawGlowCircle(p.x, shipY, shipSize * 0.42, '#e9f8ff', 0.12, 10);
     }
-    if (p.shield > 0 && !state.settings.lowEndMode) {
+    const playerGlow = state.overdrive > 0 ? '#ffe59a' : '#92dcff';
+    drawSoftEdgeGlow(p.x, shipY, 50, playerGlow, 0.22);
+    if (p.shield > 0) {
       const shieldColor = p.shield > 1 ? '#7fc8ff' : '#61a9ff';
       for (let i = 0; i < p.shield; i++) {
         const ringR = shieldRing + i * 5;
-        drawGlowCircle(p.x, shipY, ringR + 3, shieldColor, i === 0 ? 0.16 : 0.08, i === 0 ? 16 : 10);
+        drawRingGlow(p.x, shipY, ringR + 8, ringR + 6, shieldColor, 0.15, 0);
       }
     }
     if (!respawning || p.respawnTimer < 0.98) {
       if (flameTexture) {
-        const flameAlpha = (state.settings.lowEndMode ? 0.56 : 0.82) * flashAlpha;
+        const flameAlpha = 0.82 * flashAlpha;
         const flameLenPulse = 1 + Math.sin(state.animClock * TAU * 10) * 0.1;
         const flameWPulse = 1 + Math.sin(state.animClock * TAU * 6) * 0.1;
         const verticalStretch = clamp(p.vy / 460, -1, 1) * 0.2;
-        const flameLen = shipSize * (state.settings.lowEndMode ? 0.2423925 : 0.2885625) * flameLenPulse * (1 - verticalStretch);
-        const flameW = shipSize * (state.settings.lowEndMode ? 0.24 : 0.285) * flameWPulse;
+        const flameLen = shipSize * 0.2885625 * flameLenPulse * (1 - verticalStretch);
+        const flameW = shipSize * 0.285 * flameWPulse;
         const flameOffsets = [
           { x: -shipSize * 0.17, y: shipSize * 0.36, s: 1.38 },
           { x: 0, y: shipSize * 0.42, s: 1.59 },
@@ -4119,6 +4153,19 @@
     if (damage > 0.01) {
       const tex = getPlayerDamageTexture(planeSize, damage);
       drawTextureRect(tex, p.x, shipY, shipSize, shipSize, { rot: rot, alpha: Math.min(1, 0.38 + damage * 0.62), layer: 4, lighter: false });
+      const sparkCount = clamp(Math.round(2 + damage * 10), 2, 10);
+      const sparkColors = ['#ff5a3d', '#ff8a2d', '#ffd35a', '#ffb347'];
+      const sparkSeed = hashString('player-damage|' + Math.round(state.animClock * 12) + '|' + Math.round(p.x) + '|' + Math.round(shipY) + '|' + Math.round(damage * 100));
+      for (let i = 0; i < sparkCount; i++) {
+        const t = (i + 1) / (sparkCount + 1);
+        const a = sparkSeed ^ (i * 2654435761);
+        const rx = (((a >>> 0) % 1000) / 1000 - 0.5) * shipSize * 0.54;
+        const ry = ((((a >>> 10) >>> 0) % 1000) / 1000 - 0.5) * shipSize * 0.54;
+        const r = 3 + ((((a >>> 20) >>> 0) % 1000) / 1000) * 7;
+        const color = sparkColors[(a >>> 28) % sparkColors.length];
+        const pos = localToWorld(p.x, shipY, rot, rx, ry);
+        drawSpriteCircle(pos.x, pos.y, r, color, 0.24 + damage * 0.42, 4, true);
+      }
     }
   }
 
@@ -4552,6 +4599,10 @@
         ev.preventDefault();
         resumeAudio();
       }
+    if (state.debugMode && (code === 'Digit1' || code === 'Digit2' || code === 'Digit3' || code === 'Digit4' || code === 'Digit5' || code === 'Digit6' || code === 'Digit7' || code === 'Digit8' || code === 'Digit9')) {
+      ev.preventDefault();
+      if (!ev.repeat) spawnCheatDrop(code);
+    }
     if (code === 'ArrowLeft' || code === 'KeyA') state.input.left = true;
     else if (code === 'ArrowRight' || code === 'KeyD') state.input.right = true;
     else if (code === 'ArrowUp' || code === 'KeyW') state.input.up = true;
