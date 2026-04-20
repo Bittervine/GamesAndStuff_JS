@@ -2168,30 +2168,30 @@
       sfx('fan');
     } else if (mode === 3) { // ROCKET
       if (tier <= 1) {
-        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.4, turn: 4.5 });
-        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.48, turn: 4.3 });
+        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/2, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.4, turn: 4.5 });
+        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/2, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.48, turn: 4.3 });
       } else if (tier === 2) {
-        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 7, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.35, turn: 4.2 });
-        spawnBullet('player', x,      y - 10, rand(-60,60), rand(-600,-700), { r: 7, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.35, turn: 4.2 });
-        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.48, turn: 4.3 });
+        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/3, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.35, turn: 4.2 });
+        spawnBullet('player', x,      y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/3, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.35, turn: 4.2 });
+        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/3, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.48, turn: 4.3 });
       } else if (tier === 3) {
-        spawnBullet('player', x - 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.48, turn: 4.3 });
-        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 7, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.42, turn: 4.3 });
-        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 7, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.42, turn: 4.3 });
-        spawnBullet('player', x + 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.50, turn: 4.4 });
+        spawnBullet('player', x - 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/4, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.48, turn: 4.3 });
+        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/4, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.42, turn: 4.3 });
+        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/4, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.42, turn: 4.3 });
+        spawnBullet('player', x + 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/4, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.50, turn: 4.4 });
       } else if (tier === 4) {
-        spawnBullet('player', x - 20, y - 10, rand(-60,60), rand(-600,-700), { r: 7, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
-        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.50, turn: 4.3 });
-        spawnBullet('player', x ,     y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.50, turn: 4.3 });
-        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 7, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
-        spawnBullet('player', x + 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.52, turn: 4.4 });
+        spawnBullet('player', x - 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/5, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
+        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/5, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.50, turn: 4.3 });
+        spawnBullet('player', x ,     y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/5, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.50, turn: 4.3 });
+        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/5, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
+        spawnBullet('player', x + 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/5, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.52, turn: 4.4 });
       } else {
-        spawnBullet('player', x - 20, y - 10, rand(-60,60), rand(-600,-700), { r: 7, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
-        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.50, turn: 4.3 });
-        spawnBullet('player', x - 5,  y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.52, turn: 4.4 });
-        spawnBullet('player', x + 5,  y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.50, turn: 4.3 });
-        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 7, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
-        spawnBullet('player', x + 20, y - 10, rand(-60,60), rand(-600,-700), { r: 7, color: color, damage: dmg/5, kind: 'rocket', pierce: 1, life: 4.3, homing: 0.18, turn: 4.0 });
+        spawnBullet('player', x - 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/6, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
+        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/6, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.50, turn: 4.3 });
+        spawnBullet('player', x - 5,  y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/6, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.52, turn: 4.4 });
+        spawnBullet('player', x + 5,  y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/6, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.50, turn: 4.3 });
+        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/6, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
+        spawnBullet('player', x + 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/6, kind: 'rocket', pierce: 1, life: 4.3, homing: 0.18, turn: 4.0 });
       }
       sfx('rocket');
     } else { // BEAM
