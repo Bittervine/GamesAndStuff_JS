@@ -132,6 +132,8 @@
   ];
   const glowCandidateTextures = new Map();
   const glowCandidateLoadKeys = new Set();
+  const glowCandidateImages = new Map();
+  const glowCandidateImageLoads = new Set();
   const ENEMY_SHIP_COLUMNS = 7;
   const ENEMY_SHIP_FALLBACK_BATCHES = 10;
   const ENEMY_SHIP_VARIANT = 'a';
@@ -197,6 +199,23 @@
       glowCandidateLoadKeys.delete(spec.src);
     };
     img.src = spec.src;
+    return null;
+  }
+
+  function ensureGlowCandidateImage(src) {
+    if (!src) return null;
+    if (glowCandidateImages.has(src) || glowCandidateImageLoads.has(src)) return glowCandidateImages.get(src) || null;
+    glowCandidateImageLoads.add(src);
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = function () {
+      glowCandidateImages.set(src, img);
+      glowCandidateImageLoads.delete(src);
+    };
+    img.onerror = function () {
+      glowCandidateImageLoads.delete(src);
+    };
+    img.src = src;
     return null;
   }
 
@@ -3187,7 +3206,7 @@
         if (d <= r) near++;
         if (d <= r * 0.6) tooClose = true;
       }
-      if (!tooClose && near >= 1 && near <= 9) {
+      if (!tooClose && near >= 1 && near <= 12) {
         pts.push({ x: x, y: y });
       }
     }
@@ -3204,10 +3223,14 @@
     return {
       x: w * (0.12 + index * 0.22),
       y: -h * (0.18 + index * 0.08),
-      delay: 0,
-      speed: 18 + index * 3,
+      delay: lerp(3, 5, Math.random()),
+      speed: (18 + index * 3) * 5,
       seed: 37 + index * 19,
       points: null,
+      texture: null,
+      texW: 0,
+      texH: 0,
+      bounds: null,
       r: 96 + index * 10,
       cluster: 9 + index,
       a: 0.20 + index * 0.02
@@ -3216,8 +3239,50 @@
 
   function ensureScrollingCloudPoints(cloud) {
     if (cloud.points) return cloud.points;
-    cloud.points = buildCloudClusterPoints(cloud.x, cloud.y, cloud.r, cloud.cluster, cloud.seed);
+    cloud.points = buildCloudClusterPoints(0, 0, cloud.r, cloud.cluster, cloud.seed);
     return cloud.points;
+  }
+
+  function ensureScrollingCloudTexture(cloud) {
+    if (cloud.texture) return cloud.texture;
+    const pts = ensureScrollingCloudPoints(cloud);
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      minX = Math.min(minX, p.x - cloud.r * 2.2);
+      minY = Math.min(minY, p.y - cloud.r * 2.2);
+      maxX = Math.max(maxX, p.x + cloud.r * 2.2);
+      maxY = Math.max(maxY, p.y + cloud.r * 2.2);
+    }
+    const pad = Math.max(48, Math.round(cloud.r * 0.6));
+    minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+    const texW = Math.max(256, Math.ceil(maxX - minX));
+    const texH = Math.max(256, Math.ceil(maxY - minY));
+    const c = makeCanvas(texW, texH);
+    const g = c.getContext('2d');
+    if (!g) return null;
+    g.clearRect(0, 0, texW, texH);
+    const whiteImg = ensureGlowCandidateImage('assets/glow_e_white.png');
+    const blueImg = ensureGlowCandidateImage('assets/glow_e_blue.png');
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      const px = p.x - minX;
+      const py = p.y - minY;
+      if (whiteImg) {
+        g.globalAlpha = cloud.a * 0.28;
+        g.drawImage(whiteImg, px - 128, py - 128, 256, 256);
+      }
+      if (blueImg) {
+        g.globalAlpha = cloud.a * 0.22;
+        g.drawImage(blueImg, px - 150, py - 150, 300, 300);
+      }
+    }
+    g.globalAlpha = 1;
+    cloud.texture = createTextureFromCanvas(c);
+    cloud.texW = texW;
+    cloud.texH = texH;
+    cloud.bounds = { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
+    return cloud.texture;
   }
 
   function resetScrollingCloud(cloud) {
@@ -3225,12 +3290,16 @@
     cloud.x = w * (0.10 + Math.random() * 0.78);
     cloud.y = -Math.max(180, view.h * (0.10 + Math.random() * 0.18));
     cloud.delay = 0;
-    cloud.speed = 14 + Math.random() * 16;
+    cloud.speed = (14 + Math.random() * 16) * 5;
     cloud.seed = (Math.random() * 0x7fffffff) | 0;
     cloud.r = 90 + Math.random() * 36;
     cloud.cluster = 8 + ((Math.random() * 5) | 0);
     cloud.a = 0.16 + Math.random() * 0.08;
     cloud.points = null;
+    cloud.texture = null;
+    cloud.texW = 0;
+    cloud.texH = 0;
+    cloud.bounds = null;
   }
 
   function updateScrollingClouds(dt) {
@@ -3240,19 +3309,19 @@
       const c = state.scrollingClouds[i];
       if (c.delay > 0) {
         c.delay = Math.max(0, c.delay - dt);
-        continue;
+        if (c.delay > 0) continue;
+        resetScrollingCloud(c);
       }
       c.y += c.speed * dt;
-      const pts = ensureScrollingCloudPoints(c);
-      let maxY = -Infinity;
-      for (let j = 0; j < pts.length; j++) {
-        if (pts[j].y > maxY) maxY = pts[j].y;
-      }
-      if (maxY > h + c.r * 1.2) {
-        c.delay = lerp(2, 4, Math.random());
+      ensureScrollingCloudTexture(c);
+      if (c.bounds && c.y + c.bounds.minY > h + c.r * 1.2) {
+        c.delay = lerp(3, 5, Math.random());
         c.points = null;
+        c.texture = null;
+        c.texW = 0;
+        c.texH = 0;
+        c.bounds = null;
         c.y = h + c.r * 2;
-        c.x = c.x;
       }
     }
   }
@@ -3264,13 +3333,13 @@
     for (let i = 0; i < state.scrollingClouds.length; i++) {
       const c = state.scrollingClouds[i];
       if (c.delay > 0) continue;
-      const pts = ensureScrollingCloudPoints(c);
-      for (let j = 0; j < pts.length; j++) {
-        const p = pts[j];
-        const blue = ensureGlowCandidateTexture({ src: 'assets/glow_e_blue.png' });
-        const white = ensureGlowCandidateTexture({ src: 'assets/glow_e_white.png' });
-        if (white) drawTextureRect(white, p.x, p.y, 256, 256, { alpha: c.a * 0.72, layer: 1, lighter: false });
-        if (blue) drawTextureRect(blue, p.x, p.y, 300, 300, { alpha: c.a * 0.54, layer: 1.1, lighter: false });
+      const tex = ensureScrollingCloudTexture(c);
+      if (tex && c.bounds) {
+        drawTextureRect(tex, c.x + (c.bounds.minX + c.bounds.maxX) * 0.5, c.y + (c.bounds.minY + c.bounds.maxY) * 0.5, c.texW, c.texH, {
+          alpha: 1,
+          layer: 1,
+          lighter: false
+        });
       }
     }
     hudCtx.restore();
