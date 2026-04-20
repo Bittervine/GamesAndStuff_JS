@@ -389,6 +389,30 @@
         <span>Low end mode</span>
         <input id="lowEndMode" type="checkbox">
       </label>
+
+      <div class="settings-group">
+        <div class="settings-label">
+          <span>Circle Radius</span>
+          <span class="settings-value" id="circleRadiusValue">45px</span>
+        </div>
+        <input id="circleRadius" type="range" min="20" max="120" step="1" value="45">
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-label">
+          <span>Circle Alpha</span>
+          <span class="settings-value" id="circleAlphaValue">0.20</span>
+        </div>
+        <input id="circleAlpha" type="range" min="0.01" max="0.8" step="0.01" value="0.2">
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-label">
+          <span>Circle Spread</span>
+          <span class="settings-value" id="circleSpreadValue">48px</span>
+        </div>
+        <input id="circleSpread" type="range" min="0" max="120" step="1" value="48">
+      </div>
     </div>
   </dialog>
   <script>
