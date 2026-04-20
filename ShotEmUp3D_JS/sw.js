@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'shotemup-3d-v7';
+var CACHE_NAME = 'shotemup-3d-v8';
 var APP_SHELL = [
   './ShotEmUp3D_JS.html',
   './ShotEmUp_JS.js',
@@ -9,7 +9,6 @@ var APP_SHELL = [
   './pwa-icon.svg',
   './assets/players_spaceship.png',
   './assets/Thorium_Gap_title.png',
-  './assets/player_spaceship.glb',
   './assets/Boss_01.png',
   './assets/Boss_02.png',
   './assets/Boss_03.png',

@@ -16,7 +16,6 @@
   const musicVolumeValue = document.getElementById('musicVolumeValue');
   const difficultyValue = document.getElementById('difficultyValue');
   const difficultyButtons = Array.from(document.querySelectorAll('[data-difficulty]'));
-  const loadAdvancedShipInput = document.getElementById('loadAdvancedShip');
   const lowEndModeInput = document.getElementById('lowEndMode');
 
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
@@ -45,6 +44,11 @@
     uTex: null,
     uViewport: null
   };
+  const PLAYER_SHIP_TEXTURE_KEY = 'player-ship';
+  const PLAYER_ENGINE_TEXTURE_PREFIX = 'player-engine-flame|';
+  const PLAYER_DAMAGE_TEXTURE_PREFIX = 'player-damage|';
+  let playerShipTextureLoading = false;
+  let playerShipSourceImage = null;
 
   function cp(code) {
     if (code <= 0xFFFF) return String.fromCharCode(code);
@@ -834,7 +838,6 @@
       sfxVolume: clamp(loadNum('ShotEmUp_JS_sfxVolume', 0.8), 0, 1),
       musicVolume: clamp(loadNum('ShotEmUp_JS_musicVolume', 0), 0, 1),
       difficulty: clamp(Math.round(loadNum('ShotEmUp_JS_difficulty', 1)), 0, 2),
-      loadAdvanced3DShipModel: loadBool('ShotEmUp_JS_loadAdvanced3DShipModel', false),
       lowEndMode: loadBool('ShotEmUp_JS_lowEndMode', false)
     },
     lives: 3,
@@ -887,25 +890,6 @@
     musicStep: 0,
     debugMode: DEBUG_MODE
   };
-  const shipBridge = window.__ShotEmUp3D;
-  if (shipBridge) {
-    shipBridge.enabled = true;
-    shipBridge.advancedModelEnabled = !!state.settings.loadAdvanced3DShipModel;
-    shipBridge.lowEndMode = !!state.settings.lowEndMode;
-    shipBridge.debugGiveWeapon = function (name, tier) {
-      const idx = WEAPONS.findIndex(function (w) { return w.name === String(name).toUpperCase(); });
-      if (idx < 0) return false;
-      const p = state.player;
-      if (!Array.isArray(p.weaponTiers) || p.weaponTiers.length !== WEAPONS.length) p.weaponTiers = Array(WEAPONS.length).fill(1);
-      p.weaponMode = idx;
-      p.weaponTiers[idx] = clamp(Number.isFinite(tier) ? tier : 5, 1, 5);
-      p.weaponTier = p.weaponTiers[idx];
-      state.banner = WEAPONS[idx].name + ' ' + WEAPON_TIER_LABELS[p.weaponTier - 1];
-      state.bannerSub = 'Debug weapon grant.';
-      state.bannerTimer = 1.2;
-      return true;
-    };
-  }
 
   const audio = {
     ctx: null,
@@ -1052,7 +1036,6 @@
     saveNum('ShotEmUp_JS_sfxVolume', state.settings.sfxVolume);
     saveNum('ShotEmUp_JS_musicVolume', state.settings.musicVolume);
     saveNum('ShotEmUp_JS_difficulty', state.settings.difficulty);
-    saveBool('ShotEmUp_JS_loadAdvanced3DShipModel', state.settings.loadAdvanced3DShipModel);
     saveBool('ShotEmUp_JS_lowEndMode', state.settings.lowEndMode);
     saveNum('ShotEmUp_JS_highScore', state.highScore);
   }
@@ -1063,9 +1046,7 @@
     if (sfxVolumeValue) sfxVolumeValue.textContent = Math.round(state.settings.sfxVolume * 100) + '%';
     if (musicVolumeValue) musicVolumeValue.textContent = Math.round(state.settings.musicVolume * 100) + '%';
     if (difficultyValue) difficultyValue.textContent = currentDifficulty().label;
-    if (loadAdvancedShipInput) loadAdvancedShipInput.checked = !!state.settings.loadAdvanced3DShipModel;
     if (lowEndModeInput) lowEndModeInput.checked = !!state.settings.lowEndMode;
-    if (loadAdvancedShipInput) loadAdvancedShipInput.disabled = !!state.settings.lowEndMode;
     for (let i = 0; i < difficultyButtons.length; i++) {
       const btn = difficultyButtons[i];
       const idx = Number(btn.getAttribute('data-difficulty'));
@@ -1096,38 +1077,26 @@
     }
   }
 
-  function setAdvancedShipLoading(enabled) {
-    if (state.settings.lowEndMode && enabled) return;
-    state.settings.loadAdvanced3DShipModel = !!enabled;
-    saveSettings();
-    syncSettingsUi();
-    const bridge = window.__ShotEmUp3D;
-    if (bridge) {
-      bridge.enabled = true;
-      bridge.advancedModelEnabled = !!enabled;
-      if (typeof bridge.reinitializeShip === 'function') bridge.reinitializeShip(!!enabled);
-      else if (enabled && typeof bridge.loadAdvancedShipModel === 'function') bridge.loadAdvancedShipModel();
-    }
-    hint(enabled ? 'Advanced 3D ship model enabled.' : 'Advanced 3D ship model disabled.', 1.6);
-  }
-
   function setLowEndMode(enabled) {
     state.settings.lowEndMode = !!enabled;
-    if (state.settings.lowEndMode && state.settings.loadAdvanced3DShipModel) {
-      state.settings.loadAdvanced3DShipModel = false;
-      const bridge = window.__ShotEmUp3D;
-      if (bridge) {
-        bridge.enabled = true;
-        bridge.advancedModelEnabled = false;
-        if (typeof bridge.reinitializeShip === 'function') bridge.reinitializeShip(false);
-      }
-    }
     saveSettings();
     syncSettingsUi();
-    const bridge = window.__ShotEmUp3D;
-    if (bridge) bridge.lowEndMode = !!enabled;
     window.dispatchEvent(new Event('resize'));
     hint(enabled ? 'Low end mode enabled.' : 'Low end mode disabled.', 1.6);
+  }
+
+  function debugGiveWeapon(name, tier) {
+    const idx = WEAPONS.findIndex(function (w) { return w.name === String(name).toUpperCase(); });
+    if (idx < 0) return false;
+    const p = state.player;
+    if (!Array.isArray(p.weaponTiers) || p.weaponTiers.length !== WEAPONS.length) p.weaponTiers = Array(WEAPONS.length).fill(1);
+    p.weaponMode = idx;
+    p.weaponTiers[idx] = clamp(Number.isFinite(tier) ? tier : 5, 1, 5);
+    p.weaponTier = p.weaponTiers[idx];
+    state.banner = WEAPONS[idx].name + ' ' + WEAPON_TIER_LABELS[p.weaponTier - 1];
+    state.bannerSub = 'Debug weapon grant.';
+    state.bannerTimer = 1.2;
+    return true;
   }
 
   function openSettings() {
@@ -4086,58 +4055,60 @@
     const respawning = p.respawnTimer > 0;
     const bob = respawning ? Math.sin(state.musicStep * 0.45) * 0.8 : Math.sin((state.musicStep * 0.45) + p.x * 0.01) * 2;
     const tilt = respawning ? 0 : clamp(((state.input.right ? 1 : 0) - (state.input.left ? 1 : 0)) * 0.24 + (state.pointerActive ? (state.pointerX - p.x) / 280 : 0), -0.45, 0.45);
-    const rot = -Math.PI * 0.25 + tilt;
+    const rot = tilt * 0.92;
     const glow = state.overdrive > 0 ? '#ffe38c' : '#8fd8ff';
     const invulnActive = p.invuln > 0 && !respawning;
     const auraColor = invulnActive ? '#bfe4ff' : glow;
     const flashAlpha = p.invuln > 0 ? 0.52 + 0.42 * (0.5 + 0.5 * Math.sin((3 - p.invuln) * 16 + state.musicStep * 0.9)) : 1;
-    const bank = clamp(-tilt * 3.1, -1.57, 1.57);
-    const bridge = window.__ShotEmUp3D;
+    const shipSize = 74 + (state.overdrive > 0 ? 4 : 0);
+    const shipY = p.y + bob;
     const planeSize = 36 + (state.overdrive > 0 ? 4 : 0);
     const shieldRing = p.r;
+    const shipTexture = getPlayerShipTexture();
+    const flameTexture = getPlayerEngineFlameTexture((Math.floor(state.musicStep * 6 + p.x * 0.02) & 3));
     if (invulnActive && !state.settings.lowEndMode) {
-      drawGlowCircle(p.x, p.y + bob, planeSize * 1.5, auraColor, 0.22, 22);
-      drawGlowCircle(p.x, p.y + bob, planeSize * 0.95, '#e9f8ff', 0.12, 10);
+      drawGlowCircle(p.x, shipY, shipSize * 0.74, auraColor, 0.2, 20);
+      drawGlowCircle(p.x, shipY, shipSize * 0.42, '#e9f8ff', 0.12, 10);
     }
     if (p.shield > 0 && !state.settings.lowEndMode) {
-      hudCtx.save();
-      hudCtx.globalCompositeOperation = 'lighter';
+      const shieldColor = p.shield > 1 ? '#7fc8ff' : '#61a9ff';
       for (let i = 0; i < p.shield; i++) {
         const ringR = shieldRing + i * 5;
-        const a = (i === 0 ? 0.10 : 0.0625) * 1.25 * 1.25 * 1.25;
-        const w = i === 0 ? 2.2 : 1.6;
-        const blur = i === 0 ? 14 : 10;
-        hudCtx.strokeStyle = 'rgba(48, 112, 255, ' + a + ')';
-        hudCtx.lineWidth = w;
-        hudCtx.shadowColor = 'rgba(48, 112, 255, ' + (a * 2.1) + ')';
-        hudCtx.shadowBlur = blur;
-        hudCtx.beginPath();
-        hudCtx.arc(p.x, p.y + bob, ringR, 0, TAU);
-        hudCtx.stroke();
+        drawGlowCircle(p.x, shipY, ringR + 3, shieldColor, i === 0 ? 0.16 : 0.08, i === 0 ? 16 : 10);
       }
-      hudCtx.restore();
     }
-    if (bridge && bridge.enabled) {
-      bridge.player = {
-        x: p.x,
-        y: p.y,
-        bob: bob,
-        rot: rot,
-        tilt: tilt,
-        bank: bank,
-        alpha: flashAlpha,
-        invuln: p.invuln,
-        damage: clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1),
-        visible: !respawning || p.respawnTimer < 0.98
-      };
-      return;
+    if (!respawning || p.respawnTimer < 0.98) {
+      if (flameTexture) {
+        const flameAlpha = (state.settings.lowEndMode ? 0.56 : 0.82) * flashAlpha;
+        const flameLen = shipSize * (state.settings.lowEndMode ? 0.42 : 0.5);
+        const flameW = shipSize * (state.settings.lowEndMode ? 0.16 : 0.19);
+        const flameOffsets = [
+          { x: -shipSize * 0.16, y: shipSize * 0.34, s: 0.9 },
+          { x: 0, y: shipSize * 0.38, s: 1.08 },
+          { x: shipSize * 0.16, y: shipSize * 0.34, s: 0.9 }
+        ];
+        for (let i = 0; i < flameOffsets.length; i++) {
+          const o = flameOffsets[i];
+          const pos = localToWorld(p.x, shipY, rot, o.x, o.y);
+          drawTextureRect(flameTexture, pos.x, pos.y, flameW * o.s, flameLen * o.s, {
+            rot: rot,
+            alpha: flameAlpha * (i === 1 ? 1 : 0.78),
+            layer: 3,
+            lighter: true
+          });
+        }
+      }
+    }
+    if (shipTexture) {
+      drawTextureRect(shipTexture, p.x, shipY, shipSize, shipSize, { rot: rot, alpha: flashAlpha, layer: 4, lighter: false });
+    } else {
+      ensurePlayerShipTexture();
+      drawEmojiGlyph(E.plane, p.x, shipY, planeSize, { rot: rot, alpha: flashAlpha, layer: 4, fill: glow, lighter: false });
     }
     const damage = clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1);
     if (damage > 0.01) {
       const tex = getPlayerDamageTexture(planeSize, damage);
-      pushSprite(tex, p.x, p.y + bob, planeSize * 2.1, planeSize * 2.1, rot, glow, flashAlpha, 4, false);
-    } else {
-      drawEmojiGlyph(E.plane, p.x, p.y + bob, planeSize, { rot: rot, alpha: flashAlpha, layer: 4, fill: glow, lighter: false });
+      drawTextureRect(tex, p.x, shipY, shipSize, shipSize, { rot: rot, alpha: Math.min(1, 0.38 + damage * 0.62), layer: 4, lighter: false });
     }
   }
 
@@ -4150,78 +4121,168 @@
     };
   }
 
-  function getPlayerCrackTexture(size, variant) {
-    const s = Math.max(12, Math.round(size));
-    const planeSize = 36 + (state.overdrive > 0 ? 4 : 0);
-    const key = 'playercrack|' + planeSize + '|' + s + '|' + (variant || 0);
-    let tex = render.hudSprites.get(key);
+  function ensurePlayerShipTexture() {
+    if (render.textures.has(PLAYER_SHIP_TEXTURE_KEY) || playerShipTextureLoading) return;
+    playerShipTextureLoading = true;
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = function () {
+      try {
+        playerShipSourceImage = img;
+        render.textures.set(PLAYER_SHIP_TEXTURE_KEY, createTextureFromCanvas(img));
+      } finally {
+        playerShipTextureLoading = false;
+      }
+    };
+    img.onerror = function () {
+      playerShipTextureLoading = false;
+    };
+    img.src = 'assets/players_spaceship.png';
+  }
+
+  function getPlayerShipTexture() {
+    const tex = render.textures.get(PLAYER_SHIP_TEXTURE_KEY);
     if (tex) return tex;
-    const pad = Math.max(10, Math.round(s * 0.6));
-    const dim = Math.max(32, Math.ceil(s * 2 + pad * 2));
-    const c = makeDomCanvas(dim, dim);
+    ensurePlayerShipTexture();
+    return null;
+  }
+
+  function getPlayerEngineFlameTexture(stage) {
+    const frame = clamp(stage | 0, 0, 3);
+    const key = PLAYER_ENGINE_TEXTURE_PREFIX + frame;
+    let tex = render.textures.get(key);
+    if (tex) return tex;
+    const c = makeDomCanvas(96, 160);
     const g = c.getContext('2d');
-    g.clearRect(0, 0, dim, dim);
-    const crack = getHudCrackSprite(s, variant);
-    g.drawImage(crack, (dim - crack.width) * 0.5, (dim - crack.height) * 0.5);
-    g.globalCompositeOperation = 'destination-in';
-    g.font = '900 ' + Math.round(planeSize * 2.05) + 'px ' + EMOJI_FONT;
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillStyle = '#fff';
-    g.fillText(E.plane, dim * 0.5, dim * 0.5 + Math.round(s * 0.03));
+    const w = c.width;
+    const h = c.height;
+    const flare = [0.9, 1, 1.1, 0.98][frame];
+    const side = [0.48, 0.52, 0.54, 0.5][frame];
+    g.clearRect(0, 0, w, h);
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+
+    let grad = g.createLinearGradient(0, h * 0.05, 0, h * 0.98);
+    grad.addColorStop(0, 'rgba(255,255,255,0.98)');
+    grad.addColorStop(0.18, 'rgba(200,248,255,0.92)');
+    grad.addColorStop(0.42, 'rgba(84,208,255,0.84)');
+    grad.addColorStop(0.72, 'rgba(30,118,255,0.48)');
+    grad.addColorStop(1, 'rgba(10,42,120,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(w * 0.5, h * 0.96);
+    g.bezierCurveTo(w * (0.5 + side * 0.36), h * 0.76, w * (0.66 + frame * 0.01), h * 0.44, w * 0.57, h * 0.12);
+    g.bezierCurveTo(w * 0.54, h * 0.28, w * 0.52, h * 0.56, w * 0.5, h * 0.96);
+    g.bezierCurveTo(w * 0.48, h * 0.56, w * 0.46, h * 0.28, w * 0.43, h * 0.12);
+    g.bezierCurveTo(w * (0.34 - frame * 0.01), h * 0.44, w * (0.5 - side * 0.36), h * 0.76, w * 0.5, h * 0.96);
+    g.closePath();
+    g.fill();
+
+    grad = g.createLinearGradient(0, h * 0.08, 0, h * 0.96);
+    grad.addColorStop(0, 'rgba(255,255,255,0.98)');
+    grad.addColorStop(0.24, 'rgba(242,253,255,0.95)');
+    grad.addColorStop(0.52, 'rgba(132,236,255,0.72)');
+    grad.addColorStop(0.78, 'rgba(52,144,255,0.32)');
+    grad.addColorStop(1, 'rgba(12,40,116,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(w * 0.5, h * 0.9);
+    g.bezierCurveTo(w * (0.58 + side * 0.12), h * 0.66, w * 0.64, h * 0.42, w * 0.54, h * 0.16);
+    g.bezierCurveTo(w * 0.52, h * 0.34, w * 0.51, h * 0.58, w * 0.5, h * 0.9);
+    g.bezierCurveTo(w * 0.49, h * 0.58, w * 0.48, h * 0.34, w * 0.46, h * 0.16);
+    g.bezierCurveTo(w * 0.36, h * 0.42, w * (0.42 - side * 0.12), h * 0.66, w * 0.5, h * 0.9);
+    g.closePath();
+    g.fill();
+
+    g.strokeStyle = 'rgba(152, 238, 255, 0.72)';
+    g.lineWidth = 2.4;
+    g.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+      const a = -0.18 + i * 0.18 + frame * 0.02;
+      const x0 = w * 0.5 + Math.sin(a * 2.1) * 7 * flare;
+      const y0 = h * (0.22 + i * 0.06);
+      g.beginPath();
+      g.moveTo(x0, y0);
+      g.lineTo(w * 0.5 + Math.sin(a * 2.6 + 0.5) * 11 * flare, h * (0.54 + i * 0.08));
+      g.lineTo(w * 0.5 + Math.sin(a * 2.9 + 1.2) * 5 * flare, h * (0.86 + i * 0.03));
+      g.stroke();
+    }
+
+    g.fillStyle = 'rgba(255,255,255,0.9)';
+    g.beginPath();
+    g.arc(w * 0.5, h * 0.14, 8 * flare, 0, TAU);
+    g.fill();
+    g.restore();
+
     tex = createTextureFromCanvas(c);
-    render.hudSprites.set(key, tex);
+    render.textures.set(key, tex);
     return tex;
   }
 
   function getPlayerDamageTexture(size, damage) {
     const planeSize = Math.max(16, Math.round(size));
     const stage = Math.max(1, Math.min(8, Math.ceil(damage * 8)));
-    const key = 'playerdamage|' + planeSize + '|' + stage;
-    let tex = render.hudSprites.get(key);
+    const key = PLAYER_DAMAGE_TEXTURE_PREFIX + planeSize + '|' + stage;
+    let tex = render.textures.get(key);
     if (tex) return tex;
-    const pad = Math.max(10, Math.round(planeSize * 0.6));
-    const dim = Math.max(32, Math.ceil(planeSize * 2 + pad * 2));
+    const dim = Math.max(64, Math.ceil(planeSize * 2.2));
     const c = makeDomCanvas(dim, dim);
     const g = c.getContext('2d');
     g.clearRect(0, 0, dim, dim);
-    g.font = '900 ' + Math.round(planeSize * 2.05) + 'px ' + EMOJI_FONT;
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.fillStyle = '#fff';
-    const centerY = dim * 0.5 + Math.round(planeSize * 0.03);
-    g.fillText(E.plane, dim * 0.5, centerY);
-    const anchors = [
-      [-22, -12, 0],
-      [-12, -14, 1],
-      [-2, -15, 2],
-      [10, -13, 3],
-      [22, -10, 0],
-      [-24, -3, 1],
-      [-12, -3, 2],
-      [0, -2, 3],
-      [12, -3, 0],
-      [24, -1, 1],
-      [-20, 8, 2],
-      [-8, 9, 3],
-      [4, 8, 0],
-      [16, 7, 1],
-      [0, 12, 2],
-      [18, 12, 3]
-    ];
-    const count = Math.min(anchors.length, 6 + stage * 2);
-    const crackBase = 12 + stage * 2.1 + damage * 20;
+    const img = playerShipSourceImage;
+    const shipScale = img ? Math.min((dim * 0.78) / img.width, (dim * 0.78) / img.height) : 1;
+    const shipW = img ? img.width * shipScale : dim * 0.72;
+    const shipH = img ? img.height * shipScale : dim * 0.72;
+    const cx = dim * 0.5;
+    const cy = dim * 0.5;
+
+    if (img) {
+      g.save();
+      g.drawImage(img, Math.round(cx - shipW * 0.5), Math.round(cy - shipH * 0.5), Math.round(shipW), Math.round(shipH));
+      g.restore();
+    } else {
+      g.save();
+      g.fillStyle = 'rgba(160,220,255,0.24)';
+      g.beginPath();
+      g.moveTo(cx, cy - shipH * 0.42);
+      g.lineTo(cx + shipW * 0.34, cy + shipH * 0.18);
+      g.lineTo(cx, cy + shipH * 0.42);
+      g.lineTo(cx - shipW * 0.34, cy + shipH * 0.18);
+      g.closePath();
+      g.fill();
+      g.restore();
+    }
+
     g.save();
-    g.globalCompositeOperation = 'destination-out';
-    for (let i = 0; i < count; i++) {
-      const cr = anchors[i];
-      const crackSize = crackBase + i * (1.2 + damage * 1.5);
-      const crack = getHudCrackSprite(crackSize, cr[2]);
-      g.drawImage(crack, Math.round(dim * 0.5 + cr[0] - crack.width * 0.5), Math.round(centerY + cr[1] - crack.height * 0.5));
+    g.globalCompositeOperation = 'source-atop';
+    const crackColor = ['rgba(255, 255, 255, 0.35)', 'rgba(120, 224, 255, 0.38)', 'rgba(255, 176, 76, 0.46)', 'rgba(255, 84, 52, 0.54)'];
+    const sparkColor = ['rgba(255,255,255,0.75)', 'rgba(153, 232, 255, 0.72)', 'rgba(255, 190, 102, 0.84)', 'rgba(255, 104, 84, 0.92)'];
+    const crackCount = 4 + stage * 2;
+    for (let i = 0; i < crackCount; i++) {
+      const t = i / Math.max(1, crackCount - 1);
+      const rx = (Math.sin(stage * 2.7 + i * 1.12) * 0.34 + (t - 0.5) * 0.52) * shipW;
+      const ry = (-0.24 + t * 0.74) * shipH;
+      const len = shipH * (0.16 + t * 0.18 + stage * 0.008);
+      g.strokeStyle = crackColor[(stage + i) % crackColor.length];
+      g.lineWidth = 1.1 + (i % 3) * 0.45 + stage * 0.05;
+      g.beginPath();
+      g.moveTo(cx + rx, cy + ry);
+      g.lineTo(cx + rx + Math.sin(i * 2.3 + stage) * len * 0.22, cy + ry + len * 0.4);
+      g.lineTo(cx + rx + Math.cos(i * 1.7 + stage * 0.7) * len * 0.12, cy + ry + len * 0.88);
+      g.stroke();
+    }
+    g.fillStyle = sparkColor[stage % sparkColor.length];
+    for (let i = 0; i < stage + 2; i++) {
+      const sx = cx + (Math.sin(stage * 1.9 + i * 2.1) * 0.26) * shipW;
+      const sy = cy + (-0.28 + i * 0.11) * shipH;
+      g.beginPath();
+      g.arc(sx, sy, 1.2 + stage * 0.18 + (i % 2) * 0.5, 0, TAU);
+      g.fill();
     }
     g.restore();
+
     tex = createTextureFromCanvas(c);
-    render.hudSprites.set(key, tex);
+    render.textures.set(key, tex);
     return tex;
   }
 
@@ -4532,7 +4593,8 @@
     hint: hint,
     startGame: startGame,
     togglePause: togglePause,
-    toggleMute: toggleMute
+    toggleMute: toggleMute,
+    debugGiveWeapon: debugGiveWeapon
   };
 
   resize();
@@ -4556,11 +4618,6 @@
   musicVolumeInput.addEventListener('input', function (ev) {
     setVolume('music', ev.target.value);
   });
-  if (loadAdvancedShipInput) {
-    loadAdvancedShipInput.addEventListener('change', function (ev) {
-      setAdvancedShipLoading(ev.target.checked);
-    });
-  }
   if (lowEndModeInput) {
     lowEndModeInput.addEventListener('change', function (ev) {
       setLowEndMode(ev.target.checked);

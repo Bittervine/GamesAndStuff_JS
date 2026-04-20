@@ -18,8 +18,8 @@ Development files:
 - `devel/unpack_enemy_images.py`
 
 You can paste this in the console for debugging weapons etc:
-window.__ShotEmUp3D.debugGiveWeapon('ROCKET', 5)
-window.__ShotEmUp3D.debugGiveWeapon('FAN', 5)
-window.__ShotEmUp3D.debugGiveWeapon('TWIN', 5)
-window.__ShotEmUp3D.debugGiveWeapon('DART', 5)
-window.__ShotEmUp3D.debugGiveWeapon('BEAM', 5)
+window.__shotemup.debugGiveWeapon('ROCKET', 5)
+window.__shotemup.debugGiveWeapon('FAN', 5)
+window.__shotemup.debugGiveWeapon('TWIN', 5)
+window.__shotemup.debugGiveWeapon('DART', 5)
+window.__shotemup.debugGiveWeapon('BEAM', 5)
