@@ -2,9 +2,9 @@
 
 - Game manual: `GameManual.html`
 - `ShotEmUp3D_JS.html` and `ShotEmUp_JS.js` stay in the project root.
-- `serve.py` stays in the project root.
 - Runtime art and models live in `assets/`.
 - Development-only source art and scripts live in `devel/`.
+- Implementation plan and progress tracking: `IMPLEMENTATION_PLAN.md`
 
 Runtime asset paths used by the game:
 - `assets/players_spaceship.png`
