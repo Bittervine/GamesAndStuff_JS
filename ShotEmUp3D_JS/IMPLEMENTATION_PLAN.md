@@ -9,8 +9,8 @@ Convert the game to a pure 2D default path first, polish the 2D ship effects, th
 ## Current Status
 
 - Phase 1 planning: complete
+- Phase 1 implementation: complete, browser verification pending
 - Phase 2 implementation: pending
-- Phase 3 implementation: pending
 
 ## How To Keep This Updated
 
@@ -22,29 +22,29 @@ Convert the game to a pure 2D default path first, polish the 2D ship effects, th
 
 ### HTML cleanup
 
-- [ ] Remove the Three.js import map if 3D is fully dropped from the default page.
-- [ ] Remove extra canvases: `player3d`, `enginefx`, `cloud3d`, `damagefx`.
-- [ ] Remove CSS rules for those canvases.
-- [ ] Remove the `Load advanced 3D ship model` setting from the UI.
-- [ ] Remove the `window.__ShotEmUp3D` bootstrap.
-- [ ] Remove the module script that imports Three.js, creates the 3D renderer, draws overlays, and runs its own animation loop.
-- [ ] Keep only the main game canvas, HUD canvas, controls, settings dialog, manual button, and `ShotEmUp_JS.js` loader.
+- [x] Remove the Three.js import map if 3D is fully dropped from the default page.
+- [x] Remove extra canvases: `player3d`, `enginefx`, `cloud3d`, `damagefx`.
+- [x] Remove CSS rules for those canvases.
+- [x] Remove the `Load advanced 3D ship model` setting from the UI.
+- [x] Remove the `window.__ShotEmUp3D` bootstrap.
+- [x] Remove the module script that imports Three.js, creates the 3D renderer, draws overlays, and runs its own animation loop.
+- [x] Keep only the main game canvas, HUD canvas, controls, settings dialog, manual button, and `ShotEmUp_JS.js` loader.
 
 ### Main renderer cleanup
 
-- [ ] Remove `loadAdvanced3DShipModel` settings, UI sync, saving, event listeners, and `setAdvancedShipLoading()`.
-- [ ] Remove all `window.__ShotEmUp3D` bridge logic.
-- [ ] Update `setLowEndMode()` so it no longer touches any 3D bridge.
-- [ ] Change `drawPlayer()` so the player ship is drawn by the main renderer from `assets/players_spaceship.png`.
-- [ ] Add a small player texture loader using `render.textures` and `createTextureFromCanvas()`.
-- [ ] Recreate engine flames, shield glow, and damage sparks as cheap main-renderer sprites and glows.
-- [ ] Keep starfield, PNG enemies, PNG bosses, weapons, pickups, HUD, settings, and gameplay behavior intact.
+- [x] Remove `loadAdvanced3DShipModel` settings, UI sync, saving, event listeners, and `setAdvancedShipLoading()`.
+- [x] Remove all `window.__ShotEmUp3D` bridge logic.
+- [x] Update `setLowEndMode()` so it no longer touches any 3D bridge.
+- [x] Change `drawPlayer()` so the player ship is drawn by the main renderer from `assets/players_spaceship.png`.
+- [x] Add a small player texture loader using `render.textures` and `createTextureFromCanvas()`.
+- [x] Recreate engine flames, shield glow, and damage sparks as cheap main-renderer sprites and glows.
+- [x] Keep starfield, PNG enemies, PNG bosses, weapons, pickups, HUD, settings, and gameplay behavior intact.
 
 ### Visual polish
 
-- [ ] Make the 2D engine flames look intentional and good.
-- [ ] Try layered strokes, feathered blue triangles, or a frame-based PNG asset if that gives better animation.
-- [ ] Ensure the new 2D effects still read clearly at mobile sizes and during combat chaos.
+- [x] Make the 2D engine flames look intentional and good.
+- [x] Try layered strokes, feathered blue triangles, or a frame-based PNG asset if that gives better animation.
+- [x] Ensure the new 2D effects still read clearly at mobile sizes and during combat chaos.
 
 ## Phase 2: Reintroduce Optional 3D Ship Rendering
 
@@ -98,3 +98,4 @@ Convert the game to a pure 2D default path first, polish the 2D ship effects, th
 ## Progress Log
 
 - 2026-04-20: Added the implementation plan and progress tracker.
+- 2026-04-20: Completed the phase 1 2D cleanup in HTML, JS, and the service worker. Browser verification still pending.
