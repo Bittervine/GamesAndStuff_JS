@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   'use strict';
 
   const TAU = Math.PI * 2;
@@ -16,22 +16,13 @@
   const musicVolumeValue = document.getElementById('musicVolumeValue');
   const difficultyValue = document.getElementById('difficultyValue');
   const difficultyButtons = Array.from(document.querySelectorAll('[data-difficulty]'));
+  const loadAdvancedShipInput = document.getElementById('loadAdvancedShip');
   const lowEndModeInput = document.getElementById('lowEndMode');
-  const circleRadiusInput = document.getElementById('circleRadius');
-  const circleAlphaInput = document.getElementById('circleAlpha');
-  const circleSpreadInput = document.getElementById('circleSpread');
-  const circleRadiusValue = document.getElementById('circleRadiusValue');
-  const circleAlphaValue = document.getElementById('circleAlphaValue');
-  const circleSpreadValue = document.getElementById('circleSpreadValue');
 
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
   let currentDt = 0;
-  const DEBUG_MODE = true;
-  const circleTune = {
-    radius: clamp(loadNum('ShotEmUp_JS_circleRadius', 45), 20, 120),
-    alpha: clamp(loadNum('ShotEmUp_JS_circleAlpha', 0.2), 0.01, 0.8),
-    spread: clamp(loadNum('ShotEmUp_JS_circleSpread', 48), 0, 120)
-  };
+  const urlParams = new URLSearchParams(window.location.search || '');
+  const DEBUG_MODE = urlParams.get('debug') === '1';
   const render = {
     ready: false,
     queue: [],
@@ -54,13 +45,6 @@
     uTex: null,
     uViewport: null
   };
-  const PLAYER_SHIP_TEXTURE_KEY = 'player-ship';
-  const PLAYER_AURA_TEXTURE_KEY = 'player-aura';
-  const PLAYER_ENGINE_TEXTURE_PREFIX = 'player-engine-flame|';
-  const PLAYER_DAMAGE_TEXTURE_PREFIX = 'player-damage|';
-  let playerShipTextureLoading = false;
-  let playerShipSourceImage = null;
-  const TITLE_GLOW_TESTS = true;
 
   function cp(code) {
     if (code <= 0xFFFF) return String.fromCharCode(code);
@@ -124,14 +108,6 @@
   titleArt.onload = function () { titleArtReady = true; };
   titleArt.onerror = function () { titleArtReady = false; };
   titleArt.src = 'assets/Thorium_Gap_title.png';
-  const GLOW_CANDIDATE_SPECS = [
-    { id: 'A', label: 'GlowA', src: 'assets/glow_a_red.png' },
-    { id: 'B', label: 'GlowB', src: 'assets/glow_b_green.png' },
-    { id: 'C', label: 'GlowC', src: 'assets/glow_c_blue.png' },
-    { id: 'D', label: 'GlowD', src: 'assets/glow_e_white.png' }
-  ];
-  const glowCandidateTextures = new Map();
-  const glowCandidateLoadKeys = new Set();
   const ENEMY_SHIP_COLUMNS = 7;
   const ENEMY_SHIP_FALLBACK_BATCHES = 10;
   const ENEMY_SHIP_VARIANT = 'a';
@@ -178,26 +154,6 @@
     const g = Math.round(gs / count);
     const b = Math.round(bs / count);
     return brightHueFromRgb(r, g, b);
-  }
-
-  function ensureGlowCandidateTexture(spec) {
-    if (!spec || !spec.src) return null;
-    if (glowCandidateTextures.has(spec.src) || glowCandidateLoadKeys.has(spec.src)) return glowCandidateTextures.get(spec.src) || null;
-    glowCandidateLoadKeys.add(spec.src);
-    const img = new Image();
-    img.decoding = 'async';
-    img.onload = function () {
-      try {
-        glowCandidateTextures.set(spec.src, createTextureFromCanvas(img));
-      } finally {
-        glowCandidateLoadKeys.delete(spec.src);
-      }
-    };
-    img.onerror = function () {
-      glowCandidateLoadKeys.delete(spec.src);
-    };
-    img.src = spec.src;
-    return null;
   }
 
   function brightHueFromRgb(r, g, b) {
@@ -573,18 +529,6 @@
     pushSprite(render.circle, x, y, r * 2, r * 2, 0, color, alpha, layer, additive);
   }
 
-  function drawCircleTunePreview(x, y) {
-    const r = circleTune.radius;
-    const a = circleTune.alpha;
-    const spread = circleTune.spread;
-    drawSpriteCircle(x, y, r, 'rgba(255,255,255,1)', a, 0, true);
-    if (spread > 0) {
-      drawSpriteCircle(x, y, r + spread * 0.35, 'rgba(255,255,255,1)', a * 0.45, 0, true);
-      drawSpriteCircle(x, y, r + spread * 0.7, 'rgba(255,255,255,1)', a * 0.16, 0, true);
-      drawSpriteCircle(x, y, r + spread, 'rgba(255,255,255,1)', a * 0.04, 0, true);
-    }
-  }
-
   function drawTextureRect(texture, x, y, w, h, opts) {
     const o = opts || {};
     pushSprite(texture, x, y, w, h, o.rot || 0, o.fill || '#ffffff', o.alpha == null ? 1 : o.alpha, o.layer || 0, !!o.lighter, !!o.erase, {
@@ -890,6 +834,7 @@
       sfxVolume: clamp(loadNum('ShotEmUp_JS_sfxVolume', 0.8), 0, 1),
       musicVolume: clamp(loadNum('ShotEmUp_JS_musicVolume', 0), 0, 1),
       difficulty: clamp(Math.round(loadNum('ShotEmUp_JS_difficulty', 1)), 0, 2),
+      loadAdvanced3DShipModel: loadBool('ShotEmUp_JS_loadAdvanced3DShipModel', false),
       lowEndMode: loadBool('ShotEmUp_JS_lowEndMode', false)
     },
     lives: 3,
@@ -913,7 +858,6 @@
     foregroundSeed: 0,
     starfield: [],
     starfieldScroll: 0,
-    scrollingClouds: null,
     enemies: [],
     bullets: [],
     enemyBullets: [],
@@ -923,7 +867,7 @@
     currentTheme: THEMES[0],
     transition: null,
     player: {
-      x: 0, y: 0, vx: 0, vy: 0, r: PLAYER_RADIUS,
+      x: 0, y: 0, r: PLAYER_RADIUS,
       health: 6, maxHealth: 6,
       shield: 0, bombs: 2,
       weaponMode: 0, weaponTier: 1,
@@ -941,9 +885,27 @@
     pointerY: 0,
     musicClock: 0,
     musicStep: 0,
-    animClock: 0,
     debugMode: DEBUG_MODE
   };
+  const shipBridge = window.__ShotEmUp3D;
+  if (shipBridge) {
+    shipBridge.enabled = true;
+    shipBridge.advancedModelEnabled = !!state.settings.loadAdvanced3DShipModel;
+    shipBridge.lowEndMode = !!state.settings.lowEndMode;
+    shipBridge.debugGiveWeapon = function (name, tier) {
+      const idx = WEAPONS.findIndex(function (w) { return w.name === String(name).toUpperCase(); });
+      if (idx < 0) return false;
+      const p = state.player;
+      if (!Array.isArray(p.weaponTiers) || p.weaponTiers.length !== WEAPONS.length) p.weaponTiers = Array(WEAPONS.length).fill(1);
+      p.weaponMode = idx;
+      p.weaponTiers[idx] = clamp(Number.isFinite(tier) ? tier : 5, 1, 5);
+      p.weaponTier = p.weaponTiers[idx];
+      state.banner = WEAPONS[idx].name + ' ' + WEAPON_TIER_LABELS[p.weaponTier - 1];
+      state.bannerSub = 'Debug weapon grant.';
+      state.bannerTimer = 1.2;
+      return true;
+    };
+  }
 
   const audio = {
     ctx: null,
@@ -1090,6 +1052,7 @@
     saveNum('ShotEmUp_JS_sfxVolume', state.settings.sfxVolume);
     saveNum('ShotEmUp_JS_musicVolume', state.settings.musicVolume);
     saveNum('ShotEmUp_JS_difficulty', state.settings.difficulty);
+    saveBool('ShotEmUp_JS_loadAdvanced3DShipModel', state.settings.loadAdvanced3DShipModel);
     saveBool('ShotEmUp_JS_lowEndMode', state.settings.lowEndMode);
     saveNum('ShotEmUp_JS_highScore', state.highScore);
   }
@@ -1100,13 +1063,9 @@
     if (sfxVolumeValue) sfxVolumeValue.textContent = Math.round(state.settings.sfxVolume * 100) + '%';
     if (musicVolumeValue) musicVolumeValue.textContent = Math.round(state.settings.musicVolume * 100) + '%';
     if (difficultyValue) difficultyValue.textContent = currentDifficulty().label;
+    if (loadAdvancedShipInput) loadAdvancedShipInput.checked = !!state.settings.loadAdvanced3DShipModel;
     if (lowEndModeInput) lowEndModeInput.checked = !!state.settings.lowEndMode;
-    if (circleRadiusInput) circleRadiusInput.value = String(circleTune.radius);
-    if (circleAlphaInput) circleAlphaInput.value = String(circleTune.alpha);
-    if (circleSpreadInput) circleSpreadInput.value = String(circleTune.spread);
-    if (circleRadiusValue) circleRadiusValue.textContent = Math.round(circleTune.radius) + 'px';
-    if (circleAlphaValue) circleAlphaValue.textContent = circleTune.alpha.toFixed(2);
-    if (circleSpreadValue) circleSpreadValue.textContent = Math.round(circleTune.spread) + 'px';
+    if (loadAdvancedShipInput) loadAdvancedShipInput.disabled = !!state.settings.lowEndMode;
     for (let i = 0; i < difficultyButtons.length; i++) {
       const btn = difficultyButtons[i];
       const idx = Number(btn.getAttribute('data-difficulty'));
@@ -1137,26 +1096,38 @@
     }
   }
 
-  function setLowEndMode(enabled) {
-    state.settings.lowEndMode = !!enabled;
+  function setAdvancedShipLoading(enabled) {
+    if (state.settings.lowEndMode && enabled) return;
+    state.settings.loadAdvanced3DShipModel = !!enabled;
     saveSettings();
     syncSettingsUi();
-    window.dispatchEvent(new Event('resize'));
-    hint(enabled ? 'Low end mode enabled.' : 'Low end mode disabled.', 1.6);
+    const bridge = window.__ShotEmUp3D;
+    if (bridge) {
+      bridge.enabled = true;
+      bridge.advancedModelEnabled = !!enabled;
+      if (typeof bridge.reinitializeShip === 'function') bridge.reinitializeShip(!!enabled);
+      else if (enabled && typeof bridge.loadAdvancedShipModel === 'function') bridge.loadAdvancedShipModel();
+    }
+    hint(enabled ? 'Advanced 3D ship model enabled.' : 'Advanced 3D ship model disabled.', 1.6);
   }
 
-  function debugGiveWeapon(name, tier) {
-    const idx = WEAPONS.findIndex(function (w) { return w.name === String(name).toUpperCase(); });
-    if (idx < 0) return false;
-    const p = state.player;
-    if (!Array.isArray(p.weaponTiers) || p.weaponTiers.length !== WEAPONS.length) p.weaponTiers = Array(WEAPONS.length).fill(1);
-    p.weaponMode = idx;
-    p.weaponTiers[idx] = clamp(Number.isFinite(tier) ? tier : 5, 1, 5);
-    p.weaponTier = p.weaponTiers[idx];
-    state.banner = WEAPONS[idx].name + ' ' + WEAPON_TIER_LABELS[p.weaponTier - 1];
-    state.bannerSub = 'Debug weapon grant.';
-    state.bannerTimer = 1.2;
-    return true;
+  function setLowEndMode(enabled) {
+    state.settings.lowEndMode = !!enabled;
+    if (state.settings.lowEndMode && state.settings.loadAdvanced3DShipModel) {
+      state.settings.loadAdvanced3DShipModel = false;
+      const bridge = window.__ShotEmUp3D;
+      if (bridge) {
+        bridge.enabled = true;
+        bridge.advancedModelEnabled = false;
+        if (typeof bridge.reinitializeShip === 'function') bridge.reinitializeShip(false);
+      }
+    }
+    saveSettings();
+    syncSettingsUi();
+    const bridge = window.__ShotEmUp3D;
+    if (bridge) bridge.lowEndMode = !!enabled;
+    window.dispatchEvent(new Event('resize'));
+    hint(enabled ? 'Low end mode enabled.' : 'Low end mode disabled.', 1.6);
   }
 
   function openSettings() {
@@ -1567,7 +1538,14 @@
   }
 
   function ensureStarfield() {
-    const desired = Math.max(480, Math.min(880, Math.round((view.w * view.h) / 3000)));
+    const lowEnd = !!state.settings.lowEndMode;
+    if (lowEnd) {
+      state.starfield = [];
+      return;
+    }
+    const desired = lowEnd
+      ? Math.max(240, Math.min(520, Math.round((view.w * view.h) / 5200)))
+      : Math.max(480, Math.min(880, Math.round((view.w * view.h) / 3000)));
     if (state.starfield.length === desired) return;
     const stars = [];
     for (let i = 0; i < desired; i++) {
@@ -1586,18 +1564,20 @@
 
   function drawStarfield() {
     drawSpriteRect(view.w * 0.5, view.h * 0.5, view.w, view.h, '#02040a', 1, -120, false);
+    if (state.settings.lowEndMode) return;
     ensureStarfield();
     state.starfieldScroll += 0.012;
+    const lowEnd = !!state.settings.lowEndMode;
     for (const star of state.starfield) {
       const y = (star.y + state.starfieldScroll * star.speed) % 1.08;
       const px = star.x * view.w;
       const py = y * view.h;
       const tw = 0.7 + Math.sin(state.levelClock * 2.1 + star.tw) * 0.3;
-      const alpha = clamp(star.a * tw * 0.75, 0.06, 1);
-      const size = star.r * (star.tint > 0.86 ? 1.35 : 1);
+      const alpha = clamp(star.a * tw * (lowEnd ? 0.58 : 0.75), 0.06, 1);
+      const size = star.r * (star.tint > 0.86 ? 1.35 : 1) * (lowEnd ? 0.88 : 1);
       const color = star.tint < 0.64 ? '#ffffff' : (star.tint < 0.84 ? '#dfefff' : '#f2e3a8');
-      drawGlowCircle(px, py, size, color, alpha, size * 1.4);
-      if (size > 1.25) drawSpriteRect(px, py, size * 0.6, size * 2.1, color, alpha * 0.35, -119, true);
+      drawGlowCircle(px, py, size, color, alpha, size * (lowEnd ? 1.05 : 1.4));
+      if (!lowEnd && size > 1.25) drawSpriteRect(px, py, size * 0.6, size * 2.1, color, alpha * 0.35, -119, true);
     }
   }
 
@@ -1745,9 +1725,13 @@
     state.input.up = false;
     state.input.down = false;
     state.input.fire = false;
-    state.mode = 'title';
-    setBanner('THORIUM GAP', 'Click or press Space to launch.', 3.5);
-    hint('Drag to fly. Hold to fire. Open SETTINGS for audio and combat settings.', 5);
+    if (state.debugMode) {
+      setupDebugScene();
+    } else {
+      state.mode = 'title';
+      setBanner('THORIUM GAP', 'Click or press Space to launch.', 3.5);
+      hint('Drag to fly. Hold to fire. Open SETTINGS for audio and combat settings.', 5);
+    }
     syncSettingsUi();
   }
 
@@ -1761,23 +1745,9 @@
   function startGame() {
     closeSettings();
     resetRun();
+    if (state.debugMode) return;
     state.mode = 'playing';
     beginLevel(0);
-  }
-
-  function spawnCheatDrop(code) {
-    if (!state.debugMode) return;
-    const x = view.w * 0.5;
-    const y = view.h * 0.5;
-    if (code === 'Digit1') spawnPickup('weapon', x, y, { weaponMode: 0 });
-    else if (code === 'Digit2') spawnPickup('weapon', x, y, { weaponMode: 1 });
-    else if (code === 'Digit3') spawnPickup('weapon', x, y, { weaponMode: 2 });
-    else if (code === 'Digit4') spawnPickup('weapon', x, y, { weaponMode: 3 });
-    else if (code === 'Digit5') spawnPickup('weapon', x, y, { weaponMode: 4 });
-    else if (code === 'Digit6') spawnPickup('shield', x, y);
-    else if (code === 'Digit7') spawnPickup('rapid', x, y);
-    else if (code === 'Digit8') spawnPickup('bomb', x, y);
-    else if (code === 'Digit9') spawnPickup('magnet', x, y);
   }
 
   function beginLevel(index) {
@@ -2650,8 +2620,6 @@
 
   function updatePlayer(dt) {
     const p = state.player;
-    const prevX = p.x;
-    const prevY = p.y;
     p.fireCooldown = Math.max(0, p.fireCooldown - dt);
     p.rapidTimer = Math.max(0, p.rapidTimer - dt);
     p.magnetTimer = Math.max(0, p.magnetTimer - dt);
@@ -2709,8 +2677,6 @@
       p.repairDelay = 0;
     }
     if (state.mode === 'playing' && p.fireHeld && p.fireCooldown <= 0) fireWeapon();
-    p.vx = dt > 0 ? (p.x - prevX) / dt : 0;
-    p.vy = dt > 0 ? (p.y - prevY) / dt : 0;
   }
 
   function updateBullets(dt) {
@@ -2968,8 +2934,6 @@
   function update(dt) {
     currentDt = dt;
     updateBackground(dt);
-    updateScrollingClouds(dt);
-    state.animClock += dt;
     if (state.mode === 'debug') return;
     if (state.mode === 'title') { updateMusic(dt); updateParticles(dt); return; }
     if (state.mode === 'gameover' || state.mode === 'victory') { updateMusic(dt * 0.35); updateParticles(dt); if (state.player.invuln > 0) state.player.invuln = Math.max(0, state.player.invuln - dt); return; }
@@ -3018,262 +2982,17 @@
   function drawGlowCircle(x, y, r, color, alpha, blur) {
     const b = blur == null ? Math.max(10, r * 0.8) : blur;
     const a = alpha == null ? 1 : alpha;
-    drawSpriteCircle(x, y, r + b * 0.82, color, a * 0.32, 0, true);
-    drawSpriteCircle(x, y, r + b * 0.45, color, a * 0.58, 0, true);
+    drawSpriteCircle(x, y, r + b * 0.6, color, a, 0, true);
     drawSpriteCircle(x, y, Math.max(1, r * 0.72), color, a, 0, true);
-  }
-
-  function drawSoftEdgeGlow(x, y, maxR, color, alpha) {
-    const a = alpha == null ? 1 : alpha;
-    const r = Math.max(1, maxR || 40);
-    drawSpriteCircle(x, y, r * 0.22, color, a * 0.9, 0, true);
-    drawSpriteCircle(x, y, r * 0.42, color, a * 0.58, 0, true);
-    drawSpriteCircle(x, y, r * 0.66, color, a * 0.22, 0, true);
-    drawSpriteCircle(x, y, r * 0.86, color, a * 0.08, 0, true);
-  }
-
-  const SHIELD_RING_TEXTURE_CACHE = new Map();
-
-  function getShieldRingTexture(thickness) {
-    const t = clamp(Math.round(thickness || 2), 1, 6);
-    let tex = SHIELD_RING_TEXTURE_CACHE.get(t);
-    if (tex) return tex;
-    const dim = 128;
-    const c = makeDomCanvas(dim, dim);
-    const g = c.getContext('2d');
-    const cx = dim * 0.5;
-    const cy = dim * 0.5;
-    g.clearRect(0, 0, dim, dim);
-    g.strokeStyle = '#ffffff';
-    g.lineWidth = t;
-    g.lineCap = 'round';
-    g.lineJoin = 'round';
-    g.beginPath();
-    g.arc(cx, cy, dim * 0.38, 0, TAU);
-    g.stroke();
-    tex = createTextureFromCanvas(c);
-    SHIELD_RING_TEXTURE_CACHE.set(t, tex);
-    return tex;
-  }
-
-  function drawRingGlow(x, y, outerR, innerR, color, alpha, blur) {
-    const outer = Math.max(1, outerR);
-    const ring = getShieldRingTexture(2);
-    drawTextureRect(ring, x, y, outer * 2, outer * 2, { fill: color || '#ffffff', alpha: alpha == null ? 1 : alpha, layer: 0, lighter: false });
   }
 
   function drawDiffuseGlowCircle(x, y, r, color, alpha, blur) {
     const b = blur == null ? Math.max(10, r * 0.8) : blur;
     const a = alpha == null ? 1 : alpha;
-    drawSpriteCircle(x, y, r + b * 0.95, color, a * 0.0045, 0, true);
-    drawSpriteCircle(x, y, r + b * 0.62, color, a * 0.0075, 0, true);
-    drawSpriteCircle(x, y, r + b * 0.28, color, a * 0.014, 0, true);
-    drawSpriteCircle(x, y, Math.max(1, r * 0.76), color, a * 0.022, 0, true);
-  }
-
-  function drawDitheredGlowCircle(x, y, r, color, alpha, mode) {
-    const m = mode || 'ordered';
-    const base = Math.max(1, r);
-    const steps = m === 'blue' ? 36 : (m === 'noise' ? 24 : 16);
-    const inner = base * 0.18;
-    const outer = base * 1.0;
-    for (let i = 0; i < steps; i++) {
-      const t = i / Math.max(1, steps - 1);
-      const blend = 1 - t;
-      let rr = lerp(inner, outer, t);
-      let aa = (alpha == null ? 1 : alpha) * Math.pow(blend, m === 'blue' ? 2.6 : 1.95);
-      if (m === 'ordered') {
-        const p = i & 7;
-        rr += (p - 3.5) * 0.9;
-        aa *= [1.0, 0.84, 0.98, 0.76, 0.92, 0.7, 0.88, 0.64][p];
-      } else if (m === 'noise') {
-        const n = hashString('dither|' + i + '|' + Math.round(x) + '|' + Math.round(y)) & 255;
-        rr += ((n / 255) - 0.5) * 1.6;
-        aa *= 0.8 + (n / 255) * 0.4;
-      } else {
-        const n1 = hashString('blue-a|' + i + '|' + Math.round(x * 0.5) + '|' + Math.round(y * 0.5)) & 255;
-        const n2 = hashString('blue-b|' + i + '|' + Math.round(x * 0.25) + '|' + Math.round(y * 0.25)) & 255;
-        const n = (n1 + n2 * 2) / 3 / 255;
-        rr += (n - 0.5) * 1.25;
-        aa *= 0.78 + (n - 0.5) * 0.34;
-      }
-      drawSpriteCircle(x, y, rr, color, aa * 0.03, 0, true);
-    }
-  }
-
-  function drawLayeredFalloffGlow(x, y, r, color, alpha, layers, curve, noise) {
-    const count = Math.max(8, layers | 0);
-    const c = Math.max(0.25, curve || 1.6);
-    const n = noise || 0;
-    for (let i = 0; i < count; i++) {
-      const t = i / Math.max(1, count - 1);
-      const rr = r * (0.02 + t * 0.98);
-      const aa = (alpha == null ? 1 : alpha) * Math.pow(1 - t, c) * 0.012;
-      const wobble = n ? ((hashString('fall|' + i + '|' + Math.round(x) + '|' + Math.round(y)) & 255) / 255 - 0.5) * n : 0;
-      drawSpriteCircle(x, y, rr + wobble, color, aa, 0, true);
-    }
-  }
-
-  function drawRadialGradientGlow(x, y, r, innerColor, outerColor, alpha, hardEdgePx, spreadPx) {
-    const inner = Math.max(1, r * 0.05);
-    const mid = Math.max(inner + 1, r - Math.max(1, hardEdgePx || 8));
-    const outer = Math.max(mid + 1, r + Math.max(1, spreadPx || 20));
-    const g = hudCtx.createRadialGradient(x, y, inner, x, y, outer);
-    g.addColorStop(0, innerColor || 'rgba(255,255,255,1)');
-    g.addColorStop(Math.min(0.45, mid / outer), innerColor || 'rgba(255,255,255,1)');
-    g.addColorStop(Math.min(0.9, (mid + (hardEdgePx || 8)) / outer), outerColor || 'rgba(255,255,255,0)');
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    hudCtx.save();
-    hudCtx.globalAlpha = alpha == null ? 1 : alpha;
-    hudCtx.fillStyle = g;
-    hudCtx.beginPath();
-    hudCtx.arc(x, y, outer, 0, TAU);
-    hudCtx.fill();
-    hudCtx.restore();
-  }
-
-  function drawMaskedGlow(x, y, r, color, alpha, spreadPx) {
-    const dim = Math.max(1, Math.round((r + (spreadPx || 36)) * 2));
-    const c = makeDomCanvas(dim, dim);
-    const g = c.getContext('2d');
-    if (!g) return;
-    const cx = dim * 0.5;
-    const cy = dim * 0.5;
-    const inner = Math.max(1, r * 0.08);
-    const outer = Math.max(inner + 1, r + Math.max(1, spreadPx || 36));
-    const grad = g.createRadialGradient(cx, cy, inner, cx, cy, outer);
-    grad.addColorStop(0, color || 'rgba(255,255,255,1)');
-    grad.addColorStop(0.18, color || 'rgba(255,255,255,1)');
-    grad.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = grad;
-    g.fillRect(0, 0, dim, dim);
-    hudCtx.save();
-    hudCtx.globalAlpha = alpha == null ? 1 : alpha;
-    hudCtx.drawImage(c, x - dim * 0.5, y - dim * 0.5);
-    hudCtx.restore();
-  }
-
-  function setCircleTune(kind, value) {
-    if (kind === 'radius') circleTune.radius = clamp(Number(value), 20, 120);
-    else if (kind === 'alpha') circleTune.alpha = clamp(Number(value), 0.01, 0.8);
-    else if (kind === 'spread') circleTune.spread = clamp(Number(value), 0, 120);
-    saveNum('ShotEmUp_JS_circleRadius', circleTune.radius);
-    saveNum('ShotEmUp_JS_circleAlpha', circleTune.alpha);
-    saveNum('ShotEmUp_JS_circleSpread', circleTune.spread);
-    syncSettingsUi();
-  }
-
-  function buildCloudClusterPoints(cx, cy, r, count, seed) {
-    const pts = [{ x: cx, y: cy }];
-    const rngSeed = (seed | 0) || 1;
-    let s = rngSeed;
-    function rand01() {
-      s = (s * 1664525 + 1013904223) | 0;
-      return ((s >>> 0) / 4294967295);
-    }
-    let guard = 0;
-    while (pts.length < count && guard++ < count * 24) {
-      const base = pts[(rand01() * pts.length) | 0];
-      const ang = rand01() * TAU;
-      const dist = r * lerp(0.3, 0.7, rand01());
-      const x = base.x + Math.cos(ang) * dist;
-      const y = base.y + Math.sin(ang) * dist;
-      let near = 0;
-      let tooClose = false;
-      for (let i = 0; i < pts.length; i++) {
-        const dx = x - pts[i].x;
-        const dy = y - pts[i].y;
-        const d = Math.sqrt(dx * dx + dy * dy);
-        if (d <= r) near++;
-        if (d <= r * 0.6) tooClose = true;
-      }
-      if (!tooClose && near >= 1 && near <= 9) {
-        pts.push({ x: x, y: y });
-      }
-    }
-    return pts;
-  }
-
-  function drawTitleGlowTests(cardX, cardY, cardW, cardH) {
-    if (!TITLE_GLOW_TESTS) return;
-  }
-
-  function createScrollingCloud(index) {
-    const w = Math.max(1, view.w);
-    const h = Math.max(1, view.h);
-    return {
-      x: w * (0.12 + index * 0.22),
-      y: -h * (0.18 + index * 0.08),
-      delay: 0,
-      speed: 18 + index * 3,
-      seed: 37 + index * 19,
-      points: null,
-      r: 96 + index * 10,
-      cluster: 9 + index,
-      a: 0.20 + index * 0.02
-    };
-  }
-
-  function ensureScrollingCloudPoints(cloud) {
-    if (cloud.points) return cloud.points;
-    cloud.points = buildCloudClusterPoints(cloud.x, cloud.y, cloud.r, cloud.cluster, cloud.seed);
-    return cloud.points;
-  }
-
-  function resetScrollingCloud(cloud) {
-    const w = Math.max(1, view.w);
-    cloud.x = w * (0.10 + Math.random() * 0.78);
-    cloud.y = -Math.max(180, view.h * (0.10 + Math.random() * 0.18));
-    cloud.delay = 0;
-    cloud.speed = 14 + Math.random() * 16;
-    cloud.seed = (Math.random() * 0x7fffffff) | 0;
-    cloud.r = 90 + Math.random() * 36;
-    cloud.cluster = 8 + ((Math.random() * 5) | 0);
-    cloud.a = 0.16 + Math.random() * 0.08;
-    cloud.points = null;
-  }
-
-  function updateScrollingClouds(dt) {
-    if (!state.scrollingClouds) state.scrollingClouds = [createScrollingCloud(0), createScrollingCloud(1), createScrollingCloud(2), createScrollingCloud(3)];
-    const h = Math.max(1, view.h);
-    for (let i = 0; i < state.scrollingClouds.length; i++) {
-      const c = state.scrollingClouds[i];
-      if (c.delay > 0) {
-        c.delay = Math.max(0, c.delay - dt);
-        continue;
-      }
-      c.y += c.speed * dt;
-      const pts = ensureScrollingCloudPoints(c);
-      let maxY = -Infinity;
-      for (let j = 0; j < pts.length; j++) {
-        if (pts[j].y > maxY) maxY = pts[j].y;
-      }
-      if (maxY > h + c.r * 1.2) {
-        c.delay = lerp(2, 4, Math.random());
-        c.points = null;
-        c.y = h + c.r * 2;
-        c.x = c.x;
-      }
-    }
-  }
-
-  function drawScrollingClouds() {
-    if (!state.scrollingClouds) return;
-    hudCtx.save();
-    hudCtx.globalCompositeOperation = 'source-over';
-    for (let i = 0; i < state.scrollingClouds.length; i++) {
-      const c = state.scrollingClouds[i];
-      if (c.delay > 0) continue;
-      const pts = ensureScrollingCloudPoints(c);
-      for (let j = 0; j < pts.length; j++) {
-        const p = pts[j];
-        const blue = ensureGlowCandidateTexture({ src: 'assets/glow_e_blue.png' });
-        const white = ensureGlowCandidateTexture({ src: 'assets/glow_e_white.png' });
-        if (white) drawTextureRect(white, p.x, p.y, 256, 256, { alpha: c.a * 0.72, layer: 1, lighter: false });
-        if (blue) drawTextureRect(blue, p.x, p.y, 300, 300, { alpha: c.a * 0.54, layer: 1.1, lighter: false });
-      }
-    }
-    hudCtx.restore();
+    drawSpriteCircle(x, y, r + b * 0.95, color, a * 0.00625, 0, true);
+    drawSpriteCircle(x, y, r + b * 0.62, color, a * 0.01, 0, true);
+    drawSpriteCircle(x, y, r + b * 0.28, color, a * 0.01625, 0, true);
+    drawSpriteCircle(x, y, Math.max(1, r * 0.76), color, a * 0.01875, 0, true);
   }
 
   function drawEmojiGlyph(text, x, y, size, opts) {
@@ -4110,7 +3829,6 @@
 
   function drawBackground() {
     drawStarfield();
-    drawScrollingClouds();
   }
 
   function drawForeground() {
@@ -4287,13 +4005,17 @@
     const texture = getEnemyShipTexture(levelNumber, shipIndex);
     const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme);
     const glowRadius = Math.max(14, shipSize * 0.42 * 0.75);
-    drawGlowCircle(e.x, e.y, glowRadius * 1.25, shipGlow, 0.92, 22);
-    drawGlowCircle(e.x, e.y, glowRadius * 0.68, shipGlow, 0.78, 12);
+    if (!state.settings.lowEndMode) {
+      drawGlowCircle(e.x, e.y, glowRadius * 1.25, shipGlow, 0.92, 22);
+      drawGlowCircle(e.x, e.y, glowRadius * 0.68, shipGlow, 0.78, 12);
+    }
     if (texture) {
       drawTextureRect(texture, e.x, e.y, shipSize, shipSize, { rot: rot, alpha: alpha, layer: 18 });
     } else {
-      drawGlowCircle(e.x, e.y, shipSize * 0.26, p.base, 0.18, 10);
-      drawGlowCircle(e.x, e.y, shipSize * 0.12, p.base, alpha * 0.14, 8);
+      if (!state.settings.lowEndMode) {
+        drawGlowCircle(e.x, e.y, shipSize * 0.26, p.base, 0.18, 10);
+        drawGlowCircle(e.x, e.y, shipSize * 0.12, p.base, alpha * 0.14, 8);
+      }
     }
   }
 
@@ -4304,9 +4026,11 @@
     const levelNumber = b.shipLevel || (state.levelIndex + 1);
     const texture = getBossTexture(levelNumber);
     const size = Math.max(208, getEnemyShipRenderSize(levelNumber, b.shipIndex || 0) * 2.75);
-    drawGlowCircle(b.x, b.y, r * 2.1, p.glow, 0.18, 24);
-    drawGlowCircle(b.x, b.y, r * 1.1, p.base, 0.18, 12);
-    drawGlowCircle(b.x, b.y, r * 0.4, p.base, 0.24, 8);
+    if (!state.settings.lowEndMode) {
+      drawGlowCircle(b.x, b.y, r * 2.1, p.glow, 0.18, 24);
+      drawGlowCircle(b.x, b.y, r * 1.1, p.base, 0.18, 12);
+      drawGlowCircle(b.x, b.y, r * 0.4, p.base, 0.24, 8);
+    }
     if (texture) {
       const w = levelNumber <= 6 ? size : (b.facingRight ? -size : size);
       drawTextureRect(texture, b.x, b.y, w, size, { rot: rot, alpha: 0.98, layer: 28 });
@@ -4314,11 +4038,11 @@
   }
 
   function drawEnemyOverlay(e, rot) {
-    if (e.hitFlash > 0) drawGlowCircle(e.x, e.y, e.r * 1.2, '#ffffff', 0.16, 19);
+    if (!state.settings.lowEndMode && e.hitFlash > 0) drawGlowCircle(e.x, e.y, e.r * 1.2, '#ffffff', 0.16, 19);
   }
 
   function drawBossOverlay(b) {
-    if (b.hitFlash > 0) drawGlowCircle(b.x, b.y, b.r * 1.35, '#ffffff', 0.16, 29);
+    if (!state.settings.lowEndMode && b.hitFlash > 0) drawGlowCircle(b.x, b.y, b.r * 1.35, '#ffffff', 0.16, 29);
   }
 
   function drawEnemy(e) {
@@ -4329,7 +4053,7 @@
     const levelNumber = e.shipLevel || (state.levelIndex + 1);
     const shipIndex = e.shipIndex || 0;
     const shipSize = e.shipSize || getEnemyShipRenderSize(levelNumber, shipIndex);
-    if (e.kind === 'spinner') {
+    if (!state.settings.lowEndMode && e.kind === 'spinner') {
       for (let i = 0; i < 5; i++) {
         const a = e.age * 2.2 + i * (TAU / 5);
         drawGlowCircle(e.x + Math.cos(a) * (e.r + 6), e.y + Math.sin(a) * (e.r + 6), 2.2, e.theme.accent2, 0.55, 8);
@@ -4348,11 +4072,13 @@
   function drawBoss(b) {
     if (!b) return;
     const glow = b.color || '#fff';
-    drawGlowCircle(b.x, b.y, b.r * 2.4, glow, 0.24, 28);
-    drawGlowCircle(b.x, b.y, b.r * 1.2, '#fff', 0.08, 20);
+    if (!state.settings.lowEndMode) {
+      drawGlowCircle(b.x, b.y, b.r * 2.4, glow, 0.24, 28);
+      drawGlowCircle(b.x, b.y, b.r * 1.2, '#fff', 0.08, 20);
+    }
     drawBossBody(b);
     drawBossOverlay(b);
-    if (b.hitFlash > 0) drawGlowCircle(b.x, b.y, b.r * 1.45, '#ffffff', 0.18, 24);
+    if (!state.settings.lowEndMode && b.hitFlash > 0) drawGlowCircle(b.x, b.y, b.r * 1.45, '#ffffff', 0.18, 24);
   }
 
   function drawPlayer() {
@@ -4360,85 +4086,58 @@
     const respawning = p.respawnTimer > 0;
     const bob = respawning ? Math.sin(state.musicStep * 0.45) * 0.8 : Math.sin((state.musicStep * 0.45) + p.x * 0.01) * 2;
     const tilt = respawning ? 0 : clamp(((state.input.right ? 1 : 0) - (state.input.left ? 1 : 0)) * 0.24 + (state.pointerActive ? (state.pointerX - p.x) / 280 : 0), -0.45, 0.45);
-    const rot = tilt * 0.92;
+    const rot = -Math.PI * 0.25 + tilt;
     const glow = state.overdrive > 0 ? '#ffe38c' : '#8fd8ff';
     const invulnActive = p.invuln > 0 && !respawning;
     const auraColor = invulnActive ? '#bfe4ff' : glow;
     const flashAlpha = p.invuln > 0 ? 0.52 + 0.42 * (0.5 + 0.5 * Math.sin((3 - p.invuln) * 16 + state.musicStep * 0.9)) : 1;
-    const shipSize = 74 + (state.overdrive > 0 ? 4 : 0);
-    const shipY = p.y + bob;
+    const bank = clamp(-tilt * 3.1, -1.57, 1.57);
+    const bridge = window.__ShotEmUp3D;
     const planeSize = 36 + (state.overdrive > 0 ? 4 : 0);
     const shieldRing = p.r;
-    const shipTexture = getPlayerShipTexture();
-    const auraTexture = getPlayerAuraTexture();
-    const flameTexture = getPlayerEngineFlameTexture((Math.floor(state.musicStep * 6 + p.x * 0.02) & 3));
-    if (auraTexture) {
-      drawTextureRect(auraTexture, p.x, shipY, 196, 196, {
-        alpha: 0.27,
-        layer: 3,
-        lighter: false
-      });
+    if (invulnActive && !state.settings.lowEndMode) {
+      drawGlowCircle(p.x, p.y + bob, planeSize * 1.5, auraColor, 0.22, 22);
+      drawGlowCircle(p.x, p.y + bob, planeSize * 0.95, '#e9f8ff', 0.12, 10);
     }
-    const playerGlow = state.overdrive > 0 ? '#ffe59a' : '#92dcff';
-    drawSoftEdgeGlow(p.x, shipY, 50, playerGlow, 0.22);
-    if (p.shield > 0) {
-      const shieldColor = p.shield > 1 ? '#7fc8ff' : '#61a9ff';
+    if (p.shield > 0 && !state.settings.lowEndMode) {
+      hudCtx.save();
+      hudCtx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < p.shield; i++) {
         const ringR = shieldRing + i * 5;
-        drawRingGlow(p.x, shipY, ringR + 8, ringR + 6, shieldColor, 0.15, 0);
+        const a = (i === 0 ? 0.10 : 0.0625) * 1.25 * 1.25 * 1.25;
+        const w = i === 0 ? 2.2 : 1.6;
+        const blur = i === 0 ? 14 : 10;
+        hudCtx.strokeStyle = 'rgba(48, 112, 255, ' + a + ')';
+        hudCtx.lineWidth = w;
+        hudCtx.shadowColor = 'rgba(48, 112, 255, ' + (a * 2.1) + ')';
+        hudCtx.shadowBlur = blur;
+        hudCtx.beginPath();
+        hudCtx.arc(p.x, p.y + bob, ringR, 0, TAU);
+        hudCtx.stroke();
       }
+      hudCtx.restore();
     }
-    if (!respawning || p.respawnTimer < 0.98) {
-      if (flameTexture) {
-        const flameAlpha = 0.82 * flashAlpha;
-        const flameLenPulse = 1 + Math.sin(state.animClock * TAU * 10) * 0.1;
-        const flameWPulse = 1 + Math.sin(state.animClock * TAU * 6) * 0.1;
-        const verticalStretch = clamp(p.vy / 460, -1, 1) * 0.2;
-        const flameLen = shipSize * 0.2885625 * flameLenPulse * (1 - verticalStretch);
-        const flameW = shipSize * 0.285 * flameWPulse;
-        const flameOffsets = [
-          { x: -shipSize * 0.1435, y: shipSize * 0.39, s: 1.38 },
-          { x: 0, y: shipSize * 0.45, s: 1.59 },
-          { x: shipSize * 0.1435, y: shipSize * 0.39, s: 1.38 }
-        ];
-        for (let i = 0; i < flameOffsets.length; i++) {
-          const o = flameOffsets[i];
-          const flameLenRoll = 0.7 + (Math.random() * 0.6);
-          const flameH = flameLen * flameLenRoll * o.s;
-          const anchorAdjust = flameH * 0.4;
-          const pos = localToWorld(p.x, shipY, rot, o.x, o.y + anchorAdjust);
-          drawTextureRect(flameTexture, pos.x, pos.y, flameW * o.s, flameH, {
-            rot: rot,
-            alpha: flameAlpha * (i === 1 ? 1 : 0.78),
-            layer: 5,
-            lighter: true
-          });
-        }
-      }
-    }
-    if (shipTexture) {
-      drawTextureRect(shipTexture, p.x, shipY, shipSize, shipSize, { rot: rot, alpha: flashAlpha, layer: 4, lighter: false });
-    } else {
-      ensurePlayerShipTexture();
-      drawEmojiGlyph(E.plane, p.x, shipY, planeSize, { rot: rot, alpha: flashAlpha, layer: 4, fill: glow, lighter: false });
+    if (bridge && bridge.enabled) {
+      bridge.player = {
+        x: p.x,
+        y: p.y,
+        bob: bob,
+        rot: rot,
+        tilt: tilt,
+        bank: bank,
+        alpha: flashAlpha,
+        invuln: p.invuln,
+        damage: clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1),
+        visible: !respawning || p.respawnTimer < 0.98
+      };
+      return;
     }
     const damage = clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1);
     if (damage > 0.01) {
       const tex = getPlayerDamageTexture(planeSize, damage);
-      drawTextureRect(tex, p.x, shipY, shipSize, shipSize, { rot: rot, alpha: Math.min(1, 0.38 + damage * 0.62), layer: 4, lighter: false });
-      const sparkCount = clamp(Math.round(2 + damage * 10), 2, 10);
-      const sparkColors = ['#ff5a3d', '#ff8a2d', '#ffd35a', '#ffb347'];
-      const sparkSeed = hashString('player-damage|' + Math.round(state.animClock * 12) + '|' + Math.round(p.x) + '|' + Math.round(shipY) + '|' + Math.round(damage * 100));
-      for (let i = 0; i < sparkCount; i++) {
-        const t = (i + 1) / (sparkCount + 1);
-        const a = sparkSeed ^ (i * 2654435761);
-        const rx = (((a >>> 0) % 1000) / 1000 - 0.5) * shipSize * 0.54;
-        const ry = ((((a >>> 10) >>> 0) % 1000) / 1000 - 0.5) * shipSize * 0.54;
-        const r = 3 + ((((a >>> 20) >>> 0) % 1000) / 1000) * 7;
-        const color = sparkColors[(a >>> 28) % sparkColors.length];
-        const pos = localToWorld(p.x, shipY, rot, rx, ry);
-        drawSpriteCircle(pos.x, pos.y, r, color, 0.24 + damage * 0.42, 4, true);
-      }
+      pushSprite(tex, p.x, p.y + bob, planeSize * 2.1, planeSize * 2.1, rot, glow, flashAlpha, 4, false);
+    } else {
+      drawEmojiGlyph(E.plane, p.x, p.y + bob, planeSize, { rot: rot, alpha: flashAlpha, layer: 4, fill: glow, lighter: false });
     }
   }
 
@@ -4451,189 +4150,78 @@
     };
   }
 
-  function ensurePlayerShipTexture() {
-    if (render.textures.has(PLAYER_SHIP_TEXTURE_KEY) || playerShipTextureLoading) return;
-    playerShipTextureLoading = true;
-    const img = new Image();
-    img.decoding = 'async';
-    img.onload = function () {
-      try {
-        playerShipSourceImage = img;
-        render.textures.set(PLAYER_SHIP_TEXTURE_KEY, createTextureFromCanvas(img));
-      } finally {
-        playerShipTextureLoading = false;
-      }
-    };
-    img.onerror = function () {
-      playerShipTextureLoading = false;
-    };
-    img.src = 'assets/players_spaceship.png';
-  }
-
-  function ensurePlayerAuraTexture() {
-    if (render.textures.has(PLAYER_AURA_TEXTURE_KEY)) return;
-    const img = new Image();
-    img.decoding = 'async';
-    img.onload = function () {
-      try {
-        render.textures.set(PLAYER_AURA_TEXTURE_KEY, createTextureFromCanvas(img));
-      } finally {
-        // no-op
-      }
-    };
-    img.src = 'assets/players_aura.png';
-  }
-
-  function getPlayerShipTexture() {
-    const tex = render.textures.get(PLAYER_SHIP_TEXTURE_KEY);
+  function getPlayerCrackTexture(size, variant) {
+    const s = Math.max(12, Math.round(size));
+    const planeSize = 36 + (state.overdrive > 0 ? 4 : 0);
+    const key = 'playercrack|' + planeSize + '|' + s + '|' + (variant || 0);
+    let tex = render.hudSprites.get(key);
     if (tex) return tex;
-    ensurePlayerShipTexture();
-    return null;
-  }
-
-  function getPlayerAuraTexture() {
-    const tex = render.textures.get(PLAYER_AURA_TEXTURE_KEY);
-    if (tex) return tex;
-    ensurePlayerAuraTexture();
-    return null;
-  }
-
-  function getPlayerEngineFlameTexture(stage) {
-    const frame = clamp(stage | 0, 0, 3);
-    const key = PLAYER_ENGINE_TEXTURE_PREFIX + frame;
-    let tex = render.textures.get(key);
-    if (tex) return tex;
-    const c = makeDomCanvas(160, 280);
+    const pad = Math.max(10, Math.round(s * 0.6));
+    const dim = Math.max(32, Math.ceil(s * 2 + pad * 2));
+    const c = makeDomCanvas(dim, dim);
     const g = c.getContext('2d');
-    const w = c.width;
-    const h = c.height;
-    const flare = [0.9, 1, 1.1, 0.98][frame];
-    const side = [0.48, 0.52, 0.54, 0.5][frame];
-    g.clearRect(0, 0, w, h);
-    g.save();
-    g.globalCompositeOperation = 'lighter';
-
-    let grad = g.createLinearGradient(0, h * 0.05, 0, h * 0.98);
-    grad.addColorStop(0, 'rgba(255,255,255,0.98)');
-    grad.addColorStop(0.18, 'rgba(200,248,255,0.92)');
-    grad.addColorStop(0.42, 'rgba(84,208,255,0.84)');
-    grad.addColorStop(0.72, 'rgba(30,118,255,0.48)');
-    grad.addColorStop(1, 'rgba(10,42,120,0)');
-    g.fillStyle = grad;
-    g.beginPath();
-    g.moveTo(w * 0.5, h * 0.96);
-    g.bezierCurveTo(w * (0.5 + side * 0.36), h * 0.76, w * (0.66 + frame * 0.01), h * 0.44, w * 0.57, h * 0.12);
-    g.bezierCurveTo(w * 0.54, h * 0.28, w * 0.52, h * 0.56, w * 0.5, h * 0.96);
-    g.bezierCurveTo(w * 0.48, h * 0.56, w * 0.46, h * 0.28, w * 0.43, h * 0.12);
-    g.bezierCurveTo(w * (0.34 - frame * 0.01), h * 0.44, w * (0.5 - side * 0.36), h * 0.76, w * 0.5, h * 0.96);
-    g.closePath();
-    g.fill();
-
-    grad = g.createLinearGradient(0, h * 0.08, 0, h * 0.96);
-    grad.addColorStop(0, 'rgba(255,255,255,0.98)');
-    grad.addColorStop(0.24, 'rgba(242,253,255,0.95)');
-    grad.addColorStop(0.52, 'rgba(132,236,255,0.72)');
-    grad.addColorStop(0.78, 'rgba(52,144,255,0.32)');
-    grad.addColorStop(1, 'rgba(12,40,116,0)');
-    g.fillStyle = grad;
-    g.beginPath();
-    g.moveTo(w * 0.5, h * 0.9);
-    g.bezierCurveTo(w * (0.58 + side * 0.12), h * 0.66, w * 0.64, h * 0.42, w * 0.54, h * 0.16);
-    g.bezierCurveTo(w * 0.52, h * 0.34, w * 0.51, h * 0.58, w * 0.5, h * 0.9);
-    g.bezierCurveTo(w * 0.49, h * 0.58, w * 0.48, h * 0.34, w * 0.46, h * 0.16);
-    g.bezierCurveTo(w * 0.36, h * 0.42, w * (0.42 - side * 0.12), h * 0.66, w * 0.5, h * 0.9);
-    g.closePath();
-    g.fill();
-
-    g.strokeStyle = 'rgba(152, 238, 255, 0.72)';
-    g.lineWidth = 2.4;
-    g.lineCap = 'round';
-    for (let i = 0; i < 3; i++) {
-      const a = -0.18 + i * 0.18 + frame * 0.02;
-      const x0 = w * 0.5 + Math.sin(a * 2.1) * 7 * flare;
-      const y0 = h * (0.22 + i * 0.06);
-      g.beginPath();
-      g.moveTo(x0, y0);
-      g.lineTo(w * 0.5 + Math.sin(a * 2.6 + 0.5) * 11 * flare, h * (0.54 + i * 0.08));
-      g.lineTo(w * 0.5 + Math.sin(a * 2.9 + 1.2) * 5 * flare, h * (0.86 + i * 0.03));
-      g.stroke();
-    }
-
-    g.fillStyle = 'rgba(255,255,255,0.9)';
-    g.beginPath();
-    g.arc(w * 0.5, h * 0.14, 8 * flare, 0, TAU);
-    g.fill();
-    g.restore();
-
+    g.clearRect(0, 0, dim, dim);
+    const crack = getHudCrackSprite(s, variant);
+    g.drawImage(crack, (dim - crack.width) * 0.5, (dim - crack.height) * 0.5);
+    g.globalCompositeOperation = 'destination-in';
+    g.font = '900 ' + Math.round(planeSize * 2.05) + 'px ' + EMOJI_FONT;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#fff';
+    g.fillText(E.plane, dim * 0.5, dim * 0.5 + Math.round(s * 0.03));
     tex = createTextureFromCanvas(c);
-    render.textures.set(key, tex);
+    render.hudSprites.set(key, tex);
     return tex;
   }
 
   function getPlayerDamageTexture(size, damage) {
     const planeSize = Math.max(16, Math.round(size));
     const stage = Math.max(1, Math.min(8, Math.ceil(damage * 8)));
-    const key = PLAYER_DAMAGE_TEXTURE_PREFIX + planeSize + '|' + stage;
-    let tex = render.textures.get(key);
+    const key = 'playerdamage|' + planeSize + '|' + stage;
+    let tex = render.hudSprites.get(key);
     if (tex) return tex;
-    const dim = Math.max(64, Math.ceil(planeSize * 2.2));
+    const pad = Math.max(10, Math.round(planeSize * 0.6));
+    const dim = Math.max(32, Math.ceil(planeSize * 2 + pad * 2));
     const c = makeDomCanvas(dim, dim);
     const g = c.getContext('2d');
     g.clearRect(0, 0, dim, dim);
-    const img = playerShipSourceImage;
-    const shipScale = img ? Math.min((dim * 0.78) / img.width, (dim * 0.78) / img.height) : 1;
-    const shipW = img ? img.width * shipScale : dim * 0.72;
-    const shipH = img ? img.height * shipScale : dim * 0.72;
-    const cx = dim * 0.5;
-    const cy = dim * 0.5;
-
-    if (img) {
-      g.save();
-      g.drawImage(img, Math.round(cx - shipW * 0.5), Math.round(cy - shipH * 0.5), Math.round(shipW), Math.round(shipH));
-      g.restore();
-    } else {
-      g.save();
-      g.fillStyle = 'rgba(160,220,255,0.24)';
-      g.beginPath();
-      g.moveTo(cx, cy - shipH * 0.42);
-      g.lineTo(cx + shipW * 0.34, cy + shipH * 0.18);
-      g.lineTo(cx, cy + shipH * 0.42);
-      g.lineTo(cx - shipW * 0.34, cy + shipH * 0.18);
-      g.closePath();
-      g.fill();
-      g.restore();
-    }
-
+    g.font = '900 ' + Math.round(planeSize * 2.05) + 'px ' + EMOJI_FONT;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#fff';
+    const centerY = dim * 0.5 + Math.round(planeSize * 0.03);
+    g.fillText(E.plane, dim * 0.5, centerY);
+    const anchors = [
+      [-22, -12, 0],
+      [-12, -14, 1],
+      [-2, -15, 2],
+      [10, -13, 3],
+      [22, -10, 0],
+      [-24, -3, 1],
+      [-12, -3, 2],
+      [0, -2, 3],
+      [12, -3, 0],
+      [24, -1, 1],
+      [-20, 8, 2],
+      [-8, 9, 3],
+      [4, 8, 0],
+      [16, 7, 1],
+      [0, 12, 2],
+      [18, 12, 3]
+    ];
+    const count = Math.min(anchors.length, 6 + stage * 2);
+    const crackBase = 12 + stage * 2.1 + damage * 20;
     g.save();
-    g.globalCompositeOperation = 'source-atop';
-    const crackColor = ['rgba(255, 255, 255, 0.35)', 'rgba(120, 224, 255, 0.38)', 'rgba(255, 176, 76, 0.46)', 'rgba(255, 84, 52, 0.54)'];
-    const sparkColor = ['rgba(255,255,255,0.75)', 'rgba(153, 232, 255, 0.72)', 'rgba(255, 190, 102, 0.84)', 'rgba(255, 104, 84, 0.92)'];
-    const crackCount = 4 + stage * 2;
-    for (let i = 0; i < crackCount; i++) {
-      const t = i / Math.max(1, crackCount - 1);
-      const rx = (Math.sin(stage * 2.7 + i * 1.12) * 0.34 + (t - 0.5) * 0.52) * shipW;
-      const ry = (-0.24 + t * 0.74) * shipH;
-      const len = shipH * (0.16 + t * 0.18 + stage * 0.008);
-      g.strokeStyle = crackColor[(stage + i) % crackColor.length];
-      g.lineWidth = 1.1 + (i % 3) * 0.45 + stage * 0.05;
-      g.beginPath();
-      g.moveTo(cx + rx, cy + ry);
-      g.lineTo(cx + rx + Math.sin(i * 2.3 + stage) * len * 0.22, cy + ry + len * 0.4);
-      g.lineTo(cx + rx + Math.cos(i * 1.7 + stage * 0.7) * len * 0.12, cy + ry + len * 0.88);
-      g.stroke();
-    }
-    g.fillStyle = sparkColor[stage % sparkColor.length];
-    for (let i = 0; i < stage + 2; i++) {
-      const sx = cx + (Math.sin(stage * 1.9 + i * 2.1) * 0.26) * shipW;
-      const sy = cy + (-0.28 + i * 0.11) * shipH;
-      g.beginPath();
-      g.arc(sx, sy, 1.2 + stage * 0.18 + (i % 2) * 0.5, 0, TAU);
-      g.fill();
+    g.globalCompositeOperation = 'destination-out';
+    for (let i = 0; i < count; i++) {
+      const cr = anchors[i];
+      const crackSize = crackBase + i * (1.2 + damage * 1.5);
+      const crack = getHudCrackSprite(crackSize, cr[2]);
+      g.drawImage(crack, Math.round(dim * 0.5 + cr[0] - crack.width * 0.5), Math.round(centerY + cr[1] - crack.height * 0.5));
     }
     g.restore();
-
     tex = createTextureFromCanvas(c);
-    render.textures.set(key, tex);
+    render.hudSprites.set(key, tex);
     return tex;
   }
 
@@ -4735,7 +4323,6 @@
       hudCtx.drawImage(titleArt, ix, iy, dw, dh);
       hudCtx.shadowBlur = 0;
     }
-    drawTitleGlowTests(0,0, view.w, view.h);
     hudCtx.fillStyle = '#fff';
     hudCtx.globalAlpha = 0.96;
     hudCtx.font = '800 15px "Trebuchet MS", "Segoe UI", sans-serif';
@@ -4894,10 +4481,6 @@
         ev.preventDefault();
         resumeAudio();
       }
-    if (state.debugMode && (code === 'Digit1' || code === 'Digit2' || code === 'Digit3' || code === 'Digit4' || code === 'Digit5' || code === 'Digit6' || code === 'Digit7' || code === 'Digit8' || code === 'Digit9')) {
-      ev.preventDefault();
-      if (!ev.repeat) spawnCheatDrop(code);
-    }
     if (code === 'ArrowLeft' || code === 'KeyA') state.input.left = true;
     else if (code === 'ArrowRight' || code === 'KeyD') state.input.right = true;
     else if (code === 'ArrowUp' || code === 'KeyW') state.input.up = true;
@@ -4949,8 +4532,7 @@
     hint: hint,
     startGame: startGame,
     togglePause: togglePause,
-    toggleMute: toggleMute,
-    debugGiveWeapon: debugGiveWeapon
+    toggleMute: toggleMute
   };
 
   resize();
@@ -4974,9 +4556,11 @@
   musicVolumeInput.addEventListener('input', function (ev) {
     setVolume('music', ev.target.value);
   });
-  if (circleRadiusInput) circleRadiusInput.addEventListener('input', function (ev) { setCircleTune('radius', ev.target.value); });
-  if (circleAlphaInput) circleAlphaInput.addEventListener('input', function (ev) { setCircleTune('alpha', ev.target.value); });
-  if (circleSpreadInput) circleSpreadInput.addEventListener('input', function (ev) { setCircleTune('spread', ev.target.value); });
+  if (loadAdvancedShipInput) {
+    loadAdvancedShipInput.addEventListener('change', function (ev) {
+      setAdvancedShipLoading(ev.target.checked);
+    });
+  }
   if (lowEndModeInput) {
     lowEndModeInput.addEventListener('change', function (ev) {
       setLowEndMode(ev.target.checked);
