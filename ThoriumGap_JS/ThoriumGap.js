@@ -912,12 +912,15 @@
     starfield: [],
     starfieldScroll: 0,
     scrollingClouds: null,
+    projectileClearVersion: 0,
     collisionQueryId: 0,
     enemies: [],
     bullets: [],
     enemyBullets: [],
+    projectilePool: [],
     pickups: [],
     particles: [],
+    particlePool: [],
     boss: null,
     currentTheme: THEMES[0],
     transition: null,
@@ -1217,6 +1220,37 @@
 
   function clearArray(a) { a.length = 0; }
   function mainTheme() { return state.currentTheme || THEMES[0]; }
+
+  function clearPooledArray(list, pool) {
+    for (let i = 0; i < list.length; i++) pool.push(list[i]);
+    list.length = 0;
+  }
+
+  function clearProjectileLists() {
+    state.projectileClearVersion++;
+    clearPooledArray(state.bullets, state.projectilePool);
+    clearPooledArray(state.enemyBullets, state.projectilePool);
+  }
+
+  function clearParticleList() {
+    clearPooledArray(state.particles, state.particlePool);
+  }
+
+  function acquireProjectile() {
+    return state.projectilePool.pop() || {};
+  }
+
+  function releaseProjectile(bullet) {
+    state.projectilePool.push(bullet);
+  }
+
+  function acquireParticle() {
+    return state.particlePool.pop() || {};
+  }
+
+  function releaseParticle(particle) {
+    state.particlePool.push(particle);
+  }
 
   function resetSceneLayers() {
     clearArray(state.background);
@@ -1612,10 +1646,9 @@
     state.flash = 0;
     state.transition = null;
     clearArray(state.enemies);
-    clearArray(state.bullets);
-    clearArray(state.enemyBullets);
+    clearProjectileLists();
     clearArray(state.pickups);
-    clearArray(state.particles);
+    clearParticleList();
     state.boss = null;
     regenBackground(theme);
     const spec = [
@@ -1721,10 +1754,9 @@
     state.levelClock = 0;
     state.transition = null;
     clearArray(state.enemies);
-    clearArray(state.bullets);
-    clearArray(state.enemyBullets);
+    clearProjectileLists();
     clearArray(state.pickups);
-    clearArray(state.particles);
+    clearParticleList();
     state.boss = null;
     state.levelIndex = 0;
     state.currentTheme = THEMES[0];
@@ -1785,8 +1817,7 @@
     if (index + 1 > ENEMY_SHIP_FALLBACK_BATCHES) warmEnemyShipBatch(((index + 1 - 1) % ENEMY_SHIP_FALLBACK_BATCHES) + 1);
     warmBossArt(index + 1);
     clearArray(state.enemies);
-    clearArray(state.bullets);
-    clearArray(state.enemyBullets);
+    clearProjectileLists();
     clearArray(state.pickups);
     state.boss = null;
     state.waveClock = 0;
@@ -1851,7 +1882,18 @@
   }
 
   function spawnParticle(x, y, vx, vy, life, size, color, kind) {
-    state.particles.push({ x: x, y: y, vx: vx, vy: vy, life: life, maxLife: life, size: size, color: color, kind: kind || 'spark', rot: rand(0, TAU) });
+    const particle = acquireParticle();
+    particle.x = x;
+    particle.y = y;
+    particle.vx = vx;
+    particle.vy = vy;
+    particle.life = life;
+    particle.maxLife = life;
+    particle.size = size;
+    particle.color = color;
+    particle.kind = kind || 'spark';
+    particle.rot = rand(0, TAU);
+    state.particles.push(particle);
   }
 
   function burst(x, y, color, count, speed, size, kind) {
@@ -1877,8 +1919,9 @@
     for (let i = state.enemyBullets.length - 1; i >= 0; i--) {
       const b = state.enemyBullets[i];
       burst(b.x, b.y, '#ffe39a', 4, 120, 4, 'spark');
-      state.enemyBullets.splice(i, 1);
+      releaseProjectile(b);
     }
+    state.enemyBullets.length = 0;
   }
 
   function beginPlayerRespawn() {
@@ -1904,13 +1947,26 @@
     const isEnemy = team !== 'player';
     const speedScale = isEnemy ? diff.bulletSpeed : 1;
     const damageScale = isEnemy ? diff.contact : 1;
-    state[team === 'player' ? 'bullets' : 'enemyBullets'].push({
-      team: team, x: x, y: y, vx: vx * speedScale, vy: vy * speedScale, ax: opts && opts.ax ? opts.ax * speedScale : 0, ay: opts && opts.ay ? opts.ay * speedScale : 0,
-      r: opts && opts.r ? opts.r : (team === 'player' ? 6 : 7), color: opts && opts.color ? opts.color : (team === 'player' ? '#d9fcff' : '#ff765d'),
-      life: opts && opts.life ? opts.life : 5.5, damage: (opts && opts.damage ? opts.damage : 1) * damageScale, kind: opts && opts.kind ? opts.kind : 'orb',
-      pierce: opts && opts.pierce != null ? opts.pierce : 0, homing: opts && opts.homing ? opts.homing : 0, turn: opts && opts.turn ? opts.turn : 0,
-      age: 0, wobble: opts && opts.wobble ? opts.wobble : 0, alive: true
-    });
+    const bullet = acquireProjectile();
+    bullet.team = team;
+    bullet.x = x;
+    bullet.y = y;
+    bullet.vx = vx * speedScale;
+    bullet.vy = vy * speedScale;
+    bullet.ax = opts && opts.ax ? opts.ax * speedScale : 0;
+    bullet.ay = opts && opts.ay ? opts.ay * speedScale : 0;
+    bullet.r = opts && opts.r ? opts.r : (team === 'player' ? 6 : 7);
+    bullet.color = opts && opts.color ? opts.color : (team === 'player' ? '#d9fcff' : '#ff765d');
+    bullet.life = opts && opts.life ? opts.life : 5.5;
+    bullet.damage = (opts && opts.damage ? opts.damage : 1) * damageScale;
+    bullet.kind = opts && opts.kind ? opts.kind : 'orb';
+    bullet.pierce = opts && opts.pierce != null ? opts.pierce : 0;
+    bullet.homing = opts && opts.homing ? opts.homing : 0;
+    bullet.turn = opts && opts.turn ? opts.turn : 0;
+    bullet.age = 0;
+    bullet.wobble = opts && opts.wobble ? opts.wobble : 0;
+    bullet.alive = true;
+    state[team === 'player' ? 'bullets' : 'enemyBullets'].push(bullet);
   }
 
   function spawnPickup(type, x, y, opts) {
@@ -2389,7 +2445,12 @@
     state.shake = Math.max(state.shake, 15);
     sfx('bomb');
     burst(p.x, p.y, '#fff0b5', 36, 260, 8, 'spark');
-    for (let i = state.enemyBullets.length - 1; i >= 0; i--) { const b = state.enemyBullets[i]; burst(b.x, b.y, '#ffe39a', 4, 120, 4, 'spark'); state.enemyBullets.splice(i, 1); }
+    for (let i = state.enemyBullets.length - 1; i >= 0; i--) {
+      const b = state.enemyBullets[i];
+      burst(b.x, b.y, '#ffe39a', 4, 120, 4, 'spark');
+      releaseProjectile(b);
+    }
+    state.enemyBullets.length = 0;
     for (let i = state.enemies.length - 1; i >= 0; i--) damageEnemy(state.enemies[i], 999, true);
     if (state.boss) damageBoss(state.boss, 18, true);
   }
@@ -2434,8 +2495,7 @@
       b.dead = true;
       state.boss = null;
       clearArray(state.enemies);
-      clearArray(state.enemyBullets);
-      clearArray(state.bullets);
+      clearProjectileLists();
       burst(b.x, b.y, b.color, 60, 360, 9, 'spark');
       flashBurst(b.x, b.y, b.color);
       sfx('boom');
@@ -2716,9 +2776,12 @@
     const p = state.player;
     const enemyCollision = buildEnemyCollisionGrid();
     const enemyCandidates = [];
-    for (let i = state.bullets.length - 1; i >= 0; i--) {
+    const clearVersion = state.projectileClearVersion;
+    let writeIndex = 0;
+    for (let i = 0; i < state.bullets.length; i++) {
       const b = state.bullets[i];
       if (!b) continue;
+      let remove = false;
       b.age += dt;
       if (b.homing > 0) {
         const target = b.kind === 'rocket' ? findRocketTarget(b, enemyCollision.activeEnemies) : null;
@@ -2736,24 +2799,34 @@
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.life -= dt;
-      if (b.life <= 0 || b.x < -60 || b.x > view.w + 60 || b.y < -80 || b.y > view.h + 80) { state.bullets.splice(i, 1); continue; }
+      if (b.life <= 0 || b.x < -60 || b.x > view.w + 60 || b.y < -80 || b.y > view.h + 80) remove = true;
       if (state.boss && d2(b.x, b.y, state.boss.x, state.boss.y) < (b.r + state.boss.r) * (b.r + state.boss.r)) {
         damageBoss(state.boss, b.damage, false);
-        if (b.pierce > 0) { b.pierce--; b.life -= 0.3; } else { state.bullets.splice(i, 1); continue; }
+        if (clearVersion !== state.projectileClearVersion) return;
+        if (b.pierce > 0) { b.pierce--; b.life -= 0.3; }
+        else remove = true;
       }
-      collectEnemyCollisionCandidates(enemyCollision, b.x, b.y, b.r, enemyCandidates);
-      for (let j = enemyCandidates.length - 1; j >= 0; j--) {
-        const e = enemyCandidates[j];
-        if (e.dead) continue;
-        if (d2(b.x, b.y, e.x, e.y) < (b.r + e.r) * (b.r + e.r)) {
-          damageEnemy(e, b.damage, false);
-          if (b.pierce > 0) { b.pierce--; b.life -= 0.18; } else { state.bullets.splice(i, 1); break; }
+      if (!remove) {
+        collectEnemyCollisionCandidates(enemyCollision, b.x, b.y, b.r, enemyCandidates);
+        for (let j = enemyCandidates.length - 1; j >= 0; j--) {
+          const e = enemyCandidates[j];
+          if (e.dead) continue;
+          if (d2(b.x, b.y, e.x, e.y) < (b.r + e.r) * (b.r + e.r)) {
+            damageEnemy(e, b.damage, false);
+            if (b.pierce > 0) { b.pierce--; b.life -= 0.18; }
+            else { remove = true; break; }
+          }
         }
       }
+      if (remove || b.life <= 0) releaseProjectile(b);
+      else state.bullets[writeIndex++] = b;
     }
-    for (let i = state.enemyBullets.length - 1; i >= 0; i--) {
+    state.bullets.length = writeIndex;
+    writeIndex = 0;
+    for (let i = 0; i < state.enemyBullets.length; i++) {
       const b = state.enemyBullets[i];
       if (!b) continue;
+      let remove = false;
       b.age += dt;
       if (b.homing > 0) {
         const ta = ang(b.x, b.y, p.x, p.y);
@@ -2768,12 +2841,15 @@
       b.x += b.vx * dt;
       b.y += b.vy * dt;
       b.life -= dt;
-      if (b.life <= 0 || b.x < -80 || b.x > view.w + 80 || b.y < -100 || b.y > view.h + 100) { state.enemyBullets.splice(i, 1); continue; }
+      if (b.life <= 0 || b.x < -80 || b.x > view.w + 80 || b.y < -100 || b.y > view.h + 100) remove = true;
       if (p.invuln <= 0 && d2(b.x, b.y, p.x, p.y) < (b.r + p.r) * (b.r + p.r)) {
-        state.enemyBullets.splice(i, 1);
+        remove = true;
         hurtPlayer(b.damage);
       }
+      if (remove) releaseProjectile(b);
+      else state.enemyBullets[writeIndex++] = b;
     }
+    state.enemyBullets.length = writeIndex;
   }
 
   function buildEnemyCollisionGrid() {
@@ -2963,13 +3039,16 @@
   }
 
   function updateParticles(dt) {
-    for (let i = state.particles.length - 1; i >= 0; i--) {
+    let writeIndex = 0;
+    for (let i = 0; i < state.particles.length; i++) {
       const p = state.particles[i];
       p.life -= dt;
       if (p.kind === 'ring') p.size += dt * 180;
       else { p.vx *= 0.985; p.vy *= 0.985; p.x += p.vx * dt; p.y += p.vy * dt; }
-      if (p.life <= 0) state.particles.splice(i, 1);
+      if (p.life <= 0) releaseParticle(p);
+      else state.particles[writeIndex++] = p;
     }
+    state.particles.length = writeIndex;
   }
 
   function updateSceneLayer(items, dt, titleBoost) {
@@ -4299,8 +4378,14 @@
       }
       if (rocketBody) drawSpriteEmoji(E.rocket, b.x, b.y, 14, { rot: ang + Math.PI * 0.25, alpha: 0.95, layer: 3, lighter: true, fill: '#006dff' });
     }
-    for (let i = 0; i < state.bullets.length; i++) drawShot(state.bullets[i]);
-    for (let i = 0; i < state.enemyBullets.length; i++) drawShot(state.enemyBullets[i]);
+    for (let i = 0; i < state.bullets.length; i++) {
+      const b = state.bullets[i];
+      if (b) drawShot(b);
+    }
+    for (let i = 0; i < state.enemyBullets.length; i++) {
+      const b = state.enemyBullets[i];
+      if (b) drawShot(b);
+    }
   }
 
   function drawPickups() {
