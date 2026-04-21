@@ -75,6 +75,12 @@
       white-space: nowrap;
     }
     #hudHint.show { opacity: 1; }
+    body.playing #hudHint {
+      backdrop-filter: none;
+      box-shadow:
+        0 0 0 1px rgba(34, 118, 255, 0.34),
+        0 8px 18px rgba(0, 0, 0, 0.24);
+    }
     #controls {
       position: fixed;
       top: 7px;
@@ -99,6 +105,13 @@
         0 14px 36px rgba(0, 0, 0, 0.34),
         0 0 28px rgba(34, 118, 255, 0.76),
         0 0 42px rgba(34, 118, 255, 0.44);
+    }
+    body.playing #controls {
+      backdrop-filter: none;
+      box-shadow:
+        0 0 0 1px rgba(34, 118, 255, 0.42),
+        0 10px 20px rgba(0, 0, 0, 0.24),
+        0 0 16px rgba(34, 118, 255, 0.22);
     }
     #controls button {
       appearance: none;
@@ -129,6 +142,13 @@
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
     }
+    body.playing #controls button {
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.82),
+        inset 0 -2px 0 rgba(20, 66, 170, 0.52),
+        0 0 8px rgba(34, 118, 255, 0.26),
+        0 4px 10px rgba(0, 0, 0, 0.12);
+    }
     #controls button:active, #controls button.active {
       transform: translateY(1px) scale(0.99);
       box-shadow:
@@ -137,6 +157,14 @@
         0 0 18px rgba(34, 118, 255, 0.64),
         0 4px 14px rgba(0, 0, 0, 0.16);
       filter: saturate(1.85) brightness(1.16);
+    }
+    body.playing #controls button:active,
+    body.playing #controls button.active {
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.58),
+        inset 0 -2px 0 rgba(20, 58, 128, 0.64),
+        0 0 12px rgba(34, 118, 255, 0.34),
+        0 3px 10px rgba(0, 0, 0, 0.12);
     }
     #controls button[data-act="fire"] {
       background: linear-gradient(180deg, rgba(140, 196, 255, 0.92), rgba(34, 118, 255, 0.38));
