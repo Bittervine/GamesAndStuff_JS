@@ -242,7 +242,7 @@
   const planetDecorImages = new Map();
   const planetDecorLoadKeys = new Set();
   const PLANET_DECOR_MIN = 1;
-  const PLANET_DECOR_MAX = 32;
+  const PLANET_DECOR_MAX = 30;
 
   function planetDecorKey(index) {
     return 'planet-decor|' + String(index).padStart(2, '0');
@@ -1705,11 +1705,13 @@
   }
 
   function regenBackground(theme, opts) {
+    const o = opts || {};
     state.backgroundBitmap = null;
     state.foregroundBitmap = null;
     clearArray(state.background);
     clearArray(state.foreground);
-    clearDecorBackgrounds();
+    if (!o.preserveDecor) clearDecorBackgrounds();
+    if (!o.preserveClouds) clearScrollingClouds();
     state.backgroundSeed = 0;
     state.foregroundSeed = 0;
     state.starfield = [];
@@ -1948,8 +1950,7 @@
     state.waveIndex = 0;
     state.levelClock = 0;
     state.transition = null;
-    clearDecorBackgrounds();
-    regenBackground(state.currentTheme);
+    regenBackground(state.currentTheme, { preserveDecor: true, preserveClouds: true });
     if (index === 0) {
       state.player.x = view.w * 0.5;
       state.player.y = playArea().bottom - 92;
@@ -3584,20 +3585,19 @@
   function createDecorBackground(index) {
     const w = Math.max(1, view.w);
     const h = Math.max(1, view.h);
-    const firstPass = index === 0;
     return {
       index: index,
       imageIndex: randomPlanetDecorIndex(),
-      x: w * (0.08 + Math.random() * 0.84),
-      y: -h * (0.18 + Math.random() * 0.22),
-      vx: (Math.random() - 0.5) * 8,
-      vy: (14 + Math.random() * 16) * 5 * 0.25,
-      scale: 0.44 + Math.random() * 0.22,
+      x: w * (0.10 + Math.random() * 0.78),
+      y: -Math.max(180, h * (0.10 + Math.random() * 0.18)),
+      speed: (14 + Math.random() * 16) * 5 * 0.125,
+      vx: (Math.random() - 0.5) * 12,
+      scale: 1 + Math.random(),
       alpha: 0.42 + Math.random() * 0.18,
       rot: (Math.random() - 0.5) * 0.24,
       spin: (Math.random() - 0.5) * 0.0025,
       drift: Math.random() * TAU,
-      delay: firstPass ? 0 : lerp(1.5, 5, Math.random())
+      delay: 0
     };
   }
 
@@ -3605,16 +3605,16 @@
     const w = Math.max(1, view.w);
     const h = Math.max(1, view.h);
     dec.imageIndex = randomPlanetDecorIndex();
-    dec.x = w * (0.08 + Math.random() * 0.84);
-    dec.y = -h * (0.18 + Math.random() * 0.22);
-    dec.vx = (Math.random() - 0.5) * 8;
-    dec.vy = (14 + Math.random() * 16) * 5 * 0.25;
-    dec.scale = 0.44 + Math.random() * 0.22;
+    dec.x = w * (0.10 + Math.random() * 0.78);
+    dec.y = -Math.max(180, h * (0.10 + Math.random() * 0.18));
+    dec.speed = (14 + Math.random() * 16) * 5 * 0.125;
+    dec.vx = (Math.random() - 0.5) * 12;
+    dec.scale = 1 + Math.random();
     dec.alpha = 0.42 + Math.random() * 0.18;
     dec.rot = (Math.random() - 0.5) * 0.24;
     dec.spin = (Math.random() - 0.5) * 0.0025;
     dec.drift = Math.random() * TAU;
-    dec.delay = lerp(1.5, 5, Math.random());
+    dec.delay = 0;
   }
 
   function updateDecorBackgrounds(dt) {
@@ -3624,7 +3624,7 @@
     }
     if (!state.decorBackgrounds) {
       state.decorBackgrounds = [];
-      const count = 2;
+      const count = 1;
       for (let i = 0; i < count; i++) state.decorBackgrounds.push(createDecorBackground(i));
     }
     const h = Math.max(1, view.h);
@@ -3636,14 +3636,14 @@
         resetDecorBackground(d);
       }
       d.x += d.vx * dt;
-      d.y += d.vy * dt;
+      d.y += d.speed * dt;
       d.rot += d.spin * dt;
       d.vx += Math.sin((state.animClock + i) * 0.27 + d.drift) * dt * 0.35;
       const img = getPlanetDecorImage(d.imageIndex);
       if (img && d.y - img.naturalHeight * d.scale > h + 120) {
-        d.delay = lerp(2, 6, Math.random());
+        d.delay = lerp(4, 8, Math.random());
         d.imageIndex = randomPlanetDecorIndex();
-        d.y = -h * (0.18 + Math.random() * 0.22);
+        d.y = -Math.max(180, h * (0.10 + Math.random() * 0.18));
       }
     }
   }
@@ -3657,11 +3657,11 @@
       if (!img || !img.naturalWidth || !img.naturalHeight) continue;
       const tex = getTextureFromImage(img, planetDecorKey(d.imageIndex));
       if (!tex) continue;
-      const w = img.naturalWidth * d.scale * 2;
-      const h = img.naturalHeight * d.scale * 2;
+      const w = img.naturalWidth * 2;
+      const h = img.naturalHeight * 2;
       const sway = Math.sin(state.levelClock * 0.18 + d.drift) * 10;
       drawTextureRect(tex, d.x + sway, d.y, w, h, {
-        alpha: 1,
+        alpha: d.alpha * 0.5,
         layer: 0,
         rot: d.rot,
         lighter: false
