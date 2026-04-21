@@ -24,12 +24,16 @@
   const render = {
     ready: false,
     queue: [],
+    spritePool: [],
     seq: 0,
+    queueNeedsSort: false,
+    lastQueuedLayer: 0,
     normal: [],
     additive: [],
     erase: [],
     batchData: null,
     hudSprites: new Map(),
+    colorCache: new Map(),
     offsetX: 0,
     offsetY: 0,
     textures: new Map(),
@@ -378,6 +382,17 @@
     return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (alpha == null ? 1 : alpha) + ')';
   }
 
+  function colorUnit(color) {
+    if (Array.isArray(color)) return color;
+    const key = typeof color === 'string' && color ? color : '#ffffff';
+    let cached = render.colorCache.get(key);
+    if (cached) return cached;
+    const rgb = hexToRgb(key);
+    cached = [rgb[0] / 255, rgb[1] / 255, rgb[2] / 255];
+    render.colorCache.set(key, cached);
+    return cached;
+  }
+
   function initRenderer() {
     if (!gl || render.ready) return;
     const vs = [
@@ -522,24 +537,39 @@
       uv = arguments[11];
     }
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(w) || !Number.isFinite(h)) return;
-    const item = {
-      texture: texture,
-      x: (x + render.offsetX) * view.dpr,
-      y: (y + render.offsetY) * view.dpr,
-      w: w * view.dpr,
-      h: h * view.dpr,
-      rot: rot || 0,
-      color: colorArray(color, alpha),
-      layer: layer || 0,
-      order: render.seq++,
-      blend: erase ? 'erase' : (additive ? 'additive' : 'normal'),
-      uv: uv ? {
-        u0: Number.isFinite(uv.u0) ? uv.u0 : 0,
-        v0: Number.isFinite(uv.v0) ? uv.v0 : 0,
-        u1: Number.isFinite(uv.u1) ? uv.u1 : 1,
-        v1: Number.isFinite(uv.v1) ? uv.v1 : 1
-      } : null
-    };
+    const queueIndex = render.queue.length;
+    let item = render.spritePool[queueIndex];
+    if (!item) {
+      item = { uv: null };
+      render.spritePool[queueIndex] = item;
+    }
+    const colorRgb = colorUnit(color);
+    const itemLayer = layer || 0;
+    item.texture = texture;
+    item.x = (x + render.offsetX) * view.dpr;
+    item.y = (y + render.offsetY) * view.dpr;
+    item.w = w * view.dpr;
+    item.h = h * view.dpr;
+    item.rot = rot || 0;
+    item.cr = colorRgb[0];
+    item.cg = colorRgb[1];
+    item.cb = colorRgb[2];
+    item.ca = alpha == null ? 1 : alpha;
+    item.layer = itemLayer;
+    item.order = render.seq++;
+    item.blend = erase ? 'erase' : (additive ? 'additive' : 'normal');
+    if (uv) {
+      const itemUv = item.uv || {};
+      itemUv.u0 = Number.isFinite(uv.u0) ? uv.u0 : 0;
+      itemUv.v0 = Number.isFinite(uv.v0) ? uv.v0 : 0;
+      itemUv.u1 = Number.isFinite(uv.u1) ? uv.u1 : 1;
+      itemUv.v1 = Number.isFinite(uv.v1) ? uv.v1 : 1;
+      item.uv = itemUv;
+    } else {
+      item.uv = null;
+    }
+    if (queueIndex > 0 && itemLayer < render.lastQueuedLayer) render.queueNeedsSort = true;
+    render.lastQueuedLayer = itemLayer;
     render.queue.push(item);
   }
 
@@ -688,10 +718,10 @@
     const y2 = s.y + hw * si + hh * c;
     const x3 = s.x - hw * c - hh * si;
     const y3 = s.y - hw * si + hh * c;
-    const r = s.color[0];
-    const g = s.color[1];
-    const b = s.color[2];
-    const a = s.color[3];
+    const r = s.cr;
+    const g = s.cg;
+    const b = s.cb;
+    const a = s.ca;
 
     data[offset++] = x0; data[offset++] = y0; data[offset++] = u0; data[offset++] = v0; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
     data[offset++] = x1; data[offset++] = y1; data[offset++] = u1; data[offset++] = v0; data[offset++] = r; data[offset++] = g; data[offset++] = b; data[offset++] = a;
@@ -715,7 +745,7 @@
     gl.useProgram(render.program);
     gl.uniform2f(render.uViewport, w, h);
     gl.bindBuffer(gl.ARRAY_BUFFER, render.buffer);
-    render.queue.sort(function (a, b) { return a.layer === b.layer ? a.order - b.order : a.layer - b.layer; });
+    if (render.queueNeedsSort) render.queue.sort(function (a, b) { return a.layer === b.layer ? a.order - b.order : a.layer - b.layer; });
     const data = ensureBatchData(render.queue.length);
     let batchTex = null;
     let batchSprites = 0;
@@ -748,6 +778,8 @@
     flushBatch();
     render.queue.length = 0;
     render.seq = 0;
+    render.queueNeedsSort = false;
+    render.lastQueuedLayer = 0;
     render.normal.length = 0;
     render.additive.length = 0;
     render.erase.length = 0;
@@ -880,6 +912,7 @@
     starfield: [],
     starfieldScroll: 0,
     scrollingClouds: null,
+    collisionQueryId: 0,
     enemies: [],
     bullets: [],
     enemyBullets: [],
@@ -1154,7 +1187,8 @@
   function resize() {
     const w = Math.max(320, window.innerWidth);
     const h = Math.max(360, window.innerHeight);
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    const nativeDpr = Math.max(1, window.devicePixelRatio || 1);
+    const dpr = state.settings.lowEndMode ? 1 : nativeDpr;
     view.w = w;
     view.h = h;
     view.dpr = dpr;
@@ -2252,6 +2286,7 @@
     const maxAngle = lerp(0.26, 0.78, clamp(b.homing || 0, 0, 1));
     let best = null;
     let bestScore = Infinity;
+    const enemyList = arguments.length > 1 && Array.isArray(arguments[1]) ? arguments[1] : state.enemies;
 
     function consider(target) {
       if (!target) return;
@@ -2267,8 +2302,8 @@
       }
     }
 
-    for (let i = 0; i < state.enemies.length; i++) {
-      const e = state.enemies[i];
+    for (let i = 0; i < enemyList.length; i++) {
+      const e = enemyList[i];
       if (!e || e.dead) continue;
       consider(e);
     }
@@ -2679,12 +2714,14 @@
 
   function updateBullets(dt) {
     const p = state.player;
+    const enemyCollision = buildEnemyCollisionGrid();
+    const enemyCandidates = [];
     for (let i = state.bullets.length - 1; i >= 0; i--) {
       const b = state.bullets[i];
       if (!b) continue;
       b.age += dt;
       if (b.homing > 0) {
-        const target = b.kind === 'rocket' ? findRocketTarget(b) : null;
+        const target = b.kind === 'rocket' ? findRocketTarget(b, enemyCollision.activeEnemies) : null;
         if (target) {
           const ta = ang(b.x, b.y, target.x, target.y);
           const sp = Math.hypot(b.vx, b.vy);
@@ -2704,8 +2741,9 @@
         damageBoss(state.boss, b.damage, false);
         if (b.pierce > 0) { b.pierce--; b.life -= 0.3; } else { state.bullets.splice(i, 1); continue; }
       }
-      for (let j = state.enemies.length - 1; j >= 0; j--) {
-        const e = state.enemies[j];
+      collectEnemyCollisionCandidates(enemyCollision, b.x, b.y, b.r, enemyCandidates);
+      for (let j = enemyCandidates.length - 1; j >= 0; j--) {
+        const e = enemyCandidates[j];
         if (e.dead) continue;
         if (d2(b.x, b.y, e.x, e.y) < (b.r + e.r) * (b.r + e.r)) {
           damageEnemy(e, b.damage, false);
@@ -2736,6 +2774,66 @@
         hurtPlayer(b.damage);
       }
     }
+  }
+
+  function buildEnemyCollisionGrid() {
+    const cellSize = state.settings.lowEndMode ? 144 : 112;
+    const buckets = new Map();
+    const activeEnemies = [];
+    let maxRadius = 0;
+    for (let i = 0; i < state.enemies.length; i++) {
+      const e = state.enemies[i];
+      if (!e || e.dead) continue;
+      activeEnemies.push(e);
+      maxRadius = Math.max(maxRadius, e.r || 0);
+      const radius = Math.max(1, e.r || 18);
+      const minCellX = Math.floor((e.x - radius) / cellSize);
+      const maxCellX = Math.floor((e.x + radius) / cellSize);
+      const minCellY = Math.floor((e.y - radius) / cellSize);
+      const maxCellY = Math.floor((e.y + radius) / cellSize);
+      for (let cy = minCellY; cy <= maxCellY; cy++) {
+        for (let cx = minCellX; cx <= maxCellX; cx++) {
+          const key = cx + '|' + cy;
+          let bucket = buckets.get(key);
+          if (!bucket) {
+            bucket = [];
+            buckets.set(key, bucket);
+          }
+          bucket.push(e);
+        }
+      }
+    }
+    return {
+      cellSize: cellSize,
+      maxRadius: maxRadius,
+      buckets: buckets,
+      activeEnemies: activeEnemies
+    };
+  }
+
+  function collectEnemyCollisionCandidates(collision, x, y, radius, out) {
+    out.length = 0;
+    if (!collision || !collision.activeEnemies.length) return out;
+    const searchRadius = Math.max(1, radius + collision.maxRadius);
+    const minCellX = Math.floor((x - searchRadius) / collision.cellSize);
+    const maxCellX = Math.floor((x + searchRadius) / collision.cellSize);
+    const minCellY = Math.floor((y - searchRadius) / collision.cellSize);
+    const maxCellY = Math.floor((y + searchRadius) / collision.cellSize);
+    state.collisionQueryId += 1;
+    const mark = state.collisionQueryId;
+    for (let cy = minCellY; cy <= maxCellY; cy++) {
+      for (let cx = minCellX; cx <= maxCellX; cx++) {
+        const bucket = collision.buckets.get(cx + '|' + cy);
+        if (!bucket) continue;
+        for (let i = 0; i < bucket.length; i++) {
+          const e = bucket[i];
+          if (!e || e.dead || e._collisionMark === mark) continue;
+          e._collisionMark = mark;
+          out.push(e);
+        }
+      }
+    }
+    return out;
   }
 
   function updateEnemies(dt) {
@@ -2982,6 +3080,12 @@
   function drawGlowCircle(x, y, r, color, alpha, blur) {
     const b = blur == null ? Math.max(10, r * 0.8) : blur;
     const a = alpha == null ? 1 : alpha;
+    if (a <= 0 || r <= 0) return;
+    if (state.settings.lowEndMode) {
+      drawSpriteCircle(x, y, Math.max(1, r + b * 0.42), color, a * 0.46, 0, true);
+      drawSpriteCircle(x, y, Math.max(1, r * 0.72), color, a, 0, true);
+      return;
+    }
     drawSpriteCircle(x, y, r + b * 0.82, color, a * 0.32, 0, true);
     drawSpriteCircle(x, y, r + b * 0.45, color, a * 0.58, 0, true);
     drawSpriteCircle(x, y, Math.max(1, r * 0.72), color, a, 0, true);
@@ -2990,6 +3094,11 @@
   function drawSoftEdgeGlow(x, y, maxR, color, alpha) {
     const a = alpha == null ? 1 : alpha;
     const r = Math.max(1, maxR || 40);
+    if (state.settings.lowEndMode) {
+      drawSpriteCircle(x, y, r * 0.38, color, a * 0.72, 0, true);
+      drawSpriteCircle(x, y, r * 0.78, color, a * 0.22, 0, true);
+      return;
+    }
     drawSpriteCircle(x, y, r * 0.22, color, a * 0.9, 0, true);
     drawSpriteCircle(x, y, r * 0.42, color, a * 0.58, 0, true);
     drawSpriteCircle(x, y, r * 0.66, color, a * 0.22, 0, true);
