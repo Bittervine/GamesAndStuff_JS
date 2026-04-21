@@ -1966,13 +1966,12 @@
     const avgFps = state.starfieldCapSamples > 0 ? (state.starfieldCapSum / state.starfieldCapSamples) : (state.fpsAvg || 60);
     const target = Math.max(minStars, Math.min(maxStars, Math.round((view.w * view.h) / 3000)));
     let nextCap = current;
-    if (avgFps < 30) {
-      nextCap = Math.max(minStars, current - 1);
-    } else {
-      const error = avgFps - 58;
-      if (Math.abs(error) >= 1) {
-        nextCap = clamp(Math.round(current + error * 0.75), minStars, target);
-      }
+    if (avgFps < 25) {
+      const drop = Math.max(1, Math.round((25 - avgFps) * 0.5));
+      nextCap = Math.max(minStars, current - drop);
+    } else if (avgFps > 35) {
+      const rise = Math.max(1, Math.round((avgFps - 35) * 0.5));
+      nextCap = clamp(current + rise, minStars, target);
     }
     state.settings.starfieldCap = nextCap;
     saveSettings();
