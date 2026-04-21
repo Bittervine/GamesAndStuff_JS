@@ -2,13 +2,18 @@
 
 var CACHE_NAME = 'shotemup-3d-v8';
 var APP_SHELL = [
-  './ShotEmUp3D_JS.html',
-  './ShotEmUp_JS.js',
+  './ThoriumGap.html',
+  './ThoriumGap.js',
   './GameManual.html',
   './manifest.webmanifest',
   './pwa-icon.svg',
   './assets/players_spaceship.png',
+  './assets/players_aura.png',
   './assets/Thorium_Gap_title.png',
+  './assets/glow_e_white.png',
+  './assets/glow_e_red.png',
+  './assets/glow_e_green.png',
+  './assets/glow_e_blue.png',
   './assets/Boss_01.png',
   './assets/Boss_02.png',
   './assets/Boss_03.png',
@@ -256,7 +261,7 @@ self.addEventListener('fetch', function (event) {
   var url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (event.request.mode === 'navigate' || event.request.destination === 'document' || url.pathname === '/ShotEmUp3D_JS.html' || url.pathname === '/ShotEmUp3D_JS/' || url.pathname === '/ShotEmUp_JS.js' || url.pathname === '/ShotEmUp3D_JS/ShotEmUp3D_JS.html' || url.pathname === '/ShotEmUp3D_JS/ShotEmUp_JS.js') {
+  if (event.request.mode === 'navigate' || event.request.destination === 'document' || url.pathname === '/ThoriumGap.html' || url.pathname === '/ThoriumGap/' || url.pathname === '/ThoriumGap.js' || url.pathname === '/ThoriumGap_JS/ThoriumGap.html' || url.pathname === '/ThoriumGap_JS/ThoriumGap.js') {
     event.respondWith(
       fetch(event.request, { cache: 'no-store' }).then(function (response) {
         if (response && response.ok && event.request.destination !== 'document' && event.request.mode !== 'navigate') {
@@ -269,7 +274,7 @@ self.addEventListener('fetch', function (event) {
       }).catch(function () {
         return caches.match(event.request).then(function (cached) {
           if (cached) return cached;
-          return caches.match('./ShotEmUp3D_JS.html');
+          return caches.match('./ThoriumGap.html');
         });
       })
     );
@@ -286,7 +291,7 @@ self.addEventListener('fetch', function (event) {
         });
         return response;
       }).catch(function () {
-        return caches.match('./ShotEmUp3D_JS.html');
+        return caches.match('./ThoriumGap.html');
       });
     })
   );

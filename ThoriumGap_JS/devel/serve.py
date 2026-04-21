@@ -15,7 +15,7 @@ def main():
     here = Path(__file__).resolve().parent
     root = here.parent if here.name == "devel" else here
     os.chdir(root)
-    print(f"Serving {root} on http://localhost:{port}/ShotEmUp3D_JS.html")
+    print(f"Serving {root} on http://localhost:{port}/ThoriumGap.html")
     server = ThreadingHTTPServer(("127.0.0.1", port), NoCacheHandler)
     try:
       server.serve_forever()
