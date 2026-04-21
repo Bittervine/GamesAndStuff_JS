@@ -1099,6 +1099,7 @@
 
   function setLowEndMode(enabled) {
     state.settings.lowEndMode = !!enabled;
+    if (state.settings.lowEndMode) clearScrollingClouds();
     saveSettings();
     syncSettingsUi();
     window.dispatchEvent(new Event('resize'));
@@ -1527,7 +1528,10 @@
   }
 
   function ensureStarfield() {
-    const desired = Math.max(480, Math.min(880, Math.round((view.w * view.h) / 3000)));
+    const densityDivisor = state.settings.lowEndMode ? 30000 : 3000;
+    const minStars = state.settings.lowEndMode ? 48 : 480;
+    const maxStars = state.settings.lowEndMode ? 88 : 880;
+    const desired = Math.max(minStars, Math.min(maxStars, Math.round((view.w * view.h) / densityDivisor)));
     if (state.starfield.length === desired) return;
     const stars = [];
     for (let i = 0; i < desired; i++) {
@@ -3213,6 +3217,27 @@
     return cloud.texture;
   }
 
+  function releaseScrollingCloudTexture(cloud) {
+    if (!cloud || !cloud.texture || !gl || !gl.deleteTexture) return;
+    try {
+      gl.deleteTexture(cloud.texture);
+    } catch (e) {}
+    cloud.texture = null;
+  }
+
+  function clearScrollingClouds() {
+    if (!state.scrollingClouds) return;
+    for (let i = 0; i < state.scrollingClouds.length; i++) {
+      const cloud = state.scrollingClouds[i];
+      releaseScrollingCloudTexture(cloud);
+      cloud.points = null;
+      cloud.texW = 0;
+      cloud.texH = 0;
+      cloud.bounds = null;
+    }
+    state.scrollingClouds = null;
+  }
+
   function resetScrollingCloud(cloud) {
     const w = Math.max(1, view.w);
     cloud.x = w * (0.10 + Math.random() * 0.78);
@@ -3225,13 +3250,17 @@
     cloud.cluster = 8 + ((Math.random() * 5) | 0);
     cloud.a = 0.16 + Math.random() * 0.08;
     cloud.points = null;
-    cloud.texture = null;
+    releaseScrollingCloudTexture(cloud);
     cloud.texW = 0;
     cloud.texH = 0;
     cloud.bounds = null;
   }
 
   function updateScrollingClouds(dt) {
+    if (state.settings.lowEndMode) {
+      clearScrollingClouds();
+      return;
+    }
     if (!state.scrollingClouds) state.scrollingClouds = [createScrollingCloud(0), createScrollingCloud(1), createScrollingCloud(2), createScrollingCloud(3)];
     const h = Math.max(1, view.h);
     for (let i = 0; i < state.scrollingClouds.length; i++) {
@@ -3248,7 +3277,7 @@
       if (c.bounds && c.y + c.bounds.minY > h + c.r * 1.2) {
         c.delay = lerp(3, 5, Math.random());
         c.points = null;
-        c.texture = null;
+        releaseScrollingCloudTexture(c);
         c.texW = 0;
         c.texH = 0;
         c.bounds = null;
@@ -3258,7 +3287,7 @@
   }
 
   function drawScrollingClouds() {
-    if (!state.scrollingClouds) return;
+    if (state.settings.lowEndMode || !state.scrollingClouds) return;
     hudCtx.save();
     hudCtx.globalCompositeOperation = 'source-over';
     for (let i = 0; i < state.scrollingClouds.length; i++) {
