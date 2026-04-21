@@ -1714,8 +1714,10 @@
     if (!o.preserveClouds) clearScrollingClouds();
     state.backgroundSeed = 0;
     state.foregroundSeed = 0;
-    state.starfield = [];
-    state.starfieldScroll = 0;
+    if (!o.preserveStars) {
+      state.starfield = [];
+      state.starfieldScroll = 0;
+    }
   }
 
   function ensureStarfield() {
@@ -1950,8 +1952,13 @@
     state.waveIndex = 0;
     state.levelClock = 0;
     state.transition = null;
-    regenBackground(state.currentTheme, { preserveDecor: true, preserveClouds: true });
+    regenBackground(state.currentTheme, { preserveDecor: true, preserveClouds: true, preserveStars: true });
     if (index === 0) {
+      state.decorBackgrounds = [createDecorBackground(0)];
+      state.decorBackgrounds[0].x = view.w * 0.72;
+      state.decorBackgrounds[0].y = view.h * 0.22;
+      state.decorBackgrounds[0].scale = 2;
+      state.decorBackgrounds[0].delay = 0;
       state.player.x = view.w * 0.5;
       state.player.y = playArea().bottom - 92;
       {
@@ -2221,7 +2228,6 @@
     }
     if (kind === 'elite') { e.hp = Math.round(9 * hpScale); e.maxHp = e.hp; e.score = Math.round(340 * scale); e.r = Math.max(e.r, Math.round(shipSize * 0.42)); }
     state.enemies.push(e);
-    sfx('spawn');
     return e;
   }
 

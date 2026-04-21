@@ -6,14 +6,11 @@ var APP_SHELL = [
   './ThoriumGap.js',
   './GameManual.html',
   './manifest.webmanifest',
-  './pwa-icon.svg',
-  './assets/players_spaceship.png',
-  './assets/players_aura.png',
-  './assets/Thorium_Gap_title.png',
-  './assets/glow_e_white.png',
-  './assets/glow_e_red.png',
-  './assets/glow_e_green.png',
-  './assets/glow_e_blue.png',
+  './pwa-icon.svg'
+];
+
+var ASSET_ROOTS = ['./assets/', './devel/'];
+var APP_ASSETS = [
   './assets/Boss_01.png',
   './assets/Boss_02.png',
   './assets/Boss_03.png',
@@ -238,7 +235,7 @@ var APP_SHELL = [
 self.addEventListener('install', function (event) {
   event.waitUntil(
     caches.open(CACHE_NAME).then(function (cache) {
-      return cache.addAll(APP_SHELL);
+      return cache.addAll(APP_SHELL.concat(APP_ASSETS));
     })
   );
   self.skipWaiting();
@@ -279,6 +276,24 @@ self.addEventListener('fetch', function (event) {
       })
     );
     return;
+  }
+
+  for (var i = 0; i < ASSET_ROOTS.length; i++) {
+    if (url.pathname.indexOf(ASSET_ROOTS[i]) >= 0) {
+      event.respondWith(
+        caches.match(event.request).then(function (cached) {
+          if (cached) return cached;
+          return fetch(event.request).then(function (response) {
+            var copy = response.clone();
+            caches.open(CACHE_NAME).then(function (cache) {
+              cache.put(event.request, copy);
+            });
+            return response;
+          });
+        })
+      );
+      return;
+    }
   }
 
   event.respondWith(
