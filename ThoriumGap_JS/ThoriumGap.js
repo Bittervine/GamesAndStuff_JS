@@ -1532,8 +1532,6 @@
         break;
       case 'candy':
         pushSceneItem(background, 'hill', { x: w * 0.5, y: h * 0.66, w: dim * 1.22, h: h * 0.2, style: 'candy', layer: -34, speed: 4, sway: 6, color: '#8b4ca6', color2: '#ff9ed6' });
-        pushSceneItem(background, 'cloud', { x: w * 0.22, y: h * 0.18, w: dim * 0.3, h: h * 0.16, style: 'fluff', layer: -28, speed: 3, sway: 6, color: '#fff0ff', color2: '#ffd5f0' });
-        pushSceneItem(background, 'cloud', { x: w * 0.78, y: h * 0.2, w: dim * 0.28, h: h * 0.14, style: 'fluff', layer: -27, speed: 4, sway: 8, color: '#fff7fd', color2: '#ffcfef' });
         addRow('candy', 5, h * 0.55, w * 0.12, w * 0.88, -23, 8, function (i) {
           return { scale: 0.78 + (i % 2) * 0.12, style: i % 2 ? 'lollipop' : 'cane', color: ['#ff79b6', '#7cf7ff', '#ffd96a'][i % 3], color2: '#ffffff', accent: '#ffefb8' };
         });
@@ -1571,9 +1569,6 @@
         pushSceneItem(background, 'building', { x: w * 0.18, y: h * 0.50, w: w * 0.16, h: h * 0.2, scale: 0.95, style: 'hive', layer: -24, speed: 7, sway: 4, color: '#7a4b10', color2: '#ffcf59', windows: 3 });
         pushSceneItem(background, 'building', { x: w * 0.5, y: h * 0.46, w: w * 0.14, h: h * 0.24, scale: 1.0, style: 'hive', layer: -22, speed: 8, sway: 4, color: '#8c5614', color2: '#ffd66f', windows: 4 });
         pushSceneItem(background, 'building', { x: w * 0.82, y: h * 0.53, w: w * 0.14, h: h * 0.18, scale: 0.92, style: 'hive', layer: -20, speed: 8, sway: 4, color: '#6f4310', color2: '#ffc84c', windows: 3 });
-        addRow('cloud', 3, h * 0.16, w * 0.12, w * 0.88, -28, 4, function (i) {
-          return { scale: 0.7 + (i % 2) * 0.08, style: 'smoke', color: '#ffe6a5', color2: '#ffca5b' };
-        });
         addForegroundRow('branch', 4, h * 0.14, -20, w + 20, 44, 20, function (i, t01) {
           return { scale: 0.9 + (i % 2) * 0.08, style: 'wax', side: t01 < 0.5 ? -1 : 1, color: '#ffd36a', color2: '#fff0bf' };
         });
@@ -1594,9 +1589,6 @@
         pushSceneItem(background, 'building', { x: w * 0.22, y: h * 0.52, w: w * 0.14, h: h * 0.2, scale: 0.95, style: 'kitchen', layer: -24, speed: 7, sway: 3, color: '#5b4a43', color2: '#ffc05f', windows: 3 });
         pushSceneItem(background, 'building', { x: w * 0.52, y: h * 0.47, w: w * 0.15, h: h * 0.24, scale: 1.0, style: 'kitchen', layer: -22, speed: 8, sway: 3, color: '#6e4d41', color2: '#ffd06b', windows: 4 });
         pushSceneItem(background, 'building', { x: w * 0.82, y: h * 0.56, w: w * 0.15, h: h * 0.17, scale: 0.92, style: 'kitchen', layer: -20, speed: 9, sway: 3, color: '#754835', color2: '#ffd88a', windows: 3 });
-        addRow('cloud', 4, h * 0.16, w * 0.12, w * 0.88, -28, 4, function (i) {
-          return { scale: 0.72 + (i % 2) * 0.08, style: 'steam', color: '#fff1d0', color2: '#ffb04f' };
-        });
         addForegroundRow('branch', 4, h * 0.1, -20, w + 20, 44, 20, function (i, t01) {
           return { scale: 0.92 + (i % 2) * 0.08, style: 'steam', side: t01 < 0.5 ? -1 : 1, color: '#ffd1a5', color2: '#fff1d6' };
         });
@@ -1606,9 +1598,6 @@
         pushSceneItem(background, 'building', { x: w * 0.15, y: h * 0.50, w: w * 0.16, h: h * 0.22, scale: 0.95, style: 'arcade', layer: -24, speed: 7, sway: 4, color: '#24345c', color2: '#7cf7ff', windows: 5 });
         pushSceneItem(background, 'building', { x: w * 0.46, y: h * 0.45, w: w * 0.16, h: h * 0.26, scale: 1.0, style: 'arcade', layer: -22, speed: 8, sway: 4, color: '#1d2b50', color2: '#ff7bee', windows: 6 });
         pushSceneItem(background, 'building', { x: w * 0.79, y: h * 0.54, w: w * 0.15, h: h * 0.18, scale: 0.92, style: 'arcade', layer: -20, speed: 9, sway: 4, color: '#24325b', color2: '#cfd8ff', windows: 4 });
-        addRow('cloud', 3, h * 0.16, w * 0.16, w * 0.84, -28, 3, function (i) {
-          return { scale: 0.68 + (i % 2) * 0.06, style: 'night', color: '#d9e4ff', color2: '#7cf7ff' };
-        });
         addForegroundRow('branch', 4, h * 0.12, -18, w + 18, 44, 18, function (i, t01) {
           return { scale: 0.9 + (i % 2) * 0.08, style: 'cable', side: t01 < 0.5 ? -1 : 1, color: '#7cf7ff', color2: '#ff7bee' };
         });
@@ -1618,9 +1607,6 @@
         pushSceneItem(background, 'building', { x: w * 0.15, y: h * 0.48, w: w * 0.17, h: h * 0.24, scale: 0.95, style: 'city', layer: -24, speed: 7, sway: 4, color: '#201f43', color2: '#63f3ff', windows: 5 });
         pushSceneItem(background, 'building', { x: w * 0.5, y: h * 0.44, w: w * 0.18, h: h * 0.28, scale: 1.0, style: 'city', layer: -22, speed: 8, sway: 4, color: '#271e57', color2: '#ff7bee', windows: 6 });
         pushSceneItem(background, 'building', { x: w * 0.82, y: h * 0.53, w: w * 0.16, h: h * 0.2, scale: 0.92, style: 'city', layer: -20, speed: 9, sway: 4, color: '#1b234f', color2: '#ffd56a', windows: 4 });
-        addRow('cloud', 2, h * 0.14, w * 0.18, w * 0.82, -28, 3, function (i) {
-          return { scale: 0.64 + (i % 2) * 0.08, style: 'night', color: '#dbe9ff', color2: '#ff7bee' };
-        });
         addForegroundRow('branch', 4, h * 0.12, -18, w + 18, 44, 20, function (i, t01) {
           return { scale: 0.88 + (i % 2) * 0.08, style: 'cable', side: t01 < 0.5 ? -1 : 1, color: '#63f3ff', color2: '#ff7bee' };
         });
@@ -1630,9 +1616,6 @@
         pushSceneItem(background, 'wall', { x: w * 0.17, y: h * 0.52, w: w * 0.22, h: h * 0.2, scale: 0.95, style: 'citadel', layer: -24, speed: 7, sway: 3, color: '#4f4f63', color2: '#d8d8e8' });
         pushSceneItem(background, 'wall', { x: w * 0.5, y: h * 0.48, w: w * 0.26, h: h * 0.24, scale: 1.0, style: 'citadel', layer: -22, speed: 8, sway: 3, color: '#56546e', color2: '#f0f0ff' });
         pushSceneItem(background, 'wall', { x: w * 0.82, y: h * 0.56, w: w * 0.2, h: h * 0.18, scale: 0.92, style: 'citadel', layer: -20, speed: 9, sway: 3, color: '#4b4a60', color2: '#d8d8e8' });
-        addRow('cloud', 3, h * 0.14, w * 0.15, w * 0.85, -28, 3, function (i) {
-          return { scale: 0.68 + (i % 2) * 0.06, style: 'mist', color: '#eef0ff', color2: '#bca46b' };
-        });
         addForegroundRow('branch', 4, h * 0.1, -18, w + 18, 44, 18, function (i, t01) {
           return { scale: 0.88 + (i % 2) * 0.08, style: 'battlement', side: t01 < 0.5 ? -1 : 1, color: '#d8d8e8', color2: '#bca46b' };
         });
@@ -1642,9 +1625,6 @@
         pushSceneItem(background, 'wall', { x: w * 0.18, y: h * 0.53, w: w * 0.2, h: h * 0.2, scale: 0.95, style: 'storm', layer: -24, speed: 7, sway: 3, color: '#32495d', color2: '#8ecbff' });
         pushSceneItem(background, 'wall', { x: w * 0.52, y: h * 0.49, w: w * 0.24, h: h * 0.24, scale: 1.0, style: 'storm', layer: -22, speed: 8, sway: 3, color: '#39556d', color2: '#d0f3ff' });
         pushSceneItem(background, 'wall', { x: w * 0.82, y: h * 0.56, w: w * 0.18, h: h * 0.18, scale: 0.92, style: 'storm', layer: -20, speed: 9, sway: 3, color: '#2c4254', color2: '#8ecbff' });
-        addRow('cloud', 4, h * 0.14, w * 0.1, w * 0.9, -28, 3, function (i) {
-          return { scale: 0.72 + (i % 2) * 0.08, style: 'storm', color: '#d9f3ff', color2: '#8ecbff' };
-        });
         addForegroundRow('branch', 4, h * 0.1, -18, w + 18, 44, 22, function (i, t01) {
           return { scale: 0.9 + (i % 2) * 0.08, style: 'rain', side: t01 < 0.5 ? -1 : 1, color: '#9fd1ff', color2: '#d0f3ff' };
         });
@@ -1654,9 +1634,6 @@
         pushSceneItem(background, 'pillar', { x: w * 0.2, y: h * 0.5, w: w * 0.14, h: h * 0.24, scale: 0.95, style: 'crown', layer: -24, speed: 7, sway: 3, color: '#7d6aa8', color2: '#ffe78a' });
         pushSceneItem(background, 'pillar', { x: w * 0.5, y: h * 0.46, w: w * 0.18, h: h * 0.28, scale: 1.0, style: 'crown', layer: -22, speed: 8, sway: 3, color: '#8d79ba', color2: '#ffffff' });
         pushSceneItem(background, 'pillar', { x: w * 0.8, y: h * 0.53, w: w * 0.14, h: h * 0.2, scale: 0.92, style: 'crown', layer: -20, speed: 9, sway: 3, color: '#7d6aa8', color2: '#ffe78a' });
-        addRow('cloud', 3, h * 0.14, w * 0.16, w * 0.84, -28, 3, function (i) {
-          return { scale: 0.66 + (i % 2) * 0.08, style: 'halo', color: '#ffe78a', color2: '#ffffff' };
-        });
         addForegroundRow('branch', 4, h * 0.1, -18, w + 18, 44, 18, function (i, t01) {
           return { scale: 0.88 + (i % 2) * 0.08, style: 'filigree', side: t01 < 0.5 ? -1 : 1, color: '#ffe78a', color2: '#ffffff' };
         });
@@ -3448,7 +3425,7 @@
       r: 96 + index * 10,
       cluster: 9 + index,
       a: 0.20 + index * 0.02,
-      cloudType: Math.random() < 0.67 ? 1 : 0
+      cloudType: 1 // Blue
     };
   }
 
@@ -3553,7 +3530,7 @@
     cloud.r = 90 + Math.random() * 36;
     cloud.cluster = 8 + ((Math.random() * 5) | 0);
     cloud.a = 0.16 + Math.random() * 0.08;
-    cloud.cloudType = Math.random() < 0.67 ? 1 : 0;
+    cloud.cloudType = 1; // Blue
     cloud.points = null;
     releaseScrollingCloudTexture(cloud);
     cloud.texW = 0;
