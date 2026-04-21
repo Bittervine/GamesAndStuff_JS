@@ -3447,7 +3447,8 @@
       bounds: null,
       r: 96 + index * 10,
       cluster: 9 + index,
-      a: 0.20 + index * 0.02
+      a: 0.20 + index * 0.02,
+      cloudType: Math.random() < 0.67 ? 1 : 0
     };
   }
 
@@ -3460,18 +3461,25 @@
   function ensureScrollingCloudTexture(cloud) {
     if (cloud.texture) return cloud.texture;
     const pts = ensureScrollingCloudPoints(cloud);
+    const blueCloud = cloud.cloudType === 1;
+    const blobW = blueCloud ? 500 : 300;
+    const blobH = blueCloud ? 500 : 300;
+    const blobX = blueCloud ? -250 : -150;
+    const blobY = blueCloud ? -550 : -150;
+    const blobPadX = Math.max(48, Math.ceil(blobW * 0.5));
+    const blobPadY = Math.max(48, Math.ceil(Math.abs(blobY) + blobH * 0.5));
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i];
-      minX = Math.min(minX, p.x - cloud.r * 2.2);
-      minY = Math.min(minY, p.y - cloud.r * 2.2);
-      maxX = Math.max(maxX, p.x + cloud.r * 2.2);
-      maxY = Math.max(maxY, p.y + cloud.r * 2.2);
+      minX = Math.min(minX, p.x - cloud.r * 2.2 - blobPadX);
+      minY = Math.min(minY, p.y - cloud.r * 2.2 - blobPadY);
+      maxX = Math.max(maxX, p.x + cloud.r * 2.2 + blobPadX);
+      maxY = Math.max(maxY, p.y + cloud.r * 2.2 + blobPadY);
     }
-    const pad = Math.max(48, Math.round(cloud.r * 0.6));
+    const pad = blueCloud ? Math.max(64, Math.round(cloud.r * 0.8)) : Math.max(48, Math.round(cloud.r * 0.6));
     minX -= pad; minY -= pad; maxX += pad; maxY += pad;
-    const texW = Math.max(256, Math.ceil(maxX - minX));
-    const texH = Math.max(256, Math.ceil(maxY - minY));
+    const texW = Math.max(blueCloud ? 512 : 256, Math.ceil(maxX - minX));
+    const texH = Math.max(blueCloud ? 1024 : 256, Math.ceil(maxY - minY));
     const c = makeCanvas(texW, texH);
     const g = c.getContext('2d');
     if (!g) return null;
@@ -3482,14 +3490,28 @@
       const p = pts[i];
       const px = p.x - minX;
       const py = p.y - minY;
-      if (whiteImg) {
-        g.globalAlpha = cloud.a * 0.28;
-        g.drawImage(whiteImg, px - 128, py - 128, 256, 256);
+
+      // Normal cloud
+      if (!blueCloud) {
+        if (whiteImg) {
+          g.globalAlpha = cloud.a * 0.28;
+          g.drawImage(whiteImg, px - 150, py - 150, 300, 300);
+        }
+        if (blueImg) {
+          g.globalAlpha = cloud.a * 0.22;
+          g.drawImage(blueImg, px - 150, py - 150, 300, 300);
+        }
       }
-      if (blueImg) {
-        g.globalAlpha = cloud.a * 0.22;
-        g.drawImage(blueImg, px - 150, py - 150, 300, 300);
+
+      // Deep blue cloud
+      if (blueCloud) {
+        if (blueImg) {
+          g.globalAlpha = cloud.a * 0.22;
+          g.drawImage(blueImg, px + blobX, py + blobY, blobW, blobH);
+        }
       }
+      
+
     }
     g.globalAlpha = 1;
     cloud.texture = createTextureFromCanvas(c);
@@ -3531,6 +3553,7 @@
     cloud.r = 90 + Math.random() * 36;
     cloud.cluster = 8 + ((Math.random() * 5) | 0);
     cloud.a = 0.16 + Math.random() * 0.08;
+    cloud.cloudType = Math.random() < 0.67 ? 1 : 0;
     cloud.points = null;
     releaseScrollingCloudTexture(cloud);
     cloud.texW = 0;
@@ -3543,7 +3566,7 @@
       clearScrollingClouds();
       return;
     }
-    if (!state.scrollingClouds) state.scrollingClouds = [createScrollingCloud(0), createScrollingCloud(1), createScrollingCloud(2), createScrollingCloud(3)];
+    if (!state.scrollingClouds) state.scrollingClouds = [createScrollingCloud(0), createScrollingCloud(1), createScrollingCloud(2), createScrollingCloud(3), createScrollingCloud(4), createScrollingCloud(5)];
     const h = Math.max(1, view.h);
     for (let i = 0; i < state.scrollingClouds.length; i++) {
       const c = state.scrollingClouds[i];
