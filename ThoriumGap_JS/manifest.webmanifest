@@ -1,7 +1,7 @@
 {
   "name": "Shot Em Up JS",
   "short_name": "Shot Em Up",
-  "start_url": "./ShotEmUp3D_JS.html",
+  "start_url": "./ThoriumGap.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#07111d",
