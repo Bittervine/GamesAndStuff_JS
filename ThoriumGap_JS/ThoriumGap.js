@@ -940,7 +940,8 @@
       sfxVolume: clamp(loadNum('ShotEmUp_JS_sfxVolume', 0.8), 0, 1),
       musicVolume: clamp(loadNum('ShotEmUp_JS_musicVolume', 0), 0, 1),
       difficulty: clamp(Math.round(loadNum('ShotEmUp_JS_difficulty', 1)), 0, 2),
-      lowEndMode: loadBool('ShotEmUp_JS_lowEndMode', false)
+      lowEndMode: loadBool('ShotEmUp_JS_lowEndMode', false),
+      starfieldCap: clamp(Math.round(loadNum('ShotEmUp_JS_starfieldCap', 700)), 40, 700)
     },
     lives: 3,
     combo: 0,
@@ -965,6 +966,11 @@
     starfield: [],
     starfieldScroll: 0,
     scrollingClouds: null,
+    fps: 0,
+    fpsAvg: 60,
+    starfieldCapSum: 0,
+    starfieldCapSamples: 0,
+    starfieldCapPending: null,
     projectileClearVersion: 0,
     collisionQueryId: 0,
     enemies: [],
@@ -1163,6 +1169,7 @@
     saveNum('ShotEmUp_JS_musicVolume', state.settings.musicVolume);
     saveNum('ShotEmUp_JS_difficulty', state.settings.difficulty);
     saveBool('ShotEmUp_JS_lowEndMode', state.settings.lowEndMode);
+    saveNum('ShotEmUp_JS_starfieldCap', state.settings.starfieldCap);
     saveNum('ShotEmUp_JS_highScore', state.highScore);
   }
 
@@ -1722,9 +1729,10 @@
 
   function ensureStarfield() {
     const densityDivisor = state.settings.lowEndMode ? 30000 : 3000;
-    const minStars = state.settings.lowEndMode ? 48 : 480;
-    const maxStars = state.settings.lowEndMode ? 88 : 880;
-    const desired = Math.max(minStars, Math.min(maxStars, Math.round((view.w * view.h) / densityDivisor)));
+    const minStars = 40;
+    const maxStars = state.settings.lowEndMode ? 70 : 700;
+    const baseDesired = Math.max(minStars, Math.min(maxStars, Math.round((view.w * view.h) / densityDivisor)));
+    const desired = Math.max(minStars, Math.min(baseDesired, clamp(Math.round(state.settings.starfieldCap || maxStars), minStars, maxStars)));
     if (state.starfield.length === desired) return;
     const stars = [];
     for (let i = 0; i < desired; i++) {
@@ -1739,6 +1747,15 @@
       });
     }
     state.starfield = stars;
+  }
+
+  function updateStarfieldCap(dt) {
+    if (state.settings.lowEndMode) return;
+    if (!Number.isFinite(state.fps) || state.fps <= 0) return;
+    const prevAvg = state.fpsAvg || state.fps;
+    state.fpsAvg = lerp(prevAvg, state.fps, 0.01);
+    state.starfieldCapSum += state.fps;
+    state.starfieldCapSamples++;
   }
 
   function drawStarfield() {
@@ -1890,6 +1907,10 @@
     state.currentTheme = THEMES[0];
     resetPlayer();
     regenBackground(state.currentTheme);
+    state.fpsAvg = 60;
+    state.starfieldCapSum = 0;
+    state.starfieldCapSamples = 0;
+    state.starfieldCapPending = null;
     state.mode = 'title';
     state.paused = false;
     state.musicClock = 0;
@@ -1939,6 +1960,22 @@
   }
 
   function beginLevel(index) {
+    const minStars = 40;
+    const maxStars = 700;
+    const current = clamp(Math.round(state.settings.starfieldCap || maxStars), minStars, maxStars);
+    const avgFps = state.starfieldCapSamples > 0 ? (state.starfieldCapSum / state.starfieldCapSamples) : (state.fpsAvg || 60);
+    const target = Math.max(minStars, Math.min(maxStars, Math.round((view.w * view.h) / 3000)));
+    let nextCap = current;
+    if (avgFps < 30) {
+      nextCap = Math.max(minStars, current - 1);
+    } else {
+      const error = avgFps - 58;
+      if (Math.abs(error) >= 1) {
+        nextCap = clamp(Math.round(current + error * 0.75), minStars, target);
+      }
+    }
+    state.settings.starfieldCap = nextCap;
+    saveSettings();
     state.levelIndex = index;
     state.currentTheme = THEMES[index];
     warmEnemyShipBatch(index + 1);
@@ -1953,6 +1990,10 @@
     state.levelClock = 0;
     state.transition = null;
     regenBackground(state.currentTheme, { preserveDecor: true, preserveClouds: true, preserveStars: true });
+    state.starfieldCapSum = 0;
+    state.starfieldCapSamples = 0;
+    state.starfieldCapPending = null;
+    state.fpsAvg = 60;
     if (index === 0) {
       state.decorBackgrounds = [createDecorBackground(0)];
       state.decorBackgrounds[0].x = view.w * 0.72;
@@ -3699,7 +3740,7 @@
       clearScrollingClouds();
       return;
     }
-    if (!state.scrollingClouds) state.scrollingClouds = [createScrollingCloud(0), createScrollingCloud(1), createScrollingCloud(2), createScrollingCloud(3), createScrollingCloud(4), createScrollingCloud(5)];
+    if (!state.scrollingClouds) state.scrollingClouds = [createScrollingCloud(0), createScrollingCloud(1), createScrollingCloud(2), createScrollingCloud(3), createScrollingCloud(4)];
     const h = Math.max(1, view.h);
     for (let i = 0; i < state.scrollingClouds.length; i++) {
       const c = state.scrollingClouds[i];
@@ -5187,6 +5228,17 @@
     hudCtx.restore();
   }
 
+  function drawDebugFps() {
+    if (!state.debugMode) return;
+    hudCtx.save();
+    hudCtx.fillStyle = '#fff';
+    hudCtx.font = '700 11px "Trebuchet MS", "Segoe UI", sans-serif';
+    hudCtx.textAlign = 'left';
+    hudCtx.textBaseline = 'bottom';
+    hudCtx.fillText('FPS ' + Math.round(state.fpsAvg || state.fps || 0) + '  STARS ' + Math.round(state.settings.starfieldCap || 0), 10, view.h - 10);
+    hudCtx.restore();
+  }
+
   function drawTitle() {
     const theme = mainTheme();
     const pulse = 0.5 + Math.sin(state.musicStep * 0.4) * 0.5;
@@ -5249,6 +5301,7 @@
       drawSpriteRect(view.w * 0.5, view.h * 0.5, view.w, view.h, '#ffffff', state.flash * 0.3, 999, true);
     }
     flushRender();
+    drawDebugFps();
     if (state.mode !== 'title' && state.mode !== 'debug') drawHud();
   }
 
@@ -5412,6 +5465,8 @@
     if (!loop.last) loop.last = ts;
     const dt = clamp((ts - loop.last) / 1000, 0, 0.05);
     loop.last = ts;
+    state.fps = dt > 0 ? 1 / dt : state.fps;
+    updateStarfieldCap(dt);
     update(dt);
     draw();
     requestAnimationFrame(loop);
