@@ -239,6 +239,48 @@
     return null;
   }
 
+  const planetDecorImages = new Map();
+  const planetDecorLoadKeys = new Set();
+  const PLANET_DECOR_MIN = 1;
+  const PLANET_DECOR_MAX = 32;
+
+  function planetDecorKey(index) {
+    return 'planet-decor|' + String(index).padStart(2, '0');
+  }
+
+  function planetDecorSource(index) {
+    return 'assets/planet_image_' + String(index).padStart(2, '0') + '.png';
+  }
+
+  function ensurePlanetDecorImage(index) {
+    const key = planetDecorKey(index);
+    if (planetDecorImages.has(key) || planetDecorLoadKeys.has(key)) return planetDecorImages.get(key) || null;
+    planetDecorLoadKeys.add(key);
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = function () {
+      planetDecorImages.set(key, img);
+      planetDecorLoadKeys.delete(key);
+    };
+    img.onerror = function () {
+      planetDecorLoadKeys.delete(key);
+    };
+    img.src = planetDecorSource(index);
+    return null;
+  }
+
+  function randomPlanetDecorIndex() {
+    return PLANET_DECOR_MIN + ((Math.random() * (PLANET_DECOR_MAX - PLANET_DECOR_MIN + 1)) | 0);
+  }
+
+  function getPlanetDecorImage(index) {
+    const key = planetDecorKey(index);
+    const img = planetDecorImages.get(key);
+    if (img) return img;
+    ensurePlanetDecorImage(index);
+    return null;
+  }
+
   function warmEnemyShipBatch(levelNumber) {
     for (let i = 0; i < ENEMY_SHIP_COLUMNS; i++) ensureEnemyShipTexture(levelNumber, i);
   }
@@ -509,6 +551,15 @@
     let tex = render.textures.get(key);
     if (tex) return tex;
     tex = createTextureFromCanvas(canvasLike);
+    render.textures.set(key, tex);
+    return tex;
+  }
+
+  function getTextureFromImage(img, key) {
+    if (!img) return null;
+    let tex = render.textures.get(key);
+    if (tex) return tex;
+    tex = createTextureFromCanvas(img);
     render.textures.set(key, tex);
     return tex;
   }
@@ -910,6 +961,7 @@
     foregroundBitmap: null,
     backgroundSeed: 0,
     foregroundSeed: 0,
+    decorBackgrounds: null,
     starfield: [],
     starfieldScroll: 0,
     scrollingClouds: null,
@@ -1657,6 +1709,7 @@
     state.foregroundBitmap = null;
     clearArray(state.background);
     clearArray(state.foreground);
+    clearDecorBackgrounds();
     state.backgroundSeed = 0;
     state.foregroundSeed = 0;
     state.starfield = [];
@@ -1686,6 +1739,7 @@
 
   function drawStarfield() {
     drawSpriteRect(view.w * 0.5, view.h * 0.5, view.w, view.h, '#02040a', 1, -120, false);
+    drawDecorBackgrounds();
     ensureStarfield();
     state.starfieldScroll += 0.012;
     for (const star of state.starfield) {
@@ -1713,6 +1767,7 @@
     state.shake = 0;
     state.flash = 0;
     state.transition = null;
+    clearDecorBackgrounds();
     clearArray(state.enemies);
     clearProjectileLists();
     clearArray(state.pickups);
@@ -1821,6 +1876,7 @@
     state.waveIndex = 0;
     state.levelClock = 0;
     state.transition = null;
+    clearDecorBackgrounds();
     clearArray(state.enemies);
     clearProjectileLists();
     clearArray(state.pickups);
@@ -1892,6 +1948,7 @@
     state.waveIndex = 0;
     state.levelClock = 0;
     state.transition = null;
+    clearDecorBackgrounds();
     regenBackground(state.currentTheme);
     if (index === 0) {
       state.player.x = view.w * 0.5;
@@ -3137,6 +3194,7 @@
   }
 
   function updateBackground(dt) {
+    updateDecorBackgrounds(dt);
     if (state.backgroundBitmap) {
       const bg = state.backgroundBitmap;
       bg.scroll = clamp(bg.scroll - bg.speed * dt, 0, bg.maxScroll);
@@ -3517,6 +3575,98 @@
       cloud.bounds = null;
     }
     state.scrollingClouds = null;
+  }
+
+  function clearDecorBackgrounds() {
+    state.decorBackgrounds = null;
+  }
+
+  function createDecorBackground(index) {
+    const w = Math.max(1, view.w);
+    const h = Math.max(1, view.h);
+    const firstPass = index === 0;
+    return {
+      index: index,
+      imageIndex: randomPlanetDecorIndex(),
+      x: w * (0.08 + Math.random() * 0.84),
+      y: -h * (0.18 + Math.random() * 0.22),
+      vx: (Math.random() - 0.5) * 8,
+      vy: (14 + Math.random() * 16) * 5 * 0.25,
+      scale: 0.44 + Math.random() * 0.22,
+      alpha: 0.42 + Math.random() * 0.18,
+      rot: (Math.random() - 0.5) * 0.24,
+      spin: (Math.random() - 0.5) * 0.0025,
+      drift: Math.random() * TAU,
+      delay: firstPass ? 0 : lerp(1.5, 5, Math.random())
+    };
+  }
+
+  function resetDecorBackground(dec) {
+    const w = Math.max(1, view.w);
+    const h = Math.max(1, view.h);
+    dec.imageIndex = randomPlanetDecorIndex();
+    dec.x = w * (0.08 + Math.random() * 0.84);
+    dec.y = -h * (0.18 + Math.random() * 0.22);
+    dec.vx = (Math.random() - 0.5) * 8;
+    dec.vy = (14 + Math.random() * 16) * 5 * 0.25;
+    dec.scale = 0.44 + Math.random() * 0.22;
+    dec.alpha = 0.42 + Math.random() * 0.18;
+    dec.rot = (Math.random() - 0.5) * 0.24;
+    dec.spin = (Math.random() - 0.5) * 0.0025;
+    dec.drift = Math.random() * TAU;
+    dec.delay = lerp(1.5, 5, Math.random());
+  }
+
+  function updateDecorBackgrounds(dt) {
+    if (state.settings.lowEndMode) {
+      clearDecorBackgrounds();
+      return;
+    }
+    if (!state.decorBackgrounds) {
+      state.decorBackgrounds = [];
+      const count = 2;
+      for (let i = 0; i < count; i++) state.decorBackgrounds.push(createDecorBackground(i));
+    }
+    const h = Math.max(1, view.h);
+    for (let i = 0; i < state.decorBackgrounds.length; i++) {
+      const d = state.decorBackgrounds[i];
+      if (d.delay > 0) {
+        d.delay = Math.max(0, d.delay - dt);
+        if (d.delay > 0) continue;
+        resetDecorBackground(d);
+      }
+      d.x += d.vx * dt;
+      d.y += d.vy * dt;
+      d.rot += d.spin * dt;
+      d.vx += Math.sin((state.animClock + i) * 0.27 + d.drift) * dt * 0.35;
+      const img = getPlanetDecorImage(d.imageIndex);
+      if (img && d.y - img.naturalHeight * d.scale > h + 120) {
+        d.delay = lerp(2, 6, Math.random());
+        d.imageIndex = randomPlanetDecorIndex();
+        d.y = -h * (0.18 + Math.random() * 0.22);
+      }
+    }
+  }
+
+  function drawDecorBackgrounds() {
+    if (state.settings.lowEndMode || !state.decorBackgrounds) return;
+    for (let i = 0; i < state.decorBackgrounds.length; i++) {
+      const d = state.decorBackgrounds[i];
+      if (d.delay > 0) continue;
+      const img = getPlanetDecorImage(d.imageIndex);
+      if (!img || !img.naturalWidth || !img.naturalHeight) continue;
+      const tex = getTextureFromImage(img, planetDecorKey(d.imageIndex));
+      if (!tex) continue;
+      const w = img.naturalWidth * d.scale * 2;
+      const h = img.naturalHeight * d.scale * 2;
+      const sway = Math.sin(state.levelClock * 0.18 + d.drift) * 10;
+      drawTextureRect(tex, d.x + sway, d.y, w, h, {
+        alpha: 1,
+        layer: 0,
+        rot: d.rot,
+        lighter: false
+      });
+    }
   }
 
   function resetScrollingCloud(cloud) {
