@@ -21,7 +21,8 @@
 
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
   let currentDt = 0;
-  const DEBUG_MODE = true;
+  const MAX_NORMAL_DPR = 1.5;
+  const DEBUG_MODE = false;
   const render = {
     ready: false,
     queue: [],
@@ -37,6 +38,8 @@
     colorCache: new Map(),
     offsetX: 0,
     offsetY: 0,
+    lastQueueLength: 0,
+    lastBatchCount: 0,
     textures: new Map(),
     white: null,
     circle: null,
@@ -124,7 +127,8 @@
   const ENEMY_SHIP_MIN_SIZE = 64;
   const ENEMY_SHIP_MAX_SIZE = 128;
   const enemyShipLoadKeys = new Set();
-  // Enemy glow colors are cached here after a one-time average-color pass on each loaded ship texture.
+  const ENEMY_SHIP_GLOW_FALLBACKS = ['#8fd8ff', '#ff8fd3', '#d8ff8f', '#ffbf8f', '#9a8fff', '#8fffe1', '#ffe38f', '#9fc8ff'];
+  // Enemy glow colors are cached here after load; debug mode may sample textures once, production uses a fallback palette.
   const enemyShipGlowColors = new Map();
   const bossArtLoadKeys = new Set();
 
@@ -134,6 +138,11 @@
 
   function enemyShipSource(levelNumber, shipIndex) {
     return 'assets/Enemy_' + String(levelNumber).padStart(3, '0') + String(shipIndex).padStart(2, '0') + ENEMY_SHIP_VARIANT + '.png';
+  }
+
+  function fallbackEnemyShipGlowColor(levelNumber, shipIndex) {
+    const seed = hashString('enemyglow|' + levelNumber + '|' + shipIndex);
+    return ENEMY_SHIP_GLOW_FALLBACKS[Math.abs(seed) % ENEMY_SHIP_GLOW_FALLBACKS.length];
   }
 
   function averageImageColor(img) {
@@ -211,7 +220,7 @@
     img.onload = function () {
       try {
         render.textures.set(key, createTextureFromCanvas(img));
-        enemyShipGlowColors.set(key, averageImageColor(img));
+        enemyShipGlowColors.set(key, DEBUG_MODE ? averageImageColor(img) : fallbackEnemyShipGlowColor(levelNumber, shipIndex));
       } finally {
         enemyShipLoadKeys.delete(key);
       }
@@ -304,9 +313,7 @@
     const key = enemyShipKey(levelNumber, shipIndex);
     const glow = enemyShipGlowColors.get(key);
     if (glow) return glow;
-    ensureEnemyShipTexture(levelNumber, shipIndex);
-    const fallback = (fallbackTheme && (fallbackTheme.glow || fallbackTheme.accent2 || fallbackTheme.accent)) || '#8fd8ff';
-    return fallback;
+    return fallbackEnemyShipGlowColor(levelNumber, shipIndex) || (fallbackTheme && (fallbackTheme.glow || fallbackTheme.accent2 || fallbackTheme.accent)) || '#8fd8ff';
   }
 
   function getEnemyShipRenderSize(levelNumber, shipIndex) {
@@ -787,7 +794,11 @@
   function flushRender() {
     if (!render.ready) {
       if (gl) initRenderer();
-      if (!render.ready) return;
+      if (!render.ready) {
+        render.lastQueueLength = render.queue.length;
+        render.lastBatchCount = 0;
+        return;
+      }
     }
     const w = canvas.width;
     const h = canvas.height;
@@ -798,11 +809,13 @@
     gl.uniform2f(render.uViewport, w, h);
     gl.bindBuffer(gl.ARRAY_BUFFER, render.buffer);
     if (render.queueNeedsSort) render.queue.sort(function (a, b) { return a.layer === b.layer ? a.order - b.order : a.layer - b.layer; });
+    render.lastQueueLength = render.queue.length;
     const data = ensureBatchData(render.queue.length);
     let batchTex = null;
     let batchSprites = 0;
     let batchOffset = 0;
     let batchBlend = 'normal';
+    let batchCount = 0;
     function applyBlend(mode) {
       if (mode === 'additive') gl.blendFunc(gl.ONE, gl.ONE);
       else if (mode === 'erase') gl.blendFuncSeparate(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
@@ -814,6 +827,7 @@
       gl.bindTexture(gl.TEXTURE_2D, batchTex || render.white);
       gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, batchOffset), gl.DYNAMIC_DRAW);
       gl.drawArrays(gl.TRIANGLES, 0, batchSprites * 6);
+      batchCount++;
       batchSprites = 0;
       batchOffset = 0;
     }
@@ -832,6 +846,7 @@
     render.seq = 0;
     render.queueNeedsSort = false;
     render.lastQueuedLayer = 0;
+    render.lastBatchCount = batchCount;
     render.normal.length = 0;
     render.additive.length = 0;
     render.erase.length = 0;
@@ -1004,8 +1019,26 @@
     musicClock: 0,
     musicStep: 0,
     animClock: 0,
+    hudDirty: true,
+    hudLastDraw: 0,
     debugMode: DEBUG_MODE
   };
+
+  function markHudDirty() {
+    state.hudDirty = true;
+  }
+
+  function getFxQuality() {
+    return state.settings.lowEndMode ? 0.45 : 1.0;
+  }
+
+  function getGlowRadiusScale() {
+    return state.settings.lowEndMode ? 0.55 : 1.0;
+  }
+
+  function getParticleBudgetScale() {
+    return state.settings.lowEndMode ? 0.35 : 1.0;
+  }
 
   const audio = {
     ctx: null,
@@ -1151,6 +1184,7 @@
     state.banner = title || '';
     state.bannerSub = sub || '';
     state.bannerTimer = time == null ? 2.5 : time;
+    markHudDirty();
   }
 
   function hint(text, seconds) {
@@ -1265,6 +1299,10 @@
     titleManualButton.classList.toggle('show', state.mode === 'title');
   }
 
+  function syncBodyModeClass() {
+    document.body.classList.toggle('playing', state.mode === 'playing' && !state.settingsOpen && !settingsDialog.open);
+  }
+
   function updateGamepadInput() {
     const pads = navigator.getGamepads ? navigator.getGamepads() : null;
     const p = state.player;
@@ -1341,7 +1379,8 @@
     const w = Math.max(320, window.innerWidth);
     const h = Math.max(360, window.innerHeight);
     const nativeDpr = Math.max(1, window.devicePixelRatio || 1);
-    const dpr = state.settings.lowEndMode ? 1 : nativeDpr;
+    const cappedDpr = Math.min(MAX_NORMAL_DPR, nativeDpr);
+    const dpr = state.settings.lowEndMode ? 1 : cappedDpr;
     view.w = w;
     view.h = h;
     view.dpr = dpr;
@@ -1366,6 +1405,7 @@
       }
     }
     if (state.backgroundBitmap || state.foregroundBitmap) regenBackground(mainTheme(), { preserveScroll: true });
+    markHudDirty();
   }
 
   function clearArray(a) { a.length = 0; }
@@ -1928,6 +1968,7 @@
     setBanner('THORIUM GAP', 'Click or press Space to launch.', 3.5);
     hint('Drag to fly. Hold to fire. Open SETTINGS for audio and combat settings.', 5);
     syncSettingsUi();
+    markHudDirty();
   }
 
   function saveBest() {
@@ -1942,6 +1983,7 @@
     resetRun();
     state.mode = 'playing';
     beginLevel(0);
+    markHudDirty();
   }
 
   function spawnCheatDrop(code) {
@@ -2019,6 +2061,7 @@
     state.player.respawnTargetX = state.player.x;
     state.player.respawnTargetY = state.player.y;
     setBanner('STAGE ' + (index + 1), state.currentTheme.name, 2.8);
+    markHudDirty();
   }
 
   function victory() {
@@ -2031,6 +2074,7 @@
     sfx('clear');
     hint('Signal clear. Click or press R to launch again.', 6);
     saveBest();
+    markHudDirty();
   }
 
   function gameOver() {
@@ -2042,6 +2086,7 @@
     state.shake = 18;
     hint('Run failed. Click or press R to relaunch.', 6);
     saveBest();
+    markHudDirty();
   }
 
   function addScore(points) {
@@ -2070,7 +2115,8 @@
   }
 
   function burst(x, y, color, count, speed, size, kind) {
-    for (let i = 0; i < count; i++) {
+    const total = state.settings.lowEndMode ? Math.max(1, Math.round(count * getParticleBudgetScale())) : count;
+    for (let i = 0; i < total; i++) {
       const a = rand(0, TAU);
       const s = rand(speed * 0.4, speed);
       spawnParticle(x, y, Math.cos(a) * s, Math.sin(a) * s, rand(0.24, 0.72), rand(size * 0.5, size), color, kind);
@@ -2082,6 +2128,20 @@
     spawnParticle(x, y, 0, 0, 0.24, 14, color, 'ring');
   }
 
+  function clearEnemyBulletsWithBudget(budget, particleColor) {
+    let burstCount = 0;
+    for (let i = state.enemyBullets.length - 1; i >= 0; i--) {
+      const b = state.enemyBullets[i];
+      if (!b) continue;
+      if (burstCount < budget) {
+        burst(b.x, b.y, particleColor || '#ffe39a', 4, 120, 4, 'spark');
+        burstCount++;
+      }
+      releaseProjectile(b);
+    }
+    state.enemyBullets.length = 0;
+  }
+
   function shipDeathBurst(x, y) {
     state.flash = Math.max(state.flash, 0.48);
     state.shake = Math.max(state.shake, 18);
@@ -2089,12 +2149,7 @@
     burst(x, y, '#fff0b5', 42, 280, 8, 'spark');
     burst(x, y, '#ffd96a', 18, 240, 6, 'spark');
     flashBurst(x, y, '#fff9d9');
-    for (let i = state.enemyBullets.length - 1; i >= 0; i--) {
-      const b = state.enemyBullets[i];
-      burst(b.x, b.y, '#ffe39a', 4, 120, 4, 'spark');
-      releaseProjectile(b);
-    }
-    state.enemyBullets.length = 0;
+    clearEnemyBulletsWithBudget(state.settings.lowEndMode ? 8 : 24, '#ffe39a');
   }
 
   function beginPlayerRespawn() {
@@ -2136,6 +2191,8 @@
     bullet.pierce = opts && opts.pierce != null ? opts.pierce : 0;
     bullet.homing = opts && opts.homing ? opts.homing : 0;
     bullet.turn = opts && opts.turn ? opts.turn : 0;
+    bullet.target = opts && opts.target ? opts.target : null;
+    bullet.targetRefresh = 0;
     bullet.age = 0;
     bullet.wobble = opts && opts.wobble ? opts.wobble : 0;
     bullet.alive = true;
@@ -2505,6 +2562,7 @@
     state.flash = Math.max(state.flash, 0.25);
     sfx('overdrive');
     hint('Combo 10: OVERDRIVE ACTIVE!', 1.4);
+    markHudDirty();
   }
 
   function findRocketTarget(b) {
@@ -2597,6 +2655,7 @@
       sfx('power');
     }
     state.bannerTimer = 1.15;
+    markHudDirty();
   }
 
   function pickWeaponDropKind() {
@@ -2617,14 +2676,10 @@
     state.shake = Math.max(state.shake, 15);
     sfx('bomb');
     burst(p.x, p.y, '#fff0b5', 36, 260, 8, 'spark');
-    for (let i = state.enemyBullets.length - 1; i >= 0; i--) {
-      const b = state.enemyBullets[i];
-      burst(b.x, b.y, '#ffe39a', 4, 120, 4, 'spark');
-      releaseProjectile(b);
-    }
-    state.enemyBullets.length = 0;
+    clearEnemyBulletsWithBudget(state.settings.lowEndMode ? 8 : 24, '#ffe39a');
     for (let i = state.enemies.length - 1; i >= 0; i--) damageEnemy(state.enemies[i], 999, true);
     if (state.boss) damageBoss(state.boss, 18, true);
+    markHudDirty();
   }
 
   function damageEnemy(e, damage, fromBomb) {
@@ -2684,6 +2739,7 @@
       state.player.shield = Math.min(3, state.player.shield + 1);
       sfx('clear');
       hint('Boss defeated! Next stage loading...', 2.6);
+      markHudDirty();
     } else if (!fromBomb) {
       sfx('hit');
     }
@@ -2700,6 +2756,7 @@
       burst(p.x, p.y, '#8fd8ff', 16, 220, 5, 'spark');
       sfx('power');
       triggerRumble(0.35, 80);
+      markHudDirty();
       return;
     }
     p.health -= actualDamage;
@@ -2746,6 +2803,7 @@
       beginPlayerRespawn();
       hint('A life lost. Stay sharp.', 2.5);
     }
+    markHudDirty();
   }
 
   function ringBullets(x, y, count, speed, damage, color, team) {
@@ -2957,8 +3015,17 @@
       if (!b) continue;
       let remove = false;
       b.age += dt;
-      if (b.homing > 0) {
-        const target = b.kind === 'rocket' ? findRocketTarget(b, enemyCollision.activeEnemies) : null;
+      if (b.kind === 'rocket' && b.homing > 0) {
+        if (b.target && b.target.dead) {
+          b.target = null;
+          b.targetRefresh = 0;
+        }
+        b.targetRefresh = Math.max(0, (b.targetRefresh || 0) - dt);
+        if (b.targetRefresh <= 0) {
+          b.target = findRocketTarget(b, enemyCollision.activeEnemies);
+          b.targetRefresh = rand(0.12, 0.20);
+        }
+        const target = b.target;
         if (target) {
           const ta = ang(b.x, b.y, target.x, target.y);
           const sp = Math.hypot(b.vx, b.vy);
@@ -3337,13 +3404,17 @@
     const a = alpha == null ? 1 : alpha;
     if (a <= 0 || r <= 0) return;
     if (state.settings.lowEndMode) {
-      drawSpriteCircle(x, y, Math.max(1, r + b * 0.42), color, a * 0.46, 0, true);
-      drawSpriteCircle(x, y, Math.max(1, r * 0.72), color, a, 0, true);
+      const rr = Math.max(1, r * getGlowRadiusScale());
+      drawSpriteCircle(x, y, Math.max(1, rr + Math.max(1, b * 0.28 * getGlowRadiusScale())), color, a * 0.72 * getFxQuality(), 0, true);
       return;
     }
     drawSpriteCircle(x, y, r + b * 0.82, color, a * 0.32, 0, true);
     drawSpriteCircle(x, y, r + b * 0.45, color, a * 0.58, 0, true);
     drawSpriteCircle(x, y, Math.max(1, r * 0.72), color, a, 0, true);
+  }
+
+  function drawProjectileGlow(x, y, r, color, alpha, blur) {
+    drawGlowCircle(x, y, r, color, alpha, blur);
   }
 
   function drawSoftEdgeGlow(x, y, maxR, color, alpha) {
@@ -4648,23 +4719,34 @@
       const glow1 = beamBody ? 0 : rocketBody ? b.r * 1.85 : b.r * 2.2;
       const glow2 = beamBody ? 0 : rocketBody ? b.r * 0.92 : b.r * 1.15;
       const glow3 = beamBody ? 0 : rocketBody ? b.r * 0.52 : b.r;
+      const lowFx = state.settings.lowEndMode;
       if (beamBody) {
         drawSpriteRect(b.x - Math.cos(ang) * bodyW * 0.5, b.y - Math.sin(ang) * bodyW * 0.5, bodyW, bodyH, b.color, b.team === 'player' ? 0.72 : 0.65, 2, true, ang);
+        if (lowFx) drawProjectileGlow(b.x, b.y, bodyW * 0.45, b.color, b.team === 'player' ? 0.18 : 0.16, 6);
       } else if (fanBody) {
         drawSpriteCircle(b.x, b.y, b.r * 0.62, b.color, b.team === 'player' ? 0.90 : 0.80, 2, true);
-        drawGlowCircle(b.x, b.y, b.r * 2.2, b.color, b.team === 'player' ? 0.20 : 0.18, 18);
-        drawGlowCircle(b.x, b.y, b.r * 1.15, b.color, b.team === 'player' ? 0.45 : 0.38, 10);
-        drawGlowCircle(b.x, b.y, b.r, b.color, b.team === 'player' ? 0.95 : 0.85, 6);
+        if (lowFx) drawProjectileGlow(b.x, b.y, b.r * 1.18, b.color, b.team === 'player' ? 0.56 : 0.48, 8);
+        else {
+          drawGlowCircle(b.x, b.y, b.r * 2.2, b.color, b.team === 'player' ? 0.20 : 0.18, 18);
+          drawGlowCircle(b.x, b.y, b.r * 1.15, b.color, b.team === 'player' ? 0.45 : 0.38, 10);
+          drawGlowCircle(b.x, b.y, b.r, b.color, b.team === 'player' ? 0.95 : 0.85, 6);
+        }
       } else if (rocketBody) {
         drawSpriteRect(b.x - Math.cos(ang) * bodyW * 0.5, b.y - Math.sin(ang) * bodyW * 0.5, bodyW, bodyH, b.color, b.team === 'player' ? 0.72 : 0.65, 2, true, ang);
-        drawGlowCircle(b.x, b.y, glow1, '#0038ff', b.team === 'player' ? 0.12 : 0.10, 12);
-        drawGlowCircle(b.x, b.y, glow2, '#004cff', b.team === 'player' ? 0.18 : 0.14, 8);
-        drawGlowCircle(b.x, b.y, glow3, '#005fff', b.team === 'player' ? 0.24 : 0.18, 5);
+        if (lowFx) drawProjectileGlow(b.x, b.y, glow2, '#004cff', b.team === 'player' ? 0.24 : 0.20, 6);
+        else {
+          drawGlowCircle(b.x, b.y, glow1, '#0038ff', b.team === 'player' ? 0.12 : 0.10, 12);
+          drawGlowCircle(b.x, b.y, glow2, '#004cff', b.team === 'player' ? 0.18 : 0.14, 8);
+          drawGlowCircle(b.x, b.y, glow3, '#005fff', b.team === 'player' ? 0.24 : 0.18, 5);
+        }
       } else {
         drawSpriteRect(b.x - Math.cos(ang) * bodyW * 0.5, b.y - Math.sin(ang) * bodyW * 0.5, bodyW, bodyH, b.color, b.team === 'player' ? 0.72 : 0.65, 2, true, ang);
-        drawGlowCircle(b.x, b.y, glow1, b.color, b.team === 'player' ? 0.20 : 0.18, 18);
-        drawGlowCircle(b.x, b.y, glow2, b.color, b.team === 'player' ? 0.45 : 0.38, 10);
-        drawGlowCircle(b.x, b.y, glow3, b.color, b.team === 'player' ? 0.95 : 0.85, 6);
+        if (lowFx) drawProjectileGlow(b.x, b.y, glow2, b.color, b.team === 'player' ? 0.52 : 0.44, 8);
+        else {
+          drawGlowCircle(b.x, b.y, glow1, b.color, b.team === 'player' ? 0.20 : 0.18, 18);
+          drawGlowCircle(b.x, b.y, glow2, b.color, b.team === 'player' ? 0.45 : 0.38, 10);
+          drawGlowCircle(b.x, b.y, glow3, b.color, b.team === 'player' ? 0.95 : 0.85, 6);
+        }
       }
       if (rocketBody) drawSpriteEmoji(E.rocket, b.x, b.y, 14, { rot: ang + Math.PI * 0.25, alpha: 0.95, layer: 3, lighter: true, fill: '#006dff' });
     }
@@ -5157,6 +5239,14 @@
     pushSprite(texture, x, y, size, size, rot || 0, '#ffffff', alpha == null ? 1 : alpha, layer || 0, false, true);
   }
 
+  function shouldRedrawHud(ts) {
+    if (state.debugMode) return true;
+    if (state.mode !== 'playing') return true;
+    if (state.hudDirty) return true;
+    if (!state.hudLastDraw) return true;
+    return (ts - state.hudLastDraw) >= 50;
+  }
+
   function drawHud() {
     const theme = mainTheme();
     const p = state.player;
@@ -5234,7 +5324,16 @@
     hudCtx.font = '700 11px "Trebuchet MS", "Segoe UI", sans-serif';
     hudCtx.textAlign = 'left';
     hudCtx.textBaseline = 'bottom';
-    hudCtx.fillText('FPS ' + Math.round(state.fpsAvg || state.fps || 0) + '  STARS ' + Math.round(state.settings.starfieldCap || 0), 10, view.h - 10);
+    hudCtx.fillText(
+      'FPS ' + Math.round(state.fpsAvg || state.fps || 0) +
+      '  Q ' + (render.lastQueueLength || 0) +
+      '  P ' + state.particles.length +
+      '  B ' + state.bullets.length +
+      '  EB ' + state.enemyBullets.length +
+      '  BX ' + (render.lastBatchCount || 0),
+      10,
+      view.h - 10
+    );
     hudCtx.restore();
   }
 
@@ -5282,9 +5381,8 @@
     hudCtx.restore();
   }
 
-  function draw() {
-    hudCtx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
-    hudCtx.clearRect(0, 0, view.w, view.h);
+  function draw(ts) {
+    syncBodyModeClass();
     render.offsetX = state.shake > 0 ? rand(-state.shake, state.shake) : 0;
     render.offsetY = state.shake > 0 ? rand(-state.shake, state.shake) : 0;
     drawBackground();
@@ -5295,13 +5393,19 @@
     if (state.boss) drawBoss(state.boss);
     if (state.mode !== 'debug') drawPlayer();
     drawForeground();
-    if (state.mode === 'title') drawTitle();
     if (state.flash > 0) {
       drawSpriteRect(view.w * 0.5, view.h * 0.5, view.w, view.h, '#ffffff', state.flash * 0.3, 999, true);
     }
     flushRender();
+    if (shouldRedrawHud(ts)) {
+      hudCtx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
+      hudCtx.clearRect(0, 0, view.w, view.h);
+      if (state.mode === 'title') drawTitle();
+      else if (state.mode !== 'debug') drawHud();
+      state.hudLastDraw = ts || 0;
+      state.hudDirty = false;
+    }
     drawDebugFps();
-    if (state.mode !== 'title' && state.mode !== 'debug') drawHud();
   }
 
   function togglePause(force) {
@@ -5467,7 +5571,7 @@
     state.fps = dt > 0 ? 1 / dt : state.fps;
     updateStarfieldCap(dt);
     update(dt);
-    draw();
+    draw(ts);
     requestAnimationFrame(loop);
   }
 
