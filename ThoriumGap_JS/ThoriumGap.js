@@ -7,6 +7,7 @@
   const hudCtx = hudCanvas.getContext('2d');
   const gl = canvas.getContext('webgl', { alpha: true, antialias: true, premultipliedAlpha: false });
   const controlsEl = document.getElementById('controls');
+  const titleManualButton = document.getElementById('titleManual');
   const hudHint = document.getElementById('hudHint');
   const settingsDialog = document.getElementById('settingsDialog');
   const settingsClose = document.getElementById('settingsClose');
@@ -937,6 +938,7 @@
       respawnTargetX: 0, respawnTargetY: 0
     },
     input: { left: false, right: false, up: false, down: false, fire: false },
+    gamepad: { index: -1, prevFire: false, prevBomb: false, prevMenu: false, fireHeld: false, bombHeld: false },
     pointerActive: false,
     pointerId: null,
     pointerX: 0,
@@ -1001,6 +1003,22 @@
     audio.master.gain.value = 0.92;
     audio.sfx.gain.value = state.muted ? 0 : state.settings.sfxVolume;
     audio.music.gain.value = state.muted ? 0 : state.settings.musicVolume;
+  }
+
+  function triggerRumble(strength, duration) {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : null;
+    const pad = pads && state.gamepad.index >= 0 ? pads[state.gamepad.index] : null;
+    const dur = Math.max(20, duration || 120);
+    const mag = clamp(strength || 0.5, 0, 1);
+    if (pad && pad.vibrationActuator && pad.vibrationActuator.playEffect) {
+      pad.vibrationActuator.playEffect('dual-rumble', {
+        duration: dur,
+        strongMagnitude: mag,
+        weakMagnitude: mag
+      }).catch(function () {});
+      return;
+    }
+    if (navigator.vibrate) navigator.vibrate(dur);
   }
 
   function tone(opts) {
@@ -1181,6 +1199,79 @@
   function toggleSettings() {
     if (settingsDialog.open) closeSettings();
     else openSettings();
+  }
+
+  function syncTitleManualButton() {
+    if (!titleManualButton) return;
+    titleManualButton.classList.toggle('show', state.mode === 'title');
+  }
+
+  function updateGamepadInput() {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : null;
+    const p = state.player;
+    let pad = null;
+    if (pads) {
+      if (state.gamepad.index >= 0 && pads[state.gamepad.index] && pads[state.gamepad.index].connected) pad = pads[state.gamepad.index];
+      else {
+        for (let i = 0; i < pads.length; i++) {
+          if (pads[i] && pads[i].connected) {
+            state.gamepad.index = i;
+            pad = pads[i];
+            break;
+          }
+        }
+      }
+    }
+    if (!pad) {
+      state.gamepad.index = -1;
+      state.gamepad.prevFire = false;
+      state.gamepad.prevBomb = false;
+      state.gamepad.prevMenu = false;
+      state.gamepad.fireHeld = false;
+      state.gamepad.bombHeld = false;
+      return;
+    }
+    const deadzone = 0.22;
+    const lx = pad.axes && pad.axes.length > 0 ? pad.axes[0] : 0;
+    const ly = pad.axes && pad.axes.length > 1 ? pad.axes[1] : 0;
+    const rx = pad.axes && pad.axes.length > 2 ? pad.axes[2] : 0;
+    const ry = pad.axes && pad.axes.length > 3 ? pad.axes[3] : 0;
+    const useRightStick = (rx * rx + ry * ry) > (lx * lx + ly * ly);
+    const ax = useRightStick ? rx : lx;
+    const ay = useRightStick ? ry : ly;
+    state.input.left = ax < -deadzone;
+    state.input.right = ax > deadzone;
+    state.input.up = ay < -deadzone;
+    state.input.down = ay > deadzone;
+    if (p.pointerMode) {
+      state.input.left = false;
+      state.input.right = false;
+      state.input.up = false;
+      state.input.down = false;
+    }
+    const buttons = pad.buttons || [];
+    const aDown = !!(buttons[0] && buttons[0].pressed);
+    const bDown = !!(buttons[1] && buttons[1].pressed);
+    const selectDown = !!(buttons[8] && buttons[8].pressed);
+    const startDown = !!(buttons[9] && buttons[9].pressed);
+    const ltDown = !!(buttons[6] && buttons[6].value > 0.45);
+    const rtDown = !!(buttons[7] && buttons[7].value > 0.45);
+    const fireDown = aDown || rtDown;
+    const bombDown = bDown || ltDown;
+    const menuDown = selectDown || startDown;
+    state.gamepad.fireHeld = fireDown;
+    state.gamepad.bombHeld = bombDown;
+    if (menuDown && !state.gamepad.prevMenu) toggleSettings();
+    if (fireDown && !state.gamepad.prevFire) {
+      if (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory') startGame();
+    }
+    if (bombDown && !state.gamepad.prevBomb) {
+      if (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory') startGame();
+      else if (state.mode === 'playing') useBomb();
+    }
+    state.gamepad.prevFire = fireDown;
+    state.gamepad.prevBomb = bombDown;
+    state.gamepad.prevMenu = menuDown;
   }
 
   function playArea() {
@@ -2527,6 +2618,7 @@
       state.flash = Math.max(state.flash, 0.1);
       burst(p.x, p.y, '#8fd8ff', 16, 220, 5, 'spark');
       sfx('power');
+      triggerRumble(0.35, 80);
       return;
     }
     p.health -= actualDamage;
@@ -2536,6 +2628,7 @@
     state.flash = Math.max(state.flash, 0.12);
     sfx('damage');
     burst(p.x, p.y, '#ffd96a', 16, 200, 5, 'spark');
+    triggerRumble(0.8, 160);
     if (p.health <= 0) {
       state.lives--;
       if (state.lives <= 0) return gameOver();
@@ -2757,7 +2850,7 @@
       }
       p.x = clamp(p.x, a.left, a.right);
       p.y = clamp(p.y, a.top + 10, a.bottom - 10);
-      p.fireHeld = !!state.input.fire;
+      p.fireHeld = !!state.input.fire || !!state.gamepad.fireHeld;
     }
     if (p.health < p.maxHealth) {
       p.repairDelay = Math.max(0, p.repairDelay - dt);
@@ -3111,6 +3204,7 @@
     updateBackground(dt);
     updateScrollingClouds(dt);
     state.animClock += dt;
+    updateGamepadInput();
     if (state.mode === 'debug') return;
     if (state.mode === 'title') { updateMusic(dt); updateParticles(dt); return; }
     if (state.mode === 'gameover' || state.mode === 'victory') { updateMusic(dt * 0.35); updateParticles(dt); if (state.player.invuln > 0) state.player.invuln = Math.max(0, state.player.invuln - dt); return; }
@@ -5178,6 +5272,14 @@
     debugGiveWeapon: debugGiveWeapon
   };
 
+  if (titleManualButton) {
+    titleManualButton.addEventListener('click', function () {
+      window.open('./GameManual.html', '_blank', 'noopener');
+    });
+    syncTitleManualButton();
+    setInterval(syncTitleManualButton, 120);
+  }
+
   resize();
   resetRun();
   controlsEl.querySelectorAll('button[data-act]').forEach(function (button) {
@@ -5213,6 +5315,13 @@
   canvas.addEventListener('pointermove', handleCanvasMove);
   canvas.addEventListener('pointerup', handleCanvasUp);
   canvas.addEventListener('pointercancel', handleCanvasUp);
+  window.addEventListener('gamepadconnected', function () { updateGamepadInput(); });
+  window.addEventListener('gamepaddisconnected', function () {
+    state.gamepad.index = -1;
+    state.gamepad.prevFire = false;
+    state.gamepad.prevBomb = false;
+    state.gamepad.prevMenu = false;
+  });
   canvas.addEventListener('click', handleCanvasClick);
   canvas.addEventListener('contextmenu', function (ev) { ev.preventDefault(); });
   window.addEventListener('keydown', onKeyDown);
