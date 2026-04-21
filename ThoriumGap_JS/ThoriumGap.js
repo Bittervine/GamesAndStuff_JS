@@ -1769,8 +1769,8 @@
 
   function ensureStarfield() {
     const densityDivisor = state.settings.lowEndMode ? 30000 : 3000;
-    const minStars = 40;
-    const maxStars = state.settings.lowEndMode ? 70 : 700;
+    const minStars = state.settings.lowEndMode ? 40 : 200;
+    const maxStars = state.settings.lowEndMode ? 80 : 700;
     const baseDesired = Math.max(minStars, Math.min(maxStars, Math.round((view.w * view.h) / densityDivisor)));
     const desired = Math.max(minStars, Math.min(baseDesired, clamp(Math.round(state.settings.starfieldCap || maxStars), minStars, maxStars)));
     if (state.starfield.length === desired) return;
@@ -2002,7 +2002,7 @@
   }
 
   function beginLevel(index) {
-    const minStars = 40;
+    const minStars = state.settings.lowEndMode ? 40 : 200;
     const maxStars = 700;
     const current = clamp(Math.round(state.settings.starfieldCap || maxStars), minStars, maxStars);
     const avgFps = state.starfieldCapSamples > 0 ? (state.starfieldCapSum / state.starfieldCapSamples) : (state.fpsAvg || 60);
@@ -5348,6 +5348,7 @@
     hudCtx.textBaseline = 'bottom';
     hudCtx.fillText(
       'FPS ' + Math.round(state.fpsAvg || state.fps || 0) +
+      '  S ' + state.starfield.length +
       '  Q ' + (render.lastQueueLength || 0) +
       '  P ' + state.particles.length +
       '  B ' + state.bullets.length +
