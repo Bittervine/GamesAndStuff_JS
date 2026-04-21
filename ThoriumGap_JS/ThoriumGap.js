@@ -22,7 +22,7 @@
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
   let currentDt = 0;
   const MAX_NORMAL_DPR = 1.5;
-  const DEBUG_MODE = false;
+  const DEBUG_MODE = true;
   const render = {
     ready: false,
     queue: [],
@@ -3417,6 +3417,15 @@
     drawGlowCircle(x, y, r, color, alpha, blur);
   }
 
+  function drawGlowCircleNormal(x, y, r, color, alpha, blur) {
+    const b = blur == null ? Math.max(10, r * 0.8) : blur;
+    const a = alpha == null ? 1 : alpha;
+    if (a <= 0 || r <= 0) return;
+    drawSpriteCircle(x, y, r + b * 0.82, color, a * 0.32, 0, true);
+    drawSpriteCircle(x, y, r + b * 0.45, color, a * 0.58, 0, true);
+    drawSpriteCircle(x, y, Math.max(1, r * 0.72), color, a, 0, true);
+  }
+
   function drawSoftEdgeGlow(x, y, maxR, color, alpha) {
     const a = alpha == null ? 1 : alpha;
     const r = Math.max(1, maxR || 40);
@@ -4722,30 +4731,38 @@
       const lowFx = state.settings.lowEndMode;
       if (beamBody) {
         drawSpriteRect(b.x - Math.cos(ang) * bodyW * 0.5, b.y - Math.sin(ang) * bodyW * 0.5, bodyW, bodyH, b.color, b.team === 'player' ? 0.72 : 0.65, 2, true, ang);
-        if (lowFx) drawProjectileGlow(b.x, b.y, bodyW * 0.45, b.color, b.team === 'player' ? 0.18 : 0.16, 6);
       } else if (fanBody) {
         drawSpriteCircle(b.x, b.y, b.r * 0.62, b.color, b.team === 'player' ? 0.90 : 0.80, 2, true);
-        if (lowFx) drawProjectileGlow(b.x, b.y, b.r * 1.18, b.color, b.team === 'player' ? 0.56 : 0.48, 8);
-        else {
-          drawGlowCircle(b.x, b.y, b.r * 2.2, b.color, b.team === 'player' ? 0.20 : 0.18, 18);
-          drawGlowCircle(b.x, b.y, b.r * 1.15, b.color, b.team === 'player' ? 0.45 : 0.38, 10);
-          drawGlowCircle(b.x, b.y, b.r, b.color, b.team === 'player' ? 0.95 : 0.85, 6);
+        if (lowFx && b.team !== 'player') {
+          drawGlowCircleNormal(b.x, b.y, b.r * 2.2, b.color, 0.18, 18);
+          drawGlowCircleNormal(b.x, b.y, b.r * 1.15, b.color, 0.38, 10);
+          drawGlowCircleNormal(b.x, b.y, b.r, b.color, 0.85, 6);
+        } else {
+          drawGlowCircleNormal(b.x, b.y, b.r * 2.2, b.color, b.team === 'player' ? 0.20 : 0.18, 18);
+          drawGlowCircleNormal(b.x, b.y, b.r * 1.15, b.color, b.team === 'player' ? 0.45 : 0.38, 10);
+          drawGlowCircleNormal(b.x, b.y, b.r, b.color, b.team === 'player' ? 0.95 : 0.85, 6);
         }
       } else if (rocketBody) {
         drawSpriteRect(b.x - Math.cos(ang) * bodyW * 0.5, b.y - Math.sin(ang) * bodyW * 0.5, bodyW, bodyH, b.color, b.team === 'player' ? 0.72 : 0.65, 2, true, ang);
-        if (lowFx) drawProjectileGlow(b.x, b.y, glow2, '#004cff', b.team === 'player' ? 0.24 : 0.20, 6);
-        else {
-          drawGlowCircle(b.x, b.y, glow1, '#0038ff', b.team === 'player' ? 0.12 : 0.10, 12);
-          drawGlowCircle(b.x, b.y, glow2, '#004cff', b.team === 'player' ? 0.18 : 0.14, 8);
-          drawGlowCircle(b.x, b.y, glow3, '#005fff', b.team === 'player' ? 0.24 : 0.18, 5);
+        if (lowFx && b.team !== 'player') {
+          drawGlowCircleNormal(b.x, b.y, glow1, '#0038ff', 0.10, 12);
+          drawGlowCircleNormal(b.x, b.y, glow2, '#004cff', 0.14, 8);
+          drawGlowCircleNormal(b.x, b.y, glow3, '#005fff', 0.18, 5);
+        } else {
+          drawGlowCircleNormal(b.x, b.y, glow1, '#0038ff', b.team === 'player' ? 0.12 : 0.10, 12);
+          drawGlowCircleNormal(b.x, b.y, glow2, '#004cff', b.team === 'player' ? 0.18 : 0.14, 8);
+          drawGlowCircleNormal(b.x, b.y, glow3, '#005fff', b.team === 'player' ? 0.24 : 0.18, 5);
         }
       } else {
         drawSpriteRect(b.x - Math.cos(ang) * bodyW * 0.5, b.y - Math.sin(ang) * bodyW * 0.5, bodyW, bodyH, b.color, b.team === 'player' ? 0.72 : 0.65, 2, true, ang);
-        if (lowFx) drawProjectileGlow(b.x, b.y, glow2, b.color, b.team === 'player' ? 0.52 : 0.44, 8);
-        else {
-          drawGlowCircle(b.x, b.y, glow1, b.color, b.team === 'player' ? 0.20 : 0.18, 18);
-          drawGlowCircle(b.x, b.y, glow2, b.color, b.team === 'player' ? 0.45 : 0.38, 10);
-          drawGlowCircle(b.x, b.y, glow3, b.color, b.team === 'player' ? 0.95 : 0.85, 6);
+        if (lowFx && b.team !== 'player') {
+          drawGlowCircleNormal(b.x, b.y, glow1, b.color, 0.18, 18);
+          drawGlowCircleNormal(b.x, b.y, glow2, b.color, 0.38, 10);
+          drawGlowCircleNormal(b.x, b.y, glow3, b.color, 0.85, 6);
+        } else {
+          drawGlowCircleNormal(b.x, b.y, glow1, b.color, b.team === 'player' ? 0.20 : 0.18, 18);
+          drawGlowCircleNormal(b.x, b.y, glow2, b.color, b.team === 'player' ? 0.45 : 0.38, 10);
+          drawGlowCircleNormal(b.x, b.y, glow3, b.color, b.team === 'player' ? 0.95 : 0.85, 6);
         }
       }
       if (rocketBody) drawSpriteEmoji(E.rocket, b.x, b.y, 14, { rot: ang + Math.PI * 0.25, alpha: 0.95, layer: 3, lighter: true, fill: '#006dff' });
@@ -4764,8 +4781,13 @@
     for (let i = 0; i < state.pickups.length; i++) {
       const p = state.pickups[i];
       const bob = Math.sin(p.bob) * 4;
-      drawGlowCircle(p.x, p.y + bob, 16, p.color, 0.48, 22);
-      drawGlowCircle(p.x, p.y + bob, 8, p.color, 0.85, 10);
+      if (state.settings.lowEndMode) {
+        drawGlowCircleNormal(p.x, p.y + bob, 16, p.color, 0.48, 22);
+        drawGlowCircleNormal(p.x, p.y + bob, 8, p.color, 0.85, 10);
+      } else {
+        drawGlowCircle(p.x, p.y + bob, 16, p.color, 0.48, 22);
+        drawGlowCircle(p.x, p.y + bob, 8, p.color, 0.85, 10);
+      }
       drawEmojiGlyph(p.emoji, p.x, p.y + bob, 20, { alpha: 1, rot: Math.sin(p.spin + p.bob * 0.7) * 0.16, layer: 2, lighter: true });
     }
   }
@@ -4884,7 +4906,7 @@
       const shipIndex = e.shipIndex || 0;
       const texture = getEnemyShipTexture(levelNumber, shipIndex);
       const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme);
-      const glowRadius = Math.max(14, shipSize * 0.42 * 0.675);
+      const glowRadius = Math.max(14, shipSize * 0.42 * 0.675 * (state.settings.lowEndMode ? 1 : 0.9));
       drawGlowCircle(e.x, e.y, glowRadius * 1.13, shipGlow, 0.68, 22);
       drawGlowCircle(e.x, e.y, glowRadius * 0.61, shipGlow, 0.57, 12);
       if (texture) {
