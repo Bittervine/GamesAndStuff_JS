@@ -978,6 +978,7 @@
     backgroundSeed: 0,
     foregroundSeed: 0,
     decorBackgrounds: null,
+    decorBackgroundTick: 0,
     starfield: [],
     starfieldScroll: 0,
     scrollingClouds: null,
@@ -3308,7 +3309,8 @@
   }
 
   function updateBackground(dt) {
-    updateDecorBackgrounds(dt);
+    state.decorBackgroundTick ^= 1;
+    if ((state.decorBackgroundTick & 1) === 0) updateDecorBackgrounds(dt);
     if (state.backgroundBitmap) {
       const bg = state.backgroundBitmap;
       bg.scroll = clamp(bg.scroll - bg.speed * dt, 0, bg.maxScroll);
