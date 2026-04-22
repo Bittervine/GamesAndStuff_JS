@@ -71,7 +71,7 @@
   const STARFIELD_FALL_LIMIT = 0.75;
   const STARFIELD_NORMAL_CAP = 700;
   const STARFIELD_LOW_END_CAP = 100;
-  const STARFIELD_DEFAULT_CAP = 650;
+  const STARFIELD_DEFAULT_CAP = 600;
   const DPS_FILTER_LAMBDA = 0.95;
   const PLAYER_SHIP_TEXTURE_KEY = 'player-ship';
   const PLAYER_AURA_TEXTURE_KEY = 'player-aura';
@@ -3111,8 +3111,8 @@
     return {
       x: w * (0.12 + index * 0.22),
       y: -h * (0.18 + index * 0.08),
-      delay: lerp(0, 3, Math.random()),
-      speed: (18 + index * 3) * 5,
+      delay: lerp(0, 2, Math.random()),
+      speed: (18 + index * 3) * 10,
       vx: (Math.random() - 0.5) * 10,
       seed: 37 + index * 19,
       points: null,
@@ -3317,7 +3317,7 @@
     cloud.x = w * (0.10 + Math.random() * 0.78);
     cloud.y = -Math.max(180, view.h * (0.10 + Math.random() * 0.18));
     cloud.delay = 0;
-    cloud.speed = (14 + Math.random() * 16) * 5;
+    cloud.speed = (14 + Math.random() * 16) * 10;
     cloud.vx = (Math.random() - 0.5) * 12;
     cloud.seed = (Math.random() * 0x7fffffff) | 0;
     cloud.r = 90 + Math.random() * 36;
@@ -3338,7 +3338,7 @@
       return;
     }
     if (!state.scrollingClouds) {
-      state.scrollingClouds = [createScrollingCloud(0), createScrollingCloud(1), createScrollingCloud(2), createScrollingCloud(3), createScrollingCloud(4), createScrollingCloud(5)];
+      state.scrollingClouds = [createScrollingCloud(0), createScrollingCloud(1), createScrollingCloud(2), createScrollingCloud(3), createScrollingCloud(4), createScrollingCloud(5), createScrollingCloud(6)];
     }
     const h = Math.max(1, view.h);
     for (let i = 0; i < state.scrollingClouds.length; i++) {
@@ -3353,7 +3353,7 @@
       c.vx += Math.sin((state.animClock + i) * 0.7) * dt * 2.2;
       ensureScrollingCloudTexture(c);
       if (c.bounds && c.y + c.bounds.minY > h + c.r * 1.2) {
-        c.delay = lerp(0, 3, Math.random());
+        c.delay = lerp(0, 2, Math.random());
         c.points = null;
         releaseScrollingCloudTexture(c);
         c.texW = 0;
