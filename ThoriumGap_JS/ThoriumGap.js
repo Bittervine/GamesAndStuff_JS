@@ -70,6 +70,9 @@
   const STARFIELD_RAISE_LIMIT = 1.5;
   const STARFIELD_FALL_LIMIT = 0.75;
   const STARFIELD_NORMAL_CAP = 700;
+  const STARFIELD_LOW_END_CAP = 100;
+  const STARFIELD_DEFAULT_CAP = 650;
+  const DPS_FILTER_LAMBDA = 0.95;
   const PLAYER_SHIP_TEXTURE_KEY = 'player-ship';
   const PLAYER_AURA_TEXTURE_KEY = 'player-aura';
   const PLAYER_ENGINE_TEXTURE_PREFIX = 'player-engine-flame|';
@@ -506,8 +509,8 @@
       '  vec2 zeroToOne = pos / u_viewport;',
       '  vec2 clip = zeroToOne * 2.0 - 1.0;',
       '  gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);',
-      '  float boost = mix(1.0, 1.35, step(1.25, a_star0.z));',
-      '  gl_PointSize = max(1.0, a_star0.z * boost * u_dpr * 1.8);',
+      '  float boost = mix(1.0, 1.10, step(1.25, a_star0.z));',
+      '  gl_PointSize = max(1.0, a_star0.z * boost * u_dpr * 1.35);',
       '  v_star0 = a_star0;',
       '  v_star1 = a_star1;',
       '}'
@@ -520,11 +523,11 @@
       'void main() {',
       '  vec2 p = gl_PointCoord - vec2(0.5);',
       '  float d = length(p) * 2.0;',
-      '  float core = smoothstep(0.90, 0.64, d);',
-      '  float spark = smoothstep(0.24, 0.0, abs(p.x)) * smoothstep(0.24, 0.0, abs(p.y));',
+      '  float core = smoothstep(0.95, 0.70, d);',
+      '  float spark = smoothstep(0.20, 0.0, abs(p.x)) * smoothstep(0.20, 0.0, abs(p.y));',
       '  float tw = 0.7 + sin(u_time * 2.1 + v_star1.y * 6.2831853) * 0.3;',
-      '  float a = clamp(v_star1.x * tw * 0.8, 0.06, 1.0);',
-      '  float alpha = clamp((core * 0.95 + spark * 0.22) * a, 0.0, 1.0);',
+      '  float a = clamp(v_star1.x * tw * 1.45, 0.26, 1.0);',
+      '  float alpha = clamp((core * 1.80 + spark * 0.28) * a, 0.0, 1.0);',
       '  vec3 color = vec3(1.0);',
       '  if (v_star1.z >= 0.84) color = vec3(0.949, 0.890, 0.659);',
       '  else if (v_star1.z >= 0.64) color = vec3(0.875, 0.937, 1.0);',
@@ -952,7 +955,7 @@
       musicVolume: clamp(loadNum('ShotEmUp_JS_musicVolume', 0), 0, 1),
       difficulty: clamp(Math.round(loadNum('ShotEmUp_JS_difficulty', 1)), 0, 2),
       lowEndMode: loadBool('ShotEmUp_JS_lowEndMode', false),
-      starfieldCap: clamp(Math.round(loadNum('ShotEmUp_JS_starfieldCap', STARFIELD_NORMAL_CAP)), 40, STARFIELD_NORMAL_CAP)
+      starfieldCap: clamp(Math.round(loadNum('ShotEmUp_JS_starfieldCap', STARFIELD_DEFAULT_CAP)), STARFIELD_LOW_END_CAP, STARFIELD_DEFAULT_CAP)
     },
     lives: 3,
     combo: 0,
@@ -1408,6 +1411,7 @@
 
   function clearArray(a) { a.length = 0; }
   function mainTheme() { return state.currentTheme || THEMES[0]; }
+  function filterDps(avgDps, rawDps) { return DPS_FILTER_LAMBDA * avgDps + (1 - DPS_FILTER_LAMBDA) * rawDps; }
 
   function clearPooledArray(list, pool) {
     for (let i = 0; i < list.length; i++) pool.push(list[i]);
@@ -1457,9 +1461,7 @@
   }
 
   function ensureStarfield() {
-    const minStars = state.settings.lowEndMode ? 40 : STARFIELD_NORMAL_CAP;
-    const maxStars = state.settings.lowEndMode ? 80 : STARFIELD_NORMAL_CAP;
-    const desired = clamp(Math.round(state.settings.starfieldCap || minStars), minStars, maxStars);
+    const desired = state.settings.lowEndMode ? STARFIELD_LOW_END_CAP : STARFIELD_DEFAULT_CAP;
     if (state.starfield.length === desired) return;
     const stars = [];
     for (let i = 0; i < desired; i++) {
@@ -1477,34 +1479,10 @@
     render.starDirty = true;
   }
 
-  function adjustStarfieldCap(avgFps) {
-    const minStars = state.settings.lowEndMode ? 40 : STARFIELD_NORMAL_CAP;
-    const maxStars = state.settings.lowEndMode ? 80 : STARFIELD_NORMAL_CAP;
-    const current = clamp(Math.round(state.settings.starfieldCap || minStars), minStars, maxStars);
-    if (!Number.isFinite(avgFps) || avgFps <= 0) return current;
-    const ratio = clamp(avgFps / STARFIELD_TARGET_FPS, STARFIELD_FALL_LIMIT, STARFIELD_RAISE_LIMIT);
-    return clamp(Math.round(current * ratio), minStars, maxStars);
-  }
-
   function updateStarfieldCap(dt) {
-    if (state.settings.lowEndMode) return;
-    if (!Number.isFinite(state.fps) || state.fps <= 0) return;
-    const prevAvg = state.fpsAvg || state.fps;
-    state.fpsAvg = lerp(prevAvg, state.fps, 0.01);
-    state.starfieldCapSum += state.fps;
-    state.starfieldCapSamples++;
   }
 
   function finalizeStarfieldCap() {
-    if (state.settings.lowEndMode) return;
-    const avgFps = state.starfieldCapSamples > 0 ? (state.starfieldCapSum / state.starfieldCapSamples) : (state.fpsAvg || 60);
-    const nextCap = adjustStarfieldCap(avgFps);
-    if (nextCap !== state.settings.starfieldCap) {
-      state.settings.starfieldCap = nextCap;
-      saveSettings();
-    }
-    state.starfieldCapSum = 0;
-    state.starfieldCapSamples = 0;
   }
 
   function drawStarfield() {
@@ -3133,7 +3111,7 @@
     return {
       x: w * (0.12 + index * 0.22),
       y: -h * (0.18 + index * 0.08),
-      delay: lerp(3, 5, Math.random()),
+      delay: lerp(0, 3, Math.random()),
       speed: (18 + index * 3) * 5,
       vx: (Math.random() - 0.5) * 10,
       seed: 37 + index * 19,
@@ -3360,7 +3338,7 @@
       return;
     }
     if (!state.scrollingClouds) {
-      state.scrollingClouds = [createScrollingCloud(0), createScrollingCloud(1), createScrollingCloud(2), createScrollingCloud(3), createScrollingCloud(4)];
+      state.scrollingClouds = [createScrollingCloud(0), createScrollingCloud(1), createScrollingCloud(2), createScrollingCloud(3), createScrollingCloud(4), createScrollingCloud(5)];
     }
     const h = Math.max(1, view.h);
     for (let i = 0; i < state.scrollingClouds.length; i++) {
@@ -3375,7 +3353,7 @@
       c.vx += Math.sin((state.animClock + i) * 0.7) * dt * 2.2;
       ensureScrollingCloudTexture(c);
       if (c.bounds && c.y + c.bounds.minY > h + c.r * 1.2) {
-        c.delay = lerp(3, 5, Math.random());
+        c.delay = lerp(0, 3, Math.random());
         c.points = null;
         releaseScrollingCloudTexture(c);
         c.texW = 0;
@@ -4694,6 +4672,7 @@
     const dt = clamp((ts - loop.last) / 1000, 0, 0.05);
     loop.last = ts;
     state.fps = dt > 0 ? 1 / dt : state.fps;
+    state.fpsAvg = filterDps(state.fpsAvg || state.fps, state.fps);
     updateStarfieldCap(dt);
     update(dt);
     draw(ts);
