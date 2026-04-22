@@ -2,6 +2,8 @@
   'use strict';
 
   const TAU = Math.PI * 2;
+  const PLANET_LAYER_FACTOR = 2;
+  const CLOUD_LAYER_FACTOR = 4;
   const canvas = document.getElementById('game');
   const hudCanvas = document.getElementById('hud');
   const hudCtx = hudCanvas.getContext('2d');
@@ -49,8 +51,13 @@
     aUv: null,
     aColor: null,
     uTex: null,
-    uViewport: null
+    uViewport: null,
+    planetLayer: { canvas: null, ctx: null, texture: null, dirty: true, width: 0, height: 0, scale: 1 },
+    cloudLayer: { canvas: null, ctx: null, texture: null, dirty: true, width: 0, height: 0, scale: 1 }
   };
+  const STARFIELD_TARGET_FPS = 30;
+  const STARFIELD_RAISE_LIMIT = 1.5;
+  const STARFIELD_FALL_LIMIT = 0.75;
   const PLAYER_SHIP_TEXTURE_KEY = 'player-ship';
   const PLAYER_AURA_TEXTURE_KEY = 'player-aura';
   const PLAYER_ENGINE_TEXTURE_PREFIX = 'player-engine-flame|';
@@ -554,6 +561,14 @@
     return tex;
   }
 
+  function updateTextureFromCanvas(tex, source) {
+    if (!tex) return createTextureFromCanvas(source);
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    return tex;
+  }
+
   function getTextureFromCanvas(canvasLike, key) {
     let tex = render.textures.get(key);
     if (tex) return tex;
@@ -569,6 +584,43 @@
     tex = createTextureFromCanvas(img);
     render.textures.set(key, tex);
     return tex;
+  }
+
+  function ensureLayerSurface(layer, factor) {
+    const targetW = Math.max(1, Math.floor(view.w * view.dpr / factor));
+    const targetH = Math.max(1, Math.floor(view.h * view.dpr / factor));
+    if (!layer.canvas || !layer.ctx) {
+      layer.canvas = makeCanvas(targetW, targetH);
+      layer.ctx = layer.canvas.getContext('2d');
+      layer.dirty = true;
+    }
+    if (layer.canvas.width !== targetW || layer.canvas.height !== targetH) {
+      layer.canvas.width = targetW;
+      layer.canvas.height = targetH;
+      layer.dirty = true;
+    }
+    layer.width = targetW;
+    layer.height = targetH;
+    layer.scale = view.dpr / factor;
+    return layer;
+  }
+
+  function uploadLayerSurface(layer) {
+    if (!layer.canvas) return null;
+    if (!layer.texture) layer.texture = createTextureFromCanvas(layer.canvas);
+    else layer.texture = updateTextureFromCanvas(layer.texture, layer.canvas);
+    layer.dirty = false;
+    return layer.texture;
+  }
+
+  function drawLayerImage(ctx, img, cx, cy, w, h, rot, alpha) {
+    if (!ctx || !img) return;
+    ctx.save();
+    ctx.globalAlpha = alpha == null ? 1 : alpha;
+    ctx.translate(cx, cy);
+    if (rot) ctx.rotate(rot);
+    ctx.drawImage(img, -w * 0.5, -h * 0.5, w, h);
+    ctx.restore();
   }
 
   function getEmojiTexture(text, size) {
@@ -803,7 +855,7 @@
     const w = canvas.width;
     const h = canvas.height;
     gl.viewport(0, 0, w, h);
-    gl.clearColor(0, 0, 0, 0);
+    gl.clearColor(0.0078431373, 0.0156862745, 0.0392156863, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.useProgram(render.program);
     gl.uniform2f(render.uViewport, w, h);
@@ -956,7 +1008,7 @@
       musicVolume: clamp(loadNum('ShotEmUp_JS_musicVolume', 0), 0, 1),
       difficulty: clamp(Math.round(loadNum('ShotEmUp_JS_difficulty', 1)), 0, 2),
       lowEndMode: loadBool('ShotEmUp_JS_lowEndMode', false),
-      starfieldCap: clamp(Math.round(loadNum('ShotEmUp_JS_starfieldCap', 700)), 40, 700)
+      starfieldCap: clamp(Math.round(loadNum('ShotEmUp_JS_starfieldCap', 200)), 40, 700)
     },
     lives: 3,
     combo: 0,
@@ -1020,6 +1072,7 @@
     musicClock: 0,
     musicStep: 0,
     animClock: 0,
+    renderFrameIndex: 0,
     hudDirty: true,
     hudLastDraw: 0,
     debugMode: DEBUG_MODE
@@ -1769,11 +1822,9 @@
   }
 
   function ensureStarfield() {
-    const densityDivisor = state.settings.lowEndMode ? 30000 : 3000;
     const minStars = state.settings.lowEndMode ? 40 : 200;
     const maxStars = state.settings.lowEndMode ? 80 : 700;
-    const baseDesired = Math.max(minStars, Math.min(maxStars, Math.round((view.w * view.h) / densityDivisor)));
-    const desired = Math.max(minStars, Math.min(baseDesired, clamp(Math.round(state.settings.starfieldCap || maxStars), minStars, maxStars)));
+    const desired = clamp(Math.round(state.settings.starfieldCap || minStars), minStars, maxStars);
     if (state.starfield.length === desired) return;
     const stars = [];
     for (let i = 0; i < desired; i++) {
@@ -1790,6 +1841,15 @@
     state.starfield = stars;
   }
 
+  function adjustStarfieldCap(avgFps) {
+    const minStars = state.settings.lowEndMode ? 40 : 200;
+    const maxStars = state.settings.lowEndMode ? 80 : 700;
+    const current = clamp(Math.round(state.settings.starfieldCap || minStars), minStars, maxStars);
+    if (!Number.isFinite(avgFps) || avgFps <= 0) return current;
+    const ratio = clamp(avgFps / STARFIELD_TARGET_FPS, STARFIELD_FALL_LIMIT, STARFIELD_RAISE_LIMIT);
+    return clamp(Math.round(current * ratio), minStars, maxStars);
+  }
+
   function updateStarfieldCap(dt) {
     if (state.settings.lowEndMode) return;
     if (!Number.isFinite(state.fps) || state.fps <= 0) return;
@@ -1799,9 +1859,19 @@
     state.starfieldCapSamples++;
   }
 
+  function finalizeStarfieldCap() {
+    if (state.settings.lowEndMode) return;
+    const avgFps = state.starfieldCapSamples > 0 ? (state.starfieldCapSum / state.starfieldCapSamples) : (state.fpsAvg || 60);
+    const nextCap = adjustStarfieldCap(avgFps);
+    if (nextCap !== state.settings.starfieldCap) {
+      state.settings.starfieldCap = nextCap;
+      saveSettings();
+    }
+    state.starfieldCapSum = 0;
+    state.starfieldCapSamples = 0;
+  }
+
   function drawStarfield() {
-    drawSpriteRect(view.w * 0.5, view.h * 0.5, view.w, view.h, '#02040a', 1, -120, false);
-    drawDecorBackgrounds();
     ensureStarfield();
     state.starfieldScroll += 0.012;
     for (const star of state.starfield) {
@@ -1960,6 +2030,7 @@
     state.pointerId = null;
     state.pointerX = 0;
     state.pointerY = 0;
+    state.renderFrameIndex = 0;
     state.input.left = false;
     state.input.right = false;
     state.input.up = false;
@@ -2003,21 +2074,6 @@
   }
 
   function beginLevel(index) {
-    const minStars = state.settings.lowEndMode ? 40 : 200;
-    const maxStars = 700;
-    const current = clamp(Math.round(state.settings.starfieldCap || maxStars), minStars, maxStars);
-    const avgFps = state.starfieldCapSamples > 0 ? (state.starfieldCapSum / state.starfieldCapSamples) : (state.fpsAvg || 60);
-    const target = Math.max(minStars, Math.min(maxStars, Math.round((view.w * view.h) / 3000)));
-    let nextCap = current;
-    if (avgFps < 25) {
-      const drop = Math.max(1, Math.round((25 - avgFps) * 0.5));
-      nextCap = Math.max(minStars, current - drop);
-    } else if (avgFps > 35) {
-      const rise = Math.max(1, Math.round((avgFps - 35) * 0.5));
-      nextCap = clamp(current + rise, minStars, target);
-    }
-    state.settings.starfieldCap = nextCap;
-    saveSettings();
     state.levelIndex = index;
     state.currentTheme = THEMES[index];
     warmEnemyShipBatch(index + 1);
@@ -2735,10 +2791,12 @@
       state.bannerTimer = 2.2;
       state.nextLevelTimer = 2.4;
       state.transition = { type: 'clear', timer: 0 };
+      finalizeStarfieldCap();
       state.player.health = Math.min(state.player.maxHealth, state.player.health + 1);
       state.player.bombs = Math.min(4, state.player.bombs + 1);
       state.player.shield = Math.min(3, state.player.shield + 1);
       sfx('clear');
+      state.flash = Math.max(state.flash, 0.68);
       hint('Boss defeated! Next stage loading...', 2.6);
       markHudDirty();
     } else if (!fromBomb) {
@@ -3678,6 +3736,7 @@
 
     }
     g.globalAlpha = 1;
+    cloud.sourceCanvas = c;
     cloud.texture = createTextureFromCanvas(c);
     cloud.texW = texW;
     cloud.texH = texH;
@@ -3699,14 +3758,17 @@
       const cloud = state.scrollingClouds[i];
       releaseScrollingCloudTexture(cloud);
       cloud.points = null;
+      cloud.sourceCanvas = null;
       cloud.texW = 0;
       cloud.texH = 0;
       cloud.bounds = null;
     }
+    render.cloudLayer.dirty = true;
     state.scrollingClouds = null;
   }
 
   function clearDecorBackgrounds() {
+    render.planetLayer.dirty = true;
     state.decorBackgrounds = null;
   }
 
@@ -3743,6 +3805,7 @@
     dec.spin = (Math.random() - 0.5) * 0.0025;
     dec.drift = Math.random() * TAU;
     dec.delay = 0;
+    render.planetLayer.dirty = true;
   }
 
   function updateDecorBackgrounds(dt) {
@@ -3754,6 +3817,7 @@
       state.decorBackgrounds = [];
       const count = 1;
       for (let i = 0; i < count; i++) state.decorBackgrounds.push(createDecorBackground(i));
+      render.planetLayer.dirty = true;
     }
     const h = Math.max(1, view.h);
     for (let i = 0; i < state.decorBackgrounds.length; i++) {
@@ -3777,21 +3841,41 @@
   }
 
   function drawDecorBackgrounds() {
-    if (state.settings.lowEndMode || !state.decorBackgrounds) return;
+    if (state.settings.lowEndMode || !state.decorBackgrounds || !state.decorBackgrounds.length) return;
+    const layer = ensureLayerSurface(render.planetLayer, PLANET_LAYER_FACTOR);
+    if (!layer.ctx) return;
+    const needsRefresh = layer.dirty || (state.renderFrameIndex % PLANET_LAYER_FACTOR) === 0;
+    if (!needsRefresh) {
+      if (layer.texture) {
+        drawTextureRect(layer.texture, view.w * 0.5, view.h * 0.5, view.w, view.h, {
+          alpha: 1,
+          layer: 0,
+          lighter: false
+        });
+      }
+      return;
+    }
+    const g = layer.ctx;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+    g.setTransform(layer.scale, 0, 0, layer.scale, 0, 0);
+    g.globalCompositeOperation = 'source-over';
+    g.imageSmoothingEnabled = true;
     for (let i = 0; i < state.decorBackgrounds.length; i++) {
       const d = state.decorBackgrounds[i];
       if (d.delay > 0) continue;
       const img = getPlanetDecorImage(d.imageIndex);
       if (!img || !img.naturalWidth || !img.naturalHeight) continue;
-      const tex = getTextureFromImage(img, planetDecorKey(d.imageIndex));
-      if (!tex) continue;
       const w = img.naturalWidth * 2;
       const h = img.naturalHeight * 2;
       const sway = Math.sin(state.levelClock * 0.18 + d.drift) * 10;
-      drawTextureRect(tex, d.x + sway, d.y, w, h, {
-        alpha: d.alpha * 0.5,
+      drawLayerImage(g, img, d.x + sway, d.y, w, h, d.rot, d.alpha * 0.5);
+    }
+    uploadLayerSurface(layer);
+    if (layer.texture) {
+      drawTextureRect(layer.texture, view.w * 0.5, view.h * 0.5, view.w, view.h, {
+        alpha: 1,
         layer: 0,
-        rot: d.rot,
         lighter: false
       });
     }
@@ -3810,10 +3894,12 @@
     cloud.a = 0.16 + Math.random() * 0.08;
     cloud.cloudType = 1; // Blue
     cloud.points = null;
+    cloud.sourceCanvas = null;
     releaseScrollingCloudTexture(cloud);
     cloud.texW = 0;
     cloud.texH = 0;
     cloud.bounds = null;
+    render.cloudLayer.dirty = true;
   }
 
   function updateScrollingClouds(dt) {
@@ -3821,7 +3907,10 @@
       clearScrollingClouds();
       return;
     }
-    if (!state.scrollingClouds) state.scrollingClouds = [createScrollingCloud(0), createScrollingCloud(1), createScrollingCloud(2), createScrollingCloud(3), createScrollingCloud(4)];
+    if (!state.scrollingClouds) {
+      state.scrollingClouds = [createScrollingCloud(0), createScrollingCloud(1), createScrollingCloud(2), createScrollingCloud(3), createScrollingCloud(4)];
+      render.cloudLayer.dirty = true;
+    }
     const h = Math.max(1, view.h);
     for (let i = 0; i < state.scrollingClouds.length; i++) {
       const c = state.scrollingClouds[i];
@@ -3847,22 +3936,42 @@
   }
 
   function drawScrollingClouds() {
-    if (state.settings.lowEndMode || !state.scrollingClouds) return;
-    hudCtx.save();
-    hudCtx.globalCompositeOperation = 'source-over';
-    for (let i = 0; i < state.scrollingClouds.length; i++) {
-      const c = state.scrollingClouds[i];
-      if (c.delay > 0) continue;
-      const tex = ensureScrollingCloudTexture(c);
-      if (tex && c.bounds) {
-        drawTextureRect(tex, c.x + (c.bounds.minX + c.bounds.maxX) * 0.5, c.y + (c.bounds.minY + c.bounds.maxY) * 0.5, c.texW, c.texH, {
+    if (state.settings.lowEndMode || !state.scrollingClouds || !state.scrollingClouds.length) return;
+    const layer = ensureLayerSurface(render.cloudLayer, CLOUD_LAYER_FACTOR);
+    if (!layer.ctx) return;
+    const needsRefresh = layer.dirty || (state.renderFrameIndex % CLOUD_LAYER_FACTOR) === 0;
+    if (!needsRefresh) {
+      if (layer.texture) {
+        drawTextureRect(layer.texture, view.w * 0.5, view.h * 0.5, view.w, view.h, {
           alpha: 1,
           layer: 1,
           lighter: false
         });
       }
+      return;
     }
-    hudCtx.restore();
+    const g = layer.ctx;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
+    g.setTransform(layer.scale, 0, 0, layer.scale, 0, 0);
+    g.globalCompositeOperation = 'source-over';
+    g.imageSmoothingEnabled = true;
+    for (let i = 0; i < state.scrollingClouds.length; i++) {
+      const c = state.scrollingClouds[i];
+      if (c.delay > 0) continue;
+      if (!c.sourceCanvas && c.texture) releaseScrollingCloudTexture(c);
+      const tex = ensureScrollingCloudTexture(c);
+      if (!tex || !c.bounds || !c.sourceCanvas) continue;
+      drawLayerImage(g, c.sourceCanvas, c.x + (c.bounds.minX + c.bounds.maxX) * 0.5, c.y + (c.bounds.minY + c.bounds.maxY) * 0.5, c.texW, c.texH, 0, 1);
+    }
+    uploadLayerSurface(layer);
+    if (layer.texture) {
+      drawTextureRect(layer.texture, view.w * 0.5, view.h * 0.5, view.w, view.h, {
+        alpha: 1,
+        layer: 1,
+        lighter: false
+      });
+    }
   }
 
   function drawEmojiGlyph(text, x, y, size, opts) {
@@ -4702,6 +4811,7 @@
 
   function drawBackground() {
     drawStarfield();
+    drawDecorBackgrounds();
     drawScrollingClouds();
   }
 
@@ -5408,6 +5518,7 @@
 
   function draw(ts) {
     syncBodyModeClass();
+    state.renderFrameIndex++;
     render.offsetX = state.shake > 0 ? rand(-state.shake, state.shake) : 0;
     render.offsetY = state.shake > 0 ? rand(-state.shake, state.shake) : 0;
     drawBackground();
