@@ -52,12 +52,24 @@
     aColor: null,
     uTex: null,
     uViewport: null,
+    starProgram: null,
+    starBuffer: null,
+    starBufferCount: 0,
+    starBufferData: null,
+    starDirty: true,
+    aStar0: null,
+    aStar1: null,
+    uStarViewport: null,
+    uStarTime: null,
+    uStarScroll: null,
+    uStarDpr: null,
     planetLayer: { canvas: null, ctx: null, texture: null, dirty: true, width: 0, height: 0, scale: 1 },
     cloudLayer: { canvas: null, ctx: null, texture: null, dirty: true, width: 0, height: 0, scale: 1 }
   };
   const STARFIELD_TARGET_FPS = 50;
   const STARFIELD_RAISE_LIMIT = 1.5;
   const STARFIELD_FALL_LIMIT = 0.75;
+  const STARFIELD_NORMAL_CAP = 700;
   const PLAYER_SHIP_TEXTURE_KEY = 'player-ship';
   const PLAYER_AURA_TEXTURE_KEY = 'player-aura';
   const PLAYER_ENGINE_TEXTURE_PREFIX = 'player-engine-flame|';
@@ -479,6 +491,46 @@
       '  gl_FragColor = tex * v_color;',
       '}'
     ].join('\n');
+    const starVs = [
+      'attribute vec4 a_star0;',
+      'attribute vec4 a_star1;',
+      'uniform vec2 u_viewport;',
+      'uniform float u_time;',
+      'uniform float u_scroll;',
+      'uniform float u_dpr;',
+      'varying vec4 v_star0;',
+      'varying vec4 v_star1;',
+      'void main() {',
+      '  float y = fract(a_star0.y + u_scroll * a_star0.w);',
+      '  vec2 pos = vec2(a_star0.x * u_viewport.x, y * u_viewport.y);',
+      '  vec2 zeroToOne = pos / u_viewport;',
+      '  vec2 clip = zeroToOne * 2.0 - 1.0;',
+      '  gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);',
+      '  float boost = mix(1.0, 1.35, step(1.25, a_star0.z));',
+      '  gl_PointSize = max(1.0, a_star0.z * boost * u_dpr * 1.8);',
+      '  v_star0 = a_star0;',
+      '  v_star1 = a_star1;',
+      '}'
+    ].join('\n');
+    const starFs = [
+      'precision mediump float;',
+      'uniform float u_time;',
+      'varying vec4 v_star0;',
+      'varying vec4 v_star1;',
+      'void main() {',
+      '  vec2 p = gl_PointCoord - vec2(0.5);',
+      '  float d = length(p) * 2.0;',
+      '  float core = smoothstep(0.90, 0.64, d);',
+      '  float spark = smoothstep(0.24, 0.0, abs(p.x)) * smoothstep(0.24, 0.0, abs(p.y));',
+      '  float tw = 0.7 + sin(u_time * 2.1 + v_star1.y * 6.2831853) * 0.3;',
+      '  float a = clamp(v_star1.x * tw * 0.8, 0.06, 1.0);',
+      '  float alpha = clamp((core * 0.95 + spark * 0.22) * a, 0.0, 1.0);',
+      '  vec3 color = vec3(1.0);',
+      '  if (v_star1.z >= 0.84) color = vec3(0.949, 0.890, 0.659);',
+      '  else if (v_star1.z >= 0.64) color = vec3(0.875, 0.937, 1.0);',
+      '  gl_FragColor = vec4(color * alpha, alpha);',
+      '}'
+    ].join('\n');
     function compile(type, source) {
       const sh = gl.createShader(type);
       gl.shaderSource(sh, source);
@@ -487,6 +539,9 @@
       return sh;
     }
     const program = gl.createProgram();
+    gl.bindAttribLocation(program, 0, 'a_pos');
+    gl.bindAttribLocation(program, 1, 'a_uv');
+    gl.bindAttribLocation(program, 2, 'a_color');
     gl.attachShader(program, compile(gl.VERTEX_SHADER, vs));
     gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fs));
     gl.linkProgram(program);
@@ -509,6 +564,28 @@
     gl.vertexAttribPointer(render.aUv, 2, gl.FLOAT, false, 32, 8);
     gl.vertexAttribPointer(render.aColor, 4, gl.FLOAT, false, 32, 16);
     gl.uniform1i(render.uTex, 0);
+    const starProgram = gl.createProgram();
+    gl.bindAttribLocation(starProgram, 4, 'a_star0');
+    gl.bindAttribLocation(starProgram, 5, 'a_star1');
+    gl.attachShader(starProgram, compile(gl.VERTEX_SHADER, starVs));
+    gl.attachShader(starProgram, compile(gl.FRAGMENT_SHADER, starFs));
+    gl.linkProgram(starProgram);
+    if (!gl.getProgramParameter(starProgram, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(starProgram) || 'star program link failed');
+    render.starProgram = starProgram;
+    render.aStar0 = gl.getAttribLocation(starProgram, 'a_star0');
+    render.aStar1 = gl.getAttribLocation(starProgram, 'a_star1');
+    render.uStarViewport = gl.getUniformLocation(starProgram, 'u_viewport');
+    render.uStarTime = gl.getUniformLocation(starProgram, 'u_time');
+    render.uStarScroll = gl.getUniformLocation(starProgram, 'u_scroll');
+    render.uStarDpr = gl.getUniformLocation(starProgram, 'u_dpr');
+    render.starBuffer = gl.createBuffer();
+    gl.useProgram(starProgram);
+    gl.bindBuffer(gl.ARRAY_BUFFER, render.starBuffer);
+    gl.enableVertexAttribArray(render.aStar0);
+    gl.enableVertexAttribArray(render.aStar1);
+    gl.vertexAttribPointer(render.aStar0, 4, gl.FLOAT, false, 32, 0);
+    gl.vertexAttribPointer(render.aStar1, 4, gl.FLOAT, false, 32, 16);
+    gl.uniform1f(render.uStarDpr, view.dpr);
     gl.disable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -723,6 +800,7 @@
     gl.viewport(0, 0, w, h);
     gl.clearColor(0.0078431373, 0.0156862745, 0.0392156863, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
+    drawStarfieldGPU();
     gl.useProgram(render.program);
     gl.uniform2f(render.uViewport, w, h);
     gl.bindBuffer(gl.ARRAY_BUFFER, render.buffer);
@@ -874,7 +952,7 @@
       musicVolume: clamp(loadNum('ShotEmUp_JS_musicVolume', 0), 0, 1),
       difficulty: clamp(Math.round(loadNum('ShotEmUp_JS_difficulty', 1)), 0, 2),
       lowEndMode: loadBool('ShotEmUp_JS_lowEndMode', false),
-      starfieldCap: clamp(Math.round(loadNum('ShotEmUp_JS_starfieldCap', 200)), 40, 500)
+      starfieldCap: clamp(Math.round(loadNum('ShotEmUp_JS_starfieldCap', STARFIELD_NORMAL_CAP)), 40, STARFIELD_NORMAL_CAP)
     },
     lives: 3,
     combo: 0,
@@ -1379,8 +1457,8 @@
   }
 
   function ensureStarfield() {
-    const minStars = state.settings.lowEndMode ? 40 : 200;
-    const maxStars = state.settings.lowEndMode ? 80 : 500;
+    const minStars = state.settings.lowEndMode ? 40 : STARFIELD_NORMAL_CAP;
+    const maxStars = state.settings.lowEndMode ? 80 : STARFIELD_NORMAL_CAP;
     const desired = clamp(Math.round(state.settings.starfieldCap || minStars), minStars, maxStars);
     if (state.starfield.length === desired) return;
     const stars = [];
@@ -1396,11 +1474,12 @@
       });
     }
     state.starfield = stars;
+    render.starDirty = true;
   }
 
   function adjustStarfieldCap(avgFps) {
-    const minStars = state.settings.lowEndMode ? 40 : 200;
-    const maxStars = state.settings.lowEndMode ? 80 : 500;
+    const minStars = state.settings.lowEndMode ? 40 : STARFIELD_NORMAL_CAP;
+    const maxStars = state.settings.lowEndMode ? 80 : STARFIELD_NORMAL_CAP;
     const current = clamp(Math.round(state.settings.starfieldCap || minStars), minStars, maxStars);
     if (!Number.isFinite(avgFps) || avgFps <= 0) return current;
     const ratio = clamp(avgFps / STARFIELD_TARGET_FPS, STARFIELD_FALL_LIMIT, STARFIELD_RAISE_LIMIT);
@@ -1431,17 +1510,40 @@
   function drawStarfield() {
     ensureStarfield();
     state.starfieldScroll += 0.012;
-    for (const star of state.starfield) {
-      const y = (star.y + state.starfieldScroll * star.speed) % 1.08;
-      const px = star.x * view.w;
-      const py = y * view.h;
-      const tw = 0.7 + Math.sin(state.levelClock * 2.1 + star.tw) * 0.3;
-      const alpha = clamp(star.a * tw * 0.75, 0.06, 1);
-      const size = star.r * (star.tint > 0.86 ? 1.35 : 1);
-      const color = star.tint < 0.64 ? '#ffffff' : (star.tint < 0.84 ? '#dfefff' : '#f2e3a8');
-      drawGlowCircle(px, py, size, color, alpha, size * 1.4);
-      if (size > 1.25) drawSpriteRect(px, py, size * 0.6, size * 2.1, color, alpha * 0.35, -119, true);
+  }
+
+  function drawStarfieldGPU() {
+    if (!gl || !render.starProgram || !render.starBuffer) return;
+    ensureStarfield();
+    if (render.starDirty || render.starBufferCount !== state.starfield.length) {
+      const data = new Float32Array(Math.max(1, state.starfield.length) * 8);
+      for (let i = 0; i < state.starfield.length; i++) {
+        const star = state.starfield[i];
+        const o = i * 8;
+        data[o + 0] = star.x;
+        data[o + 1] = star.y;
+        data[o + 2] = star.r;
+        data[o + 3] = star.speed;
+        data[o + 4] = star.a;
+        data[o + 5] = star.tw;
+        data[o + 6] = star.tint;
+        data[o + 7] = star.tint > 0.86 ? 1.35 : 1.0;
+      }
+      gl.bindBuffer(gl.ARRAY_BUFFER, render.starBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+      render.starBufferData = data;
+      render.starBufferCount = state.starfield.length;
+      render.starDirty = false;
     }
+    gl.useProgram(render.starProgram);
+    gl.bindBuffer(gl.ARRAY_BUFFER, render.starBuffer);
+    gl.uniform2f(render.uStarViewport, canvas.width, canvas.height);
+    gl.uniform1f(render.uStarTime, state.animClock || state.levelClock || 0);
+    gl.uniform1f(render.uStarScroll, state.starfieldScroll || 0);
+    gl.uniform1f(render.uStarDpr, view.dpr || 1);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE);
+    gl.drawArrays(gl.POINTS, 0, render.starBufferCount);
   }
 
   function resetPlayer() {
