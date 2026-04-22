@@ -256,7 +256,9 @@
   }
 
   const planetDecorImages = new Map();
+  const planetDecorTextures = new Map();
   const planetDecorLoadKeys = new Set();
+  const planetDecorTextureLoadKeys = new Set();
   const PLANET_DECOR_MIN = 1;
   const PLANET_DECOR_MAX = 30;
 
@@ -295,6 +297,29 @@
     if (img) return img;
     ensurePlanetDecorImage(index);
     return null;
+  }
+
+  function ensurePlanetDecorTexture(index) {
+    const key = planetDecorKey(index) + '|native';
+    if (planetDecorTextures.has(key) || planetDecorTextureLoadKeys.has(key)) return planetDecorTextures.get(key) || null;
+    const img = getPlanetDecorImage(index);
+    if (!img || !img.naturalWidth || !img.naturalHeight) return null;
+    planetDecorTextureLoadKeys.add(key);
+    try {
+      const texW = Math.max(1, img.naturalWidth);
+      const texH = Math.max(1, img.naturalHeight);
+      const c = makeCanvas(texW, texH);
+      const g = c.getContext('2d');
+      if (!g) return null;
+      g.imageSmoothingEnabled = true;
+      g.clearRect(0, 0, texW, texH);
+      g.drawImage(img, 0, 0, texW, texH);
+      const tex = createTextureFromCanvas(c);
+      planetDecorTextures.set(key, tex);
+      return tex;
+    } finally {
+      planetDecorTextureLoadKeys.delete(key);
+    }
   }
 
   function warmEnemyShipBatch(levelNumber) {
@@ -3856,7 +3881,7 @@
       if (d.delay > 0) continue;
       const img = getPlanetDecorImage(d.imageIndex);
       if (!img || !img.naturalWidth || !img.naturalHeight) continue;
-      const tex = getTextureFromImage(img, planetDecorKey(d.imageIndex));
+      const tex = ensurePlanetDecorTexture(d.imageIndex);
       if (!tex) continue;
       const w = img.naturalWidth * 2;
       const h = img.naturalHeight * 2;
