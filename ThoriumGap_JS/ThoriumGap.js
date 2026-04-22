@@ -2,8 +2,8 @@
   'use strict';
 
   const TAU = Math.PI * 2;
-  const PLANET_LAYER_FACTOR = 2;
-  const CLOUD_LAYER_FACTOR = 4;
+  const PLANET_LAYER_FACTOR = 4;
+  const CLOUD_LAYER_FACTOR = 16;
   const canvas = document.getElementById('game');
   const hudCanvas = document.getElementById('hud');
   const hudCtx = hudCanvas.getContext('2d');
@@ -55,7 +55,7 @@
     planetLayer: { canvas: null, ctx: null, texture: null, dirty: true, width: 0, height: 0, scale: 1 },
     cloudLayer: { canvas: null, ctx: null, texture: null, dirty: true, width: 0, height: 0, scale: 1 }
   };
-  const STARFIELD_TARGET_FPS = 30;
+  const STARFIELD_TARGET_FPS = 50;
   const STARFIELD_RAISE_LIMIT = 1.5;
   const STARFIELD_FALL_LIMIT = 0.75;
   const PLAYER_SHIP_TEXTURE_KEY = 'player-ship';
@@ -602,6 +602,8 @@
     layer.width = targetW;
     layer.height = targetH;
     layer.scale = view.dpr / factor;
+    layer.anchorX = Number.isFinite(layer.anchorX) ? layer.anchorX : 0;
+    layer.anchorY = Number.isFinite(layer.anchorY) ? layer.anchorY : 0;
     return layer;
   }
 
@@ -621,6 +623,15 @@
     if (rot) ctx.rotate(rot);
     ctx.drawImage(img, -w * 0.5, -h * 0.5, w, h);
     ctx.restore();
+  }
+
+  function drawCompositedLayer(layer, offsetX, offsetY, layerIndex) {
+    if (!layer.texture) return;
+    drawTextureRect(layer.texture, view.w * 0.5 + (offsetX || 0), view.h * 0.5 + (offsetY || 0), view.w, view.h, {
+      alpha: 1,
+      layer: layerIndex || 0,
+      lighter: false
+    });
   }
 
   function getEmojiTexture(text, size) {
@@ -1008,7 +1019,7 @@
       musicVolume: clamp(loadNum('ShotEmUp_JS_musicVolume', 0), 0, 1),
       difficulty: clamp(Math.round(loadNum('ShotEmUp_JS_difficulty', 1)), 0, 2),
       lowEndMode: loadBool('ShotEmUp_JS_lowEndMode', false),
-      starfieldCap: clamp(Math.round(loadNum('ShotEmUp_JS_starfieldCap', 200)), 40, 700)
+      starfieldCap: clamp(Math.round(loadNum('ShotEmUp_JS_starfieldCap', 200)), 40, 500)
     },
     lives: 3,
     combo: 0,
@@ -1823,7 +1834,7 @@
 
   function ensureStarfield() {
     const minStars = state.settings.lowEndMode ? 40 : 200;
-    const maxStars = state.settings.lowEndMode ? 80 : 700;
+    const maxStars = state.settings.lowEndMode ? 80 : 500;
     const desired = clamp(Math.round(state.settings.starfieldCap || minStars), minStars, maxStars);
     if (state.starfield.length === desired) return;
     const stars = [];
@@ -1843,7 +1854,7 @@
 
   function adjustStarfieldCap(avgFps) {
     const minStars = state.settings.lowEndMode ? 40 : 200;
-    const maxStars = state.settings.lowEndMode ? 80 : 700;
+    const maxStars = state.settings.lowEndMode ? 80 : 500;
     const current = clamp(Math.round(state.settings.starfieldCap || minStars), minStars, maxStars);
     if (!Number.isFinite(avgFps) || avgFps <= 0) return current;
     const ratio = clamp(avgFps / STARFIELD_TARGET_FPS, STARFIELD_FALL_LIMIT, STARFIELD_RAISE_LIMIT);
@@ -3684,6 +3695,7 @@
     if (cloud.texture) return cloud.texture;
     const pts = ensureScrollingCloudPoints(cloud);
     const blueCloud = cloud.cloudType === 1;
+    const renderScale = 1 / CLOUD_LAYER_FACTOR;
     const blobW = blueCloud ? 500 : 300;
     const blobH = blueCloud ? 500 : 300;
     const blobX = blueCloud ? -250 : -150;
@@ -3700,8 +3712,8 @@
     }
     const pad = blueCloud ? Math.max(64, Math.round(cloud.r * 0.8)) : Math.max(48, Math.round(cloud.r * 0.6));
     minX -= pad; minY -= pad; maxX += pad; maxY += pad;
-    const texW = Math.max(blueCloud ? 512 : 256, Math.ceil(maxX - minX));
-    const texH = Math.max(blueCloud ? 1024 : 256, Math.ceil(maxY - minY));
+    const texW = Math.max(32, Math.ceil((maxX - minX) * renderScale));
+    const texH = Math.max(32, Math.ceil((maxY - minY) * renderScale));
     const c = makeCanvas(texW, texH);
     const g = c.getContext('2d');
     if (!g) return null;
@@ -3710,18 +3722,18 @@
     const blueImg = ensureGlowImage('assets/glow_e_blue.png');
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i];
-      const px = p.x - minX;
-      const py = p.y - minY;
+      const px = (p.x - minX) * renderScale;
+      const py = (p.y - minY) * renderScale;
 
       // Normal cloud
       if (!blueCloud) {
         if (whiteImg) {
           g.globalAlpha = cloud.a * 0.28;
-          g.drawImage(whiteImg, px - 150, py - 150, 300, 300);
+          g.drawImage(whiteImg, px - 150 * renderScale, py - 150 * renderScale, 300 * renderScale, 300 * renderScale);
         }
         if (blueImg) {
           g.globalAlpha = cloud.a * 0.22;
-          g.drawImage(blueImg, px - 150, py - 150, 300, 300);
+          g.drawImage(blueImg, px - 150 * renderScale, py - 150 * renderScale, 300 * renderScale, 300 * renderScale);
         }
       }
 
@@ -3729,17 +3741,18 @@
       if (blueCloud) {
         if (blueImg) {
           g.globalAlpha = cloud.a * 0.22;
-          g.drawImage(blueImg, px + blobX, py + blobY, blobW, blobH);
+          g.drawImage(blueImg, px + blobX * renderScale, py + blobY * renderScale, blobW * renderScale, blobH * renderScale);
         }
       }
       
 
     }
     g.globalAlpha = 1;
-    cloud.sourceCanvas = c;
     cloud.texture = createTextureFromCanvas(c);
     cloud.texW = texW;
     cloud.texH = texH;
+    cloud.drawW = maxX - minX;
+    cloud.drawH = maxY - minY;
     cloud.bounds = { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
     return cloud.texture;
   }
@@ -3763,12 +3776,10 @@
       cloud.texH = 0;
       cloud.bounds = null;
     }
-    render.cloudLayer.dirty = true;
     state.scrollingClouds = null;
   }
 
   function clearDecorBackgrounds() {
-    render.planetLayer.dirty = true;
     state.decorBackgrounds = null;
   }
 
@@ -3805,7 +3816,6 @@
     dec.spin = (Math.random() - 0.5) * 0.0025;
     dec.drift = Math.random() * TAU;
     dec.delay = 0;
-    render.planetLayer.dirty = true;
   }
 
   function updateDecorBackgrounds(dt) {
@@ -3817,7 +3827,6 @@
       state.decorBackgrounds = [];
       const count = 1;
       for (let i = 0; i < count; i++) state.decorBackgrounds.push(createDecorBackground(i));
-      render.planetLayer.dirty = true;
     }
     const h = Math.max(1, view.h);
     for (let i = 0; i < state.decorBackgrounds.length; i++) {
@@ -3842,39 +3851,19 @@
 
   function drawDecorBackgrounds() {
     if (state.settings.lowEndMode || !state.decorBackgrounds || !state.decorBackgrounds.length) return;
-    const layer = ensureLayerSurface(render.planetLayer, PLANET_LAYER_FACTOR);
-    if (!layer.ctx) return;
-    const needsRefresh = layer.dirty || (state.renderFrameIndex % PLANET_LAYER_FACTOR) === 0;
-    if (!needsRefresh) {
-      if (layer.texture) {
-        drawTextureRect(layer.texture, view.w * 0.5, view.h * 0.5, view.w, view.h, {
-          alpha: 1,
-          layer: 0,
-          lighter: false
-        });
-      }
-      return;
-    }
-    const g = layer.ctx;
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    g.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
-    g.setTransform(layer.scale, 0, 0, layer.scale, 0, 0);
-    g.globalCompositeOperation = 'source-over';
-    g.imageSmoothingEnabled = true;
     for (let i = 0; i < state.decorBackgrounds.length; i++) {
       const d = state.decorBackgrounds[i];
       if (d.delay > 0) continue;
       const img = getPlanetDecorImage(d.imageIndex);
       if (!img || !img.naturalWidth || !img.naturalHeight) continue;
+      const tex = getTextureFromImage(img, planetDecorKey(d.imageIndex));
+      if (!tex) continue;
       const w = img.naturalWidth * 2;
       const h = img.naturalHeight * 2;
       const sway = Math.sin(state.levelClock * 0.18 + d.drift) * 10;
-      drawLayerImage(g, img, d.x + sway, d.y, w, h, d.rot, d.alpha * 0.5);
-    }
-    uploadLayerSurface(layer);
-    if (layer.texture) {
-      drawTextureRect(layer.texture, view.w * 0.5, view.h * 0.5, view.w, view.h, {
-        alpha: 1,
+      drawTextureRect(tex, d.x + sway, d.y, w, h, {
+        rot: d.rot,
+        alpha: d.alpha * 0.5,
         layer: 0,
         lighter: false
       });
@@ -3899,7 +3888,6 @@
     cloud.texW = 0;
     cloud.texH = 0;
     cloud.bounds = null;
-    render.cloudLayer.dirty = true;
   }
 
   function updateScrollingClouds(dt) {
@@ -3909,7 +3897,6 @@
     }
     if (!state.scrollingClouds) {
       state.scrollingClouds = [createScrollingCloud(0), createScrollingCloud(1), createScrollingCloud(2), createScrollingCloud(3), createScrollingCloud(4)];
-      render.cloudLayer.dirty = true;
     }
     const h = Math.max(1, view.h);
     for (let i = 0; i < state.scrollingClouds.length; i++) {
@@ -3937,36 +3924,14 @@
 
   function drawScrollingClouds() {
     if (state.settings.lowEndMode || !state.scrollingClouds || !state.scrollingClouds.length) return;
-    const layer = ensureLayerSurface(render.cloudLayer, CLOUD_LAYER_FACTOR);
-    if (!layer.ctx) return;
-    const needsRefresh = layer.dirty || (state.renderFrameIndex % CLOUD_LAYER_FACTOR) === 0;
-    if (!needsRefresh) {
-      if (layer.texture) {
-        drawTextureRect(layer.texture, view.w * 0.5, view.h * 0.5, view.w, view.h, {
-          alpha: 1,
-          layer: 1,
-          lighter: false
-        });
-      }
-      return;
-    }
-    const g = layer.ctx;
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    g.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
-    g.setTransform(layer.scale, 0, 0, layer.scale, 0, 0);
-    g.globalCompositeOperation = 'source-over';
-    g.imageSmoothingEnabled = true;
     for (let i = 0; i < state.scrollingClouds.length; i++) {
       const c = state.scrollingClouds[i];
       if (c.delay > 0) continue;
-      if (!c.sourceCanvas && c.texture) releaseScrollingCloudTexture(c);
       const tex = ensureScrollingCloudTexture(c);
-      if (!tex || !c.bounds || !c.sourceCanvas) continue;
-      drawLayerImage(g, c.sourceCanvas, c.x + (c.bounds.minX + c.bounds.maxX) * 0.5, c.y + (c.bounds.minY + c.bounds.maxY) * 0.5, c.texW, c.texH, 0, 1);
-    }
-    uploadLayerSurface(layer);
-    if (layer.texture) {
-      drawTextureRect(layer.texture, view.w * 0.5, view.h * 0.5, view.w, view.h, {
+      if (!tex || !c.bounds) continue;
+      const cx = c.x + (c.bounds.minX + c.bounds.maxX) * 0.5;
+      const cy = c.y + (c.bounds.minY + c.bounds.maxY) * 0.5;
+      drawTextureRect(tex, cx, cy, c.drawW || c.texW, c.drawH || c.texH, {
         alpha: 1,
         layer: 1,
         lighter: false
