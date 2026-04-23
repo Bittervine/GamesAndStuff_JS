@@ -1145,7 +1145,7 @@
   ];
 
   const SHOT_PACE = 1.25;
-  const PLAYER_RADIUS = 50;
+  const PLAYER_RADIUS = 46;
 
   function shotDelay(v) {
     return v * SHOT_PACE;
@@ -2566,6 +2566,7 @@
     const p = state.player;
     if (state.mode !== 'playing' || p.bombs <= 0) return;
     p.bombs--;
+    p.invuln = 0.34;
     state.flash = Math.max(state.flash, 0.5);
     state.shake = Math.max(state.shake, 15);
     sfx('bomb');
@@ -2620,15 +2621,13 @@
       clearProjectileLists();
       burst(b.x, b.y, b.color, 60, 360, 9, 'spark');
       flashBurst(b.x, b.y, b.color);
-      if (currentDifficulty().label === 'Hard') loseAllWeaponTiers(state.player);
-      else {
-        const p = state.player;
-        if (Array.isArray(p.weaponTiers) && p.weaponTiers.length === WEAPONS.length) {
-          p.weaponTiers[p.weaponMode] = Math.max(1, (p.weaponTiers[p.weaponMode] || 1) - 1);
-          p.weaponTier = clamp(p.weaponTiers[p.weaponMode] || 1, 1, 5);
-        } else {
-          p.weaponTier = Math.max(1, p.weaponTier - 1);
-        }
+      const p = state.player;
+      if (Array.isArray(p.weaponTiers) && p.weaponTiers.length === WEAPONS.length) {
+        const currentTier = p.weaponTiers[p.weaponMode] || 1;
+        if (currentTier >= 4) p.weaponTiers[p.weaponMode] = Math.max(1, currentTier - 1);
+        p.weaponTier = clamp(p.weaponTiers[p.weaponMode] || 1, 1, 5);
+      } else {
+        if (p.weaponTier >= 4) p.weaponTier = Math.max(1, p.weaponTier - 1);
       }
       sfx('boom');
       state.shake = Math.max(state.shake, 18);
@@ -2658,7 +2657,7 @@
     const actualDamage = Math.max(1, Math.round(damage * 3));
     if (p.shield > 0) {
       p.shield--;
-      p.invuln = 0.5;
+      p.invuln = 0.34;
       state.flash = Math.max(state.flash, 0.1);
       burst(p.x, p.y, '#8fd8ff', 16, 220, 5, 'spark');
       sfx('power');
@@ -2667,7 +2666,7 @@
       return;
     }
     p.health -= actualDamage;
-    p.invuln = 0.5;
+    p.invuln = 0.34;
     p.repairDelay = 1.8;
     state.shake = Math.max(state.shake, 10);
     state.flash = Math.max(state.flash, 0.12);
@@ -4412,6 +4411,7 @@
     const flashAlpha = p.invuln > 0 ? 0.52 + 0.42 * (0.5 + 0.5 * Math.sin((3 - p.invuln) * 16 + state.musicStep * 0.9)) : 1;
     const shipSize = 74 + (state.overdrive > 0 ? 4 : 0);
     const shipY = p.y + bob;
+    const shipVisualY = shipY - 6;
     const planeSize = 36 + (state.overdrive > 0 ? 4 : 0);
     const shieldRing = p.r;
     const shipTexture = getPlayerShipTexture();
@@ -4428,14 +4428,14 @@
     drawSoftEdgeGlow(p.x, shipY, 50, playerGlow, 0.22);
     if (invulnActive) {
       const invulnRings = [
-        { r: shieldRing + 8, color: '#ff0000' },
-        { r: shieldRing + 13, color: '#ff0000' },
-        { r: shieldRing + 18, color: '#ff0000' }
+        { r: shieldRing + 14, color: '#ff0000' },
+        { r: shieldRing + 19, color: '#ff0000' },
+        { r: shieldRing + 24, color: '#ff0000' }
       ];
       const ringAlphas = [
-        clamp(p.invuln, 0, 1) * 0.5,
-        clamp(p.invuln - 1, 0, 1) * 0.5,
-        clamp(p.invuln - 2, 0, 1) * 0.5
+        clamp(p.invuln, 0, 1) * 1.0,
+        clamp(p.invuln - 1, 0, 1) * 1.0,
+        clamp(p.invuln - 2, 0, 1) * 1.0
       ];
       for (let i = 0; i < invulnRings.length; i++) {
         const ring = invulnRings[i];
@@ -4447,7 +4447,7 @@
       const shieldColor = p.shield > 1 ? '#7fc8ff' : '#61a9ff';
       for (let i = 0; i < p.shield; i++) {
         const ringR = shieldRing + i * 5;
-        drawRingGlow(p.x, shipY, ringR + 8, ringR + 6, shieldColor, 0.15, 0);
+        drawRingGlow(p.x, shipY, ringR + 14, ringR + 12, shieldColor, 0.15, 0);
       }
     }
     if (!respawning || p.respawnTimer < 0.98) {
@@ -4468,7 +4468,7 @@
           const flameLenRoll = 0.7 + (Math.random() * 0.6);
           const flameH = flameLen * flameLenRoll * o.s;
           const anchorAdjust = flameH * 0.4;
-          const pos = localToWorld(p.x, shipY, rot, o.x, o.y + anchorAdjust);
+          const pos = localToWorld(p.x, shipVisualY, rot, o.x, o.y + anchorAdjust);
           drawTextureRect(flameTexture, pos.x, pos.y, flameW * o.s, flameH, {
             rot: rot,
             alpha: flameAlpha * (i === 1 ? 1 : 0.78),
@@ -4479,10 +4479,10 @@
       }
     }
     if (shipTexture) {
-      drawTextureRect(shipTexture, p.x, shipY, shipSize, shipSize, { rot: rot, alpha: flashAlpha, layer: 4, lighter: false });
+      drawTextureRect(shipTexture, p.x, shipVisualY, shipSize, shipSize, { rot: rot, alpha: flashAlpha, layer: 4, lighter: false });
     } else {
       ensurePlayerShipTexture();
-      drawEmojiGlyph(E.plane, p.x, shipY, planeSize, { rot: rot, alpha: flashAlpha, layer: 4, fill: glow, lighter: false });
+      drawEmojiGlyph(E.plane, p.x, shipVisualY, planeSize, { rot: rot, alpha: flashAlpha, layer: 4, fill: glow, lighter: false });
     }
     const damage = clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1);
     if (damage > 0.01) {
