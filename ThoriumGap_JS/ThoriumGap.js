@@ -4156,7 +4156,7 @@
       drawTextureRect(glowTexture, b.x, b.y, glowW, size, { rot: rot, alpha: glowPulse, layer: 27, lighter: false });
     }
     if (boostTexture) {
-      const boostAlpha = clamp(b.glowBoost || 0, 0, 1);
+      const boostAlpha = clamp(b.glowBoost || 0, 0, 0.2);
       if (boostAlpha > 0) {
         const boostW = b.facingRight ? -size : size;
         drawTextureRect(boostTexture, b.x, b.y, boostW, size, { rot: rot, alpha: boostAlpha, layer: 27, lighter: false });
