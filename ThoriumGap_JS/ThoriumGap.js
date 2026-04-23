@@ -1121,6 +1121,7 @@
     shield: { emoji: E.shield, color: '#8fd8ff' },
     bomb: { emoji: E.bomb, color: '#ffd96a' },
     magnet: { emoji: E.magnet, color: '#77f7c4' },
+    invuln: { emoji: E.star, color: '#c7ff8f' },
     score: { emoji: E.gem, color: '#ff86e0' }
   };
 
@@ -1699,6 +1700,18 @@
   function finalizeStarfieldCap() {
   }
 
+  function loseAllWeaponTiers(p) {
+    if (!p) return;
+    if (Array.isArray(p.weaponTiers) && p.weaponTiers.length === WEAPONS.length) {
+      for (let i = 0; i < p.weaponTiers.length; i++) {
+        p.weaponTiers[i] = Math.max(1, (p.weaponTiers[i] || 1) - 1);
+      }
+      p.weaponTier = clamp(p.weaponTiers[p.weaponMode] || 1, 1, 5);
+    } else {
+      p.weaponTier = Math.max(1, p.weaponTier - 1);
+    }
+  }
+
   function drawStarfield() {
     ensureStarfield();
     state.starfieldScroll += 0.012;
@@ -1879,6 +1892,7 @@
     else if (code === 'Digit7') spawnPickup('rapid', x, y);
     else if (code === 'Digit8') spawnPickup('bomb', x, y);
     else if (code === 'Digit9') spawnPickup('magnet', x, y);
+    else if (code === 'Backquote' || code === 'IntlBackslash' || code === 'Backslash') spawnPickup('invuln', x, y);
   }
 
   function debugJumpToBoss() {
@@ -2099,6 +2113,7 @@
       { type: 'shield', w: state.player.shield < 2 ? 5 : 2 },
       { type: 'bomb', w: state.player.bombs < 2 ? 5 : 2 },
       { type: 'magnet', w: state.player.magnetTimer < 4 ? 4 : 1 },
+      { type: 'invuln', w: 1.0 },
       { type: 'score', w: 3 }
     ];
     const total = list.reduce(function (sum, item) { return sum + item.w; }, 0);
@@ -2532,6 +2547,11 @@
       state.banner = 'MAGNET FIELD';
       state.bannerSub = 'Pickups drift to the ship.';
       sfx('power');
+    } else if (type === 'invuln') {
+      p.invuln = Math.max(p.invuln, 4);
+      state.banner = 'INVULN';
+      state.bannerSub = 'Temporary immunity.';
+      sfx('power');
     } else {
       addScore(500);
       state.banner = 'GEM SCORE';
@@ -2600,6 +2620,16 @@
       clearProjectileLists();
       burst(b.x, b.y, b.color, 60, 360, 9, 'spark');
       flashBurst(b.x, b.y, b.color);
+      if (currentDifficulty().label === 'Hard') loseAllWeaponTiers(state.player);
+      else {
+        const p = state.player;
+        if (Array.isArray(p.weaponTiers) && p.weaponTiers.length === WEAPONS.length) {
+          p.weaponTiers[p.weaponMode] = Math.max(1, (p.weaponTiers[p.weaponMode] || 1) - 1);
+          p.weaponTier = clamp(p.weaponTiers[p.weaponMode] || 1, 1, 5);
+        } else {
+          p.weaponTier = Math.max(1, p.weaponTier - 1);
+        }
+      }
       sfx('boom');
       state.shake = Math.max(state.shake, 18);
       state.flash = Math.max(state.flash, 0.42);
@@ -2628,7 +2658,7 @@
     const actualDamage = Math.max(1, Math.round(damage * 3));
     if (p.shield > 0) {
       p.shield--;
-      p.invuln = 0.6;
+      p.invuln = 0.5;
       state.flash = Math.max(state.flash, 0.1);
       burst(p.x, p.y, '#8fd8ff', 16, 220, 5, 'spark');
       sfx('power');
@@ -2637,7 +2667,7 @@
       return;
     }
     p.health -= actualDamage;
-    p.invuln = 1.6;
+    p.invuln = 0.5;
     p.repairDelay = 1.8;
     state.shake = Math.max(state.shake, 10);
     state.flash = Math.max(state.flash, 0.12);
@@ -3135,6 +3165,7 @@
       e.flightAngle = Math.atan2(e.y - prevY, e.x - prevX);
       if (e.y > view.h + 72 || e.x < -90 || e.x > view.w + 90) { state.enemies.splice(i, 1); continue; }
       if (d2(e.x, e.y, p.x, p.y) < (e.r + p.r) * (e.r + p.r)) {
+        if (p.invuln > 0) continue;
         const contactDamage = currentDifficulty().contact;
         damageEnemy(e, contactDamage, false);
         hurtPlayer(contactDamage);
@@ -4376,7 +4407,7 @@
     const tilt = respawning ? 0 : clamp(((state.input.right ? 1 : 0) - (state.input.left ? 1 : 0)) * 0.24 + (state.pointerActive ? (state.pointerX - p.x) / 280 : 0), -0.45, 0.45);
     const rot = tilt * 0.92;
     const glow = state.overdrive > 0 ? '#ffe38c' : '#8fd8ff';
-    const invulnActive = p.invuln > 0 && !respawning;
+    const invulnActive = p.invuln > 0;
     const auraColor = invulnActive ? '#bfe4ff' : glow;
     const flashAlpha = p.invuln > 0 ? 0.52 + 0.42 * (0.5 + 0.5 * Math.sin((3 - p.invuln) * 16 + state.musicStep * 0.9)) : 1;
     const shipSize = 74 + (state.overdrive > 0 ? 4 : 0);
@@ -4395,6 +4426,23 @@
     }
     const playerGlow = state.overdrive > 0 ? '#ffe59a' : '#92dcff';
     drawSoftEdgeGlow(p.x, shipY, 50, playerGlow, 0.22);
+    if (invulnActive) {
+      const invulnRings = [
+        { r: shieldRing + 8, color: '#ff0000' },
+        { r: shieldRing + 13, color: '#ff0000' },
+        { r: shieldRing + 18, color: '#ff0000' }
+      ];
+      const ringAlphas = [
+        clamp(p.invuln, 0, 1) * 0.5,
+        clamp(p.invuln - 1, 0, 1) * 0.5,
+        clamp(p.invuln - 2, 0, 1) * 0.5
+      ];
+      for (let i = 0; i < invulnRings.length; i++) {
+        const ring = invulnRings[i];
+        const alpha = ringAlphas[i];
+        if (alpha > 0) drawRingGlow(p.x, shipY, ring.r, ring.r - 2, ring.color, alpha, 0);
+      }
+    }
     if (p.shield > 0) {
       const shieldColor = p.shield > 1 ? '#7fc8ff' : '#61a9ff';
       for (let i = 0; i < p.shield; i++) {
@@ -4717,10 +4765,11 @@
       drawBar(12, bossBarY, view.w - 24, compact ? 13 : 15, state.boss.hp / state.boss.maxHp, theme.accent2, 'rgba(0,0,0,0.42)', 'BOSS ' + state.boss.name);
       }
 
-    const powerRatio = state.overdrive > 0 ? state.overdrive / 7 : p.rapidTimer > 0 ? p.rapidTimer / 8 : p.magnetTimer > 0 ? p.magnetTimer / 12 : 0;
+    const invulnPickupActive = p.invuln > 0.5;
+    const powerLabel = state.overdrive > 0 ? 'OVERDRIVE' : p.rapidTimer > 0 ? 'RAPID' : p.magnetTimer > 0 ? 'MAGNET' : invulnPickupActive ? 'INVULN' : '';
+    const powerRatio = state.overdrive > 0 ? state.overdrive / 7 : p.rapidTimer > 0 ? p.rapidTimer / 8 : p.magnetTimer > 0 ? p.magnetTimer / 12 : invulnPickupActive ? p.invuln / 4 : 0;
       if (powerRatio > 0) {
-        const label = state.overdrive > 0 ? 'OVERDRIVE' : p.rapidTimer > 0 ? 'RAPID' : 'MAGNET';
-        drawBar(view.w * 0.18, view.h - view.controlsH - 30, view.w * 0.64, 10, powerRatio, theme.accent2, 'rgba(0,0,0,0.35)', label);
+        drawBar(view.w * 0.18, view.h - view.controlsH - 30, view.w * 0.64, 10, powerRatio, state.overdrive > 0 ? '#ffe38c' : p.rapidTimer > 0 ? '#ffe97e' : p.magnetTimer > 0 ? '#77f7c4' : '#c7ff8f', 'rgba(0,0,0,0.35)', powerLabel);
       }
 
     if (state.paused) {
@@ -4949,7 +4998,7 @@
       ev.preventDefault();
       if (!ev.repeat) debugJumpToBoss();
     }
-    if (state.debugMode && (code === 'Digit1' || code === 'Digit2' || code === 'Digit3' || code === 'Digit4' || code === 'Digit5' || code === 'Digit6' || code === 'Digit7' || code === 'Digit8' || code === 'Digit9')) {
+    if (state.debugMode && (code === 'Digit1' || code === 'Digit2' || code === 'Digit3' || code === 'Digit4' || code === 'Digit5' || code === 'Digit6' || code === 'Digit7' || code === 'Digit8' || code === 'Digit9' || code === 'Backquote' || code === 'IntlBackslash' || code === 'Backslash')) {
       ev.preventDefault();
       if (!ev.repeat) spawnCheatDrop(code);
     }
