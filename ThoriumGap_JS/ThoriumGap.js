@@ -2566,7 +2566,7 @@
     const p = state.player;
     if (state.mode !== 'playing' || p.bombs <= 0) return;
     p.bombs--;
-    p.invuln = 0.34;
+    p.invuln = 0.31;
     state.flash = Math.max(state.flash, 0.5);
     state.shake = Math.max(state.shake, 15);
     sfx('bomb');
@@ -2657,7 +2657,7 @@
     const actualDamage = Math.max(1, Math.round(damage * 3));
     if (p.shield > 0) {
       p.shield--;
-      p.invuln = 0.34;
+      p.invuln = 0.31;
       state.flash = Math.max(state.flash, 0.1);
       burst(p.x, p.y, '#8fd8ff', 16, 220, 5, 'spark');
       sfx('power');
@@ -2666,7 +2666,7 @@
       return;
     }
     p.health -= actualDamage;
-    p.invuln = 0.34;
+    p.invuln = 0.31;
     p.repairDelay = 1.8;
     state.shake = Math.max(state.shake, 10);
     state.flash = Math.max(state.flash, 0.12);
