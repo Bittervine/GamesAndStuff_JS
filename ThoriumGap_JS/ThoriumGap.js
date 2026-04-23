@@ -2393,41 +2393,44 @@
     } else { // BEAM
       const beamY = y + 10;
       const beamSpacing = 5;
+      const beamVY = () => -rand(980, 1220);
+      const beamXJitter = () => rand(-2.5, 2.5);
+      const beamYJitter = () => rand(-6, 6);
       if (tier === 1) {
-        spawnBullet('player', x - beamSpacing,     beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x,                   beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing,     beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing + beamXJitter(),     beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamXJitter(),                   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing + beamXJitter(),     beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
       }
       if (tier === 2) {
-        spawnBullet('player', x - beamSpacing*3/2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x - beamSpacing*1/2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*1/2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*3/2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
       }
       if (tier === 3) {
-        spawnBullet('player', x - beamSpacing*2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x - beamSpacing,   beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x,                 beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing,   beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamXJitter(),                 beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
       }
       if (tier === 4) {
-        spawnBullet('player', x - beamSpacing*5/2, beamY-25, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x - beamSpacing*3/2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x - beamSpacing*1/2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*1/2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*3/2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*5/2, beamY-25, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*5/2 + beamXJitter(), beamY-25 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*5/2 + beamXJitter(), beamY-25 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
       }
       if (tier >= 5) {
-        spawnBullet('player', x - beamSpacing*7/2, beamY-20, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x - beamSpacing*5/2, beamY-25, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x - beamSpacing*3/2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x - beamSpacing*1/2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*1/2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*3/2, beamY-30, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*5/2, beamY-25, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*7/2, beamY-20, 0, -1120, { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*7/2 + beamXJitter(), beamY-20 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*5/2 + beamXJitter(), beamY-25 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*5/2 + beamXJitter(), beamY-25 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*7/2 + beamXJitter(), beamY-20 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
       }
       sfx('beam');
     }
