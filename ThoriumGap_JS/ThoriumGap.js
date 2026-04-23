@@ -7,7 +7,30 @@
   const canvas = document.getElementById('game');
   const hudCanvas = document.getElementById('hud');
   const hudCtx = hudCanvas.getContext('2d');
-  const gl = canvas.getContext('webgl', { alpha: true, antialias: true, premultipliedAlpha: false });
+  function getWebGLContext(targetCanvas) {
+    if (!targetCanvas || !targetCanvas.getContext) return null;
+    const attempts = [
+      { alpha: true, antialias: false, premultipliedAlpha: false, powerPreference: 'high-performance' },
+      { alpha: true, antialias: false, premultipliedAlpha: false },
+      { alpha: true, antialias: true, premultipliedAlpha: false },
+      { alpha: true, premultipliedAlpha: false },
+      undefined
+    ];
+    for (let i = 0; i < attempts.length; i++) {
+      const opts = attempts[i];
+      try {
+        const ctx = opts ? targetCanvas.getContext('webgl', opts) : targetCanvas.getContext('webgl');
+        if (ctx) return ctx;
+      } catch (err) {}
+    }
+    try {
+      return targetCanvas.getContext('experimental-webgl', { alpha: true, antialias: false, premultipliedAlpha: false }) ||
+        targetCanvas.getContext('experimental-webgl');
+    } catch (err) {
+      return null;
+    }
+  }
+  const gl = getWebGLContext(canvas);
   const controlsEl = document.getElementById('controls');
   const titleManualButton = document.getElementById('titleManual');
   const hudHint = document.getElementById('hudHint');
@@ -63,6 +86,7 @@
     uStarTime: null,
     uStarScroll: null,
     uStarDpr: null,
+    starDisabled: false,
     planetLayer: { canvas: null, ctx: null, texture: null, dirty: true, width: 0, height: 0, scale: 1 },
     cloudLayer: { canvas: null, ctx: null, texture: null, dirty: true, width: 0, height: 0, scale: 1 }
   };
@@ -78,6 +102,7 @@
   const PLAYER_ENGINE_TEXTURE_PREFIX = 'player-engine-flame|';
   const PLAYER_DAMAGE_TEXTURE_PREFIX = 'player-damage|';
   let playerShipTextureLoading = false;
+  let playerAuraTextureLoading = false;
   let playerShipSourceImage = null;
   function cp(code) {
     if (code <= 0xFFFF) return String.fromCharCode(code);
@@ -242,7 +267,8 @@
     img.decoding = 'async';
     img.onload = function () {
       try {
-        render.textures.set(key, createTextureFromCanvas(img));
+        const tex = createTextureFromCanvas(img);
+        if (tex) render.textures.set(key, tex);
         enemyShipGlowColors.set(key, DEBUG_MODE ? averageImageColor(img) : fallbackEnemyShipGlowColor(levelNumber, shipIndex));
       } finally {
         enemyShipLoadKeys.delete(key);
@@ -331,7 +357,7 @@
       g.clearRect(0, 0, texW, texH);
       g.drawImage(img, 0, 0, texW, texH);
       const tex = createTextureFromCanvas(c);
-      planetDecorTextures.set(key, tex);
+      if (tex) planetDecorTextures.set(key, tex);
       return tex;
     } finally {
       planetDecorTextureLoadKeys.delete(key);
@@ -377,8 +403,8 @@
     return 'assets/Boss_' + String(levelNumber).padStart(2, '0') + '.png';
   }
 
-  function makeNormalizedBossCanvas(img) {
-    const size = 512;
+  function makeNormalizedBossCanvas(img, size) {
+    size = size || 512;
     const c = makeCanvas(size, size);
     const g = c.getContext('2d');
     if (!g) return null;
@@ -394,9 +420,22 @@
     return c;
   }
 
-  function makeBossGlowCanvas(img, glowColor) {
-    const size = 512;
-    const c = makeCanvas(size, size);
+  function bossGlowPad(size) {
+    size = Math.max(1, size || 512);
+    return Math.max(16, Math.round(size * 0.125));
+  }
+
+  function bossGlowCanvasSize(size) {
+    size = Math.max(1, size || 512);
+    const pad = bossGlowPad(size);
+    return size + pad * 2;
+  }
+
+  function makeBossGlowCanvas(img, glowColor, size) {
+    size = Math.max(1, size || 512);
+    const pad = bossGlowPad(size);
+    const total = size + pad * 2;
+    const c = makeCanvas(total, total);
     const g = c.getContext('2d');
     if (!g) return null;
     const srcW = Math.max(1, img.naturalWidth || img.width || size);
@@ -404,18 +443,18 @@
     const scale = Math.min(size / srcW, size / srcH);
     const drawW = srcW * scale;
     const drawH = srcH * scale;
-    const dx = (size - drawW) * 0.5;
-    const dy = (size - drawH) * 0.5;
-    const src = makeCanvas(size, size);
+    const dx = (size - drawW) * 0.5 + pad;
+    const dy = (size - drawH) * 0.5 + pad;
+    const src = makeCanvas(total, total);
     const sg = src.getContext('2d');
     if (!sg) return null;
-    sg.clearRect(0, 0, size, size);
+    sg.clearRect(0, 0, total, total);
     sg.drawImage(img, dx, dy, drawW, drawH);
-    g.clearRect(0, 0, size, size);
+    g.clearRect(0, 0, total, total);
     if (g.filter !== undefined) g.filter = 'blur(8px)';
     g.drawImage(src, 0, 0);
     if (g.filter !== undefined) g.filter = 'none';
-    const imgData = g.getImageData(0, 0, size, size);
+    const imgData = g.getImageData(0, 0, total, total);
     const data = imgData.data;
     const rgb = hexToRgb(glowColor || '#ffffff');
     for (let i = 0; i < data.length; i += 4) {
@@ -461,22 +500,26 @@
     img.decoding = 'async';
     img.onload = function () {
       try {
-        const normalized = makeNormalizedBossCanvas(img) || img;
-        render.textures.set(key, createTextureFromCanvas(normalized));
+        const theme = THEMES[Math.max(0, Math.min(THEMES.length - 1, levelNumber - 1))] || mainTheme();
+        const bossSize = Math.max(1, (theme.boss && theme.boss.size) || 512);
+        const normalized = makeNormalizedBossCanvas(img, bossSize) || img;
+        const bossTex = createTextureFromCanvas(normalized);
+        if (bossTex) render.textures.set(key, bossTex);
         const bounds = getCanvasAlphaBounds(normalized);
         bossHitBoxes.set(key, {
-          x: bounds.x - 256,
-          y: bounds.y - 256,
+          x: bounds.x - bossSize * 0.5,
+          y: bounds.y - bossSize * 0.5,
           w: bounds.w,
           h: bounds.h
         });
-        const theme = THEMES[Math.max(0, Math.min(THEMES.length - 1, levelNumber - 1))] || mainTheme();
         const blueGlowKey = key + '|glowBlue';
         const whiteGlowKey = key + '|glowWhite';
-        const blueGlowCanvas = makeBossGlowCanvas(normalized, '#0038ff') || normalized;
-        const whiteGlowCanvas = makeBossGlowCanvas(normalized, '#ffffff') || normalized;
-        bossGlowTextures.set(blueGlowKey, createTextureFromCanvas(blueGlowCanvas));
-        bossGlowTextures.set(whiteGlowKey, createTextureFromCanvas(whiteGlowCanvas));
+        const blueGlowCanvas = makeBossGlowCanvas(normalized, '#0038ff', bossSize) || normalized;
+        const whiteGlowCanvas = makeBossGlowCanvas(normalized, '#ffffff', bossSize) || normalized;
+        const blueGlowTex = createTextureFromCanvas(blueGlowCanvas);
+        const whiteGlowTex = createTextureFromCanvas(whiteGlowCanvas);
+        if (blueGlowTex) bossGlowTextures.set(blueGlowKey, blueGlowTex);
+        if (whiteGlowTex) bossGlowTextures.set(whiteGlowKey, whiteGlowTex);
       } finally {
         bossArtLoadKeys.delete(key);
       }
@@ -548,7 +591,7 @@
   }
 
   function makeCanvas(w, h) {
-    if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
+    //if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
     const c = document.createElement('canvas');
     c.width = w;
     c.height = h;
@@ -585,7 +628,8 @@
   }
 
   function initRenderer() {
-    if (!gl || render.ready) return;
+    if (!gl || render.ready) return false;
+    try {
     const vs = [
       'attribute vec2 a_pos;',
       'attribute vec2 a_uv;',
@@ -684,32 +728,70 @@
     gl.vertexAttribPointer(render.aUv, 2, gl.FLOAT, false, 32, 8);
     gl.vertexAttribPointer(render.aColor, 4, gl.FLOAT, false, 32, 16);
     gl.uniform1i(render.uTex, 0);
-    const starProgram = gl.createProgram();
-    gl.bindAttribLocation(starProgram, 4, 'a_star0');
-    gl.bindAttribLocation(starProgram, 5, 'a_star1');
-    gl.attachShader(starProgram, compile(gl.VERTEX_SHADER, starVs));
-    gl.attachShader(starProgram, compile(gl.FRAGMENT_SHADER, starFs));
-    gl.linkProgram(starProgram);
-    if (!gl.getProgramParameter(starProgram, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(starProgram) || 'star program link failed');
-    render.starProgram = starProgram;
-    render.aStar0 = gl.getAttribLocation(starProgram, 'a_star0');
-    render.aStar1 = gl.getAttribLocation(starProgram, 'a_star1');
-    render.uStarViewport = gl.getUniformLocation(starProgram, 'u_viewport');
-    render.uStarTime = gl.getUniformLocation(starProgram, 'u_time');
-    render.uStarScroll = gl.getUniformLocation(starProgram, 'u_scroll');
-    render.uStarDpr = gl.getUniformLocation(starProgram, 'u_dpr');
-    render.starBuffer = gl.createBuffer();
-    gl.useProgram(starProgram);
-    gl.bindBuffer(gl.ARRAY_BUFFER, render.starBuffer);
-    gl.enableVertexAttribArray(render.aStar0);
-    gl.enableVertexAttribArray(render.aStar1);
-    gl.vertexAttribPointer(render.aStar0, 4, gl.FLOAT, false, 32, 0);
-    gl.vertexAttribPointer(render.aStar1, 4, gl.FLOAT, false, 32, 16);
-    gl.uniform1f(render.uStarDpr, view.dpr);
+    try {
+      const starProgram = gl.createProgram();
+      gl.bindAttribLocation(starProgram, 4, 'a_star0');
+      gl.bindAttribLocation(starProgram, 5, 'a_star1');
+      gl.attachShader(starProgram, compile(gl.VERTEX_SHADER, starVs));
+      gl.attachShader(starProgram, compile(gl.FRAGMENT_SHADER, starFs));
+      gl.linkProgram(starProgram);
+      if (!gl.getProgramParameter(starProgram, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(starProgram) || 'star program link failed');
+      render.starProgram = starProgram;
+      render.aStar0 = gl.getAttribLocation(starProgram, 'a_star0');
+      render.aStar1 = gl.getAttribLocation(starProgram, 'a_star1');
+      render.uStarViewport = gl.getUniformLocation(starProgram, 'u_viewport');
+      render.uStarTime = gl.getUniformLocation(starProgram, 'u_time');
+      render.uStarScroll = gl.getUniformLocation(starProgram, 'u_scroll');
+      render.uStarDpr = gl.getUniformLocation(starProgram, 'u_dpr');
+      render.starBuffer = gl.createBuffer();
+      gl.useProgram(starProgram);
+      gl.bindBuffer(gl.ARRAY_BUFFER, render.starBuffer);
+      gl.enableVertexAttribArray(render.aStar0);
+      gl.enableVertexAttribArray(render.aStar1);
+      gl.vertexAttribPointer(render.aStar0, 4, gl.FLOAT, false, 32, 0);
+      gl.vertexAttribPointer(render.aStar1, 4, gl.FLOAT, false, 32, 16);
+      gl.uniform1f(render.uStarDpr, view.dpr);
+      render.starDisabled = false;
+    } catch (starErr) {
+      console.warn('GPU starfield disabled; continuing with sprite renderer.', starErr);
+      render.starProgram = null;
+      render.starBuffer = null;
+      render.aStar0 = null;
+      render.aStar1 = null;
+      render.uStarViewport = null;
+      render.uStarTime = null;
+      render.uStarScroll = null;
+      render.uStarDpr = null;
+      render.starDisabled = true;
+    }
     gl.disable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
     render.ready = true;
+    return true;
+    } catch (err) {
+      console.error('WebGL renderer init failed', err);
+      render.ready = false;
+      render.program = null;
+      render.buffer = null;
+      render.white = null;
+      render.circle = null;
+      render.starProgram = null;
+      render.starBuffer = null;
+      render.aPos = null;
+      render.aUv = null;
+      render.aColor = null;
+      render.uTex = null;
+      render.uViewport = null;
+      render.aStar0 = null;
+      render.aStar1 = null;
+      render.uStarViewport = null;
+      render.uStarTime = null;
+      render.uStarScroll = null;
+      render.uStarDpr = null;
+      if (!state.settings.lowEndMode) state.settings.lowEndMode = true;
+      return false;
+    }
   }
 
   function makeSolidTexture() {
@@ -749,15 +831,22 @@
   }
 
   function createTextureFromCanvas(source) {
-    const tex = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-    return tex;
+    if (!gl || !source) return null;
+    try {
+      const tex = gl.createTexture();
+      if (!tex) return null;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      return tex;
+    } catch (err) {
+      console.warn('Texture upload failed', err, source && source.constructor ? source.constructor.name : typeof source);
+      return null;
+    }
   }
 
   function getEmojiTexture(text, size) {
@@ -775,7 +864,7 @@
     g.fillStyle = '#fff';
     g.fillText(text, c.width * 0.5, c.height * 0.5 + Math.round(s * 0.03));
     tex = createTextureFromCanvas(c);
-    render.textures.set(key, tex);
+    if (tex) render.textures.set(key, tex);
     return tex;
   }
 
@@ -969,22 +1058,25 @@
   }
 
   function phase(dur, motion, attack) { return { dur: dur, motion: motion, attack: attack }; }
-  function theme(cfg) { return cfg; }
+  function theme(cfg) {
+    if (cfg && cfg.boss && cfg.boss.size == null) cfg.boss.size = 512;
+    return cfg;
+  }
 
   const THEMES = [
-    theme({ name: 'Thorium Rift', subtitle: 'Black Drift', skyTop: '#07111f', skyBottom: '#274062', glow: '#9bc5ff', accent: '#6d9cff', accent2: '#d5e4ff', icons: [E.apple, E.pear, E.cherry, E.leaf], forms: ['line', 'fan', 'rain'], enemyKinds: ['drifter', 'splitter', 'bomber'], atmosphere: 'leaves', music: { bpm: 112, root: 220, pattern: [0, 3, 5, 7, 10, 7, 5, 3] }, boss: { name: 'Warden Thorne', emoji: E.apple, hp: 160, color: '#9ec2ff', phases: [phase(7, 'hover', 'aimed'), phase(7, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Null Swarm', subtitle: 'Silent Hive', skyTop: '#061b1b', skyBottom: '#1f4d49', glow: '#8ff7ff', accent: '#58d7c6', accent2: '#c8fff2', icons: [E.bee, E.ladybug, E.butterfly, E.seed], forms: ['swarm', 'pair', 'arc'], enemyKinds: ['zigzag', 'swarm', 'sniper'], atmosphere: 'pollen', music: { bpm: 126, root: 246, pattern: [0, 2, 4, 7, 9, 7, 4, 2] }, boss: { name: 'Swarm Matron', emoji: E.bee, hp: 176, color: '#93f0e8', phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Ion Collapse', subtitle: 'Ash Sector', skyTop: '#1b1730', skyBottom: '#53265f', glow: '#d19cff', accent: '#9a7cff', accent2: '#f0d0ff', icons: [E.lollipop, E.donut, E.cookie, E.chocolate], forms: ['fan', 'rain', 'cross'], enemyKinds: ['drifter', 'zigzag', 'bomber'], atmosphere: 'sprinkles', music: { bpm: 136, root: 262, pattern: [0, 4, 7, 12, 7, 4, 5, 9] }, boss: { name: 'Baron Null', emoji: E.donut, hp: 188, color: '#c29bff', phases: [phase(7, 'hover', 'fan'), phase(7, 'sweep', 'ring'), phase(8, 'low', 'rain')] } }),
-    theme({ name: 'Cold Forge', subtitle: 'Scrap Horizon', skyTop: '#0f1620', skyBottom: '#4d5867', glow: '#96c9ff', accent: '#9fb2c6', accent2: '#d0e0ef', icons: [E.gear, E.battery, E.wrench, E.rocket], forms: ['line', 'pair', 'cross'], enemyKinds: ['zigzag', 'sniper', 'bomber'], atmosphere: 'sparks', music: { bpm: 118, root: 196, pattern: [0, 0, 7, 5, 4, 5, 7, 10] }, boss: { name: 'Scrap Sovereign', emoji: E.gear, hp: 200, color: '#d0d9e1', phases: [phase(7, 'sweep', 'ring'), phase(7.5, 'hover', 'summon'), phase(8, 'dash', 'fan')] } }),
-    theme({ name: 'Deadlight Fen', subtitle: 'Echo Tide', skyTop: '#06111d', skyBottom: '#532a40', glow: '#ffbf8a', accent: '#e0a06c', accent2: '#ffc8a1', icons: [E.lantern, E.ghost, E.sparkles, E.star], forms: ['rain', 'arc', 'swarm'], enemyKinds: ['drifter', 'sniper', 'spinner'], atmosphere: 'motes', music: { bpm: 108, root: 196, pattern: [0, 5, 7, 10, 7, 5, 3, 5] }, boss: { name: 'Specter Captain', emoji: E.lantern, hp: 204, color: '#f6b46d', phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Domain of Klaato', subtitle: 'Sting Vector', skyTop: '#220c0c', skyBottom: '#6d3a13', glow: '#ffd77a', accent: '#c47a19', accent2: '#ffd59f', icons: [E.bee, E.honey, E.fire, E.bolt], forms: ['swarm', 'fan', 'pair'], enemyKinds: ['diver', 'swarm', 'sniper'], atmosphere: 'embers', music: { bpm: 132, root: 246, pattern: [0, 2, 3, 7, 10, 7, 3, 2] }, boss: { name: 'Hive Regent', emoji: E.bee, hp: 216, color: '#e4ba6a', phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'dash', 'rain')] } }),
-    theme({ name: 'Shard Expanse', subtitle: 'Prism Break', skyTop: '#07142f', skyBottom: '#264e88', glow: '#b0fbff', accent: '#95d5ff', accent2: '#d6c4ff', icons: [E.crystal, E.gem, E.star, E.moon], forms: ['ring', 'line', 'arc'], enemyKinds: ['spinner', 'sniper', 'drifter'], atmosphere: 'shards', music: { bpm: 120, root: 233, pattern: [0, 4, 7, 11, 7, 4, 9, 7] }, boss: { name: 'Shard Devourer', emoji: E.gem, hp: 228, color: '#c9f6ff', phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'ring'), phase(8, 'low', 'beam')] } }),
-    theme({ name: 'Mythic Descent', subtitle: 'Magma Line', skyTop: '#180709', skyBottom: '#6c2919', glow: '#ffab5b', accent: '#de6f2b', accent2: '#ffd08a', icons: [E.fire, E.pepper, E.honey, E.sparkles], forms: ['rain', 'line', 'swarm'], enemyKinds: ['bomber', 'diver', 'splitter'], atmosphere: 'embers', music: { bpm: 140, root: 220, pattern: [0, 3, 7, 10, 7, 3, 5, 10] }, boss: { name: 'Purple Reaper', emoji: E.fire, hp: 240, color: '#ff9e53', phases: [phase(7, 'hover', 'rain'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'wall')] } }),
-    theme({ name: 'Lunar Grave', subtitle: 'Low Orbit Ruin', skyTop: '#07111d', skyBottom: '#2d3d61', glow: '#95d7ff', accent: '#aebfe0', accent2: '#95d7ff', icons: [E.moon, E.star, E.rocket, E.comet], forms: ['line', 'wave', 'pair'], enemyKinds: ['drifter', 'zigzag', 'mine'], atmosphere: 'stardust', music: { bpm: 106, root: 185, pattern: [0, 7, 12, 7, 10, 7, 5, 3] }, boss: { name: 'Lunar Horse', emoji: E.moon, hp: 252, color: '#c3d6ff', phases: [phase(7, 'hover', 'summon'), phase(7.5, 'sweep', 'beam'), phase(8, 'dash', 'ring')] } }),
-    theme({ name: 'Dark Waters', subtitle: 'Laser Grid', skyTop: '#07101c', skyBottom: '#2d1a5a', glow: '#82f6ff', accent: '#6eeaff', accent2: '#d18cff', icons: [E.bolt, E.sparkles, E.disc, E.target], forms: ['wave', 'cross', 'pair'], enemyKinds: ['zigzag', 'sniper', 'bomber'], atmosphere: 'neon', music: { bpm: 144, root: 220, pattern: [0, 7, 12, 10, 7, 4, 9, 12] }, boss: { name: 'Whaling Wraith', emoji: E.bolt, hp: 264, color: '#8fefff', phases: [phase(7, 'sweep', 'wall'), phase(7.5, 'hover', 'aimed'), phase(8, 'dash', 'ring')] } }),
-    theme({ name: 'Black Citadel', subtitle: 'Knightfall', skyTop: '#0a0c14', skyBottom: '#403f55', glow: '#f0f3ff', accent: '#b6bfd6', accent2: '#9e8e5e', icons: [E.knight, E.rook, E.bishop, E.queen], forms: ['line', 'cross', 'wave'], enemyKinds: ['zigzag', 'sniper', 'elite'], atmosphere: 'chess', music: { bpm: 122, root: 196, pattern: [0, 3, 7, 10, 7, 3, 5, 7] }, boss: { name: 'Cyberphisher', emoji: E.queen, hp: 288, color: '#e7ecff', phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'summon'), phase(8, 'dash', 'ring')] } }),
-    theme({ name: 'Submerged Bastion', subtitle: 'Thunder Line', skyTop: '#0c1821', skyBottom: '#344c84', glow: '#d7f4ff', accent: '#9cc7ff', accent2: '#d7f4ff', icons: [E.cloud, E.rain, E.bolt, E.star], forms: ['rain', 'line', 'swarm'], enemyKinds: ['diver', 'sniper', 'spinner'], atmosphere: 'rain', music: { bpm: 128, root: 196, pattern: [0, 4, 7, 10, 7, 4, 2, 5] }, boss: { name: 'Rocket Rager', emoji: E.cloud, hp: 276, color: '#d3edff', phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Throium Gap', subtitle: 'Final Descent', skyTop: '#0f081b', skyBottom: '#5b3d18', glow: '#ffe78a', accent: '#ffd77a', accent2: '#ffffff', icons: [E.sun, E.crown, E.star, E.comet], forms: ['ring', 'fan', 'wave'], enemyKinds: ['elite', 'sniper', 'spinner'], atmosphere: 'nova', music: { bpm: 152, root: 262, pattern: [0, 4, 7, 12, 15, 12, 7, 4] }, boss: { name: 'Sun Eater', emoji: E.sun, hp: 320, color: '#fff0bd', phases: [phase(6.5, 'hover', 'aimed'), phase(6.5, 'sweep', 'ring'), phase(6.5, 'dash', 'beam'), phase(7.5, 'low', 'wall')] } })
+    theme({ name: 'Thorium Rift', subtitle: 'None shall pass', skyTop: '#07111f', skyBottom: '#274062', glow: '#9bc5ff', accent: '#6d9cff', accent2: '#d5e4ff', icons: [E.apple, E.pear, E.cherry, E.leaf], forms: ['line', 'fan', 'rain'], enemyKinds: ['drifter', 'splitter', 'bomber'], atmosphere: 'leaves', music: { bpm: 112, root: 220, pattern: [0, 3, 5, 7, 10, 7, 5, 3] }, boss: { name: 'Red Guardian', emoji: E.apple, hp: 160, size: 320, color: '#9ec2ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Broken Shore', subtitle: 'First of his name', skyTop: '#061b1b', skyBottom: '#1f4d49', glow: '#8ff7ff', accent: '#58d7c6', accent2: '#c8fff2', icons: [E.bee, E.ladybug, E.butterfly, E.seed], forms: ['swarm', 'pair', 'arc'], enemyKinds: ['zigzag', 'swarm', 'sniper'], atmosphere: 'pollen', music: { bpm: 126, root: 246, pattern: [0, 2, 4, 7, 9, 7, 4, 2] }, boss: { name: 'Rocket Baron', emoji: E.bee, hp: 176, size: 320, color: '#93f0e8', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Ultraviolet Prison', subtitle: 'Isolation and servitude', skyTop: '#1b1730', skyBottom: '#53265f', glow: '#d19cff', accent: '#9a7cff', accent2: '#f0d0ff', icons: [E.lollipop, E.donut, E.cookie, E.chocolate], forms: ['fan', 'rain', 'cross'], enemyKinds: ['drifter', 'zigzag', 'bomber'], atmosphere: 'sprinkles', music: { bpm: 136, root: 262, pattern: [0, 4, 7, 12, 7, 4, 5, 9] }, boss: { name: 'Warden Thorn', emoji: E.donut, hp: 188, size:320 , color: '#c29bff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7, 'sweep', 'ring'), phase(8, 'low', 'rain')] } }),
+    theme({ name: 'Sinners Den', subtitle: 'Hunger without limit', skyTop: '#0f1620', skyBottom: '#4d5867', glow: '#96c9ff', accent: '#9fb2c6', accent2: '#d0e0ef', icons: [E.gear, E.battery, E.wrench, E.rocket], forms: ['line', 'pair', 'cross'], enemyKinds: ['zigzag', 'sniper', 'bomber'], atmosphere: 'sparks', music: { bpm: 118, root: 196, pattern: [0, 0, 7, 5, 4, 5, 7, 10] }, boss: { name: 'Hope Devourer', emoji: E.gear, hp: 200, size: 320, color: '#d0d9e1', flipWhenMovingRight: false, phases: [phase(7, 'sweep', 'ring'), phase(7.5, 'hover', 'summon'), phase(8, 'dash', 'fan')] } }),
+    theme({ name: 'Deadlight Fen', subtitle: 'Master of the soulless crew', skyTop: '#06111d', skyBottom: '#532a40', glow: '#ffbf8a', accent: '#e0a06c', accent2: '#ffc8a1', icons: [E.lantern, E.ghost, E.sparkles, E.star], forms: ['rain', 'arc', 'swarm'], enemyKinds: ['drifter', 'sniper', 'spinner'], atmosphere: 'motes', music: { bpm: 108, root: 196, pattern: [0, 5, 7, 10, 7, 5, 3, 5] }, boss: { name: 'Specter Captain', emoji: E.lantern, hp: 204, size: 320, color: '#f6b46d', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Elysium Moors', subtitle: 'The steed of Neptune', skyTop: '#220c0c', skyBottom: '#6d3a13', glow: '#ffd77a', accent: '#c47a19', accent2: '#ffd59f', icons: [E.bee, E.honey, E.fire, E.bolt], forms: ['swarm', 'fan', 'pair'], enemyKinds: ['diver', 'swarm', 'sniper'], atmosphere: 'embers', music: { bpm: 132, root: 246, pattern: [0, 2, 3, 7, 10, 7, 3, 2] }, boss: { name: 'Lunar Horse', emoji: E.bee, hp: 216, size: 320, color: '#e4ba6a', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'dash', 'rain')] } }),
+    theme({ name: 'Shard Expanse', subtitle: 'The base of lost hope', skyTop: '#07142f', skyBottom: '#264e88', glow: '#b0fbff', accent: '#95d5ff', accent2: '#d6c4ff', icons: [E.crystal, E.gem, E.star, E.moon], forms: ['ring', 'line', 'arc'], enemyKinds: ['spinner', 'sniper', 'drifter'], atmosphere: 'shards', music: { bpm: 120, root: 233, pattern: [0, 4, 7, 11, 7, 4, 9, 7] }, boss: { name: 'Shard Base One', emoji: E.gem, hp: 228, size: 320, color: '#c9f6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'ring'), phase(8, 'low', 'beam')] } }),
+    theme({ name: 'Dark Waters', subtitle: 'Prey on the weak', skyTop: '#180709', skyBottom: '#6c2919', glow: '#ffab5b', accent: '#de6f2b', accent2: '#ffd08a', icons: [E.fire, E.pepper, E.honey, E.sparkles], forms: ['rain', 'line', 'swarm'], enemyKinds: ['bomber', 'diver', 'splitter'], atmosphere: 'embers', music: { bpm: 140, root: 220, pattern: [0, 3, 7, 10, 7, 3, 5, 10] }, boss: { name: 'Cephid Hunter', emoji: E.fire, hp: 240, size: 320, color: '#ff9e53', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'rain'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'wall')] } }),
+    theme({ name: 'Domain of Klaatu', subtitle: 'The earth stands still', skyTop: '#07111d', skyBottom: '#2d3d61', glow: '#95d7ff', accent: '#aebfe0', accent2: '#95d7ff', icons: [E.moon, E.star, E.rocket, E.comet], forms: ['line', 'wave', 'pair'], enemyKinds: ['drifter', 'zigzag', 'mine'], atmosphere: 'stardust', music: { bpm: 106, root: 185, pattern: [0, 7, 12, 7, 10, 7, 5, 3] }, boss: { name: 'Klaatu', emoji: E.moon, hp: 252, size: 320, color: '#c3d6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'summon'), phase(7.5, 'sweep', 'beam'), phase(8, 'dash', 'ring')] } }),
+    theme({ name: 'Sunken Bastion', subtitle: 'Here drowned men weep', skyTop: '#07101c', skyBottom: '#2d1a5a', glow: '#82f6ff', accent: '#6eeaff', accent2: '#d18cff', icons: [E.bolt, E.sparkles, E.disc, E.target], forms: ['wave', 'cross', 'pair'], enemyKinds: ['zigzag', 'sniper', 'bomber'], atmosphere: 'neon', music: { bpm: 144, root: 220, pattern: [0, 7, 12, 10, 7, 4, 9, 12] }, boss: { name: 'Cyberphish', emoji: E.bolt, hp: 264, size: 320, color: '#8fefff', flipWhenMovingRight: true, phases: [phase(7, 'sweep', 'wall'), phase(7.5, 'hover', 'aimed'), phase(8, 'dash', 'ring')] } }),
+    theme({ name: 'Black Citadel', subtitle: 'When the hearts break', skyTop: '#0a0c14', skyBottom: '#403f55', glow: '#f0f3ff', accent: '#b6bfd6', accent2: '#9e8e5e', icons: [E.knight, E.rook, E.bishop, E.queen], forms: ['line', 'cross', 'wave'], enemyKinds: ['zigzag', 'sniper', 'elite'], atmosphere: 'chess', music: { bpm: 122, root: 196, pattern: [0, 3, 7, 10, 7, 3, 5, 7] }, boss: { name: 'Purple Matron', emoji: E.queen, hp: 288, size: 320, color: '#e7ecff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'summon'), phase(8, 'dash', 'ring')] } }),
+    theme({ name: 'Crushing Depths', subtitle: 'Hunger for sunlight', skyTop: '#0c1821', skyBottom: '#344c84', glow: '#d7f4ff', accent: '#9cc7ff', accent2: '#d7f4ff', icons: [E.cloud, E.rain, E.bolt, E.star], forms: ['rain', 'line', 'swarm'], enemyKinds: ['diver', 'sniper', 'spinner'], atmosphere: 'rain', music: { bpm: 128, root: 196, pattern: [0, 4, 7, 10, 7, 4, 2, 5] }, boss: { name: 'Deep Gulper', emoji: E.cloud, hp: 276, size: 320, color: '#d3edff', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Thorium Gap', subtitle: 'Final Descent', skyTop: '#0f081b', skyBottom: '#5b3d18', glow: '#ffe78a', accent: '#ffd77a', accent2: '#ffffff', icons: [E.sun, E.crown, E.star, E.comet], forms: ['ring', 'fan', 'wave'], enemyKinds: ['elite', 'sniper', 'spinner'], atmosphere: 'nova', music: { bpm: 152, root: 262, pattern: [0, 4, 7, 12, 15, 12, 7, 4] }, boss: { name: 'Unnamed Horror', emoji: E.sun, hp: 320, size: 512, color: '#fff0bd', flipWhenMovingRight: false, phases: [phase(6.5, 'hover', 'aimed'), phase(6.5, 'sweep', 'ring'), phase(6.5, 'dash', 'beam'), phase(7.5, 'low', 'wall')] } })
   ];
 
   const FINAL_LEVEL_ENEMY_KINDS = (function () {
@@ -1141,6 +1233,8 @@
     hudLastDraw: 0,
     debugMode: DEBUG_MODE
   };
+
+  if (!gl) state.settings.lowEndMode = true;
 
   function markHudDirty() {
     state.hudDirty = true;
@@ -1331,7 +1425,10 @@
     if (sfxVolumeValue) sfxVolumeValue.textContent = Math.round(state.settings.sfxVolume * 100) + '%';
     if (musicVolumeValue) musicVolumeValue.textContent = Math.round(state.settings.musicVolume * 100) + '%';
     if (difficultyValue) difficultyValue.textContent = currentDifficulty().label;
-    if (lowEndModeInput) lowEndModeInput.checked = !!state.settings.lowEndMode;
+    if (lowEndModeInput) {
+      lowEndModeInput.checked = !!state.settings.lowEndMode;
+      lowEndModeInput.disabled = !gl;
+    }
     for (let i = 0; i < difficultyButtons.length; i++) {
       const btn = difficultyButtons[i];
       const idx = Number(btn.getAttribute('data-difficulty'));
@@ -1605,10 +1702,33 @@
   function drawStarfield() {
     ensureStarfield();
     state.starfieldScroll += 0.012;
+
+    if (gl && render.starProgram && render.starBuffer && !render.starDisabled) return;
+
+    const time = state.animClock || state.levelClock || 0;
+    const lowEnd = !!state.settings.lowEndMode;
+    const sizeScale = lowEnd ? 0.92 : 1.0;
+    const additiveAlpha = lowEnd ? 0.72 : 0.82;
+
+    for (let i = 0; i < state.starfield.length; i++) {
+      const star = state.starfield[i];
+      const x = star.x * view.w;
+      const y = ((star.y + state.starfieldScroll * star.speed) % 1) * view.h;
+      const twinkle = 0.72 + Math.sin(time * 2.1 + star.tw * 6.2831853) * 0.28;
+      const alpha = clamp(star.a * twinkle * 1.05, 0.16, 1.0);
+      const tint = star.tint;
+      const color = tint >= 0.84 ? '#f2e3a8' : tint >= 0.64 ? '#dff0ff' : '#ffffff';
+      const size = clamp(star.r * sizeScale, 1.0, lowEnd ? 2.6 : 3.2);
+
+      drawSpriteRect(x, y, size, size, color, alpha * additiveAlpha, 0, true, 0);
+      if (!lowEnd && size > 1.2) {
+        drawSpriteRect(x, y, size * 0.55, size * 0.55, '#ffffff', clamp(alpha * 0.95, 0.12, 1.0), 0, false, 0);
+      }
+    }
   }
 
   function drawStarfieldGPU() {
-    if (!gl || !render.starProgram || !render.starBuffer) return;
+    if (!gl || !render.starProgram || !render.starBuffer || render.starDisabled) return;
     ensureStarfield();
     if (render.starDirty || render.starBufferCount !== state.starfield.length) {
       const data = new Float32Array(Math.max(1, state.starfield.length) * 8);
@@ -1630,15 +1750,28 @@
       render.starBufferCount = state.starfield.length;
       render.starDirty = false;
     }
-    gl.useProgram(render.starProgram);
-    gl.bindBuffer(gl.ARRAY_BUFFER, render.starBuffer);
-    gl.uniform2f(render.uStarViewport, canvas.width, canvas.height);
-    gl.uniform1f(render.uStarTime, state.animClock || state.levelClock || 0);
-    gl.uniform1f(render.uStarScroll, state.starfieldScroll || 0);
-    gl.uniform1f(render.uStarDpr, view.dpr || 1);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.ONE, gl.ONE);
-    gl.drawArrays(gl.POINTS, 0, render.starBufferCount);
+    try {
+      gl.useProgram(render.starProgram);
+      gl.bindBuffer(gl.ARRAY_BUFFER, render.starBuffer);
+      gl.uniform2f(render.uStarViewport, canvas.width, canvas.height);
+      gl.uniform1f(render.uStarTime, state.animClock || state.levelClock || 0);
+      gl.uniform1f(render.uStarScroll, state.starfieldScroll || 0);
+      gl.uniform1f(render.uStarDpr, view.dpr || 1);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.drawArrays(gl.POINTS, 0, render.starBufferCount);
+    } catch (err) {
+      console.warn('GPU starfield draw failed; disabling starfield.', err);
+      render.starDisabled = true;
+      render.starProgram = null;
+      render.starBuffer = null;
+      render.aStar0 = null;
+      render.aStar1 = null;
+      render.uStarViewport = null;
+      render.uStarTime = null;
+      render.uStarScroll = null;
+      render.uStarDpr = null;
+    }
   }
 
   function resetPlayer() {
@@ -2085,6 +2218,8 @@
       maxHp: Math.round(b.hp * (1 + state.levelIndex * 0.04) * diff.bossHp),
       phases: b.phases, phaseIndex: 0, phaseClock: 0, age: 0,
       fireClock: 0, motionClock: 0, state: {}, hitFlash: 0, glowBoost: 0, dead: false,
+      size: Math.max(1, b.size || 512),
+      flipWhenMovingRight: b.flipWhenMovingRight !== false,
       shipLevel: levelNumber, shipIndex: 0, facingRight: false,
       hitBox: hitBox
     };
@@ -3534,53 +3669,71 @@
     });
   }
 
-    function drawBar(x, y, w, h, ratio, fill, back, label) {
-      x = Number.isFinite(x) ? x : 0;
-      y = Number.isFinite(y) ? y : 0;
-      w = Number.isFinite(w) ? w : 0;
-      h = Number.isFinite(h) ? h : 0;
-    const p = clamp(ratio, 0, 1);
-    hudCtx.save();
-    hudCtx.fillStyle = back || 'rgba(255,255,255,0.12)';
-    hudCtx.strokeStyle = 'rgba(255,255,255,0.18)';
-    hudCtx.lineWidth = 1;
-    roundRect(x, y, w, h, h * 0.5);
-    hudCtx.fill();
-    hudCtx.stroke();
-    if (p > 0) {
-      const g = hudCtx.createLinearGradient(x, y, x + w, y);
-      g.addColorStop(0, fill || '#ffffff');
-      g.addColorStop(1, 'rgba(255,255,255,0.95)');
-      hudCtx.fillStyle = g;
-      roundRect(x + 1, y + 1, Math.max(0, (w - 2) * p), h - 2, h * 0.45);
-      hudCtx.fill();
-      }
-      if (label) {
-        const prev = hudCtx.globalCompositeOperation;
-        hudCtx.globalCompositeOperation = 'difference';
-        hudCtx.fillStyle = '#fff';
-        hudCtx.font = '700 9px "Segoe UI", sans-serif';
-        hudCtx.textAlign = 'center';
-        hudCtx.textBaseline = 'middle';
-        hudCtx.fillText(label, x + w * 0.5, y + h * 0.52);
-        hudCtx.globalCompositeOperation = prev;
-      }
-      hudCtx.restore();
-    }
-
-  function drawWorldBar(x, y, w, h, ratio, fill, back, layer) {
+  function drawBar(x, y, w, h, ratio, fill, back, label) {
     x = Number.isFinite(x) ? x : 0;
     y = Number.isFinite(y) ? y : 0;
     w = Number.isFinite(w) ? w : 0;
     h = Number.isFinite(h) ? h : 0;
-    const p = clamp(ratio, 0, 1);
-    const l = Number.isFinite(layer) ? layer : 0;
-    const bg = Array.isArray(back) ? back : hexToRgb('#000000');
-    drawSpriteRect(x + w * 0.5, y + h * 0.2112, w, h, bg, 0.900, l, false);
-    if (p > 0) {
-      const fillW = Math.max(1, w * p);
-      drawSpriteRect(x + fillW * 0.5, y + h * 0.5, fillW, Math.max(1, h - 2), fill || '#ffffff', 0.4, l + 0.01, false);
+  const p = clamp(ratio, 0, 1);
+  hudCtx.save();
+  hudCtx.fillStyle = back || 'rgba(255,255,255,0.12)';
+  hudCtx.strokeStyle = 'rgba(255,255,255,0.18)';
+  hudCtx.lineWidth = 1;
+  roundRect(x, y, w, h, h * 0.5);
+  hudCtx.fill();
+  hudCtx.stroke();
+  if (p > 0) {
+    const g = hudCtx.createLinearGradient(x, y, x + w, y);
+    g.addColorStop(0, fill || '#ffffff');
+    g.addColorStop(1, 'rgba(255,255,255,0.95)');
+    hudCtx.fillStyle = g;
+    roundRect(x + 1, y + 1, Math.max(0, (w - 2) * p), h - 2, h * 0.45);
+    hudCtx.fill();
     }
+    if (label) {
+      const prev = hudCtx.globalCompositeOperation;
+      hudCtx.globalCompositeOperation = 'difference';
+      hudCtx.fillStyle = '#fff';
+      hudCtx.font = '700 9px "Segoe UI", sans-serif';
+      hudCtx.textAlign = 'center';
+      hudCtx.textBaseline = 'middle';
+      hudCtx.fillText(label, x + w * 0.5, y + h * 0.52);
+      hudCtx.globalCompositeOperation = prev;
+    }
+    hudCtx.restore();
+  }
+
+  function drawWorldBar(x, y, w, h, ratio, fill, back, layer) {
+      x = Number.isFinite(x) ? x : 0;
+      y = Number.isFinite(y) ? y : 0;
+      w = Number.isFinite(w) ? w : 0;
+      h = Number.isFinite(h) ? h : 0;
+      const p = clamp(ratio, 0, 1);
+      const l = Number.isFinite(layer) ? layer : 0;
+      const cy = y + h * 0.5;
+      const color = fill || '#ffffff';
+      const border = 1 / Math.max(1, view.dpr);
+
+      drawSpriteRect(x + w * 0.5, cy, w, h, color, 1.0, l, false);
+
+      const innerX = x + border;
+      const innerY = y + border;
+      const innerW = Math.max(0, w - border * 2);
+      const innerH = Math.max(0, h - border * 2);
+      const missingW = innerW * (1 - p);
+
+      if (missingW > 0 && innerH > 0) {
+          drawSpriteRect(
+              innerX + innerW * p + missingW * 0.5,
+              innerY + innerH * 0.5,
+              missingW,
+              innerH,
+              '#000000',
+              1.00,
+              l + 0.01,
+              false
+          );
+      }
   }
 
   function drawSceneHill(o, theme) {
@@ -4146,24 +4299,27 @@
     const r = b.r;
     const rot = Math.sin(b.age * 0.8) * 0.04;
     const levelNumber = b.shipLevel || (state.levelIndex + 1);
+    const size = Math.max(1, b.size || 512);
+    const glowSize = bossGlowCanvasSize(size);
+    const flipWhenMovingRight = b.flipWhenMovingRight !== false;
+    const facingRight = flipWhenMovingRight ? !!b.facingRight : false;
     const texture = getBossTexture(levelNumber);
     const glowTexture = getBossGlowTexture(levelNumber, 'blue');
     const boostTexture = getBossGlowTexture(levelNumber, 'white');
-    const size = 512;
     if (glowTexture) {
       const glowPulse = 0.5 + 0.25 * Math.sin(Math.PI * b.age);
-      const glowW = b.facingRight ? -size : size;
-      drawTextureRect(glowTexture, b.x, b.y, glowW, size, { rot: rot, alpha: glowPulse, layer: 27, lighter: false });
+      const glowW = facingRight ? -glowSize : glowSize;
+      drawTextureRect(glowTexture, b.x, b.y, glowW, glowSize, { rot: rot, alpha: glowPulse, layer: 27, lighter: false });
     }
     if (boostTexture) {
       const boostAlpha = clamp(b.glowBoost || 0, 0, 0.2);
       if (boostAlpha > 0) {
-        const boostW = b.facingRight ? -size : size;
-        drawTextureRect(boostTexture, b.x, b.y, boostW, size, { rot: rot, alpha: boostAlpha, layer: 27, lighter: false });
+        const boostW = facingRight ? -glowSize : glowSize;
+        drawTextureRect(boostTexture, b.x, b.y, boostW, glowSize, { rot: rot, alpha: boostAlpha, layer: 27, lighter: false });
       }
     }
     if (texture) {
-      const w = b.facingRight ? -size : size;
+      const w = facingRight ? -size : size;
       drawTextureRect(texture, b.x, b.y, w, size, { rot: rot, alpha: 0.98, layer: 28 });
     }
   }
@@ -4192,9 +4348,9 @@
     drawEnemyBody(e, rot, shipSize);
     drawEnemyOverlay(e, rot);
     if (e.maxHp > 1 && e.hp > 0) {
-      const barW = shipSize * 0.86;
-      const barH = Math.max(6, Math.round(shipSize * 0.03));
-      drawWorldBar(e.x - barW * 0.5, e.y - shipSize * 0.62, barW, barH, e.hp / e.maxHp, '#ff9a4d', 'rgba(0,0,0,0.35)', 17);
+      const barW = shipSize * 0.50;
+      const barH = Math.max(4, Math.round(shipSize * 0.02));
+      drawWorldBar(e.x - barW * 0.5, e.y - shipSize * 0.62, barW, barH, e.hp / e.maxHp, '#503010', 'rgba(0,0,0,1.0)', 17);
     }
     if (e.hitFlash > 0) drawGlowCircle(e.x, e.y, e.r * 1.35, '#ffffff', 0.22, 18);
   }
@@ -4309,7 +4465,8 @@
     img.onload = function () {
       try {
         playerShipSourceImage = img;
-        render.textures.set(PLAYER_SHIP_TEXTURE_KEY, createTextureFromCanvas(img));
+        const tex = createTextureFromCanvas(img);
+        if (tex) render.textures.set(PLAYER_SHIP_TEXTURE_KEY, tex);
       } finally {
         playerShipTextureLoading = false;
       }
@@ -4321,15 +4478,20 @@
   }
 
   function ensurePlayerAuraTexture() {
-    if (render.textures.has(PLAYER_AURA_TEXTURE_KEY)) return;
+    if (render.textures.has(PLAYER_AURA_TEXTURE_KEY) || playerAuraTextureLoading) return;
+    playerAuraTextureLoading = true;
     const img = new Image();
     img.decoding = 'async';
     img.onload = function () {
       try {
-        render.textures.set(PLAYER_AURA_TEXTURE_KEY, createTextureFromCanvas(img));
+        const tex = createTextureFromCanvas(img);
+        if (tex) render.textures.set(PLAYER_AURA_TEXTURE_KEY, tex);
       } finally {
-        // no-op
+        playerAuraTextureLoading = false;
       }
+    };
+    img.onerror = function () {
+      playerAuraTextureLoading = false;
     };
     img.src = 'assets/players_aura.png';
   }
@@ -4416,7 +4578,7 @@
     g.restore();
 
     tex = createTextureFromCanvas(c);
-    render.textures.set(key, tex);
+    if (tex) render.textures.set(key, tex);
     return tex;
   }
 
@@ -4483,7 +4645,7 @@
     g.restore();
 
     tex = createTextureFromCanvas(c);
-    render.textures.set(key, tex);
+    if (tex) render.textures.set(key, tex);
     return tex;
   }
 
@@ -4901,4 +5063,3 @@
   });
   requestAnimationFrame(loop);
 }());
-
