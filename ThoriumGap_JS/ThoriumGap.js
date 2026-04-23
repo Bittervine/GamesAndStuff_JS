@@ -2800,7 +2800,7 @@
     if (!b) return;
     b.age += dt;
     b.hitBox = getBossHitBox(b.shipLevel || (state.levelIndex + 1));
-    b.glowBoost = Math.max(0, (b.glowBoost || 0) - dt * 2.0);
+    b.glowBoost = Math.max(0, (b.glowBoost || 0) - dt * 4.0);
     b.phaseClock += dt;
     const phaseDef = b.phases[b.phaseIndex] || b.phases[b.phases.length - 1];
     if (b.phaseClock >= phaseDef.dur) {
