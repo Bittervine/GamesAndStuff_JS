@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
 
   const TAU = Math.PI * 2;
@@ -151,6 +151,9 @@
   // Enemy glow colors are cached here after load; debug mode may sample textures once, production uses a fallback palette.
   const enemyShipGlowColors = new Map();
   const bossArtLoadKeys = new Set();
+  const bossGlowLoadKeys = new Set();
+  const bossGlowTextures = new Map();
+  const bossHitBoxes = new Map();
 
   function enemyShipKey(levelNumber, shipIndex) {
     return 'enemyship|' + levelNumber + '|' + shipIndex;
@@ -374,6 +377,82 @@
     return 'assets/Boss_' + String(levelNumber).padStart(2, '0') + '.png';
   }
 
+  function makeNormalizedBossCanvas(img) {
+    const size = 512;
+    const c = makeCanvas(size, size);
+    const g = c.getContext('2d');
+    if (!g) return null;
+    g.clearRect(0, 0, size, size);
+    const srcW = Math.max(1, img.naturalWidth || img.width || size);
+    const srcH = Math.max(1, img.naturalHeight || img.height || size);
+    const scale = Math.min(size / srcW, size / srcH);
+    const drawW = srcW * scale;
+    const drawH = srcH * scale;
+    const dx = (size - drawW) * 0.5;
+    const dy = (size - drawH) * 0.5;
+    g.drawImage(img, dx, dy, drawW, drawH);
+    return c;
+  }
+
+  function makeBossGlowCanvas(img, glowColor) {
+    const size = 512;
+    const c = makeCanvas(size, size);
+    const g = c.getContext('2d');
+    if (!g) return null;
+    const srcW = Math.max(1, img.naturalWidth || img.width || size);
+    const srcH = Math.max(1, img.naturalHeight || img.height || size);
+    const scale = Math.min(size / srcW, size / srcH);
+    const drawW = srcW * scale;
+    const drawH = srcH * scale;
+    const dx = (size - drawW) * 0.5;
+    const dy = (size - drawH) * 0.5;
+    const src = makeCanvas(size, size);
+    const sg = src.getContext('2d');
+    if (!sg) return null;
+    sg.clearRect(0, 0, size, size);
+    sg.drawImage(img, dx, dy, drawW, drawH);
+    g.clearRect(0, 0, size, size);
+    if (g.filter !== undefined) g.filter = 'blur(8px)';
+    g.drawImage(src, 0, 0);
+    if (g.filter !== undefined) g.filter = 'none';
+    const imgData = g.getImageData(0, 0, size, size);
+    const data = imgData.data;
+    const rgb = hexToRgb(glowColor || '#ffffff');
+    for (let i = 0; i < data.length; i += 4) {
+      const a = data[i + 3];
+      if (a <= 0) continue;
+      data[i] = rgb[0];
+      data[i + 1] = rgb[1];
+      data[i + 2] = rgb[2];
+      data[i + 3] = Math.max(0, Math.min(255, Math.round(255 * Math.pow(a / 255, 0.5))));
+    }
+    g.putImageData(imgData, 0, 0);
+    return c;
+  }
+
+  function getCanvasAlphaBounds(source) {
+    const w = Math.max(1, source && (source.naturalWidth || source.width) || 1);
+    const h = Math.max(1, source && (source.naturalHeight || source.height) || 1);
+    const c = makeCanvas(w, h);
+    const g = c.getContext('2d');
+    if (!g) return { x: 0, y: 0, w: w, h: h };
+    g.clearRect(0, 0, w, h);
+    g.drawImage(source, 0, 0, w, h);
+    const data = g.getImageData(0, 0, w, h).data;
+    let minX = w, minY = h, maxX = -1, maxY = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (data[(y * w + x) * 4 + 3] <= 0) continue;
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+    if (maxX < minX || maxY < minY) return { x: 0, y: 0, w: w, h: h };
+    return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+  }
+
   function ensureBossTexture(levelNumber) {
     const key = bossArtKey(levelNumber);
     if (render.textures.has(key) || bossArtLoadKeys.has(key)) return;
@@ -382,7 +461,22 @@
     img.decoding = 'async';
     img.onload = function () {
       try {
-        render.textures.set(key, createTextureFromCanvas(img));
+        const normalized = makeNormalizedBossCanvas(img) || img;
+        render.textures.set(key, createTextureFromCanvas(normalized));
+        const bounds = getCanvasAlphaBounds(normalized);
+        bossHitBoxes.set(key, {
+          x: bounds.x - 256,
+          y: bounds.y - 256,
+          w: bounds.w,
+          h: bounds.h
+        });
+        const theme = THEMES[Math.max(0, Math.min(THEMES.length - 1, levelNumber - 1))] || mainTheme();
+        const blueGlowKey = key + '|glowBlue';
+        const whiteGlowKey = key + '|glowWhite';
+        const blueGlowCanvas = makeBossGlowCanvas(normalized, '#0038ff') || normalized;
+        const whiteGlowCanvas = makeBossGlowCanvas(normalized, '#ffffff') || normalized;
+        bossGlowTextures.set(blueGlowKey, createTextureFromCanvas(blueGlowCanvas));
+        bossGlowTextures.set(whiteGlowKey, createTextureFromCanvas(whiteGlowCanvas));
       } finally {
         bossArtLoadKeys.delete(key);
       }
@@ -403,6 +497,29 @@
     if (tex) return tex;
     ensureBossTexture(levelNumber);
     return null;
+  }
+
+  function getBossGlowTexture(levelNumber, variant) {
+    const key = bossArtKey(levelNumber) + '|glow' + (variant === 'white' ? 'White' : 'Blue');
+    const tex = bossGlowTextures.get(key);
+    if (tex) return tex;
+    ensureBossTexture(levelNumber);
+    return null;
+  }
+
+  function getBossHitBox(levelNumber) {
+    const key = bossArtKey(levelNumber);
+    return bossHitBoxes.get(key) || { x: -256, y: -256, w: 512, h: 512 };
+  }
+
+  function circleIntersectsRect(cx, cy, cr, rect) {
+    const rx = rect.x;
+    const ry = rect.y;
+    const rw = rect.w;
+    const rh = rect.h;
+    const nx = clamp(cx, rx, rx + rw);
+    const ny = clamp(cy, ry, ry + rh);
+    return d2(cx, cy, nx, ny) <= cr * cr;
   }
 
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -1631,6 +1748,19 @@
     else if (code === 'Digit9') spawnPickup('magnet', x, y);
   }
 
+  function debugJumpToBoss() {
+    if (!state.debugMode || state.mode !== 'playing' || state.boss || state.transition) return;
+    const theme = mainTheme();
+    state.waveClock = 0;
+    state.levelClock = 28 + state.levelIndex * 2.8;
+    state.banner = 'BOSS!';
+    state.bannerSub = theme.subtitle;
+    state.bannerTimer = 1.2;
+    clearProjectileLists();
+    clearParticleList();
+    clearEnemyBulletsWithBudget(9999);
+  }
+
   function beginLevel(index) {
     state.levelIndex = index;
     state.currentTheme = THEMES[index];
@@ -1946,14 +2076,17 @@
   function spawnBoss(theme) {
     const b = theme.boss;
     const diff = currentDifficulty();
+    const levelNumber = state.levelIndex + 1;
+    const hitBox = getBossHitBox(levelNumber);
     state.boss = {
       theme: theme, name: b.name, emoji: b.emoji, color: b.color,
       x: view.w * 0.5, y: 128, vx: 0, vy: 0, r: 64,
       hp: Math.round(b.hp * (1 + state.levelIndex * 0.04) * diff.bossHp),
       maxHp: Math.round(b.hp * (1 + state.levelIndex * 0.04) * diff.bossHp),
       phases: b.phases, phaseIndex: 0, phaseClock: 0, age: 0,
-      fireClock: 0, motionClock: 0, state: {}, hitFlash: 0, dead: false,
-      shipLevel: state.levelIndex + 1, shipIndex: 0, facingRight: false
+      fireClock: 0, motionClock: 0, state: {}, hitFlash: 0, glowBoost: 0, dead: false,
+      shipLevel: levelNumber, shipIndex: 0, facingRight: false,
+      hitBox: hitBox
     };
     state.banner = 'BOSS: ' + b.name;
     state.bannerSub = theme.subtitle;
@@ -2322,6 +2455,7 @@
     if (actualDamage <= 0) return;
     b.hp -= actualDamage;
     b.hitFlash = 0.12;
+    b.glowBoost = Math.min(1.0, (b.glowBoost || 0) + 0.25);
     burst(b.x, b.y, b.color, 8 + Math.min(14, actualDamage), 190 + actualDamage * 15, 7, 'spark');
     if (b.hp <= 0) {
       b.dead = true;
@@ -2532,6 +2666,8 @@
     const b = state.boss;
     if (!b) return;
     b.age += dt;
+    b.hitBox = getBossHitBox(b.shipLevel || (state.levelIndex + 1));
+    b.glowBoost = Math.max(0, (b.glowBoost || 0) - dt * 2.0);
     b.phaseClock += dt;
     const phaseDef = b.phases[b.phaseIndex] || b.phases[b.phases.length - 1];
     if (b.phaseClock >= phaseDef.dur) {
@@ -2648,7 +2784,12 @@
       b.y += b.vy * dt;
       b.life -= dt;
       if (b.life <= 0 || b.x < -60 || b.x > view.w + 60 || b.y < -80 || b.y > view.h + 80) remove = true;
-      if (state.boss && d2(b.x, b.y, state.boss.x, state.boss.y) < (b.r + state.boss.r) * (b.r + state.boss.r)) {
+      if (state.boss && circleIntersectsRect(b.x, b.y, b.r, {
+        x: state.boss.x + (state.boss.hitBox ? state.boss.hitBox.x : -256),
+        y: state.boss.y + (state.boss.hitBox ? state.boss.hitBox.y : -256),
+        w: state.boss.hitBox ? state.boss.hitBox.w : 512,
+        h: state.boss.hitBox ? state.boss.hitBox.h : 512
+      })) {
         damageBoss(state.boss, b.damage, false);
         if (clearVersion !== state.projectileClearVersion) return;
         if (b.pierce > 0) { b.pierce--; b.life -= 0.3; }
@@ -4006,12 +4147,23 @@
     const rot = Math.sin(b.age * 0.8) * 0.04;
     const levelNumber = b.shipLevel || (state.levelIndex + 1);
     const texture = getBossTexture(levelNumber);
-    const size = Math.max(208, getEnemyShipRenderSize(levelNumber, b.shipIndex || 0) * 2.75);
-    drawGlowCircle(b.x, b.y, r * 2.1, p.glow, 0.18, 24);
-    drawGlowCircle(b.x, b.y, r * 1.1, p.base, 0.18, 12);
-    drawGlowCircle(b.x, b.y, r * 0.4, p.base, 0.24, 8);
+    const glowTexture = getBossGlowTexture(levelNumber, 'blue');
+    const boostTexture = getBossGlowTexture(levelNumber, 'white');
+    const size = 512;
+    if (glowTexture) {
+      const glowPulse = 0.5 + 0.25 * Math.sin(Math.PI * b.age);
+      const glowW = b.facingRight ? -size : size;
+      drawTextureRect(glowTexture, b.x, b.y, glowW, size, { rot: rot, alpha: glowPulse, layer: 27, lighter: false });
+    }
+    if (boostTexture) {
+      const boostAlpha = clamp(b.glowBoost || 0, 0, 1);
+      if (boostAlpha > 0) {
+        const boostW = b.facingRight ? -size : size;
+        drawTextureRect(boostTexture, b.x, b.y, boostW, size, { rot: rot, alpha: boostAlpha, layer: 27, lighter: false });
+      }
+    }
     if (texture) {
-      const w = levelNumber <= 6 ? size : (b.facingRight ? -size : size);
+      const w = b.facingRight ? -size : size;
       drawTextureRect(texture, b.x, b.y, w, size, { rot: rot, alpha: 0.98, layer: 28 });
     }
   }
@@ -4021,7 +4173,6 @@
   }
 
   function drawBossOverlay(b) {
-    if (b.hitFlash > 0) drawGlowCircle(b.x, b.y, b.r * 1.35, '#ffffff', 0.16, 29);
   }
 
   function drawEnemy(e) {
@@ -4050,12 +4201,8 @@
 
   function drawBoss(b) {
     if (!b) return;
-    const glow = b.color || '#fff';
-    drawGlowCircle(b.x, b.y, b.r * 2.4, glow, 0.24, 28);
-    drawGlowCircle(b.x, b.y, b.r * 1.2, '#fff', 0.08, 20);
     drawBossBody(b);
     drawBossOverlay(b);
-    if (b.hitFlash > 0) drawGlowCircle(b.x, b.y, b.r * 1.45, '#ffffff', 0.18, 24);
   }
 
   function drawPlayer() {
@@ -4628,6 +4775,10 @@
         ev.preventDefault();
         resumeAudio();
       }
+    if (state.debugMode && code === 'Digit0') {
+      ev.preventDefault();
+      if (!ev.repeat) debugJumpToBoss();
+    }
     if (state.debugMode && (code === 'Digit1' || code === 'Digit2' || code === 'Digit3' || code === 'Digit4' || code === 'Digit5' || code === 'Digit6' || code === 'Digit7' || code === 'Digit8' || code === 'Digit9')) {
       ev.preventDefault();
       if (!ev.repeat) spawnCheatDrop(code);
