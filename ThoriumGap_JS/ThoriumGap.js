@@ -512,14 +512,10 @@
           w: bounds.w,
           h: bounds.h
         });
-        const blueGlowKey = key + '|glowBlue';
-        const whiteGlowKey = key + '|glowWhite';
-        const blueGlowCanvas = makeBossGlowCanvas(normalized, '#0038ff', bossSize) || normalized;
-        const whiteGlowCanvas = makeBossGlowCanvas(normalized, '#ffffff', bossSize) || normalized;
-        const blueGlowTex = createTextureFromCanvas(blueGlowCanvas);
-        const whiteGlowTex = createTextureFromCanvas(whiteGlowCanvas);
-        if (blueGlowTex) bossGlowTextures.set(blueGlowKey, blueGlowTex);
-        if (whiteGlowTex) bossGlowTextures.set(whiteGlowKey, whiteGlowTex);
+        const glowKey = key + '|glow';
+        const glowCanvas = makeBossGlowCanvas(normalized, '#ffffff', bossSize) || normalized;
+        const glowTex = createTextureFromCanvas(glowCanvas);
+        if (glowTex) bossGlowTextures.set(glowKey, glowTex);
       } finally {
         bossArtLoadKeys.delete(key);
       }
@@ -542,8 +538,8 @@
     return null;
   }
 
-  function getBossGlowTexture(levelNumber, variant) {
-    const key = bossArtKey(levelNumber) + '|glow' + (variant === 'white' ? 'White' : 'Blue');
+  function getBossGlowTexture(levelNumber) {
+    const key = bossArtKey(levelNumber) + '|glow';
     const tex = bossGlowTextures.get(key);
     if (tex) return tex;
     ensureBossTexture(levelNumber);
@@ -614,6 +610,13 @@
     if (s.length === 3) s = s[0] + s[0] + s[1] + s[1] + s[2] + s[2];
     if (!/^[0-9a-fA-F]{6}$/.test(s)) return [255, 255, 255];
     return [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)];
+  }
+
+  function mixHex(a, b, t) {
+    const ar = hexToRgb(a || '#ffffff');
+    const br = hexToRgb(b || '#ffffff');
+    const k = clamp(t == null ? 0 : t, 0, 1);
+    return '#' + [0, 1, 2].map(function (i) { return clamp255(lerp(ar[i], br[i], k)).toString(16).padStart(2, '0'); }).join('');
   }
 
   function colorUnit(color) {
@@ -2110,11 +2113,11 @@
     const list = [
       { type: 'weapon', w: weaponWeight },
       { type: 'rapid', w: state.player.rapidTimer > 4 ? 1 : 4 },
-      { type: 'shield', w: state.player.shield < 2 ? 5 : 2 },
+      { type: 'shield', w: state.player.shield < 2 ? 3 : 1 },
       { type: 'bomb', w: state.player.bombs < 2 ? 5 : 2 },
       { type: 'magnet', w: state.player.magnetTimer < 4 ? 4 : 1 },
-      { type: 'invuln', w: 2.0 },
-      { type: 'score', w: 3 }
+      { type: 'invuln', w: 1.0 },
+      { type: 'score', w: 10 }
     ];
     const total = list.reduce(function (sum, item) { return sum + item.w; }, 0);
     let roll = Math.random() * total;
@@ -2566,7 +2569,7 @@
     const p = state.player;
     if (state.mode !== 'playing' || p.bombs <= 0) return;
     p.bombs--;
-    p.invuln = 0.31;
+    p.invuln = 0.25;
     state.flash = Math.max(state.flash, 0.5);
     state.shake = Math.max(state.shake, 15);
     sfx('bomb');
@@ -2657,7 +2660,7 @@
     const actualDamage = Math.max(1, Math.round(damage * 3));
     if (p.shield > 0) {
       p.shield--;
-      p.invuln = 0.31;
+      p.invuln = 0.25;
       state.flash = Math.max(state.flash, 0.1);
       burst(p.x, p.y, '#8fd8ff', 16, 220, 5, 'spark');
       sfx('power');
@@ -2666,7 +2669,7 @@
       return;
     }
     p.health -= actualDamage;
-    p.invuln = 0.31;
+    p.invuln = 0.25;
     p.repairDelay = 1.8;
     state.shake = Math.max(state.shake, 10);
     state.flash = Math.max(state.flash, 0.12);
@@ -4342,19 +4345,14 @@
     const flipWhenMovingRight = b.flipWhenMovingRight !== false;
     const facingRight = flipWhenMovingRight ? !!b.facingRight : false;
     const texture = getBossTexture(levelNumber);
-    const glowTexture = getBossGlowTexture(levelNumber, 'blue');
-    const boostTexture = getBossGlowTexture(levelNumber, 'white');
+    const glowTexture = getBossGlowTexture(levelNumber);
     if (glowTexture) {
-      const glowPulse = 0.5 + 0.25 * Math.sin(Math.PI * b.age);
+      const pulse = 0.45 + 0.30 * Math.sin(Math.PI * b.age);
+      const boost = clamp(b.glowBoost || 0, 0, 1);
+      const tint = mixHex('#0038ff', '#ffffff', boost);
+      const glowAlpha = clamp(pulse + boost * 0.75, 0.15, 1);
       const glowW = facingRight ? -glowSize : glowSize;
-      drawTextureRect(glowTexture, b.x, b.y, glowW, glowSize, { rot: rot, alpha: glowPulse, layer: 27, lighter: false });
-    }
-    if (boostTexture) {
-      const boostAlpha = clamp(b.glowBoost || 0, 0, 0.2);
-      if (boostAlpha > 0) {
-        const boostW = facingRight ? -glowSize : glowSize;
-        drawTextureRect(boostTexture, b.x, b.y, boostW, glowSize, { rot: rot, alpha: boostAlpha, layer: 27, lighter: false });
-      }
+      drawTextureRect(glowTexture, b.x, b.y, glowW, glowSize, { rot: rot, alpha: glowAlpha, layer: 27, lighter: false, fill: tint });
     }
     if (texture) {
       const w = facingRight ? -size : size;
