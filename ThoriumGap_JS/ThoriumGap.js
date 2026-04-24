@@ -1151,7 +1151,7 @@
   const PLAYER_RADIUS = 46;
 
   function shotDelay(v) {
-    return v * SHOT_PACE * (1 + state.levelIndex * 0.15);
+    return v * SHOT_PACE * (1 + state.levelIndex * 0.2);
   }
 
   const state = {
