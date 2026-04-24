@@ -1151,7 +1151,7 @@
   const PLAYER_RADIUS = 46;
 
   function shotDelay(v) {
-    return v * SHOT_PACE;
+    return v * SHOT_PACE * (1 + state.levelIndex * 0.1);
   }
 
   const state = {
@@ -2179,7 +2179,7 @@
   }
 
   function maybeDropPickup(x, y, elite, forceType) {
-    const p = elite ? 0.72 : 0.16 + state.levelIndex * 0.01;
+    const p = elite ? 0.50 : 0.10 + state.levelIndex * 0.005;
     if (forceType || Math.random() < p) {
       const type = forceType || choosePickup();
       if (type === 'weapon') spawnPickup('weapon', x, y, { weaponMode: chooseWeaponMode(state.player.weaponMode) });
@@ -3146,7 +3146,7 @@
       } else if (!entering && e.kind === 'spinner') {
         e.y += e.vy * dt * 0.7;
         e.x += Math.cos(e.age * 1.1 + e.wobble) * 24 * dt;
-        if (e.fireCooldown <= 0 && e.y > 80) { e.fireCooldown = shotDelay(1.65 - Math.min(0.6, state.levelIndex * 0.04)); ringBullets(e.x, e.y, 8 + Math.floor(state.levelIndex / 2), 150 + state.levelIndex * 8, 1, e.theme.accent2, 'enemy'); }
+        if (e.fireCooldown <= 0 && e.y > 80) { e.fireCooldown = shotDelay(1.65 - Math.min(0.6, state.levelIndex * 0.04)); ringBullets(e.x, e.y, 7 + Math.floor(state.levelIndex / 2), 150 + state.levelIndex * 8, 1, e.theme.accent2, 'enemy'); }
       } else if (!entering && e.kind === 'splitter') {
         e.y += e.vy * dt;
         e.x += Math.sin(e.age * 2.2 + e.wobble) * 18 * dt;
@@ -3178,7 +3178,7 @@
 
   function updatePickups(dt) {
     const p = state.player;
-    const magnet = p.magnetTimer > 0 ? 220 : 0;
+    const magnet = p.magnetTimer > 0 ? 600 : 0;
     for (let i = state.pickups.length - 1; i >= 0; i--) {
       const it = state.pickups[i];
       it.life -= dt;
@@ -3186,9 +3186,13 @@
       if (magnet > 0) {
         const d = Math.sqrt(d2(it.x, it.y, p.x, p.y));
         if (d < magnet) {
-          const a = ang(it.x, it.y, p.x, p.y);
-          it.vx += Math.cos(a) * 180 * dt;
-          it.vy += Math.sin(a) * 180 * dt;
+          const canPullWeapon = it.type !== 'weapon' || it.weaponMode == null || it.weaponMode === p.weaponMode;
+          if (canPullWeapon) {
+            const a = ang(it.x, it.y, p.x, p.y);
+            const pull = it.type === 'weapon' ? 60 : 120;
+            it.vx += Math.cos(a) * pull * dt;
+            it.vy += Math.sin(a) * pull * dt;
+          }
         }
       }
       it.x += it.vx * dt;
@@ -5118,3 +5122,5 @@
   });
   requestAnimationFrame(loop);
 }());
+
+
