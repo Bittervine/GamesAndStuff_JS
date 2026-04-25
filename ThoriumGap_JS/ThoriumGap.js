@@ -1125,7 +1125,7 @@
     theme({ name: 'Sunken Bastion', subtitle: 'Here drowned men weep', skyTop: '#07101c', skyBottom: '#2d1a5a', glow: '#82f6ff', accent: '#6eeaff', accent2: '#c8fff2', icons: [E.bolt, E.sparkles, E.disc, E.target], forms: ['wave', 'cross', 'pair'], enemyKinds: ['zigzag', 'sniper', 'bomber'], atmosphere: 'neon', music: { bpm: 144, root: 220, pattern: [0, 7, 12, 10, 7, 4, 9, 12] }, boss: { name: 'Cyberphish', emoji: E.bolt, hp: 264, size: 320, color: '#8fefff', flipWhenMovingRight: true, phases: [phase(7, 'sweep', 'wall'), phase(7.5, 'hover', 'aimed'), phase(8, 'dash', 'ring')] } }),
     theme({ name: 'Black Citadel', subtitle: 'When the hearts break', skyTop: '#0a0c14', skyBottom: '#403f55', glow: '#f0f3ff', accent: '#b6bfd6', accent2: '#9e8e5e', icons: [E.knight, E.rook, E.bishop, E.queen], forms: ['line', 'cross', 'wave'], enemyKinds: ['zigzag', 'sniper', 'elite'], atmosphere: 'chess', music: { bpm: 122, root: 196, pattern: [0, 3, 7, 10, 7, 3, 5, 7] }, boss: { name: 'Purple Matron', emoji: E.queen, hp: 288, size: 320, color: '#e7ecff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'summon'), phase(8, 'dash', 'ring')] } }),
     theme({ name: 'Crushing Depths', subtitle: 'Hunger for sunlight', skyTop: '#0c1821', skyBottom: '#344c84', glow: '#d7f4ff', accent: '#9cc7ff', accent2: '#d7f4ff', icons: [E.cloud, E.rain, E.bolt, E.star], forms: ['rain', 'line', 'swarm'], enemyKinds:  ['spinner', 'diver', 'splitter', 'mine', 'swarm', 'zigzag'], atmosphere: 'rain', music: { bpm: 128, root: 196, pattern: [0, 4, 7, 10, 7, 4, 2, 5] }, boss: { name: 'Deep Gulper', emoji: E.cloud, hp: 276, size: 320, color: '#d3edff', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Thorium Gap', subtitle: 'Final Descent', skyTop: '#0f081b', skyBottom: '#5b3d18', glow: '#ffe78a', accent: '#ffd77a', accent2: '#ffffff', icons: [E.sun, E.crown, E.star, E.comet], forms: ['ring', 'fan', 'wave'], enemyKinds: ['elite', 'sniper', 'spinner', 'drifter'], atmosphere: 'nova', music: { bpm: 152, root: 262, pattern: [0, 4, 7, 12, 15, 12, 7, 4] }, boss: { name: 'Unnamed Horror', emoji: E.sun, hp: 600, size: 512, color: '#fff0bd', flipWhenMovingRight: false, phases: [phase(6.5, 'hover', 'aimed'), phase(6.5, 'sweep', 'ring'), phase(6.5, 'dash', 'beam'), phase(7.5, 'low', 'wall')] } })
+    theme({ name: 'Thorium Gap', subtitle: 'Final Descent', skyTop: '#0f081b', skyBottom: '#5b3d18', glow: '#ffe78a', accent: '#ffd77a', accent2: '#ffffff', icons: [E.sun, E.crown, E.star, E.comet], forms: ['ring', 'fan', 'wave'], enemyKinds: ['elite', 'sniper', 'spinner', 'drifter'], atmosphere: 'nova', music: { bpm: 152, root: 262, pattern: [0, 4, 7, 12, 15, 12, 7, 4] }, boss: { name: 'Unnamed Horror', emoji: E.sun, hp: 600, size: 512, color: '#fff0bd', flipWhenMovingRight: false, phases: [phase(6.5, 'hover', 'aimed'), phase(6.5, 'sweep', 'ring'), phase(6.5, 'low', 'summon'), phase(6.5, 'dash', 'beam'), phase(7.5, 'low', 'summon')] } })
   ];
 
   const FINAL_LEVEL_ENEMY_KINDS = (function () {
@@ -5331,6 +5331,7 @@
     state.pointerX = pt.x;
     state.pointerY = pt.y;
     if (isMouse) {
+      if (state.settings.alwaysFollowMouse && ev.button === 2 && state.mode === 'playing' && !state.paused) useBomb();
       state.mouseButtons = (typeof ev.buttons === 'number') ? ev.buttons : (1 << (ev.button || 0));
       state.input.fire = !!(state.mouseButtons & 1);
     } else {
@@ -5362,7 +5363,6 @@
     if (!isMouse && (!state.pointerActive || ev.pointerId !== state.pointerId)) return;
     ev.preventDefault();
     if (isMouse) {
-      if (state.settings.alwaysFollowMouse && ev.button === 2 && state.mode === 'playing' && !state.paused) useBomb();
       state.mouseButtons = (typeof ev.buttons === 'number') ? ev.buttons : 0;
       state.pointerActive = state.settings.alwaysFollowMouse ? true : (state.mouseButtons > 0);
       state.input.fire = !!(state.mouseButtons & 1);
