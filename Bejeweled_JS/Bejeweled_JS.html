@@ -624,7 +624,7 @@
         controls.style.marginTop='0px';
         controls.style.marginBottom='8px';
       }
-      cell=Math.max(20,Math.floor(size/(N+2)));
+      cell=Math.max(20,Math.floor((size-2)/N));
       pad=Math.floor((size-cell*N)/2);
       draw();
     }
