@@ -94,8 +94,8 @@
     var canvas=document.getElementById('board'), ctx=canvas.getContext&&canvas.getContext('2d');
     var controls=document.getElementById('controls'), statusEl=document.getElementById('status');
     var depthInput=document.getElementById('depthInput'), clumsyInput=document.getElementById('clumsyInput'), previewBtn=document.getElementById('previewBtn');
-    var LIGHT_SQUARE = 'rgba(240,217,181,.25)';
-    var DARK_SQUARE = 'rgba(181,136,99,.25)';
+    var LIGHT_SQUARE = 'rgba(240,217,181,.20)';
+    var DARK_SQUARE = 'rgba(181,136,99,.20)';
     var GRID_COLOR = '#4d4d4d';
 
     function clamp(v,lo,hi){ v=parseFloat(v); if(!isFinite(v))v=lo; if(v<lo)return lo; if(v>hi)return hi; return v; }

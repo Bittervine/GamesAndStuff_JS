@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-  <title>Hex JS</title>
+  <title>Y JS</title>
   <style>
     *{box-sizing:border-box}
     body{
@@ -80,7 +80,6 @@
         <label>&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="3" min="1" max="9" style="width:2.2em"></label>
         <label>&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="0" min="0" max="100" style="width:2.2em;margin-right:2px">%</label>
         <button id="previewBtn" title="Preview">Preview</button>
-        <button id="passBtn" title="Pass">↷</button>
         <button id="takebackBtn" title="Undo">⌫</button>
       </div>
       <span id="status"></span>
@@ -257,85 +256,48 @@
       return true;
     }
 
-    function targetFor(color) { return color === HUMAN ? 'tb' : 'lr'; }
-
-    function pathDistance(color) {
-      var dist = [], visited = [], r, c, i, bestR, bestC, best = INF, nr, nc, nd, cost, isTarget, isSource;
-      for (r = 0; r < N; r++) {
-        dist[r] = [];
-        visited[r] = [];
-        for (c = 0; c < N; c++) {
-          dist[r][c] = INF;
-          visited[r][c] = false;
-        }
-      }
-
-      function cellCost(v) {
-        if (v === color) return 0;
-        if (v === null) return 1;
-        return INF;
-      }
-
-      function markSource(rr, cc) {
-        var v = board[rr][cc];
-        cost = cellCost(v);
-        if (cost >= INF) return;
-        dist[rr][cc] = cost;
-      }
-
-      if (color === HUMAN) {
-        for (c = 0; c < N; c++) markSource(0, c);
-      } else {
-        for (r = 0; r < N; r++) markSource(r, 0);
-      }
-
-      while (true) {
-        best = INF;
-        bestR = -1;
-        bestC = -1;
-        for (r = 0; r < N; r++) {
-          for (c = 0; c < N; c++) {
-            if (!visited[r][c] && dist[r][c] < best) {
-              best = dist[r][c];
-              bestR = r;
-              bestC = c;
-            }
+    function touchesAllThreeSides(color) {
+      var seen = cloneMarks(), q = [], qi = 0, r, c, i, nr, nc, sideTop, sideLeft, sideRight;
+      for (r = 0; r < N; r++) for (c = 0; c < N; c++) {
+        if (board[r][c] !== color || seen[r][c]) continue;
+        seen[r][c] = true;
+        q.length = 0;
+        q.push([r, c]);
+        qi = 0;
+        sideTop = false;
+        sideLeft = false;
+        sideRight = false;
+        while (qi < q.length) {
+          var p = q[qi++];
+          if (p[0] === 0) sideTop = true;
+          if (p[1] === 0) sideLeft = true;
+          if (p[0] + p[1] === N - 1) sideRight = true;
+          for (i = 0; i < dirs.length; i++) {
+            nr = p[0] + dirs[i][0];
+            nc = p[1] + dirs[i][1];
+            if (!inBounds(nr, nc) || seen[nr][nc] || board[nr][nc] !== color) continue;
+            seen[nr][nc] = true;
+            q.push([nr, nc]);
           }
         }
-        if (bestR < 0) break;
-        visited[bestR][bestC] = true;
-        for (i = 0; i < dirs.length; i++) {
-          nr = bestR + dirs[i][0];
-          nc = bestC + dirs[i][1];
-          if (!inBounds(nr, nc)) continue;
-          cost = cellCost(board[nr][nc]);
-          if (cost >= INF) continue;
-          nd = dist[bestR][bestC] + cost;
-          if (nd < dist[nr][nc]) dist[nr][nc] = nd;
-        }
+        if (sideTop && sideLeft && sideRight) return true;
       }
-
-      if (color === HUMAN) {
-        for (c = 0; c < N; c++) best = Math.min(best, dist[N - 1][c]);
-      } else {
-        for (r = 0; r < N; r++) best = Math.min(best, dist[r][N - 1]);
-      }
-      return best;
+      return false;
     }
 
     function evaluate() {
-      var white = pathDistance(HUMAN);
-      var black = pathDistance(AI);
-      if (white <= 0) return -100000;
-      if (black <= 0) return 100000;
-      if (white >= INF && black >= INF) return 0;
-      return white - black;
+      var r, c, score = 0;
+      if (touchesAllThreeSides(HUMAN)) return -100000;
+      if (touchesAllThreeSides(AI)) return 100000;
+      for (r = 0; r < N; r++) for (c = 0; c < N; c++) {
+        if (board[r][c] === AI) score += moveHeuristic({r:r,c:c}, AI) * 0.6;
+        else if (board[r][c] === HUMAN) score -= moveHeuristic({r:r,c:c}, HUMAN) * 0.6;
+      }
+      return score;
     }
 
     function terminal() {
-      var white = pathDistance(HUMAN);
-      var black = pathDistance(AI);
-      return boardFull() || white <= 0 || black <= 0;
+      return boardFull() || touchesAllThreeSides(HUMAN) || touchesAllThreeSides(AI);
     }
 
     function moveHeuristic(m, color) {
@@ -454,8 +416,8 @@
       var score = evaluate();
       var lead = countLead();
       if (over) {
-        if (pathDistance(AI) <= 0) statusEl.textContent = 'Info: Game over: Black wins ' + score.toFixed(1) + '.';
-        else if (pathDistance(HUMAN) <= 0) statusEl.textContent = 'Info: Game over: White wins ' + Math.abs(score).toFixed(1) + '.';
+        if (touchesAllThreeSides(AI)) statusEl.textContent = 'Info: Game over: Black wins ' + score.toFixed(1) + '.';
+        else if (touchesAllThreeSides(HUMAN)) statusEl.textContent = 'Info: Game over: White wins ' + Math.abs(score).toFixed(1) + '.';
         else statusEl.textContent = 'Info: Game over: ' + (score > 0 ? 'Black wins ' + score.toFixed(1) : score < 0 ? 'White wins ' + Math.abs(score).toFixed(1) : 'Draw 0.0') + '.';
       } else if (aiBusy && aiThinkStart) {
         statusEl.textContent = 'Info: Thinking Depth ' + aiDepthNow + ' for ' + ((Date.now() - aiThinkStart) / 1000).toFixed(1) + ' s.';
@@ -537,8 +499,7 @@
 
     window.__test = {
       getState: function() {
-        var white = pathDistance(HUMAN), black = pathDistance(AI);
-        return { over: over, turn: turn, whitePath: white, blackPath: black };
+        return { over: over, turn: turn, whiteWin: touchesAllThreeSides(HUMAN), blackWin: touchesAllThreeSides(AI) };
       },
       legalMoves: function() { return legalMoves(turn, false); },
       play: function(move) { return placeHuman(move.r, move.c); },
@@ -731,7 +692,7 @@
     }
 
     function init() {
-      var d = load('hex_depth'), c = load('hex_clumsy'), p = load('hex_preview');
+      var d = load('y_depth'), c = load('y_clumsy'), p = load('y_preview');
       if (d !== null) depthInput.value = d;
       if (c !== null) clumsyInput.value = c;
       previewEnabled = (p === '1');
@@ -743,11 +704,11 @@
       document.getElementById('takebackBtn').addEventListener('click', takeBack);
       canvas.addEventListener('click', click);
       if (window.addEventListener) window.addEventListener('resize', resize);
-      depthInput.addEventListener('change', function(){ save('hex_depth', depthInput.value); });
-      clumsyInput.addEventListener('change', function(){ save('hex_clumsy', clumsyInput.value); });
+      depthInput.addEventListener('change', function(){ save('y_depth', depthInput.value); });
+      clumsyInput.addEventListener('change', function(){ save('y_clumsy', clumsyInput.value); });
       previewBtn.addEventListener('click', function(){
         previewEnabled = !previewEnabled;
-        save('hex_preview', previewEnabled ? '1' : '0');
+        save('y_preview', previewEnabled ? '1' : '0');
         previewBtn.className = previewEnabled ? 'is-on' : '';
         draw();
       });

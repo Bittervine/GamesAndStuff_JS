@@ -482,7 +482,7 @@
       ctx.clearRect(0,0,canvas.width,canvas.height);
       for(c=0;c<COLS;c++){
         for(r=0;r<ROWS;r++){
-          ctx.fillStyle=((r+c)%2===0)?'rgba(240,217,181,.25)':'rgba(181,136,99,.25)';
+          ctx.fillStyle=((r+c)%2===0)?'rgba(240,217,181,.20)':'rgba(181,136,99,.20)';
           ctx.fillRect(c*cell, r*cell, cell, cell);
         }
       }
