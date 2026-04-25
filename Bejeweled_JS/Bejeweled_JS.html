@@ -12,6 +12,8 @@
     #controls{font-size:95%;text-align:center;font-family:serif}
     #controls button,#controls input,#controls select,#controls span{font-size:inherit;vertical-align:middle}
     #controls button{width:2.2em;box-sizing:border-box;line-height:1;padding:0;min-height:1.8em}
+    #soundBtn{width:2.2em}
+    #soundBtn.is-on{box-shadow:inset 0 2px 4px rgba(0,0,0,.35);background:#d9d9d9}
     #animBtn{width:auto;min-width:4.6em;padding-left:.3em;padding-right:.3em}
     #animBtn.is-on{box-shadow:inset 0 2px 4px rgba(0,0,0,.35);background:#d9d9d9}
     #buttonRow{display:flex;flex-wrap:nowrap;align-items:center;justify-content:center;gap:.15em;white-space:nowrap}
@@ -35,6 +37,7 @@
             <option value="6">6</option>
           </select>
         </label>
+        <button id="soundBtn" title="Sound">🔊</button>
         <button id="animBtn" title="Animation">Animate</button>
       </div>
       <span id="status"></span>
@@ -53,21 +56,85 @@
       {shape:'hex',   tone:'light', glyph:'\u2605'}, /* star */
       {shape:'hex',   tone:'dark',  glyph:'\u2736'}  /* six-point star */
     ];
-    var board, selected, over, score, moves, animateEnabled, animating, pendingSwap, pieceTypes;
+    var board, selected, over, score, moves, animateEnabled, soundEnabled, animating, pendingSwap, pieceTypes;
     var animTimer=null;
     var animMask=null, animBodies=null, animPhase='', animFlashUntil=0, animLastTick=0;
     var animStaticBoard=null, animStep=null;
     var canvas=document.getElementById('board'), ctx=canvas.getContext&&canvas.getContext('2d');
     var controls=document.getElementById('controls'), statusEl=document.getElementById('status');
+    var soundBtn=document.getElementById('soundBtn');
     var animBtn=document.getElementById('animBtn');
     var typesInput=document.getElementById('typesInput');
     var cell=0,pad=0;
+    var audioCtx=null, lastTickMs=0;
 
     function inBounds(r,c){ return r>=0&&r<N&&c>=0&&c<N; }
     function clamp(v,lo,hi){ if(v<lo)return lo; if(v>hi)return hi; return v; }
     function randType(){ return Math.floor(Math.random()*pieceTypes); }
     function safeStorageSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
     function safeStorageGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+
+    function ensureAudioCtx(){
+      var AC;
+      if(audioCtx) return audioCtx;
+      AC=window.AudioContext || window.webkitAudioContext;
+      if(!AC) return null;
+      try{ audioCtx=new AC(); }catch(e){ audioCtx=null; }
+      return audioCtx;
+    }
+
+    function resumeAudioCtx(){
+      var ac=ensureAudioCtx();
+      if(!ac || !ac.resume) return;
+      try{ ac.resume(); }catch(e){}
+    }
+
+    function playTone(freq,durSec,type,vol){
+      var ac=ensureAudioCtx(), o, g, now;
+      if(!ac || !soundEnabled) return;
+      now=ac.currentTime;
+      try{
+        o=ac.createOscillator();
+        g=ac.createGain();
+        o.type=type || 'sine';
+        o.frequency.setValueAtTime(freq, now);
+        g.gain.setValueAtTime(vol, now);
+        g.gain.exponentialRampToValueAtTime(0.0001, now+durSec);
+        o.connect(g);
+        g.connect(ac.destination);
+        o.start(now);
+        o.stop(now+durSec);
+      }catch(e){}
+    }
+
+    function playPop(intensity){
+      var ac=ensureAudioCtx(), o, g, now, f1, f2, dur, vol;
+      if(!ac || !soundEnabled) return;
+      intensity=clamp(intensity||1,1,20);
+      f1=220 + intensity*6;
+      f2=120 + intensity*2;
+      dur=0.08;
+      vol=0.035;
+      try{
+        o=ac.createOscillator();
+        g=ac.createGain();
+        o.type='triangle';
+        now=ac.currentTime;
+        o.frequency.setValueAtTime(f1, now);
+        o.frequency.exponentialRampToValueAtTime(f2, now+dur);
+        g.gain.setValueAtTime(vol, now);
+        g.gain.exponentialRampToValueAtTime(0.0001, now+dur);
+        o.connect(g); g.connect(ac.destination);
+        o.start(now); o.stop(now+dur);
+      }catch(e){}
+    }
+
+    function playTick(){
+      var nowMs=Date.now();
+      if(nowMs-lastTickMs<24) return;
+      lastTickMs=nowMs;
+      playTone(1240,0.028,'square',0.02);
+    }
 
     function makeBoard(){
       var b=[],r,c,t;
@@ -119,15 +186,17 @@
     }
 
     function collapseAll(){
-      var chain=0, got, cleared, add;
+      var chain=0, got, cleared, add, totalCleared=0;
       while(true){
         got=findMatches();
         if(!got.found) break;
         chain++;
         cleared=clearAndDrop(got.marks);
+        totalCleared += cleared;
         add=cleared*10*chain;
         score+=add;
       }
+      return totalCleared;
     }
 
     function copyBoard(src){
@@ -411,14 +480,17 @@
     }
 
     function trySwap(a,b){
+      var removed;
       if(!adj(a,b)) return false;
       if(!hasMatchAfterSwap(a,b)) return false;
       swapCells(a,b);
+      selected=null;
       moves++;
       if(animateEnabled){
         startAnimatedResolution(1);
       } else {
-        collapseAll();
+        removed=collapseAll();
+        if(removed>0){ playPop(removed); playTick(); }
         if(!anyLegalSwap()) reshuffle();
         animMask=null;
         animBodies=null;
@@ -445,6 +517,7 @@
         return;
       }
       score += step.cleared * 10 * chain;
+      if(step.cleared>0) playPop(step.cleared);
       startResolveAnimation(step, function(){
         board=step.filled;
         startAnimatedResolution(chain+1);
@@ -506,6 +579,7 @@
               if(Math.abs(b.vy)<cell*1.2){
                 b.vy=0;
                 b.x=b.tx; b.y=b.ty; b.settled=true;
+                playTick();
                 if(animMask && animMask[b.tr] && animMask[b.tr][b.col]) animMask[b.tr][b.col]=false;
                 if(animStaticBoard && animStaticBoard[b.tr]) animStaticBoard[b.tr][b.col]=b.type;
               } else {
@@ -513,6 +587,7 @@
               }
               if(b.touched && (now-b.touchedAt)>=200){
                 b.x=b.tx; b.y=b.ty; b.vy=0; b.settled=true;
+                playTick();
                 if(animMask && animMask[b.tr] && animMask[b.tr][b.col]) animMask[b.tr][b.col]=false;
                 if(animStaticBoard && animStaticBoard[b.tr]) animStaticBoard[b.tr][b.col]=b.type;
               }
@@ -572,6 +647,7 @@
     function click(ev){
       var rect,sx,sy,x,y,r,c,p;
       if(over) return;
+      resumeAudioCtx();
       rect=canvas.getBoundingClientRect();
       sx=canvas.width/rect.width; sy=canvas.height/rect.height;
       x=(ev.clientX-rect.left)*sx; y=(ev.clientY-rect.top)*sy;
@@ -636,6 +712,15 @@
       refresh();
     }
 
+    function setSoundEnabled(v){
+      soundEnabled=!!v;
+      if(soundBtn){
+        soundBtn.className=soundEnabled?'is-on':'';
+        soundBtn.textContent=soundEnabled?'\uD83D\uDD0A':'\uD83D\uDD07';
+      }
+      safeStorageSet('bejeweled_sound', soundEnabled?'1':'0');
+    }
+
     function setPieceTypes(v){
       v=parseInt(v,10);
       if(!isFinite(v)) v=6;
@@ -647,6 +732,12 @@
 
     function bind(){
       document.getElementById('resetBtn').addEventListener('click',function(){ resetGame(); });
+      if(soundBtn){
+        soundBtn.addEventListener('click',function(){
+          resumeAudioCtx();
+          setSoundEnabled(!soundEnabled);
+        });
+      }
       if(animBtn){
         animBtn.addEventListener('click',function(){ setAnimEnabled(!animateEnabled); });
       }
@@ -666,9 +757,10 @@
     }
 
     function init(){
-      var s=safeStorageGet('bejeweled_score'), a=safeStorageGet('bejeweled_anim'), t=safeStorageGet('bejeweled_types');
+      var s=safeStorageGet('bejeweled_score'), a=safeStorageGet('bejeweled_anim'), t=safeStorageGet('bejeweled_types'), snd=safeStorageGet('bejeweled_sound');
       if(s!==null){ s=parseInt(s,10); if(isFinite(s)&&s>=0) score=s; }
       setPieceTypes(t!==null?t:'6');
+      setSoundEnabled(snd==='1');
       setAnimEnabled(a==='1');
       bind();
       resetGame();
