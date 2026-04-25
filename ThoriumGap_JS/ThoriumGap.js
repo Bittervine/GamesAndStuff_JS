@@ -1179,6 +1179,8 @@
     bannerTimer: 0,
     flash: 0,
     shake: 0,
+    endScreenReadyAt: 0,
+    lastDeathReason: '',
     nextLevelTimer: 0,
     waveClock: 0,
     waveIndex: 0,
@@ -1579,10 +1581,12 @@
     state.gamepad.bombHeld = bombDown;
     if (menuDown && !state.gamepad.prevMenu) toggleSettings();
     if (fireDown && !state.gamepad.prevFire) {
-      if (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory') startGame();
+      if (state.mode === 'title') startGame();
+      else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
     }
     if (bombDown && !state.gamepad.prevBomb) {
-      if (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory') startGame();
+      if (state.mode === 'title') startGame();
+      else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
       else if (state.mode === 'playing') useBomb();
     }
     state.gamepad.prevFire = fireDown;
@@ -1827,6 +1831,8 @@
     state.bannerTimer = 0;
     state.flash = 0;
     state.shake = 0;
+    state.endScreenReadyAt = 0;
+    state.lastDeathReason = '';
     state.nextLevelTimer = 0;
     state.waveClock = 0;
     state.waveIndex = 0;
@@ -1861,8 +1867,7 @@
     state.input.down = false;
     state.input.fire = false;
     state.mode = 'title';
-    setBanner('THORIUM GAP', 'Click or press Space to launch.', 3.5);
-    hint('Drag to fly. Hold to fire. Open SETTINGS for audio and combat settings.', 5);
+    titleScreenText();
     syncSettingsUi();
     markHudDirty();
   }
@@ -1880,6 +1885,30 @@
     state.mode = 'playing';
     beginLevel(0);
     markHudDirty();
+  }
+
+  function titleScreenText() {
+    setBanner('THORIUM GAP', 'Click or press Space to launch.', 3.5);
+    hint('Drag to fly. Hold to fire. Open SETTINGS for audio and combat settings.', 5);
+  }
+
+  function endScreenCanContinue() {
+    return state.animClock >= (state.endScreenReadyAt || 0);
+  }
+
+  function endScreenContinue() {
+    if (!endScreenCanContinue()) return;
+    window.location.reload();
+  }
+
+  function describeDeathReason(info) {
+    if (!info) return 'The void has taken the ship.';
+    if (info.kind === 'boss-contact') return 'You got killed by colliding with a boss.';
+    if (info.kind === 'boss-shot' || info.sourceKind === 'boss') return 'You got killed by a shot from the boss.';
+    const isShot = info.kind === 'enemy-shot' || info.kind === 'shot';
+    const label = info.sourceName || info.sourceKind || 'enemy';
+    if (isShot) return 'You got killed by a shot from a ' + label + '.';
+    return 'You got killed by colliding with a ' + label + '.';
   }
 
   function spawnCheatDrop(code) {
@@ -1969,22 +1998,24 @@
     state.banner = 'VICTORY';
     state.bannerSub = 'The sky is yours.';
     state.bannerTimer = 999;
+    state.endScreenReadyAt = state.animClock + 4;
     state.flash = 0.6;
     state.shake = 18;
     sfx('clear');
-    hint('Signal clear. Click or press R to launch again.', 6);
+    hint('Press fire to continue.', 6);
     saveBest();
     markHudDirty();
   }
 
-  function gameOver() {
+  function gameOver(reason) {
     state.mode = 'gameover';
     state.banner = 'GAME OVER';
-    state.bannerSub = 'The void has taken the ship.';
+    state.bannerSub = reason || 'The void has taken the ship.';
     state.bannerTimer = 999;
+    state.endScreenReadyAt = state.animClock + 4;
     state.flash = 0.25;
     state.shake = 18;
-    hint('Run failed. Click or press R to relaunch.', 6);
+    hint('Press fire to continue.', 6);
     saveBest();
     markHudDirty();
   }
@@ -2092,6 +2123,8 @@
     bullet.homing = opts && opts.homing ? opts.homing : 0;
     bullet.turn = opts && opts.turn ? opts.turn : 0;
     bullet.target = opts && opts.target ? opts.target : null;
+    bullet.sourceKind = opts && opts.sourceKind ? opts.sourceKind : (isEnemy ? 'enemy' : 'player');
+    bullet.sourceName = opts && opts.sourceName ? opts.sourceName : '';
     bullet.targetRefresh = 0;
     bullet.age = 0;
     bullet.wobble = opts && opts.wobble ? opts.wobble : 0;
@@ -2570,7 +2603,7 @@
     const p = state.player;
     if (state.mode !== 'playing' || p.bombs <= 0) return;
     p.bombs--;
-    p.invuln = 0.25;
+    p.invuln = 0.5;
     state.flash = Math.max(state.flash, 0.5);
     state.shake = Math.max(state.shake, 15);
     sfx('bomb');
@@ -2601,7 +2634,7 @@
         if (state.combo % 5 === 0) sfx('combo');
         if (state.combo >= 10) { state.combo = 0; activateOverdrive(); }
       }
-      if (e.kind === 'spinner') ringBullets(e.x, e.y, 10, 180, 1, e.theme.accent2, 'enemy');
+      if (e.kind === 'spinner') ringBullets(e.x, e.y, 10, 180, 1, e.theme.accent2, 'enemy', 'spinner', e.name || 'spinner');
       //if (e.kind === 'elite' || e.score > 200) maybeDropPickup(e.x, e.y, true, chance(0.35) ? 'shield' : null);
       else if (!fromBomb) maybeDropPickup(e.x, e.y, false);
     } else {
@@ -2655,13 +2688,13 @@
     }
   }
 
-  function hurtPlayer(damage) {
+  function hurtPlayer(damage, source) {
     const p = state.player;
     if (p.invuln > 0 || state.mode !== 'playing') return;
     const actualDamage = Math.max(1, Math.round(damage * 3));
     if (p.shield > 0) {
       p.shield--;
-      p.invuln = 0.25;
+      p.invuln = 0.5;
       state.flash = Math.max(state.flash, 0.1);
       burst(p.x, p.y, '#8fd8ff', 16, 220, 5, 'spark');
       sfx('power');
@@ -2670,7 +2703,7 @@
       return;
     }
     p.health -= actualDamage;
-    p.invuln = 0.25;
+    p.invuln = 0.5;
     p.repairDelay = 1.8;
     state.shake = Math.max(state.shake, 10);
     state.flash = Math.max(state.flash, 0.12);
@@ -2678,8 +2711,9 @@
     burst(p.x, p.y, '#ffd96a', 16, 200, 5, 'spark');
     triggerRumble(0.8, 160);
     if (p.health <= 0) {
+      state.lastDeathReason = describeDeathReason(source);
       state.lives--;
-      if (state.lives <= 0) return gameOver();
+      if (state.lives <= 0) return gameOver(state.lastDeathReason);
       shipDeathBurst(p.x, p.y);
       p.health = p.maxHealth;
       p.shield = Math.max(0, p.shield - 1);
@@ -2716,11 +2750,13 @@
     markHudDirty();
   }
 
-  function ringBullets(x, y, count, speed, damage, color, team) {
+  function ringBullets(x, y, count, speed, damage, color, team, sourceKind, sourceName) {
     for (let i = 0; i < count; i++) {
       const a = TAU * i / count;
       spawnBullet(team === 'enemy' ? 'enemy' : 'player', x, y, Math.cos(a) * speed, Math.sin(a) * speed, {
-        r: team === 'enemy' ? 7 : 5, color: color, damage: damage, kind: team === 'enemy' ? 'orb' : 'spark', life: 4.5
+        r: team === 'enemy' ? 7 : 5, color: color, damage: damage, kind: team === 'enemy' ? 'orb' : 'spark', life: 4.5,
+        sourceKind: sourceKind || (team === 'enemy' ? 'enemy' : 'player'),
+        sourceName: sourceName || ''
       });
     }
   }
@@ -2735,14 +2771,14 @@
       const n = b.hp < b.maxHp * 0.5 ? 5 : 3;
       for (let i = 0; i < n; i++) {
         const a = base + (i - (n - 1) * 0.5) * 0.15;
-        spawnBullet('enemy', b.x, b.y + 12, Math.cos(a) * 260, Math.sin(a) * 260, { r: 8, color: b.color, damage: 1, kind: 'orb', life: 5.5 });
+        spawnBullet('enemy', b.x, b.y + 12, Math.cos(a) * 260, Math.sin(a) * 260, { r: 8, color: b.color, damage: 1, kind: 'orb', life: 5.5, sourceKind: 'boss', sourceName: b.name });
       }
     },
     ring: function (b) {
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
       b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.88 : 1.2);
-      ringBullets(b.x, b.y, b.hp < b.maxHp * 0.5 ? 20 : 14, b.hp < b.maxHp * 0.5 ? 210 : 180, 1, b.color, 'enemy');
+      ringBullets(b.x, b.y, b.hp < b.maxHp * 0.5 ? 20 : 14, b.hp < b.maxHp * 0.5 ? 210 : 180, 1, b.color, 'enemy', 'boss', b.name);
     },
     fan: function (b) {
       b.fireClock -= currentDt;
@@ -2753,7 +2789,7 @@
       const n = b.hp < b.maxHp * 0.5 ? 7 : 5;
       for (let i = 0; i < n; i++) {
         const a = base + lerp(-0.38, 0.38, n === 1 ? 0.5 : i / (n - 1));
-        spawnBullet('enemy', b.x, b.y + 6, Math.cos(a) * 300, Math.sin(a) * 300, { r: 6, color: b.color, damage: 1, kind: 'sting', life: 4.5 });
+        spawnBullet('enemy', b.x, b.y + 6, Math.cos(a) * 300, Math.sin(a) * 300, { r: 6, color: b.color, damage: 1, kind: 'sting', life: 4.5, sourceKind: 'boss', sourceName: b.name });
       }
     },
     rain: function (b) {
@@ -2761,7 +2797,7 @@
       if (b.fireClock > 0) return;
       b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.24 : 0.4);
       for (let i = 0; i < (b.hp < b.maxHp * 0.5 ? 3 : 2); i++) {
-        spawnBullet('enemy', clamp(b.x + rand(-160, 160), 24, view.w - 24), -20, rand(-22, 22), rand(220, 280), { r: 6, color: b.color, damage: 1, kind: 'rain', ay: 18, life: 5 });
+        spawnBullet('enemy', clamp(b.x + rand(-160, 160), 24, view.w - 24), -20, rand(-22, 22), rand(220, 280), { r: 6, color: b.color, damage: 1, kind: 'rain', ay: 18, life: 5, sourceKind: 'boss', sourceName: b.name });
       }
     },
     summon: function (b) {
@@ -2776,7 +2812,7 @@
       if (b.fireClock > 0) return;
       b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 1.2 : 1.8);
       for (let i = -4; i <= 4; i++) {
-        spawnBullet('enemy', b.x + i * 18, b.y + 18, rand(-18, 18), 240 + i * 8, { r: 8, color: b.color, damage: 1, kind: 'beam', life: 4.4 });
+        spawnBullet('enemy', b.x + i * 18, b.y + 18, rand(-18, 18), 240 + i * 8, { r: 8, color: b.color, damage: 1, kind: 'beam', life: 4.4, sourceKind: 'boss', sourceName: b.name });
       }
     },
     wall: function (b) {
@@ -2787,7 +2823,7 @@
       const cols = 7;
       for (let i = 0; i < cols; i++) {
         if (i === gap) continue;
-        spawnBullet('enemy', lerp(56, view.w - 56, i / (cols - 1)), -18, 0, 220 + (b.hp < b.maxHp * 0.5 ? 20 : 0), { r: 6, color: b.color, damage: 1, kind: 'wall', life: 5 });
+        spawnBullet('enemy', lerp(56, view.w - 56, i / (cols - 1)), -18, 0, 220 + (b.hp < b.maxHp * 0.5 ? 20 : 0), { r: 6, color: b.color, damage: 1, kind: 'wall', life: 5, sourceKind: 'boss', sourceName: b.name });
       }
     },
     spiral: function (b) {
@@ -2798,7 +2834,7 @@
       const spin = b.age * 1.8;
       for (let i = 0; i < n; i++) {
         const a = spin + i * (TAU / n);
-        spawnBullet('enemy', b.x, b.y, Math.cos(a) * 220, Math.sin(a) * 220, { r: 6, color: b.color, damage: 1, kind: 'spiral', life: 4.5 });
+        spawnBullet('enemy', b.x, b.y, Math.cos(a) * 220, Math.sin(a) * 220, { r: 6, color: b.color, damage: 1, kind: 'spiral', life: 4.5, sourceKind: 'boss', sourceName: b.name });
       }
     }
   };
@@ -2834,6 +2870,7 @@
   function updateBoss(dt) {
     const b = state.boss;
     if (!b) return;
+    const p = state.player;
     b.age += dt;
     b.hitBox = getBossHitBox(b.shipLevel || (state.levelIndex + 1));
     b.glowBoost = Math.max(0, (b.glowBoost || 0) - dt * 4.0);
@@ -2846,6 +2883,15 @@
       sfx('boss');
     }
     updateBossMotion(b, phaseDef, dt);
+    const bossRect = {
+      x: b.x + (b.hitBox ? b.hitBox.x : -256),
+      y: b.y + (b.hitBox ? b.hitBox.y : -256),
+      w: b.hitBox ? b.hitBox.w : 512,
+      h: b.hitBox ? b.hitBox.h : 512
+    };
+    if (p.invuln <= 0 && circleIntersectsRect(p.x, p.y, p.r, bossRect)) {
+      hurtPlayer(currentDifficulty().contact, { kind: 'boss-contact', sourceKind: 'boss-contact', sourceName: b.name });
+    }
     const atk = BOSS_ATTACKS[phaseDef.attack];
     if (atk) atk(b, phaseDef);
     if (b.hitFlash > 0) b.hitFlash -= dt;
@@ -3009,7 +3055,7 @@
       if (b.life <= 0 || b.x < -80 || b.x > view.w + 80 || b.y < -100 || b.y > view.h + 100) remove = true;
       if (p.invuln <= 0 && d2(b.x, b.y, p.x, p.y) < (b.r + p.r) * (b.r + p.r)) {
         remove = true;
-        hurtPlayer(b.damage);
+        hurtPlayer(b.damage, { kind: 'enemy-shot', sourceKind: b.sourceKind || 'enemy', sourceName: b.sourceName || b.sourceKind || 'enemy' });
       }
       if (remove) releaseProjectile(b);
       else state.enemyBullets[writeIndex++] = b;
@@ -3132,7 +3178,7 @@
       } else if (!entering && e.kind === 'bomber') {
         e.y += e.vy * dt;
         e.x += Math.sin(e.age * 1.5 + e.wobble) * 24 * dt;
-        if (e.fireCooldown <= 0) { e.fireCooldown = shotDelay(1.05 - state.levelIndex * 0.03); spawnBullet('enemy', e.x, e.y + 14, rand(-34, 34), rand(180, 240), { r: 7, color: e.theme.accent2, damage: 1, kind: 'drop', ay: 58, life: 4.8 }); }
+        if (e.fireCooldown <= 0) { e.fireCooldown = shotDelay(1.05 - state.levelIndex * 0.03); spawnBullet('enemy', e.x, e.y + 14, rand(-34, 34), rand(180, 240), { r: 7, color: e.theme.accent2, damage: 1, kind: 'drop', ay: 58, life: 4.8, sourceKind: e.kind, sourceName: e.name || e.kind }); }
       } else if (!entering && e.kind === 'sniper') {
         e.y += e.vy * dt * 0.5;
         e.x += Math.sin(e.age * 1.2 + e.wobble) * 14 * dt;
@@ -3141,7 +3187,7 @@
           const base = ang(e.x, e.y, p.x, p.y);
           for (let k = -1; k <= 1; k++) {
             const aa = base + k * 0.1;
-            spawnBullet('enemy', e.x, e.y, Math.cos(aa) * 240, Math.sin(aa) * 240, { r: 7, color: e.theme.accent, damage: 1, kind: 'shot', life: 4.6 });
+            spawnBullet('enemy', e.x, e.y, Math.cos(aa) * 240, Math.sin(aa) * 240, { r: 7, color: e.theme.accent, damage: 1, kind: 'shot', life: 4.6, sourceKind: e.kind, sourceName: e.name || e.kind });
           }
         }
       } else if (!entering && e.kind === 'spinner') {
@@ -3163,7 +3209,7 @@
       } else if (!entering && e.kind === 'elite') {
         e.y += e.vy * dt * 0.85;
         e.x += Math.sin(e.age * 1.8 + e.wobble) * 20 * dt;
-        if (e.fireCooldown <= 0) { e.fireCooldown = shotDelay(0.8); const base = ang(e.x, e.y, p.x, p.y); ringBullets(e.x, e.y, 8, 160, 1, e.theme.accent2, 'enemy'); spawnBullet('enemy', e.x, e.y, Math.cos(base) * 220, Math.sin(base) * 220, { r: 7, color: e.theme.accent, damage: 1, kind: 'elite', life: 4.8 }); }
+        if (e.fireCooldown <= 0) { e.fireCooldown = shotDelay(0.8); const base = ang(e.x, e.y, p.x, p.y); ringBullets(e.x, e.y, 8, 160, 1, e.theme.accent2, 'enemy', e.kind, e.name || e.kind); spawnBullet('enemy', e.x, e.y, Math.cos(base) * 220, Math.sin(base) * 220, { r: 7, color: e.theme.accent, damage: 1, kind: 'elite', life: 4.8, sourceKind: e.kind, sourceName: e.name || e.kind }); }
       }
       e.flightAngle = Math.atan2(e.y - prevY, e.x - prevX);
       if (e.y > view.h + 72 || e.x < -90 || e.x > view.w + 90) { state.enemies.splice(i, 1); continue; }
@@ -3171,7 +3217,7 @@
         if (p.invuln > 0) continue;
         const contactDamage = currentDifficulty().contact;
         damageEnemy(e, contactDamage, false);
-        hurtPlayer(contactDamage);
+        hurtPlayer(contactDamage, { kind: 'enemy-contact', sourceKind: e.kind, sourceName: e.name || e.kind });
         if (e.kind !== 'mine' || e.hp <= 0) { state.enemies.splice(i, 1); continue; }
       }
     }
@@ -4780,9 +4826,9 @@
       hudCtx.fillRect(0, 0, view.w, view.h);
       drawCenterCard('PAUSED', 'Press P or click PAUSE to resume.', ['The battle is frozen in place.'], theme.accent2, 'Hold FIRE when you are ready.');
     } else if (state.mode === 'gameover') {
-      drawCenterCard('GAME OVER', state.bannerSub, ['Score: ' + format(state.score), 'Best: ' + format(state.highScore)], '#ff8b79', 'Click or press R to retry.');
+      drawCenterCard('GAME OVER', state.bannerSub, ['Score: ' + format(state.score), 'Best: ' + format(state.highScore)], '#ff8b79', 'Press fire to continue.');
     } else if (state.mode === 'victory') {
-      drawCenterCard('VICTORY', state.bannerSub, ['Score: ' + format(state.score), 'Best: ' + format(state.highScore)], '#ffe78a', 'Click or press R to fly again.');
+      drawCenterCard('VICTORY', state.bannerSub, ['Score: ' + format(state.score), 'Best: ' + format(state.highScore)], '#ffe78a', 'Press fire to continue.');
     }
     hudCtx.restore();
   }
@@ -4905,11 +4951,18 @@
       return;
     }
     if (act === 'fire') {
-      if (down && (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory')) startGame();
+      if (down) {
+        if (state.mode === 'title') startGame();
+        else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
+        else state.input.fire = true;
+      }
       state.input.fire = down;
       return;
     }
-    if (act === 'bomb' && down) useBomb();
+    if (act === 'bomb' && down) {
+      if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
+      else useBomb();
+    }
     if (act === 'pause' && down) togglePause();
     if (act === 'sound' && down) toggleMute();
   }
@@ -4981,7 +5034,8 @@
       if (state.mode === 'playing' && !state.paused) useBomb();
       return;
     }
-    if (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory') startGame();
+    if (state.mode === 'title') startGame();
+    else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
   }
 
   function onKeyDown(ev) {
@@ -5010,22 +5064,31 @@
     else if (code === 'ArrowUp' || code === 'KeyW') state.input.up = true;
     else if (code === 'ArrowDown' || code === 'KeyS') state.input.down = true;
       else if (code === 'ControlLeft' || code === 'ControlRight' || code === 'Enter') {
-        if (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory') startGame();
+        if (state.mode === 'title') startGame();
+        else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
         else state.input.fire = true;
       } else if (code === 'Space') {
-        if (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory') startGame();
+        if (state.mode === 'title') startGame();
+        else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
         else if (state.mode === 'playing' && !ev.repeat) useBomb();
       } else if (code === 'KeyZ') {
-        if (state.mode === 'title' || state.mode === 'gameover' || state.mode === 'victory') startGame();
+        if (state.mode === 'title') startGame();
+        else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
         else state.input.fire = true;
       } else if (code === 'KeyX' || code === 'KeyB') {
-        if (!ev.repeat) useBomb();
+        if (!ev.repeat) {
+          if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
+          else useBomb();
+        }
       } else if (code === 'KeyP' || code === 'Escape') {
       if (!ev.repeat) togglePause();
     } else if (code === 'KeyM') {
       if (!ev.repeat) toggleMute();
     } else if (code === 'KeyR') {
-      if (!ev.repeat) startGame();
+      if (!ev.repeat) {
+        if (state.mode === 'title') startGame();
+        else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
+      }
     } else if (code === 'KeyO') {
       if (!ev.repeat) toggleSettings();
     }
