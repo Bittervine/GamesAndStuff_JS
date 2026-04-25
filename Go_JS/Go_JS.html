@@ -790,22 +790,13 @@
       var x = pad + c * cell;
       var y = pad + r * cell;
       var radius = stoneR;
-      var grad;
       if (typeof alpha === 'number') ctx.globalAlpha = alpha;
-      grad = ctx.createRadialGradient(x - radius * 0.35, y - radius * 0.42, radius * 0.2, x, y, radius);
-      if (color === HUMAN) {
-        grad.addColorStop(0, '#4c4c4c');
-        grad.addColorStop(1, '#050505');
-      } else {
-        grad.addColorStop(0, '#ffffff');
-        grad.addColorStop(1, '#d9d3c8');
-      }
-      ctx.fillStyle = grad;
+      ctx.fillStyle = (color === HUMAN) ? '#000000' : '#ffffff';
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, Math.PI * 2, false);
       ctx.fill();
-      ctx.lineWidth = Math.max(1, radius * 0.08);
-      ctx.strokeStyle = color === HUMAN ? '#a9a9a9' : '#3a2d1f';
+      ctx.lineWidth = Math.max(2, radius * 0.14);
+      ctx.strokeStyle = (color === HUMAN) ? '#ffffff' : '#000000';
       ctx.stroke();
       if (typeof alpha === 'number') ctx.globalAlpha = 1;
     }
