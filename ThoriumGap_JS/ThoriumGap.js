@@ -1196,7 +1196,7 @@
   const SHOT_PACE = 1.25;
   const PLAYER_FIRE_RATE_BOOST = 1.15;
   const PLAYER_RADIUS = 46;
-  const HEAT_MAX_SECONDS = 3;
+  const HEAT_MAX_SECONDS = 5;
   const HEAT_MAX_PENALTY = 0.25;
 
   function shotDelay(v) {
