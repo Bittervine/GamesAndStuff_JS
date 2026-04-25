@@ -95,8 +95,8 @@
     var canvas=document.getElementById('board'), ctx=canvas.getContext&&canvas.getContext('2d');
     var controls=document.getElementById('controls'), statusEl=document.getElementById('status');
     var depthInput=document.getElementById('depthInput'), clumsyInput=document.getElementById('clumsyInput'), previewBtn=document.getElementById('previewBtn');
-    var LIGHT_SQUARE = '#F0D9B5';
-    var DARK_SQUARE = '#B58863';
+    var LIGHT_SQUARE = 'rgba(240,217,181,.20)';
+    var DARK_SQUARE = 'rgba(181,136,99,.20)';
     var dirs=[[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 
     function clamp(v,lo,hi){ v=parseFloat(v); if(!isFinite(v))v=lo; if(v<lo)return lo; if(v>hi)return hi; return v; }
@@ -517,7 +517,7 @@
       var i, pt;
       if(!ctx) return;
       ctx.clearRect(0,0,canvas.width,canvas.height);
-      ctx.fillStyle=LIGHT_SQUARE; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle='#f5f5f5'; ctx.fillRect(0,0,canvas.width,canvas.height);
       for(i=0;i<layout.pts.length;i++){
         pt=layout.pts[i];
         ctx.fillStyle=((pt.r+pt.c)%2===0)?LIGHT_SQUARE:DARK_SQUARE;
