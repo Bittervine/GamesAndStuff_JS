@@ -10,12 +10,15 @@
     .wrap{width:100%;margin:0;padding:8px 0 0}
     canvas{display:block;margin:8px auto;max-width:calc(100vw - 16px);height:auto;touch-action:manipulation}
     #controls{font-size:95%;text-align:center;font-family:serif}
-    #controls button,#controls input,#controls span{font-size:inherit;vertical-align:middle}
+    #controls button,#controls input,#controls select,#controls span{font-size:inherit;vertical-align:middle}
     #controls button{width:2.2em;box-sizing:border-box;line-height:1;padding:0;min-height:1.8em}
-    #pauseBtn{width:auto;min-width:4.2em;padding-left:.4em;padding-right:.4em}
-    #buttonRow{display:flex;flex-wrap:nowrap;align-items:center;justify-content:center;gap:.25em;white-space:nowrap}
+    #animBtn{width:auto;min-width:4.6em;padding-left:.3em;padding-right:.3em}
+    #animBtn.is-on{box-shadow:inset 0 2px 4px rgba(0,0,0,.35);background:#d9d9d9}
+    #buttonRow{display:flex;flex-wrap:nowrap;align-items:center;justify-content:center;gap:.15em;white-space:nowrap}
     #buttonRow label{display:inline-flex;align-items:center;line-height:1;white-space:nowrap}
-    #scoreBox{display:inline-block;min-width:6.8em;text-align:left;padding-left:.2em}
+    #buttonRow button,#buttonRow label,#buttonRow input,#buttonRow select{vertical-align:middle}
+    #typesInput{width:1.8em;min-height:1.8em;height:1.8em;box-sizing:border-box;line-height:1;padding:0}
+    #typesLabel{margin-right:.2em}
     #status{display:block;margin-top:.35em;font-weight:700}
   </style>
 </head>
@@ -25,9 +28,14 @@
     <div id="controls">
       <div id="buttonRow">
         <button id="resetBtn" title="Reset">&#8634;</button>
-        <button id="pauseBtn" title="Pause">Pause</button>
-        <span id="scoreBox">Score: 0</span>
-        <label>&nbsp;<input id="animInput" type="checkbox">Animation</label>
+        <label id="typesLabel">&nbsp;Types:&nbsp;
+          <select id="typesInput">
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+          </select>
+        </label>
+        <button id="animBtn" title="Animation">Animate</button>
       </div>
       <span id="status"></span>
     </div>
@@ -35,7 +43,7 @@
   <script>
   (function(){
     'use strict';
-    var N=8, TYPES=6;
+    var N=8;
     var LIGHT='rgba(240,217,181,.20)', DARK='rgba(181,136,99,.20)';
     var ITEMS=[
       {shape:'round', tone:'light', glyph:'\u2665'}, /* heart */
@@ -45,19 +53,19 @@
       {shape:'hex',   tone:'light', glyph:'\u2605'}, /* star */
       {shape:'hex',   tone:'dark',  glyph:'\u2736'}  /* six-point star */
     ];
-    var board, selected, paused, over, score, moves, animateEnabled, animating, pendingSwap;
+    var board, selected, over, score, moves, animateEnabled, animating, pendingSwap, pieceTypes;
     var animTimer=null;
     var animMask=null, animBodies=null, animPhase='', animFlashUntil=0, animLastTick=0;
     var animStaticBoard=null, animStep=null;
     var canvas=document.getElementById('board'), ctx=canvas.getContext&&canvas.getContext('2d');
     var controls=document.getElementById('controls'), statusEl=document.getElementById('status');
-    var scoreBox=document.getElementById('scoreBox'), pauseBtn=document.getElementById('pauseBtn');
-    var animInput=document.getElementById('animInput');
+    var animBtn=document.getElementById('animBtn');
+    var typesInput=document.getElementById('typesInput');
     var cell=0,pad=0;
 
     function inBounds(r,c){ return r>=0&&r<N&&c>=0&&c<N; }
     function clamp(v,lo,hi){ if(v<lo)return lo; if(v>hi)return hi; return v; }
-    function randType(){ return Math.floor(Math.random()*TYPES); }
+    function randType(){ return Math.floor(Math.random()*pieceTypes); }
     function safeStorageSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
     function safeStorageGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
 
@@ -195,6 +203,7 @@
               y:pad+piece.row*cell+cell*0.5,
               tx:pad+c*cell+cell*0.5,
               ty:pad+w*cell+cell*0.5,
+              tr:w,
               vx:0,
               vy:0,
               settled:false,
@@ -328,6 +337,25 @@
       ctx.beginPath(); ctx.moveTo(x+cell-l,y+cell); ctx.lineTo(x+cell,y+cell); ctx.lineTo(x+cell,y+cell-l); ctx.stroke();
     }
 
+    function isCellStableForInput(r,c){
+      if(!inBounds(r,c)) return false;
+      if(!animating) return true;
+      if(!animStaticBoard) return false;
+      if(animStaticBoard[r][c]===-1) return false;
+      if(animMask && animMask[r] && animMask[r][c]) return false;
+      return true;
+    }
+
+    function stopAnimationNow(){
+      animating=false;
+      if(animTimer){ clearTimeout(animTimer); animTimer=null; }
+      animMask=null;
+      animBodies=null;
+      animPhase='';
+      animStaticBoard=null;
+      animStep=null;
+    }
+
     function draw(){
       var r,c,x,y;
       ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -350,14 +378,11 @@
         for(r=0;r<N;r++) for(c=0;c<N;c++) drawGem(r,c,board[r][c],1);
       }
       if(selected) drawBrackets(selected.r,selected.c);
-      scoreBox.textContent='Score: '+score;
     }
 
     function refresh(){
-      if(over) statusEl.textContent='Info: Game over: No legal swaps. Final score '+score+'.';
-      else if(animating) statusEl.textContent='Info: Resolving move...';
-      else if(paused) statusEl.textContent='Info: Paused.';
-      else statusEl.textContent='Info: Score '+score+' after '+moves+' moves.';
+      if(over) statusEl.textContent='Game over: No legal swaps. Final score '+score+'.';
+      else statusEl.textContent='Score: '+score+' after '+moves+' moves.';
     }
 
     function endIfNoMoves(){
@@ -373,14 +398,12 @@
       board=makeBoard();
       selected=null;
       pendingSwap=null;
-      paused=false;
       animating=false;
       animMask=null; animBodies=null; animPhase=''; animFlashUntil=0; animLastTick=0; animStaticBoard=null; animStep=null;
       if(animTimer){ clearTimeout(animTimer); animTimer=null; }
       over=false;
       score=0;
       moves=0;
-      pauseBtn.textContent='Pause';
       collapseAll();
       if(!anyLegalSwap()) reshuffle();
       draw();
@@ -441,6 +464,7 @@
         if(r>=0&&r<N&&c>=0&&c<N){ animStaticBoard[r][c]=-1; animMask[r][c]=true; }
       }
       animBodies=step.bodies.slice(0);
+      board=copyBoard(step.filled);
       animating=true;
       animPhase='flash';
       animFlashUntil=Date.now()+50;
@@ -482,11 +506,15 @@
               if(Math.abs(b.vy)<cell*1.2){
                 b.vy=0;
                 b.x=b.tx; b.y=b.ty; b.settled=true;
+                if(animMask && animMask[b.tr] && animMask[b.tr][b.col]) animMask[b.tr][b.col]=false;
+                if(animStaticBoard && animStaticBoard[b.tr]) animStaticBoard[b.tr][b.col]=b.type;
               } else {
                 b.vy=-b.vy*bounce;
               }
               if(b.touched && (now-b.touchedAt)>=200){
                 b.x=b.tx; b.y=b.ty; b.vy=0; b.settled=true;
+                if(animMask && animMask[b.tr] && animMask[b.tr][b.col]) animMask[b.tr][b.col]=false;
+                if(animStaticBoard && animStaticBoard[b.tr]) animStaticBoard[b.tr][b.col]=b.type;
               }
             }
           }
@@ -506,6 +534,7 @@
                 y:pad-cell*0.8,
                 tx:pad+c*cell+cell*0.5,
                 ty:pad+tgt*cell+cell*0.5,
+                tr:tgt,
                 vx:0,
                 vy:0,
                 settled:false,
@@ -542,7 +571,7 @@
 
     function click(ev){
       var rect,sx,sy,x,y,r,c,p;
-      if(paused||over) return;
+      if(over) return;
       rect=canvas.getBoundingClientRect();
       sx=canvas.width/rect.width; sy=canvas.height/rect.height;
       x=(ev.clientX-rect.left)*sx; y=(ev.clientY-rect.top)*sy;
@@ -550,9 +579,15 @@
       if(!inBounds(r,c)) return;
       p={r:r,c:c};
       if(animating){
+        if(!isCellStableForInput(r,c)){ return; }
         if(!selected){ selected=p; draw(); return; }
+        if(!isCellStableForInput(selected.r,selected.c)){ selected=p; pendingSwap=null; draw(); return; }
         if(selected.r===p.r&&selected.c===p.c){ selected=null; pendingSwap=null; draw(); return; }
-        if(adj(selected,p)){ pendingSwap={a:{r:selected.r,c:selected.c}, b:{r:p.r,c:p.c}}; selected=p; draw(); return; }
+        if(adj(selected,p)){
+          stopAnimationNow();
+          if(trySwap(selected,p)){ selected=null; pendingSwap=null; return; }
+          selected=p; pendingSwap=null; draw(); return;
+        }
         selected=p; pendingSwap=null; draw(); return;
       }
       if(!selected){ selected=p; draw(); return; }
@@ -594,38 +629,46 @@
       draw();
     }
 
-    function togglePause(){
-      if(over||animating) return;
-      paused=!paused;
-      pauseBtn.textContent=paused?'Resume':'Pause';
-      refresh();
-    }
-
     function setAnimEnabled(v){
       animateEnabled=!!v;
-      if(animInput) animInput.checked=animateEnabled;
+      if(animBtn) animBtn.className=animateEnabled?'is-on':'';
       safeStorageSet('bejeweled_anim', animateEnabled?'1':'0');
       refresh();
     }
 
+    function setPieceTypes(v){
+      v=parseInt(v,10);
+      if(!isFinite(v)) v=6;
+      if(v!==4 && v!==5 && v!==6) v=6;
+      pieceTypes=v;
+      if(typesInput) typesInput.value=''+pieceTypes;
+      safeStorageSet('bejeweled_types',''+pieceTypes);
+    }
+
     function bind(){
       document.getElementById('resetBtn').addEventListener('click',function(){ resetGame(); });
-      pauseBtn.addEventListener('click',togglePause);
-      if(animInput){
-        animInput.addEventListener('change',function(){ setAnimEnabled(!!animInput.checked); });
+      if(animBtn){
+        animBtn.addEventListener('click',function(){ setAnimEnabled(!animateEnabled); });
+      }
+      if(typesInput){
+        typesInput.addEventListener('change',function(){
+          setPieceTypes(typesInput.value);
+          resetGame();
+        });
       }
       canvas.addEventListener('click',click);
       if(window.addEventListener) window.addEventListener('resize',resize);
       window.__test={
-        getState:function(){ return {score:score,moves:moves,paused:paused,over:over,selected:selected,anim:animateEnabled,animating:animating}; },
+        getState:function(){ return {score:score,moves:moves,over:over,selected:selected,anim:animateEnabled,animating:animating,types:pieceTypes}; },
         board:function(){ var r,c,b=[]; for(r=0;r<N;r++){ b[r]=[]; for(c=0;c<N;c++) b[r][c]=board[r][c]; } return b; },
         playSwap:function(a,b){ selected=a; return trySwap(a,b); }
       };
     }
 
     function init(){
-      var s=safeStorageGet('bejeweled_score'), a=safeStorageGet('bejeweled_anim');
+      var s=safeStorageGet('bejeweled_score'), a=safeStorageGet('bejeweled_anim'), t=safeStorageGet('bejeweled_types');
       if(s!==null){ s=parseInt(s,10); if(isFinite(s)&&s>=0) score=s; }
+      setPieceTypes(t!==null?t:'6');
       setAnimEnabled(a==='1');
       bind();
       resetGame();
@@ -635,7 +678,7 @@
 
     function consumePendingSwap(){
       var ps;
-      if(animating||paused||over||!pendingSwap) return false;
+      if(animating||over||!pendingSwap) return false;
       ps=pendingSwap;
       pendingSwap=null;
       if(trySwap(ps.a, ps.b)){ selected=null; return true; }
@@ -643,7 +686,7 @@
     }
 
     if(window.setInterval){
-      window.setInterval(function(){ if(!over&&!paused) safeStorageSet('bejeweled_score',''+score); }, 1000);
+      window.setInterval(function(){ if(!over) safeStorageSet('bejeweled_score',''+score); }, 1000);
     }
     init();
   }());
