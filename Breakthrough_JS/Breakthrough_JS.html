@@ -103,8 +103,8 @@
     var canvas=document.getElementById('board'), ctx=canvas.getContext&&canvas.getContext('2d');
     var controls=document.getElementById('controls'), statusEl=document.getElementById('status');
     var depthInput=document.getElementById('depthInput'), clumsyInput=document.getElementById('clumsyInput'), previewBtn=document.getElementById('previewBtn');
-    var LIGHT_SQUARE = 'rgba(240,217,181,.25)';
-    var DARK_SQUARE = 'rgba(181,136,99,.25)';
+    var LIGHT_SQUARE = '#F0D9B5';
+    var DARK_SQUARE = '#B58863';
     var dir=[[1,0],[-1,0],[0,1],[0,-1]];
 
     function save(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
@@ -283,27 +283,16 @@
       var x=pad + c*cell, y=pad + r*cell;
       ctx.fillStyle=((r+c)%2===0) ? LIGHT_SQUARE : DARK_SQUARE;
       ctx.fillRect(x, y, cell, cell);
-      ctx.strokeStyle='#4d4d4d';
-      ctx.lineWidth=Math.max(1, cell*0.03);
-      ctx.strokeRect(x+0.5, y+0.5, cell-1, cell-1);
     }
     function drawPiece(r,c,color,alpha){
-      var x=pad + c*cell + cell/2, y=pad + r*cell + cell/2, rad=cell*0.34, grad;
+      var x=pad + c*cell + cell/2, y=pad + r*cell + cell/2, rad=cell*0.34;
       if(typeof alpha==='number') ctx.globalAlpha=alpha;
-      grad=ctx.createRadialGradient(x-rad*0.35,y-rad*0.42,rad*0.18,x,y,rad);
-      if(color===HUMAN){
-        grad.addColorStop(0,'#ffffff');
-        grad.addColorStop(1,'#dadada');
-      } else {
-        grad.addColorStop(0,'#4b4b4b');
-        grad.addColorStop(1,'#090909');
-      }
-      ctx.fillStyle=grad;
+      ctx.fillStyle=(color===HUMAN)?'#ffffff':'#000000';
       ctx.beginPath();
       ctx.arc(x, y, rad, 0, Math.PI*2, false);
       ctx.fill();
-      ctx.lineWidth=Math.max(1, rad*0.08);
-      ctx.strokeStyle=color===HUMAN ? '#7f7f7f' : '#e9e9e9';
+      ctx.lineWidth=Math.max(2, rad*0.14);
+      ctx.strokeStyle=(color===HUMAN)?'#000000':'#ffffff';
       ctx.stroke();
       if(typeof alpha==='number') ctx.globalAlpha=1;
     }
@@ -319,6 +308,25 @@
         ctx.stroke();
       }
     }
+    function drawCornerMarks(r,c,color,alpha){
+      var x0,y0,segment,width;
+      if(!ctx || !inBounds(r,c)) return;
+      x0=pad + c*cell;
+      y0=pad + r*cell;
+      segment=cell*0.12;
+      width=Math.max(2, cell*0.07);
+      if(typeof alpha==='number') ctx.globalAlpha=alpha;
+      ctx.strokeStyle=color||'#000000';
+      ctx.lineWidth=width;
+      ctx.lineCap='butt';
+      ctx.beginPath();
+      ctx.moveTo(x0,y0+segment); ctx.lineTo(x0,y0); ctx.lineTo(x0+segment,y0);
+      ctx.moveTo(x0+cell,y0+segment); ctx.lineTo(x0+cell,y0); ctx.lineTo(x0+cell-segment,y0);
+      ctx.moveTo(x0,y0+cell-segment); ctx.lineTo(x0,y0+cell); ctx.lineTo(x0+segment,y0+cell);
+      ctx.moveTo(x0+cell,y0+cell-segment); ctx.lineTo(x0+cell,y0+cell); ctx.lineTo(x0+cell-segment,y0+cell);
+      ctx.stroke();
+      if(typeof alpha==='number') ctx.globalAlpha=1;
+    }
     function draw(){
       var r,c,last;
       if(!ctx) return;
@@ -329,16 +337,15 @@
       if(previewEnabled && previewMove && turn===AI) drawPiece(previewMove.tr, previewMove.tc, AI, 0.3);
       for(r=0;r<N;r++) for(c=0;c<N;c++) if(board[r][c]!==null) drawPiece(r,c,board[r][c],1);
       if(selected){
-        ctx.strokeStyle='rgba(255,215,120,.95)';
+        ctx.strokeStyle='#000000';
         ctx.lineWidth=Math.max(2, cell*0.08);
         ctx.strokeRect(pad + selected.c*cell + 1.5, pad + selected.r*cell + 1.5, cell-3, cell-3);
         drawTargets(selected);
       }
       if(history.length){
         last=history[history.length-1];
-        ctx.strokeStyle='rgba(255,215,120,.9)';
-        ctx.lineWidth=Math.max(2, cell*0.09);
-        ctx.strokeRect(pad + last.move.tc*cell + 3, pad + last.move.tr*cell + 3, cell-6, cell-6);
+        drawCornerMarks(last.move.sr, last.move.sc, '#000000');
+        drawCornerMarks(last.move.tr, last.move.tc, '#000000');
       }
     }
 
@@ -535,8 +542,8 @@
         controls.style.marginTop='0px';
         controls.style.marginBottom='8px';
       }
-      pad=Math.max(20, Math.floor(size*0.05));
-      cell=(size - pad*2)/N;
+      pad=0;
+      cell=size/N;
       draw();
     }
     function updatePreview(){

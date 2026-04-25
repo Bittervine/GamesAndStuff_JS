@@ -466,14 +466,11 @@
     }
 
     function drawStone(r,c,color,alpha){
-      var x=pad + c*cell, y=pad + r*cell, grad;
+      var x=pad + c*cell, y=pad + r*cell;
       if(typeof alpha==='number') ctx.globalAlpha=alpha;
-      grad=ctx.createRadialGradient(x-stoneR*0.35,y-stoneR*0.4,stoneR*0.15,x,y,stoneR);
-      if(color===HUMAN){ grad.addColorStop(0,'#ffffff'); grad.addColorStop(1,'#d4d4d4'); }
-      else { grad.addColorStop(0,'#4b4b4b'); grad.addColorStop(1,'#090909'); }
-      ctx.fillStyle=grad;
+      ctx.fillStyle=(color===HUMAN)?'#ffffff':'#000000';
       ctx.beginPath(); ctx.arc(x,y,stoneR,0,Math.PI*2,false); ctx.fill();
-      ctx.lineWidth=Math.max(1, stoneR*0.08); ctx.strokeStyle=color===HUMAN ? '#8c8c8c' : '#e9e9e9'; ctx.stroke();
+      ctx.lineWidth=Math.max(2, stoneR*0.14); ctx.strokeStyle=(color===HUMAN)?'#000000':'#ffffff'; ctx.stroke();
       if(typeof alpha==='number') ctx.globalAlpha=1;
     }
 
