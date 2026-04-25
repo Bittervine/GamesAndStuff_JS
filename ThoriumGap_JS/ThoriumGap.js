@@ -5352,7 +5352,9 @@
     state.pointerX = pt.x;
     state.pointerY = pt.y;
     if (isMouse) {
+      const prevButtons = state.mouseButtons | 0;
       state.mouseButtons = (typeof ev.buttons === 'number') ? ev.buttons : state.mouseButtons;
+      if (state.settings.alwaysFollowMouse && (state.mouseButtons & 2) && !(prevButtons & 2) && state.mode === 'playing' && !state.paused) useBomb();
       state.pointerActive = state.settings.alwaysFollowMouse ? true : (state.mouseButtons > 0);
       state.input.fire = !!(state.mouseButtons & 1);
     }
