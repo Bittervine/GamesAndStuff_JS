@@ -1071,14 +1071,14 @@
     theme({ name: 'Broken Shore', subtitle: 'First of his name', skyTop: '#061b1b', skyBottom: '#1f4d49', glow: '#8ff7ff', accent: '#58d7c6', accent2: '#c8fff2', icons: [E.bee, E.ladybug, E.butterfly, E.seed], forms: ['swarm', 'pair', 'arc'], enemyKinds: ['zigzag', 'swarm', 'sniper'], atmosphere: 'pollen', music: { bpm: 126, root: 246, pattern: [0, 2, 4, 7, 9, 7, 4, 2] }, boss: { name: 'Rocket Baron', emoji: E.bee, hp: 176, size: 320, color: '#93f0e8', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'low', 'ring')] } }),
     theme({ name: 'Ultraviolet Prison', subtitle: 'Isolation and servitude', skyTop: '#1b1730', skyBottom: '#53265f', glow: '#d19cff', accent: '#9a7cff', accent2: '#f0d0ff', icons: [E.lollipop, E.donut, E.cookie, E.chocolate], forms: ['fan', 'rain', 'cross'], enemyKinds: ['drifter', 'zigzag', 'bomber'], atmosphere: 'sprinkles', music: { bpm: 136, root: 262, pattern: [0, 4, 7, 12, 7, 4, 5, 9] }, boss: { name: 'Warden Thorn', emoji: E.donut, hp: 188, size:320 , color: '#c29bff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7, 'sweep', 'ring'), phase(8, 'low', 'rain')] } }),
     theme({ name: 'Sinners Den', subtitle: 'Hunger without limit', skyTop: '#0f1620', skyBottom: '#4d5867', glow: '#96c9ff', accent: '#9fb2c6', accent2: '#d0e0ef', icons: [E.gear, E.battery, E.wrench, E.rocket], forms: ['line', 'pair', 'cross'], enemyKinds: ['zigzag', 'sniper', 'bomber'], atmosphere: 'sparks', music: { bpm: 118, root: 196, pattern: [0, 0, 7, 5, 4, 5, 7, 10] }, boss: { name: 'Hope Devourer', emoji: E.gear, hp: 200, size: 320, color: '#d0d9e1', flipWhenMovingRight: false, phases: [phase(7, 'sweep', 'ring'), phase(7.5, 'hover', 'summon'), phase(8, 'dash', 'fan')] } }),
-    theme({ name: 'Deadlight Fen', subtitle: 'Master of the soulless crew', skyTop: '#06111d', skyBottom: '#532a40', glow: '#ffbf8a', accent: '#e0a06c', accent2: '#ffc8a1', icons: [E.lantern, E.ghost, E.sparkles, E.star], forms: ['rain', 'arc', 'swarm'], enemyKinds: ['spinner', 'sniper', 'drifter', 'drifter', 'drifter'], atmosphere: 'motes', music: { bpm: 108, root: 196, pattern: [0, 5, 7, 10, 7, 5, 3, 5] }, boss: { name: 'Specter Captain', emoji: E.lantern, hp: 204, size: 320, color: '#f6b46d', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Deadlight Fen', subtitle: 'Master of the soulless crew', skyTop: '#06111d', skyBottom: '#532a40', glow: '#ffbf8a', accent: '#e0a06c', accent2: '#ffc8a1', icons: [E.lantern, E.ghost, E.sparkles, E.star], forms: ['rain', 'arc', 'swarm'], enemyKinds: ['swarm', 'sniper', 'drifter'], atmosphere: 'motes', music: { bpm: 108, root: 196, pattern: [0, 5, 7, 10, 7, 5, 3, 5] }, boss: { name: 'Specter Captain', emoji: E.lantern, hp: 204, size: 320, color: '#f6b46d', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'ring')] } }),
     theme({ name: 'Elysium Moors', subtitle: 'The steed of Neptune', skyTop: '#220c0c', skyBottom: '#6d3a13', glow: '#ffd77a', accent: '#c47a19', accent2: '#ffd59f', icons: [E.bee, E.honey, E.fire, E.bolt], forms: ['swarm', 'fan', 'pair'], enemyKinds: ['diver', 'swarm', 'sniper'], atmosphere: 'embers', music: { bpm: 132, root: 246, pattern: [0, 2, 3, 7, 10, 7, 3, 2] }, boss: { name: 'Lunar Horse', emoji: E.bee, hp: 216, size: 320, color: '#e4ba6a', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'dash', 'rain')] } }),
-    theme({ name: 'Shard Expanse', subtitle: 'The base of lost hope', skyTop: '#07142f', skyBottom: '#264e88', glow: '#b0fbff', accent: '#95d5ff', accent2: '#d6c4ff', icons: [E.crystal, E.gem, E.star, E.moon], forms: ['ring', 'line', 'arc'], enemyKinds: ['spinner', 'sniper', 'sniper', 'sniper', 'drifter'], atmosphere: 'shards', music: { bpm: 120, root: 233, pattern: [0, 4, 7, 11, 7, 4, 9, 7] }, boss: { name: 'Shard Base One', emoji: E.gem, hp: 228, size: 320, color: '#c9f6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'ring'), phase(8, 'low', 'beam')] } }),
+    theme({ name: 'Shard Expanse', subtitle: 'The base of lost hope', skyTop: '#07142f', skyBottom: '#264e88', glow: '#b0fbff', accent: '#95d5ff', accent2: '#d6c4ff', icons: [E.crystal, E.gem, E.star, E.moon], forms: ['ring', 'line', 'arc'], enemyKinds: ['spinner', 'diver', 'splitter', 'mine', 'swarm', 'bomber', 'drifter', 'zigzag'], atmosphere: 'shards', music: { bpm: 120, root: 233, pattern: [0, 4, 7, 11, 7, 4, 9, 7] }, boss: { name: 'Shard Base One', emoji: E.gem, hp: 228, size: 320, color: '#c9f6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'ring'), phase(8, 'low', 'beam')] } }),
     theme({ name: 'Dark Waters', subtitle: 'Prey on the weak', skyTop: '#180709', skyBottom: '#6c2919', glow: '#ffab5b', accent: '#de6f2b', accent2: '#ffd08a', icons: [E.fire, E.pepper, E.honey, E.sparkles], forms: ['rain', 'line', 'swarm'], enemyKinds: ['bomber', 'diver', 'splitter'], atmosphere: 'embers', music: { bpm: 140, root: 220, pattern: [0, 3, 7, 10, 7, 3, 5, 10] }, boss: { name: 'Cephid Hunter', emoji: E.fire, hp: 240, size: 320, color: '#ff9e53', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'rain'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'wall')] } }),
-    theme({ name: 'Domain of Klaatu', subtitle: 'The earth stands still', skyTop: '#07111d', skyBottom: '#2d3d61', glow: '#95d7ff', accent: '#aebfe0', accent2: '#95d7ff', icons: [E.moon, E.star, E.rocket, E.comet], forms: ['line', 'wave', 'pair'], enemyKinds: ['drifter', 'zigzag', 'mine'], atmosphere: 'stardust', music: { bpm: 106, root: 185, pattern: [0, 7, 12, 7, 10, 7, 5, 3] }, boss: { name: 'Klaatu', emoji: E.moon, hp: 252, size: 320, color: '#c3d6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'summon'), phase(7.5, 'sweep', 'beam'), phase(8, 'dash', 'ring')] } }),
+    theme({ name: 'Domain of Klaatu', subtitle: 'The earth stands still', skyTop: '#07111d', skyBottom: '#2d3d61', glow: '#95d7ff', accent: '#aebfe0', accent2: '#95d7ff', icons: [E.moon, E.star, E.rocket, E.comet], forms: ['line', 'wave', 'pair'], enemyKinds: ['spinner', 'diver', 'splitter', 'mine', 'swarm', 'drifter', 'zigzag'], atmosphere: 'stardust', music: { bpm: 106, root: 185, pattern: [0, 7, 12, 7, 10, 7, 5, 3] }, boss: { name: 'Klaatu', emoji: E.moon, hp: 252, size: 320, color: '#c3d6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'summon'), phase(7.5, 'sweep', 'beam'), phase(8, 'dash', 'ring')] } }),
     theme({ name: 'Sunken Bastion', subtitle: 'Here drowned men weep', skyTop: '#07101c', skyBottom: '#2d1a5a', glow: '#82f6ff', accent: '#6eeaff', accent2: '#c8fff2', icons: [E.bolt, E.sparkles, E.disc, E.target], forms: ['wave', 'cross', 'pair'], enemyKinds: ['zigzag', 'sniper', 'bomber'], atmosphere: 'neon', music: { bpm: 144, root: 220, pattern: [0, 7, 12, 10, 7, 4, 9, 12] }, boss: { name: 'Cyberphish', emoji: E.bolt, hp: 264, size: 320, color: '#8fefff', flipWhenMovingRight: true, phases: [phase(7, 'sweep', 'wall'), phase(7.5, 'hover', 'aimed'), phase(8, 'dash', 'ring')] } }),
     theme({ name: 'Black Citadel', subtitle: 'When the hearts break', skyTop: '#0a0c14', skyBottom: '#403f55', glow: '#f0f3ff', accent: '#b6bfd6', accent2: '#9e8e5e', icons: [E.knight, E.rook, E.bishop, E.queen], forms: ['line', 'cross', 'wave'], enemyKinds: ['zigzag', 'sniper', 'elite'], atmosphere: 'chess', music: { bpm: 122, root: 196, pattern: [0, 3, 7, 10, 7, 3, 5, 7] }, boss: { name: 'Purple Matron', emoji: E.queen, hp: 288, size: 320, color: '#e7ecff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'summon'), phase(8, 'dash', 'ring')] } }),
-    theme({ name: 'Crushing Depths', subtitle: 'Hunger for sunlight', skyTop: '#0c1821', skyBottom: '#344c84', glow: '#d7f4ff', accent: '#9cc7ff', accent2: '#d7f4ff', icons: [E.cloud, E.rain, E.bolt, E.star], forms: ['rain', 'line', 'swarm'], enemyKinds: ['zigzag', 'diver', 'sniper', 'spinner'], atmosphere: 'rain', music: { bpm: 128, root: 196, pattern: [0, 4, 7, 10, 7, 4, 2, 5] }, boss: { name: 'Deep Gulper', emoji: E.cloud, hp: 276, size: 320, color: '#d3edff', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Crushing Depths', subtitle: 'Hunger for sunlight', skyTop: '#0c1821', skyBottom: '#344c84', glow: '#d7f4ff', accent: '#9cc7ff', accent2: '#d7f4ff', icons: [E.cloud, E.rain, E.bolt, E.star], forms: ['rain', 'line', 'swarm'], enemyKinds:  ['spinner', 'diver', 'splitter', 'mine', 'swarm', 'zigzag'], atmosphere: 'rain', music: { bpm: 128, root: 196, pattern: [0, 4, 7, 10, 7, 4, 2, 5] }, boss: { name: 'Deep Gulper', emoji: E.cloud, hp: 276, size: 320, color: '#d3edff', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
     theme({ name: 'Thorium Gap', subtitle: 'Final Descent', skyTop: '#0f081b', skyBottom: '#5b3d18', glow: '#ffe78a', accent: '#ffd77a', accent2: '#ffffff', icons: [E.sun, E.crown, E.star, E.comet], forms: ['ring', 'fan', 'wave'], enemyKinds: ['elite', 'sniper', 'spinner', 'drifter'], atmosphere: 'nova', music: { bpm: 152, root: 262, pattern: [0, 4, 7, 12, 15, 12, 7, 4] }, boss: { name: 'Unnamed Horror', emoji: E.sun, hp: 320, size: 512, color: '#fff0bd', flipWhenMovingRight: false, phases: [phase(6.5, 'hover', 'aimed'), phase(6.5, 'sweep', 'ring'), phase(6.5, 'dash', 'beam'), phase(7.5, 'low', 'wall')] } })
   ];
 
@@ -1899,16 +1899,21 @@
   }
 
   function debugJumpToBoss() {
-    if (!state.debugMode || state.mode !== 'playing' || state.boss || state.transition) return;
+    if (!state.debugMode || state.mode !== 'playing' || state.transition) return;
+    if (state.boss) {
+      damageBoss(state.boss, 999999, false);
+      return;
+    }
     const theme = mainTheme();
     state.waveClock = 0;
-    state.levelClock = 28 + state.levelIndex * 2.8;
+    state.levelClock = 40 + state.levelIndex * 2;
     state.banner = 'BOSS!';
     state.bannerSub = theme.subtitle;
     state.bannerTimer = 1.2;
     clearProjectileLists();
     clearParticleList();
     clearEnemyBulletsWithBudget(9999);
+    spawnBoss(theme);
   }
 
   function beginLevel(index) {
@@ -2114,10 +2119,10 @@
       { type: 'weapon', w: weaponWeight },
       { type: 'rapid', w: state.player.rapidTimer > 4 ? 1 : 4 },
       { type: 'shield', w: state.player.shield < 2 ? 3 : 1 },
-      { type: 'bomb', w: state.player.bombs < 2 ? 5 : 2 },
-      { type: 'magnet', w: state.player.magnetTimer < 4 ? 4 : 1 },
+      { type: 'bomb', w: state.player.bombs < 2 ? 5 : 1 },
+      { type: 'magnet', w: state.player.magnetTimer < 4 ? 2 : 1 },
       { type: 'invuln', w: 1.0 },
-      { type: 'score', w: 10 }
+      { type: 'score', w: 5 }
     ];
     const total = list.reduce(function (sum, item) { return sum + item.w; }, 0);
     let roll = Math.random() * total;
@@ -2126,22 +2131,24 @@
   }
 
   function weaponPickupWeight(levelNumber) {
-    const base = 8;
+    const base = 5;
     const n = clamp(levelNumber | 0, 1, THEMES.length);
     const factors = {
-      1: 5.0,
-      2: 4.0,
-      3: 3.0,
-      4: 2.0,
+      1: 4.0,
+      2: 3.0,
+      3: 2.0,
+      4: 1.0,
       5: 1.0,
-      6: 0.9,
-      7: 0.8,
-      8: 0.7,
-      9: 0.6,
-      10: 0.4,
-      11: 0.3,
-      12: 0.2,
-      13: 0.1
+      6: 1.0,
+      7: 1.0,
+      8: 1.0,
+      9: 1.0,
+      10: 1.0,
+      11: 1.0,
+      12: 1.0,
+      13: 1.0,
+      14: 1.0,
+      15: 1.0
     };
     const factor = factors[n] != null ? factors[n] : 0.1;
     return base * factor;
@@ -2179,7 +2186,7 @@
   }
 
   function maybeDropPickup(x, y, elite, forceType) {
-    const p = elite ? 0.50 : 0.15 - state.levelIndex * 0.0118;
+    const p = 0.2 * (0.95 ** state.levelIndex)
     if (forceType || Math.random() < p) {
       const type = forceType || choosePickup();
       if (type === 'weapon') spawnPickup('weapon', x, y, { weaponMode: chooseWeaponMode(state.player.weaponMode) });
@@ -2190,7 +2197,7 @@
   function spawnEnemy(kind, x, y, opts) {
     const t = state.currentTheme;
     const d = ENEMIES[kind] || ENEMIES.drifter;
-    const scale = 1 + state.levelIndex * 0.08;
+    const scale = 1 + state.levelIndex * 0.05;
     const diff = currentDifficulty();
     const speedScale = diff.enemySpeed;
     const fireScale = SHOT_PACE / diff.spawnRate;
@@ -2415,40 +2422,34 @@
       const beamXJitter = () => rand(-2.5, 2.5);
       const beamYJitter = () => rand(-6, 6);
       if (tier === 1) {
-        spawnBullet('player', x - beamSpacing + beamXJitter(),     beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamXJitter(),                   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing + beamXJitter(),     beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-      }
-      if (tier === 2) {
-        spawnBullet('player', x - beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
         spawnBullet('player', x - beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
         spawnBullet('player', x + beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
       }
-      if (tier === 3) {
-        spawnBullet('player', x - beamSpacing*2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+      if (tier === 2) {
         spawnBullet('player', x - beamSpacing + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
         spawnBullet('player', x + beamXJitter(),                 beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
         spawnBullet('player', x + beamSpacing + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+      }
+      if (tier === 3) {
+        spawnBullet('player', x - beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
       }
       if (tier === 4) {
-        spawnBullet('player', x - beamSpacing*5/2 + beamXJitter(), beamY-25 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x - beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x - beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*5/2 + beamXJitter(), beamY-25 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*2 + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamXJitter(),                 beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*2 + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
       }
       if (tier >= 5) {
-        spawnBullet('player', x - beamSpacing*7/2 + beamXJitter(), beamY-20 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x - beamSpacing*5/2 + beamXJitter(), beamY-25 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*4/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
         spawnBullet('player', x - beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
         spawnBullet('player', x - beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
         spawnBullet('player', x + beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
         spawnBullet('player', x + beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*5/2 + beamXJitter(), beamY-25 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*7/2 + beamXJitter(), beamY-20 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*4/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
       }
       sfx('beam');
     }
@@ -2601,7 +2602,7 @@
         if (state.combo >= 10) { state.combo = 0; activateOverdrive(); }
       }
       if (e.kind === 'spinner') ringBullets(e.x, e.y, 10, 180, 1, e.theme.accent2, 'enemy');
-      if (e.kind === 'elite' || e.score > 200) maybeDropPickup(e.x, e.y, true, chance(0.35) ? 'shield' : null);
+      //if (e.kind === 'elite' || e.score > 200) maybeDropPickup(e.x, e.y, true, chance(0.35) ? 'shield' : null);
       else if (!fromBomb) maybeDropPickup(e.x, e.y, false);
     } else {
       sfx('hit');
