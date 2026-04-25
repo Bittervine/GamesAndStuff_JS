@@ -1373,6 +1373,7 @@
   }
 
   function triggerRumble(strength, duration) {
+    if (state.settings && state.settings.alwaysFollowMouse) return;
     const pads = navigator.getGamepads ? navigator.getGamepads() : null;
     const pad = pads && state.gamepad.index >= 0 ? pads[state.gamepad.index] : null;
     const dur = Math.max(20, duration || 120);
@@ -1536,6 +1537,17 @@
 
   function setAlwaysFollowMouse(enabled) {
     state.settings.alwaysFollowMouse = !!enabled;
+    if (state.settings.alwaysFollowMouse) {
+      state.gamepad.prevFire = false;
+      state.gamepad.prevBomb = false;
+      state.gamepad.prevMenu = false;
+      state.gamepad.fireHeld = false;
+      state.gamepad.bombHeld = false;
+      state.gamepad.joyX = 0;
+      state.gamepad.joyY = 0;
+      state.input.moveX = 0;
+      state.input.moveY = 0;
+    }
     saveSettings();
     syncSettingsUi();
     hint(enabled ? 'Ship will follow mouse without right hold.' : 'Ship follow mouse now requires right hold.', 1.8);
@@ -1591,6 +1603,18 @@
   }
 
   function updateGamepadInput() {
+    if (state.settings.alwaysFollowMouse) {
+      state.gamepad.prevFire = false;
+      state.gamepad.prevBomb = false;
+      state.gamepad.prevMenu = false;
+      state.gamepad.fireHeld = false;
+      state.gamepad.bombHeld = false;
+      state.gamepad.joyX = 0;
+      state.gamepad.joyY = 0;
+      state.input.moveX = 0;
+      state.input.moveY = 0;
+      return;
+    }
     const pads = navigator.getGamepads ? navigator.getGamepads() : null;
     const p = state.player;
     let pad = null;
@@ -4726,7 +4750,8 @@
     const p = state.player;
     const respawning = p.respawnTimer > 0;
     const bob = respawning ? Math.sin(state.musicStep * 0.45) * 0.8 : Math.sin((state.musicStep * 0.45) + p.x * 0.01) * 2;
-    const tilt = respawning ? 0 : clamp(((state.input.right ? 1 : 0) - (state.input.left ? 1 : 0)) * 0.24 + (state.pointerActive ? (state.pointerX - p.x) / 280 : 0), -0.45, 0.45);
+    const allowControlTilt = state.mode === 'playing';
+    const tilt = respawning ? 0 : clamp((allowControlTilt ? (((state.input.right ? 1 : 0) - (state.input.left ? 1 : 0)) * 0.24 + (state.pointerActive ? (state.pointerX - p.x) / 280 : 0)) : 0), -0.45, 0.45);
     const rot = tilt * 0.92;
     const glow = state.overdrive > 0 ? '#ffe38c' : '#8fd8ff';
     const invulnActive = p.invuln > 0;
