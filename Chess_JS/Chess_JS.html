@@ -133,7 +133,8 @@
             depth: 'chess_max_depth',
             clumsy: 'chess_clumsiness',
             preview: 'chess_preview_enabled',
-            kindleOverride: 'chess_kindle_override'
+            kindleOverride: 'chess_kindle_override',
+            state: 'chess_game_state'
         };
 
         var LIGHT_SQUARE = '#F0D9B5';
@@ -200,6 +201,89 @@
             } catch (err) {
                 // Ignore blocked storage in restricted environments.
             }
+        }
+
+        function isValidPieceData(piece) {
+            if (!piece) return true;
+            if (typeof piece !== 'object') return false;
+            if (typeof piece.type !== 'string' || 'KQRBNP'.indexOf(piece.type) < 0) return false;
+            if (piece.color !== 'w' && piece.color !== 'b') return false;
+            if (typeof piece.moved !== 'boolean') return false;
+            return true;
+        }
+
+        function isValidBoardData(board) {
+            var r;
+            var c;
+            if (!board || typeof board.length !== 'number' || board.length !== 8) return false;
+            for (r = 0; r < 8; r++) {
+                if (!board[r] || typeof board[r].length !== 'number' || board[r].length !== 8) return false;
+                for (c = 0; c < 8; c++) {
+                    if (!isValidPieceData(board[r][c])) return false;
+                }
+            }
+            return true;
+        }
+
+        function saveGameState() {
+            var payload;
+            try {
+                payload = {
+                    v: 1,
+                    board: game.board,
+                    turn: game.turn,
+                    gameOver: !!game.gameOver,
+                    history: game.history,
+                    lastDouble: game.lastDouble ? { row: game.lastDouble.row, col: game.lastDouble.col } : null
+                };
+                safeStorageSet(STORAGE.state, JSON.stringify(payload));
+            } catch (err) {
+                // Ignore serialization/storage failures.
+            }
+        }
+
+        function loadGameState() {
+            var raw = safeStorageGet(STORAGE.state);
+            var parsed;
+            var i;
+            var entry;
+            if (!raw) return false;
+            try {
+                parsed = JSON.parse(raw);
+            } catch (err) {
+                return false;
+            }
+            if (!parsed || parsed.v !== 1) return false;
+            if (!isValidBoardData(parsed.board)) return false;
+            if (parsed.turn !== 'w' && parsed.turn !== 'b') return false;
+            if (parsed.lastDouble !== null) {
+                if (!parsed.lastDouble || typeof parsed.lastDouble.row !== 'number' || typeof parsed.lastDouble.col !== 'number') return false;
+                if (!inBounds(parsed.lastDouble.row, parsed.lastDouble.col)) return false;
+            }
+            if (!parsed.history || typeof parsed.history.length !== 'number') return false;
+            for (i = 0; i < parsed.history.length; i++) {
+                entry = parsed.history[i];
+                if (!entry || !entry.move || typeof entry.move.length !== 'number' || entry.move.length !== 4) return false;
+                if (!entry.token || !isValidPieceData(entry.token.captured)) return false;
+            }
+
+            clearEngineState();
+            game.board = parsed.board;
+            game.selected = null;
+            game.turn = parsed.turn;
+            game.gameOver = !!parsed.gameOver;
+            game.history = parsed.history;
+            game.lastDouble = parsed.lastDouble ? { row: parsed.lastDouble.row, col: parsed.lastDouble.col } : null;
+            game.previewMove = null;
+            game.previewDrawAt = 0;
+            game.renderBoardSnapshot = null;
+            game.renderLastDoubleSnapshot = null;
+            recomputeMaterial();
+            if (infoLabel) infoLabel.style.display = '';
+            if (infoText) infoText.textContent = game.gameOver ? 'Game restored.' : 'Game restored. Your move...';
+            resizeLayout();
+            refreshStatus();
+            return true;
         }
 
         function configureKindleMode() {
@@ -368,6 +452,7 @@
             redraw();
             refreshStatus();
             engine.thinking = false;
+            saveGameState();
         }
 
         function resetGame() {
@@ -390,6 +475,7 @@
             resizeLayout();
             refreshStatus();
             startFreeSerifWatcher();
+            saveGameState();
         }
 
         function resizeLayout() {
@@ -1421,6 +1507,7 @@
 
             redraw();
             refreshStatus();
+            saveGameState();
         }
 
         function onBoardClick(ev) {
@@ -1460,6 +1547,7 @@
                 if (isCheckmate(game.turn) || isStalemate(game.turn)) game.gameOver = true;
 
                 refreshStatus();
+                saveGameState();
                 if (!game.gameOver && game.turn === AI_COLOR) {
                     engine.timerId = setTimeout(startEngineTurn, 50);
                 }
@@ -1511,7 +1599,7 @@
         configureKindleMode();
         initPersistentInputs();
         bindEvents();
-        resetGame();
+        if (!loadGameState()) resetGame();
         startFreeSerifWatcher();
     })();
     </script>
