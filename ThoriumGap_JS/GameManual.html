@@ -130,16 +130,6 @@
       <li><code>P</code> or <code>ESC</code> pauses. <code>M</code> mutes sound. <code>R</code> restarts. <code>O</code> opens settings.</li>
     </ul>
 
-    <h2>Settings</h2>
-    <ul>
-      <li><code>Effects Volume</code> changes sound effect loudness.</li>
-      <li><code>Score Volume</code> changes music loudness.</li>
-      <li><code>Combat Difficulty</code> selects Easy, Normal, or Hard.</li>
-      <li><code>Enable low end mode (less cpu usage)</code> reduces effects to lower CPU load on weaker devices.</li>
-      <li><code>Ship always follows mouse</code> makes the ship track mouse movement without holding right button.</li>
-      <li>When <code>Ship always follows mouse</code> is enabled, pressing the right mouse button triggers a bomb during play.</li>
-    </ul>
-
     <h3>Gamepad</h3>
     <ul>
       <li>Gamepad support is included.</li>
@@ -148,6 +138,17 @@
       <li><code>B</code> or the left trigger launches a bomb.</li>
       <li><code>Start</code> or <code>Select</code> opens settings.</li>
       <li>Rumble is supported when the browser and controller expose vibration features.</li>
+    </ul>
+
+    <h2>Settings</h2>
+    <ul>
+      <li><code>Effects Volume</code> changes sound effect loudness.</li>
+      <li><code>Score Volume</code> changes music loudness.</li>
+      <li><code>Combat Difficulty</code> selects Easy, Normal, or Hard.</li>
+      <li><code>Enable low end mode (less cpu usage)</code> reduces effects to lower CPU load on weaker devices.</li>
+      <li><code>Ship always follows mouse</code> makes the ship track mouse movement without holding right button.</li>
+      <li>When <code>Ship always follows mouse</code> is enabled, pressing the right mouse button triggers a bomb during play.</li>
+      <li>When <code>Ship always follows mouse</code> is enabled, gamepad input and gamepad rumble support are disabled.</li>
     </ul>
 
     <h2>Shield And Health</h2>
@@ -168,6 +169,7 @@
       <li>This overflow upgrade cannot increase a weapon above Tier <code>III</code> - instead the overflow becomes score instead.</li>
       <li>Your current weapon always loses a tier when a ship is lost. The replacement ship then switches to your strongest remaining weapon type.</li>
       <li>Your current weapon loses one tier when a boss is killed, but it will not reduce it below Tier <code>III</code>.</li>
+      <li>Weapon overheats after fireing for 3 seconds. This is indicated by a bar in the hud and penalized with a very small reduction in fire rate.</li>
     </ul>
  
     <h3>Dart</h3>
