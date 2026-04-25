@@ -1229,6 +1229,9 @@
     lastHitInfo: null,
     debugLog: loadDebugLog(),
     debugDamageBreakpoints: false,
+    assetsReady: false,
+    assetsLoading: false,
+    assetsWarmupPromise: null,
     nextLevelTimer: 0,
     waveClock: 0,
     waveIndex: 0,
@@ -1929,6 +1932,11 @@
   }
 
   function startGame() {
+    if (!state.assetsReady) {
+      titleScreenText();
+      markHudDirty();
+      return;
+    }
     closeSettings();
     resetRun();
     state.mode = 'playing';
@@ -1937,8 +1945,59 @@
   }
 
   function titleScreenText() {
-    setBanner('THORIUM GAP', 'Click or press Space to launch.', 3.5);
-    hint('Drag to fly. Hold to fire. Open SETTINGS for audio and combat settings.', 5);
+    if (state.assetsReady) {
+      setBanner('THORIUM GAP', 'Click or press Space to launch.', 3.5);
+      hint('Drag to fly. Hold to fire. Open SETTINGS for audio and combat settings.', 5);
+    } else {
+      setBanner('THORIUM GAP', 'Preloading textures...', 3.5);
+      hint('Please wait while the game warms its textures.', 5);
+    }
+  }
+
+  function assetWarmupBusy() {
+    return !!(playerShipTextureLoading || playerAuraTextureLoading || bossArtLoadKeys.size || enemyShipLoadKeys.size || glowImageLoads.size || planetDecorLoadKeys.size || planetDecorTextureLoadKeys.size);
+  }
+
+  function warmAllTextures() {
+    ensurePlayerShipTexture();
+    ensurePlayerAuraTexture();
+    getPlayerEngineFlameTexture(0);
+    getPlayerEngineFlameTexture(1);
+    getPlayerEngineFlameTexture(2);
+    getPlayerEngineFlameTexture(3);
+    ensureGlowImage('assets/glow_e_white.png');
+    ensureGlowImage('assets/glow_e_blue.png');
+    ensureGlowImage('assets/glow_e_green.png');
+    ensureGlowImage('assets/glow_e_red.png');
+    for (let i = 1; i <= PLANET_DECOR_MAX; i++) ensurePlanetDecorImage(i);
+    for (let i = 1; i <= THEMES.length; i++) {
+      warmBossArt(i);
+      warmEnemyShipBatch(i);
+    }
+    if (titleArt && !titleArt.complete) {
+      titleArt.decoding = 'async';
+    }
+  }
+
+  function beginTexturePreload() {
+    if (state.assetsLoading || state.assetsReady) return state.assetsWarmupPromise || Promise.resolve();
+    state.assetsLoading = true;
+    titleScreenText();
+    markHudDirty();
+    warmAllTextures();
+    state.assetsWarmupPromise = (async function () {
+      const started = Date.now();
+      while (assetWarmupBusy()) {
+        if (Date.now() - started > 30000) break;
+        await new Promise(function (resolve) { setTimeout(resolve, 50); });
+      }
+      state.assetsLoading = false;
+      state.assetsReady = true;
+      state.assetsWarmupPromise = null;
+      titleScreenText();
+      markHudDirty();
+    }());
+    return state.assetsWarmupPromise;
   }
 
   function endScreenCanContinue() {
@@ -2288,6 +2347,7 @@
     const t = state.currentTheme;
     const d = ENEMIES[kind] || ENEMIES.drifter;
     const scale = 1 + state.levelIndex * 0.05;
+    const earlyHpScale = state.levelIndex === 0 ? 0.5 : state.levelIndex === 1 ? 0.75 : 1;
     const diff = currentDifficulty();
     const speedScale = diff.enemySpeed;
     const fireScale = SHOT_PACE / diff.spawnRate;
@@ -2295,7 +2355,7 @@
     const shipIndex = opts && opts.shipIndex != null ? opts.shipIndex : randi(0, ENEMY_SHIP_COLUMNS - 1);
     const shipSize = getEnemyShipRenderSize(levelNumber, shipIndex);
     const sizeScale = shipSize / 64;
-    const hpScale = scale * diff.enemyHp * sizeScale;
+    const hpScale = earlyHpScale * scale * diff.enemyHp * sizeScale;
     const baseHp = opts && opts.hp != null ? opts.hp : d.hp;
     const e = {
       kind: kind, theme: t, x: x, y: y,
@@ -5282,7 +5342,8 @@
     debugGiveWeapon: debugGiveWeapon,
     getDebugLog: function () { return state.debugLog.slice(); },
     clearDebugLog: function () { state.debugLog.length = 0; saveDebugLog(); },
-    setDamageBreakpoints: function (on) { state.debugDamageBreakpoints = !!on; }
+    setDamageBreakpoints: function (on) { state.debugDamageBreakpoints = !!on; },
+    isAssetsReady: function () { return !!state.assetsReady; }
   };
 
   if (titleManualButton) {
@@ -5295,6 +5356,7 @@
 
   resize();
   resetRun();
+  beginTexturePreload();
   controlsEl.querySelectorAll('button[data-act]').forEach(function (button) {
     bindButton(button, button.getAttribute('data-act'));
   });
