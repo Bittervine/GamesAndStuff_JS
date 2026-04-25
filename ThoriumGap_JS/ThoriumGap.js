@@ -47,7 +47,7 @@
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
   let currentDt = 0;
   const MAX_NORMAL_DPR = 1.5;
-  const DEBUG_MODE = true;
+  const DEBUG_MODE = new URLSearchParams(window.location.search || '').get('debug') === '1';
   const render = {
     ready: false,
     queue: [],
@@ -575,6 +575,51 @@
   function saveNum(key, v) { try { localStorage.setItem(key, String(v)); } catch (e) {} }
   function loadBool(key, fallback) { try { const v = localStorage.getItem(key); return v === null ? fallback : v === '1' || v === 'true'; } catch (e) { return fallback; } }
   function saveBool(key, v) { try { localStorage.setItem(key, v ? '1' : '0'); } catch (e) {} }
+  const DEBUG_LOG_KEY = 'ShotEmUp_JS_debugLog';
+  const DEBUG_LOG_LIMIT = 64;
+
+  function loadDebugLog() {
+    try {
+      const raw = localStorage.getItem(DEBUG_LOG_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.slice(-DEBUG_LOG_LIMIT) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveDebugLog() {
+    if (!state || !state.debugMode) return;
+    try {
+      localStorage.setItem(DEBUG_LOG_KEY, JSON.stringify((state.debugLog || []).slice(-DEBUG_LOG_LIMIT)));
+    } catch (e) {}
+  }
+
+  function pushDebugEvent(type, data) {
+    if (!state || !state.debugMode) return null;
+    const entry = Object.assign({
+      type: type,
+      at: Math.round(state.animClock * 1000) / 1000,
+      frame: state.renderFrameIndex || 0
+    }, data || {});
+    state.debugLog.push(entry);
+    if (state.debugLog.length > DEBUG_LOG_LIMIT) {
+      state.debugLog.splice(0, state.debugLog.length - DEBUG_LOG_LIMIT);
+    }
+    saveDebugLog();
+    return entry;
+  }
+
+  function compactSourceInfo(source) {
+    if (!source) return null;
+    return {
+      kind: source.kind || '',
+      sourceKind: source.sourceKind || '',
+      sourceName: source.sourceName || '',
+      team: source.team || ''
+    };
+  }
 
   function hashString(str) {
     let h = 2166136261 >>> 0;
@@ -1181,6 +1226,9 @@
     shake: 0,
     endScreenReadyAt: 0,
     lastDeathReason: '',
+    lastHitInfo: null,
+    debugLog: loadDebugLog(),
+    debugDamageBreakpoints: false,
     nextLevelTimer: 0,
     waveClock: 0,
     waveIndex: 0,
@@ -1833,6 +1881,7 @@
     state.shake = 0;
     state.endScreenReadyAt = 0;
     state.lastDeathReason = '';
+    state.lastHitInfo = null;
     state.nextLevelTimer = 0;
     state.waveClock = 0;
     state.waveIndex = 0;
@@ -2008,6 +2057,14 @@
   }
 
   function gameOver(reason) {
+    pushDebugEvent('gameOver', {
+      reason: reason || '',
+      lastDeathReason: state.lastDeathReason || '',
+      lastHitInfo: state.lastHitInfo || null,
+      lives: state.lives,
+      score: state.score,
+      levelIndex: state.levelIndex
+    });
     state.mode = 'gameover';
     state.banner = 'GAME OVER';
     state.bannerSub = reason || 'The void has taken the ship.';
@@ -2692,6 +2749,38 @@
     const p = state.player;
     if (p.invuln > 0 || state.mode !== 'playing') return;
     const actualDamage = Math.max(1, Math.round(damage * 3));
+    state.lastHitInfo = {
+      at: state.animClock,
+      damage: damage,
+      sourceKind: source && source.sourceKind ? source.sourceKind : '',
+      sourceName: source && source.sourceName ? source.sourceName : '',
+      kind: source && source.kind ? source.kind : '',
+      team: source && source.team ? source.team : '',
+      playerX: p.x,
+      playerY: p.y,
+      bullets: state.enemyBullets.length,
+      enemies: state.enemies.length,
+      boss: state.boss ? state.boss.name : ''
+    };
+    pushDebugEvent('hurtPlayer', {
+      damage: damage,
+      actualDamage: actualDamage,
+      source: compactSourceInfo(source),
+      player: {
+        x: p.x,
+        y: p.y,
+        health: p.health,
+        shield: p.shield,
+        invuln: p.invuln,
+        repairDelay: p.repairDelay
+      },
+      world: {
+        bullets: state.enemyBullets.length,
+        enemies: state.enemies.length,
+        boss: state.boss ? state.boss.name : ''
+      }
+    });
+    if (state.debugMode && state.debugDamageBreakpoints) debugger;
     if (p.shield > 0) {
       p.shield--;
       p.invuln = 0.5;
@@ -2712,6 +2801,24 @@
     triggerRumble(0.8, 160);
     if (p.health <= 0) {
       state.lastDeathReason = describeDeathReason(source);
+      pushDebugEvent('playerDeath', {
+        reason: state.lastDeathReason,
+        source: compactSourceInfo(source),
+        player: {
+          x: p.x,
+          y: p.y,
+          health: p.health,
+          shield: p.shield,
+          bombs: p.bombs,
+          weaponMode: p.weaponMode,
+          weaponTier: p.weaponTier
+        },
+        world: {
+          bullets: state.enemyBullets.length,
+          enemies: state.enemies.length,
+          boss: state.boss ? state.boss.name : ''
+        }
+      });
       state.lives--;
       if (state.lives <= 0) return gameOver(state.lastDeathReason);
       shipDeathBurst(p.x, p.y);
@@ -2890,6 +2997,20 @@
       h: b.hitBox ? b.hitBox.h : 512
     };
     if (p.invuln <= 0 && circleIntersectsRect(p.x, p.y, p.r, bossRect)) {
+      pushDebugEvent('bossContactHit', {
+        boss: {
+          name: b.name || '',
+          x: b.x,
+          y: b.y,
+          hp: b.hp
+        },
+        player: {
+          x: p.x,
+          y: p.y,
+          invuln: p.invuln
+        },
+        damage: currentDifficulty().contact
+      });
       hurtPlayer(currentDifficulty().contact, { kind: 'boss-contact', sourceKind: 'boss-contact', sourceName: b.name });
     }
     const atk = BOSS_ATTACKS[phaseDef.attack];
@@ -3055,6 +3176,25 @@
       if (b.life <= 0 || b.x < -80 || b.x > view.w + 80 || b.y < -100 || b.y > view.h + 100) remove = true;
       if (p.invuln <= 0 && d2(b.x, b.y, p.x, p.y) < (b.r + p.r) * (b.r + p.r)) {
         remove = true;
+        pushDebugEvent('enemyBulletHit', {
+          bullet: {
+            kind: b.kind || '',
+            sourceKind: b.sourceKind || '',
+            sourceName: b.sourceName || '',
+            x: b.x,
+            y: b.y,
+            life: b.life,
+            age: b.age,
+            r: b.r,
+            damage: b.damage
+          },
+          player: {
+            x: p.x,
+            y: p.y,
+            invuln: p.invuln
+          },
+          expired: b.life <= 0
+        });
         hurtPlayer(b.damage, { kind: 'enemy-shot', sourceKind: b.sourceKind || 'enemy', sourceName: b.sourceName || b.sourceKind || 'enemy' });
       }
       if (remove) releaseProjectile(b);
@@ -3216,6 +3356,22 @@
       if (d2(e.x, e.y, p.x, p.y) < (e.r + p.r) * (e.r + p.r)) {
         if (p.invuln > 0) continue;
         const contactDamage = currentDifficulty().contact;
+        pushDebugEvent('enemyContactHit', {
+          enemy: {
+            kind: e.kind || '',
+            name: e.name || e.kind || '',
+            x: e.x,
+            y: e.y,
+            hp: e.hp,
+            r: e.r
+          },
+          player: {
+            x: p.x,
+            y: p.y,
+            invuln: p.invuln
+          },
+          damage: contactDamage
+        });
         damageEnemy(e, contactDamage, false);
         hurtPlayer(contactDamage, { kind: 'enemy-contact', sourceKind: e.kind, sourceName: e.name || e.kind });
         if (e.kind !== 'mine' || e.hp <= 0) { state.enemies.splice(i, 1); continue; }
@@ -5123,7 +5279,10 @@
     startGame: startGame,
     togglePause: togglePause,
     toggleMute: toggleMute,
-    debugGiveWeapon: debugGiveWeapon
+    debugGiveWeapon: debugGiveWeapon,
+    getDebugLog: function () { return state.debugLog.slice(); },
+    clearDebugLog: function () { state.debugLog.length = 0; saveDebugLog(); },
+    setDamageBreakpoints: function (on) { state.debugDamageBreakpoints = !!on; }
   };
 
   if (titleManualButton) {
