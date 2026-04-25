@@ -760,8 +760,8 @@
       var s=safeStorageGet('bejeweled_score'), a=safeStorageGet('bejeweled_anim'), t=safeStorageGet('bejeweled_types'), snd=safeStorageGet('bejeweled_sound');
       if(s!==null){ s=parseInt(s,10); if(isFinite(s)&&s>=0) score=s; }
       setPieceTypes(t!==null?t:'6');
-      setSoundEnabled(snd==='1');
-      setAnimEnabled(a==='1');
+      setSoundEnabled(snd!=='0');
+      setAnimEnabled(a!=='0');
       bind();
       resetGame();
       resize();
