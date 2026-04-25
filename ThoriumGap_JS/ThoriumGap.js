@@ -43,6 +43,7 @@
   const difficultyValue = document.getElementById('difficultyValue');
   const difficultyButtons = Array.from(document.querySelectorAll('[data-difficulty]'));
   const lowEndModeInput = document.getElementById('lowEndMode');
+  const alwaysFollowMouseInput = document.getElementById('alwaysFollowMouse');
 
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
   let currentDt = 0;
@@ -1193,7 +1194,10 @@
   ];
 
   const SHOT_PACE = 1.25;
+  const PLAYER_FIRE_RATE_BOOST = 1.15;
   const PLAYER_RADIUS = 46;
+  const HEAT_MAX_SECONDS = 3;
+  const HEAT_MAX_PENALTY = 0.25;
 
   function shotDelay(v) {
     return v * SHOT_PACE * (1 + state.levelIndex * 0.2);
@@ -1213,6 +1217,7 @@
       musicVolume: clamp(loadNum('ShotEmUp_JS_musicVolume', 0), 0, 1),
       difficulty: clamp(Math.round(loadNum('ShotEmUp_JS_difficulty', 1)), 0, 2),
       lowEndMode: loadBool('ShotEmUp_JS_lowEndMode', false),
+      alwaysFollowMouse: loadBool('ShotEmUp_JS_alwaysFollowMouse', false),
       starfieldCap: clamp(Math.round(loadNum('ShotEmUp_JS_starfieldCap', STARFIELD_DEFAULT_CAP)), STARFIELD_LOW_END_CAP, STARFIELD_DEFAULT_CAP)
     },
     lives: 3,
@@ -1271,17 +1276,19 @@
       weaponMode: 0, weaponTier: 1,
       weaponTiers: Array(WEAPONS.length).fill(1),
       fireCooldown: 0, rapidTimer: 0, magnetTimer: 0,
+      heat: 0,
       invuln: 0, repairDelay: 0, fireHeld: false, pointerMode: false,
       respawnTimer: 0, respawnDuration: 0,
       respawnStartX: 0, respawnStartY: 0,
       respawnTargetX: 0, respawnTargetY: 0
     },
-    input: { left: false, right: false, up: false, down: false, fire: false },
-    gamepad: { index: -1, prevFire: false, prevBomb: false, prevMenu: false, fireHeld: false, bombHeld: false },
+    input: { left: false, right: false, up: false, down: false, fire: false, moveX: 0, moveY: 0 },
+    gamepad: { index: -1, prevFire: false, prevBomb: false, prevMenu: false, fireHeld: false, bombHeld: false, joyX: 0, joyY: 0 },
     pointerActive: false,
     pointerId: null,
     pointerX: 0,
     pointerY: 0,
+    mouseButtons: 0,
     musicClock: 0,
     musicStep: 0,
     animClock: 0,
@@ -1472,6 +1479,7 @@
     saveNum('ShotEmUp_JS_musicVolume', state.settings.musicVolume);
     saveNum('ShotEmUp_JS_difficulty', state.settings.difficulty);
     saveBool('ShotEmUp_JS_lowEndMode', state.settings.lowEndMode);
+    saveBool('ShotEmUp_JS_alwaysFollowMouse', state.settings.alwaysFollowMouse);
     saveNum('ShotEmUp_JS_starfieldCap', state.settings.starfieldCap);
     saveNum('ShotEmUp_JS_highScore', state.highScore);
   }
@@ -1486,6 +1494,7 @@
       lowEndModeInput.checked = !!state.settings.lowEndMode;
       lowEndModeInput.disabled = !gl;
     }
+    if (alwaysFollowMouseInput) alwaysFollowMouseInput.checked = !!state.settings.alwaysFollowMouse;
     for (let i = 0; i < difficultyButtons.length; i++) {
       const btn = difficultyButtons[i];
       const idx = Number(btn.getAttribute('data-difficulty'));
@@ -1525,6 +1534,13 @@
     hint(enabled ? 'Low end mode enabled.' : 'Low end mode disabled.', 1.6);
   }
 
+  function setAlwaysFollowMouse(enabled) {
+    state.settings.alwaysFollowMouse = !!enabled;
+    saveSettings();
+    syncSettingsUi();
+    hint(enabled ? 'Ship will follow mouse without right hold.' : 'Ship follow mouse now requires right hold.', 1.8);
+  }
+
   function debugGiveWeapon(name, tier) {
     const idx = WEAPONS.findIndex(function (w) { return w.name === String(name).toUpperCase(); });
     if (idx < 0) return false;
@@ -1562,8 +1578,7 @@
   }
 
   function toggleSettings() {
-    if (settingsDialog.open) closeSettings();
-    else openSettings();
+    if (!settingsDialog.open) openSettings();
   }
 
   function syncTitleManualButton() {
@@ -1598,25 +1613,47 @@
       state.gamepad.prevMenu = false;
       state.gamepad.fireHeld = false;
       state.gamepad.bombHeld = false;
+      state.gamepad.joyX = 0;
+      state.gamepad.joyY = 0;
+      state.input.moveX = 0;
+      state.input.moveY = 0;
       return;
     }
-    const deadzone = 0.22;
+    const deadzone = 0.125;
+    const fullTilt = 0.75;
+    const straightCleanup = 0.06;
     const lx = pad.axes && pad.axes.length > 0 ? pad.axes[0] : 0;
     const ly = pad.axes && pad.axes.length > 1 ? pad.axes[1] : 0;
     const rx = pad.axes && pad.axes.length > 2 ? pad.axes[2] : 0;
     const ry = pad.axes && pad.axes.length > 3 ? pad.axes[3] : 0;
     const useRightStick = (rx * rx + ry * ry) > (lx * lx + ly * ly);
-    const ax = useRightStick ? rx : lx;
-    const ay = useRightStick ? ry : ly;
-    state.input.left = ax < -deadzone;
-    state.input.right = ax > deadzone;
-    state.input.up = ay < -deadzone;
-    state.input.down = ay > deadzone;
-    if (p.pointerMode) {
-      state.input.left = false;
-      state.input.right = false;
-      state.input.up = false;
-      state.input.down = false;
+    const rawX = useRightStick ? rx : lx;
+    const rawY = useRightStick ? ry : ly;
+
+    function scaleStickAxis(value) {
+      const sign = value < 0 ? -1 : 1;
+      const amount = Math.abs(value);
+      if (amount <= deadzone) return 0;
+      return sign * Math.max(0, (amount - deadzone) / (fullTilt - deadzone));
+    }
+
+    let moveX = scaleStickAxis(rawX);
+    let moveY = scaleStickAxis(rawY);
+    const absRawX = Math.abs(rawX);
+    const absRawY = Math.abs(rawY);
+    if (moveX && moveY) {
+      if (absRawX > absRawY * 2.2 && Math.abs(moveY) < straightCleanup) moveY = 0;
+      else if (absRawY > absRawX * 2.2 && Math.abs(moveX) < straightCleanup) moveX = 0;
+    }
+
+    state.gamepad.joyX = Math.abs(rawX) < 0.005 ? 0 : rawX;
+    state.gamepad.joyY = Math.abs(rawY) < 0.005 ? 0 : rawY;
+    state.input.moveX = moveX;
+    state.input.moveY = moveY;
+
+    if (p.pointerMode || state.pointerActive) {
+      state.input.moveX = 0;
+      state.input.moveY = 0;
     }
     const buttons = pad.buttons || [];
     const aDown = !!(buttons[0] && buttons[0].pressed);
@@ -1859,6 +1896,7 @@
     p.fireCooldown = 0;
     p.rapidTimer = 0;
     p.magnetTimer = 0;
+    p.heat = 0;
     p.invuln = 0;
     p.fireHeld = false;
     p.pointerMode = false;
@@ -1912,12 +1950,17 @@
     state.pointerId = null;
     state.pointerX = 0;
     state.pointerY = 0;
+    state.mouseButtons = 0;
     state.renderFrameIndex = 0;
     state.input.left = false;
     state.input.right = false;
     state.input.up = false;
     state.input.down = false;
     state.input.fire = false;
+    state.input.moveX = 0;
+    state.input.moveY = 0;
+    state.gamepad.joyX = 0;
+    state.gamepad.joyY = 0;
     state.mode = 'title';
     titleScreenText();
     syncSettingsUi();
@@ -2213,6 +2256,7 @@
     p.invuln = 8;
     p.repairDelay = 0;
     p.fireCooldown = 0.35;
+    p.heat = 0;
     p.fireHeld = false;
     p.pointerMode = false;
   }
@@ -2506,7 +2550,8 @@
     let d = base - (p.weaponTier - 1) * 0.012;
     if (p.rapidTimer > 0) d *= 0.54;
     if (state.overdrive > 0) d *= 0.76;
-    return clamp(d * SHOT_PACE, 0.05, 0.42);
+    if ((p.heat || 0) > 0.999) d *= (1 + HEAT_MAX_PENALTY);
+    return clamp(d * SHOT_PACE / PLAYER_FIRE_RATE_BOOST, 0.05, 0.42);
   }
 
   function fireWeapon() {
@@ -3112,19 +3157,23 @@
     const a = playArea();
     if (state.pointerActive) {
       p.pointerMode = true;
-      p.fireHeld = true;
+      p.fireHeld = !!state.input.fire;
       const pointerLead = (36 + (state.overdrive > 0 ? 4 : 0)) * 1.5;
       p.x = smooth(p.x, clamp(state.pointerX, a.left, a.right), 7.5, dt);
       p.y = smooth(p.y, clamp(state.pointerY - pointerLead, a.top + 10, a.bottom - 10), 7.5, dt);
     } else {
       p.pointerMode = false;
-      const ax = (state.input.right ? 1 : 0) - (state.input.left ? 1 : 0);
-      const ay = (state.input.down ? 1 : 0) - (state.input.up ? 1 : 0);
+      const digitalX = (state.input.right ? 1 : 0) - (state.input.left ? 1 : 0);
+      const digitalY = (state.input.down ? 1 : 0) - (state.input.up ? 1 : 0);
+      const usingDigitalMove = !!(digitalX || digitalY);
+      const ax = usingDigitalMove ? digitalX : (state.input.moveX || 0);
+      const ay = usingDigitalMove ? digitalY : (state.input.moveY || 0);
       const sp = 460 + (state.overdrive > 0 ? 80 : 0);
       if (ax || ay) {
         const len = Math.hypot(ax, ay) || 1;
-        p.x += (ax / len) * sp * dt;
-        p.y += (ay / len) * sp * dt;
+        const scale = usingDigitalMove ? 1 / len : 1;
+        p.x += ax * scale * sp * dt;
+        p.y += ay * scale * sp * dt;
       }
       p.x = clamp(p.x, a.left, a.right);
       p.y = clamp(p.y, a.top + 10, a.bottom - 10);
@@ -3137,6 +3186,15 @@
       }
     } else {
       p.repairDelay = 0;
+    }
+    if (state.mode === 'playing' && p.respawnTimer <= 0) {
+      const prevHeat = p.heat || 0;
+      if (p.fireHeld) p.heat = clamp(prevHeat + dt / HEAT_MAX_SECONDS, 0, 1);
+      else p.heat = clamp(prevHeat - 2*dt / HEAT_MAX_SECONDS, 0, 1);
+      if (Math.abs(p.heat - prevHeat) > 0.0005) markHudDirty();
+    } else if (p.heat > 0) {
+      p.heat = clamp((p.heat || 0) - 2*dt / HEAT_MAX_SECONDS, 0, 1);
+      markHudDirty();
     }
     if (state.mode === 'playing' && p.fireHeld && p.fireCooldown <= 0) fireWeapon();
     p.vx = dt > 0 ? (p.x - prevX) / dt : 0;
@@ -4994,7 +5052,11 @@
     hudCtx.font = detailFont;
     const detailW = hudCtx.measureText(detailLine).width;
     const contentW = Math.max(scoreW, detailW);
-    const panelW = clamp(contentW + (compact ? 42 : 46), compact ? 240 : 290, Math.min(view.w - 24, compact ? 460 : 600));
+    const heatPanelW = compact ? 20 : 22;
+    const heatPanelGap = compact ? 5 : 6;
+    const scorePanelMinW = compact ? 240 : 290;
+    const scorePanelMaxW = Math.max(scorePanelMinW, Math.min(view.w - 24 - heatPanelGap - heatPanelW, compact ? 460 : 600));
+    const panelW = clamp(contentW + (compact ? 42 : 46), scorePanelMinW, scorePanelMaxW);
     const panelH = compact ? 44 : 48;
     const panelX = 8;
     const panelY = 8;
@@ -5008,6 +5070,44 @@
     hudCtx.fillText(scoreLine, panelX + 14, panelY + 15);
     hudCtx.font = detailFont;
     hudCtx.fillText(detailLine, panelX + 14, panelY + panelH - 13);
+
+    if (state.mode === 'playing') {
+      const heatRatio = clamp(p.heat || 0, 0, 1);
+      const heatPanelX = panelX + panelW + heatPanelGap;
+      const heatPanelY = panelY;
+      const heatPanelH = panelH;
+      const barW = compact ? 7 : 8;
+      const barH = heatPanelH - (compact ? 14 : 16);
+      const barX = heatPanelX + (heatPanelW - barW) * 0.5;
+      const barY = heatPanelY + (heatPanelH - barH) * 0.5;
+      let rr = 255;
+      let gg = 255;
+      if (heatRatio <= 0.5) {
+        rr = Math.round(255 * (heatRatio / 0.5));
+        gg = 255;
+      } else {
+        rr = 255;
+        gg = Math.round(255 * (1 - ((heatRatio - 0.5) / 0.5)));
+      }
+      const heatColor = 'rgb(' + rr + ',' + gg + ',0)';
+
+      drawPanel(heatPanelX, heatPanelY, heatPanelW, heatPanelH, theme.accent2);
+      hudCtx.fillStyle = 'rgba(0,0,0,0.38)';
+      hudCtx.strokeStyle = 'rgba(255,255,255,0.24)';
+      hudCtx.lineWidth = 1;
+      roundRect(barX, barY, barW, barH, barW * 0.45);
+      hudCtx.fill();
+      hudCtx.stroke();
+
+      if (heatRatio > 0) {
+        const innerH = Math.max(0, barH - 2);
+        const fillH = innerH * heatRatio;
+        const fy = barY + 1 + (innerH - fillH);
+        hudCtx.fillStyle = heatColor;
+        roundRect(barX + 1, fy, Math.max(1, barW - 2), fillH, Math.max(1, (barW - 2) * 0.45));
+        hudCtx.fill();
+      }
+    }
 
     if (state.bannerTimer > 0 && state.mode === 'playing') {
       const compactBanner = state.banner === 'OVERDRIVE';
@@ -5037,6 +5137,7 @@
         drawBar(view.w * 0.18, view.h - view.controlsH - 30, view.w * 0.64, 10, powerRatio, state.overdrive > 0 ? '#ffe38c' : p.rapidTimer > 0 ? '#ffe97e' : p.magnetTimer > 0 ? '#77f7c4' : '#c7ff8f', 'rgba(0,0,0,0.35)', powerLabel);
       }
 
+
     if (state.paused) {
       hudCtx.fillStyle = 'rgba(0,0,0,0.28)';
       hudCtx.fillRect(0, 0, view.w, view.h);
@@ -5056,6 +5157,11 @@
     hudCtx.font = '700 11px "Trebuchet MS", "Segoe UI", sans-serif';
     hudCtx.textAlign = 'left';
     hudCtx.textBaseline = 'bottom';
+    function joyLabel(value) {
+      const n = Math.round(clamp(value || 0, -1, 1) * 100);
+      const sign = n < 0 ? '-' : '+';
+      return sign + String(Math.abs(n)).padStart(2, '0');
+    }
     hudCtx.fillText(
       'FPS ' + Math.round(state.fpsAvg || state.fps || 0) +
       '  S ' + state.starfield.length +
@@ -5063,7 +5169,9 @@
       '  P ' + state.particles.length +
       '  B ' + state.bullets.length +
       '  EB ' + state.enemyBullets.length +
-      '  BX ' + (render.lastBatchCount || 0),
+      '  BX ' + (render.lastBatchCount || 0) +
+      '  JX' + joyLabel(state.gamepad.joyX) +
+      '  JY' + joyLabel(state.gamepad.joyY),
       10,
       view.h - 10
     );
@@ -5213,7 +5321,8 @@
   }
 
   function handleCanvasDown(ev) {
-    if (ev.button != null && ev.button !== 0) return;
+    const isMouse = ev.pointerType === 'mouse';
+    if (isMouse && ev.button != null && ev.button !== 0 && ev.button !== 2) return;
     ev.preventDefault();
     const pt = canvasPoint(ev);
     if (state.paused) togglePause(false);
@@ -5221,25 +5330,52 @@
     state.pointerId = ev.pointerId;
     state.pointerX = pt.x;
     state.pointerY = pt.y;
-    state.input.fire = true;
+    if (isMouse) {
+      state.mouseButtons = (typeof ev.buttons === 'number') ? ev.buttons : (1 << (ev.button || 0));
+      state.input.fire = !!(state.mouseButtons & 1);
+    } else {
+      state.input.fire = true;
+    }
     try { if (canvas.setPointerCapture) canvas.setPointerCapture(ev.pointerId); } catch (e) {}
   }
 
   function handleCanvasMove(ev) {
-    if (!state.pointerActive || ev.pointerId !== state.pointerId) return;
+    const isMouse = ev.pointerType === 'mouse';
+    if (isMouse) {
+      if (!state.settings.alwaysFollowMouse && !state.pointerActive && !(ev.buttons > 0)) return;
+    } else {
+      if (!state.pointerActive || ev.pointerId !== state.pointerId) return;
+    }
     ev.preventDefault();
     const pt = canvasPoint(ev);
     state.pointerX = pt.x;
     state.pointerY = pt.y;
+    if (isMouse) {
+      state.mouseButtons = (typeof ev.buttons === 'number') ? ev.buttons : state.mouseButtons;
+      state.pointerActive = state.settings.alwaysFollowMouse ? true : (state.mouseButtons > 0);
+      state.input.fire = !!(state.mouseButtons & 1);
+    }
   }
 
   function handleCanvasUp(ev) {
-    if (!state.pointerActive || ev.pointerId !== state.pointerId) return;
+    const isMouse = ev.pointerType === 'mouse';
+    if (!isMouse && (!state.pointerActive || ev.pointerId !== state.pointerId)) return;
     ev.preventDefault();
-    state.pointerActive = false;
-    state.pointerId = null;
-    state.input.fire = false;
-    try { if (canvas.hasPointerCapture && ev.pointerId != null) canvas.releasePointerCapture(ev.pointerId); } catch (e) {}
+    if (isMouse) {
+      if (state.settings.alwaysFollowMouse && ev.button === 2 && state.mode === 'playing' && !state.paused) useBomb();
+      state.mouseButtons = (typeof ev.buttons === 'number') ? ev.buttons : 0;
+      state.pointerActive = state.settings.alwaysFollowMouse ? true : (state.mouseButtons > 0);
+      state.input.fire = !!(state.mouseButtons & 1);
+      if (!state.pointerActive) {
+        state.pointerId = null;
+        try { if (canvas.hasPointerCapture && ev.pointerId != null) canvas.releasePointerCapture(ev.pointerId); } catch (e) {}
+      }
+    } else {
+      state.pointerActive = false;
+      state.pointerId = null;
+      state.input.fire = false;
+      try { if (canvas.hasPointerCapture && ev.pointerId != null) canvas.releasePointerCapture(ev.pointerId); } catch (e) {}
+    }
   }
 
   function handleCanvasClick(ev) {
@@ -5365,10 +5501,13 @@
   });
   settingsDialog.addEventListener('cancel', function (ev) {
     ev.preventDefault();
-    closeSettings();
+    return false;
   });
   settingsDialog.addEventListener('click', function (ev) {
-    if (ev.target === settingsDialog) closeSettings();
+    if (ev.target === settingsDialog) {
+      ev.preventDefault();
+      ev.stopPropagation();
+    }
   });
   sfxVolumeInput.addEventListener('input', function (ev) {
     setVolume('sfx', ev.target.value);
@@ -5379,6 +5518,11 @@
   if (lowEndModeInput) {
     lowEndModeInput.addEventListener('change', function (ev) {
       setLowEndMode(ev.target.checked);
+    });
+  }
+  if (alwaysFollowMouseInput) {
+    alwaysFollowMouseInput.addEventListener('change', function (ev) {
+      setAlwaysFollowMouse(ev.target.checked);
     });
   }
   for (let i = 0; i < difficultyButtons.length; i++) {
