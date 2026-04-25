@@ -52,8 +52,6 @@ var APP_ASSETS = [
   './assets/Enemy_00205b.png',
   './assets/Enemy_00206a.png',
   './assets/Enemy_00206b.png',
-  './assets/Enemy_00207a.png',
-  './assets/Enemy_00207b.png',
   './assets/Enemy_00300a.png',
   './assets/Enemy_00300b.png',
   './assets/Enemy_00301a.png',
