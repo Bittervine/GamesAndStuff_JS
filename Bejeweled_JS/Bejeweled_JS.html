@@ -59,7 +59,7 @@
     var board, selected, over, score, moves, animateEnabled, soundEnabled, animating, pendingSwap, pieceTypes;
     var lastPlayerMoveMs=0, idleHintMove=null, idleHintCheckAt=0;
     var idleHintVisible=false;
-    var HINT_DELAY_MS=17999;
+    var HINT_DELAY_MS=9999;
     var animTimer=null;
     var animMask=null, animBodies=null, animPhase='', animFlashUntil=0, animLastTick=0;
     var animStaticBoard=null, animStep=null;
@@ -496,7 +496,7 @@
 
     function refresh(){
       if(over) statusEl.textContent='Game over: No legal swaps. Final score '+score+'.';
-      else statusEl.textContent='Score: '+score+' after '+moves+' moves.  Hint in: '+ Math.ceil(hintCountdownSeconds()/2);
+      else statusEl.textContent='Score: '+score+' after '+moves+' moves.'; //  Hint in: '+ hintCountdownSeconds();
     }
 
     function endIfNoMoves(){
@@ -825,7 +825,7 @@
     }
 
     if(window.setInterval){
-      window.setInterval(function(){ if(!over) safeStorageSet('bejeweled_score',''+score); refresh(); }, 2000);
+      window.setInterval(function(){ if(!over) safeStorageSet('bejeweled_score',''+score); refresh(); }, 1000);
       window.setInterval(function(){
         var wantHint;
         if(animating||over) return;
