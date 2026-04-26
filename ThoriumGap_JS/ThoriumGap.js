@@ -1197,7 +1197,8 @@
   const PLAYER_FIRE_RATE_BOOST = 1.15;
   const PLAYER_RADIUS = 46;
   const HEAT_MAX_SECONDS = 5;
-  const HEAT_MAX_PENALTY = 0.25;
+  const HEAT_MAX_PENALTY = 0.30;
+  const HEAT_COOLDOWN_FACTOR = 5;
 
   function shotDelay(v) {
     return v * SHOT_PACE * (1 + state.levelIndex * 0.2);
@@ -2338,7 +2339,7 @@
       { type: 'shield', w: state.player.shield < 2 ? 3 : 1 },
       { type: 'bomb', w: state.player.bombs < 2 ? 5 : 1 },
       { type: 'magnet', w: state.player.magnetTimer < 4 ? 2 : 1 },
-      { type: 'invuln', w: 1.0 },
+      { type: 'invuln', w: 0.25 },
       { type: 'score', w: 5 }
     ];
     const total = list.reduce(function (sum, item) { return sum + item.w; }, 0);
@@ -2772,8 +2773,12 @@
       sfx('power');
     } else if (type === 'invuln') {
       p.invuln = Math.max(p.invuln, 4);
-      state.banner = 'INVULN';
-      state.bannerSub = 'Temporary immunity.';
+      p.shield = 3;
+      p.health = p.maxHealth;
+      p.repairDelay = 0;
+      p.heat = 0;
+      state.banner = 'STAR';
+      state.bannerSub = 'Invuln, full shields, full repair, cool weapon.';
       sfx('power');
     } else {
       addScore(500);
@@ -3214,10 +3219,10 @@
     if (state.mode === 'playing' && p.respawnTimer <= 0) {
       const prevHeat = p.heat || 0;
       if (p.fireHeld) p.heat = clamp(prevHeat + dt / HEAT_MAX_SECONDS, 0, 1);
-      else p.heat = clamp(prevHeat - 2*dt / HEAT_MAX_SECONDS, 0, 1);
+      else p.heat = clamp(prevHeat - HEAT_COOLDOWN_FACTOR*dt / HEAT_MAX_SECONDS, 0, 1);
       if (Math.abs(p.heat - prevHeat) > 0.0005) markHudDirty();
     } else if (p.heat > 0) {
-      p.heat = clamp((p.heat || 0) - 2*dt / HEAT_MAX_SECONDS, 0, 1);
+      p.heat = clamp((p.heat || 0) - HEAT_COOLDOWN_FACTOR*dt / HEAT_MAX_SECONDS, 0, 1);
       markHudDirty();
     }
     if (state.mode === 'playing' && p.fireHeld && p.fireCooldown <= 0) fireWeapon();
