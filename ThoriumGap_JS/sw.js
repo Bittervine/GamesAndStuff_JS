@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'shotemup-3d-v9';
+var CACHE_NAME = 'thoriumgap-v1';
 var APP_SHELL = [
   './ThoriumGap.html',
   './ThoriumGap.js',
