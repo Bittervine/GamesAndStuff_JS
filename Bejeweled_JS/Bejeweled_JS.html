@@ -57,6 +57,8 @@
       {shape:'hex',   tone:'dark',  glyph:'\u2736'}  /* six-point star */
     ];
     var board, selected, over, score, moves, animateEnabled, soundEnabled, animating, pendingSwap, pieceTypes;
+    var lastPlayerMoveMs=0, idleHintMove=null, idleHintCheckAt=0;
+    var idleHintVisible=false;
     var animTimer=null;
     var animMask=null, animBodies=null, animPhase='', animFlashUntil=0, animLastTick=0;
     var animStaticBoard=null, animStep=null;
@@ -326,14 +328,41 @@
 
     function adj(a,b){ return Math.abs(a.r-b.r)+Math.abs(a.c-b.c)===1; }
 
-    function anyLegalSwap(){
+    function findLegalSwap(){
       var r,c,a,b;
-      for(r=0;r<N;r++) for(c=0;c<N;c++){
+      for(r=N-1;r>=0;r--) for(c=0;c<N;c++){
         a={r:r,c:c};
-        if(c+1<N){ b={r:r,c:c+1}; if(hasMatchAfterSwap(a,b)) return true; }
-        if(r+1<N){ b={r:r+1,c:c}; if(hasMatchAfterSwap(a,b)) return true; }
+        if(c+1<N){ b={r:r,c:c+1}; if(hasMatchAfterSwap(a,b)) return {a:{r:a.r,c:a.c},b:{r:b.r,c:b.c}}; }
+        if(r+1<N){ b={r:r+1,c:c}; if(hasMatchAfterSwap(a,b)) return {a:{r:a.r,c:a.c},b:{r:b.r,c:b.c}}; }
       }
-      return false;
+      return null;
+    }
+
+    function anyLegalSwap(){
+      return !!findLegalSwap();
+    }
+
+    function clearIdleHint(){
+      idleHintMove=null;
+      idleHintCheckAt=0;
+      idleHintVisible=false;
+    }
+
+    function notePlayerMove(){
+      lastPlayerMoveMs=Date.now();
+      clearIdleHint();
+    }
+
+    function getIdleHintMove(){
+      var now;
+      if(over||animating) return null;
+      now=Date.now();
+      if(!lastPlayerMoveMs) lastPlayerMoveMs=now;
+      if(now-lastPlayerMoveMs<15000){ clearIdleHint(); return null; }
+      if(now<idleHintCheckAt) return idleHintMove;
+      idleHintMove=findLegalSwap();
+      idleHintCheckAt=now+1000;
+      return idleHintMove;
     }
 
     function reshuffle(){
@@ -397,9 +426,10 @@
       drawGemAt(x+cell*0.5,y+cell*0.5,t,alpha);
     }
 
-    function drawBrackets(r,c){
-      var x=pad+c*cell, y=pad+r*cell, w=Math.max(2,Math.floor(cell*.08)), l=Math.max(8,Math.floor(cell*.25));
-      ctx.strokeStyle='#000'; ctx.lineWidth=w;
+    function drawBrackets(r,c,opts){
+      var x=pad+c*cell, y=pad+r*cell, baseW=Math.max(2,Math.floor(cell*.08)), ws=opts&&opts.widthScale!=null?opts.widthScale:1;
+      var w=Math.max(1,Math.floor(baseW*ws)), l=Math.max(8,Math.floor(cell*.25));
+      ctx.strokeStyle=opts&&opts.color?opts.color:'#000'; ctx.lineWidth=w;
       ctx.beginPath(); ctx.moveTo(x,y+l); ctx.lineTo(x,y); ctx.lineTo(x+l,y); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(x+cell-l,y); ctx.lineTo(x+cell,y); ctx.lineTo(x+cell,y+l); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(x,y+cell-l); ctx.lineTo(x,y+cell); ctx.lineTo(x+l,y+cell); ctx.stroke();
@@ -426,7 +456,7 @@
     }
 
     function draw(){
-      var r,c,x,y;
+      var r,c,x,y,hint;
       ctx.clearRect(0,0,canvas.width,canvas.height);
       for(r=0;r<N;r++) for(c=0;c<N;c++){
         x=pad+c*cell; y=pad+r*cell;
@@ -447,6 +477,12 @@
         for(r=0;r<N;r++) for(c=0;c<N;c++) drawGem(r,c,board[r][c],1);
       }
       if(selected) drawBrackets(selected.r,selected.c);
+      hint=getIdleHintMove();
+      idleHintVisible=!!hint;
+      if(hint){
+        drawBrackets(hint.a.r,hint.a.c,{color:'#777',widthScale:0.5});
+        drawBrackets(hint.b.r,hint.b.c,{color:'#777',widthScale:0.5});
+      }
     }
 
     function refresh(){
@@ -473,6 +509,7 @@
       over=false;
       score=0;
       moves=0;
+      notePlayerMove();
       collapseAll();
       if(!anyLegalSwap()) reshuffle();
       draw();
@@ -486,6 +523,7 @@
       swapCells(a,b);
       selected=null;
       moves++;
+      notePlayerMove();
       if(animateEnabled){
         startAnimatedResolution(1);
       } else {
@@ -779,6 +817,12 @@
 
     if(window.setInterval){
       window.setInterval(function(){ if(!over) safeStorageSet('bejeweled_score',''+score); }, 1000);
+      window.setInterval(function(){
+        var wantHint;
+        if(animating||over) return;
+        wantHint=!!getIdleHintMove();
+        if(wantHint!==idleHintVisible) draw();
+      }, 1000);
     }
     init();
   }());
