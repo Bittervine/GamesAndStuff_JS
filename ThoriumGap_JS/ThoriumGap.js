@@ -585,7 +585,7 @@
   function saveNum(key, v) { try { localStorage.setItem(key, String(v)); } catch (e) {} }
   function loadBool(key, fallback) { try { const v = localStorage.getItem(key); return v === null ? fallback : v === '1' || v === 'true'; } catch (e) { return fallback; } }
   function saveBool(key, v) { try { localStorage.setItem(key, v ? '1' : '0'); } catch (e) {} }
-  const DEBUG_LOG_KEY = 'ShotEmUp_JS_debugLog';
+  const DEBUG_LOG_KEY = 'ThroriumGap_debugLog';
   const DEBUG_LOG_LIMIT = 64;
 
   function loadDebugLog() {
@@ -1231,14 +1231,14 @@
     settingsPausedByDialog: false,
     levelIndex: 0,
     score: 0,
-    highScore: loadNum('ShotEmUp_JS_highScore', 0),
+    highScore: loadNum('ThroriumGap_highScore', 0),
     settings: {
-      sfxVolume: clamp(loadNum('ShotEmUp_JS_sfxVolume', 0.8), 0, 1),
-      musicVolume: clamp(loadNum('ShotEmUp_JS_musicVolume', 0), 0, 1),
-      difficulty: clamp(Math.round(loadNum('ShotEmUp_JS_difficulty', 1)), 0, 2),
-      lowEndMode: loadBool('ShotEmUp_JS_lowEndMode', false),
-      alwaysFollowMouse: loadBool('ShotEmUp_JS_alwaysFollowMouse', false),
-      starfieldCap: clamp(Math.round(loadNum('ShotEmUp_JS_starfieldCap', STARFIELD_DEFAULT_CAP)), STARFIELD_LOW_END_CAP, STARFIELD_DEFAULT_CAP)
+      sfxVolume: clamp(loadNum('ThroriumGap_sfxVolume', 0.8), 0, 1),
+      musicVolume: clamp(loadNum('ThroriumGap_musicVolume', 0), 0, 1),
+      difficulty: clamp(Math.round(loadNum('ThroriumGap_difficulty', 0)), 0, 2),
+      lowEndMode: loadBool('ThroriumGap_lowEndMode', false),
+      alwaysFollowMouse: loadBool('ThroriumGap_alwaysFollowMouse', false),
+      starfieldCap: clamp(Math.round(loadNum('ThroriumGap_starfieldCap', STARFIELD_DEFAULT_CAP)), STARFIELD_LOW_END_CAP, STARFIELD_DEFAULT_CAP)
     },
     lives: 3,
     combo: 0,
@@ -1492,17 +1492,17 @@
   }
 
   function currentDifficulty() {
-    return DIFFICULTIES[clamp(state.settings.difficulty, 0, DIFFICULTIES.length - 1)] || DIFFICULTIES[1];
+    return DIFFICULTIES[clamp(state.settings.difficulty, 0, DIFFICULTIES.length - 1)] || DIFFICULTIES[0];
   }
 
   function saveSettings() {
-    saveNum('ShotEmUp_JS_sfxVolume', state.settings.sfxVolume);
-    saveNum('ShotEmUp_JS_musicVolume', state.settings.musicVolume);
-    saveNum('ShotEmUp_JS_difficulty', state.settings.difficulty);
-    saveBool('ShotEmUp_JS_lowEndMode', state.settings.lowEndMode);
-    saveBool('ShotEmUp_JS_alwaysFollowMouse', state.settings.alwaysFollowMouse);
-    saveNum('ShotEmUp_JS_starfieldCap', state.settings.starfieldCap);
-    saveNum('ShotEmUp_JS_highScore', state.highScore);
+    saveNum('ThroriumGap_sfxVolume', state.settings.sfxVolume);
+    saveNum('ThroriumGap_musicVolume', state.settings.musicVolume);
+    saveNum('ThroriumGap_difficulty', state.settings.difficulty);
+    saveBool('ThroriumGap_lowEndMode', state.settings.lowEndMode);
+    saveBool('ThroriumGap_alwaysFollowMouse', state.settings.alwaysFollowMouse);
+    saveNum('ThroriumGap_starfieldCap', state.settings.starfieldCap);
+    saveNum('ThroriumGap_highScore', state.highScore);
   }
 
   function syncSettingsUi() {
@@ -2029,7 +2029,7 @@
   function saveBest() {
     if (state.score > state.highScore) {
       state.highScore = state.score;
-      saveNum('ShotEmUp_JS_highScore', state.highScore);
+      saveNum('ThroriumGap_highScore', state.highScore);
     }
   }
 
@@ -2244,7 +2244,7 @@
     state.score += Math.round(points * comboBonus * od);
     if (state.score > state.highScore) {
       state.highScore = state.score;
-      saveNum('ShotEmUp_JS_highScore', state.highScore);
+      saveNum('ThroriumGap_highScore', state.highScore);
     }
   }
 
