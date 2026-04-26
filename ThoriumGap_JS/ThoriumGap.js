@@ -622,6 +622,16 @@
     };
   }
 
+  function hasDebugExceptionInLog() {
+    if (!state || !Array.isArray(state.debugLog)) return false;
+    for (let i = 0; i < state.debugLog.length; i++) {
+      const entry = state.debugLog[i];
+      if (!entry || !entry.type) continue;
+      if (entry.type === 'exceptionSelfHitGuard') return true;
+    }
+    return false;
+  }
+
   function hashString(str) {
     let h = 2166136261 >>> 0;
     const s = String(str || '');
@@ -1198,7 +1208,7 @@
   const PLAYER_RADIUS = 46;
   const HEAT_MAX_SECONDS = 5;
   const HEAT_MAX_PENALTY = 0.30;
-  const HEAT_COOLDOWN_FACTOR = 5;
+  const HEAT_COOLDOWN_FACTOR = 4;
 
   function shotDelay(v) {
     return v * SHOT_PACE * (1 + state.levelIndex * 0.2);
@@ -1749,7 +1759,13 @@
   function filterDps(avgDps, rawDps) { return DPS_FILTER_LAMBDA * avgDps + (1 - DPS_FILTER_LAMBDA) * rawDps; }
 
   function clearPooledArray(list, pool) {
-    for (let i = 0; i < list.length; i++) pool.push(list[i]);
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i];
+      if (!item) continue;
+      if (item._inPool) continue;
+      item._inPool = true;
+      pool.push(item);
+    }
     list.length = 0;
   }
 
@@ -1764,18 +1780,26 @@
   }
 
   function acquireProjectile() {
-    return state.projectilePool.pop() || {};
+    const bullet = state.projectilePool.pop() || {};
+    bullet._inPool = false;
+    return bullet;
   }
 
   function releaseProjectile(bullet) {
+    if (!bullet || bullet._inPool) return;
+    bullet._inPool = true;
     state.projectilePool.push(bullet);
   }
 
   function acquireParticle() {
-    return state.particlePool.pop() || {};
+    const particle = state.particlePool.pop() || {};
+    particle._inPool = false;
+    return particle;
   }
 
   function releaseParticle(particle) {
+    if (!particle || particle._inPool) return;
+    particle._inPool = true;
     state.particlePool.push(particle);
   }
 
@@ -3306,6 +3330,43 @@
       const b = state.enemyBullets[i];
       if (!b) continue;
       let remove = false;
+      if (b.team === 'player' || b.sourceKind === 'player') {
+        remove = true;
+        if (state.debugMode) {
+          pushDebugEvent('exceptionSelfHitGuard', {
+            reason: 'Player-owned projectile reached enemy bullet collision path.',
+            bullet: {
+              team: b.team || '',
+              kind: b.kind || '',
+              sourceKind: b.sourceKind || '',
+              sourceName: b.sourceName || '',
+              x: b.x,
+              y: b.y,
+              life: b.life,
+              age: b.age,
+              r: b.r,
+              damage: b.damage,
+              inPool: !!b._inPool
+            },
+            player: {
+              x: p.x,
+              y: p.y,
+              invuln: p.invuln
+            },
+            world: {
+              bullets: state.bullets.length,
+              enemyBullets: state.enemyBullets.length,
+              enemies: state.enemies.length,
+              boss: state.boss ? state.boss.name : ''
+            }
+          });
+          debugger;
+        }
+      }
+      if (remove) {
+        releaseProjectile(b);
+        continue;
+      }
       b.age += dt;
       if (b.homing > 0) {
         const ta = ang(b.x, b.y, p.x, p.y);
@@ -5201,7 +5262,8 @@
       '  EB ' + state.enemyBullets.length +
       '  BX ' + (render.lastBatchCount || 0) +
       '  JX' + joyLabel(state.gamepad.joyX) +
-      '  JY' + joyLabel(state.gamepad.joyY),
+      '  JY' + joyLabel(state.gamepad.joyY) +
+      (hasDebugExceptionInLog() ? '  EXCEPTION!' : ''),
       10,
       view.h - 10
     );
