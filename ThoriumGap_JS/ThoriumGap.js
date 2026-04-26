@@ -2373,7 +2373,7 @@
       { type: 'shield', w: state.player.shield < 2 ? 3 : 1 },
       { type: 'bomb', w: state.player.bombs < 2 ? 5 : 1 },
       { type: 'magnet', w: state.player.magnetTimer < 4 ? 2 : 1 },
-      { type: 'invuln', w: 0.25 },
+      { type: 'invuln', w: 0.5 },
       { type: 'score', w: 5 }
     ];
     const total = list.reduce(function (sum, item) { return sum + item.w; }, 0);
