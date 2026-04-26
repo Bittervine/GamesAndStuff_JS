@@ -13,10 +13,10 @@ MIN_WIDTH = 64
 MIN_HEIGH = 64
 MAX_GAP_TRANSPARANCY = 0.001
 MIN_GAP_WIDTH = 10
-INPUT_FILE = "enemy_fighters_16.png"
-OUTPUT_FILE = "Enemy_016"
+INPUT_FILE = "enemy_fighters_19d.png"
+OUTPUT_FILE = "Enemy_019"
 OUTPUT_FIILE_STARTINDEX = 0
-EXPECTED_IMAGE_COUNT = 16
+EXPECTED_IMAGE_COUNT = 12
 SATURATION_THRESHOLDS = [x / 1000.0 for x in range(10, 151, 5)]
 
 OUTPUT_EXTENSION = ".png"
@@ -171,6 +171,15 @@ def choose_components(atlas: np.ndarray) -> tuple[list[dict[str, object]], str]:
 
 
 def save_crops(atlas: np.ndarray, components: list[dict[str, object]], outdir: Path) -> int:
+    def center_on_square(rgba: np.ndarray) -> np.ndarray:
+        h, w = rgba.shape[:2]
+        side = max(w, h)
+        square = np.zeros((side, side, 4), dtype=np.uint8)
+        ox = (side - w) // 2
+        oy = (side - h) // 2
+        square[oy:oy + h, ox:ox + w] = rgba
+        return square
+
     saved = 0
     out_index = OUTPUT_FIILE_STARTINDEX
     for item in components:
@@ -188,9 +197,13 @@ def save_crops(atlas: np.ndarray, components: list[dict[str, object]], outdir: P
         x1 = int(item["x1"])
         y1 = int(item["y1"])
         crop = atlas[y0:y1, x0:x1].copy()
+        square = center_on_square(crop)
         out_path = outdir / f"{OUTPUT_FILE}{out_index:02d}{OUTPUT_EXTENSION}"
-        Image.fromarray(crop, mode="RGBA").save(out_path)
-        print(f"saved {out_path.name} from bbox ({x0}, {y0})-({x1}, {y1})")
+        Image.fromarray(square, mode="RGBA").save(out_path)
+        print(
+            f"saved {out_path.name} from bbox ({x0}, {y0})-({x1}, {y1}) "
+            f"as centered square {square.shape[1]}x{square.shape[0]}"
+        )
         saved += 1
         out_index += 1
     return saved
