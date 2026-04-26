@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'thoriumgap-v1';
+var CACHE_NAME = 'thoriumgap-v2';
 var APP_SHELL = [
   './ThoriumGap.html',
   './ThoriumGap.js',
@@ -83,14 +83,18 @@ self.addEventListener('fetch', function (event) {
   for (var i = 0; i < ASSET_ROOTS.length; i++) {
     if (url.pathname.indexOf(ASSET_ROOTS[i]) >= 0) {
       event.respondWith(
-        caches.match(event.request).then(function (cached) {
-          if (cached) return cached;
-          return fetch(event.request).then(function (response) {
+        fetch(event.request, { cache: 'no-store' }).then(function (response) {
+          if (response && response.ok) {
             var copy = response.clone();
             caches.open(CACHE_NAME).then(function (cache) {
               cache.put(event.request, copy);
             });
-            return response;
+          }
+          return response;
+        }).catch(function () {
+          return caches.match(event.request).then(function (cached) {
+            if (cached) return cached;
+            return fetch(event.request);
           });
         })
       );
