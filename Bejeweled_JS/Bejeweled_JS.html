@@ -59,6 +59,7 @@
     var board, selected, over, score, moves, animateEnabled, soundEnabled, animating, pendingSwap, pieceTypes;
     var lastPlayerMoveMs=0, idleHintMove=null, idleHintCheckAt=0;
     var idleHintVisible=false;
+    var HINT_DELAY_MS=17999;
     var animTimer=null;
     var animMask=null, animBodies=null, animPhase='', animFlashUntil=0, animLastTick=0;
     var animStaticBoard=null, animStep=null;
@@ -358,11 +359,19 @@
       if(over||animating) return null;
       now=Date.now();
       if(!lastPlayerMoveMs) lastPlayerMoveMs=now;
-      if(now-lastPlayerMoveMs<15000){ clearIdleHint(); return null; }
+      if(now-lastPlayerMoveMs<HINT_DELAY_MS){ clearIdleHint(); return null; }
       if(now<idleHintCheckAt) return idleHintMove;
       idleHintMove=findLegalSwap();
       idleHintCheckAt=now+1000;
       return idleHintMove;
+    }
+
+    function hintCountdownSeconds(){
+      var now=Date.now(), rem;
+      if(!lastPlayerMoveMs) lastPlayerMoveMs=now;
+      rem=HINT_DELAY_MS-(now-lastPlayerMoveMs);
+      if(rem<0) rem=0;
+      return Math.ceil(rem/1000);
     }
 
     function reshuffle(){
@@ -487,7 +496,7 @@
 
     function refresh(){
       if(over) statusEl.textContent='Game over: No legal swaps. Final score '+score+'.';
-      else statusEl.textContent='Score: '+score+' after '+moves+' moves.';
+      else statusEl.textContent='Score: '+score+' after '+moves+' moves.  Hint in: '+ Math.ceil(hintCountdownSeconds()/2);
     }
 
     function endIfNoMoves(){
@@ -816,7 +825,7 @@
     }
 
     if(window.setInterval){
-      window.setInterval(function(){ if(!over) safeStorageSet('bejeweled_score',''+score); }, 1000);
+      window.setInterval(function(){ if(!over) safeStorageSet('bejeweled_score',''+score); refresh(); }, 2000);
       window.setInterval(function(){
         var wantHint;
         if(animating||over) return;
