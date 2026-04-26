@@ -572,7 +572,16 @@
   function d2(ax, ay, bx, by) { const dx = ax - bx, dy = ay - by; return dx * dx + dy * dy; }
   function ang(ax, ay, bx, by) { return Math.atan2(by - ay, bx - ax); }
   function format(n) { return String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
-  function loadNum(key, fallback) { try { const v = Number(localStorage.getItem(key)); return Number.isFinite(v) ? v : fallback; } catch (e) { return fallback; } }
+  function loadNum(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw === null) return fallback;
+      const v = Number(raw);
+      return Number.isFinite(v) ? v : fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
   function saveNum(key, v) { try { localStorage.setItem(key, String(v)); } catch (e) {} }
   function loadBool(key, fallback) { try { const v = localStorage.getItem(key); return v === null ? fallback : v === '1' || v === 'true'; } catch (e) { return fallback; } }
   function saveBool(key, v) { try { localStorage.setItem(key, v ? '1' : '0'); } catch (e) {} }
@@ -1606,7 +1615,8 @@
 
   function syncTitleManualButton() {
     if (!titleManualButton) return;
-    titleManualButton.classList.toggle('show', state.mode === 'title');
+    const loading = !state.assetsReady || state.assetsLoading || assetWarmupBusy();
+    titleManualButton.classList.toggle('show', state.mode === 'title' && !loading);
   }
 
   function syncBodyModeClass() {
@@ -5273,6 +5283,7 @@
   function drawTitle() {
     const theme = mainTheme();
     const pulse = 0.5 + Math.sin(state.musicStep * 0.4) * 0.5;
+    const loading = !state.assetsReady || state.assetsLoading || assetWarmupBusy();
     const cardW = clamp(view.w * 0.86, 320, 1040);
     const cardH = clamp(view.h * 0.62, 300, 700);
     const x = (view.w - cardW) * 0.5;
@@ -5296,11 +5307,22 @@
     }
     hudCtx.fillStyle = '#fff';
     hudCtx.globalAlpha = 0.96;
-    hudCtx.font = '800 15px "Trebuchet MS", "Segoe UI", sans-serif';
-    hudCtx.fillText('Click or press Space to begin.', view.w * 0.5, y + cardH - 28);
-    hudCtx.globalAlpha = 0.82;
-    hudCtx.font = '700 12px "Trebuchet MS", "Segoe UI", sans-serif';
-    hudCtx.fillText('Open SETTINGS for sound, music, and combat tuning.', view.w * 0.5, y + cardH - 48);
+    if (loading) {
+      hudCtx.save();
+      hudCtx.globalAlpha = 0.8;
+      hudCtx.fillStyle = '#000';
+      hudCtx.fillRect(0, 0, view.w, view.h);
+      hudCtx.restore();
+      hudCtx.globalAlpha = 0.98;
+      hudCtx.font = '900 ' + clamp(Math.round(view.w * 0.038), 22, 42) + 'px "Trebuchet MS", "Segoe UI", sans-serif';
+      hudCtx.fillText('PLEASE WAIT WHILE LOADING TEXTURES', view.w * 0.5, view.h * 0.54);
+    } else {
+      hudCtx.font = '800 15px "Trebuchet MS", "Segoe UI", sans-serif';
+      hudCtx.fillText('Click or press Space to begin.', view.w * 0.5, y + cardH - 28);
+      hudCtx.globalAlpha = 0.82;
+      hudCtx.font = '700 12px "Trebuchet MS", "Segoe UI", sans-serif';
+      hudCtx.fillText('Open SETTINGS for sound, music, and combat tuning.', view.w * 0.5, y + cardH - 48);
+    }
     hudCtx.restore();
 
     hudCtx.save();
