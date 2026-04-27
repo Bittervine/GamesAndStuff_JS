@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image
 
 
-FILENAME_REGEX = re.compile(r"^Enemy_00\d{3}a\.png$", re.IGNORECASE)
+FILENAME_REGEX = re.compile(r"^Boss_\d+\.png$", re.IGNORECASE)
 MODEL_NAME = "RealESRGAN_x4plus_anime_6B"
 MODEL_URL = (
     "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/"
@@ -24,7 +24,7 @@ class DependencyError(RuntimeError):
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "AI-upscale Enemy_00XXXa.png files to 512x512 with preserved alpha "
+            "AI-upscale PNG files to target size with preserved alpha "
             "(transparent background)."
         )
     )
@@ -32,17 +32,17 @@ def parse_args() -> argparse.Namespace:
         "--assets-dir",
         type=Path,
         default=Path(__file__).resolve().parent.parent / "assets",
-        help="Directory containing Enemy_00XXXa.png files.",
+        help="Directory containing source PNG files.",
     )
     parser.add_argument(
         "--pattern",
-        default="Enemy_00*a.png",
+        default="Boss_*.png",
         help="Glob pattern for candidate files inside assets dir.",
     )
     parser.add_argument(
         "--target-size",
         type=int,
-        default=512,
+        default=1024,
         help="Target output size in pixels (square canvas).",
     )
     parser.add_argument(
@@ -136,7 +136,7 @@ def list_targets(assets_dir: Path, pattern: str, target_size: int) -> list[Path]
             continue
         with Image.open(path) as img:
             w, h = img.size
-        if w == target_size and h == target_size:
+        if w >= target_size and h >= target_size:
             continue
         out.append(path)
     return out
@@ -189,7 +189,7 @@ def main() -> int:
 
     targets = list_targets(assets_dir, args.pattern, args.target_size)
     if not targets:
-        print("No matching non-512 files found.")
+        print(f"No matching files found below {args.target_size}x{args.target_size}.")
         return 0
 
     out_dir = (args.out_dir or (assets_dir / "out")).resolve()
