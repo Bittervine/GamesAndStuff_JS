@@ -171,7 +171,8 @@
   const ENEMY_SHIP_FALLBACK_BATCHES = 10;
   const ENEMY_SHIP_VARIANT = 'a';
   const ENEMY_SHIP_MIN_SIZE = 64;
-  const ENEMY_SHIP_MAX_SIZE = 128;
+  const ENEMY_SHIP_MAX_SIZE = 108;
+  const ENEMY_ELITE_SIZE = 128;
   const ENEMY_SHIP_TEXTURE_SIZE = 256;
   const enemyShipLoadKeys = new Set();
   const ENEMY_SHIP_GLOW_FALLBACKS = ['#8fd8ff', '#ff8fd3', '#d8ff8f', '#ffbf8f', '#9a8fff', '#8fffe1', '#ffe38f', '#9fc8ff'];
@@ -181,6 +182,7 @@
   const bossGlowLoadKeys = new Set();
   const bossGlowTextures = new Map();
   const bossHitBoxes = new Map();
+  const debugLabelTextures = new Map();
 
   function enemyShipKey(levelNumber, shipIndex) {
     return 'enemyship|' + levelNumber + '|' + shipIndex;
@@ -289,7 +291,7 @@
         const normalized = makeNormalizedEnemyCanvas(img, ENEMY_SHIP_TEXTURE_SIZE) || img;
         const tex = createTextureFromCanvas(normalized);
         if (tex) render.textures.set(key, tex);
-        enemyShipGlowColors.set(key, DEBUG_MODE ? averageImageColor(img) : fallbackEnemyShipGlowColor(levelNumber, shipIndex));
+        enemyShipGlowColors.set(key, averageImageColor(img));
       } finally {
         enemyShipLoadKeys.delete(key);
       }
@@ -413,6 +415,184 @@
   function getEnemyShipRenderSize(levelNumber, shipIndex) {
     const key = 'shipsize|' + levelNumber + '|' + shipIndex;
     return ENEMY_SHIP_MIN_SIZE + (hashString(key) % (ENEMY_SHIP_MAX_SIZE - ENEMY_SHIP_MIN_SIZE + 1));
+  }
+
+  function scoreEnemyKindColor(kind, rgb) {
+    const r = rgb[0] / 255;
+    const g = rgb[1] / 255;
+    const b = rgb[2] / 255;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const l = (max + min) * 0.5;
+    const sat = max <= 0 ? 0 : (max - min) / Math.max(0.0001, max);
+    const redness = Math.max(0, r - (g + b) * 0.5);
+    const greenness = Math.max(0, g - (r + b) * 0.5);
+    const blueness = Math.max(0, b - (r + g) * 0.5);
+    const yellowness = Math.max(0, Math.min(r, g) - b);
+    const cyanness = Math.max(0, Math.min(g, b) - r);
+    const magentaness = Math.max(0, Math.min(r, b) - g);
+    const whiteness = (1 - sat) * l;
+    const bright = max;
+    switch (kind) {
+      case 'splitter': return yellowness * 3.0 + bright * 0.35;
+      case 'drifter': return whiteness * 2.6 + cyanness * 0.45;
+      case 'sniper': return redness * 2.8 + sat * 0.25;
+      case 'bomber': return (redness * 1.4 + yellowness * 1.4) - blueness * 0.4;
+      case 'swarm': return greenness * 2.5 + yellowness * 0.25;
+      case 'looper': return magentaness * 2.8 + redness * 0.35;
+      case 'spinner': return cyanness * 2.7 + blueness * 0.3;
+      case 'diver': return redness * 1.8 + yellowness * 0.8;
+      case 'mine': return greenness * 2.1 + cyanness * 0.35;
+      case 'elite': return yellowness * 1.8 + whiteness * 1.2 + bright * 0.7;
+      default: return sat * 0.6 + bright * 0.4;
+    }
+  }
+
+  function buildEnemyKindShipAssignments(levelNumber, theme) {
+    const enemyKinds = waveEnemyKinds(theme);
+    const orderedKinds = [];
+    const seen = Object.create(null);
+    for (let i = 0; i < enemyKinds.length; i++) {
+      const kind = enemyKinds[i];
+      if (seen[kind]) continue;
+      seen[kind] = true;
+      orderedKinds.push(kind);
+    }
+    const shipIndices = [];
+    for (let i = 0; i < ENEMY_SHIP_COLUMNS; i++) {
+      ensureEnemyShipTexture(levelNumber, i);
+      shipIndices.push(i);
+    }
+    const descriptors = shipIndices.map(function (idx) {
+      const hex = getEnemyShipGlowColor(levelNumber, idx, theme);
+      return { index: idx, rgb: hexToRgb(hex || '#ffffff') };
+    });
+    const assignments = Object.create(null);
+    const cursors = Object.create(null);
+    for (let i = 0; i < orderedKinds.length; i++) {
+      assignments[orderedKinds[i]] = [];
+      cursors[orderedKinds[i]] = 0;
+    }
+    const kindCount = orderedKinds.length;
+    const shipCount = descriptors.length;
+    if (!kindCount || !shipCount) {
+      return {
+        levelNumber: levelNumber,
+        assignments: assignments,
+        cursors: cursors
+      };
+    }
+
+    const rawScores = [];
+    const normScores = [];
+    const rankedShipsByKind = [];
+    for (let k = 0; k < kindCount; k++) {
+      const row = [];
+      for (let s = 0; s < shipCount; s++) row.push(scoreEnemyKindColor(orderedKinds[k], descriptors[s].rgb));
+      rawScores.push(row);
+      let minScore = row[0];
+      let maxScore = row[0];
+      for (let s = 1; s < shipCount; s++) {
+        if (row[s] < minScore) minScore = row[s];
+        if (row[s] > maxScore) maxScore = row[s];
+      }
+      const span = Math.max(1e-6, maxScore - minScore);
+      const normRow = row.map(function (v) { return (v - minScore) / span; });
+      normScores.push(normRow);
+      const ranked = [];
+      for (let s = 0; s < shipCount; s++) ranked.push(s);
+      ranked.sort(function (a, b) { return normRow[b] - normRow[a]; });
+      rankedShipsByKind.push(ranked);
+    }
+
+    const usedShips = new Array(shipCount).fill(false);
+    const unresolvedKinds = [];
+    for (let k = 0; k < kindCount; k++) unresolvedKinds.push(k);
+
+    while (unresolvedKinds.length) {
+      let bestPick = null;
+      for (let i = 0; i < unresolvedKinds.length; i++) {
+        const k = unresolvedKinds[i];
+        const ranked = rankedShipsByKind[k];
+        let bestShip = -1;
+        let bestScore = -1e18;
+        let secondScore = -1e18;
+        for (let r = 0; r < ranked.length; r++) {
+          const s = ranked[r];
+          if (usedShips[s]) continue;
+          const score = normScores[k][s];
+          if (bestShip < 0) {
+            bestShip = s;
+            bestScore = score;
+          } else {
+            secondScore = score;
+            break;
+          }
+        }
+        if (bestShip < 0) continue;
+        const margin = secondScore > -1e17 ? (bestScore - secondScore) : (bestScore + 1);
+        if (!bestPick || margin > bestPick.margin || (margin === bestPick.margin && bestScore > bestPick.bestScore)) {
+          bestPick = { kindIndex: k, shipSlot: bestShip, margin: margin, bestScore: bestScore };
+        }
+      }
+      if (!bestPick) break;
+      usedShips[bestPick.shipSlot] = true;
+      assignments[orderedKinds[bestPick.kindIndex]].push(descriptors[bestPick.shipSlot].index);
+      const nextUnresolved = [];
+      for (let i = 0; i < unresolvedKinds.length; i++) {
+        if (unresolvedKinds[i] !== bestPick.kindIndex) nextUnresolved.push(unresolvedKinds[i]);
+      }
+      unresolvedKinds.length = 0;
+      for (let i = 0; i < nextUnresolved.length; i++) unresolvedKinds.push(nextUnresolved[i]);
+    }
+
+    for (let s = 0; s < shipCount; s++) {
+      if (usedShips[s]) continue;
+      let bestKindIndex = 0;
+      let bestScore = -1e18;
+      for (let k = 0; k < kindCount; k++) {
+        const score = normScores[k][s];
+        if (score > bestScore) {
+          bestScore = score;
+          bestKindIndex = k;
+        }
+      }
+      assignments[orderedKinds[bestKindIndex]].push(descriptors[s].index);
+      usedShips[s] = true;
+    }
+
+    for (let k = 0; k < kindCount; k++) {
+      const kind = orderedKinds[k];
+      if (assignments[kind] && assignments[kind].length) continue;
+      let bestShip = 0;
+      let bestScore = -1e18;
+      for (let s = 0; s < shipCount; s++) {
+        const score = normScores[k][s];
+        if (score > bestScore) {
+          bestScore = score;
+          bestShip = s;
+        }
+      }
+      assignments[kind] = [descriptors[bestShip].index];
+    }
+
+    return {
+      levelNumber: levelNumber,
+      assignments: assignments,
+      cursors: cursors
+    };
+  }
+
+  function chooseEnemyShipIndexForKind(kind, levelNumber) {
+    const map = state.enemyShipKindMap;
+    if (!map || map.levelNumber !== levelNumber) return randi(0, ENEMY_SHIP_COLUMNS - 1);
+    const list = map.assignments && map.assignments[kind];
+    if (!list || !list.length) return randi(0, ENEMY_SHIP_COLUMNS - 1);
+    const key = kind || 'drifter';
+    const cursor = map.cursors[key] || 0;
+    const pick = list[cursor % list.length];
+    map.cursors[key] = (cursor + 1) % list.length;
+    return pick;
   }
 
   function bossArtKey(levelNumber) {
@@ -955,6 +1135,41 @@
     return tex;
   }
 
+  function getDebugLabelTexture(text, size) {
+    const s = Math.max(8, Math.round(size));
+    const key = 'debuglabel|' + s + '|' + text;
+    let entry = debugLabelTextures.get(key);
+    if (entry) return entry;
+    const padX = Math.max(4, Math.round(s * 0.45));
+    const padY = Math.max(3, Math.round(s * 0.30));
+    const tempCanvas = makeCanvas(8, 8);
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return null;
+    tempCtx.font = '800 ' + s + 'px "Trebuchet MS", "Segoe UI", sans-serif';
+    const measured = Math.max(1, Math.ceil(tempCtx.measureText(text).width));
+    const w = measured + padX * 2;
+    const h = Math.ceil(s * 1.15) + padY * 2;
+    const c = makeCanvas(w, h);
+    const g = c.getContext('2d');
+    if (!g) return null;
+    g.clearRect(0, 0, w, h);
+    g.font = '800 ' + s + 'px "Trebuchet MS", "Segoe UI", sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.lineJoin = 'round';
+    g.lineWidth = Math.max(2, Math.round(s * 0.26));
+    g.strokeStyle = 'rgba(0,0,0,0.9)';
+    g.fillStyle = '#ffffff';
+    const textY = Math.round(h * 0.53);
+    g.strokeText(text, Math.round(w * 0.5), textY);
+    g.fillText(text, Math.round(w * 0.5), textY);
+    const tex = createTextureFromCanvas(c);
+    if (!tex) return null;
+    entry = { texture: tex, w: w, h: h };
+    debugLabelTextures.set(key, entry);
+    return entry;
+  }
+
   function pushSprite(texture, x, y, w, h, rot, color, alpha, layer, additive, erase) {
     let uv = null;
     if (arguments.length > 11 && arguments[11]) {
@@ -1151,19 +1366,19 @@
   }
 
   const THEMES = [
-    theme({ name: 'Thorium Rift', subtitle: 'None shall pass', skyTop: '#07111f', skyBottom: '#274062', glow: '#9bc5ff', accent: '#6d9cff', accent2: '#d5e4ff', icons: [E.apple, E.pear, E.cherry, E.leaf], forms: ['line', 'fan', 'rain'], enemyKinds: ['drifter', 'splitter', 'bomber'], atmosphere: 'leaves', music: { bpm: 112, root: 220, pattern: [0, 3, 5, 7, 10, 7, 5, 3] }, boss: { name: 'Red Guardian', emoji: E.apple, hp: 160, size: 320, color: '#9ec2ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Broken Shore', subtitle: 'First of his name', skyTop: '#061b1b', skyBottom: '#1f4d49', glow: '#8ff7ff', accent: '#58d7c6', accent2: '#c8fff2', icons: [E.bee, E.ladybug, E.butterfly, E.seed], forms: ['swarm', 'pair', 'arc'], enemyKinds: ['zigzag', 'swarm', 'sniper'], atmosphere: 'pollen', music: { bpm: 126, root: 246, pattern: [0, 2, 4, 7, 9, 7, 4, 2] }, boss: { name: 'Rocket Baron', emoji: E.bee, hp: 176, size: 320, color: '#93f0e8', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Ultraviolet Prison', subtitle: 'Isolation and servitude', skyTop: '#1b1730', skyBottom: '#53265f', glow: '#d19cff', accent: '#9a7cff', accent2: '#f0d0ff', icons: [E.lollipop, E.donut, E.cookie, E.chocolate], forms: ['fan', 'rain', 'cross'], enemyKinds: ['drifter', 'zigzag', 'bomber'], atmosphere: 'sprinkles', music: { bpm: 136, root: 262, pattern: [0, 4, 7, 12, 7, 4, 5, 9] }, boss: { name: 'Warden Thorn', emoji: E.donut, hp: 188, size:320 , color: '#c29bff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7, 'sweep', 'ring'), phase(8, 'low', 'rain')] } }),
-    theme({ name: 'Sinners Den', subtitle: 'Hunger without limit', skyTop: '#0f1620', skyBottom: '#4d5867', glow: '#96c9ff', accent: '#9fb2c6', accent2: '#d0e0ef', icons: [E.gear, E.battery, E.wrench, E.rocket], forms: ['line', 'pair', 'cross'], enemyKinds: ['zigzag', 'sniper', 'bomber'], atmosphere: 'sparks', music: { bpm: 118, root: 196, pattern: [0, 0, 7, 5, 4, 5, 7, 10] }, boss: { name: 'Hope Devourer', emoji: E.gear, hp: 200, size: 320, color: '#d0d9e1', flipWhenMovingRight: false, phases: [phase(7, 'sweep', 'ring'), phase(7.5, 'hover', 'summon'), phase(8, 'dash', 'fan')] } }),
-    theme({ name: 'Deadlight Fen', subtitle: 'Master of the soulless crew', skyTop: '#06111d', skyBottom: '#532a40', glow: '#ffbf8a', accent: '#e0a06c', accent2: '#ffc8a1', icons: [E.lantern, E.ghost, E.sparkles, E.star], forms: ['rain', 'arc', 'swarm'], enemyKinds: ['swarm', 'sniper', 'drifter'], atmosphere: 'motes', music: { bpm: 108, root: 196, pattern: [0, 5, 7, 10, 7, 5, 3, 5] }, boss: { name: 'Specter Captain', emoji: E.lantern, hp: 204, size: 320, color: '#f6b46d', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Elysium Moors', subtitle: 'The steed of Neptune', skyTop: '#220c0c', skyBottom: '#6d3a13', glow: '#ffd77a', accent: '#c47a19', accent2: '#ffd59f', icons: [E.bee, E.honey, E.fire, E.bolt], forms: ['swarm', 'fan', 'pair'], enemyKinds: ['diver', 'swarm', 'sniper'], atmosphere: 'embers', music: { bpm: 132, root: 246, pattern: [0, 2, 3, 7, 10, 7, 3, 2] }, boss: { name: 'Lunar Horse', emoji: E.bee, hp: 216, size: 320, color: '#e4ba6a', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'dash', 'rain')] } }),
-    theme({ name: 'Shard Expanse', subtitle: 'The base of lost hope', skyTop: '#07142f', skyBottom: '#264e88', glow: '#b0fbff', accent: '#95d5ff', accent2: '#d6c4ff', icons: [E.crystal, E.gem, E.star, E.moon], forms: ['ring', 'line', 'arc'], enemyKinds: ['spinner', 'diver', 'splitter', 'mine', 'swarm', 'bomber', 'drifter', 'zigzag'], atmosphere: 'shards', music: { bpm: 120, root: 233, pattern: [0, 4, 7, 11, 7, 4, 9, 7] }, boss: { name: 'Shard Base One', emoji: E.gem, hp: 228, size: 320, color: '#c9f6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'ring'), phase(8, 'low', 'beam')] } }),
-    theme({ name: 'Dark Waters', subtitle: 'Prey on the weak', skyTop: '#180709', skyBottom: '#6c2919', glow: '#ffab5b', accent: '#de6f2b', accent2: '#ffd08a', icons: [E.fire, E.pepper, E.honey, E.sparkles], forms: ['rain', 'line', 'swarm'], enemyKinds: ['bomber', 'diver', 'splitter'], atmosphere: 'embers', music: { bpm: 140, root: 220, pattern: [0, 3, 7, 10, 7, 3, 5, 10] }, boss: { name: 'Cephid Hunter', emoji: E.fire, hp: 240, size: 320, color: '#ff9e53', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'rain'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'wall')] } }),
-    theme({ name: 'Domain of Klaatu', subtitle: 'The earth stands still', skyTop: '#07111d', skyBottom: '#2d3d61', glow: '#95d7ff', accent: '#aebfe0', accent2: '#95d7ff', icons: [E.moon, E.star, E.rocket, E.comet], forms: ['line', 'wave', 'pair'], enemyKinds: ['spinner', 'diver', 'splitter', 'mine', 'swarm', 'drifter', 'zigzag'], atmosphere: 'stardust', music: { bpm: 106, root: 185, pattern: [0, 7, 12, 7, 10, 7, 5, 3] }, boss: { name: 'Klaatu', emoji: E.moon, hp: 252, size: 320, color: '#c3d6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'summon'), phase(7.5, 'sweep', 'beam'), phase(8, 'dash', 'ring')] } }),
-    theme({ name: 'Sunken Bastion', subtitle: 'Here drowned men weep', skyTop: '#07101c', skyBottom: '#2d1a5a', glow: '#82f6ff', accent: '#6eeaff', accent2: '#c8fff2', icons: [E.bolt, E.sparkles, E.disc, E.target], forms: ['wave', 'cross', 'pair'], enemyKinds: ['zigzag', 'sniper', 'bomber'], atmosphere: 'neon', music: { bpm: 144, root: 220, pattern: [0, 7, 12, 10, 7, 4, 9, 12] }, boss: { name: 'Cyberphish', emoji: E.bolt, hp: 264, size: 320, color: '#8fefff', flipWhenMovingRight: true, phases: [phase(7, 'sweep', 'wall'), phase(7.5, 'hover', 'aimed'), phase(8, 'dash', 'ring')] } }),
-    theme({ name: 'Black Citadel', subtitle: 'When the hearts break', skyTop: '#0a0c14', skyBottom: '#403f55', glow: '#f0f3ff', accent: '#b6bfd6', accent2: '#9e8e5e', icons: [E.knight, E.rook, E.bishop, E.queen], forms: ['line', 'cross', 'wave'], enemyKinds: ['zigzag', 'sniper', 'elite'], atmosphere: 'chess', music: { bpm: 122, root: 196, pattern: [0, 3, 7, 10, 7, 3, 5, 7] }, boss: { name: 'Purple Matron', emoji: E.queen, hp: 288, size: 320, color: '#e7ecff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'summon'), phase(8, 'dash', 'ring')] } }),
-    theme({ name: 'Crushing Depths', subtitle: 'Hunger for sunlight', skyTop: '#0c1821', skyBottom: '#344c84', glow: '#d7f4ff', accent: '#9cc7ff', accent2: '#d7f4ff', icons: [E.cloud, E.rain, E.bolt, E.star], forms: ['rain', 'line', 'swarm'], enemyKinds:  ['spinner', 'diver', 'splitter', 'mine', 'swarm', 'zigzag'], atmosphere: 'rain', music: { bpm: 128, root: 196, pattern: [0, 4, 7, 10, 7, 4, 2, 5] }, boss: { name: 'Deep Gulper', emoji: E.cloud, hp: 276, size: 320, color: '#d3edff', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Thorium Gap', subtitle: 'Final Descent', skyTop: '#0f081b', skyBottom: '#5b3d18', glow: '#ffe78a', accent: '#ffd77a', accent2: '#ffffff', icons: [E.sun, E.crown, E.star, E.comet], forms: ['ring', 'fan', 'wave'], enemyKinds: ['elite', 'sniper', 'spinner', 'drifter'], atmosphere: 'nova', music: { bpm: 152, root: 262, pattern: [0, 4, 7, 12, 15, 12, 7, 4] }, boss: { name: 'Unnamed Horror', emoji: E.sun, hp: 600, size: 512, color: '#fff0bd', flipWhenMovingRight: false, phases: [phase(6.5, 'hover', 'aimed'), phase(6.5, 'sweep', 'ring'), phase(6.5, 'low', 'summon'), phase(6.5, 'dash', 'beam'), phase(7.5, 'low', 'summon')] } })
+    theme({ name: 'Thorium Rift', subtitle: 'None shall pass', skyTop: '#07111f', skyBottom: '#274062', glow: '#9bc5ff', accent: '#6d9cff', accent2: '#d5e4ff', forms: ['line', 'fan', 'rain'], enemyKinds: ['drifter', 'swarm', 'looper'], atmosphere: 'leaves', music: { bpm: 112, root: 220, pattern: [0, 3, 5, 7, 10, 7, 5, 3] }, boss: { name: 'Red Guardian', emoji: E.apple, hp: 160, size: 320, color: '#9ec2ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Broken Shore', subtitle: 'First of his name', skyTop: '#061b1b', skyBottom: '#1f4d49', glow: '#8ff7ff', accent: '#58d7c6', accent2: '#c8fff2', forms: ['swarm', 'pair', 'arc'], enemyKinds: ['looper', 'bomber', 'sniper'], atmosphere: 'pollen', music: { bpm: 126, root: 246, pattern: [0, 2, 4, 7, 9, 7, 4, 2] }, boss: { name: 'Rocket Baron', emoji: E.bee, hp: 176, size: 320, color: '#93f0e8', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Ultraviolet Prison', subtitle: 'Isolation and servitude', skyTop: '#1b1730', skyBottom: '#53265f', glow: '#d19cff', accent: '#9a7cff', accent2: '#f0d0ff', forms: ['fan', 'rain', 'cross'], enemyKinds: ['drifter', 'looper', 'bomber'], atmosphere: 'sprinkles', music: { bpm: 136, root: 262, pattern: [0, 4, 7, 12, 7, 4, 5, 9] }, boss: { name: 'Warden Thorn', emoji: E.donut, hp: 188, size:320 , color: '#c29bff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7, 'sweep', 'ring'), phase(8, 'low', 'rain')] } }),
+    theme({ name: 'Sinners Den', subtitle: 'Hunger without limit', skyTop: '#0f1620', skyBottom: '#4d5867', glow: '#96c9ff', accent: '#9fb2c6', accent2: '#d0e0ef', forms: ['line', 'pair', 'cross'], enemyKinds: ['looper', 'sniper', 'bomber'], atmosphere: 'sparks', music: { bpm: 118, root: 196, pattern: [0, 0, 7, 5, 4, 5, 7, 10] }, boss: { name: 'Hope Devourer', emoji: E.gear, hp: 200, size: 320, color: '#d0d9e1', flipWhenMovingRight: false, phases: [phase(7, 'sweep', 'ring'), phase(7.5, 'dash', 'summon'), phase(8, 'hover', 'fan')] } }),
+    theme({ name: 'Deadlight Fen', subtitle: 'Master of the soulless crew', skyTop: '#06111d', skyBottom: '#532a40', glow: '#ffbf8a', accent: '#e0a06c', accent2: '#ffc8a1', forms: ['rain', 'arc', 'swarm'], enemyKinds: ['swarm', 'sniper', 'drifter'], atmosphere: 'motes', music: { bpm: 108, root: 196, pattern: [0, 5, 7, 10, 7, 5, 3, 5] }, boss: { name: 'Specter Captain', emoji: E.lantern, hp: 204, size: 320, color: '#f6b46d', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Elysium Moors', subtitle: 'The steed of Neptune', skyTop: '#220c0c', skyBottom: '#6d3a13', glow: '#ffd77a', accent: '#c47a19', accent2: '#ffd59f', forms: ['swarm', 'fan', 'pair'], enemyKinds: ['diver', 'swarm', 'sniper'], atmosphere: 'embers', music: { bpm: 132, root: 246, pattern: [0, 2, 3, 7, 10, 7, 3, 2] }, boss: { name: 'Lunar Horse', emoji: E.bee, hp: 216, size: 320, color: '#e4ba6a', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(8, 'dash', 'rain'), phase(7.5, 'sweep', 'summon')] } }),
+    theme({ name: 'Shard Expanse', subtitle: 'The base of lost hope', skyTop: '#07142f', skyBottom: '#264e88', glow: '#b0fbff', accent: '#95d5ff', accent2: '#d6c4ff', forms: ['ring', 'line', 'arc'], enemyKinds: ['swarm', 'bomber', 'elite', 'looper'], atmosphere: 'shards', music: { bpm: 120, root: 233, pattern: [0, 4, 7, 11, 7, 4, 9, 7] }, boss: { name: 'Shard Base One', emoji: E.gem, hp: 228, size: 320, color: '#c9f6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'ring'), phase(8, 'low', 'beam')] } }),
+    theme({ name: 'Dark Waters', subtitle: 'Prey on the weak', skyTop: '#180709', skyBottom: '#6c2919', glow: '#ffab5b', accent: '#de6f2b', accent2: '#ffd08a', forms: ['rain', 'line', 'swarm'], enemyKinds: ['spinner', 'drifter', 'diver', 'splitter'], atmosphere: 'embers', music: { bpm: 140, root: 220, pattern: [0, 3, 7, 10, 7, 3, 5, 10] }, boss: { name: 'Cephid Hunter', emoji: E.fire, hp: 240, size: 320, color: '#ff9e53', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'rain'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'wall')] } }),
+    theme({ name: 'Domain of Klaatu', subtitle: 'The earth stands still', skyTop: '#07111d', skyBottom: '#2d3d61', glow: '#95d7ff', accent: '#aebfe0', accent2: '#95d7ff', forms: ['line', 'wave', 'pair'], enemyKinds: ['elite', 'diver', 'splitter' ], atmosphere: 'stardust', music: { bpm: 106, root: 185, pattern: [0, 7, 12, 7, 10, 7, 5, 3] }, boss: { name: 'Klaatu', emoji: E.moon, hp: 252, size: 320, color: '#c3d6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'summon'), phase(7.5, 'dash', 'beam'), phase(8, 'sweep', 'ring')] } }),
+    theme({ name: 'Sunken Bastion', subtitle: 'Here drowned men weep', skyTop: '#07101c', skyBottom: '#2d1a5a', glow: '#82f6ff', accent: '#6eeaff', accent2: '#c8fff2', forms: ['wave', 'cross', 'pair'], enemyKinds: ['looper', 'spinner', 'swarm', 'bomber'], atmosphere: 'neon', music: { bpm: 144, root: 220, pattern: [0, 7, 12, 10, 7, 4, 9, 12] }, boss: { name: 'Cyberphish', emoji: E.bolt, hp: 264, size: 320, color: '#8fefff', flipWhenMovingRight: true, phases: [phase(7, 'sweep', 'wall'), phase(7.5, 'dash', 'aimed'), phase(8, 'hover', 'ring')] } }),
+    theme({ name: 'Black Citadel', subtitle: 'When the hearts break', skyTop: '#0a0c14', skyBottom: '#403f55', glow: '#f0f3ff', accent: '#b6bfd6', accent2: '#9e8e5e', forms: ['line', 'cross', 'wave'], enemyKinds: ['looper', 'sniper', 'elite'], atmosphere: 'chess', music: { bpm: 122, root: 196, pattern: [0, 3, 7, 10, 7, 3, 5, 7] }, boss: { name: 'Purple Matron', emoji: E.queen, hp: 288, size: 320, color: '#e7ecff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'dash', 'summon'), phase(8, 'sweep', 'ring')] } }),
+    theme({ name: 'Crushing Depths', subtitle: 'Hunger for sunlight', skyTop: '#0c1821', skyBottom: '#344c84', glow: '#d7f4ff', accent: '#9cc7ff', accent2: '#d7f4ff', forms: ['rain', 'line', 'swarm'], enemyKinds:  ['spinner', 'diver', 'swarm', 'looper'], atmosphere: 'rain', music: { bpm: 128, root: 196, pattern: [0, 4, 7, 10, 7, 4, 2, 5] }, boss: { name: 'Deep Gulper', emoji: E.cloud, hp: 276, size: 320, color: '#d3edff', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Thorium Gap', subtitle: 'Final Descent', skyTop: '#0f081b', skyBottom: '#5b3d18', glow: '#ffe78a', accent: '#ffd77a', accent2: '#ffffff', forms: ['ring', 'fan', 'wave'], enemyKinds: ['elite', 'sniper', 'spinner', 'looper'], atmosphere: 'nova', music: { bpm: 152, root: 262, pattern: [0, 4, 7, 12, 15, 12, 7, 4] }, boss: { name: 'Unnamed Horror', emoji: E.sun, hp: 600, size: 512, color: '#fff0bd', flipWhenMovingRight: false, phases: [phase(6.5, 'hover', 'aimed'), phase(6.5, 'sweep', 'ring'), phase(6.5, 'low', 'summon'), phase(6.5, 'dash', 'beam'), phase(7.5, 'low', 'summon')] } })
   ];
 
   const FINAL_LEVEL_ENEMY_KINDS = (function () {
@@ -1214,7 +1429,7 @@
 
   const ENEMIES = {
     drifter: { hp: 2, r: 18, score: 90, speed: 96 },
-    zigzag: { hp: 3, r: 18, score: 110, speed: 112 },
+    looper: { hp: 3, r: 18, score: 110, speed: 112 },
     swarm: { hp: 1, r: 14, score: 75, speed: 140 },
     bomber: { hp: 4, r: 20, score: 140, speed: 86 },
     sniper: { hp: 3, r: 18, score: 130, speed: 74 },
@@ -1231,7 +1446,7 @@
     { label: 'Hard', lives: 2, enemyHp: 1.18, enemySpeed: 1.12, spawnRate: 1.16, spawnCount: 1.18, bulletSpeed: 1.14, bossHp: 1.2, contact: 1.12, playerDamage: 0.25 }
   ];
 
-  const SHOT_PACE = 1.25;
+  const SHOT_PACE = 1.0;
   const PLAYER_FIRE_RATE_BOOST = 1.15;
   const PLAYER_RADIUS = 46;
   const HEAT_MAX_SECONDS = 5;
@@ -1239,7 +1454,7 @@
   const HEAT_COOLDOWN_FACTOR = 4;
 
   function shotDelay(v) {
-    return v * SHOT_PACE * (1 + state.levelIndex * 0.2);
+    return v * SHOT_PACE * (1.0 + state.levelIndex * 0.2);
   }
 
   const state = {
@@ -1305,6 +1520,7 @@
     pickups: [],
     particles: [],
     particlePool: [],
+    enemyShipKindMap: null,
     boss: null,
     currentTheme: THEMES[0],
     transition: null,
@@ -2177,6 +2393,7 @@
   function beginLevel(index) {
     state.levelIndex = index;
     state.currentTheme = THEMES[index];
+    state.enemyShipKindMap = buildEnemyKindShipAssignments(index + 1, state.currentTheme);
     warmEnemyShipBatch(index + 1);
     if (index + 1 > ENEMY_SHIP_FALLBACK_BATCHES) warmEnemyShipBatch(((index + 1 - 1) % ENEMY_SHIP_FALLBACK_BATCHES) + 1);
     warmBossArt(index + 1);
@@ -2457,7 +2674,7 @@
   }
 
   function maybeDropPickup(x, y, elite, forceType) {
-    const p = 0.2 * (0.95 ** state.levelIndex)
+    const p = 0.2 * (0.96 ** state.levelIndex)
     if (forceType || Math.random() < p) {
       const type = forceType || choosePickup();
       if (type === 'weapon') spawnPickup('weapon', x, y, { weaponMode: chooseWeaponMode(state.player.weaponMode) });
@@ -2474,8 +2691,8 @@
     const speedScale = diff.enemySpeed;
     const fireScale = SHOT_PACE / diff.spawnRate;
     const levelNumber = state.levelIndex + 1;
-    const shipIndex = opts && opts.shipIndex != null ? opts.shipIndex : randi(0, ENEMY_SHIP_COLUMNS - 1);
-    const shipSize = getEnemyShipRenderSize(levelNumber, shipIndex);
+    const shipIndex = opts && opts.shipIndex != null ? opts.shipIndex : chooseEnemyShipIndexForKind(kind, levelNumber);
+    const shipSize = kind === 'elite' ? ENEMY_ELITE_SIZE : getEnemyShipRenderSize(levelNumber, shipIndex);
     const sizeScale = shipSize / 64;
     const hpScale = earlyHpScale * scale * diff.enemyHp * sizeScale;
     const baseHp = opts && opts.hp != null ? opts.hp : d.hp;
@@ -2485,8 +2702,7 @@
       vy: (opts && opts.vy != null ? opts.vy : d.speed * scale) * speedScale,
       hp: Math.max(1, Math.round(baseHp * hpScale)),
       maxHp: Math.max(1, Math.round(baseHp * hpScale)),
-      r: Math.max(12, Math.round(shipSize * 0.35)), score: Math.round((opts && opts.score != null ? opts.score : d.score) * scale),
-      emoji: pick(t.icons), fireCooldown: rand(0.8, 1.8) * fireScale, age: 0, wobble: rand(0, TAU), dir: chance(0.5) ? 1 : -1,
+      r: Math.max(12, Math.round(shipSize * 0.42)), score: Math.round((opts && opts.score != null ? opts.score : d.score) * scale), fireCooldown: rand(0.8, 1.8) * fireScale, age: 0, wobble: rand(0, TAU), dir: chance(0.5) ? 1 : -1,
       shipLevel: levelNumber, shipIndex: shipIndex, shipSize: shipSize,
       shotSeed: rand(0, TAU), elite: !!(opts && opts.elite), dead: false, hitFlash: 0,
       entry: opts && opts.entry ? opts.entry : null
@@ -2531,7 +2747,7 @@
   function flightProfileForKind(kind) {
     switch (kind) {
       case 'drifter': return { routeShift: 4, swirl: 0.95, bend: 1.0, turns: 0.25, duration: 4.8, settleY: 1.0 };
-      case 'zigzag': return { routeShift: 2, swirl: 0.75, bend: 0.9, turns: 0.15, duration: 4.2, settleY: 0.98 };
+      case 'looper': return { routeShift: 2, swirl: 0.75, bend: 0.9, turns: 0.15, duration: 4.2, settleY: 0.98 };
       case 'swarm': return { routeShift: 1, swirl: 1.25, bend: 1.0, turns: 0.55, duration: 4.0, settleY: 1.0 };
       case 'bomber': return { routeShift: 0, swirl: 0.7, bend: 0.82, turns: -0.05, duration: 5.0, settleY: 0.92 };
       case 'sniper': return { routeShift: 3, swirl: 0.6, bend: 0.82, turns: 0.05, duration: 5.1, settleY: 1.05 };
@@ -2847,7 +3063,7 @@
     const p = state.player;
     if (state.mode !== 'playing' || p.bombs <= 0) return;
     p.bombs--;
-    p.invuln = 0.5;
+    p.invuln = 1.0;
     state.flash = Math.max(state.flash, 0.5);
     state.shake = Math.max(state.shake, 15);
     sfx('bomb');
@@ -2878,7 +3094,16 @@
         if (state.combo % 5 === 0) sfx('combo');
         if (state.combo >= 10) { state.combo = 0; activateOverdrive(); }
       }
-      if (e.kind === 'spinner') ringBullets(e.x, e.y, 10, 180, 1, e.theme.accent2, 'enemy', 'spinner', e.name || 'spinner');
+      if (e.kind === 'spinner') ringBullets(e.x, e.y, 9, 180, 1, e.theme.accent2, 'enemy', 'spinner', e.name || 'spinner');
+      if (e.kind === 'splitter') {
+        const base = typeof e.flightAngle === 'number' ? e.flightAngle : Math.atan2(e.vy || 0, e.vx || 1);
+        const spread = Math.PI / 6;
+        const speed = 240;
+        const a1 = base - spread;
+        const a2 = base + spread;
+        spawnBullet('enemy', e.x, e.y, Math.cos(a1) * speed, Math.sin(a1) * speed, { r: 7, color: e.theme.accent2, damage: 1, kind: 'splitter', life: 4.8, sourceKind: 'splitter', sourceName: e.name || 'splitter' });
+        spawnBullet('enemy', e.x, e.y, Math.cos(a2) * speed, Math.sin(a2) * speed, { r: 7, color: e.theme.accent2, damage: 1, kind: 'splitter', life: 4.8, sourceKind: 'splitter', sourceName: e.name || 'splitter' });
+      }
       //if (e.kind === 'elite' || e.score > 200) maybeDropPickup(e.x, e.y, true, chance(0.35) ? 'shield' : null);
       else if (!fromBomb) maybeDropPickup(e.x, e.y, false);
     } else {
@@ -2970,7 +3195,7 @@
     if (state.debugMode && state.debugDamageBreakpoints) debugger;
     if (p.shield > 0) {
       p.shield--;
-      p.invuln = 0.5;
+      p.invuln = 1.0;
       state.flash = Math.max(state.flash, 0.1);
       burst(p.x, p.y, '#8fd8ff', 16, 220, 5, 'spark');
       sfx('power');
@@ -2979,7 +3204,7 @@
       return;
     }
     p.health -= actualDamage;
-    p.invuln = 0.5;
+    p.invuln = 1.0;
     p.repairDelay = 1.8;
     state.shake = Math.max(state.shake, 10);
     state.flash = Math.max(state.flash, 0.12);
@@ -3545,22 +3770,108 @@
       if (!entering && e.kind === 'drifter') {
         e.y += e.vy * dt;
         e.x += Math.sin(e.age * 3 + e.wobble) * 18 * dt;
-      } else if (!entering && e.kind === 'zigzag') {
-        e.y += e.vy * dt;
-        e.x += e.dir * (e.vx || 60) * dt;
-        if (e.x < a.left || e.x > a.right) { e.dir *= -1; e.x = clamp(e.x, a.left, a.right); }
+        if (e.fireCooldown <= 0 && e.y > 70) {
+          e.fireCooldown = shotDelay(1.00);
+          const a = rand(0, TAU);
+          const speed = 220;
+          spawnBullet('enemy', e.x, e.y + 8, Math.cos(a) * speed, Math.sin(a) * speed, {
+            r: 7,
+            color: e.theme.accent2,
+            damage: 1,
+            kind: 'drifter',
+            life: 4.8,
+            sourceKind: e.kind,
+            sourceName: e.name || e.kind
+          });
+        }
+      } else if (!entering && e.kind === 'looper') {
+        const looperSpeed = Math.max(70, Math.sqrt((e.vx || 0) * (e.vx || 0) + (e.vy || 0) * (e.vy || 0)));
+        if (e.loopDirX == null || e.loopDirY == null) {
+          const heading = (Math.PI * 0.5) + rand(-Math.PI * 0.25, Math.PI * 0.25);
+          e.loopDirX = Math.cos(heading);
+          e.loopDirY = Math.sin(heading);
+          if (e.loopDirY < 0.22) e.loopDirY = 0.22;
+          const norm = Math.max(0.0001, Math.sqrt(e.loopDirX * e.loopDirX + e.loopDirY * e.loopDirY));
+          e.loopDirX /= norm;
+          e.loopDirY /= norm;
+          e.loopHeading = Math.atan2(e.loopDirY, e.loopDirX);
+          e.loopActive = false;
+          e.loopAccum = 0;
+          e.loopTurnDir = 0;
+        }
+        if (e.loopActive) {
+          const loopRadius = e.loopRadius || 52;
+          const omega = looperSpeed / Math.max(24, loopRadius);
+          const turnDir = e.loopTurnDir || 1;
+          e.loopHeading += turnDir * omega * dt;
+          e.loopAccum += omega * dt;
+          e.loopDirX = Math.cos(e.loopHeading);
+          e.loopDirY = Math.sin(e.loopHeading);
+          e.x += e.loopDirX * looperSpeed * dt;
+          e.y += e.loopDirY * looperSpeed * dt;
+          if (e.loopAccum >= (e.loopTurnGoal || TAU)) {
+            e.loopActive = false;
+            e.loopAccum = 0;
+            e.loopHeading = e.loopEndHeading != null ? e.loopEndHeading : e.loopHeading;
+            e.loopDirX = Math.cos(e.loopHeading);
+            e.loopDirY = Math.sin(e.loopHeading);
+            const norm = Math.max(0.0001, Math.sqrt(e.loopDirX * e.loopDirX + e.loopDirY * e.loopDirY));
+            e.loopDirX /= norm;
+            e.loopDirY /= norm;
+            e.loopHeading = Math.atan2(e.loopDirY, e.loopDirX);
+          }
+        } else {
+          const loopStartBottom = view.h * 0.75;
+          if (Math.random() < dt * (1 / 3) && e.y > 46 && e.y < loopStartBottom) {
+            e.loopTurnDir = Math.random() < 0.5 ? -1 : 1;
+            e.loopRadius = rand(50, 250);
+            e.loopActive = true;
+            e.loopAccum = 0;
+            const startHeading = e.loopHeading || Math.atan2(e.loopDirY || 1, e.loopDirX || 0);
+            const endHeading = (Math.PI * 0.5) + rand(-Math.PI * 0.25, Math.PI * 0.25);
+            // Finish near downward direction after about one full loop.
+            const delta = Math.atan2(Math.sin(endHeading - startHeading), Math.cos(endHeading - startHeading));
+            e.loopTurnGoal = Math.max(Math.PI * 1.5, Math.min(Math.PI * 2.5, TAU + (e.loopTurnDir * delta)));
+            e.loopEndHeading = endHeading;
+          }
+          e.x += e.loopDirX * looperSpeed * dt;
+          e.y += e.loopDirY * looperSpeed * dt;
+        }
+        if (e.x < a.left || e.x > a.right) {
+          e.loopDirX *= -1;
+          e.loopHeading = Math.atan2(e.loopDirY, e.loopDirX);
+          if (e.loopActive) e.loopTurnDir *= -1;
+          e.x = clamp(e.x, a.left, a.right);
+        }
+        if (e.x < -e.r || e.x > view.w + e.r || e.y < -e.r || e.y > view.h + e.r) { state.enemies.splice(i, 1); continue; }
+        if (e.fireCooldown <= 0 && e.y > 70) {
+          e.fireCooldown = shotDelay(1.0);
+          const moveX = e.loopDirX || Math.cos(e.loopHeading || (Math.PI * 0.5));
+          const moveY = e.loopDirY || Math.sin(e.loopHeading || (Math.PI * 0.5));
+          const moveLen = Math.max(0.001, Math.sqrt(moveX * moveX + moveY * moveY));
+          const shotSpeed = 238;
+          spawnBullet('enemy', e.x + moveX * 8, e.y + moveY * 8, (moveX / moveLen) * shotSpeed, (moveY / moveLen) * shotSpeed, {
+            r: 7,
+            color: e.theme.accent2,
+            damage: 1,
+            kind: 'looper',
+            life: 4.8,
+            sourceKind: e.kind,
+            sourceName: e.name || e.kind
+          });
+        }
       } else if (!entering && e.kind === 'swarm') {
         e.y += e.vy * dt;
         e.x += Math.sin(e.age * 6 + e.wobble) * 46 * dt;
       } else if (!entering && e.kind === 'bomber') {
         e.y += e.vy * dt;
         e.x += Math.sin(e.age * 1.5 + e.wobble) * 24 * dt;
-        if (e.fireCooldown <= 0) { e.fireCooldown = shotDelay(1.05 - state.levelIndex * 0.03); spawnBullet('enemy', e.x, e.y + 14, rand(-34, 34), rand(180, 240), { r: 7, color: e.theme.accent2, damage: 1, kind: 'drop', ay: 58, life: 4.8, sourceKind: e.kind, sourceName: e.name || e.kind }); }
+        if (e.fireCooldown <= 0) { e.fireCooldown = shotDelay(1.0); spawnBullet('enemy', e.x, e.y + 14, rand(-34, 34), rand(180, 240), { r: 7, color: e.theme.accent2, damage: 1, kind: 'drop', ay: 58, life: 4.8, sourceKind: e.kind, sourceName: e.name || e.kind }); }
       } else if (!entering && e.kind === 'sniper') {
         e.y += e.vy * dt * 0.5;
         e.x += Math.sin(e.age * 1.2 + e.wobble) * 14 * dt;
         if (e.fireCooldown <= 0 && e.y > 100) {
-          e.fireCooldown = shotDelay(1.4 - Math.min(0.5, state.levelIndex * 0.03));
+          e.fireCooldown = shotDelay(1.2);
           const base = ang(e.x, e.y, p.x, p.y);
           for (let k = -1; k <= 1; k++) {
             const aa = base + k * 0.1;
@@ -3570,7 +3881,7 @@
       } else if (!entering && e.kind === 'spinner') {
         e.y += e.vy * dt * 0.7;
         e.x += Math.cos(e.age * 1.1 + e.wobble) * 24 * dt;
-        if (e.fireCooldown <= 0 && e.y > 80) { e.fireCooldown = shotDelay(1.65 - Math.min(0.6, state.levelIndex * 0.04)); ringBullets(e.x, e.y, 7 + Math.floor(state.levelIndex / 2), 150 + state.levelIndex * 8, 1, e.theme.accent2, 'enemy'); }
+        if (e.fireCooldown <= 0 && e.y > 80) { e.fireCooldown = shotDelay(2.0); ringBullets(e.x, e.y, 6 + Math.floor(state.levelIndex / 3), 150 + state.levelIndex * 8, 1, e.theme.accent2, 'enemy'); }
       } else if (!entering && e.kind === 'splitter') {
         e.y += e.vy * dt;
         e.x += Math.sin(e.age * 2.2 + e.wobble) * 18 * dt;
@@ -3580,13 +3891,29 @@
         e.vy = lerp(e.vy, 120 + Math.sin(e.age * 2 + e.wobble) * 22, 0.02);
         e.x += e.vx * dt;
         e.y += e.vy * dt;
+        if (e.fireCooldown <= 0 && e.y > 70) {
+          e.fireCooldown = shotDelay(1.0);
+          const moveX = e.vx || Math.cos(base);
+          const moveY = e.vy || Math.sin(base);
+          const moveLen = Math.max(1, Math.sqrt(moveX * moveX + moveY * moveY));
+          const speed = 240;
+          spawnBullet('enemy', e.x, e.y + 8, (moveX / moveLen) * speed, (moveY / moveLen) * speed, {
+            r: 7,
+            color: e.theme.accent2,
+            damage: 1,
+            kind: 'diver',
+            life: 4.8,
+            sourceKind: e.kind,
+            sourceName: e.name || e.kind
+          });
+        }
       } else if (!entering && e.kind === 'mine') {
         e.y += e.vy * dt;
         e.x += Math.sin(e.age * 1.4 + e.wobble) * 12 * dt;
       } else if (!entering && e.kind === 'elite') {
         e.y += e.vy * dt * 0.85;
         e.x += Math.sin(e.age * 1.8 + e.wobble) * 20 * dt;
-        if (e.fireCooldown <= 0) { e.fireCooldown = shotDelay(0.8); const base = ang(e.x, e.y, p.x, p.y); ringBullets(e.x, e.y, 8, 160, 1, e.theme.accent2, 'enemy', e.kind, e.name || e.kind); spawnBullet('enemy', e.x, e.y, Math.cos(base) * 220, Math.sin(base) * 220, { r: 7, color: e.theme.accent, damage: 1, kind: 'elite', life: 4.8, sourceKind: e.kind, sourceName: e.name || e.kind }); }
+        if (e.fireCooldown <= 0) { e.fireCooldown = shotDelay(1.0); const base = ang(e.x, e.y, p.x, p.y); ringBullets(e.x, e.y, 8, 160, 1, e.theme.accent2, 'enemy', e.kind, e.name || e.kind); spawnBullet('enemy', e.x, e.y, Math.cos(base) * 220, Math.sin(base) * 220, { r: 7, color: e.theme.accent, damage: 1, kind: 'elite', life: 4.8, sourceKind: e.kind, sourceName: e.name || e.kind }); }
       }
       e.flightAngle = Math.atan2(e.y - prevY, e.x - prevX);
       if (e.y > view.h + 72 || e.x < -90 || e.x > view.w + 90) { state.enemies.splice(i, 1); continue; }
@@ -3740,7 +4067,7 @@
     updateTransition(dt);
     if (!state.boss && !state.transition) {
       const theme = state.currentTheme;
-      const spawnInterval = clamp(1.2 - state.levelIndex * 0.03, 0.5, 2.0);
+      const spawnInterval = clamp(1.5 - state.levelIndex * 0.025, 0.5, 2.0);
       while (state.waveClock >= spawnInterval) { state.waveClock -= spawnInterval; spawnWave(theme); }
       if (state.levelClock >= 40 + state.levelIndex * 2) spawnBoss(theme);
     }
@@ -4735,7 +5062,7 @@
     const t = (e && e.theme) || mainTheme();
     const fixed = {
       drifter: '#4fe8ff',
-      zigzag: '#ff6ed1',
+      looper: '#ff6ed1',
       swarm: '#d7ff5a',
       bomber: '#ff9a4d',
       sniper: '#8d7bff',
@@ -4832,6 +5159,17 @@
       const barH = Math.max(4, Math.round(shipSize * 0.02));
       drawWorldBar(e.x - barW * 0.5, e.y - shipSize * 0.62, barW, barH, e.hp / e.maxHp, '#503010', 'rgba(0,0,0,1.0)', 17);
     }
+    if (state.debugMode) {
+      const label = (e.name || e.kind || '').toUpperCase();
+      if (label) {
+        const labelSprite = getDebugLabelTexture(label, 14);
+        if (labelSprite) {
+          const labelY = e.y + shipSize * 0.62;
+          drawSpriteRect(e.x, labelY, labelSprite.w + 8, labelSprite.h - 1, '#000000', 0.58, 118, false);
+          drawTextureRect(labelSprite.texture, e.x, labelY, labelSprite.w, labelSprite.h, { alpha: 1.0, layer: 119, lighter: false });
+        }
+      }
+    }
     if (e.hitFlash > 0) drawGlowCircle(e.x, e.y, e.r * 1.35, '#ffffff', 0.22, 18);
   }
 
@@ -4925,7 +5263,6 @@
       drawTextureRect(shipTexture, p.x, shipVisualY, shipSize, shipSize, { rot: rot, alpha: flashAlpha, layer: 4, lighter: false });
     } else {
       ensurePlayerShipTexture();
-      drawEmojiGlyph(E.plane, p.x, shipVisualY, planeSize, { rot: rot, alpha: flashAlpha, layer: 4, fill: glow, lighter: false });
     }
     const damage = clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1);
     if (damage > 0.01) {
