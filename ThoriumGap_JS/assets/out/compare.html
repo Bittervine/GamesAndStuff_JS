@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Image Compare Tool</title>
+<style>
+:root {
+  --bg: #0f1115;
+  --card: #1a1f28;
+  --ink: #e6ebf2;
+  --muted: #a5afbf;
+  --line: #2f3745;
+  --actual: #e53935;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: Segoe UI, Tahoma, sans-serif; }
+header { position: sticky; top: 0; z-index: 10; background: #121620ee; backdrop-filter: blur(4px); border-bottom: 1px solid var(--line); padding: 12px 18px; }
+main { padding: 16px; }
+h1 { margin: 0; font-size: 20px; }
+.sub { margin-top: 4px; color: var(--muted); font-size: 13px; }
+.pair { border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 14px; margin-bottom: 18px; }
+.pair h2 { margin: 0; font-size: 18px; }
+.dims { margin: 6px 0 12px; color: var(--muted); font-size: 13px; }
+.groups { display: grid; grid-template-columns: 1fr; gap: 12px; }
+@media (min-width: 1200px) { .groups { grid-template-columns: 1fr 1fr; } }
+.group h3 { margin: 0 0 8px; font-size: 15px; color: #d0d8e6; }
+.cards { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.panel { border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: #121722; }
+.panel.actual { border: 2px solid var(--actual); box-shadow: 0 0 0 1px #5f1e1e inset; }
+.meta { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+.actual-tag { color: #ff8a80; font-weight: 700; }
+.frame {
+  border: 1px solid #384152;
+  background:
+    linear-gradient(45deg, #161c27 25%, transparent 25%),
+    linear-gradient(-45deg, #161c27 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #161c27 75%),
+    linear-gradient(-45deg, transparent 75%, #161c27 75%);
+  background-size: 18px 18px;
+  background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.frame img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Image Compare Tool</h1>
+  <div class="sub">Each image is shown at 128x128, 256x256, 512x512, and 1024x1024. Red border means that panel matches the actual file resolution.</div>
+</header>
+<main>
+<section class="pair">
+  <h2>Boss_07.png</h2>
+  <div class="dims">Original: 263x272 | Upscaled: 1024x1024</div>
+  <div class="groups">
+    <div class="group">
+      <h3>Original</h3>
+      <div class="cards"><div class="panel">
+  <div class="meta">Original shown at 128x128 </div>
+  <div class="frame" style="width:128px;height:128px;">
+    <img loading="lazy" src="../Boss_07.png" alt="Original 128x128" />
+  </div>
+</div>
+<div class="panel">
+  <div class="meta">Original shown at 256x256 </div>
+  <div class="frame" style="width:256px;height:256px;">
+    <img loading="lazy" src="../Boss_07.png" alt="Original 256x256" />
+  </div>
+</div>
+<div class="panel">
+  <div class="meta">Original shown at 512x512 </div>
+  <div class="frame" style="width:512px;height:512px;">
+    <img loading="lazy" src="../Boss_07.png" alt="Original 512x512" />
+  </div>
+</div>
+<div class="panel">
+  <div class="meta">Original shown at 1024x1024 </div>
+  <div class="frame" style="width:1024px;height:1024px;">
+    <img loading="lazy" src="../Boss_07.png" alt="Original 1024x1024" />
+  </div>
+</div></div>
+    </div>
+    <div class="group">
+      <h3>Upscaled (out)</h3>
+      <div class="cards"><div class="panel">
+  <div class="meta">Upscaled shown at 128x128 </div>
+  <div class="frame" style="width:128px;height:128px;">
+    <img loading="lazy" src="./Boss_07.png" alt="Upscaled 128x128" />
+  </div>
+</div>
+<div class="panel">
+  <div class="meta">Upscaled shown at 256x256 </div>
+  <div class="frame" style="width:256px;height:256px;">
+    <img loading="lazy" src="./Boss_07.png" alt="Upscaled 256x256" />
+  </div>
+</div>
+<div class="panel">
+  <div class="meta">Upscaled shown at 512x512 </div>
+  <div class="frame" style="width:512px;height:512px;">
+    <img loading="lazy" src="./Boss_07.png" alt="Upscaled 512x512" />
+  </div>
+</div>
+<div class="panel actual">
+  <div class="meta">Upscaled shown at 1024x1024 <span class="actual-tag">Actual file size</span></div>
+  <div class="frame" style="width:1024px;height:1024px;">
+    <img loading="lazy" src="./Boss_07.png" alt="Upscaled 1024x1024" />
+  </div>
+</div></div>
+    </div>
+  </div>
+</section><section class="pair">
+  <h2>Boss_09.png</h2>
+  <div class="dims">Original: 305x200 | Upscaled: 1024x1024</div>
+  <div class="groups">
+    <div class="group">
+      <h3>Original</h3>
+      <div class="cards"><div class="panel">
+  <div class="meta">Original shown at 128x128 </div>
+  <div class="frame" style="width:128px;height:128px;">
+    <img loading="lazy" src="../Boss_09.png" alt="Original 128x128" />
+  </div>
+</div>
+<div class="panel">
+  <div class="meta">Original shown at 256x256 </div>
+  <div class="frame" style="width:256px;height:256px;">
+    <img loading="lazy" src="../Boss_09.png" alt="Original 256x256" />
+  </div>
+</div>
+<div class="panel">
+  <div class="meta">Original shown at 512x512 </div>
+  <div class="frame" style="width:512px;height:512px;">
+    <img loading="lazy" src="../Boss_09.png" alt="Original 512x512" />
+  </div>
+</div>
+<div class="panel">
+  <div class="meta">Original shown at 1024x1024 </div>
+  <div class="frame" style="width:1024px;height:1024px;">
+    <img loading="lazy" src="../Boss_09.png" alt="Original 1024x1024" />
+  </div>
+</div></div>
+    </div>
+    <div class="group">
+      <h3>Upscaled (out)</h3>
+      <div class="cards"><div class="panel">
+  <div class="meta">Upscaled shown at 128x128 </div>
+  <div class="frame" style="width:128px;height:128px;">
+    <img loading="lazy" src="./Boss_09.png" alt="Upscaled 128x128" />
+  </div>
+</div>
+<div class="panel">
+  <div class="meta">Upscaled shown at 256x256 </div>
+  <div class="frame" style="width:256px;height:256px;">
+    <img loading="lazy" src="./Boss_09.png" alt="Upscaled 256x256" />
+  </div>
+</div>
+<div class="panel">
+  <div class="meta">Upscaled shown at 512x512 </div>
+  <div class="frame" style="width:512px;height:512px;">
+    <img loading="lazy" src="./Boss_09.png" alt="Upscaled 512x512" />
+  </div>
+</div>
+<div class="panel actual">
+  <div class="meta">Upscaled shown at 1024x1024 <span class="actual-tag">Actual file size</span></div>
+  <div class="frame" style="width:1024px;height:1024px;">
+    <img loading="lazy" src="./Boss_09.png" alt="Upscaled 1024x1024" />
+  </div>
+</div></div>
+    </div>
+  </div>
+</section>
+</main>
+</body>
+</html>
