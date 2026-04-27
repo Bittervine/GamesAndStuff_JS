@@ -172,6 +172,7 @@
   const ENEMY_SHIP_VARIANT = 'a';
   const ENEMY_SHIP_MIN_SIZE = 64;
   const ENEMY_SHIP_MAX_SIZE = 128;
+  const ENEMY_SHIP_TEXTURE_SIZE = 256;
   const enemyShipLoadKeys = new Set();
   const ENEMY_SHIP_GLOW_FALLBACKS = ['#8fd8ff', '#ff8fd3', '#d8ff8f', '#ffbf8f', '#9a8fff', '#8fffe1', '#ffe38f', '#9fc8ff'];
   // Enemy glow colors are cached here after load; debug mode may sample textures once, production uses a fallback palette.
@@ -260,6 +261,23 @@
     return '#' + [r + m, g + m, b + m].map(v => Math.round(clamp(v * 255, 0, 255)).toString(16).padStart(2, '0')).join('');
   }
 
+  function makeNormalizedEnemyCanvas(img, size) {
+    size = Math.max(1, size || ENEMY_SHIP_TEXTURE_SIZE);
+    const c = makeCanvas(size, size);
+    const g = c.getContext('2d');
+    if (!g) return null;
+    g.clearRect(0, 0, size, size);
+    const srcW = Math.max(1, img.naturalWidth || img.width || size);
+    const srcH = Math.max(1, img.naturalHeight || img.height || size);
+    const scale = Math.min(size / srcW, size / srcH);
+    const drawW = srcW * scale;
+    const drawH = srcH * scale;
+    const dx = (size - drawW) * 0.5;
+    const dy = (size - drawH) * 0.5;
+    g.drawImage(img, dx, dy, drawW, drawH);
+    return c;
+  }
+
   function ensureEnemyShipTexture(levelNumber, shipIndex) {
     const key = enemyShipKey(levelNumber, shipIndex);
     if (render.textures.has(key) || enemyShipLoadKeys.has(key)) return;
@@ -268,7 +286,8 @@
     img.decoding = 'async';
     img.onload = function () {
       try {
-        const tex = createTextureFromCanvas(img);
+        const normalized = makeNormalizedEnemyCanvas(img, ENEMY_SHIP_TEXTURE_SIZE) || img;
+        const tex = createTextureFromCanvas(normalized);
         if (tex) render.textures.set(key, tex);
         enemyShipGlowColors.set(key, DEBUG_MODE ? averageImageColor(img) : fallbackEnemyShipGlowColor(levelNumber, shipIndex));
       } finally {
