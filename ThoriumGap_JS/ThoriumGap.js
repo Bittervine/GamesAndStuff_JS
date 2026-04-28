@@ -1441,17 +1441,17 @@
   };
 
   const DIFFICULTIES = [
-    { label: 'Easy', lives: 5, enemyHp: 0.82, enemySpeed: 0.88, spawnRate: 0.82, spawnCount: 0.5, bulletSpeed: 0.88, bossHp: 0.84, contact: 0.9, playerDamage: 1 },
-    { label: 'Normal', lives: 3, enemyHp: 1, enemySpeed: 1, spawnRate: 1, spawnCount: 0.75, bulletSpeed: 1, bossHp: 1, contact: 1, playerDamage: 0.5 },
-    { label: 'Hard', lives: 2, enemyHp: 1.18, enemySpeed: 1.12, spawnRate: 1.16, spawnCount: 1.18, bulletSpeed: 1.14, bossHp: 1.2, contact: 1.12, playerDamage: 0.25 }
+    { label: 'Easy', lives: 5, enemyHp: 0.9, enemySpeed: 0.9, spawnRate: 0.9, spawnCount: 0.55, bulletSpeed: 0.8, bossHp: 0.84, contact: 0.9, playerDamage: 1 },
+    { label: 'Normal', lives: 3, enemyHp: 1, enemySpeed: 1, spawnRate: 1, spawnCount: 0.75, bulletSpeed: 0.9, bossHp: 1, contact: 1, playerDamage: 0.5 },
+    { label: 'Hard', lives: 2, enemyHp: 1.1, enemySpeed: 1.1, spawnRate: 1.1, spawnCount: 1.0, bulletSpeed: 1.0, bossHp: 1.2, contact: 1.12, playerDamage: 0.25 }
   ];
 
   const SHOT_PACE = 1.0;
   const PLAYER_FIRE_RATE_BOOST = 1.15;
   const PLAYER_RADIUS = 46;
   const HEAT_MAX_SECONDS = 5;
-  const HEAT_MAX_PENALTY = 0.30;
-  const HEAT_COOLDOWN_FACTOR = 4;
+  const HEAT_MAX_PENALTY = 0.33;
+  const HEAT_COOLDOWN_FACTOR = 5;
 
   function shotDelay(v) {
     return v * SHOT_PACE * (1.0 + state.levelIndex * 0.2);
@@ -2610,7 +2610,7 @@
       { type: 'bomb', w: state.player.bombs < 2 ? 5 : 1 },
       { type: 'magnet', w: state.player.magnetTimer < 4 ? 2 : 1 },
       { type: 'invuln', w: 0.5 },
-      { type: 'score', w: 5 }
+      { type: 'score', w: 4 }
     ];
     const total = list.reduce(function (sum, item) { return sum + item.w; }, 0);
     let roll = Math.random() * total;
@@ -2764,7 +2764,7 @@
     const enemyKinds = waveEnemyKinds(theme);
     const form = theme.forms[(state.levelIndex + ((state.levelClock / 4) | 0) + ((state.waveClock * 2) | 0)) % theme.forms.length];
     const diff = currentDifficulty();
-    const count = clamp(Math.round((3 + Math.floor(state.levelIndex / 3) + randi(0, 2)) * diff.spawnCount), 2, 9);
+    const count = clamp(Math.round((3 + Math.floor(state.levelIndex / 4) + randi(0, 2)) * diff.spawnCount), 2, 9);
     const margin = 42, top = -34, mid = (count - 1) * 0.5;
     const waveId = state.waveIndex++;
     const entryRoutes = [
@@ -3871,7 +3871,7 @@
         e.y += e.vy * dt * 0.5;
         e.x += Math.sin(e.age * 1.2 + e.wobble) * 14 * dt;
         if (e.fireCooldown <= 0 && e.y > 100) {
-          e.fireCooldown = shotDelay(1.2);
+          e.fireCooldown = shotDelay(1.5);
           const base = ang(e.x, e.y, p.x, p.y);
           for (let k = -1; k <= 1; k++) {
             const aa = base + k * 0.1;
@@ -3881,7 +3881,7 @@
       } else if (!entering && e.kind === 'spinner') {
         e.y += e.vy * dt * 0.7;
         e.x += Math.cos(e.age * 1.1 + e.wobble) * 24 * dt;
-        if (e.fireCooldown <= 0 && e.y > 80) { e.fireCooldown = shotDelay(2.0); ringBullets(e.x, e.y, 6 + Math.floor(state.levelIndex / 3), 150 + state.levelIndex * 8, 1, e.theme.accent2, 'enemy'); }
+        if (e.fireCooldown <= 0 && e.y > 80) { e.fireCooldown = shotDelay(3.0); ringBullets(e.x, e.y, 6 + Math.floor(state.levelIndex / 3), 150 + state.levelIndex * 8, 1, e.theme.accent2, 'enemy'); }
       } else if (!entering && e.kind === 'splitter') {
         e.y += e.vy * dt;
         e.x += Math.sin(e.age * 2.2 + e.wobble) * 18 * dt;
@@ -4067,7 +4067,7 @@
     updateTransition(dt);
     if (!state.boss && !state.transition) {
       const theme = state.currentTheme;
-      const spawnInterval = clamp(1.5 - state.levelIndex * 0.025, 0.5, 2.0);
+      const spawnInterval = clamp(1.3 - state.levelIndex * 0.01, 0.5, 2.0);
       while (state.waveClock >= spawnInterval) { state.waveClock -= spawnInterval; spawnWave(theme); }
       if (state.levelClock >= 40 + state.levelIndex * 2) spawnBoss(theme);
     }
