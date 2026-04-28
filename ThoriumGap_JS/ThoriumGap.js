@@ -2601,8 +2601,7 @@
   }
 
   function choosePickup() {
-    const levelNumber = state.levelIndex + 1;
-    const weaponWeight = weaponPickupWeight(levelNumber);
+    const weaponWeight = weaponPickupWeight(state.player.weaponTier);
     const list = [
       { type: 'weapon', w: weaponWeight },
       { type: 'rapid', w: state.player.rapidTimer > 4 ? 1 : 4 },
@@ -2618,32 +2617,20 @@
     return 'score';
   }
 
-  function weaponPickupWeight(levelNumber) {
-    const base = 5;
-    const n = clamp(levelNumber | 0, 1, THEMES.length);
-    const factors = {
-      1: 4.0,
-      2: 3.0,
-      3: 2.0,
-      4: 1.0,
-      5: 1.0,
-      6: 1.0,
-      7: 1.0,
-      8: 1.0,
-      9: 1.0,
-      10: 1.0,
-      11: 1.0,
-      12: 1.0,
-      13: 1.0,
-      14: 1.0,
-      15: 1.0
+  function weaponPickupWeight(tierLevel) {
+    const tier = clamp(tierLevel | 0, 1, 5);
+    const weightsByTier = {
+      1: 7,
+      2: 5,
+      3: 3,
+      4: 2,
+      5: 1
     };
-    const factor = factors[n] != null ? factors[n] : 0.1;
-    return base * factor;
+    return weightsByTier[tier] || 1;
   }
 
   function chooseWeaponMode(currentMode) {
-    if (Number.isFinite(currentMode) && Math.random() < 0.5) return clamp(currentMode | 0, 0, WEAPONS.length - 1);
+    if (Number.isFinite(currentMode) && Math.random() < 0.34) return clamp(currentMode | 0, 0, WEAPONS.length - 1);
     const pool = [];
     for (let i = 0; i < WEAPON_PICKUP_WEIGHTS.length; i++) {
       if (i !== currentMode) pool.push({ mode: i, w: WEAPON_PICKUP_WEIGHTS[i] });
