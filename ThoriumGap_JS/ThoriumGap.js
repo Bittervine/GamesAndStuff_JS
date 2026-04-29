@@ -1441,20 +1441,25 @@
   };
 
   const DIFFICULTIES = [
-    { label: 'Easy', lives: 5, enemyHp: 0.9, enemySpeed: 0.9, spawnRate: 0.9, spawnCount: 0.55, bulletSpeed: 0.8, bossHp: 0.84, contact: 0.9, playerDamage: 1 },
-    { label: 'Normal', lives: 3, enemyHp: 1, enemySpeed: 1, spawnRate: 1, spawnCount: 0.75, bulletSpeed: 0.9, bossHp: 1, contact: 1, playerDamage: 0.5 },
-    { label: 'Hard', lives: 2, enemyHp: 1.1, enemySpeed: 1.1, spawnRate: 1.1, spawnCount: 1.0, bulletSpeed: 1.0, bossHp: 1.2, contact: 1.12, playerDamage: 0.25 }
+    { label: 'Easy', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.9, spawnCount: 0.55, bulletSpeed: 0.6, bossHp: 0.84, contact: 0.9, playerDamage: 1, enemyShotPace: 0.8 },
+    { label: 'Normal', lives: 3, enemyHp: 1.2, enemySpeed: 1, spawnRate: 1, spawnCount: 0.75, bulletSpeed: 0.8, bossHp: 1, contact: 1, playerDamage: 0.5, enemyShotPace: 1.0 },
+    { label: 'Hard', lives: 2, enemyHp: 1.4, enemySpeed: 1.1, spawnRate: 1.1, spawnCount: 1.0, bulletSpeed: 1.0, bossHp: 1.2, contact: 1.12, playerDamage: 0.25, enemyShotPace: 1.2 }
   ];
 
-  const SHOT_PACE = 1.0;
+  const PLAYER_SHOT_PACE = 1.0;
   const PLAYER_FIRE_RATE_BOOST = 1.15;
   const PLAYER_RADIUS = 46;
   const HEAT_MAX_SECONDS = 5;
   const HEAT_MAX_PENALTY = 0.33;
   const HEAT_COOLDOWN_FACTOR = 5;
 
+  function enemyShotPace() {
+    const diff = currentDifficulty();
+    return (diff && typeof diff.enemyShotPace === 'number') ? diff.enemyShotPace : 1.0;
+  }
+
   function shotDelay(v) {
-    return v * SHOT_PACE * (1.0 + state.levelIndex * 0.2);
+    return v * enemyShotPace() * (1.0 + state.levelIndex * 0.2);
   }
 
   const state = {
@@ -2606,7 +2611,7 @@
       { type: 'weapon', w: weaponWeight },
       { type: 'rapid', w: state.player.rapidTimer > 4 ? 1 : 4 },
       { type: 'shield', w: state.player.shield < 2 ? 3 : 1 },
-      { type: 'bomb', w: state.player.bombs < 2 ? 5 : 1 },
+      { type: 'bomb', w: state.player.bombs < 2 ? 2 : 1 },
       { type: 'magnet', w: state.player.magnetTimer < 4 ? 4 : 2 },
       { type: 'invuln', w: 0.5 },
       { type: 'score', w: 10 }
@@ -2673,15 +2678,15 @@
     const t = state.currentTheme;
     const d = ENEMIES[kind] || ENEMIES.drifter;
     const scale = 1 + state.levelIndex * 0.05;
-    const earlyHpScale = state.levelIndex === 0 ? 0.5 : state.levelIndex === 1 ? 0.75 : 1;
     const diff = currentDifficulty();
     const speedScale = diff.enemySpeed;
-    const fireScale = SHOT_PACE / diff.spawnRate;
+    const fireScale = enemyShotPace() / diff.spawnRate;
     const levelNumber = state.levelIndex + 1;
     const shipIndex = opts && opts.shipIndex != null ? opts.shipIndex : chooseEnemyShipIndexForKind(kind, levelNumber);
     const shipSize = kind === 'elite' ? ENEMY_ELITE_SIZE : getEnemyShipRenderSize(levelNumber, shipIndex);
     const sizeScale = shipSize / 64;
-    const hpScale = earlyHpScale * scale * diff.enemyHp * sizeScale;
+    const firstLevelHpScale = state.levelIndex === 0 ? 0.5 : 1;
+    const hpScale = firstLevelHpScale * scale * diff.enemyHp * sizeScale;
     const baseHp = opts && opts.hp != null ? opts.hp : d.hp;
     const e = {
       kind: kind, theme: t, x: x, y: y,
@@ -2832,7 +2837,7 @@
     if (p.rapidTimer > 0) d *= 0.54;
     if (state.overdrive > 0) d *= 0.76;
     if ((p.heat || 0) > 0.999) d *= (1 + HEAT_MAX_PENALTY);
-    return clamp(d * SHOT_PACE / PLAYER_FIRE_RATE_BOOST, 0.05, 0.42);
+    return clamp(d * PLAYER_SHOT_PACE / PLAYER_FIRE_RATE_BOOST, 0.05, 0.42);
   }
 
   function fireWeapon() {
