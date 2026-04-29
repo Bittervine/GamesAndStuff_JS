@@ -102,6 +102,18 @@
     var INF = 1e9;
 
     function clamp(v, lo, hi){ v=parseFloat(v); if(!isFinite(v)) v=lo; if(v<lo) return lo; if(v>hi) return hi; return v; }
+    function pickClumsyMoveFromScores(scored, clumsyPct){
+      var pct=clamp(clumsyPct,0,100), p, u, skip=0, idx;
+      if(!scored||!scored.length) return null;
+      if(scored.length===1) return scored[0].move;
+      if(pct>=100) return scored[(Math.random()*scored.length)|0].move;
+      if(pct<=0) return scored[0].move;
+      p=pct/100;
+      u=Math.random();
+      while(skip<scored.length-1 && u<Math.pow(p,skip+1)) skip++;
+      idx=skip + ((Math.random()*(scored.length-skip))|0);
+      return scored[idx].move;
+    }
     function save(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
     function load(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
     function opp(c){ return c===HUMAN ? AI : HUMAN; }
@@ -265,11 +277,10 @@
     }
 
     function chooseAiMove(){
-      var maxDepth=clamp(depthInput.value,1,9), clumsy=clamp(clumsyInput.value,0,100)/100;
-      var moves=legalMoves(AI,true), pool=[], best=-INF, bestMove=null, i,m,tok,val,n,deadline=Date.now()+350;
+      var maxDepth=clamp(depthInput.value,1,9), clumsyPct=clamp(clumsyInput.value,0,100);
+      var moves=legalMoves(AI,true), scored=[], i,m,tok,val,deadline=Date.now()+350;
       if(!moves.length) return null;
-      if(moves.length>18) moves=moves.slice(0,18);
-      pool=[]; best=-INF;
+      if(clumsyPct>=100) return moves[(Math.random()*moves.length)|0];
       searchDeadline=deadline;
       for(i=0;i<moves.length;i++){
         m=moves[i];
@@ -277,21 +288,13 @@
         if(!tok) continue;
         val=search(maxDepth-1,HUMAN,-INF,INF);
         undoMove(tok);
-        m.score=val;
-        if(val>best){ best=val; pool=[m]; }
-        else if(val===best) pool.push(m);
+        scored.push({move:m,score:val});
         if(Date.now()>=deadline) break;
       }
       searchDeadline=0;
-      if(pool.length){
-        pool.sort(function(a,b){ return b.score-a.score; });
-        bestMove=pool[0];
-        if(clumsy>0 && pool.length>1){
-          n=Math.max(1, Math.min(pool.length, 1+Math.floor(clumsy*2)));
-          bestMove=pool[Math.floor(Math.random()*n)];
-        }
-      }
-      return bestMove;
+      if(!scored.length) return null;
+      scored.sort(function(a,b){ return b.score-a.score; });
+      return pickClumsyMoveFromScores(scored, clumsyPct);
     }
 
     function refresh(){

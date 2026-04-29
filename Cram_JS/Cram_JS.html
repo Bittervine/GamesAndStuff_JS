@@ -44,6 +44,18 @@
     var depthInput=document.getElementById('depthInput'), clumsyInput=document.getElementById('clumsyInput'), previewBtn=document.getElementById('previewBtn');
     var selected=null;
     function clamp(v,lo,hi){ v=parseFloat(v); if(!isFinite(v))v=lo; if(v<lo)return lo; if(v>hi)return hi; return v; }
+    function pickClumsyMoveFromScores(scored, clumsyPct){
+      var pct=clamp(clumsyPct,0,100), p, u, skip=0, idx;
+      if(!scored||!scored.length) return null;
+      if(scored.length===1) return scored[0].move;
+      if(pct>=100) return scored[(Math.random()*scored.length)|0].move;
+      if(pct<=0) return scored[0].move;
+      p=pct/100;
+      u=Math.random();
+      while(skip<scored.length-1 && u<Math.pow(p,skip+1)) skip++;
+      idx=skip + ((Math.random()*(scored.length-skip))|0);
+      return scored[idx].move;
+    }
     function save(k,v){ try{ localStorage.setItem(k,v); }catch(e){} } function load(k){ try{ return localStorage.getItem(k);}catch(e){return null;} }
     function opp(c){ return c===HUMAN?AI:HUMAN; } function inBounds(r,c){ return r>=0&&r<N&&c>=0&&c<N; }
     function makeBoard(){ var b=[],r,c; for(r=0;r<N;r++){ b[r]=[]; for(c=0;c<N;c++) b[r][c]=null; } return b; }
@@ -62,12 +74,15 @@
       best=1e9; for(i=0;i<moves.length;i++){ t=makeMove(moves[i],HUMAN); turn=AI; v=search(depth-1,AI,alpha,beta); undoMove(t); turn=HUMAN; if(v<best)best=v; if(best<beta)beta=best; if(beta<=alpha)break; } return best;
     }
     function chooseAiMoveAtDepth(depth){
-      var moves=legalMoves(),i,m,t,v,best=-1e9,pool=[],pick=null,n,cl=clamp(clumsyInput.value,0,100)/100,deadline=Date.now()+350;
+      var clumsyPct=clamp(clumsyInput.value,0,100),moves=legalMoves(),i,m,t,v,scored=[],deadline=Date.now()+350;
       if(!moves.length) return null;
+      if(clumsyPct>=100) return moves[(Math.random()*moves.length)|0];
       searchDeadline=deadline;
-      for(i=0;i<moves.length;i++){ m=moves[i]; t=makeMove(m,AI); turn=HUMAN; v=search(depth-1,HUMAN,-1e9,1e9); undoMove(t); turn=AI; if(v>best){best=v;pool=[m];}else if(v===best)pool.push(m); if(Date.now()>=deadline)break; }
+      for(i=0;i<moves.length;i++){ m=moves[i]; t=makeMove(m,AI); turn=HUMAN; v=search(depth-1,HUMAN,-1e9,1e9); undoMove(t); turn=AI; scored.push({move:m,score:v}); if(Date.now()>=deadline)break; }
       searchDeadline=0;
-      if(!pool.length) return null; pick=pool[0]; if(cl>0&&pool.length>1){ n=Math.max(1,Math.min(pool.length,1+Math.floor(cl*3))); pick=pool[Math.floor(Math.random()*n)]; } return pick;
+      if(!scored.length) return null;
+      scored.sort(function(a,b){return b.score-a.score;});
+      return pickClumsyMoveFromScores(scored,clumsyPct);
     }
     function resize(){
       var safety=60, controlsH=controls?controls.offsetHeight+16:0, maxW=window.innerWidth-16, maxH=window.innerHeight-controlsH-safety, size=Math.max(128,Math.floor(Math.min(maxW,maxH)));

@@ -110,6 +110,19 @@
     function save(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
     function load(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
     function clamp(v,lo,hi){ v=parseFloat(v); if(!isFinite(v)) return lo; if(v<lo) return lo; if(v>hi) return hi; return v; }
+    function readClumsyProbability(){
+      var raw=parseFloat(clumsyInput.value);
+      if(!isFinite(raw)) raw=0;
+      return clamp(raw,0,99)/100;
+    }
+    function clumsyRootScore(score, clumsyProb){
+      var adjusted=score + (Math.random()-0.5)/100;
+      var roll=Math.random();
+      var hardMiss=clumsyProb*clumsyProb;
+      if(roll<hardMiss) return -INF+1;
+      if(roll<clumsyProb) return adjusted + (Math.random()>0.5 ? -1 : 1);
+      return adjusted;
+    }
     function opp(c){ return c===HUMAN ? AI : HUMAN; }
     function inBounds(r,c){ return r>=0 && r<N && c>=0 && c<N; }
 
@@ -252,7 +265,7 @@
       return best;
     }
     function chooseAiMoveAtDepth(depth){
-      var maxDepth=clamp(depth,1,9)|0, moves=allMoves(AI), i, mv, tok, val, best=-INF, bestMove=null, bestMoves=[], noisy, n, deadline=Date.now()+350;
+      var maxDepth=clamp(depth,1,9)|0, moves=allMoves(AI), i, mv, tok, val, score, best=-INF, bestMove=null, bestMoves=[], clumsyProb=readClumsyProbability(), deadline=Date.now()+350;
       if(!moves.length) return null;
       sortMoves(moves, AI);
       bestMoves=[]; best=-INF;
@@ -263,18 +276,14 @@
         turn=HUMAN;
         val=search(maxDepth-1, -INF, INF, HUMAN);
         undoToken(tok);
-        if(val>best){ best=val; bestMoves=[mv]; }
-        else if(val===best) bestMoves.push(mv);
+        score=clumsyRootScore(val, clumsyProb);
+        if(score>best){ best=score; bestMoves=[mv]; }
+        else if(score===best) bestMoves.push(mv);
         if(Date.now()>=deadline) break;
       }
       searchDeadline=0;
       if(bestMoves.length){
-        noisy = parseInt(clamp(clumsyInput.value, 0, 100), 10);
         bestMove = bestMoves[(Math.random() * bestMoves.length) | 0];
-        if(noisy > 0 && Math.random() * 100 < noisy && bestMoves.length > 1) {
-          n = Math.max(1, Math.min(bestMoves.length, 1 + Math.floor(noisy / 34)));
-          bestMove = bestMoves[(Math.random() * n) | 0];
-        }
       }
       return bestMove;
     }

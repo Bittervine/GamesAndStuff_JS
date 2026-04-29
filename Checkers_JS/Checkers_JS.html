@@ -45,6 +45,8 @@
     var LIGHT='#F0D9B5',DARK='#B58863';
 
     function clamp(v,lo,hi){v=parseFloat(v);if(!isFinite(v))v=lo;if(v<lo)return lo;if(v>hi)return hi;return v;}
+    function readClumsyProbability(){var raw=parseFloat(clumsyInput.value);if(!isFinite(raw))raw=0;return clamp(raw,0,99)/100;}
+    function clumsyRootScore(score,clumsyProb){var adjusted=score+(Math.random()-0.5)/100,roll=Math.random(),hardMiss=clumsyProb*clumsyProb;if(roll<hardMiss)return -INF+1;if(roll<clumsyProb)return adjusted+(Math.random()>0.5?-1:1);return adjusted;}
     function save(k,v){try{localStorage.setItem(k,v);}catch(e){}}
     function load(k){try{return localStorage.getItem(k);}catch(e){return null;}}
     function inBounds(r,c){return r>=0&&r<N&&c>=0&&c<N;}
@@ -157,16 +159,17 @@
     }
 
     function chooseAiMoveAtDepth(depth){
-      var maxDepth=clamp(depth,1,9)|0,moves=legalMoves(AI),i,m,t,v,best=-INF,pool=[],bestMove=null,cl=clamp(clumsyInput.value,0,100)/100,n,deadline=Date.now()+350;
+      var maxDepth=clamp(depth,1,9)|0,moves=legalMoves(AI),i,m,t,v,score,best=-INF,pool=[],bestMove=null,clumsyProb=readClumsyProbability(),deadline=Date.now()+350;
       if(!moves.length)return null;
       searchDeadline=deadline;
       for(i=0;i<moves.length;i++){
         m=moves[i];t=applyMove(m,AI);if(!t)continue;turn=HUMAN;v=search(maxDepth-1,HUMAN,-INF,INF);undoToken(t);
-        if(v>best){best=v;pool=[m];}else if(v===best)pool.push(m);
+        score=clumsyRootScore(v,clumsyProb);
+        if(score>best){best=score;pool=[m];}else if(score===best)pool.push(m);
         if(Date.now()>=deadline)break;
       }
       searchDeadline=0;
-      if(pool.length){bestMove=pool[0];if(cl>0&&pool.length>1){n=Math.max(1,Math.min(pool.length,1+Math.floor(cl*3)));bestMove=pool[Math.floor(Math.random()*n)];}}
+      if(pool.length)bestMove=pool[(Math.random()*pool.length)|0];
       return bestMove;
     }
 

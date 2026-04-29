@@ -114,8 +114,8 @@
     'use strict';
 
     var N = 13;
-    var HUMAN = 'b';
-    var AI = 'w';
+    var HUMAN = 'w';
+    var AI = 'b';
     var KOMI = 6.5;
     var board = null;
     var turn = HUMAN;
@@ -157,6 +157,18 @@
       if (v < lo) return lo;
       if (v > hi) return hi;
       return v;
+    }
+    function pickClumsyMoveFromScores(scored, clumsyPct) {
+      var pct = clamp(clumsyPct, 0, 100), p, u, skip = 0, idx;
+      if (!scored || !scored.length) return null;
+      if (scored.length === 1) return scored[0].move;
+      if (pct >= 100) return scored[(Math.random() * scored.length) | 0].move;
+      if (pct <= 0) return scored[0].move;
+      p = pct / 100;
+      u = Math.random();
+      while (skip < scored.length - 1 && u < Math.pow(p, skip + 1)) skip++;
+      idx = skip + ((Math.random() * (scored.length - skip)) | 0);
+      return scored[idx].move;
     }
 
     function save(key, value) {
@@ -283,7 +295,7 @@
             board[p[0]][p[1]] = null;
             token.removed.push([p[0], p[1]]);
           }
-          if (color === HUMAN) captures.b += g.cells.length;
+          if (color === 'b') captures.b += g.cells.length;
           else captures.w += g.cells.length;
         }
       }
@@ -355,7 +367,7 @@
                   seen[nr][nc] = true;
                   q.push([nr, nc]);
                 }
-              } else if (board[nr][nc] === HUMAN) {
+              } else if (board[nr][nc] === 'b') {
                 touchB = true;
               } else {
                 touchW = true;
@@ -375,8 +387,8 @@
       var score = 0;
       for (r = 0; r < N; r++) {
         for (c = 0; c < N; c++) {
-          if (board[r][c] === HUMAN) stonesB += 1;
-          else if (board[r][c] === AI) stonesW += 1;
+          if (board[r][c] === 'b') stonesB += 1;
+          else if (board[r][c] === 'w') stonesW += 1;
         }
       }
       score += (stonesW - stonesB) * 2;
@@ -384,6 +396,10 @@
       score += scoreTerritory();
       score += KOMI;
       return score;
+    }
+    function evaluateForAi() {
+      var s = evaluateBoard();
+      return AI === 'w' ? s : -s;
     }
 
     function hasAnyLegalMove(color) {
@@ -420,47 +436,60 @@
       }
       return score;
     }
+    function tacticalMoveScore(r, c, color) {
+      var tok = makeMove(r, c, color);
+      var g, libs, captured, score;
+      if (!tok) return -1e9;
+      g = collectGroup(r, c);
+      libs = g.libs;
+      captured = tok.removed.length;
+      score = movePotential(r, c, color);
+      score += captured * 40;
+      score += Math.min(libs, 6) * 0.9;
+      if (captured === 0 && libs <= 1) score -= 28;
+      if (libs === 2) score -= 4;
+      undoMove(tok);
+      return score;
+    }
 
     function legalMoves(color, forAi) {
       var out = [];
       var r, c, dr, dc, nr, nc, key, cand;
       var used = {};
-      var stones = [];
+      var allStones = [];
       for (r = 0; r < N; r++) {
         for (c = 0; c < N; c++) {
-          if (board[r][c] === color) stones.push([r, c]);
+          if (board[r][c] !== null) allStones.push([r, c]);
         }
       }
 
       if (forAi) {
-        if (!stones.length) return [];
-        if (stones.length === 0) {
-          stones = [[Math.floor(N / 2), Math.floor(N / 2)]];
-        }
-        for (var s = 0; s < stones.length; s++) {
-          r = stones[s][0];
-          c = stones[s][1];
-          for (dr = -2; dr <= 2; dr++) {
-            for (dc = -2; dc <= 2; dc++) {
-              if (dr === 0 && dc === 0) continue;
-              if (Math.max(Math.abs(dr), Math.abs(dc)) > 2) continue;
-              nr = r + dr;
-              nc = c + dc;
-              if (!inBounds(nr, nc) || board[nr][nc] !== null) continue;
-              key = nr + ',' + nc;
-              if (!used[key]) {
-                used[key] = [nr, nc];
+        if (!allStones.length) {
+          cand = [[Math.floor(N / 2), Math.floor(N / 2)]];
+        } else {
+          for (var s = 0; s < allStones.length; s++) {
+            r = allStones[s][0];
+            c = allStones[s][1];
+            for (dr = -2; dr <= 2; dr++) {
+              for (dc = -2; dc <= 2; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                if (Math.max(Math.abs(dr), Math.abs(dc)) > 2) continue;
+                nr = r + dr;
+                nc = c + dc;
+                if (!inBounds(nr, nc) || board[nr][nc] !== null) continue;
+                key = nr + ',' + nc;
+                if (!used[key]) used[key] = [nr, nc];
               }
             }
           }
+          cand = [];
+          for (key in used) {
+            if (Object.prototype.hasOwnProperty.call(used, key)) cand.push(used[key]);
+          }
+          cand.sort(function(a, b) {
+            return movePotential(b[0], b[1], color) - movePotential(a[0], a[1], color);
+          });
         }
-        cand = [];
-        for (key in used) {
-          if (Object.prototype.hasOwnProperty.call(used, key)) cand.push(used[key]);
-        }
-        cand.sort(function(a, b) {
-          return movePotential(b[0], b[1], color) - movePotential(a[0], a[1], color);
-        });
       } else {
         cand = [];
         for (r = 0; r < N; r++) {
@@ -474,25 +503,36 @@
       for (var i = 0; i < cand.length; i++) {
         r = cand[i][0];
         c = cand[i][1];
-        var tok = makeMove(r, c, color);
-        if (!tok) continue;
-        undoMove(tok);
-        out.push({ r: r, c: c, score: movePotential(r, c, color) });
+        var s0 = tacticalMoveScore(r, c, color);
+        if (s0 <= -1e8) continue;
+        out.push({ r: r, c: c, score: s0 });
       }
 
       out.sort(function(a, b) { return b.score - a.score; });
       return out;
     }
 
+    function searchMoveLimit(depth) {
+      if (depth >= 5) return 28;
+      if (depth >= 3) return 24;
+      return 20;
+    }
+
+    function rootMoveLimit(depth) {
+      if (depth >= 5) return 22;
+      if (depth >= 3) return 18;
+      return 14;
+    }
+
     function search(depth, color, alpha, beta) {
-      if (searchDeadline && Date.now() >= searchDeadline) return evaluateBoard();
-      if (depth <= 0 || isTerminal()) return evaluateBoard();
+      if (searchDeadline && Date.now() >= searchDeadline) return evaluateForAi();
+      if (depth <= 0 || isTerminal()) return evaluateForAi();
       var moves = legalMoves(color, true);
       if (!moves.length) {
-        if (!hasAnyLegalMove(opp(color))) return evaluateBoard();
+        if (!hasAnyLegalMove(opp(color))) return evaluateForAi();
         return search(depth - 1, opp(color), alpha, beta);
       }
-      if (moves.length > 20) moves = moves.slice(0, 20);
+      if (moves.length > searchMoveLimit(depth)) moves = moves.slice(0, searchMoveLimit(depth));
 
       if (color === AI) {
         var best = -1e9;
@@ -525,14 +565,13 @@
 
     function chooseAiMove() {
       var maxDepth = clamp(depthInput.value, 1, 9);
-      var clumsy = clamp(clumsyInput.value, 0, 100) / 100;
+      var clumsyPct = clamp(clumsyInput.value, 0, 100);
       var moves = legalMoves(AI, true);
-      var i, best = -1e9, pool = [], bestMove = null, n;
+      var i, scored = [];
       var deadline = Date.now() + 350;
       if (!moves.length) return null;
-      if (moves.length > 18) moves = moves.slice(0, 18);
-      pool = [];
-      best = -1e9;
+      if (clumsyPct >= 100) return moves[(Math.random() * moves.length) | 0];
+      if (moves.length > rootMoveLimit(maxDepth)) moves = moves.slice(0, rootMoveLimit(maxDepth));
       searchDeadline = deadline;
       for (i = 0; i < moves.length; i++) {
         var m = moves[i];
@@ -540,25 +579,13 @@
         if (!tok) continue;
         var val = search(maxDepth - 1, HUMAN, -1e9, 1e9);
         undoMove(tok);
-        m.score = val;
-        if (val > best) {
-          best = val;
-          pool = [m];
-        } else if (val === best) {
-          pool.push(m);
-        }
+        scored.push({ move: m, score: val });
         if (Date.now() >= deadline) break;
       }
       searchDeadline = 0;
-      if (pool.length) {
-        pool.sort(function(a, b) { return b.score - a.score; });
-        bestMove = pool[0];
-        if (clumsy > 0 && pool.length > 1) {
-          n = Math.max(1, Math.min(pool.length, 1 + Math.floor(clumsy * 3)));
-          bestMove = pool[Math.floor(Math.random() * n)];
-        }
-      }
-      return bestMove;
+      if (!scored.length) return null;
+      scored.sort(function(a, b) { return b.score - a.score; });
+      return pickClumsyMoveFromScores(scored, clumsyPct);
     }
 
     function refreshStatus() {
@@ -791,12 +818,12 @@
       var y = pad + r * cell;
       var radius = stoneR;
       if (typeof alpha === 'number') ctx.globalAlpha = alpha;
-      ctx.fillStyle = (color === HUMAN) ? '#000000' : '#ffffff';
+      ctx.fillStyle = (color === 'b') ? '#000000' : '#ffffff';
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, Math.PI * 2, false);
       ctx.fill();
       ctx.lineWidth = Math.max(2, radius * 0.14);
-      ctx.strokeStyle = (color === HUMAN) ? '#ffffff' : '#000000';
+      ctx.strokeStyle = (color === 'b') ? '#ffffff' : '#000000';
       ctx.stroke();
       if (typeof alpha === 'number') ctx.globalAlpha = 1;
     }
@@ -933,8 +960,8 @@
       getState: function() {
         var r, c, w = 0, b = 0, e = 0;
         for (r = 0; r < N; r++) for (c = 0; c < N; c++) {
-          if (board[r][c] === HUMAN) b++;
-          else if (board[r][c] === AI) w++;
+          if (board[r][c] === 'b') b++;
+          else if (board[r][c] === 'w') w++;
           else e++;
         }
         return { over: over, turn: turn, w: w, b: b, empty: e, captures: { b: captures.b, w: captures.w }, passStreak: passStreak };

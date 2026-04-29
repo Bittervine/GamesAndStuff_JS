@@ -558,6 +558,18 @@
       return true;
     }
 
+    function firstLegalNeighbor(cell){
+      var dirs=[[0,1],[1,0],[0,-1],[-1,0]],i,nr,nc,n;
+      for(i=0;i<dirs.length;i++){
+        nr=cell.r+dirs[i][0];
+        nc=cell.c+dirs[i][1];
+        if(!inBounds(nr,nc)) continue;
+        n={r:nr,c:nc};
+        if(hasMatchAfterSwap(cell,n)) return n;
+      }
+      return null;
+    }
+
     function startAnimatedResolution(chain){
       var step=buildPhysicsStep(board);
       if(!step){
@@ -727,6 +739,30 @@
       selected=p; draw();
     }
 
+    function dblclick(ev){
+      var rect,sx,sy,x,y,r,c,p,n;
+      if(over||paused) return;
+      resumeAudioCtx();
+      rect=canvas.getBoundingClientRect();
+      sx=canvas.width/rect.width; sy=canvas.height/rect.height;
+      x=(ev.clientX-rect.left)*sx; y=(ev.clientY-rect.top)*sy;
+      c=Math.floor((x-pad)/cell); r=Math.floor((y-pad)/cell);
+      if(!inBounds(r,c)) return;
+      p={r:r,c:c};
+      if(animating){
+        if(!isCellStableForInput(r,c)) return;
+        n=firstLegalNeighbor(p);
+        if(!n) return;
+        if(!isCellStableForInput(n.r,n.c)) return;
+        stopAnimationNow();
+        if(trySwap(p,n)){ selected=null; pendingSwap=null; return; }
+        return;
+      }
+      n=firstLegalNeighbor(p);
+      if(!n){ selected=p; draw(); return; }
+      if(trySwap(p,n)){ selected=null; return; }
+    }
+
     function resize(){
       var safety=60, controlsH=controls?controls.offsetHeight+16:0, maxW=window.innerWidth-16, maxH=window.innerHeight-controlsH-safety, size=Math.max(220,Math.floor(Math.min(maxW,maxH)));
       var freeW, controlsWidth, sideGap;
@@ -822,6 +858,7 @@
         pauseBtn.addEventListener('click',function(){ setPaused(!paused); });
       }
       canvas.addEventListener('click',click);
+      canvas.addEventListener('dblclick',dblclick);
       if(window.addEventListener) window.addEventListener('resize',resize);
       window.__test={
         getState:function(){ return {score:score,moves:moves,over:over,selected:selected,anim:animateEnabled,animating:animating,types:pieceTypes,removed:removedTotal,time:timerSec}; },
