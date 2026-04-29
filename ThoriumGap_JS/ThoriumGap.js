@@ -3715,11 +3715,12 @@
     return out;
   }
 
-  function tryEnemyFire(e, p) {
+  function tryEnemyFire(e, p, entering) {
     if (!e || e.fireCooldown > 0) return;
+    const postEntrySlowdown = entering ? 1 : 2;
     if (e.kind === 'drifter') {
       if (e.y <= 70) return;
-      e.fireCooldown = shotDelay(1.0);
+      e.fireCooldown = shotDelay(1.0 * postEntrySlowdown);
       const a = rand(0, TAU);
       const speed = 220;
       spawnBullet('enemy', e.x, e.y + 8, Math.cos(a) * speed, Math.sin(a) * speed, { r: 7, color: e.theme.accent2, damage: 1, kind: 'drifter', life: 4.8, sourceKind: e.kind, sourceName: e.name || e.kind });
@@ -3727,7 +3728,7 @@
     }
     if (e.kind === 'looper') {
       if (e.y <= 70) return;
-      e.fireCooldown = shotDelay(1.0);
+      e.fireCooldown = shotDelay(1.0 * postEntrySlowdown);
       const moveX = e.loopDirX || Math.cos(e.loopHeading || (Math.PI * 0.5));
       const moveY = e.loopDirY || Math.sin(e.loopHeading || (Math.PI * 0.5));
       const moveLen = Math.max(0.001, Math.sqrt(moveX * moveX + moveY * moveY));
@@ -3736,13 +3737,13 @@
       return;
     }
     if (e.kind === 'bomber') {
-      e.fireCooldown = shotDelay(1.0);
+      e.fireCooldown = shotDelay(1.0 * postEntrySlowdown);
       spawnBullet('enemy', e.x, e.y + 14, rand(-34, 34), rand(180, 240), { r: 7, color: e.theme.accent2, damage: 1, kind: 'drop', ay: 58, life: 4.8, sourceKind: e.kind, sourceName: e.name || e.kind });
       return;
     }
     if (e.kind === 'sniper') {
       if (e.y <= 100) return;
-      e.fireCooldown = shotDelay(1.5);
+      e.fireCooldown = shotDelay(1.5 * postEntrySlowdown);
       const base = ang(e.x, e.y, p.x, p.y);
       for (let k = -1; k <= 1; k++) {
         const aa = base + k * 0.1;
@@ -3752,13 +3753,13 @@
     }
     if (e.kind === 'spinner') {
       if (e.y <= 80) return;
-      e.fireCooldown = shotDelay(3.0);
+      e.fireCooldown = shotDelay(3.0 * postEntrySlowdown);
       ringBullets(e.x, e.y, 6 + Math.floor(state.levelIndex / 3), 150 + state.levelIndex * 8, 1, e.theme.accent2, 'enemy');
       return;
     }
     if (e.kind === 'diver') {
       if (e.y <= 70) return;
-      e.fireCooldown = shotDelay(1.0);
+      e.fireCooldown = shotDelay(1.0 * postEntrySlowdown);
       const base = ang(e.x, e.y, p.x, p.y);
       const moveX = e.vx || Math.cos(base);
       const moveY = e.vy || Math.sin(base);
@@ -3768,7 +3769,7 @@
       return;
     }
     if (e.kind === 'elite') {
-      e.fireCooldown = shotDelay(1.0);
+      e.fireCooldown = shotDelay(1.0 * postEntrySlowdown);
       const base = ang(e.x, e.y, p.x, p.y);
       ringBullets(e.x, e.y, 8, 160, 1, e.theme.accent2, 'enemy', e.kind, e.name || e.kind);
       spawnBullet('enemy', e.x, e.y, Math.cos(base) * 220, Math.sin(base) * 220, { r: 7, color: e.theme.accent, damage: 1, kind: 'elite', life: 4.8, sourceKind: e.kind, sourceName: e.name || e.kind });
@@ -3929,7 +3930,7 @@
         }
       }
       if (updateEnemyMovement(e, dt, a, p, entering)) { state.enemies.splice(i, 1); continue; }
-      tryEnemyFire(e, p);
+      tryEnemyFire(e, p, entering);
       e.flightAngle = Math.atan2(e.y - prevY, e.x - prevX);
       if (e.y > view.h + 72 || e.x < -90 || e.x > view.w + 90) { state.enemies.splice(i, 1); continue; }
       if (d2(e.x, e.y, p.x, p.y) < (e.r + p.r) * (e.r + p.r)) {
