@@ -3272,7 +3272,7 @@
     aimed: function (b) {
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
-      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.34 : 0.52);
+      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.6 : 0.7);
       const pl = state.player;
       const base = ang(b.x, b.y, pl.x, pl.y);
       const n = b.hp < b.maxHp * 0.5 ? 5 : 3;
