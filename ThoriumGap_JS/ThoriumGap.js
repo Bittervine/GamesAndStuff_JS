@@ -1378,7 +1378,7 @@
     theme({ name: 'Sunken Bastion', subtitle: 'Here drowned men weep', skyTop: '#07101c', skyBottom: '#2d1a5a', glow: '#82f6ff', accent: '#6eeaff', accent2: '#c8fff2', forms: ['wave', 'cross', 'pair'], enemyKinds: ['looper', 'spinner', 'swarm', 'bomber'], atmosphere: 'neon', music: { bpm: 144, root: 220, pattern: [0, 7, 12, 10, 7, 4, 9, 12] }, boss: { name: 'Cyberphish', emoji: E.bolt, hp: 264, size: 320, color: '#8fefff', flipWhenMovingRight: true, phases: [phase(7, 'sweep', 'wall'), phase(7.5, 'dash', 'aimed'), phase(8, 'hover', 'ring')] } }),
     theme({ name: 'Black Citadel', subtitle: 'When the hearts break', skyTop: '#0a0c14', skyBottom: '#403f55', glow: '#f0f3ff', accent: '#b6bfd6', accent2: '#9e8e5e', forms: ['line', 'cross', 'wave'], enemyKinds: ['looper', 'sniper', 'elite'], atmosphere: 'chess', music: { bpm: 122, root: 196, pattern: [0, 3, 7, 10, 7, 3, 5, 7] }, boss: { name: 'Purple Matron', emoji: E.queen, hp: 288, size: 320, color: '#e7ecff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'dash', 'summon'), phase(8, 'sweep', 'ring')] } }),
     theme({ name: 'Crushing Depths', subtitle: 'Hunger for sunlight', skyTop: '#0c1821', skyBottom: '#344c84', glow: '#d7f4ff', accent: '#9cc7ff', accent2: '#d7f4ff', forms: ['rain', 'line', 'swarm'], enemyKinds:  ['spinner', 'diver', 'swarm', 'looper'], atmosphere: 'rain', music: { bpm: 128, root: 196, pattern: [0, 4, 7, 10, 7, 4, 2, 5] }, boss: { name: 'Deep Gulper', emoji: E.cloud, hp: 276, size: 320, color: '#d3edff', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Thorium Gap', subtitle: 'Final Descent', skyTop: '#0f081b', skyBottom: '#5b3d18', glow: '#ffe78a', accent: '#ffd77a', accent2: '#ffffff', forms: ['ring', 'fan', 'wave'], enemyKinds: ['elite', 'sniper', 'spinner', 'looper'], atmosphere: 'nova', music: { bpm: 152, root: 262, pattern: [0, 4, 7, 12, 15, 12, 7, 4] }, boss: { name: 'Unnamed Horror', emoji: E.sun, hp: 1000, size: 512, color: '#fff0bd', flipWhenMovingRight: false, phases: [phase(6.5, 'hover', 'aimed'), phase(6.5, 'sweep', 'ring'), phase(6.5, 'low', 'summon'), phase(6.5, 'dash', 'beam'), phase(7.5, 'low', 'summon')] } })
+    theme({ name: 'Thorium Gap', subtitle: 'Final Descent', skyTop: '#0f081b', skyBottom: '#5b3d18', glow: '#ffe78a', accent: '#ffd77a', accent2: '#ffffff', forms: ['ring', 'fan', 'wave'], enemyKinds: ['elite', 'sniper', 'spinner', 'looper'], atmosphere: 'nova', music: { bpm: 152, root: 262, pattern: [0, 4, 7, 12, 15, 12, 7, 4] }, boss: { name: 'Unnamed Horror', emoji: E.sun, hp: 1000, size: 512, color: '#fff0bd', flipWhenMovingRight: false, phases: [phase(6.5, 'hover', 'aimed'), phase(6.5, 'sweep', 'ring'), phase(6.5, 'low', 'summon'), phase(6.5, 'dash', 'beam'), phase(7.5, 'low', 'wall')] } })
   ];
 
   const FINAL_LEVEL_ENEMY_KINDS = (function () {
@@ -3325,12 +3325,19 @@
     wall: function (b) {
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
-      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.9 : 1.3);
-      const gap = randi(1, 5);
-      const cols = 7;
-      for (let i = 0; i < cols; i++) {
-        if (i === gap) continue;
-        spawnBullet('enemy', lerp(56, view.w - 56, i / (cols - 1)), -18, 0, 220 + (b.hp < b.maxHp * 0.5 ? 20 : 0), { r: 6, color: b.color, damage: 1, kind: 'wall', life: 5, sourceKind: 'boss', sourceName: b.name });
+      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 1.35 : 1.95);
+      const normalGap = PLAYER_RADIUS * 2.4;
+      const wideGap = 256;
+      const bulletCount = Math.max(2, Math.ceil(view.w / normalGap) + 3);
+      const gapCenterMin = view.w * 0.25;
+      const gapCenterMax = view.w * 0.75;
+      const gapIndexMin = Math.max(0, Math.ceil((gapCenterMin - wideGap * 0.5 + normalGap) / normalGap));
+      const gapIndexMax = Math.min(bulletCount - 2, Math.floor((gapCenterMax - wideGap * 0.5 + normalGap) / normalGap));
+      const gapAfter = gapIndexMin <= gapIndexMax ? randi(gapIndexMin, gapIndexMax) : randi(0, bulletCount - 2);
+      let x = -normalGap;
+      for (let i = 0; i < bulletCount; i++) {
+        spawnBullet('enemy', x, -18, 0, 220 + (b.hp < b.maxHp * 0.5 ? 20 : 0), { r: 6, color: b.color, damage: 1, kind: 'wall', life: 5, sourceKind: 'boss', sourceName: b.name });
+        if (i < bulletCount - 1) x += (i === gapAfter ? wideGap : normalGap);
       }
     },
     spiral: function (b) {
