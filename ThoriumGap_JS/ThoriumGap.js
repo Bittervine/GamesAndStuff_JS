@@ -2607,9 +2607,9 @@
       { type: 'rapid', w: state.player.rapidTimer > 4 ? 1 : 4 },
       { type: 'shield', w: state.player.shield < 2 ? 3 : 1 },
       { type: 'bomb', w: state.player.bombs < 2 ? 5 : 1 },
-      { type: 'magnet', w: state.player.magnetTimer < 4 ? 2 : 1 },
+      { type: 'magnet', w: state.player.magnetTimer < 4 ? 4 : 2 },
       { type: 'invuln', w: 0.5 },
-      { type: 'score', w: 4 }
+      { type: 'score', w: 10 }
     ];
     const total = list.reduce(function (sum, item) { return sum + item.w; }, 0);
     let roll = Math.random() * total;
@@ -2661,7 +2661,7 @@
   }
 
   function maybeDropPickup(x, y, elite, forceType) {
-    const p = 0.2 * (0.96 ** state.levelIndex)
+    const p = 0.6 * (0.91 ** state.levelIndex)
     if (forceType || Math.random() < p) {
       const type = forceType || choosePickup();
       if (type === 'weapon') spawnPickup('weapon', x, y, { weaponMode: chooseWeaponMode(state.player.weaponMode) });
