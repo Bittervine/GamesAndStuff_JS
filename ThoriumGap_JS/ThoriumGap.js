@@ -2620,7 +2620,7 @@
   function weaponPickupWeight(tierLevel) {
     const tier = clamp(tierLevel | 0, 1, 5);
     const weightsByTier = {
-      1: 7,
+      1: 10,
       2: 5,
       3: 3,
       4: 2,
@@ -3092,7 +3092,8 @@
         spawnBullet('enemy', e.x, e.y, Math.cos(a2) * speed, Math.sin(a2) * speed, { r: 7, color: e.theme.accent2, damage: 1, kind: 'splitter', life: 4.8, sourceKind: 'splitter', sourceName: e.name || 'splitter' });
       }
       //if (e.kind === 'elite' || e.score > 200) maybeDropPickup(e.x, e.y, true, chance(0.35) ? 'shield' : null);
-      else if (!fromBomb) maybeDropPickup(e.x, e.y, false);
+      //else if (!fromBomb) maybeDropPickup(e.x, e.y, false);
+      else maybeDropPickup(e.x, e.y, false);
     } else {
       sfx('hit');
     }
@@ -3384,7 +3385,7 @@
     const phaseDef = b.phases[b.phaseIndex] || b.phases[b.phases.length - 1];
     if (b.phaseClock >= phaseDef.dur) {
       b.phaseClock = 0;
-      b.phaseIndex = Math.min(b.phaseIndex + 1, b.phases.length - 1);
+      b.phaseIndex = (b.phaseIndex + 1) % Math.max(1, b.phases.length);
       setBanner('PHASE SHIFT', b.name + ' is changing tactics.', 1.0);
       sfx('boss');
     }
