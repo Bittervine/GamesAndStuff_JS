@@ -48,7 +48,9 @@
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
   let currentDt = 0;
   const MAX_NORMAL_DPR = 1.5;
-  const DEBUG_MODE = new URLSearchParams(window.location.search || '').get('debug') === '1';
+  const URL_PARAMS = new URLSearchParams(window.location.search || '');
+  const DEBUG_MODE = URL_PARAMS.get('debug') === '1';
+  const DEBUG_END_BOSS = URL_PARAMS.get('debug_endboss') === '1';
   const render = {
     ready: false,
     queue: [],
@@ -762,11 +764,22 @@
           }
         }
         const tex = createTextureFromCanvas(source);
+        const glowCanvas = makeBossGlowCanvas(source, '#ffffff', Math.max(1, img.naturalWidth || img.width || 1)) || source;
+        const glowTex = createTextureFromCanvas(glowCanvas);
         if (tex) {
+          const rawW = Math.max(1, img.naturalWidth || img.width || 1);
+          const rawH = Math.max(1, img.naturalHeight || img.height || 1);
+          const glowPad = bossGlowPad(rawW);
+          const bounds = getCanvasAlphaBounds(source);
           bossPartTextures.set(key, {
             texture: tex,
-            w: Math.max(1, img.naturalWidth || img.width || 1),
-            h: Math.max(1, img.naturalHeight || img.height || 1)
+            glowTexture: glowTex,
+            glowPad: glowPad,
+            glowW: rawW + glowPad * 2,
+            glowH: rawH + glowPad * 2,
+            bounds: bounds,
+            w: rawW,
+            h: rawH
           });
         }
       } finally {
@@ -824,6 +837,21 @@
     const nx = clamp(cx, rx, rx + rw);
     const ny = clamp(cy, ry, ry + rh);
     return d2(cx, cy, nx, ny) <= cr * cr;
+  }
+
+  function circleIntersectsRotatedRect(cx, cy, cr, rect) {
+    if (!rect) return false;
+    const c = Math.cos(-(rect.rot || 0));
+    const s = Math.sin(-(rect.rot || 0));
+    const dx = cx - rect.x;
+    const dy = cy - rect.y;
+    const lx = dx * c - dy * s;
+    const ly = dx * s + dy * c;
+    const hw = Math.max(1, rect.w || 1) * 0.5;
+    const hh = Math.max(1, rect.h || 1) * 0.5;
+    const nx = clamp(lx, -hw, hw);
+    const ny = clamp(ly, -hh, hh);
+    return d2(lx, ly, nx, ny) <= cr * cr;
   }
 
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -2347,7 +2375,8 @@
     closeSettings();
     resetRun();
     state.mode = 'playing';
-    beginLevel(0);
+    if (DEBUG_END_BOSS) debugJumpToFinalBoss(true);
+    else beginLevel(0);
     markHudDirty();
   }
 
@@ -2460,8 +2489,8 @@
     spawnBoss(theme);
   }
 
-  function debugJumpToFinalBoss() {
-    if (!state.debugMode || !state.assetsReady || state.transition) return;
+  function debugJumpToFinalBoss(force) {
+    if ((!force && !state.debugMode) || !state.assetsReady || state.transition) return;
     if (state.mode !== 'playing') {
       closeSettings();
       resetRun();
@@ -2811,10 +2840,15 @@
       maxHp: Math.round(b.hp * (1 + state.levelIndex * 0.04) * diff.bossHp),
       phases: b.phases, phaseIndex: 0, phaseClock: 0, age: 0,
       fireClock: 0, motionClock: 0, state: {}, hitFlash: 0, glowBoost: 0, dead: false,
+      clawGuard: 0, clawGuardDelay: 0,
       size: Math.max(1, b.size || 512),
       flipWhenMovingRight: b.flipWhenMovingRight !== false,
       shipLevel: levelNumber, shipIndex: 0, facingRight: false,
       hitBox: hitBox,
+      claws: levelNumber === 13 ? {
+        left: { hp: 250, maxHp: 250, dead: false, hitFlash: 0, glowBoost: 0, deathFlash: 0 },
+        right: { hp: 250, maxHp: 250, dead: false, hitFlash: 0, glowBoost: 0, deathFlash: 0 }
+      } : null,
       yOffset: bossYOffset
     };
     state.banner = 'BOSS: ' + b.name;
@@ -3146,7 +3180,11 @@
     burst(p.x, p.y, '#fff0b5', 36, 260, 8, 'spark');
     clearEnemyBulletsWithBudget(state.settings.lowEndMode ? 8 : 24, '#ffe39a');
     for (let i = state.enemies.length - 1; i >= 0; i--) damageEnemy(state.enemies[i], 999, true);
-    if (state.boss) damageBoss(state.boss, 18, true);
+    if (state.boss) {
+      damageFinalBossClaw(state.boss, 'left', 18);
+      damageFinalBossClaw(state.boss, 'right', 18);
+      damageBoss(state.boss, 18, true);
+    }
     markHudDirty();
   }
 
@@ -3196,6 +3234,10 @@
     b.hp -= actualDamage;
     b.hitFlash = 0.12;
     b.glowBoost = Math.min(1.0, (b.glowBoost || 0) + 0.25);
+    if (b.claws) {
+      b.clawGuard = Math.min(1, (b.clawGuard || 0) + 0.07);
+      b.clawGuardDelay = 0.5;
+    }
     burst(b.x, b.y, b.color, 8 + Math.min(14, actualDamage), 190 + actualDamage * 15, 7, 'spark');
     if (b.hp <= 0) {
       b.dead = true;
@@ -3478,6 +3520,10 @@
     b.age += dt;
     b.hitBox = getBossHitBox(b.shipLevel || (state.levelIndex + 1));
     b.glowBoost = Math.max(0, (b.glowBoost || 0) - dt * 4.0);
+    if (b.claws) {
+      b.clawGuardDelay = Math.max(0, (b.clawGuardDelay || 0) - dt);
+      if (b.clawGuardDelay <= 0) b.clawGuard = Math.max(0, (b.clawGuard || 0) - dt * 1.8);
+    }
     b.phaseClock += dt;
     const phaseDef = b.phases[b.phaseIndex] || b.phases[b.phases.length - 1];
     if (b.phaseClock >= phaseDef.dur) {
@@ -3513,6 +3559,18 @@
     const atk = BOSS_ATTACKS[phaseDef.attack];
     if (atk) atk(b, phaseDef);
     if (b.hitFlash > 0) b.hitFlash -= dt;
+    if (b.claws) {
+      if (b.claws.left) {
+        b.claws.left.hitFlash = Math.max(0, b.claws.left.hitFlash - dt);
+        b.claws.left.glowBoost = Math.max(0, (b.claws.left.glowBoost || 0) - dt * 4.0);
+        b.claws.left.deathFlash = Math.max(0, b.claws.left.deathFlash - dt);
+      }
+      if (b.claws.right) {
+        b.claws.right.hitFlash = Math.max(0, b.claws.right.hitFlash - dt);
+        b.claws.right.glowBoost = Math.max(0, (b.claws.right.glowBoost || 0) - dt * 4.0);
+        b.claws.right.deathFlash = Math.max(0, b.claws.right.deathFlash - dt);
+      }
+    }
   }
 
   function updatePlayer(dt) {
@@ -3630,7 +3688,14 @@
       b.y += b.vy * dt;
       b.life -= dt;
       if (b.life <= 0 || b.x < -60 || b.x > view.w + 60 || b.y < -80 || b.y > view.h + 80) remove = true;
-      if (state.boss && circleIntersectsRect(b.x, b.y, b.r, {
+      if (state.boss && damageFinalBossClawAtPoint(state.boss, b.x, b.y, b.r, b.damage)) {
+        if (b.kind === 'beam') {
+          b.pierce = Math.max(0, (b.pierce || 0) - 1);
+          if (b.pierce <= 0) remove = true;
+        } else if (b.pierce > 0) { b.pierce--; b.life -= 0.3; }
+        else remove = true;
+      }
+      if (!remove && state.boss && circleIntersectsRect(b.x, b.y, b.r, {
         x: state.boss.x + (state.boss.hitBox ? state.boss.hitBox.x : -256),
         y: state.boss.y + (state.boss.hitBox ? state.boss.hitBox.y : -256),
         w: state.boss.hitBox ? state.boss.hitBox.w : 512,
@@ -5238,10 +5303,15 @@
     });
   }
 
-  function drawFinalBossClaws(b, bodyRot) {
+  function finalBossBodyRot(b) {
+    return Math.sin(b.age * 0.8) * 0.04 + clamp((b.vx || 0) / 900, -0.02, 0.02);
+  }
+
+  function getFinalBossClawParts(b, bodyRot) {
+    if (!b || (b.shipLevel || (state.levelIndex + 1)) !== 13) return null;
     const left = getBossPartTexture(13, 'leftClaw');
     const right = getBossPartTexture(13, 'rightClaw');
-    if (!left && !right) return;
+    if (!left && !right) return null;
     const size = Math.max(1, b.size || 512);
     const bodyRawW = 1141;
     const bodyRawH = 1042;
@@ -5254,34 +5324,126 @@
     const slowFlex = 0.5 + 0.5 * Math.sin(b.age * 1.35);
     const twitch = Math.pow(Math.max(0, Math.sin(b.age * 8.7 + Math.sin(b.age * 2.1) * 1.8)), 7);
     const jitter = Math.sin(b.age * 18.3) * 0.035 + Math.sin(b.age * 31.7) * 0.018;
-    const clawRot = clamp(slowFlex * 0.62 + twitch * 0.38 + jitter, 0, 1) * (Math.PI * 0.25);
+    const clawSwing = clamp(slowFlex * 0.62 + twitch * 0.38 + jitter, 0, 1);
+    const clawMinRot = -20 * Math.PI / 180;
+    const openRot = lerp(clawMinRot, Math.PI * 0.25, clawSwing);
+    const clawRot = lerp(openRot, clawMinRot, clamp(b.clawGuard || 0, 0, 1));
     const bc = Math.cos(bodyRot);
     const bs = Math.sin(bodyRot);
     const leftBodyX = bodyDx + 325 * scale - size * 0.5;
-    const rightBodyX = bodyDx + 829 * scale - size * 0.5;
+    const rightBodyX = bodyDx + 909 * scale - size * 0.5;
     const bodySocketY = bodyDy + 543 * scale - size * 0.5;
     const leftSocketX = b.x + leftBodyX * bc - bodySocketY * bs;
     const leftSocketY = b.y + leftBodyX * bs + bodySocketY * bc;
     const rightSocketX = b.x + rightBodyX * bc - bodySocketY * bs;
     const rightSocketY = b.y + rightBodyX * bs + bodySocketY * bc;
+    const out = {};
     if (left) {
       const w = left.w * clawScale;
       const h = left.h * clawScale;
-      drawTextureRectAroundLocalPoint(left.texture, leftSocketX, leftSocketY, w, h, 800 * clawScale, 80 * clawScale, bodyRot + clawRot, { alpha: 0.98, layer: 26 });
+      out.left = { entry: left, socketX: leftSocketX, socketY: leftSocketY, w: w, h: h, scale: clawScale, localX: 800 * clawScale, localY: 80 * clawScale, rot: bodyRot + clawRot };
     }
     if (right) {
       const w = right.w * clawScale;
       const h = right.h * clawScale;
-      drawTextureRectAroundLocalPoint(right.texture, rightSocketX, rightSocketY, w, h, 545 * clawScale, 80 * clawScale, bodyRot - clawRot, { alpha: 0.98, layer: 26 });
+      out.right = { entry: right, socketX: rightSocketX, socketY: rightSocketY, w: w, h: h, scale: clawScale, localX: 545 * clawScale, localY: 80 * clawScale, rot: bodyRot - clawRot };
     }
+    return out;
+  }
+
+  function getTextureRectCenterForLocalPoint(part) {
+    const c = Math.cos(part.rot || 0);
+    const s = Math.sin(part.rot || 0);
+    const ox = part.localX - part.w * 0.5;
+    const oy = part.localY - part.h * 0.5;
+    return {
+      x: part.socketX - (ox * c - oy * s),
+      y: part.socketY - (ox * s + oy * c)
+    };
+  }
+
+  function getFinalBossClawHitBox(b, side) {
+    const parts = getFinalBossClawParts(b, finalBossBodyRot(b));
+    const part = parts && parts[side];
+    if (!part) return null;
+    const bounds = part.entry.bounds || { x: 0, y: 0, w: part.entry.w, h: part.entry.h };
+    const localX = (bounds.x + bounds.w * 0.5) * part.scale;
+    const localY = (bounds.y + bounds.h * 0.5) * part.scale;
+    const c = Math.cos(part.rot || 0);
+    const s = Math.sin(part.rot || 0);
+    const dx = localX - part.localX;
+    const dy = localY - part.localY;
+    return {
+      x: part.socketX + dx * c - dy * s,
+      y: part.socketY + dx * s + dy * c,
+      w: bounds.w * part.scale * 0.9,
+      h: bounds.h * part.scale * 0.9,
+      rot: part.rot
+    };
+  }
+
+  function damageFinalBossClawAtPoint(b, x, y, radius, damage) {
+    if (!b || !b.claws) return false;
+    const sides = ['left', 'right'];
+    for (let i = 0; i < sides.length; i++) {
+      const side = sides[i];
+      const claw = b.claws[side];
+      if (!claw || claw.dead) continue;
+      if (circleIntersectsRotatedRect(x, y, radius, getFinalBossClawHitBox(b, side))) {
+        return damageFinalBossClaw(b, side, damage);
+      }
+    }
+    return false;
+  }
+
+  function drawFinalBossClaws(b, bodyRot) {
+    const parts = getFinalBossClawParts(b, bodyRot);
+    if (!parts) return;
+    ['left', 'right'].forEach(function (side) {
+      const part = parts[side];
+      const claw = b.claws && b.claws[side];
+      if (!part || !claw) return;
+      if (claw.dead) return;
+      if (part.entry.glowTexture) {
+        const glowScale = part.w / Math.max(1, part.entry.w);
+        const pulse = 0.45 + 0.30 * Math.sin(Math.PI * b.age);
+        const boost = clamp(claw.glowBoost || 0, 0, 1);
+        const tint = mixHex('#0038ff', '#ffffff', boost);
+        const glowAlpha = clamp(pulse + boost * 0.75, 0.15, 1);
+        drawTextureRectAroundLocalPoint(part.entry.glowTexture, part.socketX, part.socketY, part.entry.glowW * glowScale, part.entry.glowH * glowScale, part.localX + part.entry.glowPad * glowScale, part.localY + part.entry.glowPad * glowScale, part.rot, { alpha: glowAlpha, layer: 25, fill: tint });
+      }
+      drawTextureRectAroundLocalPoint(part.entry.texture, part.socketX, part.socketY, part.w, part.h, part.localX, part.localY, part.rot, { alpha: 0.98, layer: 26 });
+    });
+  }
+
+  function damageFinalBossClaw(b, side, damage) {
+    if (!b || !b.claws || !b.claws[side]) return false;
+    const claw = b.claws[side];
+    if (claw.dead) return false;
+    claw.hp -= damage;
+    claw.hitFlash = 0.12;
+    claw.glowBoost = Math.min(1.0, (claw.glowBoost || 0) + 0.25);
+    const target = getFinalBossClawHitBox(b, side);
+    const fx = target ? target.x : b.x;
+    const fy = target ? target.y : b.y;
+    burst(fx, fy, b.color, 8 + Math.min(14, damage), 180 + damage * 12, 7, 'spark');
+    if (claw.hp <= 0) {
+      claw.dead = true;
+      claw.deathFlash = 0.45;
+      state.shake = Math.max(state.shake, 8);
+      flashBurst(fx, fy, b.color);
+      burst(fx, fy, b.color, 34, 280, 8, 'spark');
+      sfx('boom');
+    } else {
+      sfx('hit');
+    }
+    return true;
   }
 
   function drawBossBody(b) {
     const p = bossPalette(b);
     const r = b.r;
-    const swayRot = Math.sin(b.age * 0.8) * 0.04;
-    const moveTilt = clamp((b.vx || 0) / 900, -0.02, 0.02);
-    const rot = swayRot + moveTilt;
+    const rot = finalBossBodyRot(b);
     const levelNumber = b.shipLevel || (state.levelIndex + 1);
     const size = Math.max(1, b.size || 512);
     const glowSize = bossGlowCanvasSize(size);
@@ -5824,11 +5986,13 @@
       const pad = Math.min(cardW, cardH) * 0.08;
       const maxW = cardW - pad * 2;
       const maxH = cardH - pad * 2 - 38;
-      const scale = Math.min(maxW / titleArt.naturalWidth, maxH / titleArt.naturalHeight);
+      const baseScale = Math.min(maxW / titleArt.naturalWidth, maxH / titleArt.naturalHeight);
+      const scale = baseScale * 1.25;
       const dw = titleArt.naturalWidth * scale;
       const dh = titleArt.naturalHeight * scale;
+      const baseDh = titleArt.naturalHeight * baseScale;
       const ix = x + (cardW - dw) * 0.5;
-      const iy = y + 16 + Math.max(0, (maxH - dh) * 0.5);
+      const iy = y + 16 + Math.max(0, (maxH - baseDh) * 0.5) + baseDh - dh;
       hudCtx.shadowColor = theme.accent2;
       hudCtx.shadowBlur = 18;
       hudCtx.drawImage(titleArt, ix, iy, dw, dh);
