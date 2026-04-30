@@ -1420,11 +1420,11 @@
   const PICKUPS = {
     weapon: { emoji: E.wrench, color: '#00ffff', lighter: true, glowDiameter: 32 },
     rapid: { emoji: E.bolt, color: '#ffe97e', lighter: true, glowDiameter: 32 },
-    shield: { emoji: E.shield, color: '#4040ff', lighter: true, glowDiameter: 32 },
-    bomb: { emoji: E.bomb, color: '#ff2020', lighter: true, glowDiameter: 32 },
+    shield: { emoji: E.shield, color: '#4040ff', lighter: false, glowDiameter: 64 },
+    bomb: { emoji: E.bomb, color: '#ff2020', lighter: true, glowDiameter: 50 },
     magnet: { emoji: E.magnet, color: '#777777', lighter: true, glowDiameter: 32 },
     invuln: { emoji: E.star, color: '#c7ff8f', lighter: true, glowDiameter: 32 },
-    score: { emoji: E.gem, color: '#f00000', lighter: false, glowDiameter: 32 }
+    score: { emoji: E.gem, color: '#f00000', lighter: false, glowDiameter: 50 }
   };
 
   const ENEMIES = {
@@ -2600,6 +2600,8 @@
     state.pickups.push({
       type: type, x: x, y: y, vx: opts && opts.vx != null ? opts.vx : rand(-12, 12), vy: opts && opts.vy != null ? opts.vy : rand(36, 58),
       r: 18, life: 12, color: color, emoji: info.emoji, bob: rand(0, TAU), spin: rand(0, TAU),
+      glowDiameter: Number.isFinite(info.glowDiameter) ? info.glowDiameter : 32,
+      lighter: info.lighter !== false,
       weaponMode: weaponMode,
       weaponTier: 1
     });
