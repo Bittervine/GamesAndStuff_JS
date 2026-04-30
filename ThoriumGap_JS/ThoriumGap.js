@@ -2846,8 +2846,8 @@
       shipLevel: levelNumber, shipIndex: 0, facingRight: false,
       hitBox: hitBox,
       claws: levelNumber === 13 ? {
-        left: { hp: 250, maxHp: 250, dead: false, hitFlash: 0, glowBoost: 0, deathFlash: 0 },
-        right: { hp: 250, maxHp: 250, dead: false, hitFlash: 0, glowBoost: 0, deathFlash: 0 }
+        left: { hp: Math.round(b.hp * (1 + state.levelIndex * 0.04) * diff.bossHp), maxHp: Math.round(b.hp * (1 + state.levelIndex * 0.04) * diff.bossHp), dead: false, hitFlash: 0, glowBoost: 0, deathFlash: 0 },
+        right: { hp: Math.round(b.hp * (1 + state.levelIndex * 0.04) * diff.bossHp), maxHp: Math.round(b.hp * (1 + state.levelIndex * 0.04) * diff.bossHp), dead: false, hitFlash: 0, glowBoost: 0, deathFlash: 0 }
       } : null,
       yOffset: bossYOffset
     };
