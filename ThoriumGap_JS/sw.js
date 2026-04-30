@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'thoriumgap-v3';
+var CACHE_NAME = 'thoriumgap-v4';
 var APP_SHELL = [
   './ThoriumGap.html',
   './ThoriumGap.js',
@@ -25,6 +25,8 @@ var APP_ASSETS = (function () {
   out.push('./assets/glow_e_red.png');
 
   for (lvl = 1; lvl <= 13; lvl++) out.push('./assets/Boss_' + z2(lvl) + '.png');
+  out.push('./assets/Boss_13_Body.png');
+  out.push('./assets/Boss_13_LeftClaw.png');
   for (lvl = 1; lvl <= 32; lvl++) out.push('./assets/planet_image_' + z2(lvl) + '.png');
   for (lvl = 1; lvl <= 13; lvl++) {
     for (ship = 0; ship <= 6; ship++) {

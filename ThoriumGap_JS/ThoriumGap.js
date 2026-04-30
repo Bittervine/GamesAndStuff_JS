@@ -181,6 +181,8 @@
   const bossArtLoadKeys = new Set();
   const bossGlowLoadKeys = new Set();
   const bossGlowTextures = new Map();
+  const bossPartLoadKeys = new Set();
+  const bossPartTextures = new Map();
   const bossHitBoxes = new Map();
   const debugLabelTextures = new Map();
 
@@ -600,7 +602,17 @@
   }
 
   function bossArtSource(levelNumber) {
+    if (levelNumber === 13) return 'assets/Boss_13_Body.png';
     return 'assets/Boss_' + String(levelNumber).padStart(2, '0') + '.png';
+  }
+
+  function bossPartKey(levelNumber, partName) {
+    return 'bosspart|' + levelNumber + '|' + partName;
+  }
+
+  function bossPartSource(levelNumber, partName) {
+    if (levelNumber === 13 && (partName === 'leftClaw' || partName === 'rightClaw')) return 'assets/Boss_13_LeftClaw.png';
+    return '';
   }
 
   function makeNormalizedBossCanvas(img, size) {
@@ -726,8 +738,53 @@
     img.src = bossArtSource(levelNumber);
   }
 
+  function ensureBossPartTexture(levelNumber, partName) {
+    const key = bossPartKey(levelNumber, partName);
+    if (bossPartTextures.has(key) || bossPartLoadKeys.has(key)) return;
+    const src = bossPartSource(levelNumber, partName);
+    if (!src) return;
+    bossPartLoadKeys.add(key);
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = function () {
+      try {
+        let source = img;
+        if (levelNumber === 13 && partName === 'rightClaw') {
+          const w = Math.max(1, img.naturalWidth || img.width || 1);
+          const h = Math.max(1, img.naturalHeight || img.height || 1);
+          const c = makeCanvas(w, h);
+          const g = c.getContext('2d');
+          if (g) {
+            g.translate(w, 0);
+            g.scale(-1, 1);
+            g.drawImage(img, 0, 0, w, h);
+            source = c;
+          }
+        }
+        const tex = createTextureFromCanvas(source);
+        if (tex) {
+          bossPartTextures.set(key, {
+            texture: tex,
+            w: Math.max(1, img.naturalWidth || img.width || 1),
+            h: Math.max(1, img.naturalHeight || img.height || 1)
+          });
+        }
+      } finally {
+        bossPartLoadKeys.delete(key);
+      }
+    };
+    img.onerror = function () {
+      bossPartLoadKeys.delete(key);
+    };
+    img.src = src;
+  }
+
   function warmBossArt(levelNumber) {
     ensureBossTexture(levelNumber);
+    if (levelNumber === 13) {
+      ensureBossPartTexture(levelNumber, 'leftClaw');
+      ensureBossPartTexture(levelNumber, 'rightClaw');
+    }
   }
 
   function getBossTexture(levelNumber) {
@@ -749,6 +806,14 @@
   function getBossHitBox(levelNumber) {
     const key = bossArtKey(levelNumber);
     return bossHitBoxes.get(key) || { x: -256, y: -256, w: 512, h: 512 };
+  }
+
+  function getBossPartTexture(levelNumber, partName) {
+    const key = bossPartKey(levelNumber, partName);
+    const entry = bossPartTextures.get(key);
+    if (entry) return entry;
+    ensureBossPartTexture(levelNumber, partName);
+    return null;
   }
 
   function circleIntersectsRect(cx, cy, cr, rect) {
@@ -2297,7 +2362,7 @@
   }
 
   function assetWarmupBusy() {
-    return !!(playerShipTextureLoading || playerAuraTextureLoading || bossArtLoadKeys.size || enemyShipLoadKeys.size || glowImageLoads.size || planetDecorLoadKeys.size || planetDecorTextureLoadKeys.size);
+    return !!(playerShipTextureLoading || playerAuraTextureLoading || bossArtLoadKeys.size || bossPartLoadKeys.size || enemyShipLoadKeys.size || glowImageLoads.size || planetDecorLoadKeys.size || planetDecorTextureLoadKeys.size);
   }
 
   function warmAllTextures() {
@@ -2393,6 +2458,26 @@
     clearParticleList();
     clearEnemyBulletsWithBudget(9999);
     spawnBoss(theme);
+  }
+
+  function debugJumpToFinalBoss() {
+    if (!state.debugMode || !state.assetsReady || state.transition) return;
+    if (state.mode !== 'playing') {
+      closeSettings();
+      resetRun();
+      state.mode = 'playing';
+    }
+    const finalIndex = THEMES.length - 1;
+    beginLevel(finalIndex);
+    state.levelClock = 40 + finalIndex * 2;
+    state.waveClock = 0;
+    state.banner = 'BOSS!';
+    state.bannerSub = mainTheme().subtitle;
+    state.bannerTimer = 1.2;
+    clearProjectileLists();
+    clearParticleList();
+    clearEnemyBulletsWithBudget(9999);
+    spawnBoss(mainTheme());
   }
 
   function beginLevel(index) {
@@ -5136,6 +5221,61 @@
       }
   }
 
+  function drawTextureRectAroundLocalPoint(texture, socketX, socketY, w, h, localX, localY, rot, opts) {
+    const c = Math.cos(rot);
+    const s = Math.sin(rot);
+    const ox = localX - w * 0.5;
+    const oy = localY - h * 0.5;
+    const cx = socketX - (ox * c - oy * s);
+    const cy = socketY - (ox * s + oy * c);
+    const o = opts || {};
+    drawTextureRect(texture, cx, cy, w, h, {
+      rot: rot,
+      alpha: o.alpha == null ? 1 : o.alpha,
+      layer: o.layer || 0,
+      lighter: o.lighter,
+      fill: o.fill || '#ffffff'
+    });
+  }
+
+  function drawFinalBossClaws(b, bodyRot) {
+    const left = getBossPartTexture(13, 'leftClaw');
+    const right = getBossPartTexture(13, 'rightClaw');
+    if (!left && !right) return;
+    const size = Math.max(1, b.size || 512);
+    const bodyRawW = 1141;
+    const bodyRawH = 1042;
+    const scale = Math.min(size / bodyRawW, size / bodyRawH);
+    const bodyDrawW = bodyRawW * scale;
+    const bodyDrawH = bodyRawH * scale;
+    const bodyDx = (size - bodyDrawW) * 0.5;
+    const bodyDy = (size - bodyDrawH) * 0.5;
+    const clawScale = scale * 0.75;
+    const slowFlex = 0.5 + 0.5 * Math.sin(b.age * 1.35);
+    const twitch = Math.pow(Math.max(0, Math.sin(b.age * 8.7 + Math.sin(b.age * 2.1) * 1.8)), 7);
+    const jitter = Math.sin(b.age * 18.3) * 0.035 + Math.sin(b.age * 31.7) * 0.018;
+    const clawRot = clamp(slowFlex * 0.62 + twitch * 0.38 + jitter, 0, 1) * (Math.PI * 0.25);
+    const bc = Math.cos(bodyRot);
+    const bs = Math.sin(bodyRot);
+    const leftBodyX = bodyDx + 325 * scale - size * 0.5;
+    const rightBodyX = bodyDx + 829 * scale - size * 0.5;
+    const bodySocketY = bodyDy + 543 * scale - size * 0.5;
+    const leftSocketX = b.x + leftBodyX * bc - bodySocketY * bs;
+    const leftSocketY = b.y + leftBodyX * bs + bodySocketY * bc;
+    const rightSocketX = b.x + rightBodyX * bc - bodySocketY * bs;
+    const rightSocketY = b.y + rightBodyX * bs + bodySocketY * bc;
+    if (left) {
+      const w = left.w * clawScale;
+      const h = left.h * clawScale;
+      drawTextureRectAroundLocalPoint(left.texture, leftSocketX, leftSocketY, w, h, 800 * clawScale, 80 * clawScale, bodyRot + clawRot, { alpha: 0.98, layer: 26 });
+    }
+    if (right) {
+      const w = right.w * clawScale;
+      const h = right.h * clawScale;
+      drawTextureRectAroundLocalPoint(right.texture, rightSocketX, rightSocketY, w, h, 545 * clawScale, 80 * clawScale, bodyRot - clawRot, { alpha: 0.98, layer: 26 });
+    }
+  }
+
   function drawBossBody(b) {
     const p = bossPalette(b);
     const r = b.r;
@@ -5149,6 +5289,7 @@
     const facingRight = flipWhenMovingRight ? !!b.facingRight : false;
     const texture = getBossTexture(levelNumber);
     const glowTexture = getBossGlowTexture(levelNumber);
+    if (levelNumber === 13) drawFinalBossClaws(b, rot);
     if (glowTexture) {
       const pulse = 0.45 + 0.30 * Math.sin(Math.PI * b.age);
       const boost = clamp(b.glowBoost || 0, 0, 1);
@@ -5903,10 +6044,14 @@
       }
       return;
     }
-    if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'ArrowUp' || code === 'ArrowDown' || code === 'KeyA' || code === 'KeyD' || code === 'KeyW' || code === 'KeyS' || code === 'Space' || code === 'KeyZ' || code === 'ControlLeft' || code === 'ControlRight' || code === 'Enter' || code === 'KeyX' || code === 'KeyB' || code === 'KeyP' || code === 'KeyM' || code === 'KeyR' || code === 'Escape' || code === 'KeyO') {
+    if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'ArrowUp' || code === 'ArrowDown' || code === 'KeyA' || code === 'KeyD' || code === 'KeyW' || code === 'KeyS' || code === 'Space' || code === 'KeyZ' || code === 'ControlLeft' || code === 'ControlRight' || code === 'Enter' || code === 'KeyX' || code === 'KeyB' || code === 'KeyP' || code === 'KeyM' || code === 'KeyR' || code === 'KeyL' || code === 'Escape' || code === 'KeyO') {
         ev.preventDefault();
         resumeAudio();
       }
+    if (state.debugMode && code === 'KeyL') {
+      ev.preventDefault();
+      if (!ev.repeat) debugJumpToFinalBoss();
+    }
     if (state.debugMode && code === 'Digit0') {
       ev.preventDefault();
       if (!ev.repeat) debugJumpToBoss();
