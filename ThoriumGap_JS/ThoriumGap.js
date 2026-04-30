@@ -1521,29 +1521,29 @@
   };
 
   const ENEMIES = {
-    drifter: { hp: 2, r: 18, score: 90, speed: 96 },
-    looper: { hp: 3, r: 18, score: 110, speed: 112 },
-    swarm: { hp: 1, r: 14, score: 75, speed: 140 },
-    bomber: { hp: 4, r: 20, score: 140, speed: 86 },
-    sniper: { hp: 3, r: 18, score: 130, speed: 74 },
-    spinner: { hp: 5, r: 22, score: 180, speed: 70 },
-    splitter: { hp: 4, r: 20, score: 150, speed: 92 },
-    diver: { hp: 3, r: 18, score: 130, speed: 120 },
-    mine: { hp: 4, r: 19, score: 120, speed: 60 },
-    elite: { hp: 7, r: 24, score: 280, speed: 80 }
+    drifter: { hp: 4, r: 18, score: 90, speed: 96 },
+    looper: { hp: 5, r: 18, score: 110, speed: 112 },
+    swarm: { hp: 2, r: 14, score: 75, speed: 140 },
+    bomber: { hp: 7, r: 20, score: 140, speed: 86 },
+    sniper: { hp: 6, r: 18, score: 130, speed: 74 },
+    spinner: { hp: 7, r: 22, score: 180, speed: 70 },
+    splitter: { hp: 7, r: 20, score: 150, speed: 92 },
+    diver: { hp: 6, r: 18, score: 130, speed: 120 },
+    mine: { hp: 8, r: 19, score: 120, speed: 60 },
+    elite: { hp: 15, r: 24, score: 280, speed: 80 }
   };
 
-  const DIFFICULTIES = [
-    { label: 'Easy', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.9, spawnCount: 0.55, bulletSpeed: 0.6, bossHp: 0.5, contact: 0.9, playerDamage: 1, enemyShotPace: 0.6 },
-    { label: 'Normal', lives: 3, enemyHp: 1.2, enemySpeed: 1, spawnRate: 1, spawnCount: 0.75, bulletSpeed: 0.8, bossHp: 1, contact: 1, playerDamage: 0.5, enemyShotPace: 0.8 },
-    { label: 'Hard', lives: 2, enemyHp: 1.4, enemySpeed: 1.1, spawnRate: 1.1, spawnCount: 1.0, bulletSpeed: 1.0, bossHp: 1.3, contact: 1.12, playerDamage: 0.25, enemyShotPace: 1.0 }
+  const DIFFICULTIES = [                                                                      // Hint: bulletSpeed = enemyShotPace maintains gap-dynamics of shots (just faster)
+    { label: 'Easy', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.9, spawnCount: 0.55, bulletSpeed: 0.7, bossHp: 0.5, contact: 0.9, playerDamage: 1, enemyShotPace: 0.7 },
+    { label: 'Normal', lives: 3, enemyHp: 1.2, enemySpeed: 1, spawnRate: 1, spawnCount: 0.75, bulletSpeed: 1.1, bossHp: 1, contact: 1, playerDamage: 0.5, enemyShotPace: 1.1 },
+    { label: 'Hard', lives: 2, enemyHp: 1.4, enemySpeed: 1.1, spawnRate: 1.1, spawnCount: 1.0, bulletSpeed: 1.5, bossHp: 1.3, contact: 1.12, playerDamage: 0.25, enemyShotPace: 1.5 }
   ];
 
   const PLAYER_SHOT_PACE = 1.0;
-  const PLAYER_FIRE_RATE_BOOST = 1.15;
+  const PLAYER_FIRE_RATE_BOOST = 1.0;
   const PLAYER_RADIUS = 46;
   const HEAT_MAX_SECONDS = 5;
-  const HEAT_MAX_PENALTY = 0.33;
+  const HEAT_MAX_PENALTY = 0.5;
   const HEAT_COOLDOWN_FACTOR = 5;
 
   function enemyShotPace() {
@@ -2628,7 +2628,7 @@
   }
 
   function flashBurst(x, y, color) {
-    burst(x, y, color, 18, 180, 6, 'spark');
+    burst(x, y, color, 9, 180, 6, 'spark');
     spawnParticle(x, y, 0, 0, 0.24, 14, color, 'ring');
   }
 
@@ -2730,7 +2730,7 @@
       { type: 'bomb', w: state.player.bombs < 2 ? 2 : 1 },
       { type: 'magnet', w: state.player.magnetTimer < 4 ? 4 : 2 },
       { type: 'invuln', w: 0.5 },
-      { type: 'score', w: 10 }
+      { type: 'score', w: 8 }
     ];
     const total = list.reduce(function (sum, item) { return sum + item.w; }, 0);
     let roll = Math.random() * total;
@@ -2741,10 +2741,10 @@
   function weaponPickupWeight(tierLevel) {
     const tier = clamp(tierLevel | 0, 1, 5);
     const weightsByTier = {
-      1: 10,
+      1: 8,
       2: 5,
-      3: 3,
-      4: 2,
+      3: 2,
+      4: 1,
       5: 1
     };
     return weightsByTier[tier] || 1;
@@ -3193,7 +3193,7 @@
     if (!e || e.dead) return;
     e.hp -= damage;
     e.hitFlash = 0.08;
-    burst(e.x, e.y, e.color, 4 + Math.min(8, damage), 110 + damage * 22, 5, 'spark');
+    //burst(e.x, e.y, e.color, 4 + Math.min(8, damage), 110 + damage * 22, 5, 'spark');
     if (e.hp <= 0) {
       e.dead = true;
       state.shake = Math.max(state.shake, 5);
@@ -3239,7 +3239,7 @@
       b.clawGuard = Math.min(1, (b.clawGuard || 0) + 0.07);
       b.clawGuardDelay = 0.5;
     }
-    burst(b.x, b.y, b.color, 8 + Math.min(14, actualDamage), 190 + actualDamage * 15, 7, 'spark');
+    //burst(b.x, b.y, b.color, 4 + Math.min(4, actualDamage), 190 + actualDamage * 15, 7, 'spark');
     if (b.hp <= 0) {
       b.dead = true;
       state.boss = null;
@@ -3410,7 +3410,7 @@
       const n = b.hp < b.maxHp * 0.5 ? 5 : 3;
       for (let i = 0; i < n; i++) {
         const a = base + (i - (n - 1) * 0.5) * 0.15;
-        spawnBullet('enemy', b.x, b.y + 12, Math.cos(a) * 260, Math.sin(a) * 260, { r: 8, color: b.color, damage: 1, kind: 'orb', life: 5.5, sourceKind: 'boss', sourceName: b.name });
+        spawnBullet('enemy', b.x, b.y + 12, Math.cos(a) * 260, Math.sin(a) * 260, { r: 8, color: b.color, damage: 1, kind: 'orb', life: 20, sourceKind: 'boss', sourceName: b.name });
       }
     },
     ring: function (b) {
@@ -3428,7 +3428,7 @@
       const n = b.hp < b.maxHp * 0.5 ? 7 : 5;
       for (let i = 0; i < n; i++) {
         const a = base + lerp(-0.38, 0.38, n === 1 ? 0.5 : i / (n - 1));
-        spawnBullet('enemy', b.x, b.y + 6, Math.cos(a) * 300, Math.sin(a) * 300, { r: 6, color: b.color, damage: 1, kind: 'sting', life: 4.5, sourceKind: 'boss', sourceName: b.name });
+        spawnBullet('enemy', b.x, b.y + 6, Math.cos(a) * 300, Math.sin(a) * 300, { r: 6, color: b.color, damage: 1, kind: 'sting', life: 20, sourceKind: 'boss', sourceName: b.name });
       }
     },
     rain: function (b) {
@@ -3436,7 +3436,7 @@
       if (b.fireClock > 0) return;
       b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.3 : 0.5);
       for (let i = 0; i < (b.hp < b.maxHp * 0.5 ? 3 : 2); i++) {
-        spawnBullet('enemy', clamp(b.x + rand(-160, 160), 24, view.w - 24), -20, rand(-22, 22), rand(220, 280), { r: 6, color: b.color, damage: 1, kind: 'rain', ay: 18, life: 5, sourceKind: 'boss', sourceName: b.name });
+        spawnBullet('enemy', clamp(b.x + rand(-160, 160), 24, view.w - 24), -20, rand(-22, 22), rand(220, 280), { r: 6, color: b.color, damage: 1, kind: 'rain', ay: 18, life: 10, sourceKind: 'boss', sourceName: b.name });
       }
     },
     summon: function (b) {
@@ -3451,7 +3451,7 @@
       if (b.fireClock > 0) return;
       b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 1.2 : 1.8);
       for (let i = -4; i <= 4; i++) {
-        spawnBullet('enemy', b.x + i * 18, b.y + 18, rand(-18, 18), 240 + i * 8, { r: 8, color: b.color, damage: 1, kind: 'beam', life: 4.4, sourceKind: 'boss', sourceName: b.name });
+        spawnBullet('enemy', b.x + i * 18, b.y + 18, rand(-18, 18), 240 + i * 8, { r: 8, color: b.color, damage: 1, kind: 'beam', life: 20, sourceKind: 'boss', sourceName: b.name });
       }
     },
     wall: function (b) {
@@ -3468,7 +3468,7 @@
       const gapAfter = gapIndexMin <= gapIndexMax ? randi(gapIndexMin, gapIndexMax) : randi(0, bulletCount - 2);
       let x = -normalGap;
       for (let i = 0; i < bulletCount; i++) {
-        spawnBullet('enemy', x, -18, 0, 220 + (b.hp < b.maxHp * 0.5 ? 20 : 0), { r: 6, color: b.color, damage: 1, kind: 'wall', life: 5, sourceKind: 'boss', sourceName: b.name });
+        spawnBullet('enemy', x, -18, 0, 220 + (b.hp < b.maxHp * 0.5 ? 20 : 0), { r: 6, color: b.color, damage: 1, kind: 'wall', life: 20, sourceKind: 'boss', sourceName: b.name });
         if (i < bulletCount - 1) x += (i === gapAfter ? wideGap : normalGap);
       }
     },
@@ -3480,7 +3480,7 @@
       const spin = b.age * 1.8;
       for (let i = 0; i < n; i++) {
         const a = spin + i * (TAU / n);
-        spawnBullet('enemy', b.x, b.y, Math.cos(a) * 220, Math.sin(a) * 220, { r: 6, color: b.color, damage: 1, kind: 'spiral', life: 4.5, sourceKind: 'boss', sourceName: b.name });
+        spawnBullet('enemy', b.x, b.y, Math.cos(a) * 220, Math.sin(a) * 220, { r: 6, color: b.color, damage: 1, kind: 'spiral', life: 20, sourceKind: 'boss', sourceName: b.name });
       }
     }
   };
@@ -4236,8 +4236,8 @@
     if (!state.boss) {
       state.levelClock += dt;
     }
-    // During boss fight, enemy waves spawn at 25% rate
-    state.waveClock += state.boss ? dt * 0.25 : dt;
+    // During boss fight, enemy waves spawn at 50% rate
+    state.waveClock += state.boss ? dt * 0.50 : dt;
     updateBullets(dt);
     updateEnemies(dt);
     updatePickups(dt);
@@ -5427,7 +5427,7 @@
     const target = getFinalBossClawHitBox(b, side);
     const fx = target ? target.x : b.x;
     const fy = target ? target.y : b.y;
-    burst(fx, fy, b.color, 8 + Math.min(14, damage), 180 + damage * 12, 7, 'spark');
+    burst(fx, fy, b.color, 2, 200 + damage * 12, 7, 'spark');
     if (claw.hp <= 0) {
       claw.dead = true;
       claw.deathFlash = 0.45;
