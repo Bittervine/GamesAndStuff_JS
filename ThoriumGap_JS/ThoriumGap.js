@@ -1366,18 +1366,18 @@
   }
 
   const THEMES = [
-    theme({ name: 'Thorium Rift', subtitle: 'None shall pass', skyTop: '#07111f', skyBottom: '#274062', glow: '#9bc5ff', accent: '#6d9cff', accent2: '#d5e4ff', forms: ['line', 'fan', 'rain'], enemyKinds: ['drifter', 'swarm', 'looper'], atmosphere: 'leaves', music: { bpm: 112, root: 220, pattern: [0, 3, 5, 7, 10, 7, 5, 3] }, boss: { name: 'Red Guardian', emoji: E.apple, hp: 160, size: 320, color: '#9ec2ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Broken Shore', subtitle: 'First of his name', skyTop: '#061b1b', skyBottom: '#1f4d49', glow: '#8ff7ff', accent: '#58d7c6', accent2: '#c8fff2', forms: ['swarm', 'pair', 'arc'], enemyKinds: ['looper', 'bomber', 'sniper'], atmosphere: 'pollen', music: { bpm: 126, root: 246, pattern: [0, 2, 4, 7, 9, 7, 4, 2] }, boss: { name: 'Rocket Baron', emoji: E.bee, hp: 176, size: 320, color: '#93f0e8', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Ultraviolet Prison', subtitle: 'Isolation and servitude', skyTop: '#1b1730', skyBottom: '#53265f', glow: '#d19cff', accent: '#9a7cff', accent2: '#f0d0ff', forms: ['fan', 'rain', 'cross'], enemyKinds: ['drifter', 'looper', 'bomber'], atmosphere: 'sprinkles', music: { bpm: 136, root: 262, pattern: [0, 4, 7, 12, 7, 4, 5, 9] }, boss: { name: 'Warden Thorn', emoji: E.donut, hp: 188, size:320 , color: '#c29bff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7, 'sweep', 'ring'), phase(8, 'low', 'rain')] } }),
-    theme({ name: 'Sinners Den', subtitle: 'Hunger without limit', skyTop: '#0f1620', skyBottom: '#4d5867', glow: '#96c9ff', accent: '#9fb2c6', accent2: '#d0e0ef', forms: ['line', 'pair', 'cross'], enemyKinds: ['looper', 'sniper', 'bomber'], atmosphere: 'sparks', music: { bpm: 118, root: 196, pattern: [0, 0, 7, 5, 4, 5, 7, 10] }, boss: { name: 'Hope Devourer', emoji: E.gear, hp: 200, size: 320, color: '#d0d9e1', flipWhenMovingRight: false, phases: [phase(7, 'sweep', 'ring'), phase(7.5, 'dash', 'summon'), phase(8, 'hover', 'fan')] } }),
-    theme({ name: 'Deadlight Fen', subtitle: 'Master of the soulless crew', skyTop: '#06111d', skyBottom: '#532a40', glow: '#ffbf8a', accent: '#e0a06c', accent2: '#ffc8a1', forms: ['rain', 'arc', 'swarm'], enemyKinds: ['swarm', 'sniper', 'drifter'], atmosphere: 'motes', music: { bpm: 108, root: 196, pattern: [0, 5, 7, 10, 7, 5, 3, 5] }, boss: { name: 'Captain Thaddeus', emoji: E.lantern, hp: 204, size: 320, color: '#f6b46d', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Elysium Moors', subtitle: 'The steed of Neptune', skyTop: '#220c0c', skyBottom: '#6d3a13', glow: '#ffd77a', accent: '#c47a19', accent2: '#ffd59f', forms: ['swarm', 'fan', 'pair'], enemyKinds: ['diver', 'swarm', 'sniper'], atmosphere: 'embers', music: { bpm: 132, root: 246, pattern: [0, 2, 3, 7, 10, 7, 3, 2] }, boss: { name: 'Lunar Horse', emoji: E.bee, hp: 216, size: 320, color: '#e4ba6a', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(8, 'dash', 'rain'), phase(7.5, 'sweep', 'summon')] } }),
-    theme({ name: 'Shard Expanse', subtitle: 'The base of lost hope', skyTop: '#07142f', skyBottom: '#264e88', glow: '#b0fbff', accent: '#95d5ff', accent2: '#d6c4ff', forms: ['ring', 'line', 'arc'], enemyKinds: ['swarm', 'bomber', 'elite', 'looper'], atmosphere: 'shards', music: { bpm: 120, root: 233, pattern: [0, 4, 7, 11, 7, 4, 9, 7] }, boss: { name: 'Shard Base One', emoji: E.gem, hp: 228, size: 320, color: '#c9f6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'ring'), phase(8, 'low', 'beam')] } }),
-    theme({ name: 'Dark Waters', subtitle: 'Prey on the weak', skyTop: '#180709', skyBottom: '#6c2919', glow: '#ffab5b', accent: '#de6f2b', accent2: '#ffd08a', forms: ['rain', 'line', 'swarm'], enemyKinds: ['spinner', 'drifter', 'diver', 'splitter'], atmosphere: 'embers', music: { bpm: 140, root: 220, pattern: [0, 3, 7, 10, 7, 3, 5, 10] }, boss: { name: 'Cephid Hunter', emoji: E.fire, hp: 240, size: 320, color: '#ff9e53', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'rain'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'wall')] } }),
-    theme({ name: 'Domain of Klaatu', subtitle: 'The earth stands still', skyTop: '#07111d', skyBottom: '#2d3d61', glow: '#95d7ff', accent: '#aebfe0', accent2: '#95d7ff', forms: ['line', 'wave', 'pair'], enemyKinds: ['elite', 'diver', 'splitter' ], atmosphere: 'stardust', music: { bpm: 106, root: 185, pattern: [0, 7, 12, 7, 10, 7, 5, 3] }, boss: { name: 'Klaatu', emoji: E.moon, hp: 252, size: 320, color: '#c3d6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'summon'), phase(7.5, 'dash', 'beam'), phase(8, 'sweep', 'ring')] } }),
-    theme({ name: 'Sunken Bastion', subtitle: 'Here drowned men weep', skyTop: '#07101c', skyBottom: '#2d1a5a', glow: '#82f6ff', accent: '#6eeaff', accent2: '#c8fff2', forms: ['wave', 'cross', 'pair'], enemyKinds: ['looper', 'spinner', 'swarm', 'bomber'], atmosphere: 'neon', music: { bpm: 144, root: 220, pattern: [0, 7, 12, 10, 7, 4, 9, 12] }, boss: { name: 'Cyberphish', emoji: E.bolt, hp: 264, size: 320, color: '#8fefff', flipWhenMovingRight: true, phases: [phase(7, 'sweep', 'wall'), phase(7.5, 'dash', 'aimed'), phase(8, 'hover', 'ring')] } }),
-    theme({ name: 'Black Citadel', subtitle: 'When the hearts break', skyTop: '#0a0c14', skyBottom: '#403f55', glow: '#f0f3ff', accent: '#b6bfd6', accent2: '#9e8e5e', forms: ['line', 'cross', 'wave'], enemyKinds: ['looper', 'sniper', 'elite'], atmosphere: 'chess', music: { bpm: 122, root: 196, pattern: [0, 3, 7, 10, 7, 3, 5, 7] }, boss: { name: 'Purple Matron', emoji: E.queen, hp: 288, size: 320, color: '#e7ecff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'dash', 'summon'), phase(8, 'sweep', 'ring')] } }),
-    theme({ name: 'Crushing Depths', subtitle: 'Hunger for sunlight', skyTop: '#0c1821', skyBottom: '#344c84', glow: '#d7f4ff', accent: '#9cc7ff', accent2: '#d7f4ff', forms: ['rain', 'line', 'swarm'], enemyKinds:  ['spinner', 'diver', 'swarm', 'looper'], atmosphere: 'rain', music: { bpm: 128, root: 196, pattern: [0, 4, 7, 10, 7, 4, 2, 5] }, boss: { name: 'Deep Gulper', emoji: E.cloud, hp: 276, size: 320, color: '#d3edff', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Thorium Rift', subtitle: 'None shall pass', skyTop: '#07111f', skyBottom: '#274062', glow: '#9bc5ff', accent: '#6d9cff', accent2: '#d5e4ff', forms: ['line', 'fan', 'rain'], enemyKinds: ['drifter', 'swarm', 'looper'], atmosphere: 'leaves', music: { bpm: 112, root: 220, pattern: [0, 3, 5, 7, 10, 7, 5, 3] }, boss: { name: 'Red Guardian', emoji: E.apple, hp: 200, size: 320, color: '#9ec2ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Broken Shore', subtitle: 'First of his name', skyTop: '#061b1b', skyBottom: '#1f4d49', glow: '#8ff7ff', accent: '#58d7c6', accent2: '#c8fff2', forms: ['swarm', 'pair', 'arc'], enemyKinds: ['looper', 'bomber', 'sniper'], atmosphere: 'pollen', music: { bpm: 126, root: 246, pattern: [0, 2, 4, 7, 9, 7, 4, 2] }, boss: { name: 'Rocket Baron', emoji: E.bee, hp: 220, size: 320, color: '#93f0e8', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Ultraviolet Prison', subtitle: 'Isolation and servitude', skyTop: '#1b1730', skyBottom: '#53265f', glow: '#d19cff', accent: '#9a7cff', accent2: '#f0d0ff', forms: ['fan', 'rain', 'cross'], enemyKinds: ['drifter', 'looper', 'bomber'], atmosphere: 'sprinkles', music: { bpm: 136, root: 262, pattern: [0, 4, 7, 12, 7, 4, 5, 9] }, boss: { name: 'Warden Thorn', emoji: E.donut, hp: 240, size:320 , color: '#c29bff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7, 'sweep', 'ring'), phase(8, 'low', 'rain')] } }),
+    theme({ name: 'Sinners Den', subtitle: 'Hunger without limit', skyTop: '#0f1620', skyBottom: '#4d5867', glow: '#96c9ff', accent: '#9fb2c6', accent2: '#d0e0ef', forms: ['line', 'pair', 'cross'], enemyKinds: ['looper', 'sniper', 'bomber'], atmosphere: 'sparks', music: { bpm: 118, root: 196, pattern: [0, 0, 7, 5, 4, 5, 7, 10] }, boss: { name: 'Hope Devourer', emoji: E.gear, hp: 260, size: 320, color: '#d0d9e1', flipWhenMovingRight: false, phases: [phase(7, 'sweep', 'ring'), phase(7.5, 'dash', 'summon'), phase(8, 'hover', 'fan')] } }),
+    theme({ name: 'Deadlight Fen', subtitle: 'Master of the soulless crew', skyTop: '#06111d', skyBottom: '#532a40', glow: '#ffbf8a', accent: '#e0a06c', accent2: '#ffc8a1', forms: ['rain', 'arc', 'swarm'], enemyKinds: ['swarm', 'sniper', 'drifter'], atmosphere: 'motes', music: { bpm: 108, root: 196, pattern: [0, 5, 7, 10, 7, 5, 3, 5] }, boss: { name: 'Captain Thaddeus', emoji: E.lantern, hp: 280, size: 320, color: '#f6b46d', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Elysium Moors', subtitle: 'The steed of Neptune', skyTop: '#220c0c', skyBottom: '#6d3a13', glow: '#ffd77a', accent: '#c47a19', accent2: '#ffd59f', forms: ['swarm', 'fan', 'pair'], enemyKinds: ['diver', 'swarm', 'sniper'], atmosphere: 'embers', music: { bpm: 132, root: 246, pattern: [0, 2, 3, 7, 10, 7, 3, 2] }, boss: { name: 'Lunar Horse', emoji: E.bee, hp: 300, size: 320, color: '#e4ba6a', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(8, 'dash', 'rain'), phase(7.5, 'sweep', 'summon')] } }),
+    theme({ name: 'Shard Expanse', subtitle: 'The base of lost hope', skyTop: '#07142f', skyBottom: '#264e88', glow: '#b0fbff', accent: '#95d5ff', accent2: '#d6c4ff', forms: ['ring', 'line', 'arc'], enemyKinds: ['swarm', 'bomber', 'elite', 'looper'], atmosphere: 'shards', music: { bpm: 120, root: 233, pattern: [0, 4, 7, 11, 7, 4, 9, 7] }, boss: { name: 'Shard Base One', emoji: E.gem, hp: 320, size: 320, color: '#c9f6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'ring'), phase(8, 'low', 'beam')] } }),
+    theme({ name: 'Dark Waters', subtitle: 'Prey on the weak', skyTop: '#180709', skyBottom: '#6c2919', glow: '#ffab5b', accent: '#de6f2b', accent2: '#ffd08a', forms: ['rain', 'line', 'swarm'], enemyKinds: ['spinner', 'drifter', 'diver', 'splitter'], atmosphere: 'embers', music: { bpm: 140, root: 220, pattern: [0, 3, 7, 10, 7, 3, 5, 10] }, boss: { name: 'Cephid Hunter', emoji: E.fire, hp: 340, size: 320, color: '#ff9e53', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'rain'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'wall')] } }),
+    theme({ name: 'Domain of Klaatu', subtitle: 'The earth stands still', skyTop: '#07111d', skyBottom: '#2d3d61', glow: '#95d7ff', accent: '#aebfe0', accent2: '#95d7ff', forms: ['line', 'wave', 'pair'], enemyKinds: ['elite', 'diver', 'splitter' ], atmosphere: 'stardust', music: { bpm: 106, root: 185, pattern: [0, 7, 12, 7, 10, 7, 5, 3] }, boss: { name: 'Klaatu', emoji: E.moon, hp: 360, size: 320, color: '#c3d6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'summon'), phase(7.5, 'dash', 'beam'), phase(8, 'sweep', 'ring')] } }),
+    theme({ name: 'Sunken Bastion', subtitle: 'Here drowned men weep', skyTop: '#07101c', skyBottom: '#2d1a5a', glow: '#82f6ff', accent: '#6eeaff', accent2: '#c8fff2', forms: ['wave', 'cross', 'pair'], enemyKinds: ['looper', 'spinner', 'swarm', 'bomber'], atmosphere: 'neon', music: { bpm: 144, root: 220, pattern: [0, 7, 12, 10, 7, 4, 9, 12] }, boss: { name: 'Cyberphish', emoji: E.bolt, hp: 380, size: 320, color: '#8fefff', flipWhenMovingRight: true, phases: [phase(7, 'sweep', 'wall'), phase(7.5, 'dash', 'aimed'), phase(8, 'hover', 'ring')] } }),
+    theme({ name: 'Black Citadel', subtitle: 'When the hearts break', skyTop: '#0a0c14', skyBottom: '#403f55', glow: '#f0f3ff', accent: '#b6bfd6', accent2: '#9e8e5e', forms: ['line', 'cross', 'wave'], enemyKinds: ['looper', 'sniper', 'elite'], atmosphere: 'chess', music: { bpm: 122, root: 196, pattern: [0, 3, 7, 10, 7, 3, 5, 7] }, boss: { name: 'Purple Matron', emoji: E.queen, hp: 400, size: 320, color: '#e7ecff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'dash', 'summon'), phase(8, 'sweep', 'ring')] } }),
+    theme({ name: 'Crushing Depths', subtitle: 'Hunger for sunlight', skyTop: '#0c1821', skyBottom: '#344c84', glow: '#d7f4ff', accent: '#9cc7ff', accent2: '#d7f4ff', forms: ['rain', 'line', 'swarm'], enemyKinds:  ['spinner', 'diver', 'swarm', 'looper'], atmosphere: 'rain', music: { bpm: 128, root: 196, pattern: [0, 4, 7, 10, 7, 4, 2, 5] }, boss: { name: 'Deep Gulper', emoji: E.cloud, hp: 420, size: 320, color: '#d3edff', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
     theme({ name: 'Thorium Gap', subtitle: 'Final Descent', skyTop: '#0f081b', skyBottom: '#5b3d18', glow: '#ffe78a', accent: '#ffd77a', accent2: '#ffffff', forms: ['ring', 'fan', 'wave'], enemyKinds: ['elite', 'sniper', 'spinner', 'looper'], atmosphere: 'nova', music: { bpm: 152, root: 262, pattern: [0, 4, 7, 12, 15, 12, 7, 4] }, boss: { name: 'Unnamed Horror', emoji: E.sun, hp: 1000, size: 512, color: '#fff0bd', flipWhenMovingRight: false, phases: [phase(6.5, 'hover', 'aimed'), phase(6.5, 'sweep', 'ring'), phase(6.5, 'low', 'summon'), phase(6.5, 'dash', 'beam'), phase(7.5, 'low', 'wall')] } })
   ];
 
@@ -1418,13 +1418,13 @@
   const WEAPON_TIER_LABELS = ['I', 'II', 'III', 'IIII', 'V'];
 
   const PICKUPS = {
-    weapon: { emoji: E.wrench, color: '#00ffff' },
-    rapid: { emoji: E.bolt, color: '#ffe97e' },
-    shield: { emoji: E.shield, color: '#8fd8ff' },
-    bomb: { emoji: E.bomb, color: '#ffd96a' },
-    magnet: { emoji: E.magnet, color: '#77f7c4' },
-    invuln: { emoji: E.star, color: '#c7ff8f' },
-    score: { emoji: E.gem, color: '#ff86e0' }
+    weapon: { emoji: E.wrench, color: '#00ffff', lighter: true, glowDiameter: 32 },
+    rapid: { emoji: E.bolt, color: '#ffe97e', lighter: true, glowDiameter: 32 },
+    shield: { emoji: E.shield, color: '#4040ff', lighter: true, glowDiameter: 32 },
+    bomb: { emoji: E.bomb, color: '#ff2020', lighter: true, glowDiameter: 32 },
+    magnet: { emoji: E.magnet, color: '#777777', lighter: true, glowDiameter: 32 },
+    invuln: { emoji: E.star, color: '#c7ff8f', lighter: true, glowDiameter: 32 },
+    score: { emoji: E.gem, color: '#f00000', lighter: false, glowDiameter: 32 }
   };
 
   const ENEMIES = {
@@ -3272,7 +3272,7 @@
     aimed: function (b) {
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
-      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.6 : 0.7);
+      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.8 : 1.0);
       const pl = state.player;
       const base = ang(b.x, b.y, pl.x, pl.y);
       const n = b.hp < b.maxHp * 0.5 ? 5 : 3;
@@ -3284,13 +3284,13 @@
     ring: function (b) {
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
-      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.88 : 1.2);
+      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.9 : 1.2);
       ringBullets(b.x, b.y, b.hp < b.maxHp * 0.5 ? 20 : 14, b.hp < b.maxHp * 0.5 ? 210 : 180, 1, b.color, 'enemy', 'boss', b.name);
     },
     fan: function (b) {
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
-      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.28 : 0.4);
+      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ?  0.8 : 1.0);
       const pl = state.player;
       const base = ang(b.x, b.y, pl.x, pl.y);
       const n = b.hp < b.maxHp * 0.5 ? 7 : 5;
@@ -3302,7 +3302,7 @@
     rain: function (b) {
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
-      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.24 : 0.4);
+      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.3 : 0.5);
       for (let i = 0; i < (b.hp < b.maxHp * 0.5 ? 3 : 2); i++) {
         spawnBullet('enemy', clamp(b.x + rand(-160, 160), 24, view.w - 24), -20, rand(-22, 22), rand(220, 280), { r: 6, color: b.color, damage: 1, kind: 'rain', ay: 18, life: 5, sourceKind: 'boss', sourceName: b.name });
       }
@@ -3310,7 +3310,7 @@
     summon: function (b) {
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
-      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 1.0 : 1.5);
+      b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 0.5 : 1.0);
       spawnEnemy(pick(b.theme.enemyKinds), clamp(b.x + rand(-120, 120), 36, view.w - 36), b.y + rand(-10, 18), { vx: rand(-80, 80), vy: rand(120, 152) });
       if (chance(0.4)) spawnEnemy('swarm', clamp(b.x + rand(-120, 120), 36, view.w - 36), b.y + rand(-10, 18), { vx: rand(-80, 80), vy: rand(128, 160) });
     },
@@ -4079,18 +4079,19 @@
     if (state.boss) updateBoss(dt);
     if (!state.boss) {
       state.levelClock += dt;
-      state.waveClock += dt;
     }
+    // During boss fight, enemy waves spawn at 25% rate
+    state.waveClock += state.boss ? dt * 0.25 : dt;
     updateBullets(dt);
     updateEnemies(dt);
     updatePickups(dt);
     updateParticles(dt);
     updateTransition(dt);
-    if (!state.boss && !state.transition) {
+    if (!state.transition) {
       const theme = state.currentTheme;
       const spawnInterval = clamp(1.3 - state.levelIndex * 0.01, 0.5, 2.0);
       while (state.waveClock >= spawnInterval) { state.waveClock -= spawnInterval; spawnWave(theme); }
-      if (state.levelClock >= 40 + state.levelIndex * 2) spawnBoss(theme);
+      if (!state.boss && state.levelClock >= 40 + state.levelIndex * 2) spawnBoss(theme);
     }
     updateMusic(dt);
     if (state.flash > 0) state.flash = Math.max(0, state.flash - dt * 0.85);
@@ -4991,14 +4992,17 @@
     for (let i = 0; i < state.pickups.length; i++) {
       const p = state.pickups[i];
       const bob = Math.sin(p.bob) * 4;
+      const glowDiameter = Number.isFinite(p.glowDiameter) ? p.glowDiameter : 32;
+      const glowRadiusOuter = glowDiameter * 0.5;
+      const glowRadiusInner = glowDiameter * 0.25;
       if (state.settings.lowEndMode) {
-        drawGlowCircleNormal(p.x, p.y + bob, 16, p.color, 0.48, 22);
-        drawGlowCircleNormal(p.x, p.y + bob, 8, p.color, 0.85, 10);
+        drawGlowCircleNormal(p.x, p.y + bob, glowRadiusOuter, p.color, 0.48, 22);
+        drawGlowCircleNormal(p.x, p.y + bob, glowRadiusInner, p.color, 0.85, 10);
       } else {
-        drawGlowCircle(p.x, p.y + bob, 16, p.color, 0.48, 22);
-        drawGlowCircle(p.x, p.y + bob, 8, p.color, 0.85, 10);
+        drawGlowCircle(p.x, p.y + bob, glowRadiusOuter, p.color, 0.48, 22);
+        drawGlowCircle(p.x, p.y + bob, glowRadiusInner, p.color, 0.85, 10);
       }
-      drawEmojiGlyph(p.emoji, p.x, p.y + bob, 20, { alpha: 1, rot: Math.sin(p.spin + p.bob * 0.7) * 0.16, layer: 2, lighter: true });
+      drawEmojiGlyph(p.emoji, p.x, p.y + bob, 20, { alpha: 1, rot: Math.sin(p.spin + p.bob * 0.7) * 0.16, layer: 2, lighter: p.lighter !== false });
     }
   }
 
