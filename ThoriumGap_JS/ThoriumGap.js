@@ -2718,9 +2718,10 @@
     const diff = currentDifficulty();
     const levelNumber = state.levelIndex + 1;
     const hitBox = getBossHitBox(levelNumber);
+    const bossYOffset = levelNumber >= THEMES.length ? 0 : Math.max(0, (b.size || 512) * 0.25);
     state.boss = {
       theme: theme, name: b.name, emoji: b.emoji, color: b.color,
-      x: view.w * 0.5, y: 128, vx: 0, vy: 0, r: 64,
+      x: view.w * 0.5, y: 128 + bossYOffset, vx: 0, vy: 0, r: 64,
       hp: Math.round(b.hp * (1 + state.levelIndex * 0.04) * diff.bossHp),
       maxHp: Math.round(b.hp * (1 + state.levelIndex * 0.04) * diff.bossHp),
       phases: b.phases, phaseIndex: 0, phaseClock: 0, age: 0,
@@ -2728,7 +2729,8 @@
       size: Math.max(1, b.size || 512),
       flipWhenMovingRight: b.flipWhenMovingRight !== false,
       shipLevel: levelNumber, shipIndex: 0, facingRight: false,
-      hitBox: hitBox
+      hitBox: hitBox,
+      yOffset: bossYOffset
     };
     state.banner = 'BOSS: ' + b.name;
     state.bannerSub = theme.subtitle;
@@ -3374,6 +3376,7 @@
       tx = b.state.dashTarget;
       ty = 148 + Math.sin(b.age * 2.1) * 14;
     }
+    ty += Number.isFinite(b.yOffset) ? b.yOffset : 0;
     const prevX = b.x;
     const prevY = b.y;
     b.x = smooth(b.x, clamp(tx, 88, view.w - 88), 2.8, dt);
@@ -5136,7 +5139,9 @@
   function drawBossBody(b) {
     const p = bossPalette(b);
     const r = b.r;
-    const rot = Math.sin(b.age * 0.8) * 0.04;
+    const swayRot = Math.sin(b.age * 0.8) * 0.04;
+    const moveTilt = clamp((b.vx || 0) / 900, -0.02, 0.02);
+    const rot = swayRot + moveTilt;
     const levelNumber = b.shipLevel || (state.levelIndex + 1);
     const size = Math.max(1, b.size || 512);
     const glowSize = bossGlowCanvasSize(size);
