@@ -177,6 +177,8 @@
   const ENEMY_ELITE_SIZE = 128;
   const ENEMY_SHIP_TEXTURE_SIZE = 256;
   const enemyShipLoadKeys = new Set();
+  const enemyShipGlowLoadKeys = new Set();
+  const enemyShipGlowTextures = new Map();
   const ENEMY_SHIP_GLOW_FALLBACKS = ['#8fd8ff', '#ff8fd3', '#d8ff8f', '#ffbf8f', '#9a8fff', '#8fffe1', '#ffe38f', '#9fc8ff'];
   // Enemy glow colors are cached here after load; debug mode may sample textures once, production uses a fallback palette.
   const enemyShipGlowColors = new Map();
@@ -285,6 +287,55 @@
     return c;
   }
 
+  function makeEnemyGlowCanvas(normalized, glowColor, size) {
+    size = Math.max(1, size || ENEMY_SHIP_TEXTURE_SIZE);
+    const pad = Math.max(8, Math.round(size * 0.12));
+    const total = size + pad * 2;
+    const c = makeCanvas(total, total);
+    const g = c.getContext('2d', { willReadFrequently: true }) || c.getContext('2d');
+    if (!g) return null;
+    const src = makeCanvas(total, total);
+    const sg = src.getContext('2d');
+    if (!sg) return null;
+    sg.clearRect(0, 0, total, total);
+    sg.drawImage(normalized, pad, pad, size, size);
+    g.clearRect(0, 0, total, total);
+    if (g.filter !== undefined) g.filter = 'blur(7px)';
+    g.drawImage(src, 0, 0);
+    if (g.filter !== undefined) g.filter = 'none';
+    const imgData = g.getImageData(0, 0, total, total);
+    const data = imgData.data;
+    const rgb = hexToRgb(glowColor || '#ffffff');
+    const coreX0 = Math.max(0, pad - 3);
+    const coreY0 = Math.max(0, pad - 3);
+    const coreX1 = Math.min(total, pad + size + 3);
+    const coreY1 = Math.min(total, pad + size + 3);
+    for (let y = 0; y < total; y++) {
+      for (let x = 0; x < total; x++) {
+        const idx = (y * total + x) * 4;
+        const a = data[idx + 3];
+        if (a <= 0) continue;
+        data[idx] = rgb[0];
+        data[idx + 1] = rgb[1];
+        data[idx + 2] = rgb[2];
+        if (x >= coreX0 && x < coreX1 && y >= coreY0 && y < coreY1) {
+          data[idx + 3] = Math.round(Math.min(255, a * 0.82 + 28));
+        } else {
+          data[idx + 3] = Math.round(Math.min(255, a * 1.95 + 18));
+        }
+      }
+    }
+    g.putImageData(imgData, 0, 0);
+    const bounds = getCanvasAlphaBounds(c);
+    if (bounds.w <= 0 || bounds.h <= 0) return c;
+    if (bounds.x === 0 && bounds.y === 0 && bounds.w === total && bounds.h === total) return c;
+    const cropped = makeCanvas(bounds.w, bounds.h);
+    const cg = cropped.getContext('2d');
+    if (!cg) return c;
+    cg.drawImage(c, bounds.x, bounds.y, bounds.w, bounds.h, 0, 0, bounds.w, bounds.h);
+    return cropped;
+  }
+
   function ensureEnemyShipTexture(levelNumber, shipIndex) {
     const key = enemyShipKey(levelNumber, shipIndex);
     if (render.textures.has(key) || enemyShipLoadKeys.has(key)) return;
@@ -303,6 +354,36 @@
     };
     img.onerror = function () {
       enemyShipLoadKeys.delete(key);
+    };
+    img.src = enemyShipSource(levelNumber, shipIndex);
+  }
+
+  function ensureEnemyShipGlowTexture(levelNumber, shipIndex) {
+    const key = enemyShipKey(levelNumber, shipIndex) + '|glow';
+    if (render.textures.has(key) || enemyShipGlowLoadKeys.has(key)) return;
+    enemyShipGlowLoadKeys.add(key);
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = function () {
+      try {
+        const normalized = makeNormalizedEnemyCanvas(img, ENEMY_SHIP_TEXTURE_SIZE) || img;
+        const glowColor = getEnemyShipGlowColor(levelNumber, shipIndex, null);
+        const glowCanvas = makeEnemyGlowCanvas(normalized, glowColor, ENEMY_SHIP_TEXTURE_SIZE) || normalized;
+        const tex = createTextureFromCanvas(glowCanvas);
+        if (tex) {
+          render.textures.set(key, tex);
+          enemyShipGlowTextures.set(key, {
+            texture: tex,
+            w: glowCanvas.width || ENEMY_SHIP_TEXTURE_SIZE,
+            h: glowCanvas.height || ENEMY_SHIP_TEXTURE_SIZE
+          });
+        }
+      } finally {
+        enemyShipGlowLoadKeys.delete(key);
+      }
+    };
+    img.onerror = function () {
+      enemyShipGlowLoadKeys.delete(key);
     };
     img.src = enemyShipSource(levelNumber, shipIndex);
   }
@@ -392,7 +473,10 @@
   }
 
   function warmEnemyShipBatch(levelNumber) {
-    for (let i = 0; i < ENEMY_SHIP_COLUMNS; i++) ensureEnemyShipTexture(levelNumber, i);
+    for (let i = 0; i < ENEMY_SHIP_COLUMNS; i++) {
+      ensureEnemyShipTexture(levelNumber, i);
+      ensureEnemyShipGlowTexture(levelNumber, i);
+    }
   }
 
   function getEnemyShipTexture(levelNumber, shipIndex) {
@@ -705,6 +789,14 @@
     }
     if (maxX < minX || maxY < minY) return { x: 0, y: 0, w: w, h: h };
     return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+  }
+
+  function getEnemyShipGlowTexture(levelNumber, shipIndex) {
+    const key = enemyShipKey(levelNumber, shipIndex) + '|glow';
+    const entry = enemyShipGlowTextures.get(key);
+    if (entry) return entry;
+    ensureEnemyShipGlowTexture(levelNumber, shipIndex);
+    return enemyShipGlowTextures.get(key) || null;
   }
 
   function makeCanvasAlphaMask(source, alphaThreshold) {
@@ -2462,7 +2554,7 @@
   }
 
   function assetWarmupBusy() {
-    return !!(playerShipTextureLoading || playerAuraTextureLoading || bossArtLoadKeys.size || bossPartLoadKeys.size || enemyShipLoadKeys.size || glowImageLoads.size || planetDecorLoadKeys.size || planetDecorTextureLoadKeys.size);
+    return !!(playerShipTextureLoading || playerAuraTextureLoading || bossArtLoadKeys.size || bossPartLoadKeys.size || enemyShipLoadKeys.size || enemyShipGlowLoadKeys.size || glowImageLoads.size || planetDecorLoadKeys.size || planetDecorTextureLoadKeys.size);
   }
 
   function warmAllTextures() {
@@ -5335,10 +5427,25 @@
       const levelNumber = e.shipLevel || (state.levelIndex + 1);
       const shipIndex = e.shipIndex || 0;
       const texture = getEnemyShipTexture(levelNumber, shipIndex);
+      const glowTexture = getEnemyShipGlowTexture(levelNumber, shipIndex);
       const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme);
       const glowRadius = Math.max(14, shipSize * 0.42 * 0.675 * (state.settings.lowEndMode ? 1 : 0.9));
-      drawGlowCircle(e.x, e.y, glowRadius * 1.13, shipGlow, 0.68, 22);
-      drawGlowCircle(e.x, e.y, glowRadius * 0.61, shipGlow, 0.57, 12);
+      if (glowTexture) {
+        const glowW = shipSize * 0.75;
+        const glowH = shipSize * 0.75;
+        drawTextureRect(glowTexture.texture, e.x, e.y, glowW, glowH, { rot: rot, alpha: 0.50, layer: 17, lighter: false, fill: shipGlow });
+        if (e.hitFlash > 0) {
+          const flash = clamp(e.hitFlash * 16.0, 0, 1);
+          drawGlowCircle(e.x, e.y, shipSize * 0.60, '#ffffff', flash * 0.95, 18);
+        }
+      } else {
+        drawGlowCircle(e.x, e.y, glowRadius * 0.9312, shipGlow, 0.93, 22);
+        drawGlowCircle(e.x, e.y, glowRadius * 0.5033, shipGlow, 0.78, 12);
+        if (e.hitFlash > 0) {
+          const flash = clamp(e.hitFlash * 16.0, 0, 1);
+          drawGlowCircle(e.x, e.y, glowRadius * 0.965, '#ffffff', flash, 22);
+        }
+      }
       if (texture) {
         drawTextureRect(texture, e.x, e.y, shipSize, shipSize, { rot: rot, alpha: alpha, layer: 18 });
       } else {
@@ -5553,7 +5660,6 @@
   }
 
   function drawEnemyOverlay(e, rot) {
-    if (e.hitFlash > 0) drawGlowCircle(e.x, e.y, e.r * 1.2, '#ffffff', 0.16, 19);
   }
 
   function drawBossOverlay(b) {
@@ -5591,7 +5697,6 @@
         }
       }
     }
-    if (e.hitFlash > 0) drawGlowCircle(e.x, e.y, e.r * 1.35, '#ffffff', 0.22, 18);
   }
 
   function drawBoss(b) {
