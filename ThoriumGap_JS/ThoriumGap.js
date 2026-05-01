@@ -3896,8 +3896,9 @@
         if (b.kind === 'beam') {
           b.pierce = Math.max(0, (b.pierce || 0) - 1);
           if (b.pierce <= 0) remove = true;
-        } else if (b.pierce > 0) { b.pierce--; b.life -= 0.3; }
-        else remove = true;
+        } else {
+          remove = true;
+        }
       }
       if (!remove && state.boss && bossBodyAlphaHit(state.boss, b.x, b.y, b.r)) {
         damageBoss(state.boss, b.damage, false);
@@ -6078,7 +6079,7 @@
     const heatPanelGap = compact ? 5 : 6;
     const scorePanelMinW = compact ? 240 : 290;
     const scorePanelMaxW = Math.max(scorePanelMinW, Math.min(view.w - 24 - heatPanelGap - heatPanelW, compact ? 460 : 600));
-    const panelW = clamp(contentW + (compact ? 42 : 46), scorePanelMinW, scorePanelMaxW);
+    const panelW = clamp(Math.round((contentW + (compact ? 42 : 46)) * 1.2), scorePanelMinW, scorePanelMaxW);
     const panelH = compact ? 44 : 48;
     const panelX = 8;
     const panelY = 8;
