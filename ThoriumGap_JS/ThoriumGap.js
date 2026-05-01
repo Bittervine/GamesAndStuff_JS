@@ -3055,7 +3055,7 @@
     const diff = currentDifficulty();
     const levelNumber = state.levelIndex + 1;
     const hitBox = getBossHitBox(levelNumber);
-    const bossYOffset = levelNumber >= THEMES.length ? 0 : Math.max(0, (b.size || 512) * 0.25);
+    const bossYOffset = levelNumber >= THEMES.length ? -Math.max(0, (b.size || 512) * 0.20) : Math.max(0, (b.size || 512) * 0.25);
     const bossHp = Math.round(b.hp * diff.bossHp);
     const clawHp = Math.max(1, Math.round(bossHp * 0.95));
     state.boss = {
@@ -4873,7 +4873,7 @@
     });
   }
 
-  function drawBar(x, y, w, h, ratio, fill, back, label) {
+  function drawBar(x, y, w, h, ratio, fill, back, label, flat) {
     x = Number.isFinite(x) ? x : 0;
     y = Number.isFinite(y) ? y : 0;
     w = Number.isFinite(w) ? w : 0;
@@ -4887,10 +4887,12 @@
   hudCtx.fill();
   hudCtx.stroke();
   if (p > 0) {
-    const g = hudCtx.createLinearGradient(x, y, x + w, y);
-    g.addColorStop(0, fill || '#ffffff');
-    g.addColorStop(1, 'rgba(255,255,255,0.95)');
-    hudCtx.fillStyle = g;
+    hudCtx.fillStyle = flat ? (fill || '#ffffff') : (function () {
+      const g = hudCtx.createLinearGradient(x, y, x + w, y);
+      g.addColorStop(0, fill || '#ffffff');
+      g.addColorStop(1, 'rgba(255,255,255,0.95)');
+      return g;
+    })();
     roundRect(x + 1, y + 1, Math.max(0, (w - 2) * p), h - 2, h * 0.45);
     hudCtx.fill();
     }
@@ -5698,6 +5700,7 @@
     const claw = b.claws[side];
     if (claw.dead) return false;
     claw.hp -= damage;
+    damageBoss(b, damage * 0.3, false);
     claw.hitFlash = 0.12;
     claw.glowBoost = Math.min(1.0, (claw.glowBoost || 0) + 0.25);
     const target = getFinalBossClawHitBox(b, side);
@@ -6193,9 +6196,22 @@
       }
     }
 
-      if (state.boss) {
+    if (state.boss) {
       drawBar(12, bossBarY, view.w - 24, compact ? 13 : 15, state.boss.hp / state.boss.maxHp, theme.accent2, 'rgba(0,0,0,0.42)', 'BOSS ' + state.boss.name);
+      if (state.boss.claws) {
+        const clawBarY = bossBarY + (compact ? 16 : 18);
+        const clawBarH = compact ? 4 : 5;
+        const leftClaw = state.boss.claws.left;
+        const rightClaw = state.boss.claws.right;
+        const clawW = Math.floor((view.w - 28) * 0.5);
+        if (leftClaw) {
+          drawBar(12, clawBarY, clawW - 3, clawBarH, leftClaw.hp / Math.max(1, leftClaw.maxHp), '#9edcff', 'rgba(0,0,0,0.36)', '', true);
+        }
+        if (rightClaw) {
+          drawBar(16 + clawW, clawBarY, clawW - 3, clawBarH, rightClaw.hp / Math.max(1, rightClaw.maxHp), '#9edcff', 'rgba(0,0,0,0.36)', '', true);
+        }
       }
+    }
 
     const invulnPickupActive = p.invuln > 0.5;
     const powerLabel = state.overdrive > 0 ? 'OVERDRIVE' : p.rapidTimer > 0 ? 'RAPID' : p.magnetTimer > 0 ? 'MAGNET' : invulnPickupActive ? 'INVULN' : '';
