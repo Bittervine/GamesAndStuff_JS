@@ -183,6 +183,7 @@
   const bossArtLoadKeys = new Set();
   const bossGlowLoadKeys = new Set();
   const bossGlowTextures = new Map();
+  const bossAlphaMasks = new Map();
   const bossPartLoadKeys = new Set();
   const bossPartTextures = new Map();
   const bossHitBoxes = new Map();
@@ -687,7 +688,7 @@
     const w = Math.max(1, source && (source.naturalWidth || source.width) || 1);
     const h = Math.max(1, source && (source.naturalHeight || source.height) || 1);
     const c = makeCanvas(w, h);
-    const g = c.getContext('2d');
+    const g = c.getContext('2d', { willReadFrequently: true }) || c.getContext('2d');
     if (!g) return { x: 0, y: 0, w: w, h: h };
     g.clearRect(0, 0, w, h);
     g.drawImage(source, 0, 0, w, h);
@@ -706,6 +707,64 @@
     return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
   }
 
+  function makeCanvasAlphaMask(source, alphaThreshold) {
+    const w = Math.max(1, source && (source.naturalWidth || source.width) || 1);
+    const h = Math.max(1, source && (source.naturalHeight || source.height) || 1);
+    const c = makeCanvas(w, h);
+    const g = c.getContext('2d', { willReadFrequently: true }) || c.getContext('2d');
+    if (!g) return { w: w, h: h, data: null, bounds: { x: 0, y: 0, w: w, h: h } };
+    g.clearRect(0, 0, w, h);
+    g.drawImage(source, 0, 0, w, h);
+    const imgData = g.getImageData(0, 0, w, h);
+    const src = imgData.data;
+    const mask = new Uint8Array(w * h);
+    const threshold = alphaThreshold == null ? 8 : alphaThreshold;
+    let minX = w, minY = h, maxX = -1, maxY = -1;
+    for (let i = 0, p = 0; i < src.length; i += 4, p++) {
+      if (src[i + 3] <= threshold) continue;
+      mask[p] = 1;
+      const x = p % w;
+      const y = (p / w) | 0;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+    const bounds = maxX < minX || maxY < minY ? { x: 0, y: 0, w: w, h: h } : { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+    return { w: w, h: h, data: mask, bounds: bounds };
+  }
+
+  function pointHitsAlphaMask(mask, spriteX, spriteY, spriteW, spriteH, rot, worldX, worldY) {
+    if (!mask || !mask.data) return false;
+    const c = Math.cos(-(rot || 0));
+    const s = Math.sin(-(rot || 0));
+    const dx = worldX - spriteX;
+    const dy = worldY - spriteY;
+    const localX = dx * c - dy * s;
+    const localY = dx * s + dy * c;
+    const texX = Math.floor((localX / spriteW + 0.5) * mask.w);
+    const texY = Math.floor((localY / spriteH + 0.5) * mask.h);
+    if (texX < 0 || texY < 0 || texX >= mask.w || texY >= mask.h) return false;
+    return mask.data[texY * mask.w + texX] !== 0;
+  }
+
+  function circleHitsAlphaMask(mask, spriteX, spriteY, spriteW, spriteH, rot, worldX, worldY, radius) {
+    const r = Math.max(1, radius || 1);
+    const samples = [
+      [0, 0],
+      [r * 0.7, 0],
+      [-r * 0.7, 0],
+      [0, r * 0.7],
+      [0, -r * 0.7]
+    ];
+    for (let i = 0; i < samples.length; i++) {
+      const sx = worldX + samples[i][0];
+      const sy = worldY + samples[i][1];
+      if (pointHitsAlphaMask(mask, spriteX, spriteY, spriteW, spriteH, rot, sx, sy)) return true;
+    }
+    return false;
+  }
+
   function ensureBossTexture(levelNumber) {
     const key = bossArtKey(levelNumber);
     if (render.textures.has(key) || bossArtLoadKeys.has(key)) return;
@@ -719,6 +778,8 @@
         const normalized = makeNormalizedBossCanvas(img, bossSize) || img;
         const bossTex = createTextureFromCanvas(normalized);
         if (bossTex) render.textures.set(key, bossTex);
+        const alphaMask = makeCanvasAlphaMask(normalized, 8);
+        if (alphaMask) bossAlphaMasks.set(key, alphaMask);
         const bounds = getCanvasAlphaBounds(normalized);
         bossHitBoxes.set(key, {
           x: bounds.x - bossSize * 0.5,
@@ -771,6 +832,7 @@
           const rawH = Math.max(1, img.naturalHeight || img.height || 1);
           const glowPad = bossGlowPad(rawW);
           const bounds = getCanvasAlphaBounds(source);
+          const mask = makeCanvasAlphaMask(source, 8);
           bossPartTextures.set(key, {
             texture: tex,
             glowTexture: glowTex,
@@ -778,6 +840,7 @@
             glowW: rawW + glowPad * 2,
             glowH: rawH + glowPad * 2,
             bounds: bounds,
+            mask: mask,
             w: rawW,
             h: rawH
           });
@@ -806,6 +869,14 @@
     if (tex) return tex;
     ensureBossTexture(levelNumber);
     return null;
+  }
+
+  function getBossAlphaMask(levelNumber) {
+    const key = bossArtKey(levelNumber);
+    const mask = bossAlphaMasks.get(key);
+    if (mask) return mask;
+    ensureBossTexture(levelNumber);
+    return bossAlphaMasks.get(key) || null;
   }
 
   function getBossGlowTexture(levelNumber) {
@@ -3534,13 +3605,7 @@
       sfx('boss');
     }
     updateBossMotion(b, phaseDef, dt);
-    const bossRect = {
-      x: b.x + (b.hitBox ? b.hitBox.x : -256),
-      y: b.y + (b.hitBox ? b.hitBox.y : -256),
-      w: b.hitBox ? b.hitBox.w : 512,
-      h: b.hitBox ? b.hitBox.h : 512
-    };
-    if (p.invuln <= 0 && circleIntersectsRect(p.x, p.y, p.r, bossRect)) {
+    if (p.invuln <= 0 && bossBodyAlphaHit(b, p.x, p.y, p.r)) {
       pushDebugEvent('bossContactHit', {
         boss: {
           name: b.name || '',
@@ -3696,12 +3761,7 @@
         } else if (b.pierce > 0) { b.pierce--; b.life -= 0.3; }
         else remove = true;
       }
-      if (!remove && state.boss && circleIntersectsRect(b.x, b.y, b.r, {
-        x: state.boss.x + (state.boss.hitBox ? state.boss.hitBox.x : -256),
-        y: state.boss.y + (state.boss.hitBox ? state.boss.hitBox.y : -256),
-        w: state.boss.hitBox ? state.boss.hitBox.w : 512,
-        h: state.boss.hitBox ? state.boss.hitBox.h : 512
-      })) {
+      if (!remove && state.boss && bossBodyAlphaHit(state.boss, b.x, b.y, b.r)) {
         damageBoss(state.boss, b.damage, false);
         if (clearVersion !== state.projectileClearVersion) return;
         if (b.kind === 'beam') {
@@ -5383,6 +5443,28 @@
     };
   }
 
+  function bossBodyCollisionSpec(b) {
+    if (!b) return null;
+    const levelNumber = b.shipLevel || (state.levelIndex + 1);
+    const size = Math.max(1, b.size || 512);
+    const flipWhenMovingRight = b.flipWhenMovingRight !== false;
+    const facingRight = flipWhenMovingRight ? !!b.facingRight : false;
+    return {
+      mask: getBossAlphaMask(levelNumber),
+      x: b.x,
+      y: b.y,
+      w: facingRight ? -size : size,
+      h: size,
+      rot: finalBossBodyRot(b)
+    };
+  }
+
+  function bossBodyAlphaHit(b, x, y, radius) {
+    const spec = bossBodyCollisionSpec(b);
+    if (!spec || !spec.mask) return false;
+    return circleHitsAlphaMask(spec.mask, spec.x, spec.y, spec.w, spec.h, spec.rot, x, y, radius);
+  }
+
   function damageFinalBossClawAtPoint(b, x, y, radius, damage) {
     if (!b || !b.claws) return false;
     const sides = ['left', 'right'];
@@ -5390,7 +5472,10 @@
       const side = sides[i];
       const claw = b.claws[side];
       if (!claw || claw.dead) continue;
-      if (circleIntersectsRotatedRect(x, y, radius, getFinalBossClawHitBox(b, side))) {
+      const parts = getFinalBossClawParts(b, finalBossBodyRot(b));
+      const part = parts && parts[side];
+      if (!part || !part.entry || !part.entry.mask) continue;
+      if (circleHitsAlphaMask(part.entry.mask, part.socketX, part.socketY, part.w, part.h, part.rot, x, y, radius)) {
         return damageFinalBossClaw(b, side, damage);
       }
     }
