@@ -176,6 +176,8 @@
   const ENEMY_SHIP_MAX_SIZE = 108;
   const ENEMY_ELITE_SIZE = 128;
   const ENEMY_SHIP_TEXTURE_SIZE = 256;
+  const ENEMY_SHIP_GLOW_PAD = Math.max(8, Math.round(ENEMY_SHIP_TEXTURE_SIZE * 0.12));
+  const ENEMY_SHIP_GLOW_SCALE = (ENEMY_SHIP_TEXTURE_SIZE + ENEMY_SHIP_GLOW_PAD * 2) / ENEMY_SHIP_TEXTURE_SIZE;
   const enemyShipLoadKeys = new Set();
   const enemyShipGlowLoadKeys = new Set();
   const enemyShipGlowTextures = new Map();
@@ -215,44 +217,66 @@
     ctx.drawImage(img, 0, 0);
     const sampleStep = 4;
     const data = ctx.getImageData(0, 0, w, h).data;
-    let rs = 0, gs = 0, bs = 0, count = 0;
+    let vividRs = 0, vividGs = 0, vividBs = 0, vividTotalWeight = 0;
+    let fallbackRs = 0, fallbackGs = 0, fallbackBs = 0, fallbackWeight = 0;
     for (let y = 0; y < h; y += sampleStep) {
       for (let x = 0; x < w; x += sampleStep) {
         const idx = (y * w + x) * 4;
         const a = data[idx + 3];
         if (a < 24) continue;
-        rs += data[idx];
-        gs += data[idx + 1];
-        bs += data[idx + 2];
-        count++;
+        const r = data[idx];
+        const g = data[idx + 1];
+        const b = data[idx + 2];
+        const nr = r / 255;
+        const ng = g / 255;
+        const nb = b / 255;
+        const max = Math.max(nr, ng, nb);
+        const min = Math.min(nr, ng, nb);
+        const d = max - min;
+        const sat = max <= 0 ? 0 : d / Math.max(0.0001, max);
+        const value = max;
+        const baseWeight = (0.2 + value * 0.8) * (0.12 + sat * 0.88) * (a / 255);
+        fallbackRs += r * baseWeight;
+        fallbackGs += g * baseWeight;
+        fallbackBs += b * baseWeight;
+        fallbackWeight += baseWeight;
+        if (sat < 0.22 || value < 0.2) continue;
+        const pixelWeight = baseWeight * (0.65 + sat * 0.9) * (0.5 + value * 0.5);
+        vividRs += r * pixelWeight;
+        vividGs += g * pixelWeight;
+        vividBs += b * pixelWeight;
+        vividTotalWeight += pixelWeight;
       }
     }
-    if (!count) return '#8fd8ff';
-    const r = Math.round(rs / count);
-    const g = Math.round(gs / count);
-    const b = Math.round(bs / count);
-    return brightHueFromRgb(r, g, b);
+    if (vividTotalWeight > 0.0001) {
+      const vivid = projectToRgbRim([
+        Math.round(vividRs / vividTotalWeight),
+        Math.round(vividGs / vividTotalWeight),
+        Math.round(vividBs / vividTotalWeight)
+      ]);
+      return '#' + vivid.map(v => Math.round(clamp(v, 0, 255)).toString(16).padStart(2, '0')).join('');
+    }
+    if (!fallbackWeight) return '#8fd8ff';
+    const rim = projectToRgbRim([
+      Math.round(fallbackRs / fallbackWeight),
+      Math.round(fallbackGs / fallbackWeight),
+      Math.round(fallbackBs / fallbackWeight)
+    ]);
+    return '#' + rim.map(v => Math.round(clamp(v, 0, 255)).toString(16).padStart(2, '0')).join('');
   }
 
-  function brightHueFromRgb(r, g, b) {
-    const nr = r / 255;
-    const ng = g / 255;
-    const nb = b / 255;
-    const max = Math.max(nr, ng, nb);
-    const min = Math.min(nr, ng, nb);
-    const d = max - min;
-    let h = 0;
-    if (d > 0) {
-      if (max === nr) h = ((ng - nb) / d) % 6;
-      else if (max === ng) h = (nb - nr) / d + 2;
-      else h = (nr - ng) / d + 4;
-      h *= 60;
-      if (h < 0) h += 360;
-    }
-    const s = d === 0 ? 0 : d / (1 - Math.abs(2 * 0.5 - 1));
-    const finalS = clamp(0.78 + s * 0.18, 0.78, 0.98);
-    const finalL = 0.66;
-    return hslToHex(h, finalS, finalL);
+  function projectToRgbRim(rgb) {
+    const r = Array.isArray(rgb) ? (rgb[0] || 0) : 0;
+    const g = Array.isArray(rgb) ? (rgb[1] || 0) : 0;
+    const b = Array.isArray(rgb) ? (rgb[2] || 0) : 0;
+    const m = Math.min(r, g, b);
+    const rr = r - m;
+    const gg = g - m;
+    const bb = b - m;
+    const max = Math.max(rr, gg, bb);
+    if (max <= 0) return [255, 0, 0];
+    const k = 255 / max;
+    return [Math.round(rr * k), Math.round(gg * k), Math.round(bb * k)];
   }
 
   function hslToHex(h, s, l) {
@@ -268,6 +292,21 @@
     else { r = c; b = x; }
     const m = l - c / 2;
     return '#' + [r + m, g + m, b + m].map(v => Math.round(clamp(v * 255, 0, 255)).toString(16).padStart(2, '0')).join('');
+  }
+
+  function hsvToHex(h, s, v) {
+    const hp = ((h % 360) + 360) % 360 / 60;
+    const c = v * s;
+    const x = c * (1 - Math.abs((hp % 2) - 1));
+    let r = 0, g = 0, b = 0;
+    if (hp < 1) { r = c; g = x; }
+    else if (hp < 2) { r = x; g = c; }
+    else if (hp < 3) { g = c; b = x; }
+    else if (hp < 4) { g = x; b = c; }
+    else if (hp < 5) { r = x; b = c; }
+    else { r = c; b = x; }
+    const m = v - c;
+    return '#' + [r + m, g + m, b + m].map(vv => Math.round(clamp(vv * 255, 0, 255)).toString(16).padStart(2, '0')).join('');
   }
 
   function makeNormalizedEnemyCanvas(img, size) {
@@ -287,9 +326,9 @@
     return c;
   }
 
-  function makeEnemyGlowCanvas(normalized, glowColor, size) {
+  function makeEnemyGlowCanvas(normalized, glowColor, size, keepFullBounds) {
     size = Math.max(1, size || ENEMY_SHIP_TEXTURE_SIZE);
-    const pad = Math.max(8, Math.round(size * 0.12));
+    const pad = Math.max(8, Math.round(size * 0.14));
     const total = size + pad * 2;
     const c = makeCanvas(total, total);
     const g = c.getContext('2d', { willReadFrequently: true }) || c.getContext('2d');
@@ -319,13 +358,14 @@
         data[idx + 1] = rgb[1];
         data[idx + 2] = rgb[2];
         if (x >= coreX0 && x < coreX1 && y >= coreY0 && y < coreY1) {
-          data[idx + 3] = Math.round(Math.min(255, a * 0.82 + 28));
+          data[idx + 3] = Math.round(a * 0.40);
         } else {
-          data[idx + 3] = Math.round(Math.min(255, a * 1.95 + 18));
+          data[idx + 3] = Math.round(Math.min(255, a * 1.35));
         }
       }
     }
     g.putImageData(imgData, 0, 0);
+    if (keepFullBounds) return c;
     const bounds = getCanvasAlphaBounds(c);
     if (bounds.w <= 0 || bounds.h <= 0) return c;
     if (bounds.x === 0 && bounds.y === 0 && bounds.w === total && bounds.h === total) return c;
@@ -345,9 +385,15 @@
     img.onload = function () {
       try {
         const normalized = makeNormalizedEnemyCanvas(img, ENEMY_SHIP_TEXTURE_SIZE) || img;
-        const tex = createTextureFromCanvas(normalized);
+        const glowColor = averageImageColor(img);
+        enemyShipGlowColors.set(key, glowColor);
+        const glowCanvas = makeEnemyGlowCanvas(normalized, glowColor, ENEMY_SHIP_TEXTURE_SIZE, true);
+        if (glowCanvas) {
+          const g = glowCanvas.getContext('2d');
+          if (g) g.drawImage(normalized, ENEMY_SHIP_GLOW_PAD, ENEMY_SHIP_GLOW_PAD, ENEMY_SHIP_TEXTURE_SIZE, ENEMY_SHIP_TEXTURE_SIZE);
+        }
+        const tex = createTextureFromCanvas(glowCanvas || normalized);
         if (tex) render.textures.set(key, tex);
-        enemyShipGlowColors.set(key, averageImageColor(img));
       } finally {
         enemyShipLoadKeys.delete(key);
       }
@@ -367,7 +413,8 @@
     img.onload = function () {
       try {
         const normalized = makeNormalizedEnemyCanvas(img, ENEMY_SHIP_TEXTURE_SIZE) || img;
-        const glowColor = getEnemyShipGlowColor(levelNumber, shipIndex, null);
+        const glowColor = averageImageColor(img);
+        enemyShipGlowColors.set(key, glowColor);
         const glowCanvas = makeEnemyGlowCanvas(normalized, glowColor, ENEMY_SHIP_TEXTURE_SIZE) || normalized;
         const tex = createTextureFromCanvas(glowCanvas);
         if (tex) {
@@ -475,7 +522,6 @@
   function warmEnemyShipBatch(levelNumber) {
     for (let i = 0; i < ENEMY_SHIP_COLUMNS; i++) {
       ensureEnemyShipTexture(levelNumber, i);
-      ensureEnemyShipGlowTexture(levelNumber, i);
     }
   }
 
@@ -2554,7 +2600,7 @@
   }
 
   function assetWarmupBusy() {
-    return !!(playerShipTextureLoading || playerAuraTextureLoading || bossArtLoadKeys.size || bossPartLoadKeys.size || enemyShipLoadKeys.size || enemyShipGlowLoadKeys.size || glowImageLoads.size || planetDecorLoadKeys.size || planetDecorTextureLoadKeys.size);
+    return !!(playerShipTextureLoading || playerAuraTextureLoading || bossArtLoadKeys.size || bossPartLoadKeys.size || enemyShipLoadKeys.size || glowImageLoads.size || planetDecorLoadKeys.size || planetDecorTextureLoadKeys.size);
   }
 
   function warmAllTextures() {
@@ -3356,7 +3402,7 @@
     if (!e || e.dead) return;
     e.hp -= damage;
     e.hitFlash = 0.08;
-    //burst(e.x, e.y, e.color, 4 + Math.min(8, damage), 110 + damage * 22, 5, 'spark');
+    e.hitSparkDamage = Math.max(1, damage | 0);
     if (e.hp <= 0) {
       e.dead = true;
       state.shake = Math.max(state.shake, 5);
@@ -5424,34 +5470,27 @@
   function drawEnemyBody(e, rot, shipSize) {
     const p = enemyPalette(e);
     const alpha = e.hitFlash > 0 ? 1 : 0.96;
-      const levelNumber = e.shipLevel || (state.levelIndex + 1);
-      const shipIndex = e.shipIndex || 0;
-      const texture = getEnemyShipTexture(levelNumber, shipIndex);
-      const glowTexture = getEnemyShipGlowTexture(levelNumber, shipIndex);
+    const levelNumber = e.shipLevel || (state.levelIndex + 1);
+    const shipIndex = e.shipIndex || 0;
+    const texture = getEnemyShipTexture(levelNumber, shipIndex);
+    if (texture) {
+      drawTextureRect(texture, e.x, e.y, shipSize * ENEMY_SHIP_GLOW_SCALE, shipSize * ENEMY_SHIP_GLOW_SCALE, { rot: rot, alpha: alpha, layer: 18 });
+    } else {
       const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme);
       const glowRadius = Math.max(14, shipSize * 0.42 * 0.675 * (state.settings.lowEndMode ? 1 : 0.9));
-      if (glowTexture) {
-        const glowW = shipSize * 0.75;
-        const glowH = shipSize * 0.75;
-        drawTextureRect(glowTexture.texture, e.x, e.y, glowW, glowH, { rot: rot, alpha: 0.50, layer: 17, lighter: false, fill: shipGlow });
-        if (e.hitFlash > 0) {
-          const flash = clamp(e.hitFlash * 16.0, 0, 1);
-          drawGlowCircle(e.x, e.y, shipSize * 0.60, '#ffffff', flash * 0.95, 18);
-        }
-      } else {
-        drawGlowCircle(e.x, e.y, glowRadius * 0.9312, shipGlow, 0.93, 22);
-        drawGlowCircle(e.x, e.y, glowRadius * 0.5033, shipGlow, 0.78, 12);
-        if (e.hitFlash > 0) {
-          const flash = clamp(e.hitFlash * 16.0, 0, 1);
-          drawGlowCircle(e.x, e.y, glowRadius * 0.965, '#ffffff', flash, 22);
-        }
+      drawGlowCircle(e.x, e.y, glowRadius * 0.9312, shipGlow, 0.8, 22);
+      drawGlowCircle(e.x, e.y, glowRadius * 0.5033, shipGlow, 0.7, 12);
+      drawGlowCircle(e.x, e.y, shipSize * 0.23, p.base, 0.125, 10);
+      drawGlowCircle(e.x, e.y, shipSize * 0.11, p.base, alpha * 0.10, 8);
+    }
+    if (e.hitFlash > 0) {
+      const flash = clamp(e.hitFlash * 16.0, 0, 1);
+      drawGlowCircle(e.x, e.y, shipSize * 0.34, '#ffffff', flash * 0.95, 18);
+      if (e.hitSparkDamage) {
+        burst(e.x, e.y, e.color, 4 + Math.min(8, e.hitSparkDamage), 110 + e.hitSparkDamage * 22, 5, 'spark');
+        e.hitSparkDamage = 0;
       }
-      if (texture) {
-        drawTextureRect(texture, e.x, e.y, shipSize, shipSize, { rot: rot, alpha: alpha, layer: 18 });
-      } else {
-        drawGlowCircle(e.x, e.y, shipSize * 0.23, p.base, 0.125, 10);
-        drawGlowCircle(e.x, e.y, shipSize * 0.11, p.base, alpha * 0.10, 8);
-      }
+    }
   }
 
   function drawTextureRectAroundLocalPoint(texture, socketX, socketY, w, h, localX, localY, rot, opts) {
