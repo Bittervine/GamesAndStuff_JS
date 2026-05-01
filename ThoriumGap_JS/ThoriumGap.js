@@ -903,6 +903,20 @@
     return false;
   }
 
+  function circleHitsRotatedRect(rect, x, y, radius) {
+    if (!rect) return false;
+    const r = Math.max(1, radius || 1);
+    const c = Math.cos(-(rect.rot || 0));
+    const s = Math.sin(-(rect.rot || 0));
+    const dx = x - rect.x;
+    const dy = y - rect.y;
+    const localX = dx * c - dy * s;
+    const localY = dx * s + dy * c;
+    const hw = Math.max(1, (rect.w || 0) * 0.5) + r;
+    const hh = Math.max(1, (rect.h || 0) * 0.5) + r;
+    return Math.abs(localX) <= hw && Math.abs(localY) <= hh;
+  }
+
   function ensureBossTexture(levelNumber) {
     const key = bossArtKey(levelNumber);
     if (render.textures.has(key) || bossArtLoadKeys.has(key)) return;
@@ -3043,7 +3057,7 @@
     const hitBox = getBossHitBox(levelNumber);
     const bossYOffset = levelNumber >= THEMES.length ? 0 : Math.max(0, (b.size || 512) * 0.25);
     const bossHp = Math.round(b.hp * diff.bossHp);
-    const clawHp = Math.max(1, Math.round(bossHp * 0.9));
+    const clawHp = Math.max(1, Math.round(bossHp * 0.95));
     state.boss = {
       theme: theme, name: b.name, emoji: b.emoji, color: b.color,
       x: view.w * 0.5, y: 128 + bossYOffset, vx: 0, vy: 0, r: 64,
@@ -5613,8 +5627,8 @@
     return {
       x: part.socketX + dx * c - dy * s,
       y: part.socketY + dx * s + dy * c,
-      w: bounds.w * part.scale * 0.9,
-      h: bounds.h * part.scale * 0.9,
+      w: bounds.w * part.scale * 0.74,
+      h: bounds.h * part.scale * 0.88,
       rot: part.rot
     };
   }
@@ -5652,15 +5666,7 @@
       const part = parts && parts[side];
       if (!part || !part.entry || !part.entry.mask) continue;
       const hitBox = getFinalBossClawHitBox(b, side);
-      if (hitBox) {
-        const pad = Math.max(10, radius * 1.25);
-        const dx = x - hitBox.x;
-        const dy = y - hitBox.y;
-        const rw = hitBox.w * 0.5 + pad;
-        const rh = hitBox.h * 0.5 + pad;
-        if (Math.abs(dx) <= rw && Math.abs(dy) <= rh) return damageFinalBossClaw(b, side, damage);
-      }
-      if (circleHitsAlphaMask(part.entry.mask, part.socketX, part.socketY, part.w, part.h, part.rot, x, y, radius)) {
+      if (hitBox && circleHitsRotatedRect(hitBox, x, y, radius)) {
         return damageFinalBossClaw(b, side, damage);
       }
     }
