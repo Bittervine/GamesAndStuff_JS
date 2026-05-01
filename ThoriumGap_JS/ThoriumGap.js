@@ -3344,10 +3344,12 @@
       }
       state.banner = WEAPONS[p.weaponMode].name + ' ' + WEAPON_TIER_LABELS[p.weaponTier - 1];
       state.bannerSub = sameFamily ? 'Weapon family advanced.' : 'Weapon family switched.';
+      //p.heat = 0;
     } else if (type === 'rapid') {
       p.rapidTimer = Math.max(p.rapidTimer, 8);
       state.banner = 'RAPID FIRE';
       state.bannerSub = 'The weapons rattles harder.';
+      p.heat = 0;
     } else if (type === 'shield') {
       if (p.shield >= 3) {
         addScore(250);
