@@ -5535,11 +5535,16 @@
     const clawSwing = clamp(slowFlex * 0.62 + twitch * 0.38 + jitter, 0, 1);
     const clawMinRot = -20 * Math.PI / 180;
     const openRot = lerp(clawMinRot, Math.PI * 0.25, clawSwing);
-    const clawRot = lerp(openRot, clawMinRot, clamp(b.clawGuard || 0, 0, 1));
+    const clawGuard = clamp(b.clawGuard || 0, 0, 1);
+    const clawOpen = 1 - clawGuard;
+    const reachJerk = Math.pow(Math.max(0, Math.sin(b.age * 13.9 + Math.sin(b.age * 4.4) * 2.2)), 10);
+    const reachPulse = clamp((slowFlex - 0.5) * 0.35 + twitch * 0.18 + reachJerk * 0.225 + jitter * 0.32, 0, 1);
+    const clawReach = clawOpen * reachPulse * 150;
+    const clawRot = lerp(openRot, clawMinRot, clawGuard);
     const bc = Math.cos(bodyRot);
     const bs = Math.sin(bodyRot);
-    const leftBodyX = bodyDx + 325 * scale - size * 0.5;
-    const rightBodyX = bodyDx + 909 * scale - size * 0.5;
+    const leftBodyX = bodyDx + (325 - 40) * scale - size * 0.5;
+    const rightBodyX = bodyDx + (909 - 40) * scale - size * 0.5;
     const bodySocketY = bodyDy + 543 * scale - size * 0.5;
     const leftSocketX = b.x + leftBodyX * bc - bodySocketY * bs;
     const leftSocketY = b.y + leftBodyX * bs + bodySocketY * bc;
@@ -5549,12 +5554,24 @@
     if (left) {
       const w = left.w * clawScale;
       const h = left.h * clawScale;
-      out.left = { entry: left, socketX: leftSocketX, socketY: leftSocketY, w: w, h: h, scale: clawScale, localX: 800 * clawScale, localY: 80 * clawScale, rot: bodyRot + clawRot };
+      const extendDx = 440 - 800;
+      const extendDy = 940 - 80;
+      const extendLen = Math.max(1, Math.hypot(extendDx, extendDy));
+      const localX = (800 + extendDx / extendLen * clawReach) * clawScale;
+      const localY = (80 + extendDy / extendLen * clawReach) * clawScale;
+      out.left = { entry: left, socketX: leftSocketX, socketY: leftSocketY, w: w, h: h, scale: clawScale, localX: localX, localY: localY, rot: bodyRot + clawRot };
     }
     if (right) {
       const w = right.w * clawScale;
       const h = right.h * clawScale;
-      out.right = { entry: right, socketX: rightSocketX, socketY: rightSocketY, w: w, h: h, scale: clawScale, localX: 545 * clawScale, localY: 80 * clawScale, rot: bodyRot - clawRot };
+      const closedX = right.w - 800;
+      const targetX = right.w - 440;
+      const extendDx = targetX - closedX;
+      const extendDy = 940 - 80;
+      const extendLen = Math.max(1, Math.hypot(extendDx, extendDy));
+      const localX = (closedX + extendDx / extendLen * clawReach) * clawScale;
+      const localY = (80 + extendDy / extendLen * clawReach) * clawScale;
+      out.right = { entry: right, socketX: rightSocketX, socketY: rightSocketY, w: w, h: h, scale: clawScale, localX: localX, localY: localY, rot: bodyRot - clawRot };
     }
     return out;
   }
