@@ -176,8 +176,9 @@
   const ENEMY_SHIP_MAX_SIZE = 108;
   const ENEMY_ELITE_SIZE = 128;
   const ENEMY_SHIP_TEXTURE_SIZE = 256;
-  const ENEMY_SHIP_GLOW_PAD = Math.max(8, Math.round(ENEMY_SHIP_TEXTURE_SIZE * 0.12));
-  const ENEMY_SHIP_GLOW_SCALE = (ENEMY_SHIP_TEXTURE_SIZE + ENEMY_SHIP_GLOW_PAD * 2) / ENEMY_SHIP_TEXTURE_SIZE;
+  const ENEMY_SHIP_GLOW_SCALE = 1.01;
+  const ENEMY_SHIP_GLOW_INTENSITY = 0.3;
+  const ENEMY_SHIP_GLOW_BLUR = 20;
   const enemyShipLoadKeys = new Set();
   const enemyShipGlowLoadKeys = new Set();
   const enemyShipGlowTextures = new Map();
@@ -328,8 +329,7 @@
 
   function makeEnemyGlowCanvas(normalized, glowColor, size, keepFullBounds) {
     size = Math.max(1, size || ENEMY_SHIP_TEXTURE_SIZE);
-    const pad = Math.max(8, Math.round(size * 0.14));
-    const total = size + pad * 2;
+    const total = size;
     const c = makeCanvas(total, total);
     const g = c.getContext('2d', { willReadFrequently: true }) || c.getContext('2d');
     if (!g) return null;
@@ -337,18 +337,18 @@
     const sg = src.getContext('2d');
     if (!sg) return null;
     sg.clearRect(0, 0, total, total);
-    sg.drawImage(normalized, pad, pad, size, size);
+    const glowW = size * ENEMY_SHIP_GLOW_SCALE;
+    const glowH = size * ENEMY_SHIP_GLOW_SCALE;
+    const glowDX = (total - glowW) * 0.5;
+    const glowDY = (total - glowH) * 0.5;
+    sg.drawImage(normalized, glowDX, glowDY, glowW, glowH);
     g.clearRect(0, 0, total, total);
-    if (g.filter !== undefined) g.filter = 'blur(7px)';
+    if (g.filter !== undefined) g.filter = 'blur(' + ENEMY_SHIP_GLOW_BLUR + 'px)';
     g.drawImage(src, 0, 0);
     if (g.filter !== undefined) g.filter = 'none';
     const imgData = g.getImageData(0, 0, total, total);
     const data = imgData.data;
     const rgb = hexToRgb(glowColor || '#ffffff');
-    const coreX0 = Math.max(0, pad - 3);
-    const coreY0 = Math.max(0, pad - 3);
-    const coreX1 = Math.min(total, pad + size + 3);
-    const coreY1 = Math.min(total, pad + size + 3);
     for (let y = 0; y < total; y++) {
       for (let x = 0; x < total; x++) {
         const idx = (y * total + x) * 4;
@@ -357,11 +357,7 @@
         data[idx] = rgb[0];
         data[idx + 1] = rgb[1];
         data[idx + 2] = rgb[2];
-        if (x >= coreX0 && x < coreX1 && y >= coreY0 && y < coreY1) {
-          data[idx + 3] = Math.round(a * 0.40);
-        } else {
-          data[idx + 3] = Math.round(Math.min(255, a * 1.35));
-        }
+        data[idx + 3] = Math.round(Math.min(255, a * ENEMY_SHIP_GLOW_INTENSITY));
       }
     }
     g.putImageData(imgData, 0, 0);
@@ -390,7 +386,7 @@
         const glowCanvas = makeEnemyGlowCanvas(normalized, glowColor, ENEMY_SHIP_TEXTURE_SIZE, true);
         if (glowCanvas) {
           const g = glowCanvas.getContext('2d');
-          if (g) g.drawImage(normalized, ENEMY_SHIP_GLOW_PAD, ENEMY_SHIP_GLOW_PAD, ENEMY_SHIP_TEXTURE_SIZE, ENEMY_SHIP_TEXTURE_SIZE);
+          if (g) g.drawImage(normalized, 0, 0, ENEMY_SHIP_TEXTURE_SIZE, ENEMY_SHIP_TEXTURE_SIZE);
         }
         const tex = createTextureFromCanvas(glowCanvas || normalized);
         if (tex) render.textures.set(key, tex);
@@ -5492,7 +5488,7 @@
     const shipIndex = e.shipIndex || 0;
     const texture = getEnemyShipTexture(levelNumber, shipIndex);
     if (texture) {
-      drawTextureRect(texture, e.x, e.y, shipSize * ENEMY_SHIP_GLOW_SCALE, shipSize * ENEMY_SHIP_GLOW_SCALE, { rot: rot, alpha: alpha, layer: 18 });
+      drawTextureRect(texture, e.x, e.y, shipSize, shipSize, { rot: rot, alpha: alpha, layer: 18 });
     } else {
       const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme);
       const glowRadius = Math.max(14, shipSize * 0.42 * 0.675 * (state.settings.lowEndMode ? 1 : 0.9));
