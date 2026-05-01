@@ -3043,7 +3043,7 @@
     const hitBox = getBossHitBox(levelNumber);
     const bossYOffset = levelNumber >= THEMES.length ? 0 : Math.max(0, (b.size || 512) * 0.25);
     const bossHp = Math.round(b.hp * diff.bossHp);
-    const clawHp = Math.max(1, Math.round(bossHp * 0.75));
+    const clawHp = Math.max(1, Math.round(bossHp * 0.9));
     state.boss = {
       theme: theme, name: b.name, emoji: b.emoji, color: b.color,
       x: view.w * 0.5, y: 128 + bossYOffset, vx: 0, vy: 0, r: 64,
@@ -5651,6 +5651,15 @@
       const parts = getFinalBossClawParts(b, finalBossBodyRot(b));
       const part = parts && parts[side];
       if (!part || !part.entry || !part.entry.mask) continue;
+      const hitBox = getFinalBossClawHitBox(b, side);
+      if (hitBox) {
+        const pad = Math.max(10, radius * 1.25);
+        const dx = x - hitBox.x;
+        const dy = y - hitBox.y;
+        const rw = hitBox.w * 0.5 + pad;
+        const rh = hitBox.h * 0.5 + pad;
+        if (Math.abs(dx) <= rw && Math.abs(dy) <= rh) return damageFinalBossClaw(b, side, damage);
+      }
       if (circleHitsAlphaMask(part.entry.mask, part.socketX, part.socketY, part.w, part.h, part.rot, x, y, radius)) {
         return damageFinalBossClaw(b, side, damage);
       }
