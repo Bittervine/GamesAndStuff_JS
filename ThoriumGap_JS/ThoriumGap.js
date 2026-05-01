@@ -3043,6 +3043,7 @@
     const hitBox = getBossHitBox(levelNumber);
     const bossYOffset = levelNumber >= THEMES.length ? 0 : Math.max(0, (b.size || 512) * 0.25);
     const bossHp = Math.round(b.hp * diff.bossHp);
+    const clawHp = Math.max(1, Math.round(bossHp * 0.75));
     state.boss = {
       theme: theme, name: b.name, emoji: b.emoji, color: b.color,
       x: view.w * 0.5, y: 128 + bossYOffset, vx: 0, vy: 0, r: 64,
@@ -3056,8 +3057,8 @@
       shipLevel: levelNumber, shipIndex: 0, facingRight: false,
       hitBox: hitBox,
       claws: levelNumber === 13 ? {
-        left: { hp: bossHp, maxHp: bossHp, dead: false, hitFlash: 0, glowBoost: 0, deathFlash: 0 },
-        right: { hp: bossHp, maxHp: bossHp, dead: false, hitFlash: 0, glowBoost: 0, deathFlash: 0 }
+        left: { hp: clawHp, maxHp: clawHp, dead: false, hitFlash: 0, glowBoost: 0, deathFlash: 0 },
+        right: { hp: clawHp, maxHp: clawHp, dead: false, hitFlash: 0, glowBoost: 0, deathFlash: 0 }
       } : null,
       yOffset: bossYOffset
     };
@@ -5529,18 +5530,29 @@
     const bodyDx = (size - bodyDrawW) * 0.5;
     const bodyDy = (size - bodyDrawH) * 0.5;
     const clawScale = scale * 0.75;
-    const slowFlex = 0.5 + 0.5 * Math.sin(b.age * 1.35);
-    const twitch = Math.pow(Math.max(0, Math.sin(b.age * 8.7 + Math.sin(b.age * 2.1) * 1.8)), 7);
-    const jitter = Math.sin(b.age * 18.3) * 0.035 + Math.sin(b.age * 31.7) * 0.018;
-    const clawSwing = clamp(slowFlex * 0.62 + twitch * 0.38 + jitter, 0, 1);
-    const clawMinRot = -20 * Math.PI / 180;
-    const openRot = lerp(clawMinRot, Math.PI * 0.25, clawSwing);
     const clawGuard = clamp(b.clawGuard || 0, 0, 1);
+    const clawMinRot = -21 * Math.PI / 180;
+    const openMaxRot = 45 * Math.PI / 180;
+    const slowFlexL = 0.5 + 0.5 * Math.sin(b.age * 1.35);
+    const slowFlexR = 0.5 + 0.5 * Math.sin(b.age * 1.35 + 0.8);
+    const twitchL = Math.pow(Math.max(0, Math.sin(b.age * 8.7 + Math.sin(b.age * 2.1) * 1.8)), 7);
+    const twitchR = Math.pow(Math.max(0, Math.sin(b.age * 8.7 + 0.8 + Math.sin(b.age * 2.1 + 0.7) * 1.8)), 7);
+    const jitterL = Math.sin(b.age * 18.3) * 0.035 + Math.sin(b.age * 31.7) * 0.018;
+    const jitterR = Math.sin(b.age * 18.3 + 1.1) * 0.035 + Math.sin(b.age * 31.7 + 0.9) * 0.018;
+    const clawSwingL = clamp(slowFlexL * 0.62 + twitchL * 0.38 + jitterL, 0, 1);
+    const clawSwingR = clamp(slowFlexR * 0.62 + twitchR * 0.38 + jitterR, 0, 1);
+    const openRotL = lerp(clawMinRot, openMaxRot, clawSwingL);
+    const openRotR = lerp(clawMinRot, openMaxRot, clawSwingR);
     const clawOpen = 1 - clawGuard;
+    const guardRot = clawMinRot;
     const reachJerk = Math.pow(Math.max(0, Math.sin(b.age * 13.9 + Math.sin(b.age * 4.4) * 2.2)), 10);
-    const reachPulse = clamp((slowFlex - 0.5) * 0.35 + twitch * 0.18 + reachJerk * 0.225 + jitter * 0.32, 0, 1);
-    const clawReach = clawOpen * reachPulse * 150;
-    const clawRot = lerp(openRot, clawMinRot, clawGuard);
+    const reachPulseL = clamp((slowFlexL - 0.5) * 0.35 + twitchL * 0.18 + reachJerk * 0.225 + jitterL * 0.32, 0, 1);
+    const reachPulseR = clamp((slowFlexR - 0.5) * 0.35 + twitchR * 0.18 + reachJerk * 0.225 + jitterR * 0.32, 0, 1);
+    const clawReachL = clawOpen * reachPulseL * 150;
+    const clawReachR = clawOpen * reachPulseR * 150;
+    const guardJerk = 2 * Math.PI / 180;
+    const leftClawRot = lerp(openRotL, guardRot - guardJerk * clamp(twitchL * 1.2 + reachJerk * 0.5, 0, 1), clawGuard);
+    const rightClawRot = lerp(openRotR, guardRot + guardJerk * clamp(twitchR * 1.2 + reachJerk * 0.5, 0, 1), clawGuard);
     const bc = Math.cos(bodyRot);
     const bs = Math.sin(bodyRot);
     const leftBodyX = bodyDx + (325 - 40) * scale - size * 0.5;
@@ -5557,9 +5569,9 @@
       const extendDx = 440 - 800;
       const extendDy = 940 - 80;
       const extendLen = Math.max(1, Math.hypot(extendDx, extendDy));
-      const localX = (800 + extendDx / extendLen * clawReach) * clawScale;
-      const localY = (80 + extendDy / extendLen * clawReach) * clawScale;
-      out.left = { entry: left, socketX: leftSocketX, socketY: leftSocketY, w: w, h: h, scale: clawScale, localX: localX, localY: localY, rot: bodyRot + clawRot };
+      const localX = (800 + extendDx / extendLen * clawReachL) * clawScale;
+      const localY = (80 + extendDy / extendLen * clawReachL) * clawScale;
+      out.left = { entry: left, socketX: leftSocketX, socketY: leftSocketY, w: w, h: h, scale: clawScale, localX: localX, localY: localY, rot: bodyRot + leftClawRot };
     }
     if (right) {
       const w = right.w * clawScale;
@@ -5569,9 +5581,9 @@
       const extendDx = targetX - closedX;
       const extendDy = 940 - 80;
       const extendLen = Math.max(1, Math.hypot(extendDx, extendDy));
-      const localX = (closedX + extendDx / extendLen * clawReach) * clawScale;
-      const localY = (80 + extendDy / extendLen * clawReach) * clawScale;
-      out.right = { entry: right, socketX: rightSocketX, socketY: rightSocketY, w: w, h: h, scale: clawScale, localX: localX, localY: localY, rot: bodyRot - clawRot };
+      const localX = (closedX + extendDx / extendLen * clawReachR) * clawScale;
+      const localY = (80 + extendDy / extendLen * clawReachR) * clawScale;
+      out.right = { entry: right, socketX: rightSocketX, socketY: rightSocketY, w: w, h: h, scale: clawScale, localX: localX, localY: localY, rot: bodyRot - rightClawRot };
     }
     return out;
   }
