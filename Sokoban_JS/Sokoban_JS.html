@@ -229,6 +229,8 @@
             brickImage.src = 'brick.png';
             var rockImage = new Image();
             rockImage.src = 'rock.png';
+            var wizardImage = new Image();
+            wizardImage.src = 'wizard.png';
             var DIFFICULTY = {
                 diff1: {
                     id: 'diff1',
@@ -838,6 +840,10 @@
             function drawPlayer(px, py) {
                 var cx = px + Math.floor(currentCell / 2);
                 var cy = py + Math.floor(currentCell / 2);
+                if (wizardImage && wizardImage.complete && wizardImage.naturalWidth > 0) {
+                    ctx.drawImage(wizardImage, px, py, currentCell, currentCell);
+                    return;
+                }
                 drawGlyph(ctx, ICON.wizard, cx, cy + 1, Math.floor(currentCell * 0.78), FONT_EMOJI, '#111111');
             }
 
