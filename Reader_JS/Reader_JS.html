@@ -242,6 +242,15 @@ body.theme-inverted .reader-viewport {
   pointer-events: none;
 }
 
+.book-name-input {
+  width: min(40vw, 260px);
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #6a7e8f;
+  border-radius: 6px;
+  font: inherit;
+}
+
 .settings-panel {
   width: 96%;
   max-width: 460px;
@@ -350,7 +359,9 @@ body.theme-inverted .settings-panel select {
 <header class='top-menu'>
 <div class='menu-group'>
 <button id='loadBookButton' class='menu-button'>Load Book</button>
-<input id='bookFileInput' class='book-file-input' type='file' accept='.epub,.mobi,application/epub+zip'>
+<input id='bookFileInput' class='book-file-input' type='file'>
+<input id='bookNameInput' class='book-name-input' type='text' placeholder='File name or URL'>
+<button id='loadBookNameButton' class='menu-button secondary'>Open Name</button>
 <button id='previousChapterButton' class='menu-button secondary' title='Previous chapter'>Last Chapter</button>
 <button id='nextChapterButton' class='menu-button secondary' title='Next chapter'>Next Chapter</button>
 <button id='autoAdvanceButton' class='menu-button secondary' title='Toggle automatic advancement'>Autoscroll</button>
@@ -1371,6 +1382,8 @@ var elements = {
   fontFamilyInput: document.getElementById("fontFamilyInput"),
   fontSizeInput: document.getElementById("fontSizeInput"),
   fontSizeOutput: document.getElementById("fontSizeOutput"),
+  bookNameInput: document.getElementById("bookNameInput"),
+  loadBookNameButton: document.getElementById("loadBookNameButton"),
   fontWeightInput: document.getElementById("fontWeightInput"),
   fontWeightOutput: document.getElementById("fontWeightOutput"),
   lineHeightInput: document.getElementById("lineHeightInput"),
@@ -1465,6 +1478,9 @@ function bindEvents() {
   elements.loadBookButton.addEventListener("click", function () {
     return openBookFileDialog();
   });
+  elements.loadBookNameButton.addEventListener("click", function () {
+    return openNamedBook();
+  });
   elements.bookFileInput.addEventListener("change", onBookFileSelected);
   elements.previousChapterButton.addEventListener("click", goToPreviousChapter);
   elements.nextChapterButton.addEventListener("click", goToNextChapter);
@@ -1481,6 +1497,7 @@ function bindEvents() {
   elements.lineStepInput.addEventListener("input", updateSettingOutputs);
   elements.scrollDurationInput.addEventListener("input", updateSettingOutputs);
   elements.tapRegionInput.addEventListener("input", updateSettingOutputs);
+  elements.bookNameInput.addEventListener("keydown", onBookNameInputKeydown);
   window.addEventListener("keydown", onGlobalKeydown);
   window.addEventListener("resize", onWindowResize);
   window.addEventListener("beforeunload", function () {
@@ -1493,6 +1510,7 @@ function openBookFileDialog() {
   if (!input) {
     return;
   }
+  input.value = "";
   if (typeof input.showPicker === "function") {
     try {
       input.showPicker();
@@ -1502,6 +1520,66 @@ function openBookFileDialog() {
     }
   }
   input.click();
+}
+function openNamedBook() {
+  return _openNamedBook.apply(this, arguments);
+}
+function _openNamedBook() {
+  _openNamedBook = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+    var rawName, fileUrl, response, blob, fileName, namedFile;
+    return _regenerator().w(function (_context) {
+      while (1) switch (_context.n) {
+        case 0:
+          rawName = (elements.bookNameInput.value || "").trim();
+          if (!rawName) {
+            setStatusMessage("Enter a file name or URL first");
+            return _context.a(2);
+          }
+          fileUrl = rawName;
+          if (!/^https?:\/\//i.test(fileUrl) && fileUrl.indexOf("file:") !== 0) {
+            fileUrl = new URL(fileUrl, window.location.href).href;
+          }
+          _context.n = 1;
+          return fetch(fileUrl);
+        case 1:
+          response = _context.v;
+          if (!response.ok) {
+            throw new Error("Could not open " + rawName);
+          }
+          _context.n = 2;
+          return response.blob();
+        case 2:
+          blob = _context.v;
+          fileName = stripExtension(rawName.split(/[\\/]/).pop() || "book");
+          if (!getFileExtension(fileName)) {
+            fileName += ".epub";
+          }
+          if (typeof File === "function") {
+            namedFile = new File([blob], fileName, {
+              type: blob.type || "application/octet-stream",
+              lastModified: Date.now()
+            });
+          } else {
+            namedFile = blob.slice(0, blob.size, blob.type || "application/octet-stream");
+            namedFile.name = fileName;
+            namedFile.lastModified = Date.now();
+          }
+          return _context.a(2, loadBook(namedFile, {
+            persistAsLastBook: false
+          }));
+      }
+    }, _callee);
+  }));
+  return _openNamedBook.apply(this, arguments);
+}
+function onBookNameInputKeydown(event) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    openNamedBook().catch(function (error) {
+      console.error(error);
+      setStatusMessage("Failed to open named book");
+    });
+  }
 }
 function onWindowResize() {
   if (state.resizeRafId) {
@@ -1543,6 +1621,9 @@ function _restoreLastSession() {
             persistAsLastBook: false
           });
         case 3:
+          if (elements.bookNameInput && file) {
+            elements.bookNameInput.value = getFileName(file);
+          }
           _context.n = 5;
           break;
         case 4:
@@ -1669,6 +1750,9 @@ function _loadBook() {
           preferredAuthor = normalizeAuthor(metadata == null ? void 0 : metadata.author);
           elements.bookTitle.textContent = preferredTitle;
           elements.bookAuthor.textContent = preferredAuthor;
+          if (elements.bookNameInput) {
+            elements.bookNameInput.value = getFileName(file);
+          }
           restoredOffset = (remembered == null ? void 0 : remembered.chapterId) === String((_spine$startIndex = spine[startIndex]) == null ? void 0 : _spine$startIndex.id) ? Number((_ref = (_remembered$offsetPx = remembered.offsetPx) != null ? _remembered$offsetPx : remembered.scrollTop) != null ? _ref : 0) : 0;
           _context2.n = 9;
           return renderChapterAt(startIndex, {
