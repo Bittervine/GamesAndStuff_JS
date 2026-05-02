@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'shotemup-3d-v8';
+var CACHE_NAME = 'shotemup-3d-v10';
 var APP_SHELL = [
   './ShotEmUp3D_JS.html',
   './ShotEmUp_JS.js',

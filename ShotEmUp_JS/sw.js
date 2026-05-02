@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'shotemup-js-v3';
+var CACHE_NAME = 'shotemup-js-v5';
 var APP_SHELL = [
   './',
   './ShotEmUp_JS.html',

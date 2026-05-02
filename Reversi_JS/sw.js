@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'reversi-js-v1';
+var CACHE_NAME = 'reversi-js-v3';
 var APP_SHELL = [
   './',
   './Reversi_JS.html',

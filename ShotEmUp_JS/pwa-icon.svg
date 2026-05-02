@@ -1,12 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#182235"/>
-      <stop offset="1" stop-color="#0b1220"/>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#08111d"/>
+      <stop offset="1" stop-color="#111827"/>
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="104" fill="url(#g)"/>
-  <rect x="74" y="74" width="364" height="364" rx="56" fill="#f5f2ea"/>
-  <path d="M74 256h364M256 74v364M74 164h364M74 348h364M164 74v364M348 74v364" stroke="#b98c62" stroke-width="10" opacity="0.55"/>
-  <text x="256" y="326" text-anchor="middle" font-family="Trebuchet MS, Segoe UI, sans-serif" font-size="180" font-weight="700" fill="#101826">JS</text>
+  <rect x="72" y="72" width="368" height="368" rx="64" fill="#f8fbff" opacity="0.96"/>
+    <path d="M154 332l174-108 30 30-108 174-34-34 30-56-56 30z" fill="#22d3ee"/>
+        <path d="M202 286l82-50 16 16-50 82-18-18 12-22-22 12z" fill="#ecfeff"/>
+        <path d="M140 360l222-122" stroke="#60a5fa" stroke-width="12" stroke-linecap="round"/>
+        <path d="M352 150h40" stroke="#fde68a" stroke-width="16" stroke-linecap="round"/>
+        <path d="M372 130v40" stroke="#fde68a" stroke-width="16" stroke-linecap="round"/>
 </svg>

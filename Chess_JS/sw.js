@@ -1,11 +1,12 @@
 /* global self, caches, fetch */
 'use strict';
 
-var CACHE_NAME = 'chess-js2-v3';
+var CACHE_NAME = 'chess-js2-v5';
 var APP_SHELL = [
     './',
     './Chess_JS.html',
-    './manifest.webmanifest'
+    './manifest.webmanifest',
+    './pwa-icon.svg'
 ];
 
 self.addEventListener('install', function (event) {

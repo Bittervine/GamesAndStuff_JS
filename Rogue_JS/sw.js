@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'rogue-js-v1';
+var CACHE_NAME = 'rogue-js-v3';
 var APP_SHELL = [
   './',
   './Rogue_JS.html',

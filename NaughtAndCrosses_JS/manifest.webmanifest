@@ -1,6 +1,6 @@
 {
-  "name": "Naught And Crosses JS",
-  "short_name": "N&C JS",
+  "name": "Naught And Crosses",
+  "short_name": "Naught And Crosses",
   "start_url": "./NaughtsAndCrosses_JS.html",
   "scope": "./",
   "display": "standalone",

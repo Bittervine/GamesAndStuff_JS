@@ -1,6 +1,6 @@
 {
-  "name": "Shot Em Up JS",
-  "short_name": "Shot Em Up",
+  "name": "Thorium Gap",
+  "short_name": "Thorium Gap",
   "start_url": "./ThoriumGap.html",
   "scope": "./",
   "display": "standalone",

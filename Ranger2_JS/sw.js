@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'ranger2-js-v1';
+var CACHE_NAME = 'ranger2-js-v3';
 var APP_SHELL = [
   './',
   './Ranger2_JS.html',

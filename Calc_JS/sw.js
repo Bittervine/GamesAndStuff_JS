@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'calc-js-v1';
+var CACHE_NAME = 'calc-js-v3';
 var APP_SHELL = [
   './',
   './Calc_JS.html',

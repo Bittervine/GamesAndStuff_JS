@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'soduko-js-v1';
+var CACHE_NAME = 'soduko-js-v3';
 var APP_SHELL = [
   './',
   './Soduko_JS.html',

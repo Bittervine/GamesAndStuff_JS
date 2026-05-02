@@ -1,6 +1,6 @@
 {
-  "name": "Calc JS",
-  "short_name": "Calc JS",
+  "name": "Calc",
+  "short_name": "Calc",
   "start_url": "./Calc_JS.html",
   "scope": "./",
   "display": "standalone",

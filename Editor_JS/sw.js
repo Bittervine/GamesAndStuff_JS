@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'editor-js-v1';
+var CACHE_NAME = 'editor-js-v3';
 var APP_SHELL = [
   './',
   './Editor_JS.html',

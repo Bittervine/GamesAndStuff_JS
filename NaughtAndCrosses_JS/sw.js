@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'naught-and-crosses-js-v1';
+var CACHE_NAME = 'naught-and-crosses-js-v3';
 var APP_SHELL = [
   './',
   './NaughtsAndCrosses_JS.html',

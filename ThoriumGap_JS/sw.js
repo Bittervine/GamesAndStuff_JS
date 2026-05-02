@@ -1,6 +1,6 @@
 'use strict';
 
-var CACHE_NAME = 'thoriumgap-v4';
+var CACHE_NAME = 'thoriumgap-v5';
 var APP_SHELL = [
   './ThoriumGap.html',
   './ThoriumGap.js',

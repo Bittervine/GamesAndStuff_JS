@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./pwa-icon.svg" type="image/svg+xml">
-  <title>Mathbook JS</title>
+      <link rel="apple-touch-icon" href="./pwa-icon.svg" type="image/svg+xml">
+<title>Mathbook</title>
   <style>
     * {
       box-sizing: border-box;
@@ -622,7 +623,7 @@
 </head>
 <body>
   <div id="app">
-    <h1>Mathbook JS</h1>
+    <h1>Mathbook</h1>
     <p class="intro">Helpers: <code>hex()</code>, <code>bin()</code>, <code>dec()</code>, <code>oct()</code>, <code>asc()</code>, <code>ord()</code>, <code>int()</code>, <code>bits()</code>, <code>and()</code>, <code>or()</code>, <code>xor()</code>, <code>not()</code>, <code>crc32()</code>, <code>dword2float()</code>, <code>float2dword()</code>, <code>sin()</code>, <code>cos()</code>, <code>tan()</code>, <code>sqrt()</code>, <code>abs()</code>, <code>log()</code>, <code>log10()</code>, <code>exp()</code>, <code>plot(x_array,y_array)</code>. Constants: <code>pi</code>, <code>C0</code>. Plot uses <code>X</code>. History arrays: <code>IN</code>, <code>OUT</code>.</p>
 
     <div id="history"></div>
@@ -1134,7 +1135,7 @@
         var lines = [];
         var i;
         var out;
-        lines[lines.length] = 'Mathbook JS Notebook Export';
+        lines[lines.length] = 'Mathbook Notebook Export';
         lines[lines.length] = 'Created: ' + (new Date()).toString();
         lines[lines.length] = '';
         for (i = 0; i < execCount; i++) {
@@ -1161,12 +1162,12 @@
         var i;
         var out;
         var png;
-        parts[parts.length] = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mathbook JS Export</title>';
+        parts[parts.length] = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mathbook Export</title>';
         parts[parts.length] = '<style>body{font-family:Trebuchet MS,Verdana,Arial,sans-serif;margin:12px;color:#132033}';
         parts[parts.length] = '.rec{border:1px solid #9bb9d6;border-radius:8px;padding:10px;margin-bottom:12px;background:#fff}';
         parts[parts.length] = 'pre{white-space:pre-wrap;background:#f7fbff;border:1px solid #cad9ea;padding:8px;border-radius:6px}';
         parts[parts.length] = 'img{max-width:100%;border:1px solid #99b7d4}</style></head><body>';
-        parts[parts.length] = '<h1>Mathbook JS Notebook Export</h1>';
+        parts[parts.length] = '<h1>Mathbook Notebook Export</h1>';
         parts[parts.length] = '<p>Created: ' + escapeHtml((new Date()).toString()) + '</p>';
         for (i = 0; i < execCount; i++) {
           parts[parts.length] = '<div class="rec">';

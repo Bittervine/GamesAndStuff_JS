@@ -1,6 +1,6 @@
 {
-  "name": "Editor JS",
-  "short_name": "Editor JS",
+  "name": "Editor",
+  "short_name": "Editor",
   "start_url": "./Editor_JS.html",
   "scope": "./",
   "display": "standalone",

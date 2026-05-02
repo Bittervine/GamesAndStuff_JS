@@ -1,4 +1,4 @@
-var CACHE_NAME = 'tetris-js-v2';
+var CACHE_NAME = 'tetris-js-v3';
 var FILES = ['./', './Tetris_JS.html', './manifest.webmanifest'];
 
 self.addEventListener('install', function (event) {

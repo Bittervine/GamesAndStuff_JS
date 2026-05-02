@@ -1,6 +1,6 @@
 {
-  "name": "Shot Em Up JS",
-  "short_name": "Shot Em Up",
+  "name": "Shot Em Up 3D",
+  "short_name": "Shot Em Up 3D",
   "start_url": "./ShotEmUp3D_JS.html",
   "scope": "./",
   "display": "standalone",
