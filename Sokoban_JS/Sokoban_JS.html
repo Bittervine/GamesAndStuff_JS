@@ -461,7 +461,7 @@
                 var dy;
                 var target;
 
-                if (!state.map || state.solved) {
+                if (!state.map) {
                     return;
                 }
 
@@ -475,6 +475,9 @@
                 }
                 if (handlePadClick(gx, gy)) {
                     return cancelEvent(e);
+                }
+                if (state.solved) {
+                    return;
                 }
                 if (isWall(state.map, gx, gy)) {
                     return;
