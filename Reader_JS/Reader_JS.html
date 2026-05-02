@@ -31,7 +31,12 @@ body.theme-inverted {
 }
 
 #bookFileInput {
-  display: none;
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .app-shell {
@@ -196,6 +201,14 @@ body.theme-inverted .status-strip {
   background: #fdfcf8;
 }
 
+.reader-tap-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: transparent;
+  touch-action: manipulation;
+}
+
 body.theme-inverted .reader-viewport {
   background: #10161d;
 }
@@ -218,6 +231,15 @@ body.theme-inverted .reader-viewport {
 
 .settings-dialog.is-open {
   display: block;
+}
+
+.book-file-input {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .settings-panel {
@@ -328,7 +350,7 @@ body.theme-inverted .settings-panel select {
 <header class='top-menu'>
 <div class='menu-group'>
 <button id='loadBookButton' class='menu-button'>Load Book</button>
-<input id='bookFileInput' type='file' accept='.epub,.mobi,application/epub+zip' hidden>
+<input id='bookFileInput' class='book-file-input' type='file' accept='.epub,.mobi,application/epub+zip'>
 <button id='previousChapterButton' class='menu-button secondary' title='Previous chapter'>Last Chapter</button>
 <button id='nextChapterButton' class='menu-button secondary' title='Next chapter'>Next Chapter</button>
 <button id='autoAdvanceButton' class='menu-button secondary' title='Toggle automatic advancement'>Autoscroll</button>
@@ -344,6 +366,7 @@ body.theme-inverted .settings-panel select {
 <h2>Reader Settings</h2>
 <label>Font Family<select id='fontFamilyInput'><option value="'Palatino Linotype', Palatino, 'Times New Roman', serif">Palatino</option><option value="Georgia, 'Times New Roman', serif">Georgia</option><option value="'Times New Roman', Times, serif">Times New Roman</option><option value="'Trebuchet MS', Arial, sans-serif">Trebuchet</option><option value="'Segoe UI', Tahoma, Arial, sans-serif">Segoe UI</option><option value='Arial, Helvetica, sans-serif'>Arial</option></select></label>
 <label>Font Size (px)<input id='fontSizeInput' type='range' min='12' max='42' step='1'><output id='fontSizeOutput' for='fontSizeInput'></output></label>
+<label>Font Boldness<input id='fontWeightInput' type='range' min='100' max='900' step='100'><output id='fontWeightOutput' for='fontWeightInput'></output></label>
 <label>Line Height<input id='lineHeightInput' type='range' min='1.2' max='2.2' step='0.05'><output id='lineHeightOutput' for='lineHeightInput'></output></label>
 <label><span>Smooth Scroll Mode</span><select id='scrollModeInput'><option value='page'>Page</option><option value='line'>Line-by-line</option><option value='pixel'>Pixel-by-pixel</option></select></label>
 <label>Lines Per Advance<input id='lineStepInput' type='range' min='1' max='12' step='1'><output id='lineStepOutput' for='lineStepInput'></output></label>
@@ -1299,6 +1322,7 @@ var STORAGE_KEYS = {
 var DEFAULT_SETTINGS = {
   fontFamily: "'Palatino Linotype', Palatino, 'Times New Roman', serif",
   fontSize: 21,
+  fontWeight: 400,
   lineHeight: 1.6,
   scrollMode: "page",
   lineStep: 3,
@@ -1347,6 +1371,8 @@ var elements = {
   fontFamilyInput: document.getElementById("fontFamilyInput"),
   fontSizeInput: document.getElementById("fontSizeInput"),
   fontSizeOutput: document.getElementById("fontSizeOutput"),
+  fontWeightInput: document.getElementById("fontWeightInput"),
+  fontWeightOutput: document.getElementById("fontWeightOutput"),
   lineHeightInput: document.getElementById("lineHeightInput"),
   lineHeightOutput: document.getElementById("lineHeightOutput"),
   scrollModeInput: document.getElementById("scrollModeInput"),
@@ -1375,6 +1401,7 @@ var state = {
   viewOffset: 0,
   scrollAnimationId: null,
   pointerDown: null,
+  lastTapNavAt: 0,
   pendingProgressTimer: null,
   resizeRafId: null,
   autoAdvanceRunning: false,
@@ -1416,13 +1443,27 @@ function setupShadowReader() {
   state.chapterWrap = document.createElement("section");
   state.chapterWrap.className = "chapter-wrap";
   state.chapterWrap.appendChild(state.chapterContent);
+  state.tapOverlay = document.createElement("div");
+  state.tapOverlay.className = "reader-tap-overlay";
+  state.tapOverlay.style.position = "absolute";
+  state.tapOverlay.style.left = "0";
+  state.tapOverlay.style.top = "0";
+  state.tapOverlay.style.right = "0";
+  state.tapOverlay.style.bottom = "0";
+  state.tapOverlay.style.zIndex = "20";
+  state.tapOverlay.style.pointerEvents = "auto";
+  state.tapOverlay.style.background = "rgba(0,0,0,0.001)";
   state.shadowRoot.appendChild(state.chapterStyle);
   state.shadowRoot.appendChild(state.chapterWrap);
-  state.shadowRoot.addEventListener("click", onReaderShadowClick);
+  state.shadowRoot.appendChild(state.tapOverlay);
+  state.tapOverlay.addEventListener("pointerup", onTapOverlayPointerUp);
+  state.tapOverlay.addEventListener("click", onTapOverlayClick);
+  state.tapOverlay.addEventListener("mouseup", onTapOverlayClick);
+  state.tapOverlay.addEventListener("touchend", onTapOverlayClick);
 }
 function bindEvents() {
   elements.loadBookButton.addEventListener("click", function () {
-    return elements.bookFileInput.click();
+    return openBookFileDialog();
   });
   elements.bookFileInput.addEventListener("change", onBookFileSelected);
   elements.previousChapterButton.addEventListener("click", goToPreviousChapter);
@@ -1434,26 +1475,33 @@ function bindEvents() {
   elements.settingsForm.addEventListener("submit", onSaveSettings);
   elements.settingsDialog.addEventListener("click", onSettingsDialogBackdropClick);
   elements.fontSizeInput.addEventListener("input", updateSettingOutputs);
+  elements.fontWeightInput.addEventListener("input", updateSettingOutputs);
   elements.lineHeightInput.addEventListener("input", updateSettingOutputs);
   elements.scrollModeInput.addEventListener("change", updateSettingOutputs);
   elements.lineStepInput.addEventListener("input", updateSettingOutputs);
   elements.scrollDurationInput.addEventListener("input", updateSettingOutputs);
   elements.tapRegionInput.addEventListener("input", updateSettingOutputs);
-  if (window.PointerEvent) {
-    elements.readerViewport.addEventListener("pointerdown", onViewportPointerDown);
-    elements.readerViewport.addEventListener("pointerup", onViewportPointerUp);
-  } else {
-    elements.readerViewport.addEventListener("mousedown", onViewportPointerDown);
-    elements.readerViewport.addEventListener("mouseup", onViewportPointerUp);
-    elements.readerViewport.addEventListener("touchstart", onViewportPointerDown);
-    elements.readerViewport.addEventListener("touchend", onViewportPointerUp);
-  }
   window.addEventListener("keydown", onGlobalKeydown);
   window.addEventListener("resize", onWindowResize);
   window.addEventListener("beforeunload", function () {
     stopAutoAdvance();
     persistCurrentProgress();
   });
+}
+function openBookFileDialog() {
+  var input = elements.bookFileInput;
+  if (!input) {
+    return;
+  }
+  if (typeof input.showPicker === "function") {
+    try {
+      input.showPicker();
+      return;
+    } catch (_error) {
+      // Some embedded browsers expose showPicker but still reject it.
+    }
+  }
+  input.click();
 }
 function onWindowResize() {
   if (state.resizeRafId) {
@@ -1893,6 +1941,7 @@ function onSaveSettings(event) {
   state.settings = {
     fontFamily: elements.fontFamilyInput.value || DEFAULT_SETTINGS.fontFamily,
     fontSize: clamp(Number(elements.fontSizeInput.value), 12, 42),
+    fontWeight: clamp(Number(elements.fontWeightInput.value), 100, 900),
     lineHeight: clamp(Number(elements.lineHeightInput.value), 1.2, 2.2),
     scrollMode: normalizeScrollMode(elements.scrollModeInput.value),
     lineStep: clamp(Number(elements.lineStepInput.value), 1, 12),
@@ -1908,6 +1957,7 @@ function syncSettingsFormFromState() {
   state.settings.scrollMode = normalizeScrollMode(state.settings.scrollMode);
   elements.fontFamilyInput.value = state.settings.fontFamily;
   elements.fontSizeInput.value = String(state.settings.fontSize);
+  elements.fontWeightInput.value = String(state.settings.fontWeight || DEFAULT_SETTINGS.fontWeight);
   elements.lineHeightInput.value = String(state.settings.lineHeight);
   elements.scrollModeInput.value = state.settings.scrollMode;
   elements.lineStepInput.value = String(state.settings.lineStep);
@@ -1919,6 +1969,7 @@ function updateSettingOutputs() {
   var modeValue = normalizeScrollMode(elements.scrollModeInput.value);
   var stepUnit = modeValue === "pixel" ? "px" : "lines";
   elements.fontSizeOutput.textContent = Number(elements.fontSizeInput.value) + " px";
+  elements.fontWeightOutput.textContent = Number(elements.fontWeightInput.value);
   elements.lineHeightOutput.textContent = "" + Number(elements.lineHeightInput.value).toFixed(2);
   elements.lineStepOutput.textContent = Number(elements.lineStepInput.value) + " " + stepUnit;
   elements.scrollDurationOutput.textContent = Math.round(sliderToDuration(Number(elements.scrollDurationInput.value))) + " ms";
@@ -1944,7 +1995,7 @@ function updateReaderStyle() {
   var rootSelector = state.useShadowRoot ? ":host" : ".legacy-reader-root";
   var wrapSelector = state.useShadowRoot ? ".chapter-wrap" : ".legacy-reader-root .chapter-wrap";
   var contentSelector = state.useShadowRoot ? ".chapter-content" : ".legacy-reader-root .chapter-content";
-  state.chapterStyle.textContent = "\n    *,\n    *::before,\n    *::after {\n      box-sizing: border-box;\n    }\n\n    " + rootSelector + " {\n      display: block;\n      position: relative;\n      min-height: 100%;\n      overflow: hidden;\n      color: var(--ink-1);\n    }\n\n    " + wrapSelector + " {\n      width: 100%;\n      margin: 0 auto;\n      padding: 1.4rem 1rem 2.2rem;\n      will-change: transform;\n      transform: translate3d(0, 0, 0);\n    }\n\n    " + contentSelector + " {\n      width: 100%;\n      font-family: " + settings.fontFamily + ";\n      font-size: " + settings.fontSize + "px;\n      line-height: " + settings.lineHeight + ";\n      color: var(--ink-1);\n      word-wrap: break-word;\n      overflow-wrap: anywhere;\n    }\n\n    " + contentSelector + " p,\n    " + contentSelector + " li,\n    " + contentSelector + " blockquote,\n    " + contentSelector + " h1,\n    " + contentSelector + " h2,\n    " + contentSelector + " h3,\n    " + contentSelector + " h4,\n    " + contentSelector + " h5,\n    " + contentSelector + " h6 {\n      max-width: 100%;\n    }\n\n    " + contentSelector + " img,\n    " + contentSelector + " video,\n    " + contentSelector + " audio,\n    " + contentSelector + " svg,\n    " + contentSelector + " canvas,\n    " + contentSelector + " iframe,\n    " + contentSelector + " table,\n    " + contentSelector + " pre {\n      max-width: 100%;\n    }\n\n    " + contentSelector + " a {\n      color: var(--accent);\n      text-decoration-thickness: 1px;\n      text-underline-offset: 0.12em;\n    }\n\n    " + contentSelector + " .reader-placeholder {\n      color: var(--ink-soft);\n      text-align: center;\n      font-style: italic;\n      margin-top: 12vh;\n    }\n\n    " + contentSelector + " .reader-error {\n      color: var(--danger);\n      font-style: normal;\n      font-weight: 600;\n    }\n\n    " + contentSelector + "::selection {\n      background: color-mix(in oklab, var(--accent) 32%, transparent);\n    }\n  ";
+  state.chapterStyle.textContent = "\n    *,\n    *::before,\n    *::after {\n      box-sizing: border-box;\n    }\n\n    " + rootSelector + " {\n      display: block;\n      position: relative;\n      min-height: 100%;\n      overflow: hidden;\n      color: var(--ink-1);\n    }\n\n    " + wrapSelector + " {\n      width: 100%;\n      margin: 0 auto;\n      padding: 1.4rem 1rem 2.2rem;\n      will-change: transform;\n      transform: translate3d(0, 0, 0);\n    }\n\n    " + contentSelector + " {\n      width: 100%;\n      font-family: " + settings.fontFamily + ";\n      font-size: " + settings.fontSize + "px;\n      font-weight: " + (settings.fontWeight || DEFAULT_SETTINGS.fontWeight) + ";\n      font-synthesis: weight;\n      line-height: " + settings.lineHeight + ";\n      color: var(--ink-1);\n      word-wrap: break-word;\n      overflow-wrap: anywhere;\n      -webkit-user-select: none;\n      -moz-user-select: none;\n      user-select: none;\n      pointer-events: none;\n    }\n\n    " + contentSelector + " * {\n      font-weight: inherit !important;\n      pointer-events: none;\n    }\n\n    " + contentSelector + " a,\n    " + contentSelector + " a * {\n      pointer-events: auto;\n    }\n\n    " + contentSelector + " p,\n    " + contentSelector + " li,\n    " + contentSelector + " blockquote,\n    " + contentSelector + " h1,\n    " + contentSelector + " h2,\n    " + contentSelector + " h3,\n    " + contentSelector + " h4,\n    " + contentSelector + " h5,\n    " + contentSelector + " h6 {\n      max-width: 100%;\n    }\n\n    " + contentSelector + " img,\n    " + contentSelector + " video,\n    " + contentSelector + " audio,\n    " + contentSelector + " svg,\n    " + contentSelector + " canvas,\n    " + contentSelector + " iframe,\n    " + contentSelector + " table,\n    " + contentSelector + " pre {\n      max-width: 100%;\n    }\n\n    " + contentSelector + " a {\n      color: var(--accent);\n      text-decoration-thickness: 1px;\n      text-underline-offset: 0.12em;\n    }\n\n    " + contentSelector + " .reader-placeholder {\n      color: var(--ink-soft);\n      text-align: center;\n      font-style: italic;\n      margin-top: 12vh;\n    }\n\n    " + contentSelector + " .reader-error {\n      color: var(--danger);\n      font-style: normal;\n      font-weight: 600;\n    }\n\n    " + contentSelector + "::selection {\n      background: color-mix(in oklab, var(--accent) 32%, transparent);\n    }\n  ";
 }
 function renderPlaceholder(message, isError) {
   if (isError === void 0) {
@@ -2037,27 +2088,30 @@ function pruneProgressCache(progressByBook) {
     delete progressByBook[keys[i]];
   }
 }
-function onViewportPointerDown(event) {
-  var point = getClientPoint(event);
-  state.pointerDown = {
-    x: point.x,
-    y: point.y,
-    time: nowMs()
-  };
+function onTapOverlayPointerUp(event) {
+  if (!state.activeBook) {
+    return;
+  }
+  handleOverlayTap(event);
 }
-function onViewportPointerUp(event) {
-  if (!state.activeBook || !state.pointerDown) {
+function onTapOverlayClick(event) {
+  if (!state.activeBook) {
     return;
+  }
+  handleOverlayTap(event);
+}
+function handleOverlayTap(event) {
+  if (event && event.preventDefault) {
+    event.preventDefault();
   }
   var point = getClientPoint(event);
-  var deltaX = Math.abs(point.x - state.pointerDown.x);
-  var deltaY = Math.abs(point.y - state.pointerDown.y);
-  var elapsed = nowMs() - state.pointerDown.time;
-  state.pointerDown = null;
-  if (deltaX > 12 || deltaY > 12 || elapsed > 700) {
+  if (!point || typeof point.x !== "number") {
     return;
   }
-  if (hasTextSelection()) {
+  navigateByViewportHalf(point);
+}
+function onReaderContainerMouseUp(event) {
+  if (!state.activeBook) {
     return;
   }
   var composedPath = getEventPath(event);
@@ -2066,14 +2120,79 @@ function onViewportPointerUp(event) {
   })) {
     return;
   }
+  var point = getClientPoint(event);
+  if (!point || typeof point.x !== "number") {
+    return;
+  }
+  navigateByViewportHalf(point);
+}
+function navigateByViewportHalf(point) {
   var rectangle = elements.readerViewport.getBoundingClientRect();
   var pointerX = point.x - rectangle.left;
   var width = rectangle.width;
-  var regionWidth = width * (state.settings.tapRegion / 100);
-  if (pointerX >= width - regionWidth) {
-    advanceForward(true);
-  } else if (pointerX <= regionWidth) {
-    advanceBackward(true);
+  state.lastTapNavAt = nowMs();
+  if (pointerX >= width / 2) {
+    advanceForwardPage(false);
+    return;
+  }
+  advanceBackwardPage(false);
+}
+function advanceForwardPage(withAnimation) {
+  var book = state.activeBook;
+  var metrics;
+  var target;
+  var nextIndex;
+  if (!book) {
+    return;
+  }
+  if (canMoveForward()) {
+    metrics = getViewMetrics();
+    target = state.viewOffset + metrics.viewportHeight * 0.92;
+    if (!withAnimation) {
+      setViewOffset(target, {
+        persist: true
+      });
+      return;
+    }
+    animateOffsetTo(target, state.settings.scrollDuration);
+    return;
+  }
+  nextIndex = book.currentIndex + 1;
+  if (nextIndex < book.spine.length) {
+    renderChapterAt(nextIndex, {
+      restoreOffset: 0
+    }).catch(function (error) {
+      console.error(error);
+    });
+  }
+}
+function advanceBackwardPage(withAnimation) {
+  var book = state.activeBook;
+  var metrics;
+  var target;
+  var previousIndex;
+  if (!book) {
+    return;
+  }
+  if (canMoveBackward()) {
+    metrics = getViewMetrics();
+    target = state.viewOffset - metrics.viewportHeight * 0.92;
+    if (!withAnimation) {
+      setViewOffset(target, {
+        persist: true
+      });
+      return;
+    }
+    animateOffsetTo(target, state.settings.scrollDuration);
+    return;
+  }
+  previousIndex = book.currentIndex - 1;
+  if (previousIndex >= 0) {
+    renderChapterAt(previousIndex, {
+      restoreOffset: Number.POSITIVE_INFINITY
+    }).catch(function (error) {
+      console.error(error);
+    });
   }
 }
 function onReaderShadowClick(event) {
