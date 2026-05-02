@@ -222,7 +222,7 @@
             var PAD_FILL = '#2f74c0';
             var PAD_FILL_DARK = '#215894';
             var PAD_FILL_LIGHT = '#4f8fd6';
-            var PAD_STROKE = '#183b63';
+            var PAD_STROKE = '#000000';
             var PAD_ARROW = '#f7fbff';
 
             var FONT_EMOJI = '"SokobanGlyphs", "Segoe UI Emoji", "Apple Color Emoji", serif';
@@ -426,7 +426,7 @@
                 document.onkeydown = function (e) {
                     e = e || window.event;
                     var key = e.keyCode || e.which;
-                    if (key === 85) {
+                    if (key === 8 || key === 85) {
                         undoMove();
                         return cancelEvent(e);
                     }
@@ -664,9 +664,10 @@
                     return;
                 }
                 if (state.solved) {
-                    announce('Already solved. Generate a new level from Menu.');
+                    announce('Solved. Generating a new ' + state.difficulty.name + ' level...');
                     updateHud();
                     render();
+                    generateDifficulty(state.difficulty.id);
                     return;
                 }
 
@@ -778,7 +779,7 @@
                         px = x * currentCell;
                         py = y * currentCell;
                         if (state.map[y][x] === WALL) {
-                            drawWallCell(px, py);
+                            drawWallCell(px, py, x, y);
                         } else {
                             drawFloorCell(px, py, state.goalsLookup[keyFor(x, y)] ? true : false);
                         }
@@ -821,7 +822,7 @@
                 ctx.fillStyle = action ? PAD_FILL : PAD_FILL_LIGHT;
                 ctx.fillRect(px, py, currentCell, currentCell);
                 ctx.strokeStyle = PAD_STROKE;
-                ctx.lineWidth = 1;
+                ctx.lineWidth = 2.5;
                 ctx.strokeRect(px + 0.5, py + 0.5, currentCell - 1, currentCell - 1);
 
                 if (gx === boardWidth - 2 && gy === boardHeight - 2) {
@@ -951,8 +952,8 @@
                 }
             }
 
-            function drawWallCell(px, py) {
-                drawBrickCell(px, py);
+            function drawWallCell(px, py, gx, gy) {
+                drawBrickCell(px, py, gx, gy);
             }
 
             function drawBoxes() {
@@ -1014,7 +1015,12 @@
                 g.restore();
             }
 
-            function drawBrickCell(px, py) {
+            function drawBrickCell(px, py, gx, gy) {
+                if (isEnclosedWallCell(gx, gy, state.map)) {
+                    ctx.fillStyle = '#d9d9d9';
+                    ctx.fillRect(px, py, currentCell, currentCell);
+                    return;
+                }
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(px, py, currentCell, currentCell);
                 if (brickImage && brickImage.complete && brickImage.naturalWidth > 0) {
@@ -2108,6 +2114,26 @@
                     return true;
                 }
                 return map[y][x] === WALL;
+            }
+
+            function isEnclosedWallCell(x, y, map) {
+                var dx;
+                var dy;
+                var i;
+                if (!map || !map.length) {
+                    return false;
+                }
+                for (dy = -1; dy <= 1; dy = dy + 1) {
+                    for (dx = -1; dx <= 1; dx = dx + 1) {
+                        if (dx === 0 && dy === 0) {
+                            continue;
+                        }
+                        if (!isWall(map, x + dx, y + dy)) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
             }
 
             function keyFor(x, y) {
