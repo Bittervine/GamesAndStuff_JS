@@ -218,6 +218,12 @@
             var CELL = 34;
             var WALL = 1;
             var FLOOR = 0;
+            var PAD_SIZE = 3;
+            var PAD_FILL = '#2f74c0';
+            var PAD_FILL_DARK = '#215894';
+            var PAD_FILL_LIGHT = '#4f8fd6';
+            var PAD_STROKE = '#183b63';
+            var PAD_ARROW = '#f7fbff';
 
             var FONT_EMOJI = '"SokobanGlyphs", "Segoe UI Emoji", "Apple Color Emoji", serif';
             var ICON = {
@@ -466,6 +472,9 @@
                 gy = Math.floor(y / currentCell);
                 if (gx < 0 || gy < 0 || gy >= state.map.length || gx >= state.map[0].length) {
                     return;
+                }
+                if (handlePadClick(gx, gy)) {
+                    return cancelEvent(e);
                 }
                 if (isWall(state.map, gx, gy)) {
                     return;
@@ -778,6 +787,145 @@
 
                 drawBoxes();
                 drawPlayer(state.player.x * currentCell, state.player.y * currentCell);
+                drawDirectionPad(w, h);
+            }
+
+            function drawDirectionPad(boardWidth, boardHeight) {
+                var startX = Math.max(0, boardWidth - PAD_SIZE);
+                var startY = Math.max(0, boardHeight - PAD_SIZE);
+                var x;
+                var y;
+                var px;
+                var py;
+
+                for (y = startY; y < boardHeight; y = y + 1) {
+                    for (x = startX; x < boardWidth; x = x + 1) {
+                        px = x * currentCell;
+                        py = y * currentCell;
+                        drawPadCell(px, py, x, y, boardWidth, boardHeight);
+                    }
+                }
+            }
+
+            function drawPadCell(px, py, gx, gy, boardWidth, boardHeight) {
+                var action = padActionAt(gx, gy, boardWidth, boardHeight);
+                var inner = Math.max(4, Math.floor(currentCell * 0.18));
+                var x1 = px + inner;
+                var y1 = py + inner;
+                var x2 = px + currentCell - inner;
+                var y2 = py + currentCell - inner;
+                var cx = px + Math.floor(currentCell / 2);
+                var cy = py + Math.floor(currentCell / 2);
+
+                ctx.save();
+                ctx.fillStyle = action ? PAD_FILL : PAD_FILL_LIGHT;
+                ctx.fillRect(px, py, currentCell, currentCell);
+                ctx.strokeStyle = PAD_STROKE;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(px + 0.5, py + 0.5, currentCell - 1, currentCell - 1);
+
+                if (gx === boardWidth - 2 && gy === boardHeight - 2) {
+                    ctx.fillStyle = PAD_FILL_DARK;
+                    ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+                }
+
+                if (action === 'up') {
+                    drawPadArrow(cx, cy, 'up');
+                } else if (action === 'down') {
+                    drawPadArrow(cx, cy, 'down');
+                } else if (action === 'left') {
+                    drawPadArrow(cx, cy, 'left');
+                } else if (action === 'right') {
+                    drawPadArrow(cx, cy, 'right');
+                }
+
+                ctx.restore();
+            }
+
+            function drawPadArrow(cx, cy, dir) {
+                var size = Math.max(6, Math.floor(currentCell * 0.28));
+                var shaft = Math.max(2, Math.floor(currentCell * 0.08));
+                var half = Math.max(3, Math.floor(size / 2));
+
+                ctx.save();
+                ctx.fillStyle = PAD_ARROW;
+                ctx.strokeStyle = PAD_ARROW;
+                ctx.lineWidth = shaft;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+
+                if (dir === 'up') {
+                    ctx.moveTo(cx, cy - half);
+                    ctx.lineTo(cx, cy + half);
+                    ctx.moveTo(cx - half, cy - Math.floor(half * 0.2));
+                    ctx.lineTo(cx, cy - half);
+                    ctx.lineTo(cx + half, cy - Math.floor(half * 0.2));
+                } else if (dir === 'down') {
+                    ctx.moveTo(cx, cy - half);
+                    ctx.lineTo(cx, cy + half);
+                    ctx.moveTo(cx - half, cy + Math.floor(half * 0.2));
+                    ctx.lineTo(cx, cy + half);
+                    ctx.lineTo(cx + half, cy + Math.floor(half * 0.2));
+                } else if (dir === 'left') {
+                    ctx.moveTo(cx - half, cy);
+                    ctx.lineTo(cx + half, cy);
+                    ctx.moveTo(cx - Math.floor(half * 0.2), cy - half);
+                    ctx.lineTo(cx - half, cy);
+                    ctx.lineTo(cx - Math.floor(half * 0.2), cy + half);
+                } else if (dir === 'right') {
+                    ctx.moveTo(cx - half, cy);
+                    ctx.lineTo(cx + half, cy);
+                    ctx.moveTo(cx + Math.floor(half * 0.2), cy - half);
+                    ctx.lineTo(cx + half, cy);
+                    ctx.lineTo(cx + Math.floor(half * 0.2), cy + half);
+                }
+
+                ctx.stroke();
+                ctx.fill();
+                ctx.restore();
+            }
+
+            function handlePadClick(gx, gy) {
+                var action = padActionAt(gx, gy, state.map[0].length, state.map.length);
+                if (action === 'up') {
+                    attemptMove(0, -1);
+                    return true;
+                }
+                if (action === 'down') {
+                    attemptMove(0, 1);
+                    return true;
+                }
+                if (action === 'left') {
+                    attemptMove(-1, 0);
+                    return true;
+                }
+                if (action === 'right') {
+                    attemptMove(1, 0);
+                    return true;
+                }
+                return false;
+            }
+
+            function padActionAt(x, y, boardWidth, boardHeight) {
+                var startX = Math.max(0, boardWidth - PAD_SIZE);
+                var startY = Math.max(0, boardHeight - PAD_SIZE);
+                if (x < startX || y < startY) {
+                    return '';
+                }
+                if (x === startX + 1 && y === startY) {
+                    return 'up';
+                }
+                if (x === startX && y === startY + 1) {
+                    return 'left';
+                }
+                if (x === startX + 2 && y === startY + 1) {
+                    return 'right';
+                }
+                if (x === startX + 1 && y === startY + 2) {
+                    return 'down';
+                }
+                return '';
             }
 
             function drawFloorCell(px, py, isGoal) {
@@ -1492,7 +1640,7 @@
 
             function generateMap(width, height, wallCount) {
                 var map = createBaseMap(width, height);
-                var floorTotal = (width - 2) * (height - 2);
+                var floorTotal = (width - 2) * (height - 2) - reservedFloorCellCount(width, height);
                 var tries = wallCount * 14;
                 var placed = 0;
                 var x;
@@ -1549,7 +1697,7 @@
                 for (y = 0; y < height; y = y + 1) {
                     map[y] = [];
                     for (x = 0; x < width; x = x + 1) {
-                        if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
+                        if (x === 0 || y === 0 || x === width - 1 || y === height - 1 || isReservedBoardCell(x, y, width, height)) {
                             map[y][x] = WALL;
                         } else {
                             map[y][x] = FLOOR;
@@ -1861,6 +2009,22 @@
                 return out;
             }
 
+            function reservedFloorCellCount(width, height) {
+                var count = 0;
+                var x;
+                var y;
+                for (y = Math.max(1, height - PAD_SIZE); y < height - 1; y = y + 1) {
+                    for (x = Math.max(1, width - PAD_SIZE); x < width - 1; x = x + 1) {
+                        count = count + 1;
+                    }
+                }
+                return count;
+            }
+
+            function isReservedBoardCell(x, y, boardWidth, boardHeight) {
+                return x >= boardWidth - PAD_SIZE && y >= boardHeight - PAD_SIZE;
+            }
+
             function pickRandomPoints(points, count) {
                 var pool = clonePoints(points);
                 shuffle(pool);
@@ -1938,6 +2102,9 @@
 
             function isWall(map, x, y) {
                 if (y < 0 || y >= map.length || x < 0 || x >= map[0].length) {
+                    return true;
+                }
+                if (isReservedBoardCell(x, y, map[0].length, map.length)) {
                     return true;
                 }
                 return map[y][x] === WALL;
