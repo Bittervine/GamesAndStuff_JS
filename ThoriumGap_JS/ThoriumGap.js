@@ -1753,8 +1753,8 @@
   };
 
   const DIFFICULTIES = [                                                                      // Hint: bulletSpeed = enemyShotPace maintains gap-dynamics of shots (just faster)
-    { label: 'Easy', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.9, spawnCount: 0.55, bulletSpeed: 1.0, bossHp: 0.5, contact: 0.9, playerDamage: 1, enemyShotPace: 1.0 },
-    { label: 'Normal', lives: 3, enemyHp: 1.2, enemySpeed: 1, spawnRate: 1, spawnCount: 0.75, bulletSpeed: 1.5, bossHp: 1, contact: 1, playerDamage: 0.5, enemyShotPace: 1.5 },
+    { label: 'Easy', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.9, spawnCount: 0.8, bulletSpeed: 1.0, bossHp: 0.5, contact: 0.9, playerDamage: 1, enemyShotPace: 1.0 },
+    { label: 'Normal', lives: 3, enemyHp: 1.2, enemySpeed: 1, spawnRate: 1, spawnCount: 0.9, bulletSpeed: 1.5, bossHp: 1, contact: 1, playerDamage: 0.5, enemyShotPace: 1.5 },
     { label: 'Hard', lives: 2, enemyHp: 1.4, enemySpeed: 1.1, spawnRate: 1.1, spawnCount: 1.0, bulletSpeed: 2.0, bossHp: 1.3, contact: 1.12, playerDamage: 0.25, enemyShotPace: 2.0 }
   ];
 
@@ -3100,7 +3100,7 @@
     const enemyKinds = waveEnemyKinds(theme);
     const form = theme.forms[(state.levelIndex + ((state.levelClock / 4) | 0) + ((state.waveClock * 2) | 0)) % theme.forms.length];
     const diff = currentDifficulty();
-    const count = clamp(Math.round((3 + Math.floor(state.levelIndex / 4) + randi(0, 2)) * diff.spawnCount), 2, 9);
+    const count = clamp(Math.round((4 + Math.floor(state.levelIndex / 5) + randi(0, 2)) * diff.spawnCount), 2, 9);
     const margin = 42, top = -34, mid = (count - 1) * 0.5;
     const waveId = state.waveIndex++;
     const entryRoutes = [
