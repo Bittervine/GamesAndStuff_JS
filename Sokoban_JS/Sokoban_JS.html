@@ -106,20 +106,21 @@
         }
 
         #panelMoves {
-            display: block;
+            display: flex;
+            justify-content: flex-end;
         }
 
         #panelCyan {
-            position: fixed;
-            right: 10px;
-            bottom: 10px;
-            width: 232px;
+            position: static;
+            width: 100%;
+            max-width: 232px;
+            margin: 0;
+            box-sizing: border-box;
             border: 2px solid #111111;
             border-radius: 12px;
             background: #00d6d6;
             box-shadow: inset 0 2px 0 #6dffff, inset 0 -2px 0 #00a2a2;
             padding: 6px;
-            z-index: 50;
         }
 
         #moveDock {
@@ -290,7 +291,7 @@
                 max-width: none;
                 width: 100%;
                 display: grid;
-                grid-template-columns: minmax(0, 1fr) auto;
+                grid-template-columns: minmax(0, 1fr) minmax(220px, 240px);
                 gap: 8px;
                 align-items: start;
             }
@@ -304,9 +305,8 @@
 
             #panelCyan {
                 position: static;
-                width: 210px;
-                right: auto;
-                bottom: auto;
+                width: 100%;
+                max-width: 240px;
                 margin-top: 0;
                 margin-left: 0;
             }
