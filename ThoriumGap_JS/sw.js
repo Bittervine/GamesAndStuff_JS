@@ -9,7 +9,15 @@ var APP_SHELL = [
   './pwa-icon.svg'
 ];
 
-var ASSET_ROOTS = ['./assets/', './devel/'];
+var ASSET_ROOTS = ['assets/', 'devel/'];
+var SW_SCOPE_PATH = new URL(self.registration.scope).pathname;
+function isAssetRequest(pathname) {
+  var relativePath = pathname.indexOf(SW_SCOPE_PATH) === 0 ? pathname.slice(SW_SCOPE_PATH.length) : pathname;
+  for (var i = 0; i < ASSET_ROOTS.length; i++) {
+    if (relativePath.indexOf(ASSET_ROOTS[i]) === 0) return true;
+  }
+  return false;
+}
 function z2(n) { return (n < 10 ? '0' : '') + n; }
 function z3(n) { return (n < 10 ? '00' : (n < 100 ? '0' : '')) + n; }
 var APP_ASSETS = (function () {
@@ -82,8 +90,7 @@ self.addEventListener('fetch', function (event) {
     return;
   }
 
-  for (var i = 0; i < ASSET_ROOTS.length; i++) {
-    if (url.pathname.indexOf(ASSET_ROOTS[i]) >= 0) {
+  if (isAssetRequest(url.pathname)) {
       event.respondWith(
         fetch(event.request, { cache: 'no-store' }).then(function (response) {
           if (response && response.ok) {
@@ -100,8 +107,7 @@ self.addEventListener('fetch', function (event) {
           });
         })
       );
-      return;
-    }
+    return;
   }
 
   event.respondWith(
