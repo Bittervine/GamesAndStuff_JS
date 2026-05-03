@@ -4907,6 +4907,14 @@
     hudCtx.restore();
   }
 
+  function measureHudTextWidth(text, font) {
+    hudCtx.save();
+    hudCtx.font = font;
+    const width = hudCtx.measureText(text).width;
+    hudCtx.restore();
+    return width;
+  }
+
   function drawWorldBar(x, y, w, h, ratio, fill, back, layer) {
       x = Number.isFinite(x) ? x : 0;
       y = Number.isFinite(y) ? y : 0;
@@ -6115,16 +6123,22 @@
     const detailLine = 'STAGE ' + (state.levelIndex + 1) + '/' + THEMES.length + '  ' + theme.name + '   WEAPON ' + WEAPONS[p.weaponMode].name + ' ' + WEAPON_TIER_LABELS[p.weaponTier - 1] + '   HIGH ' + format(state.highScore);
     const scoreFont = compact ? '900 11px "Trebuchet MS", "Segoe UI", sans-serif' : '900 13px "Trebuchet MS", "Segoe UI", sans-serif';
     const detailFont = compact ? '700 8px "Trebuchet MS", "Segoe UI", sans-serif' : '700 9px "Trebuchet MS", "Segoe UI", sans-serif';
-    hudCtx.font = scoreFont;
-    const scoreW = hudCtx.measureText(scoreLine).width;
-    hudCtx.font = detailFont;
-    const detailW = hudCtx.measureText(detailLine).width;
-    const contentW = Math.max(scoreW, detailW);
+    const scoreW = measureHudTextWidth(scoreLine, scoreFont);
+    const detailW = measureHudTextWidth(detailLine, detailFont);
+    const maxScoreDigits = format(999999999).length;
+    const maxHighDigits = format(Math.max(state.highScore || 0, 999999999)).length;
+    const worstScoreLine = 'SCORE ' + Array(maxScoreDigits + 1).join('8') + '   LIVES ' + 9 + '   BOMB ' + 9 + '   SHIELD ' + 9;
+    const longestThemeName = THEMES.reduce(function (best, t) { return (t && t.name && t.name.length > best.length) ? t.name : best; }, '');
+    const longestWeaponName = WEAPONS.reduce(function (best, w) { return (w && w.name && w.name.length > best.length) ? w.name : best; }, '');
+    const longestDetailLine = 'STAGE ' + THEMES.length + '/' + THEMES.length + '  ' + longestThemeName + '   WEAPON ' + longestWeaponName + ' ' + WEAPON_TIER_LABELS[WEAPON_TIER_LABELS.length - 1] + '   HIGH ' + Array(maxHighDigits + 1).join('8');
+    const worstScoreW = measureHudTextWidth(worstScoreLine, scoreFont);
+    const worstDetailW = measureHudTextWidth(longestDetailLine, detailFont);
     const heatPanelW = compact ? 20 : 22;
     const heatPanelGap = compact ? 5 : 6;
     const scorePanelMinW = compact ? 240 : 290;
     const scorePanelMaxW = Math.max(scorePanelMinW, Math.min(view.w - 24 - heatPanelGap - heatPanelW, compact ? 460 : 600));
-    const panelW = clamp(Math.round((contentW + (compact ? 42 : 46)) * 1.2), scorePanelMinW, scorePanelMaxW);
+    const contentW = Math.max(scoreW, detailW, worstScoreW, worstDetailW);
+    const panelW = clamp(Math.round(contentW + (compact ? 34 : 40)), scorePanelMinW, scorePanelMaxW);
     const panelH = compact ? 44 : 48;
     const panelX = 8;
     const panelY = 8;
