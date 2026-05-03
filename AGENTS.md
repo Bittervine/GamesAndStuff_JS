@@ -1,4 +1,4 @@
-﻿# Agent Instructions
+# Agent Instructions
 
 - Only add, commit or push files on git when explicitly told so.
 - If the user's query starts with `Q:` or `Qustion:`, answer the question only and do not implement changes or perform any other actions.
