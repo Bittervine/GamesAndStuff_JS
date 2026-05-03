@@ -1731,11 +1731,11 @@
 
   const PICKUPS = {
     weapon: { emoji: E.wrench, color: '#00ffff', lighter: true, glowDiameter: 32 },
-    rapid: { emoji: E.bolt, color: '#ffe97e', lighter: true, glowDiameter: 32 },
+    rapid: { emoji: E.bolt, color: '#ff7000', lighter: true, glowDiameter: 32 },
     shield: { emoji: E.shield, color: '#4040ff', lighter: false, glowDiameter: 64 },
     bomb: { emoji: E.bomb, color: '#ff2020', lighter: true, glowDiameter: 50 },
     magnet: { emoji: E.magnet, color: '#777777', lighter: true, glowDiameter: 32 },
-    invuln: { emoji: E.star, color: '#c7ff8f', lighter: true, glowDiameter: 32 },
+    invuln: { emoji: E.star, color: '#ffff00', lighter: true, glowDiameter: 32 },
     score: { emoji: E.gem, color: '#f00000', lighter: false, glowDiameter: 50 }
   };
 
@@ -4896,7 +4896,7 @@
     }
     if (label) {
       const prev = hudCtx.globalCompositeOperation;
-      hudCtx.globalCompositeOperation = 'difference';
+      hudCtx.globalCompositeOperation = 'xor';
       hudCtx.fillStyle = '#fff';
       hudCtx.font = '700 9px "Segoe UI", sans-serif';
       hudCtx.textAlign = 'center';
@@ -6212,11 +6212,31 @@
     }
 
     const invulnPickupActive = p.invuln > 0.5;
-    const powerLabel = state.overdrive > 0 ? 'OVERDRIVE' : p.rapidTimer > 0 ? 'RAPID' : p.magnetTimer > 0 ? 'MAGNET' : invulnPickupActive ? 'INVULN' : '';
-    const powerRatio = state.overdrive > 0 ? state.overdrive / 7 : p.rapidTimer > 0 ? p.rapidTimer / 8 : p.magnetTimer > 0 ? p.magnetTimer / 12 : invulnPickupActive ? p.invuln / 4 : 0;
-      if (powerRatio > 0) {
-        drawBar(view.w * 0.18, view.h - view.controlsH - 30, view.w * 0.64, 10, powerRatio, state.overdrive > 0 ? '#ffe38c' : p.rapidTimer > 0 ? '#ffe97e' : p.magnetTimer > 0 ? '#77f7c4' : '#c7ff8f', 'rgba(0,0,0,0.35)', powerLabel);
-      }
+    let powerLabel = '';
+    let powerRatio = 0;
+    let powerColor = '';
+    let powerBackColor = 'rgba(0,0,0,0.35)';
+    let powerFlat = false;
+    if (invulnPickupActive) {
+      powerLabel = 'INVULN';
+      powerRatio = p.invuln / 4;
+      powerColor = '#ff0000';        
+    } else if (state.overdrive > 0) {
+      powerLabel = 'OVERDRIVE';
+      powerRatio = state.overdrive / 7;
+      powerColor = '#0000ff';      
+    } else if (p.rapidTimer > 0) {
+      powerLabel = 'RAPID';
+      powerRatio = p.rapidTimer / 8;
+      powerColor = '#ffd000';
+    } else if (p.magnetTimer > 0) {
+      powerLabel = 'MAGNET';
+      powerRatio = p.magnetTimer / 12;
+      powerColor = '#c0c0c0';
+    }
+    if (powerRatio > 0) {
+      drawBar(view.w * 0.18, view.h - view.controlsH - 30, view.w * 0.64, 10, powerRatio, powerColor, powerBackColor, powerLabel, powerFlat);
+    }
 
 
     if (state.paused) {
