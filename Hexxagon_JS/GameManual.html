@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <title>Hexxagon Manual</title>
+  <style>
+    body{margin:0;font-family:'FreeSerif',serif;background:#fff;color:#23160f}
+    .wrap{width:min(760px,calc(100% - 24px));margin:0 auto;padding:24px 12px 40px}
+    h1{margin:0 0 12px}
+    p,li{line-height:1.45}
+    a{color:#5a3415}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>Hexxagon Manual</h1>
+    <p>Goal: end with more stones than the AI on a hex grid.</p>
+    <ul>
+      <li>A legal move starts from one of your stones and lands on an empty hex at hex distance 1 (clone) or 2 (jump).</li>
+      <li>Moving one hex-step clones a stone. Moving two hex-steps jumps and clears the source.</li>
+      <li>Any enemy stones adjacent to the landing hex flip to your color.</li>
+      <li>If you cannot move, you pass.</li>
+    </ul>
+    <p>Open the game: <a href="Hexxagon_JS.html">Hexxagon JS</a></p>
+  </main>
+</body>
+</html>

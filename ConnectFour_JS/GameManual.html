@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <title>Connect Four Manual</title>
+  <style>
+    body{margin:0;font-family:'FreeSerif',serif;background:#fff;color:#23160f}
+    .wrap{width:min(760px,calc(100% - 24px));margin:0 auto;padding:24px 12px 40px}
+    h1{margin:0 0 12px}
+    p,li{line-height:1.45}
+    a{color:#5a3415}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>Connect Four Manual</h1>
+    <p>Goal: connect four discs in a row before the AI does.</p>
+    <ul>
+      <li>A legal move is choosing any column that is not full.</li>
+      <li>The disc falls to the lowest empty cell in that column.</li>
+      <li>Rows, columns, and diagonals all count for a line of four.</li>
+      <li>If the board fills without a line of four, the game is a draw.</li>
+    </ul>
+    <p>Open the game: <a href="ConnectFour_JS.html">Connect Four JS</a></p>
+  </main>
+</body>
+</html>

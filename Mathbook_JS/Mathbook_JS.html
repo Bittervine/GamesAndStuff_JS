@@ -1,0 +1,3485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./pwa-icon.svg" type="image/svg+xml">
+      <link rel="apple-touch-icon" href="./pwa-icon.svg" type="image/svg+xml">
+<title>Mathbook</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #f4f8ff;
+      color: #132033;
+      font-family: "Trebuchet MS", Verdana, Arial, sans-serif;
+      line-height: 1.35;
+    }
+
+    #app {
+      width: 95%;
+      max-width: none;
+      margin: 0 auto;
+      padding: 10px 10px 16px;
+    }
+
+    h1 {
+      margin: 0 0 4px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .intro {
+      margin: 0 0 10px;
+      color: #32455f;
+      font-size: 14px;
+    }
+
+    #history {
+      min-height: 140px;
+      margin-bottom: 12px;
+    }
+
+    .record {
+      margin-bottom: 12px;
+      padding: 10px;
+      border: 1px solid #7ea6cc;
+      border-radius: 10px;
+      background: #ffffff;
+      box-shadow: 0 2px 0 #b5cde4;
+    }
+
+    .record.error {
+      border-color: #c97474;
+      background: #fff4f4;
+    }
+
+    .record.clickable {
+      cursor: pointer;
+    }
+
+    .record.navSelected {
+      border: 3px solid #c62828;
+      box-shadow: 0 0 0 2px #ffd7d7, 0 2px 0 #d69a9a;
+    }
+
+    .recordLabel {
+      margin: 0 0 5px;
+      font-size: 12px;
+      color: #4a5e78;
+      font-weight: bold;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .historyInput {
+      width: 100%;
+      min-height: 0;
+      height: auto;
+      resize: none;
+      margin: 0 0 8px;
+      padding: 8px;
+      border: 1px solid #a7c2dc;
+      border-radius: 8px;
+      background: #f7fbff;
+      color: #18273b;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 14px;
+      line-height: 1.32;
+      overflow: auto;
+    }
+
+    .historyOutput {
+      margin: 0;
+      padding: 9px 10px;
+      border: 1px solid #cad9ea;
+      border-radius: 8px;
+      background: #f8fbff;
+      color: #1d2e46;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 14px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      min-height: 20px;
+    }
+
+    .record.error .historyOutput {
+      border-color: #d7a4a4;
+      background: #fff8f8;
+      color: #7a1f1f;
+    }
+
+    .graphWrap {
+      margin-top: 2px;
+      padding: 8px;
+      border: 1px solid #cad9ea;
+      border-radius: 8px;
+      background: #f8fbff;
+    }
+
+    .graphCanvas {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      border: 1px solid #99b7d4;
+      background: #ffffff;
+    }
+
+    #composer {
+      padding: 10px;
+      border: 2px solid #7ea6cc;
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 2px 0 #b5cde4;
+    }
+
+    #composer.navMode {
+      border-color: #3e6f9d;
+      box-shadow: 0 2px 0 #9cbdd9;
+    }
+
+    #inputLabel {
+      display: block;
+      margin: 0 0 6px;
+      font-size: 13px;
+      color: #30465f;
+      font-weight: bold;
+    }
+
+    #editor {
+      display: block;
+      width: 100%;
+      min-height: 0;
+      height: auto;
+      overflow-y: hidden;
+      resize: none;
+      margin: 0 0 10px;
+      padding: 10px;
+      border: 1px solid #8db2d5;
+      border-radius: 8px;
+      background: #f7fbff;
+      color: #132033;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 15px;
+      line-height: 1.34;
+    }
+
+    #controlRow {
+      width: 100%;
+      display: flex;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .group {
+      border: 1px solid #98b9d8;
+      border-radius: 10px;
+      background: #f5faff;
+      padding: 5px;
+      min-height: 0;
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+      max-width: 100%;
+      flex: 0 1 auto;
+    }
+
+    #exportGroup {
+      flex: 0 0 auto;
+      text-align: left;
+    }
+
+    .exportBtn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: auto;
+      margin: 0 6px 0 0;
+      padding: 3px 6px;
+      font-size: 13px;
+      line-height: 1.05;
+      height: 24px;
+    }
+
+    #controlSpacer {
+      flex: 0 0 8px;
+      min-width: 0;
+    }
+
+    #plotGroup {
+      flex: 0 0 auto;
+      height: auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+    }
+
+    #keysOpenBtn {
+      min-width: 0;
+      width: 22px;
+      padding: 0;
+      height: 22px;
+      font-size: 12px;
+      line-height: 1;
+      background: #d8ecff;
+      border-color: #1a3a58;
+      box-shadow: inset 0 1px 0 #eff8ff, 0 2px 0 #7da6c9;
+    }
+
+    #controlRow:not(.keysExpanded) #keysOpenBtn {
+      display: inline-flex;
+    }
+
+    #controlRow.keysExpanded #keysOpenBtn {
+      display: none;
+    }
+
+    #intModeGroup {
+      flex: 0 0 auto;
+      padding-left: 4px;
+      padding-right: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #menuGroup {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      margin-right: 6px;
+    }
+
+    #menuBtn {
+      min-width: 0;
+      width: 22px;
+      padding: 0;
+      height: 22px;
+      font-size: 13px;
+      line-height: 22px;
+      padding-top: 0;
+      padding-bottom: 1px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #d8ecff;
+      border-color: #1a3a58;
+      box-shadow: inset 0 1px 0 #eff8ff, 0 2px 0 #7da6c9;
+    }
+
+    #menuDropdown {
+      position: absolute;
+      left: 0;
+      bottom: calc(100% + 4px);
+      z-index: 30;
+      display: none;
+      min-width: 112px;
+      padding: 4px;
+      border: 1px solid #8fa5bb;
+      border-radius: 10px;
+      background: #f5faff;
+      box-shadow: 0 8px 18px rgba(20, 40, 70, 0.22);
+    }
+
+    #menuGroup.menuOpen #menuDropdown {
+      display: block;
+    }
+
+    #menuDropdown .menuItem {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      margin: 0 0 3px 0;
+      padding: 0 8px;
+      height: 24px;
+      line-height: 1;
+      text-align: left;
+    }
+
+    #menuDropdown .menuItem:last-child {
+      margin-bottom: 0;
+    }
+
+    #keysGroup {
+      flex: 0 0 auto;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      white-space: normal;
+      --keys-row-h: 24px;
+      --keys-gap: 3px;
+      --keys-panel-max: 360px;
+      --keys-font-size: 12px;
+      --keys-large-font-size: 15px;
+    }
+
+    #keysGroup.keysDensitySplit {
+      width: 100%;
+      align-items: stretch;
+      --keys-row-h: 23px;
+      --keys-gap: 4px 6px;
+      --keys-panel-max: none;
+      --keys-font-size: 11px;
+      --keys-large-font-size: 13px;
+    }
+
+    #keysGroup.keysDensityCompact {
+      --keys-row-h: 22px;
+      --keys-gap: 2px;
+      --keys-panel-max: 320px;
+      --keys-font-size: 11px;
+      --keys-large-font-size: 14px;
+    }
+
+    #keysGroup.keysDensityTight {
+      --keys-row-h: 20px;
+      --keys-gap: 2px;
+      --keys-panel-max: 288px;
+      --keys-font-size: 10px;
+      --keys-large-font-size: 12px;
+    }
+
+    #keysPanel {
+      display: grid;
+      width: 100%;
+      max-width: var(--keys-panel-max);
+      gap: var(--keys-gap);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-auto-rows: var(--keys-row-h);
+    }
+
+    #keysGroup.keysDensitySplit #keysPanel {
+      width: 100%;
+      max-width: none;
+      gap: var(--keys-gap);
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      grid-template-rows: repeat(5, var(--keys-row-h));
+      grid-auto-rows: var(--keys-row-h);
+    }
+
+    #keysGroup:not(.isOpen) #keysPanel .keyBtn {
+      display: none;
+    }
+
+    #keysGroup:not(.isOpen) #keysPanel .keyBtn[data-action="toggleKeys"] {
+      display: inline-block;
+    }
+
+    #keysGroup:not(.isOpen) #keysPanel {
+      display: inline-flex;
+      width: auto;
+      max-width: none;
+      gap: 6px;
+      grid-template-columns: none;
+      grid-auto-rows: auto;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #keysGroup:not(.isOpen) #keysPanel .keyBtn[data-action="toggleKeys"] {
+      width: auto;
+      min-width: 72px;
+      flex: 0 0 auto;
+      font-size: 15px;
+      border-radius: 11px;
+      min-height: 24px;
+    }
+
+    .keyBtn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+      width: 100%;
+      padding: 4px 7px;
+      border-radius: 8px;
+      font-size: var(--keys-font-size);
+      font-weight: bold;
+      line-height: 1.1;
+      background: #edf3fa;
+      height: var(--keys-row-h);
+    }
+    .keySpecial {
+      background: #d8ecff;
+    }
+    .keyDigit {
+      background: #fbfcfe;
+    }
+
+    .keySpacer {
+      display: block;
+      width: 100%;
+      height: 1px;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .keyLarge {
+      padding: 3px 10px;
+      font-size: var(--keys-large-font-size);
+      min-height: 0;
+      line-height: 1.05;
+    }
+
+    .modeTitle {
+      margin-right: 8px;
+      font-size: 12px;
+      color: #324861;
+      font-weight: bold;
+    }
+
+    #intModeGroup .modeOpt {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 2px;
+      font-size: 7px !important;
+      line-height: 1;
+      white-space: nowrap;
+      color: #132033;
+    }
+
+    #intModeGroup .modeOpt input {
+      margin: 0 1px 0 0;
+      transform: scale(0.68);
+      transform-origin: center;
+      flex: 0 0 auto;
+    }
+
+    #runGroup {
+      flex: 0 0 auto;
+      text-align: right;
+      display: inline-flex;
+      align-items: flex-start;
+      gap: 6px;
+    }
+
+    #runGroup {
+      justify-content: center;
+      align-items: center;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    #controlRow:not(.keysExpanded) #runGroup {
+      display: none;
+    }
+
+    #runGroup.keysDensitySplit {
+      width: 100%;
+      flex: 1 1 100%;
+      padding-left: 4px;
+      padding-right: 4px;
+    }
+
+    .miniLabel {
+      display: inline-block;
+      margin-right: 0;
+      font-size: 12px;
+      color: #324861;
+      vertical-align: middle;
+    }
+
+    .rangeInput {
+      display: inline-block;
+      width: 58px;
+      margin-right: 0;
+      padding: 3px 7px;
+      border: 1px solid #8db2d5;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #132033;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 14px;
+      line-height: 1.05;
+      vertical-align: middle;
+    }
+
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5px 12px;
+      border: 2px solid #1a3a58;
+      border-radius: 11px;
+      background: #b9dfff;
+      color: #132033;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 #eff8ff, 0 2px 0 #7da6c9;
+    }
+
+    button:active {
+      box-shadow: inset 0 1px 0 #eff8ff, 0 1px 0 #7da6c9;
+    }
+
+    #plotBtn {
+      background: #bcebd2;
+    }
+
+    #plotBtn,
+    #runBtn {
+      width: auto;
+      margin: 0 6px 0 0;
+      padding: 3px 6px;
+      font-size: 13px;
+      line-height: 1.05;
+      height: 24px;
+      min-width: 0;
+    }
+
+    #keysToggleBtn {
+      min-width: 0;
+      width: 100%;
+      padding: 3px 10px;
+      line-height: 1.05;
+      height: var(--keys-row-h);
+      font-size: var(--keys-large-font-size);
+      background: #d8ecff;
+      border-color: #1a3a58;
+      box-shadow: inset 0 1px 0 #eff8ff, 0 2px 0 #7da6c9;
+    }
+
+    #keysGroup.isOpen #keysToggleBtn {
+      background: #a9d3f5;
+      border-color: #1a3a58;
+      box-shadow: inset 0 1px 0 #dff1ff, 0 1px 0 #7da6c9;
+      transform: translateY(1px);
+    }
+
+    #runBtn {
+      background: #ffdcb0;
+    }
+
+    @media (max-width: 600px) {
+      #controlRow {
+        flex-wrap: wrap;
+        row-gap: 4px;
+      }
+
+      #exportGroup {
+        width: 100%;
+        margin-bottom: 0;
+        text-align: left;
+        white-space: normal;
+      }
+
+      .exportBtn {
+        width: 90px;
+        margin-left: 0;
+        margin-right: 6px;
+      }
+
+      #controlSpacer {
+        display: none;
+      }
+
+      #plotGroup {
+        width: 100%;
+        white-space: normal;
+      }
+
+      #plotBtn {
+        margin-left: auto;
+      }
+
+      #runGroup {
+        width: auto;
+        margin-top: 4px;
+        margin-left: auto;
+      }
+
+      #intModeGroup {
+        width: 100%;
+        white-space: normal;
+        margin-top: 0;
+        justify-content: flex-start;
+      }
+
+      #menuGroup {
+        margin-right: 4px;
+      }
+
+      #runBtn {
+        width: auto;
+      }
+
+      .rangeInput {
+        width: 52px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <h1>Mathbook</h1>
+    <p class="intro">Helpers: <code>hex()</code>, <code>bin()</code>, <code>dec()</code>, <code>oct()</code>, <code>asc()</code>, <code>ord()</code>, <code>int()</code>, <code>bits()</code>, <code>and()</code>, <code>or()</code>, <code>xor()</code>, <code>not()</code>, <code>crc32()</code>, <code>dword2float()</code>, <code>float2dword()</code>, <code>sin()</code>, <code>cos()</code>, <code>tan()</code>, <code>sqrt()</code>, <code>abs()</code>, <code>log()</code>, <code>log10()</code>, <code>exp()</code>, <code>plot(x_array,y_array)</code>. Constants: <code>pi</code>, <code>C0</code>. Plot uses <code>X</code>. History arrays: <code>IN</code>, <code>OUT</code>.</p>
+
+    <div id="history"></div>
+
+    <div id="composer">
+      <label id="inputLabel" for="editor">Input (JavaScript / expression)</label>
+      <textarea id="editor" rows="1" spellcheck="false">sin(X)</textarea>
+
+      <div id="controlRow">
+        <div class="group" id="intModeGroup">          
+          <div id="menuGroup">
+            <button id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Menu" aria-label="Menu">≡</button>
+            <div id="menuDropdown" role="menu" aria-label="Mathbook menu">
+              <button id="resetBtn" class="exportBtn menuItem" type="button">Reset</button>
+              <button id="copyBtn" class="exportBtn menuItem" type="button">Copy</button>
+              <button id="saveBtn" class="exportBtn menuItem" type="button">Save</button>
+            </div>
+          </div>
+          <label class="modeOpt"><input type="radio" name="intMode" id="intModeDec" value="DEC" checked> DEC</label>
+          <label class="modeOpt"><input type="radio" name="intMode" id="intModeHex" value="HEX"> HEX</label>
+          <label class="modeOpt"><input type="radio" name="intMode" id="intModeBin" value="BIN"> BIN</label>
+          <label class="modeOpt"><input type="radio" name="intMode" id="intModeBits" value="BITS"> BITS</label>
+        </div>
+        <div id="controlSpacer"></div>
+        <div class="group" id="plotGroup">
+          <label class="miniLabel" for="xLow">X:</label>
+          <input class="rangeInput" id="xLow" type="text" value="-10">
+          <label class="miniLabel" for="xHigh">-</label>
+          <input class="rangeInput" id="xHigh" type="text" value="10">
+          <button id="plotBtn" type="button">Plot</button>
+          <button id="runBtn" type="button">Eval</button>
+          <button id="keysOpenBtn" type="button" title="Show keypad" aria-label="Show keypad">#</button>
+        </div>
+        <div class="group" id="runGroup">
+          <div id="keysGroup">
+          <div id="keysPanel">
+            <button id="keysToggleBtn" class="keyBtn keyLarge keySpecial" type="button" data-action="toggleKeys">#</button>
+            <button class="keyBtn keyLarge keySpecial" type="button" data-action="left">&#8592;</button>
+            <button class="keyBtn keyLarge keySpecial" type="button" data-action="right">&#8594;</button>
+            <button class="keyBtn keyLarge keySpecial" type="button" data-action="backspace">&#9003;</button>
+
+            <button class="keyBtn" type="button" data-key="A">A</button>
+            <button class="keyBtn" type="button" data-key="B">B</button>
+            <button class="keyBtn" type="button" data-key="C">C</button>
+            <button class="keyBtn keySpecial" type="button" data-action="clear">Clear</button>
+
+            <button class="keyBtn" type="button" data-key="D">D</button>
+            <button class="keyBtn" type="button" data-key="E">E</button>
+            <button class="keyBtn" type="button" data-key="F">F</button>
+            <button class="keyBtn" type="button" data-key="_">_</button>
+
+            <button class="keyBtn" type="button" data-key="sin(">sin</button>
+            <button class="keyBtn" type="button" data-key="cos(">cos</button>
+            <button class="keyBtn" type="button" data-key="tan(">tan</button>
+            <button class="keyBtn" type="button" data-key="sqrt(">sqrt</button>
+
+            <button class="keyBtn" type="button" data-key="exp(">exp</button>
+            <button class="keyBtn" type="button" data-key="log(">log</button>
+            <button class="keyBtn" type="button" data-key="log10(">log10</button>
+            <button class="keyBtn" type="button" data-key="X">X</button>
+
+            <button class="keyBtn" type="button" data-key="[">[</button>
+            <button class="keyBtn" type="button" data-key="]">]</button>
+            <button class="keyBtn" type="button" data-key="(">(</button>
+            <button class="keyBtn" type="button" data-key=")">)</button>
+
+            <button class="keyBtn keyDigit" type="button" data-key="7">7</button>
+            <button class="keyBtn keyDigit" type="button" data-key="8">8</button>
+            <button class="keyBtn keyDigit" type="button" data-key="9">9</button>
+            <button class="keyBtn" type="button" data-key="/">/</button>
+
+            <button class="keyBtn keyDigit" type="button" data-key="4">4</button>
+            <button class="keyBtn keyDigit" type="button" data-key="5">5</button>
+            <button class="keyBtn keyDigit" type="button" data-key="6">6</button>
+            <button class="keyBtn" type="button" data-key="*">*</button>
+
+            <button class="keyBtn keyDigit" type="button" data-key="1">1</button>
+            <button class="keyBtn keyDigit" type="button" data-key="2">2</button>
+            <button class="keyBtn keyDigit" type="button" data-key="3">3</button>
+            <button class="keyBtn" type="button" data-key="-">-</button>
+
+            <button class="keyBtn keyDigit" type="button" data-key="0">0</button>
+            <button class="keyBtn" type="button" data-key=".">.</button>
+            <button class="keyBtn" type="button" data-key=",">,</button>
+            <button class="keyBtn" type="button" data-key="+">+</button>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var historyEl = document.getElementById('history');
+      var editorEl = document.getElementById('editor');
+      var runBtn = document.getElementById('runBtn');
+      var plotBtn = document.getElementById('plotBtn');
+      var resetBtn = document.getElementById('resetBtn');
+      var copyBtn = document.getElementById('copyBtn');
+      var saveBtn = document.getElementById('saveBtn');
+      var menuBtn = document.getElementById('menuBtn');
+      var menuGroupEl = document.getElementById('menuGroup');
+      var menuDropdownEl = document.getElementById('menuDropdown');
+      var keysOpenBtn = document.getElementById('keysOpenBtn');
+      var runGroupEl = document.getElementById('runGroup');
+      var intModeGroupEl = document.getElementById('intModeGroup');
+      var intModeDecEl = document.getElementById('intModeDec');
+      var intModeHexEl = document.getElementById('intModeHex');
+      var intModeBinEl = document.getElementById('intModeBin');
+      var intModeBitsEl = document.getElementById('intModeBits');
+      var keysGroupEl = document.getElementById('keysGroup');
+      var keysPanelEl = document.getElementById('keysPanel');
+      var controlRowEl = document.getElementById('controlRow');
+      var xLowEl = document.getElementById('xLow');
+      var xHighEl = document.getElementById('xHigh');
+      var composerEl = document.getElementById('composer');
+      var execCount = 0;
+      var scope = {};
+      var inputHistory = [];
+      var outputHistory = [];
+      var plotPoints = [];
+      var plotCanvases = [];
+      var outputFields = [];
+      var historyRecords = [];
+      var entryErrorFlags = [];
+      var mode = 'edit';
+      var navIndex = -1;
+      var intDisplayMode = 'DEC';
+      var lastValue1;
+      var lastValue2;
+      var lastValue3;
+      var STORAGE_KEY = 'MathbookJS_Notebook_State_v1';
+      var isRestoringState = false;
+
+      function trimText(value) {
+        return String(value).replace(/^\s+|\s+$/g, '');
+      }
+
+      function trimEndText(value) {
+        return String(value).replace(/\s+$/g, '');
+      }
+
+      function autoSizeHistoryInput(textareaEl, maxRows) {
+        var lineHeight = 19;
+        var computed;
+        var parsedLineHeight;
+        var maxHeight;
+        var minHeight;
+        if (!textareaEl) return;
+        if (window.getComputedStyle) {
+          computed = window.getComputedStyle(textareaEl, null);
+          if (computed && computed.lineHeight) {
+            parsedLineHeight = parseFloat(computed.lineHeight);
+            if (isFinite(parsedLineHeight) && parsedLineHeight > 0) {
+              lineHeight = parsedLineHeight;
+            }
+          }
+        }
+        maxHeight = lineHeight * maxRows + 16;
+        minHeight = lineHeight + 10;
+        textareaEl.style.height = '1px';
+        textareaEl.style.overflowY = 'hidden';
+        if (textareaEl.scrollHeight < minHeight) {
+          textareaEl.style.height = minHeight + 'px';
+        } else if (textareaEl.scrollHeight > maxHeight) {
+          textareaEl.style.height = maxHeight + 'px';
+          textareaEl.style.overflowY = 'auto';
+        } else {
+          textareaEl.style.height = textareaEl.scrollHeight + 'px';
+        }
+      }
+
+      function autoSizeEditor() {
+        var lineHeight = 20;
+        var computed;
+        var parsedLineHeight;
+        var minHeight;
+        if (!editorEl) return;
+        if (window.getComputedStyle) {
+          computed = window.getComputedStyle(editorEl, null);
+          if (computed && computed.lineHeight) {
+            parsedLineHeight = parseFloat(computed.lineHeight);
+            if (isFinite(parsedLineHeight) && parsedLineHeight > 0) {
+              lineHeight = parsedLineHeight;
+            }
+          }
+        }
+        minHeight = lineHeight + 20;
+        editorEl.style.height = 'auto';
+        editorEl.style.height = Math.max(editorEl.scrollHeight, minHeight) + 'px';
+      }
+
+      function insertAtCursor(text, noFocus) {
+        var start;
+        var end;
+        var value;
+        if (mode !== 'edit') {
+          setMode('edit', { noFocus: !!noFocus });
+        }
+        value = editorEl.value;
+        start = (typeof editorEl.selectionStart === 'number') ? editorEl.selectionStart : value.length;
+        end = (typeof editorEl.selectionEnd === 'number') ? editorEl.selectionEnd : value.length;
+        editorEl.value = value.substring(0, start) + text + value.substring(end);
+        if (editorEl.setSelectionRange) {
+          editorEl.setSelectionRange(start + text.length, start + text.length);
+        }
+        autoSizeEditor();
+        saveSessionState();
+      }
+
+      function backspaceAtCursor(noFocus) {
+        var start;
+        var end;
+        var value;
+        if (mode !== 'edit') {
+          setMode('edit', { noFocus: !!noFocus });
+        }
+        value = editorEl.value;
+        start = (typeof editorEl.selectionStart === 'number') ? editorEl.selectionStart : value.length;
+        end = (typeof editorEl.selectionEnd === 'number') ? editorEl.selectionEnd : value.length;
+        if (start !== end) {
+          editorEl.value = value.substring(0, start) + value.substring(end);
+          if (editorEl.setSelectionRange) editorEl.setSelectionRange(start, start);
+        } else if (start > 0) {
+          editorEl.value = value.substring(0, start - 1) + value.substring(start);
+          if (editorEl.setSelectionRange) editorEl.setSelectionRange(start - 1, start - 1);
+        }
+        autoSizeEditor();
+        saveSessionState();
+      }
+
+      function escapeHtml(text) {
+        return String(text)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function hasClass(el, name) {
+        return !!el && (' ' + el.className + ' ').indexOf(' ' + name + ' ') >= 0;
+      }
+
+      function addClass(el, name) {
+        if (!el || hasClass(el, name)) {
+          return;
+        }
+        el.className = (el.className ? (el.className + ' ') : '') + name;
+      }
+
+      function removeClass(el, name) {
+        if (!el || !el.className) {
+          return;
+        }
+        el.className = (' ' + el.className + ' ').replace(' ' + name + ' ', ' ');
+        el.className = el.className.replace(/^\s+|\s+$/g, '').replace(/\s+/g, ' ');
+      }
+
+      function syncKeysExpandedLayout() {
+        if (!controlRowEl || !keysGroupEl) return;
+        if (hasClass(keysGroupEl, 'isOpen')) {
+          addClass(controlRowEl, 'keysExpanded');
+        } else {
+          removeClass(controlRowEl, 'keysExpanded');
+        }
+      }
+
+      function toggleKeysPanel() {
+        if (!keysGroupEl) return;
+        if (hasClass(keysGroupEl, 'isOpen')) {
+          removeClass(keysGroupEl, 'isOpen');
+        } else {
+          addClass(keysGroupEl, 'isOpen');
+        }
+        syncKeysExpandedLayout();
+        syncPreferGroupSize();
+        saveSessionState();
+      }
+
+      function clearKeysPanelPlacement() {
+        var i;
+        if (!keysPanelEl || !keysPanelEl.children) return;
+        for (i = 0; i < keysPanelEl.children.length; i++) {
+          if (keysPanelEl.children[i] && keysPanelEl.children[i].style) {
+            keysPanelEl.children[i].style.gridColumn = '';
+            keysPanelEl.children[i].style.gridRow = '';
+          }
+        }
+      }
+
+      function applySplitKeysPanelPlacement() {
+        var i;
+        var child;
+        var block;
+        var within;
+        var row;
+        var col;
+        if (!keysPanelEl || !keysPanelEl.children) return;
+        for (i = 0; i < keysPanelEl.children.length; i++) {
+          child = keysPanelEl.children[i];
+          if (!child || child.tagName !== 'BUTTON') continue;
+          block = i < 20 ? 0 : 1;
+          within = i % 20;
+          row = Math.floor(within / 4) + 1;
+          col = (within % 4) + 1 + block * 4;
+          child.style.gridColumn = String(col);
+          child.style.gridRow = String(row);
+        }
+      }
+
+      function syncKeysDensityLayout() {
+        var availableWidth;
+        var split;
+        if (!keysGroupEl || !keysPanelEl) return;
+
+        availableWidth = 0;
+        if (composerEl && composerEl.getBoundingClientRect) {
+          availableWidth = composerEl.getBoundingClientRect().width || 0;
+        } else if (controlRowEl && controlRowEl.getBoundingClientRect) {
+          availableWidth = controlRowEl.getBoundingClientRect().width || 0;
+        } else if (window.innerWidth) {
+          availableWidth = window.innerWidth;
+        }
+
+        removeClass(keysGroupEl, 'keysDensitySplit');
+        removeClass(keysGroupEl, 'keysDensityCompact');
+        removeClass(keysGroupEl, 'keysDensityTight');
+        if (runGroupEl) {
+          removeClass(runGroupEl, 'keysDensitySplit');
+        }
+        clearKeysPanelPlacement();
+
+        if (!hasClass(keysGroupEl, 'isOpen')) {
+          if (availableWidth < 390) {
+            addClass(keysGroupEl, 'keysDensityTight');
+          } else if (availableWidth < 560) {
+            addClass(keysGroupEl, 'keysDensityCompact');
+          }
+          return;
+        }
+
+        split = availableWidth >= 400;
+        if (split) {
+          addClass(keysGroupEl, 'keysDensitySplit');
+          if (runGroupEl) {
+            addClass(runGroupEl, 'keysDensitySplit');
+          }
+          applySplitKeysPanelPlacement();
+          return;
+        }
+
+        if (availableWidth < 390) {
+          addClass(keysGroupEl, 'keysDensityTight');
+        } else if (availableWidth < 560) {
+          addClass(keysGroupEl, 'keysDensityCompact');
+        }
+      }
+
+      function syncPreferGroupSize() {
+        var h;
+        if (!intModeGroupEl) return;
+        intModeGroupEl.style.minHeight = '';
+        h = menuGroupEl ? menuGroupEl.offsetHeight : 0;
+        if (h > 0) {
+          intModeGroupEl.style.minHeight = h + 'px';
+        }
+        syncKeysDensityLayout();
+      }
+
+      function setMenuOpen(nextOpen) {
+        if (!menuGroupEl || !menuBtn) return;
+        if (nextOpen) {
+          addClass(menuGroupEl, 'menuOpen');
+          menuBtn.setAttribute('aria-expanded', 'true');
+        } else {
+          removeClass(menuGroupEl, 'menuOpen');
+          menuBtn.setAttribute('aria-expanded', 'false');
+        }
+      }
+
+      function toggleMenu() {
+        setMenuOpen(!hasClass(menuGroupEl, 'menuOpen'));
+      }
+
+      function focusEditorAtEnd() {
+        var len;
+        editorEl.focus();
+        if (editorEl.setSelectionRange) {
+          len = editorEl.value.length;
+          editorEl.setSelectionRange(len, len);
+        }
+      }
+
+      function focusEditorAtStart() {
+        editorEl.focus();
+        if (editorEl.setSelectionRange) {
+          editorEl.setSelectionRange(0, 0);
+        }
+      }
+
+      function isCaretOnFirstLine() {
+        var pos = editorEl.selectionStart;
+        if (typeof pos !== 'number') {
+          return false;
+        }
+        return editorEl.value.lastIndexOf('\n', pos - 1) < 0;
+      }
+
+      function updateModeUi() {
+        if (composerEl) {
+          if (mode === 'nav') {
+            addClass(composerEl, 'navMode');
+          } else {
+            removeClass(composerEl, 'navMode');
+          }
+        }
+
+        editorEl.readOnly = (mode !== 'edit');
+      }
+
+      function clearNotebook() {
+        execCount = 0;
+        scope = {};
+        inputHistory = [];
+        outputHistory = [];
+        plotPoints = [];
+        plotCanvases = [];
+        outputFields = [];
+        historyRecords = [];
+        entryErrorFlags = [];
+        navIndex = -1;
+        lastValue1 = undefined;
+        lastValue2 = undefined;
+        lastValue3 = undefined;
+        historyEl.innerHTML = '';
+      }
+
+      function pushLastValue(value) {
+        lastValue3 = lastValue2;
+        lastValue2 = lastValue1;
+        lastValue1 = value;
+      }
+
+      function setIntMode(modeName) {
+        intDisplayMode = modeName;
+        if (intModeDecEl) intModeDecEl.checked = (modeName === 'DEC');
+        if (intModeHexEl) intModeHexEl.checked = (modeName === 'HEX');
+        if (intModeBinEl) intModeBinEl.checked = (modeName === 'BIN');
+        if (intModeBitsEl) intModeBitsEl.checked = (modeName === 'BITS');
+      }
+
+      function buildSessionState() {
+        var data = {
+          version: 1,
+          editorText: editorEl.value,
+          xLow: xLowEl.value,
+          xHigh: xHighEl.value,
+          intDisplayMode: intDisplayMode,
+          keysExpanded: hasClass(keysGroupEl, 'isOpen'),
+          entries: []
+        };
+        var i;
+        var out;
+        var entry;
+        for (i = 0; i < execCount; i++) {
+          out = outputHistory[i];
+          if (out && out.type === 'plot') {
+            entry = {
+              type: 'plot',
+              input: inputHistory[i],
+              plot: out
+            };
+          } else {
+            entry = {
+              type: 'text',
+              input: inputHistory[i],
+              isError: !!entryErrorFlags[i]
+            };
+            if (typeof out === 'number' && isFinite(out) && Math.floor(out) === out) {
+              entry.rawInt = out;
+            } else {
+              entry.outputText = outputFields[i] ? outputFields[i].textContent : formatOutput(out);
+            }
+          }
+          data.entries[data.entries.length] = entry;
+        }
+        return data;
+      }
+
+      function saveSessionState() {
+        var data;
+        if (isRestoringState) return;
+        if (!window.localStorage) return;
+        try {
+          data = buildSessionState();
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        } catch (saveErr) {}
+      }
+
+      function formatDateStamp() {
+        var d = new Date();
+        function pad(n) { return n < 10 ? ('0' + n) : String(n); }
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+          '_' + pad(d.getHours()) + '-' + pad(d.getMinutes()) + '-' + pad(d.getSeconds());
+      }
+
+      function buildPlainTextExport() {
+        var lines = [];
+        var i;
+        var out;
+        lines[lines.length] = 'Mathbook Notebook Export';
+        lines[lines.length] = 'Created: ' + (new Date()).toString();
+        lines[lines.length] = '';
+        for (i = 0; i < execCount; i++) {
+          lines[lines.length] = 'IN [' + i + ']:';
+          lines[lines.length] = String(inputHistory[i] || '');
+          lines[lines.length] = '';
+          out = outputHistory[i];
+          if (out && out.type === 'plot') {
+            lines[lines.length] = 'PLOT[' + i + ']: X=' + out.focusX + ' Y=' + out.focusY;
+            lines[lines.length] = 'X Range: [' + out.xMin + ', ' + out.xMax + ']';
+            lines[lines.length] = 'Y Range: [' + out.minY + ', ' + out.maxY + ']';
+            lines[lines.length] = '';
+          } else {
+            lines[lines.length] = 'OUT [' + i + ']:';
+            lines[lines.length] = formatOutput(out);
+            lines[lines.length] = '';
+          }
+        }
+        return lines.join('\r\n');
+      }
+
+      function buildHtmlExport() {
+        var parts = [];
+        var i;
+        var out;
+        var png;
+        parts[parts.length] = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Mathbook Export</title>';
+        parts[parts.length] = '<style>body{font-family:Trebuchet MS,Verdana,Arial,sans-serif;margin:12px;color:#132033}';
+        parts[parts.length] = '.rec{border:1px solid #9bb9d6;border-radius:8px;padding:10px;margin-bottom:12px;background:#fff}';
+        parts[parts.length] = 'pre{white-space:pre-wrap;background:#f7fbff;border:1px solid #cad9ea;padding:8px;border-radius:6px}';
+        parts[parts.length] = 'img{max-width:100%;border:1px solid #99b7d4}</style></head><body>';
+        parts[parts.length] = '<h1>Mathbook Notebook Export</h1>';
+        parts[parts.length] = '<p>Created: ' + escapeHtml((new Date()).toString()) + '</p>';
+        for (i = 0; i < execCount; i++) {
+          parts[parts.length] = '<div class="rec">';
+          parts[parts.length] = '<h3>IN [' + i + ']:</h3>';
+          parts[parts.length] = '<pre>' + escapeHtml(String(inputHistory[i] || '')) + '</pre>';
+          out = outputHistory[i];
+          if (out && out.type === 'plot') {
+            parts[parts.length] = '<h3>PLOT[' + i + ']: X=' + escapeHtml(String(out.focusX)) + ' Y=' + escapeHtml(String(out.focusY)) + '</h3>';
+            parts[parts.length] = '<p>X Range: [' + escapeHtml(String(out.xMin)) + ', ' + escapeHtml(String(out.xMax)) + '] ';
+            parts[parts.length] += 'Y Range: [' + escapeHtml(String(out.minY)) + ', ' + escapeHtml(String(out.maxY)) + ']</p>';
+            if (plotCanvases[i] && plotCanvases[i].toDataURL) {
+              png = plotCanvases[i].toDataURL('image/png');
+              parts[parts.length] = '<img alt="Plot ' + i + '" src="' + png + '">';
+            }
+          } else {
+            parts[parts.length] = '<h3>OUT [' + i + ']:</h3>';
+            parts[parts.length] = '<pre>' + escapeHtml(formatOutput(out)) + '</pre>';
+          }
+          parts[parts.length] = '</div>';
+        }
+        parts[parts.length] = '</body></html>';
+        return parts.join('');
+      }
+
+      function saveTextToFile(text, fileName, mimeType) {
+        var blob;
+        var a;
+        if (window.Blob) {
+          blob = new Blob([text], { type: mimeType });
+          if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+            window.navigator.msSaveOrOpenBlob(blob, fileName);
+            return;
+          }
+          if (window.URL && window.URL.createObjectURL) {
+            a = document.createElement('a');
+            a.href = window.URL.createObjectURL(blob);
+            a.download = fileName;
+            document.body.appendChild(a);
+            if (a.click) {
+              a.click();
+            }
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(a.href);
+            return;
+          }
+        }
+        window.location.href = 'data:' + mimeType + ';charset=utf-8,' + encodeURIComponent(text);
+      }
+
+      function copyText(text) {
+        var ta;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).catch(function () {});
+          return;
+        }
+        ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try {
+          document.execCommand('copy');
+        } catch (copyErr) {}
+        document.body.removeChild(ta);
+      }
+
+      function clearNavSelection() {
+        if (navIndex >= 0 && navIndex < historyRecords.length) {
+          removeClass(historyRecords[navIndex], 'navSelected');
+        }
+        navIndex = -1;
+      }
+
+      function setNavSelection(nextIndex) {
+        var record;
+
+        if (execCount < 1) {
+          clearNavSelection();
+          return;
+        }
+
+        if (nextIndex < 0) {
+          nextIndex = 0;
+        }
+        if (nextIndex >= execCount) {
+          nextIndex = execCount - 1;
+        }
+
+        if (navIndex >= 0 && navIndex < historyRecords.length) {
+          removeClass(historyRecords[navIndex], 'navSelected');
+        }
+
+        navIndex = nextIndex;
+        record = historyRecords[navIndex];
+        if (record) {
+          addClass(record, 'navSelected');
+          if (record.scrollIntoView) {
+            record.scrollIntoView(false);
+          }
+        }
+      }
+
+      function setMode(nextMode, options) {
+        var oldMode = mode;
+        var noFocus = options && options.noFocus;
+        if (nextMode !== 'edit' && nextMode !== 'nav') {
+          return;
+        }
+
+        mode = nextMode;
+        updateModeUi();
+
+        if (mode === 'edit') {
+          clearNavSelection();
+          if (!noFocus) {
+            if (oldMode === 'nav') {
+              focusEditorAtStart();
+            } else {
+              focusEditorAtEnd();
+            }
+          }
+          scrollToBottomSoon();
+        } else {
+          if (editorEl.blur) {
+            editorEl.blur();
+          }
+          if (execCount > 0) {
+            if (navIndex < 0 || navIndex >= execCount) {
+              setNavSelection(execCount - 1);
+            } else {
+              setNavSelection(navIndex);
+            }
+          } else {
+            clearNavSelection();
+          }
+        }
+      }
+
+      function toggleMode() {
+        if (mode === 'edit') {
+          setMode('nav');
+        } else {
+          setMode('edit');
+        }
+      }
+
+      function moveNavSelection(step) {
+        if (execCount < 1) {
+          return;
+        }
+        if (navIndex < 0 || navIndex >= execCount) {
+          setNavSelection(execCount - 1);
+          return;
+        }
+        if (step > 0 && navIndex >= execCount - 1) {
+          setMode('edit');
+          return;
+        }
+        setNavSelection(navIndex + step);
+      }
+
+      function useSelectedNavExpression() {
+        var expressionText;
+        if (execCount < 1) {
+          setMode('edit');
+          return;
+        }
+        if (navIndex < 0 || navIndex >= execCount) {
+          setNavSelection(execCount - 1);
+        }
+        expressionText = trimEndText(inputHistory[navIndex] || '');
+        editorEl.value = expressionText;
+        autoSizeEditor();
+        setMode('edit');
+        focusEditorAtEnd();
+        saveSessionState();
+      }
+
+      function pyInt(value, base) {
+        var num;
+        var str;
+        var sign;
+        var radix = 10;
+        var hasBase = typeof base !== 'undefined' && base !== null;
+
+        if (typeof value === 'number') {
+          if (!isFinite(value)) {
+            throw new Error('int() needs a finite number');
+          }
+          return value < 0 ? Math.ceil(value) : Math.floor(value);
+        }
+
+        if (typeof value === 'boolean') {
+          return value ? 1 : 0;
+        }
+
+        if (value === null || typeof value === 'undefined') {
+          throw new Error('int() needs a value');
+        }
+
+        str = trimText(value);
+        if (!str.length) {
+          throw new Error('int() received an empty string');
+        }
+
+        if (hasBase) {
+          radix = Number(base);
+          if (!isFinite(radix) || radix < 2 || radix > 36) {
+            throw new Error('int() base must be 2..36');
+          }
+        } else {
+          if (/^[-+]?0x[0-9a-f]+$/i.test(str)) {
+            radix = 16;
+            str = str.replace(/^([-+]?)(0x)/i, '$1');
+          } else if (/^[-+]?0b[01]+$/i.test(str)) {
+            radix = 2;
+            str = str.replace(/^([-+]?)(0b)/i, '$1');
+          } else if (/^[-+]?0o[0-7]+$/i.test(str)) {
+            radix = 8;
+            str = str.replace(/^([-+]?)(0o)/i, '$1');
+          } else {
+            radix = 10;
+          }
+        }
+
+        sign = '';
+        if (str.charAt(0) === '+' || str.charAt(0) === '-') {
+          sign = str.charAt(0);
+          str = str.substring(1);
+        }
+
+        if (!str.length) {
+          throw new Error('int() could not parse value');
+        }
+
+        num = parseInt(str, radix);
+        if (isNaN(num)) {
+          throw new Error('int() could not parse value');
+        }
+
+        if (sign === '-') {
+          num = -num;
+        }
+        return num;
+      }
+
+      function pyHex(value) {
+        if (Object.prototype.toString.call(value) === '[object Array]') {
+          var outA = [];
+          var iA;
+          for (iA = 0; iA < value.length; iA++) outA[iA] = pyHex(value[iA]);
+          return outA;
+        }
+        var n = pyInt(value);
+        var sign = '';
+        if (n < 0) {
+          sign = '-';
+          n = -n;
+        }
+        return sign + '0x' + n.toString(16).toUpperCase();
+      }
+
+      function pyBin(value) {
+        if (Object.prototype.toString.call(value) === '[object Array]') {
+          var outB = [];
+          var iB;
+          for (iB = 0; iB < value.length; iB++) outB[iB] = pyBin(value[iB]);
+          return outB;
+        }
+        var n = pyInt(value);
+        var sign = '';
+        if (n < 0) {
+          sign = '-';
+          n = -n;
+        }
+        return sign + '0b' + n.toString(2);
+      }
+
+      function pyDec(value) {
+        if (Object.prototype.toString.call(value) === '[object Array]') {
+          var outD = [];
+          var iD;
+          for (iD = 0; iD < value.length; iD++) outD[iD] = pyDec(value[iD]);
+          return outD;
+        }
+        return pyInt(value);
+      }
+
+      function pyOct(value) {
+        if (Object.prototype.toString.call(value) === '[object Array]') {
+          var outO = [];
+          var iO;
+          for (iO = 0; iO < value.length; iO++) outO[iO] = pyOct(value[iO]);
+          return outO;
+        }
+        var n = pyInt(value);
+        var sign = '';
+        if (n < 0) {
+          sign = '-';
+          n = -n;
+        }
+        return sign + '0o' + n.toString(8);
+      }
+
+      function asc(value) {
+        if (Object.prototype.toString.call(value) === '[object Array]') {
+          var outA = [];
+          var iA;
+          for (iA = 0; iA < value.length; iA++) outA[iA] = asc(value[iA]);
+          return outA;
+        }
+        return String.fromCharCode(pyInt(value) & 65535);
+      }
+
+      function ord(value) {
+        if (Object.prototype.toString.call(value) === '[object Array]') {
+          var outO = [];
+          var iO;
+          for (iO = 0; iO < value.length; iO++) outO[iO] = ord(value[iO]);
+          return outO;
+        }
+        var s = String(value);
+        if (!s.length) {
+          throw new Error('ord() expects a non-empty string');
+        }
+        return s.charCodeAt(0);
+      }
+
+      function bits(value) {
+        var u = Number(value);
+        var out = [];
+        var bit;
+        if (!isFinite(u)) {
+          throw new Error('bits() needs a finite number');
+        }
+        u = (u >>> 0);
+        for (bit = 0; bit < 32; bit++) {
+          if (((u >>> bit) & 1) === 1) {
+            out[out.length] = bit;
+          }
+        }
+        return out;
+      }
+
+      function and() {
+        var args = arguments;
+        var values;
+        var i;
+        var out;
+        if (args.length === 1 && Object.prototype.toString.call(args[0]) === '[object Array]') {
+          values = args[0];
+        } else {
+          values = args;
+        }
+        if (!values || values.length < 2) {
+          throw new Error('and() needs at least 2 arguments');
+        }
+        out = (Number(values[0]) | 0);
+        for (i = 1; i < values.length; i++) {
+          out = out & (Number(values[i]) | 0);
+        }
+        return out;
+      }
+
+      function or() {
+        var args = arguments;
+        var values;
+        var i;
+        var out;
+        if (args.length === 1 && Object.prototype.toString.call(args[0]) === '[object Array]') {
+          values = args[0];
+        } else {
+          values = args;
+        }
+        if (!values || values.length < 2) {
+          throw new Error('or() needs at least 2 arguments');
+        }
+        out = (Number(values[0]) | 0);
+        for (i = 1; i < values.length; i++) {
+          out = out | (Number(values[i]) | 0);
+        }
+        return out;
+      }
+
+      function xor() {
+        var args = arguments;
+        var values;
+        var i;
+        var out;
+        if (args.length === 1 && Object.prototype.toString.call(args[0]) === '[object Array]') {
+          values = args[0];
+        } else {
+          values = args;
+        }
+        if (!values || values.length < 2) {
+          throw new Error('xor() needs at least 2 arguments');
+        }
+        out = (Number(values[0]) | 0);
+        for (i = 1; i < values.length; i++) {
+          out = out ^ (Number(values[i]) | 0);
+        }
+        return out;
+      }
+
+      function not(value) {
+        return (~(Number(value) | 0)) >>> 0;
+      }
+
+      function crc32(input) {
+        var crc = 0xFFFFFFFF;
+        var i;
+        var j;
+        var b;
+        var x;
+        if (Object.prototype.toString.call(input) !== '[object Array]') {
+          throw new Error('crc32() expects an array of bytes');
+        }
+        for (i = 0; i < input.length; i++) {
+          b = Number(input[i]);
+          if (!isFinite(b)) {
+            throw new Error('crc32() byte is not finite at index ' + i);
+          }
+          b = b & 255;
+          x = (crc ^ b) & 255;
+          for (j = 0; j < 8; j++) {
+            if ((x & 1) !== 0) {
+              x = (x >>> 1) ^ 0xEDB88320;
+            } else {
+              x = x >>> 1;
+            }
+          }
+          crc = (crc >>> 8) ^ x;
+        }
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+      }
+
+      function dword2float(value) {
+        var u = Number(value);
+        var sign;
+        var exp;
+        var frac;
+        if (!isFinite(u)) {
+          throw new Error('dword2float() needs a finite number');
+        }
+        u = (u >>> 0);
+        sign = ((u >>> 31) === 0) ? 1 : -1;
+        exp = (u >>> 23) & 255;
+        frac = u & 8388607;
+
+        if (exp === 255) {
+          if (frac !== 0) {
+            return NaN;
+          }
+          return sign * Infinity;
+        }
+
+        if (exp === 0) {
+          if (frac === 0) {
+            return sign === 1 ? 0 : -0;
+          }
+          return sign * frac * Math.pow(2, -149);
+        }
+
+        return sign * (1 + frac / 8388608) * Math.pow(2, exp - 127);
+      }
+
+      function float2dword(value) {
+        var f = Number(value);
+        var sign = 0;
+        var absF;
+        var exp;
+        var expBits;
+        var fracBits;
+        var u;
+
+        if (isNaN(f)) {
+          return 2143289344;
+        }
+
+        if (f === Infinity) {
+          return 2139095040;
+        }
+
+        if (f === -Infinity) {
+          return 4286578688;
+        }
+
+        if (f === 0) {
+          if (1 / f === -Infinity) {
+            return 2147483648;
+          }
+          return 0;
+        }
+
+        if (f < 0) {
+          sign = 1;
+          f = -f;
+        }
+
+        absF = f;
+        exp = Math.floor(Math.log(absF) / Math.LN2);
+
+        if (exp < -126) {
+          fracBits = Math.round(absF / Math.pow(2, -149));
+          if (fracBits <= 0) {
+            fracBits = 0;
+          }
+          if (fracBits >= 8388608) {
+            expBits = 1;
+            fracBits = 0;
+          } else {
+            expBits = 0;
+          }
+        } else if (exp > 127) {
+          expBits = 255;
+          fracBits = 0;
+        } else {
+          expBits = exp + 127;
+          fracBits = Math.round((absF / Math.pow(2, exp) - 1) * 8388608);
+          if (fracBits >= 8388608) {
+            expBits += 1;
+            fracBits = 0;
+            if (expBits >= 255) {
+              expBits = 255;
+              fracBits = 0;
+            }
+          }
+          if (fracBits < 0) {
+            fracBits = 0;
+          }
+        }
+
+        u = sign * 2147483648 + (expBits << 23) + fracBits;
+        return (u >>> 0);
+      }
+
+      function log(value) {
+        return Math.log(value);
+      }
+
+      function log10(value) {
+        return Math.log(value) / Math.LN10;
+      }
+
+      function exp(value) {
+        return Math.exp(value);
+      }
+
+      function buildCustomPlot(xArray, yArray) {
+        var xIsArray = Object.prototype.toString.call(xArray) === '[object Array]';
+        var yIsArray = Object.prototype.toString.call(yArray) === '[object Array]';
+        var len;
+        var i;
+        var x;
+        var y;
+        var points = [];
+        var minX;
+        var maxX;
+        var minY;
+        var maxY;
+        var hasValue = false;
+
+        if (!xIsArray || !yIsArray) {
+          throw new Error('plot(x_array, y_array) expects two arrays');
+        }
+        len = xArray.length;
+        if (len !== yArray.length) {
+          throw new Error('plot(x_array, y_array) requires same-length arrays');
+        }
+        if (len < 1) {
+          throw new Error('plot(x_array, y_array) requires at least 1 point');
+        }
+
+        for (i = 0; i < len; i++) {
+          x = Number(xArray[i]);
+          y = Number(yArray[i]);
+          if (!isFinite(x) || !isFinite(y)) {
+            points[i] = null;
+            continue;
+          }
+          points[i] = { x: x, y: y };
+          if (!hasValue) {
+            minX = x;
+            maxX = x;
+            minY = y;
+            maxY = y;
+            hasValue = true;
+          } else {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+
+        if (!hasValue) {
+          throw new Error('plot(x_array, y_array) has no finite points');
+        }
+
+        if (minX === maxX) {
+          minX -= 1;
+          maxX += 1;
+        }
+        if (minY === maxY) {
+          minY -= 1;
+          maxY += 1;
+        }
+
+        return {
+          __mathbookPlotType: 'xy',
+          seriesPoints: [points],
+          minX: minX,
+          maxX: maxX,
+          minY: minY,
+          maxY: maxY,
+          drawPoints: true
+        };
+      }
+
+      function formatOutput(value) {
+        var text;
+        var n;
+
+        if (typeof value === 'undefined') {
+          return 'undefined';
+        }
+
+        if (value === null) {
+          return 'null';
+        }
+
+        if (typeof value === 'number') {
+          if (isFinite(value) && Math.floor(value) === value) {
+            n = value;
+            if (intDisplayMode === 'HEX') {
+              if (n < 0) {
+                return '-0x' + (-n).toString(16).toUpperCase();
+              }
+              return '0x' + n.toString(16).toUpperCase();
+            }
+            if (intDisplayMode === 'BIN') {
+              var sign = '';
+              var absN = n;
+              var bitsText;
+              var pad;
+              if (n < 0) {
+                sign = '-';
+                absN = -n;
+              }
+              bitsText = absN.toString(2);
+              pad = bitsText.length % 4;
+              if (pad !== 0) {
+                bitsText = (new Array(5 - pad)).join('0') + bitsText;
+              }
+              if (!bitsText.length) {
+                bitsText = '0000';
+              }
+              return sign + '0b' + bitsText;
+            }
+            if (intDisplayMode === 'BITS') {
+              return formatOutput(bits(n));
+            }
+          }
+          return String(value);
+        }
+
+        if (typeof value === 'boolean') {
+          return String(value);
+        }
+
+        if (typeof value === 'string') {
+          return value;
+        }
+
+        if (Object.prototype.toString.call(value) === '[object Array]') {
+          try {
+            return JSON.stringify(value);
+          } catch (arrayErr) {
+            return String(value);
+          }
+        }
+
+        if (typeof value === 'object') {
+          try {
+            text = JSON.stringify(value);
+            if (typeof text !== 'undefined') {
+              return text;
+            }
+          } catch (objErr) {}
+          return String(value);
+        }
+
+        return String(value);
+      }
+
+      function refreshIntegerOutputDisplays() {
+        var i;
+        var value;
+        for (i = 0; i < execCount; i++) {
+          if (!outputFields[i]) {
+            continue;
+          }
+          value = outputHistory[i];
+          if (typeof value === 'number' && isFinite(value) && Math.floor(value) === value) {
+            outputFields[i].innerHTML = '';
+            outputFields[i].appendChild(document.createTextNode(formatOutput(value)));
+          }
+        }
+      }
+
+      function copyScopeTo(target) {
+        var key;
+        for (key in scope) {
+          if (scope.hasOwnProperty(key)) {
+            target[key] = scope[key];
+          }
+        }
+      }
+
+      function addBuiltins(target, withX, xValue) {
+        target.hex = pyHex;
+        target.bin = pyBin;
+        target.dec = pyDec;
+        target.oct = pyOct;
+        target.asc = asc;
+        target.ord = ord;
+        target.int = pyInt;
+        target.bits = bits;
+        target.and = and;
+        target.or = or;
+        target.xor = xor;
+        target.not = not;
+        target.crc32 = crc32;
+        target.dword2float = dword2float;
+        target.float2dword = float2dword;
+        target.log = log;
+        target.log10 = log10;
+        target.exp = exp;
+        target.abs = Math.abs;
+        target.sin = Math.sin;
+        target.cos = Math.cos;
+        target.tan = Math.tan;
+        target.sqrt = Math.sqrt;
+        target.plot = buildCustomPlot;
+        target.pi = Math.PI;
+        target.C0 = 299792458;
+        target._ = lastValue1;
+        target.__ = lastValue2;
+        target.___ = lastValue3;
+        target.IN = inputHistory;
+        target.OUT = outputHistory;
+        target.PLOT = plotPoints;
+
+        if (withX) {
+          target.X = xValue;
+          target.x = xValue;
+        }
+      }
+
+      function saveScopeFrom(contextObj) {
+        var skip = {
+          hex: true,
+          bin: true,
+          dec: true,
+          oct: true,
+          asc: true,
+          ord: true,
+          int: true,
+          bits: true,
+          and: true,
+          or: true,
+          xor: true,
+          not: true,
+          crc32: true,
+          dword2float: true,
+          float2dword: true,
+          log: true,
+          log10: true,
+          exp: true,
+          abs: true,
+          sin: true,
+          cos: true,
+          tan: true,
+          sqrt: true,
+          plot: true,
+          pi: true,
+          C0: true,
+          _: true,
+          __: true,
+          ___: true,
+          IN: true,
+          OUT: true,
+          PLOT: true,
+          X: true,
+          x: true
+        };
+        var key;
+
+        for (key in contextObj) {
+          if (contextObj.hasOwnProperty(key) && !skip[key]) {
+            scope[key] = contextObj[key];
+          }
+        }
+      }
+
+      function evaluateCode(code, withX, xValue, persistScope) {
+        var contextObj = {};
+        var evaluator;
+        var result;
+
+        copyScopeTo(contextObj);
+        addBuiltins(contextObj, withX, xValue);
+
+        evaluator = new Function('contextObj', 'code', 'with (contextObj) { return eval(code); }');
+        result = evaluator(contextObj, code);
+
+        if (persistScope) {
+          saveScopeFrom(contextObj);
+        }
+
+        return result;
+      }
+
+      function scrollToBottomSoon() {
+        setTimeout(function () {
+          var height = 0;
+          if (document.body && document.body.scrollHeight > height) {
+            height = document.body.scrollHeight;
+          }
+          if (document.documentElement && document.documentElement.scrollHeight > height) {
+            height = document.documentElement.scrollHeight;
+          }
+          if (window.scrollTo) {
+            window.scrollTo(0, height);
+          }
+        }, 20);
+      }
+
+      function setEditorFromHistory(expressionText) {
+        editorEl.value = trimEndText(expressionText);
+        autoSizeEditor();
+        focusEditorAtEnd();
+        saveSessionState();
+      }
+
+      function copyHistoryRecordExpression(expressionText) {
+        setMode('edit', { noFocus: true });
+        setEditorFromHistory(expressionText);
+      }
+
+      function normalizeEditorTextForExecute() {
+        var cleaned = trimEndText(editorEl.value);
+        editorEl.value = cleaned;
+        autoSizeEditor();
+        focusEditorAtEnd();
+        return cleaned;
+      }
+
+      function stripStringAndCommentParts(code) {
+        var stripped = String(code);
+        stripped = stripped.replace(/\/\*[\s\S]*?\*\//g, ' ');
+        stripped = stripped.replace(/\/\/[^\r\n]*/g, ' ');
+        stripped = stripped.replace(/"(?:\\.|[^"\\])*"/g, ' ');
+        stripped = stripped.replace(/'(?:\\.|[^'\\])*'/g, ' ');
+        return stripped;
+      }
+
+      function shouldPlotFromCode(code) {
+        var normalized = stripStringAndCommentParts(code);
+        var usesX = /(^|[^A-Za-z0-9_$\.])[xX]([^A-Za-z0-9_$]|$)/.test(normalized);
+        var assignsX = /(^|[^A-Za-z0-9_$])[xX]\s*(\+=|-=|\*=|\/=|%=|=(?!=))/.test(normalized);
+        var usesPlotFn = /(^|[^A-Za-z0-9_$\.])plot\s*\(/.test(normalized);
+        return (usesX && !assignsX) || usesPlotFn;
+      }
+
+      function smartEnterAction() {
+        if (shouldPlotFromCode(editorEl.value)) {
+          plotCurrentCode();
+        } else {
+          runCurrentCode();
+        }
+      }
+
+      function stopEvent(e) {
+        if (e.preventDefault) {
+          e.preventDefault();
+        }
+        if (e.stopPropagation) {
+          e.stopPropagation();
+        }
+        e.cancelBubble = true;
+        e.returnValue = false;
+        return false;
+      }
+
+      function isCurrentEditorLineBlank() {
+        var value = editorEl.value;
+        var start = editorEl.selectionStart;
+        var lineStart;
+        var lineEnd;
+        var lineText;
+
+        if (typeof start !== 'number') {
+          return false;
+        }
+
+        lineStart = value.lastIndexOf('\n', start - 1);
+        if (lineStart < 0) {
+          lineStart = 0;
+        } else {
+          lineStart += 1;
+        }
+
+        lineEnd = value.indexOf('\n', start);
+        if (lineEnd < 0) {
+          lineEnd = value.length;
+        }
+
+        lineText = value.substring(lineStart, lineEnd);
+        return trimText(lineText).length === 0;
+      }
+
+      function currentLineInfo() {
+        var value = editorEl.value;
+        var start = editorEl.selectionStart;
+        var lineStart;
+        var lineEnd;
+        var lineText;
+        if (typeof start !== 'number') {
+          return null;
+        }
+        lineStart = value.lastIndexOf('\n', start - 1);
+        if (lineStart < 0) {
+          lineStart = 0;
+        } else {
+          lineStart += 1;
+        }
+        lineEnd = value.indexOf('\n', start);
+        if (lineEnd < 0) {
+          lineEnd = value.length;
+        }
+        lineText = value.substring(lineStart, lineEnd);
+        return {
+          start: lineStart,
+          end: lineEnd,
+          text: lineText,
+          caret: start
+        };
+      }
+
+      function shouldAutoExecuteFromCurrentLine() {
+        var info = currentLineInfo();
+        var trimmed;
+        var lastChar;
+
+        if (!info) {
+          return false;
+        }
+
+        // Only auto-exec when caret is at line end (allowing trailing spaces).
+        if (trimText(info.text.substring(info.caret - info.start)).length !== 0) {
+          return false;
+        }
+
+        trimmed = trimText(info.text);
+        if (!trimmed.length) {
+          return false;
+        }
+
+        lastChar = trimmed.charAt(trimmed.length - 1);
+        if (lastChar === ';' || lastChar === '{' || lastChar === '}') {
+          return false;
+        }
+        return true;
+      }
+
+      function appendTextRecord(expressionText, outputText, isError, rawOutput) {
+        var entryIndex = execCount;
+        var record = document.createElement('div');
+        var inLabel = document.createElement('p');
+        var inputField = document.createElement('textarea');
+        var outLabel = document.createElement('p');
+        var outputField = document.createElement('pre');
+
+        record.className = isError ? 'record error clickable' : 'record clickable';
+
+        inLabel.className = 'recordLabel';
+        inLabel.appendChild(document.createTextNode('IN [' + entryIndex + ']:'));
+
+        inputField.className = 'historyInput';
+        inputField.readOnly = true;
+        inputField.value = expressionText;
+        autoSizeHistoryInput(inputField, 20);
+
+        outLabel.className = 'recordLabel';
+        outLabel.appendChild(document.createTextNode('OUT [' + entryIndex + ']:'));
+
+        outputField.className = 'historyOutput';
+        outputField.appendChild(document.createTextNode(outputText));
+
+        inputHistory[entryIndex] = expressionText;
+        if (typeof rawOutput === 'undefined') {
+          outputHistory[entryIndex] = outputText;
+        } else {
+          outputHistory[entryIndex] = rawOutput;
+        }
+
+        record.ondblclick = function () {
+          copyHistoryRecordExpression(expressionText);
+        };
+
+        record.appendChild(inLabel);
+        record.appendChild(inputField);
+        record.appendChild(outLabel);
+        record.appendChild(outputField);
+        historyEl.appendChild(record);
+        autoSizeHistoryInput(inputField, 20);
+        historyRecords[entryIndex] = record;
+        outputFields[entryIndex] = outputField;
+        entryErrorFlags[entryIndex] = !!isError;
+        if (!isError && typeof rawOutput !== 'undefined' && !(rawOutput && rawOutput.type === 'plot')) {
+          pushLastValue(rawOutput);
+        }
+        execCount += 1;
+
+        if (mode === 'nav') {
+          setNavSelection(execCount - 1);
+        }
+
+        scrollToBottomSoon();
+        saveSessionState();
+      }
+
+      function createPlotData(expressionText, xMin, xMax, sampleCount) {
+        var seriesPoints = [];
+        var i;
+        var x;
+        var y;
+        var yRaw;
+        var firstRaw;
+        var isArrayResult;
+        var arrLen = 0;
+        var j;
+        var item;
+        var minY = 0;
+        var maxY = 0;
+        var hasValue = false;
+        var customPlotResult = null;
+
+        firstRaw = evaluateCode(expressionText, true, xMin, false);
+        if (firstRaw && typeof firstRaw === 'object' && firstRaw.__mathbookPlotType === 'xy') {
+          customPlotResult = firstRaw;
+          return {
+            seriesPoints: customPlotResult.seriesPoints || [],
+            minY: customPlotResult.minY,
+            maxY: customPlotResult.maxY,
+            xMin: customPlotResult.minX,
+            xMax: customPlotResult.maxX,
+            drawPoints: !!customPlotResult.drawPoints
+          };
+        }
+
+        for (i = 0; i < sampleCount; i++) {
+          x = xMin + (xMax - xMin) * i / (sampleCount - 1);
+          if (i === 0) {
+            yRaw = firstRaw;
+          } else {
+            yRaw = evaluateCode(expressionText, true, x, false);
+          }
+          isArrayResult = Object.prototype.toString.call(yRaw) === '[object Array]';
+
+          if (!isArrayResult) {
+            y = Number(yRaw);
+            if (seriesPoints.length < 1) {
+              seriesPoints[0] = [];
+            }
+            if (!isFinite(y)) {
+              seriesPoints[0][i] = null;
+              continue;
+            }
+            seriesPoints[0][i] = { x: x, y: y };
+            if (!hasValue) {
+              minY = y;
+              maxY = y;
+              hasValue = true;
+            } else {
+              if (y < minY) {
+                minY = y;
+              }
+              if (y > maxY) {
+                maxY = y;
+              }
+            }
+            continue;
+          }
+
+          arrLen = yRaw.length;
+          for (j = 0; j < arrLen; j++) {
+            if (seriesPoints.length <= j) {
+              seriesPoints[j] = [];
+            }
+            item = Number(yRaw[j]);
+            if (!isFinite(item)) {
+              seriesPoints[j][i] = null;
+              continue;
+            }
+            seriesPoints[j][i] = { x: x, y: item };
+            if (!hasValue) {
+              minY = item;
+              maxY = item;
+              hasValue = true;
+            } else {
+              if (item < minY) {
+                minY = item;
+              }
+              if (item > maxY) {
+                maxY = item;
+              }
+            }
+          }
+        }
+
+        if (!hasValue) {
+          throw new Error('Plot has no finite values in this range');
+        }
+
+        if (minY === maxY) {
+          minY -= 1;
+          maxY += 1;
+        }
+
+        return {
+          seriesPoints: seriesPoints,
+          minY: minY,
+          maxY: maxY,
+          drawPoints: false
+        };
+      }
+
+      function xToPixel(x, xMin, xMax, left, width) {
+        return left + (x - xMin) * width / (xMax - xMin);
+      }
+
+      function yToPixel(y, yMin, yMax, top, height) {
+        return top + (yMax - y) * height / (yMax - yMin);
+      }
+
+      function pixelToX(px, xMin, xMax, left, width) {
+        return xMin + (px - left) * (xMax - xMin) / width;
+      }
+
+      function pixelToY(py, yMin, yMax, top, height) {
+        return yMax - (py - top) * (yMax - yMin) / height;
+      }
+
+      function getPlotArea(canvas) {
+        return {
+          left: 50,
+          right: 14,
+          top: 12,
+          bottom: 28,
+          width: canvas.width - 50 - 14,
+          height: canvas.height - 12 - 28
+        };
+      }
+
+      function clamp(value, low, high) {
+        if (value < low) {
+          return low;
+        }
+        if (value > high) {
+          return high;
+        }
+        return value;
+      }
+
+      function niceStep(range, approxLines) {
+        var raw = range / approxLines;
+        var exp;
+        var base;
+        var norm;
+        if (!isFinite(raw) || raw <= 0) {
+          return 1;
+        }
+        exp = Math.floor(Math.log(raw) / Math.LN10);
+        base = Math.pow(10, exp);
+        norm = raw / base;
+        if (norm <= 1) {
+          return 1 * base;
+        }
+        if (norm <= 2) {
+          return 2 * base;
+        }
+        if (norm <= 5) {
+          return 5 * base;
+        }
+        return 10 * base;
+      }
+
+      function countStepDecimals(step) {
+        var s = String(step);
+        var dotPos = s.indexOf('.');
+        if (dotPos < 0) {
+          return 0;
+        }
+        return s.length - dotPos - 1;
+      }
+
+      function formatTickValue(value, step) {
+        var decimals = countStepDecimals(step);
+        var epsilon = Math.abs(step) * 1e-6;
+        var fixedText;
+        if (Math.abs(value) < epsilon) {
+          return '0';
+        }
+        fixedText = value.toFixed(decimals);
+        fixedText = fixedText.replace(/\.?0+$/, '');
+        if (fixedText === '-0') {
+          fixedText = '0';
+        }
+        return fixedText;
+      }
+
+      function drawPlotOnCanvas(canvas, plotData, xMin, xMax, yMin, yMax) {
+        var ctx = canvas.getContext ? canvas.getContext('2d') : null;
+        var w = canvas.width;
+        var h = canvas.height;
+        var seriesPoints = (plotData && plotData.seriesPoints) ? plotData.seriesPoints : [];
+        var drawPoints = !!(plotData && plotData.drawPoints);
+        var area = getPlotArea(canvas);
+        var left = area.left;
+        var right = area.right;
+        var top = area.top;
+        var pw = area.width;
+        var ph = area.height;
+        var xStep;
+        var yStep;
+        var xTick;
+        var yTick;
+        var xTickStart;
+        var yTickStart;
+        var xTickCount = 0;
+        var yTickCount = 0;
+        var i;
+        var p;
+        var px;
+        var py;
+        var axisY;
+        var axisX;
+        var xVal;
+        var yVal;
+        var hasSegmentPoint = false;
+        var s;
+        var series;
+        var pointRadius;
+        var seriesColors = ['#1f5a91', '#ad1f3c', '#2c7f36', '#8c4f18', '#6a2f91', '#00818a', '#5a5a0f'];
+
+        if (!ctx) {
+          return;
+        }
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+
+        xStep = niceStep(xMax - xMin, 16);
+        yStep = niceStep(yMax - yMin, 16);
+        xTickStart = Math.ceil(xMin / xStep) * xStep;
+        yTickStart = Math.ceil(yMin / yStep) * yStep;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(left, top, pw, ph);
+        ctx.clip();
+
+        ctx.strokeStyle = '#d6e3ef';
+        ctx.lineWidth = 1;
+        xTick = xTickStart;
+        while (xTick <= xMax + xStep * 0.5) {
+          px = xToPixel(xTick, xMin, xMax, left, pw);
+          ctx.beginPath();
+          ctx.moveTo(px, top);
+          ctx.lineTo(px, top + ph);
+          ctx.stroke();
+          xTick += xStep;
+          xTickCount++;
+          if (xTickCount > 200) {
+            break;
+          }
+        }
+
+        yTick = yTickStart;
+        while (yTick <= yMax + yStep * 0.5) {
+          py = yToPixel(yTick, yMin, yMax, top, ph);
+          ctx.beginPath();
+          ctx.moveTo(left, py);
+          ctx.lineTo(left + pw, py);
+          ctx.stroke();
+          yTick += yStep;
+          yTickCount++;
+          if (yTickCount > 200) {
+            break;
+          }
+        }
+
+        if (xMin <= 0 && xMax >= 0) {
+          axisX = xToPixel(0, xMin, xMax, left, pw);
+          ctx.strokeStyle = '#8aa4be';
+          ctx.beginPath();
+          ctx.moveTo(axisX, top);
+          ctx.lineTo(axisX, top + ph);
+          ctx.stroke();
+        }
+
+        if (yMin <= 0 && yMax >= 0) {
+          axisY = yToPixel(0, yMin, yMax, top, ph);
+          ctx.strokeStyle = '#8aa4be';
+          ctx.beginPath();
+          ctx.moveTo(left, axisY);
+          ctx.lineTo(left + pw, axisY);
+          ctx.stroke();
+        }
+
+        for (s = 0; s < seriesPoints.length; s++) {
+          series = seriesPoints[s];
+          if (!series) {
+            continue;
+          }
+          hasSegmentPoint = false;
+          ctx.strokeStyle = seriesColors[s % seriesColors.length];
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          for (i = 0; i < series.length; i++) {
+            p = series[i];
+            if (!p) {
+              if (hasSegmentPoint) {
+                ctx.stroke();
+                ctx.beginPath();
+                hasSegmentPoint = false;
+              }
+              continue;
+            }
+            px = xToPixel(p.x, xMin, xMax, left, pw);
+            py = yToPixel(p.y, yMin, yMax, top, ph);
+            if (!hasSegmentPoint) {
+              ctx.moveTo(px, py);
+              hasSegmentPoint = true;
+            } else {
+              ctx.lineTo(px, py);
+            }
+          }
+          if (hasSegmentPoint) {
+            ctx.stroke();
+          }
+          if (drawPoints) {
+            pointRadius = 3.2;
+            ctx.fillStyle = seriesColors[s % seriesColors.length];
+            for (i = 0; i < series.length; i++) {
+              p = series[i];
+              if (!p) {
+                continue;
+              }
+              px = xToPixel(p.x, xMin, xMax, left, pw);
+              py = yToPixel(p.y, yMin, yMax, top, ph);
+              ctx.beginPath();
+              ctx.arc(px, py, pointRadius, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        }
+        ctx.restore();
+
+        ctx.strokeStyle = '#7f9bb7';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(left, top, pw, ph);
+
+        ctx.fillStyle = '#324a63';
+        ctx.font = '12px Trebuchet MS';
+
+        ctx.textAlign = 'left';
+        yTick = yTickStart;
+        yTickCount = 0;
+        while (yTick <= yMax + yStep * 0.5) {
+          py = yToPixel(yTick, yMin, yMax, top, ph);
+          ctx.fillText(formatTickValue(yTick, yStep), 4, py + 4);
+          yTick += yStep;
+          yTickCount++;
+          if (yTickCount > 200) {
+            break;
+          }
+        }
+
+        ctx.textAlign = 'center';
+        xTick = xTickStart;
+        xTickCount = 0;
+        while (xTick <= xMax + xStep * 0.5) {
+          px = xToPixel(xTick, xMin, xMax, left, pw);
+          ctx.fillText(formatTickValue(xTick, xStep), px, top + ph + 16);
+          xTick += xStep;
+          xTickCount++;
+          if (xTickCount > 200) {
+            break;
+          }
+        }
+      }
+
+      function appendGraphRecord(expressionText, xMin, xMax, plotData, savedView) {
+        var record = document.createElement('div');
+        var inLabel = document.createElement('p');
+        var inputField = document.createElement('textarea');
+        var outLabel = document.createElement('p');
+        var graphWrap = document.createElement('div');
+        var canvas = document.createElement('canvas');
+        var desiredWidth = 860;
+        var recordIndex;
+        var viewState;
+        var drag = {
+          active: false,
+          moved: false,
+          button: 0,
+          startX: 0,
+          startY: 0,
+          nowX: 0,
+          nowY: 0,
+          panStartXMin: 0,
+          panStartXMax: 0,
+          panStartYMin: 0,
+          panStartYMax: 0
+        };
+
+        function setOutLabelText() {
+          outLabel.innerHTML = '';
+          outLabel.appendChild(document.createTextNode(
+            'PLOT[' + recordIndex + ']: X=' + viewState.focusX + '  Y = ' + viewState.focusY
+          ));
+        }
+
+        function redrawPlot() {
+          drawPlotOnCanvas(canvas, viewState.plotData, viewState.xMin, viewState.xMax, viewState.yMin, viewState.yMax);
+        }
+
+        function updateHistoryPlotState() {
+          outputHistory[recordIndex] = {
+            type: 'plot',
+            xMin: viewState.xMin,
+            xMax: viewState.xMax,
+            minY: viewState.yMin,
+            maxY: viewState.yMax,
+            seriesPoints: viewState.plotData.seriesPoints,
+            drawPoints: !!viewState.plotData.drawPoints,
+            focusX: viewState.focusX,
+            focusY: viewState.focusY
+          };
+          plotPoints[recordIndex] = [viewState.focusX, viewState.focusY];
+        }
+
+        function updatePlotRange(newMin, newMax, newYMin, newYMax, focusX, focusY) {
+          var nextData;
+          if (!isFinite(newMin) || !isFinite(newMax) || newMax <= newMin) {
+            return;
+          }
+          if (isFinite(newYMin) && isFinite(newYMax) && newYMax <= newYMin) {
+            return;
+          }
+          try {
+            nextData = createPlotData(expressionText, newMin, newMax, 360);
+          } catch (err) {
+            return;
+          }
+          viewState.xMin = newMin;
+          viewState.xMax = newMax;
+          viewState.plotData = nextData;
+          if (isFinite(newYMin) && isFinite(newYMax)) {
+            viewState.yMin = newYMin;
+            viewState.yMax = newYMax;
+          }
+          if (isFinite(focusX) && isFinite(focusY)) {
+            viewState.focusX = focusX;
+            viewState.focusY = focusY;
+          } else {
+            viewState.focusX = (viewState.xMin + viewState.xMax) * 0.5;
+            viewState.focusY = (viewState.yMin + viewState.yMax) * 0.5;
+          }
+          setOutLabelText();
+          updateHistoryPlotState();
+          redrawPlot();
+        }
+
+        function getLocalPoint(e) {
+          var rect = canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null;
+          var cx;
+          var cy;
+          if (!rect) {
+            return null;
+          }
+          cx = (e.clientX - rect.left) * canvas.width / rect.width;
+          cy = (e.clientY - rect.top) * canvas.height / rect.height;
+          return { x: cx, y: cy };
+        }
+
+        function drawDragBox() {
+          var ctx = canvas.getContext ? canvas.getContext('2d') : null;
+          var x1;
+          var y1;
+          var x2;
+          var y2;
+          var leftBox;
+          var topBox;
+          var wBox;
+          var hBox;
+          if (!ctx) {
+            return;
+          }
+          redrawPlot();
+          x1 = drag.startX;
+          y1 = drag.startY;
+          x2 = drag.nowX;
+          y2 = drag.nowY;
+          leftBox = (x1 < x2) ? x1 : x2;
+          topBox = (y1 < y2) ? y1 : y2;
+          wBox = Math.abs(x2 - x1);
+          hBox = Math.abs(y2 - y1);
+          ctx.fillStyle = 'rgba(37, 99, 235, 0.14)';
+          ctx.strokeStyle = 'rgba(30, 64, 175, 0.9)';
+          ctx.lineWidth = 1;
+          ctx.fillRect(leftBox, topBox, wBox, hBox);
+          ctx.strokeRect(leftBox + 0.5, topBox + 0.5, wBox, hBox);
+        }
+
+        function performPan() {
+          var area = getPlotArea(canvas);
+          var dx = drag.nowX - drag.startX;
+          var dy = drag.nowY - drag.startY;
+          var xWidth = drag.panStartXMax - drag.panStartXMin;
+          var yHeight = drag.panStartYMax - drag.panStartYMin;
+          var xShift = dx * xWidth / area.width;
+          var yShift = -dy * yHeight / area.height;
+          updatePlotRange(
+            drag.panStartXMin - xShift,
+            drag.panStartXMax - xShift,
+            drag.panStartYMin - yShift,
+            drag.panStartYMax - yShift,
+            viewState.focusX - xShift,
+            viewState.focusY - yShift
+          );
+        }
+
+        function performBoxZoom() {
+          var area = getPlotArea(canvas);
+          var x1 = clamp(drag.startX, area.left, area.left + area.width);
+          var x2 = clamp(drag.nowX, area.left, area.left + area.width);
+          var y1 = clamp(drag.startY, area.top, area.top + area.height);
+          var y2 = clamp(drag.nowY, area.top, area.top + area.height);
+          var boxW = Math.abs(x2 - x1);
+          var boxH = Math.abs(y2 - y1);
+          var xMinLocal;
+          var xMaxLocal;
+          var yMinLocal;
+          var yMaxLocal;
+          var centerX;
+          var centerY;
+          var currentWidth;
+          var currentHeight;
+          var zoomOutFactor;
+          var zoomOutFactorY;
+          var newWidth;
+          var newHeight;
+          var zoomOutByDirection;
+          var zoomOut;
+
+          if (boxW < 4 || boxH < 4) {
+            return;
+          }
+
+          xMinLocal = pixelToX((x1 < x2 ? x1 : x2), viewState.xMin, viewState.xMax, area.left, area.width);
+          xMaxLocal = pixelToX((x1 > x2 ? x1 : x2), viewState.xMin, viewState.xMax, area.left, area.width);
+          yMaxLocal = pixelToY((y1 < y2 ? y1 : y2), viewState.yMin, viewState.yMax, area.top, area.height);
+          yMinLocal = pixelToY((y1 > y2 ? y1 : y2), viewState.yMin, viewState.yMax, area.top, area.height);
+
+          zoomOutByDirection = (drag.nowY < drag.startY);
+          zoomOut = (drag.button === 2) ? !zoomOutByDirection : zoomOutByDirection;
+
+          if (!zoomOut) {
+            updatePlotRange(
+              xMinLocal,
+              xMaxLocal,
+              yMinLocal,
+              yMaxLocal,
+              (xMinLocal + xMaxLocal) * 0.5,
+              (yMinLocal + yMaxLocal) * 0.5
+            );
+            return;
+          }
+
+          centerX = pixelToX((x1 + x2) * 0.5, viewState.xMin, viewState.xMax, area.left, area.width);
+          centerY = pixelToY((y1 + y2) * 0.5, viewState.yMin, viewState.yMax, area.top, area.height);
+          currentWidth = viewState.xMax - viewState.xMin;
+          currentHeight = viewState.yMax - viewState.yMin;
+          zoomOutFactor = area.width / boxW;
+          zoomOutFactorY = area.height / boxH;
+          if (zoomOutFactor < 1.05) {
+            zoomOutFactor = 1.05;
+          }
+          if (zoomOutFactorY < 1.05) {
+            zoomOutFactorY = 1.05;
+          }
+          newWidth = currentWidth * zoomOutFactor;
+          newHeight = currentHeight * zoomOutFactorY;
+          updatePlotRange(
+            centerX - newWidth * 0.5,
+            centerX + newWidth * 0.5,
+            centerY - newHeight * 0.5,
+            centerY + newHeight * 0.5,
+            centerX,
+            centerY
+          );
+        }
+
+        function clickZoom(localX, localY, button) {
+          var area = getPlotArea(canvas);
+          var focusX;
+          var focusY;
+          var tx;
+          var ty;
+          var currentWidth;
+          var currentHeight;
+          var factor;
+          var newWidth;
+          var newHeight;
+          var newXMin;
+          var newYMax;
+          if (localX < area.left || localX > area.left + area.width) {
+            return;
+          }
+          if (localY < area.top || localY > area.top + area.height) {
+            return;
+          }
+          focusX = pixelToX(localX, viewState.xMin, viewState.xMax, area.left, area.width);
+          focusY = pixelToY(localY, viewState.yMin, viewState.yMax, area.top, area.height);
+          tx = (localX - area.left) / area.width;
+          ty = (localY - area.top) / area.height;
+          currentWidth = viewState.xMax - viewState.xMin;
+          currentHeight = viewState.yMax - viewState.yMin;
+          factor = (button === 2) ? 2 : 0.5;
+          newWidth = currentWidth * factor;
+          newHeight = currentHeight * factor;
+          newXMin = focusX - tx * newWidth;
+          newYMax = focusY + ty * newHeight;
+          updatePlotRange(
+            newXMin,
+            newXMin + newWidth,
+            newYMax - newHeight,
+            newYMax,
+            focusX,
+            focusY
+          );
+        }
+
+        function wheelZoom(localX, localY, deltaY) {
+          var area = getPlotArea(canvas);
+          var focusX;
+          var focusY;
+          var tx;
+          var ty;
+          var currentWidth;
+          var currentHeight;
+          var factor;
+          var newWidth;
+          var newHeight;
+          var newXMin;
+          var newYMax;
+          if (localX < area.left || localX > area.left + area.width) {
+            return;
+          }
+          if (localY < area.top || localY > area.top + area.height) {
+            return;
+          }
+          focusX = pixelToX(localX, viewState.xMin, viewState.xMax, area.left, area.width);
+          focusY = pixelToY(localY, viewState.yMin, viewState.yMax, area.top, area.height);
+          tx = (localX - area.left) / area.width;
+          ty = (localY - area.top) / area.height;
+          currentWidth = viewState.xMax - viewState.xMin;
+          currentHeight = viewState.yMax - viewState.yMin;
+          factor = (deltaY < 0) ? 0.85 : 1.15;
+          newWidth = currentWidth * factor;
+          newHeight = currentHeight * factor;
+          newXMin = focusX - tx * newWidth;
+          newYMax = focusY + ty * newHeight;
+          updatePlotRange(
+            newXMin,
+            newXMin + newWidth,
+            newYMax - newHeight,
+            newYMax,
+            focusX,
+            focusY
+          );
+        }
+
+        recordIndex = execCount;
+        execCount += 1;
+        record.className = 'record';
+        viewState = {
+          initialXMin: xMin,
+          initialXMax: xMax,
+          initialYMin: plotData.minY,
+          initialYMax: plotData.maxY,
+          xMin: xMin,
+          xMax: xMax,
+          yMin: plotData.minY,
+          yMax: plotData.maxY,
+          focusX: (savedView && isFinite(savedView.focusX)) ? Number(savedView.focusX) : ((xMin + xMax) * 0.5),
+          focusY: (savedView && isFinite(savedView.focusY)) ? Number(savedView.focusY) : ((plotData.minY + plotData.maxY) * 0.5),
+          plotData: plotData
+        };
+
+        inputHistory[recordIndex] = expressionText;
+        updateHistoryPlotState();
+
+        inLabel.className = 'recordLabel';
+        inLabel.appendChild(document.createTextNode('IN [' + recordIndex + ']:'));
+
+        inputField.className = 'historyInput';
+        inputField.readOnly = true;
+        inputField.value = expressionText;
+        autoSizeHistoryInput(inputField, 20);
+
+        outLabel.className = 'recordLabel';
+        setOutLabelText();
+
+        graphWrap.className = 'graphWrap';
+
+        canvas.className = 'graphCanvas';
+        if (historyEl && historyEl.clientWidth) {
+          desiredWidth = historyEl.clientWidth - 36;
+        }
+        if (desiredWidth < 320) {
+          desiredWidth = 320;
+        }
+        if (desiredWidth > 2200) {
+          desiredWidth = 2200;
+        }
+        canvas.width = desiredWidth;
+        canvas.height = 330;
+
+        graphWrap.appendChild(canvas);
+        record.ondblclick = function () {
+          copyHistoryRecordExpression(expressionText);
+        };
+        record.appendChild(inLabel);
+        record.appendChild(inputField);
+        record.appendChild(outLabel);
+        record.appendChild(graphWrap);
+        historyEl.appendChild(record);
+        autoSizeHistoryInput(inputField, 20);
+        historyRecords[recordIndex] = record;
+        plotCanvases[recordIndex] = canvas;
+        entryErrorFlags[recordIndex] = false;
+
+        if (mode === 'nav') {
+          setNavSelection(execCount - 1);
+        }
+
+        redrawPlot();
+
+        canvas.onmousedown = function (e) {
+          var ev = e || window.event;
+          var p = getLocalPoint(e || window.event);
+          var btn = (typeof ev.button === 'number') ? ev.button : 0;
+          if (!p) {
+            return;
+          }
+          drag.active = true;
+          drag.moved = false;
+          drag.button = btn;
+          drag.startX = p.x;
+          drag.startY = p.y;
+          drag.nowX = p.x;
+          drag.nowY = p.y;
+          drag.panStartXMin = viewState.xMin;
+          drag.panStartXMax = viewState.xMax;
+          drag.panStartYMin = viewState.yMin;
+          drag.panStartYMax = viewState.yMax;
+          if (ev && ev.preventDefault) {
+            ev.preventDefault();
+          }
+        };
+
+        canvas.onmousemove = function (e) {
+          var p;
+          if (!drag.active) {
+            return;
+          }
+          p = getLocalPoint(e || window.event);
+          if (!p) {
+            return;
+          }
+          drag.nowX = p.x;
+          drag.nowY = p.y;
+          if (Math.abs(drag.nowX - drag.startX) > 2 || Math.abs(drag.nowY - drag.startY) > 2) {
+            drag.moved = true;
+          }
+          if (drag.button === 1) {
+            performPan();
+          } else {
+            drawDragBox();
+          }
+          if (e && e.preventDefault) {
+            e.preventDefault();
+          }
+        };
+
+        canvas.onmouseup = function (e) {
+          var p = getLocalPoint(e || window.event);
+          if (!drag.active) {
+            return;
+          }
+          if (p) {
+            drag.nowX = p.x;
+            drag.nowY = p.y;
+          }
+          drag.active = false;
+
+          if (drag.button === 1) {
+            if (e && e.preventDefault) {
+              e.preventDefault();
+            }
+            return;
+          }
+
+          if (drag.moved) {
+            performBoxZoom();
+            if (e && e.preventDefault) {
+              e.preventDefault();
+            }
+            return;
+          }
+
+          redrawPlot();
+          if (p) {
+            clickZoom(p.x, p.y, drag.button);
+          }
+          if (e && e.preventDefault) {
+            e.preventDefault();
+          }
+        };
+
+        canvas.onclick = function (e) {
+          if (e && e.stopPropagation) {
+            e.stopPropagation();
+          }
+          return false;
+        };
+
+        canvas.onmouseleave = function () {
+          if (!drag.active) {
+            return;
+          }
+          drag.active = false;
+          redrawPlot();
+        };
+
+        canvas.oncontextmenu = function (e) {
+          if (e && e.preventDefault) {
+            e.preventDefault();
+          }
+          return false;
+        };
+
+        canvas.onauxclick = function (e) {
+          var ev = e || window.event;
+          if (ev && ev.button === 1 && ev.preventDefault) {
+            ev.preventDefault();
+          }
+          return false;
+        };
+
+        canvas.ondblclick = function (e) {
+          var ev = e || window.event;
+          var p = getLocalPoint(ev);
+          var area = getPlotArea(canvas);
+          if (ev.stopPropagation) {
+            ev.stopPropagation();
+          }
+          ev.cancelBubble = true;
+          if (!p) {
+            return true;
+          }
+          if (p.x < area.left || p.x > area.left + area.width || p.y < area.top || p.y > area.top + area.height) {
+            updatePlotRange(
+              viewState.initialXMin,
+              viewState.initialXMax,
+              viewState.initialYMin,
+              viewState.initialYMax,
+              (viewState.initialXMin + viewState.initialXMax) * 0.5,
+              (viewState.initialYMin + viewState.initialYMax) * 0.5
+            );
+            if (ev.preventDefault) {
+              ev.preventDefault();
+            }
+            ev.returnValue = false;
+            return false;
+          }
+          return true;
+        };
+
+        canvas.onwheel = function (e) {
+          var ev = e || window.event;
+          var p = getLocalPoint(ev);
+          var delta = 0;
+          if (!p) {
+            return true;
+          }
+          if (typeof ev.deltaY === 'number') {
+            delta = ev.deltaY;
+          } else if (typeof ev.wheelDelta === 'number') {
+            delta = -ev.wheelDelta;
+          } else if (typeof ev.detail === 'number') {
+            delta = ev.detail;
+          }
+          wheelZoom(p.x, p.y, delta);
+          if (ev.preventDefault) {
+            ev.preventDefault();
+          }
+          ev.returnValue = false;
+          return false;
+        };
+
+        if (canvas.addEventListener) {
+          canvas.addEventListener('mousewheel', function (e) {
+            return canvas.onwheel(e);
+          }, false);
+          canvas.addEventListener('DOMMouseScroll', function (e) {
+            return canvas.onwheel(e);
+          }, false);
+        }
+
+        scrollToBottomSoon();
+        saveSessionState();
+      }
+
+      function restoreSessionState() {
+        var raw;
+        var data;
+        var i;
+        var entry;
+        var plotState;
+        var plotData;
+        if (!window.localStorage) return;
+        try {
+          raw = window.localStorage.getItem(STORAGE_KEY);
+          if (!raw) return;
+          data = JSON.parse(raw);
+        } catch (parseErr) {
+          return;
+        }
+        if (!data || Object.prototype.toString.call(data.entries) !== '[object Array]') return;
+
+        isRestoringState = true;
+        clearNotebook();
+
+        if (typeof data.intDisplayMode === 'string') setIntMode(data.intDisplayMode);
+        if (typeof data.xLow !== 'undefined') xLowEl.value = String(data.xLow);
+        if (typeof data.xHigh !== 'undefined') xHighEl.value = String(data.xHigh);
+        if (typeof data.editorText !== 'undefined') editorEl.value = String(data.editorText);
+        if (data.keysExpanded) {
+          addClass(keysGroupEl, 'isOpen');
+        } else {
+          removeClass(keysGroupEl, 'isOpen');
+        }
+        syncKeysExpandedLayout();
+        autoSizeEditor();
+
+        for (i = 0; i < data.entries.length; i++) {
+          entry = data.entries[i];
+          if (!entry || typeof entry !== 'object') continue;
+          if (entry.type === 'plot' && entry.plot) {
+            plotState = entry.plot;
+            try {
+              plotData = {
+                seriesPoints: plotState.seriesPoints || [],
+                minY: isFinite(plotState.minY) ? Number(plotState.minY) : -1,
+                maxY: isFinite(plotState.maxY) ? Number(plotState.maxY) : 1,
+                drawPoints: !!plotState.drawPoints
+              };
+              appendGraphRecord(String(entry.input || ''), Number(plotState.xMin), Number(plotState.xMax), plotData, plotState);
+            } catch (plotErr) {
+              appendTextRecord(String(entry.input || ''), 'Failed to restore plot', true, { error: 'Failed to restore plot' });
+            }
+          } else {
+            if (typeof entry.rawInt === 'number') {
+              appendTextRecord(String(entry.input || ''), formatOutput(entry.rawInt), !!entry.isError, entry.rawInt);
+            } else {
+              appendTextRecord(String(entry.input || ''), String(entry.outputText || ''), !!entry.isError, String(entry.outputText || ''));
+            }
+          }
+        }
+
+        // Rebuild _, __, ___ from restored non-plot, non-error outputs.
+        lastValue1 = undefined;
+        lastValue2 = undefined;
+        lastValue3 = undefined;
+        for (i = 0; i < execCount; i++) {
+          if (entryErrorFlags[i]) continue;
+          if (outputHistory[i] && outputHistory[i].type === 'plot') continue;
+          pushLastValue(outputHistory[i]);
+        }
+
+        isRestoringState = false;
+        refreshIntegerOutputDisplays();
+      }
+
+      function runCurrentCode() {
+        var code = normalizeEditorTextForExecute();
+        var trimmed = trimText(code);
+        var result;
+        var errText;
+
+        if (!trimmed.length) {
+          appendTextRecord('', 'Empty input', true, { error: 'Empty input' });
+          return;
+        }
+
+        try {
+          result = evaluateCode(code, false, 0, true);
+          appendTextRecord(code, formatOutput(result), false, result);
+        } catch (err) {
+          errText = String(err && err.message ? err.message : err);
+          appendTextRecord(code, errText, true, { error: errText });
+        }
+      }
+
+      function plotCurrentCode() {
+        var code = normalizeEditorTextForExecute();
+        var trimmed = trimText(code);
+        var xMin = Number(xLowEl.value);
+        var xMax = Number(xHighEl.value);
+        var plotData;
+        var errText;
+
+        if (!trimmed.length) {
+          appendTextRecord('', 'Empty input', true, { error: 'Empty input' });
+          return;
+        }
+
+        if (!isFinite(xMin) || !isFinite(xMax)) {
+          appendTextRecord(code, 'X range must be numbers', true, { error: 'X range must be numbers' });
+          return;
+        }
+
+        if (xMax <= xMin) {
+          appendTextRecord(code, 'X Max must be greater than X Min', true, { error: 'X Max must be greater than X Min' });
+          return;
+        }
+
+        try {
+          plotData = createPlotData(code, xMin, xMax, 360);
+          appendGraphRecord(code, isFinite(plotData.xMin) ? plotData.xMin : xMin, isFinite(plotData.xMax) ? plotData.xMax : xMax, plotData);
+        } catch (err) {
+          errText = String(err && err.message ? err.message : err);
+          appendTextRecord(code, errText, true, { error: errText });
+        }
+      }
+
+      function handleEditorKeyDown(event) {
+        var e = event || window.event;
+        var keyCode = e.which || e.keyCode;
+
+        if (mode !== 'edit') {
+          return true;
+        }
+
+        if (keyCode === 13 && e.ctrlKey) {
+          smartEnterAction();
+          return stopEvent(e);
+        }
+
+        if (keyCode === 13 && (e.altKey || e.shiftKey)) {
+          return true;
+        }
+
+        if (keyCode === 13 && shouldAutoExecuteFromCurrentLine()) {
+          smartEnterAction();
+          return stopEvent(e);
+        }
+
+        if (keyCode === 38 && isCaretOnFirstLine()) {
+          setMode('nav');
+          return stopEvent(e);
+        }
+
+        return true;
+      }
+
+      function handleGlobalKeyDown(event) {
+        var e = event || window.event;
+        var keyCode = e.which || e.keyCode;
+
+        if (keyCode === 9) {
+          toggleMode();
+          return stopEvent(e);
+        }
+
+        if (keyCode === 33) {
+          if (mode !== 'nav') {
+            setMode('nav');
+            return stopEvent(e);
+          }
+          moveNavSelection(-1);
+          return stopEvent(e);
+        }
+
+        if (keyCode === 34) {
+          if (mode !== 'nav') {
+            setMode('nav');
+            return stopEvent(e);
+          }
+          moveNavSelection(1);
+          return stopEvent(e);
+        }
+
+        if (mode === 'nav') {
+          if (keyCode === 38) {
+            moveNavSelection(-1);
+            return stopEvent(e);
+          }
+
+          if (keyCode === 40) {
+            moveNavSelection(1);
+            return stopEvent(e);
+          }
+
+          if (keyCode === 13) {
+            useSelectedNavExpression();
+            return stopEvent(e);
+          }
+        }
+
+        return true;
+      }
+
+      runBtn.onclick = runCurrentCode;
+      plotBtn.onclick = plotCurrentCode;
+      intModeDecEl.onclick = function () {
+        setIntMode('DEC');
+        refreshIntegerOutputDisplays();
+        saveSessionState();
+      };
+      intModeHexEl.onclick = function () {
+        setIntMode('HEX');
+        refreshIntegerOutputDisplays();
+        saveSessionState();
+      };
+      intModeBinEl.onclick = function () {
+        setIntMode('BIN');
+        refreshIntegerOutputDisplays();
+        saveSessionState();
+      };
+      intModeBitsEl.onclick = function () {
+        setIntMode('BITS');
+        refreshIntegerOutputDisplays();
+        saveSessionState();
+      };
+      keysPanelEl.onclick = function (e) {
+        var ev = e || window.event;
+        var target = ev.target || ev.srcElement;
+        var keyText;
+        var action;
+        if (!target || target.tagName !== 'BUTTON') return;
+        keyText = target.getAttribute('data-key');
+        action = target.getAttribute('data-action');
+        if (keyText !== null) {
+          insertAtCursor(keyText, true);
+          return;
+        }
+        if (action === 'toggleKeys') {
+          toggleKeysPanel();
+          return;
+        }
+        if (action === 'left') {
+          if (mode !== 'edit') {
+            setMode('edit', { noFocus: true });
+          }
+          if (typeof editorEl.selectionStart === 'number' && editorEl.selectionStart > 0 && editorEl.setSelectionRange) {
+            editorEl.setSelectionRange(editorEl.selectionStart - 1, editorEl.selectionStart - 1);
+          }
+          return;
+        }
+        if (action === 'right') {
+          var nextPos;
+          if (mode !== 'edit') {
+            setMode('edit', { noFocus: true });
+          }
+          if (typeof editorEl.selectionStart === 'number' && editorEl.setSelectionRange) {
+            nextPos = editorEl.selectionStart + 1;
+            if (nextPos > editorEl.value.length) nextPos = editorEl.value.length;
+            editorEl.setSelectionRange(nextPos, nextPos);
+          }
+          return;
+        }
+        if (action === 'backspace') {
+          backspaceAtCursor(true);
+          return;
+        }
+        if (action === 'clear') {
+          if (mode !== 'edit') {
+            setMode('edit', { noFocus: true });
+          }
+          editorEl.value = '';
+          autoSizeEditor();
+          saveSessionState();
+          return;
+        }
+        if (action === 'newline') {
+          insertAtCursor('\n', true);
+        }
+      };
+      if (keysOpenBtn) {
+        keysOpenBtn.onclick = toggleKeysPanel;
+      }
+      if (menuBtn) {
+        menuBtn.onclick = function (e) {
+          if (e && e.stopPropagation) {
+            e.stopPropagation();
+          }
+          toggleMenu();
+          return false;
+        };
+      }
+      if (menuDropdownEl) {
+        menuDropdownEl.onclick = function (e) {
+          if (e && e.stopPropagation) {
+            e.stopPropagation();
+          }
+        };
+      }
+      keysPanelEl.onmousedown = function (e) {
+        var ev = e || window.event;
+        var target = ev.target || ev.srcElement;
+        if (target && target.tagName === 'BUTTON') {
+          if (ev.preventDefault) {
+            ev.preventDefault();
+          } else {
+            ev.returnValue = false;
+          }
+          return false;
+        }
+      };
+      resetBtn.onclick = function () {
+        clearNotebook();
+        editorEl.value = '';
+        xLowEl.value = '-10';
+        xHighEl.value = '10';
+        setIntMode('DEC');
+        refreshIntegerOutputDisplays();
+        setMode('edit');
+        if (window.localStorage) {
+          try { window.localStorage.removeItem(STORAGE_KEY); } catch (resetErr) {}
+        }
+        setMenuOpen(false);
+      };
+      copyBtn.onclick = function () {
+        copyText(buildPlainTextExport());
+        setMenuOpen(false);
+      };
+      saveBtn.onclick = function () {
+        saveTextToFile(buildHtmlExport(), 'MathbookJS_Export_' + formatDateStamp() + '.html', 'text/html');
+        setMenuOpen(false);
+      };
+
+      editorEl.onclick = function () {
+        if (mode === 'nav') {
+          setMode('edit');
+        }
+      };
+      editorEl.oninput = function () {
+        autoSizeEditor();
+        saveSessionState();
+      };
+      xLowEl.onchange = saveSessionState;
+      xHighEl.onchange = saveSessionState;
+
+      if (editorEl.addEventListener) {
+        editorEl.addEventListener('keydown', handleEditorKeyDown, false);
+      } else {
+        editorEl.onkeydown = handleEditorKeyDown;
+      }
+
+      if (document.addEventListener) {
+        document.addEventListener('keydown', handleGlobalKeyDown, false);
+        document.addEventListener('click', function () {
+          setMenuOpen(false);
+        }, false);
+      } else {
+        document.onkeydown = handleGlobalKeyDown;
+        document.onclick = function () {
+          setMenuOpen(false);
+        };
+      }
+
+      restoreSessionState();
+      autoSizeEditor();
+      syncKeysExpandedLayout();
+      syncPreferGroupSize();
+      setMode('edit');
+      if (window.addEventListener) {
+        window.addEventListener('resize', syncPreferGroupSize, false);
+      } else {
+        window.onresize = syncPreferGroupSize;
+      }
+    }());
+  </script>
+  <script src="./pwa-register.js"></script>
+</body>
+</html>

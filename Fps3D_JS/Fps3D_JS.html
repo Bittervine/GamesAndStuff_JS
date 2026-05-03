@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fps3D_JS</title>
+  <style>
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #05070b;
+      color: #eef3ff;
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
+
+    #app {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background:
+        radial-gradient(circle at 20% 15%, rgba(63, 87, 120, 0.25), transparent 34%),
+        radial-gradient(circle at 80% 18%, rgba(83, 54, 95, 0.18), transparent 28%),
+        linear-gradient(180deg, #081019 0%, #030507 100%);
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #hud {
+      pointer-events: none;
+    }
+
+    #overlay {
+      position: absolute;
+      left: 16px;
+      top: 16px;
+      max-width: 340px;
+      padding: 12px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(5, 8, 13, 0.64);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(8px);
+    }
+
+    #overlay strong {
+      display: block;
+      margin-bottom: 6px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+
+    #overlay-state {
+      margin-top: 8px;
+      color: #ffd7a4;
+    }
+
+    #error {
+      position: absolute;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 24px;
+      background: #170b10;
+      color: #ffd4d4;
+      white-space: pre-wrap;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <canvas id="world" data-testid="world-canvas"></canvas>
+    <canvas id="hud" data-testid="hud-canvas"></canvas>
+    <div id="overlay">
+      <strong>Hidden FPS Prototype</strong>
+      <div>Click the view to lock pointer.</div>
+      <div>WASD move, mouse look, LMB fire, mouse wheel switch, R restart, Esc pause.</div>
+      <div id="overlay-state">Loading...</div>
+    </div>
+    <div id="error"></div>
+  </div>
+  <script type="module" src="./Fps3D_JS.js"></script>
+</body>
+</html>
+

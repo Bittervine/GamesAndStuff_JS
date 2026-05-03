@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#07111d">
+      <meta name="apple-mobile-web-app-title" content="Shot Em Up">
+<link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./pwa-icon.svg" type="image/svg+xml">
+      <link rel="apple-touch-icon" href="./pwa-icon.svg" type="image/svg+xml">
+<title>Shot Em Up</title>
+  <style>
+    :root {
+      --panel: rgba(6, 12, 24, 0.62);
+      --text: #f8fbff;
+    }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(124, 247, 255, 0.18), transparent 28%),
+        radial-gradient(circle at 90% 10%, rgba(255, 143, 232, 0.16), transparent 32%),
+        linear-gradient(180deg, #08111d 0%, #030712 100%);
+      color: var(--text);
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    * { box-sizing: border-box; }
+    #game {
+      position: fixed;
+      inset: 0;
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      background: transparent;
+      touch-action: none;
+    }
+    #hud {
+      position: fixed;
+      inset: 0;
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      background: transparent;
+    }
+    #hudHint {
+      position: fixed;
+      left: 50%;
+      top: 12px;
+      transform: translateX(-50%);
+      z-index: 3;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(6, 12, 24, 0.54);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.34);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.22s ease;
+      white-space: nowrap;
+    }
+    #hudHint.show { opacity: 1; }
+    #controls {
+      position: fixed;
+      left: 50%;
+      right: auto;
+      bottom: 12px;
+      transform: translateX(-50%);
+      z-index: 4;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      padding: 6px 8px;
+      width: max-content;
+      max-width: calc(100vw - 16px);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: var(--panel);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 14px 36px rgba(0, 0, 0, 0.34);
+    }
+    #controls button {
+      appearance: none;
+      border: 0;
+      border-radius: 12px;
+      min-width: 46px;
+      min-height: 28px;
+      padding: 4px 8px;
+      color: var(--text);
+      font: inherit;
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      line-height: 1;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+        0 6px 14px rgba(0, 0, 0, 0.16);
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #controls button:active, #controls button.active {
+      transform: translateY(1px) scale(0.99);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.16),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.18),
+        0 4px 14px rgba(0, 0, 0, 0.16);
+      filter: saturate(1.2);
+    }
+    #controls button[data-act="fire"] {
+      background: linear-gradient(180deg, rgba(124, 247, 255, 0.34), rgba(124, 247, 255, 0.1));
+    }
+    #controls button[data-act="bomb"] {
+      background: linear-gradient(180deg, rgba(255, 214, 111, 0.34), rgba(255, 214, 111, 0.1));
+    }
+    #controls button[data-act="settings"] {
+      background: linear-gradient(180deg, rgba(198, 164, 255, 0.32), rgba(124, 247, 255, 0.1));
+    }
+
+    #settingsDialog {
+      border: 0;
+      padding: 0;
+      width: min(92vw, 560px);
+      max-width: 560px;
+      background: transparent;
+      color: var(--text);
+      box-shadow: none;
+    }
+    #settingsDialog::backdrop {
+      background: rgba(1, 4, 12, 0.66);
+      backdrop-filter: blur(4px);
+    }
+    .settings-card {
+      width: 100%;
+      padding: 18px;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(124, 247, 255, 0.14), transparent 28%),
+        radial-gradient(circle at 92% 6%, rgba(255, 143, 232, 0.14), transparent 32%),
+        linear-gradient(180deg, rgba(12, 18, 34, 0.96), rgba(9, 12, 24, 0.96));
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.48);
+    }
+    .settings-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .settings-head h2 {
+      margin: 0;
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      line-height: 1;
+    }
+    .settings-head p {
+      margin: 8px 0 0;
+      color: rgba(248, 251, 255, 0.74);
+      font-size: 0.95rem;
+    }
+    .settings-close {
+      appearance: none;
+      border: 0;
+      border-radius: 14px;
+      min-height: 44px;
+      padding: 10px 14px;
+      color: var(--text);
+      font: inherit;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.08));
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.24),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.22),
+        0 8px 18px rgba(0, 0, 0, 0.22);
+      cursor: pointer;
+    }
+    .settings-group {
+      display: grid;
+      gap: 8px;
+      margin: 14px 0;
+    }
+    .settings-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+    .settings-value {
+      color: rgba(248, 251, 255, 0.76);
+      font-size: 0.95em;
+    }
+    .settings-group input[type="range"] {
+      width: 100%;
+      accent-color: #7cf7ff;
+    }
+    .difficulty-buttons {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .difficulty-buttons button {
+      min-height: 44px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      font: inherit;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+    .difficulty-buttons button[aria-pressed="true"] {
+      background: linear-gradient(180deg, rgba(124, 247, 255, 0.26), rgba(255, 255, 255, 0.08));
+      border-color: rgba(124, 247, 255, 0.55);
+    }
+    .settings-note {
+      margin: 14px 0 0;
+      color: rgba(248, 251, 255, 0.72);
+      font-size: 0.92rem;
+      line-height: 1.35;
+    }
+    @media (max-width: 620px) {
+      #controls {
+        bottom: 8px;
+        gap: 5px;
+        padding: 5px 6px;
+        max-width: calc(100vw - 12px);
+      }
+      #controls button {
+        min-width: 42px;
+        min-height: 22px;
+        padding: 3px 7px;
+        border-radius: 10px;
+        font-size: 0.68rem;
+      }
+    }
+  </style>
+</head>
+  <body>
+  <canvas id="game"></canvas>
+  <canvas id="hud"></canvas>
+  <div id="hudHint"></div>
+  <div id="controls" aria-label="Game controls">
+    <button data-act="fire" aria-label="Fire weapon">FIRE</button>
+    <button data-act="bomb" aria-label="Use bomb">BOMB</button>
+    <button data-act="pause" aria-label="Pause game">PAUSE</button>
+    <button data-act="settings" aria-label="Open settings">SETTINGS</button>
+    <button data-act="sound" aria-label="Toggle sound">SOUND</button>
+  </div>
+  <dialog id="settingsDialog" aria-labelledby="settingsTitle" aria-modal="true">
+    <div class="settings-card">
+      <div class="settings-head">
+        <div>
+          <h2 id="settingsTitle">Settings</h2>
+          <p>Dial in the chaos: separate sound and music levels, plus difficulty.</p>
+        </div>
+        <button type="button" class="settings-close" id="settingsClose">CLOSE</button>
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-label">
+          <span>SFX Volume</span>
+          <span class="settings-value" id="sfxVolumeValue">100%</span>
+        </div>
+        <input id="sfxVolume" type="range" min="0" max="1" step="0.01" value="1">
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-label">
+          <span>Music Volume</span>
+          <span class="settings-value" id="musicVolumeValue">100%</span>
+        </div>
+        <input id="musicVolume" type="range" min="0" max="1" step="0.01" value="1">
+      </div>
+
+      <div class="settings-group">
+        <div class="settings-label">
+          <span>Difficulty</span>
+          <span class="settings-value" id="difficultyValue">Normal</span>
+        </div>
+        <div class="difficulty-buttons" id="difficultyButtons">
+          <button type="button" data-difficulty="0">Easy</button>
+          <button type="button" data-difficulty="1">Normal</button>
+          <button type="button" data-difficulty="2">Hard</button>
+        </div>
+      </div>
+
+      <p class="settings-note">Easy gives you more breathing room. Hard sharpens enemy pressure, speed, and boss durability.</p>
+    </div>
+  </dialog>
+  <script src="ShotEmUp_JS.js?v=20260415b"></script>
+  <script src="./pwa-register.js"></script>
+</body>
+</html>

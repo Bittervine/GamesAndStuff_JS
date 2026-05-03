@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <title>Go Manual</title>
+  <style>
+    body{margin:0;font-family:'FreeSerif',serif;background:#fff;color:#23160f}
+    .wrap{width:min(760px,calc(100% - 24px));margin:0 auto;padding:24px 12px 40px}
+    h1{margin:0 0 12px}
+    p,li{line-height:1.45}
+    a{color:#5a3415}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>Go Manual</h1>
+    <p>Goal: control the larger territory when the board ends. You are black and the AI is white.</p>
+    <ul>
+      <li>A legal move is either placing one stone on an empty intersection or passing.</li>
+      <li>After a move, any surrounded enemy group with no liberties is captured and removed.</li>
+      <li>Moves that would self-capture are illegal unless they capture first.</li>
+      <li>Ko is enforced so the board cannot repeat immediately.</li>
+      <li>Two passes in a row end the game.</li>
+    </ul>
+    <p>Open the game: <a href="Go_JS.html">Go JS</a></p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+  <meta http-equiv="Pragma" content="no-cache">
+  <title>Thorium Gap Manual</title>
+  <style>
+    :root {
+      --bg: #050b14;
+      --panel: rgba(4, 14, 34, 0.94);
+      --line: rgba(64, 128, 255, 0.98);
+      --text: #f7fbff;
+      --muted: rgba(247, 251, 255, 0.76);
+      --accent: #7cbcff;
+    }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top, rgba(124, 188, 255, 0.14), transparent 28%),
+        linear-gradient(180deg, #07111d 0%, #04070f 100%);
+      color: var(--text);
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    }
+    body { padding: 18px; }
+    .page {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 18px 18px 28px;
+      border-radius: 24px;
+      border: 2px solid var(--line);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(64, 128, 255, 0.24), transparent 24%),
+        linear-gradient(180deg, rgba(3, 14, 44, 0.98), rgba(2, 8, 24, 0.98));
+      box-shadow:
+        0 0 0 2px rgba(34, 118, 255, 0.78),
+        0 0 34px rgba(34, 118, 255, 0.34),
+        0 24px 60px rgba(0, 0, 0, 0.48);
+    }
+    h1, h2, h3 { margin: 0 0 10px; }
+    h1 { font-size: clamp(2rem, 4vw, 3rem); }
+    h2 { margin-top: 28px; font-size: 1.25rem; }
+    h3 { margin-top: 18px; font-size: 1.05rem; }
+    p, li { color: var(--muted); line-height: 1.5; }
+    ul { margin: 8px 0 14px 22px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 14px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.92rem;
+    }
+    th, td {
+      border: 1px solid rgba(124, 188, 255, 0.28);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: #ffffff;
+      background: rgba(34, 118, 255, 0.16);
+    }
+    td {
+      color: #eaf4ff;
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .nav {
+      margin: 10px 0 22px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .nav a {
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 900;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 2px solid var(--line);
+      background: linear-gradient(180deg, rgba(190, 225, 255, 0.22), rgba(34, 118, 255, 0.12));
+      box-shadow: 0 0 16px rgba(34, 118, 255, 0.22);
+    }
+    pre {
+      overflow: auto;
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(164, 206, 255, 0.3);
+      background: rgba(0, 0, 0, 0.22);
+      color: #eaf4ff;
+      line-height: 1.4;
+    }
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.95em;
+      color: #ffffff;
+    }
+    .small { font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <h1>Thorium Gap Manual</h1>
+    <p class="small">A short reference for weapons, pickups, difficulty, combo, and respawn rules.</p>
+    <div class="nav">
+      <a href="ThoriumGap.html">Back to game</a>
+      <a href="README.md">Project notes</a>
+    </div>
+
+    <h2>Goal</h2>
+    <p>Survive each stage, score as much as possible, and defeat the boss at the end of every level.</p>
+
+    <h2>Core Flow</h2>
+    <ul>
+      <li>Destroy enemies to score points and make pickups drop.</li>
+      <li>Collect weapon wrenches to upgrade or switch weapons.</li>
+      <li>Collect shields, bombs, rapid-fire, magnet, and score pickups as they appear.</li>
+      <li>Each level ends with a boss battle.</li>
+    </ul>
+
+    <h2>Controls</h2>
+    <ul>
+      <li>Drag or hold the pointer on the playfield to fly. Holding the pointer also fires.</li>
+      <li>With mouse controls, holding the right mouse button lets the ship follow the pointer without firing.</li>
+      <li><code>WASD</code> or arrow keys move the ship.</li>
+      <li><code>Z</code>, <code>CTRL</code>, or <code>ENTER</code> fires the current weapon while playing.</li>
+      <li><code>B</code>, <code>X</code>, or <code>SPACE</code> launches a bomb while playing.</li>
+      <li>Double-clicking or double-tapping the playfield also launches a bomb while playing.</li>
+      <li><code>P</code> or <code>ESC</code> pauses. <code>M</code> mutes sound. <code>R</code> restarts. <code>O</code> opens settings.</li>
+    </ul>
+
+    <h3>Gamepad</h3>
+    <ul>
+      <li>Gamepad support is included.</li>
+      <li>Either stick can move the ship.</li>
+      <li><code>A</code> or the right trigger fires.</li>
+      <li><code>B</code> or the left trigger launches a bomb.</li>
+      <li><code>Start</code> or <code>Select</code> opens settings.</li>
+      <li>Rumble is supported when the browser and controller expose vibration features.</li>
+    </ul>
+
+    <h2>Settings</h2>
+    <ul>
+      <li><code>Effects Volume</code> changes sound effect loudness.</li>
+      <li><code>Score Volume</code> changes music loudness.</li>
+      <li><code>Combat Difficulty</code> selects Easy, Normal, or Hard.</li>
+      <li><code>Enable low end mode (less cpu usage)</code> reduces effects to lower CPU load on weaker devices.</li>
+      <li><code>Ship always follows mouse</code> makes the ship track mouse movement without holding right button.</li>
+      <li>When <code>Ship always follows mouse</code> is enabled, pressing the right mouse button triggers a bomb during play.</li>
+      <li>When <code>Ship always follows mouse</code> is enabled, gamepad input and gamepad rumble support are disabled.</li>
+    </ul>
+
+    <h2>Shield And Health</h2>
+    <ul>
+      <li>Shields are shown as a faint bubble around the ship.</li>
+      <li>Each shield point blocks one hit and is then consumed.</li>
+      <li>If you have no shields, hits damage the ship directly.</li>
+      <li>Ship damage is repaired slowly over time if you avoid taking new hits.</li>
+      <li>Ship body damage is shown visually as sparks on the hull.</li>
+    </ul>
+
+    <h2>Weapons</h2>
+    <ul>
+      <li>The game has five weapons. Each weapon has five tiers: <code>I</code>, <code>II</code>, <code>III</code>, <code>IIII</code>, and <code>V</code>.</li>
+      <li>Wrench drop chance scales with your currently equipped weapon tier: lower current tier means more weapon-upgrade drops.</li>
+      <li>Picking up a wrench for your current weapon upgrades that weapon by one tier, up to <code>V</code>.</li>
+      <li>Picking up a wrench for a different weapon switches to that weapon and uses its last earned tier - it doesn't get upgraded to the next.</li>
+      <li>If your current weapon is already at <code>V</code> and you pick up the same weapon again, the overflow upgrade randomly tries another weapon to upgrade. 
+      <li>This overflow upgrade cannot increase a weapon above Tier <code>III</code> - instead the overflow becomes score instead.</li>
+      <li>Your current weapon always loses a tier when a ship is lost. The replacement ship then switches to your strongest remaining weapon type.</li>
+      <li>Your current weapon loses one tier when a boss is killed, but it will not reduce it below Tier <code>III</code>.</li>
+      <li>Weapon overheats after fireing for a few seconds. This is indicated by a bar in the hud and penalized with a very small reduction in fire rate.</li>
+    </ul>
+ 
+    <h3>Dart</h3>
+    <p>Color: cyan. Style: fast forward shots.</p>
+    <table>
+      <thead>
+        <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th><th>Fire rate</th><th>DPS</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>I</td><td>1</td><td>2</td><td>2</td><td>5.00/s</td><td>10.0</td></tr>
+        <tr><td>II</td><td>2</td><td>3</td><td>6</td><td>5.41/s</td><td>32.4</td></tr>
+        <tr><td>III</td><td>4</td><td>4</td><td>16</td><td>5.88/s</td><td>94.1</td></tr>
+        <tr><td>IIII</td><td>6</td><td>5</td><td>30</td><td>6.45/s</td><td>193.5</td></tr>
+        <tr><td>V</td><td>7</td><td>6</td><td>42</td><td>7.14/s</td><td>300.0</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Twin</h3>
+    <p>Color: green. Style: paired forward fire.</p>
+    <table>
+      <thead>
+        <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th><th>Fire rate</th><th>DPS</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>I</td><td>2</td><td>2</td><td>4</td><td>4.71/s</td><td>18.8</td></tr>
+        <tr><td>II</td><td>3</td><td>3</td><td>9</td><td>5.06/s</td><td>45.6</td></tr>
+        <tr><td>III</td><td>5</td><td>4</td><td>20</td><td>5.48/s</td><td>109.6</td></tr>
+        <tr><td>IIII</td><td>7</td><td>5</td><td>35</td><td>5.97/s</td><td>209.0</td></tr>
+        <tr><td>V</td><td>8</td><td>6</td><td>48</td><td>6.56/s</td><td>314.8</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Fan</h3>
+    <p>Color: yellow. Style: spreads shots wide but is difficult to concentrate.</p>
+    <table>
+      <thead>
+        <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th><th>Fire rate</th><th>DPS</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>I</td><td>3</td><td>2</td><td>6</td><td>4.00/s</td><td>24.0</td></tr>
+        <tr><td>II</td><td>4</td><td>3</td><td>12</td><td>4.26/s</td><td>51.1</td></tr>
+        <tr><td>III</td><td>5</td><td>4</td><td>20</td><td>4.55/s</td><td>90.9</td></tr>
+        <tr><td>IIII</td><td>6</td><td>5</td><td>30</td><td>4.88/s</td><td>146.3</td></tr>
+        <tr><td>V</td><td>7</td><td>6</td><td>42</td><td>5.26/s</td><td>221.1</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Rocket</h3>
+    <p>Color: blue. Style: homing rockets.</p>
+    <table>
+      <thead>
+        <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th><th>Fire rate</th><th>DPS</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>I</td><td>2</td><td>2.0</td><td>4.0</td><td>3.08/s</td><td>12.3</td></tr>
+        <tr><td>II</td><td>3</td><td>2.0</td><td>6.0</td><td>3.23/s</td><td>19.4</td></tr>
+        <tr><td>III</td><td>4</td><td>2.0</td><td>8.0</td><td>3.39/s</td><td>27.1</td></tr>
+        <tr><td>IIII</td><td>5</td><td>2.0</td><td>10.0</td><td>3.57/s</td><td>35.7</td></tr>
+        <tr><td>V</td><td>6</td><td>2.0</td><td>12.0</td><td>3.77/s</td><td>45.3</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Beam</h3>
+    <p>Color: red. Style: long narrow shots that pierce through enemies, with each tier adding one more beam.</p>
+    <table>
+      <thead>
+        <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th><th>Fire rate</th><th>DPS</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>I</td><td>2</td><td>2</td><td>4</td><td>4.00/s</td><td>16.0</td></tr>
+        <tr><td>II</td><td>3</td><td>3</td><td>9</td><td>4.26/s</td><td>38.3</td></tr>
+        <tr><td>III</td><td>4</td><td>4</td><td>16</td><td>4.55/s</td><td>72.7</td></tr>
+        <tr><td>IIII</td><td>5</td><td>5</td><td>25</td><td>4.88/s</td><td>122.0</td></tr>
+        <tr><td>V</td><td>6</td><td>6</td><td>36</td><td>5.26/s</td><td>189.5</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Weapon Upgrades</h2>
+    <ul>
+    </ul>
+
+    <h2>Difficulty</h2>
+    <ul>
+      <li>Easy: 5 lives, reduced enemy health, reduced enemy speed, smaller enemy waves, slower enemy bullets, reduced boss health, reduced contact damage, and full player damage.</li>
+      <li>Normal: 3 lives, standard enemy and boss stats, medium enemy wave size, and player damage multiplied by <code>0.5</code>.</li>
+      <li>Hard: 2 lives, tougher enemies, faster enemies, larger enemy waves, faster enemy bullets, tougher bosses, higher contact pressure, and player damage multiplied by <code>0.25</code>.</li>
+    </ul>
+
+    <h2>Combo And Overdrive</h2>
+    <ul>
+      <li>While Overdrive is inactive, the combo counter increases every time you destroy an enemy.</li>
+      <li>The combo timer lasts about <code>1.2</code> seconds, so you must keep destroying enemies quickly to keep the chain alive.</li>
+      <li>If you stop killing enemies for too long, the combo resets to <code>0</code>.</li>
+      <li>At combo <code>3</code> and above, the game briefly shows a <code>Combo +N</code> hint after each kill.</li>
+      <li>At combo <code>10</code>, Overdrive triggers and the combo counter is cleared.</li>
+      <li>Overdrive lasts about <code>7</code> seconds. During Overdrive, enemy kills do not build combo.</li>
+      <li>Overdrive doubles score gain, makes the current weapon act one tier higher for damage, increases movement speed, and lowers shot delay.</li>
+    </ul>
+
+    <h2>Other Pickups</h2>
+    <ul>
+      <li><code>Rapid Fire</code>: lasts about <code>8</code> seconds and temporarily lowers shot delay.</li>
+      <li><code>Shield</code>: adds a shield point, up to three. Each shield point protects from a single hit and is then consumed. Extra shield pickups become score.</li>
+      <li><code>Bomb</code>: adds a bomb, up to four. Extra bomb pickups become score.</li>
+      <li><code>Star</code>: grants about <code>4</code> seconds of invulnerability, restores shields to <code>3</code>, fully repairs the ship, and clears weapon heat. It is intentionally rare.</li>
+      <li><code>Magnet</code>: lasts about <code>12</code> seconds and pulls nearby pickups toward the player.</li>
+      <li><code>Score</code>: grants bonus points. The bonus can be increased by combo and Overdrive score multipliers.</li>
+    </ul>
+  </main>
+</body>
+</html>

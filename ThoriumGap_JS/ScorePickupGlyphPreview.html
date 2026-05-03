@@ -1,0 +1,227 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ThoriumGap Score Pickup Glyph Preview</title>
+  <style>
+    :root{
+      --bg:#0d1420;
+      --panel:#111b2b;
+      --ink:#ecf5ff;
+      --muted:#9cb0cb;
+      --line:#28415f;
+      --chip:#16253b;
+      --accent:#8ee0ff;
+      --tile:84px;
+      --font:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji","Segoe UI Symbol","Arial Unicode MS",sans-serif;
+      --pickup:#ff86e0;
+      --glyph:22px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(1200px 700px at 10% -10%,#24395a,#0d1420 55%);color:var(--ink);font:14px/1.35 system-ui,sans-serif}
+    .wrap{max-width:1220px;margin:0 auto;padding:16px}
+    .panel{background:color-mix(in srgb,var(--panel) 92%,black);border:1px solid var(--line);border-radius:12px;padding:12px}
+    h1{margin:0 0 8px;font-size:20px}
+    .muted{color:var(--muted)}
+    .controls{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:10px 0}
+    .controls label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+    .controls input,.controls select,button{background:#0a1220;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+    button{cursor:pointer}
+    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin-top:10px}
+    .tile{background:var(--chip);border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;min-height:136px}
+    .preview{height:var(--tile);display:grid;place-items:center;border-radius:10px;position:relative;overflow:hidden;background:linear-gradient(165deg,#172846,#0f1b2f)}
+    .preview::before{content:"";position:absolute;inset:0;background-image:linear-gradient(45deg,rgba(255,255,255,.05) 25%,transparent 25%,transparent 50%,rgba(255,255,255,.05) 50%,rgba(255,255,255,.05) 75%,transparent 75%,transparent);background-size:18px 18px;opacity:.25}
+
+    /* Approximate in-game pickup rendering from drawPickups() + drawEmojiGlyph() */
+    .orb{position:relative;width:56px;height:56px;display:grid;place-items:center}
+    .orb::before{content:"";position:absolute;inset:0;border-radius:50%;background:color-mix(in srgb,var(--pickup) 60%, white 0%);opacity:.85;filter:blur(0.2px)}
+    .orb::after{content:"";position:absolute;inset:11px;border-radius:50%;background:var(--pickup);opacity:.95}
+    .glowA,.glowB{position:absolute;inset:0;border-radius:50%;pointer-events:none}
+    .glowA{box-shadow:0 0 0 10px color-mix(in srgb,var(--pickup) 48%, transparent),0 0 22px 8px color-mix(in srgb,var(--pickup) 42%, transparent)}
+    .glowB{inset:14px;box-shadow:0 0 12px 5px color-mix(in srgb,var(--pickup) 85%, transparent)}
+    .glyph{position:relative;z-index:2;font-family:var(--font);font-size:var(--glyph);line-height:1;color:#fff;text-shadow:0 0 8px rgba(255,255,255,.32),0 0 2px #000}
+
+    .meta{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+    .meta code{color:#cde8ff}
+    .pill{display:inline-block;font-size:11px;padding:2px 6px;border-radius:999px;background:#0d1a2d;border:1px solid #29425f;color:#9ed9ff}
+    .fav{color:#ffd76a;border-color:#755a1a}
+    .section{margin-top:12px;padding-top:10px;border-top:1px dashed #2a405b}
+    .foot{margin-top:10px;font-size:12px;color:var(--muted)}
+    @media (max-width:1020px){.controls{grid-template-columns:1fr 1fr 1fr}}
+    @media (max-width:650px){.controls{grid-template-columns:1fr 1fr}}
+    @media (max-width:480px){.controls{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h1>ThoriumGap Score Pickup Glyph Preview</h1>
+      <div class="muted">Includes current in-game pickup glyphs and a large candidate set. Rendering approximates the game pickup style (colored glow orb + white glyph).</div>
+
+      <div class="section">
+        <div class="row"><strong>Current In-Game Pickup Glyphs</strong><span class="pill">from `PICKUPS` in ThoriumGap.js</span></div>
+        <div id="currentGrid" class="grid"></div>
+      </div>
+
+      <div class="section">
+        <div class="row"><strong>Score Pickup Candidates</strong><span class="pill">score only</span></div>
+        <div class="controls">
+          <label>Filter
+            <input id="filter" placeholder="star, coin, fruit, $, etc">
+          </label>
+          <label>Group
+            <select id="group"></select>
+          </label>
+          <label>Glyph Size
+            <input id="size" type="range" min="18" max="44" value="22">
+          </label>
+          <label>Tile Size
+            <input id="tile" type="range" min="64" max="116" value="84">
+          </label>
+          <label>Pickup Color
+            <input id="pickupColor" type="color" value="#ff86e0">
+          </label>
+        </div>
+        <div class="row">
+          <button id="bg">Toggle Background</button>
+          <button id="showFav">Show Favorites Only</button>
+          <button id="clearFav">Clear Favorites</button>
+          <span id="count" class="muted"></span>
+        </div>
+        <div id="grid" class="grid"></div>
+      </div>
+
+      <div class="foot">Tip: if you want it to never be confused with enemy fire, avoid tiny angular glyphs and prefer a chunky center-of-mass shape (star/diamond/coin/fruit).</div>
+    </div>
+  </div>
+<script>
+const IN_GAME_PICKUPS = [
+  { type:'weapon', glyph:'🔧', color:'#00ffff' },
+  { type:'rapid', glyph:'⚡', color:'#ffe97e' },
+  { type:'shield', glyph:'🛡️', color:'#8fd8ff' },
+  { type:'bomb', glyph:'💣', color:'#ffd96a' },
+  { type:'magnet', glyph:'🧲', color:'#77f7c4' },
+  { type:'invuln', glyph:'⭐', color:'#c7ff8f' },
+  { type:'score', glyph:'🪙', color:'#ff86e0' }
+];
+
+const CANDIDATES = [
+  ['In-Game','🪙','current score pickup'],['In-Game','🔧','current weapon pickup'],['In-Game','⚡','current rapid pickup'],['In-Game','🛡️','current shield pickup'],['In-Game','💣','current bomb pickup'],['In-Game','🧲','current magnet pickup'],['In-Game','⭐','current invuln pickup'],
+  ['Stars','★','black star'],['Stars','☆','white star'],['Stars','✦','black four pointed star'],['Stars','✧','white four pointed star'],['Stars','✶','six pointed black star'],['Stars','✹','twelve pointed black star'],['Stars','✺','sixteen pointed asterisk'],['Stars','✴','eight pointed star'],['Stars','✵','eight pointed pinwheel star'],['Stars','✨','sparkles'],
+  ['Gems','♦','black diamond suit'],['Gems','◇','white diamond'],['Gems','◆','black diamond'],['Gems','❖','diamond cross'],['Gems','◈','diamond in diamond'],['Gems','⬥','black medium diamond'],['Gems','⬦','white medium diamond'],['Gems','💎','gem stone'],
+  ['Currency','$','dollar sign'],['Currency','€','euro sign'],['Currency','£','pound sign'],['Currency','¥','yen sign'],['Currency','¢','cent sign'],['Currency','₿','bitcoin sign'],['Currency','¤','currency sign'],['Currency','₹','rupee sign'],
+  ['Coins','●','black circle'],['Coins','◉','fisheye'],['Coins','◎','bullseye'],['Coins','◍','filled circle'],['Coins','🪙','coin'],['Coins','⚪','white circle'],['Coins','🟡','yellow circle'],
+  ['Fruits','🍎','red apple'],['Fruits','🍊','tangerine'],['Fruits','🍋','lemon'],['Fruits','🍐','pear'],['Fruits','🍇','grapes'],['Fruits','🍓','strawberry'],['Fruits','🍒','cherries'],['Fruits','🍍','pineapple'],['Fruits','🍉','watermelon'],['Fruits','🥝','kiwi'],
+  ['Tokens','⬢','black hexagon'],['Tokens','⬡','white hexagon'],['Tokens','⬣','horizontal black hexagon'],['Tokens','⬟','black pentagon'],['Tokens','⬠','white pentagon'],['Tokens','⬤','black large circle'],['Tokens','▣','square with center'],
+  ['Bonus','✚','heavy cross'],['Bonus','✙','outlined cross'],['Bonus','☼','sun with rays'],['Bonus','⚑','black flag'],['Bonus','🎯','target'],['Bonus','🏁','chequered flag'],['Bonus','🎁','gift']
+];
+
+const currentGrid = document.getElementById('currentGrid');
+const grid = document.getElementById('grid');
+const filterInput = document.getElementById('filter');
+const groupSelect = document.getElementById('group');
+const sizeInput = document.getElementById('size');
+const tileInput = document.getElementById('tile');
+const pickupColorInput = document.getElementById('pickupColor');
+const bgBtn = document.getElementById('bg');
+const showFavBtn = document.getElementById('showFav');
+const clearFavBtn = document.getElementById('clearFav');
+const countEl = document.getElementById('count');
+
+let bgAlt = false;
+let showFavOnly = false;
+const favKey = 'thoriumgap_score_glyph_favs';
+let favs = new Set(JSON.parse(localStorage.getItem(favKey) || '[]'));
+
+function saveFavs(){ localStorage.setItem(favKey, JSON.stringify([...favs])); }
+function groups(){ return ['All', ...new Set(CANDIDATES.map(x => x[0]))]; }
+function renderGroups(){ groupSelect.innerHTML = groups().map(g => `<option>${g}</option>`).join(''); }
+function cp(s){ navigator.clipboard?.writeText(s); }
+
+function makeOrb(glyph, color){
+  return `
+    <div class="preview" style="--pickup:${color}">
+      <div class="orb">
+        <div class="glowA"></div>
+        <div class="glowB"></div>
+        <div class="glyph">${glyph}</div>
+      </div>
+    </div>`;
+}
+
+function renderCurrent(){
+  currentGrid.innerHTML = '';
+  for(const p of IN_GAME_PICKUPS){
+    const el = document.createElement('div');
+    el.className = 'tile';
+    el.innerHTML = `
+      ${makeOrb(p.glyph,p.color)}
+      <div class="meta"><code>${p.glyph}</code><span>${p.type}</span></div>
+      <div class="row"><button class="copy">Copy</button><span class="pill">${p.color}</span></div>
+    `;
+    el.querySelector('.copy').onclick=()=>cp(p.glyph);
+    currentGrid.appendChild(el);
+  }
+}
+
+function passes(item){
+  const [g,ch,name] = item;
+  const q = filterInput.value.trim().toLowerCase();
+  const groupOk = groupSelect.value === 'All' || groupSelect.value === g;
+  const qOk = !q || g.toLowerCase().includes(q) || name.includes(q) || ch.includes(q);
+  const favOk = !showFavOnly || favs.has(ch);
+  return groupOk && qOk && favOk;
+}
+
+function tile([group,ch,name]){
+  const fav = favs.has(ch);
+  const color = pickupColorInput.value || '#ff86e0';
+  const el = document.createElement('div');
+  el.className = 'tile';
+  el.innerHTML = `
+    ${makeOrb(ch,color)}
+    <div class="meta"><code>${ch}</code><span>${group}</span></div>
+    <div class="row">
+      <button class="copy">Copy</button>
+      <button class="fav ${fav ? 'fav' : ''}">${fav ? 'Unfavorite' : 'Favorite'}</button>
+    </div>
+    <div class="muted" style="font-size:11px">${name}</div>
+  `;
+  el.querySelector('.copy').onclick = () => cp(ch);
+  el.querySelector('.preview').onclick = () => cp(ch);
+  el.querySelector('.fav').onclick = () => {
+    if (favs.has(ch)) favs.delete(ch); else favs.add(ch);
+    saveFavs();
+    render();
+  };
+  return el;
+}
+
+function render(){
+  document.documentElement.style.setProperty('--tile', tileInput.value + 'px');
+  document.documentElement.style.setProperty('--glyph', sizeInput.value + 'px');
+  grid.innerHTML = '';
+  const list = CANDIDATES.filter(passes);
+  list.forEach(item => grid.appendChild(tile(item)));
+  countEl.textContent = `${list.length} shown / ${CANDIDATES.length} total`;
+}
+
+[filterInput, groupSelect, sizeInput, tileInput, pickupColorInput].forEach(el => el.addEventListener('input', render));
+bgBtn.onclick = () => {
+  bgAlt = !bgAlt;
+  document.body.style.background = bgAlt
+    ? 'radial-gradient(1300px 700px at 100% -10%,#2f2b17,#19120e 56%)'
+    : 'radial-gradient(1200px 700px at 10% -10%,#24395a,#0d1420 55%)';
+};
+showFavBtn.onclick = () => { showFavOnly = !showFavOnly; showFavBtn.textContent = showFavOnly ? 'Show All' : 'Show Favorites Only'; render(); };
+clearFavBtn.onclick = () => { favs.clear(); saveFavs(); render(); };
+
+renderGroups();
+groupSelect.value = 'All';
+renderCurrent();
+render();
+</script>
+</body>
+</html>

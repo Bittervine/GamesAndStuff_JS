@@ -1,0 +1,16 @@
+{
+  "name": "Reversi",
+  "short_name": "Reversi",
+  "start_url": "./Reversi_JS.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4e4cf",
+  "theme_color": "#1f2937",
+  "icons": [
+    {
+      "src": "./pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

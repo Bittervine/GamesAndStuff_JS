@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <title>Hexxagon JS</title>
+  <style>
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:'FreeSerif', serif;
+      overflow-x:hidden;
+      -webkit-text-size-adjust:100%;
+      background:#fff;
+      color:#23160f;
+    }
+    .wrap{width:100%; margin:0; padding:8px 0 0}
+    canvas{
+      display:block;
+      margin:8px auto;
+      max-width:calc(100vw - 16px);
+      height:auto;
+      touch-action:manipulation;
+    }
+    #controls{
+      font-size:95%;
+      text-align:center;
+      font-family:serif;
+    }
+    #controls button,
+    #controls input{
+      font-size:inherit;
+      vertical-align:middle;
+    }
+    #controls button{
+      width:2.2em;
+      box-sizing:border-box;
+      line-height:1;
+      padding-top:0;
+      padding-bottom:0;
+      padding-left:0;
+      padding-right:0;
+      min-height:1.8em;
+    }
+    #previewBtn{
+      width:auto;
+      min-width:4.6em;
+      padding-left:0.3em;
+      padding-right:0.3em;
+    }
+    #previewBtn.is-on{box-shadow:inset 0 2px 4px rgba(0,0,0,.35); background:#d9d9d9}
+    #buttonRow{
+      display:flex;
+      flex-wrap:nowrap;
+      align-items:center;
+      justify-content:center;
+      gap:0.25em;
+      white-space:nowrap;
+    }
+    #buttonRow button,
+    #buttonRow label,
+    #buttonRow input{
+      vertical-align:middle;
+    }
+    #buttonRow label{
+      display:inline-flex;
+      align-items:center;
+      line-height:1;
+      white-space:nowrap;
+    }
+    #status{display:block; margin-top:.35em; font-weight:700}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <canvas id="board" width="820" height="820"></canvas>
+    <div id="controls">
+      <div id="buttonRow">
+        <button id="resetBtn" title="Reset">↺</button>
+        <label>&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="3" min="1" max="9" style="width:2.2em"></label>
+        <label>&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="0" min="0" max="100" style="width:2.2em;margin-right:2px">%</label>
+        <button id="previewBtn" title="Preview">Preview</button>
+        <button id="passBtn" title="Pass">↷</button>
+        <button id="takebackBtn" title="Undo">⌫</button>
+      </div>
+      <span id="status"></span>
+    </div>
+  </main>
+  <script>
+  (function(){
+    'use strict';
+    var N=7, HUMAN='w', AI='b';
+    var board, turn, over, history, previewMove, previewEnabled, aiBusy, aiTimer, passStreak, selected, cell, pad, hexR, layout, boardTilt = Math.PI / 12;
+    var aiThinkStart=0, aiDepthNow=0, aiDepthDone=0, aiLastSec=0, aiTargetDepth=0, aiBestMove=null, aiDepthStart=0, searchDeadline=0;
+    var canvas=document.getElementById('board'), ctx=canvas.getContext&&canvas.getContext('2d');
+    var controls=document.getElementById('controls'), statusEl=document.getElementById('status');
+    var depthInput=document.getElementById('depthInput'), clumsyInput=document.getElementById('clumsyInput'), previewBtn=document.getElementById('previewBtn');
+    var LIGHT_SQUARE = 'rgba(240,217,181,.20)';
+    var DARK_SQUARE = 'rgba(181,136,99,.20)';
+    var dirs=[[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+
+    function clamp(v,lo,hi){ v=parseFloat(v); if(!isFinite(v))v=lo; if(v<lo)return lo; if(v>hi)return hi; return v; }
+    function pickClumsyMoveFromScores(scored, clumsyPct){
+      var pct=clamp(clumsyPct,0,100), p, u, skip=0, idx;
+      if(!scored||!scored.length) return null;
+      if(scored.length===1) return scored[0].move;
+      if(pct>=100) return scored[(Math.random()*scored.length)|0].move;
+      if(pct<=0) return scored[0].move;
+      p=pct/100;
+      u=Math.random();
+      while(skip<scored.length-1 && u<Math.pow(p,skip+1)) skip++;
+      idx=skip + ((Math.random()*(scored.length-skip))|0);
+      return scored[idx].move;
+    }
+    function save(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+    function load(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+    function opp(c){ return c===HUMAN ? AI : HUMAN; }
+    function inBounds(r,c){ return r>=0&&r<N&&c>=0&&c<N; }
+    function makeBoard(){ var b=[],r,c; for(r=0;r<N;r++){ b[r]=[]; for(c=0;c<N;c++) b[r][c]=null; } return b; }
+    function createInitialBoard(){ var b=makeBoard(); b[0][0]='w'; b[N-1][N-1]='w'; b[0][N-1]='b'; b[N-1][0]='b'; return b; }
+    function sig(){ var r,c,s=[],line,v; for(r=0;r<N;r++){ line=''; for(c=0;c<N;c++){ v=board[r][c]; line += v ? v : '.'; } s.push(line); } return s.join('/'); }
+    function cloneMarks(){ var a=[],r,c; for(r=0;r<N;r++){ a[r]=[]; for(c=0;c<N;c++) a[r][c]=false; } return a; }
+    function cloneBoardState(src){
+      var out=[], r, c;
+      for(r=0;r<N;r++){
+        out[r]=[];
+        for(c=0;c<N;c++) out[r][c]=src[r][c];
+      }
+      return out;
+    }
+    function hexDist(ar,ac,br,bc){ var dr=br-ar, dc=bc-ac, d2=dr+dc; return (Math.abs(dr)+Math.abs(dc)+Math.abs(d2))/2; }
+
+    function collectAt(r,c){
+      var color=board[r][c], seen=cloneMarks(), stack=[[r,c]], cells=[], libs=0, i,p,nr,nc,v;
+      seen[r][c]=true;
+      while(stack.length){
+        p=stack.pop(); cells.push([p[0],p[1]]);
+        for(i=0;i<dirs.length;i++){
+          nr=p[0]+dirs[i][0]; nc=p[1]+dirs[i][1];
+          if(!inBounds(nr,nc)) continue;
+          v=board[nr][nc];
+          if(v===null) libs += 1;
+          else if(v===color && !seen[nr][nc]) { seen[nr][nc]=true; stack.push([nr,nc]); }
+        }
+      }
+      return {cells:cells, libs:libs};
+    }
+
+    function undoToken(t){
+      var i,p;
+      if(!t) return;
+      if(t.kind==='pass'){ passStreak=t.prevPass; return; }
+      if(t.kind==='jump'){
+        board[t.sr][t.sc]=t.color;
+        board[t.r][t.c]=null;
+      } else board[t.r][t.c]=null;
+      for(i=0;i<t.flips.length;i++){ p=t.flips[i]; board[p[0]][p[1]] = opp(t.color); }
+      passStreak=t.prevPass;
+    }
+
+    function makeMove(m,color){
+      if(!m || !inBounds(m.r,m.c) || board[m.r][m.c]!==null) return null;
+      var t={kind:m.dist===1?'clone':'jump',r:m.r,c:m.c,sr:m.sr,sc:m.sc,color:color,prevPass:passStreak,flips:[],sigBefore:sig()};
+      var i,nr,nc,g,j,p;
+      board[m.r][m.c]=color;
+      for(i=0;i<dirs.length;i++){
+        nr=m.r+dirs[i][0]; nc=m.c+dirs[i][1];
+        if(!inBounds(nr,nc) || board[nr][nc]!==opp(color)) continue;
+        if(hexDist(m.r,m.c,nr,nc)!==1) continue;
+        board[nr][nc]=color;
+        t.flips.push([nr,nc]);
+      }
+      if(t.kind==='jump') board[m.sr][m.sc]=null;
+      if(t.sigBefore===sig()){ undoToken(t); return null; }
+      passStreak=0;
+      return t;
+    }
+
+    function legalMoves(color,forAi){
+      var moves=[], stones=[], r,c,dr,dc,nr,nc,key,used={}, cand=[], d, simBoard;
+      for(r=0;r<N;r++) for(c=0;c<N;c++) if(board[r][c]===color) stones.push([r,c]);
+      if(!stones.length) return [];
+      for(var s=0;s<stones.length;s++){
+        r=stones[s][0]; c=stones[s][1];
+        for(dr=-2; dr<=2; dr++){
+          for(dc=-2; dc<=2; dc++){
+            if(dr===0&&dc===0) continue;
+            d=hexDist(r,c,r+dr,c+dc);
+            if(d<1 || d>2) continue;
+            nr=r+dr; nc=c+dc;
+            if(!inBounds(nr,nc) || board[nr][nc]!==null) continue;
+            key=nr+','+nc;
+            if(!used[key]) used[key]={r:nr,c:nc,sr:r,sc:c,dist:d};
+          }
+        }
+      }
+      for(key in used) if(Object.prototype.hasOwnProperty.call(used,key)) cand.push(used[key]);
+      cand.sort(function(a,b){ return moveScore(b,color)-moveScore(a,color); });
+      if(forAi && cand.length>20) cand=cand.slice(0,20);
+      for(var i=0;i<cand.length;i++){
+        var m=cand[i];
+        simBoard=cloneBoardState(board);
+        if(simBoard[m.r][m.c]!==null) continue;
+        simBoard[m.r][m.c]=color;
+        for(var k=0;k<dirs.length;k++){
+          nr=m.r+dirs[k][0]; nc=m.c+dirs[k][1];
+          if(!inBounds(nr,nc) || simBoard[nr][nc]!==opp(color)) continue;
+          if(hexDist(m.r,m.c,nr,nc)!==1) continue;
+          simBoard[nr][nc]=color;
+        }
+        if(m.dist===2) simBoard[m.sr][m.sc]=null;
+        moves.push({r:m.r,c:m.c,sr:m.sr,sc:m.sc,dist:m.dist,score:moveScore(m,color)});
+      }
+      moves.sort(function(a,b){ return b.score-a.score; });
+      return moves;
+    }
+
+    function moveScore(m,color){
+      var center=(N-1)/2, s=0, i,nr,nc;
+      s -= (Math.abs(m.r-center)+Math.abs(m.c-center))*0.25;
+      s += m.dist===1 ? 1.2 : -0.1;
+      for(i=0;i<dirs.length;i++){
+        nr=m.r+dirs[i][0]; nc=m.c+dirs[i][1];
+        if(!inBounds(nr,nc) || board[nr][nc]===null) continue;
+        s += board[nr][nc]===color ? 0.8 : 1.1;
+      }
+      return s;
+    }
+
+    function countPieces(color){ var r,c,n=0; for(r=0;r<N;r++) for(c=0;c<N;c++) if(board[r][c]===color) n += 1; return n; }
+    function mobility(color){ return legalMoves(color,true).length; }
+
+    function evaluate(){
+      var score=(countPieces(AI)-countPieces(HUMAN))*14 + (mobility(AI)-mobility(HUMAN))*2;
+      return score;
+    }
+    function terminal(){ return boardFull() || passStreak>=2 || (!mobility(HUMAN) && !mobility(AI)); }
+    function boardFull(){ var r,c; for(r=0;r<N;r++) for(c=0;c<N;c++) if(board[r][c]===null) return false; return true; }
+
+    function search(depth,color,alpha,beta){
+      if(searchDeadline && Date.now()>=searchDeadline) return evaluate();
+      if(depth<=0 || terminal()) return evaluate();
+      var moves=legalMoves(color,true), i,best,tok,val;
+      if(!moves.length){
+        if(!mobility(opp(color))) return evaluate();
+        return search(depth-1, opp(color), alpha, beta);
+      }
+      if(color===AI){
+        best=-1e9;
+        for(i=0;i<moves.length;i++){
+          tok=makeMove(moves[i], color);
+          if(!tok) continue;
+          val=search(depth-1, opp(color), alpha, beta);
+          undoToken(tok);
+          if(val>best) best=val;
+          if(best>alpha) alpha=best;
+          if(beta<=alpha) break;
+        }
+        return best;
+      }
+      best=1e9;
+      for(i=0;i<moves.length;i++){
+        tok=makeMove(moves[i], color);
+        if(!tok) continue;
+        val=search(depth-1, opp(color), alpha, beta);
+        undoToken(tok);
+        if(val<best) best=val;
+        if(best<beta) beta=best;
+        if(beta<=alpha) break;
+      }
+      return best;
+    }
+
+    function chooseAiMove(){
+      var clumsyPct=clamp(clumsyInput.value,0,100);
+      var moves=legalMoves(AI,false), scored=[], i,m,tok,val,maxDepth=clamp(depthInput.value,1,9),deadline=Date.now()+350;
+      if(!moves.length) return null;
+      if(clumsyPct>=100) return moves[(Math.random()*moves.length)|0];
+      searchDeadline=deadline;
+      for(i=0;i<moves.length;i++){
+        m=moves[i];
+        tok=makeMove(m, AI);
+        if(!tok) continue;
+        val=search(maxDepth-1, HUMAN, -1e9, 1e9);
+        undoToken(tok);
+        scored.push({move:m,score:val});
+        if(Date.now()>=deadline) break;
+      }
+      searchDeadline=0;
+      if(!scored.length) return null;
+      scored.sort(function(a,b){ return b.score-a.score; });
+      return pickClumsyMoveFromScores(scored, clumsyPct);
+    }
+
+    function refresh(){
+      var score=evaluate(), lead=score>0?'White leads by '+score.toFixed(1):score<0?'Black leads by '+Math.abs(score).toFixed(1):'Level';
+      if (over) {
+        statusEl.textContent = 'Info: Game over: ' + (score > 0 ? 'White wins' : score < 0 ? 'Black wins' : 'Draw') + ' ' + score.toFixed(1) + '.';
+      } else if (aiBusy && aiThinkStart) {
+        statusEl.textContent = 'Info: Thinking Depth ' + aiDepthNow + ' for ' + ((Date.now() - aiThinkStart) / 1000).toFixed(1) + ' s.';
+      } else {
+        statusEl.textContent = 'Info: ' + lead + ' for depth ' + (aiDepthDone>0?aiDepthDone:clamp(depthInput.value,1,9)) + ' after ' + aiLastSec.toFixed(1) + ' s.';
+      }
+    }
+
+    function doPass(color){
+      var t={kind:'pass',color:color,prevPass:passStreak};
+      passStreak += 1;
+      history.push({color:color,pass:true,token:t});
+      turn=opp(color);
+      previewMove=null;
+      draw(); refresh();
+    }
+
+    function reset(){
+      if(aiTimer){ clearTimeout(aiTimer); aiTimer=null; }
+      aiBusy=false; aiThinkStart=0; aiDepthNow=0; aiDepthDone=0; aiLastSec=0; aiTargetDepth=0; aiBestMove=null; aiDepthStart=0;
+      aiBusy=false; board=createInitialBoard(); turn=HUMAN; over=false; history=[]; previewMove=null; passStreak=0; selected=null;
+      resize(); draw(); refresh();
+    }
+
+    window.__test = {
+      getState: function() {
+        return {
+          over: over,
+          turn: turn,
+          w: countPieces(HUMAN),
+          b: countPieces(AI),
+          passStreak: passStreak,
+          sig: sig()
+        };
+      },
+      legalMoves: function() { return legalMoves(turn, false); },
+      play: function(move) { return humanMove(move.sr, move.sc, move.r, move.c, move.dist); },
+      forceOutcome: function(side) {
+        over = true;
+        statusEl.textContent = side === 'white' ? 'Info: Game over: White wins.' : side === 'black' ? 'Info: Game over: Black wins.' : 'Info: Game over: Draw.';
+      }
+    };
+
+    function recordMove(color,tok,m){ history.push({color:color,token:tok,move:m}); turn=opp(color); previewMove=null; }
+    function finishIfNeeded(){ if(terminal()){ over=true; refresh(); } }
+
+    function humanMove(sr,sc,r,c,dist){
+      if(over || turn!==HUMAN || aiBusy) return;
+      var m={r:r,c:c,sr:sr,sc:sc,dist:dist}, tok=makeMove(m,HUMAN);
+      if(!tok) return;
+      selected=null;
+      recordMove(HUMAN,tok,m);
+      draw(); refresh(); finishIfNeeded();
+      if(!over) scheduleAi();
+    }
+
+    function scheduleAi(){ if(aiTimer) clearTimeout(aiTimer); aiTimer=setTimeout(startEngineTurn, previewEnabled ? 60 : 20); }
+    function startEngineTurn(){
+      aiTimer=null;
+      if(over || turn!==AI || aiBusy) return;
+      aiBusy=true;
+      aiThinkStart=Date.now();
+      aiDepthStart=aiThinkStart;
+      aiDepthNow=1;
+      aiTargetDepth=clamp(depthInput.value,1,9);
+      aiBestMove=null;
+      refresh();
+      aiTimer=setTimeout(pumpEngineTurn,0);
+    }
+    function finishEngineTurn(){
+      var m,tok;
+      aiBusy=false;
+      aiLastSec=(Date.now()-aiThinkStart)/1000;
+      aiDepthDone=aiDepthNow>0?Math.min(aiDepthNow,aiTargetDepth):aiDepthDone;
+      aiThinkStart=0; aiDepthNow=0; aiTargetDepth=0; aiDepthStart=0;
+      m=aiBestMove;
+      if(!m){ doPass(AI); finishIfNeeded(); refresh(); return; }
+      if(previewEnabled){ previewMove={r:m.r,c:m.c,color:AI}; draw(); }
+      setTimeout(function(){
+        if(over || turn!==AI) return;
+        tok=makeMove(m,AI);
+        if(!tok){ doPass(AI); finishIfNeeded(); refresh(); return; }
+        recordMove(AI,tok,m);
+        draw(); refresh(); finishIfNeeded();
+      }, previewEnabled ? 220 : 0);
+    }
+    function pumpEngineTurn(){
+      var savedDepth,m,depthElapsed;
+      aiTimer=null;
+      if(over || turn!==AI || !aiBusy) return;
+      refresh();
+      if(Date.now()-aiThinkStart>=30000){ finishEngineTurn(); return; }
+      savedDepth=depthInput.value;
+      depthInput.value=''+aiDepthNow;
+      m=chooseAiMove();
+      depthInput.value=savedDepth;
+      if(m){
+        aiBestMove=m;
+        if(previewEnabled){ previewMove={r:m.r,c:m.c,color:AI}; draw(); }
+      }
+      depthElapsed=Date.now()-aiDepthStart;
+      if(aiDepthNow>=aiTargetDepth || depthElapsed>=10000 || (Date.now()+Math.max(400,depthElapsed*2))>=(aiThinkStart+30000)){ finishEngineTurn(); return; }
+      aiDepthNow+=1;
+      aiDepthStart=Date.now();
+      aiTimer=setTimeout(pumpEngineTurn,0);
+    }
+
+    function undoEntry(e){ if(!e) return; undoToken(e.token); turn=e.color; }
+    function takeBack(){ if(aiTimer){ clearTimeout(aiTimer); aiTimer=null; } aiBusy=false; previewMove=null; selected=null; aiThinkStart=0; aiDepthNow=0; aiTargetDepth=0; aiBestMove=null; aiDepthStart=0; if(!history.length) return; undoEntry(history.pop()); while(history.length && turn!==HUMAN) undoEntry(history.pop()); over=false; draw(); refresh(); }
+
+    function layoutHex(){
+      var pts=[], r,c, minX=1e9, minY=1e9, maxX=-1e9, maxY=-1e9;
+      var angleCos = Math.cos(boardTilt);
+      var angleSin = Math.sin(boardTilt);
+      var vertexBase = boardTilt + Math.PI / 6;
+      var stepX = Math.sqrt(3);
+      var stepY = 1.5;
+      var centerX = 0.75 * (N - 1) * stepX;
+      var centerY = 0.75 * (N - 1) * stepY;
+      var rawX, rawY, rotX, rotY, vx, vy, i;
+      hexR = Math.max(12, Math.floor(cell*0.48));
+      for(r=0;r<N;r++){
+        for(c=0;c<N;c++){
+          rawX = (c + r * 0.5) * stepX - centerX;
+          rawY = r * stepY - centerY;
+          rotX = rawX * angleCos - rawY * angleSin;
+          rotY = rawX * angleSin + rawY * angleCos;
+          pts.push({r:r,c:c,ux:rotX,uy:rotY});
+          for(i=0;i<6;i++){
+            vx = rotX + Math.cos(vertexBase + i * Math.PI / 3);
+            vy = rotY + Math.sin(vertexBase + i * Math.PI / 3);
+            minX = Math.min(minX, vx);
+            minY = Math.min(minY, vy);
+            maxX = Math.max(maxX, vx);
+            maxY = Math.max(maxY, vy);
+          }
+        }
+      }
+      var outerPad = Math.max(16, Math.floor(Math.min(canvas.width, canvas.height) * 0.05));
+      var unitW = maxX - minX;
+      var unitH = maxY - minY;
+      var scale = Math.min((canvas.width - outerPad * 2) / unitW, (canvas.height - outerPad * 2) / unitH);
+      if(!isFinite(scale) || scale <= 0) scale = 1;
+      hexR = scale;
+      var offsetX = (canvas.width - unitW * hexR) / 2 - minX * hexR;
+      var offsetY = (canvas.height - unitH * hexR) / 2 - minY * hexR;
+      for(r=0;r<pts.length;r++){
+        pts[r].x = offsetX + pts[r].ux * hexR;
+        pts[r].y = offsetY + pts[r].uy * hexR;
+      }
+      layout = { pts: pts, minX: offsetX + minX * hexR, minY: offsetY + minY * hexR, maxX: offsetX + maxX * hexR, maxY: offsetY + maxY * hexR };
+    }
+
+    function ptAt(r,c){
+      var i;
+      if(!layout) return null;
+      for(i=0;i<layout.pts.length;i++) if(layout.pts[i].r===r && layout.pts[i].c===c) return layout.pts[i];
+      return null;
+    }
+
+    function resize(){
+      var safety=60;
+      var controlsH=controls ? controls.offsetHeight + 16 : 0;
+      var maxW=(typeof window.innerWidth==='number' && isFinite(window.innerWidth)) ? window.innerWidth - 16 : 512;
+      var maxH=(typeof window.innerHeight==='number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - safety : 512;
+      var size=Math.max(128, Math.floor(Math.min(maxW,maxH)));
+      if(controls){
+        var testWidth=Math.floor(size*0.9);
+        controls.style.width=testWidth+'px';
+        controls.style.fontSize=Math.max(10, Math.round(size*0.033))+'px';
+        controls.style.boxSizing='border-box';
+        controls.style.textAlign='center';
+        controlsH=controls.offsetHeight + 16;
+        maxH=(typeof window.innerHeight==='number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - safety : 512;
+        size=Math.max(128, Math.floor(Math.min(maxW,maxH)));
+      }
+      var freeW=Math.max(0,maxW-size);
+      canvas.width=size; canvas.height=size;
+      canvas.style.marginLeft=(8+Math.floor(freeW/2))+'px';
+      canvas.style.marginRight=(8+Math.ceil(freeW/2))+'px';
+      canvas.style.marginTop='8px';
+      canvas.style.marginBottom='8px';
+      if(controls){
+        var controlsWidth=Math.floor(size*0.9);
+        var sideGap=size-controlsWidth;
+        controls.style.width=controlsWidth+'px';
+        controls.style.fontSize=Math.max(10, Math.round(size*0.033))+'px';
+        controls.style.marginLeft=(8+Math.floor(freeW/2)+Math.floor(sideGap/2))+'px';
+        controls.style.marginRight=(8+Math.ceil(freeW/2)+Math.ceil(sideGap/2))+'px';
+        controls.style.marginTop='0px';
+        controls.style.marginBottom='8px';
+      }
+      cell = Math.max(20, Math.floor(size / 11));
+      pad = Math.floor(cell * 1.25);
+      layoutHex();
+      draw();
+    }
+
+    function hexPath(x,y,r){
+      var a=boardTilt + Math.PI/6, i;
+      ctx.beginPath();
+      for(i=0;i<6;i++){
+        var px=x + r*Math.cos(a + i*Math.PI/3);
+        var py=y + r*Math.sin(a + i*Math.PI/3);
+        if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.closePath();
+    }
+
+    function drawStone(r,c,color,alpha){
+      var i,pt;
+      for(i=0;i<layout.pts.length;i++) if(layout.pts[i].r===r && layout.pts[i].c===c){ pt=layout.pts[i]; break; }
+      if(!pt) return;
+      if(typeof alpha==='number') ctx.globalAlpha=alpha;
+      ctx.fillStyle=(color===HUMAN)?'#ffffff':'#000000';
+      ctx.beginPath(); ctx.arc(pt.x,pt.y,hexR*0.82,0,Math.PI*2,false); ctx.fill();
+      ctx.lineWidth=Math.max(2, hexR*0.14);
+      ctx.strokeStyle=(color===HUMAN)?'#000000':'#ffffff';
+      ctx.stroke();
+      if(typeof alpha==='number') ctx.globalAlpha=1;
+    }
+
+    function draw(){
+      var i, pt;
+      if(!ctx) return;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle='#f5f5f5'; ctx.fillRect(0,0,canvas.width,canvas.height);
+      for(i=0;i<layout.pts.length;i++){
+        pt=layout.pts[i];
+        ctx.fillStyle=((pt.r+pt.c)%2===0)?LIGHT_SQUARE:DARK_SQUARE;
+        hexPath(pt.x, pt.y, hexR);
+        ctx.fill();
+        ctx.lineWidth=Math.max(1, hexR*0.05);
+        ctx.strokeStyle='rgba(143,106,68,.75)';
+        ctx.stroke();
+      }
+      for(i=0;i<layout.pts.length;i++) if(board[layout.pts[i].r][layout.pts[i].c]!==null) drawStone(layout.pts[i].r,layout.pts[i].c,board[layout.pts[i].r][layout.pts[i].c],1);
+      if(selected){
+        pt=ptAt(selected.r, selected.c);
+        if(pt){
+          ctx.strokeStyle='rgba(30,15,8,.92)';
+          ctx.lineWidth=Math.max(2, hexR*0.16);
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, hexR*1.02, 0, Math.PI*2, false);
+          ctx.stroke();
+        }
+      }
+      if(previewMove && previewEnabled) drawStone(previewMove.r,previewMove.c,previewMove.color,0.32);
+      if(history.length && history[history.length-1].move){
+        var last=history[history.length-1].move, j;
+        for(j=0;j<layout.pts.length;j++) if(layout.pts[j].r===last.r && layout.pts[j].c===last.c){ pt=layout.pts[j]; break; }
+        if(pt){ ctx.strokeStyle='rgba(255,220,128,.95)'; ctx.lineWidth=Math.max(2, hexR*0.12); ctx.beginPath(); ctx.arc(pt.x,pt.y,hexR*0.58,0,Math.PI*2,false); ctx.stroke(); }
+      }
+    }
+
+    function count(color){ return countPieces(color); }
+
+    function click(ev){
+      var rect,x,y,sx,sy,i,best=1e9,bestPt=null,pt,d,dist;
+      if(over || turn!==HUMAN || aiBusy) return;
+      rect=canvas.getBoundingClientRect();
+      sx=canvas.width/rect.width; sy=canvas.height/rect.height;
+      x=(ev.clientX-rect.left)*sx; y=(ev.clientY-rect.top)*sy;
+      for(i=0;i<layout.pts.length;i++){
+        pt=layout.pts[i];
+        d=Math.sqrt((x-pt.x)*(x-pt.x)+(y-pt.y)*(y-pt.y));
+        if(d<best){ best=d; bestPt=pt; }
+      }
+      if(!bestPt || best >= hexR*0.95) return;
+      if(selected){
+        if(selected.r===bestPt.r && selected.c===bestPt.c){ selected=null; draw(); return; }
+        if(board[bestPt.r][bestPt.c]===null){
+          dist=hexDist(selected.r, selected.c, bestPt.r, bestPt.c);
+          if(dist>=1 && dist<=2){ humanMove(selected.r, selected.c, bestPt.r, bestPt.c, dist); return; }
+        }
+      }
+      if(board[bestPt.r][bestPt.c]===HUMAN){
+        selected={r:bestPt.r,c:bestPt.c};
+        draw();
+      }
+    }
+
+    function init(){
+      var d=load('hexx_depth'), c=load('hexx_clumsy'), p=load('hexx_preview');
+      if(d!==null) depthInput.value=d;
+      if(c!==null) clumsyInput.value=c;
+      previewEnabled=(p==='1');
+      previewBtn.className=previewEnabled ? 'is-on' : '';
+    }
+
+    function bind(){
+      document.getElementById('resetBtn').addEventListener('click', reset);
+      document.getElementById('takebackBtn').addEventListener('click', takeBack);
+      canvas.addEventListener('click', click);
+      if(window.addEventListener) window.addEventListener('resize', resize);
+      depthInput.addEventListener('change', function(){ save('hexx_depth', depthInput.value); });
+      clumsyInput.addEventListener('change', function(){ save('hexx_clumsy', clumsyInput.value); });
+      previewBtn.addEventListener('click', function(){ previewEnabled=!previewEnabled; save('hexx_preview', previewEnabled?'1':'0'); previewBtn.className=previewEnabled?'is-on':''; draw(); });
+    }
+
+    init(); bind();
+    board=createInitialBoard(); turn=HUMAN; over=false; history=[]; previewMove=null; passStreak=0; aiBusy=false;
+    resize(); draw(); refresh();
+  }());
+  </script>
+</body>
+</html>

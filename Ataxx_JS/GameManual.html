@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <title>Ataxx Manual</title>
+  <style>
+    body{margin:0;font-family:'FreeSerif',serif;background:#fff;color:#23160f}
+    .wrap{width:min(760px,calc(100% - 24px));margin:0 auto;padding:24px 12px 40px}
+    h1{margin:0 0 12px}
+    p,li{line-height:1.45}
+    a{color:#5a3415}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <h1>Ataxx Manual</h1>
+    <p>Goal: finish with more stones than the AI.</p>
+    <ul>
+      <li>A legal move starts from one of your stones and lands on an empty square one step away (clone) or two steps away (jump).</li>
+      <li>Cloning keeps the source stone. Jumping empties the source square.</li>
+      <li>After landing, any adjacent enemy stones flip to your color.</li>
+      <li>If a player has no legal move, the turn passes.</li>
+      <li>The game ends when the board is full or nobody can move.</li>
+    </ul>
+    <p>Open the game: <a href="Ataxx_JS.html">Ataxx JS</a></p>
+  </main>
+</body>
+</html>

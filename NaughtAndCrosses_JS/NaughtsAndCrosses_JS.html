@@ -1,0 +1,728 @@
+﻿<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+        <link rel="manifest" href="./manifest.webmanifest">
+        <link rel="icon" href="./pwa-icon.svg" type="image/svg+xml">
+            <link rel="apple-touch-icon" href="./pwa-icon.svg" type="image/svg+xml">
+<title>Naught And Crosses</title>
+        <style>
+            body {
+                font-family: serif;
+                margin: 0;
+                overflow-x: hidden;
+                -webkit-text-size-adjust: 100%;
+            }
+            #controls {
+                font-size: 95%;
+                text-align: center;
+            }
+            #controls button,
+            #controls input {
+                font-size: inherit;
+                vertical-align: middle;
+            }
+            #controls button {
+                width: 2.2em;
+                box-sizing: border-box;
+                line-height: 1;
+                padding-top: 0;
+                padding-bottom: 0;
+                padding-left: 0;
+                padding-right: 0;
+                min-height: 1.8em;
+            }
+            #previewBtn {
+                width: auto;
+                min-width: 4.6em;
+                padding-left: 0.3em;
+                padding-right: 0.3em;
+            }
+            #previewBtn.is-on {
+                box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35);
+                background: #d9d9d9;
+            }
+            #buttonRow {
+                display: flex;
+                flex-wrap: nowrap;
+                align-items: center;
+                justify-content: center;
+                gap: 0.25em;
+                white-space: nowrap;
+            }
+
+            #buttonRow button,
+            #buttonRow label,
+            #buttonRow input {
+                vertical-align: middle;
+            }
+
+            #buttonRow label {
+                display: inline-flex;
+                align-items: center;
+                line-height: 1;
+                white-space: nowrap;
+            }
+            #clumsyLabel {
+                margin-right: 0.2em;
+            }
+            #searchInfo {
+                margin-top: 0.2em;
+                line-height: 1.2;
+            }
+        </style>
+    </head>
+    <body>
+        <canvas id="board" width="720" height="720" style="display:block;margin:8px auto;max-width:calc(100vw - 16px);height:auto"></canvas>
+        <div id="controls">
+            <div id="buttonRow">
+                <button id="resetBtn" title="Reset">↺</button>
+                <label>&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="5" min="1" max="10" style="width:1.8em"></label>
+                <label id="clumsyLabel">&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="5" min="0" max="100" style="width:1.8em;margin-right:2px">%</label>
+                <button id="previewBtn" title="Preview">Preview</button>
+                <button id="takebackBtn" title="Undo">⌫</button>
+            </div>
+            <span id="status"></span>
+            <div id="searchInfo">
+                <strong id="lastMoveLabel">Info:</strong> <span id="lastMoveInfo">Your move...</span>
+            </div>
+        </div>
+
+        <script src="./NaughtsAndCrosses_JS.js"></script>
+        <script>
+        // ES5-compatible 30x30 five-in-a-row (gomoku-like) human vs AI
+        (function(){
+            var ROWS = 20;
+            var COLS = 20;
+            var MIN_CELL_MM = 10.0;
+            var MIN_ROWS = 8;
+            var MIN_COLS = 8;
+            var MAX_ROWS = 120;
+            var MAX_COLS = 160;
+            var EMPTY = 0;
+            var O = 1;  // human
+            var X = 2;  // AI
+            var NEED = 5;
+
+            var canvas = document.getElementById('board');
+            var ctx = canvas.getContext && canvas.getContext('2d');
+            var controls = document.getElementById('controls');
+            var statusEl = document.getElementById('status');
+            var depthInput = document.getElementById('depthInput');
+            var clumsyInput = document.getElementById('clumsyInput');
+            var previewBtn = document.getElementById('previewBtn');
+            var infoLabel = document.getElementById('lastMoveLabel');
+            var infoText = document.getElementById('lastMoveInfo');
+            document.getElementById('resetBtn').addEventListener('click', reset);
+            document.getElementById('takebackBtn').addEventListener('click', takeBack);
+
+            var board = null;
+            var turn = O;
+            var gameOver = false;
+            var winner = EMPTY;
+            var history = [];
+            var cell = 24;
+            var padding = 12;
+            var lastMove = null;
+            var lastHumanMove = null;
+            var stoneCount = 0;
+            var previewMove = null;
+            var previewDrawAt = 0;
+            var engineThinking = false;
+            var engineTimerId = null;
+            var debugMoves = [];
+            var debugPly = 0;
+            var externalEngine = null;
+            var previewEnabled = false;
+
+            var HARD_DEADLINE_MS = 30000;
+            var SOFT_DEADLINE_MS = 10000;
+            var PREVIEW_ALPHA = 0.35;
+
+            var DEPTH_KEY = 'nac_max_depth';
+            var CLUM_KEY = 'nac_clumsiness';
+            var PREV_KEY = 'nac_preview_enabled';
+            var userAgent = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
+            var kindleMode = /Kindle|Silk|KF[A-Z0-9]+|KFTT|KFMUWI|KFSUWI|KFDOWI|KFTHWI|KFTRWI/i.test(userAgent);
+            function applyKindleControlOffsets() {
+                if (!depthInput || !clumsyInput) return;
+                depthInput.style.position = '';
+                clumsyInput.style.position = '';
+                depthInput.style.top = '';
+                clumsyInput.style.top = '';
+            }
+            try {
+                var savedDepth = localStorage.getItem(DEPTH_KEY);
+                if (savedDepth !== null) depthInput.value = savedDepth;
+                var savedClumsy = localStorage.getItem(CLUM_KEY);
+                if (savedClumsy !== null) clumsyInput.value = savedClumsy;
+                var savedPreview = localStorage.getItem(PREV_KEY);
+                previewEnabled = (savedPreview === '1');
+                if (previewBtn) {
+                    previewBtn.textContent = 'Preview';
+                    previewBtn.className = previewEnabled ? 'is-on' : '';
+                }
+                applyKindleControlOffsets();
+            } catch (e) {}
+
+            depthInput.addEventListener('change', function(){
+                try { localStorage.setItem(DEPTH_KEY, depthInput.value); } catch (e) {}
+            });
+            clumsyInput.addEventListener('change', function(){
+                try { localStorage.setItem(CLUM_KEY, clumsyInput.value); } catch (e) {}
+            });
+            if (previewBtn) {
+                previewBtn.addEventListener('click', function(){
+                    previewEnabled = !previewEnabled;
+                    try { localStorage.setItem(PREV_KEY, previewEnabled ? '1' : '0'); } catch (e) {}
+                    previewBtn.textContent = 'Preview';
+                    previewBtn.className = previewEnabled ? 'is-on' : '';
+                    draw();
+                });
+            }
+
+            function createBoard() {
+                var b = [];
+                var r;
+                var c;
+                for (r = 0; r < ROWS; r++) {
+                    b[r] = [];
+                    for (c = 0; c < COLS; c++) b[r][c] = EMPTY;
+                }
+                return b;
+            }
+
+            function clampNum(v, min, max, fallback) {
+                var n = parseInt(v, 10);
+                if (!isFinite(n)) return fallback;
+                if (n < min) return min;
+                if (n > max) return max;
+                return n;
+            }
+
+            function mmToCssPx(mm){
+                return mm * 96 / 25.4;
+            }
+
+            function dprCellScale(){
+                var dpr = (typeof window.devicePixelRatio === 'number' && isFinite(window.devicePixelRatio))
+                    ? window.devicePixelRatio : 1;
+                if (dpr <= 1) return 1;
+                if (dpr >= 3) return 1.35;
+                return 1 + (dpr - 1) * 0.175;
+            }
+
+            function detectGridSizeForNewGame(){
+                var controlsH = controls ? (controls.offsetHeight + 20) : 120;
+                var maxW = (typeof window.innerWidth === 'number' && isFinite(window.innerWidth)) ? (window.innerWidth - 16) : 720;
+                var maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? (window.innerHeight - controlsH - 16) : 720;
+                var isCoarsePointer = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+                var minCellPx = Math.max(8, mmToCssPx(MIN_CELL_MM) * dprCellScale(), isCoarsePointer ? 44 : 0);
+                var cols = Math.floor(Math.max(1, maxW - padding * 2) / minCellPx);
+                var rows = Math.floor(Math.max(1, maxH - padding * 2) / minCellPx);
+                if (!isFinite(cols)) cols = 20;
+                if (!isFinite(rows)) rows = 20;
+                if (cols < MIN_COLS) cols = MIN_COLS;
+                if (cols > MAX_COLS) cols = MAX_COLS;
+                if (rows < MIN_ROWS) rows = MIN_ROWS;
+                if (rows > MAX_ROWS) rows = MAX_ROWS;
+                return { rows: rows, cols: cols };
+            }
+
+            function rebuildEngine(){
+                if (typeof window !== 'undefined' && window.NACEngineLib && window.NACEngineLib.createEngine) {
+                    externalEngine = window.NACEngineLib.createEngine({ rows: ROWS, cols: COLS });
+                } else {
+                    externalEngine = null;
+                }
+            }
+
+            function resizeCanvas(){
+                var controlsH = controls ? controls.offsetHeight + 16 : 0;
+                var maxW = (typeof window.innerWidth === 'number' && isFinite(window.innerWidth)) ? window.innerWidth - 16 : 720;
+                var maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - 16 : 720;
+                if (controls) {
+                    var probeW = Math.max(220, Math.floor(maxW));
+                    controls.style.width = probeW + 'px';
+                    controls.style.fontSize = Math.max(10, Math.round(probeW * 0.026)) + 'px';
+                    controls.style.boxSizing = 'border-box';
+                    controls.style.textAlign = 'center';
+                    controlsH = controls.offsetHeight + 16;
+                    maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - 16 : 720;
+                }
+
+                var availW = Math.max(220, Math.floor(maxW - padding * 2));
+                var availH = Math.max(220, Math.floor(maxH - padding * 2));
+                var cellByW = availW / COLS;
+                var cellByH = availH / ROWS;
+                cell = Math.min(cellByW, cellByH);
+                var boardW = cell * COLS + padding * 2;
+                var boardH = cell * ROWS + padding * 2;
+                var freeW = Math.max(0, maxW - boardW);
+                canvas.style.marginLeft = (8 + Math.floor(freeW / 2)) + 'px';
+                canvas.style.marginRight = (8 + Math.ceil(freeW / 2)) + 'px';
+                canvas.style.marginTop = '8px';
+                canvas.style.marginBottom = '8px';
+                canvas.width = Math.floor(boardW);
+                canvas.height = Math.floor(boardH);
+                if (controls) {
+                    var controlsWidth = Math.floor(boardW * 0.9);
+                    var sideGap = Math.max(0, boardW - controlsWidth);
+                    controls.style.width = controlsWidth + 'px';
+                    controls.style.fontSize = Math.max(10, Math.round(boardW * 0.026)) + 'px';
+                    controls.style.marginLeft = (parseInt(canvas.style.marginLeft, 10) + Math.floor(sideGap / 2)) + 'px';
+                    controls.style.marginRight = (parseInt(canvas.style.marginRight, 10) + Math.ceil(sideGap / 2)) + 'px';
+                    controls.style.marginTop = '0px';
+                    controls.style.marginBottom = '8px';
+                }
+                draw();
+            }
+            if (window.addEventListener) window.addEventListener('resize', resizeCanvas);
+
+            function inBounds(r, c){
+                return r >= 0 && r < ROWS && c >= 0 && c < COLS;
+            }
+
+            function hasFiveFrom(r, c, player){
+                var dirs = [[1,0],[0,1],[1,1],[1,-1]];
+                var i;
+                for (i = 0; i < dirs.length; i++) {
+                    var dr = dirs[i][0];
+                    var dc = dirs[i][1];
+                    var count = 1;
+                    var rr = r + dr;
+                    var cc = c + dc;
+                    while (inBounds(rr, cc) && board[rr][cc] === player) {
+                        count++;
+                        rr += dr;
+                        cc += dc;
+                    }
+                    rr = r - dr;
+                    cc = c - dc;
+                    while (inBounds(rr, cc) && board[rr][cc] === player) {
+                        count++;
+                        rr -= dr;
+                        cc -= dc;
+                    }
+                    if (count >= NEED) return true;
+                }
+                return false;
+            }
+
+            function isBoardFull(){
+                return stoneCount >= ROWS * COLS;
+            }
+
+            function applyMove(r, c, player){
+                board[r][c] = player;
+                history.push([r, c, player]);
+                lastMove = [r, c, player];
+                stoneCount++;
+            }
+
+            function undoMove(){
+                var m = history.pop();
+                if (!m) return null;
+                board[m[0]][m[1]] = EMPTY;
+                lastMove = history.length ? history[history.length - 1] : null;
+                winner = EMPTY;
+                gameOver = false;
+                stoneCount--;
+                return m;
+            }
+
+            function takeBack(){
+                clearEngineState();
+                if (!history.length) return;
+                undoMove();
+                if (history.length && turn === O) undoMove();
+                recomputeLastHumanMove();
+                turn = O;
+                updateStatus();
+                draw();
+            }
+
+            function showThinkingInfo(depth, startMs){
+                if (infoLabel) infoLabel.style.display = '';
+                if (infoText) {
+                    var elapsedSec = (Date.now() - startMs) / 1000;
+                    infoText.textContent = 'Thinking (depth ' + depth + ') for ' + elapsedSec.toFixed(1) + ' s...';
+                }
+            }
+
+            function setPreviewMove(m, forceDraw){
+                previewMove = m ? [m[0], m[1]] : null;
+                var now = Date.now();
+                if (forceDraw || (now - previewDrawAt) >= 200) {
+                    previewDrawAt = now;
+                    draw();
+                }
+            }
+
+            function clearEngineState(){
+                if (engineTimerId) {
+                    clearTimeout(engineTimerId);
+                    engineTimerId = null;
+                }
+                engineThinking = false;
+                previewMove = null;
+                previewDrawAt = 0;
+            }
+
+            function scoreForMove(scored, move){
+                var i;
+                if (!scored || !move) return 0;
+                for (i = 0; i < scored.length; i++) {
+                    if (scored[i][0] === move[0] && scored[i][1] === move[1]) return scored[i][2];
+                }
+                return scored.length ? scored[0][2] : 0;
+            }
+
+            function formatTopMoves(scored, n){
+                var out = [];
+                var i;
+                if (!scored || !scored.length) return '';
+                for (i = 0; i < scored.length && i < n; i++) {
+                    out.push(
+                        '#' + (i + 1) +
+                        ' r' + (scored[i][0] + 1) +
+                        ' c' + (scored[i][1] + 1) +
+                        ' ' + scored[i][2]
+                    );
+                }
+                return out.join(' | ');
+            }
+
+            function shortTopForDebug(scored, n){
+                var out = [];
+                var i;
+                if (!scored || !scored.length) return '';
+                for (i = 0; i < scored.length && i < n; i++) {
+                    out.push('#' + (i + 1) + ' r' + (scored[i][0] + 1) + ' c' + (scored[i][1] + 1) + ' ' + scored[i][2]);
+                }
+                return out.join(' ; ');
+            }
+
+            function moveRank(scored, move){
+                var i;
+                if (!scored || !move) return -1;
+                for (i = 0; i < scored.length; i++) {
+                    if (scored[i][0] === move[0] && scored[i][1] === move[1]) return i + 1;
+                }
+                return -1;
+            }
+
+            function boardToAscii(){
+                var minR = 0;
+                var minC = 0;
+                var maxR = ROWS - 1;
+                var maxC = COLS - 1;
+                var r;
+                var c;
+                var lines = [];
+                for (r = minR; r <= maxR; r++) {
+                    var line = '';
+                    for (c = minC; c <= maxC; c++) {
+                        if (board[r][c] === O) line += 'O';
+                        else if (board[r][c] === X) line += 'X';
+                        else line += '-';
+                    }
+                    lines.push(line);
+                }
+                return lines.join('\n');
+            }
+
+            function recomputeLastHumanMove(){
+                var i;
+                lastHumanMove = null;
+                for (i = history.length - 1; i >= 0; i--) {
+                    if (history[i][2] === O) {
+                        lastHumanMove = [history[i][0], history[i][1], history[i][2]];
+                        return;
+                    }
+                }
+            }
+
+            function copyTextToClipboard(text){
+                if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+                    return navigator.clipboard.writeText(text);
+                }
+                return new Promise(function(resolve, reject){
+                    try {
+                        var ta = document.createElement('textarea');
+                        ta.value = text;
+                        ta.style.position = 'fixed';
+                        ta.style.left = '-9999px';
+                        document.body.appendChild(ta);
+                        ta.select();
+                        var ok = document.execCommand && document.execCommand('copy');
+                        document.body.removeChild(ta);
+                        if (ok) resolve();
+                        else reject(new Error('copy failed'));
+                    } catch (err) {
+                        reject(err);
+                    }
+                });
+            }
+
+            if (window.addEventListener) {
+                window.addEventListener('keydown', function(ev){
+                    var key = ev && ev.key ? ev.key : '';
+                    if (key !== 'c' && key !== 'C') return;
+                    var active = document.activeElement;
+                    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
+                    var lines = [];
+                    lines.push('Info: ' + (infoText ? infoText.textContent : ''));
+                    lines.push('Depth=' + depthInput.value + ' Clumsy=' + clumsyInput.value + '%');
+                    lines.push('Moves:');
+                    if (!debugMoves.length) lines.push('(none)');
+                    else lines = lines.concat(debugMoves);
+                    lines.push('Final board (' + ROWS + 'x' + COLS + '):');
+                    lines.push(boardToAscii());
+                    var payload = lines.join('\n');
+                    copyTextToClipboard(payload).then(function(){
+                        if (infoText) infoText.textContent = 'Debug copied to clipboard';
+                    }).catch(function(){
+                        if (infoText) infoText.textContent = 'Copy failed';
+                    });
+                });
+            }
+
+
+            function engineMove(){
+                if (engineThinking || gameOver || turn !== X) return;
+                if (!externalEngine || !externalEngine.loadFromBoardState ||
+                    !externalEngine.startIterativeSession || !externalEngine.stepIterativeSession) {
+                    if (infoText) infoText.textContent = 'Engine module unavailable';
+                    return;
+                }
+
+                var extStartMs = Date.now();
+                var extDepth = clampNum(depthInput.value, 1, 10, 5);
+                var extClumsy = clampNum(clumsyInput.value, 0, 100, 5);
+                var extSession = null;
+                engineThinking = true;
+                showThinkingInfo(1, extStartMs);
+                draw();
+                engineTimerId = setTimeout(function pumpExternal(){
+                    if (!engineThinking || gameOver || turn !== X) return;
+                    if (!extSession) {
+                        externalEngine.loadFromBoardState(board, lastHumanMove);
+                        extSession = externalEngine.startIterativeSession(extDepth, SOFT_DEADLINE_MS, HARD_DEADLINE_MS, extClumsy);
+                    }
+                    var stepped = externalEngine.stepIterativeSession(extSession, 1);
+                    extSession = stepped ? stepped.session : extSession;
+                    var reachedDepth = extSession && extSession.reachedDepth ? extSession.reachedDepth : 1;
+                    showThinkingInfo(extSession ? extSession.depth : reachedDepth, extStartMs);
+                    if (extSession && extSession.bestMove) setPreviewMove(extSession.bestMove, false);
+
+                    if (!stepped || !stepped.done) {
+                        engineTimerId = setTimeout(pumpExternal, 0);
+                        return;
+                    }
+
+                    var scored = extSession && extSession.bestScored ? extSession.bestScored : [];
+                    var chosen = externalEngine.chooseMoveFromScored(scored, extClumsy);
+                    if (!chosen || !scored.length) {
+                        engineThinking = false;
+                        gameOver = true;
+                        winner = EMPTY;
+                        updateStatus();
+                        draw();
+                        return;
+                    }
+                    if (infoLabel) infoLabel.style.display = '';
+                    if (infoText) {
+                        var usedSec = (Date.now() - extStartMs) / 1000;
+                        var chosenScore = scoreForMove(scored, chosen);
+                        var displayScore = -chosenScore;
+                        infoText.textContent = (displayScore >= 0 ? '+' : '') + displayScore +
+                            ' for depth ' + reachedDepth + ' after ' + usedSec.toFixed(1) + ' s';
+                    }
+                    debugPly++;
+                    var chosenRank = moveRank(scored, chosen);
+                    var clumsyMove = chosenRank > 1 ? 'yes' : 'no';
+                    debugMoves.push(
+                        debugPly + '. AI r' + (chosen[0] + 1) + ' c' + (chosen[1] + 1) +
+                        ' score=' + scoreForMove(scored, chosen) +
+                        ' depth=' + reachedDepth +
+                        ' clumsy=' + clumsyMove +
+                        ' rank=' + chosenRank +
+                        ' top3=' + shortTopForDebug(scored, 3)
+                    );
+                    applyMove(chosen[0], chosen[1], X);
+                    if (hasFiveFrom(chosen[0], chosen[1], X)) {
+                        gameOver = true;
+                        winner = X;
+                    } else if (isBoardFull()) {
+                        gameOver = true;
+                        winner = EMPTY;
+                    } else {
+                        turn = O;
+                    }
+                    engineThinking = false;
+                    updateStatus();
+                    draw();
+                }, 0);
+            }
+
+            function updateStatus(){
+                if (!statusEl) return;
+                if (gameOver) {
+                    statusEl.textContent = '';
+                    if (infoText) {
+                        if (infoLabel) infoLabel.style.display = 'none';
+                        if (winner === O) infoText.innerHTML = '<strong>Game over:</strong> Naughts (human) win';
+                        else if (winner === X) infoText.innerHTML = '<strong>Game over:</strong> Crosses (AI) win';
+                        else infoText.innerHTML = '<strong>Game over:</strong> draw';
+                    }
+                    return;
+                }
+                statusEl.textContent = '';
+            }
+
+            function drawGrid(){
+                ctx.fillStyle = '#f2f2f2';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = '#2b2b2b';
+                ctx.lineWidth = 1;
+                var i;
+                for (i = 0; i <= ROWS; i++) {
+                    var p = padding + i * cell;
+                    ctx.beginPath();
+                    ctx.moveTo(padding, p);
+                    ctx.lineTo(padding + COLS * cell, p);
+                    ctx.stroke();
+                }
+                for (i = 0; i <= COLS; i++) {
+                    var q = padding + i * cell;
+                    ctx.beginPath();
+                    ctx.moveTo(q, padding);
+                    ctx.lineTo(q, padding + ROWS * cell);
+                    ctx.stroke();
+                }
+            }
+
+            function drawStone(r, c, player, translucent){
+                var prevAlpha = ctx.globalAlpha;
+                if (translucent) ctx.globalAlpha = PREVIEW_ALPHA;
+                var x = padding + c * cell + cell * 0.5;
+                var y = padding + r * cell + cell * 0.5;
+                var radius = Math.max(3, cell * 0.35);
+                if (player === O) {
+                    ctx.strokeStyle = '#0f4d1f';
+                    ctx.lineWidth = Math.max(1, cell * 0.11);
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2, false);
+                    ctx.stroke();
+                } else {
+                    var s = radius * 0.9;
+                    ctx.strokeStyle = '#0b2a6f';
+                    ctx.lineWidth = Math.max(1, cell * 0.11);
+                    ctx.beginPath();
+                    ctx.moveTo(x - s, y - s);
+                    ctx.lineTo(x + s, y + s);
+                    ctx.moveTo(x + s, y - s);
+                    ctx.lineTo(x - s, y + s);
+                    ctx.stroke();
+                }
+                if (translucent) ctx.globalAlpha = prevAlpha;
+            }
+
+            function drawLastMarker(){
+                if (!lastMove) return;
+                var x = padding + lastMove[1] * cell + cell * 0.5;
+                var y = padding + lastMove[0] * cell + cell * 0.5;
+                var s = Math.max(2, cell * 0.1);
+                ctx.fillStyle = '#222';
+                ctx.fillRect(x - s, y - s, s * 2, s * 2);
+            }
+
+            function draw(){
+                if (!ctx) {
+                    if (statusEl) statusEl.textContent = 'No 2D context';
+                    return;
+                }
+                drawGrid();
+                var r;
+                var c;
+                for (r = 0; r < ROWS; r++) {
+                    for (c = 0; c < COLS; c++) {
+                        if (board[r][c] !== EMPTY) drawStone(r, c, board[r][c]);
+                    }
+                }
+                if (previewEnabled && engineThinking && previewMove &&
+                    inBounds(previewMove[0], previewMove[1]) && board[previewMove[0]][previewMove[1]] === EMPTY) {
+                    drawStone(previewMove[0], previewMove[1], X, true);
+                }
+                drawLastMarker();
+            }
+
+            function screenToCell(x, y){
+                var col = Math.floor((x - padding) / cell);
+                var row = Math.floor((y - padding) / cell);
+                if (!inBounds(row, col)) return null;
+                return [row, col];
+            }
+
+            canvas.addEventListener('click', function(ev){
+                if (gameOver || turn !== O || engineThinking) return;
+                var rect = canvas.getBoundingClientRect();
+                var x = ev.clientX - rect.left;
+                var y = ev.clientY - rect.top;
+                var rc = screenToCell(x, y);
+                if (!rc) return;
+                var r = rc[0];
+                var c = rc[1];
+                if (board[r][c] !== EMPTY) return;
+
+                applyMove(r, c, O);
+                lastHumanMove = [r, c, O];
+                debugPly++;
+                debugMoves.push(debugPly + '. Human r' + (r + 1) + ' c' + (c + 1));
+                if (hasFiveFrom(r, c, O)) {
+                    gameOver = true;
+                    winner = O;
+                } else if (isBoardFull()) {
+                    gameOver = true;
+                    winner = EMPTY;
+                } else {
+                    turn = X;
+                }
+                updateStatus();
+                draw();
+
+                if (!gameOver) {
+                    setTimeout(function(){ engineMove(); }, 30);
+                }
+            });
+
+            function reset(){
+                clearEngineState();
+                var dims = detectGridSizeForNewGame();
+                ROWS = dims.rows;
+                COLS = dims.cols;
+                board = createBoard();
+                rebuildEngine();
+                turn = O;
+                gameOver = false;
+                winner = EMPTY;
+                history = [];
+                lastMove = null;
+                lastHumanMove = null;
+                stoneCount = 0;
+                debugMoves = [];
+                debugPly = 0;
+                if (infoLabel) infoLabel.style.display = '';
+                if (infoText) infoText.textContent = 'Your move...';
+                resizeCanvas();
+                updateStatus();
+            }
+
+        reset();
+        })();
+        </script>
+        <script src="./pwa-register.js"></script>
+    </body>
+</html>
