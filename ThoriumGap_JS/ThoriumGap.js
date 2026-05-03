@@ -3617,12 +3617,14 @@
   }
 
   function ringBullets(x, y, count, speed, damage, color, team, sourceKind, sourceName) {
+    const resolvedKind = sourceKind || (team === 'enemy' ? 'enemy' : 'player');
+    const resolvedName = sourceName || resolvedKind || (team === 'enemy' ? 'enemy' : 'player');
     for (let i = 0; i < count; i++) {
       const a = TAU * i / count;
       spawnBullet(team === 'enemy' ? 'enemy' : 'player', x, y, Math.cos(a) * speed, Math.sin(a) * speed, {
         r: team === 'enemy' ? 7 : 5, color: color, damage: damage, kind: team === 'enemy' ? 'orb' : 'spark', life: 4.5,
-        sourceKind: sourceKind || (team === 'enemy' ? 'enemy' : 'player'),
-        sourceName: sourceName || ''
+        sourceKind: resolvedKind,
+        sourceName: resolvedName
       });
     }
   }
@@ -4134,7 +4136,7 @@
     if (e.kind === 'spinner') {
       if (e.y <= 80) return;
       e.fireCooldown = shotDelay(3.0 * postEntrySlowdown);
-      ringBullets(e.x, e.y, 6 + Math.floor(state.levelIndex / 3), 150 + state.levelIndex * 8, 1, e.theme.accent2, 'enemy');
+      ringBullets(e.x, e.y, 6 + Math.floor(state.levelIndex / 3), 150 + state.levelIndex * 8, 1, e.theme.accent2, 'enemy', 'spinner', e.name || 'spinner');
       return;
     }
     if (e.kind === 'diver') {
