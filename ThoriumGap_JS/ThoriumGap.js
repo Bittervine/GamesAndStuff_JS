@@ -4780,7 +4780,7 @@
       if (!tex) continue;
       const w = img.naturalWidth * 2;
       const h = img.naturalHeight * 2;
-      const sway = Math.sin(state.levelClock * 0.18 + d.drift) * 10;
+      const sway = Math.sin(state.animClock * 0.18 + d.drift) * 10;
       drawTextureRect(tex, d.x + sway, d.y, w, h, {
         rot: d.rot,
         alpha: d.alpha * 0.5,

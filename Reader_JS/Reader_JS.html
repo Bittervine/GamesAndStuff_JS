@@ -1697,13 +1697,13 @@ function getNextBundledBookFileName() {
     }
   }
   nextIndex = Math.min(BOOK_BUNDLE_MAX, maxIndex + 1);
-  return "book_" + String(nextIndex).padStart(2, "0") + ".js";
+  return "book_" + zeroPad2(nextIndex) + ".js";
 }
 function loadBundledBook(sourceValue) {
   var bundled = state.bundledBooks || [];
   var index = Number(sourceValue);
   var entry;
-  if (!Number.isInteger(index) || index < 0 || index >= bundled.length) {
+  if (!isWholeNumber(index) || index < 0 || index >= bundled.length) {
     return;
   }
   entry = bundled[index];
@@ -1734,7 +1734,7 @@ function _loadBundledBookIndex() {
             break;
           }
           _context.n = 2;
-          return loadBundledBookScript(BOOK_BUNDLE_PREFIX + String(i).padStart(2, "0") + ".js");
+          return loadBundledBookScript(BOOK_BUNDLE_PREFIX + zeroPad2(i) + ".js");
         case 2:
           entry = _context.v;
           if (entry) {
@@ -1752,7 +1752,52 @@ function _loadBundledBookIndex() {
   }));
   return _loadBundledBookIndex.apply(this, arguments);
 }
+function zeroPad2(value) {
+  var n = Number(value) || 0;
+  return n < 10 ? "0" + String(n) : String(n);
+}
+function isWholeNumber(value) {
+  return typeof value === "number" && isFinite(value) && Math.floor(value) === value;
+}
 function loadBundledBookScript(src) {
+  return loadBundledBookScriptViaText(src).then(function (book) {
+    if (book) {
+      return book;
+    }
+    return loadBundledBookScriptViaTag(src);
+  });
+}
+function loadBundledBookScriptViaText(src) {
+  return new Promise(function (resolve) {
+    var xhr;
+    try {
+      xhr = new XMLHttpRequest();
+      xhr.open("GET", src, true);
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState !== 4) {
+          return;
+        }
+        if (xhr.status < 200 || xhr.status >= 300) {
+          resolve(null);
+          return;
+        }
+        try {
+          window.ReaderBundledBook = null;
+          (new Function(xhr.responseText))();
+          resolve(window.ReaderBundledBook || null);
+        } catch (_error) {
+          resolve(null);
+        } finally {
+          window.ReaderBundledBook = null;
+        }
+      };
+      xhr.send(null);
+    } catch (_error2) {
+      resolve(null);
+    }
+  });
+}
+function loadBundledBookScriptViaTag(src) {
   return new Promise(function (resolve) {
     var script = document.createElement("script");
     script.async = true;
