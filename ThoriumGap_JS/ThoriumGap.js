@@ -3176,7 +3176,7 @@
 
   function weaponDelay() {
     const p = state.player;
-    const base = [0.16, 0.17, 0.2, 0.26, 0.2][p.weaponMode] || 0.2;
+    const base = [0.16, 0.17, 0.17, 0.25, 0.25][p.weaponMode] || 0.2;
     let d = base - (p.weaponTier - 1) * 0.012;
     if (p.rapidTimer > 0) d *= 0.54;
     if (state.overdrive > 0) d *= 0.76;
