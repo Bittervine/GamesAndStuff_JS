@@ -1,6 +1,7 @@
 'use strict';
 
-var CACHE_NAME = 'thoriumgap-v5';
+var APP_VERSION = 'thoriumgap-v7';
+var CACHE_NAME = APP_VERSION;
 var APP_SHELL = [
   './ThoriumGap.html',
   './ThoriumGap.js',
@@ -83,7 +84,13 @@ self.addEventListener('fetch', function (event) {
       }).catch(function () {
         return caches.match(event.request).then(function (cached) {
           if (cached) return cached;
-          return caches.match('./ThoriumGap.html');
+          if (event.request.destination === 'document' || event.request.mode === 'navigate') {
+            return caches.match('./ThoriumGap.html');
+          }
+          return caches.match(event.request, { ignoreSearch: true }).then(function (fallback) {
+            if (fallback) return fallback;
+            return Response.error();
+          });
         });
       })
     );
@@ -120,7 +127,7 @@ self.addEventListener('fetch', function (event) {
         });
         return response;
       }).catch(function () {
-        return caches.match('./ThoriumGap.html');
+        return Response.error();
       });
     })
   );

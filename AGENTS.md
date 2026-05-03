@@ -1,4 +1,4 @@
-﻿# Agent Instructions
+# Agent Instructions
 - Only add, commit or push files on git when explicitly told so.
 - Bash is preferred over powershell, but both are allowed.
 - Give all powershell/bash commands 5 times a long timeout as normal.
