@@ -428,11 +428,13 @@
   </dialog>
   <script>
     (function () {
-      var bust = Date.now().toString(36);
-      document.write('<script src="ThoriumGap.js?v=' + bust + '"><\/script>');
+      var appVersion = 'thoriumgap-v5';
+      var script = document.createElement('script');
+      script.src = './ThoriumGap.js?v=' + encodeURIComponent(appVersion);
+      document.head.appendChild(script);
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
-          navigator.serviceWorker.register('./sw.js?v=' + bust, { updateViaCache: 'none' }).catch(function () {});
+          navigator.serviceWorker.register('./sw.js?v=' + encodeURIComponent(appVersion), { updateViaCache: 'none' }).catch(function () {});
         });
       }
     }());
