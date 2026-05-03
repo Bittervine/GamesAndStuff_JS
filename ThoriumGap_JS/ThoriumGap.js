@@ -2346,6 +2346,7 @@
   function acquireProjectile() {
     const bullet = state.projectilePool.pop() || {};
     bullet._inPool = false;
+    bullet.lastEnemyHit = null;
     return bullet;
   }
 
@@ -2923,6 +2924,7 @@
     bullet.targetRefresh = 0;
     bullet.age = 0;
     bullet.wobble = opts && opts.wobble ? opts.wobble : 0;
+    bullet.lastEnemyHit = null;
     bullet.alive = true;
     state[team === 'player' ? 'bullets' : 'enemyBullets'].push(bullet);
   }
@@ -3930,8 +3932,10 @@
         for (let j = enemyCandidates.length - 1; j >= 0; j--) {
           const e = enemyCandidates[j];
           if (e.dead) continue;
+          if (b.kind === 'beam' && b.lastEnemyHit === e) continue;
           if (d2(b.x, b.y, e.x, e.y) < (b.r + e.r) * (b.r + e.r)) {
             damageEnemy(e, b.damage, false);
+            b.lastEnemyHit = e;
             if (b.kind === 'beam') {
               b.pierce = Math.max(0, (b.pierce || 0) - 1);
               if (b.pierce <= 0) { remove = true; break; }
