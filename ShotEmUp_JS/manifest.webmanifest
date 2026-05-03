@@ -1,0 +1,16 @@
+{
+  "name": "Shot Em Up",
+  "short_name": "Shot Em Up",
+  "start_url": "./ShotEmUp_JS.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#07111d",
+  "theme_color": "#07111d",
+  "icons": [
+    {
+      "src": "./pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <title>Hex JS</title>
+  <style>
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:'FreeSerif', serif;
+      overflow-x:hidden;
+      -webkit-text-size-adjust:100%;
+      background:#fff;
+      color:#23160f;
+    }
+    .wrap{width:100%; margin:0; padding:8px 0 0}
+    canvas{
+      display:block;
+      margin:8px auto;
+      max-width:calc(100vw - 16px);
+      height:auto;
+      touch-action:manipulation;
+    }
+    #controls{
+      font-size:95%;
+      text-align:center;
+      font-family:serif;
+    }
+    #controls button,
+    #controls input{
+      font-size:inherit;
+      vertical-align:middle;
+    }
+    #controls button{
+      width:2.2em;
+      box-sizing:border-box;
+      line-height:1;
+      padding-top:0;
+      padding-bottom:0;
+      padding-left:0;
+      padding-right:0;
+      min-height:1.8em;
+    }
+    #previewBtn{
+      width:auto;
+      min-width:4.6em;
+      padding-left:0.3em;
+      padding-right:0.3em;
+    }
+    #previewBtn.is-on{box-shadow:inset 0 2px 4px rgba(0,0,0,.35); background:#d9d9d9}
+    #buttonRow{
+      display:flex;
+      flex-wrap:nowrap;
+      align-items:center;
+      justify-content:center;
+      gap:0.25em;
+      white-space:nowrap;
+    }
+    #buttonRow button,
+    #buttonRow label,
+    #buttonRow input{
+      vertical-align:middle;
+    }
+    #buttonRow label{
+      display:inline-flex;
+      align-items:center;
+      line-height:1;
+      white-space:nowrap;
+    }
+    #status{display:block; margin-top:.35em; font-weight:700}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <canvas id="board" width="820" height="820"></canvas>
+    <div id="controls">
+      <div id="buttonRow">
+        <button id="resetBtn" title="Reset">↺</button>
+        <label>&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="3" min="1" max="9" style="width:2.2em"></label>
+        <label>&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="0" min="0" max="100" style="width:2.2em;margin-right:2px">%</label>
+        <button id="previewBtn" title="Preview">Preview</button>
+        <button id="passBtn" title="Pass">↷</button>
+        <button id="takebackBtn" title="Undo">⌫</button>
+      </div>
+      <span id="status"></span>
+    </div>
+  </main>
+
+  <script>
+  (function(){
+    'use strict';
+
+    var N = 11;
+    var HUMAN = 'w';
+    var AI = 'b';
+    var INF = 1e9;
+
+    var board = null;
+    var turn = HUMAN;
+    var over = false;
+    var history = [];
+    var previewMove = null;
+    var previewEnabled = false;
+    var aiBusy = false;
+    var aiTimer = null;
+    var aiThinkStart = 0;
+    var aiDepthNow = 0;
+    var aiDepthDone = 0;
+    var aiLastSec = 0;
+    var aiTargetDepth = 0;
+    var aiBestMove = null;
+    var aiDepthStart = 0;
+    var searchDeadline = 0;
+    var cell = 40;
+    var hexR = 22;
+    var layout = null;
+    var boardTilt = Math.PI / 12;
+
+    var canvas = document.getElementById('board');
+    var ctx = canvas.getContext && canvas.getContext('2d');
+    var controls = document.getElementById('controls');
+    var statusEl = document.getElementById('status');
+    var depthInput = document.getElementById('depthInput');
+    var clumsyInput = document.getElementById('clumsyInput');
+    var previewBtn = document.getElementById('previewBtn');
+    var LIGHT_SQUARE = 'rgba(240,217,181,.20)';
+    var DARK_SQUARE = 'rgba(181,136,99,.20)';
+    var dirs = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+
+    function clamp(v, lo, hi) {
+      v = parseFloat(v);
+      if (!isFinite(v)) v = lo;
+      if (v < lo) return lo;
+      if (v > hi) return hi;
+      return v;
+    }
+    function pickClumsyMoveFromScores(scored, clumsyPct) {
+      var pct = clamp(clumsyPct, 0, 100), p, u, skip = 0, idx;
+      if (!scored || !scored.length) return null;
+      if (scored.length === 1) return scored[0].move;
+      if (pct >= 100) return scored[(Math.random() * scored.length) | 0].move;
+      if (pct <= 0) return scored[0].move;
+      p = pct / 100;
+      u = Math.random();
+      while (skip < scored.length - 1 && u < Math.pow(p, skip + 1)) skip++;
+      idx = skip + ((Math.random() * (scored.length - skip)) | 0);
+      return scored[idx].move;
+    }
+
+    function save(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
+    function load(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+    function opp(color) { return color === HUMAN ? AI : HUMAN; }
+    function inBounds(r, c) { return r >= 0 && r < N && c >= 0 && c < N; }
+
+    function makeBoard() {
+      var b = [], r, c;
+      for (r = 0; r < N; r++) {
+        b[r] = [];
+        for (c = 0; c < N; c++) b[r][c] = null;
+      }
+      return b;
+    }
+
+    function cloneMarks() {
+      var a = [], r, c;
+      for (r = 0; r < N; r++) {
+        a[r] = [];
+        for (c = 0; c < N; c++) a[r][c] = false;
+      }
+      return a;
+    }
+
+    function createInitialBoard() { return makeBoard(); }
+
+    function layoutHex() {
+      var pts = [], r, c, i, minX = 1e9, minY = 1e9, maxX = -1e9, maxY = -1e9;
+      var angleCos = Math.cos(boardTilt), angleSin = Math.sin(boardTilt);
+      var vertexBase = boardTilt + Math.PI / 6;
+      var stepX = Math.sqrt(3);
+      var stepY = 1.5;
+      var centerX = 0.75 * (N - 1) * stepX;
+      var centerY = 0.75 * (N - 1) * stepY;
+      var rawX, rawY, rotX, rotY, vx, vy, outerPad, scale, offsetX, offsetY, unitW, unitH;
+      for (r = 0; r < N; r++) {
+        for (c = 0; c < N; c++) {
+          rawX = (c + r * 0.5) * stepX - centerX;
+          rawY = r * stepY - centerY;
+          rotX = rawX * angleCos - rawY * angleSin;
+          rotY = rawX * angleSin + rawY * angleCos;
+          pts.push({ r: r, c: c, ux: rotX, uy: rotY });
+          for (i = 0; i < 6; i++) {
+            vx = rotX + Math.cos(vertexBase + i * Math.PI / 3);
+            vy = rotY + Math.sin(vertexBase + i * Math.PI / 3);
+            minX = Math.min(minX, vx);
+            minY = Math.min(minY, vy);
+            maxX = Math.max(maxX, vx);
+            maxY = Math.max(maxY, vy);
+          }
+        }
+      }
+      outerPad = Math.max(16, Math.floor(Math.min(canvas.width, canvas.height) * 0.05));
+      unitW = maxX - minX;
+      unitH = maxY - minY;
+      scale = Math.min((canvas.width - outerPad * 2) / unitW, (canvas.height - outerPad * 2) / unitH);
+      if (!isFinite(scale) || scale <= 0) scale = 1;
+      hexR = scale;
+      offsetX = (canvas.width - unitW * hexR) / 2 - minX * hexR;
+      offsetY = (canvas.height - unitH * hexR) / 2 - minY * hexR;
+      for (r = 0; r < pts.length; r++) {
+        pts[r].x = offsetX + pts[r].ux * hexR;
+        pts[r].y = offsetY + pts[r].uy * hexR;
+      }
+      layout = { pts: pts, minX: offsetX + minX * hexR, minY: offsetY + minY * hexR, maxX: offsetX + maxX * hexR, maxY: offsetY + maxY * hexR };
+    }
+
+    function ptAt(r, c) {
+      var i;
+      if (!layout) return null;
+      for (i = 0; i < layout.pts.length; i++) {
+        if (layout.pts[i].r === r && layout.pts[i].c === c) return layout.pts[i];
+      }
+      return null;
+    }
+
+    function hexPath(x, y, r) {
+      var a = boardTilt + Math.PI / 6, i, px, py;
+      ctx.beginPath();
+      for (i = 0; i < 6; i++) {
+        px = x + r * Math.cos(a + i * Math.PI / 3);
+        py = y + r * Math.sin(a + i * Math.PI / 3);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    }
+
+    function boardSig() {
+      var r, c, s = [], line, v;
+      for (r = 0; r < N; r++) {
+        line = '';
+        for (c = 0; c < N; c++) {
+          v = board[r][c];
+          line += v ? v : '.';
+        }
+        s.push(line);
+      }
+      return s.join('/');
+    }
+
+    function makeMove(r, c, color) {
+      if (!inBounds(r, c) || board[r][c] !== null) return null;
+      var token = { r: r, c: c, color: color, sigBefore: boardSig() };
+      board[r][c] = color;
+      return token;
+    }
+
+    function undoMove(token) {
+      if (!token) return;
+      board[token.r][token.c] = null;
+    }
+
+    function boardFull() {
+      var r, c;
+      for (r = 0; r < N; r++) {
+        for (c = 0; c < N; c++) {
+          if (board[r][c] === null) return false;
+        }
+      }
+      return true;
+    }
+
+    function targetFor(color) { return color === HUMAN ? 'tb' : 'lr'; }
+
+    function pathDistance(color) {
+      var dist = [], visited = [], r, c, i, bestR, bestC, best = INF, nr, nc, nd, cost, isTarget, isSource;
+      for (r = 0; r < N; r++) {
+        dist[r] = [];
+        visited[r] = [];
+        for (c = 0; c < N; c++) {
+          dist[r][c] = INF;
+          visited[r][c] = false;
+        }
+      }
+
+      function cellCost(v) {
+        if (v === color) return 0;
+        if (v === null) return 1;
+        return INF;
+      }
+
+      function markSource(rr, cc) {
+        var v = board[rr][cc];
+        cost = cellCost(v);
+        if (cost >= INF) return;
+        dist[rr][cc] = cost;
+      }
+
+      if (color === HUMAN) {
+        for (c = 0; c < N; c++) markSource(0, c);
+      } else {
+        for (r = 0; r < N; r++) markSource(r, 0);
+      }
+
+      while (true) {
+        best = INF;
+        bestR = -1;
+        bestC = -1;
+        for (r = 0; r < N; r++) {
+          for (c = 0; c < N; c++) {
+            if (!visited[r][c] && dist[r][c] < best) {
+              best = dist[r][c];
+              bestR = r;
+              bestC = c;
+            }
+          }
+        }
+        if (bestR < 0) break;
+        visited[bestR][bestC] = true;
+        for (i = 0; i < dirs.length; i++) {
+          nr = bestR + dirs[i][0];
+          nc = bestC + dirs[i][1];
+          if (!inBounds(nr, nc)) continue;
+          cost = cellCost(board[nr][nc]);
+          if (cost >= INF) continue;
+          nd = dist[bestR][bestC] + cost;
+          if (nd < dist[nr][nc]) dist[nr][nc] = nd;
+        }
+      }
+
+      if (color === HUMAN) {
+        for (c = 0; c < N; c++) best = Math.min(best, dist[N - 1][c]);
+      } else {
+        for (r = 0; r < N; r++) best = Math.min(best, dist[r][N - 1]);
+      }
+      return best;
+    }
+
+    function evaluate() {
+      var white = pathDistance(HUMAN);
+      var black = pathDistance(AI);
+      if (white <= 0) return -100000;
+      if (black <= 0) return 100000;
+      if (white >= INF && black >= INF) return 0;
+      return white - black;
+    }
+
+    function terminal() {
+      var white = pathDistance(HUMAN);
+      var black = pathDistance(AI);
+      return boardFull() || white <= 0 || black <= 0;
+    }
+
+    function moveHeuristic(m, color) {
+      var center = (N - 1) / 2, s = 0, i, nr, nc;
+      s -= (Math.abs(m.r - center) + Math.abs(m.c - center)) * 0.2;
+      for (i = 0; i < dirs.length; i++) {
+        nr = m.r + dirs[i][0];
+        nc = m.c + dirs[i][1];
+        if (!inBounds(nr, nc) || board[nr][nc] === null) continue;
+        s += board[nr][nc] === color ? 0.8 : 1.0;
+      }
+      return s;
+    }
+
+    function legalMoves(color, forAi) {
+      var moves = [], r, c, cand = [], used = {}, key;
+      for (r = 0; r < N; r++) {
+        for (c = 0; c < N; c++) {
+          if (board[r][c] === null) {
+            key = r + ',' + c;
+            used[key] = { r: r, c: c, score: moveHeuristic({ r: r, c: c }, color) };
+          }
+        }
+      }
+      for (key in used) {
+        if (Object.prototype.hasOwnProperty.call(used, key)) cand.push(used[key]);
+      }
+      cand.sort(function(a, b) { return b.score - a.score; });
+      if (forAi && cand.length > 24) cand = cand.slice(0, 24);
+      for (r = 0; r < cand.length; r++) {
+        var m = cand[r], tok = makeMove(m.r, m.c, color);
+        if (!tok) continue;
+        undoMove(tok);
+        moves.push({ r: m.r, c: m.c, score: m.score });
+      }
+      return moves;
+    }
+
+    function search(depth, color, alpha, beta) {
+      if (searchDeadline && Date.now() >= searchDeadline) return evaluate();
+      if (depth <= 0 || terminal()) return evaluate();
+      var moves = legalMoves(color, true), i, best, tok, val;
+      if (!moves.length) return evaluate();
+      if (color === AI) {
+        best = -INF;
+        for (i = 0; i < moves.length; i++) {
+          tok = makeMove(moves[i].r, moves[i].c, color);
+          if (!tok) continue;
+          val = search(depth - 1, opp(color), alpha, beta);
+          undoMove(tok);
+          if (val > best) best = val;
+          if (best > alpha) alpha = best;
+          if (beta <= alpha) break;
+        }
+        return best;
+      }
+      best = INF;
+      for (i = 0; i < moves.length; i++) {
+        tok = makeMove(moves[i].r, moves[i].c, color);
+        if (!tok) continue;
+        val = search(depth - 1, opp(color), alpha, beta);
+        undoMove(tok);
+        if (val < best) best = val;
+        if (best < beta) beta = best;
+        if (beta <= alpha) break;
+      }
+      return best;
+    }
+
+    function chooseAiMoveAtDepth(depth) {
+      var maxDepth = clamp(depth, 1, 9);
+      var clumsyPct = clamp(clumsyInput.value, 0, 100);
+      var moves = legalMoves(AI, true);
+      var i, m, tok, val, scored = [];
+      var deadline = Date.now() + 350;
+      if (!moves.length) return null;
+      if (clumsyPct >= 100) return moves[(Math.random() * moves.length) | 0];
+      if (moves.length > 18) moves = moves.slice(0, 18);
+      searchDeadline = deadline;
+      for (i = 0; i < moves.length; i++) {
+        m = moves[i];
+        tok = makeMove(m.r, m.c, AI);
+        if (!tok) continue;
+        val = search(maxDepth - 1, HUMAN, -1e9, 1e9);
+        undoMove(tok);
+        scored.push({ move: m, score: val });
+        if (Date.now() >= deadline) break;
+      }
+      searchDeadline = 0;
+      if (!scored.length) return null;
+      scored.sort(function(a, b) { return b.score - a.score; });
+      return pickClumsyMoveFromScores(scored, clumsyPct);
+    }
+
+    function countLead() {
+      var score = evaluate();
+      if (score > 0) return 'Black leads by ' + score.toFixed(1);
+      if (score < 0) return 'White leads by ' + Math.abs(score).toFixed(1);
+      return 'Level';
+    }
+
+    function refresh() {
+      var score = evaluate();
+      var lead = countLead();
+      if (over) {
+        if (pathDistance(AI) <= 0) statusEl.textContent = 'Info: Game over: Black wins ' + score.toFixed(1) + '.';
+        else if (pathDistance(HUMAN) <= 0) statusEl.textContent = 'Info: Game over: White wins ' + Math.abs(score).toFixed(1) + '.';
+        else statusEl.textContent = 'Info: Game over: ' + (score > 0 ? 'Black wins ' + score.toFixed(1) : score < 0 ? 'White wins ' + Math.abs(score).toFixed(1) : 'Draw 0.0') + '.';
+      } else if (aiBusy && aiThinkStart) {
+        statusEl.textContent = 'Info: Thinking Depth ' + aiDepthNow + ' for ' + ((Date.now() - aiThinkStart) / 1000).toFixed(1) + ' s.';
+      } else {
+        statusEl.textContent = 'Info: ' + lead + ' for depth ' + (aiDepthDone > 0 ? aiDepthDone : clamp(depthInput.value,1,9)) + ' after ' + aiLastSec.toFixed(1) + ' s.';
+      }
+    }
+
+    function drawStone(r, c, color, alpha) {
+      var pt = ptAt(r, c);
+      if (!pt) return;
+      if (typeof alpha === 'number') ctx.globalAlpha = alpha;
+      ctx.fillStyle = (color === HUMAN) ? '#ffffff' : '#000000';
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, hexR * 0.82, 0, Math.PI * 2, false);
+      ctx.fill();
+      ctx.lineWidth = Math.max(2, hexR * 0.14);
+      ctx.strokeStyle = (color === HUMAN) ? '#000000' : '#ffffff';
+      ctx.stroke();
+      if (typeof alpha === 'number') ctx.globalAlpha = 1;
+    }
+
+    function draw() {
+      var i, pt, last;
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#f5f5f5';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      for (i = 0; i < layout.pts.length; i++) {
+        pt = layout.pts[i];
+        ctx.fillStyle = ((pt.r + pt.c) % 2 === 0) ? LIGHT_SQUARE : DARK_SQUARE;
+        hexPath(pt.x, pt.y, hexR);
+        ctx.fill();
+        ctx.lineWidth = Math.max(1, hexR * 0.05);
+        ctx.strokeStyle = 'rgba(143,106,68,.75)';
+        ctx.stroke();
+      }
+      for (i = 0; i < layout.pts.length; i++) {
+        if (board[layout.pts[i].r][layout.pts[i].c] !== null) {
+          drawStone(layout.pts[i].r, layout.pts[i].c, board[layout.pts[i].r][layout.pts[i].c], 1);
+        }
+      }
+      if (previewMove && previewEnabled) drawStone(previewMove.r, previewMove.c, previewMove.color, 0.32);
+      if (history.length) {
+        last = history[history.length - 1];
+        pt = ptAt(last.r, last.c);
+        if (pt) {
+          ctx.strokeStyle = 'rgba(255,220,128,.95)';
+          ctx.lineWidth = Math.max(2, hexR * 0.12);
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, hexR * 0.58, 0, Math.PI * 2, false);
+          ctx.stroke();
+        }
+      }
+    }
+
+    function reset() {
+      if (aiTimer) {
+        clearTimeout(aiTimer);
+        aiTimer = null;
+      }
+      board = createInitialBoard();
+      turn = HUMAN;
+      over = false;
+      history = [];
+      previewMove = null;
+      aiBusy = false;
+      aiThinkStart = 0;
+      aiDepthNow = 0;
+      aiDepthDone = 0;
+      aiLastSec = 0;
+      aiTargetDepth = 0;
+      aiBestMove = null;
+      aiDepthStart = 0;
+      resize();
+      draw();
+      refresh();
+    }
+
+    window.__test = {
+      getState: function() {
+        var white = pathDistance(HUMAN), black = pathDistance(AI);
+        return { over: over, turn: turn, whitePath: white, blackPath: black };
+      },
+      legalMoves: function() { return legalMoves(turn, false); },
+      play: function(move) { return placeHuman(move.r, move.c); },
+      forceOutcome: function(side) {
+        over = true;
+        statusEl.textContent = side === 'white' ? 'Info: Game over: White wins.' : side === 'black' ? 'Info: Game over: Black wins.' : 'Info: Game over: Draw.';
+      }
+    };
+
+    function recordMove(color, token, move) {
+      history.push({ color: color, token: token, move: move, r: move.r, c: move.c });
+      turn = opp(color);
+      previewMove = null;
+    }
+
+    function placeHuman(r, c) {
+      var tok;
+      if (over || turn !== HUMAN || aiBusy) return;
+      tok = makeMove(r, c, HUMAN);
+      if (!tok) return;
+      recordMove(HUMAN, tok, { r: r, c: c });
+      draw();
+      refresh();
+      if (terminal()) {
+        over = true;
+        refresh();
+        return;
+      }
+      scheduleAi();
+    }
+
+    function scheduleAi() {
+      if (aiTimer) clearTimeout(aiTimer);
+      aiTimer = setTimeout(startEngineTurn, previewEnabled ? 60 : 20);
+    }
+
+    function startEngineTurn() {
+      aiTimer = null;
+      if (over || turn !== AI || aiBusy) return;
+      aiBusy = true;
+      aiThinkStart = Date.now();
+      aiDepthStart = aiThinkStart;
+      aiDepthNow = 1;
+      aiTargetDepth = clamp(depthInput.value, 1, 9);
+      aiBestMove = null;
+      refresh();
+      aiTimer = setTimeout(pumpEngineTurn, 0);
+    }
+
+    function finishEngineTurn() {
+      var m, tok;
+      aiBusy = false;
+      aiLastSec = (Date.now() - aiThinkStart) / 1000;
+      aiDepthDone = aiDepthNow > 0 ? Math.min(aiDepthNow, aiTargetDepth) : aiDepthDone;
+      aiThinkStart = 0;
+      aiDepthNow = 0;
+      aiTargetDepth = 0;
+      aiDepthStart = 0;
+      m = aiBestMove;
+      if (!m) {
+        refresh();
+        return;
+      }
+      if (previewEnabled) {
+        previewMove = { r: m.r, c: m.c, color: AI };
+        draw();
+      }
+      setTimeout(function() {
+        if (over || turn !== AI) return;
+        tok = makeMove(m.r, m.c, AI);
+        if (!tok) {
+          refresh();
+          return;
+        }
+        recordMove(AI, tok, m);
+        draw();
+        refresh();
+        if (terminal()) {
+          over = true;
+          refresh();
+        }
+      }, previewEnabled ? 220 : 0);
+    }
+
+    function pumpEngineTurn() {
+      var m, depthElapsed;
+      aiTimer = null;
+      if (over || turn !== AI || !aiBusy) return;
+      refresh();
+      if (Date.now() - aiThinkStart >= 30000) {
+        finishEngineTurn();
+        return;
+      }
+      m = chooseAiMoveAtDepth(aiDepthNow);
+      if (m) aiBestMove = m;
+      if (previewEnabled) {
+        previewMove = aiBestMove ? { r: aiBestMove.r, c: aiBestMove.c, color: AI } : null;
+        draw();
+      }
+      depthElapsed = Date.now() - aiDepthStart;
+      if (aiDepthNow >= aiTargetDepth || depthElapsed >= 10000 || (Date.now() + Math.max(400, depthElapsed * 2)) >= (aiThinkStart + 30000)) {
+        finishEngineTurn();
+        return;
+      }
+      aiDepthNow += 1;
+      aiDepthStart = Date.now();
+      aiTimer = setTimeout(pumpEngineTurn, 0);
+    }
+
+    function undoEntry(entry) {
+      if (!entry) return;
+      undoMove(entry.token);
+      turn = entry.color;
+    }
+
+    function takeBack() {
+      if (aiTimer) {
+        clearTimeout(aiTimer);
+        aiTimer = null;
+      }
+      aiBusy = false;
+      previewMove = null;
+      aiThinkStart = 0;
+      aiDepthNow = 0;
+      aiTargetDepth = 0;
+      aiBestMove = null;
+      aiDepthStart = 0;
+      if (!history.length) return;
+      undoEntry(history.pop());
+      while (history.length && turn !== HUMAN) undoEntry(history.pop());
+      over = false;
+      draw();
+      refresh();
+    }
+
+    function resize() {
+      var safety = 60;
+      var controlsH = controls ? controls.offsetHeight + 16 : 0;
+      var maxW = (typeof window.innerWidth === 'number' && isFinite(window.innerWidth)) ? window.innerWidth - 16 : 512;
+      var maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - safety : 512;
+      var size = Math.max(128, Math.floor(Math.min(maxW, maxH)));
+      if (controls) {
+        var testWidth = Math.floor(size * 0.9);
+        controls.style.width = testWidth + 'px';
+        controls.style.fontSize = Math.max(10, Math.round(size * 0.033)) + 'px';
+        controls.style.boxSizing = 'border-box';
+        controls.style.textAlign = 'center';
+        controlsH = controls.offsetHeight + 16;
+        maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - safety : 512;
+        size = Math.max(128, Math.floor(Math.min(maxW, maxH)));
+      }
+      var freeW = Math.max(0, maxW - size);
+      canvas.width = size;
+      canvas.height = size;
+      canvas.style.marginLeft = (8 + Math.floor(freeW / 2)) + 'px';
+      canvas.style.marginRight = (8 + Math.ceil(freeW / 2)) + 'px';
+      canvas.style.marginTop = '8px';
+      canvas.style.marginBottom = '8px';
+      if (controls) {
+        var controlsWidth = Math.floor(size * 0.9);
+        var sideGap = size - controlsWidth;
+        controls.style.width = controlsWidth + 'px';
+        controls.style.fontSize = Math.max(10, Math.round(size * 0.033)) + 'px';
+        controls.style.marginLeft = (8 + Math.floor(freeW / 2) + Math.floor(sideGap / 2)) + 'px';
+        controls.style.marginRight = (8 + Math.ceil(freeW / 2) + Math.ceil(sideGap / 2)) + 'px';
+        controls.style.marginTop = '0px';
+        controls.style.marginBottom = '8px';
+      }
+      layoutHex();
+      draw();
+    }
+
+    function click(ev) {
+      var rect, x, y, sx, sy, i, best = 1e9, bestPt = null, pt, d;
+      if (over || turn !== HUMAN || aiBusy) return;
+      rect = canvas.getBoundingClientRect();
+      sx = canvas.width / rect.width;
+      sy = canvas.height / rect.height;
+      x = (ev.clientX - rect.left) * sx;
+      y = (ev.clientY - rect.top) * sy;
+      for (i = 0; i < layout.pts.length; i++) {
+        pt = layout.pts[i];
+        d = Math.sqrt((x - pt.x) * (x - pt.x) + (y - pt.y) * (y - pt.y));
+        if (d < best) {
+          best = d;
+          bestPt = pt;
+        }
+      }
+      if (bestPt && best < hexR * 0.95) placeHuman(bestPt.r, bestPt.c);
+    }
+
+    function init() {
+      var d = load('hex_depth'), c = load('hex_clumsy'), p = load('hex_preview');
+      if (d !== null) depthInput.value = d;
+      if (c !== null) clumsyInput.value = c;
+      previewEnabled = (p === '1');
+      previewBtn.className = previewEnabled ? 'is-on' : '';
+    }
+
+    function bind() {
+      document.getElementById('resetBtn').addEventListener('click', reset);
+      document.getElementById('takebackBtn').addEventListener('click', takeBack);
+      canvas.addEventListener('click', click);
+      if (window.addEventListener) window.addEventListener('resize', resize);
+      depthInput.addEventListener('change', function(){ save('hex_depth', depthInput.value); });
+      clumsyInput.addEventListener('change', function(){ save('hex_clumsy', clumsyInput.value); });
+      previewBtn.addEventListener('click', function(){
+        previewEnabled = !previewEnabled;
+        save('hex_preview', previewEnabled ? '1' : '0');
+        previewBtn.className = previewEnabled ? 'is-on' : '';
+        draw();
+      });
+    }
+
+    init();
+    bind();
+    reset();
+  }());
+  </script>
+</body>
+</html>

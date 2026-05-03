@@ -1,0 +1,16 @@
+{
+  "name": "Mathbook",
+  "short_name": "Mathbook",
+  "start_url": "./Mathbook_JS.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f8ff",
+  "theme_color": "#132033",
+  "icons": [
+    {
+      "src": "./pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

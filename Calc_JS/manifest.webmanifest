@@ -1,0 +1,16 @@
+{
+  "name": "Calc",
+  "short_name": "Calc",
+  "start_url": "./Calc_JS.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#e9f4ff",
+  "theme_color": "#132033",
+  "icons": [
+    {
+      "src": "./pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

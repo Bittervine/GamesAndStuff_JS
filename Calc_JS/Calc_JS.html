@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./pwa-icon.svg" type="image/svg+xml">
+      <link rel="apple-touch-icon" href="./pwa-icon.svg" type="image/svg+xml">
+<title>Calc</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #e9f4ff;
+      color: #132033;
+      font-family: "Trebuchet MS", Verdana, Arial, sans-serif;
+    }
+
+    #stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    #app {
+      position: absolute;
+      border: 2px solid #7ea6cc;
+      border-radius: 12px;
+      background: #ffffff;
+      box-shadow: 0 2px 0 #b5cde4;
+      padding: 0.6em;
+      display: flex;
+      flex-direction: column;
+      font-size: 16px;
+    }
+
+    #title {
+      margin: 0 0 0.35em;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.5em;
+      line-height: 1.05;
+    }
+
+    #display {
+      flex: 0 0 auto;
+      margin-bottom: 0.35em;
+      padding: 0.35em 0.45em;
+      border: 1px solid #8db2d5;
+      border-radius: 8px;
+      background: #f7fbff;
+    }
+
+    #exprLine {
+      min-height: 1.45em;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 1.15em;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow-x: auto;
+      overflow-y: hidden;
+      text-align: left;
+    }
+
+    #caret {
+      color: #0d3b66;
+      font-weight: bold;
+    }
+
+    #resultLine {
+      margin-top: 0.2em;
+      min-height: 1.55em;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 1.35em;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: right;
+    }
+
+    #formatRow {
+      flex: 0 0 auto;
+      margin-bottom: 0.35em;
+      padding: 0.3em 0.45em;
+      border: 1px solid #98b9d8;
+      border-radius: 8px;
+      background: #f5faff;
+      font-size: 0.9em;
+      line-height: 1.2;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 0.35em;
+    }
+
+    #formatRow label {
+      margin-right: 0.75em;
+    }
+
+    .formatActionBtn {
+      width: auto;
+      margin-left: auto;
+      padding: 0.15em 0.45em;
+      font-size: inherit;
+      vertical-align: middle;
+    }
+
+    #keysWrap {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    table {
+      width: 100%;
+      height: 100%;
+      border-collapse: separate;
+      border-spacing: 0.22em;
+      table-layout: fixed;
+    }
+
+    #keysTable tr:nth-child(1),
+    #keysTable tr:nth-child(2) {
+      height: 7.1429%;
+    }
+
+    #keysTable tr:nth-child(-n + 5) {
+      height: 7.1429%;
+    }
+
+    #keysTable tr:nth-child(n + 6) {
+      height: 14.2857%;
+    }
+
+    td {
+      padding: 0;
+      vertical-align: top;
+    }
+
+    button {
+      width: 100%;
+      height: 100%;
+      padding: 0.1em 0.2em;
+      border: 2px solid #1a3a58;
+      border-radius: 10px;
+      background: #dff0ff;
+      color: #132033;
+      font-size: 1.05em;
+      font-weight: bold;
+      font-family: inherit;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 #eff8ff, 0 2px 0 #7da6c9;
+      line-height: 1.05;
+      user-select: none;
+      -webkit-user-select: none;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    button:active {
+      box-shadow: inset 0 1px 0 #eff8ff, 0 1px 0 #7da6c9;
+    }
+
+    .digitBtn {
+      background: #fbfcfe;
+    }
+
+    .opBtn {
+      background: #d4eaff;
+    }
+
+    .actBtn {
+      background: #ffdcb0;
+    }
+
+    .tailPair {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .tailPair button {
+      float: left;
+    }
+
+    .tailPair button:first-child {
+      width: 32%;
+      margin-right: 2%;
+    }
+
+    .tailPair button:last-child {
+      width: 66%;
+    }
+
+    .halfBtn {
+      font-size: 0.82em;
+      padding-top: 0.02em;
+      padding-bottom: 0.02em;
+    }
+
+    @media (max-width: 420px) {
+      #formatRow {
+        font-size: 0.72em;
+        gap: 0.2em;
+        padding: 0.2em 0.3em;
+      }
+
+      #formatRow label {
+        margin-right: 0.35em;
+      }
+
+      .formatActionBtn {
+        padding: 0.08em 0.28em;
+        font-size: 0.68em;
+      }
+    }
+
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <div id="app">
+      <h1 id="title">Calc</h1>
+
+      <div id="display">
+        <div id="exprLine">&nbsp;</div>
+        <div id="resultLine">0</div>
+      </div>
+
+      <div id="formatRow">
+        <label><input type="radio" name="fmt" value="DEC" checked> DEC</label>
+        <label><input type="radio" name="fmt" value="HEX"> HEX</label>
+        <label><input type="radio" name="fmt" value="BIN"> BIN</label>
+        <label><input type="radio" name="fmt" value="BITS"> BITS</label>
+        <button class="opBtn formatActionBtn" data-action="dwfl" type="button">DW/FL</button>
+      </div>
+
+      <div id="keysWrap">
+        <table id="keysTable">
+          <tr>
+            <td><button class="halfBtn" data-key="A" type="button">A</button></td>
+            <td><button class="halfBtn" data-key="B" type="button">B</button></td>
+            <td><button class="halfBtn" data-key="C" type="button">C</button></td>
+            <td><button class="halfBtn" data-key="D" type="button">D</button></td>
+            <td><button class="halfBtn" data-key="E" type="button">E</button></td>
+            <td><button class="halfBtn" data-key="F" type="button">F</button></td>
+          </tr>
+          <tr>
+            <td><button class="opBtn halfBtn" data-key="0x" type="button">0x</button></td>
+            <td><button class="opBtn halfBtn" data-key="0b" type="button">0b</button></td>
+            <td><button class="opBtn halfBtn" data-key=" and " type="button">AND</button></td>
+            <td><button class="opBtn halfBtn" data-key=" or " type="button">OR</button></td>
+            <td><button class="opBtn halfBtn" data-key=" not " type="button">NOT</button></td>
+            <td><button class="opBtn halfBtn" data-key=" xor " type="button">XOR</button></td>
+          </tr>
+          <tr>
+            <td><button class="opBtn halfBtn" data-key="sin(" type="button">SIN</button></td>
+            <td><button class="opBtn halfBtn" data-key="cos(" type="button">COS</button></td>
+            <td><button class="opBtn halfBtn" data-key="tan(" type="button">TAN</button></td>
+            <td><button class="opBtn halfBtn" data-key="exp(" type="button">EXP</button></td>
+            <td><button class="opBtn halfBtn" data-key="dB()" type="button">→dB</button></td>
+            <td><button class="opBtn halfBtn" data-key="sqrt(" type="button">&#8730;</button></td>
+          </tr>
+          <tr>
+            <td><button class="opBtn halfBtn" data-key="asin(" type="button">ASIN</button></td>
+            <td><button class="opBtn halfBtn" data-key="acos(" type="button">ACOS</button></td>
+            <td><button class="opBtn halfBtn" data-key="atan(" type="button">ATAN</button></td>
+            <td><button class="opBtn halfBtn" data-key="ln(" type="button">LN</button></td>
+            <td><button class="opBtn halfBtn" data-key="dBinv()" type="button">dB→</button></td>
+            <td><button class="opBtn halfBtn" data-key="^" type="button">^</button></td>
+          </tr>
+          <tr>
+            <td><button class="opBtn halfBtn" data-key="c0" type="button">C<sub>0</sub></button></td>
+            <td><button class="opBtn halfBtn" data-key="pi" type="button">π</button></td>
+            <td><button class="opBtn halfBtn" data-key="bit(" type="button">BIT</button></td>
+            <td><button class="opBtn halfBtn" data-key="log(" type="button">LOG10</button></td>
+            <td><button class="opBtn halfBtn" data-key="inv()" type="button">1/x</button></td>
+            <td><button class="opBtn halfBtn" data-key="e" type="button">E</button></td>
+          </tr>
+          <tr>
+            <td><button class="digitBtn" data-key="7" type="button">7</button></td>
+            <td><button class="digitBtn" data-key="8" type="button">8</button></td>
+            <td><button class="digitBtn" data-key="9" type="button">9</button></td>
+            <td><button class="opBtn" data-key="/" type="button">/</button></td>
+            <td><button class="opBtn" data-key="(" type="button">(</button></td>
+            <td><button class="opBtn" data-key=")" type="button">)</button></td>
+          </tr>
+          <tr>
+            <td><button class="digitBtn" data-key="4" type="button">4</button></td>
+            <td><button class="digitBtn" data-key="5" type="button">5</button></td>
+            <td><button class="digitBtn" data-key="6" type="button">6</button></td>
+            <td><button class="opBtn" data-key="*" type="button">*</button></td>
+            <td><button class="opBtn" data-action="left" type="button">&#8592;</button></td>
+            <td><button class="opBtn" data-action="right" type="button">&#8594;</button></td>
+          </tr>
+          <tr>
+            <td><button class="digitBtn" data-key="1" type="button">1</button></td>
+            <td><button class="digitBtn" data-key="2" type="button">2</button></td>
+            <td><button class="digitBtn" data-key="3" type="button">3</button></td>
+            <td><button class="opBtn" data-key="-" type="button">-</button></td>
+            <td><button class="actBtn" data-action="back" type="button">&#9003;</button></td>
+            <td><button class="actBtn ansBtn" data-action="ans" type="button">Ans</button></td>
+          </tr>
+          <tr>
+            <td><button class="actBtn" data-action="clear" type="button">C</button></td>
+            <td><button class="digitBtn" data-key="0" type="button">0</button></td>
+            <td><button data-key="." type="button">.</button></td>
+            <td><button class="opBtn" data-key="+" type="button">+</button></td>
+            <td colspan="2"><button class="actBtn evalBtn" data-action="eval" type="button">=</button></td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var appEl = document.getElementById('app');
+      var exprLineEl = document.getElementById('exprLine');
+      var resultLineEl = document.getElementById('resultLine');
+      var keysTableEl = document.getElementById('keysTable');
+      var keysWrapEl = document.getElementById('keysWrap');
+      var formatRadios = document.getElementsByName('fmt');
+
+      var expression = '';
+      var cursorPos = 0;
+      var currentFormat = 'DEC';
+      var lastValue = 0;
+      var hasValue = true;
+      var hideCaret = false;
+
+      function getViewportWidth() {
+        return window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth || 320;
+      }
+
+      function getViewportHeight() {
+        return window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight || 480;
+      }
+
+      function layoutApp() {
+        var vw = getViewportWidth();
+        var vh = getViewportHeight();
+        var baseUnit;
+
+        appEl.style.width = vw + 'px';
+        appEl.style.height = vh + 'px';
+        appEl.style.left = '0px';
+        appEl.style.top = '0px';
+
+        baseUnit = vh / 28;
+        if (baseUnit < 11) baseUnit = 11;
+        if (baseUnit > 26) baseUnit = 26;
+        appEl.style.fontSize = baseUnit + 'px';
+
+        /* Fallback for browsers with weak/no flexbox support. */
+        layoutKeysWrapFallback(vh);
+        fitFormatRowText();
+        fitAllButtonText();
+      }
+
+      function getStyleValue(el, prop) {
+        var value = '';
+        if (window.getComputedStyle) {
+          value = window.getComputedStyle(el, null).getPropertyValue(prop) || '';
+        } else if (el.currentStyle) {
+          value = el.currentStyle[prop] || '';
+        }
+        return value;
+      }
+
+      function toPx(value) {
+        var n = parseFloat(value);
+        return isNaN(n) ? 0 : n;
+      }
+
+      function layoutKeysWrapFallback(appHeight) {
+        var topUsed;
+        var borderBottom;
+        var padBottom;
+        var available;
+
+        keysWrapEl.style.height = '';
+        topUsed = keysWrapEl.offsetTop;
+        borderBottom = toPx(getStyleValue(appEl, 'border-bottom-width'));
+        padBottom = toPx(getStyleValue(appEl, 'padding-bottom'));
+        available = appHeight - topUsed - borderBottom - padBottom;
+        if (available < 80) available = 80;
+        keysWrapEl.style.height = Math.floor(available) + 'px';
+      }
+
+      function escapeHtml(text) {
+        return String(text)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function getButtonTextFontSize(button) {
+        var style;
+        var size;
+        if (window.getComputedStyle) {
+          style = window.getComputedStyle(button, null);
+          size = parseFloat(style.getPropertyValue('font-size'));
+        } else if (button.currentStyle) {
+          size = parseFloat(button.currentStyle.fontSize);
+        }
+        return isNaN(size) ? 16 : size;
+      }
+
+      function fitButtonText(button) {
+        var maxSize;
+        var minSize;
+        var lo;
+        var hi;
+        var mid;
+        var best;
+        if (!button || button.tagName !== 'BUTTON') return;
+        button.style.fontSize = '';
+        maxSize = getButtonTextFontSize(button);
+        minSize = 1;
+        lo = minSize;
+        hi = maxSize;
+        best = minSize;
+        while (lo <= hi) {
+          mid = Math.floor((lo + hi) / 2);
+          button.style.fontSize = mid + 'px';
+          if (button.scrollWidth <= button.clientWidth && button.scrollHeight <= button.clientHeight) {
+            best = mid;
+            lo = mid + 1;
+          } else {
+            hi = mid - 1;
+          }
+        }
+        button.style.fontSize = best + 'px';
+      }
+
+      function fitAllButtonText() {
+        var buttons = document.getElementsByTagName('button');
+        var i;
+        var button;
+        for (i = 0; i < buttons.length; i++) {
+          button = buttons[i];
+          if (button.parentNode && button.parentNode.id === 'formatRow') continue;
+          fitButtonText(button);
+        }
+      }
+
+      function fitFormatRowText() {
+        var row = document.getElementById('formatRow');
+        var style;
+        var size;
+        var minSize;
+        var lo;
+        var hi;
+        var mid;
+        var best;
+        if (!row) return;
+        if (window.getComputedStyle) {
+          style = window.getComputedStyle(row, null);
+          size = parseFloat(style.getPropertyValue('font-size'));
+        } else if (row.currentStyle) {
+          size = parseFloat(row.currentStyle.fontSize);
+        }
+        if (isNaN(size)) size = 14;
+        row.style.fontSize = '';
+        minSize = 7;
+        lo = minSize;
+        hi = size;
+        best = minSize;
+        while (lo <= hi) {
+          mid = Math.floor((lo + hi) / 2);
+          row.style.fontSize = mid + 'px';
+          if (row.scrollWidth <= row.clientWidth && row.scrollHeight <= row.clientHeight) {
+            best = mid;
+            lo = mid + 1;
+          } else {
+            hi = mid - 1;
+          }
+        }
+        row.style.fontSize = best + 'px';
+      }
+
+      function compactBitSumsForDisplay(text) {
+        return String(text).replace(/bit\(\s*-?\d+\s*\)(?:\s*\+\s*bit\(\s*-?\d+\s*\))+/gi, function (chain) {
+          var nums = [];
+          var re = /bit\(\s*(-?\d+)\s*\)/gi;
+          var m;
+          while ((m = re.exec(chain)) !== null) {
+            nums[nums.length] = m[1];
+          }
+          return '[' + nums.join(', ') + ']';
+        });
+      }
+
+      function renderExpression() {
+        var left = expression.substring(0, cursorPos);
+        var right = expression.substring(cursorPos);
+        var caretEl;
+        var pad;
+        var caretLeft;
+        var caretRight;
+        var viewLeft;
+        var viewRight;
+        exprLineEl.innerHTML = escapeHtml(left) + (hideCaret ? '' : '<span id="caret">|</span>') + escapeHtml(right);
+        if (hideCaret) {
+          exprLineEl.scrollLeft = exprLineEl.scrollWidth;
+          return;
+        }
+        caretEl = document.getElementById('caret');
+        if (!caretEl) return;
+        pad = 12;
+        caretLeft = caretEl.offsetLeft;
+        caretRight = caretLeft + caretEl.offsetWidth;
+        viewLeft = exprLineEl.scrollLeft;
+        viewRight = viewLeft + exprLineEl.clientWidth;
+        if (caretLeft - pad < viewLeft) {
+          exprLineEl.scrollLeft = Math.max(0, caretLeft - pad);
+        } else if (caretRight + pad > viewRight) {
+          exprLineEl.scrollLeft = caretRight + pad - exprLineEl.clientWidth;
+        }
+      }
+
+      function isIntegerNumber(n) {
+        return isFinite(n) && Math.floor(n) === n;
+      }
+
+      function formatBits(value) {
+        var n = value >>> 0;
+        var bits = [];
+        var i;
+        for (i = 31; i >= 0; i--) {
+          if ((n >>> i) & 1) bits[bits.length] = 'bit(' + i + ')';
+        }
+        return bits.length ? bits.join('+') : '0';
+      }
+
+      function formatResult(value) {
+        var sign;
+        var n;
+        if (typeof value !== 'number' || !isFinite(value)) {
+          return 'Error';
+        }
+        if (currentFormat === 'DEC') {
+          return String(value);
+        }
+        if (currentFormat === 'BITS') {
+          return isIntegerNumber(value) ? formatBits(value) : String(value);
+        }
+        if (!isIntegerNumber(value)) {
+          return String(value);
+        }
+        n = value;
+        sign = '';
+        if (n < 0) {
+          sign = '-';
+          n = -n;
+        }
+        if (currentFormat === 'HEX') {
+          return sign + '0x' + n.toString(16).toUpperCase();
+        }
+        if (currentFormat === 'BIN') {
+          return sign + '0b' + n.toString(2);
+        }
+        return String(value);
+      }
+
+      function setResultText(text) {
+        resultLineEl.innerHTML = text;
+        if (currentFormat === 'BITS' && resultLineEl.scrollWidth > resultLineEl.clientWidth) {
+          var compact = compactBitSumsForDisplay(text);
+          if (compact !== text) {
+            resultLineEl.innerHTML = compact;
+          }
+        }
+      }
+
+      function isDigitChar(ch) {
+        return ch >= '0' && ch <= '9';
+      }
+
+      function isHexChar(ch) {
+        return (ch >= '0' && ch <= '9') ||
+          (ch >= 'A' && ch <= 'F') ||
+          (ch >= 'a' && ch <= 'f');
+      }
+
+      function isScientificPartStart(input, index) {
+        var ch = input.charAt(index);
+        var prev = input.charAt(index - 1);
+        return (ch === 'e' || ch === 'E') && /[0-9.]/.test(prev);
+      }
+
+      function precedence(op) {
+        if (op === '~' || op === 'u+' || op === 'u-') return 5;
+        if (op === '^') return 4;
+        if (op === '*' || op === '/') return 3;
+        if (op === '+' || op === '-') return 2;
+        if (op === 'and') return 1;
+        if (op === 'xor') return 0;
+        if (op === 'or') return -1;
+        return 0;
+      }
+
+      function isRightAssociative(op) {
+        return op === '^' || op === '~' || op === 'u+' || op === 'u-';
+      }
+
+      function tokenizeExpression(expr) {
+        var input = String(expr).replace(/\s+/g, '');
+        var tokens = [];
+        var i = 0;
+        var ch;
+        var j;
+        var part;
+        var dotCount;
+
+        if (!input.length) throw new Error('Empty expression');
+
+        while (i < input.length) {
+          ch = input.charAt(i);
+
+          if (ch === '0' && i + 1 < input.length && (input.charAt(i + 1) === 'x' || input.charAt(i + 1) === 'X')) {
+            j = i + 2;
+            while (j < input.length && isHexChar(input.charAt(j))) j++;
+            if (j === i + 2) throw new Error('Bad hex literal');
+            tokens[tokens.length] = { type: 'number', value: parseInt(input.substring(i + 2, j), 16) };
+            i = j;
+            continue;
+          }
+
+          if (ch === '0' && i + 1 < input.length && (input.charAt(i + 1) === 'b' || input.charAt(i + 1) === 'B')) {
+            j = i + 2;
+            while (j < input.length && (input.charAt(j) === '0' || input.charAt(j) === '1')) j++;
+            if (j === i + 2) throw new Error('Bad binary literal');
+            tokens[tokens.length] = { type: 'number', value: parseInt(input.substring(i + 2, j), 2) };
+            i = j;
+            continue;
+          }
+
+          if (isDigitChar(ch) || ch === '.') {
+            j = i;
+            dotCount = 0;
+            while (j < input.length) {
+              if (input.charAt(j) === '.') {
+                dotCount++;
+                if (dotCount > 1) break;
+              } else if (!isDigitChar(input.charAt(j))) {
+                break;
+              }
+              j++;
+            }
+            if (j < input.length && isScientificPartStart(input, j)) {
+              j++;
+              if (input.charAt(j) === '+' || input.charAt(j) === '-') j++;
+              if (j >= input.length || !isDigitChar(input.charAt(j))) throw new Error('Bad number');
+              while (j < input.length && isDigitChar(input.charAt(j))) j++;
+            }
+            part = input.substring(i, j);
+            if (part === '.') throw new Error('Bad number');
+            tokens[tokens.length] = { type: 'number', value: Number(part) };
+            i = j;
+            continue;
+          }
+
+          if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) {
+            if (input.substring(i, i + 4).toLowerCase() === 'asin') {
+              tokens[tokens.length] = { type: 'function', name: 'asin' };
+              i += 4;
+              continue;
+            }
+            if (input.substring(i, i + 4).toLowerCase() === 'acos') {
+              tokens[tokens.length] = { type: 'function', name: 'acos' };
+              i += 4;
+              continue;
+            }
+            if (input.substring(i, i + 4).toLowerCase() === 'atan') {
+              tokens[tokens.length] = { type: 'function', name: 'atan' };
+              i += 4;
+              continue;
+            }
+            if (input.substring(i, i + 4).toLowerCase() === 'sqrt') {
+              tokens[tokens.length] = { type: 'function', name: 'sqrt' };
+              i += 4;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'bit') {
+              tokens[tokens.length] = { type: 'function', name: 'bit' };
+              i += 3;
+              if (input.charAt(i) === '(' && input.charAt(i + 1) === ')') i += 2;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'inv') {
+              tokens[tokens.length] = { type: 'function', name: 'inv' };
+              i += 3;
+              if (input.charAt(i) === '(' && input.charAt(i + 1) === ')') i += 2;
+              continue;
+            }
+            if (input.substring(i, i + 5).toLowerCase() === 'log10') {
+              tokens[tokens.length] = { type: 'function', name: 'log' };
+              i += 5;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'log') {
+              tokens[tokens.length] = { type: 'function', name: 'log' };
+              i += 3;
+              continue;
+            }
+            if (input.substring(i, i + 2).toLowerCase() === 'pi') {
+              tokens[tokens.length] = { type: 'number', value: Math.PI };
+              i += 2;
+              continue;
+            }
+            if (input.substring(i, i + 2).toLowerCase() === 'c0') {
+              tokens[tokens.length] = { type: 'number', value: 299792458 };
+              i += 2;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'sin') {
+              tokens[tokens.length] = { type: 'function', name: 'sin' };
+              i += 3;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'cos') {
+              tokens[tokens.length] = { type: 'function', name: 'cos' };
+              i += 3;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'exp') {
+              tokens[tokens.length] = { type: 'function', name: 'exp' };
+              i += 3;
+              continue;
+            }
+            if (input.substring(i, i + 5).toLowerCase() === 'dbinv') {
+              tokens[tokens.length] = { type: 'function', name: 'dbinv' };
+              i += 5;
+              if (input.charAt(i) === '(' && input.charAt(i + 1) === ')') i += 2;
+              continue;
+            }
+            if (input.substring(i, i + 2).toLowerCase() === 'db') {
+              tokens[tokens.length] = { type: 'function', name: 'db' };
+              i += 2;
+              if (input.charAt(i) === '(' && input.charAt(i + 1) === ')') i += 2;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'tan') {
+              tokens[tokens.length] = { type: 'function', name: 'tan' };
+              i += 3;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'and') {
+              tokens[tokens.length] = { type: 'operator', value: 'and' };
+              i += 3;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'xor') {
+              tokens[tokens.length] = { type: 'operator', value: 'xor' };
+              i += 3;
+              continue;
+            }
+            if (input.substring(i, i + 3).toLowerCase() === 'not') {
+              tokens[tokens.length] = { type: 'operator', value: '~' };
+              i += 3;
+              continue;
+            }
+            if (input.substring(i, i + 2).toLowerCase() === 'or') {
+              tokens[tokens.length] = { type: 'operator', value: 'or' };
+              i += 2;
+              continue;
+            }
+            if (input.substring(i, i + 2).toLowerCase() === 'ln') {
+              tokens[tokens.length] = { type: 'function', name: 'ln' };
+              i += 2;
+              continue;
+            }
+            throw new Error('Invalid token');
+          }
+
+          if (ch === '+' || ch === '-' || ch === '*' || ch === '/' || ch === '^') {
+            tokens[tokens.length] = { type: 'operator', value: ch };
+            i++;
+            continue;
+          }
+
+          if (ch === '(') {
+            tokens[tokens.length] = { type: 'left_paren' };
+            i++;
+            continue;
+          }
+
+          if (ch === ')') {
+            tokens[tokens.length] = { type: 'right_paren' };
+            i++;
+            continue;
+          }
+
+          throw new Error('Invalid character');
+        }
+
+        return tokens;
+      }
+
+      function toRpn(tokens) {
+        var output = [];
+        var stack = [];
+        var i;
+        var token;
+        var op;
+        var top;
+        var prevType = 'start';
+        var foundLeft;
+
+        for (i = 0; i < tokens.length; i++) {
+          token = tokens[i];
+
+          if (token.type === 'number') {
+            output[output.length] = token;
+            prevType = 'value';
+            continue;
+          }
+
+          if (token.type === 'function') {
+            stack[stack.length] = token;
+            prevType = 'function';
+            continue;
+          }
+
+          if (token.type === 'operator') {
+            op = token.value;
+            if ((op === '+' || op === '-') &&
+                (prevType === 'start' || prevType === 'operator' || prevType === 'left_paren' || prevType === 'function')) {
+              op = (op === '+') ? 'u+' : 'u-';
+            }
+
+            while (stack.length > 0) {
+              top = stack[stack.length - 1];
+              if (top.type !== 'operator') break;
+              if ((isRightAssociative(op) && precedence(op) < precedence(top.value)) ||
+                  (!isRightAssociative(op) && precedence(op) <= precedence(top.value))) {
+                output[output.length] = stack.pop();
+              } else {
+                break;
+              }
+            }
+
+            stack[stack.length] = { type: 'operator', value: op };
+            prevType = 'operator';
+            continue;
+          }
+
+          if (token.type === 'left_paren') {
+            stack[stack.length] = token;
+            prevType = 'left_paren';
+            continue;
+          }
+
+          if (token.type === 'right_paren') {
+            foundLeft = false;
+            while (stack.length > 0) {
+              top = stack.pop();
+              if (top.type === 'left_paren') {
+                foundLeft = true;
+                break;
+              }
+              output[output.length] = top;
+            }
+            if (!foundLeft) throw new Error('Mismatched parentheses');
+            if (stack.length > 0 && stack[stack.length - 1].type === 'function') {
+              output[output.length] = stack.pop();
+            }
+            prevType = 'value';
+            continue;
+          }
+        }
+
+        while (stack.length > 0) {
+          top = stack.pop();
+          if (top.type === 'left_paren' || top.type === 'right_paren') {
+            throw new Error('Mismatched parentheses');
+          }
+          output[output.length] = top;
+        }
+
+        return output;
+      }
+
+      function evaluateRpn(rpn) {
+        var stack = [];
+        var i;
+        var token;
+        var a;
+        var b;
+        var value;
+
+        for (i = 0; i < rpn.length; i++) {
+          token = rpn[i];
+          if (token.type === 'number') {
+            stack[stack.length] = token.value;
+            continue;
+          }
+
+          if (token.type === 'function') {
+            if (stack.length < 1) throw new Error('Bad expression');
+            a = stack.pop();
+            if (token.name === 'sqrt') {
+              value = Math.sqrt(a);
+              if (!isFinite(value)) throw new Error('Bad sqrt');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'bit') {
+              value = Math.pow(2, a);
+              if (!isFinite(value)) throw new Error('Bad bit');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'sin') {
+              value = Math.sin(a);
+              if (!isFinite(value)) throw new Error('Bad sin');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'cos') {
+              value = Math.cos(a);
+              if (!isFinite(value)) throw new Error('Bad cos');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'exp') {
+              value = Math.exp(a);
+              if (!isFinite(value)) throw new Error('Bad exp');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'log') {
+              value = Math.log(a) / Math.LN10;
+              if (!isFinite(value)) throw new Error('Bad log');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'inv') {
+              value = 1 / a;
+              if (!isFinite(value)) throw new Error('Bad inv');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'db') {
+              value = 10 * Math.log(a) / Math.LN10;
+              if (!isFinite(value)) throw new Error('Bad db');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'tan') {
+              value = Math.tan(a);
+              if (!isFinite(value)) throw new Error('Bad tan');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'asin') {
+              value = Math.asin(a);
+              if (!isFinite(value)) throw new Error('Bad asin');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'acos') {
+              value = Math.acos(a);
+              if (!isFinite(value)) throw new Error('Bad acos');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'atan') {
+              value = Math.atan(a);
+              if (!isFinite(value)) throw new Error('Bad atan');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'ln') {
+              value = Math.log(a);
+              if (!isFinite(value)) throw new Error('Bad ln');
+              stack[stack.length] = value;
+              continue;
+            }
+            if (token.name === 'dbinv') {
+              value = Math.pow(10, a / 10);
+              if (!isFinite(value)) throw new Error('Bad dbinv');
+              stack[stack.length] = value;
+              continue;
+            }
+            throw new Error('Unknown function');
+          }
+
+          if (token.type === 'operator') {
+            if (token.value === '~') {
+              if (stack.length < 1) throw new Error('Bad expression');
+              a = stack.pop();
+              stack[stack.length] = (~(a >>> 0)) >>> 0;
+              continue;
+            }
+
+            if (token.value === 'u+' || token.value === 'u-') {
+              if (stack.length < 1) throw new Error('Bad expression');
+              a = stack.pop();
+              stack[stack.length] = (token.value === 'u-') ? -a : +a;
+              continue;
+            }
+
+            if (stack.length < 2) throw new Error('Bad expression');
+            b = stack.pop();
+            a = stack.pop();
+
+            if (token.value === '+') value = a + b;
+            else if (token.value === '-') value = a - b;
+            else if (token.value === '*') value = a * b;
+            else if (token.value === '/') value = a / b;
+            else if (token.value === '^') value = Math.pow(a, b);
+            else if (token.value === 'and') value = ((a >>> 0) & (b >>> 0)) >>> 0;
+            else if (token.value === 'xor') value = ((a >>> 0) ^ (b >>> 0)) >>> 0;
+            else if (token.value === 'or') value = ((a >>> 0) | (b >>> 0)) >>> 0;
+            else throw new Error('Bad operator');
+
+            if (!isFinite(value)) throw new Error('Bad number');
+            stack[stack.length] = value;
+          }
+        }
+
+        if (stack.length !== 1) throw new Error('Bad expression');
+        return stack[0];
+      }
+
+      function evaluateExpression() {
+        var tokens;
+        var rpn;
+        var value;
+        try {
+          tokens = tokenizeExpression(expression);
+          rpn = toRpn(tokens);
+          value = evaluateRpn(rpn);
+          if (typeof value !== 'number' || !isFinite(value)) {
+            throw new Error('Not a number');
+          }
+          lastValue = value;
+          hasValue = true;
+          hideCaret = true;
+          renderExpression();
+          setResultText(formatResult(value));
+        } catch (err) {
+          hasValue = false;
+          hideCaret = false;
+          renderExpression();
+          setResultText('Error');
+        }
+      }
+
+      function insertToken(token) {
+        expression = expression.substring(0, cursorPos) + token + expression.substring(cursorPos);
+        cursorPos += token.length;
+        hideCaret = false;
+        renderExpression();
+      }
+
+      function isWrappedFunctionKey(key) {
+        return key === 'sin(' ||
+          key === 'cos(' ||
+          key === 'tan(' ||
+          key === 'exp(' ||
+          key === 'sqrt(' ||
+          key === 'asin(' ||
+          key === 'acos(' ||
+          key === 'atan(' ||
+          key === 'ln(' ||
+          key === 'log(' ||
+          key === 'log10(' ||
+          key === 'bit(' ||
+          key === 'inv()' ||
+          key === 'dB()' ||
+          key === 'dBinv()';
+      }
+
+      function applyWrappedFunctionKey(key) {
+        var source;
+        if (expression.length > 0) {
+          source = expression;
+        } else if (hasValue) {
+          source = String(lastValue);
+        } else {
+          source = '';
+        }
+        if (!source.length) {
+          insertToken(key);
+          return;
+        }
+        if (key === 'dB()') {
+          expression = 'dB(' + source + ')';
+        } else if (key === 'dBinv()') {
+          expression = 'dBinv(' + source + ')';
+        } else if (key === 'bit(') {
+          expression = 'bit(' + source + ')';
+        } else if (key === 'inv()') {
+          expression = 'inv(' + source + ')';
+        } else {
+          expression = key + source + ')';
+        }
+        cursorPos = expression.length;
+        evaluateExpression();
+      }
+
+      function moveCursor(step) {
+        cursorPos += step;
+        if (cursorPos < 0) cursorPos = 0;
+        if (cursorPos > expression.length) cursorPos = expression.length;
+        hideCaret = (cursorPos >= expression.length);
+        renderExpression();
+      }
+
+      function backspace() {
+        if (cursorPos < 1) return;
+        expression = expression.substring(0, cursorPos - 1) + expression.substring(cursorPos);
+        cursorPos -= 1;
+        hideCaret = false;
+        renderExpression();
+      }
+
+      function reinterpretDwFl(value) {
+        var buffer;
+        var view;
+        if (typeof value !== 'number' || !isFinite(value)) throw new Error('Bad value');
+        buffer = new ArrayBuffer(4);
+        view = new DataView(buffer);
+        if (isIntegerNumber(value) && value >= 0 && value <= 4294967295) {
+          view.setUint32(0, value >>> 0, true);
+          return view.getFloat32(0, true);
+        }
+        view.setFloat32(0, value, true);
+        return view.getUint32(0, true) >>> 0;
+      }
+
+      function applyDwFl() {
+        var value;
+        if (hasValue) {
+          value = lastValue;
+        } else {
+          value = 0;
+        }
+        value = reinterpretDwFl(value);
+        lastValue = value;
+        hasValue = true;
+        setResultText(formatResult(value));
+      }
+
+      function clearAll() {
+        expression = '';
+        cursorPos = 0;
+        hideCaret = false;
+        renderExpression();
+        if (hasValue) {
+          setResultText(formatResult(lastValue));
+        } else {
+          setResultText('0');
+        }
+      }
+
+      function onKeyButtonClick(e) {
+        var ev = e || window.event;
+        var target = ev.target || ev.srcElement;
+        var key;
+        var action;
+        while (target && target.tagName !== 'BUTTON') target = target.parentNode;
+        if (!target || target.tagName !== 'BUTTON') return;
+        key = target.getAttribute('data-key');
+        action = target.getAttribute('data-action');
+
+        if (key !== null) {
+          if (hideCaret && isWrappedFunctionKey(key)) {
+            applyWrappedFunctionKey(key);
+            return;
+          }
+          insertToken(key);
+          if (key === 'dB()' || key === 'dBinv()' || key === 'inv()' || key === 'bit(') {
+            moveCursor(-1);
+          }
+          return;
+        }
+        if (action === 'clear') {
+          clearAll();
+          return;
+        }
+        if (action === 'back') {
+          backspace();
+          return;
+        }
+        if (action === 'dwfl') {
+          applyDwFl();
+          return;
+        }
+        if (action === 'left') {
+          moveCursor(-1);
+          return;
+        }
+        if (action === 'right') {
+          moveCursor(1);
+          return;
+        }
+        if (action === 'ans') {
+          insertToken(String(lastValue));
+          return;
+        }
+        if (action === 'eval') {
+          evaluateExpression();
+        }
+      }
+
+      function onFormatChange() {
+        var i;
+        for (i = 0; i < formatRadios.length; i++) {
+          if (formatRadios[i].checked) {
+            currentFormat = formatRadios[i].value;
+            break;
+          }
+        }
+        if (hasValue) setResultText(formatResult(lastValue));
+      }
+
+      function preventKeyboardInput(e) {
+        var ev = e || window.event;
+        var code = ev.keyCode || ev.which;
+        if (code === 116 || code === 123) return true;
+        if (ev.preventDefault) ev.preventDefault();
+        ev.returnValue = false;
+        return false;
+      }
+
+      if (keysTableEl.addEventListener) {
+        keysTableEl.addEventListener('click', onKeyButtonClick, false);
+      } else {
+        keysTableEl.onclick = onKeyButtonClick;
+      }
+
+      var formatRowEl = document.getElementById('formatRow');
+      if (formatRowEl.addEventListener) {
+        formatRowEl.addEventListener('click', onKeyButtonClick, false);
+      } else {
+        formatRowEl.onclick = onKeyButtonClick;
+      }
+
+      var i;
+      for (i = 0; i < formatRadios.length; i++) {
+        if (formatRadios[i].addEventListener) {
+          formatRadios[i].addEventListener('click', onFormatChange, false);
+        } else {
+          formatRadios[i].onclick = onFormatChange;
+        }
+      }
+
+      if (document.addEventListener) {
+        document.addEventListener('keydown', preventKeyboardInput, false);
+        document.addEventListener('keypress', preventKeyboardInput, false);
+      } else {
+        document.onkeydown = preventKeyboardInput;
+        document.onkeypress = preventKeyboardInput;
+      }
+
+      if (window.addEventListener) {
+        window.addEventListener('resize', layoutApp, false);
+      } else {
+        window.onresize = layoutApp;
+      }
+
+      renderExpression();
+      setResultText('0');
+      layoutApp();
+    }());
+  </script>
+  <script src="./pwa-register.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "fps3d_js",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Hidden Doom-style FPS experiment",
+  "scripts": {
+    "test": "\"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -ExecutionPolicy Bypass -File tests/runTests.ps1",
+    "test:unit": "\"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -ExecutionPolicy Bypass -File tests/runTests.ps1",
+    "serve": "\"C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe\" -ExecutionPolicy Bypass -File devel/serve.ps1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

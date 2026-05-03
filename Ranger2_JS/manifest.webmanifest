@@ -1,0 +1,16 @@
+{
+  "name": "Ranger 2",
+  "short_name": "Ranger 2",
+  "start_url": "./Ranger2_JS.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#e8e1d2",
+  "theme_color": "#3a3023",
+  "icons": [
+    {
+      "src": "./pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

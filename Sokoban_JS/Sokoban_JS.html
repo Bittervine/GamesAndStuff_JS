@@ -1,0 +1,2163 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+    <title>Sokoban Wizard</title>
+    <style>
+        @font-face {
+            font-family: 'SokobanGlyphs';
+            src: url('data:font/ttf;base64,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qpecpKJ0WIdYQZ+kqu55UGd1hLCEZ4pqXseIJ4hkVodYQWd1hKh6XodYQY51bGd1hJB+d2d1hGd1hIdYQcIZ0/0AAADqdFJOUwAwQIBQj7v/3xAg78+fYf////////7//8+SMN9lQO+Av///UP/////////////////////////////vMP//////xxD///+P/////0T//////6eA////////////////////cP////////8g/////+//iv/Z//////8w//////////9l6v9K/78Q/1vuEP//gP9AEO8g/4DP////mf9g3//f////5f+/l8v///9Q////////////////////////r///////MHD/////we+Gv0D/QN+V/////3i//2D/////z8L/5v/f/6aAv33hf/oAAAsWSURBVHgB7NZVguwgEEBRohUXoN1d9r+/J2PVGocaO5+tF0vCfv00hmn9YxuMku248M6zfEYjcEK4EpGUmC7ciYkzENMsiAERhlghPOYxnYwIEOEeseA5k2A6iFcmCaGAxTTxYygUMD2CCApFTA8jhGIO0yKBMjZBB90WcaAc0yCGch5tB3Jp9wdyaTuQR3D9INmsvgcVGbQbFSVMJRsqi5lCfgiVhUwhFypTerMx4Uqa5ZwLIeQFIXq8n6WK1wZPTNbnQhYYCJ5DoPhBOS9uQMPRWNlOTftC1jFR0eLAv4r6hlO/244Zl09w1Hv0/nzRYcp0Ke8InsJqtb6xWkHKhaKUzeSmYdtPV7t1kRXk4jJl2sWi3MxGH1brSnb7DNdqOG57WEZXU5Hvd+s6Dsf+Vr5atFuVuUT947qJff7asmyxU0ZYsU0P+NvNWiZNlycY4hE5FizJ6c35fH6+YY5cynmzkvEcMx7+9vkvZ2WxrjoMReHxHV1312PNrstRHIK7w/u/xm2atLsJ1vJPcPi/1bXCjaYRQHSDYZoXF3uFLl78Ocvk97fkovzddbBMw9ZBQbONGNO6+Lsnlrf5Tb4kFVW7wSRCHA04ruf7vhdAyK2RxrZ2k7m7P9Pjzz/VwuA8EG7x+FTgFF0AeDAUrCvFpFQ+qx/vpHz/WnH29gMwgmIhhQ8MTXcMpPJQrcku9Vx7+YZxYBimkcA9/IKMj61FGpQ2W79StHOI8N2+vZA1kFsI6RQLKi4EoHalRkMaKZVS3nPspayhegTd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roFkwYxWtLS0r4RnsYRmsYRmR1FcsYRm5ZcAsYRmb4FnLnBm99BWyZBNAntpAntp5bFI9agT9agTqINnI31oypIl2NjYwcHARn5oC4l3IqqXP9O/RNrGRNrGR1Fc9agTsYRmsIRnFZaDRdO/RtvHTd7L9agTxa6BsLCwsYRmK7ajku3hxvbv6f77////4Pr3cufYWuPRRNrGnXFYeFRGmnI+v5E1dO/fY+jWVeDNovPobe3bsYRm1vj0gvbmfPTkjWBIh1hBs/3zj/vth/jpsLCwsLCw1v74lf7wWsu1lv/xhqmQqYtuc7+omJp/pXdbh1hBqHpdhVlEZ3WErYBjh1hBZ3WEZ3WEmGpQa3eFZ3WEh1hCh1hBZ3WEZ3WEZ3WEh1hBh1hBUWZld2djOVVSZ3V3QFtYj5OXop2SgwAAAPR0Uk5TACBQgJ+8cO//jxBA32Awz//+///////////vr2KIIK+f/////7/////T/////////+Mw////EP//g/9A//////+v//////////////9w/////////////////////1D/3//V/v9s/xD/////mv///+8g//+A///////////7YP//////MP/////v/0C/EP/v/52/IP/X/4D/cP/v/7rX//+////////PuHBAUK///////yCfxV3//////////4////////////+A//////////+f5///////////313/uJH/m98Q///P431AgL1Az///////gAfA170AAArGSURBVHgB7NVRDsIgEIThBaA7UCre/7T6tjHalpfumOh3gj9hNsjfbwkx5fKUlyA8MStMIaWEqniljJKQ8S5zM0wRXy0pviFk7TC8p2kFuzbxExW7tImXVmGIL3MbOLKKk01xpIuTimOVey0m+nQMnGkuM+04oy4dilOF22EKoYMU0jr4IXYv/JCMOUOutWAWYaiMP29gWpILJRjmSAI+uj9oLQesh8Egiv42+mEmtrn/3dVt7OQetPE9b15QQEqrH7cTea1enzIOgHUAONuRTb8DfgsHBgL2IoiMfG37SJU44DhkRf3aqKmEiTgNRV0/kHcKOANZ01f10I2OVnDOyA3KW+dmrqfybWIDkRHLdpq4tkU4bKKie/V7gvl1hTqBTXg5Q+1reTlqaXA/dEYS+uwuEy19+agylmBW4EzD3sEtlEVx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') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+            color: #111111;
+            font-family: Georgia, "Times New Roman", serif;
+            -webkit-text-size-adjust: 100%;
+            overflow: hidden;
+        }
+
+        #wrap {
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 8px;
+            gap: 6px;
+        }
+
+        #boardWrap {
+            flex: 0 0 auto;
+            border: 0;
+            background: transparent;
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #game {
+            display: block;
+            background: #e8dcc0;
+            image-rendering: pixelated;
+            touch-action: manipulation;
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        #controlPanel {
+            flex: 0 0 auto;
+            width: 100%;
+            max-width: 100%;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            flex-wrap: nowrap;
+            white-space: nowrap;
+        }
+
+        .moveGrid {
+            width: auto;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 3px;
+        }
+
+        #upBtn {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        #leftBtn {
+            grid-column: 1;
+            grid-row: 2;
+        }
+
+        #rightBtn {
+            grid-column: 3;
+            grid-row: 2;
+        }
+
+        #downBtn {
+            grid-column: 2;
+            grid-row: 3;
+        }
+
+        button {
+            border: 1px solid #111111;
+            border-radius: 4px;
+            background: #f4f4f4;
+            color: #111111;
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: 12px;
+            font-weight: bold;
+            padding: 3px 6px;
+            cursor: pointer;
+        }
+
+        button:active {
+            transform: translateY(1px);
+        }
+
+        .moveBtn {
+            background: #f2f2f2;
+            font-size: 14px;
+            padding: 0;
+            line-height: 1;
+            min-height: 28px;
+            min-width: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .moveBtn .btnInner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1px;
+        }
+
+        .moveBtn .btnIcon {
+            font-family: 'Segoe UI Symbol', serif;
+            font-size: 14px;
+            line-height: 1;
+        }
+
+        .moveBtn .btnText {
+            font-size: 9px;
+            line-height: 1;
+        }
+
+        .spacer {
+            width: 0.9em;
+            height: 1px;
+            flex: 0 0 auto;
+        }
+
+        .undoGlyph {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 28px;
+        }
+
+        #messageText {
+            font-size: 12px;
+            line-height: 1.2;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="wrap">
+        <div id="boardWrap">
+            <canvas id="game" width="320" height="320"></canvas>
+        </div>
+
+        <div id="controlPanel">
+            <div class="row">
+                <span>Difficulty:</span>
+                <button type="button" id="diff1Btn">1</button>
+                <button type="button" id="diff2Btn">2</button>
+                <button type="button" id="diff3Btn">3</button>
+                <button type="button" id="diff4Btn">4</button>
+                <button type="button" id="diff5Btn">5</button>
+                <div class="spacer"></div>
+                <button type="button" id="upBtn" class="moveBtn" title="Up"><span class="btnInner"><span class="btnIcon">&#x2B06;</span></span></button>
+                <button type="button" id="leftBtn" class="moveBtn" title="Left"><span class="btnInner"><span class="btnIcon">&#x2B05;</span></span></button>
+                <button type="button" id="rightBtn" class="moveBtn" title="Right"><span class="btnInner"><span class="btnIcon">&#x27A1;</span></span></button>
+                <button type="button" id="downBtn" class="moveBtn" title="Down"><span class="btnInner"><span class="btnIcon">&#x2B07;</span></span></button>
+                <div class="spacer"></div>
+                <button type="button" id="undoBtn" class="undoGlyph" title="Undo">&#x232B;</button>
+            </div>
+            <div id="messageText">Pick a difficulty to generate a level.</div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var canvas = document.getElementById('game');
+            var ctx = canvas.getContext('2d');
+            var boardWrap = document.getElementById('boardWrap');
+            var controlPanel = document.getElementById('controlPanel');
+            var hudState = document.getElementById('hudState');
+            var messageText = document.getElementById('messageText');
+            var hudDifficulty = document.getElementById('hudDifficulty');
+            var hudMoves = document.getElementById('hudMoves');
+            var hudPushes = document.getElementById('hudPushes');
+            var hudBoxesOnGoals = document.getElementById('hudBoxesOnGoals');
+            var hudGenerator = document.getElementById('hudGenerator');
+
+            var CELL = 34;
+            var WALL = 1;
+            var FLOOR = 0;
+            var PAD_SIZE = 3;
+            var PAD_FILL = '#2f74c0';
+            var PAD_FILL_DARK = '#215894';
+            var PAD_FILL_LIGHT = '#4f8fd6';
+            var PAD_STROKE = '#000000';
+            var PAD_ARROW = '#f7fbff';
+
+            var FONT_EMOJI = '"SokobanGlyphs", "Segoe UI Emoji", "Apple Color Emoji", serif';
+            var ICON = {
+                brick: cp(0x1F9F1),
+                wizard: cp(0x1F9D9) + cp(0x200D) + cp(0x2642) + cp(0xFE0F),
+                wizardNeutral: cp(0x1F9D9)
+            };
+            var brickImage = new Image();
+            brickImage.src = 'brick.png';
+            var rockImage = new Image();
+            rockImage.src = 'rock.png';
+            var wizardImage = new Image();
+            wizardImage.src = 'wizard.png';
+            var DIFFICULTY = {
+                diff1: {
+                    id: 'diff1',
+                    name: '1',
+                    width: 9,
+                    height: 9,
+                    boxes: 2,
+                    wallCount: 6,
+                    genAttempts: 80,
+                    scrambleMin: 10,
+                    scrambleMax: 28,
+                    minDistance: 3
+                },
+                diff2: {
+                    id: 'diff2',
+                    name: '2',
+                    width: 11,
+                    height: 11,
+                    boxes: 3,
+                    wallCount: 14,
+                    genAttempts: 120,
+                    scrambleMin: 34,
+                    scrambleMax: 90,
+                    minDistance: 8
+                },
+                diff3: {
+                    id: 'diff3',
+                    name: '3',
+                    width: 13,
+                    height: 13,
+                    boxes: 4,
+                    wallCount: 24,
+                    genAttempts: 170,
+                    scrambleMin: 75,
+                    scrambleMax: 170,
+                    minDistance: 12
+                },
+                diff4: {
+                    id: 'diff4',
+                    name: '4',
+                    width: 15,
+                    height: 15,
+                    boxes: 5,
+                    wallCount: 34,
+                    genAttempts: 220,
+                    scrambleMin: 120,
+                    scrambleMax: 260,
+                    minDistance: 18
+                },
+                diff5: {
+                    id: 'diff5',
+                    name: '5',
+                    width: 17,
+                    height: 17,
+                    boxes: 6,
+                    wallCount: 48,
+                    genAttempts: 280,
+                    scrambleMin: 170,
+                    scrambleMax: 360,
+                    minDistance: 24
+                }
+            };
+
+            var DIRS4 = [
+                { dx: 0, dy: -1 },
+                { dx: 1, dy: 0 },
+                { dx: 0, dy: 1 },
+                { dx: -1, dy: 0 }
+            ];
+
+            var state = {
+                difficulty: DIFFICULTY.diff3,
+                map: null,
+                goals: [],
+                goalsLookup: {},
+                deadLookup: {},
+                boxes: [],
+                player: { x: 0, y: 0 },
+                initial: null,
+                moves: 0,
+                pushes: 0,
+                solved: false,
+                history: [],
+                generatorAttempts: 0,
+                solverPushEstimate: 0,
+                message: 'Ready'
+            };
+            var glyphFontReady = false;
+            var pendingDifficultyId = 'diff3';
+
+            bindUI();
+            window.onresize = function () {
+                resizeBoard();
+                render();
+            };
+            bootAfterFontLoad();
+
+            function bootAfterFontLoad() {
+                announce('Loading wizard glyphs...');
+                updateHud();
+                waitForGlyphFont(function () {
+                    glyphFontReady = true;
+                    generateDifficulty(pendingDifficultyId);
+                });
+            }
+
+            function waitForGlyphFont(done) {
+                var finished = false;
+                var timeoutId = 0;
+                var fontText = ICON.wizardNeutral + ICON.brick;
+
+                function finish() {
+                    if (finished) {
+                        return;
+                    }
+                    finished = true;
+                    if (timeoutId) {
+                        window.clearTimeout(timeoutId);
+                    }
+                    done();
+                }
+
+                if (!document.fonts || !document.fonts.load) {
+                    finish();
+                    return;
+                }
+
+                try {
+                    if (document.fonts.check && document.fonts.check('16px "SokobanGlyphs"', fontText)) {
+                        finish();
+                        return;
+                    }
+                } catch (errCheck) {
+                    // Continue into async load fallback.
+                }
+
+                timeoutId = window.setTimeout(function () {
+                    finish();
+                }, 3000);
+
+                try {
+                    document.fonts.load('16px "SokobanGlyphs"', fontText).then(function () {
+                        finish();
+                    }, function () {
+                        finish();
+                    });
+                } catch (errLoad) {
+                    finish();
+                }
+            }
+
+            function bindUI() {
+                document.getElementById('diff1Btn').onclick = function () {
+                    generateDifficulty('diff1');
+                };
+                document.getElementById('diff2Btn').onclick = function () {
+                    generateDifficulty('diff2');
+                };
+                document.getElementById('diff3Btn').onclick = function () {
+                    generateDifficulty('diff3');
+                };
+                document.getElementById('diff4Btn').onclick = function () {
+                    generateDifficulty('diff4');
+                };
+                document.getElementById('diff5Btn').onclick = function () {
+                    generateDifficulty('diff5');
+                };
+
+                document.getElementById('undoBtn').onclick = function () {
+                    undoMove();
+                };
+
+                document.getElementById('upBtn').onclick = function () {
+                    attemptMove(0, -1);
+                };
+                document.getElementById('downBtn').onclick = function () {
+                    attemptMove(0, 1);
+                };
+                document.getElementById('leftBtn').onclick = function () {
+                    attemptMove(-1, 0);
+                };
+                document.getElementById('rightBtn').onclick = function () {
+                    attemptMove(1, 0);
+                };
+
+                canvas.addEventListener('click', onBoardClick);
+                document.onkeydown = function (e) {
+                    e = e || window.event;
+                    var key = e.keyCode || e.which;
+                    if (key === 8 || key === 85) {
+                        undoMove();
+                        return cancelEvent(e);
+                    }
+                    if (key === 37 || key === 65) {
+                        attemptMove(-1, 0);
+                        return cancelEvent(e);
+                    }
+                    if (key === 38 || key === 87) {
+                        attemptMove(0, -1);
+                        return cancelEvent(e);
+                    }
+                    if (key === 39 || key === 68) {
+                        attemptMove(1, 0);
+                        return cancelEvent(e);
+                    }
+                    if (key === 40 || key === 83) {
+                        attemptMove(0, 1);
+                        return cancelEvent(e);
+                    }
+                    return true;
+                };
+            }
+
+            function onBoardClick(e) {
+                var rect;
+                var x;
+                var y;
+                var gx;
+                var gy;
+                var boxIdx;
+                var dx;
+                var dy;
+                var target;
+
+                if (!state.map) {
+                    return;
+                }
+
+                rect = canvas.getBoundingClientRect();
+                x = (e.clientX - rect.left) * (canvas.width / rect.width);
+                y = (e.clientY - rect.top) * (canvas.height / rect.height);
+                gx = Math.floor(x / currentCell);
+                gy = Math.floor(y / currentCell);
+                if (gx < 0 || gy < 0 || gy >= state.map.length || gx >= state.map[0].length) {
+                    return;
+                }
+                if (handlePadClick(gx, gy)) {
+                    return cancelEvent(e);
+                }
+                if (state.solved) {
+                    return;
+                }
+                if (isWall(state.map, gx, gy)) {
+                    return;
+                }
+
+                boxIdx = boxIndexAt(state.boxes, gx, gy);
+                if (boxIdx >= 0) {
+                    dx = gx - state.player.x;
+                    dy = gy - state.player.y;
+                    if (Math.abs(dx) + Math.abs(dy) !== 1) {
+                        return;
+                    }
+                    target = { x: gx + dx, y: gy + dy };
+                    if (isWall(state.map, target.x, target.y) || boxIndexAt(state.boxes, target.x, target.y) >= 0) {
+                        return;
+                    }
+                    attemptMove(dx, dy);
+                    return;
+                }
+
+                if (gx === state.player.x && gy === state.player.y) {
+                    return;
+                }
+                movePlayerToClickedCell(gx, gy);
+            }
+
+            function movePlayerToClickedCell(targetX, targetY) {
+                var path = findPathWithoutPushing(state.player.x, state.player.y, targetX, targetY);
+                var i;
+                if (!path || path.length < 2) {
+                    return;
+                }
+                for (i = 1; i < path.length; i = i + 1) {
+                    attemptMove(path[i].x - state.player.x, path[i].y - state.player.y);
+                    if (state.solved || state.player.x === targetX && state.player.y === targetY) {
+                        return;
+                    }
+                }
+            }
+
+            function findPathWithoutPushing(startX, startY, targetX, targetY) {
+                var width = state.map[0].length;
+                var height = state.map.length;
+                var visited = [];
+                var queue = [];
+                var head = 0;
+                var dirs = [
+                    { x: 0, y: -1 },
+                    { x: 1, y: 0 },
+                    { x: 0, y: 1 },
+                    { x: -1, y: 0 }
+                ];
+                var i;
+                var cur;
+                var nx;
+                var ny;
+                var key;
+                var parentKey;
+
+                for (i = 0; i < height; i = i + 1) {
+                    visited[i] = [];
+                }
+
+                queue.push({ x: startX, y: startY, path: [{ x: startX, y: startY }] });
+                visited[startY][startX] = true;
+
+                while (head < queue.length) {
+                    cur = queue[head];
+                    head = head + 1;
+                    if (cur.x === targetX && cur.y === targetY) {
+                        return cur.path;
+                    }
+                    for (i = 0; i < dirs.length; i = i + 1) {
+                        nx = cur.x + dirs[i].x;
+                        ny = cur.y + dirs[i].y;
+                        if (nx < 0 || ny < 0 || nx >= width || ny >= height) {
+                            continue;
+                        }
+                        if (visited[ny][nx]) {
+                            continue;
+                        }
+                        if (isWall(state.map, nx, ny) || boxIndexAt(state.boxes, nx, ny) >= 0) {
+                            continue;
+                        }
+                        visited[ny][nx] = true;
+                        parentKey = cur.path.slice(0);
+                        parentKey.push({ x: nx, y: ny });
+                        queue.push({ x: nx, y: ny, path: parentKey });
+                    }
+                }
+
+                return null;
+            }
+
+            function cancelEvent(e) {
+                if (e.preventDefault) {
+                    e.preventDefault();
+                }
+                e.returnValue = false;
+                return false;
+            }
+
+            function generateDifficulty(id) {
+                var spec = DIFFICULTY[id] || DIFFICULTY.diff3;
+                pendingDifficultyId = spec.id;
+                if (!glyphFontReady) {
+                    state.difficulty = spec;
+                    announce('Loading wizard glyphs...');
+                    updateHud();
+                    return;
+                }
+                state.difficulty = spec;
+                state.message = 'Generating ' + spec.name + ' level...';
+                updateHud();
+                render();
+                window.setTimeout(function () {
+                    var level = generateLevel(spec);
+                    if (!level) {
+                        level = fallbackLevel(spec);
+                        level.fallback = true;
+                    }
+                    loadLevel(spec, level);
+                }, 10);
+            }
+
+            function loadLevel(spec, level) {
+                state.map = level.map;
+                state.goals = clonePoints(level.goals);
+                state.goalsLookup = pointsLookup(state.goals);
+                state.deadLookup = computeDeadLookup(state.map, state.goalsLookup);
+                state.boxes = clonePoints(level.boxes);
+                state.player = { x: level.player.x, y: level.player.y };
+                state.initial = {
+                    boxes: clonePoints(state.boxes),
+                    player: { x: state.player.x, y: state.player.y }
+                };
+                state.moves = 0;
+                state.pushes = 0;
+                state.solved = false;
+                state.history = [];
+                state.generatorAttempts = level.attempt || 1;
+                state.solverPushEstimate = level.solvePushes || 0;
+                if (level.fallback) {
+                    announce('Generator fallback used. Level is still solvable.');
+                } else {
+                    announce(spec.name + ' level generated.');
+                }
+                resizeBoard();
+                updateHud();
+                render();
+            }
+
+            function restartLevel() {
+                if (!state.map || !state.initial) {
+                    return;
+                }
+                state.boxes = clonePoints(state.initial.boxes);
+                state.player = { x: state.initial.player.x, y: state.initial.player.y };
+                state.moves = 0;
+                state.pushes = 0;
+                state.solved = false;
+                state.history = [];
+                announce('Level restarted.');
+                updateHud();
+                render();
+            }
+
+            function undoMove() {
+                if (!state.history || state.history.length === 0) {
+                    announce('Nothing to undo.');
+                    return;
+                }
+                var snap = state.history.pop();
+                state.player.x = snap.player.x;
+                state.player.y = snap.player.y;
+                state.boxes = clonePoints(snap.boxes);
+                state.moves = snap.moves;
+                state.pushes = snap.pushes;
+                state.solved = false;
+                announce('Undo.');
+                updateHud();
+                render();
+            }
+
+            function attemptMove(dx, dy) {
+                if (!state.map) {
+                    return;
+                }
+                if (state.solved) {
+                    announce('Solved. Generating a new ' + state.difficulty.name + ' level...');
+                    updateHud();
+                    render();
+                    generateDifficulty(state.difficulty.id);
+                    return;
+                }
+
+                var tx = state.player.x + dx;
+                var ty = state.player.y + dy;
+                if (isWall(state.map, tx, ty)) {
+                    announce('Blocked by wall.');
+                    updateHud();
+                    render();
+                    return;
+                }
+
+                var boxIdx = boxIndexAt(state.boxes, tx, ty);
+                pushHistorySnapshot();
+
+                if (boxIdx >= 0) {
+                    var bx = tx + dx;
+                    var by = ty + dy;
+                    if (isWall(state.map, bx, by) || boxIndexAt(state.boxes, bx, by) >= 0) {
+                        state.history.pop();
+                        announce('Box cannot be pushed there.');
+                        updateHud();
+                        render();
+                        return;
+                    }
+                    state.boxes[boxIdx].x = bx;
+                    state.boxes[boxIdx].y = by;
+                    state.player.x = tx;
+                    state.player.y = ty;
+                    state.moves = state.moves + 1;
+                    state.pushes = state.pushes + 1;
+                    announce('Push.');
+                } else {
+                    state.player.x = tx;
+                    state.player.y = ty;
+                    state.moves = state.moves + 1;
+                    announce('Move.');
+                }
+
+                if (isSolved()) {
+                    state.solved = true;
+                    announce('Solved in ' + state.moves + ' moves (' + state.pushes + ' pushes).');
+                }
+
+                updateHud();
+                render();
+            }
+
+            function pushHistorySnapshot() {
+                state.history.push({
+                    player: { x: state.player.x, y: state.player.y },
+                    boxes: clonePoints(state.boxes),
+                    moves: state.moves,
+                    pushes: state.pushes
+                });
+                if (state.history.length > 800) {
+                    state.history.shift();
+                }
+            }
+
+            function isSolved() {
+                var i;
+                for (i = 0; i < state.boxes.length; i = i + 1) {
+                    if (!state.goalsLookup[keyFor(state.boxes[i].x, state.boxes[i].y)]) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            function boxesOnGoalsCount() {
+                var i;
+                var count = 0;
+                for (i = 0; i < state.boxes.length; i = i + 1) {
+                    if (state.goalsLookup[keyFor(state.boxes[i].x, state.boxes[i].y)]) {
+                        count = count + 1;
+                    }
+                }
+                return count;
+            }
+
+            function updateHud() {
+                var solvedText = state.solved ? 'Solved' : 'Active';
+                if (messageText) {
+                    messageText.textContent = 'Moves: ' + state.moves + ' | ' + solvedText + ' | ' + state.message;
+                }
+            }
+
+            function announce(text) {
+                state.message = text;
+            }
+
+            function render() {
+                if (!glyphFontReady || !state.map) {
+                    return;
+                }
+
+                var h = state.map.length;
+                var w = state.map[0].length;
+                var x;
+                var y;
+                var px;
+                var py;
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                for (y = 0; y < h; y = y + 1) {
+                    for (x = 0; x < w; x = x + 1) {
+                        px = x * currentCell;
+                        py = y * currentCell;
+                        if (state.map[y][x] === WALL) {
+                            drawWallCell(px, py, x, y);
+                        } else {
+                            drawFloorCell(px, py, state.goalsLookup[keyFor(x, y)] ? true : false);
+                        }
+                    }
+                }
+
+                drawBoxes();
+                drawPlayer(state.player.x * currentCell, state.player.y * currentCell);
+                drawDirectionPad(w, h);
+            }
+
+            function drawDirectionPad(boardWidth, boardHeight) {
+                var startX = Math.max(0, boardWidth - PAD_SIZE);
+                var startY = Math.max(0, boardHeight - PAD_SIZE);
+                var x;
+                var y;
+                var px;
+                var py;
+
+                for (y = startY; y < boardHeight; y = y + 1) {
+                    for (x = startX; x < boardWidth; x = x + 1) {
+                        px = x * currentCell;
+                        py = y * currentCell;
+                        drawPadCell(px, py, x, y, boardWidth, boardHeight);
+                    }
+                }
+            }
+
+            function drawPadCell(px, py, gx, gy, boardWidth, boardHeight) {
+                var action = padActionAt(gx, gy, boardWidth, boardHeight);
+                var inner = Math.max(4, Math.floor(currentCell * 0.18));
+                var x1 = px + inner;
+                var y1 = py + inner;
+                var x2 = px + currentCell - inner;
+                var y2 = py + currentCell - inner;
+                var cx = px + Math.floor(currentCell / 2);
+                var cy = py + Math.floor(currentCell / 2);
+
+                ctx.save();
+                ctx.fillStyle = action ? PAD_FILL : PAD_FILL_LIGHT;
+                ctx.fillRect(px, py, currentCell, currentCell);
+                ctx.strokeStyle = PAD_STROKE;
+                ctx.lineWidth = 2.5;
+                ctx.strokeRect(px + 0.5, py + 0.5, currentCell - 1, currentCell - 1);
+
+                if (gx === boardWidth - 2 && gy === boardHeight - 2) {
+                    ctx.fillStyle = PAD_FILL_DARK;
+                    ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+                }
+
+                if (action === 'up') {
+                    drawPadArrow(cx, cy, 'up');
+                } else if (action === 'down') {
+                    drawPadArrow(cx, cy, 'down');
+                } else if (action === 'left') {
+                    drawPadArrow(cx, cy, 'left');
+                } else if (action === 'right') {
+                    drawPadArrow(cx, cy, 'right');
+                }
+
+                ctx.restore();
+            }
+
+            function drawPadArrow(cx, cy, dir) {
+                var size = Math.max(6, Math.floor(currentCell * 0.28));
+                var shaft = Math.max(2, Math.floor(currentCell * 0.08));
+                var half = Math.max(3, Math.floor(size / 2));
+
+                ctx.save();
+                ctx.fillStyle = PAD_ARROW;
+                ctx.strokeStyle = PAD_ARROW;
+                ctx.lineWidth = shaft;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+
+                if (dir === 'up') {
+                    ctx.moveTo(cx, cy - half);
+                    ctx.lineTo(cx, cy + half);
+                    ctx.moveTo(cx - half, cy - Math.floor(half * 0.2));
+                    ctx.lineTo(cx, cy - half);
+                    ctx.lineTo(cx + half, cy - Math.floor(half * 0.2));
+                } else if (dir === 'down') {
+                    ctx.moveTo(cx, cy - half);
+                    ctx.lineTo(cx, cy + half);
+                    ctx.moveTo(cx - half, cy + Math.floor(half * 0.2));
+                    ctx.lineTo(cx, cy + half);
+                    ctx.lineTo(cx + half, cy + Math.floor(half * 0.2));
+                } else if (dir === 'left') {
+                    ctx.moveTo(cx - half, cy);
+                    ctx.lineTo(cx + half, cy);
+                    ctx.moveTo(cx - Math.floor(half * 0.2), cy - half);
+                    ctx.lineTo(cx - half, cy);
+                    ctx.lineTo(cx - Math.floor(half * 0.2), cy + half);
+                } else if (dir === 'right') {
+                    ctx.moveTo(cx - half, cy);
+                    ctx.lineTo(cx + half, cy);
+                    ctx.moveTo(cx + Math.floor(half * 0.2), cy - half);
+                    ctx.lineTo(cx + half, cy);
+                    ctx.lineTo(cx + Math.floor(half * 0.2), cy + half);
+                }
+
+                ctx.stroke();
+                ctx.fill();
+                ctx.restore();
+            }
+
+            function handlePadClick(gx, gy) {
+                var action = padActionAt(gx, gy, state.map[0].length, state.map.length);
+                if (action === 'up') {
+                    attemptMove(0, -1);
+                    return true;
+                }
+                if (action === 'down') {
+                    attemptMove(0, 1);
+                    return true;
+                }
+                if (action === 'left') {
+                    attemptMove(-1, 0);
+                    return true;
+                }
+                if (action === 'right') {
+                    attemptMove(1, 0);
+                    return true;
+                }
+                return false;
+            }
+
+            function padActionAt(x, y, boardWidth, boardHeight) {
+                var startX = Math.max(0, boardWidth - PAD_SIZE);
+                var startY = Math.max(0, boardHeight - PAD_SIZE);
+                if (x < startX || y < startY) {
+                    return '';
+                }
+                if (x === startX + 1 && y === startY) {
+                    return 'up';
+                }
+                if (x === startX && y === startY + 1) {
+                    return 'left';
+                }
+                if (x === startX + 2 && y === startY + 1) {
+                    return 'right';
+                }
+                if (x === startX + 1 && y === startY + 2) {
+                    return 'down';
+                }
+                return '';
+            }
+
+            function drawFloorCell(px, py, isGoal) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(px, py, currentCell, currentCell);
+
+                if (isGoal) {
+                    var cx = px + Math.floor(currentCell / 2);
+                    var cy = py + Math.floor(currentCell / 2);
+                    ctx.save();
+                    ctx.strokeStyle = '#5a3f1e';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, Math.floor(currentCell * 0.22), 0, Math.PI * 2, false);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(cx - Math.floor(currentCell * 0.18), cy);
+                    ctx.lineTo(cx + Math.floor(currentCell * 0.18), cy);
+                    ctx.moveTo(cx, cy - Math.floor(currentCell * 0.18));
+                    ctx.lineTo(cx, cy + Math.floor(currentCell * 0.18));
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+
+            function drawWallCell(px, py, gx, gy) {
+                drawBrickCell(px, py, gx, gy);
+            }
+
+            function drawBoxes() {
+                var i;
+                var b;
+                var px;
+                var py;
+                var onGoal;
+                for (i = 0; i < state.boxes.length; i = i + 1) {
+                    b = state.boxes[i];
+                    px = b.x * currentCell;
+                    py = b.y * currentCell;
+                    onGoal = state.goalsLookup[keyFor(b.x, b.y)] ? true : false;
+                    drawSingleBox(px, py, onGoal);
+                }
+            }
+
+            function drawSingleBox(px, py, onGoal) {
+                ctx.save();
+                if (rockImage && rockImage.complete && rockImage.naturalWidth > 0) {
+                    ctx.drawImage(rockImage, px, py, currentCell, currentCell);
+                } else {
+                    drawGlyph(ctx, cp(0x1FAA8), px + Math.floor(currentCell / 2), py + Math.floor(currentCell / 2) + 1, Math.floor(currentCell * 0.88), FONT_EMOJI, '#111111');
+                }
+                if (onGoal) {
+                    ctx.strokeStyle = '#a88a4a';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(px + 2, py + 2, currentCell - 4, currentCell - 4);
+                }
+                ctx.restore();
+            }
+
+            function drawPlayer(px, py) {
+                var cx = px + Math.floor(currentCell / 2);
+                var cy = py + Math.floor(currentCell / 2);
+                if (wizardImage && wizardImage.complete && wizardImage.naturalWidth > 0) {
+                    ctx.drawImage(wizardImage, px, py, currentCell, currentCell);
+                    return;
+                }
+                drawGlyph(ctx, ICON.wizard, cx, cy + 1, Math.floor(currentCell * 0.78), FONT_EMOJI, '#111111');
+            }
+
+            function drawGlyph(g, glyph, x, y, pixelSize, font, color) {
+                g.save();
+                g.font = 'bold ' + pixelSize + 'px ' + font;
+                g.textAlign = 'center';
+                g.textBaseline = 'middle';
+                g.fillStyle = color;
+                g.fillText(glyph, x, y);
+                if (glyph === ICON.wizard) {
+                    try {
+                        if (!glyph || glyph.length === 0) {
+                            g.fillText(ICON.wizardNeutral, x, y);
+                        }
+                    } catch (err) {
+                        g.fillText(ICON.wizardNeutral, x, y);
+                    }
+                }
+                g.restore();
+            }
+
+            function drawBrickCell(px, py, gx, gy) {
+                if (isEnclosedWallCell(gx, gy, state.map)) {
+                    ctx.fillStyle = '#d9d9d9';
+                    ctx.fillRect(px, py, currentCell, currentCell);
+                    return;
+                }
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(px, py, currentCell, currentCell);
+                if (brickImage && brickImage.complete && brickImage.naturalWidth > 0) {
+                    ctx.drawImage(brickImage, px, py, currentCell, currentCell);
+                    return;
+                }
+                var rowH = Math.max(3, Math.floor(currentCell / 4));
+                var brickW = Math.max(6, Math.floor(currentCell / 2));
+                var y1 = py + rowH;
+                var y2 = py + (rowH * 2);
+                var y3 = py + (rowH * 3);
+                ctx.save();
+                ctx.fillStyle = '#8f4f31';
+                ctx.fillRect(px, py, currentCell, currentCell);
+                ctx.strokeStyle = '#f2cab0';
+                ctx.lineWidth = 1;
+                ctx.globalAlpha = 0.62;
+                ctx.beginPath();
+                ctx.moveTo(px, y1);
+                ctx.lineTo(px + currentCell, y1);
+                ctx.moveTo(px, y2);
+                ctx.lineTo(px + currentCell, y2);
+                ctx.moveTo(px, y3);
+                ctx.lineTo(px + currentCell, y3);
+
+                ctx.moveTo(px + brickW, py);
+                ctx.lineTo(px + brickW, y1);
+                ctx.moveTo(px + Math.floor(brickW / 2), y1);
+                ctx.lineTo(px + Math.floor(brickW / 2), y2);
+                ctx.moveTo(px + Math.floor(brickW * 1.5), y1);
+                ctx.lineTo(px + Math.floor(brickW * 1.5), y2);
+                ctx.moveTo(px + brickW, y2);
+                ctx.lineTo(px + brickW, y3);
+                ctx.moveTo(px + Math.floor(brickW / 2), y3);
+                ctx.lineTo(px + Math.floor(brickW / 2), py + currentCell);
+                ctx.moveTo(px + Math.floor(brickW * 1.5), y3);
+                ctx.lineTo(px + Math.floor(brickW * 1.5), py + currentCell);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            function resizeBoard() {
+                if (!state.map) {
+                    return;
+                }
+                var w = state.map[0].length;
+                var h = state.map.length;
+                var controlsHeight = controlPanel ? controlPanel.offsetHeight : 0;
+                var maxW = (typeof window.innerWidth === 'number' && isFinite(window.innerWidth)) ? (window.innerWidth - 16) : (w * CELL);
+                var maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? (window.innerHeight - controlsHeight - 24) : (h * CELL);
+                currentCell = Math.max(16, Math.floor(Math.min(maxW / w, maxH / h)));
+                canvas.width = Math.max(1, w * currentCell);
+                canvas.height = Math.max(1, h * currentCell);
+                canvas.style.width = canvas.width + 'px';
+                canvas.style.height = canvas.height + 'px';
+            }
+
+            function generateLevel(spec) {
+                var attempt;
+                var map;
+                var goals;
+                var scramble;
+                var actions;
+                var finalized;
+
+                for (attempt = 1; attempt <= spec.genAttempts; attempt = attempt + 1) {
+                    map = generateMap(spec.width, spec.height, spec.wallCount);
+                    if (!map) {
+                        continue;
+                    }
+
+                    goals = pickGoals(map, spec.boxes);
+                    if (!goals) {
+                        continue;
+                    }
+
+                    scramble = reverseScrambleState(map, goals, spec);
+                    if (!scramble) {
+                        continue;
+                    }
+
+                    if (scramble.distance >= spec.minDistance) {
+                        actions = invertReverseHistory(scramble.reverseHistory);
+                        finalized = finalizeGeneratedLevel(spec, map, goals, scramble.boxes, scramble.player, attempt, actions, scramble.pulls);
+                        if (finalized) {
+                            return finalized;
+                        }
+                    }
+                }
+
+                return null;
+            }
+
+            function fallbackLevel(spec) {
+                var wallCount = Math.max(2, Math.floor(spec.wallCount * 0.4));
+                var attempt;
+                var map;
+                var goals;
+                var scramble;
+                var actions;
+                var finalized;
+
+                for (attempt = 1; attempt <= 500; attempt = attempt + 1) {
+                    map = generateMap(spec.width, spec.height, wallCount);
+                    goals = pickGoals(map, spec.boxes);
+                    if (!goals) {
+                        continue;
+                    }
+                    scramble = reverseScrambleState(map, goals, spec);
+                    if (scramble) {
+                        actions = invertReverseHistory(scramble.reverseHistory);
+                        finalized = finalizeGeneratedLevel(spec, map, goals, scramble.boxes, scramble.player, attempt, actions, scramble.pulls);
+                        if (finalized) {
+                            return finalized;
+                        }
+                    }
+                }
+
+                return deterministicFallback(spec);
+            }
+
+            function reverseScrambleState(map, goals, spec) {
+                var goalLookup = pointsLookup(goals);
+                var boxes = clonePoints(goals);
+                var player = pickPlayer(map, [], boxes);
+                var targetPulls;
+                var maxSteps;
+                var steps;
+                var pulls;
+                var swaps;
+                var prevBoxIndex;
+                var seen = {};
+                var moves;
+                var chosen;
+                var currentKey;
+                var offGoals;
+                var dist;
+                var score;
+                var best = null;
+                var history = [];
+                var reverseMove;
+
+                if (!player) {
+                    return null;
+                }
+
+                normalizeBoxes(boxes);
+                currentKey = stateKey(boxes, player);
+                seen[currentKey] = true;
+
+                targetPulls = randInt(spec.scrambleMin, spec.scrambleMax + 1);
+                maxSteps = Math.max(targetPulls * 3, targetPulls + 20);
+                pulls = 0;
+                swaps = 0;
+                prevBoxIndex = -1;
+
+                for (steps = 0; steps < maxSteps; steps = steps + 1) {
+                    moves = listPullMoves(map, boxes, player);
+                    if (moves.length === 0) {
+                        break;
+                    }
+
+                    chosen = choosePullMove(moves, boxes, player, goals, goalLookup, seen, prevBoxIndex);
+                    if (!chosen) {
+                        break;
+                    }
+
+                    boxes = chosen.nextBoxes;
+                    player = chosen.nextPlayer;
+                    pulls = pulls + 1;
+                    if (chosen.boxIndex !== prevBoxIndex) {
+                        swaps = swaps + 1;
+                    }
+                    prevBoxIndex = chosen.boxIndex;
+                    seen[chosen.nextKey] = true;
+                    reverseMove = {
+                        standX: chosen.standX,
+                        standY: chosen.standY,
+                        destX: chosen.destX,
+                        destY: chosen.destY,
+                        boxFromX: chosen.boxX,
+                        boxFromY: chosen.boxY,
+                        dx: chosen.dx,
+                        dy: chosen.dy
+                    };
+                    history.push(reverseMove);
+
+                    offGoals = countOffGoals(boxes, goalLookup);
+                    dist = chosen.distance;
+                    score = (dist * 12) + (offGoals * 28) + pulls + (swaps * 3);
+
+                    if (offGoals > 0 && pulls >= spec.scrambleMin) {
+                        if (!best || score > best.score) {
+                            best = {
+                                boxes: clonePoints(boxes),
+                                player: { x: player.x, y: player.y },
+                                pulls: pulls,
+                                score: score,
+                                distance: dist,
+                                reverseHistory: cloneMoves(history)
+                            };
+                        }
+                    }
+
+                    if (pulls >= targetPulls && best && steps > spec.scrambleMin) {
+                        break;
+                    }
+                }
+
+                if (!best) {
+                    return null;
+                }
+                return best;
+            }
+
+            function listPullMoves(map, boxes, player) {
+                var lookup = boxLookup(boxes);
+                var reachable = reachableCells(map, player, lookup);
+                var moves = [];
+                var key;
+                var parts;
+                var px;
+                var py;
+                var di;
+                var dx;
+                var dy;
+                var boxX;
+                var boxY;
+                var boxIndex;
+                var destX;
+                var destY;
+
+                for (key in reachable) {
+                    if (!reachable.hasOwnProperty(key)) {
+                        continue;
+                    }
+                    parts = key.split('_');
+                    px = parseInt(parts[0], 10);
+                    py = parseInt(parts[1], 10);
+
+                    for (di = 0; di < DIRS4.length; di = di + 1) {
+                        dx = DIRS4[di].dx;
+                        dy = DIRS4[di].dy;
+                        boxX = px + dx;
+                        boxY = py + dy;
+                        boxIndex = boxIndexAt(boxes, boxX, boxY);
+                        if (boxIndex < 0) {
+                            continue;
+                        }
+                        destX = px - dx;
+                        destY = py - dy;
+                        if (isWall(map, destX, destY) || lookup[keyFor(destX, destY)]) {
+                            continue;
+                        }
+                        moves.push({
+                            standX: px,
+                            standY: py,
+                            destX: destX,
+                            destY: destY,
+                            boxIndex: boxIndex,
+                            boxX: boxX,
+                            boxY: boxY,
+                            dx: dx,
+                            dy: dy
+                        });
+                    }
+                }
+
+                return moves;
+            }
+
+            function choosePullMove(moves, boxes, player, goals, goalLookup, seen, prevBoxIndex) {
+                var pool = moves.slice(0);
+                var limit;
+                var i;
+                var m;
+                var nextBoxes;
+                var nextPlayer;
+                var nextKey;
+                var dist;
+                var offGoals;
+                var novelty;
+                var swapBonus;
+                var s;
+                var best = null;
+                var bestScore = -999999;
+
+                shuffle(pool);
+                limit = Math.min(pool.length, 36);
+
+                for (i = 0; i < limit; i = i + 1) {
+                    m = pool[i];
+                    nextBoxes = clonePoints(boxes);
+                    nextBoxes[m.boxIndex].x = m.standX;
+                    nextBoxes[m.boxIndex].y = m.standY;
+                    normalizeBoxes(nextBoxes);
+                    nextPlayer = { x: m.destX, y: m.destY };
+                    nextKey = stateKey(nextBoxes, nextPlayer);
+
+                    dist = assignmentDistance(goals, nextBoxes);
+                    offGoals = countOffGoals(nextBoxes, goalLookup);
+                    novelty = seen[nextKey] ? 0 : 14;
+                    swapBonus = m.boxIndex !== prevBoxIndex ? 4 : 0;
+                    s = (dist * 12) + (offGoals * 28) + novelty + swapBonus + Math.random();
+
+                    if (s > bestScore) {
+                        bestScore = s;
+                        best = {
+                            boxIndex: m.boxIndex,
+                            standX: m.standX,
+                            standY: m.standY,
+                            destX: m.destX,
+                            destY: m.destY,
+                            boxX: m.boxX,
+                            boxY: m.boxY,
+                            dx: m.dx,
+                            dy: m.dy,
+                            nextBoxes: nextBoxes,
+                            nextPlayer: nextPlayer,
+                            nextKey: nextKey,
+                            distance: dist
+                        };
+                    }
+                }
+
+                return best;
+            }
+
+            function assignmentDistance(goals, boxes) {
+                var used = [];
+                var best = 999999;
+                function dfs(boxIdx, total) {
+                    var g;
+                    var d;
+                    if (boxIdx >= boxes.length) {
+                        if (total < best) {
+                            best = total;
+                        }
+                        return;
+                    }
+                    if (total >= best) {
+                        return;
+                    }
+                    for (g = 0; g < goals.length; g = g + 1) {
+                        if (used[g]) {
+                            continue;
+                        }
+                        used[g] = true;
+                        d = Math.abs(boxes[boxIdx].x - goals[g].x) + Math.abs(boxes[boxIdx].y - goals[g].y);
+                        dfs(boxIdx + 1, total + d);
+                        used[g] = false;
+                    }
+                }
+                if (goals.length !== boxes.length || goals.length === 0) {
+                    return 0;
+                }
+                dfs(0, 0);
+                return best === 999999 ? 0 : best;
+            }
+
+            function countOffGoals(boxes, goalLookup) {
+                var i;
+                var n = 0;
+                for (i = 0; i < boxes.length; i = i + 1) {
+                    if (!goalLookup[keyFor(boxes[i].x, boxes[i].y)]) {
+                        n = n + 1;
+                    }
+                }
+                return n;
+            }
+
+            function deterministicFallback(spec) {
+                var map = createBaseMap(spec.width, spec.height);
+                var goals = [];
+                var boxes = [];
+                var i;
+                var gxStart = 2;
+                var gy = Math.floor(spec.height / 2);
+                var player;
+                var finalized;
+
+                for (i = 0; i < spec.boxes; i = i + 1) {
+                    goals.push({ x: gxStart + i * 2, y: gy + 1 });
+                    boxes.push({ x: gxStart + i * 2, y: gy });
+                }
+
+                player = { x: gxStart - 1, y: gy };
+                finalized = finalizeGeneratedLevel(spec, map, goals, boxes, player, 1, null, spec.boxes);
+                if (finalized) {
+                    return finalized;
+                }
+
+                return {
+                    map: map,
+                    goals: goals,
+                    boxes: boxes,
+                    player: player,
+                    attempt: 1,
+                    solvePushes: spec.boxes
+                };
+            }
+
+            function finalizeGeneratedLevel(spec, map, goals, boxes, player, attempt, preferredActions, preferredPushes) {
+                var goalLookup = pointsLookup(goals);
+                var actions = preferredActions;
+                var trace;
+                var tightened;
+                var checkAfter;
+                var deadLookup;
+                var solver;
+                var boxStartLookup = pointsLookup(boxes);
+
+                if (!actions || actions.length === 0) {
+                    deadLookup = computeDeadLookup(map, goalLookup);
+                    solver = solveLevel(map, goals, boxes, player, 120000, deadLookup, true);
+                    if (!solver.solved || !solver.actions || solver.actions.length === 0) {
+                        return null;
+                    }
+                    actions = solver.actions;
+                }
+
+                trace = traceWizardPathForActions(map, boxes, player, actions, goalLookup);
+                if (!trace || !trace.solved) {
+                    return null;
+                }
+
+                tightened = tightenMapByVisitedWizardCells(map, trace.visitedLookup, goalLookup, boxStartLookup);
+                checkAfter = traceWizardPathForActions(tightened, boxes, player, actions, goalLookup);
+                if (!checkAfter || !checkAfter.solved) {
+                    return null;
+                }
+
+                return {
+                    map: tightened,
+                    goals: clonePoints(goals),
+                    boxes: clonePoints(boxes),
+                    player: { x: player.x, y: player.y },
+                    attempt: attempt || 1,
+                    solvePushes: preferredPushes || actions.length
+                };
+            }
+
+            function invertReverseHistory(reverseHistory) {
+                var out = [];
+                var i;
+                var m;
+                if (!reverseHistory || reverseHistory.length === 0) {
+                    return out;
+                }
+                for (i = reverseHistory.length - 1; i >= 0; i = i - 1) {
+                    m = reverseHistory[i];
+                    out.push({
+                        boxX: m.standX,
+                        boxY: m.standY,
+                        dx: m.dx,
+                        dy: m.dy,
+                        pushFromX: m.destX,
+                        pushFromY: m.destY,
+                        targetX: m.boxFromX,
+                        targetY: m.boxFromY
+                    });
+                }
+                return out;
+            }
+
+            function traceWizardPathForActions(map, startBoxes, startPlayer, actions, goalLookup) {
+                var boxes = clonePoints(startBoxes);
+                var player = { x: startPlayer.x, y: startPlayer.y };
+                var visitedLookup = {};
+                var i;
+                var a;
+                var idx;
+                var path;
+                var j;
+                var lookup;
+
+                normalizeBoxes(boxes);
+                visitedLookup[keyFor(player.x, player.y)] = true;
+
+                for (i = 0; i < actions.length; i = i + 1) {
+                    a = actions[i];
+                    idx = boxIndexAt(boxes, a.boxX, a.boxY);
+                    if (idx < 0) {
+                        return null;
+                    }
+                    if (a.targetX !== a.boxX + a.dx || a.targetY !== a.boxY + a.dy) {
+                        return null;
+                    }
+                    if (a.pushFromX !== a.boxX - a.dx || a.pushFromY !== a.boxY - a.dy) {
+                        return null;
+                    }
+                    lookup = boxLookup(boxes);
+                    path = findPathForWizard(map, player, { x: a.pushFromX, y: a.pushFromY }, lookup);
+                    if (!path) {
+                        return null;
+                    }
+                    for (j = 0; j < path.length; j = j + 1) {
+                        visitedLookup[keyFor(path[j].x, path[j].y)] = true;
+                    }
+                    if (isWall(map, a.targetX, a.targetY) || (lookup[keyFor(a.targetX, a.targetY)] && !(a.targetX === a.boxX && a.targetY === a.boxY))) {
+                        return null;
+                    }
+                    boxes[idx].x = a.targetX;
+                    boxes[idx].y = a.targetY;
+                    player = { x: a.boxX, y: a.boxY };
+                    visitedLookup[keyFor(player.x, player.y)] = true;
+                    normalizeBoxes(boxes);
+                }
+
+                return {
+                    solved: allBoxesOnGoals(boxes, goalLookup),
+                    visitedLookup: visitedLookup
+                };
+            }
+
+            function findPathForWizard(map, from, to, boxLookupMap) {
+                var startKey = keyFor(from.x, from.y);
+                var goalKey = keyFor(to.x, to.y);
+                var q = [];
+                var head = 0;
+                var parent = {};
+                var visited = {};
+                var i;
+                var cur;
+                var nx;
+                var ny;
+                var nk;
+                var out;
+                var walk;
+                var parts;
+
+                if (startKey === goalKey) {
+                    return [{ x: from.x, y: from.y }];
+                }
+                if (boxLookupMap[goalKey] || isWall(map, to.x, to.y)) {
+                    return null;
+                }
+
+                q.push({ x: from.x, y: from.y });
+                visited[startKey] = true;
+
+                while (head < q.length) {
+                    cur = q[head];
+                    head = head + 1;
+                    for (i = 0; i < DIRS4.length; i = i + 1) {
+                        nx = cur.x + DIRS4[i].dx;
+                        ny = cur.y + DIRS4[i].dy;
+                        nk = keyFor(nx, ny);
+                        if (visited[nk] || isWall(map, nx, ny) || boxLookupMap[nk]) {
+                            continue;
+                        }
+                        visited[nk] = true;
+                        parent[nk] = keyFor(cur.x, cur.y);
+                        if (nk === goalKey) {
+                            out = [];
+                            walk = nk;
+                            while (walk) {
+                                parts = walk.split('_');
+                                out.push({ x: parseInt(parts[0], 10), y: parseInt(parts[1], 10) });
+                                walk = parent[walk];
+                            }
+                            out.reverse();
+                            return out;
+                        }
+                        q.push({ x: nx, y: ny });
+                    }
+                }
+
+                return null;
+            }
+
+            function tightenMapByVisitedWizardCells(map, visitedLookup, goalLookup, boxStartLookup) {
+                var out = cloneGrid(map);
+                var y;
+                var x;
+                var k;
+                for (y = 1; y < out.length - 1; y = y + 1) {
+                    for (x = 1; x < out[0].length - 1; x = x + 1) {
+                        if (out[y][x] === WALL) {
+                            continue;
+                        }
+                        k = keyFor(x, y);
+                        if (!visitedLookup[k] && !goalLookup[k] && !boxStartLookup[k]) {
+                            out[y][x] = WALL;
+                        }
+                    }
+                }
+                return out;
+            }
+
+            function cloneGrid(map) {
+                var out = [];
+                var y;
+                var x;
+                for (y = 0; y < map.length; y = y + 1) {
+                    out[y] = [];
+                    for (x = 0; x < map[0].length; x = x + 1) {
+                        out[y][x] = map[y][x];
+                    }
+                }
+                return out;
+            }
+
+            function cloneMoves(moves) {
+                var out = [];
+                var i;
+                var m;
+                for (i = 0; i < moves.length; i = i + 1) {
+                    m = moves[i];
+                    out.push({
+                        standX: m.standX,
+                        standY: m.standY,
+                        destX: m.destX,
+                        destY: m.destY,
+                        boxFromX: m.boxFromX,
+                        boxFromY: m.boxFromY,
+                        dx: m.dx,
+                        dy: m.dy
+                    });
+                }
+                return out;
+            }
+
+            function generateMap(width, height, wallCount) {
+                var map = createBaseMap(width, height);
+                var floorTotal = (width - 2) * (height - 2) - reservedFloorCellCount(width, height);
+                var tries = wallCount * 14;
+                var placed = 0;
+                var x;
+                var y;
+                var old;
+                var connected;
+                var remaining;
+
+                while (tries > 0 && placed < wallCount) {
+                    tries = tries - 1;
+                    x = randInt(1, width - 1);
+                    y = randInt(1, height - 1);
+                    if (map[y][x] === WALL) {
+                        continue;
+                    }
+
+                    old = map[y][x];
+                    map[y][x] = WALL;
+                    remaining = floorTotal - 1;
+                    connected = connectedFloorCount(map);
+                    if (connected !== remaining || touchesTooManyWalls(map, x, y)) {
+                        map[y][x] = old;
+                    } else {
+                        floorTotal = remaining;
+                        placed = placed + 1;
+                    }
+                }
+
+                if (floorTotal < 18) {
+                    return null;
+                }
+                return map;
+            }
+
+            function touchesTooManyWalls(map, x, y) {
+                var count = 0;
+                var i;
+                var nx;
+                var ny;
+                for (i = 0; i < DIRS4.length; i = i + 1) {
+                    nx = x + DIRS4[i].dx;
+                    ny = y + DIRS4[i].dy;
+                    if (isWall(map, nx, ny)) {
+                        count = count + 1;
+                    }
+                }
+                return count >= 4;
+            }
+
+            function createBaseMap(width, height) {
+                var map = [];
+                var x;
+                var y;
+                for (y = 0; y < height; y = y + 1) {
+                    map[y] = [];
+                    for (x = 0; x < width; x = x + 1) {
+                        if (x === 0 || y === 0 || x === width - 1 || y === height - 1 || isReservedBoardCell(x, y, width, height)) {
+                            map[y][x] = WALL;
+                        } else {
+                            map[y][x] = FLOOR;
+                        }
+                    }
+                }
+                return map;
+            }
+
+            function connectedFloorCount(map) {
+                var h = map.length;
+                var w = map[0].length;
+                var start = null;
+                var x;
+                var y;
+                var q = [];
+                var head = 0;
+                var visited = {};
+                var count = 0;
+                var k;
+                var i;
+                var nx;
+                var ny;
+
+                for (y = 0; y < h && !start; y = y + 1) {
+                    for (x = 0; x < w; x = x + 1) {
+                        if (map[y][x] === FLOOR) {
+                            start = { x: x, y: y };
+                            break;
+                        }
+                    }
+                }
+
+                if (!start) {
+                    return 0;
+                }
+
+                q.push(start);
+                visited[keyFor(start.x, start.y)] = true;
+
+                while (head < q.length) {
+                    var cur = q[head];
+                    head = head + 1;
+                    count = count + 1;
+                    for (i = 0; i < DIRS4.length; i = i + 1) {
+                        nx = cur.x + DIRS4[i].dx;
+                        ny = cur.y + DIRS4[i].dy;
+                        if (isWall(map, nx, ny)) {
+                            continue;
+                        }
+                        k = keyFor(nx, ny);
+                        if (!visited[k]) {
+                            visited[k] = true;
+                            q.push({ x: nx, y: ny });
+                        }
+                    }
+                }
+
+                return count;
+            }
+
+            function pickGoals(map, count) {
+                var dead = computeDeadLookup(map, {});
+                var floor = listFloorCells(map);
+                var candidates = [];
+                var i;
+                var p;
+
+                for (i = 0; i < floor.length; i = i + 1) {
+                    p = floor[i];
+                    if (!dead[keyFor(p.x, p.y)]) {
+                        candidates.push(p);
+                    }
+                }
+
+                if (candidates.length < count) {
+                    return null;
+                }
+                return pickRandomPoints(candidates, count);
+            }
+
+            function pickBoxes(map, count, goals, deadLookup) {
+                var goalLookup = pointsLookup(goals);
+                var floor = listFloorCells(map);
+                var candidates = [];
+                var i;
+                var p;
+                for (i = 0; i < floor.length; i = i + 1) {
+                    p = floor[i];
+                    if (!goalLookup[keyFor(p.x, p.y)] && !deadLookup[keyFor(p.x, p.y)]) {
+                        candidates.push(p);
+                    }
+                }
+                if (candidates.length < count) {
+                    return null;
+                }
+                return pickRandomPoints(candidates, count);
+            }
+
+            function pickPlayer(map, goals, boxes) {
+                var floor = listFloorCells(map);
+                var blocked = pointsLookup(goals);
+                var i;
+                for (i = 0; i < boxes.length; i = i + 1) {
+                    blocked[keyFor(boxes[i].x, boxes[i].y)] = true;
+                }
+                var choices = [];
+                var p;
+                for (i = 0; i < floor.length; i = i + 1) {
+                    p = floor[i];
+                    if (!blocked[keyFor(p.x, p.y)]) {
+                        choices.push(p);
+                    }
+                }
+                if (choices.length === 0) {
+                    return null;
+                }
+                p = choices[randInt(0, choices.length)];
+                return { x: p.x, y: p.y };
+            }
+
+            function solveLevel(map, goals, boxes, player, maxNodes, deadLookup, withPath) {
+                var goalLookup = pointsLookup(goals);
+                var queue = [];
+                var head = 0;
+                var visited = {};
+                var startBoxes = clonePoints(boxes);
+                normalizeBoxes(startBoxes);
+                var startPlayer = { x: player.x, y: player.y };
+                var startKey = stateKey(startBoxes, startPlayer);
+                var nodes = 0;
+                var reachable;
+                var lookup;
+                var s;
+                var bi;
+                var di;
+                var box;
+                var dx;
+                var dy;
+                var pushFromX;
+                var pushFromY;
+                var targetX;
+                var targetY;
+                var newBoxes;
+                var newPlayer;
+                var newKey;
+                var actions;
+                var at;
+                var action;
+
+                queue.push({ boxes: startBoxes, player: startPlayer, depth: 0, key: startKey });
+                visited[startKey] = { prevKey: null, action: null };
+
+                while (head < queue.length && nodes < maxNodes) {
+                    s = queue[head];
+                    head = head + 1;
+                    nodes = nodes + 1;
+
+                    if (allBoxesOnGoals(s.boxes, goalLookup)) {
+                        if (!withPath) {
+                            return { solved: true, pushes: s.depth, nodes: nodes };
+                        }
+                        actions = [];
+                        at = s.key;
+                        while (at && visited[at] && visited[at].prevKey !== null) {
+                            actions.push(visited[at].action);
+                            at = visited[at].prevKey;
+                        }
+                        actions.reverse();
+                        return { solved: true, pushes: s.depth, nodes: nodes, actions: actions };
+                    }
+
+                    lookup = boxLookup(s.boxes);
+                    reachable = reachableCells(map, s.player, lookup);
+
+                    for (bi = 0; bi < s.boxes.length; bi = bi + 1) {
+                        box = s.boxes[bi];
+                        for (di = 0; di < DIRS4.length; di = di + 1) {
+                            dx = DIRS4[di].dx;
+                            dy = DIRS4[di].dy;
+                            pushFromX = box.x - dx;
+                            pushFromY = box.y - dy;
+                            targetX = box.x + dx;
+                            targetY = box.y + dy;
+
+                            if (!reachable[keyFor(pushFromX, pushFromY)]) {
+                                continue;
+                            }
+                            if (isWall(map, targetX, targetY) || lookup[keyFor(targetX, targetY)]) {
+                                continue;
+                            }
+                            if (deadLookup[keyFor(targetX, targetY)] && !goalLookup[keyFor(targetX, targetY)]) {
+                                continue;
+                            }
+
+                            newBoxes = clonePoints(s.boxes);
+                            newBoxes[bi].x = targetX;
+                            newBoxes[bi].y = targetY;
+                            normalizeBoxes(newBoxes);
+                            newPlayer = { x: box.x, y: box.y };
+                            newKey = stateKey(newBoxes, newPlayer);
+                            if (!visited[newKey]) {
+                                action = {
+                                    boxX: box.x,
+                                    boxY: box.y,
+                                    dx: dx,
+                                    dy: dy,
+                                    pushFromX: pushFromX,
+                                    pushFromY: pushFromY,
+                                    targetX: targetX,
+                                    targetY: targetY
+                                };
+                                visited[newKey] = { prevKey: s.key, action: action };
+                                queue.push({ boxes: newBoxes, player: newPlayer, depth: s.depth + 1, key: newKey });
+                            }
+                        }
+                    }
+                }
+
+                return { solved: false, pushes: 0, nodes: nodes, actions: [] };
+            }
+
+            function reachableCells(map, player, boxLookupMap) {
+                var q = [];
+                var head = 0;
+                var visited = {};
+                var i;
+                var nx;
+                var ny;
+                var k;
+                var c;
+
+                q.push({ x: player.x, y: player.y });
+                visited[keyFor(player.x, player.y)] = true;
+
+                while (head < q.length) {
+                    c = q[head];
+                    head = head + 1;
+                    for (i = 0; i < DIRS4.length; i = i + 1) {
+                        nx = c.x + DIRS4[i].dx;
+                        ny = c.y + DIRS4[i].dy;
+                        k = keyFor(nx, ny);
+                        if (visited[k] || isWall(map, nx, ny) || boxLookupMap[k]) {
+                            continue;
+                        }
+                        visited[k] = true;
+                        q.push({ x: nx, y: ny });
+                    }
+                }
+
+                return visited;
+            }
+
+            function allBoxesOnGoals(boxes, goalLookup) {
+                var i;
+                for (i = 0; i < boxes.length; i = i + 1) {
+                    if (!goalLookup[keyFor(boxes[i].x, boxes[i].y)]) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            function computeDeadLookup(map, goalLookup) {
+                var out = {};
+                var h = map.length;
+                var w = map[0].length;
+                var x;
+                var y;
+                var k;
+                var up;
+                var down;
+                var left;
+                var right;
+
+                for (y = 1; y < h - 1; y = y + 1) {
+                    for (x = 1; x < w - 1; x = x + 1) {
+                        if (map[y][x] === WALL) {
+                            continue;
+                        }
+                        k = keyFor(x, y);
+                        if (goalLookup[k]) {
+                            continue;
+                        }
+                        up = isWall(map, x, y - 1);
+                        down = isWall(map, x, y + 1);
+                        left = isWall(map, x - 1, y);
+                        right = isWall(map, x + 1, y);
+                        if ((up || down) && (left || right)) {
+                            out[k] = true;
+                        }
+                    }
+                }
+
+                return out;
+            }
+
+            function listFloorCells(map) {
+                var out = [];
+                var y;
+                var x;
+                for (y = 1; y < map.length - 1; y = y + 1) {
+                    for (x = 1; x < map[0].length - 1; x = x + 1) {
+                        if (map[y][x] === FLOOR) {
+                            out.push({ x: x, y: y });
+                        }
+                    }
+                }
+                return out;
+            }
+
+            function reservedFloorCellCount(width, height) {
+                var count = 0;
+                var x;
+                var y;
+                for (y = Math.max(1, height - PAD_SIZE); y < height - 1; y = y + 1) {
+                    for (x = Math.max(1, width - PAD_SIZE); x < width - 1; x = x + 1) {
+                        count = count + 1;
+                    }
+                }
+                return count;
+            }
+
+            function isReservedBoardCell(x, y, boardWidth, boardHeight) {
+                return x >= boardWidth - PAD_SIZE && y >= boardHeight - PAD_SIZE;
+            }
+
+            function pickRandomPoints(points, count) {
+                var pool = clonePoints(points);
+                shuffle(pool);
+                if (pool.length < count) {
+                    return null;
+                }
+                return pool.slice(0, count);
+            }
+
+            function shuffle(arr) {
+                var i;
+                var j;
+                var temp;
+                for (i = arr.length - 1; i > 0; i = i - 1) {
+                    j = randInt(0, i + 1);
+                    temp = arr[i];
+                    arr[i] = arr[j];
+                    arr[j] = temp;
+                }
+            }
+
+            function clonePoints(points) {
+                var out = [];
+                var i;
+                for (i = 0; i < points.length; i = i + 1) {
+                    out.push({ x: points[i].x, y: points[i].y });
+                }
+                return out;
+            }
+
+            function pointsLookup(points) {
+                var out = {};
+                var i;
+                for (i = 0; i < points.length; i = i + 1) {
+                    out[keyFor(points[i].x, points[i].y)] = true;
+                }
+                return out;
+            }
+
+            function boxLookup(boxes) {
+                return pointsLookup(boxes);
+            }
+
+            function stateKey(boxes, player) {
+                return boxesKey(boxes) + '@' + player.x + ',' + player.y;
+            }
+
+            function boxesKey(boxes) {
+                var parts = [];
+                var i;
+                for (i = 0; i < boxes.length; i = i + 1) {
+                    parts.push(boxes[i].x + ',' + boxes[i].y);
+                }
+                return parts.join('|');
+            }
+
+            function normalizeBoxes(boxes) {
+                boxes.sort(function (a, b) {
+                    if (a.y !== b.y) {
+                        return a.y - b.y;
+                    }
+                    return a.x - b.x;
+                });
+            }
+
+            function boxIndexAt(boxes, x, y) {
+                var i;
+                for (i = 0; i < boxes.length; i = i + 1) {
+                    if (boxes[i].x === x && boxes[i].y === y) {
+                        return i;
+                    }
+                }
+                return -1;
+            }
+
+            function isWall(map, x, y) {
+                if (y < 0 || y >= map.length || x < 0 || x >= map[0].length) {
+                    return true;
+                }
+                if (isReservedBoardCell(x, y, map[0].length, map.length)) {
+                    return true;
+                }
+                return map[y][x] === WALL;
+            }
+
+            function isEnclosedWallCell(x, y, map) {
+                var dx;
+                var dy;
+                var i;
+                if (!map || !map.length) {
+                    return false;
+                }
+                for (dy = -1; dy <= 1; dy = dy + 1) {
+                    for (dx = -1; dx <= 1; dx = dx + 1) {
+                        if (dx === 0 && dy === 0) {
+                            continue;
+                        }
+                        if (!isWall(map, x + dx, y + dy)) {
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
+
+            function keyFor(x, y) {
+                return x + '_' + y;
+            }
+
+            function randInt(min, max) {
+                return Math.floor(Math.random() * (max - min)) + min;
+            }
+
+            function cp(v) {
+                if (String.fromCodePoint) {
+                    return String.fromCodePoint(v);
+                }
+                if (v <= 0xFFFF) {
+                    return String.fromCharCode(v);
+                }
+                v = v - 0x10000;
+                return String.fromCharCode((v >> 10) + 0xD800, (v % 0x400) + 0xDC00);
+            }
+        }());
+    </script>
+</body>
+</html>
