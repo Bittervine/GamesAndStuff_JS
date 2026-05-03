@@ -2063,6 +2063,7 @@
     if (sfxVolumeValue) sfxVolumeValue.textContent = Math.round(state.settings.sfxVolume * 100) + '%';
     if (musicVolumeValue) musicVolumeValue.textContent = Math.round(state.settings.musicVolume * 100) + '%';
     if (difficultyValue) difficultyValue.textContent = currentDifficulty().label;
+    const difficultyLocked = state.mode === 'playing';
     if (lowEndModeInput) {
       lowEndModeInput.checked = !!state.settings.lowEndMode;
       lowEndModeInput.disabled = !gl;
@@ -2072,6 +2073,7 @@
       const btn = difficultyButtons[i];
       const idx = Number(btn.getAttribute('data-difficulty'));
       btn.setAttribute('aria-pressed', String(idx === state.settings.difficulty));
+      btn.disabled = difficultyLocked;
     }
     const soundBtn = controlsEl.querySelector('[data-act="sound"]');
     if (soundBtn) soundBtn.textContent = state.muted ? 'MUTED' : 'SOUND';
