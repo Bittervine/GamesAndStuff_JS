@@ -51,8 +51,8 @@ body.theme-inverted {
 .top-menu {
   display: -ms-flexbox;
   display: flex;
-  -ms-flex-align: center;
-  align-items: center;
+  -ms-flex-align: stretch;
+  align-items: stretch;
   -ms-flex-pack: justify;
   justify-content: space-between;
   -ms-flex-wrap: wrap;
@@ -83,9 +83,49 @@ body.theme-inverted .top-menu {
   display: block;
 }
 
-.right-group {
-  -ms-flex-pack: end;
-  justify-content: flex-end;
+.groupbox {
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-align: center;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid #c7d2dc;
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.72);
+  min-height: 44px;
+  box-sizing: border-box;
+  align-self: stretch;
+}
+
+.groupbox legend {
+  padding: 0 4px;
+  font-size: 12px;
+  color: #4a4a4a;
+}
+
+.groupbox.book-group,
+.groupbox.chapter-group,
+.groupbox.action-group {
+  -ms-flex-wrap: nowrap;
+  flex-wrap: nowrap;
+}
+
+.groupbox.title-group {
+  -ms-flex: 1 1 auto;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.groupbox.title-group .book-title {
+  white-space: nowrap;
+}
+
+.groupbox.action-group {
+  -ms-flex-pack: start;
+  justify-content: flex-start;
 }
 
 .menu-button {
@@ -114,6 +154,23 @@ body.theme-inverted .top-menu {
 .menu-button:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+.menu-select {
+  border: 1px solid #6a7e8f;
+  background: #fff;
+  color: #111;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 0 6px;
+  height: 32px;
+  box-sizing: border-box;
+}
+
+.menu-select.secondary {
+  background: #ece7dd;
+  border-color: #a99777;
 }
 
 body.theme-inverted .menu-button {
@@ -357,17 +414,27 @@ body.theme-inverted .settings-panel select {
 <body>
 <div class='app-shell'>
 <header class='top-menu'>
-<div class='menu-group'>
-<button id='loadBookButton' class='menu-button'>Load Book</button>
+<fieldset class='groupbox book-group'>
+<legend>Book</legend>
+<select id='bookSourceSelect' class='menu-select'></select>
+<button id='loadBookButton' class='menu-button'>Load</button>
+<button id='saveBookButton' class='menu-button secondary'>Save</button>
 <input id='bookFileInput' class='book-file-input' type='file'>
-<input id='bookNameInput' class='book-name-input' type='text' placeholder='File name or URL'>
-<button id='loadBookNameButton' class='menu-button secondary'>Open Name</button>
-<button id='previousChapterButton' class='menu-button secondary' title='Previous chapter'>Last Chapter</button>
-<button id='nextChapterButton' class='menu-button secondary' title='Next chapter'>Next Chapter</button>
+</fieldset>
+<fieldset class='groupbox chapter-group'>
+<legend>Chapter</legend>
+<button id='previousChapterButton' class='menu-button secondary' title='Previous'>Last Chapter</button>
+<button id='nextChapterButton' class='menu-button secondary' title='Next'>Next Chapter</button>
+</fieldset>
+<fieldset class='groupbox title-group'>
+<legend>Title:</legend>
+<span id='bookTitle' class='book-title'>No book loaded</span><span id='bookAuthor' class='book-author'></span>
+</fieldset>
+<fieldset class='groupbox action-group'>
+<legend>Misc</legend>
 <button id='autoAdvanceButton' class='menu-button secondary' title='Toggle automatic advancement'>Autoscroll</button>
-</div>
-<div class='menu-group title-group'><span id='bookTitle' class='book-title'>No book loaded</span><span id='bookAuthor' class='book-author'></span></div>
-<div class='menu-group right-group'><button id='settingsButton' class='menu-button'>Settings</button></div>
+<button id='settingsButton' class='menu-button'>Settings</button>
+</fieldset>
 </header>
 <div class='status-strip'><span id='chapterStatus'>Chapter -</span><span id='progressStatus'>Progress 0%</span><span id='modeStatus'>Scroll mode: Page</span></div>
 <div id='readerViewport' class='reader-viewport' aria-label='Book content'></div>
@@ -1342,6 +1409,8 @@ var DEFAULT_SETTINGS = {
   invertMode: false
 };
 var PARSER_GLOBAL_KEY = "ReaderParsers";
+var BOOK_BUNDLE_PREFIX = "book_";
+var BOOK_BUNDLE_MAX = 99;
 var MAX_PROGRESS_ITEMS = 180;
 var VALID_SCROLL_MODES = {
   page: true,
@@ -1365,7 +1434,9 @@ var cancelFrame = typeof window.cancelAnimationFrame === "function" ? window.can
   window.clearTimeout(handle);
 };
 var elements = {
+  bookSourceSelect: document.getElementById("bookSourceSelect"),
   loadBookButton: document.getElementById("loadBookButton"),
+  saveBookButton: document.getElementById("saveBookButton"),
   bookFileInput: document.getElementById("bookFileInput"),
   previousChapterButton: document.getElementById("previousChapterButton"),
   nextChapterButton: document.getElementById("nextChapterButton"),
@@ -1382,8 +1453,6 @@ var elements = {
   fontFamilyInput: document.getElementById("fontFamilyInput"),
   fontSizeInput: document.getElementById("fontSizeInput"),
   fontSizeOutput: document.getElementById("fontSizeOutput"),
-  bookNameInput: document.getElementById("bookNameInput"),
-  loadBookNameButton: document.getElementById("loadBookNameButton"),
   fontWeightInput: document.getElementById("fontWeightInput"),
   fontWeightOutput: document.getElementById("fontWeightOutput"),
   lineHeightInput: document.getElementById("lineHeightInput"),
@@ -1404,6 +1473,8 @@ var state = {
   settings: _extends({}, DEFAULT_SETTINGS, readStorageObject(STORAGE_KEYS.settings, {})),
   progressByBook: readStorageObject(STORAGE_KEYS.progress, {}),
   parserModulesPromise: null,
+  selectedBookSource: "external",
+  bundledBooks: [],
   activeBook: null,
   shadowRoot: null,
   useShadowRoot: false,
@@ -1475,11 +1546,16 @@ function setupShadowReader() {
   state.tapOverlay.addEventListener("touchend", onTapOverlayClick);
 }
 function bindEvents() {
+  loadBundledBookIndex().then(function () {
+    populateBookSourceOptions();
+    updateBookSourceUi();
+  });
+  elements.bookSourceSelect.addEventListener("change", onBookSourceChange);
   elements.loadBookButton.addEventListener("click", function () {
     return openBookFileDialog();
   });
-  elements.loadBookNameButton.addEventListener("click", function () {
-    return openNamedBook();
+  elements.saveBookButton.addEventListener("click", function () {
+    return saveCurrentBookAsBundle();
   });
   elements.bookFileInput.addEventListener("change", onBookFileSelected);
   elements.previousChapterButton.addEventListener("click", goToPreviousChapter);
@@ -1497,7 +1573,6 @@ function bindEvents() {
   elements.lineStepInput.addEventListener("input", updateSettingOutputs);
   elements.scrollDurationInput.addEventListener("input", updateSettingOutputs);
   elements.tapRegionInput.addEventListener("input", updateSettingOutputs);
-  elements.bookNameInput.addEventListener("keydown", onBookNameInputKeydown);
   window.addEventListener("keydown", onGlobalKeydown);
   window.addEventListener("resize", onWindowResize);
   window.addEventListener("beforeunload", function () {
@@ -1521,65 +1596,202 @@ function openBookFileDialog() {
   }
   input.click();
 }
-function openNamedBook() {
-  return _openNamedBook.apply(this, arguments);
+function populateBookSourceOptions() {
+  var select = elements.bookSourceSelect;
+  var bundled = state.bundledBooks || [];
+  var i;
+  var option;
+  if (!select) {
+    return;
+  }
+  select.innerHTML = "";
+  option = document.createElement("option");
+  option.value = "external";
+  option.textContent = "External";
+  select.appendChild(option);
+  for (i = 0; i < bundled.length; i++) {
+    option = document.createElement("option");
+    option.value = String(i);
+    option.textContent = bundled[i].label || bundled[i].title || bundled[i].fileName || ("Bundled " + (i + 1));
+    select.appendChild(option);
+  }
+  select.value = state.selectedBookSource || "external";
 }
-function _openNamedBook() {
-  _openNamedBook = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
-    var rawName, fileUrl, response, blob, fileName, namedFile;
+function updateBookSourceUi() {
+  var external = !elements.bookSourceSelect || elements.bookSourceSelect.value === "external";
+  if (elements.loadBookButton) {
+    elements.loadBookButton.style.display = external ? "" : "none";
+  }
+  if (elements.saveBookButton) {
+    elements.saveBookButton.style.display = external ? "" : "none";
+  }
+  if (elements.bookFileInput) {
+    elements.bookFileInput.style.display = external ? "" : "none";
+  }
+}
+function onBookSourceChange() {
+  var source = elements.bookSourceSelect ? elements.bookSourceSelect.value : "external";
+  state.selectedBookSource = source;
+  updateBookSourceUi();
+  if (source !== "external") {
+    loadBundledBook(source);
+  }
+}
+function decodeBase64ToUint8Array(base64) {
+  var binary = window.atob(base64 || "");
+  var out = new Uint8Array(binary.length);
+  var i;
+  for (i = 0; i < binary.length; i++) {
+    out[i] = binary.charCodeAt(i);
+  }
+  return out;
+}
+function bundledBookToFile(entry) {
+  var bytes = decodeBase64ToUint8Array(entry.dataBase64 || entry.data || "");
+  var blob = new Blob([bytes], {
+    type: entry.mimeType || "application/octet-stream"
+  });
+  if (typeof File === "function") {
+    return new File([blob], entry.fileName || "book.epub", {
+      type: blob.type,
+      lastModified: Date.now()
+    });
+  }
+  blob.name = entry.fileName || "book.epub";
+  blob.lastModified = Date.now();
+  return blob;
+}
+function saveCurrentBookAsBundle() {
+  var book = state.activeBook;
+  var file;
+  var reader;
+  var exportName;
+  if (!book || !book.file) {
+    return;
+  }
+  file = book.file;
+  exportName = getNextBundledBookFileName();
+  reader = new FileReader();
+  reader.onload = function () {
+    var bytes = new Uint8Array(reader.result);
+    var bundle = {
+      label: (book.metadata && book.metadata.title) || getFileName(file),
+      fileName: getFileName(file),
+      mimeType: file.type || "application/octet-stream",
+      dataBase64: bytesToBase64(bytes)
+    };
+    downloadTextAsFile(makeBundleScript(bundle), exportName, "application/javascript");
+  };
+  reader.readAsArrayBuffer(file);
+}
+function getNextBundledBookFileName() {
+  var bundled = state.bundledBooks || [];
+  var maxIndex = 0;
+  var i;
+  var match;
+  var nextIndex;
+  for (i = 0; i < bundled.length; i++) {
+    match = String((bundled[i] && bundled[i].fileName) || "").match(/^book_(\d{2})\.js$/i);
+    if (match) {
+      maxIndex = Math.max(maxIndex, Number(match[1]) || 0);
+    }
+  }
+  nextIndex = Math.min(BOOK_BUNDLE_MAX, maxIndex + 1);
+  return "book_" + String(nextIndex).padStart(2, "0") + ".js";
+}
+function loadBundledBook(sourceValue) {
+  var bundled = state.bundledBooks || [];
+  var index = Number(sourceValue);
+  var entry;
+  if (!Number.isInteger(index) || index < 0 || index >= bundled.length) {
+    return;
+  }
+  entry = bundled[index];
+  if (!entry) {
+    return;
+  }
+  loadBook(bundledBookToFile(entry), {
+    persistAsLastBook: false
+  }).catch(function (error) {
+    console.error(error);
+    setStatusMessage("Failed to load bundled book");
+  });
+}
+function loadBundledBookIndex() {
+  return _loadBundledBookIndex.apply(this, arguments);
+}
+function _loadBundledBookIndex() {
+  _loadBundledBookIndex = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+    var discovered, i, entry;
     return _regenerator().w(function (_context) {
       while (1) switch (_context.n) {
         case 0:
-          rawName = (elements.bookNameInput.value || "").trim();
-          if (!rawName) {
-            setStatusMessage("Enter a file name or URL first");
-            return _context.a(2);
-          }
-          fileUrl = rawName;
-          if (!/^https?:\/\//i.test(fileUrl) && fileUrl.indexOf("file:") !== 0) {
-            fileUrl = new URL(fileUrl, window.location.href).href;
-          }
-          _context.n = 1;
-          return fetch(fileUrl);
+          discovered = [];
+          i = 1;
         case 1:
-          response = _context.v;
-          if (!response.ok) {
-            throw new Error("Could not open " + rawName);
+          if (!(i <= BOOK_BUNDLE_MAX)) {
+            _context.n = 4;
+            break;
           }
           _context.n = 2;
-          return response.blob();
+          return loadBundledBookScript(BOOK_BUNDLE_PREFIX + String(i).padStart(2, "0") + ".js");
         case 2:
-          blob = _context.v;
-          fileName = stripExtension(rawName.split(/[\\/]/).pop() || "book");
-          if (!getFileExtension(fileName)) {
-            fileName += ".epub";
+          entry = _context.v;
+          if (entry) {
+            discovered.push(entry);
           }
-          if (typeof File === "function") {
-            namedFile = new File([blob], fileName, {
-              type: blob.type || "application/octet-stream",
-              lastModified: Date.now()
-            });
-          } else {
-            namedFile = blob.slice(0, blob.size, blob.type || "application/octet-stream");
-            namedFile.name = fileName;
-            namedFile.lastModified = Date.now();
-          }
-          return _context.a(2, loadBook(namedFile, {
-            persistAsLastBook: false
-          }));
+        case 3:
+          i = i + 1;
+          _context.n = 1;
+          break;
+        case 4:
+          state.bundledBooks = discovered;
+          return _context.a(2);
       }
     }, _callee);
   }));
-  return _openNamedBook.apply(this, arguments);
+  return _loadBundledBookIndex.apply(this, arguments);
 }
-function onBookNameInputKeydown(event) {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    openNamedBook().catch(function (error) {
-      console.error(error);
-      setStatusMessage("Failed to open named book");
-    });
+function loadBundledBookScript(src) {
+  return new Promise(function (resolve) {
+    var script = document.createElement("script");
+    script.async = true;
+    script.src = src;
+    script.onload = function () {
+      var book = window.ReaderBundledBook || null;
+      window.ReaderBundledBook = null;
+      resolve(book);
+    };
+    script.onerror = function () {
+      resolve(null);
+    };
+    document.head.appendChild(script);
+  });
+}
+function bytesToBase64(bytes) {
+  var chunkSize = 0x8000;
+  var binary = "";
+  var i;
+  for (i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
   }
+  return window.btoa(binary);
+}
+function makeBundleScript(bundle) {
+  return "window.ReaderBundledBook = " + JSON.stringify(bundle, null, 2) + ";\n";
+}
+function downloadTextAsFile(text, fileName, mimeType) {
+  var blob = new Blob([text], {
+    type: mimeType || "text/plain"
+  });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  setTimeout(function () {
+    URL.revokeObjectURL(url);
+  }, 0);
 }
 function onWindowResize() {
   if (state.resizeRafId) {
@@ -1621,9 +1833,6 @@ function _restoreLastSession() {
             persistAsLastBook: false
           });
         case 3:
-          if (elements.bookNameInput && file) {
-            elements.bookNameInput.value = getFileName(file);
-          }
           _context.n = 5;
           break;
         case 4:
@@ -1648,6 +1857,11 @@ function onBookFileSelected(event) {
   if (!file) {
     return;
   }
+  state.selectedBookSource = "external";
+  if (elements.bookSourceSelect) {
+    elements.bookSourceSelect.value = "external";
+  }
+  updateBookSourceUi();
   loadBook(file, {
     persistAsLastBook: true
   }).catch(function (error) {
@@ -1750,9 +1964,6 @@ function _loadBook() {
           preferredAuthor = normalizeAuthor(metadata == null ? void 0 : metadata.author);
           elements.bookTitle.textContent = preferredTitle;
           elements.bookAuthor.textContent = preferredAuthor;
-          if (elements.bookNameInput) {
-            elements.bookNameInput.value = getFileName(file);
-          }
           restoredOffset = (remembered == null ? void 0 : remembered.chapterId) === String((_spine$startIndex = spine[startIndex]) == null ? void 0 : _spine$startIndex.id) ? Number((_ref = (_remembered$offsetPx = remembered.offsetPx) != null ? _remembered$offsetPx : remembered.scrollTop) != null ? _ref : 0) : 0;
           _context2.n = 9;
           return renderChapterAt(startIndex, {
