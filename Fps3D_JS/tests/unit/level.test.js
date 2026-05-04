@@ -20,12 +20,52 @@ runCase('parseLevelDefinition extracts spawn, pickups, enemies, and exit', () =>
   assert.ok(level.height > 0);
   assert.ok(level.spawn.x > 0);
   assert.ok(level.exit);
-  assert.equal(level.sectors.length, 1);
-  assert.ok(level.walls.length >= 8);
+  assert.equal(level.sectors.length, 9);
+  assert.equal(level.diagnostics.length, 0);
+  assert.ok(level.walls.length >= 18);
   assert.ok(findSectorAtPoint(level, level.spawn.x, level.spawn.z));
-  assert.ok(Math.abs(getFloorHeightAt(level, level.spawn.x, level.spawn.z) - (0.02 * level.spawn.x - 0.01 * level.spawn.z)) < 0.2);
+  assert.ok(Math.abs(getFloorHeightAt(level, level.spawn.x, level.spawn.z)) < 0.001);
   assert.ok(level.enemySpawns.length >= 5);
-  assert.ok(level.pickups.length >= 4);
+  assert.ok(level.pickups.length >= 5);
+});
+
+runCase('parseLevelDefinition reports self-intersecting brush loops', () => {
+  const level = parseLevelDefinition({
+    id: 'bad-geometry',
+    sectors: [
+      {
+        id: 'bowtie',
+        loop: [
+          [0, 0],
+          [4, 4],
+          [0, 4],
+          [4, 0]
+        ]
+      }
+    ]
+  });
+
+  assert.ok(level.diagnostics.some((issue) => issue.type === 'selfIntersectingLoop' && issue.sectorId === 'bowtie'));
+  assert.ok(level.diagnostics.some((issue) => issue.type === 'nonConvexLoop' && issue.sectorId === 'bowtie'));
+});
+
+runCase('parseLevelDefinition reports zero-length edges', () => {
+  const level = parseLevelDefinition({
+    id: 'flatline',
+    sectors: [
+      {
+        id: 'needle',
+        loop: [
+          [0, 0],
+          [4, 0],
+          [4, 0],
+          [0, 4]
+        ]
+      }
+    ]
+  });
+
+  assert.ok(level.diagnostics.some((issue) => issue.type === 'zeroLengthEdge' && issue.sectorId === 'needle'));
 });
 
 runCase('parseLevelDefinition registers door edges on brush levels', () => {

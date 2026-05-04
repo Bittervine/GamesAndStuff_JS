@@ -188,6 +188,12 @@ Fps3D_JS/
 - [ ] Add hurt recoil variations and richer death collapse poses.
 - [ ] Move toward skinned meshes and weighted vertices once the pose library feels stable.
 
+### 8.7 Larger Layouts and Geometry Diagnostics
+
+- [x] Expand the playable map into multiple rooms connected by corridors and hubs.
+- [x] Add brush-geometry diagnostics for self-intersections, zero-length edges, and non-convex loops.
+- [x] Surface geometry warnings in the browser and keep the checks covered by tests.
+
 ### 9. UI, Audio, and Settings
 
 - [x] Add HUD for health, armor, ammo, keys, and current weapon.
@@ -277,3 +283,4 @@ Fps3D_JS/
 - 2026-05-04: Added segmented articulated humanoid enemy bodies and animation-phase updates for the first character-model pass.
 - 2026-05-04: Added reusable humanoid and quadruped bone-rig helpers with foot planting, weapon props, and attack windups.
 - 2026-05-04: Added WebGL context-loss recovery so the renderer reinitializes textures and buffers after a browser reset.
+- 2026-05-04: Added a larger multi-room alpha layout with corridor sectors plus brush-geometry diagnostics for self-intersections and zero-length edges.

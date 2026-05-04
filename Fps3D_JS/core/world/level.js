@@ -13,6 +13,8 @@ import {
   toPoint2
 } from './spatial.js';
 
+const GEOMETRY_EPSILON = 1e-6;
+
 const PICKUP_CHAR_MAP = {
   h: { kind: 'health', amount: 25 },
   a: { kind: 'armor', amount: 25 },
@@ -180,6 +182,135 @@ function normalizePortalMap(sector) {
   }
 
   return openEdges;
+}
+
+function orientation(ax, az, bx, bz, cx, cz) {
+  return (bx - ax) * (cz - az) - (bz - az) * (cx - ax);
+}
+
+function onSegment(ax, az, bx, bz, px, pz) {
+  return px >= Math.min(ax, bx) - GEOMETRY_EPSILON
+    && px <= Math.max(ax, bx) + GEOMETRY_EPSILON
+    && pz >= Math.min(az, bz) - GEOMETRY_EPSILON
+    && pz <= Math.max(az, bz) + GEOMETRY_EPSILON;
+}
+
+function segmentsIntersect(ax, az, bx, bz, cx, cz, dx, dz) {
+  const o1 = orientation(ax, az, bx, bz, cx, cz);
+  const o2 = orientation(ax, az, bx, bz, dx, dz);
+  const o3 = orientation(cx, cz, dx, dz, ax, az);
+  const o4 = orientation(cx, cz, dx, dz, bx, bz);
+
+  if ((o1 > GEOMETRY_EPSILON && o2 < -GEOMETRY_EPSILON) || (o1 < -GEOMETRY_EPSILON && o2 > GEOMETRY_EPSILON)) {
+    if ((o3 > GEOMETRY_EPSILON && o4 < -GEOMETRY_EPSILON) || (o3 < -GEOMETRY_EPSILON && o4 > GEOMETRY_EPSILON)) {
+      return true;
+    }
+  }
+
+  if (Math.abs(o1) <= GEOMETRY_EPSILON && onSegment(ax, az, bx, bz, cx, cz)) return true;
+  if (Math.abs(o2) <= GEOMETRY_EPSILON && onSegment(ax, az, bx, bz, dx, dz)) return true;
+  if (Math.abs(o3) <= GEOMETRY_EPSILON && onSegment(cx, cz, dx, dz, ax, az)) return true;
+  if (Math.abs(o4) <= GEOMETRY_EPSILON && onSegment(cx, cz, dx, dz, bx, bz)) return true;
+  return false;
+}
+
+function isConvexLoop(loop) {
+  let turn = 0;
+  for (let index = 0; index < loop.length; index += 1) {
+    const a = loop[index];
+    const b = loop[(index + 1) % loop.length];
+    const c = loop[(index + 2) % loop.length];
+    const cross = orientation(a.x, a.z, b.x, b.z, c.x, c.z);
+    if (Math.abs(cross) <= GEOMETRY_EPSILON) {
+      continue;
+    }
+
+    const sign = Math.sign(cross);
+    if (turn === 0) {
+      turn = sign;
+    } else if (sign !== turn) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function collectSectorGeometryDiagnostics(sector) {
+  const issues = [];
+
+  if (!sector || !Array.isArray(sector.loop) || sector.loop.length < 3) {
+    return issues;
+  }
+
+  const area = polygonSignedArea(sector.loop);
+  if (Math.abs(area) <= GEOMETRY_EPSILON) {
+    issues.push({
+      type: 'degenerateLoop',
+      severity: 'warning',
+      sectorId: sector.id,
+      message: `Sector "${sector.id}" has near-zero area.`
+    });
+  }
+
+  if (!isConvexLoop(sector.loop)) {
+    issues.push({
+      type: 'nonConvexLoop',
+      severity: 'warning',
+      sectorId: sector.id,
+      message: `Sector "${sector.id}" is not convex.`
+    });
+  }
+
+  if (Array.isArray(sector.edges)) {
+    for (const edge of sector.edges) {
+      if (edge.length > GEOMETRY_EPSILON) {
+        continue;
+      }
+
+      issues.push({
+        type: 'zeroLengthEdge',
+        severity: 'warning',
+        sectorId: sector.id,
+        edgeIndex: edge.index,
+        message: `Sector "${sector.id}" edge ${edge.index} has zero length.`
+      });
+    }
+  }
+
+  const edges = buildPolygonEdges(sector.loop);
+  for (let i = 0; i < edges.length; i += 1) {
+    const first = edges[i];
+    for (let j = i + 1; j < edges.length; j += 1) {
+      if (j === i + 1 || (i === 0 && j === edges.length - 1)) {
+        continue;
+      }
+
+      const second = edges[j];
+      if (!segmentsIntersect(first.ax, first.az, first.bx, first.bz, second.ax, second.az, second.bx, second.bz)) {
+        continue;
+      }
+
+      issues.push({
+        type: 'selfIntersectingLoop',
+        severity: 'error',
+        sectorId: sector.id,
+        edgeA: first.index,
+        edgeB: second.index,
+        message: `Sector "${sector.id}" has self-intersecting edges ${first.index} and ${second.index}.`
+      });
+    }
+  }
+
+  return issues;
+}
+
+function collectBrushLevelDiagnostics(level) {
+  const issues = [];
+  for (const sector of level.sectors || []) {
+    issues.push(...collectSectorGeometryDiagnostics(sector));
+  }
+  return issues;
 }
 
 function collectRawDoorDefinitions(definition) {
@@ -402,7 +533,12 @@ function buildBrushLevel(definition) {
     },
     isInside(x, z) {
       return isInsideLevel(level, x, z);
-    }
+    },
+    diagnostics: collectBrushLevelDiagnostics({
+      sectors,
+      walls,
+      doors
+    })
   };
 
   return level;
@@ -498,6 +634,7 @@ function buildGridLevel(definition) {
     enemySpawns,
     pickups,
     exit,
+    diagnostics: [],
     findSectorAtPoint() {
       return null;
     },

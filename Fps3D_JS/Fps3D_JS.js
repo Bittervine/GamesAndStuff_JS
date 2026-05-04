@@ -65,6 +65,13 @@ function parseLevelFromUrl() {
   return params.get('level') || 'alpha01';
 }
 
+function reportLevelDiagnostics(level) {
+  const diagnostics = Array.isArray(level?.diagnostics) ? level.diagnostics : [];
+  for (const issue of diagnostics) {
+    console.warn(`[fps3d] ${issue.severity || 'warning'}: ${issue.message}`);
+  }
+}
+
 function cloneFrameInput(input) {
   return {
     moveForward: input.moveForward,
@@ -123,6 +130,7 @@ async function main() {
   let worldRenderer = createWorldRenderer(worldCanvas, textures, { gl });
   let settings = loadSettings();
   let state = createGameState({ seed, levelId, difficulty: settings.difficultyId });
+  reportLevelDiagnostics(state.level);
   const input = createInputController(worldCanvas, {
     getSettings: () => settings
   });
@@ -173,12 +181,16 @@ async function main() {
     const difficultyLabel = getDifficultyConfig(state.difficultyId).label;
     const menuLabel = menuOpen ? ' | menu open' : '';
     const pausedLabel = state.paused && !menuOpen ? ' | paused' : '';
+    const geometryLabel = Array.isArray(state.level?.diagnostics) && state.level.diagnostics.length > 0
+      ? ` | geometry issues ${state.level.diagnostics.length}`
+      : '';
     const graphicsLabel = graphicsReady ? '' : ' | graphics recovering';
-    overlayState.textContent = `${lockState} | ${state.level.name} | ${difficultyLabel} | seed ${state.seed}${pausedLabel}${menuLabel}${graphicsLabel}${gamepadLabel}`;
+    overlayState.textContent = `${lockState} | ${state.level.name} | ${difficultyLabel} | seed ${state.seed}${pausedLabel}${menuLabel}${geometryLabel}${graphicsLabel}${gamepadLabel}`;
   }
 
   function restartGame() {
     state = createGameState({ seed, levelId, difficulty: settings.difficultyId });
+    reportLevelDiagnostics(state.level);
     accumulator.reset();
     lastTime = null;
     updateOverlay();
