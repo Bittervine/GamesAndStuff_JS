@@ -232,11 +232,9 @@
                 wizardNeutral: cp(0x1F9D9)
             };
             var brickImage = new Image();
-            brickImage.src = 'brick.png';
             var rockImage = new Image();
-            rockImage.src = 'rock.png';
             var wizardImage = new Image();
-            wizardImage.src = 'wizard.png';
+            var assetsReady = false;
             var DIFFICULTY = {
                 diff1: {
                     id: 'diff1',
@@ -332,15 +330,75 @@
                 resizeBoard();
                 render();
             };
-            bootAfterFontLoad();
+            bootAfterAssetsLoad();
 
-            function bootAfterFontLoad() {
-                announce('Loading wizard glyphs...');
+            brickImage.src = 'brick.png';
+            rockImage.src = 'rock.png';
+            wizardImage.src = 'wizard.png';
+
+            function bootAfterAssetsLoad() {
+                announce('Loading game assets...');
                 updateHud();
-                waitForGlyphFont(function () {
-                    glyphFontReady = true;
+                waitForAssetBundle(function () {
+                    assetsReady = true;
                     generateDifficulty(pendingDifficultyId);
                 });
+            }
+
+            function waitForAssetBundle(done) {
+                var pending = 4;
+                var finished = false;
+
+                function markDone() {
+                    pending = pending - 1;
+                    if (!finished && pending <= 0) {
+                        finished = true;
+                        done();
+                    }
+                }
+
+                waitForGlyphFont(markDone);
+                waitForImage(brickImage, markDone);
+                waitForImage(rockImage, markDone);
+                waitForImage(wizardImage, markDone);
+            }
+
+            function waitForImage(img, done) {
+                var finished = false;
+                var timeoutId = 0;
+
+                function finish() {
+                    if (finished) {
+                        return;
+                    }
+                    finished = true;
+                    if (timeoutId) {
+                        window.clearTimeout(timeoutId);
+                    }
+                    if (img) {
+                        img.onload = null;
+                        img.onerror = null;
+                    }
+                    done();
+                }
+
+                if (!img) {
+                    finish();
+                    return;
+                }
+                if (img && img.complete && img.naturalWidth > 0) {
+                    finish();
+                    return;
+                }
+                timeoutId = window.setTimeout(function () {
+                    finish();
+                }, 3000);
+                img.onload = function () {
+                    finish();
+                };
+                img.onerror = function () {
+                    finish();
+                };
             }
 
             function waitForGlyphFont(done) {
@@ -583,12 +641,13 @@
             function generateDifficulty(id) {
                 var spec = DIFFICULTY[id] || DIFFICULTY.diff3;
                 pendingDifficultyId = spec.id;
-                if (!glyphFontReady) {
+                if (!assetsReady) {
                     state.difficulty = spec;
-                    announce('Loading wizard glyphs...');
+                    announce('Loading game assets...');
                     updateHud();
                     return;
                 }
+                glyphFontReady = true;
                 state.difficulty = spec;
                 state.message = 'Generating ' + spec.name + ' level...';
                 updateHud();
@@ -764,7 +823,7 @@
             }
 
             function render() {
-                if (!glyphFontReady || !state.map) {
+                if (!assetsReady || !glyphFontReady || !state.map) {
                     return;
                 }
 
