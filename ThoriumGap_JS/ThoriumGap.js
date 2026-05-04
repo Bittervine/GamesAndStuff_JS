@@ -2328,6 +2328,9 @@
       if (!item) continue;
       if (item._inPool) continue;
       item._inPool = true;
+      if (pool === state.projectilePool) {
+        item.hitEnemies = null;
+      }
       pool.push(item);
     }
     list.length = 0;
@@ -2346,13 +2349,14 @@
   function acquireProjectile() {
     const bullet = state.projectilePool.pop() || {};
     bullet._inPool = false;
-    bullet.lastEnemyHit = null;
+    bullet.hitEnemies = new Set();
     return bullet;
   }
 
   function releaseProjectile(bullet) {
     if (!bullet || bullet._inPool) return;
     bullet._inPool = true;
+    bullet.hitEnemies = null;
     state.projectilePool.push(bullet);
   }
 
@@ -2924,7 +2928,7 @@
     bullet.targetRefresh = 0;
     bullet.age = 0;
     bullet.wobble = opts && opts.wobble ? opts.wobble : 0;
-    bullet.lastEnemyHit = null;
+    bullet.hitEnemies = new Set();
     bullet.alive = true;
     state[team === 'player' ? 'bullets' : 'enemyBullets'].push(bullet);
   }
@@ -3934,11 +3938,12 @@
         for (let j = enemyCandidates.length - 1; j >= 0; j--) {
           const e = enemyCandidates[j];
           if (e.dead) continue;
-          if (b.kind === 'beam' && b.lastEnemyHit === e) continue;
+          const hitEnemies = b.hitEnemies || (b.hitEnemies = new Set());
+          if (b.kind === 'beam' && hitEnemies.has(e)) continue;
           if (d2(b.x, b.y, e.x, e.y) < (b.r + e.r) * (b.r + e.r)) {
             damageEnemy(e, b.damage, false);
-            b.lastEnemyHit = e;
             if (b.kind === 'beam') {
+              hitEnemies.add(e);
               b.pierce = Math.max(0, (b.pierce || 0) - 1);
               if (b.pierce <= 0) { remove = true; break; }
             }

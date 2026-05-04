@@ -305,20 +305,45 @@
 
         function startFreeSerifWatcher() {
             if (fontWatchHandle) return;
-            if (document.fonts && document.fonts.ready) {
-                fontWatchHandle = document.fonts.ready.then(function () {
-                    redraw();
-                }).catch(function () {});
-            } else if (document.fonts && document.fonts.load) {
-                fontWatchHandle = document.fonts.load("10px 'FreeSerif'").then(function () {
-                    redraw();
-                }).catch(function () {});
+            var completed = false;
+            var useFontCheck = !!(document.fonts && document.fonts.check);
+            var pollId = null;
+
+            function finish() {
+                if (completed) return;
+                completed = true;
+                if (pollId) {
+                    clearInterval(pollId);
+                    pollId = null;
+                }
+                fontWatchHandle = null;
+                if (fontRedrawTimer) {
+                    clearTimeout(fontRedrawTimer);
+                    fontRedrawTimer = null;
+                }
+                redraw();
+            }
+
+            if (document.fonts && document.fonts.load) {
+                try {
+                    document.fonts.load("10px 'FreeSerif'");
+                } catch (err) {}
+            }
+            if (useFontCheck) {
+                pollId = setInterval(function () {
+                    if (document.fonts.check("10px 'FreeSerif'")) {
+                        finish();
+                    }
+                }, 25);
+                fontWatchHandle = pollId;
+            } else {
+                fontWatchHandle = {};
             }
 
             if (fontRedrawTimer) clearTimeout(fontRedrawTimer);
             fontRedrawTimer = setTimeout(function () {
                 fontRedrawTimer = null;
-                redraw();
+                finish();
             }, 250);
         }
 

@@ -1677,6 +1677,7 @@ function saveCurrentBookAsBundle() {
     var bundle = {
       label: (book.metadata && book.metadata.title) || getFileName(file),
       fileName: getFileName(file),
+      bundleFileName: exportName,
       mimeType: file.type || "application/octet-stream",
       dataBase64: bytesToBase64(bytes)
     };
@@ -1691,7 +1692,7 @@ function getNextBundledBookFileName() {
   var match;
   var nextIndex;
   for (i = 0; i < bundled.length; i++) {
-    match = String((bundled[i] && bundled[i].fileName) || "").match(/^book_(\d{2})\.js$/i);
+    match = String((bundled[i] && bundled[i].bundleFileName) || "").match(/^book_(\d{2})\.js$/i);
     if (match) {
       maxIndex = Math.max(maxIndex, Number(match[1]) || 0);
     }
@@ -1737,9 +1738,11 @@ function _loadBundledBookIndex() {
           return loadBundledBookScript(BOOK_BUNDLE_PREFIX + zeroPad2(i) + ".js");
         case 2:
           entry = _context.v;
-          if (entry) {
-            discovered.push(entry);
+          if (!entry) {
+            _context.n = 4;
+            break;
           }
+          discovered.push(entry);
         case 3:
           i = i + 1;
           _context.n = 1;
@@ -1762,10 +1765,27 @@ function isWholeNumber(value) {
 function loadBundledBookScript(src) {
   return loadBundledBookScriptViaText(src).then(function (book) {
     if (book) {
-      return book;
+      return normalizeBundledBookEntry(book, src);
     }
-    return loadBundledBookScriptViaTag(src);
+    return loadBundledBookScriptViaTag(src).then(function (loadedBook) {
+      return normalizeBundledBookEntry(loadedBook, src);
+    });
   });
+}
+function normalizeBundledBookEntry(book, src) {
+  if (!book) {
+    return book;
+  }
+  if (!book.bundleFileName) {
+    book.bundleFileName = getFileNameFromPath(src);
+  }
+  return book;
+}
+function getFileNameFromPath(pathValue) {
+  if (typeof pathValue !== "string") {
+    return "";
+  }
+  return pathValue.replace(/^.*[\\/]/, "").replace(/[?#].*$/, "");
 }
 function loadBundledBookScriptViaText(src) {
   return new Promise(function (resolve) {
