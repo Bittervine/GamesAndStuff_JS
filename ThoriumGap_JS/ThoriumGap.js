@@ -1731,11 +1731,11 @@
 
   const PICKUPS = {
     weapon: { emoji: E.wrench, color: '#00ffff', lighter: true, glowDiameter: 32 },
-    rapid: { emoji: E.bolt, color: '#ffe97e', lighter: true, glowDiameter: 32 },
+    rapid: { emoji: E.bolt, color: '#ff7000', lighter: true, glowDiameter: 32 },
     shield: { emoji: E.shield, color: '#4040ff', lighter: false, glowDiameter: 64 },
     bomb: { emoji: E.bomb, color: '#ff2020', lighter: true, glowDiameter: 50 },
     magnet: { emoji: E.magnet, color: '#777777', lighter: true, glowDiameter: 32 },
-    invuln: { emoji: E.star, color: '#c7ff8f', lighter: true, glowDiameter: 32 },
+    invuln: { emoji: E.star, color: '#ffff00', lighter: true, glowDiameter: 32 },
     score: { emoji: E.gem, color: '#f00000', lighter: false, glowDiameter: 50 }
   };
 
@@ -1755,7 +1755,7 @@
   const DIFFICULTIES = [                                                                      // Hint: bulletSpeed = enemyShotPace maintains gap-dynamics of shots (just faster)
     { label: 'Easy', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.9, spawnCount: 0.8, bulletSpeed: 1.0, bossHp: 0.5, contact: 0.9, playerDamage: 1, enemyShotPace: 1.0 },
     { label: 'Normal', lives: 3, enemyHp: 1.2, enemySpeed: 1, spawnRate: 1, spawnCount: 0.9, bulletSpeed: 1.5, bossHp: 1, contact: 1, playerDamage: 0.5, enemyShotPace: 1.5 },
-    { label: 'Hard', lives: 2, enemyHp: 1.4, enemySpeed: 1.1, spawnRate: 1.1, spawnCount: 1.0, bulletSpeed: 2.0, bossHp: 1.3, contact: 1.12, playerDamage: 0.25, enemyShotPace: 2.0 }
+    { label: 'Hard', lives: 2, enemyHp: 1.4, enemySpeed: 1.2, spawnRate: 1.1, spawnCount: 1.1, bulletSpeed: 2.0, bossHp: 1.3, contact: 1.12, playerDamage: 0.25, enemyShotPace: 2.0 }
   ];
 
   const PLAYER_SHOT_PACE = 1.0;
@@ -2063,6 +2063,7 @@
     if (sfxVolumeValue) sfxVolumeValue.textContent = Math.round(state.settings.sfxVolume * 100) + '%';
     if (musicVolumeValue) musicVolumeValue.textContent = Math.round(state.settings.musicVolume * 100) + '%';
     if (difficultyValue) difficultyValue.textContent = currentDifficulty().label;
+    const difficultyLocked = state.mode === 'playing';
     if (lowEndModeInput) {
       lowEndModeInput.checked = !!state.settings.lowEndMode;
       lowEndModeInput.disabled = !gl;
@@ -2072,6 +2073,7 @@
       const btn = difficultyButtons[i];
       const idx = Number(btn.getAttribute('data-difficulty'));
       btn.setAttribute('aria-pressed', String(idx === state.settings.difficulty));
+      btn.disabled = difficultyLocked;
     }
     const soundBtn = controlsEl.querySelector('[data-act="sound"]');
     if (soundBtn) soundBtn.textContent = state.muted ? 'MUTED' : 'SOUND';
@@ -2326,6 +2328,9 @@
       if (!item) continue;
       if (item._inPool) continue;
       item._inPool = true;
+      if (pool === state.projectilePool) {
+        item.hitEnemies = null;
+      }
       pool.push(item);
     }
     list.length = 0;
@@ -2350,6 +2355,7 @@
   function releaseProjectile(bullet) {
     if (!bullet || bullet._inPool) return;
     bullet._inPool = true;
+    bullet.hitEnemies = null;
     state.projectilePool.push(bullet);
   }
 
@@ -3100,7 +3106,7 @@
     const enemyKinds = waveEnemyKinds(theme);
     const form = theme.forms[(state.levelIndex + ((state.levelClock / 4) | 0) + ((state.waveClock * 2) | 0)) % theme.forms.length];
     const diff = currentDifficulty();
-    const count = clamp(Math.round((4 + Math.floor(state.levelIndex / 5) + randi(0, 2)) * diff.spawnCount), 2, 9);
+    const count = clamp(Math.round((4 + Math.floor(state.levelIndex / 5) + rand(0, 2)) * diff.spawnCount), 2, 9);
     const margin = 42, top = -34, mid = (count - 1) * 0.5;
     const waveId = state.waveIndex++;
     const entryRoutes = [
@@ -3176,7 +3182,7 @@
 
   function weaponDelay() {
     const p = state.player;
-    const base = [0.16, 0.17, 0.2, 0.26, 0.2][p.weaponMode] || 0.2;
+    const base = [0.16, 0.17, 0.17, 0.25, 0.25][p.weaponMode] || 0.2;
     let d = base - (p.weaponTier - 1) * 0.012;
     if (p.rapidTimer > 0) d *= 0.54;
     if (state.overdrive > 0) d *= 0.76;
@@ -3209,35 +3215,35 @@
       sfx('fan');
     } else if (mode === 2) { // FAN
       const spread = tier >= 5 ? 0.52 : tier >= 4 ? 0.44 : tier >= 3 ? 0.38 : tier >= 2 ? 0.28 : 0.20;
-      const shots = tier >= 5 ? 7 : tier >= 4 ? 6 : tier >= 3 ? 5 : tier >= 2 ? 4 : 3;
+      const shots = tier >= 5 ? 8 : tier >= 4 ? 7 : tier >= 3 ? 5 : tier >= 2 ? 4 : 3;
       for (let i = 0; i < shots; i++) { const t = shots === 1 ? 0.5 : i / (shots - 1), a = lerp(-spread, spread, t) - Math.PI * 0.5; spawnBullet('player', x + Math.cos(a) * 2, y + Math.sin(a) * 2, Math.cos(a) * 804, Math.sin(a) * 804, { r: 6, color: color, damage: dmg, kind: 'fan', life: 3.5 }); }
       sfx('fan');
     } else if (mode === 3) { // ROCKET
       if (tier <= 1) {
-        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/2, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.4, turn: 4.5 });
-        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/2, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.48, turn: 4.3 });
+        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.5, turn: 4.5 });
+        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.5, turn: 4.5 });
       } else if (tier === 2) {
-        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/3, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.35, turn: 4.2 });
-        spawnBullet('player', x,      y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/3, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.35, turn: 4.2 });
-        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/3, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.48, turn: 4.3 });
+        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.5, turn: 4.5 });
+        spawnBullet('player', x,      y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.4, turn: 4.4 });
+        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.5, turn: 4.5 });
       } else if (tier === 3) {
-        spawnBullet('player', x - 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/4, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.48, turn: 4.3 });
-        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/4, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.42, turn: 4.3 });
-        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/4, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.42, turn: 4.3 });
-        spawnBullet('player', x + 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/4, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.50, turn: 4.4 });
+        spawnBullet('player', x - 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.5, turn: 4.5 });
+        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.4, turn: 4.4 });
+        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.4, turn: 4.4 });
+        spawnBullet('player', x + 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.6, homing: 0.5, turn: 4.5 });
       } else if (tier === 4) {
-        spawnBullet('player', x - 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/5, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
-        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/5, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.50, turn: 4.3 });
-        spawnBullet('player', x ,     y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/5, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.50, turn: 4.3 });
-        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/5, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
-        spawnBullet('player', x + 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/5, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.52, turn: 4.4 });
+        spawnBullet('player', x - 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.5, turn: 4.6 });
+        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.5, turn: 4.5 });
+        spawnBullet('player', x ,     y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.4, turn: 4.4 });
+        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.5, turn: 4.5 });
+        spawnBullet('player', x + 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.5, turn: 4.6 });
       } else {
-        spawnBullet('player', x - 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/6, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
-        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/6, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.50, turn: 4.3 });
-        spawnBullet('player', x - 5,  y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/6, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.52, turn: 4.4 });
-        spawnBullet('player', x + 5,  y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/6, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.50, turn: 4.3 });
-        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/6, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.22, turn: 4.0 });
-        spawnBullet('player', x + 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg*2/6, kind: 'rocket', pierce: 1, life: 4.3, homing: 0.18, turn: 4.0 });
+        spawnBullet('player', x - 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.5, turn: 4.6 });
+        spawnBullet('player', x - 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.5, turn: 4.5 });
+        spawnBullet('player', x - 5,  y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.4, turn: 4.4 });
+        spawnBullet('player', x + 5,  y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.5, homing: 0.4, turn: 4.4 });
+        spawnBullet('player', x + 10, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.4, homing: 0.5, turn: 4.5 });
+        spawnBullet('player', x + 20, y - 10, rand(-60,60), rand(-600,-700), { r: 8, color: color, damage: dmg/2, kind: 'rocket', pierce: 1, life: 4.3, homing: 0.5, turn: 4.6 });
       }
       sfx('rocket');
     } else { // BEAM
@@ -3246,35 +3252,36 @@
       const beamVY = () => -rand(980, 1220);
       const beamXJitter = () => rand(-2.5, 2.5);
       const beamYJitter = () => rand(-6, 6);
+      const pierce = 2 + Math.floor(tier/2);
       if (tier === 1) {
-        spawnBullet('player', x - beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
       }
       if (tier === 2) {
-        spawnBullet('player', x - beamSpacing + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamXJitter(),                 beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
+        spawnBullet('player', x + beamXJitter(),                 beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
+        spawnBullet('player', x + beamSpacing + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
       }
       if (tier === 3) {
-        spawnBullet('player', x - beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x - beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
       }
       if (tier === 4) {
-        spawnBullet('player', x - beamSpacing*2 + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x - beamSpacing + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamXJitter(),                 beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*2 + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*2 + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
+        spawnBullet('player', x - beamSpacing + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
+        spawnBullet('player', x + beamXJitter(),                 beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
+        spawnBullet('player', x + beamSpacing + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*2 + beamXJitter(),   beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
       }
       if (tier >= 5) {
-        spawnBullet('player', x - beamSpacing*4/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x - beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x - beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
-        spawnBullet('player', x + beamSpacing*4/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: 3 + tier, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*4/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
+        spawnBullet('player', x - beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*1/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*3/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
+        spawnBullet('player', x + beamSpacing*4/2 + beamXJitter(), beamY-30 + beamYJitter(), 0, beamVY(), { r: 6, color: color, damage: dmg, kind: 'beam', pierce: pierce, life: 5.0 });
       }
       sfx('beam');
     }
@@ -3612,12 +3619,14 @@
   }
 
   function ringBullets(x, y, count, speed, damage, color, team, sourceKind, sourceName) {
+    const resolvedKind = sourceKind || (team === 'enemy' ? 'enemy' : 'player');
+    const resolvedName = sourceName || resolvedKind || (team === 'enemy' ? 'enemy' : 'player');
     for (let i = 0; i < count; i++) {
       const a = TAU * i / count;
       spawnBullet(team === 'enemy' ? 'enemy' : 'player', x, y, Math.cos(a) * speed, Math.sin(a) * speed, {
         r: team === 'enemy' ? 7 : 5, color: color, damage: damage, kind: team === 'enemy' ? 'orb' : 'spark', life: 4.5,
-        sourceKind: sourceKind || (team === 'enemy' ? 'enemy' : 'player'),
-        sourceName: sourceName || ''
+        sourceKind: resolvedKind,
+        sourceName: resolvedName
       });
     }
   }
@@ -3926,10 +3935,16 @@
         collectEnemyCollisionCandidates(enemyCollision, b.x, b.y, b.r, enemyCandidates);
         for (let j = enemyCandidates.length - 1; j >= 0; j--) {
           const e = enemyCandidates[j];
-          if (e.dead) continue;
+          if (e.dead) continue;          
+          // For beam projectiles keep track of hit enemies so they are not hit twice due to penetration mechanism.
+          // Note: It is deliberate that this only applies to normal enemies - bosses are exempt from this and can be hit 
+          //       multiple times. Beam weapons are supposed to be effective bosses
+          const hitEnemies = b.kind === 'beam' ? (b.hitEnemies || (b.hitEnemies = new Set())) : null;
+          if (hitEnemies && hitEnemies.has(e)) continue;
           if (d2(b.x, b.y, e.x, e.y) < (b.r + e.r) * (b.r + e.r)) {
             damageEnemy(e, b.damage, false);
-            if (b.kind === 'beam') {
+            if (hitEnemies) {
+              hitEnemies.add(e);
               b.pierce = Math.max(0, (b.pierce || 0) - 1);
               if (b.pierce <= 0) { remove = true; break; }
             }
@@ -4127,7 +4142,7 @@
     if (e.kind === 'spinner') {
       if (e.y <= 80) return;
       e.fireCooldown = shotDelay(3.0 * postEntrySlowdown);
-      ringBullets(e.x, e.y, 6 + Math.floor(state.levelIndex / 3), 150 + state.levelIndex * 8, 1, e.theme.accent2, 'enemy');
+      ringBullets(e.x, e.y, 6 + Math.floor(state.levelIndex / 3), 150 + state.levelIndex * 8, 1, e.theme.accent2, 'enemy', 'spinner', e.name || 'spinner');
       return;
     }
     if (e.kind === 'diver') {
@@ -4780,7 +4795,7 @@
       if (!tex) continue;
       const w = img.naturalWidth * 2;
       const h = img.naturalHeight * 2;
-      const sway = Math.sin(state.levelClock * 0.18 + d.drift) * 10;
+      const sway = Math.sin(state.animClock * 0.18 + d.drift) * 10;
       drawTextureRect(tex, d.x + sway, d.y, w, h, {
         rot: d.rot,
         alpha: d.alpha * 0.5,
@@ -4896,7 +4911,7 @@
     }
     if (label) {
       const prev = hudCtx.globalCompositeOperation;
-      hudCtx.globalCompositeOperation = 'difference';
+      hudCtx.globalCompositeOperation = 'xor';
       hudCtx.fillStyle = '#fff';
       hudCtx.font = '700 9px "Segoe UI", sans-serif';
       hudCtx.textAlign = 'center';
@@ -4905,6 +4920,14 @@
       hudCtx.globalCompositeOperation = prev;
     }
     hudCtx.restore();
+  }
+
+  function measureHudTextWidth(text, font) {
+    hudCtx.save();
+    hudCtx.font = font;
+    const width = hudCtx.measureText(text).width;
+    hudCtx.restore();
+    return width;
   }
 
   function drawWorldBar(x, y, w, h, ratio, fill, back, layer) {
@@ -6115,16 +6138,22 @@
     const detailLine = 'STAGE ' + (state.levelIndex + 1) + '/' + THEMES.length + '  ' + theme.name + '   WEAPON ' + WEAPONS[p.weaponMode].name + ' ' + WEAPON_TIER_LABELS[p.weaponTier - 1] + '   HIGH ' + format(state.highScore);
     const scoreFont = compact ? '900 11px "Trebuchet MS", "Segoe UI", sans-serif' : '900 13px "Trebuchet MS", "Segoe UI", sans-serif';
     const detailFont = compact ? '700 8px "Trebuchet MS", "Segoe UI", sans-serif' : '700 9px "Trebuchet MS", "Segoe UI", sans-serif';
-    hudCtx.font = scoreFont;
-    const scoreW = hudCtx.measureText(scoreLine).width;
-    hudCtx.font = detailFont;
-    const detailW = hudCtx.measureText(detailLine).width;
-    const contentW = Math.max(scoreW, detailW);
+    const scoreW = measureHudTextWidth(scoreLine, scoreFont);
+    const detailW = measureHudTextWidth(detailLine, detailFont);
+    const maxScoreDigits = format(999999999).length;
+    const maxHighDigits = format(Math.max(state.highScore || 0, 999999999)).length;
+    const worstScoreLine = 'SCORE ' + Array(maxScoreDigits + 1).join('8') + '   LIVES ' + 9 + '   BOMB ' + 9 + '   SHIELD ' + 9;
+    const longestThemeName = THEMES.reduce(function (best, t) { return (t && t.name && t.name.length > best.length) ? t.name : best; }, '');
+    const longestWeaponName = WEAPONS.reduce(function (best, w) { return (w && w.name && w.name.length > best.length) ? w.name : best; }, '');
+    const longestDetailLine = 'STAGE ' + THEMES.length + '/' + THEMES.length + '  ' + longestThemeName + '   WEAPON ' + longestWeaponName + ' ' + WEAPON_TIER_LABELS[WEAPON_TIER_LABELS.length - 1] + '   HIGH ' + Array(maxHighDigits + 1).join('8');
+    const worstScoreW = measureHudTextWidth(worstScoreLine, scoreFont);
+    const worstDetailW = measureHudTextWidth(longestDetailLine, detailFont);
     const heatPanelW = compact ? 20 : 22;
     const heatPanelGap = compact ? 5 : 6;
     const scorePanelMinW = compact ? 240 : 290;
     const scorePanelMaxW = Math.max(scorePanelMinW, Math.min(view.w - 24 - heatPanelGap - heatPanelW, compact ? 460 : 600));
-    const panelW = clamp(Math.round((contentW + (compact ? 42 : 46)) * 1.2), scorePanelMinW, scorePanelMaxW);
+    const contentW = Math.max(scoreW, detailW, worstScoreW, worstDetailW);
+    const panelW = clamp(Math.round(contentW + (compact ? 34 : 40)), scorePanelMinW, scorePanelMaxW);
     const panelH = compact ? 44 : 48;
     const panelX = 8;
     const panelY = 8;
@@ -6212,11 +6241,31 @@
     }
 
     const invulnPickupActive = p.invuln > 0.5;
-    const powerLabel = state.overdrive > 0 ? 'OVERDRIVE' : p.rapidTimer > 0 ? 'RAPID' : p.magnetTimer > 0 ? 'MAGNET' : invulnPickupActive ? 'INVULN' : '';
-    const powerRatio = state.overdrive > 0 ? state.overdrive / 7 : p.rapidTimer > 0 ? p.rapidTimer / 8 : p.magnetTimer > 0 ? p.magnetTimer / 12 : invulnPickupActive ? p.invuln / 4 : 0;
-      if (powerRatio > 0) {
-        drawBar(view.w * 0.18, view.h - view.controlsH - 30, view.w * 0.64, 10, powerRatio, state.overdrive > 0 ? '#ffe38c' : p.rapidTimer > 0 ? '#ffe97e' : p.magnetTimer > 0 ? '#77f7c4' : '#c7ff8f', 'rgba(0,0,0,0.35)', powerLabel);
-      }
+    let powerLabel = '';
+    let powerRatio = 0;
+    let powerColor = '';
+    let powerBackColor = 'rgba(0,0,0,0.35)';
+    let powerFlat = false;
+    if (invulnPickupActive) {
+      powerLabel = 'INVULN';
+      powerRatio = p.invuln / 4;
+      powerColor = '#ff0000';        
+    } else if (state.overdrive > 0) {
+      powerLabel = 'OVERDRIVE';
+      powerRatio = state.overdrive / 7;
+      powerColor = '#0000ff';      
+    } else if (p.rapidTimer > 0) {
+      powerLabel = 'RAPID';
+      powerRatio = p.rapidTimer / 8;
+      powerColor = '#ffd000';
+    } else if (p.magnetTimer > 0) {
+      powerLabel = 'MAGNET';
+      powerRatio = p.magnetTimer / 12;
+      powerColor = '#c0c0c0';
+    }
+    if (powerRatio > 0) {
+      drawBar(view.w * 0.18, view.h - view.controlsH - 30, view.w * 0.64, 10, powerRatio, powerColor, powerBackColor, powerLabel, powerFlat);
+    }
 
 
     if (state.paused) {
@@ -6297,7 +6346,7 @@
       hudCtx.restore();
       hudCtx.globalAlpha = 0.98;
       hudCtx.font = '900 ' + clamp(Math.round(view.w * 0.038), 22, 42) + 'px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText('PLEASE WAIT WHILE LOADING TEXTURES', view.w * 0.5, view.h * 0.54);
+      hudCtx.fillText('LOADING TEXTURES', view.w * 0.5, view.h * 0.54);
     } else {
       hudCtx.font = '800 15px "Trebuchet MS", "Segoe UI", sans-serif';
       hudCtx.fillText('Click or press Space to begin.', view.w * 0.5, y + cardH - 28);

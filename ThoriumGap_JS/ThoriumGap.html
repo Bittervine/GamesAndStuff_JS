@@ -21,10 +21,7 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background:
-        radial-gradient(circle at 20% 0%, rgba(124, 247, 255, 0.18), transparent 28%),
-        radial-gradient(circle at 90% 10%, rgba(255, 143, 232, 0.16), transparent 32%),
-        linear-gradient(180deg, #08111d 0%, #030712 100%);
+      background: #000;
       color: var(--text);
       font-family: "Trebuchet MS", "Segoe UI", sans-serif;
       user-select: none;
@@ -341,6 +338,23 @@
         inset 0 1px 0 rgba(255, 255, 255, 0.92),
         0 0 16px rgba(34, 118, 255, 0.44);
     }
+    .difficulty-buttons button:disabled {
+      opacity: 0.52;
+      filter: saturate(0.55) grayscale(0.25);
+      cursor: not-allowed;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.26),
+        0 0 8px rgba(34, 118, 255, 0.12);
+    }
+    .difficulty-buttons button:disabled::after {
+      content: 'Locked while playing';
+      display: block;
+      margin-top: 4px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      opacity: 0.8;
+    }
     .settings-note {
       margin: 14px 0 0;
       color: rgba(248, 251, 255, 0.72);
@@ -428,7 +442,7 @@
   </dialog>
   <script>
     (function () {
-      var appVersion = 'thoriumgap-v7';
+      var appVersion = 'thoriumgap-v10';
       var script = document.createElement('script');
       script.src = './ThoriumGap.js';
       document.head.appendChild(script);

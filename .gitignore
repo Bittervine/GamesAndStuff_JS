@@ -4,3 +4,4 @@ Thumbs.db
 *.log
 Reader_JS/test.epub
 Reader_JS/test.mobi
+Reader_JS/book_*.js

@@ -97,6 +97,13 @@
       color: #ffffff;
     }
     .small { font-size: 0.95rem; }
+    .license-link {
+      color: #ffffff;
+      font-weight: 800;
+      text-decoration: underline;
+      text-decoration-thickness: 2px;
+      text-underline-offset: 2px;
+    }
   </style>
 </head>
 <body>
@@ -172,6 +179,7 @@
       <li>Your current weapon loses one tier when a boss is killed, but it will not reduce it below Tier <code>III</code>.</li>
       <li>Weapon overheats after fireing for a few seconds. This is indicated by a bar in the hud and penalized with a very small reduction in fire rate.</li>
     </ul>
+    <p class="small">Fire rate tables below show the base rate from <code>weaponDelay()</code>, before Rapid Fire, Overdrive, and heat penalties.</p>
  
     <h3>Dart</h3>
     <p>Color: cyan. Style: fast forward shots.</p>
@@ -180,11 +188,11 @@
         <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th><th>Fire rate</th><th>DPS</th></tr>
       </thead>
       <tbody>
-        <tr><td>I</td><td>1</td><td>2</td><td>2</td><td>5.00/s</td><td>10.0</td></tr>
-        <tr><td>II</td><td>2</td><td>3</td><td>6</td><td>5.41/s</td><td>32.4</td></tr>
-        <tr><td>III</td><td>4</td><td>4</td><td>16</td><td>5.88/s</td><td>94.1</td></tr>
-        <tr><td>IIII</td><td>6</td><td>5</td><td>30</td><td>6.45/s</td><td>193.5</td></tr>
-        <tr><td>V</td><td>7</td><td>6</td><td>42</td><td>7.14/s</td><td>300.0</td></tr>
+        <tr><td>I</td><td>1</td><td>1</td><td>1</td><td>6.25/s</td><td>6.25</td></tr>
+        <tr><td>II</td><td>2</td><td>1.5</td><td>3</td><td>6.76/s</td><td>20.27</td></tr>
+        <tr><td>III</td><td>4</td><td>2</td><td>8</td><td>7.35/s</td><td>58.82</td></tr>
+        <tr><td>IIII</td><td>6</td><td>2.5</td><td>15</td><td>8.06/s</td><td>120.97</td></tr>
+        <tr><td>V</td><td>7</td><td>3</td><td>21</td><td>8.93/s</td><td>187.50</td></tr>
       </tbody>
     </table>
 
@@ -195,11 +203,11 @@
         <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th><th>Fire rate</th><th>DPS</th></tr>
       </thead>
       <tbody>
-        <tr><td>I</td><td>2</td><td>2</td><td>4</td><td>4.71/s</td><td>18.8</td></tr>
-        <tr><td>II</td><td>3</td><td>3</td><td>9</td><td>5.06/s</td><td>45.6</td></tr>
-        <tr><td>III</td><td>5</td><td>4</td><td>20</td><td>5.48/s</td><td>109.6</td></tr>
-        <tr><td>IIII</td><td>7</td><td>5</td><td>35</td><td>5.97/s</td><td>209.0</td></tr>
-        <tr><td>V</td><td>8</td><td>6</td><td>48</td><td>6.56/s</td><td>314.8</td></tr>
+        <tr><td>I</td><td>2</td><td>1</td><td>2</td><td>5.88/s</td><td>11.76</td></tr>
+        <tr><td>II</td><td>3</td><td>1.5</td><td>4.5</td><td>6.33/s</td><td>28.48</td></tr>
+        <tr><td>III</td><td>5</td><td>2</td><td>10</td><td>6.85/s</td><td>68.49</td></tr>
+        <tr><td>IIII</td><td>7</td><td>2.5</td><td>17.5</td><td>7.46/s</td><td>130.60</td></tr>
+        <tr><td>V</td><td>8</td><td>3</td><td>24</td><td>8.20/s</td><td>196.72</td></tr>
       </tbody>
     </table>
 
@@ -210,11 +218,11 @@
         <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th><th>Fire rate</th><th>DPS</th></tr>
       </thead>
       <tbody>
-        <tr><td>I</td><td>3</td><td>2</td><td>6</td><td>4.00/s</td><td>24.0</td></tr>
-        <tr><td>II</td><td>4</td><td>3</td><td>12</td><td>4.26/s</td><td>51.1</td></tr>
-        <tr><td>III</td><td>5</td><td>4</td><td>20</td><td>4.55/s</td><td>90.9</td></tr>
-        <tr><td>IIII</td><td>6</td><td>5</td><td>30</td><td>4.88/s</td><td>146.3</td></tr>
-        <tr><td>V</td><td>7</td><td>6</td><td>42</td><td>5.26/s</td><td>221.1</td></tr>
+        <tr><td>I</td><td>3</td><td>1</td><td>3</td><td>5.88/s</td><td>17.65</td></tr>
+        <tr><td>II</td><td>4</td><td>1.5</td><td>6</td><td>6.33/s</td><td>37.97</td></tr>
+        <tr><td>III</td><td>5</td><td>2</td><td>10</td><td>6.85/s</td><td>68.49</td></tr>
+        <tr><td>IIII</td><td>7</td><td>2.5</td><td>17.5</td><td>7.46/s</td><td>130.60</td></tr>
+        <tr><td>V</td><td>8</td><td>3</td><td>24</td><td>8.20/s</td><td>196.72</td></tr>
       </tbody>
     </table>
 
@@ -225,11 +233,11 @@
         <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th><th>Fire rate</th><th>DPS</th></tr>
       </thead>
       <tbody>
-        <tr><td>I</td><td>2</td><td>2.0</td><td>4.0</td><td>3.08/s</td><td>12.3</td></tr>
-        <tr><td>II</td><td>3</td><td>2.0</td><td>6.0</td><td>3.23/s</td><td>19.4</td></tr>
-        <tr><td>III</td><td>4</td><td>2.0</td><td>8.0</td><td>3.39/s</td><td>27.1</td></tr>
-        <tr><td>IIII</td><td>5</td><td>2.0</td><td>10.0</td><td>3.57/s</td><td>35.7</td></tr>
-        <tr><td>V</td><td>6</td><td>2.0</td><td>12.0</td><td>3.77/s</td><td>45.3</td></tr>
+        <tr><td>I</td><td>2</td><td>0.5</td><td>1.0</td><td>4.00/s</td><td>4.00</td></tr>
+        <tr><td>II</td><td>3</td><td>0.75</td><td>2.25</td><td>4.20/s</td><td>9.45</td></tr>
+        <tr><td>III</td><td>4</td><td>1.0</td><td>4.0</td><td>4.42/s</td><td>17.70</td></tr>
+        <tr><td>IIII</td><td>5</td><td>1.25</td><td>6.25</td><td>4.67/s</td><td>29.21</td></tr>
+        <tr><td>V</td><td>6</td><td>1.5</td><td>9.0</td><td>4.95/s</td><td>44.55</td></tr>
       </tbody>
     </table>
 
@@ -240,11 +248,11 @@
         <tr><th>Tier</th><th>Projectiles</th><th>Damage per projectile</th><th>Total damage</th><th>Fire rate</th><th>DPS</th></tr>
       </thead>
       <tbody>
-        <tr><td>I</td><td>2</td><td>2</td><td>4</td><td>4.00/s</td><td>16.0</td></tr>
-        <tr><td>II</td><td>3</td><td>3</td><td>9</td><td>4.26/s</td><td>38.3</td></tr>
-        <tr><td>III</td><td>4</td><td>4</td><td>16</td><td>4.55/s</td><td>72.7</td></tr>
-        <tr><td>IIII</td><td>5</td><td>5</td><td>25</td><td>4.88/s</td><td>122.0</td></tr>
-        <tr><td>V</td><td>6</td><td>6</td><td>36</td><td>5.26/s</td><td>189.5</td></tr>
+        <tr><td>I</td><td>2</td><td>1</td><td>2</td><td>4.00/s</td><td>8.00</td></tr>
+        <tr><td>II</td><td>3</td><td>1.5</td><td>4.5</td><td>4.20/s</td><td>18.91</td></tr>
+        <tr><td>III</td><td>4</td><td>2</td><td>8</td><td>4.42/s</td><td>35.40</td></tr>
+        <tr><td>IIII</td><td>5</td><td>2.5</td><td>12.5</td><td>4.67/s</td><td>58.36</td></tr>
+        <tr><td>V</td><td>6</td><td>3</td><td>18</td><td>4.95/s</td><td>89.11</td></tr>
       </tbody>
     </table>
 
@@ -279,6 +287,21 @@
       <li><code>Magnet</code>: lasts about <code>12</code> seconds and pulls nearby pickups toward the player.</li>
       <li><code>Score</code>: grants bonus points. The bonus can be increased by combo and Overdrive score multipliers.</li>
     </ul>
+
+    <h2>License and Credits</h2>
+    <p>
+      This game is provided free-of-charge for anyone to play and enjoy. There are no ads, pay-to-win or subscriptions anywhere.
+    </p>
+    <p>
+      The game code and graphical assets are released under the BSD 3-Clause License. See <a class="license-link" href="https://opensource.org/license/bsd-3-clause">the BSD-3 license text</a> for the full terms.
+      You are welcome to copy, modify, and redistribute the code and graphical assets, provided the license terms and attribution are preserved.
+    </p>
+    <p>
+      The soundtrack is licensed separately and is included by permission only.
+    </p>
+    <p>
+      Game design and programming by CJF (<a class="license-link" href="https://www.frovik.se">frovik.se</a>). Soundtrack design by TBD. (Copyright 2026)
+    </p>
   </main>
 </body>
 </html>

@@ -94,7 +94,7 @@
     </style>
 </head>
 <body>
-    <canvas id="board" width="512" height="512" style="display:block;margin:8px auto;max-width:calc(100vw - 16px);height:auto"></canvas>
+    <canvas id="board" width="512" height="512" style="display:block;margin:8px auto"></canvas>
 
     <div id="controls">
         <div id="buttonRow">
@@ -121,7 +121,7 @@
         var DEADLINE_CHECK_INTERVAL = 128;
         var BASE_SLICE_MS = 10;
         var BASE_NODE_BUDGET = 192;
-        var KINDLE_BATCH_BOOST = 100;
+        var KINDLE_BATCH_BOOST = 6;
         var HARD_DEADLINE_MS = 30000;
         var SOFT_DEADLINE_MS = 10000;
         var PARTIAL_DEPTH_USE_THRESHOLD = 0.5;
@@ -154,6 +154,7 @@
 
         var squareSize = 64;
         var fontWatchHandle = null;
+        var fontRedrawTimer = null;
 
         var userAgent = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
         var kindleAuto = /Kindle|Silk|KF[A-Z0-9]+|KFTT|KFMUWI|KFSUWI|KFDOWI|KFTHWI|KFTRWI/i.test(userAgent);
@@ -303,9 +304,47 @@
         }
 
         function startFreeSerifWatcher() {
-            if (fontWatchHandle || !document.fonts || !document.fonts.load) return;
-            fontWatchHandle = document.fonts.load("10px 'FreeSerif'");
-            fontWatchHandle.then(function () { redraw(); }).catch(function () {});
+            if (fontWatchHandle) return;
+            var completed = false;
+            var useFontCheck = !!(document.fonts && document.fonts.check);
+            var pollId = null;
+
+            function finish() {
+                if (completed) return;
+                completed = true;
+                if (pollId) {
+                    clearInterval(pollId);
+                    pollId = null;
+                }
+                fontWatchHandle = null;
+                if (fontRedrawTimer) {
+                    clearTimeout(fontRedrawTimer);
+                    fontRedrawTimer = null;
+                }
+                redraw();
+            }
+
+            if (document.fonts && document.fonts.load) {
+                try {
+                    document.fonts.load("10px 'FreeSerif'");
+                } catch (err) {}
+            }
+            if (useFontCheck) {
+                pollId = setInterval(function () {
+                    if (document.fonts.check("10px 'FreeSerif'")) {
+                        finish();
+                    }
+                }, 25);
+                fontWatchHandle = pollId;
+            } else {
+                fontWatchHandle = {};
+            }
+
+            if (fontRedrawTimer) clearTimeout(fontRedrawTimer);
+            fontRedrawTimer = setTimeout(function () {
+                fontRedrawTimer = null;
+                finish();
+            }, 250);
         }
 
         function applyKindleControlOffsets() {
