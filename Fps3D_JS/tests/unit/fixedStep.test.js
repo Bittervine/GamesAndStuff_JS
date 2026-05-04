@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { createFixedStepAccumulator, runFixedStep } from '../../core/sim/fixedStep.js';
+import { createFixedStepAccumulator, normalizeElapsedMs, runFixedStep } from '../../core/sim/fixedStep.js';
 
 function runCase(name, fn) {
   try {
@@ -36,4 +36,12 @@ runCase('fixed step accumulator converts elapsed time into deterministic steps',
   assert.equal(accumulator.remainderMs, 4);
   assert.equal(accumulator.add(28), 2);
   assert.equal(accumulator.remainderMs, 0);
+});
+
+runCase('normalizeElapsedMs clamps invalid and oversized frame deltas', () => {
+  assert.equal(normalizeElapsedMs(-1), 0);
+  assert.equal(normalizeElapsedMs(Number.NaN), 0);
+  assert.equal(normalizeElapsedMs(12), 12);
+  assert.equal(normalizeElapsedMs(250), 100);
+  assert.equal(normalizeElapsedMs(250, 33), 33);
 });

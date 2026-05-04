@@ -1,4 +1,5 @@
 import { polygonSignedArea, surfaceHeightAt } from '../world/spatial.js';
+import { isWallBlocking } from '../world/level.js';
 
 function pushVertex(positions, normals, uvs, position, normal, uv) {
   positions.push(position[0], position[1], position[2]);
@@ -228,7 +229,7 @@ function buildBrushLevelGeometry(level, options = {}) {
     }
 
     for (const edge of sector.edges || []) {
-      if (!edge.solid) {
+      if (!edge.solid || !isWallBlocking(level, edge)) {
         continue;
       }
 

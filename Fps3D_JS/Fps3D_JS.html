@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fps3D_JS</title>
+  <link rel="icon" href="data:,">
   <style>
     html, body {
       width: 100%;
@@ -62,6 +63,119 @@
       color: #ffd7a4;
     }
 
+    #menu-toggle {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      z-index: 6;
+      padding: 10px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 10px;
+      background: rgba(5, 8, 13, 0.72);
+      color: #eef3ff;
+      font: 700 12px "Segoe UI", system-ui, sans-serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(8px);
+      cursor: pointer;
+    }
+
+    #menu-toggle:hover {
+      background: rgba(15, 20, 28, 0.86);
+    }
+
+    #settings-backdrop {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      display: grid;
+      place-items: center;
+      background: rgba(2, 4, 8, 0.58);
+      backdrop-filter: blur(8px);
+    }
+
+    #settings-backdrop[hidden] {
+      display: none;
+    }
+
+    #settings-menu {
+      width: min(92vw, 380px);
+      padding: 22px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at top, rgba(100, 132, 189, 0.18), transparent 42%),
+        linear-gradient(180deg, rgba(13, 18, 28, 0.96), rgba(6, 9, 14, 0.98));
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    #settings-menu h2 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .menu-field {
+      display: grid;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .menu-field label {
+      color: rgba(226, 235, 248, 0.8);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .menu-check {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #eef3ff;
+      font-size: 15px;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .menu-check input {
+      width: 18px;
+      height: 18px;
+      accent-color: #f8d46c;
+    }
+
+    .menu-control,
+    .menu-actions button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 11px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.06);
+      color: #eef3ff;
+      font: inherit;
+    }
+
+    .menu-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .menu-actions button {
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .menu-note {
+      margin: 14px 0 0;
+      color: rgba(226, 235, 248, 0.68);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
     #error {
       position: absolute;
       inset: 0;
@@ -83,11 +197,32 @@
       <strong>Hidden FPS Prototype</strong>
       <div>Click the view to lock pointer.</div>
       <div>WASD move, mouse look, LMB fire, mouse wheel switch, R restart, Esc pause.</div>
+      <div>Gamepad: left stick move, right stick look, RT fire, LT alt-fire, A use, LB/RB weapons, Start pause.</div>
       <div id="overlay-state">Loading...</div>
+    </div>
+    <button id="menu-toggle" type="button">Menu</button>
+    <div id="settings-backdrop" hidden>
+      <div id="settings-menu" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <h2 id="settings-title">Settings</h2>
+        <div class="menu-field">
+          <label class="menu-check" for="invert-gamepad-y">
+            <input id="invert-gamepad-y" type="checkbox">
+            Invert gamepad Y
+          </label>
+        </div>
+        <div class="menu-field">
+          <label for="difficulty-select">Difficulty</label>
+          <select id="difficulty-select" class="menu-control"></select>
+        </div>
+        <p class="menu-note">Settings save automatically in this browser.</p>
+        <div class="menu-actions">
+          <button id="restart-game" type="button">Restart game</button>
+          <button id="close-menu" type="button">Close</button>
+        </div>
+      </div>
     </div>
     <div id="error"></div>
   </div>
   <script type="module" src="./Fps3D_JS.js"></script>
 </body>
 </html>
-

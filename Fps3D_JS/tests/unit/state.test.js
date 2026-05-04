@@ -1,5 +1,56 @@
 import assert from 'node:assert/strict';
 import { createGameState, advanceGameState } from '../../core/game/state.js';
+import { sampleGamepadInput } from '../../core/game/input.js';
+
+const DOOR_LEVEL = {
+  id: 'door-test',
+  name: 'Door Test',
+  spawn: { x: 3.4, z: 2, yaw: 0 },
+  exit: { x: 7.5, z: 2 },
+  sectors: [
+    {
+      id: 'left',
+      loop: [
+        [0, 0],
+        [4, 0],
+        [4, 4],
+        [0, 4]
+      ],
+      portals: [
+        { edge: 1, to: 'right' }
+      ]
+    },
+    {
+      id: 'right',
+      loop: [
+        [4, 0],
+        [8, 0],
+        [8, 4],
+        [4, 4]
+      ],
+      portals: [
+        { edge: 3, to: 'left' }
+      ]
+    }
+  ],
+  doors: [
+    {
+      id: 'center-door',
+      edge: {
+        sectorId: 'left',
+        edgeIndex: 1
+      }
+    }
+  ]
+};
+
+const DIFFICULTY_LEVEL = {
+  id: 'difficulty-test',
+  name: 'Difficulty Test',
+  rows: [
+    'Pz'
+  ]
+};
 
 function runCase(name, fn) {
   try {
@@ -22,6 +73,8 @@ runCase('createGameState initializes level, enemies, pickups, and replay capture
   assert.ok(state.replay.events.length >= 1);
   assert.equal(state.requestRestart, false);
   assert.ok(state.player.eyeHeight > 1);
+  assert.equal(state.difficultyId, 'invulnerable');
+  assert.equal(state.difficulty.label, 'Invulnerable');
 });
 
 runCase('advanceGameState moves the player and records input deterministically', () => {
@@ -43,4 +96,146 @@ runCase('advanceGameState moves the player and records input deterministically',
   }, 16);
   assert.ok(state.player.x !== startX || state.player.z !== startZ);
   assert.ok(state.replay.events.some((event) => event.type === 'input'));
+});
+
+runCase('advanceGameState opens nearby doors when using', () => {
+  const state = createGameState({ seed: 123, levelDefinition: DOOR_LEVEL });
+
+  assert.equal(state.level.doors[0].open, false);
+
+  advanceGameState(state, {
+    moveForward: 0,
+    moveStrafe: 0,
+    lookYaw: 0,
+    lookPitch: 0,
+    fire: false,
+    altFire: false,
+    use: true,
+    sprint: false,
+    weaponIndex: null,
+    nextWeapon: false,
+    prevWeapon: false
+  }, 16);
+
+  assert.equal(state.level.doors[0].open, true);
+  assert.ok(state.events.some((event) => event.type === 'doorOpened'));
+  assert.ok(state.replay.events.some((event) => event.type === 'doorOpened'));
+});
+
+runCase('advanceGameState requests a restart when restart is pressed', () => {
+  const state = createGameState({ seed: 123, levelId: 'alpha01' });
+
+  advanceGameState(state, {
+    moveForward: 0,
+    moveStrafe: 0,
+    lookYaw: 0,
+    lookPitch: 0,
+    fire: false,
+    altFire: false,
+    use: false,
+    sprint: false,
+    weaponIndex: null,
+    nextWeapon: false,
+    prevWeapon: false,
+    restart: true
+  }, 16);
+
+  assert.equal(state.requestRestart, true);
+  assert.ok(state.events.some((event) => event.type === 'restartRequested'));
+});
+
+runCase('difficulty changes enemy damage and player invulnerability', () => {
+  const invulnerable = createGameState({ seed: 123, levelDefinition: DIFFICULTY_LEVEL });
+  invulnerable.player.armor = 0;
+  advanceGameState(invulnerable, {
+    moveForward: 0,
+    moveStrafe: 0,
+    lookYaw: 0,
+    lookPitch: 0,
+    fire: false,
+    altFire: false,
+    use: false,
+    sprint: false,
+    weaponIndex: null,
+    nextWeapon: false,
+    prevWeapon: false
+  }, 16);
+
+  const hard = createGameState({ seed: 123, levelDefinition: DIFFICULTY_LEVEL, difficulty: 'hard' });
+  hard.player.armor = 0;
+  advanceGameState(hard, {
+    moveForward: 0,
+    moveStrafe: 0,
+    lookYaw: 0,
+    lookPitch: 0,
+    fire: false,
+    altFire: false,
+    use: false,
+    sprint: false,
+    weaponIndex: null,
+    nextWeapon: false,
+    prevWeapon: false
+  }, 16);
+
+  assert.equal(invulnerable.player.health, 100);
+  assert.ok(hard.player.health < 100);
+  assert.equal(hard.difficultyId, 'hard');
+});
+
+runCase('sampleGamepadInput maps sticks, triggers, and one-shot buttons', () => {
+  const gamepad = {
+    connected: true,
+    index: 0,
+    id: 'Test Pad',
+    axes: [0.42, -0.77, 0.31, -0.5],
+    buttons: Array.from({ length: 16 }, () => ({ pressed: false, value: 0 }))
+  };
+  gamepad.buttons[0] = { pressed: true, value: 1 };
+  gamepad.buttons[4] = { pressed: true, value: 1 };
+  gamepad.buttons[5] = { pressed: true, value: 1 };
+  gamepad.buttons[6] = { pressed: true, value: 1 };
+  gamepad.buttons[7] = { pressed: true, value: 1 };
+  gamepad.buttons[8] = { pressed: true, value: 1 };
+  gamepad.buttons[9] = { pressed: true, value: 1 };
+  gamepad.buttons[10] = { pressed: true, value: 1 };
+  gamepad.buttons[12] = { pressed: true, value: 1 };
+
+  const first = sampleGamepadInput(gamepad, []);
+  assert.equal(first.connected, true);
+  assert.ok(first.moveForward > 0.7);
+  assert.ok(first.moveStrafe > 0.2);
+  assert.ok(first.lookYaw > 2.0);
+  assert.ok(first.lookPitch > 4.0);
+  assert.equal(first.fire, true);
+  assert.equal(first.altFire, true);
+  assert.equal(first.use, true);
+  assert.equal(first.pause, true);
+  assert.equal(first.nextWeapon, true);
+  assert.equal(first.prevWeapon, true);
+  assert.equal(first.restart, true);
+  assert.equal(first.sprint, true);
+
+  const second = sampleGamepadInput(gamepad, first.buttons);
+  assert.equal(second.use, false);
+  assert.equal(second.pause, false);
+  assert.equal(second.nextWeapon, false);
+  assert.equal(second.prevWeapon, false);
+  assert.equal(second.restart, false);
+  assert.equal(second.fire, true);
+});
+
+runCase('sampleGamepadInput can invert the Y axis', () => {
+  const gamepad = {
+    connected: true,
+    index: 0,
+    id: 'Test Pad',
+    axes: [0, 0, 0, -0.5],
+    buttons: Array.from({ length: 16 }, () => ({ pressed: false, value: 0 }))
+  };
+
+  const normal = sampleGamepadInput(gamepad, []);
+  const inverted = sampleGamepadInput(gamepad, [], { invertGamepadY: true });
+
+  assert.ok(normal.lookPitch > 0);
+  assert.ok(inverted.lookPitch < 0);
 });

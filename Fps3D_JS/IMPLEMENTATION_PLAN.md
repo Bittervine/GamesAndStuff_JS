@@ -1,6 +1,6 @@
 # Fps3D_JS Implementation Plan
 
-Last updated: 2026-04-25
+Last updated: 2026-05-04
 
 ## Goal
 
@@ -17,9 +17,11 @@ Build a Doom II style browser FPS with WebGL and full 3D acceleration. The end r
 - Playwright harness: not started
 - Engine scaffold: in progress
 - Player controller: in progress
+- Doors and connected rooms: in progress
 - Weapons: in progress
 - Enemies: in progress
 - Levels: in progress
+- UI, audio, and settings: in progress
 - Textures and art pipeline: not started
 - Launcher integration: intentionally blocked
 
@@ -148,6 +150,7 @@ Fps3D_JS/
 - [ ] Add enemy death, stun, knockback, sound cues, and simple state machines.
 - [ ] Add a few boss encounters once the core loop is stable.
 
+
 ### 6. Levels
 
 - [ ] Define a brush/mesh level format for geometry, spawn points, pickups, doors, triggers, and scripted events.
@@ -172,9 +175,10 @@ Fps3D_JS/
 
 ### 9. UI, Audio, and Settings
 
-- [ ] Add HUD for health, armor, ammo, keys, and current weapon.
-- [ ] Add menu flow for start, pause, settings, and restart.
+- [x] Add HUD for health, armor, ammo, keys, and current weapon.
+- [x] Add in-game menu flow for pause, settings, and restart.
 - [ ] Add sound effects and background music hooks.
+- [x] Add saveable gameplay settings for gamepad Y inversion and difficulty.
 - [ ] Add settings for sensitivity, fullscreen, volume, and graphics quality.
 
 ### 10. Polish and Performance
@@ -251,3 +255,6 @@ Fps3D_JS/
 - 2026-04-25: Added a hidden browser entry page, a local static server, and a browser playtest bootstrap.
 - 2026-04-25: Added a sector-based alpha level, WebGL world mesh generation, and angled-wall regression tests.
 - 2026-04-25: Verified the hidden playtest server serves `Fps3D_JS.html` at the root path.
+- 2026-05-04: Added openable brush-level doors, use-key interaction, door-aware collision/raycast/rendering, and regression tests for opening passages.
+- 2026-05-04: Added browser gamepad polling, analog stick movement/look, trigger firing, and controller button mappings.
+- 2026-05-04: Added a saveable in-game settings menu for gamepad Y inversion, difficulty selection, and restart, and verified it in Playwright.

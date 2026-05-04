@@ -2,6 +2,7 @@ import { ENEMY_CHAR_MAP } from '../../data/enemies.js';
 import {
   buildPolygonEdges,
   computeBoundsFromPoints,
+  distanceSqPointToSegment,
   normalizeLoop,
   normalizeSurface,
   pointInConvexPolygon,
@@ -53,6 +54,89 @@ function normalizeEntityList(entries, kind) {
   });
 }
 
+function normalizeDoorEdgeReference(ref, fallbackSectorId = null) {
+  if (typeof ref === 'number' || typeof ref === 'string') {
+    const sectorId = fallbackSectorId;
+    const edgeIndex = Number(ref);
+    if (typeof sectorId === 'string' && sectorId.length > 0 && Number.isInteger(edgeIndex) && edgeIndex >= 0) {
+      return {
+        sectorId,
+        edgeIndex
+      };
+    }
+    return null;
+  }
+
+  if (!ref || typeof ref !== 'object') {
+    return null;
+  }
+
+  const sectorId = typeof ref.sectorId === 'string'
+    ? ref.sectorId
+    : typeof ref.sector === 'string'
+      ? ref.sector
+      : fallbackSectorId;
+  const edgeIndex = Number(ref.edgeIndex ?? ref.edge ?? ref.index);
+
+  if (typeof sectorId !== 'string' || sectorId.length === 0 || !Number.isInteger(edgeIndex) || edgeIndex < 0) {
+    return null;
+  }
+
+  return {
+    sectorId,
+    edgeIndex
+  };
+}
+
+function normalizeDoorDefinition(door, index, fallbackSectorId = null) {
+  if (!door || typeof door !== 'object') {
+    throw new TypeError('door definition must be an object');
+  }
+
+  const id = door.id || `door-${index + 1}`;
+  const name = door.name || door.label || id;
+  const open = !!(door.open ?? door.isOpen ?? false);
+  const locked = !!door.locked;
+  const doorSectorId = typeof door.sectorId === 'string'
+    ? door.sectorId
+    : typeof door.sector === 'string'
+      ? door.sector
+      : fallbackSectorId;
+  const requiredKey = typeof door.requiredKey === 'string'
+    ? door.requiredKey
+    : typeof door.key === 'string'
+      ? door.key
+      : null;
+  const rawEdges = Array.isArray(door.edges) && door.edges.length > 0
+    ? door.edges
+    : door.edge && typeof door.edge === 'object'
+      ? [door.edge]
+      : [door];
+  const edges = [];
+
+  for (const rawEdge of rawEdges) {
+    const edgeRef = normalizeDoorEdgeReference(rawEdge, doorSectorId);
+    if (!edgeRef) {
+      continue;
+    }
+    edges.push(edgeRef);
+  }
+
+  if (edges.length === 0) {
+    throw new TypeError(`door ${id} must reference at least one sector edge`);
+  }
+
+  return {
+    type: 'door',
+    id,
+    name,
+    open,
+    locked,
+    requiredKey,
+    edges
+  };
+}
+
 function normalizePortalMap(sector) {
   const openEdges = new Map();
 
@@ -96,6 +180,36 @@ function normalizePortalMap(sector) {
   }
 
   return openEdges;
+}
+
+function collectRawDoorDefinitions(definition) {
+  const rawDoors = [];
+
+  if (Array.isArray(definition.doors)) {
+    for (const door of definition.doors) {
+      rawDoors.push({
+        door,
+        fallbackSectorId: null
+      });
+    }
+  }
+
+  if (Array.isArray(definition.sectors)) {
+    for (const sector of definition.sectors) {
+      if (!sector || typeof sector !== 'object' || !Array.isArray(sector.doors)) {
+        continue;
+      }
+
+      for (const door of sector.doors) {
+        rawDoors.push({
+          door,
+          fallbackSectorId: typeof sector.id === 'string' ? sector.id : null
+        });
+      }
+    }
+  }
+
+  return rawDoors;
 }
 
 function normalizeSectorDefinition(sector, index) {
@@ -150,8 +264,45 @@ function normalizeSectorDefinition(sector, index) {
 function buildBrushLevel(definition) {
   const sectors = definition.sectors.map((sector, index) => normalizeSectorDefinition(sector, index));
   const sectorById = new Map(sectors.map((sector) => [sector.id, sector]));
+  const rawDoors = collectRawDoorDefinitions(definition);
+  const doors = rawDoors.map(({ door, fallbackSectorId }, index) => normalizeDoorDefinition(door, index, fallbackSectorId));
+  const doorById = new Map();
+  const doorByEdgeKey = new Map();
   const walls = [];
   const seenWalls = new Set();
+
+  for (const door of doors) {
+    if (doorById.has(door.id)) {
+      throw new RangeError(`duplicate door id "${door.id}"`);
+    }
+    doorById.set(door.id, door);
+
+    for (const edgeRef of door.edges) {
+      const sector = sectorById.get(edgeRef.sectorId);
+      const edge = sector?.edges?.[edgeRef.edgeIndex];
+      if (!edge) {
+        throw new RangeError(`door ${door.id} references missing edge "${edgeRef.sectorId}:${edgeRef.edgeIndex}"`);
+      }
+
+      const edgeKey = `${edgeRef.sectorId}:${edgeRef.edgeIndex}`;
+      if (doorByEdgeKey.has(edgeKey)) {
+        throw new RangeError(`duplicate door edge reference "${edgeKey}"`);
+      }
+      doorByEdgeKey.set(edgeKey, door.id);
+    }
+  }
+
+  for (const sector of sectors) {
+    for (const edge of sector.edges) {
+      const doorId = doorByEdgeKey.get(`${sector.id}:${edge.index}`) ?? null;
+      if (!doorId) {
+        continue;
+      }
+
+      edge.doorId = doorId;
+      edge.solid = true;
+    }
+  }
 
   const allPoints = [];
   for (const sector of sectors) {
@@ -230,6 +381,10 @@ function buildBrushLevel(definition) {
     sectors,
     sectorById,
     walls,
+    doors,
+    doorById,
+    doorByEdgeKey,
+    geometryVersion: 0,
     spawn,
     enemySpawns,
     pickups,
@@ -333,6 +488,10 @@ function buildGridLevel(definition) {
     sectors: [],
     sectorById: new Map(),
     walls: [],
+    doors: [],
+    doorById: new Map(),
+    doorByEdgeKey: new Map(),
+    geometryVersion: 0,
     grid,
     rows: grid.map((row) => row.join('')),
     spawn,
@@ -407,6 +566,98 @@ export function getCeilingHeightAt(level, x, z) {
   }
 
   return surfaceHeightAt(sector.ceilingSurface, x, z);
+}
+
+function getDoorEdge(level, edgeRef) {
+  if (!level?.sectorById || !edgeRef) {
+    return null;
+  }
+
+  const sector = level.sectorById.get(edgeRef.sectorId);
+  if (!sector || !Array.isArray(sector.edges)) {
+    return null;
+  }
+
+  return sector.edges[edgeRef.edgeIndex] || null;
+}
+
+export function isWallBlocking(level, wall) {
+  if (!wall) {
+    return false;
+  }
+
+  if (!wall.doorId) {
+    return true;
+  }
+
+  const door = level?.doorById?.get(wall.doorId);
+  return !door || !door.open;
+}
+
+export function findDoorNearPoint(level, x, z, maxDistance = 0.85) {
+  if (!level?.doors || !Array.isArray(level.doors) || level.doors.length === 0) {
+    return null;
+  }
+
+  const maxDistanceSq = maxDistance * maxDistance;
+  let best = null;
+
+  for (const door of level.doors) {
+    if (!door || door.open || door.locked) {
+      continue;
+    }
+
+    for (const edgeRef of door.edges) {
+      const edge = getDoorEdge(level, edgeRef);
+      if (!edge) {
+        continue;
+      }
+
+      const distanceSq = distanceSqPointToSegment(x, z, edge.ax, edge.az, edge.bx, edge.bz);
+      if (distanceSq > maxDistanceSq) {
+        continue;
+      }
+
+      if (!best || distanceSq < best.distanceSq) {
+        best = {
+          door,
+          edgeRef,
+          edge,
+          distanceSq
+        };
+      }
+    }
+  }
+
+  return best;
+}
+
+export function setDoorOpen(level, doorId, open = true) {
+  if (!level?.doorById) {
+    return null;
+  }
+
+  const door = level.doorById.get(doorId);
+  if (!door) {
+    return null;
+  }
+
+  const nextOpen = !!open;
+  if (door.open === nextOpen) {
+    return door;
+  }
+
+  door.open = nextOpen;
+  level.geometryVersion = (Number(level.geometryVersion) || 0) + 1;
+  return door;
+}
+
+export function openDoor(level, doorId) {
+  return setDoorOpen(level, doorId, true);
+}
+
+export function closeDoor(level, doorId) {
+  return setDoorOpen(level, doorId, false);
 }
 
 export function getCell(level, x, z) {

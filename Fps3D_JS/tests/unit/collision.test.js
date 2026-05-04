@@ -1,6 +1,47 @@
 import assert from 'node:assert/strict';
 import { moveCircle, isCircleBlocked } from '../../core/world/collision.js';
-import { parseLevelDefinition } from '../../core/world/level.js';
+import { openDoor, parseLevelDefinition } from '../../core/world/level.js';
+
+const DOOR_LEVEL = {
+  id: 'door-test',
+  spawn: { x: 1.5, z: 2, yaw: 0 },
+  exit: { x: 7.5, z: 2 },
+  sectors: [
+    {
+      id: 'left',
+      loop: [
+        [0, 0],
+        [4, 0],
+        [4, 4],
+        [0, 4]
+      ],
+      portals: [
+        { edge: 1, to: 'right' }
+      ]
+    },
+    {
+      id: 'right',
+      loop: [
+        [4, 0],
+        [8, 0],
+        [8, 4],
+        [4, 4]
+      ],
+      portals: [
+        { edge: 3, to: 'left' }
+      ]
+    }
+  ],
+  doors: [
+    {
+      id: 'center-door',
+      edge: {
+        sectorId: 'left',
+        edgeIndex: 1
+      }
+    }
+  ]
+};
 
 function runCase(name, fn) {
   try {
@@ -70,4 +111,20 @@ runCase('brush geometry blocks movement against angled walls', () => {
   assert.equal(isCircleBlocked(level, moved.x, moved.z, 0.2), false);
   assert.ok(moved.x > 0.2);
   assert.equal(moved.z, 2);
+});
+
+runCase('closed doors block movement until opened', () => {
+  const level = parseLevelDefinition(DOOR_LEVEL);
+
+  assert.equal(isCircleBlocked(level, 4, 2, 0.2), true);
+
+  const blockedMove = moveCircle(level, 3.4, 2, 0.2, 0.5, 0);
+  assert.ok(blockedMove.x < 3.9);
+
+  openDoor(level, 'center-door');
+
+  assert.equal(isCircleBlocked(level, 4, 2, 0.2), false);
+
+  const openMove = moveCircle(level, 3.4, 2, 0.2, 0.5, 0);
+  assert.ok(openMove.x > 3.85);
 });

@@ -1,4 +1,4 @@
-import { getCell, isSolidCell } from './level.js';
+import { getCell, isSolidCell, isWallBlocking } from './level.js';
 import { raySegmentIntersection } from './spatial.js';
 
 export function normalize2d(x, z) {
@@ -120,6 +120,10 @@ export function castWorldRay(level, originX, originZ, dirX, dirZ, maxDistance = 
     let bestHit = null;
 
     for (const wall of level.walls) {
+      if (!isWallBlocking(level, wall)) {
+        continue;
+      }
+
       const hit = raySegmentIntersection(originX, originZ, rayDirX, rayDirZ, wall.ax, wall.az, wall.bx, wall.bz, maxDistance);
       if (!hit) {
         continue;

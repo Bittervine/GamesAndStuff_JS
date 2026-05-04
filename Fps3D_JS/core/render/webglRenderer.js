@@ -192,7 +192,7 @@ export function createWorldRenderer(canvas, textures, options = {}) {
   const model = createMat4();
   const tempModel = createMat4();
   const lightDir = options.lightDir || [0.35, 0.9, 0.25];
-  let currentLevelId = null;
+  let currentGeometryKey = null;
   let currentGeometry = null;
 
   gl.useProgram(programInfo.program);
@@ -203,18 +203,27 @@ export function createWorldRenderer(canvas, textures, options = {}) {
   gl.uniform3fv(programInfo.uniformLocations.lightDir, new Float32Array(lightDir));
   gl.uniform1i(programInfo.uniformLocations.texture, 0);
 
+  function getGeometryKey(level) {
+    if (!level) {
+      return null;
+    }
+
+    return `${level.id}:${Number(level.geometryVersion) || 0}`;
+  }
+
   function ensureLevelGeometry(level) {
     if (!level) {
       return null;
     }
 
-    if (currentLevelId === level.id && currentGeometry) {
+    const geometryKey = getGeometryKey(level);
+    if (currentGeometryKey === geometryKey && currentGeometry) {
       return currentGeometry;
     }
 
-    const cached = levelGeometryCache.get(level.id);
+    const cached = levelGeometryCache.get(geometryKey);
     if (cached) {
-      currentLevelId = level.id;
+      currentGeometryKey = geometryKey;
       currentGeometry = cached;
       return cached;
     }
@@ -226,8 +235,8 @@ export function createWorldRenderer(canvas, textures, options = {}) {
       ceiling: createMeshBufferInfo(gl, geometry.ceiling)
     };
 
-    levelGeometryCache.set(level.id, built);
-    currentLevelId = level.id;
+    levelGeometryCache.set(geometryKey, built);
+    currentGeometryKey = geometryKey;
     currentGeometry = built;
     return built;
   }
@@ -347,7 +356,7 @@ export function createWorldRenderer(canvas, textures, options = {}) {
     dispose,
     clearLevelCache() {
       levelGeometryCache.clear();
-      currentLevelId = null;
+      currentGeometryKey = null;
       currentGeometry = null;
     }
   };

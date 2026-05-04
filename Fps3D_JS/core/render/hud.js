@@ -1,4 +1,5 @@
 import { WEAPON_ORDER, getWeaponDef } from '../../data/weapons.js';
+import { isWallBlocking } from '../world/level.js';
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -123,6 +124,10 @@ function drawBrushMiniMap(ctx, state, x, y, width, height) {
   }
 
   for (const wall of level.walls || []) {
+    if (!isWallBlocking(level, wall)) {
+      continue;
+    }
+
     const start = worldToMini(bounds, wall.ax, wall.az, scale, offsetX, offsetZ);
     const end = worldToMini(bounds, wall.bx, wall.bz, scale, offsetX, offsetZ);
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
@@ -130,6 +135,30 @@ function drawBrushMiniMap(ctx, state, x, y, width, height) {
     ctx.moveTo(start.x, start.z);
     ctx.lineTo(end.x, end.z);
     ctx.stroke();
+  }
+
+  for (const door of level.doors || []) {
+    if (!door || !Array.isArray(door.edges) || door.edges.length === 0) {
+      continue;
+    }
+
+    ctx.strokeStyle = door.open ? 'rgba(120, 255, 170, 0.92)' : 'rgba(255, 205, 96, 0.94)';
+    ctx.lineWidth = door.open ? 2 : 3;
+
+    for (const edgeRef of door.edges) {
+      const sector = level.sectorById?.get(edgeRef.sectorId);
+      const edge = sector?.edges?.[edgeRef.edgeIndex];
+      if (!edge) {
+        continue;
+      }
+
+      const start = worldToMini(bounds, edge.ax, edge.az, scale, offsetX, offsetZ);
+      const end = worldToMini(bounds, edge.bx, edge.bz, scale, offsetX, offsetZ);
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.z);
+      ctx.lineTo(end.x, end.z);
+      ctx.stroke();
+    }
   }
 
   for (const pickup of state.pickups) {

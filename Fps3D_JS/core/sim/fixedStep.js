@@ -6,6 +6,18 @@ export function normalizeStepMs(stepMs) {
   return Number(stepMs);
 }
 
+export function normalizeElapsedMs(elapsedMs, maxElapsedMs = 100) {
+  if (!Number.isFinite(elapsedMs) || elapsedMs < 0) {
+    return 0;
+  }
+
+  if (!Number.isFinite(maxElapsedMs) || maxElapsedMs <= 0) {
+    return elapsedMs;
+  }
+
+  return Math.min(elapsedMs, maxElapsedMs);
+}
+
 export function runFixedStep(state, steps, stepMs, update) {
   if (!Number.isInteger(steps) || steps < 0) {
     throw new RangeError('steps must be a non-negative integer');

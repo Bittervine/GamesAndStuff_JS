@@ -1,5 +1,5 @@
 import { closestPointOnSegment, distanceSqPointToSegment } from './spatial.js';
-import { isInsideLevel } from './level.js';
+import { isInsideLevel, isWallBlocking } from './level.js';
 
 function circleIntersectsCell(cx, cz, radius, cellX, cellZ) {
   const nearestX = Math.max(cellX, Math.min(cx, cellX + 1));
@@ -17,6 +17,10 @@ export function isCircleBlocked(level, x, z, radius) {
 
     const radiusSq = radius * radius;
     for (const wall of level.walls) {
+      if (!isWallBlocking(level, wall)) {
+        continue;
+      }
+
       if (distanceSqPointToSegment(x, z, wall.ax, wall.az, wall.bx, wall.bz) < radiusSq) {
         return true;
       }
@@ -78,6 +82,10 @@ export function moveCircle(level, x, z, radius, dx, dz) {
       let moved = false;
 
       for (const wall of level.walls) {
+        if (!isWallBlocking(level, wall)) {
+          continue;
+        }
+
         const nearest = closestPointOnSegment(candidateX, candidateZ, wall.ax, wall.az, wall.bx, wall.bz);
         if (nearest.distanceSq >= radiusSq) {
           continue;

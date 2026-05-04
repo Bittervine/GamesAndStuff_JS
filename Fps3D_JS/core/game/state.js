@@ -1,6 +1,6 @@
 import { createSeededRng, deriveSeed, normalizeSeed } from '../random/seededRng.js';
 import { createReplayCapture, appendReplayEvent } from '../replay/replayCodec.js';
-import { parseLevelDefinition } from '../world/level.js';
+import { findDoorNearPoint, openDoor, parseLevelDefinition } from '../world/level.js';
 import { moveCircle } from '../world/collision.js';
 import { distance2d, hasLineOfSight } from '../world/raycast.js';
 import { WEAPON_ORDER, getWeaponDef } from '../../data/weapons.js';
@@ -11,6 +11,84 @@ import { fireWeapon, applyProjectileImpact } from '../combat/weapons.js';
 const LEVEL_DEFS = {
   alpha01: LEVEL_ALPHA01
 };
+
+export const DIFFICULTY_ORDER = ['invulnerable', 'easy', 'medium', 'hard'];
+
+export const DIFFICULTY_PRESETS = {
+  invulnerable: {
+    id: 'invulnerable',
+    label: 'Invulnerable',
+    playerDamageMultiplier: 0,
+    enemyDamageMultiplier: 1,
+    enemySpeedMultiplier: 1,
+    enemyCooldownMultiplier: 1
+  },
+  easy: {
+    id: 'easy',
+    label: 'Easy',
+    playerDamageMultiplier: 0.6,
+    enemyDamageMultiplier: 0.85,
+    enemySpeedMultiplier: 0.92,
+    enemyCooldownMultiplier: 1.08
+  },
+  medium: {
+    id: 'medium',
+    label: 'Medium',
+    playerDamageMultiplier: 1,
+    enemyDamageMultiplier: 1,
+    enemySpeedMultiplier: 1,
+    enemyCooldownMultiplier: 1
+  },
+  hard: {
+    id: 'hard',
+    label: 'Hard',
+    playerDamageMultiplier: 1.25,
+    enemyDamageMultiplier: 1.15,
+    enemySpeedMultiplier: 1.08,
+    enemyCooldownMultiplier: 0.9
+  }
+};
+
+function scaleDamageAmount(amount, multiplier) {
+  const numericAmount = Number(amount) || 0;
+  const numericMultiplier = Number(multiplier) || 0;
+
+  if (numericAmount <= 0 || numericMultiplier <= 0) {
+    return 0;
+  }
+
+  return Math.max(1, Math.round(numericAmount * numericMultiplier));
+}
+
+export function normalizeDifficultyId(value) {
+  if (typeof value === 'string' && Object.prototype.hasOwnProperty.call(DIFFICULTY_PRESETS, value)) {
+    return value;
+  }
+
+  if (value && typeof value === 'object' && typeof value.id === 'string') {
+    return normalizeDifficultyId(value.id);
+  }
+
+  return 'invulnerable';
+}
+
+export function getDifficultyConfig(value = 'invulnerable') {
+  const difficultyId = normalizeDifficultyId(value);
+  return {
+    ...DIFFICULTY_PRESETS[difficultyId]
+  };
+}
+
+export function applyDifficultyToState(state, difficulty = 'invulnerable') {
+  if (!state || typeof state !== 'object') {
+    return null;
+  }
+
+  const config = getDifficultyConfig(difficulty);
+  state.difficultyId = config.id;
+  state.difficulty = config;
+  return config;
+}
 
 function cloneInput(input) {
   return {
@@ -25,7 +103,8 @@ function cloneInput(input) {
     pause: !!input?.pause,
     weaponIndex: Number.isInteger(input?.weaponIndex) ? input.weaponIndex : null,
     nextWeapon: !!input?.nextWeapon,
-    prevWeapon: !!input?.prevWeapon
+    prevWeapon: !!input?.prevWeapon,
+    restart: !!input?.restart
   };
 }
 
@@ -110,7 +189,8 @@ function snapshotInput(input) {
     sprint: input.sprint,
     weaponIndex: input.weaponIndex,
     nextWeapon: input.nextWeapon,
-    prevWeapon: input.prevWeapon
+    prevWeapon: input.prevWeapon,
+    restart: input.restart
   };
 }
 
@@ -120,11 +200,18 @@ function applyPlayerDamage(state, amount, source) {
   }
 
   const player = state.player;
+  const difficulty = state.difficulty || DIFFICULTY_PRESETS.invulnerable;
+  const scaledAmount = scaleDamageAmount(amount, difficulty.playerDamageMultiplier);
+
+  if (scaledAmount <= 0) {
+    return 0;
+  }
+
   if (player.invulnMs > 0) {
     return 0;
   }
 
-  let remaining = amount;
+  let remaining = scaledAmount;
   let armorBlocked = 0;
 
   if (player.armor > 0) {
@@ -138,13 +225,13 @@ function applyPlayerDamage(state, amount, source) {
   state.events.push({
     type: 'playerDamaged',
     source,
-    amount,
+    amount: scaledAmount,
     absorbed: armorBlocked,
     remaining
   });
   state.replayPush({
     type: 'playerDamaged',
-    data: { source, amount, absorbed: armorBlocked, remaining }
+    data: { source, amount: scaledAmount, absorbed: armorBlocked, remaining }
   });
 
   if (player.health <= 0) {
@@ -317,6 +404,39 @@ function updateWeapons(state, input) {
   }
 }
 
+function handleUseInteraction(state, input) {
+  if (!input.use) {
+    return false;
+  }
+
+  const useRange = Math.max(0.9, state.player.radius + 0.55);
+  const doorHit = findDoorNearPoint(state.level, state.player.x, state.player.z, useRange);
+  if (!doorHit) {
+    return false;
+  }
+
+  const openedDoor = openDoor(state.level, doorHit.door.id);
+  if (!openedDoor) {
+    return false;
+  }
+
+  state.events.push({
+    type: 'doorOpened',
+    doorId: openedDoor.id,
+    sectorId: doorHit.edgeRef.sectorId,
+    edgeIndex: doorHit.edgeRef.edgeIndex
+  });
+  state.replayPush({
+    type: 'doorOpened',
+    data: {
+      doorId: openedDoor.id,
+      sectorId: doorHit.edgeRef.sectorId,
+      edgeIndex: doorHit.edgeRef.edgeIndex
+    }
+  });
+  return true;
+}
+
 function checkExitCompletion(state) {
   if (state.completed || state.player.dead) {
     return;
@@ -344,17 +464,19 @@ function checkExitCompletion(state) {
 
 export function createGameState(options = {}) {
   const seed = normalizeSeed(options.seed ?? 0xC0FFEE01);
-  const levelId = options.levelId || 'alpha01';
-  const levelDef = LEVEL_DEFS[levelId] || LEVEL_ALPHA01;
+  const requestedLevelId = options.levelId || 'alpha01';
+  const levelDef = options.levelDefinition || LEVEL_DEFS[requestedLevelId] || LEVEL_ALPHA01;
+  const levelId = options.levelId || levelDef.id || 'level';
   const level = parseLevelDefinition(levelDef);
   const rng = createSeededRng(seed);
+  const difficulty = getDifficultyConfig(options.difficulty ?? 'invulnerable');
   const replay = createReplayCapture({
     seed,
     fixedStepMs: options.fixedStepMs ?? 16,
     meta: {
       levelId,
       levelName: level.name,
-      difficulty: options.difficulty || 'normal'
+      difficulty: difficulty.id
     }
   });
 
@@ -387,15 +509,21 @@ export function createGameState(options = {}) {
     }
   };
 
+  applyDifficultyToState(state, difficulty);
   state.enemies = createEnemies(state, level);
   state.events.push({
     type: 'levelLoaded',
     levelId,
-    enemyCount: state.enemies.length
+    enemyCount: state.enemies.length,
+    doorCount: Array.isArray(level.doors) ? level.doors.length : 0
   });
   state.replayPush({
     type: 'levelLoaded',
-    data: { levelId, enemyCount: state.enemies.length }
+    data: {
+      levelId,
+      enemyCount: state.enemies.length,
+      doorCount: Array.isArray(level.doors) ? level.doors.length : 0
+    }
   });
   return state;
 }
@@ -431,6 +559,7 @@ export function advanceGameState(state, input, dtMs) {
     return state;
   }
 
+  handleUseInteraction(state, normalizedInput);
   updatePlayerMovement(state, normalizedInput, dtMs);
   updateWeapons(state, normalizedInput);
   updateProjectiles(state, dtMs);

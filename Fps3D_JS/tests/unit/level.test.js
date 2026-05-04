@@ -28,6 +28,56 @@ runCase('parseLevelDefinition extracts spawn, pickups, enemies, and exit', () =>
   assert.ok(level.pickups.length >= 4);
 });
 
+runCase('parseLevelDefinition registers door edges on brush levels', () => {
+  const level = parseLevelDefinition({
+    id: 'door-test',
+    name: 'Door Test',
+    spawn: { x: 1.5, z: 2, yaw: 0 },
+    exit: { x: 7.5, z: 2 },
+    sectors: [
+      {
+        id: 'left',
+        loop: [
+          [0, 0],
+          [4, 0],
+          [4, 4],
+          [0, 4]
+        ],
+        portals: [
+          { edge: 1, to: 'right' }
+        ]
+      },
+      {
+        id: 'right',
+        loop: [
+          [4, 0],
+          [8, 0],
+          [8, 4],
+          [4, 4]
+        ],
+        portals: [
+          { edge: 3, to: 'left' }
+        ]
+      }
+    ],
+    doors: [
+      {
+        id: 'center-door',
+        edge: {
+          sectorId: 'left',
+          edgeIndex: 1
+        }
+      }
+    ]
+  });
+
+  assert.equal(level.doors.length, 1);
+  assert.equal(level.doorById.get('center-door').open, false);
+  assert.equal(level.doors[0].edges[0].sectorId, 'left');
+  assert.equal(level.doors[0].edges[0].edgeIndex, 1);
+  assert.ok(level.walls.some((wall) => wall.doorId === 'center-door'));
+});
+
 runCase('getCell returns walls outside the map and inside tiles', () => {
   const level = parseLevelDefinition({
     id: 'tiny',

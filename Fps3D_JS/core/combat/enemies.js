@@ -3,6 +3,17 @@ import { createProjectile, damageEnemy } from './weapons.js';
 import { hasLineOfSight, normalize2d } from '../world/raycast.js';
 import { moveEntity } from '../world/collision.js';
 
+function scaleDamageAmount(amount, multiplier) {
+  const numericAmount = Number(amount) || 0;
+  const numericMultiplier = Number(multiplier) || 0;
+
+  if (numericAmount <= 0 || numericMultiplier <= 0) {
+    return 0;
+  }
+
+  return Math.max(1, Math.round(numericAmount * numericMultiplier));
+}
+
 function spawnDrop(state, enemy) {
   const rng = state.rng.fork(`drop:${enemy.kind}:${enemy.id}`);
   if (rng.nextFloat() > (enemy.def.dropChance ?? 0)) {
@@ -63,21 +74,27 @@ export function damageEnemyDirect(state, enemy, amount, reason = 'direct') {
 }
 
 function attackPlayer(state, enemy, damage, reason) {
-  state.damagePlayer(damage, reason);
+  const difficulty = state.difficulty || {};
+  const scaledDamage = scaleDamageAmount(damage, difficulty.enemyDamageMultiplier ?? 1);
+  state.damagePlayer(scaledDamage, reason);
   state.events.push({
     type: 'playerHit',
     source: enemy.kind,
-    damage
+    damage: scaledDamage
   });
   state.replayPush({
     type: 'playerHit',
-    data: { source: enemy.kind, damage }
+    data: { source: enemy.kind, damage: scaledDamage }
   });
 }
 
 export function updateEnemy(state, enemy, dtMs) {
   const dt = dtMs / 1000;
   const def = enemy.def;
+  const difficulty = state.difficulty || {};
+  const speedMultiplier = difficulty.enemySpeedMultiplier ?? 1;
+  const cooldownMultiplier = difficulty.enemyCooldownMultiplier ?? 1;
+  const damageMultiplier = difficulty.enemyDamageMultiplier ?? 1;
   enemy.hitFlashMs = Math.max(0, enemy.hitFlashMs - dtMs);
 
   if (enemy.dead) {
@@ -103,8 +120,8 @@ export function updateEnemy(state, enemy, dtMs) {
     moveEntity(
       state.level,
       enemy,
-      dir.x * def.speed * dt,
-      dir.z * def.speed * dt
+      dir.x * def.speed * speedMultiplier * dt,
+      dir.z * def.speed * speedMultiplier * dt
     );
   }
 
@@ -115,7 +132,7 @@ export function updateEnemy(state, enemy, dtMs) {
   if (def.behavior === 'melee') {
     if (dist <= def.attackRange && enemy.cooldownMs <= 0) {
       attackPlayer(state, enemy, def.damage, def.id);
-      enemy.cooldownMs = def.attackCooldownMs;
+      enemy.cooldownMs = def.attackCooldownMs * cooldownMultiplier;
     }
     return true;
   }
@@ -123,7 +140,7 @@ export function updateEnemy(state, enemy, dtMs) {
   if (def.behavior === 'hitscan') {
     if (dist <= def.attackRange && seesPlayer && enemy.cooldownMs <= 0) {
       attackPlayer(state, enemy, def.damage, def.id);
-      enemy.cooldownMs = def.attackCooldownMs;
+      enemy.cooldownMs = def.attackCooldownMs * cooldownMultiplier;
     }
     return true;
   }
@@ -134,12 +151,12 @@ export function updateEnemy(state, enemy, dtMs) {
       createProjectile(state, enemy.kind, `${enemy.kind}-shot`, enemy.x, enemy.z, direction.x, direction.z, {
         speed: def.projectileSpeed,
         radius: def.projectileRadius ?? 0.1,
-        damage: def.damage,
+        damage: scaleDamageAmount(def.damage, damageMultiplier),
         splashRadius: def.behavior === 'boss' ? 2.2 : 0.3,
         lifeMs: def.behavior === 'boss' ? 4200 : 3400,
         color: def.color
       });
-      enemy.cooldownMs = def.attackCooldownMs;
+      enemy.cooldownMs = def.attackCooldownMs * cooldownMultiplier;
     }
 
     return true;
