@@ -1695,6 +1695,9 @@ function saveCurrentBookAsBundle() {
   reader.onerror = function () {
     handleBundleExportFailure(reader.error);
   };
+  reader.onabort = function () {
+    handleBundleExportFailure(reader.error || new Error("Bundled book export was aborted."));
+  };
   reader.onloadend = function () {
     state.bundleExportInProgress = false;
     setBookSaveButtonState();
@@ -1705,7 +1708,7 @@ function saveCurrentBookAsBundle() {
     handleBundleExportFailure(error);
     state.bundleExportInProgress = false;
     setBookSaveButtonState();
-    throw error;
+    return;
   }
 }
 function handleBundleExportFailure(error) {
