@@ -1697,7 +1697,13 @@ function saveCurrentBookAsBundle() {
     state.bundleExportInProgress = false;
     setBookSaveButtonState();
   };
-  reader.readAsArrayBuffer(file);
+  try {
+    reader.readAsArrayBuffer(file);
+  } catch (error) {
+    state.bundleExportInProgress = false;
+    setBookSaveButtonState();
+    throw error;
+  }
 }
 function getNextBundledBookFileName() {
   var bundled = state.bundledBooks || [];
