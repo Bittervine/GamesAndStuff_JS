@@ -1686,14 +1686,15 @@ function saveCurrentBookAsBundle() {
       mimeType: file.type || "application/octet-stream",
       dataBase64: bytesToBase64(bytes)
     };
-    try {
-      downloadTextAsFile(makeBundleScript(bundle), exportName, "application/javascript");
-    } finally {
-      state.bundleExportInProgress = false;
-      setBookSaveButtonState();
+    downloadTextAsFile(makeBundleScript(bundle), exportName, "application/javascript");
+  };
+  reader.onerror = function () {
+    console.error("Failed to export bundled book.", reader.error);
+    if (typeof setStatusMessage === "function") {
+      setStatusMessage("Failed to export bundled book.");
     }
   };
-  reader.onerror = reader.onabort = function () {
+  reader.onloadend = function () {
     state.bundleExportInProgress = false;
     setBookSaveButtonState();
   };
