@@ -194,6 +194,12 @@ Fps3D_JS/
 - [x] Add brush-geometry diagnostics for self-intersections, zero-length edges, and non-convex loops.
 - [x] Surface geometry warnings in the browser and keep the checks covered by tests.
 
+### 8.8 Large Showcase Geometry
+
+- [x] Expand `alpha01` into a much larger showcase map with small rooms, big rooms, and long corridors.
+- [x] Add pentagonal rooms, rounded convex chambers, and winding snake corridors built from angled brush segments.
+- [x] Keep the geometry diagnostics green on the expanded map and cover the layout with tests.
+
 ### 9. UI, Audio, and Settings
 
 - [x] Add HUD for health, armor, ammo, keys, and current weapon.
@@ -284,3 +290,4 @@ Fps3D_JS/
 - 2026-05-04: Added reusable humanoid and quadruped bone-rig helpers with foot planting, weapon props, and attack windups.
 - 2026-05-04: Added WebGL context-loss recovery so the renderer reinitializes textures and buffers after a browser reset.
 - 2026-05-04: Added a larger multi-room alpha layout with corridor sectors plus brush-geometry diagnostics for self-intersections and zero-length edges.
+- 2026-05-04: Expanded `alpha01` into a much larger labyrinth map with pentagonal rooms, rounded chambers, and winding angled corridors, then verified it in Playwright.

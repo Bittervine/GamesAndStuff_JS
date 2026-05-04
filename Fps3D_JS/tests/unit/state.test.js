@@ -67,11 +67,12 @@ function runCase(name, fn) {
 runCase('createGameState initializes level, enemies, pickups, and replay capture', () => {
   const state = createGameState({ seed: 123, levelId: 'alpha01' });
   assert.equal(state.level.id, 'alpha01');
-  assert.equal(state.level.sectors.length, 9);
+  assert.equal(state.level.sectors.length, 13);
   assert.equal(state.level.diagnostics.length, 0);
-  assert.ok(state.level.walls.length >= 18);
-  assert.ok(state.enemies.length >= 5);
-  assert.ok(state.pickups.length >= 4);
+  assert.ok(state.level.walls.length >= 30);
+  assert.ok(state.level.width >= 90);
+  assert.ok(state.enemies.length >= 8);
+  assert.ok(state.pickups.length >= 8);
   assert.ok(state.replay.events.length >= 1);
   assert.equal(state.requestRestart, false);
   assert.ok(state.player.eyeHeight > 1);

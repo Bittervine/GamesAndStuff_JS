@@ -20,13 +20,18 @@ runCase('parseLevelDefinition extracts spawn, pickups, enemies, and exit', () =>
   assert.ok(level.height > 0);
   assert.ok(level.spawn.x > 0);
   assert.ok(level.exit);
-  assert.equal(level.sectors.length, 9);
+  assert.equal(level.sectors.length, 13);
   assert.equal(level.diagnostics.length, 0);
-  assert.ok(level.walls.length >= 18);
+  assert.ok(level.walls.length >= 30);
+  assert.ok(level.width >= 90);
+  assert.ok(level.height >= 74);
   assert.ok(findSectorAtPoint(level, level.spawn.x, level.spawn.z));
   assert.ok(Math.abs(getFloorHeightAt(level, level.spawn.x, level.spawn.z)) < 0.001);
   assert.ok(level.enemySpawns.length >= 5);
   assert.ok(level.pickups.length >= 5);
+  assert.ok(level.sectors.some((sector) => sector.loop.length === 5));
+  assert.ok(level.sectors.some((sector) => sector.loop.length >= 7));
+  assert.ok(level.sectors.some((sector) => sector.edges.some((edge) => edge.ax !== edge.bx && edge.az !== edge.bz)));
 });
 
 runCase('parseLevelDefinition reports self-intersecting brush loops', () => {
