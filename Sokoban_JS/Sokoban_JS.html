@@ -364,15 +364,40 @@
             }
 
             function waitForImage(img, done) {
-                if (img && img.complete && img.naturalWidth > 0) {
+                var finished = false;
+                var timeoutId = 0;
+
+                function finish() {
+                    if (finished) {
+                        return;
+                    }
+                    finished = true;
+                    if (timeoutId) {
+                        window.clearTimeout(timeoutId);
+                    }
+                    if (img) {
+                        img.onload = null;
+                        img.onerror = null;
+                    }
                     done();
+                }
+
+                if (!img) {
+                    finish();
                     return;
                 }
+                if (img && img.complete && img.naturalWidth > 0) {
+                    finish();
+                    return;
+                }
+                timeoutId = window.setTimeout(function () {
+                    finish();
+                }, 3000);
                 img.onload = function () {
-                    done();
+                    finish();
                 };
                 img.onerror = function () {
-                    done();
+                    finish();
                 };
             }
 

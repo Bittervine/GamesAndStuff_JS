@@ -1475,6 +1475,8 @@ var state = {
   parserModulesPromise: null,
   selectedBookSource: "external",
   bundledBooks: [],
+  nextBundledBookIndex: 1,
+  bundleExportInProgress: false,
   activeBook: null,
   shadowRoot: null,
   useShadowRoot: false,
@@ -1628,6 +1630,7 @@ function updateBookSourceUi() {
   if (elements.bookFileInput) {
     elements.bookFileInput.style.display = external ? "" : "none";
   }
+  setBookSaveButtonState();
 }
 function onBookSourceChange() {
   var source = elements.bookSourceSelect ? elements.bookSourceSelect.value : "external";
@@ -1666,11 +1669,13 @@ function saveCurrentBookAsBundle() {
   var file;
   var reader;
   var exportName;
-  if (!book || !book.file) {
+  if (!book || !book.file || state.bundleExportInProgress) {
     return;
   }
   file = book.file;
   exportName = getNextBundledBookFileName();
+  state.bundleExportInProgress = true;
+  setBookSaveButtonState();
   reader = new FileReader();
   reader.onload = function () {
     var bytes = new Uint8Array(reader.result);
@@ -1681,23 +1686,33 @@ function saveCurrentBookAsBundle() {
       mimeType: file.type || "application/octet-stream",
       dataBase64: bytesToBase64(bytes)
     };
-    downloadTextAsFile(makeBundleScript(bundle), exportName, "application/javascript");
+    try {
+      downloadTextAsFile(makeBundleScript(bundle), exportName, "application/javascript");
+    } finally {
+      state.bundleExportInProgress = false;
+      setBookSaveButtonState();
+    }
+  };
+  reader.onerror = reader.onabort = function () {
+    state.bundleExportInProgress = false;
+    setBookSaveButtonState();
   };
   reader.readAsArrayBuffer(file);
 }
 function getNextBundledBookFileName() {
   var bundled = state.bundledBooks || [];
-  var maxIndex = 0;
+  var discoveredMax = 0;
   var i;
   var match;
   var nextIndex;
   for (i = 0; i < bundled.length; i++) {
     match = String((bundled[i] && bundled[i].bundleFileName) || "").match(/^book_(\d{2})\.js$/i);
     if (match) {
-      maxIndex = Math.max(maxIndex, Number(match[1]) || 0);
+      discoveredMax = Math.max(discoveredMax, Number(match[1]) || 0);
     }
   }
-  nextIndex = Math.min(BOOK_BUNDLE_MAX, maxIndex + 1);
+  nextIndex = Math.min(BOOK_BUNDLE_MAX, Math.max(discoveredMax + 1, state.nextBundledBookIndex || 1));
+  state.nextBundledBookIndex = Math.min(BOOK_BUNDLE_MAX + 1, nextIndex + 1);
   return "book_" + zeroPad2(nextIndex) + ".js";
 }
 function loadBundledBook(sourceValue) {
@@ -1749,6 +1764,12 @@ function _loadBundledBookIndex() {
           break;
         case 4:
           state.bundledBooks = discovered;
+          state.nextBundledBookIndex = Math.min(BOOK_BUNDLE_MAX + 1, discovered.reduce(function (maxIndex, bundledEntry) {
+            var match = String((bundledEntry && bundledEntry.bundleFileName) || "").match(/^book_(\d{2})\.js$/i);
+            var index = match ? Number(match[1]) || 0 : 0;
+            return Math.max(maxIndex, index);
+          }, 0) + 1);
+          setBookSaveButtonState();
           return _context.a(2);
       }
     }, _callee);
@@ -1761,6 +1782,12 @@ function zeroPad2(value) {
 }
 function isWholeNumber(value) {
   return typeof value === "number" && isFinite(value) && Math.floor(value) === value;
+}
+function setBookSaveButtonState() {
+  if (!elements.saveBookButton) {
+    return;
+  }
+  elements.saveBookButton.disabled = Boolean(state.bundleExportInProgress || !state.activeBook || !state.activeBook.file);
 }
 function loadBundledBookScript(src) {
   return loadBundledBookScriptViaText(src).then(function (book) {
@@ -2025,6 +2052,7 @@ function _loadBook() {
             spine: spine,
             currentIndex: startIndex
           };
+          setBookSaveButtonState();
           preferredTitle = (metadata == null ? void 0 : metadata.title) || stripExtension(getFileName(file));
           preferredAuthor = normalizeAuthor(metadata == null ? void 0 : metadata.author);
           elements.bookTitle.textContent = preferredTitle;
@@ -3284,6 +3312,7 @@ function destroyActiveParser() {
   stopAutoAdvance();
   if (!state.activeBook || !state.activeBook.parser) {
     state.activeBook = null;
+    setBookSaveButtonState();
     return;
   }
   try {
@@ -3295,6 +3324,7 @@ function destroyActiveParser() {
   }
   state.activeBook = null;
   state.viewOffset = 0;
+  setBookSaveButtonState();
 }
 function nextAnimationFrame() {
   return new Promise(function (resolve) {

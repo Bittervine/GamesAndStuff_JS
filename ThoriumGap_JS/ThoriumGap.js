@@ -3935,7 +3935,10 @@
         collectEnemyCollisionCandidates(enemyCollision, b.x, b.y, b.r, enemyCandidates);
         for (let j = enemyCandidates.length - 1; j >= 0; j--) {
           const e = enemyCandidates[j];
-          if (e.dead) continue;
+          if (e.dead) continue;          
+          // For beam projectiles keep track of hit enemies so they are not hit twice due to penetration mechanism.
+          // Note: It is deliberate that this only applies to normal enemies - bosses are exempt from this and can be hit 
+          //       multiple times. Beam weapons are supposed to be effective bosses
           const hitEnemies = b.kind === 'beam' ? (b.hitEnemies || (b.hitEnemies = new Set())) : null;
           if (hitEnemies && hitEnemies.has(e)) continue;
           if (d2(b.x, b.y, e.x, e.y) < (b.r + e.r) * (b.r + e.r)) {
