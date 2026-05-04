@@ -23,6 +23,8 @@ Build a Doom II style browser FPS with WebGL and full 3D acceleration. The end r
 - Levels: in progress
 - UI, audio, and settings: in progress
 - Textures and art pipeline: not started
+- Character models and animation: in progress
+- Monster rig refinement: in progress
 - Launcher integration: intentionally blocked
 
 ## Playtest Handoff
@@ -173,6 +175,19 @@ Fps3D_JS/
 - [ ] Add visual language for tech-base, industrial, and hell-themed areas.
 - [ ] Add enough environmental dressing that the world does not feel empty.
 
+### 8.5 Character Models and Animation
+
+- [x] Build proper 3D character models with articulated feet, lower legs, thighs, torso, upper arms, lower arms, hands, and heads.
+- [ ] Add a reusable animation rig so player and enemy bodies can share walk, idle, attack, hurt, and death poses.
+- [ ] Keep the model pipeline data-driven so future enemy variants can reuse the same limb structure.
+
+### 8.6 Monster Rig Refinement
+
+- [x] Turn each enemy family into a reusable bone rig instead of a loose pile of separate boxes.
+- [x] Add foot planting, weight shifts, attack windup, and held weapon props so ranged enemies aim before firing.
+- [ ] Add hurt recoil variations and richer death collapse poses.
+- [ ] Move toward skinned meshes and weighted vertices once the pose library feels stable.
+
 ### 9. UI, Audio, and Settings
 
 - [x] Add HUD for health, armor, ammo, keys, and current weapon.
@@ -258,3 +273,7 @@ Fps3D_JS/
 - 2026-05-04: Added openable brush-level doors, use-key interaction, door-aware collision/raycast/rendering, and regression tests for opening passages.
 - 2026-05-04: Added browser gamepad polling, analog stick movement/look, trigger firing, and controller button mappings.
 - 2026-05-04: Added a saveable in-game settings menu for gamepad Y inversion, difficulty selection, and restart, and verified it in Playwright.
+- 2026-05-04: Added a character-model and animation milestone for articulated humanoid bodies.
+- 2026-05-04: Added segmented articulated humanoid enemy bodies and animation-phase updates for the first character-model pass.
+- 2026-05-04: Added reusable humanoid and quadruped bone-rig helpers with foot planting, weapon props, and attack windups.
+- 2026-05-04: Added WebGL context-loss recovery so the renderer reinitializes textures and buffers after a browser reset.

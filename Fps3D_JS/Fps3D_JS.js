@@ -106,7 +106,7 @@ function resizeCanvasPair() {
 async function main() {
   const seed = parseSeedFromUrl();
   const levelId = parseLevelFromUrl();
-  const gl = worldCanvas.getContext('webgl', {
+  let gl = worldCanvas.getContext('webgl', {
     alpha: false,
     antialias: true,
     depth: true,
@@ -119,8 +119,8 @@ async function main() {
     throw new Error('WebGL is not supported');
   }
 
-  const textures = createGameTextures(gl, seed);
-  const worldRenderer = createWorldRenderer(worldCanvas, textures, { gl });
+  let textures = createGameTextures(gl, seed);
+  let worldRenderer = createWorldRenderer(worldCanvas, textures, { gl });
   let settings = loadSettings();
   let state = createGameState({ seed, levelId, difficulty: settings.difficultyId });
   const input = createInputController(worldCanvas, {
@@ -131,6 +131,16 @@ async function main() {
   let lastTime = null;
   let menuOpen = false;
   let menuPauseBeforeOpen = false;
+  let graphicsReady = true;
+
+  function rebuildGraphics() {
+    textures = createGameTextures(gl, seed);
+    worldRenderer = createWorldRenderer(worldCanvas, textures, { gl });
+    graphicsReady = true;
+    accumulator.reset();
+    lastTime = null;
+    updateOverlay();
+  }
 
   function populateDifficultySelect() {
     const fragment = document.createDocumentFragment();
@@ -163,7 +173,8 @@ async function main() {
     const difficultyLabel = getDifficultyConfig(state.difficultyId).label;
     const menuLabel = menuOpen ? ' | menu open' : '';
     const pausedLabel = state.paused && !menuOpen ? ' | paused' : '';
-    overlayState.textContent = `${lockState} | ${state.level.name} | ${difficultyLabel} | seed ${state.seed}${pausedLabel}${menuLabel}${gamepadLabel}`;
+    const graphicsLabel = graphicsReady ? '' : ' | graphics recovering';
+    overlayState.textContent = `${lockState} | ${state.level.name} | ${difficultyLabel} | seed ${state.seed}${pausedLabel}${menuLabel}${graphicsLabel}${gamepadLabel}`;
   }
 
   function restartGame() {
@@ -240,6 +251,16 @@ async function main() {
     drawHud(hudCtx, state, hudCanvas.width, hudCanvas.height);
   }
 
+  worldCanvas.addEventListener('webglcontextlost', (event) => {
+    event.preventDefault();
+    graphicsReady = false;
+    updateOverlay();
+  });
+
+  worldCanvas.addEventListener('webglcontextrestored', () => {
+    rebuildGraphics();
+  });
+
   function frame(now) {
     const safeNow = Number.isFinite(now) ? now : performance.now();
     const deltaMs = lastTime === null ? 0 : normalizeElapsedMs(safeNow - lastTime, 100);
@@ -266,7 +287,9 @@ async function main() {
       accumulator.reset();
     }
 
-    worldRenderer.render(state);
+    if (graphicsReady) {
+      worldRenderer.render(state);
+    }
     renderHud();
     updateOverlay();
     requestAnimationFrame(frame);

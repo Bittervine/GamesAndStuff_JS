@@ -65,7 +65,9 @@ export function createEnemy(kind, x, z, options = {}) {
     facing: options.facing ?? 0,
     cooldownMs: options.cooldownMs ?? 0,
     aggroMs: 0,
-    bobPhase: 0
+    bobPhase: 0,
+    attackWindupMs: 0,
+    attackWindupTotalMs: 0
   };
 }
 
@@ -86,6 +88,75 @@ function attackPlayer(state, enemy, damage, reason) {
     type: 'playerHit',
     data: { source: enemy.kind, damage: scaledDamage }
   });
+}
+
+function getAttackWindupMs(def) {
+  if (!def || typeof def !== 'object') {
+    return 0;
+  }
+
+  if (Number.isFinite(def.attackWindupMs)) {
+    return Math.max(0, def.attackWindupMs);
+  }
+
+  if (def.behavior === 'hitscan') {
+    return 120;
+  }
+  if (def.behavior === 'projectile') {
+    return 200;
+  }
+  if (def.behavior === 'boss') {
+    return 240;
+  }
+  return 0;
+}
+
+function performEnemyAttack(state, enemy, damageMultiplier) {
+  const def = enemy.def;
+  const player = state.player;
+  const dx = player.x - enemy.x;
+  const dz = player.z - enemy.z;
+  const dist = Math.hypot(dx, dz);
+
+  if (def.behavior === 'melee') {
+    if (dist <= def.attackRange) {
+      attackPlayer(state, enemy, def.damage, def.id);
+      return true;
+    }
+    return false;
+  }
+
+  if (def.behavior === 'hitscan') {
+    if (dist <= def.attackRange) {
+      attackPlayer(state, enemy, def.damage, def.id);
+      return true;
+    }
+    return false;
+  }
+
+  if (def.behavior === 'projectile' || def.behavior === 'boss') {
+    if (dist <= def.attackRange) {
+      const direction = normalize2d(dx, dz);
+      createProjectile(state, enemy.kind, `${enemy.kind}-shot`, enemy.x, enemy.z, direction.x, direction.z, {
+        speed: def.projectileSpeed,
+        radius: def.projectileRadius ?? 0.1,
+        damage: scaleDamageAmount(def.damage, damageMultiplier),
+        splashRadius: def.behavior === 'boss' ? 2.2 : 0.3,
+        lifeMs: def.behavior === 'boss' ? 4200 : 3400,
+        color: def.color
+      });
+      return true;
+    }
+    return false;
+  }
+
+  return false;
+}
+
+function beginEnemyAttack(enemy, def) {
+  const windupMs = getAttackWindupMs(def);
+  enemy.attackWindupMs = windupMs;
+  enemy.attackWindupTotalMs = windupMs;
 }
 
 export function updateEnemy(state, enemy, dtMs) {
@@ -115,6 +186,38 @@ export function updateEnemy(state, enemy, dtMs) {
   enemy.aggroMs = seesPlayer ? 1200 : Math.max(0, enemy.aggroMs - dtMs);
 
   const shouldChase = seesPlayer || enemy.aggroMs > 0 || dist < def.attackRange * 1.5;
+  const bobRate = shouldChase ? 0.012 : 0.0065;
+  enemy.bobPhase = (enemy.bobPhase + dtMs * bobRate) % 100000;
+
+  if (enemy.attackWindupMs > 0) {
+    enemy.attackWindupMs = Math.max(0, enemy.attackWindupMs - dtMs);
+    if (enemy.attackWindupMs === 0) {
+      const attacked = performEnemyAttack(state, enemy, damageMultiplier);
+      enemy.attackWindupTotalMs = 0;
+      if (attacked) {
+        enemy.cooldownMs = def.attackCooldownMs * cooldownMultiplier;
+      }
+    }
+    return true;
+  }
+
+  const canWindupAttack = (def.behavior === 'hitscan' || def.behavior === 'projectile' || def.behavior === 'boss')
+    && dist <= def.attackRange
+    && seesPlayer
+    && enemy.cooldownMs <= 0;
+
+  if (canWindupAttack) {
+    beginEnemyAttack(enemy, def);
+    if (enemy.attackWindupMs <= 0) {
+      const attacked = performEnemyAttack(state, enemy, damageMultiplier);
+      enemy.attackWindupTotalMs = 0;
+      if (attacked) {
+        enemy.cooldownMs = def.attackCooldownMs * cooldownMultiplier;
+      }
+    }
+    return true;
+  }
+
   if (shouldChase && dist > def.attackRange * 0.72) {
     const dir = normalize2d(dx, dz);
     moveEntity(
@@ -134,31 +237,6 @@ export function updateEnemy(state, enemy, dtMs) {
       attackPlayer(state, enemy, def.damage, def.id);
       enemy.cooldownMs = def.attackCooldownMs * cooldownMultiplier;
     }
-    return true;
-  }
-
-  if (def.behavior === 'hitscan') {
-    if (dist <= def.attackRange && seesPlayer && enemy.cooldownMs <= 0) {
-      attackPlayer(state, enemy, def.damage, def.id);
-      enemy.cooldownMs = def.attackCooldownMs * cooldownMultiplier;
-    }
-    return true;
-  }
-
-  if (def.behavior === 'projectile' || def.behavior === 'boss') {
-    if (dist <= def.attackRange && seesPlayer && enemy.cooldownMs <= 0) {
-      const direction = normalize2d(dx, dz);
-      createProjectile(state, enemy.kind, `${enemy.kind}-shot`, enemy.x, enemy.z, direction.x, direction.z, {
-        speed: def.projectileSpeed,
-        radius: def.projectileRadius ?? 0.1,
-        damage: scaleDamageAmount(def.damage, damageMultiplier),
-        splashRadius: def.behavior === 'boss' ? 2.2 : 0.3,
-        lifeMs: def.behavior === 'boss' ? 4200 : 3400,
-        color: def.color
-      });
-      enemy.cooldownMs = def.attackCooldownMs * cooldownMultiplier;
-    }
-
     return true;
   }
 

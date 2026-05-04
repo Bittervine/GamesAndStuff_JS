@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { createGameState, advanceGameState } from '../../core/game/state.js';
+import { updateEnemy } from '../../core/combat/enemies.js';
 import { sampleGamepadInput } from '../../core/game/input.js';
 
 const DOOR_LEVEL = {
@@ -145,9 +146,7 @@ runCase('advanceGameState requests a restart when restart is pressed', () => {
 });
 
 runCase('difficulty changes enemy damage and player invulnerability', () => {
-  const invulnerable = createGameState({ seed: 123, levelDefinition: DIFFICULTY_LEVEL });
-  invulnerable.player.armor = 0;
-  advanceGameState(invulnerable, {
+  const idleInput = {
     moveForward: 0,
     moveStrafe: 0,
     lookYaw: 0,
@@ -159,27 +158,31 @@ runCase('difficulty changes enemy damage and player invulnerability', () => {
     weaponIndex: null,
     nextWeapon: false,
     prevWeapon: false
-  }, 16);
+  };
+
+  const invulnerable = createGameState({ seed: 123, levelDefinition: DIFFICULTY_LEVEL });
+  invulnerable.player.armor = 0;
+  advanceGameState(invulnerable, idleInput, 16);
+  advanceGameState(invulnerable, idleInput, 240);
 
   const hard = createGameState({ seed: 123, levelDefinition: DIFFICULTY_LEVEL, difficulty: 'hard' });
   hard.player.armor = 0;
-  advanceGameState(hard, {
-    moveForward: 0,
-    moveStrafe: 0,
-    lookYaw: 0,
-    lookPitch: 0,
-    fire: false,
-    altFire: false,
-    use: false,
-    sprint: false,
-    weaponIndex: null,
-    nextWeapon: false,
-    prevWeapon: false
-  }, 16);
+  advanceGameState(hard, idleInput, 16);
+  advanceGameState(hard, idleInput, 240);
 
   assert.equal(invulnerable.player.health, 100);
   assert.ok(hard.player.health < 100);
   assert.equal(hard.difficultyId, 'hard');
+});
+
+runCase('enemy bob phase advances for articulated character animation', () => {
+  const state = createGameState({ seed: 123, levelId: 'alpha01' });
+  const enemy = state.enemies.find((item) => item.def?.model === 'humanoid') || state.enemies[0];
+  const before = enemy.bobPhase;
+
+  updateEnemy(state, enemy, 16);
+
+  assert.ok(enemy.bobPhase > before);
 });
 
 runCase('sampleGamepadInput maps sticks, triggers, and one-shot buttons', () => {

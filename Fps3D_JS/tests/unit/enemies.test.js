@@ -68,3 +68,22 @@ runCase('melee enemy damages the player when in range', () => {
   updateEnemy(state, enemy, 100);
   assert.ok(state.player.health < hpBefore);
 });
+
+runCase('ranged enemy winds up before firing', () => {
+  const state = makeState([
+    '#####',
+    '#P..#',
+    '#...#',
+    '#.z.#',
+    '#####'
+  ]);
+  const enemy = createEnemy('zombie', 1.9, 3.5, { id: 1 });
+  const hpBefore = state.player.health;
+
+  updateEnemy(state, enemy, 16);
+  assert.ok(enemy.attackWindupMs > 0);
+  assert.equal(state.player.health, hpBefore);
+
+  updateEnemy(state, enemy, 240);
+  assert.ok(state.player.health < hpBefore);
+});
