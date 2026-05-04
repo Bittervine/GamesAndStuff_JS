@@ -1678,21 +1678,22 @@ function saveCurrentBookAsBundle() {
   setBookSaveButtonState();
   reader = new FileReader();
   reader.onload = function () {
-    var bytes = new Uint8Array(reader.result);
-    var bundle = {
-      label: (book.metadata && book.metadata.title) || getFileName(file),
-      fileName: getFileName(file),
-      bundleFileName: exportName,
-      mimeType: file.type || "application/octet-stream",
-      dataBase64: bytesToBase64(bytes)
-    };
-    downloadTextAsFile(makeBundleScript(bundle), exportName, "application/javascript");
+    try {
+      var bytes = new Uint8Array(reader.result);
+      var bundle = {
+        label: (book.metadata && book.metadata.title) || getFileName(file),
+        fileName: getFileName(file),
+        bundleFileName: exportName,
+        mimeType: file.type || "application/octet-stream",
+        dataBase64: bytesToBase64(bytes)
+      };
+      downloadTextAsFile(makeBundleScript(bundle), exportName, "application/javascript");
+    } catch (error) {
+      handleBundleExportFailure(error);
+    }
   };
   reader.onerror = function () {
-    console.error("Failed to export bundled book.", reader.error);
-    if (typeof setStatusMessage === "function") {
-      setStatusMessage("Failed to export bundled book.");
-    }
+    handleBundleExportFailure(reader.error);
   };
   reader.onloadend = function () {
     state.bundleExportInProgress = false;
@@ -1701,9 +1702,16 @@ function saveCurrentBookAsBundle() {
   try {
     reader.readAsArrayBuffer(file);
   } catch (error) {
+    handleBundleExportFailure(error);
     state.bundleExportInProgress = false;
     setBookSaveButtonState();
     throw error;
+  }
+}
+function handleBundleExportFailure(error) {
+  console.error("Failed to export bundled book.", error);
+  if (typeof setStatusMessage === "function") {
+    setStatusMessage("Failed to export bundled book.");
   }
 }
 function getNextBundledBookFileName() {
