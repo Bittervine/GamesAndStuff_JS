@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tiny local server for the hidden Fps3D_JS playtest."""
+"""Tiny local server for the GamesAndStuff_JS launcher."""
 
 from __future__ import annotations
 
@@ -9,15 +9,15 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent
-DEFAULT_PORT = 4173
-DEFAULT_INDEX = "Fps3D_JS.html"
+DEFAULT_PORT = 8000
+DEFAULT_INDEX = "GamesAndStuff_JS.html"
 
 mimetypes.add_type("application/javascript", ".js")
 mimetypes.add_type("application/javascript", ".mjs")
 mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 
-class PlaytestHandler(SimpleHTTPRequestHandler):
+class RootHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT_DIR), **kwargs)
 
@@ -31,11 +31,11 @@ class PlaytestHandler(SimpleHTTPRequestHandler):
         return super().translate_path(path)
 
     def log_message(self, format, *args):
-        print(f"[fps3d] {self.address_string()} - {format % args}")
+        print(f"[run_server] {self.address_string()} - {format % args}")
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Serve Fps3D_JS for local playtesting.")
+    parser = argparse.ArgumentParser(description="Serve GamesAndStuff_JS from the repository root.")
     parser.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"Bind port (default: {DEFAULT_PORT})")
     return parser.parse_args()
@@ -43,9 +43,9 @@ def parse_args():
 
 def main():
     args = parse_args()
-    server = ThreadingHTTPServer((args.host, args.port), PlaytestHandler)
+    server = ThreadingHTTPServer((args.host, args.port), RootHandler)
     url = f"http://{args.host}:{args.port}/{DEFAULT_INDEX}"
-    print(f"Fps3D_JS server running at {url}")
+    print(f"GamesAndStuff_JS server running at {url}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
