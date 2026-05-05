@@ -3104,8 +3104,8 @@
     const weightsByTier = {
       1: 8,
       2: 5,
-      3: 2,
-      4: 1,
+      3: 3,
+      4: 2,
       5: 1
     };
     return weightsByTier[tier] || 1;
@@ -3584,8 +3584,6 @@
         spawnBullet('enemy', e.x, e.y, Math.cos(a1) * speed, Math.sin(a1) * speed, { r: 7, color: e.theme.accent2, damage: 1, kind: 'splitter', life: 4.8, sourceKind: 'splitter', sourceName: e.name || 'splitter' });
         spawnBullet('enemy', e.x, e.y, Math.cos(a2) * speed, Math.sin(a2) * speed, { r: 7, color: e.theme.accent2, damage: 1, kind: 'splitter', life: 4.8, sourceKind: 'splitter', sourceName: e.name || 'splitter' });
       }
-      //if (e.kind === 'elite' || e.score > 200) maybeDropPickup(e.x, e.y, true, chance(0.35) ? 'shield' : null);
-      //else if (!fromBomb) maybeDropPickup(e.x, e.y, false);
       else maybeDropPickup(e.x, e.y, false);
     } else {
       sfx('hit');
@@ -5150,6 +5148,7 @@
     asteroid.respawnTimer = asteroidSpawningAllowed(asteroid.theme) ? asteroidRespawnDelay(asteroid, asteroid.theme, asteroidDensityConfig(asteroid.theme), false) : 0;
     asteroid.hitFlash = 1;
     state.shake = Math.max(state.shake, 7);
+    if (Math.random() < 0.5) maybeDropPickup(asteroid.x, asteroid.y, false, 'weapon');
     burst(asteroid.x, asteroid.y, '#f1eadf', 20, 180, 8, 'spark');
     burst(asteroid.x, asteroid.y, '#cdbfa9', 10, 130, 6, 'spark');
     flashBurst(asteroid.x, asteroid.y, '#ffffff');
