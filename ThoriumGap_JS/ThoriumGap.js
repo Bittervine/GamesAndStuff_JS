@@ -193,6 +193,15 @@
   const bossPartTextures = new Map();
   const bossHitBoxes = new Map();
   const debugLabelTextures = new Map();
+  const ASTEROID_ART_COUNT = 28;
+  const ASTEROID_HP = 1000;
+  const ASTEROID_MIN_SIZE = 100;
+  const ASTEROID_MAX_SIZE = 200;
+  const ASTEROID_MAX_ROT = Math.PI / 4;
+  const ASTEROID_MIN_ROT = Math.PI / 4;
+  const ASTEROID_BASE_LAYER = 1.35;
+  const asteroidArtLoadKeys = new Set();
+  const asteroidArtCache = new Map();
 
   function enemyShipKey(levelNumber, shipIndex) {
     return 'enemyship|' + levelNumber + '|' + shipIndex;
@@ -1048,6 +1057,122 @@
     return null;
   }
 
+  function asteroidKey(index) {
+    return 'asteroid|' + String(index).padStart(2, '0');
+  }
+
+  function asteroidSource(index) {
+    return 'assets/Asteroid-' + String(index).padStart(2, '0') + '.png';
+  }
+
+  function ensureAsteroidArt(index) {
+    const key = asteroidKey(index);
+    if (asteroidArtCache.has(key) || asteroidArtLoadKeys.has(key)) return;
+    asteroidArtLoadKeys.add(key);
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = function () {
+      try {
+        const art = {
+          image: img,
+          texture: null,
+          mask: makeCanvasAlphaMask(img, 8),
+          bounds: getCanvasAlphaBounds(img),
+          w: Math.max(1, img.naturalWidth || img.width || 1),
+          h: Math.max(1, img.naturalHeight || img.height || 1)
+        };
+        if (gl) {
+          const tex = createTextureFromCanvas(img);
+          if (tex) {
+            art.texture = tex;
+            render.textures.set(key, tex);
+          }
+        }
+        asteroidArtCache.set(key, art);
+      } finally {
+        asteroidArtLoadKeys.delete(key);
+      }
+    };
+    img.onerror = function () {
+      asteroidArtLoadKeys.delete(key);
+    };
+    img.src = asteroidSource(index);
+  }
+
+  function warmAsteroidBatch() {
+    for (let i = 1; i <= ASTEROID_ART_COUNT; i++) ensureAsteroidArt(i);
+  }
+
+  function getAsteroidArt(index) {
+    const key = asteroidKey(index);
+    let art = asteroidArtCache.get(key);
+    if (!art) {
+      ensureAsteroidArt(index);
+      art = asteroidArtCache.get(key);
+    }
+    if (art && !art.texture && gl && art.image) {
+      const tex = createTextureFromCanvas(art.image);
+      if (tex) {
+        art.texture = tex;
+        render.textures.set(key, tex);
+      }
+    }
+    return art || null;
+  }
+
+  function asteroidDensityConfig(theme) {
+    const density = Math.max(0, Number(theme && theme.asteroidDensity != null ? theme.asteroidDensity : 0) || 0);
+    const whole = Math.floor(density);
+    const fraction = density - whole;
+    const slots = density > 0 ? Math.max(1, Math.ceil(density)) : 0;
+    return { density: density, whole: whole, fraction: fraction, slots: slots };
+  }
+
+  function asteroidSlotWeight(info, slotIndex) {
+    if (!info || info.slots <= 0) return 0;
+    if (slotIndex < info.whole) return 1;
+    if (slotIndex === info.whole) return clamp(info.fraction, 0, 1);
+    return 0;
+  }
+
+  function asteroidRespawnDelay(asteroid, theme, info, isInitialSpawn) {
+    const weight = clamp(asteroid && Number.isFinite(asteroid.spawnWeight) ? asteroid.spawnWeight : 1, 0, 1);
+    const travelTime = Math.max(0.55, (Math.max(1, view.h) + Math.max(1, asteroid && asteroid.drawH ? asteroid.drawH : 1) + 160) / Math.max(1, asteroid && asteroid.speed ? asteroid.speed : 180));
+    if (weight >= 0.999) {
+      return isInitialSpawn ? rand(0.02, 0.65) : rand(0.12, 0.95);
+    }
+    const activeTime = Math.max(0.5, travelTime);
+    const dormantTime = Math.max(0.2, activeTime * (1 - weight) / Math.max(0.05, weight));
+    return isInitialSpawn ? rand(0.0, dormantTime) : rand(dormantTime * 0.65, dormantTime * 1.35);
+  }
+
+  function asteroidSpawnBand(slotIndex, slotCount) {
+    const bands = Math.max(1, slotCount || 1);
+    const band = clamp(Number.isFinite(slotIndex) ? slotIndex : 0, 0, Math.max(0, bands - 1));
+    const pad = bands > 1 ? 0.07 : 0.12;
+    const min = band / bands + pad;
+    const max = (band + 1) / bands - pad;
+    return { min: min, max: Math.max(min + 0.02, max) };
+  }
+
+  function asteroidSpawnTooClose(x, y, drawW, drawH, ignoreAsteroid) {
+    if (!state.asteroids || !state.asteroids.length) return false;
+    const radius = Math.max(drawW, drawH) * 0.5;
+    for (let i = 0; i < state.asteroids.length; i++) {
+      const other = state.asteroids[i];
+      if (!other || other === ignoreAsteroid || other.dead || other.respawnTimer > 0) continue;
+      const otherRadius = Math.max(other.drawW || 0, other.drawH || 0) * 0.5;
+      const minDist = radius + otherRadius + 90;
+      if (d2(x, y, other.x, other.y) < minDist * minDist) return true;
+    }
+    return false;
+  }
+
+  function asteroidSpawningAllowed(theme) {
+    const bossSpawnTime = 40 + state.levelIndex * 2;
+    return state.mode === 'playing' && !state.boss && !state.transition && view.w >= 700 && state.levelClock < bossSpawnTime && asteroidDensityConfig(theme).density > 0;
+  }
+
   function circleIntersectsRect(cx, cy, cr, rect) {
     const rx = rect.x;
     const ry = rect.y;
@@ -1674,22 +1799,23 @@
   function phase(dur, motion, attack) { return { dur: dur, motion: motion, attack: attack }; }
   function theme(cfg) {
     if (cfg && cfg.boss && cfg.boss.size == null) cfg.boss.size = 512;
+    if (cfg && cfg.asteroidDensity == null) cfg.asteroidDensity = 0;
     return cfg;
   }
 
   const THEMES = [
     theme({ name: 'Thorium Rift', subtitle: 'None shall pass', skyTop: '#07111f', skyBottom: '#274062', glow: '#9bc5ff', accent: '#6d9cff', accent2: '#d5e4ff', forms: ['line', 'fan', 'rain'], enemyKinds: ['drifter', 'swarm', 'looper'], atmosphere: 'leaves', music: { bpm: 112, root: 220, pattern: [0, 3, 5, 7, 10, 7, 5, 3] }, boss: { name: 'Red Guardian', emoji: E.apple, hp: 400, size: 320, color: '#9ec2ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
     theme({ name: 'Broken Shore', subtitle: 'First of his name', skyTop: '#061b1b', skyBottom: '#1f4d49', glow: '#8ff7ff', accent: '#58d7c6', accent2: '#c8fff2', forms: ['swarm', 'pair', 'arc'], enemyKinds: ['looper', 'bomber', 'sniper'], atmosphere: 'pollen', music: { bpm: 126, root: 246, pattern: [0, 2, 4, 7, 9, 7, 4, 2] }, boss: { name: 'Rocket Baron', emoji: E.bee, hp: 500, size: 320, color: '#93f0e8', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Ultraviolet Prison', subtitle: 'Isolation and servitude', skyTop: '#1b1730', skyBottom: '#53265f', glow: '#d19cff', accent: '#9a7cff', accent2: '#f0d0ff', forms: ['fan', 'rain', 'cross'], enemyKinds: ['drifter', 'looper', 'bomber'], atmosphere: 'sprinkles', music: { bpm: 136, root: 262, pattern: [0, 4, 7, 12, 7, 4, 5, 9] }, boss: { name: 'Warden Thorn', emoji: E.donut, hp: 600, size:320 , color: '#c29bff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7, 'sweep', 'ring'), phase(8, 'low', 'rain')] } }),
+    theme({ name: 'Ultraviolet Prison', subtitle: 'Isolation and servitude', skyTop: '#1b1730', skyBottom: '#53265f', glow: '#d19cff', accent: '#9a7cff', accent2: '#f0d0ff', forms: ['fan', 'rain', 'cross'], enemyKinds: ['drifter', 'looper', 'bomber'], atmosphere: 'sprinkles', music: { bpm: 136, root: 262, pattern: [0, 4, 7, 12, 7, 4, 5, 9] }, boss: { name: 'Warden Thorn', emoji: E.donut, hp: 600, size:320 , color: '#c29bff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7, 'sweep', 'ring'), phase(8, 'low', 'rain')] }, asteroidDensity: 1.5 }),
     theme({ name: 'Sinners Den', subtitle: 'Hunger without limit', skyTop: '#0f1620', skyBottom: '#4d5867', glow: '#96c9ff', accent: '#9fb2c6', accent2: '#d0e0ef', forms: ['line', 'pair', 'cross'], enemyKinds: ['looper', 'sniper', 'bomber'], atmosphere: 'sparks', music: { bpm: 118, root: 196, pattern: [0, 0, 7, 5, 4, 5, 7, 10] }, boss: { name: 'Hope Devourer', emoji: E.gear, hp: 700, size: 400, color: '#d0d9e1', flipWhenMovingRight: false, phases: [phase(7, 'sweep', 'ring'), phase(7.5, 'dash', 'summon'), phase(8, 'hover', 'fan')] } }),
     theme({ name: 'Deadlight Harbor', subtitle: 'Master of the soulless crew', skyTop: '#06111d', skyBottom: '#532a40', glow: '#ffbf8a', accent: '#e0a06c', accent2: '#ffc8a1', forms: ['rain', 'arc', 'swarm'], enemyKinds: ['swarm', 'sniper', 'drifter'], atmosphere: 'motes', music: { bpm: 108, root: 196, pattern: [0, 5, 7, 10, 7, 5, 3, 5] }, boss: { name: 'Captain Thaddeus', emoji: E.lantern, hp: 900, size: 400, color: '#f6b46d', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Elysium Sea', subtitle: 'The steed of Neptune', skyTop: '#220c0c', skyBottom: '#6d3a13', glow: '#ffd77a', accent: '#c47a19', accent2: '#ffd59f', forms: ['swarm', 'fan', 'pair'], enemyKinds: ['diver', 'swarm', 'sniper'], atmosphere: 'embers', music: { bpm: 132, root: 246, pattern: [0, 2, 3, 7, 10, 7, 3, 2] }, boss: { name: 'Lunar Horse', emoji: E.bee, hp: 1100, size: 400, color: '#e4ba6a', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(8, 'dash', 'rain'), phase(7.5, 'sweep', 'summon')] } }),
+    theme({ name: 'Elysium Sea', subtitle: 'The steed of Neptune', skyTop: '#220c0c', skyBottom: '#6d3a13', glow: '#ffd77a', accent: '#c47a19', accent2: '#ffd59f', forms: ['swarm', 'fan', 'pair'], enemyKinds: ['diver', 'swarm', 'sniper'], atmosphere: 'embers', music: { bpm: 132, root: 246, pattern: [0, 2, 3, 7, 10, 7, 3, 2] }, boss: { name: 'Lunar Horse', emoji: E.bee, hp: 1100, size: 400, color: '#e4ba6a', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(8, 'dash', 'rain'), phase(7.5, 'sweep', 'summon')] }, asteroidDensity: 2 }),
     theme({ name: 'Shard Expanse', subtitle: 'The base of lost hope', skyTop: '#07142f', skyBottom: '#264e88', glow: '#b0fbff', accent: '#95d5ff', accent2: '#d6c4ff', forms: ['ring', 'line', 'arc'], enemyKinds: ['swarm', 'bomber', 'elite', 'looper'], atmosphere: 'shards', music: { bpm: 120, root: 233, pattern: [0, 4, 7, 11, 7, 4, 9, 7] }, boss: { name: 'Shard Base One', emoji: E.gem, hp: 1400, size: 400, color: '#c9f6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'ring'), phase(8, 'low', 'beam')] } }),
     theme({ name: 'Dark Waters', subtitle: 'Prey on the weak', skyTop: '#180709', skyBottom: '#6c2919', glow: '#ffab5b', accent: '#de6f2b', accent2: '#ffd08a', forms: ['rain', 'line', 'swarm'], enemyKinds: ['spinner', 'drifter', 'diver', 'splitter'], atmosphere: 'embers', music: { bpm: 140, root: 220, pattern: [0, 3, 7, 10, 7, 3, 5, 10] }, boss: { name: 'Cephid Hunter', emoji: E.fire, hp: 1800, size: 400, color: '#ff9e53', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'rain'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'wall')] } }),
-    theme({ name: 'Domain of Klaatu', subtitle: 'The earth stands still', skyTop: '#07111d', skyBottom: '#2d3d61', glow: '#95d7ff', accent: '#aebfe0', accent2: '#95d7ff', forms: ['line', 'wave', 'pair'], enemyKinds: ['elite', 'diver', 'splitter' ], atmosphere: 'stardust', music: { bpm: 106, root: 185, pattern: [0, 7, 12, 7, 10, 7, 5, 3] }, boss: { name: 'Klaatu', emoji: E.moon, hp: 2300, size: 400, color: '#c3d6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'summon'), phase(7.5, 'dash', 'beam'), phase(8, 'sweep', 'ring')] } }),
+    theme({ name: 'Domain of Klaatu', subtitle: 'The earth stands still', skyTop: '#07111d', skyBottom: '#2d3d61', glow: '#95d7ff', accent: '#aebfe0', accent2: '#95d7ff', forms: ['line', 'wave', 'pair'], enemyKinds: ['elite', 'diver', 'splitter' ], atmosphere: 'stardust', music: { bpm: 106, root: 185, pattern: [0, 7, 12, 7, 10, 7, 5, 3] }, boss: { name: 'Klaatu', emoji: E.moon, hp: 2300, size: 400, color: '#c3d6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'summon'), phase(7.5, 'dash', 'beam'), phase(8, 'sweep', 'ring')] }, asteroidDensity: 2 }),
     theme({ name: 'Sunken Bastion', subtitle: 'Here drowned men weep', skyTop: '#07101c', skyBottom: '#2d1a5a', glow: '#82f6ff', accent: '#6eeaff', accent2: '#c8fff2', forms: ['wave', 'cross', 'pair'], enemyKinds: ['looper', 'spinner', 'swarm', 'bomber'], atmosphere: 'neon', music: { bpm: 144, root: 220, pattern: [0, 7, 12, 10, 7, 4, 9, 12] }, boss: { name: 'Cyberphish', emoji: E.bolt, hp: 3000, size: 400, color: '#8fefff', flipWhenMovingRight: true, phases: [phase(7, 'sweep', 'wall'), phase(7.5, 'dash', 'aimed'), phase(8, 'hover', 'ring')] } }),
     theme({ name: 'Black Citadel', subtitle: 'When the hearts break', skyTop: '#0a0c14', skyBottom: '#403f55', glow: '#f0f3ff', accent: '#b6bfd6', accent2: '#9e8e5e', forms: ['line', 'cross', 'wave'], enemyKinds: ['looper', 'sniper', 'elite'], atmosphere: 'chess', music: { bpm: 122, root: 196, pattern: [0, 3, 7, 10, 7, 3, 5, 7] }, boss: { name: 'Purple Matron', emoji: E.queen, hp: 3900, size: 400, color: '#e7ecff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'dash', 'summon'), phase(8, 'sweep', 'ring')] } }),
-    theme({ name: 'Crushing Depths', subtitle: 'Hunger for sunlight', skyTop: '#0c1821', skyBottom: '#344c84', glow: '#d7f4ff', accent: '#9cc7ff', accent2: '#d7f4ff', forms: ['rain', 'line', 'swarm'], enemyKinds:  ['spinner', 'diver', 'swarm', 'looper'], atmosphere: 'rain', music: { bpm: 128, root: 196, pattern: [0, 4, 7, 10, 7, 4, 2, 5] }, boss: { name: 'Deep Gulper', emoji: E.cloud, hp: 5100, size: 400, color: '#d3edff', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Crushing Depths', subtitle: 'Hunger for sunlight', skyTop: '#0c1821', skyBottom: '#344c84', glow: '#d7f4ff', accent: '#9cc7ff', accent2: '#d7f4ff', forms: ['rain', 'line', 'swarm'], enemyKinds:  ['spinner', 'diver', 'swarm', 'looper'], atmosphere: 'rain', music: { bpm: 128, root: 196, pattern: [0, 4, 7, 10, 7, 4, 2, 5] }, boss: { name: 'Deep Gulper', emoji: E.cloud, hp: 5100, size: 400, color: '#d3edff', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'rain'), phase(8, 'low', 'ring')] }, asteroidDensity: 3 }),
     theme({ name: 'Thorium Gap', subtitle: 'Final Descent', skyTop: '#0f081b', skyBottom: '#5b3d18', glow: '#ffe78a', accent: '#ffd77a', accent2: '#ffffff', forms: ['ring', 'fan', 'wave'], enemyKinds: ['elite', 'sniper', 'spinner', 'looper'], atmosphere: 'nova', music: { bpm: 152, root: 262, pattern: [0, 4, 7, 12, 15, 12, 7, 4] }, boss: { name: 'Unnamed Horror', emoji: E.sun, hp: 10000, size: 512, color: '#fff0bd', flipWhenMovingRight: false, phases: [phase(6.5, 'hover', 'aimed'), phase(6.5, 'sweep', 'ring'), phase(6.5, 'low', 'summon'), phase(6.5, 'dash', 'beam'), phase(7.5, 'low', 'wall')] } })
   ];
 
@@ -1823,6 +1949,7 @@
     starfield: [],
     starfieldScroll: 0,
     scrollingClouds: null,
+    asteroids: null,
     fps: 0,
     fpsAvg: 60,
     starfieldCapSum: 0,
@@ -2356,6 +2483,7 @@
     if (!bullet || bullet._inPool) return;
     bullet._inPool = true;
     bullet.hitEnemies = null;
+    bullet.hitAsteroids = null;
     state.projectilePool.push(bullet);
   }
 
@@ -2547,6 +2675,7 @@
     state.transition = null;
     clearDecorBackgrounds();
     clearArray(state.enemies);
+    clearAsteroids();
     clearProjectileLists();
     clearArray(state.pickups);
     clearParticleList();
@@ -2616,7 +2745,7 @@
   }
 
   function assetWarmupBusy() {
-    return !!(playerShipTextureLoading || playerAuraTextureLoading || bossArtLoadKeys.size || bossPartLoadKeys.size || enemyShipLoadKeys.size || glowImageLoads.size || planetDecorLoadKeys.size || planetDecorTextureLoadKeys.size);
+    return !!(playerShipTextureLoading || playerAuraTextureLoading || bossArtLoadKeys.size || bossPartLoadKeys.size || enemyShipLoadKeys.size || glowImageLoads.size || planetDecorLoadKeys.size || planetDecorTextureLoadKeys.size || asteroidArtLoadKeys.size);
   }
 
   function warmAllTextures() {
@@ -2631,6 +2760,7 @@
     ensureGlowImage('assets/glow_e_green.png');
     ensureGlowImage('assets/glow_e_red.png');
     for (let i = 1; i <= PLANET_DECOR_MAX; i++) ensurePlanetDecorImage(i);
+    warmAsteroidBatch();
     for (let i = 1; i <= THEMES.length; i++) {
       warmBossArt(i);
       warmEnemyShipBatch(i);
@@ -2674,6 +2804,7 @@
     if (!info) return 'The void has taken the ship.';
     if (info.kind === 'boss-contact') return 'You got killed by colliding with a boss.';
     if (info.kind === 'boss-shot' || info.sourceKind === 'boss') return 'You got killed by a shot from the boss.';
+    if (info.kind === 'asteroid-contact' || info.sourceKind === 'asteroid') return 'You got killed by colliding with an asteroid.';
     const isShot = info.kind === 'enemy-shot' || info.kind === 'shot';
     const label = info.sourceName || info.sourceKind || 'enemy';
     if (isShot) return 'You got killed by a shot from a ' + label + '.';
@@ -2744,12 +2875,17 @@
     clearArray(state.enemies);
     clearProjectileLists();
     clearArray(state.pickups);
+    clearAsteroids();
     state.boss = null;
     state.waveClock = 0;
     state.waveIndex = 0;
     state.levelClock = 0;
     state.transition = null;
     regenBackground(state.currentTheme, { preserveDecor: true, preserveClouds: true, preserveStars: true });
+    if (state.currentTheme && state.currentTheme.asteroidDensity > 0 && view.w >= 700) {
+      warmAsteroidBatch();
+      seedAsteroidsForTheme(state.currentTheme);
+    }
     state.starfieldCapSum = 0;
     state.starfieldCapSamples = 0;
     state.starfieldCapPending = null;
@@ -3931,6 +4067,30 @@
         } else if (b.pierce > 0) { b.pierce--; b.life -= 0.3; }
         else remove = true;
       }
+      if (!remove && state.asteroids && state.asteroids.length) {
+        for (let ai = 0; ai < state.asteroids.length; ai++) {
+          const asteroid = state.asteroids[ai];
+          if (!asteroid || asteroid.dead || asteroid.respawnTimer > 0) continue;
+          const art = asteroid.art || getAsteroidArt(asteroid.imageIndex);
+          if (!art || !art.mask) continue;
+          if (circleHitsAlphaMask(art.mask, asteroid.x, asteroid.y, asteroid.drawW, asteroid.drawH, asteroid.rot, b.x, b.y, b.r)) {
+            damageAsteroid(asteroid, b.damage, false);
+            if (b.kind === 'beam') {
+              b.pierce = Math.max(0, (b.pierce || 0) - 1);
+              if (b.pierce <= 0) {
+                remove = true;
+                break;
+              }
+            } else if (b.pierce > 0) {
+              b.pierce--;
+              b.life -= 0.18;
+            } else {
+              remove = true;
+              break;
+            }
+          }
+        }
+      }
       if (!remove) {
         collectEnemyCollisionCandidates(enemyCollision, b.x, b.y, b.r, enemyCandidates);
         for (let j = enemyCandidates.length - 1; j >= 0; j--) {
@@ -4014,6 +4174,30 @@
       b.y += b.vy * dt;
       b.life -= dt;
       if (b.life <= 0 || b.x < -80 || b.x > view.w + 80 || b.y < -100 || b.y > view.h + 100) remove = true;
+      if (!remove && state.asteroids && state.asteroids.length) {
+        for (let ai = 0; ai < state.asteroids.length; ai++) {
+          const asteroid = state.asteroids[ai];
+          if (!asteroid || asteroid.dead || asteroid.respawnTimer > 0) continue;
+          const art = asteroid.art || getAsteroidArt(asteroid.imageIndex);
+          if (!art || !art.mask) continue;
+          if (circleHitsAlphaMask(art.mask, asteroid.x, asteroid.y, asteroid.drawW, asteroid.drawH, asteroid.rot, b.x, b.y, b.r)) {
+            damageAsteroid(asteroid, b.damage, false);
+            if (b.kind === 'beam') {
+              b.pierce = Math.max(0, (b.pierce || 0) - 1);
+              if (b.pierce <= 0) {
+                remove = true;
+                break;
+              }
+            } else if (b.pierce > 0) {
+              b.pierce--;
+              b.life -= 0.18;
+            } else {
+              remove = true;
+              break;
+            }
+          }
+        }
+      }
       if (p.invuln <= 0 && d2(b.x, b.y, p.x, p.y) < (b.r + p.r) * (b.r + p.r)) {
         remove = true;
         pushDebugEvent('enemyBulletHit', {
@@ -4456,7 +4640,13 @@
     updateGamepadInput();
     if (state.mode === 'debug') return;
     if (state.mode === 'title') { updateMusic(dt); updateParticles(dt); return; }
-    if (state.mode === 'gameover' || state.mode === 'victory') { updateMusic(dt * 0.35); updateParticles(dt); if (state.player.invuln > 0) state.player.invuln = Math.max(0, state.player.invuln - dt); return; }
+    if (state.mode === 'gameover' || state.mode === 'victory') {
+      updateAsteroids(dt);
+      updateMusic(dt * 0.35);
+      updateParticles(dt);
+      if (state.player.invuln > 0) state.player.invuln = Math.max(0, state.player.invuln - dt);
+      return;
+    }
     if (state.paused) return;
     updatePlayer(dt);
     if (state.boss) updateBoss(dt);
@@ -4465,8 +4655,10 @@
     }
     // During boss fight, enemy waves spawn at 50% rate
     state.waveClock += state.boss ? dt * 0.50 : dt;
+    updateAsteroids(dt);
     updateBullets(dt);
     updateEnemies(dt);
+    resolveAsteroidContacts();
     updatePickups(dt);
     updateParticles(dt);
     updateTransition(dt);
@@ -4857,6 +5049,252 @@
     }
   }
 
+  function clearAsteroids() {
+    if (!state.asteroids) return;
+    clearArray(state.asteroids);
+    state.asteroids = null;
+  }
+
+  function resetAsteroid(asteroid, theme, slotIndex, densityInfo, isInitialSpawn) {
+    const artIndex = randi(1, ASTEROID_ART_COUNT);
+    const art = getAsteroidArt(artIndex);
+    const srcW = Math.max(1, art && art.w ? art.w : 1);
+    const srcH = Math.max(1, art && art.h ? art.h : 1);
+    const maxSrc = Math.max(srcW, srcH);
+    const drawSize = rand(ASTEROID_MIN_SIZE, ASTEROID_MAX_SIZE);
+    const scale = drawSize / maxSrc;
+    const w = Math.max(1, view.w);
+    const h = Math.max(1, view.h);
+    const info = densityInfo && densityInfo.slots != null ? densityInfo : asteroidDensityConfig(theme);
+    const laneCount = Math.max(1, info.slots || 1);
+    const weight = asteroidSlotWeight(info, slotIndex);
+    asteroid.imageIndex = artIndex;
+    asteroid.art = art;
+    asteroid.spawnWeight = weight;
+    asteroid.spawnSlotCount = laneCount;
+    asteroid.x = 0;
+    asteroid.y = 0;
+    asteroid.drawW = Math.max(1, srcW * scale);
+    asteroid.drawH = Math.max(1, srcH * scale);
+    asteroid.hp = ASTEROID_HP;
+    asteroid.maxHp = ASTEROID_HP;
+    asteroid.speed = rand(150, 240);
+    asteroid.vx = (Math.random() - 0.5) * 12;
+    asteroid.driftPhase = Math.random() * TAU;
+    asteroid.rotStart = rand(-ASTEROID_MAX_ROT, ASTEROID_MAX_ROT);
+    asteroid.rotDelta = (asteroid.rotStart > 0 ? -1 : (asteroid.rotStart < 0 ? 1 : (Math.random() < 0.5 ? -1 : 1))) * rand(ASTEROID_MIN_ROT, ASTEROID_MAX_ROT);
+    asteroid.rotTarget = clamp(asteroid.rotStart + asteroid.rotDelta, -ASTEROID_MAX_ROT, ASTEROID_MAX_ROT);
+    asteroid.rot = asteroid.rotStart;
+    asteroid.age = 0;
+    asteroid.rotationLife = Math.max(1, (h + asteroid.drawH + 160) / Math.max(1, asteroid.speed));
+    asteroid.hitFlash = 0;
+    asteroid.hitSparkDamage = 0;
+    asteroid.dead = false;
+    asteroid.team = 'asteroid';
+    asteroid.theme = theme || mainTheme();
+    asteroid.slotIndex = Number.isFinite(slotIndex) ? slotIndex : (asteroid.slotIndex || 0);
+    if (isInitialSpawn) {
+      asteroid.respawnTimer = weight < 1 && Math.random() > weight ? asteroidRespawnDelay(asteroid, theme, info, true) : 0;
+    } else {
+      asteroid.respawnTimer = 0;
+    }
+    if (asteroid.respawnTimer <= 0) {
+      let placed = false;
+      const xPad = Math.max(24, drawSize * 0.5 + 8);
+      const xMin = xPad;
+      const xMax = Math.max(xMin + 1, w - xPad);
+      const initialYMin = -Math.max(260, h * 0.58) - drawSize * 0.5;
+      const initialYMax = -Math.max(90, h * 0.10) - drawSize * 0.5;
+      const respawnYMin = -Math.max(220, h * 0.34) - drawSize * 0.5;
+      const respawnYMax = -Math.max(90, h * 0.10) - drawSize * 0.5;
+      for (let attempt = 0; attempt < 24 && !placed; attempt++) {
+        const x = rand(xMin, xMax);
+        const y = isInitialSpawn ? rand(initialYMin, initialYMax) : rand(respawnYMin, respawnYMax);
+        if (!asteroidSpawnTooClose(x, y, asteroid.drawW, asteroid.drawH, asteroid)) {
+          asteroid.x = x;
+          asteroid.y = y;
+          placed = true;
+        }
+      }
+      if (!placed) {
+        asteroid.x = rand(xMin, xMax);
+        asteroid.y = isInitialSpawn ? rand(initialYMin, initialYMax) : rand(respawnYMin, respawnYMax);
+      }
+    }
+  }
+
+  function seedAsteroidsForTheme(theme) {
+    const info = asteroidDensityConfig(theme);
+    if (!info.slots) {
+      clearAsteroids();
+      return;
+    }
+    state.asteroids = [];
+    for (let i = 0; i < info.slots; i++) {
+      const asteroid = { slotIndex: i, dead: false, respawnTimer: 0, hitFlash: 0, hitSparkDamage: 0, spawnWeight: asteroidSlotWeight(info, i) };
+      resetAsteroid(asteroid, theme, i, info, true);
+      state.asteroids.push(asteroid);
+    }
+  }
+
+  function damageAsteroid(asteroid, damage) {
+    if (!asteroid || asteroid.dead || asteroid.respawnTimer > 0) return false;
+    const actualDamage = Math.max(1, Number.isFinite(damage) ? damage : 1);
+    asteroid.hp -= actualDamage;
+    asteroid.hitFlash = Math.max(asteroid.hitFlash || 0, clamp(0.18 + actualDamage * 0.003, 0.18, 1));
+    asteroid.hitSparkDamage = Math.max(1, actualDamage | 0);
+    sfx('hit');
+    if (asteroid.hp > 0) return false;
+    asteroid.hp = 0;
+    asteroid.dead = true;
+    asteroid.respawnTimer = asteroidSpawningAllowed(asteroid.theme) ? asteroidRespawnDelay(asteroid, asteroid.theme, asteroidDensityConfig(asteroid.theme), false) : 0;
+    asteroid.hitFlash = 1;
+    state.shake = Math.max(state.shake, 7);
+    burst(asteroid.x, asteroid.y, '#f1eadf', 20, 180, 8, 'spark');
+    burst(asteroid.x, asteroid.y, '#cdbfa9', 10, 130, 6, 'spark');
+    flashBurst(asteroid.x, asteroid.y, '#ffffff');
+    return true;
+  }
+
+  function killPlayerInstant(source) {
+    const p = state.player;
+    if (state.mode !== 'playing') return;
+    state.lastHitInfo = {
+      at: state.animClock,
+      damage: 999999,
+      sourceKind: source && source.sourceKind ? source.sourceKind : '',
+      sourceName: source && source.sourceName ? source.sourceName : '',
+      kind: source && source.kind ? source.kind : '',
+      team: source && source.team ? source.team : '',
+      playerX: p.x,
+      playerY: p.y,
+      bullets: state.enemyBullets.length,
+      enemies: state.enemies.length,
+      boss: state.boss ? state.boss.name : ''
+    };
+    state.lastDeathReason = describeDeathReason(source);
+    pushDebugEvent('playerDeath', {
+      reason: state.lastDeathReason,
+      source: compactSourceInfo(source),
+      player: {
+        x: p.x,
+        y: p.y,
+        health: p.health,
+        shield: p.shield,
+        bombs: p.bombs,
+        weaponMode: p.weaponMode,
+        weaponTier: p.weaponTier
+      },
+      world: {
+        bullets: state.enemyBullets.length,
+        enemies: state.enemies.length,
+        boss: state.boss ? state.boss.name : ''
+      }
+    });
+    state.lives--;
+    if (state.lives <= 0) return gameOver(state.lastDeathReason);
+    shipDeathBurst(p.x, p.y);
+    p.health = p.maxHealth;
+    p.shield = Math.max(0, p.shield - 1);
+    p.bombs = Math.max(0, p.bombs - 1);
+    if (Array.isArray(p.weaponTiers) && p.weaponTiers.length === WEAPONS.length) {
+      p.weaponTiers[p.weaponMode] = Math.max(1, (p.weaponTiers[p.weaponMode] || 1) - 1);
+      let bestMode = 0;
+      let bestTier = p.weaponTiers[0] || 1;
+      for (let i = 1; i < p.weaponTiers.length; i++) {
+        const tier = p.weaponTiers[i] || 1;
+        if (tier > bestTier) {
+          bestTier = tier;
+          bestMode = i;
+        }
+      }
+      p.weaponMode = bestMode;
+      p.weaponTier = bestTier;
+    } else {
+      p.weaponTier = Math.max(1, p.weaponTier - 1);
+    }
+    p.rapidTimer = 0;
+    state.combo = 0;
+    state.comboTimer = 0;
+    state.overdrive = 0;
+    state.banner = 'SHIP LOST';
+    state.bannerSub = 'Rescue plane incoming.';
+    state.bannerTimer = 1.5;
+    beginPlayerRespawn();
+    hint('A life lost. Stay sharp.', 2.5);
+    markHudDirty();
+  }
+
+  function updateAsteroids(dt) {
+    const theme = mainTheme();
+    const info = asteroidDensityConfig(theme);
+    if (!info.slots || view.w < 700) {
+      clearAsteroids();
+      return;
+    }
+    const spawnAllowed = asteroidSpawningAllowed(theme);
+    if (!state.asteroids || state.asteroids.length !== info.slots) {
+      if (!spawnAllowed) return;
+      seedAsteroidsForTheme(theme);
+    }
+    const w = Math.max(1, view.w);
+    const h = Math.max(1, view.h);
+    for (let i = 0; i < state.asteroids.length; i++) {
+      const asteroid = state.asteroids[i];
+      if (!asteroid) continue;
+      if (asteroid.respawnTimer > 0) {
+        if (!spawnAllowed) {
+          continue;
+        }
+        asteroid.respawnTimer = Math.max(0, asteroid.respawnTimer - dt);
+        if (asteroid.respawnTimer <= 0) resetAsteroid(asteroid, theme, asteroid.slotIndex, info, false);
+        continue;
+      }
+      asteroid.age += dt;
+      asteroid.hitFlash = Math.max(0, (asteroid.hitFlash || 0) - dt * 3);
+      asteroid.hitSparkDamage = 0;
+      asteroid.y += asteroid.speed * dt;
+      asteroid.x += asteroid.vx * dt;
+      asteroid.vx += Math.sin((state.animClock + i) * 0.32 + asteroid.driftPhase) * dt * 1.8;
+      asteroid.rot = clamp(lerp(asteroid.rotStart, asteroid.rotTarget, clamp(asteroid.age / asteroid.rotationLife, 0, 1)), -ASTEROID_MAX_ROT, ASTEROID_MAX_ROT);
+      if (asteroid.y - asteroid.drawH * 0.5 > h + 120 || asteroid.x < -asteroid.drawW || asteroid.x > w + asteroid.drawW) {
+        asteroid.dead = true;
+        asteroid.respawnTimer = spawnAllowed ? asteroidRespawnDelay(asteroid, theme, info, false) : 0;
+      }
+    }
+  }
+
+  function resolveAsteroidContacts() {
+    const theme = mainTheme();
+    const info = asteroidDensityConfig(theme);
+    if (!info.slots || !state.asteroids || !state.asteroids.length) return;
+    const p = state.player;
+    const contactDamage = Math.max(1, currentDifficulty().contact);
+    if (p.invuln > 0) return;
+    for (let i = 0; i < state.asteroids.length; i++) {
+      const asteroid = state.asteroids[i];
+      if (!asteroid || asteroid.dead || asteroid.respawnTimer > 0) continue;
+      const art = asteroid.art || getAsteroidArt(asteroid.imageIndex);
+      if (!art || !art.mask) continue;
+      let asteroidGone = false;
+      if (circleHitsAlphaMask(art.mask, asteroid.x, asteroid.y, asteroid.drawW, asteroid.drawH, asteroid.rot, p.x, p.y, p.r)) {
+        damageAsteroid(asteroid, contactDamage);
+        hurtPlayer(contactDamage, { kind: 'asteroid-contact', sourceKind: 'asteroid', sourceName: 'asteroid' });
+        asteroidGone = asteroid.dead || asteroid.respawnTimer > 0;
+      }
+      if (asteroidGone) continue;
+      for (let j = 0; j < state.enemies.length; j++) {
+        const e = state.enemies[j];
+        if (!e || e.dead) continue;
+        if (circleHitsAlphaMask(art.mask, asteroid.x, asteroid.y, asteroid.drawW, asteroid.drawH, asteroid.rot, e.x, e.y, e.r)) {
+          damageAsteroid(asteroid, contactDamage);
+          damageEnemy(e, contactDamage, false);
+          if (asteroid.dead || asteroid.respawnTimer > 0) break;
+        }
+      }
+    }
+  }
+
   function drawScrollingClouds() {
     if (state.settings.lowEndMode || !state.scrollingClouds || !state.scrollingClouds.length) return;
     for (let i = 0; i < state.scrollingClouds.length; i++) {
@@ -4869,6 +5307,30 @@
       drawTextureRect(tex, cx, cy, c.drawW || c.texW, c.drawH || c.texH, {
         alpha: 1,
         layer: 1,
+        lighter: false
+      });
+    }
+  }
+
+  function drawAsteroids() {
+    if (!state.asteroids || !state.asteroids.length) return;
+    for (let i = 0; i < state.asteroids.length; i++) {
+      const asteroid = state.asteroids[i];
+      if (!asteroid || asteroid.dead || asteroid.respawnTimer > 0) continue;
+      const art = asteroid.art || getAsteroidArt(asteroid.imageIndex);
+      if (!art || !art.texture || !art.mask) continue;
+      if (asteroid.hitFlash > 0) {
+        const glow = Math.max(56, Math.max(asteroid.drawW, asteroid.drawH) * 0.35);
+        drawGlowCircle(asteroid.x, asteroid.y, glow, '#ffffff', clamp(asteroid.hitFlash * 0.24, 0.06, 0.8), 26);
+        if (asteroid.hitSparkDamage) {
+          burst(asteroid.x, asteroid.y, '#f1eadf', 4 + Math.min(8, asteroid.hitSparkDamage), 110 + asteroid.hitSparkDamage * 22, 5, 'spark');
+          asteroid.hitSparkDamage = 0;
+        }
+      }
+      drawTextureRect(art.texture, asteroid.x, asteroid.y, asteroid.drawW, asteroid.drawH, {
+        rot: asteroid.rot,
+        alpha: 0.98,
+        layer: ASTEROID_BASE_LAYER,
         lighter: false
       });
     }
@@ -6376,6 +6838,7 @@
     drawParticles();
     drawPickups();
     drawBullets();
+    drawAsteroids();
     for (let i = 0; i < state.enemies.length; i++) drawEnemy(state.enemies[i]);
     if (state.boss) drawBoss(state.boss);
     if (state.mode !== 'debug') drawPlayer();

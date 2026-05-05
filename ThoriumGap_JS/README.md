@@ -12,6 +12,7 @@ Runtime asset paths used by the game:
 - `assets/Thorium_Gap_title.png`
 - `assets/Enemy_*.png`
 - `assets/Boss_*.png`
+- `assets/Asteroid-*.png`
 - `assets/glow_e_*.png`
 
 Development files:
