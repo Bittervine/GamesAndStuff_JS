@@ -163,8 +163,229 @@ function createPickupList(pickups) {
   }));
 }
 
+function createDecalList(decals) {
+  return decals.map((decal, index) => ({
+    id: decal.id || index + 1,
+    kind: decal.kind || 'decal',
+    x: decal.x,
+    z: decal.z,
+    y: Number(decal.y ?? 0) || 0,
+    width: Number(decal.width ?? decal.radius * 2 ?? 0.5) || 0.5,
+    height: Number(decal.height ?? 0.03) || 0.03,
+    depth: Number(decal.depth ?? decal.radius * 2 ?? 0.5) || 0.5,
+    radius: Number(decal.radius ?? Math.max(decal.width ?? 0.25, decal.depth ?? 0.25) * 0.5 ?? 0.25) || 0.25,
+    rotation: Number(decal.rotation ?? 0) || 0,
+    color: decal.color || null,
+    intensity: Number(decal.intensity ?? 0) || 0,
+    pulse: Number(decal.pulse ?? 0) || 0,
+    alpha: Number(decal.alpha ?? 1) || 1,
+    lifeMs: Number.isFinite(decal.lifeMs) ? Math.max(1, decal.lifeMs) : Infinity,
+    ageMs: Number(decal.ageMs ?? 0) || 0,
+    static: !Number.isFinite(decal.lifeMs)
+  }));
+}
+
 function createProjectiles() {
   return [];
+}
+
+function createVisualEffects() {
+  return [];
+}
+
+function spawnDecal(state, decal) {
+  state.decals.push({
+    id: state.nextId += 1,
+    kind: decal.kind || 'impact',
+    x: decal.x,
+    z: decal.z,
+    y: Number(decal.y ?? 0) || 0,
+    width: Number(decal.width ?? decal.radius * 2 ?? 0.5) || 0.5,
+    height: Number(decal.height ?? 0.03) || 0.03,
+    depth: Number(decal.depth ?? decal.radius * 2 ?? 0.5) || 0.5,
+    radius: Number(decal.radius ?? 0.25) || 0.25,
+    rotation: Number(decal.rotation ?? 0) || 0,
+    color: decal.color || null,
+    intensity: Number(decal.intensity ?? 0) || 0,
+    pulse: Number(decal.pulse ?? 0) || 0,
+    alpha: Number(decal.alpha ?? 1) || 1,
+    lifeMs: Number.isFinite(decal.lifeMs) ? Math.max(1, decal.lifeMs) : Infinity,
+    ageMs: 0,
+    static: !Number.isFinite(decal.lifeMs)
+  });
+}
+
+function spawnParticleBurst(state, burst) {
+  const count = Math.max(1, burst.count || 4);
+  const spread = Number(burst.spread ?? 0.35) || 0.35;
+  const speed = Number(burst.speed ?? 0.9) || 0.9;
+  const lifeMs = Math.max(80, Number(burst.lifeMs ?? 260) || 260);
+  const baseRadius = Number(burst.radius ?? 0.06) || 0.06;
+  const baseHeight = Number(burst.height ?? 0.06) || 0.06;
+  const color = burst.color || null;
+  const rng = state.rng.fork(`fx:${state.tick}:${state.nextId}:${burst.kind || 'spark'}`);
+
+  for (let index = 0; index < count; index += 1) {
+    const angle = rng.nextFloat() * Math.PI * 2;
+    const distance = rng.nextFloat() * spread;
+    state.effects.push({
+      id: state.nextId += 1,
+      kind: burst.kind || 'spark',
+      x: burst.x + Math.cos(angle) * distance,
+      z: burst.z + Math.sin(angle) * distance,
+      y: Number(burst.y ?? 0) + rng.nextFloat() * baseHeight,
+      vx: Math.cos(angle) * speed * (0.45 + rng.nextFloat() * 0.55),
+      vy: (0.25 + rng.nextFloat() * 0.65) * (burst.upward ?? 1),
+      vz: Math.sin(angle) * speed * (0.45 + rng.nextFloat() * 0.55),
+      radius: baseRadius * (0.7 + rng.nextFloat() * 0.8),
+      color,
+      alpha: Number(burst.alpha ?? 1) || 1,
+      lifeMs,
+      ageMs: 0
+    });
+  }
+}
+
+function processVisualEvents(state) {
+  for (const event of state.events) {
+    if (event.type === 'projectileImpact' || event.type === 'hitscanImpact') {
+      const radius = Math.max(0.12, Number(event.radius ?? 0.18) || 0.18);
+      const color = event.color || (event.impactKind === 'splash' ? '#ffb35d' : '#fff0be');
+      spawnDecal(state, {
+        kind: event.impactKind === 'splash' ? 'splash' : 'impact',
+        x: event.x,
+        z: event.z,
+        y: 0.01,
+        width: radius * 2.2,
+        height: 0.025,
+        depth: radius * 1.8,
+        radius,
+        rotation: state.rng.fork(`decal:${state.tick}:${state.nextId}`).nextFloat() * Math.PI * 2,
+        color,
+        alpha: 0.72,
+        lifeMs: event.impactKind === 'splash' ? 7000 : 4800
+      });
+      spawnParticleBurst(state, {
+        kind: event.impactKind === 'splash' ? 'splashSpark' : 'impactSpark',
+        x: event.x,
+        z: event.z,
+        y: 0.10,
+        color,
+        count: event.impactKind === 'splash' ? 7 : 4,
+        spread: event.impactKind === 'splash' ? 0.55 : 0.28,
+        speed: event.impactKind === 'splash' ? 1.1 : 0.7,
+        lifeMs: event.impactKind === 'splash' ? 320 : 220,
+        radius: event.impactKind === 'splash' ? 0.07 : 0.05,
+        height: 0.10
+      });
+      continue;
+    }
+
+    if (event.type === 'hitEnemy') {
+      const enemy = state.enemies.find((item) => item.id === event.enemyId);
+      if (enemy) {
+        spawnParticleBurst(state, {
+          kind: 'bloodSpark',
+          x: enemy.x,
+          z: enemy.z,
+          y: 0.1,
+          color: enemy.def?.color || '#ff7a7a',
+          count: 5,
+          spread: 0.18,
+          speed: 0.5,
+          lifeMs: 260,
+          radius: 0.05,
+          height: 0.08
+        });
+      }
+      continue;
+    }
+
+    if (event.type === 'playerDamaged') {
+      spawnParticleBurst(state, {
+        kind: 'painSpark',
+        x: state.player.x,
+        z: state.player.z,
+        y: 0.28,
+        color: '#ff6c6c',
+        count: 4,
+        spread: 0.22,
+        speed: 0.5,
+        lifeMs: 240,
+        radius: 0.05,
+        height: 0.07
+      });
+      continue;
+    }
+
+    if (event.type === 'enemyDied') {
+      const enemy = state.enemies.find((item) => item.id === event.enemyId);
+      if (enemy) {
+        spawnDecal(state, {
+          kind: 'corpseMark',
+          x: enemy.x,
+          z: enemy.z,
+          y: 0.01,
+          width: Math.max(0.28, enemy.radius * 1.6),
+          height: 0.022,
+          depth: Math.max(0.28, enemy.radius * 1.6),
+          radius: Math.max(0.2, enemy.radius * 0.8),
+          rotation: state.rng.fork(`corpse:${state.tick}:${state.nextId}`).nextFloat() * Math.PI * 2,
+          color: enemy.def?.color || '#4b2c2c',
+          alpha: 0.72,
+          lifeMs: 14000
+        });
+        spawnParticleBurst(state, {
+          kind: 'deathSpark',
+          x: enemy.x,
+          z: enemy.z,
+          y: 0.12,
+          color: enemy.def?.color || '#cc7a7a',
+          count: 8,
+          spread: 0.34,
+          speed: 0.95,
+          lifeMs: 360,
+          radius: 0.06,
+          height: 0.12
+        });
+      }
+    }
+  }
+}
+
+function updateVisualEffects(state, dtMs) {
+  const dt = dtMs / 1000;
+
+  const survivingEffects = [];
+  for (const effect of state.effects) {
+    effect.ageMs += dtMs;
+    if (effect.ageMs >= effect.lifeMs) {
+      continue;
+    }
+
+    effect.x += effect.vx * dt;
+    effect.y += effect.vy * dt;
+    effect.z += effect.vz * dt;
+    effect.vx *= 0.94;
+    effect.vy -= 0.45 * dt;
+    effect.vz *= 0.94;
+    survivingEffects.push(effect);
+  }
+  state.effects = survivingEffects;
+
+  const survivingDecals = [];
+  for (const decal of state.decals) {
+    if (decal.static) {
+      survivingDecals.push(decal);
+      continue;
+    }
+
+    decal.ageMs += dtMs;
+    if (decal.ageMs < decal.lifeMs) {
+      survivingDecals.push(decal);
+    }
+  }
+  state.decals = survivingDecals;
 }
 
 function createEnemies(state, level) {
@@ -492,6 +713,8 @@ export function createGameState(options = {}) {
     completed: false,
     paused: false,
     events: [],
+    decals: createDecalList(level.decals || []),
+    effects: createVisualEffects(),
     projectiles: createProjectiles(),
     pickups: createPickupList(level.pickups),
     enemies: [],
@@ -566,6 +789,8 @@ export function advanceGameState(state, input, dtMs) {
   updateEnemyList(state, dtMs);
   collectPickups(state);
   checkExitCompletion(state);
+  processVisualEvents(state);
+  updateVisualEffects(state, dtMs);
   return state;
 }
 

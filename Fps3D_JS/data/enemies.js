@@ -14,6 +14,13 @@ export const ENEMY_DEFS = {
     name: 'Trooper',
     model: 'humanoid',
     weaponModel: 'pistol',
+    rig: {
+      variant: 'humanoid',
+      pose: {
+        widthScale: 0.92,
+        heightScale: 0.98
+      }
+    },
     hp: 36,
     radius: 0.34,
     height: 1.5,
@@ -33,6 +40,13 @@ export const ENEMY_DEFS = {
     name: 'Imp',
     model: 'humanoid',
     weaponModel: 'caster',
+    rig: {
+      variant: 'humanoid',
+      pose: {
+        widthScale: 0.88,
+        heightScale: 1.05
+      }
+    },
     hp: 54,
     radius: 0.36,
     height: 1.65,
@@ -52,6 +66,14 @@ export const ENEMY_DEFS = {
     id: 'demon',
     name: 'Demon',
     model: 'quadruped',
+    rig: {
+      variant: 'quadruped',
+      pose: {
+        widthScale: 0.96,
+        depthScale: 1.06,
+        heightScale: 0.78
+      }
+    },
     hp: 80,
     radius: 0.52,
     height: 1.25,
@@ -71,6 +93,13 @@ export const ENEMY_DEFS = {
     name: 'Cacodemon',
     model: 'floating',
     weaponModel: 'orb',
+    rig: {
+      variant: 'floating',
+      pose: {
+        widthScale: 1.04,
+        heightScale: 0.96
+      }
+    },
     hp: 130,
     radius: 0.62,
     height: 1.6,
@@ -91,6 +120,22 @@ export const ENEMY_DEFS = {
     name: 'Baron',
     model: 'humanoid',
     weaponModel: 'cannon',
+    rig: {
+      variant: 'humanoid',
+      pose: {
+        widthScale: 1.08,
+        heightScale: 1.14
+      },
+      mesh: {
+        torso: {
+          sides: 12,
+          subdivisions: 4
+        },
+        head: {
+          sides: 12
+        }
+      }
+    },
     hp: 240,
     radius: 0.6,
     height: 1.95,
@@ -111,6 +156,17 @@ export const ENEMY_DEFS = {
     name: 'Chaingunner',
     model: 'humanoid',
     weaponModel: 'chaingun',
+    rig: {
+      variant: 'humanoid',
+      pose: {
+        widthScale: 0.95,
+        heightScale: 1.0
+      },
+      weapon: {
+        attackReachScale: 0.38,
+        armLiftScale: 0.11
+      }
+    },
     hp: 66,
     radius: 0.33,
     height: 1.6,
@@ -130,6 +186,26 @@ export const ENEMY_DEFS = {
     name: 'Boss',
     model: 'humanoid',
     weaponModel: 'bossCannon',
+    rig: {
+      variant: 'humanoid',
+      pose: {
+        widthScale: 1.16,
+        heightScale: 1.30
+      },
+      mesh: {
+        torso: {
+          sides: 12,
+          subdivisions: 4
+        },
+        head: {
+          sides: 12
+        }
+      },
+      weapon: {
+        attackReachScale: 0.40,
+        weaponLiftScale: 0.05
+      }
+    },
     hp: 1200,
     radius: 0.9,
     height: 2.55,

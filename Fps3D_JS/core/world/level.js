@@ -14,6 +14,7 @@ import {
 } from './spatial.js';
 
 const GEOMETRY_EPSILON = 1e-6;
+const MIN_VERTICAL_CLEARANCE = 1.9;
 
 const PICKUP_CHAR_MAP = {
   h: { kind: 'health', amount: 25 },
@@ -54,6 +55,50 @@ function normalizeEntityList(entries, kind) {
       z: point.z
     };
   });
+}
+
+function normalizeDecorationList(entries, kind) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries.map((entry, index) => {
+    const point = toPoint2(entry);
+    return {
+      ...entry,
+      id: entry.id || `${kind}-${index + 1}`,
+      kind: entry.kind || kind,
+      x: point.x,
+      z: point.z,
+      y: Number(entry.y ?? entry.heightOffset ?? 0) || 0,
+      width: Number(entry.width ?? entry.scaleX ?? entry.sizeX ?? entry.size ?? 0.5) || 0.5,
+      height: Number(entry.height ?? entry.scaleY ?? entry.sizeY ?? entry.size ?? 0.5) || 0.5,
+      depth: Number(entry.depth ?? entry.scaleZ ?? entry.sizeZ ?? entry.size ?? 0.5) || 0.5,
+      radius: Number(entry.radius ?? entry.size ?? 0.25) || 0.25,
+      rotation: Number(entry.rotation ?? entry.rotationY ?? 0) || 0,
+      color: typeof entry.color === 'string' ? entry.color : null,
+      intensity: Number(entry.intensity ?? 0) || 0,
+      pulse: Number(entry.pulse ?? 0) || 0,
+      alpha: Number(entry.alpha ?? 1) || 1,
+      lifeMs: Number(entry.lifeMs ?? Infinity) || Infinity
+    };
+  });
+}
+
+const THEME_ALIASES = new Map([
+  ['tech', 'tech'],
+  ['tech-base', 'tech'],
+  ['techbase', 'tech'],
+  ['industrial', 'industrial'],
+  ['hell', 'hell']
+]);
+
+function normalizeThemeId(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  return THEME_ALIASES.get(value.trim().toLowerCase()) ?? null;
 }
 
 function normalizeDoorEdgeReference(ref, fallbackSectorId = null) {
@@ -278,6 +323,34 @@ function collectSectorGeometryDiagnostics(sector) {
     }
   }
 
+  const samples = [];
+  if (Array.isArray(sector.loop) && sector.loop.length > 0) {
+    samples.push(...sector.loop);
+  }
+  if (sector.centroid && typeof sector.centroid.x === 'number' && typeof sector.centroid.z === 'number') {
+    samples.push(sector.centroid);
+  }
+
+  let minClearance = Infinity;
+  for (const point of samples) {
+    const floorHeight = surfaceHeightAt(sector.floorSurface, point.x, point.z);
+    const ceilingHeight = surfaceHeightAt(sector.ceilingSurface, point.x, point.z);
+    const clearance = ceilingHeight - floorHeight;
+    if (clearance < minClearance) {
+      minClearance = clearance;
+    }
+  }
+
+  if (Number.isFinite(minClearance) && minClearance < MIN_VERTICAL_CLEARANCE) {
+    issues.push({
+      type: 'insufficientClearance',
+      severity: 'warning',
+      sectorId: sector.id,
+      clearance: minClearance,
+      message: `Sector "${sector.id}" only has ${minClearance.toFixed(2)} units of vertical clearance.`
+    });
+  }
+
   const edges = buildPolygonEdges(sector.loop);
   for (let i = 0; i < edges.length; i += 1) {
     const first = edges[i];
@@ -310,6 +383,65 @@ function collectBrushLevelDiagnostics(level) {
   for (const sector of level.sectors || []) {
     issues.push(...collectSectorGeometryDiagnostics(sector));
   }
+  issues.push(...collectPortalGeometryDiagnostics(level));
+  return issues;
+}
+
+function collectPortalGeometryDiagnostics(level) {
+  const issues = [];
+  const seenTransitions = new Set();
+
+  for (const sector of level.sectors || []) {
+    if (!Array.isArray(sector.edges) || sector.edges.length === 0) {
+      continue;
+    }
+
+    for (const edge of sector.edges) {
+      if (!edge.portalTo) {
+        continue;
+      }
+
+      const neighbor = level.sectorById?.get(edge.portalTo);
+      if (!neighbor || !Array.isArray(neighbor.edges)) {
+        continue;
+      }
+
+      const transitionKey = `${segmentKey(edge.ax, edge.az, edge.bx, edge.bz)}:${[sector.id, neighbor.id].sort().join('|')}`;
+      if (seenTransitions.has(transitionKey)) {
+        continue;
+      }
+      seenTransitions.add(transitionKey);
+
+      const samples = [0, 0.5, 1];
+      let minClearance = Infinity;
+
+      for (const t of samples) {
+        const x = edge.ax + (edge.bx - edge.ax) * t;
+        const z = edge.az + (edge.bz - edge.az) * t;
+        const floorA = surfaceHeightAt(sector.floorSurface, x, z);
+        const floorB = surfaceHeightAt(neighbor.floorSurface, x, z);
+        const ceilingA = surfaceHeightAt(sector.ceilingSurface, x, z);
+        const ceilingB = surfaceHeightAt(neighbor.ceilingSurface, x, z);
+        const clearance = Math.min(ceilingA, ceilingB) - Math.max(floorA, floorB);
+        if (clearance < minClearance) {
+          minClearance = clearance;
+        }
+      }
+
+      if (Number.isFinite(minClearance) && minClearance < MIN_VERTICAL_CLEARANCE) {
+        issues.push({
+          type: 'insufficientPortalClearance',
+          severity: 'warning',
+          sectorId: sector.id,
+          neighborSectorId: neighbor.id,
+          edgeIndex: edge.index,
+          clearance: minClearance,
+          message: `Portal "${sector.id}:${edge.index}" to "${neighbor.id}" only has ${minClearance.toFixed(2)} units of vertical clearance.`
+        });
+      }
+    }
+  }
+
   return issues;
 }
 
@@ -378,6 +510,7 @@ function normalizeSectorDefinition(sector, index) {
     type: 'sector',
     id: sector.id || `sector-${index + 1}`,
     name: sector.name || sector.id || `Sector ${index + 1}`,
+    theme: normalizeThemeId(sector.theme || sector.style || null),
     loop,
     edges,
     floorSurface,
@@ -488,6 +621,10 @@ function buildBrushLevel(definition) {
     kind: pickup.kind || 'health'
   }));
 
+  const props = normalizeDecorationList(definition.props || definition.entities?.props, 'prop');
+  const lights = normalizeDecorationList(definition.lights || definition.entities?.lights, 'light');
+  const decals = normalizeDecorationList(definition.decals || definition.entities?.decals, 'decal');
+
   const exit = definition.exit ? {
     ...definition.exit,
     ...toPoint2(definition.exit)
@@ -498,6 +635,9 @@ function buildBrushLevel(definition) {
     spawn,
     ...enemySpawns,
     ...pickups,
+    ...props,
+    ...lights,
+    ...decals,
     exit || spawn
   ]);
 
@@ -506,6 +646,7 @@ function buildBrushLevel(definition) {
     name: definition.name || 'Unnamed',
     ambientLight: definition.ambientLight ?? 0.2,
     skyColor: definition.skyColor || '#5d7496',
+    theme: normalizeThemeId(definition.theme || null),
     width: Math.max(1, bounds.width),
     height: Math.max(1, bounds.height),
     bounds,
@@ -519,6 +660,9 @@ function buildBrushLevel(definition) {
     spawn,
     enemySpawns,
     pickups,
+    props,
+    lights,
+    decals,
     exit,
     grid: null,
     rows: null,
@@ -536,6 +680,7 @@ function buildBrushLevel(definition) {
     },
     diagnostics: collectBrushLevelDiagnostics({
       sectors,
+      sectorById,
       walls,
       doors
     })
@@ -551,6 +696,9 @@ function buildGridLevel(definition) {
   const grid = rows.map((row) => row.split(''));
   const enemySpawns = [];
   const pickups = [];
+  const props = normalizeDecorationList(definition.props || definition.entities?.props, 'prop');
+  const lights = normalizeDecorationList(definition.lights || definition.entities?.lights, 'light');
+  const decals = normalizeDecorationList(definition.decals || definition.entities?.decals, 'decal');
   let spawn = null;
   let exit = null;
 
@@ -618,6 +766,7 @@ function buildGridLevel(definition) {
     name: definition.name || 'Unnamed',
     ambientLight: definition.ambientLight ?? 0.2,
     skyColor: definition.skyColor || '#5d7496',
+    theme: normalizeThemeId(definition.theme || null),
     width,
     height,
     bounds,
@@ -633,6 +782,9 @@ function buildGridLevel(definition) {
     spawn,
     enemySpawns,
     pickups,
+    props,
+    lights,
+    decals,
     exit,
     diagnostics: [],
     findSectorAtPoint() {
@@ -703,6 +855,11 @@ export function getCeilingHeightAt(level, x, z) {
   }
 
   return surfaceHeightAt(sector.ceilingSurface, x, z);
+}
+
+export function getThemeAt(level, x, z) {
+  const sector = findSectorAtPoint(level, x, z);
+  return sector?.theme || level?.theme || null;
 }
 
 function getDoorEdge(level, edgeRef) {

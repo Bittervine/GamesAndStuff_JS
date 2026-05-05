@@ -49,6 +49,17 @@ function applyEnemyDamage(state, enemy, damage, reason) {
   return true;
 }
 
+function pushImpactEvent(state, impact) {
+  state.events.push({
+    type: 'projectileImpact',
+    ...impact
+  });
+  state.replayPush({
+    type: 'projectileImpact',
+    data: impact
+  });
+}
+
 function spawnProjectile(state, owner, kind, originX, originZ, dirX, dirZ, options) {
   const projectile = {
     id: state.nextId += 1,
@@ -130,12 +141,51 @@ function tryHitscanShot(state, weapon, pelletIndex, rng) {
   if (bestEnemy) {
     const damage = weapon.damage;
     applyEnemyDamage(state, bestEnemy, damage, weapon.id);
+    state.events.push({
+      type: 'hitscanImpact',
+      x: origin.x + dir.x * bestDistance,
+      z: origin.z + dir.z * bestDistance,
+      radius: weapon.projectileRadius || 0.08,
+      color: weapon.color || null,
+      impactKind: 'direct'
+    });
+    state.replayPush({
+      type: 'hitscanImpact',
+      data: {
+        x: origin.x + dir.x * bestDistance,
+        z: origin.z + dir.z * bestDistance,
+        radius: weapon.projectileRadius || 0.08,
+        color: weapon.color || null,
+        impactKind: 'direct'
+      }
+    });
     return {
       hit: true,
       kind: bestEnemy.kind,
       distance: bestDistance,
       pelletIndex
     };
+  }
+
+  if (wallRay.hit) {
+    state.events.push({
+      type: 'hitscanImpact',
+      x: wallRay.pointX,
+      z: wallRay.pointZ,
+      radius: weapon.projectileRadius || 0.08,
+      color: weapon.color || null,
+      impactKind: 'wall'
+    });
+    state.replayPush({
+      type: 'hitscanImpact',
+      data: {
+        x: wallRay.pointX,
+        z: wallRay.pointZ,
+        radius: weapon.projectileRadius || 0.08,
+        color: weapon.color || null,
+        impactKind: 'wall'
+      }
+    });
   }
 
   return {
@@ -212,6 +262,15 @@ export function fireWeapon(state, weaponId, rng = state.rng) {
 export function applyProjectileImpact(state, projectile) {
   if (projectile.splashRadius > 0) {
     applySplashDamage(state, projectile.x, projectile.z, projectile.splashRadius, projectile.damage, projectile.kind);
+    pushImpactEvent(state, {
+      owner: projectile.owner,
+      kind: projectile.kind,
+      x: projectile.x,
+      z: projectile.z,
+      radius: projectile.splashRadius,
+      color: projectile.color || null,
+      impactKind: 'splash'
+    });
     return;
   }
 
@@ -222,9 +281,28 @@ export function applyProjectileImpact(state, projectile) {
     const distance = Math.hypot(enemy.x - projectile.x, enemy.z - projectile.z);
     if (distance <= enemy.radius + projectile.radius) {
       applyEnemyDamage(state, enemy, projectile.damage, projectile.kind);
+      pushImpactEvent(state, {
+        owner: projectile.owner,
+        kind: projectile.kind,
+        x: projectile.x,
+        z: projectile.z,
+        radius: projectile.radius,
+        color: projectile.color || null,
+        impactKind: 'direct'
+      });
       return;
     }
   }
+
+  pushImpactEvent(state, {
+    owner: projectile.owner,
+    kind: projectile.kind,
+    x: projectile.x,
+    z: projectile.z,
+    radius: projectile.radius,
+    color: projectile.color || null,
+    impactKind: 'wall'
+  });
 }
 
 export function createProjectile(state, owner, kind, originX, originZ, dirX, dirZ, options) {

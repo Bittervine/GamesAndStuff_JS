@@ -1,6 +1,6 @@
 # Fps3D_JS Implementation Plan
 
-Last updated: 2026-05-04
+Last updated: 2026-05-05
 
 ## Goal
 
@@ -22,7 +22,7 @@ Build a Doom II style browser FPS with WebGL and full 3D acceleration. The end r
 - Enemies: in progress
 - Levels: in progress
 - UI, audio, and settings: in progress
-- Textures and art pipeline: not started
+- Textures and art pipeline: in progress
 - Character models and animation: in progress
 - Monster rig refinement: in progress
 - Launcher integration: intentionally blocked
@@ -134,7 +134,7 @@ Fps3D_JS/
 ### 3. Player and Combat Base
 
 - [ ] Implement player health, armor, damage, death, and respawn.
-- [ ] Implement the first-person weapon view system.
+- [x] Implement the first-person weapon view system.
 - [ ] Add shooting, reloading, recoil, muzzle flash, and hit feedback.
 - [ ] Add ammo types and pickups.
 
@@ -163,30 +163,38 @@ Fps3D_JS/
 
 ### 7. Textures and Materials
 
-- [ ] Build the texture pipeline for walls, floors, ceilings, props, weapons, enemies, UI, and decals.
-- [ ] Support atlases or texture packs if they improve load times and batching.
-- [ ] Add material variation for metal, stone, organic, liquid, emissive, and damage states.
-- [ ] Add texture sources and export notes so Blender-made assets can be reused cleanly later.
+- [x] Build the texture pipeline for walls, floors, ceilings, props, weapons, enemies, UI, and decals.
+- [x] Support atlases or texture packs if they improve load times and batching.
+- [x] Add material variation for metal, stone, organic, liquid, emissive, and damage states.
+- [x] Add texture sources and export notes so Blender-made assets can be reused cleanly later.
+
+Texture source notes:
+
+- Keep Blender exports tileable where possible and aim for compact power-of-two PNGs.
+- Use standalone tiles for repeating world surfaces and atlas pages for non-repeating foreground art.
+- Prefer clear names by material or usage class so future imports can be swapped without touching runtime code.
 
 ### 8. World Detail
 
-- [ ] Add props, pickups, doors, lights, particles, projectiles, and decals.
-- [ ] Add skyboxes or sky domes.
-- [ ] Add visual language for tech-base, industrial, and hell-themed areas.
-- [ ] Add enough environmental dressing that the world does not feel empty.
+- [x] Add props, pickups, doors, lights, particles, projectiles, and decals.
+- [x] Add skyboxes or sky domes.
+- [x] Add visual language for tech-base, industrial, and hell-themed areas.
+- [x] Add enough environmental dressing that the world does not feel empty.
 
 ### 8.5 Character Models and Animation
 
 - [x] Build proper 3D character models with articulated feet, lower legs, thighs, torso, upper arms, lower arms, hands, and heads.
-- [ ] Add a reusable animation rig so player and enemy bodies can share walk, idle, attack, hurt, and death poses.
-- [ ] Keep the model pipeline data-driven so future enemy variants can reuse the same limb structure.
+- [x] Add a reusable animation rig so player and enemy bodies can share walk, idle, attack, hurt, and death poses.
+- [x] Keep the model pipeline data-driven so future enemy variants can reuse the same limb structure.
 
 ### 8.6 Monster Rig Refinement
 
 - [x] Turn each enemy family into a reusable bone rig instead of a loose pile of separate boxes.
 - [x] Add foot planting, weight shifts, attack windup, and held weapon props so ranged enemies aim before firing.
-- [ ] Add hurt recoil variations and richer death collapse poses.
-- [ ] Move toward skinned meshes and weighted vertices once the pose library feels stable.
+- [x] Dress the purple demon in a rounded tube skin so its knees, torso, and tail read as one continuous body.
+- [x] Add denser weighted chain meshes around elbows, knees, torsos, and tails to smooth the silhouette.
+- [x] Add hurt recoil variations and richer death collapse poses.
+- [x] Move toward skinned meshes and weighted vertices once the pose library feels stable.
 
 ### 8.7 Larger Layouts and Geometry Diagnostics
 
@@ -199,6 +207,14 @@ Fps3D_JS/
 - [x] Expand `alpha01` into a much larger showcase map with small rooms, big rooms, and long corridors.
 - [x] Add pentagonal rooms, rounded convex chambers, and winding snake corridors built from angled brush segments.
 - [x] Keep the geometry diagnostics green on the expanded map and cover the layout with tests.
+- [x] Add a dedicated maze wing with twisty turning passages and a side branch.
+
+### 8.9 Verticality and Rig Polish
+
+- [x] Add more obvious stair-step traversal and height bands to the showcase map.
+- [x] Make humanoid weapons aim toward the current target instead of only following body yaw.
+- [x] Keep articulated limb and weapon attachments rotated in body space so shoulders, elbows, hips, knees, and held props stay connected while turning.
+- [x] Grow the rig into weighted skinned meshes with softer silhouettes once the pose library settles.
 
 ### 9. UI, Audio, and Settings
 
@@ -291,3 +307,20 @@ Fps3D_JS/
 - 2026-05-04: Added WebGL context-loss recovery so the renderer reinitializes textures and buffers after a browser reset.
 - 2026-05-04: Added a larger multi-room alpha layout with corridor sectors plus brush-geometry diagnostics for self-intersections and zero-length edges.
 - 2026-05-04: Expanded `alpha01` into a much larger labyrinth map with pentagonal rooms, rounded chambers, and winding angled corridors, then verified it in Playwright.
+- 2026-05-04: Rotated humanoid limb/weapon attachments in body space and added target-aware aim poses for ranged enemies.
+- 2026-05-04: Raised the stepped sector ceilings to keep the clearance checks green, fixed portal transition wall bridging, and replaced the demon box with a tube-skinned quadruped.
+- 2026-05-04: Added a dedicated maze wing to `alpha01` with twisty passages, a side nook, extra enemies, and reward pickups, then verified the expanded layout in Playwright.
+- 2026-05-05: Repaired the maze turn connection so the twisty corridor is reachable, then added shoulder and hip bridge meshes to the humanoid rig for a more anatomical silhouette.
+- 2026-05-05: Added the stair-step maze landing, then raised the adjoining ceilings so the showcase map keeps the height bands without triggering clearance warnings.
+- 2026-05-05: Smoothed the humanoid torso, head, knees, and elbows into fuller tube skins so the shared rig reads more like a continuous body.
+- 2026-05-05: Added a shared character pose helper for idle, walk, attack, hurt, and death states, then switched both humanoids and the demon to it.
+- 2026-05-05: Swapped the character body chains to a denser weighted tube pass with extra subdivision around joints to smooth the silhouettes further.
+- 2026-05-05: Added explicit hurt recoil and death-collapse variants to the shared pose rig and applied them to both humanoid and quadruped enemy bodies.
+- 2026-05-05: Added data-driven rig profiles and per-enemy overrides so future variants can reuse the same pose and mesh pipeline.
+- 2026-05-05: Reworked the floating monster from a box into a weighted skin made of chained body lobes and tendrils.
+- 2026-05-05: Added a weighted skin sampler so adjacent joints contribute to the same ring and soften elbows, knees, torsos, and tendrils.
+- 2026-05-05: Added static props, lights, and decals to `alpha01`, plus runtime projectile-impact particles and decayable visual effects for more world dressing.
+- 2026-05-05: Added a procedural sky dome, theme-aware zone tinting, and tech/industrial/hell sector tags so the world reads more distinctly across the labyrinth.
+- 2026-05-05: Added grouped surface meshes and a procedural material texture set for metal, stone, organic, liquid, emissive, and damage states.
+- 2026-05-05: Added a camera-attached first-person weapon view model pass and a textured UI panel for the player HUD.
+- 2026-05-05: Added a packed texture atlas for non-repeating runtime art plus export notes for future Blender-made assets.

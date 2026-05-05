@@ -1,5 +1,7 @@
-import { polygonSignedArea, surfaceHeightAt } from '../world/spatial.js';
+import { polygonSignedArea, segmentKey, surfaceHeightAt } from '../world/spatial.js';
 import { isWallBlocking } from '../world/level.js';
+
+const GEOMETRY_EPSILON = 1e-6;
 
 function pushVertex(positions, normals, uvs, position, normal, uv) {
   positions.push(position[0], position[1], position[2]);
@@ -50,6 +52,37 @@ function pushQuad(mesh, corners, normal, uvScaleX = 1, uvScaleY = 1) {
   );
 }
 
+function pushSmoothQuad(mesh, corners, normals, uvs) {
+  const startIndex = mesh.positions.length / 3;
+  for (let index = 0; index < 4; index += 1) {
+    pushVertex(mesh.positions, mesh.normals, mesh.uvs, corners[index], normals[index], uvs[index]);
+  }
+
+  mesh.indices.push(
+    startIndex,
+    startIndex + 1,
+    startIndex + 2,
+    startIndex,
+    startIndex + 2,
+    startIndex + 3
+  );
+}
+
+function pushBridgeQuad(mesh, ax, az, bx, bz, a0, a1, b1, b0, normal, uvScaleX = 1, uvScaleY = 1) {
+  pushQuad(
+    mesh,
+    [
+      [ax, a0, az],
+      [bx, a1, bz],
+      [bx, b1, bz],
+      [ax, b0, az]
+    ],
+    normal,
+    uvScaleX,
+    uvScaleY
+  );
+}
+
 function pushTriangle(mesh, a, b, c, uvA, uvB, uvC) {
   const startIndex = mesh.positions.length / 3;
   const normal = triangleNormal(a, b, c);
@@ -68,6 +101,37 @@ function makeMeshData() {
   };
 }
 
+function getMaterialGroup(groupMap, material, fallbackMaterial) {
+  const key = typeof material === 'string' && material.length > 0 ? material : fallbackMaterial;
+  let group = groupMap.get(key);
+  if (!group) {
+    group = {
+      material: key,
+      mesh: makeMeshData()
+    };
+    groupMap.set(key, group);
+  }
+  return group;
+}
+
+function pushTriangleToMeshes(meshes, a, b, c, uvA, uvB, uvC) {
+  for (const mesh of meshes) {
+    pushTriangle(mesh, a, b, c, uvA, uvB, uvC);
+  }
+}
+
+function pushQuadToMeshes(meshes, corners, normal, uvScaleX = 1, uvScaleY = 1) {
+  for (const mesh of meshes) {
+    pushQuad(mesh, corners, normal, uvScaleX, uvScaleY);
+  }
+}
+
+function pushBridgeQuadToMeshes(meshes, ax, az, bx, bz, a0, a1, b1, b0, normal, uvScaleX = 1, uvScaleY = 1) {
+  for (const mesh of meshes) {
+    pushBridgeQuad(mesh, ax, az, bx, bz, a0, a1, b1, b0, normal, uvScaleX, uvScaleY);
+  }
+}
+
 function buildGridLevelGeometry(level, options = {}) {
   const wallHeight = options.wallHeight ?? 2.8;
   const floorY = options.floorY ?? 0;
@@ -75,9 +139,18 @@ function buildGridLevelGeometry(level, options = {}) {
   const wall = makeMeshData();
   const floor = makeMeshData();
   const ceiling = makeMeshData();
+  const floorGroups = new Map();
+  const ceilingGroups = new Map();
+  const wallGroups = new Map();
+  const floorMaterial = level.floorMaterial || 'floor';
+  const ceilingMaterial = level.ceilingMaterial || 'ceiling';
+  const wallMaterial = level.wallMaterial || 'wall';
+  const floorGroup = getMaterialGroup(floorGroups, floorMaterial, 'floor');
+  const ceilingGroup = getMaterialGroup(ceilingGroups, ceilingMaterial, 'ceiling');
+  const wallGroup = getMaterialGroup(wallGroups, wallMaterial, 'wall');
 
-  pushQuad(
-    floor,
+  pushQuadToMeshes(
+    [floor, floorGroup.mesh],
     [
       [0, floorY, 0],
       [level.width, floorY, 0],
@@ -89,8 +162,8 @@ function buildGridLevelGeometry(level, options = {}) {
     level.height
   );
 
-  pushQuad(
-    ceiling,
+  pushQuadToMeshes(
+    [ceiling, ceilingGroup.mesh],
     [
       [0, ceilingY, level.height],
       [level.width, ceilingY, level.height],
@@ -114,8 +187,8 @@ function buildGridLevelGeometry(level, options = {}) {
       const southOpen = z === level.height - 1 || level.grid[z + 1][x] !== '#';
 
       if (westOpen) {
-        pushQuad(
-          wall,
+        pushQuadToMeshes(
+          [wall, wallGroup.mesh],
           [
             [x, floorY, z],
             [x, floorY, z + 1],
@@ -127,8 +200,8 @@ function buildGridLevelGeometry(level, options = {}) {
       }
 
       if (eastOpen) {
-        pushQuad(
-          wall,
+        pushQuadToMeshes(
+          [wall, wallGroup.mesh],
           [
             [x + 1, floorY, z + 1],
             [x + 1, floorY, z],
@@ -140,8 +213,8 @@ function buildGridLevelGeometry(level, options = {}) {
       }
 
       if (northOpen) {
-        pushQuad(
-          wall,
+        pushQuadToMeshes(
+          [wall, wallGroup.mesh],
           [
             [x + 1, floorY, z],
             [x, floorY, z],
@@ -153,8 +226,8 @@ function buildGridLevelGeometry(level, options = {}) {
       }
 
       if (southOpen) {
-        pushQuad(
-          wall,
+        pushQuadToMeshes(
+          [wall, wallGroup.mesh],
           [
             [x, floorY, z + 1],
             [x + 1, floorY, z + 1],
@@ -170,7 +243,10 @@ function buildGridLevelGeometry(level, options = {}) {
   return {
     wall,
     floor,
-    ceiling
+    ceiling,
+    floorGroups: Array.from(floorGroups.values()),
+    ceilingGroups: Array.from(ceilingGroups.values()),
+    wallGroups: Array.from(wallGroups.values())
   };
 }
 
@@ -178,15 +254,26 @@ function buildBrushLevelGeometry(level, options = {}) {
   const floor = makeMeshData();
   const ceiling = makeMeshData();
   const wall = makeMeshData();
+  const floorGroups = new Map();
+  const ceilingGroups = new Map();
+  const wallGroups = new Map();
   const floorScale = options.floorTileScale ?? 0.35;
   const ceilingScale = options.ceilingTileScale ?? 0.35;
   const wallUScale = options.wallUScale ?? 0.35;
   const wallVScale = options.wallVScale ?? 0.35;
+  const seenPortalTransitions = new Set();
 
   for (const sector of level.sectors || []) {
     if (!Array.isArray(sector.loop) || sector.loop.length < 3) {
       continue;
     }
+
+    const floorGroup = getMaterialGroup(floorGroups, sector.floorMaterial, 'floor');
+    const ceilingGroup = getMaterialGroup(ceilingGroups, sector.ceilingMaterial, 'ceiling');
+    const wallGroup = getMaterialGroup(wallGroups, sector.wallMaterial, 'wall');
+    const floorTargets = [floor, floorGroup.mesh];
+    const ceilingTargets = [ceiling, ceilingGroup.mesh];
+    const wallTargets = [wall, wallGroup.mesh];
 
     const floorVertices = sector.loop.map((point) => ([
       point.x,
@@ -204,8 +291,8 @@ function buildBrushLevelGeometry(level, options = {}) {
       const floorA = floorVertices[0];
       const floorB = floorVertices[flipWinding ? index + 1 : index];
       const floorC = floorVertices[flipWinding ? index : index + 1];
-      pushTriangle(
-        floor,
+      pushTriangleToMeshes(
+        floorTargets,
         floorA,
         floorB,
         floorC,
@@ -217,8 +304,8 @@ function buildBrushLevelGeometry(level, options = {}) {
       const ceilA = ceilingVertices[0];
       const ceilB = ceilingVertices[flipWinding ? index : index + 1];
       const ceilC = ceilingVertices[flipWinding ? index + 1 : index];
-      pushTriangle(
-        ceiling,
+      pushTriangleToMeshes(
+        ceilingTargets,
         ceilA,
         ceilB,
         ceilC,
@@ -230,6 +317,78 @@ function buildBrushLevelGeometry(level, options = {}) {
 
     for (const edge of sector.edges || []) {
       if (!edge.solid || !isWallBlocking(level, edge)) {
+        const neighbor = edge.portalTo ? level.sectorById?.get(edge.portalTo) ?? null : null;
+        if (!neighbor) {
+          continue;
+        }
+
+        const transitionKey = `${segmentKey(edge.ax, edge.az, edge.bx, edge.bz)}:${[sector.id, neighbor.id].sort().join('|')}`;
+        if (seenPortalTransitions.has(transitionKey)) {
+          continue;
+        }
+        seenPortalTransitions.add(transitionKey);
+
+        const edgeLength = Math.hypot(edge.bx - edge.ax, edge.bz - edge.az) || 1;
+        const uScale = edgeLength * wallUScale;
+        const normal = edge.normal || { x: 0, z: 1 };
+        const quadNormal = [normal.x, 0, normal.z];
+
+        const floorA0 = surfaceHeightAt(sector.floorSurface, edge.ax, edge.az);
+        const floorA1 = surfaceHeightAt(sector.floorSurface, edge.bx, edge.bz);
+        const floorB0 = surfaceHeightAt(neighbor.floorSurface, edge.ax, edge.az);
+        const floorB1 = surfaceHeightAt(neighbor.floorSurface, edge.bx, edge.bz);
+        const lowFloorA = Math.min(floorA0, floorB0);
+        const lowFloorB = Math.min(floorA1, floorB1);
+        const highFloorA = Math.max(floorA0, floorB0);
+        const highFloorB = Math.max(floorA1, floorB1);
+        const floorSpan = Math.max(highFloorA, highFloorB) - Math.min(lowFloorA, lowFloorB);
+        if (floorSpan > GEOMETRY_EPSILON) {
+          pushBridgeQuadToMeshes(
+            wallTargets,
+            edge.ax,
+            edge.az,
+            edge.bx,
+            edge.bz,
+            lowFloorA,
+            lowFloorB,
+            highFloorB,
+            highFloorA,
+            quadNormal,
+            uScale,
+            Math.max(0.01, floorSpan) * wallVScale
+          );
+        }
+
+        const ceilA0 = surfaceHeightAt(sector.ceilingSurface, edge.ax, edge.az);
+        const ceilA1 = surfaceHeightAt(sector.ceilingSurface, edge.bx, edge.bz);
+        const ceilB0 = surfaceHeightAt(neighbor.ceilingSurface, edge.ax, edge.az);
+        const ceilB1 = surfaceHeightAt(neighbor.ceilingSurface, edge.bx, edge.bz);
+        const lowCeilA = Math.min(ceilA0, ceilB0);
+        const lowCeilB = Math.min(ceilA1, ceilB1);
+        const highCeilA = Math.max(ceilA0, ceilB0);
+        const highCeilB = Math.max(ceilA1, ceilB1);
+        const ceilSpan = Math.max(highCeilA, highCeilB) - Math.min(lowCeilA, lowCeilB);
+        if (ceilSpan > GEOMETRY_EPSILON) {
+          pushBridgeQuadToMeshes(
+            wallTargets,
+            edge.ax,
+            edge.az,
+            edge.bx,
+            edge.bz,
+            lowCeilA,
+            lowCeilB,
+            highCeilB,
+            highCeilA,
+            quadNormal,
+            uScale,
+            Math.max(0.01, ceilSpan) * wallVScale
+          );
+        }
+
+        continue;
+      }
+
+      if (!edge.solid) {
         continue;
       }
 
@@ -260,8 +419,8 @@ function buildBrushLevelGeometry(level, options = {}) {
       const normal = edge.normal || [0, 0];
       const quadNormal = [normal.x, 0, normal.z];
 
-      pushQuad(
-        wall,
+      pushQuadToMeshes(
+        wallTargets,
         [bottomA, bottomB, topB, topA],
         quadNormal,
         uScale,
@@ -273,7 +432,10 @@ function buildBrushLevelGeometry(level, options = {}) {
   return {
     wall,
     floor,
-    ceiling
+    ceiling,
+    floorGroups: Array.from(floorGroups.values()),
+    ceilingGroups: Array.from(ceilingGroups.values()),
+    wallGroups: Array.from(wallGroups.values())
   };
 }
 
@@ -346,6 +508,59 @@ export function buildBoxGeometry() {
 
   for (const face of faces) {
     pushQuad(mesh, face.corners, face.normal);
+  }
+
+  return mesh;
+}
+
+function spherePoint(radius, phi, theta) {
+  const sinPhi = Math.sin(phi);
+  return [
+    Math.cos(theta) * sinPhi * radius,
+    Math.cos(phi) * radius,
+    Math.sin(theta) * sinPhi * radius
+  ];
+}
+
+export function buildSkyDomeGeometry(options = {}) {
+  const mesh = makeMeshData();
+  const radius = options.radius ?? 220;
+  const longitudeSegments = Math.max(8, Math.floor(options.longitudeSegments ?? 24));
+  const latitudeSegments = Math.max(4, Math.floor(options.latitudeSegments ?? 12));
+
+  for (let lat = 0; lat < latitudeSegments; lat += 1) {
+    const v0 = lat / latitudeSegments;
+    const v1 = (lat + 1) / latitudeSegments;
+    const phi0 = v0 * Math.PI;
+    const phi1 = v1 * Math.PI;
+
+    for (let lon = 0; lon < longitudeSegments; lon += 1) {
+      const u0 = lon / longitudeSegments;
+      const u1 = (lon + 1) / longitudeSegments;
+      const theta0 = u0 * Math.PI * 2;
+      const theta1 = u1 * Math.PI * 2;
+
+      const p00 = spherePoint(radius, phi0, theta0);
+      const p10 = spherePoint(radius, phi0, theta1);
+      const p11 = spherePoint(radius, phi1, theta1);
+      const p01 = spherePoint(radius, phi1, theta0);
+      const n00 = normalize3(-p00[0], -p00[1], -p00[2]);
+      const n10 = normalize3(-p10[0], -p10[1], -p10[2]);
+      const n11 = normalize3(-p11[0], -p11[1], -p11[2]);
+      const n01 = normalize3(-p01[0], -p01[1], -p01[2]);
+
+      pushSmoothQuad(
+        mesh,
+        [p00, p10, p11, p01],
+        [n00, n10, n11, n01],
+        [
+          [u0, v0],
+          [u1, v0],
+          [u1, v1],
+          [u0, v1]
+        ]
+      );
+    }
   }
 
   return mesh;
