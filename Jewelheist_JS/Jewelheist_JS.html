@@ -6,10 +6,11 @@
   <title>Jewel Heist JS</title>
   <style>
     *{box-sizing:border-box}
-    body{margin:0;font-family:'FreeSerif',serif;overflow-x:hidden;-webkit-text-size-adjust:100%;background:#fff;color:#23160f}
-    .wrap{width:100%;margin:0;padding:8px 0 0}
-    canvas{display:block;margin:8px auto;max-width:calc(100vw - 16px);height:auto;touch-action:manipulation}
-    #controls{font-size:95%;text-align:center;font-family:serif}
+    html{width:100vw;height:100vh}
+    body{margin:0;width:100vw;height:100vh;display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;font-family:'FreeSerif',serif;-webkit-text-size-adjust:100%;background:#fff;color:#23160f}
+    #boardArea{min-width:0;min-height:0;width:100%;height:100%;overflow:hidden}
+    #board{display:block;width:100%;height:100%;touch-action:manipulation}
+    #controls{font-size:95%;text-align:center;font-family:serif;width:100%;padding:0 8px 8px}
     #controls button,#controls input,#controls select,#controls span{font-size:inherit;vertical-align:middle}
     #controls button{width:2.2em;box-sizing:border-box;line-height:1;padding:0;min-height:1.8em}
     #soundBtn{width:2.2em}
@@ -21,17 +22,18 @@
     #buttonRow label{display:inline-flex;align-items:center;line-height:1;white-space:nowrap}
     #buttonRow button,#buttonRow label,#buttonRow input,#buttonRow select{vertical-align:middle}
     #scoreField{display:inline-block;min-width:7em;text-align:left;padding:0 .3em;font-weight:700}
-    #timeBarWrap{width:100%;margin:0 auto 6px;padding:0 8px}
+    #timeBarWrap{width:100%;margin:0 0 6px;padding:0 8px}
     #timeBar{height:14px;border:1px solid #000;background:#fff;position:relative}
     #timeFill{position:absolute;left:0;top:0;bottom:0;width:100%;background:#000}
   </style>
 </head>
 <body>
-  <main class="wrap">
+  <div id="boardArea">
     <canvas id="board" width="820" height="820"></canvas>
+  </div>
+  <div id="controls">
     <div id="timeBarWrap"><div id="timeBar"><div id="timeFill"></div></div></div>
-    <div id="controls">
-      <div id="buttonRow">
+    <div id="buttonRow">
         <button id="resetBtn" title="Reset">&#8634;</button>
         <span id="scoreField">Score: 0</span>
         <button id="soundBtn" title="Sound">♪</button>
@@ -39,11 +41,16 @@
         <button id="pauseBtn" title="Pause">Pause</button>
       </div>
     </div>
-  </main>
   <script>
   (function(){
     'use strict';
-    var N=8;
+    var ROWS=0;
+    var COLS=0;
+    var DESIRED_CELL_PX=80;
+    var MIN_ROWS=3;
+    var MIN_COLS=3;
+    var MAX_ROWS=200;
+    var MAX_COLS=200;
     var LIGHT='rgba(240,217,181,.20)', DARK='rgba(181,136,99,.20)';
     var ITEMS=[
       {shape:'round', tone:'light', glyph:'\u2665'}, /* heart */
@@ -61,6 +68,7 @@
     var animMask=null, animBodies=null, animPhase='', animFlashUntil=0, animLastTick=0;
     var animStaticBoard=null, animStep=null;
     var canvas=document.getElementById('board'), ctx=canvas.getContext&&canvas.getContext('2d');
+    var boardArea=document.getElementById('boardArea');
     var controls=document.getElementById('controls');
     var scoreField=document.getElementById('scoreField');
     var timeFill=document.getElementById('timeFill');
@@ -68,10 +76,32 @@
     var soundBtn=document.getElementById('soundBtn');
     var animBtn=document.getElementById('animBtn');
     var pauseBtn=document.getElementById('pauseBtn');
-    var cell=0,pad=0;
+    var cell=0,originX=0,originY=0;
     var audioCtx=null, lastTickMs=0;
 
-    function inBounds(r,c){ return r>=0&&r<N&&c>=0&&c<N; }
+    function getBoardAreaBox(){
+      var rect, w, h;
+      if(!boardArea || !boardArea.getBoundingClientRect) return { width: 820, height: 820 };
+      rect=boardArea.getBoundingClientRect();
+      w=Math.max(1, Math.floor(rect.width || boardArea.clientWidth || canvas.width || 820));
+      h=Math.max(1, Math.floor(rect.height || boardArea.clientHeight || canvas.height || 820));
+      return { width:w, height:h };
+    }
+
+    function detectGridSizeForNewGame(){
+      var box=getBoardAreaBox(), rows, cols;
+      cols=Math.floor(Math.max(1, box.width || 820) / DESIRED_CELL_PX);
+      rows=Math.floor(Math.max(1, box.height || 820) / DESIRED_CELL_PX);
+      if(!isFinite(cols) || cols<=0) cols=COLS||8;
+      if(!isFinite(rows) || rows<=0) rows=ROWS||8;
+      if(cols<MIN_COLS) cols=MIN_COLS;
+      if(rows<MIN_ROWS) rows=MIN_ROWS;
+      if(cols>MAX_COLS) cols=MAX_COLS;
+      if(rows>MAX_ROWS) rows=MAX_ROWS;
+      return { rows: rows, cols: cols };
+    }
+
+    function inBounds(r,c){ return r>=0&&r<ROWS&&c>=0&&c<COLS; }
     function clamp(v,lo,hi){ if(v<lo)return lo; if(v>hi)return hi; return v; }
     function activePieceTypes(){
       if(removedTotal>=900) return 6;
@@ -161,9 +191,9 @@
 
     function makeBoard(){
       var b=[],r,c,t;
-      for(r=0;r<N;r++){
+      for(r=0;r<ROWS;r++){
         b[r]=[];
-        for(c=0;c<N;c++){
+        for(c=0;c<COLS;c++){
           do{
             t=randType();
           }while((c>=2&&b[r][c-1]===t&&b[r][c-2]===t)||(r>=2&&b[r-1][c]===t&&b[r-2][c]===t));
@@ -175,20 +205,20 @@
 
     function findMatches(){
       var marks=[],r,c,t,count,start,found=false;
-      for(r=0;r<N;r++){ marks[r]=[]; for(c=0;c<N;c++) marks[r][c]=false; }
-      for(r=0;r<N;r++){
+      for(r=0;r<ROWS;r++){ marks[r]=[]; for(c=0;c<COLS;c++) marks[r][c]=false; }
+      for(r=0;r<ROWS;r++){
         c=0;
-        while(c<N){
-          t=board[r][c]; start=c; while(c+1<N&&board[r][c+1]===t) c++;
+        while(c<COLS){
+          t=board[r][c]; start=c; while(c+1<COLS&&board[r][c+1]===t) c++;
           count=c-start+1;
           if(count>=3){ found=true; while(start<=c){ marks[r][start]=true; start++; } }
           c++;
         }
       }
-      for(c=0;c<N;c++){
+      for(c=0;c<COLS;c++){
         r=0;
-        while(r<N){
-          t=board[r][c]; start=r; while(r+1<N&&board[r+1][c]===t) r++;
+        while(r<ROWS){
+          t=board[r][c]; start=r; while(r+1<ROWS&&board[r+1][c]===t) r++;
           count=r-start+1;
           if(count>=3){ found=true; while(start<=r){ marks[start][c]=true; start++; } }
           r++;
@@ -199,10 +229,10 @@
 
     function clearAndDrop(marks){
       var r,c,w,cleared=0;
-      for(r=0;r<N;r++) for(c=0;c<N;c++) if(marks[r][c]){ board[r][c]=-1; cleared++; }
-      for(c=0;c<N;c++){
-        w=N-1;
-        for(r=N-1;r>=0;r--) if(board[r][c]!==-1){ board[w][c]=board[r][c]; w--; }
+      for(r=0;r<ROWS;r++) for(c=0;c<COLS;c++) if(marks[r][c]){ board[r][c]=-1; cleared++; }
+      for(c=0;c<COLS;c++){
+        w=ROWS-1;
+        for(r=ROWS-1;r>=0;r--) if(board[r][c]!==-1){ board[w][c]=board[r][c]; w--; }
         while(w>=0){ board[w][c]=randType(); w--; }
       }
       return cleared;
@@ -225,38 +255,38 @@
 
     function copyBoard(src){
       var r,c,out=[];
-      for(r=0;r<N;r++){
+      for(r=0;r<ROWS;r++){
         out[r]=[];
-        for(c=0;c<N;c++) out[r][c]=src[r][c];
+        for(c=0;c<COLS;c++) out[r][c]=src[r][c];
       }
       return out;
     }
 
     function makeMaskFromDiff(before, after){
       var r,c,m=[];
-      for(r=0;r<N;r++){
+      for(r=0;r<ROWS;r++){
         m[r]=[];
-        for(c=0;c<N;c++) m[r][c]=(before[r][c]!==after[r][c]);
+        for(c=0;c<COLS;c++) m[r][c]=(before[r][c]!==after[r][c]);
       }
       return m;
     }
 
     function findMatchesOn(src){
       var marks=[],r,c,t,count,start,found=false;
-      for(r=0;r<N;r++){ marks[r]=[]; for(c=0;c<N;c++) marks[r][c]=false; }
-      for(r=0;r<N;r++){
+      for(r=0;r<ROWS;r++){ marks[r]=[]; for(c=0;c<COLS;c++) marks[r][c]=false; }
+      for(r=0;r<ROWS;r++){
         c=0;
-        while(c<N){
-          t=src[r][c]; start=c; while(c+1<N&&src[r][c+1]===t) c++;
+        while(c<COLS){
+          t=src[r][c]; start=c; while(c+1<COLS&&src[r][c+1]===t) c++;
           count=c-start+1;
           if(count>=3){ found=true; while(start<=c){ marks[r][start]=true; start++; } }
           c++;
         }
       }
-      for(c=0;c<N;c++){
+      for(c=0;c<COLS;c++){
         r=0;
-        while(r<N){
-          t=src[r][c]; start=r; while(r+1<N&&src[r+1][c]===t) r++;
+        while(r<ROWS){
+          t=src[r][c]; start=r; while(r+1<ROWS&&src[r+1][c]===t) r++;
           count=r-start+1;
           if(count>=3){ found=true; while(start<=r){ marks[start][c]=true; start++; } }
           r++;
@@ -270,32 +300,32 @@
       var bodies=[], targetTaken=[], colState=[], spawnCount, survivors=[], rr, piece, body, i, minTarget;
       if(!got.found) return null;
       marks=got.marks;
-      for(r=0;r<N;r++){
+      for(r=0;r<ROWS;r++){
         compact[r]=[];
         filled[r]=[];
         targetTaken[r]=[];
-        for(c=0;c<N;c++){
+        for(c=0;c<COLS;c++){
           compact[r][c]=-1;
           targetTaken[r][c]=false;
         }
       }
-      for(c=0;c<N;c++){
+      for(c=0;c<COLS;c++){
         survivors=[];
-        for(r=N-1;r>=0;r--){
+        for(r=ROWS-1;r>=0;r--){
           if(!marks[r][c]) survivors.push({ row:r, type:src[r][c] });
           else cleared++;
         }
-        w=N-1;
+        w=ROWS-1;
         for(i=0;i<survivors.length;i++){
           piece=survivors[i];
           compact[w][c]=piece.type;
           if(piece.row!==w){
             body={
               kind:'fall', col:c, type:piece.type,
-              x:pad+c*cell+cell*0.5,
-              y:pad+piece.row*cell+cell*0.5,
-              tx:pad+c*cell+cell*0.5,
-              ty:pad+w*cell+cell*0.5,
+              x:originX+c*cell+cell*0.5,
+              y:originY+piece.row*cell+cell*0.5,
+              tx:originX+c*cell+cell*0.5,
+              ty:originY+w*cell+cell*0.5,
               tr:w,
               vx:0,
               vy:0,
@@ -310,24 +340,24 @@
         }
         spawnCount=w+1;
         colState[c]={ spawnLeft:spawnCount, nextTarget:spawnCount-1, ready:false };
-        minTarget=N;
+        minTarget=ROWS;
         for(i=0;i<bodies.length;i++){
           body=bodies[i];
-          if(body.col===c && body.kind==='fall' && body.ty < (pad+minTarget*cell+cell*0.5)){
-            minTarget=Math.floor((body.ty-pad)/cell);
+          if(body.col===c && body.kind==='fall' && body.ty < (originY+minTarget*cell+cell*0.5)){
+            minTarget=Math.floor((body.ty-originY)/cell);
           }
         }
         colState[c].bottomTarget=minTarget;
-        if(minTarget===N) colState[c].ready=true;
+        if(minTarget===ROWS) colState[c].ready=true;
       }
-      for(r=0;r<N;r++){
-        for(c=0;c<N;c++){
+      for(r=0;r<ROWS;r++){
+        for(c=0;c<COLS;c++){
           if(compact[r][c]===-1) filled[r][c]=randType();
           else filled[r][c]=compact[r][c];
         }
       }
-      for(r=0;r<N;r++){
-        for(c=0;c<N;c++){
+      for(r=0;r<ROWS;r++){
+        for(c=0;c<COLS;c++){
           if(compact[r][c]!==-1 && !targetTaken[r][c]) targetTaken[r][c]=false;
         }
       }
@@ -352,22 +382,22 @@
 
     function anyLegalSwap(){
       var r,c,a,b;
-      for(r=0;r<N;r++) for(c=0;c<N;c++){
+      for(r=0;r<ROWS;r++) for(c=0;c<COLS;c++){
         a={r:r,c:c};
-        if(c+1<N){ b={r:r,c:c+1}; if(hasMatchAfterSwap(a,b)) return true; }
-        if(r+1<N){ b={r:r+1,c:c}; if(hasMatchAfterSwap(a,b)) return true; }
+        if(c+1<COLS){ b={r:r,c:c+1}; if(hasMatchAfterSwap(a,b)) return true; }
+        if(r+1<ROWS){ b={r:r+1,c:c}; if(hasMatchAfterSwap(a,b)) return true; }
       }
       return false;
     }
 
     function reshuffle(){
       var flat=[],i,r,c;
-      for(r=0;r<N;r++) for(c=0;c<N;c++) flat.push(board[r][c]);
+      for(r=0;r<ROWS;r++) for(c=0;c<COLS;c++) flat.push(board[r][c]);
       for(i=flat.length-1;i>0;i--){
         var j=Math.floor(Math.random()*(i+1)), t=flat[i]; flat[i]=flat[j]; flat[j]=t;
       }
       i=0;
-      for(r=0;r<N;r++) for(c=0;c<N;c++){ board[r][c]=flat[i]; i++; }
+      for(r=0;r<ROWS;r++) for(c=0;c<COLS;c++){ board[r][c]=flat[i]; i++; }
       collapseAll();
       if(!anyLegalSwap()) reshuffle();
     }
@@ -417,12 +447,12 @@
     }
 
     function drawGem(r,c,t,alpha){
-      var x=pad+c*cell, y=pad+r*cell;
+      var x=originX+c*cell, y=originY+r*cell;
       drawGemAt(x+cell*0.5,y+cell*0.5,t,alpha);
     }
 
     function drawBrackets(r,c,opts){
-      var x=pad+c*cell, y=pad+r*cell, baseW=Math.max(2,Math.floor(cell*.08)), ws=opts&&opts.widthScale!=null?opts.widthScale:1;
+      var x=originX+c*cell, y=originY+r*cell, baseW=Math.max(2,Math.floor(cell*.08)), ws=opts&&opts.widthScale!=null?opts.widthScale:1;
       var w=Math.max(1,Math.floor(baseW*ws)), l=Math.max(8,Math.floor(cell*.25));
       ctx.strokeStyle=opts&&opts.color?opts.color:'#000'; ctx.lineWidth=w;
       ctx.beginPath(); ctx.moveTo(x,y+l); ctx.lineTo(x,y); ctx.lineTo(x+l,y); ctx.stroke();
@@ -453,13 +483,13 @@
     function draw(){
       var r,c,x,y;
       ctx.clearRect(0,0,canvas.width,canvas.height);
-      for(r=0;r<N;r++) for(c=0;c<N;c++){
-        x=pad+c*cell; y=pad+r*cell;
+      for(r=0;r<ROWS;r++) for(c=0;c<COLS;c++){
+        x=originX+c*cell; y=originY+r*cell;
         ctx.fillStyle=((r+c)%2===0)?LIGHT:DARK;
         ctx.fillRect(x,y,cell,cell);
       }
       if(animating && animStep){
-        for(r=0;r<N;r++) for(c=0;c<N;c++){
+        for(r=0;r<ROWS;r++) for(c=0;c<COLS;c++){
           if(animStaticBoard[r][c]===-1) continue;
           drawGem(r,c,animStaticBoard[r][c],1);
         }
@@ -469,7 +499,7 @@
           }
         }
       } else {
-        for(r=0;r<N;r++) for(c=0;c<N;c++) drawGem(r,c,board[r][c],1);
+        for(r=0;r<ROWS;r++) for(c=0;c<COLS;c++) drawGem(r,c,board[r][c],1);
       }
       if(selected) drawBrackets(selected.r,selected.c);
       if(over){
@@ -516,6 +546,9 @@
       pieceTypes=3;
       timerSec=maxTimer;
       lastTickAt=Date.now();
+      var dims=detectGridSizeForNewGame();
+      ROWS=dims.rows;
+      COLS=dims.cols;
       board=makeBoard();
       selected=null;
       pendingSwap=null;
@@ -597,11 +630,11 @@
       animStep=step;
       animStaticBoard=copyBoard(step.compact);
       animMask=makeMaskFromDiff(step.compact, step.compact);
-      for(r=0;r<N;r++) for(c=0;c<N;c++) animMask[r][c]=false;
+      for(r=0;r<ROWS;r++) for(c=0;c<COLS;c++) animMask[r][c]=false;
       for(i=0;i<step.bodies.length;i++){
-        r=Math.floor((step.bodies[i].ty-pad)/cell);
+        r=Math.floor((step.bodies[i].ty-originY)/cell);
         c=step.bodies[i].col;
-        if(r>=0&&r<N&&c>=0&&c<N){ animStaticBoard[r][c]=-1; animMask[r][c]=true; }
+        if(r>=0&&r<ROWS&&c>=0&&c<COLS){ animStaticBoard[r][c]=-1; animMask[r][c]=true; }
       }
       animBodies=step.bodies.slice(0);
       board=copyBoard(step.filled);
@@ -641,7 +674,7 @@
               if(!b.touched){
                 b.touched=true;
                 b.touchedAt=now;
-                if(b.kind==='fall' && animStep.colState[b.col].bottomTarget===Math.floor((b.ty-pad)/cell)) animStep.colState[b.col].ready=true;
+                if(b.kind==='fall' && animStep.colState[b.col].bottomTarget===Math.floor((b.ty-originY)/cell)) animStep.colState[b.col].ready=true;
               }
               if(Math.abs(b.vy)<cell*1.2){
                 b.vy=0;
@@ -660,7 +693,7 @@
               }
             }
           }
-          for(c=0;c<N;c++){
+          for(c=0;c<COLS;c++){
             cs=animStep.colState[c];
             if(!cs.ready || cs.spawnLeft<=0) continue;
             allSet=false;
@@ -672,10 +705,10 @@
             if(tgt>=0){
               spawnBody={
                 kind:'spawn', col:c, type:animStep.filled[tgt][c],
-                x:pad+c*cell+cell*0.5,
-                y:pad-cell*0.8,
-                tx:pad+c*cell+cell*0.5,
-                ty:pad+tgt*cell+cell*0.5,
+                x:originX+c*cell+cell*0.5,
+                y:originY-cell*0.8,
+                tx:originX+c*cell+cell*0.5,
+                ty:originY+tgt*cell+cell*0.5,
                 tr:tgt,
                 vx:0,
                 vy:0,
@@ -718,7 +751,7 @@
       rect=canvas.getBoundingClientRect();
       sx=canvas.width/rect.width; sy=canvas.height/rect.height;
       x=(ev.clientX-rect.left)*sx; y=(ev.clientY-rect.top)*sy;
-      c=Math.floor((x-pad)/cell); r=Math.floor((y-pad)/cell);
+      c=Math.floor((x-originX)/cell); r=Math.floor((y-originY)/cell);
       if(!inBounds(r,c)) return;
       p={r:r,c:c};
       if(animating){
@@ -746,7 +779,7 @@
       rect=canvas.getBoundingClientRect();
       sx=canvas.width/rect.width; sy=canvas.height/rect.height;
       x=(ev.clientX-rect.left)*sx; y=(ev.clientY-rect.top)*sy;
-      c=Math.floor((x-pad)/cell); r=Math.floor((y-pad)/cell);
+      c=Math.floor((x-originX)/cell); r=Math.floor((y-originY)/cell);
       if(!inBounds(r,c)) return;
       p={r:r,c:c};
       if(animating){
@@ -764,41 +797,43 @@
     }
 
     function resize(){
-      var safety=60, controlsH=controls?controls.offsetHeight+16:0, maxW=window.innerWidth-16, maxH=window.innerHeight-controlsH-safety, size=Math.max(220,Math.floor(Math.min(maxW,maxH)));
-      var freeW, controlsWidth, sideGap;
+      var box=getBoardAreaBox(), boardW=box.width, boardH=box.height, cellByW, cellByH;
+      if(!(ROWS>0 && COLS>0)){
+        canvas.width=boardW;
+        canvas.height=boardH;
+        draw();
+        return;
+      }
+      canvas.style.margin='0';
+      canvas.style.width='100%';
+      canvas.style.height='100%';
+      canvas.width=boardW;
+      canvas.height=boardH;
+      cellByW=Math.floor(boardW/COLS);
+      cellByH=Math.floor(boardH/ROWS);
+      cell=Math.max(1,Math.min(cellByW,cellByH));
+      originX=Math.max(0,Math.floor((boardW-cell*COLS)/2));
+      originY=Math.max(0,Math.floor((boardH-cell*ROWS)/2));
       if(controls){
-        controls.style.width=Math.floor(size*.9)+'px';
-        controls.style.fontSize=Math.max(10,Math.round(size*.033))+'px';
+        controls.style.width='100%';
+        controls.style.fontSize=Math.max(10,Math.round(Math.min(boardW,boardH)*0.028))+'px';
         controls.style.boxSizing='border-box';
         controls.style.textAlign='center';
-        controlsH=controls.offsetHeight+16;
-        maxH=window.innerHeight-controlsH-safety;
-        size=Math.max(220,Math.floor(Math.min(maxW,maxH)));
       }
-      freeW=Math.max(0,maxW-size);
-      canvas.width=size; canvas.height=size;
-      canvas.style.marginLeft=(8+Math.floor(freeW/2))+'px';
-      canvas.style.marginRight=(8+Math.ceil(freeW/2))+'px';
-      canvas.style.marginTop='8px';
-      canvas.style.marginBottom='8px';
       if(timeBarWrap){
-        timeBarWrap.style.width=size+'px';
-        timeBarWrap.style.marginLeft=(8+Math.floor(freeW/2))+'px';
-        timeBarWrap.style.marginRight=(8+Math.ceil(freeW/2))+'px';
+        timeBarWrap.style.width='100%';
+        timeBarWrap.style.margin='0 0 6px';
       }
-      if(controls){
-        controlsWidth=Math.floor(size*0.9);
-        sideGap=size-controlsWidth;
-        controls.style.width=controlsWidth+'px';
-        controls.style.fontSize=Math.max(10,Math.round(size*0.033))+'px';
-        controls.style.marginLeft=(8+Math.floor(freeW/2)+Math.floor(sideGap/2))+'px';
-        controls.style.marginRight=(8+Math.ceil(freeW/2)+Math.ceil(sideGap/2))+'px';
-        controls.style.marginTop='0px';
-        controls.style.marginBottom='8px';
-      }
-      cell=Math.max(20,Math.floor((size-2)/N));
-      pad=Math.floor((size-cell*N)/2);
       draw();
+    }
+
+    function resizeAfterLayout(){
+      resize();
+      if(window.requestAnimationFrame){
+        window.requestAnimationFrame(function(){ resize(); });
+      } else {
+        setTimeout(function(){ resize(); }, 0);
+      }
     }
 
     function setAnimEnabled(v){
@@ -859,10 +894,10 @@
       }
       canvas.addEventListener('click',click);
       canvas.addEventListener('dblclick',dblclick);
-      if(window.addEventListener) window.addEventListener('resize',resize);
+      if(window.addEventListener) window.addEventListener('resize',resizeAfterLayout);
       window.__test={
-        getState:function(){ return {score:score,moves:moves,over:over,selected:selected,anim:animateEnabled,animating:animating,types:pieceTypes,removed:removedTotal,time:timerSec}; },
-        board:function(){ var r,c,b=[]; for(r=0;r<N;r++){ b[r]=[]; for(c=0;c<N;c++) b[r][c]=board[r][c]; } return b; },
+        getState:function(){ return {score:score,moves:moves,over:over,selected:selected,anim:animateEnabled,animating:animating,types:pieceTypes,removed:removedTotal,time:timerSec,rows:ROWS,cols:COLS}; },
+        board:function(){ var r,c,b=[]; for(r=0;r<ROWS;r++){ b[r]=[]; for(c=0;c<COLS;c++) b[r][c]=board[r][c]; } return b; },
         playSwap:function(a,b){ selected=a; return trySwap(a,b); }
       };
     }
@@ -876,7 +911,7 @@
       setAnimEnabled(a!=='0');
       bind();
       resetGame();
-      resize();
+      resizeAfterLayout();
       refresh();
     }
 
