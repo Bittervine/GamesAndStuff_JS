@@ -11,12 +11,32 @@
             body {
                 font-family: serif;
                 margin: 0;
-                overflow-x: hidden;
+                overflow: hidden;
+                height: 100vh;
+                width: 100vw;
+                display: grid;
+                grid-template-rows: minmax(0, 1fr) auto;
+                justify-items: center;
                 -webkit-text-size-adjust: 100%;
+            }
+            html {
+                height: 100vh;
+                width: 100vw;
+            }
+            #boardArea {
+                min-width: 0;
+                min-height: 0;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                display: grid;
+                justify-items: center;
+                align-items: start;
             }
             #controls {
                 font-size: 95%;
                 text-align: center;
+                width: 100%;
             }
             #controls button,
             #controls input {
@@ -73,8 +93,13 @@
             }
         </style>
     </head>
-    <body>
-        <canvas id="board" width="720" height="720" style="display:block;margin:8px auto;max-width:calc(100vw - 16px);height:auto"></canvas>
+        <script>
+            window.NAC_APP_VERSION = 'v16';
+        </script>
+        <body>
+        <div id="boardArea">
+            <canvas id="board" width="720" height="720" style="display:block;width:100%;height:100%"></canvas>
+        </div>
         <div id="controls">
             <div id="buttonRow">
                 <button id="resetBtn" title="Reset">↺</button>
@@ -89,7 +114,7 @@
             </div>
         </div>
 
-        <script src="./NaughtsAndCrosses_JS.js"></script>
+        <script src="./NaughtsAndCrosses_JS.js?v=v16"></script>
         <script>
         // ES5-compatible 30x30 five-in-a-row (gomoku-like) human vs AI
         (function(){
@@ -98,8 +123,9 @@
             var MIN_CELL_MM = 10.0;
             var MIN_ROWS = 8;
             var MIN_COLS = 8;
-            var MAX_ROWS = 120;
-            var MAX_COLS = 160;
+            var MAX_ROWS = 240;
+            var MAX_COLS = 240;
+            var CONTROL_FONT_CAP = 34;
             var EMPTY = 0;
             var O = 1;  // human
             var X = 2;  // AI
@@ -107,6 +133,7 @@
 
             var canvas = document.getElementById('board');
             var ctx = canvas.getContext && canvas.getContext('2d');
+            var boardArea = document.getElementById('boardArea');
             var controls = document.getElementById('controls');
             var statusEl = document.getElementById('status');
             var depthInput = document.getElementById('depthInput');
@@ -135,6 +162,10 @@
             var debugPly = 0;
             var externalEngine = null;
             var previewEnabled = false;
+            var layoutDebugLogged = false;
+            var renderOriginX = 0;
+            var renderOriginY = 0;
+            var renderCell = 24;
 
             var HARD_DEADLINE_MS = 30000;
             var SOFT_DEADLINE_MS = 10000;
@@ -213,20 +244,93 @@
                 return 1 + (dpr - 1) * 0.175;
             }
 
+            function logLayoutDebug(tag) {
+                if (layoutDebugLogged && tag !== 'final') return;
+                if (!window.console || !console.log) return;
+                var canvasRect = canvas && canvas.getBoundingClientRect ? canvas.getBoundingClientRect() : null;
+                var controlsRect = controls && controls.getBoundingClientRect ? controls.getBoundingClientRect() : null;
+                var bodyRect = document.body && document.body.getBoundingClientRect ? document.body.getBoundingClientRect() : null;
+                var htmlRect = document.documentElement && document.documentElement.getBoundingClientRect ? document.documentElement.getBoundingClientRect() : null;
+                console.log('[NAC layout ' + tag + ']', {
+                    viewport: {
+                        width: window.innerWidth,
+                        height: window.innerHeight
+                    },
+                    document: {
+                        scrollWidth: document.documentElement.scrollWidth,
+                        scrollHeight: document.documentElement.scrollHeight
+                    },
+                    body: bodyRect ? {
+                        width: bodyRect.width,
+                        height: bodyRect.height
+                    } : null,
+                    html: htmlRect ? {
+                        width: htmlRect.width,
+                        height: htmlRect.height
+                    } : null,
+                    canvas: canvasRect ? {
+                        left: canvasRect.left,
+                        top: canvasRect.top,
+                        width: canvasRect.width,
+                        height: canvasRect.height,
+                        right: canvasRect.right,
+                        bottom: canvasRect.bottom
+                    } : null,
+                    controls: controlsRect ? {
+                        left: controlsRect.left,
+                        top: controlsRect.top,
+                        width: controlsRect.width,
+                        height: controlsRect.height,
+                        right: controlsRect.right,
+                        bottom: controlsRect.bottom
+                    } : null,
+                    sums: {
+                        bodyPlusGap: bodyRect ? (bodyRect.height - window.innerHeight) : null,
+                        controlsBottomMinusViewport: controlsRect ? (controlsRect.bottom - window.innerHeight) : null
+                    }
+                });
+                layoutDebugLogged = true;
+            }
+
+            function getControlsReserveH() {
+                if (!controls) return 0;
+                var h = Math.max(
+                    controls.offsetHeight || 0,
+                    controls.clientHeight || 0,
+                    controls.scrollHeight || 0
+                );
+                if (!isFinite(h) || h < 0) h = 0;
+                return Math.max(24, Math.min(140, h + 12));
+            }
+
+            function getBoardAreaBox() {
+                if (!boardArea || !boardArea.getBoundingClientRect) return { width: 720, height: 720 };
+                return {
+                    width: Math.max(0, boardArea.clientWidth || 0),
+                    height: Math.max(0, boardArea.clientHeight || 0)
+                };
+            }
+
             function detectGridSizeForNewGame(){
-                var controlsH = controls ? (controls.offsetHeight + 20) : 120;
-                var maxW = (typeof window.innerWidth === 'number' && isFinite(window.innerWidth)) ? (window.innerWidth - 16) : 720;
-                var maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? (window.innerHeight - controlsH - 16) : 720;
+                var box = getBoardAreaBox();
+                var maxW = box.width || 720;
+                var maxH = Math.max(1, box.height || 720);
                 var isCoarsePointer = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
                 var minCellPx = Math.max(8, mmToCssPx(MIN_CELL_MM) * dprCellScale(), isCoarsePointer ? 44 : 0);
-                var cols = Math.floor(Math.max(1, maxW - padding * 2) / minCellPx);
-                var rows = Math.floor(Math.max(1, maxH - padding * 2) / minCellPx);
+                var availW = Math.max(1, maxW - padding * 2);
+                var availH = Math.max(1, maxH - padding * 2);
+                var cols = Math.floor(availW / minCellPx);
                 if (!isFinite(cols)) cols = 20;
-                if (!isFinite(rows)) rows = 20;
                 if (cols < MIN_COLS) cols = MIN_COLS;
                 if (cols > MAX_COLS) cols = MAX_COLS;
-                if (rows < MIN_ROWS) rows = MIN_ROWS;
+                while (cols < MAX_COLS && (cols + 1) * minCellPx <= availW) cols++;
+                var cellByW = availW / cols;
+                var rows = Math.floor(availH / cellByW);
+                if (!isFinite(rows)) rows = 20;
+                if (rows < 1) rows = 1;
+                if (rows < MIN_ROWS && availH >= (MIN_ROWS * cellByW)) rows = MIN_ROWS;
                 if (rows > MAX_ROWS) rows = MAX_ROWS;
+                while (rows < MAX_ROWS && (rows + 1) * cellByW <= availH) rows++;
                 return { rows: rows, cols: cols };
             }
 
@@ -239,44 +343,50 @@
             }
 
             function resizeCanvas(){
-                var controlsH = controls ? controls.offsetHeight + 16 : 0;
-                var maxW = (typeof window.innerWidth === 'number' && isFinite(window.innerWidth)) ? window.innerWidth - 16 : 720;
-                var maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - 16 : 720;
+                var box = getBoardAreaBox();
+                var maxW = box.width || 720;
+                var boardAreaH = box.height || 720;
+                var winH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight : 720;
+                var tightHeight = winH <= 260;
+                var compactHeight = winH <= 420;
                 if (controls) {
-                    var probeW = Math.max(220, Math.floor(maxW));
+                    var probeW = Math.max(220, Math.floor(Math.min(box.width || maxW, 960)));
                     controls.style.width = probeW + 'px';
-                    controls.style.fontSize = Math.max(10, Math.round(probeW * 0.026)) + 'px';
+                    var baseFont = Math.min(CONTROL_FONT_CAP, Math.max(8, Math.round(probeW * 0.018)));
+                    controls.style.fontSize = (tightHeight ? Math.max(8, baseFont - 3) : (compactHeight ? Math.max(8, baseFont - 2) : baseFont)) + 'px';
                     controls.style.boxSizing = 'border-box';
                     controls.style.textAlign = 'center';
-                    controlsH = controls.offsetHeight + 16;
-                    maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - 16 : 720;
                 }
+                var maxH = Math.max(1, boardAreaH);
 
-                var availW = Math.max(220, Math.floor(maxW - padding * 2));
-                var availH = Math.max(220, Math.floor(maxH - padding * 2));
+                var availW = Math.max(1, Math.floor(maxW - padding * 2));
+                var availH = Math.max(1, Math.floor(maxH - padding * 2));
                 var cellByW = availW / COLS;
                 var cellByH = availH / ROWS;
                 cell = Math.min(cellByW, cellByH);
-                var boardW = cell * COLS + padding * 2;
-                var boardH = cell * ROWS + padding * 2;
-                var freeW = Math.max(0, maxW - boardW);
-                canvas.style.marginLeft = (8 + Math.floor(freeW / 2)) + 'px';
-                canvas.style.marginRight = (8 + Math.ceil(freeW / 2)) + 'px';
-                canvas.style.marginTop = '8px';
-                canvas.style.marginBottom = '8px';
+                if (cellByW > 0 && cellByW > cell) cell = cellByW;
+                if (compactHeight && cell > cellByH) cell = cellByH;
+                var boardW = box.width || (cell * COLS + padding * 2);
+                var boardH = boardAreaH || (cell * ROWS + padding * 2);
+                canvas.style.margin = '0';
                 canvas.width = Math.floor(boardW);
                 canvas.height = Math.floor(boardH);
+                renderCell = Math.min((boardW - padding * 2) / COLS, (boardH - padding * 2) / ROWS);
+                if (!isFinite(renderCell) || renderCell <= 0) renderCell = cell;
+                renderOriginX = Math.max(padding, Math.floor((canvas.width - COLS * renderCell) / 2));
+                renderOriginY = Math.max(padding, Math.floor((canvas.height - ROWS * renderCell) / 2));
                 if (controls) {
-                    var controlsWidth = Math.floor(boardW * 0.9);
+                    var controlsWidth = Math.max(220, Math.floor(Math.min(box.width || maxW, boardW)));
                     var sideGap = Math.max(0, boardW - controlsWidth);
                     controls.style.width = controlsWidth + 'px';
-                    controls.style.fontSize = Math.max(10, Math.round(boardW * 0.026)) + 'px';
-                    controls.style.marginLeft = (parseInt(canvas.style.marginLeft, 10) + Math.floor(sideGap / 2)) + 'px';
-                    controls.style.marginRight = (parseInt(canvas.style.marginRight, 10) + Math.ceil(sideGap / 2)) + 'px';
-                    controls.style.marginTop = '0px';
-                    controls.style.marginBottom = '8px';
+                    var controlsFont = Math.min(CONTROL_FONT_CAP, Math.max(8, Math.round(controlsWidth * 0.018)));
+                    controls.style.fontSize = (tightHeight ? Math.max(8, controlsFont - 3) : (compactHeight ? Math.max(8, controlsFont - 2) : controlsFont)) + 'px';
+                    controls.style.margin = '0';
+                    controls.style.justifySelf = 'center';
                 }
+                controlsReserveH = getControlsReserveH();
                 draw();
+                logLayoutDebug('layout');
             }
             if (window.addEventListener) window.addEventListener('resize', resizeCanvas);
 
@@ -589,17 +699,17 @@
                 ctx.lineWidth = 1;
                 var i;
                 for (i = 0; i <= ROWS; i++) {
-                    var p = padding + i * cell;
+                    var p = renderOriginY + i * renderCell;
                     ctx.beginPath();
-                    ctx.moveTo(padding, p);
-                    ctx.lineTo(padding + COLS * cell, p);
+                    ctx.moveTo(renderOriginX, p);
+                    ctx.lineTo(renderOriginX + COLS * renderCell, p);
                     ctx.stroke();
                 }
                 for (i = 0; i <= COLS; i++) {
-                    var q = padding + i * cell;
+                    var q = renderOriginX + i * renderCell;
                     ctx.beginPath();
-                    ctx.moveTo(q, padding);
-                    ctx.lineTo(q, padding + ROWS * cell);
+                    ctx.moveTo(q, renderOriginY);
+                    ctx.lineTo(q, renderOriginY + ROWS * renderCell);
                     ctx.stroke();
                 }
             }
@@ -607,19 +717,19 @@
             function drawStone(r, c, player, translucent){
                 var prevAlpha = ctx.globalAlpha;
                 if (translucent) ctx.globalAlpha = PREVIEW_ALPHA;
-                var x = padding + c * cell + cell * 0.5;
-                var y = padding + r * cell + cell * 0.5;
-                var radius = Math.max(3, cell * 0.35);
+                var x = renderOriginX + c * renderCell + renderCell * 0.5;
+                var y = renderOriginY + r * renderCell + renderCell * 0.5;
+                var radius = Math.max(3, renderCell * 0.35);
                 if (player === O) {
                     ctx.strokeStyle = '#0f4d1f';
-                    ctx.lineWidth = Math.max(1, cell * 0.11);
+                    ctx.lineWidth = Math.max(1, renderCell * 0.11);
                     ctx.beginPath();
                     ctx.arc(x, y, radius, 0, Math.PI * 2, false);
                     ctx.stroke();
                 } else {
                     var s = radius * 0.9;
                     ctx.strokeStyle = '#0b2a6f';
-                    ctx.lineWidth = Math.max(1, cell * 0.11);
+                    ctx.lineWidth = Math.max(1, renderCell * 0.11);
                     ctx.beginPath();
                     ctx.moveTo(x - s, y - s);
                     ctx.lineTo(x + s, y + s);
@@ -632,9 +742,9 @@
 
             function drawLastMarker(){
                 if (!lastMove) return;
-                var x = padding + lastMove[1] * cell + cell * 0.5;
-                var y = padding + lastMove[0] * cell + cell * 0.5;
-                var s = Math.max(2, cell * 0.1);
+                var x = renderOriginX + lastMove[1] * renderCell + renderCell * 0.5;
+                var y = renderOriginY + lastMove[0] * renderCell + renderCell * 0.5;
+                var s = Math.max(2, renderCell * 0.1);
                 ctx.fillStyle = '#222';
                 ctx.fillRect(x - s, y - s, s * 2, s * 2);
             }
@@ -660,8 +770,8 @@
             }
 
             function screenToCell(x, y){
-                var col = Math.floor((x - padding) / cell);
-                var row = Math.floor((y - padding) / cell);
+                var col = Math.floor((x - renderOriginX) / renderCell);
+                var row = Math.floor((y - renderOriginY) / renderCell);
                 if (!inBounds(row, col)) return null;
                 return [row, col];
             }
@@ -717,10 +827,16 @@
                 if (infoLabel) infoLabel.style.display = '';
                 if (infoText) infoText.textContent = 'Your move...';
                 resizeCanvas();
+                if (window.requestAnimationFrame) {
+                    window.requestAnimationFrame(function(){ resizeCanvas(); });
+                } else {
+                    setTimeout(function(){ resizeCanvas(); }, 0);
+                }
                 updateStatus();
             }
 
         reset();
+        setTimeout(function(){ logLayoutDebug('final'); }, 0);
         })();
         </script>
         <script src="./pwa-register.js"></script>

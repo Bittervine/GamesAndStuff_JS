@@ -1,6 +1,13 @@
 'use strict';
 
-var CACHE_NAME = 'naught-and-crosses-js-v3';
+var VERSION = 'v16';
+try {
+  var swUrl = new URL(self.location.href);
+  if (swUrl.searchParams && swUrl.searchParams.get('v')) {
+    VERSION = String(swUrl.searchParams.get('v'));
+  }
+} catch (e) {}
+var CACHE_NAME = 'naught-and-crosses-js-' + VERSION;
 var APP_SHELL = [
   './',
   './NaughtsAndCrosses_JS.html',
