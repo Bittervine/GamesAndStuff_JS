@@ -8,20 +8,23 @@
             <link rel="apple-touch-icon" href="./pwa-icon.svg" type="image/svg+xml">
 <title>Naught And Crosses</title>
         <style>
+            :root {
+                --app-height: 100dvh;
+            }
             body {
                 font-family: serif;
                 margin: 0;
                 overflow: hidden;
-                height: 100vh;
-                width: 100vw;
+                height: var(--app-height);
+                width: 100dvw;
                 display: grid;
                 grid-template-rows: minmax(0, 1fr) auto;
                 justify-items: center;
                 -webkit-text-size-adjust: 100%;
             }
             html {
-                height: 100vh;
-                width: 100vw;
+                height: var(--app-height);
+                width: 100dvw;
             }
             #boardArea {
                 min-width: 0;
@@ -94,7 +97,7 @@
         </style>
     </head>
         <script>
-            window.NAC_APP_VERSION = 'v16';
+            window.NAC_APP_VERSION = 'v18';
         </script>
         <body>
         <div id="boardArea">
@@ -114,7 +117,7 @@
             </div>
         </div>
 
-        <script src="./NaughtsAndCrosses_JS.js?v=v16"></script>
+        <script src="./NaughtsAndCrosses_JS.js?v=v18"></script>
         <script>
         // ES5-compatible 30x30 five-in-a-row (gomoku-like) human vs AI
         (function(){
@@ -244,6 +247,24 @@
                 return 1 + (dpr - 1) * 0.175;
             }
 
+            function getViewportHeight() {
+                var visualHeight = window.visualViewport && typeof window.visualViewport.height === 'number'
+                    ? window.visualViewport.height
+                    : null;
+                if (visualHeight && isFinite(visualHeight) && visualHeight > 0) return visualHeight;
+                if (typeof window.innerHeight === 'number' && isFinite(window.innerHeight) && window.innerHeight > 0) {
+                    return window.innerHeight;
+                }
+                return 720;
+            }
+
+            function syncAppHeight() {
+                var viewportHeight = Math.max(1, Math.round(getViewportHeight()));
+                if (document.documentElement && document.documentElement.style) {
+                    document.documentElement.style.setProperty('--app-height', viewportHeight + 'px');
+                }
+            }
+
             function logLayoutDebug(tag) {
                 if (layoutDebugLogged && tag !== 'final') return;
                 if (!window.console || !console.log) return;
@@ -343,6 +364,7 @@
             }
 
             function resizeCanvas(){
+                syncAppHeight();
                 var box = getBoardAreaBox();
                 var maxW = box.width || 720;
                 var boardAreaH = box.height || 720;
@@ -388,7 +410,14 @@
                 draw();
                 logLayoutDebug('layout');
             }
-            if (window.addEventListener) window.addEventListener('resize', resizeCanvas);
+            if (window.addEventListener) {
+                window.addEventListener('resize', resizeCanvas);
+                window.addEventListener('orientationchange', resizeCanvas);
+            }
+            if (window.visualViewport && window.visualViewport.addEventListener) {
+                window.visualViewport.addEventListener('resize', resizeCanvas);
+                window.visualViewport.addEventListener('scroll', resizeCanvas);
+            }
 
             function inBounds(r, c){
                 return r >= 0 && r < ROWS && c >= 0 && c < COLS;
