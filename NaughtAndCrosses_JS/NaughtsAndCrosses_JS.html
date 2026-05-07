@@ -35,12 +35,13 @@
                 display: grid;
                 justify-items: center;
                 align-items: start;
+                padding: 3px;
+                box-sizing: border-box;
             }
             #board {
                 display: block;
-                width: calc(100% - 6px);
-                height: calc(100% - 6px);
-                margin: 3px;
+                width: 100%;
+                height: 100%;
             }
             #controls {
                 font-size: 95%;
@@ -379,11 +380,11 @@
                 canvas.style.margin = '0';
                 canvas.width = maxW;
                 canvas.height = maxH;
-                renderCell = Math.floor(Math.min(maxW / COLS, maxH / ROWS));
+                renderCell = Math.min(maxW / COLS, maxH / ROWS);
                 if (!isFinite(renderCell) || renderCell <= 0) renderCell = 1;
-                renderOriginX = Math.max(0, Math.floor((canvas.width - COLS * renderCell) / 2));
-                renderOriginY = Math.max(0, Math.floor((canvas.height - ROWS * renderCell) / 2));
-                stoneR = Math.max(4, Math.floor(renderCell * 0.34));
+                renderOriginX = Math.max(0, (canvas.width - COLS * renderCell) / 2);
+                renderOriginY = Math.max(0, (canvas.height - ROWS * renderCell) / 2);
+                stoneR = Math.max(4, renderCell * 0.34);
                 if (controls) {
                     controls.style.margin = '0';
                 }

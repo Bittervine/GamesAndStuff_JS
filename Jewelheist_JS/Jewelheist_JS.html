@@ -15,12 +15,11 @@
     *{box-sizing:border-box}
     html{width:100dvw;height:100dvh}
     body{margin:0;width:100dvw;height:100dvh;display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;font-family:'FreeSerif',serif;-webkit-text-size-adjust:100%;background:#fff;color:#23160f}
-    #boardArea{min-width:0;min-height:0;width:100%;height:100%;overflow:hidden}
+    #boardArea{min-width:0;min-height:0;width:100%;height:100%;overflow:hidden;padding:3px}
     #board{
       display:block;
-      width:calc(100% - 6px);
-      height:calc(100% - 6px);
-      margin:3px;
+      width:100%;
+      height:100%;
       touch-action:manipulation
     }
     #controls{font-size:95%;text-align:center;font-family:serif;width:100%;padding:0 8px 8px}
@@ -846,11 +845,10 @@
       canvas.style.height='100%';
       canvas.width=boardW;
       canvas.height=boardH;
-      cellByW=Math.floor(boardW/COLS);
-      cellByH=Math.floor(boardH/ROWS);
-      cell=Math.max(1,Math.min(cellByW,cellByH));
-      originX=Math.max(0,Math.floor((boardW-cell*COLS)/2));
-      originY=Math.max(0,Math.floor((boardH-cell*ROWS)/2));
+      cell=Math.min(boardW/COLS,boardH/ROWS);
+      if(!isFinite(cell)||cell<=0) cell=1;
+      originX=Math.max(0,(boardW-cell*COLS)/2);
+      originY=Math.max(0,(boardH-cell*ROWS)/2);
       if(controls){
         controls.style.width='100%';
         controls.style.fontSize=Math.max(10,Math.round(Math.min(boardW,boardH)*0.028))+'px';
