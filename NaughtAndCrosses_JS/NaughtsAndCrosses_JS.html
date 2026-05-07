@@ -97,7 +97,7 @@
         </style>
     </head>
         <script>
-            window.NAC_APP_VERSION = 'v18';
+            window.NAC_APP_VERSION = 'v19';
         </script>
         <body>
         <div id="boardArea">
@@ -333,25 +333,18 @@
             }
 
             function detectGridSizeForNewGame(){
-                var box = getBoardAreaBox();
-                var maxW = box.width || 720;
-                var maxH = Math.max(1, box.height || 720);
+                var maxW = Math.max(1, Math.floor(canvas && canvas.width ? canvas.width : 720));
+                var maxH = Math.max(1, Math.floor(canvas && canvas.height ? canvas.height : 720));
                 var isCoarsePointer = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
                 var minCellPx = Math.max(8, mmToCssPx(MIN_CELL_MM) * dprCellScale(), isCoarsePointer ? 44 : 0);
-                var availW = Math.max(1, maxW - padding * 2);
-                var availH = Math.max(1, maxH - padding * 2);
-                var cols = Math.floor(availW / minCellPx);
+                var cols = Math.floor(maxW / minCellPx);
+                var rows = Math.floor(maxH / minCellPx);
                 if (!isFinite(cols)) cols = 20;
                 if (cols < MIN_COLS) cols = MIN_COLS;
                 if (cols > MAX_COLS) cols = MAX_COLS;
-                while (cols < MAX_COLS && (cols + 1) * minCellPx <= availW) cols++;
-                var cellByW = availW / cols;
-                var rows = Math.floor(availH / cellByW);
                 if (!isFinite(rows)) rows = 20;
-                if (rows < 1) rows = 1;
-                if (rows < MIN_ROWS && availH >= (MIN_ROWS * cellByW)) rows = MIN_ROWS;
+                if (rows < MIN_ROWS) rows = MIN_ROWS;
                 if (rows > MAX_ROWS) rows = MAX_ROWS;
-                while (rows < MAX_ROWS && (rows + 1) * cellByW <= availH) rows++;
                 return { rows: rows, cols: cols };
             }
 
@@ -366,49 +359,48 @@
             function resizeCanvas(){
                 syncAppHeight();
                 var box = getBoardAreaBox();
-                var maxW = box.width || 720;
-                var boardAreaH = box.height || 720;
+                var maxW = Math.max(1, Math.floor(box.width || 720));
+                var maxH = Math.max(1, Math.floor(box.height || 720));
                 var winH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight : 720;
-                var tightHeight = winH <= 260;
-                var compactHeight = winH <= 420;
                 if (controls) {
-                    var probeW = Math.max(220, Math.floor(Math.min(box.width || maxW, 960)));
-                    controls.style.width = probeW + 'px';
-                    var baseFont = Math.min(CONTROL_FONT_CAP, Math.max(8, Math.round(probeW * 0.018)));
-                    controls.style.fontSize = (tightHeight ? Math.max(8, baseFont - 3) : (compactHeight ? Math.max(8, baseFont - 2) : baseFont)) + 'px';
+                    var baseFont = Math.max(10, Math.min(18, Math.round(maxW * 0.018)));
+                    if (winH <= 260) baseFont = Math.max(10, baseFont - 3);
+                    else if (winH <= 420) baseFont = Math.max(10, baseFont - 2);
+                    controls.style.fontSize = baseFont + 'px';
                     controls.style.boxSizing = 'border-box';
                     controls.style.textAlign = 'center';
                 }
-                var maxH = Math.max(1, boardAreaH);
-
-                var availW = Math.max(1, Math.floor(maxW - padding * 2));
-                var availH = Math.max(1, Math.floor(maxH - padding * 2));
-                var cellByW = availW / COLS;
-                var cellByH = availH / ROWS;
-                cell = Math.min(cellByW, cellByH);
-                if (cellByW > 0 && cellByW > cell) cell = cellByW;
-                if (compactHeight && cell > cellByH) cell = cellByH;
-                var boardW = box.width || (cell * COLS + padding * 2);
-                var boardH = boardAreaH || (cell * ROWS + padding * 2);
                 canvas.style.margin = '0';
-                canvas.width = Math.floor(boardW);
-                canvas.height = Math.floor(boardH);
-                renderCell = Math.min((boardW - padding * 2) / COLS, (boardH - padding * 2) / ROWS);
-                if (!isFinite(renderCell) || renderCell <= 0) renderCell = cell;
-                renderOriginX = Math.max(padding, Math.floor((canvas.width - COLS * renderCell) / 2));
-                renderOriginY = Math.max(padding, Math.floor((canvas.height - ROWS * renderCell) / 2));
+                canvas.width = maxW;
+                canvas.height = maxH;
+                renderCell = Math.floor(Math.min(maxW / COLS, maxH / ROWS));
+                if (!isFinite(renderCell) || renderCell <= 0) renderCell = 1;
+                renderOriginX = Math.max(0, Math.floor((canvas.width - COLS * renderCell) / 2));
+                renderOriginY = Math.max(0, Math.floor((canvas.height - ROWS * renderCell) / 2));
+                stoneR = Math.max(4, Math.floor(renderCell * 0.34));
                 if (controls) {
-                    var controlsWidth = Math.max(220, Math.floor(Math.min(box.width || maxW, boardW)));
-                    var sideGap = Math.max(0, boardW - controlsWidth);
-                    controls.style.width = controlsWidth + 'px';
-                    var controlsFont = Math.min(CONTROL_FONT_CAP, Math.max(8, Math.round(controlsWidth * 0.018)));
-                    controls.style.fontSize = (tightHeight ? Math.max(8, controlsFont - 3) : (compactHeight ? Math.max(8, controlsFont - 2) : controlsFont)) + 'px';
                     controls.style.margin = '0';
-                    controls.style.justifySelf = 'center';
                 }
-                controlsReserveH = getControlsReserveH();
                 draw();
                 logLayoutDebug('layout');
+            }
+            function syncCanvasSizeOnly(){
+                syncAppHeight();
+                var box = getBoardAreaBox();
+                var maxW = Math.max(1, Math.floor(box.width || 720));
+                var maxH = Math.max(1, Math.floor(box.height || 720));
+                var winH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight : 720;
+                if (controls) {
+                    var baseFont = Math.max(10, Math.min(18, Math.round(maxW * 0.018)));
+                    if (winH <= 260) baseFont = Math.max(10, baseFont - 3);
+                    else if (winH <= 420) baseFont = Math.max(10, baseFont - 2);
+                    controls.style.fontSize = baseFont + 'px';
+                    controls.style.boxSizing = 'border-box';
+                    controls.style.textAlign = 'center';
+                }
+                canvas.style.margin = '0';
+                canvas.width = maxW;
+                canvas.height = maxH;
             }
             if (window.addEventListener) {
                 window.addEventListener('resize', resizeCanvas);
@@ -839,6 +831,7 @@
 
             function reset(){
                 clearEngineState();
+                syncCanvasSizeOnly();
                 var dims = detectGridSizeForNewGame();
                 ROWS = dims.rows;
                 COLS = dims.cols;

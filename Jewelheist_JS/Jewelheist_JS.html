@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <script>
+    window.JH_APP_VERSION = 'v3';
+  </script>
   <title>Jewel Heist JS</title>
   <style>
     *{box-sizing:border-box}
@@ -46,7 +49,7 @@
     'use strict';
     var ROWS=0;
     var COLS=0;
-    var DESIRED_CELL_PX=80;
+    var DESIRED_CELL_PX=60;
     var MIN_ROWS=3;
     var MIN_COLS=3;
     var MAX_ROWS=200;
@@ -77,7 +80,7 @@
     var animBtn=document.getElementById('animBtn');
     var pauseBtn=document.getElementById('pauseBtn');
     var cell=0,originX=0,originY=0;
-    var audioCtx=null, lastTickMs=0;
+    var audioCtx=null, lastTickMs=0, resetToken=0;
 
     function getBoardAreaBox(){
       var rect, w, h;
@@ -89,9 +92,11 @@
     }
 
     function detectGridSizeForNewGame(){
-      var box=getBoardAreaBox(), rows, cols;
-      cols=Math.floor(Math.max(1, box.width || 820) / DESIRED_CELL_PX);
-      rows=Math.floor(Math.max(1, box.height || 820) / DESIRED_CELL_PX);
+      var rows, cols;
+      var w=Math.max(1, Math.floor(canvas && canvas.width ? canvas.width : 820));
+      var h=Math.max(1, Math.floor(canvas && canvas.height ? canvas.height : 820));
+      cols=Math.floor(w / DESIRED_CELL_PX);
+      rows=Math.floor(h / DESIRED_CELL_PX);
       if(!isFinite(cols) || cols<=0) cols=COLS||8;
       if(!isFinite(rows) || rows<=0) rows=ROWS||8;
       if(cols<MIN_COLS) cols=MIN_COLS;
@@ -541,7 +546,7 @@
       return false;
     }
 
-    function resetGame(){
+    function resetGameCore(){
       removedTotal=0;
       pieceTypes=3;
       timerSec=maxTimer;
@@ -550,6 +555,7 @@
       ROWS=dims.rows;
       COLS=dims.cols;
       board=makeBoard();
+      resize();
       selected=null;
       pendingSwap=null;
       animating=false;
@@ -564,6 +570,25 @@
       if(!anyLegalSwap()) reshuffle();
       draw();
       refresh();
+    }
+    function resetGame(){
+      var token=++resetToken;
+      stopAnimationNow();
+      pendingSwap=null;
+      animMask=null;
+      animBodies=null;
+      animPhase='';
+      animStaticBoard=null;
+      animStep=null;
+      animating=false;
+      resizeAfterLayout();
+      if(window.requestAnimationFrame){
+        window.requestAnimationFrame(function(){
+          window.requestAnimationFrame(function(){ if(token===resetToken) resetGameCore(); });
+        });
+      } else {
+        setTimeout(function(){ if(token===resetToken) resetGameCore(); }, 0);
+      }
     }
 
     function trySwap(a,b){
@@ -911,8 +936,6 @@
       setAnimEnabled(a!=='0');
       bind();
       resetGame();
-      resizeAfterLayout();
-      refresh();
     }
 
     function consumePendingSwap(){

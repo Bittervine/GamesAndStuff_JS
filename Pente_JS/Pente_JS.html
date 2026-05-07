@@ -3,14 +3,39 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#17361f">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./pwa-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./pwa-icon.svg" type="image/svg+xml">
+  <script>
+    window.PENTE_APP_VERSION = 'v3';
+  </script>
   <title>Pente JS</title>
   <style>
     *{box-sizing:border-box}
-    body{margin:0;font-family:'FreeSerif',serif;overflow-x:hidden;-webkit-text-size-adjust:100%;background:#fff;color:#23160f}
-    .wrap{width:100%;margin:0;padding:8px 0 0}
-    canvas{display:block;margin:8px auto;max-width:calc(100vw - 16px);height:auto;touch-action:manipulation}
-    #controls{font-size:95%;text-align:center;font-family:serif}
-    #controls button,#controls input{font-size:inherit;vertical-align:middle}
+    html{width:100dvw;height:100dvh}
+    body{
+      margin:0;
+      width:100dvw;
+      height:100dvh;
+      display:grid;
+      grid-template-rows:minmax(0,1fr) auto;
+      overflow:hidden;
+      font-family:'FreeSerif',serif;
+      -webkit-text-size-adjust:100%;
+      background:#fff;
+      color:#23160f;
+    }
+    #boardArea{min-width:0;min-height:0;width:100%;height:100%;overflow:hidden}
+    #board{display:block;width:100%;height:100%;touch-action:manipulation}
+    #controls{
+      font-size:95%;
+      text-align:center;
+      font-family:serif;
+      width:100%;
+      padding:0 8px 8px;
+    }
+    #controls button,#controls input,#controls span{font-size:inherit;vertical-align:middle}
     #controls button{width:2.2em;line-height:1;padding:0;min-height:1.8em}
     #previewBtn{width:auto;min-width:4.6em;padding-left:.3em;padding-right:.3em}
     #previewBtn.is-on{box-shadow:inset 0 2px 4px rgba(0,0,0,.35);background:#d9d9d9}
@@ -20,27 +45,29 @@
   </style>
 </head>
 <body>
-  <main class="wrap">
-    <canvas id="board" width="900" height="900"></canvas>
-    <div id="controls">
-      <div id="buttonRow">
-        <button id="resetBtn" title="Reset">&#8634;</button>
-        <label>&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="3" min="1" max="9" style="width:2.2em"></label>
-        <label>&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="0" min="0" max="100" style="width:2.2em;margin-right:2px">%</label>
-        <button id="previewBtn" title="Preview">Preview</button>
-        <button id="takebackBtn" title="Undo">&#9003;</button>
-      </div>
-      <span id="status"></span>
+  <div id="boardArea">
+    <canvas id="board" width="720" height="720"></canvas>
+  </div>
+  <div id="controls">
+    <div id="buttonRow">
+      <button id="resetBtn" title="Reset">&#8634;</button>
+      <label>&nbsp;Depth:&nbsp;<input id="depthInput" type="number" value="3" min="1" max="9" style="width:2.2em"></label>
+      <label>&nbsp;Clumsy:&nbsp;<input id="clumsyInput" type="number" value="0" min="0" max="100" style="width:2.2em;margin-right:2px">%</label>
+      <button id="previewBtn" title="Preview">Preview</button>
+      <button id="takebackBtn" title="Undo">&#9003;</button>
     </div>
-  </main>
+    <span id="status"></span>
+  </div>
   <script>
   (function(){
     'use strict';
-    var N=13,HUMAN='w',AI='b',INF=1e9;
-    var board,turn,over,winner,history,previewMove,previewEnabled,aiBusy,aiTimer,cell,pad,stoneR,captures;
-    var aiThinkStart=0,aiDepthNow=0,aiDepthDone=0,aiLastSec=0,aiTargetDepth=0,aiBestMove=null,aiDepthStart=0,searchDeadline=0;
+    var MIN_ROWS=13,MIN_COLS=13,MAX_ROWS=41,MAX_COLS=41,MIN_CELL_MM=10.0;
+    var ROWS=13,COLS=13;
+    var HUMAN='w',AI='b',INF=1e9;
+    var board,turn,over,winner,history,previewMove,previewEnabled,aiBusy,aiTimer,renderCell,renderOriginX,renderOriginY,stoneR,captures;
+    var aiThinkStart=0,aiDepthNow=0,aiDepthDone=0,aiLastSec=0,aiTargetDepth=0,aiBestMove=null,aiDepthStart=0,searchDeadline=0,resizeSecondPassPending=false;
     var canvas=document.getElementById('board'),ctx=canvas.getContext&&canvas.getContext('2d');
-    var controls=document.getElementById('controls'),statusEl=document.getElementById('status');
+    var boardArea=document.getElementById('boardArea'),controls=document.getElementById('controls'),statusEl=document.getElementById('status');
     var depthInput=document.getElementById('depthInput'),clumsyInput=document.getElementById('clumsyInput'),previewBtn=document.getElementById('previewBtn');
     var LIGHT_SQUARE='rgba(240,217,181,.25)',DARK_SQUARE='rgba(181,136,99,.25)',GRID='#4d4d4d';
     var dirs=[[1,0],[0,1],[1,1],[1,-1]];
@@ -61,11 +88,45 @@
     function save(k,v){try{localStorage.setItem(k,v);}catch(e){}}
     function load(k){try{return localStorage.getItem(k);}catch(e){return null;}}
     function opp(c){return c===HUMAN?AI:HUMAN;}
-    function inBounds(r,c){return r>=0&&r<N&&c>=0&&c<N;}
-    function makeBoard(){var b=[],r,c;for(r=0;r<N;r++){b[r]=[];for(c=0;c<N;c++)b[r][c]=null;}return b;}
-    function cloneMarks(){var a=[],r,c;for(r=0;r<N;r++){a[r]=[];for(c=0;c<N;c++)a[r][c]=false;}return a;}
-    function cloneBoard(src){var b=[],r,c;for(r=0;r<N;r++){b[r]=[];for(c=0;c<N;c++)b[r][c]=src[r][c];}return b;}
-    function boardFull(){var r,c;for(r=0;r<N;r++)for(c=0;c<N;c++)if(board[r][c]===null)return false;return true;}
+    function mmToCssPx(mm){return mm*96/25.4;}
+    function dprCellScale(){
+      var dpr=(typeof window.devicePixelRatio==='number'&&isFinite(window.devicePixelRatio))?window.devicePixelRatio:1;
+      if(dpr<=1)return 1;
+      if(dpr>=3)return 1.35;
+      return 1+(dpr-1)*0.175;
+    }
+    function inBounds(r,c){return r>=0&&r<ROWS&&c>=0&&c<COLS;}
+    function makeBoard(){var b=[],r,c;for(r=0;r<ROWS;r++){b[r]=[];for(c=0;c<COLS;c++)b[r][c]=null;}return b;}
+    function boardFull(){var r,c;for(r=0;r<ROWS;r++)for(c=0;c<COLS;c++)if(board[r][c]===null)return false;return true;}
+    function getBoardAreaBox(){
+      var rect,w,h;
+      if(!boardArea||!boardArea.getBoundingClientRect) return {width:720,height:720};
+      rect=boardArea.getBoundingClientRect();
+      w=Math.max(1,Math.floor(rect.width||boardArea.clientWidth||canvas.width||720));
+      h=Math.max(1,Math.floor(rect.height||boardArea.clientHeight||canvas.height||720));
+      return {width:w,height:h};
+    }
+    function detectGridSizeForNewGame(){
+      var maxW=Math.max(1,Math.floor(canvas&&canvas.width?canvas.width:720));
+      var maxH=Math.max(1,Math.floor(canvas&&canvas.height?canvas.height:720));
+      var isCoarsePointer,minCellPx,availW,availH,cols,rows,cellByW;
+      isCoarsePointer=!!(window.matchMedia&&window.matchMedia('(pointer: coarse)').matches);
+      minCellPx=Math.max(8,mmToCssPx(MIN_CELL_MM)*dprCellScale(),isCoarsePointer?44:0);
+      availW=Math.max(1,maxW);
+      availH=Math.max(1,maxH);
+      cols=Math.floor(availW/minCellPx);
+      if(!isFinite(cols)||cols<=0) cols=MIN_COLS;
+      if(cols<MIN_COLS) cols=MIN_COLS;
+      if(cols>MAX_COLS) cols=MAX_COLS;
+      while(cols<MAX_COLS&&(cols+1)*minCellPx<=availW) cols++;
+      cellByW=availW/cols;
+      rows=Math.floor(availH/cellByW);
+      if(!isFinite(rows)||rows<=0) rows=MIN_ROWS;
+      if(rows<MIN_ROWS) rows=MIN_ROWS;
+      if(rows>MAX_ROWS) rows=MAX_ROWS;
+      while(rows<MAX_ROWS&&(rows+1)*cellByW<=availH) rows++;
+      return {rows:rows,cols:cols};
+    }
 
     function countRunFrom(r,c,dr,dc,color){
       var n=0,nr=r,nc=c;
@@ -74,7 +135,7 @@
     }
     function hasFive(color){
       var r,c,d,n;
-      for(r=0;r<N;r++)for(c=0;c<N;c++){
+      for(r=0;r<ROWS;r++)for(c=0;c<COLS;c++){
         if(board[r][c]!==color)continue;
         for(d=0;d<dirs.length;d++){
           n=1+countRunFrom(r+dirs[d][0],c+dirs[d][1],dirs[d][0],dirs[d][1],color);
@@ -85,8 +146,8 @@
     }
 
     function moveHeuristic(r,c,color){
-      var s=0,center=(N-1)/2,dr,dc,nr,nc,v;
-      s -= (Math.abs(r-center)+Math.abs(c-center))*0.2;
+      var s=0,centerR=(ROWS-1)/2,centerC=(COLS-1)/2,dr,dc,nr,nc,v;
+      s -= (Math.abs(r-centerR)+Math.abs(c-centerC))*0.2;
       for(dr=-1;dr<=1;dr++)for(dc=-1;dc<=1;dc++){
         if(!dr&&!dc)continue;
         nr=r+dr;nc=c+dc;
@@ -99,9 +160,9 @@
 
     function legalMoves(color,forAi){
       var r,c,used={},list=[],m,hasStone=false,key;
-      for(r=0;r<N;r++)for(c=0;c<N;c++)if(board[r][c]!==null)hasStone=true;
-      if(!hasStone){return [{r:Math.floor(N/2),c:Math.floor(N/2),score:0}];}
-      for(r=0;r<N;r++)for(c=0;c<N;c++){
+      for(r=0;r<ROWS;r++)for(c=0;c<COLS;c++)if(board[r][c]!==null)hasStone=true;
+      if(!hasStone){return [{r:Math.floor(ROWS/2),c:Math.floor(COLS/2),score:0}];}
+      for(r=0;r<ROWS;r++)for(c=0;c<COLS;c++){
         if(board[r][c]!==null)continue;
         var near=false,dr,dc,nr,nc;
         for(dr=-2;dr<=2;dr++)for(dc=-2;dc<=2;dc++){
@@ -166,10 +227,10 @@
       if(w===AI)return 100000;
       if(w===HUMAN)return -100000;
       s += (captures.b-captures.w)*80;
-      for(r=0;r<N;r++)for(c=0;c+4<N;c++){cells=[board[r][c],board[r][c+1],board[r][c+2],board[r][c+3],board[r][c+4]];s+=evalLine5(cells,AI);}
-      for(c=0;c<N;c++)for(r=0;r+4<N;r++){cells=[board[r][c],board[r+1][c],board[r+2][c],board[r+3][c],board[r+4][c]];s+=evalLine5(cells,AI);}
-      for(r=0;r+4<N;r++)for(c=0;c+4<N;c++){cells=[board[r][c],board[r+1][c+1],board[r+2][c+2],board[r+3][c+3],board[r+4][c+4]];s+=evalLine5(cells,AI);}
-      for(r=4;r<N;r++)for(c=0;c+4<N;c++){cells=[board[r][c],board[r-1][c+1],board[r-2][c+2],board[r-3][c+3],board[r-4][c+4]];s+=evalLine5(cells,AI);}
+      for(r=0;r<ROWS;r++)for(c=0;c+4<COLS;c++){cells=[board[r][c],board[r][c+1],board[r][c+2],board[r][c+3],board[r][c+4]];s+=evalLine5(cells,AI);}
+      for(c=0;c<COLS;c++)for(r=0;r+4<ROWS;r++){cells=[board[r][c],board[r+1][c],board[r+2][c],board[r+3][c],board[r+4][c]];s+=evalLine5(cells,AI);}
+      for(r=0;r+4<ROWS;r++)for(c=0;c+4<COLS;c++){cells=[board[r][c],board[r+1][c+1],board[r+2][c+2],board[r+3][c+3],board[r+4][c+4]];s+=evalLine5(cells,AI);}
+      for(r=4;r<ROWS;r++)for(c=0;c+4<COLS;c++){cells=[board[r][c],board[r-1][c+1],board[r-2][c+2],board[r-3][c+3],board[r-4][c+4]];s+=evalLine5(cells,AI);}
       return s;
     }
     function terminal(){return !!winnerNow();}
@@ -233,7 +294,7 @@
     }
 
     function drawStone(r,c,color,alpha){
-      var x=pad+c*cell+cell*0.5,y=pad+r*cell+cell*0.5;
+      var x=renderOriginX+c*renderCell+renderCell*0.5,y=renderOriginY+r*renderCell+renderCell*0.5;
       if(typeof alpha==='number')ctx.globalAlpha=alpha;
       ctx.fillStyle=(color===HUMAN)?'#ffffff':'#000000';
       ctx.beginPath();ctx.arc(x,y,stoneR,0,Math.PI*2,false);ctx.fill();
@@ -241,28 +302,30 @@
       if(typeof alpha==='number')ctx.globalAlpha=1;
     }
     function drawCornerMarks(r,c,color){
-      var x0=pad+c*cell,y0=pad+r*cell,seg=cell*0.12,w=Math.max(2,cell*0.07);
+      var x0=renderOriginX+c*renderCell,y0=renderOriginY+r*renderCell,seg=renderCell*0.12,w=Math.max(2,renderCell*0.07);
       ctx.strokeStyle=color||'#000000';ctx.lineWidth=w;ctx.lineCap='butt';ctx.beginPath();
       ctx.moveTo(x0,y0+seg);ctx.lineTo(x0,y0);ctx.lineTo(x0+seg,y0);
-      ctx.moveTo(x0+cell,y0+seg);ctx.lineTo(x0+cell,y0);ctx.lineTo(x0+cell-seg,y0);
-      ctx.moveTo(x0,y0+cell-seg);ctx.lineTo(x0,y0+cell);ctx.lineTo(x0+seg,y0+cell);
-      ctx.moveTo(x0+cell,y0+cell-seg);ctx.lineTo(x0+cell,y0+cell);ctx.lineTo(x0+cell-seg,y0+cell);
+      ctx.moveTo(x0+renderCell,y0+seg);ctx.lineTo(x0+renderCell,y0);ctx.lineTo(x0+renderCell-seg,y0);
+      ctx.moveTo(x0,y0+renderCell-seg);ctx.lineTo(x0,y0+renderCell);ctx.lineTo(x0+seg,y0+renderCell);
+      ctx.moveTo(x0+renderCell,y0+renderCell-seg);ctx.lineTo(x0+renderCell,y0+renderCell);ctx.lineTo(x0+renderCell-seg,y0+renderCell);
       ctx.stroke();
     }
     function draw(){
       var r,c,last;
       if(!ctx)return;
       ctx.clearRect(0,0,canvas.width,canvas.height);
-      for(r=0;r<N;r++)for(c=0;c<N;c++){
+      ctx.fillStyle='#ffffff';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      for(r=0;r<ROWS;r++)for(c=0;c<COLS;c++){
         ctx.fillStyle=((r+c)%2===0)?LIGHT_SQUARE:DARK_SQUARE;
-        ctx.fillRect(pad+c*cell,pad+r*cell,cell,cell);
+        ctx.fillRect(renderOriginX+c*renderCell,renderOriginY+r*renderCell,renderCell,renderCell);
       }
-      ctx.strokeStyle=GRID;ctx.lineWidth=Math.max(1,cell*0.03);ctx.beginPath();
-      for(r=0;r<N;r++){ctx.moveTo(pad+cell*0.5,pad+r*cell+cell*0.5);ctx.lineTo(pad+(N-1)*cell+cell*0.5,pad+r*cell+cell*0.5);}
-      for(c=0;c<N;c++){ctx.moveTo(pad+c*cell+cell*0.5,pad+cell*0.5);ctx.lineTo(pad+c*cell+cell*0.5,pad+(N-1)*cell+cell*0.5);}
+      ctx.strokeStyle=GRID;ctx.lineWidth=Math.max(1,renderCell*0.03);ctx.beginPath();
+      for(r=0;r<ROWS;r++){ctx.moveTo(renderOriginX+renderCell*0.5,renderOriginY+r*renderCell+renderCell*0.5);ctx.lineTo(renderOriginX+(COLS-1)*renderCell+renderCell*0.5,renderOriginY+r*renderCell+renderCell*0.5);}
+      for(c=0;c<COLS;c++){ctx.moveTo(renderOriginX+c*renderCell+renderCell*0.5,renderOriginY+renderCell*0.5);ctx.lineTo(renderOriginX+c*renderCell+renderCell*0.5,renderOriginY+(ROWS-1)*renderCell+renderCell*0.5);}
       ctx.stroke();
-      for(r=0;r<N;r++)for(c=0;c<N;c++)if(board[r][c])drawStone(r,c,board[r][c],1);
-      if(previewEnabled&&previewMove&&turn===AI)drawStone(previewMove.r,previewMove.c,AI,0.32);
+      for(r=0;r<ROWS;r++)for(c=0;c<COLS;c++)if(board[r][c])drawStone(r,c,board[r][c],1);
+      if(previewEnabled&&previewMove&&turn===AI&&inBounds(previewMove.r,previewMove.c))drawStone(previewMove.r,previewMove.c,AI,0.32);
       if(history.length){last=history[history.length-1].move;drawCornerMarks(last.r,last.c,'#000000');}
     }
 
@@ -307,30 +370,70 @@
     }
     function reset(){
       if(aiTimer){clearTimeout(aiTimer);aiTimer=null;}
+      syncCanvasSizeOnly();
+      var dims=detectGridSizeForNewGame();
+      ROWS=dims.rows;
+      COLS=dims.cols;
       board=makeBoard();turn=HUMAN;over=false;winner=null;history=[];previewMove=null;aiBusy=false;captures={w:0,b:0};
       aiThinkStart=0;aiDepthNow=0;aiDepthDone=0;aiLastSec=0;aiTargetDepth=0;aiBestMove=null;aiDepthStart=0;
-      resize();draw();refresh();
+      resizeCanvas();
+      settleResize();
+      refresh();
     }
     function click(ev){
       var rect,x,y,sx,sy,r,c;
       if(over||turn!==HUMAN||aiBusy)return;
       rect=canvas.getBoundingClientRect();sx=canvas.width/rect.width;sy=canvas.height/rect.height;
       x=(ev.clientX-rect.left)*sx;y=(ev.clientY-rect.top)*sy;
-      c=Math.floor((x-pad)/cell);r=Math.floor((y-pad)/cell);
+      c=Math.floor((x-renderOriginX)/renderCell);r=Math.floor((y-renderOriginY)/renderCell);
       if(!inBounds(r,c)||board[r][c]!==null)return;
       placeHuman(r,c);
     }
-    function resize(){
-      var safety=60,controlsH=controls?controls.offsetHeight+16:0,maxW=(typeof window.innerWidth==='number'&&isFinite(window.innerWidth))?window.innerWidth-16:512,maxH=(typeof window.innerHeight==='number'&&isFinite(window.innerHeight))?window.innerHeight-controlsH-safety:512,size=Math.max(128,Math.floor(Math.min(maxW,maxH))),freeW;
+    function resizeCanvas(){
+      var box,maxW,maxH,winH,baseFont;
+      box=getBoardAreaBox();
+      maxW=Math.max(1,Math.floor(box.width||720));
+      maxH=Math.max(1,Math.floor(box.height||720));
+      winH=(typeof window.innerHeight==='number'&&isFinite(window.innerHeight))?window.innerHeight:720;
       if(controls){
-        var tw=Math.floor(size*0.9);controls.style.width=tw+'px';controls.style.fontSize=Math.max(10,Math.round(size*0.033))+'px';controls.style.boxSizing='border-box';controls.style.textAlign='center';
-        controlsH=controls.offsetHeight+16;maxH=(typeof window.innerHeight==='number'&&isFinite(window.innerHeight))?window.innerHeight-controlsH-safety:512;size=Math.max(128,Math.floor(Math.min(maxW,maxH)));
+        baseFont=Math.max(10,Math.min(18,Math.round(maxW*0.018)));
+        if(winH<=260) baseFont=Math.max(10,baseFont-3);
+        else if(winH<=420) baseFont=Math.max(10,baseFont-2);
+        controls.style.fontSize=baseFont+'px';
       }
-      freeW=Math.max(0,maxW-size);canvas.width=size;canvas.height=size;canvas.style.marginLeft=(8+Math.floor(freeW/2))+'px';canvas.style.marginRight=(8+Math.ceil(freeW/2))+'px';canvas.style.marginTop='8px';canvas.style.marginBottom='8px';
+      canvas.width=maxW;
+      canvas.height=maxH;
+      renderCell=Math.floor(Math.min(maxW/COLS,maxH/ROWS));
+      if(!isFinite(renderCell)||renderCell<=0) renderCell=1;
+      renderOriginX=Math.max(0,Math.floor((canvas.width-COLS*renderCell)/2));
+      renderOriginY=Math.max(0,Math.floor((canvas.height-ROWS*renderCell)/2));
+      stoneR=Math.max(4,Math.floor(renderCell*0.34));
+      draw();
+    }
+    function syncCanvasSizeOnly(){
+      var box,maxW,maxH,winH,baseFont;
+      box=getBoardAreaBox();
+      maxW=Math.max(1,Math.floor(box.width||720));
+      maxH=Math.max(1,Math.floor(box.height||720));
+      winH=(typeof window.innerHeight==='number'&&isFinite(window.innerHeight))?window.innerHeight:720;
       if(controls){
-        var cw=Math.floor(size*0.9),sg=size-cw;controls.style.width=cw+'px';controls.style.fontSize=Math.max(10,Math.round(size*0.033))+'px';controls.style.marginLeft=(8+Math.floor(freeW/2)+Math.floor(sg/2))+'px';controls.style.marginRight=(8+Math.ceil(freeW/2)+Math.ceil(sg/2))+'px';controls.style.marginTop='0px';controls.style.marginBottom='8px';
+        baseFont=Math.max(10,Math.min(18,Math.round(maxW*0.018)));
+        if(winH<=260) baseFont=Math.max(10,baseFont-3);
+        else if(winH<=420) baseFont=Math.max(10,baseFont-2);
+        controls.style.fontSize=baseFont+'px';
       }
-      cell=Math.floor(size/N);pad=Math.floor((size-cell*N)/2);stoneR=Math.max(8,Math.floor(cell*0.34));draw();
+      canvas.width=maxW;
+      canvas.height=maxH;
+    }
+    function settleResize(){
+      resizeCanvas();
+      if(resizeSecondPassPending)return;
+      resizeSecondPassPending=true;
+      if(window.requestAnimationFrame){
+        window.requestAnimationFrame(function(){resizeSecondPassPending=false;resizeCanvas();});
+      }else{
+        setTimeout(function(){resizeSecondPassPending=false;resizeCanvas();},0);
+      }
     }
     function init(){
       var d=load('pente_depth'),c=load('pente_clumsy'),p=load('pente_preview');
@@ -340,15 +443,16 @@
       document.getElementById('resetBtn').addEventListener('click',reset);
       document.getElementById('takebackBtn').addEventListener('click',takeBack);
       canvas.addEventListener('click',click);
-      if(window.addEventListener)window.addEventListener('resize',resize);
+      if(window.addEventListener)window.addEventListener('resize',settleResize);
       depthInput.addEventListener('change',function(){save('pente_depth',depthInput.value);});
       clumsyInput.addEventListener('change',function(){save('pente_clumsy',clumsyInput.value);});
       previewBtn.addEventListener('click',function(){previewEnabled=!previewEnabled;save('pente_preview',previewEnabled?'1':'0');previewBtn.className=previewEnabled?'is-on':'';draw();});
     }
 
-    window.__test={getState:function(){return{over:over,turn:turn,wCaps:captures.w,bCaps:captures.b};},legalMoves:function(){return legalMoves(turn,false);},play:function(m){placeHuman(m.r,m.c);return true;},forceOutcome:function(side){over=true;winner=side==='white'?HUMAN:side==='black'?AI:'d';refresh();}};
+    window.__test={getState:function(){return{over:over,turn:turn,wCaps:captures.w,bCaps:captures.b,rows:ROWS,cols:COLS};},legalMoves:function(){return legalMoves(turn,false);},play:function(m){placeHuman(m.r,m.c);return true;},forceOutcome:function(side){over=true;winner=side==='white'?HUMAN:side==='black'?AI:'d';refresh();}};
     init();bind();reset();
   }());
   </script>
+  <script src="./pwa-register.js"></script>
 </body>
 </html>

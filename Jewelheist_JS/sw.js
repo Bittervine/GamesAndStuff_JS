@@ -1,18 +1,19 @@
 'use strict';
 
-var VERSION = 'v19';
+var VERSION = 'v3';
 try {
   var swUrl = new URL(self.location.href);
   if (swUrl.searchParams && swUrl.searchParams.get('v')) {
     VERSION = String(swUrl.searchParams.get('v'));
   }
 } catch (e) {}
-var CACHE_NAME = 'naught-and-crosses-js-' + VERSION;
+var CACHE_NAME = 'jewel-heist-js-' + VERSION;
 var APP_SHELL = [
   './',
-  './NaughtsAndCrosses_JS.html',
+  './Jewelheist_JS.html',
   './manifest.webmanifest',
-  './pwa-icon.svg'
+  './pwa-icon.svg',
+  './pwa-register.js'
 ];
 
 self.addEventListener('install', function (event) {
@@ -50,7 +51,7 @@ self.addEventListener('fetch', function (event) {
         });
         return response;
       }).catch(function () {
-        return caches.match('./NaughtsAndCrosses_JS.html');
+        return caches.match('./Jewelheist_JS.html');
       });
     })
   );
