@@ -88,7 +88,7 @@
     var soundBtn=document.getElementById('soundBtn');
     var animBtn=document.getElementById('animBtn');
     var pauseBtn=document.getElementById('pauseBtn');
-    var cell=0,originX=0,originY=0;
+    var cellW=0,cellH=0,originX=0,originY=0;
     var audioCtx=null, lastTickMs=0, resetToken=0;
 
     function getBoardAreaBox(){
@@ -336,10 +336,10 @@
           if(piece.row!==w){
             body={
               kind:'fall', col:c, type:piece.type,
-              x:originX+c*cell+cell*0.5,
-              y:originY+piece.row*cell+cell*0.5,
-              tx:originX+c*cell+cell*0.5,
-              ty:originY+w*cell+cell*0.5,
+              x:originX+c*cellW+cellW*0.5,
+              y:originY+piece.row*cellH+cellH*0.5,
+              tx:originX+c*cellW+cellW*0.5,
+              ty:originY+w*cellH+cellH*0.5,
               tr:w,
               vx:0,
               vy:0,
@@ -357,8 +357,8 @@
         minTarget=ROWS;
         for(i=0;i<bodies.length;i++){
           body=bodies[i];
-          if(body.col===c && body.kind==='fall' && body.ty < (originY+minTarget*cell+cell*0.5)){
-            minTarget=Math.floor((body.ty-originY)/cell);
+          if(body.col===c && body.kind==='fall' && body.ty < (originY+minTarget*cellH+cellH*0.5)){
+            minTarget=Math.floor((body.ty-originY)/cellH);
           }
         }
         colState[c].bottomTarget=minTarget;
@@ -429,7 +429,7 @@
     }
 
     function drawGemAt(cx,cy,t,alpha){
-      var item=ITEMS[t], size=Math.max(11,Math.floor(cell*0.74)), rad=Math.max(10,Math.floor(cell*0.36));
+      var minCell=Math.min(cellW,cellH), item=ITEMS[t], size=Math.max(11,Math.floor(minCell*0.74)), rad=Math.max(10,Math.floor(minCell*0.36));
       var glyph=item.glyph;
       if(typeof alpha==='number') ctx.globalAlpha=alpha;
       ctx.fillStyle=(item.tone==='light')?'#ffffff':'#000000';
@@ -443,7 +443,7 @@
         drawHex(cx,cy,rad);
         ctx.fill();
       }
-      ctx.lineWidth=Math.max(2,Math.floor(cell*0.07));
+      ctx.lineWidth=Math.max(2,Math.floor(minCell*0.07));
       ctx.strokeStyle=(item.tone==='light')?'#000000':'#ffffff';
       if(item.shape==='round'){
         ctx.stroke();
@@ -454,25 +454,25 @@
         ctx.stroke();
       }
       ctx.fillStyle=(item.tone==='light')?'#000000':'#ffffff';
-      ctx.font='bold '+Math.max(18,Math.floor(cell*0.62))+'px FreeSerif, serif';
+      ctx.font='bold '+Math.max(18,Math.floor(minCell*0.62))+'px FreeSerif, serif';
       ctx.textAlign='center'; ctx.textBaseline='middle';
       if(glyph) ctx.fillText(glyph,cx,cy+1);
       if(typeof alpha==='number') ctx.globalAlpha=1;
     }
 
     function drawGem(r,c,t,alpha){
-      var x=originX+c*cell, y=originY+r*cell;
-      drawGemAt(x+cell*0.5,y+cell*0.5,t,alpha);
+      var x=originX+c*cellW, y=originY+r*cellH;
+      drawGemAt(x+cellW*0.5,y+cellH*0.5,t,alpha);
     }
 
     function drawBrackets(r,c,opts){
-      var x=originX+c*cell, y=originY+r*cell, baseW=Math.max(2,Math.floor(cell*.08)), ws=opts&&opts.widthScale!=null?opts.widthScale:1;
-      var w=Math.max(1,Math.floor(baseW*ws)), l=Math.max(8,Math.floor(cell*.25));
+      var minCell=Math.min(cellW,cellH), x=originX+c*cellW, y=originY+r*cellH, baseW=Math.max(2,Math.floor(minCell*.08)), ws=opts&&opts.widthScale!=null?opts.widthScale:1;
+      var w=Math.max(1,Math.floor(baseW*ws)), l=Math.max(8,Math.floor(minCell*.25));
       ctx.strokeStyle=opts&&opts.color?opts.color:'#000'; ctx.lineWidth=w;
       ctx.beginPath(); ctx.moveTo(x,y+l); ctx.lineTo(x,y); ctx.lineTo(x+l,y); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x+cell-l,y); ctx.lineTo(x+cell,y); ctx.lineTo(x+cell,y+l); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x,y+cell-l); ctx.lineTo(x,y+cell); ctx.lineTo(x+l,y+cell); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x+cell-l,y+cell); ctx.lineTo(x+cell,y+cell); ctx.lineTo(x+cell,y+cell-l); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x+cellW-l,y); ctx.lineTo(x+cellW,y); ctx.lineTo(x+cellW,y+l); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x,y+cellH-l); ctx.lineTo(x,y+cellH); ctx.lineTo(x+l,y+cellH); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x+cellW-l,y+cellH); ctx.lineTo(x+cellW,y+cellH); ctx.lineTo(x+cellW,y+cellH-l); ctx.stroke();
     }
 
     function isCellStableForInput(r,c){
@@ -498,9 +498,9 @@
       var r,c,x,y;
       ctx.clearRect(0,0,canvas.width,canvas.height);
       for(r=0;r<ROWS;r++) for(c=0;c<COLS;c++){
-        x=originX+c*cell; y=originY+r*cell;
+        x=originX+c*cellW; y=originY+r*cellH;
         ctx.fillStyle=((r+c)%2===0)?LIGHT:DARK;
-        ctx.fillRect(x,y,cell,cell);
+        ctx.fillRect(x,y,cellW,cellH);
       }
       if(animating && animStep){
         for(r=0;r<ROWS;r++) for(c=0;c<COLS;c++){
@@ -522,9 +522,9 @@
         ctx.fillStyle='#000';
         ctx.textAlign='center';
         ctx.textBaseline='middle';
-        ctx.font='bold '+Math.max(20,Math.floor(cell*0.45))+'px FreeSerif, serif';
+        ctx.font='bold '+Math.max(20,Math.floor(Math.min(cellW,cellH)*0.45))+'px FreeSerif, serif';
         ctx.fillText('GAME OVER', canvas.width*0.5, canvas.height*0.46);
-        ctx.font='bold '+Math.max(14,Math.floor(cell*0.28))+'px FreeSerif, serif';
+        ctx.font='bold '+Math.max(14,Math.floor(Math.min(cellW,cellH)*0.28))+'px FreeSerif, serif';
         ctx.fillText('Final score: '+score, canvas.width*0.5, canvas.height*0.56);
         ctx.fillText('High score: '+highScore, canvas.width*0.5, canvas.height*0.64);
       } else if(paused){
@@ -533,7 +533,7 @@
         ctx.fillStyle='#000';
         ctx.textAlign='center';
         ctx.textBaseline='middle';
-        ctx.font='bold '+Math.max(18,Math.floor(cell*0.4))+'px FreeSerif, serif';
+        ctx.font='bold '+Math.max(18,Math.floor(Math.min(cellW,cellH)*0.4))+'px FreeSerif, serif';
         ctx.fillText('PAUSED', canvas.width*0.5, canvas.height*0.5);
       }
     }
@@ -666,7 +666,7 @@
       animMask=makeMaskFromDiff(step.compact, step.compact);
       for(r=0;r<ROWS;r++) for(c=0;c<COLS;c++) animMask[r][c]=false;
       for(i=0;i<step.bodies.length;i++){
-        r=Math.floor((step.bodies[i].ty-originY)/cell);
+        r=Math.floor((step.bodies[i].ty-originY)/cellH);
         c=step.bodies[i].col;
         if(r>=0&&r<ROWS&&c>=0&&c<COLS){ animStaticBoard[r][c]=-1; animMask[r][c]=true; }
       }
@@ -690,7 +690,7 @@
           if(dt<0) dt=0;
           if(dt>0.05) dt=0.05;
           animLastTick=now;
-          gravity=cell*108;
+          gravity=cellH*108;
           bounce=0.22;
           allSet=true;
           for(i=0;i<animBodies.length;i++){
@@ -700,7 +700,7 @@
             b.vy += gravity*dt;
             b.y += b.vy*dt;
             b.x = b.tx;
-            top=b.ty-cell*1.5;
+            top=b.ty-cellH*1.5;
             bottom=b.ty;
             if(b.y<top){ b.y=top; b.vy=0; }
             if(b.y>=bottom){
@@ -708,9 +708,9 @@
               if(!b.touched){
                 b.touched=true;
                 b.touchedAt=now;
-                if(b.kind==='fall' && animStep.colState[b.col].bottomTarget===Math.floor((b.ty-originY)/cell)) animStep.colState[b.col].ready=true;
+                if(b.kind==='fall' && animStep.colState[b.col].bottomTarget===Math.floor((b.ty-originY)/cellH)) animStep.colState[b.col].ready=true;
               }
-              if(Math.abs(b.vy)<cell*1.2){
+              if(Math.abs(b.vy)<cellH*1.2){
                 b.vy=0;
                 b.x=b.tx; b.y=b.ty; b.settled=true;
                 playTick();
@@ -739,10 +739,10 @@
             if(tgt>=0){
               spawnBody={
                 kind:'spawn', col:c, type:animStep.filled[tgt][c],
-                x:originX+c*cell+cell*0.5,
-                y:originY-cell*0.8,
-                tx:originX+c*cell+cell*0.5,
-                ty:originY+tgt*cell+cell*0.5,
+                x:originX+c*cellW+cellW*0.5,
+                y:originY-cellH*0.8,
+                tx:originX+c*cellW+cellW*0.5,
+                ty:originY+tgt*cellH+cellH*0.5,
                 tr:tgt,
                 vx:0,
                 vy:0,
@@ -785,7 +785,7 @@
       rect=canvas.getBoundingClientRect();
       sx=canvas.width/rect.width; sy=canvas.height/rect.height;
       x=(ev.clientX-rect.left)*sx; y=(ev.clientY-rect.top)*sy;
-      c=Math.floor((x-originX)/cell); r=Math.floor((y-originY)/cell);
+      c=Math.floor((x-originX)/cellW); r=Math.floor((y-originY)/cellH);
       if(!inBounds(r,c)) return;
       p={r:r,c:c};
       if(animating){
@@ -813,7 +813,7 @@
       rect=canvas.getBoundingClientRect();
       sx=canvas.width/rect.width; sy=canvas.height/rect.height;
       x=(ev.clientX-rect.left)*sx; y=(ev.clientY-rect.top)*sy;
-      c=Math.floor((x-originX)/cell); r=Math.floor((y-originY)/cell);
+      c=Math.floor((x-originX)/cellW); r=Math.floor((y-originY)/cellH);
       if(!inBounds(r,c)) return;
       p={r:r,c:c};
       if(animating){
@@ -831,7 +831,7 @@
     }
 
     function resize(){
-      var box=getBoardAreaBox(), boardW=box.width, boardH=box.height, cellByW, cellByH;
+      var box=getBoardAreaBox(), boardW=box.width, boardH=box.height;
       boardW=Math.max(1,Math.floor(boardW-6));
       boardH=Math.max(1,Math.floor(boardH-6));
       if(!(ROWS>0 && COLS>0)){
@@ -845,10 +845,12 @@
       canvas.style.height='100%';
       canvas.width=boardW;
       canvas.height=boardH;
-      cell=Math.min(boardW/COLS,boardH/ROWS);
-      if(!isFinite(cell)||cell<=0) cell=1;
-      originX=Math.max(0,(boardW-cell*COLS)/2);
-      originY=Math.max(0,(boardH-cell*ROWS)/2);
+      cellW=boardW/COLS;
+      cellH=boardH/ROWS;
+      if(!isFinite(cellW)||cellW<=0) cellW=1;
+      if(!isFinite(cellH)||cellH<=0) cellH=1;
+      originX=0;
+      originY=0;
       if(controls){
         controls.style.width='100%';
         controls.style.fontSize=Math.max(10,Math.round(Math.min(boardW,boardH)*0.028))+'px';

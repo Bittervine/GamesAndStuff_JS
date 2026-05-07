@@ -69,7 +69,7 @@
     var MIN_ROWS=13,MIN_COLS=13,MAX_ROWS=41,MAX_COLS=41,MIN_CELL_MM=10.0;
     var ROWS=13,COLS=13;
     var HUMAN='w',AI='b',INF=1e9;
-    var board,turn,over,winner,history,previewMove,previewEnabled,aiBusy,aiTimer,renderCell,renderOriginX,renderOriginY,stoneR,captures;
+    var board,turn,over,winner,history,previewMove,previewEnabled,aiBusy,aiTimer,renderCellW,renderCellH,renderOriginX,renderOriginY,stoneR,captures;
     var aiThinkStart=0,aiDepthNow=0,aiDepthDone=0,aiLastSec=0,aiTargetDepth=0,aiBestMove=null,aiDepthStart=0,searchDeadline=0,resizeSecondPassPending=false;
     var canvas=document.getElementById('board'),ctx=canvas.getContext&&canvas.getContext('2d');
     var boardArea=document.getElementById('boardArea'),controls=document.getElementById('controls'),statusEl=document.getElementById('status');
@@ -299,7 +299,7 @@
     }
 
     function drawStone(r,c,color,alpha){
-      var x=renderOriginX+c*renderCell+renderCell*0.5,y=renderOriginY+r*renderCell+renderCell*0.5;
+      var x=renderOriginX+c*renderCellW+renderCellW*0.5,y=renderOriginY+r*renderCellH+renderCellH*0.5;
       if(typeof alpha==='number')ctx.globalAlpha=alpha;
       ctx.fillStyle=(color===HUMAN)?'#ffffff':'#000000';
       ctx.beginPath();ctx.arc(x,y,stoneR,0,Math.PI*2,false);ctx.fill();
@@ -307,12 +307,12 @@
       if(typeof alpha==='number')ctx.globalAlpha=1;
     }
     function drawCornerMarks(r,c,color){
-      var x0=renderOriginX+c*renderCell,y0=renderOriginY+r*renderCell,seg=renderCell*0.12,w=Math.max(2,renderCell*0.07);
+      var x0=renderOriginX+c*renderCellW,y0=renderOriginY+r*renderCellH,seg=Math.min(renderCellW,renderCellH)*0.12,w=Math.max(2,Math.min(renderCellW,renderCellH)*0.07);
       ctx.strokeStyle=color||'#000000';ctx.lineWidth=w;ctx.lineCap='butt';ctx.beginPath();
       ctx.moveTo(x0,y0+seg);ctx.lineTo(x0,y0);ctx.lineTo(x0+seg,y0);
-      ctx.moveTo(x0+renderCell,y0+seg);ctx.lineTo(x0+renderCell,y0);ctx.lineTo(x0+renderCell-seg,y0);
-      ctx.moveTo(x0,y0+renderCell-seg);ctx.lineTo(x0,y0+renderCell);ctx.lineTo(x0+seg,y0+renderCell);
-      ctx.moveTo(x0+renderCell,y0+renderCell-seg);ctx.lineTo(x0+renderCell,y0+renderCell);ctx.lineTo(x0+renderCell-seg,y0+renderCell);
+      ctx.moveTo(x0+renderCellW,y0+seg);ctx.lineTo(x0+renderCellW,y0);ctx.lineTo(x0+renderCellW-seg,y0);
+      ctx.moveTo(x0,y0+renderCellH-seg);ctx.lineTo(x0,y0+renderCellH);ctx.lineTo(x0+seg,y0+renderCellH);
+      ctx.moveTo(x0+renderCellW,y0+renderCellH-seg);ctx.lineTo(x0+renderCellW,y0+renderCellH);ctx.lineTo(x0+renderCellW-seg,y0+renderCellH);
       ctx.stroke();
     }
     function draw(){
@@ -323,11 +323,11 @@
       ctx.fillRect(0,0,canvas.width,canvas.height);
       for(r=0;r<ROWS;r++)for(c=0;c<COLS;c++){
         ctx.fillStyle=((r+c)%2===0)?LIGHT_SQUARE:DARK_SQUARE;
-        ctx.fillRect(renderOriginX+c*renderCell,renderOriginY+r*renderCell,renderCell,renderCell);
+        ctx.fillRect(renderOriginX+c*renderCellW,renderOriginY+r*renderCellH,renderCellW,renderCellH);
       }
-      ctx.strokeStyle=GRID;ctx.lineWidth=Math.max(1,renderCell*0.03);ctx.beginPath();
-      for(r=0;r<ROWS;r++){ctx.moveTo(renderOriginX+renderCell*0.5,renderOriginY+r*renderCell+renderCell*0.5);ctx.lineTo(renderOriginX+(COLS-1)*renderCell+renderCell*0.5,renderOriginY+r*renderCell+renderCell*0.5);}
-      for(c=0;c<COLS;c++){ctx.moveTo(renderOriginX+c*renderCell+renderCell*0.5,renderOriginY+renderCell*0.5);ctx.lineTo(renderOriginX+c*renderCell+renderCell*0.5,renderOriginY+(ROWS-1)*renderCell+renderCell*0.5);}
+      ctx.strokeStyle=GRID;ctx.lineWidth=Math.max(1,Math.min(renderCellW,renderCellH)*0.03);ctx.beginPath();
+      for(r=0;r<ROWS;r++){ctx.moveTo(renderOriginX,renderOriginY+r*renderCellH+renderCellH*0.5);ctx.lineTo(renderOriginX+COLS*renderCellW,renderOriginY+r*renderCellH+renderCellH*0.5);}
+      for(c=0;c<COLS;c++){ctx.moveTo(renderOriginX+c*renderCellW+renderCellW*0.5,renderOriginY);ctx.lineTo(renderOriginX+c*renderCellW+renderCellW*0.5,renderOriginY+ROWS*renderCellH);}
       ctx.stroke();
       for(r=0;r<ROWS;r++)for(c=0;c<COLS;c++)if(board[r][c])drawStone(r,c,board[r][c],1);
       if(previewEnabled&&previewMove&&turn===AI&&inBounds(previewMove.r,previewMove.c))drawStone(previewMove.r,previewMove.c,AI,0.32);
@@ -390,7 +390,7 @@
       if(over||turn!==HUMAN||aiBusy)return;
       rect=canvas.getBoundingClientRect();sx=canvas.width/rect.width;sy=canvas.height/rect.height;
       x=(ev.clientX-rect.left)*sx;y=(ev.clientY-rect.top)*sy;
-      c=Math.floor((x-renderOriginX)/renderCell);r=Math.floor((y-renderOriginY)/renderCell);
+      c=Math.floor((x-renderOriginX)/renderCellW);r=Math.floor((y-renderOriginY)/renderCellH);
       if(!inBounds(r,c)||board[r][c]!==null)return;
       placeHuman(r,c);
     }
@@ -408,11 +408,13 @@
       }
       canvas.width=maxW;
       canvas.height=maxH;
-      renderCell=Math.min(maxW/COLS,maxH/ROWS);
-      if(!isFinite(renderCell)||renderCell<=0) renderCell=1;
-      renderOriginX=Math.max(0,(canvas.width-COLS*renderCell)/2);
-      renderOriginY=Math.max(0,(canvas.height-ROWS*renderCell)/2);
-      stoneR=Math.max(4,renderCell*0.34);
+      renderCellW=maxW/COLS;
+      renderCellH=maxH/ROWS;
+      if(!isFinite(renderCellW)||renderCellW<=0) renderCellW=1;
+      if(!isFinite(renderCellH)||renderCellH<=0) renderCellH=1;
+      renderOriginX=0;
+      renderOriginY=0;
+      stoneR=Math.max(4,Math.min(renderCellW,renderCellH)*0.34);
       draw();
     }
     function syncCanvasSizeOnly(){
