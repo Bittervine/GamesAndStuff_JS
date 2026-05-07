@@ -1,0 +1,21 @@
+{
+  "name": "Pente JS",
+  "short_name": "Pente",
+  "start_url": "./Pente_JS.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#17361f",
+  "theme_color": "#17361f",
+  "icons": [
+    {
+      "src": "./pwa-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./pwa-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
