@@ -1879,9 +1879,9 @@
   };
 
   const DIFFICULTIES = [                                                                      // Hint: bulletSpeed = enemyShotPace maintains gap-dynamics of shots (just faster)
-    { label: 'Easy', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.8, spawnCount: 0.7, bulletSpeed: 1.0, bossHp: 0.5, contact: 0.9, playerDamage: 1, enemyShotPace: 0.8, spinnerNrOfDeathShots: 7 },
-    { label: 'Normal', lives: 3, enemyHp: 1.2, enemySpeed: 1, spawnRate: 1, spawnCount: 0.9, bulletSpeed: 1.5, bossHp: 1, contact: 1, playerDamage: 0.5, enemyShotPace: 1.4, spinnerNrOfDeathShots: 8 },
-    { label: 'Hard', lives: 2, enemyHp: 1.4, enemySpeed: 1.2, spawnRate: 1.1, spawnCount: 1.1, bulletSpeed: 2.0, bossHp: 1.3, contact: 1.12, playerDamage: 0.25, enemyShotPace: 2.0, spinnerNrOfDeathShots: 9 }
+    { label: 'Easy', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.8, spawnCount: 0.7, bulletSpeed: 1.0, bossHp: 0.5, contact: 0.9, playerDamage: 1, enemyShotPace: 0.8, spinnerNrOfRingShots: 6, eliteNrOfRingShots: 6 },
+    { label: 'Normal', lives: 3, enemyHp: 1.2, enemySpeed: 1, spawnRate: 1, spawnCount: 0.9, bulletSpeed: 1.5, bossHp: 1, contact: 1, playerDamage: 0.5, enemyShotPace: 1.4, spinnerNrOfRingShots: 8, eliteNrOfRingShots: 7 },
+    { label: 'Hard', lives: 2, enemyHp: 1.4, enemySpeed: 1.2, spawnRate: 1.1, spawnCount: 1.1, bulletSpeed: 2.0, bossHp: 1.3, contact: 1.12, playerDamage: 0.25, enemyShotPace: 2.0, spinnerNrOfRingShots: 9, eliteNrOfRingShots: 8 }
   ];
 
   const PLAYER_SHOT_PACE = 1.0;
@@ -3574,7 +3574,7 @@
         if (state.combo % 5 === 0) sfx('combo');
         if (state.combo >= 10) { state.combo = 0; activateOverdrive(); }
       }
-      if (e.kind === 'spinner') ringBullets(e.x, e.y, (currentDifficulty().spinnerNrOfDeathShots || 9), 180, 1, e.theme.accent2, 'enemy', 'spinner', e.name || 'spinner');
+      if (e.kind === 'spinner') ringBullets(e.x, e.y, (currentDifficulty().spinnerNrOfRingShots || 9), 180, 1, e.theme.accent2, 'enemy', 'spinner', e.name || 'spinner');
       if (e.kind === 'splitter') {
         const base = typeof e.flightAngle === 'number' ? e.flightAngle : Math.atan2(e.vy || 0, e.vx || 1);
         const spread = Math.PI / 6;
@@ -4324,7 +4324,7 @@
     if (e.kind === 'spinner') {
       if (e.y <= 80) return;
       e.fireCooldown = shotDelay(3.0 * postEntrySlowdown);
-      ringBullets(e.x, e.y, 6 + Math.floor(state.levelIndex / 3), 150 + state.levelIndex * 8, 1, e.theme.accent2, 'enemy', 'spinner', e.name || 'spinner');
+      ringBullets(e.x, e.y, (currentDifficulty().spinnerNrOfRingShots || 9), 150 + state.levelIndex * 8, 1, e.theme.accent2, 'enemy', 'spinner', e.name || 'spinner');
       return;
     }
     if (e.kind === 'diver') {
@@ -4341,7 +4341,7 @@
     if (e.kind === 'elite') {
       e.fireCooldown = shotDelay(1.0 * postEntrySlowdown);
       const base = ang(e.x, e.y, p.x, p.y);
-      ringBullets(e.x, e.y, 8, 160, 1, e.theme.accent2, 'enemy', e.kind, e.name || e.kind);
+      ringBullets(e.x, e.y, (currentDifficulty().eliteNrOfRingShots || 8), 160, 1, e.theme.accent2, 'enemy', e.kind, e.name || e.kind);
       spawnBullet('enemy', e.x, e.y, Math.cos(base) * 220, Math.sin(base) * 220, { r: 7, color: e.theme.accent, damage: 1, kind: 'elite', life: 4.8, sourceKind: e.kind, sourceName: e.name || e.kind });
     }
   }
