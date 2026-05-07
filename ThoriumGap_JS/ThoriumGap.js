@@ -3560,6 +3560,7 @@
     e.hitFlash = 0.08;
     e.hitSparkDamage = Math.max(1, damage | 0);
     if (e.hp <= 0) {
+      const suppressDeathShots = fromBomb && currentDifficulty().label === 'Easy';
       e.dead = true;
       state.shake = Math.max(state.shake, 5);
       flashBurst(e.x, e.y, e.color);
@@ -3574,8 +3575,8 @@
         if (state.combo % 5 === 0) sfx('combo');
         if (state.combo >= 10) { state.combo = 0; activateOverdrive(); }
       }
-      if (e.kind === 'spinner') ringBullets(e.x, e.y, (currentDifficulty().spinnerNrOfRingShots || 9), 180, 1, e.theme.accent2, 'enemy', 'spinner', e.name || 'spinner');
-      if (e.kind === 'splitter') {
+      if (!suppressDeathShots && e.kind === 'spinner') ringBullets(e.x, e.y, (currentDifficulty().spinnerNrOfRingShots || 9), 180, 1, e.theme.accent2, 'enemy', 'spinner', e.name || 'spinner');
+      if (!suppressDeathShots && e.kind === 'splitter') {
         const base = typeof e.flightAngle === 'number' ? e.flightAngle : Math.atan2(e.vy || 0, e.vx || 1);
         const spread = Math.PI / 6;
         const speed = 240;
