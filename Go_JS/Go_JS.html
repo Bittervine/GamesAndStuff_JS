@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <title>Go JS</title>
+  <link rel="manifest" href="./manifest.webmanifest">
   <style>
     :root{
       --bg1:#2e1a10;
@@ -108,7 +109,6 @@
       <span id="status"></span>
     </div>
   </main>
-
   <script>
   (function(){
     'use strict';
@@ -980,6 +980,13 @@
     bind();
     resetGame();
   }());
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('./sw.js').catch(function () {});
+      });
+    }
   </script>
 </body>
 </html>

@@ -183,9 +183,37 @@ Texture source notes:
 
 ### 8.5 Character Models and Animation
 
-- [x] Build proper 3D character models with articulated feet, lower legs, thighs, torso, upper arms, lower arms, hands, and heads.
-- [x] Add a reusable animation rig so player and enemy bodies can share walk, idle, attack, hurt, and death poses.
-- [x] Keep the model pipeline data-driven so future enemy variants can reuse the same limb structure.
+- [ ] Investigate methods to acquire more realistic human models.
+- [ ] Choose a fixed target style: realistic, stylized-realistic, low-poly, or arcade-readable.
+- [ ] Define the target camera distance and gameplay use case for the human models.
+- [ ] Set a triangle budget, texture budget, and performance target.
+- [ ] Choose one skeleton standard and keep it consistent across all human characters.
+- [ ] Test existing base-human solutions such as MetaHuman, Mixamo, Unity Humanoid, Rigify, or marketplace assets. Only use royalty free assets only. 
+- [ ] Select one high-quality base mesh as the anatomical and technical reference.
+- [ ] Instruct the AI agent to create variations from the base mesh instead of generating full humans from scratch.
+- [ ] Create a character asset specification for the AI agent to follow.
+- [ ] Define acceptable body proportions, including head size, shoulder width, hip width, hand size, and foot size.
+- [ ] Require front, side, and back orthographic previews before accepting a generated model.
+- [ ] Reject models early if the silhouette, proportions, hands, feet, or joints look wrong. Ask user to judge.
+- [ ] Separate the visual mesh from the deformation requirements.
+- [ ] Require clean topology around shoulders, elbows, wrists, hips, knees, ankles, neck, and jaw.
+- [ ] Prevent the AI agent from inventing custom bone names, joint directions, or skeleton layouts.
+- [ ] Use existing animation libraries or motion-capture data for core movement.
+- [ ] Retarget animations onto the chosen skeleton instead of relying on AI-generated final motion.
+- [ ] Build a standard animation test scene for every generated character.
+- [ ] Test idle, walk, run, stop, turn, jump, hit reaction, death, and interaction animations.
+- [ ] Check for bad deformation in shoulders, elbows, knees, hips, wrists, ankles, and neck.
+- [ ] Check for foot sliding, floating, sideways knees, collapsing elbows, stretched torsos, and broken wrists.
+- [ ] Add inverse kinematics for foot planting, hand placement, aiming, and look-at behavior.
+- [ ] Create a style bible with accepted and rejected examples.
+- [ ] Make the AI agent compare each new model against the accepted style examples.
+- [ ] Add measurable validation rules for height, arm span, head ratio, hand size, foot size, and joint placement.
+- [ ] Add automated or semi-automated checks for animation deformation quality.
+- [ ] Use a staged pipeline: concept, blockout, topology, rigging, skinning, animation, engine import, and polish.
+- [ ] Review and approve each stage before allowing the AI agent to continue.
+- [ ] Keep the AI agent constrained to specific production tasks instead of letting it generate the full model and animation pipeline at once.
+- [ ] Build a small library of approved base bodies, heads, clothing pieces, rigs, and animations.
+- [ ] Gradually expand variation only after the core model and movement quality are reliable.
 
 ### 8.6 Monster Rig Refinement
 

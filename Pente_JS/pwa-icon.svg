@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="48" y1="28" x2="464" y2="484" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#203c28"/>
+      <stop offset="0.55" stop-color="#10261a"/>
+      <stop offset="1" stop-color="#07110b"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 246) rotate(90) scale(186 186)">
+      <stop offset="0" stop-color="#f3e7c0" stop-opacity="0.22"/>
+      <stop offset="0.45" stop-color="#f3e7c0" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#f3e7c0" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="board" x1="116" y1="112" x2="396" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d2b279"/>
+      <stop offset="0.35" stop-color="#b88e55"/>
+      <stop offset="0.7" stop-color="#8a6538"/>
+      <stop offset="1" stop-color="#5b4126"/>
+    </linearGradient>
+    <linearGradient id="grain" x1="140" y1="130" x2="372" y2="382" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff1cf" stop-opacity="0.22"/>
+      <stop offset="0.45" stop-color="#fff1cf" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#fff1cf" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="blackStone" x1="206" y1="196" x2="310" y2="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3b4251"/>
+      <stop offset="0.45" stop-color="#161c25"/>
+      <stop offset="1" stop-color="#05070b"/>
+    </linearGradient>
+    <linearGradient id="whiteStone" x1="190" y1="182" x2="322" y2="334" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.5" stop-color="#ece8df"/>
+      <stop offset="1" stop-color="#c9c1b2"/>
+    </linearGradient>
+    <linearGradient id="stoneHi" x1="0" y1="0" x2="1" y2="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(160 160) rotate(45) scale(120)">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.8"/>
+      <stop offset="0.3" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#020402" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
+  <circle cx="256" cy="228" r="180" fill="url(#glow)"/>
+  <g filter="url(#shadow)">
+    <rect x="86" y="86" width="340" height="340" rx="36" fill="url(#board)" stroke="#f4e1bd" stroke-opacity="0.16" stroke-width="8"/>
+    <rect x="104" y="104" width="304" height="304" rx="24" fill="url(#grain)" opacity="0.75"/>
+    <g stroke="#2b1a10" stroke-opacity="0.7" stroke-width="5" stroke-linecap="round">
+      <path d="M136 136V376"/>
+      <path d="M176 136V376"/>
+      <path d="M216 136V376"/>
+      <path d="M256 136V376"/>
+      <path d="M296 136V376"/>
+      <path d="M336 136V376"/>
+      <path d="M376 136V376"/>
+      <path d="M416 136V376"/>
+      <path d="M136 136H416"/>
+      <path d="M136 176H416"/>
+      <path d="M136 216H416"/>
+      <path d="M136 256H416"/>
+      <path d="M136 296H416"/>
+      <path d="M136 336H416"/>
+      <path d="M136 376H416"/>
+    </g>
+    <circle cx="256" cy="256" r="5.5" fill="#2b1a10" opacity="0.55"/>
+    <g>
+      <circle cx="176" cy="176" r="25" fill="url(#blackStone)"/>
+      <circle cx="216" cy="216" r="25" fill="url(#whiteStone)"/>
+      <circle cx="256" cy="256" r="25" fill="url(#blackStone)"/>
+      <circle cx="296" cy="296" r="25" fill="url(#whiteStone)"/>
+      <circle cx="336" cy="336" r="25" fill="url(#blackStone)"/>
+      <circle cx="171" cy="171" r="9" fill="url(#stoneHi)"/>
+      <circle cx="211" cy="211" r="9" fill="#ffffff" opacity="0.55"/>
+      <circle cx="251" cy="251" r="9" fill="url(#stoneHi)"/>
+      <circle cx="291" cy="291" r="9" fill="#ffffff" opacity="0.48"/>
+      <circle cx="331" cy="331" r="9" fill="url(#stoneHi)"/>
+    </g>
+    <path d="M150 320c14 0 28 11 40 11s26-11 40-11 28 11 40 11 26-11 40-11 28 11 40 11" fill="none" stroke="#fff4d7" stroke-opacity="0.16" stroke-width="10" stroke-linecap="round"/>
+  </g>
+</svg>

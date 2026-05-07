@@ -1,11 +1,11 @@
 {
-  "name": "Shot Em Up 3D",
-  "short_name": "Shot Em Up 3D",
-  "start_url": "./ShotEmUp3D_JS.html",
+  "name": "Go JS",
+  "short_name": "Go JS",
+  "start_url": "./Go_JS.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#07111d",
-  "theme_color": "#07111d",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "./pwa-icon-192.png",

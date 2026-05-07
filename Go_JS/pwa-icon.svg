@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="52" y1="40" x2="460" y2="472" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3b2416"/>
+      <stop offset="0.55" stop-color="#24160f"/>
+      <stop offset="1" stop-color="#100906"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 236) rotate(90) scale(190 190)">
+      <stop offset="0" stop-color="#f7e8c6" stop-opacity="0.22"/>
+      <stop offset="0.5" stop-color="#f7e8c6" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#f7e8c6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="board" x1="116" y1="112" x2="396" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d7b57a"/>
+      <stop offset="0.38" stop-color="#bb8c51"/>
+      <stop offset="0.74" stop-color="#8a6237"/>
+      <stop offset="1" stop-color="#5b3e24"/>
+    </linearGradient>
+    <linearGradient id="grain" x1="148" y1="132" x2="368" y2="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff5dc" stop-opacity="0.18"/>
+      <stop offset="0.45" stop-color="#fff5dc" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#fff5dc" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="blackStone" x1="202" y1="194" x2="312" y2="322" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#465163"/>
+      <stop offset="0.45" stop-color="#161d27"/>
+      <stop offset="1" stop-color="#05070b"/>
+    </linearGradient>
+    <linearGradient id="whiteStone" x1="190" y1="182" x2="322" y2="334" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.5" stop-color="#eee8dc"/>
+      <stop offset="1" stop-color="#cfc6b5"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#020402" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
+  <circle cx="256" cy="228" r="180" fill="url(#glow)"/>
+  <g filter="url(#shadow)">
+    <rect x="86" y="86" width="340" height="340" rx="36" fill="url(#board)" stroke="#f4e1bd" stroke-opacity="0.16" stroke-width="8"/>
+    <rect x="104" y="104" width="304" height="304" rx="24" fill="url(#grain)" opacity="0.75"/>
+    <g stroke="#2a1a10" stroke-opacity="0.72" stroke-width="5" stroke-linecap="round">
+      <path d="M136 136V376"/>
+      <path d="M176 136V376"/>
+      <path d="M216 136V376"/>
+      <path d="M256 136V376"/>
+      <path d="M296 136V376"/>
+      <path d="M336 136V376"/>
+      <path d="M376 136V376"/>
+      <path d="M416 136V376"/>
+      <path d="M136 136H416"/>
+      <path d="M136 176H416"/>
+      <path d="M136 216H416"/>
+      <path d="M136 256H416"/>
+      <path d="M136 296H416"/>
+      <path d="M136 336H416"/>
+      <path d="M136 376H416"/>
+    </g>
+    <circle cx="256" cy="256" r="5.5" fill="#2a1a10" opacity="0.55"/>
+    <g>
+      <circle cx="176" cy="176" r="25" fill="url(#blackStone)"/>
+      <circle cx="216" cy="216" r="25" fill="url(#whiteStone)"/>
+      <circle cx="256" cy="256" r="25" fill="url(#blackStone)"/>
+      <circle cx="296" cy="296" r="25" fill="url(#whiteStone)"/>
+      <circle cx="336" cy="336" r="25" fill="url(#blackStone)"/>
+    </g>
+  </g>
+</svg>

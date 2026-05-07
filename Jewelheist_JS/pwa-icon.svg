@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="64" y1="40" x2="448" y2="472" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#132238"/>
+      <stop offset="0.6" stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#07111f"/>
+    </linearGradient>
+    <radialGradient id="shine" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 178) rotate(90) scale(182 182)">
+      <stop offset="0" stop-color="#fff2c6" stop-opacity="0.34"/>
+      <stop offset="0.55" stop-color="#fff2c6" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#fff2c6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="frame" x1="132" y1="132" x2="380" y2="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ece7dc"/>
+    </linearGradient>
+    <linearGradient id="diamond" x1="188" y1="188" x2="324" y2="324" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2d2d34"/>
+      <stop offset="0.5" stop-color="#0d0f14"/>
+      <stop offset="1" stop-color="#020305"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#020617" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="188" r="176" fill="url(#shine)"/>
+  <g filter="url(#shadow)">
+    <rect x="120" y="120" width="272" height="272" rx="46" fill="url(#frame)" stroke="#ffffff" stroke-opacity="0.65" stroke-width="10"/>
+    <path d="M256 166l88 90-88 90-88-90z" fill="url(#diamond)"/>
+    <path d="M256 166l88 90-88 90-88-90z" fill="none" stroke="#000000" stroke-opacity="0.28" stroke-width="7" stroke-linejoin="round"/>
+    <path d="M256 166l44 90-44 90-44-90z" fill="#ffffff" fill-opacity="0.08"/>
+    <path d="M256 166l32 58-32 32-32-32z" fill="#ffffff" fill-opacity="0.16"/>
+    <path d="M204 178l52-28 52 28" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="7" stroke-linecap="round"/>
+    <path d="M176 320c20 0 28-18 48-18s28 18 48 18 28-18 48-18 28 18 48 18" fill="none" stroke="#0b1220" stroke-opacity="0.16" stroke-width="10" stroke-linecap="round"/>
+  </g>
+</svg>
