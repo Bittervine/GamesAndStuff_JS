@@ -175,7 +175,8 @@
             var layoutDebugLogged = false;
             var renderOriginX = 0;
             var renderOriginY = 0;
-            var renderCell = 24;
+            var renderCellW = 24;
+            var renderCellH = 24;
 
             var HARD_DEADLINE_MS = 30000;
             var SOFT_DEADLINE_MS = 10000;
@@ -344,8 +345,8 @@
                 var maxH = Math.max(1, Math.floor(canvas && canvas.height ? canvas.height : 720));
                 var isCoarsePointer = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
                 var minCellPx = Math.max(8, mmToCssPx(MIN_CELL_MM) * dprCellScale(), isCoarsePointer ? 44 : 0);
-                var cols = Math.floor(maxW / minCellPx);
-                var rows = Math.floor(maxH / minCellPx);
+                var cols = Math.round(maxW / minCellPx);
+                var rows = Math.round(maxH / minCellPx);
                 if (!isFinite(cols)) cols = 20;
                 if (cols < MIN_COLS) cols = MIN_COLS;
                 if (cols > MAX_COLS) cols = MAX_COLS;
@@ -380,11 +381,13 @@
                 canvas.style.margin = '0';
                 canvas.width = maxW;
                 canvas.height = maxH;
-                renderCell = Math.min(maxW / COLS, maxH / ROWS);
-                if (!isFinite(renderCell) || renderCell <= 0) renderCell = 1;
-                renderOriginX = Math.max(0, (canvas.width - COLS * renderCell) / 2);
-                renderOriginY = Math.max(0, (canvas.height - ROWS * renderCell) / 2);
-                stoneR = Math.max(4, renderCell * 0.34);
+                renderCellW = maxW / COLS;
+                renderCellH = maxH / ROWS;
+                if (!isFinite(renderCellW) || renderCellW <= 0) renderCellW = 1;
+                if (!isFinite(renderCellH) || renderCellH <= 0) renderCellH = 1;
+                renderOriginX = 0;
+                renderOriginY = 0;
+                stoneR = Math.max(4, Math.min(renderCellW, renderCellH) * 0.34);
                 if (controls) {
                     controls.style.margin = '0';
                 }
@@ -727,17 +730,17 @@
                 ctx.lineWidth = 1;
                 var i;
                 for (i = 0; i <= ROWS; i++) {
-                    var p = renderOriginY + i * renderCell;
+                    var p = renderOriginY + i * renderCellH;
                     ctx.beginPath();
                     ctx.moveTo(renderOriginX, p);
-                    ctx.lineTo(renderOriginX + COLS * renderCell, p);
+                    ctx.lineTo(renderOriginX + COLS * renderCellW, p);
                     ctx.stroke();
                 }
                 for (i = 0; i <= COLS; i++) {
-                    var q = renderOriginX + i * renderCell;
+                    var q = renderOriginX + i * renderCellW;
                     ctx.beginPath();
                     ctx.moveTo(q, renderOriginY);
-                    ctx.lineTo(q, renderOriginY + ROWS * renderCell);
+                    ctx.lineTo(q, renderOriginY + ROWS * renderCellH);
                     ctx.stroke();
                 }
             }
@@ -745,19 +748,19 @@
             function drawStone(r, c, player, translucent){
                 var prevAlpha = ctx.globalAlpha;
                 if (translucent) ctx.globalAlpha = PREVIEW_ALPHA;
-                var x = renderOriginX + c * renderCell + renderCell * 0.5;
-                var y = renderOriginY + r * renderCell + renderCell * 0.5;
-                var radius = Math.max(3, renderCell * 0.35);
+                var x = renderOriginX + c * renderCellW + renderCellW * 0.5;
+                var y = renderOriginY + r * renderCellH + renderCellH * 0.5;
+                var radius = Math.max(3, Math.min(renderCellW, renderCellH) * 0.35);
                 if (player === O) {
                     ctx.strokeStyle = '#0f4d1f';
-                    ctx.lineWidth = Math.max(1, renderCell * 0.11);
+                    ctx.lineWidth = Math.max(1, Math.min(renderCellW, renderCellH) * 0.11);
                     ctx.beginPath();
                     ctx.arc(x, y, radius, 0, Math.PI * 2, false);
                     ctx.stroke();
                 } else {
                     var s = radius * 0.9;
                     ctx.strokeStyle = '#0b2a6f';
-                    ctx.lineWidth = Math.max(1, renderCell * 0.11);
+                    ctx.lineWidth = Math.max(1, Math.min(renderCellW, renderCellH) * 0.11);
                     ctx.beginPath();
                     ctx.moveTo(x - s, y - s);
                     ctx.lineTo(x + s, y + s);
@@ -770,9 +773,9 @@
 
             function drawLastMarker(){
                 if (!lastMove) return;
-                var x = renderOriginX + lastMove[1] * renderCell + renderCell * 0.5;
-                var y = renderOriginY + lastMove[0] * renderCell + renderCell * 0.5;
-                var s = Math.max(2, renderCell * 0.1);
+                var x = renderOriginX + lastMove[1] * renderCellW + renderCellW * 0.5;
+                var y = renderOriginY + lastMove[0] * renderCellH + renderCellH * 0.5;
+                var s = Math.max(2, Math.min(renderCellW, renderCellH) * 0.1);
                 ctx.fillStyle = '#222';
                 ctx.fillRect(x - s, y - s, s * 2, s * 2);
             }
@@ -798,8 +801,8 @@
             }
 
             function screenToCell(x, y){
-                var col = Math.floor((x - renderOriginX) / renderCell);
-                var row = Math.floor((y - renderOriginY) / renderCell);
+                var col = Math.floor((x - renderOriginX) / renderCellW);
+                var row = Math.floor((y - renderOriginY) / renderCellH);
                 if (!inBounds(row, col)) return null;
                 return [row, col];
             }
