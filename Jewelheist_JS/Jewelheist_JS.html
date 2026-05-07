@@ -81,10 +81,10 @@
 
     function getBoardAreaBox(){
       var rect, w, h;
-      if(!boardArea || !boardArea.getBoundingClientRect) return { width: 820, height: 820 };
-      rect=boardArea.getBoundingClientRect();
-      w=Math.max(1, Math.floor(rect.width || boardArea.clientWidth || canvas.width || 820));
-      h=Math.max(1, Math.floor(rect.height || boardArea.clientHeight || canvas.height || 820));
+      if(!canvas || !canvas.getBoundingClientRect) return { width: 820, height: 820 };
+      rect=canvas.getBoundingClientRect();
+      w=Math.max(1, Math.floor(rect.width || canvas.width || 820));
+      h=Math.max(1, Math.floor(rect.height || canvas.height || 820));
       return { width:w, height:h };
     }
 
