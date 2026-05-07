@@ -1879,7 +1879,7 @@
   };
 
   const DIFFICULTIES = [                                                                      // Hint: bulletSpeed = enemyShotPace maintains gap-dynamics of shots (just faster)
-    { label: 'Easy', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.8, spawnCount: 0.8, bulletSpeed: 1.0, bossHp: 0.5, contact: 0.9, playerDamage: 1, enemyShotPace: 0.8, spinnerNrOfDeathShots: 7 },
+    { label: 'Easy', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.8, spawnCount: 0.7, bulletSpeed: 1.0, bossHp: 0.5, contact: 0.9, playerDamage: 1, enemyShotPace: 0.8, spinnerNrOfDeathShots: 7 },
     { label: 'Normal', lives: 3, enemyHp: 1.2, enemySpeed: 1, spawnRate: 1, spawnCount: 0.9, bulletSpeed: 1.5, bossHp: 1, contact: 1, playerDamage: 0.5, enemyShotPace: 1.4, spinnerNrOfDeathShots: 8 },
     { label: 'Hard', lives: 2, enemyHp: 1.4, enemySpeed: 1.2, spawnRate: 1.1, spawnCount: 1.1, bulletSpeed: 2.0, bossHp: 1.3, contact: 1.12, playerDamage: 0.25, enemyShotPace: 2.0, spinnerNrOfDeathShots: 9 }
   ];
