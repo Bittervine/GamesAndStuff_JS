@@ -1,6 +1,6 @@
 'use strict';
 
-var VERSION = 'v19';
+var VERSION = 'v20';
 try {
   var swUrl = new URL(self.location.href);
   if (swUrl.searchParams && swUrl.searchParams.get('v')) {
