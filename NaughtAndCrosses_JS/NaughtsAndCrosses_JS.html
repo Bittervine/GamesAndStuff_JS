@@ -14,39 +14,18 @@
                 font-family: serif;
                 margin: 0;
                 overflow: hidden;
-                position: fixed;
-                inset: 0;
-                width: var(--app-width, 100vw);
-                height: var(--app-height, 100vh);
-                display: flex;
-                flex-direction: column;
-                align-items: stretch;
                 -webkit-text-size-adjust: 100%;
             }
             html {
-                height: var(--app-height, 100vh);
-                width: var(--app-width, 100vw);
-            }
-            #boardArea {
-                min-width: 0;
-                min-height: 0;
-                width: 100%;
-                flex: 1 1 0;
-                overflow: hidden;
-                display: grid;
-                justify-items: center;
-                align-items: start;
-                padding: 3px;
-                box-sizing: border-box;
+                height: 100%;
             }
             #board {
                 display: block;
+                margin: 8px 0;
             }
             #controls {
                 font-size: 95%;
                 text-align: center;
-                width: 100%;
-                flex: 0 0 auto;
             }
             #controls button,
             #controls input {
@@ -106,7 +85,15 @@
             }
             body.kindleMode .kindleSacrifice {
                 display: block;
-                height: 0.9em;
+                line-height: 1;
+                margin-top: 0.05em;
+            }
+            body.kindleMode .kindleSacrifice.first {
+                height: 0.8em;
+            }
+            body.kindleMode .kindleSacrifice.last {
+                height: auto;
+                font-size: 0.8em;
             }
         </style>
     </head>
@@ -114,9 +101,7 @@
             window.NAC_APP_VERSION = 'v21';
         </script>
         <body>
-        <div id="boardArea">
-            <canvas id="board" width="720" height="720"></canvas>
-        </div>
+        <canvas id="board" width="720" height="720"></canvas>
         <div id="controls">
             <div id="buttonRow">
                 <button id="resetBtn" title="Reset">↺</button>
@@ -129,8 +114,8 @@
             <div id="searchInfo">
                 <strong id="lastMoveLabel">Info:</strong> <span id="lastMoveInfo">Your move...</span>
             </div>
-            <div class="kindleSacrifice" aria-hidden="true"></div>
-            <div class="kindleSacrifice" aria-hidden="true"></div>
+            <div class="kindleSacrifice first" aria-hidden="true"></div>
+            <div class="kindleSacrifice last" aria-hidden="true">KINDLE MODE</div>
         </div>
 
         <script src="./NaughtsAndCrosses_JS.js?v=v18"></script>
@@ -152,7 +137,6 @@
 
             var canvas = document.getElementById('board');
             var ctx = canvas.getContext && canvas.getContext('2d');
-            var boardArea = document.getElementById('boardArea');
             var controls = document.getElementById('controls');
             var statusEl = document.getElementById('status');
             var depthInput = document.getElementById('depthInput');
@@ -222,14 +206,6 @@
                     document.body.style.setProperty('--app-width', w + 'px');
                     document.body.style.setProperty('--app-height', h + 'px');
                 }
-            }
-            function updateKindleBoardAreaHeight() {
-                if (!kindleMode || !boardArea || !controls) return;
-                var vh = Math.max(1, Math.round((typeof window.innerHeight === 'number' && isFinite(window.innerHeight) && window.innerHeight > 0) ? window.innerHeight : 720));
-                var ch = Math.max(1, Math.round(controls.getBoundingClientRect ? controls.getBoundingClientRect().height : (controls.offsetHeight || 0)));
-                var h = Math.max(1, vh - ch);
-                boardArea.style.flex = '0 0 auto';
-                boardArea.style.height = h + 'px';
             }
             syncAppViewportSize();
             try {
@@ -365,15 +341,32 @@
             }
 
             function resizeCanvas(){
-                syncAppViewportSize();
-                updateKindleBoardAreaHeight();
-                var box = boardArea && boardArea.getBoundingClientRect ? boardArea.getBoundingClientRect() : null;
-                var maxW = Math.max(1, Math.floor(((box && box.width) ? box.width : 720) - 6));
-                var maxH = Math.max(1, Math.floor(((box && box.height) ? box.height : 720) - 6));
-                canvas.width = maxW;
-                canvas.height = maxH;
-                renderCellW = maxW / COLS;
-                renderCellH = maxH / ROWS;
+                var controlsH = controls ? controls.offsetHeight + 16 : 0;
+                var maxW = (typeof window.innerWidth === 'number' && isFinite(window.innerWidth)) ? window.innerWidth - 16 : 720;
+                var maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - 16 : 720;
+                var sizeW = Math.max(320, Math.floor(maxW));
+                var sizeH = Math.max(240, Math.floor(maxH));
+                canvas.width = sizeW;
+                canvas.height = sizeH;
+                canvas.style.marginLeft = '8px';
+                canvas.style.marginRight = '8px';
+                canvas.style.marginTop = '8px';
+                canvas.style.marginBottom = '8px';
+                if (controls) {
+                    controls.style.width = sizeW + 'px';
+                    controls.style.boxSizing = 'border-box';
+                    controls.style.textAlign = 'center';
+                    controls.style.marginLeft = canvas.style.marginLeft;
+                    controls.style.marginRight = canvas.style.marginRight;
+                    controls.style.marginTop = '0px';
+                    controls.style.marginBottom = '8px';
+                    controlsH = controls.offsetHeight + 16;
+                    maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - 16 : 720;
+                    sizeH = Math.max(240, Math.floor(maxH));
+                    canvas.height = sizeH;
+                }
+                renderCellW = sizeW / COLS;
+                renderCellH = sizeH / ROWS;
                 if (!isFinite(renderCellW) || renderCellW <= 0) renderCellW = 1;
                 if (!isFinite(renderCellH) || renderCellH <= 0) renderCellH = 1;
                 renderOriginX = 0;
@@ -383,13 +376,11 @@
                 logLayoutDebug('layout');
             }
             function measureCanvasSizeOnly(){
-                syncAppViewportSize();
-                updateKindleBoardAreaHeight();
-                var box = boardArea && boardArea.getBoundingClientRect ? boardArea.getBoundingClientRect() : null;
-                var maxW = Math.max(1, Math.floor(((box && box.width) ? box.width : 720) - 6));
-                var maxH = Math.max(1, Math.floor(((box && box.height) ? box.height : 720) - 6));
-                canvas.width = maxW;
-                canvas.height = maxH;
+                var controlsH = controls ? controls.offsetHeight + 16 : 0;
+                var maxW = (typeof window.innerWidth === 'number' && isFinite(window.innerWidth)) ? window.innerWidth - 16 : 720;
+                var maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - 16 : 720;
+                canvas.width = Math.max(320, Math.floor(maxW));
+                canvas.height = Math.max(240, Math.floor(maxH));
             }
             if (window.addEventListener) {
                 window.addEventListener('resize', resizeCanvas);
