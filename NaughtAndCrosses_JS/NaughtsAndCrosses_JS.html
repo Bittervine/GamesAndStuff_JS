@@ -16,16 +16,16 @@
                 overflow: hidden;
                 position: fixed;
                 inset: 0;
-                width: 100vw;
-                height: 100vh;
+                width: var(--app-width, 100vw);
+                height: var(--app-height, 100vh);
                 display: flex;
                 flex-direction: column;
                 align-items: stretch;
                 -webkit-text-size-adjust: 100%;
             }
             html {
-                height: 100vh;
-                width: 100vw;
+                height: var(--app-height, 100vh);
+                width: var(--app-width, 100vw);
             }
             #boardArea {
                 min-width: 0;
@@ -197,8 +197,7 @@
             var search = (typeof location !== 'undefined' && location.search) ? location.search : '';
             var kindleMode = /(?:\?|&)kindle=1(?:&|$)/i.test(search);
             if (kindleMode && document.body && document.body.classList) document.body.classList.add('kindleMode');
-            function updateKindleViewportSize() {
-                if (!kindleMode) return;
+            function syncAppViewportSize() {
                 var w = Math.max(
                     1,
                     Math.round(
@@ -216,12 +215,12 @@
                     )
                 );
                 if (document.documentElement && document.documentElement.style) {
-                    document.documentElement.style.width = w + 'px';
-                    document.documentElement.style.height = h + 'px';
+                    document.documentElement.style.setProperty('--app-width', w + 'px');
+                    document.documentElement.style.setProperty('--app-height', h + 'px');
                 }
                 if (document.body && document.body.style) {
-                    document.body.style.width = w + 'px';
-                    document.body.style.height = h + 'px';
+                    document.body.style.setProperty('--app-width', w + 'px');
+                    document.body.style.setProperty('--app-height', h + 'px');
                 }
             }
             function updateKindleBoardAreaHeight() {
@@ -232,7 +231,7 @@
                 boardArea.style.flex = '0 0 auto';
                 boardArea.style.height = h + 'px';
             }
-            updateKindleViewportSize();
+            syncAppViewportSize();
             try {
                 var savedDepth = localStorage.getItem(DEPTH_KEY);
                 if (savedDepth !== null) depthInput.value = savedDepth;
@@ -366,7 +365,7 @@
             }
 
             function resizeCanvas(){
-                updateKindleViewportSize();
+                syncAppViewportSize();
                 updateKindleBoardAreaHeight();
                 var box = boardArea && boardArea.getBoundingClientRect ? boardArea.getBoundingClientRect() : null;
                 var maxW = Math.max(1, Math.floor(((box && box.width) ? box.width : 720) - 6));
@@ -384,7 +383,7 @@
                 logLayoutDebug('layout');
             }
             function measureCanvasSizeOnly(){
-                updateKindleViewportSize();
+                syncAppViewportSize();
                 updateKindleBoardAreaHeight();
                 var box = boardArea && boardArea.getBoundingClientRect ? boardArea.getBoundingClientRect() : null;
                 var maxW = Math.max(1, Math.floor(((box && box.width) ? box.width : 720) - 6));
