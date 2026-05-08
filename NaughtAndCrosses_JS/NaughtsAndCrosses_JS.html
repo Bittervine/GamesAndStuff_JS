@@ -9,28 +9,29 @@
 <title>Naught And Crosses</title>
         <style>
             :root {
-                --app-height: 100dvh;
             }
             body {
                 font-family: serif;
                 margin: 0;
                 overflow: hidden;
-                height: var(--app-height);
-                width: 100dvw;
-                display: grid;
-                grid-template-rows: minmax(0, 1fr) auto;
-                justify-items: center;
+                position: fixed;
+                inset: 0;
+                width: 100vw;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
                 -webkit-text-size-adjust: 100%;
             }
             html {
-                height: var(--app-height);
-                width: 100dvw;
+                height: 100vh;
+                width: 100vw;
             }
             #boardArea {
                 min-width: 0;
                 min-height: 0;
                 width: 100%;
-                height: 100%;
+                flex: 1 1 0;
                 overflow: hidden;
                 display: grid;
                 justify-items: center;
@@ -40,13 +41,12 @@
             }
             #board {
                 display: block;
-                width: 100%;
-                height: 100%;
             }
             #controls {
                 font-size: 95%;
                 text-align: center;
                 width: 100%;
+                flex: 0 0 auto;
             }
             #controls button,
             #controls input {
@@ -101,10 +101,17 @@
                 margin-top: 0.2em;
                 line-height: 1.2;
             }
+            .kindleSacrifice {
+                display: none;
+            }
+            body.kindleMode .kindleSacrifice {
+                display: block;
+                height: 0.9em;
+            }
         </style>
     </head>
         <script>
-            window.NAC_APP_VERSION = 'v20';
+            window.NAC_APP_VERSION = 'v21';
         </script>
         <body>
         <div id="boardArea">
@@ -122,6 +129,8 @@
             <div id="searchInfo">
                 <strong id="lastMoveLabel">Info:</strong> <span id="lastMoveInfo">Your move...</span>
             </div>
+            <div class="kindleSacrifice" aria-hidden="true"></div>
+            <div class="kindleSacrifice" aria-hidden="true"></div>
         </div>
 
         <script src="./NaughtsAndCrosses_JS.js?v=v18"></script>
@@ -185,15 +194,45 @@
             var DEPTH_KEY = 'nac_max_depth';
             var CLUM_KEY = 'nac_clumsiness';
             var PREV_KEY = 'nac_preview_enabled';
-            var userAgent = (typeof navigator !== 'undefined' && navigator.userAgent) ? navigator.userAgent : '';
-            var kindleMode = /Kindle|Silk|KF[A-Z0-9]+|KFTT|KFMUWI|KFSUWI|KFDOWI|KFTHWI|KFTRWI/i.test(userAgent);
-            function applyKindleControlOffsets() {
-                if (!depthInput || !clumsyInput) return;
-                depthInput.style.position = '';
-                clumsyInput.style.position = '';
-                depthInput.style.top = '';
-                clumsyInput.style.top = '';
+            var search = (typeof location !== 'undefined' && location.search) ? location.search : '';
+            var kindleMode = /(?:\?|&)kindle=1(?:&|$)/i.test(search);
+            if (kindleMode && document.body && document.body.classList) document.body.classList.add('kindleMode');
+            function updateKindleViewportSize() {
+                if (!kindleMode) return;
+                var w = Math.max(
+                    1,
+                    Math.round(
+                        (typeof window.innerWidth === 'number' && isFinite(window.innerWidth) && window.innerWidth > 0)
+                            ? window.innerWidth
+                            : 720
+                    )
+                );
+                var h = Math.max(
+                    1,
+                    Math.round(
+                        (typeof window.innerHeight === 'number' && isFinite(window.innerHeight) && window.innerHeight > 0)
+                            ? window.innerHeight
+                            : 720
+                    )
+                );
+                if (document.documentElement && document.documentElement.style) {
+                    document.documentElement.style.width = w + 'px';
+                    document.documentElement.style.height = h + 'px';
+                }
+                if (document.body && document.body.style) {
+                    document.body.style.width = w + 'px';
+                    document.body.style.height = h + 'px';
+                }
             }
+            function updateKindleBoardAreaHeight() {
+                if (!kindleMode || !boardArea || !controls) return;
+                var vh = Math.max(1, Math.round((typeof window.innerHeight === 'number' && isFinite(window.innerHeight) && window.innerHeight > 0) ? window.innerHeight : 720));
+                var ch = Math.max(1, Math.round(controls.getBoundingClientRect ? controls.getBoundingClientRect().height : (controls.offsetHeight || 0)));
+                var h = Math.max(1, vh - ch);
+                boardArea.style.flex = '0 0 auto';
+                boardArea.style.height = h + 'px';
+            }
+            updateKindleViewportSize();
             try {
                 var savedDepth = localStorage.getItem(DEPTH_KEY);
                 if (savedDepth !== null) depthInput.value = savedDepth;
@@ -205,7 +244,6 @@
                     previewBtn.textContent = 'Preview';
                     previewBtn.className = previewEnabled ? 'is-on' : '';
                 }
-                applyKindleControlOffsets();
             } catch (e) {}
 
             depthInput.addEventListener('change', function(){
@@ -253,24 +291,6 @@
                 if (dpr <= 1) return 1;
                 if (dpr >= 3) return 1.35;
                 return 1 + (dpr - 1) * 0.175;
-            }
-
-            function getViewportHeight() {
-                var visualHeight = window.visualViewport && typeof window.visualViewport.height === 'number'
-                    ? window.visualViewport.height
-                    : null;
-                if (visualHeight && isFinite(visualHeight) && visualHeight > 0) return visualHeight;
-                if (typeof window.innerHeight === 'number' && isFinite(window.innerHeight) && window.innerHeight > 0) {
-                    return window.innerHeight;
-                }
-                return 720;
-            }
-
-            function syncAppHeight() {
-                var viewportHeight = Math.max(1, Math.round(getViewportHeight()));
-                if (document.documentElement && document.documentElement.style) {
-                    document.documentElement.style.setProperty('--app-height', viewportHeight + 'px');
-                }
             }
 
             function logLayoutDebug(tag) {
@@ -321,25 +341,6 @@
                 layoutDebugLogged = true;
             }
 
-            function getControlsReserveH() {
-                if (!controls) return 0;
-                var h = Math.max(
-                    controls.offsetHeight || 0,
-                    controls.clientHeight || 0,
-                    controls.scrollHeight || 0
-                );
-                if (!isFinite(h) || h < 0) h = 0;
-                return Math.max(24, Math.min(140, h + 12));
-            }
-
-            function getBoardAreaBox() {
-                if (!boardArea || !boardArea.getBoundingClientRect) return { width: 720, height: 720 };
-                return {
-                    width: Math.max(0, boardArea.clientWidth || 0),
-                    height: Math.max(0, boardArea.clientHeight || 0)
-                };
-            }
-
             function detectGridSizeForNewGame(){
                 var maxW = Math.max(1, Math.floor(canvas && canvas.width ? canvas.width : 720));
                 var maxH = Math.max(1, Math.floor(canvas && canvas.height ? canvas.height : 720));
@@ -365,20 +366,11 @@
             }
 
             function resizeCanvas(){
-                syncAppHeight();
-                var box = getBoardAreaBox();
-                var maxW = Math.max(1, Math.floor((box.width || 720) - 6));
-                var maxH = Math.max(1, Math.floor((box.height || 720) - 6));
-                var winH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight : 720;
-                if (controls) {
-                    var baseFont = Math.max(10, Math.min(18, Math.round(maxW * 0.018)));
-                    if (winH <= 260) baseFont = Math.max(10, baseFont - 3);
-                    else if (winH <= 420) baseFont = Math.max(10, baseFont - 2);
-                    controls.style.fontSize = baseFont + 'px';
-                    controls.style.boxSizing = 'border-box';
-                    controls.style.textAlign = 'center';
-                }
-                canvas.style.margin = '0';
+                updateKindleViewportSize();
+                updateKindleBoardAreaHeight();
+                var box = boardArea && boardArea.getBoundingClientRect ? boardArea.getBoundingClientRect() : null;
+                var maxW = Math.max(1, Math.floor(((box && box.width) ? box.width : 720) - 6));
+                var maxH = Math.max(1, Math.floor(((box && box.height) ? box.height : 720) - 6));
                 canvas.width = maxW;
                 canvas.height = maxH;
                 renderCellW = maxW / COLS;
@@ -388,37 +380,21 @@
                 renderOriginX = 0;
                 renderOriginY = 0;
                 stoneR = Math.max(4, Math.min(renderCellW, renderCellH) * 0.34);
-                if (controls) {
-                    controls.style.margin = '0';
-                }
                 draw();
                 logLayoutDebug('layout');
             }
-            function syncCanvasSizeOnly(){
-                syncAppHeight();
-                var box = getBoardAreaBox();
-                var maxW = Math.max(1, Math.floor((box.width || 720) - 6));
-                var maxH = Math.max(1, Math.floor((box.height || 720) - 6));
-                var winH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight : 720;
-                if (controls) {
-                    var baseFont = Math.max(10, Math.min(18, Math.round(maxW * 0.018)));
-                    if (winH <= 260) baseFont = Math.max(10, baseFont - 3);
-                    else if (winH <= 420) baseFont = Math.max(10, baseFont - 2);
-                    controls.style.fontSize = baseFont + 'px';
-                    controls.style.boxSizing = 'border-box';
-                    controls.style.textAlign = 'center';
-                }
-                canvas.style.margin = '0';
+            function measureCanvasSizeOnly(){
+                updateKindleViewportSize();
+                updateKindleBoardAreaHeight();
+                var box = boardArea && boardArea.getBoundingClientRect ? boardArea.getBoundingClientRect() : null;
+                var maxW = Math.max(1, Math.floor(((box && box.width) ? box.width : 720) - 6));
+                var maxH = Math.max(1, Math.floor(((box && box.height) ? box.height : 720) - 6));
                 canvas.width = maxW;
                 canvas.height = maxH;
             }
             if (window.addEventListener) {
                 window.addEventListener('resize', resizeCanvas);
                 window.addEventListener('orientationchange', resizeCanvas);
-            }
-            if (window.visualViewport && window.visualViewport.addEventListener) {
-                window.visualViewport.addEventListener('resize', resizeCanvas);
-                window.visualViewport.addEventListener('scroll', resizeCanvas);
             }
 
             function inBounds(r, c){
@@ -839,14 +815,18 @@
                 }
             });
 
-            function reset(){
-                clearEngineState();
-                syncCanvasSizeOnly();
+            function commitReset(){
+                measureCanvasSizeOnly();
                 var dims = detectGridSizeForNewGame();
                 ROWS = dims.rows;
                 COLS = dims.cols;
                 board = createBoard();
                 rebuildEngine();
+                resizeCanvas();
+            }
+
+            function reset(){
+                clearEngineState();
                 turn = O;
                 gameOver = false;
                 winner = EMPTY;
@@ -858,16 +838,19 @@
                 debugPly = 0;
                 if (infoLabel) infoLabel.style.display = '';
                 if (infoText) infoText.textContent = 'Your move...';
-                resizeCanvas();
-                if (window.requestAnimationFrame) {
-                    window.requestAnimationFrame(function(){ resizeCanvas(); });
-                } else {
-                    setTimeout(function(){ resizeCanvas(); }, 0);
-                }
+                commitReset();
                 updateStatus();
             }
 
-        reset();
+        if (window.requestAnimationFrame) {
+            window.requestAnimationFrame(function(){
+                window.requestAnimationFrame(function(){
+                    reset();
+                });
+            });
+        } else {
+            setTimeout(function(){ reset(); }, 0);
+        }
         setTimeout(function(){ logLayoutDebug('final'); }, 0);
         })();
         </script>
