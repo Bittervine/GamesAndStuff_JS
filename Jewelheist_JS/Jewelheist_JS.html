@@ -13,13 +13,11 @@
   <title>Jewel Heist JS</title>
   <style>
     *{box-sizing:border-box}
-    html{width:100dvw;height:100dvh}
-    body{margin:0;width:100dvw;height:100dvh;display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;font-family:'FreeSerif',serif;-webkit-text-size-adjust:100%;background:#fff;color:#23160f}
-    #boardArea{min-width:0;min-height:0;width:100%;height:100%;overflow:hidden;padding:3px}
+    html{width:100%;height:100%}
+    body{margin:0;width:100%;height:100%;display:block;overflow:hidden;font-family:'FreeSerif',serif;-webkit-text-size-adjust:100%;background:#fff;color:#23160f}
     #board{
       display:block;
-      width:100%;
-      height:100%;
+      margin:8px 0;
       touch-action:manipulation
     }
     #controls{font-size:95%;text-align:center;font-family:serif;width:100%;padding:0 8px 8px}
@@ -40,9 +38,7 @@
   </style>
 </head>
 <body>
-  <div id="boardArea">
-    <canvas id="board" width="820" height="820"></canvas>
-  </div>
+  <canvas id="board" width="820" height="820"></canvas>
   <div id="controls">
     <div id="timeBarWrap"><div id="timeBar"><div id="timeFill"></div></div></div>
     <div id="buttonRow">
@@ -80,7 +76,6 @@
     var animMask=null, animBodies=null, animPhase='', animFlashUntil=0, animLastTick=0;
     var animStaticBoard=null, animStep=null;
     var canvas=document.getElementById('board'), ctx=canvas.getContext&&canvas.getContext('2d');
-    var boardArea=document.getElementById('boardArea');
     var controls=document.getElementById('controls');
     var scoreField=document.getElementById('scoreField');
     var timeFill=document.getElementById('timeFill');
@@ -92,12 +87,11 @@
     var audioCtx=null, lastTickMs=0, resetToken=0;
 
     function getBoardAreaBox(){
-      var rect, w, h;
-      if(!canvas || !canvas.getBoundingClientRect) return { width: 820, height: 820 };
-      rect=canvas.getBoundingClientRect();
-      w=Math.max(1, Math.floor(rect.width || canvas.width || 820));
-      h=Math.max(1, Math.floor(rect.height || canvas.height || 820));
-      return { width:w, height:h };
+      var controlsH = controls ? controls.offsetHeight + 16 : 0;
+      return {
+        width: Math.max(1, Math.floor((typeof window.innerWidth === 'number' && isFinite(window.innerWidth) ? window.innerWidth : 820) - 16)),
+        height: Math.max(1, Math.floor((typeof window.innerHeight === 'number' && isFinite(window.innerHeight) ? window.innerHeight : 820) - controlsH - 16))
+      };
     }
 
     function detectGridSizeForNewGame(){
@@ -590,14 +584,8 @@
       animStaticBoard=null;
       animStep=null;
       animating=false;
-      resizeAfterLayout();
-      if(window.requestAnimationFrame){
-        window.requestAnimationFrame(function(){
-          window.requestAnimationFrame(function(){ if(token===resetToken) resetGameCore(); });
-        });
-      } else {
-        setTimeout(function(){ if(token===resetToken) resetGameCore(); }, 0);
-      }
+      resize();
+      if(token===resetToken) resetGameCore();
     }
 
     function trySwap(a,b){
@@ -831,29 +819,43 @@
     }
 
     function resize(){
-      var box=getBoardAreaBox(), boardW=box.width, boardH=box.height;
-      boardW=Math.max(1,Math.floor(boardW-6));
-      boardH=Math.max(1,Math.floor(boardH-6));
+      var controlsH,maxW,maxH,sizeW,sizeH;
+      controlsH=controls?controls.offsetHeight+16:0;
+      maxW=(typeof window.innerWidth==='number'&&isFinite(window.innerWidth))?window.innerWidth-16:820;
+      maxH=(typeof window.innerHeight==='number'&&isFinite(window.innerHeight))?window.innerHeight-controlsH-16:820;
+      sizeW=Math.max(320,Math.floor(maxW));
+      sizeH=Math.max(240,Math.floor(maxH));
+      canvas.width=sizeW;
+      canvas.height=sizeH;
       if(!(ROWS>0 && COLS>0)){
-        canvas.width=boardW;
-        canvas.height=boardH;
         draw();
         return;
       }
-      canvas.style.margin='0';
-      canvas.style.width='100%';
-      canvas.style.height='100%';
-      canvas.width=boardW;
-      canvas.height=boardH;
-      cellW=boardW/COLS;
-      cellH=boardH/ROWS;
+      canvas.style.marginLeft='8px';
+      canvas.style.marginRight='8px';
+      canvas.style.marginTop='8px';
+      canvas.style.marginBottom='8px';
+      if(controls){
+        controls.style.width=sizeW+'px';
+        controls.style.boxSizing='border-box';
+        controls.style.textAlign='center';
+        controls.style.marginLeft=canvas.style.marginLeft;
+        controls.style.marginRight=canvas.style.marginRight;
+        controls.style.marginTop='0px';
+        controls.style.marginBottom='8px';
+        controlsH = controls.offsetHeight + 16;
+        maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - 16 : 820;
+        sizeH = Math.max(240, Math.floor(maxH));
+        canvas.height=sizeH;
+      }
+      cellW=canvas.width/COLS;
+      cellH=canvas.height/ROWS;
       if(!isFinite(cellW)||cellW<=0) cellW=1;
       if(!isFinite(cellH)||cellH<=0) cellH=1;
       originX=0;
       originY=0;
       if(controls){
-        controls.style.width='100%';
-        controls.style.fontSize=Math.max(10,Math.round(Math.min(boardW,boardH)*0.028))+'px';
+        controls.style.width=canvas.width+'px';
         controls.style.boxSizing='border-box';
         controls.style.textAlign='center';
       }
@@ -862,15 +864,6 @@
         timeBarWrap.style.margin='0 0 6px';
       }
       draw();
-    }
-
-    function resizeAfterLayout(){
-      resize();
-      if(window.requestAnimationFrame){
-        window.requestAnimationFrame(function(){ resize(); });
-      } else {
-        setTimeout(function(){ resize(); }, 0);
-      }
     }
 
     function setAnimEnabled(v){
@@ -931,7 +924,10 @@
       }
       canvas.addEventListener('click',click);
       canvas.addEventListener('dblclick',dblclick);
-      if(window.addEventListener) window.addEventListener('resize',resizeAfterLayout);
+      if(window.addEventListener){
+        window.addEventListener('resize',resize);
+        window.addEventListener('orientationchange',resize);
+      }
       window.__test={
         getState:function(){ return {score:score,moves:moves,over:over,selected:selected,anim:animateEnabled,animating:animating,types:pieceTypes,removed:removedTotal,time:timerSec,rows:ROWS,cols:COLS}; },
         board:function(){ var r,c,b=[]; for(r=0;r<ROWS;r++){ b[r]=[]; for(c=0;c<COLS;c++) b[r][c]=board[r][c]; } return b; },
@@ -969,3 +965,5 @@
   <script src="./pwa-register.js"></script>
 </body>
 </html>
+
+

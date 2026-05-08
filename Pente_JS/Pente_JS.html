@@ -13,24 +13,21 @@
   <title>Pente JS</title>
   <style>
     *{box-sizing:border-box}
-    html{width:100dvw;height:100dvh}
+    html{width:100%;height:100%}
     body{
       margin:0;
-      width:100dvw;
-      height:100dvh;
-      display:grid;
-      grid-template-rows:minmax(0,1fr) auto;
+      width:100%;
+      height:100%;
+      display:block;
       overflow:hidden;
       font-family:'FreeSerif',serif;
       -webkit-text-size-adjust:100%;
       background:#fff;
       color:#23160f;
     }
-    #boardArea{min-width:0;min-height:0;width:100%;height:100%;overflow:hidden;padding:3px}
     #board{
       display:block;
-      width:100%;
-      height:100%;
+      margin:8px 0;
       touch-action:manipulation
     }
     #controls{
@@ -50,9 +47,7 @@
   </style>
 </head>
 <body>
-  <div id="boardArea">
-    <canvas id="board" width="720" height="720"></canvas>
-  </div>
+  <canvas id="board" width="720" height="720"></canvas>
   <div id="controls">
     <div id="buttonRow">
       <button id="resetBtn" title="Reset">&#8634;</button>
@@ -70,9 +65,9 @@
     var ROWS=13,COLS=13;
     var HUMAN='w',AI='b',INF=1e9;
     var board,turn,over,winner,history,previewMove,previewEnabled,aiBusy,aiTimer,renderCellW,renderCellH,renderOriginX,renderOriginY,stoneR,captures;
-    var aiThinkStart=0,aiDepthNow=0,aiDepthDone=0,aiLastSec=0,aiTargetDepth=0,aiBestMove=null,aiDepthStart=0,searchDeadline=0,resizeSecondPassPending=false;
+    var aiThinkStart=0,aiDepthNow=0,aiDepthDone=0,aiLastSec=0,aiTargetDepth=0,aiBestMove=null,aiDepthStart=0,searchDeadline=0;
     var canvas=document.getElementById('board'),ctx=canvas.getContext&&canvas.getContext('2d');
-    var boardArea=document.getElementById('boardArea'),controls=document.getElementById('controls'),statusEl=document.getElementById('status');
+    var controls=document.getElementById('controls'),statusEl=document.getElementById('status');
     var depthInput=document.getElementById('depthInput'),clumsyInput=document.getElementById('clumsyInput'),previewBtn=document.getElementById('previewBtn');
     var LIGHT_SQUARE='rgba(240,217,181,.25)',DARK_SQUARE='rgba(181,136,99,.25)',GRID='#4d4d4d';
     var dirs=[[1,0],[0,1],[1,1],[1,-1]];
@@ -103,14 +98,6 @@
     function inBounds(r,c){return r>=0&&r<ROWS&&c>=0&&c<COLS;}
     function makeBoard(){var b=[],r,c;for(r=0;r<ROWS;r++){b[r]=[];for(c=0;c<COLS;c++)b[r][c]=null;}return b;}
     function boardFull(){var r,c;for(r=0;r<ROWS;r++)for(c=0;c<COLS;c++)if(board[r][c]===null)return false;return true;}
-    function getBoardAreaBox(){
-      var rect,w,h;
-      if(!boardArea||!boardArea.getBoundingClientRect) return {width:720,height:720};
-      rect=boardArea.getBoundingClientRect();
-      w=Math.max(1,Math.floor(rect.width||boardArea.clientWidth||canvas.width||720));
-      h=Math.max(1,Math.floor(rect.height||boardArea.clientHeight||canvas.height||720));
-      return {width:w,height:h};
-    }
     function detectGridSizeForNewGame(){
       var maxW=Math.max(1,Math.floor(canvas&&canvas.width?canvas.width:720));
       var maxH=Math.max(1,Math.floor(canvas&&canvas.height?canvas.height:720));
@@ -321,6 +308,7 @@
       ctx.clearRect(0,0,canvas.width,canvas.height);
       ctx.fillStyle='#ffffff';
       ctx.fillRect(0,0,canvas.width,canvas.height);
+      if(!board||!history)return;
       for(r=0;r<ROWS;r++)for(c=0;c<COLS;c++){
         ctx.fillStyle=((r+c)%2===0)?LIGHT_SQUARE:DARK_SQUARE;
         ctx.fillRect(renderOriginX+c*renderCellW,renderOriginY+r*renderCellH,renderCellW,renderCellH);
@@ -375,14 +363,14 @@
     }
     function reset(){
       if(aiTimer){clearTimeout(aiTimer);aiTimer=null;}
-      syncCanvasSizeOnly();
+      resizeCanvas();
       var dims=detectGridSizeForNewGame();
       ROWS=dims.rows;
       COLS=dims.cols;
       board=makeBoard();turn=HUMAN;over=false;winner=null;history=[];previewMove=null;aiBusy=false;captures={w:0,b:0};
       aiThinkStart=0;aiDepthNow=0;aiDepthDone=0;aiLastSec=0;aiTargetDepth=0;aiBestMove=null;aiDepthStart=0;
       resizeCanvas();
-      settleResize();
+      resizeCanvas();
       refresh();
     }
     function click(ev){
@@ -395,52 +383,36 @@
       placeHuman(r,c);
     }
     function resizeCanvas(){
-      var box,maxW,maxH,winH,baseFont;
-      box=getBoardAreaBox();
-      maxW=Math.max(1,Math.floor((box.width||720)-6));
-      maxH=Math.max(1,Math.floor((box.height||720)-6));
-      winH=(typeof window.innerHeight==='number'&&isFinite(window.innerHeight))?window.innerHeight:720;
+      var controlsH,maxW,maxH;
+      controlsH=controls?controls.offsetHeight+16:0;
+      maxW=(typeof window.innerWidth==='number'&&isFinite(window.innerWidth))?window.innerWidth-16:720;
+      maxH=(typeof window.innerHeight==='number'&&isFinite(window.innerHeight))?window.innerHeight-controlsH-16:720;
+      canvas.width=Math.max(320,Math.floor(maxW));
+      canvas.height=Math.max(240,Math.floor(maxH));
+      canvas.style.marginLeft='8px';
+      canvas.style.marginRight='8px';
+      canvas.style.marginTop='8px';
+      canvas.style.marginBottom='8px';
       if(controls){
-        baseFont=Math.max(10,Math.min(18,Math.round(maxW*0.018)));
-        if(winH<=260) baseFont=Math.max(10,baseFont-3);
-        else if(winH<=420) baseFont=Math.max(10,baseFont-2);
-        controls.style.fontSize=baseFont+'px';
+        controls.style.width=canvas.width+'px';
+        controls.style.boxSizing='border-box';
+        controls.style.textAlign='center';
+        controls.style.marginLeft=canvas.style.marginLeft;
+        controls.style.marginRight=canvas.style.marginRight;
+        controls.style.marginTop='0px';
+        controls.style.marginBottom='8px';
+        controlsH=controls.offsetHeight+16;
+        maxH=(typeof window.innerHeight==='number'&&isFinite(window.innerHeight))?window.innerHeight-controlsH-16:720;
+        canvas.height=Math.max(240,Math.floor(maxH));
       }
-      canvas.width=maxW;
-      canvas.height=maxH;
-      renderCellW=maxW/COLS;
-      renderCellH=maxH/ROWS;
+      renderCellW=canvas.width/COLS;
+      renderCellH=canvas.height/ROWS;
       if(!isFinite(renderCellW)||renderCellW<=0) renderCellW=1;
       if(!isFinite(renderCellH)||renderCellH<=0) renderCellH=1;
       renderOriginX=0;
       renderOriginY=0;
       stoneR=Math.max(4,Math.min(renderCellW,renderCellH)*0.34);
       draw();
-    }
-    function syncCanvasSizeOnly(){
-      var box,maxW,maxH,winH,baseFont;
-      box=getBoardAreaBox();
-      maxW=Math.max(1,Math.floor((box.width||720)-6));
-      maxH=Math.max(1,Math.floor((box.height||720)-6));
-      winH=(typeof window.innerHeight==='number'&&isFinite(window.innerHeight))?window.innerHeight:720;
-      if(controls){
-        baseFont=Math.max(10,Math.min(18,Math.round(maxW*0.018)));
-        if(winH<=260) baseFont=Math.max(10,baseFont-3);
-        else if(winH<=420) baseFont=Math.max(10,baseFont-2);
-        controls.style.fontSize=baseFont+'px';
-      }
-      canvas.width=maxW;
-      canvas.height=maxH;
-    }
-    function settleResize(){
-      resizeCanvas();
-      if(resizeSecondPassPending)return;
-      resizeSecondPassPending=true;
-      if(window.requestAnimationFrame){
-        window.requestAnimationFrame(function(){resizeSecondPassPending=false;resizeCanvas();});
-      }else{
-        setTimeout(function(){resizeSecondPassPending=false;resizeCanvas();},0);
-      }
     }
     function init(){
       var d=load('pente_depth'),c=load('pente_clumsy'),p=load('pente_preview');
@@ -450,7 +422,10 @@
       document.getElementById('resetBtn').addEventListener('click',reset);
       document.getElementById('takebackBtn').addEventListener('click',takeBack);
       canvas.addEventListener('click',click);
-      if(window.addEventListener)window.addEventListener('resize',settleResize);
+      if(window.addEventListener){
+        window.addEventListener('resize',resizeCanvas);
+        window.addEventListener('orientationchange',resizeCanvas);
+      }
       depthInput.addEventListener('change',function(){save('pente_depth',depthInput.value);});
       clumsyInput.addEventListener('change',function(){save('pente_clumsy',clumsyInput.value);});
       previewBtn.addEventListener('click',function(){previewEnabled=!previewEnabled;save('pente_preview',previewEnabled?'1':'0');previewBtn.className=previewEnabled?'is-on':'';draw();});
@@ -463,3 +438,4 @@
   <script src="./pwa-register.js"></script>
 </body>
 </html>
+

@@ -12,31 +12,22 @@
   </script>
   <style>
     *{box-sizing:border-box}
-    html{width:100dvw;height:100dvh}
+    html{width:100%;height:100%}
     body{
       margin:0;
-      width:100dvw;
-      height:100dvh;
-      display:grid;
-      grid-template-rows:minmax(0,1fr) auto;
+      width:100%;
+      height:100%;
+      display:block;
+      
       overflow:hidden;
       font-family:'FreeSerif',serif;
       -webkit-text-size-adjust:100%;
       background:#fff;
       color:#23160f;
     }
-    #boardArea{
-      min-width:0;
-      min-height:0;
-      width:100%;
-      height:100%;
-      overflow:hidden;
-      padding:3px;
-    }
     #board{
       display:block;
-      width:100%;
-      height:100%;
+      margin:8px 0;
       touch-action:manipulation;
     }
     #controls{
@@ -90,9 +81,7 @@
   </style>
 </head>
 <body>
-  <div id="boardArea">
-    <canvas id="board" width="720" height="720"></canvas>
-  </div>
+  <canvas id="board" width="720" height="720"></canvas>
   <div id="controls">
       <div id="buttonRow">
         <button id="resetBtn" title="Reset">↺</button>
@@ -138,7 +127,6 @@
     var aiBestMove = null;
     var aiDepthStart = 0;
     var searchDeadline = 0;
-    var resizeSecondPassPending = false;
     var renderCellW = 54;
     var renderCellH = 54;
     var renderOriginX = 0;
@@ -147,7 +135,6 @@
 
     var canvas = document.getElementById('board');
     var ctx = canvas.getContext && canvas.getContext('2d');
-    var boardArea = document.getElementById('boardArea');
     var controls = document.getElementById('controls');
     var statusEl = document.getElementById('status');
     var depthInput = document.getElementById('depthInput');
@@ -186,18 +173,11 @@
     }
 
     function getBoardAreaBox() {
-      var rect, w, h;
-      if (!boardArea || !boardArea.getBoundingClientRect) return { width: 720, height: 720 };
-      rect = boardArea.getBoundingClientRect();
-      w = Math.max(1, Math.floor((rect.width || boardArea.clientWidth || canvas.width || 720) - OUTER_BORDER_PX * 2));
-      h = Math.max(1, Math.floor((rect.height || boardArea.clientHeight || canvas.height || 720) - OUTER_BORDER_PX * 2));
-      return { width: w, height: h };
-    }
-
-    function syncCanvasSize() {
-      var box = getBoardAreaBox();
-      canvas.width = box.width;
-      canvas.height = box.height;
+      var controlsH = controls ? controls.offsetHeight + 16 : 0;
+      return {
+        width: Math.max(1, Math.floor((typeof window.innerWidth === 'number' && isFinite(window.innerWidth) ? window.innerWidth : 720) - 16)),
+        height: Math.max(1, Math.floor((typeof window.innerHeight === 'number' && isFinite(window.innerHeight) ? window.innerHeight : 720) - controlsH - 16))
+      };
     }
 
     function detectGridSizeForNewGame() {
@@ -800,34 +780,37 @@
     }
 
     function resize() {
-      var box;
-      syncCanvasSize();
-      box = getBoardAreaBox();
-      canvas.width = box.width;
-      canvas.height = box.height;
+      var controlsH, maxW, maxH, sizeW, sizeH;
+      controlsH = controls ? controls.offsetHeight + 16 : 0;
+      maxW = (typeof window.innerWidth === 'number' && isFinite(window.innerWidth)) ? window.innerWidth - 16 : 720;
+      maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - 16 : 720;
+      sizeW = Math.max(320, Math.floor(maxW));
+      sizeH = Math.max(240, Math.floor(maxH));
+      canvas.width = sizeW;
+      canvas.height = sizeH;
+      canvas.style.marginLeft = '8px';
+      canvas.style.marginRight = '8px';
+      canvas.style.marginTop = '8px';
+      canvas.style.marginBottom = '8px';
+      if (controls) {
+        controls.style.width = sizeW + 'px';
+        controls.style.boxSizing = 'border-box';
+        controls.style.textAlign = 'center';
+        controls.style.marginLeft = canvas.style.marginLeft;
+        controls.style.marginRight = canvas.style.marginRight;
+        controls.style.marginTop = '0px';
+        controls.style.marginBottom = '8px';
+        controlsH = controls.offsetHeight + 16;
+        maxH = (typeof window.innerHeight === 'number' && isFinite(window.innerHeight)) ? window.innerHeight - controlsH - 16 : 720;
+        sizeH = Math.max(240, Math.floor(maxH));
+        canvas.height = sizeH;
+      }
       renderCellW = Math.max(1, canvas.width / Math.max(1, COLS));
       renderCellH = Math.max(1, canvas.height / Math.max(1, ROWS));
       renderOriginX = OUTER_BORDER_PX + renderCellW * 0.5;
       renderOriginY = OUTER_BORDER_PX + renderCellH * 0.5;
       stoneR = Math.max(10, Math.min(renderCellW, renderCellH) * 0.38);
       draw();
-    }
-
-    function settleResize() {
-      resize();
-      if (resizeSecondPassPending) return;
-      resizeSecondPassPending = true;
-      if (window.requestAnimationFrame) {
-        window.requestAnimationFrame(function() {
-          resizeSecondPassPending = false;
-          resize();
-        });
-      } else {
-        setTimeout(function() {
-          resizeSecondPassPending = false;
-          resize();
-        }, 0);
-      }
     }
 
     function drawStone(r, c, color, alpha) {
@@ -917,7 +900,10 @@
       document.getElementById('takebackBtn').addEventListener('click', takeBack);
       document.getElementById('passBtn').addEventListener('click', humanPass);
       canvas.addEventListener('click', clickBoard);
-      if (window.addEventListener) window.addEventListener('resize', settleResize);
+      if (window.addEventListener) {
+        window.addEventListener('resize', resize);
+        window.addEventListener('orientationchange', resize);
+      }
       depthInput.addEventListener('change', function(){ save('go_depth', depthInput.value); });
       clumsyInput.addEventListener('change', function(){ save('go_clumsy', clumsyInput.value); });
       if (previewBtn) {
@@ -952,7 +938,7 @@
       aiTargetDepth = 0;
       aiBestMove = null;
       aiDepthStart = 0;
-      syncCanvasSize();
+      resize();
       var dims = detectGridSizeForNewGame();
       ROWS = dims.rows;
       COLS = dims.cols;
@@ -964,7 +950,7 @@
       koSig = null;
       passStreak = 0;
       previewMove = null;
-      settleResize();
+      resize();
       refreshStatus();
     }
 
@@ -996,3 +982,6 @@
   <script src="./pwa-register.js"></script>
 </body>
 </html>
+
+
+
