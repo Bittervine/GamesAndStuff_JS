@@ -48,6 +48,7 @@
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
   let currentDt = 0;
   const MAX_NORMAL_DPR = 1.5;
+  const MIN_NORMAL_WINDOW_WIDTH = 1024;
   const URL_PARAMS = new URLSearchParams(window.location.search || '');
   const DEBUG_MODE = URL_PARAMS.get('debug') === '1';
   const DEBUG_END_BOSS = URL_PARAMS.get('debug_endboss') === '1';
@@ -202,6 +203,10 @@
   const ASTEROID_BASE_LAYER = 1.35;
   const asteroidArtLoadKeys = new Set();
   const asteroidArtCache = new Map();
+
+  function narrowScreenScale() {
+    return clamp(view.w / MIN_NORMAL_WINDOW_WIDTH, 0, 1);
+  }
 
   function enemyShipKey(levelNumber, shipIndex) {
     return 'enemyship|' + levelNumber + '|' + shipIndex;
@@ -1170,7 +1175,7 @@
 
   function asteroidSpawningAllowed(theme) {
     const bossSpawnTime = 40 + state.levelIndex * 2;
-    return state.mode === 'playing' && !state.boss && !state.transition && view.w >= 700 && state.levelClock < bossSpawnTime && asteroidDensityConfig(theme).density > 0;
+    return state.mode === 'playing' && !state.boss && !state.transition && state.levelClock < bossSpawnTime && asteroidDensityConfig(theme).density > 0;
   }
 
   function circleIntersectsRect(cx, cy, cr, rect) {
@@ -2882,7 +2887,7 @@
     state.levelClock = 0;
     state.transition = null;
     regenBackground(state.currentTheme, { preserveDecor: true, preserveClouds: true, preserveStars: true });
-    if (state.currentTheme && state.currentTheme.asteroidDensity > 0 && view.w >= 700) {
+    if (state.currentTheme && state.currentTheme.asteroidDensity > 0) {
       warmAsteroidBatch();
       seedAsteroidsForTheme(state.currentTheme);
     }
@@ -3160,7 +3165,9 @@
     const fireScale = enemyShotPace() / diff.spawnRate;
     const levelNumber = state.levelIndex + 1;
     const shipIndex = opts && opts.shipIndex != null ? opts.shipIndex : chooseEnemyShipIndexForKind(kind, levelNumber);
-    const shipSize = kind === 'elite' ? ENEMY_ELITE_SIZE : getEnemyShipRenderSize(levelNumber, shipIndex);
+    const shipScale = narrowScreenScale();
+    const baseShipSize = kind === 'elite' ? ENEMY_ELITE_SIZE : getEnemyShipRenderSize(levelNumber, shipIndex);
+    const shipSize = Math.max(1, baseShipSize * shipScale);
     const sizeScale = shipSize / 64;
     const firstLevelHpScale = state.levelIndex === 0 ? 0.5 : 1;
     const hpScale = firstLevelHpScale * scale * diff.enemyHp * sizeScale;
@@ -3193,7 +3200,9 @@
     const diff = currentDifficulty();
     const levelNumber = state.levelIndex + 1;
     const hitBox = getBossHitBox(levelNumber);
-    const bossYOffset = levelNumber >= THEMES.length ? -Math.max(0, (b.size || 512) * 0.20) : Math.max(0, (b.size || 512) * 0.25);
+    const bossScale = narrowScreenScale();
+    const bossSize = Math.max(1, (b.size || 512) * bossScale);
+    const bossYOffset = levelNumber >= THEMES.length ? -Math.max(0, bossSize * 0.20) : Math.max(0, bossSize * 0.25);
     const bossHp = Math.round(b.hp * diff.bossHp);
     const clawHp = Math.max(1, Math.round(bossHp * 0.95));
     state.boss = {
@@ -3204,7 +3213,7 @@
       phases: b.phases, phaseIndex: 0, phaseClock: 0, age: 0,
       fireClock: 0, motionClock: 0, state: {}, hitFlash: 0, glowBoost: 0, dead: false,
       clawGuard: 0, clawGuardDelay: 0,
-      size: Math.max(1, b.size || 512),
+      size: bossSize,
       flipWhenMovingRight: b.flipWhenMovingRight !== false,
       shipLevel: levelNumber, shipIndex: 0, facingRight: false,
       hitBox: hitBox,
@@ -4977,6 +4986,7 @@
 
   function drawDecorBackgrounds() {
     if (state.settings.lowEndMode || !state.decorBackgrounds || !state.decorBackgrounds.length) return;
+    const scale = narrowScreenScale();
     for (let i = 0; i < state.decorBackgrounds.length; i++) {
       const d = state.decorBackgrounds[i];
       if (d.delay > 0) continue;
@@ -4984,8 +4994,8 @@
       if (!img || !img.naturalWidth || !img.naturalHeight) continue;
       const tex = ensurePlanetDecorTexture(d.imageIndex);
       if (!tex) continue;
-      const w = img.naturalWidth * 2;
-      const h = img.naturalHeight * 2;
+      const w = img.naturalWidth * 2 * scale;
+      const h = img.naturalHeight * 2 * scale;
       const sway = Math.sin(state.animClock * 0.18 + d.drift) * 10;
       drawTextureRect(tex, d.x + sway, d.y, w, h, {
         rot: d.rot,
@@ -5060,7 +5070,8 @@
     const srcW = Math.max(1, art && art.w ? art.w : 1);
     const srcH = Math.max(1, art && art.h ? art.h : 1);
     const maxSrc = Math.max(srcW, srcH);
-    const drawSize = rand(ASTEROID_MIN_SIZE, ASTEROID_MAX_SIZE);
+    const scaleFactor = narrowScreenScale();
+    const drawSize = rand(ASTEROID_MIN_SIZE, ASTEROID_MAX_SIZE) * scaleFactor;
     const scale = drawSize / maxSrc;
     const w = Math.max(1, view.w);
     const h = Math.max(1, view.h);
@@ -5228,7 +5239,7 @@
   function updateAsteroids(dt) {
     const theme = mainTheme();
     const info = asteroidDensityConfig(theme);
-    if (!info.slots || view.w < 700) {
+    if (!info.slots) {
       clearAsteroids();
       return;
     }
@@ -6242,7 +6253,7 @@
     const rot = flight + Math.PI * 0.5;
     const levelNumber = e.shipLevel || (state.levelIndex + 1);
     const shipIndex = e.shipIndex || 0;
-    const shipSize = e.shipSize || getEnemyShipRenderSize(levelNumber, shipIndex);
+    const shipSize = e.shipSize || (getEnemyShipRenderSize(levelNumber, shipIndex) * narrowScreenScale());
     if (e.kind === 'spinner') {
       for (let i = 0; i < 5; i++) {
         const a = e.age * 2.2 + i * (TAU / 5);
