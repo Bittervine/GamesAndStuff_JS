@@ -12,14 +12,14 @@ from PIL import Image
 MIN_WIDTH = 64
 MIN_HEIGH = 64
 MAX_GAP_TRANSPARANCY = 0.001
+INPUT_FILE = "enamy_fighters_3g.png"
 MIN_GAP_WIDTH = 10
-INPUT_FILE = "Asteroids-7.png"
-OUTPUT_FILE = "Asteroid-"
-OUTPUT_FIILE_STARTINDEX = 29
-EXPECTED_IMAGE_COUNT = 4
+OUTPUT_FILE = "enemy_003"
+OUTPUT_FIILE_STARTINDEX = 0
+EXPECTED_IMAGE_COUNT = 8
 SATURATION_THRESHOLDS = [x / 1000.0 for x in range(10, 151, 5)]
 
-OUTPUT_EXTENSION = ".png"
+OUTPUT_EXTENSION = "a.png"
 
 
 def parse_args() -> argparse.Namespace:

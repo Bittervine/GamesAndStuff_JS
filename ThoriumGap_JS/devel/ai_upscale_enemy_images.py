@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image
 
 
-FILENAME_REGEX = re.compile(r"^Boss_\d+\.png$", re.IGNORECASE)
+FILENAME_REGEX = re.compile(r"^Enemy_\d+[a-z]?\.png$", re.IGNORECASE)
 MODEL_NAME = "RealESRGAN_x4plus_anime_6B"
 MODEL_URL = (
     "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/"
@@ -36,13 +36,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--pattern",
-        default="Boss_*.png",
+        default="Enemy_*.png",
         help="Glob pattern for candidate files inside assets dir.",
     )
     parser.add_argument(
         "--target-size",
         type=int,
-        default=1024,
+        default=512,
         help="Target output size in pixels (square canvas).",
     )
     parser.add_argument(
