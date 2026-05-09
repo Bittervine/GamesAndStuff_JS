@@ -217,6 +217,18 @@
     return state.player.r * narrowScreenScale();
   }
 
+  function shotMotionScale() {
+    return pickupScale();
+  }
+
+  function enemyMotionScale() {
+    return narrowScreenScale();
+  }
+
+  function isOnScreen(x, y) {
+    return x >= 0 && x <= view.w && y >= 0 && y <= view.h;
+  }
+
   function enemyShipKey(levelNumber, shipIndex) {
     return 'enemyship|' + levelNumber + '|' + shipIndex;
   }
@@ -3278,6 +3290,21 @@
     const routePhase = Math.floor((state.levelClock + waveId * 0.85) / rand(2, 5)) % 2;
     const sideEntryProgress = clamp((MIN_NORMAL_WINDOW_WIDTH - view.w) / (MIN_NORMAL_WINDOW_WIDTH * 0.5), 0, 1);
     const sideEntryAllowed = sideEntryProgress > 0;
+    function sampleNarrowEntryPoint() {
+      const sideMaxY = view.h * 0.5 * sideEntryProgress;
+      const sideMinY = Math.min(22, sideMaxY);
+      const topLen = Math.max(1, view.w);
+      const sideLen = Math.max(0, sideMaxY - sideMinY);
+      const totalLen = topLen + sideLen * 2;
+      const pickLen = rand(0, totalLen);
+      if (pickLen < topLen) {
+        return { edge: 'top', x: pickLen, y: 0, sideMaxY: sideMaxY, sideMinY: sideMinY };
+      }
+      if (pickLen < topLen + sideLen) {
+        return { edge: 'left', x: 0, y: sideMinY + (pickLen - topLen), sideMaxY: sideMaxY, sideMinY: sideMinY };
+      }
+      return { edge: 'right', x: view.w, y: sideMinY + (pickLen - topLen - sideLen), sideMaxY: sideMaxY, sideMinY: sideMinY };
+    }
     function buildEntry(index, kind) {
       const profile = flightProfileForKind(kind);
       const entryRoute = entryRoutes[(index + profile.routeShift) % entryRoutes.length];
@@ -3291,17 +3318,46 @@
       let controlX = mirror < 0 ? 1 - entryRoute.controlX : entryRoute.controlX;
       let targetX = lerp(view.w * targetMinX, view.w * targetMaxX, lane);
       let targetY = entryRoute.targetY * profile.settleY + ((index % 3) - 1) * 5;
+      let controlY = view.h * entryRoute.controlY;
+      let swirlBoost = 1;
+      let bendBoost = 1;
+      let phaseOffset = 0;
       if (sideEntryAllowed) {
-        const fromLeft = ((index + waveId + profile.routeShift) & 1) === 0;
-        const sideMaxY = view.h * 0.5 * sideEntryProgress;
-        const sideMinY = Math.min(22, sideMaxY);
-        startX = fromLeft ? -Math.max(84, view.w * 0.08) : (view.w + Math.max(84, view.w * 0.08));
-        startY = lerp(sideMinY, sideMaxY * 0.82, lane);
-        targetMinX = fromLeft ? 0.18 : 0.52;
-        targetMaxX = fromLeft ? 0.42 : 0.82;
-        targetX = lerp(view.w * targetMinX, view.w * targetMaxX, lane);
-        targetY = clamp(targetY, sideMinY, sideMaxY);
-        controlX = fromLeft ? 0.08 : 0.92;
+        const entryPoint = sampleNarrowEntryPoint();
+        const sideMaxY = entryPoint.sideMaxY;
+        const sideMinY = entryPoint.sideMinY;
+        const off = Math.max(84, view.w * 0.08);
+        if (entryPoint.edge === 'left') {
+          startX = -off;
+          startY = entryPoint.y;
+          targetMinX = 0.18;
+          targetMaxX = 0.42;
+          targetX = lerp(view.w * targetMinX, view.w * targetMaxX, lane);
+          targetY = clamp(targetY, sideMinY, sideMaxY);
+          controlX = 0.08;
+          controlY = clamp(lerp(startY, targetY, 0.35) - (24 + 60 * sideEntryProgress), sideMinY, sideMaxY);
+          phaseOffset = lerp(0.45, 0.8, sideEntryProgress);
+        } else if (entryPoint.edge === 'right') {
+          startX = view.w + off;
+          startY = entryPoint.y;
+          targetMinX = 0.52;
+          targetMaxX = 0.82;
+          targetX = lerp(view.w * targetMinX, view.w * targetMaxX, lane);
+          targetY = clamp(targetY, sideMinY, sideMaxY);
+          controlX = 0.92;
+          controlY = clamp(lerp(startY, targetY, 0.35) - (24 + 60 * sideEntryProgress), sideMinY, sideMaxY);
+          phaseOffset = -lerp(0.45, 0.8, sideEntryProgress);
+        } else {
+          startX = entryPoint.x;
+          startY = -off;
+          targetX = lerp(view.w * 0.2, view.w * 0.8, lane);
+          targetY = clamp(targetY, sideMinY, sideMaxY);
+          controlX = lerp(0.2, 0.8, lane);
+          controlY = clamp(lerp(startY, targetY, 0.35), -off, sideMaxY);
+          phaseOffset = 0;
+        }
+        swirlBoost = lerp(1.25, 2.1, sideEntryProgress);
+        bendBoost = lerp(1.15, 1.7, sideEntryProgress);
       }
       const dx = targetX - startX;
       const dy = targetY - startY;
@@ -3314,14 +3370,14 @@
         targetX: targetX,
         targetY: targetY,
         controlX: view.w * controlX,
-        controlY: view.h * entryRoute.controlY,
+        controlY: controlY,
         normalX: nx,
         normalY: ny,
-        bend: entryRoute.bend * view.w * profile.bend,
-        swirl: entryRoute.swirl * profile.swirl,
+        bend: entryRoute.bend * view.w * profile.bend * bendBoost,
+        swirl: entryRoute.swirl * profile.swirl * swirlBoost,
         turns: entryRoute.turns + profile.turns + lane * 0.35,
         duration: (entryRoute.duration + lane * 0.12 + index * 0.01) * profile.duration,
-        phase: rand(0, TAU),
+        phase: rand(0, TAU) + phaseOffset,
         settle: 0.86 + (index % 2) * 0.08,
         kind: kind,
         mirror: mirror
@@ -3889,6 +3945,7 @@
   };
 
   function updateBossMotion(b, phaseDef, dt) {
+    const motionDt = dt * enemyMotionScale();
     b.motionClock += dt;
     const a = playArea();
     const cx = view.w * 0.5;
@@ -3910,8 +3967,8 @@
     ty += Number.isFinite(b.yOffset) ? b.yOffset : 0;
     const prevX = b.x;
     const prevY = b.y;
-    b.x = smooth(b.x, clamp(tx, 88, view.w - 88), 2.8, dt);
-    b.y = smooth(b.y, clamp(ty, 88, a.bottom - 260), 2.1, dt);
+    b.x = smooth(b.x, clamp(tx, 88, view.w - 88), 2.8, motionDt);
+    b.y = smooth(b.y, clamp(ty, 88, a.bottom - 260), 2.1, motionDt);
     b.vx = dt > 0 ? (b.x - prevX) / dt : 0;
     b.vy = dt > 0 ? (b.y - prevY) / dt : 0;
     if (Math.abs(b.vx) > 0.5) b.facingRight = b.vx > 0;
@@ -4051,6 +4108,7 @@
 
   function updateBullets(dt) {
     const p = state.player;
+    const motionDt = dt * shotMotionScale();
     const enemyCollision = buildEnemyCollisionGrid();
     const enemyCandidates = [];
     const clearVersion = state.projectileClearVersion;
@@ -4075,15 +4133,15 @@
           const ta = ang(b.x, b.y, target.x, target.y);
           const sp = Math.hypot(b.vx, b.vy);
           const cur = Math.atan2(b.vy, b.vx);
-          const next = cur + clamp(ta - cur, -b.turn * dt, b.turn * dt) * b.homing;
+          const next = cur + clamp(ta - cur, -b.turn * motionDt, b.turn * motionDt) * b.homing;
           b.vx = Math.cos(next) * sp;
           b.vy = Math.sin(next) * sp;
         }
       }
-      b.vx += b.ax * dt;
-      b.vy += b.ay * dt;
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
+      b.vx += b.ax * motionDt;
+      b.vy += b.ay * motionDt;
+      b.x += b.vx * motionDt;
+      b.y += b.vy * motionDt;
       b.life -= dt;
       if (b.life <= 0 || b.x < -60 || b.x > view.w + 60 || b.y < -80 || b.y > view.h + 80) remove = true;
       if (state.boss && damageFinalBossClawAtPoint(state.boss, b.x, b.y, b.r, b.damage)) {
@@ -4200,14 +4258,14 @@
         const ta = ang(b.x, b.y, p.x, p.y);
         const sp = Math.hypot(b.vx, b.vy);
         const cur = Math.atan2(b.vy, b.vx);
-        const next = cur + clamp(ta - cur, -b.turn * dt, b.turn * dt) * b.homing;
+        const next = cur + clamp(ta - cur, -b.turn * motionDt, b.turn * motionDt) * b.homing;
         b.vx = Math.cos(next) * sp;
         b.vy = Math.sin(next) * sp;
       }
-      b.vx += b.ax * dt;
-      b.vy += b.ay * dt;
-      b.x += b.vx * dt;
-      b.y += b.vy * dt;
+      b.vx += b.ax * motionDt;
+      b.vy += b.ay * motionDt;
+      b.x += b.vx * motionDt;
+      b.y += b.vy * motionDt;
       b.life -= dt;
       if (b.life <= 0 || b.x < -80 || b.x > view.w + 80 || b.y < -100 || b.y > view.h + 100) remove = true;
       if (!remove && state.asteroids && state.asteroids.length) {
@@ -4271,6 +4329,7 @@
     for (let i = 0; i < state.enemies.length; i++) {
       const e = state.enemies[i];
       if (!e || e.dead) continue;
+      if (!isOnScreen(e.x, e.y)) continue;
       activeEnemies.push(e);
       maxRadius = Math.max(maxRadius, e.r || 0);
       const radius = Math.max(1, e.r || 18);
@@ -4325,6 +4384,7 @@
 
   function tryEnemyFire(e, p, entering) {
     if (!e || e.fireCooldown > 0) return;
+    if (!isOnScreen(e.x, e.y)) return;
     const postEntrySlowdown = entering ? 1 : 2;
     if (e.kind === 'drifter') {
       if (e.y <= 70) return;
@@ -4385,10 +4445,11 @@
   }
 
   function updateEnemyMovement(e, dt, a, p, entering) {
+    const motionDt = dt * enemyMotionScale();
     if (entering) return false;
     if (e.kind === 'drifter') {
-      e.y += e.vy * dt;
-      e.x += Math.sin(e.age * 3 + e.wobble) * 18 * dt;
+      e.y += e.vy * motionDt;
+      e.x += Math.sin(e.age * 3 + e.wobble) * 18 * motionDt;
       return false;
     }
     if (e.kind === 'looper') {
@@ -4410,12 +4471,12 @@
         const loopRadius = e.loopRadius || 52;
         const omega = looperSpeed / Math.max(24, loopRadius);
         const turnDir = e.loopTurnDir || 1;
-        e.loopHeading += turnDir * omega * dt;
-        e.loopAccum += omega * dt;
+        e.loopHeading += turnDir * omega * motionDt;
+        e.loopAccum += omega * motionDt;
         e.loopDirX = Math.cos(e.loopHeading);
         e.loopDirY = Math.sin(e.loopHeading);
-        e.x += e.loopDirX * looperSpeed * dt;
-        e.y += e.loopDirY * looperSpeed * dt;
+        e.x += e.loopDirX * looperSpeed * motionDt;
+        e.y += e.loopDirY * looperSpeed * motionDt;
         if (e.loopAccum >= (e.loopTurnGoal || TAU)) {
           e.loopActive = false;
           e.loopAccum = 0;
@@ -4429,7 +4490,7 @@
         }
       } else {
         const loopStartBottom = view.h * 0.75;
-        if (Math.random() < dt * (1 / 3) && e.y > 46 && e.y < loopStartBottom) {
+        if (Math.random() < motionDt * (1 / 3) && e.y > 46 && e.y < loopStartBottom) {
           e.loopTurnDir = Math.random() < 0.5 ? -1 : 1;
           e.loopRadius = rand(50, 250);
           e.loopActive = true;
@@ -4441,8 +4502,8 @@
           e.loopTurnGoal = Math.max(Math.PI * 1.5, Math.min(Math.PI * 2.5, TAU + (e.loopTurnDir * delta)));
           e.loopEndHeading = endHeading;
         }
-        e.x += e.loopDirX * looperSpeed * dt;
-        e.y += e.loopDirY * looperSpeed * dt;
+        e.x += e.loopDirX * looperSpeed * motionDt;
+        e.y += e.loopDirY * looperSpeed * motionDt;
       }
       if (e.x < a.left || e.x > a.right) {
         e.loopDirX *= -1;
@@ -4453,46 +4514,46 @@
       return (e.x < -e.r || e.x > view.w + e.r || e.y < -e.r || e.y > view.h + e.r);
     }
     if (e.kind === 'swarm') {
-      e.y += e.vy * dt;
-      e.x += Math.sin(e.age * 6 + e.wobble) * 46 * dt;
+      e.y += e.vy * motionDt;
+      e.x += Math.sin(e.age * 6 + e.wobble) * 46 * motionDt;
       return false;
     }
     if (e.kind === 'bomber') {
-      e.y += e.vy * dt;
-      e.x += Math.sin(e.age * 1.5 + e.wobble) * 24 * dt;
+      e.y += e.vy * motionDt;
+      e.x += Math.sin(e.age * 1.5 + e.wobble) * 24 * motionDt;
       return false;
     }
     if (e.kind === 'sniper') {
-      e.y += e.vy * dt * 0.5;
-      e.x += Math.sin(e.age * 1.2 + e.wobble) * 14 * dt;
+      e.y += e.vy * motionDt * 0.5;
+      e.x += Math.sin(e.age * 1.2 + e.wobble) * 14 * motionDt;
       return false;
     }
     if (e.kind === 'spinner') {
-      e.y += e.vy * dt * 0.7;
-      e.x += Math.cos(e.age * 1.1 + e.wobble) * 24 * dt;
+      e.y += e.vy * motionDt * 0.7;
+      e.x += Math.cos(e.age * 1.1 + e.wobble) * 24 * motionDt;
       return false;
     }
     if (e.kind === 'splitter') {
-      e.y += e.vy * dt;
-      e.x += Math.sin(e.age * 2.2 + e.wobble) * 18 * dt;
+      e.y += e.vy * motionDt;
+      e.x += Math.sin(e.age * 2.2 + e.wobble) * 18 * motionDt;
       return false;
     }
     if (e.kind === 'diver') {
       const base = ang(e.x, e.y, p.x, p.y);
       e.vx = lerp(e.vx, Math.cos(base) * 80, 0.018);
       e.vy = lerp(e.vy, 120 + Math.sin(e.age * 2 + e.wobble) * 22, 0.02);
-      e.x += e.vx * dt;
-      e.y += e.vy * dt;
+      e.x += e.vx * motionDt;
+      e.y += e.vy * motionDt;
       return false;
     }
     if (e.kind === 'mine') {
-      e.y += e.vy * dt;
-      e.x += Math.sin(e.age * 1.4 + e.wobble) * 12 * dt;
+      e.y += e.vy * motionDt;
+      e.x += Math.sin(e.age * 1.4 + e.wobble) * 12 * motionDt;
       return false;
     }
     if (e.kind === 'elite') {
-      e.y += e.vy * dt * 0.85;
-      e.x += Math.sin(e.age * 1.8 + e.wobble) * 20 * dt;
+      e.y += e.vy * motionDt * 0.85;
+      e.x += Math.sin(e.age * 1.8 + e.wobble) * 20 * motionDt;
     }
     return false;
   }
@@ -4512,7 +4573,7 @@
       if (e.entry) {
         entering = true;
         const en = e.entry;
-        en.age = (en.age || 0) + dt;
+        en.age = (en.age || 0) + (dt * enemyMotionScale());
         const mirror = en.mirror || 1;
         const sx = mirror < 0 ? view.w - en.startX : en.startX;
         const tx = mirror < 0 ? view.w - en.targetX : en.targetX;
