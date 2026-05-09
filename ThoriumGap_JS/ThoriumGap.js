@@ -3618,7 +3618,7 @@
     const p = state.player;
     if (type === 'catalyst') {
       state.catalystPresent = false;
-      state.catalystSequence = { phase: 'center', timer: 0, launchSfxClock: 0, buzzClock: 0 };
+      state.catalystSequence = { phase: 'center', timer: 0, launchSfxClock: 0, buzzClock: 0, chargeStartY: 0, chargeTargetY: 0 };
       p.invuln = Math.max(p.invuln, 8);
       p.fireHeld = false;
       state.banner = 'THE CATALYST';
@@ -4149,15 +4149,26 @@
       if (seq.phase === 'center') {
         p.x = smooth(p.x, view.w * 0.5, 1.5, dt);
         p.y = smooth(p.y, clamp(view.h * 0.46, a.top + 30, a.bottom - 120), 1.4, dt);
-        if (seq.timer >= 3.2) { seq.phase = 'charge'; seq.timer = 0; seq.buzzClock = 0; }
+        if (seq.timer >= 3.2) {
+          seq.phase = 'charge';
+          seq.timer = 0;
+          seq.buzzClock = 0;
+          seq.chargeStartY = p.y;
+          seq.chargeTargetY = clamp(a.bottom - 130, a.top + 40, a.bottom - 40);
+        }
       } else if (seq.phase === 'charge') {
-        const chargeDuration = 5.2;
+        const chargeDuration = 8.0;
         const chargeT = clamp(seq.timer / chargeDuration, 0, 1);
         const shakeAmp = lerp(1.2, 15, chargeT * chargeT);
         const jx = rand(-shakeAmp, shakeAmp);
         const jy = rand(-shakeAmp, shakeAmp);
+        const fallY = lerp(
+          Number.isFinite(seq.chargeStartY) ? seq.chargeStartY : p.y,
+          Number.isFinite(seq.chargeTargetY) ? seq.chargeTargetY : clamp(a.bottom - 130, a.top + 40, a.bottom - 40),
+          chargeT
+        );
         p.x = smooth(p.x, view.w * 0.5, 2.0, dt) + jx;
-        p.y = smooth(p.y, clamp(a.bottom - 130, a.top + 40, a.bottom - 40), 1.65, dt) + jy;
+        p.y = smooth(p.y, fallY, 3.6, dt) + jy;
         seq.buzzClock = Math.max(0, (seq.buzzClock || 0) - dt);
         if (seq.buzzClock <= 0) {
           const buzzFreq = lerp(54, 142, chargeT);
@@ -6550,7 +6561,7 @@
     const p = state.player;
     const respawning = p.respawnTimer > 0;
     const bob = respawning ? Math.sin(state.musicStep * 0.45) * 0.8 : Math.sin((state.musicStep * 0.45) + p.x * 0.01) * 2;
-    const allowControlTilt = state.mode === 'playing';
+    const allowControlTilt = state.mode === 'playing' && !state.catalystSequence;
     const tilt = respawning ? 0 : clamp((allowControlTilt ? (((state.input.right ? 1 : 0) - (state.input.left ? 1 : 0)) * 0.24 + (state.pointerActive ? (state.pointerX - p.x) / 280 : 0)) : 0), -0.45, 0.45);
     const rot = tilt * 0.92;
     const glow = state.overdrive > 0 ? '#ffe38c' : '#8fd8ff';
