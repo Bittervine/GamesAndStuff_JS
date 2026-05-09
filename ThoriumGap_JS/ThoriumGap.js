@@ -1888,7 +1888,8 @@
     bomb: { emoji: E.bomb, color: '#ff2020', lighter: true, glowDiameter: 50 },
     magnet: { emoji: E.magnet, color: '#777777', lighter: true, glowDiameter: 32 },
     invuln: { emoji: E.star, color: '#ffff00', lighter: true, glowDiameter: 32 },
-    score: { emoji: E.gem, color: '#f00000', lighter: false, glowDiameter: 50 }
+    score: { emoji: E.gem, color: '#f00000', lighter: false, glowDiameter: 50 },
+    catalyst: { emoji: '', color: '#6fe7ff', lighter: true, glowDiameter: 92 }
   };
 
   const ENEMIES = {
@@ -1992,6 +1993,8 @@
     particlePool: [],
     enemyShipKindMap: null,
     boss: null,
+    catalystSequence: null,
+    catalystPresent: false,
     currentTheme: THEMES[0],
     transition: null,
     player: {
@@ -2175,6 +2178,20 @@
     else if (name === 'damage') tone({ freq: 98, endFreq: 62, dur: 0.12, gain: 0.09, type: 'square' });
     else if (name === 'combo') tone({ freq: 560, endFreq: 880, dur: 0.08, gain: 0.06, type: 'triangle' });
     else if (name === 'overdrive') { tone({ freq: 660, endFreq: 1320, dur: 0.18, gain: 0.1, type: 'triangle' }); tone({ freq: 990, endFreq: 1760, dur: 0.12, gain: 0.07, type: 'square' }); }
+  }
+
+  function catalystLaunchFanfare() {
+    tone({ freq: 330, endFreq: 520, dur: 0.16, gain: 0.08, type: 'triangle' });
+    tone({ freq: 520, endFreq: 880, dur: 0.22, gain: 0.10, type: 'square' });
+    tone({ freq: 880, endFreq: 1460, dur: 0.34, gain: 0.09, type: 'sawtooth' });
+    noise({ dur: 0.18, gain: 0.05, cutoff: 2600, q: 0.5 });
+  }
+
+  function catalystLaunchFanfare() {
+    tone({ freq: 330, endFreq: 520, dur: 0.16, gain: 0.08, type: 'triangle' });
+    tone({ freq: 520, endFreq: 880, dur: 0.22, gain: 0.10, type: 'square' });
+    tone({ freq: 880, endFreq: 1460, dur: 0.34, gain: 0.09, type: 'sawtooth' });
+    noise({ dur: 0.18, gain: 0.05, cutoff: 2600, q: 0.5 });
   }
 
   const game = {
@@ -2582,7 +2599,17 @@
 
   function drawStarfield() {
     ensureStarfield();
-    state.starfieldScroll += 0.012;
+    let starfieldBoost = 1;
+    if (state.catalystSequence) {
+      const seq = state.catalystSequence;
+      if (seq.phase === 'charge') {
+        const t = clamp((seq.timer || 0) / 5.2, 0, 1);
+        starfieldBoost = lerp(1, 5, t * t);
+      } else if (seq.phase === 'launch') {
+        starfieldBoost = 5;
+      }
+    }
+    state.starfieldScroll += 0.012 * starfieldBoost;
 
     if (gl && render.starProgram && render.starBuffer && !render.starDisabled) return;
 
@@ -2952,7 +2979,7 @@
   function victory() {
     state.mode = 'victory';
     state.banner = 'VICTORY';
-    state.bannerSub = 'The sky is yours.';
+    state.bannerSub = '';
     state.bannerTimer = 999;
     state.endScreenReadyAt = state.animClock + 4;
     state.flash = 0.6;
@@ -3109,7 +3136,32 @@
       glowDiameter: Number.isFinite(info.glowDiameter) ? info.glowDiameter : 32,
       lighter: info.lighter !== false,
       weaponMode: weaponMode,
-      weaponTier: 1
+      weaponTier: 1,
+      orbitA: rand(0, TAU),
+      orbitB: rand(0, TAU)
+    });
+  }
+
+  function spawnCatalyst(x, y) {
+    state.catalystPresent = true;
+    state.pickups.push({
+      type: 'catalyst',
+      x: x,
+      y: y,
+      vx: 0,
+      vy: 0,
+      r: 26,
+      life: 99999,
+      color: '#6fe7ff',
+      emoji: '',
+      bob: rand(0, TAU),
+      spin: rand(0, TAU),
+      glowDiameter: 96,
+      lighter: true,
+      weaponMode: 0,
+      weaponTier: 1,
+      orbitA: rand(0, TAU),
+      orbitB: rand(0, TAU)
     });
   }
 
@@ -3564,6 +3616,18 @@
   function collectPickup(item) {
     const type = typeof item === 'string' ? item : item && item.type;
     const p = state.player;
+    if (type === 'catalyst') {
+      state.catalystPresent = false;
+      state.catalystSequence = { phase: 'center', timer: 0, launchSfxClock: 0, buzzClock: 0 };
+      p.invuln = Math.max(p.invuln, 8);
+      p.fireHeld = false;
+      state.banner = 'THE CATALYST';
+      state.bannerSub = 'Ignition sequence armed.';
+      state.bannerTimer = 2.4;
+      sfx('clear');
+      markHudDirty();
+      return;
+    }
     if (type === 'weapon') {
       const nextMode = item && item.weaponMode != null ? item.weaponMode : p.weaponMode;
       const sameFamily = Number.isFinite(nextMode) && (nextMode | 0) === p.weaponMode;
@@ -3719,15 +3783,29 @@
       state.banner = 'BOSS DOWN';
       state.bannerSub = b.name + ' has fallen.';
       state.bannerTimer = 2.2;
-      state.nextLevelTimer = 2.4;
-      state.transition = { type: 'clear', timer: 0 };
+      if (state.levelIndex >= THEMES.length - 1) {
+        // Boss collapse into a tightening blue field before Catalyst appears.
+        for (let i = 0; i < 14; i++) {
+          const t = i / 13;
+          const rr = lerp(180, 32, t);
+          drawGlowCircle(b.x, b.y, rr, i % 2 === 0 ? '#6fe7ff' : '#3a8dff', 0.18 + (1 - t) * 0.28, 14);
+        }
+        burst(b.x, b.y, '#7deaff', 26, 160, 6, 'spark');
+        burst(b.x, b.y, '#4a86ff', 16, 120, 5, 'spark');
+        spawnCatalyst(b.x, b.y);
+        state.transition = null;
+        state.nextLevelTimer = 0;
+      } else {
+        state.nextLevelTimer = 2.4;
+        state.transition = { type: 'clear', timer: 0 };
+      }
       finalizeStarfieldCap();
       state.player.health = Math.min(state.player.maxHealth, state.player.health + 1);
       state.player.bombs = Math.min(4, state.player.bombs + 1);
       state.player.shield = Math.min(3, state.player.shield + 1);
       sfx('clear');
       state.flash = Math.max(state.flash, 0.68);
-      hint('Boss defeated! Next stage loading...', 2.6);
+      hint(state.levelIndex >= THEMES.length - 1 ? 'The Catalyst has manifested!' : 'Boss defeated! Next stage loading...', 2.6);
       markHudDirty();
     } else if (!fromBomb) {
       sfx('hit');
@@ -4057,6 +4135,62 @@
       if (p.respawnTimer > 0) return;
       p.x = p.respawnTargetX || (view.w * 0.5);
       p.y = p.respawnTargetY || (playArea().bottom - 92);
+    }
+
+    if (state.catalystSequence) {
+      const seq = state.catalystSequence;
+      const a = playArea();
+      const prevXSeq = p.x;
+      const prevYSeq = p.y;
+      p.invuln = Math.max(p.invuln, 6);
+      p.fireHeld = false;
+      p.pointerMode = false;
+      seq.timer += dt;
+      if (seq.phase === 'center') {
+        p.x = smooth(p.x, view.w * 0.5, 1.5, dt);
+        p.y = smooth(p.y, clamp(view.h * 0.46, a.top + 30, a.bottom - 120), 1.4, dt);
+        if (seq.timer >= 3.2) { seq.phase = 'charge'; seq.timer = 0; seq.buzzClock = 0; }
+      } else if (seq.phase === 'charge') {
+        const chargeDuration = 5.2;
+        const chargeT = clamp(seq.timer / chargeDuration, 0, 1);
+        const shakeAmp = lerp(1.2, 15, chargeT * chargeT);
+        const jx = rand(-shakeAmp, shakeAmp);
+        const jy = rand(-shakeAmp, shakeAmp);
+        p.x = smooth(p.x, view.w * 0.5, 2.0, dt) + jx;
+        p.y = smooth(p.y, clamp(a.bottom - 130, a.top + 40, a.bottom - 40), 1.65, dt) + jy;
+        seq.buzzClock = Math.max(0, (seq.buzzClock || 0) - dt);
+        if (seq.buzzClock <= 0) {
+          const buzzFreq = lerp(54, 142, chargeT);
+          const buzzGain = lerp(0.018, 0.055, chargeT);
+          tone({ freq: buzzFreq, endFreq: buzzFreq * 0.985, dur: 0.16, gain: buzzGain, type: 'sawtooth' });
+          noise({ dur: 0.09, gain: buzzGain * 0.42, cutoff: lerp(260, 520, chargeT), q: 0.75 });
+          seq.buzzClock = lerp(0.14, 0.045, chargeT);
+        }
+        if (seq.timer >= chargeDuration) {
+          seq.phase = 'launch';
+          seq.timer = 0;
+          seq.launchSfxClock = 0;
+          catalystLaunchFanfare();
+        }
+      } else {
+        p.x = smooth(p.x, view.w * 0.5, 6.0, dt);
+        p.y -= 1960 * dt;
+        seq.launchSfxClock = Math.max(0, (seq.launchSfxClock || 0) - dt);
+        if (seq.launchSfxClock <= 0) {
+          const progress = clamp((-p.y) / Math.max(1, view.h + 140), 0, 1);
+          const freq = lerp(620, 1860, progress);
+          tone({ freq: freq, endFreq: freq * 1.08, dur: 0.08, gain: 0.06, type: 'triangle' });
+          tone({ freq: freq * 0.5, endFreq: freq * 0.56, dur: 0.09, gain: 0.04, type: 'sine' });
+          seq.launchSfxClock = 0.055;
+        }
+        if (p.y < -140) {
+          state.catalystSequence = null;
+          victory();
+        }
+      }
+      p.vx = dt > 0 ? (p.x - prevXSeq) / dt : 0;
+      p.vy = dt > 0 ? (p.y - prevYSeq) / dt : 0;
+      return;
     }
 
     const a = playArea();
@@ -4636,6 +4770,16 @@
     for (let i = state.pickups.length - 1; i >= 0; i--) {
       const it = state.pickups[i];
       const pickupRadius = it.r * scale;
+      if (it.type === 'catalyst') {
+        it.life = 99999;
+        it.bob += dt * 1.8;
+        it.spin += dt * 0.9;
+        const orbitR = Math.min(view.w, view.h) * 0.28;
+        const cx = view.w * 0.5 + Math.cos(it.bob * 0.37 + it.orbitA) * orbitR * 0.32;
+        const cy = view.h * 0.38 + Math.sin(it.bob * 0.31 + it.orbitB) * orbitR * 0.22;
+        it.x = cx + Math.cos(it.bob * 0.9 + it.orbitA) * orbitR * 0.18;
+        it.y = cy + Math.sin(it.bob * 1.1 + it.orbitB) * orbitR * 0.14;
+      } else {
       it.life -= dt;
       it.bob += dt * 5;
       if (magnet > 0) {
@@ -4655,6 +4799,7 @@
       it.vx *= 0.996;
       it.vy *= 0.995;
       if (it.y > view.h + 50 || it.life <= 0) { state.pickups.splice(i, 1); continue; }
+      }
       if (d2(it.x, it.y, p.x, p.y) < (pickupRadius + playerRadius) * (pickupRadius + playerRadius)) {
         state.pickups.splice(i, 1);
         collectPickup(it);
@@ -4762,7 +4907,7 @@
     updatePickups(dt);
     updateParticles(dt);
     updateTransition(dt);
-    if (!state.transition) {
+    if (!state.transition && !state.catalystPresent && !state.catalystSequence) {
       const theme = state.currentTheme;
       const spawnInterval = clamp(1.3 - state.levelIndex * 0.01, 0.5, 2.0);
       while (state.waveClock >= spawnInterval) { state.waveClock -= spawnInterval; spawnWave(theme); }
@@ -5957,6 +6102,25 @@
       const glowRadiusInner = glowDiameter * 0.25;
       const glowBlurOuter = Math.max(4, 22 * scale);
       const glowBlurInner = Math.max(3, 10 * scale);
+      if (p.type === 'catalyst') {
+        const flameLenPulse = 1 + Math.sin(state.animClock * TAU * 10 + p.bob * 0.3) * 0.12;
+        const flameWPulse = 1 + Math.sin(state.animClock * TAU * 6 + p.spin * 0.2) * 0.09;
+        const pulse = clamp(0.58 + (flameLenPulse - 1) * 0.7 + (flameWPulse - 1) * 0.9 + Math.sin(state.animClock * 2.7 + p.bob) * 0.06, 0.35, 1.25);
+        const outer = glowRadiusOuter * 1.35;
+        const inner = glowRadiusInner * 1.4;
+        drawGlowCircle(p.x, p.y + bob, outer, '#7deaff', 0.40 * pulse, 30 * scale);
+        drawGlowCircle(p.x, p.y + bob, inner, '#3aa6ff', 0.66 * pulse, 17 * scale);
+        drawGlowCircle(p.x, p.y + bob, inner * 0.62, '#b6f8ff', 0.78 * pulse, 10 * scale);
+        const baseR = 14 * scale;
+        for (let k = 0; k < 3; k++) {
+          const a = p.spin * 1.8 + k * (TAU / 3);
+          const ox = Math.cos(a) * (baseR * 0.86 + Math.sin(p.bob * 1.7 + k) * baseR * 0.2);
+          const oy = Math.sin(a * 1.3) * (baseR * 0.74);
+          drawEmojiGlyph('✶', p.x + ox, p.y + bob + oy, 18 * scale, { alpha: 0.92, rot: -a * 1.3, layer: 3, lighter: false, fill: '#04101a' });
+          drawGlowCircle(p.x + ox, p.y + bob + oy, 4.2 * scale, '#a9f2ff', 0.34, 6 * scale);
+        }
+        continue;
+      }
       if (state.settings.lowEndMode) {
         drawGlowCircleNormal(p.x, p.y + bob, glowRadiusOuter, p.color, 0.48, glowBlurOuter);
         drawGlowCircleNormal(p.x, p.y + bob, glowRadiusInner, p.color, 0.85, glowBlurInner);
@@ -6845,7 +7009,7 @@
     } else if (state.mode === 'gameover') {
       drawCenterCard('GAME OVER', state.bannerSub, ['Score: ' + format(state.score), 'Best: ' + format(state.highScore)], '#ff8b79', 'Press fire to continue.');
     } else if (state.mode === 'victory') {
-      drawCenterCard('VICTORY', state.bannerSub, ['Score: ' + format(state.score), 'Best: ' + format(state.highScore)], '#ffe78a', 'Press fire to continue.');
+      drawCenterCard('VICTORY', '', ['Score: ' + format(state.score), 'Best: ' + format(state.highScore)], '#ffe78a', 'Press fire to continue.');
     }
     hudCtx.restore();
   }
