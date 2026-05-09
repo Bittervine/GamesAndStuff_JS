@@ -49,6 +49,7 @@
   let currentDt = 0;
   const MAX_NORMAL_DPR = 1.5;
   const MIN_NORMAL_WINDOW_WIDTH = 1024;
+  const MIN_NORMAL_WINDOW_ITEM_SCALE_REALAXTION = 0.5;
   const URL_PARAMS = new URLSearchParams(window.location.search || '');
   const DEBUG_MODE = URL_PARAMS.get('debug') === '1';
   const DEBUG_END_BOSS = URL_PARAMS.get('debug_endboss') === '1';
@@ -97,7 +98,6 @@
   const STARFIELD_TARGET_FPS = 50;
   const STARFIELD_RAISE_LIMIT = 1.5;
   const STARFIELD_FALL_LIMIT = 0.75;
-  const STARFIELD_NORMAL_CAP = 700;
   const STARFIELD_LOW_END_CAP = 100;
   const STARFIELD_DEFAULT_CAP = 600;
   const DPS_FILTER_LAMBDA = 0.95;
@@ -206,6 +206,15 @@
 
   function narrowScreenScale() {
     return clamp(view.w / MIN_NORMAL_WINDOW_WIDTH, 0, 1);
+  }
+
+  function pickupScale() {
+    const s = narrowScreenScale();
+    return clamp(1 - ((1 - s) * MIN_NORMAL_WINDOW_ITEM_SCALE_REALAXTION), 0, 1);
+  }
+
+  function playerCollisionRadius() {
+    return state.player.r * narrowScreenScale();
   }
 
   function enemyShipKey(levelNumber, shipIndex) {
@@ -2521,7 +2530,9 @@
   }
 
   function ensureStarfield() {
-    const desired = state.settings.lowEndMode ? STARFIELD_LOW_END_CAP : STARFIELD_DEFAULT_CAP;
+    const desired = state.settings.lowEndMode
+      ? STARFIELD_LOW_END_CAP
+      : clamp(Math.round(STARFIELD_DEFAULT_CAP * narrowScreenScale()), STARFIELD_LOW_END_CAP, STARFIELD_DEFAULT_CAP);
     if (state.starfield.length === desired) return;
     const stars = [];
     for (let i = 0; i < desired; i++) {
@@ -2905,8 +2916,10 @@
       state.player.y = playArea().bottom - 92;
       {
         const a = playArea();
-        const y = a.top + 96;
-        const xs = [view.w * 0.5 - 280, view.w * 0.5 - 140, view.w * 0.5, view.w * 0.5 + 140, view.w * 0.5 + 280];
+        const s = narrowScreenScale();
+        const y = a.top + 96 * s;
+        const spread = 140 * s;
+        const xs = [view.w * 0.5 - spread * 2, view.w * 0.5 - spread, view.w * 0.5, view.w * 0.5 + spread, view.w * 0.5 + spread * 2];
         const modes = [1, 2, 0, 3, 4];
         for (let i = 0; i < modes.length; i++) spawnPickup('weapon', xs[i], y, { weaponMode: modes[i] });
       }
@@ -3054,7 +3067,8 @@
     bullet.vy = vy * speedScale;
     bullet.ax = opts && opts.ax ? opts.ax * speedScale : 0;
     bullet.ay = opts && opts.ay ? opts.ay * speedScale : 0;
-    bullet.r = opts && opts.r ? opts.r : (team === 'player' ? 6 : 7);
+    const shotScale = pickupScale();
+    bullet.r = Math.max(1, (opts && opts.r ? opts.r : (team === 'player' ? 6 : 7)) * shotScale);
     bullet.color = opts && opts.color ? opts.color : (team === 'player' ? '#d9fcff' : '#ff765d');
     bullet.life = opts && opts.life ? opts.life : 5.5;
     bullet.damage = (opts && opts.damage ? opts.damage : 1) * damageScale;
@@ -3262,19 +3276,33 @@
       { name: 'centerCorkscrew', startX: view.w * 0.5, startY: -112, targetMinX: 0.34, targetMaxX: 0.66, targetY: 40, controlX: 0.5, controlY: 0.08, bend: 0.18, swirl: 34, turns: 2.1, duration: 1.55 }
     ];
     const routePhase = Math.floor((state.levelClock + waveId * 0.85) / rand(2, 5)) % 2;
+    const sideEntryProgress = clamp((MIN_NORMAL_WINDOW_WIDTH - view.w) / (MIN_NORMAL_WINDOW_WIDTH * 0.5), 0, 1);
+    const sideEntryAllowed = sideEntryProgress > 0;
     function buildEntry(index, kind) {
       const profile = flightProfileForKind(kind);
       const entryRoute = entryRoutes[(index + profile.routeShift) % entryRoutes.length];
       const t = count === 1 ? 0.5 : index / (count - 1);
       const lane = clamp(t + Math.sin((waveId + index) * 0.45) * 0.045, 0, 1);
       const mirror = routePhase === 1 ? -1 : 1;
-      const startX = mirror < 0 ? view.w - entryRoute.startX : entryRoute.startX;
-      const startY = entryRoute.startY - index * 10;
-      const targetMinX = mirror < 0 ? 1 - entryRoute.targetMaxX : entryRoute.targetMinX;
-      const targetMaxX = mirror < 0 ? 1 - entryRoute.targetMinX : entryRoute.targetMaxX;
-      const controlX = mirror < 0 ? 1 - entryRoute.controlX : entryRoute.controlX;
-      const targetX = lerp(view.w * targetMinX, view.w * targetMaxX, lane);
-      const targetY = entryRoute.targetY * profile.settleY + ((index % 3) - 1) * 5;
+      let startX = mirror < 0 ? view.w - entryRoute.startX : entryRoute.startX;
+      let startY = entryRoute.startY - index * 10;
+      let targetMinX = mirror < 0 ? 1 - entryRoute.targetMaxX : entryRoute.targetMinX;
+      let targetMaxX = mirror < 0 ? 1 - entryRoute.targetMinX : entryRoute.targetMaxX;
+      let controlX = mirror < 0 ? 1 - entryRoute.controlX : entryRoute.controlX;
+      let targetX = lerp(view.w * targetMinX, view.w * targetMaxX, lane);
+      let targetY = entryRoute.targetY * profile.settleY + ((index % 3) - 1) * 5;
+      if (sideEntryAllowed) {
+        const fromLeft = ((index + waveId + profile.routeShift) & 1) === 0;
+        const sideMaxY = view.h * 0.5 * sideEntryProgress;
+        const sideMinY = Math.min(22, sideMaxY);
+        startX = fromLeft ? -Math.max(84, view.w * 0.08) : (view.w + Math.max(84, view.w * 0.08));
+        startY = lerp(sideMinY, sideMaxY * 0.82, lane);
+        targetMinX = fromLeft ? 0.18 : 0.52;
+        targetMaxX = fromLeft ? 0.42 : 0.82;
+        targetX = lerp(view.w * targetMinX, view.w * targetMaxX, lane);
+        targetY = clamp(targetY, sideMinY, sideMaxY);
+        controlX = fromLeft ? 0.08 : 0.92;
+      }
       const dx = targetX - startX;
       const dy = targetY - startY;
       const len = Math.max(1, Math.sqrt(dx * dx + dy * dy));
@@ -3833,7 +3861,7 @@
       b.fireClock -= currentDt;
       if (b.fireClock > 0) return;
       b.fireClock = shotDelay(b.hp < b.maxHp * 0.5 ? 1.35 : 1.95);
-      const normalGap = PLAYER_RADIUS * 2.4;
+      const normalGap = playerCollisionRadius() * 2.4;
       const wideGap = 256;
       const bulletCount = Math.max(2, Math.ceil(view.w / normalGap) + 3);
       const gapCenterMin = view.w * 0.25;
@@ -3909,7 +3937,7 @@
       sfx('boss');
     }
     updateBossMotion(b, phaseDef, dt);
-    if (p.invuln <= 0 && bossBodyAlphaHit(b, p.x, p.y, p.r)) {
+    if (p.invuln <= 0 && bossBodyAlphaHit(b, p.x, p.y, playerCollisionRadius())) {
       pushDebugEvent('bossContactHit', {
         boss: {
           name: b.name || '',
@@ -4206,7 +4234,7 @@
           }
         }
       }
-      if (p.invuln <= 0 && d2(b.x, b.y, p.x, p.y) < (b.r + p.r) * (b.r + p.r)) {
+      if (p.invuln <= 0 && d2(b.x, b.y, p.x, p.y) < (b.r + playerCollisionRadius()) * (b.r + playerCollisionRadius())) {
         remove = true;
         pushDebugEvent('enemyBulletHit', {
           bullet: {
@@ -4513,7 +4541,7 @@
       tryEnemyFire(e, p, entering);
       e.flightAngle = Math.atan2(e.y - prevY, e.x - prevX);
       if (e.y > view.h + 72 || e.x < -90 || e.x > view.w + 90) { state.enemies.splice(i, 1); continue; }
-      if (d2(e.x, e.y, p.x, p.y) < (e.r + p.r) * (e.r + p.r)) {
+      if (d2(e.x, e.y, p.x, p.y) < (e.r + playerCollisionRadius()) * (e.r + playerCollisionRadius())) {
         if (p.invuln > 0) continue;
         const contactDamage = currentDifficulty().contact;
         pushDebugEvent('enemyContactHit', {
@@ -4542,8 +4570,11 @@
   function updatePickups(dt) {
     const p = state.player;
     const magnet = p.magnetTimer > 0 ? 600 : 0;
+    const scale = pickupScale();
+    const playerRadius = playerCollisionRadius();
     for (let i = state.pickups.length - 1; i >= 0; i--) {
       const it = state.pickups[i];
+      const pickupRadius = it.r * scale;
       it.life -= dt;
       it.bob += dt * 5;
       if (magnet > 0) {
@@ -4563,7 +4594,7 @@
       it.vx *= 0.996;
       it.vy *= 0.995;
       if (it.y > view.h + 50 || it.life <= 0) { state.pickups.splice(i, 1); continue; }
-      if (d2(it.x, it.y, p.x, p.y) < (it.r + p.r) * (it.r + p.r)) {
+      if (d2(it.x, it.y, p.x, p.y) < (pickupRadius + playerRadius) * (pickupRadius + playerRadius)) {
         state.pickups.splice(i, 1);
         collectPickup(it);
       }
@@ -5008,13 +5039,14 @@
 
   function resetScrollingCloud(cloud) {
     const w = Math.max(1, view.w);
+    const scale = narrowScreenScale();
     cloud.x = w * (0.10 + Math.random() * 0.78);
     cloud.y = -Math.max(180, view.h * (0.10 + Math.random() * 0.18));
     cloud.delay = 0;
     cloud.speed = (14 + Math.random() * 16) * 10;
     cloud.vx = (Math.random() - 0.5) * 12;
     cloud.seed = (Math.random() * 0x7fffffff) | 0;
-    cloud.r = 90 + Math.random() * 36;
+    cloud.r = (90 + Math.random() * 36) * scale;
     cloud.cluster = 8 + ((Math.random() * 5) | 0);
     cloud.a = 0.16 + Math.random() * 0.08;
     cloud.cloudType = 1; // Blue
@@ -5288,7 +5320,7 @@
       const art = asteroid.art || getAsteroidArt(asteroid.imageIndex);
       if (!art || !art.mask) continue;
       let asteroidGone = false;
-      if (circleHitsAlphaMask(art.mask, asteroid.x, asteroid.y, asteroid.drawW, asteroid.drawH, asteroid.rot, p.x, p.y, p.r)) {
+      if (circleHitsAlphaMask(art.mask, asteroid.x, asteroid.y, asteroid.drawW, asteroid.drawH, asteroid.rot, p.x, p.y, playerCollisionRadius())) {
         damageAsteroid(asteroid, contactDamage);
         hurtPlayer(contactDamage, { kind: 'asteroid-contact', sourceKind: 'asteroid', sourceName: 'asteroid' });
         asteroidGone = asteroid.dead || asteroid.respawnTimer > 0;
@@ -5855,20 +5887,23 @@
   }
 
   function drawPickups() {
+    const scale = pickupScale();
     for (let i = 0; i < state.pickups.length; i++) {
       const p = state.pickups[i];
-      const bob = Math.sin(p.bob) * 4;
-      const glowDiameter = Number.isFinite(p.glowDiameter) ? p.glowDiameter : 32;
+      const bob = Math.sin(p.bob) * 4 * scale;
+      const glowDiameter = (Number.isFinite(p.glowDiameter) ? p.glowDiameter : 32) * scale;
       const glowRadiusOuter = glowDiameter * 0.5;
       const glowRadiusInner = glowDiameter * 0.25;
+      const glowBlurOuter = Math.max(4, 22 * scale);
+      const glowBlurInner = Math.max(3, 10 * scale);
       if (state.settings.lowEndMode) {
-        drawGlowCircleNormal(p.x, p.y + bob, glowRadiusOuter, p.color, 0.48, 22);
-        drawGlowCircleNormal(p.x, p.y + bob, glowRadiusInner, p.color, 0.85, 10);
+        drawGlowCircleNormal(p.x, p.y + bob, glowRadiusOuter, p.color, 0.48, glowBlurOuter);
+        drawGlowCircleNormal(p.x, p.y + bob, glowRadiusInner, p.color, 0.85, glowBlurInner);
       } else {
-        drawGlowCircle(p.x, p.y + bob, glowRadiusOuter, p.color, 0.48, 22);
-        drawGlowCircle(p.x, p.y + bob, glowRadiusInner, p.color, 0.85, 10);
+        drawGlowCircle(p.x, p.y + bob, glowRadiusOuter, p.color, 0.48, glowBlurOuter);
+        drawGlowCircle(p.x, p.y + bob, glowRadiusInner, p.color, 0.85, glowBlurInner);
       }
-      drawEmojiGlyph(p.emoji, p.x, p.y + bob, 20, { alpha: 1, rot: Math.sin(p.spin + p.bob * 0.7) * 0.16, layer: 2, lighter: p.lighter !== false });
+      drawEmojiGlyph(p.emoji, p.x, p.y + bob, 20 * scale, { alpha: 1, rot: Math.sin(p.spin + p.bob * 0.7) * 0.16, layer: 2, lighter: p.lighter !== false });
     }
   }
 
@@ -6297,23 +6332,24 @@
     const invulnActive = p.invuln > 0;
     const auraColor = invulnActive ? '#bfe4ff' : glow;
     const flashAlpha = p.invuln > 0 ? 0.52 + 0.42 * (0.5 + 0.5 * Math.sin((3 - p.invuln) * 16 + state.musicStep * 0.9)) : 1;
-    const shipSize = 74 + (state.overdrive > 0 ? 4 : 0);
+    const playerScale = narrowScreenScale();
+    const shipSize = (74 + (state.overdrive > 0 ? 4 : 0)) * playerScale;
     const shipY = p.y + bob;
     const shipVisualY = shipY - 6;
-    const planeSize = 36 + (state.overdrive > 0 ? 4 : 0);
-    const shieldRing = p.r;
+    const planeSize = (36 + (state.overdrive > 0 ? 4 : 0)) * playerScale;
+    const shieldRing = p.r * playerScale;
     const shipTexture = getPlayerShipTexture();
     const auraTexture = getPlayerAuraTexture();
     const flameTexture = getPlayerEngineFlameTexture((Math.floor(state.musicStep * 6 + p.x * 0.02) & 3));
     if (auraTexture) {
-      drawTextureRect(auraTexture, p.x, shipY, 196, 196, {
+      drawTextureRect(auraTexture, p.x, shipY, 196 * playerScale, 196 * playerScale, {
         alpha: 0.27,
         layer: 3,
         lighter: false
       });
     }
     const playerGlow = state.overdrive > 0 ? '#ffe59a' : '#92dcff';
-    drawSoftEdgeGlow(p.x, shipY, 50, playerGlow, 0.22);
+    drawSoftEdgeGlow(p.x, shipY, 50 * playerScale, playerGlow, 0.22);
     if (invulnActive) {
       const invulnRings = [
         { r: shieldRing + 14, color: '#ff0000' },
