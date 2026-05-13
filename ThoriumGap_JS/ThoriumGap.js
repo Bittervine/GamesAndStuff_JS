@@ -44,6 +44,7 @@
   const difficultyButtons = Array.from(document.querySelectorAll('[data-difficulty]'));
   const lowEndModeInput = document.getElementById('lowEndMode');
   const alwaysFollowMouseInput = document.getElementById('alwaysFollowMouse');
+  const autoFullscreenInput = document.getElementById('autoFullscreen');
 
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
   let currentDt = 0;
@@ -1942,6 +1943,7 @@
       difficulty: clamp(Math.round(loadNum('ThroriumGap_difficulty', 0)), 0, 2),
       lowEndMode: loadBool('ThroriumGap_lowEndMode', false),
       alwaysFollowMouse: loadBool('ThroriumGap_alwaysFollowMouse', false),
+      autoFullscreen: loadBool('ThroriumGap_autoFullscreen', true),
       starfieldCap: clamp(Math.round(loadNum('ThroriumGap_starfieldCap', STARFIELD_DEFAULT_CAP)), STARFIELD_LOW_END_CAP, STARFIELD_DEFAULT_CAP)
     },
     lives: 3,
@@ -2223,6 +2225,7 @@
     saveNum('ThroriumGap_difficulty', state.settings.difficulty);
     saveBool('ThroriumGap_lowEndMode', state.settings.lowEndMode);
     saveBool('ThroriumGap_alwaysFollowMouse', state.settings.alwaysFollowMouse);
+    saveBool('ThroriumGap_autoFullscreen', state.settings.autoFullscreen);
     saveNum('ThroriumGap_starfieldCap', state.settings.starfieldCap);
     saveNum('ThroriumGap_highScore', state.highScore);
   }
@@ -2239,6 +2242,7 @@
       lowEndModeInput.disabled = !gl;
     }
     if (alwaysFollowMouseInput) alwaysFollowMouseInput.checked = !!state.settings.alwaysFollowMouse;
+    if (autoFullscreenInput) autoFullscreenInput.checked = !!state.settings.autoFullscreen;
     for (let i = 0; i < difficultyButtons.length; i++) {
       const btn = difficultyButtons[i];
       const idx = Number(btn.getAttribute('data-difficulty'));
@@ -2248,6 +2252,53 @@
     const soundBtn = controlsEl.querySelector('[data-act="sound"]');
     if (soundBtn) soundBtn.textContent = state.muted ? 'MUTED' : 'SOUND';
     applyMute();
+  }
+
+  function isFullscreenActive() {
+    return !!document.fullscreenElement;
+  }
+
+  function syncFullscreenButton() {
+    const fullscreenBtn = controlsEl.querySelector('[data-act="fullscreen"]');
+    if (!fullscreenBtn) return;
+    const active = isFullscreenActive();
+    fullscreenBtn.textContent = active ? 'WINDOWED' : 'FULLSCREEN';
+    fullscreenBtn.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen');
+    fullscreenBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  }
+
+  function toggleFullscreen() {
+    setFullscreenActive(!isFullscreenActive());
+  }
+
+  function setFullscreenActive(next) {
+    const wantFullscreen = !!next;
+    const root = document.documentElement;
+    const req = root.requestFullscreen;
+    const exit = document.exitFullscreen;
+    try {
+      if (wantFullscreen) {
+        if (isFullscreenActive()) return;
+        if (!req) {
+          hint('Fullscreen not available.', 1.6);
+          return;
+        }
+        const pending = req.call(root);
+        if (pending && pending.catch) pending.catch(function () { hint('Fullscreen not available.', 1.6); });
+      } else if (isFullscreenActive()) {
+        if (!exit) return;
+        const pending = exit.call(document);
+        if (pending && pending.catch) pending.catch(function () {});
+      }
+    } catch (err) {
+      hint('Fullscreen not available.', 1.6);
+    }
+  }
+
+  function applyAutoFullscreenPolicy() {
+    if (!state.settings.autoFullscreen) return;
+    const shouldBeFullscreen = state.mode === 'playing' && !state.paused;
+    setFullscreenActive(shouldBeFullscreen);
   }
 
   function setVolume(kind, value) {
@@ -2295,6 +2346,14 @@
     saveSettings();
     syncSettingsUi();
     hint(enabled ? 'Ship will follow mouse without right hold.' : 'Ship follow mouse now requires right hold.', 1.8);
+  }
+
+  function setAutoFullscreen(enabled) {
+    state.settings.autoFullscreen = !!enabled;
+    saveSettings();
+    syncSettingsUi();
+    applyAutoFullscreenPolicy();
+    hint(state.settings.autoFullscreen ? 'Auto fullscreen enabled.' : 'Auto fullscreen disabled.', 1.6);
   }
 
   function debugGiveWeapon(name, tier) {
@@ -2784,6 +2843,7 @@
     closeSettings();
     resetRun();
     state.mode = 'playing';
+    applyAutoFullscreenPolicy();
     if (DEBUG_END_BOSS) debugJumpToFinalBoss(true);
     else beginLevel(0);
     markHudDirty();
@@ -2978,6 +3038,7 @@
 
   function victory() {
     state.mode = 'victory';
+    applyAutoFullscreenPolicy();
     state.banner = 'VICTORY';
     state.bannerSub = '';
     state.bannerTimer = 999;
@@ -3000,6 +3061,7 @@
       levelIndex: state.levelIndex
     });
     state.mode = 'gameover';
+    applyAutoFullscreenPolicy();
     state.banner = 'GAME OVER';
     state.bannerSub = reason || 'The void has taken the ship.';
     state.bannerTimer = 999;
@@ -7042,7 +7104,7 @@
     if (state.paused) {
       hudCtx.fillStyle = 'rgba(0,0,0,0.28)';
       hudCtx.fillRect(0, 0, view.w, view.h);
-      drawCenterCard('PAUSED', 'Press P or click PAUSE to resume.', ['The battle is frozen in place.'], theme.accent2, 'Hold FIRE when you are ready.');
+      drawCenterCard('PAUSED', 'Press P to resume.', ['The battle is frozen in place.'], theme.accent2, 'Hold FIRE when you are ready.');
     } else if (state.mode === 'gameover') {
       drawCenterCard('GAME OVER', state.bannerSub, ['Score: ' + format(state.score), 'Best: ' + format(state.highScore)], '#ff8b79', 'Press fire to continue.');
     } else if (state.mode === 'victory') {
@@ -7172,7 +7234,8 @@
     const next = force == null ? !state.paused : !!force;
     if (next === state.paused) return;
     state.paused = next;
-    setBanner(state.paused ? 'PAUSED' : 'RESUMED', state.paused ? 'Press P or click PAUSE.' : 'Back in the fight.', 1.0);
+    applyAutoFullscreenPolicy();
+    setBanner(state.paused ? 'PAUSED' : 'RESUMED', state.paused ? 'Press P to resume.' : 'Back in the fight.', 1.0);
     hint(state.paused ? 'Paused.' : 'Back in action.', 1.3);
   }
 
@@ -7189,6 +7252,10 @@
     }
     if (act === 'settings' && down) {
       toggleSettings();
+      return;
+    }
+    if (act === 'fullscreen' && down) {
+      toggleFullscreen();
       return;
     }
     if (act === 'fire') {
@@ -7419,6 +7486,7 @@
   controlsEl.querySelectorAll('button[data-act]').forEach(function (button) {
     bindButton(button, button.getAttribute('data-act'));
   });
+  syncFullscreenButton();
   settingsClose.addEventListener('click', function () {
     closeSettings();
   });
@@ -7448,6 +7516,11 @@
       setAlwaysFollowMouse(ev.target.checked);
     });
   }
+  if (autoFullscreenInput) {
+    autoFullscreenInput.addEventListener('change', function (ev) {
+      setAutoFullscreen(ev.target.checked);
+    });
+  }
   for (let i = 0; i < difficultyButtons.length; i++) {
     difficultyButtons[i].addEventListener('click', function () {
       setDifficulty(Number(this.getAttribute('data-difficulty')));
@@ -7472,6 +7545,7 @@
   document.addEventListener('visibilitychange', function () {
     if (document.hidden && state.mode === 'playing' && !state.paused) togglePause(true);
   });
+  document.addEventListener('fullscreenchange', syncFullscreenButton);
   requestAnimationFrame(loop);
 }());
 

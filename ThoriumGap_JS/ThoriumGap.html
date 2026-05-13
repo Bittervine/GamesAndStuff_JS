@@ -388,7 +388,7 @@
   <div id="hudHint"></div>
   <button id="titleManual" type="button">MANUAL</button>
   <div id="controls" aria-label="Game controls">
-    <button data-act="pause" aria-label="Pause game">PAUSE</button>
+    <button data-act="fullscreen" aria-label="Enter fullscreen">FULLSCREEN</button>
     <button data-act="settings" aria-label="Open settings">SETTINGS</button>
   </div>
   <dialog id="settingsDialog" aria-labelledby="settingsTitle" aria-modal="true">
@@ -437,12 +437,16 @@
         <span>Ship always follows mouse</span>
         <input id="alwaysFollowMouse" type="checkbox">
       </label>
+      <label class="settings-toggle" for="autoFullscreen">
+        <span>Automatically toggle fullscreen mode</span>
+        <input id="autoFullscreen" type="checkbox">
+      </label>
 
     </div>
   </dialog>
   <script>
     (function () {
-      var appVersion = 'thoriumgap-v29'; // BUMP ME
+      var appVersion = 'thoriumgap-v30'; // BUMP ME
       var script = document.createElement('script');
       script.src = './ThoriumGap.js';
       document.head.appendChild(script);
