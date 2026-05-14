@@ -103,7 +103,7 @@
   const STARFIELD_RAISE_LIMIT = 1.5;
   const STARFIELD_FALL_LIMIT = 0.75;
   const STARFIELD_LOW_END_CAP = 100;
-  const STARFIELD_DEFAULT_CAP = 600;
+  const STARFIELD_DEFAULT_CAP = 1000;
   const DPS_FILTER_LAMBDA = 0.95;
   const PLAYER_SHIP_TEXTURE_KEY = 'player-ship';
   const PLAYER_AURA_TEXTURE_KEY = 'player-aura';
@@ -2658,7 +2658,7 @@
   function ensureStarfield() {
     const desired = state.settings.lowEndMode
       ? STARFIELD_LOW_END_CAP
-      : clamp(Math.round(STARFIELD_DEFAULT_CAP * narrowScreenScale()), STARFIELD_LOW_END_CAP, STARFIELD_DEFAULT_CAP);
+      : clamp(Math.round(view.w / 3), STARFIELD_LOW_END_CAP, STARFIELD_DEFAULT_CAP);
     if (state.starfield.length === desired) return;
     const stars = [];
     for (let i = 0; i < desired; i++) {
@@ -5769,8 +5769,6 @@
       const art = asteroid.art || getAsteroidArt(asteroid.imageIndex);
       if (!art || !art.texture || !art.mask) continue;
       if (asteroid.hitFlash > 0) {
-        const glow = Math.max(56, Math.max(asteroid.drawW, asteroid.drawH) * 0.35);
-        drawGlowCircle(asteroid.x, asteroid.y, glow, '#ffffff', clamp(asteroid.hitFlash * 0.24, 0.06, 0.8), 26);
         if (asteroid.hitSparkDamage) {
           burst(asteroid.x, asteroid.y, '#f1eadf', 4 + Math.min(8, asteroid.hitSparkDamage), 110 + asteroid.hitSparkDamage * 22, 5, 'spark');
           asteroid.hitSparkDamage = 0;
