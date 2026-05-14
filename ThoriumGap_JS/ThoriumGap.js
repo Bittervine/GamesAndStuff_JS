@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
 
   const TAU = Math.PI * 2;
@@ -49,7 +49,7 @@
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
   let currentDt = 0;
   const MAX_NORMAL_DPR = 1.5;
-  const MIN_NORMAL_WINDOW_WIDTH = 1024;
+  const MIN_NORMAL_WINDOW_WIDTH = 600;
   const MIN_NORMAL_WINDOW_ITEM_SCALE_REALAXTION = 0.5;
   const URL_PARAMS = new URLSearchParams(window.location.search || '');
   const DEBUG_MODE = URL_PARAMS.get('debug') === '1';
