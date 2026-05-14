@@ -1833,7 +1833,7 @@
   const THEMES = [
     theme({ name: 'Thorium Rift', subtitle: 'None Shall Pass', skyTop: '#000000', skyBottom: '#000000', glow: '#9bc5ff', accent: '#6d9cff', accent2: '#d5e4ff', forms: ['line', 'fan', 'rain'], enemyKinds: ['drifter', 'swarm', 'looper'], atmosphere: 'leaves', music: { bpm: 112, root: 220, pattern: [0, 3, 5, 7, 10, 7, 5, 3] }, boss: { name: 'Red Guardian', emoji: E.apple, hp: 400, size: 320, color: '#9ec2ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
     theme({ name: 'Broken Shore', subtitle: 'First of His Name', skyTop: '#000000', skyBottom: '#000000', glow: '#8ff7ff', accent: '#58d7c6', accent2: '#c8fff2', forms: ['swarm', 'pair', 'arc'], enemyKinds: ['looper', 'bomber', 'sniper'], atmosphere: 'pollen', music: { bpm: 126, root: 246, pattern: [0, 2, 4, 7, 9, 7, 4, 2] }, boss: { name: 'Rocket Baron', emoji: E.bee, hp: 500, size: 420, color: '#93f0e8', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Growling Space', subtitle: 'The Gilded Pouncer', skyTop: '#000000', skyBottom: '#000000', glow: '#e8d124', accent: '#ffe77c', accent2: '#fff5d0', forms: ['fan', 'rain', 'cross'], enemyKinds: ['drifter', 'looper', 'bomber'], atmosphere: 'sprinkles', music: { bpm: 136, root: 262, pattern: [0, 4, 7, 12, 7, 4, 5, 9] }, boss: { name: 'Kharza Prime', emoji: E.donut, hp: 600, size:425 , color: '#fffa9b', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7, 'sweep', 'ring'), phase(8, 'low', 'rain')] }}),
+    theme({ name: 'Growling Space', subtitle: 'The Gilded Pouncer', skyTop: '#000000', skyBottom: '#000000', glow: '#e8d124', accent: '#ffe77c', accent2: '#fff5d0', forms: ['fan', 'rain', 'cross'], enemyKinds: ['drifter', 'looper', 'bomber'], atmosphere: 'sprinkles', music: { bpm: 136, root: 262, pattern: [0, 4, 7, 12, 7, 4, 5, 9] }, boss: { name: 'Kharza Prime', emoji: E.donut, hp: 600, size:425 , color: '#fffa9b', flipWhenMovingRight: true, phases: [phase(10, 'pounce', 'fan'), phase(7, 'sweep', 'ring')] }}),
     theme({ name: 'Spinners Den', subtitle: 'Hunger Without Limit', skyTop: '#000000', skyBottom: '#000000', glow: '#96c9ff', accent: '#9fb2c6', accent2: '#d0e0ef', forms: ['line', 'pair', 'cross'], enemyKinds: ['looper', 'sniper', 'bomber'], atmosphere: 'sparks', music: { bpm: 118, root: 196, pattern: [0, 0, 7, 5, 4, 5, 7, 10] }, boss: { name: 'Silken Spinner', emoji: E.gear, hp: 700, size: 430, color: '#d0d9e1', flipWhenMovingRight: false, phases: [phase(7, 'wheel', 'spinrain'), phase(7.5, 'dash', 'summon'), phase(8, 'hover', 'fan')] }, asteroidDensity: 2  }),
     theme({ name: 'Deadlight Harbor', subtitle: 'Master of the Soulless Crew', skyTop: '#000000', skyBottom: '#532a40', glow: '#ffbf8a', accent: '#e0a06c', accent2: '#ffc8a1', forms: ['rain', 'arc', 'swarm'], enemyKinds: ['swarm', 'sniper', 'drifter'], atmosphere: 'motes', music: { bpm: 108, root: 196, pattern: [0, 5, 7, 10, 7, 5, 3, 5] }, boss: { name: 'Captain Thaddeus', emoji: E.lantern, hp: 900, size: 435, color: '#f6b46d', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'ring')] } }),
     theme({ name: 'Elysium Sea', subtitle: 'The Steed of Neptune', skyTop: '#000000', skyBottom: '#000000', glow: '#ffd77a', accent: '#c47a19', accent2: '#ffd59f', forms: ['swarm', 'fan', 'pair'], enemyKinds: ['diver', 'swarm', 'sniper'], atmosphere: 'embers', music: { bpm: 132, root: 246, pattern: [0, 2, 3, 7, 10, 7, 3, 2] }, boss: { name: 'Lunar Horse', emoji: E.bee, hp: 1100, size: 440, color: '#e4ba6a', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(8, 'dash', 'rain'), phase(7.5, 'sweep', 'summon')] } }),
@@ -4104,12 +4104,65 @@
     const a = playArea();
     const cx = view.w * 0.5;
     let tx = cx, ty = 128;
+    let xResponse = 2.8;
+    let yResponse = 2.1;
     if (phaseDef.motion === 'hover') {
       tx = cx + Math.sin(b.age * 0.8) * 160;
       ty = 126 + Math.sin(b.age * 1.1) * 18;
     } else if (phaseDef.motion === 'sweep') {
       tx = cx + Math.sin(b.age * 0.48 + b.phaseIndex) * 240;
       ty = 132 + Math.sin(b.age * 1.3) * 20;
+    } else if (phaseDef.motion === 'pounce') {
+      const theta = b.age * 0.34 + b.phaseIndex * 0.5;
+      const sideX = cx + Math.sin(theta) * 190;
+      const sideY = 136 + Math.sin(b.age * 0.9) * 10;
+      tx = sideX;
+      ty = sideY;
+      const pounceDropDur = 0.22;
+      const pounceRetractDur = 0.36;
+      const pounceDist = Math.min(view.w, view.h) * 0.50;
+      if (b.state.pounceStage !== 'wait' && b.state.pounceStage !== 'drop' && b.state.pounceStage !== 'retract') {
+        b.state.pounceStage = 'wait';
+        b.state.pounceTimer = rand(2, 5);
+      }
+      b.state.pounceTimer = Math.max(0, (b.state.pounceTimer || 0) - dt);
+      if (b.state.pounceStage === 'wait' && b.state.pounceTimer <= 0) {
+        b.state.pounceStage = 'drop';
+        b.state.pounceTimer = pounceDropDur;
+        b.state.pounceAngle = rand(10, 35) * (Math.PI / 180);
+        b.state.pounceDir = Math.cos(theta) >= 0 ? 1 : -1;
+        b.state.pounceOriginX = sideX;
+        b.state.pounceOriginY = sideY;
+      }
+      const pounceAngle = Number.isFinite(b.state.pounceAngle) ? b.state.pounceAngle : (Math.PI / 6);
+      const pounceDx = pounceDist * Math.cos(pounceAngle);
+      const pounceDy = pounceDist * Math.sin(pounceAngle);
+      const pounceDir = Number.isFinite(b.state.pounceDir) ? b.state.pounceDir : (Math.cos(theta) >= 0 ? 1 : -1);
+      const pounceOriginX = Number.isFinite(b.state.pounceOriginX) ? b.state.pounceOriginX : sideX;
+      const pounceOriginY = Number.isFinite(b.state.pounceOriginY) ? b.state.pounceOriginY : sideY;
+      if (b.state.pounceStage === 'drop') {
+        const t = clamp(1 - (b.state.pounceTimer / pounceDropDur), 0, 1);
+        const e = 1 - Math.pow(1 - t, 3);
+        tx = pounceOriginX + pounceDir * pounceDx * e;
+        ty = pounceOriginY + pounceDy * e;
+        xResponse = 11.0;
+        yResponse = 11.0;
+        if (b.state.pounceTimer <= 0) {
+          b.state.pounceStage = 'retract';
+          b.state.pounceTimer = pounceRetractDur;
+        }
+      } else if (b.state.pounceStage === 'retract') {
+        const t = clamp(1 - (b.state.pounceTimer / pounceRetractDur), 0, 1);
+        const e = t * t * (3 - 2 * t);
+        tx = pounceOriginX + pounceDir * pounceDx * (1 - e);
+        ty = pounceOriginY + pounceDy * (1 - e);
+        xResponse = 7.0;
+        yResponse = 6.0;
+        if (b.state.pounceTimer <= 0) {
+          b.state.pounceStage = 'wait';
+          b.state.pounceTimer = rand(2, 5);
+        }
+      }
     } else if (phaseDef.motion === 'wheel') {
       tx = cx + Math.sin(b.age * 0.66 + b.phaseIndex * 0.35) * 210;
       ty = 140 + Math.sin(b.age * 1.5) * 12;
@@ -4129,12 +4182,17 @@
       tx = b.state.dashTarget;
       ty = 148 + Math.sin(b.age * 2.1) * 14;
     }
+    if (phaseDef.motion !== 'pounce') {
+      b.state.pounceStage = '';
+      b.state.pounceTimer = 0;
+    }
     if (phaseDef.motion !== 'wheel') b.wheelRot = smooth(b.wheelRot || 0, 0, 7.0, dt);
     ty += Number.isFinite(b.yOffset) ? b.yOffset : 0;
     const prevX = b.x;
     const prevY = b.y;
-    b.x = smooth(b.x, clamp(tx, 88, view.w - 88), 2.8, motionDt);
-    b.y = smooth(b.y, clamp(ty, 88, a.bottom - 260), 2.1, motionDt);
+    const maxY = phaseDef.motion === 'pounce' ? (a.bottom - 190) : (a.bottom - 260);
+    b.x = smooth(b.x, clamp(tx, 88, view.w - 88), xResponse, motionDt);
+    b.y = smooth(b.y, clamp(ty, 88, maxY), yResponse, motionDt);
     b.vx = dt > 0 ? (b.x - prevX) / dt : 0;
     b.vy = dt > 0 ? (b.y - prevY) / dt : 0;
     if (Math.abs(b.vx) > 0.5) b.facingRight = b.vx > 0;
