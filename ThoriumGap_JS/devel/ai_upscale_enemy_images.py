@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
 import re
@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image
 
 
-FILENAME_REGEX = re.compile(r"^Enemy_\d+[a-z]?\.png$", re.IGNORECASE)
+FILENAME_REGEX = re.compile(r"^enemy_\d+[a-z]?\.png$", re.IGNORECASE)
 MODEL_NAME = "RealESRGAN_x4plus_anime_6B"
 MODEL_URL = (
     "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/"
@@ -36,7 +36,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--pattern",
-        default="Enemy_*.png",
+        default="enemy_*.png",
         help="Glob pattern for candidate files inside assets dir.",
     )
     parser.add_argument(

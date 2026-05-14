@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   'use strict';
 
   const TAU = Math.PI * 2;
@@ -168,7 +168,7 @@
   titleArt.decoding = 'async';
   titleArt.onload = function () { titleArtReady = true; };
   titleArt.onerror = function () { titleArtReady = false; };
-  titleArt.src = 'assets/Thorium_Gap_title.png';
+  titleArt.src = 'assets/thorium_gap_title.png';
   const glowImages = new Map();
   const glowImageLoads = new Set();
   const ENEMY_SHIP_COLUMNS = 7;
@@ -235,7 +235,7 @@
   }
 
   function enemyShipSource(levelNumber, shipIndex) {
-    return 'assets/Enemy_' + String(levelNumber).padStart(3, '0') + String(shipIndex).padStart(2, '0') + ENEMY_SHIP_VARIANT + '.png';
+    return 'assets/enemy_' + String(levelNumber).padStart(3, '0') + String(shipIndex).padStart(2, '0') + ENEMY_SHIP_VARIANT + '.png';
   }
 
   function fallbackEnemyShipGlowColor(levelNumber, shipIndex) {
@@ -767,8 +767,8 @@
   }
 
   function bossArtSource(levelNumber) {
-    if (levelNumber === 13) return 'assets/Boss_13_Body.png';
-    return 'assets/Boss_' + String(levelNumber).padStart(2, '0') + '.png';
+    if (levelNumber === 13) return 'assets/boss_13_body.png';
+    return 'assets/boss_' + String(levelNumber).padStart(2, '0') + '.png';
   }
 
   function bossPartKey(levelNumber, partName) {
@@ -776,7 +776,7 @@
   }
 
   function bossPartSource(levelNumber, partName) {
-    if (levelNumber === 13 && (partName === 'leftClaw' || partName === 'rightClaw')) return 'assets/Boss_13_LeftClaw.png';
+    if (levelNumber === 13 && (partName === 'leftClaw' || partName === 'rightClaw')) return 'assets/boss_13_leftclaw.png';
     return '';
   }
 
@@ -1089,7 +1089,7 @@
   }
 
   function asteroidSource(index) {
-    return 'assets/Asteroid-' + String(index).padStart(2, '0') + '.png';
+    return 'assets/asteroid-' + String(index).padStart(2, '0') + '.png';
   }
 
   function ensureAsteroidArt(index) {

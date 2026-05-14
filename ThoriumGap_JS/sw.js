@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = 'thoriumgap-v31'; // BUMP ME
+var APP_VERSION = 'thoriumgap-v32'; // BUMP ME
 var CACHE_NAME = APP_VERSION;
 var APP_SHELL = [
   './ThoriumGap.html',
@@ -25,7 +25,7 @@ var APP_ASSETS = (function () {
   var out = [];
   var lvl;
   var ship;
-  out.push('./assets/Thorium_Gap_title.png');
+  out.push('./assets/thorium_gap_title.png');
   out.push('./assets/players_spaceship.png');
   out.push('./assets/players_aura.png');
   out.push('./assets/glow_e_white.png');
@@ -33,14 +33,14 @@ var APP_ASSETS = (function () {
   out.push('./assets/glow_e_green.png');
   out.push('./assets/glow_e_red.png');
 
-  for (lvl = 1; lvl <= 13; lvl++) out.push('./assets/Boss_' + z2(lvl) + '.png');
-  out.push('./assets/Boss_13_Body.png');
-  out.push('./assets/Boss_13_LeftClaw.png');
+  for (lvl = 1; lvl <= 13; lvl++) out.push('./assets/boss_' + z2(lvl) + '.png');
+  out.push('./assets/boss_13_body.png');
+  out.push('./assets/boss_13_leftclaw.png');
   for (lvl = 1; lvl <= 32; lvl++) out.push('./assets/planet_image_' + z2(lvl) + '.png');
-  for (lvl = 1; lvl <= 28; lvl++) out.push('./assets/Asteroid-' + z2(lvl) + '.png');
+  for (lvl = 1; lvl <= 28; lvl++) out.push('./assets/asteroid-' + z2(lvl) + '.png');
   for (lvl = 1; lvl <= 13; lvl++) {
     for (ship = 0; ship <= 6; ship++) {
-      out.push('./assets/Enemy_' + z3(lvl) + z2(ship) + 'a.png');
+      out.push('./assets/enemy_' + z3(lvl) + z2(ship) + 'a.png');
     }
   }
   return out;

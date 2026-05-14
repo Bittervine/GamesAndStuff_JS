@@ -9,10 +9,10 @@
 Runtime asset paths used by the game:
 - `assets/players_spaceship.png`
 - `assets/player_spaceship.glb`
-- `assets/Thorium_Gap_title.png`
-- `assets/Enemy_*.png`
-- `assets/Boss_*.png`
-- `assets/Asteroid-*.png`
+- `assets/thorium_gap_title.png`
+- `assets/enemy_*.png`
+- `assets/boss_*.png`
+- `assets/asteroid-*.png`
 - `assets/glow_e_*.png`
 
 Development files:
