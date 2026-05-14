@@ -3058,7 +3058,7 @@
         const a = playArea();
         const s = narrowScreenScale();
         const y = a.top + 96 * s;
-        const spread = 140 * s;
+        const spread = 130 * s;
         const xs = [view.w * 0.5 - spread * 2, view.w * 0.5 - spread, view.w * 0.5, view.w * 0.5 + spread, view.w * 0.5 + spread * 2];
         const modes = [1, 2, 0, 3, 4];
         for (let i = 0; i < modes.length; i++) spawnPickup('weapon', xs[i], y, { weaponMode: modes[i] });
