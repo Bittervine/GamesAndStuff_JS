@@ -2245,7 +2245,13 @@
       lowEndModeInput.disabled = !gl;
     }
     if (alwaysFollowMouseInput) alwaysFollowMouseInput.checked = !!state.settings.alwaysFollowMouse;
-    if (autoFullscreenInput) autoFullscreenInput.checked = !!state.settings.autoFullscreen;
+    if (autoFullscreenInput) {
+      autoFullscreenInput.checked = !!state.settings.autoFullscreen;
+      autoFullscreenInput.disabled = !!electronWindowBridge;
+      if (autoFullscreenInput.parentElement) {
+        autoFullscreenInput.parentElement.style.display = electronWindowBridge ? 'none' : '';
+      }
+    }
     for (let i = 0; i < difficultyButtons.length; i++) {
       const btn = difficultyButtons[i];
       const idx = Number(btn.getAttribute('data-difficulty'));
@@ -2267,6 +2273,12 @@
   function syncFullscreenButton() {
     const fullscreenBtn = controlsEl.querySelector('[data-act="fullscreen"]');
     if (!fullscreenBtn) return;
+    if (electronWindowBridge) {
+      fullscreenBtn.textContent = 'EXIT';
+      fullscreenBtn.setAttribute('aria-label', 'Exit game');
+      fullscreenBtn.setAttribute('aria-pressed', 'false');
+      return;
+    }
     const active = isFullscreenActive();
     fullscreenBtn.textContent = active ? 'WINDOWED' : 'FULLSCREEN';
     fullscreenBtn.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen');
@@ -2274,6 +2286,10 @@
   }
 
   function toggleFullscreen() {
+    if (electronWindowBridge && typeof electronWindowBridge.quit === 'function') {
+      electronWindowBridge.quit();
+      return;
+    }
     setFullscreenActive(!isFullscreenActive());
   }
 
