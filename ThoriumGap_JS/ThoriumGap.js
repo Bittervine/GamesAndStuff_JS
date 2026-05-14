@@ -2312,7 +2312,10 @@
   }
 
   function applyAutoFullscreenPolicy() {
-    return;
+    if (electronWindowBridge) return;
+    if (!state.settings.autoFullscreen) return;
+    const shouldBeFullscreen = state.mode === 'playing' && !state.paused;
+    setFullscreenActive(shouldBeFullscreen);
   }
 
   function setVolume(kind, value) {
@@ -2371,6 +2374,7 @@
     state.settings.autoFullscreen = !!enabled;
     saveSettings();
     syncSettingsUi();
+    applyAutoFullscreenPolicy();
     hint(state.settings.autoFullscreen ? 'Auto fullscreen enabled.' : 'Auto fullscreen disabled.', 1.6);
   }
 
