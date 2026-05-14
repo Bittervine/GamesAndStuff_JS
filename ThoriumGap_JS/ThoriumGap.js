@@ -4988,7 +4988,7 @@
           const canPullWeapon = it.type !== 'weapon' || it.weaponMode == null || it.weaponMode === p.weaponMode;
           if (canPullWeapon) {
             const a = ang(it.x, it.y, p.x, p.y);
-            const pull = it.type === 'weapon' ? 60 : 120;
+            const pull = it.type === 'weapon' ? 30 : 60;  // Magnet pull
             it.vx += Math.cos(a) * pull * dt;
             it.vy += Math.sin(a) * pull * dt;
           }
