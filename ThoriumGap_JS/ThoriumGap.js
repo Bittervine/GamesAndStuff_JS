@@ -54,6 +54,9 @@
   const URL_PARAMS = new URLSearchParams(window.location.search || '');
   const DEBUG_MODE = URL_PARAMS.get('debug') === '1';
   const DEBUG_END_BOSS = URL_PARAMS.get('debug_endboss') === '1';
+  const electronWindowBridge = window.electronWindow && window.electronWindow.isAvailable ? window.electronWindow : null;
+  let electronFullscreenState = null;
+  let stopElectronFullscreenListener = null;
   const render = {
     ready: false,
     queue: [],
@@ -1943,7 +1946,7 @@
       difficulty: clamp(Math.round(loadNum('ThroriumGap_difficulty', 0)), 0, 2),
       lowEndMode: loadBool('ThroriumGap_lowEndMode', false),
       alwaysFollowMouse: loadBool('ThroriumGap_alwaysFollowMouse', false),
-      autoFullscreen: loadBool('ThroriumGap_autoFullscreen', true),
+      autoFullscreen: loadBool('ThroriumGap_autoFullscreen', !electronWindowBridge),
       starfieldCap: clamp(Math.round(loadNum('ThroriumGap_starfieldCap', STARFIELD_DEFAULT_CAP)), STARFIELD_LOW_END_CAP, STARFIELD_DEFAULT_CAP)
     },
     lives: 3,
@@ -2255,6 +2258,9 @@
   }
 
   function isFullscreenActive() {
+    if (electronWindowBridge) {
+      return !!electronFullscreenState;
+    }
     return !!document.fullscreenElement;
   }
 
@@ -2273,6 +2279,16 @@
 
   function setFullscreenActive(next) {
     const wantFullscreen = !!next;
+    if (electronWindowBridge && typeof electronWindowBridge.setFullscreen === 'function') {
+      electronWindowBridge.setFullscreen(wantFullscreen).then(function (active) {
+        electronFullscreenState = !!active;
+        syncFullscreenButton();
+        window.dispatchEvent(new Event('resize'));
+      }).catch(function () {
+        hint('Fullscreen not available.', 1.6);
+      });
+      return;
+    }
     const root = document.documentElement;
     const req = root.requestFullscreen;
     const exit = document.exitFullscreen;
@@ -2296,9 +2312,7 @@
   }
 
   function applyAutoFullscreenPolicy() {
-    if (!state.settings.autoFullscreen) return;
-    const shouldBeFullscreen = state.mode === 'playing' && !state.paused;
-    setFullscreenActive(shouldBeFullscreen);
+    return;
   }
 
   function setVolume(kind, value) {
@@ -2342,7 +2356,12 @@
       state.gamepad.joyY = 0;
       state.input.moveX = 0;
       state.input.moveY = 0;
+    } else if (!(state.mouseButtons & 3)) {
+      state.pointerActive = false;
+      state.pointerId = null;
+      state.input.fire = false;
     }
+    syncMouseCursor();
     saveSettings();
     syncSettingsUi();
     hint(enabled ? 'Ship will follow mouse without right hold.' : 'Ship follow mouse now requires right hold.', 1.8);
@@ -2352,7 +2371,6 @@
     state.settings.autoFullscreen = !!enabled;
     saveSettings();
     syncSettingsUi();
-    applyAutoFullscreenPolicy();
     hint(state.settings.autoFullscreen ? 'Auto fullscreen enabled.' : 'Auto fullscreen disabled.', 1.6);
   }
 
@@ -2823,6 +2841,7 @@
     state.gamepad.joyY = 0;
     state.mode = 'title';
     titleScreenText();
+    syncMouseCursor();
     syncSettingsUi();
     markHudDirty();
   }
@@ -2843,6 +2862,7 @@
     closeSettings();
     resetRun();
     state.mode = 'playing';
+    syncMouseCursor();
     applyAutoFullscreenPolicy();
     if (DEBUG_END_BOSS) debugJumpToFinalBoss(true);
     else beginLevel(0);
@@ -2966,6 +2986,7 @@
       closeSettings();
       resetRun();
       state.mode = 'playing';
+      syncMouseCursor();
     }
     const finalIndex = THEMES.length - 1;
     beginLevel(finalIndex);
@@ -3038,6 +3059,7 @@
 
   function victory() {
     state.mode = 'victory';
+    syncMouseCursor();
     applyAutoFullscreenPolicy();
     state.banner = 'VICTORY';
     state.bannerSub = '';
@@ -3061,6 +3083,7 @@
       levelIndex: state.levelIndex
     });
     state.mode = 'gameover';
+    syncMouseCursor();
     applyAutoFullscreenPolicy();
     state.banner = 'GAME OVER';
     state.bannerSub = reason || 'The void has taken the ship.';
@@ -7292,6 +7315,7 @@
     const next = force == null ? !state.paused : !!force;
     if (next === state.paused) return;
     state.paused = next;
+    syncMouseCursor();
     applyAutoFullscreenPolicy();
     setBanner(state.paused ? 'PAUSED' : 'RESUMED', state.paused ? 'Press P to resume.' : 'Back in the fight.', 1.0);
     hint(state.paused ? 'Paused.' : 'Back in action.', 1.3);
@@ -7362,6 +7386,16 @@
     return { x: x, y: y };
   }
 
+  function shouldHideMouseCursor() {
+    if (state.mode !== 'playing' || state.paused) return false;
+    if (state.settings.alwaysFollowMouse) return true;
+    return !!(state.mouseButtons & 3);
+  }
+
+  function syncMouseCursor() {
+    canvas.style.cursor = shouldHideMouseCursor() ? 'none' : '';
+  }
+
   function handleCanvasDown(ev) {
     const isMouse = ev.pointerType === 'mouse';
     if (isMouse && ev.button != null && ev.button !== 0 && ev.button !== 2) return;
@@ -7370,8 +7404,10 @@
     if (state.paused) togglePause(false);
     state.pointerActive = true;
     state.pointerId = ev.pointerId;
-    state.pointerX = pt.x;
-    state.pointerY = pt.y;
+    if (pt) {
+      state.pointerX = pt.x;
+      state.pointerY = pt.y;
+    }
     if (isMouse) {
       if (state.settings.alwaysFollowMouse && ev.button === 2 && state.mode === 'playing' && !state.paused) useBomb();
       state.mouseButtons = (typeof ev.buttons === 'number') ? ev.buttons : (1 << (ev.button || 0));
@@ -7379,6 +7415,7 @@
     } else {
       state.input.fire = true;
     }
+    if (isMouse) syncMouseCursor();
     try { if (canvas.setPointerCapture) canvas.setPointerCapture(ev.pointerId); } catch (e) {}
   }
 
@@ -7399,6 +7436,7 @@
       if (state.settings.alwaysFollowMouse && (state.mouseButtons & 2) && !(prevButtons & 2) && state.mode === 'playing' && !state.paused) useBomb();
       state.pointerActive = state.settings.alwaysFollowMouse ? true : (state.mouseButtons > 0);
       state.input.fire = !!(state.mouseButtons & 1);
+      syncMouseCursor();
     }
   }
 
@@ -7410,6 +7448,7 @@
       state.mouseButtons = (typeof ev.buttons === 'number') ? ev.buttons : 0;
       state.pointerActive = state.settings.alwaysFollowMouse ? true : (state.mouseButtons > 0);
       state.input.fire = !!(state.mouseButtons & 1);
+      syncMouseCursor();
       if (!state.pointerActive) {
         state.pointerId = null;
         try { if (canvas.hasPointerCapture && ev.pointerId != null) canvas.releasePointerCapture(ev.pointerId); } catch (e) {}
@@ -7579,6 +7618,19 @@
       setAutoFullscreen(ev.target.checked);
     });
   }
+  if (electronWindowBridge && typeof electronWindowBridge.onFullscreenChanged === 'function') {
+    stopElectronFullscreenListener = electronWindowBridge.onFullscreenChanged(function (active) {
+      electronFullscreenState = !!active;
+      syncFullscreenButton();
+      window.dispatchEvent(new Event('resize'));
+    });
+    if (typeof electronWindowBridge.isFullscreen === 'function') {
+      electronWindowBridge.isFullscreen().then(function (active) {
+        electronFullscreenState = !!active;
+        syncFullscreenButton();
+      }).catch(function () {});
+    }
+  }
   for (let i = 0; i < difficultyButtons.length; i++) {
     difficultyButtons[i].addEventListener('click', function () {
       setDifficulty(Number(this.getAttribute('data-difficulty')));
@@ -7603,7 +7655,15 @@
   document.addEventListener('visibilitychange', function () {
     if (document.hidden && state.mode === 'playing' && !state.paused) togglePause(true);
   });
-  document.addEventListener('fullscreenchange', syncFullscreenButton);
+  if (!electronWindowBridge) {
+    document.addEventListener('fullscreenchange', syncFullscreenButton);
+  }
+  window.addEventListener('beforeunload', function () {
+    if (typeof stopElectronFullscreenListener === 'function') {
+      stopElectronFullscreenListener();
+      stopElectronFullscreenListener = null;
+    }
+  });
   requestAnimationFrame(loop);
 }());
 
