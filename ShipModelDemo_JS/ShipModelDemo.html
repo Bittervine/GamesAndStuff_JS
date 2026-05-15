@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ShotEmUp3D JS - Spaceship Viewer</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #05070c;
+      color: #d8e1ff;
+      font-family: system-ui, sans-serif;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+    }
+
+    #hud {
+      position: fixed;
+      left: 12px;
+      top: 12px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    #shipName {
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(10, 14, 24, 0.72);
+      border: 1px solid rgba(160, 190, 255, 0.18);
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: 0.3px;
+      backdrop-filter: blur(6px);
+      pointer-events: none;
+    }
+
+    #status {
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: rgba(10, 14, 24, 0.62);
+      border: 1px solid rgba(160, 190, 255, 0.12);
+      font-size: 13px;
+      line-height: 1.3;
+      backdrop-filter: blur(6px);
+      pointer-events: none;
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="hud">
+    <div id="shipName">Preparing ships...</div>
+    <div id="status">Scanning models...</div>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    const app = document.getElementById('app');
+    const shipName = document.getElementById('shipName');
+    const status = document.getElementById('status');
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x05070c);
+    scene.fog = new THREE.Fog(0x05070c, 18, 95);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 180);
+    camera.position.set(0, 3, 8);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    app.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0xbfd4ff, 1.6));
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
+    keyLight.position.set(3, 5, 4);
+    scene.add(keyLight);
+
+    const rimLight = new THREE.DirectionalLight(0x88aaff, 1.1);
+    rimLight.position.set(-4, 1, -3);
+    scene.add(rimLight);
+
+    const loader = new GLTFLoader();
+    const clock = new THREE.Clock();
+    const modelCache = new Map();
+    const fallbackModelFiles = [
+      'Ship_PyramidLifter_990348.glb',
+      'Ship_PyramidLifter_97249.glb',
+      'Ship_PyramidLifter_950535.glb',
+      'Ship_PyramidLifter_855868.glb',
+      'Ship_PyramidLifter_741828.glb',
+      'Ship_PyramidLifter_478836.glb',
+      'Ship_PyramidLifter_426685.glb',
+      'Ship_PyramidLifter_390936.glb',
+      'Ship_PyramidLifter_327178.glb',
+      'Ship_PyramidLifter_290115.glb',
+      'Ship_LunarCourier_994899.glb',
+      'Ship_LunarCourier_993089.glb',
+      'Ship_LunarCourier_95901.glb',
+      'Ship_LunarCourier_899475.glb',
+      'Ship_LunarCourier_826239.glb',
+      'Ship_LunarCourier_7.glb',
+      'Ship_LunarCourier_5002.glb',
+      'Ship_LunarCourier_451424.glb',
+      'Ship_LunarCourier_322196.glb',
+      'Ship_LunarCourier_153144.glb',
+      'Ship_FlyingSaucer_910512.glb',
+      'Ship_FlyingSaucer_779051.glb',
+      'Ship_FlyingSaucer_772429.glb',
+      'Ship_FlyingSaucer_752605.glb',
+      'Ship_FlyingSaucer_750147.glb',
+      'Ship_FlyingSaucer_654444.glb',
+      'Ship_FlyingSaucer_528770.glb',
+      'Ship_FlyingSaucer_336064.glb',
+      'Ship_FlyingSaucer_301176.glb',
+      'Ship_FlyingSaucer_298877.glb',
+      'Ship_DeltaWing_978618.glb',
+      'Ship_DeltaWing_954387.glb',
+      'Ship_DeltaWing_917855.glb',
+      'Ship_DeltaWing_894551.glb',
+      'Ship_DeltaWing_853002.glb',
+      'Ship_DeltaWing_691262.glb',
+      'Ship_DeltaWing_535536.glb',
+      'Ship_DeltaWing_394511.glb',
+      'Ship_DeltaWing_368386.glb',
+      'Ship_DeltaWing_108179.glb'
+    ];
+
+    const CAMERA_TURN_IN_SECONDS = 0.9;
+    const SHIP_SPIN_SECONDS = 2.2;
+    const CAMERA_TURN_OUT_SECONDS = 0.9;
+
+    let shipFiles = [];
+    let shipOrder = [];
+    let shipIndex = -1;
+    let activeRig = null;
+    let activeSpinNode = null;
+    let activeModel = null;
+    let activeSpinAxisHelper = null;
+    let sequencePhase = 'idle';
+    let phaseStartTime = 0;
+    let isSwitchingShip = false;
+    let consecutiveLoadFailures = 0;
+    let spinAxisMode = 'z';
+
+    const tempVecA = new THREE.Vector3();
+    const tempVecB = new THREE.Vector3();
+    const tempVecC = new THREE.Vector3();
+    const modelForwardAxis = new THREE.Vector3(0, 0, 1);
+    const modelGreenAxis = new THREE.Vector3(0, 1, 0);
+    const alignQuat = new THREE.Quaternion();
+    const basisMatrix = new THREE.Matrix4();
+    const shipBehindOffset = new THREE.Vector3();
+    const shipHorizontalAxis = new THREE.Vector3(1, 0, 0);
+    const axisColorByMode = { x: 0xff5555, y: 0x55ff55, z: 0x5599ff };
+
+    function shipLabel(file) {
+      return file.replace(/^.*[\\/]/, '').replace(/\.[^.]+$/, '');
+    }
+
+    function spinAxisVector() {
+      if (spinAxisMode === 'x') {
+        return new THREE.Vector3(1, 0, 0);
+      }
+      if (spinAxisMode === 'z') {
+        return new THREE.Vector3(0, 0, 1);
+      }
+      return new THREE.Vector3(0, 1, 0);
+    }
+
+    function shuffleArray(items) {
+      const result = items.slice();
+      for (let i = result.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+      }
+      return result;
+    }
+
+    function withDotSlash(file) {
+      return file.startsWith('./') ? file : `./${file}`;
+    }
+
+    async function discoverModelFiles() {
+      try {
+        const response = await fetch('./', { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const html = await response.text();
+        const matches = Array.from(html.matchAll(/href=["']([^"']+\.glb(?:\?[^"']*)?)["']/gi))
+          .map((m) => decodeURIComponent(m[1]).split('?')[0])
+          .filter((href) => href.toLowerCase().endsWith('.glb'))
+          .filter((href) => !href.includes('/'));
+        const unique = Array.from(new Set(matches));
+        if (unique.length > 0) {
+          return unique;
+        }
+      } catch (error) {
+        console.warn('Model auto-discovery failed, using fallback list.', error);
+      }
+      return fallbackModelFiles.slice();
+    }
+
+    function normalizeModel(sceneRoot) {
+      sceneRoot.updateMatrixWorld(true);
+
+      const box = new THREE.Box3().setFromObject(sceneRoot);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+      const scale = 2.8 / maxDim;
+
+      sceneRoot.position.sub(center).multiplyScalar(scale);
+      sceneRoot.scale.setScalar(scale);
+
+      return sceneRoot;
+    }
+
+    function loadModel(file) {
+      if (modelCache.has(file)) {
+        return Promise.resolve(modelCache.get(file));
+      }
+
+      status.textContent = `Loading ${shipLabel(file)}...`;
+      return new Promise((resolve, reject) => {
+        loader.load(
+          withDotSlash(file),
+          (gltf) => {
+            const prepared = normalizeModel(gltf.scene);
+            modelCache.set(file, prepared);
+            resolve(prepared);
+          },
+          undefined,
+          (error) => reject(error)
+        );
+      });
+    }
+
+    function easeInOut(t) {
+      const x = THREE.MathUtils.clamp(t, 0, 1);
+      return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+    }
+
+    function randomBetween(min, max) {
+      return min + Math.random() * (max - min);
+    }
+
+    function orientShipBehindCamera() {
+      if (!activeRig || !activeSpinNode || !activeModel) {
+        return;
+      }
+
+      const forward = new THREE.Vector3();
+      const cameraRight = new THREE.Vector3();
+      const worldUp = new THREE.Vector3(0, 1, 0);
+      camera.getWorldDirection(forward);
+      cameraRight.crossVectors(forward, worldUp).normalize();
+      shipBehindOffset.copy(forward).multiplyScalar(-6);
+      activeRig.position.copy(camera.position).add(shipBehindOffset);
+
+      activeRig.quaternion.identity();
+      activeSpinNode.quaternion.identity();
+      activeModel.quaternion.copy(activeModel.userData.baseQuat);
+      activeModel.rotation.set(0, 0, 0);
+      activeSpinNode.rotation.set(0, 0, 0);
+
+      tempVecA.copy(camera.position).sub(activeRig.position).normalize();
+      tempVecB.copy(cameraRight);
+      if (Math.abs(tempVecB.dot(worldUp)) > 0.98) {
+        tempVecB.set(1, 0, 0);
+      }
+      tempVecB.normalize();
+      tempVecC.copy(tempVecA).sub(tempVecB.clone().multiplyScalar(tempVecA.dot(tempVecB))).normalize();
+      if (tempVecC.lengthSq() < 0.0001) {
+        tempVecC.copy(modelGreenAxis).applyQuaternion(activeModel.quaternion).normalize();
+      }
+
+      const zAxis = tempVecB.clone();
+      const yAxis = tempVecC.clone();
+      const xAxis = new THREE.Vector3().crossVectors(yAxis, zAxis).normalize();
+      yAxis.crossVectors(zAxis, xAxis).normalize();
+
+      basisMatrix.makeBasis(xAxis, yAxis, zAxis);
+      activeModel.quaternion.copy(new THREE.Quaternion().setFromRotationMatrix(basisMatrix));
+    }
+
+    function updateShipSpin(progress) {
+      if (!activeSpinNode) {
+        return;
+      }
+      const spinAmount = Math.PI * 2 * easeInOut(progress);
+      activeSpinNode.quaternion.setFromAxisAngle(shipHorizontalAxis, spinAmount);
+    }
+
+    async function showNextShip(isInitial = false) {
+      if (isSwitchingShip || shipOrder.length === 0) {
+        return;
+      }
+      isSwitchingShip = true;
+
+      const nextIndex = (shipIndex + 1) % shipOrder.length;
+      const nextFile = shipOrder[nextIndex];
+
+      try {
+        const nextModel = await loadModel(nextFile);
+        consecutiveLoadFailures = 0;
+
+        if (activeRig) {
+          scene.remove(activeRig);
+        }
+
+        activeModel = nextModel;
+        activeRig = new THREE.Group();
+        activeSpinNode = new THREE.Group();
+        activeSpinNode.add(activeModel);
+        if (activeSpinAxisHelper) {
+          activeSpinNode.remove(activeSpinAxisHelper);
+        }
+        activeSpinAxisHelper = new THREE.AxesHelper(2.2);
+        activeSpinNode.add(activeSpinAxisHelper);
+        activeRig.add(activeSpinNode);
+        scene.add(activeRig);
+        shipIndex = nextIndex;
+        if (!activeModel.userData.baseQuat) {
+          activeModel.userData.baseQuat = activeModel.quaternion.clone();
+        }
+
+        orientShipBehindCamera();
+        activeRig.updateMatrixWorld(true);
+        activeSpinNode.updateMatrixWorld(true);
+        activeModel.updateMatrixWorld(true);
+
+        shipName.textContent = shipLabel(nextFile);
+        status.textContent = `Ship ${shipIndex + 1} / ${shipOrder.length}`;
+
+        sequencePhase = 'cameraTurnIn';
+        phaseStartTime = clock.getElapsedTime();
+      } catch (error) {
+        console.error(error);
+        shipIndex = nextIndex;
+        consecutiveLoadFailures += 1;
+        status.textContent = `Failed ${shipLabel(nextFile)}. Skipping...`;
+
+        if (consecutiveLoadFailures >= shipOrder.length) {
+          shipName.textContent = 'No loadable ships';
+          flightPhase = 'idle';
+          isSwitchingShip = false;
+          return;
+        }
+
+        isSwitchingShip = false;
+        setTimeout(() => {
+          showNextShip(isInitial);
+        }, 250);
+        return;
+      }
+
+      isSwitchingShip = false;
+    }
+
+    async function startShowcase() {
+      status.textContent = 'Scanning .glb files...';
+      shipFiles = await discoverModelFiles();
+
+      if (shipFiles.length === 0) {
+        shipName.textContent = 'No ships found';
+        status.textContent = 'No .glb files available.';
+        return;
+      }
+      shipOrder = shuffleArray(shipFiles);
+      shipName.textContent = `Found ${shipOrder.length} ships`;
+      status.textContent = 'Starting sequence...';
+      await showNextShip(true);
+    }
+
+    function resize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    window.addEventListener('resize', resize);
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = clock.getDelta();
+
+      if (activeModel && activeRig && activeSpinNode) {
+        const phaseElapsed = clock.getElapsedTime() - phaseStartTime;
+
+        if (sequencePhase === 'cameraTurnIn') {
+          const t = Math.min(phaseElapsed / CAMERA_TURN_IN_SECONDS, 1);
+          camera.rotation.y = THREE.MathUtils.lerp(0, Math.PI, easeInOut(t));
+          if (t >= 1) {
+            sequencePhase = 'shipSpin';
+            phaseStartTime = clock.getElapsedTime();
+          }
+        } else if (sequencePhase === 'shipSpin') {
+          const t = Math.min(phaseElapsed / SHIP_SPIN_SECONDS, 1);
+          updateShipSpin(t);
+          if (t >= 1) {
+            sequencePhase = 'cameraTurnOut';
+            phaseStartTime = clock.getElapsedTime();
+          }
+        } else if (sequencePhase === 'cameraTurnOut') {
+          const t = Math.min(phaseElapsed / CAMERA_TURN_OUT_SECONDS, 1);
+          camera.rotation.y = THREE.MathUtils.lerp(Math.PI, Math.PI * 2, easeInOut(t));
+          if (t >= 1) {
+            showNextShip(false);
+          }
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    startShowcase();
+    animate();
+  </script>
+</body>
+</html>
