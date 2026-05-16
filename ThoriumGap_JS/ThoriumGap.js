@@ -12,7 +12,6 @@
     const attempts = [
       { alpha: true, antialias: false, premultipliedAlpha: false, powerPreference: 'high-performance' },
       { alpha: true, antialias: false, premultipliedAlpha: false },
-      { alpha: true, antialias: true, premultipliedAlpha: false },
       { alpha: true, premultipliedAlpha: false },
       undefined
     ];
