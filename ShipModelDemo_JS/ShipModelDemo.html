@@ -214,7 +214,6 @@
     let isSwitchingShip = false;
     let consecutiveLoadFailures = 0;
     let gridMode = false;
-    let restartRequested = false;
 
     const tempVecA = new THREE.Vector3();
     const tempVecB = new THREE.Vector3();
@@ -422,7 +421,6 @@
 
     async function startLoopMode() {
       gridMode = false;
-      restartRequested = false;
       if (gridRig) {
         scene.remove(gridRig);
       }
@@ -520,9 +518,11 @@
     }
 
     window.addEventListener('resize', resize);
-    window.addEventListener('keydown', (event) => {
+    window.addEventListener('pointerdown', () => {
       if (gridMode) {
         startLoopMode();
+      } else {
+        showGridMode();
       }
     });
 
