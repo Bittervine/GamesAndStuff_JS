@@ -67,6 +67,23 @@
       backdrop-filter: blur(6px);
       pointer-events: none;
     }
+
+    #exitGridBtn {
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(160, 190, 255, 0.28);
+      background: rgba(18, 26, 44, 0.86);
+      color: #d8e1ff;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      display: none;
+    }
+
+    #exitGridBtn:hover {
+      background: rgba(30, 42, 70, 0.92);
+    }
   </style>
   <script type="importmap">
     {
@@ -83,6 +100,7 @@
     <div id="shipName">Preparing ships...</div>
     <div id="status">Scanning models...</div>
     <div id="fps">FPS: --</div>
+    <button id="exitGridBtn" type="button">Exit Grid</button>
   </div>
 
   <script type="module">
@@ -93,6 +111,7 @@
     const shipName = document.getElementById('shipName');
     const status = document.getElementById('status');
     const fps = document.getElementById('fps');
+    const exitGridBtn = document.getElementById('exitGridBtn');
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x05070c);
@@ -292,6 +311,12 @@
     const basisMatrix = new THREE.Matrix4();
     const shipBehindOffset = new THREE.Vector3();
     const shipHorizontalAxis = new THREE.Vector3(1, 0, 0);
+    const raycaster = new THREE.Raycaster();
+    const pointerNdc = new THREE.Vector2();
+    const gridDefaultCameraPos = new THREE.Vector3(0, 0, 30);
+    const gridFocusedCameraPos = new THREE.Vector3();
+    const gridLookTarget = new THREE.Vector3(0, 0, 0);
+    let gridFocusedShip = null;
 
     function shipLabel(file) {
       return file.replace(/^.*[\\/]/, '').replace(/\.[^.]+$/, '');
@@ -434,6 +459,7 @@
       activeModel = null;
       gridRig = null;
       gridShips = [];
+      gridFocusedShip = null;
     }
 
     function addGridShip(model, position, scale, spinSeed) {
@@ -446,8 +472,37 @@
       shipRoot.scale.setScalar(scale);
       shipRoot.userData.spinNode = spinNode;
       shipRoot.userData.spinSeed = spinSeed;
+      shipRoot.userData.shipFile = model.userData.shipFile || '';
       gridRig.add(shipRoot);
       gridShips.push({ root: shipRoot, spinNode, spinSeed });
+    }
+
+    function showGridExitButton(show) {
+      exitGridBtn.style.display = show ? 'block' : 'none';
+    }
+
+    function resetGridCamera() {
+      camera.position.copy(gridDefaultCameraPos);
+      gridLookTarget.set(0, 0, 0);
+      camera.lookAt(gridLookTarget);
+      gridFocusedShip = null;
+      status.textContent = 'Grid mode';
+      shipName.textContent = `${gridShips.length} ships`;
+    }
+
+    function focusGridShip(shipRoot) {
+      if (!shipRoot) {
+        resetGridCamera();
+        return;
+      }
+      gridFocusedShip = shipRoot;
+      gridFocusedCameraPos.copy(shipRoot.position).add(new THREE.Vector3(0, 0.8, 5.2));
+      camera.position.copy(gridFocusedCameraPos);
+      gridLookTarget.copy(shipRoot.position);
+      camera.lookAt(gridLookTarget);
+      const label = shipLabel(shipRoot.userData.shipFile || '');
+      shipName.textContent = label || 'Selected ship';
+      status.textContent = 'Focused ship';
     }
 
     async function showGridMode() {
@@ -464,8 +519,8 @@
       const files = shipFiles.slice();
       const cols = Math.ceil(Math.sqrt(files.length));
       const rows = Math.ceil(files.length / cols);
-      const spacingX = 3.3;
-      const spacingY = 2.55;
+      const spacingX = 3.05;
+      const spacingY = 2.15;
       const startX = -((cols - 1) * spacingX) / 2;
       const startY = ((rows - 1) * spacingY) / 2;
 
@@ -474,17 +529,16 @@
         const model = await loadModel(file);
         const clone = model.clone(true);
         clone.quaternion.copy(model.userData.baseQuat || clone.quaternion);
+        clone.userData.shipFile = file;
         const col = i % cols;
         const row = Math.floor(i / cols);
-        const scale = 0.78;
+        const scale = 0.74;
         const pos = new THREE.Vector3(startX + col * spacingX, startY - row * spacingY, 0);
         addGridShip(clone, pos, scale, i * 0.37 + 0.1);
       }
 
-      camera.position.set(0, 0, 26);
-      camera.lookAt(0, 0, 0);
-      status.textContent = 'Grid mode';
-      shipName.textContent = `${gridShips.length} ships`;
+      resetGridCamera();
+      showGridExitButton(true);
     }
 
     async function startLoopMode() {
@@ -494,6 +548,8 @@
       }
       gridRig = null;
       gridShips = [];
+      gridFocusedShip = null;
+      showGridExitButton(false);
       camera.rotation.set(0, 0, 0);
       await showNextShip(true);
     }
@@ -572,10 +628,10 @@
       shipName.textContent = `Found ${shipOrder.length} ships`;
       status.textContent = 'Starting sequence...';
       const params = new URLSearchParams(window.location.search);
-      if (params.get('L') === '1') {
-        await showGridMode();
-      } else {
+      if (params.get('L') === '0') {
         await startLoopMode();
+      } else {
+        await showGridMode();
       }
     }
 
@@ -585,12 +641,39 @@
       renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
+    function handleGridPointerDown(event) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointerNdc.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointerNdc.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointerNdc, camera);
+      const hits = raycaster.intersectObjects(gridShips.map((item) => item.root), true);
+      if (hits.length === 0) {
+        focusGridShip(null);
+        return;
+      }
+      let node = hits[0].object;
+      while (node && node.parent && node.parent !== gridRig) {
+        node = node.parent;
+      }
+      if (node && node.parent === gridRig) {
+        focusGridShip(node);
+      } else {
+        focusGridShip(null);
+      }
+    }
+
     window.addEventListener('resize', resize);
-    window.addEventListener('pointerdown', () => {
+    renderer.domElement.addEventListener('pointerdown', (event) => {
       if (gridMode) {
-        startLoopMode();
+        handleGridPointerDown(event);
       } else {
         showGridMode();
+      }
+    });
+    exitGridBtn.addEventListener('pointerdown', (event) => {
+      event.stopPropagation();
+      if (gridMode) {
+        startLoopMode();
       }
     });
 
