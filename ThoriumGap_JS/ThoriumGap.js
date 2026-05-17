@@ -260,10 +260,10 @@
   }
   const ENEMY_3D_LEVEL_FAMILY = {
     1: 'Standard',
-    2: 'Blocky',
+    2: 'Crosspanel',
     3: 'DeltaWing',
     4: 'Hooper',
-    5: 'Pirate',
+    5: 'Standard2',
     6: 'TwoHoop',
     7: 'Longwing',
     8: 'Talonhunter',
@@ -283,6 +283,15 @@
       'models/Ship_Standard_6.glb',
       'models/Ship_Standard_7.glb'
     ],
+    Standard2: [
+      'models/Ship_Standard_8.glb',
+      'models/Ship_Standard_9.glb',
+      'models/Ship_Standard_10.glb',
+      'models/Ship_Standard_11.glb',
+      'models/Ship_Standard_12.glb',
+      'models/Ship_Standard_13.glb',
+      'models/Ship_Standard_14.glb'
+    ],
     Blocky: [
       'models/Ship_Blocky_3.glb',
       'models/Ship_Blocky_4.glb',
@@ -291,6 +300,15 @@
       'models/Ship_Blocky_7.glb',
       'models/Ship_Blocky_8.glb',
       'models/Ship_Blocky_9.glb'
+    ],
+    Crosspanel: [
+      'models/Ship_Crosspanel_1.glb',
+      'models/Ship_Crosspanel_2.glb',
+      'models/Ship_Crosspanel_3.glb',
+      'models/Ship_Crosspanel_4.glb',
+      'models/Ship_Crosspanel_5.glb',
+      'models/Ship_Crosspanel_6.glb',
+      'models/Ship_Crosspanel_7.glb'
     ],
     DeltaWing: [
       'models/Ship_DeltaWing_108179.glb',
