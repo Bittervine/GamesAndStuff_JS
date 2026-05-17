@@ -401,8 +401,8 @@
   const ENEMY_3D_BANK_SMOOTH_RATE = 4.0;
   const ENEMY_3D_BANK_TURN_RATE_FACTOR = 0.28;
   const ENEMY_3D_BANK_HEADING_FACTOR = 2.2;
-  const ENEMY_3D_LIB_THREE = 'https://esm.sh/three@0.160.0';
-  const ENEMY_3D_LIB_GLTF = 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+  const ENEMY_3D_LIB_THREE = './lib/three.module.js';
+  const ENEMY_3D_LIB_GLTF = './lib/loaders/GLTFLoader.js';
   const enemy3DState = {
     ready: false,
     failed: false,
