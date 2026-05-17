@@ -395,6 +395,8 @@
   const ENEMY_3D_SCALE_MULTIPLIER = 0.5625;
   const ENEMY_3D_MODEL_PITCH_OFFSET_DEG = -90;
   const ENEMY_3D_MODEL_PITCH_OFFSET_RAD = ENEMY_3D_MODEL_PITCH_OFFSET_DEG * Math.PI / 180;
+  const ENEMY_3D_MODEL_ROLL_OFFSET_DEG = 180;
+  const ENEMY_3D_MODEL_ROLL_OFFSET_RAD = ENEMY_3D_MODEL_ROLL_OFFSET_DEG * Math.PI / 180;
   const ENEMY_3D_YAW_OFFSET_DEG = 180;
   const ENEMY_3D_BANK_SMOOTH_RATE = 4.0;
   const ENEMY_3D_BANK_TURN_RATE_FACTOR = 0.28;
@@ -1749,8 +1751,8 @@
           }));
         const scene = gltf && gltf.scene ? gltf.scene : null;
         if (!scene) return null;
-        // Pull models up so their forward axis aligns with gameplay heading in screen-space.
-        scene.rotation.x = ENEMY_3D_MODEL_PITCH_OFFSET_RAD;
+        // Pull models up, then flip around front/back axis so they are not upside-down.
+        scene.rotation.set(ENEMY_3D_MODEL_PITCH_OFFSET_RAD, 0, ENEMY_3D_MODEL_ROLL_OFFSET_RAD);
         scene.updateMatrixWorld(true);
         const bounds = new THREE.Box3().setFromObject(scene);
         const size = bounds.getSize(new THREE.Vector3());
@@ -1851,9 +1853,11 @@
       const shipSize = Math.max(1, enemy.shipSize || getEnemyShipRenderSize(enemy.shipLevel || (state.levelIndex + 1), enemy.shipIndex || 0));
       const baseScale = shipSize / Math.max(0.001, instance.maxXYDiameter);
       const finalScale = baseScale * ENEMY_3D_SCALE_MULTIPLIER;
+      const shakeX = render.offsetX || 0;
+      const shakeY = render.offsetY || 0;
       instance.root.position.set(
-        (enemy.x - view.w * 0.5),
-        (view.h * 0.5 - enemy.y),
+        (enemy.x - view.w * 0.5) + shakeX,
+        (view.h * 0.5 - enemy.y) - shakeY,
         0
       );
       instance.root.scale.set(finalScale, finalScale, finalScale);
