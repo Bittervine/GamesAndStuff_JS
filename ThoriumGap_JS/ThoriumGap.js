@@ -5416,7 +5416,7 @@
     }
     if (e.kind === 'swarm') {
       e.y += e.vy * motionDt;
-      e.x += Math.sin(e.age * 6 + e.wobble) * 46 * motionDt;
+      e.x += Math.sin(e.age * (3.4 / 2) + e.wobble) * 56 * motionDt;
       return false;
     }
     if (e.kind === 'bomber') {
