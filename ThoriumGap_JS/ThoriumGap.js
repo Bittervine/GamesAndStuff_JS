@@ -258,20 +258,20 @@
     enemy3DState.failed = false;
     hint('3D enemy ships enabled.', 1.3);
   }
-  const ENEMY_3D_LEVEL_FAMILY = {
-    1: 'Standard',
-    2: 'Crosspanel',
-    3: 'DeltaWing',
+  const ENEMY_3D_LEVEL_FAMILY = {    
+    1: 'Orca',
+    2: 'LunarCourier',    
+    3: 'TigerWing',
     4: 'Hooper',
     5: 'Standard2',
-    6: 'TwoHoop',
-    7: 'Longwing',
-    8: 'Talonhunter',
-    9: 'ManraRay',
-    10: 'Orca',
-    11: 'LunarCourier',
+    6: 'TwoHoop',    
+    7: 'DeltaWing',
+    8: 'Talonhunter',    
+    9: 'FlyingSaucer',
+    10: 'Standard',
+    11: 'Crosspanel',
     12: 'PyramidLifter',
-    13: 'FlyingSaucer'
+    13: 'ManraRay',
   };
   const ENEMY_3D_FAMILY_MODELS = {
     Standard: [
@@ -355,6 +355,16 @@
       'models/Ship_Longwing_6.glb',
       'models/Ship_Longwing_7.glb'
     ],
+    TigerWing: [
+      'models/Ship_TigerWing_1.glb',
+      'models/Ship_TigerWing_2.glb',
+      'models/Ship_TigerWing_3.glb',
+      'models/Ship_TigerWing_4.glb',
+      'models/Ship_TigerWing_5.glb',
+      'models/Ship_TigerWing_6.glb',
+      'models/Ship_TigerWing_7.glb'
+    
+    ],
     Talonhunter: [
       'models/Ship_Talonhunter_91803.glb',
       'models/Ship_Talonhunter_101914.glb',
@@ -410,15 +420,15 @@
       'models/Ship_FlyingSaucer_752605.glb'
     ]
   };
-  const ENEMY_3D_SCALE_MULTIPLIER = 0.5625;
+  const ENEMY_3D_SCALE_MULTIPLIER = 1.0;
   const ENEMY_3D_MODEL_PITCH_OFFSET_DEG = -90;
   const ENEMY_3D_MODEL_PITCH_OFFSET_RAD = ENEMY_3D_MODEL_PITCH_OFFSET_DEG * Math.PI / 180;
   const ENEMY_3D_MODEL_ROLL_OFFSET_DEG = 180;
   const ENEMY_3D_MODEL_ROLL_OFFSET_RAD = ENEMY_3D_MODEL_ROLL_OFFSET_DEG * Math.PI / 180;
   const ENEMY_3D_YAW_OFFSET_DEG = 180;
   const ENEMY_3D_BANK_SMOOTH_RATE = 4.0;
-  const ENEMY_3D_BANK_TURN_RATE_FACTOR = 0.28;
-  const ENEMY_3D_BANK_HEADING_FACTOR = 2.2;
+  const ENEMY_3D_BANK_TURN_RATE_FACTOR = 1.0;
+  const ENEMY_3D_BANK_HEADING_FACTOR = 0.1;
   const ENEMY_3D_LIB_THREE = './lib/three.module.js';
   const ENEMY_3D_LIB_GLTF = './lib/loaders/GLTFLoader.js';
   const enemy3DState = {
@@ -1864,7 +1874,9 @@
       const turnDeltaDeg = deltaAngleDeg(instance.prevFlightAngleDeg, flightDeg);
       const turnRateDegPerSec = dt > 0 ? (turnDeltaDeg / dt) : 0;
       const headingErrorDeg = deltaAngleDeg(instance.yawDeg, targetYawDeg);
-      const targetBankDeg = clamp((turnRateDegPerSec * ENEMY_3D_BANK_TURN_RATE_FACTOR) + (headingErrorDeg * ENEMY_3D_BANK_HEADING_FACTOR), -90, 90);
+      // Mirrored fly-in entries can have opposite visual roll feel; flip bank sign only for that phase.
+      const entryMirrorSign = (enemy.entry && enemy.entry.mirror === -1) ? -1 : 1;
+      const targetBankDeg = clamp(((turnRateDegPerSec * ENEMY_3D_BANK_TURN_RATE_FACTOR) + (headingErrorDeg * ENEMY_3D_BANK_HEADING_FACTOR)) * entryMirrorSign, -90, 90);
       instance.bankDeg = smooth(instance.bankDeg, targetBankDeg, ENEMY_3D_BANK_SMOOTH_RATE, Math.max(0, dt || 0));
       instance.yawDeg = targetYawDeg;
       instance.prevFlightAngleDeg = flightDeg;
