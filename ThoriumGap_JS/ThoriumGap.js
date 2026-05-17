@@ -44,6 +44,7 @@
   const lowEndModeInput = document.getElementById('lowEndMode');
   const alwaysFollowMouseInput = document.getElementById('alwaysFollowMouse');
   const autoFullscreenInput = document.getElementById('autoFullscreen');
+  const enemy3DModeInput = document.getElementById('enemy3DMode');
 
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
   let currentDt = 0;
@@ -206,6 +207,246 @@
   const ASTEROID_BASE_LAYER = 1.35;
   const asteroidArtLoadKeys = new Set();
   const asteroidArtCache = new Map();
+  const ENEMY_3D_QUERY_PARAM = 'enemy3d';
+  const ENABLE_3D_MODE_DEFAULT = false;
+  function enemy3DModeFromParams(params) {
+    if (!params) return ENABLE_3D_MODE_DEFAULT;
+    const mode = params.get(ENEMY_3D_QUERY_PARAM);
+    if (mode === '0') return false;
+    if (mode === '1') return true;
+    return ENABLE_3D_MODE_DEFAULT;
+  }
+  let enable3DMode = enemy3DModeFromParams(URL_PARAMS);
+  function enemy3DModeUrl(enabled) {
+    const params = new URLSearchParams(window.location.search || '');
+    if (enabled === ENABLE_3D_MODE_DEFAULT) params.delete(ENEMY_3D_QUERY_PARAM);
+    else params.set(ENEMY_3D_QUERY_PARAM, enabled ? '1' : '0');
+    const query = params.toString();
+    return window.location.pathname + (query ? ('?' + query) : '') + (window.location.hash || '');
+  }
+
+  function enemy3DRuntimeWasLoaded() {
+    return !!(enemy3DState.THREE ||
+      enemy3DState.loader ||
+      enemy3DState.ready ||
+      enemy3DState.loadingPromise ||
+      enemy3DState.modelCache.size ||
+      enemy3DState.modelLoads.size ||
+      enemy3DState.instances.size);
+  }
+
+  function setEnemy3DModeEnabled(enabled) {
+    const desired = !!enabled;
+    if (desired === enable3DMode) return;
+    const nextUrl = enemy3DModeUrl(desired);
+    const shouldReloadForPerf = !desired && enemy3DRuntimeWasLoaded();
+    enable3DMode = desired;
+    if (enemy3DModeInput) enemy3DModeInput.checked = enable3DMode;
+    try {
+      if (window.history && window.history.replaceState) window.history.replaceState(null, '', nextUrl);
+    } catch (err) {}
+    if (!desired) {
+      destroyEnemy3DRenderer();
+      if (shouldReloadForPerf) {
+        hint('Reloading to fully unload 3D runtime.', 1.5);
+        window.location.reload();
+      } else {
+        hint('3D enemy ships disabled.', 1.3);
+      }
+      return;
+    }
+    enemy3DState.failed = false;
+    hint('3D enemy ships enabled.', 1.3);
+  }
+  const ENEMY_3D_LEVEL_FAMILY = {    
+    1: 'Orca',
+    2: 'LunarCourier',    
+    3: 'TigerWing',
+    4: 'Hooper',
+    5: 'Standard2',
+    6: 'TwoHoop',    
+    7: 'DeltaWing',
+    8: 'Talonhunter',    
+    9: 'FlyingSaucer',
+    10: 'Standard',
+    11: 'Crosspanel',
+    12: 'PyramidLifter',
+    13: 'ManraRay',
+  };
+  const ENEMY_3D_FAMILY_MODELS = {
+    Standard: [
+      'models/Ship_Standard_1.glb',
+      'models/Ship_Standard_2.glb',
+      'models/Ship_Standard_3.glb',
+      'models/Ship_Standard_4.glb',
+      'models/Ship_Standard_5.glb',
+      'models/Ship_Standard_6.glb',
+      'models/Ship_Standard_7.glb'
+    ],
+    Standard2: [
+      'models/Ship_Standard_8.glb',
+      'models/Ship_Standard_9.glb',
+      'models/Ship_Standard_10.glb',
+      'models/Ship_Standard_11.glb',
+      'models/Ship_Standard_12.glb',
+      'models/Ship_Standard_13.glb',
+      'models/Ship_Standard_14.glb'
+    ],
+    Blocky: [
+      'models/Ship_Blocky_3.glb',
+      'models/Ship_Blocky_4.glb',
+      'models/Ship_Blocky_5.glb',
+      'models/Ship_Blocky_6.glb',
+      'models/Ship_Blocky_7.glb',
+      'models/Ship_Blocky_8.glb',
+      'models/Ship_Blocky_9.glb'
+    ],
+    Crosspanel: [
+      'models/Ship_Crosspanel_1.glb',
+      'models/Ship_Crosspanel_2.glb',
+      'models/Ship_Crosspanel_3.glb',
+      'models/Ship_Crosspanel_4.glb',
+      'models/Ship_Crosspanel_5.glb',
+      'models/Ship_Crosspanel_6.glb',
+      'models/Ship_Crosspanel_7.glb'
+    ],
+    DeltaWing: [
+      'models/Ship_DeltaWing_108179.glb',
+      'models/Ship_DeltaWing_368386.glb',
+      'models/Ship_DeltaWing_394511.glb',
+      'models/Ship_DeltaWing_535536.glb',
+      'models/Ship_DeltaWing_691262.glb',
+      'models/Ship_DeltaWing_853002.glb',
+      'models/Ship_DeltaWing_894551.glb'
+    ],
+    Hooper: [
+      'models/Ship_Hooper_219385.glb',
+      'models/Ship_Hooper_302864.glb',
+      'models/Ship_Hooper_378031.glb',
+      'models/Ship_Hooper_443110.glb',
+      'models/Ship_Hooper_508807.glb',
+      'models/Ship_Hooper_517819.glb',
+      'models/Ship_Hooper_740839.glb'
+    ],
+    Pirate: [
+      'models/Ship_Pirate_1.glb',
+      'models/Ship_Pirate_2.glb',
+      'models/Ship_Pirate_3.glb',
+      'models/Ship_Pirate_4.glb',
+      'models/Ship_Pirate_5.glb',
+      'models/Ship_Pirate_6.glb',
+      'models/Ship_Pirate_7.glb'
+    ],
+    TwoHoop: [
+      'models/Ship_TwoHoop_11695.glb',
+      'models/Ship_TwoHoop_217137.glb',
+      'models/Ship_TwoHoop_274249.glb',
+      'models/Ship_TwoHoop_274461.glb',
+      'models/Ship_TwoHoop_338598.glb',
+      'models/Ship_TwoHoop_428113.glb',
+      'models/Ship_TwoHoop_536191.glb'
+    ],
+    Longwing: [
+      'models/Ship_Longwing_1.glb',
+      'models/Ship_Longwing_2.glb',
+      'models/Ship_Longwing_3.glb',
+      'models/Ship_Longwing_4.glb',
+      'models/Ship_Longwing_5.glb',
+      'models/Ship_Longwing_6.glb',
+      'models/Ship_Longwing_7.glb'
+    ],
+    TigerWing: [
+      'models/Ship_TigerWing_1.glb',
+      'models/Ship_TigerWing_2.glb',
+      'models/Ship_TigerWing_3.glb',
+      'models/Ship_TigerWing_4.glb',
+      'models/Ship_TigerWing_5.glb',
+      'models/Ship_TigerWing_6.glb',
+      'models/Ship_TigerWing_7.glb'
+    
+    ],
+    Talonhunter: [
+      'models/Ship_Talonhunter_91803.glb',
+      'models/Ship_Talonhunter_101914.glb',
+      'models/Ship_Talonhunter_269536.glb',
+      'models/Ship_Talonhunter_291527.glb',
+      'models/Ship_Talonhunter_337968.glb',
+      'models/Ship_Talonhunter_585024.glb',
+      'models/Ship_Talonhunter_647300.glb'
+    ],
+    ManraRay: [
+      'models/Ship_ManraRay_16943.glb',
+      'models/Ship_ManraRay_46262.glb',
+      'models/Ship_ManraRay_130405.glb',
+      'models/Ship_ManraRay_190663.glb',
+      'models/Ship_ManraRay_459947.glb',
+      'models/Ship_ManraRay_766613.glb',
+      'models/Ship_ManraRay_792763.glb'
+    ],
+    Orca: [
+      'models/Ship_Orca_29300.glb',
+      'models/Ship_Orca_135963.glb',
+      'models/Ship_Orca_486148.glb',
+      'models/Ship_Orca_492814.glb',
+      'models/Ship_Orca_583214.glb',
+      'models/Ship_Orca_652174.glb',
+      'models/Ship_Orca_687341.glb'
+    ],
+    LunarCourier: [
+      'models/Ship_LunarCourier_7.glb',
+      'models/Ship_LunarCourier_5002.glb',
+      'models/Ship_LunarCourier_95901.glb',
+      'models/Ship_LunarCourier_153144.glb',
+      'models/Ship_LunarCourier_322196.glb',
+      'models/Ship_LunarCourier_451424.glb',
+      'models/Ship_LunarCourier_826239.glb'
+    ],
+    PyramidLifter: [
+      'models/Ship_PyramidLifter_97249.glb',
+      'models/Ship_PyramidLifter_290115.glb',
+      'models/Ship_PyramidLifter_327178.glb',
+      'models/Ship_PyramidLifter_390936.glb',
+      'models/Ship_PyramidLifter_426685.glb',
+      'models/Ship_PyramidLifter_478836.glb',
+      'models/Ship_PyramidLifter_741828.glb'
+    ],
+    FlyingSaucer: [
+      'models/Ship_FlyingSaucer_298877.glb',
+      'models/Ship_FlyingSaucer_301176.glb',
+      'models/Ship_FlyingSaucer_336064.glb',
+      'models/Ship_FlyingSaucer_528770.glb',
+      'models/Ship_FlyingSaucer_654444.glb',
+      'models/Ship_FlyingSaucer_750147.glb',
+      'models/Ship_FlyingSaucer_752605.glb'
+    ]
+  };
+  const ENEMY_3D_SCALE_MULTIPLIER = 1.0;
+  const ENEMY_3D_MODEL_PITCH_OFFSET_DEG = -90;
+  const ENEMY_3D_MODEL_PITCH_OFFSET_RAD = ENEMY_3D_MODEL_PITCH_OFFSET_DEG * Math.PI / 180;
+  const ENEMY_3D_MODEL_ROLL_OFFSET_DEG = 180;
+  const ENEMY_3D_MODEL_ROLL_OFFSET_RAD = ENEMY_3D_MODEL_ROLL_OFFSET_DEG * Math.PI / 180;
+  const ENEMY_3D_YAW_OFFSET_DEG = 180;
+  const ENEMY_3D_BANK_SMOOTH_RATE = 4.0;
+  const ENEMY_3D_BANK_TURN_RATE_FACTOR = 1.0;
+  const ENEMY_3D_BANK_HEADING_FACTOR = 0.1;
+  const ENEMY_3D_LIB_THREE = './lib/three.module.js';
+  const ENEMY_3D_LIB_GLTF = './lib/loaders/GLTFLoader.js';
+  const enemy3DState = {
+    ready: false,
+    failed: false,
+    loadingPromise: null,
+    THREE: null,
+    loader: null,
+    renderer: null,
+    scene: null,
+    camera: null,
+    canvas: null,
+    modelCache: new Map(),
+    modelLoads: new Map(),
+    instances: new Map(),
+    root: null,
+    syncPending: false
+  };
 
   function narrowScreenScale() {
     return clamp(view.w / MIN_NORMAL_WINDOW_WIDTH, 0, 1);
@@ -243,6 +484,19 @@
   function fallbackEnemyShipGlowColor(levelNumber, shipIndex) {
     const seed = hashString('enemyglow|' + levelNumber + '|' + shipIndex);
     return ENEMY_SHIP_GLOW_FALLBACKS[Math.abs(seed) % ENEMY_SHIP_GLOW_FALLBACKS.length];
+  }
+
+  function enemy3DFamilyForLevel(levelNumber) {
+    const level = clamp(Math.round(levelNumber || 1), 1, 13);
+    return ENEMY_3D_LEVEL_FAMILY[level] || ENEMY_3D_LEVEL_FAMILY[13];
+  }
+
+  function enemy3DModelPath(levelNumber, shipIndex) {
+    const family = enemy3DFamilyForLevel(levelNumber);
+    const list = ENEMY_3D_FAMILY_MODELS[family];
+    if (!list || !list.length) return null;
+    const idx = Math.abs((shipIndex | 0) % 7) % list.length;
+    return list[idx] || null;
   }
 
   function averageImageColor(img) {
@@ -1360,6 +1614,317 @@
     return cached;
   }
 
+  function shouldUseEnemy3DMode() {
+    return !!enable3DMode &&
+      !!state &&
+      !!state.settings &&
+      !state.settings.lowEndMode &&
+      state.mode !== 'debug';
+  }
+
+  function normalizeAngleDeg(value) {
+    let out = value % 360;
+    if (out <= -180) out += 360;
+    if (out > 180) out -= 360;
+    return out;
+  }
+
+  function deltaAngleDeg(fromDeg, toDeg) {
+    return normalizeAngleDeg((toDeg || 0) - (fromDeg || 0));
+  }
+
+  function ensureEnemy3DCanvas() {
+    if (enemy3DState.canvas) return enemy3DState.canvas;
+    if (!document || !document.body) return null;
+    const c = document.createElement('canvas');
+    c.id = 'enemy3d';
+    c.width = Math.max(1, Math.floor(view.w * Math.max(1, view.dpr || 1)));
+    c.height = Math.max(1, Math.floor(view.h * Math.max(1, view.dpr || 1)));
+    c.style.position = 'fixed';
+    c.style.inset = '0';
+    c.style.width = '100vw';
+    c.style.height = '100vh';
+    c.style.pointerEvents = 'none';
+    c.style.background = 'transparent';
+    c.style.zIndex = '5';
+    c.style.display = 'none';
+    if (hudCanvas && hudCanvas.parentNode) hudCanvas.parentNode.insertBefore(c, hudCanvas);
+    else document.body.appendChild(c);
+    enemy3DState.canvas = c;
+    return c;
+  }
+
+  function clearEnemy3DInstances() {
+    if (!enemy3DState.instances.size) return;
+    enemy3DState.instances.forEach(function (entry) {
+      if (!entry || !entry.root || !enemy3DState.root) return;
+      enemy3DState.root.remove(entry.root);
+    });
+    enemy3DState.instances.clear();
+  }
+
+  function destroyEnemy3DRenderer() {
+    clearEnemy3DInstances();
+    if (enemy3DState.renderer && enemy3DState.renderer.dispose) {
+      try { enemy3DState.renderer.dispose(); } catch (err) {}
+    }
+    if (enemy3DState.canvas && enemy3DState.canvas.parentNode) {
+      enemy3DState.canvas.parentNode.removeChild(enemy3DState.canvas);
+    }
+    enemy3DState.ready = false;
+    enemy3DState.renderer = null;
+    enemy3DState.scene = null;
+    enemy3DState.camera = null;
+    enemy3DState.root = null;
+    enemy3DState.canvas = null;
+    enemy3DState.loadingPromise = null;
+    enemy3DState.syncPending = false;
+  }
+
+  function updateEnemy3DViewport() {
+    if (!enemy3DState.ready || !enemy3DState.renderer || !enemy3DState.camera || !enemy3DState.canvas) return;
+    const dpr = Math.max(1, view.dpr || 1);
+    const w = Math.max(1, Math.floor(view.w * dpr));
+    const h = Math.max(1, Math.floor(view.h * dpr));
+    if (enemy3DState.canvas.width !== w || enemy3DState.canvas.height !== h) {
+      enemy3DState.canvas.width = w;
+      enemy3DState.canvas.height = h;
+    }
+    enemy3DState.renderer.setPixelRatio(dpr);
+    enemy3DState.renderer.setSize(view.w, view.h, false);
+    enemy3DState.canvas.style.width = view.w + 'px';
+    enemy3DState.canvas.style.height = view.h + 'px';
+    enemy3DState.camera.left = -view.w * 0.5;
+    enemy3DState.camera.right = view.w * 0.5;
+    enemy3DState.camera.top = view.h * 0.5;
+    enemy3DState.camera.bottom = -view.h * 0.5;
+    enemy3DState.camera.near = 1;
+    enemy3DState.camera.far = 4000;
+    enemy3DState.camera.position.set(0, 0, 1000);
+    enemy3DState.camera.lookAt(0, 0, 0);
+    enemy3DState.camera.updateProjectionMatrix();
+  }
+
+  async function ensureEnemy3DRenderer() {
+    if (!shouldUseEnemy3DMode()) return false;
+    if (enemy3DState.ready) return true;
+    if (enemy3DState.failed) return false;
+    if (enemy3DState.loadingPromise) return enemy3DState.loadingPromise;
+    enemy3DState.loadingPromise = (async function () {
+      try {
+        const mods = await Promise.all([
+          import(ENEMY_3D_LIB_THREE),
+          import(ENEMY_3D_LIB_GLTF)
+        ]);
+        if (!shouldUseEnemy3DMode()) return false;
+        const THREE = mods[0];
+        const GLTFLoader = mods[1] && mods[1].GLTFLoader ? mods[1].GLTFLoader : null;
+        if (!THREE || !GLTFLoader) throw new Error('3D enemy mode could not load Three.js modules.');
+        const canvas3D = ensureEnemy3DCanvas();
+        if (!canvas3D) throw new Error('3D enemy mode could not allocate canvas.');
+        const renderer3D = new THREE.WebGLRenderer({
+          canvas: canvas3D,
+          alpha: true,
+          antialias: false,
+          premultipliedAlpha: false,
+          powerPreference: 'high-performance'
+        });
+        renderer3D.autoClear = true;
+        renderer3D.setClearColor(0x000000, 0);
+        const scene3D = new THREE.Scene();
+        const camera3D = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 4000);
+        const root3D = new THREE.Group();
+        scene3D.add(root3D);
+        scene3D.add(new THREE.AmbientLight(0xffffff, 1.05));
+        const keyLight = new THREE.DirectionalLight(0xffffff, 1.6);
+        keyLight.position.set(0.8, 0.9, 1.0);
+        scene3D.add(keyLight);
+        const fillLight = new THREE.DirectionalLight(0x7aa3ff, 0.75);
+        fillLight.position.set(-0.65, -0.6, 0.95);
+        scene3D.add(fillLight);
+        enemy3DState.THREE = THREE;
+        enemy3DState.loader = new GLTFLoader();
+        enemy3DState.renderer = renderer3D;
+        enemy3DState.scene = scene3D;
+        enemy3DState.camera = camera3D;
+        enemy3DState.root = root3D;
+        enemy3DState.ready = true;
+        enemy3DState.failed = false;
+        updateEnemy3DViewport();
+        canvas3D.style.display = 'block';
+        return true;
+      } catch (err) {
+        enemy3DState.failed = true;
+        console.warn('Enemy 3D mode disabled (fallback to 2D).', err);
+        destroyEnemy3DRenderer();
+        return false;
+      } finally {
+        enemy3DState.loadingPromise = null;
+      }
+    }());
+    return enemy3DState.loadingPromise;
+  }
+
+  async function ensureEnemy3DModelLoaded(path) {
+    if (!path || !enemy3DState.ready || !enemy3DState.loader) return null;
+    if (enemy3DState.modelCache.has(path)) return enemy3DState.modelCache.get(path);
+    if (enemy3DState.modelLoads.has(path)) return enemy3DState.modelLoads.get(path);
+    const THREE = enemy3DState.THREE;
+    const loadPromise = (async function () {
+      try {
+        const gltf = await (enemy3DState.loader.loadAsync
+          ? enemy3DState.loader.loadAsync(path)
+          : new Promise(function (resolve, reject) {
+            enemy3DState.loader.load(path, resolve, undefined, reject);
+          }));
+        const scene = gltf && gltf.scene ? gltf.scene : null;
+        if (!scene) return null;
+        // Pull models up, then flip around front/back axis so they are not upside-down.
+        scene.rotation.set(ENEMY_3D_MODEL_PITCH_OFFSET_RAD, 0, ENEMY_3D_MODEL_ROLL_OFFSET_RAD);
+        scene.updateMatrixWorld(true);
+        const bounds = new THREE.Box3().setFromObject(scene);
+        const size = bounds.getSize(new THREE.Vector3());
+        const maxXYDiameter = Math.max(0.001, size.x, size.y);
+        const entry = { scene: scene, maxXYDiameter: maxXYDiameter };
+        enemy3DState.modelCache.set(path, entry);
+        return entry;
+      } catch (err) {
+        console.warn('Enemy 3D model failed to load, falling back to 2D:', path, err);
+        enemy3DState.modelCache.set(path, null);
+        return null;
+      } finally {
+        enemy3DState.modelLoads.delete(path);
+      }
+    }());
+    enemy3DState.modelLoads.set(path, loadPromise);
+    return loadPromise;
+  }
+
+  function removeEnemy3DInstance(enemy) {
+    if (!enemy || !enemy3DState.instances.has(enemy)) return;
+    const entry = enemy3DState.instances.get(enemy);
+    if (entry && entry.root && enemy3DState.root) enemy3DState.root.remove(entry.root);
+    enemy3DState.instances.delete(enemy);
+  }
+
+  async function ensureEnemy3DInstance(enemy) {
+    if (!enemy || !enemy3DState.ready || !enemy3DState.root) return null;
+    if (enemy3DState.instances.has(enemy)) return enemy3DState.instances.get(enemy);
+    const levelNumber = enemy.shipLevel || (state.levelIndex + 1);
+    const shipIndex = enemy.shipIndex || 0;
+    const modelPath = enemy3DModelPath(levelNumber, shipIndex);
+    if (!modelPath) return null;
+    const modelEntry = await ensureEnemy3DModelLoaded(modelPath);
+    if (!enemy || enemy.dead || !enemy3DState.ready || !enemy3DState.root) return null;
+    if (!modelEntry || !modelEntry.scene || !(modelEntry.maxXYDiameter > 0)) return null;
+    const root = new enemy3DState.THREE.Group();
+    const modelScene = modelEntry.scene.clone(true);
+    modelScene.traverse(function (obj) {
+      if (!obj || !obj.isMesh) return;
+      obj.frustumCulled = false;
+      if (Array.isArray(obj.material)) {
+        for (let i = 0; i < obj.material.length; i++) {
+          const mat = obj.material[i];
+          if (mat && mat.transparent) mat.depthWrite = false;
+        }
+      } else if (obj.material && obj.material.transparent) {
+        obj.material.depthWrite = false;
+      }
+    });
+    root.add(modelScene);
+    enemy3DState.root.add(root);
+    const flightDeg = ((enemy.flightAngle || 0) * 180 / Math.PI);
+    const yawDeg = flightDeg + 90 + ENEMY_3D_YAW_OFFSET_DEG;
+    const instance = {
+      root: root,
+      modelPath: modelPath,
+      maxXYDiameter: modelEntry.maxXYDiameter,
+      prevFlightAngleDeg: flightDeg,
+      yawDeg: yawDeg,
+      bankDeg: 0,
+      valid: true
+    };
+    enemy3DState.instances.set(enemy, instance);
+    return instance;
+  }
+
+  async function syncEnemy3DInstances(dt) {
+    if (!shouldUseEnemy3DMode()) {
+      if (enemy3DState.ready || enemy3DState.canvas || enemy3DState.loadingPromise) destroyEnemy3DRenderer();
+      return;
+    }
+    if (!enemy3DState.ready && (!state.enemies || state.enemies.length === 0)) return;
+    const ready = await ensureEnemy3DRenderer();
+    if (!ready || !enemy3DState.ready || !enemy3DState.root) return;
+    if (enemy3DState.canvas) enemy3DState.canvas.style.display = 'block';
+    updateEnemy3DViewport();
+    const seen = new Set();
+    for (let i = 0; i < state.enemies.length; i++) {
+      const enemy = state.enemies[i];
+      if (!enemy || enemy.dead) continue;
+      seen.add(enemy);
+      let instance = enemy3DState.instances.get(enemy);
+      if (!instance) {
+        instance = await ensureEnemy3DInstance(enemy);
+        if (!instance) continue;
+      }
+      if (!instance || !instance.root || !instance.valid) continue;
+      const flightDeg = (typeof enemy.flightAngle === 'number' ? enemy.flightAngle : Math.atan2(enemy.vy || 0, enemy.vx || 1)) * 180 / Math.PI;
+      const targetYawDeg = flightDeg + 90 + ENEMY_3D_YAW_OFFSET_DEG;
+      const turnDeltaDeg = deltaAngleDeg(instance.prevFlightAngleDeg, flightDeg);
+      const turnRateDegPerSec = dt > 0 ? (turnDeltaDeg / dt) : 0;
+      const headingErrorDeg = deltaAngleDeg(instance.yawDeg, targetYawDeg);
+      // Mirrored fly-in entries can have opposite visual roll feel; flip bank sign only for that phase.
+      const entryMirrorSign = (enemy.entry && enemy.entry.mirror === -1) ? -1 : 1;
+      const targetBankDeg = clamp(((turnRateDegPerSec * ENEMY_3D_BANK_TURN_RATE_FACTOR) + (headingErrorDeg * ENEMY_3D_BANK_HEADING_FACTOR)) * entryMirrorSign, -90, 90);
+      instance.bankDeg = smooth(instance.bankDeg, targetBankDeg, ENEMY_3D_BANK_SMOOTH_RATE, Math.max(0, dt || 0));
+      instance.yawDeg = targetYawDeg;
+      instance.prevFlightAngleDeg = flightDeg;
+      const shipSize = Math.max(1, enemy.shipSize || getEnemyShipRenderSize(enemy.shipLevel || (state.levelIndex + 1), enemy.shipIndex || 0));
+      const baseScale = shipSize / Math.max(0.001, instance.maxXYDiameter);
+      const finalScale = baseScale * ENEMY_3D_SCALE_MULTIPLIER;
+      const shakeX = render.offsetX || 0;
+      const shakeY = render.offsetY || 0;
+      instance.root.position.set(
+        (enemy.x - view.w * 0.5) + shakeX,
+        (view.h * 0.5 - enemy.y) - shakeY,
+        0
+      );
+      instance.root.scale.set(finalScale, finalScale, finalScale);
+      instance.root.rotation.set(
+        instance.bankDeg * Math.PI / 180,
+        0,
+        -instance.yawDeg * Math.PI / 180
+      );
+    }
+    enemy3DState.instances.forEach(function (instance, enemy) {
+      if (!seen.has(enemy)) removeEnemy3DInstance(enemy);
+    });
+  }
+
+  function tickEnemy3D(dt) {
+    if (!enable3DMode) return;
+    if (!shouldUseEnemy3DMode() && !enemy3DState.ready && !enemy3DState.canvas && !enemy3DState.loadingPromise) return;
+    if (!enemy3DState.ready && !enemy3DState.loadingPromise && (!state.enemies || state.enemies.length === 0)) return;
+    if (enemy3DState.syncPending) return;
+    enemy3DState.syncPending = true;
+    Promise.resolve(syncEnemy3DInstances(dt)).catch(function () {}).finally(function () {
+      enemy3DState.syncPending = false;
+    });
+  }
+
+  function hasEnemy3DInstance(enemy) {
+    if (!enable3DMode) return false;
+    return !!enemy && enemy3DState.ready && enemy3DState.instances.has(enemy);
+  }
+
+  function renderEnemy3DScene() {
+    if (!enable3DMode) return;
+    if (!enemy3DState.ready || !enemy3DState.renderer || !enemy3DState.scene || !enemy3DState.camera) return;
+    enemy3DState.renderer.clear(true, true, true);
+    enemy3DState.renderer.render(enemy3DState.scene, enemy3DState.camera);
+  }
+
   function initRenderer() {
     if (!gl || render.ready) return false;
     try {
@@ -2251,6 +2816,7 @@
         autoFullscreenInput.parentElement.style.display = electronWindowBridge ? 'none' : '';
       }
     }
+    if (enemy3DModeInput) enemy3DModeInput.checked = !!enable3DMode;
     for (let i = 0; i < difficultyButtons.length; i++) {
       const btn = difficultyButtons[i];
       const idx = Number(btn.getAttribute('data-difficulty'));
@@ -2356,6 +2922,7 @@
   function setLowEndMode(enabled) {
     state.settings.lowEndMode = !!enabled;
     if (state.settings.lowEndMode) clearScrollingClouds();
+    if (state.settings.lowEndMode) destroyEnemy3DRenderer();
     saveSettings();
     syncSettingsUi();
     window.dispatchEvent(new Event('resize'));
@@ -2581,6 +3148,7 @@
       }
     }
     if (state.backgroundBitmap || state.foregroundBitmap) regenBackground(mainTheme(), { preserveScroll: true });
+    if (enemy3DState.ready) updateEnemy3DViewport();
     markHudDirty();
   }
 
@@ -6439,18 +7007,21 @@
   function drawEnemyBody(e, rot, shipSize) {
     const p = enemyPalette(e);
     const alpha = e.hitFlash > 0 ? 1 : 0.96;
-    const levelNumber = e.shipLevel || (state.levelIndex + 1);
-    const shipIndex = e.shipIndex || 0;
-    const texture = getEnemyShipTexture(levelNumber, shipIndex);
-    if (texture) {
-      drawTextureRect(texture, e.x, e.y, shipSize, shipSize, { rot: rot, alpha: alpha, layer: 18 });
-    } else {
-      const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme);
-      const glowRadius = Math.max(14, shipSize * 0.42 * 0.675 * (state.settings.lowEndMode ? 1 : 0.9));
-      drawGlowCircle(e.x, e.y, glowRadius * 0.9312, shipGlow, 0.8, 22);
-      drawGlowCircle(e.x, e.y, glowRadius * 0.5033, shipGlow, 0.7, 12);
-      drawGlowCircle(e.x, e.y, shipSize * 0.23, p.base, 0.125, 10);
-      drawGlowCircle(e.x, e.y, shipSize * 0.11, p.base, alpha * 0.10, 8);
+    const useEnemy3DMesh = enable3DMode && hasEnemy3DInstance(e);
+    if (!useEnemy3DMesh) {
+      const levelNumber = e.shipLevel || (state.levelIndex + 1);
+      const shipIndex = e.shipIndex || 0;
+      const texture = getEnemyShipTexture(levelNumber, shipIndex);
+      if (texture) {
+        drawTextureRect(texture, e.x, e.y, shipSize, shipSize, { rot: rot, alpha: alpha, layer: 18 });
+      } else {
+        const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme);
+        const glowRadius = Math.max(14, shipSize * 0.42 * 0.675 * (state.settings.lowEndMode ? 1 : 0.9));
+        drawGlowCircle(e.x, e.y, glowRadius * 0.9312, shipGlow, 0.8, 22);
+        drawGlowCircle(e.x, e.y, glowRadius * 0.5033, shipGlow, 0.7, 12);
+        drawGlowCircle(e.x, e.y, shipSize * 0.23, p.base, 0.125, 10);
+        drawGlowCircle(e.x, e.y, shipSize * 0.11, p.base, alpha * 0.10, 8);
+      }
     }
     if (e.hitFlash > 0) {
       const flash = clamp(e.hitFlash * 16.0, 0, 1);
@@ -7303,6 +7874,7 @@
     state.renderFrameIndex++;
     render.offsetX = state.shake > 0 ? rand(-state.shake, state.shake) : 0;
     render.offsetY = state.shake > 0 ? rand(-state.shake, state.shake) : 0;
+    if (enable3DMode) tickEnemy3D(currentDt || 0);
     drawBackground();
     drawParticles();
     drawPickups();
@@ -7312,6 +7884,7 @@
     if (state.boss) drawBoss(state.boss);
     if (state.mode !== 'debug') drawPlayer();
     drawForeground();
+    if (enable3DMode) renderEnemy3DScene();
     if (state.flash > 0) {
       drawSpriteRect(view.w * 0.5, view.h * 0.5, view.w, view.h, '#ffffff', state.flash * 0.3, 999, true);
     }
@@ -7583,7 +8156,9 @@
     getDebugLog: function () { return state.debugLog.slice(); },
     clearDebugLog: function () { state.debugLog.length = 0; saveDebugLog(); },
     setDamageBreakpoints: function (on) { state.debugDamageBreakpoints = !!on; },
-    isAssetsReady: function () { return !!state.assetsReady; }
+    isAssetsReady: function () { return !!state.assetsReady; },
+    isEnemy3DModeEnabled: function () { return !!enable3DMode; },
+    setEnemy3DModeEnabled: setEnemy3DModeEnabled
   };
 
   if (titleManualButton) {
@@ -7635,6 +8210,11 @@
       setAutoFullscreen(ev.target.checked);
     });
   }
+  if (enemy3DModeInput) {
+    enemy3DModeInput.addEventListener('change', function (ev) {
+      setEnemy3DModeEnabled(ev.target.checked);
+    });
+  }
   if (electronWindowBridge && typeof electronWindowBridge.onFullscreenChanged === 'function') {
     stopElectronFullscreenListener = electronWindowBridge.onFullscreenChanged(function (active) {
       electronFullscreenState = !!active;
@@ -7680,6 +8260,7 @@
       stopElectronFullscreenListener();
       stopElectronFullscreenListener = null;
     }
+    destroyEnemy3DRenderer();
   });
   requestAnimationFrame(loop);
 }());
