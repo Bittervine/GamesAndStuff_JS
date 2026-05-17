@@ -441,12 +441,16 @@
         <span>Automatically toggle fullscreen mode</span>
         <input id="autoFullscreen" type="checkbox">
       </label>
+      <label class="settings-toggle" for="enemy3DMode">
+        <span>Enable 3D enemy ships (may reload when disabling)</span>
+        <input id="enemy3DMode" type="checkbox">
+      </label>
 
     </div>
   </dialog>
   <script>
     (function () {
-      var appVersion = 'thoriumgap-v33';
+      var appVersion = 'thoriumgap-v34';
       var script = document.createElement('script');
       script.src = './ThoriumGap.js';
       document.head.appendChild(script);
