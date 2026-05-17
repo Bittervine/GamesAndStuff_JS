@@ -208,7 +208,7 @@
   const asteroidArtLoadKeys = new Set();
   const asteroidArtCache = new Map();
   const ENEMY_3D_QUERY_PARAM = 'enemy3d';
-  const ENABLE_3D_MODE_DEFAULT = true;
+  const ENABLE_3D_MODE_DEFAULT = false;
   function enemy3DModeFromParams(params) {
     if (!params) return ENABLE_3D_MODE_DEFAULT;
     const mode = params.get(ENEMY_3D_QUERY_PARAM);
