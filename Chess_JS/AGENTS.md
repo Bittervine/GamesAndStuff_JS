@@ -6,3 +6,5 @@
 - Do not rely on features like `Promise`, `async`/`await`, `IntersectionObserver`, `ResizeObserver`, `requestIdleCallback`, or similar modern-only browser APIs unless there is a strong compatibility check and fallback.
 - Prefer simple timers, plain event handlers, and direct DOM updates over newer abstractions.
 - If a change might reduce Kindle compatibility, stop and confirm before implementing it.
+
+- Unless I explicitly tell you, Dont modify Chess_JSk and Chess_JSo
