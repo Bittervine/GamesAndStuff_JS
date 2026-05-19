@@ -1723,6 +1723,17 @@
                     continue;
                 }
 
+                if (!frame.moves) {
+                    frame.moves = generateLegalMoves(frame.color, false, frame.ply, frame.preferredMove);
+                    if (!frame.moves.length) {
+                        completeNode(task, inCheck(frame.color) ? (frame.color === 'w' ? -MATE_SCORE : MATE_SCORE) : 0);
+                        continue;
+                    }
+                    frame.moveIndex = 0;
+                    frame.best = (frame.color === 'w') ? -SEARCH_INF : SEARCH_INF;
+                    continue;
+                }
+
                 if (frame.moveIndex >= frame.moves.length || frame.beta <= frame.alpha) {
                     completeNode(task, frame.best);
                     continue;
