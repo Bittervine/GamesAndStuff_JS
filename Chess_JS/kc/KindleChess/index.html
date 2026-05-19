@@ -1,0 +1,177 @@
+
+<!DOCTYPE html>
+<html lang="en">    
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, width=device-width, height=device-height, target-densitydpi=device-dpi">
+        <meta name="keywords" content="Chess, Engine, Javascript, Play Chess, Chess Program, Javascript Chess, Game">
+        <title>Kindle Chess</title>
+        <link href="stylesheets/styles.css" rel="stylesheet" type="text/css">
+        <script type="text/javascript"> if (!window.console) console = {log: function() {}}; </script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-Q94743BW9M');
+</script>
+    </head>
+    <body>
+        <header>
+        </header>   
+        <div id="GameZone" style="display: inline-block; zoom:1.29;" >
+            <div id="FenInDiv" >			
+                <input type="text" id="fenIn" />		
+                <button type="button" id="SetFen" >Set Position</button>	
+            </div>	
+            <div id="Board">
+                <div id="CurrentFenDiv"  display="" >
+                    <span id="currentFenSpan"></span>		
+                </div>	                  
+            </div>            
+            <div id="EngineConfig"> 
+                <table id="EngineConfigTable">
+                    <tr>
+                        <td>
+                            Time:
+                        </td>
+                        <td>
+                            <select id="ThinkTimeChoice">                                          
+                                <option value="1000">1 s</option>			
+                                <option value="2000">2 s</option>			
+                                <option value="3000">3 s</option>			
+                                <option selected value="5000">5 s</option>			
+                                <option value="10000">10 s</option>			
+                                <option value="20000">20 s</option>			
+                                <option value="30000">30 s</option>			
+                                <option value="40000">40 s</option>			
+                                <option value="60000">60 s</option>			
+                                <option value="90000">90 s</option>			
+                            </select>
+                        </td>
+                        <td style="margin-left:10">
+                            Nodes:
+                        </td>
+                        <td>
+                            <select id="CNodesChoice">              
+                                <option value="100">100</option>
+                                <option value="200">200</option>
+                                <option selected value="300">300</option>
+                                <option value="400">400</option>
+                                <option value="500">500</option>
+                                <option value="700">700</option>
+                                <option value="1000">1000</option>
+                                <option value="2000">2000</option>
+                                <option value="3000">3000</option>
+                                <option value="5000">5000</option>
+                                <option value="7000">7000</option>
+                                <option value="10000">10000</option>
+                                <option value="20000">20000</option>                            
+                                <option value="1000000000000">MAX</option>                                
+                            </select>
+                        </td>
+                        <td>
+                            Random:
+                        </td>
+                        <td>
+                            <select id="CRandomChoice">              
+                                <option value="0">NONE</option>   <!-- &permil -->
+                                <option value="10">1.0&percnt;</option>                
+                                <option value="20">2.0&percnt;</option>
+                                <option value="30">3.0&percnt;</option>
+                                <option selected value="40">4.0&percnt;</option>
+                                <option value="50">5.0&percnt;</option>
+                                <option value="60">6.0&percnt;</option>
+                                <option value="70">7.0&percnt;</option>
+                                <option value="90">9.0&percnt;</option>                              
+                                <option value="200">20&percnt;</option>                
+                                <option value="500">50&percnt;</option>                                
+                            </select>            
+                        </td>
+                        <td style="margin-left:10">                        
+                            <!--<button type="button" id="SearchButton">Move</button>-->
+                            <button type="button" id="NewGameButton">&nbsp;&nbsp;New&nbsp;&nbsp;</button>              
+                        </td>
+                        <td>              
+                            <!--<button type="button" id="FlipButton">Flip</button>-->
+                            <button type="button" id="TakeButton">&nbsp;&nbsp;Back&nbsp;&nbsp;</button>              
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan=8>
+                            <font size="-1">
+                                <div id="SearchInfo">
+                                    <span id="BestOut">BestMove: -</span>
+                                    <span id="DepthOut">Depth: -</span>
+                                    <!-- <span id="ScoreOut">Score: -</span> -->
+                                    <span id="NodesOut">Nodes: -</span>
+                                    <!-- <span id="OrderingOut">Ordering:</span> -->
+                                    <span id="TimeOut">Time: -</span>
+                                </div>
+                                <div id="GameInfo">
+                                    <b><span id="GameStatus"></span></b>
+                                    <!-- <span id="LoadingBook">Loading book, please wait....</span> -->
+                                </div>
+                            </font>                    
+                        </td>
+                </table>
+            </div>
+        </div>
+        <!--<br>
+        <div id="ThinkingImageDiv">	</div>
+        -->                                    
+
+        <script src="js/jquery-1.10.1.min.js"></script>
+        <!--<script src="js/all.js"></script>-->
+        <!--<script src="js/all_comp.js"></script>-->
+        <script src="js/defs.js"></script>
+        <script src="js/io.js"></script>
+        <script src="js/board.js"></script>
+        <script src="js/movegen.js"></script>
+        <script src="js/makemove.js"></script>
+        <script src="js/perft.js"></script>
+        <script src="js/evaluate.js"></script>
+        <script src="js/pvtable.js"></script>
+        <script src="js/search.js"></script>
+        <script src="js/protocol.js"></script>
+        <script src="js/gui.js"></script>
+        <script src="js/main.js"></script>
+        <script type="text/javascript">
+              function onMyResize()
+              {                                                    
+                  var bo = document.getElementById("Board");     
+                  var gz = document.getElementById("GameZone");   
+                  var et = document.getElementById("EngineConfigTable");                  
+
+                  var scale1 = (window.innerWidth)/(gz.offsetWidth+0);                      
+                  var scale2 = (window.innerHeight)/(gz.offsetHeight+0);                                                                        
+                  var scale = Math.min(scale1,scale2);
+                         
+                  //Kindle PW5 hack to get rid of scroll bar
+                  //scale=1.5;
+
+                  gz.style.zoom = scale;
+                              
+                  //et.style.zoom = (bo.offsetWidth)/(et.offsetWidth);                      
+
+                  SetScale(scale);
+                  //console.log(navigator);                  
+              }
+              function onMyInit() 
+              {       
+                  var bo = document.getElementById("Board");     
+                  var gz = document.getElementById("GameZone");   
+                  var et = document.getElementById("EngineConfigTable");                  
+                  
+                  et.style.zoom = (gz.offsetWidth)/(et.offsetWidth+30);                      
+                  
+                  window.onresize = onMyResize;
+                  onMyResize()
+                  
+              }              
+              // Let page load and then actually do init once document layout is complete...
+              setTimeout(onMyInit,0);                            
+        </script>        
+    </body>
+</html>
+

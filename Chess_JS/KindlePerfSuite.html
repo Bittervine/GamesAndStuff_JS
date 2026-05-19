@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kindle Performance Suite</title>
+<style>
+body { font-family: serif; margin: 12px; line-height: 1.25; }
+h1 { font-size: 22px; margin: 0 0 8px 0; }
+.controls { margin: 8px 0; }
+button { font-size: 16px; margin-right: 6px; margin-bottom: 6px; }
+label { margin-right: 8px; }
+input { font-size: 16px; width: 56px; }
+#status { padding: 6px; border: 1px solid #666; min-height: 20px; margin-bottom: 8px; }
+textarea { width: 100%; box-sizing: border-box; font-family: monospace; font-size: 13px; }
+#summary { height: 220px; }
+#details { height: 300px; display: none; }
+.small { font-size: 13px; color: #333; }
+</style>
+</head>
+<body>
+<h1>Kindle Performance Suite</h1>
+<div class="small">Goal: identify what is fast vs slow on Kindle using only old web APIs (Date, setTimeout, DOM, arrays, strings).</div>
+
+<div class="controls">
+<button id="runQuick">Run Quick</button>
+<button id="runFull">Run Full</button>
+<button id="toggleDetails">Show Details</button>
+<button id="clearOut">Clear Output</button>
+</div>
+
+<div class="controls">
+<label>Target ms/test <input id="targetMs" type="text" value="100"></label>
+<label>Repeats <input id="repeats" type="text" value="2"></label>
+<label>Timer slices <input id="timerSlices" type="text" value="35"></label>
+</div>
+
+<div id="status">Idle.</div>
+<textarea id="summary" readonly></textarea>
+<textarea id="details" readonly></textarea>
+<div class="small">Please copy only the compact block from <code>KINDLE_PROFILE</code> to <code>KINDLE_SCORE</code> (12 numbers).</div>
+
+<script>
+(function () {
+    var statusEl = document.getElementById('status');
+    var summaryEl = document.getElementById('summary');
+    var detailsEl = document.getElementById('details');
+    var runQuickBtn = document.getElementById('runQuick');
+    var runFullBtn = document.getElementById('runFull');
+    var toggleBtn = document.getElementById('toggleDetails');
+    var clearBtn = document.getElementById('clearOut');
+    var targetMsInput = document.getElementById('targetMs');
+    var repeatsInput = document.getElementById('repeats');
+    var timerSlicesInput = document.getElementById('timerSlices');
+
+    var running = false;
+    var sinkNumber = 0;
+    var sinkString = '';
+    var runStartMs = 0;
+
+    var benchDomHost = document.createElement('div');
+    benchDomHost.style.position = 'absolute';
+    benchDomHost.style.left = '-9999px';
+    benchDomHost.style.top = '-9999px';
+    document.body.appendChild(benchDomHost);
+
+    function nowMs() {
+        if (Date.now) return Date.now();
+        return (new Date()).getTime();
+    }
+
+    function setStatus(msg) {
+        statusEl.innerHTML = msg;
+    }
+
+    function toInt(v, def, lo, hi) {
+        var n = parseInt(v, 10);
+        if (isNaN(n)) n = def;
+        if (n < lo) n = lo;
+        if (n > hi) n = hi;
+        return n;
+    }
+
+    function round2(v) {
+        return (Math.round(v * 100) / 100).toFixed(2);
+    }
+
+    function round1(v) {
+        return (Math.round(v * 10) / 10).toFixed(1);
+    }
+
+    function median(arr) {
+        if (!arr || !arr.length) return 0;
+        var a = arr.slice(0);
+        a.sort(function (x, y) { return x - y; });
+        var mid = Math.floor(a.length / 2);
+        if (a.length % 2) return a[mid];
+        return (a[mid - 1] + a[mid]) / 2;
+    }
+
+    function mean(arr) {
+        if (!arr || !arr.length) return 0;
+        var i, s = 0;
+        for (i = 0; i < arr.length; i++) s += arr[i];
+        return s / arr.length;
+    }
+
+    function ratio(a, b) {
+        if (!b || b <= 0) return 0;
+        return a / b;
+    }
+
+    function hashString(s) {
+        var h = 2166136261;
+        var i;
+        for (i = 0; i < s.length; i++) {
+            h ^= s.charCodeAt(i);
+            h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
+        }
+        return h >>> 0;
+    }
+
+    var benches = [
+        {
+            id: 'int_math',
+            name: 'Integer Math',
+            baseIter: 22000,
+            fn: function (n) {
+                var i, x = 123456789;
+                for (i = 0; i < n; i++) {
+                    x = (x * 1103515245 + 12345) & 2147483647;
+                    x = ((x + i) ^ (x >>> 7)) & 2147483647;
+                }
+                sinkNumber ^= x;
+            }
+        },
+        {
+            id: 'object_alloc',
+            name: 'Object Create/Destroy',
+            baseIter: 6000,
+            fn: function (n) {
+                var i, arr = [], sum = 0;
+                for (i = 0; i < n; i++) arr.push({ a: i, b: i + 1, c: (i * 3) & 255, d: i & 15 });
+                for (i = 0; i < arr.length; i++) sum ^= arr[i].c;
+                sinkNumber ^= sum;
+            }
+        },
+        {
+            id: 'array_push_pop',
+            name: 'Array Push/Pop',
+            baseIter: 16000,
+            fn: function (n) {
+                var i, arr = [];
+                for (i = 0; i < n; i++) arr.push(i);
+                for (i = 0; i < n; i++) sinkNumber ^= (arr.pop() || 0);
+            }
+        },
+        {
+            id: 'array_shift',
+            name: 'Array Shift Queue',
+            baseIter: 3200,
+            fn: function (n) {
+                var i, arr = [];
+                for (i = 0; i < 256; i++) arr.push(i);
+                for (i = 0; i < n; i++) {
+                    arr.push(i);
+                    sinkNumber ^= (arr.shift() || 0);
+                }
+            }
+        },
+        {
+            id: 'string_hash',
+            name: 'String Hashing',
+            baseIter: 2800,
+            fn: function (n) {
+                var i, h = 0;
+                for (i = 0; i < n; i++) h ^= hashString('fen' + (i % 71) + 'stm' + (i & 1) + 'c' + (i % 16));
+                sinkNumber ^= h;
+            }
+        },
+        {
+            id: 'dom_add_remove',
+            name: 'DOM Add/Remove',
+            baseIter: 260,
+            fn: function (n) {
+                var i, node;
+                var frag = document.createDocumentFragment();
+                for (i = 0; i < n; i++) {
+                    node = document.createElement('span');
+                    node.appendChild(document.createTextNode('x' + i));
+                    frag.appendChild(node);
+                }
+                benchDomHost.appendChild(frag);
+                while (benchDomHost.firstChild) benchDomHost.removeChild(benchDomHost.firstChild);
+            }
+        },
+        {
+            id: 'mixed_engine',
+            name: 'Mixed Engine-like',
+            baseIter: 1200,
+            fn: function (n) {
+                var i, j, score = 0;
+                var board = [
+                    4,2,3,5,6,3,2,4, 1,1,1,1,1,1,1,1,
+                    0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,
+                    0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,
+                    -1,-1,-1,-1,-1,-1,-1,-1, -4,-2,-3,-5,-6,-3,-2,-4
+                ];
+                for (i = 0; i < n; i++) {
+                    var k = i & 63;
+                    board[k] = board[k] + ((i & 1) ? 1 : -1);
+                    for (j = 0; j < 64; j += 8) score += board[j] + board[j + 1] - board[j + 6] - board[j + 7];
+                    score ^= hashString('k' + k + 'i' + (i & 31));
+                }
+                sinkNumber ^= score;
+            }
+        }
+    ];
+
+    function runSync(bench, iter) {
+        var t0 = nowMs();
+        bench.fn(iter);
+        return nowMs() - t0;
+    }
+
+    function runTimer(bench, iter, slices, done) {
+        var remaining = iter;
+        var chunk = Math.floor(iter / slices);
+        if (chunk < 1) chunk = 1;
+        var t0 = nowMs();
+
+        function step() {
+            var n = chunk;
+            if (n > remaining) n = remaining;
+            bench.fn(n);
+            remaining -= n;
+            if (remaining > 0) setTimeout(step, 0);
+            else done(nowMs() - t0);
+        }
+        setTimeout(step, 0);
+    }
+
+    function calibrate(bench, targetMs) {
+        var iter = bench.baseIter;
+        var pass;
+        for (pass = 0; pass < 6; pass++) {
+            var ms = runSync(bench, iter);
+            if (ms < 1) ms = 1;
+            if (ms >= targetMs * 0.8 && ms <= targetMs * 1.4) break;
+            iter = Math.floor(iter * (targetMs / ms));
+            if (iter < 1) iter = 1;
+        }
+        return iter;
+    }
+
+    function makeStore() {
+        var out = {}, i;
+        for (i = 0; i < benches.length; i++) {
+            out[benches[i].id] = { name: benches[i].name, iter: 0, sync: [], timer: [] };
+        }
+        return out;
+    }
+
+    function runSuite(cfg) {
+        if (running) return;
+        running = true;
+        runStartMs = nowMs();
+        sinkNumber = 0;
+        sinkString = '';
+        summaryEl.value = '';
+        detailsEl.value = '';
+
+        var store = makeStore();
+        var plan = [];
+        var i, r;
+
+        setStatus('Calibrating...');
+        for (i = 0; i < benches.length; i++) {
+            var b = benches[i];
+            var iter = calibrate(b, cfg.targetMs);
+            store[b.id].iter = iter;
+            for (r = 0; r < cfg.repeats; r++) {
+                plan.push({ bench: b, mode: 'sync', rep: r + 1, reps: cfg.repeats, iter: iter });
+                plan.push({ bench: b, mode: 'timer', rep: r + 1, reps: cfg.repeats, iter: iter });
+            }
+        }
+
+        var idx = 0;
+        function next() {
+            if (idx >= plan.length) {
+                running = false;
+                emitReport(store, cfg);
+                setStatus('Done.');
+                return;
+            }
+
+            var job = plan[idx++];
+            setStatus('Running ' + idx + '/' + plan.length + ': ' + job.bench.name + ' ' + job.mode + ' rep ' + job.rep + '/' + job.reps);
+
+            if (job.mode === 'sync') {
+                store[job.bench.id].sync.push(runSync(job.bench, job.iter));
+                setTimeout(next, 0);
+            } else {
+                runTimer(job.bench, job.iter, cfg.timerSlices, function (ms) {
+                    store[job.bench.id].timer.push(ms);
+                    setTimeout(next, 0);
+                });
+            }
+        }
+
+        setTimeout(next, 0);
+    }
+
+    function ops(iter, ms) {
+        if (ms <= 0) return 0;
+        return iter * 1000 / ms;
+    }
+
+    function emitReport(store, cfg) {
+        var i, id, row;
+        var lines = [];
+        var details = [];
+        var syncOps = {};
+        var timerOps = {};
+        var slowX = {};
+        var totalRunMs = nowMs() - runStartMs;
+
+        for (i = 0; i < benches.length; i++) {
+            id = benches[i].id;
+            row = store[id];
+            var mSync = median(row.sync);
+            var mTimer = median(row.timer);
+            var oSync = ops(row.iter, mSync);
+            var oTimer = ops(row.iter, mTimer);
+            syncOps[id] = oSync;
+            timerOps[id] = oTimer;
+            slowX[id] = ratio(mTimer, mSync);
+            details.push(
+                row.name + ' | iter=' + row.iter +
+                ' | sync_ms_med=' + round2(mSync) +
+                ' | timer_ms_med=' + round2(mTimer) +
+                ' | sync_ops=' + round1(oSync) +
+                ' | timer_ops=' + round1(oTimer) +
+                ' | timer_x=' + round2(slowX[id])
+            );
+        }
+
+        var n1 = slowX.int_math || 0;
+        var n2 = slowX.dom_add_remove || 0;
+        var n3 = ratio(syncOps.int_math || 0, syncOps.object_alloc || 1);
+        var n4 = ratio(syncOps.array_push_pop || 0, syncOps.array_shift || 1);
+        var n5 = ratio(syncOps.int_math || 0, syncOps.dom_add_remove || 1);
+        var n6 = ratio(syncOps.int_math || 0, syncOps.string_hash || 1);
+        var n7 = ratio(syncOps.int_math || 0, syncOps.mixed_engine || 1);
+        var n8 = (syncOps.int_math || 0) / 1000;
+        var n9 = (syncOps.mixed_engine || 0) / 1000;
+        var n10 = (timerOps.mixed_engine || 0) / 1000;
+
+        var quality = 100;
+        quality -= Math.min(30, Math.max(0, (n1 - 1) * 20));
+        quality -= Math.min(20, Math.max(0, (n2 - 1) * 10));
+        quality -= Math.min(20, Math.max(0, (n3 - 8) * 2));
+        quality -= Math.min(20, Math.max(0, (n5 - 25) * 0.6));
+        quality -= Math.min(10, Math.max(0, (n4 - 4) * 2));
+        if (quality < 0) quality = 0;
+        var n11 = quality;
+        var n12 = totalRunMs / 1000;
+
+        lines.push('KINDLE_PROFILE');
+        lines.push('N1 timer_math_x=' + round2(n1));
+        lines.push('N2 timer_dom_x=' + round2(n2));
+        lines.push('N3 obj_vs_math_x=' + round2(n3));
+        lines.push('N4 shift_vs_push_x=' + round2(n4));
+        lines.push('N5 dom_vs_math_x=' + round2(n5));
+        lines.push('N6 hash_vs_math_x=' + round2(n6));
+        lines.push('N7 mixed_vs_math_x=' + round2(n7));
+        lines.push('N8 gui_math_kops=' + round2(n8));
+        lines.push('N9 gui_mixed_kops=' + round2(n9));
+        lines.push('N10 timer_mixed_kops=' + round2(n10));
+        lines.push('N11 quality=' + round2(n11));
+        lines.push('N12 run_seconds=' + round2(n12));
+        lines.push('KINDLE_SCORE v2|' +
+            round2(n1) + '|' + round2(n2) + '|' + round2(n3) + '|' + round2(n4) + '|' +
+            round2(n5) + '|' + round2(n6) + '|' + round2(n7) + '|' + round2(n8) + '|' +
+            round2(n9) + '|' + round2(n10) + '|' + round2(n11) + '|' + round2(n12)
+        );
+
+        summaryEl.value = lines.join('\n');
+
+        details.push('');
+        details.push('Config: target_ms=' + cfg.targetMs + ' repeats=' + cfg.repeats + ' timer_slices=' + cfg.timerSlices);
+        details.push('Sanity sink: sinkNumber=' + sinkNumber + ' sinkStringLen=' + (sinkString ? sinkString.length : 0));
+        details.push('');
+        details.push('Heuristic notes:');
+        if (n1 > 1.3 || n2 > 1.3) details.push('- Timer slicing hurts throughput. Prefer larger uninterrupted compute blocks.');
+        if (n4 > 3.0) details.push('- Array.shift is expensive. Use index-based queue.');
+        if (n3 > 10.0) details.push('- Object churn is expensive. Reuse objects/arrays.');
+        if (n5 > 30.0) details.push('- DOM is expensive. Keep DOM work outside hot loops.');
+        if (n1 <= 1.3 && n2 <= 1.3 && n3 <= 10.0 && n4 <= 3.0 && n5 <= 30.0) details.push('- Main bottleneck likely algorithm/data-structure, not runtime quirks.');
+
+        detailsEl.value = details.join('\n');
+    }
+
+    runQuickBtn.onclick = function () {
+        targetMsInput.value = '80';
+        repeatsInput.value = '1';
+        timerSlicesInput.value = '25';
+        runSuite({
+            targetMs: toInt(targetMsInput.value, 80, 20, 4000),
+            repeats: toInt(repeatsInput.value, 1, 1, 10),
+            timerSlices: toInt(timerSlicesInput.value, 25, 1, 300)
+        });
+    };
+
+    runFullBtn.onclick = function () {
+        runSuite({
+            targetMs: toInt(targetMsInput.value, 100, 20, 4000),
+            repeats: toInt(repeatsInput.value, 2, 1, 10),
+            timerSlices: toInt(timerSlicesInput.value, 35, 1, 300)
+        });
+    };
+
+    toggleBtn.onclick = function () {
+        if (detailsEl.style.display === 'none') {
+            detailsEl.style.display = 'block';
+            toggleBtn.innerHTML = 'Hide Details';
+        } else {
+            detailsEl.style.display = 'none';
+            toggleBtn.innerHTML = 'Show Details';
+        }
+    };
+
+    clearBtn.onclick = function () {
+        summaryEl.value = '';
+        detailsEl.value = '';
+        setStatus('Cleared.');
+    };
+})();
+</script>
+</body>
+</html>

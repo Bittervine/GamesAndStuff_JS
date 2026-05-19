@@ -1,0 +1,37 @@
+#OLD ENGINE #
+
+(With GUI working)
+Chess_JSb: Depth=2: 1.8s
+Chess_JSb: Depth=3: 5.0s
+Chess_JSb: Depth=4: (Timeouts after 30s)
+
+(With GUI freezing)
+Chess_JSc: Depth=2: 0.6s
+Chess_JSc: Depth=3: 1.9s
+Chess_JSc: Depth=4: 10.1
+
+# KINDLE CHESS BASED #
+
+(with GUI working)
+Chess_JS2b: Depth 2: 1.9
+Chess_JS2b: Depth 3: 5.3
+Chess_JS2b: Depth 4: 21.7 
+
+(with GUI freezing)
+Chess_JS3b: Depth 2: 0.1s
+Chess_JS3b: Depth 3: 0.3s
+Chess_JS3b: Depth 4: 1.6s
+
+# KINDLE CHESS ITSELF #
+KindleChess: Depth 2: 0.0
+KindleChess: Depth 3: 0.6
+KindleChess: Depth 4: 2.5
+
+I dont know what conclusions to draw from this but it seems:
+
+# If GUI freezing is ok #
+- Chess_JS3b surpasses KindleChess itself
+- Chess_JS's simpler engine does not give any advantage over Chess_JS2 or Chess_JS3 which use KindleChess derived engines
+
+# If GUI freezing isnt ok #
+- Chess_JS and Chess_JS2 is inconclusive (?)
