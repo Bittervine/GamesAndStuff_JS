@@ -239,7 +239,8 @@
     const desired = !!enabled;
     if (desired === enable3DMode) return;
     const nextUrl = enemy3DModeUrl(desired);
-    const shouldReloadForPerf = !desired && enemy3DRuntimeWasLoaded();
+    //const shouldReloadForPerf = !desired && enemy3DRuntimeWasLoaded();
+    const shouldReloadForPerf = false;
     enable3DMode = desired;
     if (enemy3DModeInput) enemy3DModeInput.checked = enable3DMode;
     try {
@@ -251,7 +252,7 @@
         hint('Reloading to fully unload 3D runtime.', 1.5);
         window.location.reload();
       } else {
-        hint('3D enemy ships disabled.', 1.3);
+      hint('3D enemy ships disabled.', 1.3);
       }
       return;
     }
