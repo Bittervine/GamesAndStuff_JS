@@ -128,6 +128,21 @@
         var DEFAULT_DEPTH_GROWTH = 2.6;
         var MIN_DEPTH_GROWTH = 1.4;
         var MAX_DEPTH_GROWTH = 4.5;
+        var QUIESCENCE_MAX_PLY = 4;
+        var MOVE_SCORE_CAPTURE = 1000000;
+        var MOVE_SCORE_PROMOTION = 150000;
+        var MOVE_SCORE_KILLER_A = 90000;
+        var MOVE_SCORE_KILLER_B = 80000;
+        var MOVE_SCORE_PREFERRED = 2000000;
+        var HISTORY_TABLE_SIZE = 4096;
+        var HISTORY_MAX = 300000;
+        var DRAW_FIFTY_COUNT = 100;
+        var NULL_MOVE_REDUCTION = 2;
+        var NULL_MOVE_MIN_DEPTH = 4;
+        var TT_SIZE = 16384;
+        var TT_FLAG_EXACT = 0;
+        var TT_FLAG_ALPHA = 1;
+        var TT_FLAG_BETA = 2;
 
         var STORAGE = {
             depth: 'chess_max_depth',
@@ -167,6 +182,7 @@
             gameOver: false,
             history: [],
             lastDouble: null,
+            halfMoveClock: 0,
             material: 0,
             previewMove: null,
             previewDrawAt: 0,
@@ -181,6 +197,15 @@
             timerId: null,
             session: null
         };
+
+        var searchHeuristics = {
+            history: [],
+            killerA: [],
+            killerB: []
+        };
+
+        var transTable = new Array(TT_SIZE);
+        var ttAge = 0;
 
         function clampNum(v, lo, hi) {
             if (v < lo) return lo;
@@ -235,7 +260,8 @@
                     turn: game.turn,
                     gameOver: !!game.gameOver,
                     history: game.history,
-                    lastDouble: game.lastDouble ? { row: game.lastDouble.row, col: game.lastDouble.col } : null
+                    lastDouble: game.lastDouble ? { row: game.lastDouble.row, col: game.lastDouble.col } : null,
+                    halfMoveClock: game.halfMoveClock
                 };
                 safeStorageSet(STORAGE.state, JSON.stringify(payload));
             } catch (err) {
@@ -257,6 +283,7 @@
             if (!parsed || parsed.v !== 1) return false;
             if (!isValidBoardData(parsed.board)) return false;
             if (parsed.turn !== 'w' && parsed.turn !== 'b') return false;
+            if (typeof parsed.halfMoveClock !== 'number' || !isFinite(parsed.halfMoveClock) || parsed.halfMoveClock < 0) parsed.halfMoveClock = 0;
             if (parsed.lastDouble !== null) {
                 if (!parsed.lastDouble || typeof parsed.lastDouble.row !== 'number' || typeof parsed.lastDouble.col !== 'number') return false;
                 if (!inBounds(parsed.lastDouble.row, parsed.lastDouble.col)) return false;
@@ -275,6 +302,7 @@
             game.gameOver = !!parsed.gameOver;
             game.history = parsed.history;
             game.lastDouble = parsed.lastDouble ? { row: parsed.lastDouble.row, col: parsed.lastDouble.col } : null;
+            game.halfMoveClock = Math.floor(parsed.halfMoveClock);
             game.previewMove = null;
             game.previewDrawAt = 0;
             game.renderBoardSnapshot = null;
@@ -429,6 +457,196 @@
             game.material = total;
         }
 
+        function sameMove(a, b) {
+            return !!(a && b && a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3]);
+        }
+
+        function moveKey(move) {
+            var from = (move[0] * 8) + move[1];
+            var to = (move[2] * 8) + move[3];
+            return (from << 6) | to;
+        }
+
+        function getHistoryScore(move) {
+            return searchHeuristics.history[moveKey(move)] || 0;
+        }
+
+        function addHistoryScore(move, depth) {
+            var idx = moveKey(move);
+            var bonus = depth * depth;
+            var next = (searchHeuristics.history[idx] || 0) + bonus;
+            if (next > HISTORY_MAX) next = HISTORY_MAX;
+            searchHeuristics.history[idx] = next;
+        }
+
+        function addKillerMove(move, ply) {
+            if (ply < 0) return;
+            if (sameMove(searchHeuristics.killerA[ply], move)) return;
+            searchHeuristics.killerB[ply] = searchHeuristics.killerA[ply] || null;
+            searchHeuristics.killerA[ply] = [move[0], move[1], move[2], move[3]];
+        }
+
+        function isEnPassantMove(piece, sr, sc, tr, tc) {
+            if (!piece || piece.type !== 'P') return false;
+            if (sc === tc) return false;
+            if (game.board[tr][tc]) return false;
+            return !!(game.lastDouble && game.lastDouble.row === tr && game.lastDouble.col === tc);
+        }
+
+        function isCaptureLikeMove(piece, sr, sc, tr, tc) {
+            var target = game.board[tr][tc];
+            if (target && piece && target.color !== piece.color) return true;
+            return isEnPassantMove(piece, sr, sc, tr, tc);
+        }
+
+        function isPromotionLikeMove(piece, tr) {
+            return !!(piece && piece.type === 'P' && (tr === 0 || tr === 7));
+        }
+
+        function isQuietMoveOnBoard(move) {
+            var sr = move[0];
+            var sc = move[1];
+            var tr = move[2];
+            var tc = move[3];
+            var piece = game.board[sr][sc];
+            if (!piece) return false;
+            if (isPromotionLikeMove(piece, tr)) return false;
+            return !isCaptureLikeMove(piece, sr, sc, tr, tc);
+        }
+
+        function scoreMove(move, ply, preferredMove, capturesOnly) {
+            var sr = move[0];
+            var sc = move[1];
+            var tr = move[2];
+            var tc = move[3];
+            var piece = game.board[sr][sc];
+            var target = game.board[tr][tc];
+            var score = 0;
+            var captureLike = isCaptureLikeMove(piece, sr, sc, tr, tc);
+
+            if (sameMove(move, preferredMove)) score += MOVE_SCORE_PREFERRED;
+
+            if (captureLike) {
+                var victimVal = target ? (PIECE_VALUE[target.type] || 0) : (PIECE_VALUE.P || 1);
+                var attackerVal = piece ? (PIECE_VALUE[piece.type] || 0) : 0;
+                score += MOVE_SCORE_CAPTURE + (victimVal * 16) - attackerVal;
+            } else if (!capturesOnly) {
+                if (sameMove(searchHeuristics.killerA[ply], move)) score += MOVE_SCORE_KILLER_A;
+                else if (sameMove(searchHeuristics.killerB[ply], move)) score += MOVE_SCORE_KILLER_B;
+                score += getHistoryScore(move);
+            }
+
+            if (isPromotionLikeMove(piece, tr)) score += MOVE_SCORE_PROMOTION;
+            return score;
+        }
+
+        function sortMovesByScore(moves, ply, preferredMove, capturesOnly) {
+            if (!moves || moves.length < 2) return moves;
+            var scored = [];
+            var i;
+            for (i = 0; i < moves.length; i++) {
+                scored.push({ move: moves[i], score: scoreMove(moves[i], ply, preferredMove, capturesOnly) });
+            }
+            scored.sort(function (a, b) { return b.score - a.score; });
+            for (i = 0; i < moves.length; i++) {
+                moves[i] = scored[i].move;
+            }
+            return moves;
+        }
+
+        function beginSearchHeuristics() {
+            var i;
+            for (i = 0; i < 64; i++) {
+                searchHeuristics.killerA[i] = null;
+                searchHeuristics.killerB[i] = null;
+            }
+        }
+
+        function pieceCode(piece) {
+            if (!piece) return 0;
+            var base = 0;
+            switch (piece.type) {
+                case 'P': base = 1; break;
+                case 'N': base = 2; break;
+                case 'B': base = 3; break;
+                case 'R': base = 4; break;
+                case 'Q': base = 5; break;
+                case 'K': base = 6; break;
+                default: base = 0; break;
+            }
+            if (piece.color === 'b') base += 8;
+            if (piece.moved && (piece.type === 'K' || piece.type === 'R')) base += 16;
+            return base;
+        }
+
+        function positionKey(color) {
+            var h = 2166136261 >>> 0;
+            var r;
+            var c;
+            var board = game.board;
+            for (r = 0; r < 8; r++) {
+                for (c = 0; c < 8; c++) {
+                    h ^= pieceCode(board[r][c]) + 1;
+                    h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) >>> 0;
+                }
+            }
+
+            h ^= (color === 'w' ? 33 : 67);
+            h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) >>> 0;
+
+            if (game.lastDouble) {
+                h ^= ((game.lastDouble.row * 8) + game.lastDouble.col + 99);
+                h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) >>> 0;
+            } else {
+                h ^= 17;
+                h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) >>> 0;
+            }
+
+            return h >>> 0;
+        }
+
+        function cloneMove(move) {
+            return move ? [move[0], move[1], move[2], move[3]] : null;
+        }
+
+        function probeTT(key, depth, alpha, beta) {
+            var entry = transTable[key % TT_SIZE];
+            if (!entry || entry.key !== key || entry.depth < depth) {
+                return { hit: false, cut: false, value: 0, bestMove: null };
+            }
+
+            if (entry.flag === TT_FLAG_EXACT) {
+                return { hit: true, cut: true, value: entry.value, bestMove: cloneMove(entry.bestMove) };
+            }
+            if (entry.flag === TT_FLAG_ALPHA && entry.value <= alpha) {
+                return { hit: true, cut: true, value: alpha, bestMove: cloneMove(entry.bestMove) };
+            }
+            if (entry.flag === TT_FLAG_BETA && entry.value >= beta) {
+                return { hit: true, cut: true, value: beta, bestMove: cloneMove(entry.bestMove) };
+            }
+
+            return { hit: true, cut: false, value: entry.value, bestMove: cloneMove(entry.bestMove) };
+        }
+
+        function storeTT(key, depth, value, alphaStart, betaStart, bestMove) {
+            var idx = key % TT_SIZE;
+            var old = transTable[idx];
+            if (old && old.key === key && old.depth > depth && old.age === ttAge) return;
+
+            var flag = TT_FLAG_EXACT;
+            if (value <= alphaStart) flag = TT_FLAG_ALPHA;
+            else if (value >= betaStart) flag = TT_FLAG_BETA;
+
+            transTable[idx] = {
+                key: key,
+                depth: depth,
+                value: value,
+                flag: flag,
+                bestMove: cloneMove(bestMove),
+                age: ttAge
+            };
+        }
+
         function clearEngineState() {
             if (engine.timerId) {
                 clearTimeout(engine.timerId);
@@ -502,6 +720,7 @@
             game.gameOver = false;
             game.history = [];
             game.lastDouble = null;
+            game.halfMoveClock = 0;
             game.previewMove = null;
             game.previewDrawAt = 0;
             game.renderBoardSnapshot = null;
@@ -802,6 +1021,7 @@
             var originalMoved = piece.moved;
             var special = null;
             var promoted = false;
+            var oldHalfMoveClock = game.halfMoveClock;
 
             board[tr][tc] = piece;
             board[sr][sc] = null;
@@ -860,6 +1080,8 @@
 
             if (captured) game.material -= signedPieceValue(captured);
             if (promoted) game.material += promotionSwing(piece.color);
+            if (originalType === 'P' || captured) game.halfMoveClock = 0;
+            else game.halfMoveClock += 1;
 
             piece.moved = true;
 
@@ -868,7 +1090,8 @@
                 originalType: originalType,
                 originalMoved: originalMoved,
                 special: special,
-                oldLastDouble: oldLastDouble
+                oldLastDouble: oldLastDouble,
+                oldHalfMoveClock: oldHalfMoveClock
             };
         }
 
@@ -911,6 +1134,7 @@
             }
 
             game.lastDouble = token.oldLastDouble ? { row: token.oldLastDouble.row, col: token.oldLastDouble.col } : null;
+            game.halfMoveClock = typeof token.oldHalfMoveClock === 'number' ? token.oldHalfMoveClock : 0;
 
             if (wasPromotion && piece) game.material -= promotionSwing(piece.color);
             if (token.captured) game.material += signedPieceValue(token.captured);
@@ -1123,10 +1347,12 @@
             return false;
         }
 
-        function generateLegalMoves(color) {
+        function generateLegalMoves(color, capturesOnly, ply, preferredMove) {
             var legal = [];
             var r;
             var c;
+            var captureFilter = !!capturesOnly;
+            var useOrdering = typeof ply === 'number';
             for (r = 0; r < 8; r++) {
                 for (c = 0; c < 8; c++) {
                     var p = game.board[r][c];
@@ -1134,7 +1360,11 @@
 
                     var pseudo = pseudoMovesFrom(p, r, c);
                     for (var i = 0; i < pseudo.length; i++) {
-                        var mv = [r, c, pseudo[i][0], pseudo[i][1]];
+                        var tr = pseudo[i][0];
+                        var tc = pseudo[i][1];
+                        if (captureFilter && !isCaptureLikeMove(p, r, c, tr, tc)) continue;
+
+                        var mv = [r, c, tr, tc];
                         var token = applyMove(mv);
                         var legalMove = !inCheck(color);
                         unapplyMove(mv, token);
@@ -1143,6 +1373,7 @@
                 }
             }
 
+            if (useOrdering) sortMovesByScore(legal, ply, preferredMove, captureFilter);
             return legal;
         }
 
@@ -1209,35 +1440,86 @@
             return score;
         }
 
-        function makeFrame(depth, color, alpha, beta, undo) {
+        function makeFrame(depth, color, alpha, beta, undo, ply, isQ, qPly, preferredMove) {
             return {
                 depth: depth,
                 color: color,
                 alpha: alpha,
                 beta: beta,
+                alphaStart: alpha,
+                betaStart: beta,
                 moves: null,
                 moveIndex: 0,
                 best: (color === 'w') ? -SEARCH_INF : SEARCH_INF,
+                bestMove: null,
                 entered: false,
-                undo: undo || null
+                undo: undo || null,
+                ply: ply || 0,
+                isQ: !!isQ,
+                qPly: qPly || 0,
+                preferredMove: preferredMove || null,
+                posKey: 0,
+                repPushed: false,
+                nullTried: false
             };
         }
 
-        function makeSearchTask(depth, color, alpha, beta, hardDeadline) {
+        function makeSearchTask(depth, color, alpha, beta, hardDeadline, preferredMove) {
             return {
-                stack: [makeFrame(depth, color, alpha, beta, null)],
+                stack: [makeFrame(depth, color, alpha, beta, null, 0, false, 0, preferredMove)],
                 hardDeadline: hardDeadline,
                 deadlineCounter: 0,
                 done: false,
                 timedOut: false,
-                value: 0
+                value: 0,
+                repCounts: {}
             };
+        }
+
+        function pushRepCount(task, frame) {
+            if (!task || !frame || frame.repPushed) return;
+            var key = frame.posKey;
+            var count = task.repCounts[key] || 0;
+            task.repCounts[key] = count + 1;
+            frame.repPushed = true;
+        }
+
+        function popRepCount(task, frame) {
+            if (!task || !frame || !frame.repPushed) return;
+            var key = frame.posKey;
+            var count = task.repCounts[key] || 0;
+            if (count <= 1) delete task.repCounts[key];
+            else task.repCounts[key] = count - 1;
+            frame.repPushed = false;
+        }
+
+        function applyNullMoveState() {
+            return {
+                oldLastDouble: game.lastDouble ? { row: game.lastDouble.row, col: game.lastDouble.col } : null,
+                oldHalfMoveClock: game.halfMoveClock
+            };
+        }
+
+        function doNullMove(state) {
+            if (!state) return;
+            game.lastDouble = null;
+            game.halfMoveClock += 1;
+        }
+
+        function undoNullMove(state) {
+            if (!state) return;
+            game.lastDouble = state.oldLastDouble ? { row: state.oldLastDouble.row, col: state.oldLastDouble.col } : null;
+            game.halfMoveClock = state.oldHalfMoveClock;
         }
 
         function unwindTask(task) {
             while (task && task.stack && task.stack.length) {
                 var frame = task.stack.pop();
-                if (frame.undo) unapplyMove(frame.undo.move, frame.undo.token);
+                popRepCount(task, frame);
+                if (frame.undo) {
+                    if (frame.undo.kind === 'null') undoNullMove(frame.undo.nullState);
+                    else unapplyMove(frame.undo.move, frame.undo.token);
+                }
             }
             if (task) task.done = true;
         }
@@ -1251,22 +1533,53 @@
 
         function completeNode(task, value) {
             var frame = task.stack.pop();
-            if (frame.undo) unapplyMove(frame.undo.move, frame.undo.token);
+            popRepCount(task, frame);
+            if (frame.undo) {
+                if (frame.undo.kind === 'null') undoNullMove(frame.undo.nullState);
+                else unapplyMove(frame.undo.move, frame.undo.token);
+            }
 
             if (!task.stack.length) {
+                if (frame.posKey) storeTT(frame.posKey, frame.depth, value, frame.alphaStart, frame.betaStart, frame.bestMove);
                 task.done = true;
                 task.value = value;
                 return;
             }
 
             var parent = task.stack[task.stack.length - 1];
+            var moved = frame.undo ? frame.undo.move : null;
+            var isNullChild = !!(frame.undo && frame.undo.kind === 'null');
+
+            if (isNullChild) {
+                if (parent.color === 'w') {
+                    if (value >= parent.beta) parent.alpha = parent.beta;
+                } else {
+                    if (value <= parent.alpha) parent.beta = parent.alpha;
+                }
+                if (frame.posKey) storeTT(frame.posKey, frame.depth, value, frame.alphaStart, frame.betaStart, frame.bestMove);
+                return;
+            }
+
             if (parent.color === 'w') {
-                if (value > parent.best) parent.best = value;
+                if (value > parent.best) {
+                    parent.best = value;
+                    parent.bestMove = moved;
+                }
                 if (value > parent.alpha) parent.alpha = value;
             } else {
-                if (value < parent.best) parent.best = value;
+                if (value < parent.best) {
+                    parent.best = value;
+                    parent.bestMove = moved;
+                }
                 if (value < parent.beta) parent.beta = value;
             }
+
+            if (parent.beta <= parent.alpha && moved && !parent.isQ && isQuietMoveOnBoard(moved)) {
+                addKillerMove(moved, parent.ply);
+                addHistoryScore(moved, Math.max(1, parent.depth));
+            }
+
+            if (frame.posKey) storeTT(frame.posKey, frame.depth, value, frame.alphaStart, frame.betaStart, frame.bestMove);
         }
 
         function stepSearch(task, nodeBudget) {
@@ -1290,13 +1603,116 @@
                 if (!frame.entered) {
                     frame.entered = true;
                     visited += 1;
+                    frame.posKey = positionKey(frame.color);
 
-                    if (frame.depth === 0) {
-                        completeNode(task, evaluateMaterial());
+                    if (frame.ply > 0 && (task.repCounts[frame.posKey] || 0) > 0) {
+                        completeNode(task, 0);
+                        continue;
+                    }
+                    pushRepCount(task, frame);
+
+                    if (frame.ply > 0 && game.halfMoveClock >= DRAW_FIFTY_COUNT) {
+                        completeNode(task, 0);
                         continue;
                     }
 
-                    frame.moves = generateLegalMoves(frame.color);
+                    var ttProbe = probeTT(frame.posKey, frame.depth, frame.alpha, frame.beta);
+                    if (ttProbe.hit) {
+                        if (ttProbe.bestMove) frame.preferredMove = ttProbe.bestMove;
+                        if (ttProbe.cut) {
+                            completeNode(task, ttProbe.value);
+                            continue;
+                        }
+                    }
+
+                    if (frame.depth <= 0 || frame.isQ) {
+                        if (!frame.isQ) {
+                            frame.isQ = true;
+                            frame.qPly = QUIESCENCE_MAX_PLY;
+                        }
+
+                        if (frame.qPly <= 0) {
+                            if (inCheck(frame.color)) {
+                                var endMoves = generateLegalMoves(frame.color, false, frame.ply, null);
+                                if (!endMoves.length) {
+                                    completeNode(task, frame.color === 'w' ? -MATE_SCORE : MATE_SCORE);
+                                } else {
+                                    completeNode(task, evaluateMaterial());
+                                }
+                            } else {
+                                completeNode(task, evaluateMaterial());
+                            }
+                            continue;
+                        }
+
+                        if (inCheck(frame.color)) {
+                            frame.moves = generateLegalMoves(frame.color, false, frame.ply, null);
+                            if (!frame.moves.length) {
+                                completeNode(task, frame.color === 'w' ? -MATE_SCORE : MATE_SCORE);
+                                continue;
+                            }
+                            frame.moveIndex = 0;
+                            frame.best = (frame.color === 'w') ? -SEARCH_INF : SEARCH_INF;
+                            frame.qPly -= 1;
+                            continue;
+                        }
+
+                        var standPat = evaluateMaterial();
+                        frame.best = standPat;
+
+                        if (frame.color === 'w') {
+                            if (standPat > frame.alpha) frame.alpha = standPat;
+                            if (frame.alpha >= frame.beta || frame.qPly <= 0) {
+                                completeNode(task, frame.alpha >= frame.beta ? frame.beta : standPat);
+                                continue;
+                            }
+                        } else {
+                            if (standPat < frame.beta) frame.beta = standPat;
+                            if (frame.beta <= frame.alpha || frame.qPly <= 0) {
+                                completeNode(task, frame.beta <= frame.alpha ? frame.alpha : standPat);
+                                continue;
+                            }
+                        }
+
+                        frame.moves = generateLegalMoves(frame.color, true, frame.ply, null);
+                        if (!frame.moves.length) {
+                            completeNode(task, standPat);
+                            continue;
+                        }
+
+                        frame.moveIndex = 0;
+                        frame.qPly -= 1;
+                        continue;
+                    }
+
+                    if (!frame.nullTried && frame.depth >= NULL_MOVE_MIN_DEPTH) {
+                        var inCheckNow = inCheck(frame.color);
+                        if (!inCheckNow && game.halfMoveClock < DRAW_FIFTY_COUNT) {
+                            frame.nullTried = true;
+                            var nullState = applyNullMoveState();
+                            doNullMove(nullState);
+                            var nullColor = frame.color === 'w' ? 'b' : 'w';
+                            var nullAlpha = frame.color === 'w' ? (frame.beta - 1) : frame.alpha;
+                            var nullBeta = frame.color === 'w' ? frame.beta : (frame.alpha + 1);
+                            var nullDepth = frame.depth - 1 - NULL_MOVE_REDUCTION;
+                            if (nullDepth < 0) nullDepth = 0;
+
+                            task.stack.push(makeFrame(
+                                nullDepth,
+                                nullColor,
+                                nullAlpha,
+                                nullBeta,
+                                { kind: 'null', nullState: nullState },
+                                frame.ply + 1,
+                                false,
+                                0,
+                                null
+                            ));
+                            continue;
+                        }
+                    }
+
+                    frame.moves = generateLegalMoves(frame.color, false, frame.ply, frame.preferredMove);
                     if (!frame.moves.length) {
                         completeNode(task, inCheck(frame.color) ? (frame.color === 'w' ? -MATE_SCORE : MATE_SCORE) : 0);
                         continue;
@@ -1317,13 +1733,20 @@
 
                 var childToken = applyMove(childMove);
                 var childColor = frame.color === 'w' ? 'b' : 'w';
+                var childIsQ = frame.isQ;
+                var childQPly = childIsQ ? frame.qPly : 0;
+                var childDepth = childIsQ ? 0 : (frame.depth - 1);
 
                 task.stack.push(makeFrame(
-                    frame.depth - 1,
+                    childDepth,
                     childColor,
                     frame.alpha,
                     frame.beta,
-                    { move: childMove, token: childToken }
+                    { move: childMove, token: childToken },
+                    frame.ply + 1,
+                    childIsQ,
+                    childQPly,
+                    null
                 ));
             }
         }
@@ -1397,7 +1820,7 @@
             session.current = {
                 move: move,
                 token: token,
-                task: makeSearchTask(session.depth - 1, 'w', -SEARCH_INF, SEARCH_INF, session.hardDeadline)
+                task: makeSearchTask(session.depth - 1, 'w', -SEARCH_INF, SEARCH_INF, session.hardDeadline, session.bestMove)
             };
             return true;
         }
@@ -1468,6 +1891,7 @@
                 session.prevDepthElapsedMs = Math.max(1, depthElapsed);
                 session.depthStartedAt = depthDoneAt;
                 session.depth += 1;
+                if (session.bestMove) sortMovesByScore(session.queue, 0, session.bestMove, false);
                 session.queueIndex = 0;
                 session.depthHasScore = false;
                 session.depthBestMove = null;
@@ -1481,7 +1905,9 @@
         function startEngineTurn() {
             if (engine.thinking || game.gameOver || game.turn !== AI_COLOR) return;
 
-            var roots = generateLegalMoves(AI_COLOR);
+            beginSearchHeuristics();
+            ttAge = (ttAge + 1) & 0x7fffffff;
+            var roots = generateLegalMoves(AI_COLOR, false, 0, null);
             if (!roots.length) {
                 game.gameOver = true;
                 refreshStatus();
