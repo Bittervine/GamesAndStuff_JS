@@ -124,6 +124,7 @@
         var BASE_NODE_BUDGET = 192;
         var KINDLE_BATCH_BOOST = 4;
         var HARD_DEADLINE_MS = 30000;
+        var MAX_THINKING_MS = 9000;
         var SOFT_DEADLINE_MS = 10000;
         var PARTIAL_DEPTH_USE_THRESHOLD = 0.5;
         var DEFAULT_DEPTH_GROWTH = 2.6;
@@ -3388,6 +3389,11 @@ function SearchPosition() {
 	
 	var bestMove = NOMOVE;
 	var bestScore = -INFINITE;
+	var lastCompleteMove = NOMOVE;
+	var lastCompleteScore = -INFINITE;
+	var lastCompleteDepth = 0;
+	var lastCompleteNodes = 0;
+	var lastCompleteOrdering = "0.00";
 	var currentDepth = 0;	
 	var pvNum = 0;
 	var line;
@@ -3412,8 +3418,14 @@ function SearchPosition() {
 	
 	// iterative deepening
 	for( currentDepth = 1; currentDepth <= srch_depth; ++currentDepth ) {						
+		if (($.now() - srch_start) >= MAX_THINKING_MS) {
+			srch_stop = BOOL.TRUE;
+			break;
+		}
 		
 		bestScore = AlphaBeta(-INFINITE, INFINITE, currentDepth, BOOL.TRUE);		
+		if(srch_stop == BOOL.TRUE) break;
+
 		pvNum = GetPvLine(currentDepth);
         if(pvNum > 0) gotMoves++;
 		bestMove = brd_PvArray[0];
@@ -3429,8 +3441,25 @@ function SearchPosition() {
 		domUpdate_score = bestScore;
 		domUpdate_nodes = srch_nodes;
 		domUpdate_ordering = ((srch_fhf/srch_fh)*100).toFixed(2);
-        if(srch_stop == BOOL.TRUE) break;
+
+		if (bestMove != NOMOVE) {
+			lastCompleteMove = bestMove;
+			lastCompleteScore = bestScore;
+			lastCompleteDepth = currentDepth;
+			lastCompleteNodes = srch_nodes;
+			lastCompleteOrdering = domUpdate_ordering;
+		}
 	}	
+
+	if (srch_stop == BOOL.TRUE && lastCompleteDepth > 0) {
+		bestMove = lastCompleteMove;
+		bestScore = lastCompleteScore;
+		domUpdate_depth = lastCompleteDepth;
+		domUpdate_move = bestMove;
+		domUpdate_score = bestScore;
+		domUpdate_nodes = lastCompleteNodes;
+		domUpdate_ordering = lastCompleteOrdering;
+	}
 		
 	$("#BestOut").text("BestMove: " + PrMove(bestMove));
 	UpdateDOMStats();
@@ -3726,7 +3755,7 @@ function init() {
             domUpdate_score = 0;
             srch_best = NOMOVE;
             srch_depth = targetDepth;
-            srch_time = HARD_DEADLINE_MS;
+            srch_time = MAX_THINKING_MS;
             srch_cnodes = 1000000000;
             srch_crandom = clumsyProb;
             srch_thinking = BOOL.TRUE;
