@@ -2516,7 +2516,7 @@
   function loadGraphicalEffects() {
     const loaded = Math.round(loadNum('ThroriumGap_graphicalEffects', NaN));
     if (Number.isFinite(loaded)) return normalizeGraphicalEffects(loaded);
-    return loadBool('ThroriumGap_lowEndMode', false) ? GRAPHICAL_EFFECTS.LOW : GRAPHICAL_EFFECTS.MEDIUM;
+    return loadBool('ThroriumGap_lowEndMode', false) ? GRAPHICAL_EFFECTS.LOW : GRAPHICAL_EFFECTS.HIGH;
   }
 
   const state = {
