@@ -115,6 +115,9 @@
     { id: GRAPHICAL_EFFECTS.MEDIUM, label: 'Medium', fxQuality: 1.0, glowRadiusScale: 1.0, particleBudgetScale: 1.0, starfieldCap: null },
     { id: GRAPHICAL_EFFECTS.HIGH, label: 'High', fxQuality: 1.0, glowRadiusScale: 1.0, particleBudgetScale: 1.0, starfieldCap: null }
   ]);
+  const ENEMY_TRAIL_3D_SIZE_SCALE = 0.3;
+  const ENEMY_TRAIL_3D_LIFE = 1.0;
+  const ENEMY_TRAIL_3D_OPACITY = 5.0;
   const DPS_FILTER_LAMBDA = 0.95;
   const PLAYER_SHIP_TEXTURE_KEY = 'player-ship';
   const PLAYER_AURA_TEXTURE_KEY = 'player-aura';
@@ -2868,7 +2871,7 @@
       const btn = graphicalEffectsButtons[i];
       const idx = normalizeGraphicalEffects(btn.getAttribute('data-graphical-effects'));
       btn.setAttribute('aria-pressed', String(idx === normalizeGraphicalEffects(state.settings.graphicalEffects)));
-      btn.disabled = !gl;
+      btn.disabled = false;
     }
     const soundBtn = controlsEl.querySelector('[data-act="sound"]');
     if (soundBtn) soundBtn.textContent = state.muted ? 'MUTED' : 'SOUND';
@@ -6972,8 +6975,8 @@
         const fade = t * t * t;
         const opacityMult = clamp(Number.isFinite(p.opacityMult) ? p.opacityMult : 1, 0, 15);
         const flicker = 1 + Math.sin((state.animClock || 0) * 18 + (p.rot || 0) * 7.13) * 0.25;
-        const cloudW = Math.max(21, p.size * 3.5 * flicker);
-        const cloudH = Math.max(17, p.size * 3.5 * flicker);
+        const cloudW = Math.max(12, p.size * 3.5 * flicker);
+        const cloudH = Math.max(12, p.size * 3.5 * flicker);
         drawSpriteRect(p.x, p.y, cloudW, cloudH, p.color, fade * 0.016 * opacityMult, -2, false);
         drawSpriteRect(p.x, p.y, cloudW * 0.78, cloudH * 0.78, p.color, fade * 0.012 * opacityMult, -2, false);
       } else {
@@ -7095,20 +7098,14 @@
           const backDirX = -s;
           const backDirY = c;
           const backSpeed = Math.max(58, shipSize * 1.0);
-          const anchors = [
-            { x: 0, y: shipSize * 0.34 },
-            { x: -shipSize * 0.14, y: shipSize * 0.30 },
-            { x: shipSize * 0.14, y: shipSize * 0.30 }
-          ];
-          for (let i = 0; i < anchors.length; i++) {
-            const a = anchors[i];
-            const px = e.x + a.x * c - a.y * s;
-            const py = e.y + a.x * s + a.y * c;
-            const vx = backDirX * backSpeed - (e.vx || 0) * 0.16 + rand(-4, 4);
-            const vy = backDirY * backSpeed - (e.vy || 0) * 0.16 + rand(-4, 4);
-            const size = Math.max(3.8, shipSize * 0.10) * 0.5;
-            spawnParticle(px, py, vx, vy, 1.4, size, '#ffffff', 'enginetrail', 1.4);
-          }
+          const anchorX = 0;
+          const anchorY = shipSize * 0.34;
+          const px = e.x + anchorX * c - anchorY * s;
+          const py = e.y + anchorX * s + anchorY * c;
+          const vx = backDirX * backSpeed - (e.vx || 0) * 0.16 + rand(-4, 4);
+          const vy = backDirY * backSpeed - (e.vy || 0) * 0.16 + rand(-4, 4);
+          const size = Math.max(3.8, shipSize * 0.10) * ENEMY_TRAIL_3D_SIZE_SCALE;
+          spawnParticle(px, py, vx, vy, ENEMY_TRAIL_3D_LIFE, size, '#ffffff', 'enginetrail', ENEMY_TRAIL_3D_OPACITY);
         }
       }
     }
