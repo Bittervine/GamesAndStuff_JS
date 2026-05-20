@@ -6189,8 +6189,8 @@
       const ny = (y - cloudCy) / cloudRy;
       return (nx * nx + ny * ny) <= 1;
     }
-    drawSpriteRect((x0 + x1) * 0.5, (y0 + y1) * 0.5, baseLen, 2.0, '#040a11', 1.0, layer, true, baseAng);
-    drawSpriteRect((x0 + x1) * 0.5, (y0 + y1) * 0.5, baseLen * 0.9, 1.2, '#060e16', 1.0, layer + 0.01, true, baseAng);
+    drawSpriteRect((x0 + x1) * 0.5, (y0 + y1) * 0.5, baseLen, 2.0, '#020509', 1.0, layer, true, baseAng);
+    drawSpriteRect((x0 + x1) * 0.5, (y0 + y1) * 0.5, baseLen * 0.9, 1.2, '#03070b', 1.0, layer + 0.01, true, baseAng);
 
     const branchSteps = Math.max(0, Math.min(4, Math.floor(t / 0.04)));
     let ends = [];
@@ -6210,8 +6210,8 @@
           const nx = end.x + Math.cos(dir) * len;
           const ny = end.y + Math.sin(dir) * len;
           if (!isInsideCloud(nx, ny)) continue;
-          drawSpriteRect((end.x + nx) * 0.5, (end.y + ny) * 0.5, len, 1.6, '#040a11', 1.0, layer, true, dir);
-          drawSpriteRect((end.x + nx) * 0.5, (end.y + ny) * 0.5, len * 0.9, 1.0, '#060e16', 1.0, layer + 0.01, true, dir);
+          drawSpriteRect((end.x + nx) * 0.5, (end.y + ny) * 0.5, len, 1.6, '#020509', 1.0, layer, true, dir);
+          drawSpriteRect((end.x + nx) * 0.5, (end.y + ny) * 0.5, len * 0.9, 1.0, '#03070b', 1.0, layer + 0.01, true, dir);
           nextEnds.push({ x: nx, y: ny, a: dir });
         }
       }
