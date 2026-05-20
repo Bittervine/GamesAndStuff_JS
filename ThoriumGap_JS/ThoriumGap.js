@@ -2653,6 +2653,10 @@
     return currentGraphicalEffectsPreset().particleBudgetScale;
   }
 
+  function shouldEmitHighQualityTrails() {
+    return isHighGraphicalEffects() && state.mode === 'playing' && !state.paused;
+  }
+
   const audio = {
     ctx: null,
     master: null,
@@ -3740,7 +3744,7 @@
     }
   }
 
-  function spawnParticle(x, y, vx, vy, life, size, color, kind) {
+  function spawnParticle(x, y, vx, vy, life, size, color, kind, opacityMult) {
     const particle = acquireParticle();
     particle.x = x;
     particle.y = y;
@@ -3751,6 +3755,7 @@
     particle.size = size;
     particle.color = color;
     particle.kind = kind || 'spark';
+    particle.opacityMult = (particle.kind === 'enginetrail' && Number.isFinite(opacityMult)) ? opacityMult : 1;
     particle.rot = rand(0, TAU);
     state.particles.push(particle);
   }
@@ -5625,9 +5630,22 @@
     let writeIndex = 0;
     for (let i = 0; i < state.particles.length; i++) {
       const p = state.particles[i];
+      if (p.maxLife <= 0 || p.maxLife < p.life) {
+        p.maxLife = Math.max(0.001, p.life);
+      }
+      const lifeBeforeStep = p.life;
       p.life -= dt;
       if (p.kind === 'ring') p.size += dt * 180;
-      else { p.vx *= 0.985; p.vy *= 0.985; p.x += p.vx * dt; p.y += p.vy * dt; }
+      else {
+        p.vx *= 0.985;
+        p.vy *= 0.985;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        if (p.kind === 'enginetrail') {
+          const fade = clamp((lifeBeforeStep - dt) / Math.max(p.maxLife, 0.001), 0, 1);
+          p.size = Math.max(0.05, p.size * (0.985 + 0.015 * fade));
+        }
+      }
       if (p.life <= 0) releaseParticle(p);
       else state.particles[writeIndex++] = p;
     }
@@ -6950,6 +6968,14 @@
       const t = clamp(p.life / p.maxLife, 0, 1);
       if (p.kind === 'ring') {
         drawGlowCircle(p.x, p.y, p.size, p.color, t * 0.4, 12);
+      } else if (p.kind === 'enginetrail') {
+        const fade = t * t * t;
+        const opacityMult = clamp(Number.isFinite(p.opacityMult) ? p.opacityMult : 1, 0, 15);
+        const flicker = 1 + Math.sin((state.animClock || 0) * 18 + (p.rot || 0) * 7.13) * 0.25;
+        const cloudW = Math.max(21, p.size * 3.5 * flicker);
+        const cloudH = Math.max(17, p.size * 3.5 * flicker);
+        drawSpriteRect(p.x, p.y, cloudW, cloudH, p.color, fade * 0.016 * opacityMult, -2, false);
+        drawSpriteRect(p.x, p.y, cloudW * 0.78, cloudH * 0.78, p.color, fade * 0.012 * opacityMult, -2, false);
       } else {
         const len = Math.max(2, p.size * 0.45);
         const ang = Math.atan2(p.vy, p.vx);
@@ -7055,6 +7081,37 @@
     const p = enemyPalette(e);
     const alpha = e.hitFlash > 0 ? 1 : 0.96;
     const useEnemy3DMesh = enable3DMode && hasEnemy3DInstance(e);
+    if (shouldEmitHighQualityTrails() && !e.dead) {
+      const speed = Math.hypot(e.vx || 0, e.vy || 0);
+      if (speed > 4) {
+        const levelNumber = e.shipLevel || (state.levelIndex + 1);
+        const shipIndex = e.shipIndex || 0;
+        const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme);
+        if (!useEnemy3DMesh) {
+          spawnParticle(e.x, e.y, 0, 0, 1.7, Math.max(3.8, shipSize * 0.11), shipGlow, 'enginetrail', 2.0);
+        } else {
+          const c = Math.cos(rot);
+          const s = Math.sin(rot);
+          const backDirX = -s;
+          const backDirY = c;
+          const backSpeed = Math.max(58, shipSize * 1.0);
+          const anchors = [
+            { x: 0, y: shipSize * 0.34 },
+            { x: -shipSize * 0.14, y: shipSize * 0.30 },
+            { x: shipSize * 0.14, y: shipSize * 0.30 }
+          ];
+          for (let i = 0; i < anchors.length; i++) {
+            const a = anchors[i];
+            const px = e.x + a.x * c - a.y * s;
+            const py = e.y + a.x * s + a.y * c;
+            const vx = backDirX * backSpeed - (e.vx || 0) * 0.16 + rand(-4, 4);
+            const vy = backDirY * backSpeed - (e.vy || 0) * 0.16 + rand(-4, 4);
+            const size = Math.max(3.8, shipSize * 0.10) * 0.75;
+            spawnParticle(px, py, vx, vy, 1.4, size, '#ffffff', 'enginetrail', 1.4);
+          }
+        }
+      }
+    }
     if (!useEnemy3DMesh) {
       const levelNumber = e.shipLevel || (state.levelIndex + 1);
       const shipIndex = e.shipIndex || 0;
@@ -7439,6 +7496,17 @@
             layer: 5,
             lighter: true
           });
+          if (shouldEmitHighQualityTrails() && !respawning) {
+            const trailPos = localToWorld(p.x, shipVisualY, rot, o.x, o.y + flameH * 0.95);
+            const backDirX = -Math.sin(rot);
+            const backDirY = Math.cos(rot);
+            const backSpeed = Math.max(58, shipSize * 1.0);
+            const trailVx = backDirX * backSpeed - p.vx * 0.16 + rand(-4, 4);
+            const trailVy = backDirY * backSpeed - p.vy * 0.16 + rand(-4, 4);
+            const trailSize = (i === 1 ? 7.6 : 6.6) * playerScale;
+            const trailColor = (i === 1) ? '#57c7ff' : '#388fff';
+            spawnParticle(trailPos.x, trailPos.y, trailVx, trailVy, 2.0, trailSize, trailColor, 'enginetrail', 1.0);
+          }
         }
       }
     }
