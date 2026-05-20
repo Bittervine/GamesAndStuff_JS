@@ -276,14 +276,14 @@
     hint('3D enemy ships enabled.', 1.3);
   }
   const ENEMY_3D_LEVEL_FAMILY = {    
-    1: 'Orca',
+    1: 'Longwing',
     2: 'LunarCourier',    
     3: 'TigerWing',
     4: 'Hooper',
-    5: 'Standard2',
+    5: 'Pirate',
     6: 'TwoHoop',    
     7: 'DeltaWing',
-    8: 'Talonhunter',    
+    8: 'Standard2',    
     9: 'FlyingSaucer',
     10: 'Standard',
     11: 'Crosspanel',
@@ -438,6 +438,7 @@
     ]
   };
   const ENEMY_3D_SCALE_MULTIPLIER = 1.0;
+  const ENEMY_3D_MAX_SHIP_SIZE = 100;
   const ENEMY_3D_MODEL_PITCH_OFFSET_DEG = -90;
   const ENEMY_3D_MODEL_PITCH_OFFSET_RAD = ENEMY_3D_MODEL_PITCH_OFFSET_DEG * Math.PI / 180;
   const ENEMY_3D_MODEL_ROLL_OFFSET_DEG = 180;
@@ -1897,7 +1898,8 @@
       instance.bankDeg = smooth(instance.bankDeg, targetBankDeg, ENEMY_3D_BANK_SMOOTH_RATE, Math.max(0, dt || 0));
       instance.yawDeg = targetYawDeg;
       instance.prevFlightAngleDeg = flightDeg;
-      const shipSize = Math.max(1, enemy.shipSize || getEnemyShipRenderSize(enemy.shipLevel || (state.levelIndex + 1), enemy.shipIndex || 0));
+      const shipSizeRaw = Math.max(1, enemy.shipSize || getEnemyShipRenderSize(enemy.shipLevel || (state.levelIndex + 1), enemy.shipIndex || 0));
+      const shipSize = Math.min(ENEMY_3D_MAX_SHIP_SIZE, shipSizeRaw);
       const baseScale = shipSize / Math.max(0.001, instance.maxXYDiameter);
       const finalScale = baseScale * ENEMY_3D_SCALE_MULTIPLIER;
       const shakeX = render.offsetX || 0;
@@ -7472,7 +7474,9 @@
     const rot = flight + Math.PI * 0.5;
     const levelNumber = e.shipLevel || (state.levelIndex + 1);
     const shipIndex = e.shipIndex || 0;
-    const shipSize = e.shipSize || (getEnemyShipRenderSize(levelNumber, shipIndex) * narrowScreenScale());
+    const shipSizeRaw = e.shipSize || (getEnemyShipRenderSize(levelNumber, shipIndex) * narrowScreenScale());
+    const useEnemy3DMesh = enable3DMode && hasEnemy3DInstance(e);
+    const shipSize = useEnemy3DMesh ? Math.min(ENEMY_3D_MAX_SHIP_SIZE, shipSizeRaw) : shipSizeRaw;
     if (e.kind === 'spinner') {
       for (let i = 0; i < 5; i++) {
         const a = e.age * 2.2 + i * (TAU / 5);
