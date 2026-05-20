@@ -429,10 +429,17 @@
         </div>
       </div>
 
-      <label class="settings-toggle" for="lowEndMode">
-        <span>Enable low end mode (less cpu usage)</span>
-        <input id="lowEndMode" type="checkbox">
-      </label>
+      <div class="settings-group">
+        <div class="settings-label">
+          <span>Graphical effects</span>
+          <span class="settings-value" id="graphicalEffectsValue">Medium</span>
+        </div>
+        <div class="difficulty-buttons" id="graphicalEffectsButtons">
+          <button type="button" data-graphical-effects="0">Low</button>
+          <button type="button" data-graphical-effects="1">Medium</button>
+          <button type="button" data-graphical-effects="2">High</button>
+        </div>
+      </div>
       <label class="settings-toggle" for="enemy3DMode">
         <span>Enable 3D enemy ships</span>
         <input id="enemy3DMode" type="checkbox">

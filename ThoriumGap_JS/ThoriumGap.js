@@ -41,7 +41,8 @@
   const musicVolumeValue = document.getElementById('musicVolumeValue');
   const difficultyValue = document.getElementById('difficultyValue');
   const difficultyButtons = Array.from(document.querySelectorAll('[data-difficulty]'));
-  const lowEndModeInput = document.getElementById('lowEndMode');
+  const graphicalEffectsValue = document.getElementById('graphicalEffectsValue');
+  const graphicalEffectsButtons = Array.from(document.querySelectorAll('[data-graphical-effects]'));
   const alwaysFollowMouseInput = document.getElementById('alwaysFollowMouse');
   const autoFullscreenInput = document.getElementById('autoFullscreen');
   const enemy3DModeInput = document.getElementById('enemy3DMode');
@@ -104,6 +105,16 @@
   const STARFIELD_FALL_LIMIT = 0.75;
   const STARFIELD_LOW_END_CAP = 100;
   const STARFIELD_DEFAULT_CAP = 1000;
+  const GRAPHICAL_EFFECTS = Object.freeze({
+    LOW: 0,
+    MEDIUM: 1,
+    HIGH: 2
+  });
+  const GRAPHICAL_EFFECT_PRESETS = Object.freeze([
+    { id: GRAPHICAL_EFFECTS.LOW, label: 'Low', fxQuality: 0.45, glowRadiusScale: 0.55, particleBudgetScale: 0.35, starfieldCap: STARFIELD_LOW_END_CAP },
+    { id: GRAPHICAL_EFFECTS.MEDIUM, label: 'Medium', fxQuality: 1.0, glowRadiusScale: 1.0, particleBudgetScale: 1.0, starfieldCap: null },
+    { id: GRAPHICAL_EFFECTS.HIGH, label: 'High', fxQuality: 1.0, glowRadiusScale: 1.0, particleBudgetScale: 1.0, starfieldCap: null }
+  ]);
   const DPS_FILTER_LAMBDA = 0.95;
   const PLAYER_SHIP_TEXTURE_KEY = 'player-ship';
   const PLAYER_AURA_TEXTURE_KEY = 'player-aura';
@@ -1619,7 +1630,7 @@
     return !!enable3DMode &&
       !!state &&
       !!state.settings &&
-      !state.settings.lowEndMode &&
+      !isLowGraphicalEffects() &&
       state.mode !== 'debug';
   }
 
@@ -2088,7 +2099,7 @@
       render.uStarTime = null;
       render.uStarScroll = null;
       render.uStarDpr = null;
-      if (!state.settings.lowEndMode) state.settings.lowEndMode = true;
+      if (!isLowGraphicalEffects()) state.settings.graphicalEffects = GRAPHICAL_EFFECTS.LOW;
       return false;
     }
   }
@@ -2496,6 +2507,18 @@
     return v * enemyShotPace() * (1.0 + state.levelIndex * 0.2);
   }
 
+  function normalizeGraphicalEffects(value) {
+    const n = Math.round(Number(value));
+    if (n === GRAPHICAL_EFFECTS.LOW || n === GRAPHICAL_EFFECTS.MEDIUM || n === GRAPHICAL_EFFECTS.HIGH) return n;
+    return GRAPHICAL_EFFECTS.MEDIUM;
+  }
+
+  function loadGraphicalEffects() {
+    const loaded = Math.round(loadNum('ThroriumGap_graphicalEffects', NaN));
+    if (Number.isFinite(loaded)) return normalizeGraphicalEffects(loaded);
+    return loadBool('ThroriumGap_lowEndMode', false) ? GRAPHICAL_EFFECTS.LOW : GRAPHICAL_EFFECTS.MEDIUM;
+  }
+
   const state = {
     mode: 'title',
     paused: false,
@@ -2509,7 +2532,7 @@
       sfxVolume: clamp(loadNum('ThroriumGap_sfxVolume', 0.8), 0, 1),
       musicVolume: clamp(loadNum('ThroriumGap_musicVolume', 0), 0, 1),
       difficulty: clamp(Math.round(loadNum('ThroriumGap_difficulty', 0)), 0, 2),
-      lowEndMode: loadBool('ThroriumGap_lowEndMode', false),
+      graphicalEffects: loadGraphicalEffects(),
       alwaysFollowMouse: loadBool('ThroriumGap_alwaysFollowMouse', false),
       autoFullscreen: loadBool('ThroriumGap_autoFullscreen', !electronWindowBridge),
       starfieldCap: clamp(Math.round(loadNum('ThroriumGap_starfieldCap', STARFIELD_DEFAULT_CAP)), STARFIELD_LOW_END_CAP, STARFIELD_DEFAULT_CAP)
@@ -2596,22 +2619,38 @@
     debugMode: DEBUG_MODE
   };
 
-  if (!gl) state.settings.lowEndMode = true;
+  if (!gl) state.settings.graphicalEffects = GRAPHICAL_EFFECTS.LOW;
 
   function markHudDirty() {
     state.hudDirty = true;
   }
 
+  function currentGraphicalEffectsPreset() {
+    return GRAPHICAL_EFFECT_PRESETS[normalizeGraphicalEffects(state.settings.graphicalEffects)] || GRAPHICAL_EFFECT_PRESETS[GRAPHICAL_EFFECTS.MEDIUM];
+  }
+
+  function currentGraphicalEffectsLabel() {
+    return currentGraphicalEffectsPreset().label;
+  }
+
+  function isLowGraphicalEffects() {
+    return normalizeGraphicalEffects(state.settings.graphicalEffects) === GRAPHICAL_EFFECTS.LOW;
+  }
+
+  function isHighGraphicalEffects() {
+    return normalizeGraphicalEffects(state.settings.graphicalEffects) === GRAPHICAL_EFFECTS.HIGH;
+  }
+
   function getFxQuality() {
-    return state.settings.lowEndMode ? 0.45 : 1.0;
+    return currentGraphicalEffectsPreset().fxQuality;
   }
 
   function getGlowRadiusScale() {
-    return state.settings.lowEndMode ? 0.55 : 1.0;
+    return currentGraphicalEffectsPreset().glowRadiusScale;
   }
 
   function getParticleBudgetScale() {
-    return state.settings.lowEndMode ? 0.35 : 1.0;
+    return currentGraphicalEffectsPreset().particleBudgetScale;
   }
 
   const audio = {
@@ -2791,7 +2830,7 @@
     saveNum('ThroriumGap_sfxVolume', state.settings.sfxVolume);
     saveNum('ThroriumGap_musicVolume', state.settings.musicVolume);
     saveNum('ThroriumGap_difficulty', state.settings.difficulty);
-    saveBool('ThroriumGap_lowEndMode', state.settings.lowEndMode);
+    saveNum('ThroriumGap_graphicalEffects', state.settings.graphicalEffects);
     saveBool('ThroriumGap_alwaysFollowMouse', state.settings.alwaysFollowMouse);
     saveBool('ThroriumGap_autoFullscreen', state.settings.autoFullscreen);
     saveNum('ThroriumGap_starfieldCap', state.settings.starfieldCap);
@@ -2804,11 +2843,8 @@
     if (sfxVolumeValue) sfxVolumeValue.textContent = Math.round(state.settings.sfxVolume * 100) + '%';
     if (musicVolumeValue) musicVolumeValue.textContent = Math.round(state.settings.musicVolume * 100) + '%';
     if (difficultyValue) difficultyValue.textContent = currentDifficulty().label;
+    if (graphicalEffectsValue) graphicalEffectsValue.textContent = currentGraphicalEffectsLabel();
     const difficultyLocked = state.mode === 'playing';
-    if (lowEndModeInput) {
-      lowEndModeInput.checked = !!state.settings.lowEndMode;
-      lowEndModeInput.disabled = !gl;
-    }
     if (alwaysFollowMouseInput) alwaysFollowMouseInput.checked = !!state.settings.alwaysFollowMouse;
     if (autoFullscreenInput) {
       autoFullscreenInput.checked = !!state.settings.autoFullscreen;
@@ -2823,6 +2859,12 @@
       const idx = Number(btn.getAttribute('data-difficulty'));
       btn.setAttribute('aria-pressed', String(idx === state.settings.difficulty));
       btn.disabled = difficultyLocked;
+    }
+    for (let i = 0; i < graphicalEffectsButtons.length; i++) {
+      const btn = graphicalEffectsButtons[i];
+      const idx = normalizeGraphicalEffects(btn.getAttribute('data-graphical-effects'));
+      btn.setAttribute('aria-pressed', String(idx === normalizeGraphicalEffects(state.settings.graphicalEffects)));
+      btn.disabled = !gl;
     }
     const soundBtn = controlsEl.querySelector('[data-act="sound"]');
     if (soundBtn) soundBtn.textContent = state.muted ? 'MUTED' : 'SOUND';
@@ -2920,14 +2962,17 @@
     }
   }
 
-  function setLowEndMode(enabled) {
-    state.settings.lowEndMode = !!enabled;
-    if (state.settings.lowEndMode) clearScrollingClouds();
-    if (state.settings.lowEndMode) destroyEnemy3DRenderer();
+  function setGraphicalEffects(nextValue) {
+    const normalized = !gl ? GRAPHICAL_EFFECTS.LOW : normalizeGraphicalEffects(nextValue);
+    if (normalizeGraphicalEffects(state.settings.graphicalEffects) === normalized) return;
+    const wasLow = isLowGraphicalEffects();
+    state.settings.graphicalEffects = normalized;
+    if (!wasLow && isLowGraphicalEffects()) clearScrollingClouds();
+    if (!wasLow && isLowGraphicalEffects()) destroyEnemy3DRenderer();
     saveSettings();
     syncSettingsUi();
     window.dispatchEvent(new Event('resize'));
-    hint(enabled ? 'Low end mode enabled.' : 'Low end mode disabled.', 1.6);
+    hint('Graphical effects set to ' + currentGraphicalEffectsLabel() + '.', 1.6);
   }
 
   function setAlwaysFollowMouse(enabled) {
@@ -3124,7 +3169,7 @@
     const h = Math.max(360, window.innerHeight);
     const nativeDpr = Math.max(1, window.devicePixelRatio || 1);
     const cappedDpr = Math.min(MAX_NORMAL_DPR, nativeDpr);
-    const dpr = state.settings.lowEndMode ? 1 : cappedDpr;
+    const dpr = isLowGraphicalEffects() ? 1 : cappedDpr;
     view.w = w;
     view.h = h;
     view.dpr = dpr;
@@ -3224,8 +3269,9 @@
   }
 
   function ensureStarfield() {
-    const desired = state.settings.lowEndMode
-      ? STARFIELD_LOW_END_CAP
+    const preset = currentGraphicalEffectsPreset();
+    const desired = preset.starfieldCap != null
+      ? preset.starfieldCap
       : clamp(Math.round(view.w / 3), STARFIELD_LOW_END_CAP, STARFIELD_DEFAULT_CAP);
     if (state.starfield.length === desired) return;
     const stars = [];
@@ -3279,7 +3325,7 @@
     if (gl && render.starProgram && render.starBuffer && !render.starDisabled) return;
 
     const time = state.animClock || state.levelClock || 0;
-    const lowEnd = !!state.settings.lowEndMode;
+    const lowEnd = isLowGraphicalEffects();
     const sizeScale = lowEnd ? 0.92 : 1.0;
     const additiveAlpha = lowEnd ? 0.72 : 0.82;
 
@@ -3710,7 +3756,7 @@
   }
 
   function burst(x, y, color, count, speed, size, kind) {
-    const total = state.settings.lowEndMode ? Math.max(1, Math.round(count * getParticleBudgetScale())) : count;
+    const total = isLowGraphicalEffects() ? Math.max(1, Math.round(count * getParticleBudgetScale())) : count;
     for (let i = 0; i < total; i++) {
       const a = rand(0, TAU);
       const s = rand(speed * 0.4, speed);
@@ -3744,7 +3790,7 @@
     burst(x, y, '#fff0b5', 42, 280, 8, 'spark');
     burst(x, y, '#ffd96a', 18, 240, 6, 'spark');
     flashBurst(x, y, '#fff9d9');
-    clearEnemyBulletsWithBudget(state.settings.lowEndMode ? 8 : 24, '#ffe39a');
+    clearEnemyBulletsWithBudget(isLowGraphicalEffects() ? 8 : 24, '#ffe39a');
   }
 
   function beginPlayerRespawn() {
@@ -4375,7 +4421,7 @@
     state.shake = Math.max(state.shake, 15);
     sfx('bomb');
     burst(p.x, p.y, '#fff0b5', 36, 260, 8, 'spark');
-    clearEnemyBulletsWithBudget(state.settings.lowEndMode ? 8 : 24, '#ffe39a');
+    clearEnemyBulletsWithBudget(isLowGraphicalEffects() ? 8 : 24, '#ffe39a');
     for (let i = state.enemies.length - 1; i >= 0; i--) damageEnemy(state.enemies[i], 999, true);
     if (state.boss) {
       damageFinalBossClaw(state.boss, 'left', 18);
@@ -5224,7 +5270,7 @@
   }
 
   function buildEnemyCollisionGrid() {
-    const cellSize = state.settings.lowEndMode ? 144 : 112;
+    const cellSize = isLowGraphicalEffects() ? 144 : 112;
     const buckets = new Map();
     const activeEnemies = [];
     let maxRadius = 0;
@@ -5709,7 +5755,7 @@
     const b = blur == null ? Math.max(10, r * 0.8) : blur;
     const a = alpha == null ? 1 : alpha;
     if (a <= 0 || r <= 0) return;
-    if (state.settings.lowEndMode) {
+    if (isLowGraphicalEffects()) {
       const rr = Math.max(1, r * getGlowRadiusScale());
       drawSpriteCircle(x, y, Math.max(1, rr + Math.max(1, b * 0.28 * getGlowRadiusScale())), color, a * 0.72 * getFxQuality(), 0, true);
       return;
@@ -5731,7 +5777,7 @@
   function drawSoftEdgeGlow(x, y, maxR, color, alpha) {
     const a = alpha == null ? 1 : alpha;
     const r = Math.max(1, maxR || 40);
-    if (state.settings.lowEndMode) {
+    if (isLowGraphicalEffects()) {
       drawSpriteCircle(x, y, r * 0.38, color, a * 0.72, 0, true);
       drawSpriteCircle(x, y, r * 0.78, color, a * 0.22, 0, true);
       return;
@@ -5959,7 +6005,7 @@
   }
 
   function updateDecorBackgrounds(dt) {
-    if (state.settings.lowEndMode) {
+    if (isLowGraphicalEffects()) {
       clearDecorBackgrounds();
       return;
     }
@@ -5990,7 +6036,7 @@
   }
 
   function drawDecorBackgrounds() {
-    if (state.settings.lowEndMode || !state.decorBackgrounds || !state.decorBackgrounds.length) return;
+    if (isLowGraphicalEffects() || !state.decorBackgrounds || !state.decorBackgrounds.length) return;
     const scale = narrowScreenScale();
     for (let i = 0; i < state.decorBackgrounds.length; i++) {
       const d = state.decorBackgrounds[i];
@@ -6033,7 +6079,7 @@
   }
 
   function updateScrollingClouds(dt) {
-    if (state.settings.lowEndMode) {
+    if (isLowGraphicalEffects()) {
       clearScrollingClouds();
       return;
     }
@@ -6313,7 +6359,7 @@
   }
 
   function drawScrollingClouds() {
-    if (state.settings.lowEndMode || !state.scrollingClouds || !state.scrollingClouds.length) return;
+    if (isLowGraphicalEffects() || !state.scrollingClouds || !state.scrollingClouds.length) return;
     for (let i = 0; i < state.scrollingClouds.length; i++) {
       const c = state.scrollingClouds[i];
       if (c.delay > 0) continue;
@@ -6809,7 +6855,7 @@
       const glow1 = beamBody ? 0 : rocketBody ? b.r * 1.85 : b.r * 2.2;
       const glow2 = beamBody ? 0 : rocketBody ? b.r * 0.92 : b.r * 1.15;
       const glow3 = beamBody ? 0 : rocketBody ? b.r * 0.52 : b.r;
-      const lowFx = state.settings.lowEndMode;
+      const lowFx = isLowGraphicalEffects();
       if (beamBody) {
         drawSpriteRect(b.x - Math.cos(ang) * bodyW * 0.5, b.y - Math.sin(ang) * bodyW * 0.5, bodyW, bodyH, b.color, b.team === 'player' ? 0.72 : 0.65, 2, true, ang);
       } else if (fanBody) {
@@ -6887,7 +6933,7 @@
         }
         continue;
       }
-      if (state.settings.lowEndMode) {
+      if (isLowGraphicalEffects()) {
         drawGlowCircleNormal(p.x, p.y + bob, glowRadiusOuter, p.color, 0.48, glowBlurOuter);
         drawGlowCircleNormal(p.x, p.y + bob, glowRadiusInner, p.color, 0.85, glowBlurInner);
       } else {
@@ -7017,7 +7063,7 @@
         drawTextureRect(texture, e.x, e.y, shipSize, shipSize, { rot: rot, alpha: alpha, layer: 18 });
       } else {
         const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme);
-        const glowRadius = Math.max(14, shipSize * 0.42 * 0.675 * (state.settings.lowEndMode ? 1 : 0.9));
+        const glowRadius = Math.max(14, shipSize * 0.42 * 0.675 * (isLowGraphicalEffects() ? 1 : 0.9));
         drawGlowCircle(e.x, e.y, glowRadius * 0.9312, shipGlow, 0.8, 22);
         drawGlowCircle(e.x, e.y, glowRadius * 0.5033, shipGlow, 0.7, 12);
         drawGlowCircle(e.x, e.y, shipSize * 0.23, p.base, 0.125, 10);
@@ -8196,9 +8242,9 @@
   musicVolumeInput.addEventListener('input', function (ev) {
     setVolume('music', ev.target.value);
   });
-  if (lowEndModeInput) {
-    lowEndModeInput.addEventListener('change', function (ev) {
-      setLowEndMode(ev.target.checked);
+  for (let i = 0; i < graphicalEffectsButtons.length; i++) {
+    graphicalEffectsButtons[i].addEventListener('click', function () {
+      setGraphicalEffects(this.getAttribute('data-graphical-effects'));
     });
   }
   if (alwaysFollowMouseInput) {
