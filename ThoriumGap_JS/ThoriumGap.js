@@ -7106,7 +7106,7 @@
             const py = e.y + a.x * s + a.y * c;
             const vx = backDirX * backSpeed - (e.vx || 0) * 0.16 + rand(-4, 4);
             const vy = backDirY * backSpeed - (e.vy || 0) * 0.16 + rand(-4, 4);
-            const size = Math.max(3.8, shipSize * 0.10) * 0.75;
+            const size = Math.max(3.8, shipSize * 0.10) * 0.5;
             spawnParticle(px, py, vx, vy, 1.4, size, '#ffffff', 'enginetrail', 1.4);
           }
         }
