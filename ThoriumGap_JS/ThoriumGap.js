@@ -105,6 +105,8 @@
   const STARFIELD_FALL_LIMIT = 0.75;
   const STARFIELD_LOW_END_CAP = 100;
   const STARFIELD_DEFAULT_CAP = 1000;
+  const CLOUD_LIGHTNING_MAX_LIFE = 0.2;
+  const CLOUD_LIGHTNING_TRIGGER_BASE = 0.9;
   const GRAPHICAL_EFFECTS = Object.freeze({
     LOW: 0,
     MEDIUM: 1,
@@ -5888,7 +5890,25 @@
       r: 96 + index * 10,
       cluster: 9 + index,
       a: 0.20 + index * 0.02,
-      cloudType: 1 // Blue
+      cloudType: 1, // Blue
+      lightning: null
+    };
+  }
+
+  function seeded01(seed) {
+    let s = (seed | 0) ^ 0x9e3779b9;
+    s ^= s << 13;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    return ((s >>> 0) / 4294967295);
+  }
+
+  function spawnCloudLightning(cloud) {
+    const seed = ((cloud.seed ^ ((state.renderFrameIndex + 1) * 1103515245)) + ((cloud.x * 13) | 0) + ((cloud.y * 17) | 0)) | 0;
+    cloud.lightning = {
+      seed: seed,
+      life: CLOUD_LIGHTNING_MAX_LIFE,
+      maxLife: CLOUD_LIGHTNING_MAX_LIFE
     };
   }
 
@@ -6097,6 +6117,7 @@
     cloud.texW = 0;
     cloud.texH = 0;
     cloud.bounds = null;
+    cloud.lightning = null;
   }
 
   function updateScrollingClouds(dt) {
@@ -6118,6 +6139,18 @@
       c.y += c.speed * dt;
       c.x += c.vx * dt;
       c.vx += Math.sin((state.animClock + i) * 0.7) * dt * 2.2;
+      if (isHighGraphicalEffects()) {
+        if (c.lightning) {
+          c.lightning.life = Math.max(0, c.lightning.life - dt);
+          if (c.lightning.life <= 0) c.lightning = null;
+        }
+        if (!c.lightning && c.cloudType === 1) {
+          const p = CLOUD_LIGHTNING_TRIGGER_BASE * dt * Math.max(0.7, Math.min(1.4, c.a * 4));
+          if (Math.random() < p) spawnCloudLightning(c);
+        }
+      } else {
+        c.lightning = null;
+      }
       ensureScrollingCloudTexture(c);
       if (c.bounds && c.y + c.bounds.minY > h + c.r * 1.2) {
         c.delay = lerp(0, 2, Math.random());
@@ -6126,8 +6159,64 @@
         c.texW = 0;
         c.texH = 0;
         c.bounds = null;
+        c.lightning = null;
         c.y = h + c.r * 2;
       }
+    }
+  }
+
+  function drawCloudLightning(cloud, layer) {
+    if (!cloud || !cloud.lightning || !cloud.bounds) return;
+    const l = cloud.lightning;
+    const t = clamp(1 - (l.life / Math.max(0.001, l.maxLife)), 0, 1);
+    const alpha = Math.pow(1 - t, 0.8);
+    const drawW = cloud.drawW || cloud.texW || 1;
+    const drawH = cloud.drawH || cloud.texH || 1;
+    const sx = cloud.x + cloud.bounds.minX;
+    const sy = cloud.y + cloud.bounds.minY;
+    const x0 = sx + drawW * (0.38 + seeded01(l.seed + 11) * 0.24);
+    const y0 = sy + drawH * (0.28 + seeded01(l.seed + 29) * 0.20);
+    const baseLen = 10 + seeded01(l.seed + 47) * 10;
+    const baseAng = (seeded01(l.seed + 53) - 0.5) * (Math.PI * 2);
+    const x1 = x0 + Math.cos(baseAng) * baseLen;
+    const y1 = y0 + Math.sin(baseAng) * baseLen;
+    const cloudCx = sx + drawW * 0.5;
+    const cloudCy = sy + drawH * 0.5;
+    const cloudRx = Math.max(1, drawW * 0.38);
+    const cloudRy = Math.max(1, drawH * 0.34);
+    function isInsideCloud(x, y) {
+      const nx = (x - cloudCx) / cloudRx;
+      const ny = (y - cloudCy) / cloudRy;
+      return (nx * nx + ny * ny) <= 1;
+    }
+    drawSpriteRect((x0 + x1) * 0.5, (y0 + y1) * 0.5, baseLen, 2.0, '#040a11', 1.0, layer, true, baseAng);
+    drawSpriteRect((x0 + x1) * 0.5, (y0 + y1) * 0.5, baseLen * 0.9, 1.2, '#060e16', 1.0, layer + 0.01, true, baseAng);
+
+    const branchSteps = Math.max(0, Math.min(4, Math.floor(t / 0.04)));
+    let ends = [];
+    if (isInsideCloud(x0, y0)) ends.push({ x: x0, y: y0, a: baseAng + Math.PI });
+    if (isInsideCloud(x1, y1)) ends.push({ x: x1, y: y1, a: baseAng });
+    for (let step = 0; step < branchSteps; step++) {
+      const nextEnds = [];
+      for (let i = 0; i < ends.length; i++) {
+        const end = ends[i];
+        const split = seeded01(l.seed + step * 911 + i * 3571) < 0.75;
+        const children = split ? 2 : 1;
+        for (let c = 0; c < children; c++) {
+          const r0 = seeded01(l.seed + step * 1237 + i * 721 + c * 191);
+          const r1 = seeded01(l.seed + step * 1597 + i * 887 + c * 233);
+          const len = 10 + r0 * 10;
+          const dir = end.a + ((r1 * 2 - 1) * (80 * Math.PI / 180));
+          const nx = end.x + Math.cos(dir) * len;
+          const ny = end.y + Math.sin(dir) * len;
+          if (!isInsideCloud(nx, ny)) continue;
+          drawSpriteRect((end.x + nx) * 0.5, (end.y + ny) * 0.5, len, 1.6, '#040a11', 1.0, layer, true, dir);
+          drawSpriteRect((end.x + nx) * 0.5, (end.y + ny) * 0.5, len * 0.9, 1.0, '#060e16', 1.0, layer + 0.01, true, dir);
+          nextEnds.push({ x: nx, y: ny, a: dir });
+        }
+      }
+      ends = nextEnds;
+      if (!ends.length) break;
     }
   }
 
@@ -6393,6 +6482,7 @@
         layer: 1,
         lighter: false
       });
+      if (isHighGraphicalEffects()) drawCloudLightning(c, 1.2);
     }
   }
 
