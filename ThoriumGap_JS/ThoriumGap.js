@@ -1691,6 +1691,32 @@
     return c;
   }
 
+  function removeEnemy3DCanvasElement() {
+    if (enemy3DState.canvas) {
+      try {
+        enemy3DState.canvas.style.display = 'none';
+      } catch (err) {}
+      if (enemy3DState.canvas.parentNode) {
+        try {
+          enemy3DState.canvas.parentNode.removeChild(enemy3DState.canvas);
+        } catch (err) {}
+      }
+    }
+
+    enemy3DState.canvas = null;
+
+    try {
+      const stale = document.querySelectorAll('canvas#enemy3d');
+      for (let i = 0; i < stale.length; i++) {
+        if (stale[i] && stale[i].parentNode) {
+          try {
+            stale[i].parentNode.removeChild(stale[i]);
+          } catch (err) {}
+        }
+      }
+    } catch (err) {}
+  }
+
   function ensurePlanet3DCanvas() {
     if (enemy3DState.planetCanvas) return enemy3DState.planetCanvas;
     const c = document.createElement('canvas');
@@ -1808,7 +1834,7 @@
     enemy3DState.scene = null;
     enemy3DState.camera = null;
     enemy3DState.root = null;
-    enemy3DState.canvas = null;
+    removeEnemy3DCanvasElement();
     enemy3DState.planetRenderer = null;
     enemy3DState.planetScene = null;
     enemy3DState.planetCamera = null;
