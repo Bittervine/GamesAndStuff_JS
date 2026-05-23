@@ -1,13 +1,15 @@
 'use strict';
 
-var APP_VERSION = 'thoriumgap-v40'; // BUMP ME
+var APP_VERSION = 'thoriumgap-v43'; // BUMP ME
 var CACHE_NAME = APP_VERSION;
 var APP_SHELL = [
   './ThoriumGap.html',
   './ThoriumGap.js',
   './GameManual.html',
   './manifest.webmanifest',
-  './pwa-icon.svg'
+  './pwa-icon.svg',
+  './pwa-icon-192.png',
+  './pwa-icon-512.png'
 ];
 
 var ASSET_ROOTS = ['assets/', 'devel/', 'models/', 'lib/'];

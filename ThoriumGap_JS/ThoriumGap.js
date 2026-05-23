@@ -6,6 +6,8 @@
   const CLOUD_LAYER_FACTOR = 16;
   const PLANET_3D_COMPOSITE_LAYER = -10;
   const GLOW_3D_BOOST = 1.0;
+  const THORIUM_GAP_VERSION = window.THORIUM_GAP_VERSION || 'thoriumgap-v43';
+  const THORIUM_GAP_REV = 'Rev ' + (((/v(\d+)/i.exec(THORIUM_GAP_VERSION) || [null, '??'])[1]) || '??');
   const canvas = document.getElementById('game');
   const hudCanvas = document.getElementById('hud');
   const hudCtx = hudCanvas.getContext('2d');
@@ -8504,7 +8506,7 @@
     hudCtx.font = '800 15px "Trebuchet MS", "Segoe UI", sans-serif';
     hudCtx.shadowColor = theme.accent2;
     hudCtx.shadowBlur = 10;
-    hudCtx.fillText('BEST ' + format(state.highScore) + '  |  ' + THEMES.length + ' SECTORS  |  THORIUM GAP', view.w * 0.5, view.h - view.controlsH - 18);
+    hudCtx.fillText('BEST ' + format(state.highScore) + '  |  ' + THEMES.length + ' SECTORS  |  THORIUM GAP  |  ' + THORIUM_GAP_REV, view.w * 0.5, view.h - view.controlsH - 18);
     hudCtx.restore();
   }
 
