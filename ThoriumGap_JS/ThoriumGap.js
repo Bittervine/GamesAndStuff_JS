@@ -449,6 +449,10 @@
   const ENEMY_3D_BANK_HEADING_FACTOR = 0.1;
   const ENEMY_3D_LIB_THREE = './lib/three.module.js';
   const ENEMY_3D_LIB_GLTF = './lib/loaders/GLTFLoader.js';
+  const PLANET_3D_MODEL_MIN = 1;
+  const PLANET_3D_MODEL_MAX = 30;
+  const PLANET_3D_ROTATION_SPEED = 0.06;
+  const PLANET_3D_SCALE_MULTIPLIER = 0.84375;
   const enemy3DState = {
     ready: false,
     failed: false,
@@ -462,6 +466,16 @@
     modelCache: new Map(),
     modelLoads: new Map(),
     instances: new Map(),
+    planetModelCache: new Map(),
+    planetModelLoads: new Map(),
+    planetModelPaths: null,
+    planetModelDiscoveryPromise: null,
+    planetInstances: new Map(),
+    planetRenderer: null,
+    planetScene: null,
+    planetCamera: null,
+    planetCanvas: null,
+    planetRoot: null,
     root: null,
     syncPending: false
   };
@@ -1672,6 +1686,27 @@
     return c;
   }
 
+  function ensurePlanet3DCanvas() {
+    if (enemy3DState.planetCanvas) return enemy3DState.planetCanvas;
+    if (!document || !document.body) return null;
+    const c = document.createElement('canvas');
+    c.id = 'planet3d';
+    c.width = Math.max(1, Math.floor(view.w * Math.max(1, view.dpr || 1)));
+    c.height = Math.max(1, Math.floor(view.h * Math.max(1, view.dpr || 1)));
+    c.style.position = 'fixed';
+    c.style.inset = '0';
+    c.style.width = '100vw';
+    c.style.height = '100vh';
+    c.style.pointerEvents = 'none';
+    c.style.background = 'transparent';
+    c.style.zIndex = '0';
+    c.style.display = 'none';
+    if (canvas && canvas.parentNode) canvas.parentNode.insertBefore(c, canvas);
+    else document.body.appendChild(c);
+    enemy3DState.planetCanvas = c;
+    return c;
+  }
+
   function clearEnemy3DInstances() {
     if (!enemy3DState.instances.size) return;
     enemy3DState.instances.forEach(function (entry) {
@@ -1681,13 +1716,29 @@
     enemy3DState.instances.clear();
   }
 
+  function clearPlanet3DInstances() {
+    if (!enemy3DState.planetInstances.size) return;
+    enemy3DState.planetInstances.forEach(function (entry) {
+      if (!entry || !entry.root || !enemy3DState.planetRoot) return;
+      enemy3DState.planetRoot.remove(entry.root);
+    });
+    enemy3DState.planetInstances.clear();
+  }
+
   function destroyEnemy3DRenderer() {
     clearEnemy3DInstances();
+    clearPlanet3DInstances();
     if (enemy3DState.renderer && enemy3DState.renderer.dispose) {
       try { enemy3DState.renderer.dispose(); } catch (err) {}
     }
+    if (enemy3DState.planetRenderer && enemy3DState.planetRenderer.dispose) {
+      try { enemy3DState.planetRenderer.dispose(); } catch (err) {}
+    }
     if (enemy3DState.canvas && enemy3DState.canvas.parentNode) {
       enemy3DState.canvas.parentNode.removeChild(enemy3DState.canvas);
+    }
+    if (enemy3DState.planetCanvas && enemy3DState.planetCanvas.parentNode) {
+      enemy3DState.planetCanvas.parentNode.removeChild(enemy3DState.planetCanvas);
     }
     enemy3DState.ready = false;
     enemy3DState.renderer = null;
@@ -1695,6 +1746,11 @@
     enemy3DState.camera = null;
     enemy3DState.root = null;
     enemy3DState.canvas = null;
+    enemy3DState.planetRenderer = null;
+    enemy3DState.planetScene = null;
+    enemy3DState.planetCamera = null;
+    enemy3DState.planetRoot = null;
+    enemy3DState.planetCanvas = null;
     enemy3DState.loadingPromise = null;
     enemy3DState.syncPending = false;
   }
@@ -1721,6 +1777,30 @@
     enemy3DState.camera.position.set(0, 0, 1000);
     enemy3DState.camera.lookAt(0, 0, 0);
     enemy3DState.camera.updateProjectionMatrix();
+  }
+
+  function updatePlanet3DViewport() {
+    if (!enemy3DState.planetRenderer || !enemy3DState.planetCamera || !enemy3DState.planetCanvas) return;
+    const dpr = Math.max(1, view.dpr || 1);
+    const w = Math.max(1, Math.floor(view.w * dpr));
+    const h = Math.max(1, Math.floor(view.h * dpr));
+    if (enemy3DState.planetCanvas.width !== w || enemy3DState.planetCanvas.height !== h) {
+      enemy3DState.planetCanvas.width = w;
+      enemy3DState.planetCanvas.height = h;
+    }
+    enemy3DState.planetRenderer.setPixelRatio(dpr);
+    enemy3DState.planetRenderer.setSize(view.w, view.h, false);
+    enemy3DState.planetCanvas.style.width = view.w + 'px';
+    enemy3DState.planetCanvas.style.height = view.h + 'px';
+    enemy3DState.planetCamera.left = -view.w * 0.5;
+    enemy3DState.planetCamera.right = view.w * 0.5;
+    enemy3DState.planetCamera.top = view.h * 0.5;
+    enemy3DState.planetCamera.bottom = -view.h * 0.5;
+    enemy3DState.planetCamera.near = 1;
+    enemy3DState.planetCamera.far = 4000;
+    enemy3DState.planetCamera.position.set(0, 0, 1000);
+    enemy3DState.planetCamera.lookAt(0, 0, 0);
+    enemy3DState.planetCamera.updateProjectionMatrix();
   }
 
   async function ensureEnemy3DRenderer() {
@@ -1760,16 +1840,44 @@
         const fillLight = new THREE.DirectionalLight(0x7aa3ff, 0.75);
         fillLight.position.set(-0.65, -0.6, 0.95);
         scene3D.add(fillLight);
+        const planetCanvas3D = ensurePlanet3DCanvas();
+        if (!planetCanvas3D) throw new Error('3D planet mode could not allocate canvas.');
+        const planetRenderer3D = new THREE.WebGLRenderer({
+          canvas: planetCanvas3D,
+          alpha: true,
+          antialias: false,
+          premultipliedAlpha: false,
+          powerPreference: 'high-performance'
+        });
+        planetRenderer3D.autoClear = true;
+        planetRenderer3D.setClearColor(0x02040a, 1);
+        const planetScene3D = new THREE.Scene();
+        const planetCamera3D = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 4000);
+        const planetRoot3D = new THREE.Group();
+        planetScene3D.add(planetRoot3D);
+        planetScene3D.add(new THREE.AmbientLight(0xffffff, 0.225));
+        const planetKeyLight = new THREE.DirectionalLight(0xffffff, 0.3125);
+        planetKeyLight.position.set(-0.45, 0.65, 1.0);
+        planetScene3D.add(planetKeyLight);
+        const planetFillLight = new THREE.DirectionalLight(0x7aa3ff, 0.0875);
+        planetFillLight.position.set(0.75, -0.35, 0.8);
+        planetScene3D.add(planetFillLight);
         enemy3DState.THREE = THREE;
         enemy3DState.loader = new GLTFLoader();
         enemy3DState.renderer = renderer3D;
         enemy3DState.scene = scene3D;
         enemy3DState.camera = camera3D;
         enemy3DState.root = root3D;
+        enemy3DState.planetRenderer = planetRenderer3D;
+        enemy3DState.planetScene = planetScene3D;
+        enemy3DState.planetCamera = planetCamera3D;
+        enemy3DState.planetRoot = planetRoot3D;
         enemy3DState.ready = true;
         enemy3DState.failed = false;
         updateEnemy3DViewport();
+        updatePlanet3DViewport();
         canvas3D.style.display = 'block';
+        planetCanvas3D.style.display = 'block';
         return true;
       } catch (err) {
         enemy3DState.failed = true;
@@ -1818,11 +1926,92 @@
     return loadPromise;
   }
 
+  function planet3DModelPath(index) {
+    const safeIndex = clamp(Math.round(index || 1), PLANET_3D_MODEL_MIN, PLANET_3D_MODEL_MAX);
+    return 'models/planet_map_' + String(safeIndex).padStart(2, '0') + '.glb';
+  }
+
+  async function discoverPlanet3DModelPaths() {
+    if (enemy3DState.planetModelPaths) return enemy3DState.planetModelPaths;
+    if (enemy3DState.planetModelDiscoveryPromise) return enemy3DState.planetModelDiscoveryPromise;
+    enemy3DState.planetModelDiscoveryPromise = (async function () {
+      const checks = [];
+      for (let i = PLANET_3D_MODEL_MIN; i <= PLANET_3D_MODEL_MAX; i++) {
+        const path = planet3DModelPath(i);
+        checks.push(fetch(path, { method: 'HEAD', cache: 'no-store' }).then(function (res) {
+          return res && res.ok ? path : null;
+        }).catch(function () {
+          return null;
+        }));
+      }
+      const found = (await Promise.all(checks)).filter(Boolean);
+      enemy3DState.planetModelPaths = found.length ? found : [
+        planet3DModelPath(1),
+        planet3DModelPath(2),
+        planet3DModelPath(3),
+        planet3DModelPath(4),
+        planet3DModelPath(5),
+        planet3DModelPath(6)
+      ];
+      return enemy3DState.planetModelPaths;
+    }()).finally(function () {
+      enemy3DState.planetModelDiscoveryPromise = null;
+    });
+    return enemy3DState.planetModelDiscoveryPromise;
+  }
+
+  async function planet3DModelPathForDecor(dec) {
+    const paths = await discoverPlanet3DModelPaths();
+    if (!paths || !paths.length) return null;
+    const seed = Number.isFinite(dec && dec.modelIndex) ? dec.modelIndex : (dec && dec.imageIndex) || 1;
+    return paths[Math.abs((seed - 1) | 0) % paths.length] || paths[0] || null;
+  }
+
+  async function ensurePlanet3DModelLoaded(path) {
+    if (!path || !enemy3DState.ready || !enemy3DState.loader) return null;
+    if (enemy3DState.planetModelCache.has(path)) return enemy3DState.planetModelCache.get(path);
+    if (enemy3DState.planetModelLoads.has(path)) return enemy3DState.planetModelLoads.get(path);
+    const THREE = enemy3DState.THREE;
+    const loadPromise = (async function () {
+      try {
+        const gltf = await (enemy3DState.loader.loadAsync
+          ? enemy3DState.loader.loadAsync(path)
+          : new Promise(function (resolve, reject) {
+            enemy3DState.loader.load(path, resolve, undefined, reject);
+          }));
+        const scene = gltf && gltf.scene ? gltf.scene : null;
+        if (!scene) return null;
+        scene.updateMatrixWorld(true);
+        const bounds = new THREE.Box3().setFromObject(scene);
+        const size = bounds.getSize(new THREE.Vector3());
+        const diameter = Math.max(0.001, size.x, size.y, size.z);
+        const entry = { scene: scene, diameter: diameter };
+        enemy3DState.planetModelCache.set(path, entry);
+        return entry;
+      } catch (err) {
+        console.warn('Planet 3D model failed to load:', path, err);
+        enemy3DState.planetModelCache.set(path, null);
+        return null;
+      } finally {
+        enemy3DState.planetModelLoads.delete(path);
+      }
+    }());
+    enemy3DState.planetModelLoads.set(path, loadPromise);
+    return loadPromise;
+  }
+
   function removeEnemy3DInstance(enemy) {
     if (!enemy || !enemy3DState.instances.has(enemy)) return;
     const entry = enemy3DState.instances.get(enemy);
     if (entry && entry.root && enemy3DState.root) enemy3DState.root.remove(entry.root);
     enemy3DState.instances.delete(enemy);
+  }
+
+  function removePlanet3DInstance(dec) {
+    if (!dec || !enemy3DState.planetInstances.has(dec)) return;
+    const entry = enemy3DState.planetInstances.get(dec);
+    if (entry && entry.root && enemy3DState.planetRoot) enemy3DState.planetRoot.remove(entry.root);
+    enemy3DState.planetInstances.delete(dec);
   }
 
   async function ensureEnemy3DInstance(enemy) {
@@ -1866,16 +2055,98 @@
     return instance;
   }
 
+  async function ensurePlanet3DInstance(dec) {
+    if (!dec || !enemy3DState.ready || !enemy3DState.planetRoot) return null;
+    if (enemy3DState.planetInstances.has(dec)) return enemy3DState.planetInstances.get(dec);
+    const modelPath = await planet3DModelPathForDecor(dec);
+    if (!modelPath) return null;
+    const modelEntry = await ensurePlanet3DModelLoaded(modelPath);
+    if (!dec || !enemy3DState.ready || !enemy3DState.planetRoot) return null;
+    if (!modelEntry || !modelEntry.scene || !(modelEntry.diameter > 0)) return null;
+    const root = new enemy3DState.THREE.Group();
+    const modelScene = modelEntry.scene.clone(true);
+    modelScene.traverse(function (obj) {
+      if (!obj || !obj.isMesh) return;
+      obj.frustumCulled = false;
+      if (Array.isArray(obj.material)) {
+        for (let i = 0; i < obj.material.length; i++) {
+          const mat = obj.material[i];
+          if (!mat) continue;
+          mat.transparent = false;
+          mat.opacity = 1.0;
+          mat.color.multiplyScalar(0.5);
+        }
+      } else if (obj.material) {
+        obj.material.transparent = false;
+        obj.material.opacity = 1.0;
+        obj.material.color.multiplyScalar(0.5);
+      }
+    });
+    root.add(modelScene);
+    enemy3DState.planetRoot.add(root);
+    const instance = {
+      root: root,
+      modelPath: modelPath,
+      diameter: modelEntry.diameter,
+      rot: Number.isFinite(dec.rot) ? dec.rot : 0
+    };
+    enemy3DState.planetInstances.set(dec, instance);
+    return instance;
+  }
+
+  async function syncPlanet3DInstances(dt) {
+    if (!enemy3DState.ready || !enemy3DState.planetRoot) return;
+    if (enemy3DState.planetCanvas) enemy3DState.planetCanvas.style.display = 'block';
+    updatePlanet3DViewport();
+    const seen = new Set();
+    const decs = state.decorBackgrounds || [];
+    for (let i = 0; i < decs.length; i++) {
+      const dec = decs[i];
+      if (!dec || dec.delay > 0) continue;
+      seen.add(dec);
+      let instance = enemy3DState.planetInstances.get(dec);
+      if (!instance) {
+        instance = await ensurePlanet3DInstance(dec);
+        if (!instance) continue;
+      }
+      if (!instance || !instance.root) continue;
+      const scale = narrowScreenScale();
+      const size = Math.max(1, 256 * (dec.scale || 1) * scale * PLANET_3D_SCALE_MULTIPLIER);
+      const finalScale = size / Math.max(0.001, instance.diameter);
+      const sway = Math.sin(state.animClock * 0.18 + (dec.drift || 0)) * 10;
+      const shakeX = render.offsetX || 0;
+      const shakeY = render.offsetY || 0;
+      instance.rot += PLANET_3D_ROTATION_SPEED * (dt || 0);
+      instance.root.position.set(
+        (dec.x + sway - view.w * 0.5) + shakeX,
+        (view.h * 0.5 - dec.y) - shakeY,
+        -500
+      );
+      instance.root.scale.set(finalScale, finalScale, finalScale);
+      instance.root.rotation.set(
+        Number.isFinite(dec.rot) ? dec.rot * 0.45 : 0,
+        instance.rot,
+        0
+      );
+    }
+    enemy3DState.planetInstances.forEach(function (instance, dec) {
+      if (!seen.has(dec)) removePlanet3DInstance(dec);
+    });
+  }
+
   async function syncEnemy3DInstances(dt) {
     if (!shouldUseEnemy3DMode()) {
       if (enemy3DState.ready || enemy3DState.canvas || enemy3DState.loadingPromise) destroyEnemy3DRenderer();
       return;
     }
-    if (!enemy3DState.ready && (!state.enemies || state.enemies.length === 0)) return;
+    if (!enemy3DState.ready &&
+      (!state.enemies || state.enemies.length === 0) &&
+      (!state.decorBackgrounds || state.decorBackgrounds.length === 0)) return;
     const ready = await ensureEnemy3DRenderer();
     if (!ready || !enemy3DState.ready || !enemy3DState.root) return;
     if (enemy3DState.canvas) enemy3DState.canvas.style.display = 'block';
     updateEnemy3DViewport();
+    await syncPlanet3DInstances(dt);
     const seen = new Set();
     for (let i = 0; i < state.enemies.length; i++) {
       const enemy = state.enemies[i];
@@ -1924,7 +2195,9 @@
   function tickEnemy3D(dt) {
     if (!enable3DMode) return;
     if (!shouldUseEnemy3DMode() && !enemy3DState.ready && !enemy3DState.canvas && !enemy3DState.loadingPromise) return;
-    if (!enemy3DState.ready && !enemy3DState.loadingPromise && (!state.enemies || state.enemies.length === 0)) return;
+    const hasEnemies = !!(state.enemies && state.enemies.length);
+    const hasPlanets = !!(state.decorBackgrounds && state.decorBackgrounds.length);
+    if (!enemy3DState.ready && !enemy3DState.loadingPromise && !hasEnemies && !hasPlanets) return;
     if (enemy3DState.syncPending) return;
     enemy3DState.syncPending = true;
     Promise.resolve(syncEnemy3DInstances(dt)).catch(function () {}).finally(function () {
@@ -1939,6 +2212,10 @@
 
   function renderEnemy3DScene() {
     if (!enable3DMode) return;
+    if (enemy3DState.ready && enemy3DState.planetRenderer && enemy3DState.planetScene && enemy3DState.planetCamera) {
+      enemy3DState.planetRenderer.clear(true, true, true);
+      enemy3DState.planetRenderer.render(enemy3DState.planetScene, enemy3DState.planetCamera);
+    }
     if (!enemy3DState.ready || !enemy3DState.renderer || !enemy3DState.scene || !enemy3DState.camera) return;
     enemy3DState.renderer.clear(true, true, true);
     enemy3DState.renderer.render(enemy3DState.scene, enemy3DState.camera);
@@ -2359,7 +2636,7 @@
     const w = canvas.width;
     const h = canvas.height;
     gl.viewport(0, 0, w, h);
-    gl.clearColor(0.0078431373, 0.0156862745, 0.0392156863, 1);
+    gl.clearColor(0.0078431373, 0.0156862745, 0.0392156863, (enable3DMode && shouldUseEnemy3DMode()) ? 0 : 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     drawStarfieldGPU();
     gl.useProgram(render.program);
@@ -6018,6 +6295,7 @@
     return {
       index: index,
       imageIndex: randomPlanetDecorIndex(),
+      modelIndex: randomPlanetDecorIndex(),
       x: w * (0.10 + Math.random() * 0.78),
       y: -Math.max(180, h * (0.10 + Math.random() * 0.18)),
       speed: (14 + Math.random() * 16) * 5 * 0.125,
@@ -6035,6 +6313,7 @@
     const w = Math.max(1, view.w);
     const h = Math.max(1, view.h);
     dec.imageIndex = randomPlanetDecorIndex();
+    dec.modelIndex = randomPlanetDecorIndex();
     dec.x = w * (0.10 + Math.random() * 0.78);
     dec.y = -Math.max(180, h * (0.10 + Math.random() * 0.18));
     dec.speed = (14 + Math.random() * 16) * 5 * 0.125;
@@ -6073,6 +6352,7 @@
       if (img && d.y - img.naturalHeight * d.scale > h + 120) {
         d.delay = lerp(4, 8, Math.random());
         d.imageIndex = randomPlanetDecorIndex();
+        d.modelIndex = randomPlanetDecorIndex();
         d.y = -Math.max(180, h * (0.10 + Math.random() * 0.18));
       }
     }
@@ -6080,6 +6360,7 @@
 
   function drawDecorBackgrounds() {
     if (isLowGraphicalEffects() || !state.decorBackgrounds || !state.decorBackgrounds.length) return;
+    if (enable3DMode && shouldUseEnemy3DMode()) return;
     const scale = narrowScreenScale();
     for (let i = 0; i < state.decorBackgrounds.length; i++) {
       const d = state.decorBackgrounds[i];
