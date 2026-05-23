@@ -8506,7 +8506,7 @@
     hudCtx.font = '800 15px "Trebuchet MS", "Segoe UI", sans-serif';
     hudCtx.shadowColor = theme.accent2;
     hudCtx.shadowBlur = 10;
-    hudCtx.fillText('BEST ' + format(state.highScore) + '  |  ' + THEMES.length + ' SECTORS  |  THORIUM GAP  |  ' + THORIUM_GAP_REV, view.w * 0.5, view.h - view.controlsH - 18);
+    hudCtx.fillText('BEST ' + format(state.highScore) + '  |  ' + THORIUM_GAP_REV, view.w * 0.5, view.h - view.controlsH - 18);
     hudCtx.restore();
   }
 
