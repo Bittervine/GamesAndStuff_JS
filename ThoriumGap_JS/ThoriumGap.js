@@ -4,6 +4,7 @@
   const TAU = Math.PI * 2;
   const PLANET_LAYER_FACTOR = 4;
   const CLOUD_LAYER_FACTOR = 16;
+  const GLOW_3D_BOOST = 1.5;
   const canvas = document.getElementById('game');
   const hudCanvas = document.getElementById('hud');
   const hudCtx = hudCanvas.getContext('2d');
@@ -450,7 +451,7 @@
   const ENEMY_3D_LIB_THREE = './lib/three.module.js';
   const ENEMY_3D_LIB_GLTF = './lib/loaders/GLTFLoader.js';
   const PLANET_3D_MODEL_MIN = 1;
-  const PLANET_3D_MODEL_MAX = 30;
+  const PLANET_3D_MODEL_MAX = 21;
   const PLANET_3D_ROTATION_SPEED = 0.06;
   const PLANET_3D_SCALE_MULTIPLIER = 0.84375;
   const enemy3DState = {
@@ -6062,18 +6063,20 @@
       drawSpriteCircle(x, y, Math.max(1, rr + Math.max(1, b * 0.28 * getGlowRadiusScale())), color, a * 0.72 * getFxQuality(), 0, true);
       return;
     }
-    drawSpriteCircle(x, y, r + b * 0.82, color, a * 0.32, 0, true);
-    drawSpriteCircle(x, y, r + b * 0.45, color, a * 0.58, 0, true);
-    drawSpriteCircle(x, y, Math.max(1, r * 0.72), color, a, 0, true);
+    const boost = enable3DMode ? GLOW_3D_BOOST : 1;
+    drawSpriteCircle(x, y, (r + b * 0.82) * boost, color, a * 0.32, 0, true);
+    drawSpriteCircle(x, y, (r + b * 0.45) * boost, color, a * 0.58, 0, true);
+    drawSpriteCircle(x, y, Math.max(1, r * 0.72) * boost, color, a, 0, true);
   }
 
   function drawGlowCircleNormal(x, y, r, color, alpha, blur) {
     const b = blur == null ? Math.max(10, r * 0.8) : blur;
     const a = alpha == null ? 1 : alpha;
     if (a <= 0 || r <= 0) return;
-    drawSpriteCircle(x, y, r + b * 0.82, color, a * 0.32, 0, true);
-    drawSpriteCircle(x, y, r + b * 0.45, color, a * 0.58, 0, true);
-    drawSpriteCircle(x, y, Math.max(1, r * 0.72), color, a, 0, true);
+    const boost = enable3DMode ? GLOW_3D_BOOST : 1;
+    drawSpriteCircle(x, y, (r + b * 0.82) * boost, color, a * 0.32, 0, true);
+    drawSpriteCircle(x, y, (r + b * 0.45) * boost, color, a * 0.58, 0, true);
+    drawSpriteCircle(x, y, Math.max(1, r * 0.72) * boost, color, a, 0, true);
   }
 
   function drawSoftEdgeGlow(x, y, maxR, color, alpha) {
@@ -6246,7 +6249,7 @@
       // Deep blue cloud
       if (blueCloud) {
         if (blueImg) {
-          g.globalAlpha = cloud.a * 0.22;
+          g.globalAlpha = cloud.a * 0.22 * (enable3DMode ? GLOW_3D_BOOST : 1);
           g.drawImage(blueImg, px + blobX * renderScale, py + blobY * renderScale, blobW * renderScale, blobH * renderScale);
         }
       }
@@ -7238,6 +7241,7 @@
 
   function drawBullets() {
     function drawShot(b) {
+      const boost = enable3DMode ? GLOW_3D_BOOST : 1;
       const speed = Math.max(1, Math.hypot(b.vx, b.vy));
       const trail = clamp(speed * 0.02, 10, 26);
       const ang = Math.atan2(b.vy, b.vx);
@@ -7255,35 +7259,35 @@
       } else if (fanBody) {
         drawSpriteCircle(b.x, b.y, b.r * 0.62, b.color, b.team === 'player' ? 0.90 : 0.80, 2, true);
         if (lowFx && b.team !== 'player') {
-          drawGlowCircleNormal(b.x, b.y, b.r * 2.2, b.color, 0.18, 18);
-          drawGlowCircleNormal(b.x, b.y, b.r * 1.15, b.color, 0.38, 10);
-          drawGlowCircleNormal(b.x, b.y, b.r, b.color, 0.85, 6);
+          drawGlowCircleNormal(b.x, b.y, b.r * 2.2, b.color, 0.18 * boost, 18);
+          drawGlowCircleNormal(b.x, b.y, b.r * 1.15, b.color, 0.38 * boost, 10);
+          drawGlowCircleNormal(b.x, b.y, b.r, b.color, 0.85 * boost, 6);
         } else {
-          drawGlowCircleNormal(b.x, b.y, b.r * 2.2, b.color, b.team === 'player' ? 0.20 : 0.18, 18);
-          drawGlowCircleNormal(b.x, b.y, b.r * 1.15, b.color, b.team === 'player' ? 0.45 : 0.38, 10);
-          drawGlowCircleNormal(b.x, b.y, b.r, b.color, b.team === 'player' ? 0.95 : 0.85, 6);
+          drawGlowCircleNormal(b.x, b.y, b.r * 2.2, b.color, (b.team === 'player' ? 0.20 : 0.18) * boost, 18);
+          drawGlowCircleNormal(b.x, b.y, b.r * 1.15, b.color, (b.team === 'player' ? 0.45 : 0.38) * boost, 10);
+          drawGlowCircleNormal(b.x, b.y, b.r, b.color, (b.team === 'player' ? 0.95 : 0.85) * boost, 6);
         }
       } else if (rocketBody) {
         drawSpriteRect(b.x - Math.cos(ang) * bodyW * 0.5, b.y - Math.sin(ang) * bodyW * 0.5, bodyW, bodyH, b.color, b.team === 'player' ? 0.72 : 0.65, 2, true, ang);
         if (lowFx && b.team !== 'player') {
-          drawGlowCircleNormal(b.x, b.y, glow1, '#0038ff', 0.10, 12);
-          drawGlowCircleNormal(b.x, b.y, glow2, '#004cff', 0.14, 8);
-          drawGlowCircleNormal(b.x, b.y, glow3, '#005fff', 0.18, 5);
+          drawGlowCircleNormal(b.x, b.y, glow1, '#0038ff', 0.10 * boost, 12);
+          drawGlowCircleNormal(b.x, b.y, glow2, '#004cff', 0.14 * boost, 8);
+          drawGlowCircleNormal(b.x, b.y, glow3, '#005fff', 0.18 * boost, 5);
         } else {
-          drawGlowCircleNormal(b.x, b.y, glow1, '#0038ff', b.team === 'player' ? 0.12 : 0.10, 12);
-          drawGlowCircleNormal(b.x, b.y, glow2, '#004cff', b.team === 'player' ? 0.18 : 0.14, 8);
-          drawGlowCircleNormal(b.x, b.y, glow3, '#005fff', b.team === 'player' ? 0.24 : 0.18, 5);
+          drawGlowCircleNormal(b.x, b.y, glow1, '#0038ff', (b.team === 'player' ? 0.12 : 0.10) * boost, 12);
+          drawGlowCircleNormal(b.x, b.y, glow2, '#004cff', (b.team === 'player' ? 0.18 : 0.14) * boost, 8);
+          drawGlowCircleNormal(b.x, b.y, glow3, '#005fff', (b.team === 'player' ? 0.24 : 0.18) * boost, 5);
         }
       } else {
         drawSpriteRect(b.x - Math.cos(ang) * bodyW * 0.5, b.y - Math.sin(ang) * bodyW * 0.5, bodyW, bodyH, b.color, b.team === 'player' ? 0.72 : 0.65, 2, true, ang);
         if (lowFx && b.team !== 'player') {
-          drawGlowCircleNormal(b.x, b.y, glow1, b.color, 0.18, 18);
-          drawGlowCircleNormal(b.x, b.y, glow2, b.color, 0.38, 10);
-          drawGlowCircleNormal(b.x, b.y, glow3, b.color, 0.85, 6);
+          drawGlowCircleNormal(b.x, b.y, glow1, b.color, 0.18 * boost, 18);
+          drawGlowCircleNormal(b.x, b.y, glow2, b.color, 0.38 * boost, 10);
+          drawGlowCircleNormal(b.x, b.y, glow3, b.color, 0.85 * boost, 6);
         } else {
-          drawGlowCircleNormal(b.x, b.y, glow1, b.color, b.team === 'player' ? 0.20 : 0.18, 18);
-          drawGlowCircleNormal(b.x, b.y, glow2, b.color, b.team === 'player' ? 0.45 : 0.38, 10);
-          drawGlowCircleNormal(b.x, b.y, glow3, b.color, b.team === 'player' ? 0.95 : 0.85, 6);
+          drawGlowCircleNormal(b.x, b.y, glow1, b.color, (b.team === 'player' ? 0.20 : 0.18) * boost, 18);
+          drawGlowCircleNormal(b.x, b.y, glow2, b.color, (b.team === 'player' ? 0.45 : 0.38) * boost, 10);
+          drawGlowCircleNormal(b.x, b.y, glow3, b.color, (b.team === 'player' ? 0.95 : 0.85) * boost, 6);
         }
       }
       if (rocketBody) drawSpriteEmoji(E.rocket, b.x, b.y, 14, { rot: ang + Math.PI * 0.25, alpha: 0.95, layer: 3, lighter: true, fill: '#006dff' });
@@ -7300,6 +7304,7 @@
 
   function drawPickups() {
     const scale = pickupScale();
+    const boost = enable3DMode ? GLOW_3D_BOOST : 1;
     for (let i = 0; i < state.pickups.length; i++) {
       const p = state.pickups[i];
       const bob = Math.sin(p.bob) * 4 * scale;
@@ -7314,25 +7319,25 @@
         const pulse = clamp(0.58 + (flameLenPulse - 1) * 0.7 + (flameWPulse - 1) * 0.9 + Math.sin(state.animClock * 2.7 + p.bob) * 0.06, 0.35, 1.25);
         const outer = glowRadiusOuter * 1.35;
         const inner = glowRadiusInner * 1.4;
-        drawGlowCircle(p.x, p.y + bob, outer, '#7deaff', 0.40 * pulse, 30 * scale);
-        drawGlowCircle(p.x, p.y + bob, inner, '#3aa6ff', 0.66 * pulse, 17 * scale);
-        drawGlowCircle(p.x, p.y + bob, inner * 0.62, '#b6f8ff', 0.78 * pulse, 10 * scale);
+        drawGlowCircle(p.x, p.y + bob, outer, '#7deaff', 0.40 * pulse * boost, 30 * scale);
+        drawGlowCircle(p.x, p.y + bob, inner, '#3aa6ff', 0.66 * pulse * boost, 17 * scale);
+        drawGlowCircle(p.x, p.y + bob, inner * 0.62, '#b6f8ff', 0.78 * pulse * boost, 10 * scale);
         const baseR = 14 * scale;
         for (let k = 0; k < 3; k++) {
           const a = p.spin * 1.8 + k * (TAU / 3);
           const ox = Math.cos(a) * (baseR * 0.86 + Math.sin(p.bob * 1.7 + k) * baseR * 0.2);
           const oy = Math.sin(a * 1.3) * (baseR * 0.74);
           drawEmojiGlyph('✶', p.x + ox, p.y + bob + oy, 18 * scale, { alpha: 0.92, rot: -a * 1.3, layer: 3, lighter: false, fill: '#04101a' });
-          drawGlowCircle(p.x + ox, p.y + bob + oy, 4.2 * scale, '#a9f2ff', 0.34, 6 * scale);
+          drawGlowCircle(p.x + ox, p.y + bob + oy, 4.2 * scale, '#a9f2ff', 0.34 * boost, 6 * scale);
         }
         continue;
       }
       if (isLowGraphicalEffects()) {
-        drawGlowCircleNormal(p.x, p.y + bob, glowRadiusOuter, p.color, 0.48, glowBlurOuter);
-        drawGlowCircleNormal(p.x, p.y + bob, glowRadiusInner, p.color, 0.85, glowBlurInner);
+        drawGlowCircleNormal(p.x, p.y + bob, glowRadiusOuter, p.color, 0.48 * boost, glowBlurOuter);
+        drawGlowCircleNormal(p.x, p.y + bob, glowRadiusInner, p.color, 0.85 * boost, glowBlurInner);
       } else {
-        drawGlowCircle(p.x, p.y + bob, glowRadiusOuter, p.color, 0.48, glowBlurOuter);
-        drawGlowCircle(p.x, p.y + bob, glowRadiusInner, p.color, 0.85, glowBlurInner);
+        drawGlowCircle(p.x, p.y + bob, glowRadiusOuter, p.color, 0.48 * boost, glowBlurOuter);
+        drawGlowCircle(p.x, p.y + bob, glowRadiusInner, p.color, 0.85 * boost, glowBlurInner);
       }
       drawEmojiGlyph(p.emoji, p.x, p.y + bob, 20 * scale, { alpha: 1, rot: Math.sin(p.spin + p.bob * 0.7) * 0.16, layer: 2, lighter: p.lighter !== false });
     }
@@ -7350,8 +7355,9 @@
         const flicker = 1 + Math.sin((state.animClock || 0) * 18 + (p.rot || 0) * 7.13) * 0.25;
         const cloudW = Math.max(12, p.size * 3.5 * flicker);
         const cloudH = Math.max(12, p.size * 3.5 * flicker);
-        drawSpriteRect(p.x, p.y, cloudW, cloudH, p.color, fade * 0.016 * opacityMult, -2, false);
-        drawSpriteRect(p.x, p.y, cloudW * 0.78, cloudH * 0.78, p.color, fade * 0.012 * opacityMult, -2, false);
+        const boost = enable3DMode ? GLOW_3D_BOOST : 1;
+        drawSpriteRect(p.x, p.y, cloudW, cloudH, p.color, fade * 0.016 * opacityMult * boost, -2, false);
+        drawSpriteRect(p.x, p.y, cloudW * 0.78, cloudH * 0.78, p.color, fade * 0.012 * opacityMult * boost, -2, false);
       } else {
         const len = Math.max(2, p.size * 0.45);
         const ang = Math.atan2(p.vy, p.vx);
