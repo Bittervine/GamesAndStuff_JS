@@ -4,7 +4,8 @@
   const TAU = Math.PI * 2;
   const PLANET_LAYER_FACTOR = 4;
   const CLOUD_LAYER_FACTOR = 16;
-  const GLOW_3D_BOOST = 1.5;
+  const PLANET_3D_COMPOSITE_LAYER = -10;
+  const GLOW_3D_BOOST = 1.0;
   const canvas = document.getElementById('game');
   const hudCanvas = document.getElementById('hud');
   const hudCtx = hudCanvas.getContext('2d');
@@ -476,6 +477,9 @@
     planetScene: null,
     planetCamera: null,
     planetCanvas: null,
+    planetCompositeTexture: null,
+    planetCompositeWidth: 0,
+    planetCompositeHeight: 0,
     planetRoot: null,
     root: null,
     syncPending: false
@@ -1689,23 +1693,86 @@
 
   function ensurePlanet3DCanvas() {
     if (enemy3DState.planetCanvas) return enemy3DState.planetCanvas;
-    if (!document || !document.body) return null;
     const c = document.createElement('canvas');
-    c.id = 'planet3d';
     c.width = Math.max(1, Math.floor(view.w * Math.max(1, view.dpr || 1)));
     c.height = Math.max(1, Math.floor(view.h * Math.max(1, view.dpr || 1)));
-    c.style.position = 'fixed';
-    c.style.inset = '0';
-    c.style.width = '100vw';
-    c.style.height = '100vh';
-    c.style.pointerEvents = 'none';
-    c.style.background = 'transparent';
-    c.style.zIndex = '0';
-    c.style.display = 'none';
-    if (canvas && canvas.parentNode) canvas.parentNode.insertBefore(c, canvas);
-    else document.body.appendChild(c);
     enemy3DState.planetCanvas = c;
     return c;
+  }
+
+  function clearPlanetCompositeTexture() {
+    if (enemy3DState.planetCompositeTexture) {
+      try { gl.deleteTexture(enemy3DState.planetCompositeTexture); } catch (err) {}
+    }
+    enemy3DState.planetCompositeTexture = null;
+    enemy3DState.planetCompositeWidth = 0;
+    enemy3DState.planetCompositeHeight = 0;
+  }
+
+  function shouldUsePlanet3DComposite() {
+    return !!enable3DMode && shouldUseEnemy3DMode() && !!enemy3DState.planetRenderer;
+  }
+
+  function ensurePlanetCompositeTexture() {
+    if (!gl || !enemy3DState.planetCanvas) return null;
+    const source = enemy3DState.planetCanvas;
+    const w = Math.max(1, source.width || 1);
+    const h = Math.max(1, source.height || 1);
+    if (
+      enemy3DState.planetCompositeTexture &&
+      enemy3DState.planetCompositeWidth === w &&
+      enemy3DState.planetCompositeHeight === h
+    ) {
+      return enemy3DState.planetCompositeTexture;
+    }
+    clearPlanetCompositeTexture();
+    const tex = gl.createTexture();
+    if (!tex) return null;
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    enemy3DState.planetCompositeTexture = tex;
+    enemy3DState.planetCompositeWidth = w;
+    enemy3DState.planetCompositeHeight = h;
+    return tex;
+  }
+
+  function updatePlanetCompositeTexture() {
+    if (!gl || !enemy3DState.planetCanvas) return null;
+    const tex = ensurePlanetCompositeTexture();
+    if (!tex) return null;
+    try {
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, enemy3DState.planetCanvas);
+      return tex;
+    } catch (err) {
+      try {
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, enemy3DState.planetCanvas);
+        return tex;
+      } catch (err2) {
+        return null;
+      }
+    }
+  }
+
+  function renderPlanet3DComposite() {
+    if (!shouldUsePlanet3DComposite()) return null;
+    if (!enemy3DState.ready || !enemy3DState.planetRenderer || !enemy3DState.planetScene || !enemy3DState.planetCamera) return null;
+    enemy3DState.planetRenderer.clear(true, true, true);
+    enemy3DState.planetRenderer.render(enemy3DState.planetScene, enemy3DState.planetCamera);
+    return updatePlanetCompositeTexture();
+  }
+
+  function drawPlanet3DComposite() {
+    const tex = renderPlanet3DComposite();
+    if (!tex) return;
+    drawTextureRect(tex, view.w * 0.5, view.h * 0.5, view.w, view.h, { alpha: 1, layer: PLANET_3D_COMPOSITE_LAYER, lighter: false });
   }
 
   function clearEnemy3DInstances() {
@@ -1735,12 +1802,7 @@
     if (enemy3DState.planetRenderer && enemy3DState.planetRenderer.dispose) {
       try { enemy3DState.planetRenderer.dispose(); } catch (err) {}
     }
-    if (enemy3DState.canvas && enemy3DState.canvas.parentNode) {
-      enemy3DState.canvas.parentNode.removeChild(enemy3DState.canvas);
-    }
-    if (enemy3DState.planetCanvas && enemy3DState.planetCanvas.parentNode) {
-      enemy3DState.planetCanvas.parentNode.removeChild(enemy3DState.planetCanvas);
-    }
+    clearPlanetCompositeTexture();
     enemy3DState.ready = false;
     enemy3DState.renderer = null;
     enemy3DState.scene = null;
@@ -1788,11 +1850,10 @@
     if (enemy3DState.planetCanvas.width !== w || enemy3DState.planetCanvas.height !== h) {
       enemy3DState.planetCanvas.width = w;
       enemy3DState.planetCanvas.height = h;
+      clearPlanetCompositeTexture();
     }
     enemy3DState.planetRenderer.setPixelRatio(dpr);
     enemy3DState.planetRenderer.setSize(view.w, view.h, false);
-    enemy3DState.planetCanvas.style.width = view.w + 'px';
-    enemy3DState.planetCanvas.style.height = view.h + 'px';
     enemy3DState.planetCamera.left = -view.w * 0.5;
     enemy3DState.planetCamera.right = view.w * 0.5;
     enemy3DState.planetCamera.top = view.h * 0.5;
@@ -1848,10 +1909,11 @@
           alpha: true,
           antialias: false,
           premultipliedAlpha: false,
+          preserveDrawingBuffer: true,
           powerPreference: 'high-performance'
         });
         planetRenderer3D.autoClear = true;
-        planetRenderer3D.setClearColor(0x02040a, 1);
+        planetRenderer3D.setClearColor(0x000000, 0);
         const planetScene3D = new THREE.Scene();
         const planetCamera3D = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 4000);
         const planetRoot3D = new THREE.Group();
@@ -1877,8 +1939,6 @@
         enemy3DState.failed = false;
         updateEnemy3DViewport();
         updatePlanet3DViewport();
-        canvas3D.style.display = 'block';
-        planetCanvas3D.style.display = 'block';
         return true;
       } catch (err) {
         enemy3DState.failed = true;
@@ -2075,12 +2135,16 @@
           if (!mat) continue;
           mat.transparent = false;
           mat.opacity = 1.0;
-          mat.color.multiplyScalar(0.5);
+          mat.depthTest = true;
+          mat.depthWrite = true;
+          if (mat.color && mat.color.multiplyScalar) mat.color.multiplyScalar(0.35);
         }
       } else if (obj.material) {
         obj.material.transparent = false;
         obj.material.opacity = 1.0;
-        obj.material.color.multiplyScalar(0.5);
+        obj.material.depthTest = true;
+        obj.material.depthWrite = true;
+        if (obj.material.color && obj.material.color.multiplyScalar) obj.material.color.multiplyScalar(0.35);
       }
     });
     root.add(modelScene);
@@ -2097,7 +2161,6 @@
 
   async function syncPlanet3DInstances(dt) {
     if (!enemy3DState.ready || !enemy3DState.planetRoot) return;
-    if (enemy3DState.planetCanvas) enemy3DState.planetCanvas.style.display = 'block';
     updatePlanet3DViewport();
     const seen = new Set();
     const decs = state.decorBackgrounds || [];
@@ -2213,10 +2276,6 @@
 
   function renderEnemy3DScene() {
     if (!enable3DMode) return;
-    if (enemy3DState.ready && enemy3DState.planetRenderer && enemy3DState.planetScene && enemy3DState.planetCamera) {
-      enemy3DState.planetRenderer.clear(true, true, true);
-      enemy3DState.planetRenderer.render(enemy3DState.planetScene, enemy3DState.planetCamera);
-    }
     if (!enemy3DState.ready || !enemy3DState.renderer || !enemy3DState.scene || !enemy3DState.camera) return;
     enemy3DState.renderer.clear(true, true, true);
     enemy3DState.renderer.render(enemy3DState.scene, enemy3DState.camera);
@@ -2637,7 +2696,7 @@
     const w = canvas.width;
     const h = canvas.height;
     gl.viewport(0, 0, w, h);
-    gl.clearColor(0.0078431373, 0.0156862745, 0.0392156863, (enable3DMode && shouldUseEnemy3DMode()) ? 0 : 1);
+    gl.clearColor(0.0078431373, 0.0156862745, 0.0392156863, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
     drawStarfieldGPU();
     gl.useProgram(render.program);
@@ -6063,7 +6122,7 @@
       drawSpriteCircle(x, y, Math.max(1, rr + Math.max(1, b * 0.28 * getGlowRadiusScale())), color, a * 0.72 * getFxQuality(), 0, true);
       return;
     }
-    const boost = enable3DMode ? GLOW_3D_BOOST : 1;
+    const boost = GLOW_3D_BOOST;
     drawSpriteCircle(x, y, (r + b * 0.82) * boost, color, a * 0.32, 0, true);
     drawSpriteCircle(x, y, (r + b * 0.45) * boost, color, a * 0.58, 0, true);
     drawSpriteCircle(x, y, Math.max(1, r * 0.72) * boost, color, a, 0, true);
@@ -6073,7 +6132,7 @@
     const b = blur == null ? Math.max(10, r * 0.8) : blur;
     const a = alpha == null ? 1 : alpha;
     if (a <= 0 || r <= 0) return;
-    const boost = enable3DMode ? GLOW_3D_BOOST : 1;
+    const boost = GLOW_3D_BOOST;
     drawSpriteCircle(x, y, (r + b * 0.82) * boost, color, a * 0.32, 0, true);
     drawSpriteCircle(x, y, (r + b * 0.45) * boost, color, a * 0.58, 0, true);
     drawSpriteCircle(x, y, Math.max(1, r * 0.72) * boost, color, a, 0, true);
@@ -6756,7 +6815,7 @@
 
   function drawScrollingClouds() {
     if (isLowGraphicalEffects() || !state.scrollingClouds || !state.scrollingClouds.length) return;
-    const cloudBoost = enable3DMode ? (GLOW_3D_BOOST * 2.2) : 1;
+    const cloudBoost = 1;
     for (let i = 0; i < state.scrollingClouds.length; i++) {
       const c = state.scrollingClouds[i];
       if (c.delay > 0) continue;
@@ -7224,7 +7283,8 @@
 
   function drawBackground() {
     drawStarfield();
-    drawDecorBackgrounds();
+    if (shouldUsePlanet3DComposite()) drawPlanet3DComposite();
+    else drawDecorBackgrounds();
     drawScrollingClouds();
   }
 
@@ -7242,7 +7302,7 @@
 
   function drawBullets() {
     function drawShot(b) {
-      const boost = enable3DMode ? GLOW_3D_BOOST : 1;
+      const boost = GLOW_3D_BOOST;
       const speed = Math.max(1, Math.hypot(b.vx, b.vy));
       const trail = clamp(speed * 0.02, 10, 26);
       const ang = Math.atan2(b.vy, b.vx);
@@ -7305,7 +7365,7 @@
 
   function drawPickups() {
     const scale = pickupScale();
-    const boost = enable3DMode ? GLOW_3D_BOOST : 1;
+    const boost = GLOW_3D_BOOST;
     for (let i = 0; i < state.pickups.length; i++) {
       const p = state.pickups[i];
       const bob = Math.sin(p.bob) * 4 * scale;
@@ -7356,7 +7416,7 @@
         const flicker = 1 + Math.sin((state.animClock || 0) * 18 + (p.rot || 0) * 7.13) * 0.25;
         const cloudW = Math.max(12, p.size * 3.5 * flicker);
         const cloudH = Math.max(12, p.size * 3.5 * flicker);
-        const boost = enable3DMode ? GLOW_3D_BOOST : 1;
+        const boost = GLOW_3D_BOOST;
         drawSpriteRect(p.x, p.y, cloudW, cloudH, p.color, fade * 0.016 * opacityMult * boost, -2, false);
         drawSpriteRect(p.x, p.y, cloudW * 0.78, cloudH * 0.78, p.color, fade * 0.012 * opacityMult * boost, -2, false);
       } else {
