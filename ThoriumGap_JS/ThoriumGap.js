@@ -528,6 +528,61 @@
     return ENEMY_3D_LEVEL_FAMILY[level] || ENEMY_3D_LEVEL_FAMILY[13];
   }
 
+  function allEnemy3DModelPaths() {
+    const paths = [];
+    const seen = new Set();
+    for (const familyName in ENEMY_3D_FAMILY_MODELS) {
+      if (!Object.prototype.hasOwnProperty.call(ENEMY_3D_FAMILY_MODELS, familyName)) continue;
+      const list = ENEMY_3D_FAMILY_MODELS[familyName] || [];
+      for (let i = 0; i < list.length; i++) {
+        const path = list[i];
+        if (!path || seen.has(path)) continue;
+        seen.add(path);
+        paths.push(path);
+      }
+    }
+    return paths;
+  }
+
+  async function warm3DModelPreload() {
+    if (!enable3DMode) return false;
+    if (state.threeWarmupPromise) return state.threeWarmupPromise;
+    state.threeWarmupPromise = (async function () {
+      try {
+        const ready = await ensureEnemy3DRenderer();
+        if (!ready || !enemy3DState.ready) return false;
+
+        const enemyPaths = allEnemy3DModelPaths();
+        const planetPaths = await discoverPlanet3DModelPaths();
+        const paths = enemyPaths.concat(planetPaths || []);
+        const unique = [];
+        const seen = new Set();
+        for (let i = 0; i < paths.length; i++) {
+          const path = paths[i];
+          if (!path || seen.has(path)) continue;
+          seen.add(path);
+          unique.push(path);
+        }
+
+        await Promise.all(unique.map(function (path) {
+          if (path.indexOf('models/Ship_') === 0) {
+            return ensureEnemy3DModelLoaded(path);
+          }
+          if (path.indexOf('models/planet_map_') === 0) {
+            return ensurePlanet3DModelLoaded(path);
+          }
+          return Promise.resolve(null);
+        }));
+        return true;
+      } catch (err) {
+        return false;
+      } finally {
+        state.threeWarmupPromise = null;
+      }
+    }());
+    return state.threeWarmupPromise;
+  }
+
   function enemy3DModelPath(levelNumber, shipIndex) {
     const family = enemy3DFamilyForLevel(levelNumber);
     const list = ENEMY_3D_FAMILY_MODELS[family];
@@ -2924,6 +2979,7 @@
     assetsReady: false,
     assetsLoading: false,
     assetsWarmupPromise: null,
+    threeWarmupPromise: null,
     nextLevelTimer: 0,
     waveClock: 0,
     waveIndex: 0,
@@ -3931,6 +3987,9 @@
       titleScreenText();
       markHudDirty();
     }());
+    if (enable3DMode) {
+      void warm3DModelPreload();
+    }
     return state.assetsWarmupPromise;
   }
 
