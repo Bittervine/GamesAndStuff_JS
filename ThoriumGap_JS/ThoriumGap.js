@@ -6249,7 +6249,8 @@
       // Deep blue cloud
       if (blueCloud) {
         if (blueImg) {
-          g.globalAlpha = cloud.a * 0.22 * (enable3DMode ? GLOW_3D_BOOST : 1);
+          const blueBoost = enable3DMode ? (GLOW_3D_BOOST * 3.0) : 1;
+          g.globalAlpha = cloud.a * 0.25 * blueBoost;
           g.drawImage(blueImg, px + blobX * renderScale, py + blobY * renderScale, blobW * renderScale, blobH * renderScale);
         }
       }
