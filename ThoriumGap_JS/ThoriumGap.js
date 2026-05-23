@@ -6249,8 +6249,7 @@
       // Deep blue cloud
       if (blueCloud) {
         if (blueImg) {
-          const blueBoost = enable3DMode ? (GLOW_3D_BOOST * 3.0) : 1;
-          g.globalAlpha = cloud.a * 0.25 * blueBoost;
+          g.globalAlpha = cloud.a * 0.22;
           g.drawImage(blueImg, px + blobX * renderScale, py + blobY * renderScale, blobW * renderScale, blobH * renderScale);
         }
       }
@@ -6476,8 +6475,8 @@
       const ny = (y - cloudCy) / cloudRy;
       return (nx * nx + ny * ny) <= 1;
     }
-    drawSpriteRect((x0 + x1) * 0.5, (y0 + y1) * 0.5, baseLen, 2.0, '#020509', 1.0, layer, true, baseAng);
-    drawSpriteRect((x0 + x1) * 0.5, (y0 + y1) * 0.5, baseLen * 0.9, 1.2, '#03070b', 1.0, layer + 0.01, true, baseAng);
+    drawSpriteRect((x0 + x1) * 0.5, (y0 + y1) * 0.5, baseLen, 2.0, '#102020', 1.0, layer, true, baseAng);
+    drawSpriteRect((x0 + x1) * 0.5, (y0 + y1) * 0.5, baseLen * 0.9, 1.2, '#102020', 1.0, layer + 0.01, true, baseAng);
 
     const branchSteps = Math.max(0, Math.min(4, Math.floor(t / 0.04)));
     let ends = [];
@@ -6757,6 +6756,7 @@
 
   function drawScrollingClouds() {
     if (isLowGraphicalEffects() || !state.scrollingClouds || !state.scrollingClouds.length) return;
+    const cloudBoost = enable3DMode ? (GLOW_3D_BOOST * 2.2) : 1;
     for (let i = 0; i < state.scrollingClouds.length; i++) {
       const c = state.scrollingClouds[i];
       if (c.delay > 0) continue;
@@ -6765,7 +6765,7 @@
       const cx = c.x + (c.bounds.minX + c.bounds.maxX) * 0.5;
       const cy = c.y + (c.bounds.minY + c.bounds.maxY) * 0.5;
       drawTextureRect(tex, cx, cy, c.drawW || c.texW, c.drawH || c.texH, {
-        alpha: 1,
+        alpha: c.cloudType === 1 ? cloudBoost : 1,
         layer: 1,
         lighter: false
       });
