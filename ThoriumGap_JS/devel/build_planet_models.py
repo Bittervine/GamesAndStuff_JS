@@ -18,8 +18,8 @@ BASE_DIR = Path(r"c:\Portable\0Networkshare\GitHub\GamesAndStuff_JS\ThoriumGap_J
 ASSETS_DIR = BASE_DIR / "assets"
 MODELS_DIR = BASE_DIR / "models"
 TEXTURE_PATTERN = "planet_map_*.png"
-SPHERE_SEGMENTS = 48
-SPHERE_RINGS = 24
+SPHERE_SEGMENTS = 100
+SPHERE_RINGS = 50
 SPHERE_RADIUS = 1.0
 
 
