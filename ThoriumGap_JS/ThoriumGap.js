@@ -292,7 +292,7 @@
     10: 'Standard',
     11: 'Crosspanel',
     12: 'PyramidLifter',
-    13: 'ManraRay',
+    13: 'FinalFlight',
   };
   const ENEMY_3D_FAMILY_MODELS = {
     Standard: [
@@ -403,6 +403,24 @@
       'models/Ship_ManraRay_459947.glb',
       'models/Ship_ManraRay_766613.glb',
       'models/Ship_ManraRay_792763.glb'
+    ],
+    FinalFlight: [
+      'models/Ship_LunarCourier_994899.glb',
+      'models/Ship_Standard_4.glb',
+      'models/Ship_DeltaWing_394511.glb',
+      'models/Ship_Crosspanel_3.glb',
+      'models/Ship_ManraRay_190663.glb',
+      'models/Ship_PyramidLifter_290115.glb',
+      'models/Ship_Standard_2.glb'   
+    ],
+    FinalFlight2: [
+      'models/Ship_LunarCourier_153144',
+      'models/Ship_Standard_1.glb',
+      'models/Ship_Standard_10.glb',
+      'models/Ship_FlyingSaucer_301176.glb',
+      'models/Ship_Crosspanel_19.glb',
+      'models/Ship_DeltaWing_535536.glb',
+      'models/Ship_Longwing_10'
     ],
     Orca: [
       'models/Ship_Orca_29300.glb',
@@ -4068,6 +4086,18 @@
     clearParticleList();
     clearEnemyBulletsWithBudget(9999);
     spawnBoss(mainTheme());
+  }
+
+  function debugJumpLevelsAhead(count) {
+    if (!state.debugMode || !state.assetsReady || state.transition) return;
+    if (state.mode !== 'playing') {
+      closeSettings();
+      resetRun();
+      state.mode = 'playing';
+      syncMouseCursor();
+    }
+    const finalIndex = THEMES.length - 1;
+    beginLevel(clamp(state.levelIndex + count, 0, finalIndex));
   }
 
   function beginLevel(index) {
@@ -8713,13 +8743,17 @@
       }
       return;
     }
-    if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'ArrowUp' || code === 'ArrowDown' || code === 'KeyA' || code === 'KeyD' || code === 'KeyW' || code === 'KeyS' || code === 'Space' || code === 'KeyZ' || code === 'ControlLeft' || code === 'ControlRight' || code === 'Enter' || code === 'KeyX' || code === 'KeyB' || code === 'KeyP' || code === 'KeyM' || code === 'KeyR' || code === 'KeyL' || code === 'Escape' || code === 'KeyO') {
+    if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'ArrowUp' || code === 'ArrowDown' || code === 'KeyA' || code === 'KeyD' || code === 'KeyW' || code === 'KeyS' || code === 'Space' || code === 'KeyZ' || code === 'ControlLeft' || code === 'ControlRight' || code === 'Enter' || code === 'KeyX' || code === 'KeyB' || code === 'KeyP' || code === 'KeyM' || code === 'KeyR' || code === 'KeyL' || code === 'KeyK' || code === 'Escape' || code === 'KeyO') {
         ev.preventDefault();
         resumeAudio();
       }
     if (state.debugMode && code === 'KeyL') {
       ev.preventDefault();
       if (!ev.repeat) debugJumpToFinalBoss();
+    }
+    if (state.debugMode && code === 'KeyK') {
+      ev.preventDefault();
+      if (!ev.repeat) debugJumpLevelsAhead(6);
     }
     if (state.debugMode && code === 'Digit0') {
       ev.preventDefault();
