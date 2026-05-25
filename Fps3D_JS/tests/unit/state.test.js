@@ -4,7 +4,7 @@ import { updateEnemy } from '../../core/combat/enemies.js';
 import { sampleGamepadInput } from '../../core/game/input.js';
 import { computeTextureAtlasLayout } from '../../core/render/textures.js';
 import { getWeaponDef } from '../../data/weapons.js';
-import { resolveCharacterRigProfile, sampleCharacterRigPose, sampleFirstPersonWeaponPose, sampleSkinnedChainVertex } from '../../core/render/webglRenderer.js';
+import { CHARACTER_ASSET_SPEC, resolveCharacterRigProfile, sampleCharacterRigPose, sampleFirstPersonWeaponPose, sampleSkinnedChainVertex, validateCharacterAsset } from '../../core/render/webglRenderer.js';
 
 const DOOR_LEVEL = {
   id: 'door-test',
@@ -227,6 +227,78 @@ runCase('sampleCharacterRigPose shares walk, idle, attack, hurt, and death state
   assert.ok(walk.bodyBob !== idle.bodyBob || walk.bodyLean !== idle.bodyLean);
 });
 
+runCase('validateCharacterAsset enforces the 8.5 humanoid acceptance spec', () => {
+  const validAsset = {
+    triangleCount: 6200,
+    materialCount: 2,
+    textures: [
+      { width: 1024, height: 1024 }
+    ],
+    metrics: {
+      heightMeters: 1.82,
+      headsTall: 7.4,
+      shoulderWidthToHeight: 0.28,
+      hipWidthToHeight: 0.20,
+      armSpanToHeight: 1.01,
+      handLengthToHeight: 0.10,
+      footLengthToHeight: 0.15,
+      kneeHeightToHeight: 0.28,
+      elbowHeightToHeight: 0.58
+    },
+    orthographicPreviews: CHARACTER_ASSET_SPEC.orthographicPreviews,
+    animationClips: CHARACTER_ASSET_SPEC.animationClips,
+    cleanTopologyZones: CHARACTER_ASSET_SPEC.topologyZones,
+    skeleton: {
+      name: CHARACTER_ASSET_SPEC.skeleton.name,
+      bones: CHARACTER_ASSET_SPEC.skeleton.requiredBones
+    },
+    deformation: {
+      maxFootSlideMeters: 0.025,
+      maxFootFloatMeters: 0.01,
+      maxStretchRatio: 1.05,
+      maxJointCollapseRatio: 0.18
+    }
+  };
+  const accepted = validateCharacterAsset(validAsset);
+
+  assert.equal(accepted.ok, true);
+  assert.equal(accepted.targetStyle, 'stylized-realistic');
+  assert.equal(accepted.skeleton, 'GameHumanoidV1');
+
+  const rejected = validateCharacterAsset({
+    ...validAsset,
+    triangleCount: 9000,
+    metrics: {
+      ...validAsset.metrics,
+      headsTall: 5.8,
+      footLengthToHeight: 0.24
+    },
+    orthographicPreviews: ['front'],
+    animationClips: ['idle'],
+    cleanTopologyZones: ['shoulders'],
+    skeleton: {
+      bones: [
+        ...CHARACTER_ASSET_SPEC.skeleton.requiredBones.filter((bone) => bone !== 'Head'),
+        'GeneratedTail'
+      ]
+    },
+    deformation: {
+      maxFootSlideMeters: 0.12,
+      maxFootFloatMeters: 0.08,
+      maxStretchRatio: 1.24,
+      maxJointCollapseRatio: 0.42
+    }
+  });
+
+  assert.equal(rejected.ok, false);
+  assert.ok(rejected.errors.some((error) => error.includes('headsTall')));
+  assert.ok(rejected.errors.some((error) => error.includes('missing side orthographic preview')));
+  assert.ok(rejected.errors.some((error) => error.includes('missing run animation clip')));
+  assert.ok(rejected.errors.some((error) => error.includes('missing skeleton bone Head')));
+  assert.ok(rejected.errors.some((error) => error.includes('unexpected skeleton bone GeneratedTail')));
+  assert.ok(rejected.errors.some((error) => error.includes('maxFootSlideMeters')));
+});
+
 runCase('resolveCharacterRigProfile merges data-driven pose, mesh, and weapon overrides', () => {
   const profile = resolveCharacterRigProfile({
     def: {
@@ -244,6 +316,10 @@ runCase('resolveCharacterRigProfile merges data-driven pose, mesh, and weapon ov
             jointBulge: 0.14
           }
         },
+        proportions: {
+          shoulderOffsetScale: 0.32,
+          handScale: 0.10
+        },
         weapon: {
           attackReachScale: 0.41,
           model: 'customRifle'
@@ -257,6 +333,9 @@ runCase('resolveCharacterRigProfile merges data-driven pose, mesh, and weapon ov
   assert.equal(profile.pose.swingTwistScale, 0.11);
   assert.equal(profile.mesh.torso.sides, 12);
   assert.equal(profile.mesh.arm.jointBulge, 0.14);
+  assert.equal(profile.proportions.shoulderOffsetScale, 0.32);
+  assert.equal(profile.proportions.handScale, 0.10);
+  assert.equal(profile.proportions.footPadDepthScale, 0.18);
   assert.equal(profile.weapon.attackReachScale, 0.41);
   assert.equal(profile.weapon.model, 'customRifle');
 

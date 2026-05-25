@@ -563,6 +563,224 @@ function getPackedTextureBinding(textures, key, fallbackTexture) {
   return normalizeTextureBinding(fallbackTexture);
 }
 
+export const CHARACTER_ASSET_SPEC = {
+  version: 1,
+  targetStyle: 'stylized-realistic',
+  gameplayUse: 'mid-range enemy readability from 3 to 28 meters, with close inspection only in debug preview scenes',
+  cameraDistanceMeters: {
+    close: 3,
+    typical: 10,
+    far: 28
+  },
+  performance: {
+    maxTriangles: 7000,
+    maxTextureSize: 1024,
+    maxTextureSets: 1,
+    maxMaterials: 2,
+    targetVisibleCharacters: 24,
+    targetFrameMs: 16.7
+  },
+  skeleton: {
+    name: 'GameHumanoidV1',
+    requiredBones: [
+      'Hips',
+      'Spine',
+      'Chest',
+      'Neck',
+      'Head',
+      'LeftShoulder',
+      'LeftUpperArm',
+      'LeftLowerArm',
+      'LeftHand',
+      'RightShoulder',
+      'RightUpperArm',
+      'RightLowerArm',
+      'RightHand',
+      'LeftUpperLeg',
+      'LeftLowerLeg',
+      'LeftFoot',
+      'LeftToe',
+      'RightUpperLeg',
+      'RightLowerLeg',
+      'RightFoot',
+      'RightToe'
+    ],
+    optionalBones: [
+      'Jaw',
+      'LeftEye',
+      'RightEye',
+      'LeftWeaponSocket',
+      'RightWeaponSocket'
+    ],
+    allowExtraBones: false
+  },
+  proportions: {
+    heightMeters: [1.45, 2.35],
+    headsTall: [6.4, 8.2],
+    shoulderWidthToHeight: [0.22, 0.34],
+    hipWidthToHeight: [0.15, 0.27],
+    armSpanToHeight: [0.9, 1.1],
+    handLengthToHeight: [0.075, 0.125],
+    footLengthToHeight: [0.12, 0.19],
+    kneeHeightToHeight: [0.23, 0.34],
+    elbowHeightToHeight: [0.48, 0.68]
+  },
+  orthographicPreviews: ['front', 'side', 'back'],
+  animationClips: ['idle', 'walk', 'run', 'stop', 'turn', 'jump', 'hitReaction', 'death', 'interact'],
+  topologyZones: ['shoulders', 'elbows', 'wrists', 'hips', 'knees', 'ankles', 'neck', 'jaw'],
+  deformation: {
+    maxFootSlideMeters: 0.05,
+    maxFootFloatMeters: 0.035,
+    maxStretchRatio: 1.12,
+    maxJointCollapseRatio: 0.35
+  }
+};
+
+function normalizeNamedList(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (typeof item === 'string') {
+        return item;
+      }
+      if (item && typeof item === 'object') {
+        return item.id || item.name || item.key || '';
+      }
+      return '';
+    })
+    .filter((item) => typeof item === 'string' && item.length > 0);
+}
+
+function pushRangeValidation(errors, label, value, range) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    errors.push(`${label} is missing`);
+    return;
+  }
+
+  const min = Number(range?.[0]);
+  const max = Number(range?.[1]);
+  if (numericValue < min || numericValue > max) {
+    errors.push(`${label} ${numericValue} is outside ${min}-${max}`);
+  }
+}
+
+function pushMaxValidation(errors, label, value, max, suffix = '') {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    errors.push(`${label} is missing`);
+    return;
+  }
+
+  if (numericValue > max) {
+    errors.push(`${label} ${numericValue}${suffix} exceeds ${max}${suffix}`);
+  }
+}
+
+export function validateCharacterAsset(asset, spec = CHARACTER_ASSET_SPEC) {
+  const errors = [];
+  const warnings = [];
+  const metrics = asset?.metrics || {};
+
+  for (const [metricName, range] of Object.entries(spec.proportions || {})) {
+    pushRangeValidation(errors, metricName, metrics[metricName], range);
+  }
+
+  const triangleCount = Number(asset?.triangleCount ?? asset?.triangles);
+  if (!Number.isFinite(triangleCount)) {
+    errors.push('triangleCount is missing');
+  } else if (triangleCount > spec.performance.maxTriangles) {
+    errors.push(`triangleCount ${triangleCount} exceeds ${spec.performance.maxTriangles}`);
+  }
+
+  const materialCount = Number(asset?.materialCount ?? asset?.materials?.length);
+  if (!Number.isFinite(materialCount)) {
+    errors.push('materialCount is missing');
+  } else if (materialCount > spec.performance.maxMaterials) {
+    errors.push(`materialCount ${materialCount} exceeds ${spec.performance.maxMaterials}`);
+  }
+
+  const textures = Array.isArray(asset?.textures) ? asset.textures : [];
+  if (textures.length === 0) {
+    errors.push('textures are missing');
+  }
+  if (textures.length > spec.performance.maxTextureSets) {
+    errors.push(`texture set count ${textures.length} exceeds ${spec.performance.maxTextureSets}`);
+  }
+  for (const texture of textures) {
+    const width = Number(texture?.width);
+    const height = Number(texture?.height);
+    if (Number.isFinite(width) && width > spec.performance.maxTextureSize) {
+      errors.push(`texture width ${width} exceeds ${spec.performance.maxTextureSize}`);
+    }
+    if (Number.isFinite(height) && height > spec.performance.maxTextureSize) {
+      errors.push(`texture height ${height} exceeds ${spec.performance.maxTextureSize}`);
+    }
+  }
+
+  const previews = new Set(normalizeNamedList(asset?.orthographicPreviews || asset?.previews));
+  for (const preview of spec.orthographicPreviews || []) {
+    if (!previews.has(preview)) {
+      errors.push(`missing ${preview} orthographic preview`);
+    }
+  }
+
+  const clips = new Set(normalizeNamedList(asset?.animationClips || asset?.animations));
+  for (const clip of spec.animationClips || []) {
+    if (!clips.has(clip)) {
+      errors.push(`missing ${clip} animation clip`);
+    }
+  }
+
+  const bones = normalizeNamedList(asset?.skeleton?.bones || asset?.bones);
+  const boneSet = new Set(bones);
+  const requiredBones = spec.skeleton?.requiredBones || [];
+  const optionalBones = new Set(spec.skeleton?.optionalBones || []);
+  if (asset?.skeleton?.name !== spec.skeleton?.name) {
+    errors.push(`skeleton name must be ${spec.skeleton.name}`);
+  }
+  for (const bone of requiredBones) {
+    if (!boneSet.has(bone)) {
+      errors.push(`missing skeleton bone ${bone}`);
+    }
+  }
+  if (spec.skeleton?.allowExtraBones === false) {
+    for (const bone of bones) {
+      if (!requiredBones.includes(bone) && !optionalBones.has(bone)) {
+        errors.push(`unexpected skeleton bone ${bone}`);
+      }
+    }
+  }
+
+  const topologyZones = new Set(normalizeNamedList(asset?.cleanTopologyZones || asset?.topologyZones));
+  for (const zone of spec.topologyZones || []) {
+    if (!topologyZones.has(zone)) {
+      errors.push(`missing clean topology zone ${zone}`);
+    }
+  }
+
+  const deformation = asset?.deformation || {};
+  pushMaxValidation(errors, 'maxFootSlideMeters', deformation.maxFootSlideMeters, spec.deformation.maxFootSlideMeters, 'm');
+  pushMaxValidation(errors, 'maxFootFloatMeters', deformation.maxFootFloatMeters, spec.deformation.maxFootFloatMeters, 'm');
+  pushMaxValidation(errors, 'maxStretchRatio', deformation.maxStretchRatio, spec.deformation.maxStretchRatio);
+  pushMaxValidation(errors, 'maxJointCollapseRatio', deformation.maxJointCollapseRatio, spec.deformation.maxJointCollapseRatio);
+  if (!asset?.orthographicPreviews && !asset?.previews) {
+    warnings.push('orthographic previews should be reviewed by the user before acceptance');
+  }
+
+  return {
+    ok: errors.length === 0,
+    errors,
+    warnings,
+    specVersion: spec.version,
+    targetStyle: spec.targetStyle,
+    skeleton: spec.skeleton.name
+  };
+}
+
 export function sampleCharacterRigPose(entity, floorHeight, scaleX, scaleY, scaleZ, bobPhase, aimTarget = null, options = {}) {
   const poseState = resolveCharacterPoseState(entity, options);
   const motionBlendByState = {
@@ -796,6 +1014,22 @@ const CHARACTER_RIG_PROFILES = {
       arm: { sides: 8, subdivisions: 2, jointBulge: 0.10, skinSpread: 1.18, skinMix: 0.58 },
       bridge: { sides: 10, subdivisions: 2, jointBulge: 0.06, skinSpread: 1.10, skinMix: 0.40 }
     },
+    proportions: {
+      hipOffsetScale: 0.19,
+      shoulderOffsetScale: 0.29,
+      footHeightScale: 0.07,
+      lowerLegScale: 0.245,
+      thighScale: 0.255,
+      upperArmScale: 0.19,
+      lowerArmScale: 0.18,
+      handScale: 0.095,
+      footPadWidthScale: 0.18,
+      footPadHeightScale: 0.045,
+      footPadDepthScale: 0.18,
+      handPadWidthScale: 0.07,
+      handPadHeightScale: 0.08,
+      handPadDepthScale: 0.075
+    },
     weapon: {
       attackReachScale: 0.34,
       attackKickScale: 0.02,
@@ -896,6 +1130,7 @@ export function resolveCharacterRigProfile(entity, fallbackVariant = 'humanoid')
     variant,
     pose: rigData.pose,
     mesh: rigData.mesh,
+    proportions: rigData.proportions,
     weapon: rigData.weapon
   });
 }
@@ -1787,6 +2022,7 @@ function drawHumanoidCharacter(entity, texture, tint, floorHeight, scaleX, scale
   const rig = sampleCharacterRigPose(entity, floorHeight, scaleX, scaleY, scaleZ, bobPhase, aimTarget, profile.pose);
   const meshProfile = profile.mesh || {};
   const weaponProfile = profile.weapon || {};
+  const proportions = profile.proportions || {};
   const {
     deathBlend,
     hurtBlend,
@@ -1823,14 +2059,14 @@ function drawHumanoidCharacter(entity, texture, tint, floorHeight, scaleX, scale
     aimPitch,
     torsoTwist
   } = rig;
-  const hipOffset = bodyWidth * 0.22;
-  const shoulderOffset = bodyWidth * 0.30;
-  const footHeight = bodyHeight * 0.08;
-  const lowerLegHeight = bodyHeight * 0.22;
-  const thighHeight = bodyHeight * 0.24;
-  const upperArmHeight = bodyHeight * 0.20;
-  const lowerArmHeight = bodyHeight * 0.18;
-  const handHeight = bodyHeight * 0.11;
+  const hipOffset = bodyWidth * (proportions.hipOffsetScale ?? 0.22);
+  const shoulderOffset = bodyWidth * (proportions.shoulderOffsetScale ?? 0.30);
+  const footHeight = bodyHeight * (proportions.footHeightScale ?? 0.08);
+  const lowerLegHeight = bodyHeight * (proportions.lowerLegScale ?? 0.22);
+  const thighHeight = bodyHeight * (proportions.thighScale ?? 0.24);
+  const upperArmHeight = bodyHeight * (proportions.upperArmScale ?? 0.20);
+  const lowerArmHeight = bodyHeight * (proportions.lowerArmScale ?? 0.18);
+  const handHeight = bodyHeight * (proportions.handScale ?? 0.11);
   const leftHipAngle = -leftGait.swing * 0.55 - leftGait.lift * 0.18 - deathCollapse * 0.48 + hurtRecoil * 0.20;
   const leftKneeBend = 0.58 + leftGait.lift * 0.95 + hurtRecoil * 0.18 + deathCollapse * 0.34;
   const leftKneeAngle = leftHipAngle + leftKneeBend;
@@ -1995,6 +2231,17 @@ function drawHumanoidCharacter(entity, texture, tint, floorHeight, scaleX, scale
     bodyWidth * 0.13
   ];
 
+  const lowestFootY = Math.min(leftLegPoints[leftLegPoints.length - 1].y, rightLegPoints[rightLegPoints.length - 1].y);
+  const footGroundY = Math.max(footHeight * 0.32, bodyHeight * 0.025);
+  const plantOffsetY = Math.max(0, lowestFootY - footGroundY);
+  if (plantOffsetY > 0) {
+    for (const pointGroup of [torsoPoints, headPoints, leftLegPoints, rightLegPoints, leftArmPoints, rightArmPoints, shoulderBridgePoints, hipBridgePoints]) {
+      for (const pointValue of pointGroup) {
+        pointValue.y -= plantOffsetY;
+      }
+    }
+  }
+
   const torsoMesh = buildWeightedChainMesh(torsoPoints, torsoRadii, meshProfile.torso || {});
   const headMesh = buildWeightedChainMesh(headPoints, headRadii, meshProfile.head || {});
   const limbMeshProfile = meshProfile.limb || {};
@@ -2016,7 +2263,71 @@ function drawHumanoidCharacter(entity, texture, tint, floorHeight, scaleX, scale
   drawDynamicMesh(leftArmMesh, texture, tint, 0.31);
   drawDynamicMesh(rightArmMesh, texture, tint, 0.31);
 
+  const detailTint = scaleTint(tint, 0.86, tint[3]);
+  const leftFoot = leftLegPoints[leftLegPoints.length - 1];
+  const rightFoot = rightLegPoints[rightLegPoints.length - 1];
+  const leftHand = leftArmPoints[leftArmPoints.length - 1];
   const rightHand = rightArmPoints[rightArmPoints.length - 1];
+  drawOrientedPart(
+    entity,
+    texture,
+    detailTint,
+    floorHeight,
+    rotationY,
+    leftFootAngle,
+    leftFoot.x,
+    leftFoot.y + footHeight * 0.04,
+    leftFoot.z - bodyDepth * 0.02,
+    bodyWidth * (proportions.footPadWidthScale ?? 0.18),
+    bodyHeight * (proportions.footPadHeightScale ?? 0.045),
+    bodyDepth * (proportions.footPadDepthScale ?? 0.18),
+    0.29
+  );
+  drawOrientedPart(
+    entity,
+    texture,
+    detailTint,
+    floorHeight,
+    rotationY,
+    rightFootAngle,
+    rightFoot.x,
+    rightFoot.y + footHeight * 0.04,
+    rightFoot.z - bodyDepth * 0.02,
+    bodyWidth * (proportions.footPadWidthScale ?? 0.18),
+    bodyHeight * (proportions.footPadHeightScale ?? 0.045),
+    bodyDepth * (proportions.footPadDepthScale ?? 0.18),
+    0.29
+  );
+  drawOrientedPart(
+    entity,
+    texture,
+    detailTint,
+    floorHeight,
+    rotationY,
+    leftWristAngle,
+    leftHand.x,
+    leftHand.y,
+    leftHand.z,
+    bodyWidth * (proportions.handPadWidthScale ?? 0.07),
+    bodyHeight * (proportions.handPadHeightScale ?? 0.08),
+    bodyDepth * (proportions.handPadDepthScale ?? 0.075),
+    0.30
+  );
+  drawOrientedPart(
+    entity,
+    texture,
+    detailTint,
+    floorHeight,
+    rotationY,
+    rightWristAngle,
+    rightHand.x,
+    rightHand.y,
+    rightHand.z,
+    bodyWidth * (proportions.handPadWidthScale ?? 0.07),
+    bodyHeight * (proportions.handPadHeightScale ?? 0.08),
+    bodyDepth * (proportions.handPadDepthScale ?? 0.075),
+    0.30
+  );
   drawHeldWeapon(entity, texture, tint, floorHeight, rotationY, rightHand.x, rightHand.y - bodyHeight * 0.03 + armLift * 0.4, rightHand.z + attackReach * 0.42, weaponModel, weaponPose, bodyWidth, bodyHeight, bodyDepth, weaponPitch);
 }
 
