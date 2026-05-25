@@ -1,10 +1,15 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { createGameState, advanceGameState } from '../../core/game/state.js';
 import { updateEnemy } from '../../core/combat/enemies.js';
 import { sampleGamepadInput } from '../../core/game/input.js';
 import { computeTextureAtlasLayout } from '../../core/render/textures.js';
 import { getWeaponDef } from '../../data/weapons.js';
+import { QUATERNIUS_CHARACTER_IMPORTS, QUATERNIUS_HUMANOID_RIG } from '../../data/characterAssets.js';
 import { CHARACTER_ASSET_SPEC, resolveCharacterRigProfile, sampleCharacterRigPose, sampleFirstPersonWeaponPose, sampleSkinnedChainVertex, validateCharacterAsset } from '../../core/render/webglRenderer.js';
+
+const PROJECT_ROOT = globalThis.__projectRoot || path.resolve('.');
 
 const DOOR_LEVEL = {
   id: 'door-test',
@@ -263,7 +268,7 @@ runCase('validateCharacterAsset enforces the 8.5 humanoid acceptance spec', () =
 
   assert.equal(accepted.ok, true);
   assert.equal(accepted.targetStyle, 'stylized-realistic');
-  assert.equal(accepted.skeleton, 'GameHumanoidV1');
+  assert.equal(accepted.skeleton, 'QuaterniusHumanoidV1');
 
   const rejected = validateCharacterAsset({
     ...validAsset,
@@ -297,6 +302,39 @@ runCase('validateCharacterAsset enforces the 8.5 humanoid acceptance spec', () =
   assert.ok(rejected.errors.some((error) => error.includes('missing skeleton bone Head')));
   assert.ok(rejected.errors.some((error) => error.includes('unexpected skeleton bone GeneratedTail')));
   assert.ok(rejected.errors.some((error) => error.includes('maxFootSlideMeters')));
+});
+
+runCase('Quaternius imports provide the approved CC0 humanoid foundation', () => {
+  assert.equal(QUATERNIUS_CHARACTER_IMPORTS.license, 'CC0-1.0');
+  assert.equal(QUATERNIUS_HUMANOID_RIG.name, CHARACTER_ASSET_SPEC.skeleton.name);
+  assert.equal(QUATERNIUS_HUMANOID_RIG.bones.length, CHARACTER_ASSET_SPEC.skeleton.requiredBones.length);
+  assert.ok(QUATERNIUS_HUMANOID_RIG.bones.includes('pelvis'));
+  assert.ok(QUATERNIUS_HUMANOID_RIG.bones.includes('hand_l'));
+  assert.ok(QUATERNIUS_HUMANOID_RIG.bones.includes('foot_r'));
+
+  for (const asset of [
+    ...QUATERNIUS_CHARACTER_IMPORTS.baseModels,
+    ...QUATERNIUS_CHARACTER_IMPORTS.animationLibraries,
+    { path: QUATERNIUS_CHARACTER_IMPORTS.licensePath }
+  ]) {
+    assert.ok(fs.existsSync(path.join(PROJECT_ROOT, asset.path)), `missing ${asset.path}`);
+  }
+
+  const base = QUATERNIUS_CHARACTER_IMPORTS.baseModels[0];
+  assert.equal(base.status, 'source-reference');
+  assert.ok(base.triangleCount > CHARACTER_ASSET_SPEC.performance.maxTriangles);
+  assert.ok(base.runtimeNotes.some((note) => note.includes('decimation')));
+  const gltf = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, base.path), 'utf8'));
+  for (const image of gltf.images || []) {
+    assert.ok(fs.existsSync(path.join(PROJECT_ROOT, path.dirname(base.path), image.uri)), `missing texture ${image.uri}`);
+  }
+
+  const clips = QUATERNIUS_CHARACTER_IMPORTS.animationLibraries
+    .flatMap((library) => library.recommendedEnemyClips);
+  assert.ok(clips.includes('Idle_Loop'));
+  assert.ok(clips.includes('Death01'));
+  assert.ok(clips.includes('Zombie_Walk_Fwd_Loop'));
+  assert.ok(clips.includes('Zombie_Scratch'));
 });
 
 runCase('resolveCharacterRigProfile merges data-driven pose, mesh, and weapon overrides', () => {

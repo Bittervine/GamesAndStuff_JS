@@ -183,22 +183,22 @@ Texture source notes:
 
 ### 8.5 Character Models and Animation
 
-- [ ] Investigate methods to acquire more realistic human models.
-- [ ] Test existing base-human solutions such as MetaHuman, Mixamo, Unity Humanoid, Rigify, or marketplace assets. Only use royalty free assets. 
+- [x] Investigate methods to acquire more realistic human models.
+- [x] Test existing base-human solutions such as MetaHuman, Mixamo, Unity Humanoid, Rigify, or marketplace assets. Only use royalty free assets. 
 - [x] Choose a fixed target style: realistic, stylized-realistic, low-poly, or arcade-readable.
 - [x] Define the target camera distance and gameplay use case for the human models.
 - [x] Set a triangle budget, texture budget, and performance target.
 - [x] Choose one skeleton standard and keep it consistent across all human characters.
-- [ ] Select one high-quality base mesh as the anatomical and technical reference.
+- [x] Select one high-quality base mesh as the anatomical and technical reference.
 - [ ] Instruct the AI agent to create variations from the base mesh instead of generating full humans from scratch.
 - [x] Create a character asset specification for the AI agent to follow.
 - [x] Define acceptable body proportions, including head size, shoulder width, hip width, hand size, and foot size.
 - [x] Require front, side, and back orthographic previews before accepting a generated model.
 - [ ] Reject models early if the silhouette, proportions, hands, feet, or joints look wrong. Ask user to judge.
-- [ ] Separate the visual mesh from the deformation requirements.
+- [x] Separate the visual mesh from the deformation requirements.
 - [ ] Require clean topology around shoulders, elbows, wrists, hips, knees, ankles, neck, and jaw.
 - [x] Prevent the AI agent from inventing custom bone names, joint directions, or skeleton layouts.
-- [ ] Use existing animation libraries or motion-capture data for core movement.
+- [x] Use existing animation libraries or motion-capture data for core movement.
 - [ ] Retarget animations onto the chosen skeleton instead of relying on AI-generated final motion.
 - [ ] Build a standard animation test scene for every generated character.
 - [ ] Test idle, walk, run, stop, turn, jump, hit reaction, death, and interaction animations.
@@ -212,16 +212,18 @@ Texture source notes:
 - [ ] Use a staged pipeline: concept, blockout, topology, rigging, skinning, animation, engine import, and polish.
 - [ ] Review and approve each stage before allowing the AI agent to continue.
 - [ ] Keep the AI agent constrained to specific production tasks instead of letting it generate the full model and animation pipeline at once.
-- [ ] Build a small library of approved base bodies, heads, clothing pieces, rigs, and animations.
+- [x] Build a small library of approved base bodies, heads, clothing pieces, rigs, and animations.
 - [ ] Gradually expand variation only after the core model and movement quality are reliable.
 
 Current 8.5 decisions:
 
 - Target style: stylized-realistic, readable as enemies at 3-28 meters rather than close-up cinematic realism.
 - Runtime budget: up to 7k triangles, one 1024px texture set, two materials, and 24 visible humanoids at 60 FPS target.
-- Skeleton standard: `GameHumanoidV1` with fixed bone names and no generated custom bones.
+- Skeleton standard: `QuaterniusHumanoidV1` with fixed Quaternius bone names and no generated custom bones.
 - Acceptance gate: `validateCharacterAsset` checks proportions, orthographic previews, required animation clips, clean topology zones, skeleton names, and deformation metrics.
 - Procedural fallback: humanoid rigs now use explicit proportion controls plus readable hand and foot pads until imported character assets replace them.
+- Imported foundation: Quaternius `Superhero_Male_FullBody.gltf`, `UAL1_Standard.glb`, and `UAL2_Standard.glb` are staged under `assets/models/characters/quaternius/`.
+- Runtime caveat: the Quaternius base model is 14,318 triangles, so it must be decimated or given LODs before it satisfies the current 7k triangle target.
 
 ### 8.6 Monster Rig Refinement
 
@@ -361,3 +363,4 @@ Current 8.5 decisions:
 - 2026-05-05: Added a camera-attached first-person weapon view model pass and a textured UI panel for the player HUD.
 - 2026-05-05: Added a packed texture atlas for non-repeating runtime art plus export notes for future Blender-made assets.
 - 2026-05-25: Added a concrete 8.5 character asset spec, automated acceptance validator, humanoid proportion controls, and readable hand/foot pads.
+- 2026-05-25: Imported a minimal CC0 Quaternius character foundation with one base humanoid mesh, two humanoid animation libraries, license notes, and a fixed Quaternius skeleton map.

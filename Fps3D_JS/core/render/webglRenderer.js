@@ -2,6 +2,7 @@ import { buildBoxGeometry, buildLevelGeometry, buildSkyDomeGeometry, meshToBuffe
 import { createMat4, perspectiveMat4, lookAtMat4, fromTranslationRotationScale, identityMat4 } from '../math/mat4.js';
 import { getThemeAt } from '../world/level.js';
 import { WEAPON_ORDER, getWeaponDef } from '../../data/weapons.js';
+import { QUATERNIUS_HUMANOID_RIG } from '../../data/characterAssets.js';
 
 const VERTEX_SHADER = `
 attribute vec3 aPosition;
@@ -581,37 +582,9 @@ export const CHARACTER_ASSET_SPEC = {
     targetFrameMs: 16.7
   },
   skeleton: {
-    name: 'GameHumanoidV1',
-    requiredBones: [
-      'Hips',
-      'Spine',
-      'Chest',
-      'Neck',
-      'Head',
-      'LeftShoulder',
-      'LeftUpperArm',
-      'LeftLowerArm',
-      'LeftHand',
-      'RightShoulder',
-      'RightUpperArm',
-      'RightLowerArm',
-      'RightHand',
-      'LeftUpperLeg',
-      'LeftLowerLeg',
-      'LeftFoot',
-      'LeftToe',
-      'RightUpperLeg',
-      'RightLowerLeg',
-      'RightFoot',
-      'RightToe'
-    ],
-    optionalBones: [
-      'Jaw',
-      'LeftEye',
-      'RightEye',
-      'LeftWeaponSocket',
-      'RightWeaponSocket'
-    ],
+    name: QUATERNIUS_HUMANOID_RIG.name,
+    requiredBones: QUATERNIUS_HUMANOID_RIG.bones,
+    optionalBones: [],
     allowExtraBones: false
   },
   proportions: {
