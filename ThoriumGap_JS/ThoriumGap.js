@@ -129,6 +129,19 @@
   const PLAYER_AURA_TEXTURE_KEY = 'player-aura';
   const PLAYER_ENGINE_TEXTURE_PREFIX = 'player-engine-flame|';
   const PLAYER_DAMAGE_TEXTURE_PREFIX = 'player-damage|';
+  const PLAYER_3D_MODEL_PATH = 'models/player_spaceship.glb';
+  const PLAYER_3D_MODEL_PITCH_OFFSET_RAD = Math.PI * 0.5;
+  const PLAYER_3D_MODEL_ROLL_OFFSET_RAD = 0;
+  const PLAYER_3D_SCALE_MULTIPLIER = 1.0;
+  const PLAYER_3D_Z = 30;
+  const PLAYER_3D_BANK_SMOOTH_RATE = 8.0;
+  const PLAYER_3D_MAX_BANK_DEG = 24;
+  const PLAYER_3D_MAX_YAW_DEG = 10;
+  const PLAYER_3D_MAX_PITCH_DEG = 8;
+  const PLAYER_3D_BANK_SPEED_REF = 540;
+  const PLAYER_3D_FLAME_CANVAS_W = 96;
+  const PLAYER_3D_FLAME_CANVAS_H = 192;
+  const PLAYER_3D_SCREEN_FX_CANVAS_SIZE = 256;
   let playerShipTextureLoading = false;
   let playerAuraTextureLoading = false;
   let playerShipSourceImage = null;
@@ -252,6 +265,9 @@
       enemy3DState.loadingPromise ||
       enemy3DState.modelCache.size ||
       enemy3DState.modelLoads.size ||
+      enemy3DState.playerModelEntry ||
+      enemy3DState.playerModelLoad ||
+      enemy3DState.playerInstance ||
       enemy3DState.instances.size);
   }
 
@@ -523,6 +539,10 @@
     canvas: null,
     modelCache: new Map(),
     modelLoads: new Map(),
+    playerModelEntry: null,
+    playerModelLoad: null,
+    playerModelFailed: false,
+    playerInstance: null,
     instances: new Map(),
     planetModelCache: new Map(),
     planetModelLoads: new Map(),
@@ -610,7 +630,7 @@
 
         const enemyPaths = allEnemy3DModelPaths();
         const planetPaths = await discoverPlanet3DModelPaths();
-        const paths = enemyPaths.concat(planetPaths || []);
+        const paths = [PLAYER_3D_MODEL_PATH].concat(enemyPaths, planetPaths || []);
         const unique = [];
         const seen = new Set();
         for (let i = 0; i < paths.length; i++) {
@@ -621,6 +641,9 @@
         }
 
         await Promise.all(unique.map(function (path) {
+          if (path === PLAYER_3D_MODEL_PATH) {
+            return ensurePlayer3DModelLoaded();
+          }
           if (path.indexOf('models/Ship_') === 0) {
             return ensureEnemy3DModelLoaded(path);
           }
@@ -1770,6 +1793,10 @@
       state.mode !== 'debug';
   }
 
+  function shouldUsePlayer3DMode() {
+    return shouldUseEnemy3DMode() && !!state.player;
+  }
+
   function normalizeAngleDeg(value) {
     let out = value % 360;
     if (out <= -180) out += 360;
@@ -1921,6 +1948,15 @@
     enemy3DState.instances.clear();
   }
 
+  function clearPlayer3DInstance() {
+    const entry = enemy3DState.playerInstance;
+    if (entry) {
+      if (entry.root && enemy3DState.root) enemy3DState.root.remove(entry.root);
+      if (entry.screenRoot && enemy3DState.root) enemy3DState.root.remove(entry.screenRoot);
+    }
+    enemy3DState.playerInstance = null;
+  }
+
   function clearPlanet3DInstances() {
     if (!enemy3DState.planetInstances.size) return;
     enemy3DState.planetInstances.forEach(function (entry) {
@@ -1932,6 +1968,7 @@
 
   function destroyEnemy3DRenderer() {
     clearEnemy3DInstances();
+    clearPlayer3DInstance();
     clearPlanet3DInstances();
     if (enemy3DState.renderer && enemy3DState.renderer.dispose) {
       try { enemy3DState.renderer.dispose(); } catch (err) {}
@@ -1952,6 +1989,7 @@
     enemy3DState.planetRoot = null;
     enemy3DState.planetCanvas = null;
     enemy3DState.loadingPromise = null;
+    enemy3DState.playerModelLoad = null;
     enemy3DState.syncPending = false;
   }
 
@@ -2124,6 +2162,301 @@
     return loadPromise;
   }
 
+  function player3DEngineAnchorFallback() {
+    return [
+      { x: -0.064, y: 0.533, s: 1.08 },
+      { x: 0, y: 0.522, s: 1.22 },
+      { x: 0.064, y: 0.533, s: 1.08 }
+    ];
+  }
+
+  function extractPlayer3DEngineAnchors(scene, maxXYDiameter) {
+    const THREE = enemy3DState.THREE;
+    const denom = Math.max(0.001, maxXYDiameter || 1);
+    const anchors = [];
+    if (!THREE || !scene) return player3DEngineAnchorFallback();
+    scene.updateMatrixWorld(true);
+    scene.traverse(function (obj) {
+      const name = (obj && obj.name ? obj.name : '').toLowerCase();
+      if (!obj || !obj.isMesh || name.indexOf('enginenozzle') !== 0) return;
+      const box = new THREE.Box3().setFromObject(obj);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      if (!(size.x > 0 || size.y > 0 || size.z > 0)) return;
+      anchors.push({
+        x: center.x / denom,
+        y: -box.min.y / denom,
+        s: name.indexOf('center') >= 0 ? 1.22 : 1.08
+      });
+    });
+    if (!anchors.length) return player3DEngineAnchorFallback();
+    anchors.sort(function (a, b) { return a.x - b.x; });
+    return anchors;
+  }
+
+  async function ensurePlayer3DModelLoaded() {
+    if (!enemy3DState.ready || !enemy3DState.loader) return null;
+    if (enemy3DState.playerModelEntry) return enemy3DState.playerModelEntry;
+    if (enemy3DState.playerModelFailed) return null;
+    if (enemy3DState.playerModelLoad) return enemy3DState.playerModelLoad;
+    const THREE = enemy3DState.THREE;
+    enemy3DState.playerModelLoad = (async function () {
+      try {
+        const gltf = await (enemy3DState.loader.loadAsync
+          ? enemy3DState.loader.loadAsync(PLAYER_3D_MODEL_PATH)
+          : new Promise(function (resolve, reject) {
+            enemy3DState.loader.load(PLAYER_3D_MODEL_PATH, resolve, undefined, reject);
+          }));
+        const scene = gltf && gltf.scene ? gltf.scene : null;
+        if (!scene) return null;
+        scene.rotation.set(PLAYER_3D_MODEL_PITCH_OFFSET_RAD, 0, PLAYER_3D_MODEL_ROLL_OFFSET_RAD);
+        scene.updateMatrixWorld(true);
+        const bounds = new THREE.Box3().setFromObject(scene);
+        const size = bounds.getSize(new THREE.Vector3());
+        const maxXYDiameter = Math.max(0.001, size.x, size.y);
+        const entry = {
+          scene: scene,
+          maxXYDiameter: maxXYDiameter,
+          engineAnchors: extractPlayer3DEngineAnchors(scene, maxXYDiameter)
+        };
+        enemy3DState.playerModelEntry = entry;
+        return entry;
+      } catch (err) {
+        enemy3DState.playerModelFailed = true;
+        console.warn('Player 3D model failed to load, falling back to 2D:', PLAYER_3D_MODEL_PATH, err);
+        return null;
+      } finally {
+        enemy3DState.playerModelLoad = null;
+      }
+    }());
+    return enemy3DState.playerModelLoad;
+  }
+
+  function rgbaString(color, alpha) {
+    const rgb = hexToRgb(color || '#ffffff');
+    return 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + clamp(alpha == null ? 1 : alpha, 0, 1) + ')';
+  }
+
+  function createPlayer3DEffectPlane(w, h, additive) {
+    const THREE = enemy3DState.THREE;
+    const canvasFx = makeDomCanvas(w, h);
+    const texture = new THREE.CanvasTexture(canvasFx);
+    texture.generateMipmaps = false;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      opacity: 1,
+      alphaTest: 0.01,
+      depthWrite: false,
+      depthTest: false,
+      blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+      side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+    mesh.frustumCulled = false;
+    mesh.visible = false;
+    return {
+      mesh: mesh,
+      canvas: canvasFx,
+      ctx: canvasFx.getContext('2d'),
+      texture: texture,
+      material: material
+    };
+  }
+
+  function drawPlayer3DFlameTexture(fx, frame) {
+    if (!fx || !fx.ctx) return;
+    const g = fx.ctx;
+    const w = fx.canvas.width;
+    const h = fx.canvas.height;
+    const flare = [0.9, 1, 1.1, 0.98][clamp(frame | 0, 0, 3)];
+    const side = [0.48, 0.52, 0.54, 0.5][clamp(frame | 0, 0, 3)];
+    g.clearRect(0, 0, w, h);
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    let grad = g.createLinearGradient(0, h * 0.05, 0, h * 0.98);
+    grad.addColorStop(0, 'rgba(255,255,255,0.98)');
+    grad.addColorStop(0.18, 'rgba(200,248,255,0.92)');
+    grad.addColorStop(0.42, 'rgba(84,208,255,0.84)');
+    grad.addColorStop(0.72, 'rgba(30,118,255,0.48)');
+    grad.addColorStop(1, 'rgba(10,42,120,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(w * 0.5, h * 0.96);
+    g.bezierCurveTo(w * (0.5 + side * 0.36), h * 0.76, w * 0.66, h * 0.44, w * 0.57, h * 0.12);
+    g.bezierCurveTo(w * 0.54, h * 0.28, w * 0.52, h * 0.56, w * 0.5, h * 0.96);
+    g.bezierCurveTo(w * 0.48, h * 0.56, w * 0.46, h * 0.28, w * 0.43, h * 0.12);
+    g.bezierCurveTo(w * 0.34, h * 0.44, w * (0.5 - side * 0.36), h * 0.76, w * 0.5, h * 0.96);
+    g.closePath();
+    g.fill();
+    grad = g.createLinearGradient(0, h * 0.08, 0, h * 0.96);
+    grad.addColorStop(0, 'rgba(255,255,255,0.98)');
+    grad.addColorStop(0.24, 'rgba(242,253,255,0.95)');
+    grad.addColorStop(0.52, 'rgba(132,236,255,0.72)');
+    grad.addColorStop(0.78, 'rgba(52,144,255,0.32)');
+    grad.addColorStop(1, 'rgba(12,40,116,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(w * 0.5, h * 0.9);
+    g.bezierCurveTo(w * (0.58 + side * 0.12), h * 0.66, w * 0.64, h * 0.42, w * 0.54, h * 0.16);
+    g.bezierCurveTo(w * 0.52, h * 0.34, w * 0.51, h * 0.58, w * 0.5, h * 0.9);
+    g.bezierCurveTo(w * 0.49, h * 0.58, w * 0.48, h * 0.34, w * 0.46, h * 0.16);
+    g.bezierCurveTo(w * 0.36, h * 0.42, w * (0.42 - side * 0.12), h * 0.66, w * 0.5, h * 0.9);
+    g.closePath();
+    g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.9)';
+    g.beginPath();
+    g.arc(w * 0.5, h * 0.14, 5 * flare, 0, TAU);
+    g.fill();
+    g.restore();
+    fx.texture.needsUpdate = true;
+  }
+
+  function updatePlayer3DShieldPlane(instance, pose) {
+    const fx = instance && instance.shieldFx;
+    if (!fx || !fx.ctx) return;
+    const p = state.player;
+    const invulnActive = p.invuln > 0;
+    if (!invulnActive && !(p.shield > 0)) {
+      fx.mesh.visible = false;
+      return;
+    }
+    const dim = fx.canvas.width;
+    const g = fx.ctx;
+    const shieldRing = p.r * pose.playerScale;
+    const maxRingR = shieldRing + 14 + Math.max(0, Math.max(p.shield || 0, invulnActive ? 3 : 0) - 1) * 5;
+    const shieldSize = Math.max(pose.shipSize * 1.38, (maxRingR + 8) * 2);
+    const cx = dim * 0.5;
+    const cy = dim * 0.5;
+    function strokeRing(worldR, color, alpha, worldW) {
+      const radius = Math.max(1, worldR / Math.max(1, shieldSize) * dim);
+      const lineW = Math.max(1.2, (worldW || 2) / Math.max(1, shieldSize) * dim);
+      g.strokeStyle = rgbaString(color, alpha);
+      g.lineWidth = lineW;
+      g.beginPath();
+      g.arc(cx, cy, radius, 0, TAU);
+      g.stroke();
+    }
+    g.clearRect(0, 0, dim, dim);
+    g.save();
+    g.globalCompositeOperation = 'source-over';
+    const shieldColor = p.shield > 1 ? '#7fc8ff' : '#61a9ff';
+    if (p.shield > 0) {
+      for (let i = 0; i < p.shield; i++) {
+        strokeRing(shieldRing + i * 5 + 14, shieldColor, 0.15, 2);
+      }
+    }
+    if (invulnActive) {
+      const ringAlphas = [
+        clamp(p.invuln, 0, 1) * 0.82,
+        clamp(p.invuln - 1, 0, 1) * 0.58,
+        clamp(p.invuln - 2, 0, 1) * 0.42
+      ];
+      for (let i = 0; i < ringAlphas.length; i++) {
+        const alpha = ringAlphas[i];
+        if (alpha <= 0) continue;
+        strokeRing(shieldRing + 14 + i * 5, '#ff0000', alpha, 2);
+      }
+    }
+    g.restore();
+    fx.texture.needsUpdate = true;
+    fx.mesh.visible = true;
+    fx.mesh.scale.set(shieldSize, shieldSize, 1);
+    fx.mesh.position.set(0, 0, -8);
+  }
+
+  function updatePlayer3DDamagePlane(instance, pose) {
+    const fx = instance && instance.damageFx;
+    if (!fx || !fx.ctx) return;
+    const p = state.player;
+    const damage = clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1);
+    if (damage <= 0.01) {
+      fx.mesh.visible = false;
+      return;
+    }
+    const dim = fx.canvas.width;
+    const g = fx.ctx;
+    const size = Math.max(1, pose.shipSize * 1.15);
+    const sparkCount = clamp(Math.round(2 + damage * 10), 2, 10);
+    const sparkColors = ['#ff5a3d', '#ff8a2d', '#ffd35a', '#ffb347'];
+    const sparkSeed = hashString('player-damage|' + Math.round(state.animClock * 12) + '|' + Math.round(p.x) + '|' + Math.round(pose.shipY) + '|' + Math.round(damage * 100));
+    const c = Math.cos(pose.rot);
+    const s = Math.sin(pose.rot);
+    g.clearRect(0, 0, dim, dim);
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < sparkCount; i++) {
+      const a = sparkSeed ^ (i * 2654435761);
+      const rx = (((a >>> 0) % 1000) / 1000 - 0.5) * pose.shipSize * 0.54;
+      const ry = ((((a >>> 10) >>> 0) % 1000) / 1000 - 0.5) * pose.shipSize * 0.54;
+      const sx = rx * c - ry * s;
+      const sy = rx * s + ry * c;
+      const x = dim * 0.5 + (sx / size) * dim;
+      const y = dim * 0.5 + (sy / size) * dim;
+      const r = (3 + ((((a >>> 20) >>> 0) % 1000) / 1000) * 7) / size * dim;
+      const color = sparkColors[(a >>> 28) % sparkColors.length];
+      g.fillStyle = rgbaString(color, 0.26 + damage * 0.44);
+      g.beginPath();
+      g.arc(x, y, Math.max(1.4, r), 0, TAU);
+      g.fill();
+      g.strokeStyle = rgbaString('#ffffff', 0.28 + damage * 0.35);
+      g.lineWidth = Math.max(1, r * 0.26);
+      g.beginPath();
+      g.moveTo(x - r * 1.4, y + r * 0.3);
+      g.lineTo(x + r * 1.1, y - r * 0.45);
+      g.stroke();
+    }
+    g.restore();
+    fx.texture.needsUpdate = true;
+    fx.mesh.visible = true;
+    fx.mesh.scale.set(size, size, 1);
+    fx.mesh.position.set(0, 0, 24);
+  }
+
+  function updatePlayer3DFlamePlanes(instance, pose, rootScale) {
+    const p = state.player;
+    const flamePlanes = instance && instance.flameFx ? instance.flameFx : [];
+    const active = (!pose.respawning || p.respawnTimer < 0.98);
+    if (!active || !flamePlanes.length) {
+      for (let i = 0; i < flamePlanes.length; i++) flamePlanes[i].mesh.visible = false;
+      return;
+    }
+    const anchors = instance.engineAnchors || player3DEngineAnchorFallback();
+    const frame = Math.floor(state.musicStep * 6 + p.x * 0.02) & 3;
+    const flameLenPulse = 1 + Math.sin(state.animClock * TAU * 10) * 0.1;
+    const flameWPulse = 1 + Math.sin(state.animClock * TAU * 6) * 0.1;
+    const verticalStretch = clamp(p.vy / 460, -1, 1) * 0.2;
+    const flameLen = pose.shipSize * 0.2885625 * flameLenPulse * (1 - verticalStretch);
+    const flameW = pose.shipSize * 0.285 * flameWPulse;
+    const safeScale = Math.max(0.001, rootScale || 1);
+    for (let i = 0; i < flamePlanes.length; i++) {
+      const fx = flamePlanes[i];
+      const a = anchors[i] || anchors[anchors.length - 1] || player3DEngineAnchorFallback()[1];
+      const flameLenRoll = 0.86 + Math.sin(state.animClock * TAU * (7.0 + i) + i * 1.7) * 0.18;
+      const flameH = flameLen * flameLenRoll * (a.s || 1);
+      const w = Math.max(1, (flameW * (a.s || 1)) / safeScale);
+      const h = Math.max(1, flameH / safeScale);
+      drawPlayer3DFlameTexture(fx, frame);
+      fx.material.opacity = (0.68 + 0.12 * Math.sin(state.animClock * TAU * 9 + i)) * (i === 1 ? 1 : 0.8) * pose.flashAlpha;
+      fx.mesh.scale.set(w, h, 1);
+      fx.mesh.position.set(
+        (a.x || 0) * instance.maxXYDiameter,
+        -(a.y || 0) * instance.maxXYDiameter - h * 0.38,
+        0
+      );
+      fx.mesh.visible = true;
+    }
+  }
+
+  function updatePlayer3DEffectPlanes(instance, pose, rootScale) {
+    if (!instance) return;
+    updatePlayer3DFlamePlanes(instance, pose, rootScale);
+    updatePlayer3DShieldPlane(instance, pose);
+    updatePlayer3DDamagePlane(instance, pose);
+  }
+
   function planet3DModelPath(index) {
     const safeIndex = clamp(Math.round(index || 1), PLANET_3D_MODEL_MIN, PLANET_3D_MODEL_MAX);
     return 'models/planet_map_' + String(safeIndex).padStart(2, '0') + '.glb';
@@ -2253,6 +2586,62 @@
     return instance;
   }
 
+  async function ensurePlayer3DInstance() {
+    if (!shouldUsePlayer3DMode() || !enemy3DState.ready || !enemy3DState.root) return null;
+    if (enemy3DState.playerInstance) return enemy3DState.playerInstance;
+    const modelEntry = await ensurePlayer3DModelLoaded();
+    if (!shouldUsePlayer3DMode() || !enemy3DState.ready || !enemy3DState.root) return null;
+    if (!modelEntry || !modelEntry.scene || !(modelEntry.maxXYDiameter > 0)) return null;
+    const root = new enemy3DState.THREE.Group();
+    const screenRoot = new enemy3DState.THREE.Group();
+    const modelScene = modelEntry.scene.clone(true);
+    modelScene.traverse(function (obj) {
+      if (!obj || !obj.isMesh) return;
+      obj.frustumCulled = false;
+      obj.renderOrder = 30;
+      if (Array.isArray(obj.material)) {
+        for (let i = 0; i < obj.material.length; i++) {
+          const mat = obj.material[i];
+          if (mat && mat.transparent) mat.depthWrite = false;
+        }
+      } else if (obj.material && obj.material.transparent) {
+        obj.material.depthWrite = false;
+      }
+    });
+    root.add(modelScene);
+    const engineAnchors = modelEntry.engineAnchors || player3DEngineAnchorFallback();
+    const flameFx = [];
+    for (let i = 0; i < Math.max(3, engineAnchors.length); i++) {
+      const fx = createPlayer3DEffectPlane(PLAYER_3D_FLAME_CANVAS_W, PLAYER_3D_FLAME_CANVAS_H, true);
+      fx.mesh.renderOrder = 34;
+      flameFx.push(fx);
+      root.add(fx.mesh);
+    }
+    const shieldFx = createPlayer3DEffectPlane(PLAYER_3D_SCREEN_FX_CANVAS_SIZE, PLAYER_3D_SCREEN_FX_CANVAS_SIZE, false);
+    const damageFx = createPlayer3DEffectPlane(PLAYER_3D_SCREEN_FX_CANVAS_SIZE, PLAYER_3D_SCREEN_FX_CANVAS_SIZE, true);
+    shieldFx.mesh.renderOrder = 26;
+    damageFx.mesh.renderOrder = 45;
+    screenRoot.add(shieldFx.mesh);
+    screenRoot.add(damageFx.mesh);
+    enemy3DState.root.add(root);
+    enemy3DState.root.add(screenRoot);
+    enemy3DState.playerInstance = {
+      root: root,
+      screenRoot: screenRoot,
+      modelPath: PLAYER_3D_MODEL_PATH,
+      maxXYDiameter: modelEntry.maxXYDiameter,
+      engineAnchors: engineAnchors,
+      flameFx: flameFx,
+      shieldFx: shieldFx,
+      damageFx: damageFx,
+      bankDeg: 0,
+      yawDeg: 0,
+      pitchDeg: 0,
+      valid: true
+    };
+    return enemy3DState.playerInstance;
+  }
+
   async function ensurePlanet3DInstance(dec) {
     if (!dec || !enemy3DState.ready || !enemy3DState.planetRoot) return null;
     if (enemy3DState.planetInstances.has(dec)) return enemy3DState.planetInstances.get(dec);
@@ -2335,6 +2724,48 @@
     });
   }
 
+  async function syncPlayer3DInstance(dt) {
+    if (!shouldUsePlayer3DMode()) {
+      clearPlayer3DInstance();
+      return;
+    }
+    const instance = await ensurePlayer3DInstance();
+    if (!instance || !instance.root || !instance.valid) return;
+    const pose = playerVisualPose();
+    const scale = Math.max(0.001, pose.shipSize / Math.max(0.001, instance.maxXYDiameter)) * PLAYER_3D_SCALE_MULTIPLIER;
+    const shakeX = render.offsetX || 0;
+    const shakeY = render.offsetY || 0;
+    const worldX = (pose.x - view.w * 0.5) + shakeX;
+    const worldY = (view.h * 0.5 - pose.shipVisualY) - shakeY;
+    instance.root.position.set(
+      worldX,
+      worldY,
+      PLAYER_3D_Z
+    );
+    if (instance.screenRoot) {
+      instance.screenRoot.position.set(worldX, worldY, PLAYER_3D_Z);
+      instance.screenRoot.visible = !pose.respawning || pose.flashAlpha > 0.18;
+    }
+    instance.root.scale.set(scale, scale, scale);
+    const smoothDt = Math.max(0, dt || 0);
+    const p = state.player;
+    const vx = Number.isFinite(p.vx) ? p.vx : 0;
+    const vy = Number.isFinite(p.vy) ? p.vy : 0;
+    const targetBankDeg = pose.respawning ? 0 : clamp((vx / PLAYER_3D_BANK_SPEED_REF) * PLAYER_3D_MAX_BANK_DEG, -PLAYER_3D_MAX_BANK_DEG, PLAYER_3D_MAX_BANK_DEG);
+    const targetYawDeg = pose.respawning ? 0 : clamp((pose.rot * 180 / Math.PI) * 0.42 + (vx / PLAYER_3D_BANK_SPEED_REF) * PLAYER_3D_MAX_YAW_DEG * 0.48, -PLAYER_3D_MAX_YAW_DEG, PLAYER_3D_MAX_YAW_DEG);
+    const targetPitchDeg = pose.respawning ? 0 : clamp((vy / PLAYER_3D_BANK_SPEED_REF) * PLAYER_3D_MAX_PITCH_DEG, -PLAYER_3D_MAX_PITCH_DEG, PLAYER_3D_MAX_PITCH_DEG);
+    instance.bankDeg = smooth(instance.bankDeg || 0, targetBankDeg, PLAYER_3D_BANK_SMOOTH_RATE, smoothDt);
+    instance.yawDeg = smooth(instance.yawDeg || 0, targetYawDeg, PLAYER_3D_BANK_SMOOTH_RATE, smoothDt);
+    instance.pitchDeg = smooth(instance.pitchDeg || 0, targetPitchDeg, PLAYER_3D_BANK_SMOOTH_RATE, smoothDt);
+    instance.root.rotation.set(
+      instance.pitchDeg * Math.PI / 180,
+      instance.bankDeg * Math.PI / 180,
+      -instance.yawDeg * Math.PI / 180
+    );
+    instance.root.visible = !pose.respawning || pose.flashAlpha > 0.18;
+    updatePlayer3DEffectPlanes(instance, pose, scale);
+  }
+
   async function syncEnemy3DInstances(dt) {
     if (!shouldUseEnemy3DMode()) {
       if (enemy3DState.ready || enemy3DState.canvas || enemy3DState.loadingPromise) destroyEnemy3DRenderer();
@@ -2342,12 +2773,14 @@
     }
     if (!enemy3DState.ready &&
       (!state.enemies || state.enemies.length === 0) &&
-      (!state.decorBackgrounds || state.decorBackgrounds.length === 0)) return;
+      (!state.decorBackgrounds || state.decorBackgrounds.length === 0) &&
+      !shouldUsePlayer3DMode()) return;
     const ready = await ensureEnemy3DRenderer();
     if (!ready || !enemy3DState.ready || !enemy3DState.root) return;
     if (enemy3DState.canvas) enemy3DState.canvas.style.display = 'block';
     updateEnemy3DViewport();
     await syncPlanet3DInstances(dt);
+    await syncPlayer3DInstance(dt);
     const seen = new Set();
     for (let i = 0; i < state.enemies.length; i++) {
       const enemy = state.enemies[i];
@@ -2398,7 +2831,8 @@
     if (!shouldUseEnemy3DMode() && !enemy3DState.ready && !enemy3DState.canvas && !enemy3DState.loadingPromise) return;
     const hasEnemies = !!(state.enemies && state.enemies.length);
     const hasPlanets = !!(state.decorBackgrounds && state.decorBackgrounds.length);
-    if (!enemy3DState.ready && !enemy3DState.loadingPromise && !hasEnemies && !hasPlanets) return;
+    const hasPlayer = shouldUsePlayer3DMode();
+    if (!enemy3DState.ready && !enemy3DState.loadingPromise && !hasEnemies && !hasPlanets && !hasPlayer) return;
     if (enemy3DState.syncPending) return;
     enemy3DState.syncPending = true;
     Promise.resolve(syncEnemy3DInstances(dt)).catch(function () {}).finally(function () {
@@ -2409,6 +2843,13 @@
   function hasEnemy3DInstance(enemy) {
     if (!enable3DMode) return false;
     return !!enemy && enemy3DState.ready && enemy3DState.instances.has(enemy);
+  }
+
+  function hasPlayer3DInstance() {
+    return shouldUsePlayer3DMode() &&
+      enemy3DState.ready &&
+      !!enemy3DState.playerInstance &&
+      !!enemy3DState.playerInstance.valid;
   }
 
   function renderEnemy3DScene() {
@@ -4004,7 +4445,7 @@
   }
 
   function warmAllTextures() {
-    ensurePlayerShipTexture();
+    if (!shouldUsePlayer3DMode()) ensurePlayerShipTexture();
     ensurePlayerAuraTexture();
     getPlayerEngineFlameTexture(0);
     getPlayerEngineFlameTexture(1);
@@ -4241,7 +4682,7 @@
     }
   }
 
-  function spawnParticle(x, y, vx, vy, life, size, color, kind, opacityMult) {
+  function spawnParticle(x, y, vx, vy, life, size, color, kind, opacityMult, layer) {
     const particle = acquireParticle();
     particle.x = x;
     particle.y = y;
@@ -4253,6 +4694,7 @@
     particle.color = color;
     particle.kind = kind || 'spark';
     particle.opacityMult = (particle.kind === 'enginetrail' && Number.isFinite(opacityMult)) ? opacityMult : 1;
+    particle.layer = Number.isFinite(layer) ? layer : null;
     particle.rot = rand(0, TAU);
     state.particles.push(particle);
   }
@@ -6291,18 +6733,19 @@
     drawSpriteCircle(x, y, Math.max(1, r * 0.72) * boost, color, a, 0, true);
   }
 
-  function drawSoftEdgeGlow(x, y, maxR, color, alpha) {
+  function drawSoftEdgeGlow(x, y, maxR, color, alpha, layer) {
     const a = alpha == null ? 1 : alpha;
     const r = Math.max(1, maxR || 40);
+    const drawLayer = Number.isFinite(layer) ? layer : 0;
     if (isLowGraphicalEffects()) {
-      drawSpriteCircle(x, y, r * 0.38, color, a * 0.72, 0, true);
-      drawSpriteCircle(x, y, r * 0.78, color, a * 0.22, 0, true);
+      drawSpriteCircle(x, y, r * 0.38, color, a * 0.72, drawLayer, true);
+      drawSpriteCircle(x, y, r * 0.78, color, a * 0.22, drawLayer, true);
       return;
     }
-    drawSpriteCircle(x, y, r * 0.22, color, a * 0.9, 0, true);
-    drawSpriteCircle(x, y, r * 0.42, color, a * 0.58, 0, true);
-    drawSpriteCircle(x, y, r * 0.66, color, a * 0.22, 0, true);
-    drawSpriteCircle(x, y, r * 0.86, color, a * 0.08, 0, true);
+    drawSpriteCircle(x, y, r * 0.22, color, a * 0.9, drawLayer, true);
+    drawSpriteCircle(x, y, r * 0.42, color, a * 0.58, drawLayer, true);
+    drawSpriteCircle(x, y, r * 0.66, color, a * 0.22, drawLayer, true);
+    drawSpriteCircle(x, y, r * 0.86, color, a * 0.08, drawLayer, true);
   }
 
   const SHIELD_RING_TEXTURE_CACHE = new Map();
@@ -6329,10 +6772,10 @@
     return tex;
   }
 
-  function drawRingGlow(x, y, outerR, innerR, color, alpha, blur) {
+  function drawRingGlow(x, y, outerR, innerR, color, alpha, blur, layer) {
     const outer = Math.max(1, outerR);
     const ring = getShieldRingTexture(2);
-    drawTextureRect(ring, x, y, outer * 2, outer * 2, { fill: color || '#ffffff', alpha: alpha == null ? 1 : alpha, layer: 0, lighter: false });
+    drawTextureRect(ring, x, y, outer * 2, outer * 2, { fill: color || '#ffffff', alpha: alpha == null ? 1 : alpha, layer: Number.isFinite(layer) ? layer : 0, lighter: false });
   }
 
   function buildCloudClusterPoints(cx, cy, r, count, seed) {
@@ -7561,8 +8004,10 @@
     for (let i = 0; i < state.particles.length; i++) {
       const p = state.particles[i];
       const t = clamp(p.life / p.maxLife, 0, 1);
+      const layer = Number.isFinite(p.layer) ? p.layer : -2;
       if (p.kind === 'ring') {
-        drawGlowCircle(p.x, p.y, p.size, p.color, t * 0.4, 12);
+        if (Number.isFinite(p.layer)) drawSpriteCircle(p.x, p.y, p.size, p.color, t * 0.18, layer, true);
+        else drawGlowCircle(p.x, p.y, p.size, p.color, t * 0.4, 12);
       } else if (p.kind === 'enginetrail') {
         const fade = t * t * t;
         const opacityMult = clamp(Number.isFinite(p.opacityMult) ? p.opacityMult : 1, 0, 15);
@@ -7570,13 +8015,13 @@
         const cloudW = Math.max(12, p.size * 3.5 * flicker);
         const cloudH = Math.max(12, p.size * 3.5 * flicker);
         const boost = GLOW_3D_BOOST;
-        drawSpriteRect(p.x, p.y, cloudW, cloudH, p.color, fade * 0.016 * opacityMult * boost, -2, false);
-        drawSpriteRect(p.x, p.y, cloudW * 0.78, cloudH * 0.78, p.color, fade * 0.012 * opacityMult * boost, -2, false);
+        drawSpriteRect(p.x, p.y, cloudW, cloudH, p.color, fade * 0.016 * opacityMult * boost, layer, false);
+        drawSpriteRect(p.x, p.y, cloudW * 0.78, cloudH * 0.78, p.color, fade * 0.012 * opacityMult * boost, layer, false);
       } else {
         const len = Math.max(2, p.size * 0.45);
         const ang = Math.atan2(p.vy, p.vx);
-        drawSpriteRect(p.x - Math.cos(ang) * len * 0.5, p.y - Math.sin(ang) * len * 0.5, len, 2, p.color, t * 0.45, -2, true, ang);
-        drawSpriteCircle(p.x, p.y, Math.max(1.2, p.size * 0.35), p.color, t * 0.5, -2, true);
+        drawSpriteRect(p.x - Math.cos(ang) * len * 0.5, p.y - Math.sin(ang) * len * 0.5, len, 2, p.color, t * 0.45, layer, true, ang);
+        drawSpriteCircle(p.x, p.y, Math.max(1.2, p.size * 0.35), p.color, t * 0.5, layer, true);
       }
     }
   }
@@ -8010,26 +8455,63 @@
     drawBossOverlay(b);
   }
 
-  function drawPlayer() {
+  function playerVisualPose() {
     const p = state.player;
     const respawning = p.respawnTimer > 0;
     const bob = respawning ? Math.sin(state.musicStep * 0.45) * 0.8 : Math.sin((state.musicStep * 0.45) + p.x * 0.01) * 2;
     const allowControlTilt = state.mode === 'playing' && !state.catalystSequence;
     const tilt = respawning ? 0 : clamp((allowControlTilt ? (((state.input.right ? 1 : 0) - (state.input.left ? 1 : 0)) * 0.24 + (state.pointerActive ? (state.pointerX - p.x) / 280 : 0)) : 0), -0.45, 0.45);
     const rot = tilt * 0.92;
-    const glow = state.overdrive > 0 ? '#ffe38c' : '#8fd8ff';
-    const invulnActive = p.invuln > 0;
-    const auraColor = invulnActive ? '#bfe4ff' : glow;
-    const flashAlpha = p.invuln > 0 ? 0.52 + 0.42 * (0.5 + 0.5 * Math.sin((3 - p.invuln) * 16 + state.musicStep * 0.9)) : 1;
     const playerScale = narrowScreenScale();
     const shipSize = (74 + (state.overdrive > 0 ? 4 : 0)) * playerScale;
     const shipY = p.y + bob;
-    const shipVisualY = shipY - 6;
+    return {
+      x: p.x,
+      y: p.y,
+      respawning: respawning,
+      tilt: tilt,
+      rot: rot,
+      playerScale: playerScale,
+      shipSize: shipSize,
+      shipY: shipY,
+      shipVisualY: shipY - 6,
+      flashAlpha: p.invuln > 0 ? 0.52 + 0.42 * (0.5 + 0.5 * Math.sin((3 - p.invuln) * 16 + state.musicStep * 0.9)) : 1
+    };
+  }
+
+  function playerEngineFlameOffsets(shipSize, usePlayer3DMesh) {
+    if (usePlayer3DMesh && enemy3DState.playerInstance && enemy3DState.playerInstance.engineAnchors) {
+      const anchors = enemy3DState.playerInstance.engineAnchors;
+      const scale = shipSize * PLAYER_3D_SCALE_MULTIPLIER;
+      return anchors.map(function (a) {
+        return { x: a.x * scale, y: a.y * scale, s: a.s || 1 };
+      });
+    }
+    return [
+      { x: -shipSize * 0.1435, y: shipSize * 0.39, s: 1.38 },
+      { x: 0, y: shipSize * 0.45, s: 1.59 },
+      { x: shipSize * 0.1435, y: shipSize * 0.39, s: 1.38 }
+    ];
+  }
+
+  function drawPlayer() {
+    const p = state.player;
+    const pose = playerVisualPose();
+    const respawning = pose.respawning;
+    const rot = pose.rot;
+    const invulnActive = p.invuln > 0;
+    const flashAlpha = pose.flashAlpha;
+    const playerScale = pose.playerScale;
+    const shipSize = pose.shipSize;
+    const shipY = pose.shipY;
+    const shipVisualY = pose.shipVisualY;
     const planeSize = (36 + (state.overdrive > 0 ? 4 : 0)) * playerScale;
     const shieldRing = p.r * playerScale;
-    const shipTexture = getPlayerShipTexture();
-    const auraTexture = getPlayerAuraTexture();
-    const flameTexture = getPlayerEngineFlameTexture((Math.floor(state.musicStep * 6 + p.x * 0.02) & 3));
+    const usePlayer3DTarget = shouldUsePlayer3DMode() && !enemy3DState.playerModelFailed;
+    const usePlayer3DMesh = hasPlayer3DInstance();
+    const shipTexture = usePlayer3DTarget ? null : getPlayerShipTexture();
+    const auraTexture = usePlayer3DTarget ? null : getPlayerAuraTexture();
+    const flameTexture = usePlayer3DTarget ? null : getPlayerEngineFlameTexture((Math.floor(state.musicStep * 6 + p.x * 0.02) & 3));
     if (auraTexture) {
       drawTextureRect(auraTexture, p.x, shipY, 196 * playerScale, 196 * playerScale, {
         alpha: 0.27,
@@ -8037,9 +8519,11 @@
         lighter: false
       });
     }
-    const playerGlow = state.overdrive > 0 ? '#ffe59a' : '#92dcff';
-    drawSoftEdgeGlow(p.x, shipY, 50 * playerScale, playerGlow, 0.22);
-    if (invulnActive) {
+    if (!usePlayer3DTarget) {
+      const playerGlow = state.overdrive > 0 ? '#ffe59a' : '#92dcff';
+      drawSoftEdgeGlow(p.x, shipY, 50 * playerScale, playerGlow, 0.22);
+    }
+    if (invulnActive && !usePlayer3DTarget) {
       const invulnRings = [
         { r: shieldRing + 14, color: '#ff0000' },
         { r: shieldRing + 19, color: '#ff0000' },
@@ -8056,7 +8540,7 @@
         if (alpha > 0) drawRingGlow(p.x, shipY, ring.r, ring.r - 2, ring.color, alpha, 0);
       }
     }
-    if (p.shield > 0) {
+    if (p.shield > 0 && !usePlayer3DTarget) {
       const shieldColor = p.shield > 1 ? '#7fc8ff' : '#61a9ff';
       for (let i = 0; i < p.shield; i++) {
         const ringR = shieldRing + i * 5;
@@ -8064,30 +8548,28 @@
       }
     }
     if (!respawning || p.respawnTimer < 0.98) {
-      if (flameTexture) {
+      if (flameTexture || usePlayer3DTarget) {
         const flameAlpha = 0.82 * flashAlpha;
         const flameLenPulse = 1 + Math.sin(state.animClock * TAU * 10) * 0.1;
         const flameWPulse = 1 + Math.sin(state.animClock * TAU * 6) * 0.1;
         const verticalStretch = clamp(p.vy / 460, -1, 1) * 0.2;
         const flameLen = shipSize * 0.2885625 * flameLenPulse * (1 - verticalStretch);
         const flameW = shipSize * 0.285 * flameWPulse;
-        const flameOffsets = [
-          { x: -shipSize * 0.1435, y: shipSize * 0.39, s: 1.38 },
-          { x: 0, y: shipSize * 0.45, s: 1.59 },
-          { x: shipSize * 0.1435, y: shipSize * 0.39, s: 1.38 }
-        ];
+        const flameOffsets = playerEngineFlameOffsets(shipSize, usePlayer3DMesh);
         for (let i = 0; i < flameOffsets.length; i++) {
           const o = flameOffsets[i];
           const flameLenRoll = 0.7 + (Math.random() * 0.6);
           const flameH = flameLen * flameLenRoll * o.s;
           const anchorAdjust = flameH * 0.4;
           const pos = localToWorld(p.x, shipVisualY, rot, o.x, o.y + anchorAdjust);
-          drawTextureRect(flameTexture, pos.x, pos.y, flameW * o.s, flameH, {
-            rot: rot,
-            alpha: flameAlpha * (i === 1 ? 1 : 0.78),
-            layer: 5,
-            lighter: true
-          });
+          if (flameTexture && !usePlayer3DTarget) {
+            drawTextureRect(flameTexture, pos.x, pos.y, flameW * o.s, flameH, {
+              rot: rot,
+              alpha: flameAlpha * (i === 1 ? 1 : 0.78),
+              layer: 5,
+              lighter: true
+            });
+          }
           if (shouldEmitHighQualityTrails() && !respawning) {
             const trailPos = localToWorld(p.x, shipVisualY, rot, o.x, o.y + flameH * 0.95);
             const backDirX = -Math.sin(rot);
@@ -8097,32 +8579,35 @@
             const trailVy = backDirY * backSpeed - p.vy * 0.16 + rand(-4, 4);
             const trailSize = (i === 1 ? 7.6 : 6.6) * playerScale;
             const trailColor = (i === 1) ? '#57c7ff' : '#388fff';
-            spawnParticle(trailPos.x, trailPos.y, trailVx, trailVy, 2.0, trailSize, trailColor, 'enginetrail', 1.0);
+            spawnParticle(trailPos.x, trailPos.y, trailVx, trailVy, 2.0, trailSize, trailColor, 'enginetrail', 1.0, usePlayer3DTarget ? 97 : null);
           }
         }
       }
     }
-    if (shipTexture) {
+    if (shipTexture && !usePlayer3DTarget) {
       drawTextureRect(shipTexture, p.x, shipVisualY, shipSize, shipSize, { rot: rot, alpha: flashAlpha, layer: 4, lighter: false });
-    } else {
+    } else if (!usePlayer3DTarget) {
       ensurePlayerShipTexture();
     }
     const damage = clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1);
     if (damage > 0.01) {
-      const tex = getPlayerDamageTexture(planeSize, damage);
-      drawTextureRect(tex, p.x, shipY, shipSize, shipSize, { rot: rot, alpha: Math.min(1, 0.38 + damage * 0.62), layer: 4, lighter: false });
-      const sparkCount = clamp(Math.round(2 + damage * 10), 2, 10);
-      const sparkColors = ['#ff5a3d', '#ff8a2d', '#ffd35a', '#ffb347'];
-      const sparkSeed = hashString('player-damage|' + Math.round(state.animClock * 12) + '|' + Math.round(p.x) + '|' + Math.round(shipY) + '|' + Math.round(damage * 100));
-      for (let i = 0; i < sparkCount; i++) {
-        const t = (i + 1) / (sparkCount + 1);
-        const a = sparkSeed ^ (i * 2654435761);
-        const rx = (((a >>> 0) % 1000) / 1000 - 0.5) * shipSize * 0.54;
-        const ry = ((((a >>> 10) >>> 0) % 1000) / 1000 - 0.5) * shipSize * 0.54;
-        const r = 3 + ((((a >>> 20) >>> 0) % 1000) / 1000) * 7;
-        const color = sparkColors[(a >>> 28) % sparkColors.length];
-        const pos = localToWorld(p.x, shipY, rot, rx, ry);
-        drawSpriteCircle(pos.x, pos.y, r, color, 0.24 + damage * 0.42, 4, true);
+      if (!usePlayer3DTarget) {
+        const tex = getPlayerDamageTexture(planeSize, damage);
+        drawTextureRect(tex, p.x, shipY, shipSize, shipSize, { rot: rot, alpha: Math.min(1, 0.38 + damage * 0.62), layer: 4, lighter: false });
+      }
+      if (!usePlayer3DTarget) {
+        const sparkCount = clamp(Math.round(2 + damage * 10), 2, 10);
+        const sparkColors = ['#ff5a3d', '#ff8a2d', '#ffd35a', '#ffb347'];
+        const sparkSeed = hashString('player-damage|' + Math.round(state.animClock * 12) + '|' + Math.round(p.x) + '|' + Math.round(shipY) + '|' + Math.round(damage * 100));
+        for (let i = 0; i < sparkCount; i++) {
+          const a = sparkSeed ^ (i * 2654435761);
+          const rx = (((a >>> 0) % 1000) / 1000 - 0.5) * shipSize * 0.54;
+          const ry = ((((a >>> 10) >>> 0) % 1000) / 1000 - 0.5) * shipSize * 0.54;
+          const r = 3 + ((((a >>> 20) >>> 0) % 1000) / 1000) * 7;
+          const color = sparkColors[(a >>> 28) % sparkColors.length];
+          const pos = localToWorld(p.x, shipY, rot, rx, ry);
+          drawSpriteCircle(pos.x, pos.y, r, color, 0.24 + damage * 0.42, 4, true);
+        }
       }
     }
   }
