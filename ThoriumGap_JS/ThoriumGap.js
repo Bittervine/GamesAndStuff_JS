@@ -280,18 +280,18 @@
     hint('3D enemy ships enabled.', 1.3);
   }
   const ENEMY_3D_LEVEL_FAMILY = {    
-    1: 'Longwing',
+    1: 'RedFlight',
     2: 'LunarCourier',    
     3: 'TigerWing',
-    4: 'Hooper',
+    4: 'GreenFlight',
     5: 'Pirate',
-    6: 'TwoHoop',    
-    7: 'DeltaWing',
+    6: 'YellowFlight',    
+    7: 'PurpleFlight',
     8: 'Standard2',    
     9: 'FlyingSaucer',
     10: 'Standard',
     11: 'Crosspanel',
-    12: 'PyramidLifter',
+    12: 'DeltaWing',
     13: 'FinalFlight',
   };
   const ENEMY_3D_FAMILY_MODELS = {
@@ -413,15 +413,51 @@
       'models/Ship_PyramidLifter_290115.glb',
       'models/Ship_Standard_2.glb'   
     ],
-    FinalFlight2: [
-      'models/Ship_LunarCourier_153144',
-      'models/Ship_Standard_1.glb',
-      'models/Ship_Standard_10.glb',
-      'models/Ship_FlyingSaucer_301176.glb',
-      'models/Ship_Crosspanel_19.glb',
-      'models/Ship_DeltaWing_535536.glb',
-      'models/Ship_Longwing_10'
+    RedFlight: [
+      'models/Ship_Crosspanel_18.glb',
+      'models/Ship_Crosspanel_2.glb',
+      'models/Ship_Hooper_378031.glb',
+      'models/Ship_Longwing_1.glb',
+      'models/Ship_LunarCourier_5002.glb',
+      'models/Ship_PyramidLifter_97249.glb',
+      'models/Ship_Standard_3.glb'
     ],
+    PurpleFlight: [
+      'models/Ship_Standard_20.glb',
+      'models/Ship_PyramidLifter_478836.glb',
+      'models/Ship_ManraRay_16943.glb',
+      'models/Ship_Longwing_5.glb',
+      'models/Ship_Hooper_443110.glb',
+      'models/Ship_Standard_17.glb',
+      'models/Ship_DeltaWing_368386.glb'
+    ],
+    YellowFlight: [
+      'models/Ship_Crosspanel_16.glb',
+      'models/Ship_Crosspanel_1.glb',
+      'models/Ship_Longwing_8.glb',
+      'models/Ship_ManraRay_858242.glb',
+      'models/Ship_PyramidLifter_990348.glb',
+      'models/Ship_Standard_11.glb',
+      'models/Ship_Hooper_760830.glb'
+    ],   
+    GreenFlight: [
+      'models/Ship_Crosspanel_10.glb',
+      'models/Ship_Crosspanel_11.glb',
+      'models/Ship_DeltaWing_108179.glb',
+      'models/Ship_Standard_14.glb',
+      'models/Ship_Orca_492814.glb',
+      'models/Ship_Standard_5.glb',
+      'models/Ship_LunarCourier_451424.glb'
+    ], 
+    TealFlight: [
+      'models/.glb',
+      'models/.glb',
+      'models/.glb',
+      'models/.glb',
+      'models/.glb',
+      'models/.glb',
+      'models/.glb'
+    ],      
     Orca: [
       'models/Ship_Orca_29300.glb',
       'models/Ship_Orca_135963.glb',
