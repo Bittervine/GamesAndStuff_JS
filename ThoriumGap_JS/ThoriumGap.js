@@ -134,11 +134,12 @@
   const PLAYER_3D_MODEL_ROLL_OFFSET_RAD = 0;
   const PLAYER_3D_SCALE_MULTIPLIER = 1.0;
   const PLAYER_3D_Z = 30;
-  const PLAYER_3D_BANK_SMOOTH_RATE = 8.0;
-  const PLAYER_3D_MAX_BANK_DEG = 24;
-  const PLAYER_3D_MAX_YAW_DEG = 10;
-  const PLAYER_3D_MAX_PITCH_DEG = 8;
-  const PLAYER_3D_BANK_SPEED_REF = 540;
+  const PLAYER_3D_ROTATION_SMOOTH_RATE = 8.0;
+  const PLAYER_3D_YAW_MAX_DEG = 24;
+  const PLAYER_3D_ROLL_MAX_DEG = 18;
+  const PLAYER_3D_ROLL_FULL_SPEED = 280;
+  const PLAYER_3D_PITCH_MAX_DEG = 8;
+  const PLAYER_3D_PITCH_FULL_SPEED = 360;
   const PLAYER_3D_FLAME_CANVAS_W = 96;
   const PLAYER_3D_FLAME_CANVAS_H = 192;
   const PLAYER_3D_SCREEN_FX_CANVAS_SIZE = 256;
@@ -2173,23 +2174,46 @@
   function extractPlayer3DEngineAnchors(scene, maxXYDiameter) {
     const THREE = enemy3DState.THREE;
     const denom = Math.max(0.001, maxXYDiameter || 1);
-    const anchors = [];
+    const candidates = [];
     if (!THREE || !scene) return player3DEngineAnchorFallback();
     scene.updateMatrixWorld(true);
     scene.traverse(function (obj) {
       const name = (obj && obj.name ? obj.name : '').toLowerCase();
-      if (!obj || !obj.isMesh || name.indexOf('enginenozzle') !== 0) return;
+      const materialName = Array.isArray(obj && obj.material)
+        ? obj.material.map(function (mat) { return mat && mat.name ? mat.name : ''; }).join('|').toLowerCase()
+        : ((obj && obj.material && obj.material.name) ? obj.material.name.toLowerCase() : '');
+      let priority = 0;
+      if (!obj || !obj.isMesh) return;
+      if (name.indexOf('engineemitter') >= 0 || materialName.indexOf('engineglow') >= 0) priority = 3;
+      else if (name.indexOf('enginenozzle') === 0) priority = 2;
+      else if (name.indexOf('enginerearnozzle') >= 0 && name.indexOf('mouth') >= 0) priority = 1;
+      if (!priority) return;
       const box = new THREE.Box3().setFromObject(obj);
       const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
       if (!(size.x > 0 || size.y > 0 || size.z > 0)) return;
-      anchors.push({
+      candidates.push({
         x: center.x / denom,
         y: -box.min.y / denom,
-        s: name.indexOf('center') >= 0 ? 1.22 : 1.08
+        d: Math.max(size.x, size.z) / denom,
+        priority: priority
       });
     });
-    if (!anchors.length) return player3DEngineAnchorFallback();
+    if (!candidates.length) return player3DEngineAnchorFallback();
+    const bestPriority = candidates.reduce(function (best, item) {
+      return Math.max(best, item.priority || 0);
+    }, 0);
+    const anchors = candidates.filter(function (item) {
+      return item.priority === bestPriority;
+    });
+    const avgDiameter = anchors.reduce(function (sum, item) {
+      return sum + Math.max(0.0001, item.d || 0);
+    }, 0) / Math.max(1, anchors.length);
+    for (let i = 0; i < anchors.length; i++) {
+      anchors[i].s = clamp((anchors[i].d || avgDiameter) / Math.max(0.0001, avgDiameter), 0.85, 1.25);
+      delete anchors[i].d;
+      delete anchors[i].priority;
+    }
     anchors.sort(function (a, b) { return a.x - b.x; });
     return anchors;
   }
@@ -2314,7 +2338,7 @@
     fx.texture.needsUpdate = true;
   }
 
-  function updatePlayer3DShieldPlane(instance, pose) {
+  function updatePlayer3DShieldPlane(instance, pose, rootScale) {
     const fx = instance && instance.shieldFx;
     if (!fx || !fx.ctx) return;
     const p = state.player;
@@ -2326,8 +2350,9 @@
     const dim = fx.canvas.width;
     const g = fx.ctx;
     const shieldRing = p.r * pose.playerScale;
-    const maxRingR = shieldRing + 14 + Math.max(0, Math.max(p.shield || 0, invulnActive ? 3 : 0) - 1) * 5;
-    const shieldSize = Math.max(pose.shipSize * 1.38, (maxRingR + 8) * 2);
+    const maxRingR = shieldRing + 8 + Math.max(0, Math.max(p.shield || 0, invulnActive ? 3 : 0) - 1) * 4;
+    const safeScale = Math.max(0.001, rootScale || 1);
+    const shieldSize = Math.max(pose.shipSize * 1.08, pose.shipSize + 8, (maxRingR + 4) * 2) / safeScale;
     const cx = dim * 0.5;
     const cy = dim * 0.5;
     function strokeRing(worldR, color, alpha, worldW) {
@@ -2345,7 +2370,7 @@
     const shieldColor = p.shield > 1 ? '#7fc8ff' : '#61a9ff';
     if (p.shield > 0) {
       for (let i = 0; i < p.shield; i++) {
-        strokeRing(shieldRing + i * 5 + 14, shieldColor, 0.15, 2);
+        strokeRing(shieldRing + i * 4 + 8, shieldColor, 0.15, 2);
       }
     }
     if (invulnActive) {
@@ -2357,7 +2382,7 @@
       for (let i = 0; i < ringAlphas.length; i++) {
         const alpha = ringAlphas[i];
         if (alpha <= 0) continue;
-        strokeRing(shieldRing + 14 + i * 5, '#ff0000', alpha, 2);
+        strokeRing(shieldRing + 8 + i * 4, '#ff0000', alpha, 2);
       }
     }
     g.restore();
@@ -2453,7 +2478,7 @@
   function updatePlayer3DEffectPlanes(instance, pose, rootScale) {
     if (!instance) return;
     updatePlayer3DFlamePlanes(instance, pose, rootScale);
-    updatePlayer3DShieldPlane(instance, pose);
+    updatePlayer3DShieldPlane(instance, pose, rootScale);
     updatePlayer3DDamagePlane(instance, pose);
   }
 
@@ -2593,7 +2618,6 @@
     if (!shouldUsePlayer3DMode() || !enemy3DState.ready || !enemy3DState.root) return null;
     if (!modelEntry || !modelEntry.scene || !(modelEntry.maxXYDiameter > 0)) return null;
     const root = new enemy3DState.THREE.Group();
-    const screenRoot = new enemy3DState.THREE.Group();
     const modelScene = modelEntry.scene.clone(true);
     modelScene.traverse(function (obj) {
       if (!obj || !obj.isMesh) return;
@@ -2621,22 +2645,17 @@
     const damageFx = createPlayer3DEffectPlane(PLAYER_3D_SCREEN_FX_CANVAS_SIZE, PLAYER_3D_SCREEN_FX_CANVAS_SIZE, true);
     shieldFx.mesh.renderOrder = 26;
     damageFx.mesh.renderOrder = 45;
-    screenRoot.add(shieldFx.mesh);
-    screenRoot.add(damageFx.mesh);
+    root.add(shieldFx.mesh);
+    root.add(damageFx.mesh);
     enemy3DState.root.add(root);
-    enemy3DState.root.add(screenRoot);
     enemy3DState.playerInstance = {
       root: root,
-      screenRoot: screenRoot,
       modelPath: PLAYER_3D_MODEL_PATH,
       maxXYDiameter: modelEntry.maxXYDiameter,
       engineAnchors: engineAnchors,
       flameFx: flameFx,
       shieldFx: shieldFx,
       damageFx: damageFx,
-      bankDeg: 0,
-      yawDeg: 0,
-      pitchDeg: 0,
       valid: true
     };
     return enemy3DState.playerInstance;
@@ -2742,26 +2761,8 @@
       worldY,
       PLAYER_3D_Z
     );
-    if (instance.screenRoot) {
-      instance.screenRoot.position.set(worldX, worldY, PLAYER_3D_Z);
-      instance.screenRoot.visible = !pose.respawning || pose.flashAlpha > 0.18;
-    }
     instance.root.scale.set(scale, scale, scale);
-    const smoothDt = Math.max(0, dt || 0);
-    const p = state.player;
-    const vx = Number.isFinite(p.vx) ? p.vx : 0;
-    const vy = Number.isFinite(p.vy) ? p.vy : 0;
-    const targetBankDeg = pose.respawning ? 0 : clamp((vx / PLAYER_3D_BANK_SPEED_REF) * PLAYER_3D_MAX_BANK_DEG, -PLAYER_3D_MAX_BANK_DEG, PLAYER_3D_MAX_BANK_DEG);
-    const targetYawDeg = pose.respawning ? 0 : clamp((pose.rot * 180 / Math.PI) * 0.42 + (vx / PLAYER_3D_BANK_SPEED_REF) * PLAYER_3D_MAX_YAW_DEG * 0.48, -PLAYER_3D_MAX_YAW_DEG, PLAYER_3D_MAX_YAW_DEG);
-    const targetPitchDeg = pose.respawning ? 0 : clamp((vy / PLAYER_3D_BANK_SPEED_REF) * PLAYER_3D_MAX_PITCH_DEG, -PLAYER_3D_MAX_PITCH_DEG, PLAYER_3D_MAX_PITCH_DEG);
-    instance.bankDeg = smooth(instance.bankDeg || 0, targetBankDeg, PLAYER_3D_BANK_SMOOTH_RATE, smoothDt);
-    instance.yawDeg = smooth(instance.yawDeg || 0, targetYawDeg, PLAYER_3D_BANK_SMOOTH_RATE, smoothDt);
-    instance.pitchDeg = smooth(instance.pitchDeg || 0, targetPitchDeg, PLAYER_3D_BANK_SMOOTH_RATE, smoothDt);
-    instance.root.rotation.set(
-      instance.pitchDeg * Math.PI / 180,
-      instance.bankDeg * Math.PI / 180,
-      -instance.yawDeg * Math.PI / 180
-    );
+    instance.root.rotation.set(0, 0, 0);
     instance.root.visible = !pose.respawning || pose.flashAlpha > 0.18;
     updatePlayer3DEffectPlanes(instance, pose, scale);
   }
