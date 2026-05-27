@@ -8041,9 +8041,9 @@
     drawSoftEdgeGlow(p.x, shipY, 50 * playerScale, playerGlow, 0.22);
     if (invulnActive) {
       const invulnRings = [
-        { r: shieldRing + 14, color: '#ff0000' },
-        { r: shieldRing + 19, color: '#ff0000' },
-        { r: shieldRing + 24, color: '#ff0000' }
+        { r: shieldRing + 20, color: '#ff0000' },
+        { r: shieldRing + 24, color: '#ff0000' },
+        { r: shieldRing + 28, color: '#ff0000' }
       ];
       const ringAlphas = [
         clamp(p.invuln, 0, 1) * 1.0,
@@ -8059,8 +8059,8 @@
     if (p.shield > 0) {
       const shieldColor = p.shield > 1 ? '#7fc8ff' : '#61a9ff';
       for (let i = 0; i < p.shield; i++) {
-        const ringR = shieldRing + i * 5;
-        drawRingGlow(p.x, shipY, ringR + 14, ringR + 12, shieldColor, 0.15, 0);
+        const ringR = shieldRing + i * 4;
+        drawRingGlow(p.x, shipY, ringR + 20, ringR + 20, shieldColor, 0.15, 0);
       }
     }
     if (!respawning || p.respawnTimer < 0.98) {
