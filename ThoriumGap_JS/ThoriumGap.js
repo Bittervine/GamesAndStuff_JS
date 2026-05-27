@@ -132,14 +132,17 @@
   const PLAYER_3D_MODEL_PATH = 'models/player_spaceship.glb';
   const PLAYER_3D_MODEL_PITCH_OFFSET_RAD = Math.PI * 0.5;
   const PLAYER_3D_MODEL_ROLL_OFFSET_RAD = 0;
-  const PLAYER_3D_SCALE_MULTIPLIER = 1.0;
+  const PLAYER_3D_SCALE_MULTIPLIER = 1.15;
   const PLAYER_3D_Z = 30;
   const PLAYER_3D_ROLL_SMOOTH_RATE = 8.0;
   const PLAYER_3D_MAX_ROLL_DEG = 60.75;
   const PLAYER_3D_ROLL_SPEED_REF = 540;
+  const PLAYER_3D_PITCH_SMOOTH_RATE = 8.0;
+  const PLAYER_3D_MAX_PITCH_DEG = 10.4;
+  const PLAYER_3D_PITCH_SPEED_REF = 540;
   const PLAYER_3D_FLAME_CANVAS_W = 96;
   const PLAYER_3D_FLAME_CANVAS_H = 192;
-  const PLAYER_3D_SCREEN_FX_CANVAS_SIZE = 256;
+  const PLAYER_3D_SCREEN_FX_CANVAS_SIZE = 512;
   let playerShipTextureLoading = false;
   let playerAuraTextureLoading = false;
   let playerShipSourceImage = null;
@@ -2338,9 +2341,10 @@
     const g = fx.ctx;
     const shieldRing = p.r * pose.playerScale;
     const maxRingR = shieldRing + 14 + Math.max(0, Math.max(p.shield || 0, invulnActive ? 3 : 0) - 1) * 5;
-    const shieldSize = Math.max(pose.shipSize * 1.38, (maxRingR + 8) * 2);
+    const shieldSize = Math.max(pose.shipSize * 1.38, (maxRingR + 8) * 2);    
+    const shieldYOffset = +dim * 0.07;
+    const cy = dim * 0.5 + shieldYOffset;
     const cx = dim * 0.5;
-    const cy = dim * 0.5;
     function strokeRing(worldR, color, alpha, worldW) {
       const radius = Math.max(1, worldR / Math.max(1, shieldSize) * dim);
       const lineW = Math.max(1.2, (worldW || 2) / Math.max(1, shieldSize) * dim);
@@ -2356,7 +2360,7 @@
     const shieldColor = p.shield > 1 ? '#7fc8ff' : '#61a9ff';
     if (p.shield > 0) {
       for (let i = 0; i < p.shield; i++) {
-        strokeRing(shieldRing + i * 5 + 14, shieldColor, 0.15, 2);
+        strokeRing(shieldRing + i * 3 + 10, shieldColor, 0.15, 2);
       }
     }
     if (invulnActive) {
@@ -2374,8 +2378,8 @@
     g.restore();
     fx.texture.needsUpdate = true;
     fx.mesh.visible = true;
-    fx.mesh.scale.set(shieldSize, shieldSize, 1);
-    fx.mesh.position.set(0, 0, -8);
+    fx.mesh.scale.set(shieldSize * 0.857375, shieldSize * 0.857375, 1);
+    fx.mesh.position.set(0, 0, 0);
   }
 
   function updatePlayer3DDamagePlane(instance, pose) {
@@ -2769,8 +2773,9 @@
     const vx = Number.isFinite(state.player && state.player.vx) ? state.player.vx : 0;
     const vxNorm = clamp(vx / Math.max(1, PLAYER_3D_ROLL_SPEED_REF), -1, 1);
     const targetRollDeg = pose.respawning ? 0 : clamp(-vxNorm * PLAYER_3D_MAX_ROLL_DEG, -90, 90);
+    const targetPitchDeg = pose.respawning ? 0 : clamp(Math.abs(vxNorm) * PLAYER_3D_MAX_PITCH_DEG, 0, PLAYER_3D_MAX_PITCH_DEG);
     instance.rollDeg = smooth(instance.rollDeg || 0, targetRollDeg, PLAYER_3D_ROLL_SMOOTH_RATE, smoothDt);
-    instance.pitchDeg = 0;
+    instance.pitchDeg = smooth(instance.pitchDeg || 0, targetPitchDeg, PLAYER_3D_PITCH_SMOOTH_RATE, smoothDt);
     instance.root.rotation.set(0, 0, 0);
     if (instance.rollRoot) instance.rollRoot.rotation.set(0, -instance.rollDeg * Math.PI / 180, 0);
     if (instance.pitchRoot) instance.pitchRoot.rotation.set(instance.pitchDeg * Math.PI / 180, 0, 0);
@@ -8537,9 +8542,9 @@
     }
     if (invulnActive && !usePlayer3DTarget) {
       const invulnRings = [
-        { r: shieldRing + 14, color: '#ff0000' },
-        { r: shieldRing + 19, color: '#ff0000' },
-        { r: shieldRing + 24, color: '#ff0000' }
+        { r: shieldRing + 18, color: '#ff0000' },
+        { r: shieldRing + 23, color: '#ff0000' },
+        { r: shieldRing + 28, color: '#ff0000' }
       ];
       const ringAlphas = [
         clamp(p.invuln, 0, 1) * 1.0,
@@ -8556,7 +8561,7 @@
       const shieldColor = p.shield > 1 ? '#7fc8ff' : '#61a9ff';
       for (let i = 0; i < p.shield; i++) {
         const ringR = shieldRing + i * 5;
-        drawRingGlow(p.x, shipY, ringR + 14, ringR + 12, shieldColor, 0.15, 0);
+        drawRingGlow(p.x, shipY, ringR + 18, ringR + 18, shieldColor, 0.15, 0);
       }
     }
     if (!respawning || p.respawnTimer < 0.98) {
