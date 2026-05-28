@@ -2281,6 +2281,7 @@
     const modelEntry = await ensurePlanet3DModelLoaded(modelPath);
     if (!dec || !enemy3DState.ready || !enemy3DState.planetRoot) return null;
     if (!modelEntry || !modelEntry.scene || !(modelEntry.diameter > 0)) return null;
+    const THREE = enemy3DState.THREE;
     const root = new enemy3DState.THREE.Group();
     const modelScene = modelEntry.scene.clone(true);
     modelScene.traverse(function (obj) {
@@ -2290,18 +2291,20 @@
         for (let i = 0; i < obj.material.length; i++) {
           const mat = obj.material[i];
           if (!mat) continue;
-          mat.transparent = false;
-          mat.opacity = 1.0;
+          mat.transparent = true;
+          mat.opacity = 0.75;
           mat.depthTest = true;
-          mat.depthWrite = true;
-          if (mat.color && mat.color.multiplyScalar) mat.color.multiplyScalar(0.66);
+          mat.depthWrite = false;
+          if (THREE && THREE.FrontSide !== undefined) mat.side = THREE.FrontSide;
+          if (mat.color && mat.color.multiplyScalar) mat.color.multiplyScalar(1.0);
         }
       } else if (obj.material) {
-        obj.material.transparent = false;
-        obj.material.opacity = 1.0;
+        obj.material.transparent = true;
+        obj.material.opacity = 0.75;
         obj.material.depthTest = true;
-        obj.material.depthWrite = true;
-        if (obj.material.color && obj.material.color.multiplyScalar) obj.material.color.multiplyScalar(0.66);
+        obj.material.depthWrite = false;
+        if (THREE && THREE.FrontSide !== undefined) obj.material.side = THREE.FrontSide;
+        if (obj.material.color && obj.material.color.multiplyScalar) obj.material.color.multiplyScalar(1.0);
       }
     });
     root.add(modelScene);
