@@ -624,7 +624,7 @@
 <body>
   <div id="app">
     <h1>Mathbook</h1>
-    <p class="intro">Helpers: <code>hex()</code>, <code>bin()</code>, <code>dec()</code>, <code>oct()</code>, <code>asc()</code>, <code>ord()</code>, <code>int()</code>, <code>bits()</code>, <code>and()</code>, <code>or()</code>, <code>xor()</code>, <code>not()</code>, <code>crc32()</code>, <code>dword2float()</code>, <code>float2dword()</code>, <code>sin()</code>, <code>cos()</code>, <code>tan()</code>, <code>sqrt()</code>, <code>abs()</code>, <code>log()</code>, <code>log10()</code>, <code>exp()</code>, <code>plot(x_array,y_array)</code>. Constants: <code>pi</code>, <code>C0</code>. Plot uses <code>X</code>. History arrays: <code>IN</code>, <code>OUT</code>.</p>
+    <p class="intro"><a href="Manual.html">Manual: functions, constants, plotting, and history</a></p>
 
     <div id="history"></div>
 
@@ -1718,9 +1718,417 @@
         return Math.exp(value);
       }
 
-      function buildCustomPlot(xArray, yArray) {
-        var xIsArray = Object.prototype.toString.call(xArray) === '[object Array]';
-        var yIsArray = Object.prototype.toString.call(yArray) === '[object Array]';
+      function isArray(value) {
+        return Object.prototype.toString.call(value) === '[object Array]';
+      }
+
+      function isSignal(value) {
+        return !!(value && typeof value === 'object' && value.__mathbookType === 'signal' && isArray(value.y));
+      }
+
+      function isSpectrum(value) {
+        return !!(value && typeof value === 'object' && value.__mathbookType === 'spectrum' && isArray(value.re) && isArray(value.im));
+      }
+
+      function makeSignal(y, x0, dx, label) {
+        return {
+          __mathbookType: 'signal',
+          y: y,
+          x0: isFinite(Number(x0)) ? Number(x0) : 0,
+          dx: isFinite(Number(dx)) && Number(dx) !== 0 ? Number(dx) : 1,
+          label: label || ''
+        };
+      }
+
+      function makeSpectrum(re, im, dx, label) {
+        var n = re.length;
+        var sampleStep = isFinite(Number(dx)) && Number(dx) !== 0 ? Number(dx) : 1;
+        return {
+          __mathbookType: 'spectrum',
+          re: re,
+          im: im,
+          dx: sampleStep,
+          df: n > 0 ? 1 / (n * sampleStep) : 1,
+          label: label || ''
+        };
+      }
+
+      function range(start, stop, step) {
+        var out = [];
+        var a = Number(start);
+        var b = Number(stop);
+        var d = (typeof step === 'undefined') ? 1 : Number(step);
+        var x;
+        var count = 0;
+        if (!isFinite(a) || !isFinite(b) || !isFinite(d) || d === 0) {
+          throw new Error('range(start, stop, step) needs finite values and a non-zero step');
+        }
+        x = a;
+        if (d > 0) {
+          while (x < b) {
+            out[out.length] = x;
+            count += 1;
+            if (count > 100000) throw new Error('range() produced too many values');
+            x = a + count * d;
+          }
+        } else {
+          while (x > b) {
+            out[out.length] = x;
+            count += 1;
+            if (count > 100000) throw new Error('range() produced too many values');
+            x = a + count * d;
+          }
+        }
+        return out;
+      }
+
+      function discrete(fn, start, stop, step) {
+        var xs = range(start, stop, step);
+        var y = [];
+        var i;
+        var value;
+        if (typeof fn !== 'function') {
+          throw new Error('discrete(fn, start, stop, step) expects an arrow/function as first argument');
+        }
+        for (i = 0; i < xs.length; i++) {
+          value = Number(fn(xs[i], i));
+          y[i] = isFinite(value) ? value : NaN;
+        }
+        return makeSignal(y, Number(start), Number(step), 'discrete');
+      }
+
+      function signalLength(value) {
+        if (isSignal(value)) return value.y.length;
+        if (isSpectrum(value)) return value.re.length;
+        if (isArray(value)) return value.length;
+        value = Number(value);
+        if (!isFinite(value) || value < 0) throw new Error('Expected a signal, array, spectrum, or non-negative length');
+        return Math.floor(value);
+      }
+
+      function numericArrayFrom(value, name) {
+        var source;
+        var out = [];
+        var i;
+        var n;
+        if (isSignal(value)) {
+          source = value.y;
+        } else if (isArray(value)) {
+          source = value;
+        } else {
+          throw new Error((name || 'value') + ' must be an array or signal');
+        }
+        for (i = 0; i < source.length; i++) {
+          n = Number(source[i]);
+          out[i] = isFinite(n) ? n : NaN;
+        }
+        return out;
+      }
+
+      function sampleStepOf(value) {
+        if (isSignal(value) && isFinite(Number(value.dx)) && Number(value.dx) !== 0) return Number(value.dx);
+        if (isSpectrum(value) && isFinite(Number(value.dx)) && Number(value.dx) !== 0) return Number(value.dx);
+        return 1;
+      }
+
+      function signalX0Of(value) {
+        if (isSignal(value) && isFinite(Number(value.x0))) return Number(value.x0);
+        return 0;
+      }
+
+      function copySignalMeta(values, source, label) {
+        if (isSignal(source)) return makeSignal(values, signalX0Of(source), sampleStepOf(source), label || source.label || '');
+        return values;
+      }
+
+      function elementWise(a, b, op, name) {
+        var aIsScalar = typeof a === 'number';
+        var bIsScalar = typeof b === 'number';
+        var aValues;
+        var bValues;
+        var len;
+        var out = [];
+        var i;
+        var aVal;
+        var bVal;
+        var metaSource = null;
+
+        if (!aIsScalar && !isArray(a) && !isSignal(a)) throw new Error(name + '() expects arrays/signals/scalars');
+        if (!bIsScalar && !isArray(b) && !isSignal(b)) throw new Error(name + '() expects arrays/signals/scalars');
+
+        if (aIsScalar && bIsScalar) return op(Number(a), Number(b));
+
+        if (!aIsScalar) {
+          aValues = numericArrayFrom(a, name + ' left');
+          len = aValues.length;
+          if (isSignal(a)) metaSource = a;
+        }
+        if (!bIsScalar) {
+          bValues = numericArrayFrom(b, name + ' right');
+          if (typeof len === 'undefined') len = bValues.length;
+          if (bValues.length !== len) throw new Error(name + '() length mismatch');
+          if (!metaSource && isSignal(b)) metaSource = b;
+        }
+
+        for (i = 0; i < len; i++) {
+          aVal = aIsScalar ? Number(a) : aValues[i];
+          bVal = bIsScalar ? Number(b) : bValues[i];
+          out[i] = op(aVal, bVal);
+        }
+        return copySignalMeta(out, metaSource, name);
+      }
+
+      function addValues(a, b) { return elementWise(a, b, function (x, y) { return x + y; }, 'add'); }
+      function subValues(a, b) { return elementWise(a, b, function (x, y) { return x - y; }, 'sub'); }
+      function mulValues(a, b) { return elementWise(a, b, function (x, y) { return x * y; }, 'mul'); }
+      function divValues(a, b) { return elementWise(a, b, function (x, y) { return x / y; }, 'div'); }
+      function powValues(a, b) { return elementWise(a, b, function (x, y) { return Math.pow(x, y); }, 'pow'); }
+
+      function dot(a, b) {
+        var av = numericArrayFrom(a, 'dot left');
+        var bv = numericArrayFrom(b, 'dot right');
+        var sum = 0;
+        var i;
+        if (av.length !== bv.length) throw new Error('dot() length mismatch');
+        for (i = 0; i < av.length; i++) sum += av[i] * bv[i];
+        return sum;
+      }
+
+      function makeWindow(nOrSignal, kind) {
+        var n = signalLength(nOrSignal);
+        var out = [];
+        var i;
+        var a;
+        if (n < 1) return copySignalMeta(out, nOrSignal, kind);
+        for (i = 0; i < n; i++) {
+          a = n === 1 ? 0 : (2 * Math.PI * i / (n - 1));
+          if (kind === 'hanning') out[i] = 0.5 - 0.5 * Math.cos(a);
+          else if (kind === 'hamming') out[i] = 0.54 - 0.46 * Math.cos(a);
+          else if (kind === 'blackman') out[i] = 0.42 - 0.5 * Math.cos(a) + 0.08 * Math.cos(2 * a);
+          else out[i] = 1;
+        }
+        return copySignalMeta(out, nOrSignal, kind);
+      }
+
+      function hanning(nOrSignal) { return makeWindow(nOrSignal, 'hanning'); }
+      function hamming(nOrSignal) { return makeWindow(nOrSignal, 'hamming'); }
+      function blackman(nOrSignal) { return makeWindow(nOrSignal, 'blackman'); }
+      function rect(nOrSignal) { return makeWindow(nOrSignal, 'rect'); }
+
+      function isPowerOfTwo(n) {
+        return n > 0 && (n & (n - 1)) === 0;
+      }
+
+      function reverseBits(value, bitsCount) {
+        var out = 0;
+        var i;
+        for (i = 0; i < bitsCount; i++) {
+          out = (out << 1) | (value & 1);
+          value >>= 1;
+        }
+        return out;
+      }
+
+      function fftComplex(reIn, imIn, inverse) {
+        var n = reIn.length;
+        var re = reIn.slice();
+        var im = imIn ? imIn.slice() : [];
+        var outRe;
+        var outIm;
+        var i;
+        var j;
+        var k;
+        var bitsCount;
+        var rev;
+        var tmp;
+        var size;
+        var half;
+        var stepAngle;
+        var m;
+        var wr;
+        var wi;
+        var ur;
+        var ui;
+        var vr;
+        var vi;
+        var cosA;
+        var sinA;
+        var angle;
+        var sumRe;
+        var sumIm;
+
+        for (i = 0; i < n; i++) {
+          re[i] = Number(re[i]) || 0;
+          im[i] = Number(im[i]) || 0;
+        }
+
+        if (n < 1) return { re: re, im: im };
+
+        if (!isPowerOfTwo(n)) {
+          if (n > 2048) throw new Error('fft() non-power-of-two length is limited to 2048; use zero_pad() first');
+          outRe = [];
+          outIm = [];
+          for (k = 0; k < n; k++) {
+            sumRe = 0;
+            sumIm = 0;
+            for (j = 0; j < n; j++) {
+              angle = (inverse ? 1 : -1) * 2 * Math.PI * j * k / n;
+              cosA = Math.cos(angle);
+              sinA = Math.sin(angle);
+              sumRe += re[j] * cosA - im[j] * sinA;
+              sumIm += re[j] * sinA + im[j] * cosA;
+            }
+            if (inverse) {
+              sumRe /= n;
+              sumIm /= n;
+            }
+            outRe[k] = sumRe;
+            outIm[k] = sumIm;
+          }
+          return { re: outRe, im: outIm };
+        }
+
+        bitsCount = Math.round(Math.log(n) / Math.LN2);
+        for (i = 0; i < n; i++) {
+          rev = reverseBits(i, bitsCount);
+          if (rev > i) {
+            tmp = re[i]; re[i] = re[rev]; re[rev] = tmp;
+            tmp = im[i]; im[i] = im[rev]; im[rev] = tmp;
+          }
+        }
+
+        for (size = 2; size <= n; size *= 2) {
+          half = size / 2;
+          stepAngle = (inverse ? 1 : -1) * 2 * Math.PI / size;
+          for (i = 0; i < n; i += size) {
+            for (m = 0; m < half; m++) {
+              angle = stepAngle * m;
+              wr = Math.cos(angle);
+              wi = Math.sin(angle);
+              ur = re[i + m];
+              ui = im[i + m];
+              vr = re[i + m + half] * wr - im[i + m + half] * wi;
+              vi = re[i + m + half] * wi + im[i + m + half] * wr;
+              re[i + m] = ur + vr;
+              im[i + m] = ui + vi;
+              re[i + m + half] = ur - vr;
+              im[i + m + half] = ui - vi;
+            }
+          }
+        }
+
+        if (inverse) {
+          for (i = 0; i < n; i++) {
+            re[i] /= n;
+            im[i] /= n;
+          }
+        }
+        return { re: re, im: im };
+      }
+
+      function fft(value) {
+        var re = numericArrayFrom(value, 'fft');
+        var im = [];
+        var i;
+        var result;
+        for (i = 0; i < re.length; i++) im[i] = 0;
+        result = fftComplex(re, im, false);
+        return makeSpectrum(result.re, result.im, sampleStepOf(value), 'fft');
+      }
+
+      function ifft(value) {
+        var result;
+        if (!isSpectrum(value)) throw new Error('ifft() expects a spectrum from fft()');
+        result = fftComplex(value.re, value.im, true);
+        return makeSignal(result.re, 0, sampleStepOf(value), 'ifft');
+      }
+
+      function freqs(value) {
+        var n;
+        var df;
+        var out = [];
+        var i;
+        if (!isSpectrum(value)) throw new Error('freqs() expects a spectrum from fft()');
+        n = value.re.length;
+        df = isFinite(Number(value.df)) ? Number(value.df) : 1;
+        for (i = 0; i < n; i++) out[i] = i * df;
+        return out;
+      }
+
+      function spectrumSignal(value, modeName) {
+        var out = [];
+        var i;
+        var re;
+        var im;
+        var df;
+        if (!isSpectrum(value)) {
+          if (modeName === 'mag' && (isSignal(value) || isArray(value))) {
+            out = numericArrayFrom(value, 'mag');
+            for (i = 0; i < out.length; i++) out[i] = Math.abs(out[i]);
+            return copySignalMeta(out, value, 'mag');
+          }
+          if (modeName === 'phase' && (isSignal(value) || isArray(value))) {
+            out = numericArrayFrom(value, 'phase');
+            for (i = 0; i < out.length; i++) out[i] = out[i] < 0 ? Math.PI : 0;
+            return copySignalMeta(out, value, 'phase');
+          }
+          if (modeName === 'real' && (isSignal(value) || isArray(value))) return copySignalMeta(numericArrayFrom(value, 'real'), value, 'real');
+          if (modeName === 'imag' && (isSignal(value) || isArray(value))) {
+            out = numericArrayFrom(value, 'imag');
+            for (i = 0; i < out.length; i++) out[i] = 0;
+            return copySignalMeta(out, value, 'imag');
+          }
+          throw new Error(modeName + '() expects a spectrum from fft()');
+        }
+        df = isFinite(Number(value.df)) ? Number(value.df) : 1;
+        for (i = 0; i < value.re.length; i++) {
+          re = Number(value.re[i]) || 0;
+          im = Number(value.im[i]) || 0;
+          if (modeName === 'mag') out[i] = Math.sqrt(re * re + im * im);
+          else if (modeName === 'phase') out[i] = Math.atan2(im, re);
+          else if (modeName === 'imag') out[i] = im;
+          else out[i] = re;
+        }
+        return makeSignal(out, 0, df, modeName);
+      }
+
+      function mag(value) { return spectrumSignal(value, 'mag'); }
+      function phase(value) { return spectrumSignal(value, 'phase'); }
+      function realPart(value) { return spectrumSignal(value, 'real'); }
+      function imagPart(value) { return spectrumSignal(value, 'imag'); }
+
+      function zeroPad(value, length) {
+        var y = numericArrayFrom(value, 'zero_pad');
+        var n = Math.floor(Number(length));
+        var out = [];
+        var i;
+        if (!isFinite(n) || n < y.length) throw new Error('zero_pad(value, length) length must be finite and >= current length');
+        for (i = 0; i < n; i++) out[i] = i < y.length ? y[i] : 0;
+        return copySignalMeta(out, value, 'zero_pad');
+      }
+
+      function mean(value) {
+        var y = numericArrayFrom(value, 'mean');
+        var sum = 0;
+        var count = 0;
+        var i;
+        for (i = 0; i < y.length; i++) {
+          if (isFinite(y[i])) {
+            sum += y[i];
+            count += 1;
+          }
+        }
+        return count ? sum / count : NaN;
+      }
+
+      function removeDc(value) {
+        var m = mean(value);
+        return subValues(value, m);
+      }
+
+      function plotDataFromXYArrays(xArray, yArray, drawPoints) {
+        var xValues = numericArrayFrom(xArray, 'plot x');
+        var yValues = numericArrayFrom(yArray, 'plot y');
         var len;
         var i;
         var x;
@@ -1732,20 +2140,17 @@
         var maxY;
         var hasValue = false;
 
-        if (!xIsArray || !yIsArray) {
-          throw new Error('plot(x_array, y_array) expects two arrays');
-        }
-        len = xArray.length;
-        if (len !== yArray.length) {
-          throw new Error('plot(x_array, y_array) requires same-length arrays');
+        len = xValues.length;
+        if (len !== yValues.length) {
+          throw new Error('plot() requires same-length arrays/signals');
         }
         if (len < 1) {
-          throw new Error('plot(x_array, y_array) requires at least 1 point');
+          throw new Error('plot() requires at least 1 point');
         }
 
         for (i = 0; i < len; i++) {
-          x = Number(xArray[i]);
-          y = Number(yArray[i]);
+          x = Number(xValues[i]);
+          y = Number(yValues[i]);
           if (!isFinite(x) || !isFinite(y)) {
             points[i] = null;
             continue;
@@ -1766,7 +2171,7 @@
         }
 
         if (!hasValue) {
-          throw new Error('plot(x_array, y_array) has no finite points');
+          throw new Error('plot() has no finite points');
         }
 
         if (minX === maxX) {
@@ -1785,8 +2190,39 @@
           maxX: maxX,
           minY: minY,
           maxY: maxY,
-          drawPoints: true
+          drawPoints: !!drawPoints
         };
+      }
+
+      function plotDataFromValue(value) {
+        var x = [];
+        var y;
+        var i;
+        var x0;
+        var dx;
+        if (isSpectrum(value)) {
+          return plotDataFromValue(mag(value));
+        }
+        if (isSignal(value)) {
+          y = numericArrayFrom(value, 'plot signal');
+          x0 = signalX0Of(value);
+          dx = sampleStepOf(value);
+          for (i = 0; i < y.length; i++) x[i] = x0 + i * dx;
+          return plotDataFromXYArrays(x, y, false);
+        }
+        if (isArray(value)) {
+          y = numericArrayFrom(value, 'plot array');
+          for (i = 0; i < y.length; i++) x[i] = i;
+          return plotDataFromXYArrays(x, y, true);
+        }
+        throw new Error('plot(value) expects an array, signal, or spectrum');
+      }
+
+      function buildCustomPlot(xArray, yArray) {
+        if (typeof yArray === 'undefined') {
+          return plotDataFromValue(xArray);
+        }
+        return plotDataFromXYArrays(xArray, yArray, true);
       }
 
       function formatOutput(value) {
@@ -1842,6 +2278,14 @@
 
         if (typeof value === 'string') {
           return value;
+        }
+
+        if (isSignal(value)) {
+          return 'signal(len=' + value.y.length + ', x0=' + value.x0 + ', dx=' + value.dx + ', y=' + formatOutput(value.y.slice(0, 12)) + (value.y.length > 12 ? ', ...' : '') + ')';
+        }
+
+        if (isSpectrum(value)) {
+          return 'spectrum(len=' + value.re.length + ', df=' + value.df + ', re=' + formatOutput(value.re.slice(0, 8)) + (value.re.length > 8 ? ', ...' : '') + ')';
         }
 
         if (Object.prototype.toString.call(value) === '[object Array]') {
@@ -1914,6 +2358,28 @@
         target.tan = Math.tan;
         target.sqrt = Math.sqrt;
         target.plot = buildCustomPlot;
+        target.range = range;
+        target.discrete = discrete;
+        target.fft = fft;
+        target.ifft = ifft;
+        target.mag = mag;
+        target.phase = phase;
+        target.real = realPart;
+        target.imag = imagPart;
+        target.freqs = freqs;
+        target.hanning = hanning;
+        target.hamming = hamming;
+        target.blackman = blackman;
+        target.rect = rect;
+        target.mul = mulValues;
+        target.add = addValues;
+        target.sub = subValues;
+        target.div = divValues;
+        target.pow = powValues;
+        target.dot = dot;
+        target.zero_pad = zeroPad;
+        target.mean = mean;
+        target.remove_dc = removeDc;
         target.pi = Math.PI;
         target.C0 = 299792458;
         target._ = lastValue1;
@@ -1955,6 +2421,28 @@
           tan: true,
           sqrt: true,
           plot: true,
+          range: true,
+          discrete: true,
+          fft: true,
+          ifft: true,
+          mag: true,
+          phase: true,
+          real: true,
+          imag: true,
+          freqs: true,
+          hanning: true,
+          hamming: true,
+          blackman: true,
+          rect: true,
+          mul: true,
+          add: true,
+          sub: true,
+          div: true,
+          pow: true,
+          dot: true,
+          zero_pad: true,
+          mean: true,
+          remove_dc: true,
           pi: true,
           C0: true,
           _: true,
@@ -1977,14 +2465,39 @@
 
       function evaluateCode(code, withX, xValue, persistScope) {
         var contextObj = {};
+        var evalContext = contextObj;
         var evaluator;
         var result;
 
         copyScopeTo(contextObj);
         addBuiltins(contextObj, withX, xValue);
 
+        if (typeof Proxy === 'function') {
+          evalContext = new Proxy(contextObj, {
+            has: function (target, key) {
+              if (key === 'code' || key === 'contextObj') {
+                return false;
+              }
+              return true;
+            },
+            get: function (target, key) {
+              if (typeof Symbol !== 'undefined' && key === Symbol.unscopables) {
+                return undefined;
+              }
+              if (key in target) {
+                return target[key];
+              }
+              return window[key];
+            },
+            set: function (target, key, value) {
+              target[key] = value;
+              return true;
+            }
+          });
+        }
+
         evaluator = new Function('contextObj', 'code', 'with (contextObj) { return eval(code); }');
-        result = evaluator(contextObj, code);
+        result = evaluator(evalContext, code);
 
         if (persistScope) {
           saveScopeFrom(contextObj);
@@ -2039,10 +2552,15 @@
 
       function shouldPlotFromCode(code) {
         var normalized = stripStringAndCommentParts(code);
+        var usesPlotFn = /(^|[^A-Za-z0-9_$\.])plot\s*\(/.test(normalized);
+        return codeUsesPlotX(code) || usesPlotFn;
+      }
+
+      function codeUsesPlotX(code) {
+        var normalized = stripStringAndCommentParts(code);
         var usesX = /(^|[^A-Za-z0-9_$\.])[xX]([^A-Za-z0-9_$]|$)/.test(normalized);
         var assignsX = /(^|[^A-Za-z0-9_$])[xX]\s*(\+=|-=|\*=|\/=|%=|=(?!=))/.test(normalized);
-        var usesPlotFn = /(^|[^A-Za-z0-9_$\.])plot\s*\(/.test(normalized);
-        return (usesX && !assignsX) || usesPlotFn;
+        return usesX && !assignsX;
       }
 
       function smartEnterAction() {
@@ -2222,6 +2740,17 @@
         firstRaw = evaluateCode(expressionText, true, xMin, false);
         if (firstRaw && typeof firstRaw === 'object' && firstRaw.__mathbookPlotType === 'xy') {
           customPlotResult = firstRaw;
+          return {
+            seriesPoints: customPlotResult.seriesPoints || [],
+            minY: customPlotResult.minY,
+            maxY: customPlotResult.maxY,
+            xMin: customPlotResult.minX,
+            xMax: customPlotResult.maxX,
+            drawPoints: !!customPlotResult.drawPoints
+          };
+        }
+        if (!codeUsesPlotX(expressionText) && (isSignal(firstRaw) || isSpectrum(firstRaw) || isArray(firstRaw))) {
+          customPlotResult = plotDataFromValue(firstRaw);
           return {
             seriesPoints: customPlotResult.seriesPoints || [],
             minY: customPlotResult.minY,

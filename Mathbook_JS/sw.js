@@ -1,9 +1,10 @@
 'use strict';
 
-var CACHE_NAME = 'mathbook-js-v3';
+var CACHE_NAME = 'mathbook-js-v5';
 var APP_SHELL = [
   './',
   './Mathbook_JS.html',
+  './Manual.html',
   './manifest.webmanifest',
   './pwa-icon.svg'
 ];

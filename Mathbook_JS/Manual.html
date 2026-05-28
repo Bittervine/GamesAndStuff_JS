@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mathbook Manual</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #f4f8ff;
+      color: #132033;
+      font-family: "Trebuchet MS", Verdana, Arial, sans-serif;
+      line-height: 1.45;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 24px));
+      margin: 0 auto;
+      padding: 14px 0 28px;
+    }
+
+    header {
+      margin-bottom: 14px;
+      border-bottom: 1px solid #b7cce3;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 30px;
+    }
+
+    h2 {
+      margin: 24px 0 8px;
+      font-size: 21px;
+    }
+
+    h3 {
+      margin: 16px 0 6px;
+      font-size: 17px;
+    }
+
+    p {
+      margin: 0 0 10px;
+    }
+
+    a {
+      color: #194f8a;
+      font-weight: bold;
+    }
+
+    code {
+      padding: 1px 4px;
+      border: 1px solid #c8d9eb;
+      border-radius: 4px;
+      background: #ffffff;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.95em;
+    }
+
+    pre {
+      margin: 8px 0 12px;
+      padding: 10px;
+      overflow: auto;
+      border: 1px solid #c8d9eb;
+      border-radius: 8px;
+      background: #ffffff;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 16px;
+      background: #ffffff;
+    }
+
+    th,
+    td {
+      padding: 8px;
+      border: 1px solid #b7cce3;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #e8f1fb;
+      color: #243952;
+    }
+
+    ul {
+      margin: 8px 0 14px 22px;
+      padding: 0;
+    }
+
+    li {
+      margin-bottom: 5px;
+    }
+
+    .lead {
+      color: #32455f;
+      font-size: 15px;
+    }
+
+    .nav {
+      margin: 8px 0 14px;
+    }
+
+    .section-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      margin: 12px 0 4px;
+      font-size: 14px;
+    }
+
+    .note {
+      padding: 9px 10px;
+      border-left: 4px solid #5a8ec2;
+      background: #eaf3ff;
+    }
+
+    .searchPanel {
+      margin: 0 0 18px;
+      padding: 12px;
+      border: 1px solid #b7cce3;
+      border-radius: 10px;
+      background: #ffffff;
+    }
+
+    .searchRow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .searchLabel {
+      font-weight: bold;
+      color: #243952;
+    }
+
+    .searchInput {
+      flex: 1 1 280px;
+      min-width: 220px;
+      padding: 8px 10px;
+      border: 1px solid #a7c2dc;
+      border-radius: 8px;
+      background: #f7fbff;
+      color: #18273b;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 14px;
+    }
+
+    .searchBtn {
+      padding: 8px 12px;
+      border: 1px solid #7ea6cc;
+      border-radius: 8px;
+      background: #e8f1fb;
+      color: #1d3551;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .searchBtn:hover {
+      background: #dcecff;
+    }
+
+    .searchMeta {
+      margin: 8px 0 0;
+      color: #4c617a;
+      font-size: 14px;
+    }
+
+    .manualSection.isFilteredOut {
+      display: none;
+    }
+
+    mark.manualHit {
+      padding: 0 2px;
+      border-radius: 3px;
+      background: #ffe68a;
+      color: #2d2200;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Mathbook Manual</h1>
+      <p class="lead">Mathbook evaluates JavaScript expressions with extra calculator, binary, plotting, signal, and FFT helpers.</p>
+      <p class="nav"><a href="Mathbook_JS.html">Back to Mathbook</a></p>
+      <div class="section-links">
+        <a href="#basics">Basics</a>
+        <a href="#javascript">JavaScript</a>
+        <a href="#conversion">Conversion</a>
+        <a href="#bitwise">Bitwise</a>
+        <a href="#math">Math</a>
+        <a href="#arrays">Arrays</a>
+        <a href="#signals">Signals</a>
+        <a href="#fft">FFT</a>
+        <a href="#plotting">Plotting</a>
+        <a href="#history">History</a>
+      </div>
+    </header>
+
+    <div class="searchPanel">
+      <div class="searchRow">
+        <label class="searchLabel" for="manualSearch">Search manual</label>
+        <input class="searchInput" id="manualSearch" type="search" placeholder="Try: fft, signal, array, hex, plot, javascript">
+        <button class="searchBtn" id="manualClearBtn" type="button">Clear</button>
+      </div>
+      <p class="searchMeta" id="manualSearchMeta">Showing all sections.</p>
+    </div>
+
+    <section id="basics" class="manualSection">
+      <h2>Basics</h2>
+      <p>Type a JavaScript expression and press <code>Eval</code>. Use the <code>Plot</code> button to graph expressions over the X range shown in the controls.</p>
+      <pre>2 + 3 * 4
+sin(pi / 4)
+a = 12
+a * 10</pre>
+      <p class="note">Assignments like <code>a = 12</code> are saved for later inputs. Prefer direct assignments for reusable values; block-local JavaScript declarations such as <code>let</code> are not meant as notebook variables.</p>
+    </section>
+
+    <section id="javascript" class="manualSection">
+      <h2>Useful JavaScript In Mathbook</h2>
+      <p>Because Mathbook evaluates JavaScript, ordinary JavaScript operators, arrays, strings, objects, arrow functions, loops, and <code>Math</code> methods are available.</p>
+
+      <h3>Operators</h3>
+      <table>
+        <thead>
+          <tr><th>Pattern</th><th>Use</th><th>Examples</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>%</code>, <code>**</code></td><td>Arithmetic, remainder, and exponentiation.</td><td><code>2 ** 10</code> -> 1024<br><code>17 % 5</code> -> 2</td></tr>
+          <tr><td><code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code>, <code>===</code>, <code>!==</code></td><td>Comparisons. Prefer strict equality <code>===</code>.</td><td><code>3 * 3 === 9</code> -> true</td></tr>
+          <tr><td><code>&amp;&amp;</code>, <code>||</code>, <code>!</code></td><td>Boolean logic.</td><td><code>5 &gt; 3 &amp;&amp; 2 &lt; 4</code> -> true</td></tr>
+          <tr><td><code>condition ? yes : no</code></td><td>Inline conditional expression.</td><td><code>X &lt; 0 ? -1 : 1</code></td></tr>
+          <tr><td><code>&amp;</code>, <code>|</code>, <code>^</code>, <code>~</code>, <code>&lt;&lt;</code>, <code>&gt;&gt;</code>, <code>&gt;&gt;&gt;</code></td><td>Native JavaScript 32-bit bitwise operators. Mathbook also has named helpers such as <code>and()</code> and <code>xor()</code>.</td><td><code>hex((0xf0 &amp; 0xcc) &gt;&gt;&gt; 0)</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3>Variables, Functions, And Loops</h3>
+      <pre>a = 42
+b = hex(a)
+square = x =&gt; x * x
+square(12)
+
+sum = 0; for (i = 1; i &lt;= 10; i++) sum += i; sum
+
+fact = n =&gt; n &lt;= 1 ? 1 : n * fact(n - 1)
+fact(6)</pre>
+
+      <h3>Arrays</h3>
+      <table>
+        <thead>
+          <tr><th>Pattern</th><th>Use</th><th>Examples</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>[...]</code></td><td>Create an array.</td><td><code>[1, 2, 3]</code></td></tr>
+          <tr><td><code>array.length</code></td><td>Number of items.</td><td><code>[10,20,30].length</code> -> 3</td></tr>
+          <tr><td><code>array[index]</code></td><td>Read or write by zero-based index.</td><td><code>a = [9,8,7]; a[1]</code> -> 8</td></tr>
+          <tr><td><code>map(fn)</code></td><td>Transform every item.</td><td><code>range(0,5).map(x =&gt; x*x)</code></td></tr>
+          <tr><td><code>filter(fn)</code></td><td>Keep matching items.</td><td><code>range(0,10).filter(x =&gt; x % 2 === 0)</code></td></tr>
+          <tr><td><code>reduce(fn, seed)</code></td><td>Fold an array to one value.</td><td><code>range(1,6).reduce((a,b) =&gt; a+b, 0)</code> -> 15</td></tr>
+          <tr><td><code>slice(start, end)</code></td><td>Copy part of an array.</td><td><code>range(0,10).slice(2,5)</code></td></tr>
+          <tr><td><code>join(text)</code></td><td>Join values into a string.</td><td><code>[1,2,3].join(", ")</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3>Strings</h3>
+      <pre>"hello".toUpperCase()
+"A,B,C".split(",")
+"ABC".split("").map(ord)
+[72,101,108,108,111].map(asc).join("")</pre>
+
+      <h3>Objects And JSON</h3>
+      <pre>point = { x: 3, y: 4 }
+sqrt(point.x * point.x + point.y * point.y)
+JSON.stringify(point)
+JSON.parse('{"x":3,"y":4}').x</pre>
+
+      <h3>Useful <code>Math</code> Methods</h3>
+      <table>
+        <thead>
+          <tr><th>Method</th><th>Use</th><th>Examples</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>Math.floor(x)</code>, <code>Math.ceil(x)</code>, <code>Math.round(x)</code></td><td>Round numbers down, up, or to nearest integer.</td><td><code>Math.round(3.6)</code> -> 4</td></tr>
+          <tr><td><code>Math.min(...values)</code>, <code>Math.max(...values)</code></td><td>Minimum and maximum. Use spread syntax for arrays.</td><td><code>Math.max(...[4,8,2])</code> -> 8</td></tr>
+          <tr><td><code>Math.random()</code></td><td>Random number from 0 inclusive to 1 exclusive.</td><td><code>Math.floor(Math.random() * 6) + 1</code></td></tr>
+          <tr><td><code>Math.atan2(y, x)</code></td><td>Angle from X axis to point <code>(x,y)</code>.</td><td><code>Math.atan2(1, 1)</code></td></tr>
+          <tr><td><code>Math.PI</code>, <code>Math.E</code></td><td>Built-in constants. Mathbook also exposes <code>pi</code>.</td><td><code>Math.E ** 2</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="conversion" class="manualSection">
+      <h2>Conversion And Text</h2>
+      <table>
+        <thead>
+          <tr><th>Function</th><th>What it does</th><th>Examples</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>int(value, base)</code></td><td>Converts numbers, booleans, and strings to integers. Without <code>base</code>, prefixes <code>0x</code>, <code>0b</code>, and <code>0o</code> are detected. Base may be 2 through 36.</td><td><code>int("0xff")</code> -> 255<br><code>int("1010", 2)</code> -> 10<br><code>int(4.9)</code> -> 4</td></tr>
+          <tr><td><code>hex(value)</code></td><td>Formats an integer as uppercase hexadecimal with a <code>0x</code> prefix. Arrays are converted element by element.</td><td><code>hex(255)</code> -> <code>0xFF</code><br><code>hex([10,15])</code></td></tr>
+          <tr><td><code>bin(value)</code></td><td>Formats an integer as binary with a <code>0b</code> prefix. Arrays are converted element by element.</td><td><code>bin(10)</code> -> <code>0b1010</code></td></tr>
+          <tr><td><code>dec(value)</code></td><td>Converts a value to a decimal integer. Arrays are converted element by element.</td><td><code>dec("0b1111")</code> -> 15</td></tr>
+          <tr><td><code>oct(value)</code></td><td>Formats an integer as octal with a <code>0o</code> prefix. Arrays are converted element by element.</td><td><code>oct(64)</code> -> <code>0o100</code></td></tr>
+          <tr><td><code>asc(value)</code></td><td>Returns the character for the low 16 bits of an integer. Arrays are converted element by element.</td><td><code>asc(65)</code> -> <code>A</code><br><code>asc([72,73])</code></td></tr>
+          <tr><td><code>ord(value)</code></td><td>Returns the UTF-16 code unit of the first character in a non-empty string. Arrays are converted element by element.</td><td><code>ord("A")</code> -> 65</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="bitwise" class="manualSection">
+      <h2>Bitwise And Binary Utilities</h2>
+      <table>
+        <thead>
+          <tr><th>Function</th><th>What it does</th><th>Examples</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>bits(value)</code></td><td>Returns an array of set bit indexes for a 32-bit unsigned value. Bit 0 is the least significant bit.</td><td><code>bits(10)</code> -> <code>[1,3]</code></td></tr>
+          <tr><td><code>and(a, b, ...)</code></td><td>Bitwise AND across two or more values. You may also pass one array.</td><td><code>and(0xf0, 0xcc)</code> -> 192<br><code>and([7,3,1])</code> -> 1</td></tr>
+          <tr><td><code>or(a, b, ...)</code></td><td>Bitwise OR across two or more values. You may also pass one array.</td><td><code>or(0x80, 0x0f)</code> -> 143</td></tr>
+          <tr><td><code>xor(a, b, ...)</code></td><td>Bitwise XOR across two or more values. You may also pass one array.</td><td><code>xor(0xff, 0x0f)</code> -> 240</td></tr>
+          <tr><td><code>not(value)</code></td><td>Bitwise NOT as an unsigned 32-bit result.</td><td><code>hex(not(0))</code> -> <code>0xFFFFFFFF</code></td></tr>
+          <tr><td><code>crc32(bytes)</code></td><td>Computes CRC-32 for an array of byte values. Each byte is masked to 0..255.</td><td><code>hex(crc32([65,66,67]))</code></td></tr>
+          <tr><td><code>dword2float(value)</code></td><td>Interprets a 32-bit integer as an IEEE-754 single precision float.</td><td><code>dword2float(0x3f800000)</code> -> 1</td></tr>
+          <tr><td><code>float2dword(value)</code></td><td>Converts a JavaScript number to IEEE-754 single precision bits in a 32-bit integer.</td><td><code>hex(float2dword(1))</code> -> <code>0x3F800000</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="math" class="manualSection">
+      <h2>Math Functions And Constants</h2>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>What it does</th><th>Examples</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>sin(x)</code>, <code>cos(x)</code>, <code>tan(x)</code></td><td>Trigonometric functions in radians.</td><td><code>sin(pi / 2)</code> -> 1</td></tr>
+          <tr><td><code>sqrt(x)</code>, <code>abs(x)</code></td><td>Square root and absolute value.</td><td><code>sqrt(81)</code> -> 9<br><code>abs(-4)</code> -> 4</td></tr>
+          <tr><td><code>log(x)</code>, <code>log10(x)</code>, <code>exp(x)</code></td><td>Natural logarithm, base-10 logarithm, and e raised to a power.</td><td><code>log(exp(2))</code> -> 2<br><code>log10(1000)</code> -> 3</td></tr>
+          <tr><td><code>pi</code></td><td>The value of <code>Math.PI</code>.</td><td><code>2 * pi</code></td></tr>
+          <tr><td><code>C0</code></td><td>Speed of light in vacuum, in meters per second.</td><td><code>C0 / 1e6</code> -> 299.792458</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="arrays" class="manualSection">
+      <h2>Arrays And Element-Wise Operations</h2>
+      <p>Many signal helpers accept arrays. Element-wise math helpers accept arrays, signals, and scalars. When both inputs are arrays or signals, their lengths must match.</p>
+      <table>
+        <thead>
+          <tr><th>Function</th><th>What it does</th><th>Examples</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>range(start, stop, step)</code></td><td>Creates values from <code>start</code> up to but not including <code>stop</code>. <code>step</code> defaults to 1 and may be negative.</td><td><code>range(0, 5)</code> -> <code>[0,1,2,3,4]</code><br><code>range(5, 0, -2)</code></td></tr>
+          <tr><td><code>add(a, b)</code></td><td>Adds scalars, arrays, or signals element by element.</td><td><code>add([1,2], 10)</code> -> <code>[11,12]</code></td></tr>
+          <tr><td><code>sub(a, b)</code></td><td>Subtracts scalars, arrays, or signals element by element.</td><td><code>sub([5,6], [1,2])</code></td></tr>
+          <tr><td><code>mul(a, b)</code></td><td>Multiplies scalars, arrays, or signals element by element.</td><td><code>mul([1,2,3], 4)</code></td></tr>
+          <tr><td><code>div(a, b)</code></td><td>Divides scalars, arrays, or signals element by element.</td><td><code>div([10,20], 10)</code></td></tr>
+          <tr><td><code>pow(a, b)</code></td><td>Raises values to powers element by element.</td><td><code>pow([2,3,4], 2)</code></td></tr>
+          <tr><td><code>dot(a, b)</code></td><td>Returns the dot product of same-length arrays or signals.</td><td><code>dot([1,2,3], [4,5,6])</code> -> 32</td></tr>
+          <tr><td><code>mean(value)</code></td><td>Average of finite values in an array or signal. Non-finite values are ignored.</td><td><code>mean([1,2,3])</code> -> 2</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="signals" class="manualSection">
+      <h2>Signals And Windows</h2>
+      <p>A signal stores samples plus metadata: starting X value <code>x0</code>, sample spacing <code>dx</code>, and a label. Signals display as <code>signal(len=..., x0=..., dx=...)</code>.</p>
+      <table>
+        <thead>
+          <tr><th>Function</th><th>What it does</th><th>Examples</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>discrete(fn, start, stop, step)</code></td><td>Samples an arrow/function at points from <code>range(start, stop, step)</code> and returns a signal.</td><td><code>discrete(x =&gt; sin(x), 0, 2*pi, 0.1)</code></td></tr>
+          <tr><td><code>hanning(nOrSignal)</code></td><td>Creates a Hann window. If given a signal, signal metadata is preserved.</td><td><code>hanning(8)</code></td></tr>
+          <tr><td><code>hamming(nOrSignal)</code></td><td>Creates a Hamming window.</td><td><code>hamming(8)</code></td></tr>
+          <tr><td><code>blackman(nOrSignal)</code></td><td>Creates a Blackman window.</td><td><code>blackman(8)</code></td></tr>
+          <tr><td><code>rect(nOrSignal)</code></td><td>Creates a rectangular window of ones.</td><td><code>rect(8)</code></td></tr>
+          <tr><td><code>zero_pad(value, length)</code></td><td>Pads an array or signal with zeroes to <code>length</code>. Length must be at least the current length.</td><td><code>zero_pad([1,2,3], 8)</code></td></tr>
+          <tr><td><code>remove_dc(value)</code></td><td>Subtracts the mean from an array or signal.</td><td><code>remove_dc([9,10,11])</code></td></tr>
+        </tbody>
+      </table>
+      <pre>s = discrete(x =&gt; sin(2*pi*x), 0, 1, 0.01)
+w = hanning(s)
+windowed = mul(s, w)</pre>
+    </section>
+
+    <section id="signal-arrays" class="manualSection">
+      <h2>Converting Signals And Spectra To And From Arrays</h2>
+      <p>Signals and spectra are plain JavaScript objects with special marker fields. You can inspect or build them directly when you need exact control.</p>
+
+      <h3>Signal To Array</h3>
+      <pre>s = discrete(x =&gt; sin(x), 0, 1, 0.25)
+y = s.y
+x_values = range(0, s.y.length).map(i =&gt; s.x0 + i * s.dx)
+plain_copy = s.y.slice()</pre>
+      <ul>
+        <li><code>s.y</code> is the sample array.</li>
+        <li><code>s.x0</code> is the X value of the first sample.</li>
+        <li><code>s.dx</code> is the sample spacing.</li>
+        <li><code>s.label</code> is only a display label.</li>
+      </ul>
+
+      <h3>Array To Signal</h3>
+      <pre>arr = [1, 3, 2, 5]
+s1 = discrete((x, i) =&gt; arr[i], 0, arr.length, 1)
+s2 = ({ __mathbookType: "signal", y: arr, x0: 10, dx: 0.5, label: "manual signal" })
+plot(s2)</pre>
+      <p>Use <code>discrete()</code> for a quick signal from an array. Use the object form when you want custom <code>x0</code>, <code>dx</code>, or <code>label</code>. Wrap object literals in parentheses so JavaScript treats them as expressions.</p>
+
+      <h3>Spectrum To Arrays</h3>
+      <pre>sp = fft([1, 2, 3, 4])
+real_bins = sp.re
+imag_bins = sp.im
+frequency_bins = freqs(sp)
+magnitude = mag(sp).y
+phase_radians = phase(sp).y</pre>
+      <ul>
+        <li><code>sp.re</code> is the real component array.</li>
+        <li><code>sp.im</code> is the imaginary component array.</li>
+        <li><code>sp.dx</code> is the original sample spacing.</li>
+        <li><code>sp.df</code> is the frequency spacing.</li>
+      </ul>
+
+      <h3>Arrays To Spectrum</h3>
+      <pre>re = [1, 0, 0, 0]
+im = [0, 0, 0, 0]
+sp = ({ __mathbookType: "spectrum", re: re, im: im, dx: 1, df: 1 / re.length, label: "manual spectrum" })
+ifft(sp)</pre>
+      <p>The most common way to make a spectrum is still <code>fft(arrayOrSignal)</code>. Build a spectrum object manually only when you already have real and imaginary bins.</p>
+    </section>
+
+    <section id="fft" class="manualSection">
+      <h2>FFT And Spectra</h2>
+      <p><code>fft()</code> returns a spectrum with real and imaginary arrays plus frequency spacing. Power-of-two lengths use the fast path. Non-power-of-two lengths use a direct transform and are limited to 2048 samples.</p>
+      <table>
+        <thead>
+          <tr><th>Function</th><th>What it does</th><th>Examples</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>fft(value)</code></td><td>Transforms an array or signal into a spectrum.</td><td><code>fft([1,0,0,0])</code></td></tr>
+          <tr><td><code>ifft(spectrum)</code></td><td>Inverse FFT. Expects a spectrum from <code>fft()</code> and returns a signal.</td><td><code>ifft(fft([1,2,3,4]))</code></td></tr>
+          <tr><td><code>mag(value)</code></td><td>Magnitude of a spectrum. For arrays/signals, returns absolute values.</td><td><code>mag(fft([1,0,0,0]))</code></td></tr>
+          <tr><td><code>phase(value)</code></td><td>Phase angle of a spectrum in radians. For arrays/signals, returns 0 for non-negative values and <code>pi</code> for negative values.</td><td><code>phase(fft([1,0,0,0]))</code></td></tr>
+          <tr><td><code>real(value)</code></td><td>Real part of a spectrum. For arrays/signals, returns the numeric values.</td><td><code>real(fft([1,2,3,4]))</code></td></tr>
+          <tr><td><code>imag(value)</code></td><td>Imaginary part of a spectrum. For arrays/signals, returns zeroes.</td><td><code>imag(fft([1,2,3,4]))</code></td></tr>
+          <tr><td><code>freqs(spectrum)</code></td><td>Returns frequency bin values for a spectrum.</td><td><code>freqs(fft(discrete(x =&gt; sin(x), 0, 10, 0.1)))</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="plotting" class="manualSection">
+      <h2>Plotting</h2>
+      <p>The <code>Plot</code> button evaluates an expression over the current X range. Use <code>X</code> or <code>x</code> as the plotted variable.</p>
+      <pre>sin(X)
+sin(X) / X
+exp(-X*X)</pre>
+      <p><code>plot()</code> lets an expression provide its own plot data instead of using the X range sampler.</p>
+      <table>
+        <thead>
+          <tr><th>Form</th><th>What it does</th><th>Examples</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>plot(value)</code></td><td>Plots an array, signal, or spectrum. Arrays use indexes as X. Signals use <code>x0</code> and <code>dx</code>. Spectra plot magnitude.</td><td><code>plot([3,1,4,1,5])</code><br><code>plot(mag(fft(s)))</code></td></tr>
+          <tr><td><code>plot(xArray, yArray)</code></td><td>Plots explicit X and Y arrays/signals. Lengths must match.</td><td><code>plot(range(0,5), [0,1,4,9,16])</code></td></tr>
+        </tbody>
+      </table>
+      <p>After plotting, <code>PLOT</code> contains the latest sampled plot points.</p>
+    </section>
+
+    <section id="history" class="manualSection">
+      <h2>History And Special Values</h2>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Meaning</th><th>Examples</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>_</code></td><td>Most recent result.</td><td><code>_ * 2</code></td></tr>
+          <tr><td><code>__</code></td><td>Second most recent result.</td><td><code>_ - __</code></td></tr>
+          <tr><td><code>___</code></td><td>Third most recent result.</td><td><code>___</code></td></tr>
+          <tr><td><code>IN</code></td><td>Array of executed input strings.</td><td><code>IN[IN.length - 1]</code></td></tr>
+          <tr><td><code>OUT</code></td><td>Array of output values.</td><td><code>OUT[OUT.length - 1]</code></td></tr>
+          <tr><td><code>PLOT</code></td><td>Latest plot point data collected by the plotting engine.</td><td><code>PLOT.length</code></td></tr>
+          <tr><td><code>X</code>, <code>x</code></td><td>The current X value during plot evaluation. Available when plotting.</td><td><code>sin(X)</code></td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+  <script>
+    (function () {
+      var searchInput = document.getElementById('manualSearch');
+      var clearBtn = document.getElementById('manualClearBtn');
+      var meta = document.getElementById('manualSearchMeta');
+      var sections = Array.prototype.slice.call(document.querySelectorAll('.manualSection'));
+      var originalHtml = new Map();
+
+      function escapeRegExp(text) {
+        return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      }
+
+      function restoreSection(section) {
+        if (originalHtml.has(section)) {
+          section.innerHTML = originalHtml.get(section);
+        }
+      }
+
+      function highlightSection(section, terms) {
+        var html;
+        var pattern;
+        restoreSection(section);
+        if (!terms.length) return;
+        html = originalHtml.get(section);
+        pattern = new RegExp('(' + terms.map(escapeRegExp).join('|') + ')', 'gi');
+        section.innerHTML = html.replace(pattern, '<mark class="manualHit">$1</mark>');
+      }
+
+      function updateManualFilter() {
+        var query = searchInput.value.trim().toLowerCase();
+        var terms = query ? query.split(/\s+/).filter(Boolean) : [];
+        var visibleCount = 0;
+        var i;
+        var haystack;
+        var isMatch;
+
+        for (i = 0; i < sections.length; i++) {
+          haystack = sections[i].textContent.toLowerCase();
+          isMatch = !terms.length || terms.every(function (term) { return haystack.indexOf(term) !== -1; });
+          sections[i].classList.toggle('isFilteredOut', !isMatch);
+          if (isMatch) {
+            visibleCount += 1;
+            highlightSection(sections[i], terms);
+          } else {
+            restoreSection(sections[i]);
+          }
+        }
+
+        if (!terms.length) {
+          meta.textContent = 'Showing all sections.';
+        } else if (visibleCount === 1) {
+          meta.textContent = 'Showing 1 matching section for "' + query + '".';
+        } else {
+          meta.textContent = 'Showing ' + visibleCount + ' matching sections for "' + query + '".';
+        }
+      }
+
+      for (var i = 0; i < sections.length; i++) {
+        originalHtml.set(sections[i], sections[i].innerHTML);
+      }
+
+      searchInput.addEventListener('input', updateManualFilter);
+      clearBtn.addEventListener('click', function () {
+        searchInput.value = '';
+        updateManualFilter();
+        searchInput.focus();
+      });
+
+      updateManualFilter();
+    })();
+  </script>
+</body>
+</html>
