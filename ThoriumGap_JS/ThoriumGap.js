@@ -53,7 +53,6 @@
 
   const view = { w: 0, h: 0, dpr: 1, controlsH: 118 };
   let currentDt = 0;
-  const MAX_NORMAL_DPR = 1.5;
   const MIN_NORMAL_WINDOW_WIDTH = 600;
   const MIN_NORMAL_WINDOW_ITEM_SCALE_REALAXTION = 0.5;
   const URL_PARAMS = new URLSearchParams(window.location.search || '');
@@ -2064,7 +2063,6 @@
           alpha: true,
           antialias: false,
           premultipliedAlpha: false,
-          preserveDrawingBuffer: true,
           powerPreference: 'high-performance'
         });
         planetRenderer3D.autoClear = true;
@@ -3676,9 +3674,7 @@
   function resize() {
     const w = Math.max(320, window.innerWidth);
     const h = Math.max(360, window.innerHeight);
-    const nativeDpr = Math.max(1, window.devicePixelRatio || 1);
-    const cappedDpr = Math.min(MAX_NORMAL_DPR, nativeDpr);
-    const dpr = isLowGraphicalEffects() ? 1 : cappedDpr;
+    const dpr = 1;
     view.w = w;
     view.h = h;
     view.dpr = dpr;
