@@ -131,6 +131,7 @@
     }
 
     #composer {
+      position: relative;
       padding: 10px;
       border: 2px solid #7ea6cc;
       border-radius: 12px;
@@ -167,6 +168,81 @@
       font-family: "Courier New", Courier, monospace;
       font-size: 15px;
       line-height: 1.34;
+    }
+
+    #editorSuggest {
+      display: none;
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      z-index: 30;
+      width: 320px;
+      max-width: calc(100% - 20px);
+      border: 1px solid #8db2d5;
+      border-radius: 8px;
+      background: #ffffff;
+      box-shadow: 0 6px 18px rgba(29, 63, 99, 0.16);
+      overflow: hidden;
+    }
+
+    #editorSuggest.open {
+      display: block;
+    }
+
+    .suggestMeta {
+      padding: 6px 9px;
+      border-bottom: 1px solid #d6e4f1;
+      background: #f3f8fe;
+      color: #4b627d;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .suggestList {
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .suggestItem {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      width: 100%;
+      margin: 0;
+      padding: 7px 10px;
+      border: 0;
+      border-top: 1px solid #edf4fb;
+      background: #ffffff;
+      color: #17314b;
+      text-align: left;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .suggestItem:first-child {
+      border-top: 0;
+    }
+
+    .suggestItem.active,
+    .suggestItem:hover {
+      background: #e8f3ff;
+    }
+
+    .suggestName {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .suggestKind {
+      color: #637c97;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: right;
+      max-width: 62%;
     }
 
     #controlRow {
@@ -282,11 +358,11 @@
       z-index: 30;
       display: none;
       min-width: 112px;
-      padding: 4px;
-      border: 1px solid #8fa5bb;
-      border-radius: 10px;
-      background: #f5faff;
-      box-shadow: 0 8px 18px rgba(20, 40, 70, 0.22);
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
     }
 
     #menuGroup.menuOpen #menuDropdown {
@@ -294,6 +370,8 @@
     }
 
     #menuDropdown .menuItem {
+      -webkit-appearance: none;
+      appearance: none;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -303,10 +381,24 @@
       height: 24px;
       line-height: 1;
       text-align: left;
+      color: inherit;
+      text-decoration: none;
+      outline: none !important;
+      box-shadow: inset 0 1px 0 #eff8ff, 0 2px 0 #7da6c9;
     }
 
     #menuDropdown .menuItem:last-child {
       margin-bottom: 0;
+    }
+
+    #menuDropdown .menuItem:focus {
+      outline: none !important;
+      box-shadow: inset 0 1px 0 #eff8ff, 0 2px 0 #7da6c9 !important;
+    }
+
+    #menuDropdown .menuItem:focus-visible {
+      outline: none !important;
+      box-shadow: inset 0 1px 0 #eff8ff, 0 2px 0 #7da6c9 !important;
     }
 
     #keysGroup {
@@ -631,12 +723,17 @@
     <div id="composer">
       <label id="inputLabel" for="editor">Input (JavaScript / expression)</label>
       <textarea id="editor" rows="1" spellcheck="false">sin(X)</textarea>
+      <div id="editorSuggest" aria-hidden="true">
+        <div class="suggestMeta" id="editorSuggestMeta">Suggestions</div>
+        <div class="suggestList" id="editorSuggestList"></div>
+      </div>
 
       <div id="controlRow">
         <div class="group" id="intModeGroup">          
           <div id="menuGroup">
             <button id="menuBtn" type="button" aria-haspopup="true" aria-expanded="false" title="Menu" aria-label="Menu">≡</button>
             <div id="menuDropdown" role="menu" aria-label="Mathbook menu">
+              <button id="manualBtn" class="exportBtn menuItem" type="button">Open Manual</button>
               <button id="resetBtn" class="exportBtn menuItem" type="button">Reset</button>
               <button id="copyBtn" class="exportBtn menuItem" type="button">Copy</button>
               <button id="saveBtn" class="exportBtn menuItem" type="button">Save</button>
@@ -722,6 +819,7 @@
       var editorEl = document.getElementById('editor');
       var runBtn = document.getElementById('runBtn');
       var plotBtn = document.getElementById('plotBtn');
+      var manualBtn = document.getElementById('manualBtn');
       var resetBtn = document.getElementById('resetBtn');
       var copyBtn = document.getElementById('copyBtn');
       var saveBtn = document.getElementById('saveBtn');
@@ -741,6 +839,9 @@
       var xLowEl = document.getElementById('xLow');
       var xHighEl = document.getElementById('xHigh');
       var composerEl = document.getElementById('composer');
+      var editorSuggestEl = document.getElementById('editorSuggest');
+      var editorSuggestMetaEl = document.getElementById('editorSuggestMeta');
+      var editorSuggestListEl = document.getElementById('editorSuggestList');
       var execCount = 0;
       var scope = {};
       var inputHistory = [];
@@ -758,6 +859,103 @@
       var lastValue3;
       var STORAGE_KEY = 'MathbookJS_Notebook_State_v1';
       var isRestoringState = false;
+      var autocompleteState = {
+        open: false,
+        items: [],
+        activeIndex: 0,
+        replaceStart: 0,
+        replaceEnd: 0,
+        prefix: '',
+        namespace: ''
+      };
+      var builtinAutocompleteEntries = [
+        { name: 'hex(', kind: 'value -> hex string', insertText: 'hex(' },
+        { name: 'bin(', kind: 'value -> bin string', insertText: 'bin(' },
+        { name: 'dec(', kind: 'value -> integer', insertText: 'dec(' },
+        { name: 'oct(', kind: 'value -> oct string', insertText: 'oct(' },
+        { name: 'asc(', kind: 'code -> char', insertText: 'asc(' },
+        { name: 'ord(', kind: 'text -> code', insertText: 'ord(' },
+        { name: 'int(', kind: 'value[, base]', insertText: 'int(' },
+        { name: 'bits(', kind: 'value -> set bits', insertText: 'bits(' },
+        { name: 'and(', kind: 'a, b, ...', insertText: 'and(' },
+        { name: 'or(', kind: 'a, b, ...', insertText: 'or(' },
+        { name: 'xor(', kind: 'a, b, ...', insertText: 'xor(' },
+        { name: 'not(', kind: 'value -> uint32', insertText: 'not(' },
+        { name: 'crc32(', kind: 'byteArray', insertText: 'crc32(' },
+        { name: 'dword2float(', kind: 'uint32 -> float', insertText: 'dword2float(' },
+        { name: 'float2dword(', kind: 'float -> uint32', insertText: 'float2dword(' },
+        { name: 'log(', kind: 'x -> ln(x)', insertText: 'log(' },
+        { name: 'log10(', kind: 'x -> log10(x)', insertText: 'log10(' },
+        { name: 'exp(', kind: 'x -> e^x', insertText: 'exp(' },
+        { name: 'abs(', kind: 'x -> |x|', insertText: 'abs(' },
+        { name: 'sin(', kind: 'x radians', insertText: 'sin(' },
+        { name: 'cos(', kind: 'x radians', insertText: 'cos(' },
+        { name: 'tan(', kind: 'x radians', insertText: 'tan(' },
+        { name: 'sqrt(', kind: 'x -> sqrt(x)', insertText: 'sqrt(' },
+        { name: 'plot(', kind: 'value or x,y', insertText: 'plot(' },
+        { name: 'range(', kind: 'start, stop[, step]', insertText: 'range(' },
+        { name: 'linspace(', kind: 'start, stop, count', insertText: 'linspace(' },
+        { name: 'zeros(', kind: 'length', insertText: 'zeros(' },
+        { name: 'discrete(', kind: 'fn, start, stop, step', insertText: 'discrete(' },
+        { name: 'fft(', kind: 'array|signal', insertText: 'fft(' },
+        { name: 'ifft(', kind: 'spectrum', insertText: 'ifft(' },
+        { name: 'fftshift(', kind: 'array|signal|spectrum', insertText: 'fftshift(' },
+        { name: 'mag(', kind: 'spectrum|signal', insertText: 'mag(' },
+        { name: 'phase(', kind: 'spectrum|signal', insertText: 'phase(' },
+        { name: 'real(', kind: 'spectrum|signal', insertText: 'real(' },
+        { name: 'imag(', kind: 'spectrum|signal', insertText: 'imag(' },
+        { name: 'freqs(', kind: 'spectrum bins', insertText: 'freqs(' },
+        { name: 'hanning(', kind: 'n or signal', insertText: 'hanning(' },
+        { name: 'hamming(', kind: 'n or signal', insertText: 'hamming(' },
+        { name: 'blackman(', kind: 'n or signal', insertText: 'blackman(' },
+        { name: 'rect(', kind: 'n or signal', insertText: 'rect(' },
+        { name: 'mul(', kind: 'a, b elementwise', insertText: 'mul(' },
+        { name: 'add(', kind: 'a, b elementwise', insertText: 'add(' },
+        { name: 'sub(', kind: 'a, b elementwise', insertText: 'sub(' },
+        { name: 'div(', kind: 'a, b elementwise', insertText: 'div(' },
+        { name: 'pow(', kind: 'a, b elementwise', insertText: 'pow(' },
+        { name: 'dot(', kind: 'a, b dot product', insertText: 'dot(' },
+        { name: 'zero_pad(', kind: 'value, length', insertText: 'zero_pad(' },
+        { name: 'mean(', kind: 'array|signal avg', insertText: 'mean(' },
+        { name: 'polyfit(', kind: 'x, y, degree', insertText: 'polyfit(' },
+        { name: 'polyval(', kind: 'coeffs, x', insertText: 'polyval(' },
+        { name: 'detrend(', kind: 'value[, order]', insertText: 'detrend(' },
+        { name: 'remove_dc(', kind: 'subtract mean', insertText: 'remove_dc(' },
+        { name: 'pi', kind: 'constant pi' },
+        { name: 'C0', kind: 'speed of light' },
+        { name: 'X', kind: 'plot variable' },
+        { name: 'x', kind: 'plot variable' },
+        { name: 'IN', kind: 'input history' },
+        { name: 'OUT', kind: 'output history' },
+        { name: 'PLOT', kind: 'latest plot points' },
+        { name: '_', kind: 'last result' },
+        { name: '__', kind: '2nd last result' },
+        { name: '___', kind: '3rd last result' },
+        { name: 'Math.', kind: 'built-in math namespace' },
+        { name: 'JSON.', kind: 'json helpers' },
+        { name: 'Array.', kind: 'array constructor' },
+        { name: 'Object.', kind: 'object helpers' }
+      ];
+      var jsAutocompleteEntries = [
+        { name: 'true', kind: 'boolean literal' },
+        { name: 'false', kind: 'boolean literal' },
+        { name: 'null', kind: 'null literal' },
+        { name: 'undefined', kind: 'undefined value' },
+        { name: 'return ', kind: 'return expression', insertText: 'return ' },
+        { name: 'if ()', kind: 'conditional block', insertText: 'if ()' },
+        { name: 'else', kind: 'alternate branch' },
+        { name: 'for ()', kind: 'loop block', insertText: 'for ()' },
+        { name: 'while ()', kind: 'loop block', insertText: 'while ()' },
+        { name: 'const ', kind: 'constant binding', insertText: 'const ' },
+        { name: 'let ', kind: 'block variable', insertText: 'let ' },
+        { name: 'var ', kind: 'function variable', insertText: 'var ' }
+      ];
+      var namespaceAutocompleteMap = {
+        Math: [],
+        JSON: [],
+        Array: [],
+        Object: []
+      };
 
       function trimText(value) {
         return String(value).replace(/^\s+|\s+$/g, '');
@@ -815,6 +1013,9 @@
         minHeight = lineHeight + 20;
         editorEl.style.height = 'auto';
         editorEl.style.height = Math.max(editorEl.scrollHeight, minHeight) + 'px';
+        if (autocompleteState.open) {
+          positionAutocompletePopup();
+        }
       }
 
       function insertAtCursor(text, noFocus) {
@@ -862,6 +1063,187 @@
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;');
+      }
+
+      function closeAutocomplete() {
+        autocompleteState.open = false;
+        autocompleteState.items = [];
+        autocompleteState.activeIndex = 0;
+        autocompleteState.replaceStart = 0;
+        autocompleteState.replaceEnd = 0;
+        autocompleteState.prefix = '';
+        autocompleteState.namespace = '';
+        editorSuggestListEl.innerHTML = '';
+        editorSuggestMetaEl.textContent = 'Suggestions';
+        removeClass(editorSuggestEl, 'open');
+        editorSuggestEl.setAttribute('aria-hidden', 'true');
+      }
+
+      function renderAutocomplete() {
+        var html = '';
+        var i;
+        var item;
+        var activeEl;
+        if (!autocompleteState.items.length) {
+          closeAutocomplete();
+          return;
+        }
+        for (i = 0; i < autocompleteState.items.length; i++) {
+          item = autocompleteState.items[i];
+          html += '<button class="suggestItem' + (i === autocompleteState.activeIndex ? ' active' : '') + '" type="button" data-index="' + i + '">';
+          html += '<span class="suggestName">' + escapeHtml(item.name) + '</span>';
+          html += '<span class="suggestKind">' + escapeHtml(item.kind || '') + '</span>';
+          html += '</button>';
+        }
+        editorSuggestListEl.innerHTML = html;
+        editorSuggestMetaEl.textContent = autocompleteState.namespace ? (autocompleteState.namespace + ' suggestions') : 'Suggestions';
+        positionAutocompletePopup();
+        addClass(editorSuggestEl, 'open');
+        editorSuggestEl.setAttribute('aria-hidden', 'false');
+        autocompleteState.open = true;
+        activeEl = editorSuggestListEl.querySelector('.suggestItem.active');
+        if (activeEl && activeEl.scrollIntoView) {
+          activeEl.scrollIntoView({ block: 'nearest' });
+        }
+      }
+
+      function replaceEditorRange(start, end, text) {
+        var value = editorEl.value;
+        editorEl.value = value.substring(0, start) + text + value.substring(end);
+        if (editorEl.setSelectionRange) {
+          editorEl.setSelectionRange(start + text.length, start + text.length);
+        }
+        autoSizeEditor();
+        saveSessionState();
+      }
+
+      function applyAutocompleteSelection(index) {
+        var item;
+        if (!autocompleteState.open || index < 0 || index >= autocompleteState.items.length) return false;
+        item = autocompleteState.items[index];
+        replaceEditorRange(autocompleteState.replaceStart, autocompleteState.replaceEnd, item.insertText || item.name);
+        closeAutocomplete();
+        editorEl.focus();
+        return true;
+      }
+
+      function moveAutocompleteSelection(step) {
+        var len = autocompleteState.items.length;
+        if (!autocompleteState.open || !len) return false;
+        autocompleteState.activeIndex = (autocompleteState.activeIndex + step + len) % len;
+        renderAutocomplete();
+        return true;
+      }
+
+      function positionAutocompletePopup() {
+        var top;
+        var left;
+        var width;
+        if (!editorEl || !editorSuggestEl || !composerEl) return;
+        top = editorEl.offsetTop + editorEl.offsetHeight - 2;
+        left = editorEl.offsetLeft;
+        width = Math.max(220, editorEl.offsetWidth);
+        editorSuggestEl.style.top = top + 'px';
+        editorSuggestEl.style.left = left + 'px';
+        editorSuggestEl.style.width = width + 'px';
+      }
+
+      function buildNamespaceEntries(objName) {
+        var names;
+        var i;
+        var key;
+        var obj = window[objName];
+        var out = [];
+        if (!obj) return out;
+        names = Object.getOwnPropertyNames(obj).sort();
+        for (i = 0; i < names.length; i++) {
+          key = names[i];
+          if (key === 'length' || key === 'name' || key === 'prototype') continue;
+          out.push({
+            name: key + (typeof obj[key] === 'function' ? '(' : ''),
+            insertText: key + (typeof obj[key] === 'function' ? '(' : ''),
+            kind: objName + (typeof obj[key] === 'function' ? ' function' : ' property')
+          });
+        }
+        return out;
+      }
+
+      function getAutocompleteContext() {
+        var value = editorEl.value;
+        var pos = (typeof editorEl.selectionStart === 'number') ? editorEl.selectionStart : value.length;
+        var left = value.substring(0, pos);
+        var namespaceMatch = left.match(/([A-Za-z_$][A-Za-z0-9_$]*)\.([A-Za-z0-9_$]*)$/);
+        var plainMatch = left.match(/([A-Za-z_$][A-Za-z0-9_$]*)$/);
+        if (namespaceMatch) {
+          return {
+            kind: 'namespace',
+            namespace: namespaceMatch[1],
+            prefix: namespaceMatch[2] || '',
+            start: pos - namespaceMatch[2].length,
+            end: pos
+          };
+        }
+        if (plainMatch) {
+          return {
+            kind: 'plain',
+            prefix: plainMatch[1],
+            start: pos - plainMatch[1].length,
+            end: pos
+          };
+        }
+        return null;
+      }
+
+      function updateAutocomplete() {
+        var ctx = getAutocompleteContext();
+        var source;
+        var prefix;
+        var matches = [];
+        var i;
+        var item;
+        if (!ctx) {
+          closeAutocomplete();
+          return;
+        }
+        if (ctx.kind === 'namespace') {
+          if (!namespaceAutocompleteMap.hasOwnProperty(ctx.namespace)) {
+            closeAutocomplete();
+            return;
+          }
+          source = namespaceAutocompleteMap[ctx.namespace];
+          prefix = ctx.prefix.toLowerCase();
+          for (i = 0; i < source.length; i++) {
+            item = source[i];
+            if (!prefix || item.name.toLowerCase().indexOf(prefix) === 0) {
+              matches.push(item);
+            }
+          }
+          autocompleteState.namespace = ctx.namespace;
+        } else {
+          source = builtinAutocompleteEntries.concat(jsAutocompleteEntries);
+          prefix = ctx.prefix.toLowerCase();
+          if (prefix.length < 1) {
+            closeAutocomplete();
+            return;
+          }
+          for (i = 0; i < source.length; i++) {
+            item = source[i];
+            if (item.name.toLowerCase().indexOf(prefix) === 0) {
+              matches.push(item);
+            }
+          }
+          autocompleteState.namespace = '';
+        }
+        if (!matches.length) {
+          closeAutocomplete();
+          return;
+        }
+        autocompleteState.items = matches.slice(0, 18);
+        autocompleteState.activeIndex = 0;
+        autocompleteState.replaceStart = ctx.start;
+        autocompleteState.replaceEnd = ctx.end;
+        autocompleteState.prefix = ctx.prefix;
+        renderAutocomplete();
       }
 
       function hasClass(el, name) {
@@ -1730,27 +2112,73 @@
         return !!(value && typeof value === 'object' && value.__mathbookType === 'spectrum' && isArray(value.re) && isArray(value.im));
       }
 
+      function attachSignalMethods(signal) {
+        if (!signal || typeof signal !== 'object') return signal;
+        signal.map = function (fn) {
+          var out = [];
+          var i;
+          var nextValue;
+          if (typeof fn !== 'function') {
+            throw new Error('signal.map(fn) expects a function');
+          }
+          for (i = 0; i < this.y.length; i++) {
+            nextValue = Number(fn(this.y[i], i, this));
+            out[i] = isFinite(nextValue) ? nextValue : NaN;
+          }
+          return makeSignal(out, this.x0, this.dx, this.label || 'map');
+        };
+        return signal;
+      }
+
+      function attachSpectrumMethods(spectrum) {
+        if (!spectrum || typeof spectrum !== 'object') return spectrum;
+        spectrum.map = function (fn) {
+          var outRe = [];
+          var outIm = [];
+          var i;
+          var nextValue;
+          if (typeof fn !== 'function') {
+            throw new Error('spectrum.map(fn) expects a function');
+          }
+          for (i = 0; i < this.re.length; i++) {
+            nextValue = fn(this.re[i], this.im[i], i, this);
+            if (isArray(nextValue)) {
+              outRe[i] = Number(nextValue[0]) || 0;
+              outIm[i] = Number(nextValue[1]) || 0;
+            } else if (nextValue && typeof nextValue === 'object') {
+              outRe[i] = Number(nextValue.re) || 0;
+              outIm[i] = Number(nextValue.im) || 0;
+            } else {
+              outRe[i] = Number(nextValue) || 0;
+              outIm[i] = this.im[i];
+            }
+          }
+          return makeSpectrum(outRe, outIm, this.dx, this.label || 'map');
+        };
+        return spectrum;
+      }
+
       function makeSignal(y, x0, dx, label) {
-        return {
+        return attachSignalMethods({
           __mathbookType: 'signal',
           y: y,
           x0: isFinite(Number(x0)) ? Number(x0) : 0,
           dx: isFinite(Number(dx)) && Number(dx) !== 0 ? Number(dx) : 1,
           label: label || ''
-        };
+        });
       }
 
       function makeSpectrum(re, im, dx, label) {
         var n = re.length;
         var sampleStep = isFinite(Number(dx)) && Number(dx) !== 0 ? Number(dx) : 1;
-        return {
+        return attachSpectrumMethods({
           __mathbookType: 'spectrum',
           re: re,
           im: im,
           dx: sampleStep,
           df: n > 0 ? 1 / (n * sampleStep) : 1,
           label: label || ''
-        };
+        });
       }
 
       function range(start, stop, step) {
@@ -1778,6 +2206,38 @@
             if (count > 100000) throw new Error('range() produced too many values');
             x = a + count * d;
           }
+        }
+        return out;
+      }
+
+      function linspace(start, stop, count) {
+        var out = [];
+        var a = Number(start);
+        var b = Number(stop);
+        var n = Math.floor(Number(count));
+        var i;
+        if (!isFinite(a) || !isFinite(b) || !isFinite(n) || n < 1) {
+          throw new Error('linspace(start, stop, count) needs finite values and count >= 1');
+        }
+        if (n === 1) {
+          out[0] = a;
+          return out;
+        }
+        for (i = 0; i < n; i++) {
+          out[i] = a + (b - a) * i / (n - 1);
+        }
+        return out;
+      }
+
+      function zeros(length) {
+        var n = Math.floor(Number(length));
+        var out = [];
+        var i;
+        if (!isFinite(n) || n < 0) {
+          throw new Error('zeros(length) needs a finite length >= 0');
+        }
+        for (i = 0; i < n; i++) {
+          out[i] = 0;
         }
         return out;
       }
@@ -2043,6 +2503,37 @@
         return makeSignal(result.re, 0, sampleStepOf(value), 'ifft');
       }
 
+      function fftshift(value) {
+        var half;
+        var y;
+        var re;
+        var im;
+        function shiftArray(arr) {
+          var n = arr.length;
+          var out = [];
+          var i;
+          if (!n) return out;
+          half = Math.floor(n / 2);
+          for (i = 0; i < n; i++) {
+            out[i] = arr[(i + half) % n];
+          }
+          return out;
+        }
+        if (isSpectrum(value)) {
+          re = shiftArray(numericArrayFrom(value.re, 'fftshift spectrum real'));
+          im = shiftArray(numericArrayFrom(value.im, 'fftshift spectrum imag'));
+          return makeSpectrum(re, im, sampleStepOf(value), value.label || 'fftshift');
+        }
+        if (isSignal(value)) {
+          y = shiftArray(numericArrayFrom(value, 'fftshift signal'));
+          return makeSignal(y, signalX0Of(value), sampleStepOf(value), value.label || 'fftshift');
+        }
+        if (isArray(value)) {
+          return shiftArray(numericArrayFrom(value, 'fftshift array'));
+        }
+        throw new Error('fftshift(value) expects an array, signal, or spectrum');
+      }
+
       function freqs(value) {
         var n;
         var df;
@@ -2119,6 +2610,166 @@
           }
         }
         return count ? sum / count : NaN;
+      }
+
+      function solveLinearSystem(matrix, rhs) {
+        var n = matrix.length;
+        var a = [];
+        var b = rhs.slice();
+        var i;
+        var j;
+        var k;
+        var pivotRow;
+        var pivotValue;
+        var factor;
+        var sum;
+        for (i = 0; i < n; i++) {
+          a[i] = matrix[i].slice();
+        }
+        for (i = 0; i < n; i++) {
+          pivotRow = i;
+          pivotValue = Math.abs(a[i][i]);
+          for (j = i + 1; j < n; j++) {
+            if (Math.abs(a[j][i]) > pivotValue) {
+              pivotValue = Math.abs(a[j][i]);
+              pivotRow = j;
+            }
+          }
+          if (pivotValue < 1e-12) {
+            throw new Error('polyfit() singular system');
+          }
+          if (pivotRow !== i) {
+            sum = a[i];
+            a[i] = a[pivotRow];
+            a[pivotRow] = sum;
+            sum = b[i];
+            b[i] = b[pivotRow];
+            b[pivotRow] = sum;
+          }
+          for (j = i + 1; j < n; j++) {
+            factor = a[j][i] / a[i][i];
+            for (k = i; k < n; k++) {
+              a[j][k] -= factor * a[i][k];
+            }
+            b[j] -= factor * b[i];
+          }
+        }
+        for (i = n - 1; i >= 0; i--) {
+          sum = b[i];
+          for (j = i + 1; j < n; j++) {
+            sum -= a[i][j] * rhs[j];
+          }
+          rhs[i] = sum / a[i][i];
+        }
+        return rhs;
+      }
+
+      function polyfit(xValue, yValue, degree) {
+        var x = numericArrayFrom(xValue, 'polyfit x');
+        var y = numericArrayFrom(yValue, 'polyfit y');
+        var n = Math.floor(Number(degree));
+        var order;
+        var i;
+        var j;
+        var k;
+        var powers = [];
+        var ata = [];
+        var aty = [];
+        var coeffs;
+        if (!isFinite(n) || n < 0) {
+          throw new Error('polyfit(x, y, degree) degree must be >= 0');
+        }
+        if (x.length !== y.length || x.length < 1) {
+          throw new Error('polyfit(x, y, degree) needs same-length non-empty x and y');
+        }
+        if (x.length < n + 1) {
+          throw new Error('polyfit() needs at least degree + 1 points');
+        }
+        order = n + 1;
+        for (i = 0; i < x.length; i++) {
+          powers[i] = [];
+          powers[i][0] = 1;
+          for (j = 1; j < order * 2; j++) {
+            powers[i][j] = powers[i][j - 1] * x[i];
+          }
+        }
+        for (i = 0; i < order; i++) {
+          ata[i] = [];
+          aty[i] = 0;
+          for (j = 0; j < order; j++) {
+            ata[i][j] = 0;
+          }
+        }
+        for (k = 0; k < x.length; k++) {
+          for (i = 0; i < order; i++) {
+            aty[i] += y[k] * powers[k][i];
+            for (j = 0; j < order; j++) {
+              ata[i][j] += powers[k][i + j];
+            }
+          }
+        }
+        coeffs = solveLinearSystem(ata, aty.slice());
+        coeffs.reverse();
+        return coeffs;
+      }
+
+      function polyval(coeffsValue, xValue) {
+        var coeffs;
+        var out = [];
+        var x;
+        var i;
+        var j;
+        var acc;
+        if (!isArray(coeffsValue)) {
+          throw new Error('polyval(coeffs, x) expects coeffs as an array');
+        }
+        coeffs = numericArrayFrom(coeffsValue, 'polyval coeffs');
+        if (isSignal(xValue) || isArray(xValue)) {
+          x = numericArrayFrom(xValue, 'polyval x');
+          for (i = 0; i < x.length; i++) {
+            acc = 0;
+            for (j = 0; j < coeffs.length; j++) {
+              acc = acc * x[i] + coeffs[j];
+            }
+            out[i] = acc;
+          }
+          return copySignalMeta(out, xValue, 'polyval');
+        }
+        x = Number(xValue);
+        if (!isFinite(x)) {
+          throw new Error('polyval(coeffs, x) needs finite x');
+        }
+        acc = 0;
+        for (j = 0; j < coeffs.length; j++) {
+          acc = acc * x + coeffs[j];
+        }
+        return acc;
+      }
+
+      function detrend(value, order) {
+        var y = numericArrayFrom(value, 'detrend');
+        var mode = (typeof order === 'undefined') ? 1 : Math.floor(Number(order));
+        var x;
+        var p;
+        var trend;
+        var out = [];
+        var i;
+        if (mode !== 0 && mode !== 1) {
+          throw new Error('detrend(value, order) order must be 0 or 1');
+        }
+        if (mode === 0) {
+          return subValues(value, mean(value));
+        }
+        x = [];
+        for (i = 0; i < y.length; i++) {
+          x[i] = i;
+        }
+        p = polyfit(x, y, 1);
+        trend = polyval(p, x);
+        for (i = 0; i < y.length; i++) {
+          out[i] = y[i] - trend[i];
+        }
+        return copySignalMeta(out, value, 'detrend');
       }
 
       function removeDc(value) {
@@ -2359,9 +3010,12 @@
         target.sqrt = Math.sqrt;
         target.plot = buildCustomPlot;
         target.range = range;
+        target.linspace = linspace;
+        target.zeros = zeros;
         target.discrete = discrete;
         target.fft = fft;
         target.ifft = ifft;
+        target.fftshift = fftshift;
         target.mag = mag;
         target.phase = phase;
         target.real = realPart;
@@ -2379,6 +3033,9 @@
         target.dot = dot;
         target.zero_pad = zeroPad;
         target.mean = mean;
+        target.polyfit = polyfit;
+        target.polyval = polyval;
+        target.detrend = detrend;
         target.remove_dc = removeDc;
         target.pi = Math.PI;
         target.C0 = 299792458;
@@ -2422,9 +3079,12 @@
           sqrt: true,
           plot: true,
           range: true,
+          linspace: true,
+          zeros: true,
           discrete: true,
           fft: true,
           ifft: true,
+          fftshift: true,
           mag: true,
           phase: true,
           real: true,
@@ -2442,6 +3102,9 @@
           dot: true,
           zero_pad: true,
           mean: true,
+          polyfit: true,
+          polyval: true,
+          detrend: true,
           remove_dc: true,
           pi: true,
           C0: true,
@@ -3769,6 +4432,28 @@
           return true;
         }
 
+        if (autocompleteState.open) {
+          if (keyCode === 38) {
+            moveAutocompleteSelection(-1);
+            return stopEvent(e);
+          }
+
+          if (keyCode === 40) {
+            moveAutocompleteSelection(1);
+            return stopEvent(e);
+          }
+
+          if (keyCode === 13 || keyCode === 9) {
+            applyAutocompleteSelection(autocompleteState.activeIndex);
+            return stopEvent(e);
+          }
+
+          if (keyCode === 27) {
+            closeAutocomplete();
+            return stopEvent(e);
+          }
+        }
+
         if (keyCode === 13 && e.ctrlKey) {
           smartEnterAction();
           return stopEvent(e);
@@ -3945,6 +4630,10 @@
           return false;
         }
       };
+      manualBtn.onclick = function () {
+        window.location.href = 'Manual.html';
+        setMenuOpen(false);
+      };
       resetBtn.onclick = function () {
         clearNotebook();
         editorEl.value = '';
@@ -3971,13 +4660,41 @@
         if (mode === 'nav') {
           setMode('edit');
         }
+        updateAutocomplete();
       };
       editorEl.oninput = function () {
         autoSizeEditor();
         saveSessionState();
+        updateAutocomplete();
+      };
+      editorEl.onkeyup = function (e) {
+        var ev = e || window.event;
+        var keyCode = ev.which || ev.keyCode;
+        if (keyCode === 13 || keyCode === 38 || keyCode === 40 || keyCode === 27 || keyCode === 9) {
+          return;
+        }
+        updateAutocomplete();
+      };
+      editorEl.onblur = function () {
+        window.setTimeout(closeAutocomplete, 120);
       };
       xLowEl.onchange = saveSessionState;
       xHighEl.onchange = saveSessionState;
+      editorSuggestListEl.onclick = function (e) {
+        var ev = e || window.event;
+        var target = ev.target || ev.srcElement;
+        var index;
+        while (target && target !== editorSuggestListEl && (!target.getAttribute || target.getAttribute('data-index') === null)) {
+          target = target.parentNode;
+        }
+        if (!target || target === editorSuggestListEl) {
+          return;
+        }
+        index = Number(target.getAttribute('data-index'));
+        if (isFinite(index)) {
+          applyAutocompleteSelection(index);
+        }
+      };
 
       if (editorEl.addEventListener) {
         editorEl.addEventListener('keydown', handleEditorKeyDown, false);
@@ -3985,15 +4702,31 @@
         editorEl.onkeydown = handleEditorKeyDown;
       }
 
+      namespaceAutocompleteMap.Math = buildNamespaceEntries('Math');
+      namespaceAutocompleteMap.JSON = buildNamespaceEntries('JSON');
+      namespaceAutocompleteMap.Array = buildNamespaceEntries('Array');
+      namespaceAutocompleteMap.Object = buildNamespaceEntries('Object');
+      if (window.addEventListener) {
+        window.addEventListener('resize', positionAutocompletePopup, false);
+      } else {
+        window.onresize = positionAutocompletePopup;
+      }
+
       if (document.addEventListener) {
         document.addEventListener('keydown', handleGlobalKeyDown, false);
-        document.addEventListener('click', function () {
+        document.addEventListener('click', function (e) {
+          var ev = e || window.event;
+          var target = ev ? (ev.target || ev.srcElement) : null;
           setMenuOpen(false);
+          if (editorSuggestEl && target !== editorEl && !editorSuggestEl.contains(target)) {
+            closeAutocomplete();
+          }
         }, false);
       } else {
         document.onkeydown = handleGlobalKeyDown;
         document.onclick = function () {
           setMenuOpen(false);
+          closeAutocomplete();
         };
       }
 

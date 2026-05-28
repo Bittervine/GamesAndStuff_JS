@@ -364,6 +364,8 @@ JSON.parse('{"x":3,"y":4}').x</pre>
         </thead>
         <tbody>
           <tr><td><code>range(start, stop, step)</code></td><td>Creates values from <code>start</code> up to but not including <code>stop</code>. <code>step</code> defaults to 1 and may be negative.</td><td><code>range(0, 5)</code> -> <code>[0,1,2,3,4]</code><br><code>range(5, 0, -2)</code></td></tr>
+          <tr><td><code>linspace(start, stop, count)</code></td><td>Creates <code>count</code> evenly spaced values from <code>start</code> to <code>stop</code>, inclusive.</td><td><code>linspace(0, 1, 5)</code> -> <code>[0,0.25,0.5,0.75,1]</code></td></tr>
+          <tr><td><code>zeros(length)</code></td><td>Creates an array of zeroes of the requested length.</td><td><code>zeros(4)</code> -> <code>[0,0,0,0]</code></td></tr>
           <tr><td><code>add(a, b)</code></td><td>Adds scalars, arrays, or signals element by element.</td><td><code>add([1,2], 10)</code> -> <code>[11,12]</code></td></tr>
           <tr><td><code>sub(a, b)</code></td><td>Subtracts scalars, arrays, or signals element by element.</td><td><code>sub([5,6], [1,2])</code></td></tr>
           <tr><td><code>mul(a, b)</code></td><td>Multiplies scalars, arrays, or signals element by element.</td><td><code>mul([1,2,3], 4)</code></td></tr>
@@ -371,6 +373,9 @@ JSON.parse('{"x":3,"y":4}').x</pre>
           <tr><td><code>pow(a, b)</code></td><td>Raises values to powers element by element.</td><td><code>pow([2,3,4], 2)</code></td></tr>
           <tr><td><code>dot(a, b)</code></td><td>Returns the dot product of same-length arrays or signals.</td><td><code>dot([1,2,3], [4,5,6])</code> -> 32</td></tr>
           <tr><td><code>mean(value)</code></td><td>Average of finite values in an array or signal. Non-finite values are ignored.</td><td><code>mean([1,2,3])</code> -> 2</td></tr>
+          <tr><td><code>polyfit(x, y, degree)</code></td><td>Fits a polynomial of the given degree to the data and returns coefficients in descending-power order, like MATLAB.</td><td><code>polyfit([0,1,2], [1,3,7], 2)</code></td></tr>
+          <tr><td><code>polyval(coeffs, x)</code></td><td>Evaluates a polynomial given descending-power coefficients at a scalar, array, or signal.</td><td><code>polyval([2,3,4], 5)</code> -> 69</td></tr>
+          <tr><td><code>detrend(value, order)</code></td><td>Removes a trend from an array or signal. <code>order = 0</code> removes the mean, <code>order = 1</code> removes a linear trend. Default is <code>1</code>.</td><td><code>detrend([1,2,3,4])</code><br><code>detrend([5,6,7], 0)</code></td></tr>
         </tbody>
       </table>
     </section>
@@ -420,6 +425,21 @@ s2 = ({ __mathbookType: "signal", y: arr, x0: 10, dx: 0.5, label: "manual signal
 plot(s2)</pre>
       <p>Use <code>discrete()</code> for a quick signal from an array. Use the object form when you want custom <code>x0</code>, <code>dx</code>, or <code>label</code>. Wrap object literals in parentheses so JavaScript treats them as expressions.</p>
 
+      <h3>Mapping Every Value</h3>
+      <p>Arrays use normal JavaScript <code>.map(fn)</code>. Mathbook signals and spectra also support direct <code>.map(fn)</code>.</p>
+      <pre>[1,2,3,4].map(sin)
+
+s = discrete(x =&gt; x, 1, 5, 1)
+s.map(sin)
+
+sp = fft([1,2,3,4])
+sp.map((re, im, i) =&gt; [re * 2, im * 2])</pre>
+      <ul>
+        <li><code>signal.map(fn)</code> calls <code>fn(value, index, signal)</code> and returns a new signal with the same <code>x0</code> and <code>dx</code>.</li>
+        <li><code>spectrum.map(fn)</code> calls <code>fn(re, im, index, spectrum)</code> and returns a new spectrum.</li>
+        <li>For spectra, the callback may return <code>[newRe, newIm]</code>, <code>{ re: newRe, im: newIm }</code>, or a single number to replace only the real part.</li>
+      </ul>
+
       <h3>Spectrum To Arrays</h3>
       <pre>sp = fft([1, 2, 3, 4])
 real_bins = sp.re
@@ -452,6 +472,7 @@ ifft(sp)</pre>
         <tbody>
           <tr><td><code>fft(value)</code></td><td>Transforms an array or signal into a spectrum.</td><td><code>fft([1,0,0,0])</code></td></tr>
           <tr><td><code>ifft(spectrum)</code></td><td>Inverse FFT. Expects a spectrum from <code>fft()</code> and returns a signal.</td><td><code>ifft(fft([1,2,3,4]))</code></td></tr>
+          <tr><td><code>fftshift(value)</code></td><td>Circularly shifts an array, signal, or spectrum by half its length so the low-frequency center moves to the middle, MATLAB-style.</td><td><code>fftshift([0,1,2,3])</code> -> <code>[2,3,0,1]</code></td></tr>
           <tr><td><code>mag(value)</code></td><td>Magnitude of a spectrum. For arrays/signals, returns absolute values.</td><td><code>mag(fft([1,0,0,0]))</code></td></tr>
           <tr><td><code>phase(value)</code></td><td>Phase angle of a spectrum in radians. For arrays/signals, returns 0 for non-negative values and <code>pi</code> for negative values.</td><td><code>phase(fft([1,0,0,0]))</code></td></tr>
           <tr><td><code>real(value)</code></td><td>Real part of a spectrum. For arrays/signals, returns the numeric values.</td><td><code>real(fft([1,2,3,4]))</code></td></tr>
