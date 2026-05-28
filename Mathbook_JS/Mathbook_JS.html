@@ -897,6 +897,7 @@
         { name: 'linspace(', kind: 'start, stop, count', insertText: 'linspace(' },
         { name: 'zeros(', kind: 'length', insertText: 'zeros(' },
         { name: 'discrete(', kind: 'fn, start, stop, step', insertText: 'discrete(' },
+        { name: 'load_csv(', kind: 'text[, x0, dx]', insertText: 'load_csv(' },
         { name: 'fft(', kind: 'array|signal', insertText: 'fft(' },
         { name: 'ifft(', kind: 'spectrum', insertText: 'ifft(' },
         { name: 'fftshift(', kind: 'array|signal|spectrum', insertText: 'fftshift(' },
@@ -2257,6 +2258,71 @@
         return makeSignal(y, Number(start), Number(step), 'discrete');
       }
 
+      function load_csv(text, x0, dx) {
+        var source = (typeof text === 'undefined' || text === null) ? '' : String(text);
+        var lines = source.split(/\r\n|\n|\r/);
+        var numberPattern = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/;
+        var columns = [];
+        var out = [];
+        var expectedColumns = 0;
+        var startX = isFinite(Number(x0)) ? Number(x0) : 0;
+        var stepX = isFinite(Number(dx)) && Number(dx) !== 0 ? Number(dx) : 1;
+        var i;
+        var j;
+        var line;
+        var parts;
+        var row;
+        var token;
+        var value;
+
+        for (i = 0; i < lines.length; i++) {
+          line = trimText(lines[i]);
+          if (!line.length || /[A-Za-z]/.test(line)) {
+            continue;
+          }
+
+          parts = line.split(/[;,\s]+/);
+          row = [];
+          for (j = 0; j < parts.length; j++) {
+            token = parts[j];
+            if (!token.length) {
+              continue;
+            }
+            if (!numberPattern.test(token)) {
+              row = null;
+              break;
+            }
+            value = Number(token);
+            if (!isFinite(value)) {
+              row = null;
+              break;
+            }
+            row[row.length] = value;
+          }
+
+          if (!row || !row.length) {
+            continue;
+          }
+          if (expectedColumns === 0) {
+            expectedColumns = row.length;
+            for (j = 0; j < expectedColumns; j++) {
+              columns[j] = [];
+            }
+          }
+          if (row.length !== expectedColumns) {
+            continue;
+          }
+          for (j = 0; j < expectedColumns; j++) {
+            columns[j][columns[j].length] = row[j];
+          }
+        }
+
+        for (j = 0; j < expectedColumns; j++) {
+          out[j] = makeSignal(columns[j], startX, stepX, 'csv column ' + (j + 1));
+        }
+        return out;
+      }
+
       function signalLength(value) {
         if (isSignal(value)) return value.y.length;
         if (isSpectrum(value)) return value.re.length;
@@ -3013,6 +3079,7 @@
         target.linspace = linspace;
         target.zeros = zeros;
         target.discrete = discrete;
+        target.load_csv = load_csv;
         target.fft = fft;
         target.ifft = ifft;
         target.fftshift = fftshift;
@@ -3082,6 +3149,7 @@
           linspace: true,
           zeros: true,
           discrete: true,
+          load_csv: true,
           fft: true,
           ifft: true,
           fftshift: true,

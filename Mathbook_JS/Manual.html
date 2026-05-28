@@ -389,6 +389,7 @@ JSON.parse('{"x":3,"y":4}').x</pre>
         </thead>
         <tbody>
           <tr><td><code>discrete(fn, start, stop, step)</code></td><td>Samples an arrow/function at points from <code>range(start, stop, step)</code> and returns a signal.</td><td><code>discrete(x =&gt; sin(x), 0, 2*pi, 0.1)</code></td></tr>
+          <tr><td><code>load_csv(text[, x0, dx])</code></td><td>Parses delimited numeric text into one signal per column. Commas, semicolons, tabs, and whitespace are accepted as separators. Rows containing A-Z or a-z are skipped.</td><td><code>cols = load_csv("time,value\n0,1\n1,2")</code><br><code>plot(cols[1])</code></td></tr>
           <tr><td><code>hanning(nOrSignal)</code></td><td>Creates a Hann window. If given a signal, signal metadata is preserved.</td><td><code>hanning(8)</code></td></tr>
           <tr><td><code>hamming(nOrSignal)</code></td><td>Creates a Hamming window.</td><td><code>hamming(8)</code></td></tr>
           <tr><td><code>blackman(nOrSignal)</code></td><td>Creates a Blackman window.</td><td><code>blackman(8)</code></td></tr>
