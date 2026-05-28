@@ -497,6 +497,18 @@
   };
   const ENEMY_3D_SCALE_MULTIPLIER = 1.0;
   const ENEMY_3D_MAX_SHIP_SIZE = 100;
+  const ENEMY_3D_SHIP_SCALE_OVERRIDES = Object.freeze({
+    // Add per-model scale overrides here:
+    // '1|0': 1.15,
+    // '3|4': 0.9
+    '5|0': 1.5,
+    '5|1': 1.5,
+    '5|2': 1.5,
+    '5|3': 1.5,
+    '5|4': 1.5,
+    '5|5': 1.5,
+    '5|6': 1.5
+  });
   const ENEMY_3D_MODEL_PITCH_OFFSET_DEG = -90;
   const ENEMY_3D_MODEL_PITCH_OFFSET_RAD = ENEMY_3D_MODEL_PITCH_OFFSET_DEG * Math.PI / 180;
   const ENEMY_3D_MODEL_ROLL_OFFSET_DEG = 180;
@@ -645,6 +657,12 @@
     if (!list || !list.length) return null;
     const idx = Math.abs((shipIndex | 0) % 7) % list.length;
     return list[idx] || null;
+  }
+
+  function enemy3DShipScale(levelNumber, shipIndex) {
+    const key = String(levelNumber | 0) + '|' + String(shipIndex | 0);
+    const scale = ENEMY_3D_SHIP_SCALE_OVERRIDES[key];
+    return Number.isFinite(scale) && scale > 0 ? scale : 1;
   }
 
   function averageImageColor(img) {
@@ -2224,6 +2242,7 @@
     if (!modelEntry || !modelEntry.scene || !(modelEntry.maxXYDiameter > 0)) return null;
     const root = new enemy3DState.THREE.Group();
     const modelScene = modelEntry.scene.clone(true);
+    const shipScale = enemy3DShipScale(levelNumber, shipIndex);
     modelScene.traverse(function (obj) {
       if (!obj || !obj.isMesh) return;
       obj.frustumCulled = false;
@@ -2244,6 +2263,7 @@
       root: root,
       modelPath: modelPath,
       maxXYDiameter: modelEntry.maxXYDiameter,
+      shipScale: shipScale,
       prevFlightAngleDeg: flightDeg,
       yawDeg: yawDeg,
       bankDeg: 0,
@@ -2373,7 +2393,7 @@
       const shipSizeRaw = Math.max(1, enemy.shipSize || getEnemyShipRenderSize(enemy.shipLevel || (state.levelIndex + 1), enemy.shipIndex || 0));
       const shipSize = Math.min(ENEMY_3D_MAX_SHIP_SIZE, shipSizeRaw);
       const baseScale = shipSize / Math.max(0.001, instance.maxXYDiameter);
-      const finalScale = baseScale * ENEMY_3D_SCALE_MULTIPLIER;
+      const finalScale = baseScale * ENEMY_3D_SCALE_MULTIPLIER * (Number.isFinite(instance.shipScale) ? instance.shipScale : 1);
       const shakeX = render.offsetX || 0;
       const shakeY = render.offsetY || 0;
       instance.root.position.set(
