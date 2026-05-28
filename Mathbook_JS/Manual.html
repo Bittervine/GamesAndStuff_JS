@@ -495,8 +495,8 @@ exp(-X*X)</pre>
           <tr><th>Form</th><th>What it does</th><th>Examples</th></tr>
         </thead>
         <tbody>
-          <tr><td><code>plot(value)</code></td><td>Plots an array, signal, or spectrum. Arrays use indexes as X. Signals use <code>x0</code> and <code>dx</code>. Spectra plot magnitude.</td><td><code>plot([3,1,4,1,5])</code><br><code>plot(mag(fft(s)))</code></td></tr>
-          <tr><td><code>plot(xArray, yArray)</code></td><td>Plots explicit X and Y arrays/signals. Lengths must match.</td><td><code>plot(range(0,5), [0,1,4,9,16])</code></td></tr>
+          <tr><td><code>plot(value)</code></td><td>Plots an array, signal, spectrum, or an array of series. Arrays use indexes as X. Signals use <code>x0</code> and <code>dx</code>. Spectra plot magnitude.</td><td><code>plot([3,1,4,1,5])</code><br><code>plot([s.re, s.im])</code><br><code>plot(mag(fft(s)))</code></td></tr>
+          <tr><td><code>plot(xArray, yArray)</code></td><td>Plots explicit X and Y arrays/signals. <code>yArray</code> may also be an array of series for multi-line plots.</td><td><code>plot(range(0,5), [0,1,4,9,16])</code><br><code>plot(freqs(s), [real(sp), imag(sp)])</code></td></tr>
         </tbody>
       </table>
       <p>After plotting, <code>PLOT</code> contains the latest sampled plot points.</p>

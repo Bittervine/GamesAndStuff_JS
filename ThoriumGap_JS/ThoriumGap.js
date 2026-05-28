@@ -2274,14 +2274,14 @@
           mat.opacity = 1.0;
           mat.depthTest = true;
           mat.depthWrite = true;
-          if (mat.color && mat.color.multiplyScalar) mat.color.multiplyScalar(0.35);
+          if (mat.color && mat.color.multiplyScalar) mat.color.multiplyScalar(0.66);
         }
       } else if (obj.material) {
         obj.material.transparent = false;
         obj.material.opacity = 1.0;
         obj.material.depthTest = true;
         obj.material.depthWrite = true;
-        if (obj.material.color && obj.material.color.multiplyScalar) obj.material.color.multiplyScalar(0.35);
+        if (obj.material.color && obj.material.color.multiplyScalar) obj.material.color.multiplyScalar(0.66);
       }
     });
     root.add(modelScene);
@@ -2936,7 +2936,7 @@
   const WEAPON_PICKUP_WEIGHTS = [
     5,
     5,
-    2.5,
+    5,
     5,
     5
   ];
@@ -4406,9 +4406,9 @@
   function weaponPickupWeight(tierLevel) {
     const tier = clamp(tierLevel | 0, 1, 5);
     const weightsByTier = {
-      1: 8,
-      2: 5,
-      3: 3,
+      1: 3,
+      2: 3,
+      3: 2,
       4: 2,
       5: 1
     };

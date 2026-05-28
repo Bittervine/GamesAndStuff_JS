@@ -802,7 +802,7 @@
   const WEAPON_PICKUP_WEIGHTS = [
     5,
     5,
-    2.5,
+    5,
     5,
     5
   ];
