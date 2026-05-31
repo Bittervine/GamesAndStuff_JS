@@ -2997,7 +2997,7 @@
       id: 'nemesis1',
       name: 'Nemesis I',
       spawnFromLevel: 2,
-      chancePerSecond: 0.2,
+      chancePerSecond: 0.17,
       hp: 10,
       score: 700,
       shipLevel: -1,
