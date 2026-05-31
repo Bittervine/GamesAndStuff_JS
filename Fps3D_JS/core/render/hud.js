@@ -16,6 +16,28 @@ function drawBar(ctx, x, y, width, height, ratio, fillColor, label, valueText) {
   ctx.fillText(`${label}: ${valueText}`, x + 10, y + height - 8);
 }
 
+function getPickupColor(pickup) {
+  if (pickup.kind === 'health') {
+    return '#7dff96';
+  }
+  if (pickup.kind === 'armor') {
+    return '#7fb9ff';
+  }
+  if (pickup.kind === 'key') {
+    return '#ffe07a';
+  }
+  return '#ffd56b';
+}
+
+function describeKeys(keys) {
+  if (!keys || typeof keys !== 'object') {
+    return 'none';
+  }
+
+  const names = Object.keys(keys).filter((key) => !!keys[key]);
+  return names.length > 0 ? names.join(', ') : 'none';
+}
+
 function drawGridMiniMap(ctx, state, x, y, scale) {
   const level = state.level;
   const width = level.width * scale;
@@ -41,7 +63,7 @@ function drawGridMiniMap(ctx, state, x, y, scale) {
     if (pickup.collected) {
       continue;
     }
-    ctx.fillStyle = pickup.kind === 'health' ? '#7dff96' : pickup.kind === 'armor' ? '#7fb9ff' : '#ffd56b';
+    ctx.fillStyle = getPickupColor(pickup);
     ctx.fillRect((pickup.x - 0.15) * scale, (pickup.z - 0.15) * scale, scale * 0.3, scale * 0.3);
   }
 
@@ -166,7 +188,7 @@ function drawBrushMiniMap(ctx, state, x, y, width, height) {
       continue;
     }
     const point = worldToMini(bounds, pickup.x, pickup.z, scale, offsetX, offsetZ);
-    ctx.fillStyle = pickup.kind === 'health' ? '#7dff96' : pickup.kind === 'armor' ? '#7fb9ff' : '#ffd56b';
+    ctx.fillStyle = getPickupColor(pickup);
     ctx.fillRect(point.x - 2, point.z - 2, 4, 4);
   }
 
@@ -222,17 +244,37 @@ export function drawHud(ctx, state, width, height) {
   const weapon = getWeaponDef(WEAPON_ORDER[state.player.weaponIndex] || WEAPON_ORDER[0]);
   const healthRatio = state.player.health / 100;
   const armorRatio = state.player.armor / 100;
+  const keyText = describeKeys(state.player.keys);
+  const damageFlash = clamp(Number(state.player.damageFlashMs) || 0, 0, 320) / 320;
+  const hitConfirm = clamp(Number(state.player.hitConfirmMs) || 0, 0, 180) / 180;
+
+  if (damageFlash > 0) {
+    const vignette = ctx.createRadialGradient(
+      width * 0.5,
+      height * 0.5,
+      Math.min(width, height) * 0.18,
+      width * 0.5,
+      height * 0.5,
+      Math.max(width, height) * 0.76
+    );
+    vignette.addColorStop(0, 'rgba(255, 84, 84, 0)');
+    vignette.addColorStop(0.62, `rgba(255, 84, 84, ${0.08 + damageFlash * 0.1})`);
+    vignette.addColorStop(1, `rgba(120, 0, 0, ${0.16 + damageFlash * 0.16})`);
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, width, height);
+  }
 
   drawBar(ctx, 18, height - 78, 220, 24, healthRatio, '#d84f4f', 'Health', String(state.player.health));
   drawBar(ctx, 18, height - 46, 220, 20, armorRatio, '#4f8fd8', 'Armor', String(state.player.armor));
 
   ctx.fillStyle = 'rgba(0, 0, 0, 0.36)';
-  ctx.fillRect(width - 258, height - 92, 240, 58);
+  ctx.fillRect(width - 258, height - 112, 240, 78);
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-  ctx.strokeRect(width - 258.5, height - 92.5, 240, 58);
+  ctx.strokeRect(width - 258.5, height - 112.5, 240, 78);
   ctx.fillStyle = '#f8f5ef';
-  ctx.fillText(`Weapon: ${weapon.name}`, width - 242, height - 66);
-  ctx.fillText(`Ammo: ${state.player.ammo[weapon.ammoType] ?? 'inf'}`, width - 242, height - 42);
+  ctx.fillText(`Weapon: ${weapon.name}`, width - 242, height - 86);
+  ctx.fillText(`Ammo: ${state.player.ammo[weapon.ammoType] ?? 'inf'}`, width - 242, height - 62);
+  ctx.fillText(`Keys: ${keyText}`, width - 242, height - 38);
 
   const statusText = state.player.dead ? 'YOU DIED' : state.completed ? 'LEVEL CLEARED' : state.paused ? 'PAUSED' : `Kills: ${state.player.kills}`;
   ctx.fillStyle = state.player.dead ? '#ff7575' : state.completed ? '#fff19c' : '#eef4ff';
@@ -254,8 +296,14 @@ export function drawHud(ctx, state, width, height) {
     Math.min(210, state.level.bounds ? state.level.bounds.height * 5 : state.level.height * 5)
   );
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.88)';
-  ctx.lineWidth = 2;
+  const hitFeedback = state.events.some((event) => event.type === 'hitEnemy' || event.type === 'hitscanImpact' || event.type === 'projectileImpact');
+  const damageFeedback = state.events.some((event) => event.type === 'playerDamaged' || event.type === 'playerDied');
+  ctx.strokeStyle = damageFeedback || damageFlash > 0
+    ? 'rgba(255, 125, 125, 0.96)'
+    : hitFeedback || hitConfirm > 0
+      ? 'rgba(255, 216, 125, 0.96)'
+      : 'rgba(255,255,255,0.88)';
+  ctx.lineWidth = hitFeedback || hitConfirm > 0 || damageFeedback || damageFlash > 0 ? 3 : 2;
   const cx = width * 0.5;
   const cy = height * 0.5;
   ctx.beginPath();
@@ -268,6 +316,21 @@ export function drawHud(ctx, state, width, height) {
   ctx.moveTo(cx, cy + 3);
   ctx.lineTo(cx, cy + 10);
   ctx.stroke();
+
+  if (hitConfirm > 0) {
+    ctx.strokeStyle = `rgba(255, 240, 192, ${0.45 + hitConfirm * 0.45})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx - 14, cy - 14);
+    ctx.lineTo(cx - 8, cy - 8);
+    ctx.moveTo(cx + 14, cy - 14);
+    ctx.lineTo(cx + 8, cy - 8);
+    ctx.moveTo(cx - 14, cy + 14);
+    ctx.lineTo(cx - 8, cy + 8);
+    ctx.moveTo(cx + 14, cy + 14);
+    ctx.lineTo(cx + 8, cy + 8);
+    ctx.stroke();
+  }
 
   if (state.events.length > 0) {
     ctx.textAlign = 'left';

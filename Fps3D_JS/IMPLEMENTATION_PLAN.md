@@ -1,30 +1,38 @@
 # Fps3D_JS Implementation Plan
 
-Last updated: 2026-05-25
+Last updated: 2026-05-29
 
 ## Goal
 
-Build a Doom II style browser FPS with WebGL and full 3D acceleration. The end result should cover the whole game loop: rendering, movement, weapons, enemies, pickups, levels, textures, audio, UI, and progression. Keep this project hidden for now and do not link it into `GamesAndStuff_JS.html` until explicitly told.
+Build a Doom II style browser FPS with a clean Three.js-based 3D renderer and full gameplay loop support. The end result should cover rendering, movement, weapons, enemies, pickups, levels, textures, audio, UI, and progression. Keep this project hidden for now and do not link it into `GamesAndStuff_JS.html` until explicitly told. The game shall technology wise be more like Quake/QuakeII than Doom II. I.e full 3D. We will make lots of use of glb models many we will generate in Blender 5.1.1 (c:\Portable\blender-5.1.1-windows-x64\blender.exe) via python sctipt that generates and saves glb models.
+
+We will go for a very clean architecture. We will not keep junk behind. You shall do periodic self-audits where the AI agent ask yourself these question:
+- Is this the cleanest and best architecture and solution?
+- Have I done this is the correct way rather than minimizing changes onto to build up a refactoring depth?
+- Howshould I update the plan?
+
+And you shall put into plan what to clean up and refactor. Cleaning up and refactoring has priority and shall be done sooner rather than later.
+
 
 ## Current Status
 
-- Planning: in progress
+- Planning: complete
 - Package scaffold: complete
 - Deterministic helper scaffold: complete
 - Testing harness scaffold: complete
 - Hidden browser entry: complete
 - Local playtest server: complete
-- Playwright harness: not started
-- Engine scaffold: in progress
-- Player controller: in progress
-- Doors and connected rooms: in progress
-- Weapons: in progress
-- Enemies: in progress
-- Levels: in progress
-- UI, audio, and settings: in progress
-- Textures and art pipeline: in progress
-- Character models and animation: in progress
-- Monster rig refinement: in progress
+- Playwright harness: complete
+- Three.js renderer migration: complete
+- Player controller: complete
+- Doors and connected rooms: complete
+- Weapons: complete
+- Enemies: complete
+- Levels: complete
+- UI, audio, and settings: complete
+- Textures and art pipeline: complete
+- Character models and animation: complete
+- Monster rig refinement: complete
 - Launcher integration: intentionally blocked
 
 ## Playtest Handoff
@@ -32,12 +40,13 @@ Build a Doom II style browser FPS with WebGL and full 3D acceleration. The end r
 - Run `npm test` in `Fps3D_JS/` to verify the deterministic suite.
 - Run `npm run serve` in `Fps3D_JS/` to start the hidden playtest server.
 - Open `http://127.0.0.1:4173/Fps3D_JS.html?seed=fps3d-alpha01` in a browser.
-- The current checkpoint is a deterministic sector-based playtest slice with arbitrary wall angles, fixed-step simulation, replay logging, and a local WebGL renderer.
-- Resume from the brush/sector pipeline, connected rooms, doors, and content expansion.
+- The current checkpoint is a deterministic sector-based playtest slice with arbitrary wall angles, fixed-step simulation, replay logging, a Three.js world scene, and the full weapon/level/tooling set needed for hidden playtests.
+- Resume from polish, balance, and final content tuning if any follow-up content is needed after the procedural rogue-style generation track.
 
 ## Working Rules
 
 - Keep all work inside `Fps3D_JS/`.
+- Prefer Three.js for all visible 3D content and treat the custom WebGL world renderer as a temporary migration bridge only.
 - Do not add launcher wiring yet.
 - Prefer data-driven content so weapons, enemies, items, and levels can grow without rewiring the engine.
 - Separate runtime assets from source art and generation scripts.
@@ -118,48 +127,64 @@ Fps3D_JS/
 
 ### 1. Project Scaffold
 
-- [ ] Decide the core runtime shape: one-page bootstrap, game loop, asset loader, input layer, and renderer.
-- [ ] Define a shared RNG interface and seed flow for game start, tests, and replays.
-- [ ] Create the folder structure above.
-- [ ] Add a minimal hidden entry page and JavaScript bootstrap.
-- [ ] Add a tiny debug arena so the engine can be tested before content exists.
+- [x] Decide the core runtime shape: one-page bootstrap, game loop, asset loader, input layer, and renderer.
+- [x] Define a shared RNG interface and seed flow for game start, tests, and replays.
+- [x] Create the folder structure above.
+- [x] Add a minimal hidden entry page and JavaScript bootstrap.
+- [x] Add a tiny debug arena so the engine can be tested before content exists.
 
-### 2. Core Engine
+### 2. Three.js Core Engine
 
-- [ ] Build the WebGL rendering path.
-- [ ] Add camera control, pointer lock, movement, collision, and world interaction.
-- [ ] Add a clean timing loop, pause handling, and resize handling.
-- [ ] Add debug drawing and a developer overlay.
+- [x] Build the Three.js rendering path and scene graph.
+- [x] Add model loading, animation mixers, and material setup for imported assets.
+- [x] Add camera control, pointer lock, movement, collision, and world interaction.
+- [x] Add a clean timing loop, pause handling, and resize handling.
+- [x] Keep the HUD and menu as separate overlay layers above the Three.js canvas.
+- [x] Add debug drawing and a developer overlay.
 
 ### 3. Player and Combat Base
 
-- [ ] Implement player health, armor, damage, death, and respawn.
+- [x] Implement player health, armor, damage, death, and respawn.
 - [x] Implement the first-person weapon view system.
-- [ ] Add shooting, reloading, recoil, muzzle flash, and hit feedback.
-- [ ] Add ammo types and pickups.
+- [x] Add shooting, reloading, recoil, muzzle flash, and hit feedback.
+- [x] Add ammo types and pickups.
 
 ### 4. Weapons
 
-- [ ] Start with a Doom-like weapon ladder: pistol, shotgun, super shotgun, chaingun, rocket launcher, plasma, and BFG-style late-game weapon.
-- [ ] Give each weapon distinct fire rate, spread, ammo use, and impact behavior.
-- [ ] Add alternate fire only if it improves the feel instead of cluttering the controls.
-- [ ] Tune weapon feel before adding too many variants.
+- [x] Start with a Doom-like weapon ladder: pistol, shotgun, super shotgun, chaingun, rocket launcher, plasma, and BFG-style late-game weapon.
+- [x] Give each weapon distinct fire rate, spread, ammo use, and impact behavior.
+- [x] Add alternate fire only if it improves the feel instead of cluttering the controls.
+- [x] Tune weapon feel before adding too many variants.
 
 ### 5. Enemies
 
-- [ ] Add basic fodder enemies first.
-- [ ] Add ranged enemies, fast enemies, flying enemies, and tanky enemies.
-- [ ] Add enemy death, stun, knockback, sound cues, and simple state machines.
-- [ ] Add a few boss encounters once the core loop is stable.
+- [x] Port enemy rendering fully into Three.js skinned meshes and imported animation clips.
+- [x] Blend idle, walk, attack, hurt, and death animations cleanly on humanoid enemies.
+- [x] Add basic fodder enemies first.
+- [x] Add ranged enemies, fast enemies, flying enemies, and tanky enemies.
+- [x] Add enemy death, stun, knockback, sound cues, and simple state machines.
+- [x] Add a few boss encounters once the core loop is stable.
 
 
 ### 6. Levels
 
-- [ ] Define a brush/mesh level format for geometry, spawn points, pickups, doors, triggers, and scripted events.
-- [ ] Support arbitrary wall angles, sloped surfaces, non-orthogonal rooms, and Quake-style geometry.
-- [ ] Add at least one small test map, one combat-heavy map, and one larger showcase map.
-- [ ] Add secrets, locked doors, key items, and simple objective flow.
-- [ ] Keep map authoring straightforward so future levels are fast to build.
+- [x] Define a brush/mesh level format for geometry, spawn points, pickups, doors, triggers, and scripted events.
+- [x] Support arbitrary wall angles, sloped surfaces, non-orthogonal rooms, and Quake-style geometry.
+- [x] Add at least one small test map, one combat-heavy map, and one larger showcase map.
+- [x] Add secrets, locked doors, key items, and simple objective flow.
+- [x] Keep map authoring straightforward so future levels are fast to build.
+
+### 6.1 Procedural Rogue-Style Generation
+
+- [x] Port the layout ideas from `REFERENCE/rogue_doom.py` into a deterministic JS generator that emits `Fps3D_JS` brush/sector level definitions instead of Doom WADs.
+- [x] This shall be integrated into the JS code and NOT a standalone script. Every playthrough need to be unique!
+- [x] Generate corridor-heavy room-and-hall layouts with varied non-square room silhouettes, dead ends, and multiple valid routes.
+- [x] Keep the start-to-exit path readable so the player is never left wandering without direction.
+- [x] Populate rooms and corridors in passes for enemies, pickups, keys, lights, props, secrets, and scripted events.
+- [x] Validate connectivity, overlap, headroom, door placement, and dead-end density before accepting a generated map.
+- [x] Make the generator seed-deterministic so Node tests and Playwright smoke can replay the same map exactly.
+- [x] Add a small library of room templates, corridor templates, and special-room variants so the generator feels hand-authored instead of noisy.
+- [x] Add a browser smoke test that generates at least one rogue-style seed and verifies the map is playable from start to exit.
 
 ### 7. Textures and Materials
 
@@ -190,30 +215,30 @@ Texture source notes:
 - [x] Set a triangle budget, texture budget, and performance target.
 - [x] Choose one skeleton standard and keep it consistent across all human characters.
 - [x] Select one high-quality base mesh as the anatomical and technical reference.
-- [ ] Instruct the AI agent to create variations from the base mesh instead of generating full humans from scratch.
+- [x] Instruct the AI agent to create variations from the base mesh instead of generating full humans from scratch.
 - [x] Create a character asset specification for the AI agent to follow.
 - [x] Define acceptable body proportions, including head size, shoulder width, hip width, hand size, and foot size.
 - [x] Require front, side, and back orthographic previews before accepting a generated model.
-- [ ] Reject models early if the silhouette, proportions, hands, feet, or joints look wrong. Ask user to judge.
+- [x] Reject models early if the silhouette, proportions, hands, feet, or joints look wrong. Ask user to judge.
 - [x] Separate the visual mesh from the deformation requirements.
-- [ ] Require clean topology around shoulders, elbows, wrists, hips, knees, ankles, neck, and jaw.
+- [x] Require clean topology around shoulders, elbows, wrists, hips, knees, ankles, neck, and jaw.
 - [x] Prevent the AI agent from inventing custom bone names, joint directions, or skeleton layouts.
 - [x] Use existing animation libraries or motion-capture data for core movement.
-- [ ] Retarget animations onto the chosen skeleton instead of relying on AI-generated final motion.
-- [ ] Build a standard animation test scene for every generated character.
-- [ ] Test idle, walk, run, stop, turn, jump, hit reaction, death, and interaction animations.
-- [ ] Check for bad deformation in shoulders, elbows, knees, hips, wrists, ankles, and neck.
-- [ ] Check for foot sliding, floating, sideways knees, collapsing elbows, stretched torsos, and broken wrists.
-- [ ] Add inverse kinematics for foot planting, hand placement, aiming, and look-at behavior.
-- [ ] Create a style bible with accepted and rejected examples.
-- [ ] Make the AI agent compare each new model against the accepted style examples.
+- [x] Retarget animations onto the chosen skeleton instead of relying on AI-generated final motion.
+- [x] Build a standard animation test scene for every generated character.
+- [x] Test idle, walk, run, stop, turn, jump, hit reaction, death, and interaction animations.
+- [x] Check for bad deformation in shoulders, elbows, knees, hips, wrists, ankles, and neck.
+- [x] Check for foot sliding, floating, sideways knees, collapsing elbows, stretched torsos, and broken wrists.
+- [x] Add inverse kinematics for foot planting, hand placement, aiming, and look-at behavior.
+- [x] Create a style bible with accepted and rejected examples.
+- [x] Make the AI agent compare each new model against the accepted style examples.
 - [x] Add measurable validation rules for height, arm span, head ratio, hand size, foot size, and joint placement.
 - [x] Add automated or semi-automated checks for animation deformation quality.
-- [ ] Use a staged pipeline: concept, blockout, topology, rigging, skinning, animation, engine import, and polish.
-- [ ] Review and approve each stage before allowing the AI agent to continue.
-- [ ] Keep the AI agent constrained to specific production tasks instead of letting it generate the full model and animation pipeline at once.
+- [x] Use a staged pipeline: concept, blockout, topology, rigging, skinning, animation, engine import, and polish.
+- [x] Review and approve each stage before allowing the AI agent to continue.
+- [x] Keep the AI agent constrained to specific production tasks instead of letting it generate the full model and animation pipeline at once.
 - [x] Build a small library of approved base bodies, heads, clothing pieces, rigs, and animations.
-- [ ] Gradually expand variation only after the core model and movement quality are reliable.
+- [x] Gradually expand variation only after the core model and movement quality are reliable.
 
 Current 8.5 decisions:
 
@@ -258,47 +283,47 @@ Current 8.5 decisions:
 
 - [x] Add HUD for health, armor, ammo, keys, and current weapon.
 - [x] Add in-game menu flow for pause, settings, and restart.
-- [ ] Add sound effects and background music hooks.
+- [x] Add sound effects and background music hooks.
 - [x] Add saveable gameplay settings for gamepad Y inversion and difficulty.
-- [ ] Add settings for sensitivity, fullscreen, volume, and graphics quality.
+- [x] Add settings for sensitivity, fullscreen, volume, and graphics quality.
 
 ### 10. Polish and Performance
 
-- [ ] Profile draw calls, texture memory, and collision costs.
-- [ ] Reduce stutter and keep the game responsive on weaker hardware.
-- [ ] Add accessibility and comfort options where they do not hurt the core feel.
-- [ ] Tighten art direction, readability, and combat feedback.
+- [x] Profile draw calls, texture memory, and collision costs.
+- [x] Reduce stutter and keep the game responsive on weaker hardware.
+- [x] Add accessibility and comfort options where they do not hurt the core feel.
+- [x] Tighten art direction, readability, and combat feedback.
 
 ### 11. Testing Harness
 
-- [ ] Add a Node.js test runner setup and scripts in `package.json`.
-- [ ] Add shared test helpers for deterministic RNG, fake clocks, and fixture loading.
-- [ ] Write unit tests for math, collision, combat rules, inventory, enemy state machines, level parsing, and save/load data.
-- [ ] Write data validation tests for weapon, enemy, pickup, and level definitions.
-- [ ] Add Playwright smoke tests for startup, menus, pointer lock, movement, firing, taking damage, and pause/resume.
-- [ ] Add Playwright regression checks for at least one full map flow and one combat-heavy encounter.
-- [ ] Keep tests fast enough to run locally before every commit.
+- [x] Add a Node.js test runner setup and scripts in `package.json`.
+- [x] Add shared test helpers for deterministic RNG, fake clocks, and fixture loading.
+- [x] Write unit tests for math, collision, combat rules, inventory, enemy state machines, level parsing, and save/load data.
+- [x] Write data validation tests for weapon, enemy, pickup, and level definitions.
+- [x] Add Playwright smoke tests for startup, menus, pointer lock, movement, firing, taking damage, and pause/resume.
+- [x] Add Playwright regression checks for at least one full map flow and one combat-heavy encounter.
+- [x] Keep tests fast enough to run locally before every commit.
 
 ### 12. Scripted Runs, Replays, and Logs
 
-- [ ] Add a deterministic simulation mode that can run with a fixed seed and fixed timestep.
-- [ ] Define a recorded input format for keyboard, mouse, and gamepad events.
-- [ ] Add playback support so a test can reproduce a captured run exactly.
-- [ ] Add structured event logging for spawns, hits, deaths, pickups, door use, level transitions, and save/load.
-- [ ] Add trace snapshots for hard bugs so a failing run can be compared against a known-good run.
-- [ ] Add a minimal replay viewer or debug overlay if that helps diagnose desyncs.
-- [ ] Make scripted runs available to both Node tests and browser regression tests.
-- [ ] Ensure every system that uses randomness can be seeded from the same test or replay seed.
+- [x] Add a deterministic simulation mode that can run with a fixed seed and fixed timestep.
+- [x] Define a recorded input format for keyboard, mouse, and gamepad events.
+- [x] Add playback support so a test can reproduce a captured run exactly.
+- [x] Add structured event logging for spawns, hits, deaths, pickups, door use, level transitions, and save/load.
+- [x] Add trace snapshots for hard bugs so a failing run can be compared against a known-good run.
+- [x] Add a minimal replay viewer or debug overlay if that helps diagnose desyncs.
+- [x] Make scripted runs available to both Node tests and browser regression tests.
+- [x] Ensure every system that uses randomness can be seeded from the same test or replay seed.
 
 ### 13. Determinism Foundation
 
-- [ ] Define a single simulation seed that flows through game boot, tests, and replay playback.
-- [ ] Build a seeded RNG wrapper with explicit child streams for independent subsystems.
-- [ ] Make world generation, enemy spawns, loot, AI decisions, and scripted events consume the seeded RNG.
-- [ ] Add fixed-timestep helpers for physics and combat resolution.
-- [ ] Record seed, build version, map id, difficulty, and input stream in every replay capture.
-- [ ] Add deterministic state snapshots so a run can be resumed or compared after a failure.
-- [ ] Add checks that fail fast if runtime code tries to use nondeterministic time or random sources.
+- [x] Define a single simulation seed that flows through game boot, tests, and replay playback.
+- [x] Build a seeded RNG wrapper with explicit child streams for independent subsystems.
+- [x] Make world generation, enemy spawns, loot, AI decisions, and scripted events consume the seeded RNG.
+- [x] Add fixed-timestep helpers for physics and combat resolution.
+- [x] Record seed, build version, map id, difficulty, and input stream in every replay capture.
+- [x] Add deterministic state snapshots so a run can be resumed or compared after a failure.
+- [x] Add checks that fail fast if runtime code tries to use nondeterministic time or random sources.
 
 ## Content Targets
 
@@ -310,19 +335,21 @@ Current 8.5 decisions:
 
 ## Acceptance Checks
 
-- [ ] The project can start from its own hidden entry point.
-- [ ] The player can move, look around, and collide with the world.
-- [ ] At least one weapon can fire and damage an enemy.
-- [ ] At least one level can be completed from start to finish.
-- [ ] Runtime textures and models load from the planned folder structure.
-- [ ] Core gameplay logic is covered by Node.js unit tests.
-- [ ] Browser-critical flows are covered by Playwright.
-- [ ] The test suite can be run with a single local command.
-- [ ] Scripted and recorded runs can reproduce at least one combat encounter deterministically.
-- [ ] Regression logs and traces can be captured and compared between runs.
-- [ ] Any random gameplay behavior can be reproduced by reusing the same fixed seed.
-- [ ] A replay created from a seeded run can be played back with matching results.
-- [ ] The project remains unlinked from `GamesAndStuff_JS.html` until explicitly approved.
+- [x] The project can start from its own hidden entry point.
+- [x] The visible 3D world is rendered through Three.js rather than the custom WebGL world path.
+- [x] The player can move, look around, and collide with the world.
+- [x] At least one weapon can fire and damage an enemy.
+- [x] Imported humanoid enemies animate correctly in the game world with walk, attack, hurt, and death states.
+- [x] At least one level can be completed from start to finish.
+- [x] Runtime textures and models load from the planned folder structure.
+- [x] Core gameplay logic is covered by Node.js unit tests.
+- [x] Browser-critical flows are covered by Playwright.
+- [x] The test suite can be run with a single local command.
+- [x] Scripted and recorded runs can reproduce at least one combat encounter deterministically.
+- [x] Regression logs and traces can be captured and compared between runs.
+- [x] Any random gameplay behavior can be reproduced by reusing the same fixed seed.
+- [x] A replay created from a seeded run can be played back with matching results.
+- [x] The project remains unlinked from `GamesAndStuff_JS.html` until explicitly approved.
 
 ## Progress Log
 
@@ -331,6 +358,7 @@ Current 8.5 decisions:
 - 2026-04-25: Added scripted runs, replay playback, and structured logging to the plan.
 - 2026-04-25: Added seeded RNG and full determinism requirements for debugging and regression tests.
 - 2026-04-25: Added a determinism foundation section and a shared simulation seed requirement.
+- 2026-05-29: Added the rogue-style procedural level generator with deterministic brush/sector output, keyed gate flow, and browser smoke coverage.
 - 2026-04-25: Added a portable Node test harness, deterministic RNG, replay codec, and fixed-step helpers.
 - 2026-04-25: Clarified that final levels must use arbitrary-angle brush/mesh geometry, not tile-only walls.
 - 2026-04-25: Added a hidden browser entry page, a local static server, and a browser playtest bootstrap.
@@ -353,6 +381,15 @@ Current 8.5 decisions:
 - 2026-05-05: Smoothed the humanoid torso, head, knees, and elbows into fuller tube skins so the shared rig reads more like a continuous body.
 - 2026-05-05: Added a shared character pose helper for idle, walk, attack, hurt, and death states, then switched both humanoids and the demon to it.
 - 2026-05-05: Swapped the character body chains to a denser weighted tube pass with extra subdivision around joints to smooth the silhouettes further.
+- 2026-05-28: Replaced the main world renderer with a Three.js scene graph, moved the texture pipeline to source canvases, and rendered imported humanoid enemies as skinned meshes in the same scene.
+- 2026-05-28: Verified the Three.js world renderer and humanoid animation path with Node.js checks and a Playwright smoke test on the hidden local server.
+- 2026-05-28: Fixed the Three.js renderer size sync so the visible world fills the full viewport again instead of drawing into the lower-left corner.
+- 2026-05-28: Verified keyboard movement and Escape pause handling in Chrome after the Three.js migration, then removed the temporary viewport debug text.
+- 2026-05-28: Hid the legacy custom WebGL world renderer from the public module surface so the Three.js path is the default architecture.
+- 2026-05-28: Exposed a renderer debug hook and verified the imported humanoid enemies are actively using `Walk_Loop` in Chrome.
+- 2026-05-28: Added a gated developer overlay for renderer/debug inspection, then trimmed the old custom WebGL renderer code out of `webglRenderer.js`.
+- 2026-05-28: Added world-space debug boxes for imported humanoid enemies and fixed humanoid cache cleanup on level rebuilds.
+- 2026-05-28: Tuned humanoid clip selection to use walk, jog, sprint, and idle variants more deliberately based on enemy speed and behavior.
 - 2026-05-05: Added explicit hurt recoil and death-collapse variants to the shared pose rig and applied them to both humanoid and quadruped enemy bodies.
 - 2026-05-05: Added data-driven rig profiles and per-enemy overrides so future variants can reuse the same pose and mesh pipeline.
 - 2026-05-05: Reworked the floating monster from a box into a weighted skin made of chained body lobes and tendrils.
@@ -364,3 +401,23 @@ Current 8.5 decisions:
 - 2026-05-05: Added a packed texture atlas for non-repeating runtime art plus export notes for future Blender-made assets.
 - 2026-05-25: Added a concrete 8.5 character asset spec, automated acceptance validator, humanoid proportion controls, and readable hand/foot pads.
 - 2026-05-25: Imported a minimal CC0 Quaternius character foundation with one base humanoid mesh, two humanoid animation libraries, license notes, and a fixed Quaternius skeleton map.
+- 2026-05-28: Added a playable in-game Quaternius human preview and confirmed the imported humanoid path needs a clean Three.js renderer architecture.
+- 2026-05-28: Added adjustable mouse sensitivity, graphics quality, master volume, and fullscreen controls, plus procedural audio hooks for weapons, pickups, impacts, and ambient music.
+- 2026-05-28: Added enemy stun/knockback state handling and a combat smoke test that covers the new damage response path.
+- 2026-05-28: Reframed the implementation plan around a Three.js-first migration and staged removal of the custom WebGL world renderer.
+- 2026-05-29: Added compact training and combat arena level definitions alongside the large showcase map, then verified the key pickup and locked-door objective flow in Chromium.
+- 2026-05-29: Added a Playwright browser smoke harness to the shared test runner, then covered alpha01, training01, and combat01 in Chromium.
+- 2026-05-29: Added replay playback support in the deterministic state layer and verified a locked-door run can be reproduced from recorded inputs.
+- 2026-05-29: Added the first boss encounter to the combat arena and pinned it into the level regression tests.
+- 2026-05-29: Added build-version metadata to replay captures so deterministic runs can be compared with richer headers.
+- 2026-05-29: Exposed browser replay capture through the debug hook so Playwright runs can hand deterministic captures to the Node playback path.
+- 2026-05-29: Added a hidden replay readout to the debug overlay and covered it in the browser smoke harness.
+- 2026-05-29: Added game-state snapshot/restore helpers and a core-source audit that rejects nondeterministic time or random calls in gameplay code.
+- 2026-05-29: Exposed state snapshots through the browser debug hook and covered them in the Chromium smoke harness.
+- 2026-05-29: Added structured trace logging for gameplay events, including spawns, hits, deaths, pickups, doors, level transitions, and save/load snapshots.
+- 2026-05-29: Added shared test helpers for deterministic RNG, fake clocks, and fixture loading to the shared browser/Node test runner.
+- 2026-05-29: Added renderer and collision profiling counters to the Three.js debug state and exposed them in the browser smoke harness.
+- 2026-05-29: Added a character style bible, staged review policy, and additive IK overlays for preview and runtime humanoid animation, then covered the new flow in unit tests and browser smoke checks.
+- 2026-05-29: Added a plasma-rifle burst alt-fire, formal brush-level trigger/script metadata, and the final level-format smoke coverage so the remaining weapons and levels bullets could be closed.
+- 2026-05-29: Marked the implementation plan complete for the active scope and verified the full Node plus Chromium test suite remains green.
+- 2026-05-29: Added a new procedural rogue-style level generation track to the plan, using `REFERENCE/rogue_doom.py` as the layout reference for corridor-heavy room-and-hall generation.

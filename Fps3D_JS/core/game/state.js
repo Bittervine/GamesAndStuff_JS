@@ -1,16 +1,22 @@
 import { createSeededRng, deriveSeed, normalizeSeed } from '../random/seededRng.js';
-import { createReplayCapture, appendReplayEvent } from '../replay/replayCodec.js';
+import { createReplayCapture, appendReplayEvent, normalizeReplayCapture } from '../replay/replayCodec.js';
 import { findDoorNearPoint, openDoor, parseLevelDefinition } from '../world/level.js';
 import { moveCircle } from '../world/collision.js';
 import { distance2d, hasLineOfSight } from '../world/raycast.js';
 import { WEAPON_ORDER, getWeaponDef } from '../../data/weapons.js';
-import { LEVEL_ALPHA01 } from '../../data/levels/alpha01.js';
+import { LEVEL_ALPHA01, LEVEL_COMBAT01, LEVEL_TRAINING01, createRogueStyleLevel } from '../../data/levels/alpha01.js';
 import { createEnemy, updateEnemy, cleanupDeadEnemies } from '../combat/enemies.js';
 import { fireWeapon, applyProjectileImpact } from '../combat/weapons.js';
 
 const LEVEL_DEFS = {
-  alpha01: LEVEL_ALPHA01
+  alpha01: LEVEL_ALPHA01,
+  training01: LEVEL_TRAINING01,
+  combat01: LEVEL_COMBAT01,
+  rogue01: createRogueStyleLevel
 };
+
+const BUILD_VERSION = 'dev';
+const GAME_STATE_SNAPSHOT_VERSION = 1;
 
 export const DIFFICULTY_ORDER = ['invulnerable', 'easy', 'medium', 'hard'];
 
@@ -138,11 +144,16 @@ function createPlayer(spawn) {
       rocket: 4,
       cell: 40
     },
+    keys: {},
     weaponIndex: 0,
     weaponCooldownMs: 0,
     recoilMs: 0,
     recoilKick: 0,
+    muzzleFlashMs: 0,
+    damageFlashMs: 0,
+    hitConfirmMs: 0,
     invulnMs: 0,
+    respawnMs: 0,
     kills: 0,
     score: 0,
     dead: false
@@ -394,6 +405,12 @@ function createEnemies(state, level) {
       id: index + 1
     });
     enemy.seedTag = `enemy:${spawn.kind}:${index}`;
+    pushTraceEvent(state, 'enemySpawn', {
+      enemyId: enemy.id,
+      kind: enemy.kind,
+      x: enemy.x,
+      z: enemy.z
+    });
     return enemy;
   });
 }
@@ -413,6 +430,210 @@ function snapshotInput(input) {
     prevWeapon: input.prevWeapon,
     restart: input.restart
   };
+}
+
+function stableClone(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => stableClone(item));
+  }
+
+  if (value && typeof value === 'object') {
+    const cloned = {};
+    for (const key of Object.keys(value).sort()) {
+      const nextValue = value[key];
+      if (typeof nextValue === 'function') {
+        continue;
+      }
+      cloned[key] = stableClone(nextValue);
+    }
+    return cloned;
+  }
+
+  return value;
+}
+
+function pushTraceEvent(state, type, data = undefined) {
+  if (!state || !Array.isArray(state.trace)) {
+    return null;
+  }
+
+  const entry = {
+    t: state.timeMs,
+    tick: state.tick,
+    type
+  };
+
+  if (typeof data !== 'undefined') {
+    entry.data = stableClone(data);
+  }
+
+  state.trace.push(entry);
+  return entry;
+}
+
+function snapshotEnemyState(enemy) {
+  const snapshot = {};
+  for (const key of Object.keys(enemy || {}).sort()) {
+    if (key === 'def') {
+      continue;
+    }
+    snapshot[key] = stableClone(enemy[key]);
+  }
+  return snapshot;
+}
+
+function snapshotLevelState(level) {
+  if (!level || typeof level !== 'object') {
+    return {
+      geometryVersion: 0,
+      doors: []
+    };
+  }
+
+  return {
+    geometryVersion: Number(level.geometryVersion ?? 0) || 0,
+    doors: Array.isArray(level.doors)
+      ? level.doors.map((door) => ({
+          id: door.id,
+          open: !!door.open
+        }))
+      : []
+  };
+}
+
+function normalizeGameStateSnapshot(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') {
+    throw new TypeError('snapshot must be an object');
+  }
+
+  const version = Number(snapshot.version ?? GAME_STATE_SNAPSHOT_VERSION);
+  if (version !== GAME_STATE_SNAPSHOT_VERSION) {
+    throw new RangeError(`unsupported game state snapshot version: ${version}`);
+  }
+
+  return stableClone(snapshot);
+}
+
+function restoreEnemyState(snapshot) {
+  const enemy = createEnemy(snapshot.kind || 'zombie', Number(snapshot.x ?? 0), Number(snapshot.z ?? 0), {
+    id: snapshot.id,
+    hp: snapshot.hp,
+    facing: snapshot.facing,
+    cooldownMs: snapshot.cooldownMs
+  });
+
+  Object.assign(enemy, stableClone(snapshot));
+  return enemy;
+}
+
+function applyGameStateSnapshot(state, snapshot) {
+  state.seed = normalizeSeed(snapshot.seed ?? state.seed);
+  state.buildVersion = typeof snapshot.buildVersion === 'string' ? snapshot.buildVersion : state.buildVersion;
+  state.levelId = typeof snapshot.levelId === 'string' ? snapshot.levelId : state.levelId;
+  state.levelDefinition = stableClone(snapshot.levelDefinition ?? state.levelDefinition);
+  state.timeMs = Number(snapshot.timeMs ?? 0) || 0;
+  state.tick = Number(snapshot.tick ?? 0) || 0;
+  state.nextId = Number(snapshot.nextId ?? 0) || 0;
+  state.completed = !!snapshot.completed;
+  state.paused = !!snapshot.paused;
+  state.requestRestart = !!snapshot.requestRestart;
+  state.events = stableClone(snapshot.events ?? []);
+  state.player = stableClone(snapshot.player ?? state.player);
+  state.decals = stableClone(snapshot.decals ?? []);
+  state.effects = stableClone(snapshot.effects ?? []);
+  state.projectiles = stableClone(snapshot.projectiles ?? []);
+  state.pickups = stableClone(snapshot.pickups ?? []);
+  state.enemies = Array.isArray(snapshot.enemies) ? snapshot.enemies.map((enemySnapshot) => restoreEnemyState(enemySnapshot)) : [];
+
+  if (state.level && snapshot.level && typeof snapshot.level === 'object') {
+    const doorOpenById = new Map(
+      Array.isArray(snapshot.level.doors)
+        ? snapshot.level.doors.map((door) => [door.id, !!door.open])
+        : []
+    );
+
+    if (Array.isArray(state.level.doors)) {
+      for (const door of state.level.doors) {
+        if (doorOpenById.has(door.id)) {
+          door.open = doorOpenById.get(door.id);
+        }
+      }
+    }
+
+    state.level.geometryVersion = Number(snapshot.level.geometryVersion ?? state.level.geometryVersion) || 0;
+  }
+
+  if (state.rng && snapshot.rng) {
+    state.rng.restore(snapshot.rng);
+  }
+
+  if (snapshot.difficultyId) {
+    applyDifficultyToState(state, snapshot.difficultyId);
+  }
+
+  if (snapshot.replay) {
+    state.replay = normalizeReplayCapture(snapshot.replay);
+  }
+
+  return state;
+}
+
+export function snapshotGameState(state) {
+  if (!state || typeof state !== 'object') {
+    throw new TypeError('state must be an object');
+  }
+
+  const snapshot = stableClone({
+    version: GAME_STATE_SNAPSHOT_VERSION,
+    seed: state.seed,
+    buildVersion: state.buildVersion,
+    levelId: state.levelId,
+    levelDefinition: state.levelDefinition,
+    difficultyId: state.difficultyId,
+    timeMs: state.timeMs,
+    tick: state.tick,
+    nextId: state.nextId,
+    completed: state.completed,
+    paused: state.paused,
+    requestRestart: state.requestRestart,
+    level: snapshotLevelState(state.level),
+    rng: state.rng?.snapshot ? state.rng.snapshot() : null,
+    player: state.player,
+    decals: state.decals,
+    effects: state.effects,
+    projectiles: state.projectiles,
+    pickups: state.pickups,
+    enemies: Array.isArray(state.enemies) ? state.enemies.map((enemy) => snapshotEnemyState(enemy)) : [],
+    events: state.events,
+    replay: state.replay
+  });
+
+  pushTraceEvent(state, 'stateSaved', {
+    snapshotVersion: snapshot.version,
+    levelId: snapshot.levelId
+  });
+  return snapshot;
+}
+
+export function restoreGameState(snapshot, options = {}) {
+  const normalizedSnapshot = normalizeGameStateSnapshot(snapshot);
+  const levelDefinition = options.levelDefinition ?? normalizedSnapshot.levelDefinition;
+  const difficulty = options.difficulty ?? normalizedSnapshot.difficultyId ?? 'invulnerable';
+
+  const state = createGameState({
+    seed: normalizedSnapshot.seed,
+    levelId: options.levelId ?? normalizedSnapshot.levelId,
+    levelDefinition,
+    difficulty,
+    fixedStepMs: options.fixedStepMs ?? normalizedSnapshot.replay?.fixedStepMs ?? 16
+  });
+
+  applyGameStateSnapshot(state, normalizedSnapshot);
+  pushTraceEvent(state, 'stateLoaded', {
+    snapshotVersion: normalizedSnapshot.version,
+    levelId: normalizedSnapshot.levelId
+  });
+  return state;
 }
 
 function applyPlayerDamage(state, amount, source) {
@@ -443,6 +664,7 @@ function applyPlayerDamage(state, amount, source) {
 
   player.health -= remaining;
   player.invulnMs = 120;
+  player.damageFlashMs = Math.max(Number(player.damageFlashMs) || 0, 240);
   state.events.push({
     type: 'playerDamaged',
     source,
@@ -454,15 +676,81 @@ function applyPlayerDamage(state, amount, source) {
     type: 'playerDamaged',
     data: { source, amount: scaledAmount, absorbed: armorBlocked, remaining }
   });
+  pushTraceEvent(state, 'playerDamaged', {
+    source,
+    amount: scaledAmount,
+    absorbed: armorBlocked,
+    remaining
+  });
 
   if (player.health <= 0) {
     player.health = 0;
     player.dead = true;
+    player.respawnMs = 1500;
+    player.damageFlashMs = Math.max(Number(player.damageFlashMs) || 0, 320);
     state.events.push({ type: 'playerDied', source });
     state.replayPush({ type: 'playerDied', data: { source } });
+    pushTraceEvent(state, 'playerDied', { source });
   }
 
   return remaining;
+}
+
+function respawnPlayer(state) {
+  const player = state.player;
+  const spawn = state.level?.spawn || { x: 0, z: 0, yaw: 0 };
+
+  player.x = Number(spawn.x ?? player.x) || 0;
+  player.z = Number(spawn.z ?? player.z) || 0;
+  player.yaw = Number(spawn.yaw ?? 0) || 0;
+  player.pitch = 0;
+  player.health = 100;
+  player.armor = 25;
+  player.weaponCooldownMs = 0;
+  player.recoilMs = 0;
+  player.recoilKick = 0;
+  player.muzzleFlashMs = 0;
+  player.damageFlashMs = 0;
+  player.hitConfirmMs = 0;
+  player.invulnMs = 1800;
+  player.respawnMs = 0;
+  player.dead = false;
+}
+
+function updatePlayerRespawn(state, dtMs) {
+  const player = state.player;
+  if (!player.dead) {
+    return false;
+  }
+
+  player.respawnMs = Math.max(0, Number(player.respawnMs) || 0);
+  if (player.respawnMs > 0) {
+    player.respawnMs = Math.max(0, player.respawnMs - dtMs);
+  }
+
+  if (player.respawnMs > 0) {
+    return false;
+  }
+
+  respawnPlayer(state);
+  state.events.push({
+    type: 'playerRespawned',
+    levelId: state.level?.id || state.levelId || null
+  });
+  state.replayPush({
+    type: 'playerRespawned',
+    data: {
+      levelId: state.level?.id || state.levelId || null,
+      x: state.player.x,
+      z: state.player.z
+    }
+  });
+  pushTraceEvent(state, 'playerRespawned', {
+    levelId: state.level?.id || state.levelId || null,
+    x: state.player.x,
+    z: state.player.z
+  });
+  return true;
 }
 
 function applyPickup(state, pickup) {
@@ -474,18 +762,35 @@ function applyPickup(state, pickup) {
     player.armor = clamp(player.armor + pickup.amount, 0, 200);
   } else if (pickup.kind === 'ammo') {
     player.ammo[pickup.ammoType] = (player.ammo[pickup.ammoType] || 0) + pickup.amount;
+  } else if (pickup.kind === 'key' && pickup.key) {
+    player.keys[pickup.key] = true;
   }
 
   state.events.push({
     type: 'pickupCollected',
     kind: pickup.kind,
-    amount: pickup.amount,
-    ammoType: pickup.ammoType || null
+    amount: pickup.kind === 'key' ? 0 : pickup.amount,
+    ammoType: pickup.ammoType || null,
+    key: pickup.key || null
   });
   state.replayPush({
     type: 'pickupCollected',
-    data: { kind: pickup.kind, amount: pickup.amount, ammoType: pickup.ammoType || null }
+    data: { kind: pickup.kind, amount: pickup.kind === 'key' ? 0 : pickup.amount, ammoType: pickup.ammoType || null, key: pickup.key || null }
   });
+  pushTraceEvent(state, 'pickupCollected', {
+    kind: pickup.kind,
+    amount: pickup.kind === 'key' ? 0 : pickup.amount,
+    ammoType: pickup.ammoType || null,
+    key: pickup.key || null
+  });
+}
+
+function playerHasKey(player, keyId) {
+  if (!player || !keyId) {
+    return false;
+  }
+
+  return !!(player.keys && player.keys[keyId]);
 }
 
 function collectPickups(state) {
@@ -583,7 +888,7 @@ function updatePlayerMovement(state, input, dtMs) {
   const sin = Math.sin(player.yaw);
   const moveX = (cos * forward - sin * strafe) * speed * dt;
   const moveZ = (sin * forward + cos * strafe) * speed * dt;
-  const moved = moveCircle(state.level, player.x, player.z, player.radius, moveX, moveZ);
+  const moved = moveCircle(state.level, player.x, player.z, player.radius, moveX, moveZ, state.metrics?.collision);
   player.x = moved.x;
   player.z = moved.z;
 
@@ -598,6 +903,16 @@ function updatePlayerMovement(state, input, dtMs) {
     player.recoilKick *= 0.88;
   } else {
     player.recoilKick *= 0.75;
+  }
+
+  if (player.muzzleFlashMs > 0) {
+    player.muzzleFlashMs = Math.max(0, player.muzzleFlashMs - dtMs);
+  }
+  if (player.damageFlashMs > 0) {
+    player.damageFlashMs = Math.max(0, player.damageFlashMs - dtMs);
+  }
+  if (player.hitConfirmMs > 0) {
+    player.hitConfirmMs = Math.max(0, player.hitConfirmMs - dtMs);
   }
 }
 
@@ -620,7 +935,11 @@ function updateWeapons(state, input) {
   updateWeaponSelection(state, input);
   const weaponId = currentWeaponId(state.player);
 
-  if (input.fire) {
+  let fired = false;
+  if (input.altFire) {
+    fired = fireWeapon(state, weaponId, state.rng, { altFire: true });
+  }
+  if (!fired && input.fire) {
     fireWeapon(state, weaponId, state.rng);
   }
 }
@@ -633,6 +952,27 @@ function handleUseInteraction(state, input) {
   const useRange = Math.max(0.9, state.player.radius + 0.55);
   const doorHit = findDoorNearPoint(state.level, state.player.x, state.player.z, useRange);
   if (!doorHit) {
+    return false;
+  }
+
+  const { door } = doorHit;
+  if ((door.locked || door.requiredKey) && !playerHasKey(state.player, door.requiredKey)) {
+    state.events.push({
+      type: 'doorLocked',
+      doorId: door.id,
+      requiredKey: door.requiredKey || null
+    });
+    state.replayPush({
+      type: 'doorLocked',
+      data: {
+        doorId: door.id,
+        requiredKey: door.requiredKey || null
+      }
+    });
+    pushTraceEvent(state, 'doorLocked', {
+      doorId: door.id,
+      requiredKey: door.requiredKey || null
+    });
     return false;
   }
 
@@ -654,6 +994,11 @@ function handleUseInteraction(state, input) {
       sectorId: doorHit.edgeRef.sectorId,
       edgeIndex: doorHit.edgeRef.edgeIndex
     }
+  });
+  pushTraceEvent(state, 'doorOpened', {
+    doorId: openedDoor.id,
+    sectorId: doorHit.edgeRef.sectorId,
+    edgeIndex: doorHit.edgeRef.edgeIndex
   });
   return true;
 }
@@ -680,13 +1025,17 @@ function checkExitCompletion(state) {
       type: 'levelCompleted',
       data: { levelId: state.level.id }
     });
+    pushTraceEvent(state, 'levelCompleted', { levelId: state.level.id });
   }
 }
 
 export function createGameState(options = {}) {
   const seed = normalizeSeed(options.seed ?? 0xC0FFEE01);
   const requestedLevelId = options.levelId || 'alpha01';
-  const levelDef = options.levelDefinition || LEVEL_DEFS[requestedLevelId] || LEVEL_ALPHA01;
+  const levelCandidate = options.levelDefinition || LEVEL_DEFS[requestedLevelId] || LEVEL_ALPHA01;
+  const levelDef = typeof levelCandidate === 'function'
+    ? levelCandidate({ seed, levelId: requestedLevelId, difficulty: options.difficulty })
+    : levelCandidate;
   const levelId = options.levelId || levelDef.id || 'level';
   const level = parseLevelDefinition(levelDef);
   const rng = createSeededRng(seed);
@@ -695,6 +1044,7 @@ export function createGameState(options = {}) {
     seed,
     fixedStepMs: options.fixedStepMs ?? 16,
     meta: {
+      buildVersion: BUILD_VERSION,
       levelId,
       levelName: level.name,
       difficulty: difficulty.id
@@ -703,7 +1053,9 @@ export function createGameState(options = {}) {
 
   const state = {
     seed,
+    buildVersion: BUILD_VERSION,
     levelId,
+    levelDefinition: levelDef,
     level,
     rng,
     replay,
@@ -713,6 +1065,15 @@ export function createGameState(options = {}) {
     completed: false,
     paused: false,
     events: [],
+    trace: [],
+    metrics: {
+      collision: {
+        checks: 0,
+        blockedChecks: 0,
+        moves: 0,
+        resolutionAttempts: 0
+      }
+    },
     decals: createDecalList(level.decals || []),
     effects: createVisualEffects(),
     projectiles: createProjectiles(),
@@ -723,8 +1084,11 @@ export function createGameState(options = {}) {
     damagePlayer(amount, source) {
       return applyPlayerDamage(state, amount, source);
     },
+    tracePush(event) {
+      return pushTraceEvent(state, event?.type, event?.data);
+    },
     replayPush(event) {
-      appendReplayEvent(replay, {
+      appendReplayEvent(state.replay, {
         t: state.timeMs,
         type: event.type,
         data: event.data
@@ -748,6 +1112,11 @@ export function createGameState(options = {}) {
       doorCount: Array.isArray(level.doors) ? level.doors.length : 0
     }
   });
+  pushTraceEvent(state, 'levelLoaded', {
+    levelId,
+    enemyCount: state.enemies.length,
+    doorCount: Array.isArray(level.doors) ? level.doors.length : 0
+  });
   return state;
 }
 
@@ -765,6 +1134,7 @@ export function advanceGameState(state, input, dtMs) {
     state.requestRestart = true;
     state.events.push({ type: 'restartRequested' });
     state.replayPush({ type: 'restartRequested', data: {} });
+    pushTraceEvent(state, 'restartRequested', {});
     return state;
   }
 
@@ -775,10 +1145,16 @@ export function advanceGameState(state, input, dtMs) {
       type: state.paused ? 'gamePaused' : 'gameResumed',
       data: { paused: state.paused }
     });
+    pushTraceEvent(state, state.paused ? 'gamePaused' : 'gameResumed', { paused: state.paused });
     return state;
   }
 
-  if (state.player.dead || state.completed || state.paused) {
+  if (state.player.dead) {
+    updatePlayerRespawn(state, dtMs);
+    return state;
+  }
+
+  if (state.completed || state.paused) {
     return state;
   }
 
@@ -791,6 +1167,28 @@ export function advanceGameState(state, input, dtMs) {
   checkExitCompletion(state);
   processVisualEvents(state);
   updateVisualEffects(state, dtMs);
+  return state;
+}
+
+export function playReplayCapture(replayCapture, options = {}) {
+  const replay = normalizeReplayCapture(replayCapture);
+  const state = createGameState({
+    seed: replay.seed,
+    levelId: options.levelId ?? replay.meta?.levelId ?? 'alpha01',
+    levelDefinition: options.levelDefinition,
+    difficulty: options.difficulty ?? replay.meta?.difficulty ?? 'invulnerable',
+    fixedStepMs: replay.fixedStepMs
+  });
+  const stepMs = Number(options.fixedStepMs ?? replay.fixedStepMs ?? 16) || 16;
+
+  for (const event of replay.events) {
+    if (event.type !== 'input') {
+      continue;
+    }
+
+    advanceGameState(state, event.data || {}, stepMs);
+  }
+
   return state;
 }
 

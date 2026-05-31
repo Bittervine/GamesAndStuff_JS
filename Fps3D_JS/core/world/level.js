@@ -85,6 +85,56 @@ function normalizeDecorationList(entries, kind) {
   });
 }
 
+function normalizeTriggerList(entries) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries.map((entry, index) => {
+    const point = toPoint2(entry);
+    return {
+      ...entry,
+      id: entry.id || `trigger-${index + 1}`,
+      kind: typeof entry.kind === 'string' && entry.kind.length > 0 ? entry.kind : 'trigger',
+      x: point.x,
+      z: point.z,
+      y: Number(entry.y ?? 0) || 0,
+      radius: Number(entry.radius ?? entry.triggerRadius ?? 0.75) || 0.75,
+      once: entry.once !== false,
+      repeat: !!entry.repeat,
+      sectorId: typeof entry.sectorId === 'string' ? entry.sectorId : typeof entry.sector === 'string' ? entry.sector : null,
+      target: typeof entry.target === 'string' ? entry.target : null,
+      action: typeof entry.action === 'string' ? entry.action : null,
+      event: typeof entry.event === 'string' ? entry.event : null,
+      commands: Array.isArray(entry.commands)
+        ? entry.commands.map((command) => (typeof command === 'string' ? command : null)).filter((command) => typeof command === 'string' && command.length > 0)
+        : [],
+      payload: entry.payload && typeof entry.payload === 'object' ? { ...entry.payload } : null
+    };
+  });
+}
+
+function normalizeScriptedEventList(entries) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries.map((entry, index) => ({
+    ...entry,
+    id: entry.id || `script-${index + 1}`,
+    kind: typeof entry.kind === 'string' && entry.kind.length > 0 ? entry.kind : 'script',
+    event: typeof entry.event === 'string' && entry.event.length > 0 ? entry.event : typeof entry.type === 'string' && entry.type.length > 0 ? entry.type : null,
+    trigger: typeof entry.trigger === 'string' ? entry.trigger : null,
+    once: entry.once !== false,
+    delayMs: Number(entry.delayMs ?? 0) || 0,
+    repeatMs: Number(entry.repeatMs ?? 0) || 0,
+    commands: Array.isArray(entry.commands)
+      ? entry.commands.map((command) => (typeof command === 'string' ? command : null)).filter((command) => typeof command === 'string' && command.length > 0)
+      : [],
+    payload: entry.payload && typeof entry.payload === 'object' ? { ...entry.payload } : null
+  }));
+}
+
 const THEME_ALIASES = new Map([
   ['tech', 'tech'],
   ['tech-base', 'tech'],
@@ -530,6 +580,8 @@ function buildBrushLevel(definition) {
   const sectorById = new Map(sectors.map((sector) => [sector.id, sector]));
   const rawDoors = collectRawDoorDefinitions(definition);
   const doors = rawDoors.map(({ door, fallbackSectorId }, index) => normalizeDoorDefinition(door, index, fallbackSectorId));
+  const triggers = normalizeTriggerList(definition.triggers || definition.entities?.triggers);
+  const scriptedEvents = normalizeScriptedEventList(definition.scriptedEvents || definition.events || definition.entities?.events);
   const doorById = new Map();
   const doorByEdgeKey = new Map();
   const walls = [];
@@ -592,6 +644,16 @@ function buildBrushLevel(definition) {
       });
     }
   }
+
+  allPoints.push(
+    ...triggers,
+    ...scriptedEvents
+      .filter((event) => Number.isFinite(Number(event?.x)) && Number.isFinite(Number(event?.z)))
+      .map((event) => ({
+        x: Number(event.x) || 0,
+        z: Number(event.z) || 0
+      }))
+  );
 
   const spawn = normalizeSpawnPoint(definition.spawn, definition.spawnYaw ?? 0) || {
     x: sectors[0] ? sectors[0].centroid.x : 1.5,
@@ -660,6 +722,8 @@ function buildBrushLevel(definition) {
     spawn,
     enemySpawns,
     pickups,
+    triggers,
+    scriptedEvents,
     props,
     lights,
     decals,
@@ -696,6 +760,8 @@ function buildGridLevel(definition) {
   const grid = rows.map((row) => row.split(''));
   const enemySpawns = [];
   const pickups = [];
+  const triggers = normalizeTriggerList(definition.triggers || definition.entities?.triggers);
+  const scriptedEvents = normalizeScriptedEventList(definition.scriptedEvents || definition.events || definition.entities?.events);
   const props = normalizeDecorationList(definition.props || definition.entities?.props, 'prop');
   const lights = normalizeDecorationList(definition.lights || definition.entities?.lights, 'light');
   const decals = normalizeDecorationList(definition.decals || definition.entities?.decals, 'decal');
@@ -782,6 +848,8 @@ function buildGridLevel(definition) {
     spawn,
     enemySpawns,
     pickups,
+    triggers,
+    scriptedEvents,
     props,
     lights,
     decals,
@@ -897,7 +965,7 @@ export function findDoorNearPoint(level, x, z, maxDistance = 0.85) {
   let best = null;
 
   for (const door of level.doors) {
-    if (!door || door.open || door.locked) {
+    if (!door || door.open) {
       continue;
     }
 

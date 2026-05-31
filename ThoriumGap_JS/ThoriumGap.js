@@ -2989,7 +2989,7 @@
     diver: { hp: 6, r: 18, score: 130, speed: 120 },
     mine: { hp: 8, r: 19, score: 120, speed: 60 },
     elite: { hp: 10, r: 24, score: 280, speed: 80 },
-    nemesis: { hp: 50, r: 24, score: 700, speed: 118 }
+    nemesis: { hp: 10, r: 24, score: 700, speed: 118 }
   };
 
   const NEMESIS_DEFS = [
@@ -2997,42 +2997,10 @@
       id: 'nemesis1',
       name: 'Nemesis I',
       spawnFromLevel: 2,
-      chancePerSecond: 1 / 30,
-      hp: 50,
+      chancePerSecond: 0.2,
+      hp: 10,
       score: 700,
-      shipLevel: 1,
-      shipIndex: 1,
-      behavior: 'orbit',
-      fireStyle: 'sniperSpread',
-      fireDelay: 1.5,
-      moveSpeed: 126,
-      behindOffset: 116,
-      aura: '#ff8f78'
-    },
-    {
-      id: 'nemesis2',
-      name: 'Nemesis II',
-      spawnFromLevel: 4,
-      chancePerSecond: 1 / 30,
-      hp: 50,
-      score: 700,
-      shipLevel: 3,
-      shipIndex: 1,
-      behavior: 'orbit',
-      fireStyle: 'sniperSpread',
-      fireDelay: 1.5,
-      moveSpeed: 126,
-      behindOffset: 116,
-      aura: '#ff8f78'
-    },
-    {
-      id: 'nemesis3',
-      name: 'Nemesis III',
-      spawnFromLevel: 10,
-      chancePerSecond: 1 / 30,
-      hp: 50,
-      score: 700,
-      shipLevel: 9,
+      shipLevel: -1,
       shipIndex: 1,
       behavior: 'orbit',
       fireStyle: 'sniperSpread',
@@ -4552,8 +4520,12 @@
     const speedScale = diff.enemySpeed;
     const fireScale = enemyShotPace() / diff.spawnRate;
     const levelNumber = state.levelIndex + 1;
-    const shipLevel = opts && opts.shipLevel != null ? opts.shipLevel : levelNumber;
-    const shipIndex = opts && opts.shipIndex != null ? opts.shipIndex : chooseEnemyShipIndexForKind(kind, levelNumber);
+    let shipLevel = opts && opts.shipLevel != null ? opts.shipLevel : levelNumber;
+    let shipIndex = opts && opts.shipIndex != null ? opts.shipIndex : chooseEnemyShipIndexForKind(kind, levelNumber);
+    if (kind === 'nemesis' && shipLevel < 0) {
+      shipLevel = levelNumber;
+      shipIndex = chooseEnemyShipIndexForKind(kind, levelNumber);
+    }
     const shipScale = narrowScreenScale();
     const baseShipSize = kind === 'nemesis' ? ENEMY_NEMESIS_SIZE : (kind === 'elite' ? ENEMY_ELITE_SIZE : getEnemyShipRenderSize(shipLevel, shipIndex));
     const shipSize = Math.max(1, baseShipSize * shipScale);
@@ -4667,12 +4639,19 @@
 
   function spawnNemesis(def) {
     if (!def) return null;
+    const levelNumber = state.levelIndex + 1;
+    const shipLevel = def.shipLevel != null ? def.shipLevel : levelNumber;
+    const useCurrentLevelShip = shipLevel < 0;
+    const resolvedShipLevel = useCurrentLevelShip ? levelNumber : shipLevel;
+    const resolvedShipIndex = useCurrentLevelShip
+      ? chooseEnemyShipIndexForKind('nemesis', levelNumber)
+      : (def.shipIndex != null ? def.shipIndex : chooseEnemyShipIndexForKind('nemesis', levelNumber));
     const spawn = buildNemesisEntry(def);
     const e = spawnEnemy('nemesis', spawn.startX, spawn.startY, {
       hp: def.hp,
       score: def.score,
-      shipLevel: def.shipLevel,
-      shipIndex: def.shipIndex,
+      shipLevel: resolvedShipLevel,
+      shipIndex: resolvedShipIndex,
       fireCooldown: rand(def.fireDelay * 0.35, def.fireDelay),
       entry: spawn,
       nemesis: true,
@@ -4687,8 +4666,8 @@
     e.hp = def.hp;
     e.maxHp = def.hp;
     e.score = def.score;
-    e.shipLevel = def.shipLevel;
-    e.shipIndex = def.shipIndex;
+    e.shipLevel = resolvedShipLevel;
+    e.shipIndex = resolvedShipIndex;
     e.fireCooldown = rand(def.fireDelay * 0.35, def.fireDelay);
     if (def.behavior === 'orbit') {
       e.nemesisOrbitAngle = spawn.orbitAngle;
@@ -6349,7 +6328,7 @@
         e.wobble += dt * 0.03;
         if (e.nemesis && !Number.isFinite(e.nemesisEntryResumeDistance) && isOnScreen(e.x, e.y)) {
           const entryDistance = Math.hypot(e.x - p.x, e.y - p.y);
-          e.nemesisEntryResumeDistance = Math.max(nemesisHoldDistance(), entryDistance * 0.66);
+          e.nemesisEntryResumeDistance = Math.max(nemesisHoldDistance(), entryDistance * 0.75);
         }
         const resumeEntry = e.nemesis && Number.isFinite(e.nemesisEntryResumeDistance) && d2(e.x, e.y, p.x, p.y) <= e.nemesisEntryResumeDistance * e.nemesisEntryResumeDistance;
         if (t >= 1 || resumeEntry) {

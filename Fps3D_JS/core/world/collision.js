@@ -9,9 +9,21 @@ function circleIntersectsCell(cx, cz, radius, cellX, cellZ) {
   return dx * dx + dz * dz < radius * radius;
 }
 
-export function isCircleBlocked(level, x, z, radius) {
+function recordCollisionCheck(stats, blocked) {
+  if (!stats || typeof stats !== 'object') {
+    return;
+  }
+
+  stats.checks = (Number(stats.checks) || 0) + 1;
+  if (blocked) {
+    stats.blockedChecks = (Number(stats.blockedChecks) || 0) + 1;
+  }
+}
+
+export function isCircleBlocked(level, x, z, radius, stats = null) {
   if (Array.isArray(level?.walls) && level.walls.length > 0) {
     if (!isInsideLevel(level, x, z)) {
+      recordCollisionCheck(stats, true);
       return true;
     }
 
@@ -22,10 +34,12 @@ export function isCircleBlocked(level, x, z, radius) {
       }
 
       if (distanceSqPointToSegment(x, z, wall.ax, wall.az, wall.bx, wall.bz) < radiusSq) {
+        recordCollisionCheck(stats, true);
         return true;
       }
     }
 
+    recordCollisionCheck(stats, false);
     return false;
   }
 
@@ -45,32 +59,42 @@ export function isCircleBlocked(level, x, z, radius) {
   for (let cellZ = minZ; cellZ <= maxZ; cellZ += 1) {
     for (let cellX = minX; cellX <= maxX; cellX += 1) {
       if (isSolidCell(level, cellX, cellZ) && circleIntersectsCell(x, z, radius, cellX, cellZ)) {
+        recordCollisionCheck(stats, true);
         return true;
       }
     }
   }
 
+  recordCollisionCheck(stats, false);
   return false;
 }
 
-export function moveCircle(level, x, z, radius, dx, dz) {
+export function moveCircle(level, x, z, radius, dx, dz, stats = null) {
+  if (stats && typeof stats === 'object') {
+    stats.moves = (Number(stats.moves) || 0) + 1;
+  }
+
   if (Array.isArray(level?.walls) && level.walls.length > 0) {
     let nextX = x;
     let nextZ = z;
 
-    if (!isCircleBlocked(level, x + dx, z + dz, radius)) {
+    if (!isCircleBlocked(level, x + dx, z + dz, radius, stats)) {
       return { x: x + dx, z: z + dz };
     }
 
-    if (!isCircleBlocked(level, x + dx, z, radius)) {
+    if (stats && typeof stats === 'object') {
+      stats.resolutionAttempts = (Number(stats.resolutionAttempts) || 0) + 1;
+    }
+
+    if (!isCircleBlocked(level, x + dx, z, radius, stats)) {
       nextX = x + dx;
     }
 
-    if (!isCircleBlocked(level, nextX, z + dz, radius)) {
+    if (!isCircleBlocked(level, nextX, z + dz, radius, stats)) {
       nextZ = z + dz;
     }
 
-    if (!isCircleBlocked(level, nextX, nextZ, radius)) {
+    if (!isCircleBlocked(level, nextX, nextZ, radius, stats)) {
       return { x: nextX, z: nextZ };
     }
 
@@ -113,7 +137,7 @@ export function moveCircle(level, x, z, radius, dx, dz) {
       }
     }
 
-    if (!isCircleBlocked(level, candidateX, candidateZ, radius)) {
+    if (!isCircleBlocked(level, candidateX, candidateZ, radius, stats)) {
       return { x: candidateX, z: candidateZ };
     }
 
@@ -125,14 +149,14 @@ export function moveCircle(level, x, z, radius, dx, dz) {
 
   if (dx !== 0) {
     const candidateX = x + dx;
-    if (!isCircleBlocked(level, candidateX, z, radius)) {
+    if (!isCircleBlocked(level, candidateX, z, radius, stats)) {
       nextX = candidateX;
     }
   }
 
   if (dz !== 0) {
     const candidateZ = z + dz;
-    if (!isCircleBlocked(level, nextX, candidateZ, radius)) {
+    if (!isCircleBlocked(level, nextX, candidateZ, radius, stats)) {
       nextZ = candidateZ;
     }
   }
@@ -140,8 +164,8 @@ export function moveCircle(level, x, z, radius, dx, dz) {
   return { x: nextX, z: nextZ };
 }
 
-export function moveEntity(level, entity, dx, dz) {
-  const moved = moveCircle(level, entity.x, entity.z, entity.radius, dx, dz);
+export function moveEntity(level, entity, dx, dz, stats = null) {
+  const moved = moveCircle(level, entity.x, entity.z, entity.radius, dx, dz, stats);
   entity.x = moved.x;
   entity.z = moved.z;
   return entity;

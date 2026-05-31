@@ -95,7 +95,21 @@ export const WEAPON_DEFS = {
     fireDelayMs: 110,
     range: 52,
     recoil: 0.08,
-    color: '#64d8ff'
+    color: '#64d8ff',
+    altFire: {
+      ammoCost: 3,
+      type: 'projectile',
+      damage: 11,
+      splashRadius: 0.18,
+      speed: 30,
+      projectileRadius: 0.07,
+      lifeMs: 2200,
+      fireDelayMs: 240,
+      recoil: 0.16,
+      color: '#b6ffff',
+      projectileCount: 3,
+      spreadOffsets: [-0.06, 0, 0.06]
+    }
   },
   bfg9000: {
     id: 'bfg9000',

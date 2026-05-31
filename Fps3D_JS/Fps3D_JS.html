@@ -26,7 +26,8 @@
         linear-gradient(180deg, #081019 0%, #030507 100%);
     }
 
-    canvas {
+    #world,
+    #hud {
       position: absolute;
       inset: 0;
       width: 100%;
@@ -34,14 +35,107 @@
       display: block;
     }
 
+    #world {
+      z-index: 1;
+    }
+
     #hud {
+      z-index: 3;
       pointer-events: none;
+    }
+
+    #character-preview {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      z-index: 5;
+      width: min(24vw, 300px);
+      aspect-ratio: 3 / 4;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 18px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(113, 173, 255, 0.14), transparent 44%),
+        linear-gradient(180deg, rgba(7, 11, 18, 0.96), rgba(4, 6, 10, 0.98));
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.34);
+      backdrop-filter: blur(8px);
+      pointer-events: none;
+    }
+
+    #character-preview[hidden] {
+      display: none;
+    }
+
+    #character-preview canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #character-preview-label,
+    #character-preview-status {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      z-index: 1;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+      pointer-events: none;
+    }
+
+    #character-preview-label {
+      top: 10px;
+      color: rgba(235, 243, 255, 0.92);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    #character-preview-status {
+      bottom: 10px;
+      color: rgba(224, 233, 247, 0.76);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    @media (max-width: 900px) {
+      #character-preview {
+        width: min(34vw, 230px);
+        right: 12px;
+        bottom: 12px;
+      }
+    }
+
+    @media (max-width: 560px) {
+      #character-preview {
+        width: min(44vw, 180px);
+        right: 8px;
+        bottom: 8px;
+        border-radius: 14px;
+      }
+
+      #character-preview-label {
+        top: 8px;
+        left: 10px;
+        right: 10px;
+        font-size: 10px;
+      }
+
+      #character-preview-status {
+        left: 10px;
+        right: 10px;
+        bottom: 8px;
+        font-size: 11px;
+      }
     }
 
     #overlay {
       position: absolute;
       left: 16px;
       top: 16px;
+      z-index: 4;
       max-width: 340px;
       padding: 12px 14px;
       border: 1px solid rgba(255, 255, 255, 0.12);
@@ -63,11 +157,35 @@
       color: #ffd7a4;
     }
 
+    #dev-overlay {
+      position: absolute;
+      left: 16px;
+      top: 170px;
+      z-index: 5;
+      max-width: min(42vw, 420px);
+      max-height: calc(100vh - 190px);
+      margin: 0;
+      padding: 12px 14px;
+      overflow: auto;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(5, 8, 13, 0.72);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(8px);
+      color: rgba(237, 244, 255, 0.9);
+      font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre-wrap;
+      pointer-events: none;
+    }
+
+    #dev-overlay[hidden] {
+      display: none;
+    }
+
     #menu-toggle {
       position: absolute;
       top: 16px;
       right: 16px;
-      z-index: 6;
+      z-index: 7;
       padding: 10px 14px;
       border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 10px;
@@ -88,7 +206,7 @@
     #settings-backdrop {
       position: absolute;
       inset: 0;
-      z-index: 5;
+      z-index: 6;
       display: grid;
       place-items: center;
       background: rgba(2, 4, 8, 0.58);
@@ -146,6 +264,12 @@
       accent-color: #f8d46c;
     }
 
+    .menu-range {
+      width: 100%;
+      margin: 0;
+      accent-color: #f8d46c;
+    }
+
     .menu-control,
     .menu-actions button {
       width: 100%;
@@ -167,6 +291,13 @@
     .menu-actions button {
       cursor: pointer;
       font-weight: 700;
+    }
+
+    .menu-readout {
+      color: rgba(226, 235, 248, 0.76);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     .menu-note {
@@ -193,13 +324,19 @@
   <div id="app">
     <canvas id="world" data-testid="world-canvas"></canvas>
     <canvas id="hud" data-testid="hud-canvas"></canvas>
+    <div id="character-preview" aria-hidden="true">
+      <div id="character-preview-label">External human model</div>
+      <div id="character-preview-status">Loading Quaternius CC0 model...</div>
+      <canvas id="character-preview-canvas"></canvas>
+    </div>
     <div id="overlay">
       <strong>Hidden FPS Prototype</strong>
       <div>Click the view to lock pointer.</div>
-      <div>WASD move, mouse look, LMB fire, mouse wheel switch, R restart, Esc pause.</div>
+      <div>WASD move, mouse look, LMB fire, RMB alt-fire, mouse wheel switch, R restart, Esc pause.</div>
       <div>Gamepad: left stick move, right stick look, RT fire, LT alt-fire, A use, LB/RB weapons, Start pause.</div>
       <div id="overlay-state">Loading...</div>
     </div>
+    <pre id="dev-overlay" hidden aria-hidden="true"></pre>
     <button id="menu-toggle" type="button">Menu</button>
     <div id="settings-backdrop" hidden>
       <div id="settings-menu" role="dialog" aria-modal="true" aria-labelledby="settings-title">
@@ -213,6 +350,29 @@
         <div class="menu-field">
           <label for="difficulty-select">Difficulty</label>
           <select id="difficulty-select" class="menu-control"></select>
+        </div>
+        <div class="menu-field">
+          <label for="mouse-sensitivity">Mouse sensitivity</label>
+          <input id="mouse-sensitivity" class="menu-range" type="range" min="0.5" max="2" step="0.05">
+          <div id="mouse-sensitivity-value" class="menu-readout"></div>
+        </div>
+        <div class="menu-field">
+          <label for="master-volume">Master volume</label>
+          <input id="master-volume" class="menu-range" type="range" min="0" max="1" step="0.01">
+          <div id="master-volume-value" class="menu-readout"></div>
+        </div>
+        <div class="menu-field">
+          <label for="graphics-quality-select">Graphics quality</label>
+          <select id="graphics-quality-select" class="menu-control">
+            <option value="low">Low</option>
+            <option value="balanced">Balanced</option>
+            <option value="high">High</option>
+            <option value="ultra">Ultra</option>
+          </select>
+        </div>
+        <div class="menu-field">
+          <label>Fullscreen</label>
+          <button id="fullscreen-toggle" class="menu-control" type="button">Enter fullscreen</button>
         </div>
         <p class="menu-note">Settings save automatically in this browser.</p>
         <div class="menu-actions">

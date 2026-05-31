@@ -22,6 +22,9 @@ function makeState(levelRows) {
       weaponCooldownMs: 0,
       recoilMs: 0,
       recoilKick: 0,
+      muzzleFlashMs: 0,
+      damageFlashMs: 0,
+      hitConfirmMs: 0,
       ammo: { bullet: 100, shell: 10, rocket: 4, cell: 40 },
       kills: 0,
       dead: false
@@ -54,6 +57,8 @@ runCase('pistol hits a nearby enemy and spends ammo', () => {
   const fired = fireWeapon(state, 'pistol', state.rng);
   assert.equal(fired, true);
   assert.equal(state.player.ammo.bullet, 99);
+  assert.ok(state.player.muzzleFlashMs > 0);
+  assert.ok(state.player.hitConfirmMs > 0);
   assert.ok(enemy.hp < enemy.def.hp);
 });
 
@@ -84,4 +89,18 @@ runCase('rocket launcher spawns a projectile instead of hitscan damage', () => {
   assert.equal(fired, true);
   assert.equal(state.projectiles.length, 1);
   assert.equal(state.player.ammo.rocket, 3);
+});
+
+runCase('plasma rifle alt fire bursts three shots and spends extra ammo', () => {
+  const state = makeState([
+    '#####',
+    '#P..#',
+    '#...#',
+    '#####'
+  ]);
+  const fired = fireWeapon(state, 'plasmaRifle', state.rng, { altFire: true });
+  assert.equal(fired, true);
+  assert.equal(state.projectiles.length, 3);
+  assert.equal(state.player.ammo.cell, 37);
+  assert.ok(state.events.some((event) => event.type === 'fireWeapon' && event.altFire === true));
 });

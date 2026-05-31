@@ -12,13 +12,23 @@ function weaponOrigin(player) {
   };
 }
 
-function applyEnemyDamage(state, enemy, damage, reason) {
+function applyEnemyDamage(state, enemy, damage, reason, impulse = null) {
   if (!enemy || enemy.dead) {
     return false;
   }
 
   enemy.hp -= damage;
-  enemy.hitFlashMs = 120;
+  enemy.hitFlashMs = Math.max(Number(enemy.hitFlashMs) || 0, Math.min(180, 90 + damage * 3));
+  enemy.stunMs = Math.max(Number(enemy.stunMs) || 0, Math.min(260, 60 + damage * 3));
+  enemy.attackWindupMs = 0;
+  enemy.behaviorState = 'stunned';
+
+  const impulseX = Number.isFinite(impulse?.x) ? impulse.x : enemy.x - state.player.x;
+  const impulseZ = Number.isFinite(impulse?.z) ? impulse.z : enemy.z - state.player.z;
+  const impulseLength = Math.hypot(impulseX, impulseZ) || 1;
+  const knockback = Math.max(0.08, Math.min(0.62, 0.05 + damage * 0.012));
+  enemy.knockbackX = (Number(enemy.knockbackX) || 0) + (impulseX / impulseLength) * knockback;
+  enemy.knockbackZ = (Number(enemy.knockbackZ) || 0) + (impulseZ / impulseLength) * knockback;
   state.events.push({
     type: 'hitEnemy',
     enemyId: enemy.id,
@@ -30,10 +40,19 @@ function applyEnemyDamage(state, enemy, damage, reason) {
     type: 'hitEnemy',
     data: { enemyId: enemy.id, kind: enemy.kind, damage, reason }
   });
+  state.tracePush?.({
+    type: 'hitEnemy',
+    data: { enemyId: enemy.id, kind: enemy.kind, damage, reason }
+  });
+  state.player.hitConfirmMs = Math.max(Number(state.player.hitConfirmMs) || 0, enemy.hp <= 0 ? 180 : 120);
 
   if (enemy.hp <= 0 && !enemy.dead) {
     enemy.dead = true;
     enemy.dyingMs = 600;
+    enemy.stunMs = 0;
+    enemy.knockbackX = 0;
+    enemy.knockbackZ = 0;
+    enemy.behaviorState = 'dead';
     state.player.kills += 1;
     state.events.push({
       type: 'enemyDied',
@@ -44,6 +63,11 @@ function applyEnemyDamage(state, enemy, damage, reason) {
       type: 'enemyDied',
       data: { enemyId: enemy.id, kind: enemy.kind }
     });
+    state.tracePush?.({
+      type: 'enemyDied',
+      data: { enemyId: enemy.id, kind: enemy.kind }
+    });
+    state.player.hitConfirmMs = Math.max(Number(state.player.hitConfirmMs) || 0, 180);
   }
 
   return true;
@@ -55,6 +79,10 @@ function pushImpactEvent(state, impact) {
     ...impact
   });
   state.replayPush({
+    type: 'projectileImpact',
+    data: impact
+  });
+  state.tracePush?.({
     type: 'projectileImpact',
     data: impact
   });
@@ -90,6 +118,10 @@ function spawnProjectile(state, owner, kind, originX, originZ, dirX, dirZ, optio
     type: 'projectileSpawn',
     data: { owner, kind, x: originX, z: originZ }
   });
+  state.tracePush?.({
+    type: 'projectileSpawn',
+    data: { owner, kind, x: originX, z: originZ }
+  });
   return projectile;
 }
 
@@ -105,7 +137,13 @@ function applySplashDamage(state, centerX, centerZ, splashRadius, damage, owner)
     }
 
     const falloff = 1 - Math.min(1, distance / Math.max(0.001, splashRadius));
-    applyEnemyDamage(state, enemy, Math.max(1, Math.round(damage * falloff)), owner);
+    applyEnemyDamage(
+      state,
+      enemy,
+      Math.max(1, Math.round(damage * falloff)),
+      owner,
+      { x: enemy.x - centerX, z: enemy.z - centerZ }
+    );
   }
 
   const playerDistance = Math.hypot(state.player.x - centerX, state.player.z - centerZ);
@@ -140,7 +178,7 @@ function tryHitscanShot(state, weapon, pelletIndex, rng) {
 
   if (bestEnemy) {
     const damage = weapon.damage;
-    applyEnemyDamage(state, bestEnemy, damage, weapon.id);
+    applyEnemyDamage(state, bestEnemy, damage, weapon.id, dir);
     state.events.push({
       type: 'hitscanImpact',
       x: origin.x + dir.x * bestDistance,
@@ -195,47 +233,61 @@ function tryHitscanShot(state, weapon, pelletIndex, rng) {
   };
 }
 
-function spendAmmo(player, weapon) {
+function spendAmmo(player, weapon, ammoCost = weapon.ammoCost) {
   const ammoType = weapon.ammoType;
   if (!ammoType) {
     return true;
   }
 
-  if ((player.ammo[ammoType] || 0) < weapon.ammoCost) {
+  if ((player.ammo[ammoType] || 0) < ammoCost) {
     return false;
   }
 
-  player.ammo[ammoType] -= weapon.ammoCost;
+  player.ammo[ammoType] -= ammoCost;
   return true;
 }
 
-export function canFireWeapon(player, weaponId) {
+export function canFireWeapon(player, weaponId, options = {}) {
   const weapon = getWeaponDef(weaponId);
-  return player.weaponCooldownMs <= 0 && (!weapon.ammoType || (player.ammo[weapon.ammoType] || 0) >= weapon.ammoCost);
+  const altFire = !!options.altFire && !!weapon.altFire;
+  const ammoCost = Number((altFire ? weapon.altFire?.ammoCost : weapon.ammoCost) ?? weapon.ammoCost) || weapon.ammoCost;
+  return player.weaponCooldownMs <= 0 && (!weapon.ammoType || (player.ammo[weapon.ammoType] || 0) >= ammoCost);
 }
 
-export function fireWeapon(state, weaponId, rng = state.rng) {
+export function fireWeapon(state, weaponId, rng = state.rng, options = {}) {
   const player = state.player;
   const weapon = getWeaponDef(weaponId);
+  const altFire = !!options.altFire && !!weapon.altFire;
+  const mode = altFire ? weapon.altFire : null;
+  const ammoCost = Number(mode?.ammoCost ?? weapon.ammoCost) || weapon.ammoCost;
+  const fireDelayMs = Number(mode?.fireDelayMs ?? weapon.fireDelayMs) || weapon.fireDelayMs;
+  const recoil = Number(mode?.recoil ?? weapon.recoil) || weapon.recoil;
+  const muzzleFlashMs = altFire ? 84 : 72;
 
-  if (!canFireWeapon(player, weaponId)) {
+  if (!canFireWeapon(player, weaponId, { altFire })) {
     return false;
   }
 
-  if (!spendAmmo(player, weapon)) {
+  if (!spendAmmo(player, weapon, ammoCost)) {
     return false;
   }
 
-  player.weaponCooldownMs = weapon.fireDelayMs;
-  player.recoilMs = Math.max(player.recoilMs, 90);
-  player.recoilKick += weapon.recoil;
+  player.weaponCooldownMs = fireDelayMs;
+  player.recoilMs = Math.max(player.recoilMs, altFire ? 110 : 90);
+  player.recoilKick += recoil;
+  player.muzzleFlashMs = Math.max(Number(player.muzzleFlashMs) || 0, muzzleFlashMs);
   state.events.push({
     type: 'fireWeapon',
-    weaponId
+    weaponId,
+    altFire
   });
   state.replayPush({
     type: 'fireWeapon',
-    data: { weaponId }
+    data: { weaponId, altFire }
+  });
+  state.tracePush?.({
+    type: 'fireWeapon',
+    data: { weaponId, altFire }
   });
 
   if (weapon.type === 'hitscan') {
@@ -247,15 +299,36 @@ export function fireWeapon(state, weaponId, rng = state.rng) {
     return pelletResults.some((result) => result.hit);
   }
 
-  const dir = normalize2d(Math.cos(player.yaw), Math.sin(player.yaw));
-  spawnProjectile(state, 'player', weaponId, player.x, player.z, dir.x, dir.z, {
-    speed: weapon.speed,
-    radius: weapon.projectileRadius,
-    damage: weapon.damage,
-    splashRadius: weapon.splashRadius,
-    lifeMs: weapon.lifeMs,
-    color: weapon.color
-  });
+  const projectileCount = Math.max(1, Number(mode?.projectileCount ?? 1) || 1);
+  const spreadOffsets = Array.isArray(mode?.spreadOffsets) && mode.spreadOffsets.length > 0
+    ? mode.spreadOffsets
+    : [0];
+  const projectileSpeed = Number(mode?.speed ?? weapon.speed) || weapon.speed;
+  const projectileRadius = Number(mode?.projectileRadius ?? weapon.projectileRadius) || weapon.projectileRadius;
+  const projectileDamage = Number(mode?.damage ?? weapon.damage) || weapon.damage;
+  const projectileSplashRadius = Number(mode?.splashRadius ?? weapon.splashRadius) || weapon.splashRadius;
+  const projectileLifeMs = Number(mode?.lifeMs ?? weapon.lifeMs) || weapon.lifeMs;
+  const projectileColor = mode?.color ?? weapon.color;
+  const offsetList = projectileCount > 1
+    ? spreadOffsets.slice(0, projectileCount)
+    : [0];
+  while (offsetList.length < projectileCount) {
+    const step = 0.03;
+    const centerIndex = (projectileCount - 1) / 2;
+    offsetList.push((offsetList.length - centerIndex) * step);
+  }
+
+  for (const offset of offsetList) {
+    const dir = normalize2d(Math.cos(player.yaw + offset), Math.sin(player.yaw + offset));
+    spawnProjectile(state, 'player', weaponId, player.x, player.z, dir.x, dir.z, {
+      speed: projectileSpeed,
+      radius: projectileRadius,
+      damage: projectileDamage,
+      splashRadius: projectileSplashRadius,
+      lifeMs: projectileLifeMs,
+      color: projectileColor
+    });
+  }
   return true;
 }
 
@@ -280,7 +353,7 @@ export function applyProjectileImpact(state, projectile) {
     }
     const distance = Math.hypot(enemy.x - projectile.x, enemy.z - projectile.z);
     if (distance <= enemy.radius + projectile.radius) {
-      applyEnemyDamage(state, enemy, projectile.damage, projectile.kind);
+      applyEnemyDamage(state, enemy, projectile.damage, projectile.kind, { x: projectile.vx, z: projectile.vz });
       pushImpactEvent(state, {
         owner: projectile.owner,
         kind: projectile.kind,
@@ -309,6 +382,6 @@ export function createProjectile(state, owner, kind, originX, originZ, dirX, dir
   return spawnProjectile(state, owner, kind, originX, originZ, dirX, dirZ, options);
 }
 
-export function damageEnemy(state, enemy, damage, reason) {
-  return applyEnemyDamage(state, enemy, damage, reason);
+export function damageEnemy(state, enemy, damage, reason, impulse = null) {
+  return applyEnemyDamage(state, enemy, damage, reason, impulse);
 }

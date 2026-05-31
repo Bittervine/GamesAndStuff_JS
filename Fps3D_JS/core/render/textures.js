@@ -652,69 +652,75 @@ function drawUiPanelTexture(ctx, rng) {
   });
 }
 
-export function createGameTextures(gl, seed = 0) {
+export function createGameTextures(gl = null, seed = 0) {
   const rng = createSeededRng(seed);
   const textures = {};
+  const repeatWrap = gl ? gl.REPEAT : undefined;
+  const clampWrap = gl ? gl.CLAMP_TO_EDGE : undefined;
+
+  function storeTexture(key, canvas, options = {}) {
+    textures[key] = gl ? uploadTexture(gl, canvas, options) : canvas;
+  }
 
   const wallCanvas = makeCanvas(64);
   drawWallTexture(wallCanvas.getContext('2d', { willReadFrequently: true }), rng.fork('wall'));
-  textures.wall = uploadTexture(gl, wallCanvas, { wrapS: gl.REPEAT, wrapT: gl.REPEAT });
+  storeTexture('wall', wallCanvas, { wrapS: repeatWrap, wrapT: repeatWrap });
 
   const floorCanvas = makeCanvas(64);
   drawFloorTexture(floorCanvas.getContext('2d', { willReadFrequently: true }), rng.fork('floor'));
-  textures.floor = uploadTexture(gl, floorCanvas, { wrapS: gl.REPEAT, wrapT: gl.REPEAT });
+  storeTexture('floor', floorCanvas, { wrapS: repeatWrap, wrapT: repeatWrap });
 
   const ceilingCanvas = makeCanvas(64);
   drawCeilingTexture(ceilingCanvas.getContext('2d', { willReadFrequently: true }), rng.fork('ceiling'));
-  textures.ceiling = uploadTexture(gl, ceilingCanvas, { wrapS: gl.REPEAT, wrapT: gl.REPEAT });
+  storeTexture('ceiling', ceilingCanvas, { wrapS: repeatWrap, wrapT: repeatWrap });
 
   const skyCanvas = makeCanvas(256);
   drawSkyTexture(skyCanvas.getContext('2d', { willReadFrequently: true }), rng.fork('sky'));
-  textures.sky = uploadTexture(gl, skyCanvas, { wrapS: gl.REPEAT, wrapT: gl.CLAMP_TO_EDGE });
+  storeTexture('sky', skyCanvas, { wrapS: repeatWrap, wrapT: clampWrap });
 
   const metalCanvas = makeCanvas(64);
   drawMetalTexture(metalCanvas.getContext('2d', { willReadFrequently: true }), rng.fork('material-metal'));
-  textures.materialMetal = uploadTexture(gl, metalCanvas, { wrapS: gl.REPEAT, wrapT: gl.REPEAT });
+  storeTexture('materialMetal', metalCanvas, { wrapS: repeatWrap, wrapT: repeatWrap });
 
   const stoneCanvas = makeCanvas(64);
   drawStoneTexture(stoneCanvas.getContext('2d', { willReadFrequently: true }), rng.fork('material-stone'));
-  textures.materialStone = uploadTexture(gl, stoneCanvas, { wrapS: gl.REPEAT, wrapT: gl.REPEAT });
+  storeTexture('materialStone', stoneCanvas, { wrapS: repeatWrap, wrapT: repeatWrap });
 
   const organicCanvas = makeCanvas(64);
   drawOrganicTexture(organicCanvas.getContext('2d', { willReadFrequently: true }), rng.fork('material-organic'));
-  textures.materialOrganic = uploadTexture(gl, organicCanvas, { wrapS: gl.REPEAT, wrapT: gl.REPEAT });
+  storeTexture('materialOrganic', organicCanvas, { wrapS: repeatWrap, wrapT: repeatWrap });
 
   const liquidCanvas = makeCanvas(64);
   drawLiquidTexture(liquidCanvas.getContext('2d', { willReadFrequently: true }), rng.fork('material-liquid'));
-  textures.materialLiquid = uploadTexture(gl, liquidCanvas, { wrapS: gl.REPEAT, wrapT: gl.REPEAT });
+  storeTexture('materialLiquid', liquidCanvas, { wrapS: repeatWrap, wrapT: repeatWrap });
 
   const emissiveCanvas = makeCanvas(64);
   drawEmissiveTexture(emissiveCanvas.getContext('2d', { willReadFrequently: true }), rng.fork('material-emissive'));
-  textures.materialEmissive = uploadTexture(gl, emissiveCanvas, { wrapS: gl.REPEAT, wrapT: gl.REPEAT });
+  storeTexture('materialEmissive', emissiveCanvas, { wrapS: repeatWrap, wrapT: repeatWrap });
 
   const damageCanvas = makeCanvas(64);
   drawDamageTexture(damageCanvas.getContext('2d', { willReadFrequently: true }), rng.fork('material-damage'));
-  textures.materialDamage = uploadTexture(gl, damageCanvas, { wrapS: gl.REPEAT, wrapT: gl.REPEAT });
+  storeTexture('materialDamage', damageCanvas, { wrapS: repeatWrap, wrapT: repeatWrap });
 
   const entityCanvas = makeCanvas(64);
   drawEntityTexture(entityCanvas.getContext('2d', { willReadFrequently: true }), rng.fork('entity'));
-  textures.entity = uploadTexture(gl, entityCanvas, { wrapS: gl.CLAMP_TO_EDGE, wrapT: gl.CLAMP_TO_EDGE });
+  storeTexture('entity', entityCanvas, { wrapS: clampWrap, wrapT: clampWrap });
 
   const pickupCanvas = makeCanvas(64);
   drawPickupTexture(pickupCanvas.getContext('2d', { willReadFrequently: true }), rng.fork('pickup'));
-  textures.pickup = uploadTexture(gl, pickupCanvas, { wrapS: gl.CLAMP_TO_EDGE, wrapT: gl.CLAMP_TO_EDGE });
+  storeTexture('pickup', pickupCanvas, { wrapS: clampWrap, wrapT: clampWrap });
 
   const weaponCanvas = makeCanvas(64);
   drawWeaponTexture(weaponCanvas.getContext('2d', { willReadFrequently: true }), rng.fork('weapon'));
-  textures.weapon = uploadTexture(gl, weaponCanvas, { wrapS: gl.CLAMP_TO_EDGE, wrapT: gl.CLAMP_TO_EDGE });
+  storeTexture('weapon', weaponCanvas, { wrapS: clampWrap, wrapT: clampWrap });
 
   const uiPanelCanvas = makeCanvas(64);
   drawUiPanelTexture(uiPanelCanvas.getContext('2d', { willReadFrequently: true }), rng.fork('ui-panel'));
-  textures.uiPanel = uploadTexture(gl, uiPanelCanvas, { wrapS: gl.CLAMP_TO_EDGE, wrapT: gl.CLAMP_TO_EDGE });
+  storeTexture('uiPanel', uiPanelCanvas, { wrapS: clampWrap, wrapT: clampWrap });
 
   const projectileCanvas = makeCanvas(64);
   drawPickupTexture(projectileCanvas.getContext('2d', { willReadFrequently: true }), rng.fork('projectile'));
-  textures.projectile = uploadTexture(gl, projectileCanvas, { wrapS: gl.CLAMP_TO_EDGE, wrapT: gl.CLAMP_TO_EDGE });
+  storeTexture('projectile', projectileCanvas, { wrapS: clampWrap, wrapT: clampWrap });
 
   const atlas = buildTextureAtlas([
     { key: 'entity', canvas: entityCanvas },
@@ -729,15 +735,33 @@ export function createGameTextures(gl, seed = 0) {
     columns: 4,
     padding: 4
   });
-  textures.atlas = uploadTexture(gl, atlas.canvas, { wrapS: gl.CLAMP_TO_EDGE, wrapT: gl.CLAMP_TO_EDGE });
+  textures.atlas = gl ? uploadTexture(gl, atlas.canvas, { wrapS: gl.CLAMP_TO_EDGE, wrapT: gl.CLAMP_TO_EDGE }) : atlas.canvas;
   textures.atlasRegions = atlas.regions;
+  textures.sourceCanvases = {
+    wall: wallCanvas,
+    floor: floorCanvas,
+    ceiling: ceilingCanvas,
+    sky: skyCanvas,
+    materialMetal: metalCanvas,
+    materialStone: stoneCanvas,
+    materialOrganic: organicCanvas,
+    materialLiquid: liquidCanvas,
+    materialEmissive: emissiveCanvas,
+    materialDamage: damageCanvas,
+    entity: entityCanvas,
+    pickup: pickupCanvas,
+    weapon: weaponCanvas,
+    uiPanel: uiPanelCanvas,
+    projectile: projectileCanvas,
+    atlas: atlas.canvas
+  };
 
   return textures;
 }
 
 export function disposeTextures(gl, textures) {
   for (const texture of Object.values(textures)) {
-    if (texture) {
+    if (texture && typeof gl?.isTexture === 'function' && gl.isTexture(texture)) {
       gl.deleteTexture(texture);
     }
   }

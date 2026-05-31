@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createSeededRng } from '../../core/random/seededRng.js';
 import { parseLevelDefinition } from '../../core/world/level.js';
-import { createEnemy, updateEnemy } from '../../core/combat/enemies.js';
+import { createEnemy, damageEnemyDirect, updateEnemy } from '../../core/combat/enemies.js';
 
 function makeState(levelRows) {
   const level = parseLevelDefinition({ id: 'arena', rows: levelRows });
@@ -86,4 +86,26 @@ runCase('ranged enemy winds up before firing', () => {
 
   updateEnemy(state, enemy, 240);
   assert.ok(state.player.health < hpBefore);
+});
+
+runCase('enemy damage applies stun and knockback', () => {
+  const state = makeState([
+    '#####',
+    '#P..#',
+    '#...#',
+    '#.d.#',
+    '#####'
+  ]);
+  const enemy = createEnemy('demon', 2.5, 3.5, { id: 1 });
+  const hpBefore = enemy.hp;
+
+  damageEnemyDirect(state, enemy, 12, 'test', { x: 1, z: 0 });
+  assert.ok(enemy.hp < hpBefore);
+  assert.ok(enemy.stunMs > 0);
+  assert.ok(enemy.knockbackX > 0);
+
+  updateEnemy(state, enemy, 16);
+  assert.ok(enemy.stunMs < 96);
+  assert.ok(enemy.knockbackX < 0.194);
+  assert.equal(enemy.behaviorState, 'stunned');
 });

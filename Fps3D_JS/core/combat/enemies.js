@@ -44,6 +44,10 @@ function spawnDrop(state, enemy) {
     type: 'pickupSpawn',
     data: { kind: pickup.kind, x: pickup.x, z: pickup.z }
   });
+  state.tracePush?.({
+    type: 'pickupSpawn',
+    data: { kind: pickup.kind, x: pickup.x, z: pickup.z }
+  });
 }
 
 export function createEnemy(kind, x, z, options = {}) {
@@ -62,17 +66,21 @@ export function createEnemy(kind, x, z, options = {}) {
     dead: false,
     dyingMs: 0,
     hitFlashMs: 0,
+    stunMs: 0,
+    knockbackX: 0,
+    knockbackZ: 0,
     facing: options.facing ?? 0,
     cooldownMs: options.cooldownMs ?? 0,
     aggroMs: 0,
     bobPhase: 0,
     attackWindupMs: 0,
-    attackWindupTotalMs: 0
+    attackWindupTotalMs: 0,
+    behaviorState: 'idle'
   };
 }
 
-export function damageEnemyDirect(state, enemy, amount, reason = 'direct') {
-  return damageEnemy(state, enemy, amount, reason);
+export function damageEnemyDirect(state, enemy, amount, reason = 'direct', impulse = null) {
+  return damageEnemy(state, enemy, amount, reason, impulse);
 }
 
 function attackPlayer(state, enemy, damage, reason) {
@@ -85,6 +93,10 @@ function attackPlayer(state, enemy, damage, reason) {
     damage: scaledDamage
   });
   state.replayPush({
+    type: 'playerHit',
+    data: { source: enemy.kind, damage: scaledDamage }
+  });
+  state.tracePush?.({
     type: 'playerHit',
     data: { source: enemy.kind, damage: scaledDamage }
   });
@@ -170,11 +182,33 @@ export function updateEnemy(state, enemy, dtMs) {
 
   if (enemy.dead) {
     enemy.dyingMs -= dtMs;
+    enemy.behaviorState = 'dead';
     return true;
   }
 
   if (enemy.cooldownMs > 0) {
     enemy.cooldownMs = Math.max(0, enemy.cooldownMs - dtMs);
+  }
+
+  if (enemy.stunMs > 0) {
+    enemy.stunMs = Math.max(0, enemy.stunMs - dtMs);
+    if (enemy.stunMs > 0) {
+      const knockbackX = Number(enemy.knockbackX) || 0;
+      const knockbackZ = Number(enemy.knockbackZ) || 0;
+      enemy.behaviorState = 'stunned';
+      if (knockbackX !== 0 || knockbackZ !== 0) {
+        moveEntity(
+          state.level,
+          enemy,
+          knockbackX * dt,
+          knockbackZ * dt,
+          state.metrics?.collision
+        );
+      }
+      enemy.knockbackX *= Math.pow(0.18, dt);
+      enemy.knockbackZ *= Math.pow(0.18, dt);
+      return true;
+    }
   }
 
   const player = state.player;
@@ -190,6 +224,7 @@ export function updateEnemy(state, enemy, dtMs) {
   enemy.bobPhase = (enemy.bobPhase + dtMs * bobRate) % 100000;
 
   if (enemy.attackWindupMs > 0) {
+    enemy.behaviorState = 'attack';
     enemy.attackWindupMs = Math.max(0, enemy.attackWindupMs - dtMs);
     if (enemy.attackWindupMs === 0) {
       const attacked = performEnemyAttack(state, enemy, damageMultiplier);
@@ -208,6 +243,7 @@ export function updateEnemy(state, enemy, dtMs) {
 
   if (canWindupAttack) {
     beginEnemyAttack(enemy, def);
+    enemy.behaviorState = 'attack';
     if (enemy.attackWindupMs <= 0) {
       const attacked = performEnemyAttack(state, enemy, damageMultiplier);
       enemy.attackWindupTotalMs = 0;
@@ -220,26 +256,33 @@ export function updateEnemy(state, enemy, dtMs) {
 
   if (shouldChase && dist > def.attackRange * 0.72) {
     const dir = normalize2d(dx, dz);
+    enemy.behaviorState = 'chase';
     moveEntity(
       state.level,
       enemy,
       dir.x * def.speed * speedMultiplier * dt,
-      dir.z * def.speed * speedMultiplier * dt
+      dir.z * def.speed * speedMultiplier * dt,
+      state.metrics?.collision
     );
   }
 
   if (!seesPlayer && dist > def.attackRange * 2.25) {
+    enemy.behaviorState = 'idle';
     return true;
   }
 
   if (def.behavior === 'melee') {
     if (dist <= def.attackRange && enemy.cooldownMs <= 0) {
+      enemy.behaviorState = 'attack';
       attackPlayer(state, enemy, def.damage, def.id);
       enemy.cooldownMs = def.attackCooldownMs * cooldownMultiplier;
+    } else {
+      enemy.behaviorState = shouldChase ? 'chase' : 'idle';
     }
     return true;
   }
 
+  enemy.behaviorState = shouldChase ? 'chase' : 'idle';
   return true;
 }
 

@@ -163,3 +163,160 @@ export const QUATERNIUS_CHARACTER_IMPORTS = {
     }
   ]
 };
+
+export const CHARACTER_PRODUCTION_GUIDE = {
+  version: 1,
+  baseMeshPolicy: {
+    summary: 'Derive variations from the approved base mesh instead of generating full humans from scratch.',
+    approvedBaseModelIds: ['quaternius-superhero-male'],
+    notes: [
+      'Keep changes small, readable, and intentional.',
+      'Use the approved mesh as the anatomical reference for all humanoid variants.',
+      'Treat AI output as a staged delta, not a one-shot final character.'
+    ]
+  },
+  styleBible: {
+    acceptedExamples: [
+      {
+        id: 'quaternius-stylized-human-baseline',
+        label: 'Approved stylized-realistic human baseline',
+        sourceModelId: 'quaternius-superhero-male',
+        metrics: {
+          heightMeters: 1.82,
+          headsTall: 7.4,
+          shoulderWidthToHeight: 0.28,
+          hipWidthToHeight: 0.20,
+          armSpanToHeight: 1.01,
+          handLengthToHeight: 0.10,
+          footLengthToHeight: 0.15,
+          kneeHeightToHeight: 0.28,
+          elbowHeightToHeight: 0.58
+        },
+        deformation: {
+          maxFootSlideMeters: 0.025,
+          maxFootFloatMeters: 0.01,
+          maxStretchRatio: 1.05,
+          maxJointCollapseRatio: 0.18
+        },
+        cleanTopologyZones: ['shoulders', 'elbows', 'wrists', 'hips', 'knees', 'ankles', 'neck', 'jaw'],
+        notes: [
+          'Use this as the comparison target for all new human variants.',
+          'Borderline changes should be shown to the user instead of auto-approved.'
+        ]
+      }
+    ],
+    rejectedExamples: [
+      {
+        id: 'silhouette-too-slender',
+        label: 'Reject: silhouette and proportions drift away from readable combat forms',
+        metrics: {
+          heightMeters: 1.95,
+          headsTall: 5.8,
+          shoulderWidthToHeight: 0.19,
+          hipWidthToHeight: 0.13,
+          armSpanToHeight: 1.18,
+          handLengthToHeight: 0.14,
+          footLengthToHeight: 0.09,
+          kneeHeightToHeight: 0.19,
+          elbowHeightToHeight: 0.72
+        },
+        notes: [
+          'Ask the user to judge any model that drifts toward this silhouette.',
+          'Reject early if hands, feet, or joints start to look wrong.'
+        ]
+      },
+      {
+        id: 'deformation-unstable',
+        label: 'Reject: deformation quality is too unstable for engine import',
+        deformation: {
+          maxFootSlideMeters: 0.12,
+          maxFootFloatMeters: 0.08,
+          maxStretchRatio: 1.24,
+          maxJointCollapseRatio: 0.42
+        },
+        notes: [
+          'Do not let this stage reach engine import.',
+          'Keep the AI agent constrained to repair tasks when deformation fails.'
+        ]
+      }
+    ],
+    comparisonMetrics: [
+      'heightMeters',
+      'headsTall',
+      'shoulderWidthToHeight',
+      'hipWidthToHeight',
+      'armSpanToHeight',
+      'handLengthToHeight',
+      'footLengthToHeight',
+      'kneeHeightToHeight',
+      'elbowHeightToHeight'
+    ],
+    acceptedScoreThreshold: 0.82,
+    rejectedSimilarityThreshold: 0.7,
+    reviewNotes: [
+      'Reject models early if the silhouette, proportions, hands, feet, or joints look wrong.',
+      'Require clean topology around shoulders, elbows, wrists, hips, knees, ankles, neck, and jaw.',
+      'Retarget motion onto the chosen skeleton instead of relying on generated final motion.',
+      'Use the approved style examples as the comparison target for every new model.'
+    ]
+  },
+  reviewStages: [
+    {
+      id: 'concept',
+      label: 'Concept',
+      requiresApproval: true,
+      checks: ['base mesh variation only', 'silhouette readability', 'combat distance readability']
+    },
+    {
+      id: 'blockout',
+      label: 'Blockout',
+      requiresApproval: true,
+      checks: ['body masses', 'head size', 'hand size', 'foot size', 'overall proportions']
+    },
+    {
+      id: 'topology',
+      label: 'Topology',
+      requiresApproval: true,
+      checks: ['shoulders', 'elbows', 'wrists', 'hips', 'knees', 'ankles', 'neck', 'jaw']
+    },
+    {
+      id: 'rigging',
+      label: 'Rigging',
+      requiresApproval: true,
+      checks: ['QuaterniusHumanoidV1 skeleton', 'no custom bones', 'retarget map alignment']
+    },
+    {
+      id: 'skinning',
+      label: 'Skinning',
+      requiresApproval: true,
+      checks: ['weight painting', 'foot planting', 'joint deformation', 'surface smoothness']
+    },
+    {
+      id: 'animation',
+      label: 'Animation',
+      requiresApproval: true,
+      checks: ['idle', 'walk', 'run', 'stop', 'turn', 'jump', 'hit reaction', 'death', 'interaction', 'IK']
+    },
+    {
+      id: 'engineImport',
+      label: 'Engine Import',
+      requiresApproval: true,
+      checks: ['material count', 'texture budget', 'clip compatibility', 'runtime test']
+    },
+    {
+      id: 'polish',
+      label: 'Polish',
+      requiresApproval: true,
+      checks: ['final readability', 'feel', 'variation limit', 'user approval']
+    }
+  ],
+  approvalPolicy: {
+    keepTasksSmall: true,
+    requireStageApproval: true,
+    compareAgainstAcceptedExamples: true,
+    requireUserJudgementForBorderlineModels: true,
+    expandVariationOnlyAfterQualityIsReliable: true
+  }
+};
+
+export const CHARACTER_STYLE_BIBLE = CHARACTER_PRODUCTION_GUIDE.styleBible;
