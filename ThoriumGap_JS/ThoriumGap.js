@@ -199,6 +199,9 @@
   const ENEMY_SHIP_MIN_SIZE = 64;
   const ENEMY_SHIP_MAX_SIZE = 108;
   const ENEMY_ELITE_SIZE = 128;
+  const ENEMY_NEMESIS_SIZE = 128;
+  const ENEMY_NEMESIS_TURN_SMOOTH = 0.0225;
+  const ENEMY_NEMESIS_MOVE_SPEED_MULT = 2.0;
   const ENEMY_SHIP_TEXTURE_SIZE = 256;
   const ENEMY_SHIP_GLOW_SCALE = 1.01;
   const ENEMY_SHIP_GLOW_INTENSITY = 0.3;
@@ -376,8 +379,8 @@
       'models/Ship_Longwing_7.glb'
     ],
     TigerWing: [
-      'models/Ship_TigerWing_1.glb',
       'models/Ship_TigerWing_2.glb',
+      'models/Ship_TigerWing_1.glb',      
       'models/Ship_TigerWing_3.glb',
       'models/Ship_TigerWing_4.glb',
       'models/Ship_TigerWing_5.glb',
@@ -403,9 +406,9 @@
       'models/Ship_ManraRay_766613.glb',
       'models/Ship_ManraRay_792763.glb'
     ],
-    FinalFlight: [
-      'models/Ship_LunarCourier_994899.glb',
+    FinalFlight: [      
       'models/Ship_Standard_4.glb',
+      'models/Ship_LunarCourier_994899.glb',
       'models/Ship_DeltaWing_394511.glb',
       'models/Ship_Crosspanel_3.glb',
       'models/Ship_ManraRay_190663.glb',
@@ -414,10 +417,10 @@
     ],
     RedFlight: [
       'models/Ship_Crosspanel_18.glb',
+      'models/Ship_LunarCourier_5002.glb',       
       'models/Ship_Crosspanel_2.glb',
       'models/Ship_Hooper_378031.glb',
-      'models/Ship_Longwing_1.glb',
-      'models/Ship_LunarCourier_5002.glb',
+      'models/Ship_Longwing_1.glb',      
       'models/Ship_PyramidLifter_97249.glb',
       'models/Ship_Standard_3.glb'
     ],
@@ -468,7 +471,7 @@
     ],
     LunarCourier: [
       'models/Ship_LunarCourier_7.glb',
-      'models/Ship_LunarCourier_5002.glb',
+      'models/Ship_LunarCourier_899475.glb',
       'models/Ship_LunarCourier_95901.glb',
       'models/Ship_LunarCourier_153144.glb',
       'models/Ship_LunarCourier_322196.glb',
@@ -486,11 +489,11 @@
     ],
     FlyingSaucer: [
       'models/Ship_FlyingSaucer_298877.glb',
+      'models/Ship_FlyingSaucer_750147.glb',
       'models/Ship_FlyingSaucer_301176.glb',
       'models/Ship_FlyingSaucer_336064.glb',
       'models/Ship_FlyingSaucer_528770.glb',
-      'models/Ship_FlyingSaucer_654444.glb',
-      'models/Ship_FlyingSaucer_750147.glb',
+      'models/Ship_FlyingSaucer_654444.glb',      
       'models/Ship_FlyingSaucer_752605.glb'
     ]
   };
@@ -571,6 +574,10 @@
 
   function enemyMotionScale() {
     return narrowScreenScale();
+  }
+
+  function nemesisHoldDistance() {
+    return Math.max(1, 5 * playerCollisionRadius());
   }
 
   function isOnScreen(x, y) {
@@ -2954,13 +2961,10 @@
     { name: 'ROCKET', color: '#0000ff' },
     { name: 'BEAM', color: '#ff2e2e' }
   ];
-  const WEAPON_PICKUP_WEIGHTS = [
-    5,
-    5,
-    5,
-    5,
-    5
-  ];
+  // Base fire delay per weapon mode, before tier/rapid-fire/overdrive/heat modifiers.
+  // Indexes match WEAPONS: 0=DART, 1=TWIN, 2=FAN, 3=ROCKET, 4=BEAM.
+  const WEAPON_BASE_FIRE_DELAYS = [0.16, 0.17, 0.17, 0.25, 0.20];
+  const WEAPON_PICKUP_WEIGHTS = [ 5, 5, 5, 5, 5 ];
   const WEAPON_TIER_LABELS = ['I', 'II', 'III', 'IIII', 'V'];
 
   const PICKUPS = {
@@ -2984,8 +2988,64 @@
     splitter: { hp: 7, r: 20, score: 150, speed: 92 },
     diver: { hp: 6, r: 18, score: 130, speed: 120 },
     mine: { hp: 8, r: 19, score: 120, speed: 60 },
-    elite: { hp: 15, r: 24, score: 280, speed: 80 }
+    elite: { hp: 10, r: 24, score: 280, speed: 80 },
+    nemesis: { hp: 50, r: 24, score: 700, speed: 118 }
   };
+
+  const NEMESIS_DEFS = [
+    {
+      id: 'nemesis1',
+      name: 'Nemesis I',
+      spawnFromLevel: 2,
+      chancePerSecond: 1 / 30,
+      hp: 50,
+      score: 700,
+      shipLevel: 1,
+      shipIndex: 1,
+      behavior: 'orbit',
+      fireStyle: 'sniperSpread',
+      fireDelay: 1.5,
+      moveSpeed: 126,
+      behindOffset: 116,
+      aura: '#ff8f78'
+    },
+    {
+      id: 'nemesis2',
+      name: 'Nemesis II',
+      spawnFromLevel: 4,
+      chancePerSecond: 1 / 30,
+      hp: 50,
+      score: 700,
+      shipLevel: 3,
+      shipIndex: 1,
+      behavior: 'orbit',
+      fireStyle: 'sniperSpread',
+      fireDelay: 1.5,
+      moveSpeed: 126,
+      behindOffset: 116,
+      aura: '#ff8f78'
+    },
+    {
+      id: 'nemesis3',
+      name: 'Nemesis III',
+      spawnFromLevel: 10,
+      chancePerSecond: 1 / 30,
+      hp: 50,
+      score: 700,
+      shipLevel: 9,
+      shipIndex: 1,
+      behavior: 'orbit',
+      fireStyle: 'sniperSpread',
+      fireDelay: 1.5,
+      moveSpeed: 126,
+      behindOffset: 116,
+      aura: '#ff8f78'
+    },
+  ];
+  const NEMESIS_DEFS_BY_ID = Object.create(null);
+  for (let i = 0; i < NEMESIS_DEFS.length; i++) {
+    NEMESIS_DEFS_BY_ID[NEMESIS_DEFS[i].id] = NEMESIS_DEFS[i];
+  }
 
   const DIFFICULTIES = [                                                                      // Hint: bulletSpeed = enemyShotPace maintains gap-dynamics of shots (just faster)
     { label: 'Easy', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.8, spawnCount: 0.7, bulletSpeed: 1.0, bossHp: 0.5, contact: 0.9, playerDamage: 1, enemyShotPace: 0.8, spinnerNrOfRingShots: 6, eliteNrOfRingShots: 6 },
@@ -3075,6 +3135,7 @@
     asteroids: null,
     fps: 0,
     fpsAvg: 60,
+    nemesisClock: 0,
     starfieldCapSum: 0,
     starfieldCapSamples: 0,
     starfieldCapPending: null,
@@ -3943,6 +4004,7 @@
     state.waveClock = 0;
     state.waveIndex = 0;
     state.levelClock = 0;
+    state.nemesisClock = 0;
     state.transition = null;
     clearDecorBackgrounds();
     clearArray(state.enemies);
@@ -4104,6 +4166,13 @@
     else if (code === 'Backquote' || code === 'IntlBackslash' || code === 'Backslash') spawnPickup('invuln', x, y);
   }
 
+  function spawnDebugNemesis() {
+    if (!state.debugMode || state.mode !== 'playing' || state.transition) return;
+    if (state.settings.difficulty < 1) return; // Nemesis are enabled only on Normal/Hard difficulty.
+    if (!NEMESIS_DEFS.length) return;
+    spawnNemesis(pick(NEMESIS_DEFS));
+  }
+
   function debugJumpToBoss() {
     if (!state.debugMode || state.mode !== 'playing' || state.transition) return;
     if (state.boss) {
@@ -4170,6 +4239,7 @@
     state.waveClock = 0;
     state.waveIndex = 0;
     state.levelClock = 0;
+    state.nemesisClock = 0;
     state.transition = null;
     regenBackground(state.currentTheme, { preserveDecor: true, preserveClouds: true, preserveStars: true });
     if (state.currentTheme && state.currentTheme.asteroidDensity > 0) {
@@ -4482,24 +4552,29 @@
     const speedScale = diff.enemySpeed;
     const fireScale = enemyShotPace() / diff.spawnRate;
     const levelNumber = state.levelIndex + 1;
+    const shipLevel = opts && opts.shipLevel != null ? opts.shipLevel : levelNumber;
     const shipIndex = opts && opts.shipIndex != null ? opts.shipIndex : chooseEnemyShipIndexForKind(kind, levelNumber);
     const shipScale = narrowScreenScale();
-    const baseShipSize = kind === 'elite' ? ENEMY_ELITE_SIZE : getEnemyShipRenderSize(levelNumber, shipIndex);
+    const baseShipSize = kind === 'nemesis' ? ENEMY_NEMESIS_SIZE : (kind === 'elite' ? ENEMY_ELITE_SIZE : getEnemyShipRenderSize(shipLevel, shipIndex));
     const shipSize = Math.max(1, baseShipSize * shipScale);
     const sizeScale = shipSize / 64;
     const firstLevelHpScale = state.levelIndex === 0 ? 0.5 : 1;
     const hpScale = firstLevelHpScale * scale * diff.enemyHp * sizeScale;
     const baseHp = opts && opts.hp != null ? opts.hp : d.hp;
+    const initialFireCooldown = opts && opts.fireCooldown != null ? opts.fireCooldown : rand(0.8, 1.8) * fireScale;
     const e = {
       kind: kind, theme: t, x: x, y: y,
       vx: (opts && opts.vx != null ? opts.vx : rand(-18, 18)) * speedScale,
       vy: (opts && opts.vy != null ? opts.vy : d.speed * scale) * speedScale,
       hp: Math.max(1, Math.round(baseHp * hpScale)),
       maxHp: Math.max(1, Math.round(baseHp * hpScale)),
-      r: Math.max(12, Math.round(shipSize * 0.42)), score: Math.round((opts && opts.score != null ? opts.score : d.score) * scale), fireCooldown: rand(0.8, 1.8) * fireScale, age: 0, wobble: rand(0, TAU), dir: chance(0.5) ? 1 : -1,
-      shipLevel: levelNumber, shipIndex: shipIndex, shipSize: shipSize,
+      r: Math.max(12, Math.round(shipSize * 0.42)), score: Math.round((opts && opts.score != null ? opts.score : d.score) * scale), fireCooldown: initialFireCooldown, age: 0, wobble: rand(0, TAU), dir: chance(0.5) ? 1 : -1,
+      shipLevel: shipLevel, shipIndex: shipIndex, shipSize: shipSize,
       shotSeed: rand(0, TAU), elite: !!(opts && opts.elite), dead: false, hitFlash: 0,
-      entry: opts && opts.entry ? opts.entry : null
+      entry: opts && opts.entry ? opts.entry : null,
+      name: opts && opts.name ? opts.name : kind,
+      nemesis: !!(opts && opts.nemesis),
+      nemesisDef: opts && opts.nemesisDef ? opts.nemesisDef : null
     };
     e.flightAngle = Math.atan2(e.vy || 0, e.vx || 1);
     if (e.entry) {
@@ -4508,9 +4583,136 @@
       e.wobble = e.entry.phase;
       e.flightAngle = Math.atan2(e.entry.targetY - e.entry.startY, e.entry.targetX - e.entry.startX);
     }
-    if (kind === 'elite') { e.hp = Math.round(9 * hpScale); e.maxHp = e.hp; e.score = Math.round(340 * scale); e.r = Math.max(e.r, Math.round(shipSize * 0.42)); }
     state.enemies.push(e);
     return e;
+  }
+
+  function nemesisDefsForLevel(levelNumber) {
+    const level = Math.max(1, levelNumber | 0);
+    const out = [];
+    for (let i = 0; i < NEMESIS_DEFS.length; i++) {
+      const def = NEMESIS_DEFS[i];
+      if (level >= def.spawnFromLevel) out.push(def);
+    }
+    return out;
+  }
+
+  function buildNemesisEntry(def) {
+    const p = state.player;
+    const a = playArea();
+    const halfH = Math.max(120, view.h * 0.48);
+    const off = Math.max(88, view.w * 0.12);
+    const holdDistance = nemesisHoldDistance();
+    const edgeRoll = Math.random();
+    let startX = 0;
+    let startY = 0;
+    if (edgeRoll < 0.45) {
+      startX = rand(0, view.w);
+      startY = -off;
+    } else if (edgeRoll < 0.725) {
+      startX = -off;
+      startY = rand(0, halfH);
+    } else {
+      startX = view.w + off;
+      startY = rand(0, halfH);
+    }
+    const behindBias = chance(0.5) ? -1 : 1;
+    let orbitAngle = rand(0, TAU);
+    let orbitDir = chance(0.5) ? 1 : -1;
+    let orbitRadius = def.orbitRadius || holdDistance;
+    let targetX = p.x;
+    let targetY = p.y;
+    if (def.behavior === 'orbit') {
+      const maxRadius = Math.max(84, Math.min(p.x - a.left, a.right - p.x, p.y - a.top, a.bottom - p.y) - 30);
+      const orbitMin = Math.min(holdDistance * 0.92, maxRadius);
+      const orbitMax = Math.max(orbitMin, maxRadius);
+      orbitRadius = clamp(Math.max(holdDistance, orbitRadius), orbitMin, orbitMax);
+      targetX = clamp(p.x + Math.cos(orbitAngle) * orbitRadius, a.left + 36, a.right - 36);
+      targetY = clamp(p.y + Math.sin(orbitAngle) * orbitRadius * 0.92, a.top + 36, a.bottom - 36);
+    } else {
+      const playerSpeed = Math.hypot(p.vx || 0, p.vy || 0);
+      const awayX = playerSpeed > 12 ? -(p.vx || 0) / playerSpeed : 0;
+      const awayY = playerSpeed > 12 ? -(p.vy || 0) / playerSpeed : 1;
+      const sideX = -awayY;
+      const sideY = awayX;
+      const sideOffset = holdDistance * 0.12 * behindBias;
+      targetX = clamp(p.x + awayX * holdDistance + sideX * sideOffset, a.left + 36, a.right - 36);
+      targetY = clamp(p.y + awayY * holdDistance + sideY * sideOffset, a.top + 36, a.bottom - 36);
+    }
+    const dx = targetX - startX;
+    const dy = targetY - startY;
+    const len = Math.max(1, Math.hypot(dx, dy));
+    return {
+      startX: startX,
+      startY: startY,
+      targetX: targetX,
+      targetY: targetY,
+      controlX: lerp(startX, targetX, 0.56),
+      controlY: lerp(startY, targetY, 0.22) - (def.behavior === 'orbit' ? 24 : 12),
+      normalX: -dy / len,
+      normalY: dx / len,
+      bend: Math.max(48, len * 0.04),
+      swirl: def.behavior === 'orbit' ? 30 : 20,
+      turns: def.behavior === 'orbit' ? 1.65 : 1.1,
+      duration: def.behavior === 'orbit' ? 1.25 : 1.05,
+      phase: rand(0, TAU),
+      settle: 0.9,
+      kind: def.id,
+      orbitAngle: orbitAngle,
+      orbitDir: orbitDir,
+      orbitRadius: orbitRadius,
+      behindBias: behindBias
+    };
+  }
+
+  function spawnNemesis(def) {
+    if (!def) return null;
+    const spawn = buildNemesisEntry(def);
+    const e = spawnEnemy('nemesis', spawn.startX, spawn.startY, {
+      hp: def.hp,
+      score: def.score,
+      shipLevel: def.shipLevel,
+      shipIndex: def.shipIndex,
+      fireCooldown: rand(def.fireDelay * 0.35, def.fireDelay),
+      entry: spawn,
+      nemesis: true,
+      nemesisDef: def,
+      name: def.name
+    });
+    if (!e) return null;
+    e.nemesis = true;
+    e.nemesisDef = def;
+    e.nemesisId = def.id;
+    e.name = def.name;
+    e.hp = def.hp;
+    e.maxHp = def.hp;
+    e.score = def.score;
+    e.shipLevel = def.shipLevel;
+    e.shipIndex = def.shipIndex;
+    e.fireCooldown = rand(def.fireDelay * 0.35, def.fireDelay);
+    if (def.behavior === 'orbit') {
+      e.nemesisOrbitAngle = spawn.orbitAngle;
+      e.nemesisOrbitDir = spawn.orbitDir;
+      e.nemesisOrbitRadius = spawn.orbitRadius;
+    } else {
+      e.nemesisBehindBias = spawn.behindBias;
+    }
+    return e;
+  }
+
+  function updateNemesisSpawns(dt) {
+    if (state.mode !== 'playing' || state.transition || state.catalystPresent || state.catalystSequence) return;
+    if (state.settings.difficulty < 1) return; // Nemesis are enabled only on Normal/Hard difficulty.
+    const levelNumber = state.levelIndex + 1;
+    const defs = nemesisDefsForLevel(levelNumber);
+    if (!defs.length) return;
+    state.nemesisClock += dt;
+    while (state.nemesisClock >= 1) {
+      state.nemesisClock -= 1;
+      for (let i = 0; i < defs.length; i++) {
+        if (chance(defs[i].chancePerSecond || 0)) spawnNemesis(defs[i]);
+      }
+    }
   }
 
   function spawnBoss(theme) {
@@ -4704,7 +4906,8 @@
 
   function weaponDelay() {
     const p = state.player;
-    const base = [0.16, 0.17, 0.17, 0.25, 0.23][p.weaponMode] || 0.2;
+    // Start from the weapon's own base delay, then apply the shared modifiers below.
+    const base = WEAPON_BASE_FIRE_DELAYS[p.weaponMode] || 0.2;
     let d = base - (p.weaponTier - 1) * 0.012;
     if (p.rapidTimer > 0) d *= 0.54;
     if (state.overdrive > 0) d *= 0.76;
@@ -4943,11 +5146,11 @@
     sfx('bomb');
     burst(p.x, p.y, '#fff0b5', 36, 260, 8, 'spark');
     clearEnemyBulletsWithBudget(isLowGraphicalEffects() ? 8 : 24, '#ffe39a');
-    for (let i = state.enemies.length - 1; i >= 0; i--) damageEnemy(state.enemies[i], 999, true);
+    for (let i = state.enemies.length - 1; i >= 0; i--) damageEnemy(state.enemies[i], 100, true);
     if (state.boss) {
-      damageFinalBossClaw(state.boss, 'left', 18);
-      damageFinalBossClaw(state.boss, 'right', 18);
-      damageBoss(state.boss, 18, true);
+      damageFinalBossClaw(state.boss, 'left', 20);
+      damageFinalBossClaw(state.boss, 'right', 20);
+      damageBoss(state.boss, 20, true);
     }
     markHudDirty();
   }
@@ -5005,6 +5208,10 @@
     if (b.hp <= 0) {
       b.dead = true;
       state.boss = null;
+      for (let i = state.enemies.length - 1; i >= 0; i--) {
+        const enemy = state.enemies[i];
+        if (enemy && enemy.nemesis && !enemy.dead) damageEnemy(enemy, 999999, true);
+      }
       clearArray(state.enemies);
       clearProjectileLists();
       burst(b.x, b.y, b.color, 60, 360, 9, 'spark');
@@ -5851,9 +6058,32 @@
     return out;
   }
 
+  function fireSniperSpread(e, p, shotSpeed, color, sourceKind, sourceName) {
+    const base = ang(e.x, e.y, p.x, p.y);
+    for (let k = -1; k <= 1; k++) {
+      const aa = base + k * 0.1;
+      spawnBullet('enemy', e.x, e.y, Math.cos(aa) * shotSpeed, Math.sin(aa) * shotSpeed, {
+        r: 7,
+        color: color,
+        damage: 1,
+        kind: 'shot',
+        life: 4.6,
+        sourceKind: sourceKind,
+        sourceName: sourceName
+      });
+    }
+  }
+
   function tryEnemyFire(e, p, entering) {
     if (!e || e.fireCooldown > 0) return;
     if (!isOnScreen(e.x, e.y)) return;
+    if (e.kind === 'nemesis') {
+      if (entering) return;
+      const def = e.nemesisDef || (e.nemesisId ? NEMESIS_DEFS_BY_ID[e.nemesisId] : null);
+      e.fireCooldown = def && def.fireDelay ? def.fireDelay : 1.5;
+      fireSniperSpread(e, p, 240, def && def.aura ? def.aura : (e.theme.accent || '#ffffff'), e.kind, e.name || e.kind);
+      return;
+    }
     const postEntrySlowdown = entering ? 1 : 2;
     if (e.kind === 'drifter') {
       if (e.y <= 70) return;
@@ -5881,11 +6111,7 @@
     if (e.kind === 'sniper') {
       if (e.y <= 100) return;
       e.fireCooldown = shotDelay(1.5 * postEntrySlowdown);
-      const base = ang(e.x, e.y, p.x, p.y);
-      for (let k = -1; k <= 1; k++) {
-        const aa = base + k * 0.1;
-        spawnBullet('enemy', e.x, e.y, Math.cos(aa) * 240, Math.sin(aa) * 240, { r: 7, color: e.theme.accent, damage: 1, kind: 'shot', life: 4.6, sourceKind: e.kind, sourceName: e.name || e.kind });
-      }
+      fireSniperSpread(e, p, 240, e.theme.accent || '#ffffff', e.kind, e.name || e.kind);
       return;
     }
     if (e.kind === 'spinner') {
@@ -5916,6 +6142,68 @@
   function updateEnemyMovement(e, dt, a, p, entering) {
     const motionDt = dt * enemyMotionScale();
     if (entering) return false;
+    if (e.kind === 'nemesis') {
+      const def = e.nemesisDef || (e.nemesisId ? NEMESIS_DEFS_BY_ID[e.nemesisId] : null);
+        const speed = Math.max(92, (def && def.moveSpeed) || 126) * ENEMY_NEMESIS_MOVE_SPEED_MULT;
+        const holdDistance = nemesisHoldDistance();
+      if (def && def.behavior === 'orbit') {
+        if (!Number.isFinite(e.nemesisOrbitAngle)) e.nemesisOrbitAngle = rand(0, TAU);
+        if (!Number.isFinite(e.nemesisOrbitDir)) e.nemesisOrbitDir = chance(0.5) ? 1 : -1;
+        const maxRadius = Math.max(84, Math.min(p.x - a.left, a.right - p.x, p.y - a.top, a.bottom - p.y) - 30);
+        const baseRadius = Math.max(holdDistance, Number.isFinite(e.nemesisOrbitRadius) ? e.nemesisOrbitRadius : (def.orbitRadius || holdDistance));
+        const orbitMin = Math.min(holdDistance * 0.9, maxRadius);
+        const orbitMax = Math.max(orbitMin, maxRadius);
+        const radius = clamp(baseRadius + Math.sin(e.age * 1.25 + e.wobble) * holdDistance * 0.08, orbitMin, orbitMax);
+        e.nemesisOrbitRadius = radius;
+        e.nemesisOrbitAngle += e.nemesisOrbitDir * ((def.orbitSpeed || 1.15) * ENEMY_NEMESIS_MOVE_SPEED_MULT * motionDt);
+        const angleWobble = Math.sin(e.age * 1.7 + e.wobble) * 0.06 + Math.sin(e.age * 4.9 + e.shotSeed) * 0.02;
+        const targetAngle = e.nemesisOrbitAngle + angleWobble;
+        const targetX = clamp(p.x + Math.cos(targetAngle) * radius, a.left + 28, a.right - 28);
+        const targetY = clamp(p.y + Math.sin(targetAngle) * radius * 0.92, a.top + 28, a.bottom - 28);
+        const dx = targetX - e.x;
+        const dy = targetY - e.y;
+        const len = Math.max(1, Math.hypot(dx, dy));
+        const desiredVx = (dx / len) * speed;
+        const desiredVy = (dy / len) * speed;
+        e.vx = lerp(e.vx || 0, desiredVx, ENEMY_NEMESIS_TURN_SMOOTH);
+        e.vy = lerp(e.vy || 0, desiredVy, ENEMY_NEMESIS_TURN_SMOOTH);
+        e.x += e.vx * motionDt;
+        e.y += e.vy * motionDt;
+        e.x = clamp(e.x, a.left + 10, a.right - 10);
+        e.y = clamp(e.y, a.top + 10, a.bottom - 10);
+        return false;
+      }
+      const behindBias = Number.isFinite(e.nemesisBehindBias) ? e.nemesisBehindBias : 0;
+      const playerSpeed = Math.hypot(p.vx || 0, p.vy || 0);
+      const awayX = playerSpeed > 12 ? -(p.vx || 0) / playerSpeed : 0;
+      const awayY = playerSpeed > 12 ? -(p.vy || 0) / playerSpeed : 1;
+      const sideX = -awayY;
+      const sideY = awayX;
+      const sideWobble = Math.sin(e.age * 1.55 + e.wobble) * holdDistance * 0.09 * behindBias;
+      const forwardWobble = Math.sin(e.age * 0.62 + e.shotSeed) * holdDistance * 0.025;
+      const desiredX = clamp(
+        p.x + awayX * holdDistance + sideX * sideWobble + awayX * forwardWobble,
+        a.left + 28,
+        a.right - 28
+      );
+      const desiredY = clamp(
+        p.y + awayY * holdDistance + sideY * sideWobble + awayY * forwardWobble,
+        a.top + 28,
+        a.bottom - 28
+      );
+      const dx = desiredX - e.x;
+      const dy = desiredY - e.y;
+      const len = Math.max(1, Math.hypot(dx, dy));
+      const desiredVx = (dx / len) * speed + clamp(-(p.vx || 0) * 0.14, -48, 48);
+      const desiredVy = (dy / len) * speed + clamp((p.vy || 0) * 0.05, -20, 20);
+      e.vx = lerp(e.vx || 0, desiredVx, ENEMY_NEMESIS_TURN_SMOOTH);
+      e.vy = lerp(e.vy || 0, desiredVy, ENEMY_NEMESIS_TURN_SMOOTH);
+      e.x += e.vx * motionDt;
+      e.y += e.vy * motionDt;
+      e.x = clamp(e.x, a.left + 10, a.right - 10);
+      e.y = clamp(e.y, a.top + 10, a.bottom - 10);
+      return false;
+    }
     if (e.kind === 'drifter') {
       e.y += e.vy * motionDt;
       e.x += Math.sin(e.age * 3 + e.wobble) * 18 * motionDt;
@@ -6059,10 +6347,18 @@
         e.x = curveX + en.normalX * bend + sway * en.swirl;
         e.y = curveY + en.normalY * bend + swirl * (en.swirl * 0.62) + pull * -18;
         e.wobble += dt * 0.03;
-        if (t >= 1) {
+        if (e.nemesis && !Number.isFinite(e.nemesisEntryResumeDistance) && isOnScreen(e.x, e.y)) {
+          const entryDistance = Math.hypot(e.x - p.x, e.y - p.y);
+          e.nemesisEntryResumeDistance = Math.max(nemesisHoldDistance(), entryDistance * 0.66);
+        }
+        const resumeEntry = e.nemesis && Number.isFinite(e.nemesisEntryResumeDistance) && d2(e.x, e.y, p.x, p.y) <= e.nemesisEntryResumeDistance * e.nemesisEntryResumeDistance;
+        if (t >= 1 || resumeEntry) {
           e.entry = null;
-          e.x = tx;
-          e.y = en.targetY;
+          e.nemesisEntryResumeDistance = null;
+          if (t >= 1) {
+            e.x = tx;
+            e.y = en.targetY;
+          }
           e.wobble += en.phase;
           entering = false;
         }
@@ -6070,7 +6366,7 @@
       if (updateEnemyMovement(e, dt, a, p, entering)) { state.enemies.splice(i, 1); continue; }
       tryEnemyFire(e, p, entering);
       e.flightAngle = Math.atan2(e.y - prevY, e.x - prevX);
-      if (e.y > view.h + 72 || e.x < -90 || e.x > view.w + 90) { state.enemies.splice(i, 1); continue; }
+      if (!e.nemesis && (e.y > view.h + 72 || e.x < -90 || e.x > view.w + 90)) { state.enemies.splice(i, 1); continue; }
       if (d2(e.x, e.y, p.x, p.y) < (e.r + playerCollisionRadius()) * (e.r + playerCollisionRadius())) {
         if (p.invuln > 0) continue;
         const contactDamage = currentDifficulty().contact;
@@ -6255,6 +6551,7 @@
     updatePickups(dt);
     updateParticles(dt);
     updateTransition(dt);
+    updateNemesisSpawns(dt);
     if (!state.transition && !state.catalystPresent && !state.catalystSequence) {
       const theme = state.currentTheme;
       const spawnInterval = clamp(1.3 - state.levelIndex * 0.01, 0.5, 2.0);
@@ -7674,10 +7971,11 @@
       splitter: '#ffd15c',
       diver: '#ff7070',
       mine: '#9cff6e',
-      elite: '#ffcf6b'
+      elite: '#ffcf6b',
+      nemesis: '#ff9a7b'
     };
     return {
-      base: fixed[e && e.kind] || t.accent2 || t.accent || '#ffffff',
+      base: (e && e.nemesisDef && e.nemesisDef.aura) || fixed[e && e.kind] || t.accent2 || t.accent || '#ffffff',
       alt: '#15151b',
       glow: t.glow || t.accent2 || '#ffffff'
     };
@@ -7982,6 +8280,9 @@
   }
 
   function drawEnemyOverlay(e, rot) {
+    if (!e || !e.nemesisDef) return;
+    const aura = e.nemesisDef.aura || '#ffffff';
+    const pulse = 0.55 + 0.45 * Math.sin((e.age || 0) * 5.5 + (e.wobble || 0));
   }
 
   function drawBossOverlay(b) {
@@ -8817,6 +9118,10 @@
     if (state.debugMode && (code === 'Digit1' || code === 'Digit2' || code === 'Digit3' || code === 'Digit4' || code === 'Digit5' || code === 'Digit6' || code === 'Digit7' || code === 'Digit8' || code === 'Digit9' || code === 'Backquote' || code === 'IntlBackslash' || code === 'Backslash')) {
       ev.preventDefault();
       if (!ev.repeat) spawnCheatDrop(code);
+    }
+    if (state.debugMode && code === 'KeyN') {
+      ev.preventDefault();
+      if (!ev.repeat) spawnDebugNemesis();
     }
     if (code === 'ArrowLeft' || code === 'KeyA') state.input.left = true;
     else if (code === 'ArrowRight' || code === 'KeyD') state.input.right = true;

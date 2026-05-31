@@ -3718,11 +3718,15 @@
       }
 
       function formatTickValue(value, step) {
+        var absValue = Math.abs(value);
         var decimals = countStepDecimals(step);
         var epsilon = Math.abs(step) * 1e-6;
         var fixedText;
         if (Math.abs(value) < epsilon) {
           return '0';
+        }
+        if (absValue >= 1 && decimals === 0) {
+          return String(Math.round(value));
         }
         fixedText = value.toFixed(decimals);
         fixedText = fixedText.replace(/\.?0+$/, '');
