@@ -6328,7 +6328,7 @@
         e.wobble += dt * 0.03;
         if (e.nemesis && !Number.isFinite(e.nemesisEntryResumeDistance) && isOnScreen(e.x, e.y)) {
           const entryDistance = Math.hypot(e.x - p.x, e.y - p.y);
-          e.nemesisEntryResumeDistance = Math.max(nemesisHoldDistance(), entryDistance * 0.75);
+          e.nemesisEntryResumeDistance = Math.max(nemesisHoldDistance(), entryDistance * 0.70);
         }
         const resumeEntry = e.nemesis && Number.isFinite(e.nemesisEntryResumeDistance) && d2(e.x, e.y, p.x, p.y) <= e.nemesisEntryResumeDistance * e.nemesisEntryResumeDistance;
         if (t >= 1 || resumeEntry) {
