@@ -584,15 +584,18 @@
     return x >= 0 && x <= view.w && y >= 0 && y <= view.h;
   }
 
-  function enemyShipKey(levelNumber, shipIndex) {
+  function enemyShipKey(levelNumber, shipIndex, kind) {
+    if (kind === 'nemesis2') return 'enemyship|nemesis2';
     return 'enemyship|' + levelNumber + '|' + shipIndex;
   }
 
-  function enemyShipSource(levelNumber, shipIndex) {
+  function enemyShipSource(levelNumber, shipIndex, kind) {
+    if (kind === 'nemesis2') return ENEMY_NEMESIS2_TEXTURE;
     return 'assets/enemy_' + String(levelNumber).padStart(3, '0') + String(shipIndex).padStart(2, '0') + ENEMY_SHIP_VARIANT + '.png';
   }
 
-  function fallbackEnemyShipGlowColor(levelNumber, shipIndex) {
+  function fallbackEnemyShipGlowColor(levelNumber, shipIndex, kind) {
+    if (kind === 'nemesis2') return ENEMY_NEMESIS2_AURA;
     const seed = hashString('enemyglow|' + levelNumber + '|' + shipIndex);
     return ENEMY_SHIP_GLOW_FALLBACKS[Math.abs(seed) % ENEMY_SHIP_GLOW_FALLBACKS.length];
   }
@@ -615,6 +618,7 @@
         paths.push(path);
       }
     }
+    if (!seen.has(ENEMY_NEMESIS2_MODEL_PATH)) paths.push(ENEMY_NEMESIS2_MODEL_PATH);
     return paths;
   }
 
@@ -657,7 +661,8 @@
     return state.threeWarmupPromise;
   }
 
-  function enemy3DModelPath(levelNumber, shipIndex) {
+  function enemy3DModelPath(levelNumber, shipIndex, kind) {
+    if (kind === 'nemesis2') return ENEMY_NEMESIS2_MODEL_PATH;
     const family = enemy3DFamilyForLevel(levelNumber);
     const list = ENEMY_3D_FAMILY_MODELS[family];
     if (!list || !list.length) return null;
@@ -836,8 +841,8 @@
     return cropped;
   }
 
-  function ensureEnemyShipTexture(levelNumber, shipIndex) {
-    const key = enemyShipKey(levelNumber, shipIndex);
+  function ensureEnemyShipTexture(levelNumber, shipIndex, kind) {
+    const key = enemyShipKey(levelNumber, shipIndex, kind);
     if (render.textures.has(key) || enemyShipLoadKeys.has(key)) return;
     enemyShipLoadKeys.add(key);
     const img = new Image();
@@ -861,11 +866,11 @@
     img.onerror = function () {
       enemyShipLoadKeys.delete(key);
     };
-    img.src = enemyShipSource(levelNumber, shipIndex);
+    img.src = enemyShipSource(levelNumber, shipIndex, kind);
   }
 
-  function ensureEnemyShipGlowTexture(levelNumber, shipIndex) {
-    const key = enemyShipKey(levelNumber, shipIndex) + '|glow';
+  function ensureEnemyShipGlowTexture(levelNumber, shipIndex, kind) {
+    const key = enemyShipKey(levelNumber, shipIndex, kind) + '|glow';
     if (render.textures.has(key) || enemyShipGlowLoadKeys.has(key)) return;
     enemyShipGlowLoadKeys.add(key);
     const img = new Image();
@@ -892,7 +897,7 @@
     img.onerror = function () {
       enemyShipGlowLoadKeys.delete(key);
     };
-    img.src = enemyShipSource(levelNumber, shipIndex);
+    img.src = enemyShipSource(levelNumber, shipIndex, kind);
   }
 
   function ensureGlowImage(src) {
@@ -985,26 +990,26 @@
     }
   }
 
-  function getEnemyShipTexture(levelNumber, shipIndex) {
-    const exactKey = enemyShipKey(levelNumber, shipIndex);
+  function getEnemyShipTexture(levelNumber, shipIndex, kind) {
+    const exactKey = enemyShipKey(levelNumber, shipIndex, kind);
     const exact = render.textures.get(exactKey);
     if (exact) return exact;
-    ensureEnemyShipTexture(levelNumber, shipIndex);
+    ensureEnemyShipTexture(levelNumber, shipIndex, kind);
     if (levelNumber > ENEMY_SHIP_FALLBACK_BATCHES) {
       const fallbackLevel = ((levelNumber - 1) % ENEMY_SHIP_FALLBACK_BATCHES) + 1;
-      const fallbackKey = enemyShipKey(fallbackLevel, shipIndex);
+      const fallbackKey = enemyShipKey(fallbackLevel, shipIndex, kind);
       const fallback = render.textures.get(fallbackKey);
       if (fallback) return fallback;
-      ensureEnemyShipTexture(fallbackLevel, shipIndex);
+      ensureEnemyShipTexture(fallbackLevel, shipIndex, kind);
     }
     return null;
   }
 
-  function getEnemyShipGlowColor(levelNumber, shipIndex, fallbackTheme) {
-    const key = enemyShipKey(levelNumber, shipIndex);
+  function getEnemyShipGlowColor(levelNumber, shipIndex, fallbackTheme, kind) {
+    const key = enemyShipKey(levelNumber, shipIndex, kind);
     const glow = enemyShipGlowColors.get(key);
     if (glow) return glow;
-    return fallbackEnemyShipGlowColor(levelNumber, shipIndex) || (fallbackTheme && (fallbackTheme.glow || fallbackTheme.accent2 || fallbackTheme.accent)) || '#8fd8ff';
+    return fallbackEnemyShipGlowColor(levelNumber, shipIndex, kind) || (fallbackTheme && (fallbackTheme.glow || fallbackTheme.accent2 || fallbackTheme.accent)) || '#8fd8ff';
   }
 
   function getEnemyShipRenderSize(levelNumber, shipIndex) {
@@ -2240,14 +2245,14 @@
     if (enemy3DState.instances.has(enemy)) return enemy3DState.instances.get(enemy);
     const levelNumber = enemy.shipLevel || (state.levelIndex + 1);
     const shipIndex = enemy.shipIndex || 0;
-    const modelPath = enemy3DModelPath(levelNumber, shipIndex);
+    const modelPath = enemy.kind === 'nemesis2' ? ENEMY_NEMESIS2_MODEL_PATH : enemy3DModelPath(levelNumber, shipIndex);
     if (!modelPath) return null;
     const modelEntry = await ensureEnemy3DModelLoaded(modelPath);
     if (!enemy || enemy.dead || !enemy3DState.ready || !enemy3DState.root) return null;
     if (!modelEntry || !modelEntry.scene || !(modelEntry.maxXYDiameter > 0)) return null;
     const root = new enemy3DState.THREE.Group();
     const modelScene = modelEntry.scene.clone(true);
-    const shipScale = enemy3DShipScale(levelNumber, shipIndex);
+    const shipScale = enemy.kind === 'nemesis2' ? 1 : enemy3DShipScale(levelNumber, shipIndex);
     modelScene.traverse(function (obj) {
       if (!obj || !obj.isMesh) return;
       obj.frustumCulled = false;
@@ -2989,13 +2994,19 @@
     diver: { hp: 6, r: 18, score: 130, speed: 120 },
     mine: { hp: 8, r: 19, score: 120, speed: 60 },
     elite: { hp: 10, r: 24, score: 280, speed: 80 },
-    nemesis: { hp: 20, r: 24, score: 700, speed: 120 }
+    nemesis: { hp: 20, r: 24, score: 700, speed: 120 },
+    nemesis2: { hp: 200, r: 24, score: 700, speed: 120 }
   };
 
   const ENEMY_NEMESIS_NAME = 'Nemesis I';
+  const ENEMY_NEMESIS2_NAME = 'Nemesis II';
   const ENEMY_NEMESIS_CHANCE_PER_SECOND = 0.15;
+  const ENEMY_NEMESIS2_UPGRADE_CHANCE = 1 / 50;
   const ENEMY_NEMESIS_FIRE_DELAY = 1.0;
   const ENEMY_NEMESIS_AURA = '#ff8f78';
+  const ENEMY_NEMESIS2_AURA = '#ff8f78';
+  const ENEMY_NEMESIS2_MODEL_PATH = 'models/Ship_FlyingSaucer_750147.glb';
+  const ENEMY_NEMESIS2_TEXTURE = 'assets/enemy_00505a.png';
 
   const DIFFICULTIES = [                                                                      // Hint: bulletSpeed = enemyShotPace maintains gap-dynamics of shots (just faster)
     { label: 'Easy', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.8, spawnCount: 0.7, bulletSpeed: 1.0, bossHp: 0.5, contact: 0.9, playerDamage: 1, enemyShotPace: 0.8, spinnerNrOfRingShots: 6, eliteNrOfRingShots: 6 },
@@ -4498,7 +4509,7 @@
     const shipLevel = opts && opts.shipLevel != null ? opts.shipLevel : levelNumber;
     const shipIndex = opts && opts.shipIndex != null ? opts.shipIndex : chooseEnemyShipIndexForKind(kind, levelNumber);
     const shipScale = narrowScreenScale();
-    const baseShipSize = kind === 'nemesis' ? ENEMY_NEMESIS_SIZE : (kind === 'elite' ? ENEMY_ELITE_SIZE : getEnemyShipRenderSize(shipLevel, shipIndex));
+    const baseShipSize = (kind === 'nemesis' || kind === 'nemesis2') ? ENEMY_NEMESIS_SIZE : (kind === 'elite' ? ENEMY_ELITE_SIZE : getEnemyShipRenderSize(shipLevel, shipIndex));
     const shipSize = Math.max(1, baseShipSize * shipScale);
     const sizeScale = shipSize / 64;
     const firstLevelHpScale = state.levelIndex === 0 ? 0.5 : 1;
@@ -4530,7 +4541,8 @@
   }
 
   function spawnNemesis() {
-    const d = ENEMIES.nemesis;
+    const kind = chance(ENEMY_NEMESIS2_UPGRADE_CHANCE) ? 'nemesis2' : 'nemesis';
+    const d = ENEMIES[kind] || ENEMIES.nemesis;
     const levelNumber = state.levelIndex + 1;
     const p = state.player;
     const a = playArea();
@@ -4582,17 +4594,17 @@
       orbitRadius: orbitRadius
     };
     const shipIndex = chooseEnemyShipIndexForKind('nemesis', levelNumber);
-    const e = spawnEnemy('nemesis', spawn.startX, spawn.startY, {
+    const e = spawnEnemy(kind, spawn.startX, spawn.startY, {
       shipLevel: levelNumber,
       shipIndex: shipIndex,
       fireCooldown: rand(ENEMY_NEMESIS_FIRE_DELAY * 0.35, ENEMY_NEMESIS_FIRE_DELAY),
       entry: spawn,
       nemesis: true,
-      name: ENEMY_NEMESIS_NAME
+      name: kind === 'nemesis2' ? ENEMY_NEMESIS2_NAME : ENEMY_NEMESIS_NAME
     });
     if (!e) return null;
     e.nemesis = true;
-    e.name = ENEMY_NEMESIS_NAME;
+    e.name = kind === 'nemesis2' ? ENEMY_NEMESIS2_NAME : ENEMY_NEMESIS_NAME;
     e.hp = d.hp;
     e.maxHp = d.hp;
     e.score = d.score;
@@ -5978,7 +5990,7 @@
   function tryEnemyFire(e, p, entering) {
     if (!e || e.fireCooldown > 0) return;
     if (!isOnScreen(e.x, e.y)) return;
-    if (e.kind === 'nemesis') {
+    if (e.kind === 'nemesis' || e.kind === 'nemesis2') {
       if (entering) return;
       e.fireCooldown = ENEMY_NEMESIS_FIRE_DELAY;
       fireSniperSpread(e, p, 240, ENEMY_NEMESIS_AURA || (e.theme.accent || '#ffffff'), e.kind, e.name || e.kind);
@@ -6042,8 +6054,8 @@
   function updateEnemyMovement(e, dt, a, p, entering) {
     const motionDt = dt * enemyMotionScale();
     if (entering) return false;
-    if (e.kind === 'nemesis') {
-      const stats = ENEMIES.nemesis;
+    if (e.kind === 'nemesis' || e.kind === 'nemesis2') {
+      const stats = ENEMIES[e.kind] || ENEMIES.nemesis;
       const speed = Math.max(92, stats.speed || 126) * ENEMY_NEMESIS_MOVE_SPEED_MULT;
       const holdDistance = nemesisHoldDistance();
       if (!Number.isFinite(e.nemesisOrbitAngle)) e.nemesisOrbitAngle = rand(0, TAU);
@@ -7840,7 +7852,8 @@
       diver: '#ff7070',
       mine: '#9cff6e',
       elite: '#ffcf6b',
-      nemesis: ENEMY_NEMESIS_AURA
+      nemesis: ENEMY_NEMESIS_AURA,
+      nemesis2: ENEMY_NEMESIS2_AURA
     };
     return {
       base: fixed[e && e.kind] || t.accent2 || t.accent || '#ffffff',
@@ -7865,9 +7878,9 @@
     if (shouldEmitHighQualityTrails() && !e.dead) {
       const speed = Math.hypot(e.vx || 0, e.vy || 0);
       if (speed > 4) {
-        const levelNumber = e.shipLevel || (state.levelIndex + 1);
-        const shipIndex = e.shipIndex || 0;
-        const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme);
+      const levelNumber = e.shipLevel || (state.levelIndex + 1);
+      const shipIndex = e.shipIndex || 0;
+      const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme, e.kind);
         if (!useEnemy3DMesh) {
           spawnParticle(e.x, e.y, 0, 0, 1.7, Math.max(3.8, shipSize * 0.11), shipGlow, 'enginetrail', 2.0);
         } else {
@@ -7890,11 +7903,11 @@
     if (!useEnemy3DMesh) {
       const levelNumber = e.shipLevel || (state.levelIndex + 1);
       const shipIndex = e.shipIndex || 0;
-      const texture = getEnemyShipTexture(levelNumber, shipIndex);
+      const texture = getEnemyShipTexture(levelNumber, shipIndex, e.kind);
       if (texture) {
         drawTextureRect(texture, e.x, e.y, shipSize, shipSize, { rot: rot, alpha: alpha, layer: 18 });
       } else {
-        const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme);
+        const shipGlow = getEnemyShipGlowColor(levelNumber, shipIndex, e.theme, e.kind);
         const glowRadius = Math.max(14, shipSize * 0.42 * 0.675 * (isLowGraphicalEffects() ? 1 : 0.9));
         drawGlowCircle(e.x, e.y, glowRadius * 0.9312, shipGlow, 0.8, 22);
         drawGlowCircle(e.x, e.y, glowRadius * 0.5033, shipGlow, 0.7, 12);
