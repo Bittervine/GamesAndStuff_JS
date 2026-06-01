@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = 'thoriumgap-v45'; // BUMP ME
+var APP_VERSION = 'thoriumgap-v57'; // BUMP ME
 var CACHE_NAME = APP_VERSION;
 var APP_SHELL = [
   './ThoriumGap.html',
@@ -27,17 +27,17 @@ var APP_ASSETS = (function () {
   var out = [];
   var lvl;
   var ship;
-  out.push('./assets/thorium_gap_title.png');
-  out.push('./assets/players_spaceship.png');
-  out.push('./assets/players_aura.png');
-  out.push('./assets/glow_e_white.png');
+  out.push('./assets/boss_13_body.png');
+  out.push('./assets/boss_13_leftclaw.png');
+  out.push('./assets/enemy_nemesis2.png');
   out.push('./assets/glow_e_blue.png');
   out.push('./assets/glow_e_green.png');
   out.push('./assets/glow_e_red.png');
-
+  out.push('./assets/glow_e_white.png');
+  out.push('./assets/players_aura.png');
+  out.push('./assets/players_spaceship.png');
+  out.push('./assets/thorium_gap_title.png');
   for (lvl = 1; lvl <= 13; lvl++) out.push('./assets/boss_' + z2(lvl) + '.png');
-  out.push('./assets/boss_13_body.png');
-  out.push('./assets/boss_13_leftclaw.png');
   for (lvl = 1; lvl <= 32; lvl++) out.push('./assets/planet_image_' + z2(lvl) + '.png');
   for (lvl = 1; lvl <= 28; lvl++) out.push('./assets/asteroid-' + z2(lvl) + '.png');
   for (lvl = 1; lvl <= 13; lvl++) {
@@ -49,36 +49,17 @@ var APP_ASSETS = (function () {
 }());
 
 var APP_MODEL_ASSETS = [
-  './models/Ship_Blocky_10.glb',
-  './models/Ship_Blocky_239551.glb',
-  './models/Ship_Blocky_3.glb',
-  './models/Ship_Blocky_4.glb',
-  './models/Ship_Blocky_5.glb',
-  './models/Ship_Blocky_510512.glb',
-  './models/Ship_Blocky_6.glb',
-  './models/Ship_Blocky_7.glb',
-  './models/Ship_Blocky_8.glb',
-  './models/Ship_Blocky_9.glb',
   './models/Ship_Crosspanel_1.glb',
   './models/Ship_Crosspanel_10.glb',
   './models/Ship_Crosspanel_11.glb',
-  './models/Ship_Crosspanel_12.glb',
-  './models/Ship_Crosspanel_13.glb',
-  './models/Ship_Crosspanel_14.glb',
-  './models/Ship_Crosspanel_15.glb',
   './models/Ship_Crosspanel_16.glb',
-  './models/Ship_Crosspanel_17.glb',
   './models/Ship_Crosspanel_18.glb',
-  './models/Ship_Crosspanel_19.glb',
   './models/Ship_Crosspanel_2.glb',
-  './models/Ship_Crosspanel_20.glb',
   './models/Ship_Crosspanel_3.glb',
   './models/Ship_Crosspanel_4.glb',
   './models/Ship_Crosspanel_5.glb',
   './models/Ship_Crosspanel_6.glb',
   './models/Ship_Crosspanel_7.glb',
-  './models/Ship_Crosspanel_8.glb',
-  './models/Ship_Crosspanel_9.glb',
   './models/Ship_DeltaWing_108179.glb',
   './models/Ship_DeltaWing_368386.glb',
   './models/Ship_DeltaWing_394511.glb',
@@ -86,9 +67,6 @@ var APP_MODEL_ASSETS = [
   './models/Ship_DeltaWing_691262.glb',
   './models/Ship_DeltaWing_853002.glb',
   './models/Ship_DeltaWing_894551.glb',
-  './models/Ship_DeltaWing_917855.glb',
-  './models/Ship_DeltaWing_954387.glb',
-  './models/Ship_DeltaWing_978618.glb',
   './models/Ship_FlyingSaucer_298877.glb',
   './models/Ship_FlyingSaucer_301176.glb',
   './models/Ship_FlyingSaucer_336064.glb',
@@ -97,8 +75,6 @@ var APP_MODEL_ASSETS = [
   './models/Ship_FlyingSaucer_750147.glb',
   './models/Ship_FlyingSaucer_752605.glb',
   './models/Ship_FlyingSaucer_772429.glb',
-  './models/Ship_FlyingSaucer_779051.glb',
-  './models/Ship_FlyingSaucer_910512.glb',
   './models/Ship_Hooper_219385.glb',
   './models/Ship_Hooper_302864.glb',
   './models/Ship_Hooper_378031.glb',
@@ -107,10 +83,7 @@ var APP_MODEL_ASSETS = [
   './models/Ship_Hooper_517819.glb',
   './models/Ship_Hooper_740839.glb',
   './models/Ship_Hooper_760830.glb',
-  './models/Ship_Hooper_828008.glb',
-  './models/Ship_Hooper_900396.glb',
   './models/Ship_Longwing_1.glb',
-  './models/Ship_Longwing_10.glb',
   './models/Ship_Longwing_2.glb',
   './models/Ship_Longwing_3.glb',
   './models/Ship_Longwing_4.glb',
@@ -118,7 +91,6 @@ var APP_MODEL_ASSETS = [
   './models/Ship_Longwing_6.glb',
   './models/Ship_Longwing_7.glb',
   './models/Ship_Longwing_8.glb',
-  './models/Ship_Longwing_9.glb',
   './models/Ship_LunarCourier_153144.glb',
   './models/Ship_LunarCourier_322196.glb',
   './models/Ship_LunarCourier_451424.glb',
@@ -127,7 +99,6 @@ var APP_MODEL_ASSETS = [
   './models/Ship_LunarCourier_826239.glb',
   './models/Ship_LunarCourier_899475.glb',
   './models/Ship_LunarCourier_95901.glb',
-  './models/Ship_LunarCourier_993089.glb',
   './models/Ship_LunarCourier_994899.glb',
   './models/Ship_ManraRay_130405.glb',
   './models/Ship_ManraRay_16943.glb',
@@ -137,18 +108,8 @@ var APP_MODEL_ASSETS = [
   './models/Ship_ManraRay_766613.glb',
   './models/Ship_ManraRay_792763.glb',
   './models/Ship_ManraRay_858242.glb',
-  './models/Ship_ManraRay_873301.glb',
-  './models/Ship_ManraRay_892974.glb',
-  './models/Ship_Orca_135963.glb',
-  './models/Ship_Orca_29300.glb',
-  './models/Ship_Orca_486148.glb',
+  './models/ship_nemesis2.glb',
   './models/Ship_Orca_492814.glb',
-  './models/Ship_Orca_583214.glb',
-  './models/Ship_Orca_652174.glb',
-  './models/Ship_Orca_687341.glb',
-  './models/Ship_Orca_743275.glb',
-  './models/Ship_Orca_809222.glb',
-  './models/Ship_Orca_915833.glb',
   './models/Ship_Pirate_1.glb',
   './models/Ship_Pirate_2.glb',
   './models/Ship_Pirate_3.glb',
@@ -156,17 +117,12 @@ var APP_MODEL_ASSETS = [
   './models/Ship_Pirate_5.glb',
   './models/Ship_Pirate_6.glb',
   './models/Ship_Pirate_7.glb',
-  './models/Ship_Pirate_8.glb',
-  './models/Ship_Pirate_9.glb',
-  './models/Ship_Pirate_940914.glb',
   './models/Ship_PyramidLifter_290115.glb',
   './models/Ship_PyramidLifter_327178.glb',
   './models/Ship_PyramidLifter_390936.glb',
   './models/Ship_PyramidLifter_426685.glb',
   './models/Ship_PyramidLifter_478836.glb',
   './models/Ship_PyramidLifter_741828.glb',
-  './models/Ship_PyramidLifter_855868.glb',
-  './models/Ship_PyramidLifter_950535.glb',
   './models/Ship_PyramidLifter_97249.glb',
   './models/Ship_PyramidLifter_990348.glb',
   './models/Ship_Standard_1.glb',
@@ -175,11 +131,7 @@ var APP_MODEL_ASSETS = [
   './models/Ship_Standard_12.glb',
   './models/Ship_Standard_13.glb',
   './models/Ship_Standard_14.glb',
-  './models/Ship_Standard_15.glb',
-  './models/Ship_Standard_16.glb',
   './models/Ship_Standard_17.glb',
-  './models/Ship_Standard_18.glb',
-  './models/Ship_Standard_19.glb',
   './models/Ship_Standard_2.glb',
   './models/Ship_Standard_20.glb',
   './models/Ship_Standard_3.glb',
@@ -189,36 +141,40 @@ var APP_MODEL_ASSETS = [
   './models/Ship_Standard_7.glb',
   './models/Ship_Standard_8.glb',
   './models/Ship_Standard_9.glb',
-  './models/Ship_Talonhunter_101914.glb',
   './models/Ship_Talonhunter_269536.glb',
   './models/Ship_Talonhunter_291527.glb',
   './models/Ship_Talonhunter_337968.glb',
   './models/Ship_Talonhunter_585024.glb',
   './models/Ship_Talonhunter_647300.glb',
-  './models/Ship_Talonhunter_812238.glb',
-  './models/Ship_Talonhunter_903666.glb',
   './models/Ship_Talonhunter_91803.glb',
-  './models/Ship_Talonhunter_960664.glb',
   './models/Ship_TigerWing_1.glb',
-  './models/Ship_TigerWing_10.glb',
   './models/Ship_TigerWing_2.glb',
   './models/Ship_TigerWing_3.glb',
   './models/Ship_TigerWing_4.glb',
   './models/Ship_TigerWing_5.glb',
   './models/Ship_TigerWing_6.glb',
   './models/Ship_TigerWing_7.glb',
-  './models/Ship_TigerWing_8.glb',
-  './models/Ship_TigerWing_9.glb',
-  './models/Ship_TwoHoop_11695.glb',
-  './models/Ship_TwoHoop_217137.glb',
-  './models/Ship_TwoHoop_274249.glb',
-  './models/Ship_TwoHoop_274461.glb',
-  './models/Ship_TwoHoop_338598.glb',
-  './models/Ship_TwoHoop_428113.glb',
-  './models/Ship_TwoHoop_536191.glb',
-  './models/Ship_TwoHoop_795072.glb',
-  './models/Ship_TwoHoop_940914.glb',
-  './models/Ship_TwoHoop_961380.glb',
+  './models/planet_map_01.glb',
+  './models/planet_map_02.glb',
+  './models/planet_map_03.glb',
+  './models/planet_map_04.glb',
+  './models/planet_map_05.glb',
+  './models/planet_map_06.glb',
+  './models/planet_map_07.glb',
+  './models/planet_map_08.glb',
+  './models/planet_map_09.glb',
+  './models/planet_map_10.glb',
+  './models/planet_map_11.glb',
+  './models/planet_map_12.glb',
+  './models/planet_map_13.glb',
+  './models/planet_map_14.glb',
+  './models/planet_map_15.glb',
+  './models/planet_map_16.glb',
+  './models/planet_map_17.glb',
+  './models/planet_map_18.glb',
+  './models/planet_map_19.glb',
+  './models/planet_map_20.glb',
+  './models/planet_map_21.glb',
 ];
 
 var APP_LIB_ASSETS = [
