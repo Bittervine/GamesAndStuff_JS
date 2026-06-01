@@ -377,7 +377,7 @@
       { model3D: 'models/Ship_FlyingSaucer_298877.glb', scale3D: 0.9, image2D: 'assets/enemy_00900a.png', scale2D: 0.9 },
       { model3D: 'models/Ship_FlyingSaucer_750147.glb', scale3D: 0.9, image2D: 'assets/enemy_00901a.png', scale2D: 0.9 },
       { model3D: 'models/Ship_FlyingSaucer_301176.glb', scale3D: 0.9, image2D: 'assets/enemy_00902a.png', scale2D: 0.9 },
-      { model3D: 'models/Ship_FlyingSaucer_336064.glb', scale3D: 0.9, image2D: 'assets/enemy_00903a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_FlyingSaucer_772429.glb', scale3D: 0.9, image2D: 'assets/enemy_00903a.png', scale2D: 0.9 },
       { model3D: 'models/Ship_FlyingSaucer_528770.glb', scale3D: 0.9, image2D: 'assets/enemy_00904a.png', scale2D: 0.9 },
       { model3D: 'models/Ship_FlyingSaucer_654444.glb', scale3D: 0.9, image2D: 'assets/enemy_00905a.png', scale2D: 0.9 },
       { model3D: 'models/Ship_FlyingSaucer_752605.glb', scale3D: 0.9, image2D: 'assets/enemy_00906a.png', scale2D: 0.9 }
@@ -2951,8 +2951,8 @@
   const ENEMY_NEMESIS_FIRE_DELAY = 1.0;
   const ENEMY_NEMESIS_AURA = '#ff8f78';
   const ENEMY_NEMESIS2_AURA = '#ff8f78';
-  const ENEMY_NEMESIS2_MODEL_PATH = 'models/Ship_FlyingSaucer_750147.glb';
-  const ENEMY_NEMESIS2_TEXTURE = 'assets/enemy_00505a.png';
+  const ENEMY_NEMESIS2_MODEL_PATH = 'models/ship_nemesis2.glb';
+  const ENEMY_NEMESIS2_TEXTURE = 'assets/enemy_nemesis2.png';
 
   const DIFFICULTIES = [                                                                      // Hint: bulletSpeed = enemyShotPace maintains gap-dynamics of shots (just faster)
     { label: 'Easy', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.8, spawnCount: 0.7, bulletSpeed: 1.0, bossHp: 0.5, contact: 0.9, playerDamage: 1, enemyShotPace: 0.8, spinnerNrOfRingShots: 6, eliteNrOfRingShots: 6 },
