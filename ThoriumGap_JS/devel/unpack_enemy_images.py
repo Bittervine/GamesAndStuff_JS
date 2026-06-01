@@ -12,17 +12,17 @@ from PIL import Image
 MIN_WIDTH = 64
 MIN_HEIGH = 64
 MAX_GAP_TRANSPARANCY = 0.01
-INPUT_FILE = "enemy_fighter_rocket.png"
+INPUT_FILE = "enemy_fighter_blue.png"
 MIN_GAP_WIDTH = 5
-OUTPUT_FILE = "enemy_002"
+OUTPUT_FILE = "enemy_013"
 OUTPUT_FIILE_STARTINDEX = 0
-EXPECTED_IMAGE_COUNT = 8
+EXPECTED_IMAGE_COUNT = 9
 SATURATION_THRESHOLDS = [x / 1000.0 for x in range(10, 151, 5)]
 
 OUTPUT_EXTENSION = "a.png"
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args() -> argparse.Namespace: 
     parser = argparse.ArgumentParser(
         description="Split a transparency-separated atlas into individual images."
     )
