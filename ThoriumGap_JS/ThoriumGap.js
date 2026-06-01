@@ -7713,8 +7713,9 @@
         const cloudW = Math.max(12, p.size * 3.5 * flicker);
         const cloudH = Math.max(12, p.size * 3.5 * flicker);
         const boost = GLOW_3D_BOOST;
-        drawSpriteRect(p.x, p.y, cloudW, cloudH, p.color, fade * 0.016 * opacityMult * boost, -2, false);
-        drawSpriteRect(p.x, p.y, cloudW * 0.78, cloudH * 0.78, p.color, fade * 0.012 * opacityMult * boost, -2, false);
+        const opacityBoost = 1.25;
+        drawSpriteRect(p.x, p.y, cloudW, cloudH, p.color, fade * 0.016 * opacityMult * boost * opacityBoost, -2, false);
+        drawSpriteRect(p.x, p.y, cloudW * 0.78, cloudH * 0.78, p.color, fade * 0.012 * opacityMult * boost * opacityBoost, -2, false);
       } else {
         const len = Math.max(2, p.size * 0.45);
         const ang = Math.atan2(p.vy, p.vx);
