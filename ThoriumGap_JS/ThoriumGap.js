@@ -197,9 +197,9 @@
   const ENEMY_SHIP_FALLBACK_BATCHES = 10;
   const ENEMY_SHIP_VARIANT = 'a';
   const ENEMY_SHIP_MIN_SIZE = 64;
-  const ENEMY_SHIP_MAX_SIZE = 108;
-  const ENEMY_ELITE_SIZE = 128;
-  const ENEMY_NEMESIS_SIZE = 128;
+  const ENEMY_SHIP_MAX_SIZE = 100;
+  const ENEMY_ELITE_SIZE = 100;
+  const ENEMY_NEMESIS_SIZE = 100;
   const ENEMY_NEMESIS_TURN_SMOOTH = 0.0225;
   const ENEMY_NEMESIS_MOVE_SPEED_MULT = 2.0;
   const ENEMY_SHIP_TEXTURE_SIZE = 256;
@@ -302,141 +302,140 @@
   };
   const ENEMY_FAMILY_MODELS = {
     RedFlight: [
-      { model3D: 'models/Ship_Crosspanel_18.glb', scale3D: 0.8, image2D: 'assets/enemy_00100a.png', scale2D: 0.8 },
-      { model3D: 'models/Ship_LunarCourier_5002.glb', scale3D: 0.8, image2D: 'assets/enemy_00101a.png', scale2D: 0.8 },
-      { model3D: 'models/Ship_Crosspanel_2.glb', scale3D: 0.8, image2D: 'assets/enemy_00102a.png', scale2D: 0.8 },
-      { model3D: 'models/Ship_Hooper_378031.glb', scale3D: 0.8, image2D: 'assets/enemy_00103a.png', scale2D: 0.8 },
-      { model3D: 'models/Ship_Longwing_1.glb', scale3D: 0.8, image2D: 'assets/enemy_00104a.png', scale2D: 0.8 },
-      { model3D: 'models/Ship_PyramidLifter_97249.glb', scale3D: 0.8, image2D: 'assets/enemy_00105a.png', scale2D: 0.8 },
-      { model3D: 'models/Ship_Standard_3.glb', scale3D: 0.8, image2D: 'assets/enemy_00106a.png', scale2D: 0.8 }
-    ],  
+      { model3D: 'models/Ship_Crosspanel_18.glb',       scale3D: 0.9, image2D: 'assets/enemy_00100a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_LunarCourier_5002.glb',   scale3D: 0.9, image2D: 'assets/enemy_00101a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Crosspanel_2.glb',        scale3D: 0.9, image2D: 'assets/enemy_00102a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Hooper_378031.glb',       scale3D: 0.9, image2D: 'assets/enemy_00103a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Longwing_1.glb',          scale3D: 0.9, image2D: 'assets/enemy_00104a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_PyramidLifter_97249.glb', scale3D: 0.9, image2D: 'assets/enemy_00105a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_3.glb',          scale3D: 0.9, image2D: 'assets/enemy_00106a.png', scale2D: 0.9 }
+    ],
     LunarCourier: [
-      { model3D: 'models/Ship_LunarCourier_7.glb', scale3D: 1, image2D: 'assets/enemy_00200a.png', scale2D: 1 },
-      { model3D: 'models/Ship_LunarCourier_899475.glb', scale3D: 1, image2D: 'assets/enemy_00201a.png', scale2D: 1 },
-      { model3D: 'models/Ship_LunarCourier_95901.glb', scale3D: 1, image2D: 'assets/enemy_00202a.png', scale2D: 1 },
-      { model3D: 'models/Ship_LunarCourier_153144.glb', scale3D: 1, image2D: 'assets/enemy_00203a.png', scale2D: 1 },
-      { model3D: 'models/Ship_LunarCourier_322196.glb', scale3D: 1, image2D: 'assets/enemy_00204a.png', scale2D: 1 },
-      { model3D: 'models/Ship_LunarCourier_451424.glb', scale3D: 1, image2D: 'assets/enemy_00205a.png', scale2D: 1 },
-      { model3D: 'models/Ship_LunarCourier_826239.glb', scale3D: 1, image2D: 'assets/enemy_00206a.png', scale2D: 1 }
+      { model3D: 'models/Ship_LunarCourier_7.glb',      scale3D: 0.9, image2D: 'assets/enemy_00200a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_LunarCourier_899475.glb', scale3D: 0.9, image2D: 'assets/enemy_00201a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_LunarCourier_95901.glb',  scale3D: 0.9, image2D: 'assets/enemy_00202a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_LunarCourier_153144.glb', scale3D: 0.9, image2D: 'assets/enemy_00203a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_LunarCourier_322196.glb', scale3D: 0.9, image2D: 'assets/enemy_00204a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_LunarCourier_451424.glb', scale3D: 0.9, image2D: 'assets/enemy_00205a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_LunarCourier_826239.glb', scale3D: 0.9, image2D: 'assets/enemy_00206a.png', scale2D: 0.9 }
     ],  
     TigerWing: [
-      { model3D: 'models/Ship_TigerWing_2.glb', scale3D: 1, image2D: 'assets/enemy_00300a.png', scale2D: 1 },
-      { model3D: 'models/Ship_TigerWing_1.glb', scale3D: 1, image2D: 'assets/enemy_00301a.png', scale2D: 1 },
-      { model3D: 'models/Ship_TigerWing_3.glb', scale3D: 1, image2D: 'assets/enemy_00302a.png', scale2D: 1 },
-      { model3D: 'models/Ship_TigerWing_4.glb', scale3D: 1, image2D: 'assets/enemy_00303a.png', scale2D: 1 },
-      { model3D: 'models/Ship_TigerWing_5.glb', scale3D: 1, image2D: 'assets/enemy_00304a.png', scale2D: 1 },
-      { model3D: 'models/Ship_TigerWing_6.glb', scale3D: 1, image2D: 'assets/enemy_00305a.png', scale2D: 1 },
-      { model3D: 'models/Ship_TigerWing_7.glb', scale3D: 1, image2D: 'assets/enemy_00306a.png', scale2D: 1 }
-    ],        
+      { model3D: 'models/Ship_TigerWing_2.glb',         scale3D: 0.9, image2D: 'assets/enemy_00300a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_TigerWing_1.glb',         scale3D: 0.9, image2D: 'assets/enemy_00301a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_TigerWing_3.glb',         scale3D: 0.9, image2D: 'assets/enemy_00302a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_TigerWing_4.glb',         scale3D: 0.9, image2D: 'assets/enemy_00303a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_TigerWing_5.glb',         scale3D: 0.9, image2D: 'assets/enemy_00304a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_TigerWing_6.glb',         scale3D: 0.9, image2D: 'assets/enemy_00305a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_TigerWing_7.glb',         scale3D: 0.9, image2D: 'assets/enemy_00306a.png', scale2D: 0.9 }
+    ],
     GreenFlight: [
-      { model3D: 'models/Ship_Crosspanel_10.glb', scale3D: 1, image2D: 'assets/enemy_00400a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Crosspanel_11.glb', scale3D: 1, image2D: 'assets/enemy_00401a.png', scale2D: 1 },
-      { model3D: 'models/Ship_DeltaWing_108179.glb', scale3D: 1, image2D: 'assets/enemy_00402a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_14.glb', scale3D: 1, image2D: 'assets/enemy_00403a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Orca_492814.glb', scale3D: 1, image2D: 'assets/enemy_00404a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_5.glb', scale3D: 1, image2D: 'assets/enemy_00405a.png', scale2D: 1 },
-      { model3D: 'models/Ship_LunarCourier_451424.glb', scale3D: 1, image2D: 'assets/enemy_00406a.png', scale2D: 1 }
-    ],    
+      { model3D: 'models/Ship_Crosspanel_10.glb',       scale3D: 0.9, image2D: 'assets/enemy_00400a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Crosspanel_11.glb',       scale3D: 0.9, image2D: 'assets/enemy_00401a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_DeltaWing_108179.glb',    scale3D: 0.9, image2D: 'assets/enemy_00402a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_14.glb',         scale3D: 0.9, image2D: 'assets/enemy_00403a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Orca_492814.glb',         scale3D: 0.9, image2D: 'assets/enemy_00404a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_5.glb',          scale3D: 0.9, image2D: 'assets/enemy_00405a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_LunarCourier_451424.glb', scale3D: 0.9, image2D: 'assets/enemy_00406a.png', scale2D: 0.9 }
+    ],
     Pirate: [
-      { model3D: 'models/Ship_Pirate_1.glb', scale3D: 1.5, image2D: 'assets/enemy_00500a.png', scale2D: 1.5 },
-      { model3D: 'models/Ship_Pirate_2.glb', scale3D: 1.5, image2D: 'assets/enemy_00501a.png', scale2D: 1.5 },
-      { model3D: 'models/Ship_Pirate_3.glb', scale3D: 1.5, image2D: 'assets/enemy_00502a.png', scale2D: 1.5 },
-      { model3D: 'models/Ship_Pirate_4.glb', scale3D: 1.5, image2D: 'assets/enemy_00503a.png', scale2D: 1.5 },
-      { model3D: 'models/Ship_Pirate_5.glb', scale3D: 1.5, image2D: 'assets/enemy_00504a.png', scale2D: 1.5 },
-      { model3D: 'models/Ship_Pirate_6.glb', scale3D: 1.5, image2D: 'assets/enemy_00505a.png', scale2D: 1.5 },
-      { model3D: 'models/Ship_Pirate_7.glb', scale3D: 1.5, image2D: 'assets/enemy_00506a.png', scale2D: 1.5 }
+      { model3D: 'models/Ship_Pirate_1.glb',            scale3D: 1.5, image2D: 'assets/enemy_00500a.png', scale2D: 1.5 },
+      { model3D: 'models/Ship_Pirate_2.glb',            scale3D: 1.5, image2D: 'assets/enemy_00501a.png', scale2D: 1.5 },
+      { model3D: 'models/Ship_Pirate_3.glb',            scale3D: 1.5, image2D: 'assets/enemy_00502a.png', scale2D: 1.5 },
+      { model3D: 'models/Ship_Pirate_4.glb',            scale3D: 1.5, image2D: 'assets/enemy_00503a.png', scale2D: 1.5 },
+      { model3D: 'models/Ship_Pirate_5.glb',            scale3D: 1.5, image2D: 'assets/enemy_00504a.png', scale2D: 1.5 },
+      { model3D: 'models/Ship_Pirate_6.glb',            scale3D: 1.5, image2D: 'assets/enemy_00505a.png', scale2D: 1.5 },
+      { model3D: 'models/Ship_Pirate_7.glb',            scale3D: 1.5, image2D: 'assets/enemy_00506a.png', scale2D: 1.5 }
     ],
     YellowFlight: [
-      { model3D: 'models/Ship_Crosspanel_16.glb', scale3D: 1, image2D: 'assets/enemy_00600a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Crosspanel_1.glb', scale3D: 1, image2D: 'assets/enemy_00601a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Longwing_8.glb', scale3D: 1, image2D: 'assets/enemy_00602a.png', scale2D: 1 },
-      { model3D: 'models/Ship_ManraRay_858242.glb', scale3D: 1, image2D: 'assets/enemy_00603a.png', scale2D: 1 },
-      { model3D: 'models/Ship_PyramidLifter_990348.glb', scale3D: 1, image2D: 'assets/enemy_00604a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_11.glb', scale3D: 1, image2D: 'assets/enemy_00605a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Hooper_760830.glb', scale3D: 1, image2D: 'assets/enemy_00606a.png', scale2D: 1 }
+      { model3D: 'models/Ship_Crosspanel_16.glb',       scale3D: 0.9, image2D: 'assets/enemy_00600a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Crosspanel_1.glb',        scale3D: 0.9, image2D: 'assets/enemy_00601a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Longwing_8.glb',          scale3D: 0.9, image2D: 'assets/enemy_00602a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_ManraRay_858242.glb',     scale3D: 0.9, image2D: 'assets/enemy_00603a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_PyramidLifter_990348.glb',scale3D: 0.9, image2D: 'assets/enemy_00604a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_11.glb',         scale3D: 0.9, image2D: 'assets/enemy_00605a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Hooper_760830.glb',       scale3D: 0.9, image2D: 'assets/enemy_00606a.png', scale2D: 0.9 }
     ],
     PurpleFlight: [
-      { model3D: 'models/Ship_Standard_20.glb', scale3D: 1, image2D: 'assets/enemy_00700a.png', scale2D: 1 },
-      { model3D: 'models/Ship_PyramidLifter_478836.glb', scale3D: 1, image2D: 'assets/enemy_00701a.png', scale2D: 1 },
-      { model3D: 'models/Ship_ManraRay_16943.glb', scale3D: 1, image2D: 'assets/enemy_00702a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Longwing_5.glb', scale3D: 1, image2D: 'assets/enemy_00703a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Hooper_443110.glb', scale3D: 1, image2D: 'assets/enemy_00704a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_17.glb', scale3D: 1, image2D: 'assets/enemy_00705a.png', scale2D: 1 },
-      { model3D: 'models/Ship_DeltaWing_368386.glb', scale3D: 1, image2D: 'assets/enemy_00706a.png', scale2D: 1 }
+      { model3D: 'models/Ship_Standard_20.glb',         scale3D: 0.9, image2D: 'assets/enemy_00700a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_PyramidLifter_478836.glb',scale3D: 0.9, image2D: 'assets/enemy_00701a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_ManraRay_16943.glb',      scale3D: 0.9, image2D: 'assets/enemy_00702a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Longwing_5.glb',          scale3D: 0.9, image2D: 'assets/enemy_00703a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Hooper_443110.glb',       scale3D: 0.9, image2D: 'assets/enemy_00704a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_17.glb',         scale3D: 0.9, image2D: 'assets/enemy_00705a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_DeltaWing_368386.glb',    scale3D: 0.9, image2D: 'assets/enemy_00706a.png', scale2D: 0.9 }
     ],
     Standard2: [
-      { model3D: 'models/Ship_Standard_8.glb', scale3D: 1, image2D: 'assets/enemy_00800a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_9.glb', scale3D: 1, image2D: 'assets/enemy_00801a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_10.glb', scale3D: 1, image2D: 'assets/enemy_00802a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_11.glb', scale3D: 1, image2D: 'assets/enemy_00803a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_12.glb', scale3D: 1, image2D: 'assets/enemy_00804a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_13.glb', scale3D: 1, image2D: 'assets/enemy_00805a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_14.glb', scale3D: 1, image2D: 'assets/enemy_00806a.png', scale2D: 1 }
+      { model3D: 'models/Ship_Standard_8.glb',          scale3D: 0.9, image2D: 'assets/enemy_00800a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_9.glb',          scale3D: 0.9, image2D: 'assets/enemy_00801a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_10.glb',         scale3D: 0.9, image2D: 'assets/enemy_00802a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_11.glb',         scale3D: 0.9, image2D: 'assets/enemy_00803a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_12.glb',         scale3D: 0.9, image2D: 'assets/enemy_00804a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_13.glb',         scale3D: 0.9, image2D: 'assets/enemy_00805a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_14.glb',         scale3D: 0.9, image2D: 'assets/enemy_00806a.png', scale2D: 0.9 }
     ],
     FlyingSaucer: [
-      { model3D: 'models/Ship_FlyingSaucer_298877.glb', scale3D: 0.8, image2D: 'assets/enemy_00900a.png', scale2D: 0.8 },
-      { model3D: 'models/Ship_FlyingSaucer_750147.glb', scale3D: 0.8, image2D: 'assets/enemy_00901a.png', scale2D: 0.8 },
-      { model3D: 'models/Ship_FlyingSaucer_301176.glb', scale3D: 0.8, image2D: 'assets/enemy_00902a.png', scale2D: 0.8 },
-      { model3D: 'models/Ship_FlyingSaucer_336064.glb', scale3D: 0.8, image2D: 'assets/enemy_00903a.png', scale2D: 0.8 },
-      { model3D: 'models/Ship_FlyingSaucer_528770.glb', scale3D: 0.8, image2D: 'assets/enemy_00904a.png', scale2D: 0.8 },
-      { model3D: 'models/Ship_FlyingSaucer_654444.glb', scale3D: 0.8, image2D: 'assets/enemy_00905a.png', scale2D: 0.8 },
-      { model3D: 'models/Ship_FlyingSaucer_752605.glb', scale3D: 0.8, image2D: 'assets/enemy_00906a.png', scale2D: 0.8 }
+      { model3D: 'models/Ship_FlyingSaucer_298877.glb', scale3D: 0.9, image2D: 'assets/enemy_00900a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_FlyingSaucer_750147.glb', scale3D: 0.9, image2D: 'assets/enemy_00901a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_FlyingSaucer_301176.glb', scale3D: 0.9, image2D: 'assets/enemy_00902a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_FlyingSaucer_336064.glb', scale3D: 0.9, image2D: 'assets/enemy_00903a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_FlyingSaucer_528770.glb', scale3D: 0.9, image2D: 'assets/enemy_00904a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_FlyingSaucer_654444.glb', scale3D: 0.9, image2D: 'assets/enemy_00905a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_FlyingSaucer_752605.glb', scale3D: 0.9, image2D: 'assets/enemy_00906a.png', scale2D: 0.9 }
     ],
     Standard: [
-      { model3D: 'models/Ship_Standard_1.glb', scale3D: 1, image2D: 'assets/enemy_01000a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_2.glb', scale3D: 1, image2D: 'assets/enemy_01001a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_3.glb', scale3D: 1, image2D: 'assets/enemy_01002a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_4.glb', scale3D: 1, image2D: 'assets/enemy_01003a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_5.glb', scale3D: 1, image2D: 'assets/enemy_01004a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_6.glb', scale3D: 1, image2D: 'assets/enemy_01005a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_7.glb', scale3D: 1, image2D: 'assets/enemy_01006a.png', scale2D: 1 }
+      { model3D: 'models/Ship_Standard_1.glb',          scale3D: 0.9, image2D: 'assets/enemy_01000a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_2.glb',          scale3D: 0.9, image2D: 'assets/enemy_01001a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_3.glb',          scale3D: 0.9, image2D: 'assets/enemy_01002a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_4.glb',          scale3D: 0.9, image2D: 'assets/enemy_01003a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_5.glb',          scale3D: 0.9, image2D: 'assets/enemy_01004a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_6.glb',          scale3D: 0.9, image2D: 'assets/enemy_01005a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_7.glb',          scale3D: 0.9, image2D: 'assets/enemy_01006a.png', scale2D: 0.9 }
     ],
     Crosspanel: [
-      { model3D: 'models/Ship_Crosspanel_1.glb', scale3D: 1, image2D: 'assets/enemy_01100a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Crosspanel_2.glb', scale3D: 1, image2D: 'assets/enemy_01101a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Crosspanel_3.glb', scale3D: 1, image2D: 'assets/enemy_01102a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Crosspanel_4.glb', scale3D: 1, image2D: 'assets/enemy_01103a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Crosspanel_5.glb', scale3D: 1, image2D: 'assets/enemy_01104a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Crosspanel_6.glb', scale3D: 1, image2D: 'assets/enemy_01105a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Crosspanel_7.glb', scale3D: 1, image2D: 'assets/enemy_01106a.png', scale2D: 1 }
+      { model3D: 'models/Ship_Crosspanel_1.glb',       scale3D: 0.9, image2D: 'assets/enemy_01100a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Crosspanel_2.glb',       scale3D: 0.9, image2D: 'assets/enemy_01101a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Crosspanel_3.glb',       scale3D: 0.9, image2D: 'assets/enemy_01102a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Crosspanel_4.glb',       scale3D: 0.9, image2D: 'assets/enemy_01103a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Crosspanel_5.glb',       scale3D: 0.9, image2D: 'assets/enemy_01104a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Crosspanel_6.glb',       scale3D: 0.9, image2D: 'assets/enemy_01105a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Crosspanel_7.glb',       scale3D: 0.9, image2D: 'assets/enemy_01106a.png', scale2D: 0.9 }
     ],
     DeltaWing: [
-      { model3D: 'models/Ship_DeltaWing_108179.glb', scale3D: 1, image2D: 'assets/enemy_01200a.png', scale2D: 1 },
-      { model3D: 'models/Ship_DeltaWing_368386.glb', scale3D: 1, image2D: 'assets/enemy_01201a.png', scale2D: 1 },
-      { model3D: 'models/Ship_DeltaWing_394511.glb', scale3D: 1, image2D: 'assets/enemy_01202a.png', scale2D: 1 },
-      { model3D: 'models/Ship_DeltaWing_535536.glb', scale3D: 1, image2D: 'assets/enemy_01203a.png', scale2D: 1 },
-      { model3D: 'models/Ship_DeltaWing_691262.glb', scale3D: 1, image2D: 'assets/enemy_01204a.png', scale2D: 1 },
-      { model3D: 'models/Ship_DeltaWing_853002.glb', scale3D: 1, image2D: 'assets/enemy_01205a.png', scale2D: 1 },
-      { model3D: 'models/Ship_DeltaWing_894551.glb', scale3D: 1, image2D: 'assets/enemy_01206a.png', scale2D: 1 }
+      { model3D: 'models/Ship_DeltaWing_108179.glb',   scale3D: 0.9, image2D: 'assets/enemy_01200a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_DeltaWing_368386.glb',   scale3D: 0.9, image2D: 'assets/enemy_01201a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_DeltaWing_394511.glb',   scale3D: 0.9, image2D: 'assets/enemy_01202a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_DeltaWing_535536.glb',   scale3D: 0.9, image2D: 'assets/enemy_01203a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_DeltaWing_691262.glb',   scale3D: 0.9, image2D: 'assets/enemy_01204a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_DeltaWing_853002.glb',   scale3D: 0.9, image2D: 'assets/enemy_01205a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_DeltaWing_894551.glb',   scale3D: 0.9, image2D: 'assets/enemy_01206a.png', scale2D: 0.9 }
     ],
     FinalFlight: [
-      { model3D: 'models/Ship_Standard_4.glb', scale3D: 1, image2D: 'assets/enemy_01300a.png', scale2D: 1 },
-      { model3D: 'models/Ship_LunarCourier_994899.glb', scale3D: 1, image2D: 'assets/enemy_01301a.png', scale2D: 1 },
-      { model3D: 'models/Ship_DeltaWing_394511.glb', scale3D: 1, image2D: 'assets/enemy_01302a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Crosspanel_3.glb', scale3D: 1, image2D: 'assets/enemy_01303a.png', scale2D: 1 },
-      { model3D: 'models/Ship_ManraRay_190663.glb', scale3D: 1, image2D: 'assets/enemy_01304a.png', scale2D: 1 },
-      { model3D: 'models/Ship_PyramidLifter_290115.glb', scale3D: 1, image2D: 'assets/enemy_01305a.png', scale2D: 1 },
-      { model3D: 'models/Ship_Standard_2.glb', scale3D: 1, image2D: 'assets/enemy_01306a.png', scale2D: 1 }
+      { model3D: 'models/Ship_Standard_4.glb',           scale3D: 0.9, image2D: 'assets/enemy_01300a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_LunarCourier_994899.glb',  scale3D: 0.9, image2D: 'assets/enemy_01301a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_DeltaWing_394511.glb',     scale3D: 0.9, image2D: 'assets/enemy_01302a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Crosspanel_3.glb',         scale3D: 0.9, image2D: 'assets/enemy_01303a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_ManraRay_190663.glb',      scale3D: 0.9, image2D: 'assets/enemy_01304a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_PyramidLifter_290115.glb', scale3D: 0.9, image2D: 'assets/enemy_01305a.png', scale2D: 0.9 },
+      { model3D: 'models/Ship_Standard_2.glb',           scale3D: 0.9, image2D: 'assets/enemy_01306a.png', scale2D: 0.9 }
     ],
     Longwing: [
-      { model3D: 'models/Ship_Longwing_1.glb', scale3D: 1, image2D: null, scale2D: 1 },
-      { model3D: 'models/Ship_Longwing_2.glb', scale3D: 1, image2D: null, scale2D: 1 },
-      { model3D: 'models/Ship_Longwing_3.glb', scale3D: 1, image2D: null, scale2D: 1 },
-      { model3D: 'models/Ship_Longwing_4.glb', scale3D: 1, image2D: null, scale2D: 1 },
-      { model3D: 'models/Ship_Longwing_5.glb', scale3D: 1, image2D: null, scale2D: 1 },
-      { model3D: 'models/Ship_Longwing_6.glb', scale3D: 1, image2D: null, scale2D: 1 },
-      { model3D: 'models/Ship_Longwing_7.glb', scale3D: 1, image2D: null, scale2D: 1 }
+      { model3D: 'models/Ship_Longwing_1.glb',         scale3D: 0.9, image2D: null, scale2D: 0.9 },
+      { model3D: 'models/Ship_Longwing_2.glb',         scale3D: 0.9, image2D: null, scale2D: 0.9 },
+      { model3D: 'models/Ship_Longwing_3.glb',         scale3D: 0.9, image2D: null, scale2D: 0.9 },
+      { model3D: 'models/Ship_Longwing_4.glb',         scale3D: 0.9, image2D: null, scale2D: 0.9 },
+      { model3D: 'models/Ship_Longwing_5.glb',         scale3D: 0.9, image2D: null, scale2D: 0.9 },
+      { model3D: 'models/Ship_Longwing_6.glb',         scale3D: 0.9, image2D: null, scale2D: 0.9 },
+      { model3D: 'models/Ship_Longwing_7.glb',         scale3D: 0.9, image2D: null, scale2D: 0.9 }
     ],
     PyramidLifter: [
-      { model3D: 'models/Ship_PyramidLifter_97249.glb', scale3D: 1, image2D: null, scale2D: 1 },
-      { model3D: 'models/Ship_PyramidLifter_290115.glb', scale3D: 1, image2D: null, scale2D: 1 },
-      { model3D: 'models/Ship_PyramidLifter_327178.glb', scale3D: 1, image2D: null, scale2D: 1 },
-      { model3D: 'models/Ship_PyramidLifter_390936.glb', scale3D: 1, image2D: null, scale2D: 1 },
-      { model3D: 'models/Ship_PyramidLifter_426685.glb', scale3D: 1, image2D: null, scale2D: 1 },
-      { model3D: 'models/Ship_PyramidLifter_478836.glb', scale3D: 1, image2D: null, scale2D: 1 },
-      { model3D: 'models/Ship_PyramidLifter_741828.glb', scale3D: 1, image2D: null, scale2D: 1 }
-    ],
-
+      { model3D: 'models/Ship_PyramidLifter_97249.glb',  scale3D: 0.9, image2D: null, scale2D: 0.9 },
+      { model3D: 'models/Ship_PyramidLifter_290115.glb', scale3D: 0.9, image2D: null, scale2D: 0.9 },
+      { model3D: 'models/Ship_PyramidLifter_327178.glb', scale3D: 0.9, image2D: null, scale2D: 0.9 },
+      { model3D: 'models/Ship_PyramidLifter_390936.glb', scale3D: 0.9, image2D: null, scale2D: 0.9 },
+      { model3D: 'models/Ship_PyramidLifter_426685.glb', scale3D: 0.9, image2D: null, scale2D: 0.9 },
+      { model3D: 'models/Ship_PyramidLifter_478836.glb', scale3D: 0.9, image2D: null, scale2D: 0.9 },
+      { model3D: 'models/Ship_PyramidLifter_741828.glb', scale3D: 0.9, image2D: null, scale2D: 0.9 }
+    ]
   };
   const ENEMY_3D_SCALE_MULTIPLIER = 1.0;
   const ENEMY_3D_MAX_SHIP_SIZE = 100;
@@ -2941,14 +2940,14 @@
     diver: { hp: 6, r: 18, score: 130, speed: 120 },
     mine: { hp: 8, r: 19, score: 120, speed: 60 },
     elite: { hp: 10, r: 24, score: 280, speed: 80 },
-    nemesis: { hp: 20, r: 24, score: 700, speed: 120 },
+    nemesis: { hp: 15, r: 24, score: 700, speed: 120 },
     nemesis2: { hp: 200, r: 24, score: 700, speed: 120 }
   };
 
   const ENEMY_NEMESIS_NAME = 'Nemesis I';
   const ENEMY_NEMESIS2_NAME = 'Nemesis II';
   const ENEMY_NEMESIS_CHANCE_PER_SECOND = 0.15;
-  const ENEMY_NEMESIS2_UPGRADE_CHANCE = 1 / 50;
+  const ENEMY_NEMESIS2_UPGRADE_CHANCE = 1 / 70;
   const ENEMY_NEMESIS_FIRE_DELAY = 1.0;
   const ENEMY_NEMESIS_AURA = '#ff8f78';
   const ENEMY_NEMESIS2_AURA = '#ff8f78';
