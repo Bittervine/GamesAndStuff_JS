@@ -2919,19 +2919,19 @@
   }
 
   const THEMES = [
-    theme({ name: 'Thorium Rift', subtitle: 'None Shall Pass', skyTop: '#000000', skyBottom: '#000000', glow: '#9bc5ff', accent: '#6d9cff', accent2: '#d5e4ff', forms: ['line', 'fan', 'rain'], enemyKinds: ['drifter', 'swarm', 'looper'], atmosphere: 'leaves', music: { bpm: 112, root: 220, pattern: [0, 3, 5, 7, 10, 7, 5, 3] }, boss: { name: 'Red Guardian', emoji: E.apple, hp: 400, size: 320, color: '#9ec2ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Broken Shore', subtitle: 'First of His Name', skyTop: '#000000', skyBottom: '#000000', glow: '#8ff7ff', accent: '#58d7c6', accent2: '#c8fff2', forms: ['swarm', 'pair', 'arc'], enemyKinds: ['looper', 'bomber', 'sniper'], atmosphere: 'pollen', music: { bpm: 126, root: 246, pattern: [0, 2, 4, 7, 9, 7, 4, 2] }, boss: { name: 'Rocket Baron', emoji: E.bee, hp: 500, size: 420, color: '#93f0e8', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Growling Space', subtitle: 'The Gilded Pouncer', skyTop: '#000000', skyBottom: '#000000', glow: '#e8d124', accent: '#ffe77c', accent2: '#fff5d0', forms: ['fan', 'rain', 'cross'], enemyKinds: ['drifter', 'looper', 'bomber'], atmosphere: 'sprinkles', music: { bpm: 136, root: 262, pattern: [0, 4, 7, 12, 7, 4, 5, 9] }, boss: { name: 'Kharza Prime', emoji: E.donut, hp: 600, size:425 , color: '#fffa9b', flipWhenMovingRight: true, phases: [phase(10, 'pounce', 'fan'), phase(7, 'sweep', 'ring')] }}),
-    theme({ name: 'Spinners Den', subtitle: 'Hunger Without Limit', skyTop: '#000000', skyBottom: '#000000', glow: '#96c9ff', accent: '#9fb2c6', accent2: '#d0e0ef', forms: ['line', 'pair', 'cross'], enemyKinds: ['looper', 'sniper', 'bomber'], atmosphere: 'sparks', music: { bpm: 118, root: 196, pattern: [0, 0, 7, 5, 4, 5, 7, 10] }, boss: { name: 'Silken Spinner', emoji: E.gear, hp: 700, size: 430, color: '#d0d9e1', flipWhenMovingRight: false, phases: [phase(7, 'wheel', 'spinrain'), phase(7.5, 'dash', 'summon'), phase(8, 'hover', 'fan')] }, asteroidDensity: 2  }),
-    theme({ name: 'Deadlight Harbor', subtitle: 'Master of the Soulless Crew', skyTop: '#000000', skyBottom: '#532a40', glow: '#ffbf8a', accent: '#e0a06c', accent2: '#ffc8a1', forms: ['rain', 'arc', 'swarm'], enemyKinds: ['swarm', 'sniper', 'drifter'], atmosphere: 'motes', music: { bpm: 108, root: 196, pattern: [0, 5, 7, 10, 7, 5, 3, 5] }, boss: { name: 'Captain Thaddeus', emoji: E.lantern, hp: 900, size: 435, color: '#f6b46d', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'ring')] } }),
-    theme({ name: 'Elysium Sea', subtitle: 'The Steed of Neptune', skyTop: '#000000', skyBottom: '#000000', glow: '#ffd77a', accent: '#c47a19', accent2: '#ffd59f', forms: ['swarm', 'fan', 'pair'], enemyKinds: ['diver', 'swarm', 'sniper'], atmosphere: 'embers', music: { bpm: 132, root: 246, pattern: [0, 2, 3, 7, 10, 7, 3, 2] }, boss: { name: 'Lunar Horse', emoji: E.bee, hp: 1100, size: 440, color: '#e4ba6a', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(8, 'dash', 'rain'), phase(7.5, 'sweep', 'summon')] } }),
-    theme({ name: 'Shard Expanse', subtitle: 'The Base of Lost Hope', skyTop: '#000000', skyBottom: '#000000', glow: '#b0fbff', accent: '#95d5ff', accent2: '#d6c4ff', forms: ['ring', 'line', 'arc'], enemyKinds: ['swarm', 'bomber', 'elite', 'looper'], atmosphere: 'shards', music: { bpm: 120, root: 233, pattern: [0, 4, 7, 11, 7, 4, 9, 7] }, boss: { name: 'Shard Base One', emoji: E.gem, hp: 1400, size: 445, color: '#c9f6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'ring'), phase(8, 'low', 'beam')] }, asteroidDensity: 2 }),
-    theme({ name: 'Dark Waters', subtitle: 'Prey on the Weak', skyTop: '#000000', skyBottom: '#000000', glow: '#ffab5b', accent: '#de6f2b', accent2: '#ffd08a', forms: ['rain', 'line', 'swarm'], enemyKinds: ['spinner', 'drifter', 'diver', 'splitter'], atmosphere: 'embers', music: { bpm: 140, root: 220, pattern: [0, 3, 7, 10, 7, 3, 5, 10] }, boss: { name: 'Cephid Hunter', emoji: E.fire, hp: 1800, size: 450, color: '#ff9e53', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'rain'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'wall')] } }),
-    theme({ name: 'Domain of Klaatu', subtitle: 'The Earth Stands Still', skyTop: '#000000', skyBottom: '#000000', glow: '#95d7ff', accent: '#aebfe0', accent2: '#95d7ff', forms: ['line', 'wave', 'pair'], enemyKinds: ['elite', 'diver', 'splitter' ], atmosphere: 'stardust', music: { bpm: 106, root: 185, pattern: [0, 7, 12, 7, 10, 7, 5, 3] }, boss: { name: 'Klaatu', emoji: E.moon, hp: 2300, size: 455, color: '#c3d6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'summon'), phase(7.5, 'dash', 'beam'), phase(8, 'sweep', 'ring')] }, asteroidDensity: 2 }),
-    theme({ name: 'Sunken Bastion', subtitle: 'Here Drowned Men Weep', skyTop: '#000000', skyBottom: '#000000', glow: '#82f6ff', accent: '#6eeaff', accent2: '#c8fff2', forms: ['wave', 'cross', 'pair'], enemyKinds: ['looper', 'spinner', 'swarm', 'bomber'], atmosphere: 'neon', music: { bpm: 144, root: 220, pattern: [0, 7, 12, 10, 7, 4, 9, 12] }, boss: { name: 'Cyberphish', emoji: E.bolt, hp: 3000, size: 460, color: '#8fefff', flipWhenMovingRight: true, phases: [phase(7, 'sweep', 'wall'), phase(7.5, 'dash', 'aimed'), phase(8, 'hover', 'ring')] } }),
-    theme({ name: 'Mirrorwing Expanse', subtitle: 'The Mothership Moth', skyTop: '#000000', skyBottom: '#000000', glow: '#f0f3ff', accent: '#b6bfd6', accent2: '#9e8e5e', forms: ['line', 'cross', 'wave'], enemyKinds: ['looper', 'sniper', 'elite'], atmosphere: 'chess', music: { bpm: 122, root: 196, pattern: [0, 3, 7, 10, 7, 3, 5, 7] }, boss: { name: 'Aurelion Vane', emoji: E.queen, hp: 3900, size: 465, color: '#e7ecff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'dash', 'summon'), phase(8, 'sweep', 'ring')] } }),
-    theme({ name: 'Crushing Depths', subtitle: 'Hunger for Sunlight', skyTop: '#000000', skyBottom: '#000000', glow: '#d7f4ff', accent: '#9cc7ff', accent2: '#d7f4ff', forms: ['rain', 'line', 'swarm'], enemyKinds:  ['spinner', 'diver', 'swarm', 'looper'], atmosphere: 'rain', music: { bpm: 128, root: 196, pattern: [0, 4, 7, 10, 7, 4, 2, 5] }, boss: { name: 'Deep Gulper', emoji: E.cloud, hp: 5100, size: 470, color: '#d3edff', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'rain'), phase(8, 'low', 'ring')] }, asteroidDensity: 3 }),
-    theme({ name: 'Thorium Gap', subtitle: 'Final Descent', skyTop: '#000000', skyBottom: '#000000', glow: '#ffe78a', accent: '#ffd77a', accent2: '#ffffff', forms: ['ring', 'fan', 'wave'], enemyKinds: ['elite', 'sniper', 'spinner', 'looper'], atmosphere: 'nova', music: { bpm: 152, root: 262, pattern: [0, 4, 7, 12, 15, 12, 7, 4] }, boss: { name: 'Unnamed Horror', emoji: E.sun, hp: 10000, size: 512, color: '#fff0bd', flipWhenMovingRight: false, phases: [phase(6.5, 'hover', 'aimed'), phase(6.5, 'sweep', 'ring'), phase(6.5, 'low', 'summon'), phase(6.5, 'dash', 'beam'), phase(7.5, 'low', 'wall')] } })
+    theme({ name: 'Thorium Rift', subtitle: 'None Shall Pass', skyTop: '#000000', skyBottom: '#000000', glow: '#9bc5ff', accent: '#6d9cff', accent2: '#d5e4ff', forms: ['line', 'fan', 'rain'], enemyKinds: ['drifter', 'swarm', 'looper'], nemesis: false, atmosphere: 'leaves', music: { bpm: 112, root: 220, pattern: [0, 3, 5, 7, 10, 7, 5, 3] }, boss: { name: 'Red Guardian', emoji: E.apple, hp: 400, size: 320, color: '#9ec2ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7, 'sweep', 'rain'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Broken Shore', subtitle: 'First of His Name', skyTop: '#000000', skyBottom: '#000000', glow: '#8ff7ff', accent: '#58d7c6', accent2: '#c8fff2', forms: ['swarm', 'pair', 'arc'], enemyKinds: ['looper', 'bomber', 'sniper'], nemesis: true,  atmosphere: 'pollen', music: { bpm: 126, root: 246, pattern: [0, 2, 4, 7, 9, 7, 4, 2] }, boss: { name: 'Rocket Baron', emoji: E.bee, hp: 500, size: 420, color: '#93f0e8', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'summon'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Growling Space', subtitle: 'The Gilded Pouncer', skyTop: '#000000', skyBottom: '#000000', glow: '#e8d124', accent: '#ffe77c', accent2: '#fff5d0', forms: ['fan', 'rain', 'cross'], enemyKinds: ['drifter', 'looper', 'bomber'], nemesis: true, atmosphere: 'sprinkles', music: { bpm: 136, root: 262, pattern: [0, 4, 7, 12, 7, 4, 5, 9] }, boss: { name: 'Kharza Prime', emoji: E.donut, hp: 600, size:425 , color: '#fffa9b', flipWhenMovingRight: true, phases: [phase(10, 'pounce', 'fan'), phase(7, 'sweep', 'ring')] }}),
+    theme({ name: 'Spinners Den', subtitle: 'Hunger Without Limit', skyTop: '#000000', skyBottom: '#000000', glow: '#96c9ff', accent: '#9fb2c6', accent2: '#d0e0ef', forms: ['line', 'pair', 'cross'], enemyKinds: ['looper', 'sniper', 'bomber'], nemesis: true, atmosphere: 'sparks', music: { bpm: 118, root: 196, pattern: [0, 0, 7, 5, 4, 5, 7, 10] }, boss: { name: 'Silken Spinner', emoji: E.gear, hp: 700, size: 430, color: '#d0d9e1', flipWhenMovingRight: false, phases: [phase(7, 'wheel', 'spinrain'), phase(7.5, 'dash', 'summon'), phase(8, 'hover', 'fan')] }, asteroidDensity: 2  }),
+    theme({ name: 'Deadlight Harbor', subtitle: 'Master of the Soulless Crew', skyTop: '#000000', skyBottom: '#532a40', glow: '#ffbf8a', accent: '#e0a06c', accent2: '#ffc8a1', forms: ['rain', 'arc', 'swarm'], enemyKinds: ['swarm', 'sniper', 'drifter'], nemesis: true, atmosphere: 'motes', music: { bpm: 108, root: 196, pattern: [0, 5, 7, 10, 7, 5, 3, 5] }, boss: { name: 'Captain Thaddeus', emoji: E.lantern, hp: 900, size: 435, color: '#f6b46d', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'ring')] } }),
+    theme({ name: 'Elysium Sea', subtitle: 'The Steed of Neptune', skyTop: '#000000', skyBottom: '#000000', glow: '#ffd77a', accent: '#c47a19', accent2: '#ffd59f', forms: ['swarm', 'fan', 'pair'], enemyKinds: ['diver', 'swarm', 'sniper'], nemesis: true, atmosphere: 'embers', music: { bpm: 132, root: 246, pattern: [0, 2, 3, 7, 10, 7, 3, 2] }, boss: { name: 'Lunar Horse', emoji: E.bee, hp: 1100, size: 440, color: '#e4ba6a', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(8, 'dash', 'rain'), phase(7.5, 'sweep', 'summon')] } }),
+    theme({ name: 'Shard Expanse', subtitle: 'The Base of Lost Hope', skyTop: '#000000', skyBottom: '#000000', glow: '#b0fbff', accent: '#95d5ff', accent2: '#d6c4ff', forms: ['ring', 'line', 'arc'], enemyKinds: ['swarm', 'bomber', 'elite', 'looper'], nemesis: false, atmosphere: 'shards', music: { bpm: 120, root: 233, pattern: [0, 4, 7, 11, 7, 4, 9, 7] }, boss: { name: 'Shard Base One', emoji: E.gem, hp: 1400, size: 445, color: '#c9f6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'ring'), phase(8, 'low', 'beam')] }, asteroidDensity: 2 }),
+    theme({ name: 'Dark Waters', subtitle: 'Prey on the Weak', skyTop: '#000000', skyBottom: '#000000', glow: '#ffab5b', accent: '#de6f2b', accent2: '#ffd08a', forms: ['rain', 'line', 'swarm'], enemyKinds: ['spinner', 'drifter', 'diver', 'splitter'], nemesis: true, atmosphere: 'embers', music: { bpm: 140, root: 220, pattern: [0, 3, 7, 10, 7, 3, 5, 10] }, boss: { name: 'Cephid Hunter', emoji: E.fire, hp: 1800, size: 450, color: '#ff9e53', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'rain'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'wall')] } }),
+    theme({ name: 'Domain of Klaatu', subtitle: 'The Earth Stands Still', skyTop: '#000000', skyBottom: '#000000', glow: '#95d7ff', accent: '#aebfe0', accent2: '#95d7ff', forms: ['line', 'wave', 'pair'], enemyKinds: ['elite', 'diver', 'splitter' ], nemesis: false, atmosphere: 'stardust', music: { bpm: 106, root: 185, pattern: [0, 7, 12, 7, 10, 7, 5, 3] }, boss: { name: 'Klaatu', emoji: E.moon, hp: 2300, size: 455, color: '#c3d6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'summon'), phase(7.5, 'dash', 'beam'), phase(8, 'sweep', 'ring')] }, asteroidDensity: 2 }),
+    theme({ name: 'Sunken Bastion', subtitle: 'Here Drowned Men Weep', skyTop: '#000000', skyBottom: '#000000', glow: '#82f6ff', accent: '#6eeaff', accent2: '#c8fff2', forms: ['wave', 'cross', 'pair'], enemyKinds: ['looper', 'spinner', 'swarm', 'bomber'], nemesis: true, atmosphere: 'neon', music: { bpm: 144, root: 220, pattern: [0, 7, 12, 10, 7, 4, 9, 12] }, boss: { name: 'Cyberphish', emoji: E.bolt, hp: 3000, size: 460, color: '#8fefff', flipWhenMovingRight: true, phases: [phase(7, 'sweep', 'wall'), phase(7.5, 'dash', 'aimed'), phase(8, 'hover', 'ring')] } }),
+    theme({ name: 'Mirrorwing Expanse', subtitle: 'The Mothership Moth', skyTop: '#000000', skyBottom: '#000000', glow: '#f0f3ff', accent: '#b6bfd6', accent2: '#9e8e5e', forms: ['line', 'cross', 'wave'], enemyKinds: ['looper', 'sniper', 'elite'], nemesis: true, atmosphere: 'chess', music: { bpm: 122, root: 196, pattern: [0, 3, 7, 10, 7, 3, 5, 7] }, boss: { name: 'Aurelion Vane', emoji: E.queen, hp: 3900, size: 465, color: '#e7ecff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'dash', 'summon'), phase(8, 'sweep', 'ring')] } }),
+    theme({ name: 'Crushing Depths', subtitle: 'Hunger for Sunlight', skyTop: '#000000', skyBottom: '#000000', glow: '#d7f4ff', accent: '#9cc7ff', accent2: '#d7f4ff', forms: ['rain', 'line', 'swarm'], enemyKinds:  ['spinner', 'diver', 'swarm', 'looper'], nemesis: false, atmosphere: 'rain', music: { bpm: 128, root: 196, pattern: [0, 4, 7, 10, 7, 4, 2, 5] }, boss: { name: 'Deep Gulper', emoji: E.cloud, hp: 5100, size: 470, color: '#d3edff', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'rain'), phase(8, 'low', 'ring')] }, asteroidDensity: 3 }),
+    theme({ name: 'Thorium Gap', subtitle: 'Final Descent', skyTop: '#000000', skyBottom: '#000000', glow: '#ffe78a', accent: '#ffd77a', accent2: '#ffffff', forms: ['ring', 'fan', 'wave'], enemyKinds: ['elite', 'sniper', 'spinner', 'looper'], nemesis: true, atmosphere: 'nova', music: { bpm: 152, root: 262, pattern: [0, 4, 7, 12, 15, 12, 7, 4] }, boss: { name: 'Unnamed Horror', emoji: E.sun, hp: 10000, size: 512, color: '#fff0bd', flipWhenMovingRight: false, phases: [phase(6.5, 'hover', 'aimed'), phase(6.5, 'sweep', 'ring'), phase(6.5, 'low', 'summon'), phase(6.5, 'dash', 'beam'), phase(7.5, 'low', 'wall')] } })
   ];
 
   const FINAL_LEVEL_ENEMY_KINDS = (function () {
@@ -2989,31 +2989,13 @@
     diver: { hp: 6, r: 18, score: 130, speed: 120 },
     mine: { hp: 8, r: 19, score: 120, speed: 60 },
     elite: { hp: 10, r: 24, score: 280, speed: 80 },
-    nemesis: { hp: 10, r: 24, score: 700, speed: 118 }
+    nemesis: { hp: 20, r: 24, score: 700, speed: 120 }
   };
 
-  const NEMESIS_DEFS = [
-    {
-      id: 'nemesis1',
-      name: 'Nemesis I',
-      spawnFromLevel: 2,
-      chancePerSecond: 0.17,
-      hp: 10,
-      score: 700,
-      shipLevel: -1,
-      shipIndex: 1,
-      behavior: 'orbit',
-      fireStyle: 'sniperSpread',
-      fireDelay: 1.5,
-      moveSpeed: 126,
-      behindOffset: 116,
-      aura: '#ff8f78'
-    },
-  ];
-  const NEMESIS_DEFS_BY_ID = Object.create(null);
-  for (let i = 0; i < NEMESIS_DEFS.length; i++) {
-    NEMESIS_DEFS_BY_ID[NEMESIS_DEFS[i].id] = NEMESIS_DEFS[i];
-  }
+  const ENEMY_NEMESIS_NAME = 'Nemesis I';
+  const ENEMY_NEMESIS_CHANCE_PER_SECOND = 0.15;
+  const ENEMY_NEMESIS_FIRE_DELAY = 1.0;
+  const ENEMY_NEMESIS_AURA = '#ff8f78';
 
   const DIFFICULTIES = [                                                                      // Hint: bulletSpeed = enemyShotPace maintains gap-dynamics of shots (just faster)
     { label: 'Easy', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.8, spawnCount: 0.7, bulletSpeed: 1.0, bossHp: 0.5, contact: 0.9, playerDamage: 1, enemyShotPace: 0.8, spinnerNrOfRingShots: 6, eliteNrOfRingShots: 6 },
@@ -4134,13 +4116,6 @@
     else if (code === 'Backquote' || code === 'IntlBackslash' || code === 'Backslash') spawnPickup('invuln', x, y);
   }
 
-  function spawnDebugNemesis() {
-    if (!state.debugMode || state.mode !== 'playing' || state.transition) return;
-    if (state.settings.difficulty < 1) return; // Nemesis are enabled only on Normal/Hard difficulty.
-    if (!NEMESIS_DEFS.length) return;
-    spawnNemesis(pick(NEMESIS_DEFS));
-  }
-
   function debugJumpToBoss() {
     if (!state.debugMode || state.mode !== 'playing' || state.transition) return;
     if (state.boss) {
@@ -4520,12 +4495,8 @@
     const speedScale = diff.enemySpeed;
     const fireScale = enemyShotPace() / diff.spawnRate;
     const levelNumber = state.levelIndex + 1;
-    let shipLevel = opts && opts.shipLevel != null ? opts.shipLevel : levelNumber;
-    let shipIndex = opts && opts.shipIndex != null ? opts.shipIndex : chooseEnemyShipIndexForKind(kind, levelNumber);
-    if (kind === 'nemesis' && shipLevel < 0) {
-      shipLevel = levelNumber;
-      shipIndex = chooseEnemyShipIndexForKind(kind, levelNumber);
-    }
+    const shipLevel = opts && opts.shipLevel != null ? opts.shipLevel : levelNumber;
+    const shipIndex = opts && opts.shipIndex != null ? opts.shipIndex : chooseEnemyShipIndexForKind(kind, levelNumber);
     const shipScale = narrowScreenScale();
     const baseShipSize = kind === 'nemesis' ? ENEMY_NEMESIS_SIZE : (kind === 'elite' ? ENEMY_ELITE_SIZE : getEnemyShipRenderSize(shipLevel, shipIndex));
     const shipSize = Math.max(1, baseShipSize * shipScale);
@@ -4545,8 +4516,7 @@
       shotSeed: rand(0, TAU), elite: !!(opts && opts.elite), dead: false, hitFlash: 0,
       entry: opts && opts.entry ? opts.entry : null,
       name: opts && opts.name ? opts.name : kind,
-      nemesis: !!(opts && opts.nemesis),
-      nemesisDef: opts && opts.nemesisDef ? opts.nemesisDef : null
+      nemesis: !!(opts && opts.nemesis)
     };
     e.flightAngle = Math.atan2(e.vy || 0, e.vx || 1);
     if (e.entry) {
@@ -4559,17 +4529,9 @@
     return e;
   }
 
-  function nemesisDefsForLevel(levelNumber) {
-    const level = Math.max(1, levelNumber | 0);
-    const out = [];
-    for (let i = 0; i < NEMESIS_DEFS.length; i++) {
-      const def = NEMESIS_DEFS[i];
-      if (level >= def.spawnFromLevel) out.push(def);
-    }
-    return out;
-  }
-
-  function buildNemesisEntry(def) {
+  function spawnNemesis() {
+    const d = ENEMIES.nemesis;
+    const levelNumber = state.levelIndex + 1;
     const p = state.player;
     const a = playArea();
     const halfH = Math.max(120, view.h * 0.48);
@@ -4588,109 +4550,69 @@
       startX = view.w + off;
       startY = rand(0, halfH);
     }
-    const behindBias = chance(0.5) ? -1 : 1;
-    let orbitAngle = rand(0, TAU);
-    let orbitDir = chance(0.5) ? 1 : -1;
-    let orbitRadius = def.orbitRadius || holdDistance;
-    let targetX = p.x;
-    let targetY = p.y;
-    if (def.behavior === 'orbit') {
-      const maxRadius = Math.max(84, Math.min(p.x - a.left, a.right - p.x, p.y - a.top, a.bottom - p.y) - 30);
-      const orbitMin = Math.min(holdDistance * 0.92, maxRadius);
-      const orbitMax = Math.max(orbitMin, maxRadius);
-      orbitRadius = clamp(Math.max(holdDistance, orbitRadius), orbitMin, orbitMax);
-      targetX = clamp(p.x + Math.cos(orbitAngle) * orbitRadius, a.left + 36, a.right - 36);
-      targetY = clamp(p.y + Math.sin(orbitAngle) * orbitRadius * 0.92, a.top + 36, a.bottom - 36);
-    } else {
-      const playerSpeed = Math.hypot(p.vx || 0, p.vy || 0);
-      const awayX = playerSpeed > 12 ? -(p.vx || 0) / playerSpeed : 0;
-      const awayY = playerSpeed > 12 ? -(p.vy || 0) / playerSpeed : 1;
-      const sideX = -awayY;
-      const sideY = awayX;
-      const sideOffset = holdDistance * 0.12 * behindBias;
-      targetX = clamp(p.x + awayX * holdDistance + sideX * sideOffset, a.left + 36, a.right - 36);
-      targetY = clamp(p.y + awayY * holdDistance + sideY * sideOffset, a.top + 36, a.bottom - 36);
-    }
+    const orbitAngle = rand(0, TAU);
+    const orbitDir = chance(0.5) ? 1 : -1;
+    let orbitRadius = holdDistance;
+    const maxRadius = Math.max(84, Math.min(p.x - a.left, a.right - p.x, p.y - a.top, a.bottom - p.y) - 30);
+    const orbitMin = Math.min(holdDistance * 0.92, maxRadius);
+    const orbitMax = Math.max(orbitMin, maxRadius);
+    orbitRadius = clamp(Math.max(holdDistance, orbitRadius), orbitMin, orbitMax);
+    const targetX = clamp(p.x + Math.cos(orbitAngle) * orbitRadius, a.left + 36, a.right - 36);
+    const targetY = clamp(p.y + Math.sin(orbitAngle) * orbitRadius * 0.92, a.top + 36, a.bottom - 36);
     const dx = targetX - startX;
     const dy = targetY - startY;
     const len = Math.max(1, Math.hypot(dx, dy));
-    return {
-      startX: startX,
-      startY: startY,
-      targetX: targetX,
-      targetY: targetY,
+    const spawn = {
+      startX,
+      startY,
+      targetX,
+      targetY,
       controlX: lerp(startX, targetX, 0.56),
-      controlY: lerp(startY, targetY, 0.22) - (def.behavior === 'orbit' ? 24 : 12),
+      controlY: lerp(startY, targetY, 0.22) - 24,
       normalX: -dy / len,
       normalY: dx / len,
       bend: Math.max(48, len * 0.04),
-      swirl: def.behavior === 'orbit' ? 30 : 20,
-      turns: def.behavior === 'orbit' ? 1.65 : 1.1,
-      duration: def.behavior === 'orbit' ? 1.25 : 1.05,
+      swirl: 30,
+      turns: 1.65,
+      duration: 1.25,
       phase: rand(0, TAU),
       settle: 0.9,
-      kind: def.id,
       orbitAngle: orbitAngle,
       orbitDir: orbitDir,
-      orbitRadius: orbitRadius,
-      behindBias: behindBias
+      orbitRadius: orbitRadius
     };
-  }
-
-  function spawnNemesis(def) {
-    if (!def) return null;
-    const levelNumber = state.levelIndex + 1;
-    const shipLevel = def.shipLevel != null ? def.shipLevel : levelNumber;
-    const useCurrentLevelShip = shipLevel < 0;
-    const resolvedShipLevel = useCurrentLevelShip ? levelNumber : shipLevel;
-    const resolvedShipIndex = useCurrentLevelShip
-      ? chooseEnemyShipIndexForKind('nemesis', levelNumber)
-      : (def.shipIndex != null ? def.shipIndex : chooseEnemyShipIndexForKind('nemesis', levelNumber));
-    const spawn = buildNemesisEntry(def);
+    const shipIndex = chooseEnemyShipIndexForKind('nemesis', levelNumber);
     const e = spawnEnemy('nemesis', spawn.startX, spawn.startY, {
-      hp: def.hp,
-      score: def.score,
-      shipLevel: resolvedShipLevel,
-      shipIndex: resolvedShipIndex,
-      fireCooldown: rand(def.fireDelay * 0.35, def.fireDelay),
+      shipLevel: levelNumber,
+      shipIndex: shipIndex,
+      fireCooldown: rand(ENEMY_NEMESIS_FIRE_DELAY * 0.35, ENEMY_NEMESIS_FIRE_DELAY),
       entry: spawn,
       nemesis: true,
-      nemesisDef: def,
-      name: def.name
+      name: ENEMY_NEMESIS_NAME
     });
     if (!e) return null;
     e.nemesis = true;
-    e.nemesisDef = def;
-    e.nemesisId = def.id;
-    e.name = def.name;
-    e.hp = def.hp;
-    e.maxHp = def.hp;
-    e.score = def.score;
-    e.shipLevel = resolvedShipLevel;
-    e.shipIndex = resolvedShipIndex;
-    e.fireCooldown = rand(def.fireDelay * 0.35, def.fireDelay);
-    if (def.behavior === 'orbit') {
-      e.nemesisOrbitAngle = spawn.orbitAngle;
-      e.nemesisOrbitDir = spawn.orbitDir;
-      e.nemesisOrbitRadius = spawn.orbitRadius;
-    } else {
-      e.nemesisBehindBias = spawn.behindBias;
-    }
+    e.name = ENEMY_NEMESIS_NAME;
+    e.hp = d.hp;
+    e.maxHp = d.hp;
+    e.score = d.score;
+    e.shipLevel = levelNumber;
+    e.shipIndex = shipIndex;
+    e.fireCooldown = rand(ENEMY_NEMESIS_FIRE_DELAY * 0.35, ENEMY_NEMESIS_FIRE_DELAY);
+    e.nemesisOrbitAngle = spawn.orbitAngle;
+    e.nemesisOrbitDir = spawn.orbitDir;
+    e.nemesisOrbitRadius = spawn.orbitRadius;
     return e;
   }
 
   function updateNemesisSpawns(dt) {
     if (state.mode !== 'playing' || state.transition || state.catalystPresent || state.catalystSequence) return;
     if (state.settings.difficulty < 1) return; // Nemesis are enabled only on Normal/Hard difficulty.
-    const levelNumber = state.levelIndex + 1;
-    const defs = nemesisDefsForLevel(levelNumber);
-    if (!defs.length) return;
+    if (!state.currentTheme || !state.currentTheme.nemesis) return;
     state.nemesisClock += dt;
     while (state.nemesisClock >= 1) {
       state.nemesisClock -= 1;
-      for (let i = 0; i < defs.length; i++) {
-        if (chance(defs[i].chancePerSecond || 0)) spawnNemesis(defs[i]);
-      }
+      if (chance(ENEMY_NEMESIS_CHANCE_PER_SECOND)) spawnNemesis();
     }
   }
 
@@ -6058,9 +5980,8 @@
     if (!isOnScreen(e.x, e.y)) return;
     if (e.kind === 'nemesis') {
       if (entering) return;
-      const def = e.nemesisDef || (e.nemesisId ? NEMESIS_DEFS_BY_ID[e.nemesisId] : null);
-      e.fireCooldown = def && def.fireDelay ? def.fireDelay : 1.5;
-      fireSniperSpread(e, p, 240, def && def.aura ? def.aura : (e.theme.accent || '#ffffff'), e.kind, e.name || e.kind);
+      e.fireCooldown = ENEMY_NEMESIS_FIRE_DELAY;
+      fireSniperSpread(e, p, 240, ENEMY_NEMESIS_AURA || (e.theme.accent || '#ffffff'), e.kind, e.name || e.kind);
       return;
     }
     const postEntrySlowdown = entering ? 1 : 2;
@@ -6122,59 +6043,27 @@
     const motionDt = dt * enemyMotionScale();
     if (entering) return false;
     if (e.kind === 'nemesis') {
-      const def = e.nemesisDef || (e.nemesisId ? NEMESIS_DEFS_BY_ID[e.nemesisId] : null);
-        const speed = Math.max(92, (def && def.moveSpeed) || 126) * ENEMY_NEMESIS_MOVE_SPEED_MULT;
-        const holdDistance = nemesisHoldDistance();
-      if (def && def.behavior === 'orbit') {
-        if (!Number.isFinite(e.nemesisOrbitAngle)) e.nemesisOrbitAngle = rand(0, TAU);
-        if (!Number.isFinite(e.nemesisOrbitDir)) e.nemesisOrbitDir = chance(0.5) ? 1 : -1;
-        const maxRadius = Math.max(84, Math.min(p.x - a.left, a.right - p.x, p.y - a.top, a.bottom - p.y) - 30);
-        const baseRadius = Math.max(holdDistance, Number.isFinite(e.nemesisOrbitRadius) ? e.nemesisOrbitRadius : (def.orbitRadius || holdDistance));
-        const orbitMin = Math.min(holdDistance * 0.9, maxRadius);
-        const orbitMax = Math.max(orbitMin, maxRadius);
-        const radius = clamp(baseRadius + Math.sin(e.age * 1.25 + e.wobble) * holdDistance * 0.08, orbitMin, orbitMax);
-        e.nemesisOrbitRadius = radius;
-        e.nemesisOrbitAngle += e.nemesisOrbitDir * ((def.orbitSpeed || 1.15) * ENEMY_NEMESIS_MOVE_SPEED_MULT * motionDt);
-        const angleWobble = Math.sin(e.age * 1.7 + e.wobble) * 0.06 + Math.sin(e.age * 4.9 + e.shotSeed) * 0.02;
-        const targetAngle = e.nemesisOrbitAngle + angleWobble;
-        const targetX = clamp(p.x + Math.cos(targetAngle) * radius, a.left + 28, a.right - 28);
-        const targetY = clamp(p.y + Math.sin(targetAngle) * radius * 0.92, a.top + 28, a.bottom - 28);
-        const dx = targetX - e.x;
-        const dy = targetY - e.y;
-        const len = Math.max(1, Math.hypot(dx, dy));
-        const desiredVx = (dx / len) * speed;
-        const desiredVy = (dy / len) * speed;
-        e.vx = lerp(e.vx || 0, desiredVx, ENEMY_NEMESIS_TURN_SMOOTH);
-        e.vy = lerp(e.vy || 0, desiredVy, ENEMY_NEMESIS_TURN_SMOOTH);
-        e.x += e.vx * motionDt;
-        e.y += e.vy * motionDt;
-        e.x = clamp(e.x, a.left + 10, a.right - 10);
-        e.y = clamp(e.y, a.top + 10, a.bottom - 10);
-        return false;
-      }
-      const behindBias = Number.isFinite(e.nemesisBehindBias) ? e.nemesisBehindBias : 0;
-      const playerSpeed = Math.hypot(p.vx || 0, p.vy || 0);
-      const awayX = playerSpeed > 12 ? -(p.vx || 0) / playerSpeed : 0;
-      const awayY = playerSpeed > 12 ? -(p.vy || 0) / playerSpeed : 1;
-      const sideX = -awayY;
-      const sideY = awayX;
-      const sideWobble = Math.sin(e.age * 1.55 + e.wobble) * holdDistance * 0.09 * behindBias;
-      const forwardWobble = Math.sin(e.age * 0.62 + e.shotSeed) * holdDistance * 0.025;
-      const desiredX = clamp(
-        p.x + awayX * holdDistance + sideX * sideWobble + awayX * forwardWobble,
-        a.left + 28,
-        a.right - 28
-      );
-      const desiredY = clamp(
-        p.y + awayY * holdDistance + sideY * sideWobble + awayY * forwardWobble,
-        a.top + 28,
-        a.bottom - 28
-      );
-      const dx = desiredX - e.x;
-      const dy = desiredY - e.y;
+      const stats = ENEMIES.nemesis;
+      const speed = Math.max(92, stats.speed || 126) * ENEMY_NEMESIS_MOVE_SPEED_MULT;
+      const holdDistance = nemesisHoldDistance();
+      if (!Number.isFinite(e.nemesisOrbitAngle)) e.nemesisOrbitAngle = rand(0, TAU);
+      if (!Number.isFinite(e.nemesisOrbitDir)) e.nemesisOrbitDir = chance(0.5) ? 1 : -1;
+      const maxRadius = Math.max(84, Math.min(p.x - a.left, a.right - p.x, p.y - a.top, a.bottom - p.y) - 30);
+      const baseRadius = Math.max(holdDistance, Number.isFinite(e.nemesisOrbitRadius) ? e.nemesisOrbitRadius : holdDistance);
+      const orbitMin = Math.min(holdDistance * 0.9, maxRadius);
+      const orbitMax = Math.max(orbitMin, maxRadius);
+      const radius = clamp(baseRadius + Math.sin(e.age * 1.25 + e.wobble) * holdDistance * 0.08, orbitMin, orbitMax);
+      e.nemesisOrbitRadius = radius;
+      e.nemesisOrbitAngle += e.nemesisOrbitDir * 1.15 * ENEMY_NEMESIS_MOVE_SPEED_MULT * motionDt;
+      const angleWobble = Math.sin(e.age * 1.7 + e.wobble) * 0.06 + Math.sin(e.age * 4.9 + e.shotSeed) * 0.02;
+      const targetAngle = e.nemesisOrbitAngle + angleWobble;
+      const targetX = clamp(p.x + Math.cos(targetAngle) * radius, a.left + 28, a.right - 28);
+      const targetY = clamp(p.y + Math.sin(targetAngle) * radius * 0.92, a.top + 28, a.bottom - 28);
+      const dx = targetX - e.x;
+      const dy = targetY - e.y;
       const len = Math.max(1, Math.hypot(dx, dy));
-      const desiredVx = (dx / len) * speed + clamp(-(p.vx || 0) * 0.14, -48, 48);
-      const desiredVy = (dy / len) * speed + clamp((p.vy || 0) * 0.05, -20, 20);
+      const desiredVx = (dx / len) * speed;
+      const desiredVy = (dy / len) * speed;
       e.vx = lerp(e.vx || 0, desiredVx, ENEMY_NEMESIS_TURN_SMOOTH);
       e.vy = lerp(e.vy || 0, desiredVy, ENEMY_NEMESIS_TURN_SMOOTH);
       e.x += e.vx * motionDt;
@@ -7951,10 +7840,10 @@
       diver: '#ff7070',
       mine: '#9cff6e',
       elite: '#ffcf6b',
-      nemesis: '#ff9a7b'
+      nemesis: ENEMY_NEMESIS_AURA
     };
     return {
-      base: (e && e.nemesisDef && e.nemesisDef.aura) || fixed[e && e.kind] || t.accent2 || t.accent || '#ffffff',
+      base: fixed[e && e.kind] || t.accent2 || t.accent || '#ffffff',
       alt: '#15151b',
       glow: t.glow || t.accent2 || '#ffffff'
     };
@@ -8258,12 +8147,6 @@
     }
   }
 
-  function drawEnemyOverlay(e, rot) {
-    if (!e || !e.nemesisDef) return;
-    const aura = e.nemesisDef.aura || '#ffffff';
-    const pulse = 0.55 + 0.45 * Math.sin((e.age || 0) * 5.5 + (e.wobble || 0));
-  }
-
   function drawBossOverlay(b) {
   }
 
@@ -8284,7 +8167,6 @@
       }
     }
     drawEnemyBody(e, rot, shipSize);
-    drawEnemyOverlay(e, rot);
     if (e.maxHp > 1 && e.hp > 0) {
       const barW = shipSize * 0.50;
       const barH = Math.max(4, Math.round(shipSize * 0.02));
@@ -9097,10 +8979,6 @@
     if (state.debugMode && (code === 'Digit1' || code === 'Digit2' || code === 'Digit3' || code === 'Digit4' || code === 'Digit5' || code === 'Digit6' || code === 'Digit7' || code === 'Digit8' || code === 'Digit9' || code === 'Backquote' || code === 'IntlBackslash' || code === 'Backslash')) {
       ev.preventDefault();
       if (!ev.repeat) spawnCheatDrop(code);
-    }
-    if (state.debugMode && code === 'KeyN') {
-      ev.preventDefault();
-      if (!ev.repeat) spawnDebugNemesis();
     }
     if (code === 'ArrowLeft' || code === 'KeyA') state.input.left = true;
     else if (code === 'ArrowRight' || code === 'KeyD') state.input.right = true;
