@@ -11,10 +11,10 @@ from PIL import Image
 # are easy to adjust later without hunting through the code.
 MIN_WIDTH = 64
 MIN_HEIGH = 64
-MAX_GAP_TRANSPARANCY = 0.001
-INPUT_FILE = "enamy_fighters_3g.png"
-MIN_GAP_WIDTH = 10
-OUTPUT_FILE = "enemy_003"
+MAX_GAP_TRANSPARANCY = 0.01
+INPUT_FILE = "enemy_fighter_rocket.png"
+MIN_GAP_WIDTH = 5
+OUTPUT_FILE = "enemy_002"
 OUTPUT_FIILE_STARTINDEX = 0
 EXPECTED_IMAGE_COUNT = 8
 SATURATION_THRESHOLDS = [x / 1000.0 for x in range(10, 151, 5)]
