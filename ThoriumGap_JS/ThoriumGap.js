@@ -197,9 +197,9 @@
   const ENEMY_SHIP_FALLBACK_BATCHES = 10;
   const ENEMY_SHIP_VARIANT = 'a';
   const ENEMY_SHIP_MIN_SIZE = 64;
-  const ENEMY_SHIP_MAX_SIZE = 100;
-  const ENEMY_ELITE_SIZE = 100;
-  const ENEMY_NEMESIS_SIZE = 100;
+  const ENEMY_SHIP_MAX_SIZE = 96;
+  const ENEMY_ELITE_SIZE = 96;
+  const ENEMY_NEMESIS_SIZE = 96;
   const ENEMY_NEMESIS_TURN_SMOOTH = 0.0225;
   const ENEMY_NEMESIS_MOVE_SPEED_MULT = 2.0;
   const ENEMY_SHIP_TEXTURE_SIZE = 256;
@@ -392,13 +392,13 @@
       { model3D: 'models/Ship_Standard_7.glb',          scale3D: 0.9, image2D: 'assets/enemy_01006a.png', scale2D: 0.9 }
     ],
     Crosspanel: [
-      { model3D: 'models/Ship_Crosspanel_1.glb',       scale3D: 0.9, image2D: 'assets/enemy_01100a.png', scale2D: 0.9 },
-      { model3D: 'models/Ship_Crosspanel_2.glb',       scale3D: 0.9, image2D: 'assets/enemy_01101a.png', scale2D: 0.9 },
-      { model3D: 'models/Ship_Crosspanel_3.glb',       scale3D: 0.9, image2D: 'assets/enemy_01102a.png', scale2D: 0.9 },
-      { model3D: 'models/Ship_Crosspanel_4.glb',       scale3D: 0.9, image2D: 'assets/enemy_01103a.png', scale2D: 0.9 },
-      { model3D: 'models/Ship_Crosspanel_5.glb',       scale3D: 0.9, image2D: 'assets/enemy_01104a.png', scale2D: 0.9 },
-      { model3D: 'models/Ship_Crosspanel_6.glb',       scale3D: 0.9, image2D: 'assets/enemy_01105a.png', scale2D: 0.9 },
-      { model3D: 'models/Ship_Crosspanel_7.glb',       scale3D: 0.9, image2D: 'assets/enemy_01106a.png', scale2D: 0.9 }
+      { model3D: 'models/Ship_Crosspanel_1.glb',       scale3D: 0.8, image2D: 'assets/enemy_01100a.png', scale2D: 0.7 },
+      { model3D: 'models/Ship_Crosspanel_2.glb',       scale3D: 0.8, image2D: 'assets/enemy_01101a.png', scale2D: 0.7 },
+      { model3D: 'models/Ship_Crosspanel_3.glb',       scale3D: 0.8, image2D: 'assets/enemy_01102a.png', scale2D: 0.7 },
+      { model3D: 'models/Ship_Crosspanel_4.glb',       scale3D: 0.8, image2D: 'assets/enemy_01103a.png', scale2D: 0.7 },
+      { model3D: 'models/Ship_Crosspanel_5.glb',       scale3D: 0.8, image2D: 'assets/enemy_01104a.png', scale2D: 0.7 },
+      { model3D: 'models/Ship_Crosspanel_6.glb',       scale3D: 0.8, image2D: 'assets/enemy_01105a.png', scale2D: 0.7 },
+      { model3D: 'models/Ship_Crosspanel_7.glb',       scale3D: 0.8, image2D: 'assets/enemy_01106a.png', scale2D: 0.7 }
     ],
     DeltaWing: [
       { model3D: 'models/Ship_DeltaWing_108179.glb',   scale3D: 0.9, image2D: 'assets/enemy_01200a.png', scale2D: 0.9 },
