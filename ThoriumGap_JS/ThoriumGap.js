@@ -4295,7 +4295,8 @@
     p.respawnTargetY = a.bottom - 92;
     p.x = p.respawnStartX;
     p.y = p.respawnStartY;
-    p.invuln = 8;
+    // Keep the ship protected through the respawn animation, then for the normal grace period.
+    p.invuln = p.respawnDuration + 6.0;
     p.repairDelay = 0;
     p.fireCooldown = 0.35;
     p.heat = 0;
