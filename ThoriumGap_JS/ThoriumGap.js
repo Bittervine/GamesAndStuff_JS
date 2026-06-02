@@ -201,7 +201,7 @@
   const ENEMY_ELITE_SIZE = 96;
   const ENEMY_NEMESIS_SIZE = 96;
   const ENEMY_NEMESIS_TURN_SMOOTH = 0.0225;
-  const ENEMY_NEMESIS_MOVE_SPEED_MULT = 2.0;
+  const ENEMY_NEMESIS_MOVE_SPEED_MULT = 1.5;
   const ENEMY_SHIP_TEXTURE_SIZE = 256;
   const ENEMY_SHIP_GLOW_SCALE = 1.01;
   const ENEMY_SHIP_GLOW_INTENSITY = 0.3;
@@ -505,7 +505,7 @@
   }
 
   function nemesisHoldDistance() {
-    return Math.max(1, 5 * playerCollisionRadius());
+    return Math.max(1, 10 * playerCollisionRadius());
   }
 
   function isOnScreen(x, y) {
@@ -2914,7 +2914,7 @@
   ];
   // Base fire delay per weapon mode, before tier/rapid-fire/overdrive/heat modifiers.
   // Indexes match WEAPONS: 0=DART, 1=TWIN, 2=FAN, 3=ROCKET, 4=BEAM.
-  const WEAPON_BASE_FIRE_DELAYS = [0.16, 0.17, 0.17, 0.25, 0.20];
+  const WEAPON_BASE_FIRE_DELAYS = [0.16, 0.17, 0.17, 0.23, 0.18];
   const WEAPON_PICKUP_WEIGHTS = [ 5, 5, 5, 5, 5 ];
   const WEAPON_TIER_LABELS = ['I', 'II', 'III', 'IIII', 'V'];
 
@@ -2941,12 +2941,12 @@
     mine: { hp: 8, r: 19, score: 120, speed: 60 },
     elite: { hp: 10, r: 24, score: 280, speed: 80 },
     nemesis: { hp: 15, r: 24, score: 700, speed: 120 },
-    nemesis2: { hp: 200, r: 24, score: 700, speed: 120 }
+    nemesis2: { hp: 250, r: 24, score: 700, speed: 120 }
   };
 
   const ENEMY_NEMESIS_NAME = 'Nemesis I';
   const ENEMY_NEMESIS2_NAME = 'Nemesis II';
-  const ENEMY_NEMESIS_CHANCE_PER_SECOND = 0.115;
+  const ENEMY_NEMESIS_CHANCE_PER_SECOND = 0.13;
   const ENEMY_NEMESIS2_UPGRADE_CHANCE = 0.01;
   const ENEMY_NEMESIS_FIRE_DELAY = 1.0;
   const ENEMY_NEMESIS_AURA = '#ff8f78';
@@ -2956,8 +2956,8 @@
 
   const DIFFICULTIES = [                                                                      // Hint: bulletSpeed = enemyShotPace maintains gap-dynamics of shots (just faster)
     { label: 'Easy', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.8, spawnCount: 0.7, bulletSpeed: 1.0, bossHp: 0.5, contact: 0.9, playerDamage: 1, enemyShotPace: 0.8, spinnerNrOfRingShots: 6, eliteNrOfRingShots: 6 },
-    { label: 'Normal', lives: 3, enemyHp: 1.2, enemySpeed: 1, spawnRate: 1, spawnCount: 0.9, bulletSpeed: 1.5, bossHp: 1, contact: 1, playerDamage: 0.5, enemyShotPace: 1.4, spinnerNrOfRingShots: 8, eliteNrOfRingShots: 7 },
-    { label: 'Hard', lives: 2, enemyHp: 1.4, enemySpeed: 1.2, spawnRate: 1.1, spawnCount: 1.1, bulletSpeed: 2.0, bossHp: 1.3, contact: 1.12, playerDamage: 0.25, enemyShotPace: 2.0, spinnerNrOfRingShots: 9, eliteNrOfRingShots: 8 }
+    { label: 'Normal', lives: 3, enemyHp: 1.2, enemySpeed: 1, spawnRate: 1, spawnCount: 0.8, bulletSpeed: 1.5, bossHp: 1, contact: 1, playerDamage: 0.5, enemyShotPace: 1.4, spinnerNrOfRingShots: 8, eliteNrOfRingShots: 7 },
+    { label: 'Hard', lives: 2, enemyHp: 1.4, enemySpeed: 1.2, spawnRate: 1.1, spawnCount: 1.0, bulletSpeed: 2.0, bossHp: 1.3, contact: 1.12, playerDamage: 0.25, enemyShotPace: 2.0, spinnerNrOfRingShots: 9, eliteNrOfRingShots: 8 }
   ];
 
   const PLAYER_SHOT_PACE = 1.0;
