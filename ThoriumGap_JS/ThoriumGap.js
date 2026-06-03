@@ -56,8 +56,7 @@
   const MIN_NORMAL_WINDOW_WIDTH = 600;
   const MIN_NORMAL_WINDOW_ITEM_SCALE_REALAXTION = 0.5;
   const URL_PARAMS = new URLSearchParams(window.location.search || '');
-  const DEBUG_ENTRY_ROUTE_TEST = URL_PARAMS.get('entrydebug') === '1';
-  const DEBUG_MODE = URL_PARAMS.get('debug') === '1' || DEBUG_ENTRY_ROUTE_TEST;
+  const DEBUG_MODE = URL_PARAMS.get('debug') === '1';
   const DEBUG_END_BOSS = URL_PARAMS.get('debug_endboss') === '1';
   const electronWindowBridge = window.electronWindow && window.electronWindow.isAvailable ? window.electronWindow : null;
   let electronFullscreenState = null;
@@ -1661,69 +1660,6 @@
     return entry;
   }
 
-  function entryRouteDirection(entry) {
-    if (!entry) return 'unknown';
-    if (Number.isFinite(entry.startX) && Number.isFinite(entry.targetX)) {
-      if (entry.targetX > entry.startX) return 'ltr';
-      if (entry.targetX < entry.startX) return 'rtl';
-    }
-    return entry.mirror < 0 ? 'rtl' : 'ltr';
-  }
-
-  function logEntryRouteStop(e, entry, reason, finished) {
-    if (!state || !state.debugMode || !DEBUG_ENTRY_ROUTE_TEST || !entry || entry.debugLogged) return;
-    entry.debugLogged = true;
-    const elapsed = Number.isFinite(entry.age) ? entry.age : 0;
-    pushDebugEvent('enemyEntryRoute', {
-      routeName: entry.routeName || '',
-      direction: entryRouteDirection(entry),
-      reason: reason || 'unknown',
-      finished: !!finished,
-      elapsed: Math.round(elapsed * 1000) / 1000,
-      planned: Math.round((Number(entry.duration) || 0) * 1000) / 1000,
-      kind: e && e.kind ? e.kind : '',
-      waveId: Number.isFinite(entry.waveId) ? entry.waveId : -1,
-      entryIndex: Number.isFinite(entry.entryIndex) ? entry.entryIndex : -1,
-      mirror: Number.isFinite(entry.mirror) ? entry.mirror : 1,
-      startX: Math.round((Number(entry.startX) || 0) * 1000) / 1000,
-      targetX: Math.round((Number(entry.targetX) || 0) * 1000) / 1000
-    });
-  }
-
-  function startEntryCurveCapture(e) {
-    if (!DEBUG_ENTRY_ROUTE_TEST || !e || !e.entry || state.entryCurveLog) return;
-    state.entryCurveEnemy = e;
-    state.entryCurveLog = {
-      enabled: true,
-      kind: e.kind || '',
-      name: e.name || e.kind || '',
-      routeName: e.entry.routeName || '',
-      mirror: Number.isFinite(e.entry.mirror) ? e.entry.mirror : 1,
-      waveId: Number.isFinite(e.entry.waveId) ? e.entry.waveId : -1,
-      entryIndex: Number.isFinite(e.entry.entryIndex) ? e.entry.entryIndex : -1,
-      startX: e.entry.startX,
-      startY: e.entry.startY,
-      targetX: e.entry.targetX,
-      targetY: e.entry.targetY,
-      samples: []
-    };
-    recordEntryCurveSample(e, 'spawn', e.entry);
-  }
-
-  function recordEntryCurveSample(e, phase, entry) {
-    if (!DEBUG_ENTRY_ROUTE_TEST || !state.entryCurveLog || state.entryCurveEnemy !== e || !entry) return;
-    state.entryCurveLog.samples.push({
-      at: Math.round(state.animClock * 1000) / 1000,
-      frame: state.renderFrameIndex || 0,
-      phase: phase,
-      x: Math.round((Number(e.x) || 0) * 1000) / 1000,
-      y: Math.round((Number(e.y) || 0) * 1000) / 1000,
-      entryAge: Math.round((Number(entry.age) || 0) * 1000) / 1000,
-      routeName: entry.routeName || '',
-      mirror: Number.isFinite(entry.mirror) ? entry.mirror : 1
-    });
-  }
-
   function compactSourceInfo(source) {
     if (!source) return null;
     return {
@@ -2405,9 +2341,7 @@
       const turnDeltaDeg = deltaAngleDeg(instance.prevFlightAngleDeg, flightDeg);
       const turnRateDegPerSec = dt > 0 ? (turnDeltaDeg / dt) : 0;
       const headingErrorDeg = deltaAngleDeg(instance.yawDeg, targetYawDeg);
-      // Mirrored fly-in entries can have opposite visual roll feel; flip bank sign only for that phase.
-      const entryMirrorSign = (enemy.entry && enemy.entry.mirror === -1) ? -1 : 1;
-      const targetBankDeg = clamp(((turnRateDegPerSec * ENEMY_3D_BANK_TURN_RATE_FACTOR) + (headingErrorDeg * ENEMY_3D_BANK_HEADING_FACTOR)) * entryMirrorSign, -90, 90);
+      const targetBankDeg = clamp((turnRateDegPerSec * ENEMY_3D_BANK_TURN_RATE_FACTOR) + (headingErrorDeg * ENEMY_3D_BANK_HEADING_FACTOR), -90, 90);
       instance.bankDeg = smooth(instance.bankDeg, targetBankDeg, ENEMY_3D_BANK_SMOOTH_RATE, Math.max(0, dt || 0));
       instance.yawDeg = targetYawDeg;
       instance.prevFlightAngleDeg = flightDeg;
@@ -3084,8 +3018,6 @@
     lastHitInfo: null,
     debugLog: loadDebugLog(),
     debugDamageBreakpoints: false,
-    entryCurveLog: null,
-    entryCurveEnemy: null,
     assetsReady: false,
     assetsLoading: false,
     assetsWarmupPromise: null,
@@ -3973,8 +3905,6 @@
     state.endScreenReadyAt = 0;
     state.lastDeathReason = '';
     state.lastHitInfo = null;
-    state.entryCurveLog = null;
-    state.entryCurveEnemy = null;
     state.nextLevelTimer = 0;
     state.waveClock = 0;
     state.waveIndex = 0;
@@ -4551,7 +4481,6 @@
       e.wobble = e.entry.phase;
       e.flightAngle = Math.atan2(e.entry.targetY - e.entry.startY, e.entry.targetX - e.entry.startX);
     }
-    startEntryCurveCapture(e);
     state.enemies.push(e);
     return e;
   }
@@ -4714,7 +4643,6 @@
       { name: 'centerCorkscrewL', startX: view.w * 0.5, startY: -112, targetMinX: 0.34, targetMaxX: 0.66, targetY: 40, controlX: 0.5, controlY: 0.08, bend: 0.18, swirl: 34, turns: 2.1, duration: 1.55 },
       { name: 'centerCorkscrewR', startX: view.w * 0.5, startY: -112, targetMinX: 0.34, targetMaxX: 0.66, targetY: 40, controlX: 0.5, controlY: 0.08, bend: -0.18, swirl: 34, turns: 2.1, duration: 1.55 }
     ];
-    const routePhase = Math.floor((state.levelClock + waveId * 0.85) / rand(2, 5)) % 2;
     const sideEntryProgress = clamp((MIN_NORMAL_WINDOW_WIDTH - view.w) / (MIN_NORMAL_WINDOW_WIDTH * 0.5), 0, 1);
     const sideEntryAllowed = sideEntryProgress > 0;
     function sampleNarrowEntryPoint() {
@@ -4737,13 +4665,11 @@
       const entryRoute = entryRoutes[(index + profile.routeShift) % entryRoutes.length];
       const t = count === 1 ? 0.5 : index / (count - 1);
       const lane = clamp(t + Math.sin((waveId + index) * 0.45) * 0.045, 0, 1);
-      // Debug experiment: disable the mirror flip so we can measure the raw route bias.
-      const mirror = DEBUG_ENTRY_ROUTE_TEST ? 1 : (routePhase === 1 ? -1 : 1);
-      let startX = mirror < 0 ? view.w - entryRoute.startX : entryRoute.startX;
+      let startX = entryRoute.startX;
       let startY = entryRoute.startY - index * 10;
-      let targetMinX = mirror < 0 ? 1 - entryRoute.targetMaxX : entryRoute.targetMinX;
-      let targetMaxX = mirror < 0 ? 1 - entryRoute.targetMinX : entryRoute.targetMaxX;
-      let controlX = mirror < 0 ? 1 - entryRoute.controlX : entryRoute.controlX;
+      let targetMinX = entryRoute.targetMinX;
+      let targetMaxX = entryRoute.targetMaxX;
+      let controlX = entryRoute.controlX;
       let targetX = lerp(view.w * targetMinX, view.w * targetMaxX, lane);
       let targetY = entryRoute.targetY * profile.settleY + ((index % 3) - 1) * 5;
       let controlY = view.h * entryRoute.controlY;
@@ -4809,7 +4735,6 @@
         settle: 0.86 + (index % 2) * 0.08,
         routeName: entryRoute.name,
         kind: kind,
-        mirror: mirror,
         waveId: waveId,
         entryIndex: index,
         debugLogged: false
@@ -6288,8 +6213,6 @@
     for (let i = state.enemies.length - 1; i >= 0; i--) {
       const e = state.enemies[i];
       if (e.dead) {
-        logEntryRouteStop(e, e.entry, 'dead', false);
-        recordEntryCurveSample(e, 'dead', e.entry);
         state.enemies.splice(i, 1); continue;
       }
       e.age += dt;
@@ -6302,10 +6225,9 @@
         entering = true;
         const en = e.entry;
         en.age = (en.age || 0) + (dt * enemyMotionScale());
-        const mirror = en.mirror || 1;
-        const sx = mirror < 0 ? view.w - en.startX : en.startX;
-        const tx = mirror < 0 ? view.w - en.targetX : en.targetX;
-        const cx = mirror < 0 ? view.w - en.controlX : en.controlX;
+        const sx = en.startX;
+        const tx = en.targetX;
+        const cx = en.controlX;
         const t = clamp(en.age / en.duration, 0, 1);
         const ease = t * t * (3 - 2 * t);
         const spin = ease * TAU * en.turns * 0.01;
@@ -6318,15 +6240,12 @@
         e.x = curveX + en.normalX * bend + sway * en.swirl;
         e.y = curveY + en.normalY * bend + swirl * (en.swirl * 0.62) + pull * -18;
         e.wobble += dt * 0.03;
-        recordEntryCurveSample(e, 'entry', en);
         if (e.nemesis && !Number.isFinite(e.nemesisEntryResumeDistance) && isOnScreen(e.x, e.y)) {
           const entryDistance = Math.hypot(e.x - p.x, e.y - p.y);
           e.nemesisEntryResumeDistance = Math.max(nemesisHoldDistance(), entryDistance * 0.80);
         }
         const resumeEntry = e.nemesis && Number.isFinite(e.nemesisEntryResumeDistance) && d2(e.x, e.y, p.x, p.y) <= e.nemesisEntryResumeDistance * e.nemesisEntryResumeDistance;
         if (t >= 1 || resumeEntry) {
-          recordEntryCurveSample(e, resumeEntry ? 'resumeEntry' : 'finished', en);
-          logEntryRouteStop(e, en, resumeEntry ? 'resumeEntry' : 'finished', true);
           e.entry = null;
           e.nemesisEntryResumeDistance = null;
           if (t >= 1) {
@@ -6338,15 +6257,11 @@
         }
       }
       if (updateEnemyMovement(e, dt, a, p, entering)) {
-        logEntryRouteStop(e, e.entry, 'movementExit', false);
-        recordEntryCurveSample(e, 'movementExit', e.entry);
         state.enemies.splice(i, 1); continue;
       }
       tryEnemyFire(e, p, entering);
       e.flightAngle = Math.atan2(e.y - prevY, e.x - prevX);
       if (!e.nemesis && (e.y > view.h + 72 || e.x < -90 || e.x > view.w + 90)) {
-        logEntryRouteStop(e, e.entry, 'outOfBounds', false);
-        recordEntryCurveSample(e, 'outOfBounds', e.entry);
         state.enemies.splice(i, 1); continue;
       }
       if (d2(e.x, e.y, p.x, p.y) < (e.r + playerCollisionRadius()) * (e.r + playerCollisionRadius())) {
@@ -6371,8 +6286,6 @@
         damageEnemy(e, contactDamage, false);
         hurtPlayer(contactDamage, { kind: 'enemy-contact', sourceKind: e.kind, sourceName: e.name || e.kind });
         if (e.kind !== 'mine' || e.hp <= 0) {
-          logEntryRouteStop(e, e.entry, 'contactDeath', false);
-          recordEntryCurveSample(e, 'contactDeath', e.entry);
           state.enemies.splice(i, 1); continue;
         }
       }
@@ -9171,43 +9084,10 @@
     debugGiveWeapon: debugGiveWeapon,
     getDebugLog: function () { return state.debugLog.slice(); },
     clearDebugLog: function () { state.debugLog.length = 0; saveDebugLog(); },
-    getEntryCurveLog: function () {
-      try {
-        return JSON.parse(JSON.stringify(state.entryCurveLog || null));
-      } catch (e) {
-        return state.entryCurveLog || null;
-      }
-    },
-    getEntryRouteDebugSummary: function () {
-      const counts = { ltr: 0, rtl: 0 };
-      const elapsed = { ltr: 0, rtl: 0 };
-      const events = state.debugLog.filter(function (entry) { return entry && entry.type === 'enemyEntryRoute'; });
-      for (let i = 0; i < events.length; i++) {
-        const entry = events[i];
-        const dir = entry.direction === 'rtl' ? 'rtl' : 'ltr';
-        counts[dir]++;
-        elapsed[dir] += Number(entry.elapsed) || 0;
-      }
-      return {
-        enabled: !!DEBUG_ENTRY_ROUTE_TEST,
-        total: events.length,
-        counts: counts,
-        averageElapsed: {
-          ltr: counts.ltr > 0 ? elapsed.ltr / counts.ltr : 0,
-          rtl: counts.rtl > 0 ? elapsed.rtl / counts.rtl : 0
-        },
-        events: events.slice()
-      };
-    },
     setDamageBreakpoints: function (on) { state.debugDamageBreakpoints = !!on; },
     isAssetsReady: function () { return !!state.assetsReady; },
     isEnemy3DModeEnabled: function () { return !!enable3DMode; },
-    setEnemy3DModeEnabled: setEnemy3DModeEnabled,
-    isEntryRouteDebugEnabled: function () { return !!DEBUG_ENTRY_ROUTE_TEST; }
-  };
-  window.THORIUM_GAP_ENTRY_ROUTE_DEBUG = {
-    enabled: !!DEBUG_ENTRY_ROUTE_TEST,
-    getSummary: function () { return window.__shotemup.getEntryRouteDebugSummary(); }
+    setEnemy3DModeEnabled: setEnemy3DModeEnabled
   };
 
   if (titleManualButton) {
