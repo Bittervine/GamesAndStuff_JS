@@ -56,7 +56,8 @@
   const MIN_NORMAL_WINDOW_WIDTH = 600;
   const MIN_NORMAL_WINDOW_ITEM_SCALE_REALAXTION = 0.5;
   const URL_PARAMS = new URLSearchParams(window.location.search || '');
-  const DEBUG_MODE = URL_PARAMS.get('debug') === '1';
+  const DEBUG_ENTRY_ROUTE_TEST = URL_PARAMS.get('entrydebug') === '1';
+  const DEBUG_MODE = URL_PARAMS.get('debug') === '1' || DEBUG_ENTRY_ROUTE_TEST;
   const DEBUG_END_BOSS = URL_PARAMS.get('debug_endboss') === '1';
   const electronWindowBridge = window.electronWindow && window.electronWindow.isAvailable ? window.electronWindow : null;
   let electronFullscreenState = null;
@@ -1625,7 +1626,7 @@
   function loadBool(key, fallback) { try { const v = localStorage.getItem(key); return v === null ? fallback : v === '1' || v === 'true'; } catch (e) { return fallback; } }
   function saveBool(key, v) { try { localStorage.setItem(key, v ? '1' : '0'); } catch (e) {} }
   const DEBUG_LOG_KEY = 'ThroriumGap_debugLog';
-  const DEBUG_LOG_LIMIT = 64;
+  const DEBUG_LOG_LIMIT = 256;
 
   function loadDebugLog() {
     try {
@@ -1658,6 +1659,35 @@
     }
     saveDebugLog();
     return entry;
+  }
+
+  function entryRouteDirection(entry) {
+    if (!entry) return 'unknown';
+    if (Number.isFinite(entry.startX) && Number.isFinite(entry.targetX)) {
+      if (entry.targetX > entry.startX) return 'ltr';
+      if (entry.targetX < entry.startX) return 'rtl';
+    }
+    return entry.mirror < 0 ? 'rtl' : 'ltr';
+  }
+
+  function logEntryRouteStop(e, entry, reason, finished) {
+    if (!state || !state.debugMode || !DEBUG_ENTRY_ROUTE_TEST || !entry || entry.debugLogged) return;
+    entry.debugLogged = true;
+    const elapsed = Number.isFinite(entry.age) ? entry.age : 0;
+    pushDebugEvent('enemyEntryRoute', {
+      routeName: entry.routeName || '',
+      direction: entryRouteDirection(entry),
+      reason: reason || 'unknown',
+      finished: !!finished,
+      elapsed: Math.round(elapsed * 1000) / 1000,
+      planned: Math.round((Number(entry.duration) || 0) * 1000) / 1000,
+      kind: e && e.kind ? e.kind : '',
+      waveId: Number.isFinite(entry.waveId) ? entry.waveId : -1,
+      entryIndex: Number.isFinite(entry.entryIndex) ? entry.entryIndex : -1,
+      mirror: Number.isFinite(entry.mirror) ? entry.mirror : 1,
+      startX: Math.round((Number(entry.startX) || 0) * 1000) / 1000,
+      targetX: Math.round((Number(entry.targetX) || 0) * 1000) / 1000
+    });
   }
 
   function compactSourceInfo(source) {
@@ -2876,7 +2906,7 @@
     theme({ name: 'Spinners Den', subtitle: 'Hunger Without Limit', skyTop: '#000000', skyBottom: '#000000', glow: '#96c9ff', accent: '#9fb2c6', accent2: '#d0e0ef', forms: ['line', 'pair', 'cross'], enemyKinds: ['looper', 'sniper', 'bomber'], nemesis: true, atmosphere: 'sparks', music: { bpm: 118, root: 196, pattern: [0, 0, 7, 5, 4, 5, 7, 10] }, boss: { name: 'Silken Spinner', emoji: E.gear, hp: 700, size: 430, color: '#d0d9e1', flipWhenMovingRight: false, phases: [phase(7, 'wheel', 'spinrain'), phase(7.5, 'dash', 'summon'), phase(8, 'hover', 'fan')] }, asteroidDensity: 2  }),
     theme({ name: 'Deadlight Harbor', subtitle: 'Master of the Soulless Crew', skyTop: '#000000', skyBottom: '#532a40', glow: '#ffbf8a', accent: '#e0a06c', accent2: '#ffc8a1', forms: ['rain', 'arc', 'swarm'], enemyKinds: ['swarm', 'sniper', 'drifter'], nemesis: true, atmosphere: 'motes', music: { bpm: 108, root: 196, pattern: [0, 5, 7, 10, 7, 5, 3, 5] }, boss: { name: 'Captain Thaddeus', emoji: E.lantern, hp: 900, size: 435, color: '#f6b46d', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'aimed'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'ring')] } }),
     theme({ name: 'Elysium Sea', subtitle: 'The Steed of Neptune', skyTop: '#000000', skyBottom: '#000000', glow: '#ffd77a', accent: '#c47a19', accent2: '#ffd59f', forms: ['swarm', 'fan', 'pair'], enemyKinds: ['diver', 'swarm', 'sniper'], nemesis: true, atmosphere: 'embers', music: { bpm: 132, root: 246, pattern: [0, 2, 3, 7, 10, 7, 3, 2] }, boss: { name: 'Lunar Horse', emoji: E.bee, hp: 1100, size: 440, color: '#e4ba6a', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'fan'), phase(8, 'dash', 'rain'), phase(7.5, 'sweep', 'summon')] } }),
-    theme({ name: 'Shard Expanse', subtitle: 'The Base of Lost Hope', skyTop: '#000000', skyBottom: '#000000', glow: '#b0fbff', accent: '#95d5ff', accent2: '#d6c4ff', forms: ['ring', 'line', 'arc'], enemyKinds: ['swarm', 'bomber', 'elite', 'looper'], nemesis: false, atmosphere: 'shards', music: { bpm: 120, root: 233, pattern: [0, 4, 7, 11, 7, 4, 9, 7] }, boss: { name: 'Shard Base One', emoji: E.gem, hp: 1400, size: 445, color: '#c9f6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'ring'), phase(8, 'low', 'beam')] }, asteroidDensity: 2 }),
+    theme({ name: 'Shard Expanse', subtitle: 'The Base of Lost Hope', skyTop: '#000000', skyBottom: '#000000', glow: '#b0fbff', accent: '#95d5ff', accent2: '#d6c4ff', forms: ['ring', 'line', 'arc'], enemyKinds: ['swarm', 'bomber', 'drifter', 'looper'], nemesis: false, atmosphere: 'shards', music: { bpm: 120, root: 233, pattern: [0, 4, 7, 11, 7, 4, 9, 7] }, boss: { name: 'Shard Base One', emoji: E.gem, hp: 1400, size: 445, color: '#c9f6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'fan'), phase(7.5, 'sweep', 'ring'), phase(8, 'low', 'beam')] }, asteroidDensity: 2 }),
     theme({ name: 'Dark Waters', subtitle: 'Prey on the Weak', skyTop: '#000000', skyBottom: '#000000', glow: '#ffab5b', accent: '#de6f2b', accent2: '#ffd08a', forms: ['rain', 'line', 'swarm'], enemyKinds: ['spinner', 'drifter', 'diver', 'splitter'], nemesis: true, atmosphere: 'embers', music: { bpm: 140, root: 220, pattern: [0, 3, 7, 10, 7, 3, 5, 10] }, boss: { name: 'Cephid Hunter', emoji: E.fire, hp: 1800, size: 450, color: '#ff9e53', flipWhenMovingRight: true, phases: [phase(7, 'hover', 'rain'), phase(7.5, 'sweep', 'beam'), phase(8, 'low', 'wall')] } }),
     theme({ name: 'Domain of Klaatu', subtitle: 'The Earth Stands Still', skyTop: '#000000', skyBottom: '#000000', glow: '#95d7ff', accent: '#aebfe0', accent2: '#95d7ff', forms: ['line', 'wave', 'pair'], enemyKinds: ['elite', 'diver', 'splitter' ], nemesis: false, atmosphere: 'stardust', music: { bpm: 106, root: 185, pattern: [0, 7, 12, 7, 10, 7, 5, 3] }, boss: { name: 'Klaatu', emoji: E.moon, hp: 2300, size: 455, color: '#c3d6ff', flipWhenMovingRight: false, phases: [phase(7, 'hover', 'summon'), phase(7.5, 'dash', 'beam'), phase(8, 'sweep', 'ring')] }, asteroidDensity: 2 }),
     theme({ name: 'Sunken Bastion', subtitle: 'Here Drowned Men Weep', skyTop: '#000000', skyBottom: '#000000', glow: '#82f6ff', accent: '#6eeaff', accent2: '#c8fff2', forms: ['wave', 'cross', 'pair'], enemyKinds: ['looper', 'spinner', 'swarm', 'bomber'], nemesis: true, atmosphere: 'neon', music: { bpm: 144, root: 220, pattern: [0, 7, 12, 10, 7, 4, 9, 12] }, boss: { name: 'Cyberphish', emoji: E.bolt, hp: 3000, size: 460, color: '#8fefff', flipWhenMovingRight: true, phases: [phase(7, 'sweep', 'wall'), phase(7.5, 'dash', 'aimed'), phase(8, 'hover', 'ring')] } }),
@@ -4665,7 +4695,8 @@
       const entryRoute = entryRoutes[(index + profile.routeShift) % entryRoutes.length];
       const t = count === 1 ? 0.5 : index / (count - 1);
       const lane = clamp(t + Math.sin((waveId + index) * 0.45) * 0.045, 0, 1);
-      const mirror = routePhase === 1 ? -1 : 1;
+      // Debug experiment: disable the mirror flip so we can measure the raw route bias.
+      const mirror = DEBUG_ENTRY_ROUTE_TEST ? 1 : (routePhase === 1 ? -1 : 1);
       let startX = mirror < 0 ? view.w - entryRoute.startX : entryRoute.startX;
       let startY = entryRoute.startY - index * 10;
       let targetMinX = mirror < 0 ? 1 - entryRoute.targetMaxX : entryRoute.targetMinX;
@@ -4682,7 +4713,7 @@
         const sideMaxY = entryPoint.sideMaxY;
         const sideMinY = entryPoint.sideMinY;
         const off = Math.max(84, view.w * 0.08);
-        if (entryPoint.edge === 'left') {
+      if (entryPoint.edge === 'left') {
           startX = -off;
           startY = entryPoint.y;
           targetMinX = 0.18;
@@ -4734,8 +4765,12 @@
         duration: (entryRoute.duration + lane * 0.12 + index * 0.01) * profile.duration,
         phase: rand(0, TAU) + phaseOffset,
         settle: 0.86 + (index % 2) * 0.08,
+        routeName: entryRoute.name,
         kind: kind,
-        mirror: mirror
+        mirror: mirror,
+        waveId: waveId,
+        entryIndex: index,
+        debugLogged: false
       };
     }
     let i;
@@ -5998,6 +6033,36 @@
     }
   }
 
+  function initDrifterRoute(e, a) {
+    if (!e) return;
+    if (Number.isFinite(e.drifterRouteStage)) return;
+    e.drifterRouteStage = 0;
+    e.drifterRouteTurnRadius = rand(82, 118);
+    e.drifterRouteWobblePhase = rand(0, TAU);
+    // Keep the wobble very slow and subtle so it just breaks up the straight line.
+    e.drifterRouteWobbleRate = rand(TAU / 5.5, TAU / 4.5);
+    e.drifterRouteWobbleAmp = rand(6.0, 12.0);
+    e.drifterRouteBaseSpeed = Math.max(82, Math.hypot(e.vx || 0, e.vy || 0) || (e.vy || 0) || ENEMIES.drifter.speed || 96);
+    e.drifterRouteSpeedMult = 1;
+    pickDrifterRouteTarget(e, a);
+  }
+
+  function pickDrifterRouteTarget(e, a) {
+    if (!e) return;
+    const left = a.left + 40;
+    const right = a.right - 40;
+    const top = a.top + 40;
+    const bottom = a.bottom - 80;
+    const stage = Number.isFinite(e.drifterRouteStage) ? e.drifterRouteStage : 0;
+    if (stage === 2) {
+      e.drifterRouteTargetX = rand(left, right);
+      e.drifterRouteTargetY = view.h + rand(90, 170);
+      return;
+    }
+    e.drifterRouteTargetX = rand(left, right);
+    e.drifterRouteTargetY = rand(top, bottom);
+  }
+
   function updateEnemyMovement(e, dt, a, p, entering) {
     const motionDt = dt * enemyMotionScale();
     if (entering) return false;
@@ -6032,9 +6097,42 @@
       return false;
     }
     if (e.kind === 'drifter') {
+      initDrifterRoute(e, a);
+      const turnRadius = Number.isFinite(e.drifterRouteTurnRadius) ? e.drifterRouteTurnRadius : 96;
+      const targetX = Number.isFinite(e.drifterRouteTargetX) ? e.drifterRouteTargetX : (a.left + a.right) * 0.5;
+      const targetY = Number.isFinite(e.drifterRouteTargetY) ? e.drifterRouteTargetY : (a.top + a.bottom) * 0.5;
+      const dx = targetX - e.x;
+      const dy = targetY - e.y;
+      const dist = Math.max(1, Math.hypot(dx, dy));
+      if (dist <= turnRadius) {
+        if ((e.drifterRouteStage || 0) === 0) {
+          e.drifterRouteStage = 1;
+          e.drifterRouteTurnRadius = rand(116, 164);
+          pickDrifterRouteTarget(e, a);
+        } else if ((e.drifterRouteStage || 0) === 1) {
+          e.drifterRouteStage = 2;
+          e.drifterRouteTurnRadius = rand(72, 104);
+          pickDrifterRouteTarget(e, a);
+        }
+      }
+
+      const currentHeading = Math.atan2(e.vy || 1, e.vx || 0);
+      const desiredHeading = Math.atan2((e.drifterRouteTargetY || targetY) - e.y, (e.drifterRouteTargetX || targetX) - e.x);
+      const headingDelta = Math.atan2(Math.sin(desiredHeading - currentHeading), Math.cos(desiredHeading - currentHeading));
+      const turnStrength = (e.drifterRouteStage === 1 ? 0.9 : e.drifterRouteStage === 2 ? 1.2 : 1.8);
+      const nextHeading = currentHeading + clamp(headingDelta, -turnStrength * motionDt, turnStrength * motionDt);
+      const turnAmount = clamp(Math.abs(headingDelta) / 1.2, 0, 1);
+      const targetSpeedMult = lerp(1.7, 0.5, turnAmount);
+      const speedBlend = clamp(dt / 3, 0, 1);
+      e.drifterRouteSpeedMult = lerp(Number.isFinite(e.drifterRouteSpeedMult) ? e.drifterRouteSpeedMult : 1, targetSpeedMult, speedBlend);
+      const speed = (e.drifterRouteBaseSpeed || 96) * e.drifterRouteSpeedMult;
+      const wobble = Math.sin(e.age * e.drifterRouteWobbleRate + e.drifterRouteWobblePhase) * (e.drifterRouteWobbleAmp || 12);
+      const wobbleHeading = nextHeading + (wobble / Math.max(80, speed)) * 0.28;
+      e.vx = Math.cos(wobbleHeading) * speed;
+      e.vy = Math.sin(wobbleHeading) * speed;
+      e.x += e.vx * motionDt;
       e.y += e.vy * motionDt;
-      e.x += Math.sin(e.age * 3 + e.wobble) * 18 * motionDt;
-      return false;
+      return !isOnScreen(e.x, e.y);
     }
     if (e.kind === 'looper') {
       const looperSpeed = Math.max(70, Math.sqrt((e.vx || 0) * (e.vx || 0) + (e.vy || 0) * (e.vy || 0)));
@@ -6147,7 +6245,10 @@
     const a = playArea();
     for (let i = state.enemies.length - 1; i >= 0; i--) {
       const e = state.enemies[i];
-      if (e.dead) { state.enemies.splice(i, 1); continue; }
+      if (e.dead) {
+        logEntryRouteStop(e, e.entry, 'dead', false);
+        state.enemies.splice(i, 1); continue;
+      }
       e.age += dt;
       e.fireCooldown -= dt;
       if (e.hitFlash > 0) e.hitFlash -= dt;
@@ -6180,6 +6281,7 @@
         }
         const resumeEntry = e.nemesis && Number.isFinite(e.nemesisEntryResumeDistance) && d2(e.x, e.y, p.x, p.y) <= e.nemesisEntryResumeDistance * e.nemesisEntryResumeDistance;
         if (t >= 1 || resumeEntry) {
+          logEntryRouteStop(e, en, resumeEntry ? 'resumeEntry' : 'finished', true);
           e.entry = null;
           e.nemesisEntryResumeDistance = null;
           if (t >= 1) {
@@ -6190,10 +6292,16 @@
           entering = false;
         }
       }
-      if (updateEnemyMovement(e, dt, a, p, entering)) { state.enemies.splice(i, 1); continue; }
+      if (updateEnemyMovement(e, dt, a, p, entering)) {
+        logEntryRouteStop(e, e.entry, 'movementExit', false);
+        state.enemies.splice(i, 1); continue;
+      }
       tryEnemyFire(e, p, entering);
       e.flightAngle = Math.atan2(e.y - prevY, e.x - prevX);
-      if (!e.nemesis && (e.y > view.h + 72 || e.x < -90 || e.x > view.w + 90)) { state.enemies.splice(i, 1); continue; }
+      if (!e.nemesis && (e.y > view.h + 72 || e.x < -90 || e.x > view.w + 90)) {
+        logEntryRouteStop(e, e.entry, 'outOfBounds', false);
+        state.enemies.splice(i, 1); continue;
+      }
       if (d2(e.x, e.y, p.x, p.y) < (e.r + playerCollisionRadius()) * (e.r + playerCollisionRadius())) {
         if (p.invuln > 0) continue;
         const contactDamage = currentDifficulty().contact;
@@ -6215,7 +6323,10 @@
         });
         damageEnemy(e, contactDamage, false);
         hurtPlayer(contactDamage, { kind: 'enemy-contact', sourceKind: e.kind, sourceName: e.name || e.kind });
-        if (e.kind !== 'mine' || e.hp <= 0) { state.enemies.splice(i, 1); continue; }
+        if (e.kind !== 'mine' || e.hp <= 0) {
+          logEntryRouteStop(e, e.entry, 'contactDeath', false);
+          state.enemies.splice(i, 1); continue;
+        }
       }
     }
   }
@@ -9012,10 +9123,36 @@
     debugGiveWeapon: debugGiveWeapon,
     getDebugLog: function () { return state.debugLog.slice(); },
     clearDebugLog: function () { state.debugLog.length = 0; saveDebugLog(); },
+    getEntryRouteDebugSummary: function () {
+      const counts = { ltr: 0, rtl: 0 };
+      const elapsed = { ltr: 0, rtl: 0 };
+      const events = state.debugLog.filter(function (entry) { return entry && entry.type === 'enemyEntryRoute'; });
+      for (let i = 0; i < events.length; i++) {
+        const entry = events[i];
+        const dir = entry.direction === 'rtl' ? 'rtl' : 'ltr';
+        counts[dir]++;
+        elapsed[dir] += Number(entry.elapsed) || 0;
+      }
+      return {
+        enabled: !!DEBUG_ENTRY_ROUTE_TEST,
+        total: events.length,
+        counts: counts,
+        averageElapsed: {
+          ltr: counts.ltr > 0 ? elapsed.ltr / counts.ltr : 0,
+          rtl: counts.rtl > 0 ? elapsed.rtl / counts.rtl : 0
+        },
+        events: events.slice()
+      };
+    },
     setDamageBreakpoints: function (on) { state.debugDamageBreakpoints = !!on; },
     isAssetsReady: function () { return !!state.assetsReady; },
     isEnemy3DModeEnabled: function () { return !!enable3DMode; },
-    setEnemy3DModeEnabled: setEnemy3DModeEnabled
+    setEnemy3DModeEnabled: setEnemy3DModeEnabled,
+    isEntryRouteDebugEnabled: function () { return !!DEBUG_ENTRY_ROUTE_TEST; }
+  };
+  window.THORIUM_GAP_ENTRY_ROUTE_DEBUG = {
+    enabled: !!DEBUG_ENTRY_ROUTE_TEST,
+    getSummary: function () { return window.__shotemup.getEntryRouteDebugSummary(); }
   };
 
   if (titleManualButton) {
