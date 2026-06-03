@@ -2912,7 +2912,7 @@
   ];
   // Base fire delay per weapon mode, before tier/rapid-fire/overdrive/heat modifiers.
   // Indexes match WEAPONS: 0=DART, 1=TWIN, 2=FAN, 3=ROCKET, 4=BEAM.
-  const WEAPON_BASE_FIRE_DELAYS = [0.16, 0.17, 0.17, 0.23, 0.18];
+  const WEAPON_BASE_FIRE_DELAYS = [0.16, 0.17, 0.17, 0.27, 0.18];
   const WEAPON_PICKUP_WEIGHTS = [ 5, 5, 5, 5, 5 ];
   const WEAPON_TIER_LABELS = ['I', 'II', 'III', 'IIII', 'V'];
 
