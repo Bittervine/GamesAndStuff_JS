@@ -1690,6 +1690,40 @@
     });
   }
 
+  function startEntryCurveCapture(e) {
+    if (!DEBUG_ENTRY_ROUTE_TEST || !e || !e.entry || state.entryCurveLog) return;
+    state.entryCurveEnemy = e;
+    state.entryCurveLog = {
+      enabled: true,
+      kind: e.kind || '',
+      name: e.name || e.kind || '',
+      routeName: e.entry.routeName || '',
+      mirror: Number.isFinite(e.entry.mirror) ? e.entry.mirror : 1,
+      waveId: Number.isFinite(e.entry.waveId) ? e.entry.waveId : -1,
+      entryIndex: Number.isFinite(e.entry.entryIndex) ? e.entry.entryIndex : -1,
+      startX: e.entry.startX,
+      startY: e.entry.startY,
+      targetX: e.entry.targetX,
+      targetY: e.entry.targetY,
+      samples: []
+    };
+    recordEntryCurveSample(e, 'spawn', e.entry);
+  }
+
+  function recordEntryCurveSample(e, phase, entry) {
+    if (!DEBUG_ENTRY_ROUTE_TEST || !state.entryCurveLog || state.entryCurveEnemy !== e || !entry) return;
+    state.entryCurveLog.samples.push({
+      at: Math.round(state.animClock * 1000) / 1000,
+      frame: state.renderFrameIndex || 0,
+      phase: phase,
+      x: Math.round((Number(e.x) || 0) * 1000) / 1000,
+      y: Math.round((Number(e.y) || 0) * 1000) / 1000,
+      entryAge: Math.round((Number(entry.age) || 0) * 1000) / 1000,
+      routeName: entry.routeName || '',
+      mirror: Number.isFinite(entry.mirror) ? entry.mirror : 1
+    });
+  }
+
   function compactSourceInfo(source) {
     if (!source) return null;
     return {
@@ -3050,6 +3084,8 @@
     lastHitInfo: null,
     debugLog: loadDebugLog(),
     debugDamageBreakpoints: false,
+    entryCurveLog: null,
+    entryCurveEnemy: null,
     assetsReady: false,
     assetsLoading: false,
     assetsWarmupPromise: null,
@@ -3937,6 +3973,8 @@
     state.endScreenReadyAt = 0;
     state.lastDeathReason = '';
     state.lastHitInfo = null;
+    state.entryCurveLog = null;
+    state.entryCurveEnemy = null;
     state.nextLevelTimer = 0;
     state.waveClock = 0;
     state.waveIndex = 0;
@@ -4513,6 +4551,7 @@
       e.wobble = e.entry.phase;
       e.flightAngle = Math.atan2(e.entry.targetY - e.entry.startY, e.entry.targetX - e.entry.startX);
     }
+    startEntryCurveCapture(e);
     state.enemies.push(e);
     return e;
   }
@@ -4666,11 +4705,14 @@
     const margin = 42, top = -34, mid = (count - 1) * 0.5;
     const waveId = state.waveIndex++;
     const entryRoutes = [
-      { name: 'rightToLeft', startX: view.w + 96, startY: -84, targetMinX: 0.12, targetMaxX: 0.34, targetY: 34, controlX: 0.72, controlY: 0.12, bend: 0.26, swirl: 22, turns: 1.35, duration: 1.22 },
-      { name: 'rightToLeftWide', startX: view.w + 112, startY: -96, targetMinX: 0.16, targetMaxX: 0.42, targetY: 44, controlX: 0.82, controlY: 0.20, bend: 0.32, swirl: 28, turns: 1.6, duration: 1.4 },
+      { name: 'rightToLeft', startX: view.w + 96, startY: -84, targetMinX: 0.12, targetMaxX: 0.34, targetY: 34, controlX: 0.72, controlY: 0.12, bend: -0.26, swirl: 22, turns: 1.35, duration: 1.22 },
+      { name: 'rightToLeft2', startX: view.w + 96, startY: -84, targetMinX: 0.12, targetMaxX: 0.34, targetY: 34, controlX: 0.72, controlY: 0.16, bend: -0.26, swirl: 22, turns: 1.35, duration: 1.22 },
+      { name: 'rightToLeftWide', startX: view.w + 112, startY: -96, targetMinX: 0.16, targetMaxX: 0.42, targetY: 44, controlX: 0.82, controlY: 0.20, bend: -0.32, swirl: 28, turns: 1.6, duration: 1.4 },
       { name: 'leftToRight', startX: -96, startY: -84, targetMinX: 0.66, targetMaxX: 0.88, targetY: 34, controlX: 0.28, controlY: 0.12, bend: 0.26, swirl: 22, turns: 1.35, duration: 1.22 },
+      { name: 'leftToRight2', startX: -96, startY: -84, targetMinX: 0.66, targetMaxX: 0.88, targetY: 34, controlX: 0.28, controlY: 0.16, bend: 0.26, swirl: 22, turns: 1.35, duration: 1.22 },
       { name: 'leftToRightWide', startX: -112, startY: -96, targetMinX: 0.58, targetMaxX: 0.84, targetY: 44, controlX: 0.18, controlY: 0.20, bend: 0.32, swirl: 28, turns: 1.6, duration: 1.4 },
-      { name: 'centerCorkscrew', startX: view.w * 0.5, startY: -112, targetMinX: 0.34, targetMaxX: 0.66, targetY: 40, controlX: 0.5, controlY: 0.08, bend: 0.18, swirl: 34, turns: 2.1, duration: 1.55 }
+      { name: 'centerCorkscrewL', startX: view.w * 0.5, startY: -112, targetMinX: 0.34, targetMaxX: 0.66, targetY: 40, controlX: 0.5, controlY: 0.08, bend: 0.18, swirl: 34, turns: 2.1, duration: 1.55 },
+      { name: 'centerCorkscrewR', startX: view.w * 0.5, startY: -112, targetMinX: 0.34, targetMaxX: 0.66, targetY: 40, controlX: 0.5, controlY: 0.08, bend: -0.18, swirl: 34, turns: 2.1, duration: 1.55 }
     ];
     const routePhase = Math.floor((state.levelClock + waveId * 0.85) / rand(2, 5)) % 2;
     const sideEntryProgress = clamp((MIN_NORMAL_WINDOW_WIDTH - view.w) / (MIN_NORMAL_WINDOW_WIDTH * 0.5), 0, 1);
@@ -6247,6 +6289,7 @@
       const e = state.enemies[i];
       if (e.dead) {
         logEntryRouteStop(e, e.entry, 'dead', false);
+        recordEntryCurveSample(e, 'dead', e.entry);
         state.enemies.splice(i, 1); continue;
       }
       e.age += dt;
@@ -6275,12 +6318,14 @@
         e.x = curveX + en.normalX * bend + sway * en.swirl;
         e.y = curveY + en.normalY * bend + swirl * (en.swirl * 0.62) + pull * -18;
         e.wobble += dt * 0.03;
+        recordEntryCurveSample(e, 'entry', en);
         if (e.nemesis && !Number.isFinite(e.nemesisEntryResumeDistance) && isOnScreen(e.x, e.y)) {
           const entryDistance = Math.hypot(e.x - p.x, e.y - p.y);
           e.nemesisEntryResumeDistance = Math.max(nemesisHoldDistance(), entryDistance * 0.80);
         }
         const resumeEntry = e.nemesis && Number.isFinite(e.nemesisEntryResumeDistance) && d2(e.x, e.y, p.x, p.y) <= e.nemesisEntryResumeDistance * e.nemesisEntryResumeDistance;
         if (t >= 1 || resumeEntry) {
+          recordEntryCurveSample(e, resumeEntry ? 'resumeEntry' : 'finished', en);
           logEntryRouteStop(e, en, resumeEntry ? 'resumeEntry' : 'finished', true);
           e.entry = null;
           e.nemesisEntryResumeDistance = null;
@@ -6294,12 +6339,14 @@
       }
       if (updateEnemyMovement(e, dt, a, p, entering)) {
         logEntryRouteStop(e, e.entry, 'movementExit', false);
+        recordEntryCurveSample(e, 'movementExit', e.entry);
         state.enemies.splice(i, 1); continue;
       }
       tryEnemyFire(e, p, entering);
       e.flightAngle = Math.atan2(e.y - prevY, e.x - prevX);
       if (!e.nemesis && (e.y > view.h + 72 || e.x < -90 || e.x > view.w + 90)) {
         logEntryRouteStop(e, e.entry, 'outOfBounds', false);
+        recordEntryCurveSample(e, 'outOfBounds', e.entry);
         state.enemies.splice(i, 1); continue;
       }
       if (d2(e.x, e.y, p.x, p.y) < (e.r + playerCollisionRadius()) * (e.r + playerCollisionRadius())) {
@@ -6325,6 +6372,7 @@
         hurtPlayer(contactDamage, { kind: 'enemy-contact', sourceKind: e.kind, sourceName: e.name || e.kind });
         if (e.kind !== 'mine' || e.hp <= 0) {
           logEntryRouteStop(e, e.entry, 'contactDeath', false);
+          recordEntryCurveSample(e, 'contactDeath', e.entry);
           state.enemies.splice(i, 1); continue;
         }
       }
@@ -9123,6 +9171,13 @@
     debugGiveWeapon: debugGiveWeapon,
     getDebugLog: function () { return state.debugLog.slice(); },
     clearDebugLog: function () { state.debugLog.length = 0; saveDebugLog(); },
+    getEntryCurveLog: function () {
+      try {
+        return JSON.parse(JSON.stringify(state.entryCurveLog || null));
+      } catch (e) {
+        return state.entryCurveLog || null;
+      }
+    },
     getEntryRouteDebugSummary: function () {
       const counts = { ltr: 0, rtl: 0 };
       const elapsed = { ltr: 0, rtl: 0 };
