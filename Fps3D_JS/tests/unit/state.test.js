@@ -176,14 +176,56 @@ runCase('createGameState initializes level, enemies, pickups, and replay capture
 });
 
 runCase('createGameState resolves the procedural rogue01 factory by level id', () => {
-  const state = createGameState({ seed: 'rogue-seed-01', levelId: 'rogue01' });
+  const state = createGameState({ seed: 'fps3d-alpha01', levelId: 'rogue01', campaignRunIndex: 0, levelIndex: 0 });
   assert.equal(state.level.id, 'rogue01');
   assert.equal(state.level.diagnostics.length, 0);
   assert.ok(state.level.sectors.length >= 24);
+  assert.ok(state.level.doors.some((door) => door.locked && door.requiredKey === 'red'));
+  assert.ok(state.level.doors.some((door) => door.locked && door.requiredKey === 'blue'));
   assert.ok(state.level.doors.some((door) => door.locked && door.requiredKey === 'yellow'));
+  assert.ok(state.level.pickups.some((pickup) => pickup.kind === 'key' && pickup.key === 'red'));
+  assert.ok(state.level.pickups.some((pickup) => pickup.kind === 'key' && pickup.key === 'blue'));
   assert.ok(state.level.pickups.some((pickup) => pickup.kind === 'key' && pickup.key === 'yellow'));
   assert.ok(state.enemies.length >= 6);
   assert.ok(state.level.exit);
+  assert.equal(state.level.campaignLayout.roomCount, 9);
+  assert.ok(state.level.campaignLayout.nodes.some((node) => node.role === 'hazard' && Number(node.hazardDamagePerSecond) > 0));
+  assert.equal(state.campaign.runIndex, 0);
+  assert.equal(state.campaign.levelIndex, 0);
+  assert.equal(state.replay.meta.campaignRunIndex, 0);
+  assert.equal(state.replay.meta.campaignLevelIndex, 0);
+});
+
+runCase('hazard rooms apply periodic damage while the player remains inside', () => {
+  const state = createGameState({ seed: 'fps3d-alpha01', levelId: 'rogue01', difficulty: 'medium', campaignRunIndex: 0, levelIndex: 0 });
+  const hazardSector = state.level.sectors.find((sector) => Number(sector.hazardDamagePerSecond) > 0);
+  assert.ok(hazardSector);
+
+  state.enemies.length = 0;
+  state.player.x = hazardSector.centroid.x;
+  state.player.z = hazardSector.centroid.z;
+  state.player.armor = 0;
+  state.player.invulnMs = 0;
+  const healthBefore = state.player.health;
+
+  for (let index = 0; index < 20; index += 1) {
+    advanceGameState(state, {
+      moveForward: 0,
+      moveStrafe: 0,
+      lookYaw: 0,
+      lookPitch: 0,
+      fire: false,
+      altFire: false,
+      use: false,
+      sprint: false,
+      weaponIndex: null,
+      nextWeapon: false,
+      prevWeapon: false
+    }, 50);
+  }
+
+  assert.ok(state.player.health < healthBefore);
+  assert.ok(state.events.some((event) => event.type === 'playerDamaged' && event.source === hazardSector.hazardType));
 });
 
 runCase('advanceGameState moves the player and records input deterministically', () => {

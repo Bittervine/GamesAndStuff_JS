@@ -1,4 +1,5 @@
 const fs = require('node:fs');
+const crypto = require('node:crypto');
 const http = require('node:http');
 const path = require('node:path');
 const vm = require('node:vm');
@@ -196,6 +197,7 @@ async function runPlaywrightSmoke() {
 
   const baseUrl = `http://127.0.0.1:${port}`;
   let browser;
+  let context;
   let page;
   const errors = [];
   const ignoredConsolePrefixes = [
@@ -211,7 +213,20 @@ async function runPlaywrightSmoke() {
     await page.goto(`${baseUrl}/Fps3D_JS/Fps3D_JS.html?seed=${encodeURIComponent(seed)}&level=${encodeURIComponent(levelId)}&bust=${Date.now()}`, {
       waitUntil: 'networkidle'
     });
+    await page.bringToFront();
     await page.waitForFunction(() => window.__fps3d && window.__fps3d.getState && window.__fps3d.getState().level);
+    await page.evaluate(() => {
+      const state = window.__fps3d.getState();
+      state.difficultyId = 'medium';
+      state.difficulty = {
+        id: 'medium',
+        label: 'Medium',
+        playerDamageMultiplier: 1,
+        enemyDamageMultiplier: 1,
+        enemySpeedMultiplier: 1,
+        enemyCooldownMultiplier: 1
+      };
+    });
     return page.evaluate(() => {
       const state = window.__fps3d.getState();
       return {
@@ -220,14 +235,25 @@ async function runPlaywrightSmoke() {
         pickupCount: state.pickups.length,
         sectorCount: state.level.sectors.length,
         doorCount: Array.isArray(state.level.doors) ? state.level.doors.length : 0,
-        diagnosticsCount: Array.isArray(state.level.diagnostics) ? state.level.diagnostics.length : 0
+        diagnosticsCount: Array.isArray(state.level.diagnostics) ? state.level.diagnostics.length : 0,
+        campaignLayout: state.level.campaignLayout ? JSON.parse(JSON.stringify(state.level.campaignLayout)) : null
       };
     });
   }
 
   try {
     browser = await chromium.launch({ headless: true });
-    page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+    context = await browser.newContext({ viewport: { width: 1600, height: 900 }, acceptDownloads: true });
+    await context.addInitScript(() => {
+      window.localStorage.setItem('fps3d.settings.v1', JSON.stringify({
+        difficultyId: 'medium',
+        invertGamepadY: false,
+        mouseSensitivity: 1,
+        masterVolume: 0.4,
+        graphicsQuality: 'high'
+      }));
+    });
+    page = await context.newPage();
     page.on('console', (msg) => {
       if (msg.type() === 'error') {
         const text = msg.text();
@@ -263,6 +289,7 @@ async function runPlaywrightSmoke() {
       state.player.x = 40;
       state.player.z = 70;
       state.player.yaw = 0;
+      window.__fps3d.step(16, {});
     });
     await page.waitForTimeout(600);
 
@@ -425,7 +452,7 @@ async function runPlaywrightSmoke() {
     }
 
     const rogue = await loadLevel('rogue01', 'fps3d-rogue-smoke');
-    if (rogue.levelId !== 'rogue01' || rogue.doorCount < 1 || rogue.diagnosticsCount !== 0 || rogue.sectorCount < 24) {
+    if (rogue.levelId !== 'rogue01' || rogue.doorCount < 3 || rogue.diagnosticsCount !== 0 || rogue.sectorCount < 24 || !rogue.campaignLayout || rogue.campaignLayout.roomCount !== 9) {
       throw new Error(`Unexpected rogue arena state: ${JSON.stringify(rogue)}`);
     }
 
@@ -434,7 +461,6 @@ async function runPlaywrightSmoke() {
       const level = state.level;
       const spawnSector = level.findSectorAtPoint(state.player.x, state.player.z);
       const exitSector = level.findSectorAtPoint(level.exit.x, level.exit.z);
-      const lockedDoor = level.doors.find((door) => door.locked && door.requiredKey === 'yellow') || null;
       const queue = spawnSector ? [spawnSector.id] : [];
       const visited = new Set(queue);
       while (queue.length > 0) {
@@ -449,79 +475,223 @@ async function runPlaywrightSmoke() {
         }
       }
 
-      const keyPickup = state.pickups.find((pickup) => pickup.kind === 'key' && pickup.key === 'yellow') || null;
-      const doorEdge = lockedDoor ? (() => {
-        const edgeRef = lockedDoor.edges[0];
-        const sector = level.sectorById.get(edgeRef.sectorId);
-        const edge = sector?.edges?.[edgeRef.edgeIndex] || null;
-        return edge ? { ax: edge.ax, az: edge.az, bx: edge.bx, bz: edge.bz } : null;
-      })() : null;
-
       return {
         reachableExit: !!exitSector && visited.has(exitSector.id),
         reachableCount: visited.size,
         sectorCount: level.sectors.length,
-        keyPickup,
-        doorEdge,
-        lockedDoorOpen: !!lockedDoor?.open
+        lockedDoorCount: Array.isArray(level.doors) ? level.doors.filter((door) => door.locked).length : 0,
+        lockedDoorKeys: Array.isArray(level.doors) ? level.doors.filter((door) => door.locked).map((door) => door.requiredKey || null).sort() : [],
+        hazardSectorCount: Array.isArray(level.sectors) ? level.sectors.filter((sector) => Number(sector.hazardDamagePerSecond) > 0).length : 0,
+        campaignLayout: level.campaignLayout ? JSON.parse(JSON.stringify(level.campaignLayout)) : null,
+        openDoorCount: Array.isArray(level.doors) ? level.doors.filter((door) => door.open).length : 0
       };
     });
-    if (!rogueConnectivity.reachableExit || rogueConnectivity.reachableCount !== rogueConnectivity.sectorCount || !rogueConnectivity.keyPickup || !rogueConnectivity.doorEdge || rogueConnectivity.lockedDoorOpen) {
+    if (!rogueConnectivity.reachableExit || rogueConnectivity.reachableCount !== rogueConnectivity.sectorCount || rogueConnectivity.lockedDoorCount !== 3 || JSON.stringify(rogueConnectivity.lockedDoorKeys) !== JSON.stringify(['blue', 'red', 'yellow']) || rogueConnectivity.hazardSectorCount < 1 || !rogueConnectivity.campaignLayout || rogueConnectivity.campaignLayout.roomCount !== 9 || rogueConnectivity.openDoorCount !== 0) {
       throw new Error(`Rogue layout connectivity check failed: ${JSON.stringify(rogueConnectivity)}`);
     }
 
-    await page.evaluate(() => {
-      const state = window.__fps3d.getState();
-      state.enemies.length = 0;
-      const keyPickup = state.pickups.find((pickup) => pickup.kind === 'key' && pickup.key === 'yellow');
-      if (keyPickup) {
-        state.player.x = keyPickup.x;
-        state.player.z = keyPickup.z;
-        state.player.yaw = 0;
-      }
-    });
-    await page.waitForTimeout(250);
+    const expectedRogueRoles = ['start', 'main', 'treasure', 'hazard', 'combat', 'key-red', 'key-blue', 'key-yellow', 'exit'];
+    const expectedGateKeys = ['blue', 'red', 'yellow'];
+    const campaignLevelHashes = [];
+    const campaignLevelSeeds = [];
 
-    const rogueKeyState = await page.evaluate(() => ({
-      hasKey: !!window.__fps3d.getState().player.keys.yellow
-    }));
-    if (!rogueKeyState.hasKey) {
-      throw new Error('Rogue key pickup did not register');
+    async function teleportToLayoutNode(layout, role, options = {}) {
+      const node = layout?.nodes?.find((entry) => entry.role === role) || null;
+      if (!node) {
+        throw new Error(`Missing rogue layout node for role "${role}"`);
+      }
+
+      await page.evaluate(({ targetNode, clearEnemies, stepMs, stepCount }) => {
+        const state = window.__fps3d.getState();
+        if (clearEnemies) {
+          state.enemies.length = 0;
+        }
+        state.player.x = (targetNode.anchor.x * 4) + 2;
+        state.player.z = (targetNode.anchor.z * 4) + 2;
+        state.player.yaw = 0;
+        state.player.invulnMs = 0;
+        state.player.dead = false;
+        for (let index = 0; index < stepCount; index += 1) {
+          window.__fps3d.step(stepMs, {});
+        }
+      }, { targetNode: node, clearEnemies: options.clearEnemies !== false, stepMs: Number(options.stepMs ?? 16) || 16, stepCount: Math.max(1, Number(options.stepCount ?? 1) || 1) });
+      await page.bringToFront();
+      await page.waitForTimeout(options.waitMs ?? 0);
     }
 
-    await page.evaluate(() => {
-      const state = window.__fps3d.getState();
-      const door = state.level.doors.find((entry) => entry.locked && entry.requiredKey === 'yellow');
-      const edgeRef = door?.edges?.[0];
-      const sector = edgeRef ? state.level.sectorById.get(edgeRef.sectorId) : null;
-      const edge = sector?.edges?.[edgeRef.edgeIndex] || null;
-      if (edge) {
+    async function openGate(requiredKey) {
+      await page.evaluate((key) => {
+        const state = window.__fps3d.getState();
+        const door = state.level.doors.find((entry) => entry.locked && entry.requiredKey === key) || null;
+        if (!door) {
+          throw new Error(`Missing ${key} gate`);
+        }
+
+        const edgeRef = door.edges?.[0];
+        const sector = edgeRef ? state.level.sectorById.get(edgeRef.sectorId) : null;
+        const edge = sector?.edges?.[edgeRef.edgeIndex] || null;
+        if (!edge) {
+          throw new Error(`Missing ${key} gate edge`);
+        }
+
         state.player.x = (edge.ax + edge.bx) * 0.5;
         state.player.z = (edge.az + edge.bz) * 0.5;
         state.player.yaw = 0;
-      }
-    });
-    await page.bringToFront();
-    await page.keyboard.press('e');
-    await page.waitForTimeout(250);
-    const rogueDoorState = await page.evaluate(() => {
-      const door = window.__fps3d.getState().level.doors.find((entry) => entry.locked && entry.requiredKey === 'yellow');
-      return {
-        open: !!door?.open
-      };
-    });
-    if (!rogueDoorState.open) {
-      throw new Error('Rogue yellow gate did not open after use');
+        state.player.invulnMs = 0;
+      }, requiredKey);
+      await page.bringToFront();
+      await page.keyboard.press('e');
+      await page.waitForFunction((key) => {
+        const door = window.__fps3d.getState().level.doors.find((entry) => entry.locked && entry.requiredKey === key);
+        return !!door?.open;
+      }, requiredKey);
     }
 
+    for (let expectedLevelIndex = 0; expectedLevelIndex < 5; expectedLevelIndex += 1) {
+      const summary = await page.evaluate(() => {
+        const state = window.__fps3d.getState();
+        return {
+          campaign: state.campaign ? { ...state.campaign } : null,
+          completed: !!state.completed,
+          levelId: state.level.id,
+          levelName: state.level.name,
+          levelSeed: state.seed,
+          levelDefinitionJson: JSON.stringify(state.levelDefinition || null),
+          sectorCount: Array.isArray(state.level.sectors) ? state.level.sectors.length : 0,
+          doorCount: Array.isArray(state.level.doors) ? state.level.doors.length : 0,
+          lockedDoorCount: Array.isArray(state.level.doors) ? state.level.doors.filter((door) => door.locked).length : 0,
+          lockedDoorKeys: Array.isArray(state.level.doors) ? state.level.doors.filter((door) => door.locked).map((door) => door.requiredKey || null).sort() : [],
+          keyPickupCount: Array.isArray(state.pickups) ? state.pickups.filter((pickup) => pickup.kind === 'key').length : 0,
+          exitPresent: !!state.level.exit,
+          diagnosticsCount: Array.isArray(state.level.diagnostics) ? state.level.diagnostics.length : 0,
+          hazardSectorCount: Array.isArray(state.level.sectors) ? state.level.sectors.filter((sector) => Number(sector.hazardDamagePerSecond) > 0).length : 0,
+          campaignLayout: state.level.campaignLayout ? JSON.parse(JSON.stringify(state.level.campaignLayout)) : null
+        };
+      });
+      if (!summary.campaign || summary.campaign.levelIndex !== expectedLevelIndex || summary.campaign.levelCount !== 5) {
+        throw new Error(`Campaign level index mismatch: ${JSON.stringify(summary)}`);
+      }
+      if (!summary.campaignLayout || summary.campaignLayout.roomCount !== 9 || summary.campaignLayout.doorLinks.length !== 3) {
+        throw new Error(`Campaign layout metadata mismatch: ${JSON.stringify(summary)}`);
+      }
+
+      const roomRoles = summary.campaignLayout.nodes.map((node) => node.role);
+      if (roomRoles.length !== expectedRogueRoles.length || expectedRogueRoles.some((role) => !roomRoles.includes(role))) {
+        throw new Error(`Campaign layout rooms were missing expected roles: ${JSON.stringify(roomRoles)}`);
+      }
+      if (summary.levelId !== 'rogue01' || summary.diagnosticsCount !== 0 || summary.sectorCount < 24 || summary.doorCount < 3 || summary.lockedDoorCount !== 3 || JSON.stringify(summary.lockedDoorKeys) !== JSON.stringify(expectedGateKeys) || summary.keyPickupCount < 3 || summary.hazardSectorCount < 1 || !summary.exitPresent) {
+        throw new Error(`Campaign level summary failed structural checks: ${JSON.stringify(summary)}`);
+      }
+
+      campaignLevelHashes.push(crypto.createHash('sha1').update(summary.levelDefinitionJson).digest('hex'));
+      campaignLevelSeeds.push(summary.levelSeed);
+
+      const layout = summary.campaignLayout;
+      const visitedRoles = new Set();
+      const visitRole = async (role, options = {}) => {
+        await teleportToLayoutNode(layout, role, options);
+        visitedRoles.add(role);
+      };
+
+      await visitRole('start');
+      await visitRole('main');
+      await visitRole('treasure');
+      await visitRole('key-red');
+      const redKeyState = await page.evaluate(() => !!window.__fps3d.getState().player.keys.red);
+      if (!redKeyState) {
+        throw new Error('Red key pickup did not register');
+      }
+
+      await openGate('red');
+      await visitRole('key-blue');
+      const blueKeyState = await page.evaluate(() => !!window.__fps3d.getState().player.keys.blue);
+      if (!blueKeyState) {
+        throw new Error('Blue key pickup did not register');
+      }
+
+      await openGate('blue');
+      await visitRole('hazard', { clearEnemies: true });
+      await page.evaluate(() => {
+        const state = window.__fps3d.getState();
+        state.player.armor = 0;
+      });
+      const hazardHealthBefore = await page.evaluate(() => window.__fps3d.getState().player.health);
+      await page.evaluate(() => window.__fps3d.step(250, {}));
+      await page.waitForFunction((before) => window.__fps3d.getState().player.health < before, hazardHealthBefore, { timeout: 2000 }).catch(() => {});
+      const hazardHealthAfter = await page.evaluate(() => window.__fps3d.getState().player.health);
+      if (hazardHealthAfter >= hazardHealthBefore) {
+        throw new Error('Hazard room did not damage the player');
+      }
+
+      await visitRole('key-yellow');
+      const yellowKeyState = await page.evaluate(() => !!window.__fps3d.getState().player.keys.yellow);
+      if (!yellowKeyState) {
+        throw new Error('Yellow key pickup did not register');
+      }
+
+      await openGate('yellow');
+      await visitRole('combat');
+
+      await page.evaluate(() => {
+        const state = window.__fps3d.getState();
+        state.enemies.length = 0;
+      });
+      await visitRole('exit', { clearEnemies: false });
+      if (visitedRoles.size !== expectedRogueRoles.length || expectedRogueRoles.some((role) => !visitedRoles.has(role))) {
+        throw new Error(`Not all rogue rooms were visited: ${JSON.stringify([...visitedRoles])}`);
+      }
+
+      if (expectedLevelIndex < 4) {
+        await page.waitForFunction((targetIndex) => {
+          const state = window.__fps3d.getState();
+          return state.campaign?.levelIndex === targetIndex && state.level?.id === 'rogue01' && !state.completed;
+        }, expectedLevelIndex + 1);
+        continue;
+      }
+
+      await page.waitForFunction(() => {
+        const state = window.__fps3d.getState();
+        return state.completed === true && state.campaign?.levelIndex === 4 && state.campaign?.levelCount === 5;
+      });
+    }
+
+    if (new Set(campaignLevelHashes).size !== 5) {
+      throw new Error(`Campaign generated duplicate level definitions: ${campaignLevelHashes.join(', ')}`);
+    }
+    if (new Set(campaignLevelSeeds).size !== 5) {
+      throw new Error(`Campaign generated duplicate seeds: ${campaignLevelSeeds.join(', ')}`);
+    }
+
+    const demoRecording = await page.evaluate(() => window.__fps3d.getDemoRecording());
+    if (!demoRecording || demoRecording.levelCount !== 5 || !Array.isArray(demoRecording.levels) || demoRecording.levels.length !== 5 || demoRecording.activeLevel) {
+      throw new Error(`Demo recording was not finalized correctly: ${JSON.stringify(demoRecording)}`);
+    }
+    if (!demoRecording.levels.every((entry, index) => entry.status === 'completed' && entry.levelIndex === index)) {
+      throw new Error(`Demo recording levels were not archived in order: ${JSON.stringify(demoRecording.levels)}`);
+    }
+    if (new Set(demoRecording.levels.map((entry) => entry.levelSeed)).size !== 5) {
+      throw new Error(`Demo recording captured duplicate level seeds: ${JSON.stringify(demoRecording.levels.map((entry) => entry.levelSeed))}`);
+    }
+
+    const downloadPromise = page.waitForEvent('download');
     await page.evaluate(() => {
-      const state = window.__fps3d.getState();
-      state.enemies.length = 0;
-      state.player.x = state.level.exit.x;
-      state.player.z = state.level.exit.z;
-      state.player.yaw = 0;
+      document.getElementById('save-demo')?.click();
     });
-    await page.waitForFunction(() => window.__fps3d.getState().completed === true);
+    const download = await downloadPromise;
+    if (!download.suggestedFilename().startsWith('fps3d-demo-')) {
+      throw new Error(`Unexpected demo filename: ${download.suggestedFilename()}`);
+    }
+    const downloadPath = await download.path();
+    if (!downloadPath) {
+      throw new Error('Demo download did not produce a local file');
+    }
+    const downloadedDemo = JSON.parse(fs.readFileSync(downloadPath, 'utf8'));
+    if (!downloadedDemo || downloadedDemo.levelCount !== 5 || !Array.isArray(downloadedDemo.levels) || downloadedDemo.levels.length !== 5) {
+      throw new Error(`Downloaded demo payload was malformed: ${JSON.stringify(downloadedDemo)}`);
+    }
+    if (new Set(downloadedDemo.levels.map((entry) => entry.levelSeed)).size !== 5) {
+      throw new Error(`Downloaded demo captured duplicate level seeds: ${JSON.stringify(downloadedDemo.levels.map((entry) => entry.levelSeed))}`);
+    }
 
     await page.evaluate(() => {
       const state = window.__fps3d.getState();
@@ -638,10 +808,13 @@ async function runPlaywrightSmoke() {
       throw new Error(`Browser smoke emitted console errors: ${errors.join(' | ')}`);
     }
 
-    console.log('PASS browser smoke: alpha01, training01, combat01, and rogue01 loaded in Chromium');
+    console.log('PASS browser smoke: alpha01, training01, combat01, rogue01 campaign, and demo export loaded in Chromium');
   } finally {
     if (page) {
       await page.close().catch(() => {});
+    }
+    if (context) {
+      await context.close().catch(() => {});
     }
     if (browser) {
       await browser.close().catch(() => {});

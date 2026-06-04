@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { parseLevelDefinition, getCell, isSolidCell, findSectorAtPoint, getFloorHeightAt, getThemeAt } from '../../core/world/level.js';
-import { LEVEL_ALPHA01, LEVEL_COMBAT01, LEVEL_TRAINING01, createRogueStyleLevel } from '../../data/levels/alpha01.js';
+import { LEVEL_ALPHA01, LEVEL_COMBAT01, LEVEL_TRAINING01, createRogueStyleCampaignLevel, createRogueStyleLevel } from '../../data/levels/alpha01.js';
 
 const LOW_CLEARANCE_LEVEL = {
   id: 'low-clearance',
@@ -161,9 +161,16 @@ runCase('createRogueStyleLevel generates a deterministic connected rogue-style l
   assert.equal(level.id, 'rogue01');
   assert.equal(level.diagnostics.length, 0);
   assert.ok(level.sectors.length >= 24);
+  assert.ok(level.doors.some((door) => door.locked && door.requiredKey === 'red'));
+  assert.ok(level.doors.some((door) => door.locked && door.requiredKey === 'blue'));
   assert.ok(level.doors.some((door) => door.locked && door.requiredKey === 'yellow'));
+  assert.ok(level.pickups.some((pickup) => pickup.kind === 'key' && pickup.key === 'red'));
+  assert.ok(level.pickups.some((pickup) => pickup.kind === 'key' && pickup.key === 'blue'));
   assert.ok(level.pickups.some((pickup) => pickup.kind === 'key' && pickup.key === 'yellow'));
   assert.ok(level.enemySpawns.length >= 6);
+  assert.ok(level.sectors.some((sector) => Number(sector.hazardDamagePerSecond) > 0));
+  assert.equal(level.campaignLayout?.roomCount, 9);
+  assert.deepEqual(level.campaignLayout?.nodes.map((node) => node.role).sort(), ['combat', 'exit', 'hazard', 'key-blue', 'key-red', 'key-yellow', 'main', 'start', 'treasure'].sort());
   assert.ok(level.sectors.some((sector) => sector.loop.length === 4));
   assert.ok(level.sectors.some((sector) => sector.edges.filter((edge) => edge.portalTo).length >= 2));
 
@@ -175,6 +182,25 @@ runCase('createRogueStyleLevel generates a deterministic connected rogue-style l
   const reachable = connectedSectorIds(level, spawnSector.id);
   assert.ok(reachable.has(exitSector.id));
   assert.equal(reachable.size, level.sectors.length);
+});
+
+runCase('createRogueStyleCampaignLevel retries failing seeds deterministically', () => {
+  const first = createRogueStyleCampaignLevel({ seed: 'fps3d-alpha01', levelIndex: 0, runIndex: 0 });
+  const second = createRogueStyleCampaignLevel({ seed: 'fps3d-alpha01', levelIndex: 0, runIndex: 0 });
+  assert.deepEqual(first, second);
+
+  const level = parseLevelDefinition(first);
+  assert.equal(level.id, 'rogue01');
+  assert.equal(level.diagnostics.length, 0);
+  assert.ok(level.sectors.length >= 24);
+  assert.ok(level.doors.some((door) => door.locked && door.requiredKey === 'red'));
+  assert.ok(level.doors.some((door) => door.locked && door.requiredKey === 'blue'));
+  assert.ok(level.doors.some((door) => door.locked && door.requiredKey === 'yellow'));
+  assert.ok(level.pickups.some((pickup) => pickup.kind === 'key' && pickup.key === 'red'));
+  assert.ok(level.pickups.some((pickup) => pickup.kind === 'key' && pickup.key === 'blue'));
+  assert.ok(level.pickups.some((pickup) => pickup.kind === 'key' && pickup.key === 'yellow'));
+  assert.equal(level.campaignLayout?.roomCount, 9);
+  assert.ok(level.campaignLayout?.nodes.some((node) => node.role === 'hazard' && Number(node.hazardDamagePerSecond) > 0));
 });
 
 runCase('parseLevelDefinition reports self-intersecting brush loops', () => {

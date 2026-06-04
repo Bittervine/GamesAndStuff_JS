@@ -1,6 +1,6 @@
 # Fps3D_JS Implementation Plan
 
-Last updated: 2026-05-29
+Last updated: 2026-06-04
 
 ## Goal
 
@@ -28,7 +28,7 @@ And you shall put into plan what to clean up and refactor. Cleaning up and refac
 - Doors and connected rooms: complete
 - Weapons: complete
 - Enemies: complete
-- Levels: complete
+- Levels: runtime multi-level generation and demo recording complete; five-level campaign smoke and demo export verified; deeper rogue_doom parity pending
 - UI, audio, and settings: complete
 - Textures and art pipeline: complete
 - Character models and animation: complete
@@ -41,7 +41,7 @@ And you shall put into plan what to clean up and refactor. Cleaning up and refac
 - Run `npm run serve` in `Fps3D_JS/` to start the hidden playtest server.
 - Open `http://127.0.0.1:4173/Fps3D_JS.html?seed=fps3d-alpha01` in a browser.
 - The current checkpoint is a deterministic sector-based playtest slice with arbitrary wall angles, fixed-step simulation, replay logging, a Three.js world scene, and the full weapon/level/tooling set needed for hidden playtests.
-- Resume from polish, balance, and final content tuning if any follow-up content is needed after the procedural rogue-style generation track.
+- Resume from the remaining rogue_doom parity work once the runtime level handoff, five-level smoke, and demo export stay green.
 
 ## Working Rules
 
@@ -171,20 +171,30 @@ Fps3D_JS/
 - [x] Define a brush/mesh level format for geometry, spawn points, pickups, doors, triggers, and scripted events.
 - [x] Support arbitrary wall angles, sloped surfaces, non-orthogonal rooms, and Quake-style geometry.
 - [x] Add at least one small test map, one combat-heavy map, and one larger showcase map.
-- [x] Add secrets, locked doors, key items, and simple objective flow.
+- [ ] Add secrets, locked doors, key items, and simple objective flow.
 - [x] Keep map authoring straightforward so future levels are fast to build.
 
 ### 6.1 Procedural Rogue-Style Generation
 
-- [x] Port the layout ideas from `REFERENCE/rogue_doom.py` into a deterministic JS generator that emits `Fps3D_JS` brush/sector level definitions instead of Doom WADs.
-- [x] This shall be integrated into the JS code and NOT a standalone script. Every playthrough need to be unique!
-- [x] Generate corridor-heavy room-and-hall layouts with varied non-square room silhouettes, dead ends, and multiple valid routes.
-- [x] Keep the start-to-exit path readable so the player is never left wandering without direction.
-- [x] Populate rooms and corridors in passes for enemies, pickups, keys, lights, props, secrets, and scripted events.
-- [x] Validate connectivity, overlap, headroom, door placement, and dead-end density before accepting a generated map.
+- [x] Generate a new rogue-style level inside the game at boot and after every completed level, deriving each map from the active run seed plus the current level index.
+- [ ] Expand the rogue campaign toward rogue_doom parity with additional key colors, damage regions, and special-room variants.
+- [ ] Port the layout ideas from `REFERENCE/rogue_doom.py` into a deterministic JS generator that emits `Fps3D_JS` brush/sector level definitions instead of Doom WADs.
+- [ ] This shall be integrated into the JS code and NOT a standalone script. Every playthrough need to be unique!
+- [ ] Generate corridor-heavy room-and-hall layouts with varied non-square room silhouettes, dead ends, and multiple valid routes.
+- [ ] Keep the start-to-exit path readable so the player is never left wandering without direction.
+- [ ] Populate rooms and corridors in passes for enemies, pickups, keys, lights, props, secrets, and scripted events.
+- [ ] Validate connectivity, overlap, headroom, door placement, and dead-end density before accepting a generated map.
 - [x] Make the generator seed-deterministic so Node tests and Playwright smoke can replay the same map exactly.
-- [x] Add a small library of room templates, corridor templates, and special-room variants so the generator feels hand-authored instead of noisy.
+- [ ] Add a small library of room templates, corridor templates, and special-room variants so the generator feels hand-authored instead of noisy.
 - [x] Add a browser smoke test that generates at least one rogue-style seed and verifies the map is playable from start to exit.
+
+### 6.2 Rogue Doom Parity Backlog
+
+- [ ] Add secret rooms and optional reward branches.
+- [ ] Add wall decals, wall-mounted props, and room dressing passes that make generated spaces feel authored.
+- [ ] Expand the monster roster and scripted encounter variety beyond the current key-room, hazard-room, and combat-room sets.
+- [ ] Add more lighting styles and sector effects to match rogue_doom's stronger ambience.
+- [ ] Add regression coverage for multiple generated seeds so parity work stays deterministic.
 
 ### 7. Textures and Materials
 

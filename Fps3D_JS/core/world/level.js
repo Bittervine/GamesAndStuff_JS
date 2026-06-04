@@ -570,6 +570,8 @@ function normalizeSectorDefinition(sector, index) {
     wallMaterial: sector.wallMaterial || 'wall',
     ambientLight: sector.ambientLight ?? null,
     light: Number(sector.light ?? sector.ambientLight ?? 0) || 0,
+    hazardDamagePerSecond: Number(sector.hazardDamagePerSecond ?? 0) || 0,
+    hazardType: typeof sector.hazardType === 'string' ? sector.hazardType : null,
     centroid: polygonCentroid(loop),
     area: polygonSignedArea(loop)
   };
@@ -728,6 +730,7 @@ function buildBrushLevel(definition) {
     lights,
     decals,
     exit,
+    campaignLayout: definition.campaignLayout ? JSON.parse(JSON.stringify(definition.campaignLayout)) : null,
     grid: null,
     rows: null,
     findSectorAtPoint(x, z) {

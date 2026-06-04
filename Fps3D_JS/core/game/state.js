@@ -4,7 +4,7 @@ import { findDoorNearPoint, openDoor, parseLevelDefinition } from '../world/leve
 import { moveCircle } from '../world/collision.js';
 import { distance2d, hasLineOfSight } from '../world/raycast.js';
 import { WEAPON_ORDER, getWeaponDef } from '../../data/weapons.js';
-import { LEVEL_ALPHA01, LEVEL_COMBAT01, LEVEL_TRAINING01, createRogueStyleLevel } from '../../data/levels/alpha01.js';
+import { LEVEL_ALPHA01, LEVEL_COMBAT01, LEVEL_TRAINING01, createRogueStyleCampaignLevel } from '../../data/levels/alpha01.js';
 import { createEnemy, updateEnemy, cleanupDeadEnemies } from '../combat/enemies.js';
 import { fireWeapon, applyProjectileImpact } from '../combat/weapons.js';
 
@@ -12,7 +12,7 @@ const LEVEL_DEFS = {
   alpha01: LEVEL_ALPHA01,
   training01: LEVEL_TRAINING01,
   combat01: LEVEL_COMBAT01,
-  rogue01: createRogueStyleLevel
+  rogue01: createRogueStyleCampaignLevel
 };
 
 const BUILD_VERSION = 'dev';
@@ -539,11 +539,13 @@ function applyGameStateSnapshot(state, snapshot) {
   state.requestRestart = !!snapshot.requestRestart;
   state.events = stableClone(snapshot.events ?? []);
   state.player = stableClone(snapshot.player ?? state.player);
+  state.hazardDamageMs = Number(snapshot.hazardDamageMs ?? state.hazardDamageMs ?? 0) || 0;
   state.decals = stableClone(snapshot.decals ?? []);
   state.effects = stableClone(snapshot.effects ?? []);
   state.projectiles = stableClone(snapshot.projectiles ?? []);
   state.pickups = stableClone(snapshot.pickups ?? []);
   state.enemies = Array.isArray(snapshot.enemies) ? snapshot.enemies.map((enemySnapshot) => restoreEnemyState(enemySnapshot)) : [];
+  state.campaign = stableClone(snapshot.campaign ?? state.campaign);
 
   if (state.level && snapshot.level && typeof snapshot.level === 'object') {
     const doorOpenById = new Map(
@@ -604,8 +606,10 @@ export function snapshotGameState(state) {
     projectiles: state.projectiles,
     pickups: state.pickups,
     enemies: Array.isArray(state.enemies) ? state.enemies.map((enemy) => snapshotEnemyState(enemy)) : [],
+    campaign: state.campaign,
     events: state.events,
-    replay: state.replay
+    replay: state.replay,
+    hazardDamageMs: Number(state.hazardDamageMs ?? 0) || 0
   });
 
   pushTraceEvent(state, 'stateSaved', {
@@ -804,6 +808,41 @@ function collectPickups(state) {
       applyPickup(state, pickup);
     }
   }
+}
+
+function updateEnvironmentalHazards(state, dtMs) {
+  if (!state?.level || !state.player || state.player.dead) {
+    state.hazardDamageMs = 0;
+    return false;
+  }
+
+  const sector = typeof state.level.findSectorAtPoint === 'function'
+    ? state.level.findSectorAtPoint(state.player.x, state.player.z)
+    : null;
+  const hazardDamagePerSecond = Number(sector?.hazardDamagePerSecond ?? 0) || 0;
+  if (hazardDamagePerSecond <= 0) {
+    state.hazardDamageMs = 0;
+    return false;
+  }
+
+  const tickIntervalMs = 250;
+  state.hazardDamageMs = (Number(state.hazardDamageMs) || 0) + dtMs;
+  if (state.hazardDamageMs < tickIntervalMs) {
+    return false;
+  }
+
+  const ticks = Math.floor(state.hazardDamageMs / tickIntervalMs);
+  state.hazardDamageMs -= ticks * tickIntervalMs;
+  const damageAmount = Math.max(1, Math.round((hazardDamagePerSecond * tickIntervalMs) / 1000));
+  for (let index = 0; index < ticks; index += 1) {
+    if (state.player.dead) {
+      break;
+    }
+
+    applyPlayerDamage(state, damageAmount, sector.hazardType || 'hazard');
+  }
+
+  return true;
 }
 
 function updateProjectiles(state, dtMs) {
@@ -1032,9 +1071,21 @@ function checkExitCompletion(state) {
 export function createGameState(options = {}) {
   const seed = normalizeSeed(options.seed ?? 0xC0FFEE01);
   const requestedLevelId = options.levelId || 'alpha01';
+  const campaignSeed = normalizeSeed(options.campaignSeed ?? seed);
+  const campaignRunIndex = Number(options.campaignRunIndex ?? 0) || 0;
+  const campaignLevelIndex = Number(options.levelIndex ?? options.campaignLevelIndex ?? 0) || 0;
+  const campaignLevelCount = Number(options.campaignLevelCount ?? 0) || 0;
   const levelCandidate = options.levelDefinition || LEVEL_DEFS[requestedLevelId] || LEVEL_ALPHA01;
   const levelDef = typeof levelCandidate === 'function'
-    ? levelCandidate({ seed, levelId: requestedLevelId, difficulty: options.difficulty })
+    ? levelCandidate({
+        seed,
+        levelId: requestedLevelId,
+        difficulty: options.difficulty,
+        campaignSeed,
+        campaignRunIndex,
+        campaignLevelIndex,
+        campaignLevelCount
+      })
     : levelCandidate;
   const levelId = options.levelId || levelDef.id || 'level';
   const level = parseLevelDefinition(levelDef);
@@ -1047,7 +1098,11 @@ export function createGameState(options = {}) {
       buildVersion: BUILD_VERSION,
       levelId,
       levelName: level.name,
-      difficulty: difficulty.id
+      difficulty: difficulty.id,
+      campaignSeed,
+      campaignRunIndex,
+      campaignLevelIndex,
+      campaignLevelCount
     }
   });
 
@@ -1080,6 +1135,13 @@ export function createGameState(options = {}) {
     pickups: createPickupList(level.pickups),
     enemies: [],
     player: createPlayer(level.spawn),
+    hazardDamageMs: 0,
+    campaign: {
+      seed: campaignSeed,
+      runIndex: campaignRunIndex,
+      levelIndex: campaignLevelIndex,
+      levelCount: campaignLevelCount
+    },
     requestRestart: false,
     damagePlayer(amount, source) {
       return applyPlayerDamage(state, amount, source);
@@ -1163,6 +1225,7 @@ export function advanceGameState(state, input, dtMs) {
   updateWeapons(state, normalizedInput);
   updateProjectiles(state, dtMs);
   updateEnemyList(state, dtMs);
+  updateEnvironmentalHazards(state, dtMs);
   collectPickups(state);
   checkExitCompletion(state);
   processVisualEvents(state);

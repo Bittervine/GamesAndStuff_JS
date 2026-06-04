@@ -6,6 +6,7 @@ import { sampleCharacterRigPose, sampleFirstPersonWeaponPose } from './core/rend
 import { buildLevelGeometry } from './core/render/geometry.js';
 import { getThemeAt } from './core/world/level.js';
 import { drawHud } from './core/render/hud.js';
+import { deriveSeed } from './core/random/seededRng.js';
 import { QUATERNIUS_CHARACTER_IMPORTS } from './data/characterAssets.js';
 import * as THREE from '../ThoriumGap_JS/lib/three.module.js';
 import { GLTFLoader } from '../ThoriumGap_JS/lib/loaders/GLTFLoader.js';
@@ -28,6 +29,7 @@ const masterVolumeValue = document.getElementById('master-volume-value');
 const graphicsQualitySelect = document.getElementById('graphics-quality-select');
 const fullscreenToggle = document.getElementById('fullscreen-toggle');
 const restartButton = document.getElementById('restart-game');
+const saveDemoButton = document.getElementById('save-demo');
 const closeMenuButton = document.getElementById('close-menu');
 const errorPanel = document.getElementById('error');
 const CHARACTER_PREVIEW_MODEL_URL = `./${QUATERNIUS_CHARACTER_IMPORTS.baseModels[0].path}`;
@@ -53,6 +55,8 @@ const GRAPHICS_QUALITY_PRESETS = {
   high: { label: 'High', pixelRatioCap: 1.75 },
   ultra: { label: 'Ultra', pixelRatioCap: 2 }
 };
+const CAMPAIGN_LEVEL_ID = 'rogue01';
+const CAMPAIGN_LEVEL_COUNT = 5;
 const DEFAULT_SETTINGS = {
   invertGamepadY: false,
   difficultyId: 'invulnerable',
@@ -2534,7 +2538,7 @@ function parseSeedFromUrl() {
 
 function parseLevelFromUrl() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('level') || 'alpha01';
+  return params.get('level') || CAMPAIGN_LEVEL_ID;
 }
 
 function parseCharacterPreviewFromUrl() {
@@ -2592,19 +2596,43 @@ function resizeCanvasPair() {
   }
 }
 
+function buildCampaignLevelSeed(baseSeed, runIndex, levelIndex) {
+  return deriveSeed(baseSeed, `campaign:${runIndex}:${levelIndex}`);
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function downloadJson(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.rel = 'noreferrer';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 async function main() {
   const seed = parseSeedFromUrl();
   const levelId = parseLevelFromUrl();
   const showCharacterPreview = parseCharacterPreviewFromUrl();
   const showDevOverlay = parseDebugFromUrl();
+  const isCampaignMode = levelId === CAMPAIGN_LEVEL_ID;
   let textures = createGameTextures(null, seed);
   let worldRenderer = createThreeWorldRenderer({ canvas: worldCanvas, textures, debugEnabled: showDevOverlay });
   let settings = loadSettings();
   activeGraphicsPixelRatioCap = getGraphicsPixelRatioCap(settings.graphicsQuality);
   const audio = createAudioEngine(settings.masterVolume);
-  let state = createGameState({ seed, levelId, difficulty: settings.difficultyId });
-  reportLevelDiagnostics(state.level);
-  state.player.mouseSensitivity = BASE_MOUSE_SENSITIVITY * settings.mouseSensitivity;
+  let campaignRunIndex = 0;
+  let campaignLevelIndex = 0;
+  let campaignFinished = false;
+  let demoRecording = null;
+  let state = null;
   const input = createInputController(worldCanvas, {
     getSettings: () => settings
   });
@@ -2624,6 +2652,149 @@ async function main() {
   let menuOpen = false;
   let menuPauseBeforeOpen = false;
   let graphicsReady = true;
+
+  function createDemoRecording(runIndex, recordedLevelCount = isCampaignMode ? CAMPAIGN_LEVEL_COUNT : 1) {
+    return {
+      version: 1,
+      type: 'fps3d-campaign-demo',
+      baseSeed: seed,
+      levelId,
+      difficultyId: settings.difficultyId,
+      levelCount: recordedLevelCount,
+      runIndex,
+      levels: []
+    };
+  }
+
+  function captureLevelRecord(currentState, status) {
+    return {
+      status,
+      runIndex: campaignRunIndex,
+      levelIndex: campaignLevelIndex,
+      levelSeed: currentState.seed,
+      levelId: currentState.level.id,
+      levelName: currentState.level.name,
+      timeMs: currentState.timeMs,
+      tick: currentState.tick,
+      replay: cloneJson(currentState.replay),
+      snapshot: {
+        version: 1,
+        seed: currentState.seed,
+        buildVersion: currentState.buildVersion,
+        levelId: currentState.levelId,
+        difficultyId: currentState.difficultyId,
+        timeMs: currentState.timeMs,
+        tick: currentState.tick,
+        completed: !!currentState.completed,
+        paused: !!currentState.paused,
+        campaign: cloneJson(currentState.campaign || null),
+        player: cloneJson(currentState.player || null),
+        level: cloneJson(currentState.level || null),
+        events: cloneJson(currentState.events || [])
+      }
+    };
+  }
+
+  function archiveCurrentLevel(status) {
+    if (!demoRecording || !state) {
+      return;
+    }
+
+    demoRecording.levels.push(captureLevelRecord(state, status));
+  }
+
+  function buildNextLevelState(runIndex, nextLevelIndex) {
+    const nextSeed = isCampaignMode
+      ? buildCampaignLevelSeed(seed, runIndex, nextLevelIndex)
+      : seed;
+
+    const nextState = createGameState({
+      seed: nextSeed,
+      levelId: isCampaignMode ? CAMPAIGN_LEVEL_ID : levelId,
+      difficulty: settings.difficultyId,
+      campaignSeed: seed,
+      campaignRunIndex: runIndex,
+      levelIndex: nextLevelIndex,
+      campaignLevelCount: CAMPAIGN_LEVEL_COUNT
+    });
+
+    nextState.player.mouseSensitivity = BASE_MOUSE_SENSITIVITY * settings.mouseSensitivity;
+    return nextState;
+  }
+
+  function applyActiveState(nextState) {
+    state = nextState;
+    reportLevelDiagnostics(state.level);
+    applyRuntimeSettings();
+    accumulator.reset();
+    lastTime = null;
+    updateOverlay();
+    updateDevOverlay();
+  }
+
+  function startCampaignRun(nextRunIndex) {
+    campaignRunIndex = nextRunIndex;
+    campaignLevelIndex = 0;
+    campaignFinished = false;
+    demoRecording = createDemoRecording(campaignRunIndex, CAMPAIGN_LEVEL_COUNT);
+    applyActiveState(buildNextLevelState(campaignRunIndex, campaignLevelIndex));
+  }
+
+  function advanceCampaignLevel() {
+    if (!isCampaignMode || campaignFinished) {
+      return false;
+    }
+
+    archiveCurrentLevel('completed');
+
+    if (campaignLevelIndex + 1 >= CAMPAIGN_LEVEL_COUNT) {
+      campaignFinished = true;
+      return false;
+    }
+
+    campaignLevelIndex += 1;
+    applyActiveState(buildNextLevelState(campaignRunIndex, campaignLevelIndex));
+    return true;
+  }
+
+  function restartGame() {
+    if (isCampaignMode) {
+      startCampaignRun(campaignRunIndex + 1);
+      return;
+    }
+
+    demoRecording = createDemoRecording(0, 1);
+    applyActiveState(createGameState({ seed, levelId, difficulty: settings.difficultyId }));
+  }
+
+  function getDemoRecording(includeActiveLevel = true) {
+    if (!demoRecording) {
+      return null;
+    }
+
+    const recording = cloneJson(demoRecording);
+    if (includeActiveLevel && state && !campaignFinished) {
+      recording.activeLevel = captureLevelRecord(state, 'active');
+    }
+    return recording;
+  }
+
+  function downloadDemoRecording() {
+    const recording = getDemoRecording(true);
+    if (!recording) {
+      return;
+    }
+
+    const filename = `fps3d-demo-${recording.baseSeed}-${recording.runIndex + 1}.json`;
+    downloadJson(filename, recording);
+  }
+
+  if (isCampaignMode) {
+    startCampaignRun(0);
+  } else {
+    demoRecording = createDemoRecording(0, 1);
+    applyActiveState(createGameState({ seed, levelId, difficulty: settings.difficultyId }));
+  }
 
   function applyRuntimeSettings() {
     state.player.mouseSensitivity = BASE_MOUSE_SENSITIVITY * settings.mouseSensitivity;
@@ -2698,13 +2869,15 @@ async function main() {
     const gamepadStatus = input.getGamepadStatus();
     const gamepadLabel = gamepadStatus.connected ? ` | gamepad ${gamepadStatus.id || 'connected'}` : '';
     const difficultyLabel = getDifficultyConfig(state.difficultyId).label;
+    const campaignLabel = isCampaignMode ? ` | campaign ${campaignLevelIndex + 1}/${CAMPAIGN_LEVEL_COUNT}${campaignFinished ? ' complete' : ''}` : '';
+    const demoLabel = isCampaignMode ? ` | demo ${demoRecording?.levels.length || 0}` : '';
     const menuLabel = menuOpen ? ' | menu open' : '';
     const pausedLabel = state.paused && !menuOpen ? ' | paused' : '';
     const geometryLabel = Array.isArray(state.level?.diagnostics) && state.level.diagnostics.length > 0
       ? ` | geometry issues ${state.level.diagnostics.length}`
       : '';
     const graphicsLabel = graphicsReady ? '' : ' | graphics recovering';
-    overlayState.textContent = `${lockState} | ${state.level.name} | ${difficultyLabel} | seed ${state.seed}${pausedLabel}${menuLabel}${geometryLabel}${graphicsLabel}${gamepadLabel}`;
+    overlayState.textContent = `${lockState} | ${state.level.name} | ${difficultyLabel} | seed ${state.seed}${campaignLabel}${demoLabel}${pausedLabel}${menuLabel}${geometryLabel}${graphicsLabel}${gamepadLabel}`;
   }
 
   function updateDevOverlay() {
@@ -2728,18 +2901,10 @@ async function main() {
       `perf: draw ${renderInfo.calls ?? 0} tris ${renderInfo.triangles ?? 0} tex ${renderInfo.textures ?? 0} | collision ${collisionInfo.checks ?? 0}/${collisionInfo.blockedChecks ?? 0}`,
       `player: x ${Number(player.x || 0).toFixed(2)} z ${Number(player.z || 0).toFixed(2)} yaw ${Number(player.yaw || 0).toFixed(2)} pitch ${Number(player.pitch || 0).toFixed(2)}`,
       `enemies: ${Array.isArray(state.enemies) ? state.enemies.length : 0} | projectiles ${Array.isArray(state.projectiles) ? state.projectiles.length : 0} | effects ${Array.isArray(state.effects) ? state.effects.length : 0}`,
-      `replay: ${replayEvents.length} events | last ${lastReplayEvent}`
+      `replay: ${replayEvents.length} events | last ${lastReplayEvent}`,
+      `demo: ${demoRecording?.levels.length || 0} archived level(s)${campaignFinished ? ' | complete' : ''}`
     ];
     devOverlay.textContent = lines.join('\n');
-  }
-
-  function restartGame() {
-    state = createGameState({ seed, levelId, difficulty: settings.difficultyId });
-    reportLevelDiagnostics(state.level);
-    applyRuntimeSettings();
-    accumulator.reset();
-    lastTime = null;
-    updateOverlay();
   }
 
   function setDifficulty(difficultyId) {
@@ -2918,6 +3083,11 @@ async function main() {
           state.requestRestart = false;
           break;
         }
+        if (state.completed && !campaignFinished) {
+          if (advanceCampaignLevel()) {
+            break;
+          }
+        }
         steps -= 1;
         stepInput = cloneFrameInput(stepInput);
       }
@@ -2960,6 +3130,10 @@ async function main() {
   restartButton.addEventListener('click', () => {
     restartGame();
     closeMenu(false);
+  });
+
+  saveDemoButton.addEventListener('click', () => {
+    downloadDemoRecording();
   });
 
   invertGamepadYInput.addEventListener('change', () => {
@@ -3015,10 +3189,16 @@ async function main() {
     getStateSnapshot: () => snapshotGameState(state),
     getTraceLog: () => JSON.parse(JSON.stringify(state.trace || [])),
     getReplayCapture: () => JSON.parse(JSON.stringify(state.replay)),
+    getDemoRecording,
     getSettings: () => ({ ...settings }),
     getRendererDebug: () => worldRenderer?.getDebugState?.() ?? null,
     getCharacterPreviewDebug: () => characterPreview?.getDebugState?.() ?? null,
+    step: (stepMs = 16, frameInput = {}) => {
+      advanceGameState(state, cloneFrameInput(frameInput), stepMs);
+      return snapshotGameState(state);
+    },
     restart: restartGame,
+    downloadDemoRecording,
     openMenu,
     closeMenu
   };

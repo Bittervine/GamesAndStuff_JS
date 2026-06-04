@@ -1,4 +1,4 @@
-import { createSeededRng, normalizeSeed } from '../../core/random/seededRng.js';
+import { createSeededRng, deriveSeed, normalizeSeed } from '../../core/random/seededRng.js';
 
 export const LEVEL_ALPHA01 = {
   id: 'alpha01',
@@ -985,9 +985,16 @@ const ROGUE_ROOM_TEMPLATE_LIBRARY = {
     rogueMakeTemplate('branch-cross', rogueBuildCrossCells(2), rogueBuildCardinalConnectors(2, 2), 'any')
   ],
   key: [
-    rogueMakeTemplate('key-octagon', rogueBuildOctagonCells(2), rogueBuildCardinalConnectors(2, 2), 'any'),
-    rogueMakeTemplate('key-cross', rogueBuildCrossCells(2), rogueBuildCardinalConnectors(2, 2), 'any'),
     rogueMakeTemplate('key-square', rogueBuildRectCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any')
+  ],
+  'key-red': [
+    rogueMakeTemplate('key-red-square', rogueBuildRectCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any')
+  ],
+  'key-blue': [
+    rogueMakeTemplate('key-blue-square', rogueBuildRectCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any')
+  ],
+  'key-yellow': [
+    rogueMakeTemplate('key-yellow-square', rogueBuildRectCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any')
   ],
   treasure: [
     rogueMakeTemplate('treasure-vault', rogueBuildRectCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
@@ -1003,6 +1010,11 @@ const ROGUE_ROOM_TEMPLATE_LIBRARY = {
     rogueMakeTemplate('exit-vault', rogueBuildRectCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
     rogueMakeTemplate('exit-octagon', rogueBuildOctagonCells(2), rogueBuildCardinalConnectors(2, 2), 'any'),
     rogueMakeTemplate('exit-cross', rogueBuildCrossCells(2), rogueBuildCardinalConnectors(2, 2), 'any')
+  ],
+  hazard: [
+    rogueMakeTemplate('hazard-vault', rogueBuildRectCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('hazard-octagon', rogueBuildOctagonCells(2), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('hazard-cross', rogueBuildCrossCells(2), rogueBuildCardinalConnectors(2, 2), 'any')
   ]
 };
 
@@ -1014,10 +1026,30 @@ function rogueMaterialSetForRole(themeVariant, role, isCorridor) {
   if (isCorridor) {
     return themeVariant.corridorMaterials;
   }
-  if (role === 'key' || role === 'treasure' || role === 'combat' || role === 'exit') {
+  if (role === 'hazard') {
+    return {
+      floor: 'liquidFloor',
+      ceiling: themeVariant.specialMaterials.ceiling,
+      wall: themeVariant.specialMaterials.wall
+    };
+  }
+  if (role === 'key' || (typeof role === 'string' && role.startsWith('key-')) || role === 'treasure' || role === 'combat' || role === 'exit') {
     return themeVariant.specialMaterials;
   }
   return themeVariant.roomMaterials;
+}
+
+function rogueKeyColorForRole(role) {
+  if (role === 'key-red') {
+    return 'red';
+  }
+  if (role === 'key-blue') {
+    return 'blue';
+  }
+  if (role === 'key-yellow') {
+    return 'yellow';
+  }
+  return role === 'key' ? 'yellow' : null;
 }
 
 function rogueClonePoint(point) {
@@ -1047,6 +1079,25 @@ export function createRogueStyleLevel(seedInput = 0xC0FFEE01) {
   }
 
   throw new Error(`Failed to build a rogue-style level: ${lastError ? lastError.message : 'unknown error'}`);
+}
+
+export function createRogueStyleCampaignLevel(options = {}) {
+  const baseSeed = normalizeSeed(options.seed ?? 0xC0FFEE01);
+  const levelIndex = Number(options.levelIndex ?? 0) || 0;
+  const runIndex = Number(options.runIndex ?? options.campaignRunIndex ?? 0) || 0;
+  const maxAttempts = Math.max(1, Number(options.attempts ?? 64) || 64);
+  let lastError = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const candidateSeed = deriveSeed(baseSeed, `rogue-campaign:${runIndex}:${levelIndex}:${attempt}`);
+    try {
+      return createRogueStyleLevel(candidateSeed);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+
+  throw new Error(`Failed to build a rogue-style campaign level: ${lastError ? lastError.message : 'unknown error'}`);
 }
 
 function buildRogueLayout(rng, seed, themeVariant, attempt) {
@@ -1124,7 +1175,9 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
         ceiling: 3.55,
         floorMaterial: cellMaterials.floor,
         ceilingMaterial: cellMaterials.ceiling,
-        wallMaterial: cellMaterials.wall
+        wallMaterial: cellMaterials.wall,
+        hazardDamagePerSecond: node.role === 'hazard' ? 8 : 0,
+        hazardType: node.role === 'hazard' ? 'lava' : null
       };
       layout.roomCells.add(key);
       layout.cellInfo.set(key, info);
@@ -1195,24 +1248,31 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
     return false;
   }
 
-  function chooseConnector(node, toward) {
-    const ordered = node.connectors
+  function removeNode(node) {
+    for (const cell of node.cells) {
+      layout.roomCells.delete(cell.key);
+      layout.cellInfo.delete(cell.key);
+    }
+    node.cells = [];
+    node.connectors = [];
+
+    layout.roomBuffer.clear();
+    for (const key of layout.roomCells) {
+      const [xText, zText] = key.split(',');
+      addRoomBuffer(Number(xText), Number(zText));
+    }
+  }
+
+  function orderedConnectors(node, toward) {
+    return node.connectors
       .map((connector) => {
         const vector = rogueDirectionVector(connector.direction);
         const score = (vector.dx * toward.x) + (vector.dz * toward.z);
         return { connector, score };
       })
-      .sort((a, b) => b.score - a.score);
-
-    for (const entry of ordered) {
-      const { connector } = entry;
-      if (!rogueWithinBounds(connector.outside.x, connector.outside.z)) {
-        continue;
-      }
-      return connector;
-    }
-
-    return null;
+      .filter(({ connector }) => rogueWithinBounds(connector.outside.x, connector.outside.z))
+      .sort((a, b) => b.score - a.score)
+      .map(({ connector }) => connector);
   }
 
   function routePath(start, goal, mode = 'direct') {
@@ -1348,18 +1408,37 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
       z: -towardTarget.z
     };
 
-    const sourceConnector = chooseConnector(sourceNode, towardTarget);
-    const targetConnector = chooseConnector(targetNode, towardSource);
-    if (!sourceConnector || !targetConnector) {
+    const sourceCandidates = orderedConnectors(sourceNode, towardTarget);
+    const targetCandidates = orderedConnectors(targetNode, towardSource);
+    if (sourceCandidates.length === 0 || targetCandidates.length === 0) {
       throw new Error(`Rogue layout failed: no connector between ${sourceNode.id} and ${targetNode.id}`);
     }
 
-    const path = routePath(sourceConnector.outside, targetConnector.outside, mode);
-    if (!path) {
+    let chosenSourceConnector = null;
+    let chosenTargetConnector = null;
+    let chosenPath = null;
+
+    for (const sourceConnector of sourceCandidates) {
+      for (const targetConnector of targetCandidates) {
+        const path = routePath(sourceConnector.outside, targetConnector.outside, mode);
+        if (!path) {
+          continue;
+        }
+        chosenSourceConnector = sourceConnector;
+        chosenTargetConnector = targetConnector;
+        chosenPath = path;
+        break;
+      }
+      if (chosenPath) {
+        break;
+      }
+    }
+
+    if (!chosenPath || !chosenSourceConnector || !chosenTargetConnector) {
       throw new Error(`Rogue layout failed: corridor path between ${sourceNode.id} and ${targetNode.id}`);
     }
 
-    for (const cell of path) {
+    for (const cell of chosenPath) {
       const key = keyOf(cell.x, cell.z);
       if (layout.roomCells.has(key)) {
         continue;
@@ -1387,9 +1466,9 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
     const link = {
       sourceNodeId: sourceNode.id,
       targetNodeId: targetNode.id,
-      sourceConnector,
-      targetConnector,
-      path,
+      sourceConnector: chosenSourceConnector,
+      targetConnector: chosenTargetConnector,
+      path: chosenPath,
       mode
     };
     layout.edges.push(link);
@@ -1407,9 +1486,10 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
   }
   mainNodes.push(startNode);
 
+  const mainNodeRoles = ['start', 'main', 'treasure', 'hazard', 'combat', 'exit'];
   let heading = (rng.nextFloat() * 0.7) - 0.35;
   for (let index = 1; index < ROGUE_MAIN_ROOM_COUNT; index += 1) {
-    const role = index === (ROGUE_MAIN_ROOM_COUNT - 1) ? 'exit' : 'main';
+    const role = mainNodeRoles[index] || 'main';
     let placed = false;
     const previous = mainNodes[index - 1];
     for (let attempt = 0; attempt < 48; attempt += 1) {
@@ -1460,82 +1540,100 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
   layout.spawnNodeId = startNode.id;
   layout.exitNodeId = mainNodes[mainNodes.length - 1].id;
 
-  const branchRoles = ['key', 'treasure', 'combat'];
-  const branchAnchors = [1, 2, 3];
+  const branchSpecs = [
+    { role: 'key-red', candidateAnchors: [0, 1, 2] },
+    { role: 'key-blue', candidateAnchors: [1, 2, 3] },
+    { role: 'key-yellow', candidateAnchors: [2, 3, 4] }
+  ];
   const branches = [];
-  for (let index = 0; index < ROGUE_BRANCH_ROOM_COUNT; index += 1) {
-    const anchorNode = mainNodes[branchAnchors[index]];
-    const forwardNode = mainNodes[Math.min(branchAnchors[index] + 1, mainNodes.length - 1)];
-    const backwardNode = mainNodes[Math.max(branchAnchors[index] - 1, 0)];
-    const forwardVector = {
-      x: forwardNode.anchor.x - backwardNode.anchor.x,
-      z: forwardNode.anchor.z - backwardNode.anchor.z
-    };
-    const forwardLength = Math.hypot(forwardVector.x, forwardVector.z) || 1;
-    const forwardUnit = {
-      x: forwardVector.x / forwardLength,
-      z: forwardVector.z / forwardLength
-    };
-    const sideSign = rng.nextFloat() < 0.5 ? -1 : 1;
-    const sideVector = {
-      x: -forwardUnit.z * sideSign,
-      z: forwardUnit.x * sideSign
-    };
+  for (const spec of branchSpecs) {
+    const anchorChoices = layoutRngShuffle(rng, spec.candidateAnchors.slice());
     let placed = false;
-    for (let attempt = 0; attempt < 48; attempt += 1) {
-      const lateral = rng.nextRange(4, 7);
-      const along = rng.nextRange(-1, 2);
-      const candidate = {
-        x: Math.round(anchorNode.anchor.x + (sideVector.x * lateral) + (forwardUnit.x * along)),
-        z: Math.round(anchorNode.anchor.z + (sideVector.z * lateral) + (forwardUnit.z * along))
+
+    for (const branchAnchorIndex of anchorChoices) {
+      const anchorNode = mainNodes[branchAnchorIndex];
+      const forwardNode = mainNodes[Math.min(branchAnchorIndex + 1, mainNodes.length - 1)];
+      const backwardNode = mainNodes[Math.max(branchAnchorIndex - 1, 0)];
+      const forwardVector = {
+        x: forwardNode.anchor.x - backwardNode.anchor.x,
+        z: forwardNode.anchor.z - backwardNode.anchor.z
       };
-      if (!rogueWithinBounds(candidate.x, candidate.z)) {
-        continue;
-      }
-      let tooClose = false;
-      for (const existing of mainNodes.concat(branches)) {
-        const dx = candidate.x - existing.anchor.x;
-        const dz = candidate.z - existing.anchor.z;
-        if ((dx * dx) + (dz * dz) < 18) {
-          tooClose = true;
+      const forwardLength = Math.hypot(forwardVector.x, forwardVector.z) || 1;
+      const forwardUnit = {
+        x: forwardVector.x / forwardLength,
+        z: forwardVector.z / forwardLength
+      };
+      const sideSigns = layoutRngShuffle(rng, [-1, 1]);
+      for (const sideSign of sideSigns) {
+        const sideVector = {
+          x: -forwardUnit.z * sideSign,
+          z: forwardUnit.x * sideSign
+        };
+
+        for (let attempt = 0; attempt < 48; attempt += 1) {
+          const lateral = rng.nextRange(4, 7);
+          const along = rng.nextRange(-1, 2);
+          const candidate = {
+            x: Math.round(anchorNode.anchor.x + (sideVector.x * lateral) + (forwardUnit.x * along)),
+            z: Math.round(anchorNode.anchor.z + (sideVector.z * lateral) + (forwardUnit.z * along))
+          };
+          if (!rogueWithinBounds(candidate.x, candidate.z)) {
+            continue;
+          }
+          let tooClose = false;
+          for (const existing of mainNodes.concat(branches)) {
+            const dx = candidate.x - existing.anchor.x;
+            const dz = candidate.z - existing.anchor.z;
+            if ((dx * dx) + (dz * dz) < 18) {
+              tooClose = true;
+              break;
+            }
+          }
+          if (tooClose) {
+            continue;
+          }
+
+          const node = buildNode(spec.role, spec.role, candidate, anchorNode.depth + 1);
+          const flowVector = {
+            x: anchorNode.anchor.x - candidate.x,
+            z: anchorNode.anchor.z - candidate.z
+          };
+          if (!placeNode(node, flowVector)) {
+            continue;
+          }
+
+          try {
+            connectNodes(anchorNode, node, 'elbow');
+          } catch (error) {
+            removeNode(node);
+            continue;
+          }
+
+          node.depth = anchorNode.depth + 1;
+          node.branchAnchorIndex = branchAnchorIndex;
+          branches.push(node);
+          placed = true;
+          break;
+        }
+
+        if (placed) {
           break;
         }
       }
-      if (tooClose) {
-        continue;
-      }
 
-      const node = buildNode(branchRoles[index], branchRoles[index], candidate, anchorNode.depth + 1);
-      const flowVector = {
-        x: anchorNode.anchor.x - candidate.x,
-        z: anchorNode.anchor.z - candidate.z
-      };
-      if (!placeNode(node, flowVector)) {
-        continue;
+      if (placed) {
+        break;
       }
-
-      node.depth = anchorNode.depth + 1;
-      branches.push(node);
-      placed = true;
-      break;
     }
 
     if (!placed) {
-      throw new Error(`Rogue layout failed: could not place branch room ${branchRoles[index]}`);
+      throw new Error(`Rogue layout failed: could not place branch room ${spec.role}`);
     }
   }
 
   layout.nodes.push(...branches);
 
-  for (const branch of branches) {
-    const anchorIndex = branchRoles.indexOf(branch.role);
-    const parentNode = mainNodes[branchAnchors[anchorIndex]];
-    const link = connectNodes(parentNode, branch, 'elbow');
-    if (!link) {
-      return null;
-    }
-  }
-
+  const mainLinks = [];
   for (let index = 1; index < mainNodes.length; index += 1) {
     const sourceNode = mainNodes[index - 1];
     const targetNode = mainNodes[index];
@@ -1544,6 +1642,7 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
     if (!link) {
       return null;
     }
+    mainLinks.push(link);
   }
 
   const loopCandidates = [
@@ -1579,35 +1678,34 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
     throw new Error(`Rogue layout failed: start-to-exit path too short (${pathDistance})`);
   }
 
-  const doorEdgeLink = layout.edges.find((edge) => edge.sourceNodeId === mainNodes[mainNodes.length - 2].id && edge.targetNodeId === mainNodes[mainNodes.length - 1].id)
-    || layout.edges.find((edge) => edge.sourceNodeId === mainNodes[mainNodes.length - 1].id && edge.targetNodeId === mainNodes[mainNodes.length - 2].id);
-  if (!doorEdgeLink) {
-    throw new Error('Rogue layout failed: missing exit gate corridor');
+  function addGateLink(link, doorId, name, requiredKey) {
+    if (!link || !link.sourceConnector) {
+      throw new Error(`Rogue layout failed: missing ${doorId} gate corridor`);
+    }
+
+    const gateConnector = link.sourceConnector;
+    layout.doorLinks.push({
+      id: doorId,
+      name,
+      locked: true,
+      requiredKey,
+      leftCell: {
+        x: gateConnector.x,
+        z: gateConnector.z
+      },
+      rightCell: {
+        x: gateConnector.outside.x,
+        z: gateConnector.outside.z
+      },
+      direction: gateConnector.direction,
+      sourceNodeId: link.sourceNodeId,
+      targetNodeId: link.targetNodeId
+    });
   }
 
-  const exitConnector = doorEdgeLink.targetNodeId === mainNodes[mainNodes.length - 1].id
-    ? doorEdgeLink.targetConnector
-    : doorEdgeLink.sourceConnector;
-  const exitRoomConnector = {
-    roomCell: {
-      x: exitConnector.x,
-      z: exitConnector.z
-    },
-    corridorCell: {
-      x: exitConnector.outside.x,
-      z: exitConnector.outside.z
-    },
-    direction: exitConnector.direction
-  };
-  layout.doorLinks.push({
-    id: 'yellow-gate',
-    name: 'Yellow Gate',
-    locked: true,
-    requiredKey: 'yellow',
-    leftCell: exitRoomConnector.roomCell,
-    rightCell: exitRoomConnector.corridorCell,
-    direction: exitRoomConnector.direction
-  });
+  addGateLink(mainLinks[2], 'red-gate', 'Red Gate', 'red');
+  addGateLink(mainLinks[3], 'blue-gate', 'Blue Gate', 'blue');
+  addGateLink(mainLinks[4], 'yellow-gate', 'Yellow Gate', 'yellow');
 
   const startCenter = rogueCellCenter(mainNodes[0].anchor.x, mainNodes[0].anchor.z);
   const exitCenter = rogueCellCenter(mainNodes[mainNodes.length - 1].anchor.x, mainNodes[mainNodes.length - 1].anchor.z);
@@ -1686,7 +1784,11 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
     const enemyKindsByRole = {
       main: ['zombie', 'imp'],
       key: ['zombie', 'imp'],
+      'key-red': ['zombie', 'imp'],
+      'key-blue': ['zombie', 'imp'],
+      'key-yellow': ['zombie', 'imp'],
       treasure: ['zombie', 'demon'],
+      hazard: ['zombie', 'imp'],
       combat: ['imp', 'chaingunner', 'demon'],
       exit: ['chaingunner', 'baron']
     };
@@ -1702,8 +1804,10 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
       pushLight(center.x, center.z, '#dff5ff', 1.15, 0.18);
       pushLight(center.x + 1.1, center.z - 0.6, '#ffe4b6', 1.0, 0.14);
       pushDecal('warning', center.x, center.z, 0.08, '#e7c65d', 0.62);
-    } else if (node.role === 'key') {
-      pushPickup('key', center.x, center.z, { key: 'yellow' });
+    } else if (node.role === 'key' || node.role.startsWith('key-')) {
+      const keyColor = rogueKeyColorForRole(node.role) || 'yellow';
+      const accentColor = keyColor === 'red' ? '#ff7a7a' : keyColor === 'blue' ? '#7ab6ff' : '#ffe08a';
+      pushPickup('key', center.x, center.z, { key: keyColor });
       pushPickup('health', center.x + 1.0, center.z - 0.8, { amount: 25 });
       pushProp('crate', center.x - 1.0, center.z + 0.8, {
         width: 0.7,
@@ -1712,7 +1816,7 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
         rotation: 0.18,
         color: '#8d6742'
       });
-      pushLight(center.x, center.z, '#fff1c9', 1.1, 0.22);
+      pushLight(center.x, center.z, accentColor, 1.12, 0.22);
       pushLight(center.x - 1.2, center.z + 0.8, '#dff5ff', 1.0, 0.18);
       scriptedEvents.push({
         id: `event-${scriptedEvents.length + 1}`,
@@ -1720,8 +1824,29 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
         x: center.x,
         z: center.z,
         action: 'message',
-        payload: { text: 'Find the yellow gate.' }
+        payload: { text: `Find the ${keyColor} gate.` }
       });
+    } else if (node.role === 'hazard') {
+      pushPickup('health', center.x - 1.0, center.z + 0.8, { amount: 25 });
+      pushProp('machine', center.x + 0.9, center.z - 0.8, {
+        width: 1.2,
+        height: 1.0,
+        depth: 1.2,
+        rotation: -0.14,
+        color: '#7b4350'
+      });
+      pushProp('barrel', center.x - 1.1, center.z + 0.9, {
+        width: 0.75,
+        height: 0.9,
+        depth: 0.75,
+        rotation: 0.2,
+        color: '#8f563f'
+      });
+      pushLight(center.x, center.z, '#ff8b7a', 1.22, 0.48);
+      pushLight(center.x + 1.0, center.z - 0.8, '#ffb57d', 1.1, 0.38);
+      pushDecal('warning', center.x, center.z, 0.05, '#ff6f61', 0.72);
+      node.hazardDamagePerSecond = 8;
+      node.hazardType = 'lava';
     } else if (node.role === 'treasure') {
       pushPickup('health', center.x, center.z, { amount: 25 });
       pushPickup('ammo', center.x + 1.0, center.z, { ammoType: 'bullet', amount: 40 });
@@ -1788,7 +1913,7 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
 
     if (node.role !== 'start') {
       const roles = enemyKindsByRole[node.role] || enemyKindsByRole.main;
-      const spawnCount = node.role === 'exit' ? 2 : node.role === 'combat' ? 3 : node.role === 'treasure' ? 2 : 1;
+      const spawnCount = node.role === 'exit' ? 2 : node.role === 'combat' ? 3 : node.role === 'treasure' ? 2 : node.role === 'hazard' ? 1 : 1;
       for (let index = 0; index < spawnCount; index += 1) {
         const cell = spawnCells[index % spawnCells.length];
         const point = rogueCellCenter(cell.x, cell.z);
@@ -1834,6 +1959,8 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
         ceilingMaterial: info.ceilingMaterial,
         wallMaterial: info.wallMaterial,
         theme: themeVariant.theme,
+        hazardDamagePerSecond: info.hazardDamagePerSecond || 0,
+        hazardType: info.hazardType || null,
         loop: rogueCellLoop(info.x, info.z),
         portals: []
       });
@@ -2012,7 +2139,34 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
     lights,
     decals,
     triggers,
-    scriptedEvents
+    scriptedEvents,
+    campaignLayout: {
+      version: 2,
+      seed,
+      attempt,
+      theme: themeVariant.theme,
+      mainRoomCount: mainNodes.length,
+      branchRoomCount: branches.length,
+      roomCount: layout.nodes.length,
+      nodes: layout.nodes.map((node) => ({
+        id: node.id,
+        role: node.role,
+        templateId: node.templateId,
+        rotation: node.rotation,
+        depth: node.depth,
+        anchor: rogueClonePoint(node.anchor),
+        keyColor: rogueKeyColorForRole(node.role),
+        hazardDamagePerSecond: Number(node.hazardDamagePerSecond || 0) || 0,
+        hazardType: node.hazardType || null
+      })),
+      doorLinks: layout.doorLinks.map((door) => ({
+        id: door.id,
+        name: door.name,
+        requiredKey: door.requiredKey,
+        sourceNodeId: door.sourceNodeId || null,
+        targetNodeId: door.targetNodeId || null
+      }))
+    }
   };
 
   if (layout.doorLinks.length === 0 || doors.length === 0) {
