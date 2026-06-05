@@ -393,8 +393,26 @@ function updateShipState(state, dt, controls) {
   }
   state.gamepadRespawnHeld = false;
 
-  if (nearestInfo.nearest && nearestInfo.nearest !== ship.boundPlanet && nearestInfo.nearestDistance < nearestInfo.nearest.atmosphereRadius * 0.95) {
-    transferShipToPlanet(ship, nearestInfo.nearest);
+  if (nearestInfo.nearest && nearestInfo.nearestAltitude < config.planetCaptureAltitude) {
+    const capturePlanet = nearestInfo.nearest;
+    if (ship.boundPlanet !== capturePlanet) {
+      transferShipToPlanet(ship, capturePlanet);
+    }
+    const captureNormal = ship.position.clone().sub(capturePlanet.position).normalize();
+    const captureDistance = capturePlanet.radius + Math.max(nearestInfo.nearestAltitude, 1.0);
+    ship.boundPlanet = capturePlanet;
+    ship.relativePosition.copy(captureNormal).multiplyScalar(captureDistance);
+    ship.relativeVelocity.copy(ship.velocity).sub(capturePlanet.velocity);
+    const radialComponent = captureNormal.clone().multiplyScalar(ship.relativeVelocity.dot(captureNormal));
+    ship.relativeVelocity.sub(radialComponent);
+    if (ship.relativeVelocity.lengthSq() < 1e-6) {
+      const tangent = Math.abs(captureNormal.dot(worldUp)) > 0.85
+        ? new THREE.Vector3(1, 0, 0).cross(captureNormal).normalize()
+        : worldUp.clone().cross(captureNormal).normalize();
+      ship.relativeVelocity.copy(tangent).multiplyScalar(config.shipMinMaxSpeed * 0.5);
+    }
+    ship.forward.copy(ship.relativeVelocity.clone().normalize());
+    ship.up.copy(captureNormal);
     syncShipWorldState(ship);
     nearestInfo = pickNearestPlanet(state.planets, ship.position);
     state.nearestPlanet = nearestInfo.nearest;
@@ -417,9 +435,9 @@ function updateShipState(state, dt, controls) {
   const gravityStrength = planet.gravityStrength / gravityDistSq;
   const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 0.0001);
   const altitude = relativeDistance - planet.radius;
-  const atmosphereInfluenceDistance = atmosphereThickness + config.atmosphereInfluenceDistance;
-  const atmosphereDepth = altitude <= atmosphereInfluenceDistance
-    ? clamp01((atmosphereInfluenceDistance - relativeDistance + planet.radius) / atmosphereInfluenceDistance)
+  const atmosphereControlAltitude = config.atmosphereControlAltitude;
+  const atmosphereDepth = altitude <= atmosphereControlAltitude
+    ? clamp01((atmosphereControlAltitude - altitude) / atmosphereControlAltitude)
     : 0;
   const targetAltitude = atmosphereThickness * 0.5;
   const altitudeError = THREE.MathUtils.clamp((targetAltitude - altitude) / (atmosphereThickness * 0.5), -1, 1);
@@ -443,7 +461,10 @@ function updateShipState(state, dt, controls) {
   const autopilotStrength = 1 - boostLevel * 0.75;
   const boostHoldFactor = THREE.MathUtils.lerp(1, 0.18, boostLevel);
   ship.fireCooldown = Math.max(0, ship.fireCooldown - dt);
-  const maxShipSpeed = config.shipMaxSpeed;
+  const altitudeSpeedCap = Math.max(
+    config.shipMinMaxSpeed,
+    state.nearestAltitude * config.shipAltMaxSpeedFac
+  );
 
   const targetBank = THREE.MathUtils.clamp(turnInput * 0.95, -0.95, 0.95);
   const bankReturnRate = atmosphereDepth > 0
@@ -493,21 +514,21 @@ function updateShipState(state, dt, controls) {
     const horizonForward = tempVecD.copy(ship.forward).addScaledVector(localUp, -ship.forward.dot(localUp));
     if (horizonForward.lengthSq() > 1e-6) {
       horizonForward.normalize();
-      const levelBlend = easeExp(dt, THREE.MathUtils.lerp(0.22, 0.75, atmosphereDepth) * autopilotStrength);
+      const levelBlend = easeExp(dt, THREE.MathUtils.lerp(0.22, config.atmosphereLevelResponse, atmosphereDepth) * autopilotStrength);
       const controlFreedom = 1 - clamp01(Math.max(Math.abs(turnInput), Math.abs(pitchInput)));
       ship.forward.lerp(horizonForward, levelBlend * controlFreedom * controlFreedom);
     }
     const trimAuthority = Math.max(0, 1 - Math.abs(pitchInput) * 1.4);
     const trimPitch = trimAuthority > 0.001
-      ? THREE.MathUtils.clamp(-altitudeError * THREE.MathUtils.lerp(0.015, 0.05, atmosphereDepth) * trimAuthority * autopilotStrength, -0.14, 0.14)
+      ? THREE.MathUtils.clamp(-altitudeError * THREE.MathUtils.lerp(0.015, config.atmosphereTrimResponse, atmosphereDepth) * trimAuthority * autopilotStrength, -0.14, 0.14)
       : 0;
     if (trimPitch !== 0) {
       ship.forward.applyAxisAngle(rightAxis, trimPitch * dt);
       ship.up.applyAxisAngle(rightAxis, trimPitch * dt);
     }
-    ship.bank = THREE.MathUtils.lerp(ship.bank, 0, easeExp(dt, THREE.MathUtils.lerp(0.6, 1.7, atmosphereDepth) * autopilotStrength));
+    ship.bank = THREE.MathUtils.lerp(ship.bank, 0, easeExp(dt, THREE.MathUtils.lerp(0.6, config.atmosphereBankResponse, atmosphereDepth) * autopilotStrength));
   } else {
-    const spaceTransitionDistance = config.atmosphereInfluenceDistance;
+    const spaceTransitionDistance = config.atmosphereSpaceTurnTransition;
     const extraAltitude = Math.max(0, altitude - atmosphereThickness);
     const bankBlend = 1 - clamp01(extraAltitude / spaceTransitionDistance);
     const spaceYawRate = THREE.MathUtils.lerp(0.26, 0.72, clamp01(currentSpeed / 18));
@@ -515,7 +536,7 @@ function updateShipState(state, dt, controls) {
     ship.bank = THREE.MathUtils.lerp(ship.bank, 0, easeExp(dt, THREE.MathUtils.lerp(0.12, 1.8, 1 - bankBlend)));
   }
 
-  if (ship.pitchIdleTime > 1.0) {
+  if (ship.pitchIdleTime > config.shipPitchReorientDelay) {
     const referenceUp = atmosphereDepth > 0 && state.nearestPlanet
       ? ship.position.clone().sub(state.nearestPlanet.position).normalize()
       : worldUp;
@@ -524,7 +545,11 @@ function updateShipState(state, dt, controls) {
     if (targetUp.lengthSq() > 1e-6 && currentUp.lengthSq() > 1e-6) {
       targetUp.normalize();
       currentUp.normalize();
-      const rightingStrength = THREE.MathUtils.lerp(0.15, 0.7, clamp01((ship.pitchIdleTime - 1.0) / 1.5));
+      const rightingStrength = THREE.MathUtils.lerp(
+        0.15,
+        0.7,
+        clamp01((ship.pitchIdleTime - config.shipPitchReorientDelay) / 1.5)
+      );
       ship.up.lerp(targetUp, rightingStrength * dt * 14.0).normalize();
     }
   }
@@ -559,8 +584,8 @@ function updateShipState(state, dt, controls) {
     } else if (!boostActive && ship.boostTimer <= 0 && state.fuel < state.maxFuel) {
       state.fuel = Math.min(state.maxFuel, state.fuel + config.shipFuelRecharge * dt);
     }
-    if (relativeVelocity.lengthSq() > maxShipSpeed * maxShipSpeed) {
-      relativeVelocity.setLength(maxShipSpeed);
+    if (relativeVelocity.lengthSq() > altitudeSpeedCap * altitudeSpeedCap) {
+      relativeVelocity.setLength(altitudeSpeedCap);
     }
     ship.speed = relativeVelocity.length();
     relativePosition.addScaledVector(relativeVelocity, dt);
@@ -574,19 +599,33 @@ function updateShipState(state, dt, controls) {
     syncShipWorldState(ship);
     state.speed = ship.speed;
   } else {
-    relativeVelocity.addScaledVector(ship.gravity, dt);
+    const spaceForward = tempVecB.copy(ship.forward);
+    const spaceDrag = config.shipDragSpace * 0.25;
+    ship.speed = Math.max(0, ship.speed - ship.speed * spaceDrag * dt);
     if (boostLevel > 0) {
       const boostImpulse = config.shipBoostThrust * boostLevel * dt;
-      relativeVelocity.addScaledVector(ship.forward, boostImpulse);
+      ship.speed += boostImpulse;
       state.fuel = Math.max(0, state.fuel - dt * (0.8 + boostLevel * 3.2));
     } else if (!boostActive && ship.boostTimer <= 0 && state.fuel < state.maxFuel) {
       state.fuel = Math.min(state.maxFuel, state.fuel + config.shipFuelRecharge * dt);
     }
-    if (relativeVelocity.lengthSq() > maxShipSpeed * maxShipSpeed) {
-      relativeVelocity.setLength(maxShipSpeed);
+    if (brakeActive) {
+      ship.speed = Math.max(0, ship.speed - config.shipBrake * 0.02 * dt);
     }
-    ship.speed = relativeVelocity.length();
+    ship.speed = Math.min(altitudeSpeedCap, ship.speed);
+    relativeVelocity.copy(spaceForward).multiplyScalar(ship.speed);
     relativePosition.addScaledVector(relativeVelocity, dt);
+    const surfaceSnapDistance = planet.radius + config.planetSurfaceSnapAltitude;
+    if (relativePosition.lengthSq() <= surfaceSnapDistance * surfaceSnapDistance) {
+      const snapNormal = tempVecD.copy(relativePosition).normalize();
+      const snapAltitude = Math.max(config.planetSurfaceSnapAltitude, 1.0);
+      relativePosition.copy(snapNormal).multiplyScalar(planet.radius + snapAltitude);
+      const radialVelocity = snapNormal.clone().multiplyScalar(relativeVelocity.dot(snapNormal));
+      relativeVelocity.sub(radialVelocity);
+      ship.forward.copy(relativeVelocity.lengthSq() > 1e-6 ? relativeVelocity.clone().normalize() : ship.forward);
+      ship.up.copy(snapNormal);
+      ship.boundPlanet = planet;
+    }
     ship.relativeVelocity.copy(relativeVelocity);
     syncShipWorldState(ship);
     state.speed = ship.speed;

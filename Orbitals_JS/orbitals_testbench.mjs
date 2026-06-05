@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import * as THREE from './lib/three.module.js';
 import { createOrbitalsSim } from './Orbitals_Sim.js';
+import { config } from './orbitals_config.js';
 
 const NEUTRAL_CONTROLS = {
   turnInput: 0,
@@ -343,23 +344,29 @@ function runSpaceNewtonianTest() {
 
   const initialForward = state.ship.forward.clone();
   const initialAltitude = altitudeBetween(state.ship, planet);
+  const initialPosition = state.ship.position.clone();
 
   stepSim(sim, 120, NEUTRAL_CONTROLS);
 
   const finalAltitude = altitudeBetween(state.ship, planet);
   const finalForward = state.ship.forward.clone();
+  const travelVector = state.ship.position.clone().sub(initialPosition).normalize();
 
   assert.ok(
     finalForward.dot(initialForward) > 0.97,
-    `space flight should not auto-level the nose: dot=${finalForward.dot(initialForward).toFixed(3)}`
+    `space flight should keep the nose aligned: dot=${finalForward.dot(initialForward).toFixed(3)}`
   );
   assert.ok(
-    finalAltitude < initialAltitude - 10,
-    `space flight should follow gravity instead of holding altitude: initial=${initialAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)}`
+    travelVector.dot(initialForward.clone().negate()) > 0.95,
+    `space flight should move along the current space heading: dot=${travelVector.dot(initialForward.clone().negate()).toFixed(3)}`
+  );
+  assert.ok(
+    Math.abs(finalAltitude - initialAltitude) < 30,
+    `space flight should stay locally stable without inertia: initial=${initialAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)}`
   );
 
   console.log(
-    `PASS space-newtonian: initial=${initialAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)} dot=${finalForward.dot(initialForward).toFixed(3)}`
+    `PASS space-nose-flight: initial=${initialAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)} dot=${finalForward.dot(initialForward).toFixed(3)}`
   );
 }
 
@@ -561,6 +568,75 @@ function runPlanetOrbitTest() {
   );
 }
 
+function runPlanetCaptureArrivalTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  const startPlanet = state.ship.boundPlanet;
+  assert.ok(startPlanet, 'expected the ship to start bound to a planet');
+
+  const targetPlanet = state.planets.find((planet) => planet !== startPlanet);
+  assert.ok(targetPlanet, 'expected a second planet to exist');
+
+  const startNormal = state.ship.position.clone().sub(startPlanet.position).normalize();
+  const startAltitude = altitudeBetween(state.ship, startPlanet);
+  const maxSteps = 2400;
+  let capturedPlanet = null;
+  let closestPlanet = null;
+  let closestAltitude = Infinity;
+  let captureStep = -1;
+
+  state.ship.forward.copy(targetPlanet.position.clone().sub(state.ship.position).normalize());
+  state.ship.up.copy(startNormal);
+  state.ship.bank = 0;
+  state.ship.speed = state.speed;
+  state.ship.relativeVelocity.copy(state.ship.forward).multiplyScalar(state.ship.speed);
+  state.ship.velocity.copy(state.ship.relativeVelocity);
+  state.nearestPlanet = startPlanet;
+  state.nearestDistance = state.ship.position.distanceTo(startPlanet.position);
+  state.nearestAltitude = startAltitude;
+
+  for (let i = 0; i < maxSteps; i += 1) {
+    const aimToTarget = targetPlanet.position.clone().sub(state.ship.position).normalize();
+    state.ship.forward.copy(aimToTarget);
+    state.ship.up.copy(state.ship.position.clone().sub(startPlanet.position).normalize());
+    state.ship.relativeVelocity.copy(state.ship.forward).multiplyScalar(Math.max(state.ship.speed, config.shipMinMaxSpeed));
+    state.ship.velocity.copy(state.ship.relativeVelocity);
+    sim.step(1 / 60, {
+      turnInput: 0,
+      pitchInput: 0,
+      boost: true,
+      brake: false,
+      respawn: false
+    });
+    const altitude = altitudeBetween(state.ship, targetPlanet);
+    if (altitude < closestAltitude) {
+      closestAltitude = altitude;
+      closestPlanet = state.ship.boundPlanet ? state.ship.boundPlanet.name : null;
+    }
+    if (state.ship.boundPlanet === targetPlanet) {
+      capturedPlanet = targetPlanet;
+      captureStep = i;
+      break;
+    }
+  }
+
+  console.log(
+    `DEBUG planet-capture-arrival: target=${targetPlanet.name} captured=${capturedPlanet ? 'yes' : 'no'} captureStep=${captureStep} closestAltitude=${closestAltitude.toFixed(3)} bound=${state.ship.boundPlanet ? state.ship.boundPlanet.name : 'none'}`
+  );
+
+  assert.ok(capturedPlanet, 'expected the ship to capture the target planet during arrival');
+  assert.ok(
+    altitudeBetween(state.ship, targetPlanet) <= config.planetCaptureAltitude,
+    `expected capture within atmosphere: altitude=${altitudeBetween(state.ship, targetPlanet).toFixed(3)}`
+  );
+
+  console.log(
+    `PASS planet-capture-arrival: target=${targetPlanet.name} altitude=${altitudeBetween(state.ship, targetPlanet).toFixed(3)}`
+  );
+}
+
 runStableAltitudeTest();
 runPitchResponseTest();
 runBoostRecoveryTest();
@@ -572,3 +648,4 @@ runSpaceLoopTest();
 runSpaceRecoveryFlipTest();
 runProjectileFireTest();
 runPlanetOrbitTest();
+runPlanetCaptureArrivalTest();
