@@ -91,6 +91,25 @@ scene.add(spaceDebrisPoints);
 const spaceDebrisAnchor = new THREE.Vector3();
 const spaceDebrisMinDistance = 4000;
 const spaceDebrisMaxDistance = 14000;
+const stateLabelCanvas = document.createElement('canvas');
+stateLabelCanvas.width = 512;
+stateLabelCanvas.height = 128;
+const stateLabelCtx = stateLabelCanvas.getContext('2d');
+const stateLabelTexture = new THREE.CanvasTexture(stateLabelCanvas);
+stateLabelTexture.colorSpace = THREE.SRGBColorSpace;
+stateLabelTexture.needsUpdate = true;
+const stateLabelMaterial = new THREE.SpriteMaterial({
+  map: stateLabelTexture,
+  transparent: true,
+  depthWrite: false,
+  depthTest: false
+});
+const stateLabelSprite = new THREE.Sprite(stateLabelMaterial);
+stateLabelSprite.visible = false;
+stateLabelSprite.renderOrder = 1000;
+stateLabelSprite.scale.set(1200, 300, 1);
+scene.add(stateLabelSprite);
+let stateLabelText = '';
 const starRoot = new THREE.Group();
 scene.add(starRoot);
 
@@ -820,13 +839,15 @@ function updateHud() {
   const alt = state.nearestAltitude;
   const speed = state.speed;
   const fuel = state.fuel;
+  const shipMode = state.ship ? (state.ship.flightMode || (state.ship.boundPlanet ? 'bound' : 'free')) : 'none';
+  const lock = state.ship ? (state.ship.recaptureLock || 0) : 0;
   const mode = state.crashed
     ? 'CRASHED'
     : (state.pointerLocked ? 'Mouse locked' : (state.gamepadConnected ? 'Gamepad ready' : 'Keyboard ready'));
   statusLine.textContent = nearest
-    ? `${mode} | ${nearest.name}`
-    : `${mode} | No planet in range`;
-  statsLine.textContent = `Fuel: ${fuel.toFixed(1)} | Speed: ${speed.toFixed(1)} | Altitude: ${alt.toFixed(1)}`;
+    ? `${mode} | ${nearest.name} | ship:${shipMode} | lock:${lock.toFixed(1)}`
+    : `${mode} | No planet in range | ship:${shipMode} | lock:${lock.toFixed(1)}`;
+  statsLine.textContent = `Fuel: ${fuel.toFixed(1)} | Speed: ${speed.toFixed(1)} | Altitude: ${alt.toFixed(1)} | State: ${shipMode}`;
   const aim = getClampedAim();
   reticleEl.style.transform = `translate(calc(-50% + ${aim.x * RETICLE_OFFSET_PX}px), calc(-50% + ${aim.y * RETICLE_OFFSET_PX}px))`;
 }

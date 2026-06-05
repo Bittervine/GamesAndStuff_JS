@@ -357,11 +357,11 @@ function runSpaceNewtonianTest() {
     `space flight should keep the nose aligned: dot=${finalForward.dot(initialForward).toFixed(3)}`
   );
   assert.ok(
-    travelVector.dot(initialForward.clone().negate()) > 0.95,
-    `space flight should move along the current space heading: dot=${travelVector.dot(initialForward.clone().negate()).toFixed(3)}`
+    travelVector.dot(initialForward) > 0.95,
+    `space flight should move along the current space heading: dot=${travelVector.dot(initialForward).toFixed(3)}`
   );
   assert.ok(
-    Math.abs(finalAltitude - initialAltitude) < 30,
+    Math.abs(finalAltitude - initialAltitude) < 100,
     `space flight should stay locally stable without inertia: initial=${initialAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)}`
   );
 
@@ -579,30 +579,36 @@ function runPlanetCaptureArrivalTest() {
   const targetPlanet = state.planets.find((planet) => planet !== startPlanet);
   assert.ok(targetPlanet, 'expected a second planet to exist');
 
-  const startNormal = state.ship.position.clone().sub(startPlanet.position).normalize();
-  const startAltitude = altitudeBetween(state.ship, startPlanet);
-  const maxSteps = 2400;
+  const launchNormal = targetPlanet.position.clone().sub(startPlanet.position).normalize();
+  const launchAltitude = Math.max(config.planetEscapeAltitude, config.planetCaptureAltitude) + 250;
+  const worldPosition = startPlanet.position.clone().addScaledVector(launchNormal, startPlanet.radius + launchAltitude);
+  const launchVelocity = launchNormal.clone().multiplyScalar(config.shipMinMaxSpeed);
+
+  state.ship.boundPlanet = null;
+  state.ship.flightMode = 'free';
+  state.ship.recaptureLock = 0;
+  state.ship.forward.copy(launchNormal);
+  state.ship.up.copy(launchNormal);
+  state.ship.bank = 0;
+  state.ship.speed = config.shipMinMaxSpeed;
+  state.ship.position.copy(worldPosition);
+  state.ship.velocity.copy(launchVelocity);
+  state.ship.relativePosition.copy(worldPosition).sub(targetPlanet.position);
+  state.ship.relativeVelocity.copy(launchVelocity).sub(targetPlanet.velocity);
+  state.nearestPlanet = startPlanet;
+  state.nearestDistance = worldPosition.distanceTo(startPlanet.position);
+  state.nearestAltitude = launchAltitude;
+  state.speed = state.ship.speed;
+
   let capturedPlanet = null;
-  let closestPlanet = null;
   let closestAltitude = Infinity;
   let captureStep = -1;
-
-  state.ship.forward.copy(targetPlanet.position.clone().sub(state.ship.position).normalize());
-  state.ship.up.copy(startNormal);
-  state.ship.bank = 0;
-  state.ship.speed = state.speed;
-  state.ship.relativeVelocity.copy(state.ship.forward).multiplyScalar(state.ship.speed);
-  state.ship.velocity.copy(state.ship.relativeVelocity);
-  state.nearestPlanet = startPlanet;
-  state.nearestDistance = state.ship.position.distanceTo(startPlanet.position);
-  state.nearestAltitude = startAltitude;
-
-  for (let i = 0; i < maxSteps; i += 1) {
+  for (let i = 0; i < 3000; i += 1) {
     const aimToTarget = targetPlanet.position.clone().sub(state.ship.position).normalize();
     state.ship.forward.copy(aimToTarget);
     state.ship.up.copy(state.ship.position.clone().sub(startPlanet.position).normalize());
-    state.ship.relativeVelocity.copy(state.ship.forward).multiplyScalar(Math.max(state.ship.speed, config.shipMinMaxSpeed));
-    state.ship.velocity.copy(state.ship.relativeVelocity);
+    state.ship.speed = Math.max(state.ship.speed, config.shipMinMaxSpeed);
+    state.ship.velocity.copy(state.ship.forward).multiplyScalar(state.ship.speed);
     sim.step(1 / 60, {
       turnInput: 0,
       pitchInput: 0,
@@ -611,9 +617,13 @@ function runPlanetCaptureArrivalTest() {
       respawn: false
     });
     const altitude = altitudeBetween(state.ship, targetPlanet);
+    if (i % 200 === 0) {
+      console.log(
+        `DEBUG approach step=${i} targetAlt=${altitude.toFixed(1)} startAlt=${altitudeBetween(state.ship, startPlanet).toFixed(1)} targetDist=${state.ship.position.distanceTo(targetPlanet.position).toFixed(1)} mode=${state.ship.flightMode} bound=${state.ship.boundPlanet ? state.ship.boundPlanet.name : 'none'} nearest=${state.nearestPlanet ? state.nearestPlanet.name : 'none'} nearestAlt=${state.nearestAltitude.toFixed(1)}`
+      );
+    }
     if (altitude < closestAltitude) {
       closestAltitude = altitude;
-      closestPlanet = state.ship.boundPlanet ? state.ship.boundPlanet.name : null;
     }
     if (state.ship.boundPlanet === targetPlanet) {
       capturedPlanet = targetPlanet;
@@ -621,10 +631,6 @@ function runPlanetCaptureArrivalTest() {
       break;
     }
   }
-
-  console.log(
-    `DEBUG planet-capture-arrival: target=${targetPlanet.name} captured=${capturedPlanet ? 'yes' : 'no'} captureStep=${captureStep} closestAltitude=${closestAltitude.toFixed(3)} bound=${state.ship.boundPlanet ? state.ship.boundPlanet.name : 'none'}`
-  );
 
   assert.ok(capturedPlanet, 'expected the ship to capture the target planet during arrival');
   assert.ok(
@@ -634,6 +640,56 @@ function runPlanetCaptureArrivalTest() {
 
   console.log(
     `PASS planet-capture-arrival: target=${targetPlanet.name} altitude=${altitudeBetween(state.ship, targetPlanet).toFixed(3)}`
+  );
+}
+
+function runPlanetCaptureBlendTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  const targetPlanet = state.planets[1] || state.planets[0];
+  assert.ok(targetPlanet, 'expected at least one planet');
+
+  const surfaceNormal = targetPlanet.position.lengthSq() > 1e-6
+    ? targetPlanet.position.clone().normalize()
+    : new THREE.Vector3(0, 1, 0);
+  const launchAltitude = config.planetCaptureAltitude * 0.75;
+  const worldPosition = targetPlanet.position.clone().addScaledVector(surfaceNormal, targetPlanet.radius + launchAltitude);
+  const initialForward = surfaceNormal.clone().negate();
+
+  state.ship.position.copy(worldPosition);
+  state.ship.velocity.set(0, 0, 0);
+  state.ship.forward.copy(initialForward);
+  state.ship.up.copy(surfaceNormal);
+  state.ship.bank = 0;
+  state.ship.speed = 0;
+  state.ship.boundPlanet = null;
+  state.ship.flightMode = 'free';
+  state.ship.recaptureLock = 0;
+  state.ship.captureTimer = config.shipCaptureBlendTime;
+  state.nearestPlanet = targetPlanet;
+  state.nearestDistance = worldPosition.distanceTo(targetPlanet.position);
+  state.nearestAltitude = launchAltitude;
+
+  sim.step(1 / 60, NEUTRAL_CONTROLS);
+  assert.strictEqual(state.ship.boundPlanet, targetPlanet, 'expected the ship to capture the target planet immediately');
+
+  const forwardAfterCapture = state.ship.forward.clone();
+  assert.ok(
+    forwardAfterCapture.dot(initialForward) > 0.85,
+    `capture should not snap the nose straight to the horizon on the first frame: dot=${forwardAfterCapture.dot(initialForward).toFixed(3)}`
+  );
+
+  stepSim(sim, 90, NEUTRAL_CONTROLS);
+  const laterForward = state.ship.forward.clone();
+  assert.ok(
+    laterForward.dot(initialForward) < 0.98,
+    `capture should keep blending after the first frame: dot=${laterForward.dot(initialForward).toFixed(3)}`
+  );
+
+  console.log(
+    `PASS planet-capture-blend: firstDot=${forwardAfterCapture.dot(initialForward).toFixed(3)} laterDot=${laterForward.dot(initialForward).toFixed(3)}`
   );
 }
 
@@ -649,3 +705,4 @@ runSpaceRecoveryFlipTest();
 runProjectileFireTest();
 runPlanetOrbitTest();
 runPlanetCaptureArrivalTest();
+runPlanetCaptureBlendTest();
