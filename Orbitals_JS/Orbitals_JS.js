@@ -116,6 +116,10 @@ const starCoronaGroup = new THREE.Group();
 starCoronaGroup.renderOrder = -30;
 starRoot.add(starCoronaGroup);
 const starCoronaLayers = [];
+const starInnerLightGroup = new THREE.Group();
+starInnerLightGroup.renderOrder = -20;
+starRoot.add(starInnerLightGroup);
+const starInnerLights = [];
 
 const starLight = new THREE.PointLight(0xfff2c6, 12000, 0, 2);
 starLight.position.set(0, 0, 0);
@@ -404,6 +408,25 @@ function createSunCoronaTexture() {
     ctx.lineTo(x1, y1);
     ctx.stroke();
   }
+
+  ctx.strokeStyle = 'rgba(255, 185, 90, 0.13)';
+  ctx.shadowColor = 'rgba(255, 160, 70, 0.28)';
+  ctx.shadowBlur = size * 0.02;
+  const shortRays = 28;
+  for (let i = 0; i < shortRays; i += 1) {
+    const angle = (i / shortRays) * Math.PI * 2 + (Math.PI / shortRays) * 0.5;
+    const inner = size * (0.09 + (i % 2) * 0.007);
+    const outer = size * (0.23 + (i % 4) * 0.028);
+    const x0 = cx + Math.cos(angle) * inner;
+    const y0 = cy + Math.sin(angle) * inner;
+    const x1 = cx + Math.cos(angle) * outer;
+    const y1 = cy + Math.sin(angle) * outer;
+    ctx.lineWidth = 0.8 + (i % 4) * 0.35;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+  }
   ctx.restore();
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -522,6 +545,34 @@ function addStarCoronaLayer(baseScale, opacity, color, stretchX = 1, stretchY = 
   });
 }
 
+function addStarInnerLight(baseScale, opacity, color, radius, speed, phase, stretchY = 1) {
+  const material = new THREE.SpriteMaterial({
+    map: atmosphereGlowTexture,
+    color,
+    transparent: true,
+    opacity,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    depthTest: false,
+    toneMapped: false
+  });
+  const sprite = new THREE.Sprite(material);
+  sprite.frustumCulled = false;
+  sprite.renderOrder = -18;
+  sprite.scale.set(baseScale, baseScale * stretchY, 1);
+  starInnerLightGroup.add(sprite);
+  starInnerLights.push({
+    sprite,
+    baseScale,
+    baseOpacity: opacity,
+    color,
+    radius,
+    speed,
+    phase,
+    stretchY
+  });
+}
+
 function rebuildStarCorona() {
   while (starCoronaGroup.children.length > 0) {
     starCoronaGroup.remove(starCoronaGroup.children[0]);
@@ -531,6 +582,15 @@ function rebuildStarCorona() {
   addStarCoronaLayer(config.starScale * 4.2, 0.19, 0xffefb8, 1.06, 1.00, 0.05, 1.3);
   addStarCoronaLayer(config.starScale * 6.1, 0.10, 0xffc66a, 1.15, 1.04, 0.07, 2.2);
   addStarCoronaLayer(config.starScale * 8.8, 0.04, 0xff9f3e, 1.24, 1.10, 0.09, 2.9);
+
+  while (starInnerLightGroup.children.length > 0) {
+    starInnerLightGroup.remove(starInnerLightGroup.children[0]);
+  }
+  starInnerLights.length = 0;
+  addStarInnerLight(config.starScale * 0.22, 0.42, 0xfffded, config.starScale * 0.16, 0.95, 0.0, 1.0);
+  addStarInnerLight(config.starScale * 0.19, 0.30, 0xfff0bc, config.starScale * 0.17, 1.25, 1.1, 0.9);
+  addStarInnerLight(config.starScale * 0.16, 0.20, 0xffd48b, config.starScale * 0.18, 1.55, 2.2, 1.1);
+  addStarInnerLight(config.starScale * 0.14, 0.14, 0xffb963, config.starScale * 0.19, 1.92, 3.4, 0.85);
 }
 
 function makeStarfield() {
@@ -656,6 +716,37 @@ function updateStarCorona(time) {
       1
     );
     layer.sprite.material.opacity = layer.baseOpacity * (0.9 + Math.sin(time * (1.7 + layer.pulse) + layer.phase) * 0.1);
+  }
+  if (starInnerLights.length > 0) {
+    const toCamera = tempVecA.copy(camera.position);
+    if (toCamera.lengthSq() < 1e-6) {
+      toCamera.set(0, 0, 1);
+    } else {
+      toCamera.normalize();
+    }
+    const right = Math.abs(toCamera.dot(worldUp)) > 0.92
+      ? tempVecB.set(1, 0, 0).cross(toCamera).normalize()
+      : tempVecB.copy(worldUp).cross(toCamera).normalize();
+    const up = tempVecC.copy(toCamera).cross(right).normalize();
+    const discDepth = config.starScale * 0.5 * 0.985;
+    const rimRadius = config.starScale * 0.18;
+    for (const light of starInnerLights) {
+      const angle = time * light.speed + light.phase;
+      const ringX = Math.cos(angle) * light.radius;
+      const ringY = Math.sin(angle) * light.radius * 0.82;
+      light.sprite.position
+        .copy(toCamera).multiplyScalar(discDepth)
+        .addScaledVector(right, ringX)
+        .addScaledVector(up, ringY);
+      const travel = 0.7 + 0.3 * Math.sin(time * (1.4 + light.speed) + light.phase * 1.7);
+      light.sprite.scale.set(
+        light.baseScale * travel,
+        light.baseScale * light.stretchY * (0.85 + 0.15 * travel),
+        1
+      );
+      light.sprite.material.opacity = light.baseOpacity * (0.55 + 0.45 * travel);
+      light.sprite.material.color.offsetHSL(0.0, 0.0, Math.sin(time * 0.8 + light.phase) * 0.02);
+    }
   }
   starLight.intensity = 24000 + Math.sin(time * 1.4) * 1500 + Math.sin(time * 2.7 + 0.6) * 900;
 }
