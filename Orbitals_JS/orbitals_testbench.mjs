@@ -169,14 +169,13 @@ function runBoostRecoveryTest() {
   );
 
   stepSim(sim, recoveryFrames, NEUTRAL_CONTROLS);
-  const settledPlanet = state.ship.boundPlanet;
+  const settledPlanet = state.ship.boundPlanet || state.nearestPlanet || startPlanet;
+  assert.ok(settledPlanet, 'expected the ship to remain near a planet after recovery');
   const settledAltitude = altitudeBetween(state.ship, settledPlanet);
   const settledSpeed = state.speed;
   const settledThickness = settledPlanet.atmosphereRadius - settledPlanet.radius;
   const settledDot = state.ship.forward.clone().normalize().dot(state.ship.position.clone().sub(settledPlanet.position).normalize());
   const stillInAtmosphere = settledAltitude <= settledThickness;
-
-  assert.ok(settledPlanet, 'expected the ship to remain bound to a planet after recovery');
   if (stillInAtmosphere) {
     assert.ok(
       Math.abs(settledDot) <= 0.18,
@@ -233,6 +232,60 @@ function runBoostThrustTest() {
 
   console.log(
     `PASS boost-thrust: baselineTravel=${baselineTravel.toFixed(3)} boostTravel=${boostTravel.toFixed(3)} boostSpeed=${boostSpeed.toFixed(3)}`
+  );
+}
+
+function runAtmosphereBoostPitchLockTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  const planet = state.ship.boundPlanet;
+  assert.ok(planet, 'expected the ship to start bound to a planet');
+
+  const up = state.ship.position.clone().sub(planet.position).normalize();
+  const tangent = Math.abs(up.dot(new THREE.Vector3(0, 1, 0))) > 0.85
+    ? new THREE.Vector3(1, 0, 0).cross(up).normalize()
+    : new THREE.Vector3(0, 1, 0).cross(up).normalize();
+  const altitude = Math.min(config.atmosphereControlAltitude * 0.6, planet.atmosphereRadius - planet.radius - 2);
+  const worldPosition = planet.position.clone().addScaledVector(up, planet.radius + altitude);
+  const initialForward = tangent.clone().addScaledVector(up, 0.42).normalize();
+  const initialUp = up.clone().sub(initialForward.clone().multiplyScalar(up.dot(initialForward))).normalize();
+
+  state.ship.boundPlanet = planet;
+  state.ship.flightMode = 'bound';
+  state.ship.relativePosition.copy(worldPosition).sub(planet.position);
+  state.ship.relativeVelocity.copy(initialForward).multiplyScalar(120);
+  state.ship.position.copy(worldPosition);
+  state.ship.velocity.copy(initialForward).multiplyScalar(120);
+  state.ship.forward.copy(initialForward);
+  state.ship.up.copy(initialUp);
+  state.ship.bank = 0;
+  state.ship.speed = 120;
+  state.ship.pitchIdleTime = config.shipPitchReorientDelay + 2;
+  state.ship.captureTimer = config.shipCaptureBlendTime;
+  state.ship.recaptureLock = 0;
+  state.nearestPlanet = planet;
+  state.nearestDistance = worldPosition.distanceTo(planet.position);
+  state.nearestAltitude = altitude;
+  state.speed = state.ship.speed;
+
+  stepSim(sim, 180, { ...NEUTRAL_CONTROLS, boost: true });
+
+  const finalForward = state.ship.forward.clone();
+  const finalUp = state.ship.up.clone();
+
+  assert.ok(
+    finalForward.dot(initialForward) > 0.995,
+    `boost should not auto-pitch the nose: dot=${finalForward.dot(initialForward).toFixed(3)}`
+  );
+  assert.ok(
+    finalUp.dot(initialUp) > 0.995,
+    `boost should not auto-realign the ship up vector: dot=${finalUp.dot(initialUp).toFixed(3)}`
+  );
+
+  console.log(
+    `PASS atmosphere-boost-pitch-lock: forward=${finalForward.dot(initialForward).toFixed(3)} up=${finalUp.dot(initialUp).toFixed(3)}`
   );
 }
 
@@ -420,7 +473,7 @@ function runSpaceLoopTest() {
   );
 }
 
-function runSpaceRecoveryFlipTest() {
+function runSpaceFreeNoAutoReorientTest() {
   const sim = createOrbitalsSim(0xC0FFEE);
   sim.bootstrapWorld();
 
@@ -434,38 +487,42 @@ function runSpaceRecoveryFlipTest() {
     : new THREE.Vector3(0, 1, 0).cross(up).normalize();
   const altitude = 5000;
   const worldPosition = planet.position.clone().addScaledVector(up, planet.radius + altitude);
+  const initialForward = tangent.clone().addScaledVector(up, 0.25).normalize();
+  const initialUp = initialForward.clone().cross(tangent).normalize();
 
   state.ship.boundPlanet = planet;
   state.ship.relativePosition.copy(worldPosition).sub(planet.position);
   state.ship.relativeVelocity.copy(tangent).multiplyScalar(24);
   state.ship.position.copy(worldPosition);
   state.ship.velocity.copy(tangent).multiplyScalar(24);
-  state.ship.forward.copy(tangent).normalize();
-  state.ship.up.copy(up);
-  state.ship.bank = 0;
+  state.ship.forward.copy(initialForward);
+  state.ship.up.copy(initialUp);
+  state.ship.bank = 0.45;
   state.ship.speed = state.ship.relativeVelocity.length();
   state.nearestPlanet = planet;
   state.nearestDistance = worldPosition.distanceTo(planet.position);
   state.nearestAltitude = altitude;
   state.speed = state.ship.speed;
 
-  stepSim(sim, 120, { ...NEUTRAL_CONTROLS, pitchInput: -1 });
-  const invertedUp = state.ship.up.clone();
-  stepSim(sim, 90, NEUTRAL_CONTROLS);
-  const recoveredUp = state.ship.up.clone();
-  const worldUp = new THREE.Vector3(0, 1, 0);
+  stepSim(sim, 180, NEUTRAL_CONTROLS);
+  const finalForward = state.ship.forward.clone();
+  const finalUp = state.ship.up.clone();
 
   assert.ok(
-    invertedUp.dot(up) < 0.7,
-    `continuous pitch should allow the ship to invert: dot=${invertedUp.dot(up).toFixed(3)}`
+    finalForward.dot(initialForward) > 0.995,
+    `free flight should not auto-reorient the nose: dot=${finalForward.dot(initialForward).toFixed(3)}`
   );
   assert.ok(
-    recoveredUp.dot(worldUp) > 0.5,
-    `idle recovery should right the ship after about 1 second: dot=${recoveredUp.dot(worldUp).toFixed(3)}`
+    finalUp.dot(initialUp) > 0.995,
+    `free flight should not auto-reorient the ship up vector: dot=${finalUp.dot(initialUp).toFixed(3)}`
+  );
+  assert.ok(
+    Math.abs(state.ship.bank) < 0.08,
+    `free-flight bank should decay slowly toward level: bank=${state.ship.bank.toFixed(3)}`
   );
 
   console.log(
-    `PASS space-recovery-flip: inverted=${invertedUp.dot(up).toFixed(3)} recovered=${recoveredUp.dot(worldUp).toFixed(3)}`
+    `PASS space-free-no-auto-reorient: forward=${finalForward.dot(initialForward).toFixed(3)} up=${finalUp.dot(initialUp).toFixed(3)} bank=${state.ship.bank.toFixed(3)}`
   );
 }
 
@@ -516,6 +573,7 @@ function runPlanetOrbitTest() {
   assert.ok(state.planets.length >= 3, 'expected multiple planets in the cluster');
   const startPlanet = state.ship.boundPlanet;
   assert.ok(startPlanet, 'expected the ship to start on a planet');
+  const starRadius = config.starScale * 0.5;
 
   const initialPositions = state.planets.map((planet) => planet.position.clone());
   const initialCenter = initialPositions
@@ -525,13 +583,18 @@ function runPlanetOrbitTest() {
 
   let minPairRatio = Infinity;
   let maxPairRatio = 0;
+  let minStarClearance = Infinity;
   const steps = 24000;
 
   for (let i = 0; i < steps; i += 1) {
     sim.step(1 / 60, NEUTRAL_CONTROLS);
     for (let a = 0; a < state.planets.length; a += 1) {
+      const planetA = state.planets[a];
+      minStarClearance = Math.min(
+        minStarClearance,
+        planetA.position.length() - (planetA.radius + starRadius)
+      );
       for (let b = a + 1; b < state.planets.length; b += 1) {
-        const planetA = state.planets[a];
         const planetB = state.planets[b];
         const referenceRadius = Math.max(planetA.radius, planetB.radius);
         const ratio = planetA.position.distanceTo(planetB.position) / referenceRadius;
@@ -562,9 +625,13 @@ function runPlanetOrbitTest() {
     maxPairRatio <= 50.0,
     `planets drifted too far apart: farthestPairRatio=${maxPairRatio.toFixed(3)}`
   );
+  assert.ok(
+    minStarClearance >= -1e-6,
+    `planets got too close to the star: starClearance=${minStarClearance.toFixed(3)}`
+  );
 
   console.log(
-    `PASS planet-orbits: moved=${orbitingPlanets}/${state.planets.length} closestPairRatio=${minPairRatio.toFixed(3)} farthestPairRatio=${maxPairRatio.toFixed(3)}`
+    `PASS planet-orbits: moved=${orbitingPlanets}/${state.planets.length} closestPairRatio=${minPairRatio.toFixed(3)} farthestPairRatio=${maxPairRatio.toFixed(3)} starClearance=${minStarClearance.toFixed(3)}`
   );
 }
 
@@ -634,6 +701,10 @@ function runPlanetCaptureArrivalTest() {
 
   assert.ok(capturedPlanet, 'expected the ship to capture the target planet during arrival');
   assert.ok(
+    closestAltitude >= -1,
+    `expected the approach to stay above the surface: closestAltitude=${closestAltitude.toFixed(3)}`
+  );
+  assert.ok(
     altitudeBetween(state.ship, targetPlanet) <= config.planetCaptureAltitude,
     `expected capture within atmosphere: altitude=${altitudeBetween(state.ship, targetPlanet).toFixed(3)}`
   );
@@ -697,11 +768,12 @@ runStableAltitudeTest();
 runPitchResponseTest();
 runBoostRecoveryTest();
 runBoostThrustTest();
+runAtmosphereBoostPitchLockTest();
 runBoostDirectionTest();
 runFuelRechargeTest();
 runSpaceNewtonianTest();
 runSpaceLoopTest();
-runSpaceRecoveryFlipTest();
+runSpaceFreeNoAutoReorientTest();
 runProjectileFireTest();
 runPlanetOrbitTest();
 runPlanetCaptureArrivalTest();

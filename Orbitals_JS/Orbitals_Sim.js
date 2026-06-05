@@ -167,13 +167,14 @@ function updateFuelMoteState(mote, dt, time, state) {
 }
 
 function updatePlanetState(planet, dt, time) {
-  const angle = planet.orbitPhase + time * planet.orbitSpeed;
-  const precession = time * planet.orbitPrecession;
+  const motionScale = config.planetMotionSpeedScale;
+  const angle = planet.orbitPhase + time * planet.orbitSpeed * motionScale;
+  const precession = time * planet.orbitPrecession * motionScale;
   const plane = planet.orbitPlane;
   const cosA = Math.cos(angle + precession);
   const sinA = Math.sin(angle * 1.03 - precession * 1.7);
-  const wobble = Math.sin(time * planet.wobbleSpeed + planet.wobblePhase);
-  const wobble2 = Math.cos(time * planet.wobbleSpeed * 0.73 + planet.wobblePhase * 1.9);
+  const wobble = Math.sin(time * planet.wobbleSpeed * motionScale + planet.wobblePhase);
+  const wobble2 = Math.cos(time * planet.wobbleSpeed * 0.73 * motionScale + planet.wobblePhase * 1.9);
 
   tempVecA.copy(plane.tangent).multiplyScalar(cosA * planet.orbitRadius);
   tempVecB.copy(plane.bitangent).multiplyScalar(sinA * planet.orbitRadiusB);
@@ -183,9 +184,9 @@ function updatePlanetState(planet, dt, time) {
   planet.previousPosition.copy(planet.position);
   planet.position.copy(tempVecA).add(tempVecB).add(tempVecC).add(tempVecD);
   const clusterWobble = config.clusterWobble * config.orbitScale;
-  planet.position.x += Math.sin(time * 0.09 + planet.orbitPhase) * clusterWobble * 0.18;
-  planet.position.y += Math.cos(time * 0.07 + planet.orbitPhase * 0.7) * clusterWobble * 0.11;
-  planet.position.z += Math.sin(time * 0.05 + planet.orbitPhase * 1.3) * clusterWobble * 0.14;
+  planet.position.x += Math.sin(time * 0.09 * motionScale + planet.orbitPhase) * clusterWobble * 0.18;
+  planet.position.y += Math.cos(time * 0.07 * motionScale + planet.orbitPhase * 0.7) * clusterWobble * 0.11;
+  planet.position.z += Math.sin(time * 0.05 * motionScale + planet.orbitPhase * 1.3) * clusterWobble * 0.14;
 
   planet.velocity.copy(planet.position).sub(planet.previousPosition).divideScalar(Math.max(dt, 1 / 240));
 }
@@ -208,6 +209,25 @@ function relaxPlanetSeparation(planets) {
         a.position.addScaledVector(delta, -1);
         b.position.add(delta);
       }
+    }
+  }
+}
+
+function relaxStarSeparation(planets) {
+  const starRadius = config.starScale * 0.5;
+  for (let iteration = 0; iteration < 3; iteration += 1) {
+    for (const planet of planets) {
+      const minDistance = starRadius + planet.radius;
+      const distance = planet.position.length();
+      if (distance >= minDistance) {
+        continue;
+      }
+      const direction = distance > 1e-6
+        ? tempVecA.copy(planet.position).divideScalar(distance)
+        : (planet.previousPosition.lengthSq() > 1e-6
+          ? tempVecA.copy(planet.previousPosition).normalize()
+          : tempVecA.copy(planet.orbitPlane.tangent).normalize());
+      planet.position.copy(direction.multiplyScalar(minDistance));
     }
   }
 }
@@ -459,6 +479,7 @@ function updateShipState(state, dt, controls) {
     : smoothstep(0, Math.max(config.shipCaptureBlendTime, 0.0001), ship.captureTimer);
   const targetAltitude = atmosphereThickness * 0.5;
   const altitudeError = THREE.MathUtils.clamp((targetAltitude - altitude) / (atmosphereThickness * 0.5), -1, 1);
+  const approachResponse = THREE.MathUtils.lerp(1, config.atmosphereApproachResponse, atmosphereDepth);
 
   ship.gravity.copy(gravityDir.normalize().multiplyScalar(gravityStrength));
 
@@ -525,14 +546,14 @@ function updateShipState(state, dt, controls) {
     ship.forward.applyAxisAngle(rightAxis, pitchInput * pitchRate * dt);
     ship.up.applyAxisAngle(rightAxis, pitchInput * pitchRate * dt);
   } else {
-    ship.pitchIdleTime += dt;
+    ship.pitchIdleTime += boostLevel > 0 ? 0 : dt;
   }
 
   if (atmosphereDepth > 0) {
     const horizonForward = tempVecD.copy(ship.forward).addScaledVector(localUp, -ship.forward.dot(localUp));
-    if (horizonForward.lengthSq() > 1e-6) {
+    if (horizonForward.lengthSq() > 1e-6 && boostLevel <= 0) {
       horizonForward.normalize();
-      const levelBlend = easeExp(dt, THREE.MathUtils.lerp(0.22, config.atmosphereLevelResponse, atmosphereDepth) * autopilotStrength * captureBlend);
+      const levelBlend = easeExp(dt, THREE.MathUtils.lerp(0.22, config.atmosphereLevelResponse, atmosphereDepth) * autopilotStrength * captureBlend * approachResponse);
       const controlFreedom = 1 - clamp01(Math.max(Math.abs(turnInput), Math.abs(pitchInput)));
       ship.forward.lerp(horizonForward, levelBlend * controlFreedom * controlFreedom);
     }
@@ -540,7 +561,7 @@ function updateShipState(state, dt, controls) {
     if (allowCurvatureTrim) {
       const trimAuthority = Math.max(0, 1 - Math.abs(pitchInput) * 1.4);
       const trimPitch = trimAuthority > 0.001
-        ? THREE.MathUtils.clamp(-altitudeError * THREE.MathUtils.lerp(0.015, config.atmosphereTrimResponse, atmosphereDepth) * trimAuthority * autopilotStrength * captureBlend, -0.14, 0.14)
+        ? THREE.MathUtils.clamp(-altitudeError * THREE.MathUtils.lerp(0.015, config.atmosphereTrimResponse, atmosphereDepth) * trimAuthority * autopilotStrength * captureBlend * approachResponse, -0.14, 0.14)
         : 0;
       if (trimPitch !== 0) {
         ship.forward.applyAxisAngle(rightAxis, trimPitch * dt);
@@ -557,7 +578,7 @@ function updateShipState(state, dt, controls) {
     ship.bank = THREE.MathUtils.lerp(ship.bank, 0, easeExp(dt, THREE.MathUtils.lerp(0.12, 1.8, 1 - bankBlend)));
   }
 
-  if (ship.pitchIdleTime > config.shipPitchReorientDelay) {
+  if (atmosphereDepth > 0 && ship.flightMode === 'bound' && boostLevel <= 0 && ship.pitchIdleTime > config.shipPitchReorientDelay) {
     const referenceUp = atmosphereDepth > 0 && state.nearestPlanet
       ? ship.position.clone().sub(state.nearestPlanet.position).normalize()
       : worldUp;
@@ -591,7 +612,7 @@ function updateShipState(state, dt, controls) {
       targetSpeed *= 0.55;
     }
 
-    const speedBlend = easeExp(dt, THREE.MathUtils.lerp(1.15, 3.4, atmosphereDepth) * THREE.MathUtils.lerp(0.85, 1.1, 1 - boostLevel));
+    const speedBlend = easeExp(dt, THREE.MathUtils.lerp(1.15, 3.4, atmosphereDepth) * THREE.MathUtils.lerp(0.85, 1.1, 1 - boostLevel) * approachResponse);
     ship.speed = THREE.MathUtils.lerp(currentSpeed, targetSpeed, speedBlend);
     if (brakeActive) {
       ship.speed = Math.max(0, ship.speed - config.shipBrake * 0.02 * dt);
@@ -614,7 +635,7 @@ function updateShipState(state, dt, controls) {
     const correctedOutward = tempVecA.copy(relativePosition).divideScalar(correctedDistance);
     const targetRadius = planet.radius + targetAltitude;
     const radiusError = targetRadius - correctedDistance;
-    const positionCorrection = radiusError * THREE.MathUtils.lerp(0.04, 0.11, atmosphereDepth) * autopilotStrength * boostHoldFactor;
+    const positionCorrection = radiusError * THREE.MathUtils.lerp(0.04, 0.11, atmosphereDepth) * autopilotStrength * boostHoldFactor * approachResponse;
     relativePosition.addScaledVector(correctedOutward, positionCorrection);
     ship.relativeVelocity.copy(relativeVelocity);
     if (ship.flightMode === 'bound' && ship.boundPlanet) {
@@ -694,6 +715,10 @@ function updatePlanets(state, dt, time) {
     updatePlanetState(planet, dt, time);
   }
   relaxPlanetSeparation(state.planets);
+  relaxStarSeparation(state.planets);
+  for (const planet of state.planets) {
+    planet.velocity.copy(planet.position).sub(planet.previousPosition).divideScalar(Math.max(dt, 1 / 240));
+  }
 }
 
 function updateFuelMotes(state, dt, time) {
