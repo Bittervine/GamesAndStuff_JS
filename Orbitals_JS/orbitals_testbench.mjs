@@ -550,10 +550,17 @@ function runProjectileFireTest() {
 
   const relativeVelocity = state.projectiles[0].velocity.clone().sub(ship.velocity);
   const centerDistance = state.projectiles[0].position.distanceTo(ship.position);
+  const expectedProjectileSpeed = config.shipProjectileSpeed + ship.speed * 0.35;
+  const projectileSpeed = relativeVelocity.length();
+  const projectileDirection = relativeVelocity.clone().normalize();
 
   assert.ok(
-    relativeVelocity.normalize().dot(fireDirection) > 0.98,
-    `projectile should follow the reticle direction: dot=${relativeVelocity.normalize().dot(fireDirection).toFixed(3)}`
+    projectileDirection.dot(fireDirection) > 0.98,
+    `projectile should follow the reticle direction: dot=${projectileDirection.dot(fireDirection).toFixed(3)}`
+  );
+  assert.ok(
+    Math.abs(projectileSpeed - expectedProjectileSpeed) < 1e-6,
+    `projectile speed should use config: got=${projectileSpeed.toFixed(3)} expected=${expectedProjectileSpeed.toFixed(3)}`
   );
   assert.ok(
     centerDistance <= 0.001,
@@ -561,7 +568,7 @@ function runProjectileFireTest() {
   );
 
   console.log(
-    `PASS projectile-fire: dot=${relativeVelocity.normalize().dot(fireDirection).toFixed(3)} center=${centerDistance.toFixed(3)}`
+    `PASS projectile-fire: dot=${projectileDirection.dot(fireDirection).toFixed(3)} speed=${projectileSpeed.toFixed(3)} center=${centerDistance.toFixed(3)}`
   );
 }
 
@@ -725,7 +732,7 @@ function runPlanetCaptureBlendTest() {
   const surfaceNormal = targetPlanet.position.lengthSq() > 1e-6
     ? targetPlanet.position.clone().normalize()
     : new THREE.Vector3(0, 1, 0);
-  const launchAltitude = config.planetCaptureAltitude * 0.75;
+  const launchAltitude = Math.min(config.atmosphereControlAltitude * 0.75, config.planetCaptureAltitude * 0.75);
   const worldPosition = targetPlanet.position.clone().addScaledVector(surfaceNormal, targetPlanet.radius + launchAltitude);
   const initialForward = surfaceNormal.clone().negate();
 

@@ -1093,10 +1093,22 @@ async function loadPlanetVisual(planet, index) {
             mat.color.offsetHSL(planet.hueShift, 0, 0);
             mat.metalness = Math.min(1, (mat.metalness ?? 0.05) + index * 0.01);
             mat.roughness = Math.max(0.12, (mat.roughness ?? 0.8) - 0.05);
+            mat.transparent = false;
+            mat.opacity = 1;
+            mat.alphaTest = 0;
+            mat.depthWrite = true;
+            mat.depthTest = true;
+            mat.blending = THREE.NormalBlending;
           }
         });
       } else if (obj.material.color) {
         obj.material.color.offsetHSL(planet.hueShift, 0, 0);
+        obj.material.transparent = false;
+        obj.material.opacity = 1;
+        obj.material.alphaTest = 0;
+        obj.material.depthWrite = true;
+        obj.material.depthTest = true;
+        obj.material.blending = THREE.NormalBlending;
       }
     }
   });

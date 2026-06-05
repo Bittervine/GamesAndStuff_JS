@@ -505,9 +505,10 @@ function updateShipState(state, dt, controls) {
     state.nearestAltitude * config.shipAltMaxSpeedFac
   );
 
+  const turnSpeedScale = Math.max(0.1, config.shipTurnSpeedScale ?? 1);
   const targetBank = THREE.MathUtils.clamp(turnInput * 0.95, -0.95, 0.95);
   const bankReturnRate = atmosphereDepth > 0
-    ? THREE.MathUtils.lerp(1.4, 3.3, atmosphereDepth) * THREE.MathUtils.lerp(0.7, 1.0, autopilotStrength)
+    ? THREE.MathUtils.lerp(1.4, 3.3, atmosphereDepth) * THREE.MathUtils.lerp(0.7, 1.0, autopilotStrength) * (Math.abs(turnInput) > 0.001 ? turnSpeedScale : 1)
     : 0.0;
   if (bankReturnRate > 0) {
     ship.bank = THREE.MathUtils.lerp(ship.bank, targetBank, easeExp(dt, bankReturnRate));
@@ -524,7 +525,7 @@ function updateShipState(state, dt, controls) {
   }
   ship.up.normalize();
 
-  const yawRate = THREE.MathUtils.lerp(0.38, 0.98, atmosphereDepth) * THREE.MathUtils.lerp(0.55, 1.0, clamp01(currentSpeed / 6));
+  const yawRate = THREE.MathUtils.lerp(0.38, 0.98, atmosphereDepth) * THREE.MathUtils.lerp(0.55, 1.0, clamp01(currentSpeed / 6)) * turnSpeedScale;
   if (atmosphereDepth > 0) {
     ship.forward.applyAxisAngle(localUp, -ship.bank * yawRate * dt);
   }
@@ -573,7 +574,7 @@ function updateShipState(state, dt, controls) {
     const spaceTransitionDistance = config.atmosphereSpaceTurnTransition;
     const extraAltitude = Math.max(0, altitude - atmosphereThickness);
     const bankBlend = 1 - clamp01(extraAltitude / spaceTransitionDistance);
-    const spaceYawRate = THREE.MathUtils.lerp(0.26, 0.72, clamp01(currentSpeed / 18));
+    const spaceYawRate = THREE.MathUtils.lerp(0.26, 0.72, clamp01(currentSpeed / 18)) * turnSpeedScale;
     ship.forward.applyAxisAngle(ship.up, -turnInput * spaceYawRate * dt);
     ship.bank = THREE.MathUtils.lerp(ship.bank, 0, easeExp(dt, THREE.MathUtils.lerp(0.12, 1.8, 1 - bankBlend)));
   }
