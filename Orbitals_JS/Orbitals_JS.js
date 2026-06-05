@@ -112,6 +112,10 @@ scene.add(stateLabelSprite);
 let stateLabelText = '';
 const starRoot = new THREE.Group();
 scene.add(starRoot);
+const starCoronaGroup = new THREE.Group();
+starCoronaGroup.renderOrder = -30;
+starRoot.add(starCoronaGroup);
+const starCoronaLayers = [];
 
 const starLight = new THREE.PointLight(0xfff2c6, 12000, 0, 2);
 starLight.position.set(0, 0, 0);
@@ -358,6 +362,60 @@ function createAtmosphereGlowTexture() {
 }
 
 const atmosphereGlowTexture = createAtmosphereGlowTexture();
+function createSunCoronaTexture() {
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const cx = size * 0.5;
+  const cy = size * 0.5;
+  ctx.clearRect(0, 0, size, size);
+
+  const gradient = ctx.createRadialGradient(cx, cy, size * 0.01, cx, cy, size * 0.5);
+  gradient.addColorStop(0.00, 'rgba(255,255,255,1.00)');
+  gradient.addColorStop(0.08, 'rgba(255,255,245,0.96)');
+  gradient.addColorStop(0.18, 'rgba(255,240,180,0.82)');
+  gradient.addColorStop(0.34, 'rgba(255,200,110,0.42)');
+  gradient.addColorStop(0.58, 'rgba(255,158,64,0.16)');
+  gradient.addColorStop(0.84, 'rgba(255,130,40,0.05)');
+  gradient.addColorStop(1.00, 'rgba(255,130,40,0.00)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.strokeStyle = 'rgba(255, 210, 120, 0.20)';
+  ctx.lineCap = 'round';
+  ctx.shadowColor = 'rgba(255, 190, 90, 0.45)';
+  ctx.shadowBlur = size * 0.03;
+  const rays = 20;
+  for (let i = 0; i < rays; i += 1) {
+    const angle = (i / rays) * Math.PI * 2;
+    const inner = size * (0.12 + (i % 3) * 0.01);
+    const outer = size * (0.34 + (i % 4) * 0.05);
+    const x0 = cx + Math.cos(angle) * inner;
+    const y0 = cy + Math.sin(angle) * inner;
+    const x1 = cx + Math.cos(angle) * outer;
+    const y1 = cy + Math.sin(angle) * outer;
+    ctx.lineWidth = 1 + (i % 5) * 0.55;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+const sunCoronaTexture = createSunCoronaTexture();
 const projectileGeometry = new THREE.SphereGeometry(1, 10, 8);
 const projectileMaterial = new THREE.MeshBasicMaterial({
   color: 0x62ff6f,
@@ -437,6 +495,44 @@ function createFallbackStar() {
   return group;
 }
 
+function addStarCoronaLayer(baseScale, opacity, color, stretchX = 1, stretchY = 1, pulse = 0.04, phase = 0) {
+  const material = new THREE.SpriteMaterial({
+    map: sunCoronaTexture,
+    color,
+    transparent: true,
+    opacity,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    depthTest: true,
+    toneMapped: false
+  });
+  const sprite = new THREE.Sprite(material);
+  sprite.frustumCulled = false;
+  sprite.renderOrder = -25;
+  sprite.scale.set(baseScale * stretchX, baseScale * stretchY, 1);
+  starCoronaGroup.add(sprite);
+  starCoronaLayers.push({
+    sprite,
+    baseScale,
+    baseOpacity: opacity,
+    stretchX,
+    stretchY,
+    pulse,
+    phase
+  });
+}
+
+function rebuildStarCorona() {
+  while (starCoronaGroup.children.length > 0) {
+    starCoronaGroup.remove(starCoronaGroup.children[0]);
+  }
+  starCoronaLayers.length = 0;
+  addStarCoronaLayer(config.starScale * 2.8, 0.42, 0xfff9e4, 1.00, 1.00, 0.03, 0.0);
+  addStarCoronaLayer(config.starScale * 4.2, 0.19, 0xffefb8, 1.06, 1.00, 0.05, 1.3);
+  addStarCoronaLayer(config.starScale * 6.1, 0.10, 0xffc66a, 1.15, 1.04, 0.07, 2.2);
+  addStarCoronaLayer(config.starScale * 8.8, 0.04, 0xff9f3e, 1.24, 1.10, 0.09, 2.9);
+}
+
 function makeStarfield() {
   const count = 2200;
   const positions = new Float32Array(count * 3);
@@ -483,7 +579,7 @@ async function loadStarVisual() {
           }
           if ('emissive' in mat) {
             mat.emissive = new THREE.Color(0xffe2a0);
-            mat.emissiveIntensity = 8;
+            mat.emissiveIntensity = 18;
           }
           mat.toneMapped = false;
         });
@@ -493,7 +589,7 @@ async function loadStarVisual() {
         }
         if ('emissive' in obj.material) {
           obj.material.emissive = new THREE.Color(0xffe2a0);
-          obj.material.emissiveIntensity = 8;
+          obj.material.emissiveIntensity = 18;
         }
         obj.material.toneMapped = false;
       }
@@ -501,7 +597,8 @@ async function loadStarVisual() {
   });
   starRoot.add(root);
   starRoot.position.set(0, 0, 0);
-  starLight.intensity = 18000;
+  rebuildStarCorona();
+  starLight.intensity = 24000;
 }
 
 function initSpaceDebris() {
@@ -547,6 +644,20 @@ function updateSpaceDebris(dt) {
     spaceDebrisPositions[base + 2] = ship.position.z + spaceDebrisOffsets[base + 2] * radius;
   }
   spaceDebrisGeometry.attributes.position.needsUpdate = true;
+}
+
+function updateStarCorona(time) {
+  const pulse = 1 + Math.sin(time * 1.25) * 0.03 + Math.sin(time * 2.1 + 0.7) * 0.015;
+  for (const layer of starCoronaLayers) {
+    const layerPulse = pulse + Math.sin(time * (1.1 + layer.pulse) + layer.phase) * layer.pulse;
+    layer.sprite.scale.set(
+      layer.baseScale * layer.stretchX * layerPulse,
+      layer.baseScale * layer.stretchY * layerPulse,
+      1
+    );
+    layer.sprite.material.opacity = layer.baseOpacity * (0.9 + Math.sin(time * (1.7 + layer.pulse) + layer.phase) * 0.1);
+  }
+  starLight.intensity = 24000 + Math.sin(time * 1.4) * 1500 + Math.sin(time * 2.7 + 0.6) * 900;
 }
 
 function createPlanetConfig(index, file) {
@@ -1094,6 +1205,7 @@ function render() {
     updateFuelMotes(dt, clock.elapsedTime);
     updateProjectileVisuals();
     updateSpaceDebris(dt);
+    updateStarCorona(clock.elapsedTime);
     const localUp = state.nearestPlanet && state.ship
       ? state.ship.position.clone().sub(state.nearestPlanet.position).normalize()
       : null;
