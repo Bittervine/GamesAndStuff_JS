@@ -1,32 +1,11 @@
 import * as THREE from './lib/three.module.js';
 import { GLTFLoader } from './lib/loaders/GLTFLoader.js';
 import { createOrbitalsSim } from './Orbitals_Sim.js';
+import { PLANET_FILES, config } from './orbitals_config.js';
 
 const ASSET_ROOT = './assets/';
 const PLAYER_FILE = `${ASSET_ROOT}player_spaceship.glb`;
-const PLANET_FILES = [
-  'planet_map_01.glb',
-  'planet_map_02.glb',
-  'planet_map_03.glb',
-  'planet_map_04.glb',
-  'planet_map_05.glb',
-  'planet_map_06.glb',
-  'planet_map_07.glb',
-  'planet_map_08.glb',
-  'planet_map_09.glb',
-  'planet_map_10.glb',
-  'planet_map_11.glb',
-  'planet_map_12.glb',
-  'planet_map_13.glb',
-  'planet_map_14.glb',
-  'planet_map_15.glb',
-  'planet_map_16.glb',
-  'planet_map_17.glb',
-  'planet_map_18.glb',
-  'planet_map_19.glb',
-  'planet_map_20.glb',
-  'planet_map_21.glb'
-];
+const STAR_FILE = `${ASSET_ROOT}star_map_1.glb`;
 
 const app = document.getElementById('app');
 const loadingWrap = document.getElementById('loadingWrap');
@@ -88,6 +67,36 @@ state.pointerLocked = false;
 state.gamepadConnected = false;
 state.mouseFireHeld = false;
 const projectileVisuals = new Map();
+const spaceDebrisCount = 880;
+const spaceDebrisPositions = new Float32Array(spaceDebrisCount * 3);
+const spaceDebrisSeeds = new Float32Array(spaceDebrisCount);
+const spaceDebrisOffsets = new Float32Array(spaceDebrisCount * 3);
+const spaceDebrisDistances = new Float32Array(spaceDebrisCount);
+const spaceDebrisGeometry = new THREE.BufferGeometry();
+spaceDebrisGeometry.setAttribute('position', new THREE.BufferAttribute(spaceDebrisPositions, 3));
+const spaceDebrisMaterial = new THREE.PointsMaterial({
+  color: 0xeaf6ff,
+  size: 6.0,
+  sizeAttenuation: true,
+  transparent: true,
+  opacity: 1.0,
+  depthWrite: false,
+  depthTest: false
+});
+const spaceDebrisPoints = new THREE.Points(spaceDebrisGeometry, spaceDebrisMaterial);
+spaceDebrisPoints.frustumCulled = false;
+spaceDebrisPoints.renderOrder = 999;
+spaceDebrisPoints.visible = false;
+scene.add(spaceDebrisPoints);
+const spaceDebrisAnchor = new THREE.Vector3();
+const spaceDebrisMinDistance = 4000;
+const spaceDebrisMaxDistance = 14000;
+const starRoot = new THREE.Group();
+scene.add(starRoot);
+
+const starLight = new THREE.PointLight(0xfff2c6, 12000, 0, 2);
+starLight.position.set(0, 0, 0);
+scene.add(starLight);
 
 window.__orbitals = {
   state,
@@ -142,46 +151,11 @@ const tempVecB = new THREE.Vector3();
 const tempVecC = new THREE.Vector3();
 const tempVecD = new THREE.Vector3();
 const tempVecE = new THREE.Vector3();
+const tempVecF = new THREE.Vector3();
 const tempQuat = new THREE.Quaternion();
 const tempMat = new THREE.Matrix4();
 const worldUp = new THREE.Vector3(0, 1, 0);
 const RETICLE_OFFSET_PX = 170;
-
-const config = {
-  planetCountMin: 6,
-  planetCountMax: 9,
-  planetScale: 10000,
-  orbitScale: 8000,
-  clusterRadius: 1.0,
-  clusterWobble: 0.08,
-  starfieldRadiusMin: 130000,
-  starfieldRadiusMax: 340000,
-  atmosphereRatioMin: 1.135,
-  atmosphereRatioMax: 1.27,
-  surfaceOrbitPeriodMin: 38,
-  surfaceOrbitPeriodMax: 42,
-  atmosphereLiftFactor: 2.45,
-  fighterTurnRate: 24.0,
-  fighterVelocityAlign: 8.0,
-  shipCamDistance: 6.8,
-  shipCamHeight: 3.0,
-  shipCamLag: 20.0,
-  shipIdleThrust: 4.2,
-  shipMaxThrust: 20,
-  shipBoostThrust: 15,
-  shipFuelRecharge: 1.0,
-  shipFireCooldown: 0.22,
-  shipProjectileSpeed: 140,
-  shipProjectileLifetime: 8.0,
-  shipProjectileSpread: 0.04,
-  shipProjectileSize: 2.9,
-  shipMuzzleOffset: 0,
-  shipBrake: 14,
-  shipDragSpace: 0.012,
-  shipDragAtmosphere: 0.056,
-  gravitySoftening: 2.2,
-  fuelMoteCountPerPlanet: 10
-};
 
 function parseSeed(rawValue) {
   if (rawValue == null || rawValue === '') {
@@ -429,6 +403,21 @@ function createFallbackPlanet(color) {
   return group;
 }
 
+function createFallbackStar() {
+  const group = new THREE.Group();
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 64, 48),
+    new THREE.MeshBasicMaterial({
+      color: 0xfff3c4,
+      transparent: true,
+      opacity: 1,
+      toneMapped: false
+    })
+  );
+  group.add(core);
+  return group;
+}
+
 function makeStarfield() {
   const count = 2200;
   const positions = new Float32Array(count * 3);
@@ -452,6 +441,95 @@ function makeStarfield() {
   scene.add(points);
 }
 
+async function loadStarVisual() {
+  let root;
+  try {
+    root = await loadGltf(withDotSlash(STAR_FILE));
+  } catch (error) {
+    console.warn('Star asset failed, using fallback.', error);
+    root = createFallbackStar();
+  }
+  normalizeLoadedModel(root, config.starScale);
+  root.traverse((obj) => {
+    if (obj.isMesh && obj.material) {
+      obj.castShadow = false;
+      obj.receiveShadow = false;
+      if (Array.isArray(obj.material)) {
+        obj.material.forEach((mat) => {
+          if (!mat) {
+            return;
+          }
+          if (mat.color) {
+            mat.color.set(0xfff3c4);
+          }
+          if ('emissive' in mat) {
+            mat.emissive = new THREE.Color(0xffe2a0);
+            mat.emissiveIntensity = 8;
+          }
+          mat.toneMapped = false;
+        });
+      } else {
+        if (obj.material.color) {
+          obj.material.color.set(0xfff3c4);
+        }
+        if ('emissive' in obj.material) {
+          obj.material.emissive = new THREE.Color(0xffe2a0);
+          obj.material.emissiveIntensity = 8;
+        }
+        obj.material.toneMapped = false;
+      }
+    }
+  });
+  starRoot.add(root);
+  starRoot.position.set(0, 0, 0);
+  starLight.intensity = 18000;
+}
+
+function initSpaceDebris() {
+  for (let i = 0; i < spaceDebrisCount; i += 1) {
+    const base = i * 3;
+    const dir = randomUnitVector();
+    const radius = randRange(spaceDebrisMinDistance, spaceDebrisMaxDistance);
+    spaceDebrisOffsets[base + 0] = dir.x;
+    spaceDebrisOffsets[base + 1] = dir.y;
+    spaceDebrisOffsets[base + 2] = dir.z;
+    spaceDebrisDistances[i] = radius;
+    spaceDebrisPositions[base + 0] = dir.x * radius;
+    spaceDebrisPositions[base + 1] = dir.y * radius;
+    spaceDebrisPositions[base + 2] = dir.z * radius;
+    spaceDebrisSeeds[i] = randRange(0, Math.PI * 2);
+  }
+  spaceDebrisGeometry.attributes.position.needsUpdate = true;
+}
+
+function updateSpaceDebris(dt) {
+  const ship = state.ship;
+  const showDebris = Boolean(ship && state.nearestPlanet && state.nearestAltitude > state.nearestPlanet.atmosphereRadius - state.nearestPlanet.radius);
+  spaceDebrisPoints.visible = showDebris;
+  if (!showDebris) {
+    return;
+  }
+  spaceDebrisAnchor.copy(ship.position);
+  for (let i = 0; i < spaceDebrisCount; i += 1) {
+    const base = i * 3;
+    const drift = 18 + (i % 7) * 4;
+    spaceDebrisDistances[i] += dt * drift;
+    if (spaceDebrisDistances[i] > spaceDebrisMaxDistance) {
+      const dir = randomUnitVector();
+      spaceDebrisOffsets[base + 0] = dir.x;
+      spaceDebrisOffsets[base + 1] = dir.y;
+      spaceDebrisOffsets[base + 2] = dir.z;
+      spaceDebrisDistances[i] = randRange(spaceDebrisMinDistance, spaceDebrisMinDistance * 2.6);
+    }
+    const wobble = Math.sin(state.time * 0.8 + spaceDebrisSeeds[i]) * 90;
+    const radius = spaceDebrisDistances[i] + wobble;
+    spaceDebrisPositions[base + 0] = ship.position.x + spaceDebrisOffsets[base + 0] * radius;
+    spaceDebrisPositions[base + 1] = ship.position.y + spaceDebrisOffsets[base + 1] * radius;
+    spaceDebrisPositions[base + 2] = ship.position.z + spaceDebrisOffsets[base + 2] * radius;
+  }
+  spaceDebrisGeometry.attributes.position.needsUpdate = true;
+}
+
 function createPlanetConfig(index, file) {
   const scale = config.planetScale;
   const orbitScale = config.orbitScale;
@@ -460,7 +538,7 @@ function createPlanetConfig(index, file) {
   const gravityRadius = radius * randRange(6.8, 10.5);
   const orbitRadius = (config.clusterRadius + index * randRange(1.05, 1.25) + randRange(-0.06, 0.06)) * orbitScale;
   const orbitRadiusB = orbitRadius * randRange(0.96, 1.04);
-  const orbitSpeed = randRange(0.015, 0.045) * (index % 2 === 0 ? 1 : -1);
+  const orbitSpeed = randRange(0.0075, 0.0225) * (index % 2 === 0 ? 1 : -1);
   const orbitPhase = randRange(0, Math.PI * 2);
   const orbitPrecession = randRange(-0.0022, 0.0022);
   const orbitTilt = randomUnitVector();
@@ -677,7 +755,7 @@ function updateShipOrientation(dt, localUp) {
   if (!ship || !ship.root || !ship.visual) {
     return;
   }
-  const bankedUp = tempVecA.copy(localUp);
+  const bankedUp = tempVecA.copy(ship.up);
   if (Math.abs(ship.bank) > 1e-4) {
     bankedUp.applyAxisAngle(ship.forward, ship.bank).normalize();
   }
@@ -728,10 +806,10 @@ function updateCamera(dt) {
   const camDistance = THREE.MathUtils.lerp(config.shipCamDistance * 1.06, config.shipCamDistance * 0.96, depth);
   const camHeight = THREE.MathUtils.lerp(config.shipCamHeight * 1.08, config.shipCamHeight * 0.92, depth);
   const behind = tempVecB.copy(ship.forward).multiplyScalar(-camDistance);
-  const above = tempVecC.copy(localUp).multiplyScalar(camHeight);
+  const above = tempVecC.copy(ship.up).multiplyScalar(camHeight);
   const desiredCameraPos = tempVecD.copy(ship.position).add(behind).add(above);
   camera.position.copy(desiredCameraPos);
-  camera.up.copy(localUp);
+  camera.up.copy(ship.up);
   const lookTarget = ship.position.clone()
     .addScaledVector(ship.forward, 10);
   camera.lookAt(lookTarget);
@@ -872,7 +950,7 @@ async function bootstrap() {
 
   const planetConfigs = state.planets;
 
-  const totalLoads = 1 + planetConfigs.length;
+  const totalLoads = 2 + planetConfigs.length;
   let completedLoads = 0;
   const reportProgress = (label) => {
     completedLoads += 1;
@@ -880,6 +958,10 @@ async function bootstrap() {
     loadingBarInner.style.width = `${pct}%`;
     loadingText.textContent = label;
   };
+
+  loadingText.textContent = 'Loading star...';
+  await loadStarVisual();
+  reportProgress('Star loaded');
 
   loadingText.textContent = 'Loading ship...';
   await loadShipVisual();
@@ -896,6 +978,8 @@ async function bootstrap() {
   }
 
   respawnShip();
+  spaceDebrisAnchor.copy(state.ship.position);
+  initSpaceDebris();
 
   loadingText.textContent = 'Ready';
   loadingWrap.style.display = 'none';
@@ -988,6 +1072,7 @@ function render() {
     updatePlanets(dt, clock.elapsedTime);
     updateFuelMotes(dt, clock.elapsedTime);
     updateProjectileVisuals();
+    updateSpaceDebris(dt);
     const localUp = state.nearestPlanet && state.ship
       ? state.ship.position.clone().sub(state.nearestPlanet.position).normalize()
       : null;

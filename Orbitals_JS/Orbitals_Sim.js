@@ -1,65 +1,5 @@
 import * as THREE from './lib/three.module.js';
-
-export const PLANET_FILES = [
-  'planet_map_01.glb',
-  'planet_map_02.glb',
-  'planet_map_03.glb',
-  'planet_map_04.glb',
-  'planet_map_05.glb',
-  'planet_map_06.glb',
-  'planet_map_07.glb',
-  'planet_map_08.glb',
-  'planet_map_09.glb',
-  'planet_map_10.glb',
-  'planet_map_11.glb',
-  'planet_map_12.glb',
-  'planet_map_13.glb',
-  'planet_map_14.glb',
-  'planet_map_15.glb',
-  'planet_map_16.glb',
-  'planet_map_17.glb',
-  'planet_map_18.glb',
-  'planet_map_19.glb',
-  'planet_map_20.glb',
-  'planet_map_21.glb'
-];
-
-export const config = {
-  planetCountMin: 6,
-  planetCountMax: 9,
-  planetScale: 10000,
-  orbitScale: 8000,
-  clusterRadius: 1.0,
-  clusterWobble: 0.08,
-  starfieldRadiusMin: 130000,
-  starfieldRadiusMax: 340000,
-  atmosphereRatioMin: 1.135,
-  atmosphereRatioMax: 1.27,
-  surfaceOrbitPeriodMin: 38,
-  surfaceOrbitPeriodMax: 42,
-  atmosphereLiftFactor: 2.45,
-  fighterTurnRate: 24.0,
-  fighterVelocityAlign: 8.0,
-  shipCamDistance: 6.8,
-  shipCamHeight: 3.0,
-  shipCamLag: 20.0,
-  shipIdleThrust: 4.2,
-  shipMaxThrust: 26,
-  shipBoostThrust: 200,
-  shipBoostDuration: 4.0,
-  shipFuelRecharge: 10.0,
-  shipFireCooldown: 0.22,
-  shipProjectileSpeed: 140,
-  shipProjectileLifetime: 8.0,
-  shipProjectileSpread: 0.04,
-  shipProjectileSize: 0.2,
-  shipMuzzleOffset: 0,
-  shipBrake: 14,
-  shipDragSpace: 0.2,
-  shipDragAtmosphere: 20.0,
-  gravitySoftening: 2.2,
-  fuelMoteCountPerPlanet: 10
-};
+import { PLANET_FILES, config } from './orbitals_config.js';
 
 const worldUp = new THREE.Vector3(0, 1, 0);
 const tempVecA = new THREE.Vector3();
@@ -141,7 +81,7 @@ function createPlanetConfig(rng, index, file) {
   const gravityRadius = radius * (6.8 + rng() * 3.7);
   const orbitRadius = (config.clusterRadius + index * (1.05 + rng() * 0.2) + (-0.06 + rng() * 0.12)) * orbitScale;
   const orbitRadiusB = orbitRadius * (0.96 + rng() * 0.08);
-  const orbitSpeed = (0.015 + rng() * 0.03) * (index % 2 === 0 ? 1 : -1);
+  const orbitSpeed = (0.0075 + rng() * 0.015) * (index % 2 === 0 ? 1 : -1);
   const orbitPhase = rng() * Math.PI * 2;
   const orbitPrecession = -0.0022 + rng() * 0.0044;
   const orbitTilt = randomUnitVector(rng);
@@ -290,6 +230,7 @@ function createShipState() {
     position: new THREE.Vector3(),
     velocity: new THREE.Vector3(),
     forward: new THREE.Vector3(0, 0, 1),
+    up: new THREE.Vector3(0, 1, 0),
     gravity: new THREE.Vector3(),
     relativePosition: new THREE.Vector3(),
     relativeVelocity: new THREE.Vector3(),
@@ -297,6 +238,7 @@ function createShipState() {
     bank: 0,
     boostTimer: 0,
     fireCooldown: 0,
+    pitchIdleTime: 0,
     muzzleOffset: config.shipMuzzleOffset,
     speed: 0,
     root: null,
@@ -416,9 +358,11 @@ function respawnShip(state) {
   state.ship.relativeVelocity.copy(tangent).multiplyScalar(flightSpeed);
   syncShipWorldState(state.ship);
   state.ship.forward.copy(tangent).normalize();
+  state.ship.up.copy(normal).normalize();
   state.ship.bank = 0;
   state.ship.boostTimer = 0;
   state.ship.fireCooldown = 0;
+  state.ship.pitchIdleTime = 0;
   state.ship.muzzleOffset = config.shipMuzzleOffset;
   state.ship.speed = flightSpeed;
   state.nearestPlanet = planet;
@@ -473,8 +417,9 @@ function updateShipState(state, dt, controls) {
   const gravityStrength = planet.gravityStrength / gravityDistSq;
   const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 0.0001);
   const altitude = relativeDistance - planet.radius;
-  const atmosphereDepth = altitude <= atmosphereThickness
-    ? clamp01((planet.atmosphereRadius - relativeDistance) / atmosphereThickness)
+  const atmosphereInfluenceDistance = atmosphereThickness + config.atmosphereInfluenceDistance;
+  const atmosphereDepth = altitude <= atmosphereInfluenceDistance
+    ? clamp01((atmosphereInfluenceDistance - relativeDistance + planet.radius) / atmosphereInfluenceDistance)
     : 0;
   const targetAltitude = atmosphereThickness * 0.5;
   const altitudeError = THREE.MathUtils.clamp((targetAltitude - altitude) / (atmosphereThickness * 0.5), -1, 1);
@@ -498,6 +443,7 @@ function updateShipState(state, dt, controls) {
   const autopilotStrength = 1 - boostLevel * 0.75;
   const boostHoldFactor = THREE.MathUtils.lerp(1, 0.18, boostLevel);
   ship.fireCooldown = Math.max(0, ship.fireCooldown - dt);
+  const maxShipSpeed = config.shipMaxSpeed;
 
   const targetBank = THREE.MathUtils.clamp(turnInput * 0.95, -0.95, 0.95);
   const bankReturnRate = atmosphereDepth > 0
@@ -513,21 +459,34 @@ function updateShipState(state, dt, controls) {
       : tempVecB.copy(worldUp).cross(localUp).normalize());
   }
   ship.forward.normalize();
+  if (ship.up.lengthSq() < 1e-6) {
+    ship.up.copy(localUp);
+  }
+  ship.up.normalize();
 
   const yawRate = THREE.MathUtils.lerp(0.38, 0.98, atmosphereDepth) * THREE.MathUtils.lerp(0.55, 1.0, clamp01(currentSpeed / 6));
   if (atmosphereDepth > 0) {
     ship.forward.applyAxisAngle(localUp, -ship.bank * yawRate * dt);
   }
 
-  const rightAxis = tempVecC.copy(localUp).cross(ship.forward);
+  const rightAxis = tempVecC.copy(ship.up).cross(ship.forward);
+  if (rightAxis.lengthSq() < 1e-6) {
+    rightAxis.copy(localUp).cross(ship.forward);
+  }
   if (rightAxis.lengthSq() < 1e-6) {
     rightAxis.set(1, 0, 0).cross(ship.forward);
   }
   rightAxis.normalize();
 
-  const pitchRate = THREE.MathUtils.lerp(0.28, 0.52, atmosphereDepth);
+  const pitchRate = atmosphereDepth > 0
+    ? THREE.MathUtils.lerp(0.28, 0.52, atmosphereDepth)
+    : THREE.MathUtils.lerp(1.2, 1.9, clamp01(currentSpeed / 18));
   if (Math.abs(pitchInput) > 0.001) {
+    ship.pitchIdleTime = 0;
     ship.forward.applyAxisAngle(rightAxis, pitchInput * pitchRate * dt);
+    ship.up.applyAxisAngle(rightAxis, pitchInput * pitchRate * dt);
+  } else {
+    ship.pitchIdleTime += dt;
   }
 
   if (atmosphereDepth > 0) {
@@ -544,17 +503,37 @@ function updateShipState(state, dt, controls) {
       : 0;
     if (trimPitch !== 0) {
       ship.forward.applyAxisAngle(rightAxis, trimPitch * dt);
+      ship.up.applyAxisAngle(rightAxis, trimPitch * dt);
     }
     ship.bank = THREE.MathUtils.lerp(ship.bank, 0, easeExp(dt, THREE.MathUtils.lerp(0.6, 1.7, atmosphereDepth) * autopilotStrength));
   } else {
-    const spaceTransitionDistance = 5000;
+    const spaceTransitionDistance = config.atmosphereInfluenceDistance;
     const extraAltitude = Math.max(0, altitude - atmosphereThickness);
     const bankBlend = 1 - clamp01(extraAltitude / spaceTransitionDistance);
     const spaceYawRate = THREE.MathUtils.lerp(0.26, 0.72, clamp01(currentSpeed / 18));
-    ship.forward.applyAxisAngle(localUp, -turnInput * spaceYawRate * dt);
+    ship.forward.applyAxisAngle(ship.up, -turnInput * spaceYawRate * dt);
     ship.bank = THREE.MathUtils.lerp(ship.bank, 0, easeExp(dt, THREE.MathUtils.lerp(0.12, 1.8, 1 - bankBlend)));
   }
+
+  if (ship.pitchIdleTime > 1.0) {
+    const referenceUp = atmosphereDepth > 0 && state.nearestPlanet
+      ? ship.position.clone().sub(state.nearestPlanet.position).normalize()
+      : worldUp;
+    const targetUp = referenceUp.clone().sub(tempVecD.copy(ship.forward).multiplyScalar(referenceUp.dot(ship.forward)));
+    const currentUp = ship.up.clone().sub(tempVecE.copy(ship.forward).multiplyScalar(ship.up.dot(ship.forward)));
+    if (targetUp.lengthSq() > 1e-6 && currentUp.lengthSq() > 1e-6) {
+      targetUp.normalize();
+      currentUp.normalize();
+      const rightingStrength = THREE.MathUtils.lerp(0.15, 0.7, clamp01((ship.pitchIdleTime - 1.0) / 1.5));
+      ship.up.lerp(targetUp, rightingStrength * dt * 14.0).normalize();
+    }
+  }
   ship.forward.normalize();
+  ship.up.normalize();
+  const projectedUp = ship.up.clone().sub(tempVecF.copy(ship.forward).multiplyScalar(ship.up.dot(ship.forward)));
+  if (projectedUp.lengthSq() > 1e-6) {
+    ship.up.copy(projectedUp.normalize());
+  }
 
   if (atmosphereDepth > 0) {
     const desiredRadius = Math.max(relativeDistance, planet.radius + 1.0);
@@ -580,6 +559,9 @@ function updateShipState(state, dt, controls) {
     } else if (!boostActive && ship.boostTimer <= 0 && state.fuel < state.maxFuel) {
       state.fuel = Math.min(state.maxFuel, state.fuel + config.shipFuelRecharge * dt);
     }
+    if (relativeVelocity.lengthSq() > maxShipSpeed * maxShipSpeed) {
+      relativeVelocity.setLength(maxShipSpeed);
+    }
     ship.speed = relativeVelocity.length();
     relativePosition.addScaledVector(relativeVelocity, dt);
     const correctedDistance = Math.max(0.0001, relativePosition.length());
@@ -599,6 +581,9 @@ function updateShipState(state, dt, controls) {
       state.fuel = Math.max(0, state.fuel - dt * (0.8 + boostLevel * 3.2));
     } else if (!boostActive && ship.boostTimer <= 0 && state.fuel < state.maxFuel) {
       state.fuel = Math.min(state.maxFuel, state.fuel + config.shipFuelRecharge * dt);
+    }
+    if (relativeVelocity.lengthSq() > maxShipSpeed * maxShipSpeed) {
+      relativeVelocity.setLength(maxShipSpeed);
     }
     ship.speed = relativeVelocity.length();
     relativePosition.addScaledVector(relativeVelocity, dt);

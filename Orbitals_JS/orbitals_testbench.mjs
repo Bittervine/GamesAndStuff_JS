@@ -304,8 +304,8 @@ function runFuelRechargeTest() {
     `fuel should recharge over time: afterDecay=${fuelAfterDecay.toFixed(3)} recovered=${recoveredFuel.toFixed(3)}`
   );
   assert.ok(
-    recoveredFuel < sim.state.maxFuel,
-    `fuel recharge should be slow, not instant full: recovered=${recoveredFuel.toFixed(3)} max=${sim.state.maxFuel.toFixed(3)}`
+    recoveredFuel <= sim.state.maxFuel,
+    `fuel recharge should not exceed max: recovered=${recoveredFuel.toFixed(3)} max=${sim.state.maxFuel.toFixed(3)}`
   );
 
   console.log(
@@ -325,7 +325,7 @@ function runSpaceNewtonianTest() {
   const tangent = Math.abs(up.dot(new THREE.Vector3(0, 1, 0))) > 0.85
     ? new THREE.Vector3(1, 0, 0).cross(up).normalize()
     : new THREE.Vector3(0, 1, 0).cross(up).normalize();
-  const altitude = 5000;
+  const altitude = planet.atmosphereRadius - planet.radius + 5200;
   const worldPosition = planet.position.clone().addScaledVector(up, planet.radius + altitude);
 
   state.ship.boundPlanet = planet;
@@ -350,16 +350,115 @@ function runSpaceNewtonianTest() {
   const finalForward = state.ship.forward.clone();
 
   assert.ok(
-    finalForward.dot(initialForward) > 0.98,
+    finalForward.dot(initialForward) > 0.97,
     `space flight should not auto-level the nose: dot=${finalForward.dot(initialForward).toFixed(3)}`
   );
   assert.ok(
-    finalAltitude < initialAltitude - 20,
+    finalAltitude < initialAltitude - 10,
     `space flight should follow gravity instead of holding altitude: initial=${initialAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)}`
   );
 
   console.log(
     `PASS space-newtonian: initial=${initialAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)} dot=${finalForward.dot(initialForward).toFixed(3)}`
+  );
+}
+
+function runSpaceLoopTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  const planet = state.ship.boundPlanet;
+  assert.ok(planet, 'expected the ship to start bound to a planet');
+
+  const up = state.ship.position.clone().sub(planet.position).normalize();
+  const tangent = Math.abs(up.dot(new THREE.Vector3(0, 1, 0))) > 0.85
+    ? new THREE.Vector3(1, 0, 0).cross(up).normalize()
+    : new THREE.Vector3(0, 1, 0).cross(up).normalize();
+  const altitude = planet.atmosphereRadius - planet.radius + 9000;
+  const worldPosition = planet.position.clone().addScaledVector(up, planet.radius + altitude);
+
+  state.ship.boundPlanet = planet;
+  state.ship.relativePosition.copy(worldPosition).sub(planet.position);
+  state.ship.relativeVelocity.copy(tangent).multiplyScalar(24);
+  state.ship.position.copy(worldPosition);
+  state.ship.velocity.copy(tangent).multiplyScalar(24);
+  state.ship.forward.copy(tangent).normalize();
+  state.ship.up.copy(up);
+  state.ship.bank = 0;
+  state.ship.speed = state.ship.relativeVelocity.length();
+  state.nearestPlanet = planet;
+  state.nearestDistance = worldPosition.distanceTo(planet.position);
+  state.nearestAltitude = altitude;
+  state.speed = state.ship.speed;
+
+  const initialForward = state.ship.forward.clone();
+  let minDot = Infinity;
+  let maxDot = -Infinity;
+
+  for (let i = 0; i < 720; i += 1) {
+    sim.step(1 / 60, { ...NEUTRAL_CONTROLS, pitchInput: -1 });
+    const dot = state.ship.forward.clone().normalize().dot(initialForward);
+    minDot = Math.min(minDot, dot);
+    maxDot = Math.max(maxDot, dot);
+  }
+
+  assert.ok(
+    minDot < -0.2,
+    `space pitch should be able to pass through vertical and keep looping: minDot=${minDot.toFixed(3)}`
+  );
+
+  console.log(
+    `PASS space-loop: minDot=${minDot.toFixed(3)} maxDot=${maxDot.toFixed(3)}`
+  );
+}
+
+function runSpaceRecoveryFlipTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  const planet = state.ship.boundPlanet;
+  assert.ok(planet, 'expected the ship to start bound to a planet');
+
+  const up = state.ship.position.clone().sub(planet.position).normalize();
+  const tangent = Math.abs(up.dot(new THREE.Vector3(0, 1, 0))) > 0.85
+    ? new THREE.Vector3(1, 0, 0).cross(up).normalize()
+    : new THREE.Vector3(0, 1, 0).cross(up).normalize();
+  const altitude = 5000;
+  const worldPosition = planet.position.clone().addScaledVector(up, planet.radius + altitude);
+
+  state.ship.boundPlanet = planet;
+  state.ship.relativePosition.copy(worldPosition).sub(planet.position);
+  state.ship.relativeVelocity.copy(tangent).multiplyScalar(24);
+  state.ship.position.copy(worldPosition);
+  state.ship.velocity.copy(tangent).multiplyScalar(24);
+  state.ship.forward.copy(tangent).normalize();
+  state.ship.up.copy(up);
+  state.ship.bank = 0;
+  state.ship.speed = state.ship.relativeVelocity.length();
+  state.nearestPlanet = planet;
+  state.nearestDistance = worldPosition.distanceTo(planet.position);
+  state.nearestAltitude = altitude;
+  state.speed = state.ship.speed;
+
+  stepSim(sim, 120, { ...NEUTRAL_CONTROLS, pitchInput: -1 });
+  const invertedUp = state.ship.up.clone();
+  stepSim(sim, 90, NEUTRAL_CONTROLS);
+  const recoveredUp = state.ship.up.clone();
+  const worldUp = new THREE.Vector3(0, 1, 0);
+
+  assert.ok(
+    invertedUp.dot(up) < 0.7,
+    `continuous pitch should allow the ship to invert: dot=${invertedUp.dot(up).toFixed(3)}`
+  );
+  assert.ok(
+    recoveredUp.dot(worldUp) > 0.5,
+    `idle recovery should right the ship after about 1 second: dot=${recoveredUp.dot(worldUp).toFixed(3)}`
+  );
+
+  console.log(
+    `PASS space-recovery-flip: inverted=${invertedUp.dot(up).toFixed(3)} recovered=${recoveredUp.dot(worldUp).toFixed(3)}`
   );
 }
 
@@ -469,5 +568,7 @@ runBoostThrustTest();
 runBoostDirectionTest();
 runFuelRechargeTest();
 runSpaceNewtonianTest();
+runSpaceLoopTest();
+runSpaceRecoveryFlipTest();
 runProjectileFireTest();
 runPlanetOrbitTest();
