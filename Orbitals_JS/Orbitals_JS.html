@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Orbitals</title>
+  <style>
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 30%, rgba(64, 96, 164, 0.2), transparent 35%),
+        linear-gradient(180deg, #03060d 0%, #070b17 55%, #05070b 100%);
+      color: #e6f0ff;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #hud {
+      position: fixed;
+      left: 14px;
+      top: 14px;
+      z-index: 10;
+      display: grid;
+      gap: 8px;
+      min-width: min(340px, calc(100vw - 28px));
+      pointer-events: none;
+    }
+
+    .panel {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(9, 14, 24, 0.72);
+      border: 1px solid rgba(146, 182, 255, 0.22);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+      backdrop-filter: blur(8px);
+    }
+
+    #title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+
+    #status, #stats, #help, #seedLine {
+      font-size: 13px;
+      line-height: 1.35;
+      color: #cdd8ec;
+    }
+
+    #mouseLockButton {
+      margin-top: 8px;
+      padding: 7px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(146, 182, 255, 0.28);
+      background: rgba(16, 24, 38, 0.88);
+      color: #e6f0ff;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      pointer-events: auto;
+    }
+
+    #mouseLockButton:hover {
+      background: rgba(24, 34, 54, 0.98);
+    }
+
+    #seedLine {
+      color: #a9b8d8;
+    }
+
+    #loadingWrap {
+      position: fixed;
+      left: 50%;
+      top: 18px;
+      transform: translateX(-50%);
+      width: min(420px, calc(100vw - 24px));
+      z-index: 11;
+      pointer-events: none;
+    }
+
+    #loadingBarOuter {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      overflow: hidden;
+      border: 1px solid rgba(160, 190, 255, 0.18);
+    }
+
+    #loadingBarInner {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #74a5ff, #8ff2d1);
+      transition: width 0.15s linear;
+    }
+
+    #loadingText {
+      margin-top: 6px;
+      text-align: center;
+      font-size: 13px;
+      color: #cdd8ec;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+    }
+
+    #reticle {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      width: 26px;
+      height: 26px;
+      z-index: 12;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      opacity: 0.95;
+    }
+
+    #reticle::before,
+    #reticle::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 1.5px solid rgba(166, 232, 255, 0.9);
+      box-shadow: 0 0 12px rgba(126, 192, 255, 0.35);
+    }
+
+    #reticle::after {
+      inset: 10px;
+      border: none;
+      background: rgba(166, 232, 255, 0.9);
+      box-shadow: 0 0 10px rgba(166, 232, 255, 0.9);
+    }
+
+    @media (max-width: 640px) {
+      #hud {
+        left: 10px;
+        top: 10px;
+      }
+
+      .panel {
+        padding: 9px 10px;
+      }
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="loadingWrap">
+    <div id="loadingBarOuter"><div id="loadingBarInner"></div></div>
+    <div id="loadingText">Loading Orbitals...</div>
+  </div>
+  <div id="reticle"></div>
+  <div id="hud">
+    <div class="panel">
+      <div id="title">Orbitals</div>
+      <div id="seedLine">Seed: --</div>
+      <div id="status">Loading assets...</div>
+    </div>
+    <div class="panel">
+      <div id="stats">Fuel: -- | Speed: -- | Altitude: --</div>
+      <div id="help">Keyboard and gamepad work without pointer lock. Mouse and right stick move the reticle. Left mouse or RT fires two green shots at the reticle. Left stick and WASD bank left/right and pitch with inverted Y, so up dives and down pulls up. Releasing controls auto-levels toward mid-atmosphere cruise. Gamepad: left stick flight, right stick reticle, LT/LB brake, A or RB boost, RT fire.</div>
+      <button id="mouseLockButton" type="button">Lock mouse</button>
+    </div>
+  </div>
+  <script type="module" src="./Orbitals_JS.js"></script>
+</body>
+</html>

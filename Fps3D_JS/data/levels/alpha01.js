@@ -1,4 +1,5 @@
 import { createSeededRng, deriveSeed, normalizeSeed } from '../../core/random/seededRng.js';
+import { distanceSqPointToSegment, segmentKey } from '../../core/world/spatial.js';
 
 export const LEVEL_ALPHA01 = {
   id: 'alpha01',
@@ -767,9 +768,11 @@ export const LEVEL_COMBAT01 = {
 };
 
 const ROGUE_CELL_SIZE = 4;
+const ROGUE_WORLD_SHEAR_X = 0.92;
+const ROGUE_WORLD_SHEAR_Z = 0.46;
 const ROGUE_GRID_WIDTH = 40;
 const ROGUE_GRID_HEIGHT = 34;
-const ROGUE_LAYOUT_RETRIES = 16;
+const ROGUE_LAYOUT_RETRIES = 64;
 const ROGUE_MAIN_ROOM_COUNT = 6;
 const ROGUE_BRANCH_ROOM_COUNT = 3;
 const ROGUE_MIN_PATH_LENGTH = 18;
@@ -779,6 +782,17 @@ const ROGUE_DIRECTIONS = [
   { name: 'east', dx: 1, dz: 0, edge: 1 },
   { name: 'south', dx: 0, dz: 1, edge: 2 },
   { name: 'west', dx: -1, dz: 0, edge: 3 }
+];
+
+const ROGUE_ROUTE_STEPS = [
+  ...ROGUE_DIRECTIONS.map((step) => ({
+    ...step,
+    cost: 1
+  })),
+  { name: 'northEast', dx: 1, dz: -1, cost: 1.42 },
+  { name: 'southEast', dx: 1, dz: 1, cost: 1.42 },
+  { name: 'southWest', dx: -1, dz: 1, cost: 1.42 },
+  { name: 'northWest', dx: -1, dz: -1, cost: 1.42 }
 ];
 
 const ROGUE_THEME_VARIANTS = [
@@ -793,6 +807,11 @@ const ROGUE_THEME_VARIANTS = [
     },
     corridorMaterials: {
       floor: 'metalFloor',
+      ceiling: 'concreteCeiling',
+      wall: 'steelWall'
+    },
+    transitionMaterials: {
+      floor: 'stoneFloor',
       ceiling: 'concreteCeiling',
       wall: 'steelWall'
     },
@@ -816,6 +835,11 @@ const ROGUE_THEME_VARIANTS = [
       ceiling: 'stoneCeiling',
       wall: 'stoneWall'
     },
+    transitionMaterials: {
+      floor: 'metalFloor',
+      ceiling: 'concreteCeiling',
+      wall: 'steelWall'
+    },
     specialMaterials: {
       floor: 'metalFloor',
       ceiling: 'emissiveCeiling',
@@ -834,6 +858,11 @@ const ROGUE_THEME_VARIANTS = [
     corridorMaterials: {
       floor: 'liquidFloor',
       ceiling: 'emissiveCeiling',
+      wall: 'emissiveWall'
+    },
+    transitionMaterials: {
+      floor: 'organicFloor',
+      ceiling: 'organicCeiling',
       wall: 'emissiveWall'
     },
     specialMaterials: {
@@ -894,23 +923,386 @@ function rogueEdgeIndex(direction) {
   return rogueDirectionVector(direction).edge;
 }
 
-function rogueCellCenter(x, z) {
+function rogueGeometryPhase(seed, offset = 0) {
+  return ((normalizeSeed(seed) % 104729) * 0.000031) + offset;
+}
+
+function rogueGeometryNoise(x, z, seed, offset = 0) {
+  const phase = rogueGeometryPhase(seed, offset);
+  return (Math.sin((x * 0.29) + (z * 0.17) + phase) * 0.65) + (Math.cos((x * 0.11) - (z * 0.31) + (phase * 1.41)) * 0.35);
+}
+
+function rogueCellCenter(x, z, seed = 0) {
+  return rogueGridToWorld(x + 0.5, z + 0.5, seed);
+}
+
+function rogueCellLoop(x, z, seed = 0) {
+  const topLeft = rogueGridToWorld(x, z, seed);
+  const topRight = rogueGridToWorld(x + 1, z, seed);
+  const bottomRight = rogueGridToWorld(x + 1, z + 1, seed);
+  const bottomLeft = rogueGridToWorld(x, z + 1, seed);
+  return [
+    [topLeft.x, topLeft.z],
+    [topRight.x, topRight.z],
+    [bottomRight.x, bottomRight.z],
+    [bottomLeft.x, bottomLeft.z]
+  ];
+}
+
+function rogueGridToWorld(x, z, seed = 0) {
+  const baseX = (x * ROGUE_CELL_SIZE) + (z * ROGUE_WORLD_SHEAR_X);
+  const baseZ = (z * ROGUE_CELL_SIZE) + (x * ROGUE_WORLD_SHEAR_Z);
+  const centerGridX = (ROGUE_GRID_WIDTH - 1) * 0.5;
+  const centerGridZ = (ROGUE_GRID_HEIGHT - 1) * 0.5;
+  const centerWorldX = (centerGridX * ROGUE_CELL_SIZE) + (centerGridZ * ROGUE_WORLD_SHEAR_X);
+  const centerWorldZ = (centerGridZ * ROGUE_CELL_SIZE) + (centerGridX * ROGUE_WORLD_SHEAR_Z);
+  const centeredX = baseX - centerWorldX;
+  const centeredZ = baseZ - centerWorldZ;
+  const lowWarp = rogueGeometryNoise(x * 0.12, z * 0.12, seed, 0.0);
+  const midWarp = rogueGeometryNoise((x * 0.23) + 11.7, (z * 0.21) - 7.3, seed, 1.7);
+  const highWarp = rogueGeometryNoise((x * 0.41) - 4.3, (z * 0.37) + 3.1, seed, 3.4);
+  const curlWarp = rogueGeometryNoise((x * 0.08) + 2.1, (z * 0.08) - 1.4, seed, 5.8);
+  const localAngle = (lowWarp * 0.18) + (midWarp * 0.11) + (highWarp * 0.05);
+  const rotationCos = Math.cos(localAngle);
+  const rotationSin = Math.sin(localAngle);
+  const rotatedX = (centeredX * rotationCos) - (centeredZ * rotationSin);
+  const rotatedZ = (centeredX * rotationSin) + (centeredZ * rotationCos);
+  const radialX = x - centerGridX;
+  const radialZ = z - centerGridZ;
+  const radialLength = Math.hypot(radialX, radialZ) || 1;
+  const radialBias = rogueClamp(radialLength / Math.max(ROGUE_GRID_WIDTH, ROGUE_GRID_HEIGHT), 0, 1);
+  const curlStrength = (0.18 + (Math.abs(lowWarp) * 0.12) + (radialBias * 0.18));
+  const curlX = (-radialZ / radialLength) * curlStrength * 1.4;
+  const curlZ = (radialX / radialLength) * curlStrength * 1.4;
+  const waveX = (lowWarp * 0.64) + (midWarp * 0.28) + (highWarp * 0.18);
+  const waveZ = (midWarp * 0.52) - (highWarp * 0.24) + (curlWarp * 0.18);
   return {
-    x: (x * ROGUE_CELL_SIZE) + (ROGUE_CELL_SIZE * 0.5),
-    z: (z * ROGUE_CELL_SIZE) + (ROGUE_CELL_SIZE * 0.5)
+    x: centerWorldX + rotatedX + (waveX * 0.92) + curlX,
+    z: centerWorldZ + rotatedZ + (waveZ * 0.92) + curlZ
   };
 }
 
-function rogueCellLoop(x, z) {
-  const px = x * ROGUE_CELL_SIZE;
-  const pz = z * ROGUE_CELL_SIZE;
-  const s = ROGUE_CELL_SIZE;
-  return [
-    [px, pz],
-    [px + s, pz],
-    [px + s, pz + s],
-    [px, pz + s]
-  ];
+function rogueBoundaryCornerKey(x, z) {
+  return `${x},${z}`;
+}
+
+function rogueBoundaryEdgeKey(ax, az, bx, bz) {
+  return segmentKey(ax, az, bx, bz);
+}
+
+function rogueSideForDirection(x, z, direction) {
+  if (direction === 'north') {
+    return {
+      ax: x,
+      az: z,
+      bx: x + 1,
+      bz: z
+    };
+  }
+
+  if (direction === 'east') {
+    return {
+      ax: x + 1,
+      az: z,
+      bx: x + 1,
+      bz: z + 1
+    };
+  }
+
+  if (direction === 'south') {
+    return {
+      ax: x + 1,
+      az: z + 1,
+      bx: x,
+      bz: z + 1
+    };
+  }
+
+  return {
+    ax: x,
+    az: z + 1,
+    bx: x,
+    bz: z
+  };
+}
+
+function rogueBuildBoundaryLoopFromCells(cells, seed = 0) {
+  const edgeMap = new Map();
+  const edgesByStart = new Map();
+  const edgeIndexByKey = new Map();
+  const addEdge = (ax, az, bx, bz) => {
+    const key = rogueBoundaryEdgeKey(ax, az, bx, bz);
+    if (edgeMap.has(key)) {
+      edgeMap.delete(key);
+      return;
+    }
+    edgeMap.set(key, {
+      ax,
+      az,
+      bx,
+      bz
+    });
+  };
+
+  for (const cell of cells) {
+    addEdge(cell.x, cell.z, cell.x + 1, cell.z);
+    addEdge(cell.x + 1, cell.z, cell.x + 1, cell.z + 1);
+    addEdge(cell.x + 1, cell.z + 1, cell.x, cell.z + 1);
+    addEdge(cell.x, cell.z + 1, cell.x, cell.z);
+  }
+
+  if (edgeMap.size < 3) {
+    const fallback = cells[0] || { x: 0, z: 0 };
+    return {
+      loop: rogueCellLoop(fallback.x, fallback.z, seed),
+      edgeIndexByKey
+    };
+  }
+
+  for (const edge of edgeMap.values()) {
+    edgesByStart.set(rogueBoundaryCornerKey(edge.ax, edge.az), edge);
+  }
+
+  let startEdge = null;
+  for (const edge of edgeMap.values()) {
+    if (!startEdge || edge.ax < startEdge.ax || (edge.ax === startEdge.ax && edge.az < startEdge.az)) {
+      startEdge = edge;
+    }
+  }
+
+  const orderedEdges = [];
+  const visited = new Set();
+  let current = startEdge;
+  while (current) {
+    const currentKey = rogueBoundaryEdgeKey(current.ax, current.az, current.bx, current.bz);
+    if (visited.has(currentKey)) {
+      break;
+    }
+
+    visited.add(currentKey);
+    orderedEdges.push(current);
+    const next = edgesByStart.get(rogueBoundaryCornerKey(current.bx, current.bz));
+    if (!next) {
+      break;
+    }
+    current = next;
+    if (current === startEdge) {
+      break;
+    }
+  }
+
+  if (orderedEdges.length < 3 || orderedEdges.length !== edgeMap.size) {
+    const fallback = cells[0] || { x: 0, z: 0 };
+    return {
+      loop: rogueCellLoop(fallback.x, fallback.z, seed),
+      edgeIndexByKey
+    };
+  }
+
+  const loop = orderedEdges.map((edge) => {
+    const point = rogueGridToWorld(edge.ax, edge.az, seed);
+    return [point.x, point.z];
+  });
+
+  orderedEdges.forEach((edge, index) => {
+    edgeIndexByKey.set(rogueBoundaryEdgeKey(edge.ax, edge.az, edge.bx, edge.bz), index);
+  });
+
+  return {
+    loop,
+    edgeIndexByKey
+  };
+}
+
+function rogueWorldSegmentForSide(x, z, direction, seed = 0) {
+  const side = rogueSideForDirection(x, z, direction);
+  const a = rogueGridToWorld(side.ax, side.az, seed);
+  const b = rogueGridToWorld(side.bx, side.bz, seed);
+  return {
+    ax: a.x,
+    az: a.z,
+    bx: b.x,
+    bz: b.z
+  };
+}
+
+function rogueFindNearestLoopEdgeIndex(loop, segment, epsilon = 1e-6) {
+  if (!Array.isArray(loop) || loop.length < 2) {
+    return 0;
+  }
+
+  const midpoint = {
+    x: (segment.ax + segment.bx) * 0.5,
+    z: (segment.az + segment.bz) * 0.5
+  };
+  let bestIndex = 0;
+  let bestDistance = Infinity;
+
+  for (let index = 0; index < loop.length; index += 1) {
+    const current = loop[index];
+    const next = loop[(index + 1) % loop.length];
+    const currentX = Number(current?.x ?? current?.[0] ?? 0) || 0;
+    const currentZ = Number(current?.z ?? current?.[1] ?? 0) || 0;
+    const nextX = Number(next?.x ?? next?.[0] ?? 0) || 0;
+    const nextZ = Number(next?.z ?? next?.[1] ?? 0) || 0;
+    const distance = distanceSqPointToSegment(midpoint.x, midpoint.z, currentX, currentZ, nextX, nextZ);
+    if (distance < bestDistance - epsilon) {
+      bestDistance = distance;
+      bestIndex = index;
+    }
+  }
+
+  return bestIndex;
+}
+
+function rogueLoopPoint(point) {
+  return {
+    x: Number(point?.x ?? point?.[0] ?? 0) || 0,
+    z: Number(point?.z ?? point?.[1] ?? 0) || 0
+  };
+}
+
+function roguePolygonSignedArea(loop) {
+  if (!Array.isArray(loop) || loop.length < 3) {
+    return 0;
+  }
+
+  let area = 0;
+  for (let index = 0; index < loop.length; index += 1) {
+    const current = rogueLoopPoint(loop[index]);
+    const next = rogueLoopPoint(loop[(index + 1) % loop.length]);
+    area += (current.x * next.z) - (next.x * current.z);
+  }
+
+  return area * 0.5;
+}
+
+function rogueNormalizeVector(x, z, fallbackX = 1, fallbackZ = 0) {
+  const length = Math.hypot(x, z);
+  if (length <= 1e-6) {
+    return { x: fallbackX, z: fallbackZ };
+  }
+  return { x: x / length, z: z / length };
+}
+
+function rogueWobbleLoop(loop, seed, options = {}) {
+  const points = Array.isArray(loop) ? loop.map(rogueLoopPoint) : [];
+  if (points.length < 3) {
+    return points;
+  }
+
+  const orientation = roguePolygonSignedArea(points) >= 0 ? 1 : -1;
+  const centroid = points.reduce((accumulator, point) => {
+    accumulator.x += point.x;
+    accumulator.z += point.z;
+    return accumulator;
+  }, { x: 0, z: 0 });
+  centroid.x /= points.length;
+  centroid.z /= points.length;
+
+  const cornerAmplitude = Number(options.cornerAmplitude ?? 0.24) || 0;
+  const edgeAmplitude = Number(options.edgeAmplitude ?? 0.14) || 0;
+  const tangentAmplitude = Number(options.tangentAmplitude ?? 0.07) || 0;
+  const radialAmplitude = Number(options.radialAmplitude ?? 0.05) || 0;
+  const seedBias = Number(options.seedBias ?? 0) || 0;
+
+  return points.map((current, index) => {
+    const prev = points[(index + points.length - 1) % points.length];
+    const next = points[(index + 1) % points.length];
+    const prevEdge = {
+      x: current.x - prev.x,
+      z: current.z - prev.z
+    };
+    const nextEdge = {
+      x: next.x - current.x,
+      z: next.z - current.z
+    };
+    const prevNormal = rogueNormalizeVector(
+      orientation >= 0 ? prevEdge.z : -prevEdge.z,
+      orientation >= 0 ? -prevEdge.x : prevEdge.x,
+      0,
+      1
+    );
+    const nextNormal = rogueNormalizeVector(
+      orientation >= 0 ? nextEdge.z : -nextEdge.z,
+      orientation >= 0 ? -nextEdge.x : nextEdge.x,
+      0,
+      1
+    );
+    const bisector = rogueNormalizeVector(prevNormal.x + nextNormal.x, prevNormal.z + nextNormal.z, prevNormal.x, prevNormal.z);
+    const tangent = rogueNormalizeVector(prevEdge.x + nextEdge.x, prevEdge.z + nextEdge.z, nextEdge.x || prevEdge.x || 1, nextEdge.z || prevEdge.z || 0);
+    const radial = rogueNormalizeVector(current.x - centroid.x, current.z - centroid.z, bisector.x, bisector.z);
+
+    const wave = rogueGeometryNoise(current.x + (index * 0.37) + seedBias, current.z - (index * 0.41) - seedBias, seed, index * 0.9);
+    const wobble = rogueGeometryNoise(current.x - (index * 0.21) + seedBias, current.z + (index * 0.29) - seedBias, seed, 4.1);
+    const lift = rogueGeometryNoise(current.x + (index * 0.13), current.z + (index * 0.19), seed, 7.3);
+    const cornerPush = cornerAmplitude * wave;
+    const edgePush = edgeAmplitude * wobble;
+    const tangentPush = tangentAmplitude * Math.sin((index * 1.27) + (seed * 0.0001));
+    const radialPush = radialAmplitude * lift;
+
+    return {
+      x: current.x
+        + (bisector.x * (cornerPush + edgePush))
+        + (tangent.x * tangentPush)
+        + (radial.x * radialPush),
+      z: current.z
+        + (bisector.z * (cornerPush + edgePush))
+        + (tangent.z * tangentPush)
+        + (radial.z * radialPush)
+    };
+  });
+}
+
+function rogueSurfaceProfile(role, node, x, z, seed, isCorridor = false) {
+  const roleName = typeof role === 'string' && role.startsWith('key-') ? 'key' : role;
+  const depth = Number(node?.depth ?? 0) || 0;
+  const origin = rogueCellCenter(x, z, seed);
+  const roomBase = {
+    start: { floor: 0.08, ceiling: 3.60 },
+    main: { floor: 0.12, ceiling: 3.72 },
+    treasure: { floor: 0.18, ceiling: 3.96 },
+    combat: { floor: 0.14, ceiling: 3.78 },
+    exit: { floor: 0.20, ceiling: 4.02 },
+    hazard: { floor: 0.26, ceiling: 3.36 },
+    key: { floor: 0.18, ceiling: 3.86 },
+    corridor: { floor: 0.04, ceiling: 3.30 },
+    transition: { floor: 0.08, ceiling: 3.46 }
+  };
+
+  const profileKey = isCorridor ? (roleName === 'transition' ? 'transition' : 'corridor') : (roomBase[roleName] ? roleName : 'main');
+  const baseProfile = roomBase[profileKey] || roomBase.main;
+  const floorNoise = rogueGeometryNoise(x + 0.25, z - 0.5, seed, 2.1);
+  const ceilingNoise = rogueGeometryNoise(x - 0.75, z + 0.5, seed, 4.3);
+  let floorBase = rogueClamp(baseProfile.floor + (depth * 0.024) + (floorNoise * 0.05), -0.12, 0.88);
+  let ceilingBase = rogueClamp(baseProfile.ceiling - (depth * 0.010) + (ceilingNoise * 0.06), 2.90, 4.40);
+  if (isCorridor) {
+    floorBase = rogueClamp(floorBase - 0.08, -0.20, 0.60);
+    ceilingBase = rogueClamp(Math.max(ceilingBase, floorBase + 4.10), 4.10, 4.80);
+  } else {
+    ceilingBase = rogueClamp(Math.max(ceilingBase, floorBase + 2.15), 2.90, 4.50);
+  }
+  const floorSlopeX = rogueClamp(rogueGeometryNoise(x, z, seed, 5.5) * (isCorridor ? 0.0009 : 0.0035), -0.008, 0.008);
+  const floorSlopeZ = rogueClamp(rogueGeometryNoise(x, z, seed, 6.9) * (isCorridor ? 0.0009 : 0.0035), -0.008, 0.008);
+  const ceilingSlopeX = rogueClamp(rogueGeometryNoise(x + 1.0, z - 0.5, seed, 8.1) * (isCorridor ? 0.0007 : 0.0025), -0.007, 0.007);
+  const ceilingSlopeZ = rogueClamp(rogueGeometryNoise(x - 0.5, z + 1.0, seed, 9.7) * (isCorridor ? 0.0007 : 0.0025), -0.007, 0.007);
+
+  return {
+    floor: {
+      base: floorBase,
+      slopeX: floorSlopeX,
+      slopeZ: floorSlopeZ,
+      originX: origin.x,
+      originZ: origin.z
+    },
+    ceiling: {
+      base: ceilingBase,
+      slopeX: ceilingSlopeX,
+      slopeZ: ceilingSlopeZ,
+      originX: origin.x,
+      originZ: origin.z
+    }
+  };
 }
 
 function rogueBuildRectCells(width, height) {
@@ -923,6 +1315,113 @@ function rogueBuildRectCells(width, height) {
     }
   }
   return cells;
+}
+
+function rogueBuildTaperCells(width, height) {
+  const cells = [];
+  const halfHeight = Math.floor(height / 2);
+  const maxHalfWidth = Math.max(1, Math.floor(width / 2));
+
+  for (let dz = -halfHeight; dz <= halfHeight; dz += 1) {
+    const blend = Math.abs(dz) / Math.max(1, halfHeight || 1);
+    const rowHalfWidth = Math.max(1, Math.round(maxHalfWidth - (blend * Math.max(0, maxHalfWidth - 1))));
+    for (let dx = -rowHalfWidth; dx <= rowHalfWidth; dx += 1) {
+      cells.push([dx, dz]);
+    }
+  }
+
+  return cells;
+}
+
+function rogueBuildNotchedCells(width, height, notchSide = 'north') {
+  const cells = [];
+  const halfWidth = Math.floor(width / 2);
+  const halfHeight = Math.floor(height / 2);
+  const notchWidth = Math.max(1, Math.floor(width / 3));
+  const notchHeight = Math.max(1, Math.floor(height / 3));
+
+  for (let dz = -halfHeight; dz <= halfHeight; dz += 1) {
+    for (let dx = -halfWidth; dx <= halfWidth; dx += 1) {
+      const onNorth = dz <= -halfHeight + notchHeight && Math.abs(dx) <= Math.floor(notchWidth / 2);
+      const onSouth = dz >= halfHeight - notchHeight && Math.abs(dx) <= Math.floor(notchWidth / 2);
+      const onWest = dx <= -halfWidth + notchHeight && Math.abs(dz) <= Math.floor(notchWidth / 2);
+      const onEast = dx >= halfWidth - notchHeight && Math.abs(dz) <= Math.floor(notchWidth / 2);
+      const remove =
+        (notchSide === 'north' && onNorth) ||
+        (notchSide === 'south' && onSouth) ||
+        (notchSide === 'west' && onWest) ||
+        (notchSide === 'east' && onEast);
+      if (!remove) {
+        cells.push([dx, dz]);
+      }
+    }
+  }
+
+  return cells;
+}
+
+function rogueBuildChamferCells(width, height) {
+  const cells = [];
+  const cut = Math.max(1, Math.min(width, height) >= 6 ? 2 : 1);
+  const halfWidth = Math.floor(width / 2);
+  const halfHeight = Math.floor(height / 2);
+
+  for (let dz = -halfHeight; dz <= halfHeight; dz += 1) {
+    for (let dx = -halfWidth; dx <= halfWidth; dx += 1) {
+      const corner = Math.abs(dx) > halfWidth - cut && Math.abs(dz) > halfHeight - cut;
+      if (corner) {
+        continue;
+      }
+      cells.push([dx, dz]);
+    }
+  }
+
+  return cells;
+}
+
+function rogueBuildLShapeCells(width, height, corner = 'nw') {
+  const cells = [];
+  const halfWidth = Math.floor(width / 2);
+  const halfHeight = Math.floor(height / 2);
+  const cutWidth = Math.max(2, Math.floor(width / 2));
+  const cutHeight = Math.max(2, Math.floor(height / 2));
+
+  for (let dz = -halfHeight; dz <= halfHeight; dz += 1) {
+    for (let dx = -halfWidth; dx <= halfWidth; dx += 1) {
+      const removeNW = corner === 'nw' && dx < -halfWidth + cutWidth && dz < -halfHeight + cutHeight;
+      const removeNE = corner === 'ne' && dx > halfWidth - cutWidth && dz < -halfHeight + cutHeight;
+      const removeSW = corner === 'sw' && dx < -halfWidth + cutWidth && dz > halfHeight - cutHeight;
+      const removeSE = corner === 'se' && dx > halfWidth - cutWidth && dz > halfHeight - cutHeight;
+      if (removeNW || removeNE || removeSW || removeSE) {
+        continue;
+      }
+      cells.push([dx, dz]);
+    }
+  }
+
+  return cells;
+}
+
+function rogueBuildTwinCells(width, height) {
+  const cells = new Set();
+  const leftWidth = Math.max(2, Math.floor(width * 0.58));
+  const rightWidth = Math.max(2, width - Math.floor(width * 0.42));
+  const leftHalfWidth = Math.floor(leftWidth / 2);
+  const rightHalfWidth = Math.floor(rightWidth / 2);
+  const halfHeight = Math.floor(height / 2);
+  const leftOffset = -Math.max(1, Math.floor(width / 4));
+  const rightOffset = Math.max(1, Math.floor(width / 4));
+
+  for (let dz = -halfHeight; dz <= halfHeight; dz += 1) {
+    for (let dx = -leftHalfWidth; dx <= leftHalfWidth; dx += 1) {
+      cells.add(`${dx + leftOffset},${dz}`);
+    }
+    for (let dx = -rightHalfWidth; dx <= rightHalfWidth; dx += 1) {
+      cells.add(`${dx + rightOffset},${dz}`);
+    }
+  }
+
+  return [...cells].map((entry) => entry.split(',').map((value) => Number(value)));
 }
 
 function rogueBuildOctagonCells(radius = 2) {
@@ -971,50 +1470,83 @@ function rogueMakeTemplate(id, cells, connectors, axis = 'any') {
 const ROGUE_ROOM_TEMPLATE_LIBRARY = {
   start: [
     rogueMakeTemplate('start-square', rogueBuildRectCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any'),
+    rogueMakeTemplate('start-chamfer', rogueBuildChamferCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('start-taper', rogueBuildTaperCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('start-twin', rogueBuildTwinCells(5, 3), rogueBuildCardinalConnectors(2, 1), 'any'),
     rogueMakeTemplate('start-octagon', rogueBuildOctagonCells(2), rogueBuildCardinalConnectors(2, 2), 'any')
   ],
   main: [
     rogueMakeTemplate('main-hall', rogueBuildRectCells(5, 3), rogueBuildCardinalConnectors(2, 1), 'horizontal'),
     rogueMakeTemplate('main-needle', rogueBuildRectCells(3, 5), rogueBuildCardinalConnectors(1, 2), 'vertical'),
+    rogueMakeTemplate('main-taper', rogueBuildTaperCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
     rogueMakeTemplate('main-octagon', rogueBuildOctagonCells(2), rogueBuildCardinalConnectors(2, 2), 'any'),
-    rogueMakeTemplate('main-cross', rogueBuildCrossCells(2), rogueBuildCardinalConnectors(2, 2), 'any')
+    rogueMakeTemplate('main-cross', rogueBuildCrossCells(2), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('main-chamfer', rogueBuildChamferCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('main-lshape', rogueBuildLShapeCells(5, 5, 'ne'), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('main-notch', rogueBuildNotchedCells(5, 5, 'north'), rogueBuildCardinalConnectors(2, 2), 'any')
   ],
   branch: [
     rogueMakeTemplate('branch-needle', rogueBuildRectCells(3, 5), rogueBuildCardinalConnectors(1, 2), 'vertical'),
     rogueMakeTemplate('branch-square', rogueBuildRectCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any'),
-    rogueMakeTemplate('branch-cross', rogueBuildCrossCells(2), rogueBuildCardinalConnectors(2, 2), 'any')
+    rogueMakeTemplate('branch-taper', rogueBuildTaperCells(3, 5), rogueBuildCardinalConnectors(1, 2), 'any'),
+    rogueMakeTemplate('branch-cross', rogueBuildCrossCells(2), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('branch-chamfer', rogueBuildChamferCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('branch-twin', rogueBuildTwinCells(5, 3), rogueBuildCardinalConnectors(2, 1), 'any')
   ],
   key: [
-    rogueMakeTemplate('key-square', rogueBuildRectCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any')
+    rogueMakeTemplate('key-square', rogueBuildRectCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any'),
+    rogueMakeTemplate('key-taper', rogueBuildTaperCells(3, 5), rogueBuildCardinalConnectors(1, 2), 'any'),
+    rogueMakeTemplate('key-chamfer', rogueBuildChamferCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any'),
+    rogueMakeTemplate('key-octagon', rogueBuildOctagonCells(1), rogueBuildCardinalConnectors(1, 1), 'any')
   ],
   'key-red': [
-    rogueMakeTemplate('key-red-square', rogueBuildRectCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any')
+    rogueMakeTemplate('key-red-square', rogueBuildRectCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any'),
+    rogueMakeTemplate('key-red-taper', rogueBuildTaperCells(3, 5), rogueBuildCardinalConnectors(1, 2), 'any'),
+    rogueMakeTemplate('key-red-chamfer', rogueBuildChamferCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any'),
+    rogueMakeTemplate('key-red-octagon', rogueBuildOctagonCells(1), rogueBuildCardinalConnectors(1, 1), 'any')
   ],
   'key-blue': [
-    rogueMakeTemplate('key-blue-square', rogueBuildRectCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any')
+    rogueMakeTemplate('key-blue-square', rogueBuildRectCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any'),
+    rogueMakeTemplate('key-blue-taper', rogueBuildTaperCells(3, 5), rogueBuildCardinalConnectors(1, 2), 'any'),
+    rogueMakeTemplate('key-blue-chamfer', rogueBuildChamferCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any'),
+    rogueMakeTemplate('key-blue-octagon', rogueBuildOctagonCells(1), rogueBuildCardinalConnectors(1, 1), 'any')
   ],
   'key-yellow': [
-    rogueMakeTemplate('key-yellow-square', rogueBuildRectCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any')
+    rogueMakeTemplate('key-yellow-square', rogueBuildRectCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any'),
+    rogueMakeTemplate('key-yellow-taper', rogueBuildTaperCells(3, 5), rogueBuildCardinalConnectors(1, 2), 'any'),
+    rogueMakeTemplate('key-yellow-chamfer', rogueBuildChamferCells(3, 3), rogueBuildCardinalConnectors(1, 1), 'any'),
+    rogueMakeTemplate('key-yellow-octagon', rogueBuildOctagonCells(1), rogueBuildCardinalConnectors(1, 1), 'any')
   ],
   treasure: [
     rogueMakeTemplate('treasure-vault', rogueBuildRectCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('treasure-bulge', rogueBuildTaperCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
     rogueMakeTemplate('treasure-octagon', rogueBuildOctagonCells(2), rogueBuildCardinalConnectors(2, 2), 'any'),
-    rogueMakeTemplate('treasure-cross', rogueBuildCrossCells(2), rogueBuildCardinalConnectors(2, 2), 'any')
+    rogueMakeTemplate('treasure-cross', rogueBuildCrossCells(2), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('treasure-chamfer', rogueBuildChamferCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('treasure-galleria', rogueBuildTwinCells(5, 3), rogueBuildCardinalConnectors(2, 1), 'any')
   ],
   combat: [
     rogueMakeTemplate('combat-cross', rogueBuildCrossCells(2), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('combat-taper', rogueBuildTaperCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
     rogueMakeTemplate('combat-octagon', rogueBuildOctagonCells(2), rogueBuildCardinalConnectors(2, 2), 'any'),
-    rogueMakeTemplate('combat-vault', rogueBuildRectCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any')
+    rogueMakeTemplate('combat-vault', rogueBuildRectCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('combat-chamfer', rogueBuildChamferCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('combat-arena', rogueBuildLShapeCells(5, 5, 'nw'), rogueBuildCardinalConnectors(2, 2), 'any')
   ],
   exit: [
     rogueMakeTemplate('exit-vault', rogueBuildRectCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('exit-taper', rogueBuildTaperCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
     rogueMakeTemplate('exit-octagon', rogueBuildOctagonCells(2), rogueBuildCardinalConnectors(2, 2), 'any'),
-    rogueMakeTemplate('exit-cross', rogueBuildCrossCells(2), rogueBuildCardinalConnectors(2, 2), 'any')
+    rogueMakeTemplate('exit-cross', rogueBuildCrossCells(2), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('exit-chamfer', rogueBuildChamferCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any')
   ],
   hazard: [
     rogueMakeTemplate('hazard-vault', rogueBuildRectCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('hazard-taper', rogueBuildTaperCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
     rogueMakeTemplate('hazard-octagon', rogueBuildOctagonCells(2), rogueBuildCardinalConnectors(2, 2), 'any'),
-    rogueMakeTemplate('hazard-cross', rogueBuildCrossCells(2), rogueBuildCardinalConnectors(2, 2), 'any')
+    rogueMakeTemplate('hazard-cross', rogueBuildCrossCells(2), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('hazard-chamfer', rogueBuildChamferCells(5, 5), rogueBuildCardinalConnectors(2, 2), 'any'),
+    rogueMakeTemplate('hazard-twin', rogueBuildTwinCells(5, 3), rogueBuildCardinalConnectors(2, 1), 'any')
   ]
 };
 
@@ -1023,6 +1555,9 @@ function rogueTemplatesForRole(role) {
 }
 
 function rogueMaterialSetForRole(themeVariant, role, isCorridor) {
+  if (role === 'transition') {
+    return themeVariant.transitionMaterials || themeVariant.corridorMaterials;
+  }
   if (isCorridor) {
     return themeVariant.corridorMaterials;
   }
@@ -1101,9 +1636,11 @@ export function createRogueStyleCampaignLevel(options = {}) {
 }
 
 function buildRogueLayout(rng, seed, themeVariant, attempt) {
+  const geometrySeed = deriveSeed(seed, 'rogue-geometry');
   const layout = {
     seed,
     attempt,
+    geometrySeed,
     themeVariant,
     roomCells: new Set(),
     roomBuffer: new Set(),
@@ -1161,18 +1698,21 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
       const x = node.anchor.x + dx;
       const z = node.anchor.z + dz;
       const key = keyOf(x, z);
-      const center = rogueCellCenter(x, z);
+      const center = rogueCellCenter(x, z, geometrySeed);
       const cellMaterials = rogueMaterialSetForRole(themeVariant, node.role, false);
+      const surfaces = rogueSurfaceProfile(node.role, node, x, z, geometrySeed, false);
       const info = {
         id: `rogue-${x}-${z}`,
         x,
         z,
         center,
+        world: center,
+        loop: rogueCellLoop(x, z, geometrySeed),
         nodeId: node.id,
         role: node.role,
         theme: themeVariant.theme,
-        floor: 0,
-        ceiling: 3.55,
+        floor: surfaces.floor,
+        ceiling: surfaces.ceiling,
         floorMaterial: cellMaterials.floor,
         ceilingMaterial: cellMaterials.ceiling,
         wallMaterial: cellMaterials.wall,
@@ -1228,23 +1768,56 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
 
   function placeNode(node, flowVector) {
     const templates = layoutRngShuffle(rng, rogueTemplatesForRole(node.role));
-    for (const template of templates) {
-      const axis = template.axis || 'any';
-      const rotations = layoutRngShuffle(rng, [0, 1, 2, 3]);
-      for (const rotation of rotations) {
-        if (axis === 'horizontal' && Math.abs(flowVector.x) < Math.abs(flowVector.z)) {
-          continue;
+    const horizontalFlow = Math.abs(flowVector.x) >= Math.abs(flowVector.z);
+    const allowAnchorShift = typeof node.role === 'string' && (node.role === 'key' || node.role.startsWith('key-') || node.role === 'branch');
+    const anchorOffsets = allowAnchorShift
+      ? layoutRngShuffle(rng, [
+        { x: 0, z: 0 },
+        { x: horizontalFlow ? 0 : 1, z: horizontalFlow ? 1 : 0 },
+        { x: horizontalFlow ? 0 : -1, z: horizontalFlow ? -1 : 0 },
+        { x: horizontalFlow ? 0 : 2, z: horizontalFlow ? 2 : 0 },
+        { x: horizontalFlow ? 0 : -2, z: horizontalFlow ? -2 : 0 },
+        { x: 1, z: 0 },
+        { x: -1, z: 0 },
+        { x: 0, z: 1 },
+        { x: 0, z: -1 },
+        { x: 1, z: 1 },
+        { x: -1, z: 1 },
+        { x: 1, z: -1 },
+        { x: -1, z: -1 }
+      ])
+      : [{ x: 0, z: 0 }];
+
+    const originalAnchor = rogueClonePoint(node.anchor);
+    for (const offset of anchorOffsets) {
+      const trialAnchor = {
+        x: originalAnchor.x + offset.x,
+        z: originalAnchor.z + offset.z
+      };
+      if (!rogueWithinBounds(trialAnchor.x, trialAnchor.z)) {
+        continue;
+      }
+
+      node.anchor = trialAnchor;
+      for (const template of templates) {
+        const axis = template.axis || 'any';
+        const rotations = layoutRngShuffle(rng, [0, 1, 2, 3]);
+        for (const rotation of rotations) {
+          if (axis === 'horizontal' && Math.abs(flowVector.x) < Math.abs(flowVector.z)) {
+            continue;
+          }
+          if (axis === 'vertical' && Math.abs(flowVector.z) < Math.abs(flowVector.x)) {
+            continue;
+          }
+          if (!canPlaceTemplate(node.anchor, template, rotation)) {
+            continue;
+          }
+          installNode(node, template, rotation);
+          return true;
         }
-        if (axis === 'vertical' && Math.abs(flowVector.z) < Math.abs(flowVector.x)) {
-          continue;
-        }
-        if (!canPlaceTemplate(node.anchor, template, rotation)) {
-          continue;
-        }
-        installNode(node, template, rotation);
-        return true;
       }
     }
+    node.anchor = originalAnchor;
     return false;
   }
 
@@ -1295,6 +1868,39 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
       return true;
     }
 
+    function expandDiagonalPath(path) {
+      if (!Array.isArray(path) || path.length < 2) {
+        return path;
+      }
+
+      const expanded = [path[0]];
+      for (let index = 1; index < path.length; index += 1) {
+        const previous = expanded[expanded.length - 1];
+        const next = path[index];
+        const dx = next.x - previous.x;
+        const dz = next.z - previous.z;
+        if (Math.abs(dx) === 1 && Math.abs(dz) === 1) {
+          const firstOption = { x: previous.x + dx, z: previous.z };
+          const secondOption = { x: previous.x, z: previous.z + dz };
+          let inserted = false;
+          if (passable(firstOption.x, firstOption.z)) {
+            expanded.push(firstOption);
+            inserted = true;
+          } else if (passable(secondOption.x, secondOption.z)) {
+            expanded.push(secondOption);
+            inserted = true;
+          }
+
+          if (!inserted) {
+            return null;
+          }
+        }
+        expanded.push(next);
+      }
+
+      return expanded;
+    }
+
     function aStar(from, to, localMode) {
       const open = [{
         x: from.x,
@@ -1324,14 +1930,19 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
             cursor = keyOf(prev.x, prev.z);
           }
           path.reverse();
-          return path;
+          return expandDiagonalPath(path);
         }
 
-        for (const step of ROGUE_DIRECTIONS) {
+        for (const step of ROGUE_ROUTE_STEPS) {
           const nx = current.x + step.dx;
           const nz = current.z + step.dz;
           if (!passable(nx, nz)) {
             continue;
+          }
+          if (Math.abs(step.dx) === 1 && Math.abs(step.dz) === 1) {
+            if (!passable(current.x + step.dx, current.z) || !passable(current.x, current.z + step.dz)) {
+              continue;
+            }
           }
 
           const nextKey = keyOf(nx, nz);
@@ -1339,7 +1950,7 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
             ? (localMode === 'drift' ? 0.32 : localMode === 'elbow' ? 0.18 : 0.08)
             : 0;
           const corridorBonus = layout.corridorCells.has(nextKey) ? -0.04 : 0;
-          const nextG = current.g + 1 + turnPenalty + corridorBonus;
+          const nextG = current.g + (step.cost || 1) + turnPenalty + corridorBonus;
           const bestKnown = best.get(nextKey);
           if (Number.isFinite(bestKnown) && bestKnown <= nextG) {
             continue;
@@ -1445,17 +2056,22 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
       }
       if (!layout.corridorCells.has(key)) {
         layout.corridorCells.add(key);
-        const corridorMaterials = rogueMaterialSetForRole(themeVariant, 'main', true);
+        const cellRole = cell === chosenPath[0] || cell === chosenPath[chosenPath.length - 1] ? 'transition' : 'corridor';
+        const corridorMaterials = rogueMaterialSetForRole(themeVariant, cellRole, true);
+        const surfaces = rogueSurfaceProfile(cellRole, null, cell.x, cell.z, geometrySeed, true);
+        const center = rogueCellCenter(cell.x, cell.z, geometrySeed);
         layout.cellInfo.set(key, {
           id: `rogue-${cell.x}-${cell.z}`,
           x: cell.x,
           z: cell.z,
-          center: rogueCellCenter(cell.x, cell.z),
+          center,
+          world: center,
+          loop: rogueCellLoop(cell.x, cell.z, geometrySeed),
           nodeId: null,
-          role: 'corridor',
+          role: cellRole,
           theme: themeVariant.theme,
-          floor: 0,
-          ceiling: 3.55,
+          floor: surfaces.floor,
+          ceiling: surfaces.ceiling,
           floorMaterial: corridorMaterials.floor,
           ceilingMaterial: corridorMaterials.ceiling,
           wallMaterial: corridorMaterials.wall
@@ -1707,8 +2323,8 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
   addGateLink(mainLinks[3], 'blue-gate', 'Blue Gate', 'blue');
   addGateLink(mainLinks[4], 'yellow-gate', 'Yellow Gate', 'yellow');
 
-  const startCenter = rogueCellCenter(mainNodes[0].anchor.x, mainNodes[0].anchor.z);
-  const exitCenter = rogueCellCenter(mainNodes[mainNodes.length - 1].anchor.x, mainNodes[mainNodes.length - 1].anchor.z);
+  const startCenter = rogueCellCenter(mainNodes[0].anchor.x, mainNodes[0].anchor.z, geometrySeed);
+  const exitCenter = rogueCellCenter(mainNodes[mainNodes.length - 1].anchor.x, mainNodes[mainNodes.length - 1].anchor.z, geometrySeed);
 
   const enemySpawns = [];
   const pickups = [];
@@ -1777,7 +2393,7 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
   }
 
   for (const node of layout.nodes) {
-    const center = rogueCellCenter(node.anchor.x, node.anchor.z);
+    const center = rogueCellCenter(node.anchor.x, node.anchor.z, geometrySeed);
     const roomCells = node.cells.slice();
     const spawnCells = rng.shuffle(roomCells);
     const safeCount = node.role === 'start' ? 0 : node.role === 'exit' ? 2 : 1;
@@ -1916,7 +2532,7 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
       const spawnCount = node.role === 'exit' ? 2 : node.role === 'combat' ? 3 : node.role === 'treasure' ? 2 : node.role === 'hazard' ? 1 : 1;
       for (let index = 0; index < spawnCount; index += 1) {
         const cell = spawnCells[index % spawnCells.length];
-        const point = rogueCellCenter(cell.x, cell.z);
+        const point = rogueCellCenter(cell.x, cell.z, geometrySeed);
         pushEnemy(roles[index % roles.length], point.x, point.z);
       }
     }
@@ -1940,66 +2556,328 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
     }
     if (rng.nextFloat() < 0.16) {
       const mid = link.path[Math.floor(link.path.length / 2)];
-      const point = rogueCellCenter(mid.x, mid.z);
+      const point = rogueCellCenter(mid.x, mid.z, geometrySeed);
       pushDecal('warning', point.x, point.z, (rng.nextFloat() * 0.8) - 0.4, '#e7c65d', 0.5);
     }
   }
 
   function buildSectors() {
     const sectors = [];
-    const sectorLookup = new Map();
-    for (const [key, info] of layout.cellInfo.entries()) {
-      sectorLookup.set(key, info);
-      sectors.push({
-        id: info.id,
-        name: info.role === 'corridor' ? `Corridor ${info.x},${info.z}` : `${info.roomId || 'room'} ${info.x},${info.z}`,
-        floor: info.floor,
-        ceiling: info.ceiling,
-        floorMaterial: info.floorMaterial,
-        ceilingMaterial: info.ceilingMaterial,
-        wallMaterial: info.wallMaterial,
-        theme: themeVariant.theme,
-        hazardDamagePerSecond: info.hazardDamagePerSecond || 0,
-        hazardType: info.hazardType || null,
-        loop: rogueCellLoop(info.x, info.z),
-        portals: []
-      });
-    }
-
     const sectorByCell = new Map();
-    for (const sector of sectors) {
-      const parts = sector.id.split('-');
-      const x = Number(parts[1]);
-      const z = Number(parts[2]);
-      sectorByCell.set(rogueCellKey(x, z), sector);
-    }
+    const sectorEdgeIndexById = new Map();
+    let explicitPortalCount = 0;
+    const corridorCellKeys = Array.from(layout.corridorCells).sort((a, b) => a.localeCompare(b));
+    const corridorComponents = [];
+    const visitedCorridorCells = new Set();
 
-    for (const sector of sectors) {
-      const parts = sector.id.split('-');
-      const x = Number(parts[1]);
-      const z = Number(parts[2]);
-      for (const dir of ROGUE_DIRECTIONS) {
-        const nx = x + dir.dx;
-        const nz = z + dir.dz;
-        const neighbor = sectorByCell.get(rogueCellKey(nx, nz));
-        if (!neighbor) {
+    for (const startKey of corridorCellKeys) {
+      if (visitedCorridorCells.has(startKey)) {
+        continue;
+      }
+
+      const component = [];
+      const queue = [startKey];
+      visitedCorridorCells.add(startKey);
+
+      while (queue.length > 0) {
+        const currentKey = queue.shift();
+        const currentInfo = layout.cellInfo.get(currentKey);
+        if (!currentInfo) {
           continue;
         }
-        sector.portals.push({ edge: dir.edge, to: neighbor.id });
+
+        component.push(currentInfo);
+
+        for (const dir of ROGUE_DIRECTIONS) {
+          const neighborKey = keyOf(currentInfo.x + dir.dx, currentInfo.z + dir.dz);
+          if (!layout.corridorCells.has(neighborKey) || visitedCorridorCells.has(neighborKey)) {
+            continue;
+          }
+          visitedCorridorCells.add(neighborKey);
+          queue.push(neighborKey);
+        }
+      }
+
+      if (component.length > 0) {
+        corridorComponents.push(component);
       }
     }
 
-    return { sectors, sectorByCell };
+    function distanceSqPointToLoop(x, z, loop) {
+      if (!Array.isArray(loop) || loop.length < 2) {
+        return Infinity;
+      }
+
+      let best = Infinity;
+      for (let index = 0; index < loop.length; index += 1) {
+        const current = loop[index];
+        const next = loop[(index + 1) % loop.length];
+        const currentX = Number(current?.x ?? current?.[0] ?? 0) || 0;
+        const currentZ = Number(current?.z ?? current?.[1] ?? 0) || 0;
+        const nextX = Number(next?.x ?? next?.[0] ?? 0) || 0;
+        const nextZ = Number(next?.z ?? next?.[1] ?? 0) || 0;
+        const distance = distanceSqPointToSegment(x, z, currentX, currentZ, nextX, nextZ);
+        if (distance < best) {
+          best = distance;
+        }
+      }
+
+      return best;
+    }
+
+    function findNearestSectorToPoint(point, excludedIds = []) {
+      if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.z)) {
+        return null;
+      }
+
+      const excluded = new Set(excludedIds);
+      let bestSector = null;
+      let bestDistance = Infinity;
+      for (const sector of sectors) {
+        if (excluded.has(sector.id)) {
+          continue;
+        }
+        const distance = distanceSqPointToLoop(point.x, point.z, sector.loop);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestSector = sector;
+        }
+      }
+      return bestSector;
+    }
+
+    function findNearestCorridorSectorToPoint(point, excludedIds = []) {
+      if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.z)) {
+        return null;
+      }
+
+      const excluded = new Set(excludedIds);
+      let bestSector = null;
+      let bestDistance = Infinity;
+      for (const sector of sectors) {
+        if (sector.nodeId !== null || excluded.has(sector.id)) {
+          continue;
+        }
+        const distance = distanceSqPointToLoop(point.x, point.z, sector.loop);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestSector = sector;
+        }
+      }
+      return bestSector;
+    }
+
+    for (const node of layout.nodes) {
+      const cells = node.cells.map((cell) => layout.cellInfo.get(cell.key)).filter(Boolean);
+      if (cells.length === 0) {
+        continue;
+      }
+
+      const roomSurface = rogueSurfaceProfile(node.role, node, node.anchor.x, node.anchor.z, geometrySeed, false);
+      const roomMaterials = rogueMaterialSetForRole(themeVariant, node.role, false);
+      const boundary = rogueBuildBoundaryLoopFromCells(node.cells, geometrySeed);
+      const loop = rogueWobbleLoop(boundary.loop, deriveSeed(geometrySeed, `${node.id}:${node.role}`), {
+        cornerAmplitude: node.role === 'start' ? 0.16 : node.role === 'exit' ? 0.18 : node.role === 'hazard' ? 0.21 : 0.19,
+        edgeAmplitude: node.role === 'hazard' ? 0.15 : 0.11,
+        tangentAmplitude: 0.05,
+        radialAmplitude: 0.03
+      });
+      const sector = {
+        id: node.id,
+        name: `${node.role === 'start' ? 'Start Room' : node.role === 'exit' ? 'Exit Room' : node.role === 'treasure' ? 'Treasure Room' : node.role === 'hazard' ? 'Hazard Room' : node.role === 'combat' ? 'Combat Room' : node.role === 'key-red' ? 'Red Key Room' : node.role === 'key-blue' ? 'Blue Key Room' : node.role === 'key-yellow' ? 'Yellow Key Room' : 'Room'} ${node.anchor.x},${node.anchor.z}`,
+        nodeId: node.id,
+        role: node.role,
+        floor: roomSurface.floor,
+        ceiling: roomSurface.ceiling,
+        floorMaterial: roomMaterials.floor,
+        ceilingMaterial: roomMaterials.ceiling,
+        wallMaterial: roomMaterials.wall,
+        theme: themeVariant.theme,
+        hazardDamagePerSecond: node.hazardDamagePerSecond || 0,
+        hazardType: node.hazardType || null,
+        loop,
+        portals: []
+      };
+      sectors.push(sector);
+      sectorEdgeIndexById.set(sector.id, boundary.edgeIndexByKey);
+      for (const cell of node.cells) {
+        sectorByCell.set(cell.key, sector);
+      }
+    }
+
+    for (const [key, info] of layout.cellInfo.entries()) {
+      if (!sectorByCell.has(key)) {
+        const boundary = rogueBuildBoundaryLoopFromCells([{ x: info.x, z: info.z }], geometrySeed);
+        const sector = {
+          id: info.id,
+          name: `${info.role === 'transition' ? 'Transition' : 'Corridor'} ${info.x},${info.z}`,
+          nodeId: null,
+          role: info.role || 'corridor',
+          floor: info.floor,
+          ceiling: info.ceiling,
+          floorMaterial: info.floorMaterial,
+          ceilingMaterial: info.ceilingMaterial,
+          wallMaterial: info.wallMaterial,
+          theme: themeVariant.theme,
+          hazardDamagePerSecond: info.hazardDamagePerSecond || 0,
+          hazardType: info.hazardType || null,
+          loop: rogueWobbleLoop(boundary.loop, deriveSeed(geometrySeed, `corridor-cell:${info.x},${info.z}`), {
+            cornerAmplitude: info.role === 'transition' ? 0.20 : 0.18,
+            edgeAmplitude: info.role === 'transition' ? 0.10 : 0.08,
+            tangentAmplitude: 0.04,
+            radialAmplitude: 0.03
+          }),
+          centroid: rogueClonePoint(info.center || rogueCellCenter(info.x, info.z, geometrySeed)),
+          portals: []
+        };
+        sectors.push(sector);
+        sectorByCell.set(key, sector);
+        sectorEdgeIndexById.set(sector.id, boundary.edgeIndexByKey);
+      }
+    }
+
+    const seenPortalRefs = new Set();
+    for (const [key, info] of layout.cellInfo.entries()) {
+      const sector = sectorByCell.get(key);
+      if (!sector) {
+        continue;
+      }
+
+      const [xText, zText] = key.split(',');
+      const x = Number(xText);
+      const z = Number(zText);
+      const sectorEdgeMap = sectorEdgeIndexById.get(sector.id);
+      for (const dir of ROGUE_DIRECTIONS) {
+        const neighborKey = rogueCellKey(x + dir.dx, z + dir.dz);
+        const neighbor = sectorByCell.get(neighborKey);
+        if (!neighbor || neighbor.id === sector.id) {
+          continue;
+        }
+
+        const neighborEdgeMap = sectorEdgeIndexById.get(neighbor.id);
+        const side = rogueSideForDirection(x, z, dir.name);
+        const sideKey = rogueBoundaryEdgeKey(side.ax, side.az, side.bx, side.bz);
+        const worldSegment = rogueWorldSegmentForSide(x, z, dir.name, geometrySeed);
+        const edgeIndex = sectorEdgeMap?.get(sideKey) ?? rogueFindNearestLoopEdgeIndex(sector.loop, worldSegment);
+        const neighborEdgeIndex = neighborEdgeMap?.get(sideKey) ?? rogueFindNearestLoopEdgeIndex(neighbor.loop, worldSegment);
+        if (edgeIndex === undefined || neighborEdgeIndex === undefined) {
+          continue;
+        }
+        const forwardKey = `${sector.id}:${edgeIndex}:${neighbor.id}`;
+        const reverseKey = `${neighbor.id}:${neighborEdgeIndex}:${sector.id}`;
+
+        if (!seenPortalRefs.has(forwardKey)) {
+          sector.portals.push({ edge: edgeIndex, to: neighbor.id });
+          seenPortalRefs.add(forwardKey);
+        }
+
+        if (!seenPortalRefs.has(reverseKey)) {
+          neighbor.portals.push({ edge: neighborEdgeIndex, to: sector.id });
+          seenPortalRefs.add(reverseKey);
+        }
+      }
+    }
+
+    for (const link of layout.edges) {
+      const sourceRoomSector = sectorByCell.get(rogueCellKey(link.sourceConnector.x, link.sourceConnector.z)) || null;
+      const targetRoomSector = sectorByCell.get(rogueCellKey(link.targetConnector.x, link.targetConnector.z)) || null;
+      const sourceSegment = rogueWorldSegmentForSide(link.sourceConnector.x, link.sourceConnector.z, link.sourceConnector.direction, geometrySeed);
+      const targetSegment = rogueWorldSegmentForSide(link.targetConnector.x, link.targetConnector.z, link.targetConnector.direction, geometrySeed);
+      const sourcePoint = {
+        x: (sourceSegment.ax + sourceSegment.bx) * 0.5,
+        z: (sourceSegment.az + sourceSegment.bz) * 0.5
+      };
+      const targetPoint = {
+        x: (targetSegment.ax + targetSegment.bx) * 0.5,
+        z: (targetSegment.az + targetSegment.bz) * 0.5
+      };
+      const sourcePathCell = Array.isArray(link.path)
+        ? link.path.find((cell) => !layout.roomCells.has(rogueCellKey(cell.x, cell.z))) || null
+        : null;
+      const targetPathCell = Array.isArray(link.path)
+        ? [...link.path].reverse().find((cell) => !layout.roomCells.has(rogueCellKey(cell.x, cell.z))) || null
+        : null;
+      const sourceCorridorSector = sourcePathCell ? sectorByCell.get(rogueCellKey(sourcePathCell.x, sourcePathCell.z)) || null : null;
+      const targetCorridorSector = targetPathCell ? sectorByCell.get(rogueCellKey(targetPathCell.x, targetPathCell.z)) || null : null;
+      const resolvedSourceCorridor = sourceCorridorSector || findNearestCorridorSectorToPoint(sourcePoint, sourceRoomSector ? [sourceRoomSector.id] : []);
+      const resolvedTargetCorridor = targetCorridorSector || findNearestCorridorSectorToPoint(targetPoint, targetRoomSector ? [targetRoomSector.id] : []);
+
+      const addExplicitPortal = (aSector, bSector, x, z, direction, corridor = false) => {
+        if (!aSector || !bSector || aSector.id === bSector.id) {
+          return;
+        }
+
+        const segment = rogueWorldSegmentForSide(x, z, direction, geometrySeed);
+        const aSide = rogueSideForDirection(x, z, direction);
+        const bDirection = rogueOppositeDirection(direction);
+        const bSide = rogueSideForDirection(x, z, bDirection);
+        const aKey = rogueBoundaryEdgeKey(aSide.ax, aSide.az, aSide.bx, aSide.bz);
+        const bKey = rogueBoundaryEdgeKey(bSide.ax, bSide.az, bSide.bx, bSide.bz);
+        const aEdgeIndex = sectorEdgeIndexById.get(aSector.id)?.get(aKey) ?? rogueFindNearestLoopEdgeIndex(aSector.loop, segment);
+        const bEdgeIndex = sectorEdgeIndexById.get(bSector.id)?.get(bKey) ?? rogueFindNearestLoopEdgeIndex(bSector.loop, segment);
+        if (aEdgeIndex === undefined || bEdgeIndex === undefined) {
+          return;
+        }
+
+        const forwardKey = `${aSector.id}:${aEdgeIndex}:${bSector.id}:${corridor ? 'corridor' : 'room'}`;
+        const reverseKey = `${bSector.id}:${bEdgeIndex}:${aSector.id}:${corridor ? 'corridor' : 'room'}`;
+        if (!seenPortalRefs.has(forwardKey)) {
+          aSector.portals.push({ edge: aEdgeIndex, to: bSector.id });
+          seenPortalRefs.add(forwardKey);
+          explicitPortalCount += 1;
+        }
+        if (!seenPortalRefs.has(reverseKey)) {
+          bSector.portals.push({ edge: bEdgeIndex, to: aSector.id });
+          seenPortalRefs.add(reverseKey);
+          explicitPortalCount += 1;
+        }
+      };
+
+      addExplicitPortal(sourceRoomSector, resolvedSourceCorridor, link.sourceConnector.x, link.sourceConnector.z, link.sourceConnector.direction, true);
+      addExplicitPortal(targetRoomSector, resolvedTargetCorridor, link.targetConnector.x, link.targetConnector.z, link.targetConnector.direction, true);
+    }
+
+    layout.portalBridgeCount = explicitPortalCount;
+    return { sectors, sectorByCell, sectorEdgeIndexById };
   }
 
-  function buildDoors(sectorByCell) {
+  function buildDoors(sectorByCell, sectorEdgeIndexById) {
     const doors = [];
     for (const doorLink of layout.doorLinks) {
-      const leftKey = rogueCellKey(doorLink.leftCell.x, doorLink.leftCell.z);
-      const rightKey = rogueCellKey(doorLink.rightCell.x, doorLink.rightCell.z);
-      const leftSector = sectorByCell.get(leftKey);
-      const rightSector = sectorByCell.get(rightKey);
+      let leftCell = { x: doorLink.leftCell.x, z: doorLink.leftCell.z };
+      let rightCell = { x: doorLink.rightCell.x, z: doorLink.rightCell.z };
+      let leftSector = sectorByCell.get(rogueCellKey(leftCell.x, leftCell.z));
+      let rightSector = sectorByCell.get(rogueCellKey(rightCell.x, rightCell.z));
+
+      if (leftSector && rightSector && leftSector.id === rightSector.id) {
+        const step = rogueDirectionVector(doorLink.direction);
+        let previousCell = { ...leftCell };
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+          const probeKey = rogueCellKey(rightCell.x, rightCell.z);
+          const probeSector = sectorByCell.get(probeKey);
+          if (!probeSector || probeSector.id !== leftSector.id) {
+            break;
+          }
+          previousCell = { ...rightCell };
+          rightCell = {
+            x: rightCell.x + step.dx,
+            z: rightCell.z + step.dz
+          };
+          rightSector = sectorByCell.get(rogueCellKey(rightCell.x, rightCell.z));
+          leftCell = previousCell;
+        }
+        leftSector = sectorByCell.get(rogueCellKey(leftCell.x, leftCell.z)) || leftSector;
+      }
+
       if (!leftSector || !rightSector) {
+        continue;
+      }
+      const side = rogueSideForDirection(leftCell.x, leftCell.z, doorLink.direction);
+      const sideKey = rogueBoundaryEdgeKey(side.ax, side.az, side.bx, side.bz);
+      const worldSegment = rogueWorldSegmentForSide(leftCell.x, leftCell.z, doorLink.direction, geometrySeed);
+      const leftEdgeIndex = sectorEdgeIndexById.get(leftSector.id)?.get(sideKey) ?? rogueFindNearestLoopEdgeIndex(leftSector.loop, worldSegment);
+      const rightEdgeIndex = sectorEdgeIndexById.get(rightSector.id)?.get(sideKey) ?? rogueFindNearestLoopEdgeIndex(rightSector.loop, worldSegment);
+      if (leftEdgeIndex === undefined || rightEdgeIndex === undefined) {
         continue;
       }
       doors.push({
@@ -2011,11 +2889,11 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
         edges: [
           {
             sectorId: leftSector.id,
-            edgeIndex: rogueEdgeIndex(doorLink.direction)
+            edgeIndex: leftEdgeIndex
           },
           {
             sectorId: rightSector.id,
-            edgeIndex: rogueEdgeIndex(rogueOppositeDirection(doorLink.direction))
+            edgeIndex: rightEdgeIndex
           }
         ]
       });
@@ -2086,8 +2964,8 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
     node.depth = depths.get(node.id) || node.depth;
   }
 
-  const { sectors, sectorByCell } = buildSectors();
-  const doors = buildDoors(sectorByCell);
+  const { sectors, sectorByCell, sectorEdgeIndexById } = buildSectors();
+  const doors = buildDoors(sectorByCell, sectorEdgeIndexById);
 
   const walkableCells = new Set([...layout.roomCells, ...layout.corridorCells]);
   const startKey = rogueCellKey(startNode.anchor.x, startNode.anchor.z);
@@ -2125,7 +3003,7 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
       x: startCenter.x,
       z: startCenter.z,
       yaw: 0,
-      sector: `rogue-${startNode.anchor.x}-${startNode.anchor.z}`
+      sector: startNode.id
     },
     exit: {
       x: exitCenter.x,
@@ -2155,6 +3033,7 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
         rotation: node.rotation,
         depth: node.depth,
         anchor: rogueClonePoint(node.anchor),
+        world: rogueCellCenter(node.anchor.x, node.anchor.z, geometrySeed),
         keyColor: rogueKeyColorForRole(node.role),
         hazardDamagePerSecond: Number(node.hazardDamagePerSecond || 0) || 0,
         hazardType: node.hazardType || null
@@ -2165,12 +3044,15 @@ function buildRogueLayout(rng, seed, themeVariant, attempt) {
         requiredKey: door.requiredKey,
         sourceNodeId: door.sourceNodeId || null,
         targetNodeId: door.targetNodeId || null
-      }))
+      })),
+      portalBridgeCount: Number(layout.portalBridgeCount || 0) || 0
     }
   };
 
-  if (layout.doorLinks.length === 0 || doors.length === 0) {
-    throw new Error('Rogue layout failed: no door links were created');
+  const lockedDoorKeys = doors.filter((door) => door.locked).map((door) => door.requiredKey).sort();
+  const expectedDoorKeys = ['blue', 'red', 'yellow'];
+  if (layout.doorLinks.length !== 3 || doors.length !== 3 || JSON.stringify(lockedDoorKeys) !== JSON.stringify(expectedDoorKeys)) {
+    throw new Error(`Rogue layout failed: invalid gate set (${JSON.stringify({ doorLinks: layout.doorLinks.length, doors: doors.length, lockedDoorKeys })})`);
   }
 
   return level;

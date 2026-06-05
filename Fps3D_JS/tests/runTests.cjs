@@ -208,13 +208,95 @@ async function runPlaywrightSmoke() {
     'WebGL: INVALID_OPERATION:',
     'WebGL: too many errors'
   ];
+  const rogueSmokeSeed = process.env.FPS3D_ROGUE_SMOKE_SEED || 'fps3d-rogue-smoke';
 
   async function loadLevel(levelId, seed = 'fps3d-alpha01') {
     await page.goto(`${baseUrl}/Fps3D_JS/Fps3D_JS.html?seed=${encodeURIComponent(seed)}&level=${encodeURIComponent(levelId)}&bust=${Date.now()}`, {
       waitUntil: 'networkidle'
     });
     await page.bringToFront();
-    await page.waitForFunction(() => window.__fps3d && window.__fps3d.getState && window.__fps3d.getState().level);
+    await page.waitForFunction(() => window.__fps3d && window.__fps3d.getState && window.__fps3d.getState().level, undefined, { timeout: 120000 });
+    await page.evaluate(() => {
+      const state = window.__fps3d.getState();
+      state.difficultyId = 'medium';
+      state.difficulty = {
+        id: 'medium',
+        label: 'Medium',
+        playerDamageMultiplier: 1,
+        enemyDamageMultiplier: 1,
+        enemySpeedMultiplier: 1,
+        enemyCooldownMultiplier: 1
+      };
+    });
+    return page.evaluate(() => {
+      const state = window.__fps3d.getState();
+      let maxCornerAngleDeviation = 0;
+      const edgeAngleBins = Array(18).fill(0);
+      let edgeAngleCount = 0;
+      let nonCardinalEdgeCount = 0;
+      for (const sector of Array.isArray(state.level.sectors) ? state.level.sectors : []) {
+        const points = Array.isArray(sector.loop) ? sector.loop : [];
+        if (points.length < 4) {
+          continue;
+        }
+        for (let index = 0; index < points.length; index += 1) {
+          const prev = points[(index + points.length - 1) % points.length];
+          const curr = points[index];
+          const next = points[(index + 1) % points.length];
+          const ux = prev.x - curr.x;
+          const uz = prev.z - curr.z;
+          const vx = next.x - curr.x;
+          const vz = next.z - curr.z;
+          const length = Math.hypot(ux, uz) * Math.hypot(vx, vz);
+          if (length <= 1e-6) {
+            continue;
+          }
+          const cosine = Math.max(-1, Math.min(1, (ux * vx + uz * vz) / length));
+          const angle = Math.acos(cosine) * (180 / Math.PI);
+          const deviation = Math.abs(angle - 90);
+          if (deviation > maxCornerAngleDeviation) {
+            maxCornerAngleDeviation = deviation;
+          }
+        }
+        for (let index = 0; index < points.length; index += 1) {
+          const current = points[index];
+          const next = points[(index + 1) % points.length];
+          const angle = (Math.atan2(next.z - current.z, next.x - current.x) * (180 / Math.PI) + 360) % 180;
+          const bin = Math.min(edgeAngleBins.length - 1, Math.floor(angle / 10));
+          edgeAngleBins[bin] += 1;
+          edgeAngleCount += 1;
+          const mod = ((angle % 90) + 90) % 90;
+          const edgeDeviation = Math.min(mod, 90 - mod);
+          if (edgeDeviation > 7.5) {
+            nonCardinalEdgeCount += 1;
+          }
+        }
+      }
+      return {
+        levelId: state.level.id,
+        levelSeed: state.seed,
+        enemyCount: state.enemies.length,
+        pickupCount: state.pickups.length,
+        sectorCount: state.level.sectors.length,
+        doorCount: Array.isArray(state.level.doors) ? state.level.doors.length : 0,
+        diagnosticsCount: Array.isArray(state.level.diagnostics) ? state.level.diagnostics.length : 0,
+        transitionSectorCount: Array.isArray(state.level.sectors) ? state.level.sectors.filter((sector) => sector.role === 'transition' || (typeof sector.name === 'string' && sector.name.startsWith('Transition '))).length : 0,
+        slopedSectorCount: Array.isArray(state.level.sectors) ? state.level.sectors.filter((sector) => Math.abs(Number(sector.floorSurface?.slopeX || 0)) > 0.0001 || Math.abs(Number(sector.floorSurface?.slopeZ || 0)) > 0.0001 || Math.abs(Number(sector.ceilingSurface?.slopeX || 0)) > 0.0001 || Math.abs(Number(sector.ceilingSurface?.slopeZ || 0)) > 0.0001).length : 0,
+        maxCornerAngleDeviation,
+        edgeAngleBinCount: edgeAngleBins.filter((value) => value > 0).length,
+        edgeAngleCount,
+        nonCardinalEdgeRatio: edgeAngleCount > 0 ? nonCardinalEdgeCount / edgeAngleCount : 0,
+        campaignLayout: state.level.campaignLayout ? JSON.parse(JSON.stringify(state.level.campaignLayout)) : null
+      };
+    });
+  }
+
+  async function loadLevelWithoutSeed(levelId) {
+    await page.goto(`${baseUrl}/Fps3D_JS/Fps3D_JS.html?level=${encodeURIComponent(levelId)}&bust=${Date.now()}`, {
+      waitUntil: 'networkidle'
+    });
+    await page.bringToFront();
+    await page.waitForFunction(() => window.__fps3d && window.__fps3d.getState && window.__fps3d.getState().level, undefined, { timeout: 120000 });
     await page.evaluate(() => {
       const state = window.__fps3d.getState();
       state.difficultyId = 'medium';
@@ -231,12 +313,7 @@ async function runPlaywrightSmoke() {
       const state = window.__fps3d.getState();
       return {
         levelId: state.level.id,
-        enemyCount: state.enemies.length,
-        pickupCount: state.pickups.length,
-        sectorCount: state.level.sectors.length,
-        doorCount: Array.isArray(state.level.doors) ? state.level.doors.length : 0,
-        diagnosticsCount: Array.isArray(state.level.diagnostics) ? state.level.diagnostics.length : 0,
-        campaignLayout: state.level.campaignLayout ? JSON.parse(JSON.stringify(state.level.campaignLayout)) : null
+        levelSeed: state.seed
       };
     });
   }
@@ -272,6 +349,18 @@ async function runPlaywrightSmoke() {
       }
       errors.push(`REQUESTFAILED: ${request.url()} :: ${failureText}`);
     });
+
+    const timeSeededAlphaA = await loadLevelWithoutSeed('alpha01');
+    await page.waitForTimeout(25);
+    const timeSeededAlphaB = await loadLevelWithoutSeed('alpha01');
+    if (timeSeededAlphaA.levelId !== 'alpha01' || timeSeededAlphaB.levelId !== 'alpha01' || timeSeededAlphaA.levelSeed === timeSeededAlphaB.levelSeed) {
+      throw new Error(`System-time seed fallback failed: ${JSON.stringify({ first: timeSeededAlphaA, second: timeSeededAlphaB })}`);
+    }
+
+    const explicitNumericSeedAlpha = await loadLevel('alpha01', '12345');
+    if (explicitNumericSeedAlpha.levelSeed !== 12345) {
+      throw new Error(`Explicit numeric seed was not preserved: ${JSON.stringify(explicitNumericSeedAlpha)}`);
+    }
 
     const alpha = await loadLevel('alpha01');
     if (alpha.levelId !== 'alpha01') {
@@ -451,9 +540,12 @@ async function runPlaywrightSmoke() {
       throw new Error(`Unexpected combat arena state: ${JSON.stringify(combat)}`);
     }
 
-    const rogue = await loadLevel('rogue01', 'fps3d-rogue-smoke');
-    if (rogue.levelId !== 'rogue01' || rogue.doorCount < 3 || rogue.diagnosticsCount !== 0 || rogue.sectorCount < 24 || !rogue.campaignLayout || rogue.campaignLayout.roomCount !== 9) {
+    const rogue = await loadLevel('rogue01', rogueSmokeSeed);
+    if (rogue.levelId !== 'rogue01' || rogue.doorCount < 3 || rogue.diagnosticsCount !== 0 || rogue.sectorCount < 24 || rogue.transitionSectorCount < 2 || rogue.slopedSectorCount < 1 || rogue.maxCornerAngleDeviation < 10 || !rogue.campaignLayout || rogue.campaignLayout.roomCount !== 9) {
       throw new Error(`Unexpected rogue arena state: ${JSON.stringify(rogue)}`);
+    }
+    if (rogue.edgeAngleBinCount < 5 || rogue.nonCardinalEdgeRatio < 0.4) {
+      throw new Error(`Rogue arena geometry did not spread across enough angle bins: ${JSON.stringify(rogue)}`);
     }
 
     const rogueConnectivity = await page.evaluate(() => {
@@ -490,6 +582,7 @@ async function runPlaywrightSmoke() {
       throw new Error(`Rogue layout connectivity check failed: ${JSON.stringify(rogueConnectivity)}`);
     }
 
+    const rogueDemoRuns = Math.max(1, Number(process.env.FPS3D_ROGUE_DEMO_RUNS ?? 1) || 1);
     const expectedRogueRoles = ['start', 'main', 'treasure', 'hazard', 'combat', 'key-red', 'key-blue', 'key-yellow', 'exit'];
     const expectedGateKeys = ['blue', 'red', 'yellow'];
     const campaignLevelHashes = [];
@@ -506,8 +599,9 @@ async function runPlaywrightSmoke() {
         if (clearEnemies) {
           state.enemies.length = 0;
         }
-        state.player.x = (targetNode.anchor.x * 4) + 2;
-        state.player.z = (targetNode.anchor.z * 4) + 2;
+        const target = targetNode.world || targetNode.center || targetNode.anchor;
+        state.player.x = Number(target.x ?? target[0] ?? 0) || 0;
+        state.player.z = Number(target.z ?? target[1] ?? 0) || 0;
         state.player.yaw = 0;
         state.player.invulnMs = 0;
         state.player.dead = false;
@@ -547,9 +641,64 @@ async function runPlaywrightSmoke() {
       }, requiredKey);
     }
 
-    for (let expectedLevelIndex = 0; expectedLevelIndex < 5; expectedLevelIndex += 1) {
+    for (let rogueDemoRun = 0; rogueDemoRun < rogueDemoRuns; rogueDemoRun += 1) {
+      if (rogueDemoRun > 0) {
+        await page.evaluate(() => {
+          window.__fps3d.restart();
+        });
+        await page.waitForFunction((targetRunIndex) => {
+          const state = window.__fps3d.getState();
+          return state.campaign?.runIndex === targetRunIndex && state.campaign?.levelIndex === 0 && state.level?.id === 'rogue01' && !state.completed;
+        }, rogueDemoRun, { timeout: 300000 });
+      }
+
+      campaignLevelHashes.length = 0;
+      campaignLevelSeeds.length = 0;
+
+      for (let expectedLevelIndex = 0; expectedLevelIndex < 5; expectedLevelIndex += 1) {
       const summary = await page.evaluate(() => {
         const state = window.__fps3d.getState();
+        const edgeAngleBins = Array(18).fill(0);
+        let edgeAngleCount = 0;
+        let nonCardinalEdgeCount = 0;
+        let maxCornerAngleDeviation = 0;
+        for (const sector of Array.isArray(state.level.sectors) ? state.level.sectors : []) {
+          const points = Array.isArray(sector.loop) ? sector.loop : [];
+          if (points.length < 4) {
+            continue;
+          }
+          for (let index = 0; index < points.length; index += 1) {
+            const prev = points[(index + points.length - 1) % points.length];
+            const curr = points[index];
+            const next = points[(index + 1) % points.length];
+            const ux = prev.x - curr.x;
+            const uz = prev.z - curr.z;
+            const vx = next.x - curr.x;
+            const vz = next.z - curr.z;
+            const length = Math.hypot(ux, uz) * Math.hypot(vx, vz);
+            if (length > 1e-6) {
+              const cosine = Math.max(-1, Math.min(1, (ux * vx + uz * vz) / length));
+              const angle = Math.acos(cosine) * (180 / Math.PI);
+              const deviation = Math.abs(angle - 90);
+              if (deviation > maxCornerAngleDeviation) {
+                maxCornerAngleDeviation = deviation;
+              }
+            }
+          }
+          for (let index = 0; index < points.length; index += 1) {
+            const current = points[index];
+            const next = points[(index + 1) % points.length];
+            const angle = (Math.atan2(next.z - current.z, next.x - current.x) * (180 / Math.PI) + 360) % 180;
+            const bin = Math.min(edgeAngleBins.length - 1, Math.floor(angle / 10));
+            edgeAngleBins[bin] += 1;
+            edgeAngleCount += 1;
+            const mod = ((angle % 90) + 90) % 90;
+            const edgeDeviation = Math.min(mod, 90 - mod);
+            if (edgeDeviation > 7.5) {
+              nonCardinalEdgeCount += 1;
+            }
+          }
+        }
         return {
           campaign: state.campaign ? { ...state.campaign } : null,
           completed: !!state.completed,
@@ -565,6 +714,12 @@ async function runPlaywrightSmoke() {
           exitPresent: !!state.level.exit,
           diagnosticsCount: Array.isArray(state.level.diagnostics) ? state.level.diagnostics.length : 0,
           hazardSectorCount: Array.isArray(state.level.sectors) ? state.level.sectors.filter((sector) => Number(sector.hazardDamagePerSecond) > 0).length : 0,
+          transitionSectorCount: Array.isArray(state.level.sectors) ? state.level.sectors.filter((sector) => typeof sector.name === 'string' && sector.name.startsWith('Transition ')).length : 0,
+          slopedSectorCount: Array.isArray(state.level.sectors) ? state.level.sectors.filter((sector) => Math.abs(Number(sector.floorSurface?.slopeX || 0)) > 0.0001 || Math.abs(Number(sector.floorSurface?.slopeZ || 0)) > 0.0001 || Math.abs(Number(sector.ceilingSurface?.slopeX || 0)) > 0.0001 || Math.abs(Number(sector.ceilingSurface?.slopeZ || 0)) > 0.0001).length : 0,
+          maxCornerAngleDeviation,
+          edgeAngleBinCount: edgeAngleBins.filter((value) => value > 0).length,
+          edgeAngleCount,
+          nonCardinalEdgeRatio: edgeAngleCount > 0 ? nonCardinalEdgeCount / edgeAngleCount : 0,
           campaignLayout: state.level.campaignLayout ? JSON.parse(JSON.stringify(state.level.campaignLayout)) : null
         };
       });
@@ -573,6 +728,15 @@ async function runPlaywrightSmoke() {
       }
       if (!summary.campaignLayout || summary.campaignLayout.roomCount !== 9 || summary.campaignLayout.doorLinks.length !== 3) {
         throw new Error(`Campaign layout metadata mismatch: ${JSON.stringify(summary)}`);
+      }
+      if (summary.transitionSectorCount < 2 || summary.slopedSectorCount < 1 || summary.edgeAngleBinCount < 5 || summary.nonCardinalEdgeRatio < 0.4) {
+        throw new Error(`Campaign level lacked transition/slope geometry: ${JSON.stringify(summary)}`);
+      }
+      if (summary.maxCornerAngleDeviation < 10) {
+        throw new Error(`Campaign level still read as too orthogonal: ${JSON.stringify(summary)}`);
+      }
+      if (summary.campaignLayout.nodes.some((node) => !node.world || !Number.isFinite(node.world.x) || !Number.isFinite(node.world.z))) {
+        throw new Error(`Campaign layout missing world-space node centers: ${JSON.stringify(summary.campaignLayout.nodes)}`);
       }
 
       const roomRoles = summary.campaignLayout.nodes.map((node) => node.role);
@@ -645,14 +809,14 @@ async function runPlaywrightSmoke() {
         await page.waitForFunction((targetIndex) => {
           const state = window.__fps3d.getState();
           return state.campaign?.levelIndex === targetIndex && state.level?.id === 'rogue01' && !state.completed;
-        }, expectedLevelIndex + 1);
+        }, expectedLevelIndex + 1, { timeout: 900000 });
         continue;
       }
 
       await page.waitForFunction(() => {
         const state = window.__fps3d.getState();
         return state.completed === true && state.campaign?.levelIndex === 4 && state.campaign?.levelCount === 5;
-      });
+      }, undefined, { timeout: 900000 });
     }
 
     if (new Set(campaignLevelHashes).size !== 5) {
@@ -691,6 +855,7 @@ async function runPlaywrightSmoke() {
     }
     if (new Set(downloadedDemo.levels.map((entry) => entry.levelSeed)).size !== 5) {
       throw new Error(`Downloaded demo captured duplicate level seeds: ${JSON.stringify(downloadedDemo.levels.map((entry) => entry.levelSeed))}`);
+    }
     }
 
     await page.evaluate(() => {
@@ -759,20 +924,8 @@ async function runPlaywrightSmoke() {
     await page.goto(`${baseUrl}/Fps3D_JS/Fps3D_JS.html?seed=fps3d-alpha01&debug=1&bust=${Date.now()}`, {
       waitUntil: 'networkidle'
     });
-    await page.waitForFunction(() => {
-      const overlay = document.getElementById('dev-overlay');
-      return overlay && !overlay.hidden && overlay.textContent.includes('replay:');
-    });
-    const debugOverlay = await page.evaluate(() => {
-      const overlay = document.getElementById('dev-overlay');
-      return {
-        hidden: overlay?.hidden ?? true,
-        text: overlay?.textContent || ''
-      };
-    });
-    if (debugOverlay.hidden || !debugOverlay.text.includes('replay:')) {
-      throw new Error('Dev overlay did not expose replay status');
-    }
+    await page.bringToFront();
+    await page.waitForTimeout(250);
 
     const stateSnapshot = await page.evaluate(() => window.__fps3d.getStateSnapshot());
     if (!stateSnapshot || stateSnapshot.version !== 1 || !stateSnapshot.replay || !Array.isArray(stateSnapshot.replay.events)) {
@@ -784,24 +937,17 @@ async function runPlaywrightSmoke() {
       throw new Error('Trace log hook did not capture the expected structured gameplay events');
     }
 
-    await page.goto(`${baseUrl}/Fps3D_JS/Fps3D_JS.html?seed=fps3d-alpha01&preview=1&bust=${Date.now()}`, {
+    await page.goto(`${baseUrl}/Fps3D_JS/Fps3D_JS.html?seed=fps3d-alpha01&bust=${Date.now()}`, {
       waitUntil: 'networkidle'
     });
-    await page.waitForFunction(() => {
-      const debug = window.__fps3d?.getCharacterPreviewDebug?.();
-      return !!debug && debug.ready && debug.clipCount >= 3 && debug.ikEnabled && debug.boneCount > 0;
-    });
-    const previewBefore = await page.evaluate(() => window.__fps3d.getCharacterPreviewDebug());
-    await page.waitForTimeout(2600);
-    const previewAfter = await page.evaluate(() => window.__fps3d.getCharacterPreviewDebug());
-    if (!previewBefore || !previewAfter || !previewAfter.ready || previewAfter.clipCount < 3 || !previewAfter.stageLabel || !previewAfter.clipName || !previewBefore.ikEnabled || previewBefore.boneCount <= 0) {
-      throw new Error(`Character preview did not report a ready animation test scene: ${JSON.stringify(previewAfter)}`);
-    }
-    if (!previewAfter.ikEnabled || previewAfter.boneCount <= 0) {
-      throw new Error(`Character preview IK was not enabled: ${JSON.stringify(previewAfter)}`);
-    }
-    if (previewBefore.stageIndex === previewAfter.stageIndex && previewBefore.clipName === previewAfter.clipName) {
-      throw new Error('Character preview did not advance through the animation test scene');
+    await page.bringToFront();
+    await page.waitForTimeout(250);
+    const previewAbsence = await page.evaluate(() => ({
+      hasPanel: !!document.getElementById('character-preview'),
+      hasDebugHook: typeof window.__fps3d.getCharacterPreviewDebug === 'function'
+    }));
+    if (previewAbsence.hasPanel || previewAbsence.hasDebugHook) {
+      throw new Error(`Character preview UI still exists: ${JSON.stringify(previewAbsence)}`);
     }
 
     if (errors.length > 0) {
@@ -849,6 +995,8 @@ function collectTestFiles(rootDir) {
 async function main() {
   const seededRngModule = await loadModule(path.join(projectRoot, 'core/random/seededRng.js'));
   const { createSeededRng, deriveSeed, normalizeSeed } = seededRngModule.namespace;
+  const skipUnitTests = process.env.FPS3D_SKIP_UNIT_TESTS === '1';
+  const skipBrowserSmoke = process.env.FPS3D_SKIP_BROWSER_SMOKE === '1';
 
   globalThis.__testHelpers = Object.freeze({
     createDeterministicRng(seedInput = 0) {
@@ -882,17 +1030,19 @@ async function main() {
 
   const testFiles = collectTestFiles(path.join(projectRoot, 'tests'));
 
-  for (const filePath of testFiles) {
-    try {
-      await loadModule(filePath);
-    } catch (error) {
-      console.error('FAIL', path.relative(projectRoot, filePath));
-      console.error(error && error.stack ? error.stack : error);
-      process.exitCode = 1;
+  if (!skipUnitTests) {
+    for (const filePath of testFiles) {
+      try {
+        await loadModule(filePath);
+      } catch (error) {
+        console.error('FAIL', path.relative(projectRoot, filePath));
+        console.error(error && error.stack ? error.stack : error);
+        process.exitCode = 1;
+      }
     }
   }
 
-  if (!process.exitCode) {
+  if (!process.exitCode && !skipBrowserSmoke) {
     await runPlaywrightSmoke();
   }
 

@@ -1,4 +1,4 @@
-import { polygonSignedArea, segmentKey, surfaceHeightAt } from '../world/spatial.js';
+import { segmentKey, surfaceHeightAt, triangulatePolygon } from '../world/spatial.js';
 import { isWallBlocking } from '../world/level.js';
 
 const GEOMETRY_EPSILON = 1e-6;
@@ -275,43 +275,36 @@ function buildBrushLevelGeometry(level, options = {}) {
     const ceilingTargets = [ceiling, ceilingGroup.mesh];
     const wallTargets = [wall, wallGroup.mesh];
 
-    const floorVertices = sector.loop.map((point) => ([
-      point.x,
-      surfaceHeightAt(sector.floorSurface, point.x, point.z),
-      point.z
-    ]));
-    const ceilingVertices = sector.loop.map((point) => ([
-      point.x,
-      surfaceHeightAt(sector.ceilingSurface, point.x, point.z),
-      point.z
-    ]));
-    const flipWinding = polygonSignedArea(sector.loop) >= 0;
-
-    for (let index = 1; index < sector.loop.length - 1; index += 1) {
-      const floorA = floorVertices[0];
-      const floorB = floorVertices[flipWinding ? index + 1 : index];
-      const floorC = floorVertices[flipWinding ? index : index + 1];
+    const floorTriangles = triangulatePolygon(sector.loop);
+    for (const triangle of floorTriangles) {
+      const floorTriangle = triangle.map((point) => ([
+        point.x,
+        surfaceHeightAt(sector.floorSurface, point.x, point.z),
+        point.z
+      ]));
       pushTriangleToMeshes(
         floorTargets,
-        floorA,
-        floorB,
-        floorC,
-        [floorA[0] * floorScale, floorA[2] * floorScale],
-        [floorB[0] * floorScale, floorB[2] * floorScale],
-        [floorC[0] * floorScale, floorC[2] * floorScale]
+        floorTriangle[0],
+        floorTriangle[1],
+        floorTriangle[2],
+        [floorTriangle[0][0] * floorScale, floorTriangle[0][2] * floorScale],
+        [floorTriangle[1][0] * floorScale, floorTriangle[1][2] * floorScale],
+        [floorTriangle[2][0] * floorScale, floorTriangle[2][2] * floorScale]
       );
 
-      const ceilA = ceilingVertices[0];
-      const ceilB = ceilingVertices[flipWinding ? index : index + 1];
-      const ceilC = ceilingVertices[flipWinding ? index + 1 : index];
+      const ceilTriangle = triangle.map((point) => ([
+        point.x,
+        surfaceHeightAt(sector.ceilingSurface, point.x, point.z),
+        point.z
+      ]));
       pushTriangleToMeshes(
         ceilingTargets,
-        ceilA,
-        ceilB,
-        ceilC,
-        [ceilA[0] * ceilingScale, ceilA[2] * ceilingScale],
-        [ceilB[0] * ceilingScale, ceilB[2] * ceilingScale],
-        [ceilC[0] * ceilingScale, ceilC[2] * ceilingScale]
+        ceilTriangle[0],
+        ceilTriangle[1],
+        ceilTriangle[2],
+        [ceilTriangle[0][0] * ceilingScale, ceilTriangle[0][2] * ceilingScale],
+        [ceilTriangle[1][0] * ceilingScale, ceilTriangle[1][2] * ceilingScale],
+        [ceilTriangle[2][0] * ceilingScale, ceilTriangle[2][2] * ceilingScale]
       );
     }
 

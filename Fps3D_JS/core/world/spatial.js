@@ -118,6 +118,173 @@ export function pointInConvexPolygon(x, z, loop, epsilon = DEFAULT_EPSILON) {
   return true;
 }
 
+export function pointInPolygon(x, z, loop, epsilon = DEFAULT_EPSILON) {
+  if (!Array.isArray(loop) || loop.length < 3) {
+    return false;
+  }
+
+  let inside = false;
+
+  for (let index = 0; index < loop.length; index += 1) {
+    const current = loop[index];
+    const next = loop[(index + 1) % loop.length];
+    const currentX = Number(current?.x ?? current?.[0] ?? 0) || 0;
+    const currentZ = Number(current?.z ?? current?.[1] ?? 0) || 0;
+    const nextX = Number(next?.x ?? next?.[0] ?? 0) || 0;
+    const nextZ = Number(next?.z ?? next?.[1] ?? 0) || 0;
+
+    const minX = Math.min(currentX, nextX) - epsilon;
+    const maxX = Math.max(currentX, nextX) + epsilon;
+    const minZ = Math.min(currentZ, nextZ) - epsilon;
+    const maxZ = Math.max(currentZ, nextZ) + epsilon;
+    if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) {
+      const cross = ((nextX - currentX) * (z - currentZ)) - ((nextZ - currentZ) * (x - currentX));
+      if (Math.abs(cross) <= epsilon) {
+        return true;
+      }
+    }
+
+    const intersects = ((currentZ > z) !== (nextZ > z))
+      && (x < (((nextX - currentX) * (z - currentZ)) / ((nextZ - currentZ) || epsilon)) + currentX);
+    if (intersects) {
+      inside = !inside;
+    }
+  }
+
+  return inside;
+}
+
+function polygonOrientation(loop) {
+  return polygonSignedArea(loop) >= 0 ? 1 : -1;
+}
+
+function triangleArea(ax, az, bx, bz, cx, cz) {
+  return ((bx - ax) * (cz - az)) - ((bz - az) * (cx - ax));
+}
+
+function pointInTriangle(px, pz, ax, az, bx, bz, cx, cz, orientation, epsilon = DEFAULT_EPSILON) {
+  const ab = triangleArea(ax, az, bx, bz, px, pz);
+  const bc = triangleArea(bx, bz, cx, cz, px, pz);
+  const ca = triangleArea(cx, cz, ax, az, px, pz);
+
+  if (orientation > 0) {
+    return ab >= -epsilon && bc >= -epsilon && ca >= -epsilon;
+  }
+
+  return ab <= epsilon && bc <= epsilon && ca <= epsilon;
+}
+
+function cleanPolygonLoop(loop, epsilon = DEFAULT_EPSILON) {
+  const cleaned = [];
+  for (const point of loop) {
+    const current = toPoint2(point);
+    const previous = cleaned[cleaned.length - 1];
+    if (previous && Math.abs(previous.x - current.x) <= epsilon && Math.abs(previous.z - current.z) <= epsilon) {
+      continue;
+    }
+    cleaned.push(current);
+  }
+
+  if (cleaned.length >= 2) {
+    const first = cleaned[0];
+    const last = cleaned[cleaned.length - 1];
+    if (Math.abs(first.x - last.x) <= epsilon && Math.abs(first.z - last.z) <= epsilon) {
+      cleaned.pop();
+    }
+  }
+
+  return cleaned;
+}
+
+export function triangulatePolygon(loop) {
+  const points = cleanPolygonLoop(normalizeLoop(loop));
+  if (points.length < 3) {
+    return [];
+  }
+
+  const epsilon = DEFAULT_EPSILON;
+  const orientation = polygonOrientation(points);
+  const vertices = points.map((point, index) => ({
+    index,
+    point
+  }));
+  const triangles = [];
+  let guard = 0;
+  const maxIterations = points.length * points.length * 2;
+
+  while (vertices.length > 3 && guard < maxIterations) {
+    let earFound = false;
+
+    for (let vertexIndex = 0; vertexIndex < vertices.length; vertexIndex += 1) {
+      const prev = vertices[(vertexIndex + vertices.length - 1) % vertices.length];
+      const current = vertices[vertexIndex];
+      const next = vertices[(vertexIndex + 1) % vertices.length];
+      const area = triangleArea(prev.point.x, prev.point.z, current.point.x, current.point.z, next.point.x, next.point.z);
+      if (orientation > 0 ? area <= epsilon : area >= -epsilon) {
+        continue;
+      }
+
+      let containsPoint = false;
+      for (let testIndex = 0; testIndex < vertices.length; testIndex += 1) {
+        if (testIndex === vertexIndex || testIndex === (vertexIndex + 1) % vertices.length || testIndex === (vertexIndex + vertices.length - 1) % vertices.length) {
+          continue;
+        }
+
+        const testPoint = vertices[testIndex].point;
+        if (pointInTriangle(
+          testPoint.x,
+          testPoint.z,
+          prev.point.x,
+          prev.point.z,
+          current.point.x,
+          current.point.z,
+          next.point.x,
+          next.point.z,
+          orientation
+        )) {
+          containsPoint = true;
+          break;
+        }
+      }
+
+      if (containsPoint) {
+        continue;
+      }
+
+      triangles.push([prev.point, current.point, next.point]);
+      vertices.splice(vertexIndex, 1);
+      earFound = true;
+      break;
+    }
+
+    if (!earFound) {
+      break;
+    }
+
+    guard += 1;
+  }
+
+  if (vertices.length === 3) {
+    triangles.push([vertices[0].point, vertices[1].point, vertices[2].point]);
+    return triangles;
+  }
+
+  if (triangles.length === 0 && points.length >= 3) {
+    for (let index = 1; index < points.length - 1; index += 1) {
+      triangles.push([points[0], points[index], points[index + 1]]);
+    }
+    return triangles;
+  }
+
+  if (vertices.length > 3) {
+    for (let index = 1; index < vertices.length - 1; index += 1) {
+      triangles.push([vertices[0].point, vertices[index].point, vertices[index + 1].point]);
+    }
+  }
+
+  return triangles;
+}
+
 export function closestPointOnSegment(px, pz, ax, az, bx, bz) {
   const abx = bx - ax;
   const abz = bz - az;
@@ -185,7 +352,9 @@ export function normalizeSurface(value, fallbackHeight = 0) {
     return {
       base: value,
       slopeX: 0,
-      slopeZ: 0
+      slopeZ: 0,
+      originX: 0,
+      originZ: 0
     };
   }
 
@@ -193,14 +362,18 @@ export function normalizeSurface(value, fallbackHeight = 0) {
     return {
       base: fallbackHeight,
       slopeX: 0,
-      slopeZ: 0
+      slopeZ: 0,
+      originX: 0,
+      originZ: 0
     };
   }
 
   return {
     base: Number(value.base ?? value.height ?? fallbackHeight) || 0,
     slopeX: Number(value.slopeX ?? 0) || 0,
-    slopeZ: Number(value.slopeZ ?? 0) || 0
+    slopeZ: Number(value.slopeZ ?? 0) || 0,
+    originX: Number(value.originX ?? value.centerX ?? 0) || 0,
+    originZ: Number(value.originZ ?? value.centerZ ?? 0) || 0
   };
 }
 
@@ -209,7 +382,9 @@ export function surfaceHeightAt(surface, x, z) {
     return 0;
   }
 
-  return surface.base + surface.slopeX * x + surface.slopeZ * z;
+  const originX = Number(surface.originX ?? 0) || 0;
+  const originZ = Number(surface.originZ ?? 0) || 0;
+  return surface.base + surface.slopeX * (x - originX) + surface.slopeZ * (z - originZ);
 }
 
 export function buildPolygonEdges(loop) {
@@ -230,4 +405,3 @@ export function buildPolygonEdges(loop) {
 
   return edges;
 }
-

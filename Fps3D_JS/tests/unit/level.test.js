@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { parseLevelDefinition, getCell, isSolidCell, findSectorAtPoint, getFloorHeightAt, getThemeAt } from '../../core/world/level.js';
+import { buildLevelGeometry } from '../../core/render/geometry.js';
 import { LEVEL_ALPHA01, LEVEL_COMBAT01, LEVEL_TRAINING01, createRogueStyleCampaignLevel, createRogueStyleLevel } from '../../data/levels/alpha01.js';
 
 const LOW_CLEARANCE_LEVEL = {
@@ -220,7 +221,39 @@ runCase('parseLevelDefinition reports self-intersecting brush loops', () => {
   });
 
   assert.ok(level.diagnostics.some((issue) => issue.type === 'selfIntersectingLoop' && issue.sectorId === 'bowtie'));
-  assert.ok(level.diagnostics.some((issue) => issue.type === 'nonConvexLoop' && issue.sectorId === 'bowtie'));
+});
+
+runCase('parseLevelDefinition accepts concave brush loops', () => {
+  const level = parseLevelDefinition({
+    id: 'concave-geometry',
+    sectors: [
+      {
+        id: 'lshape',
+        loop: [
+          [0, 0],
+          [4, 0],
+          [4, 1],
+          [1, 1],
+          [1, 4],
+          [0, 4]
+        ],
+        floor: {
+          base: 0,
+          slopeX: 0.03,
+          slopeZ: -0.02
+        },
+        ceiling: 3.2
+      }
+    ]
+  });
+
+  assert.equal(level.diagnostics.length, 0);
+  assert.equal(findSectorAtPoint(level, 0.5, 0.5)?.id, 'lshape');
+  assert.equal(findSectorAtPoint(level, 2.5, 2.5), null);
+
+  const geometry = buildLevelGeometry(level);
+  assert.ok(geometry.floor.positions.length > 0);
+  assert.ok(geometry.wall.positions.length > 0);
 });
 
 runCase('parseLevelDefinition reports insufficient sector clearance', () => {

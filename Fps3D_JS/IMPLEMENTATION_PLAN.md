@@ -28,7 +28,7 @@ And you shall put into plan what to clean up and refactor. Cleaning up and refac
 - Doors and connected rooms: complete
 - Weapons: complete
 - Enemies: complete
-- Levels: runtime multi-level generation and demo recording complete; five-level campaign smoke and demo export verified; deeper rogue_doom parity pending
+- Levels: runtime multi-level generation and replay capture complete; time-seeded boot and diagonal-capable organic corridor geometry pass verified; five-level campaign smoke and demo export verified; lower-right model preview removed; three full campaign demos verified; deeper rogue_doom parity pending
 - UI, audio, and settings: complete
 - Textures and art pipeline: complete
 - Character models and animation: complete
@@ -41,7 +41,7 @@ And you shall put into plan what to clean up and refactor. Cleaning up and refac
 - Run `npm run serve` in `Fps3D_JS/` to start the hidden playtest server.
 - Open `http://127.0.0.1:4173/Fps3D_JS.html?seed=fps3d-alpha01` in a browser.
 - The current checkpoint is a deterministic sector-based playtest slice with arbitrary wall angles, fixed-step simulation, replay logging, a Three.js world scene, and the full weapon/level/tooling set needed for hidden playtests.
-- Resume from the remaining rogue_doom parity work once the runtime level handoff, five-level smoke, and demo export stay green.
+- Resume from the remaining rogue_doom parity work once the runtime level handoff, geometry fidelity, five-level smoke, demo export, and three-demo capture stay green.
 
 ## Working Rules
 
@@ -188,12 +188,21 @@ Fps3D_JS/
 - [ ] Add a small library of room templates, corridor templates, and special-room variants so the generator feels hand-authored instead of noisy.
 - [x] Add a browser smoke test that generates at least one rogue-style seed and verifies the map is playable from start to exit.
 
+### 6.1.1 Geometry Fidelity and Seeding Pass
+
+- [x] Default no-seed launches derive their run seed from system time, while explicit `?seed=` values remain deterministic.
+- [x] Add non-linear world-space warp, sloped floor/ceiling surfaces, and transition sectors so rogue rooms and corridors stop reading like flat orthogonal cells.
+- [x] Trace room footprints into polygon sectors, keep corridor cells narrow, and anchor floor/ceiling slopes locally so door edges and portal clearances stay valid.
+- [x] Reject rogue seeds that do not produce the full red, blue, and yellow gate set before the campaign accepts them.
+- [ ] Add more secret-room content, wall dressing, and corridor set-pieces before calling the layout rogue_doom-close.
+
 ### 6.2 Rogue Doom Parity Backlog
 
 - [ ] Add secret rooms and optional reward branches.
 - [ ] Add wall decals, wall-mounted props, and room dressing passes that make generated spaces feel authored.
 - [ ] Expand the monster roster and scripted encounter variety beyond the current key-room, hazard-room, and combat-room sets.
 - [ ] Add more lighting styles and sector effects to match rogue_doom's stronger ambience.
+- [x] Record and verify three full rogue campaign demos on distinct seeds, each played from start to exit with every room visited.
 - [ ] Add regression coverage for multiple generated seeds so parity work stays deterministic.
 
 ### 7. Textures and Materials

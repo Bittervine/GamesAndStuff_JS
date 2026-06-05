@@ -14,8 +14,6 @@ import { GLTFLoader } from '../ThoriumGap_JS/lib/loaders/GLTFLoader.js';
 const worldCanvas = document.getElementById('world');
 const hudCanvas = document.getElementById('hud');
 const appRoot = document.getElementById('app');
-const characterPreviewCanvas = document.getElementById('character-preview-canvas');
-const characterPreviewStatus = document.getElementById('character-preview-status');
 const overlayState = document.getElementById('overlay-state');
 const devOverlay = document.getElementById('dev-overlay');
 const menuToggle = document.getElementById('menu-toggle');
@@ -35,17 +33,6 @@ const errorPanel = document.getElementById('error');
 const CHARACTER_PREVIEW_MODEL_URL = `./${QUATERNIUS_CHARACTER_IMPORTS.baseModels[0].path}`;
 const CHARACTER_PREVIEW_ANIMATION_URLS = QUATERNIUS_CHARACTER_IMPORTS.animationLibraries.map((library) => `./${library.path}`);
 const QUATERNIUS_HUMANOID_ANIMATION_URL = CHARACTER_PREVIEW_ANIMATION_URLS[0] || './assets/models/characters/quaternius/animations/UAL1_Standard.glb';
-const CHARACTER_PREVIEW_SEQUENCE_DEFS = [
-  { key: 'idle', label: 'Idle', durationMs: 2200, loop: true, clipNames: ['Idle_Loop', 'Idle_Torch_Loop', 'Pistol_Idle_Loop', 'Zombie_Idle_Loop', 'A_TPose'] },
-  { key: 'walk', label: 'Walk', durationMs: 2200, loop: true, clipNames: ['Walk_Loop', 'Walk_Formal_Loop', 'Zombie_Walk_Fwd_Loop', 'Jog_Fwd_Loop'] },
-  { key: 'run', label: 'Run', durationMs: 2000, loop: true, clipNames: ['Jog_Fwd_Loop', 'Sprint_Loop', 'Run_Loop'] },
-  { key: 'stop', label: 'Stop', durationMs: 1600, loop: false, clipNames: ['Stop', 'Stop_Loop', 'Walk_Stop', 'Idle_Loop'] },
-  { key: 'turn', label: 'Turn', durationMs: 1600, loop: true, clipNames: ['Turn_Loop', 'Turn_Around', 'Run_Turn', 'Walk_Turn'] },
-  { key: 'jump', label: 'Jump', durationMs: 1400, loop: false, clipNames: ['Jump', 'Jump_Start', 'Jump_Loop', 'Jump_End'] },
-  { key: 'hitReaction', label: 'Hit Reaction', durationMs: 1200, loop: false, clipNames: ['Hit_Chest', 'Hit_Knockback', 'Hit_Head'] },
-  { key: 'death', label: 'Death', durationMs: 2200, loop: false, clipNames: ['Death01', 'Death_01', 'Death'] },
-  { key: 'interact', label: 'Interact', durationMs: 1600, loop: false, clipNames: ['Pistol_Aim_Neutral', 'Pistol_Shoot', 'Punch_Jab', 'Punch_Cross', 'Melee_Hook'] }
-];
 
 const SETTINGS_STORAGE_KEY = 'fps3d.settings.v1';
 const BASE_MOUSE_SENSITIVITY = 0.0022;
@@ -619,406 +606,6 @@ function disposeObject3D(object3D, options = {}) {
       material.dispose?.();
     }
   });
-}
-
-function createCharacterPreview(canvas, statusElement) {
-  if (!canvas || typeof canvas.getContext !== 'function') {
-    return null;
-  }
-
-  const renderer = new THREE.WebGLRenderer({
-    canvas,
-    alpha: true,
-    antialias: true,
-    powerPreference: 'high-performance',
-    preserveDrawingBuffer: false
-  });
-  renderer.setClearColor(0x000000, 0);
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
-
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
-  camera.position.set(0, 1.5, 3.6);
-
-  const root = new THREE.Group();
-  root.position.y = 0.14;
-  scene.add(root);
-
-  const ambient = new THREE.HemisphereLight(0xdbe9ff, 0x10131c, 1.25);
-  scene.add(ambient);
-
-  const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
-  keyLight.position.set(3.2, 5.4, 4.5);
-  scene.add(keyLight);
-
-  const fillLight = new THREE.DirectionalLight(0x89aaff, 0.9);
-  fillLight.position.set(-4.2, 2.3, 2.8);
-  scene.add(fillLight);
-
-  const rimLight = new THREE.DirectionalLight(0xffc19c, 0.55);
-  rimLight.position.set(-2.5, 2.0, -4.5);
-  scene.add(rimLight);
-
-  const stage = new THREE.Mesh(
-    new THREE.CircleGeometry(1.38, 48),
-    new THREE.MeshStandardMaterial({
-      color: 0x151b27,
-      roughness: 0.96,
-      metalness: 0.04
-    })
-  );
-  stage.rotation.x = -Math.PI / 2;
-  stage.position.y = 0;
-  scene.add(stage);
-
-  const ring = new THREE.Mesh(
-    new THREE.RingGeometry(0.56, 1.28, 48),
-    new THREE.MeshBasicMaterial({
-      color: 0x68b6ff,
-      transparent: true,
-      opacity: 0.16,
-      side: THREE.DoubleSide
-    })
-  );
-  ring.rotation.x = -Math.PI / 2;
-  ring.position.y = 0.01;
-  scene.add(ring);
-
-  const loader = new GLTFLoader();
-  const animationLoader = new GLTFLoader();
-  const clipMap = new Map();
-  let loadedModel = null;
-  let previewMixer = null;
-  let currentAction = null;
-  let currentActionKey = '';
-  let currentStage = null;
-  let currentStageIndex = 0;
-  let currentStageStartedAtMs = 0;
-  let lastRenderNowMs = null;
-  let pendingAnimationLoads = CHARACTER_PREVIEW_ANIMATION_URLS.length;
-  let previewBoneMap = new Map();
-  let modelLoaded = false;
-  let animationsLoaded = false;
-  let ready = false;
-  let disposed = false;
-  let currentStatus = 'Loading Quaternius CC0 model...';
-
-  function setStatus(message) {
-    currentStatus = message;
-    if (statusElement) {
-      statusElement.textContent = message;
-    }
-  }
-
-  function resize() {
-    const width = Math.max(1, Math.floor(canvas.clientWidth || 1));
-    const height = Math.max(1, Math.floor(canvas.clientHeight || 1));
-    const dpr = Math.min(window.devicePixelRatio || 1, activeGraphicsPixelRatioCap);
-    const displayWidth = Math.max(1, Math.floor(width * dpr));
-    const displayHeight = Math.max(1, Math.floor(height * dpr));
-
-    if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
-      canvas.width = displayWidth;
-      canvas.height = displayHeight;
-      renderer.setSize(displayWidth, displayHeight, false);
-      camera.aspect = displayWidth / displayHeight;
-      camera.updateProjectionMatrix();
-    }
-  }
-
-  function findPreviewClip(stage) {
-    return findClipByNames(clipMap, stage.clipNames);
-  }
-
-  function activatePreviewStage(stageIndex, nowMs, fadeSeconds = 0.14) {
-    if (!loadedModel || !previewMixer || clipMap.size === 0) {
-      return null;
-    }
-
-    const stage = CHARACTER_PREVIEW_SEQUENCE_DEFS[stageIndex % CHARACTER_PREVIEW_SEQUENCE_DEFS.length];
-    let clip = findPreviewClip(stage);
-    let usedFallback = false;
-    if (!clip && clipMap.size > 0) {
-      clip = clipMap.values().next().value || null;
-      usedFallback = !!clip;
-    }
-    if (!clip) {
-      ready = false;
-      setStatus('No preview clips were found in the animation libraries.');
-      return null;
-    }
-
-    const nextActionKey = `${stage.key}:${clip.name}`;
-    if (currentActionKey === nextActionKey && currentAction) {
-      currentStage = stage;
-      currentStageIndex = stageIndex;
-      currentStageStartedAtMs = nowMs;
-      ready = true;
-      return currentAction;
-    }
-
-    if (currentAction) {
-      currentAction.fadeOut(fadeSeconds);
-    }
-
-    const action = previewMixer.clipAction(clip);
-    action.reset();
-    action.enabled = true;
-    action.clampWhenFinished = !stage.loop;
-    action.setLoop(stage.loop ? THREE.LoopRepeat : THREE.LoopOnce, stage.loop ? Infinity : 1);
-    action.fadeIn(fadeSeconds);
-    action.play();
-    action.timeScale = clip.duration > 0 ? clip.duration / Math.max(0.05, stage.durationMs / 1000) : 1;
-
-    currentAction = action;
-    currentActionKey = nextActionKey;
-    currentStage = stage;
-    currentStageIndex = stageIndex;
-    currentStageStartedAtMs = nowMs;
-    ready = true;
-    setStatus(`Quaternius CC0 human preview | ${stage.label} | ${clip.name}${usedFallback ? ' (fallback)' : ''}`);
-    return action;
-  }
-
-  function maybeActivatePreview(nowMs = performance.now()) {
-    if (disposed || !modelLoaded || !animationsLoaded || !loadedModel) {
-      return;
-    }
-
-    if (!previewMixer) {
-      previewMixer = new THREE.AnimationMixer(loadedModel);
-    }
-
-    const activated = activatePreviewStage(currentStageIndex, nowMs, 0.14);
-    if (!activated) {
-      ready = false;
-      return;
-    }
-
-    if (!currentStatus || currentStatus.includes('Loading')) {
-      setStatus(`Quaternius CC0 human preview | ${currentStage.label} | ${currentActionKey.split(':').slice(1).join(':')}`);
-    }
-  }
-
-  function buildPreviewPose(nowMs) {
-    const stageKey = currentStage?.key || 'idle';
-    const stageElapsedMs = Math.max(0, nowMs - currentStageStartedAtMs);
-    const remainingMs = currentStage ? Math.max(0, currentStage.durationMs - stageElapsedMs) : 0;
-    const poseState = stageKey === 'idle'
-      ? 'idle'
-      : stageKey === 'death'
-        ? 'death'
-        : stageKey === 'hitReaction'
-          ? 'hurt'
-          : stageKey === 'interact'
-            ? 'attack'
-            : 'walk';
-    const motionBlend = stageKey === 'idle'
-      ? 0.14
-      : stageKey === 'run'
-        ? 1
-        : stageKey === 'walk'
-          ? 0.84
-          : stageKey === 'turn'
-            ? 0.62
-            : stageKey === 'jump'
-              ? 0.72
-              : stageKey === 'death'
-                ? 0.05
-                : stageKey === 'interact'
-                  ? 0.78
-                  : 0.58;
-    const aimTarget = stageKey === 'turn'
-      ? { x: Math.sin(nowMs * 0.0012) * 1.2, y: 1.58, z: 2.7 }
-      : stageKey === 'jump'
-        ? { x: 0.2, y: 2.0, z: 2.4 }
-        : { x: 0.3, y: 1.58, z: 2.6 };
-    return sampleCharacterRigPose(
-      {
-        x: 0,
-        z: 0,
-        facing: 0,
-        dead: stageKey === 'death',
-        dyingMs: stageKey === 'death' ? remainingMs : 0,
-        hitFlashMs: stageKey === 'hitReaction' ? remainingMs : 0,
-        attackWindupMs: stageKey === 'interact' ? remainingMs : 0,
-        attackWindupTotalMs: stageKey === 'interact' ? currentStage?.durationMs || 1200 : 0
-      },
-      0,
-      0.85,
-      1.78,
-      0.55,
-      nowMs * 0.018,
-      aimTarget,
-      { poseState, motionBlend }
-    );
-  }
-
-  function finishAnimationLoad() {
-    pendingAnimationLoads = Math.max(0, pendingAnimationLoads - 1);
-    if (pendingAnimationLoads > 0) {
-      setStatus(`Loading Quaternius animation libraries... (${CHARACTER_PREVIEW_ANIMATION_URLS.length - pendingAnimationLoads}/${CHARACTER_PREVIEW_ANIMATION_URLS.length})`);
-      return;
-    }
-
-    animationsLoaded = true;
-    maybeActivatePreview();
-    if (!ready && clipMap.size === 0) {
-      setStatus('No animation clips were loaded for the preview scene.');
-    }
-  }
-
-  setStatus('Loading Quaternius CC0 model...');
-  loader.load(
-    CHARACTER_PREVIEW_MODEL_URL,
-    (gltf) => {
-      if (disposed) {
-        return;
-      }
-
-      const model = gltf.scene || gltf.scenes?.[0] || null;
-      if (!model) {
-        setStatus('Human model loaded, but no scene was returned.');
-        return;
-      }
-
-      model.traverse((child) => {
-        if (!child.isMesh) {
-          return;
-        }
-
-        child.castShadow = false;
-        child.receiveShadow = false;
-        if (Array.isArray(child.material)) {
-          for (const material of child.material) {
-            if (material) {
-              material.roughness = Math.min(1, Number.isFinite(material.roughness) ? material.roughness : 1);
-              material.metalness = Math.min(0.18, Number.isFinite(material.metalness) ? material.metalness : 0.08);
-            }
-          }
-        } else if (child.material) {
-          child.material.roughness = Math.min(1, Number.isFinite(child.material.roughness) ? child.material.roughness : 1);
-          child.material.metalness = Math.min(0.18, Number.isFinite(child.material.metalness) ? child.material.metalness : 0.08);
-        }
-      });
-
-      model.updateMatrixWorld(true);
-      const bounds = new THREE.Box3().setFromObject(model);
-      const size = bounds.getSize(new THREE.Vector3());
-      const center = bounds.getCenter(new THREE.Vector3());
-      const scale = 2.45 / Math.max(0.001, size.x, size.y, size.z);
-
-      model.position.set(-center.x, -bounds.min.y, -center.z);
-      root.add(model);
-      root.scale.setScalar(scale);
-      loadedModel = model;
-      previewBoneMap = buildBoneMap(model);
-      modelLoaded = true;
-
-      root.updateMatrixWorld(true);
-      const modelBounds = new THREE.Box3().setFromObject(root);
-      const modelSize = modelBounds.getSize(new THREE.Vector3());
-      camera.position.set(0, Math.max(1.35, modelSize.y * 0.64), Math.max(2.8, modelSize.z * 2.1));
-      camera.lookAt(0, Math.max(0.9, modelSize.y * 0.42), 0);
-      setStatus('Quaternius base model loaded. Preparing animation test scene...');
-      maybeActivatePreview();
-    },
-    undefined,
-    (error) => {
-      if (disposed) {
-        return;
-      }
-
-      console.error(error);
-      setStatus('Human model failed to load.');
-    }
-  );
-
-  for (const animationUrl of CHARACTER_PREVIEW_ANIMATION_URLS) {
-    animationLoader.load(
-      animationUrl,
-      (gltf) => {
-        for (const clip of gltf.animations || []) {
-          if (clip && typeof clip.name === 'string' && clip.name.length > 0) {
-            clipMap.set(normalizeClipName(clip.name), clip);
-          }
-        }
-        finishAnimationLoad();
-      },
-      undefined,
-      (error) => {
-        if (disposed) {
-          return;
-        }
-
-        console.error(error);
-        finishAnimationLoad();
-      }
-    );
-  }
-
-  function render(now) {
-    if (disposed) {
-      return;
-    }
-
-    resize();
-    const nowMs = Number.isFinite(now) ? now : performance.now();
-    const deltaMs = lastRenderNowMs === null ? 0 : Math.max(0, nowMs - lastRenderNowMs);
-    lastRenderNowMs = nowMs;
-    if (loadedModel) {
-      const t = nowMs * 0.00035;
-      root.rotation.y = 0.55 + t;
-      root.position.y = 0.14 + Math.sin(t * 2.1) * 0.02;
-    }
-    if (ready && previewMixer) {
-      previewMixer.update(deltaMs / 1000);
-      if (previewBoneMap.size > 0) {
-        const previewPose = buildPreviewPose(nowMs);
-        applyHumanoidRigIK(previewBoneMap, previewPose, { strength: 1.06 });
-      }
-      if (currentStage && nowMs - currentStageStartedAtMs >= currentStage.durationMs) {
-        const nextIndex = (currentStageIndex + 1) % CHARACTER_PREVIEW_SEQUENCE_DEFS.length;
-        activatePreviewStage(nextIndex, nowMs, 0.14);
-      }
-    }
-    renderer.render(scene, camera);
-  }
-
-  function dispose() {
-    disposed = true;
-    if (previewMixer) {
-      previewMixer.stopAllAction();
-      if (loadedModel) {
-        previewMixer.uncacheRoot(loadedModel);
-      }
-    }
-    disposeObject3D(root);
-    previewBoneMap.clear();
-    renderer.dispose();
-  }
-
-  return {
-    render,
-    dispose,
-    isReady: () => ready,
-    getStatus: () => currentStatus,
-    getDebugState: () => ({
-      ready,
-      modelLoaded,
-      animationsLoaded,
-      stageIndex: currentStageIndex,
-      stageKey: currentStage?.key || '',
-      stageLabel: currentStage?.label || '',
-      clipName: currentActionKey ? currentActionKey.split(':').slice(1).join(':') : '',
-      clipCount: clipMap.size,
-      boneCount: previewBoneMap.size,
-      ikEnabled: previewBoneMap.size > 0,
-      status: currentStatus
-    })
-  };
 }
 
 function normalizeClipName(name) {
@@ -2533,17 +2120,21 @@ function createThreeWorldRenderer({ canvas, textures, debugEnabled = false }) {
 
 function parseSeedFromUrl() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('seed') || 'fps3d-alpha01';
+  const explicitSeed = params.get('seed');
+  if (explicitSeed !== null && explicitSeed !== '') {
+    const numericSeed = Number(explicitSeed);
+    if (Number.isFinite(numericSeed) && String(numericSeed) === explicitSeed.trim()) {
+      return numericSeed;
+    }
+    return explicitSeed;
+  }
+
+  return Date.now();
 }
 
 function parseLevelFromUrl() {
   const params = new URLSearchParams(window.location.search);
   return params.get('level') || CAMPAIGN_LEVEL_ID;
-}
-
-function parseCharacterPreviewFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get('preview') === '1';
 }
 
 function parseDebugFromUrl() {
@@ -2620,7 +2211,6 @@ function downloadJson(filename, payload) {
 async function main() {
   const seed = parseSeedFromUrl();
   const levelId = parseLevelFromUrl();
-  const showCharacterPreview = parseCharacterPreviewFromUrl();
   const showDevOverlay = parseDebugFromUrl();
   const isCampaignMode = levelId === CAMPAIGN_LEVEL_ID;
   let textures = createGameTextures(null, seed);
@@ -2637,16 +2227,9 @@ async function main() {
     getSettings: () => settings
   });
   const hudCtx = hudCanvas.getContext('2d', { alpha: true });
-  const characterPreviewRoot = characterPreviewCanvas?.parentElement;
-  if (characterPreviewRoot) {
-    characterPreviewRoot.hidden = !showCharacterPreview;
-  }
   if (devOverlay) {
     devOverlay.hidden = !showDevOverlay;
   }
-  const characterPreview = showCharacterPreview
-    ? createCharacterPreview(characterPreviewCanvas, characterPreviewStatus)
-    : null;
   const accumulator = createFixedStepAccumulator(16);
   let lastTime = null;
   let menuOpen = false;
@@ -3099,7 +2682,6 @@ async function main() {
       worldRenderer.render(state);
     }
     renderHud();
-    characterPreview?.render(safeNow);
     updateOverlay();
     updateDevOverlay();
     requestAnimationFrame(frame);
@@ -3179,7 +2761,6 @@ async function main() {
   window.addEventListener('beforeunload', () => {
     input.dispose();
     worldRenderer.dispose();
-    characterPreview?.dispose();
     audio.dispose();
     disposeTextures(null, textures);
   });
@@ -3192,7 +2773,6 @@ async function main() {
     getDemoRecording,
     getSettings: () => ({ ...settings }),
     getRendererDebug: () => worldRenderer?.getDebugState?.() ?? null,
-    getCharacterPreviewDebug: () => characterPreview?.getDebugState?.() ?? null,
     step: (stepMs = 16, frameInput = {}) => {
       advanceGameState(state, cloneFrameInput(frameInput), stepMs);
       return snapshotGameState(state);

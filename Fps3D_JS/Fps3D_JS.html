@@ -44,93 +44,6 @@
       pointer-events: none;
     }
 
-    #character-preview {
-      position: absolute;
-      right: 16px;
-      bottom: 16px;
-      z-index: 5;
-      width: min(24vw, 300px);
-      aspect-ratio: 3 / 4;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 18px;
-      overflow: hidden;
-      background:
-        radial-gradient(circle at 50% 0%, rgba(113, 173, 255, 0.14), transparent 44%),
-        linear-gradient(180deg, rgba(7, 11, 18, 0.96), rgba(4, 6, 10, 0.98));
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.34);
-      backdrop-filter: blur(8px);
-      pointer-events: none;
-    }
-
-    #character-preview[hidden] {
-      display: none;
-    }
-
-    #character-preview canvas {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-
-    #character-preview-label,
-    #character-preview-status {
-      position: absolute;
-      left: 12px;
-      right: 12px;
-      z-index: 1;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
-      pointer-events: none;
-    }
-
-    #character-preview-label {
-      top: 10px;
-      color: rgba(235, 243, 255, 0.92);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-    }
-
-    #character-preview-status {
-      bottom: 10px;
-      color: rgba(224, 233, 247, 0.76);
-      font-size: 12px;
-      line-height: 1.35;
-    }
-
-    @media (max-width: 900px) {
-      #character-preview {
-        width: min(34vw, 230px);
-        right: 12px;
-        bottom: 12px;
-      }
-    }
-
-    @media (max-width: 560px) {
-      #character-preview {
-        width: min(44vw, 180px);
-        right: 8px;
-        bottom: 8px;
-        border-radius: 14px;
-      }
-
-      #character-preview-label {
-        top: 8px;
-        left: 10px;
-        right: 10px;
-        font-size: 10px;
-      }
-
-      #character-preview-status {
-        left: 10px;
-        right: 10px;
-        bottom: 8px;
-        font-size: 11px;
-      }
-    }
-
     #overlay {
       position: absolute;
       left: 16px;
@@ -324,11 +237,6 @@
   <div id="app">
     <canvas id="world" data-testid="world-canvas"></canvas>
     <canvas id="hud" data-testid="hud-canvas"></canvas>
-    <div id="character-preview" aria-hidden="true">
-      <div id="character-preview-label">External human model</div>
-      <div id="character-preview-status">Loading Quaternius CC0 model...</div>
-      <canvas id="character-preview-canvas"></canvas>
-    </div>
     <div id="overlay">
       <strong>Hidden FPS Prototype</strong>
       <div>Click the view to lock pointer.</div>

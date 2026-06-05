@@ -5,7 +5,7 @@ import {
   distanceSqPointToSegment,
   normalizeLoop,
   normalizeSurface,
-  pointInConvexPolygon,
+  pointInPolygon,
   polygonCentroid,
   polygonSignedArea,
   segmentKey,
@@ -309,28 +309,6 @@ function segmentsIntersect(ax, az, bx, bz, cx, cz, dx, dz) {
   return false;
 }
 
-function isConvexLoop(loop) {
-  let turn = 0;
-  for (let index = 0; index < loop.length; index += 1) {
-    const a = loop[index];
-    const b = loop[(index + 1) % loop.length];
-    const c = loop[(index + 2) % loop.length];
-    const cross = orientation(a.x, a.z, b.x, b.z, c.x, c.z);
-    if (Math.abs(cross) <= GEOMETRY_EPSILON) {
-      continue;
-    }
-
-    const sign = Math.sign(cross);
-    if (turn === 0) {
-      turn = sign;
-    } else if (sign !== turn) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 function collectSectorGeometryDiagnostics(sector) {
   const issues = [];
 
@@ -345,15 +323,6 @@ function collectSectorGeometryDiagnostics(sector) {
       severity: 'warning',
       sectorId: sector.id,
       message: `Sector "${sector.id}" has near-zero area.`
-    });
-  }
-
-  if (!isConvexLoop(sector.loop)) {
-    issues.push({
-      type: 'nonConvexLoop',
-      severity: 'warning',
-      sectorId: sector.id,
-      message: `Sector "${sector.id}" is not convex.`
     });
   }
 
@@ -898,7 +867,7 @@ export function findSectorAtPoint(level, x, z) {
   }
 
   for (const sector of level.sectors) {
-    if (pointInConvexPolygon(x, z, sector.loop)) {
+    if (pointInPolygon(x, z, sector.loop)) {
       return sector;
     }
   }
