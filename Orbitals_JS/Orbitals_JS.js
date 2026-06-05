@@ -5,7 +5,7 @@ import { PLANET_FILES, config } from './orbitals_config.js';
 
 const ASSET_ROOT = './assets/';
 const PLAYER_FILE = `${ASSET_ROOT}player_spaceship.glb`;
-const STAR_FILE = `${ASSET_ROOT}star_map_1.glb`;
+const STAR_FILE = `${ASSET_ROOT}star_,map_1.glb`;
 
 const app = document.getElementById('app');
 const loadingWrap = document.getElementById('loadingWrap');
@@ -81,7 +81,7 @@ const spaceDebrisMaterial = new THREE.PointsMaterial({
   transparent: true,
   opacity: 1.0,
   depthWrite: false,
-  depthTest: false
+  depthTest: true
 });
 const spaceDebrisPoints = new THREE.Points(spaceDebrisGeometry, spaceDebrisMaterial);
 spaceDebrisPoints.frustumCulled = false;
@@ -181,6 +181,8 @@ const tempVecE = new THREE.Vector3();
 const tempVecF = new THREE.Vector3();
 const tempQuat = new THREE.Quaternion();
 const tempMat = new THREE.Matrix4();
+const tempColorA = new THREE.Color();
+const tempColorB = new THREE.Color();
 const worldUp = new THREE.Vector3(0, 1, 0);
 const RETICLE_OFFSET_PX = 170;
 
@@ -438,7 +440,107 @@ function createSunCoronaTexture() {
   return texture;
 }
 
+function createEngineFlameTexture() {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const cx = size * 0.5;
+  const cy = size * 0.5;
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.globalCompositeOperation = 'screen';
+
+  const outer = ctx.createRadialGradient(0, size * 0.08, size * 0.02, 0, size * 0.03, size * 0.5);
+  outer.addColorStop(0.00, 'rgba(255,255,255,0.95)');
+  outer.addColorStop(0.18, 'rgba(255,250,225,0.90)');
+  outer.addColorStop(0.34, 'rgba(255,198,104,0.82)');
+  outer.addColorStop(0.60, 'rgba(255,120,24,0.42)');
+  outer.addColorStop(1.00, 'rgba(255,120,24,0.00)');
+  ctx.fillStyle = outer;
+  ctx.beginPath();
+  ctx.moveTo(0, -size * 0.46);
+  ctx.bezierCurveTo(size * 0.18, -size * 0.28, size * 0.22, size * 0.05, 0, size * 0.40);
+  ctx.bezierCurveTo(-size * 0.22, size * 0.05, -size * 0.18, -size * 0.28, 0, -size * 0.46);
+  ctx.closePath();
+  ctx.fill();
+
+  const core = ctx.createRadialGradient(0, size * 0.02, size * 0.01, 0, size * 0.04, size * 0.25);
+  core.addColorStop(0.00, 'rgba(255,255,255,1.00)');
+  core.addColorStop(0.32, 'rgba(255,255,245,0.98)');
+  core.addColorStop(0.68, 'rgba(255,255,245,0.44)');
+  core.addColorStop(1.00, 'rgba(255,255,245,0.00)');
+  ctx.fillStyle = core;
+  ctx.beginPath();
+  ctx.ellipse(0, size * 0.02, size * 0.12, size * 0.22, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function createEngineSparkTexture() {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const cx = size * 0.5;
+  const cy = size * 0.5;
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.globalCompositeOperation = 'screen';
+
+  const glow = ctx.createRadialGradient(0, 0, size * 0.02, 0, 0, size * 0.5);
+  glow.addColorStop(0.00, 'rgba(255,255,255,1.00)');
+  glow.addColorStop(0.16, 'rgba(255,245,200,0.95)');
+  glow.addColorStop(0.44, 'rgba(255,180,64,0.55)');
+  glow.addColorStop(1.00, 'rgba(255,180,64,0.00)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(0, 0, size * 0.22, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255, 248, 224, 0.72)';
+  ctx.shadowColor = 'rgba(255, 222, 160, 0.55)';
+  ctx.shadowBlur = size * 0.05;
+  ctx.lineCap = 'round';
+  const rays = 4;
+  for (let i = 0; i < rays; i += 1) {
+    const angle = (i / rays) * Math.PI * 0.5;
+    const inner = size * 0.04;
+    const outer = size * 0.30;
+    ctx.lineWidth = 1.1 - i * 0.15;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+    ctx.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return texture;
+}
+
 const sunCoronaTexture = createSunCoronaTexture();
+const engineFlameTexture = createEngineFlameTexture();
+const engineSparkTexture = createEngineSparkTexture();
 const projectileGeometry = new THREE.SphereGeometry(1, 10, 8);
 const projectileMaterial = new THREE.MeshBasicMaterial({
   color: 0x62ff6f,
@@ -516,6 +618,231 @@ function createFallbackStar() {
   );
   group.add(core);
   return group;
+}
+
+function createShipEngineEffects(root) {
+  const heatMaterials = [];
+  const emitterEffects = [];
+  const seenMaterials = new Set();
+
+  function addHeatMaterial(material) {
+    if (!material || seenMaterials.has(material)) {
+      return;
+    }
+    seenMaterials.add(material);
+    heatMaterials.push({
+      material,
+      baseColor: material.color ? material.color.clone() : null,
+      baseEmissive: material.emissive ? material.emissive.clone() : null,
+      baseEmissiveIntensity: typeof material.emissiveIntensity === 'number' ? material.emissiveIntensity : 0,
+      baseRoughness: typeof material.roughness === 'number' ? material.roughness : null
+    });
+  }
+
+  root.traverse((obj) => {
+    if (!obj.isMesh || !obj.material || !obj.name || !/^Engine/.test(obj.name)) {
+      return;
+    }
+
+    const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+    for (const material of materials) {
+      addHeatMaterial(material);
+    }
+
+    if (!/^EngineBell_/.test(obj.name) || !obj.geometry) {
+      return;
+    }
+
+    obj.geometry.computeBoundingBox();
+    const bounds = obj.geometry.boundingBox || new THREE.Box3().setFromObject(obj);
+    const size = bounds.getSize(tempVecA);
+    const center = bounds.getCenter(tempVecB);
+    const flameAnchor = new THREE.Group();
+    flameAnchor.position.copy(center);
+    flameAnchor.position.z += Math.max(0.05, size.z * 0.5 + 0.05);
+    flameAnchor.renderOrder = 31;
+    obj.add(flameAnchor);
+
+    const outerMaterial = new THREE.SpriteMaterial({
+      map: engineFlameTexture,
+      color: 0xffb15e,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      depthTest: true,
+      toneMapped: false
+    });
+    const outer = new THREE.Sprite(outerMaterial);
+    outer.position.set(0, 0, 0.05);
+    outer.scale.set(Math.max(0.45, size.x * 1.15), Math.max(0.95, size.x * 2.2), 1);
+    outer.renderOrder = 32;
+    flameAnchor.add(outer);
+
+    const innerMaterial = new THREE.SpriteMaterial({
+      map: engineFlameTexture,
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      depthTest: true,
+      toneMapped: false
+    });
+    const inner = new THREE.Sprite(innerMaterial);
+    inner.position.set(0, 0, 0.11);
+    inner.scale.set(Math.max(0.25, size.x * 0.72), Math.max(0.6, size.x * 1.35), 1);
+    inner.renderOrder = 33;
+    flameAnchor.add(inner);
+
+    const light = new THREE.PointLight(0xfff1d2, 0, 20, 2);
+    light.position.set(0, 0, 0.08);
+    flameAnchor.add(light);
+
+    const sparkCount = 14;
+    const sparkPositions = new Float32Array(sparkCount * 3);
+    const sparkGeometry = new THREE.BufferGeometry();
+    sparkGeometry.setAttribute('position', new THREE.BufferAttribute(sparkPositions, 3));
+    const sparkMaterial = new THREE.PointsMaterial({
+      map: engineSparkTexture,
+      color: 0xfff3c8,
+      size: Math.max(0.05, size.x * 0.08),
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      depthTest: true,
+      toneMapped: false
+    });
+    const sparks = new THREE.Points(sparkGeometry, sparkMaterial);
+    sparks.frustumCulled = false;
+    sparks.renderOrder = 34;
+    flameAnchor.add(sparks);
+
+    const sparkSeeds = new Float32Array(sparkCount);
+    const sparkRates = new Float32Array(sparkCount);
+    const sparkSpreads = new Float32Array(sparkCount);
+    for (let i = 0; i < sparkCount; i += 1) {
+      sparkSeeds[i] = randRange(0, Math.PI * 2);
+      sparkRates[i] = randRange(1.0, 4.0);
+      sparkSpreads[i] = randRange(0.015, 0.09);
+    }
+
+    emitterEffects.push({
+      mesh: obj,
+      name: obj.name,
+      outer,
+      inner,
+      light,
+      sparks,
+      sparkGeometry,
+      sparkMaterial,
+      sparkPositions,
+      sparkSeeds,
+      sparkRates,
+      sparkSpreads,
+      outerBaseColor: outerMaterial.color.clone(),
+      innerBaseColor: innerMaterial.color.clone(),
+      outerBaseScaleX: outer.scale.x,
+      outerBaseScaleY: outer.scale.y,
+      innerBaseScaleX: inner.scale.x,
+      innerBaseScaleY: inner.scale.y,
+      sparkBaseSize: sparkMaterial.size,
+      sparkBaseZ: 0.03,
+      phase: randRange(0, Math.PI * 2)
+    });
+  });
+
+  return {
+    heatMaterials,
+    emitterEffects
+  };
+}
+
+function updateShipEngineEffects(time) {
+  const ship = state.ship;
+  if (!ship || !ship.engineEffects) {
+    return;
+  }
+
+  const boostDuration = Math.max(config.shipBoostDuration || 0, 0.0001);
+  const boostLevel = state.fuel > 0 ? clamp01((ship.boostTimer || 0) / boostDuration) : 0;
+  const pulse = 0.88 + Math.sin(time * 38.0) * 0.06 + Math.sin(time * 21.0 + 1.4) * 0.04;
+  const heatMix = boostLevel * pulse;
+
+  for (const entry of ship.engineEffects.heatMaterials) {
+    const material = entry.material;
+    if (entry.baseColor && material.color) {
+      tempColorA.copy(entry.baseColor).lerp(tempColorB.set(0xffffff), heatMix * 0.9);
+      material.color.copy(tempColorA);
+    }
+    if (entry.baseEmissive && material.emissive) {
+      tempColorA.copy(entry.baseEmissive).lerp(tempColorB.set(0xfff6dd), boostLevel * 0.6 + heatMix * 0.35);
+      material.emissive.copy(tempColorA);
+    }
+    if (typeof entry.baseEmissiveIntensity === 'number' && typeof material.emissiveIntensity === 'number') {
+      material.emissiveIntensity = entry.baseEmissiveIntensity + heatMix * 8.5;
+    }
+    if (typeof entry.baseRoughness === 'number' && typeof material.roughness === 'number') {
+      material.roughness = THREE.MathUtils.lerp(entry.baseRoughness, Math.max(0.05, entry.baseRoughness * 0.35), boostLevel * 0.55);
+    }
+  }
+
+  for (const emitter of ship.engineEffects.emitterEffects) {
+    const boost = boostLevel;
+    const flicker = 0.84 + Math.sin(time * 31 + emitter.phase) * 0.09 + Math.sin(time * 53 + emitter.phase * 1.7) * 0.05;
+    const outerPulse = 0.92 + Math.sin(time * 38 + emitter.phase) * 0.04 + boost * 0.25;
+    const innerPulse = 0.95 + Math.sin(time * 45 + emitter.phase * 1.4) * 0.03 + boost * 0.18;
+    const active = boost > 0.01;
+
+    emitter.outer.visible = active;
+    emitter.inner.visible = active;
+    emitter.light.visible = active;
+    emitter.sparks.visible = active;
+
+    if (active) {
+      tempColorA.copy(emitter.outerBaseColor).lerp(tempColorB.set(0xffffff), boost * 0.9);
+      emitter.outer.material.color.copy(tempColorA);
+      emitter.outer.material.opacity = boost * 0.78 * flicker;
+      emitter.outer.material.rotation = Math.sin(time * 20 + emitter.phase) * 0.12;
+      emitter.outer.scale.set(
+        emitter.outerBaseScaleX * outerPulse * (0.9 + boost * 0.55),
+        emitter.outerBaseScaleY * outerPulse * (0.9 + boost * 0.45),
+        1
+      );
+
+      tempColorA.copy(emitter.innerBaseColor).lerp(tempColorB.set(0xffffff), Math.min(1, boost * 0.95 + 0.15));
+      emitter.inner.material.color.copy(tempColorA);
+      emitter.inner.material.opacity = boost * 0.96 * (0.9 + Math.sin(time * 23 + emitter.phase * 1.3) * 0.08);
+      emitter.inner.material.rotation = -Math.sin(time * 19 + emitter.phase * 0.7) * 0.08;
+      emitter.inner.scale.set(
+        emitter.innerBaseScaleX * innerPulse * (0.95 + boost * 0.35),
+        emitter.innerBaseScaleY * innerPulse * (0.95 + boost * 0.25),
+        1
+      );
+
+      emitter.light.intensity = 0.5 + boost * 12 * flicker;
+
+      emitter.sparkMaterial.opacity = boost * 0.88 * flicker;
+      emitter.sparkMaterial.size = emitter.sparkBaseSize * (0.85 + boost * 0.75);
+      for (let i = 0; i < emitter.sparkSeeds.length; i += 1) {
+        const base = i * 3;
+        const phase = time * (3.0 + emitter.sparkRates[i] * 1.5) + emitter.sparkSeeds[i];
+        const spread = boost * (0.03 + emitter.sparkSpreads[i] * 0.95);
+        const push = emitter.sparkBaseZ + boost * (0.08 + i * 0.01);
+        emitter.sparkPositions[base + 0] = Math.sin(phase) * spread;
+        emitter.sparkPositions[base + 1] = Math.cos(phase * 1.37 + emitter.sparkSeeds[i]) * spread * 0.72;
+        emitter.sparkPositions[base + 2] = push + Math.max(0, Math.sin(phase * 0.63) * 0.01);
+      }
+      emitter.sparkGeometry.attributes.position.needsUpdate = true;
+    } else {
+      emitter.outer.material.opacity = 0;
+      emitter.inner.material.opacity = 0;
+      emitter.light.intensity = 0;
+      emitter.sparkMaterial.opacity = 0;
+    }
+  }
 }
 
 function addStarCoronaLayer(baseScale, opacity, color, stretchX = 1, stretchY = 1, pulse = 0.04, phase = 0) {
@@ -1168,6 +1495,7 @@ async function loadShipVisual() {
   ship.visual = visual;
   ship.modelPivot = modelPivot;
   ship.model = root;
+  ship.engineEffects = createShipEngineEffects(root);
   ship.root.position.copy(ship.position);
   ship.muzzleOffset = config.shipMuzzleOffset;
   const localUp = ship.boundPlanet
@@ -1315,6 +1643,7 @@ function render() {
     if (localUp) {
       updateShipOrientation(dt, localUp);
     }
+    updateShipEngineEffects(clock.elapsedTime);
     updateCamera(dt);
     updateHud();
   }

@@ -267,7 +267,8 @@ function createShipState() {
     root: null,
     visual: null,
     modelPivot: null,
-    model: null
+    model: null,
+    engineEffects: null
   };
 }
 
