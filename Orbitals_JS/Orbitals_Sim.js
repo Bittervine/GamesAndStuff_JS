@@ -9,28 +9,164 @@ const tempVecD = new THREE.Vector3();
 const tempVecE = new THREE.Vector3();
 const tempVecF = new THREE.Vector3();
 
-const ENEMY_FAMILIES = [
-  'Standard',
-  'Crosspanel',
-  'FlyingSaucer',
-  'DeltaWing',
-  'Pirate',
-  'Orca',
-  'Longwing',
-  'TwoHoop',
-  'TigerWing',
-  'LunarCourier',
-  'Hooper',
-  'ManraRay',
-  'PyramidLifter',
-  'Nemesis'
-];
+const PROJECTILE_HOMING_LOCK_ANGLE = THREE.MathUtils.degToRad(5);
+const PROJECTILE_HOMING_ACQUIRE_ANGLE = THREE.MathUtils.degToRad(7.5);
+const PROJECTILE_HOMING_RETAIN_ANGLE = THREE.MathUtils.degToRad(18);
+const PROJECTILE_HOMING_RANGE = 900;
+const PROJECTILE_HOMING_MIN_TURN = THREE.MathUtils.degToRad(10);
+const PROJECTILE_HOMING_MAX_TURN = THREE.MathUtils.degToRad(45);
+
+export const ENEMY_MODEL_FILES_BY_FAMILY = {
+  Standard: [
+    'Ship_Standard_1.glb',
+    'Ship_Standard_10.glb',
+    'Ship_Standard_11.glb',
+    'Ship_Standard_12.glb',
+    'Ship_Standard_13.glb',
+    'Ship_Standard_14.glb',
+    'Ship_Standard_17.glb',
+    'Ship_Standard_2.glb',
+    'Ship_Standard_20.glb',
+    'Ship_Standard_3.glb',
+    'Ship_Standard_5.glb',
+    'Ship_Standard_6.glb',
+    'Ship_Standard_7.glb',
+    'Ship_Standard_8.glb',
+    'Ship_Standard_9.glb'
+  ],
+  Crosspanel: [
+    'Ship_Crosspanel_1.glb',
+    'Ship_Crosspanel_10.glb',
+    'Ship_Crosspanel_11.glb',
+    'Ship_Crosspanel_16.glb',
+    'Ship_Crosspanel_18.glb',
+    'Ship_Crosspanel_2.glb',
+    'Ship_Crosspanel_3.glb',
+    'Ship_Crosspanel_4.glb',
+    'Ship_Crosspanel_5.glb',
+    'Ship_Crosspanel_6.glb',
+    'Ship_Crosspanel_7.glb'
+  ],
+  FlyingSaucer: [
+    'Ship_FlyingSaucer_298877.glb',
+    'Ship_FlyingSaucer_301176.glb',
+    'Ship_FlyingSaucer_336064.glb',
+    'Ship_FlyingSaucer_528770.glb',
+    'Ship_FlyingSaucer_654444.glb',
+    'Ship_FlyingSaucer_750147.glb',
+    'Ship_FlyingSaucer_752605.glb',
+    'Ship_FlyingSaucer_772429.glb'
+  ],
+  DeltaWing: [
+    'Ship_DeltaWing_108179.glb',
+    'Ship_DeltaWing_368386.glb',
+    'Ship_DeltaWing_394511.glb',
+    'Ship_DeltaWing_535536.glb',
+    'Ship_DeltaWing_691262.glb',
+    'Ship_DeltaWing_853002.glb',
+    'Ship_DeltaWing_894551.glb'
+  ],
+  Pirate: [
+    'Ship_Pirate_1.glb',
+    'Ship_Pirate_2.glb',
+    'Ship_Pirate_3.glb',
+    'Ship_Pirate_4.glb',
+    'Ship_Pirate_5.glb',
+    'Ship_Pirate_6.glb',
+    'Ship_Pirate_7.glb'
+  ],
+  Orca: [
+    'Ship_Orca_135963.glb',
+    'Ship_Orca_29300.glb',
+    'Ship_Orca_486148.glb',
+    'Ship_Orca_492814.glb',
+    'Ship_Orca_583214.glb',
+    'Ship_Orca_652174.glb',
+    'Ship_Orca_687341.glb'
+  ],
+  Longwing: [
+    'Ship_Longwing_1.glb',
+    'Ship_Longwing_2.glb',
+    'Ship_Longwing_3.glb',
+    'Ship_Longwing_4.glb',
+    'Ship_Longwing_5.glb',
+    'Ship_Longwing_6.glb',
+    'Ship_Longwing_7.glb',
+    'Ship_Longwing_8.glb'
+  ],
+  TwoHoop: [
+    'Ship_TwoHoop_11695.glb',
+    'Ship_TwoHoop_217137.glb',
+    'Ship_TwoHoop_274249.glb',
+    'Ship_TwoHoop_274461.glb',
+    'Ship_TwoHoop_338598.glb',
+    'Ship_TwoHoop_428113.glb',
+    'Ship_TwoHoop_536191.glb'
+  ],
+  TigerWing: [
+    'Ship_TigerWing_1.glb',
+    'Ship_TigerWing_2.glb',
+    'Ship_TigerWing_3.glb',
+    'Ship_TigerWing_4.glb',
+    'Ship_TigerWing_5.glb',
+    'Ship_TigerWing_6.glb',
+    'Ship_TigerWing_7.glb'
+  ],
+  LunarCourier: [
+    'Ship_LunarCourier_153144.glb',
+    'Ship_LunarCourier_322196.glb',
+    'Ship_LunarCourier_5002.glb',
+    'Ship_LunarCourier_7.glb',
+    'Ship_LunarCourier_826239.glb',
+    'Ship_LunarCourier_899475.glb',
+    'Ship_LunarCourier_95901.glb',
+    'Ship_LunarCourier_994899.glb'
+  ],
+  Hooper: [
+    'Ship_Hooper_219385.glb',
+    'Ship_Hooper_302864.glb',
+    'Ship_Hooper_378031.glb',
+    'Ship_Hooper_443110.glb',
+    'Ship_Hooper_508807.glb',
+    'Ship_Hooper_517819.glb',
+    'Ship_Hooper_740839.glb',
+    'Ship_Hooper_760830.glb'
+  ],
+  ManraRay: [
+    'Ship_ManraRay_130405.glb',
+    'Ship_ManraRay_16943.glb',
+    'Ship_ManraRay_190663.glb',
+    'Ship_ManraRay_459947.glb',
+    'Ship_ManraRay_46262.glb',
+    'Ship_ManraRay_766613.glb',
+    'Ship_ManraRay_792763.glb',
+    'Ship_ManraRay_858242.glb'
+  ],
+  PyramidLifter: [
+    'Ship_PyramidLifter_290115.glb',
+    'Ship_PyramidLifter_327178.glb',
+    'Ship_PyramidLifter_390936.glb',
+    'Ship_PyramidLifter_426685.glb',
+    'Ship_PyramidLifter_478836.glb',
+    'Ship_PyramidLifter_741828.glb',
+    'Ship_PyramidLifter_97249.glb',
+    'Ship_PyramidLifter_990348.glb'
+  ],
+  Nemesis: [
+    'ship_nemesis2.glb'
+  ]
+};
+const ENEMY_FAMILIES = Object.keys(ENEMY_MODEL_FILES_BY_FAMILY);
+
+function getEnemyFamilyFiles(family) {
+  return ENEMY_MODEL_FILES_BY_FAMILY[family] || ENEMY_MODEL_FILES_BY_FAMILY[ENEMY_FAMILIES[0]] || [];
+}
 
 const ENEMY_SPAWN_DELAY_MIN = 0.8;
 const ENEMY_SPAWN_DELAY_MAX = 2.0;
-const ENEMY_MAX_SQUADS = 8;
-const ENEMY_SQUAD_SIZE_MIN = 12;
-const ENEMY_SQUAD_SIZE_MAX = 22;
+const ENEMY_MAX_SQUADS = 4;
+const ENEMY_SQUAD_SIZE_MIN = 1;
+const ENEMY_SQUAD_SIZE_MAX = 1;
 const ENEMY_APPROACH_ALTITUDE = 0.92;
 const ENEMY_SWARM_ALTITUDE = 0.54;
 const ENEMY_DEPART_ALTITUDE = 1.05;
@@ -45,6 +181,10 @@ const ENEMY_SWARM_DURATION_MIN = 60.0;
 const ENEMY_SWARM_DURATION_MAX = 120.0;
 const ENEMY_DEPART_DURATION_MIN = 8.0;
 const ENEMY_DEPART_DURATION_MAX = 16.0;
+const ENEMY_CRASH_MARGIN = 4.0;
+const ENEMY_EXPLOSION_PARTICLE_COUNT = 70;
+const ENEMY_EXPLOSION_LIFETIME_MIN = 0.34;
+const ENEMY_EXPLOSION_LIFETIME_MAX = 0.58;
 
 export function parseSeed(rawValue) {
   if (rawValue == null || rawValue === '') {
@@ -318,8 +458,11 @@ function createEnemyState() {
     position: new THREE.Vector3(),
     previousPosition: new THREE.Vector3(),
     velocity: new THREE.Vector3(),
+    relativePosition: new THREE.Vector3(),
+    relativeVelocity: new THREE.Vector3(),
     forward: new THREE.Vector3(0, 0, 1),
     up: new THREE.Vector3(0, 1, 0),
+    gravity: new THREE.Vector3(),
     bank: 0,
     speed: 0,
     radius: ENEMY_HIT_RADIUS,
@@ -327,6 +470,13 @@ function createEnemyState() {
     speedScale: 1,
     turnScale: 1,
     upScale: 1,
+    boundPlanet: null,
+    flightMode: 'bound',
+    captureTimer: config.shipCaptureBlendTime,
+    recaptureLock: 0,
+    pitchIdleTime: 0,
+    boostTimer: 0,
+    fireCooldown: 0,
     formationAngle: 0,
     formationRadius: 0,
     phase: 0,
@@ -359,6 +509,25 @@ function pickEnemyFamily(state) {
   return ENEMY_FAMILIES[Math.floor(state.rng() * ENEMY_FAMILIES.length)];
 }
 
+function unwrapAngleDelta(previousAngle, nextAngle) {
+  let delta = nextAngle - previousAngle;
+  if (delta > Math.PI) {
+    delta -= Math.PI * 2;
+  } else if (delta < -Math.PI) {
+    delta += Math.PI * 2;
+  }
+  return delta;
+}
+
+function getEnemyOrbitAngle(planet, position) {
+  const radial = planet.position.lengthSq() > 1e-6
+    ? planet.position.clone().normalize()
+    : worldUp.clone();
+  const basis = buildBasisFromNormal(radial);
+  const relative = position.clone().sub(planet.position);
+  return Math.atan2(relative.dot(basis.bitangent), relative.dot(basis.tangent));
+}
+
 function pickEnemySpawnPlanetIndex(state) {
   if (state.nearestPlanet) {
     const nearestIndex = state.planets.indexOf(state.nearestPlanet);
@@ -383,8 +552,14 @@ function createEnemySquadState(state, targetPlanetIndex = -1) {
     id: state.nextEnemySquadId,
     family,
     assetFile: '',
+    familyFiles: getEnemyFamilyFiles(family).slice(),
     targetPlanetIndex: targetIndex,
     nextPlanetIndex,
+    departPlanetIndex: -1,
+    orbitPhase: state.rng() * Math.PI * 2,
+    orbitProgress: 0,
+    orbitLastAngle: 0,
+    departVector: new THREE.Vector3(),
     mode: 'approach',
     modeTimer: 0,
     spawnTimer: 0,
@@ -406,31 +581,41 @@ function createEnemyWave(state, squad) {
       ? planet.position.clone().normalize()
       : new THREE.Vector3(0, 1, 0);
   const basis = buildBasisFromNormal(radial);
-  const spawnDistance = planet.atmosphereRadius + 800 + state.rng() * 1400;
+  const spawnDistance = planet.atmosphereRadius + 80 + state.rng() * 140;
   const spawnCenter = tempVecA.copy(planet.position).addScaledVector(radial, spawnDistance);
-  const file = squad.assetFile || '';
+  const familyFiles = squad.familyFiles && squad.familyFiles.length > 0
+    ? squad.familyFiles
+    : getEnemyFamilyFiles(squad.family);
 
   for (let i = 0; i < enemyCount; i += 1) {
     const enemy = createEnemyState();
     const ringAngle = (i / Math.max(1, enemyCount)) * Math.PI * 2 + state.rng() * 0.35;
-    const ringRadius = 120 + state.rng() * 260;
+    const ringRadius = 12 + state.rng() * 26;
     const ringOffset = tempVecB.copy(basis.tangent).multiplyScalar(Math.cos(ringAngle) * ringRadius)
       .addScaledVector(basis.bitangent, Math.sin(ringAngle) * ringRadius * 0.82);
     enemy.id = state.nextEnemyId;
     enemy.squadId = squad.id;
     enemy.family = squad.family;
-    enemy.assetFile = file;
+    enemy.assetFile = familyFiles.length > 0
+      ? familyFiles[Math.floor(state.rng() * familyFiles.length)]
+      : '';
     enemy.position.copy(spawnCenter).add(ringOffset);
     enemy.previousPosition.copy(enemy.position);
     enemy.forward.copy(tempVecC.copy(planet.position).sub(enemy.position).normalize());
     enemy.up.copy(radial);
     enemy.bank = 0;
     enemy.speed = 0;
+    enemy.boundPlanet = planet;
+    enemy.flightMode = 'bound';
+    enemy.captureTimer = config.shipCaptureBlendTime;
+    enemy.recaptureLock = 0;
+    enemy.relativePosition.copy(enemy.position).sub(planet.position);
+    enemy.relativeVelocity.copy(enemy.velocity).sub(planet.velocity);
     enemy.speedScale = ENEMY_SPEED_SCALE_MIN + state.rng() * (ENEMY_SPEED_SCALE_MAX - ENEMY_SPEED_SCALE_MIN);
     enemy.turnScale = ENEMY_TURN_RATE_MIN + state.rng() * (ENEMY_TURN_RATE_MAX - ENEMY_TURN_RATE_MIN);
     enemy.upScale = ENEMY_UP_RATE_MIN + state.rng() * (ENEMY_UP_RATE_MAX - ENEMY_UP_RATE_MIN);
     enemy.formationAngle = ringAngle;
-    enemy.formationRadius = 140 + state.rng() * 320;
+    enemy.formationRadius = 14 + state.rng() * 32;
     enemy.phase = state.rng() * Math.PI * 2;
     enemy.mode = 'approach';
     enemy.targetPlanetIndex = squad.targetPlanetIndex;
@@ -488,6 +673,168 @@ function vectorLikeTo(target, value, fallback) {
   return target.copy(fallback);
 }
 
+function createEnemyExplosionState(state, position, cause = 'projectile') {
+  const explosionSeed = ((state.seed >>> 0) ^ Math.imul(state.nextEnemyExplosionId + 1, 0x9e3779b9)) >>> 0;
+  const rng = mulberry32(explosionSeed);
+  return {
+    id: state.nextEnemyExplosionId,
+    position: position.clone(),
+    age: 0,
+    lifetime: cause === 'crash'
+      ? ENEMY_EXPLOSION_LIFETIME_MIN + rng() * (ENEMY_EXPLOSION_LIFETIME_MAX - ENEMY_EXPLOSION_LIFETIME_MIN)
+      : (ENEMY_EXPLOSION_LIFETIME_MIN * 0.85) + rng() * ((ENEMY_EXPLOSION_LIFETIME_MAX * 0.9) - (ENEMY_EXPLOSION_LIFETIME_MIN * 0.85)),
+    particleCount: ENEMY_EXPLOSION_PARTICLE_COUNT,
+    cause
+  };
+}
+
+function spawnEnemyExplosion(state, position, cause = 'projectile') {
+  state.enemyExplosions.push(createEnemyExplosionState(state, position, cause));
+  state.nextEnemyExplosionId += 1;
+}
+
+function destroyEnemy(state, enemy, cause = 'projectile', impactPosition = null) {
+  if (!enemy || enemy.health <= 0) {
+    return false;
+  }
+
+  enemy.health = 0;
+  enemy.boundPlanet = null;
+  enemy.flightMode = 'free';
+  enemy.recaptureLock = 0;
+
+  const index = state.enemies.indexOf(enemy);
+  if (index >= 0) {
+    state.enemies.splice(index, 1);
+  }
+
+  spawnEnemyExplosion(state, impactPosition || enemy.position, cause);
+  return true;
+}
+
+function detectEnemyCrash(state, enemy) {
+  for (const planet of state.planets) {
+    if (enemy.position.distanceTo(planet.position) <= planet.radius + ENEMY_CRASH_MARGIN) {
+      return {
+        type: 'planet',
+        planet
+      };
+    }
+  }
+
+  const starRadius = config.starScale * 0.5;
+  if (enemy.position.length() <= starRadius + ENEMY_CRASH_MARGIN) {
+    return {
+      type: 'sun',
+      planet: null
+    };
+  }
+
+  return null;
+}
+
+function findProjectileHomingTarget(state, projectile) {
+  if (!state.enemies.length || projectile.velocity.lengthSq() < 1e-6) {
+    return null;
+  }
+
+  const currentHeading = tempVecA.copy(projectile.velocity).normalize();
+  const currentTarget = projectile.targetEnemyId != null
+    ? state.enemies.find((enemy) => enemy.id === projectile.targetEnemyId)
+    : null;
+
+  if (currentTarget) {
+    const currentTargetOffset = tempVecB.copy(currentTarget.position).sub(projectile.position);
+    const currentTargetDistance = currentTargetOffset.length();
+    if (currentTargetDistance > 1e-6 && currentTargetDistance <= PROJECTILE_HOMING_RANGE) {
+      const currentTargetAngle = currentHeading.angleTo(currentTargetOffset.divideScalar(currentTargetDistance));
+      if (currentTargetAngle <= PROJECTILE_HOMING_RETAIN_ANGLE) {
+        return currentTarget;
+      }
+    }
+  }
+
+  let bestTarget = null;
+  let bestScore = Infinity;
+
+  for (const enemy of state.enemies) {
+    if (!enemy || enemy.health <= 0) {
+      continue;
+    }
+
+    const offset = tempVecB.copy(enemy.position).sub(projectile.position);
+    const distance = offset.length();
+    if (distance <= 1e-6 || distance > PROJECTILE_HOMING_RANGE) {
+      continue;
+    }
+
+    const direction = offset.multiplyScalar(1 / distance);
+    const angle = currentHeading.angleTo(direction);
+    if (angle > PROJECTILE_HOMING_ACQUIRE_ANGLE) {
+      continue;
+    }
+
+    const score = (angle / PROJECTILE_HOMING_ACQUIRE_ANGLE) * 0.7 + (distance / PROJECTILE_HOMING_RANGE) * 0.3;
+    if (score < bestScore) {
+      bestScore = score;
+      bestTarget = enemy;
+    }
+  }
+
+  return bestTarget;
+}
+
+function steerProjectileTowardsTarget(projectile, target, dt) {
+  if (!target || projectile.velocity.lengthSq() < 1e-6) {
+    return;
+  }
+
+  const speed = projectile.velocity.length();
+  if (speed <= 1e-6) {
+    return;
+  }
+
+  const currentDirection = tempVecA.copy(projectile.velocity).multiplyScalar(1 / speed);
+  const desiredOffset = tempVecB.copy(target.position).sub(projectile.position);
+  const distance = desiredOffset.length();
+  if (distance <= 1e-6) {
+    return;
+  }
+
+  const desiredDirection = desiredOffset.multiplyScalar(1 / distance);
+  const angle = currentDirection.angleTo(desiredDirection);
+  if (angle <= 1e-4) {
+    return;
+  }
+
+  const angleAssist = THREE.MathUtils.clamp(
+    (PROJECTILE_HOMING_ACQUIRE_ANGLE - angle) / (PROJECTILE_HOMING_ACQUIRE_ANGLE - PROJECTILE_HOMING_LOCK_ANGLE),
+    0,
+    1
+  );
+  const distanceAssist = THREE.MathUtils.clamp(1 - (distance / PROJECTILE_HOMING_RANGE), 0, 1);
+  const assist = angleAssist * (0.5 + distanceAssist * 0.5);
+  if (assist <= 0) {
+    return;
+  }
+
+  const turnRate = THREE.MathUtils.lerp(PROJECTILE_HOMING_MIN_TURN, PROJECTILE_HOMING_MAX_TURN, assist);
+  const maxTurn = turnRate * dt;
+  const turn = Math.min(angle, maxTurn);
+  if (turn <= 0) {
+    return;
+  }
+
+  const rotationAxis = tempVecC.copy(currentDirection).cross(desiredDirection);
+  if (rotationAxis.lengthSq() > 1e-10) {
+    currentDirection.applyAxisAngle(rotationAxis.normalize(), turn);
+  } else {
+    currentDirection.copy(desiredDirection);
+  }
+
+  projectile.velocity.copy(currentDirection).multiplyScalar(speed);
+}
+
 function spawnProjectileBurst(state, ship, fireDirection) {
   if (!ship || !fireDirection) {
     return;
@@ -516,6 +863,7 @@ function spawnProjectileBurst(state, ship, fireDirection) {
     radius: config.shipProjectileSize,
     side: 0,
     spawnFrame: state.frameIndex,
+    targetEnemyId: null,
     visual: null
   });
   state.nextProjectileId += 1;
@@ -529,6 +877,11 @@ function updateProjectiles(state, dt) {
     }
     projectile.age += dt;
     projectile.previousPosition.copy(projectile.position);
+    const homingTarget = findProjectileHomingTarget(state, projectile);
+    projectile.targetEnemyId = homingTarget ? homingTarget.id : null;
+    if (homingTarget) {
+      steerProjectileTowardsTarget(projectile, homingTarget, dt);
+    }
     projectile.position.addScaledVector(projectile.velocity, dt);
 
     let dead = projectile.age >= projectile.lifetime;
@@ -544,10 +897,12 @@ function updateProjectiles(state, dt) {
     if (!dead && state.enemies.length > 0) {
       for (let j = state.enemies.length - 1; j >= 0; j -= 1) {
         const enemy = state.enemies[j];
+        if (!enemy || enemy.health <= 0) {
+          continue;
+        }
         const hitRadius = enemy.radius + projectile.radius;
         if (projectile.position.distanceTo(enemy.position) <= hitRadius) {
-          enemy.health -= 1;
-          state.enemies.splice(j, 1);
+          destroyEnemy(state, enemy, 'projectile');
           dead = true;
           break;
         }
@@ -556,6 +911,16 @@ function updateProjectiles(state, dt) {
 
     if (dead) {
       state.projectiles.splice(i, 1);
+    }
+  }
+}
+
+function updateEnemyExplosions(state, dt) {
+  for (let i = state.enemyExplosions.length - 1; i >= 0; i -= 1) {
+    const explosion = state.enemyExplosions[i];
+    explosion.age += dt;
+    if (explosion.age >= explosion.lifetime) {
+      state.enemyExplosions.splice(i, 1);
     }
   }
 }
@@ -581,100 +946,225 @@ function computeEnemyTargetPoint(state, enemy, squad, planet, time) {
     ? tempVecA.copy(planet.position).normalize()
     : tempVecA.copy(worldUp);
   const basis = buildBasisFromNormal(radial);
-  const straightWindow = squad.mode === 'swarm' && Math.sin(time * 0.045 + enemy.phase) > -0.15;
-  const orbitScale = squad.mode === 'swarm'
-    ? (straightWindow ? 0.0 : 0.12)
-    : squad.mode === 'depart'
-      ? 0.0
-      : 0.04;
-  const orbitSpeed = squad.mode === 'swarm'
-    ? (straightWindow ? 0.0 : 0.035)
-    : squad.mode === 'depart'
-      ? 0.0
-      : 0.01;
   const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 1.0);
-  const captureAltitude = config.planetCaptureAltitude;
-  const swarmAltitude = Math.min(captureAltitude, atmosphereThickness * 0.98);
-  const approachAltitude = Math.min(captureAltitude * 0.9, atmosphereThickness * 0.95);
-  const departAltitude = Math.max(captureAltitude * 1.35, atmosphereThickness * 1.05);
-  if (squad.mode === 'depart') {
-    return tempVecC.copy(planet.position).addScaledVector(radial, captureAltitude);
-  }
-  const altitude = planet.radius + atmosphereThickness * (
+  const approachAltitude = planet.radius + atmosphereThickness * ENEMY_APPROACH_ALTITUDE;
+  const swarmAltitude = planet.radius + atmosphereThickness * ENEMY_SWARM_ALTITUDE;
+  const orbitLead = squad.mode === 'swarm'
+    ? THREE.MathUtils.lerp(0.55, 0.9, enemy.speedScale)
+    : squad.mode === 'depart'
+      ? THREE.MathUtils.lerp(0.25, 0.45, enemy.speedScale)
+      : THREE.MathUtils.lerp(0.35, 0.6, enemy.speedScale);
+  const orbitRadius = atmosphereThickness * (
     squad.mode === 'swarm'
-      ? swarmAltitude / atmosphereThickness
+      ? THREE.MathUtils.lerp(0.35, 0.55, enemy.speedScale)
       : squad.mode === 'depart'
-        ? departAltitude / atmosphereThickness
-        : approachAltitude / atmosphereThickness
+        ? THREE.MathUtils.lerp(0.12, 0.25, enemy.speedScale)
+        : THREE.MathUtils.lerp(0.18, 0.32, enemy.speedScale)
   );
-  const orbitAngle = enemy.formationAngle + time * squad.orbitDirection * orbitSpeed;
-  const ringOffset = tempVecB.copy(basis.tangent).multiplyScalar(Math.cos(orbitAngle) * enemy.formationRadius * orbitScale)
-    .addScaledVector(basis.bitangent, Math.sin(orbitAngle) * enemy.formationRadius * 0.82 * orbitScale);
-  return tempVecC.copy(planet.position).addScaledVector(radial, altitude).add(ringOffset);
+  const orbitAngle = squad.orbitPhase + squad.orbitDirection * orbitLead + enemy.phase * 0.2;
+
+  if (squad.mode === 'depart') {
+    const departPlanet = state.planets[Math.max(0, Math.min(state.planets.length - 1, squad.departPlanetIndex))] || planet;
+    const departVector = squad.departVector.lengthSq() > 1e-6
+      ? tempVecB.copy(squad.departVector).normalize()
+      : tempVecB.copy(planet.position).sub(departPlanet.position).normalize();
+    const exitDistance = departPlanet.radius + Math.max(atmosphereThickness * 0.58, config.planetCaptureAltitude * 1.2);
+    const transferPoint = tempVecC.copy(departPlanet.position).addScaledVector(departVector, exitDistance);
+    const travelPoint = tempVecD.copy(planet.position).addScaledVector(
+      departVector,
+      planet.radius + Math.max(config.planetCaptureAltitude * 0.8, atmosphereThickness * 0.62)
+    );
+    const altitudeFromDepart = enemy.position.distanceTo(departPlanet.position) - departPlanet.radius;
+    return altitudeFromDepart <= Math.max(config.planetCaptureAltitude * 1.2, atmosphereThickness * 0.58)
+      ? transferPoint
+      : travelPoint;
+  }
+
+  const altitude = squad.mode === 'swarm' ? swarmAltitude : approachAltitude;
+  const ringOffset = tempVecB.copy(basis.tangent).multiplyScalar(Math.cos(orbitAngle) * orbitRadius)
+    .addScaledVector(basis.bitangent, Math.sin(orbitAngle) * orbitRadius * 0.82);
+  const wobble = tempVecC.copy(basis.tangent).multiplyScalar(Math.sin(time * 0.31 + enemy.phase) * enemy.formationRadius * 0.018)
+    .addScaledVector(basis.bitangent, Math.cos(time * 0.27 + enemy.phase * 1.7) * enemy.formationRadius * 0.014);
+  return tempVecD.copy(planet.position).addScaledVector(radial, altitude).add(ringOffset).add(wobble);
+}
+
+function beginEnemySwarm(squad, targetPlanet, enemy) {
+  squad.mode = 'swarm';
+  squad.modeTimer = squad.swarmDuration;
+  squad.orbitPhase = 0;
+  squad.orbitProgress = 0;
+  squad.orbitLastAngle = getEnemyOrbitAngle(targetPlanet, enemy.position);
+}
+
+function beginEnemyDepart(state, squad, targetPlanet) {
+  const departPlanetIndex = squad.targetPlanetIndex;
+  const nextPlanetIndex = squad.nextPlanetIndex;
+  const departPlanet = state.planets[Math.max(0, Math.min(state.planets.length - 1, departPlanetIndex))] || targetPlanet;
+  const nextPlanet = state.planets[Math.max(0, Math.min(state.planets.length - 1, nextPlanetIndex))] || targetPlanet;
+
+  squad.mode = 'depart';
+  squad.modeTimer = squad.departDuration;
+  squad.departPlanetIndex = departPlanetIndex;
+  squad.departVector.copy(nextPlanet.position).sub(departPlanet.position);
+  if (squad.departVector.lengthSq() < 1e-6) {
+    squad.departVector.copy(departPlanet.position).normalize();
+  }
+  if (squad.departVector.lengthSq() < 1e-6) {
+    squad.departVector.copy(worldUp);
+  }
+  squad.departVector.normalize();
+  squad.targetPlanetIndex = nextPlanetIndex;
+  squad.nextPlanetIndex = pickRandomPlanetIndex(state, squad.targetPlanetIndex);
+}
+
+function shouldEnemyStayBound(enemy, squad, targetPlanet, targetAltitude) {
+  if (squad.mode === 'swarm') {
+    return true;
+  }
+  if (squad.mode === 'approach') {
+    return targetAltitude <= config.planetCaptureAltitude;
+  }
+  if (squad.mode === 'depart') {
+    return targetAltitude <= config.planetEscapeAltitude;
+  }
+  return enemy.boundPlanet === targetPlanet;
+}
+
+function accumulateEnemyOrbitProgress(squad, targetPlanet, enemy) {
+  const currentAngle = getEnemyOrbitAngle(targetPlanet, enemy.position);
+  if (Number.isFinite(squad.orbitLastAngle)) {
+    squad.orbitProgress += Math.abs(unwrapAngleDelta(squad.orbitLastAngle, currentAngle));
+  }
+  squad.orbitLastAngle = currentAngle;
+}
+
+function computeEnemyControlTargetSpeed(targetPlanet, enemy, squad) {
+  const atmosphereThickness = Math.max(targetPlanet.atmosphereRadius - targetPlanet.radius, 1.0);
+  const desiredRadius = targetPlanet.radius + atmosphereThickness * (
+    squad.mode === 'swarm'
+      ? ENEMY_SWARM_ALTITUDE
+      : squad.mode === 'depart'
+        ? ENEMY_DEPART_ALTITUDE
+        : ENEMY_APPROACH_ALTITUDE
+  );
+  const surfaceSpeed = Math.sqrt(Math.max(targetPlanet.gravityStrength / Math.max(desiredRadius, 1.0), 1.0));
+  return surfaceSpeed * THREE.MathUtils.lerp(0.12, 0.18, enemy.speedScale);
+}
+
+function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time) {
+  const targetPoint = computeEnemyTargetPoint(state, enemy, squad, targetPlanet, time);
+  const toTarget = tempVecD.copy(targetPoint).sub(enemy.position);
+  const distance = Math.max(0.0001, toTarget.length());
+  const desiredForward = tempVecE.copy(toTarget).divideScalar(distance);
+  const radialUp = targetPlanet.position.lengthSq() > 1e-6
+    ? tempVecF.copy(enemy.position).sub(targetPlanet.position).normalize()
+    : worldUp;
+  const currentAltitude = enemy.position.distanceTo(targetPlanet.position) - targetPlanet.radius;
+  const rightAxis = tempVecA.copy(enemy.up).cross(enemy.forward);
+  if (rightAxis.lengthSq() < 1e-6) {
+    rightAxis.copy(radialUp).cross(enemy.forward);
+  }
+  if (rightAxis.lengthSq() < 1e-6) {
+    rightAxis.set(1, 0, 0).cross(enemy.forward);
+  }
+  rightAxis.normalize();
+  const yawError = Math.atan2(desiredForward.dot(rightAxis), desiredForward.dot(enemy.forward));
+  const travelMode = squad.mode !== 'swarm';
+  const wanderTurn = travelMode ? Math.sin(time * 0.16 + enemy.phase) * 0.05 : Math.sin(time * 0.42 + enemy.phase) * 0.28;
+  const wanderPitch = travelMode ? Math.cos(time * 0.12 + enemy.phase * 1.7) * 0.03 : Math.cos(time * 0.31 + enemy.phase * 1.7) * 0.18;
+  const turnGain = (travelMode ? 4.0 : 2.3) * enemy.turnScale;
+  const pitchGain = (travelMode ? 4.0 : 2.3) * enemy.upScale;
+  const turnInput = THREE.MathUtils.clamp(-yawError * turnGain + wanderTurn, -1, 1);
+  const altitudeBias = THREE.MathUtils.clamp((currentAltitude - config.planetCaptureAltitude) / Math.max(config.planetCaptureAltitude, 1), -1, 1);
+  const pitchError = Math.atan2(-desiredForward.dot(enemy.up), desiredForward.dot(enemy.forward));
+  const pitchInput = THREE.MathUtils.clamp(pitchError * pitchGain + (travelMode ? 0 : altitudeBias * 3.0) + wanderPitch, -1, 1);
+  const atmosphereThickness = Math.max(targetPlanet.atmosphereRadius - targetPlanet.radius, 1.0);
+  const swarmAltitude = atmosphereThickness * ENEMY_SWARM_ALTITUDE;
+  const currentSurfaceSpeed = computeEnemyControlTargetSpeed(targetPlanet, enemy, squad);
+  const boost = squad.mode === 'depart'
+    || (squad.mode === 'swarm' && currentAltitude <= swarmAltitude + atmosphereThickness * 0.2)
+    || (squad.mode === 'approach' && currentAltitude > config.planetCaptureAltitude * 1.2);
+  const brake = squad.mode === 'swarm' && enemy.speed > currentSurfaceSpeed * THREE.MathUtils.lerp(0.24, 0.34, enemy.speedScale);
+
+  return {
+    turnInput,
+    pitchInput,
+    boost,
+    brake,
+    desiredForward
+  };
 }
 
 function updateEnemyShip(state, enemy, squad, dt, time) {
+  if (!enemy || enemy.health <= 0) {
+    return;
+  }
+
+  if (enemy.flightMode === 'free') {
+    const preCrash = detectEnemyCrash(state, enemy);
+    if (preCrash) {
+      destroyEnemy(state, enemy, 'crash');
+      return;
+    }
+  }
+
   const targetPlanet = getEnemyTargetPlanet(state, enemy);
   if (!targetPlanet) {
     return;
   }
 
-  const activePlanet = targetPlanet;
-  const targetPoint = computeEnemyTargetPoint(state, enemy, squad, activePlanet, time);
-  const toTarget = tempVecD.copy(targetPoint).sub(enemy.position);
-  const distance = Math.max(0.0001, toTarget.length());
-  const desiredForward = tempVecE.copy(toTarget).divideScalar(distance);
+  const controls = computeEnemyControlInputs(state, enemy, squad, targetPlanet, time);
 
-  if (enemy.forward.lengthSq() < 1e-6) {
-    enemy.forward.copy(desiredForward);
-  }
-  const turnRate = squad.mode === 'swarm' ? enemy.turnScale : enemy.turnScale * 2.5;
-  const upRate = squad.mode === 'swarm' ? enemy.upScale : enemy.upScale * 2.0;
-  enemy.forward.lerp(desiredForward, easeExp(dt, turnRate)).normalize();
+  // Enemies use the shared ship physics, but they should only capture their mission target.
+  // Prevent incidental captures to nearby planets during transit.
+  enemy.recaptureLock = Math.max(enemy.recaptureLock || 0, 9999);
 
-  const desiredUp = activePlanet.position.lengthSq() > 1e-6
-    ? activePlanet.position.clone().normalize()
-    : worldUp;
-  const projectedUp = desiredUp.clone().sub(tempVecF.copy(enemy.forward).multiplyScalar(desiredUp.dot(enemy.forward)));
-  if (projectedUp.lengthSq() > 1e-6) {
-    enemy.up.lerp(projectedUp.normalize(), easeExp(dt, upRate)).normalize();
-  }
+  const enemyWorld = {
+    planets: state.planets,
+    ship: enemy,
+    fuel: 9999,
+    maxFuel: 9999,
+    speed: enemy.speed,
+    gamepadRespawnHeld: false,
+    nearestPlanet: null,
+    nearestAltitude: 0,
+    nearestDistance: 0,
+    crashed: false,
+    respawnPlanetIndex: state.respawnPlanetIndex,
+    projectiles: state.projectiles
+  };
 
-  const currentSpeed = Math.max(enemy.speed || enemy.velocity.length(), 0.0001);
-  const surfaceSpeed = Math.sqrt(Math.max(activePlanet.gravityStrength / Math.max(activePlanet.radius + 1.0, 1.0), 1.0));
-  const speedFactor = squad.mode === 'swarm'
-    ? 0.11
-    : squad.mode === 'depart'
-      ? 8.0
-      : 0.22;
-  const targetSpeed = surfaceSpeed * speedFactor * enemy.speedScale;
-  enemy.speed = THREE.MathUtils.lerp(currentSpeed, targetSpeed, easeExp(dt, 2.5));
+  updateShipState(enemyWorld, dt, {
+    turnInput: controls.turnInput,
+    pitchInput: controls.pitchInput,
+    boost: controls.boost,
+    brake: controls.brake,
+    respawn: false,
+    fire: false,
+    fireDirection: controls.desiredForward
+  });
 
-  const planetFollow = squad.mode === 'swarm'
-    ? 1.0
-    : squad.mode === 'depart'
-      ? 0.92
-      : 0.6;
-  enemy.velocity.copy(activePlanet.velocity).multiplyScalar(planetFollow)
-    .addScaledVector(enemy.forward, enemy.speed);
-  enemy.position.addScaledVector(enemy.velocity, dt);
-
-  const centerOffset = tempVecB.copy(enemy.position).sub(activePlanet.position);
-  const centerDistance = centerOffset.length();
-  const minimumAltitude = squad.mode === 'swarm' ? config.planetCaptureAltitude : 1.0;
-  const minimumDistance = activePlanet.radius + minimumAltitude;
-  if (centerDistance < minimumDistance) {
-    const snapNormal = centerDistance > 1e-6
-      ? centerOffset.divideScalar(centerDistance)
-      : tempVecC.copy(enemy.forward).normalize();
-    enemy.position.copy(activePlanet.position).addScaledVector(snapNormal, minimumDistance);
-    const radialVelocity = snapNormal.clone().multiplyScalar(enemy.velocity.dot(snapNormal));
-    enemy.velocity.sub(radialVelocity);
-    enemy.speed = enemy.velocity.length();
+  if (enemy.health <= 0) {
+    return;
   }
 
-  const turnSide = tempVecA.copy(enemy.forward).cross(desiredForward).dot(enemy.up);
-  enemy.bank = THREE.MathUtils.lerp(enemy.bank, THREE.MathUtils.clamp(turnSide * 2.4, -0.75, 0.75), easeExp(dt, 2.4));
+  if (enemy.flightMode === 'free') {
+    const postCrash = detectEnemyCrash(state, enemy);
+    if (postCrash) {
+      destroyEnemy(state, enemy, 'crash');
+      return;
+    }
+  }
+
+  const targetAltitude = enemy.position.distanceTo(targetPlanet.position) - targetPlanet.radius;
+  if (shouldEnemyStayBound(enemy, squad, targetPlanet, targetAltitude)) {
+    if (enemy.boundPlanet !== targetPlanet || enemy.flightMode !== 'bound') {
+      beginPlanetCapture(enemy, targetPlanet);
+    }
+  } else {
+    enemy.boundPlanet = null;
+    enemy.flightMode = 'free';
+  }
 }
 
 function updateEnemySquads(state, dt, time) {
@@ -693,11 +1183,11 @@ function updateEnemySquads(state, dt, time) {
       continue;
     }
 
-  const targetPlanet = getEnemyTargetPlanet(state, { targetPlanetIndex: squad.targetPlanetIndex });
-  if (!targetPlanet) {
-    aliveSquads.push(squad);
-    continue;
-  }
+    const targetPlanet = getEnemyTargetPlanet(state, { targetPlanetIndex: squad.targetPlanetIndex });
+    if (!targetPlanet) {
+      aliveSquads.push(squad);
+      continue;
+    }
 
     let sumAltitude = 0;
     for (const enemy of squadEnemies) {
@@ -706,16 +1196,12 @@ function updateEnemySquads(state, dt, time) {
     const avgAltitude = sumAltitude / squadEnemies.length;
 
     if (squad.mode === 'approach' && avgAltitude <= config.planetCaptureAltitude) {
-      squad.mode = 'swarm';
-      squad.modeTimer = squad.swarmDuration;
+      beginEnemySwarm(squad, targetPlanet, squadEnemies[0]);
+    } else if (squad.mode === 'depart' && avgAltitude <= config.planetCaptureAltitude) {
+      beginEnemySwarm(squad, targetPlanet, squadEnemies[0]);
     } else if (squad.mode === 'swarm') {
-      squad.modeTimer -= dt;
-      if (squad.modeTimer <= 0) {
-        squad.mode = 'depart';
-        squad.modeTimer = squad.departDuration;
-        squad.targetPlanetIndex = squad.nextPlanetIndex;
-        squad.nextPlanetIndex = pickRandomPlanetIndex(state, squad.targetPlanetIndex);
-      }
+      squad.modeTimer = Math.max(0, squad.modeTimer - dt);
+      squad.orbitPhase += dt * squad.orbitDirection * THREE.MathUtils.lerp(0.08, 0.13, squadEnemies[0].speedScale);
     } else if (squad.mode === 'depart') {
       squad.modeTimer -= dt;
       if (squad.modeTimer <= 0) {
@@ -724,9 +1210,24 @@ function updateEnemySquads(state, dt, time) {
     }
 
     for (const enemy of squadEnemies) {
+      if (!enemy || enemy.health <= 0) {
+        continue;
+      }
       enemy.targetPlanetIndex = squad.targetPlanetIndex;
       enemy.nextPlanetIndex = squad.nextPlanetIndex;
       updateEnemyShip(state, enemy, squad, dt, time);
+    }
+
+    const livingSquadEnemies = squadEnemies.filter((enemy) => enemy && enemy.health > 0);
+    if (livingSquadEnemies.length === 0) {
+      continue;
+    }
+
+    if (squad.mode === 'swarm') {
+      accumulateEnemyOrbitProgress(squad, targetPlanet, livingSquadEnemies[0]);
+      if (squad.modeTimer <= 0 && squad.orbitProgress >= Math.PI * 2) {
+        beginEnemyDepart(state, squad, targetPlanet);
+      }
     }
 
     aliveSquads.push(squad);
@@ -1111,7 +1612,9 @@ export function createOrbitalsSim(seed) {
     fuelMotes: [],
     enemies: [],
     projectiles: [],
+    enemyExplosions: [],
     nextProjectileId: 1,
+    nextEnemyExplosionId: 1,
     nextEnemyId: 1,
     nextEnemySquadId: 1,
     frameIndex: 0,
@@ -1137,6 +1640,7 @@ export function createOrbitalsSim(seed) {
     state.fuelMotes.length = 0;
     state.enemies.length = 0;
     state.projectiles.length = 0;
+    state.enemyExplosions.length = 0;
     state.frameIndex = 0;
     state.ship = createShipState();
     state.enemySquad = null;
@@ -1146,6 +1650,7 @@ export function createOrbitalsSim(seed) {
     state.speed = 0;
     state.time = 0;
     state.gamepadRespawnHeld = false;
+    state.nextEnemyExplosionId = 1;
     state.nextEnemyId = 1;
     state.nextEnemySquadId = 1;
     state.enemySpawnTimer = 0.1 + state.rng() * 0.6;
@@ -1182,6 +1687,7 @@ export function createOrbitalsSim(seed) {
     updateShipState(state, dt, controls);
     updateEnemySquads(state, dt, state.time);
     updateProjectiles(state, dt);
+    updateEnemyExplosions(state, dt);
     updateFuelMotes(state, dt, state.time);
     return state;
   }

@@ -153,13 +153,14 @@
 
     .enemyMarker {
       position: absolute;
-      width: 8px;
-      height: 8px;
-      margin-left: -4px;
-      margin-top: -4px;
-      border: 1px solid rgba(255, 80, 80, 0.9);
-      background: rgba(255, 32, 32, 0.95);
-      box-shadow: 0 0 10px rgba(255, 54, 54, 0.8);
+      width: 16px;
+      height: 16px;
+      margin-left: -8px;
+      margin-top: -8px;
+      box-sizing: border-box;
+      border: 1px solid rgba(255, 80, 80, 0.95);
+      background: transparent;
+      box-shadow: 0 0 10px rgba(255, 54, 54, 0.35);
       transform: translate(-9999px, -9999px);
       opacity: 0;
     }
@@ -200,7 +201,7 @@
     </div>
     <div class="panel">
       <div id="stats">Fuel: -- | Speed: -- | Altitude: --</div>
-      <div id="help">Keyboard and gamepad work without pointer lock. Mouse and right stick move the reticle. Left mouse or RT fires two green shots at the reticle. Left stick and WASD bank left/right and pitch with inverted Y, so up dives and down pulls up. Releasing controls auto-levels toward mid-atmosphere cruise. Gamepad: left stick flight, right stick reticle, LT/LB brake, A or RB boost, RT fire.</div>
+      <div id="help">Keyboard and gamepad work without pointer lock. Mouse and right stick move the reticle. Left mouse, Ctrl, or RT fires a blue homing shot at the reticle. Left stick and WASD bank left/right and pitch with inverted Y, so up dives and down pulls up. Releasing controls auto-levels toward mid-atmosphere cruise. Gamepad: left stick flight, right stick reticle, LT/LB brake, A or RB boost, RT fire.</div>
       <button id="mouseLockButton" type="button">Lock mouse</button>
     </div>
   </div>

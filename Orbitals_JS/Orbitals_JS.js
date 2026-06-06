@@ -1,28 +1,13 @@
 import * as THREE from './lib/three.module.js';
 import { GLTFLoader } from './lib/loaders/GLTFLoader.js';
-import { createOrbitalsSim } from './Orbitals_Sim.js';
+import { createOrbitalsSim, ENEMY_MODEL_FILES_BY_FAMILY } from './Orbitals_Sim.js';
 import { PLANET_FILES, config } from './orbitals_config.js';
 
 const ASSET_ROOT = './assets/';
 const PLAYER_FILE = `${ASSET_ROOT}player_spaceship.glb`;
 const STAR_FILE = `${ASSET_ROOT}star_,map_1.glb`;
-const ENEMY_FAMILY_FILES = {
-  Standard: 'Ship_Standard_1.glb',
-  Crosspanel: 'Ship_Crosspanel_1.glb',
-  FlyingSaucer: 'Ship_FlyingSaucer_298877.glb',
-  DeltaWing: 'Ship_DeltaWing_108179.glb',
-  Pirate: 'Ship_Pirate_1.glb',
-  Orca: 'Ship_Orca_135963.glb',
-  Longwing: 'Ship_Longwing_1.glb',
-  TwoHoop: 'Ship_TwoHoop_11695.glb',
-  TigerWing: 'Ship_TigerWing_1.glb',
-  LunarCourier: 'Ship_LunarCourier_153144.glb',
-  Hooper: 'Ship_Hooper_219385.glb',
-  ManraRay: 'Ship_ManraRay_130405.glb',
-  PyramidLifter: 'Ship_PyramidLifter_290115.glb',
-  Nemesis: 'ship_nemesis2.glb'
-};
-const ENEMY_FAMILY_KEYS = Object.keys(ENEMY_FAMILY_FILES);
+const ENEMY_FAMILY_KEYS = Object.keys(ENEMY_MODEL_FILES_BY_FAMILY);
+const ENEMY_MODEL_FILES = Array.from(new Set(ENEMY_FAMILY_KEYS.flatMap((familyKey) => ENEMY_MODEL_FILES_BY_FAMILY[familyKey] || [])));
 
 const app = document.getElementById('app');
 const loadingWrap = document.getElementById('loadingWrap');
@@ -86,8 +71,20 @@ state.gamepadConnected = false;
 state.mouseFireHeld = false;
 const projectileVisuals = new Map();
 const enemyVisuals = new Map();
+const enemyExplosionVisuals = new Map();
 const enemyFamilyTemplates = new Map();
 const enemyHudMarkers = [];
+const orbitalsAudio = {
+  ctx: null,
+  master: null,
+  sfx: null,
+  noise: null,
+  enabled: false,
+  resumePromise: null
+};
+let lastProjectileIdForSfx = 0;
+let lastEnemyExplosionIdForSfx = 0;
+let boostHeldForSfx = false;
 const spaceDebrisCount = 880;
 const spaceDebrisPositions = new Float32Array(spaceDebrisCount * 3);
 const spaceDebrisSeeds = new Float32Array(spaceDebrisCount);
@@ -206,7 +203,7 @@ const tempColorA = new THREE.Color();
 const tempColorB = new THREE.Color();
 const worldUp = new THREE.Vector3(0, 1, 0);
 const RETICLE_OFFSET_PX = 170;
-const ENEMY_HUD_MARKER_COUNT = 5;
+const ENEMY_HUD_MARKER_COUNT = 20;
 
 function parseSeed(rawValue) {
   if (rawValue == null || rawValue === '') {
@@ -255,6 +252,133 @@ function smoothstep(edge0, edge1, x) {
 
 function easeExp(value, rate) {
   return 1 - Math.exp(-Math.max(0.0001, rate) * value);
+}
+
+function ensureOrbitalsAudio() {
+  if (orbitalsAudio.ctx) {
+    return orbitalsAudio.ctx;
+  }
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) {
+    return null;
+  }
+
+  orbitalsAudio.ctx = new Ctx();
+  orbitalsAudio.master = orbitalsAudio.ctx.createGain();
+  orbitalsAudio.master.gain.value = 0.7;
+  orbitalsAudio.master.connect(orbitalsAudio.ctx.destination);
+  orbitalsAudio.sfx = orbitalsAudio.ctx.createGain();
+  orbitalsAudio.sfx.gain.value = 0.8;
+  orbitalsAudio.sfx.connect(orbitalsAudio.master);
+
+  const len = Math.max(1, Math.floor(orbitalsAudio.ctx.sampleRate * 0.35));
+  const buf = orbitalsAudio.ctx.createBuffer(1, len, orbitalsAudio.ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i += 1) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  orbitalsAudio.noise = buf;
+  return orbitalsAudio.ctx;
+}
+
+function resumeOrbitalsAudio() {
+  const ctx = ensureOrbitalsAudio();
+  if (!ctx) {
+    return;
+  }
+  if (ctx.state === 'running') {
+    orbitalsAudio.enabled = true;
+    return;
+  }
+  if (orbitalsAudio.resumePromise) {
+    return;
+  }
+  orbitalsAudio.resumePromise = ctx.resume()
+    .then(() => {
+      orbitalsAudio.enabled = ctx.state === 'running';
+    })
+    .catch(() => {
+      orbitalsAudio.enabled = false;
+    })
+    .finally(() => {
+      orbitalsAudio.resumePromise = null;
+    });
+}
+
+function playOrbitalsTone(opts = {}) {
+  const ctx = ensureOrbitalsAudio();
+  if (!ctx || ctx.state !== 'running') {
+    return;
+  }
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+  const bus = orbitalsAudio.sfx || orbitalsAudio.master;
+  osc.type = opts.type || 'sine';
+  osc.frequency.setValueAtTime(opts.freq || 440, now);
+  if (opts.endFreq) {
+    osc.frequency.exponentialRampToValueAtTime(Math.max(1, opts.endFreq), now + (opts.dur || 0.2));
+  }
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, opts.gain || 0.1), now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + (opts.dur || 0.2));
+  osc.connect(gain);
+  if (pan) {
+    pan.pan.value = THREE.MathUtils.clamp(opts.pan || 0, -1, 1);
+    gain.connect(pan);
+    pan.connect(bus);
+  } else {
+    gain.connect(bus);
+  }
+  osc.start(now);
+  osc.stop(now + (opts.dur || 0.2) + 0.02);
+}
+
+function playOrbitalsNoise(opts = {}) {
+  const ctx = ensureOrbitalsAudio();
+  if (!ctx || ctx.state !== 'running' || !orbitalsAudio.noise) {
+    return;
+  }
+  const now = ctx.currentTime;
+  const source = ctx.createBufferSource();
+  const filter = ctx.createBiquadFilter();
+  const gain = ctx.createGain();
+  const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+  const bus = orbitalsAudio.sfx || orbitalsAudio.master;
+  source.buffer = orbitalsAudio.noise;
+  source.loop = true;
+  filter.type = opts.filterType || 'bandpass';
+  filter.frequency.value = opts.cutoff || 900;
+  filter.Q.value = opts.q || 0.8;
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, opts.gain || 0.15), now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + (opts.dur || 0.2));
+  source.connect(filter);
+  filter.connect(gain);
+  if (pan) {
+    pan.pan.value = THREE.MathUtils.clamp(opts.pan || 0, -1, 1);
+    gain.connect(pan);
+    pan.connect(bus);
+  } else {
+    gain.connect(bus);
+  }
+  source.start(now);
+  source.stop(now + (opts.dur || 0.2) + 0.02);
+}
+
+function playOrbitalsSfx(name) {
+  if (name === 'shoot') {
+    playOrbitalsTone({ freq: 420, endFreq: 520, dur: 0.05, gain: 0.045, type: 'triangle' });
+  } else if (name === 'power') {
+    playOrbitalsTone({ freq: 440, endFreq: 660, dur: 0.08, gain: 0.06, type: 'triangle', pan: -0.12 });
+    playOrbitalsTone({ freq: 660, endFreq: 990, dur: 0.08, gain: 0.05, type: 'triangle', pan: 0.12 });
+    playOrbitalsTone({ freq: 880, endFreq: 1320, dur: 0.1, gain: 0.04, type: 'sine' });
+  } else if (name === 'boom') {
+    playOrbitalsNoise({ dur: 0.8, gain: 0.25, cutoff: 20, q: 0.18 });
+    playOrbitalsTone({ freq: 170, endFreq: 54, dur: 0.22, gain: 0.11, type: 'sawtooth' });
+    playOrbitalsNoise({ dur: 0.03, gain: 0.018, cutoff: 1800, q: 0.45 });
+  }
 }
 
 function withDotSlash(file) {
@@ -565,7 +689,7 @@ const engineFlameTexture = createEngineFlameTexture();
 const engineSparkTexture = createEngineSparkTexture();
 const projectileGeometry = new THREE.SphereGeometry(1, 10, 8);
 const projectileMaterial = new THREE.MeshBasicMaterial({
-  color: 0x62ff6f,
+  color: 0x57a8ff,
   transparent: true,
   opacity: 0.95,
   blending: THREE.AdditiveBlending,
@@ -1207,6 +1331,65 @@ function createProjectileVisual(projectile) {
   return mesh;
 }
 
+function createEnemyExplosionVisual(effect) {
+  const particleCount = effect.particleCount || 14;
+  const explosionScale = 5.0;
+  const positions = new Float32Array(particleCount * 3);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+  const material = new THREE.PointsMaterial({
+    map: engineSparkTexture,
+    color: effect.cause === 'crash' ? 0xfff0c8 : 0xfff8da,
+    size: effect.cause === 'crash' ? 0.55 : 0.45,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    depthTest: true,
+    toneMapped: false
+  });
+
+  const points = new THREE.Points(geometry, material);
+  points.frustumCulled = false;
+  points.renderOrder = 41;
+
+  const rng = mulberry32((effect.id ^ 0x9e3779b9) >>> 0);
+  const directions = new Float32Array(particleCount * 3);
+  const speeds = new Float32Array(particleCount);
+  const phases = new Float32Array(particleCount);
+  const wobbleAxes = new Float32Array(particleCount * 3);
+
+  for (let i = 0; i < particleCount; i += 1) {
+    const angle = rng() * Math.PI * 2;
+    const z = rng() * 2 - 1;
+    const radial = Math.sqrt(Math.max(0, 1 - z * z));
+    const base = i * 3;
+    directions[base + 0] = Math.cos(angle) * radial;
+    directions[base + 1] = z;
+    directions[base + 2] = Math.sin(angle) * radial;
+    speeds[i] = ((effect.cause === 'crash' ? 2.0 : 1.6) + rng() * (effect.cause === 'crash' ? 3.6 : 2.8)) * explosionScale;
+    phases[i] = rng() * Math.PI * 2;
+    wobbleAxes[base + 0] = Math.cos(angle + Math.PI * 0.5) * radial;
+    wobbleAxes[base + 1] = Math.sin(z * Math.PI) * 0.5;
+    wobbleAxes[base + 2] = Math.sin(angle + Math.PI * 0.5) * radial;
+  }
+
+  points.userData = {
+    positions,
+    directions,
+    speeds,
+    phases,
+    wobbleAxes,
+    particleCount,
+    baseSize: material.size,
+    explosionScale
+  };
+
+  return points;
+}
+
 function updatePlanetVisual(planet, dt, time) {
   if (planet.root) {
     planet.root.position.copy(planet.position);
@@ -1257,6 +1440,50 @@ function updateProjectileVisuals() {
   }
 }
 
+function updateEnemyExplosionVisuals() {
+  const seen = new Set();
+  for (const effect of state.enemyExplosions) {
+    let visual = enemyExplosionVisuals.get(effect.id);
+    if (!visual) {
+      visual = createEnemyExplosionVisual(effect);
+      enemyExplosionVisuals.set(effect.id, visual);
+      world.add(visual);
+    }
+
+    const { positions, directions, speeds, phases, wobbleAxes, particleCount, baseSize, explosionScale } = visual.userData;
+    const lifeT = clamp01(effect.age / effect.lifetime);
+    const fadeT = 1 - lifeT;
+    const age = effect.age;
+    const burstScale = effect.cause === 'crash' ? 1.15 : 1.0;
+    visual.position.copy(effect.position);
+    visual.material.opacity = Math.pow(fadeT, 1.05) * 1.0;
+    visual.material.size = baseSize * (1.0 + fadeT * 0.9);
+    visual.scale.setScalar(explosionScale * (1 + age * 0.12));
+
+    for (let i = 0; i < particleCount; i += 1) {
+      const base = i * 3;
+      const drift = speeds[i] * age * burstScale;
+      const wobble = Math.sin(age * 14 + phases[i]) * (0.18 + fadeT * 0.18);
+      positions[base + 0] = directions[base + 0] * drift + wobbleAxes[base + 0] * wobble;
+      positions[base + 1] = directions[base + 1] * drift + wobbleAxes[base + 1] * wobble;
+      positions[base + 2] = directions[base + 2] * drift + wobbleAxes[base + 2] * wobble;
+    }
+
+    visual.geometry.attributes.position.needsUpdate = true;
+    seen.add(effect.id);
+  }
+
+  for (const [id, visual] of enemyExplosionVisuals.entries()) {
+    if (seen.has(id)) {
+      continue;
+    }
+    world.remove(visual);
+    visual.geometry.dispose();
+    visual.material.dispose();
+    enemyExplosionVisuals.delete(id);
+  }
+}
+
 function computeFireDirectionFromReticle() {
   const viewport = renderer.domElement.getBoundingClientRect();
   const halfWidth = Math.max(1, viewport.width * 0.5);
@@ -1272,6 +1499,7 @@ function handleCanvasPointerDown(event) {
   if (event.button !== 0) {
     return;
   }
+  resumeOrbitalsAudio();
   state.mouseFireHeld = true;
   renderer.domElement.setPointerCapture?.(event.pointerId);
   event.preventDefault();
@@ -1371,18 +1599,36 @@ function updateShipControls(dt) {
     + (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0);
   const keyboardPitch = (keys.has('ArrowUp') ? 1 : 0) - (keys.has('ArrowDown') ? 1 : 0)
     + (keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0);
-  const fire = state.mouseFireHeld || gamepad.fire;
+  const fire = state.mouseFireHeld || keys.has('ControlLeft') || keys.has('ControlRight') || gamepad.fire;
+  const boost = keys.has('Space') || gamepad.boost;
   const fireDirection = fire ? computeFireDirectionFromReticle() : null;
+  const projectileIdBefore = lastProjectileIdForSfx;
+  const explosionIdBefore = lastEnemyExplosionIdForSfx;
+  const boostWasHeld = boostHeldForSfx;
 
   sim.step(dt, {
     turnInput: THREE.MathUtils.clamp(keyboardTurn + gamepad.turnX, -1, 1),
     pitchInput: THREE.MathUtils.clamp(keyboardPitch + gamepad.pitchY, -1, 1),
-    boost: keys.has('Space') || gamepad.boost,
+    boost,
     brake: keys.has('ShiftLeft') || keys.has('ShiftRight') || gamepad.brake,
     respawn: gamepad.respawn,
     fire,
     fireDirection
   });
+
+  if (fire && state.nextProjectileId > projectileIdBefore) {
+    playOrbitalsSfx('shoot');
+  }
+  if (boost && !boostWasHeld && state.fuel > 0) {
+    playOrbitalsSfx('power');
+  }
+  const explosionCount = Math.max(0, (state.nextEnemyExplosionId || 0) - explosionIdBefore);
+  for (let i = 0; i < explosionCount; i += 1) {
+    playOrbitalsSfx('boom');
+  }
+  lastProjectileIdForSfx = state.nextProjectileId || projectileIdBefore;
+  lastEnemyExplosionIdForSfx = state.nextEnemyExplosionId || explosionIdBefore;
+  boostHeldForSfx = boost;
 }
 
 function updateCamera(dt) {
@@ -1622,16 +1868,25 @@ async function loadShipVisual() {
 }
 
 async function loadEnemyFamilyVisual(familyKey) {
-  const assetFile = ENEMY_FAMILY_FILES[familyKey];
-  let root;
-  try {
-    root = await loadGltf(assetFile);
-  } catch (error) {
-    console.warn(`Enemy ship asset failed for ${familyKey}, using fallback.`, error);
-    root = createFallbackShip();
+  const familyFiles = ENEMY_MODEL_FILES_BY_FAMILY[familyKey] || ENEMY_MODEL_FILES_BY_FAMILY[ENEMY_FAMILY_KEYS[0]] || [];
+  const familyTemplates = new Map();
+  for (const assetFile of familyFiles) {
+    let root;
+    try {
+      root = await loadGltf(withDotSlash(`${ASSET_ROOT}${assetFile}`));
+    } catch (error) {
+      console.warn(`Enemy ship asset failed for ${familyKey}/${assetFile}, using fallback.`, error);
+      root = createFallbackShip();
+    }
+    normalizeLoadedModel(root, 3.0);
+    familyTemplates.set(assetFile, root);
   }
-  normalizeLoadedModel(root, 3.0);
-  enemyFamilyTemplates.set(familyKey, root);
+  enemyFamilyTemplates.set(familyKey, familyTemplates);
+}
+
+function getEnemyFallbackAssetFile(familyKey) {
+  const familyFiles = ENEMY_MODEL_FILES_BY_FAMILY[familyKey] || ENEMY_MODEL_FILES_BY_FAMILY[ENEMY_FAMILY_KEYS[0]] || [];
+  return familyFiles[0] || ENEMY_MODEL_FILES[0] || '';
 }
 
 function ensureEnemyVisual(enemy) {
@@ -1640,7 +1895,13 @@ function ensureEnemyVisual(enemy) {
     return display;
   }
 
-  const template = enemyFamilyTemplates.get(enemy.family) || enemyFamilyTemplates.get(ENEMY_FAMILY_KEYS[0]);
+  const familyTemplates = enemyFamilyTemplates.get(enemy.family) || enemyFamilyTemplates.get(ENEMY_FAMILY_KEYS[0]);
+  const assetFile = enemy.assetFile || getEnemyFallbackAssetFile(enemy.family);
+  const template = familyTemplates
+    ? familyTemplates.get(assetFile)
+      || familyTemplates.get(getEnemyFallbackAssetFile(enemy.family))
+      || familyTemplates.values().next().value
+    : null;
   const model = template ? template.clone(true) : createFallbackShip();
   display = createShipDisplay(model);
   display.root.renderOrder = 20;
@@ -1680,10 +1941,10 @@ async function bootstrap() {
 
   const planetConfigs = state.planets;
 
-  const totalLoads = 2 + ENEMY_FAMILY_KEYS.length + planetConfigs.length;
+  const totalLoads = 2 + ENEMY_MODEL_FILES.length + planetConfigs.length;
   let completedLoads = 0;
-  const reportProgress = (label) => {
-    completedLoads += 1;
+  const reportProgress = (label, increment = 1) => {
+    completedLoads += increment;
     const pct = Math.round((completedLoads / totalLoads) * 100);
     loadingBarInner.style.width = `${pct}%`;
     loadingText.textContent = label;
@@ -1698,9 +1959,10 @@ async function bootstrap() {
   reportProgress('Ship loaded');
 
   for (const familyKey of ENEMY_FAMILY_KEYS) {
+    const familyFiles = ENEMY_MODEL_FILES_BY_FAMILY[familyKey] || [];
     loadingText.textContent = `Loading ${familyKey} enemies...`;
     await loadEnemyFamilyVisual(familyKey);
-    reportProgress(`Loaded ${familyKey} enemies`);
+    reportProgress(`Loaded ${familyKey} enemies`, familyFiles.length || 1);
   }
 
   await Promise.all(planetConfigs.map(async (planet, i) => {
@@ -1719,6 +1981,9 @@ async function bootstrap() {
 
   loadingText.textContent = 'Ready';
   loadingWrap.style.display = 'none';
+  lastProjectileIdForSfx = state.nextProjectileId || 0;
+  lastEnemyExplosionIdForSfx = state.nextEnemyExplosionId || 0;
+  boostHeldForSfx = false;
   state.loaded = true;
   statusLine.textContent = 'Keyboard/gamepad ready. Lock mouse only if you want reticle control.';
   updateMouseLockButton();
@@ -1754,9 +2019,10 @@ function handlePointerLockChange() {
 }
 
 function handleKeyDown(event) {
-  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyR', 'KeyL', 'ShiftLeft', 'ShiftRight'].includes(event.code)) {
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyR', 'KeyL', 'ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight'].includes(event.code)) {
     event.preventDefault();
   }
+  resumeOrbitalsAudio();
   keys.add(event.code);
   if (event.code === 'KeyR') {
     respawnShip();
@@ -1809,6 +2075,7 @@ function render() {
     updateFuelMotes(dt, clock.elapsedTime);
     updateProjectileVisuals();
     updateEnemyVisuals();
+    updateEnemyExplosionVisuals();
     updateSpaceDebris(dt);
     updateStarCorona(clock.elapsedTime);
     const localUp = state.nearestPlanet && state.ship

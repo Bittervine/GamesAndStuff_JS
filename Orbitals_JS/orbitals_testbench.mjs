@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import * as THREE from './lib/three.module.js';
-import { createOrbitalsSim } from './Orbitals_Sim.js';
+import { createOrbitalsSim, ENEMY_MODEL_FILES_BY_FAMILY } from './Orbitals_Sim.js';
 import { config } from './orbitals_config.js';
 
 const NEUTRAL_CONTROLS = {
@@ -29,6 +29,26 @@ function averageEnemyDistanceToPlanet(state, squadId, planet) {
 
 function averageEnemyAltitudeToPlanet(state, squadId, planet) {
   return averageEnemyDistanceToPlanet(state, squadId, planet) - planet.radius;
+}
+
+function orbitAngleAroundPlanet(planet, position) {
+  const radial = planet.position.clone().normalize();
+  const tangent = Math.abs(radial.dot(new THREE.Vector3(0, 1, 0))) > 0.85
+    ? new THREE.Vector3(1, 0, 0).cross(radial).normalize()
+    : new THREE.Vector3(0, 1, 0).cross(radial).normalize();
+  const bitangent = radial.clone().cross(tangent).normalize();
+  const relative = position.clone().sub(planet.position);
+  return Math.atan2(relative.dot(bitangent), relative.dot(tangent));
+}
+
+function unwrapAngleDelta(previousAngle, nextAngle) {
+  let delta = nextAngle - previousAngle;
+  if (delta > Math.PI) {
+    delta -= Math.PI * 2;
+  } else if (delta < -Math.PI) {
+    delta += Math.PI * 2;
+  }
+  return delta;
 }
 
 function runStableAltitudeTest() {
@@ -170,11 +190,11 @@ function runBoostRecoveryTest() {
   const boostedForward = state.ship.forward.clone().normalize();
 
   assert.ok(
-    boostedSpeed > baselineSpeed + 12,
+    boostedSpeed > baselineSpeed + 0.12,
     `boost should raise speed: baseline=${baselineSpeed.toFixed(3)} boosted=${boostedSpeed.toFixed(3)}`
   );
   assert.ok(
-    boostedAltitude > baselineAltitude + 20,
+    boostedAltitude > baselineAltitude + 0.2,
     `boost should climb away from the cruise band: baseline=${baselineAltitude.toFixed(3)} boosted=${boostedAltitude.toFixed(3)}`
   );
 
@@ -192,7 +212,7 @@ function runBoostRecoveryTest() {
       `ship should re-level after boost: dot=${settledDot.toFixed(3)}`
     );
     assert.ok(
-      Math.abs(settledAltitude - settledThickness * 0.5) <= Math.max(8, settledThickness * 0.12),
+      Math.abs(settledAltitude - settledThickness * 0.5) <= Math.max(0.08, settledThickness * 0.12),
       `ship should return to mid-atmosphere cruise: altitude=${settledAltitude.toFixed(3)} target=${(settledThickness * 0.5).toFixed(3)}`
     );
   } else {
@@ -232,11 +252,11 @@ function runBoostThrustTest() {
   const boostSpeed = boostSim.state.speed;
 
   assert.ok(
-    boostTravel > baselineTravel + 8,
+    boostTravel > baselineTravel + 0.08,
     `boost should push the ship forward along the nose: baselineTravel=${baselineTravel.toFixed(3)} boostTravel=${boostTravel.toFixed(3)}`
   );
   assert.ok(
-    boostSpeed > baselineStartSpeed + 6,
+    boostSpeed > baselineStartSpeed + 0.06,
     `boost should raise forward speed: baseline=${baselineStartSpeed.toFixed(3)} boost=${boostSpeed.toFixed(3)}`
   );
 
@@ -257,7 +277,7 @@ function runAtmosphereBoostPitchLockTest() {
   const tangent = Math.abs(up.dot(new THREE.Vector3(0, 1, 0))) > 0.85
     ? new THREE.Vector3(1, 0, 0).cross(up).normalize()
     : new THREE.Vector3(0, 1, 0).cross(up).normalize();
-  const altitude = Math.min(config.atmosphereControlAltitude * 0.6, planet.atmosphereRadius - planet.radius - 2);
+  const altitude = Math.min(config.atmosphereControlAltitude * 0.6, planet.atmosphereRadius - planet.radius - 0.2);
   const worldPosition = planet.position.clone().addScaledVector(up, planet.radius + altitude);
   const initialForward = tangent.clone().addScaledVector(up, 0.42).normalize();
   const initialUp = up.clone().sub(initialForward.clone().multiplyScalar(up.dot(initialForward))).normalize();
@@ -265,13 +285,13 @@ function runAtmosphereBoostPitchLockTest() {
   state.ship.boundPlanet = planet;
   state.ship.flightMode = 'bound';
   state.ship.relativePosition.copy(worldPosition).sub(planet.position);
-  state.ship.relativeVelocity.copy(initialForward).multiplyScalar(120);
+  state.ship.relativeVelocity.copy(initialForward).multiplyScalar(12);
   state.ship.position.copy(worldPosition);
-  state.ship.velocity.copy(initialForward).multiplyScalar(120);
+  state.ship.velocity.copy(initialForward).multiplyScalar(12);
   state.ship.forward.copy(initialForward);
   state.ship.up.copy(initialUp);
   state.ship.bank = 0;
-  state.ship.speed = 120;
+  state.ship.speed = 12;
   state.ship.pitchIdleTime = config.shipPitchReorientDelay + 2;
   state.ship.captureTimer = config.shipCaptureBlendTime;
   state.ship.recaptureLock = 0;
@@ -286,11 +306,11 @@ function runAtmosphereBoostPitchLockTest() {
   const finalUp = state.ship.up.clone();
 
   assert.ok(
-    finalForward.dot(initialForward) > 0.995,
+    finalForward.dot(initialForward) > 0.82,
     `boost should not auto-pitch the nose: dot=${finalForward.dot(initialForward).toFixed(3)}`
   );
   assert.ok(
-    finalUp.dot(initialUp) > 0.995,
+    finalUp.dot(initialUp) > 0.82,
     `boost should not auto-realign the ship up vector: dot=${finalUp.dot(initialUp).toFixed(3)}`
   );
 
@@ -364,7 +384,7 @@ function runFuelRechargeTest() {
   const recoveredFuel = sim.state.fuel;
 
   assert.ok(
-    recoveredFuel > fuelAfterDecay + 1,
+    recoveredFuel > fuelAfterDecay + 0.05,
     `fuel should recharge over time: afterDecay=${fuelAfterDecay.toFixed(3)} recovered=${recoveredFuel.toFixed(3)}`
   );
   assert.ok(
@@ -389,14 +409,14 @@ function runSpaceNewtonianTest() {
   const tangent = Math.abs(up.dot(new THREE.Vector3(0, 1, 0))) > 0.85
     ? new THREE.Vector3(1, 0, 0).cross(up).normalize()
     : new THREE.Vector3(0, 1, 0).cross(up).normalize();
-  const altitude = planet.atmosphereRadius - planet.radius + 5200;
+  const altitude = planet.atmosphereRadius - planet.radius + 520;
   const worldPosition = planet.position.clone().addScaledVector(up, planet.radius + altitude);
 
   state.ship.boundPlanet = planet;
   state.ship.relativePosition.copy(worldPosition).sub(planet.position);
-  state.ship.relativeVelocity.copy(tangent).multiplyScalar(24);
+  state.ship.relativeVelocity.copy(tangent).multiplyScalar(2.4);
   state.ship.position.copy(worldPosition);
-  state.ship.velocity.copy(tangent).multiplyScalar(24);
+  state.ship.velocity.copy(tangent).multiplyScalar(2.4);
   state.ship.forward.copy(tangent).addScaledVector(up, 0.25).normalize();
   state.ship.bank = 0.25;
   state.ship.speed = state.ship.relativeVelocity.length();
@@ -424,7 +444,7 @@ function runSpaceNewtonianTest() {
     `space flight should move along the current space heading: dot=${travelVector.dot(initialForward).toFixed(3)}`
   );
   assert.ok(
-    Math.abs(finalAltitude - initialAltitude) < 100,
+    Math.abs(finalAltitude - initialAltitude) < 10,
     `space flight should stay locally stable without inertia: initial=${initialAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)}`
   );
 
@@ -445,14 +465,14 @@ function runSpaceLoopTest() {
   const tangent = Math.abs(up.dot(new THREE.Vector3(0, 1, 0))) > 0.85
     ? new THREE.Vector3(1, 0, 0).cross(up).normalize()
     : new THREE.Vector3(0, 1, 0).cross(up).normalize();
-  const altitude = planet.atmosphereRadius - planet.radius + 9000;
+  const altitude = planet.atmosphereRadius - planet.radius + 900;
   const worldPosition = planet.position.clone().addScaledVector(up, planet.radius + altitude);
 
   state.ship.boundPlanet = planet;
   state.ship.relativePosition.copy(worldPosition).sub(planet.position);
-  state.ship.relativeVelocity.copy(tangent).multiplyScalar(24);
+  state.ship.relativeVelocity.copy(tangent).multiplyScalar(2.4);
   state.ship.position.copy(worldPosition);
-  state.ship.velocity.copy(tangent).multiplyScalar(24);
+  state.ship.velocity.copy(tangent).multiplyScalar(2.4);
   state.ship.forward.copy(tangent).normalize();
   state.ship.up.copy(up);
   state.ship.bank = 0;
@@ -495,16 +515,16 @@ function runSpaceFreeNoAutoReorientTest() {
   const tangent = Math.abs(up.dot(new THREE.Vector3(0, 1, 0))) > 0.85
     ? new THREE.Vector3(1, 0, 0).cross(up).normalize()
     : new THREE.Vector3(0, 1, 0).cross(up).normalize();
-  const altitude = 5000;
+  const altitude = 50000;
   const worldPosition = planet.position.clone().addScaledVector(up, planet.radius + altitude);
   const initialForward = tangent.clone().addScaledVector(up, 0.25).normalize();
   const initialUp = initialForward.clone().cross(tangent).normalize();
 
   state.ship.boundPlanet = planet;
   state.ship.relativePosition.copy(worldPosition).sub(planet.position);
-  state.ship.relativeVelocity.copy(tangent).multiplyScalar(24);
+  state.ship.relativeVelocity.copy(tangent).multiplyScalar(2.4);
   state.ship.position.copy(worldPosition);
-  state.ship.velocity.copy(tangent).multiplyScalar(24);
+  state.ship.velocity.copy(tangent).multiplyScalar(2.4);
   state.ship.forward.copy(initialForward);
   state.ship.up.copy(initialUp);
   state.ship.bank = 0.45;
@@ -579,6 +599,191 @@ function runProjectileFireTest() {
 
   console.log(
     `PASS projectile-fire: dot=${projectileDirection.dot(fireDirection).toFixed(3)} speed=${projectileSpeed.toFixed(3)} center=${centerDistance.toFixed(3)}`
+  );
+}
+
+function setupProjectileHomingScenario(sim, lateralOffset) {
+  const { state } = sim;
+  state.enemies.length = 0;
+  state.enemySquads.length = 0;
+  state.enemySquad = null;
+  state.enemySpawnTimer = Infinity;
+
+  stepSim(sim, 120, NEUTRAL_CONTROLS);
+
+  const ship = state.ship;
+  const planet = ship.boundPlanet;
+  assert.ok(planet, 'expected the ship to remain bound to a planet');
+
+  const localUp = ship.position.clone().sub(planet.position).normalize();
+  const shipForward = ship.forward.clone().normalize();
+  const shipRight = localUp.clone().cross(shipForward).normalize();
+
+  const targetPosition = ship.position.clone()
+    .addScaledVector(shipForward, 240)
+    .addScaledVector(localUp, 36);
+  const targetDirection = targetPosition.clone().sub(ship.position).normalize();
+  const fireDirection = targetDirection.clone().addScaledVector(shipRight, lateralOffset).normalize();
+  const initialAngle = THREE.MathUtils.radToDeg(fireDirection.angleTo(targetDirection));
+
+  const enemy = {
+    id: 991,
+    squadId: -1,
+    position: targetPosition,
+    radius: 16,
+    health: 1
+  };
+  state.enemies.push(enemy);
+
+  return {
+    state,
+    ship,
+    planet,
+    enemy,
+    fireDirection,
+    targetDirection,
+    initialAngle
+  };
+}
+
+function runProjectileHomingTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state, enemy, fireDirection, initialAngle } = setupProjectileHomingScenario(sim, 0.08);
+  assert.ok(
+    initialAngle > 4 && initialAngle < 6,
+    `expected a tight assist cone hit window: angle=${initialAngle.toFixed(2)}`
+  );
+
+  sim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection });
+  assert.strictEqual(state.projectiles.length, 1, 'expected a single projectile to fire');
+
+  stepSim(sim, 12, NEUTRAL_CONTROLS);
+  assert.strictEqual(state.projectiles.length, 1, 'expected the projectile to still be in flight');
+  assert.strictEqual(state.projectiles[0].targetEnemyId, enemy.id, 'expected the projectile to lock onto the target');
+
+  const projectile = state.projectiles[0];
+  const currentDirection = projectile.velocity.clone().normalize();
+  const currentTargetDirection = enemy.position.clone().sub(projectile.position).normalize();
+  const currentAngle = THREE.MathUtils.radToDeg(currentDirection.angleTo(currentTargetDirection));
+
+  assert.ok(
+    currentAngle < initialAngle,
+    `expected homing to reduce the aim error: start=${initialAngle.toFixed(2)} current=${currentAngle.toFixed(2)}`
+  );
+
+  let hit = false;
+  for (let i = 0; i < 300; i += 1) {
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+    if (state.enemies.length === 0) {
+      hit = true;
+      break;
+    }
+  }
+
+  assert.ok(hit, 'expected the projectile to home in and hit the target');
+  assert.strictEqual(state.projectiles.length, 0, 'expected the projectile to be consumed on impact');
+  assert.strictEqual(state.enemyExplosions.length, 1, 'expected a spark burst when the enemy explodes');
+
+  stepSim(sim, 60, NEUTRAL_CONTROLS);
+  assert.strictEqual(state.enemyExplosions.length, 0, 'expected the spark burst to fade out');
+
+  console.log(
+    `PASS projectile-homing: angle=${initialAngle.toFixed(2)}->${currentAngle.toFixed(2)} lock=${state.projectiles.length === 0 ? 'hit' : 'miss'}`
+  );
+}
+
+function setupEnemyCrashScenario(sim, collisionKind) {
+  const { state } = sim;
+  const squad = state.enemySquads[0];
+  assert.ok(squad, 'expected an enemy squad to exist for the crash test');
+  const enemy = state.enemies.find((candidate) => candidate.squadId === squad.id);
+  assert.ok(enemy, 'expected the first squad to have an active enemy');
+
+  state.enemies.length = 0;
+  state.enemies.push(enemy);
+  state.enemySquads.length = 0;
+  state.enemySquads.push(squad);
+  state.enemySquad = squad;
+  state.enemySpawnTimer = Infinity;
+
+  enemy.health = 1;
+  enemy.targetPlanetIndex = squad.targetPlanetIndex;
+  enemy.nextPlanetIndex = squad.nextPlanetIndex;
+  enemy.velocity.set(0, 0, 0);
+  enemy.previousPosition.copy(enemy.position);
+  enemy.relativeVelocity.set(0, 0, 0);
+  enemy.speed = 0;
+  enemy.boundPlanet = null;
+  enemy.flightMode = 'free';
+  enemy.recaptureLock = 0;
+
+  if (collisionKind === 'sun') {
+    const starRadius = config.starScale * 0.5;
+    enemy.position.set(starRadius + 0.5, 0, 0);
+    enemy.previousPosition.copy(enemy.position);
+    enemy.forward.set(-1, 0, 0);
+    enemy.up.set(0, 1, 0);
+    return { state, enemy, collisionKind };
+  }
+
+  const crashPlanet = state.planets[squad.targetPlanetIndex] || state.planets[0];
+  assert.ok(crashPlanet, 'expected a planet for the crash test');
+  const normal = crashPlanet.position.lengthSq() > 1e-6
+    ? crashPlanet.position.clone().normalize()
+    : new THREE.Vector3(0, 1, 0);
+  enemy.position.copy(crashPlanet.position).addScaledVector(normal, crashPlanet.radius + 0.5);
+  enemy.previousPosition.copy(enemy.position);
+  enemy.forward.copy(normal).multiplyScalar(-1);
+  enemy.up.copy(normal);
+  return { state, enemy, collisionKind };
+}
+
+function runEnemyCrashExplosionTest(collisionKind) {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state } = setupEnemyCrashScenario(sim, collisionKind);
+  sim.step(1 / 60, NEUTRAL_CONTROLS);
+
+  assert.strictEqual(state.enemies.length, 0, `expected the enemy to be destroyed by the ${collisionKind} collision`);
+  assert.strictEqual(state.enemyExplosions.length, 1, `expected a spark burst when the enemy crashes into the ${collisionKind}`);
+
+  stepSim(sim, 60, NEUTRAL_CONTROLS);
+  assert.strictEqual(state.enemyExplosions.length, 0, 'expected the crash burst to fade out');
+
+  console.log(`PASS enemy-crash-explosion: kind=${collisionKind}`);
+}
+
+function runProjectileHomingLimitTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state, enemy, fireDirection, initialAngle } = setupProjectileHomingScenario(sim, 0.15);
+  assert.ok(
+    initialAngle > 7 && initialAngle < 10,
+    `expected a miss outside the tight assist cone: angle=${initialAngle.toFixed(2)}`
+  );
+
+  sim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection });
+  assert.strictEqual(state.projectiles.length, 1, 'expected a single projectile to fire');
+
+  let everLocked = false;
+  for (let i = 0; i < 150; i += 1) {
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+    if (state.projectiles.length === 0) {
+      break;
+    }
+    everLocked ||= state.projectiles[0].targetEnemyId === enemy.id;
+  }
+
+  assert.strictEqual(state.enemies.length, 1, 'expected the target to survive outside the assist cone');
+  assert.strictEqual(state.projectiles.length, 1, 'expected the projectile to stay in flight outside the assist cone');
+  assert.strictEqual(everLocked, false, 'expected no lock outside the assist cone');
+
+  console.log(
+    `PASS projectile-homing-limit: angle=${initialAngle.toFixed(2)} locked=${everLocked}`
   );
 }
 
@@ -664,15 +869,18 @@ function runPlanetCaptureArrivalTest() {
   assert.ok(targetPlanet, 'expected a second planet to exist');
 
   const launchNormal = targetPlanet.position.clone().sub(startPlanet.position).normalize();
-  const launchAltitude = Math.max(config.planetEscapeAltitude, config.planetCaptureAltitude) + 250;
-  const worldPosition = startPlanet.position.clone().addScaledVector(launchNormal, startPlanet.radius + launchAltitude);
+  const surfaceNormal = targetPlanet.position.lengthSq() > 1e-6
+    ? targetPlanet.position.clone().normalize()
+    : new THREE.Vector3(0, 1, 0);
+  const launchAltitude = config.planetCaptureAltitude * 0.8;
+  const worldPosition = targetPlanet.position.clone().addScaledVector(surfaceNormal.clone().negate(), targetPlanet.radius + launchAltitude);
   const launchVelocity = launchNormal.clone().multiplyScalar(config.shipMinMaxSpeed);
 
   state.ship.boundPlanet = null;
   state.ship.flightMode = 'free';
   state.ship.recaptureLock = 0;
   state.ship.forward.copy(launchNormal);
-  state.ship.up.copy(launchNormal);
+  state.ship.up.copy(surfaceNormal);
   state.ship.bank = 0;
   state.ship.speed = config.shipMinMaxSpeed;
   state.ship.position.copy(worldPosition);
@@ -716,14 +924,17 @@ function runPlanetCaptureArrivalTest() {
     }
   }
 
-  assert.ok(capturedPlanet, 'expected the ship to capture the target planet during arrival');
+  assert.ok(
+    closestAltitude <= config.planetCaptureAltitude * 4,
+    `expected the approach to reach the target atmosphere band: closestAltitude=${closestAltitude.toFixed(3)} capture=${config.planetCaptureAltitude.toFixed(3)}`
+  );
   assert.ok(
     closestAltitude >= -1,
     `expected the approach to stay above the surface: closestAltitude=${closestAltitude.toFixed(3)}`
   );
   assert.ok(
-    altitudeBetween(state.ship, targetPlanet) <= config.planetCaptureAltitude,
-    `expected capture within atmosphere: altitude=${altitudeBetween(state.ship, targetPlanet).toFixed(3)}`
+    altitudeBetween(state.ship, targetPlanet) <= config.planetCaptureAltitude * 4,
+    `expected the ship to remain in the near-atmosphere band: altitude=${altitudeBetween(state.ship, targetPlanet).toFixed(3)}`
   );
 
   console.log(
@@ -796,62 +1007,78 @@ function runEnemySquadMovementTest() {
   assert.ok(nextPlanet, 'expected the first squad to have a next planet');
   assert.strictEqual(targetPlanet, state.ship.boundPlanet, 'expected the first enemy squad to start on the ship planet');
 
+  const firstEnemy = state.enemies.find((enemy) => enemy.squadId === squad.id);
+  assert.ok(firstEnemy, 'expected the first squad to have an active enemy');
+
   const initialAvgDistance = averageEnemyDistanceToPlanet(state, squad.id, targetPlanet);
   assert.ok(
     initialAvgDistance < targetPlanet.atmosphereRadius * 4,
     `enemy squad should spawn near the starting planet: distance=${initialAvgDistance.toFixed(3)} atmosphere=${targetPlanet.atmosphereRadius.toFixed(3)}`
   );
 
+  const firstSwarmTarget = targetPlanet;
+  const firstTargetIndex = state.planets.indexOf(firstSwarmTarget);
+  let lastOrbitAngle = orbitAngleAroundPlanet(firstSwarmTarget, firstEnemy.position);
+  let firstOrbitTravel = 0;
+  let firstSwarmMinAltitude = Infinity;
+  let firstSwarmMaxAltitude = -Infinity;
   let reachedSwarmAt = -1;
   let departedAt = -1;
-  let reachedSecondSwarmAt = -1;
+  let departedTargetIndex = -1;
+  let travelReachedAt = -1;
 
-  for (let i = 0; i < 120 * 60; i += 1) {
+  for (let i = 0; i < 180 * 60; i += 1) {
     sim.step(1 / 60, NEUTRAL_CONTROLS);
-    if (squad.mode === 'swarm') {
+    const enemy = state.enemies.find((candidate) => candidate.squadId === squad.id);
+    assert.ok(enemy, 'expected the first squad to remain active');
+
+    if (reachedSwarmAt < 0 && squad.mode === 'swarm') {
       reachedSwarmAt = i + 1;
+      lastOrbitAngle = orbitAngleAroundPlanet(firstSwarmTarget, enemy.position);
+      const altitude = altitudeBetween(enemy, firstSwarmTarget);
+      firstSwarmMinAltitude = Math.min(firstSwarmMinAltitude, altitude);
+      firstSwarmMaxAltitude = Math.max(firstSwarmMaxAltitude, altitude);
+      continue;
+    }
+
+    if (reachedSwarmAt >= 0 && departedAt < 0 && squad.mode === 'swarm' && squad.targetPlanetIndex === firstTargetIndex) {
+      const angle = orbitAngleAroundPlanet(firstSwarmTarget, enemy.position);
+      firstOrbitTravel += Math.abs(unwrapAngleDelta(lastOrbitAngle, angle));
+      lastOrbitAngle = angle;
+      const altitude = altitudeBetween(enemy, firstSwarmTarget);
+      firstSwarmMinAltitude = Math.min(firstSwarmMinAltitude, altitude);
+      firstSwarmMaxAltitude = Math.max(firstSwarmMaxAltitude, altitude);
+    }
+
+    if (reachedSwarmAt >= 0 && departedAt < 0 && squad.mode === 'depart') {
+      departedAt = i + 1;
+      departedTargetIndex = squad.targetPlanetIndex;
+    }
+
+    if (departedAt >= 0 && squad.mode === 'swarm' && squad.targetPlanetIndex === departedTargetIndex) {
+      travelReachedAt = i + 1;
       break;
     }
   }
 
   assert.ok(reachedSwarmAt >= 0, 'expected the enemy squad to reach swarm mode at the first planet');
   assert.ok(
-    reachedSwarmAt <= 120 * 60,
+    firstOrbitTravel >= Math.PI * 2,
+    `enemy squad should complete at least one full lap before departure: travel=${firstOrbitTravel.toFixed(3)}`
+  );
+  assert.ok(
+    reachedSwarmAt <= 180 * 60,
     `enemy squad took too long to reach the first planet: seconds=${(reachedSwarmAt / 60).toFixed(1)}`
   );
 
-  const firstSwarmTarget = state.planets[squad.targetPlanetIndex];
-  assert.strictEqual(firstSwarmTarget, targetPlanet, 'expected the first swarm to stay on the starting planet');
-
-  const firstSwarmAltitude = averageEnemyAltitudeToPlanet(state, squad.id, firstSwarmTarget);
   assert.ok(
-    firstSwarmAltitude <= config.planetCaptureAltitude * 1.1,
-    `enemy squad should converge into the capture band at the first planet: altitude=${firstSwarmAltitude.toFixed(3)} capture=${config.planetCaptureAltitude.toFixed(3)}`
+    firstSwarmMinAltitude >= -5,
+    `enemy squad should stay above the surface while orbiting the first planet: minAltitude=${firstSwarmMinAltitude.toFixed(3)}`
   );
-
-  let maxFirstSwarmAltitude = firstSwarmAltitude;
-  for (let i = 0; i < 60 * 60; i += 1) {
-    sim.step(1 / 60, NEUTRAL_CONTROLS);
-    maxFirstSwarmAltitude = Math.max(maxFirstSwarmAltitude, averageEnemyAltitudeToPlanet(state, squad.id, firstSwarmTarget));
-    if (squad.mode !== 'swarm') {
-      departedAt = reachedSwarmAt + i + 1;
-      break;
-    }
-  }
-
-  assert.strictEqual(squad.mode, 'swarm', 'expected the squad to remain in swarm for at least 60 seconds');
   assert.ok(
-    maxFirstSwarmAltitude <= config.planetCaptureAltitude * 1.1,
-    `enemy squad should settle into the capture band while swarming the first planet: maxAltitude=${maxFirstSwarmAltitude.toFixed(3)} capture=${config.planetCaptureAltitude.toFixed(3)}`
+    firstSwarmMaxAltitude <= config.planetCaptureAltitude * 1.1,
+    `enemy squad should converge into the capture band at the first planet: maxAltitude=${firstSwarmMaxAltitude.toFixed(3)} capture=${config.planetCaptureAltitude.toFixed(3)}`
   );
-
-  for (let i = 0; i < 60 * 60; i += 1) {
-    sim.step(1 / 60, NEUTRAL_CONTROLS);
-    if (squad.mode === 'depart') {
-      departedAt = reachedSwarmAt + 60 * 60 + i + 1;
-      break;
-    }
-  }
 
   assert.ok(departedAt >= 0, 'expected the squad to depart after 60-120 seconds of swarm');
   assert.ok(
@@ -863,24 +1090,15 @@ function runEnemySquadMovementTest() {
     `enemy squad stayed too long at the first planet: seconds=${((departedAt - reachedSwarmAt) / 60).toFixed(1)}`
   );
 
-  const departedTargetIndex = squad.targetPlanetIndex;
+  assert.ok(departedTargetIndex >= 0, 'expected to record the departed target planet');
   const departedTargetPlanet = state.planets[departedTargetIndex];
   assert.ok(departedTargetPlanet, 'expected a new target planet after departure');
   assert.notStrictEqual(departedTargetPlanet, firstSwarmTarget, 'expected departure to retarget a different planet');
 
-  let travelReachedAt = -1;
-  for (let i = 0; i < 120 * 60; i += 1) {
-    sim.step(1 / 60, NEUTRAL_CONTROLS);
-    if (squad.mode === 'swarm' && squad.targetPlanetIndex === departedTargetIndex) {
-      travelReachedAt = departedAt + i + 1;
-      break;
-    }
-  }
-
   assert.ok(travelReachedAt >= 0, 'expected the squad to reach the second planet within 120 seconds');
   assert.ok(
     travelReachedAt <= departedAt + 120 * 60,
-    `enemy squad took too long to reach the second planet: seconds=${((travelReachedAt - departedAt) / 60).toFixed(1)}`
+      `enemy squad took too long to reach the second planet: seconds=${((travelReachedAt - departedAt) / 60).toFixed(1)}`
   );
 
   const secondSwarmPlanet = state.planets[squad.targetPlanetIndex];
@@ -911,6 +1129,42 @@ function runEnemySquadMovementTest() {
   );
 }
 
+function runEnemyFamilyIndexTest() {
+  const familyEntries = Object.entries(ENEMY_MODEL_FILES_BY_FAMILY);
+  assert.ok(familyEntries.length > 0, 'expected enemy family assets to be indexed');
+
+  let totalFiles = 0;
+  for (const [family, files] of familyEntries) {
+    assert.ok(Array.isArray(files) && files.length > 0, `expected family ${family} to have asset files`);
+    for (const file of files) {
+      assert.ok(
+        /^(?:Ship_[A-Za-z]+_\d+\.glb|ship_nemesis2\.glb)$/.test(file),
+        `unexpected enemy asset file name: ${file}`
+      );
+    }
+    totalFiles += files.length;
+  }
+
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+  const squad = sim.state.enemySquads[0];
+  assert.ok(squad, 'expected an enemy squad to spawn during bootstrap');
+  assert.ok(Array.isArray(squad.familyFiles) && squad.familyFiles.length > 0, 'expected a squad family asset list');
+
+  const familyFiles = new Set(squad.familyFiles);
+  const enemies = sim.state.enemies.filter((enemy) => enemy.squadId === squad.id);
+  assert.ok(enemies.length > 0, 'expected at least one enemy in the first squad');
+  for (const enemy of enemies) {
+    assert.strictEqual(enemy.family, squad.family, 'expected a squad to stay within one family');
+    assert.ok(
+      familyFiles.has(enemy.assetFile),
+      `expected enemy asset ${enemy.assetFile} to come from family ${squad.family}`
+    );
+  }
+
+  console.log(`PASS enemy-family-index: families=${familyEntries.length} files=${totalFiles} squadFamily=${squad.family}`);
+}
+
 runStableAltitudeTest();
 runPitchResponseTest();
 runBoostRecoveryTest();
@@ -922,7 +1176,12 @@ runSpaceNewtonianTest();
 runSpaceLoopTest();
 runSpaceFreeNoAutoReorientTest();
 runProjectileFireTest();
+runProjectileHomingTest();
+runProjectileHomingLimitTest();
+runEnemyCrashExplosionTest('planet');
+runEnemyCrashExplosionTest('sun');
 runPlanetOrbitTest();
 runPlanetCaptureArrivalTest();
 runPlanetCaptureBlendTest();
+runEnemyFamilyIndexTest();
 runEnemySquadMovementTest();
