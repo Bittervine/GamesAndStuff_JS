@@ -21,6 +21,16 @@ function stepSim(sim, steps, controls) {
   }
 }
 
+function averageEnemyDistanceToPlanet(state, squadId, planet) {
+  const enemies = state.enemies.filter((enemy) => enemy.squadId === squadId);
+  assert.ok(enemies.length > 0, `expected squad ${squadId} to have active enemies`);
+  return enemies.reduce((sum, enemy) => sum + enemy.position.distanceTo(planet.position), 0) / enemies.length;
+}
+
+function averageEnemyAltitudeToPlanet(state, squadId, planet) {
+  return averageEnemyDistanceToPlanet(state, squadId, planet) - planet.radius;
+}
+
 function runStableAltitudeTest() {
   const sim = createOrbitalsSim(0xC0FFEE);
   sim.bootstrapWorld();
@@ -771,6 +781,136 @@ function runPlanetCaptureBlendTest() {
   );
 }
 
+function runEnemySquadMovementTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  assert.ok(state.enemySquads.length > 0, 'expected at least one enemy squad to spawn');
+  assert.ok(state.enemies.length > 0, 'expected enemy ships to exist after bootstrap');
+
+  const squad = state.enemySquads[0];
+  const targetPlanet = state.planets[squad.targetPlanetIndex];
+  const nextPlanet = state.planets[squad.nextPlanetIndex];
+  assert.ok(targetPlanet, 'expected the first squad to have a target planet');
+  assert.ok(nextPlanet, 'expected the first squad to have a next planet');
+  assert.strictEqual(targetPlanet, state.ship.boundPlanet, 'expected the first enemy squad to start on the ship planet');
+
+  const initialAvgDistance = averageEnemyDistanceToPlanet(state, squad.id, targetPlanet);
+  assert.ok(
+    initialAvgDistance < targetPlanet.atmosphereRadius * 4,
+    `enemy squad should spawn near the starting planet: distance=${initialAvgDistance.toFixed(3)} atmosphere=${targetPlanet.atmosphereRadius.toFixed(3)}`
+  );
+
+  let reachedSwarmAt = -1;
+  let departedAt = -1;
+  let reachedSecondSwarmAt = -1;
+
+  for (let i = 0; i < 120 * 60; i += 1) {
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+    if (squad.mode === 'swarm') {
+      reachedSwarmAt = i + 1;
+      break;
+    }
+  }
+
+  assert.ok(reachedSwarmAt >= 0, 'expected the enemy squad to reach swarm mode at the first planet');
+  assert.ok(
+    reachedSwarmAt <= 120 * 60,
+    `enemy squad took too long to reach the first planet: seconds=${(reachedSwarmAt / 60).toFixed(1)}`
+  );
+
+  const firstSwarmTarget = state.planets[squad.targetPlanetIndex];
+  assert.strictEqual(firstSwarmTarget, targetPlanet, 'expected the first swarm to stay on the starting planet');
+
+  const firstSwarmAltitude = averageEnemyAltitudeToPlanet(state, squad.id, firstSwarmTarget);
+  assert.ok(
+    firstSwarmAltitude <= config.planetCaptureAltitude * 1.1,
+    `enemy squad should converge into the capture band at the first planet: altitude=${firstSwarmAltitude.toFixed(3)} capture=${config.planetCaptureAltitude.toFixed(3)}`
+  );
+
+  let maxFirstSwarmAltitude = firstSwarmAltitude;
+  for (let i = 0; i < 60 * 60; i += 1) {
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+    maxFirstSwarmAltitude = Math.max(maxFirstSwarmAltitude, averageEnemyAltitudeToPlanet(state, squad.id, firstSwarmTarget));
+    if (squad.mode !== 'swarm') {
+      departedAt = reachedSwarmAt + i + 1;
+      break;
+    }
+  }
+
+  assert.strictEqual(squad.mode, 'swarm', 'expected the squad to remain in swarm for at least 60 seconds');
+  assert.ok(
+    maxFirstSwarmAltitude <= config.planetCaptureAltitude * 1.1,
+    `enemy squad should settle into the capture band while swarming the first planet: maxAltitude=${maxFirstSwarmAltitude.toFixed(3)} capture=${config.planetCaptureAltitude.toFixed(3)}`
+  );
+
+  for (let i = 0; i < 60 * 60; i += 1) {
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+    if (squad.mode === 'depart') {
+      departedAt = reachedSwarmAt + 60 * 60 + i + 1;
+      break;
+    }
+  }
+
+  assert.ok(departedAt >= 0, 'expected the squad to depart after 60-120 seconds of swarm');
+  assert.ok(
+    departedAt >= reachedSwarmAt + 60 * 60,
+    `enemy squad departed too early: seconds=${((departedAt - reachedSwarmAt) / 60).toFixed(1)}`
+  );
+  assert.ok(
+    departedAt <= reachedSwarmAt + 120 * 60,
+    `enemy squad stayed too long at the first planet: seconds=${((departedAt - reachedSwarmAt) / 60).toFixed(1)}`
+  );
+
+  const departedTargetIndex = squad.targetPlanetIndex;
+  const departedTargetPlanet = state.planets[departedTargetIndex];
+  assert.ok(departedTargetPlanet, 'expected a new target planet after departure');
+  assert.notStrictEqual(departedTargetPlanet, firstSwarmTarget, 'expected departure to retarget a different planet');
+
+  let travelReachedAt = -1;
+  for (let i = 0; i < 120 * 60; i += 1) {
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+    if (squad.mode === 'swarm' && squad.targetPlanetIndex === departedTargetIndex) {
+      travelReachedAt = departedAt + i + 1;
+      break;
+    }
+  }
+
+  assert.ok(travelReachedAt >= 0, 'expected the squad to reach the second planet within 120 seconds');
+  assert.ok(
+    travelReachedAt <= departedAt + 120 * 60,
+    `enemy squad took too long to reach the second planet: seconds=${((travelReachedAt - departedAt) / 60).toFixed(1)}`
+  );
+
+  const secondSwarmPlanet = state.planets[squad.targetPlanetIndex];
+  assert.strictEqual(secondSwarmPlanet, departedTargetPlanet, 'expected the squad to swarm at the second target planet');
+  const secondSwarmAltitude = averageEnemyAltitudeToPlanet(state, squad.id, secondSwarmPlanet);
+  assert.ok(
+    secondSwarmAltitude <= config.planetCaptureAltitude * 1.1,
+    `enemy squad should converge into the capture band at the second planet: altitude=${secondSwarmAltitude.toFixed(3)} capture=${config.planetCaptureAltitude.toFixed(3)}`
+  );
+
+  let maxSecondSwarmAltitude = secondSwarmAltitude;
+  for (let i = 0; i < 60 * 60; i += 1) {
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+    maxSecondSwarmAltitude = Math.max(maxSecondSwarmAltitude, averageEnemyAltitudeToPlanet(state, squad.id, secondSwarmPlanet));
+    if (squad.mode !== 'swarm') {
+      break;
+    }
+  }
+
+  assert.strictEqual(squad.mode, 'swarm', 'expected the squad to remain in swarm for at least 60 seconds on the second planet');
+  assert.ok(
+    maxSecondSwarmAltitude <= config.planetCaptureAltitude * 1.1,
+    `enemy squad should settle into the capture band while swarming the second planet: maxAltitude=${maxSecondSwarmAltitude.toFixed(3)} capture=${config.planetCaptureAltitude.toFixed(3)}`
+  );
+
+  console.log(
+    `PASS enemy-squad-movement: first=${(reachedSwarmAt / 60).toFixed(1)}s depart=${((departedAt - reachedSwarmAt) / 60).toFixed(1)}s second=${((travelReachedAt - departedAt) / 60).toFixed(1)}s`
+  );
+}
+
 runStableAltitudeTest();
 runPitchResponseTest();
 runBoostRecoveryTest();
@@ -785,3 +925,4 @@ runProjectileFireTest();
 runPlanetOrbitTest();
 runPlanetCaptureArrivalTest();
 runPlanetCaptureBlendTest();
+runEnemySquadMovementTest();

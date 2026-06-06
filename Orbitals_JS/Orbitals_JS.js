@@ -6,6 +6,23 @@ import { PLANET_FILES, config } from './orbitals_config.js';
 const ASSET_ROOT = './assets/';
 const PLAYER_FILE = `${ASSET_ROOT}player_spaceship.glb`;
 const STAR_FILE = `${ASSET_ROOT}star_,map_1.glb`;
+const ENEMY_FAMILY_FILES = {
+  Standard: 'Ship_Standard_1.glb',
+  Crosspanel: 'Ship_Crosspanel_1.glb',
+  FlyingSaucer: 'Ship_FlyingSaucer_298877.glb',
+  DeltaWing: 'Ship_DeltaWing_108179.glb',
+  Pirate: 'Ship_Pirate_1.glb',
+  Orca: 'Ship_Orca_135963.glb',
+  Longwing: 'Ship_Longwing_1.glb',
+  TwoHoop: 'Ship_TwoHoop_11695.glb',
+  TigerWing: 'Ship_TigerWing_1.glb',
+  LunarCourier: 'Ship_LunarCourier_153144.glb',
+  Hooper: 'Ship_Hooper_219385.glb',
+  ManraRay: 'Ship_ManraRay_130405.glb',
+  PyramidLifter: 'Ship_PyramidLifter_290115.glb',
+  Nemesis: 'ship_nemesis2.glb'
+};
+const ENEMY_FAMILY_KEYS = Object.keys(ENEMY_FAMILY_FILES);
 
 const app = document.getElementById('app');
 const loadingWrap = document.getElementById('loadingWrap');
@@ -16,6 +33,7 @@ const statusLine = document.getElementById('status');
 const statsLine = document.getElementById('stats');
 const mouseLockButton = document.getElementById('mouseLockButton');
 const reticleEl = document.getElementById('reticle');
+const enemyMarkersEl = document.getElementById('enemyMarkers');
 
 const params = new URLSearchParams(window.location.search);
 const seed = parseSeed(params.get('seed'));
@@ -67,6 +85,9 @@ state.pointerLocked = false;
 state.gamepadConnected = false;
 state.mouseFireHeld = false;
 const projectileVisuals = new Map();
+const enemyVisuals = new Map();
+const enemyFamilyTemplates = new Map();
+const enemyHudMarkers = [];
 const spaceDebrisCount = 880;
 const spaceDebrisPositions = new Float32Array(spaceDebrisCount * 3);
 const spaceDebrisSeeds = new Float32Array(spaceDebrisCount);
@@ -185,6 +206,7 @@ const tempColorA = new THREE.Color();
 const tempColorB = new THREE.Color();
 const worldUp = new THREE.Vector3(0, 1, 0);
 const RETICLE_OFFSET_PX = 170;
+const ENEMY_HUD_MARKER_COUNT = 5;
 
 function parseSeed(rawValue) {
   if (rawValue == null || rawValue === '') {
@@ -575,6 +597,22 @@ function loadGltf(url) {
   });
 }
 
+function createShipDisplay(root) {
+  const shipRoot = new THREE.Group();
+  const visual = new THREE.Group();
+  const modelPivot = new THREE.Group();
+  modelPivot.rotation.y = Math.PI;
+  modelPivot.add(root);
+  visual.add(modelPivot);
+  shipRoot.add(visual);
+  return {
+    root: shipRoot,
+    visual,
+    modelPivot,
+    model: root
+  };
+}
+
 function createFallbackShip() {
   const group = new THREE.Group();
   const body = new THREE.Mesh(
@@ -618,6 +656,19 @@ function createFallbackStar() {
   );
   group.add(core);
   return group;
+}
+
+function updateShipDisplayTransform(display, position, forward, up, bank) {
+  if (!display || !display.root || !display.visual) {
+    return;
+  }
+  const bankedUp = tempVecA.copy(up);
+  if (Math.abs(bank) > 1e-4) {
+    bankedUp.applyAxisAngle(forward, bank).normalize();
+  }
+  display.root.quaternion.copy(quatFromForwardUp(forward, bankedUp));
+  display.root.position.copy(position);
+  display.visual.rotation.z = 0;
 }
 
 function createShipEngineEffects(root) {
@@ -1152,7 +1203,7 @@ function createProjectileVisual(projectile) {
   mesh.frustumCulled = false;
   mesh.renderOrder = 40;
   mesh.scale.setScalar(0);
-  mesh.material.userData.fadeInDuration = 0.2;
+  mesh.material.userData.fadeInDuration = 0.05;
   return mesh;
 }
 
@@ -1303,14 +1354,7 @@ function updateShipOrientation(dt, localUp) {
   if (!ship || !ship.root || !ship.visual) {
     return;
   }
-  const bankedUp = tempVecA.copy(ship.up);
-  if (Math.abs(ship.bank) > 1e-4) {
-    bankedUp.applyAxisAngle(ship.forward, ship.bank).normalize();
-  }
-  const targetQuat = quatFromForwardUp(ship.forward, bankedUp);
-  ship.root.quaternion.copy(targetQuat);
-  ship.root.position.copy(ship.position);
-  ship.visual.rotation.z = 0;
+  updateShipDisplayTransform(ship, ship.position, ship.forward, ship.up, ship.bank);
 }
 
 function updateShipControls(dt) {
@@ -1379,6 +1423,84 @@ function updateHud() {
   statsLine.textContent = `Fuel: ${fuel.toFixed(1)} | Speed: ${speed.toFixed(1)} | Altitude: ${alt.toFixed(1)} | State: ${shipMode}`;
   const aim = getClampedAim();
   reticleEl.style.transform = `translate(calc(-50% + ${aim.x * RETICLE_OFFSET_PX}px), calc(-50% + ${aim.y * RETICLE_OFFSET_PX}px))`;
+  updateEnemyHudMarkers();
+}
+
+function ensureEnemyHudMarkers() {
+  if (!enemyMarkersEl || enemyHudMarkers.length > 0) {
+    return;
+  }
+  for (let i = 0; i < ENEMY_HUD_MARKER_COUNT; i += 1) {
+    const marker = document.createElement('div');
+    marker.className = 'enemyMarker';
+    enemyMarkersEl.appendChild(marker);
+    enemyHudMarkers.push(marker);
+  }
+}
+
+function updateEnemyHudMarkers() {
+  ensureEnemyHudMarkers();
+  if (!enemyMarkersEl) {
+    return;
+  }
+
+  if (!state.loaded || !state.ship || state.enemies.length === 0) {
+    for (const marker of enemyHudMarkers) {
+      marker.style.opacity = '0';
+      marker.style.transform = 'translate(-9999px, -9999px)';
+    }
+    return;
+  }
+
+  const shipPos = state.ship.position;
+  const candidates = state.enemies
+    .map((enemy) => ({
+      enemy,
+      distance: enemy.position.distanceTo(shipPos)
+    }))
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, ENEMY_HUD_MARKER_COUNT);
+
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5));
+  const markerClamp = 0.92;
+
+  for (let i = 0; i < enemyHudMarkers.length; i += 1) {
+    const marker = enemyHudMarkers[i];
+    const candidate = candidates[i];
+    if (!candidate) {
+      marker.style.opacity = '0';
+      marker.style.transform = 'translate(-9999px, -9999px)';
+      continue;
+    }
+
+    const enemy = candidate.enemy;
+    const toEnemy = tempVecA.copy(enemy.position).sub(camera.position);
+    const camForward = tempVecB.set(0, 0, -1).applyQuaternion(camera.quaternion);
+    const camRight = tempVecC.set(1, 0, 0).applyQuaternion(camera.quaternion);
+    const camUp = tempVecD.set(0, 1, 0).applyQuaternion(camera.quaternion);
+
+    let depth = toEnemy.dot(camForward);
+    let side = toEnemy.dot(camRight);
+    let vertical = toEnemy.dot(camUp);
+    if (depth <= 0) {
+      side = -side;
+      vertical = -vertical;
+      depth = Math.abs(depth);
+    }
+
+    const ndcX = (side / Math.max(depth, 1e-3)) / (tanHalfFov * camera.aspect);
+    const ndcY = (vertical / Math.max(depth, 1e-3)) / tanHalfFov;
+    const clampedX = THREE.MathUtils.clamp(ndcX, -markerClamp, markerClamp);
+    const clampedY = THREE.MathUtils.clamp(ndcY, -markerClamp, markerClamp);
+    const screenX = (clampedX * 0.5 + 0.5) * width;
+    const screenY = (-clampedY * 0.5 + 0.5) * height;
+    const visible = Math.abs(ndcX) <= markerClamp && Math.abs(ndcY) <= markerClamp && candidate.distance > 0;
+
+    marker.style.opacity = visible ? '0.95' : '0.85';
+    marker.style.transform = `translate(${screenX.toFixed(2)}px, ${screenY.toFixed(2)}px)`;
+  }
 }
 
 function updateMouseLockButton() {
@@ -1483,18 +1605,12 @@ async function loadShipVisual() {
   }
   normalizeLoadedModel(root, 3.0);
   const ship = state.ship;
-  const shipRoot = new THREE.Group();
-  const visual = new THREE.Group();
-  const modelPivot = new THREE.Group();
-  modelPivot.rotation.y = Math.PI;
-  modelPivot.add(root);
-  visual.add(modelPivot);
-  shipRoot.add(visual);
-  world.add(shipRoot);
-  ship.root = shipRoot;
-  ship.visual = visual;
-  ship.modelPivot = modelPivot;
-  ship.model = root;
+  const display = createShipDisplay(root);
+  world.add(display.root);
+  ship.root = display.root;
+  ship.visual = display.visual;
+  ship.modelPivot = display.modelPivot;
+  ship.model = display.model;
   ship.engineEffects = createShipEngineEffects(root);
   ship.root.position.copy(ship.position);
   ship.muzzleOffset = config.shipMuzzleOffset;
@@ -1505,6 +1621,57 @@ async function loadShipVisual() {
   ship.visual.rotation.z = 0;
 }
 
+async function loadEnemyFamilyVisual(familyKey) {
+  const assetFile = ENEMY_FAMILY_FILES[familyKey];
+  let root;
+  try {
+    root = await loadGltf(assetFile);
+  } catch (error) {
+    console.warn(`Enemy ship asset failed for ${familyKey}, using fallback.`, error);
+    root = createFallbackShip();
+  }
+  normalizeLoadedModel(root, 3.0);
+  enemyFamilyTemplates.set(familyKey, root);
+}
+
+function ensureEnemyVisual(enemy) {
+  let display = enemyVisuals.get(enemy.id);
+  if (display) {
+    return display;
+  }
+
+  const template = enemyFamilyTemplates.get(enemy.family) || enemyFamilyTemplates.get(ENEMY_FAMILY_KEYS[0]);
+  const model = template ? template.clone(true) : createFallbackShip();
+  display = createShipDisplay(model);
+  display.root.renderOrder = 20;
+  display.root.frustumCulled = false;
+  display.visual.frustumCulled = false;
+  world.add(display.root);
+  enemyVisuals.set(enemy.id, display);
+  enemy.root = display.root;
+  enemy.visual = display.visual;
+  enemy.modelPivot = display.modelPivot;
+  enemy.model = display.model;
+  return display;
+}
+
+function updateEnemyVisuals() {
+  const seen = new Set();
+  for (const enemy of state.enemies) {
+    const display = ensureEnemyVisual(enemy);
+    updateShipDisplayTransform(display, enemy.position, enemy.forward, enemy.up, enemy.bank);
+    seen.add(enemy.id);
+  }
+
+  for (const [id, display] of enemyVisuals.entries()) {
+    if (seen.has(id)) {
+      continue;
+    }
+    world.remove(display.root);
+    enemyVisuals.delete(id);
+  }
+}
+
 async function bootstrap() {
   loadingText.textContent = 'Choosing planets...';
   sim.bootstrapWorld();
@@ -1513,7 +1680,7 @@ async function bootstrap() {
 
   const planetConfigs = state.planets;
 
-  const totalLoads = 2 + planetConfigs.length;
+  const totalLoads = 2 + ENEMY_FAMILY_KEYS.length + planetConfigs.length;
   let completedLoads = 0;
   const reportProgress = (label) => {
     completedLoads += 1;
@@ -1529,6 +1696,12 @@ async function bootstrap() {
   loadingText.textContent = 'Loading ship...';
   await loadShipVisual();
   reportProgress('Ship loaded');
+
+  for (const familyKey of ENEMY_FAMILY_KEYS) {
+    loadingText.textContent = `Loading ${familyKey} enemies...`;
+    await loadEnemyFamilyVisual(familyKey);
+    reportProgress(`Loaded ${familyKey} enemies`);
+  }
 
   await Promise.all(planetConfigs.map(async (planet, i) => {
     loadingText.textContent = `Loading ${planet.name}...`;
@@ -1635,6 +1808,7 @@ function render() {
     updatePlanets(dt, clock.elapsedTime);
     updateFuelMotes(dt, clock.elapsedTime);
     updateProjectileVisuals();
+    updateEnemyVisuals();
     updateSpaceDebris(dt);
     updateStarCorona(clock.elapsedTime);
     const localUp = state.nearestPlanet && state.ship
