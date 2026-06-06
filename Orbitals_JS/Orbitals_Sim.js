@@ -709,6 +709,9 @@ function destroyEnemy(state, enemy, cause = 'projectile', impactPosition = null)
   }
 
   spawnEnemyExplosion(state, impactPosition || enemy.position, cause);
+  if (cause === 'projectile') {
+    state.score = (state.score || 0) + 100;
+  }
   return true;
 }
 
@@ -1357,6 +1360,7 @@ function updateShipState(state, dt, controls) {
 
   const turnInput = THREE.MathUtils.clamp(controls.turnInput ?? 0, -1, 1);
   const pitchInput = THREE.MathUtils.clamp(controls.pitchInput ?? 0, -1, 1);
+  const mouseIdle = Boolean(controls.mouseIdle);
   const boostActive = Boolean(controls.boost);
   const fireActive = Boolean(controls.fire);
   const brakeActive = Boolean(controls.brake);
@@ -1427,12 +1431,12 @@ function updateShipState(state, dt, controls) {
     if (horizonForward.lengthSq() > 1e-6 && boostLevel <= 0) {
       horizonForward.normalize();
       const levelBlend = easeExp(dt, THREE.MathUtils.lerp(0.22, config.atmosphereLevelResponse, atmosphereDepth) * autopilotStrength * captureBlend * approachResponse);
-      const controlFreedom = 1 - clamp01(Math.max(Math.abs(turnInput), Math.abs(pitchInput)));
+      const controlFreedom = mouseIdle ? 1 : 1 - clamp01(Math.abs(pitchInput));
       ship.forward.lerp(horizonForward, levelBlend * controlFreedom * controlFreedom);
     }
     const allowCurvatureTrim = boostLevel <= 0;
     if (allowCurvatureTrim) {
-      const trimAuthority = Math.max(0, 1 - Math.abs(pitchInput) * 1.4);
+      const trimAuthority = mouseIdle ? 1 : Math.max(0, 1 - Math.abs(pitchInput) * 1.4);
       const trimPitch = trimAuthority > 0.001
         ? THREE.MathUtils.clamp(-altitudeError * THREE.MathUtils.lerp(0.015, config.atmosphereTrimResponse, atmosphereDepth) * trimAuthority * autopilotStrength * captureBlend * approachResponse, -0.14, 0.14)
         : 0;
@@ -1631,6 +1635,7 @@ export function createOrbitalsSim(seed) {
     fuel: 100,
     maxFuel: 100,
     speed: 0,
+    score: 0,
     gamepadRespawnHeld: false,
     respawnPlanetIndex: 0
   };

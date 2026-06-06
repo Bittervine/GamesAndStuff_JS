@@ -24,6 +24,7 @@
 
     canvas {
       display: block;
+      touch-action: none;
     }
 
     #hud {
@@ -53,31 +54,10 @@
       text-transform: uppercase;
     }
 
-    #status, #stats, #help, #seedLine {
+    #status, #stats, #mouseDebug {
       font-size: 13px;
       line-height: 1.35;
       color: #cdd8ec;
-    }
-
-    #mouseLockButton {
-      margin-top: 8px;
-      padding: 7px 10px;
-      border-radius: 10px;
-      border: 1px solid rgba(146, 182, 255, 0.28);
-      background: rgba(16, 24, 38, 0.88);
-      color: #e6f0ff;
-      font: inherit;
-      font-size: 12px;
-      cursor: pointer;
-      pointer-events: auto;
-    }
-
-    #mouseLockButton:hover {
-      background: rgba(24, 34, 54, 0.98);
-    }
-
-    #seedLine {
-      color: #a9b8d8;
     }
 
     #loadingWrap {
@@ -165,6 +145,42 @@
       opacity: 0;
     }
 
+    #noseMarker {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      width: 16px;
+      height: 16px;
+      margin-left: -8px;
+      margin-top: -8px;
+      z-index: 13;
+      pointer-events: none;
+      opacity: 0.35;
+    }
+
+    #noseMarker::before,
+    #noseMarker::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      background: rgba(255, 90, 90, 0.85);
+      box-shadow: 0 0 3px rgba(255, 90, 90, 0.25);
+      transform: translate(-50%, -50%);
+    }
+
+    #noseMarker::before {
+      width: 16px;
+      height: 1px;
+      transform: translate(-50%, -50%) rotate(45deg);
+    }
+
+    #noseMarker::after {
+      width: 16px;
+      height: 1px;
+      transform: translate(-50%, -50%) rotate(-45deg);
+    }
+
     @media (max-width: 640px) {
       #hud {
         left: 10px;
@@ -191,18 +207,14 @@
     <div id="loadingBarOuter"><div id="loadingBarInner"></div></div>
     <div id="loadingText">Loading Orbitals...</div>
   </div>
+  <div id="noseMarker" aria-hidden="true"></div>
   <div id="reticle"></div>
   <div id="enemyMarkers" aria-hidden="true"></div>
   <div id="hud">
     <div class="panel">
-      <div id="title">Orbitals</div>
-      <div id="seedLine">Seed: --</div>
-      <div id="status">Loading assets...</div>
-    </div>
-    <div class="panel">
-      <div id="stats">Fuel: -- | Speed: -- | Altitude: --</div>
-      <div id="help">Click the canvas to capture the mouse and press Esc to release it. Mouse and right stick move the reticle, and if mouse motion pushes past the reticle limit it starts steering the ship instead. Left mouse, Ctrl, or RT fires a blue homing shot at the reticle. Right mouse or RB boosts. Left stick and WASD bank left/right and pitch with inverted Y, so up dives and down pulls up. Releasing controls auto-levels toward mid-atmosphere cruise.</div>
-      <button id="mouseLockButton" type="button">Lock mouse</button>
+      <div id="status">Score: 0 | Planet: 0 | Altitude: -- | State: Loading</div>
+      <div id="stats">Use Gamepad or W/A/S/D/Space/Ctrl and/or Mouse</div>
+      <div id="mouseDebug">Mouse: (not captured)</div>
     </div>
   </div>
   <script type="module" src="./Orbitals_JS.js"></script>
