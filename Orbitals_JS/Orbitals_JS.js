@@ -69,6 +69,9 @@ state.aimY = 0;
 state.pointerLocked = false;
 state.gamepadConnected = false;
 state.mouseFireHeld = false;
+state.mouseBoostHeld = false;
+state.mouseTurnInput = 0;
+state.mousePitchInput = 0;
 const projectileVisuals = new Map();
 const enemyVisuals = new Map();
 const enemyExplosionVisuals = new Map();
@@ -203,6 +206,8 @@ const tempColorA = new THREE.Color();
 const tempColorB = new THREE.Color();
 const worldUp = new THREE.Vector3(0, 1, 0);
 const RETICLE_OFFSET_PX = 170;
+const MOUSE_AIM_SENSITIVITY = 0.0019;
+const MOUSE_SHIP_CONTROL_SCALE = 1 / (RETICLE_OFFSET_PX * MOUSE_AIM_SENSITIVITY);
 const ENEMY_HUD_MARKER_COUNT = 20;
 
 function parseSeed(rawValue) {
@@ -393,6 +398,27 @@ function getClampedAim() {
     return { x: aimX / magnitude, y: aimY / magnitude };
   }
   return { x: aimX, y: aimY };
+}
+
+function applyMouseAimDelta(deltaX, deltaY) {
+  const nextAimX = state.aimX + deltaX;
+  const nextAimY = state.aimY + deltaY;
+  const nextMagnitude = Math.hypot(nextAimX, nextAimY);
+  if (nextMagnitude <= 1) {
+    state.aimX = nextAimX;
+    state.aimY = nextAimY;
+    return;
+  }
+
+  const invMagnitude = 1 / nextMagnitude;
+  const edgeAimX = nextAimX * invMagnitude;
+  const edgeAimY = nextAimY * invMagnitude;
+  state.aimX = edgeAimX;
+  state.aimY = edgeAimY;
+  const overflow = Math.max(0, nextMagnitude - 1);
+  const overflowMultiplier = THREE.MathUtils.clamp(1 + overflow * 4, 1, 5);
+  state.mouseTurnInput += deltaX * MOUSE_SHIP_CONTROL_SCALE * overflowMultiplier;
+  state.mousePitchInput += deltaY * MOUSE_SHIP_CONTROL_SCALE * overflowMultiplier;
 }
 
 function applyDeadzone(value, deadzone = 0.16) {
@@ -1496,30 +1522,39 @@ function computeFireDirectionFromReticle() {
 }
 
 function handleCanvasPointerDown(event) {
-  if (event.button !== 0) {
-    return;
+  if (!state.pointerLocked) {
+    renderer.domElement.requestPointerLock?.();
   }
   resumeOrbitalsAudio();
-  state.mouseFireHeld = true;
+  if (event.button === 0) {
+    state.mouseFireHeld = true;
+  } else if (event.button === 2) {
+    state.mouseBoostHeld = true;
+  }
   renderer.domElement.setPointerCapture?.(event.pointerId);
   event.preventDefault();
 }
 
 function handleCanvasPointerUp(event) {
-  if (event.button !== 0) {
-    return;
+  if (event.button === 0) {
+    state.mouseFireHeld = false;
+  } else if (event.button === 2) {
+    state.mouseBoostHeld = false;
   }
-  state.mouseFireHeld = false;
   renderer.domElement.releasePointerCapture?.(event.pointerId);
 }
 
 function handleCanvasPointerCancel(event) {
   state.mouseFireHeld = false;
+  state.mouseBoostHeld = false;
   renderer.domElement.releasePointerCapture?.(event.pointerId);
 }
 
 function handleWindowBlur() {
   state.mouseFireHeld = false;
+  state.mouseBoostHeld = false;
+  state.mouseTurnInput = 0;
+  state.mousePitchInput = 0;
 }
 
 function relaxPlanetSeparation(planets) {
@@ -1587,31 +1622,37 @@ function updateShipOrientation(dt, localUp) {
 
 function updateShipControls(dt) {
   const gamepad = readGamepadInput();
-  state.gamepadConnected = gamepad.connected;
-  state.aimX = THREE.MathUtils.lerp(state.aimX, 0, easeExp(dt, 2.2));
-  state.aimY = THREE.MathUtils.lerp(state.aimY, 0, easeExp(dt, 2.2));
-  if (gamepad.aimX !== 0 || gamepad.aimY !== 0) {
-    state.aimX = gamepad.aimX;
-    state.aimY = gamepad.aimY;
+  state.gamepadConnected = gamepad.connected && !state.pointerLocked;
+  if (!state.pointerLocked) {
+    state.aimX = THREE.MathUtils.lerp(state.aimX, 0, easeExp(dt, 2.2));
+    state.aimY = THREE.MathUtils.lerp(state.aimY, 0, easeExp(dt, 2.2));
+    if (gamepad.aimX !== 0 || gamepad.aimY !== 0) {
+      state.aimX = gamepad.aimX;
+      state.aimY = gamepad.aimY;
+    }
   }
 
   const keyboardTurn = (keys.has('ArrowRight') ? 1 : 0) - (keys.has('ArrowLeft') ? 1 : 0)
     + (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0);
   const keyboardPitch = (keys.has('ArrowUp') ? 1 : 0) - (keys.has('ArrowDown') ? 1 : 0)
     + (keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0);
-  const fire = state.mouseFireHeld || keys.has('ControlLeft') || keys.has('ControlRight') || gamepad.fire;
-  const boost = keys.has('Space') || gamepad.boost;
+  const fire = state.mouseFireHeld || keys.has('ControlLeft') || keys.has('ControlRight') || (!state.pointerLocked && gamepad.fire);
+  const boost = state.mouseBoostHeld || keys.has('Space') || (!state.pointerLocked && gamepad.boost);
+  const mouseTurn = THREE.MathUtils.clamp(state.mouseTurnInput, -1, 1);
+  const mousePitch = THREE.MathUtils.clamp(state.mousePitchInput, -1, 1);
+  state.mouseTurnInput = 0;
+  state.mousePitchInput = 0;
   const fireDirection = fire ? computeFireDirectionFromReticle() : null;
   const projectileIdBefore = lastProjectileIdForSfx;
   const explosionIdBefore = lastEnemyExplosionIdForSfx;
   const boostWasHeld = boostHeldForSfx;
 
   sim.step(dt, {
-    turnInput: THREE.MathUtils.clamp(keyboardTurn + gamepad.turnX, -1, 1),
-    pitchInput: THREE.MathUtils.clamp(keyboardPitch + gamepad.pitchY, -1, 1),
+    turnInput: THREE.MathUtils.clamp(keyboardTurn + mouseTurn + (state.pointerLocked ? 0 : gamepad.turnX), -1, 1),
+    pitchInput: THREE.MathUtils.clamp(keyboardPitch + mousePitch + (state.pointerLocked ? 0 : gamepad.pitchY), -1, 1),
     boost,
-    brake: keys.has('ShiftLeft') || keys.has('ShiftRight') || gamepad.brake,
-    respawn: gamepad.respawn,
+    brake: keys.has('ShiftLeft') || keys.has('ShiftRight') || (!state.pointerLocked && gamepad.brake),
+    respawn: state.pointerLocked ? false : gamepad.respawn,
     fire,
     fireDirection
   });
@@ -1662,7 +1703,7 @@ function updateHud() {
   const lock = state.ship ? (state.ship.recaptureLock || 0) : 0;
   const mode = state.crashed
     ? 'CRASHED'
-    : (state.pointerLocked ? 'Mouse locked' : (state.gamepadConnected ? 'Gamepad ready' : 'Keyboard ready'));
+    : (state.pointerLocked ? 'Mouse captured' : (state.gamepadConnected ? 'Gamepad ready' : 'Keyboard ready'));
   statusLine.textContent = nearest
     ? `${mode} | ${nearest.name} | ship:${shipMode} | lock:${lock.toFixed(1)}`
     : `${mode} | No planet in range | ship:${shipMode} | lock:${lock.toFixed(1)}`;
@@ -1985,7 +2026,7 @@ async function bootstrap() {
   lastEnemyExplosionIdForSfx = state.nextEnemyExplosionId || 0;
   boostHeldForSfx = false;
   state.loaded = true;
-  statusLine.textContent = 'Keyboard/gamepad ready. Lock mouse only if you want reticle control.';
+  statusLine.textContent = 'Keyboard/gamepad ready. Click the canvas to capture the mouse.';
   updateMouseLockButton();
 }
 
@@ -1999,23 +2040,25 @@ function handlePointerMove(event) {
   if (!state.pointerLocked) {
     return;
   }
-  state.aimX = THREE.MathUtils.clamp(state.aimX + event.movementX * 0.0019, -1, 1);
-  state.aimY = THREE.MathUtils.clamp(state.aimY + event.movementY * 0.0019, -1, 1);
-  const magnitude = Math.hypot(state.aimX, state.aimY);
-  if (magnitude > 1) {
-    state.aimX /= magnitude;
-    state.aimY /= magnitude;
-  }
+  applyMouseAimDelta(event.movementX * MOUSE_AIM_SENSITIVITY, event.movementY * MOUSE_AIM_SENSITIVITY);
 }
 
 function handlePointerLockChange() {
   state.pointerLocked = document.pointerLockElement === renderer.domElement;
   updateMouseLockButton();
   if (!state.pointerLocked) {
+    state.mouseFireHeld = false;
+    state.mouseBoostHeld = false;
+    state.mouseTurnInput = 0;
+    state.mousePitchInput = 0;
     statusLine.textContent = state.crashed
       ? 'Crashed. Press R to respawn.'
-      : 'Keyboard/gamepad ready. Lock mouse only if you want reticle control.';
+      : 'Keyboard/gamepad ready. Click the canvas to capture the mouse.';
   }
+}
+
+function handleCanvasContextMenu(event) {
+  event.preventDefault();
 }
 
 function handleKeyDown(event) {
@@ -2053,6 +2096,7 @@ if (mouseLockButton) {
 renderer.domElement.addEventListener('pointerdown', handleCanvasPointerDown);
 renderer.domElement.addEventListener('pointerup', handleCanvasPointerUp);
 renderer.domElement.addEventListener('pointercancel', handleCanvasPointerCancel);
+renderer.domElement.addEventListener('contextmenu', handleCanvasContextMenu);
 document.addEventListener('pointermove', handlePointerMove);
 document.addEventListener('pointerlockchange', handlePointerLockChange);
 window.addEventListener('blur', handleWindowBlur);
