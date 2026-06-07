@@ -244,7 +244,7 @@ function easeExp(value, rate) {
 
 function computeAtmosphereLiftState(planet, altitude, currentSpeed, cruiseSpeed, boostLevel = 0) {
   const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 0.0001);
-  const targetAltitude = atmosphereThickness * 0.5;
+  const targetAltitude = atmosphereThickness * config.atmosphereCruiseAltitudeFactor;
   const altitudeRatio = clamp01(altitude / atmosphereThickness);
   const densityCurve = Math.max(0.25, config.atmosphereDensityCurve);
   const density = Math.pow(1 - smoothstep(0, 1, altitudeRatio), densityCurve);
@@ -596,10 +596,10 @@ function createEnemyState() {
     aiPitchInput: 0,
     aiBoostHold: 0,
     aiBrakeHold: 0,
-    aiControlSuppressTimer: 0,
     aiMode: '',
     aiTargetPlanetIndex: -1,
     aiDepartPlanetIndex: -1,
+    atmosphericCruiseAltitudeFactor: config.atmosphereCruiseAltitudeFactor,
     hasSmoothedTargetPoint: false,
     smoothedTargetPoint: new THREE.Vector3(),
     formationAngle: 0,
@@ -709,6 +709,9 @@ function createEnemySquadState(state, targetPlanetIndex = -1, kind = 'regular', 
     holdAxis: new THREE.Vector3(),
     holdRadial: new THREE.Vector3(),
     holdTangent: new THREE.Vector3(),
+    holdEntryUp: new THREE.Vector3(),
+    holdReorientTimer: 0,
+    holdReorientDuration: config.mothershipHoldReorientDuration,
     holdArrivalDistance: 0,
     holdExitDistance: 0,
     approachStartDistance: 0,
@@ -720,7 +723,7 @@ function createEnemySquadState(state, targetPlanetIndex = -1, kind = 'regular', 
     exitSpeedFactor: config.mothershipExitSpeedFactor,
     releaseOrbitDirection: rng() < 0.5 ? -1 : 1,
     leaveAfterFightersDead: true,
-    fighterDiveAltitudeFactor: 0.14
+    fighterDiveAltitudeFactor: config.fighterDiveAltitudeFactor
   };
 }
 
@@ -860,12 +863,12 @@ function spawnFighterSquadFromMothership(state, mothershipSquad, mothershipEnemy
   squad.modeTimer = 0;
   squad.orbitPhase = 0;
   squad.orbitProgress = 0;
-  squad.fighterDiveAltitudeFactor = 1.25;
+  squad.fighterDiveAltitudeFactor = config.fighterDiveAltitudeFactor;
+  squad.fighterPatrolAltitudeFactor = config.fighterPatrolAltitudeFactor;
   squad.fightersTotal = 1;
   squad.fightersReleased = 1;
   squad.fightersAlive = 1;
   squad.fighterReleaseCooldown = 0;
-  squad.fighterControlSuppressTime = mothershipSquad.fightersTotal * config.mothershipFighterReleaseInterval + 1.0;
 
   state.nextEnemySquadId += 1;
   createEnemyWave(state, squad, {
@@ -908,7 +911,7 @@ function spawnFighterSquadFromMothership(state, mothershipSquad, mothershipEnemy
     fighter.boundPlanet = null;
     fighter.flightMode = 'free';
     fighter.recaptureLock = 0;
-    fighter.aiControlSuppressTimer = squad.fighterControlSuppressTime;
+    fighter.atmosphericCruiseAltitudeFactor = config.fighterPatrolAltitudeFactor;
   }
   state.enemySquads.push(squad);
   return squad;
@@ -932,9 +935,23 @@ function spawnMothershipSquad(state, targetPlanetIndex = -1) {
   const basis = buildBasisFromNormal(radial);
   const holdRadius = planet.radius * config.mothershipHoldRadiusFactor;
   const holdPoint = planet.position.clone().addScaledVector(radial, holdRadius);
-  const spawnDistance = Math.max(config.starfieldRadiusMin * 1.08, planet.radius * 10.0)
-    + rng() * Math.max(config.starfieldRadiusMax * 0.18, planet.radius * 3.0);
-  const spawnCenter = planet.position.clone().addScaledVector(radial, spawnDistance);
+  const spawnDistance = THREE.MathUtils.lerp(
+    config.mothershipSpawnDistanceMin,
+    config.mothershipSpawnDistanceMax,
+    rng()
+  );
+  const outwardSpawn = tempVecF.copy(planet.position).addScaledVector(radial, spawnDistance);
+  const inwardSpawn = tempVecG.copy(planet.position).addScaledVector(radial, -spawnDistance);
+  const outwardNearest = Math.min(
+    outwardSpawn.length(),
+    ...state.planets.map((otherPlanet) => outwardSpawn.distanceTo(otherPlanet.position))
+  );
+  const inwardNearest = Math.min(
+    inwardSpawn.length(),
+    ...state.planets.map((otherPlanet) => inwardSpawn.distanceTo(otherPlanet.position))
+  );
+  const spawnCenter = inwardNearest <= outwardNearest ? inwardSpawn : outwardSpawn;
+  const spawnSide = inwardNearest <= outwardNearest ? -1 : 1;
   const travelDirection = tempVecC.copy(holdPoint).sub(spawnCenter).normalize();
   const edgeUp = tempVecD.copy(basis.bitangent);
   if (Math.abs(edgeUp.dot(travelDirection)) > 0.85) {
@@ -1033,6 +1050,8 @@ function spawnMothershipSquad(state, targetPlanetIndex = -1) {
       targetPlanetName: planet.name,
       spawnFrame: mothership.spawnFrame,
       spawnTime: mothership.spawnTime,
+      spawnDistance,
+      spawnSide,
       position: {
         x: mothership.position.x,
         y: mothership.position.y,
@@ -1071,7 +1090,9 @@ function beginPlanetCapture(ship, capturePlanet) {
     return;
   }
   transferShipToPlanet(ship, capturePlanet);
-  ship.captureTimer = 0;
+  ship.captureTimer = ship.kind === 'player'
+    ? 0
+    : config.shipCaptureBlendTime;
   ship.recaptureLock = 0;
 }
 
@@ -1418,7 +1439,7 @@ function getEnemyNextPlanet(state, enemy) {
 }
 
 function pushEvent(state, type, payload = {}) {
-  if (!state || !Array.isArray(state.eventLog)) {
+  if (!config.debug || !state || !Array.isArray(state.eventLog)) {
     return;
   }
   state.eventLog.push({
@@ -1437,6 +1458,9 @@ function formatEventPoint(point) {
 }
 
 export function formatCombatLog(state) {
+  if (!config.debug) {
+    return '';
+  }
   const lines = [];
   const events = Array.isArray(state?.eventLog) ? state.eventLog : [];
   for (const event of events) {
@@ -1484,11 +1508,14 @@ function computeEnemyTargetPoint(state, enemy, squad, planet, time) {
     : tempVecA.copy(worldUp);
   const basis = buildBasisFromNormal(radial);
   const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 1.0);
-  const fighterDiveAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterDiveAltitudeFactor > 0
+  const fighterApproachAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterDiveAltitudeFactor > 0
     ? squad.fighterDiveAltitudeFactor
     : null;
-  const approachAltitude = planet.radius + atmosphereThickness * (fighterDiveAltitudeFactor ?? ENEMY_APPROACH_ALTITUDE);
-  const swarmAltitude = planet.radius + atmosphereThickness * (fighterDiveAltitudeFactor ?? ENEMY_SWARM_ALTITUDE);
+  const fighterPatrolAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterPatrolAltitudeFactor > 0
+    ? squad.fighterPatrolAltitudeFactor
+    : fighterApproachAltitudeFactor;
+  const approachAltitude = planet.radius + atmosphereThickness * (fighterApproachAltitudeFactor ?? ENEMY_APPROACH_ALTITUDE);
+  const swarmAltitude = planet.radius + atmosphereThickness * (fighterPatrolAltitudeFactor ?? ENEMY_SWARM_ALTITUDE);
   const orbitLead = squad.mode === 'swarm'
     ? THREE.MathUtils.lerp(0.55, 0.9, enemy.speedScale)
     : squad.mode === 'depart'
@@ -1581,12 +1608,17 @@ function accumulateEnemyOrbitProgress(squad, targetPlanet, enemy) {
 
 function computeEnemyControlTargetSpeed(targetPlanet, enemy, squad) {
   const atmosphereThickness = Math.max(targetPlanet.atmosphereRadius - targetPlanet.radius, 1.0);
-  const fighterDiveAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterDiveAltitudeFactor > 0
+  const fighterApproachAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterDiveAltitudeFactor > 0
     ? squad.fighterDiveAltitudeFactor
     : null;
+  const fighterPatrolAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterPatrolAltitudeFactor > 0
+    ? squad.fighterPatrolAltitudeFactor
+    : fighterApproachAltitudeFactor;
   const desiredRadius = targetPlanet.radius + atmosphereThickness * (
-    fighterDiveAltitudeFactor != null
-      ? fighterDiveAltitudeFactor
+    squad.mode === 'swarm' && fighterPatrolAltitudeFactor != null
+      ? fighterPatrolAltitudeFactor
+      : fighterApproachAltitudeFactor != null
+        ? fighterApproachAltitudeFactor
       : squad.mode === 'swarm'
         ? ENEMY_SWARM_ALTITUDE
       : squad.mode === 'depart'
@@ -1599,17 +1631,6 @@ function computeEnemyControlTargetSpeed(targetPlanet, enemy, squad) {
 
 
 function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) {
-  if ((enemy.aiControlSuppressTimer || 0) > 0) {
-    enemy.aiControlSuppressTimer = Math.max(0, enemy.aiControlSuppressTimer - dt);
-    return {
-      turnInput: 0,
-      pitchInput: 0,
-      boost: false,
-      brake: false,
-      desiredForward: enemy.forward.clone()
-    };
-  }
-
   const rawTargetPoint = computeEnemyTargetPoint(state, enemy, squad, targetPlanet, time);
   const travelMode = squad.mode !== 'swarm';
   const targetSignatureChanged = enemy.aiMode !== squad.mode
@@ -1669,7 +1690,14 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
   const rawTurnInput = THREE.MathUtils.clamp(-yawError * turnGain + wanderTurn, -0.9, 0.9);
 
   const atmosphereThickness = liftState.atmosphereThickness;
-  const desiredSwarmAltitude = atmosphereThickness * ENEMY_SWARM_ALTITUDE;
+  const fighterApproachAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterDiveAltitudeFactor > 0
+    ? squad.fighterDiveAltitudeFactor
+    : null;
+  const fighterPatrolAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterPatrolAltitudeFactor > 0
+    ? squad.fighterPatrolAltitudeFactor
+    : fighterApproachAltitudeFactor;
+  const desiredApproachAltitude = atmosphereThickness * (fighterApproachAltitudeFactor ?? ENEMY_APPROACH_ALTITUDE);
+  const desiredSwarmAltitude = atmosphereThickness * (fighterPatrolAltitudeFactor ?? ENEMY_SWARM_ALTITUDE);
   const altitudeBias = THREE.MathUtils.clamp(
     (currentAltitude - desiredSwarmAltitude) / Math.max(atmosphereThickness * 0.35, 1),
     -1,
@@ -1688,18 +1716,19 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
     rawPitchInput = Math.max(rawPitchInput, stallPitchFloor + desiredClimb * liftState.stallBlend * 0.22);
   }
 
+  const fighterPatrolMode = squad.parentMothershipId >= 0 && squad.mode === 'swarm';
   const upperAtmosphereGuard = smoothstep(
     atmosphereThickness * 0.5,
     atmosphereThickness * 0.82,
     currentAltitude
   );
-  if (upperAtmosphereGuard > 0) {
+  if (upperAtmosphereGuard > 0 && !fighterPatrolMode) {
     const desiredClimb = THREE.MathUtils.clamp(desiredForward.dot(radialUp), 0, 1);
     const ceilingPitchFloor = THREE.MathUtils.lerp(-0.14, 0.72, upperAtmosphereGuard);
     rawPitchInput = Math.max(rawPitchInput, ceilingPitchFloor + desiredClimb * upperAtmosphereGuard * 0.22);
   }
 
-  if (squad.mode === 'swarm') {
+  if (squad.mode === 'swarm' && !fighterPatrolMode) {
     const swarmAltitudeGuard = smoothstep(
       atmosphereThickness * 0.46,
       atmosphereThickness * 0.82,
@@ -1712,6 +1741,20 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
     }
   }
 
+  if (fighterPatrolMode) {
+    const patrolAltitudeError = THREE.MathUtils.clamp(
+      (desiredSwarmAltitude - currentAltitude) / Math.max(atmosphereThickness * config.fighterPatrolAltitudeErrorScale, 1),
+      -1,
+      1
+    );
+    const patrolPitchFloor = THREE.MathUtils.lerp(
+      config.fighterPatrolPitchFloorMax,
+      config.fighterPatrolPitchFloorMin,
+      patrolAltitudeError
+    );
+    rawPitchInput = Math.min(rawPitchInput, patrolPitchFloor);
+  }
+
   if (enemy.kind !== 'mothership') {
     const pitchClamp = travelMode ? 0.45 : 0.55;
     const pitchBias = squad.mode === 'swarm' ? 0.9 : 0.96;
@@ -1722,10 +1765,14 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
   enemy.aiTurnInput = THREE.MathUtils.lerp(enemy.aiTurnInput || 0, rawTurnInput, easeExp(dt, inputSmoothRate));
   enemy.aiPitchInput = THREE.MathUtils.lerp(enemy.aiPitchInput || 0, rawPitchInput, easeExp(dt, inputSmoothRate));
 
-  const rawBoost = squad.mode === 'depart'
-    || (squad.mode === 'swarm' && currentAltitude <= desiredSwarmAltitude + atmosphereThickness * 0.08)
-    || (squad.mode === 'approach' && currentAltitude > config.planetCaptureAltitude * 1.25);
-  const rawBrake = squad.mode === 'swarm'
+  const rawBoost = fighterPatrolMode
+    ? false
+    : squad.mode === 'depart'
+      || (squad.mode === 'swarm' && currentAltitude <= desiredSwarmAltitude + atmosphereThickness * 0.08)
+      || (squad.mode === 'approach' && currentAltitude > Math.max(config.planetCaptureAltitude * 1.25, desiredApproachAltitude));
+  const rawBrake = fighterPatrolMode
+    ? false
+    : squad.mode === 'swarm'
     && liftState.stallBlend < 0.35
     && currentAltitude <= desiredSwarmAltitude + atmosphereThickness * 0.10
     && enemy.speed > currentSurfaceSpeed * THREE.MathUtils.lerp(1.18, 1.34, enemy.speedScale);
@@ -1888,13 +1935,16 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
     if (gap <= Math.max(planet.radius * squad.approachSnapFactor, 24)) {
       squad.mode = 'hold';
       squad.holdAngle = getMothershipRng(state)() * Math.PI * 2;
+      squad.holdReorientTimer = 0;
+      squad.holdReorientDuration = config.mothershipHoldReorientDuration;
+      squad.holdEntryUp.copy(enemy.up).normalize();
       squad.holdReoriented = false;
       enemy.position.copy(arrivalPoint);
       enemy.velocity.set(0, 0, 0);
       enemy.speed = 0;
       enemy.boundPlanet = planet;
       enemy.flightMode = 'bound';
-      enemy.up.copy(radial);
+      enemy.up.copy(squad.holdEntryUp);
       enemy.forward.copy(squad.holdTangent).normalize();
       enemy.relativePosition.copy(enemy.position).sub(planet.position);
       enemy.relativeVelocity.set(0, 0, 0);
@@ -1912,9 +1962,10 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
     }
 
     const moveDir = toArrival.divideScalar(gap);
+    const radialDistance = Math.max(enemy.position.distanceTo(planet.position), 1);
     const approachSpeed = Math.max(
-      planet.radius * squad.approachSpeedMinFactor,
-      squad.approachSpeedFactor * Math.pow(Math.max(gap, 1), squad.approachExponent)
+      0,
+      squad.approachSpeedFactor * Math.pow(radialDistance, squad.approachExponent)
     );
     const previous = enemy.position.clone();
     enemy.position.addScaledVector(moveDir, Math.min(gap, approachSpeed * dt));
@@ -1928,8 +1979,7 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
       edgeUp.copy(squad.holdAxis);
     }
     edgeUp.sub(tempVecE.copy(moveDir).multiplyScalar(edgeUp.dot(moveDir))).normalize();
-    const alignT = smoothstep(planet.radius * 0.45, planet.radius * 0.06, gap);
-    enemy.up.copy(tempVecF.copy(edgeUp).lerp(radial, alignT).normalize());
+    enemy.up.copy(edgeUp);
     enemy.forward.copy(moveDir);
     enemy.relativePosition.copy(enemy.position).sub(planet.position);
     enemy.relativeVelocity.copy(enemy.velocity).sub(planet.velocity);
@@ -1939,6 +1989,10 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
   if (squad.mode === 'hold') {
     squad.holdAngle += dt * squad.holdAngularSpeed;
     squad.holdBeta += dt * squad.holdBetaSpeed;
+    squad.holdReorientTimer = Math.min(
+      squad.holdReorientDuration,
+      squad.holdReorientTimer + dt
+    );
     const alpha = squad.holdAngle;
     const beta = THREE.MathUtils.clamp(squad.holdBeta, -Math.PI * 0.42, Math.PI * 0.42);
     if (beta !== squad.holdBeta) {
@@ -1950,19 +2004,24 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
       .addScaledVector(squad.holdTangent, Math.cos(alpha) * sinBeta)
       .addScaledVector(squad.holdAxis, Math.sin(alpha) * sinBeta)
       .normalize();
+    const reorientT = smoothstep(0, Math.max(0.0001, squad.holdReorientDuration), squad.holdReorientTimer);
+    const currentUp = tempVecD.copy(squad.holdEntryUp).lerp(rotatedRadial, reorientT).normalize();
+    const currentForward = tempVecE.copy(squad.holdAxis).cross(currentUp);
+    if (currentForward.lengthSq() < 1e-6) {
+      currentForward.copy(squad.holdTangent);
+    }
+    currentForward.normalize();
     const previous = enemy.position.clone();
     enemy.position.copy(planet.position).addScaledVector(rotatedRadial, holdRadius);
     enemy.velocity.copy(enemy.position).sub(previous).divideScalar(Math.max(dt, 1e-6));
     enemy.speed = enemy.velocity.length();
     enemy.boundPlanet = planet;
     enemy.flightMode = 'bound';
-    enemy.up.copy(rotatedRadial);
-    enemy.forward.copy(enemy.velocity.lengthSq() > 1e-6
-      ? enemy.velocity.clone().sub(planet.velocity).normalize()
-      : tempVecD.copy(squad.holdAxis).cross(rotatedRadial).normalize());
+    enemy.up.copy(currentUp);
+    enemy.forward.copy(currentForward);
     enemy.relativePosition.copy(enemy.position).sub(planet.position);
     enemy.relativeVelocity.copy(enemy.velocity).sub(planet.velocity);
-    if (!squad.holdReoriented) {
+    if (!squad.holdReoriented && squad.holdReorientTimer >= squad.holdReorientDuration - 1e-6) {
       squad.holdReoriented = true;
       pushEvent(state, 'mothership-reoriented', {
         mothershipSquadId: squad.id,
@@ -1985,9 +2044,8 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
     }
     exitDirection.normalize();
     const previous = enemy.position.clone();
-    const radialDistance = Math.max(enemy.position.distanceTo(planet.position) - planet.radius, 1);
+    const radialDistance = Math.max(enemy.position.distanceTo(planet.position), 1);
     const exitSpeed = Math.max(
-      planet.radius * squad.approachSpeedMinFactor,
       squad.exitSpeedFactor * Math.pow(radialDistance, squad.approachExponent)
     );
     enemy.position.addScaledVector(exitDirection, exitSpeed * dt);
@@ -2230,7 +2288,8 @@ function updateShipState(state, dt, controls) {
   const captureBlend = ship.captureTimer >= config.shipCaptureBlendTime
     ? 1
     : smoothstep(0, Math.max(config.shipCaptureBlendTime, 0.0001), ship.captureTimer);
-  const targetAltitude = atmosphereThickness * 0.5;
+  const targetAltitudeFactor = ship.atmosphericCruiseAltitudeFactor ?? config.atmosphereCruiseAltitudeFactor;
+  const targetAltitude = atmosphereThickness * targetAltitudeFactor;
   const altitudeError = THREE.MathUtils.clamp((targetAltitude - altitude) / (atmosphereThickness * 0.5), -1, 1);
   const approachResponse = THREE.MathUtils.lerp(1, config.atmosphereApproachResponse, atmosphereDepth);
 
@@ -2406,10 +2465,10 @@ function updateShipState(state, dt, controls) {
       ship.speed *= brakeFactor;
     }
 
-    const freeCurrentSpeed = Math.max(ship.speed || 0, 0.0001);
-    const gravitySpeedFactor = 1 / (1 + freeCurrentSpeed * Math.max(0.0001, config.freeGravitySpeedDamping));
-    const gravityTurnRate = config.freeGravityTurnRate;
-    const gravityMaxTurnRate = config.freeGravityMaxTurnRate;
+  const freeCurrentSpeed = Math.max(ship.speed || 0, 0.0001);
+  const gravitySpeedFactor = 1 / (1 + freeCurrentSpeed * Math.max(0.0001, config.freeGravitySpeedDamping));
+  const gravityTurnRate = config.freeGravityTurnRate;
+  const gravityMaxTurnRate = config.freeGravityMaxTurnRate;
     const gravityYawAngle = THREE.MathUtils.clamp(
       -gravityPull.dot(ship.up) * gravityTurnRate * gravitySpeedFactor,
       -gravityMaxTurnRate,
@@ -2487,6 +2546,14 @@ function updateShipState(state, dt, controls) {
   const projectedUp = ship.up.clone().sub(tempVecF.copy(ship.forward).multiplyScalar(ship.up.dot(ship.forward)));
   if (projectedUp.lengthSq() > 1e-6) {
     ship.up.copy(projectedUp.normalize());
+  } else {
+    const fallbackAxis = Math.abs(ship.forward.dot(worldUp)) > 0.92
+      ? tempVecG.set(1, 0, 0)
+      : worldUp;
+    const fallbackUp = tempVecH.copy(fallbackAxis).sub(tempVecF.copy(ship.forward).multiplyScalar(fallbackAxis.dot(ship.forward)));
+    if (fallbackUp.lengthSq() > 1e-6) {
+      ship.up.copy(fallbackUp.normalize());
+    }
   }
 
   if (atmosphericFlightActive) {
