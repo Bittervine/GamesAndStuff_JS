@@ -86,12 +86,14 @@ const orbitalsAudio = {
   master: null,
   sfx: null,
   noise: null,
+  boostNoiseSource: null,
+  boostNoiseFilter: null,
+  boostNoiseGain: null,
   enabled: false,
   resumePromise: null
 };
 let lastProjectileIdForSfx = 0;
 let lastEnemyExplosionIdForSfx = 0;
-let boostHeldForSfx = false;
 const spaceDebrisCount = 880;
 const spaceDebrisPositions = new Float32Array(spaceDebrisCount * 3);
 const spaceDebrisSeeds = new Float32Array(spaceDebrisCount);
@@ -118,6 +120,10 @@ const spaceDebrisMinDistance = 4000;
 const spaceDebrisMaxDistance = 14000;
 const starRoot = new THREE.Group();
 scene.add(starRoot);
+const starCoronaGroup = new THREE.Group();
+starCoronaGroup.renderOrder = -30;
+starRoot.add(starCoronaGroup);
+const starCoronaLayers = [];
 
 const starLight = new THREE.PointLight(0xfff2c6, 12000, 0, 2);
 starLight.position.set(0, 0, 0);
@@ -255,14 +261,68 @@ function ensureOrbitalsAudio() {
   orbitalsAudio.sfx.gain.value = 0.8;
   orbitalsAudio.sfx.connect(orbitalsAudio.master);
 
-  const len = Math.max(1, Math.floor(orbitalsAudio.ctx.sampleRate * 0.35));
+  const len = Math.max(1, Math.floor(orbitalsAudio.ctx.sampleRate * 2.0));
   const buf = orbitalsAudio.ctx.createBuffer(1, len, orbitalsAudio.ctx.sampleRate);
   const data = buf.getChannelData(0);
+  let lastOut = 0;
+  let maxAbs = 0.0001;
   for (let i = 0; i < len; i += 1) {
-    data[i] = Math.random() * 2 - 1;
+    const white = Math.random() * 2 - 1;
+    lastOut = (lastOut + white * 0.02) / 1.02;
+    data[i] = lastOut;
+    maxAbs = Math.max(maxAbs, Math.abs(data[i]));
+  }
+  const normalize = 0.92 / maxAbs;
+  for (let i = 0; i < len; i += 1) {
+    data[i] *= normalize;
   }
   orbitalsAudio.noise = buf;
   return orbitalsAudio.ctx;
+}
+
+function ensureBoostNoiseNode() {
+  const ctx = ensureOrbitalsAudio();
+  if (!ctx || orbitalsAudio.boostNoiseSource) {
+    return;
+  }
+
+  const source = ctx.createBufferSource();
+  const filter = ctx.createBiquadFilter();
+  const gain = ctx.createGain();
+  const bus = orbitalsAudio.sfx || orbitalsAudio.master;
+  source.buffer = orbitalsAudio.noise;
+  source.loop = true;
+  filter.type = 'lowpass';
+  filter.frequency.value = 180;
+  filter.Q.value = 0.7;
+  gain.gain.value = 0.0001;
+  source.connect(filter);
+  filter.connect(gain);
+  gain.connect(bus);
+  source.start();
+
+  orbitalsAudio.boostNoiseSource = source;
+  orbitalsAudio.boostNoiseFilter = filter;
+  orbitalsAudio.boostNoiseGain = gain;
+}
+
+function updateBoostNoise(boostLevel, pulse) {
+  const ctx = ensureOrbitalsAudio();
+  if (!ctx || ctx.state !== 'running') {
+    return;
+  }
+
+  ensureBoostNoiseNode();
+  if (!orbitalsAudio.boostNoiseGain || !orbitalsAudio.boostNoiseFilter) {
+    return;
+  }
+
+  const now = ctx.currentTime;
+  const active = clamp01(boostLevel * pulse);
+  const gainTarget = Math.max(0.0001, Math.pow(active, 0.8) * 0.42);
+  const cutoffTarget = 70 + active * 260;
+  orbitalsAudio.boostNoiseGain.gain.setTargetAtTime(gainTarget, now, 0.025);
+  orbitalsAudio.boostNoiseFilter.frequency.setTargetAtTime(cutoffTarget, now, 0.04);
 }
 
 function resumeOrbitalsAudio() {
@@ -354,10 +414,6 @@ function playOrbitalsNoise(opts = {}) {
 function playOrbitalsSfx(name) {
   if (name === 'shoot') {
     playOrbitalsTone({ freq: 420, endFreq: 520, dur: 0.05, gain: 0.045, type: 'triangle' });
-  } else if (name === 'power') {
-    playOrbitalsTone({ freq: 440, endFreq: 660, dur: 0.08, gain: 0.06, type: 'triangle', pan: -0.12 });
-    playOrbitalsTone({ freq: 660, endFreq: 990, dur: 0.08, gain: 0.05, type: 'triangle', pan: 0.12 });
-    playOrbitalsTone({ freq: 880, endFreq: 1320, dur: 0.1, gain: 0.04, type: 'sine' });
   } else if (name === 'boom') {
     playOrbitalsNoise({ dur: 0.8, gain: 0.25, cutoff: 20, q: 0.18 });
     playOrbitalsTone({ freq: 170, endFreq: 54, dur: 0.22, gain: 0.11, type: 'sawtooth' });
@@ -521,78 +577,6 @@ function createAtmosphereGlowTexture() {
 }
 
 const atmosphereGlowTexture = createAtmosphereGlowTexture();
-function createSunCoronaTexture() {
-  const size = 256;
-  const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const cx = size * 0.5;
-  const cy = size * 0.5;
-  ctx.clearRect(0, 0, size, size);
-
-  const gradient = ctx.createRadialGradient(cx, cy, size * 0.01, cx, cy, size * 0.5);
-  gradient.addColorStop(0.00, 'rgba(255,255,255,1.00)');
-  gradient.addColorStop(0.08, 'rgba(255,255,245,0.96)');
-  gradient.addColorStop(0.18, 'rgba(255,240,180,0.82)');
-  gradient.addColorStop(0.34, 'rgba(255,200,110,0.42)');
-  gradient.addColorStop(0.58, 'rgba(255,158,64,0.16)');
-  gradient.addColorStop(0.84, 'rgba(255,130,40,0.05)');
-  gradient.addColorStop(1.00, 'rgba(255,130,40,0.00)');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, size, size);
-
-  ctx.save();
-  ctx.globalCompositeOperation = 'screen';
-  ctx.strokeStyle = 'rgba(255, 210, 120, 0.20)';
-  ctx.lineCap = 'round';
-  ctx.shadowColor = 'rgba(255, 190, 90, 0.45)';
-  ctx.shadowBlur = size * 0.03;
-  const rays = 20;
-  for (let i = 0; i < rays; i += 1) {
-    const angle = (i / rays) * Math.PI * 2;
-    const inner = size * (0.12 + (i % 3) * 0.01);
-    const outer = size * (0.34 + (i % 4) * 0.05);
-    const x0 = cx + Math.cos(angle) * inner;
-    const y0 = cy + Math.sin(angle) * inner;
-    const x1 = cx + Math.cos(angle) * outer;
-    const y1 = cy + Math.sin(angle) * outer;
-    ctx.lineWidth = 1 + (i % 5) * 0.55;
-    ctx.beginPath();
-    ctx.moveTo(x0, y0);
-    ctx.lineTo(x1, y1);
-    ctx.stroke();
-  }
-
-  ctx.strokeStyle = 'rgba(255, 185, 90, 0.13)';
-  ctx.shadowColor = 'rgba(255, 160, 70, 0.28)';
-  ctx.shadowBlur = size * 0.02;
-  const shortRays = 28;
-  for (let i = 0; i < shortRays; i += 1) {
-    const angle = (i / shortRays) * Math.PI * 2 + (Math.PI / shortRays) * 0.5;
-    const inner = size * (0.09 + (i % 2) * 0.007);
-    const outer = size * (0.23 + (i % 4) * 0.028);
-    const x0 = cx + Math.cos(angle) * inner;
-    const y0 = cy + Math.sin(angle) * inner;
-    const x1 = cx + Math.cos(angle) * outer;
-    const y1 = cy + Math.sin(angle) * outer;
-    ctx.lineWidth = 0.8 + (i % 4) * 0.35;
-    ctx.beginPath();
-    ctx.moveTo(x0, y0);
-    ctx.lineTo(x1, y1);
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.generateMipmaps = false;
-  texture.needsUpdate = true;
-  return texture;
-}
-
 function createEngineFlameTexture() {
   const size = 128;
   const canvas = document.createElement('canvas');
@@ -951,6 +935,7 @@ function updateShipEngineEffects(time) {
   const boostLevel = state.fuel > 0 ? clamp01((ship.boostTimer || 0) / boostDuration) : 0;
   const pulse = 0.88 + Math.sin(time * 38.0) * 0.06 + Math.sin(time * 21.0 + 1.4) * 0.04;
   const heatMix = boostLevel * pulse;
+  updateBoostNoise(boostLevel, pulse);
 
   for (const entry of ship.engineEffects.heatMaterials) {
     const material = entry.material;
@@ -1026,8 +1011,94 @@ function updateShipEngineEffects(time) {
   }
 }
 
+function createSunCoronaTexture() {
+  const size = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const cx = size * 0.5;
+  const cy = size * 0.5;
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.globalCompositeOperation = 'screen';
+
+  const glow = ctx.createRadialGradient(0, 0, size * 0.02, 0, 0, size * 0.5);
+  glow.addColorStop(0.00, 'rgba(255,255,255,0.95)');
+  glow.addColorStop(0.14, 'rgba(255,249,220,0.92)');
+  glow.addColorStop(0.34, 'rgba(255,214,120,0.50)');
+  glow.addColorStop(0.60, 'rgba(255,170,62,0.18)');
+  glow.addColorStop(1.00, 'rgba(255,170,62,0.00)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(0, 0, size * 0.44, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255, 226, 150, 0.30)';
+  ctx.lineCap = 'round';
+  ctx.shadowColor = 'rgba(255, 210, 120, 0.65)';
+  ctx.shadowBlur = size * 0.03;
+  for (let i = 0; i < 16; i += 1) {
+    const angle = (i / 16) * Math.PI * 2;
+    const inner = size * 0.08;
+    const outer = size * (0.30 + (i % 3) * 0.04);
+    ctx.lineWidth = 2.5 - (i % 4) * 0.25;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+    ctx.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+const sunCoronaTexture = createSunCoronaTexture();
+function addStarCoronaLayer(baseScale, opacity, color, stretchX = 1, stretchY = 1, pulse = 0.04, phase = 0) {
+  const material = new THREE.SpriteMaterial({
+    map: sunCoronaTexture,
+    color,
+    transparent: true,
+    opacity,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    depthTest: true,
+    toneMapped: false
+  });
+  const sprite = new THREE.Sprite(material);
+  sprite.frustumCulled = false;
+  sprite.renderOrder = -25;
+  sprite.scale.set(baseScale * stretchX, baseScale * stretchY, 1);
+  starCoronaGroup.add(sprite);
+  starCoronaLayers.push({
+    sprite,
+    baseScale,
+    baseOpacity: opacity,
+    stretchX,
+    stretchY,
+    pulse,
+    phase
+  });
+}
+
 function rebuildStarCorona() {
-  // Intentionally left blank: the sun now uses only the core model and point light.
+  while (starCoronaGroup.children.length > 0) {
+    starCoronaGroup.remove(starCoronaGroup.children[0]);
+  }
+  starCoronaLayers.length = 0;
+  addStarCoronaLayer(config.starScale * 2.8, 0.42, 0xfff9e4, 1.00, 1.00, 0.03, 0.0);
+  addStarCoronaLayer(config.starScale * 4.2, 0.19, 0xffefb8, 1.06, 1.00, 0.05, 1.3);
+  addStarCoronaLayer(config.starScale * 6.1, 0.10, 0xffc66a, 1.15, 1.04, 0.07, 2.2);
+  addStarCoronaLayer(config.starScale * 8.8, 0.04, 0xff9f3e, 1.24, 1.10, 0.09, 2.9);
 }
 
 function makeStarfield() {
@@ -1144,6 +1215,16 @@ function updateSpaceDebris(dt) {
 }
 
 function updateStarCorona(time) {
+  const pulse = 1 + Math.sin(time * 1.25) * 0.03 + Math.sin(time * 2.1 + 0.7) * 0.015;
+  for (const layer of starCoronaLayers) {
+    const layerPulse = pulse + Math.sin(time * (1.1 + layer.pulse) + layer.phase) * layer.pulse;
+    layer.sprite.scale.set(
+      layer.baseScale * layer.stretchX * layerPulse,
+      layer.baseScale * layer.stretchY * layerPulse,
+      1
+    );
+    layer.sprite.material.opacity = layer.baseOpacity * (0.9 + Math.sin(time * (1.7 + layer.pulse) + layer.phase) * 0.1);
+  }
   starLight.intensity = 24000 + Math.sin(time * 1.4) * 1500 + Math.sin(time * 2.7 + 0.6) * 900;
 }
 
@@ -1348,7 +1429,7 @@ function updateEnemyExplosionVisuals() {
     const lifeT = clamp01(effect.age / effect.lifetime);
     const fadeT = 1 - lifeT;
     const age = effect.age;
-    const burstScale = effect.cause === 'crash' ? 1.15 : 1.0;
+    const burstScale = effect.cause === 'crash' ? 0.33 : 1.0;
     visual.position.copy(effect.position);
     visual.material.opacity = Math.pow(fadeT, 1.05) * 1.0;
     visual.material.size = baseSize * (1.0 + fadeT * 0.9);
@@ -1547,7 +1628,6 @@ function updateShipControls(dt) {
   const fireDirection = fire ? computeFireDirectionFromReticle() : null;
   const projectileIdBefore = lastProjectileIdForSfx;
   const explosionIdBefore = lastEnemyExplosionIdForSfx;
-  const boostWasHeld = boostHeldForSfx;
   const mouseTurn = mouseShipActive ? mouseShipInput.turnInput : 0;
   const mousePitch = mouseShipActive ? mouseShipInput.pitchInput : 0;
   state.mouseShipCentered = Boolean(mouseShipActive && mouseShipInput.shipIsCentered);
@@ -1599,17 +1679,12 @@ function updateShipControls(dt) {
   if (fire && state.nextProjectileId > projectileIdBefore) {
     playOrbitalsSfx('shoot');
   }
-  if (boost && !boostWasHeld && state.fuel > 0) {
-    playOrbitalsSfx('power');
-  }
   const explosionCount = Math.max(0, (state.nextEnemyExplosionId || 0) - explosionIdBefore);
   for (let i = 0; i < explosionCount; i += 1) {
     playOrbitalsSfx('boom');
   }
   lastProjectileIdForSfx = state.nextProjectileId || projectileIdBefore;
   lastEnemyExplosionIdForSfx = state.nextEnemyExplosionId || explosionIdBefore;
-  boostHeldForSfx = boost;
-
 }
 
 function updateCamera(dt) {
@@ -2024,7 +2099,6 @@ async function bootstrap() {
   loadingWrap.style.display = 'none';
   lastProjectileIdForSfx = state.nextProjectileId || 0;
   lastEnemyExplosionIdForSfx = state.nextEnemyExplosionId || 0;
-  boostHeldForSfx = false;
   state.loaded = true;
   statusLine.textContent = 'Keyboard/gamepad ready. Click the canvas to capture the mouse.';
   updateMouseLockButton();
