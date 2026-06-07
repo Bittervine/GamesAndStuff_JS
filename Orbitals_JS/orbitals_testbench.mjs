@@ -1728,6 +1728,46 @@ function runEnemySquadMovementTest() {
   );
 }
 
+function runMothershipArrivalTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  state.mothershipSpawnTimer = 0;
+  stepSim(sim, 1, NEUTRAL_CONTROLS);
+  const mothershipSquad = state.mothershipSquads[0];
+  assert.ok(mothershipSquad, 'expected a mothership squad to spawn when the timer expires');
+  assert.strictEqual(mothershipSquad.family, 'FlyingSaucer', 'expected motherships to use FlyingSaucer assets');
+
+  const planet = state.planets[mothershipSquad.targetPlanetIndex];
+  assert.ok(planet, 'expected a target planet for the mothership test');
+
+  stepSim(sim, 3000, NEUTRAL_CONTROLS);
+
+  const mothership = state.enemies.find((enemy) => enemy.squadId === mothershipSquad.id && enemy.health > 0);
+  assert.ok(mothership, 'expected the mothership to still be active');
+
+  const altitude = mothership.position.distanceTo(planet.position) - planet.radius;
+  const holdAltitude = planet.radius * (config.mothershipHoldRadiusFactor - 1);
+  const radial = mothership.position.clone().sub(planet.position).normalize();
+  const upDot = mothership.up.clone().normalize().dot(radial);
+  const fighterSquad = state.enemySquads.find((squad) => squad.parentMothershipId === mothershipSquad.id);
+  assert.ok(fighterSquad, 'expected the mothership to release a fighter squad');
+  assert.notStrictEqual(fighterSquad.family, 'FlyingSaucer', 'expected fighters to come from the regular pool');
+  assert.ok(
+    Math.abs(altitude - holdAltitude) <= planet.radius * 0.12,
+    `expected the mothership to hold near 1.5 radii: altitude=${altitude.toFixed(3)} target=${holdAltitude.toFixed(3)}`
+  );
+  assert.ok(
+    upDot > 0.9,
+    `expected the mothership bottom to face the planet after arrival: dot=${upDot.toFixed(3)}`
+  );
+
+  console.log(
+    `PASS mothership-arrival: altitude=${altitude.toFixed(3)} hold=${holdAltitude.toFixed(3)} fighters=${state.enemySquads.filter((squad) => squad.parentMothershipId === mothershipSquad.id).length}`
+  );
+}
+
 function runEnemyFamilyIndexTest() {
   const familyEntries = Object.entries(ENEMY_MODEL_FILES_BY_FAMILY);
   assert.ok(familyEntries.length > 0, 'expected enemy family assets to be indexed');
@@ -1791,5 +1831,6 @@ runEnemyCrashExplosionTest('sun');
 runPlanetOrbitTest();
 runPlanetCaptureArrivalTest();
 runPlanetCaptureBlendTest();
+runMothershipArrivalTest();
 runEnemyFamilyIndexTest();
 runEnemySquadMovementTest();

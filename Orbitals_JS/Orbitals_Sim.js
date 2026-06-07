@@ -222,6 +222,13 @@ function mulberry32(a) {
   };
 }
 
+function getMothershipRng(state) {
+  if (!state.mothershipRng) {
+    state.mothershipRng = mulberry32(((state.seed >>> 0) ^ 0x9e3779b9) >>> 0);
+  }
+  return state.mothershipRng;
+}
+
 function clamp01(v) {
   return Math.min(1, Math.max(0, v));
 }
@@ -558,6 +565,7 @@ function createEnemyState() {
   return {
     id: 0,
     squadId: 0,
+    kind: 'regular',
     family: '',
     assetFile: '',
     position: new THREE.Vector3(),
@@ -571,10 +579,12 @@ function createEnemyState() {
     bank: 0,
     speed: 0,
     radius: ENEMY_HIT_RADIUS,
-    health: 1,
+    health: config.enemyHitPoints,
     speedScale: 1,
     turnScale: 1,
     upScale: 1,
+    visualScale: 1,
+    destroyed: false,
     boundPlanet: null,
     flightMode: 'bound',
     captureTimer: config.shipCaptureBlendTime,
@@ -605,22 +615,24 @@ function createEnemyState() {
   };
 }
 
-function pickRandomPlanetIndex(state, excludeIndex = -1) {
+function pickRandomPlanetIndex(state, excludeIndex = -1, rng = state.rng) {
   if (state.planets.length === 0) {
     return -1;
   }
   if (state.planets.length === 1) {
     return 0;
   }
-  let index = Math.floor(state.rng() * state.planets.length);
+  let index = Math.floor(rng() * state.planets.length);
   if (index === excludeIndex) {
-    index = (index + 1 + Math.floor(state.rng() * (state.planets.length - 1))) % state.planets.length;
+    index = (index + 1 + Math.floor(rng() * (state.planets.length - 1))) % state.planets.length;
   }
   return index;
 }
 
-function pickEnemyFamily(state) {
-  return ENEMY_FAMILIES[Math.floor(state.rng() * ENEMY_FAMILIES.length)];
+function pickEnemyFamily(state, excludedFamilies = [], rng = state.rng) {
+  const allowedFamilies = ENEMY_FAMILIES.filter((family) => !excludedFamilies.includes(family));
+  const pool = allowedFamilies.length > 0 ? allowedFamilies : ENEMY_FAMILIES;
+  return pool[Math.floor(rng() * pool.length)];
 }
 
 function unwrapAngleDelta(previousAngle, nextAngle) {
@@ -658,60 +670,95 @@ function pickEnemySpawnPlanetIndex(state) {
   return Math.max(0, state.respawnPlanetIndex % Math.max(1, state.planets.length));
 }
 
-function createEnemySquadState(state, targetPlanetIndex = -1) {
-  const targetIndex = targetPlanetIndex >= 0 ? targetPlanetIndex : pickRandomPlanetIndex(state);
-  const nextPlanetIndex = pickRandomPlanetIndex(state, targetIndex);
-  const family = pickEnemyFamily(state);
+function createEnemySquadState(state, targetPlanetIndex = -1, kind = 'regular', rng = state.rng) {
+  const targetIndex = targetPlanetIndex >= 0 ? targetPlanetIndex : pickRandomPlanetIndex(state, -1, rng);
+  const nextPlanetIndex = pickRandomPlanetIndex(state, targetIndex, rng);
+  const family = kind === 'mothership'
+    ? 'FlyingSaucer'
+    : pickEnemyFamily(state, ['FlyingSaucer'], rng);
   return {
     id: state.nextEnemySquadId,
+    kind,
     family,
     assetFile: '',
     familyFiles: getEnemyFamilyFiles(family).slice(),
     targetPlanetIndex: targetIndex,
     nextPlanetIndex,
     departPlanetIndex: -1,
-    orbitPhase: state.rng() * Math.PI * 2,
+    orbitPhase: rng() * Math.PI * 2,
     orbitProgress: 0,
     orbitLastAngle: 0,
     departVector: new THREE.Vector3(),
     mode: 'approach',
     modeTimer: 0,
     spawnTimer: 0,
-    orbitDirection: state.rng() < 0.5 ? -1 : 1,
-    swarmDuration: ENEMY_SWARM_DURATION_MIN + state.rng() * (ENEMY_SWARM_DURATION_MAX - ENEMY_SWARM_DURATION_MIN),
-    departDuration: ENEMY_DEPART_DURATION_MIN + state.rng() * (ENEMY_DEPART_DURATION_MAX - ENEMY_DEPART_DURATION_MIN)
+    orbitDirection: rng() < 0.5 ? -1 : 1,
+    swarmDuration: ENEMY_SWARM_DURATION_MIN + rng() * (ENEMY_SWARM_DURATION_MAX - ENEMY_SWARM_DURATION_MIN),
+    departDuration: ENEMY_DEPART_DURATION_MIN + rng() * (ENEMY_DEPART_DURATION_MAX - ENEMY_DEPART_DURATION_MIN),
+    parentMothershipId: -1,
+    fighterReleaseCooldown: 0,
+    fightersTotal: 0,
+    fightersReleased: 0,
+    fightersAlive: 0,
+    holdRadiusFactor: config.mothershipHoldRadiusFactor,
+    holdAngularSpeed: 0,
+    holdAngle: 0,
+    holdAxis: new THREE.Vector3(),
+    holdRadial: new THREE.Vector3(),
+    holdTangent: new THREE.Vector3(),
+    holdArrivalDistance: 0,
+    holdExitDistance: 0,
+    approachStartDistance: 0,
+    approachExponent: config.mothershipApproachExponent,
+    approachSpeedFactor: config.mothershipApproachSpeedFactor,
+    approachSpeedMinFactor: config.mothershipApproachSpeedMinFactor,
+    approachSnapFactor: config.mothershipApproachSnapFactor,
+    exitSpeedFactor: config.mothershipExitSpeedFactor,
+    releaseOrbitDirection: rng() < 0.5 ? -1 : 1,
+    leaveAfterFightersDead: true
   };
 }
 
-function createEnemyWave(state, squad) {
+function createEnemyWave(state, squad, options = {}) {
+  const rng = options.rng || state.rng;
   const planet = state.planets[squad.targetPlanetIndex];
   if (!planet) {
     return;
   }
-  const enemyCount = Math.floor(state.rng() * (ENEMY_SQUAD_SIZE_MAX - ENEMY_SQUAD_SIZE_MIN + 1)) + ENEMY_SQUAD_SIZE_MIN;
-  const radial = state.ship && state.ship.boundPlanet === planet
-    ? state.ship.position.clone().sub(planet.position).normalize()
-    : planet.position.lengthSq() > 1e-6
-      ? planet.position.clone().normalize()
-      : new THREE.Vector3(0, 1, 0);
-  const basis = buildBasisFromNormal(radial);
-  const spawnDistance = planet.atmosphereRadius + 80 + state.rng() * 140;
-  const spawnCenter = tempVecA.copy(planet.position).addScaledVector(radial, spawnDistance);
-  const familyFiles = squad.familyFiles && squad.familyFiles.length > 0
-    ? squad.familyFiles
-    : getEnemyFamilyFiles(squad.family);
+  const enemyCount = options.enemyCount ?? (Math.floor(rng() * (ENEMY_SQUAD_SIZE_MAX - ENEMY_SQUAD_SIZE_MIN + 1)) + ENEMY_SQUAD_SIZE_MIN);
+  const radial = options.radial
+    ? tempVecA.copy(options.radial).normalize()
+    : state.ship && state.ship.boundPlanet === planet
+      ? state.ship.position.clone().sub(planet.position).normalize()
+      : planet.position.lengthSq() > 1e-6
+        ? planet.position.clone().normalize()
+        : new THREE.Vector3(0, 1, 0);
+  const basis = options.basis || buildBasisFromNormal(radial);
+  const spawnDistance = options.spawnDistance ?? (planet.atmosphereRadius + 80 + rng() * 140);
+  const spawnCenter = options.spawnCenter
+    ? tempVecA.copy(options.spawnCenter)
+    : tempVecA.copy(planet.position).addScaledVector(radial, spawnDistance);
+  const familyFiles = options.familyFiles && options.familyFiles.length > 0
+    ? options.familyFiles
+    : squad.familyFiles && squad.familyFiles.length > 0
+      ? squad.familyFiles
+      : getEnemyFamilyFiles(squad.family);
+  const enemyKind = options.enemyKind || 'regular';
+  const enemyVisualScale = options.visualScale ?? 1;
+  const enemyRadius = options.radius ?? ENEMY_HIT_RADIUS;
 
   for (let i = 0; i < enemyCount; i += 1) {
     const enemy = createEnemyState();
-    const ringAngle = (i / Math.max(1, enemyCount)) * Math.PI * 2 + state.rng() * 0.35;
-    const ringRadius = 12 + state.rng() * 26;
+    const ringAngle = (i / Math.max(1, enemyCount)) * Math.PI * 2 + rng() * 0.35;
+    const ringRadius = enemyCount === 1 ? 0 : 12 + rng() * 26;
     const ringOffset = tempVecB.copy(basis.tangent).multiplyScalar(Math.cos(ringAngle) * ringRadius)
       .addScaledVector(basis.bitangent, Math.sin(ringAngle) * ringRadius * 0.82);
     enemy.id = state.nextEnemyId;
     enemy.squadId = squad.id;
+    enemy.kind = enemyKind;
     enemy.family = squad.family;
     enemy.assetFile = familyFiles.length > 0
-      ? familyFiles[Math.floor(state.rng() * familyFiles.length)]
+      ? familyFiles[Math.floor(rng() * familyFiles.length)]
       : '';
     enemy.position.copy(spawnCenter).add(ringOffset);
     enemy.previousPosition.copy(enemy.position);
@@ -719,18 +766,21 @@ function createEnemyWave(state, squad) {
     enemy.up.copy(radial);
     enemy.bank = 0;
     enemy.speed = 0;
+    enemy.radius = enemyRadius;
+    enemy.visualScale = enemyVisualScale;
+    enemy.health = enemyKind === 'mothership' ? config.mothershipHitPoints : config.enemyHitPoints;
     enemy.boundPlanet = planet;
     enemy.flightMode = 'bound';
     enemy.captureTimer = config.shipCaptureBlendTime;
     enemy.recaptureLock = 0;
     enemy.relativePosition.copy(enemy.position).sub(planet.position);
     enemy.relativeVelocity.copy(enemy.velocity).sub(planet.velocity);
-    enemy.speedScale = ENEMY_SPEED_SCALE_MIN + state.rng() * (ENEMY_SPEED_SCALE_MAX - ENEMY_SPEED_SCALE_MIN);
-    enemy.turnScale = ENEMY_TURN_RATE_MIN + state.rng() * (ENEMY_TURN_RATE_MAX - ENEMY_TURN_RATE_MIN);
-    enemy.upScale = ENEMY_UP_RATE_MIN + state.rng() * (ENEMY_UP_RATE_MAX - ENEMY_UP_RATE_MIN);
+    enemy.speedScale = ENEMY_SPEED_SCALE_MIN + rng() * (ENEMY_SPEED_SCALE_MAX - ENEMY_SPEED_SCALE_MIN);
+    enemy.turnScale = ENEMY_TURN_RATE_MIN + rng() * (ENEMY_TURN_RATE_MAX - ENEMY_TURN_RATE_MIN);
+    enemy.upScale = ENEMY_UP_RATE_MIN + rng() * (ENEMY_UP_RATE_MAX - ENEMY_UP_RATE_MIN);
     enemy.formationAngle = ringAngle;
-    enemy.formationRadius = 14 + state.rng() * 32;
-    enemy.phase = state.rng() * Math.PI * 2;
+    enemy.formationRadius = 14 + rng() * 32;
+    enemy.phase = rng() * Math.PI * 2;
     enemy.mode = 'approach';
     enemy.targetPlanetIndex = squad.targetPlanetIndex;
     enemy.nextPlanetIndex = squad.nextPlanetIndex;
@@ -743,12 +793,187 @@ function spawnEnemySquad(state, targetPlanetIndex = -1) {
   if (!state.planets.length) {
     return null;
   }
-  const squad = createEnemySquadState(state, targetPlanetIndex);
+  const squad = createEnemySquadState(state, targetPlanetIndex, 'regular');
   state.nextEnemySquadId += 1;
-  createEnemyWave(state, squad);
+  createEnemyWave(state, squad, {
+    enemyKind: 'regular'
+  });
   state.enemySquads.push(squad);
   state.enemySquad = squad;
   state.enemySpawnTimer = ENEMY_SPAWN_DELAY_MIN + state.rng() * (ENEMY_SPAWN_DELAY_MAX - ENEMY_SPAWN_DELAY_MIN);
+  return squad;
+}
+
+function spawnFighterSquadFromMothership(state, mothershipSquad, mothershipEnemy) {
+  if (!mothershipSquad || !mothershipEnemy || mothershipEnemy.health <= 0) {
+    return null;
+  }
+
+  const rng = getMothershipRng(state);
+  const planet = state.planets[mothershipSquad.targetPlanetIndex];
+  if (!planet) {
+    return null;
+  }
+
+  const launchDirection = tempVecA.copy(planet.position).sub(mothershipEnemy.position);
+  if (launchDirection.lengthSq() < 1e-6) {
+    launchDirection.copy(planet.position);
+  }
+  if (launchDirection.lengthSq() < 1e-6) {
+    launchDirection.copy(worldUp);
+  }
+  launchDirection.normalize();
+
+  const basis = buildBasisFromNormal(launchDirection);
+  const spawnCenter = tempVecB.copy(mothershipEnemy.position)
+    .addScaledVector(launchDirection, mothershipEnemy.radius * 0.7 + 24)
+    .addScaledVector(basis.tangent, (rng() - 0.5) * 18)
+    .addScaledVector(basis.bitangent, (rng() - 0.5) * 18);
+  const family = pickEnemyFamily(state, ['FlyingSaucer'], rng);
+  const squad = createEnemySquadState(state, mothershipSquad.targetPlanetIndex, 'fighter', rng);
+  squad.family = family;
+  squad.familyFiles = getEnemyFamilyFiles(family).slice();
+  squad.parentMothershipId = mothershipSquad.id;
+  squad.targetPlanetIndex = mothershipSquad.targetPlanetIndex;
+  squad.nextPlanetIndex = pickRandomPlanetIndex(state, squad.targetPlanetIndex, rng);
+  squad.mode = 'approach';
+  squad.modeTimer = 0;
+  squad.fightersTotal = 1;
+  squad.fightersReleased = 1;
+  squad.fightersAlive = 1;
+  squad.fighterReleaseCooldown = 0;
+
+  state.nextEnemySquadId += 1;
+  createEnemyWave(state, squad, {
+    enemyCount: 1,
+    spawnCenter,
+    radial: launchDirection,
+    basis,
+    familyFiles: squad.familyFiles,
+    enemyKind: 'fighter',
+    visualScale: 1,
+    rng
+  });
+  const fighter = state.enemies[state.enemies.length - 1];
+  if (fighter) {
+    fighter.boundPlanet = null;
+    fighter.flightMode = 'free';
+    fighter.recaptureLock = 0;
+  }
+  state.enemySquads.push(squad);
+  return squad;
+}
+
+function spawnMothershipSquad(state, targetPlanetIndex = -1) {
+  if (!state.planets.length) {
+    return null;
+  }
+
+  const rng = getMothershipRng(state);
+  const squad = createEnemySquadState(state, targetPlanetIndex, 'mothership', rng);
+  const planet = state.planets[squad.targetPlanetIndex];
+  if (!planet) {
+    return null;
+  }
+
+  const radial = planet.position.lengthSq() > 1e-6
+    ? planet.position.clone().normalize()
+    : worldUp.clone();
+  const basis = buildBasisFromNormal(radial);
+  const holdRadius = planet.radius * config.mothershipHoldRadiusFactor;
+  const holdPoint = tempVecA.copy(planet.position).addScaledVector(radial, holdRadius);
+  const spawnDistance = Math.max(config.starfieldRadiusMin * 1.08, planet.radius * 6.0)
+    + rng() * Math.max(config.starfieldRadiusMax * 0.12, planet.radius * 1.5);
+  const lateralBias = spawnDistance * (0.88 + rng() * 0.24);
+  const inwardBias = planet.radius * (0.55 + rng() * 0.45);
+  const spawnCenter = tempVecB.copy(holdPoint)
+    .addScaledVector(basis.tangent, lateralBias)
+    .addScaledVector(radial, inwardBias);
+  const travelDirection = tempVecC.copy(holdPoint).sub(spawnCenter).normalize();
+  const edgeUp = tempVecD.copy(basis.bitangent);
+  if (Math.abs(edgeUp.dot(travelDirection)) > 0.85) {
+    edgeUp.copy(basis.tangent);
+  }
+  edgeUp.sub(tempVecE.copy(travelDirection).multiplyScalar(edgeUp.dot(travelDirection))).normalize();
+
+  squad.familyFiles = getEnemyFamilyFiles('FlyingSaucer').slice();
+  squad.holdRadiusFactor = config.mothershipHoldRadiusFactor;
+  squad.holdAngularSpeed = THREE.MathUtils.lerp(
+    config.mothershipHoldAngularSpeedMin,
+    config.mothershipHoldAngularSpeedMax,
+    rng()
+  ) * (rng() < 0.5 ? -1 : 1);
+  squad.holdAngle = rng() * Math.PI * 2;
+  squad.holdAxis.copy(basis.bitangent);
+  if (squad.holdAxis.lengthSq() < 1e-6) {
+    squad.holdAxis.copy(basis.tangent);
+  }
+  squad.holdAxis.normalize();
+  squad.holdRadial.copy(radial);
+  squad.holdTangent.copy(basis.tangent);
+  squad.mothershipExitDirection = radial.clone();
+  squad.holdArrivalDistance = holdPoint.distanceTo(spawnCenter);
+  squad.holdExitDistance = planet.radius * 16;
+  squad.approachStartDistance = Math.max(squad.holdArrivalDistance, 1);
+  squad.fightersTotal = Math.floor(rng() * (config.mothershipFighterCountMax - config.mothershipFighterCountMin + 1)) + config.mothershipFighterCountMin;
+  squad.fightersReleased = 0;
+  squad.fightersAlive = 0;
+  squad.fighterReleaseCooldown = 0.5 + rng() * 1.6;
+  squad.leaveAfterFightersDead = true;
+
+  state.nextEnemySquadId += 1;
+  createEnemyWave(state, squad, {
+    enemyCount: 1,
+    spawnCenter,
+    radial: travelDirection,
+    basis,
+    familyFiles: squad.familyFiles,
+    enemyKind: 'mothership',
+    visualScale: (planet.radius * config.mothershipScaleFactor) / 3,
+    rng
+  });
+
+  const mothership = state.enemies[state.enemies.length - 1];
+  if (mothership) {
+    mothership.kind = 'mothership';
+    mothership.radius = Math.max(ENEMY_HIT_RADIUS * 9, planet.radius * 0.135);
+    mothership.visualScale = (planet.radius * config.mothershipScaleFactor) / 3;
+    mothership.position.copy(spawnCenter);
+    mothership.previousPosition.copy(spawnCenter);
+    mothership.forward.copy(travelDirection);
+    mothership.up.copy(edgeUp);
+    mothership.speed = 0;
+    mothership.velocity.set(0, 0, 0);
+    mothership.relativePosition.copy(mothership.position).sub(planet.position);
+    mothership.relativeVelocity.copy(mothership.velocity).sub(planet.velocity);
+    mothership.boundPlanet = null;
+    mothership.flightMode = 'free';
+    mothership.recaptureLock = 9999;
+    mothership.captureTimer = config.shipCaptureBlendTime;
+    mothership.targetPlanetIndex = squad.targetPlanetIndex;
+    mothership.nextPlanetIndex = squad.nextPlanetIndex;
+    mothership.mode = 'approach';
+    mothership.mothershipStage = 'approach';
+    mothership.mothershipHoldRadius = holdRadius;
+    mothership.mothershipArrivalPoint = holdPoint.clone();
+    mothership.mothershipSpawnPoint = spawnCenter.clone();
+    mothership.mothershipTravelDirection = travelDirection.clone();
+    mothership.mothershipEdgeUp = edgeUp.clone();
+    mothership.mothershipExitDirection = radial.clone();
+    mothership.mothershipHoldAxis = squad.holdAxis.clone();
+    mothership.mothershipHoldAngle = squad.holdAngle;
+    mothership.mothershipApproachExponent = config.mothershipApproachExponent;
+    mothership.mothershipApproachSpeedFactor = config.mothershipApproachSpeedFactor;
+    mothership.mothershipApproachSpeedMinFactor = config.mothershipApproachSpeedMinFactor;
+    mothership.mothershipApproachSnapFactor = config.mothershipApproachSnapFactor;
+    mothership.mothershipExitSpeedFactor = config.mothershipExitSpeedFactor;
+    mothership.mothershipHoldAngularSpeed = squad.holdAngularSpeed;
+    mothership.mothershipReleaseOffset = planet.radius * 0.018;
+  }
+
+  state.mothershipSquads.push(squad);
+  state.mothershipSquad = squad;
+  state.mothershipSpawnTimer = config.mothershipSpawnDelayMin + rng() * (config.mothershipSpawnDelayMax - config.mothershipSpawnDelayMin);
   return squad;
 }
 
@@ -808,10 +1033,11 @@ function spawnEnemyExplosion(state, position, cause = 'projectile') {
 }
 
 function destroyEnemy(state, enemy, cause = 'projectile', impactPosition = null) {
-  if (!enemy || enemy.health <= 0) {
+  if (!enemy || enemy.destroyed) {
     return false;
   }
 
+  enemy.destroyed = true;
   enemy.health = 0;
   enemy.boundPlanet = null;
   enemy.flightMode = 'free';
@@ -826,6 +1052,36 @@ function destroyEnemy(state, enemy, cause = 'projectile', impactPosition = null)
   if (cause === 'projectile') {
     state.score = (state.score || 0) + 100;
   }
+  return true;
+}
+
+function applyEnemyDamage(state, enemy, damage, cause = 'projectile', impactPosition = null) {
+  if (!enemy || enemy.health <= 0) {
+    return false;
+  }
+  enemy.health = Math.max(0, enemy.health - damage);
+  if (enemy.health > 0) {
+    return false;
+  }
+  return destroyEnemy(state, enemy, cause, impactPosition);
+}
+
+function removeEnemySilently(state, enemy) {
+  if (!enemy || enemy.destroyed) {
+    return false;
+  }
+
+  enemy.destroyed = true;
+  enemy.health = 0;
+  enemy.boundPlanet = null;
+  enemy.flightMode = 'free';
+  enemy.recaptureLock = 0;
+
+  const index = state.enemies.indexOf(enemy);
+  if (index >= 0) {
+    state.enemies.splice(index, 1);
+  }
+
   return true;
 }
 
@@ -1019,7 +1275,7 @@ function updateProjectiles(state, dt) {
         }
         const hitRadius = enemy.radius + projectile.radius;
         if (projectile.position.distanceTo(enemy.position) <= hitRadius) {
-          destroyEnemy(state, enemy, 'projectile');
+          applyEnemyDamage(state, enemy, config.shipProjectileDamage, 'projectile');
           dead = true;
           break;
         }
@@ -1437,6 +1693,156 @@ function updateEnemySquads(state, dt, time) {
 
   state.enemySquads = aliveSquads;
   state.enemySquad = state.enemySquads[state.enemySquads.length - 1] || null;
+}
+
+function updateMothershipEnemy(state, enemy, squad, planet, dt) {
+  const radial = planet.position.lengthSq() > 1e-6
+    ? tempVecA.copy(planet.position).normalize()
+    : tempVecA.copy(worldUp);
+  const holdRadius = planet.radius * config.mothershipHoldRadiusFactor;
+  const arrivalPoint = tempVecB.copy(planet.position).addScaledVector(radial, holdRadius);
+
+  if (squad.mode === 'approach') {
+    const toArrival = tempVecC.copy(arrivalPoint).sub(enemy.position);
+    const gap = toArrival.length();
+    if (gap <= Math.max(planet.radius * squad.approachSnapFactor, 24)) {
+      squad.mode = 'hold';
+      squad.holdAngle = getMothershipRng(state)() * Math.PI * 2;
+      enemy.position.copy(arrivalPoint);
+      enemy.velocity.set(0, 0, 0);
+      enemy.speed = 0;
+      enemy.boundPlanet = planet;
+      enemy.flightMode = 'bound';
+      enemy.up.copy(radial);
+      enemy.forward.copy(squad.holdTangent).normalize();
+      enemy.relativePosition.copy(enemy.position).sub(planet.position);
+      enemy.relativeVelocity.set(0, 0, 0);
+      return;
+    }
+
+    const moveDir = toArrival.divideScalar(gap);
+    const normalizedGap = THREE.MathUtils.clamp(gap / Math.max(squad.approachStartDistance, 1), 0, 1);
+    const approachSpeed = Math.max(
+      planet.radius * squad.approachSpeedMinFactor,
+      planet.radius * squad.approachSpeedFactor * Math.pow(normalizedGap, squad.approachExponent)
+    );
+    const previous = enemy.position.clone();
+    enemy.position.addScaledVector(moveDir, approachSpeed * dt);
+    enemy.velocity.copy(enemy.position).sub(previous).divideScalar(Math.max(dt, 1e-6));
+    enemy.speed = enemy.velocity.length();
+    enemy.boundPlanet = null;
+    enemy.flightMode = 'free';
+
+    const edgeUp = tempVecD.copy(squad.holdTangent);
+    if (Math.abs(edgeUp.dot(moveDir)) > 0.85) {
+      edgeUp.copy(squad.holdAxis);
+    }
+    edgeUp.sub(tempVecE.copy(moveDir).multiplyScalar(edgeUp.dot(moveDir))).normalize();
+    const alignT = smoothstep(planet.radius * 0.45, planet.radius * 0.06, gap);
+    enemy.up.copy(tempVecF.copy(edgeUp).lerp(radial, alignT).normalize());
+    enemy.forward.copy(moveDir);
+    enemy.relativePosition.copy(enemy.position).sub(planet.position);
+    enemy.relativeVelocity.copy(enemy.velocity).sub(planet.velocity);
+    return;
+  }
+
+  if (squad.mode === 'hold') {
+    squad.holdAngle += dt * squad.holdAngularSpeed;
+    const rotatedRadial = tempVecC.copy(squad.holdRadial).applyAxisAngle(squad.holdAxis, squad.holdAngle).normalize();
+    const previous = enemy.position.clone();
+    enemy.position.copy(planet.position).addScaledVector(rotatedRadial, holdRadius);
+    enemy.velocity.copy(enemy.position).sub(previous).divideScalar(Math.max(dt, 1e-6));
+    enemy.speed = enemy.velocity.length();
+    enemy.boundPlanet = planet;
+    enemy.flightMode = 'bound';
+    enemy.up.copy(rotatedRadial);
+    enemy.forward.copy(tempVecD.copy(squad.holdAxis).cross(rotatedRadial).normalize());
+    enemy.relativePosition.copy(enemy.position).sub(planet.position);
+    enemy.relativeVelocity.copy(enemy.velocity).sub(planet.velocity);
+    return;
+  }
+
+  if (squad.mode === 'exit') {
+    const exitSource = squad.mothershipExitDirection || squad.holdRadial || radial;
+    const exitDirection = tempVecC.copy(exitSource).normalize();
+    const previous = enemy.position.clone();
+    const exitSpeed = planet.radius * squad.exitSpeedFactor;
+    enemy.position.addScaledVector(exitDirection, exitSpeed * dt);
+    enemy.velocity.copy(enemy.position).sub(previous).divideScalar(Math.max(dt, 1e-6));
+    enemy.speed = enemy.velocity.length();
+    enemy.boundPlanet = null;
+    enemy.flightMode = 'free';
+    enemy.up.copy(exitDirection);
+    enemy.forward.copy(tempVecD.copy(squad.holdAxis).cross(exitDirection).normalize());
+    enemy.relativePosition.copy(enemy.position).sub(planet.position);
+    enemy.relativeVelocity.copy(enemy.velocity).sub(planet.velocity);
+  }
+}
+
+function updateMothershipSquads(state, dt, time) {
+  state.mothershipSpawnTimer = Math.max(0, state.mothershipSpawnTimer - dt);
+  while (
+    state.mothershipSpawnTimer <= 0
+    && state.planets.length > 0
+    && state.mothershipSquads.length < config.mothershipMaxCount
+  ) {
+    spawnMothershipSquad(state, pickEnemySpawnPlanetIndex(state));
+  }
+  if (state.mothershipSpawnTimer <= 0) {
+    const rng = getMothershipRng(state);
+    state.mothershipSpawnTimer = config.mothershipSpawnDelayMin + rng() * (config.mothershipSpawnDelayMax - config.mothershipSpawnDelayMin);
+  }
+
+  const aliveMotherships = [];
+  for (const squad of state.mothershipSquads) {
+    const mothership = state.enemies.find((enemy) => enemy.squadId === squad.id && enemy.health > 0 && enemy.kind === 'mothership');
+    if (!mothership) {
+      continue;
+    }
+
+    const planet = getEnemyTargetPlanet(state, { targetPlanetIndex: squad.targetPlanetIndex });
+    if (!planet) {
+      aliveMotherships.push(squad);
+      continue;
+    }
+
+    updateMothershipEnemy(state, mothership, squad, planet, dt);
+
+    const activeFighterSquads = state.enemySquads.filter((enemySquad) => (
+      enemySquad.parentMothershipId === squad.id
+      && state.enemies.some((enemy) => enemy.squadId === enemySquad.id && enemy.health > 0)
+    ));
+    squad.fightersAlive = activeFighterSquads.length;
+
+    if (squad.mode === 'hold') {
+      squad.fighterReleaseCooldown = Math.max(0, squad.fighterReleaseCooldown - dt);
+      if (squad.fightersReleased < squad.fightersTotal && activeFighterSquads.length === 0 && squad.fighterReleaseCooldown <= 0) {
+        const fighterSquad = spawnFighterSquadFromMothership(state, squad, mothership);
+        if (fighterSquad) {
+          squad.fightersReleased += 1;
+          squad.fightersAlive = 1;
+          squad.fighterReleaseCooldown = config.mothershipFighterReleaseInterval;
+        }
+      }
+
+      if (squad.fightersReleased >= squad.fightersTotal && activeFighterSquads.length === 0) {
+        squad.mode = 'exit';
+      }
+    }
+
+    if (squad.mode === 'exit') {
+      const exitDistance = mothership.position.distanceTo(planet.position) - planet.radius;
+      if (exitDistance > squad.holdExitDistance) {
+        removeEnemySilently(state, mothership);
+        continue;
+      }
+    }
+
+    aliveMotherships.push(squad);
+  }
+
+  state.mothershipSquads = aliveMotherships;
+  state.mothershipSquad = state.mothershipSquads[state.mothershipSquads.length - 1] || null;
 }
 
 function respawnShip(state) {
@@ -2012,7 +2418,11 @@ export function createOrbitalsSim(seed) {
     ship: null,
     enemySquad: null,
     enemySquads: [],
+    mothershipSquad: null,
+    mothershipSquads: [],
     enemySpawnTimer: ENEMY_SPAWN_DELAY_MIN,
+    mothershipSpawnTimer: config.mothershipSpawnDelayMin,
+    mothershipRng: mulberry32(((seed >>> 0) ^ 0x9e3779b9) >>> 0),
     loaded: false,
     crashed: false,
     nearestPlanet: null,
@@ -2039,6 +2449,8 @@ export function createOrbitalsSim(seed) {
     state.ship = createShipState();
     state.enemySquad = null;
     state.enemySquads.length = 0;
+    state.mothershipSquad = null;
+    state.mothershipSquads.length = 0;
     state.crashed = false;
     state.fuel = state.maxFuel;
     state.speed = 0;
@@ -2050,6 +2462,8 @@ export function createOrbitalsSim(seed) {
     state.nextEnemyId = 1;
     state.nextEnemySquadId = 1;
     state.enemySpawnTimer = 0.1 + state.rng() * 0.6;
+    state.mothershipRng = mulberry32(((state.seed >>> 0) ^ 0x9e3779b9) >>> 0);
+    state.mothershipSpawnTimer = config.mothershipSpawnDelayMin + state.mothershipRng() * (config.mothershipSpawnDelayMax - config.mothershipSpawnDelayMin);
 
     const planetCount = Math.floor(state.rng() * (config.planetCountMax - config.planetCountMin + 1)) + config.planetCountMin;
     const chosenFiles = shufflePlanetFiles(state.rng).slice(0, planetCount);
@@ -2082,6 +2496,7 @@ export function createOrbitalsSim(seed) {
     updatePlanets(state, dt, state.time);
     updateShipState(state, dt, controls);
     updateEnemySquads(state, dt, state.time);
+    updateMothershipSquads(state, dt, state.time);
     updateProjectiles(state, dt);
     updateEnemyExplosions(state, dt);
     updateFuelMotes(state, dt, state.time);

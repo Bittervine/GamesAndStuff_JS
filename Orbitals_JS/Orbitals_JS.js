@@ -1577,7 +1577,7 @@ function updateShipControls(dt) {
 
   sim.step(dt, {
     turnInput: THREE.MathUtils.clamp(keyboardTurn + mouseTurn + (state.pointerLocked ? 0 : gamepad.turnX), -1, 1),
-    pitchInput: THREE.MathUtils.clamp(keyboardPitch + (mouseIdle ? 0 : mousePitch) + (state.pointerLocked ? 0 : gamepad.pitchY), -1, 1),
+    pitchInput: THREE.MathUtils.clamp(keyboardPitch + mousePitch + (state.pointerLocked ? 0 : gamepad.pitchY), -1, 1),
     mouseIdle,
     boost,
     brake: keys.has('ShiftLeft') || keys.has('ShiftRight') || (!state.pointerLocked && gamepad.brake),
@@ -1952,10 +1952,15 @@ function ensureEnemyVisual(enemy) {
   return display;
 }
 
+function getEnemyVisualScale(enemy) {
+  return Math.max(0.01, enemy?.visualScale || 1);
+}
+
 function updateEnemyVisuals() {
   const seen = new Set();
   for (const enemy of state.enemies) {
     const display = ensureEnemyVisual(enemy);
+    display.root.scale.setScalar(getEnemyVisualScale(enemy));
     updateShipDisplayTransform(display, enemy.position, enemy.forward, enemy.up, enemy.bank);
     seen.add(enemy.id);
   }
