@@ -1,6 +1,6 @@
 import * as THREE from './lib/three.module.js';
 import { GLTFLoader } from './lib/loaders/GLTFLoader.js';
-import { createOrbitalsSim, ENEMY_MODEL_FILES_BY_FAMILY } from './Orbitals_Sim.js';
+import { createOrbitalsSim, ENEMY_MODEL_FILES_BY_FAMILY, formatCombatLog } from './Orbitals_Sim.js';
 import { PLANET_FILES, config } from './orbitals_config.js';
 
 const ASSET_ROOT = './assets/';
@@ -65,17 +65,20 @@ scene.add(rim);
 
 const sim = createOrbitalsSim(seed);
 const state = sim.state;
-state.aimX = 0;
-state.aimY = 0;
-state.pointerLocked = false;
-state.gamepadConnected = false;
-state.mouseFireHeld = false;
-state.mouseBoostHeld = false;
-state.mouseCenteredHoldTime = 0;
-state.mouseShipCentered = false;
-state.keyboardIdle = true;
-state.gamepadIdle = true;
-state.touchPointerId = null;
+const uiState = {
+  aimX: 0,
+  aimY: 0,
+  pointerLocked: false,
+  gamepadConnected: false,
+  mouseFireHeld: false,
+  mouseBoostHeld: false,
+  mouseCenteredHoldTime: 0,
+  mouseShipCentered: false,
+  keyboardIdle: true,
+  gamepadIdle: true,
+  touchPointerId: null,
+  loaded: false
+};
 const projectileVisuals = new Map();
 const enemyVisuals = new Map();
 const enemyExplosionVisuals = new Map();
@@ -131,6 +134,15 @@ scene.add(starLight);
 
 window.__orbitals = {
   state,
+  getCombatEvents() {
+    return state.eventLog.map((event) => ({ ...event }));
+  },
+  getCombatLog() {
+    return state.eventLog.map((event) => ({ ...event }));
+  },
+  dumpCombatLog() {
+    return formatCombatLog(state);
+  },
   snapshot() {
     const ship = state.ship;
     const cameraOffset = ship ? camera.position.clone().sub(ship.position) : null;
@@ -428,14 +440,14 @@ function withDotSlash(file) {
 }
 
 function getClampedAim() {
-  const aimX = state.aimX;
-  const aimY = state.aimY;
+  const aimX = uiState.aimX;
+  const aimY = uiState.aimY;
   return { x: aimX, y: aimY };
 }
 
 function applyMouseAimDelta(deltaX, deltaY) {
-  state.aimX += deltaX;
-  state.aimY += deltaY;
+  uiState.aimX += deltaX;
+  uiState.aimY += deltaY;
 }
 
 function getMouseShipControlInputs() {
@@ -444,8 +456,8 @@ function getMouseShipControlInputs() {
   const halfHeight = Math.max(1, viewport.height * 0.5);
   const focalX = halfWidth / Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5));
   const focalY = halfHeight / Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5));
-  const dxPx = state.aimX * RETICLE_OFFSET_PX;
-  const dyPx = state.aimY * RETICLE_OFFSET_PX;
+  const dxPx = uiState.aimX * RETICLE_OFFSET_PX;
+  const dyPx = uiState.aimY * RETICLE_OFFSET_PX;
   const angleX = Math.atan(Math.abs(dxPx) / focalX);
   const angleY = Math.atan(Math.abs(dyPx) / focalY);
   const maxAngle = Math.PI * 0.5;
@@ -1465,8 +1477,8 @@ function computeFireDirectionFromReticle() {
   const viewport = renderer.domElement.getBoundingClientRect();
   const halfWidth = Math.max(1, viewport.width * 0.5);
   const halfHeight = Math.max(1, viewport.height * 0.5);
-  const ndcX = (state.aimX * RETICLE_OFFSET_PX) / halfWidth;
-  const ndcY = -(state.aimY * RETICLE_OFFSET_PX) / halfHeight;
+  const ndcX = (uiState.aimX * RETICLE_OFFSET_PX) / halfWidth;
+  const ndcY = -(uiState.aimY * RETICLE_OFFSET_PX) / halfHeight;
   const near = tempVecA.set(ndcX, ndcY, -1).unproject(camera);
   const far = tempVecB.set(ndcX, ndcY, 1).unproject(camera);
   return tempVecD.copy(far).sub(near).normalize();
@@ -1478,26 +1490,26 @@ function setAimFromScreenPoint(clientX, clientY) {
   const centerY = viewport.top + viewport.height * 0.5;
   const halfWidth = Math.max(1, viewport.width * 0.5);
   const halfHeight = Math.max(1, viewport.height * 0.5);
-  state.aimX = THREE.MathUtils.clamp((clientX - centerX) / halfWidth, -1, 1);
-  state.aimY = THREE.MathUtils.clamp((clientY - centerY) / halfHeight, -1, 1);
+  uiState.aimX = THREE.MathUtils.clamp((clientX - centerX) / halfWidth, -1, 1);
+  uiState.aimY = THREE.MathUtils.clamp((clientY - centerY) / halfHeight, -1, 1);
 }
 
 function handleCanvasPointerDown(event) {
   resumeOrbitalsAudio();
   if (event.pointerType === 'touch') {
-    state.touchPointerId = event.pointerId;
-    state.mouseFireHeld = true;
+    uiState.touchPointerId = event.pointerId;
+    uiState.mouseFireHeld = true;
     setAimFromScreenPoint(event.clientX, event.clientY);
     event.preventDefault();
     return;
   }
-  if (!state.pointerLocked) {
+  if (!uiState.pointerLocked) {
     renderer.domElement.requestPointerLock?.();
   }
   if (event.button === 0) {
-    state.mouseFireHeld = true;
+    uiState.mouseFireHeld = true;
   } else if (event.button === 2) {
-    state.mouseBoostHeld = true;
+    uiState.mouseBoostHeld = true;
   }
   if (renderer.domElement.hasPointerCapture?.(event.pointerId) !== true) {
     try {
@@ -1511,36 +1523,34 @@ function handleCanvasPointerDown(event) {
 
 function handleCanvasPointerUp(event) {
   if (event.pointerType === 'touch') {
-    if (state.touchPointerId === event.pointerId) {
-      state.touchPointerId = null;
+    if (uiState.touchPointerId === event.pointerId) {
+      uiState.touchPointerId = null;
     }
-    state.mouseFireHeld = false;
+    uiState.mouseFireHeld = false;
     event.preventDefault();
     return;
   }
   if (event.button === 0) {
-    state.mouseFireHeld = false;
+    uiState.mouseFireHeld = false;
   } else if (event.button === 2) {
-    state.mouseBoostHeld = false;
+    uiState.mouseBoostHeld = false;
   }
   renderer.domElement.releasePointerCapture?.(event.pointerId);
 }
 
 function handleCanvasPointerCancel(event) {
-  if (event.pointerType === 'touch' && state.touchPointerId === event.pointerId) {
-    state.touchPointerId = null;
+  if (event.pointerType === 'touch' && uiState.touchPointerId === event.pointerId) {
+    uiState.touchPointerId = null;
   }
-  state.mouseFireHeld = false;
-  state.mouseBoostHeld = false;
+  uiState.mouseFireHeld = false;
+  uiState.mouseBoostHeld = false;
   renderer.domElement.releasePointerCapture?.(event.pointerId);
 }
 
 function handleWindowBlur() {
-  state.mouseFireHeld = false;
-  state.mouseBoostHeld = false;
-  state.mouseTurnInput = 0;
-  state.mousePitchInput = 0;
-  state.touchPointerId = null;
+  uiState.mouseFireHeld = false;
+  uiState.mouseBoostHeld = false;
+  uiState.touchPointerId = null;
 }
 
 function relaxPlanetSeparation(planets) {
@@ -1608,7 +1618,7 @@ function updateShipOrientation(dt, localUp) {
 
 function updateShipControls(dt) {
   const gamepad = readGamepadInput();
-  state.gamepadConnected = gamepad.connected && !state.pointerLocked;
+  uiState.gamepadConnected = gamepad.connected && !uiState.pointerLocked;
   const gamepadActive = gamepad.connected && (
     gamepad.turnX !== 0
     || gamepad.pitchY !== 0
@@ -1622,13 +1632,13 @@ function updateShipControls(dt) {
   if (gamepadActive) {
     resumeOrbitalsAudio();
   }
-  const touchActive = state.touchPointerId != null;
-  if (!state.pointerLocked && !touchActive) {
-    state.aimX = THREE.MathUtils.lerp(state.aimX, 0, easeExp(dt, 2.2));
-    state.aimY = THREE.MathUtils.lerp(state.aimY, 0, easeExp(dt, 2.2));
+  const touchActive = uiState.touchPointerId != null;
+  if (!uiState.pointerLocked && !touchActive) {
+    uiState.aimX = THREE.MathUtils.lerp(uiState.aimX, 0, easeExp(dt, 2.2));
+    uiState.aimY = THREE.MathUtils.lerp(uiState.aimY, 0, easeExp(dt, 2.2));
     if (gamepad.aimX !== 0 || gamepad.aimY !== 0) {
-      state.aimX = gamepad.aimX;
-      state.aimY = gamepad.aimY;
+      uiState.aimX = gamepad.aimX;
+      uiState.aimY = gamepad.aimY;
     }
   }
 
@@ -1636,18 +1646,18 @@ function updateShipControls(dt) {
     + (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0);
   const keyboardPitch = (keys.has('ArrowUp') ? 1 : 0) - (keys.has('ArrowDown') ? 1 : 0)
     + (keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0);
-  const fire = state.mouseFireHeld || keys.has('ControlLeft') || keys.has('ControlRight') || (!state.pointerLocked && gamepad.fire);
-  const boost = state.mouseBoostHeld || keys.has('Space') || (!state.pointerLocked && gamepad.boost);
-  const mouseShipActive = state.pointerLocked || touchActive;
+  const fire = uiState.mouseFireHeld || keys.has('ControlLeft') || keys.has('ControlRight') || (!uiState.pointerLocked && gamepad.fire);
+  const boost = uiState.mouseBoostHeld || keys.has('Space') || (!uiState.pointerLocked && gamepad.boost);
+  const mouseShipActive = uiState.pointerLocked || touchActive;
   const mouseShipInput = mouseShipActive ? getMouseShipControlInputs() : { turnInput: 0, pitchInput: 0 };
   const fireDirection = fire ? computeFireDirectionFromReticle() : null;
   const projectileIdBefore = lastProjectileIdForSfx;
   const explosionIdBefore = lastEnemyExplosionIdForSfx;
   const mouseTurn = mouseShipActive ? mouseShipInput.turnInput : 0;
   const mousePitch = mouseShipActive ? mouseShipInput.pitchInput : 0;
-  state.mouseShipCentered = Boolean(mouseShipActive && mouseShipInput.shipIsCentered);
-  const mouseIdle = Boolean(mouseShipActive && state.mouseShipCentered && state.mouseCenteredHoldTime >= 0.5);
-  state.keyboardIdle = !(
+  uiState.mouseShipCentered = Boolean(mouseShipActive && mouseShipInput.shipIsCentered);
+  const mouseIdle = Boolean(mouseShipActive && uiState.mouseShipCentered && uiState.mouseCenteredHoldTime >= 0.5);
+  uiState.keyboardIdle = !(
     keyboardTurn !== 0
     || keyboardPitch !== 0
     || keys.has('Space')
@@ -1656,30 +1666,30 @@ function updateShipControls(dt) {
     || keys.has('ShiftLeft')
     || keys.has('ShiftRight')
   );
-  state.gamepadIdle = !(
-    (state.pointerLocked ? false : gamepad.connected)
+  uiState.gamepadIdle = !(
+    (uiState.pointerLocked ? false : gamepad.connected)
     && gamepadActive
   );
 
   sim.step(dt, {
-    turnInput: THREE.MathUtils.clamp(keyboardTurn + mouseTurn + (state.pointerLocked ? 0 : gamepad.turnX), -1, 1),
-    pitchInput: THREE.MathUtils.clamp(keyboardPitch + mousePitch + (state.pointerLocked ? 0 : gamepad.pitchY), -1, 1),
+    turnInput: THREE.MathUtils.clamp(keyboardTurn + mouseTurn + (uiState.pointerLocked ? 0 : gamepad.turnX), -1, 1),
+    pitchInput: THREE.MathUtils.clamp(keyboardPitch + mousePitch + (uiState.pointerLocked ? 0 : gamepad.pitchY), -1, 1),
     mouseIdle,
     boost,
-    brake: keys.has('ShiftLeft') || keys.has('ShiftRight') || (!state.pointerLocked && gamepad.brake),
-    respawn: state.pointerLocked ? false : gamepad.respawn,
+    brake: keys.has('ShiftLeft') || keys.has('ShiftRight') || (!uiState.pointerLocked && gamepad.brake),
+    respawn: uiState.pointerLocked ? false : gamepad.respawn,
     fire,
     fireDirection,
   });
 
-  if (state.pointerLocked) {
+  if (uiState.pointerLocked) {
     if (mouseShipInput.shipIsCentered) {
-      state.mouseCenteredHoldTime = (state.mouseCenteredHoldTime || 0) + dt;
+      uiState.mouseCenteredHoldTime = (uiState.mouseCenteredHoldTime || 0) + dt;
     } else {
-      state.mouseCenteredHoldTime = 0;
+      uiState.mouseCenteredHoldTime = 0;
     }
   } else {
-    state.mouseCenteredHoldTime = 0;
+    uiState.mouseCenteredHoldTime = 0;
   }
 
   if (fire && state.nextProjectileId > projectileIdBefore) {
@@ -1736,10 +1746,10 @@ function updateHud() {
   const planetIndex = nearest ? (state.planets.indexOf(nearest) + 1) : 0;
   const shipMode = state.ship ? (state.ship.flightMode || (state.ship.boundPlanet ? 'bound' : 'free')) : 'none';
   const lock = state.ship ? (state.ship.recaptureLock || 0) : 0;
-  const mouseCenteredHoldTime = state.mouseCenteredHoldTime || 0;
+  const mouseCenteredHoldTime = uiState.mouseCenteredHoldTime || 0;
   const mode = state.crashed
     ? 'CRASHED'
-    : (state.pointerLocked ? 'Mouse captured' : (state.gamepadConnected ? 'Gamepad ready' : 'Keyboard ready'));
+    : (uiState.pointerLocked ? 'Mouse captured' : (uiState.gamepadConnected ? 'Gamepad ready' : 'Keyboard ready'));
   statusLine.textContent = nearest
     ? `Score: ${score} | Fuel: ${fuel.toFixed(1)} | Speed: ${speed.toFixed(1)} | Planet: ${planetIndex} | Altitude: ${alt.toFixed(1)} | State: ${state.crashed ? 'CRASHED' : shipMode}`
     : `Score: ${score} | Fuel: ${fuel.toFixed(1)} | Speed: ${speed.toFixed(1)} | Planet: 0 | Altitude: ${alt.toFixed(1)} | State: ${state.crashed ? 'CRASHED' : shipMode}`;
@@ -1752,13 +1762,13 @@ function updateHud() {
       })()
     : 'Use Gamepad or W/A/S/D/Space/Ctrl and/or Mouse';
   if (mouseDebugLine) {
-    if (!state.pointerLocked) {
-      mouseDebugLine.textContent = `Mouse: (not captured) | Keyboard: ${state.keyboardIdle ? 'Idle' : 'Active'} | Gamepad: ${state.gamepadIdle ? 'Idle' : 'Active'}`;
+    if (!uiState.pointerLocked) {
+      mouseDebugLine.textContent = `Mouse: (not captured) | Keyboard: ${uiState.keyboardIdle ? 'Idle' : 'Active'} | Gamepad: ${uiState.gamepadIdle ? 'Idle' : 'Active'}`;
     } else {
-      const mx = Math.round(state.aimX * RETICLE_OFFSET_PX);
-      const my = Math.round(state.aimY * RETICLE_OFFSET_PX);
-      const centered = state.mouseShipCentered ? ` centered (${mouseCenteredHoldTime.toFixed(1)}s)` : '';
-      mouseDebugLine.textContent = `Mouse: X${mx >= 0 ? '+' : ''}${mx} Y${my >= 0 ? '+' : ''}${my}${centered} | Keyboard: ${state.keyboardIdle ? 'Idle' : 'Active'} | Gamepad: ${state.gamepadIdle ? 'Idle' : 'Active'}`;
+      const mx = Math.round(uiState.aimX * RETICLE_OFFSET_PX);
+      const my = Math.round(uiState.aimY * RETICLE_OFFSET_PX);
+      const centered = uiState.mouseShipCentered ? ` centered (${mouseCenteredHoldTime.toFixed(1)}s)` : '';
+      mouseDebugLine.textContent = `Mouse: X${mx >= 0 ? '+' : ''}${mx} Y${my >= 0 ? '+' : ''}${my}${centered} | Keyboard: ${uiState.keyboardIdle ? 'Idle' : 'Active'} | Gamepad: ${uiState.gamepadIdle ? 'Idle' : 'Active'}`;
     }
   }
   const aim = getClampedAim();
@@ -1784,7 +1794,7 @@ function updateEnemyHudMarkers() {
     return;
   }
 
-  if (!state.loaded || !state.ship || state.enemies.length === 0) {
+  if (!uiState.loaded || !state.ship || state.enemies.length === 0) {
     for (const marker of enemyHudMarkers) {
       marker.style.opacity = '0';
       marker.style.transform = 'translate(-9999px, -9999px)';
@@ -1847,7 +1857,7 @@ function updateMouseLockButton() {
   if (!mouseLockButton) {
     return;
   }
-  mouseLockButton.textContent = state.pointerLocked ? 'Unlock mouse' : 'Lock mouse';
+  mouseLockButton.textContent = uiState.pointerLocked ? 'Unlock mouse' : 'Lock mouse';
 }
 
 function canRespawnAfterCrash() {
@@ -2063,7 +2073,7 @@ function updateEnemyVisuals() {
 async function bootstrap() {
   loadingText.textContent = 'Choosing planets...';
   sim.bootstrapWorld();
-  state.loaded = false;
+  uiState.loaded = false;
   makeStarfield();
 
   const planetConfigs = state.planets;
@@ -2110,7 +2120,7 @@ async function bootstrap() {
   loadingWrap.style.display = 'none';
   lastProjectileIdForSfx = state.nextProjectileId || 0;
   lastEnemyExplosionIdForSfx = state.nextEnemyExplosionId || 0;
-  state.loaded = true;
+  uiState.loaded = true;
   statusLine.textContent = 'Keyboard/gamepad ready. Click the canvas to capture the mouse.';
   updateMouseLockButton();
 }
@@ -2123,25 +2133,23 @@ function handleResize() {
 
 function handlePointerMove(event) {
   if (event.pointerType === 'touch') {
-    if (state.touchPointerId === event.pointerId) {
+    if (uiState.touchPointerId === event.pointerId) {
       setAimFromScreenPoint(event.clientX, event.clientY);
     }
     return;
   }
-  if (!state.pointerLocked) {
+  if (!uiState.pointerLocked) {
     return;
   }
   applyMouseAimDelta(event.movementX * MOUSE_AIM_SENSITIVITY, event.movementY * MOUSE_AIM_SENSITIVITY);
 }
 
 function handlePointerLockChange() {
-  state.pointerLocked = document.pointerLockElement === renderer.domElement;
+  uiState.pointerLocked = document.pointerLockElement === renderer.domElement;
   updateMouseLockButton();
-  if (!state.pointerLocked) {
-    state.mouseFireHeld = false;
-    state.mouseBoostHeld = false;
-    state.mouseTurnInput = 0;
-    state.mousePitchInput = 0;
+  if (!uiState.pointerLocked) {
+    uiState.mouseFireHeld = false;
+    uiState.mouseBoostHeld = false;
     statusLine.textContent = state.crashed
       ? 'Crashed. Press R or Start to restart.'
       : 'Keyboard/gamepad ready. Click the canvas to capture the mouse.';
@@ -2204,7 +2212,7 @@ function updatePlanets(dt, time) {
 function render() {
   const dt = Math.min(clock.getDelta(), 0.05);
 
-  if (state.loaded && state.ship) {
+  if (uiState.loaded && state.ship) {
     updateShipControls(dt);
     updatePlanets(dt, clock.elapsedTime);
     updateFuelMotes(dt, clock.elapsedTime);
