@@ -448,7 +448,7 @@ function readGamepadInput() {
   const pitchY = applyDeadzone(-(axes[1] ?? 0), 0.18);
   const fire = Boolean(buttons[7] && buttons[7].pressed);
   const boost = Boolean((buttons[0] && buttons[0].pressed) || (buttons[5] && buttons[5].pressed));
-  const brake = Boolean((buttons[6] && buttons[6].pressed) || (buttons[4] && buttons[4].pressed));
+  const brake = Boolean((buttons[1] && buttons[1].pressed) || (buttons[6] && buttons[6].pressed) || (buttons[4] && buttons[4].pressed));
   const respawn = Boolean(buttons[9] && buttons[9].pressed);
 
   return {
@@ -1628,7 +1628,14 @@ function updateCamera(dt) {
   const above = tempVecC.copy(ship.up).multiplyScalar(camHeight);
   const desiredCameraPos = tempVecD.copy(ship.position).add(behind).add(above);
   camera.position.copy(desiredCameraPos);
-  camera.up.copy(ship.up);
+  const cameraRollResponse = ship.flightMode === 'free'
+    ? config.freeCameraRollResponse
+    : Math.max(config.shipCamLag * 0.35, 8.0);
+  camera.up.lerp(ship.up, easeExp(dt, cameraRollResponse));
+  if (camera.up.lengthSq() < 1e-8) {
+    camera.up.copy(ship.up);
+  }
+  camera.up.normalize();
   const lookTarget = ship.position.clone()
     .addScaledVector(ship.forward, 10);
   camera.lookAt(lookTarget);
@@ -1652,7 +1659,7 @@ function updateHud() {
     : `Score: ${score} | Fuel: ${fuel.toFixed(1)} | Speed: ${speed.toFixed(1)} | Planet: 0 | Altitude: ${alt.toFixed(1)} | State: ${state.crashed ? 'CRASHED' : shipMode}`;
   statsLine.textContent = state.crashed
     ? (() => {
-        const remaining = Math.max(0, (config.crashRespawnDelay ?? 3.0) - (state.crashTimer || 0));
+        const remaining = Math.max(0, config.crashRespawnDelay - (state.crashTimer || 0));
         return remaining > 0
           ? `Ship destroyed. Restart available in ${remaining.toFixed(1)}s.`
           : 'Ship destroyed. Press R or Start to restart.';
@@ -1761,7 +1768,7 @@ function canRespawnAfterCrash() {
   if (!state.crashed) {
     return true;
   }
-  return (state.crashTimer || 0) >= (config.crashRespawnDelay ?? 3.0);
+  return (state.crashTimer || 0) >= config.crashRespawnDelay;
 }
 
 function respawnShip() {
@@ -1786,7 +1793,7 @@ function updateGameOverOverlay() {
     return;
   }
 
-  const remaining = Math.max(0, (config.crashRespawnDelay ?? 3.0) - (state.crashTimer || 0));
+  const remaining = Math.max(0, config.crashRespawnDelay - (state.crashTimer || 0));
   gameOverTimerEl.textContent = remaining > 0
     ? `Restart available in ${remaining.toFixed(1)}s`
     : 'Press R or Start to restart';

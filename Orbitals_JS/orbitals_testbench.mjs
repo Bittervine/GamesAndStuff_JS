@@ -3,6 +3,7 @@ import * as THREE from './lib/three.module.js';
 import { createOrbitalsSim, ENEMY_MODEL_FILES_BY_FAMILY } from './Orbitals_Sim.js';
 import { config } from './orbitals_config.js';
 
+const WORLD_UP = new THREE.Vector3(0, 1, 0);
 const NEUTRAL_CONTROLS = {
   turnInput: 0,
   pitchInput: 0,
@@ -55,6 +56,54 @@ function unwrapAngleDelta(previousAngle, nextAngle) {
     delta += Math.PI * 2;
   }
   return delta;
+}
+
+function buildSurfaceBasis(planet, position) {
+  const localUp = position.clone().sub(planet.position).normalize();
+  const tangent = Math.abs(localUp.dot(WORLD_UP)) > 0.85
+    ? new THREE.Vector3(1, 0, 0).cross(localUp).normalize()
+    : WORLD_UP.clone().cross(localUp).normalize();
+  const bitangent = localUp.clone().cross(tangent).normalize();
+  return { localUp, tangent, bitangent };
+}
+
+function orbitAngleAroundBody(center, position, referenceDirection) {
+  const relative = position.clone().sub(center);
+  const basisDirection = referenceDirection && referenceDirection.lengthSq() > 1e-6
+    ? referenceDirection.clone().normalize()
+    : (relative.lengthSq() > 1e-6 ? relative.clone().normalize() : WORLD_UP.clone());
+  const tangent = Math.abs(basisDirection.dot(WORLD_UP)) > 0.85
+    ? new THREE.Vector3(1, 0, 0).cross(basisDirection).normalize()
+    : WORLD_UP.clone().cross(basisDirection).normalize();
+  const bitangent = basisDirection.clone().cross(tangent).normalize();
+  return Math.atan2(relative.dot(bitangent), relative.dot(tangent));
+}
+
+function configureFreeFlightShip(state, planet, worldPosition, forward, up, speed, options = {}) {
+  const ship = state.ship;
+  const nextForward = forward.clone().normalize();
+  const nextUp = up.clone().normalize();
+  const worldVelocity = nextForward.clone().multiplyScalar(speed);
+
+  ship.boundPlanet = null;
+  ship.flightMode = 'free';
+  ship.recaptureLock = options.recaptureLock ?? (config.shipRecaptureDelay + 5);
+  ship.captureTimer = config.shipCaptureBlendTime;
+  ship.position.copy(worldPosition);
+  ship.velocity.copy(worldVelocity);
+  ship.relativePosition.copy(worldPosition).sub(planet.position);
+  ship.relativeVelocity.copy(worldVelocity).sub(planet.velocity);
+  ship.forward.copy(nextForward);
+  ship.up.copy(nextUp);
+  ship.bank = options.bank ?? 0;
+  ship.boostTimer = 0;
+  ship.fireCooldown = 0;
+  ship.pitchIdleTime = 0;
+  ship.speed = speed;
+  state.nearestPlanet = planet;
+  state.nearestDistance = worldPosition.distanceTo(planet.position);
+  state.nearestAltitude = state.nearestDistance - planet.radius;
+  state.speed = speed;
 }
 
 function runStableAltitudeTest() {
@@ -382,7 +431,7 @@ function runAtmosphereBoostPitchLockTest() {
   const tangent = Math.abs(up.dot(new THREE.Vector3(0, 1, 0))) > 0.85
     ? new THREE.Vector3(1, 0, 0).cross(up).normalize()
     : new THREE.Vector3(0, 1, 0).cross(up).normalize();
-  const altitude = Math.min(config.atmosphereControlAltitude * 0.6, planet.atmosphereRadius - planet.radius - 0.2);
+  const altitude = Math.min(30, planet.atmosphereRadius - planet.radius - 0.2);
   const worldPosition = planet.position.clone().addScaledVector(up, planet.radius + altitude);
   const initialForward = tangent.clone().addScaledVector(up, 0.42).normalize();
   const initialUp = up.clone().sub(initialForward.clone().multiplyScalar(up.dot(initialForward))).normalize();
@@ -530,31 +579,71 @@ function runBoostDirectionTest() {
   );
 }
 
+function runFreeBrakeDecayTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  const planet = state.planets[0];
+  assert.ok(planet, 'expected at least one planet for the free brake test');
+
+  const worldPosition = new THREE.Vector3(24000, -15000, 18500);
+  const initialForward = new THREE.Vector3(0.34, 0.21, 0.92).normalize();
+  const initialUp = WORLD_UP.clone().sub(initialForward.clone().multiplyScalar(WORLD_UP.dot(initialForward))).normalize();
+  const initialSpeed = 18;
+
+  configureFreeFlightShip(
+    state,
+    planet,
+    worldPosition,
+    initialForward,
+    initialUp,
+    initialSpeed,
+    {
+      bank: 0,
+      recaptureLock: config.shipRecaptureDelay + 8
+    }
+  );
+
+  stepSim(sim, 120, { ...NEUTRAL_CONTROLS, brake: true });
+
+  const finalSpeed = state.speed;
+  const expectedSpeed = initialSpeed * 0.5;
+
+  assert.ok(
+    Math.abs(finalSpeed - expectedSpeed) <= 1e-6,
+    `free brake should remove half the speed every 2 seconds: initial=${initialSpeed.toFixed(3)} final=${finalSpeed.toFixed(3)} expected=${expectedSpeed.toFixed(3)}`
+  );
+
+  console.log(
+    `PASS free-brake: initial=${initialSpeed.toFixed(3)} final=${finalSpeed.toFixed(3)} expected=${expectedSpeed.toFixed(3)}`
+  );
+}
+
 function runFuelRechargeTest() {
   const sim = createOrbitalsSim(0xC0FFEE);
   sim.bootstrapWorld();
 
-  stepSim(sim, 240, NEUTRAL_CONTROLS);
-  stepSim(sim, 180, { ...NEUTRAL_CONTROLS, boost: true });
-  const fuelAfterBoost = sim.state.fuel;
+  sim.state.fuel = 0;
+  sim.state.ship.boostTimer = 0;
 
-  stepSim(sim, 180, NEUTRAL_CONTROLS);
-  const fuelAfterDecay = sim.state.fuel;
+  stepSim(sim, 120, NEUTRAL_CONTROLS);
+  const fuelAfterTwoSeconds = sim.state.fuel;
 
   stepSim(sim, 240, NEUTRAL_CONTROLS);
   const recoveredFuel = sim.state.fuel;
 
   assert.ok(
-    recoveredFuel > fuelAfterDecay + 0.05,
-    `fuel should recharge over time: afterDecay=${fuelAfterDecay.toFixed(3)} recovered=${recoveredFuel.toFixed(3)}`
+    Math.abs(fuelAfterTwoSeconds - (sim.state.maxFuel * 0.5)) <= 1e-6,
+    `fuel should refill halfway after 2 seconds: afterTwoSeconds=${fuelAfterTwoSeconds.toFixed(3)} expected=${(sim.state.maxFuel * 0.5).toFixed(3)}`
   );
   assert.ok(
-    recoveredFuel <= sim.state.maxFuel,
-    `fuel recharge should not exceed max: recovered=${recoveredFuel.toFixed(3)} max=${sim.state.maxFuel.toFixed(3)}`
+    Math.abs(recoveredFuel - sim.state.maxFuel) <= 1e-6,
+    `fuel should fully recharge after 4 seconds: recovered=${recoveredFuel.toFixed(3)} max=${sim.state.maxFuel.toFixed(3)}`
   );
 
   console.log(
-    `PASS fuel-recharge: afterBoost=${fuelAfterBoost.toFixed(3)} afterDecay=${fuelAfterDecay.toFixed(3)} recovered=${recoveredFuel.toFixed(3)}`
+    `PASS fuel-recharge: after2s=${fuelAfterTwoSeconds.toFixed(3)} recovered=${recoveredFuel.toFixed(3)}`
   );
 }
 
@@ -563,54 +652,126 @@ function runSpaceNewtonianTest() {
   sim.bootstrapWorld();
 
   const { state } = sim;
-  const planet = state.ship.boundPlanet;
-  assert.ok(planet, 'expected the ship to start bound to a planet');
+  const planet = state.planets[0];
+  assert.ok(planet, 'expected at least one planet for the deep-space setup');
 
-  const up = state.ship.position.clone().sub(planet.position).normalize();
-  const tangent = Math.abs(up.dot(new THREE.Vector3(0, 1, 0))) > 0.85
-    ? new THREE.Vector3(1, 0, 0).cross(up).normalize()
-    : new THREE.Vector3(0, 1, 0).cross(up).normalize();
-  const altitude = planet.atmosphereRadius - planet.radius + 520;
-  const worldPosition = planet.position.clone().addScaledVector(up, planet.radius + altitude);
+  const worldPosition = new THREE.Vector3(24000, -15000, 18500);
+  const initialForward = new THREE.Vector3(0.34, 0.21, 0.92).normalize();
+  const initialUp = WORLD_UP.clone().sub(initialForward.clone().multiplyScalar(WORLD_UP.dot(initialForward))).normalize();
+  const initialSpeed = 17.5;
 
-  state.ship.boundPlanet = planet;
-  state.ship.relativePosition.copy(worldPosition).sub(planet.position);
-  state.ship.relativeVelocity.copy(tangent).multiplyScalar(2.4);
-  state.ship.position.copy(worldPosition);
-  state.ship.velocity.copy(tangent).multiplyScalar(2.4);
-  state.ship.forward.copy(tangent).addScaledVector(up, 0.25).normalize();
-  state.ship.bank = 0.25;
-  state.ship.speed = state.ship.relativeVelocity.length();
-  state.nearestPlanet = planet;
-  state.nearestDistance = worldPosition.distanceTo(planet.position);
-  state.nearestAltitude = altitude;
-  state.speed = state.ship.speed;
+  configureFreeFlightShip(
+    state,
+    planet,
+    worldPosition,
+    initialForward,
+    initialUp,
+    initialSpeed,
+    {
+      bank: 0.18,
+      recaptureLock: config.shipRecaptureDelay + 8
+    }
+  );
 
-  const initialForward = state.ship.forward.clone();
-  const initialAltitude = altitudeBetween(state.ship, planet);
-  const initialPosition = state.ship.position.clone();
+  stepSim(sim, 600, NEUTRAL_CONTROLS);
 
-  stepSim(sim, 120, NEUTRAL_CONTROLS);
-
-  const finalAltitude = altitudeBetween(state.ship, planet);
-  const finalForward = state.ship.forward.clone();
-  const travelVector = state.ship.position.clone().sub(initialPosition).normalize();
+  const finalSpeed = state.speed;
+  const finalForward = state.ship.forward.clone().normalize();
+  const travelVector = state.ship.position.clone().sub(worldPosition).normalize();
 
   assert.ok(
-    finalForward.dot(initialForward) > 0.93,
-    `space flight should keep the nose aligned: dot=${finalForward.dot(initialForward).toFixed(3)}`
+    Math.abs(finalSpeed - initialSpeed) <= 1e-6,
+    `free flight should have no passive drag: initial=${initialSpeed.toFixed(3)} final=${finalSpeed.toFixed(3)}`
   );
   assert.ok(
-    travelVector.dot(initialForward) > 0.9,
-    `space flight should move along the current space heading: dot=${travelVector.dot(initialForward).toFixed(3)}`
-  );
-  assert.ok(
-    Math.abs(finalAltitude - initialAltitude) < 10,
-    `space flight should stay locally stable without inertia: initial=${initialAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)}`
+    travelVector.dot(finalForward) > 0.99,
+    `free flight travel should stay nose-coupled: dot=${travelVector.dot(finalForward).toFixed(3)}`
   );
 
   console.log(
-    `PASS space-nose-flight: initial=${initialAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)} dot=${finalForward.dot(initialForward).toFixed(3)}`
+    `PASS free-no-drag: initial=${initialSpeed.toFixed(3)} final=${finalSpeed.toFixed(3)} travelDot=${travelVector.dot(finalForward).toFixed(3)}`
+  );
+}
+
+function runFreeFlightMovesAlongNoseTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  const planet = state.planets[0];
+  assert.ok(planet, 'expected at least one planet for the gravity test');
+
+  const planetRadial = planet.position.lengthSq() > 1e-6
+    ? planet.position.clone().normalize()
+    : WORLD_UP.clone();
+  const tangent = Math.abs(planetRadial.dot(WORLD_UP)) > 0.85
+    ? new THREE.Vector3(1, 0, 0).cross(planetRadial).normalize()
+    : WORLD_UP.clone().cross(planetRadial).normalize();
+  const altitude = Math.max(
+    planet.atmosphereRadius - planet.radius + 140,
+    planet.gravityRadius * 0.28
+  );
+  const worldPosition = planet.position.clone().addScaledVector(planetRadial, planet.radius + altitude);
+  const initialForward = tangent.clone().addScaledVector(planetRadial, 0.14).normalize();
+  const initialUp = planetRadial.clone().sub(initialForward.clone().multiplyScalar(planetRadial.dot(initialForward))).normalize();
+
+  configureFreeFlightShip(
+    state,
+    planet,
+    worldPosition,
+    initialForward,
+    initialUp,
+    12.0,
+    {
+      bank: 0,
+      recaptureLock: config.shipRecaptureDelay + 8
+    }
+  );
+
+  let minAltitude = Infinity;
+  let minStepDot = Infinity;
+  let maxSpeedDelta = 0;
+  let accumulatedAngle = 0;
+
+  for (let i = 0; i < 120; i += 1) {
+    const startPosition = state.ship.position.clone();
+    const startForward = state.ship.forward.clone().normalize();
+    const startSpeed = state.speed;
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+    const endForward = state.ship.forward.clone().normalize();
+    const averageForward = startForward.clone().add(endForward);
+    if (averageForward.lengthSq() <= 1e-8) {
+      averageForward.copy(endForward);
+    }
+    averageForward.normalize();
+    const stepVector = state.ship.position.clone().sub(startPosition).normalize();
+    minStepDot = Math.min(minStepDot, stepVector.dot(averageForward));
+    minAltitude = Math.min(minAltitude, altitudeBetween(state.ship, planet));
+    maxSpeedDelta = Math.max(maxSpeedDelta, Math.abs(state.speed - startSpeed));
+    accumulatedAngle += startForward.angleTo(endForward);
+  }
+
+  assert.strictEqual(state.ship.flightMode, 'free', 'expected the ship to stay in free flight');
+  assert.strictEqual(state.ship.boundPlanet, null, 'expected the ship to remain unbound');
+  assert.ok(
+    minStepDot > 0.995,
+    `free flight should move along the current nose: minStepDot=${minStepDot.toFixed(3)}`
+  );
+  assert.ok(
+    maxSpeedDelta <= 1e-6,
+    `free flight should not add inertial drift or drag: maxSpeedDelta=${maxSpeedDelta.toExponential(2)}`
+  );
+  assert.ok(
+    minAltitude > planet.atmosphereRadius - planet.radius,
+    `free flight should stay outside the atmosphere during the nose-coupling check: minAltitude=${minAltitude.toFixed(3)} atmosphere=${(planet.atmosphereRadius - planet.radius).toFixed(3)}`
+  );
+  assert.ok(
+    accumulatedAngle > 0.02,
+    `gravity steering should still be able to bend the nose a little: angle=${accumulatedAngle.toFixed(3)}`
+  );
+
+  console.log(
+    `PASS free-moves-along-nose: minStepDot=${minStepDot.toFixed(3)} minAltitude=${minAltitude.toFixed(3)} angle=${accumulatedAngle.toFixed(3)}`
   );
 }
 
@@ -619,31 +780,26 @@ function runSpaceLoopTest() {
   sim.bootstrapWorld();
 
   const { state } = sim;
-  const planet = state.ship.boundPlanet;
-  assert.ok(planet, 'expected the ship to start bound to a planet');
+  const planet = state.planets[0];
+  assert.ok(planet, 'expected at least one planet for the loop test');
 
-  const up = state.ship.position.clone().sub(planet.position).normalize();
-  const tangent = Math.abs(up.dot(new THREE.Vector3(0, 1, 0))) > 0.85
-    ? new THREE.Vector3(1, 0, 0).cross(up).normalize()
-    : new THREE.Vector3(0, 1, 0).cross(up).normalize();
-  const altitude = planet.atmosphereRadius - planet.radius + 900;
-  const worldPosition = planet.position.clone().addScaledVector(up, planet.radius + altitude);
+  const worldPosition = new THREE.Vector3(22000, 8000, -16000);
+  const initialForward = new THREE.Vector3(0.15, 0.92, 0.35).normalize();
+  const initialUp = WORLD_UP.clone().sub(initialForward.clone().multiplyScalar(WORLD_UP.dot(initialForward))).normalize();
 
-  state.ship.boundPlanet = planet;
-  state.ship.relativePosition.copy(worldPosition).sub(planet.position);
-  state.ship.relativeVelocity.copy(tangent).multiplyScalar(2.4);
-  state.ship.position.copy(worldPosition);
-  state.ship.velocity.copy(tangent).multiplyScalar(2.4);
-  state.ship.forward.copy(tangent).normalize();
-  state.ship.up.copy(up);
-  state.ship.bank = 0;
-  state.ship.speed = state.ship.relativeVelocity.length();
-  state.nearestPlanet = planet;
-  state.nearestDistance = worldPosition.distanceTo(planet.position);
-  state.nearestAltitude = altitude;
-  state.speed = state.ship.speed;
+  configureFreeFlightShip(
+    state,
+    planet,
+    worldPosition,
+    initialForward,
+    initialUp,
+    11.5,
+    {
+      bank: 0,
+      recaptureLock: config.shipRecaptureDelay + 8
+    }
+  );
 
-  const initialForward = state.ship.forward.clone();
   let minDot = Infinity;
   let maxDot = -Infinity;
 
@@ -669,51 +825,61 @@ function runSpaceFreeNoAutoReorientTest() {
   sim.bootstrapWorld();
 
   const { state } = sim;
-  const planet = state.ship.boundPlanet;
-  assert.ok(planet, 'expected the ship to start bound to a planet');
+  const planet = state.planets[1] || state.planets[0];
+  assert.ok(planet, 'expected at least one planet for the free-flight no-autopilot test');
 
-  const up = state.ship.position.clone().sub(planet.position).normalize();
-  const tangent = Math.abs(up.dot(new THREE.Vector3(0, 1, 0))) > 0.85
-    ? new THREE.Vector3(1, 0, 0).cross(up).normalize()
-    : new THREE.Vector3(0, 1, 0).cross(up).normalize();
-  const altitude = 50000;
-  const worldPosition = planet.position.clone().addScaledVector(up, planet.radius + altitude);
-  const initialForward = tangent.clone().addScaledVector(up, 0.25).normalize();
-  const initialUp = initialForward.clone().cross(tangent).normalize();
+  const planetRadial = planet.position.lengthSq() > 1e-6
+    ? planet.position.clone().normalize()
+    : WORLD_UP.clone();
+  const tangent = Math.abs(planetRadial.dot(WORLD_UP)) > 0.85
+    ? new THREE.Vector3(1, 0, 0).cross(planetRadial).normalize()
+    : WORLD_UP.clone().cross(planetRadial).normalize();
+  const altitude = Math.max(
+    planet.atmosphereRadius - planet.radius + 220,
+    planet.gravityRadius * 0.36
+  );
+  const worldPosition = planet.position.clone().addScaledVector(planetRadial, planet.radius + altitude);
+  const initialForward = tangent.clone().addScaledVector(planetRadial, 0.24).normalize();
+  const initialUp = planetRadial.clone().sub(initialForward.clone().multiplyScalar(planetRadial.dot(initialForward))).normalize();
+  const initialSpeed = 10.5;
 
-  state.ship.boundPlanet = planet;
-  state.ship.relativePosition.copy(worldPosition).sub(planet.position);
-  state.ship.relativeVelocity.copy(tangent).multiplyScalar(2.4);
-  state.ship.position.copy(worldPosition);
-  state.ship.velocity.copy(tangent).multiplyScalar(2.4);
-  state.ship.forward.copy(initialForward);
-  state.ship.up.copy(initialUp);
-  state.ship.bank = 0.45;
-  state.ship.speed = state.ship.relativeVelocity.length();
-  state.nearestPlanet = planet;
-  state.nearestDistance = worldPosition.distanceTo(planet.position);
-  state.nearestAltitude = altitude;
-  state.speed = state.ship.speed;
+  configureFreeFlightShip(
+    state,
+    planet,
+    worldPosition,
+    initialForward,
+    initialUp,
+    initialSpeed,
+    {
+      bank: 0.35,
+      recaptureLock: config.shipRecaptureDelay + 8
+    }
+  );
 
-  stepSim(sim, 180, NEUTRAL_CONTROLS);
-  const finalForward = state.ship.forward.clone();
-  const finalUp = state.ship.up.clone();
+  stepSim(sim, 240, NEUTRAL_CONTROLS);
 
+  assert.strictEqual(state.ship.flightMode, 'free', 'expected the ship to stay in free flight');
+  assert.strictEqual(state.ship.boundPlanet, null, 'expected the ship to remain unbound');
   assert.ok(
-    finalForward.dot(initialForward) > 0.89,
-    `free flight should not auto-reorient the nose: dot=${finalForward.dot(initialForward).toFixed(3)}`
+    Math.abs(state.speed - initialSpeed) <= 1e-6,
+    `free flight should not apply atmospheric speed trim: initial=${initialSpeed.toFixed(3)} final=${state.speed.toFixed(3)}`
   );
   assert.ok(
-    finalUp.dot(initialUp) > 0.89,
-    `free flight should not auto-reorient the ship up vector: dot=${finalUp.dot(initialUp).toFixed(3)}`
+    Math.abs(state.ship.bank) <= 0.02,
+    `free-flight bank should decay to zero: bank=${state.ship.bank.toFixed(3)}`
+  );
+  assert.strictEqual(
+    state.ship.pitchIdleTime,
+    0,
+    'expected free flight to avoid atmosphere-style pitch idle accumulation'
   );
   assert.ok(
-    Math.abs(state.ship.bank) < 0.08,
-    `free-flight bank should decay slowly toward level: bank=${state.ship.bank.toFixed(3)}`
+    altitudeBetween(state.ship, planet) > planet.atmosphereRadius - planet.radius,
+    `expected the ship to stay outside the atmosphere: altitude=${altitudeBetween(state.ship, planet).toFixed(3)} atmosphere=${(planet.atmosphereRadius - planet.radius).toFixed(3)}`
   );
 
   console.log(
-    `PASS space-free-no-auto-reorient: forward=${finalForward.dot(initialForward).toFixed(3)} up=${finalUp.dot(initialUp).toFixed(3)} bank=${state.ship.bank.toFixed(3)}`
+    `PASS free-no-autopilot: speed=${state.speed.toFixed(3)} bank=${state.ship.bank.toFixed(3)} pitchIdle=${state.ship.pitchIdleTime.toFixed(3)}`
   );
 }
 
@@ -722,68 +888,287 @@ function runFreeApproachNearPlanetNoAtmosphereAutopilotTest() {
   sim.bootstrapWorld();
 
   const { state } = sim;
-  const startPlanet = state.ship.boundPlanet;
-  assert.ok(startPlanet, 'expected the ship to start bound to a planet');
+  const planet = state.planets[1] || state.planets[0];
+  assert.ok(planet, 'expected a planet for the gravity bend test');
 
-  const targetPlanet = state.planets.find((planet) => planet !== startPlanet);
-  assert.ok(targetPlanet, 'expected a second planet to exist');
-
-  const surfaceNormal = targetPlanet.position.lengthSq() > 1e-6
-    ? targetPlanet.position.clone().normalize()
-    : new THREE.Vector3(0, 1, 0);
-  const tangent = Math.abs(surfaceNormal.dot(new THREE.Vector3(0, 1, 0))) > 0.85
-    ? new THREE.Vector3(1, 0, 0).cross(surfaceNormal).normalize()
-    : new THREE.Vector3(0, 1, 0).cross(surfaceNormal).normalize();
-  const atmosphereThickness = targetPlanet.atmosphereRadius - targetPlanet.radius;
-  const altitude = Math.min(
-    atmosphereThickness - 8,
-    Math.max(config.planetCaptureAltitude + 10, atmosphereThickness * 0.65)
+  const planetRadial = planet.position.lengthSq() > 1e-6
+    ? planet.position.clone().normalize()
+    : WORLD_UP.clone();
+  const tangent = Math.abs(planetRadial.dot(WORLD_UP)) > 0.85
+    ? new THREE.Vector3(1, 0, 0).cross(planetRadial).normalize()
+    : WORLD_UP.clone().cross(planetRadial).normalize();
+  const altitude = Math.max(
+    planet.atmosphereRadius - planet.radius + 120,
+    planet.gravityRadius * 0.3
   );
-  const worldPosition = targetPlanet.position.clone().addScaledVector(surfaceNormal, targetPlanet.radius + altitude);
-  const initialForward = tangent.clone().addScaledVector(surfaceNormal, -0.18).normalize();
-  const initialRight = surfaceNormal.clone().cross(initialForward).normalize();
-  const initialUp = initialForward.clone().cross(initialRight).normalize();
+  const worldPosition = planet.position.clone().addScaledVector(planetRadial, planet.radius + altitude);
+  const initialForward = tangent.clone().addScaledVector(planetRadial, 0.10).normalize();
+  const initialUp = planetRadial.clone().sub(initialForward.clone().multiplyScalar(planetRadial.dot(initialForward))).normalize();
+  const initialClimbDot = initialForward.dot(planetRadial);
 
-  state.ship.boundPlanet = null;
-  state.ship.flightMode = 'free';
-  state.ship.recaptureLock = config.shipRecaptureDelay + 5;
-  state.ship.captureTimer = config.shipCaptureBlendTime;
-  state.ship.position.copy(worldPosition);
-  state.ship.forward.copy(initialForward);
-  state.ship.up.copy(initialUp);
-  state.ship.bank = 0.25;
-  state.ship.speed = config.shipMinMaxSpeed;
-  state.ship.velocity.copy(initialForward).multiplyScalar(state.ship.speed);
-  state.ship.relativePosition.copy(worldPosition).sub(targetPlanet.position);
-  state.ship.relativeVelocity.copy(state.ship.velocity).sub(targetPlanet.velocity);
-  state.nearestPlanet = targetPlanet;
-  state.nearestDistance = worldPosition.distanceTo(targetPlanet.position);
-  state.nearestAltitude = altitude;
-  state.speed = state.ship.speed;
+  configureFreeFlightShip(
+    state,
+    planet,
+    worldPosition,
+    initialForward,
+    initialUp,
+    9.5,
+    {
+      bank: 0,
+      recaptureLock: config.shipRecaptureDelay + 8
+    }
+  );
 
-  const startAltitude = altitudeBetween(state.ship, targetPlanet);
-  for (let i = 0; i < 180; i += 1) {
-    state.ship.speed = config.shipMinMaxSpeed;
-    state.ship.velocity.copy(targetPlanet.velocity).addScaledVector(initialForward, state.ship.speed);
+  let minAltitude = Infinity;
+  for (let i = 0; i < 240; i += 1) {
     sim.step(1 / 60, NEUTRAL_CONTROLS);
+    minAltitude = Math.min(minAltitude, altitudeBetween(state.ship, planet));
   }
 
-  const finalAltitude = altitudeBetween(state.ship, targetPlanet);
+  const finalAltitude = altitudeBetween(state.ship, planet);
   const finalForward = state.ship.forward.clone().normalize();
+  const finalClimbDot = finalForward.dot(planetRadial);
+  const forwardAngle = initialForward.angleTo(finalForward);
 
-  assert.strictEqual(state.ship.flightMode, 'free', 'expected the ship to stay free while approaching a planet');
+  assert.strictEqual(state.ship.flightMode, 'free', 'expected the ship to stay free during the gravity bend test');
   assert.strictEqual(state.ship.boundPlanet, null, 'expected the ship to remain unbound');
   assert.ok(
-    finalForward.dot(initialForward) > 0.995,
-    `free flight should not auto-reorient near a planet: dot=${finalForward.dot(initialForward).toFixed(3)}`
+    minAltitude > planet.atmosphereRadius - planet.radius,
+    `expected the bend test to stay outside the atmosphere: min=${minAltitude.toFixed(3)} atmosphere=${(planet.atmosphereRadius - planet.radius).toFixed(3)}`
   );
   assert.ok(
-    finalAltitude < startAltitude - 3,
-    `free flight should keep descending without atmospheric autopilot: start=${startAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)}`
+    forwardAngle > 0.02,
+    `expected gravity to bend the nose: angle=${forwardAngle.toFixed(3)}`
+  );
+  assert.ok(
+    Math.abs(finalClimbDot - initialClimbDot) > 0.002,
+    `expected gravity to change the climb angle a little: initial=${initialClimbDot.toFixed(3)} final=${finalClimbDot.toFixed(3)}`
+  );
+  assert.ok(
+    finalClimbDot < 0.95,
+    `expected gravity not to hard-lock the nose into the planet: dot=${finalClimbDot.toFixed(3)}`
   );
 
   console.log(
-    `PASS free-approach-no-atmo-autopilot: altitude=${startAltitude.toFixed(3)}->${finalAltitude.toFixed(3)} dot=${finalForward.dot(initialForward).toFixed(3)}`
+    `PASS free-gravity-bend: angle=${forwardAngle.toFixed(3)} climb=${initialClimbDot.toFixed(3)}->${finalClimbDot.toFixed(3)} altitude=${finalAltitude.toFixed(3)}`
+  );
+}
+
+function runFreeGravityCounteractTest() {
+  const buildScenario = (sim) => {
+    const { state } = sim;
+    const planet = state.planets[1] || state.planets[0];
+    assert.ok(planet, 'expected a planet for the gravity counter test');
+
+    const planetRadial = planet.position.lengthSq() > 1e-6
+      ? planet.position.clone().normalize()
+      : WORLD_UP.clone();
+    const tangent = Math.abs(planetRadial.dot(WORLD_UP)) > 0.85
+      ? new THREE.Vector3(1, 0, 0).cross(planetRadial).normalize()
+      : WORLD_UP.clone().cross(planetRadial).normalize();
+    const altitude = Math.max(
+      planet.atmosphereRadius - planet.radius + 120,
+      planet.gravityRadius * 0.3
+    );
+    const worldPosition = planet.position.clone().addScaledVector(planetRadial, planet.radius + altitude);
+    const initialForward = tangent.clone().addScaledVector(planetRadial, 0.10).normalize();
+    const initialUp = planetRadial.clone().sub(initialForward.clone().multiplyScalar(planetRadial.dot(initialForward))).normalize();
+
+    configureFreeFlightShip(
+      state,
+      planet,
+      worldPosition,
+      initialForward,
+      initialUp,
+      9.5,
+      {
+        bank: 0,
+        recaptureLock: config.shipRecaptureDelay + 8
+      }
+    );
+
+    return {
+      planet,
+      planetRadial,
+      initialForward,
+      initialUp
+    };
+  };
+
+  const neutralSim = createOrbitalsSim(0xC0FFEE);
+  neutralSim.bootstrapWorld();
+  const neutralScenario = buildScenario(neutralSim);
+  stepSim(neutralSim, 240, NEUTRAL_CONTROLS);
+  const neutralForward = neutralSim.state.ship.forward.clone().normalize();
+  const neutralAngle = neutralScenario.initialForward.angleTo(neutralForward);
+  const variants = [
+    { label: 'pitch-', controls: { pitchInput: -0.25 } },
+    { label: 'pitch+', controls: { pitchInput: 0.25 } },
+    { label: 'turn-', controls: { turnInput: -0.25 } },
+    { label: 'turn+', controls: { turnInput: 0.25 } }
+  ];
+
+  let bestAngle = Infinity;
+  let bestLabel = '';
+  for (const variant of variants) {
+    const sim = createOrbitalsSim(0xC0FFEE);
+    sim.bootstrapWorld();
+    const scenario = buildScenario(sim);
+    stepSim(sim, 240, { ...NEUTRAL_CONTROLS, ...variant.controls });
+    const angle = scenario.initialForward.angleTo(sim.state.ship.forward.clone().normalize());
+    if (angle < bestAngle) {
+      bestAngle = angle;
+      bestLabel = variant.label;
+    }
+  }
+
+  assert.ok(
+    bestAngle < neutralAngle - 0.05,
+    `player input should reduce the gravity bend: neutralAngle=${neutralAngle.toFixed(3)} bestAngle=${bestAngle.toFixed(3)} best=${bestLabel}`
+  );
+
+  console.log(
+    `PASS free-gravity-counteract: neutral=${neutralAngle.toFixed(3)} best=${bestAngle.toFixed(3)} input=${bestLabel}`
+  );
+}
+
+function runFreeGravityHighSpeedTest() {
+  const setupScenario = (sim, speed) => {
+    const { state } = sim;
+    const planet = state.planets[1] || state.planets[0];
+    assert.ok(planet, 'expected a planet for the gravity speed test');
+
+    const planetRadial = planet.position.lengthSq() > 1e-6
+      ? planet.position.clone().normalize()
+      : WORLD_UP.clone();
+    const tangent = Math.abs(planetRadial.dot(WORLD_UP)) > 0.85
+      ? new THREE.Vector3(1, 0, 0).cross(planetRadial).normalize()
+      : WORLD_UP.clone().cross(planetRadial).normalize();
+    const altitude = Math.max(
+      planet.atmosphereRadius - planet.radius + 140,
+      planet.gravityRadius * 0.32
+    );
+    const worldPosition = planet.position.clone().addScaledVector(planetRadial, planet.radius + altitude);
+    const initialForward = tangent.clone().addScaledVector(planetRadial, 0.12).normalize();
+    const initialUp = planetRadial.clone().sub(initialForward.clone().multiplyScalar(planetRadial.dot(initialForward))).normalize();
+
+    configureFreeFlightShip(
+      state,
+      planet,
+      worldPosition,
+      initialForward,
+      initialUp,
+      speed,
+      {
+        bank: 0,
+        recaptureLock: config.shipRecaptureDelay + 8
+      }
+    );
+
+    return {
+      planet,
+      initialForward
+    };
+  };
+
+  const lowSim = createOrbitalsSim(0xC0FFEE);
+  lowSim.bootstrapWorld();
+  const lowScenario = setupScenario(lowSim, 7.5);
+  stepSim(lowSim, 240, NEUTRAL_CONTROLS);
+  const lowAngle = lowScenario.initialForward.angleTo(lowSim.state.ship.forward.clone().normalize());
+
+  const highSim = createOrbitalsSim(0xC0FFEE);
+  highSim.bootstrapWorld();
+  const highScenario = setupScenario(highSim, 24.0);
+  stepSim(highSim, 240, NEUTRAL_CONTROLS);
+  const highAngle = highScenario.initialForward.angleTo(highSim.state.ship.forward.clone().normalize());
+
+  assert.ok(
+    lowAngle > highAngle + 0.02,
+    `low speed should bend more than high speed: low=${lowAngle.toFixed(3)} high=${highAngle.toFixed(3)}`
+  );
+
+  console.log(`PASS free-gravity-speed: low=${lowAngle.toFixed(3)} high=${highAngle.toFixed(3)}`);
+}
+
+function runArcadeOrbitViabilityTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  const planet = state.planets[1] || state.planets[0];
+  assert.ok(planet, 'expected a planet for the arcade orbit test');
+
+  const planetRadial = planet.position.lengthSq() > 1e-6
+    ? planet.position.clone().normalize()
+    : WORLD_UP.clone();
+  const tangent = Math.abs(planetRadial.dot(WORLD_UP)) > 0.85
+    ? new THREE.Vector3(1, 0, 0).cross(planetRadial).normalize()
+    : WORLD_UP.clone().cross(planetRadial).normalize();
+  const altitude = Math.max(
+    planet.atmosphereRadius - planet.radius + 160,
+    planet.gravityRadius * 0.34
+  );
+  const worldPosition = planet.position.clone().addScaledVector(planetRadial, planet.radius + altitude);
+  const initialForward = tangent.clone().addScaledVector(planetRadial, 0.08).normalize();
+  const initialUp = planetRadial.clone().sub(initialForward.clone().multiplyScalar(planetRadial.dot(initialForward))).normalize();
+
+  configureFreeFlightShip(
+    state,
+    planet,
+    worldPosition,
+    initialForward,
+    initialUp,
+    10.0,
+    {
+      bank: 0,
+      recaptureLock: config.shipRecaptureDelay + 8
+    }
+  );
+
+  const initialAngle = orbitAngleAroundBody(planet.position, state.ship.position, planetRadial);
+  let previousAngle = initialAngle;
+  let totalArc = 0;
+  let minAltitude = Infinity;
+  let maxAltitude = -Infinity;
+
+  for (let i = 0; i < 720; i += 1) {
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+    const currentAngle = orbitAngleAroundBody(planet.position, state.ship.position, planetRadial);
+    totalArc += Math.abs(unwrapAngleDelta(previousAngle, currentAngle));
+    previousAngle = currentAngle;
+    const altitudeNow = altitudeBetween(state.ship, planet);
+    minAltitude = Math.min(minAltitude, altitudeNow);
+    maxAltitude = Math.max(maxAltitude, altitudeNow);
+    if (state.ship.flightMode !== 'free') {
+      break;
+    }
+  }
+
+  const finalAltitude = altitudeBetween(state.ship, planet);
+  const finalAngle = orbitAngleAroundBody(planet.position, state.ship.position, planetRadial);
+
+  assert.strictEqual(state.ship.flightMode, 'free', 'expected the arcade orbit test to stay in free flight');
+  assert.strictEqual(state.ship.boundPlanet, null, 'expected the orbit test ship to remain unbound');
+  assert.ok(
+    minAltitude > planet.atmosphereRadius - planet.radius,
+    `expected the orbit test to stay outside the atmosphere: min=${minAltitude.toFixed(3)} atmosphere=${(planet.atmosphereRadius - planet.radius).toFixed(3)}`
+  );
+  assert.ok(
+    totalArc > 0.5,
+    `expected an orbit-like angular sweep: arc=${totalArc.toFixed(3)}`
+  );
+  assert.ok(
+    maxAltitude < planet.gravityRadius * 1.15,
+    `expected the path to remain in the planet's gravity envelope: max=${maxAltitude.toFixed(3)} limit=${(planet.gravityRadius * 1.15).toFixed(3)}`
+  );
+  assert.ok(
+    Math.abs(unwrapAngleDelta(initialAngle, finalAngle)) > 0.12,
+    `expected the path to meaningfully curve around the planet: initial=${initialAngle.toFixed(3)} final=${finalAngle.toFixed(3)}`
+  );
+
+  console.log(
+    `PASS arcade-orbit: arc=${totalArc.toFixed(3)} minAlt=${minAltitude.toFixed(3)} maxAlt=${maxAltitude.toFixed(3)} finalAlt=${finalAltitude.toFixed(3)}`
   );
 }
 
@@ -1184,7 +1569,7 @@ function runPlanetCaptureBlendTest() {
   const surfaceNormal = targetPlanet.position.lengthSq() > 1e-6
     ? targetPlanet.position.clone().normalize()
     : new THREE.Vector3(0, 1, 0);
-  const launchAltitude = Math.min(config.atmosphereControlAltitude * 0.75, config.planetCaptureAltitude * 0.75);
+  const launchAltitude = Math.min(37.5, config.planetCaptureAltitude * 0.75);
   const worldPosition = targetPlanet.position.clone().addScaledVector(surfaceNormal, targetPlanet.radius + launchAltitude);
   const initialForward = surfaceNormal.clone().negate();
 
@@ -1388,11 +1773,16 @@ runBoostThrustTest();
 runAtmosphereBoostPitchLockTest();
 runAtmosphereSoftStallTest();
 runBoostDirectionTest();
+runFreeBrakeDecayTest();
 runFuelRechargeTest();
 runSpaceNewtonianTest();
+runFreeFlightMovesAlongNoseTest();
 runSpaceLoopTest();
 runSpaceFreeNoAutoReorientTest();
 runFreeApproachNearPlanetNoAtmosphereAutopilotTest();
+runFreeGravityCounteractTest();
+runFreeGravityHighSpeedTest();
+runArcadeOrbitViabilityTest();
 runProjectileFireTest();
 runProjectileHomingTest();
 runProjectileHomingLimitTest();

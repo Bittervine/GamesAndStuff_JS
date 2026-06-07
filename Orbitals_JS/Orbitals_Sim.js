@@ -8,6 +8,8 @@ const tempVecC = new THREE.Vector3();
 const tempVecD = new THREE.Vector3();
 const tempVecE = new THREE.Vector3();
 const tempVecF = new THREE.Vector3();
+const tempVecG = new THREE.Vector3();
+const tempVecH = new THREE.Vector3();
 
 const PROJECTILE_HOMING_LOCK_ANGLE = THREE.MathUtils.degToRad(5);
 const PROJECTILE_HOMING_ACQUIRE_ANGLE = THREE.MathUtils.degToRad(7.5);
@@ -237,22 +239,22 @@ function computeAtmosphereLiftState(planet, altitude, currentSpeed, cruiseSpeed,
   const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 0.0001);
   const targetAltitude = atmosphereThickness * 0.5;
   const altitudeRatio = clamp01(altitude / atmosphereThickness);
-  const densityCurve = Math.max(0.25, config.atmosphereDensityCurve ?? 1.25);
+  const densityCurve = Math.max(0.25, config.atmosphereDensityCurve);
   const density = Math.pow(1 - smoothstep(0, 1, altitudeRatio), densityCurve);
   const edgeFade = 1 - smoothstep(0.82, 1.0, altitudeRatio);
   const surfaceSpeed = Math.sqrt(Math.max(planet.gravityStrength / Math.max(planet.radius + targetAltitude, 1.0), 1.0));
-  const minLiftSpeed = Math.max(0.0001, cruiseSpeed * (config.atmosphereLiftMinSpeedFactor ?? 0.58));
-  const goodLiftSpeed = Math.max(minLiftSpeed + 0.0001, cruiseSpeed * (config.atmosphereLiftGoodSpeedFactor ?? 1.08));
+  const minLiftSpeed = Math.max(0.0001, cruiseSpeed * config.atmosphereLiftMinSpeedFactor);
+  const goodLiftSpeed = Math.max(minLiftSpeed + 0.0001, cruiseSpeed * config.atmosphereLiftGoodSpeedFactor);
   const speedLift = smoothstep(minLiftSpeed, goodLiftSpeed, currentSpeed);
   const liftAuthority = clamp01(density * speedLift);
   const thinAir = smoothstep(0.55, 0.98, altitudeRatio);
   const thinAirBlend = smoothstep(0.08, 0.85, thinAir);
   const atmosphereBlend = clamp01((atmosphereThickness * 1.35 - altitude) / Math.max(atmosphereThickness * 0.35, 1));
   const requiredLiftSpeed = THREE.MathUtils.lerp(minLiftSpeed, goodLiftSpeed, 0.72);
-  const liftSupport = liftAuthority / Math.max(config.atmosphereLiftCruiseAuthority ?? 0.36, 0.0001);
+  const liftSupport = liftAuthority / Math.max(config.atmosphereLiftCruiseAuthority, 0.0001);
   const liftDeficit = 1 - liftAuthority;
-  const stallStart = config.atmosphereLiftStallStart ?? 0.34;
-  const stallFull = config.atmosphereLiftStallFull ?? 0.12;
+  const stallStart = config.atmosphereLiftStallStart;
+  const stallFull = config.atmosphereLiftStallFull;
   const stallBlend = boostLevel > 0
     ? 0
     : smoothstep(stallStart, stallFull, liftAuthority) * smoothstep(0.30, 0.98, altitudeRatio) * (1 - boostLevel * 0.85);
@@ -275,6 +277,55 @@ function computeAtmosphereLiftState(planet, altitude, currentSpeed, cruiseSpeed,
     liftSupport,
     stallBlend
   };
+}
+
+function computeFreeGravityPull(state, ship) {
+  const gravityPull = tempVecG.set(0, 0, 0);
+  const speedDamping = 1 / (1 + Math.max(0, ship.speed || 0) * Math.max(0.0001, config.freeGravitySpeedDamping));
+  const planetScale = config.freeGravityPlanetInfluenceScale;
+  const sunScale = config.freeGravitySunInfluenceScale;
+  const planetNearRangeScale = config.freeGravityPlanetNearRangeScale;
+  const planetAtmosphereBufferScale = config.freeGravityPlanetAtmosphereBufferScale;
+  const planetFarRangePadding = config.freeGravityPlanetFarRangePadding;
+  const sunNearRangeScale = config.freeGravitySunNearRangeScale;
+  const sunFarRangeScale = config.freeGravitySunFarRangeScale;
+
+  for (const planet of state.planets) {
+    const toPlanet = tempVecH.copy(planet.position).sub(ship.position);
+    const distance = toPlanet.length();
+    if (distance <= 1e-6) {
+      continue;
+    }
+
+    const nearRange = Math.max(
+      planet.atmosphereRadius + planet.radius * planetAtmosphereBufferScale,
+      planet.radius * planetNearRangeScale
+    );
+    const farRange = Math.max(planet.gravityRadius, nearRange + planetFarRangePadding);
+    const influence = 1 - smoothstep(nearRange, farRange, distance);
+    if (influence <= 0) {
+      continue;
+    }
+
+    const planetBase = (planet.gravityStrength / Math.max(planet.gravityRadius * planet.gravityRadius, 1)) * planetScale;
+    gravityPull.addScaledVector(
+      toPlanet.multiplyScalar(1 / distance),
+      planetBase * influence * speedDamping
+    );
+  }
+
+  const sunDistance = ship.position.length();
+  if (sunDistance > 1e-6) {
+    const sunNearRange = config.starScale * sunNearRangeScale;
+    const sunFarRange = Math.max(config.orbitScale * sunFarRangeScale, sunNearRange + 1);
+    const sunInfluence = 1 - smoothstep(sunNearRange, sunFarRange, sunDistance);
+    if (sunInfluence > 0) {
+      const sunDirection = tempVecH.copy(ship.position).multiplyScalar(-1 / sunDistance);
+      gravityPull.addScaledVector(sunDirection, sunScale * sunInfluence * speedDamping);
+    }
+  }
+
+  return gravityPull;
 }
 
 function randomUnitVector(rng) {
@@ -917,7 +968,7 @@ function spawnProjectileBurst(state, ship, fireDirection) {
 
   const forward = tempVecB.copy(fireDirection).normalize();
   const origin = tempVecC.copy(ship.position);
-  const baseSpeed = config.shipProjectileSpeed + ship.speed * 0.35;
+  const baseSpeed = config.shipProjectileSpeed + ship.speed * config.shipProjectileShipVelocityScale;
   const direction = tempVecD.copy(forward).normalize();
   state.projectiles.push({
     id: state.nextProjectileId,
@@ -1440,7 +1491,7 @@ function crashPlayerShip(state, planet, crashNormal, impactPosition = null) {
   const safeNormal = crashNormal && crashNormal.lengthSq && crashNormal.lengthSq() > 1e-8
     ? tempVecA.copy(crashNormal).normalize()
     : tempVecA.copy(ship.position).sub(planet.position).normalize();
-  const crashAltitude = Math.max(0.25, config.atmosphereTerrainCrashAltitude ?? 1.5);
+  const crashAltitude = Math.max(0.25, config.atmosphereTerrainCrashAltitude);
   state.crashed = true;
   state.crashTimer = 0;
   state.crashRespawnReady = false;
@@ -1473,7 +1524,7 @@ function updateShipState(state, dt, controls) {
   const isPlayerState = Array.isArray(state.enemies) && Array.isArray(state.enemySquads);
   if (isPlayerState && state.crashed) {
     state.crashTimer = (state.crashTimer || 0) + dt;
-    const canRespawnAfterCrash = state.crashTimer >= (config.crashRespawnDelay ?? 3.0);
+    const canRespawnAfterCrash = state.crashTimer >= config.crashRespawnDelay;
     if (controls.respawn && canRespawnAfterCrash) {
       if (!state.gamepadRespawnHeld) {
         state.gamepadRespawnHeld = true;
@@ -1542,7 +1593,7 @@ function updateShipState(state, dt, controls) {
   const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 0.0001);
   const altitude = relativeDistance - planet.radius;
   const atmosphereRatio = clamp01(altitude / atmosphereThickness);
-  const atmosphereDensityCurve = Math.max(0.25, config.atmosphereDensityCurve ?? 1.25);
+  const atmosphereDensityCurve = Math.max(0.25, config.atmosphereDensityCurve);
   const atmosphereDensity = altitude <= atmosphereThickness
     ? Math.pow(1 - smoothstep(0, 1, atmosphereRatio), atmosphereDensityCurve)
     : 0;
@@ -1555,7 +1606,10 @@ function updateShipState(state, dt, controls) {
   const altitudeError = THREE.MathUtils.clamp((targetAltitude - altitude) / (atmosphereThickness * 0.5), -1, 1);
   const approachResponse = THREE.MathUtils.lerp(1, config.atmosphereApproachResponse, atmosphereDepth);
 
-  ship.gravity.copy(gravityDir.normalize().multiplyScalar(gravityStrength));
+  const gravityPull = atmosphericFlightActive
+    ? tempVecG.copy(gravityDir).normalize().multiplyScalar(gravityStrength)
+    : computeFreeGravityPull(state, ship);
+  ship.gravity.copy(gravityPull);
 
   const turnInput = THREE.MathUtils.clamp(controls.turnInput ?? 0, -1, 1);
   const pitchInput = THREE.MathUtils.clamp(controls.pitchInput ?? 0, -1, 1);
@@ -1576,23 +1630,22 @@ function updateShipState(state, dt, controls) {
     : 0;
   const liftState = computeAtmosphereLiftState(planet, altitude, currentSpeed, cruiseSpeed, boostLevel);
   const autopilotStrength = 1 - boostLevel * 0.75;
-  const boostHoldFactor = THREE.MathUtils.lerp(1, 0.18, boostLevel);
   const projectedDescentSpeed = Math.max(0, -ship.forward.dot(localUp) * currentSpeed);
   const descentRatio = projectedDescentSpeed / Math.max(currentSpeed, 0.0001);
   const terrainGuardStartAltitude = Math.max(
-    atmosphereThickness * (config.atmosphereTerrainGuardStartRatio ?? 0.78),
-    projectedDescentSpeed * (config.atmosphereTerrainLookaheadTime ?? 5.5),
-    config.atmosphereTerrainGuardMinAltitude ?? 10.0
+    atmosphereThickness * config.atmosphereTerrainGuardStartRatio,
+    projectedDescentSpeed * config.atmosphereTerrainLookaheadTime,
+    config.atmosphereTerrainGuardMinAltitude
   );
   const terrainGuardFullAltitude = Math.max(
-    atmosphereThickness * (config.atmosphereTerrainGuardFullRatio ?? 0.24),
-    config.atmosphereTerrainGuardMinAltitude ?? 10.0
+    atmosphereThickness * config.atmosphereTerrainGuardFullRatio,
+    config.atmosphereTerrainGuardMinAltitude
   );
   const terrainAltitudeGuardBlend = smoothstep(terrainGuardStartAltitude, terrainGuardFullAltitude, altitude);
   const timeToTerrain = projectedDescentSpeed > 0.001 ? altitude / projectedDescentSpeed : Infinity;
   const terrainTimeGuardBlend = smoothstep(
-    config.atmosphereTerrainLookaheadTime ?? 5.5,
-    config.atmosphereTerrainLookaheadFullTime ?? 1.35,
+    config.atmosphereTerrainLookaheadTime,
+    config.atmosphereTerrainLookaheadFullTime,
     timeToTerrain
   );
   const terrainDescentSignal = smoothstep(0.01, 0.08, descentRatio);
@@ -1607,11 +1660,13 @@ function updateShipState(state, dt, controls) {
       state.nearestAltitude * config.shipAltMaxSpeedFac
     )
     : Infinity;
+  const brakeHalfLife = Math.max(0.1, config.freeBrakeHalfLife);
+  const brakeFactor = brakeActive ? Math.pow(0.5, dt / brakeHalfLife) : 1;
 
-  const turnSpeedScale = Math.max(0.1, config.shipTurnSpeedScale ?? 1);
+  const turnSpeedScale = Math.max(0.1, config.shipTurnSpeedScale);
   const targetBank = THREE.MathUtils.clamp(turnInput * 0.95, -0.95, 0.95);
   const bankReturnRate = atmosphericFlightActive
-    ? THREE.MathUtils.lerp(1.4, 3.3, atmosphereDepth) * THREE.MathUtils.lerp(0.7, 1.0, autopilotStrength) * (Math.abs(turnInput) > 0.001 ? turnSpeedScale : 1)
+    ? THREE.MathUtils.lerp(config.atmosphereBankReturnRateMin, config.atmosphereBankReturnRateMax, atmosphereDepth) * THREE.MathUtils.lerp(config.atmosphereBankTurnScaleMin, config.atmosphereBankTurnScaleMax, autopilotStrength) * (Math.abs(turnInput) > 0.001 ? turnSpeedScale : 1)
     : 0.0;
   if (bankReturnRate > 0) {
     ship.bank = THREE.MathUtils.lerp(ship.bank, targetBank, easeExp(dt, bankReturnRate));
@@ -1628,7 +1683,7 @@ function updateShipState(state, dt, controls) {
   }
   ship.up.normalize();
 
-  const yawRate = THREE.MathUtils.lerp(0.38, 0.98, atmosphereDepth) * THREE.MathUtils.lerp(0.55, 1.0, clamp01(currentSpeed / 6)) * turnSpeedScale;
+  const yawRate = THREE.MathUtils.lerp(config.atmosphereYawRateMin, config.atmosphereYawRateMax, atmosphereDepth) * THREE.MathUtils.lerp(config.atmosphereYawSpeedFactorMin, config.atmosphereYawSpeedFactorMax, clamp01(currentSpeed / 6)) * turnSpeedScale;
   if (atmosphericFlightActive) {
     ship.forward.applyAxisAngle(localUp, -ship.bank * yawRate * dt);
   }
@@ -1643,25 +1698,25 @@ function updateShipState(state, dt, controls) {
   rightAxis.normalize();
 
   const pitchRate = atmosphericFlightActive
-    ? THREE.MathUtils.lerp(0.28, 0.52, atmosphereDepth)
-    : THREE.MathUtils.lerp(1.2, 1.9, clamp01(currentSpeed / 18));
+    ? THREE.MathUtils.lerp(config.atmospherePitchRateMin, config.atmospherePitchRateMax, atmosphereDepth)
+    : THREE.MathUtils.lerp(config.freeSpacePitchRateMin, config.freeSpacePitchRateMax, clamp01(currentSpeed / 18));
   const stallPitchDown = atmosphericFlightActive ? THREE.MathUtils.lerp(
-    config.atmosphereStallPitchDownMin ?? 0.10,
-    config.atmosphereStallPitchDownMax ?? 0.55,
+    config.atmosphereStallPitchDownMin,
+    config.atmosphereStallPitchDownMax,
     liftState.stallBlend
   ) : 0;
   const hardDiveOverride = atmosphericFlightActive ? smoothstep(
-    config.atmosphereHardDiveOverrideStart ?? 0.72,
-    config.atmosphereHardDiveOverrideFull ?? 0.98,
+    config.atmosphereHardDiveOverrideStart,
+    config.atmosphereHardDiveOverrideFull,
     Math.max(0, pitchInput)
   ) : 0;
   const terrainOverrideScale = atmosphericFlightActive
-    ? 1 - hardDiveOverride * (config.atmosphereHardDiveOverrideAuthority ?? 0.76)
+    ? 1 - hardDiveOverride * config.atmosphereHardDiveOverrideAuthority
     : 1;
   const terrainPullUpInput = atmosphericFlightActive ? -terrainEmergencyBlend
-    * (config.atmosphereTerrainPullUpStrength ?? 2.45)
+    * config.atmosphereTerrainPullUpStrength
     * terrainOverrideScale
-    * THREE.MathUtils.lerp(1.0, 0.45, boostLevel) : 0;
+    * THREE.MathUtils.lerp(1.0, config.atmosphereTerrainPullUpBoostScale, boostLevel) : 0;
   const basePitchInput = THREE.MathUtils.clamp(
     pitchInput + stallPitchDown * liftState.stallBlend,
     -1,
@@ -1672,13 +1727,16 @@ function updateShipState(state, dt, controls) {
     -1,
     1
   );
-  if (Math.abs(pitchInput) > 0.001) {
-    ship.pitchIdleTime = 0;
-    const appliedPitchInput = atmosphericFlightActive ? basePitchInput : pitchInput;
-    ship.forward.applyAxisAngle(rightAxis, appliedPitchInput * pitchRate * dt);
-    ship.up.applyAxisAngle(rightAxis, appliedPitchInput * pitchRate * dt);
+  if (atmosphericFlightActive) {
+    if (Math.abs(pitchInput) > 0.001) {
+      ship.pitchIdleTime = 0;
+      ship.forward.applyAxisAngle(rightAxis, basePitchInput * pitchRate * dt);
+      ship.up.applyAxisAngle(rightAxis, basePitchInput * pitchRate * dt);
+    } else {
+      ship.pitchIdleTime = boostLevel <= 0 ? ship.pitchIdleTime + dt : 0;
+    }
   } else {
-    ship.pitchIdleTime = atmosphericFlightActive && boostLevel <= 0 ? ship.pitchIdleTime + dt : 0;
+    ship.pitchIdleTime = 0;
   }
 
   if (atmosphericFlightActive) {
@@ -1686,36 +1744,69 @@ function updateShipState(state, dt, controls) {
     if (horizonForward.lengthSq() > 1e-6 && boostLevel <= 0) {
       horizonForward.normalize();
       const levelAuthority = THREE.MathUtils.lerp(0.20, 1.0, liftState.liftAuthority);
-      const levelBlend = easeExp(dt, THREE.MathUtils.lerp(0.22, config.atmosphereLevelResponse, atmosphereDepth) * autopilotStrength * captureBlend * approachResponse * levelAuthority);
+      const levelBlend = easeExp(dt, THREE.MathUtils.lerp(config.atmosphereLevelResponseMin, config.atmosphereLevelResponse, atmosphereDepth) * autopilotStrength * captureBlend * approachResponse * levelAuthority);
       const controlFreedom = mouseIdle ? 1 : 1 - clamp01(Math.abs(pitchInput));
       ship.forward.lerp(horizonForward, levelBlend * controlFreedom * controlFreedom);
     }
     const allowCurvatureTrim = boostLevel <= 0;
     if (allowCurvatureTrim) {
       const trimAuthority = mouseIdle ? 1 : Math.max(0, 1 - Math.abs(pitchInput) * 1.4);
-      const trimResponse = THREE.MathUtils.lerp(0.015, config.atmosphereTrimResponse, atmosphereDepth);
+      const trimResponse = THREE.MathUtils.lerp(config.atmosphereTrimResponseMin, config.atmosphereTrimResponse, atmosphereDepth);
       const altitudeTrimScale = altitudeError > 0
-        ? THREE.MathUtils.lerp(0.12, 1.0, liftState.liftAuthority)
-        : THREE.MathUtils.lerp(0.70, 1.35, liftState.stallBlend);
+        ? THREE.MathUtils.lerp(config.atmosphereTrimAltitudeScaleLiftMin, config.atmosphereTrimAltitudeScaleLiftMax, liftState.liftAuthority)
+        : THREE.MathUtils.lerp(config.atmosphereTrimAltitudeScaleStallMin, config.atmosphereTrimAltitudeScaleStallMax, liftState.stallBlend);
       const trimPitch = trimAuthority > 0.001
-        ? THREE.MathUtils.clamp(-altitudeError * trimResponse * altitudeTrimScale * trimAuthority * autopilotStrength * captureBlend * approachResponse, -0.14, 0.18)
+        ? THREE.MathUtils.clamp(-altitudeError * trimResponse * altitudeTrimScale * trimAuthority * autopilotStrength * captureBlend * approachResponse, config.atmosphereTrimPitchClampMin, config.atmosphereTrimPitchClampMax)
         : 0;
       if (trimPitch !== 0) {
         ship.forward.applyAxisAngle(rightAxis, trimPitch * dt);
         ship.up.applyAxisAngle(rightAxis, trimPitch * dt);
       }
     }
-    ship.bank = THREE.MathUtils.lerp(ship.bank, 0, easeExp(dt, THREE.MathUtils.lerp(0.6, config.atmosphereBankResponse, atmosphereDepth) * autopilotStrength * captureBlend));
+    ship.bank = THREE.MathUtils.lerp(ship.bank, 0, easeExp(dt, THREE.MathUtils.lerp(config.atmosphereBankDecayResponseMin, config.atmosphereBankResponse, atmosphereDepth) * autopilotStrength * captureBlend));
   } else {
-    const spaceTransitionDistance = config.atmosphereSpaceTurnTransition;
-    const extraAltitude = Math.max(0, altitude - atmosphereThickness);
-    const bankBlend = 1 - clamp01(extraAltitude / spaceTransitionDistance);
-    const spaceYawRate = THREE.MathUtils.lerp(0.26, 0.72, clamp01(currentSpeed / 18)) * turnSpeedScale;
-    const spacePitchRate = THREE.MathUtils.lerp(0.72, 1.65, clamp01(currentSpeed / 18)) * turnSpeedScale;
-    ship.forward.applyAxisAngle(ship.up, -turnInput * spaceYawRate * dt);
-    ship.forward.applyAxisAngle(rightAxis, pitchInput * spacePitchRate * dt);
-    ship.up.applyAxisAngle(rightAxis, pitchInput * spacePitchRate * dt);
-    ship.bank = THREE.MathUtils.lerp(ship.bank, 0, easeExp(dt, THREE.MathUtils.lerp(0.12, 1.8, 1 - bankBlend)));
+    const boostAcceleration = config.freeBoostAcceleration;
+    if (boostLevel > 0) {
+      const boostImpulse = boostAcceleration * boostLevel * dt;
+      ship.speed += boostImpulse;
+      state.fuel = Math.max(0, state.fuel - dt * (0.8 + boostLevel * 3.2));
+    } else if (!boostActive && ship.boostTimer <= 0 && state.fuel < state.maxFuel) {
+      state.fuel = Math.min(state.maxFuel, state.fuel + config.shipFuelRecharge * dt);
+    }
+
+    if (brakeFactor !== 1) {
+      ship.speed *= brakeFactor;
+    }
+
+    const freeCurrentSpeed = Math.max(ship.speed || 0, 0.0001);
+    const gravitySpeedFactor = 1 / (1 + freeCurrentSpeed * Math.max(0.0001, config.freeGravitySpeedDamping));
+    const gravityTurnRate = config.freeGravityTurnRate;
+    const gravityMaxTurnRate = config.freeGravityMaxTurnRate;
+    const gravityYawAngle = THREE.MathUtils.clamp(
+      -gravityPull.dot(ship.up) * gravityTurnRate * gravitySpeedFactor,
+      -gravityMaxTurnRate,
+      gravityMaxTurnRate
+    ) * dt;
+    const gravityPitchAngle = THREE.MathUtils.clamp(
+      -gravityPull.dot(rightAxis) * gravityTurnRate * gravitySpeedFactor,
+      -gravityMaxTurnRate,
+      gravityMaxTurnRate
+    ) * dt;
+    if (gravityYawAngle !== 0) {
+      ship.forward.applyAxisAngle(ship.up, gravityYawAngle);
+    }
+    if (gravityPitchAngle !== 0) {
+      ship.forward.applyAxisAngle(rightAxis, gravityPitchAngle);
+      ship.up.applyAxisAngle(rightAxis, gravityPitchAngle);
+    }
+
+    const spaceYawRate = THREE.MathUtils.lerp(config.freeSpaceYawRateMin, config.freeSpaceYawRateMax, clamp01(freeCurrentSpeed / 18)) * turnSpeedScale;
+    const spacePitchRate = THREE.MathUtils.lerp(config.freeSpacePitchRateMin, config.freeSpacePitchRateMax, clamp01(freeCurrentSpeed / 18)) * turnSpeedScale;
+    const freeControlScale = config.freeSpaceControlScale;
+    ship.forward.applyAxisAngle(ship.up, -turnInput * freeControlScale * spaceYawRate * dt);
+    ship.forward.applyAxisAngle(rightAxis, pitchInput * freeControlScale * spacePitchRate * dt);
+    ship.up.applyAxisAngle(rightAxis, pitchInput * freeControlScale * spacePitchRate * dt);
+    ship.bank = THREE.MathUtils.lerp(ship.bank, 0, easeExp(dt, config.freeFlightBankDecayResponse));
   }
 
   if (atmosphericFlightActive && liftState.stallBlend > 0) {
@@ -1751,12 +1842,12 @@ function updateShipState(state, dt, controls) {
   if (atmosphericFlightActive && terrainEmergencyBlend > 0 && boostLevel <= 0.995) {
     const desiredTerrainClimbDot = THREE.MathUtils.lerp(
       -0.12,
-      config.atmosphereTerrainPullUpClimbDot ?? 0.34,
+      config.atmosphereTerrainPullUpClimbDot,
       terrainEmergencyBlend
     );
     const terrainClimbDot = ship.forward.dot(localUp);
     if (terrainClimbDot < desiredTerrainClimbDot) {
-      const terrainPitchInput = terrainPullUpInput * THREE.MathUtils.lerp(0.45, 1.0, terrainEmergencyBlend);
+      const terrainPitchInput = terrainPullUpInput * THREE.MathUtils.lerp(config.atmosphereTerrainPullUpBoostScale, 1.0, terrainEmergencyBlend);
       const terrainAngle = terrainPitchInput * pitchRate * dt;
       ship.forward.applyAxisAngle(rightAxis, terrainAngle);
       ship.up.applyAxisAngle(rightAxis, terrainAngle);
@@ -1779,25 +1870,25 @@ function updateShipState(state, dt, controls) {
       : controlPitchInput * 0.08;
     let targetSpeed = cruiseSpeed * THREE.MathUtils.clamp(
       1
-        + diveEnergy * (config.atmosphereDiveSpeedGain ?? 1.15)
-        - climbLoad * (config.atmosphereClimbSpeedPenalty ?? 0.72)
+        + diveEnergy * config.atmosphereDiveSpeedGain
+        - climbLoad * config.atmosphereClimbSpeedPenalty
         + pitchEnergyBias,
       0.28,
       2.15
     );
-    if (brakeActive) {
-      targetSpeed *= 0.55;
-    }
 
     const speedResponse = targetSpeed > currentSpeed
-      ? (config.atmosphereDiveAccelResponse ?? 2.65)
+      ? config.atmosphereDiveAccelResponse
       : (climbLoad > 0.05
-        ? (config.atmosphereClimbBleedResponse ?? 1.35)
-        : (config.atmosphereCruiseBleedResponse ?? 0.82));
-    const speedBlend = easeExp(dt, speedResponse * THREE.MathUtils.lerp(0.65, 1.25, atmosphereDepth) * THREE.MathUtils.lerp(0.85, 1.1, 1 - boostLevel) * approachResponse);
+        ? config.atmosphereClimbBleedResponse
+        : config.atmosphereCruiseBleedResponse);
+    const speedTransitionScale = ship.captureTimer >= config.shipCaptureBlendTime
+      ? 1
+      : THREE.MathUtils.lerp(config.atmosphereCaptureSpeedTransitionScale, 1, captureBlend);
+    const speedBlend = easeExp(dt, speedResponse * THREE.MathUtils.lerp(config.atmosphereSpeedBlendDepthMin, config.atmosphereSpeedBlendDepthMax, atmosphereDepth) * THREE.MathUtils.lerp(config.atmosphereSpeedBlendBoostMin, config.atmosphereSpeedBlendBoostMax, 1 - boostLevel) * approachResponse * speedTransitionScale);
     ship.speed = THREE.MathUtils.lerp(currentSpeed, targetSpeed, speedBlend);
-    if (brakeActive) {
-      ship.speed = Math.max(0, ship.speed - config.shipBrake * 0.02 * dt);
+    if (brakeFactor !== 1) {
+      ship.speed *= brakeFactor;
     }
 
     relativeVelocity.copy(ship.forward).multiplyScalar(ship.speed);
@@ -1820,11 +1911,12 @@ function updateShipState(state, dt, controls) {
       }
     }
     if (relativeVelocity.lengthSq() > altitudeSpeedCap * altitudeSpeedCap) {
-      relativeVelocity.setLength(altitudeSpeedCap);
+      const softCap = THREE.MathUtils.lerp(ship.speed, altitudeSpeedCap, speedTransitionScale);
+      relativeVelocity.setLength(softCap);
     }
     ship.speed = relativeVelocity.length();
     relativePosition.addScaledVector(relativeVelocity, dt);
-    const crashAltitude = Math.max(0.25, config.atmosphereTerrainCrashAltitude ?? 1.5);
+  const crashAltitude = Math.max(0.25, config.atmosphereTerrainCrashAltitude);
     const crashDistance = planet.radius + crashAltitude;
     if (isPlayerState && relativePosition.lengthSq() <= crashDistance * crashDistance) {
       const crashNormal = relativePosition.lengthSq() > 1e-8
@@ -1842,54 +1934,18 @@ function updateShipState(state, dt, controls) {
     }
     state.speed = ship.speed;
   } else {
-    const spaceForward = tempVecB.copy(ship.forward);
-    const spaceDrag = config.shipDragSpace * 0.25;
-    ship.speed = Math.max(0, ship.speed - ship.speed * spaceDrag * dt);
-    if (boostLevel > 0) {
-      const boostImpulse = config.shipBoostThrust * boostLevel * dt;
-      ship.speed += boostImpulse;
-      state.fuel = Math.max(0, state.fuel - dt * (0.8 + boostLevel * 3.2));
-    } else if (!boostActive && ship.boostTimer <= 0 && state.fuel < state.maxFuel) {
-      state.fuel = Math.min(state.maxFuel, state.fuel + config.shipFuelRecharge * dt);
-    }
-    if (brakeActive) {
-      ship.speed = Math.max(0, ship.speed - config.shipBrake * 0.02 * dt);
-    }
-    ship.speed = Math.min(altitudeSpeedCap, ship.speed);
-    relativeVelocity.copy(spaceForward).multiplyScalar(ship.speed);
-    if (liftState.stallBlend > 0) {
-      const radialSpeed = relativeVelocity.dot(outward);
-      const maxClimbSpeed = ship.speed * THREE.MathUtils.lerp(0.20, -0.06, liftState.stallBlend);
-      if (radialSpeed > maxClimbSpeed) {
-        relativeVelocity.addScaledVector(outward, -(radialSpeed - maxClimbSpeed) * THREE.MathUtils.lerp(0.22, 0.5, liftState.stallBlend));
-      }
-      const gentleSink = Math.min(ship.speed * 0.08, Math.max(0, altitude - targetAltitude) * 0.14) * liftState.stallBlend * liftState.stallBlend;
-      if (gentleSink > 0) {
-        relativeVelocity.addScaledVector(outward, -gentleSink);
-      }
-      ship.speed = relativeVelocity.length();
-    }
-    relativePosition.addScaledVector(relativeVelocity, dt);
-    const surfaceSnapDistance = planet.radius + config.planetSurfaceSnapAltitude;
-    if (relativePosition.lengthSq() <= surfaceSnapDistance * surfaceSnapDistance) {
-      const snapNormal = tempVecD.copy(relativePosition).normalize();
-      const snapAltitude = Math.max(config.planetSurfaceSnapAltitude, 1.0);
-      relativePosition.copy(snapNormal).multiplyScalar(planet.radius + snapAltitude);
-      const radialVelocity = snapNormal.clone().multiplyScalar(relativeVelocity.dot(snapNormal));
-      relativeVelocity.sub(radialVelocity);
-      ship.forward.copy(relativeVelocity.lengthSq() > 1e-6 ? relativeVelocity.clone().normalize() : ship.forward);
-      ship.up.copy(snapNormal);
-      ship.boundPlanet = planet;
-      ship.flightMode = 'bound';
-      ship.recaptureLock = 0;
-    }
-    ship.relativeVelocity.copy(relativeVelocity);
-    if (ship.flightMode === 'bound' && ship.boundPlanet) {
-      syncShipWorldState(ship);
+    relativeVelocity.copy(ship.forward).multiplyScalar(ship.speed);
+    ship.position.addScaledVector(relativeVelocity, dt);
+    ship.velocity.copy(relativeVelocity);
+    if (planet) {
+      relativePosition.copy(ship.position).sub(planet.position);
+      relativeVelocity.copy(ship.velocity).sub(planet.velocity);
     } else {
-      ship.position.addScaledVector(relativeVelocity, dt);
-      ship.velocity.copy(relativeVelocity);
+      relativePosition.copy(ship.position);
+      relativeVelocity.copy(ship.velocity);
     }
+    ship.relativePosition.copy(relativePosition);
+    ship.relativeVelocity.copy(relativeVelocity);
     state.speed = ship.speed;
   }
 
