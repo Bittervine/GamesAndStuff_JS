@@ -1547,6 +1547,7 @@ function updateShipState(state, dt, controls) {
     ? Math.pow(1 - smoothstep(0, 1, atmosphereRatio), atmosphereDensityCurve)
     : 0;
   const atmosphereDepth = atmosphereDensity;
+  const atmosphericFlightActive = ship.flightMode === 'bound' && atmosphereDepth > 0;
   const captureBlend = ship.captureTimer >= config.shipCaptureBlendTime
     ? 1
     : smoothstep(0, Math.max(config.shipCaptureBlendTime, 0.0001), ship.captureTimer);
@@ -1596,16 +1597,20 @@ function updateShipState(state, dt, controls) {
   );
   const terrainDescentSignal = smoothstep(0.01, 0.08, descentRatio);
   const terrainAltitudePressure = terrainAltitudeGuardBlend * THREE.MathUtils.lerp(0.35, 1.0, terrainDescentSignal);
-  const terrainEmergencyBlend = Math.max(terrainAltitudePressure, terrainTimeGuardBlend) * THREE.MathUtils.lerp(1.0, 0.45, boostLevel);
+  const terrainEmergencyBlend = atmosphericFlightActive
+    ? Math.max(terrainAltitudePressure, terrainTimeGuardBlend) * THREE.MathUtils.lerp(1.0, 0.45, boostLevel)
+    : 0;
   ship.fireCooldown = Math.max(0, ship.fireCooldown - dt);
-  const altitudeSpeedCap = Math.max(
-    config.shipMinMaxSpeed,
-    state.nearestAltitude * config.shipAltMaxSpeedFac
-  );
+  const altitudeSpeedCap = atmosphericFlightActive
+    ? Math.max(
+      config.shipMinMaxSpeed,
+      state.nearestAltitude * config.shipAltMaxSpeedFac
+    )
+    : Infinity;
 
   const turnSpeedScale = Math.max(0.1, config.shipTurnSpeedScale ?? 1);
   const targetBank = THREE.MathUtils.clamp(turnInput * 0.95, -0.95, 0.95);
-  const bankReturnRate = atmosphereDepth > 0
+  const bankReturnRate = atmosphericFlightActive
     ? THREE.MathUtils.lerp(1.4, 3.3, atmosphereDepth) * THREE.MathUtils.lerp(0.7, 1.0, autopilotStrength) * (Math.abs(turnInput) > 0.001 ? turnSpeedScale : 1)
     : 0.0;
   if (bankReturnRate > 0) {
@@ -1624,7 +1629,7 @@ function updateShipState(state, dt, controls) {
   ship.up.normalize();
 
   const yawRate = THREE.MathUtils.lerp(0.38, 0.98, atmosphereDepth) * THREE.MathUtils.lerp(0.55, 1.0, clamp01(currentSpeed / 6)) * turnSpeedScale;
-  if (atmosphereDepth > 0) {
+  if (atmosphericFlightActive) {
     ship.forward.applyAxisAngle(localUp, -ship.bank * yawRate * dt);
   }
 
@@ -1637,24 +1642,26 @@ function updateShipState(state, dt, controls) {
   }
   rightAxis.normalize();
 
-  const pitchRate = atmosphereDepth > 0
+  const pitchRate = atmosphericFlightActive
     ? THREE.MathUtils.lerp(0.28, 0.52, atmosphereDepth)
     : THREE.MathUtils.lerp(1.2, 1.9, clamp01(currentSpeed / 18));
-  const stallPitchDown = THREE.MathUtils.lerp(
+  const stallPitchDown = atmosphericFlightActive ? THREE.MathUtils.lerp(
     config.atmosphereStallPitchDownMin ?? 0.10,
     config.atmosphereStallPitchDownMax ?? 0.55,
     liftState.stallBlend
-  );
-  const hardDiveOverride = smoothstep(
+  ) : 0;
+  const hardDiveOverride = atmosphericFlightActive ? smoothstep(
     config.atmosphereHardDiveOverrideStart ?? 0.72,
     config.atmosphereHardDiveOverrideFull ?? 0.98,
     Math.max(0, pitchInput)
-  );
-  const terrainOverrideScale = 1 - hardDiveOverride * (config.atmosphereHardDiveOverrideAuthority ?? 0.76);
-  const terrainPullUpInput = -terrainEmergencyBlend
+  ) : 0;
+  const terrainOverrideScale = atmosphericFlightActive
+    ? 1 - hardDiveOverride * (config.atmosphereHardDiveOverrideAuthority ?? 0.76)
+    : 1;
+  const terrainPullUpInput = atmosphericFlightActive ? -terrainEmergencyBlend
     * (config.atmosphereTerrainPullUpStrength ?? 2.45)
     * terrainOverrideScale
-    * THREE.MathUtils.lerp(1.0, 0.45, boostLevel);
+    * THREE.MathUtils.lerp(1.0, 0.45, boostLevel) : 0;
   const basePitchInput = THREE.MathUtils.clamp(
     pitchInput + stallPitchDown * liftState.stallBlend,
     -1,
@@ -1667,13 +1674,14 @@ function updateShipState(state, dt, controls) {
   );
   if (Math.abs(pitchInput) > 0.001) {
     ship.pitchIdleTime = 0;
-    ship.forward.applyAxisAngle(rightAxis, basePitchInput * pitchRate * dt);
-    ship.up.applyAxisAngle(rightAxis, basePitchInput * pitchRate * dt);
+    const appliedPitchInput = atmosphericFlightActive ? basePitchInput : pitchInput;
+    ship.forward.applyAxisAngle(rightAxis, appliedPitchInput * pitchRate * dt);
+    ship.up.applyAxisAngle(rightAxis, appliedPitchInput * pitchRate * dt);
   } else {
-    ship.pitchIdleTime += boostLevel > 0 ? 0 : dt;
+    ship.pitchIdleTime = atmosphericFlightActive && boostLevel <= 0 ? ship.pitchIdleTime + dt : 0;
   }
 
-  if (atmosphereDepth > 0) {
+  if (atmosphericFlightActive) {
     const horizonForward = tempVecD.copy(ship.forward).addScaledVector(localUp, -ship.forward.dot(localUp));
     if (horizonForward.lengthSq() > 1e-6 && boostLevel <= 0) {
       horizonForward.normalize();
@@ -1710,7 +1718,7 @@ function updateShipState(state, dt, controls) {
     ship.bank = THREE.MathUtils.lerp(ship.bank, 0, easeExp(dt, THREE.MathUtils.lerp(0.12, 1.8, 1 - bankBlend)));
   }
 
-  if (liftState.stallBlend > 0) {
+  if (atmosphericFlightActive && liftState.stallBlend > 0) {
     const climbDot = ship.forward.dot(localUp);
     const allowedClimbDot = THREE.MathUtils.lerp(0.14, -0.10, liftState.stallBlend);
     if (climbDot > allowedClimbDot) {
@@ -1722,8 +1730,8 @@ function updateShipState(state, dt, controls) {
     }
   }
 
-  if (atmosphereDepth > 0 && ship.flightMode === 'bound' && boostLevel <= 0 && ship.pitchIdleTime > config.shipPitchReorientDelay) {
-    const referenceUp = atmosphereDepth > 0 && state.nearestPlanet
+  if (atmosphericFlightActive && ship.boundPlanet && boostLevel <= 0 && ship.pitchIdleTime > config.shipPitchReorientDelay) {
+    const referenceUp = atmosphericFlightActive && state.nearestPlanet
       ? ship.position.clone().sub(state.nearestPlanet.position).normalize()
       : worldUp;
     const targetUp = referenceUp.clone().sub(tempVecD.copy(ship.forward).multiplyScalar(referenceUp.dot(ship.forward)));
@@ -1740,7 +1748,7 @@ function updateShipState(state, dt, controls) {
     }
   }
 
-  if (terrainEmergencyBlend > 0 && boostLevel <= 0.995) {
+  if (atmosphericFlightActive && terrainEmergencyBlend > 0 && boostLevel <= 0.995) {
     const desiredTerrainClimbDot = THREE.MathUtils.lerp(
       -0.12,
       config.atmosphereTerrainPullUpClimbDot ?? 0.34,
@@ -1762,7 +1770,7 @@ function updateShipState(state, dt, controls) {
     ship.up.copy(projectedUp.normalize());
   }
 
-  if (atmosphereDepth > 0) {
+  if (atmosphericFlightActive) {
     const climbDot = THREE.MathUtils.clamp(ship.forward.dot(localUp), -1, 1);
     const diveEnergy = clamp01(-climbDot);
     const climbLoad = clamp01(climbDot);

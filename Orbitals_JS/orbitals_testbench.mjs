@@ -717,6 +717,76 @@ function runSpaceFreeNoAutoReorientTest() {
   );
 }
 
+function runFreeApproachNearPlanetNoAtmosphereAutopilotTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  const startPlanet = state.ship.boundPlanet;
+  assert.ok(startPlanet, 'expected the ship to start bound to a planet');
+
+  const targetPlanet = state.planets.find((planet) => planet !== startPlanet);
+  assert.ok(targetPlanet, 'expected a second planet to exist');
+
+  const surfaceNormal = targetPlanet.position.lengthSq() > 1e-6
+    ? targetPlanet.position.clone().normalize()
+    : new THREE.Vector3(0, 1, 0);
+  const tangent = Math.abs(surfaceNormal.dot(new THREE.Vector3(0, 1, 0))) > 0.85
+    ? new THREE.Vector3(1, 0, 0).cross(surfaceNormal).normalize()
+    : new THREE.Vector3(0, 1, 0).cross(surfaceNormal).normalize();
+  const atmosphereThickness = targetPlanet.atmosphereRadius - targetPlanet.radius;
+  const altitude = Math.min(
+    atmosphereThickness - 8,
+    Math.max(config.planetCaptureAltitude + 10, atmosphereThickness * 0.65)
+  );
+  const worldPosition = targetPlanet.position.clone().addScaledVector(surfaceNormal, targetPlanet.radius + altitude);
+  const initialForward = tangent.clone().addScaledVector(surfaceNormal, -0.18).normalize();
+  const initialRight = surfaceNormal.clone().cross(initialForward).normalize();
+  const initialUp = initialForward.clone().cross(initialRight).normalize();
+
+  state.ship.boundPlanet = null;
+  state.ship.flightMode = 'free';
+  state.ship.recaptureLock = config.shipRecaptureDelay + 5;
+  state.ship.captureTimer = config.shipCaptureBlendTime;
+  state.ship.position.copy(worldPosition);
+  state.ship.forward.copy(initialForward);
+  state.ship.up.copy(initialUp);
+  state.ship.bank = 0.25;
+  state.ship.speed = config.shipMinMaxSpeed;
+  state.ship.velocity.copy(initialForward).multiplyScalar(state.ship.speed);
+  state.ship.relativePosition.copy(worldPosition).sub(targetPlanet.position);
+  state.ship.relativeVelocity.copy(state.ship.velocity).sub(targetPlanet.velocity);
+  state.nearestPlanet = targetPlanet;
+  state.nearestDistance = worldPosition.distanceTo(targetPlanet.position);
+  state.nearestAltitude = altitude;
+  state.speed = state.ship.speed;
+
+  const startAltitude = altitudeBetween(state.ship, targetPlanet);
+  for (let i = 0; i < 180; i += 1) {
+    state.ship.speed = config.shipMinMaxSpeed;
+    state.ship.velocity.copy(targetPlanet.velocity).addScaledVector(initialForward, state.ship.speed);
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+  }
+
+  const finalAltitude = altitudeBetween(state.ship, targetPlanet);
+  const finalForward = state.ship.forward.clone().normalize();
+
+  assert.strictEqual(state.ship.flightMode, 'free', 'expected the ship to stay free while approaching a planet');
+  assert.strictEqual(state.ship.boundPlanet, null, 'expected the ship to remain unbound');
+  assert.ok(
+    finalForward.dot(initialForward) > 0.995,
+    `free flight should not auto-reorient near a planet: dot=${finalForward.dot(initialForward).toFixed(3)}`
+  );
+  assert.ok(
+    finalAltitude < startAltitude - 3,
+    `free flight should keep descending without atmospheric autopilot: start=${startAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)}`
+  );
+
+  console.log(
+    `PASS free-approach-no-atmo-autopilot: altitude=${startAltitude.toFixed(3)}->${finalAltitude.toFixed(3)} dot=${finalForward.dot(initialForward).toFixed(3)}`
+  );
+}
+
 function runProjectileFireTest() {
   const sim = createOrbitalsSim(0xC0FFEE);
   sim.bootstrapWorld();
@@ -1322,6 +1392,7 @@ runFuelRechargeTest();
 runSpaceNewtonianTest();
 runSpaceLoopTest();
 runSpaceFreeNoAutoReorientTest();
+runFreeApproachNearPlanetNoAtmosphereAutopilotTest();
 runProjectileFireTest();
 runProjectileHomingTest();
 runProjectileHomingLimitTest();
