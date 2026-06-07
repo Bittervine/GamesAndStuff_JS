@@ -1949,8 +1949,15 @@ function runMothershipArrivalTest() {
 
   const arrivalEvent = state.eventLog.find((event) => event.type === 'mothership-arrived' && event.mothershipId === mothershipSquad.id);
   const reorientedEvent = state.eventLog.find((event) => event.type === 'mothership-reoriented' && event.mothershipId === mothershipSquad.id);
+  const crashEvent = state.eventLog.find((event) => (
+    event.type === 'enemy-death'
+    && event.kind === 'mothership'
+    && event.cause === 'crash'
+    && event.squadId === mothershipSquad.id
+  ));
   assert.ok(arrivalEvent, 'expected the mothership to record an arrival event');
   assert.ok(reorientedEvent, 'expected the mothership to record a reorientation event');
+  assert.ok(!crashEvent, `expected the mothership to never crash into a planet, but it died at frame ${crashEvent?.diedAtFrame}`);
   const reorientSeconds = reorientedEvent.time - arrivalEvent.time;
   assert.ok(
     reorientSeconds >= 4.0 && reorientSeconds <= 5.5,
@@ -2088,7 +2095,7 @@ function runRegularScenarioDeepSpaceRunawayTest() {
   console.log(`PASS regular-scenario-deep-space: seed=${seed} limit=${suspiciousDistance.toFixed(3)} frames=${state.frameIndex}`);
 }
 
-function runMothershipPlanetCrossTest() {
+function runMothershipPlanetCrashTest() {
   const seed = resolveBenchSeed();
   const sim = createOrbitalsSim(seed);
   sim.bootstrapWorld();
@@ -2106,16 +2113,10 @@ function runMothershipPlanetCrossTest() {
   }
 
   if (crossEvent) {
-    throw new Error(
-      [
-        'Mothership crossed through a planet:',
-        `- mothershipId=${crossEvent.mothershipId} squadId=${crossEvent.mothershipSquadId} planet=${crossEvent.planetIndex}(${crossEvent.planetName || 'n/a'}) frame=${crossEvent.frame}`,
-        `- prev=${JSON.stringify(crossEvent.previousPosition)} now=${JSON.stringify(crossEvent.currentPosition)}`
-      ].join('\n')
-    );
+    throw new Error(`expected the mothership to avoid crossing any planet, but it crossed planet ${crossEvent.planetIndex} at frame ${crossEvent.frame}`);
   }
 
-  console.log(`PASS mothership-planet-cross: seed=${seed} frames=${state.frameIndex}`);
+  console.log(`PASS mothership-planet-crash: seed=${seed} frames=${state.frameIndex}`);
 }
 
 function runMothershipFighterLaunchTest() {
@@ -2470,7 +2471,7 @@ runPlanetCaptureBlendTest();
 runMothershipArrivalTest();
 runDeepSpaceEnemyDistanceTest();
 runRegularScenarioDeepSpaceRunawayTest();
-runMothershipPlanetCrossTest();
+runMothershipPlanetCrashTest();
 runMothershipFighterLaunchTest();
 runMothershipFighterPatrolTest();
 runMothershipSpawnRegressionTest();

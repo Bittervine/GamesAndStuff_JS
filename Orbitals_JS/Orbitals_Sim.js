@@ -941,17 +941,8 @@ function spawnMothershipSquad(state, targetPlanetIndex = -1) {
     rng()
   );
   const outwardSpawn = tempVecF.copy(planet.position).addScaledVector(radial, spawnDistance);
-  const inwardSpawn = tempVecG.copy(planet.position).addScaledVector(radial, -spawnDistance);
-  const outwardNearest = Math.min(
-    outwardSpawn.length(),
-    ...state.planets.map((otherPlanet) => outwardSpawn.distanceTo(otherPlanet.position))
-  );
-  const inwardNearest = Math.min(
-    inwardSpawn.length(),
-    ...state.planets.map((otherPlanet) => inwardSpawn.distanceTo(otherPlanet.position))
-  );
-  const spawnCenter = inwardNearest <= outwardNearest ? inwardSpawn : outwardSpawn;
-  const spawnSide = inwardNearest <= outwardNearest ? -1 : 1;
+  const spawnCenter = outwardSpawn;
+  const spawnSide = 1;
   const travelDirection = tempVecC.copy(holdPoint).sub(spawnCenter).normalize();
   const edgeUp = tempVecD.copy(basis.bitangent);
   if (Math.abs(edgeUp.dot(travelDirection)) > 0.85) {
@@ -2087,7 +2078,8 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
           },
           planetRadius: candidatePlanet.radius
         });
-        break;
+        destroyEnemy(state, enemy, 'crash', enemy.position.clone());
+        return;
       }
     }
     return;
@@ -2152,7 +2144,8 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
           },
           planetRadius: candidatePlanet.radius
         });
-        break;
+        destroyEnemy(state, enemy, 'crash', enemy.position.clone());
+        return;
       }
     }
     if (!squad.holdReoriented && squad.holdReorientTimer >= squad.holdReorientDuration - 1e-6) {
@@ -2216,7 +2209,8 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
           },
           planetRadius: candidatePlanet.radius
         });
-        break;
+        destroyEnemy(state, enemy, 'crash', enemy.position.clone());
+        return;
       }
     }
   }
