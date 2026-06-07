@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import * as THREE from './lib/three.module.js';
-import { createOrbitalsSim, ENEMY_MODEL_FILES_BY_FAMILY } from './Orbitals_Sim.js';
+import { createOrbitalsSim, ENEMY_MODEL_FILES_BY_FAMILY, parseSeed } from './Orbitals_Sim.js';
 import { config } from './orbitals_config.js';
 
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
@@ -13,6 +13,14 @@ const NEUTRAL_CONTROLS = {
 };
 
 const SHALLOW_DIVE_PITCH_INPUT = 0.5;
+
+function resolveBenchSeed() {
+  const rawSeed = process.env.ORBITALS_SEED ?? process.argv[2] ?? '';
+  if (rawSeed === '') {
+    return config.debug ? config.debugSeed : parseSeed('');
+  }
+  return parseSeed(rawSeed);
+}
 
 function altitudeBetween(ship, planet) {
   return ship.position.distanceTo(planet.position) - planet.radius;
@@ -2028,6 +2036,88 @@ function runDeepSpaceEnemyDistanceTest() {
   console.log(`PASS deep-space-distance: limit=${suspiciousDistance.toFixed(3)}`);
 }
 
+function runRegularScenarioDeepSpaceRunawayTest() {
+  const seed = resolveBenchSeed();
+  const sim = createOrbitalsSim(seed);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  const failures = [];
+  const suspiciousDistance = config.deepSpaceSuspiciousDistance;
+  const maxFrames = 18_000;
+  let offendingEvent = null;
+  let offendingDistance = 0;
+
+  for (let i = 0; i < maxFrames; i += 1) {
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+
+    for (const enemy of state.enemies) {
+      const nearestDistance = nearestBodyDistance(enemy.position, state.planets);
+      if (nearestDistance > suspiciousDistance) {
+        offendingEvent = {
+          frame: state.frameIndex,
+          id: enemy.id,
+          kind: enemy.kind,
+          squadId: enemy.squadId,
+          nearestDistance
+        };
+        offendingDistance = nearestDistance;
+        break;
+      }
+    }
+
+    if (offendingEvent) {
+      break;
+    }
+  }
+
+  if (offendingEvent) {
+    failures.push(
+      `enemy drifted too far from all bodies in the regular scenario: kind=${offendingEvent.kind} id=${offendingEvent.id} squad=${offendingEvent.squadId} frame=${offendingEvent.frame} nearest=${offendingDistance.toFixed(3)} limit=${suspiciousDistance.toFixed(3)} seed=${seed}`
+    );
+  }
+
+  if (failures.length > 0) {
+    throw new Error([
+      'Regular-scenario deep-space guard failed:',
+      `- ${failures[0]}`,
+      ...failures.slice(1).map((failure) => `- ${failure}`)
+    ].join('\n'));
+  }
+
+  console.log(`PASS regular-scenario-deep-space: seed=${seed} limit=${suspiciousDistance.toFixed(3)} frames=${state.frameIndex}`);
+}
+
+function runMothershipPlanetCrossTest() {
+  const seed = resolveBenchSeed();
+  const sim = createOrbitalsSim(seed);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  const maxFrames = 36_000;
+  let crossEvent = null;
+
+  for (let i = 0; i < maxFrames; i += 1) {
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+    crossEvent = state.eventLog.find((event) => event.type === 'mothership-planet-cross');
+    if (crossEvent) {
+      break;
+    }
+  }
+
+  if (crossEvent) {
+    throw new Error(
+      [
+        'Mothership crossed through a planet:',
+        `- mothershipId=${crossEvent.mothershipId} squadId=${crossEvent.mothershipSquadId} planet=${crossEvent.planetIndex}(${crossEvent.planetName || 'n/a'}) frame=${crossEvent.frame}`,
+        `- prev=${JSON.stringify(crossEvent.previousPosition)} now=${JSON.stringify(crossEvent.currentPosition)}`
+      ].join('\n')
+    );
+  }
+
+  console.log(`PASS mothership-planet-cross: seed=${seed} frames=${state.frameIndex}`);
+}
+
 function runMothershipFighterLaunchTest() {
   const sim = createOrbitalsSim(0xC0FFEE);
   sim.bootstrapWorld();
@@ -2379,6 +2469,8 @@ runPlanetCaptureArrivalTest();
 runPlanetCaptureBlendTest();
 runMothershipArrivalTest();
 runDeepSpaceEnemyDistanceTest();
+runRegularScenarioDeepSpaceRunawayTest();
+runMothershipPlanetCrossTest();
 runMothershipFighterLaunchTest();
 runMothershipFighterPatrolTest();
 runMothershipSpawnRegressionTest();

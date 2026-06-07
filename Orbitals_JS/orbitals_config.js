@@ -24,6 +24,7 @@ export const PLANET_FILES = [
 
 export const config = {
   debug: true,
+  debugSeed: 0xC0FFEE,
   planetCountMin: 6,
   planetCountMax: 9,
   planetScale: 1000,
@@ -87,7 +88,7 @@ export const config = {
   freeBrakeHalfLife: 2.0,
   freeBoostAcceleration: 50,
   freeCameraRollResponse: 2.4,
-  deepSpaceSuspiciousDistance: 10000,
+  deepSpaceSuspiciousDistance: 5000,
   atmosphereCaptureSpeedTransitionScale: 0.5,
   planetCaptureAltitude: 70,
   planetEscapeAltitude: 75,

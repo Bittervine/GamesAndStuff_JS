@@ -899,7 +899,7 @@ function spawnFighterSquadFromMothership(state, mothershipSquad, mothershipEnemy
     launchTangent.normalize();
 
     const launchDirection = tempVecA.copy(launchTangent).addScaledVector(launchRadial, 0.14).normalize();
-    const launchSpeed = computeEnemyControlTargetSpeed(planet, fighter, squad) * 1.1;
+    const launchSpeed = computeEnemyControlTargetSpeed(state, planet, fighter, squad) * 1.1;
 
     fighter.position.copy(fighterSpawnPoint);
     fighter.previousPosition.copy(fighterSpawnPoint);
@@ -980,7 +980,12 @@ function spawnMothershipSquad(state, targetPlanetIndex = -1) {
   squad.holdAxis.normalize();
   squad.holdRadial.copy(radial);
   squad.holdTangent.copy(basis.tangent);
-  squad.mothershipExitDirection = radial.clone();
+  const nextPlanet = state.planets[Math.max(0, Math.min(state.planets.length - 1, squad.nextPlanetIndex))] || planet;
+  const exitDirection = tempVecG.copy(nextPlanet.position).sub(planet.position);
+  if (exitDirection.lengthSq() < 1e-6) {
+    exitDirection.copy(radial);
+  }
+  squad.mothershipExitDirection = exitDirection.normalize().clone();
   squad.holdArrivalDistance = holdPoint.distanceTo(spawnCenter);
   squad.holdExitDistance = planet.radius * 16;
   squad.approachStartDistance = Math.max(squad.holdArrivalDistance, 1);
@@ -1029,7 +1034,7 @@ function spawnMothershipSquad(state, targetPlanetIndex = -1) {
     mothership.mothershipSpawnPoint = spawnCenter.clone();
     mothership.mothershipTravelDirection = travelDirection.clone();
     mothership.mothershipEdgeUp = edgeUp.clone();
-    mothership.mothershipExitDirection = radial.clone();
+    mothership.mothershipExitDirection = squad.mothershipExitDirection.clone();
     mothership.mothershipHoldAxis = squad.holdAxis.clone();
     mothership.mothershipHoldAngle = squad.holdAngle;
     mothership.mothershipHoldBeta = squad.holdBeta;
@@ -1228,6 +1233,37 @@ function detectEnemyCrash(state, enemy) {
   }
 
   return null;
+}
+
+function getNearestPlanetInfo(state, position) {
+  let nearestIndex = -1;
+  let nearestDistance = Infinity;
+  for (let i = 0; i < state.planets.length; i += 1) {
+    const planet = state.planets[i];
+    const distance = position.distanceTo(planet.position);
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearestIndex = i;
+    }
+  }
+  return {
+    index: nearestIndex,
+    planet: nearestIndex >= 0 ? state.planets[nearestIndex] : null,
+    distance: nearestDistance
+  };
+}
+
+function segmentIntersectsSphere(start, end, center, radius) {
+  const segment = tempVecA.copy(end).sub(start);
+  const lengthSq = segment.lengthSq();
+  if (lengthSq < 1e-12) {
+    return start.distanceTo(center) <= radius;
+  }
+
+  const toCenter = tempVecB.copy(center).sub(start);
+  const t = THREE.MathUtils.clamp(toCenter.dot(segment) / lengthSq, 0, 1);
+  const closest = tempVecC.copy(start).addScaledVector(segment, t);
+  return closest.distanceTo(center) <= radius;
 }
 
 function findProjectileHomingTarget(state, projectile) {
@@ -1483,6 +1519,12 @@ export function formatCombatLog(state) {
       );
       continue;
     }
+    if (event.type === 'mothership-planet-cross') {
+      lines.push(
+        `[${stamp}] M#${event.mothershipId} crossed planet=${event.planetIndex}(${event.planetName || 'n/a'}) prev=${formatEventPoint(event.previousPosition)} now=${formatEventPoint(event.currentPosition)}`
+      );
+      continue;
+    }
     if (event.type === 'enemy-spawn') {
       lines.push(
         `[${stamp}] E#${event.enemyId} spawn kind=${event.kind} family=${event.family} fromM=${event.spawnedByMothershipId ?? '-'} planet=${event.targetPlanetIndex}(${event.targetPlanetName || 'n/a'}) pos=${formatEventPoint(event.position)} alt=${event.altitude == null ? 'n/a' : Number(event.altitude).toFixed(2)}`
@@ -1606,7 +1648,21 @@ function accumulateEnemyOrbitProgress(squad, targetPlanet, enemy) {
   squad.orbitLastAngle = currentAngle;
 }
 
-function computeEnemyControlTargetSpeed(targetPlanet, enemy, squad) {
+function computeEnemyTravelDistance(state, targetPlanet, enemy, squad) {
+  let travelDistance = enemy.position.distanceTo(targetPlanet.position);
+  if (squad.mode === 'depart' || enemy.kind === 'mothership') {
+    const departPlanetIndex = squad.departPlanetIndex >= 0
+      ? squad.departPlanetIndex
+      : squad.targetPlanetIndex;
+    const departPlanet = state.planets[Math.max(0, Math.min(state.planets.length - 1, departPlanetIndex))];
+    if (departPlanet) {
+      travelDistance = Math.min(travelDistance, enemy.position.distanceTo(departPlanet.position));
+    }
+  }
+  return Math.max(travelDistance, 1.0);
+}
+
+function computeEnemyControlTargetSpeed(state, targetPlanet, enemy, squad) {
   const atmosphereThickness = Math.max(targetPlanet.atmosphereRadius - targetPlanet.radius, 1.0);
   const fighterApproachAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterDiveAltitudeFactor > 0
     ? squad.fighterDiveAltitudeFactor
@@ -1670,7 +1726,7 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
   }
   rightAxis.normalize();
 
-  const currentSurfaceSpeed = computeEnemyControlTargetSpeed(targetPlanet, enemy, squad);
+  const currentSurfaceSpeed = computeEnemyControlTargetSpeed(state, targetPlanet, enemy, squad);
   const liftState = computeAtmosphereLiftState(
     targetPlanet,
     currentAltitude,
@@ -1802,9 +1858,32 @@ function updateEnemyShip(state, enemy, squad, dt, time) {
     }
   }
 
-  const targetPlanet = getEnemyTargetPlanet(state, enemy);
+  let targetPlanet = getEnemyTargetPlanet(state, enemy);
   if (!targetPlanet) {
     return;
+  }
+
+  const nearestPlanetInfo = getNearestPlanetInfo(state, enemy.position);
+  if (nearestPlanetInfo.planet && nearestPlanetInfo.distance > config.deepSpaceSuspiciousDistance) {
+    if (enemy.kind === 'mothership') {
+      if (squad.mode !== 'exit') {
+        squad.mode = 'exit';
+        squad.modeTimer = Math.max(squad.modeTimer, squad.departDuration);
+        squad.departPlanetIndex = squad.targetPlanetIndex;
+      }
+      squad.mothershipExitDirection = nearestPlanetInfo.planet.position.clone().sub(enemy.position).normalize();
+      if (squad.mothershipExitDirection.lengthSq() < 1e-6) {
+        squad.mothershipExitDirection.copy(enemy.forward).normalize();
+      }
+    } else {
+      squad.targetPlanetIndex = nearestPlanetInfo.index;
+      squad.departPlanetIndex = -1;
+      if (squad.mode === 'depart' || squad.mode === 'exit') {
+        squad.mode = 'approach';
+        squad.modeTimer = 0;
+      }
+    }
+    targetPlanet = nearestPlanetInfo.planet;
   }
 
   const controls = computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt);
@@ -1928,6 +2007,7 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
     : tempVecA.copy(worldUp);
   const holdRadius = planet.radius * config.mothershipHoldRadiusFactor;
   const arrivalPoint = tempVecB.copy(planet.position).addScaledVector(radial, holdRadius);
+  const previousPosition = enemy.previousPosition.copy(enemy.position);
 
   if (squad.mode === 'approach') {
     const toArrival = tempVecC.copy(arrivalPoint).sub(enemy.position);
@@ -1983,6 +2063,33 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
     enemy.forward.copy(moveDir);
     enemy.relativePosition.copy(enemy.position).sub(planet.position);
     enemy.relativeVelocity.copy(enemy.velocity).sub(planet.velocity);
+    for (const candidatePlanet of state.planets) {
+      if (segmentIntersectsSphere(previous, enemy.position, candidatePlanet.position, candidatePlanet.radius)) {
+        pushEvent(state, 'mothership-planet-cross', {
+          mothershipSquadId: squad.id,
+          mothershipId: enemy.id,
+          planetIndex: state.planets.indexOf(candidatePlanet),
+          planetName: candidatePlanet.name,
+          previousPosition: {
+            x: previous.x,
+            y: previous.y,
+            z: previous.z
+          },
+          currentPosition: {
+            x: enemy.position.x,
+            y: enemy.position.y,
+            z: enemy.position.z
+          },
+          planetCenter: {
+            x: candidatePlanet.position.x,
+            y: candidatePlanet.position.y,
+            z: candidatePlanet.position.z
+          },
+          planetRadius: candidatePlanet.radius
+        });
+        break;
+      }
+    }
     return;
   }
 
@@ -2021,6 +2128,33 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
     enemy.forward.copy(currentForward);
     enemy.relativePosition.copy(enemy.position).sub(planet.position);
     enemy.relativeVelocity.copy(enemy.velocity).sub(planet.velocity);
+    for (const candidatePlanet of state.planets) {
+      if (segmentIntersectsSphere(previousPosition, enemy.position, candidatePlanet.position, candidatePlanet.radius)) {
+        pushEvent(state, 'mothership-planet-cross', {
+          mothershipSquadId: squad.id,
+          mothershipId: enemy.id,
+          planetIndex: state.planets.indexOf(candidatePlanet),
+          planetName: candidatePlanet.name,
+          previousPosition: {
+            x: previousPosition.x,
+            y: previousPosition.y,
+            z: previousPosition.z
+          },
+          currentPosition: {
+            x: enemy.position.x,
+            y: enemy.position.y,
+            z: enemy.position.z
+          },
+          planetCenter: {
+            x: candidatePlanet.position.x,
+            y: candidatePlanet.position.y,
+            z: candidatePlanet.position.z
+          },
+          planetRadius: candidatePlanet.radius
+        });
+        break;
+      }
+    }
     if (!squad.holdReoriented && squad.holdReorientTimer >= squad.holdReorientDuration - 1e-6) {
       squad.holdReoriented = true;
       pushEvent(state, 'mothership-reoriented', {
@@ -2038,15 +2172,16 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
   }
 
   if (squad.mode === 'exit') {
-    const exitDirection = tempVecC.copy(enemy.position).sub(planet.position);
+    const exitDirection = tempVecC.copy(squad.mothershipExitDirection || squad.holdRadial || radial);
     if (exitDirection.lengthSq() < 1e-6) {
-      exitDirection.copy(squad.mothershipExitDirection || squad.holdRadial || radial);
+      exitDirection.copy(enemy.position).sub(planet.position);
     }
     exitDirection.normalize();
     const previous = enemy.position.clone();
     const radialDistance = Math.max(enemy.position.distanceTo(planet.position), 1);
+    const travelDistance = computeEnemyTravelDistance(state, planet, enemy, squad);
     const exitSpeed = Math.max(
-      squad.exitSpeedFactor * Math.pow(radialDistance, squad.approachExponent)
+      squad.exitSpeedFactor * Math.pow(travelDistance, squad.approachExponent)
     );
     enemy.position.addScaledVector(exitDirection, exitSpeed * dt);
     enemy.velocity.copy(enemy.position).sub(previous).divideScalar(Math.max(dt, 1e-6));
@@ -2057,6 +2192,33 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
     enemy.forward.copy(exitDirection);
     enemy.relativePosition.copy(enemy.position).sub(planet.position);
     enemy.relativeVelocity.copy(enemy.velocity).sub(planet.velocity);
+    for (const candidatePlanet of state.planets) {
+      if (segmentIntersectsSphere(previousPosition, enemy.position, candidatePlanet.position, candidatePlanet.radius)) {
+        pushEvent(state, 'mothership-planet-cross', {
+          mothershipSquadId: squad.id,
+          mothershipId: enemy.id,
+          planetIndex: state.planets.indexOf(candidatePlanet),
+          planetName: candidatePlanet.name,
+          previousPosition: {
+            x: previousPosition.x,
+            y: previousPosition.y,
+            z: previousPosition.z
+          },
+          currentPosition: {
+            x: enemy.position.x,
+            y: enemy.position.y,
+            z: enemy.position.z
+          },
+          planetCenter: {
+            x: candidatePlanet.position.x,
+            y: candidatePlanet.position.y,
+            z: candidatePlanet.position.z
+          },
+          planetRadius: candidatePlanet.radius
+        });
+        break;
+      }
+    }
   }
 }
 

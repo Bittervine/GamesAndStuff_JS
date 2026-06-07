@@ -23,7 +23,9 @@ const gameOverOverlayEl = document.getElementById('gameOverOverlay');
 const gameOverTimerEl = document.getElementById('gameOverTimer');
 
 const params = new URLSearchParams(window.location.search);
-const seed = parseSeed(params.get('seed'));
+const seed = params.has('seed')
+  ? parseSeed(params.get('seed'))
+  : (config.debug ? config.debugSeed : parseSeed(''));
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050811);
@@ -93,6 +95,8 @@ const orbitalsAudio = {
   boostNoiseFilter: null,
   boostNoiseGain: null,
   enabled: false,
+  soundNotInit: true,
+  soundInitFailed: false,
   resumePromise: null
 };
 let lastProjectileIdForSfx = 0;
@@ -132,7 +136,7 @@ const starLight = new THREE.PointLight(0xfff2c6, 12000, 0, 2);
 starLight.position.set(0, 0, 0);
 scene.add(starLight);
 
-window.__orbitals = {
+window.__orbitals = config.debug ? {
   state,
   getCombatEvents() {
     return state.eventLog.map((event) => ({ ...event }));
@@ -184,6 +188,59 @@ window.__orbitals = {
         orbitSpeed: Number(planet.orbitSpeed.toFixed(5)),
         orbitPhase: Number(planet.orbitPhase.toFixed(5))
       }))
+    };
+  }
+} : {
+  state,
+  snapshot() {
+    const ship = state.ship;
+    const cameraOffset = ship ? camera.position.clone().sub(ship.position) : null;
+    const localUp = ship && state.nearestPlanet
+      ? ship.position.clone().sub(state.nearestPlanet.position).normalize()
+      : null;
+    return {
+      seed: state.seed,
+      fuel: state.fuel,
+      speed: state.speed,
+      crashed: state.crashed,
+      nearestPlanet: state.nearestPlanet ? state.nearestPlanet.name : null,
+      altitude: state.nearestAltitude,
+      cameraPosition: {
+        x: Number(camera.position.x.toFixed(3)),
+        y: Number(camera.position.y.toFixed(3)),
+        z: Number(camera.position.z.toFixed(3))
+      },
+      cameraOffset: cameraOffset ? {
+        x: Number(cameraOffset.x.toFixed(3)),
+        y: Number(cameraOffset.y.toFixed(3)),
+        z: Number(cameraOffset.z.toFixed(3))
+      } : null,
+      shipPosition: ship ? {
+        x: Number(ship.position.x.toFixed(3)),
+        y: Number(ship.position.y.toFixed(3)),
+        z: Number(ship.position.z.toFixed(3))
+      } : null,
+      shipForward: ship ? {
+        x: Number(ship.forward.x.toFixed(3)),
+        y: Number(ship.forward.y.toFixed(3)),
+        z: Number(ship.forward.z.toFixed(3))
+      } : null,
+      shipUp: ship ? {
+        x: Number(ship.up.x.toFixed(3)),
+        y: Number(ship.up.y.toFixed(3)),
+        z: Number(ship.up.z.toFixed(3))
+      } : null,
+      localUp: localUp ? {
+        x: Number(localUp.x.toFixed(3)),
+        y: Number(localUp.y.toFixed(3)),
+        z: Number(localUp.z.toFixed(3))
+      } : null,
+      pointerLocked: uiState.pointerLocked,
+      gamepadConnected: uiState.gamepadConnected,
+      mouseFireHeld: uiState.mouseFireHeld,
+      mouseBoostHeld: uiState.mouseBoostHeld,
+      mouseCenteredHoldTime: uiState.mouseCenteredHoldTime,
+      loaded: uiState.loaded
     };
   }
 };
@@ -258,14 +315,24 @@ function easeExp(value, rate) {
 
 function ensureOrbitalsAudio() {
   if (orbitalsAudio.ctx) {
+    orbitalsAudio.soundNotInit = false;
+    orbitalsAudio.soundInitFailed = false;
     return orbitalsAudio.ctx;
   }
   const Ctx = window.AudioContext || window.webkitAudioContext;
   if (!Ctx) {
+    orbitalsAudio.soundNotInit = true;
+    orbitalsAudio.soundInitFailed = true;
     return null;
   }
 
-  orbitalsAudio.ctx = new Ctx();
+  try {
+    orbitalsAudio.ctx = new Ctx();
+  } catch (error) {
+    orbitalsAudio.soundNotInit = true;
+    orbitalsAudio.soundInitFailed = true;
+    return null;
+  }
   orbitalsAudio.master = orbitalsAudio.ctx.createGain();
   orbitalsAudio.master.gain.value = 0.7;
   orbitalsAudio.master.connect(orbitalsAudio.ctx.destination);
@@ -289,6 +356,8 @@ function ensureOrbitalsAudio() {
     data[i] *= normalize;
   }
   orbitalsAudio.noise = buf;
+  orbitalsAudio.soundNotInit = false;
+  orbitalsAudio.soundInitFailed = false;
   return orbitalsAudio.ctx;
 }
 
@@ -352,9 +421,13 @@ function resumeOrbitalsAudio() {
   orbitalsAudio.resumePromise = ctx.resume()
     .then(() => {
       orbitalsAudio.enabled = ctx.state === 'running';
+      orbitalsAudio.soundNotInit = ctx.state !== 'running';
+      orbitalsAudio.soundInitFailed = ctx.state !== 'running';
     })
     .catch(() => {
       orbitalsAudio.enabled = false;
+      orbitalsAudio.soundNotInit = true;
+      orbitalsAudio.soundInitFailed = true;
     })
     .finally(() => {
       orbitalsAudio.resumePromise = null;
@@ -2179,6 +2252,7 @@ function handleKeyUp(event) {
 }
 
 function toggleMouseLock() {
+  resumeOrbitalsAudio();
   if (document.pointerLockElement === renderer.domElement) {
     document.exitPointerLock?.();
     return;
@@ -2188,6 +2262,7 @@ function toggleMouseLock() {
 
 if (mouseLockButton) {
   mouseLockButton.addEventListener('click', () => {
+    resumeOrbitalsAudio();
     toggleMouseLock();
   });
 }
@@ -2202,6 +2277,9 @@ window.addEventListener('blur', handleWindowBlur);
 window.addEventListener('resize', handleResize);
 window.addEventListener('keydown', handleKeyDown);
 window.addEventListener('keyup', handleKeyUp);
+window.addEventListener('mousedown', resumeOrbitalsAudio, { capture: true });
+window.addEventListener('touchstart', resumeOrbitalsAudio, { capture: true, passive: true });
+window.addEventListener('click', resumeOrbitalsAudio, { capture: true });
 
 function updatePlanets(dt, time) {
   for (const planet of state.planets) {
