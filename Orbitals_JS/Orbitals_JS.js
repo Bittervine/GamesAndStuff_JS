@@ -319,7 +319,7 @@ function ensureBoostNoiseNode() {
 }
 
 function updateBoostNoise(boostLevel, pulse) {
-  const ctx = ensureOrbitalsAudio();
+  const ctx = orbitalsAudio.ctx;
   if (!ctx || ctx.state !== 'running') {
     return;
   }
@@ -362,7 +362,7 @@ function resumeOrbitalsAudio() {
 }
 
 function playOrbitalsTone(opts = {}) {
-  const ctx = ensureOrbitalsAudio();
+  const ctx = orbitalsAudio.ctx;
   if (!ctx || ctx.state !== 'running') {
     return;
   }
@@ -392,7 +392,7 @@ function playOrbitalsTone(opts = {}) {
 }
 
 function playOrbitalsNoise(opts = {}) {
-  const ctx = ensureOrbitalsAudio();
+  const ctx = orbitalsAudio.ctx;
   if (!ctx || ctx.state !== 'running' || !orbitalsAudio.noise) {
     return;
   }
