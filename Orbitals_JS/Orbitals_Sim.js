@@ -715,7 +715,8 @@ function createEnemySquadState(state, targetPlanetIndex = -1, kind = 'regular', 
     approachSnapFactor: config.mothershipApproachSnapFactor,
     exitSpeedFactor: config.mothershipExitSpeedFactor,
     releaseOrbitDirection: rng() < 0.5 ? -1 : 1,
-    leaveAfterFightersDead: true
+    leaveAfterFightersDead: true,
+    fighterDiveAltitudeFactor: 0.14
   };
 }
 
@@ -826,9 +827,10 @@ function spawnFighterSquadFromMothership(state, mothershipSquad, mothershipEnemy
 
   const basis = buildBasisFromNormal(launchDirection);
   const spawnCenter = tempVecB.copy(mothershipEnemy.position)
-    .addScaledVector(launchDirection, mothershipEnemy.radius * 0.7 + 24)
+    .addScaledVector(launchDirection, -(mothershipEnemy.radius * 0.7 + 24))
     .addScaledVector(basis.tangent, (rng() - 0.5) * 18)
     .addScaledVector(basis.bitangent, (rng() - 0.5) * 18);
+  const fighterSpawnPoint = spawnCenter.clone();
   const family = pickEnemyFamily(state, ['FlyingSaucer'], rng);
   const squad = createEnemySquadState(state, mothershipSquad.targetPlanetIndex, 'fighter', rng);
   squad.family = family;
@@ -838,6 +840,9 @@ function spawnFighterSquadFromMothership(state, mothershipSquad, mothershipEnemy
   squad.nextPlanetIndex = pickRandomPlanetIndex(state, squad.targetPlanetIndex, rng);
   squad.mode = 'approach';
   squad.modeTimer = 0;
+  squad.orbitPhase = 0;
+  squad.orbitProgress = 0;
+  squad.fighterDiveAltitudeFactor = 0.58;
   squad.fightersTotal = 1;
   squad.fightersReleased = 1;
   squad.fightersAlive = 1;
@@ -846,7 +851,7 @@ function spawnFighterSquadFromMothership(state, mothershipSquad, mothershipEnemy
   state.nextEnemySquadId += 1;
   createEnemyWave(state, squad, {
     enemyCount: 1,
-    spawnCenter,
+    spawnCenter: fighterSpawnPoint,
     radial: launchDirection,
     basis,
     familyFiles: squad.familyFiles,
@@ -856,6 +861,31 @@ function spawnFighterSquadFromMothership(state, mothershipSquad, mothershipEnemy
   });
   const fighter = state.enemies[state.enemies.length - 1];
   if (fighter) {
+    const launchRadial = tempVecD.copy(mothershipEnemy.position).sub(planet.position);
+    if (launchRadial.lengthSq() < 1e-6) {
+      launchRadial.copy(planet.position);
+    }
+    if (launchRadial.lengthSq() < 1e-6) {
+      launchRadial.copy(worldUp);
+    }
+    launchRadial.normalize();
+
+    const launchTangent = tempVecE.copy(squad.holdTangent);
+    if (launchTangent.lengthSq() < 1e-6) {
+      launchTangent.copy(basis.tangent);
+    }
+    launchTangent.normalize();
+
+    const launchDirection = tempVecA.copy(launchTangent).addScaledVector(launchRadial, -0.12).normalize();
+    const launchSpeed = computeEnemyControlTargetSpeed(planet, fighter, squad) * 1.1;
+
+    fighter.position.copy(fighterSpawnPoint);
+    fighter.previousPosition.copy(fighterSpawnPoint);
+    fighter.speed = launchSpeed;
+    fighter.velocity.copy(launchDirection).multiplyScalar(launchSpeed).add(planet.velocity);
+    fighter.relativeVelocity.copy(fighter.velocity).sub(planet.velocity);
+    fighter.forward.copy(launchDirection);
+    fighter.up.copy(launchRadial);
     fighter.boundPlanet = null;
     fighter.flightMode = 'free';
     fighter.recaptureLock = 0;
@@ -1320,8 +1350,11 @@ function computeEnemyTargetPoint(state, enemy, squad, planet, time) {
     : tempVecA.copy(worldUp);
   const basis = buildBasisFromNormal(radial);
   const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 1.0);
-  const approachAltitude = planet.radius + atmosphereThickness * ENEMY_APPROACH_ALTITUDE;
-  const swarmAltitude = planet.radius + atmosphereThickness * ENEMY_SWARM_ALTITUDE;
+  const fighterDiveAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterDiveAltitudeFactor > 0
+    ? squad.fighterDiveAltitudeFactor
+    : null;
+  const approachAltitude = planet.radius + atmosphereThickness * (fighterDiveAltitudeFactor ?? ENEMY_APPROACH_ALTITUDE);
+  const swarmAltitude = planet.radius + atmosphereThickness * (fighterDiveAltitudeFactor ?? ENEMY_SWARM_ALTITUDE);
   const orbitLead = squad.mode === 'swarm'
     ? THREE.MathUtils.lerp(0.55, 0.9, enemy.speedScale)
     : squad.mode === 'depart'
@@ -1414,9 +1447,14 @@ function accumulateEnemyOrbitProgress(squad, targetPlanet, enemy) {
 
 function computeEnemyControlTargetSpeed(targetPlanet, enemy, squad) {
   const atmosphereThickness = Math.max(targetPlanet.atmosphereRadius - targetPlanet.radius, 1.0);
+  const fighterDiveAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterDiveAltitudeFactor > 0
+    ? squad.fighterDiveAltitudeFactor
+    : null;
   const desiredRadius = targetPlanet.radius + atmosphereThickness * (
-    squad.mode === 'swarm'
-      ? ENEMY_SWARM_ALTITUDE
+    fighterDiveAltitudeFactor != null
+      ? fighterDiveAltitudeFactor
+      : squad.mode === 'swarm'
+        ? ENEMY_SWARM_ALTITUDE
       : squad.mode === 'depart'
         ? ENEMY_DEPART_ALTITUDE
         : ENEMY_APPROACH_ALTITUDE
@@ -1479,10 +1517,10 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
     ? Math.sin(time * 0.11 + enemy.phase) * ENEMY_TRAVEL_WANDER_TURN
     : Math.sin(time * 0.22 + enemy.phase) * ENEMY_SWARM_WANDER_TURN;
   const wanderPitch = travelMode
-    ? Math.cos(time * 0.09 + enemy.phase * 1.7) * ENEMY_TRAVEL_WANDER_PITCH
-    : Math.cos(time * 0.19 + enemy.phase * 1.7) * ENEMY_SWARM_WANDER_PITCH;
+    ? Math.cos(time * 0.09 + enemy.phase * 1.7) * ENEMY_TRAVEL_WANDER_PITCH * 0.45
+    : Math.cos(time * 0.19 + enemy.phase * 1.7) * ENEMY_SWARM_WANDER_PITCH * 0.55;
   const turnGain = (travelMode ? 3.2 : 1.55) * enemy.turnScale;
-  const pitchGain = (travelMode ? 3.1 : 1.55) * enemy.upScale * THREE.MathUtils.lerp(1, 0.82, liftState.thinAir);
+  const pitchGain = (travelMode ? 1.45 : 0.95) * enemy.upScale * THREE.MathUtils.lerp(1, 0.82, liftState.thinAir);
   const rawTurnInput = THREE.MathUtils.clamp(-yawError * turnGain + wanderTurn, -0.9, 0.9);
 
   const atmosphereThickness = liftState.atmosphereThickness;
@@ -1529,6 +1567,12 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
     }
   }
 
+  if (enemy.kind !== 'mothership') {
+    const pitchClamp = travelMode ? 0.45 : 0.55;
+    const pitchBias = squad.mode === 'swarm' ? 0.9 : 0.96;
+    rawPitchInput = THREE.MathUtils.clamp(rawPitchInput * pitchBias, -pitchClamp, pitchClamp);
+  }
+
   const inputSmoothRate = travelMode ? ENEMY_INPUT_SMOOTH_RATE_TRAVEL : ENEMY_INPUT_SMOOTH_RATE_SWARM;
   enemy.aiTurnInput = THREE.MathUtils.lerp(enemy.aiTurnInput || 0, rawTurnInput, easeExp(dt, inputSmoothRate));
   enemy.aiPitchInput = THREE.MathUtils.lerp(enemy.aiPitchInput || 0, rawPitchInput, easeExp(dt, inputSmoothRate));
@@ -1573,9 +1617,10 @@ function updateEnemyShip(state, enemy, squad, dt, time) {
 
   const controls = computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt);
 
-  // Enemies use the shared ship physics, but they should only capture their mission target.
-  // Prevent incidental captures to nearby planets during transit.
-  enemy.recaptureLock = Math.max(enemy.recaptureLock || 0, 9999);
+  // Enemies use the shared ship physics, but they should stay planet-aware while transiting.
+  enemy.recaptureLock = enemy.kind === 'mothership'
+    ? Math.max(enemy.recaptureLock || 0, 9999)
+    : 0;
 
   const enemyWorld = {
     planets: state.planets,
@@ -1584,9 +1629,9 @@ function updateEnemyShip(state, enemy, squad, dt, time) {
     maxFuel: 9999,
     speed: enemy.speed,
     gamepadRespawnHeld: false,
-    nearestPlanet: null,
-    nearestAltitude: 0,
-    nearestDistance: 0,
+    nearestPlanet: targetPlanet,
+    nearestAltitude: Math.max(0, enemy.position.distanceTo(targetPlanet.position) - targetPlanet.radius),
+    nearestDistance: enemy.position.distanceTo(targetPlanet.position),
     crashed: false,
     respawnPlanetIndex: state.respawnPlanetIndex,
     projectiles: state.projectiles
@@ -1606,12 +1651,10 @@ function updateEnemyShip(state, enemy, squad, dt, time) {
     return;
   }
 
-  if (enemy.flightMode === 'free') {
-    const postCrash = detectEnemyCrash(state, enemy);
-    if (postCrash) {
-      destroyEnemy(state, enemy, 'crash');
-      return;
-    }
+  const postCrash = detectEnemyCrash(state, enemy);
+  if (postCrash) {
+    destroyEnemy(state, enemy, 'crash');
+    return;
   }
 
   const targetAltitude = enemy.position.distanceTo(targetPlanet.position) - targetPlanet.radius;
@@ -1620,7 +1663,7 @@ function updateEnemyShip(state, enemy, squad, dt, time) {
       beginPlanetCapture(enemy, targetPlanet);
     }
   } else {
-    enemy.boundPlanet = null;
+    enemy.boundPlanet = targetPlanet;
     enemy.flightMode = 'free';
   }
 }

@@ -411,13 +411,15 @@ function playOrbitalsNoise(opts = {}) {
   source.stop(now + (opts.dur || 0.2) + 0.02);
 }
 
-function playOrbitalsSfx(name) {
+function playOrbitalsSfx(name, opts = {}) {
   if (name === 'shoot') {
     playOrbitalsTone({ freq: 420, endFreq: 520, dur: 0.05, gain: 0.045, type: 'triangle' });
   } else if (name === 'boom') {
-    playOrbitalsNoise({ dur: 0.8, gain: 0.25, cutoff: 20, q: 0.18 });
-    playOrbitalsTone({ freq: 170, endFreq: 54, dur: 0.22, gain: 0.11, type: 'sawtooth' });
-    playOrbitalsNoise({ dur: 0.03, gain: 0.018, cutoff: 1800, q: 0.45 });
+    const gainScale = Math.max(0, opts.gainScale ?? 1);
+    const pan = THREE.MathUtils.clamp(opts.pan || 0, -1, 1);
+    playOrbitalsNoise({ dur: 0.8, gain: 0.25 * gainScale, cutoff: 20, q: 0.18, pan });
+    playOrbitalsTone({ freq: 170, endFreq: 54, dur: 0.22, gain: 0.11 * gainScale, type: 'sawtooth', pan });
+    playOrbitalsNoise({ dur: 0.03, gain: 0.018 * gainScale, cutoff: 1800, q: 0.45, pan });
   }
 }
 
@@ -1607,6 +1609,19 @@ function updateShipOrientation(dt, localUp) {
 function updateShipControls(dt) {
   const gamepad = readGamepadInput();
   state.gamepadConnected = gamepad.connected && !state.pointerLocked;
+  const gamepadActive = gamepad.connected && (
+    gamepad.turnX !== 0
+    || gamepad.pitchY !== 0
+    || gamepad.fire
+    || gamepad.boost
+    || gamepad.brake
+    || gamepad.respawn
+    || gamepad.aimX !== 0
+    || gamepad.aimY !== 0
+  );
+  if (gamepadActive) {
+    resumeOrbitalsAudio();
+  }
   const touchActive = state.touchPointerId != null;
   if (!state.pointerLocked && !touchActive) {
     state.aimX = THREE.MathUtils.lerp(state.aimX, 0, easeExp(dt, 2.2));
@@ -1643,16 +1658,7 @@ function updateShipControls(dt) {
   );
   state.gamepadIdle = !(
     (state.pointerLocked ? false : gamepad.connected)
-    && (
-      gamepad.turnX !== 0
-      || gamepad.pitchY !== 0
-      || gamepad.fire
-      || gamepad.boost
-      || gamepad.brake
-      || gamepad.respawn
-      || gamepad.aimX !== 0
-      || gamepad.aimY !== 0
-    )
+    && gamepadActive
   );
 
   sim.step(dt, {
@@ -1679,9 +1685,14 @@ function updateShipControls(dt) {
   if (fire && state.nextProjectileId > projectileIdBefore) {
     playOrbitalsSfx('shoot');
   }
-  const explosionCount = Math.max(0, (state.nextEnemyExplosionId || 0) - explosionIdBefore);
-  for (let i = 0; i < explosionCount; i += 1) {
-    playOrbitalsSfx('boom');
+  const newEnemyExplosions = state.enemyExplosions.filter((effect) => effect.id >= explosionIdBefore);
+  for (const effect of newEnemyExplosions) {
+    const distance = camera.position.distanceTo(effect.position);
+    const boomFalloffDistance = Math.max(1600, state.nearestPlanet ? state.nearestPlanet.radius * 1.6 : 2000);
+    const gainScale = 1 / (1 + Math.pow(distance / boomFalloffDistance, 1.7));
+    const relative = tempVecA.copy(effect.position).sub(camera.position);
+    const pan = THREE.MathUtils.clamp(relative.x / Math.max(distance, 1), -1, 1);
+    playOrbitalsSfx('boom', { gainScale, pan });
   }
   lastProjectileIdForSfx = state.nextProjectileId || projectileIdBefore;
   lastEnemyExplosionIdForSfx = state.nextEnemyExplosionId || explosionIdBefore;

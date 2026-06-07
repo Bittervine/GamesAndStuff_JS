@@ -1768,6 +1768,102 @@ function runMothershipArrivalTest() {
   );
 }
 
+function runMothershipFighterLaunchTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  state.enemies.length = 0;
+  state.enemySquads.length = 0;
+  state.enemySquad = null;
+  state.mothershipSquads.length = 0;
+  state.mothershipSquad = null;
+  state.enemySpawnTimer = 9999;
+  state.mothershipSpawnTimer = 0;
+
+  stepSim(sim, 1, NEUTRAL_CONTROLS);
+  const mothershipSquad = state.mothershipSquads[0];
+  assert.ok(mothershipSquad, 'expected a mothership squad to spawn for the fighter launch test');
+  const mothership = state.enemies.find((enemy) => enemy.squadId === mothershipSquad.id && enemy.kind === 'mothership');
+  assert.ok(mothership, 'expected a mothership enemy to exist for the fighter launch test');
+
+  const planet = state.planets[mothershipSquad.targetPlanetIndex];
+  assert.ok(planet, 'expected the mothership to have a target planet');
+
+  let settleFrames = 0;
+  while (mothershipSquad.mode !== 'hold' && settleFrames < 6000) {
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+    settleFrames += 1;
+  }
+  assert.strictEqual(mothershipSquad.mode, 'hold', 'expected the mothership to reach the hold position first');
+
+  state.enemies = state.enemies.filter((enemy) => enemy.squadId === mothershipSquad.id && enemy.kind === 'mothership');
+  state.enemySquads = [mothershipSquad];
+  state.enemySquad = mothershipSquad;
+  state.mothershipSquads = [mothershipSquad];
+  state.mothershipSquad = mothershipSquad;
+  mothershipSquad.mode = 'hold';
+  mothershipSquad.fightersTotal = 1;
+  mothershipSquad.fightersReleased = 0;
+  mothershipSquad.fightersAlive = 0;
+  mothershipSquad.fighterReleaseCooldown = 0;
+
+  sim.step(1 / 60, NEUTRAL_CONTROLS);
+
+  const currentMothership = state.enemies.find((enemy) => enemy.squadId === mothershipSquad.id && enemy.kind === 'mothership' && enemy.health > 0);
+  assert.ok(currentMothership, 'expected the mothership to remain active while launching fighters');
+
+  const fighterSquad = state.enemySquads.find((squad) => squad.parentMothershipId === mothershipSquad.id);
+  assert.ok(fighterSquad, 'expected a fighter squad to be launched from the mothership');
+
+  const fighter = state.enemies.find((enemy) => enemy.squadId === fighterSquad.id && enemy.health > 0);
+  assert.ok(fighter, 'expected a fighter enemy to exist after launch');
+
+  const mothershipPosition = currentMothership.position.clone();
+  const mothershipDistanceToPlanet = mothershipPosition.distanceTo(planet.position);
+  const mothershipRadial = mothershipPosition.clone().sub(planet.position).normalize();
+  const fighterDistanceToMothership = fighter.position.distanceTo(mothershipPosition);
+  const fighterDistanceToPlanet = fighter.position.distanceTo(planet.position);
+  const fighterRadial = fighter.position.clone().sub(planet.position).normalize();
+  const fighterForward = fighter.forward.clone().normalize();
+  const startAltitude = fighterDistanceToPlanet - planet.radius;
+
+  let minAltitude = startAltitude;
+  for (let i = 0; i < 600; i += 1) {
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+    minAltitude = Math.min(minAltitude, fighter.position.distanceTo(planet.position) - planet.radius);
+  }
+
+  assert.ok(
+    fighterDistanceToMothership <= currentMothership.radius * 2.0 + 40,
+    `expected the fighter to spawn near the mothership: distance=${fighterDistanceToMothership.toFixed(3)}`
+  );
+  assert.ok(
+    fighterDistanceToPlanet >= mothershipDistanceToPlanet - 1e-6,
+    `expected the fighter to spawn on the outer side of the mothership: fighter=${fighterDistanceToPlanet.toFixed(3)} mothership=${mothershipDistanceToPlanet.toFixed(3)}`
+  );
+  assert.ok(
+    fighterRadial.dot(mothershipRadial) > 0.6,
+    `expected the fighter to spawn in the same hemisphere as the mothership: dot=${fighterRadial.dot(mothershipRadial).toFixed(3)}`
+  );
+  assert.ok(
+    fighterForward.dot(fighterRadial) > -0.2,
+    `expected the fighter to launch away from a straight planet dive: dot=${fighterForward.dot(fighterRadial).toFixed(3)}`
+  );
+  assert.ok(
+    minAltitude < startAltitude - 0.25,
+    `expected the fighter to make progress toward the atmosphere: start=${startAltitude.toFixed(3)} min=${minAltitude.toFixed(3)}`
+  );
+  assert.ok(
+    minAltitude > config.atmosphereTerrainCrashAltitude + 0.5,
+    `expected the fighter to stay above the crash altitude during the launch: min=${minAltitude.toFixed(3)} crash=${config.atmosphereTerrainCrashAltitude.toFixed(3)}`
+  );
+
+  console.log(
+    `PASS mothership-fighter-launch: near=${fighterDistanceToMothership.toFixed(3)} planetDot=${fighterRadial.dot(mothershipRadial).toFixed(3)} minAlt=${minAltitude.toFixed(3)}`
+  );
+}
+
 function runEnemyFamilyIndexTest() {
   const familyEntries = Object.entries(ENEMY_MODEL_FILES_BY_FAMILY);
   assert.ok(familyEntries.length > 0, 'expected enemy family assets to be indexed');
@@ -1832,5 +1928,6 @@ runPlanetOrbitTest();
 runPlanetCaptureArrivalTest();
 runPlanetCaptureBlendTest();
 runMothershipArrivalTest();
+runMothershipFighterLaunchTest();
 runEnemyFamilyIndexTest();
 runEnemySquadMovementTest();
