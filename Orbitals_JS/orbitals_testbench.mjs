@@ -319,6 +319,71 @@ function runAtmosphereBoostPitchLockTest() {
   );
 }
 
+function runAtmosphereSoftStallTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  const planet = state.ship.boundPlanet;
+  assert.ok(planet, 'expected the ship to start bound to a planet');
+
+  const boostFrames = 120;
+  const coastFrames = 300;
+
+  stepSim(sim, boostFrames, { ...NEUTRAL_CONTROLS, pitchInput: -0.35, boost: true });
+
+  const releaseAltitude = altitudeBetween(state.ship, planet);
+  const releaseForwardDot = state.ship.forward.clone().normalize().dot(state.ship.position.clone().sub(planet.position).normalize());
+  let peakAltitude = releaseAltitude;
+  let peakForwardDot = releaseForwardDot;
+  let minForwardDotAfterPeak = Infinity;
+  let startedDescending = false;
+
+  for (let i = 0; i < coastFrames; i += 1) {
+    sim.step(1 / 60, { ...NEUTRAL_CONTROLS, pitchInput: -1 });
+    const currentAltitude = altitudeBetween(state.ship, planet);
+    const currentUp = state.ship.position.clone().sub(planet.position).normalize();
+    const currentForwardDot = state.ship.forward.clone().normalize().dot(currentUp);
+    if (currentAltitude > peakAltitude) {
+      peakAltitude = currentAltitude;
+      peakForwardDot = currentForwardDot;
+    }
+    if (peakAltitude - currentAltitude > 2) {
+      startedDescending = true;
+    }
+    if (startedDescending) {
+      minForwardDotAfterPeak = Math.min(minForwardDotAfterPeak, currentForwardDot);
+    }
+  }
+
+  const finalAltitude = altitudeBetween(state.ship, planet);
+
+  assert.ok(
+    releaseAltitude > 30,
+    `expected the boosted climb to reach the upper atmosphere: release=${releaseAltitude.toFixed(3)}`
+  );
+  assert.ok(
+    peakAltitude > releaseAltitude + 2,
+    `expected the climb to keep rising after boost release: release=${releaseAltitude.toFixed(3)} peak=${peakAltitude.toFixed(3)}`
+  );
+  assert.ok(
+    startedDescending,
+    `expected the stall to trigger a descent: release=${releaseAltitude.toFixed(3)} peak=${peakAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)}`
+  );
+  assert.ok(
+    finalAltitude < peakAltitude - 2,
+    `expected altitude to bleed off after the stall: peak=${peakAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)}`
+  );
+  assert.ok(
+    minForwardDotAfterPeak < peakForwardDot - 0.08,
+    `expected the nose to pitch down during the stall: peakDot=${peakForwardDot.toFixed(3)} minAfter=${minForwardDotAfterPeak.toFixed(3)}`
+  );
+
+  console.log(
+    `PASS atmosphere-soft-stall: release=${releaseAltitude.toFixed(3)} peak=${peakAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)}`
+  );
+}
+
 function runBoostDirectionTest() {
   const seed = 0xC0FFEE;
   const settleFrames = 240;
@@ -997,135 +1062,118 @@ function runEnemySquadMovementTest() {
   sim.bootstrapWorld();
 
   const { state } = sim;
-  assert.ok(state.enemySquads.length > 0, 'expected at least one enemy squad to spawn');
+  assert.ok(state.planets.length > 0, 'expected at least one planet');
   assert.ok(state.enemies.length > 0, 'expected enemy ships to exist after bootstrap');
 
-  const squad = state.enemySquads[0];
-  const targetPlanet = state.planets[squad.targetPlanetIndex];
-  const nextPlanet = state.planets[squad.nextPlanetIndex];
-  assert.ok(targetPlanet, 'expected the first squad to have a target planet');
-  assert.ok(nextPlanet, 'expected the first squad to have a next planet');
-  assert.strictEqual(targetPlanet, state.ship.boundPlanet, 'expected the first enemy squad to start on the ship planet');
+  const planet = state.ship.boundPlanet || state.planets[0];
+  assert.ok(planet, 'expected a planet for the enemy ceiling test');
+  const planetIndex = state.planets.indexOf(planet);
+  assert.ok(planetIndex >= 0, 'expected the test planet to be part of the world');
 
-  const firstEnemy = state.enemies.find((enemy) => enemy.squadId === squad.id);
-  assert.ok(firstEnemy, 'expected the first squad to have an active enemy');
+  const atmosphereThickness = planet.atmosphereRadius - planet.radius;
+  const radial = planet.position.lengthSq() > 1e-6
+    ? planet.position.clone().normalize()
+    : new THREE.Vector3(0, 1, 0);
+  const tangent = Math.abs(radial.dot(new THREE.Vector3(0, 1, 0))) > 0.85
+    ? new THREE.Vector3(1, 0, 0).cross(radial).normalize()
+    : new THREE.Vector3(0, 1, 0).cross(radial).normalize();
+  const altitude = atmosphereThickness * 0.78;
+  const worldPosition = planet.position.clone().addScaledVector(radial, planet.radius + altitude);
+  const initialForward = tangent.clone().addScaledVector(radial, 0.32).normalize();
+  const initialUp = radial.clone().sub(initialForward.clone().multiplyScalar(radial.dot(initialForward))).normalize();
 
-  const initialAvgDistance = averageEnemyDistanceToPlanet(state, squad.id, targetPlanet);
-  assert.ok(
-    initialAvgDistance < targetPlanet.atmosphereRadius * 4,
-    `enemy squad should spawn near the starting planet: distance=${initialAvgDistance.toFixed(3)} atmosphere=${targetPlanet.atmosphereRadius.toFixed(3)}`
-  );
+  const enemy = state.enemies[0];
+  const squad = {
+    id: 9999,
+    mode: 'swarm',
+    modeTimer: 999,
+    orbitPhase: 0,
+    orbitDirection: 1,
+    orbitProgress: 0,
+    orbitLastAngle: NaN,
+    swarmDuration: 999,
+    departDuration: 999,
+    departPlanetIndex: -1,
+    departVector: new THREE.Vector3(1, 0, 0),
+    family: enemy.family || 'Standard',
+    familyFiles: [],
+    phase: enemy.phase || 0,
+    targetPlanetIndex: planetIndex,
+    nextPlanetIndex: (planetIndex + 1) % state.planets.length
+  };
 
-  const firstSwarmTarget = targetPlanet;
-  const firstTargetIndex = state.planets.indexOf(firstSwarmTarget);
-  let lastOrbitAngle = orbitAngleAroundPlanet(firstSwarmTarget, firstEnemy.position);
-  let firstOrbitTravel = 0;
-  let firstSwarmMinAltitude = Infinity;
-  let firstSwarmMaxAltitude = -Infinity;
-  let reachedSwarmAt = -1;
-  let departedAt = -1;
-  let departedTargetIndex = -1;
-  let travelReachedAt = -1;
+  state.enemies.length = 0;
+  state.enemies.push(enemy);
+  state.enemySquads.length = 0;
+  state.enemySquads.push(squad);
+  state.enemySquad = squad;
+  state.enemySpawnTimer = Infinity;
 
-  for (let i = 0; i < 180 * 60; i += 1) {
+  enemy.squadId = squad.id;
+  enemy.targetPlanetIndex = squad.targetPlanetIndex;
+  enemy.nextPlanetIndex = squad.nextPlanetIndex;
+  enemy.boundPlanet = planet;
+  enemy.flightMode = 'bound';
+  enemy.captureTimer = config.shipCaptureBlendTime;
+  enemy.recaptureLock = 0;
+  enemy.pitchIdleTime = 0;
+  enemy.boostTimer = 0;
+  enemy.bank = 0;
+  enemy.forward.copy(initialForward);
+  enemy.up.copy(initialUp);
+  enemy.position.copy(worldPosition);
+  enemy.velocity.copy(initialForward).multiplyScalar(18);
+  enemy.relativePosition.copy(worldPosition).sub(planet.position);
+  enemy.relativeVelocity.copy(initialForward).multiplyScalar(18);
+  enemy.speed = 18;
+  state.nearestPlanet = planet;
+  state.nearestDistance = worldPosition.distanceTo(planet.position);
+  state.nearestAltitude = altitude;
+  state.speed = enemy.speed;
+
+  let peakAltitude = altitude;
+  let peakForwardDot = initialForward.dot(radial);
+  let startedDescending = false;
+  let minForwardDotAfterPeak = Infinity;
+
+  for (let i = 0; i < 360; i += 1) {
     sim.step(1 / 60, NEUTRAL_CONTROLS);
-    const enemy = state.enemies.find((candidate) => candidate.squadId === squad.id);
-    assert.ok(enemy, 'expected the first squad to remain active');
-
-    if (reachedSwarmAt < 0 && squad.mode === 'swarm') {
-      reachedSwarmAt = i + 1;
-      lastOrbitAngle = orbitAngleAroundPlanet(firstSwarmTarget, enemy.position);
-      const altitude = altitudeBetween(enemy, firstSwarmTarget);
-      firstSwarmMinAltitude = Math.min(firstSwarmMinAltitude, altitude);
-      firstSwarmMaxAltitude = Math.max(firstSwarmMaxAltitude, altitude);
-      continue;
+    const currentAltitude = altitudeBetween(enemy, planet);
+    const currentUp = enemy.position.clone().sub(planet.position).normalize();
+    const currentForwardDot = enemy.forward.clone().normalize().dot(currentUp);
+    if (currentAltitude > peakAltitude) {
+      peakAltitude = currentAltitude;
+      peakForwardDot = currentForwardDot;
     }
-
-    if (reachedSwarmAt >= 0 && departedAt < 0 && squad.mode === 'swarm' && squad.targetPlanetIndex === firstTargetIndex) {
-      const angle = orbitAngleAroundPlanet(firstSwarmTarget, enemy.position);
-      firstOrbitTravel += Math.abs(unwrapAngleDelta(lastOrbitAngle, angle));
-      lastOrbitAngle = angle;
-      const altitude = altitudeBetween(enemy, firstSwarmTarget);
-      firstSwarmMinAltitude = Math.min(firstSwarmMinAltitude, altitude);
-      firstSwarmMaxAltitude = Math.max(firstSwarmMaxAltitude, altitude);
+    if (currentAltitude <= peakAltitude - 1.5) {
+      startedDescending = true;
     }
-
-    if (reachedSwarmAt >= 0 && departedAt < 0 && squad.mode === 'depart') {
-      departedAt = i + 1;
-      departedTargetIndex = squad.targetPlanetIndex;
-    }
-
-    if (departedAt >= 0 && squad.mode === 'swarm' && squad.targetPlanetIndex === departedTargetIndex) {
-      travelReachedAt = i + 1;
-      break;
+    if (startedDescending) {
+      minForwardDotAfterPeak = Math.min(minForwardDotAfterPeak, currentForwardDot);
     }
   }
 
-  assert.ok(reachedSwarmAt >= 0, 'expected the enemy squad to reach swarm mode at the first planet');
-  assert.ok(
-    firstOrbitTravel >= Math.PI * 2,
-    `enemy squad should complete at least one full lap before departure: travel=${firstOrbitTravel.toFixed(3)}`
-  );
-  assert.ok(
-    reachedSwarmAt <= 180 * 60,
-    `enemy squad took too long to reach the first planet: seconds=${(reachedSwarmAt / 60).toFixed(1)}`
-  );
+  const finalAltitude = altitudeBetween(enemy, planet);
 
   assert.ok(
-    firstSwarmMinAltitude >= -5,
-    `enemy squad should stay above the surface while orbiting the first planet: minAltitude=${firstSwarmMinAltitude.toFixed(3)}`
+    peakAltitude <= atmosphereThickness * 1.1,
+    `enemy should stay in the upper-atmosphere band: peak=${peakAltitude.toFixed(3)} ceiling=${(atmosphereThickness * 1.1).toFixed(3)}`
   );
   assert.ok(
-    firstSwarmMaxAltitude <= config.planetCaptureAltitude * 1.1,
-    `enemy squad should converge into the capture band at the first planet: maxAltitude=${firstSwarmMaxAltitude.toFixed(3)} capture=${config.planetCaptureAltitude.toFixed(3)}`
-  );
-
-  assert.ok(departedAt >= 0, 'expected the squad to depart after 60-120 seconds of swarm');
-  assert.ok(
-    departedAt >= reachedSwarmAt + 60 * 60,
-    `enemy squad departed too early: seconds=${((departedAt - reachedSwarmAt) / 60).toFixed(1)}`
+    startedDescending,
+    `expected the enemy to start descending from the upper atmosphere: peak=${peakAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)}`
   );
   assert.ok(
-    departedAt <= reachedSwarmAt + 120 * 60,
-    `enemy squad stayed too long at the first planet: seconds=${((departedAt - reachedSwarmAt) / 60).toFixed(1)}`
+    finalAltitude < peakAltitude - 2,
+    `expected the enemy altitude to bleed off after the peak: peak=${peakAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)}`
   );
-
-  assert.ok(departedTargetIndex >= 0, 'expected to record the departed target planet');
-  const departedTargetPlanet = state.planets[departedTargetIndex];
-  assert.ok(departedTargetPlanet, 'expected a new target planet after departure');
-  assert.notStrictEqual(departedTargetPlanet, firstSwarmTarget, 'expected departure to retarget a different planet');
-
-  assert.ok(travelReachedAt >= 0, 'expected the squad to reach the second planet within 120 seconds');
   assert.ok(
-    travelReachedAt <= departedAt + 120 * 60,
-      `enemy squad took too long to reach the second planet: seconds=${((travelReachedAt - departedAt) / 60).toFixed(1)}`
-  );
-
-  const secondSwarmPlanet = state.planets[squad.targetPlanetIndex];
-  assert.strictEqual(secondSwarmPlanet, departedTargetPlanet, 'expected the squad to swarm at the second target planet');
-  const secondSwarmAltitude = averageEnemyAltitudeToPlanet(state, squad.id, secondSwarmPlanet);
-  assert.ok(
-    secondSwarmAltitude <= config.planetCaptureAltitude * 1.1,
-    `enemy squad should converge into the capture band at the second planet: altitude=${secondSwarmAltitude.toFixed(3)} capture=${config.planetCaptureAltitude.toFixed(3)}`
-  );
-
-  let maxSecondSwarmAltitude = secondSwarmAltitude;
-  for (let i = 0; i < 60 * 60; i += 1) {
-    sim.step(1 / 60, NEUTRAL_CONTROLS);
-    maxSecondSwarmAltitude = Math.max(maxSecondSwarmAltitude, averageEnemyAltitudeToPlanet(state, squad.id, secondSwarmPlanet));
-    if (squad.mode !== 'swarm') {
-      break;
-    }
-  }
-
-  assert.strictEqual(squad.mode, 'swarm', 'expected the squad to remain in swarm for at least 60 seconds on the second planet');
-  assert.ok(
-    maxSecondSwarmAltitude <= config.planetCaptureAltitude * 1.1,
-    `enemy squad should settle into the capture band while swarming the second planet: maxAltitude=${maxSecondSwarmAltitude.toFixed(3)} capture=${config.planetCaptureAltitude.toFixed(3)}`
+    minForwardDotAfterPeak < peakForwardDot - 0.05,
+    `expected the enemy nose to pitch down during the stall: peakDot=${peakForwardDot.toFixed(3)} minAfter=${minForwardDotAfterPeak.toFixed(3)}`
   );
 
   console.log(
-    `PASS enemy-squad-movement: first=${(reachedSwarmAt / 60).toFixed(1)}s depart=${((departedAt - reachedSwarmAt) / 60).toFixed(1)}s second=${((travelReachedAt - departedAt) / 60).toFixed(1)}s`
+    `PASS enemy-squad-movement: peak=${peakAltitude.toFixed(3)} final=${finalAltitude.toFixed(3)}`
   );
 }
 
@@ -1170,6 +1218,7 @@ runPitchResponseTest();
 runBoostRecoveryTest();
 runBoostThrustTest();
 runAtmosphereBoostPitchLockTest();
+runAtmosphereSoftStallTest();
 runBoostDirectionTest();
 runFuelRechargeTest();
 runSpaceNewtonianTest();

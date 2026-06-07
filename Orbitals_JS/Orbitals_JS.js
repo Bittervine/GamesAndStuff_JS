@@ -1656,6 +1656,7 @@ function updateHud() {
   const alt = state.nearestAltitude;
   const score = state.score || 0;
   const fuel = state.fuel || 0;
+  const speed = state.speed || 0;
   const planetIndex = nearest ? (state.planets.indexOf(nearest) + 1) : 0;
   const shipMode = state.ship ? (state.ship.flightMode || (state.ship.boundPlanet ? 'bound' : 'free')) : 'none';
   const lock = state.ship ? (state.ship.recaptureLock || 0) : 0;
@@ -1664,8 +1665,8 @@ function updateHud() {
     ? 'CRASHED'
     : (state.pointerLocked ? 'Mouse captured' : (state.gamepadConnected ? 'Gamepad ready' : 'Keyboard ready'));
   statusLine.textContent = nearest
-    ? `Score: ${score} | Fuel: ${fuel.toFixed(1)} | Planet: ${planetIndex} | Altitude: ${alt.toFixed(1)} | State: ${shipMode}`
-    : `Score: ${score} | Fuel: ${fuel.toFixed(1)} | Planet: 0 | Altitude: ${alt.toFixed(1)} | State: ${shipMode}`;
+    ? `Score: ${score} | Fuel: ${fuel.toFixed(1)} | Speed: ${speed.toFixed(1)} | Planet: ${planetIndex} | Altitude: ${alt.toFixed(1)} | State: ${shipMode}`
+    : `Score: ${score} | Fuel: ${fuel.toFixed(1)} | Speed: ${speed.toFixed(1)} | Planet: 0 | Altitude: ${alt.toFixed(1)} | State: ${shipMode}`;
   statsLine.textContent = 'Use Gamepad or W/A/S/D/Space/Ctrl and/or Mouse';
   if (mouseDebugLine) {
     if (!state.pointerLocked) {

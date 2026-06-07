@@ -173,10 +173,20 @@ const ENEMY_DEPART_ALTITUDE = 1.05;
 const ENEMY_HIT_RADIUS = 2.6;
 const ENEMY_SPEED_SCALE_MIN = 0.34;
 const ENEMY_SPEED_SCALE_MAX = 0.58;
-const ENEMY_TURN_RATE_MIN = 1.5;
-const ENEMY_TURN_RATE_MAX = 2.6;
-const ENEMY_UP_RATE_MIN = 1.0;
-const ENEMY_UP_RATE_MAX = 1.9;
+const ENEMY_TURN_RATE_MIN = 1.05;
+const ENEMY_TURN_RATE_MAX = 1.8;
+const ENEMY_UP_RATE_MIN = 0.85;
+const ENEMY_UP_RATE_MAX = 1.45;
+const ENEMY_TARGET_SMOOTH_RATE_SWARM = 2.4;
+const ENEMY_TARGET_SMOOTH_RATE_TRAVEL = 5.5;
+const ENEMY_INPUT_SMOOTH_RATE_SWARM = 3.2;
+const ENEMY_INPUT_SMOOTH_RATE_TRAVEL = 5.4;
+const ENEMY_SWARM_WANDER_TURN = 0.11;
+const ENEMY_SWARM_WANDER_PITCH = 0.07;
+const ENEMY_TRAVEL_WANDER_TURN = 0.028;
+const ENEMY_TRAVEL_WANDER_PITCH = 0.018;
+const ATMOSPHERE_SOFT_STALL_START = 0.62;
+const ATMOSPHERE_SOFT_STALL_FULL = 0.94;
 const ENEMY_SWARM_DURATION_MIN = 60.0;
 const ENEMY_SWARM_DURATION_MAX = 120.0;
 const ENEMY_DEPART_DURATION_MIN = 8.0;
@@ -221,6 +231,38 @@ function smoothstep(edge0, edge1, x) {
 
 function easeExp(value, rate) {
   return 1 - Math.exp(-Math.max(0.0001, rate) * value);
+}
+
+function computeAtmosphereLiftState(planet, altitude, currentSpeed, cruiseSpeed, boostLevel = 0) {
+  const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 0.0001);
+  const targetAltitude = atmosphereThickness * 0.5;
+  const softStallStartAltitude = Math.max(targetAltitude + 2, atmosphereThickness * ATMOSPHERE_SOFT_STALL_START);
+  const softStallFullAltitude = Math.max(
+    softStallStartAltitude + 1,
+    Math.min(config.planetEscapeAltitude * 0.96, atmosphereThickness * ATMOSPHERE_SOFT_STALL_FULL)
+  );
+  const thinAir = smoothstep(softStallStartAltitude, softStallFullAltitude, altitude);
+  const surfaceSpeed = Math.sqrt(Math.max(planet.gravityStrength / Math.max(planet.radius + targetAltitude, 1.0), 1.0));
+  const requiredLiftSpeed = cruiseSpeed + thinAir * surfaceSpeed * config.atmosphereLiftFactor * 0.35;
+  const liftSupport = currentSpeed / Math.max(requiredLiftSpeed, 0.0001);
+  const thinAirBlend = smoothstep(0.08, 0.85, thinAir);
+  const atmosphereBlend = clamp01((atmosphereThickness * 3 - altitude) / Math.max(atmosphereThickness * 2, 1));
+  const stallBlend = boostLevel > 0
+    ? 0
+    : smoothstep(1.08, 0.72, liftSupport) * thinAirBlend * atmosphereBlend;
+
+  return {
+    atmosphereThickness,
+    targetAltitude,
+    softStallStartAltitude,
+    softStallFullAltitude,
+    thinAir,
+    thinAirBlend,
+    atmosphereBlend,
+    requiredLiftSpeed,
+    liftSupport,
+    stallBlend
+  };
 }
 
 function randomUnitVector(rng) {
@@ -477,6 +519,15 @@ function createEnemyState() {
     pitchIdleTime: 0,
     boostTimer: 0,
     fireCooldown: 0,
+    aiTurnInput: 0,
+    aiPitchInput: 0,
+    aiBoostHold: 0,
+    aiBrakeHold: 0,
+    aiMode: '',
+    aiTargetPlanetIndex: -1,
+    aiDepartPlanetIndex: -1,
+    hasSmoothedTargetPoint: false,
+    smoothedTargetPoint: new THREE.Vector3(),
     formationAngle: 0,
     formationRadius: 0,
     phase: 0,
@@ -986,8 +1037,9 @@ function computeEnemyTargetPoint(state, enemy, squad, planet, time) {
   const altitude = squad.mode === 'swarm' ? swarmAltitude : approachAltitude;
   const ringOffset = tempVecB.copy(basis.tangent).multiplyScalar(Math.cos(orbitAngle) * orbitRadius)
     .addScaledVector(basis.bitangent, Math.sin(orbitAngle) * orbitRadius * 0.82);
-  const wobble = tempVecC.copy(basis.tangent).multiplyScalar(Math.sin(time * 0.31 + enemy.phase) * enemy.formationRadius * 0.018)
-    .addScaledVector(basis.bitangent, Math.cos(time * 0.27 + enemy.phase * 1.7) * enemy.formationRadius * 0.014);
+  const wobbleScale = squad.mode === 'swarm' ? 0.35 : 0.55;
+  const wobble = tempVecC.copy(basis.tangent).multiplyScalar(Math.sin(time * 0.18 + enemy.phase) * enemy.formationRadius * 0.010 * wobbleScale)
+    .addScaledVector(basis.bitangent, Math.cos(time * 0.16 + enemy.phase * 1.7) * enemy.formationRadius * 0.008 * wobbleScale);
   return tempVecD.copy(planet.position).addScaledVector(radial, altitude).add(ringOffset).add(wobble);
 }
 
@@ -1054,9 +1106,32 @@ function computeEnemyControlTargetSpeed(targetPlanet, enemy, squad) {
   return surfaceSpeed * THREE.MathUtils.lerp(0.12, 0.18, enemy.speedScale);
 }
 
-function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time) {
-  const targetPoint = computeEnemyTargetPoint(state, enemy, squad, targetPlanet, time);
-  const toTarget = tempVecD.copy(targetPoint).sub(enemy.position);
+
+function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) {
+  const rawTargetPoint = computeEnemyTargetPoint(state, enemy, squad, targetPlanet, time);
+  const travelMode = squad.mode !== 'swarm';
+  const targetSignatureChanged = enemy.aiMode !== squad.mode
+    || enemy.aiTargetPlanetIndex !== squad.targetPlanetIndex
+    || enemy.aiDepartPlanetIndex !== squad.departPlanetIndex;
+
+  if (!enemy.hasSmoothedTargetPoint || targetSignatureChanged) {
+    enemy.smoothedTargetPoint.copy(rawTargetPoint);
+    enemy.hasSmoothedTargetPoint = true;
+    enemy.aiMode = squad.mode;
+    enemy.aiTargetPlanetIndex = squad.targetPlanetIndex;
+    enemy.aiDepartPlanetIndex = squad.departPlanetIndex;
+  } else {
+    const targetSmoothRate = travelMode ? ENEMY_TARGET_SMOOTH_RATE_TRAVEL : ENEMY_TARGET_SMOOTH_RATE_SWARM;
+    enemy.smoothedTargetPoint.lerp(rawTargetPoint, easeExp(dt, targetSmoothRate));
+
+    const maxLag = Math.max(18, targetPlanet.atmosphereRadius * (travelMode ? 0.18 : 0.055));
+    const lag = enemy.smoothedTargetPoint.distanceTo(rawTargetPoint);
+    if (lag > maxLag) {
+      enemy.smoothedTargetPoint.lerp(rawTargetPoint, 1 - maxLag / Math.max(lag, 0.0001));
+    }
+  }
+
+  const toTarget = tempVecD.copy(enemy.smoothedTargetPoint).sub(enemy.position);
   const distance = Math.max(0.0001, toTarget.length());
   const desiredForward = tempVecE.copy(toTarget).divideScalar(distance);
   const radialUp = targetPlanet.position.lengthSq() > 1e-6
@@ -1071,29 +1146,90 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time) {
     rightAxis.set(1, 0, 0).cross(enemy.forward);
   }
   rightAxis.normalize();
-  const yawError = Math.atan2(desiredForward.dot(rightAxis), desiredForward.dot(enemy.forward));
-  const travelMode = squad.mode !== 'swarm';
-  const wanderTurn = travelMode ? Math.sin(time * 0.16 + enemy.phase) * 0.05 : Math.sin(time * 0.42 + enemy.phase) * 0.28;
-  const wanderPitch = travelMode ? Math.cos(time * 0.12 + enemy.phase * 1.7) * 0.03 : Math.cos(time * 0.31 + enemy.phase * 1.7) * 0.18;
-  const turnGain = (travelMode ? 4.0 : 2.3) * enemy.turnScale;
-  const pitchGain = (travelMode ? 4.0 : 2.3) * enemy.upScale;
-  const turnInput = THREE.MathUtils.clamp(-yawError * turnGain + wanderTurn, -1, 1);
-  const altitudeBias = THREE.MathUtils.clamp((currentAltitude - config.planetCaptureAltitude) / Math.max(config.planetCaptureAltitude, 1), -1, 1);
-  const pitchError = Math.atan2(-desiredForward.dot(enemy.up), desiredForward.dot(enemy.forward));
-  const pitchInput = THREE.MathUtils.clamp(pitchError * pitchGain + (travelMode ? 0 : altitudeBias * 3.0) + wanderPitch, -1, 1);
-  const atmosphereThickness = Math.max(targetPlanet.atmosphereRadius - targetPlanet.radius, 1.0);
-  const swarmAltitude = atmosphereThickness * ENEMY_SWARM_ALTITUDE;
+
   const currentSurfaceSpeed = computeEnemyControlTargetSpeed(targetPlanet, enemy, squad);
-  const boost = squad.mode === 'depart'
-    || (squad.mode === 'swarm' && currentAltitude <= swarmAltitude + atmosphereThickness * 0.2)
-    || (squad.mode === 'approach' && currentAltitude > config.planetCaptureAltitude * 1.2);
-  const brake = squad.mode === 'swarm' && enemy.speed > currentSurfaceSpeed * THREE.MathUtils.lerp(0.24, 0.34, enemy.speedScale);
+  const liftState = computeAtmosphereLiftState(
+    targetPlanet,
+    currentAltitude,
+    Math.max(enemy.speed || 0, 0.0001),
+    currentSurfaceSpeed
+  );
+
+  const yawError = Math.atan2(desiredForward.dot(rightAxis), desiredForward.dot(enemy.forward));
+  const wanderTurn = travelMode
+    ? Math.sin(time * 0.11 + enemy.phase) * ENEMY_TRAVEL_WANDER_TURN
+    : Math.sin(time * 0.22 + enemy.phase) * ENEMY_SWARM_WANDER_TURN;
+  const wanderPitch = travelMode
+    ? Math.cos(time * 0.09 + enemy.phase * 1.7) * ENEMY_TRAVEL_WANDER_PITCH
+    : Math.cos(time * 0.19 + enemy.phase * 1.7) * ENEMY_SWARM_WANDER_PITCH;
+  const turnGain = (travelMode ? 3.2 : 1.55) * enemy.turnScale;
+  const pitchGain = (travelMode ? 3.1 : 1.55) * enemy.upScale * THREE.MathUtils.lerp(1, 0.82, liftState.thinAir);
+  const rawTurnInput = THREE.MathUtils.clamp(-yawError * turnGain + wanderTurn, -0.9, 0.9);
+
+  const atmosphereThickness = liftState.atmosphereThickness;
+  const desiredSwarmAltitude = atmosphereThickness * ENEMY_SWARM_ALTITUDE;
+  const altitudeBias = THREE.MathUtils.clamp(
+    (currentAltitude - desiredSwarmAltitude) / Math.max(atmosphereThickness * 0.35, 1),
+    -1,
+    1
+  );
+  const pitchError = Math.atan2(-desiredForward.dot(enemy.up), desiredForward.dot(enemy.forward));
+  let rawPitchInput = THREE.MathUtils.clamp(
+    pitchError * pitchGain + (travelMode ? 0 : altitudeBias * 0.65) + wanderPitch,
+    -0.85,
+    0.85
+  );
+
+  if (liftState.stallBlend > 0) {
+    const desiredClimb = THREE.MathUtils.clamp(desiredForward.dot(radialUp), 0, 1);
+    const stallPitchFloor = THREE.MathUtils.lerp(-0.06, 0.32, liftState.stallBlend);
+    rawPitchInput = Math.max(rawPitchInput, stallPitchFloor + desiredClimb * liftState.stallBlend * 0.22);
+  }
+
+  const upperAtmosphereGuard = smoothstep(
+    atmosphereThickness * 0.5,
+    atmosphereThickness * 0.82,
+    currentAltitude
+  );
+  if (upperAtmosphereGuard > 0) {
+    const desiredClimb = THREE.MathUtils.clamp(desiredForward.dot(radialUp), 0, 1);
+    const ceilingPitchFloor = THREE.MathUtils.lerp(-0.14, 0.72, upperAtmosphereGuard);
+    rawPitchInput = Math.max(rawPitchInput, ceilingPitchFloor + desiredClimb * upperAtmosphereGuard * 0.22);
+  }
+
+  if (squad.mode === 'swarm') {
+    const swarmAltitudeGuard = smoothstep(
+      atmosphereThickness * 0.46,
+      atmosphereThickness * 0.82,
+      currentAltitude
+    );
+    if (swarmAltitudeGuard > 0) {
+      const desiredClimb = THREE.MathUtils.clamp(desiredForward.dot(radialUp), 0, 1);
+      const minPitchInput = THREE.MathUtils.lerp(-0.08, 0.68, swarmAltitudeGuard);
+      rawPitchInput = Math.max(rawPitchInput, minPitchInput + desiredClimb * swarmAltitudeGuard * 0.26);
+    }
+  }
+
+  const inputSmoothRate = travelMode ? ENEMY_INPUT_SMOOTH_RATE_TRAVEL : ENEMY_INPUT_SMOOTH_RATE_SWARM;
+  enemy.aiTurnInput = THREE.MathUtils.lerp(enemy.aiTurnInput || 0, rawTurnInput, easeExp(dt, inputSmoothRate));
+  enemy.aiPitchInput = THREE.MathUtils.lerp(enemy.aiPitchInput || 0, rawPitchInput, easeExp(dt, inputSmoothRate));
+
+  const rawBoost = squad.mode === 'depart'
+    || (squad.mode === 'swarm' && currentAltitude <= desiredSwarmAltitude + atmosphereThickness * 0.08)
+    || (squad.mode === 'approach' && currentAltitude > config.planetCaptureAltitude * 1.25);
+  const rawBrake = squad.mode === 'swarm'
+    && liftState.stallBlend < 0.35
+    && currentAltitude <= desiredSwarmAltitude + atmosphereThickness * 0.10
+    && enemy.speed > currentSurfaceSpeed * THREE.MathUtils.lerp(1.18, 1.34, enemy.speedScale);
+
+  enemy.aiBoostHold = rawBoost ? Math.max(enemy.aiBoostHold || 0, travelMode ? 0.26 : 0.16) : Math.max(0, (enemy.aiBoostHold || 0) - dt);
+  enemy.aiBrakeHold = rawBrake ? Math.max(enemy.aiBrakeHold || 0, 0.18) : Math.max(0, (enemy.aiBrakeHold || 0) - dt);
 
   return {
-    turnInput,
-    pitchInput,
-    boost,
-    brake,
+    turnInput: THREE.MathUtils.clamp(enemy.aiTurnInput || 0, -1, 1),
+    pitchInput: THREE.MathUtils.clamp(enemy.aiPitchInput || 0, -1, 1),
+    boost: enemy.aiBoostHold > 0,
+    brake: enemy.aiBrakeHold > 0,
     desiredForward
   };
 }
@@ -1116,7 +1252,7 @@ function updateEnemyShip(state, enemy, squad, dt, time) {
     return;
   }
 
-  const controls = computeEnemyControlInputs(state, enemy, squad, targetPlanet, time);
+  const controls = computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt);
 
   // Enemies use the shared ship physics, but they should only capture their mission target.
   // Prevent incidental captures to nearby planets during transit.
@@ -1365,6 +1501,8 @@ function updateShipState(state, dt, controls) {
   const fireActive = Boolean(controls.fire);
   const brakeActive = Boolean(controls.brake);
   const currentSpeed = Math.max(ship.speed || relativeVelocity.length(), 0.0001);
+  const surfaceSpeed = Math.sqrt(Math.max(planet.gravityStrength / Math.max(relativeDistance, 1.0), 1.0));
+  const cruiseSpeed = surfaceSpeed * THREE.MathUtils.lerp(0.09, 0.14, atmosphereDepth);
   if (boostActive && state.fuel > 0) {
     ship.boostTimer = config.shipBoostDuration;
   } else {
@@ -1373,6 +1511,7 @@ function updateShipState(state, dt, controls) {
   const boostLevel = config.shipBoostDuration > 0
     ? clamp01(ship.boostTimer / config.shipBoostDuration) * (state.fuel > 0 ? 1 : 0)
     : 0;
+  const liftState = computeAtmosphereLiftState(planet, altitude, currentSpeed, cruiseSpeed, boostLevel);
   const autopilotStrength = 1 - boostLevel * 0.75;
   const boostHoldFactor = THREE.MathUtils.lerp(1, 0.18, boostLevel);
   ship.fireCooldown = Math.max(0, ship.fireCooldown - dt);
@@ -1418,10 +1557,15 @@ function updateShipState(state, dt, controls) {
   const pitchRate = atmosphereDepth > 0
     ? THREE.MathUtils.lerp(0.28, 0.52, atmosphereDepth)
     : THREE.MathUtils.lerp(1.2, 1.9, clamp01(currentSpeed / 18));
+  const controlPitchInput = THREE.MathUtils.clamp(
+    pitchInput + liftState.stallBlend * THREE.MathUtils.lerp(0.12, 0.28, liftState.thinAir),
+    -1,
+    1
+  );
   if (Math.abs(pitchInput) > 0.001) {
     ship.pitchIdleTime = 0;
-    ship.forward.applyAxisAngle(rightAxis, pitchInput * pitchRate * dt);
-    ship.up.applyAxisAngle(rightAxis, pitchInput * pitchRate * dt);
+    ship.forward.applyAxisAngle(rightAxis, controlPitchInput * pitchRate * dt);
+    ship.up.applyAxisAngle(rightAxis, controlPitchInput * pitchRate * dt);
   } else {
     ship.pitchIdleTime += boostLevel > 0 ? 0 : dt;
   }
@@ -1437,8 +1581,12 @@ function updateShipState(state, dt, controls) {
     const allowCurvatureTrim = boostLevel <= 0;
     if (allowCurvatureTrim) {
       const trimAuthority = mouseIdle ? 1 : Math.max(0, 1 - Math.abs(pitchInput) * 1.4);
+      const trimResponse = THREE.MathUtils.lerp(0.015, config.atmosphereTrimResponse, atmosphereDepth);
+      const altitudeTrimScale = altitudeError < 0
+        ? THREE.MathUtils.lerp(0.35, 0.10, liftState.stallBlend)
+        : 1;
       const trimPitch = trimAuthority > 0.001
-        ? THREE.MathUtils.clamp(-altitudeError * THREE.MathUtils.lerp(0.015, config.atmosphereTrimResponse, atmosphereDepth) * trimAuthority * autopilotStrength * captureBlend * approachResponse, -0.14, 0.14)
+        ? THREE.MathUtils.clamp(-altitudeError * trimResponse * altitudeTrimScale * trimAuthority * autopilotStrength * captureBlend * approachResponse, -0.14, 0.14)
         : 0;
       if (trimPitch !== 0) {
         ship.forward.applyAxisAngle(rightAxis, trimPitch * dt);
@@ -1453,6 +1601,17 @@ function updateShipState(state, dt, controls) {
     const spaceYawRate = THREE.MathUtils.lerp(0.26, 0.72, clamp01(currentSpeed / 18)) * turnSpeedScale;
     ship.forward.applyAxisAngle(ship.up, -turnInput * spaceYawRate * dt);
     ship.bank = THREE.MathUtils.lerp(ship.bank, 0, easeExp(dt, THREE.MathUtils.lerp(0.12, 1.8, 1 - bankBlend)));
+  }
+
+  if (liftState.stallBlend > 0) {
+    const climbDot = ship.forward.dot(localUp);
+    const allowedClimbDot = THREE.MathUtils.lerp(0.16, -0.06, liftState.stallBlend);
+    if (climbDot > allowedClimbDot) {
+      const ceilingForward = tempVecD.copy(ship.forward).addScaledVector(localUp, allowedClimbDot - climbDot);
+      if (ceilingForward.lengthSq() > 1e-6) {
+        ship.forward.lerp(ceilingForward.normalize(), easeExp(dt, THREE.MathUtils.lerp(0.55, 2.3, liftState.stallBlend))).normalize();
+      }
+    }
   }
 
   if (atmosphereDepth > 0 && ship.flightMode === 'bound' && boostLevel <= 0 && ship.pitchIdleTime > config.shipPitchReorientDelay) {
@@ -1480,11 +1639,8 @@ function updateShipState(state, dt, controls) {
   }
 
   if (atmosphereDepth > 0) {
-    const desiredRadius = Math.max(relativeDistance, planet.radius + 1.0);
-    const surfaceSpeed = Math.sqrt(Math.max(planet.gravityStrength / Math.max(desiredRadius, 1.0), 1.0));
-    const cruiseSpeed = surfaceSpeed * THREE.MathUtils.lerp(0.09, 0.14, atmosphereDepth);
     const pitchSpeedBias = THREE.MathUtils.lerp(0.55, 0.8, atmosphereDepth);
-    let targetSpeed = cruiseSpeed * THREE.MathUtils.clamp(1 + pitchInput * pitchSpeedBias, 0.25, 1.9);
+    let targetSpeed = cruiseSpeed * THREE.MathUtils.clamp(1 + controlPitchInput * pitchSpeedBias, 0.25, 1.9);
     if (brakeActive) {
       targetSpeed *= 0.55;
     }
@@ -1503,6 +1659,17 @@ function updateShipState(state, dt, controls) {
     } else if (!boostActive && ship.boostTimer <= 0 && state.fuel < state.maxFuel) {
       state.fuel = Math.min(state.maxFuel, state.fuel + config.shipFuelRecharge * dt);
     }
+    if (liftState.stallBlend > 0) {
+      const radialSpeed = relativeVelocity.dot(outward);
+      const maxClimbSpeed = ship.speed * THREE.MathUtils.lerp(0.24, -0.05, liftState.stallBlend);
+      if (radialSpeed > maxClimbSpeed) {
+        relativeVelocity.addScaledVector(outward, -(radialSpeed - maxClimbSpeed) * THREE.MathUtils.lerp(0.18, 0.45, liftState.stallBlend));
+      }
+      const gentleSink = Math.min(ship.speed * 0.07, Math.max(0, altitude - targetAltitude) * 0.12) * liftState.stallBlend * liftState.stallBlend;
+      if (gentleSink > 0) {
+        relativeVelocity.addScaledVector(outward, -gentleSink);
+      }
+    }
     if (relativeVelocity.lengthSq() > altitudeSpeedCap * altitudeSpeedCap) {
       relativeVelocity.setLength(altitudeSpeedCap);
     }
@@ -1512,7 +1679,10 @@ function updateShipState(state, dt, controls) {
     const correctedOutward = tempVecA.copy(relativePosition).divideScalar(correctedDistance);
     const targetRadius = planet.radius + targetAltitude;
     const radiusError = targetRadius - correctedDistance;
-    const positionCorrection = radiusError * THREE.MathUtils.lerp(0.04, 0.11, atmosphereDepth) * autopilotStrength * boostHoldFactor * approachResponse;
+    const positionCorrectionBase = radiusError * THREE.MathUtils.lerp(0.04, 0.11, atmosphereDepth) * autopilotStrength * boostHoldFactor * approachResponse;
+    const positionCorrection = radiusError < 0
+      ? positionCorrectionBase * THREE.MathUtils.lerp(0.45, 0.18, liftState.stallBlend)
+      : positionCorrectionBase;
     relativePosition.addScaledVector(correctedOutward, positionCorrection);
     ship.relativeVelocity.copy(relativeVelocity);
     if (ship.flightMode === 'bound' && ship.boundPlanet) {
@@ -1538,6 +1708,18 @@ function updateShipState(state, dt, controls) {
     }
     ship.speed = Math.min(altitudeSpeedCap, ship.speed);
     relativeVelocity.copy(spaceForward).multiplyScalar(ship.speed);
+    if (liftState.stallBlend > 0) {
+      const radialSpeed = relativeVelocity.dot(outward);
+      const maxClimbSpeed = ship.speed * THREE.MathUtils.lerp(0.20, -0.06, liftState.stallBlend);
+      if (radialSpeed > maxClimbSpeed) {
+        relativeVelocity.addScaledVector(outward, -(radialSpeed - maxClimbSpeed) * THREE.MathUtils.lerp(0.22, 0.5, liftState.stallBlend));
+      }
+      const gentleSink = Math.min(ship.speed * 0.08, Math.max(0, altitude - targetAltitude) * 0.14) * liftState.stallBlend * liftState.stallBlend;
+      if (gentleSink > 0) {
+        relativeVelocity.addScaledVector(outward, -gentleSink);
+      }
+      ship.speed = relativeVelocity.length();
+    }
     relativePosition.addScaledVector(relativeVelocity, dt);
     const surfaceSnapDistance = planet.radius + config.planetSurfaceSnapAltitude;
     if (relativePosition.lengthSq() <= surfaceSnapDistance * surfaceSnapDistance) {
