@@ -145,6 +145,64 @@
       opacity: 0;
     }
 
+    #gameOverOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.18s ease, visibility 0.18s ease;
+    }
+
+    #gameOverOverlay.is-visible {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    #gameOverCard {
+      min-width: min(420px, calc(100vw - 48px));
+      max-width: min(540px, calc(100vw - 48px));
+      padding: 22px 28px 20px;
+      border-radius: 20px;
+      background:
+        radial-gradient(circle at top, rgba(255, 255, 255, 0.11), transparent 46%),
+        linear-gradient(180deg, rgba(20, 26, 42, 0.94), rgba(7, 10, 18, 0.96));
+      border: 1px solid rgba(193, 215, 255, 0.22);
+      box-shadow:
+        0 28px 70px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      text-align: center;
+      backdrop-filter: blur(10px);
+    }
+
+    #gameOverTitle {
+      font-size: clamp(30px, 4vw, 48px);
+      font-weight: 900;
+      letter-spacing: 0.16em;
+      text-indent: 0.16em;
+      text-transform: uppercase;
+      color: #ffe3bf;
+      text-shadow: 0 0 22px rgba(255, 145, 67, 0.25);
+    }
+
+    #gameOverSubtitle {
+      margin-top: 6px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #dfe8f8;
+    }
+
+    #gameOverTimer {
+      margin-top: 12px;
+      font-size: 14px;
+      line-height: 1.45;
+      color: #b7c3d8;
+    }
+
     #noseMarker {
       position: fixed;
       left: 50%;
@@ -210,6 +268,13 @@
   <div id="noseMarker" aria-hidden="true"></div>
   <div id="reticle"></div>
   <div id="enemyMarkers" aria-hidden="true"></div>
+  <div id="gameOverOverlay" aria-hidden="true">
+    <div id="gameOverCard" role="status" aria-live="polite">
+      <div id="gameOverTitle">GAME OVER</div>
+      <div id="gameOverSubtitle">Ship destroyed</div>
+      <div id="gameOverTimer">Restart available in 3.0s</div>
+    </div>
+  </div>
   <div id="hud">
     <div class="panel">
       <div id="status">Score: 0 | Planet: 0 | Altitude: -- | State: Loading</div>

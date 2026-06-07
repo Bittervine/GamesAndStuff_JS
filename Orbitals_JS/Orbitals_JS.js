@@ -19,6 +19,8 @@ const mouseDebugLine = document.getElementById('mouseDebug');
 const mouseLockButton = document.getElementById('mouseLockButton');
 const reticleEl = document.getElementById('reticle');
 const enemyMarkersEl = document.getElementById('enemyMarkers');
+const gameOverOverlayEl = document.getElementById('gameOverOverlay');
+const gameOverTimerEl = document.getElementById('gameOverTimer');
 
 const params = new URLSearchParams(window.location.search);
 const seed = parseSeed(params.get('seed'));
@@ -114,25 +116,6 @@ scene.add(spaceDebrisPoints);
 const spaceDebrisAnchor = new THREE.Vector3();
 const spaceDebrisMinDistance = 4000;
 const spaceDebrisMaxDistance = 14000;
-const stateLabelCanvas = document.createElement('canvas');
-stateLabelCanvas.width = 512;
-stateLabelCanvas.height = 128;
-const stateLabelCtx = stateLabelCanvas.getContext('2d');
-const stateLabelTexture = new THREE.CanvasTexture(stateLabelCanvas);
-stateLabelTexture.colorSpace = THREE.SRGBColorSpace;
-stateLabelTexture.needsUpdate = true;
-const stateLabelMaterial = new THREE.SpriteMaterial({
-  map: stateLabelTexture,
-  transparent: true,
-  depthWrite: false,
-  depthTest: false
-});
-const stateLabelSprite = new THREE.Sprite(stateLabelMaterial);
-stateLabelSprite.visible = false;
-stateLabelSprite.renderOrder = 1000;
-stateLabelSprite.scale.set(1200, 300, 1);
-scene.add(stateLabelSprite);
-let stateLabelText = '';
 const starRoot = new THREE.Group();
 scene.add(starRoot);
 
@@ -1665,9 +1648,16 @@ function updateHud() {
     ? 'CRASHED'
     : (state.pointerLocked ? 'Mouse captured' : (state.gamepadConnected ? 'Gamepad ready' : 'Keyboard ready'));
   statusLine.textContent = nearest
-    ? `Score: ${score} | Fuel: ${fuel.toFixed(1)} | Speed: ${speed.toFixed(1)} | Planet: ${planetIndex} | Altitude: ${alt.toFixed(1)} | State: ${shipMode}`
-    : `Score: ${score} | Fuel: ${fuel.toFixed(1)} | Speed: ${speed.toFixed(1)} | Planet: 0 | Altitude: ${alt.toFixed(1)} | State: ${shipMode}`;
-  statsLine.textContent = 'Use Gamepad or W/A/S/D/Space/Ctrl and/or Mouse';
+    ? `Score: ${score} | Fuel: ${fuel.toFixed(1)} | Speed: ${speed.toFixed(1)} | Planet: ${planetIndex} | Altitude: ${alt.toFixed(1)} | State: ${state.crashed ? 'CRASHED' : shipMode}`
+    : `Score: ${score} | Fuel: ${fuel.toFixed(1)} | Speed: ${speed.toFixed(1)} | Planet: 0 | Altitude: ${alt.toFixed(1)} | State: ${state.crashed ? 'CRASHED' : shipMode}`;
+  statsLine.textContent = state.crashed
+    ? (() => {
+        const remaining = Math.max(0, (config.crashRespawnDelay ?? 3.0) - (state.crashTimer || 0));
+        return remaining > 0
+          ? `Ship destroyed. Restart available in ${remaining.toFixed(1)}s.`
+          : 'Ship destroyed. Press R or Start to restart.';
+      })()
+    : 'Use Gamepad or W/A/S/D/Space/Ctrl and/or Mouse';
   if (mouseDebugLine) {
     if (!state.pointerLocked) {
       mouseDebugLine.textContent = `Mouse: (not captured) | Keyboard: ${state.keyboardIdle ? 'Idle' : 'Active'} | Gamepad: ${state.gamepadIdle ? 'Idle' : 'Active'}`;
@@ -1767,11 +1757,39 @@ function updateMouseLockButton() {
   mouseLockButton.textContent = state.pointerLocked ? 'Unlock mouse' : 'Lock mouse';
 }
 
+function canRespawnAfterCrash() {
+  if (!state.crashed) {
+    return true;
+  }
+  return (state.crashTimer || 0) >= (config.crashRespawnDelay ?? 3.0);
+}
+
 function respawnShip() {
+  if (!canRespawnAfterCrash()) {
+    return;
+  }
   const planet = sim.respawnShip();
   if (planet) {
     statusLine.textContent = `Flying near ${planet.name}`;
   }
+}
+
+function updateGameOverOverlay() {
+  if (!gameOverOverlayEl || !gameOverTimerEl) {
+    return;
+  }
+
+  const crashed = Boolean(state.crashed);
+  gameOverOverlayEl.classList.toggle('is-visible', crashed);
+  gameOverOverlayEl.setAttribute('aria-hidden', crashed ? 'false' : 'true');
+  if (!crashed) {
+    return;
+  }
+
+  const remaining = Math.max(0, (config.crashRespawnDelay ?? 3.0) - (state.crashTimer || 0));
+  gameOverTimerEl.textContent = remaining > 0
+    ? `Restart available in ${remaining.toFixed(1)}s`
+    : 'Press R or Start to restart';
 }
 
 function updateFuelMotes(dt, time) {
@@ -2028,7 +2046,7 @@ function handlePointerLockChange() {
     state.mouseTurnInput = 0;
     state.mousePitchInput = 0;
     statusLine.textContent = state.crashed
-      ? 'Crashed. Press R to respawn.'
+      ? 'Crashed. Press R or Start to restart.'
       : 'Keyboard/gamepad ready. Click the canvas to capture the mouse.';
   }
 }
@@ -2104,9 +2122,13 @@ function render() {
     if (localUp) {
       updateShipOrientation(dt, localUp);
     }
+    if (state.ship && state.ship.root) {
+      state.ship.root.visible = !state.crashed;
+    }
     updateShipEngineEffects(clock.elapsedTime);
     updateCamera(dt);
     updateHud();
+    updateGameOverOverlay();
   }
 
   renderer.render(scene, camera);
