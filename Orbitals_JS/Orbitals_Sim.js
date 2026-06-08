@@ -491,19 +491,25 @@ function updatePlanetState(planet, dt, time) {
 }
 
 function relaxPlanetSeparation(planets) {
-  const minGapFactor = 1.28;
-  for (let iteration = 0; iteration < 3; iteration += 1) {
+  const startFactor = Math.max(1.0, config.planetSeparationStartFactor || 5.0);
+  const hardFactor = Math.max(1.0, config.planetSeparationHardFactor || 1.28);
+  const strength = THREE.MathUtils.clamp(config.planetSeparationStrength ?? 0.16, 0, 1);
+  for (let iteration = 0; iteration < 2; iteration += 1) {
     for (let i = 0; i < planets.length; i += 1) {
       for (let j = i + 1; j < planets.length; j += 1) {
         const a = planets[i];
         const b = planets[j];
-        const minDistance = (a.radius + b.radius) * minGapFactor;
+        const pairRadius = a.radius + b.radius;
+        const softDistance = pairRadius * startFactor;
+        const hardDistance = pairRadius * hardFactor;
         const delta = tempVecA.copy(b.position).sub(a.position);
         const distance = delta.length();
-        if (distance < 0.0001 || distance >= minDistance) {
+        if (distance < 0.0001 || distance >= softDistance) {
           continue;
         }
-        const push = (minDistance - distance) * 0.5;
+        const softT = THREE.MathUtils.clamp((softDistance - distance) / Math.max(softDistance - hardDistance, 0.0001), 0, 1);
+        const eased = softT * softT * (3 - 2 * softT);
+        const push = (softDistance - distance) * 0.5 * strength * eased;
         delta.normalize().multiplyScalar(push);
         a.position.addScaledVector(delta, -1);
         b.position.add(delta);
@@ -1241,6 +1247,62 @@ function applyEnemyDamage(state, enemy, damage, cause = 'projectile', impactPosi
     return false;
   }
   return destroyEnemy(state, enemy, cause, impactPosition);
+}
+
+function isMothershipEnemy(enemy) {
+  return Boolean(enemy && enemy.kind === 'mothership');
+}
+
+function canShipsCollide(first, second) {
+  if (!first || !second || first === second) {
+    return false;
+  }
+  const firstIsMothership = isMothershipEnemy(first);
+  const secondIsMothership = isMothershipEnemy(second);
+  const firstIsRegularEnemy = Boolean(first.kind) && !firstIsMothership;
+  const secondIsRegularEnemy = Boolean(second.kind) && !secondIsMothership;
+  if ((firstIsRegularEnemy && secondIsMothership) || (firstIsMothership && secondIsRegularEnemy)) {
+    return false;
+  }
+  return true;
+}
+
+function applyShipCollisionDamage(state, ship, damage, cause, impactPosition = null) {
+  if (!ship || damage <= 0) {
+    return false;
+  }
+  if (ship === state.ship) {
+    const planet = state.nearestPlanet || state.planets[0] || null;
+    if (!planet) {
+      return false;
+    }
+    crashPlayerShip(state, planet, ship.position.clone().sub(impactPosition || ship.position).normalize(), impactPosition || ship.position);
+    return true;
+  }
+  return applyEnemyDamage(state, ship, damage, cause, impactPosition);
+}
+
+function handleShipCollision(state, first, second, impactPosition, impactSpeed) {
+  if (!canShipsCollide(first, second)) {
+    return false;
+  }
+  const collisionDamage = Math.max(1, Math.round(Math.max(impactSpeed, 0.5) * config.shipCollisionDamage * 0.5));
+  applyShipCollisionDamage(state, first, collisionDamage, 'collision', impactPosition);
+  applyShipCollisionDamage(state, second, collisionDamage, 'collision', impactPosition);
+  pushEvent(state, 'ship-collision', {
+    shipAId: first === state.ship ? 'player' : first.id,
+    shipBId: second === state.ship ? 'player' : second.id,
+    shipAKind: first === state.ship ? 'player' : first.kind,
+    shipBKind: second === state.ship ? 'player' : second.kind,
+    damage: collisionDamage,
+    impactSpeed,
+    position: impactPosition ? {
+      x: impactPosition.x,
+      y: impactPosition.y,
+      z: impactPosition.z
+    } : null
+  });
+  return true;
 }
 
 function removeEnemySilently(state, enemy) {
@@ -2363,6 +2425,53 @@ function updateMothershipSquads(state, dt, time) {
   state.mothershipSquad = state.mothershipSquads[state.mothershipSquads.length - 1] || null;
 }
 
+function getAllActiveShips(state) {
+  const ships = [];
+  if (state.ship && !state.crashed) {
+    ships.push({ ship: state.ship, isPlayer: true });
+  }
+  for (const enemy of state.enemies) {
+    if (enemy && enemy.health > 0) {
+      ships.push({ ship: enemy, isPlayer: false });
+    }
+  }
+  return ships;
+}
+
+function updateShipShipCollisions(state) {
+  const ships = getAllActiveShips(state);
+  const sunRadius = config.starScale * 0.5;
+  for (let i = 0; i < ships.length; i += 1) {
+    const a = ships[i].ship;
+    if (!a || (!ships[i].isPlayer && a.health <= 0)) {
+      continue;
+    }
+    for (let j = i + 1; j < ships.length; j += 1) {
+      const b = ships[j].ship;
+      if (!b || (!ships[j].isPlayer && b.health <= 0)) {
+        continue;
+      }
+      if (!canShipsCollide(a, b)) {
+        continue;
+      }
+      const radiusA = a === state.ship ? Math.max(1.5, sunRadius * 0.006) : Math.max(ENEMY_HIT_RADIUS, a.radius || ENEMY_HIT_RADIUS);
+      const radiusB = b === state.ship ? Math.max(1.5, sunRadius * 0.006) : Math.max(ENEMY_HIT_RADIUS, b.radius || ENEMY_HIT_RADIUS);
+      const delta = tempVecA.copy(b.position).sub(a.position);
+      const distance = delta.length();
+      const overlap = radiusA + radiusB;
+      if (distance > overlap) {
+        continue;
+      }
+      const relativeVelocity = tempVecB.copy(b.velocity || tempVecB.set(0, 0, 0)).sub(a.velocity || tempVecC.set(0, 0, 0));
+      const impactSpeed = Math.max(relativeVelocity.length(), 0.5);
+      const impactPoint = distance > 1e-6
+        ? tempVecC.copy(a.position).addScaledVector(delta, 0.5)
+        : tempVecC.copy(a.position);
+      handleShipCollision(state, a, b, impactPoint.clone(), impactSpeed);
+    }
+  }
+}
+
 function respawnShip(state) {
   if (!state.ship || state.planets.length === 0) {
     return null;
@@ -2436,6 +2545,25 @@ function crashPlayerShip(state, planet, crashNormal, impactPosition = null) {
   }
   ship.forward.normalize();
   state.projectiles.length = 0;
+  spawnEnemyExplosion(state, impactPosition || ship.position, 'crash');
+}
+
+function crashPlayerShipIntoSun(state, impactPosition = null) {
+  const ship = state.ship;
+  if (!ship || state.crashed) {
+    return;
+  }
+  state.crashed = true;
+  state.crashTimer = 0;
+  state.crashRespawnReady = false;
+  state.speed = 0;
+  ship.speed = 0;
+  ship.boostTimer = 0;
+  ship.fireCooldown = 0;
+  ship.relativeVelocity.set(0, 0, 0);
+  ship.velocity.set(0, 0, 0);
+  ship.position.copy(impactPosition || ship.position);
+  ship.relativePosition.copy(ship.position);
   spawnEnemyExplosion(state, impactPosition || ship.position, 'crash');
 }
 
@@ -2702,6 +2830,10 @@ function updateShipState(state, dt, controls) {
     if (brakeFactor !== 1) {
       ship.speed *= brakeFactor;
     }
+    const freeSpaceSpeedHalfLife = Math.max(0, config.freeSpaceSpeedHalfLife || 0);
+    if (freeSpaceSpeedHalfLife > 0) {
+      ship.speed *= Math.pow(0.5, dt / freeSpaceSpeedHalfLife);
+    }
     ship.speed = clampShipSpeed(ship.speed);
 
     const freeCurrentSpeed = Math.max(ship.speed || 0, 0.0001);
@@ -2884,6 +3016,12 @@ function updateShipState(state, dt, controls) {
     state.speed = ship.speed;
   }
 
+  const sunRadius = config.starScale * 0.5;
+  if (ship.position.length() <= sunRadius) {
+    crashPlayerShipIntoSun(state, ship.position.clone());
+    return;
+  }
+
   if (fireActive && ship.fireCooldown <= 0) {
     spawnProjectileBurst(state, ship, vectorLikeTo(tempVecE, controls.fireDirection, ship.forward).normalize().clone());
     ship.fireCooldown = config.shipFireCooldown;
@@ -3022,6 +3160,7 @@ export function createOrbitalsSim(seed) {
     updateShipState(state, dt, controls);
     updateEnemySquads(state, dt, state.time);
     updateMothershipSquads(state, dt, state.time);
+    updateShipShipCollisions(state);
     updateProjectiles(state, dt);
     updateEnemyExplosions(state, dt);
     updateFuelMotes(state, dt, state.time);
