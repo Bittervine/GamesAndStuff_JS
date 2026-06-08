@@ -2103,7 +2103,10 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
       .addScaledVector(squad.holdTangent, Math.cos(alpha) * sinBeta)
       .addScaledVector(squad.holdAxis, Math.sin(alpha) * sinBeta)
       .normalize();
-    const reorientT = smoothstep(0, Math.max(0.0001, squad.holdReorientDuration), squad.holdReorientTimer);
+    const reorientT = Math.min(
+      0.999,
+      smoothstep(0, Math.max(0.0001, squad.holdReorientDuration), squad.holdReorientTimer)
+    );
     const currentUp = tempVecD.copy(squad.holdEntryUp).lerp(rotatedRadial, reorientT).normalize();
     const currentForward = tempVecE.copy(squad.holdAxis).cross(currentUp);
     if (currentForward.lengthSq() < 1e-6) {
@@ -2150,6 +2153,7 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
     }
     if (!squad.holdReoriented && squad.holdReorientTimer >= squad.holdReorientDuration - 1e-6) {
       squad.holdReoriented = true;
+      squad.holdEntryUp.copy(rotatedRadial);
       pushEvent(state, 'mothership-reoriented', {
         mothershipSquadId: squad.id,
         mothershipId: enemy.id,

@@ -101,9 +101,7 @@
       z-index: 30;
       display: grid;
       place-items: center;
-      background:
-        radial-gradient(circle at 50% 35%, rgba(84, 110, 180, 0.18), transparent 36%),
-        linear-gradient(180deg, rgba(3, 6, 13, 0.92), rgba(4, 6, 12, 0.98));
+      pointer-events: none;
       transition: opacity 0.2s ease, visibility 0.2s ease;
     }
 
@@ -117,20 +115,35 @@
       width: min(920px, calc(100vw - 48px));
       display: grid;
       justify-items: center;
-      gap: 18px;
+      gap: 14px;
       text-align: center;
+      padding: 18px 20px 16px;
+      border-radius: 18px;
+      background: rgba(6, 10, 18, 0.84);
+      border: 1px solid rgba(160, 188, 255, 0.18);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+      pointer-events: auto;
     }
 
     #titleArt {
-      width: min(920px, calc(100vw - 48px));
-      max-height: min(64vh, 720px);
+      width: min(760px, calc(100vw - 48px));
+      max-height: min(48vh, 520px);
       object-fit: contain;
       user-select: none;
       -webkit-user-drag: none;
       filter: drop-shadow(0 24px 42px rgba(0, 0, 0, 0.42));
     }
 
+    #titleInstructions {
+      max-width: 720px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #dbe7ff;
+      letter-spacing: 0.02em;
+    }
+
     #titlePrompt {
+      margin-top: 2px;
       font-size: 14px;
       font-weight: 800;
       letter-spacing: 0.18em;
@@ -312,6 +325,11 @@
   <div id="titleOverlay" aria-hidden="true">
     <div id="titleCard">
       <img id="titleArt" src="./assets/title.png" alt="Orbital Core" draggable="false">
+      <div id="titleInstructions">
+        Mouse: aim, left click fire, right click or Space boost, Shift brake.
+        Keyboard: W/A/S/D or arrows move, Ctrl fire, R respawn after crash.
+        Gamepad: right stick aim, trigger fire, shoulder boost, face buttons move and brake.
+      </div>
       <div id="titlePrompt">Press Fire or Boost to Start</div>
     </div>
   </div>

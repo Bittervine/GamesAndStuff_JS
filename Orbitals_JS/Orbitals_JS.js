@@ -81,7 +81,8 @@ const uiState = {
   gamepadIdle: true,
   touchPointerId: null,
   loaded: false,
-  gameStarted: false
+  gameStarted: false,
+  cameraOffset: new THREE.Vector3()
 };
 const projectileVisuals = new Map();
 const enemyVisuals = new Map();
@@ -1585,6 +1586,11 @@ function setAimFromScreenPoint(clientX, clientY) {
 
 function handleCanvasPointerDown(event) {
   const isStartButton = event.pointerType !== 'touch' && (event.button === 0 || event.button === 2);
+  if (state.crashed && isStartButton) {
+    restartFromGameOver();
+    event.preventDefault();
+    return;
+  }
   if (!uiState.gameStarted && uiState.loaded && isStartButton) {
     startGame();
     if (!uiState.pointerLocked) {
@@ -1653,6 +1659,9 @@ function handleWindowBlur() {
 
 function handleGlobalPointerDown(event) {
   if (uiState.gameStarted || !uiState.loaded) {
+    if (state.crashed && (event.button === 0 || event.button === 2)) {
+      restartFromGameOver();
+    }
     return;
   }
   if (event.pointerType === 'touch') {
@@ -1693,13 +1702,24 @@ function startGame() {
 }
 
 function maybeStartFromGamepad() {
-  if (!uiState.loaded || uiState.gameStarted) {
+  if (!uiState.loaded) {
     return;
   }
   const gamepad = readGamepadInput();
-  if (gamepad.fire || gamepad.boost) {
+  if (!uiState.gameStarted && (gamepad.fire || gamepad.boost)) {
     startGame();
+  } else if (state.crashed && (gamepad.fire || gamepad.boost)) {
+    restartFromGameOver();
   }
+}
+
+function restartFromGameOver() {
+  respawnShip();
+  resumeOrbitalsAudio().then((ctx) => {
+    if (ctx && ctx.state === 'running') {
+      playOrbitalsSfx('start');
+    }
+  });
 }
 
 function relaxPlanetSeparation(planets) {
@@ -1830,6 +1850,10 @@ function updateShipControls(dt) {
     fire,
     fireDirection,
   });
+  uiState._lastTurnInput = THREE.MathUtils.clamp(keyboardTurn + mouseTurn + (uiState.pointerLocked ? 0 : gamepad.turnX), -1, 1);
+  uiState._lastPitchInput = THREE.MathUtils.clamp(keyboardPitch + mousePitch + (uiState.pointerLocked ? 0 : gamepad.pitchY), -1, 1);
+  uiState._lastBoostInput = boost ? 1 : 0;
+  uiState._lastBrakeInput = (keys.has('ShiftLeft') || keys.has('ShiftRight') || (!uiState.pointerLocked && gamepad.brake)) ? 1 : 0;
 
   if (uiState.pointerLocked) {
     if (mouseShipInput.shipIsCentered) {
@@ -1872,7 +1896,21 @@ function updateCamera(dt) {
   const behind = tempVecB.copy(ship.forward).multiplyScalar(-camDistance);
   const above = tempVecC.copy(ship.up).multiplyScalar(camHeight);
   const desiredCameraPos = tempVecD.copy(ship.position).add(behind).add(above);
-  camera.position.copy(desiredCameraPos);
+  const right = tempVecE.copy(ship.up).cross(ship.forward).normalize();
+  const maneuverTarget = tempVecF.set(0, 0, 0)
+    .addScaledVector(right, -(uiState._lastTurnInput || 0) * config.shipCamTurnOffset)
+    .addScaledVector(ship.up, (uiState._lastPitchInput || 0) * config.shipCamPitchOffset)
+    .addScaledVector(ship.forward, -(uiState._lastBoostInput || 0) * config.shipCamBoostOffset)
+    .addScaledVector(ship.forward, (uiState._lastBrakeInput || 0) * config.shipCamBoostOffset * 0.6);
+  const maneuverIntensity = Math.max(
+    Math.abs(uiState._lastTurnInput || 0),
+    Math.abs(uiState._lastPitchInput || 0),
+    uiState._lastBoostInput || 0,
+    uiState._lastBrakeInput || 0
+  );
+  const offsetResponse = maneuverIntensity > 0.001 ? config.shipCamOffsetResponse : config.shipCamOffsetReturn;
+  uiState.cameraOffset.lerp(maneuverTarget, easeExp(dt, offsetResponse));
+  camera.position.copy(desiredCameraPos).add(uiState.cameraOffset);
   const cameraRollResponse = ship.flightMode === 'free'
     ? config.freeCameraRollResponse
     : Math.max(config.shipCamLag * 0.35, 8.0);
@@ -2262,6 +2300,7 @@ async function bootstrap() {
   }
 
   respawnShip();
+  uiState.cameraManeuverLag = 0;
   spaceDebrisAnchor.copy(state.ship.position);
   initSpaceDebris();
 
@@ -2322,6 +2361,9 @@ function handleKeyDown(event) {
   keys.add(event.code);
   if (event.code === 'KeyR') {
     respawnShip();
+  }
+  if ((event.code === 'Space' || event.code === 'ControlLeft' || event.code === 'ControlRight') && state.crashed) {
+    restartFromGameOver();
   }
   if (event.code === 'KeyL') {
     toggleMouseLock();
