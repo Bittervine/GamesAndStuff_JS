@@ -80,6 +80,8 @@ const uiState = {
   keyboardIdle: true,
   gamepadIdle: true,
   touchPointerId: null,
+  touchBoostHeld: false,
+  touchLastTapUpAt: 0,
   loaded: false,
   gameStarted: false,
   cameraOffset: new THREE.Vector3()
@@ -1601,8 +1603,15 @@ function handleCanvasPointerDown(event) {
   }
   resumeOrbitalsAudio();
   if (event.pointerType === 'touch') {
+    const now = performance.now();
+    const isDoubleTap = uiState.touchLastTapUpAt > 0 && (now - uiState.touchLastTapUpAt) <= 320;
     uiState.touchPointerId = event.pointerId;
-    uiState.mouseFireHeld = true;
+    uiState.touchBoostHeld = isDoubleTap;
+    uiState.mouseFireHeld = !isDoubleTap;
+    uiState.mouseBoostHeld = isDoubleTap;
+    if (!uiState.gameStarted && uiState.loaded) {
+      startGame();
+    }
     setAimFromScreenPoint(event.clientX, event.clientY);
     event.preventDefault();
     return;
@@ -1631,6 +1640,9 @@ function handleCanvasPointerUp(event) {
       uiState.touchPointerId = null;
     }
     uiState.mouseFireHeld = false;
+    uiState.mouseBoostHeld = false;
+    uiState.touchBoostHeld = false;
+    uiState.touchLastTapUpAt = performance.now();
     event.preventDefault();
     return;
   }
@@ -1648,6 +1660,7 @@ function handleCanvasPointerCancel(event) {
   }
   uiState.mouseFireHeld = false;
   uiState.mouseBoostHeld = false;
+  uiState.touchBoostHeld = false;
   renderer.domElement.releasePointerCapture?.(event.pointerId);
 }
 
@@ -1655,6 +1668,7 @@ function handleWindowBlur() {
   uiState.mouseFireHeld = false;
   uiState.mouseBoostHeld = false;
   uiState.touchPointerId = null;
+  uiState.touchBoostHeld = false;
 }
 
 function handleGlobalPointerDown(event) {
@@ -1665,6 +1679,7 @@ function handleGlobalPointerDown(event) {
     return;
   }
   if (event.pointerType === 'touch') {
+    startGame();
     return;
   }
   if (event.button !== 0 && event.button !== 2) {
