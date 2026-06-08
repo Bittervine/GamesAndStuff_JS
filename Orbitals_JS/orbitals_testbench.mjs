@@ -1986,6 +1986,54 @@ function runMothershipArrivalTest() {
   );
 }
 
+function runMothershipHoldReorientSmoothnessTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  state.mothershipSpawnTimer = 0;
+  stepSim(sim, 1, NEUTRAL_CONTROLS);
+
+  const mothershipSquad = state.mothershipSquads[0];
+  assert.ok(mothershipSquad, 'expected a mothership squad to spawn for the reorient test');
+  const planet = state.planets[mothershipSquad.targetPlanetIndex];
+  assert.ok(planet, 'expected a target planet for the reorient test');
+
+  while (mothershipSquad.mode !== 'hold' && state.frameIndex < 50000) {
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+  }
+  assert.strictEqual(mothershipSquad.mode, 'hold', 'expected the mothership to reach hold before testing reorientation');
+
+  const radial = mothershipSquad.holdRadial.clone().normalize();
+  const initialUp = state.enemies.find((enemy) => enemy.squadId === mothershipSquad.id && enemy.kind === 'mothership').up.clone().normalize();
+  const initialDot = initialUp.dot(radial);
+
+  const dots = [initialDot];
+  for (let i = 0; i < 12; i += 1) {
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+    const mothership = state.enemies.find((enemy) => enemy.squadId === mothershipSquad.id && enemy.kind === 'mothership');
+    assert.ok(mothership, 'expected the mothership to remain alive during reorientation');
+    dots.push(mothership.up.clone().normalize().dot(radial));
+  }
+
+  assert.ok(
+    dots[1] <= dots[0] + 0.02,
+    `expected no first-frame snap during reorientation: first=${dots[0].toFixed(3)} second=${dots[1].toFixed(3)}`
+  );
+  assert.ok(
+    dots[2] <= dots[1] + 0.08,
+    `expected the reorientation to ramp smoothly after the first frame: second=${dots[1].toFixed(3)} third=${dots[2].toFixed(3)}`
+  );
+  assert.ok(
+    dots[dots.length - 1] > dots[0] - 0.05,
+    `expected the mothership to begin the belly-down turn smoothly: first=${dots[0].toFixed(3)} later=${dots[dots.length - 1].toFixed(3)}`
+  );
+
+  console.log(
+    `PASS mothership-hold-reorient-smoothness: first=${dots[0].toFixed(3)} second=${dots[1].toFixed(3)} third=${dots[2].toFixed(3)}`
+  );
+}
+
 function runDeepSpaceEnemyDistanceTest() {
   const sim = createOrbitalsSim(0xC0FFEE);
   sim.bootstrapWorld();
@@ -2520,6 +2568,7 @@ runPlanetOrbitTest();
 runPlanetCaptureArrivalTest();
 runPlanetCaptureBlendTest();
 runMothershipArrivalTest();
+runMothershipHoldReorientSmoothnessTest();
 runDeepSpaceEnemyDistanceTest();
 runRegularScenarioDeepSpaceRunawayTest();
 runMothershipPlanetCrashTest();

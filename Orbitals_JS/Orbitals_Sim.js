@@ -10,6 +10,12 @@ const tempVecE = new THREE.Vector3();
 const tempVecF = new THREE.Vector3();
 const tempVecG = new THREE.Vector3();
 const tempVecH = new THREE.Vector3();
+const tempVecI = new THREE.Vector3();
+const tempVecJ = new THREE.Vector3();
+const tempVecK = new THREE.Vector3();
+const tempVecL = new THREE.Vector3();
+const tempVecM = new THREE.Vector3();
+const tempVecN = new THREE.Vector3();
 
 const PROJECTILE_HOMING_LOCK_ANGLE = THREE.MathUtils.degToRad(5);
 const PROJECTILE_HOMING_ACQUIRE_ANGLE = THREE.MathUtils.degToRad(7.5);
@@ -725,6 +731,53 @@ function createEnemySquadState(state, targetPlanetIndex = -1, kind = 'regular', 
     leaveAfterFightersDead: true,
     fighterDiveAltitudeFactor: config.fighterDiveAltitudeFactor
   };
+}
+
+function buildSafeMothershipOrientation(preferredUp, preferredForward, fallbackForward, fallbackUp) {
+  const up = tempVecH.copy(preferredUp);
+  if (up.lengthSq() < 1e-6) {
+    up.copy(fallbackUp);
+  }
+  if (up.lengthSq() < 1e-6) {
+    up.copy(worldUp);
+  }
+  up.normalize();
+
+  let forward = tempVecI.copy(preferredForward);
+  if (forward.lengthSq() < 1e-6) {
+    forward.copy(fallbackForward);
+  }
+  if (forward.lengthSq() < 1e-6) {
+    forward.copy(tempVecJ.set(1, 0, 0));
+  }
+
+  forward.sub(tempVecK.copy(up).multiplyScalar(forward.dot(up)));
+  if (forward.lengthSq() < 1e-6) {
+    forward.copy(tempVecL.copy(fallbackForward));
+    if (forward.lengthSq() < 1e-6) {
+      forward.copy(tempVecM.copy(fallbackUp).cross(up));
+    } else {
+      forward.sub(tempVecK.copy(up).multiplyScalar(forward.dot(up)));
+    }
+  }
+  if (forward.lengthSq() < 1e-6) {
+    forward.copy(tempVecM.copy(up).cross(Math.abs(up.dot(worldUp)) > 0.92 ? tempVecJ.set(1, 0, 0) : worldUp));
+  }
+  if (forward.lengthSq() < 1e-6) {
+    forward.copy(tempVecJ.set(1, 0, 0));
+  }
+  forward.normalize();
+
+  const orthoUp = tempVecN.copy(up).sub(tempVecK.copy(forward).multiplyScalar(up.dot(forward)));
+  if (orthoUp.lengthSq() < 1e-6) {
+    orthoUp.copy(tempVecM.copy(forward).cross(Math.abs(forward.dot(worldUp)) > 0.92 ? tempVecJ.set(1, 0, 0) : worldUp));
+  }
+  if (orthoUp.lengthSq() < 1e-6) {
+    orthoUp.copy(worldUp);
+  }
+  orthoUp.normalize();
+
+  return { forward, up: orthoUp };
 }
 
 function createEnemyWave(state, squad, options = {}) {
@@ -2020,8 +2073,24 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
       enemy.speed = 0;
       enemy.boundPlanet = planet;
       enemy.flightMode = 'bound';
-      enemy.up.copy(squad.holdEntryUp);
-      enemy.forward.copy(squad.holdTangent).normalize();
+      const arrivalForwardSeed = tempVecD.copy(squad.holdAxis).cross(squad.holdEntryUp);
+      if (arrivalForwardSeed.lengthSq() < 1e-6) {
+        arrivalForwardSeed.copy(enemy.forward);
+      }
+      if (arrivalForwardSeed.lengthSq() < 1e-6) {
+        arrivalForwardSeed.copy(squad.mothershipTravelDirection || planet.position.clone().sub(enemy.position));
+      }
+      if (arrivalForwardSeed.lengthSq() < 1e-6) {
+        arrivalForwardSeed.copy(squad.holdTangent);
+      }
+      const arrivalOrientation = buildSafeMothershipOrientation(
+        squad.holdEntryUp,
+        arrivalForwardSeed,
+        squad.holdTangent,
+        squad.holdRadial
+      );
+      enemy.forward.copy(arrivalOrientation.forward);
+      enemy.up.copy(arrivalOrientation.up);
       enemy.relativePosition.copy(enemy.position).sub(planet.position);
       enemy.relativeVelocity.set(0, 0, 0);
       pushEvent(state, 'mothership-arrived', {
@@ -2091,12 +2160,6 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
   }
 
   if (squad.mode === 'hold') {
-    squad.holdAngle += dt * squad.holdAngularSpeed;
-    squad.holdBeta += dt * squad.holdBetaSpeed;
-    squad.holdReorientTimer = Math.min(
-      squad.holdReorientDuration,
-      squad.holdReorientTimer + dt
-    );
     const alpha = squad.holdAngle;
     const beta = THREE.MathUtils.clamp(squad.holdBeta, -Math.PI * 0.42, Math.PI * 0.42);
     if (beta !== squad.holdBeta) {
@@ -2170,6 +2233,12 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
         }
       });
     }
+    squad.holdAngle += dt * squad.holdAngularSpeed;
+    squad.holdBeta += dt * squad.holdBetaSpeed;
+    squad.holdReorientTimer = Math.min(
+      squad.holdReorientDuration,
+      squad.holdReorientTimer + dt
+    );
     return;
   }
 
