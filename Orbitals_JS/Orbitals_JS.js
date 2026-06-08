@@ -635,6 +635,14 @@ function readGamepadInput() {
   };
 }
 
+function isFireKey(code) {
+  return code === 'ControlLeft' || code === 'ControlRight' || code === 'Space' || code === 'KeyZ' || code === 'Enter';
+}
+
+function isFireGamepad(gamepad) {
+  return Boolean(gamepad && gamepad.fire);
+}
+
 function randomUnitVector() {
   const z = randRange(-1, 1);
   const a = randRange(0, Math.PI * 2);
@@ -1616,18 +1624,14 @@ function setAimFromScreenPoint(clientX, clientY) {
 }
 
 function handleCanvasPointerDown(event) {
+  const isFirePointer = event.pointerType === 'touch' || event.button === 0;
   const isStartButton = event.pointerType !== 'touch' && (event.button === 0 || event.button === 2);
-  if (state.crashed && isStartButton) {
+  if (state.crashed && isFirePointer) {
     restartFromGameOver();
     event.preventDefault();
     return;
   }
-  if (state.crashed && event.pointerType === 'touch') {
-    restartFromGameOver();
-    event.preventDefault();
-    return;
-  }
-  if (!uiState.gameStarted && uiState.loaded && isStartButton) {
+  if (!uiState.gameStarted && uiState.loaded && (isFirePointer || isStartButton)) {
     startGame();
     if (!uiState.pointerLocked) {
       renderer.domElement.requestPointerLock?.();
@@ -1755,9 +1759,9 @@ function maybeStartFromGamepad() {
     return;
   }
   const gamepad = readGamepadInput();
-  if (!uiState.gameStarted && (gamepad.fire || gamepad.boost)) {
+  if (!uiState.gameStarted && isFireGamepad(gamepad)) {
     startGame();
-  } else if (state.crashed && (gamepad.fire || gamepad.boost)) {
+  } else if (state.crashed && isFireGamepad(gamepad)) {
     restartFromGameOver();
   }
 }
@@ -1994,7 +1998,7 @@ function updateHud() {
         const remaining = Math.max(0, config.crashRespawnDelay - (state.crashTimer || 0));
         return remaining > 0
           ? `Ship destroyed. Restart available in ${remaining.toFixed(1)}s.`
-          : 'Ship destroyed. Press R or Start to restart.';
+          : 'Ship destroyed. Press Fire to play again.';
       })()
     : 'Use Gamepad or W/A/S/D/Space/Ctrl and/or Mouse';
   if (mouseDebugLine) {
@@ -2067,13 +2071,13 @@ function updateEnemyHudMarkers() {
     const camRight = tempVecC.set(1, 0, 0).applyQuaternion(camera.quaternion);
     const camUp = tempVecD.set(0, 1, 0).applyQuaternion(camera.quaternion);
 
-    let depth = toEnemy.dot(camForward);
-    let side = toEnemy.dot(camRight);
-    let vertical = toEnemy.dot(camUp);
+    const depth = toEnemy.dot(camForward);
+    const side = toEnemy.dot(camRight);
+    const vertical = toEnemy.dot(camUp);
     if (depth <= 0) {
-      side = -side;
-      vertical = -vertical;
-      depth = Math.abs(depth);
+      marker.style.opacity = '0';
+      marker.style.transform = 'translate(-9999px, -9999px)';
+      continue;
     }
 
     const ndcX = (side / Math.max(depth, 1e-3)) / (tanHalfFov * camera.aspect);
@@ -2128,7 +2132,7 @@ function updateGameOverOverlay() {
   const remaining = Math.max(0, config.crashRespawnDelay - (state.crashTimer || 0));
   gameOverTimerEl.textContent = remaining > 0
     ? `Restart available in ${remaining.toFixed(1)}s`
-    : 'Press R or Start to restart';
+    : 'Press Fire to play again';
 }
 
 function updateFuelMotes(dt, time) {
@@ -2359,7 +2363,7 @@ async function bootstrap() {
   lastEnemyExplosionIdForSfx = state.nextEnemyExplosionId || 0;
   uiState.loaded = true;
   updateTitleOverlay();
-  statusLine.textContent = 'Press Fire or Boost to start.';
+  statusLine.textContent = 'Press Fire to start.';
   updateMouseLockButton();
 }
 
@@ -2389,7 +2393,7 @@ function handlePointerLockChange() {
     uiState.mouseFireHeld = false;
     uiState.mouseBoostHeld = false;
     statusLine.textContent = state.crashed
-      ? 'Crashed. Press R or Start to restart.'
+      ? 'Crashed. Press Fire to play again.'
       : 'Keyboard/gamepad ready. Click the canvas to capture the mouse.';
   }
 }
@@ -2402,11 +2406,11 @@ function handleKeyDown(event) {
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyR', 'KeyL', 'ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight'].includes(event.code)) {
     event.preventDefault();
   }
-  if (state.crashed && (event.code === 'Space' || event.code === 'ControlLeft' || event.code === 'ControlRight')) {
+  if (state.crashed && isFireKey(event.code)) {
     restartFromGameOver();
     return;
   }
-  if (!uiState.gameStarted && uiState.loaded && (event.code === 'Space' || event.code === 'ControlLeft' || event.code === 'ControlRight')) {
+  if (!uiState.gameStarted && uiState.loaded && isFireKey(event.code)) {
     startGame();
     return;
   }

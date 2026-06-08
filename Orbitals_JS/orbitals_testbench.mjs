@@ -2355,31 +2355,52 @@ function runMothershipFighterPatrolTest() {
   const setup = spawnMothershipFighterScenario(sim);
   const fighterId = setup.fighter.id;
   const targetPlanet = state.planets[setup.fighterSquad.targetPlanetIndex] || planet;
+  assert.strictEqual(setup.fighterSquad.mode, 'approach', 'expected mothership fighters to start in approach mode');
+  assert.strictEqual(
+    setup.fighterSquad.parentMothershipId >= 0 && setup.fighterSquad.mode === 'swarm',
+    false,
+    'expected fighterPatrolMode to be false before settling'
+  );
+  assert.strictEqual(setup.fighterSquad.fighterSettleTimer, 0, 'expected the fighter settle timer to start at zero');
 
   state.mothershipSpawnTimer = Infinity;
 
-  let entryFrame = -1;
-  let entryTime = -1;
-  const maxEntryFrames = 9000;
+  let settleStartFrame = -1;
+  let swarmEntryFrame = -1;
+  let swarmEntryTime = -1;
+  const maxEntryFrames = 12000;
   for (let i = 0; i < maxEntryFrames; i += 1) {
     sim.step(1 / 60, NEUTRAL_CONTROLS);
     const liveFighter = state.enemies.find((enemy) => enemy.id === fighterId);
     assert.ok(liveFighter, 'expected the fighter to remain alive while entering the atmosphere');
     assert.strictEqual(liveFighter.squadId, setup.fighterSquad.id, 'expected the fighter to stay in its mothership squad');
-    if (liveFighter.boundPlanet === targetPlanet && liveFighter.flightMode === 'bound') {
-      entryFrame = state.frameIndex;
-      entryTime = state.time;
+    if (setup.fighterSquad.fighterSettleTimer > 0 && settleStartFrame < 0) {
+      settleStartFrame = state.frameIndex;
+    }
+    if (setup.fighterSquad.mode === 'swarm') {
+      swarmEntryFrame = state.frameIndex;
+      swarmEntryTime = state.time;
       break;
     }
   }
 
-  assert.ok(entryFrame >= 0, 'expected the fighter to enter and bind to the target planet');
+  assert.ok(swarmEntryFrame >= 0, 'expected the fighter to enter patrol after settling');
+  assert.ok(settleStartFrame >= 0, 'expected the fighter to begin settling before patrol');
+  assert.ok(
+    setup.fighterSquad.fighterSettleTimer >= config.fighterSettleTime,
+    `expected the fighter settle timer to reach the configured threshold: timer=${setup.fighterSquad.fighterSettleTimer.toFixed(3)} threshold=${config.fighterSettleTime.toFixed(3)}`
+  );
 
   const entryEvent = state.eventLog.find(
     (event) => event.type === 'enemy-spawn' && event.enemyId === fighterId
   );
   assert.ok(entryEvent, 'expected a spawn event for the fighter');
   assert.strictEqual(entryEvent.spawnedByMothershipId, setup.mothershipSquad.id, 'expected the fighter to be spawned by the mothership');
+  const settleEvent = state.eventLog.find((event) => event.type === 'fighter-settle-start' && event.squadId === setup.fighterSquad.id);
+  const patrolEvent = state.eventLog.find((event) => event.type === 'fighter-patrol-start' && event.squadId === setup.fighterSquad.id);
+  assert.ok(settleEvent, 'expected a fighter-settle-start debug event');
+  assert.ok(patrolEvent, 'expected a fighter-patrol-start debug event');
+  assert.ok(patrolEvent.frame >= settleEvent.frame, 'expected patrol to start after settle detection');
 
   const noCrashWindowFrames = 1800;
   let crashEvent = null;
@@ -2410,7 +2431,63 @@ function runMothershipFighterPatrolTest() {
   }
 
   console.log(
-    `PASS mothership-fighter-patrol: enteredFrame=${entryFrame} enteredTime=${entryTime.toFixed(3)} planet=${targetPlanet.name}`
+    `PASS mothership-fighter-patrol: enteredFrame=${swarmEntryFrame} enteredTime=${swarmEntryTime.toFixed(3)} planet=${targetPlanet.name}`
+  );
+
+  const regularSquad = {
+    id: 900001,
+    kind: 'regular',
+    family: setup.fighterSquad.family,
+    familyFiles: setup.fighterSquad.familyFiles || [],
+    targetPlanetIndex: setup.fighterSquad.targetPlanetIndex,
+    nextPlanetIndex: setup.fighterSquad.nextPlanetIndex,
+    departPlanetIndex: -1,
+    departVector: new THREE.Vector3(1, 0, 0),
+    mode: 'approach',
+    modeTimer: 0,
+    orbitPhase: 0,
+    orbitDirection: 1,
+    orbitProgress: 0,
+    orbitLastAngle: NaN,
+    swarmDuration: 30,
+    departDuration: 30,
+    parentMothershipId: -1,
+    fighterSettleTimer: 0
+  };
+  const regularEnemy = setup.fighter;
+  regularEnemy.squadId = regularSquad.id;
+  regularEnemy.kind = 'regular';
+  regularEnemy.parentMothershipId = -1;
+  regularEnemy.boundPlanet = targetPlanet;
+  regularEnemy.flightMode = 'bound';
+  regularEnemy.captureTimer = config.shipCaptureBlendTime;
+  regularEnemy.position.copy(targetPlanet.position).addScaledVector(
+    targetPlanet.position.clone().normalize(),
+    targetPlanet.radius + config.planetCaptureAltitude * 0.8
+  );
+  regularEnemy.previousPosition.copy(regularEnemy.position);
+  regularEnemy.forward.copy(regularEnemy.position.clone().sub(targetPlanet.position).normalize());
+  regularEnemy.up.copy(regularEnemy.position.clone().sub(targetPlanet.position).normalize());
+  regularEnemy.speed = 10;
+
+  state.enemies.length = 0;
+  state.enemies.push(regularEnemy);
+  state.enemySquads = [regularSquad];
+  state.enemySquad = regularSquad;
+  state.eventLog.length = 0;
+
+  let regularSwarmFrame = -1;
+  for (let i = 0; i < 240; i += 1) {
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+    if (regularSquad.mode === 'swarm') {
+      regularSwarmFrame = state.frameIndex;
+      break;
+    }
+  }
+  assert.ok(regularSwarmFrame >= 0, 'expected a regular squad to still use the capture-based swarm transition');
+  assert.ok(
+    altitudeBetween(regularEnemy, targetPlanet) <= config.planetCaptureAltitude + 1e-6,
+    `expected the regular squad to transition at the old capture altitude rule: altitude=${altitudeBetween(regularEnemy, targetPlanet).toFixed(3)} capture=${config.planetCaptureAltitude.toFixed(3)}`
   );
 }
 

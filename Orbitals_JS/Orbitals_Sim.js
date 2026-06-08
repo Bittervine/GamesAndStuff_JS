@@ -615,6 +615,7 @@ function createEnemyState() {
     aiMode: '',
     aiTargetPlanetIndex: -1,
     aiDepartPlanetIndex: -1,
+    fighterSettleTimer: 0,
     atmosphericCruiseAltitudeFactor: config.atmosphereCruiseAltitudeFactor,
     hasSmoothedTargetPoint: false,
     smoothedTargetPoint: new THREE.Vector3(),
@@ -928,6 +929,7 @@ function spawnFighterSquadFromMothership(state, mothershipSquad, mothershipEnemy
   squad.orbitProgress = 0;
   squad.fighterDiveAltitudeFactor = config.fighterDiveAltitudeFactor;
   squad.fighterPatrolAltitudeFactor = config.fighterPatrolAltitudeFactor;
+  squad.fighterSettleTimer = 0;
   squad.fightersTotal = 1;
   squad.fightersReleased = 1;
   squad.fightersAlive = 1;
@@ -1665,9 +1667,11 @@ function computeEnemyTargetPoint(state, enemy, squad, planet, time) {
   const basis = buildBasisFromNormal(radial);
   const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 1.0);
   const fighterApproachAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterDiveAltitudeFactor > 0
-    ? squad.fighterDiveAltitudeFactor
+    ? (squad.mode === 'approach' && enemy.boundPlanet === planet
+      ? config.fighterSettleAltitudeFactor
+      : squad.fighterDiveAltitudeFactor)
     : null;
-  const fighterPatrolAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterPatrolAltitudeFactor > 0
+  const fighterPatrolAltitudeFactor = squad.parentMothershipId >= 0 && squad.mode === 'swarm' && squad.fighterPatrolAltitudeFactor > 0
     ? squad.fighterPatrolAltitudeFactor
     : fighterApproachAltitudeFactor;
   const approachAltitude = planet.radius + atmosphereThickness * (fighterApproachAltitudeFactor ?? ENEMY_APPROACH_ALTITUDE);
@@ -1806,9 +1810,11 @@ function computeEnemyTravelDistance(state, targetPlanet, enemy, squad) {
 function computeEnemyControlTargetSpeed(state, targetPlanet, enemy, squad) {
   const atmosphereThickness = Math.max(targetPlanet.atmosphereRadius - targetPlanet.radius, 1.0);
   const fighterApproachAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterDiveAltitudeFactor > 0
-    ? squad.fighterDiveAltitudeFactor
+    ? (squad.mode === 'approach' && enemy.boundPlanet === targetPlanet
+      ? config.fighterSettleAltitudeFactor
+      : squad.fighterDiveAltitudeFactor)
     : null;
-  const fighterPatrolAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterPatrolAltitudeFactor > 0
+  const fighterPatrolAltitudeFactor = squad.parentMothershipId >= 0 && squad.mode === 'swarm' && squad.fighterPatrolAltitudeFactor > 0
     ? squad.fighterPatrolAltitudeFactor
     : fighterApproachAltitudeFactor;
   const desiredRadius = targetPlanet.radius + atmosphereThickness * (
@@ -1888,9 +1894,11 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
 
   const atmosphereThickness = liftState.atmosphereThickness;
   const fighterApproachAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterDiveAltitudeFactor > 0
-    ? squad.fighterDiveAltitudeFactor
+    ? (squad.mode === 'approach' && enemy.boundPlanet === targetPlanet
+      ? config.fighterSettleAltitudeFactor
+      : squad.fighterDiveAltitudeFactor)
     : null;
-  const fighterPatrolAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterPatrolAltitudeFactor > 0
+  const fighterPatrolAltitudeFactor = squad.parentMothershipId >= 0 && squad.mode === 'swarm' && squad.fighterPatrolAltitudeFactor > 0
     ? squad.fighterPatrolAltitudeFactor
     : fighterApproachAltitudeFactor;
   const desiredApproachAltitude = atmosphereThickness * (fighterApproachAltitudeFactor ?? ENEMY_APPROACH_ALTITUDE);
@@ -1915,6 +1923,13 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
 
   const fighterPatrolMode = squad.parentMothershipId >= 0 && squad.mode === 'swarm';
   if (fighterPatrolMode) {
+    if (!enemy.patrolState) {
+      enemy.patrolState = 'straight';
+      enemy.patrolStateUntil = 0;
+      enemy.patrolAxis = '';
+      enemy.patrolBankDirection = 0;
+      enemy.patrolBankTarget = 0;
+    }
     const avoidRadius = atmosphereThickness * 0.42;
     const hardSeparationRadius = atmosphereThickness * Math.max(0.1, config.fighterPatrolHardSeparationFactor || 0.42);
     let avoidanceTurn = 0;
@@ -1967,7 +1982,7 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
         enemy.patrolBankTarget = 0;
       } else {
         enemy.patrolState = 'bank';
-        enemy.patrolStateUntil = time + state.rng() * 4.0;
+        enemy.patrolStateUntil = time + state.rng() * 3.0;
         const axisChoice = state.rng() < 0.5 ? 'leftRight' : 'upDown';
         enemy.patrolAxis = axisChoice;
         if (axisChoice === 'leftRight') {
@@ -2227,7 +2242,62 @@ function updateEnemySquads(state, dt, time) {
     }
     const avgAltitude = sumAltitude / squadEnemies.length;
 
-    if (squad.mode === 'approach' && avgAltitude <= config.planetCaptureAltitude) {
+    const isMothershipFighterSquad = squad.parentMothershipId >= 0 && squad.kind === 'fighter';
+    if (isMothershipFighterSquad && squad.mode === 'approach') {
+      const atmosphereThickness = Math.max(targetPlanet.atmosphereRadius - targetPlanet.radius, 1.0);
+      const desiredSettleAltitude = atmosphereThickness * config.fighterSettleAltitudeFactor;
+      const tolerance = atmosphereThickness * config.fighterSettleAltitudeToleranceFactor;
+      const safeAltitude = config.atmosphereTerrainCrashAltitude + 5;
+      const boundCount = squadEnemies.filter((enemy) => enemy && enemy.health > 0 && (enemy.boundPlanet === targetPlanet || enemy.flightMode === 'bound')).length;
+      const inSettleBand = avgAltitude >= Math.max(desiredSettleAltitude - tolerance, 0) && avgAltitude <= desiredSettleAltitude + tolerance;
+      const inAtmosphereBand = avgAltitude <= atmosphereThickness * 0.95;
+      const settled =
+        boundCount >= Math.max(1, Math.ceil(squadEnemies.length * 0.5))
+        && (inSettleBand || inAtmosphereBand)
+        && avgAltitude >= safeAltitude;
+
+      if (settled) {
+        if (squad.fighterSettleTimer <= 0) {
+          pushEvent(state, 'fighter-settle-start', {
+            squadId: squad.id,
+            parentMothershipId: squad.parentMothershipId,
+            planetIndex: state.planets.indexOf(targetPlanet),
+            planetName: targetPlanet.name,
+            avgAltitude,
+            atmosphereThickness,
+            time
+          });
+        }
+        squad.fighterSettleTimer += dt;
+        if (squad.fighterSettleTimer >= config.fighterSettleTime) {
+          const firstFighter = squadEnemies.find((enemy) => enemy && enemy.health > 0) || null;
+          if (firstFighter) {
+            beginEnemySwarm(squad, targetPlanet, firstFighter);
+            for (const enemy of squadEnemies) {
+              if (!enemy || enemy.health <= 0) {
+                continue;
+              }
+              enemy.patrolState = 'straight';
+              enemy.patrolStateUntil = 0;
+              enemy.patrolAxis = '';
+              enemy.patrolBankDirection = 0;
+              enemy.patrolBankTarget = 0;
+            }
+            pushEvent(state, 'fighter-patrol-start', {
+              squadId: squad.id,
+              parentMothershipId: squad.parentMothershipId,
+              planetIndex: state.planets.indexOf(targetPlanet),
+              planetName: targetPlanet.name,
+              avgAltitude,
+              atmosphereThickness,
+              time
+            });
+          }
+        }
+      } else {
+        squad.fighterSettleTimer = Math.max(0, squad.fighterSettleTimer - dt);
+      }
+    } else if (squad.mode === 'approach' && avgAltitude <= config.planetCaptureAltitude) {
       beginEnemySwarm(squad, targetPlanet, squadEnemies[0]);
     } else if (squad.mode === 'depart' && avgAltitude <= config.planetCaptureAltitude) {
       beginEnemySwarm(squad, targetPlanet, squadEnemies[0]);
