@@ -1021,7 +1021,12 @@ function createShipEngineEffects(root) {
       innerBaseScaleY: inner.scale.y,
       sparkBaseSize: sparkMaterial.size,
       sparkBaseZ: 0.03,
-      phase: randRange(0, Math.PI * 2)
+      phase: randRange(0, Math.PI * 2),
+      motionSeed: randRange(0, Math.PI * 2),
+      motionOffset: new THREE.Vector2(),
+      motionTarget: new THREE.Vector2(),
+      motionNextUpdate: 0,
+      motionUpdateInterval: randRange(0.05, 0.16)
     });
   });
 
@@ -1054,7 +1059,7 @@ function updateShipEngineEffects(time) {
       material.emissive.copy(tempColorA);
     }
     if (typeof entry.baseEmissiveIntensity === 'number' && typeof material.emissiveIntensity === 'number') {
-      material.emissiveIntensity = entry.baseEmissiveIntensity + heatMix * 8.5;
+      material.emissiveIntensity = entry.baseEmissiveIntensity + heatMix * 0.033203125;
     }
     if (typeof entry.baseRoughness === 'number' && typeof material.roughness === 'number') {
       material.roughness = THREE.MathUtils.lerp(entry.baseRoughness, Math.max(0.05, entry.baseRoughness * 0.35), boostLevel * 0.55);
@@ -1063,9 +1068,22 @@ function updateShipEngineEffects(time) {
 
   for (const emitter of ship.engineEffects.emitterEffects) {
     const boost = boostLevel;
+    if (time >= emitter.motionNextUpdate) {
+      emitter.motionTarget.set(
+        randRange(-0.18, 0.18),
+        randRange(-0.14, 0.14)
+      );
+      emitter.motionNextUpdate = time + emitter.motionUpdateInterval;
+      emitter.motionUpdateInterval = randRange(0.05, 0.16);
+    }
+    emitter.motionOffset.lerp(emitter.motionTarget, 1 - Math.exp(-14 * 0.016));
+    const jitterX = Math.sin(time * 9.0 + emitter.motionSeed) * 0.02;
+    const jitterY = Math.cos(time * 7.0 + emitter.motionSeed * 1.37) * 0.018;
+    const driftX = emitter.motionOffset.x + jitterX;
+    const driftY = emitter.motionOffset.y + jitterY;
     const flicker = 0.84 + Math.sin(time * 31 + emitter.phase) * 0.09 + Math.sin(time * 53 + emitter.phase * 1.7) * 0.05;
-    const outerPulse = 0.92 + Math.sin(time * 38 + emitter.phase) * 0.04 + boost * 0.25;
-    const innerPulse = 0.95 + Math.sin(time * 45 + emitter.phase * 1.4) * 0.03 + boost * 0.18;
+    const outerPulse = 0.92 + boost * 0.25;
+    const innerPulse = 0.95 + boost * 0.18;
     const active = boost > 0.01;
 
     emitter.outer.visible = active;
@@ -1077,34 +1095,36 @@ function updateShipEngineEffects(time) {
       tempColorA.copy(emitter.outerBaseColor).lerp(tempColorB.set(0xffffff), boost * 0.9);
       emitter.outer.material.color.copy(tempColorA);
       emitter.outer.material.opacity = boost * 0.78 * flicker;
-      emitter.outer.material.rotation = Math.sin(time * 20 + emitter.phase) * 0.12;
+      emitter.outer.material.rotation = driftX * 0.35;
       emitter.outer.scale.set(
-        emitter.outerBaseScaleX * outerPulse * (0.9 + boost * 0.55),
-        emitter.outerBaseScaleY * outerPulse * (0.9 + boost * 0.45),
+        emitter.outerBaseScaleX * (outerPulse + driftY * 0.4) * (0.9 + boost * 0.55),
+        emitter.outerBaseScaleY * (outerPulse + driftX * 0.3) * (0.9 + boost * 0.45),
         1
       );
 
       tempColorA.copy(emitter.innerBaseColor).lerp(tempColorB.set(0xffffff), Math.min(1, boost * 0.95 + 0.15));
       emitter.inner.material.color.copy(tempColorA);
-      emitter.inner.material.opacity = boost * 0.96 * (0.9 + Math.sin(time * 23 + emitter.phase * 1.3) * 0.08);
-      emitter.inner.material.rotation = -Math.sin(time * 19 + emitter.phase * 0.7) * 0.08;
+      emitter.inner.material.opacity = boost * 0.96 * (0.9 + driftY * 0.16);
+      emitter.inner.material.rotation = -driftX * 0.22;
       emitter.inner.scale.set(
-        emitter.innerBaseScaleX * innerPulse * (0.95 + boost * 0.35),
-        emitter.innerBaseScaleY * innerPulse * (0.95 + boost * 0.25),
+        emitter.innerBaseScaleX * (innerPulse + driftY * 0.3) * (0.95 + boost * 0.35),
+        emitter.innerBaseScaleY * (innerPulse + driftX * 0.22) * (0.95 + boost * 0.25),
         1
       );
 
-      emitter.light.intensity = 0.5 + boost * 12 * flicker;
+      emitter.light.intensity = 0.5 + boost * 0.046875 * flicker;
 
       emitter.sparkMaterial.opacity = boost * 0.88 * flicker;
       emitter.sparkMaterial.size = emitter.sparkBaseSize * (0.85 + boost * 0.75);
       for (let i = 0; i < emitter.sparkSeeds.length; i += 1) {
         const base = i * 3;
-        const phase = time * (3.0 + emitter.sparkRates[i] * 1.5) + emitter.sparkSeeds[i];
+        const seed = emitter.sparkSeeds[i];
+        const phase = time * (2.2 + emitter.sparkRates[i] * 1.4) + seed;
         const spread = boost * (0.03 + emitter.sparkSpreads[i] * 0.95);
         const push = emitter.sparkBaseZ + boost * (0.08 + i * 0.01);
-        emitter.sparkPositions[base + 0] = Math.sin(phase) * spread;
-        emitter.sparkPositions[base + 1] = Math.cos(phase * 1.37 + emitter.sparkSeeds[i]) * spread * 0.72;
+        const wander = 0.55 + 0.45 * Math.sin(time * 1.7 + seed * 1.9);
+        emitter.sparkPositions[base + 0] = (Math.sin(phase) * 0.55 + Math.sin(phase * 0.37 + seed) * 0.45) * spread * wander;
+        emitter.sparkPositions[base + 1] = (Math.cos(phase * 1.11 + seed * 0.73) * 0.6 + Math.sin(phase * 0.23 + seed * 1.31) * 0.4) * spread * 0.72 * wander;
         emitter.sparkPositions[base + 2] = push + Math.max(0, Math.sin(phase * 0.63) * 0.01);
       }
       emitter.sparkGeometry.attributes.position.needsUpdate = true;
