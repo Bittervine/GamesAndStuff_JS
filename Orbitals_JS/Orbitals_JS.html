@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Orbitals</title>
+  <title>Orbital Core</title>
   <style>
     html, body {
       width: 100%;
@@ -93,6 +93,50 @@
       font-size: 13px;
       color: #cdd8ec;
       text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+    }
+
+    #titleOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 50% 35%, rgba(84, 110, 180, 0.18), transparent 36%),
+        linear-gradient(180deg, rgba(3, 6, 13, 0.92), rgba(4, 6, 12, 0.98));
+      transition: opacity 0.2s ease, visibility 0.2s ease;
+    }
+
+    #titleOverlay.is-hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    #titleCard {
+      width: min(920px, calc(100vw - 48px));
+      display: grid;
+      justify-items: center;
+      gap: 18px;
+      text-align: center;
+    }
+
+    #titleArt {
+      width: min(920px, calc(100vw - 48px));
+      max-height: min(64vh, 720px);
+      object-fit: contain;
+      user-select: none;
+      -webkit-user-drag: none;
+      filter: drop-shadow(0 24px 42px rgba(0, 0, 0, 0.42));
+    }
+
+    #titlePrompt {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #dbe7ff;
+      text-shadow: 0 0 14px rgba(120, 168, 255, 0.28);
     }
 
     #reticle {
@@ -263,7 +307,13 @@
   <div id="app"></div>
   <div id="loadingWrap">
     <div id="loadingBarOuter"><div id="loadingBarInner"></div></div>
-    <div id="loadingText">Loading Orbitals...</div>
+    <div id="loadingText">Loading Orbital Core...</div>
+  </div>
+  <div id="titleOverlay" aria-hidden="true">
+    <div id="titleCard">
+      <img id="titleArt" src="./assets/title.png" alt="Orbital Core" draggable="false">
+      <div id="titlePrompt">Press Fire or Boost to Start</div>
+    </div>
   </div>
   <div id="noseMarker" aria-hidden="true"></div>
   <div id="reticle"></div>

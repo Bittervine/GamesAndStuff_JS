@@ -13,6 +13,7 @@ const app = document.getElementById('app');
 const loadingWrap = document.getElementById('loadingWrap');
 const loadingText = document.getElementById('loadingText');
 const loadingBarInner = document.getElementById('loadingBarInner');
+const titleOverlayEl = document.getElementById('titleOverlay');
 const statusLine = document.getElementById('status');
 const statsLine = document.getElementById('stats');
 const mouseDebugLine = document.getElementById('mouseDebug');
@@ -79,7 +80,8 @@ const uiState = {
   keyboardIdle: true,
   gamepadIdle: true,
   touchPointerId: null,
-  loaded: false
+  loaded: false,
+  gameStarted: false
 };
 const projectileVisuals = new Map();
 const enemyVisuals = new Map();
@@ -361,6 +363,16 @@ function ensureOrbitalsAudio() {
   return orbitalsAudio.ctx;
 }
 
+function playOrbitalsStartChime() {
+  const ctx = orbitalsAudio.ctx;
+  if (!ctx || ctx.state !== 'running') {
+    return;
+  }
+  playOrbitalsTone({ freq: 196, endFreq: 294, dur: 0.14, gain: 0.08, type: 'triangle', pan: -0.15 });
+  playOrbitalsTone({ freq: 294, endFreq: 392, dur: 0.12, gain: 0.06, type: 'sine', pan: 0.1, delay: 0.05 });
+  playOrbitalsTone({ freq: 392, endFreq: 523, dur: 0.18, gain: 0.05, type: 'triangle', pan: 0.2, delay: 0.1 });
+}
+
 function ensureBoostNoiseNode() {
   const ctx = ensureOrbitalsAudio();
   if (!ctx || orbitalsAudio.boostNoiseSource) {
@@ -409,14 +421,14 @@ function updateBoostNoise(boostLevel, pulse) {
 function resumeOrbitalsAudio() {
   const ctx = ensureOrbitalsAudio();
   if (!ctx) {
-    return;
+    return Promise.resolve(null);
   }
   if (ctx.state === 'running') {
     orbitalsAudio.enabled = true;
-    return;
+    return Promise.resolve(ctx);
   }
   if (orbitalsAudio.resumePromise) {
-    return;
+    return orbitalsAudio.resumePromise;
   }
   orbitalsAudio.resumePromise = ctx.resume()
     .then(() => {
@@ -428,10 +440,12 @@ function resumeOrbitalsAudio() {
       orbitalsAudio.enabled = false;
       orbitalsAudio.soundNotInit = true;
       orbitalsAudio.soundInitFailed = true;
+      return null;
     })
     .finally(() => {
       orbitalsAudio.resumePromise = null;
     });
+  return orbitalsAudio.resumePromise;
 }
 
 function playOrbitalsTone(opts = {}) {
@@ -439,7 +453,7 @@ function playOrbitalsTone(opts = {}) {
   if (!ctx || ctx.state !== 'running') {
     return;
   }
-  const now = ctx.currentTime;
+  const now = ctx.currentTime + (opts.delay || 0);
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
@@ -499,6 +513,8 @@ function playOrbitalsNoise(opts = {}) {
 function playOrbitalsSfx(name, opts = {}) {
   if (name === 'shoot') {
     playOrbitalsTone({ freq: 420, endFreq: 520, dur: 0.05, gain: 0.045, type: 'triangle' });
+  } else if (name === 'start') {
+    playOrbitalsStartChime();
   } else if (name === 'boom') {
     const gainScale = Math.max(0, opts.gainScale ?? 1);
     const pan = THREE.MathUtils.clamp(opts.pan || 0, -1, 1);
@@ -1568,6 +1584,15 @@ function setAimFromScreenPoint(clientX, clientY) {
 }
 
 function handleCanvasPointerDown(event) {
+  const isStartButton = event.pointerType !== 'touch' && (event.button === 0 || event.button === 2);
+  if (!uiState.gameStarted && uiState.loaded && isStartButton) {
+    startGame();
+    if (!uiState.pointerLocked) {
+      renderer.domElement.requestPointerLock?.();
+    }
+    event.preventDefault();
+    return;
+  }
   resumeOrbitalsAudio();
   if (event.pointerType === 'touch') {
     uiState.touchPointerId = event.pointerId;
@@ -1624,6 +1649,57 @@ function handleWindowBlur() {
   uiState.mouseFireHeld = false;
   uiState.mouseBoostHeld = false;
   uiState.touchPointerId = null;
+}
+
+function handleGlobalPointerDown(event) {
+  if (uiState.gameStarted || !uiState.loaded) {
+    return;
+  }
+  if (event.pointerType === 'touch') {
+    return;
+  }
+  if (event.button !== 0 && event.button !== 2) {
+    return;
+  }
+  event.preventDefault();
+  startGame();
+  if (event.button === 0) {
+    renderer.domElement.requestPointerLock?.();
+  }
+}
+
+function updateTitleOverlay() {
+  if (!titleOverlayEl) {
+    return;
+  }
+  const hidden = uiState.loaded && uiState.gameStarted;
+  titleOverlayEl.classList.toggle('is-hidden', hidden);
+  titleOverlayEl.setAttribute('aria-hidden', hidden ? 'true' : 'false');
+}
+
+function startGame() {
+  if (!uiState.loaded || uiState.gameStarted) {
+    return false;
+  }
+  uiState.gameStarted = true;
+  updateTitleOverlay();
+  statusLine.textContent = 'Starting Orbital Core...';
+  resumeOrbitalsAudio().then((ctx) => {
+    if (ctx && ctx.state === 'running') {
+      playOrbitalsSfx('start');
+    }
+  });
+  return true;
+}
+
+function maybeStartFromGamepad() {
+  if (!uiState.loaded || uiState.gameStarted) {
+    return;
+  }
+  const gamepad = readGamepadInput();
+  if (gamepad.fire || gamepad.boost) {
+    startGame();
+  }
 }
 
 function relaxPlanetSeparation(planets) {
@@ -2194,7 +2270,8 @@ async function bootstrap() {
   lastProjectileIdForSfx = state.nextProjectileId || 0;
   lastEnemyExplosionIdForSfx = state.nextEnemyExplosionId || 0;
   uiState.loaded = true;
-  statusLine.textContent = 'Keyboard/gamepad ready. Click the canvas to capture the mouse.';
+  updateTitleOverlay();
+  statusLine.textContent = 'Press Fire or Boost to start.';
   updateMouseLockButton();
 }
 
@@ -2237,6 +2314,10 @@ function handleKeyDown(event) {
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyR', 'KeyL', 'ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight'].includes(event.code)) {
     event.preventDefault();
   }
+  if (!uiState.gameStarted && uiState.loaded && (event.code === 'Space' || event.code === 'ControlLeft' || event.code === 'ControlRight')) {
+    startGame();
+    return;
+  }
   resumeOrbitalsAudio();
   keys.add(event.code);
   if (event.code === 'KeyR') {
@@ -2277,6 +2358,7 @@ window.addEventListener('blur', handleWindowBlur);
 window.addEventListener('resize', handleResize);
 window.addEventListener('keydown', handleKeyDown);
 window.addEventListener('keyup', handleKeyUp);
+window.addEventListener('pointerdown', handleGlobalPointerDown, { capture: true });
 window.addEventListener('mousedown', resumeOrbitalsAudio, { capture: true });
 window.addEventListener('touchstart', resumeOrbitalsAudio, { capture: true, passive: true });
 window.addEventListener('click', resumeOrbitalsAudio, { capture: true });
@@ -2291,27 +2373,33 @@ function render() {
   const dt = Math.min(clock.getDelta(), 0.05);
 
   if (uiState.loaded && state.ship) {
-    updateShipControls(dt);
-    updatePlanets(dt, clock.elapsedTime);
-    updateFuelMotes(dt, clock.elapsedTime);
-    updateProjectileVisuals();
-    updateEnemyVisuals();
-    updateEnemyExplosionVisuals();
-    updateSpaceDebris(dt);
-    updateStarCorona(clock.elapsedTime);
-    const localUp = state.nearestPlanet && state.ship
-      ? state.ship.position.clone().sub(state.nearestPlanet.position).normalize()
-      : null;
-    if (localUp) {
-      updateShipOrientation(dt, localUp);
+    if (!uiState.gameStarted) {
+      maybeStartFromGamepad();
+      updatePlanets(dt, clock.elapsedTime);
+      updateStarCorona(clock.elapsedTime);
+    } else {
+      updateShipControls(dt);
+      updatePlanets(dt, clock.elapsedTime);
+      updateFuelMotes(dt, clock.elapsedTime);
+      updateProjectileVisuals();
+      updateEnemyVisuals();
+      updateEnemyExplosionVisuals();
+      updateSpaceDebris(dt);
+      updateStarCorona(clock.elapsedTime);
+      const localUp = state.nearestPlanet && state.ship
+        ? state.ship.position.clone().sub(state.nearestPlanet.position).normalize()
+        : null;
+      if (localUp) {
+        updateShipOrientation(dt, localUp);
+      }
+      if (state.ship && state.ship.root) {
+        state.ship.root.visible = !state.crashed;
+      }
+      updateShipEngineEffects(clock.elapsedTime);
+      updateCamera(dt);
+      updateHud();
+      updateGameOverOverlay();
     }
-    if (state.ship && state.ship.root) {
-      state.ship.root.visible = !state.crashed;
-    }
-    updateShipEngineEffects(clock.elapsedTime);
-    updateCamera(dt);
-    updateHud();
-    updateGameOverOverlay();
   }
 
   renderer.render(scene, camera);
@@ -2320,7 +2408,7 @@ function render() {
 
 bootstrap().catch((error) => {
   console.error(error);
-  loadingText.textContent = 'Failed to load Orbitals.';
+  loadingText.textContent = 'Failed to load Orbital Core.';
   statusLine.textContent = 'Load error. Check console.';
 });
 
