@@ -435,6 +435,37 @@ function runBoostThrustTest() {
   );
 }
 
+function runShipMaxMaxSpeedTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  const { state } = sim;
+  state.ship.boundPlanet = null;
+  state.ship.flightMode = 'free';
+  state.ship.recaptureLock = 0;
+  state.ship.position.set(20000, 20000, 20000);
+  state.ship.relativePosition.copy(state.ship.position);
+  state.ship.forward.set(1, 0, 0);
+  state.ship.up.set(0, 1, 0);
+  state.ship.speed = config.shipMaxMaxSpeed + 250;
+  state.ship.velocity.copy(state.ship.forward).multiplyScalar(state.ship.speed);
+  state.ship.relativeVelocity.copy(state.ship.velocity);
+  state.speed = state.ship.speed;
+
+  sim.step(1 / 60, NEUTRAL_CONTROLS);
+
+  assert.ok(
+    state.ship.speed <= config.shipMaxMaxSpeed + 1e-6,
+    `expected ship speed to stay capped: speed=${state.ship.speed.toFixed(3)} cap=${config.shipMaxMaxSpeed.toFixed(3)}`
+  );
+  assert.ok(
+    state.speed <= config.shipMaxMaxSpeed + 1e-6,
+    `expected reported speed to stay capped: speed=${state.speed.toFixed(3)} cap=${config.shipMaxMaxSpeed.toFixed(3)}`
+  );
+
+  console.log(`PASS ship-max-max-speed: speed=${state.ship.speed.toFixed(3)} cap=${config.shipMaxMaxSpeed.toFixed(3)}`);
+}
+
 function runAtmosphereBoostPitchLockTest() {
   const sim = createOrbitalsSim(0xC0FFEE);
   sim.bootstrapWorld();
@@ -2544,6 +2575,7 @@ runAtmosphereTerrainRecoveryTest();
 runAtmosphereTerrainCrashTest();
 runBoostRecoveryTest();
 runBoostThrustTest();
+runShipMaxMaxSpeedTest();
 runAtmosphereBoostPitchLockTest();
 runAtmosphereSoftStallTest();
 runBoostDirectionTest();

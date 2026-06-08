@@ -24,6 +24,10 @@ const PROJECTILE_HOMING_RANGE = 900;
 const PROJECTILE_HOMING_MIN_TURN = THREE.MathUtils.degToRad(10);
 const PROJECTILE_HOMING_MAX_TURN = THREE.MathUtils.degToRad(45);
 
+function clampShipSpeed(speed) {
+  return THREE.MathUtils.clamp(speed, 0, config.shipMaxMaxSpeed);
+}
+
 export const ENEMY_MODEL_FILES_BY_FAMILY = {
   Standard: [
     'Ship_Standard_1.glb',
@@ -2377,7 +2381,7 @@ function respawnShip(state) {
   const desiredRadius = planet.radius + spawnAltitude;
   const surfaceSpeed = Math.sqrt(Math.max(planet.gravityStrength / Math.max(desiredRadius, 1.0), 4.0));
   const cruiseSpeed = surfaceSpeed * 0.12;
-  const flightSpeed = cruiseSpeed * (0.92 + state.rng() * 0.08);
+  const flightSpeed = clampShipSpeed(cruiseSpeed * (0.92 + state.rng() * 0.08));
   const spawnOffset = normal.clone().multiplyScalar(desiredRadius)
     .addScaledVector(side, -1.0 + state.rng() * 2.0);
   state.ship.boundPlanet = planet;
@@ -2580,6 +2584,7 @@ function updateShipState(state, dt, controls) {
       state.nearestAltitude * config.shipAltMaxSpeedFac
     )
     : Infinity;
+  const shipSpeedCap = Math.min(altitudeSpeedCap, config.shipMaxMaxSpeed);
   const brakeHalfLife = Math.max(0.1, config.freeBrakeHalfLife);
   const brakeFactor = brakeActive ? Math.pow(0.5, dt / brakeHalfLife) : 1;
 
@@ -2697,11 +2702,12 @@ function updateShipState(state, dt, controls) {
     if (brakeFactor !== 1) {
       ship.speed *= brakeFactor;
     }
+    ship.speed = clampShipSpeed(ship.speed);
 
-  const freeCurrentSpeed = Math.max(ship.speed || 0, 0.0001);
-  const gravitySpeedFactor = 1 / (1 + freeCurrentSpeed * Math.max(0.0001, config.freeGravitySpeedDamping));
-  const gravityTurnRate = config.freeGravityTurnRate;
-  const gravityMaxTurnRate = config.freeGravityMaxTurnRate;
+    const freeCurrentSpeed = Math.max(ship.speed || 0, 0.0001);
+    const gravitySpeedFactor = 1 / (1 + freeCurrentSpeed * Math.max(0.0001, config.freeGravitySpeedDamping));
+    const gravityTurnRate = config.freeGravityTurnRate;
+    const gravityMaxTurnRate = config.freeGravityMaxTurnRate;
     const gravityYawAngle = THREE.MathUtils.clamp(
       -gravityPull.dot(ship.up) * gravityTurnRate * gravitySpeedFactor,
       -gravityMaxTurnRate,
@@ -2818,6 +2824,7 @@ function updateShipState(state, dt, controls) {
     if (brakeFactor !== 1) {
       ship.speed *= brakeFactor;
     }
+    ship.speed = clampShipSpeed(ship.speed);
 
     relativeVelocity.copy(ship.forward).multiplyScalar(ship.speed);
     if (boostLevel > 0) {
@@ -2838,8 +2845,8 @@ function updateShipState(state, dt, controls) {
         relativeVelocity.addScaledVector(outward, -gentleSink);
       }
     }
-    if (relativeVelocity.lengthSq() > altitudeSpeedCap * altitudeSpeedCap) {
-      const softCap = THREE.MathUtils.lerp(ship.speed, altitudeSpeedCap, speedTransitionScale);
+    if (relativeVelocity.lengthSq() > shipSpeedCap * shipSpeedCap) {
+      const softCap = THREE.MathUtils.lerp(ship.speed, shipSpeedCap, speedTransitionScale);
       relativeVelocity.setLength(softCap);
     }
     ship.speed = relativeVelocity.length();
