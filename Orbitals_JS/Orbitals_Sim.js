@@ -1814,9 +1814,14 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
 
   const rawBoost = fighterPatrolMode
     ? false
-    : squad.mode === 'depart'
+    : (
+      squad.mode === 'depart'
       || (squad.mode === 'swarm' && currentAltitude <= desiredSwarmAltitude + atmosphereThickness * 0.08)
-      || (squad.mode === 'approach' && currentAltitude > Math.max(config.planetCaptureAltitude * 1.25, desiredApproachAltitude));
+      || (squad.mode === 'approach' && currentAltitude > Math.max(config.planetCaptureAltitude * 1.25, desiredApproachAltitude))
+    ) && (
+      desiredForward.dot(radialUp) < 0.14
+      || currentAltitude <= Math.max(desiredSwarmAltitude, config.planetCaptureAltitude)
+    );
   const rawBrake = fighterPatrolMode
     ? false
     : squad.mode === 'swarm'
@@ -2444,20 +2449,6 @@ function updateShipState(state, dt, controls) {
     ? Math.pow(1 - smoothstep(0, 1, atmosphereRatio), atmosphereDensityCurve)
     : 0;
   const atmosphereDepth = atmosphereDensity;
-  const atmosphericFlightActive = ship.flightMode === 'bound' && atmosphereDepth > 0;
-  const captureBlend = ship.captureTimer >= config.shipCaptureBlendTime
-    ? 1
-    : smoothstep(0, Math.max(config.shipCaptureBlendTime, 0.0001), ship.captureTimer);
-  const targetAltitudeFactor = ship.atmosphericCruiseAltitudeFactor ?? config.atmosphereCruiseAltitudeFactor;
-  const targetAltitude = atmosphereThickness * targetAltitudeFactor;
-  const altitudeError = THREE.MathUtils.clamp((targetAltitude - altitude) / (atmosphereThickness * 0.5), -1, 1);
-  const approachResponse = THREE.MathUtils.lerp(1, config.atmosphereApproachResponse, atmosphereDepth);
-
-  const gravityPull = atmosphericFlightActive
-    ? tempVecG.copy(gravityDir).normalize().multiplyScalar(gravityStrength)
-    : computeFreeGravityPull(state, ship);
-  ship.gravity.copy(gravityPull);
-
   const turnInput = THREE.MathUtils.clamp(controls.turnInput ?? 0, -1, 1);
   const pitchInput = THREE.MathUtils.clamp(controls.pitchInput ?? 0, -1, 1);
   const mouseIdle = Boolean(controls.mouseIdle);
@@ -2475,6 +2466,19 @@ function updateShipState(state, dt, controls) {
   const boostLevel = config.shipBoostDuration > 0
     ? clamp01(ship.boostTimer / config.shipBoostDuration) * (state.fuel > 0 ? 1 : 0)
     : 0;
+  const atmosphericFlightActive = ship.flightMode === 'bound' && atmosphereDepth > 0 && (!isPlayerState || boostLevel <= 0);
+  const captureBlend = ship.captureTimer >= config.shipCaptureBlendTime
+    ? 1
+    : smoothstep(0, Math.max(config.shipCaptureBlendTime, 0.0001), ship.captureTimer);
+  const targetAltitudeFactor = ship.atmosphericCruiseAltitudeFactor ?? config.atmosphereCruiseAltitudeFactor;
+  const targetAltitude = atmosphereThickness * targetAltitudeFactor;
+  const altitudeError = THREE.MathUtils.clamp((targetAltitude - altitude) / (atmosphereThickness * 0.5), -1, 1);
+  const approachResponse = THREE.MathUtils.lerp(1, config.atmosphereApproachResponse, atmosphereDepth);
+  const gravityPull = atmosphericFlightActive
+    ? tempVecG.copy(gravityDir).normalize().multiplyScalar(gravityStrength)
+    : computeFreeGravityPull(state, ship);
+  ship.gravity.copy(gravityPull);
+
   const liftState = computeAtmosphereLiftState(planet, altitude, currentSpeed, cruiseSpeed, boostLevel);
   const autopilotStrength = 1 - boostLevel * 0.75;
   const projectedDescentSpeed = Math.max(0, -ship.forward.dot(localUp) * currentSpeed);

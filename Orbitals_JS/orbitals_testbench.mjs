@@ -2096,27 +2096,70 @@ function runRegularScenarioDeepSpaceRunawayTest() {
 }
 
 function runMothershipPlanetCrashTest() {
-  const seed = resolveBenchSeed();
-  const sim = createOrbitalsSim(seed);
+  const sim = createOrbitalsSim(0xC0FFEE);
   sim.bootstrapWorld();
 
   const { state } = sim;
-  const maxFrames = 36_000;
-  let crossEvent = null;
+  const targetPlanetIndex = 0;
+  const targetPlanet = state.planets[targetPlanetIndex];
+  assert.ok(targetPlanet, 'expected a target planet for the mothership crash test');
+  state.mothershipSpawnTimer = 0;
+  stepSim(sim, 1, NEUTRAL_CONTROLS);
 
-  for (let i = 0; i < maxFrames; i += 1) {
+  const mothershipSquad = state.mothershipSquads[0];
+  assert.ok(mothershipSquad, 'expected a mothership squad to spawn for the crash test');
+
+  const mothership = state.enemies.find((enemy) => enemy.squadId === mothershipSquad.id && enemy.kind === 'mothership');
+  assert.ok(mothership, 'expected the mothership enemy to exist for the crash test');
+
+  const inward = targetPlanet.position.clone().sub(mothership.position).normalize();
+  const crashAltitude = Math.max(0.25, config.atmosphereTerrainCrashAltitude);
+  const crashDistance = targetPlanet.radius + crashAltitude * 0.5;
+  mothership.position.copy(targetPlanet.position).addScaledVector(inward, crashDistance);
+  mothership.previousPosition.copy(mothership.position).addScaledVector(inward, 2);
+  mothership.velocity.copy(inward).multiplyScalar(-1.5);
+  mothership.forward.copy(inward);
+  mothership.up.copy(targetPlanet.position.clone().sub(mothership.position).normalize());
+  mothership.speed = mothership.velocity.length();
+  mothership.relativePosition.copy(mothership.position).sub(targetPlanet.position);
+  mothership.relativeVelocity.copy(mothership.velocity).sub(targetPlanet.velocity);
+  mothership.boundPlanet = null;
+  mothership.flightMode = 'free';
+  mothership.squadMode = 'exit';
+  mothershipSquad.mode = 'exit';
+  mothershipSquad.mothershipExitDirection.copy(targetPlanet.position).sub(mothership.position).normalize();
+  if (mothershipSquad.mothershipExitDirection.lengthSq() < 1e-6) {
+    mothershipSquad.mothershipExitDirection.copy(inward);
+  }
+
+  let crossEvent = null;
+  let crashEvent = null;
+  for (let i = 0; i < 120; i += 1) {
     sim.step(1 / 60, NEUTRAL_CONTROLS);
-    crossEvent = state.eventLog.find((event) => event.type === 'mothership-planet-cross');
-    if (crossEvent) {
+    crossEvent = state.eventLog.find((event) => (
+      event.type === 'mothership-planet-cross'
+      && event.mothershipId === mothership.id
+      && event.planetIndex === targetPlanetIndex
+    ));
+    crashEvent = state.eventLog.find((event) => (
+      event.type === 'enemy-death'
+      && event.enemyId === mothership.id
+      && event.kind === 'mothership'
+      && event.cause === 'crash'
+    ));
+    if (crossEvent || crashEvent) {
       break;
     }
   }
 
-  if (crossEvent) {
-    throw new Error(`expected the mothership to avoid crossing any planet, but it crossed planet ${crossEvent.planetIndex} at frame ${crossEvent.frame}`);
-  }
+  assert.ok(crossEvent, `expected the mothership to cross into planet ${targetPlanetIndex}`);
+  assert.ok(crashEvent, `expected the mothership to die from the crash into planet ${targetPlanetIndex}`);
+  assert.ok(
+    crashEvent.diedAtFrame >= crossEvent.frame,
+    `expected the crash death to happen on or after the crossing frame: cross=${crossEvent.frame} death=${crashEvent.diedAtFrame}`
+  );
 
-  console.log(`PASS mothership-planet-crash: seed=${seed} frames=${state.frameIndex}`);
+  console.log(`PASS mothership-planet-crash: planet=${targetPlanetIndex} frame=${crossEvent.frame}`);
 }
 
 function runMothershipFighterLaunchTest() {
@@ -2177,11 +2220,15 @@ function runMothershipFighterLaunchTest() {
   const fighterRadial = fighter.position.clone().sub(planet.position).normalize();
   const fighterForward = fighter.forward.clone().normalize();
   const startAltitude = fighterDistanceToPlanet - planet.radius;
+  const atmosphereThickness = planet.atmosphereRadius - planet.radius;
 
   let minAltitude = startAltitude;
+  let maxAltitude = startAltitude;
   for (let i = 0; i < 600; i += 1) {
     sim.step(1 / 60, NEUTRAL_CONTROLS);
-    minAltitude = Math.min(minAltitude, fighter.position.distanceTo(planet.position) - planet.radius);
+    const altitudeNow = fighter.position.distanceTo(planet.position) - planet.radius;
+    minAltitude = Math.min(minAltitude, altitudeNow);
+    maxAltitude = Math.max(maxAltitude, altitudeNow);
   }
 
   assert.ok(
@@ -2208,9 +2255,13 @@ function runMothershipFighterLaunchTest() {
     minAltitude > config.atmosphereTerrainCrashAltitude + 0.5,
     `expected the fighter to stay above the crash altitude during the launch: min=${minAltitude.toFixed(3)} crash=${config.atmosphereTerrainCrashAltitude.toFixed(3)}`
   );
+  assert.ok(
+    maxAltitude <= startAltitude + atmosphereThickness * 0.15,
+    `expected the fighter not to boost away into space after launch: start=${startAltitude.toFixed(3)} peak=${maxAltitude.toFixed(3)} ceiling=${(startAltitude + atmosphereThickness * 0.15).toFixed(3)}`
+  );
 
   console.log(
-    `PASS mothership-fighter-launch: near=${fighterDistanceToMothership.toFixed(3)} planetDot=${fighterRadial.dot(mothershipRadial).toFixed(3)} minAlt=${minAltitude.toFixed(3)}`
+    `PASS mothership-fighter-launch: near=${fighterDistanceToMothership.toFixed(3)} planetDot=${fighterRadial.dot(mothershipRadial).toFixed(3)} minAlt=${minAltitude.toFixed(3)} maxAlt=${maxAltitude.toFixed(3)}`
   );
 }
 
