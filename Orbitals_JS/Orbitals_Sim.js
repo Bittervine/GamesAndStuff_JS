@@ -1731,22 +1731,6 @@ function computeEnemyTargetPoint(state, enemy, squad, planet, time) {
   }
 
   const altitude = squad.mode === 'swarm' ? swarmAltitude : approachAltitude;
-  if (fighterPatrolMode) {
-    if (!Number.isFinite(enemy.surfaceHeading)) {
-      enemy.surfaceHeading = enemy.phase * Math.PI * 2;
-      enemy.surfaceHeadingUpdateTime = 0;
-    }
-    const headingAngle = enemy.surfaceHeading + Math.sin(time * 0.04 + enemy.phase) * 0.14;
-    const surfaceForward = tempVecI.copy(basis.tangent).multiplyScalar(Math.cos(headingAngle))
-      .addScaledVector(basis.bitangent, Math.sin(headingAngle))
-      .normalize();
-    const surfaceOffset = tempVecE.copy(surfaceForward).multiplyScalar(orbitRadius * 0.72);
-    return tempVecD.copy(planet.position)
-      .addScaledVector(radial, altitude + altitudeOffset)
-      .add(surfaceOffset)
-      .add(formationOffset)
-      .add(fighterSeparationOffset);
-  }
   const ringOffset = tempVecB.copy(basis.tangent).multiplyScalar(Math.cos(orbitAngle) * orbitRadius)
     .addScaledVector(basis.bitangent, Math.sin(orbitAngle) * orbitRadius * 0.82);
   const wobbleScale = squad.mode === 'swarm' ? 0.35 : 0.55;
@@ -1975,12 +1959,42 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
   }
 
   if (fighterPatrolMode && currentAltitude >= patrolAltitudeMin && currentAltitude <= patrolAltitudeMax) {
-    if (!Number.isFinite(enemy.surfaceBankDir) || time >= (enemy.surfaceBankUntil || 0)) {
-      enemy.surfaceBankDir = state.rng() < 0.5 ? -1 : 1;
-      enemy.surfaceBankUntil = time + state.rng() * 5.0;
+    if (!Number.isFinite(enemy.patrolStateUntil) || time >= (enemy.patrolStateUntil || 0)) {
+      if (enemy.patrolState === 'bank') {
+        enemy.patrolState = 'straight';
+        enemy.patrolStateUntil = time + state.rng() * 5.0;
+        enemy.patrolBankDirection = 0;
+        enemy.patrolBankTarget = 0;
+      } else {
+        enemy.patrolState = 'bank';
+        enemy.patrolStateUntil = time + state.rng() * 4.0;
+        const axisChoice = state.rng() < 0.5 ? 'leftRight' : 'upDown';
+        enemy.patrolAxis = axisChoice;
+        if (axisChoice === 'leftRight') {
+          enemy.patrolBankDirection = state.rng() < 0.5 ? -1 : 1;
+          enemy.patrolBankTarget = THREE.MathUtils.degToRad(45) * enemy.patrolBankDirection * state.rng();
+          rawTurnInput = THREE.MathUtils.clamp(enemy.patrolBankDirection * (0.3 + state.rng() * 0.5), -1, 1);
+          rawPitchInput = 0;
+        } else {
+          enemy.patrolBankDirection = state.rng() < 0.5 ? -1 : 1;
+          enemy.patrolBankTarget = THREE.MathUtils.degToRad(45) * enemy.patrolBankDirection * state.rng();
+          rawTurnInput = 0;
+          rawPitchInput = THREE.MathUtils.clamp(enemy.patrolBankDirection * (0.3 + state.rng() * 0.5), -1, 1);
+        }
+      }
     }
-    rawTurnInput = THREE.MathUtils.clamp((enemy.surfaceBankDir || 1) * 0.85, -1, 1);
-    rawPitchInput = THREE.MathUtils.clamp(rawPitchInput + THREE.MathUtils.clamp(-desiredForward.dot(radialUp), -0.45, 0.45), -0.95, 0.95);
+    if (enemy.patrolState === 'bank') {
+      if (enemy.patrolAxis === 'leftRight') {
+        rawTurnInput = THREE.MathUtils.clamp(enemy.patrolBankTarget || rawTurnInput, -1, 1);
+        rawPitchInput = 0;
+      } else {
+        rawTurnInput = 0;
+        rawPitchInput = THREE.MathUtils.clamp(enemy.patrolBankTarget || rawPitchInput, -1, 1);
+      }
+    } else {
+      rawTurnInput = 0;
+      rawPitchInput = 0;
+    }
   }
 
   if (liftState.stallBlend > 0) {

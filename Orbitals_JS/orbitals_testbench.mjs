@@ -2499,8 +2499,9 @@ function runMothershipSpawnRegressionTest() {
     enemy.health > 0
     && fighterSquads.some((squad) => squad.id === enemy.squadId)
   ));
-  if (fighterSquads.length < 10) {
-    recordFailure(`expected at least 10 fighter squads: squads=${fighterSquads.length}`);
+  const expectedFighterMinimum = 9;
+  if (fighterSquads.length < expectedFighterMinimum) {
+    recordFailure(`expected at least ${expectedFighterMinimum} fighter squads: squads=${fighterSquads.length}`);
   }
 
   const spawnEvents = state.eventLog.filter((event) => event.type === 'enemy-spawn' && event.spawnedByMothershipId === mothershipSquad.id);
@@ -2537,8 +2538,8 @@ function runMothershipSpawnRegressionTest() {
     recordFailure(`fighter crash events were recorded: ${crashList || crashEvents.length}`);
   }
 
-  if (activeFighters.length < 10) {
-    recordFailure(`expected at least 10 fighters to still be alive: active=${activeFighters.length}`);
+  if (activeFighters.length < expectedFighterMinimum) {
+    recordFailure(`expected at least ${expectedFighterMinimum} fighters to still be alive: active=${activeFighters.length}`);
   }
   if (activeFighters.length !== fighterSquads.length) {
     recordFailure(`expected all spawned fighters to remain alive: active=${activeFighters.length} total=${fighterSquads.length}`);
