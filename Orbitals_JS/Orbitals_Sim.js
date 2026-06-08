@@ -932,6 +932,8 @@ function spawnFighterSquadFromMothership(state, mothershipSquad, mothershipEnemy
   squad.fightersReleased = 1;
   squad.fightersAlive = 1;
   squad.fighterReleaseCooldown = 0;
+  squad.fighterSurfaceHeading = rng() * Math.PI * 2;
+  squad.fighterSurfaceHeadingUpdateTime = 0;
 
   state.nextEnemySquadId += 1;
   createEnemyWave(state, squad, {
@@ -961,7 +963,7 @@ function spawnFighterSquadFromMothership(state, mothershipSquad, mothershipEnemy
     }
     launchTangent.normalize();
 
-    const launchDirection = tempVecA.copy(launchTangent).addScaledVector(launchRadial, 0.14).normalize();
+    const launchDirection = tempVecA.copy(launchTangent).addScaledVector(launchRadial, 0.22).addScaledVector(basis.bitangent, (rng() * 2 - 1) * 0.12).normalize();
     const launchSpeed = computeEnemyControlTargetSpeed(state, planet, fighter, squad) * 1.1;
 
     fighter.position.copy(fighterSpawnPoint);
@@ -975,6 +977,8 @@ function spawnFighterSquadFromMothership(state, mothershipSquad, mothershipEnemy
     fighter.flightMode = 'free';
     fighter.recaptureLock = 0;
     fighter.atmosphericCruiseAltitudeFactor = config.fighterPatrolAltitudeFactor;
+    fighter.surfaceHeading = rng() * Math.PI * 2;
+    fighter.surfaceHeadingUpdateTime = 0;
   }
   state.enemySquads.push(squad);
   return squad;
@@ -1681,6 +1685,33 @@ function computeEnemyTargetPoint(state, enemy, squad, planet, time) {
         : THREE.MathUtils.lerp(0.18, 0.32, enemy.speedScale)
   );
   const orbitAngle = squad.orbitPhase + squad.orbitDirection * orbitLead + enemy.phase * 0.2;
+  const fighterPatrolMode = squad.parentMothershipId >= 0 && squad.mode === 'swarm';
+  const formationSpread = fighterPatrolMode
+    ? atmosphereThickness * THREE.MathUtils.lerp(0.22, 0.48, enemy.speedScale)
+    : 0;
+  const formationAngle = enemy.formationAngle || 0;
+  const formationOffset = fighterPatrolMode && formationSpread > 0
+    ? tempVecE.copy(basis.tangent).multiplyScalar(Math.cos(formationAngle + time * 0.03) * formationSpread)
+      .addScaledVector(basis.bitangent, Math.sin(formationAngle + time * 0.027) * formationSpread * 0.88)
+    : tempVecE.set(0, 0, 0);
+  const altitudeOffset = fighterPatrolMode
+    ? Math.sin(formationAngle * 1.7 + time * 0.05 + enemy.phase) * atmosphereThickness * 0.09
+    : 0;
+  const fighterSeparationOffset = fighterPatrolMode
+    ? state.enemies.reduce((accumulator, other) => {
+      if (!other || other === enemy || other.health <= 0 || other.kind !== 'fighter' || other.parentMothershipId !== squad.parentMothershipId) {
+        return accumulator;
+      }
+      const delta = tempVecF.copy(enemy.position).sub(other.position);
+      const distance = delta.length();
+      const pushRadius = atmosphereThickness * 0.22;
+      if (distance < 1e-6 || distance >= pushRadius) {
+        return accumulator;
+      }
+      const push = (pushRadius - distance) / pushRadius;
+      return accumulator.add(delta.normalize().multiplyScalar(push * push * atmosphereThickness * 0.16));
+    }, tempVecG.set(0, 0, 0))
+    : tempVecG.set(0, 0, 0);
 
   if (squad.mode === 'depart') {
     const departPlanet = state.planets[Math.max(0, Math.min(state.planets.length - 1, squad.departPlanetIndex))] || planet;
@@ -1700,12 +1731,28 @@ function computeEnemyTargetPoint(state, enemy, squad, planet, time) {
   }
 
   const altitude = squad.mode === 'swarm' ? swarmAltitude : approachAltitude;
+  if (fighterPatrolMode) {
+    if (!Number.isFinite(enemy.surfaceHeading)) {
+      enemy.surfaceHeading = enemy.phase * Math.PI * 2;
+      enemy.surfaceHeadingUpdateTime = 0;
+    }
+    const headingAngle = enemy.surfaceHeading + Math.sin(time * 0.04 + enemy.phase) * 0.14;
+    const surfaceForward = tempVecI.copy(basis.tangent).multiplyScalar(Math.cos(headingAngle))
+      .addScaledVector(basis.bitangent, Math.sin(headingAngle))
+      .normalize();
+    const surfaceOffset = tempVecE.copy(surfaceForward).multiplyScalar(orbitRadius * 0.72);
+    return tempVecD.copy(planet.position)
+      .addScaledVector(radial, altitude + altitudeOffset)
+      .add(surfaceOffset)
+      .add(formationOffset)
+      .add(fighterSeparationOffset);
+  }
   const ringOffset = tempVecB.copy(basis.tangent).multiplyScalar(Math.cos(orbitAngle) * orbitRadius)
     .addScaledVector(basis.bitangent, Math.sin(orbitAngle) * orbitRadius * 0.82);
   const wobbleScale = squad.mode === 'swarm' ? 0.35 : 0.55;
   const wobble = tempVecC.copy(basis.tangent).multiplyScalar(Math.sin(time * 0.18 + enemy.phase) * enemy.formationRadius * 0.010 * wobbleScale)
     .addScaledVector(basis.bitangent, Math.cos(time * 0.16 + enemy.phase * 1.7) * enemy.formationRadius * 0.008 * wobbleScale);
-  return tempVecD.copy(planet.position).addScaledVector(radial, altitude).add(ringOffset).add(wobble);
+  return tempVecD.copy(planet.position).addScaledVector(radial, altitude + altitudeOffset).add(ringOffset).add(formationOffset).add(fighterSeparationOffset).add(wobble);
 }
 
 function beginEnemySwarm(squad, targetPlanet, enemy) {
@@ -1853,7 +1900,7 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
     : Math.cos(time * 0.19 + enemy.phase * 1.7) * ENEMY_SWARM_WANDER_PITCH * 0.55;
   const turnGain = (travelMode ? 3.2 : 1.55) * enemy.turnScale;
   const pitchGain = (travelMode ? 1.45 : 0.95) * enemy.upScale * THREE.MathUtils.lerp(1, 0.82, liftState.thinAir);
-  const rawTurnInput = THREE.MathUtils.clamp(-yawError * turnGain + wanderTurn, -0.9, 0.9);
+  let rawTurnInput = THREE.MathUtils.clamp(-yawError * turnGain + wanderTurn, -0.9, 0.9);
 
   const atmosphereThickness = liftState.atmosphereThickness;
   const fighterApproachAltitudeFactor = squad.parentMothershipId >= 0 && squad.fighterDiveAltitudeFactor > 0
@@ -1863,12 +1910,18 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
     ? squad.fighterPatrolAltitudeFactor
     : fighterApproachAltitudeFactor;
   const desiredApproachAltitude = atmosphereThickness * (fighterApproachAltitudeFactor ?? ENEMY_APPROACH_ALTITUDE);
-  const desiredSwarmAltitude = atmosphereThickness * (fighterPatrolAltitudeFactor ?? ENEMY_SWARM_ALTITUDE);
-  const altitudeBias = THREE.MathUtils.clamp(
-    (currentAltitude - desiredSwarmAltitude) / Math.max(atmosphereThickness * 0.35, 1),
-    -1,
-    1
-  );
+  const desiredSwarmAltitudeFactor = fighterPatrolAltitudeFactor ?? ENEMY_SWARM_ALTITUDE;
+  const patrolAltitudeMinFactor = squad.parentMothershipId >= 0 && config.fighterPatrolAltitudeMinFactor > 0
+    ? config.fighterPatrolAltitudeMinFactor
+    : desiredSwarmAltitudeFactor;
+  const patrolAltitudeMaxFactor = squad.parentMothershipId >= 0 && config.fighterPatrolAltitudeMaxFactor > 0
+    ? config.fighterPatrolAltitudeMaxFactor
+    : desiredSwarmAltitudeFactor;
+  const desiredSwarmAltitude = atmosphereThickness * desiredSwarmAltitudeFactor;
+  const patrolAltitudeMin = atmosphereThickness * patrolAltitudeMinFactor;
+  const patrolAltitudeMax = atmosphereThickness * patrolAltitudeMaxFactor;
+  const altitudeRange = Math.max(patrolAltitudeMax - patrolAltitudeMin, atmosphereThickness * 0.1, 1);
+  const altitudeBias = THREE.MathUtils.clamp((currentAltitude - desiredSwarmAltitude) / altitudeRange, -1, 1);
   const pitchError = Math.atan2(-desiredForward.dot(enemy.up), desiredForward.dot(enemy.forward));
   let rawPitchInput = THREE.MathUtils.clamp(
     pitchError * pitchGain + (travelMode ? 0 : altitudeBias * 0.65) + wanderPitch,
@@ -1876,13 +1929,66 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
     0.85
   );
 
+  const fighterPatrolMode = squad.parentMothershipId >= 0 && squad.mode === 'swarm';
+  if (fighterPatrolMode) {
+    const avoidRadius = atmosphereThickness * 0.42;
+    const hardSeparationRadius = atmosphereThickness * Math.max(0.1, config.fighterPatrolHardSeparationFactor || 0.42);
+    let avoidanceTurn = 0;
+    let avoidancePitch = 0;
+    for (const other of state.enemies) {
+      if (!other || other === enemy || other.health <= 0 || other.kind !== 'fighter' || other.parentMothershipId !== squad.parentMothershipId) {
+        continue;
+      }
+      const offset = tempVecG.copy(enemy.position).sub(other.position);
+      const distance = offset.length();
+      if (distance < 1e-6 || distance >= avoidRadius) {
+        continue;
+      }
+      const away = offset.multiplyScalar(1 / distance);
+      const closeness = 1 - distance / avoidRadius;
+      avoidanceTurn += away.dot(rightAxis) * closeness * 0.95;
+      avoidancePitch += away.dot(radialUp) * closeness * 0.65;
+    }
+    rawTurnInput += THREE.MathUtils.clamp(avoidanceTurn, -0.85, 0.85);
+    rawPitchInput += THREE.MathUtils.clamp(avoidancePitch, -0.6, 0.6);
+    if (currentAltitude < patrolAltitudeMin || currentAltitude > patrolAltitudeMax) {
+      rawPitchInput = THREE.MathUtils.clamp(
+        rawPitchInput + THREE.MathUtils.clamp((desiredSwarmAltitude - currentAltitude) / Math.max(atmosphereThickness * 0.22, 1), -1, 1) * 0.55,
+        -0.9,
+        0.9
+      );
+    }
+    for (const other of state.enemies) {
+      if (!other || other === enemy || other.health <= 0 || other.kind !== 'fighter' || other.parentMothershipId !== squad.parentMothershipId) {
+        continue;
+      }
+      const delta = tempVecD.copy(enemy.position).sub(other.position);
+      const distance = delta.length();
+      if (distance < 1e-6 || distance >= hardSeparationRadius) {
+        continue;
+      }
+      const push = (hardSeparationRadius - distance) / hardSeparationRadius;
+      const away = delta.multiplyScalar(1 / distance);
+      rawTurnInput += THREE.MathUtils.clamp(away.dot(rightAxis) * push * 1.2, -0.9, 0.9);
+      rawPitchInput += THREE.MathUtils.clamp(away.dot(radialUp) * push * 0.9, -0.7, 0.7);
+    }
+  }
+
+  if (fighterPatrolMode && currentAltitude >= patrolAltitudeMin && currentAltitude <= patrolAltitudeMax) {
+    if (!Number.isFinite(enemy.surfaceBankDir) || time >= (enemy.surfaceBankUntil || 0)) {
+      enemy.surfaceBankDir = state.rng() < 0.5 ? -1 : 1;
+      enemy.surfaceBankUntil = time + state.rng() * 5.0;
+    }
+    rawTurnInput = THREE.MathUtils.clamp((enemy.surfaceBankDir || 1) * 0.85, -1, 1);
+    rawPitchInput = THREE.MathUtils.clamp(rawPitchInput + THREE.MathUtils.clamp(-desiredForward.dot(radialUp), -0.45, 0.45), -0.95, 0.95);
+  }
+
   if (liftState.stallBlend > 0) {
     const desiredClimb = THREE.MathUtils.clamp(desiredForward.dot(radialUp), 0, 1);
     const stallPitchFloor = THREE.MathUtils.lerp(-0.06, 0.32, liftState.stallBlend);
     rawPitchInput = Math.max(rawPitchInput, stallPitchFloor + desiredClimb * liftState.stallBlend * 0.22);
   }
 
-  const fighterPatrolMode = squad.parentMothershipId >= 0 && squad.mode === 'swarm';
   const upperAtmosphereGuard = smoothstep(
     atmosphereThickness * 0.5,
     atmosphereThickness * 0.82,
@@ -1925,6 +2031,39 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
     const pitchClamp = travelMode ? 0.45 : 0.55;
     const pitchBias = squad.mode === 'swarm' ? 0.9 : 0.96;
     rawPitchInput = THREE.MathUtils.clamp(rawPitchInput * pitchBias, -pitchClamp, pitchClamp);
+  }
+
+  if (fighterPatrolMode) {
+    let collisionCourseTurn = 0;
+    for (const other of state.enemies) {
+      if (!other || other === enemy || other.health <= 0) {
+        continue;
+      }
+      const offset = tempVecG.copy(other.position).sub(enemy.position);
+      const distance = offset.length();
+      if (distance < 1e-6 || distance > atmosphereThickness * 0.85) {
+        continue;
+      }
+      const forwardDot = offset.dot(desiredForward);
+      if (forwardDot <= 0) {
+        continue;
+      }
+      const coneAngle = Math.atan2(Math.sqrt(Math.max(0, distance * distance - forwardDot * forwardDot)), forwardDot);
+      if (coneAngle > 0.9) {
+        continue;
+      }
+      const side = offset.dot(rightAxis);
+      if (side >= 0) {
+        continue;
+      }
+      const closeness = 1 - distance / (atmosphereThickness * 0.85);
+      collisionCourseTurn += closeness * (1.4 + Math.abs(side) / Math.max(distance, 1)) * 2.0;
+    }
+    if (collisionCourseTurn > 0) {
+      rawTurnInput = Math.max(rawTurnInput, 0.75);
+      rawTurnInput += THREE.MathUtils.clamp(collisionCourseTurn * 1.4, 0, 2.0);
+      rawTurnInput = THREE.MathUtils.clamp(rawTurnInput, -1, 1);
+    }
   }
 
   const inputSmoothRate = travelMode ? ENEMY_INPUT_SMOOTH_RATE_TRAVEL : ENEMY_INPUT_SMOOTH_RATE_SWARM;

@@ -513,6 +513,14 @@ function playOrbitalsNoise(opts = {}) {
   source.stop(now + (opts.dur || 0.2) + 0.02);
 }
 
+function applySfxDistanceAttenuation(gain, distance = 0) {
+  const halfLife = Math.max(0, config.sfxDistanceHalfLife || 0);
+  if (!halfLife || !Number.isFinite(distance) || distance <= 0) {
+    return gain;
+  }
+  return gain * Math.pow(0.5, distance / halfLife);
+}
+
 function playOrbitalsSfx(name, opts = {}) {
   if (name === 'shoot') {
     playOrbitalsTone({ freq: 420, endFreq: 520, dur: 0.05, gain: 0.045, type: 'triangle' });
@@ -521,9 +529,10 @@ function playOrbitalsSfx(name, opts = {}) {
   } else if (name === 'boom') {
     const gainScale = Math.max(0, opts.gainScale ?? 1);
     const pan = THREE.MathUtils.clamp(opts.pan || 0, -1, 1);
-    playOrbitalsNoise({ dur: 0.8, gain: 0.25 * gainScale, cutoff: 20, q: 0.18, pan });
-    playOrbitalsTone({ freq: 170, endFreq: 54, dur: 0.22, gain: 0.11 * gainScale, type: 'sawtooth', pan });
-    playOrbitalsNoise({ dur: 0.03, gain: 0.018 * gainScale, cutoff: 1800, q: 0.45, pan });
+    const distanceScale = applySfxDistanceAttenuation(1, opts.distance ?? 0);
+    playOrbitalsNoise({ dur: 0.8, gain: 0.25 * gainScale * distanceScale, cutoff: 20, q: 0.18, pan });
+    playOrbitalsTone({ freq: 170, endFreq: 54, dur: 0.22, gain: 0.11 * gainScale * distanceScale, type: 'sawtooth', pan });
+    playOrbitalsNoise({ dur: 0.03, gain: 0.018 * gainScale * distanceScale, cutoff: 1800, q: 0.45, pan });
   }
 }
 
@@ -1059,7 +1068,7 @@ function updateShipEngineEffects(time) {
       material.emissive.copy(tempColorA);
     }
     if (typeof entry.baseEmissiveIntensity === 'number' && typeof material.emissiveIntensity === 'number') {
-      material.emissiveIntensity = entry.baseEmissiveIntensity + heatMix * 0.033203125;
+      material.emissiveIntensity = entry.baseEmissiveIntensity + heatMix * 0.006640625;
     }
     if (typeof entry.baseRoughness === 'number' && typeof material.roughness === 'number') {
       material.roughness = THREE.MathUtils.lerp(entry.baseRoughness, Math.max(0.05, entry.baseRoughness * 0.35), boostLevel * 0.55);
@@ -1112,7 +1121,7 @@ function updateShipEngineEffects(time) {
         1
       );
 
-      emitter.light.intensity = 0.5 + boost * 0.046875 * flicker;
+      emitter.light.intensity = 0.5 + boost * 0.009375 * flicker;
 
       emitter.sparkMaterial.opacity = boost * 0.88 * flicker;
       emitter.sparkMaterial.size = emitter.sparkBaseSize * (0.85 + boost * 0.75);
@@ -1613,6 +1622,11 @@ function handleCanvasPointerDown(event) {
     event.preventDefault();
     return;
   }
+  if (state.crashed && event.pointerType === 'touch') {
+    restartFromGameOver();
+    event.preventDefault();
+    return;
+  }
   if (!uiState.gameStarted && uiState.loaded && isStartButton) {
     startGame();
     if (!uiState.pointerLocked) {
@@ -1910,7 +1924,7 @@ function updateShipControls(dt) {
     const gainScale = 1 / (1 + Math.pow(distance / boomFalloffDistance, 1.7));
     const relative = tempVecA.copy(effect.position).sub(camera.position);
     const pan = THREE.MathUtils.clamp(relative.x / Math.max(distance, 1), -1, 1);
-    playOrbitalsSfx('boom', { gainScale, pan });
+    playOrbitalsSfx('boom', { gainScale, pan, distance });
   }
   lastProjectileIdForSfx = state.nextProjectileId || projectileIdBefore;
   lastEnemyExplosionIdForSfx = state.nextEnemyExplosionId || explosionIdBefore;
@@ -2388,6 +2402,10 @@ function handleKeyDown(event) {
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyR', 'KeyL', 'ShiftLeft', 'ShiftRight', 'ControlLeft', 'ControlRight'].includes(event.code)) {
     event.preventDefault();
   }
+  if (state.crashed && (event.code === 'Space' || event.code === 'ControlLeft' || event.code === 'ControlRight')) {
+    restartFromGameOver();
+    return;
+  }
   if (!uiState.gameStarted && uiState.loaded && (event.code === 'Space' || event.code === 'ControlLeft' || event.code === 'ControlRight')) {
     startGame();
     return;
@@ -2396,9 +2414,6 @@ function handleKeyDown(event) {
   keys.add(event.code);
   if (event.code === 'KeyR') {
     respawnShip();
-  }
-  if ((event.code === 'Space' || event.code === 'ControlLeft' || event.code === 'ControlRight') && state.crashed) {
-    restartFromGameOver();
   }
   if (event.code === 'KeyL') {
     toggleMouseLock();
