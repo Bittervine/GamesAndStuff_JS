@@ -6,7 +6,7 @@
   const CLOUD_LAYER_FACTOR = 16;
   const PLANET_3D_COMPOSITE_LAYER = -10;
   const GLOW_3D_BOOST = 1.0;
-  const THORIUM_GAP_VERSION = window.THORIUM_GAP_VERSION || 'thoriumgap-v43';
+  const THORIUM_GAP_VERSION = window.THORIUM_GAP_VERSION || 'thoriumgap-v68';
   const THORIUM_GAP_REV = 'Rev ' + (((/v(\d+)/i.exec(THORIUM_GAP_VERSION) || [null, '??'])[1]) || '??');
   const canvas = document.getElementById('game');
   const hudCanvas = document.getElementById('hud');
