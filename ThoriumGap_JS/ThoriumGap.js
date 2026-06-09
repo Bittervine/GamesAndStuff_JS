@@ -139,6 +139,10 @@
   const PLAYER_3D_PITCH_SMOOTH_RATE = 8.0;
   const PLAYER_3D_MAX_PITCH_DEG = 10.4;
   const PLAYER_3D_PITCH_SPEED_REF = 540;
+  const PLAYER_3D_FLAME_LENGTH_SCALE = 1.4;
+  const PLAYER_3D_FLAME_WIDTH_SCALE = 2.0;
+  const PLAYER_3D_FLAME_Y_OFFSET = 0.01;
+  const PLAYER_3D_FLAME_OPACITY_SCALE = 1.18;
   const PLAYER_3D_FLAME_CANVAS_W = 96;
   const PLAYER_3D_FLAME_CANVAS_H = 192;
   const PLAYER_3D_SCREEN_FX_CANVAS_SIZE = 512;
@@ -2495,8 +2499,8 @@
     const flameLenPulse = 1 + Math.sin(state.animClock * TAU * 10) * 0.1;
     const flameWPulse = 1 + Math.sin(state.animClock * TAU * 6) * 0.1;
     const verticalStretch = clamp(p.vy / 460, -1, 1) * 0.2;
-    const flameLen = pose.shipSize * 0.2885625 * flameLenPulse * (1 - verticalStretch);
-    const flameW = pose.shipSize * 0.285 * flameWPulse;
+    const flameLen = pose.shipSize * 0.2885625 * PLAYER_3D_FLAME_LENGTH_SCALE * flameLenPulse * (1 - verticalStretch);
+    const flameW = pose.shipSize * 0.285 * PLAYER_3D_FLAME_WIDTH_SCALE * flameWPulse;
     const safeScale = Math.max(0.001, rootScale || 1);
     for (let i = 0; i < (instance.flameFx || []).length; i++) {
       const fx = instance.flameFx[i];
@@ -2505,10 +2509,18 @@
       const flameH = flameLen * flameLenRoll * (a.s || 1);
       const w = Math.max(1, (flameW * (a.s || 1)) / safeScale);
       const h = Math.max(1, flameH / safeScale);
+      const flameYOffset = PLAYER_3D_FLAME_Y_OFFSET * instance.maxXYDiameter;
       drawPlayer3DFlameTexture(fx, frame);
-      fx.material.opacity = (0.68 + 0.12 * Math.sin(state.animClock * TAU * 9 + i)) * (i === 1 ? 1 : 0.8) * pose.flashAlpha;
+      fx.material.opacity = clamp(
+        (0.68 + 0.12 * Math.sin(state.animClock * TAU * 9 + i)) *
+          (i === 1 ? 1 : 0.8) *
+          pose.flashAlpha *
+          PLAYER_3D_FLAME_OPACITY_SCALE,
+        0,
+        1
+      );
       fx.mesh.scale.set(w, h, 1);
-      fx.mesh.position.set((a.x || 0) * instance.maxXYDiameter, -(a.y || 0) * instance.maxXYDiameter - h * 0.5, 0);
+      fx.mesh.position.set((a.x || 0) * instance.maxXYDiameter, -(a.y || 0) * instance.maxXYDiameter - h * 0.5 - flameYOffset, 0);
       fx.mesh.visible = !pose.respawning || pose.flashAlpha > 0.18;
     }
     updatePlayer3DDamagePlane(instance, pose);
