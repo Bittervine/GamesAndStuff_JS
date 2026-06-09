@@ -4379,7 +4379,7 @@
     const list = [
       { type: 'weapon', w: weaponWeight },
       { type: 'rapid', w: state.player.rapidTimer > 4 ? 1 : 4 },
-      { type: 'shield', w: state.player.shield < 2 ? 3 : 1 },
+      { type: 'shield', w: state.player.shield < 2 ? 4 : 2 },
       { type: 'bomb', w: state.player.bombs < 2 ? 2 : 1 },
       { type: 'magnet', w: state.player.magnetTimer < 4 ? 3 : 1 },
       { type: 'invuln', w: 0.5 },
@@ -4967,12 +4967,12 @@
         state.bannerSub = 'A bright hull wraps around the ship.';
       }
     } else if (type === 'bomb') {
-      if (p.bombs >= 4) {
+      if (p.bombs >= 5) {
         addScore(250);
         state.banner = 'EXTRA BOMB';
         state.bannerSub = 'Overflow converted to score.';
       } else {
-        p.bombs = Math.min(4, p.bombs + 1);
+        p.bombs = Math.min(5, p.bombs + 1);
         state.banner = 'BOMB +1';
         state.bannerSub = 'Emergency button restocked.';
       }
