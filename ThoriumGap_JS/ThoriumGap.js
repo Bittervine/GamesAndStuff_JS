@@ -128,6 +128,20 @@
   const PLAYER_AURA_TEXTURE_KEY = 'player-aura';
   const PLAYER_ENGINE_TEXTURE_PREFIX = 'player-engine-flame|';
   const PLAYER_DAMAGE_TEXTURE_PREFIX = 'player-damage|';
+  const PLAYER_3D_MODEL_PATH = 'models/player_spaceship.glb';
+  const PLAYER_3D_MODEL_PITCH_OFFSET_RAD = Math.PI * 0.5;
+  const PLAYER_3D_MODEL_ROLL_OFFSET_RAD = 0;
+  const PLAYER_3D_SCALE_MULTIPLIER = 1.15;
+  const PLAYER_3D_Z = 30;
+  const PLAYER_3D_ROLL_SMOOTH_RATE = 8.0;
+  const PLAYER_3D_MAX_ROLL_DEG = 60.75;
+  const PLAYER_3D_ROLL_SPEED_REF = 540;
+  const PLAYER_3D_PITCH_SMOOTH_RATE = 8.0;
+  const PLAYER_3D_MAX_PITCH_DEG = 10.4;
+  const PLAYER_3D_PITCH_SPEED_REF = 540;
+  const PLAYER_3D_FLAME_CANVAS_W = 96;
+  const PLAYER_3D_FLAME_CANVAS_H = 192;
+  const PLAYER_3D_SCREEN_FX_CANVAS_SIZE = 512;
   let playerShipTextureLoading = false;
   let playerAuraTextureLoading = false;
   let playerShipSourceImage = null;
@@ -231,6 +245,7 @@
   const asteroidArtCache = new Map();
   const ENEMY_3D_QUERY_PARAM = 'enemy3d';
   const ENABLE_3D_MODE_DEFAULT = false;
+  const PLAYER_3D_CHEATCODE = 'TGTGTG';
   function enemy3DModeFromParams(params) {
     if (!params) return ENABLE_3D_MODE_DEFAULT;
     const mode = params.get(ENEMY_3D_QUERY_PARAM);
@@ -239,6 +254,8 @@
     return ENABLE_3D_MODE_DEFAULT;
   }
   let enable3DMode = enemy3DModeFromParams(URL_PARAMS);
+  let player3DEnabled = false;
+  let player3DCheatBuffer = '';
   function enemy3DModeUrl(enabled) {
     const params = new URLSearchParams(window.location.search || '');
     if (enabled === ENABLE_3D_MODE_DEFAULT) params.delete(ENEMY_3D_QUERY_PARAM);
@@ -254,7 +271,10 @@
       enemy3DState.loadingPromise ||
       enemy3DState.modelCache.size ||
       enemy3DState.modelLoads.size ||
-      enemy3DState.instances.size);
+      enemy3DState.instances.size ||
+      enemy3DState.playerModelEntry ||
+      enemy3DState.playerModelLoad ||
+      enemy3DState.playerInstance);
   }
 
   function setEnemy3DModeEnabled(enabled) {
@@ -280,6 +300,40 @@
     }
     enemy3DState.failed = false;
     hint('3D enemy ships enabled.', 1.3);
+  }
+
+  function setPlayer3DEnabled(enabled) {
+    const desired = !!enabled;
+    if (desired === player3DEnabled) return;
+    player3DEnabled = desired;
+    if (!desired) {
+      enemy3DState.playerModelFailed = false;
+      clearPlayer3DInstance();
+    }
+    hint(desired ? '3D player ship enabled.' : '3D player ship disabled.', 1.3);
+    if (state) state.hudDirty = true;
+  }
+
+  function togglePlayer3DEnabled() {
+    setPlayer3DEnabled(!player3DEnabled);
+  }
+
+  function feedPlayer3DCheat(ev) {
+    if (!ev || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    const ch = (typeof ev.key === 'string' && ev.key.length === 1) ? ev.key.toUpperCase() : '';
+    if (!ch) {
+      player3DCheatBuffer = '';
+      return;
+    }
+    if (PLAYER_3D_CHEATCODE.indexOf(ch) >= 0) {
+      player3DCheatBuffer = (player3DCheatBuffer + ch).slice(-PLAYER_3D_CHEATCODE.length);
+      if (player3DCheatBuffer === PLAYER_3D_CHEATCODE) {
+        togglePlayer3DEnabled();
+        player3DCheatBuffer = '';
+      }
+      return;
+    }
+    player3DCheatBuffer = '';
   }
   function enemy2DShipPath(levelNumber, shipIndex) {
     return 'assets/enemy_' + String(levelNumber | 0).padStart(3, '0') + String(shipIndex | 0).padStart(2, '0') + ENEMY_SHIP_VARIANT + '.png';
@@ -480,6 +534,10 @@
     planetCompositeHeight: 0,
     planetRoot: null,
     root: null,
+    playerModelEntry: null,
+    playerModelLoad: null,
+    playerModelFailed: false,
+    playerInstance: null,
     syncPending: false
   };
 
@@ -582,7 +640,7 @@
 
         const enemyPaths = allEnemy3DModelPaths();
         const planetPaths = await discoverPlanet3DModelPaths();
-        const paths = enemyPaths.concat(planetPaths || []);
+        const paths = [PLAYER_3D_MODEL_PATH].concat(enemyPaths, planetPaths || []);
         const unique = [];
         const seen = new Set();
         for (let i = 0; i < paths.length; i++) {
@@ -593,6 +651,7 @@
         }
 
         await Promise.all(unique.map(function (path) {
+          if (path === PLAYER_3D_MODEL_PATH) return ensurePlayer3DModelLoaded();
           if (path.indexOf('models/Ship_') === 0) {
             return ensureEnemy3DModelLoaded(path);
           }
@@ -1734,12 +1793,46 @@
     return cached;
   }
 
-  function shouldUseEnemy3DMode() {
-    return !!enable3DMode &&
-      !!state &&
+  function shouldUse3DRenderer() {
+    return !!state &&
       !!state.settings &&
       !isLowGraphicalEffects() &&
-      state.mode !== 'debug';
+      state.mode !== 'debug' &&
+      (!!enable3DMode || !!player3DEnabled);
+  }
+
+  function shouldUseEnemy3DMode() {
+    return shouldUse3DRenderer() && !!enable3DMode;
+  }
+
+  function shouldUsePlayer3DMode() {
+    return shouldUse3DRenderer() && !!state.player && !!player3DEnabled;
+  }
+
+  function player3DEngineAnchorFallback() {
+    return [
+      { x: -0.064, y: 0.533, s: 1.08 },
+      { x: 0, y: 0.522, s: 1.22 },
+      { x: 0.064, y: 0.533, s: 1.08 }
+    ];
+  }
+
+  function extractPlayer3DEngineAnchors(scene, maxXYDiameter) {
+    const THREE = enemy3DState.THREE;
+    const denom = Math.max(0.001, maxXYDiameter || 1);
+    const anchors = [];
+    if (!THREE || !scene) return player3DEngineAnchorFallback();
+    scene.updateMatrixWorld(true);
+    scene.traverse(function (obj) {
+      const name = (obj && obj.name ? obj.name : '').toLowerCase();
+      if (!obj || !obj.isMesh || name.indexOf('enginenozzle') !== 0) return;
+      const box = new THREE.Box3().setFromObject(obj);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      if (!(size.x > 0 || size.y > 0 || size.z > 0)) return;
+      anchors.push({ x: center.x / denom, y: -box.min.y / denom, s: name.indexOf('center') >= 0 ? 1.22 : 1.08 });
+    });
+    return anchors.length ? anchors : player3DEngineAnchorFallback();
   }
 
   function normalizeAngleDeg(value) {
@@ -1819,7 +1912,7 @@
   }
 
   function shouldUsePlanet3DComposite() {
-    return !!enable3DMode && shouldUseEnemy3DMode() && !!enemy3DState.planetRenderer;
+    return shouldUse3DRenderer() && !!enemy3DState.planetRenderer;
   }
 
   function ensurePlanetCompositeTexture() {
@@ -1903,6 +1996,7 @@
   }
 
   function destroyEnemy3DRenderer() {
+    clearPlayer3DInstance();
     clearEnemy3DInstances();
     clearPlanet3DInstances();
     if (enemy3DState.renderer && enemy3DState.renderer.dispose) {
@@ -1975,7 +2069,7 @@
   }
 
   async function ensureEnemy3DRenderer() {
-    if (!shouldUseEnemy3DMode()) return false;
+    if (!shouldUse3DRenderer()) return false;
     if (enemy3DState.ready) return true;
     if (enemy3DState.failed) return false;
     if (enemy3DState.loadingPromise) return enemy3DState.loadingPromise;
@@ -1985,7 +2079,7 @@
           import(ENEMY_3D_LIB_THREE),
           import(ENEMY_3D_LIB_GLTF)
         ]);
-        if (!shouldUseEnemy3DMode()) return false;
+        if (!shouldUse3DRenderer()) return false;
         const THREE = mods[0];
         const GLTFLoader = mods[1] && mods[1].GLTFLoader ? mods[1].GLTFLoader : null;
         if (!THREE || !GLTFLoader) throw new Error('3D enemy mode could not load Three.js modules.');
@@ -2169,6 +2263,371 @@
     return loadPromise;
   }
 
+  async function ensurePlayer3DModelLoaded() {
+    if (!enemy3DState.ready || !enemy3DState.loader) return null;
+    if (enemy3DState.playerModelEntry) return enemy3DState.playerModelEntry;
+    if (enemy3DState.playerModelFailed) return null;
+    if (enemy3DState.playerModelLoad) return enemy3DState.playerModelLoad;
+    const THREE = enemy3DState.THREE;
+    enemy3DState.playerModelLoad = (async function () {
+      try {
+        const gltf = await (enemy3DState.loader.loadAsync
+          ? enemy3DState.loader.loadAsync(PLAYER_3D_MODEL_PATH)
+          : new Promise(function (resolve, reject) {
+            enemy3DState.loader.load(PLAYER_3D_MODEL_PATH, resolve, undefined, reject);
+          }));
+        const scene = gltf && gltf.scene ? gltf.scene : null;
+        if (!scene) return null;
+        scene.rotation.set(PLAYER_3D_MODEL_PITCH_OFFSET_RAD, 0, PLAYER_3D_MODEL_ROLL_OFFSET_RAD);
+        scene.updateMatrixWorld(true);
+        const bounds = new THREE.Box3().setFromObject(scene);
+        const size = bounds.getSize(new THREE.Vector3());
+        const maxXYDiameter = Math.max(0.001, size.x, size.y);
+        const entry = { scene: scene, maxXYDiameter: maxXYDiameter, engineAnchors: extractPlayer3DEngineAnchors(scene, maxXYDiameter) };
+        enemy3DState.playerModelEntry = entry;
+        return entry;
+      } catch (err) {
+        enemy3DState.playerModelFailed = true;
+        console.warn('Player 3D model failed to load, falling back to 2D:', PLAYER_3D_MODEL_PATH, err);
+        if (player3DEnabled && state && state.mode === 'playing') hint('3D player model failed to load.', 1.8);
+        return null;
+      } finally {
+        enemy3DState.playerModelLoad = null;
+      }
+    }());
+    return enemy3DState.playerModelLoad;
+  }
+
+  function clearPlayer3DInstance() {
+    const entry = enemy3DState.playerInstance;
+    if (entry) {
+      if (entry.root && enemy3DState.root) enemy3DState.root.remove(entry.root);
+      if (entry.screenRoot && enemy3DState.root) enemy3DState.root.remove(entry.screenRoot);
+    }
+    enemy3DState.playerInstance = null;
+  }
+
+  function createPlayer3DEffectPlane(w, h, additive) {
+    const THREE = enemy3DState.THREE;
+    const canvasFx = makeDomCanvas(w, h);
+    const texture = new THREE.CanvasTexture(canvasFx);
+    texture.generateMipmaps = false;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      opacity: 1,
+      alphaTest: 0.01,
+      depthWrite: false,
+      depthTest: false,
+      blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+      side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+    mesh.frustumCulled = false;
+    mesh.visible = false;
+    return { mesh: mesh, canvas: canvasFx, ctx: canvasFx.getContext('2d'), texture: texture, material: material };
+  }
+
+  function drawPlayer3DFlameTexture(fx, frame) {
+    if (!fx || !fx.ctx) return;
+    const g = fx.ctx;
+    const w = fx.canvas.width;
+    const h = fx.canvas.height;
+    const flare = [0.9, 1, 1.1, 0.98][clamp(frame | 0, 0, 3)];
+    const side = [0.48, 0.52, 0.54, 0.5][clamp(frame | 0, 0, 3)];
+    g.clearRect(0, 0, w, h);
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    let grad = g.createLinearGradient(0, h * 0.05, 0, h * 0.98);
+    grad.addColorStop(0, 'rgba(255,255,255,0.98)');
+    grad.addColorStop(0.18, 'rgba(200,248,255,0.92)');
+    grad.addColorStop(0.42, 'rgba(84,208,255,0.84)');
+    grad.addColorStop(0.72, 'rgba(30,118,255,0.48)');
+    grad.addColorStop(1, 'rgba(10,42,120,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(w * 0.5, h * 0.96);
+    g.bezierCurveTo(w * (0.5 + side * 0.36), h * 0.76, w * 0.66, h * 0.44, w * 0.57, h * 0.12);
+    g.bezierCurveTo(w * 0.54, h * 0.28, w * 0.52, h * 0.56, w * 0.5, h * 0.96);
+    g.bezierCurveTo(w * 0.48, h * 0.56, w * 0.46, h * 0.28, w * 0.43, h * 0.12);
+    g.bezierCurveTo(w * 0.34, h * 0.44, w * (0.5 - side * 0.36), h * 0.76, w * 0.5, h * 0.96);
+    g.closePath();
+    g.fill();
+    g.restore();
+    fx.texture.needsUpdate = true;
+  }
+
+  function rgbaString(color, alpha) {
+    const rgb = hexToRgb(color || '#ffffff');
+    return 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + clamp(alpha == null ? 1 : alpha, 0, 1) + ')';
+  }
+
+  function updatePlayer3DShieldPlane(instance, pose) {
+    const fx = instance && instance.shieldFx;
+    if (!fx || !fx.ctx) return;
+    const p = state.player;
+    const invulnActive = p.invuln > 0;
+    if (!invulnActive && !(p.shield > 0)) {
+      fx.mesh.visible = false;
+      return;
+    }
+    const dim = fx.canvas.width;
+    const g = fx.ctx;
+    const shieldRing = p.r * pose.playerScale;
+    const shieldCount = Math.max(p.shield || 0, invulnActive ? 3 : 0);
+    const normalOuterR = p.shield > 0 ? shieldRing + (p.shield - 1) * 4 + 20 + 3 : 0;
+    const invulnOuterR = invulnActive ? shieldRing + 14 + 2 * 5 + 2 : 0;
+    const actualOuterR = Math.max(normalOuterR, invulnOuterR, shieldRing + 24);
+    const shieldMargin = 18;
+    const shieldYOffsetWorld = actualOuterR * 0.16;
+    const shieldSize = Math.max(pose.shipSize * 1.55, (actualOuterR + shieldMargin + shieldYOffsetWorld) * 2);
+    const shieldYOffset = +dim * 0.07;
+    const cy = dim * 0.5 + shieldYOffset;
+    const cx = dim * 0.5;
+
+    function strokeRing(worldR, color, alpha, worldW) {
+      const radius = Math.max(1, worldR / Math.max(1, shieldSize) * dim);
+      const lineW = Math.max(1.2, (worldW || 2) / Math.max(1, shieldSize) * dim);
+      g.strokeStyle = rgbaString(color, alpha);
+      g.lineWidth = lineW;
+      g.beginPath();
+      g.arc(cx, cy, radius, 0, TAU);
+      g.stroke();
+    }
+
+    g.clearRect(0, 0, dim, dim);
+    g.save();
+    g.globalCompositeOperation = 'source-over';
+    const shieldColor = p.shield > 1 ? '#7fc8ff' : '#61a9ff';
+    if (p.shield > 0) {
+      for (let i = 0; i < p.shield; i++) {
+        strokeRing(shieldRing + i * 4 + 20, shieldColor, 0.22, 2.4);
+        strokeRing(shieldRing + i * 4 + 20, shieldColor, 0.07, 4.8);
+      }
+    }
+    if (invulnActive) {
+      const ringAlphas = [
+        clamp(p.invuln, 0, 1) * 0.82,
+        clamp(p.invuln - 1, 0, 1) * 0.58,
+        clamp(p.invuln - 2, 0, 1) * 0.42
+      ];
+      for (let i = 0; i < ringAlphas.length; i++) {
+        const alpha = ringAlphas[i];
+        if (alpha <= 0) continue;
+        strokeRing(shieldRing + 14 + i * 5, '#ff0000', alpha, 2);
+      }
+    }
+    g.restore();
+    fx.texture.needsUpdate = true;
+    fx.mesh.visible = true;
+    fx.mesh.scale.set(shieldSize * 0.857375, shieldSize * 0.857375, 1);
+    fx.mesh.position.set(0, 0, 0);
+  }
+
+  function updatePlayer3DDamagePlane(instance, pose) {
+    const fx = instance && instance.damageFx;
+    if (!fx || !fx.ctx) return;
+    const p = state.player;
+    const damage = clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1);
+    if (damage <= 0.01) {
+      fx.mesh.visible = false;
+      return;
+    }
+    const dim = fx.canvas.width;
+    const g = fx.ctx;
+    const size = Math.max(1, pose.shipSize * 1.15);
+    const severity = Math.pow(damage, 1.05);
+    const sparkCount = clamp(Math.round(1 + severity * 7), 1, 8);
+    const sparkColors = ['#ff5a3d', '#ff8a2d', '#ffd35a', '#ffb347'];
+    const sparkSeed = hashString(
+      'player-damage|' +
+      Math.round(state.animClock * 12) + '|' +
+      Math.round(p.x) + '|' +
+      Math.round(pose.shipY) + '|' +
+      Math.round(damage * 100)
+    );
+    const c = Math.cos(pose.rot);
+    const s = Math.sin(pose.rot);
+    g.clearRect(0, 0, dim, dim);
+    g.save();
+    g.globalCompositeOperation = 'source-over';
+    g.lineCap = 'round';
+    for (let i = 0; i < sparkCount; i++) {
+      const a = sparkSeed ^ (i * 2654435761);
+      const rx = (((a >>> 0) % 1000) / 1000 - 0.5) * pose.shipSize * 0.42;
+      const ry = ((((a >>> 10) >>> 0) % 1000) / 1000 - 0.5) * pose.shipSize * 0.42;
+      const sx = rx * c - ry * s;
+      const sy = rx * s + ry * c;
+      const x = dim * 0.5 + (sx / size) * dim;
+      const y = dim * 0.5 + (sy / size) * dim;
+      const r = (1.2 + ((((a >>> 20) >>> 0) % 1000) / 1000) * 3.6) / size * dim;
+      const color = sparkColors[(a >>> 28) % sparkColors.length];
+      const alpha = 0.08 + severity * 0.24;
+      g.fillStyle = rgbaString(color, alpha);
+      g.beginPath();
+      g.arc(x, y, Math.max(0.9, r), 0, TAU);
+      g.fill();
+      if ((i & 1) === 0 && severity > 0.18) {
+        g.strokeStyle = rgbaString('#fff2bf', 0.05 + severity * 0.16);
+        g.lineWidth = Math.max(0.7, r * 0.16);
+        g.beginPath();
+        g.moveTo(x - r * 0.8, y + r * 0.15);
+        g.lineTo(x + r * 0.75, y - r * 0.22);
+        g.stroke();
+      }
+    }
+    g.restore();
+    fx.texture.needsUpdate = true;
+    fx.mesh.visible = true;
+    fx.mesh.scale.set(size, size, 1);
+    fx.mesh.position.set(0, 0, 24);
+  }
+
+  function updatePlayer3DEffectPlanes(instance, pose, rootScale) {
+    if (!instance) return;
+    const p = state.player;
+    const invulnActive = p.invuln > 0;
+    const damage = clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1);
+    const anchors = instance.engineAnchors || player3DEngineAnchorFallback();
+    const frame = Math.floor(state.musicStep * 6 + p.x * 0.02) & 3;
+    const flameLenPulse = 1 + Math.sin(state.animClock * TAU * 10) * 0.1;
+    const flameWPulse = 1 + Math.sin(state.animClock * TAU * 6) * 0.1;
+    const verticalStretch = clamp(p.vy / 460, -1, 1) * 0.2;
+    const flameLen = pose.shipSize * 0.2885625 * flameLenPulse * (1 - verticalStretch);
+    const flameW = pose.shipSize * 0.285 * flameWPulse;
+    const safeScale = Math.max(0.001, rootScale || 1);
+    for (let i = 0; i < (instance.flameFx || []).length; i++) {
+      const fx = instance.flameFx[i];
+      const a = anchors[i] || anchors[anchors.length - 1] || player3DEngineAnchorFallback()[1];
+      const flameLenRoll = 0.86 + Math.sin(state.animClock * TAU * (7.0 + i) + i * 1.7) * 0.18;
+      const flameH = flameLen * flameLenRoll * (a.s || 1);
+      const w = Math.max(1, (flameW * (a.s || 1)) / safeScale);
+      const h = Math.max(1, flameH / safeScale);
+      drawPlayer3DFlameTexture(fx, frame);
+      fx.material.opacity = (0.68 + 0.12 * Math.sin(state.animClock * TAU * 9 + i)) * (i === 1 ? 1 : 0.8) * pose.flashAlpha;
+      fx.mesh.scale.set(w, h, 1);
+      fx.mesh.position.set((a.x || 0) * instance.maxXYDiameter, -(a.y || 0) * instance.maxXYDiameter - h * 0.5, 0);
+      fx.mesh.visible = !pose.respawning || pose.flashAlpha > 0.18;
+    }
+    updatePlayer3DDamagePlane(instance, pose);
+    updatePlayer3DShieldPlane(instance, pose);
+  }
+
+  async function ensurePlayer3DInstance() {
+    if (!shouldUsePlayer3DMode() || !enemy3DState.ready || !enemy3DState.root) return null;
+    if (enemy3DState.playerInstance) return enemy3DState.playerInstance;
+    const modelEntry = await ensurePlayer3DModelLoaded();
+    if (!shouldUsePlayer3DMode() || !enemy3DState.ready || !enemy3DState.root) return null;
+    if (!modelEntry || !modelEntry.scene || !(modelEntry.maxXYDiameter > 0)) return null;
+    const root = new enemy3DState.THREE.Group();
+    const rollRoot = new enemy3DState.THREE.Group();
+    const pitchRoot = new enemy3DState.THREE.Group();
+    const screenRoot = new enemy3DState.THREE.Group();
+    const modelScene = modelEntry.scene.clone(true);
+    modelScene.traverse(function (obj) {
+      if (!obj || !obj.isMesh) return;
+      obj.frustumCulled = false;
+      obj.renderOrder = 30;
+      if (Array.isArray(obj.material)) {
+        for (let i = 0; i < obj.material.length; i++) {
+          const mat = obj.material[i];
+          if (mat && mat.transparent) mat.depthWrite = false;
+        }
+      } else if (obj.material && obj.material.transparent) {
+        obj.material.depthWrite = false;
+      }
+    });
+    root.add(rollRoot);
+    rollRoot.add(pitchRoot);
+    pitchRoot.add(modelScene);
+    const engineAnchors = modelEntry.engineAnchors || player3DEngineAnchorFallback();
+    const flameFx = [];
+    for (let i = 0; i < Math.max(3, engineAnchors.length); i++) {
+      const fx = createPlayer3DEffectPlane(PLAYER_3D_FLAME_CANVAS_W, PLAYER_3D_FLAME_CANVAS_H, true);
+      fx.mesh.renderOrder = 34;
+      flameFx.push(fx);
+      pitchRoot.add(fx.mesh);
+    }
+    const shieldFx = createPlayer3DEffectPlane(PLAYER_3D_SCREEN_FX_CANVAS_SIZE, PLAYER_3D_SCREEN_FX_CANVAS_SIZE, false);
+    const damageFx = createPlayer3DEffectPlane(PLAYER_3D_SCREEN_FX_CANVAS_SIZE, PLAYER_3D_SCREEN_FX_CANVAS_SIZE, true);
+    shieldFx.mesh.renderOrder = 26;
+    damageFx.mesh.renderOrder = 45;
+    screenRoot.add(shieldFx.mesh);
+    screenRoot.add(damageFx.mesh);
+    enemy3DState.root.add(root);
+    enemy3DState.root.add(screenRoot);
+    enemy3DState.playerInstance = { root, rollRoot, pitchRoot, screenRoot, modelPath: PLAYER_3D_MODEL_PATH, maxXYDiameter: modelEntry.maxXYDiameter, engineAnchors, flameFx, shieldFx, damageFx, rollDeg: 0, pitchDeg: 0, valid: true };
+    return enemy3DState.playerInstance;
+  }
+
+  async function syncPlayer3DInstance(dt) {
+    if (!shouldUsePlayer3DMode()) {
+      clearPlayer3DInstance();
+      return;
+    }
+    const instance = await ensurePlayer3DInstance();
+    if (!instance || !instance.root || !instance.valid) return;
+    const pose = playerVisualPose();
+    const scale = Math.max(0.001, pose.shipSize / Math.max(0.001, instance.maxXYDiameter)) * PLAYER_3D_SCALE_MULTIPLIER;
+    const shakeX = render.offsetX || 0;
+    const shakeY = render.offsetY || 0;
+    const worldX = (pose.x - view.w * 0.5) + shakeX;
+    const worldY = (view.h * 0.5 - pose.shipVisualY) - shakeY;
+    instance.root.position.set(worldX, worldY, PLAYER_3D_Z);
+    if (instance.screenRoot) {
+      instance.screenRoot.position.set(worldX, worldY, PLAYER_3D_Z);
+      instance.screenRoot.rotation.set(0, 0, 0);
+      instance.screenRoot.scale.set(1, 1, 1);
+      instance.screenRoot.visible = !pose.respawning || pose.flashAlpha > 0.18;
+    }
+    instance.root.scale.set(scale, scale, scale);
+    const smoothDt = Math.max(0, dt || 0);
+    const vx = Number.isFinite(state.player && state.player.vx) ? state.player.vx : 0;
+    const vxNorm = clamp(vx / Math.max(1, PLAYER_3D_ROLL_SPEED_REF), -1, 1);
+    const targetRollDeg = pose.respawning ? 0 : clamp(-vxNorm * PLAYER_3D_MAX_ROLL_DEG, -90, 90);
+    const targetPitchDeg = pose.respawning ? 0 : clamp(Math.abs(vxNorm) * PLAYER_3D_MAX_PITCH_DEG, 0, PLAYER_3D_MAX_PITCH_DEG);
+    instance.rollDeg = smooth(instance.rollDeg || 0, targetRollDeg, PLAYER_3D_ROLL_SMOOTH_RATE, smoothDt);
+    instance.pitchDeg = smooth(instance.pitchDeg || 0, targetPitchDeg, PLAYER_3D_PITCH_SMOOTH_RATE, smoothDt);
+    instance.root.rotation.set(0, 0, 0);
+    if (instance.rollRoot) instance.rollRoot.rotation.set(0, -instance.rollDeg * Math.PI / 180, 0);
+    if (instance.pitchRoot) instance.pitchRoot.rotation.set(instance.pitchDeg * Math.PI / 180, 0, 0);
+    instance.root.visible = !pose.respawning || pose.flashAlpha > 0.18;
+    updatePlayer3DEffectPlanes(instance, pose, scale);
+  }
+
+  function hasPlayer3DInstance() {
+    return shouldUsePlayer3DMode() &&
+      enemy3DState.ready &&
+      !!enemy3DState.playerInstance &&
+      !!enemy3DState.playerInstance.valid;
+  }
+
+  function playerVisualPose() {
+    const p = state.player;
+    const respawning = p.respawnTimer > 0;
+    const bob = respawning ? Math.sin(state.musicStep * 0.45) * 0.8 : Math.sin((state.musicStep * 0.45) + p.x * 0.01) * 2;
+    const allowControlTilt = state.mode === 'playing' && !state.catalystSequence;
+    const tilt = respawning ? 0 : clamp((allowControlTilt ? (((state.input.right ? 1 : 0) - (state.input.left ? 1 : 0)) * 0.24 + (state.pointerActive ? (state.pointerX - p.x) / 280 : 0)) : 0), -0.45, 0.45);
+    const rot = tilt * 0.92;
+    const playerScale = narrowScreenScale();
+    const shipSize = (74 + (state.overdrive > 0 ? 4 : 0)) * playerScale;
+    const shipY = p.y + bob;
+    return {
+      x: p.x,
+      y: p.y,
+      respawning: respawning,
+      tilt: tilt,
+      rot: rot,
+      playerScale: playerScale,
+      shipSize: shipSize,
+      shipY: shipY,
+      shipVisualY: shipY - 6,
+      flashAlpha: p.invuln > 0 ? 0.52 + 0.42 * (0.5 + 0.5 * Math.sin((3 - p.invuln) * 16 + state.musicStep * 0.9)) : 1
+    };
+  }
+
   function removeEnemy3DInstance(enemy) {
     if (!enemy || !enemy3DState.instances.has(enemy)) return;
     const entry = enemy3DState.instances.get(enemy);
@@ -2312,19 +2771,21 @@
     });
   }
 
-  async function syncEnemy3DInstances(dt) {
-    if (!shouldUseEnemy3DMode()) {
+  async function sync3DScene(dt) {
+    if (!shouldUse3DRenderer()) {
       if (enemy3DState.ready || enemy3DState.canvas || enemy3DState.loadingPromise) destroyEnemy3DRenderer();
       return;
     }
     if (!enemy3DState.ready &&
       (!state.enemies || state.enemies.length === 0) &&
-      (!state.decorBackgrounds || state.decorBackgrounds.length === 0)) return;
+      (!state.decorBackgrounds || state.decorBackgrounds.length === 0) &&
+      !shouldUsePlayer3DMode()) return;
     const ready = await ensureEnemy3DRenderer();
     if (!ready || !enemy3DState.ready || !enemy3DState.root) return;
     if (enemy3DState.canvas) enemy3DState.canvas.style.display = 'block';
     updateEnemy3DViewport();
     await syncPlanet3DInstances(dt);
+    await syncPlayer3DInstance(dt);
     const seen = new Set();
     for (let i = 0; i < state.enemies.length; i++) {
       const enemy = state.enemies[i];
@@ -2371,25 +2832,30 @@
   }
 
   function tickEnemy3D(dt) {
-    if (!enable3DMode) return;
-    if (!shouldUseEnemy3DMode() && !enemy3DState.ready && !enemy3DState.canvas && !enemy3DState.loadingPromise) return;
+    if (!shouldUse3DRenderer()) {
+      if (enemy3DState.ready || enemy3DState.canvas || enemy3DState.loadingPromise || enemy3DState.playerInstance) {
+        destroyEnemy3DRenderer();
+      }
+      return;
+    }
     const hasEnemies = !!(state.enemies && state.enemies.length);
     const hasPlanets = !!(state.decorBackgrounds && state.decorBackgrounds.length);
-    if (!enemy3DState.ready && !enemy3DState.loadingPromise && !hasEnemies && !hasPlanets) return;
+    const hasPlayer = shouldUsePlayer3DMode();
+    if (!enemy3DState.ready && !enemy3DState.loadingPromise && !hasEnemies && !hasPlanets && !hasPlayer) return;
     if (enemy3DState.syncPending) return;
     enemy3DState.syncPending = true;
-    Promise.resolve(syncEnemy3DInstances(dt)).catch(function () {}).finally(function () {
+    Promise.resolve(sync3DScene(dt)).catch(function () {}).finally(function () {
       enemy3DState.syncPending = false;
     });
   }
 
   function hasEnemy3DInstance(enemy) {
-    if (!enable3DMode) return false;
+    if (!shouldUse3DRenderer()) return false;
     return !!enemy && enemy3DState.ready && enemy3DState.instances.has(enemy);
   }
 
   function renderEnemy3DScene() {
-    if (!enable3DMode) return;
+    if (!shouldUse3DRenderer()) return;
     if (!enemy3DState.ready || !enemy3DState.renderer || !enemy3DState.scene || !enemy3DState.camera) return;
     enemy3DState.renderer.clear(true, true, true);
     enemy3DState.renderer.render(enemy3DState.scene, enemy3DState.camera);
@@ -8228,6 +8694,21 @@
     drawBossOverlay(b);
   }
 
+  function playerEngineFlameOffsets(shipSize, usePlayer3DMesh) {
+    if (usePlayer3DMesh && enemy3DState.playerInstance && enemy3DState.playerInstance.engineAnchors) {
+      const anchors = enemy3DState.playerInstance.engineAnchors;
+      const scale = shipSize * PLAYER_3D_SCALE_MULTIPLIER;
+      return anchors.map(function (a) {
+        return { x: a.x * scale, y: a.y * scale, s: a.s || 1 };
+      });
+    }
+    return [
+      { x: -shipSize * 0.1435, y: shipSize * 0.39, s: 1.38 },
+      { x: 0, y: shipSize * 0.45, s: 1.59 },
+      { x: shipSize * 0.1435, y: shipSize * 0.39, s: 1.38 }
+    ];
+  }
+
   function drawPlayer() {
     const p = state.player;
     const respawning = p.respawnTimer > 0;
@@ -8235,9 +8716,7 @@
     const allowControlTilt = state.mode === 'playing' && !state.catalystSequence;
     const tilt = respawning ? 0 : clamp((allowControlTilt ? (((state.input.right ? 1 : 0) - (state.input.left ? 1 : 0)) * 0.24 + (state.pointerActive ? (state.pointerX - p.x) / 280 : 0)) : 0), -0.45, 0.45);
     const rot = tilt * 0.92;
-    const glow = state.overdrive > 0 ? '#ffe38c' : '#8fd8ff';
     const invulnActive = p.invuln > 0;
-    const auraColor = invulnActive ? '#bfe4ff' : glow;
     const flashAlpha = p.invuln > 0 ? 0.52 + 0.42 * (0.5 + 0.5 * Math.sin((3 - p.invuln) * 16 + state.musicStep * 0.9)) : 1;
     const playerScale = narrowScreenScale();
     const shipSize = (74 + (state.overdrive > 0 ? 4 : 0)) * playerScale;
@@ -8245,36 +8724,30 @@
     const shipVisualY = shipY - 6;
     const planeSize = (36 + (state.overdrive > 0 ? 4 : 0)) * playerScale;
     const shieldRing = p.r * playerScale;
-    const shipTexture = getPlayerShipTexture();
-    const auraTexture = getPlayerAuraTexture();
-    const flameTexture = getPlayerEngineFlameTexture((Math.floor(state.musicStep * 6 + p.x * 0.02) & 3));
-    if (auraTexture) {
-      drawTextureRect(auraTexture, p.x, shipY, 196 * playerScale, 196 * playerScale, {
-        alpha: 0.27,
-        layer: 3,
-        lighter: false
-      });
+    const usePlayer3DTarget = shouldUsePlayer3DMode() && !enemy3DState.playerModelFailed;
+    const usePlayer3DMesh = hasPlayer3DInstance();
+    const shipTexture = usePlayer3DMesh ? null : getPlayerShipTexture();
+    const auraTexture = usePlayer3DMesh ? null : getPlayerAuraTexture();
+    const flameTexture = usePlayer3DMesh ? null : getPlayerEngineFlameTexture((Math.floor(state.musicStep * 6 + p.x * 0.02) & 3));
+    if (auraTexture) drawTextureRect(auraTexture, p.x, shipY, 196 * playerScale, 196 * playerScale, { alpha: 0.27, layer: 3, lighter: false });
+    if (!usePlayer3DMesh) {
+      const playerGlow = state.overdrive > 0 ? '#ffe59a' : '#92dcff';
+      drawSoftEdgeGlow(p.x, shipY, 50 * playerScale, playerGlow, 0.22);
     }
-    const playerGlow = state.overdrive > 0 ? '#ffe59a' : '#92dcff';
-    drawSoftEdgeGlow(p.x, shipY, 50 * playerScale, playerGlow, 0.22);
-    if (invulnActive) {
+    if (invulnActive && !usePlayer3DMesh) {
       const invulnRings = [
         { r: shieldRing + 20, color: '#ff0000' },
         { r: shieldRing + 24, color: '#ff0000' },
         { r: shieldRing + 28, color: '#ff0000' }
       ];
-      const ringAlphas = [
-        clamp(p.invuln, 0, 1) * 1.0,
-        clamp(p.invuln - 1, 0, 1) * 1.0,
-        clamp(p.invuln - 2, 0, 1) * 1.0
-      ];
+      const ringAlphas = [clamp(p.invuln, 0, 1) * 1.0, clamp(p.invuln - 1, 0, 1) * 1.0, clamp(p.invuln - 2, 0, 1) * 1.0];
       for (let i = 0; i < invulnRings.length; i++) {
         const ring = invulnRings[i];
         const alpha = ringAlphas[i];
         if (alpha > 0) drawRingGlow(p.x, shipY, ring.r, ring.r - 2, ring.color, alpha, 0);
       }
     }
-    if (p.shield > 0) {
+    if (p.shield > 0 && !usePlayer3DMesh) {
       const shieldColor = p.shield > 1 ? '#7fc8ff' : '#61a9ff';
       for (let i = 0; i < p.shield; i++) {
         const ringR = shieldRing + i * 4;
@@ -8282,30 +8755,23 @@
       }
     }
     if (!respawning || p.respawnTimer < 0.98) {
-      if (flameTexture) {
+      if (flameTexture || usePlayer3DTarget) {
         const flameAlpha = 0.82 * flashAlpha;
         const flameLenPulse = 1 + Math.sin(state.animClock * TAU * 10) * 0.1;
         const flameWPulse = 1 + Math.sin(state.animClock * TAU * 6) * 0.1;
         const verticalStretch = clamp(p.vy / 460, -1, 1) * 0.2;
         const flameLen = shipSize * 0.2885625 * flameLenPulse * (1 - verticalStretch);
         const flameW = shipSize * 0.285 * flameWPulse;
-        const flameOffsets = [
-          { x: -shipSize * 0.1435, y: shipSize * 0.39, s: 1.38 },
-          { x: 0, y: shipSize * 0.45, s: 1.59 },
-          { x: shipSize * 0.1435, y: shipSize * 0.39, s: 1.38 }
-        ];
+        const flameOffsets = playerEngineFlameOffsets(shipSize, usePlayer3DMesh);
         for (let i = 0; i < flameOffsets.length; i++) {
           const o = flameOffsets[i];
           const flameLenRoll = 0.7 + (Math.random() * 0.6);
           const flameH = flameLen * flameLenRoll * o.s;
           const anchorAdjust = flameH * 0.4;
           const pos = localToWorld(p.x, shipVisualY, rot, o.x, o.y + anchorAdjust);
-          drawTextureRect(flameTexture, pos.x, pos.y, flameW * o.s, flameH, {
-            rot: rot,
-            alpha: flameAlpha * (i === 1 ? 1 : 0.78),
-            layer: 5,
-            lighter: true
-          });
+          if (flameTexture && !usePlayer3DMesh) {
+            drawTextureRect(flameTexture, pos.x, pos.y, flameW * o.s, flameH, { rot: rot, alpha: flameAlpha * (i === 1 ? 1 : 0.78), layer: 5, lighter: true });
+          }
           if (shouldEmitHighQualityTrails() && !respawning) {
             const trailPos = localToWorld(p.x, shipVisualY, rot, o.x, o.y + flameH * 0.95);
             const backDirX = -Math.sin(rot);
@@ -8315,18 +8781,18 @@
             const trailVy = backDirY * backSpeed - p.vy * 0.16 + rand(-4, 4);
             const trailSize = (i === 1 ? 7.6 : 6.6) * playerScale;
             const trailColor = (i === 1) ? '#57c7ff' : '#388fff';
-            spawnParticle(trailPos.x, trailPos.y, trailVx, trailVy, 2.0, trailSize, trailColor, 'enginetrail', 1.0);
+            spawnParticle(trailPos.x, trailPos.y, trailVx, trailVy, 2.0, trailSize, trailColor, 'enginetrail', 1.0, usePlayer3DMesh ? 97 : null);
           }
         }
       }
     }
-    if (shipTexture) {
+    if (shipTexture && !usePlayer3DMesh) {
       drawTextureRect(shipTexture, p.x, shipVisualY, shipSize, shipSize, { rot: rot, alpha: flashAlpha, layer: 4, lighter: false });
-    } else {
+    } else if (!usePlayer3DMesh) {
       ensurePlayerShipTexture();
     }
     const damage = clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1);
-    if (damage > 0.01) {
+    if (damage > 0.01 && !usePlayer3DMesh) {
       const tex = getPlayerDamageTexture(planeSize, damage);
       drawTextureRect(tex, p.x, shipY, shipSize, shipSize, { rot: rot, alpha: Math.min(1, 0.38 + damage * 0.62), layer: 4, lighter: false });
       const sparkCount = clamp(Math.round(2 + damage * 10), 2, 10);
@@ -8799,7 +9265,7 @@
     state.renderFrameIndex++;
     render.offsetX = state.shake > 0 ? rand(-state.shake, state.shake) : 0;
     render.offsetY = state.shake > 0 ? rand(-state.shake, state.shake) : 0;
-    if (enable3DMode) tickEnemy3D(currentDt || 0);
+    tickEnemy3D(currentDt || 0);
     drawBackground();
     drawParticles();
     drawPickups();
@@ -8809,7 +9275,7 @@
     if (state.boss) drawBoss(state.boss);
     if (state.mode !== 'debug') drawPlayer();
     drawForeground();
-    if (enable3DMode) renderEnemy3DScene();
+    if (shouldUse3DRenderer()) renderEnemy3DScene();
     if (state.flash > 0) {
       drawSpriteRect(view.w * 0.5, view.h * 0.5, view.w, view.h, '#ffffff', state.flash * 0.3, 999, true);
     }
@@ -8990,6 +9456,7 @@
 
   function onKeyDown(ev) {
     const code = ev.code;
+    feedPlayer3DCheat(ev);
     if (state.settingsOpen || settingsDialog.open) {
       if (code === 'Escape' || code === 'KeyO') {
         ev.preventDefault();

@@ -1,6 +1,6 @@
 'use strict';
 
-var APP_VERSION = 'thoriumgap-v58'; // BUMP ME
+var APP_VERSION = 'thoriumgap-v59'; // BUMP ME
 var CACHE_NAME = APP_VERSION;
 var APP_SHELL = [
   './ThoriumGap.html',
@@ -49,6 +49,7 @@ var APP_ASSETS = (function () {
 }());
 
 var APP_MODEL_ASSETS = [
+  './models/player_spaceship.glb',
   './models/Ship_Crosspanel_1.glb',
   './models/Ship_Crosspanel_10.glb',
   './models/Ship_Crosspanel_11.glb',
