@@ -2953,9 +2953,9 @@
   const ENEMY_NEMESIS2_TEXTURE = 'assets/enemy_nemesis2.png';
 
   const DIFFICULTIES = [                                                                      // Hint: bulletSpeed = enemyShotPace maintains gap-dynamics of shots (just faster)
-    { label: 'Easy', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.8, spawnCount: 0.7, bulletSpeed: 1.0, bossHp: 0.5, contact: 0.9, playerDamage: 1, enemyShotPace: 0.8, spinnerNrOfRingShots: 6, eliteNrOfRingShots: 6 },
-    { label: 'Normal', lives: 3, enemyHp: 1.2, enemySpeed: 1, spawnRate: 1, spawnCount: 0.8, bulletSpeed: 1.5, bossHp: 1, contact: 1, playerDamage: 0.5, enemyShotPace: 1.4, spinnerNrOfRingShots: 8, eliteNrOfRingShots: 7 },
-    { label: 'Hard', lives: 2, enemyHp: 1.4, enemySpeed: 1.2, spawnRate: 1.1, spawnCount: 1.0, bulletSpeed: 2.0, bossHp: 1.3, contact: 1.12, playerDamage: 0.25, enemyShotPace: 2.0, spinnerNrOfRingShots: 9, eliteNrOfRingShots: 8 }
+    { label: 'Normal', lives: 5, enemyHp: 1.0, enemySpeed: 0.9, spawnRate: 0.8, spawnCount: 0.7, bulletSpeed: 1.0, bossHp: 0.5, contact: 0.9, playerDamage: 1, enemyShotPace: 0.8, spinnerNrOfRingShots: 6, eliteNrOfRingShots: 6 },
+    { label: 'Hard', lives: 3, enemyHp: 1.2, enemySpeed: 1, spawnRate: 1, spawnCount: 0.8, bulletSpeed: 1.5, bossHp: 1, contact: 1, playerDamage: 0.5, enemyShotPace: 1.4, spinnerNrOfRingShots: 8, eliteNrOfRingShots: 7 },
+    { label: 'Nightmare', lives: 2, enemyHp: 1.4, enemySpeed: 1.2, spawnRate: 1.1, spawnCount: 1.0, bulletSpeed: 2.0, bossHp: 1.3, contact: 1.12, playerDamage: 0.25, enemyShotPace: 2.0, spinnerNrOfRingShots: 9, eliteNrOfRingShots: 8 }
   ];
 
   const PLAYER_SHOT_PACE = 1.0;
@@ -4564,7 +4564,7 @@
 
   function updateNemesisSpawns(dt) {
     if (state.mode !== 'playing' || state.transition || state.catalystPresent || state.catalystSequence) return;
-    if (state.settings.difficulty < 1) return; // Nemesis are enabled only on Normal/Hard difficulty.
+    if (state.settings.difficulty < 1) return; // Nemesis are enabled only on Hard/Nightmare difficulty.
     if (!state.currentTheme || !state.currentTheme.nemesis) return;
     state.nemesisClock += dt;
     while (state.nemesisClock >= 1) {
@@ -5023,7 +5023,7 @@
     e.hitFlash = 0.08;
     e.hitSparkDamage = Math.max(1, damage | 0);
     if (e.hp <= 0) {
-      const suppressDeathShots = fromBomb && currentDifficulty().label === 'Easy';
+      const suppressDeathShots = fromBomb && state.settings.difficulty === 0;
       e.dead = true;
       state.shake = Math.max(state.shake, 5);
       flashBurst(e.x, e.y, e.color);
