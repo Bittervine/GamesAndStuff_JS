@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Orbital Core - Current Game Manual</title>
+  <style>
+    :root {
+      --bg: #050811;
+      --panel: rgba(11, 16, 28, 0.86);
+      --panel-2: rgba(16, 24, 42, 0.72);
+      --line: rgba(156, 190, 255, 0.24);
+      --text: #e7f0ff;
+      --muted: #b9c7de;
+      --soft: #dbe7ff;
+      --cyan: #a6e8ff;
+      --blue: #57a8ff;
+      --mint: #8ff2d1;
+      --red: #ff5050;
+      --gold: #ffe880;
+      --fail: #ffe1e1;
+      --success: #d9fff3;
+      --warning: #ffe3bf;
+      --code: #101827;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.55;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(116, 165, 255, 0.18), transparent 30%),
+        radial-gradient(circle at 80% 18%, rgba(143, 242, 209, 0.12), transparent 28%),
+        linear-gradient(180deg, #03060d 0%, #070b17 58%, #04060a 100%);
+    }
+
+    header {
+      padding: 52px 24px 34px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(9, 14, 28, 0.88), rgba(9, 14, 28, 0.34));
+    }
+
+    main {
+      width: min(1120px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 70px;
+    }
+
+    h1, h2, h3 {
+      line-height: 1.15;
+      margin: 0;
+    }
+
+    h1 {
+      width: min(1120px, calc(100vw - 32px));
+      margin: 0 auto 12px;
+      font-size: clamp(34px, 6vw, 70px);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-shadow: 0 0 24px rgba(116, 165, 255, 0.28);
+    }
+
+    .subtitle {
+      width: min(1120px, calc(100vw - 32px));
+      margin: 0 auto;
+      max-width: 880px;
+      color: var(--soft);
+      font-size: 17px;
+    }
+
+    section {
+      margin-top: 22px;
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.24);
+    }
+
+    section section {
+      margin-top: 14px;
+      padding: 18px;
+      background: var(--panel-2);
+      box-shadow: none;
+    }
+
+    h2 {
+      margin-bottom: 12px;
+      font-size: 28px;
+      letter-spacing: 0.02em;
+    }
+
+    h3 {
+      margin-top: 6px;
+      margin-bottom: 8px;
+      font-size: 19px;
+      color: #f1f6ff;
+    }
+
+    p {
+      margin: 8px 0 0;
+      color: var(--soft);
+    }
+
+    ul, ol {
+      margin: 8px 0 0 22px;
+      padding: 0;
+      color: var(--soft);
+    }
+
+    li {
+      margin: 5px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      overflow: hidden;
+      border-radius: 12px;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(156, 190, 255, 0.16);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      color: #f4f8ff;
+      background: rgba(116, 165, 255, 0.13);
+      font-weight: 800;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    code, .kbd {
+      font-family: Consolas, Monaco, "Courier New", monospace;
+      background: rgba(12, 18, 31, 0.94);
+      border: 1px solid rgba(156, 190, 255, 0.18);
+      border-radius: 6px;
+      padding: 1px 5px;
+      color: #eaf3ff;
+      white-space: nowrap;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .card {
+      padding: 15px;
+      border: 1px solid rgba(156, 190, 255, 0.18);
+      border-radius: 14px;
+      background: rgba(8, 13, 24, 0.62);
+    }
+
+    .note {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-left: 4px solid var(--gold);
+      border-radius: 12px;
+      background: rgba(255, 232, 128, 0.10);
+      color: var(--warning);
+    }
+
+    .ok {
+      border-left-color: var(--mint);
+      background: rgba(143, 242, 209, 0.09);
+      color: var(--success);
+    }
+
+    .bad {
+      border-left-color: #ff8282;
+      background: rgba(255, 130, 130, 0.09);
+      color: var(--fail);
+    }
+
+    .swatches {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .swatch {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid rgba(156, 190, 255, 0.16);
+      border-radius: 12px;
+      background: rgba(8, 13, 24, 0.62);
+    }
+
+    .chip {
+      width: 34px;
+      height: 34px;
+      flex: 0 0 34px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 0 0 16px rgba(255, 255, 255, 0.1);
+    }
+
+    .chip.enemy-normal {
+      border-radius: 2px;
+      background: transparent;
+      border: 2px solid rgba(255, 80, 80, 0.95);
+      box-shadow: 0 0 10px rgba(255, 54, 54, 0.35);
+    }
+
+    .chip.enemy-priority {
+      border-radius: 2px;
+      background: transparent;
+      border: 2px solid rgba(255, 232, 128, 0.98);
+      box-shadow: 0 0 14px rgba(255, 210, 80, 0.55);
+    }
+
+    .chip.reticle {
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(166, 232, 255, 0.95) 0 18%, transparent 20% 100%);
+      border: 2px solid rgba(166, 232, 255, 0.9);
+      box-shadow: 0 0 12px rgba(126, 192, 255, 0.35);
+    }
+
+    .chip.nose {
+      position: relative;
+      background: transparent;
+      border: none;
+    }
+
+    .chip.nose::before,
+    .chip.nose::after {
+      content: "";
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      top: 16px;
+      height: 2px;
+      background: rgba(255, 90, 90, 0.85);
+      box-shadow: 0 0 4px rgba(255, 90, 90, 0.25);
+    }
+
+    .chip.nose::before {
+      transform: rotate(45deg);
+    }
+
+    .chip.nose::after {
+      transform: rotate(-45deg);
+    }
+
+    .chip.projectile {
+      border-radius: 50%;
+      background: #57a8ff;
+      box-shadow: 0 0 16px rgba(87, 168, 255, 0.72);
+    }
+
+    .chip.fuel-a {
+      border-radius: 50%;
+      background: #8ff2d1;
+      box-shadow: 0 0 14px rgba(143, 242, 209, 0.45);
+    }
+
+    .chip.fuel-b {
+      border-radius: 50%;
+      background: #88b5ff;
+      box-shadow: 0 0 14px rgba(136, 181, 255, 0.45);
+    }
+
+    .chip.success {
+      background: #d9fff3;
+      box-shadow: 0 0 14px rgba(143, 242, 209, 0.45);
+    }
+
+    .chip.fail {
+      background: #ffe1e1;
+      box-shadow: 0 0 14px rgba(255, 130, 130, 0.45);
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .toc a {
+      color: #dbe7ff;
+      text-decoration: none;
+    }
+
+    .toc a:hover {
+      text-decoration: underline;
+    }
+
+    footer {
+      width: min(1120px, calc(100vw - 32px));
+      margin: 22px auto 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 760px) {
+      .grid.two,
+      .grid.three {
+        grid-template-columns: 1fr;
+      }
+
+      section {
+        padding: 18px;
+      }
+
+      table {
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Orbital Core</h1>
+    <p class="subtitle">Current game manual for the uploaded Orbitals JS build. This describes what exists now in the source, not the later dense-swarm, shield, rapid-fire, or ThoriumGap-style weapon-upgrade plan.</p>
+  </header>
+
+  <main>
+    <section id="toc" class="toc">
+      <h2>Contents</h2>
+      <div class="grid three">
+        <div class="card"><a href="#start">Starting the game</a></div>
+        <div class="card"><a href="#controls">Controls</a></div>
+        <div class="card"><a href="#hud">HUD and colors</a></div>
+        <div class="card"><a href="#flight">Flight model</a></div>
+        <div class="card"><a href="#world">World and resources</a></div>
+        <div class="card"><a href="#combat">Weapons and combat</a></div>
+        <div class="card"><a href="#enemies">Enemies and motherships</a></div>
+        <div class="card"><a href="#encounters">Encounters and missions</a></div>
+        <div class="card"><a href="#debug">Debug and current gaps</a></div>
+      </div>
+    </section>
+
+    <section id="start">
+      <h2>Starting the game</h2>
+      <p>The game loads into a title overlay with the Orbital Core title art, a short controls reminder, and the prompt <code>Press Fire to Start</code>. The game begins when the player presses a fire control, clicks/taps, or presses the gamepad fire button.</p>
+      <p>After assets load, the status text changes to <code>Press Fire to start.</code>. The title overlay fades out only after the game is loaded and started.</p>
+      <div class="note">
+        The current game is a live 3D arcade space-flight prototype. It has planets, fuel motes, enemies, mothership invasions, score, crashes, mission messages, and HUD markers. It does not yet have shield pickups, rapid-fire pickups, or weapon upgrades.
+      </div>
+    </section>
+
+    <section id="controls">
+      <h2>Controls</h2>
+      <section>
+        <h3>Keyboard</h3>
+        <table>
+          <thead><tr><th>Input</th><th>Current behavior</th></tr></thead>
+          <tbody>
+            <tr><td><span class="kbd">A</span> / <span class="kbd">Left Arrow</span></td><td>Turn left.</td></tr>
+            <tr><td><span class="kbd">D</span> / <span class="kbd">Right Arrow</span></td><td>Turn right.</td></tr>
+            <tr><td><span class="kbd">W</span> / <span class="kbd">Up Arrow</span></td><td>Pitch down / dive.</td></tr>
+            <tr><td><span class="kbd">S</span> / <span class="kbd">Down Arrow</span></td><td>Pitch up / climb.</td></tr>
+            <tr><td><span class="kbd">Ctrl</span></td><td>Fire.</td></tr>
+            <tr><td><span class="kbd">Space</span></td><td>Boost while fuel is available.</td></tr>
+            <tr><td><span class="kbd">Shift</span></td><td>Brake.</td></tr>
+            <tr><td><span class="kbd">R</span></td><td>Respawn. After a crash, restart is only available after the crash delay.</td></tr>
+            <tr><td><span class="kbd">L</span></td><td>Toggle mouse capture / pointer lock.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h3>Mouse</h3>
+        <table>
+          <thead><tr><th>Input</th><th>Current behavior</th></tr></thead>
+          <tbody>
+            <tr><td>Click canvas</td><td>Starts the game if needed and requests mouse capture.</td></tr>
+            <tr><td>Mouse move while captured</td><td>Moves the aiming deflection. The same deflection also turns and pitches the ship.</td></tr>
+            <tr><td>Left mouse button</td><td>Fire.</td></tr>
+            <tr><td>Right mouse button</td><td>Boost. The context menu is suppressed on the canvas.</td></tr>
+            <tr><td><span class="kbd">Esc</span></td><td>Browser pointer-lock release. This is handled by the browser, then the game clears mouse fire and boost state.</td></tr>
+          </tbody>
+        </table>
+        <p>The mouse is the main direct ship-control mode once captured. While the mouse is captured, gamepad movement, gamepad fire, gamepad boost, and gamepad brake are intentionally ignored. Keyboard input still works.</p>
+      </section>
+
+      <section>
+        <h3>Gamepad</h3>
+        <table>
+          <thead><tr><th>Input</th><th>Current behavior in code</th></tr></thead>
+          <tbody>
+            <tr><td>Left stick</td><td>Turn and pitch.</td></tr>
+            <tr><td>Right stick</td><td>Aim reticle when the mouse is not captured.</td></tr>
+            <tr><td>Right trigger, button 7</td><td>Fire.</td></tr>
+            <tr><td>A / button 0, or right shoulder / button 5</td><td>Boost.</td></tr>
+            <tr><td>B / button 1, left trigger / button 6, or left shoulder / button 4</td><td>Brake.</td></tr>
+            <tr><td>Menu / button 9</td><td>Respawn when available.</td></tr>
+          </tbody>
+        </table>
+        <p>Gamepad input works when the mouse is not captured. The HUD will say <code>Gamepad ready</code> when a pad is connected and pointer lock is not active.</p>
+      </section>
+
+      <section>
+        <h3>Touch</h3>
+        <p>Touch input is present but simpler. Touching the canvas starts the game and aims at the touched screen point. A normal touch fires. A quick double tap, within about 320 milliseconds, acts as boost.</p>
+      </section>
+    </section>
+
+    <section id="hud">
+      <h2>HUD and screen symbols</h2>
+      <p>The visible HUD is intentionally lean. It currently consists of the status panel, the reticle, a nose marker, mission messages, enemy markers, and the game-over overlay.</p>
+
+      <section>
+        <h3>Status panel</h3>
+        <p>The top-left panel shows:</p>
+        <table>
+          <thead><tr><th>Field</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>Score</code></td><td>Current score. Destroying an enemy with a projectile currently adds 100 points.</td></tr>
+            <tr><td><code>Fuel</code></td><td>Boost fuel. It starts at 100, drains during boost, recharges when not boosting, and can be restored by collecting fuel motes.</td></tr>
+            <tr><td><code>Speed</code></td><td>Current reported ship speed.</td></tr>
+            <tr><td><code>Planet</code></td><td>Index of the nearest planet in the generated cluster.</td></tr>
+            <tr><td><code>Altitude</code></td><td>Distance above the nearest planet surface.</td></tr>
+            <tr><td><code>State</code></td><td>Usually <code>bound</code>, <code>free</code>, or <code>CRASHED</code>.</td></tr>
+          </tbody>
+        </table>
+        <p>The second line normally reads <code>Use Gamepad or W/A/S/D/Space/Ctrl and/or Mouse</code>. After a crash it becomes a restart countdown, then <code>Ship destroyed. Press Fire to play again.</code></p>
+        <p>The third line is a mouse/input debug line. It reports whether the mouse is captured, whether the keyboard and gamepad are idle or active, and the current mouse deflection while captured.</p>
+      </section>
+
+      <section>
+        <h3>HUD color key</h3>
+        <div class="swatches">
+          <div class="swatch">
+            <div class="chip reticle"></div>
+            <div><strong>Cyan ring and dot</strong><br><span class="small">The reticle. It moves with mouse deflection or right-stick aim and is used as the fire direction.</span></div>
+          </div>
+          <div class="swatch">
+            <div class="chip nose"></div>
+            <div><strong>Dim red X</strong><br><span class="small">The fixed nose marker at screen center. It indicates the ship/camera center line.</span></div>
+          </div>
+          <div class="swatch">
+            <div class="chip enemy-normal"></div>
+            <div><strong>Red square enemy marker</strong><br><span class="small">A normal enemy HUD marker. The game creates up to 20 enemy markers.</span></div>
+          </div>
+          <div class="swatch">
+            <div class="chip enemy-priority"></div>
+            <div><strong>Gold square enemy marker</strong><br><span class="small">Priority enemy marker. Used when an enemy is a primary threat or has positive HUD priority, for example an active presenter.</span></div>
+          </div>
+          <div class="swatch">
+            <div class="chip projectile"></div>
+            <div><strong>Blue projectile</strong><br><span class="small">Player shot. Projectiles use additive blue visuals.</span></div>
+          </div>
+          <div class="swatch">
+            <div class="chip fuel-a"></div>
+            <div><strong>Mint fuel mote</strong><br><span class="small">One of the two alternating fuel-mote colors.</span></div>
+          </div>
+          <div class="swatch">
+            <div class="chip fuel-b"></div>
+            <div><strong>Blue fuel mote</strong><br><span class="small">The other alternating fuel-mote color.</span></div>
+          </div>
+          <div class="swatch">
+            <div class="chip success"></div>
+            <div><strong>Green-tinted mission text</strong><br><span class="small">Mission success state.</span></div>
+          </div>
+          <div class="swatch">
+            <div class="chip fail"></div>
+            <div><strong>Red/pink mission text</strong><br><span class="small">Mission fail state.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3>Enemy markers in detail</h3>
+        <p>The game sorts enemies by HUD priority first and distance second, then shows the top 20. A marker is hidden only when there is no candidate. If an enemy is outside the central screen region, the marker is clamped toward the edge and shown slightly dimmer.</p>
+        <ul>
+          <li>Normal markers are 16 by 16 pixels, red outline, transparent center, with a red glow.</li>
+          <li>Priority markers are 20 by 20 pixels, gold outline, transparent center, with a stronger gold glow.</li>
+          <li>Priority status is set by fields such as <code>enemy.isPrimaryThreat</code> or positive <code>hudPriority</code>.</li>
+          <li>Active presenter enemies use the configured presenter HUD priority and therefore appear gold.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>Mission messages</h3>
+        <p>Mission messages appear near the top center of the screen. Active messages use pale blue-white text. Success messages shift toward green/mint. Failure messages shift toward red/pink.</p>
+      </section>
+
+      <section>
+        <h3>Game over overlay</h3>
+        <p>When the player ship is destroyed, a centered <code>GAME OVER</code> card appears with a restart timer. Once the crash delay has elapsed, pressing a fire control restarts.</p>
+      </section>
+    </section>
+
+    <section id="flight">
+      <h2>Flight model</h2>
+      <div class="grid two">
+        <div class="card">
+          <h3>Atmospheric / bound flight</h3>
+          <p>When the ship is close to a planet, it is bound to that planet. Atmospheric flight has terrain protection, lift, stall behavior, banked turning, altitude trim, and automatic leveling when the player is not forcing pitch.</p>
+          <p>In this mode, turning banks the ship. Pitching up for too long without boost can stall and settle back down.</p>
+        </div>
+        <div class="card">
+          <h3>Free flight</h3>
+          <p>When the ship climbs beyond the planet escape altitude, it becomes free. Free flight uses nose-coupled motion: the ship continues to travel along its nose. Current passive drag is effectively disabled.</p>
+          <p>Free flight does not use the same atmospheric roll/bank behavior. Camera roll slowly aligns to the ship.</p>
+        </div>
+      </div>
+
+      <section>
+        <h3>Capture and escape</h3>
+        <p>The ship starts bound to a planet. It escapes into free flight above the configured escape altitude. It can recapture into a planet’s atmosphere when close enough and not protected by the short recapture delay.</p>
+      </section>
+
+      <section>
+        <h3>Boost, brake, and fuel</h3>
+        <ul>
+          <li>Fuel starts at 100.</li>
+          <li>Boost uses a short boost timer and consumes fuel while active.</li>
+          <li>Fuel recharges when not boosting.</li>
+          <li>Fuel motes add 4 fuel when collected.</li>
+          <li>Brake slows the ship, especially in free flight.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>Crashes</h3>
+        <p>The player can crash into terrain, the sun, or another collidable ship. A crash freezes the ship, spawns a crash explosion, clears player projectiles, and starts the game-over timer. Current player shields do not exist yet, so there is no shield absorption in this build.</p>
+      </section>
+    </section>
+
+    <section id="world">
+      <h2>World and resources</h2>
+      <div class="grid two">
+        <div class="card">
+          <h3>Planet cluster</h3>
+          <p>The world generates a dense cluster of 6 to 9 planets from the configured planet files. Planets move in chaotic-looking orbits with wobble, spin, atmosphere radius, gravity radius, and individual surface gravity.</p>
+        </div>
+        <div class="card">
+          <h3>Star and debris</h3>
+          <p>The scene has a central star, space debris effects, atmospheric glow, lighting, and fog. Flying into the sun destroys the player.</p>
+        </div>
+      </div>
+
+      <section>
+        <h3>Fuel motes</h3>
+        <p>Each planet currently gets 10 fuel motes. They orbit in bands around the planet, pulse in size, and alternate mint and blue coloring. Touching one restores fuel and moves the mote along its orbit so it can be collected again later.</p>
+        <p class="note ok">Fuel motes are the only implemented collectible in the current game state.</p>
+      </section>
+    </section>
+
+    <section id="combat">
+      <h2>Weapons and combat</h2>
+      <section>
+        <h3>Current player weapon</h3>
+        <p>The current player weapon fires one blue projectile per shot. The projectile is spawned from the ship position and travels in the chosen fire direction with added ship velocity. The default fire cooldown is 0.22 seconds.</p>
+        <p>Projectiles live for 8 seconds, vanish when they hit a planet, and damage enemies on contact. Current projectile damage is 15. Regular enemies have 10 hit points, so one projectile hit destroys a regular fighter.</p>
+      </section>
+
+      <section>
+        <h3>Homing assist</h3>
+        <p>Projectiles have a narrow homing assist. They can acquire or retain a target within a small forward cone and within the configured homing range. The homing turn rate is limited, so shots bend rather than snapping instantly.</p>
+      </section>
+
+      <section>
+        <h3>Score</h3>
+        <p>Destroying an enemy with a projectile currently adds 100 score. Crashes and silent removals do not use the same score path.</p>
+      </section>
+
+      <section>
+        <h3>What is not in the current weapon system</h3>
+        <ul>
+          <li>No shield pickup yet.</li>
+          <li>No rapid-fire pickup yet.</li>
+          <li>No ThoriumGap-style weapon families yet.</li>
+          <li>No DART, TWIN, FAN, ROCKET, or BEAM upgrade tiers yet.</li>
+          <li>No enemy projectile fire yet.</li>
+        </ul>
+      </section>
+    </section>
+
+    <section id="enemies">
+      <h2>Enemies and motherships</h2>
+      <section>
+        <h3>Enemy ship families</h3>
+        <p>The game includes many enemy model families, including Standard, Crosspanel, FlyingSaucer, DeltaWing, Pirate, Orca, Longwing, TwoHoop, TigerWing, LunarCourier, Hooper, ManraRay, PyramidLifter, and Nemesis. Motherships use the FlyingSaucer family.</p>
+      </section>
+
+      <section>
+        <h3>Mothership invasions</h3>
+        <p>Motherships spawn after a delay, with up to 2 active motherships. A mothership targets a planet, approaches a hold position around roughly 2 planet radii, reorients belly-down, and releases fighters.</p>
+        <table>
+          <thead><tr><th>Current value</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td>28 to 54 seconds</td><td>Mothership spawn delay range.</td></tr>
+            <tr><td>2</td><td>Maximum active mothership count.</td></tr>
+            <tr><td>10 to 15</td><td>Fighters released by each mothership in the current build.</td></tr>
+            <tr><td>7.8 seconds</td><td>Time between fighter releases once the mothership is holding.</td></tr>
+            <tr><td>2000 HP</td><td>Mothership hit points.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h3>Fighter behavior</h3>
+        <p>Fighters are released from the mothership, dive toward the target planet, settle into the atmosphere, and enter swarm/patrol behavior. The current patrol system creates orbital target points around the planet with formation offsets, altitude wobble, and some separation steering.</p>
+        <p>The current game still releases fighters one at a time. The dense 100+ fighter swarm is only in the new plan, not in this build.</p>
+      </section>
+
+      <section>
+        <h3>Collisions</h3>
+        <p>Regular enemy-enemy collision damage is disabled. Fighter-to-mothership collisions are also ignored. Player collisions with enemies can destroy the player.</p>
+      </section>
+    </section>
+
+    <section id="encounters">
+      <h2>Encounters and missions</h2>
+      <section>
+        <h3>Encounter director</h3>
+        <p>The encounter director is enabled and runs inside the simulation. It tracks active encounters, chooses which encounter matters to the player, assigns presenters, assigns objective attackers for scaffolded objective encounters, updates encounter outcomes, and displays mission messages.</p>
+      </section>
+
+      <section>
+        <h3>Planet invasion</h3>
+        <p>This is the primary implemented live encounter. When a mothership starts invading a planet or releases fighters, the director creates or activates a planet invasion encounter. The mission text is typically <code>Mission: Clear invasion at Planet N</code>.</p>
+        <p>The planet invasion is cleared when the mothership is done releasing fighters or is gone, at least one fighter was released, and no living non-mothership encounter fighters remain.</p>
+      </section>
+
+      <section>
+        <h3>Presentation passes</h3>
+        <p>The director selects a small number of active presenter enemies. The current maximum active presenters is 2. Presenters get gold HUD markers and try to create readable target opportunities.</p>
+        <table>
+          <thead><tr><th>Pattern</th><th>Current behavior</th></tr></thead>
+          <tbody>
+            <tr><td><code>behindCatchup</code></td><td>Enemy stages behind the player, catches up into the forward firing lane, then escapes.</td></tr>
+            <tr><td><code>sideCross</code></td><td>Enemy stages on one side, crosses through the player’s forward view, then escapes.</td></tr>
+            <tr><td><code>headOnBreakaway</code></td><td>Enemy approaches from ahead, commits, then breaks away. This exists, but still needs polish according to the current plan audit.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h3>Scaffolded encounter types</h3>
+        <p>The simulation has state support for other encounter types such as transport defense, free-space ambush, convoy escort, and boss support waves. These are not normal player-facing browser gameplay yet. Some tests and helper paths exist, but transport attackers do not yet perform fully real combat damage in the natural game loop.</p>
+      </section>
+    </section>
+
+    <section id="debug">
+      <h2>Debug tools and current gaps</h2>
+      <section>
+        <h3>Debug object</h3>
+        <p>Debug mode is currently enabled in config. The browser exposes <code>window.__orbitals</code> with helpers such as:</p>
+        <ul>
+          <li><code>state</code> - the live simulation state.</li>
+          <li><code>snapshot()</code> - a readable snapshot of ship, camera, planet, and pointer-lock state.</li>
+          <li><code>getCombatEvents()</code> / <code>getCombatLog()</code> - copies of event log data.</li>
+          <li><code>dumpCombatLog()</code> - formatted combat log text.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>Current notable limitations</h3>
+        <ul>
+          <li>Only 10 to 15 fighters are released per mothership. The requested crowded-sky 100+ fighter behavior is planned, not implemented.</li>
+          <li>Presentation passes are often far away in the current build.</li>
+          <li>The config value for active threats near the player exists, but current live enforcement is incomplete.</li>
+          <li>Route anchors are not fully implemented for encounters.</li>
+          <li>Transport defense and similar objective modes are scaffolds rather than complete normal gameplay loops.</li>
+          <li>There are no shield, rapid-fire, or weapon-upgrade pickups yet.</li>
+          <li>The current weapon is a single projectile pattern with homing assist, not a multi-family upgrade system.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>Current source files this manual reflects</h3>
+        <ul>
+          <li><code>Orbitals_JS.html</code> - page structure, HUD DOM, CSS colors, title overlay, game-over overlay.</li>
+          <li><code>Orbitals_JS.js</code> - rendering, input, HUD updates, marker sorting, audio/visual effects.</li>
+          <li><code>Orbitals_Sim.js</code> - simulation, ship physics, enemies, encounters, projectiles, collisions, score.</li>
+          <li><code>orbitals_config.js</code> - current gameplay tuning constants.</li>
+          <li><code>orbitals_testbench.mjs</code> - deterministic tests and helper scenarios.</li>
+        </ul>
+      </section>
+    </section>
+
+    <section id="quick-reference">
+      <h2>Quick reference</h2>
+      <div class="grid three">
+        <div class="card"><strong>Red enemy square</strong><br>Normal enemy marker.</div>
+        <div class="card"><strong>Gold enemy square</strong><br>Primary threat or presenter.</div>
+        <div class="card"><strong>Cyan reticle</strong><br>Current aim and fire direction.</div>
+        <div class="card"><strong>Dim red X</strong><br>Ship nose/camera center marker.</div>
+        <div class="card"><strong>Mint/blue motes</strong><br>Fuel collectibles.</div>
+        <div class="card"><strong>Fire</strong><br>Ctrl, left mouse, or gamepad right trigger.</div>
+        <div class="card"><strong>Boost</strong><br>Space, right mouse, A, or right shoulder.</div>
+        <div class="card"><strong>Brake</strong><br>Shift, B, left trigger, or left shoulder.</div>
+        <div class="card"><strong>Respawn</strong><br>R or gamepad menu after the crash delay.</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    Manual generated from the uploaded current Orbitals JS source files on 2026-06-10. It intentionally distinguishes implemented behavior from planned dense-swarm and power-up work.
+  </footer>
+</body>
+</html>
