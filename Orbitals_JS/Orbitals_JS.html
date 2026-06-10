@@ -202,6 +202,52 @@
       opacity: 0;
     }
 
+    .enemyMarker.is-priority {
+      width: 20px;
+      height: 20px;
+      margin-left: -10px;
+      margin-top: -10px;
+      border-color: rgba(255, 232, 128, 0.98);
+      box-shadow: 0 0 14px rgba(255, 210, 80, 0.55);
+    }
+
+    #missionMessage {
+      position: fixed;
+      left: 50%;
+      top: 72px;
+      z-index: 14;
+      transform: translateX(-50%);
+      max-width: min(620px, calc(100vw - 32px));
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: rgba(7, 12, 20, 0.72);
+      border: 1px solid rgba(151, 204, 255, 0.24);
+      color: #eaf3ff;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-align: center;
+      text-transform: uppercase;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease;
+      backdrop-filter: blur(8px);
+    }
+
+    #missionMessage.is-visible {
+      opacity: 1;
+    }
+
+    #missionMessage.is-success {
+      border-color: rgba(143, 242, 209, 0.38);
+      color: #d9fff3;
+    }
+
+    #missionMessage.is-fail {
+      border-color: rgba(255, 130, 130, 0.42);
+      color: #ffe1e1;
+    }
+
     #gameOverOverlay {
       position: fixed;
       inset: 0;
@@ -335,6 +381,7 @@
   </div>
   <div id="noseMarker" aria-hidden="true"></div>
   <div id="reticle"></div>
+  <div id="missionMessage" role="status" aria-live="polite"></div>
   <div id="enemyMarkers" aria-hidden="true"></div>
   <div id="gameOverOverlay" aria-hidden="true">
     <div id="gameOverCard" role="status" aria-live="polite">

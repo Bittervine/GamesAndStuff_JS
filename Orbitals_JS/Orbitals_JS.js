@@ -19,6 +19,7 @@ const statsLine = document.getElementById('stats');
 const mouseDebugLine = document.getElementById('mouseDebug');
 const mouseLockButton = document.getElementById('mouseLockButton');
 const reticleEl = document.getElementById('reticle');
+const missionMessageEl = document.getElementById('missionMessage');
 const enemyMarkersEl = document.getElementById('enemyMarkers');
 const gameOverOverlayEl = document.getElementById('gameOverOverlay');
 const gameOverTimerEl = document.getElementById('gameOverTimer');
@@ -1977,6 +1978,18 @@ function updateCamera(dt) {
   camera.lookAt(lookTarget);
 }
 
+function updateMissionMessage() {
+  if (!missionMessageEl) {
+    return;
+  }
+  const director = state.encounterDirector || null;
+  const message = director?.missionMessage || '';
+  missionMessageEl.textContent = message;
+  missionMessageEl.classList.toggle('is-visible', Boolean(message));
+  missionMessageEl.classList.toggle('is-success', director?.missionMessageKind === 'success');
+  missionMessageEl.classList.toggle('is-fail', director?.missionMessageKind === 'fail');
+}
+
 function updateHud() {
   const nearest = state.nearestPlanet;
   const alt = state.nearestAltitude;
@@ -2013,6 +2026,7 @@ function updateHud() {
   }
   const aim = getClampedAim();
   reticleEl.style.transform = `translate(calc(-50% + ${aim.x * RETICLE_OFFSET_PX}px), calc(-50% + ${aim.y * RETICLE_OFFSET_PX}px))`;
+  updateMissionMessage();
   updateEnemyHudMarkers();
 }
 
@@ -2046,9 +2060,10 @@ function updateEnemyHudMarkers() {
   const candidates = state.enemies
     .map((enemy) => ({
       enemy,
-      distance: enemy.position.distanceTo(shipPos)
+      distance: enemy.position.distanceTo(shipPos),
+      priority: enemy.hudPriority || 0
     }))
-    .sort((a, b) => a.distance - b.distance)
+    .sort((a, b) => (b.priority - a.priority) || (a.distance - b.distance))
     .slice(0, ENEMY_HUD_MARKER_COUNT);
 
   const width = window.innerWidth;
@@ -2066,6 +2081,7 @@ function updateEnemyHudMarkers() {
     }
 
     const enemy = candidate.enemy;
+    marker.classList.toggle('is-priority', Boolean(enemy.isPrimaryThreat || candidate.priority > 0));
     const toEnemy = tempVecA.copy(enemy.position).sub(camera.position);
     const camForward = tempVecB.set(0, 0, -1).applyQuaternion(camera.quaternion);
     const camRight = tempVecC.set(1, 0, 0).applyQuaternion(camera.quaternion);

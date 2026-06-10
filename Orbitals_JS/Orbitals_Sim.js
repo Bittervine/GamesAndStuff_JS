@@ -615,6 +615,7 @@ function createEnemyState() {
     aiMode: '',
     aiTargetPlanetIndex: -1,
     aiDepartPlanetIndex: -1,
+    aiPresentationSignature: '',
     fighterSettleTimer: 0,
     atmosphericCruiseAltitudeFactor: config.atmosphereCruiseAltitudeFactor,
     hasSmoothedTargetPoint: false,
@@ -626,11 +627,293 @@ function createEnemyState() {
     targetPlanetIndex: 0,
     nextPlanetIndex: 0,
     modeTimer: 0,
+    combatRole: 'reserve',
+    presentation: null,
+    objectiveAttack: null,
+    encounterId: -1,
+    lastPresentationTime: -Infinity,
+    presentationShootableFrames: 0,
+    presentationKindLastUsed: '',
+    isPrimaryThreat: false,
+    hudPriority: config.encounterReserveHudPriority,
     root: null,
     visual: null,
     modelPivot: null,
     model: null
   };
+}
+
+function createEncounterDirectorState() {
+  return {
+    activeEncounterId: -1,
+    nextEncounterId: 1,
+    nextEncounterEntityId: 1,
+    nextSelectionTimer: 0,
+    encounters: [],
+    activePresenterEnemyIds: [],
+    activeObjectiveAttackerEnemyIds: [],
+    lastPresentationKindIndex: 0,
+    missionMessage: '',
+    missionMessageKind: '',
+    missionMessageUntil: 0
+  };
+}
+
+function resetEncounterDirectorState(state) {
+  state.encounterDirector = createEncounterDirectorState();
+  state.encounterEntities = [];
+}
+
+function createEncounterState(state, options = {}) {
+  const director = state.encounterDirector || createEncounterDirectorState();
+  state.encounterDirector = director;
+  const id = options.id ?? director.nextEncounterId++;
+  const encounter = {
+    id,
+    type: options.type || 'planetInvasion',
+    status: options.status || 'inactive',
+    anchorKind: options.anchorKind || 'planet',
+    anchorPlanetIndex: options.anchorPlanetIndex ?? -1,
+    anchorEntityId: options.anchorEntityId ?? -1,
+    anchorPoint: options.anchorPoint ? options.anchorPoint.clone() : null,
+    objectiveKind: options.objectiveKind || 'clearEnemies',
+    protectedEntityId: options.protectedEntityId ?? -1,
+    targetEntityId: options.targetEntityId ?? -1,
+    spawnedEnemyIds: Array.isArray(options.spawnedEnemyIds) ? options.spawnedEnemyIds.slice() : [],
+    activePresenterEnemyIds: [],
+    activeObjectiveAttackerEnemyIds: [],
+    reserveEnemyIds: [],
+    mothershipSquadId: options.mothershipSquadId ?? -1,
+    totalReleased: options.totalReleased ?? 0,
+    totalDestroyed: options.totalDestroyed ?? 0,
+    startedAt: options.startedAt ?? 0,
+    endedAt: 0,
+    clearEventPushed: false,
+    successEventPushed: false,
+    failEventPushed: false,
+    activationRadius: options.activationRadius ?? config.encounterMissionActivationDistance,
+    abortDistance: options.abortDistance ?? config.encounterMissionAbortDistance,
+    missionActiveText: options.missionActiveText || '',
+    missionSuccessText: options.missionSuccessText || '',
+    missionFailureText: options.missionFailureText || '',
+    missionAbortText: options.missionAbortText || '',
+    duration: options.duration ?? 0,
+    activatedByPlayer: Boolean(options.activatedByPlayer)
+  };
+  director.encounters.push(encounter);
+  return encounter;
+}
+
+function createEncounterEntityState(state, options = {}) {
+  const director = state.encounterDirector || createEncounterDirectorState();
+  state.encounterDirector = director;
+  const entity = {
+    id: options.id ?? director.nextEncounterEntityId++,
+    kind: options.kind || 'transport',
+    family: options.family || 'Nemesis',
+    assetFile: options.assetFile || 'ship_nemesis2.glb',
+    position: options.position ? options.position.clone() : new THREE.Vector3(),
+    previousPosition: options.position ? options.position.clone() : new THREE.Vector3(),
+    velocity: options.velocity ? options.velocity.clone() : new THREE.Vector3(),
+    forward: options.forward ? options.forward.clone().normalize() : new THREE.Vector3(0, 0, 1),
+    up: options.up ? options.up.clone().normalize() : new THREE.Vector3(0, 1, 0),
+    radius: options.radius ?? ENEMY_HIT_RADIUS * 3,
+    health: options.health ?? config.transportDefenseEntityHealth,
+    maxHealth: options.maxHealth ?? options.health ?? config.transportDefenseEntityHealth,
+    speed: options.speed ?? config.transportDefenseEntitySpeed,
+    routeDirection: options.routeDirection ? options.routeDirection.clone().normalize() : null,
+    routeRemaining: options.routeRemaining ?? Infinity,
+    destroyed: false,
+    visualScale: options.visualScale ?? 2.4,
+    root: null,
+    visual: null,
+    modelPivot: null,
+    model: null
+  };
+  if (!Array.isArray(state.encounterEntities)) {
+    state.encounterEntities = [];
+  }
+  state.encounterEntities.push(entity);
+  return entity;
+}
+
+function getEncounterById(state, encounterId) {
+  if (!state || !state.encounterDirector || encounterId == null || encounterId < 0) {
+    return null;
+  }
+  return state.encounterDirector.encounters.find((encounter) => encounter.id === encounterId) || null;
+}
+
+export function getEncounterAnchorPosition(state, encounter) {
+  if (!state || !encounter) {
+    return null;
+  }
+  if (encounter.anchorKind === 'planet') {
+    const planet = state.planets[Math.max(0, Math.min(state.planets.length - 1, encounter.anchorPlanetIndex))];
+    return planet ? planet.position.clone() : null;
+  }
+  if (encounter.anchorKind === 'entity') {
+    const entity = (state.encounterEntities || []).find((candidate) => candidate.id === encounter.anchorEntityId);
+    return entity ? entity.position.clone() : null;
+  }
+  if (encounter.anchorKind === 'point') {
+    return encounter.anchorPoint ? encounter.anchorPoint.clone() : null;
+  }
+  if (encounter.anchorKind === 'player') {
+    return state.ship ? state.ship.position.clone() : null;
+  }
+  return null;
+}
+
+export function getEncounterAnchorVelocity(state, encounter) {
+  if (!state || !encounter) {
+    return new THREE.Vector3();
+  }
+  if (encounter.anchorKind === 'planet') {
+    const planet = state.planets[Math.max(0, Math.min(state.planets.length - 1, encounter.anchorPlanetIndex))];
+    return planet ? planet.velocity.clone() : new THREE.Vector3();
+  }
+  if (encounter.anchorKind === 'entity') {
+    const entity = (state.encounterEntities || []).find((candidate) => candidate.id === encounter.anchorEntityId);
+    return entity ? entity.velocity.clone() : new THREE.Vector3();
+  }
+  return new THREE.Vector3();
+}
+
+export function getEncounterEnemies(state, encounter) {
+  if (!state || !encounter || !Array.isArray(state.enemies)) {
+    return [];
+  }
+  const ids = new Set(encounter.spawnedEnemyIds || []);
+  return state.enemies.filter((enemy) => (
+    enemy
+    && enemy.health > 0
+    && (
+      enemy.encounterId === encounter.id
+      || ids.has(enemy.id)
+    )
+  ));
+}
+
+function getEncounterProtectedEntity(state, encounter) {
+  if (!state || !encounter) {
+    return null;
+  }
+  return (state.encounterEntities || []).find((entity) => entity.id === encounter.protectedEntityId) || null;
+}
+
+function setMissionMessage(state, message, kind = 'active') {
+  if (!state || !state.encounterDirector || !message) {
+    return;
+  }
+  state.encounterDirector.missionMessage = message;
+  state.encounterDirector.missionMessageKind = kind;
+  state.encounterDirector.missionMessageUntil = kind === 'active'
+    ? Infinity
+    : state.time + 6;
+}
+
+function markEncounterActive(state, encounter) {
+  if (!state || !encounter || encounter.status === 'active') {
+    return;
+  }
+  encounter.status = 'active';
+  encounter.startedAt = state.time;
+  pushEvent(state, 'encounter-start', {
+    encounterId: encounter.id,
+    encounterType: encounter.type,
+    anchorKind: encounter.anchorKind,
+    anchorPlanetIndex: encounter.anchorPlanetIndex,
+    anchorEntityId: encounter.anchorEntityId
+  });
+  if (encounter.type === 'planetInvasion') {
+    pushEvent(state, 'planet-invasion-start', {
+      encounterId: encounter.id,
+      planetIndex: encounter.anchorPlanetIndex,
+      mothershipSquadId: encounter.mothershipSquadId
+    });
+  }
+  if (encounter.missionActiveText) {
+    setMissionMessage(state, encounter.missionActiveText, 'active');
+  }
+}
+
+function finishEncounter(state, encounter, status, eventType, messageKind, messageText) {
+  if (!state || !encounter || encounter.status === status) {
+    return;
+  }
+  encounter.status = status;
+  encounter.endedAt = state.time;
+  if (eventType === 'encounter-success') {
+    encounter.successEventPushed = true;
+  } else if (eventType === 'encounter-fail') {
+    encounter.failEventPushed = true;
+  }
+  pushEvent(state, eventType, {
+    encounterId: encounter.id,
+    encounterType: encounter.type,
+    totalReleased: encounter.totalReleased,
+    totalDestroyed: encounter.totalDestroyed
+  });
+  pushEvent(state, 'encounter-end', {
+    encounterId: encounter.id,
+    encounterType: encounter.type,
+    status: encounter.status,
+    totalReleased: encounter.totalReleased,
+    totalDestroyed: encounter.totalDestroyed
+  });
+  if (messageText) {
+    setMissionMessage(state, messageText, messageKind);
+  }
+}
+
+function ensurePlanetInvasionEncounterForMothership(state, mothershipSquad, activate = false) {
+  if (!state || !mothershipSquad) {
+    return null;
+  }
+  if (!state.encounterDirector) {
+    resetEncounterDirectorState(state);
+  }
+  let encounter = getEncounterById(state, mothershipSquad.encounterId);
+  if (!encounter) {
+    encounter = state.encounterDirector.encounters.find((candidate) => (
+      candidate.type === 'planetInvasion'
+      && candidate.mothershipSquadId === mothershipSquad.id
+    )) || null;
+  }
+  if (!encounter) {
+    const planet = state.planets[mothershipSquad.targetPlanetIndex] || null;
+    encounter = createEncounterState(state, {
+      type: 'planetInvasion',
+      status: 'inactive',
+      anchorKind: 'planet',
+      anchorPlanetIndex: mothershipSquad.targetPlanetIndex,
+      objectiveKind: 'clearEnemies',
+      mothershipSquadId: mothershipSquad.id,
+      missionActiveText: planet ? `Mission: Clear invasion at ${planet.name}` : 'Mission: Clear the invasion',
+      missionSuccessText: planet ? `Mission Complete - ${planet.name} is safe` : 'Mission Complete - Planet is safe'
+    });
+  }
+  mothershipSquad.encounterId = encounter.id;
+  if (activate) {
+    markEncounterActive(state, encounter);
+  }
+  return encounter;
+}
+
+function registerEncounterEnemyReleased(state, encounter, enemy) {
+  if (!state || !encounter || !enemy) {
+    return;
+  }
+  enemy.encounterId = encounter.id;
+  if (!encounter.spawnedEnemyIds.includes(enemy.id)) {
+    encounter.spawnedEnemyIds.push(enemy.id);
+    encounter.totalReleased += 1;
+  }
+  encounter.reserveEnemyIds = encounter.reserveEnemyIds || [];
+  if (!encounter.reserveEnemyIds.includes(enemy.id)) {
+    encounter.reserveEnemyIds.push(enemy.id);
+  }
 }
 
 function pickRandomPlanetIndex(state, excludeIndex = -1, rng = state.rng) {
@@ -718,6 +1001,7 @@ function createEnemySquadState(state, targetPlanetIndex = -1, kind = 'regular', 
     fightersTotal: 0,
     fightersReleased: 0,
     fightersAlive: 0,
+    encounterId: -1,
     holdRadiusFactor: config.mothershipHoldRadiusFactor,
     holdAngularSpeed: 0,
     holdBetaSpeed: 0,
@@ -857,6 +1141,9 @@ function createEnemyWave(state, squad, options = {}) {
     enemy.targetPlanetIndex = squad.targetPlanetIndex;
     enemy.nextPlanetIndex = squad.nextPlanetIndex;
     enemy.parentMothershipId = squad.parentMothershipId;
+    enemy.encounterId = options.encounterId ?? squad.encounterId ?? -1;
+    enemy.combatRole = enemy.kind === 'mothership' ? 'reserve' : 'reserve';
+    enemy.hudPriority = config.encounterReserveHudPriority;
     enemy.spawnFrame = state.frameIndex;
     enemy.spawnTime = state.time;
     state.enemies.push(enemy);
@@ -917,10 +1204,12 @@ function spawnFighterSquadFromMothership(state, mothershipSquad, mothershipEnemy
   const fighterSpawnPoint = spawnCenter.clone();
   const family = mothershipSquad.fighterFamily || pickEnemyFamily(state, ['FlyingSaucer'], rng);
   mothershipSquad.fighterFamily = family;
+  const encounter = ensurePlanetInvasionEncounterForMothership(state, mothershipSquad, true);
   const squad = createEnemySquadState(state, mothershipSquad.targetPlanetIndex, 'fighter', rng);
   squad.family = family;
   squad.familyFiles = getEnemyFamilyFiles(family).slice();
   squad.parentMothershipId = mothershipSquad.id;
+  squad.encounterId = encounter ? encounter.id : -1;
   squad.targetPlanetIndex = mothershipSquad.targetPlanetIndex;
   squad.nextPlanetIndex = pickRandomPlanetIndex(state, squad.targetPlanetIndex, rng);
   squad.mode = 'approach';
@@ -950,6 +1239,9 @@ function spawnFighterSquadFromMothership(state, mothershipSquad, mothershipEnemy
   });
   const fighter = state.enemies[state.enemies.length - 1];
   if (fighter) {
+    if (encounter) {
+      registerEncounterEnemyReleased(state, encounter, fighter);
+    }
     const launchRadial = tempVecD.copy(mothershipEnemy.position).sub(planet.position);
     if (launchRadial.lengthSq() < 1e-6) {
       launchRadial.copy(planet.position);
@@ -1055,6 +1347,8 @@ function spawnMothershipSquad(state, targetPlanetIndex = -1) {
   squad.fighterReleaseCooldown = 0.5 + rng() * 1.6;
   squad.leaveAfterFightersDead = true;
   squad.fighterFamily = pickEnemyFamily(state, ['FlyingSaucer'], rng);
+  const encounter = ensurePlanetInvasionEncounterForMothership(state, squad, false);
+  squad.encounterId = encounter ? encounter.id : -1;
 
   state.nextEnemySquadId += 1;
   createEnemyWave(state, squad, {
@@ -1087,6 +1381,7 @@ function spawnMothershipSquad(state, targetPlanetIndex = -1) {
     mothership.captureTimer = config.shipCaptureBlendTime;
     mothership.targetPlanetIndex = squad.targetPlanetIndex;
     mothership.nextPlanetIndex = squad.nextPlanetIndex;
+    mothership.encounterId = squad.encounterId;
     mothership.mode = 'approach';
     mothership.mothershipStage = 'approach';
     mothership.mothershipHoldRadius = holdRadius;
@@ -1193,6 +1488,18 @@ function destroyEnemy(state, enemy, cause = 'projectile', impactPosition = null)
     return false;
   }
 
+  const encounter = getEncounterById(state, enemy.encounterId);
+  if (encounter && encounter.spawnedEnemyIds.includes(enemy.id)) {
+    encounter.totalDestroyed += 1;
+    encounter.activePresenterEnemyIds = encounter.activePresenterEnemyIds.filter((id) => id !== enemy.id);
+    encounter.activeObjectiveAttackerEnemyIds = encounter.activeObjectiveAttackerEnemyIds.filter((id) => id !== enemy.id);
+    encounter.reserveEnemyIds = encounter.reserveEnemyIds.filter((id) => id !== enemy.id);
+  }
+  if (state.encounterDirector) {
+    state.encounterDirector.activePresenterEnemyIds = state.encounterDirector.activePresenterEnemyIds.filter((id) => id !== enemy.id);
+    state.encounterDirector.activeObjectiveAttackerEnemyIds = state.encounterDirector.activeObjectiveAttackerEnemyIds.filter((id) => id !== enemy.id);
+  }
+
   enemy.destroyed = true;
   enemy.health = 0;
   enemy.boundPlanet = null;
@@ -1267,6 +1574,9 @@ function canShipsCollide(first, second) {
   const secondIsMothership = isMothershipEnemy(second);
   const firstIsRegularEnemy = Boolean(first.kind) && !firstIsMothership;
   const secondIsRegularEnemy = Boolean(second.kind) && !secondIsMothership;
+  if (firstIsRegularEnemy && secondIsRegularEnemy && !config.enemyEnemyCollisionsDamage) {
+    return false;
+  }
   if ((firstIsRegularEnemy && secondIsMothership) || (firstIsMothership && secondIsRegularEnemy)) {
     return false;
   }
@@ -1655,12 +1965,627 @@ export function formatCombatLog(state) {
     }
     if (event.type === 'enemy-crash') {
       lines.push(`[${stamp}] E#${event.enemyId} crash kind=${event.kind} family=${event.family}`);
+      continue;
+    }
+    if (event.type === 'encounter-start') {
+      lines.push(`[${stamp}] encounter#${event.encounterId} start type=${event.encounterType} anchor=${event.anchorKind}`);
+      continue;
+    }
+    if (event.type === 'encounter-success' || event.type === 'encounter-fail' || event.type === 'encounter-end') {
+      lines.push(`[${stamp}] encounter#${event.encounterId} ${event.type.replace('encounter-', '')} type=${event.encounterType} status=${event.status || ''} released=${event.totalReleased ?? '-'} destroyed=${event.totalDestroyed ?? '-'}`);
+      continue;
+    }
+    if (event.type === 'planet-invasion-start' || event.type === 'planet-invasion-cleared') {
+      lines.push(`[${stamp}] planet-invasion#${event.encounterId} ${event.type.replace('planet-invasion-', '')} planet=${event.planetIndex} released=${event.totalReleased ?? '-'} destroyed=${event.totalDestroyed ?? '-'}`);
+      continue;
+    }
+    if (event.type.startsWith('presentation-')) {
+      lines.push(`[${stamp}] presentation E#${event.enemyId} ${event.type.replace('presentation-', '')} kind=${event.kind} phase=${event.phase} shootable=${event.shootableFrames ?? 0} minAngle=${event.minAngleToPlayer == null ? '-' : Number(event.minAngleToPlayer).toFixed(1)} minDist=${event.minDistanceToPlayer == null ? '-' : Number(event.minDistanceToPlayer).toFixed(1)} reason=${event.failureReason || ''}`);
+      continue;
+    }
+    if (event.type.startsWith('objective-')) {
+      lines.push(`[${stamp}] objective E#${event.enemyId} ${event.type.replace('objective-', '')} encounter=${event.encounterId} target=${event.targetEntityId ?? '-'}`);
     }
   }
   return lines.join('\n');
 }
 
+function buildShipFrame(ship) {
+  const forward = ship?.forward && ship.forward.lengthSq() > 1e-8
+    ? ship.forward.clone().normalize()
+    : new THREE.Vector3(0, 0, 1);
+  const upSeed = ship?.up && ship.up.lengthSq() > 1e-8
+    ? ship.up.clone().normalize()
+    : worldUp.clone();
+  const up = upSeed.sub(forward.clone().multiplyScalar(upSeed.dot(forward)));
+  if (up.lengthSq() < 1e-8) {
+    up.copy(Math.abs(forward.dot(worldUp)) > 0.92
+      ? new THREE.Vector3(1, 0, 0).cross(forward)
+      : worldUp.clone().sub(forward.clone().multiplyScalar(worldUp.dot(forward))));
+  }
+  up.normalize();
+  const right = forward.clone().cross(up);
+  if (right.lengthSq() < 1e-8) {
+    right.copy(new THREE.Vector3(1, 0, 0));
+  }
+  right.normalize();
+  return { forward, up, right };
+}
+
+function measureEnemyInPlayerFrame(state, enemy) {
+  if (!state?.ship || !enemy) {
+    return null;
+  }
+  const frame = buildShipFrame(state.ship);
+  const offset = enemy.position.clone().sub(state.ship.position);
+  const distance = offset.length();
+  const direction = distance > 1e-8 ? offset.clone().multiplyScalar(1 / distance) : frame.forward.clone();
+  const forwardDot = THREE.MathUtils.clamp(direction.dot(frame.forward), -1, 1);
+  const angleDeg = THREE.MathUtils.radToDeg(Math.acos(forwardDot));
+  return {
+    distance,
+    forward: offset.dot(frame.forward),
+    right: offset.dot(frame.right),
+    up: offset.dot(frame.up),
+    angleDeg,
+    shootable: angleDeg <= config.encounterShootableAngleDeg
+      && distance >= config.encounterShootableMinDistance
+      && distance <= config.encounterShootableMaxDistance
+  };
+}
+
+function projectSlotToPlanetShell(planet, slot, altitudeFactor = config.fighterPatrolAltitudeFactor) {
+  if (!planet || !slot) {
+    return slot ? slot.clone() : new THREE.Vector3();
+  }
+  const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 1.0);
+  const direction = slot.clone().sub(planet.position);
+  if (direction.lengthSq() < 1e-8) {
+    direction.copy(worldUp);
+  }
+  direction.normalize();
+  const desiredAltitude = atmosphereThickness * altitudeFactor;
+  return planet.position.clone().addScaledVector(direction, planet.radius + desiredAltitude);
+}
+
+function computePlayerRelativeSlot(state, planet, forwardDistance, rightDistance, upDistance, altitudeFactor = config.fighterPatrolAltitudeFactor) {
+  const ship = state.ship;
+  if (!ship) {
+    return planet ? planet.position.clone() : new THREE.Vector3();
+  }
+  const frame = buildShipFrame(ship);
+  const rawSlot = ship.position.clone()
+    .addScaledVector(frame.forward, forwardDistance)
+    .addScaledVector(frame.right, rightDistance)
+    .addScaledVector(frame.up, upDistance);
+  return planet ? projectSlotToPlanetShell(planet, rawSlot, altitudeFactor) : rawSlot;
+}
+
+function liftTargetAboveEnemyHorizon(enemy, planet, target) {
+  if (!enemy || !planet || !target) {
+    return target;
+  }
+  const radialUp = enemy.position.clone().sub(planet.position);
+  if (radialUp.lengthSq() < 1e-8) {
+    radialUp.copy(worldUp);
+  }
+  radialUp.normalize();
+  const toTarget = target.clone().sub(enemy.position);
+  const distance = toTarget.length();
+  if (distance <= 1e-8) {
+    return target;
+  }
+  const climbDot = toTarget.multiplyScalar(1 / distance).dot(radialUp);
+  const minClimbDot = config.encounterPresentationMinTargetClimbDot;
+  if (climbDot < minClimbDot) {
+    target.addScaledVector(
+      radialUp,
+      (minClimbDot - climbDot) * distance + config.encounterPresentationTerrainLiftOffset
+    );
+  }
+  const altitude = enemy.position.distanceTo(planet.position) - planet.radius;
+  const safeAltitude = config.atmosphereTerrainCrashAltitude + config.encounterPresentationTerrainLiftOffset;
+  if (altitude < safeAltitude) {
+    target.addScaledVector(radialUp, safeAltitude - altitude);
+  }
+  return target;
+}
+
+function computeEntityRelativeSlot(entity, forwardDistance, rightDistance, upDistance) {
+  const frame = buildShipFrame(entity);
+  return entity.position.clone()
+    .addScaledVector(frame.forward, forwardDistance)
+    .addScaledVector(frame.right, rightDistance)
+    .addScaledVector(frame.up, upDistance);
+}
+
+function presentationRequiredFrames(kind) {
+  if (kind === 'sideCross') {
+    return config.encounterSideCrossRequiredFrames;
+  }
+  if (kind === 'headOnBreakaway') {
+    return config.encounterHeadOnRequiredFrames;
+  }
+  return config.encounterShootableRequiredFrames;
+}
+
+function pushPresentationEvent(state, type, enemy, presentation, extra = {}) {
+  pushEvent(state, type, {
+    enemyId: enemy.id,
+    encounterId: enemy.encounterId,
+    encounterType: getEncounterById(state, enemy.encounterId)?.type || '',
+    kind: presentation?.kind || '',
+    phase: presentation?.phase || '',
+    startTime: presentation?.startedAt ?? null,
+    phaseStartedAt: presentation?.phaseStartedAt ?? null,
+    shootableFrames: presentation?.shootableFrames ?? 0,
+    minAngleToPlayer: presentation?.minAngleToPlayer ?? null,
+    minDistanceToPlayer: presentation?.minDistanceToPlayer ?? null,
+    maxDistanceToPlayer: presentation?.maxDistanceToPlayer ?? null,
+    ...extra
+  });
+}
+
+function setPresentationPhase(state, enemy, phase) {
+  const presentation = enemy.presentation;
+  if (!presentation || presentation.phase === phase) {
+    return;
+  }
+  presentation.phase = phase;
+  presentation.phaseStartedAt = state.time;
+  pushPresentationEvent(state, 'presentation-phase', enemy, presentation);
+}
+
+function updatePresentationMetrics(state, enemy) {
+  const presentation = enemy.presentation;
+  if (!presentation) {
+    return null;
+  }
+  const metrics = measureEnemyInPlayerFrame(state, enemy);
+  if (!metrics) {
+    return null;
+  }
+  if (metrics.shootable) {
+    presentation.shootableFrames += 1;
+    enemy.presentationShootableFrames = presentation.shootableFrames;
+  }
+  if (presentation.minAngleToPlayer == null || metrics.angleDeg < presentation.minAngleToPlayer) {
+    presentation.minAngleToPlayer = metrics.angleDeg;
+  }
+  if (presentation.minDistanceToPlayer == null || metrics.distance < presentation.minDistanceToPlayer) {
+    presentation.minDistanceToPlayer = metrics.distance;
+  }
+  if (presentation.maxDistanceToPlayer == null || metrics.distance > presentation.maxDistanceToPlayer) {
+    presentation.maxDistanceToPlayer = metrics.distance;
+  }
+  return metrics;
+}
+
+function endEnemyPresentation(state, enemy, succeeded, reason = '') {
+  const presentation = enemy.presentation;
+  if (!presentation) {
+    return;
+  }
+  const encounter = getEncounterById(state, enemy.encounterId);
+  pushPresentationEvent(state, succeeded ? 'presentation-success' : 'presentation-fail', enemy, presentation, {
+    endTime: state.time,
+    failureReason: succeeded ? '' : reason
+  });
+  pushPresentationEvent(state, 'presentation-end', enemy, presentation, {
+    endTime: state.time,
+    result: succeeded ? 'success' : 'fail',
+    failureReason: succeeded ? '' : reason
+  });
+  enemy.combatRole = 'cooldown';
+  enemy.isPrimaryThreat = false;
+  enemy.hudPriority = config.encounterReserveHudPriority;
+  enemy.lastPresentationTime = state.time;
+  enemy.presentation = {
+    ...presentation,
+    phase: 'cooldown',
+    phaseStartedAt: state.time,
+    endedAt: state.time,
+    succeeded,
+    failureReason: reason
+  };
+  if (encounter) {
+    encounter.activePresenterEnemyIds = encounter.activePresenterEnemyIds.filter((id) => id !== enemy.id);
+    if (!encounter.reserveEnemyIds.includes(enemy.id)) {
+      encounter.reserveEnemyIds.push(enemy.id);
+    }
+  }
+  if (state.encounterDirector) {
+    state.encounterDirector.activePresenterEnemyIds = state.encounterDirector.activePresenterEnemyIds.filter((id) => id !== enemy.id);
+  }
+}
+
+function beginEnemyPresentation(state, enemy, encounter, kind, options = {}) {
+  if (!enemy || !encounter) {
+    return false;
+  }
+  const side = options.side || (state.rng() < 0.5 ? -1 : 1);
+  enemy.encounterId = encounter.id;
+  enemy.combatRole = 'presenter';
+  enemy.isPrimaryThreat = true;
+  enemy.hudPriority = config.encounterPresenterHudPriority;
+  enemy.presentationShootableFrames = 0;
+  enemy.presentationKindLastUsed = kind;
+  enemy.presentation = {
+    kind,
+    phase: kind === 'headOnBreakaway' ? 'stageFront' : 'stage',
+    side,
+    startedAt: state.time,
+    phaseStartedAt: state.time,
+    maxDuration: options.maxDuration ?? config.encounterPresentationMaxDuration,
+    shootableFrames: 0,
+    crossedCenter: false,
+    committed: false,
+    initialSideSign: 0,
+    lockedBreakawayPoint: null,
+    minAngleToPlayer: null,
+    minDistanceToPlayer: null,
+    maxDistanceToPlayer: null,
+    forced: Boolean(options.forced)
+  };
+  encounter.activePresenterEnemyIds = encounter.activePresenterEnemyIds.filter((id) => id !== enemy.id);
+  encounter.activePresenterEnemyIds.push(enemy.id);
+  encounter.reserveEnemyIds = encounter.reserveEnemyIds.filter((id) => id !== enemy.id);
+  state.encounterDirector.activePresenterEnemyIds = state.encounterDirector.activePresenterEnemyIds.filter((id) => id !== enemy.id);
+  state.encounterDirector.activePresenterEnemyIds.push(enemy.id);
+  pushPresentationEvent(state, 'presentation-start', enemy, enemy.presentation);
+  return true;
+}
+
+function computeBehindCatchupTarget(state, enemy, planet) {
+  const presentation = enemy.presentation;
+  const phaseAge = state.time - presentation.phaseStartedAt;
+  const age = state.time - presentation.startedAt;
+  const metrics = updatePresentationMetrics(state, enemy);
+  const requiredFrames = presentationRequiredFrames(presentation.kind);
+
+  if (presentation.phase === 'stage') {
+    const stageSlot = computePlayerRelativeSlot(
+      state,
+      planet,
+      config.encounterBehindStageDistance,
+      presentation.side * config.encounterBehindStageSideOffset,
+      config.encounterBehindStageUpOffset
+    );
+    const alreadyStagedBehind = metrics
+      && metrics.forward < -config.encounterShootableMinDistance
+      && metrics.distance <= Math.abs(config.encounterBehindStageDistance) + config.encounterPresentationSlotTolerance;
+    if (alreadyStagedBehind || phaseAge >= config.encounterPresentationStageDuration || enemy.position.distanceTo(stageSlot) <= config.encounterPresentationSlotTolerance) {
+      setPresentationPhase(state, enemy, 'present');
+    } else {
+      return stageSlot;
+    }
+  }
+
+  if (presentation.phase === 'present') {
+    if (presentation.shootableFrames >= requiredFrames) {
+      presentation.success = true;
+      setPresentationPhase(state, enemy, 'escape');
+    } else if (age >= presentation.maxDuration - config.encounterPresentationEscapeDuration) {
+      presentation.success = false;
+      setPresentationPhase(state, enemy, 'escape');
+    } else {
+      return computePlayerRelativeSlot(
+        state,
+        planet,
+        config.encounterBehindPresentDistance,
+        presentation.side * config.encounterBehindPresentSideOffset,
+        config.encounterBehindPresentUpOffset
+      );
+    }
+  }
+
+  if (presentation.phase === 'escape') {
+    if (phaseAge >= config.encounterPresentationEscapeDuration) {
+      endEnemyPresentation(state, enemy, Boolean(presentation.success), presentation.success ? '' : 'insufficient-shootable-frames');
+      return null;
+    }
+    return computePlayerRelativeSlot(
+      state,
+      planet,
+      config.encounterBehindEscapeDistance,
+      presentation.side * config.encounterBehindEscapeSideOffset,
+      config.encounterBehindEscapeUpOffset
+    );
+  }
+
+  if (metrics && metrics.distance < config.encounterReserveMinPlayerDistance) {
+    return computePlayerRelativeSlot(state, planet, config.encounterBehindEscapeDistance, presentation.side * config.encounterBehindEscapeSideOffset, config.encounterBehindEscapeUpOffset);
+  }
+  return null;
+}
+
+function computeSideCrossTarget(state, enemy, planet) {
+  const presentation = enemy.presentation;
+  const phaseAge = state.time - presentation.phaseStartedAt;
+  const age = state.time - presentation.startedAt;
+  const metrics = updatePresentationMetrics(state, enemy);
+  const requiredFrames = presentationRequiredFrames(presentation.kind);
+  if (metrics) {
+    const sideSign = Math.sign(metrics.right || presentation.side);
+    if (!presentation.initialSideSign) {
+      presentation.initialSideSign = sideSign || presentation.side;
+    } else if (sideSign && sideSign !== presentation.initialSideSign) {
+      presentation.crossedCenter = true;
+    }
+    if (metrics.forward > 0 && metrics.angleDeg <= config.encounterShootableAngleDeg * 1.15) {
+      presentation.crossedCenter = true;
+    }
+  }
+
+  if (presentation.phase === 'stage') {
+    const stageSlot = computePlayerRelativeSlot(
+      state,
+      planet,
+      config.encounterSideStageForwardDistance,
+      presentation.side * config.encounterSideStageSideDistance,
+      config.encounterSideStageUpOffset
+    );
+    if (phaseAge >= config.encounterPresentationStageDuration || enemy.position.distanceTo(stageSlot) <= config.encounterPresentationSlotTolerance) {
+      setPresentationPhase(state, enemy, 'cross');
+    } else {
+      return stageSlot;
+    }
+  }
+
+  if (presentation.phase === 'cross') {
+    if (presentation.crossedCenter && presentation.shootableFrames >= requiredFrames) {
+      presentation.success = true;
+      setPresentationPhase(state, enemy, 'escape');
+    } else if (phaseAge >= config.encounterPresentationCrossDuration || age >= presentation.maxDuration - config.encounterPresentationEscapeDuration) {
+      presentation.success = presentation.crossedCenter && presentation.shootableFrames > 0;
+      setPresentationPhase(state, enemy, 'escape');
+    } else {
+      return computePlayerRelativeSlot(
+        state,
+        planet,
+        config.encounterSideCrossForwardDistance,
+        -presentation.side * config.encounterSideCrossSideDistance,
+        config.encounterSideCrossUpOffset
+      );
+    }
+  }
+
+  if (presentation.phase === 'escape') {
+    if (phaseAge >= config.encounterPresentationEscapeDuration) {
+      const reason = presentation.crossedCenter ? 'insufficient-shootable-frames' : 'did-not-cross-center';
+      endEnemyPresentation(state, enemy, Boolean(presentation.success), presentation.success ? '' : reason);
+      return null;
+    }
+    return computePlayerRelativeSlot(
+      state,
+      planet,
+      config.encounterSideEscapeForwardDistance,
+      -presentation.side * config.encounterSideEscapeSideDistance,
+      config.encounterSideEscapeUpOffset
+    );
+  }
+
+  return null;
+}
+
+function computeHeadOnBreakawayTarget(state, enemy, planet) {
+  const presentation = enemy.presentation;
+  const phaseAge = state.time - presentation.phaseStartedAt;
+  const age = state.time - presentation.startedAt;
+  const metrics = updatePresentationMetrics(state, enemy);
+  const requiredFrames = presentationRequiredFrames(presentation.kind);
+
+  if (presentation.phase === 'stageFront') {
+    const stageSlot = computePlayerRelativeSlot(
+      state,
+      planet,
+      config.encounterHeadOnStageDistance,
+      presentation.side * config.encounterHeadOnStageSideOffset,
+      config.encounterHeadOnStageUpOffset
+    );
+    if (phaseAge >= config.encounterPresentationStageDuration || (metrics && metrics.forward > 0 && metrics.distance <= config.encounterHeadOnCommitDistance)) {
+      presentation.committed = true;
+      presentation.lockedBreakawayPoint = computePlayerRelativeSlot(
+        state,
+        planet,
+        config.encounterHeadOnBreakawayDistance,
+        -presentation.side * config.encounterHeadOnBreakawaySideOffset,
+        config.encounterHeadOnBreakawayUpOffset
+      );
+      setPresentationPhase(state, enemy, 'commit');
+    } else {
+      return stageSlot;
+    }
+  }
+
+  if (presentation.phase === 'commit') {
+    if (presentation.shootableFrames >= requiredFrames || phaseAge >= config.encounterHeadOnCommitDuration) {
+      presentation.success = presentation.shootableFrames > 0;
+      setPresentationPhase(state, enemy, 'breakAway');
+    } else {
+      return computePlayerRelativeSlot(
+        state,
+        planet,
+        config.encounterHeadOnStageDistance * 0.55,
+        presentation.side * config.encounterHeadOnStageSideOffset,
+        config.encounterHeadOnStageUpOffset
+      );
+    }
+  }
+
+  if (presentation.phase === 'breakAway') {
+    if (phaseAge >= config.encounterPresentationEscapeDuration || age >= presentation.maxDuration) {
+      endEnemyPresentation(state, enemy, Boolean(presentation.success), presentation.success ? '' : 'head-on-breakaway-window-missed');
+      return null;
+    }
+    return presentation.lockedBreakawayPoint
+      ? presentation.lockedBreakawayPoint.clone()
+      : computePlayerRelativeSlot(
+        state,
+        planet,
+        config.encounterHeadOnBreakawayDistance,
+        -presentation.side * config.encounterHeadOnBreakawaySideOffset,
+        config.encounterHeadOnBreakawayUpOffset
+      );
+  }
+
+  return null;
+}
+
+function computeEnemyPresentationTargetPoint(state, enemy, squad, planet, time) {
+  if (!enemy || enemy.combatRole !== 'presenter' || !enemy.presentation || enemy.presentation.phase === 'cooldown') {
+    return null;
+  }
+  const presentation = enemy.presentation;
+  if (time - presentation.startedAt > presentation.maxDuration + config.encounterPresentationEscapeDuration + 1) {
+    endEnemyPresentation(state, enemy, false, 'timeout');
+    return null;
+  }
+  if (presentation.kind === 'behindCatchup') {
+    return computeBehindCatchupTarget(state, enemy, planet);
+  }
+  if (presentation.kind === 'sideCross') {
+    return computeSideCrossTarget(state, enemy, planet);
+  }
+  if (presentation.kind === 'headOnBreakaway') {
+    return computeHeadOnBreakawayTarget(state, enemy, planet);
+  }
+  return null;
+}
+
+function computeEnemyReserveTargetPoint(state, enemy, squad, planet) {
+  if (!enemy || !planet || enemy.kind === 'mothership' || enemy.combatRole === 'presenter' || enemy.combatRole === 'objectiveAttacker') {
+    return null;
+  }
+  const encounter = getEncounterById(state, enemy.encounterId);
+  if (!encounter || encounter.status !== 'active' || encounter.anchorKind !== 'planet') {
+    return null;
+  }
+  const metrics = measureEnemyInPlayerFrame(state, enemy);
+  if (!metrics) {
+    return null;
+  }
+  const crowding = metrics.distance < config.encounterReserveMinPlayerDistance
+    || (metrics.forward > 0 && metrics.angleDeg < config.encounterShootableAngleDeg * 1.6 && metrics.distance < config.encounterShootableMaxDistance * 0.9);
+  if (!crowding) {
+    return null;
+  }
+  const side = Math.sign(metrics.right) || (enemy.id % 2 === 0 ? 1 : -1);
+  return computePlayerRelativeSlot(
+    state,
+    planet,
+    -config.encounterReserveLoiterDistance * 0.35,
+    side * config.encounterReserveLoiterDistance,
+    config.encounterSideEscapeUpOffset
+  );
+}
+
+function computeEnemyObjectiveAttackTargetPoint(state, enemy, squad, planet, time) {
+  if (!enemy || enemy.combatRole !== 'objectiveAttacker' || !enemy.objectiveAttack || enemy.objectiveAttack.phase === 'cooldown') {
+    return null;
+  }
+  const encounter = getEncounterById(state, enemy.encounterId);
+  const target = getEncounterProtectedEntity(state, encounter) || getEncounterAnchorPosition(state, encounter);
+  if (!target) {
+    return null;
+  }
+  const attack = enemy.objectiveAttack;
+  const targetEntity = target.position ? target : null;
+  const entityFrameSource = targetEntity || { position: target, forward: enemy.forward, up: enemy.up };
+  const phaseAge = time - attack.phaseStartedAt;
+  const targetPoint = targetEntity ? targetEntity.position : target;
+  const distanceToTarget = enemy.position.distanceTo(targetPoint);
+
+  if (attack.phase === 'stage') {
+    const stageSlot = computeEntityRelativeSlot(
+      entityFrameSource,
+      -config.transportDefenseAttackSlotDistance,
+      attack.attackSlotSide * config.transportDefenseAttackSlotSideOffset,
+      config.transportDefenseAttackSlotUpOffset
+    );
+    if (phaseAge >= config.encounterPresentationStageDuration || enemy.position.distanceTo(stageSlot) <= config.encounterPresentationSlotTolerance) {
+      attack.phase = 'attack';
+      attack.phaseStartedAt = time;
+      pushEvent(state, 'objective-attack-start', {
+        enemyId: enemy.id,
+        encounterId: encounter?.id ?? -1,
+        encounterType: encounter?.type || '',
+        targetEntityId: attack.targetEntityId
+      });
+    } else {
+      return stageSlot;
+    }
+  }
+
+  if (attack.phase === 'attack') {
+    if (distanceToTarget <= config.transportDefenseAttackSlotDistance) {
+      attack.reachedAttackSlot = true;
+    }
+    if (phaseAge >= config.transportDefenseAttackRunDuration || attack.reachedAttackSlot) {
+      attack.phase = 'escape';
+      attack.phaseStartedAt = time;
+      pushEvent(state, 'objective-attack-success', {
+        enemyId: enemy.id,
+        encounterId: encounter?.id ?? -1,
+        reachedAttackSlot: Boolean(attack.reachedAttackSlot)
+      });
+    } else {
+      return computeEntityRelativeSlot(
+        entityFrameSource,
+        config.transportDefenseAttackSlotDistance * 0.15,
+        -attack.attackSlotSide * config.transportDefenseAttackSlotSideOffset * 0.35,
+        config.transportDefenseAttackSlotUpOffset * 0.35
+      );
+    }
+  }
+
+  if (attack.phase === 'escape') {
+    if (phaseAge >= config.transportDefenseAttackerCooldown) {
+      enemy.combatRole = 'cooldown';
+      enemy.objectiveAttack = {
+        ...attack,
+        phase: 'cooldown',
+        phaseStartedAt: time
+      };
+      enemy.isPrimaryThreat = false;
+      enemy.hudPriority = config.encounterReserveHudPriority;
+      if (encounter) {
+        encounter.activeObjectiveAttackerEnemyIds = encounter.activeObjectiveAttackerEnemyIds.filter((id) => id !== enemy.id);
+      }
+      if (state.encounterDirector) {
+        state.encounterDirector.activeObjectiveAttackerEnemyIds = state.encounterDirector.activeObjectiveAttackerEnemyIds.filter((id) => id !== enemy.id);
+      }
+      pushEvent(state, 'objective-attack-end', {
+        enemyId: enemy.id,
+        encounterId: encounter?.id ?? -1
+      });
+      return null;
+    }
+    return computeEntityRelativeSlot(
+      entityFrameSource,
+      config.transportDefenseAttackSlotDistance,
+      attack.attackSlotSide * config.transportDefenseAttackSlotSideOffset * 2,
+      config.transportDefenseAttackSlotUpOffset * 2
+    );
+  }
+
+  return null;
+}
+
 function computeEnemyTargetPoint(state, enemy, squad, planet, time) {
+  const objectiveAttackTarget = computeEnemyObjectiveAttackTargetPoint(state, enemy, squad, planet, time);
+  if (objectiveAttackTarget) {
+    return objectiveAttackTarget;
+  }
+  const presentationTarget = computeEnemyPresentationTargetPoint(state, enemy, squad, planet, time);
+  if (presentationTarget) {
+    return liftTargetAboveEnemyHorizon(enemy, planet, presentationTarget);
+  }
+  const reserveTarget = computeEnemyReserveTargetPoint(state, enemy, squad, planet);
+  if (reserveTarget) {
+    return liftTargetAboveEnemyHorizon(enemy, planet, reserveTarget);
+  }
+
   const radial = planet.position.lengthSq() > 1e-6
     ? tempVecA.copy(planet.position).normalize()
     : tempVecA.copy(worldUp);
@@ -1772,7 +2697,17 @@ function beginEnemyDepart(state, squad, targetPlanet) {
   squad.nextPlanetIndex = pickRandomPlanetIndex(state, squad.targetPlanetIndex);
 }
 
-function shouldEnemyStayBound(enemy, squad, targetPlanet, targetAltitude) {
+function shouldEnemyStayBound(state, enemy, squad, targetPlanet, targetAltitude) {
+  const directedEncounterMode = (
+    (enemy.combatRole === 'presenter' && enemy.presentation && enemy.presentation.phase !== 'cooldown')
+    || (enemy.combatRole === 'objectiveAttacker' && enemy.objectiveAttack && enemy.objectiveAttack.phase !== 'cooldown')
+  );
+  if (directedEncounterMode && enemy.encounterId >= 0) {
+    const encounter = getEncounterById(state, enemy.encounterId);
+    if (encounter && encounter.anchorKind !== 'planet') {
+      return false;
+    }
+  }
   if (squad.mode === 'swarm') {
     return true;
   }
@@ -1829,16 +2764,34 @@ function computeEnemyControlTargetSpeed(state, targetPlanet, enemy, squad) {
         : ENEMY_APPROACH_ALTITUDE
   );
   const surfaceSpeed = Math.sqrt(Math.max(targetPlanet.gravityStrength / Math.max(desiredRadius, 1.0), 1.0));
-  return surfaceSpeed * THREE.MathUtils.lerp(0.12, 0.18, enemy.speedScale);
+  let presentationSpeedMultiplier = enemy.combatRole === 'presenter' && enemy.presentation && enemy.presentation.phase !== 'cooldown'
+    ? config.enemyPresentationSpeedMultiplier
+    : 1;
+  if (presentationSpeedMultiplier > 1) {
+    const currentAltitude = enemy.position.distanceTo(targetPlanet.position) - targetPlanet.radius;
+    const safeAltitude = config.atmosphereTerrainCrashAltitude + config.encounterPresentationTerrainLiftOffset * 0.35;
+    const altitudeBlend = smoothstep(safeAltitude * 0.65, safeAltitude * 1.8, currentAltitude);
+    presentationSpeedMultiplier = THREE.MathUtils.lerp(1.05, presentationSpeedMultiplier, altitudeBlend);
+  }
+  return surfaceSpeed * THREE.MathUtils.lerp(0.12, 0.18, enemy.speedScale) * presentationSpeedMultiplier;
 }
 
 
 function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) {
   const rawTargetPoint = computeEnemyTargetPoint(state, enemy, squad, targetPlanet, time);
-  const travelMode = squad.mode !== 'swarm';
+  const presentationMode = enemy.combatRole === 'presenter' && enemy.presentation && enemy.presentation.phase !== 'cooldown';
+  const objectiveAttackMode = enemy.combatRole === 'objectiveAttacker' && enemy.objectiveAttack && enemy.objectiveAttack.phase !== 'cooldown';
+  const directedEncounterMode = presentationMode || objectiveAttackMode;
+  const travelMode = squad.mode !== 'swarm' || directedEncounterMode;
+  const presentationSignature = presentationMode
+    ? `${enemy.presentation.kind}:${enemy.presentation.phase}:${enemy.presentation.startedAt}`
+    : objectiveAttackMode
+      ? `objective:${enemy.objectiveAttack.kind}:${enemy.objectiveAttack.phase}:${enemy.objectiveAttack.startedAt}`
+      : '';
   const targetSignatureChanged = enemy.aiMode !== squad.mode
     || enemy.aiTargetPlanetIndex !== squad.targetPlanetIndex
-    || enemy.aiDepartPlanetIndex !== squad.departPlanetIndex;
+    || enemy.aiDepartPlanetIndex !== squad.departPlanetIndex
+    || enemy.aiPresentationSignature !== presentationSignature;
 
   if (!enemy.hasSmoothedTargetPoint || targetSignatureChanged) {
     enemy.smoothedTargetPoint.copy(rawTargetPoint);
@@ -1846,6 +2799,7 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
     enemy.aiMode = squad.mode;
     enemy.aiTargetPlanetIndex = squad.targetPlanetIndex;
     enemy.aiDepartPlanetIndex = squad.departPlanetIndex;
+    enemy.aiPresentationSignature = presentationSignature;
   } else {
     const targetSmoothRate = travelMode ? ENEMY_TARGET_SMOOTH_RATE_TRAVEL : ENEMY_TARGET_SMOOTH_RATE_SWARM;
     enemy.smoothedTargetPoint.lerp(rawTargetPoint, easeExp(dt, targetSmoothRate));
@@ -1888,8 +2842,10 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
   const wanderPitch = travelMode
     ? Math.cos(time * 0.09 + enemy.phase * 1.7) * ENEMY_TRAVEL_WANDER_PITCH * 0.45
     : Math.cos(time * 0.19 + enemy.phase * 1.7) * ENEMY_SWARM_WANDER_PITCH * 0.55;
-  const turnGain = (travelMode ? 3.2 : 1.55) * enemy.turnScale;
-  const pitchGain = (travelMode ? 1.45 : 0.95) * enemy.upScale * THREE.MathUtils.lerp(1, 0.82, liftState.thinAir);
+  const presentationTurnMultiplier = presentationMode ? config.enemyPresentationTurnMultiplier : 1;
+  const presentationPitchMultiplier = presentationMode ? config.enemyPresentationPitchMultiplier : 1;
+  const turnGain = (travelMode ? 3.2 : 1.55) * enemy.turnScale * presentationTurnMultiplier;
+  const pitchGain = (travelMode ? 1.45 : 0.95) * enemy.upScale * THREE.MathUtils.lerp(1, 0.82, liftState.thinAir) * presentationPitchMultiplier;
   let rawTurnInput = THREE.MathUtils.clamp(-yawError * turnGain + wanderTurn, -0.9, 0.9);
 
   const atmosphereThickness = liftState.atmosphereThickness;
@@ -1921,7 +2877,7 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
     0.85
   );
 
-  const fighterPatrolMode = squad.parentMothershipId >= 0 && squad.mode === 'swarm';
+  const fighterPatrolMode = !directedEncounterMode && squad.parentMothershipId >= 0 && squad.mode === 'swarm';
   if (fighterPatrolMode) {
     if (!enemy.patrolState) {
       enemy.patrolState = 'straight';
@@ -2099,16 +3055,20 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
   enemy.aiTurnInput = THREE.MathUtils.lerp(enemy.aiTurnInput || 0, rawTurnInput, easeExp(dt, inputSmoothRate));
   enemy.aiPitchInput = THREE.MathUtils.lerp(enemy.aiPitchInput || 0, rawPitchInput, easeExp(dt, inputSmoothRate));
 
-  const rawBoost = fighterPatrolMode
-    ? false
-    : (
+  const presentationSafeAltitude = config.atmosphereTerrainCrashAltitude + config.encounterPresentationTerrainLiftOffset * 0.35;
+  const rawBoost = presentationMode
+    ? currentAltitude > presentationSafeAltitude
+      && (state.rng() < config.enemyPresentationBoostBias || enemy.presentation.phase === 'stage' || enemy.presentation.phase === 'stageFront')
+    : fighterPatrolMode
+      ? false
+      : (
       squad.mode === 'depart'
       || (squad.mode === 'swarm' && currentAltitude <= desiredSwarmAltitude + atmosphereThickness * 0.08)
       || (squad.mode === 'approach' && currentAltitude > Math.max(config.planetCaptureAltitude * 1.25, desiredApproachAltitude))
     ) && (
-      desiredForward.dot(radialUp) < 0.14
-      || currentAltitude <= Math.max(desiredSwarmAltitude, config.planetCaptureAltitude)
-    );
+        desiredForward.dot(radialUp) < 0.14
+        || currentAltitude <= Math.max(desiredSwarmAltitude, config.planetCaptureAltitude)
+      );
   const rawBrake = fighterPatrolMode
     ? false
     : squad.mode === 'swarm'
@@ -2212,13 +3172,356 @@ function updateEnemyShip(state, enemy, squad, dt, time) {
   }
 
   const targetAltitude = enemy.position.distanceTo(targetPlanet.position) - targetPlanet.radius;
-  if (shouldEnemyStayBound(enemy, squad, targetPlanet, targetAltitude)) {
+  if (shouldEnemyStayBound(state, enemy, squad, targetPlanet, targetAltitude)) {
     if (enemy.boundPlanet !== targetPlanet || enemy.flightMode !== 'bound') {
       beginPlanetCapture(enemy, targetPlanet);
     }
   } else {
     enemy.boundPlanet = targetPlanet;
     enemy.flightMode = 'free';
+  }
+}
+
+function updateEncounterEntities(state, dt) {
+  if (!Array.isArray(state.encounterEntities)) {
+    return;
+  }
+  for (const entity of state.encounterEntities) {
+    if (!entity || entity.destroyed || entity.health <= 0) {
+      continue;
+    }
+    entity.previousPosition.copy(entity.position);
+    if (entity.routeDirection && entity.routeDirection.lengthSq() > 1e-8 && entity.routeRemaining > 0) {
+      const stepDistance = Math.min(entity.speed * dt, entity.routeRemaining);
+      entity.position.addScaledVector(entity.routeDirection, stepDistance);
+      entity.routeRemaining -= stepDistance;
+      entity.velocity.copy(entity.routeDirection).multiplyScalar(entity.speed);
+      entity.forward.copy(entity.routeDirection).normalize();
+    } else {
+      entity.velocity.set(0, 0, 0);
+    }
+  }
+}
+
+function isEncounterActive(encounter) {
+  return Boolean(encounter && encounter.status === 'active');
+}
+
+function isEnemyEligibleForPresentationInEncounter(state, enemy, encounter) {
+  if (!state || !enemy || !encounter || enemy.health <= 0 || enemy.kind === 'mothership') {
+    return false;
+  }
+  if (enemy.encounterId !== encounter.id && !encounter.spawnedEnemyIds.includes(enemy.id)) {
+    return false;
+  }
+  if (enemy.combatRole === 'presenter' || enemy.combatRole === 'objectiveAttacker') {
+    return false;
+  }
+  const squad = state.enemySquads.find((candidate) => candidate.id === enemy.squadId);
+  if (encounter.type === 'planetInvasion' && squad?.mode !== 'swarm') {
+    return false;
+  }
+  const age = enemy.spawnTime == null ? Infinity : state.time - enemy.spawnTime;
+  if (age < config.encounterCandidateMinAge) {
+    return false;
+  }
+  if (Number.isFinite(enemy.lastPresentationTime) && state.time - enemy.lastPresentationTime < config.encounterPresenterCooldown) {
+    return false;
+  }
+  if (enemy.presentation && enemy.presentation.phase === 'cooldown' && state.time - (enemy.presentation.phaseStartedAt || 0) < config.encounterPresenterCooldown) {
+    return false;
+  }
+  const planet = getEnemyTargetPlanet(state, enemy);
+  if (encounter.anchorKind === 'planet') {
+    if (!planet || state.planets.indexOf(planet) !== encounter.anchorPlanetIndex) {
+      return false;
+    }
+    const altitude = enemy.position.distanceTo(planet.position) - planet.radius;
+    if (altitude < config.atmosphereTerrainCrashAltitude + 3 || altitude > Math.max(planet.atmosphereRadius - planet.radius, config.planetEscapeAltitude) * 1.4) {
+      return false;
+    }
+    const metrics = measureEnemyInPlayerFrame(state, enemy);
+    if (!metrics || metrics.distance > config.encounterShootableMaxDistance * 0.42 || metrics.angleDeg > config.encounterShootableAngleDeg * 4.6) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function isEnemyEligibleForObjectiveAttackInEncounter(state, enemy, encounter) {
+  if (!isEnemyEligibleForPresentationInEncounter(state, enemy, encounter)) {
+    return false;
+  }
+  return encounter.type === 'transportDefense' || encounter.type === 'convoyEscort' || encounter.type === 'bossSupportWave';
+}
+
+function chooseActiveEncounterForPlayer(state) {
+  const director = state.encounterDirector;
+  if (!director || director.encounters.length === 0) {
+    return null;
+  }
+  const activeEncounters = director.encounters.filter(isEncounterActive);
+  if (activeEncounters.length === 0) {
+    director.activeEncounterId = -1;
+    return null;
+  }
+  const playerPlanetIndex = state.ship?.boundPlanet ? state.planets.indexOf(state.ship.boundPlanet) : -1;
+  const samePlanetInvasion = activeEncounters.find((encounter) => (
+    encounter.type === 'planetInvasion'
+    && encounter.anchorPlanetIndex === playerPlanetIndex
+    && getEncounterEnemies(state, encounter).length > 0
+  ));
+  if (samePlanetInvasion) {
+    director.activeEncounterId = samePlanetInvasion.id;
+    return samePlanetInvasion;
+  }
+  let bestEncounter = null;
+  let bestDistance = Infinity;
+  for (const encounter of activeEncounters) {
+    const enemies = getEncounterEnemies(state, encounter);
+    if (encounter.type === 'planetInvasion' && enemies.length === 0) {
+      continue;
+    }
+    const anchor = getEncounterAnchorPosition(state, encounter);
+    const distance = anchor && state.ship ? anchor.distanceTo(state.ship.position) : 0;
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestEncounter = encounter;
+    }
+  }
+  director.activeEncounterId = bestEncounter ? bestEncounter.id : -1;
+  return bestEncounter;
+}
+
+function refreshEncounterEnemyRoles(state, encounter) {
+  const enemies = getEncounterEnemies(state, encounter);
+  const activePresenterIds = new Set();
+  const activeObjectiveIds = new Set();
+  for (const enemy of enemies) {
+    if (enemy.combatRole === 'presenter' && enemy.presentation && enemy.presentation.phase !== 'cooldown') {
+      activePresenterIds.add(enemy.id);
+      enemy.isPrimaryThreat = true;
+      enemy.hudPriority = config.encounterPresenterHudPriority;
+      continue;
+    }
+    if (enemy.combatRole === 'objectiveAttacker' && enemy.objectiveAttack && enemy.objectiveAttack.phase !== 'cooldown') {
+      activeObjectiveIds.add(enemy.id);
+      enemy.isPrimaryThreat = true;
+      enemy.hudPriority = config.encounterObjectiveAttackerHudPriority;
+      continue;
+    }
+    enemy.isPrimaryThreat = false;
+    enemy.hudPriority = config.encounterReserveHudPriority;
+    const coolingDown = Number.isFinite(enemy.lastPresentationTime)
+      && state.time - enemy.lastPresentationTime < config.encounterPresenterCooldown;
+    enemy.combatRole = coolingDown ? 'cooldown' : 'candidate';
+  }
+  encounter.activePresenterEnemyIds = encounter.activePresenterEnemyIds.filter((id) => activePresenterIds.has(id));
+  encounter.activeObjectiveAttackerEnemyIds = encounter.activeObjectiveAttackerEnemyIds.filter((id) => activeObjectiveIds.has(id));
+}
+
+function pickPresentationKind(state, encounter, enemy) {
+  const director = state.encounterDirector;
+  const metrics = measureEnemyInPlayerFrame(state, enemy);
+  const sideCrossLooksReadable = metrics
+    && metrics.forward > 0
+    && Math.abs(metrics.right) > config.encounterShootableMinDistance
+    && metrics.angleDeg > config.encounterShootableAngleDeg
+    && metrics.angleDeg < 115;
+  if (encounter.type === 'planetInvasion' && !sideCrossLooksReadable) {
+    return 'behindCatchup';
+  }
+  const kinds = encounter.type === 'freeSpaceAmbush'
+    ? ['behindCatchup', 'sideCross', 'headOnBreakaway']
+    : ['behindCatchup', 'sideCross'];
+  const start = director.lastPresentationKindIndex || 0;
+  for (let i = 0; i < kinds.length; i += 1) {
+    const kind = kinds[(start + i) % kinds.length];
+    if (enemy.presentationKindLastUsed !== kind || kinds.length === 1) {
+      director.lastPresentationKindIndex = (start + i + 1) % kinds.length;
+      return kind;
+    }
+  }
+  director.lastPresentationKindIndex = (start + 1) % kinds.length;
+  return kinds[start % kinds.length];
+}
+
+function assignPresentationSlots(state, encounter) {
+  const activeCount = encounter.activePresenterEnemyIds.length;
+  const availableSlots = Math.max(0, config.encounterMaxActivePresenters - activeCount);
+  if (availableSlots <= 0) {
+    return;
+  }
+  const candidates = getEncounterEnemies(state, encounter)
+    .filter((enemy) => isEnemyEligibleForPresentationInEncounter(state, enemy, encounter))
+    .sort((a, b) => {
+      const aSquad = state.enemySquads.find((squad) => squad.id === a.squadId);
+      const bSquad = state.enemySquads.find((squad) => squad.id === b.squadId);
+      const aSwarm = aSquad?.mode === 'swarm' ? 0 : 1;
+      const bSwarm = bSquad?.mode === 'swarm' ? 0 : 1;
+      if (aSwarm !== bSwarm) {
+        return aSwarm - bSwarm;
+      }
+      return (a.lastPresentationTime || -Infinity) - (b.lastPresentationTime || -Infinity);
+    });
+  for (let i = 0; i < Math.min(availableSlots, candidates.length); i += 1) {
+    const enemy = candidates[i];
+    const kind = pickPresentationKind(state, encounter, enemy);
+    beginEnemyPresentation(state, enemy, encounter, kind);
+  }
+}
+
+function beginEnemyObjectiveAttack(state, enemy, encounter) {
+  if (!enemy || !encounter) {
+    return false;
+  }
+  enemy.encounterId = encounter.id;
+  enemy.combatRole = 'objectiveAttacker';
+  enemy.isPrimaryThreat = true;
+  enemy.hudPriority = config.encounterObjectiveAttackerHudPriority;
+  enemy.objectiveAttack = {
+    kind: encounter.type === 'bossSupportWave' ? 'interceptProtectedEntity' : 'transportAttackRun',
+    phase: 'stage',
+    startedAt: state.time,
+    phaseStartedAt: state.time,
+    targetEntityId: encounter.protectedEntityId,
+    attackSlotSide: state.rng() < 0.5 ? -1 : 1,
+    firedAtTarget: false,
+    committed: false,
+    reachedAttackSlot: false
+  };
+  encounter.activeObjectiveAttackerEnemyIds = encounter.activeObjectiveAttackerEnemyIds.filter((id) => id !== enemy.id);
+  encounter.activeObjectiveAttackerEnemyIds.push(enemy.id);
+  state.encounterDirector.activeObjectiveAttackerEnemyIds = state.encounterDirector.activeObjectiveAttackerEnemyIds.filter((id) => id !== enemy.id);
+  state.encounterDirector.activeObjectiveAttackerEnemyIds.push(enemy.id);
+  pushEvent(state, 'objective-attacker-selected', {
+    enemyId: enemy.id,
+    encounterId: encounter.id,
+    encounterType: encounter.type,
+    targetEntityId: encounter.protectedEntityId
+  });
+  return true;
+}
+
+function assignObjectiveAttackSlots(state, encounter) {
+  if (!(encounter.type === 'transportDefense' || encounter.type === 'convoyEscort' || encounter.type === 'bossSupportWave')) {
+    return;
+  }
+  const activeCount = encounter.activeObjectiveAttackerEnemyIds.length;
+  const availableSlots = Math.max(0, config.encounterMaxActiveObjectiveAttackers - activeCount);
+  if (availableSlots <= 0) {
+    return;
+  }
+  const candidates = getEncounterEnemies(state, encounter)
+    .filter((enemy) => isEnemyEligibleForObjectiveAttackInEncounter(state, enemy, encounter))
+    .sort((a, b) => (a.lastPresentationTime || -Infinity) - (b.lastPresentationTime || -Infinity));
+  for (let i = 0; i < Math.min(availableSlots, candidates.length); i += 1) {
+    beginEnemyObjectiveAttack(state, candidates[i], encounter);
+  }
+}
+
+function updateEncounterActivation(state, encounter) {
+  if (!encounter || encounter.status !== 'inactive' || encounter.activatedByPlayer !== true) {
+    return;
+  }
+  const anchor = getEncounterAnchorPosition(state, encounter);
+  if (!anchor || !state.ship) {
+    return;
+  }
+  if (state.ship.position.distanceTo(anchor) <= encounter.activationRadius) {
+    markEncounterActive(state, encounter);
+  }
+}
+
+function updatePlanetInvasionClearState(state, encounter) {
+  if (!encounter || encounter.type !== 'planetInvasion' || encounter.status !== 'active') {
+    return;
+  }
+  const mothershipSquad = state.mothershipSquads.find((squad) => squad.id === encounter.mothershipSquadId);
+  const mothershipAlive = state.enemies.some((enemy) => enemy.squadId === encounter.mothershipSquadId && enemy.kind === 'mothership' && enemy.health > 0);
+  const mothershipDone = !mothershipSquad
+    || mothershipSquad.fightersReleased >= mothershipSquad.fightersTotal
+    || !mothershipAlive;
+  const livingEncounterEnemies = getEncounterEnemies(state, encounter).filter((enemy) => enemy.kind !== 'mothership');
+  if (!mothershipDone || livingEncounterEnemies.length > 0 || encounter.totalReleased <= 0) {
+    return;
+  }
+  encounter.clearEventPushed = true;
+  pushEvent(state, 'planet-invasion-cleared', {
+    encounterId: encounter.id,
+    planetIndex: encounter.anchorPlanetIndex,
+    mothershipSquadId: encounter.mothershipSquadId,
+    totalReleased: encounter.totalReleased,
+    totalDestroyed: encounter.totalDestroyed
+  });
+  finishEncounter(state, encounter, 'cleared', 'encounter-success', 'success', encounter.missionSuccessText || 'Mission Complete - Planet is safe');
+}
+
+function updateObjectiveEncounterOutcome(state, encounter) {
+  if (!encounter || !isEncounterActive(encounter)) {
+    return;
+  }
+  if (encounter.type === 'transportDefense' || encounter.type === 'convoyEscort') {
+    const protectedEntity = getEncounterProtectedEntity(state, encounter);
+    const anchor = getEncounterAnchorPosition(state, encounter);
+    if (anchor && state.ship && state.ship.position.distanceTo(anchor) > encounter.abortDistance) {
+      finishEncounter(state, encounter, 'failed', 'encounter-fail', 'fail', encounter.missionAbortText || 'Mission Aborted - Transport was left to its fate');
+      return;
+    }
+    if (protectedEntity && (protectedEntity.destroyed || protectedEntity.health <= 0)) {
+      finishEncounter(state, encounter, 'failed', 'encounter-fail', 'fail', encounter.missionFailureText || 'Mission Failed - Transport was destroyed');
+      return;
+    }
+    if (encounter.duration > 0 && state.time - encounter.startedAt >= encounter.duration) {
+      finishEncounter(state, encounter, 'succeeded', 'encounter-success', 'success', encounter.missionSuccessText || 'Mission Complete - Transport is safe');
+    }
+  } else if (encounter.type === 'freeSpaceAmbush' || encounter.type === 'bossSupportWave') {
+    const livingEnemies = getEncounterEnemies(state, encounter);
+    if (livingEnemies.length === 0 && encounter.totalReleased > 0) {
+      finishEncounter(state, encounter, 'succeeded', 'encounter-success', 'success', encounter.missionSuccessText || 'Mission Complete');
+    } else if (encounter.duration > 0 && state.time - encounter.startedAt >= encounter.duration) {
+      finishEncounter(state, encounter, 'succeeded', 'encounter-success', 'success', encounter.missionSuccessText || 'Mission Complete');
+    }
+  }
+}
+
+function updateEncounterDirector(state, dt, time) {
+  if (!config.encounterDirectorEnabled) {
+    return;
+  }
+  if (!state.encounterDirector) {
+    resetEncounterDirectorState(state);
+  }
+  const director = state.encounterDirector;
+  updateEncounterEntities(state, dt);
+
+  for (const encounter of director.encounters) {
+    updateEncounterActivation(state, encounter);
+    if (!isEncounterActive(encounter)) {
+      continue;
+    }
+    refreshEncounterEnemyRoles(state, encounter);
+  }
+
+  const activeEncounter = chooseActiveEncounterForPlayer(state);
+  director.activePresenterEnemyIds = director.encounters.flatMap((encounter) => encounter.activePresenterEnemyIds);
+  director.activeObjectiveAttackerEnemyIds = director.encounters.flatMap((encounter) => encounter.activeObjectiveAttackerEnemyIds);
+  director.nextSelectionTimer = Math.max(0, director.nextSelectionTimer - dt);
+  if (activeEncounter && director.nextSelectionTimer <= 0) {
+    assignObjectiveAttackSlots(state, activeEncounter);
+    assignPresentationSlots(state, activeEncounter);
+    director.nextSelectionTimer = config.encounterSelectionInterval;
+  }
+
+  for (const encounter of director.encounters) {
+    updatePlanetInvasionClearState(state, encounter);
+    updateObjectiveEncounterOutcome(state, encounter);
+  }
+
+  if (Number.isFinite(director.missionMessageUntil) && time > director.missionMessageUntil) {
+    director.missionMessage = '';
+    director.missionMessageKind = '';
+    director.missionMessageUntil = 0;
   }
 }
 
@@ -2392,6 +3695,10 @@ function updateMothershipEnemy(state, enemy, squad, planet, dt) {
           z: enemy.position.z
         }
       });
+      const encounter = ensurePlanetInvasionEncounterForMothership(state, squad, true);
+      if (encounter) {
+        enemy.encounterId = encounter.id;
+      }
       return;
     }
 
@@ -3241,7 +4548,9 @@ function updateShipState(state, dt, controls) {
 
   const sunRadius = config.starScale * 0.5;
   if (ship.position.length() <= sunRadius) {
-    crashPlayerShipIntoSun(state, ship.position.clone());
+    if (isPlayerState) {
+      crashPlayerShipIntoSun(state, ship.position.clone());
+    }
     return;
   }
 
@@ -3298,6 +4607,7 @@ export function createOrbitalsSim(seed) {
     planets: [],
     fuelMotes: [],
     enemies: [],
+    encounterEntities: [],
     projectiles: [],
     enemyExplosions: [],
     nextProjectileId: 1,
@@ -3313,6 +4623,7 @@ export function createOrbitalsSim(seed) {
     mothershipSquads: [],
     mothershipSpawnTimer: config.mothershipSpawnDelayMin,
     mothershipRng: mulberry32(((seed >>> 0) ^ 0x9e3779b9) >>> 0),
+    encounterDirector: createEncounterDirectorState(),
     loaded: false,
     crashed: false,
     nearestPlanet: null,
@@ -3333,6 +4644,7 @@ export function createOrbitalsSim(seed) {
     state.planets.length = 0;
     state.fuelMotes.length = 0;
     state.enemies.length = 0;
+    state.encounterEntities.length = 0;
     state.projectiles.length = 0;
     state.enemyExplosions.length = 0;
     state.frameIndex = 0;
@@ -3354,6 +4666,7 @@ export function createOrbitalsSim(seed) {
     state.nextEnemySquadId = 1;
     state.mothershipRng = mulberry32(((state.seed >>> 0) ^ 0x9e3779b9) >>> 0);
     state.mothershipSpawnTimer = config.mothershipSpawnDelayMin + state.mothershipRng() * (config.mothershipSpawnDelayMax - config.mothershipSpawnDelayMin);
+    resetEncounterDirectorState(state);
 
     const planetCount = Math.floor(state.rng() * (config.planetCountMax - config.planetCountMin + 1)) + config.planetCountMin;
     const chosenFiles = shufflePlanetFiles(state.rng).slice(0, planetCount);
@@ -3381,6 +4694,7 @@ export function createOrbitalsSim(seed) {
     state.frameIndex += 1;
     updatePlanets(state, dt, state.time);
     updateShipState(state, dt, controls);
+    updateEncounterDirector(state, dt, state.time);
     updateEnemySquads(state, dt, state.time);
     updateMothershipSquads(state, dt, state.time);
     updateShipShipCollisions(state);
@@ -3394,6 +4708,48 @@ export function createOrbitalsSim(seed) {
     state,
     bootstrapWorld,
     step,
-    respawnShip: () => respawnShip(state)
+    respawnShip: () => respawnShip(state),
+    createEncounter: (options = {}) => createEncounterState(state, options),
+    createEncounterEntity: (options = {}) => createEncounterEntityState(state, options),
+    forceEnemyPresentation: (enemyId, kind, options = {}) => {
+      const enemy = state.enemies.find((candidate) => candidate.id === enemyId);
+      if (!enemy) {
+        return false;
+      }
+      let encounter = options.encounterId != null ? getEncounterById(state, options.encounterId) : getEncounterById(state, enemy.encounterId);
+      if (!encounter) {
+        const planetIndex = Math.max(0, enemy.targetPlanetIndex ?? 0);
+        encounter = createEncounterState(state, {
+          type: options.encounterType || 'planetInvasion',
+          status: 'active',
+          anchorKind: options.anchorKind || 'planet',
+          anchorPlanetIndex: planetIndex,
+          objectiveKind: 'clearEnemies',
+          spawnedEnemyIds: [enemy.id],
+          totalReleased: 1
+        });
+        enemy.encounterId = encounter.id;
+      }
+      return beginEnemyPresentation(state, enemy, encounter, kind, { ...options, forced: true });
+    },
+    destroyEnemy: (enemyId, cause = 'projectile') => {
+      const enemy = state.enemies.find((candidate) => candidate.id === enemyId);
+      return destroyEnemy(state, enemy, cause);
+    },
+    damageEncounterEntity: (entityId, damage) => {
+      const entity = (state.encounterEntities || []).find((candidate) => candidate.id === entityId);
+      if (!entity || entity.destroyed) {
+        return false;
+      }
+      entity.health = Math.max(0, entity.health - damage);
+      if (entity.health <= 0) {
+        entity.destroyed = true;
+        pushEvent(state, 'encounter-entity-destroyed', {
+          entityId: entity.id,
+          kind: entity.kind
+        });
+      }
+      return true;
+    }
   };
 }

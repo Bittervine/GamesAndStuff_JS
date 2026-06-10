@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import * as THREE from './lib/three.module.js';
-import { createOrbitalsSim, ENEMY_MODEL_FILES_BY_FAMILY, parseSeed } from './Orbitals_Sim.js';
+import { createOrbitalsSim, ENEMY_MODEL_FILES_BY_FAMILY, getEncounterAnchorPosition, parseSeed } from './Orbitals_Sim.js';
 import { config } from './orbitals_config.js';
 
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
@@ -120,6 +120,251 @@ function configureFreeFlightShip(state, planet, worldPosition, forward, up, spee
   state.nearestDistance = worldPosition.distanceTo(planet.position);
   state.nearestAltitude = state.nearestDistance - planet.radius;
   state.speed = speed;
+}
+
+function buildPlayerFrame(ship) {
+  const forward = ship.forward.clone().normalize();
+  const up = ship.up.clone().normalize().sub(forward.clone().multiplyScalar(ship.up.clone().normalize().dot(forward)));
+  if (up.lengthSq() < 1e-8) {
+    up.copy(Math.abs(forward.dot(WORLD_UP)) > 0.85
+      ? new THREE.Vector3(1, 0, 0).cross(forward)
+      : WORLD_UP.clone().sub(forward.clone().multiplyScalar(WORLD_UP.dot(forward))));
+  }
+  up.normalize();
+  const right = forward.clone().cross(up).normalize();
+  return { forward, up, right };
+}
+
+function measureEnemyInPlayerFrame(player, enemy) {
+  const frame = buildPlayerFrame(player);
+  const offset = enemy.position.clone().sub(player.position);
+  const distance = offset.length();
+  const direction = distance > 1e-8 ? offset.clone().multiplyScalar(1 / distance) : frame.forward.clone();
+  const forwardDot = THREE.MathUtils.clamp(direction.dot(frame.forward), -1, 1);
+  const angleDeg = THREE.MathUtils.radToDeg(Math.acos(forwardDot));
+  return {
+    distance,
+    forward: offset.dot(frame.forward),
+    right: offset.dot(frame.right),
+    up: offset.dot(frame.up),
+    angleDeg
+  };
+}
+
+function isEnemyShootableFromPlayer(player, enemy, cfg = config) {
+  const metrics = measureEnemyInPlayerFrame(player, enemy);
+  return metrics.angleDeg <= cfg.encounterShootableAngleDeg
+    && metrics.distance >= cfg.encounterShootableMinDistance
+    && metrics.distance <= cfg.encounterShootableMaxDistance;
+}
+
+function projectPresentationSlotToPlanet(state, planet, slot, altitudeFactor = config.fighterPatrolAltitudeFactor) {
+  const direction = slot.clone().sub(planet.position);
+  if (direction.lengthSq() < 1e-8) {
+    direction.copy(state.ship.position).sub(planet.position);
+  }
+  if (direction.lengthSq() < 1e-8) {
+    direction.copy(WORLD_UP);
+  }
+  direction.normalize();
+  const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 1);
+  return planet.position.clone().addScaledVector(direction, planet.radius + atmosphereThickness * altitudeFactor);
+}
+
+function placeEnemyRelativeToPlayerOnPlanet(state, planet, enemy, options = {}) {
+  const frame = buildPlayerFrame(state.ship);
+  const rawSlot = state.ship.position.clone()
+    .addScaledVector(frame.forward, options.forwardDistance ?? 0)
+    .addScaledVector(frame.right, options.rightDistance ?? 0)
+    .addScaledVector(frame.up, options.upDistance ?? 0);
+  const slot = projectPresentationSlotToPlanet(state, planet, rawSlot, options.altitudeFactor ?? config.fighterPatrolAltitudeFactor);
+  enemy.position.copy(slot);
+  enemy.previousPosition.copy(slot);
+  enemy.up.copy(slot.clone().sub(planet.position).normalize());
+  enemy.forward.copy(options.forward ? options.forward.clone().normalize() : state.ship.forward.clone().normalize());
+  enemy.velocity.copy(enemy.forward).multiplyScalar(enemy.speed || 14);
+  enemy.relativePosition.copy(enemy.position).sub(planet.position);
+  enemy.relativeVelocity.copy(enemy.velocity).sub(planet.velocity);
+  enemy.boundPlanet = planet;
+  enemy.flightMode = 'bound';
+  enemy.captureTimer = config.shipCaptureBlendTime;
+  enemy.recaptureLock = 0;
+  return slot;
+}
+
+function createTestFighter(state, squad, encounter, planet, options = {}) {
+  const planetIndex = state.planets.indexOf(planet);
+  const enemy = {
+    id: state.nextEnemyId,
+    squadId: squad.id,
+    kind: 'fighter',
+    family: 'Standard',
+    assetFile: '',
+    position: new THREE.Vector3(),
+    previousPosition: new THREE.Vector3(),
+    velocity: new THREE.Vector3(),
+    relativePosition: new THREE.Vector3(),
+    relativeVelocity: new THREE.Vector3(),
+    forward: new THREE.Vector3(0, 0, 1),
+    up: new THREE.Vector3(0, 1, 0),
+    gravity: new THREE.Vector3(),
+    bank: 0,
+    speed: options.speed ?? 14,
+    radius: 2.6,
+    health: config.enemyHitPoints,
+    speedScale: options.speedScale ?? 1,
+    turnScale: options.turnScale ?? 2.2,
+    upScale: options.upScale ?? 1.8,
+    visualScale: 1,
+    destroyed: false,
+    boundPlanet: planet,
+    flightMode: 'bound',
+    captureTimer: config.shipCaptureBlendTime,
+    recaptureLock: 0,
+    pitchIdleTime: 0,
+    boostTimer: 0,
+    fireCooldown: 0,
+    aiTurnInput: 0,
+    aiPitchInput: 0,
+    aiBoostHold: 0,
+    aiBrakeHold: 0,
+    aiMode: '',
+    aiTargetPlanetIndex: -1,
+    aiDepartPlanetIndex: -1,
+    aiPresentationSignature: '',
+    fighterSettleTimer: 0,
+    atmosphericCruiseAltitudeFactor: config.fighterPatrolAltitudeFactor,
+    hasSmoothedTargetPoint: false,
+    smoothedTargetPoint: new THREE.Vector3(),
+    formationAngle: 0,
+    formationRadius: 20,
+    phase: 0,
+    mode: 'swarm',
+    targetPlanetIndex: planetIndex,
+    nextPlanetIndex: planetIndex,
+    modeTimer: 0,
+    combatRole: 'reserve',
+    presentation: null,
+    objectiveAttack: null,
+    encounterId: encounter.id,
+    lastPresentationTime: -Infinity,
+    presentationShootableFrames: 0,
+    presentationKindLastUsed: '',
+    isPrimaryThreat: false,
+    hudPriority: config.encounterReserveHudPriority,
+    root: null,
+    visual: null,
+    modelPivot: null,
+    model: null,
+    spawnFrame: state.frameIndex - Math.ceil(config.encounterCandidateMinAge * 60) - 1,
+    spawnTime: state.time - config.encounterCandidateMinAge - 1,
+    parentMothershipId: squad.parentMothershipId
+  };
+  state.nextEnemyId += 1;
+  state.enemies.push(enemy);
+  encounter.spawnedEnemyIds.push(enemy.id);
+  encounter.totalReleased += 1;
+  return enemy;
+}
+
+function createSingleFighterPresentationScenario(kind, options = {}) {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+  const { state } = sim;
+  state.mothershipSpawnTimer = Infinity;
+  stepSim(sim, 120, NEUTRAL_CONTROLS);
+  const planet = state.ship.boundPlanet;
+  const planetIndex = state.planets.indexOf(planet);
+  const encounter = sim.createEncounter({
+    type: options.encounterType || 'planetInvasion',
+    status: 'active',
+    anchorKind: 'planet',
+    anchorPlanetIndex: planetIndex,
+    objectiveKind: 'clearEnemies',
+    spawnedEnemyIds: [],
+    totalReleased: 0
+  });
+  const squad = {
+    id: state.nextEnemySquadId,
+    kind: 'fighter',
+    family: 'Standard',
+    familyFiles: [],
+    targetPlanetIndex: planetIndex,
+    nextPlanetIndex: planetIndex,
+    departPlanetIndex: -1,
+    departVector: new THREE.Vector3(1, 0, 0),
+    mode: 'swarm',
+    modeTimer: 999,
+    orbitPhase: 0,
+    orbitDirection: 1,
+    orbitProgress: 0,
+    orbitLastAngle: 0,
+    swarmDuration: 999,
+    departDuration: 999,
+    parentMothershipId: 9001,
+    fighterSettleTimer: 999,
+    fighterPatrolAltitudeFactor: config.fighterPatrolAltitudeFactor,
+    encounterId: encounter.id
+  };
+  state.nextEnemySquadId += 1;
+  state.enemySquads.push(squad);
+  state.enemySquad = squad;
+  const enemy = createTestFighter(state, squad, encounter, planet, options);
+  const side = options.side ?? 1;
+  if (kind === 'sideCross') {
+    placeEnemyRelativeToPlayerOnPlanet(state, planet, enemy, {
+      forwardDistance: options.forwardDistance ?? 260,
+      rightDistance: options.rightDistance ?? side * 160,
+      upDistance: options.upDistance ?? 35
+    });
+  } else if (kind === 'headOnBreakaway') {
+    placeEnemyRelativeToPlayerOnPlanet(state, planet, enemy, {
+      forwardDistance: options.forwardDistance ?? 300,
+      rightDistance: options.rightDistance ?? side * 30,
+      upDistance: options.upDistance ?? 45,
+      forward: state.ship.forward.clone().multiplyScalar(-1)
+    });
+  } else {
+    placeEnemyRelativeToPlayerOnPlanet(state, planet, enemy, {
+      forwardDistance: options.forwardDistance ?? -60,
+      rightDistance: options.rightDistance ?? side * 25,
+      upDistance: options.upDistance ?? 35
+    });
+    const catchupAim = state.ship.position.clone().addScaledVector(state.ship.forward, 140).sub(enemy.position);
+    if (catchupAim.lengthSq() > 1e-8) {
+      enemy.forward.copy(catchupAim.normalize());
+      enemy.velocity.copy(enemy.forward).multiplyScalar(enemy.speed);
+      enemy.relativeVelocity.copy(enemy.velocity).sub(planet.velocity);
+    }
+  }
+  const forced = sim.forceEnemyPresentation(enemy.id, kind, {
+    encounterId: encounter.id,
+    side,
+    maxDuration: options.maxDuration
+  });
+  assert.ok(forced, `expected to force ${kind} presentation`);
+  return { sim, state, planet, encounter, squad, enemy, side };
+}
+
+function countShootableFramesDuring(sim, enemyId, steps, controls = NEUTRAL_CONTROLS) {
+  let shootableFrames = 0;
+  for (let i = 0; i < steps; i += 1) {
+    sim.step(1 / 60, controls);
+    const enemy = sim.state.enemies.find((candidate) => candidate.id === enemyId);
+    if (!enemy) {
+      break;
+    }
+    if (isEnemyShootableFromPlayer(sim.state.ship, enemy)) {
+      shootableFrames += 1;
+    }
+  }
+  return shootableFrames;
+}
+
+function assertEnemyDidNotCrashOrDisappearUnexpectedly(state, enemyId) {
+  const death = state.eventLog.find((event) => event.type === 'enemy-death' && event.enemyId === enemyId);
+  assert.ok(!death, `expected enemy ${enemyId} to survive the scenario, died cause=${death?.cause}`);
+  assert.ok(state.enemies.some((enemy) => enemy.id === enemyId && enemy.health > 0), `expected enemy ${enemyId} to remain alive`);
 }
 
 function runStableAltitudeTest() {
@@ -1640,6 +1885,407 @@ function spawnMothershipFighterScenario(sim) {
   return { state, mothershipSquad, mothership, fighterSquad, fighter };
 }
 
+function getPresentationEndEvent(state, enemyId) {
+  return state.eventLog.find((event) => event.type === 'presentation-end' && event.enemyId === enemyId);
+}
+
+function runPresentationMetricHelperTest() {
+  const player = {
+    position: new THREE.Vector3(0, 0, 0),
+    forward: new THREE.Vector3(1, 0, 0),
+    up: new THREE.Vector3(0, 1, 0)
+  };
+  const enemy = { position: new THREE.Vector3(config.encounterShootableMinDistance + 20, 0, 0) };
+  assert.ok(isEnemyShootableFromPlayer(player, enemy), 'enemy directly ahead should be shootable');
+  enemy.position.set(-100, 0, 0);
+  assert.ok(!isEnemyShootableFromPlayer(player, enemy), 'enemy behind should not be shootable');
+  enemy.position.set(config.encounterShootableMaxDistance + 100, 0, 0);
+  assert.ok(!isEnemyShootableFromPlayer(player, enemy), 'enemy beyond max range should not be shootable');
+  console.log('PASS presentation-metric-helper');
+}
+
+function runPresentationProjectionHelperTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+  const { state } = sim;
+  const planet = state.ship.boundPlanet;
+  const atmosphereThickness = planet.atmosphereRadius - planet.radius;
+  const slot = state.ship.position.clone().addScaledVector(state.ship.forward, 300);
+  const projected = projectPresentationSlotToPlanet(state, planet, slot, config.fighterPatrolAltitudeFactor);
+  const altitude = projected.distanceTo(planet.position) - planet.radius;
+  const expected = atmosphereThickness * config.fighterPatrolAltitudeFactor;
+  assert.ok(Math.abs(altitude - expected) <= 1e-6, `projected altitude=${altitude} expected=${expected}`);
+  console.log(`PASS presentation-projection-helper: altitude=${altitude.toFixed(3)}`);
+}
+
+function runBehindCatchupPresentationTest() {
+  const setup = createSingleFighterPresentationScenario('behindCatchup');
+  const shootableFrames = countShootableFramesDuring(setup.sim, setup.enemy.id, 2200);
+  const endEvent = getPresentationEndEvent(setup.state, setup.enemy.id);
+  assert.ok(endEvent, 'expected behind-catchup presentation to end');
+  assert.strictEqual(endEvent.result, 'success', `expected behind-catchup success: ${JSON.stringify(endEvent)}`);
+  assert.ok(
+    Math.max(shootableFrames, endEvent.shootableFrames) >= config.encounterShootableRequiredFrames,
+    `expected behind-catchup shootable frames: external=${shootableFrames} event=${endEvent.shootableFrames}`
+  );
+  assertEnemyDidNotCrashOrDisappearUnexpectedly(setup.state, setup.enemy.id);
+  console.log(`PASS behind-catchup-presentation: shootable=${Math.max(shootableFrames, endEvent.shootableFrames)}`);
+}
+
+function runBehindCatchupPresentationWithGentleTurnTest() {
+  const setup = createSingleFighterPresentationScenario('behindCatchup');
+  const controls = { ...NEUTRAL_CONTROLS, turnInput: 0.16 };
+  const shootableFrames = countShootableFramesDuring(setup.sim, setup.enemy.id, 2400, controls);
+  const endEvent = getPresentationEndEvent(setup.state, setup.enemy.id);
+  assert.ok(endEvent, 'expected behind-catchup gentle-turn presentation to end');
+  assert.ok(
+    Math.max(shootableFrames, endEvent.shootableFrames) >= Math.floor(config.encounterShootableRequiredFrames * 0.5),
+    `expected gentle-turn shootable frames: external=${shootableFrames} event=${endEvent.shootableFrames}`
+  );
+  assertEnemyDidNotCrashOrDisappearUnexpectedly(setup.state, setup.enemy.id);
+  console.log(`PASS behind-catchup-gentle-turn: shootable=${Math.max(shootableFrames, endEvent.shootableFrames)}`);
+}
+
+function runSideCrossPresentationTest() {
+  const setup = createSingleFighterPresentationScenario('sideCross');
+  const shootableFrames = countShootableFramesDuring(setup.sim, setup.enemy.id, 2600);
+  const endEvent = getPresentationEndEvent(setup.state, setup.enemy.id);
+  assert.ok(endEvent, 'expected side-cross presentation to end');
+  assert.strictEqual(endEvent.result, 'success', `expected side-cross success: ${JSON.stringify(endEvent)}`);
+  assert.ok(endEvent.shootableFrames >= config.encounterSideCrossRequiredFrames || shootableFrames >= config.encounterSideCrossRequiredFrames, `expected useful side-cross shootable frames: external=${shootableFrames} event=${endEvent.shootableFrames}`);
+  assertEnemyDidNotCrashOrDisappearUnexpectedly(setup.state, setup.enemy.id);
+  console.log(`PASS side-cross-presentation: shootable=${Math.max(shootableFrames, endEvent.shootableFrames)}`);
+}
+
+function runSideCrossPresentationWithGentleTurnTest() {
+  const setup = createSingleFighterPresentationScenario('sideCross');
+  const controls = { ...NEUTRAL_CONTROLS, turnInput: -0.12 };
+  const shootableFrames = countShootableFramesDuring(setup.sim, setup.enemy.id, 2800, controls);
+  const endEvent = getPresentationEndEvent(setup.state, setup.enemy.id);
+  assert.ok(endEvent, 'expected side-cross gentle-turn presentation to end');
+  assert.ok(Math.max(shootableFrames, endEvent.shootableFrames) >= Math.floor(config.encounterSideCrossRequiredFrames * 0.5), `expected gentle side-cross shootable frames: external=${shootableFrames} event=${endEvent.shootableFrames}`);
+  assertEnemyDidNotCrashOrDisappearUnexpectedly(setup.state, setup.enemy.id);
+  console.log(`PASS side-cross-gentle-turn: shootable=${Math.max(shootableFrames, endEvent.shootableFrames)}`);
+}
+
+function runHeadOnBreakawayPresentationTest() {
+  const setup = createSingleFighterPresentationScenario('headOnBreakaway');
+  const shootableFrames = countShootableFramesDuring(setup.sim, setup.enemy.id, 1800);
+  const endEvent = getPresentationEndEvent(setup.state, setup.enemy.id);
+  assert.ok(endEvent, 'expected head-on presentation to end');
+  assert.strictEqual(endEvent.result, 'success', `expected head-on breakaway success: ${JSON.stringify(endEvent)}`);
+  assert.ok(Math.max(shootableFrames, endEvent.shootableFrames) >= config.encounterHeadOnRequiredFrames, `expected head-on shootable frames: external=${shootableFrames} event=${endEvent.shootableFrames}`);
+  assertEnemyDidNotCrashOrDisappearUnexpectedly(setup.state, setup.enemy.id);
+  console.log(`PASS head-on-breakaway-presentation: shootable=${Math.max(shootableFrames, endEvent.shootableFrames)}`);
+}
+
+function runHeadOnBreakawayAvoidsCollisionTest() {
+  const setup = createSingleFighterPresentationScenario('headOnBreakaway');
+  countShootableFramesDuring(setup.sim, setup.enemy.id, 1800);
+  const collisionEvent = setup.state.eventLog.find((event) => event.type === 'ship-collision' && (event.shipAId === setup.enemy.id || event.shipBId === setup.enemy.id));
+  assert.ok(!collisionEvent, 'expected head-on breakaway to avoid ship collision');
+  assertEnemyDidNotCrashOrDisappearUnexpectedly(setup.state, setup.enemy.id);
+  console.log('PASS head-on-breakaway-avoids-collision');
+}
+
+function createDirectorManyFighterScenario(count = 6) {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+  const { state } = sim;
+  state.mothershipSpawnTimer = Infinity;
+  stepSim(sim, 120, NEUTRAL_CONTROLS);
+  const planet = state.ship.boundPlanet;
+  const planetIndex = state.planets.indexOf(planet);
+  const encounter = sim.createEncounter({
+    type: 'planetInvasion',
+    status: 'active',
+    anchorKind: 'planet',
+    anchorPlanetIndex: planetIndex,
+    objectiveKind: 'clearEnemies',
+    spawnedEnemyIds: [],
+    totalReleased: 0
+  });
+  const squad = {
+    id: state.nextEnemySquadId,
+    kind: 'fighter',
+    family: 'Standard',
+    familyFiles: [],
+    targetPlanetIndex: planetIndex,
+    nextPlanetIndex: planetIndex,
+    departPlanetIndex: -1,
+    departVector: new THREE.Vector3(1, 0, 0),
+    mode: 'swarm',
+    modeTimer: 999,
+    orbitPhase: 0,
+    orbitDirection: 1,
+    orbitProgress: 0,
+    orbitLastAngle: 0,
+    swarmDuration: 999,
+    departDuration: 999,
+    parentMothershipId: 9002,
+    fighterSettleTimer: 999,
+    fighterPatrolAltitudeFactor: config.fighterPatrolAltitudeFactor,
+    encounterId: encounter.id
+  };
+  state.nextEnemySquadId += 1;
+  state.enemySquads.push(squad);
+  for (let i = 0; i < count; i += 1) {
+    const enemy = createTestFighter(state, squad, encounter, planet, {});
+    const side = i % 2 === 0 ? 1 : -1;
+    placeEnemyRelativeToPlayerOnPlanet(state, planet, enemy, {
+      forwardDistance: 55 + i * 8,
+      rightDistance: side * (18 + i * 4),
+      upDistance: 35
+    });
+  }
+  return { sim, state, planet, encounter, squad };
+}
+
+function runEncounterDirectorBudgetTest() {
+  const setup = createDirectorManyFighterScenario(8);
+  stepSim(setup.sim, 180, NEUTRAL_CONTROLS);
+  const presenters = setup.state.enemies.filter((enemy) => enemy.combatRole === 'presenter');
+  assert.ok(presenters.length <= config.encounterMaxActivePresenters, `too many presenters: ${presenters.length}`);
+  assert.ok(presenters.length > 0, 'expected the director to select at least one presenter');
+  console.log(`PASS encounter-director-budget: presenters=${presenters.length}`);
+}
+
+function runEncounterDirectorRotatesPresentersTest() {
+  const setup = createDirectorManyFighterScenario(8);
+  stepSim(setup.sim, 4200, NEUTRAL_CONTROLS);
+  const starts = setup.state.eventLog.filter((event) => event.type === 'presentation-start');
+  const ended = setup.state.eventLog.filter((event) => event.type === 'presentation-end');
+  const distinctEnemies = new Set(starts.map((event) => event.enemyId));
+  assert.ok(ended.length > 0, 'expected at least one presentation to end');
+  assert.ok(distinctEnemies.size >= 2, `expected presenter rotation across enemies, got ${distinctEnemies.size}`);
+  const activePresenters = setup.state.enemies.filter((enemy) => enemy.combatRole === 'presenter').length;
+  assert.ok(activePresenters <= config.encounterMaxActivePresenters, `too many active presenters after rotation: ${activePresenters}`);
+  console.log(`PASS encounter-director-rotates: starts=${starts.length} ended=${ended.length} distinct=${distinctEnemies.size}`);
+}
+
+function runManyEnemiesFewPresentersTest() {
+  const setup = createDirectorManyFighterScenario(12);
+  stepSim(setup.sim, 240, NEUTRAL_CONTROLS);
+  const primaryThreats = setup.state.enemies.filter((enemy) => enemy.isPrimaryThreat);
+  const presenters = setup.state.enemies.filter((enemy) => enemy.combatRole === 'presenter');
+  assert.ok(primaryThreats.length <= config.encounterMaxActiveThreatsNearPlayer, `too many primary threats: ${primaryThreats.length}`);
+  assert.ok(presenters.length <= config.encounterMaxActivePresenters, `too many presenters: ${presenters.length}`);
+  console.log(`PASS many-enemies-few-presenters: enemies=${setup.state.enemies.length} primary=${primaryThreats.length} presenters=${presenters.length}`);
+}
+
+function runPlanetInvasionClearTest() {
+  const setup = createDirectorManyFighterScenario(3);
+  for (const enemy of setup.state.enemies.slice()) {
+    setup.sim.destroyEnemy(enemy.id, 'projectile');
+  }
+  stepSim(setup.sim, 2, NEUTRAL_CONTROLS);
+  const clearEvent = setup.state.eventLog.find((event) => event.type === 'planet-invasion-cleared' && event.encounterId === setup.encounter.id);
+  assert.ok(clearEvent, 'expected planet invasion to clear after all encounter fighters are destroyed');
+  assert.strictEqual(setup.encounter.status, 'cleared', 'expected encounter status to become cleared');
+  console.log('PASS planet-invasion-clear');
+}
+
+function runPlanetEncounterDoesNotClearWhileFightersRemainTest() {
+  const setup = createDirectorManyFighterScenario(3);
+  setup.sim.destroyEnemy(setup.state.enemies[0].id, 'projectile');
+  stepSim(setup.sim, 2, NEUTRAL_CONTROLS);
+  const clearEvent = setup.state.eventLog.find((event) => event.type === 'planet-invasion-cleared' && event.encounterId === setup.encounter.id);
+  assert.ok(!clearEvent, 'expected planet invasion not to clear while fighters remain');
+  assert.strictEqual(setup.encounter.status, 'active', 'expected encounter to remain active');
+  console.log('PASS planet-invasion-not-clear-while-fighters-remain');
+}
+
+function runGenericEncounterHelperSmokeTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+  const point = sim.state.ship.position.clone().add(new THREE.Vector3(10, 20, 30));
+  const encounter = sim.createEncounter({
+    type: 'freeSpaceAmbush',
+    status: 'inactive',
+    anchorKind: 'point',
+    anchorPoint: point,
+    activatedByPlayer: true,
+    activationRadius: 100,
+    missionActiveText: 'Mission: Survive the ambush',
+    missionSuccessText: 'Mission Complete'
+  });
+  const anchor = getEncounterAnchorPosition(sim.state, encounter);
+  assert.ok(anchor && anchor.distanceTo(point) <= 1e-6, 'expected point anchor helper to return the anchor');
+  stepSim(sim, 1, NEUTRAL_CONTROLS);
+  assert.strictEqual(encounter.status, 'active', 'expected player-proximity activation for generic encounter');
+  assert.strictEqual(sim.state.encounterDirector.missionMessage, 'Mission: Survive the ambush');
+  console.log('PASS generic-encounter-helper-smoke');
+}
+
+function runFreeSpaceAmbushPresenterTest() {
+  const setup = createDirectorManyFighterScenario(4);
+  setup.encounter.type = 'freeSpaceAmbush';
+  setup.encounter.anchorKind = 'point';
+  setup.encounter.anchorPoint = setup.state.ship.position.clone();
+  setup.encounter.objectiveKind = 'clearEnemies';
+  stepSim(setup.sim, 300, NEUTRAL_CONTROLS);
+  const presenterStart = setup.state.eventLog.find((event) => event.type === 'presentation-start' && event.encounterId === setup.encounter.id);
+  assert.ok(presenterStart, 'expected free-space ambush to assign a player presenter');
+  assert.ok(setup.encounter.anchorKind !== 'planet', 'expected non-planet anchor to remain supported');
+  console.log('PASS free-space-ambush-presenter');
+}
+
+function createTransportDefenseScenario(enemyCount = 5, options = {}) {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+  const { state } = sim;
+  state.mothershipSpawnTimer = Infinity;
+  stepSim(sim, 120, NEUTRAL_CONTROLS);
+  const planet = state.ship.boundPlanet;
+  const frame = buildPlayerFrame(state.ship);
+  const transport = sim.createEncounterEntity({
+    kind: 'transport',
+    position: state.ship.position.clone().addScaledVector(frame.forward, 300).addScaledVector(frame.up, 80),
+    forward: frame.forward,
+    up: frame.up,
+    routeDirection: frame.forward,
+    routeRemaining: options.routeRemaining ?? Infinity,
+    speed: options.speed ?? 0
+  });
+  const encounter = sim.createEncounter({
+    type: options.type || 'transportDefense',
+    status: 'active',
+    anchorKind: 'entity',
+    anchorEntityId: transport.id,
+    objectiveKind: 'defendEntity',
+    protectedEntityId: transport.id,
+    spawnedEnemyIds: [],
+    totalReleased: 0,
+    duration: options.duration ?? config.transportDefenseSurviveSeconds,
+    abortDistance: options.abortDistance ?? config.encounterMissionAbortDistance,
+    missionActiveText: options.missionActiveText || 'Mission: Defend the transport',
+    missionSuccessText: options.missionSuccessText || 'Mission Complete - Transport is safe',
+    missionFailureText: options.missionFailureText || 'Mission Failed - Transport was destroyed',
+    missionAbortText: options.missionAbortText || 'Mission Aborted - Transport was left to its fate'
+  });
+  const planetIndex = state.planets.indexOf(planet);
+  const squad = {
+    id: state.nextEnemySquadId,
+    kind: 'fighter',
+    family: 'Standard',
+    familyFiles: [],
+    targetPlanetIndex: planetIndex,
+    nextPlanetIndex: planetIndex,
+    departPlanetIndex: -1,
+    departVector: new THREE.Vector3(1, 0, 0),
+    mode: 'swarm',
+    modeTimer: 999,
+    orbitPhase: 0,
+    orbitDirection: 1,
+    orbitProgress: 0,
+    orbitLastAngle: 0,
+    swarmDuration: 999,
+    departDuration: 999,
+    parentMothershipId: -1,
+    fighterSettleTimer: 999,
+    fighterPatrolAltitudeFactor: config.fighterPatrolAltitudeFactor,
+    encounterId: encounter.id
+  };
+  state.nextEnemySquadId += 1;
+  state.enemySquads.push(squad);
+  for (let i = 0; i < enemyCount; i += 1) {
+    const enemy = createTestFighter(state, squad, encounter, planet, {});
+    enemy.encounterId = encounter.id;
+    placeEnemyRelativeToPlayerOnPlanet(state, planet, enemy, {
+      forwardDistance: 120 + i * 18,
+      rightDistance: (i % 2 === 0 ? 1 : -1) * (80 + i * 10),
+      upDistance: 45
+    });
+  }
+  return { sim, state, planet, transport, encounter, squad };
+}
+
+function runTransportDefenseBudgetTest() {
+  const setup = createTransportDefenseScenario(7);
+  stepSim(setup.sim, 180, NEUTRAL_CONTROLS);
+  const attackers = setup.state.enemies.filter((enemy) => enemy.combatRole === 'objectiveAttacker');
+  assert.ok(attackers.length <= config.encounterMaxActiveObjectiveAttackers, `too many objective attackers: ${attackers.length}`);
+  assert.ok(attackers.length > 0, 'expected objective attackers to be selected');
+  console.log(`PASS transport-defense-budget: attackers=${attackers.length}`);
+}
+
+function runTransportDefenseAttackRunTest() {
+  const setup = createTransportDefenseScenario(5);
+  stepSim(setup.sim, 1200, NEUTRAL_CONTROLS);
+  const attackEvent = setup.state.eventLog.find((event) => event.type === 'objective-attack-success' && event.encounterId === setup.encounter.id);
+  assert.ok(attackEvent, 'expected at least one transport attack run to reach or complete an attack phase');
+  console.log('PASS transport-defense-attack-run');
+}
+
+function runTransportDefensePlayerPresenterTest() {
+  const setup = createTransportDefenseScenario(7);
+  stepSim(setup.sim, 600, NEUTRAL_CONTROLS);
+  const presenterStart = setup.state.eventLog.find((event) => event.type === 'presentation-start' && event.encounterId === setup.encounter.id);
+  const attackerSelected = setup.state.eventLog.find((event) => event.type === 'objective-attacker-selected' && event.encounterId === setup.encounter.id);
+  assert.ok(presenterStart, 'expected transport defense to still assign a player presenter');
+  assert.ok(attackerSelected, 'expected transport defense to assign objective attackers');
+  console.log('PASS transport-defense-player-presenter');
+}
+
+function runTransportDefenseFailureTest() {
+  const setup = createTransportDefenseScenario(3);
+  setup.sim.damageEncounterEntity(setup.transport.id, config.transportDefenseEntityHealth);
+  stepSim(setup.sim, 2, NEUTRAL_CONTROLS);
+  assert.strictEqual(setup.encounter.status, 'failed', 'expected transport defense to fail when transport is destroyed');
+  const failEvent = setup.state.eventLog.find((event) => event.type === 'encounter-fail' && event.encounterId === setup.encounter.id);
+  assert.ok(failEvent, 'expected encounter-fail event');
+  console.log('PASS transport-defense-failure');
+}
+
+function runTransportDefenseSuccessTest() {
+  const setup = createTransportDefenseScenario(3, { duration: 1.0 });
+  stepSim(setup.sim, 90, NEUTRAL_CONTROLS);
+  assert.strictEqual(setup.encounter.status, 'succeeded', 'expected transport defense to succeed after survival duration');
+  const successEvent = setup.state.eventLog.find((event) => event.type === 'encounter-success' && event.encounterId === setup.encounter.id);
+  assert.ok(successEvent, 'expected encounter-success event');
+  console.log('PASS transport-defense-success');
+}
+
+function runTransportDefenseAbortTest() {
+  const setup = createTransportDefenseScenario(3, { abortDistance: 120 });
+  const away = setup.transport.position.clone().sub(setup.state.ship.position);
+  if (away.lengthSq() < 1e-8) {
+    away.set(1, 0, 0);
+  }
+  away.normalize();
+  setup.state.ship.position.copy(setup.transport.position).addScaledVector(away, 300);
+  setup.state.ship.relativePosition.copy(setup.state.ship.position).sub(setup.planet.position);
+  stepSim(setup.sim, 2, NEUTRAL_CONTROLS);
+  assert.strictEqual(setup.encounter.status, 'failed', 'expected transport defense to abort when the player leaves the objective');
+  assert.strictEqual(setup.state.encounterDirector.missionMessage, 'Mission Aborted - Transport was left to its fate');
+  console.log('PASS transport-defense-abort');
+}
+
+function runConvoyEscortSuccessTest() {
+  const setup = createTransportDefenseScenario(4, {
+    type: 'convoyEscort',
+    duration: 1.0,
+    missionActiveText: 'Mission: Defend the convoy',
+    missionSuccessText: 'Mission Complete - Convoy is safe',
+    missionFailureText: 'Mission Failed - Convoy was destroyed'
+  });
+  stepSim(setup.sim, 90, NEUTRAL_CONTROLS);
+  assert.strictEqual(setup.encounter.status, 'succeeded', 'expected convoy escort to succeed after survival duration');
+  console.log('PASS convoy-escort-success');
+}
+
+function runBossSupportWaveSuccessTest() {
+  const setup = createTransportDefenseScenario(4, {
+    type: 'bossSupportWave',
+    duration: 1.0,
+    missionActiveText: 'Mission: Break the support wave',
+    missionSuccessText: 'Mission Complete - Support wave broken'
+  });
+  stepSim(setup.sim, 90, NEUTRAL_CONTROLS);
+  assert.strictEqual(setup.encounter.status, 'succeeded', 'expected boss support wave to succeed after duration');
+  console.log('PASS boss-support-wave-success');
+}
+
 function runPlanetOrbitTest() {
   const sim = createOrbitalsSim(0xC0FFEE);
   sim.bootstrapWorld();
@@ -2458,6 +3104,12 @@ function runMothershipFighterPatrolTest() {
   regularEnemy.squadId = regularSquad.id;
   regularEnemy.kind = 'regular';
   regularEnemy.parentMothershipId = -1;
+  regularEnemy.encounterId = -1;
+  regularEnemy.combatRole = 'reserve';
+  regularEnemy.presentation = null;
+  regularEnemy.objectiveAttack = null;
+  regularEnemy.isPrimaryThreat = false;
+  regularEnemy.hudPriority = config.encounterReserveHudPriority;
   regularEnemy.boundPlanet = targetPlanet;
   regularEnemy.flightMode = 'bound';
   regularEnemy.captureTimer = config.shipCaptureBlendTime;
@@ -2469,11 +3121,18 @@ function runMothershipFighterPatrolTest() {
   regularEnemy.forward.copy(regularEnemy.position.clone().sub(targetPlanet.position).normalize());
   regularEnemy.up.copy(regularEnemy.position.clone().sub(targetPlanet.position).normalize());
   regularEnemy.speed = 10;
+  regularEnemy.velocity.copy(regularEnemy.forward).multiplyScalar(regularEnemy.speed);
+  regularEnemy.relativePosition.copy(regularEnemy.position).sub(targetPlanet.position);
+  regularEnemy.relativeVelocity.copy(regularEnemy.velocity).sub(targetPlanet.velocity);
 
   state.enemies.length = 0;
   state.enemies.push(regularEnemy);
   state.enemySquads = [regularSquad];
   state.enemySquad = regularSquad;
+  state.encounterDirector.encounters.length = 0;
+  state.encounterDirector.activeEncounterId = -1;
+  state.encounterDirector.activePresenterEnemyIds.length = 0;
+  state.encounterDirector.activeObjectiveAttackerEnemyIds.length = 0;
   state.eventLog.length = 0;
 
   let regularSwarmFrame = -1;
@@ -2685,6 +3344,29 @@ runEnemyCrashExplosionTest('sun');
 runPlanetOrbitTest();
 runPlanetCaptureArrivalTest();
 runPlanetCaptureBlendTest();
+runPresentationMetricHelperTest();
+runPresentationProjectionHelperTest();
+runBehindCatchupPresentationTest();
+runBehindCatchupPresentationWithGentleTurnTest();
+runSideCrossPresentationTest();
+runSideCrossPresentationWithGentleTurnTest();
+runHeadOnBreakawayPresentationTest();
+runHeadOnBreakawayAvoidsCollisionTest();
+runEncounterDirectorBudgetTest();
+runEncounterDirectorRotatesPresentersTest();
+runManyEnemiesFewPresentersTest();
+runPlanetInvasionClearTest();
+runPlanetEncounterDoesNotClearWhileFightersRemainTest();
+runGenericEncounterHelperSmokeTest();
+runFreeSpaceAmbushPresenterTest();
+runTransportDefenseBudgetTest();
+runTransportDefenseAttackRunTest();
+runTransportDefensePlayerPresenterTest();
+runTransportDefenseFailureTest();
+runTransportDefenseSuccessTest();
+runTransportDefenseAbortTest();
+runConvoyEscortSuccessTest();
+runBossSupportWaveSuccessTest();
 runMothershipArrivalTest();
 runMothershipHoldReorientSmoothnessTest();
 runDeepSpaceEnemyDistanceTest();
