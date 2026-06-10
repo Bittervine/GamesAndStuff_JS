@@ -5486,7 +5486,7 @@
     sfx('bomb');
     burst(p.x, p.y, '#fff0b5', 36, 260, 8, 'spark');
     clearEnemyBulletsWithBudget(isLowGraphicalEffects() ? 8 : 24, '#ffe39a');
-    for (let i = state.enemies.length - 1; i >= 0; i--) damageEnemy(state.enemies[i], 100, true);
+    for (let i = state.enemies.length - 1; i >= 0; i--) damageEnemy(state.enemies[i], 200, true);
     if (state.boss) {
       damageFinalBossClaw(state.boss, 'left', 20);
       damageFinalBossClaw(state.boss, 'right', 20);
