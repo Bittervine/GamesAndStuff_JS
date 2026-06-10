@@ -3417,7 +3417,7 @@
     mine: { hp: 8, r: 19, score: 120, speed: 60 },
     elite: { hp: 10, r: 24, score: 280, speed: 80 },
     nemesis: { hp: 15, r: 24, score: 700, speed: 120 },
-    nemesis2: { hp: 250, r: 24, score: 700, speed: 120 }
+    nemesis2: { hp: 500, r: 24, score: 700, speed: 120 }
   };
 
   const ENEMY_NEMESIS_NAME = 'Nemesis I';
