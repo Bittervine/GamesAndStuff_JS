@@ -519,8 +519,9 @@ A planet invasion should feel crowded and fast. The sky should contain many enem
 Target behavior:
 
 - A planet invasion should eventually field about 100 to 150 fighters.
-- Close presenters should often appear about 1/3 to 1/5 the apparent size of the player ship.
-- Most enemies should be background swarm traffic, not direct attackers.
+- When it is a enemys turn to present themselvs to possible be shot down, they should appear about 1/3 to 1/5 the apparent size of the player ship - ie just a head of the player.
+- Make sure that a handful of enemies present themself at a time, maintaining a steady flow - no breaks for the player until the mission is done. 
+- If a enemy survive their brave charge in front of the player, they will be rescheduled to make a flyby sooner or later.
 - Enemies should fly rapidly and avoid one another.
 - Enemies should avoid the player danger bubble unless selected as a presenter.
 - Dense swarms should not collapse into one line or one lane.
@@ -1151,6 +1152,7 @@ Tasks:
 - [ ] Shield prevents one lethal or damaging event, depending on selected design.
 - [ ] Shield hit should push event:
     - `player-shield-hit`.
+- [ ] Draw a very non-intrusize shield effect (a bubble around or maybe a blueish g
 - [ ] Shield capped pickup overflow should either score or do nothing, controlled by config.
 
 Tests:
@@ -1638,6 +1640,7 @@ The overall plan is complete when:
 - [ ] The encounter director remains general enough for later free-space encounters.
 - [ ] Transport-defense unfinished items from the previous plans are not falsely marked complete.
 - [ ] All new behavior is covered by testbench tests.
+- [ ] Between missions, locations where missions are is marked with a distincly colored hud marker. Maybe a large green octagon.
 
 ## 38. Design warnings
 
