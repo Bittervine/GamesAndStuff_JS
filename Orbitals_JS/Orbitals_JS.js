@@ -1878,8 +1878,21 @@ function updateShipControls(dt) {
   const explosionIdBefore = lastEnemyExplosionIdForSfx;
   const mouseTurn = mouseShipActive ? mouseShipInput.turnInput : 0;
   const mousePitch = mouseShipActive ? mouseShipInput.pitchInput : 0;
-  uiState.mouseShipCentered = Boolean(mouseShipActive && mouseShipInput.shipIsCentered);
-  const mouseIdle = Boolean(mouseShipActive && uiState.mouseShipCentered && uiState.mouseCenteredHoldTime >= 0.5);
+  const mouseCenteredForShip = Boolean(mouseShipActive && mouseShipInput.shipIsCentered);
+  uiState.mouseShipCentered = mouseCenteredForShip;
+  if (mouseCenteredForShip) {
+    uiState.mouseCenteredHoldTime = (uiState.mouseCenteredHoldTime || 0) + dt;
+  } else {
+    uiState.mouseCenteredHoldTime = 0;
+  }
+
+  const effectiveMouseTurn = mouseCenteredForShip ? 0 : mouseTurn;
+  const effectiveMousePitch = mouseCenteredForShip ? 0 : mousePitch;
+  const nonMouseTurnInput = keyboardTurn + (uiState.pointerLocked ? 0 : gamepad.turnX);
+  const nonMousePitchInput = keyboardPitch + (uiState.pointerLocked ? 0 : gamepad.pitchY);
+  const turnInput = THREE.MathUtils.clamp(nonMouseTurnInput + effectiveMouseTurn, -1, 1);
+  const pitchInput = THREE.MathUtils.clamp(nonMousePitchInput + effectiveMousePitch, -1, 1);
+  const mouseIdle = Boolean(mouseCenteredForShip && nonMousePitchInput === 0);
   uiState.keyboardIdle = !(
     keyboardTurn !== 0
     || keyboardPitch !== 0
@@ -1895,8 +1908,8 @@ function updateShipControls(dt) {
   );
 
   sim.step(dt, {
-    turnInput: THREE.MathUtils.clamp(keyboardTurn + mouseTurn + (uiState.pointerLocked ? 0 : gamepad.turnX), -1, 1),
-    pitchInput: THREE.MathUtils.clamp(keyboardPitch + mousePitch + (uiState.pointerLocked ? 0 : gamepad.pitchY), -1, 1),
+    turnInput,
+    pitchInput,
     mouseIdle,
     boost,
     brake: keys.has('ShiftLeft') || keys.has('ShiftRight') || (!uiState.pointerLocked && gamepad.brake),
@@ -1904,20 +1917,10 @@ function updateShipControls(dt) {
     fire,
     fireDirection,
   });
-  uiState._lastTurnInput = THREE.MathUtils.clamp(keyboardTurn + mouseTurn + (uiState.pointerLocked ? 0 : gamepad.turnX), -1, 1);
-  uiState._lastPitchInput = THREE.MathUtils.clamp(keyboardPitch + mousePitch + (uiState.pointerLocked ? 0 : gamepad.pitchY), -1, 1);
+  uiState._lastTurnInput = turnInput;
+  uiState._lastPitchInput = pitchInput;
   uiState._lastBoostInput = boost ? 1 : 0;
   uiState._lastBrakeInput = (keys.has('ShiftLeft') || keys.has('ShiftRight') || (!uiState.pointerLocked && gamepad.brake)) ? 1 : 0;
-
-  if (uiState.pointerLocked) {
-    if (mouseShipInput.shipIsCentered) {
-      uiState.mouseCenteredHoldTime = (uiState.mouseCenteredHoldTime || 0) + dt;
-    } else {
-      uiState.mouseCenteredHoldTime = 0;
-    }
-  } else {
-    uiState.mouseCenteredHoldTime = 0;
-  }
 
   if (fire && state.nextProjectileId > projectileIdBefore) {
     playOrbitalsSfx('shoot');
