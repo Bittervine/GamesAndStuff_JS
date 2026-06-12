@@ -9928,7 +9928,7 @@
   function handleInitialsKey(ev) {
     if (!state.initialsEntryActive) return false;
     const code = ev.code || '';
-    if (code === 'Enter' || code === 'Space' || code === 'ControlLeft' || code === 'ControlRight' || code === 'KeyX' || code === 'KeyZ') {
+    if (code === 'Enter' || code === 'Space' || code === 'ControlLeft' || code === 'ControlRight') {
       ev.preventDefault();
       if (ev.repeat) return true;
       moveInitialsCursor(1);
