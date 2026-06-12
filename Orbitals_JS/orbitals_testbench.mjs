@@ -1739,8 +1739,8 @@ function runProjectileFireTest() {
 
   assert.strictEqual(state.projectiles.length, 1, 'expected a single-shot burst');
 
-  const inheritedVelocity = ship.boundPlanet ? ship.relativeVelocity.clone() : ship.velocity.clone();
-  const relativeVelocity = state.projectiles[0].velocity.clone().sub(inheritedVelocity);
+  const carrierVelocity = ship.velocity.clone();
+  const relativeVelocity = state.projectiles[0].velocity.clone().sub(carrierVelocity);
   const spawnDistance = state.projectiles[0].position.distanceTo(ship.position);
   const expectedProjectileSpeed = config.shipProjectileSpeed + ship.speed * 0.35;
   const expectedSpawnDistance = 0;
@@ -1797,7 +1797,7 @@ function runProjectileBoundFlightInheritedVelocityTest() {
   const ship = state.ship;
   assert.ok(ship && ship.boundPlanet, 'expected a bound ship for the inherited velocity test');
 
-  const planetVelocity = new THREE.Vector3(5400, -2600, 1700);
+  const planetVelocity = new THREE.Vector3(800, 0, 0);
   configureBoundFireState(state, planetVelocity, new THREE.Vector3(0, 0, 0));
 
   const camera = buildPlanetFireCamera(ship, state);
@@ -1808,12 +1808,12 @@ function runProjectileBoundFlightInheritedVelocityTest() {
   assert.strictEqual(state.projectiles.length, 1, 'expected a projectile to spawn in bound flight');
 
   const projectile = state.projectiles[0];
-  const inheritedVelocity = ship.boundPlanet ? ship.relativeVelocity.clone() : ship.velocity.clone();
-  const worldRelativeVelocity = projectile.velocity.clone().sub(inheritedVelocity);
+  const carrierVelocity = ship.velocity.clone();
+  const worldRelativeVelocity = projectile.velocity.clone().sub(carrierVelocity);
 
   assert.ok(
-    Math.abs(projectile.inheritedVelocity.distanceTo(inheritedVelocity)) < 1e-3,
-    `expected bound-flight projectiles to inherit the carrier velocity: projectile=${projectile.inheritedVelocity.length().toFixed(3)} carrier=${inheritedVelocity.length().toFixed(3)}`
+    Math.abs(projectile.inheritedVelocity.distanceTo(carrierVelocity)) < 1e-3,
+    `expected bound-flight projectiles to inherit the carrier velocity: projectile=${projectile.inheritedVelocity.length().toFixed(3)} carrier=${carrierVelocity.length().toFixed(3)}`
   );
   assert.ok(
     Math.abs(worldRelativeVelocity.length() - expectedProjectileSpeed) < 1e-3,
@@ -1952,6 +1952,164 @@ function runProjectilePlanetAimRegressionTest() {
   );
 }
 
+function runProjectileMovingPlanetHeadingDriftTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  stepSim(sim, 120, NEUTRAL_CONTROLS);
+  const { state } = sim;
+  const ship = state.ship;
+  const planet = ship.boundPlanet;
+  assert.ok(ship && planet, 'expected a bound ship for the moving-planet drift test');
+
+  const localUp = ship.position.clone().sub(planet.position).normalize();
+  const tangentVelocity = new THREE.Vector3(1, 0, 0).cross(localUp);
+  if (tangentVelocity.lengthSq() < 1e-6) {
+    tangentVelocity.copy(new THREE.Vector3(0, 0, 1)).cross(localUp);
+  }
+  tangentVelocity.normalize();
+
+  const planetVelocity = tangentVelocity.clone().multiplyScalar(6200);
+  const cruiseSpeed = Math.max(ship.speed || 0, 160);
+  const baseForward = ship.forward.clone().sub(localUp.clone().multiplyScalar(ship.forward.dot(localUp)));
+  if (baseForward.lengthSq() < 1e-6) {
+    baseForward.copy(tangentVelocity.clone().cross(localUp));
+  }
+  baseForward.normalize();
+
+  configureBoundFireState(state, planetVelocity, baseForward.clone().multiplyScalar(cruiseSpeed));
+  state.enemies.length = 0;
+  state.enemySquads.length = 0;
+  state.enemySpawnTimer = 9999;
+  state.mothershipSpawnTimer = 9999;
+  state.eventLog.length = 0;
+
+  const startPlanetPosition = planet.position.clone();
+  const startPlanetPreviousPosition = planet.previousPosition.clone();
+  const startRelativePosition = ship.relativePosition.clone();
+  const headingOffsets = Array.from({ length: 24 }, (_, index) => index * (Math.PI * 2 / 24));
+  const aimX = 0.55;
+  const aimY = 0;
+  const measurements = [];
+
+  for (const headingOffset of headingOffsets) {
+    planet.position.copy(startPlanetPosition);
+    planet.previousPosition.copy(startPlanetPreviousPosition);
+    planet.velocity.copy(planetVelocity);
+
+    ship.boundPlanet = planet;
+    ship.flightMode = 'bound';
+    ship.captureTimer = config.shipCaptureBlendTime;
+    ship.recaptureLock = config.shipRecaptureDelay + 1;
+    ship.relativePosition.copy(startRelativePosition);
+    ship.position.copy(startPlanetPosition).add(startRelativePosition);
+    ship.forward.copy(baseForward).applyAxisAngle(localUp, headingOffset).normalize();
+    ship.up.copy(localUp);
+    ship.bank = 0;
+    ship.relativeVelocity.copy(ship.forward).multiplyScalar(cruiseSpeed);
+    ship.velocity.copy(planet.velocity).add(ship.relativeVelocity);
+    ship.speed = cruiseSpeed;
+    state.speed = cruiseSpeed;
+    ship.fireCooldown = 0;
+    state.projectiles.length = 0;
+    state.nearestPlanet = planet;
+    state.nearestDistance = ship.position.distanceTo(planet.position);
+    state.nearestAltitude = Math.max(0, state.nearestDistance - planet.radius);
+
+    const camera = buildPlanetFireCamera(ship, state);
+    const fireDirection = computeRawFireDirection(camera, aimX, aimY, 1280, 720);
+    sim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection });
+    assert.strictEqual(state.projectiles.length, 1, 'expected a projectile to spawn in the moving-planet drift test');
+
+    const projectile = state.projectiles[0];
+    const carrierVelocity = ship.velocity.clone();
+    const relativeVelocity = projectile.velocity.clone().sub(carrierVelocity);
+    const relativeSpeed = relativeVelocity.length();
+    const expectedProjectileSpeed = config.shipProjectileSpeed + ship.speed * config.shipProjectileShipVelocityScale;
+    const alignment = relativeSpeed > 1e-6 ? relativeVelocity.clone().normalize().dot(fireDirection) : 0;
+
+    measurements.push({
+      headingOffset,
+      relativeSpeed,
+      alignment
+    });
+
+    assert.ok(
+      Math.abs(relativeSpeed - expectedProjectileSpeed) < 1e-3,
+      `expected the moving-planet shots to keep the configured speed: speed=${relativeSpeed.toFixed(6)} expected=${expectedProjectileSpeed.toFixed(6)} heading=${headingOffset.toFixed(3)}`
+    );
+    assert.ok(
+      alignment > 0.9999,
+      `expected the moving-planet shots to stay on the reticle ray: alignment=${alignment.toFixed(6)} heading=${headingOffset.toFixed(3)}`
+    );
+  }
+
+  console.log(`PASS projectile-moving-planet-heading-drift: ${JSON.stringify(measurements)}`);
+}
+
+function runProjectilePlanetFlightVelocityCapTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  stepSim(sim, 120, NEUTRAL_CONTROLS);
+  const { state } = sim;
+  const ship = state.ship;
+  assert.ok(ship && ship.boundPlanet, 'expected a bound ship for the planetary-flight velocity cap test');
+
+  const planetVelocity = new THREE.Vector3(5400, -2600, 1700);
+  configureBoundFireState(state, planetVelocity, new THREE.Vector3(0, 0, 0));
+
+  const camera = buildPlanetFireCamera(ship, state);
+  const fireDirection = computeRawFireDirection(camera, 0, 0, 1280, 720);
+
+  sim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection });
+  assert.strictEqual(state.projectiles.length, 1, 'expected a single projectile to spawn in planetary flight');
+
+  const projectile = state.projectiles[0];
+  const coords = projectile.velocity.clone().sub(ship.velocity);
+  const limit = 1500;
+
+  assert.ok(
+    Math.abs(coords.x) < limit && Math.abs(coords.y) < limit && Math.abs(coords.z) < limit,
+    `expected planetary-flight projectile ship-relative velocity to stay below ${limit} on every axis: velocity=${JSON.stringify({
+      x: coords.x,
+      y: coords.y,
+      z: coords.z
+    })}`
+  );
+
+  console.log(
+    `PASS projectile-planet-flight-velocity-cap: relativeVelocity=(${coords.x.toFixed(3)}, ${coords.y.toFixed(3)}, ${coords.z.toFixed(3)})`
+  );
+}
+
+function runProjectilePlanetMotionSpeedDiagnosticTest() {
+  const sim = createOrbitalsSim(0xC0FFEE);
+  sim.bootstrapWorld();
+
+  stepSim(sim, 120, NEUTRAL_CONTROLS);
+  const { state } = sim;
+  const ship = state.ship;
+  const planet = ship.boundPlanet;
+  assert.ok(ship && planet, 'expected a bound ship for the planetary motion diagnostic test');
+
+  const planetSpeed = planet.velocity.length();
+  const shipSpeed = ship.velocity.length();
+
+  const camera = buildPlanetFireCamera(ship, state);
+  const fireDirection = computeRawFireDirection(camera, 0.15, -0.1, 1280, 720);
+  sim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection });
+  assert.strictEqual(state.projectiles.length, 1, 'expected a single projectile to spawn for the planetary motion diagnostic test');
+
+  const projectile = state.projectiles[0];
+  const projectileWorldSpeed = projectile.velocity.length();
+  const projectileRelativeSpeed = projectile.velocity.clone().sub(ship.velocity).length();
+
+  console.log(
+    `PASS projectile-planet-motion-speed-diagnostic: planetSpeed=${planetSpeed.toFixed(3)} shipSpeed=${shipSpeed.toFixed(3)} projectileWorldSpeed=${projectileWorldSpeed.toFixed(3)} projectileRelativeSpeed=${projectileRelativeSpeed.toFixed(3)}`
+  );
+}
+
 function runGamepadStartRestartSmokeTest() {
   const titleFaceButton = resolveGamepadStartRestartAction({
     loaded: true,
@@ -2047,8 +2205,8 @@ function runProjectileRefactorComparisonTest() {
 
     const baselineProjectile = baselineSim.state.projectiles[0];
     const refProjectile = refactoredSim.state.projectiles[0];
-    const baselineCarrierVelocity = baselineShip.boundPlanet ? baselineShip.relativeVelocity : baselineShip.velocity;
-    const refCarrierVelocity = refShip.boundPlanet ? refShip.relativeVelocity : refShip.velocity;
+    const baselineCarrierVelocity = baselineShip.velocity;
+    const refCarrierVelocity = refShip.velocity;
     const baselineRelative = baselineProjectile.velocity.clone().sub(baselineCarrierVelocity);
     const refRelative = refProjectile.velocity.clone().sub(refCarrierVelocity);
     const baselineOffset = baselineProjectile.position.clone().sub(baselineShip.position);
@@ -3840,6 +3998,9 @@ runProjectileBoundFlightInheritedVelocityTest();
 runProjectileFireWhileMovingTest();
 runProjectileNearPlanetSurvivalTest();
 runProjectilePlanetAimRegressionTest();
+runProjectileMovingPlanetHeadingDriftTest();
+runProjectilePlanetFlightVelocityCapTest();
+runProjectilePlanetMotionSpeedDiagnosticTest();
 runProjectileHomingTest();
 runProjectileHomingLimitTest();
 runEnemyCrashExplosionTest('planet');

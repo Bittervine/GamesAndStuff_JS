@@ -166,9 +166,7 @@ export function spawnProjectileBurst(state, ship, fireDirection) {
   const origin = tempVecC.copy(ship.position);
   const baseSpeed = config.shipProjectileSpeed + ship.speed * config.shipProjectileShipVelocityScale;
   const direction = tempVecD.copy(forward).normalize();
-  const inheritedVelocity = ship.boundPlanet
-    ? ship.relativeVelocity.clone()
-    : ship.velocity.clone();
+  const inheritedVelocity = ship.velocity.clone();
   state.projectiles.push({
     id: state.nextProjectileId,
     position: origin.clone(),

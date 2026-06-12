@@ -302,4 +302,8 @@ export function updatePlanets(state, dt, time) {
   }
   relaxPlanetSeparation(state.planets);
   relaxStarSeparation(state.planets);
+  const velocityDt = Math.max(dt, 1 / 240);
+  for (const planet of state.planets) {
+    planet.velocity.copy(planet.position).sub(planet.previousPosition).divideScalar(velocityDt);
+  }
 }

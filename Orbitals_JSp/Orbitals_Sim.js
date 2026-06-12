@@ -1817,6 +1817,7 @@ function spawnProjectileBurst(state, ship, fireDirection) {
     position: origin.clone(),
     previousPosition: origin.clone(),
     velocity: ship.velocity.clone().addScaledVector(direction, baseSpeed),
+    inheritedVelocity: ship.velocity.clone(),
     age: 0,
     lifetime: config.shipProjectileLifetime,
     radius: config.shipProjectileSize,
