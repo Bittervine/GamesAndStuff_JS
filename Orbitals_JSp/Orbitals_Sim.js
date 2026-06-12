@@ -1,53 +1,5 @@
 import * as THREE from './lib/three.module.js';
-import { config } from './orbitals_config.js';
-import {
-  ENEMY_FAMILIES,
-  ENEMY_MODEL_FILES_BY_FAMILY,
-  getEnemyFamilyFiles,
-  updateEnemyShipState
-} from './sim/enemies.js';
-export {
-  ENEMY_FAMILIES,
-  ENEMY_MODEL_FILES_BY_FAMILY,
-  getEnemyFamilyFiles
-} from './sim/enemies.js';
-import { pushEvent } from './sim/events.js';
-export { formatCombatLog } from './sim/events.js';
-import {
-  createFuelMote,
-  createPlanetConfig,
-  pickNearestPlanet,
-  shufflePlanetFiles,
-  updateFuelMotes,
-  updatePlanets
-} from './sim/world.js';
-import { buildBasisFromNormal } from './sim/math.js';
-import {
-  createEncounterEntityState,
-  createEncounterState,
-  createGameState,
-  createEnemyState,
-  ENEMY_HIT_RADIUS,
-  resetGameState
-} from './sim/state.js';
-import {
-  canShipsCollide,
-  updateShipShipCollisions
-} from './sim/collisions.js';
-import {
-  spawnEnemyExplosion,
-  updateEnemyExplosions
-} from './sim/effects.js';
-import {
-  segmentIntersectsSphere,
-  updateProjectiles
-} from './sim/projectiles.js';
-import {
-  beginPlanetCapture,
-  crashPlayerShip,
-  respawnShip,
-  updateShipState as updatePlayerShipState
-} from './sim/player.js';
+import { PLANET_FILES, config } from './orbitals_config.js';
 
 const worldUp = new THREE.Vector3(0, 1, 0);
 const tempVecA = new THREE.Vector3();
@@ -65,6 +17,163 @@ const tempVecL = new THREE.Vector3();
 const tempVecM = new THREE.Vector3();
 const tempVecN = new THREE.Vector3();
 
+const PROJECTILE_HOMING_LOCK_ANGLE = THREE.MathUtils.degToRad(5);
+const PROJECTILE_HOMING_ACQUIRE_ANGLE = THREE.MathUtils.degToRad(7.5);
+const PROJECTILE_HOMING_RETAIN_ANGLE = THREE.MathUtils.degToRad(18);
+const PROJECTILE_HOMING_RANGE = 900;
+const PROJECTILE_HOMING_MIN_TURN = THREE.MathUtils.degToRad(10);
+const PROJECTILE_HOMING_MAX_TURN = THREE.MathUtils.degToRad(45);
+
+function clampShipSpeed(speed) {
+  return THREE.MathUtils.clamp(speed, 0, config.shipMaxMaxSpeed);
+}
+
+export const ENEMY_MODEL_FILES_BY_FAMILY = {
+  Standard: [
+    'Ship_Standard_1.glb',
+    'Ship_Standard_10.glb',
+    'Ship_Standard_11.glb',
+    'Ship_Standard_12.glb',
+    'Ship_Standard_13.glb',
+    'Ship_Standard_14.glb',
+    'Ship_Standard_17.glb',
+    'Ship_Standard_2.glb',
+    'Ship_Standard_20.glb',
+    'Ship_Standard_3.glb',
+    'Ship_Standard_5.glb',
+    'Ship_Standard_6.glb',
+    'Ship_Standard_7.glb',
+    'Ship_Standard_8.glb',
+    'Ship_Standard_9.glb'
+  ],
+  Crosspanel: [
+    'Ship_Crosspanel_1.glb',
+    'Ship_Crosspanel_10.glb',
+    'Ship_Crosspanel_11.glb',
+    'Ship_Crosspanel_16.glb',
+    'Ship_Crosspanel_18.glb',
+    'Ship_Crosspanel_2.glb',
+    'Ship_Crosspanel_3.glb',
+    'Ship_Crosspanel_4.glb',
+    'Ship_Crosspanel_5.glb',
+    'Ship_Crosspanel_6.glb',
+    'Ship_Crosspanel_7.glb'
+  ],
+  FlyingSaucer: [
+    'Ship_FlyingSaucer_298877.glb',
+    'Ship_FlyingSaucer_301176.glb',
+    'Ship_FlyingSaucer_336064.glb',
+    'Ship_FlyingSaucer_528770.glb',
+    'Ship_FlyingSaucer_654444.glb',
+    'Ship_FlyingSaucer_750147.glb',
+    'Ship_FlyingSaucer_752605.glb',
+    'Ship_FlyingSaucer_772429.glb'
+  ],
+  DeltaWing: [
+    'Ship_DeltaWing_108179.glb',
+    'Ship_DeltaWing_368386.glb',
+    'Ship_DeltaWing_394511.glb',
+    'Ship_DeltaWing_535536.glb',
+    'Ship_DeltaWing_691262.glb',
+    'Ship_DeltaWing_853002.glb',
+    'Ship_DeltaWing_894551.glb'
+  ],
+  Pirate: [
+    'Ship_Pirate_1.glb',
+    'Ship_Pirate_2.glb',
+    'Ship_Pirate_3.glb',
+    'Ship_Pirate_4.glb',
+    'Ship_Pirate_5.glb',
+    'Ship_Pirate_6.glb',
+    'Ship_Pirate_7.glb'
+  ],
+  Orca: [
+    'Ship_Orca_135963.glb',
+    'Ship_Orca_29300.glb',
+    'Ship_Orca_486148.glb',
+    'Ship_Orca_492814.glb',
+    'Ship_Orca_583214.glb',
+    'Ship_Orca_652174.glb',
+    'Ship_Orca_687341.glb'
+  ],
+  Longwing: [
+    'Ship_Longwing_1.glb',
+    'Ship_Longwing_2.glb',
+    'Ship_Longwing_3.glb',
+    'Ship_Longwing_4.glb',
+    'Ship_Longwing_5.glb',
+    'Ship_Longwing_6.glb',
+    'Ship_Longwing_7.glb',
+    'Ship_Longwing_8.glb'
+  ],
+  TwoHoop: [
+    'Ship_TwoHoop_11695.glb',
+    'Ship_TwoHoop_217137.glb',
+    'Ship_TwoHoop_274249.glb',
+    'Ship_TwoHoop_274461.glb',
+    'Ship_TwoHoop_338598.glb',
+    'Ship_TwoHoop_428113.glb',
+    'Ship_TwoHoop_536191.glb'
+  ],
+  TigerWing: [
+    'Ship_TigerWing_1.glb',
+    'Ship_TigerWing_2.glb',
+    'Ship_TigerWing_3.glb',
+    'Ship_TigerWing_4.glb',
+    'Ship_TigerWing_5.glb',
+    'Ship_TigerWing_6.glb',
+    'Ship_TigerWing_7.glb'
+  ],
+  LunarCourier: [
+    'Ship_LunarCourier_153144.glb',
+    'Ship_LunarCourier_322196.glb',
+    'Ship_LunarCourier_5002.glb',
+    'Ship_LunarCourier_7.glb',
+    'Ship_LunarCourier_826239.glb',
+    'Ship_LunarCourier_899475.glb',
+    'Ship_LunarCourier_95901.glb',
+    'Ship_LunarCourier_994899.glb'
+  ],
+  Hooper: [
+    'Ship_Hooper_219385.glb',
+    'Ship_Hooper_302864.glb',
+    'Ship_Hooper_378031.glb',
+    'Ship_Hooper_443110.glb',
+    'Ship_Hooper_508807.glb',
+    'Ship_Hooper_517819.glb',
+    'Ship_Hooper_740839.glb',
+    'Ship_Hooper_760830.glb'
+  ],
+  ManraRay: [
+    'Ship_ManraRay_130405.glb',
+    'Ship_ManraRay_16943.glb',
+    'Ship_ManraRay_190663.glb',
+    'Ship_ManraRay_459947.glb',
+    'Ship_ManraRay_46262.glb',
+    'Ship_ManraRay_766613.glb',
+    'Ship_ManraRay_792763.glb',
+    'Ship_ManraRay_858242.glb'
+  ],
+  PyramidLifter: [
+    'Ship_PyramidLifter_290115.glb',
+    'Ship_PyramidLifter_327178.glb',
+    'Ship_PyramidLifter_390936.glb',
+    'Ship_PyramidLifter_426685.glb',
+    'Ship_PyramidLifter_478836.glb',
+    'Ship_PyramidLifter_741828.glb',
+    'Ship_PyramidLifter_97249.glb',
+    'Ship_PyramidLifter_990348.glb'
+  ],
+  Nemesis: [
+    'ship_nemesis2.glb'
+  ]
+};
+const ENEMY_FAMILIES = Object.keys(ENEMY_MODEL_FILES_BY_FAMILY);
+
+function getEnemyFamilyFiles(family) {
+  return ENEMY_MODEL_FILES_BY_FAMILY[family] || ENEMY_MODEL_FILES_BY_FAMILY[ENEMY_FAMILIES[0]] || [];
+}
+
 const ENEMY_SPAWN_DELAY_MIN = 0.8;
 const ENEMY_SPAWN_DELAY_MAX = 2.0;
 const ENEMY_MAX_SQUADS = 4;
@@ -73,6 +182,7 @@ const ENEMY_SQUAD_SIZE_MAX = 1;
 const ENEMY_APPROACH_ALTITUDE = 0.92;
 const ENEMY_SWARM_ALTITUDE = 0.54;
 const ENEMY_DEPART_ALTITUDE = 1.05;
+const ENEMY_HIT_RADIUS = 2.6;
 const ENEMY_SPEED_SCALE_MIN = 0.34;
 const ENEMY_SPEED_SCALE_MAX = 0.58;
 const ENEMY_TURN_RATE_MIN = 1.05;
@@ -94,6 +204,9 @@ const ENEMY_SWARM_DURATION_MAX = 120.0;
 const ENEMY_DEPART_DURATION_MIN = 8.0;
 const ENEMY_DEPART_DURATION_MAX = 16.0;
 const ENEMY_CRASH_MARGIN = 4.0;
+const ENEMY_EXPLOSION_PARTICLE_COUNT = 70;
+const ENEMY_EXPLOSION_LIFETIME_MIN = 0.34;
+const ENEMY_EXPLOSION_LIFETIME_MAX = 0.58;
 
 export function parseSeed(rawValue) {
   if (rawValue == null || rawValue === '') {
@@ -230,6 +343,398 @@ function computeFreeGravityPull(state, ship) {
   }
 
   return gravityPull;
+}
+
+function randomUnitVector(rng) {
+  const z = rng() * 2 - 1;
+  const a = rng() * Math.PI * 2;
+  const r = Math.sqrt(Math.max(0, 1 - z * z));
+  return new THREE.Vector3(Math.cos(a) * r, z, Math.sin(a) * r);
+}
+
+function buildBasisFromNormal(normal) {
+  const up = normal.clone().normalize();
+  const tangent = Math.abs(up.dot(worldUp)) > 0.92
+    ? new THREE.Vector3(1, 0, 0).cross(up).normalize()
+    : worldUp.clone().cross(up).normalize();
+  const bitangent = up.clone().cross(tangent).normalize();
+  return { tangent, bitangent, normal: up };
+}
+
+function shuffleFiles(files, rng) {
+  const result = files.slice();
+  for (let i = result.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rng() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+function createPlanetConfig(rng, index, file) {
+  const scale = config.planetScale;
+  const orbitScale = config.orbitScale;
+  const radius = (0.16 + rng() * 0.18 + (index % 3) * 0.025) * scale;
+  const atmosphereRadius = radius * (index % 2 === 0
+    ? config.atmosphereRatioMin + rng() * (config.atmosphereRatioMax - config.atmosphereRatioMin)
+    : config.atmosphereRatioMin + rng() * (config.atmosphereRatioMax - config.atmosphereRatioMin));
+  const gravityRadius = radius * (6.8 + rng() * 3.7);
+  const orbitRadius = (config.clusterRadius + index * (1.05 + rng() * 0.2) + (-0.06 + rng() * 0.12)) * orbitScale;
+  const orbitRadiusB = orbitRadius * (0.96 + rng() * 0.08);
+  const orbitSpeed = (0.0075 + rng() * 0.015) * (index % 2 === 0 ? 1 : -1);
+  const orbitPhase = rng() * Math.PI * 2;
+  const orbitPrecession = -0.0022 + rng() * 0.0044;
+  const orbitTilt = randomUnitVector(rng);
+  const orbitPlane = buildBasisFromNormal(orbitTilt);
+  const wobbleAxis = randomUnitVector(rng);
+  const surfaceOrbitPeriod = config.surfaceOrbitPeriodMin + rng() * (config.surfaceOrbitPeriodMax - config.surfaceOrbitPeriodMin);
+  const gravityStrength = (4 * Math.PI * Math.PI * Math.pow(radius, 3)) / (surfaceOrbitPeriod * surfaceOrbitPeriod);
+  const hueShift = -0.08 + rng() * 0.18;
+  return {
+    name: `Planet ${index + 1}`,
+    file,
+    radius,
+    atmosphereRadius,
+    gravityRadius,
+    gravityStrength,
+    surfaceOrbitPeriod,
+    orbitRadius,
+    orbitRadiusB,
+    orbitSpeed,
+    orbitPhase,
+    orbitPrecession,
+    orbitPlane,
+    wobbleAxis,
+    wobblePhase: rng() * Math.PI * 2,
+    wobbleSpeed: 0.18 + rng() * 0.37,
+    wobbleStrength: 0.4 + rng() * 1.3,
+    spinSpeed: -0.5 + rng() * 1.3,
+    hueShift,
+    position: new THREE.Vector3(),
+    previousPosition: new THREE.Vector3(),
+    velocity: new THREE.Vector3(),
+    fuelMotes: [],
+    root: null,
+    visual: null,
+    halo: null
+  };
+}
+
+function createFuelMote(rng, planet, moteIndex) {
+  const angle = rng() * Math.PI * 2;
+  const bandRadius = planet.atmosphereRadius * (1.005 + rng() * 0.015);
+  const bandRadiusB = bandRadius * (0.88 + rng() * 0.28);
+  const orbitSpeed = (-0.7 + rng() * 1.6) * 0.22;
+  return {
+    planet,
+    index: moteIndex,
+    size: 0.06 + rng() * 0.05,
+    color: moteIndex % 2 === 0 ? 0x8ff2d1 : 0x88b5ff,
+    angle,
+    bandRadius,
+    bandRadiusB,
+    orbitSpeed,
+    phase: rng() * Math.PI * 2,
+    pulse: rng() * Math.PI * 2,
+    position: new THREE.Vector3(),
+    scale: 1,
+    visual: null
+  };
+}
+
+function updateFuelMoteState(mote, dt, time, state) {
+  const { planet } = mote;
+  mote.angle += mote.orbitSpeed * dt;
+  mote.pulse += dt * 3.2;
+  const basis = planet.orbitPlane;
+  const cosA = Math.cos(mote.angle);
+  const sinA = Math.sin(mote.angle);
+  const offset = tempVecA
+    .copy(basis.tangent).multiplyScalar(cosA * mote.bandRadius)
+    .addScaledVector(basis.bitangent, sinA * mote.bandRadiusB)
+    .addScaledVector(basis.normal, Math.sin(time * 1.4 + mote.phase) * planet.radius * 0.08);
+  mote.position.copy(offset);
+  mote.scale = 0.65 + 0.25 * Math.sin(mote.pulse);
+
+  if (state.ship && !state.crashed) {
+    const moteWorldPos = tempVecB.copy(planet.position).add(mote.position);
+    if (moteWorldPos.distanceTo(state.ship.position) < 0.9) {
+      state.fuel = Math.min(state.maxFuel, state.fuel + 4);
+      mote.angle += Math.PI * 0.6;
+      mote.pulse += Math.PI * 0.8;
+    }
+  }
+}
+
+function updatePlanetState(planet, dt, time) {
+  const motionScale = config.planetMotionSpeedScale;
+  const angle = planet.orbitPhase + time * planet.orbitSpeed * motionScale;
+  const precession = time * planet.orbitPrecession * motionScale;
+  const plane = planet.orbitPlane;
+  const cosA = Math.cos(angle + precession);
+  const sinA = Math.sin(angle * 1.03 - precession * 1.7);
+  const wobble = Math.sin(time * planet.wobbleSpeed * motionScale + planet.wobblePhase);
+  const wobble2 = Math.cos(time * planet.wobbleSpeed * 0.73 * motionScale + planet.wobblePhase * 1.9);
+
+  tempVecA.copy(plane.tangent).multiplyScalar(cosA * planet.orbitRadius);
+  tempVecB.copy(plane.bitangent).multiplyScalar(sinA * planet.orbitRadiusB);
+  tempVecC.copy(plane.normal).multiplyScalar(wobble * planet.wobbleStrength * 2.1);
+  tempVecD.copy(planet.wobbleAxis).multiplyScalar(wobble2 * planet.wobbleStrength * 1.1);
+
+  planet.previousPosition.copy(planet.position);
+  planet.position.copy(tempVecA).add(tempVecB).add(tempVecC).add(tempVecD);
+  const clusterWobble = config.clusterWobble * config.orbitScale;
+  planet.position.x += Math.sin(time * 0.09 * motionScale + planet.orbitPhase) * clusterWobble * 0.18;
+  planet.position.y += Math.cos(time * 0.07 * motionScale + planet.orbitPhase * 0.7) * clusterWobble * 0.11;
+  planet.position.z += Math.sin(time * 0.05 * motionScale + planet.orbitPhase * 1.3) * clusterWobble * 0.14;
+
+  planet.velocity.copy(planet.position).sub(planet.previousPosition).divideScalar(Math.max(dt, 1 / 240));
+}
+
+function relaxPlanetSeparation(planets) {
+  const startFactor = Math.max(1.0, config.planetSeparationStartFactor || 5.0);
+  const hardFactor = Math.max(1.0, config.planetSeparationHardFactor || 1.28);
+  const strength = THREE.MathUtils.clamp(config.planetSeparationStrength ?? 0.16, 0, 1);
+  for (let iteration = 0; iteration < 2; iteration += 1) {
+    for (let i = 0; i < planets.length; i += 1) {
+      for (let j = i + 1; j < planets.length; j += 1) {
+        const a = planets[i];
+        const b = planets[j];
+        const pairRadius = a.radius + b.radius;
+        const softDistance = pairRadius * startFactor;
+        const hardDistance = pairRadius * hardFactor;
+        const delta = tempVecA.copy(b.position).sub(a.position);
+        const distance = delta.length();
+        if (distance < 0.0001 || distance >= softDistance) {
+          continue;
+        }
+        const softT = THREE.MathUtils.clamp((softDistance - distance) / Math.max(softDistance - hardDistance, 0.0001), 0, 1);
+        const eased = softT * softT * (3 - 2 * softT);
+        const push = (softDistance - distance) * 0.5 * strength * eased;
+        delta.normalize().multiplyScalar(push);
+        a.position.addScaledVector(delta, -1);
+        b.position.add(delta);
+      }
+    }
+  }
+}
+
+function relaxStarSeparation(planets) {
+  const starRadius = config.starScale * 0.5;
+  for (let iteration = 0; iteration < 3; iteration += 1) {
+    for (const planet of planets) {
+      const minDistance = starRadius + planet.radius;
+      const distance = planet.position.length();
+      if (distance >= minDistance) {
+        continue;
+      }
+      const direction = distance > 1e-6
+        ? tempVecA.copy(planet.position).divideScalar(distance)
+        : (planet.previousPosition.lengthSq() > 1e-6
+          ? tempVecA.copy(planet.previousPosition).normalize()
+          : tempVecA.copy(planet.orbitPlane.tangent).normalize());
+      planet.position.copy(direction.multiplyScalar(minDistance));
+    }
+  }
+}
+
+function pickNearestPlanet(planets, position) {
+  let nearest = null;
+  let nearestDistance = Infinity;
+  for (const planet of planets) {
+    const distance = position.distanceTo(planet.position);
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearest = planet;
+    }
+  }
+  return { nearest, nearestDistance };
+}
+
+function createShipState() {
+  return {
+    position: new THREE.Vector3(),
+    velocity: new THREE.Vector3(),
+    forward: new THREE.Vector3(0, 0, 1),
+    up: new THREE.Vector3(0, 1, 0),
+    gravity: new THREE.Vector3(),
+    relativePosition: new THREE.Vector3(),
+    relativeVelocity: new THREE.Vector3(),
+    boundPlanet: null,
+    flightMode: 'bound',
+    captureTimer: config.shipCaptureBlendTime,
+    bank: 0,
+    boostTimer: 0,
+    fireCooldown: 0,
+    pitchIdleTime: 0,
+    recaptureLock: 0,
+    muzzleOffset: config.shipMuzzleOffset,
+    speed: 0,
+    root: null,
+    visual: null,
+    modelPivot: null,
+    model: null,
+    engineEffects: null
+  };
+}
+
+function createEnemyState() {
+  return {
+    id: 0,
+    squadId: 0,
+    kind: 'regular',
+    family: '',
+    assetFile: '',
+    position: new THREE.Vector3(),
+    previousPosition: new THREE.Vector3(),
+    velocity: new THREE.Vector3(),
+    relativePosition: new THREE.Vector3(),
+    relativeVelocity: new THREE.Vector3(),
+    forward: new THREE.Vector3(0, 0, 1),
+    up: new THREE.Vector3(0, 1, 0),
+    gravity: new THREE.Vector3(),
+    bank: 0,
+    speed: 0,
+    radius: ENEMY_HIT_RADIUS,
+    health: config.enemyHitPoints,
+    speedScale: 1,
+    turnScale: 1,
+    upScale: 1,
+    visualScale: 1,
+    destroyed: false,
+    boundPlanet: null,
+    flightMode: 'bound',
+    captureTimer: config.shipCaptureBlendTime,
+    recaptureLock: 0,
+    pitchIdleTime: 0,
+    boostTimer: 0,
+    fireCooldown: 0,
+    aiTurnInput: 0,
+    aiPitchInput: 0,
+    aiBoostHold: 0,
+    aiBrakeHold: 0,
+    aiMode: '',
+    aiTargetPlanetIndex: -1,
+    aiDepartPlanetIndex: -1,
+    aiPresentationSignature: '',
+    fighterSettleTimer: 0,
+    atmosphericCruiseAltitudeFactor: config.atmosphereCruiseAltitudeFactor,
+    hasSmoothedTargetPoint: false,
+    smoothedTargetPoint: new THREE.Vector3(),
+    formationAngle: 0,
+    formationRadius: 0,
+    phase: 0,
+    mode: 'approach',
+    targetPlanetIndex: 0,
+    nextPlanetIndex: 0,
+    modeTimer: 0,
+    combatRole: 'reserve',
+    presentation: null,
+    objectiveAttack: null,
+    encounterId: -1,
+    lastPresentationTime: -Infinity,
+    presentationShootableFrames: 0,
+    presentationKindLastUsed: '',
+    isPrimaryThreat: false,
+    hudPriority: config.encounterReserveHudPriority,
+    root: null,
+    visual: null,
+    modelPivot: null,
+    model: null
+  };
+}
+
+function createEncounterDirectorState() {
+  return {
+    activeEncounterId: -1,
+    nextEncounterId: 1,
+    nextEncounterEntityId: 1,
+    nextSelectionTimer: 0,
+    encounters: [],
+    activePresenterEnemyIds: [],
+    activeObjectiveAttackerEnemyIds: [],
+    lastPresentationKindIndex: 0,
+    missionMessage: '',
+    missionMessageKind: '',
+    missionMessageUntil: 0
+  };
+}
+
+function resetEncounterDirectorState(state) {
+  state.encounterDirector = createEncounterDirectorState();
+  state.encounterEntities = [];
+}
+
+function createEncounterState(state, options = {}) {
+  const director = state.encounterDirector || createEncounterDirectorState();
+  state.encounterDirector = director;
+  const id = options.id ?? director.nextEncounterId++;
+  const encounter = {
+    id,
+    type: options.type || 'planetInvasion',
+    status: options.status || 'inactive',
+    anchorKind: options.anchorKind || 'planet',
+    anchorPlanetIndex: options.anchorPlanetIndex ?? -1,
+    anchorEntityId: options.anchorEntityId ?? -1,
+    anchorPoint: options.anchorPoint ? options.anchorPoint.clone() : null,
+    objectiveKind: options.objectiveKind || 'clearEnemies',
+    protectedEntityId: options.protectedEntityId ?? -1,
+    targetEntityId: options.targetEntityId ?? -1,
+    spawnedEnemyIds: Array.isArray(options.spawnedEnemyIds) ? options.spawnedEnemyIds.slice() : [],
+    activePresenterEnemyIds: [],
+    activeObjectiveAttackerEnemyIds: [],
+    reserveEnemyIds: [],
+    mothershipSquadId: options.mothershipSquadId ?? -1,
+    totalReleased: options.totalReleased ?? 0,
+    totalDestroyed: options.totalDestroyed ?? 0,
+    startedAt: options.startedAt ?? 0,
+    endedAt: 0,
+    clearEventPushed: false,
+    successEventPushed: false,
+    failEventPushed: false,
+    activationRadius: options.activationRadius ?? config.encounterMissionActivationDistance,
+    abortDistance: options.abortDistance ?? config.encounterMissionAbortDistance,
+    missionActiveText: options.missionActiveText || '',
+    missionSuccessText: options.missionSuccessText || '',
+    missionFailureText: options.missionFailureText || '',
+    missionAbortText: options.missionAbortText || '',
+    duration: options.duration ?? 0,
+    activatedByPlayer: Boolean(options.activatedByPlayer)
+  };
+  director.encounters.push(encounter);
+  return encounter;
+}
+
+function createEncounterEntityState(state, options = {}) {
+  const director = state.encounterDirector || createEncounterDirectorState();
+  state.encounterDirector = director;
+  const entity = {
+    id: options.id ?? director.nextEncounterEntityId++,
+    kind: options.kind || 'transport',
+    family: options.family || 'Nemesis',
+    assetFile: options.assetFile || 'ship_nemesis2.glb',
+    position: options.position ? options.position.clone() : new THREE.Vector3(),
+    previousPosition: options.position ? options.position.clone() : new THREE.Vector3(),
+    velocity: options.velocity ? options.velocity.clone() : new THREE.Vector3(),
+    forward: options.forward ? options.forward.clone().normalize() : new THREE.Vector3(0, 0, 1),
+    up: options.up ? options.up.clone().normalize() : new THREE.Vector3(0, 1, 0),
+    radius: options.radius ?? ENEMY_HIT_RADIUS * 3,
+    health: options.health ?? config.transportDefenseEntityHealth,
+    maxHealth: options.maxHealth ?? options.health ?? config.transportDefenseEntityHealth,
+    speed: options.speed ?? config.transportDefenseEntitySpeed,
+    routeDirection: options.routeDirection ? options.routeDirection.clone().normalize() : null,
+    routeRemaining: options.routeRemaining ?? Infinity,
+    destroyed: false,
+    visualScale: options.visualScale ?? 2.4,
+    root: null,
+    visual: null,
+    modelPivot: null,
+    model: null
+  };
+  if (!Array.isArray(state.encounterEntities)) {
+    state.encounterEntities = [];
+  }
+  state.encounterEntities.push(entity);
+  return entity;
 }
 
 function getEncounterById(state, encounterId) {
@@ -921,6 +1426,63 @@ function spawnMothershipSquad(state, targetPlanetIndex = -1) {
   return squad;
 }
 
+function syncShipWorldState(ship) {
+  if (!ship || !ship.boundPlanet) {
+    return;
+  }
+  ship.position.copy(ship.boundPlanet.position).add(ship.relativePosition);
+  ship.velocity.copy(ship.boundPlanet.velocity).add(ship.relativeVelocity);
+}
+
+function transferShipToPlanet(ship, nextPlanet) {
+  if (!ship || !nextPlanet) {
+    return;
+  }
+  syncShipWorldState(ship);
+  ship.boundPlanet = nextPlanet;
+  ship.flightMode = 'bound';
+  ship.relativePosition.copy(ship.position).sub(nextPlanet.position);
+  ship.relativeVelocity.copy(ship.velocity).sub(nextPlanet.velocity);
+}
+
+function beginPlanetCapture(ship, capturePlanet) {
+  if (!ship || !capturePlanet) {
+    return;
+  }
+  transferShipToPlanet(ship, capturePlanet);
+  ship.captureTimer = ship.kind === 'player'
+    ? 0
+    : config.shipCaptureBlendTime;
+  ship.recaptureLock = 0;
+}
+
+function vectorLikeTo(target, value, fallback) {
+  if (value && typeof value.x === 'number' && typeof value.y === 'number' && typeof value.z === 'number') {
+    return target.set(value.x, value.y, value.z);
+  }
+  return target.copy(fallback);
+}
+
+function createEnemyExplosionState(state, position, cause = 'projectile') {
+  const explosionSeed = ((state.seed >>> 0) ^ Math.imul(state.nextEnemyExplosionId + 1, 0x9e3779b9)) >>> 0;
+  const rng = mulberry32(explosionSeed);
+  return {
+    id: state.nextEnemyExplosionId,
+    position: position.clone(),
+    age: 0,
+    lifetime: cause === 'crash'
+      ? ENEMY_EXPLOSION_LIFETIME_MIN + rng() * (ENEMY_EXPLOSION_LIFETIME_MAX - ENEMY_EXPLOSION_LIFETIME_MIN)
+      : (ENEMY_EXPLOSION_LIFETIME_MIN * 0.85) + rng() * ((ENEMY_EXPLOSION_LIFETIME_MAX * 0.9) - (ENEMY_EXPLOSION_LIFETIME_MIN * 0.85)),
+    particleCount: ENEMY_EXPLOSION_PARTICLE_COUNT,
+    cause
+  };
+}
+
+function spawnEnemyExplosion(state, position, cause = 'projectile') {
+  state.enemyExplosions.push(createEnemyExplosionState(state, position, cause));
+  state.nextEnemyExplosionId += 1;
+}
+
 function destroyEnemy(state, enemy, cause = 'projectile', impactPosition = null) {
   if (!enemy || enemy.destroyed) {
     return false;
@@ -1000,6 +1562,27 @@ function applyEnemyDamage(state, enemy, damage, cause = 'projectile', impactPosi
   return destroyEnemy(state, enemy, cause, impactPosition);
 }
 
+function isMothershipEnemy(enemy) {
+  return Boolean(enemy && enemy.kind === 'mothership');
+}
+
+function canShipsCollide(first, second) {
+  if (!first || !second || first === second) {
+    return false;
+  }
+  const firstIsMothership = isMothershipEnemy(first);
+  const secondIsMothership = isMothershipEnemy(second);
+  const firstIsRegularEnemy = Boolean(first.kind) && !firstIsMothership;
+  const secondIsRegularEnemy = Boolean(second.kind) && !secondIsMothership;
+  if (firstIsRegularEnemy && secondIsRegularEnemy && !config.enemyEnemyCollisionsDamage) {
+    return false;
+  }
+  if ((firstIsRegularEnemy && secondIsMothership) || (firstIsMothership && secondIsRegularEnemy)) {
+    return false;
+  }
+  return true;
+}
+
 function applyShipCollisionDamage(state, ship, damage, cause, impactPosition = null) {
   if (!ship || damage <= 0) {
     return false;
@@ -1009,13 +1592,7 @@ function applyShipCollisionDamage(state, ship, damage, cause, impactPosition = n
     if (!planet) {
       return false;
     }
-      crashPlayerShip(
-        state,
-        planet,
-        ship.position.clone().sub(impactPosition || ship.position).normalize(),
-        impactPosition || ship.position,
-        { spawnEnemyExplosion }
-      );
+    crashPlayerShip(state, planet, ship.position.clone().sub(impactPosition || ship.position).normalize(), impactPosition || ship.position);
     return true;
   }
   return applyEnemyDamage(state, ship, damage, cause, impactPosition);
@@ -1102,6 +1679,211 @@ function getNearestPlanetInfo(state, position) {
   };
 }
 
+function segmentIntersectsSphere(start, end, center, radius) {
+  const segment = tempVecA.copy(end).sub(start);
+  const lengthSq = segment.lengthSq();
+  if (lengthSq < 1e-12) {
+    return start.distanceTo(center) <= radius;
+  }
+
+  const toCenter = tempVecB.copy(center).sub(start);
+  const t = THREE.MathUtils.clamp(toCenter.dot(segment) / lengthSq, 0, 1);
+  const closest = tempVecC.copy(start).addScaledVector(segment, t);
+  return closest.distanceTo(center) <= radius;
+}
+
+function findProjectileHomingTarget(state, projectile) {
+  if (!state.enemies.length || projectile.velocity.lengthSq() < 1e-6) {
+    return null;
+  }
+
+  const currentHeading = tempVecA.copy(projectile.velocity).normalize();
+  const currentTarget = projectile.targetEnemyId != null
+    ? state.enemies.find((enemy) => enemy.id === projectile.targetEnemyId)
+    : null;
+
+  if (currentTarget) {
+    const currentTargetOffset = tempVecB.copy(currentTarget.position).sub(projectile.position);
+    const currentTargetDistance = currentTargetOffset.length();
+    if (currentTargetDistance > 1e-6 && currentTargetDistance <= PROJECTILE_HOMING_RANGE) {
+      const currentTargetAngle = currentHeading.angleTo(currentTargetOffset.divideScalar(currentTargetDistance));
+      if (currentTargetAngle <= PROJECTILE_HOMING_RETAIN_ANGLE) {
+        return currentTarget;
+      }
+    }
+  }
+
+  let bestTarget = null;
+  let bestScore = Infinity;
+
+  for (const enemy of state.enemies) {
+    if (!enemy || enemy.health <= 0) {
+      continue;
+    }
+
+    const offset = tempVecB.copy(enemy.position).sub(projectile.position);
+    const distance = offset.length();
+    if (distance <= 1e-6 || distance > PROJECTILE_HOMING_RANGE) {
+      continue;
+    }
+
+    const direction = offset.multiplyScalar(1 / distance);
+    const angle = currentHeading.angleTo(direction);
+    if (angle > PROJECTILE_HOMING_ACQUIRE_ANGLE) {
+      continue;
+    }
+
+    const score = (angle / PROJECTILE_HOMING_ACQUIRE_ANGLE) * 0.7 + (distance / PROJECTILE_HOMING_RANGE) * 0.3;
+    if (score < bestScore) {
+      bestScore = score;
+      bestTarget = enemy;
+    }
+  }
+
+  return bestTarget;
+}
+
+function steerProjectileTowardsTarget(projectile, target, dt) {
+  if (!target || projectile.velocity.lengthSq() < 1e-6) {
+    return;
+  }
+
+  const speed = projectile.velocity.length();
+  if (speed <= 1e-6) {
+    return;
+  }
+
+  const currentDirection = tempVecA.copy(projectile.velocity).multiplyScalar(1 / speed);
+  const desiredOffset = tempVecB.copy(target.position).sub(projectile.position);
+  const distance = desiredOffset.length();
+  if (distance <= 1e-6) {
+    return;
+  }
+
+  const desiredDirection = desiredOffset.multiplyScalar(1 / distance);
+  const angle = currentDirection.angleTo(desiredDirection);
+  if (angle <= 1e-4) {
+    return;
+  }
+
+  const angleAssist = THREE.MathUtils.clamp(
+    (PROJECTILE_HOMING_ACQUIRE_ANGLE - angle) / (PROJECTILE_HOMING_ACQUIRE_ANGLE - PROJECTILE_HOMING_LOCK_ANGLE),
+    0,
+    1
+  );
+  const distanceAssist = THREE.MathUtils.clamp(1 - (distance / PROJECTILE_HOMING_RANGE), 0, 1);
+  const assist = angleAssist * (0.5 + distanceAssist * 0.5);
+  if (assist <= 0) {
+    return;
+  }
+
+  const turnRate = THREE.MathUtils.lerp(PROJECTILE_HOMING_MIN_TURN, PROJECTILE_HOMING_MAX_TURN, assist);
+  const maxTurn = turnRate * dt;
+  const turn = Math.min(angle, maxTurn);
+  if (turn <= 0) {
+    return;
+  }
+
+  const rotationAxis = tempVecC.copy(currentDirection).cross(desiredDirection);
+  if (rotationAxis.lengthSq() > 1e-10) {
+    currentDirection.applyAxisAngle(rotationAxis.normalize(), turn);
+  } else {
+    currentDirection.copy(desiredDirection);
+  }
+
+  projectile.velocity.copy(currentDirection).multiplyScalar(speed);
+}
+
+function spawnProjectileBurst(state, ship, fireDirection) {
+  if (!ship || !fireDirection) {
+    return;
+  }
+
+  const localUp = ship.boundPlanet
+    ? tempVecF.copy(ship.position).sub(ship.boundPlanet.position).normalize()
+    : worldUp;
+  const lateral = tempVecA.copy(fireDirection).cross(localUp);
+  if (lateral.lengthSq() < 1e-6) {
+    lateral.copy(Math.abs(fireDirection.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : worldUp).cross(fireDirection);
+  }
+  lateral.normalize();
+
+  const forward = tempVecB.copy(fireDirection).normalize();
+  const origin = tempVecC.copy(ship.position);
+  const baseSpeed = config.shipProjectileSpeed + ship.speed * config.shipProjectileShipVelocityScale;
+  const direction = tempVecD.copy(forward).normalize();
+  state.projectiles.push({
+    id: state.nextProjectileId,
+    position: origin.clone(),
+    previousPosition: origin.clone(),
+    velocity: ship.velocity.clone().addScaledVector(direction, baseSpeed),
+    age: 0,
+    lifetime: config.shipProjectileLifetime,
+    radius: config.shipProjectileSize,
+    side: 0,
+    spawnFrame: state.frameIndex,
+    targetEnemyId: null,
+    visual: null
+  });
+  state.nextProjectileId += 1;
+}
+
+function updateProjectiles(state, dt) {
+  for (let i = state.projectiles.length - 1; i >= 0; i -= 1) {
+    const projectile = state.projectiles[i];
+    if (projectile.spawnFrame === state.frameIndex) {
+      continue;
+    }
+    projectile.age += dt;
+    projectile.previousPosition.copy(projectile.position);
+    const homingTarget = findProjectileHomingTarget(state, projectile);
+    projectile.targetEnemyId = homingTarget ? homingTarget.id : null;
+    if (homingTarget) {
+      steerProjectileTowardsTarget(projectile, homingTarget, dt);
+    }
+    projectile.position.addScaledVector(projectile.velocity, dt);
+
+    let dead = projectile.age >= projectile.lifetime;
+    if (!dead) {
+      for (const planet of state.planets) {
+        if (projectile.position.distanceTo(planet.position) <= planet.radius) {
+          dead = true;
+          break;
+        }
+      }
+    }
+
+    if (!dead && state.enemies.length > 0) {
+      for (let j = state.enemies.length - 1; j >= 0; j -= 1) {
+        const enemy = state.enemies[j];
+        if (!enemy || enemy.health <= 0) {
+          continue;
+        }
+        const hitRadius = enemy.radius + projectile.radius;
+        if (projectile.position.distanceTo(enemy.position) <= hitRadius) {
+          applyEnemyDamage(state, enemy, config.shipProjectileDamage, 'projectile');
+          dead = true;
+          break;
+        }
+      }
+    }
+
+    if (dead) {
+      state.projectiles.splice(i, 1);
+    }
+  }
+}
+
+function updateEnemyExplosions(state, dt) {
+  for (let i = state.enemyExplosions.length - 1; i >= 0; i -= 1) {
+    const explosion = state.enemyExplosions[i];
+    explosion.age += dt;
+    if (explosion.age >= explosion.lifetime) {
+      state.enemyExplosions.splice(i, 1);
+    }
+  }
+}
+
 function getEnemyTargetPlanet(state, enemy) {
   if (!state.planets.length) {
     return null;
@@ -1116,6 +1898,96 @@ function getEnemyNextPlanet(state, enemy) {
   }
   const index = Math.max(0, Math.min(state.planets.length - 1, enemy.nextPlanetIndex));
   return state.planets[index] || null;
+}
+
+function pushEvent(state, type, payload = {}) {
+  if (!config.debug || !state || !Array.isArray(state.eventLog)) {
+    return;
+  }
+  state.eventLog.push({
+    frame: state.frameIndex,
+    time: state.time,
+    type,
+    ...payload
+  });
+}
+
+function formatEventPoint(point) {
+  if (!point) {
+    return '(n/a)';
+  }
+  return `(${Number(point.x).toFixed(2)}, ${Number(point.y).toFixed(2)}, ${Number(point.z).toFixed(2)})`;
+}
+
+export function formatCombatLog(state) {
+  if (!config.debug) {
+    return '';
+  }
+  const lines = [];
+  const events = Array.isArray(state?.eventLog) ? state.eventLog : [];
+  for (const event of events) {
+    const stamp = `f${event.frame} t=${Number(event.time).toFixed(2)}`;
+    if (event.type === 'mothership-spawn') {
+      lines.push(
+        `[${stamp}] M#${event.mothershipId} spawn planet=${event.targetPlanetIndex}(${event.targetPlanetName || 'n/a'}) pos=${formatEventPoint(event.position)}`
+      );
+      continue;
+    }
+    if (event.type === 'mothership-arrived') {
+      lines.push(
+        `[${stamp}] M#${event.mothershipId} arrived planet=${event.planetIndex} pos=${formatEventPoint(event.position)}`
+      );
+      continue;
+    }
+    if (event.type === 'mothership-reoriented') {
+      lines.push(
+        `[${stamp}] M#${event.mothershipId} reoriented planet=${event.planetIndex} pos=${formatEventPoint(event.position)}`
+      );
+      continue;
+    }
+    if (event.type === 'mothership-planet-cross') {
+      lines.push(
+        `[${stamp}] M#${event.mothershipId} crossed planet=${event.planetIndex}(${event.planetName || 'n/a'}) prev=${formatEventPoint(event.previousPosition)} now=${formatEventPoint(event.currentPosition)}`
+      );
+      continue;
+    }
+    if (event.type === 'enemy-spawn') {
+      lines.push(
+        `[${stamp}] E#${event.enemyId} spawn kind=${event.kind} family=${event.family} fromM=${event.spawnedByMothershipId ?? '-'} planet=${event.targetPlanetIndex}(${event.targetPlanetName || 'n/a'}) pos=${formatEventPoint(event.position)} alt=${event.altitude == null ? 'n/a' : Number(event.altitude).toFixed(2)}`
+      );
+      continue;
+    }
+    if (event.type === 'enemy-death') {
+      lines.push(
+        `[${stamp}] E#${event.enemyId} death cause=${event.cause} age=${event.ageSeconds == null ? 'n/a' : Number(event.ageSeconds).toFixed(2)} family=${event.family} fromM=${event.parentMothershipId ?? '-'} planet=${event.targetPlanetIndex}(${event.targetPlanetName || 'n/a'}) alt=${event.altitude == null ? 'n/a' : Number(event.altitude).toFixed(2)} pos=${formatEventPoint(event.position)}`
+      );
+      continue;
+    }
+    if (event.type === 'enemy-crash') {
+      lines.push(`[${stamp}] E#${event.enemyId} crash kind=${event.kind} family=${event.family}`);
+      continue;
+    }
+    if (event.type === 'encounter-start') {
+      lines.push(`[${stamp}] encounter#${event.encounterId} start type=${event.encounterType} anchor=${event.anchorKind}`);
+      continue;
+    }
+    if (event.type === 'encounter-success' || event.type === 'encounter-fail' || event.type === 'encounter-end') {
+      lines.push(`[${stamp}] encounter#${event.encounterId} ${event.type.replace('encounter-', '')} type=${event.encounterType} status=${event.status || ''} released=${event.totalReleased ?? '-'} destroyed=${event.totalDestroyed ?? '-'}`);
+      continue;
+    }
+    if (event.type === 'planet-invasion-start' || event.type === 'planet-invasion-cleared') {
+      lines.push(`[${stamp}] planet-invasion#${event.encounterId} ${event.type.replace('planet-invasion-', '')} planet=${event.planetIndex} released=${event.totalReleased ?? '-'} destroyed=${event.totalDestroyed ?? '-'}`);
+      continue;
+    }
+    if (event.type.startsWith('presentation-')) {
+      lines.push(`[${stamp}] presentation E#${event.enemyId} ${event.type.replace('presentation-', '')} kind=${event.kind} phase=${event.phase} shootable=${event.shootableFrames ?? 0} minAngle=${event.minAngleToPlayer == null ? '-' : Number(event.minAngleToPlayer).toFixed(1)} minDist=${event.minDistanceToPlayer == null ? '-' : Number(event.minDistanceToPlayer).toFixed(1)} reason=${event.failureReason || ''}`);
+      continue;
+    }
+    if (event.type.startsWith('objective-')) {
+      lines.push(`[${stamp}] objective E#${event.enemyId} ${event.type.replace('objective-', '')} encounter=${event.encounterId} target=${event.targetEntityId ?? '-'}`);
+    }
+  }
+  return lines.join('\n');
 }
 
 function buildShipFrame(ship) {
@@ -2279,7 +3151,7 @@ function updateEnemyShip(state, enemy, squad, dt, time) {
     projectiles: state.projectiles
   };
 
-  updateEnemyShipState(enemyWorld, dt, {
+  updateShipState(enemyWorld, dt, {
     turnInput: controls.turnInput,
     pitchInput: controls.pitchInput,
     boost: controls.boost,
@@ -3083,11 +3955,718 @@ function updateMothershipSquads(state, dt, time) {
   state.mothershipSquad = state.mothershipSquads[state.mothershipSquads.length - 1] || null;
 }
 
+function getAllActiveShips(state) {
+  const ships = [];
+  if (state.ship && !state.crashed) {
+    ships.push({ ship: state.ship, isPlayer: true });
+  }
+  for (const enemy of state.enemies) {
+    if (enemy && enemy.health > 0) {
+      ships.push({ ship: enemy, isPlayer: false });
+    }
+  }
+  return ships;
+}
+
+function updateShipShipCollisions(state) {
+  const ships = getAllActiveShips(state);
+  const sunRadius = config.starScale * 0.5;
+  for (let i = 0; i < ships.length; i += 1) {
+    const a = ships[i].ship;
+    if (!a || (!ships[i].isPlayer && a.health <= 0)) {
+      continue;
+    }
+    for (let j = i + 1; j < ships.length; j += 1) {
+      const b = ships[j].ship;
+      if (!b || (!ships[j].isPlayer && b.health <= 0)) {
+        continue;
+      }
+      if (!canShipsCollide(a, b)) {
+        continue;
+      }
+      const radiusA = a === state.ship ? Math.max(1.5, sunRadius * 0.006) : Math.max(ENEMY_HIT_RADIUS, a.radius || ENEMY_HIT_RADIUS);
+      const radiusB = b === state.ship ? Math.max(1.5, sunRadius * 0.006) : Math.max(ENEMY_HIT_RADIUS, b.radius || ENEMY_HIT_RADIUS);
+      const delta = tempVecA.copy(b.position).sub(a.position);
+      const distance = delta.length();
+      const overlap = radiusA + radiusB;
+      if (distance > overlap) {
+        continue;
+      }
+      const relativeVelocity = tempVecB.copy(b.velocity || tempVecB.set(0, 0, 0)).sub(a.velocity || tempVecC.set(0, 0, 0));
+      const impactSpeed = Math.max(relativeVelocity.length(), 0.5);
+      const impactPoint = distance > 1e-6
+        ? tempVecC.copy(a.position).addScaledVector(delta, 0.5)
+        : tempVecC.copy(a.position);
+      handleShipCollision(state, a, b, impactPoint.clone(), impactSpeed);
+    }
+  }
+}
+
+function respawnShip(state) {
+  if (!state.ship || state.planets.length === 0) {
+    return null;
+  }
+  state.crashed = false;
+  state.fuel = state.maxFuel;
+  state.projectiles.length = 0;
+  const planet = state.planets[state.respawnPlanetIndex % state.planets.length];
+  const normal = planet.position.lengthSq() > 1e-6 ? planet.position.clone().normalize() : new THREE.Vector3(0, 1, 0);
+  const tangent = Math.abs(normal.dot(worldUp)) > 0.85
+    ? new THREE.Vector3(1, 0, 0).cross(normal).normalize()
+    : worldUp.clone().cross(normal).normalize();
+  const side = normal.clone().cross(tangent).normalize();
+  const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 0.0001);
+  const spawnAltitude = atmosphereThickness * 0.5;
+  const desiredRadius = planet.radius + spawnAltitude;
+  const surfaceSpeed = Math.sqrt(Math.max(planet.gravityStrength / Math.max(desiredRadius, 1.0), 4.0));
+  const cruiseSpeed = surfaceSpeed * 0.12;
+  const flightSpeed = clampShipSpeed(cruiseSpeed * (0.92 + state.rng() * 0.08));
+  const spawnOffset = normal.clone().multiplyScalar(desiredRadius)
+    .addScaledVector(side, -1.0 + state.rng() * 2.0);
+  state.ship.boundPlanet = planet;
+  state.ship.relativePosition.copy(spawnOffset);
+  state.ship.relativeVelocity.copy(tangent).multiplyScalar(flightSpeed);
+  syncShipWorldState(state.ship);
+  state.ship.forward.copy(tangent).normalize();
+  state.ship.up.copy(normal).normalize();
+  state.ship.bank = 0;
+  state.ship.boostTimer = 0;
+  state.ship.fireCooldown = 0;
+  state.ship.pitchIdleTime = 0;
+  state.ship.recaptureLock = 0;
+  state.ship.captureTimer = config.shipCaptureBlendTime;
+  state.ship.flightMode = 'bound';
+  state.ship.muzzleOffset = config.shipMuzzleOffset;
+  state.ship.speed = flightSpeed;
+  state.nearestPlanet = planet;
+  state.nearestDistance = state.ship.position.distanceTo(planet.position);
+  state.nearestAltitude = state.nearestDistance - planet.radius;
+  state.speed = state.ship.relativeVelocity.length();
+  return planet;
+}
+
+function crashPlayerShip(state, planet, crashNormal, impactPosition = null) {
+  const ship = state.ship;
+  if (!ship || state.crashed) {
+    return;
+  }
+
+  const safeNormal = crashNormal && crashNormal.lengthSq && crashNormal.lengthSq() > 1e-8
+    ? tempVecA.copy(crashNormal).normalize()
+    : tempVecA.copy(ship.position).sub(planet.position).normalize();
+  const crashAltitude = Math.max(0.25, config.atmosphereTerrainCrashAltitude);
+  state.crashed = true;
+  state.crashTimer = 0;
+  state.crashRespawnReady = false;
+  state.speed = 0;
+  ship.speed = 0;
+  ship.boostTimer = 0;
+  ship.fireCooldown = 0;
+  ship.relativeVelocity.set(0, 0, 0);
+  ship.velocity.copy(planet.velocity);
+  ship.relativePosition.copy(safeNormal).multiplyScalar(planet.radius + crashAltitude);
+  ship.position.copy(planet.position).add(ship.relativePosition);
+  ship.up.copy(safeNormal);
+  ship.forward.addScaledVector(safeNormal, -ship.forward.dot(safeNormal));
+  if (ship.forward.lengthSq() < 1e-6) {
+    ship.forward.copy(Math.abs(safeNormal.dot(worldUp)) > 0.92
+      ? tempVecB.set(1, 0, 0).cross(safeNormal).normalize()
+      : tempVecB.copy(worldUp).cross(safeNormal).normalize());
+  }
+  ship.forward.normalize();
+  state.projectiles.length = 0;
+  spawnEnemyExplosion(state, impactPosition || ship.position, 'crash');
+}
+
+function crashPlayerShipIntoSun(state, impactPosition = null) {
+  const ship = state.ship;
+  if (!ship || state.crashed) {
+    return;
+  }
+  state.crashed = true;
+  state.crashTimer = 0;
+  state.crashRespawnReady = false;
+  state.speed = 0;
+  ship.speed = 0;
+  ship.boostTimer = 0;
+  ship.fireCooldown = 0;
+  ship.relativeVelocity.set(0, 0, 0);
+  ship.velocity.set(0, 0, 0);
+  ship.position.copy(impactPosition || ship.position);
+  ship.relativePosition.copy(ship.position);
+  spawnEnemyExplosion(state, impactPosition || ship.position, 'crash');
+}
+
+function updateShipState(state, dt, controls) {
+  const ship = state.ship;
+  if (!ship) {
+    return;
+  }
+
+  const isPlayerState = Array.isArray(state.enemies) && Array.isArray(state.enemySquads);
+  if (isPlayerState && state.crashed) {
+    state.crashTimer = (state.crashTimer || 0) + dt;
+    const canRespawnAfterCrash = state.crashTimer >= config.crashRespawnDelay;
+    if (controls.respawn && canRespawnAfterCrash) {
+      if (!state.gamepadRespawnHeld) {
+        state.gamepadRespawnHeld = true;
+        respawnShip(state);
+      }
+    } else {
+      state.gamepadRespawnHeld = Boolean(controls.respawn);
+    }
+    return;
+  }
+
+  syncShipWorldState(ship);
+  let nearestInfo = pickNearestPlanet(state.planets, ship.position);
+  state.nearestPlanet = nearestInfo.nearest;
+  state.nearestDistance = nearestInfo.nearestDistance;
+  state.nearestAltitude = nearestInfo.nearest ? Math.max(0, nearestInfo.nearestDistance - nearestInfo.nearest.radius) : 0;
+
+  if (controls.respawn) {
+    if (!state.gamepadRespawnHeld) {
+      state.gamepadRespawnHeld = true;
+      respawnShip(state);
+    }
+    return;
+  }
+  state.gamepadRespawnHeld = false;
+  ship.recaptureLock = Math.max(0, ship.recaptureLock - dt);
+  if (ship.recaptureLock < 1e-6) {
+    ship.recaptureLock = 0;
+  }
+  if (ship.flightMode === 'bound' && ship.captureTimer < config.shipCaptureBlendTime) {
+    ship.captureTimer = Math.min(config.shipCaptureBlendTime, ship.captureTimer + dt);
+  }
+
+  if (ship.flightMode === 'bound' && ship.boundPlanet && state.nearestAltitude > config.planetEscapeAltitude) {
+    ship.boundPlanet = null;
+    ship.flightMode = 'free';
+    ship.recaptureLock = config.shipRecaptureDelay;
+  }
+
+  if (ship.flightMode === 'free' && ship.recaptureLock <= 1e-6 && nearestInfo.nearest && state.nearestAltitude < config.planetCaptureAltitude) {
+    const capturePlanet = nearestInfo.nearest;
+    beginPlanetCapture(ship, capturePlanet);
+    nearestInfo = pickNearestPlanet(state.planets, ship.position);
+    state.nearestPlanet = nearestInfo.nearest;
+    state.nearestDistance = nearestInfo.nearestDistance;
+    state.nearestAltitude = nearestInfo.nearest ? Math.max(0, nearestInfo.nearestDistance - nearestInfo.nearest.radius) : 0;
+  }
+
+  const planet = ship.flightMode === 'bound' ? ship.boundPlanet || state.nearestPlanet : ship.boundPlanet || state.nearestPlanet;
+  if (!planet && ship.flightMode === 'bound') {
+    return;
+  }
+
+  const relativePosition = ship.relativePosition;
+  const relativeVelocity = ship.relativeVelocity;
+  if (ship.flightMode === 'free' && planet) {
+    relativePosition.copy(ship.position).sub(planet.position);
+    relativeVelocity.copy(ship.velocity).sub(planet.velocity);
+  }
+  const relativeDistance = Math.max(0.0001, relativePosition.length());
+  const outward = tempVecA.copy(relativePosition).divideScalar(relativeDistance);
+  const localUp = outward.clone();
+  const gravityDir = tempVecB.copy(outward).multiplyScalar(-1);
+  const gravityDistSq = Math.max(relativeDistance * relativeDistance, config.gravitySoftening * config.gravitySoftening);
+  const gravityStrength = planet.gravityStrength / gravityDistSq;
+  const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 0.0001);
+  const altitude = relativeDistance - planet.radius;
+  const atmosphereRatio = clamp01(altitude / atmosphereThickness);
+  const atmosphereDensityCurve = Math.max(0.25, config.atmosphereDensityCurve);
+  const atmosphereDensity = altitude <= atmosphereThickness
+    ? Math.pow(1 - smoothstep(0, 1, atmosphereRatio), atmosphereDensityCurve)
+    : 0;
+  const atmosphereDepth = atmosphereDensity;
+  const turnInput = THREE.MathUtils.clamp(controls.turnInput ?? 0, -1, 1);
+  const pitchInput = THREE.MathUtils.clamp(controls.pitchInput ?? 0, -1, 1);
+  const mouseIdle = Boolean(controls.mouseIdle);
+  const boostActive = Boolean(controls.boost);
+  const fireActive = Boolean(controls.fire);
+  const brakeActive = Boolean(controls.brake);
+  const currentSpeed = Math.max(ship.speed || relativeVelocity.length(), 0.0001);
+  const surfaceSpeed = Math.sqrt(Math.max(planet.gravityStrength / Math.max(relativeDistance, 1.0), 1.0));
+  const cruiseSpeed = surfaceSpeed * THREE.MathUtils.lerp(0.09, 0.14, atmosphereDepth);
+  if (boostActive && state.fuel > 0) {
+    ship.boostTimer = config.shipBoostDuration;
+  } else {
+    ship.boostTimer = Math.max(0, ship.boostTimer - dt);
+  }
+  const boostLevel = config.shipBoostDuration > 0
+    ? clamp01(ship.boostTimer / config.shipBoostDuration) * (state.fuel > 0 ? 1 : 0)
+    : 0;
+  const atmosphericFlightActive = ship.flightMode === 'bound' && atmosphereDepth > 0 && (!isPlayerState || boostLevel <= 0);
+  const captureBlend = ship.captureTimer >= config.shipCaptureBlendTime
+    ? 1
+    : smoothstep(0, Math.max(config.shipCaptureBlendTime, 0.0001), ship.captureTimer);
+  const targetAltitudeFactor = ship.atmosphericCruiseAltitudeFactor ?? config.atmosphereCruiseAltitudeFactor;
+  const targetAltitude = atmosphereThickness * targetAltitudeFactor;
+  const altitudeError = THREE.MathUtils.clamp((targetAltitude - altitude) / (atmosphereThickness * 0.5), -1, 1);
+  const approachResponse = THREE.MathUtils.lerp(1, config.atmosphereApproachResponse, atmosphereDepth);
+  const gravityPull = atmosphericFlightActive
+    ? tempVecG.copy(gravityDir).normalize().multiplyScalar(gravityStrength)
+    : computeFreeGravityPull(state, ship);
+  ship.gravity.copy(gravityPull);
+
+  const liftState = computeAtmosphereLiftState(planet, altitude, currentSpeed, cruiseSpeed, boostLevel);
+  const autopilotStrength = 1 - boostLevel * 0.75;
+  const projectedDescentSpeed = Math.max(0, -ship.forward.dot(localUp) * currentSpeed);
+  const descentRatio = projectedDescentSpeed / Math.max(currentSpeed, 0.0001);
+  const terrainGuardStartAltitude = Math.max(
+    atmosphereThickness * config.atmosphereTerrainGuardStartRatio,
+    projectedDescentSpeed * config.atmosphereTerrainLookaheadTime,
+    config.atmosphereTerrainGuardMinAltitude
+  );
+  const terrainGuardFullAltitude = Math.max(
+    atmosphereThickness * config.atmosphereTerrainGuardFullRatio,
+    config.atmosphereTerrainGuardMinAltitude
+  );
+  const terrainAltitudeGuardBlend = smoothstep(terrainGuardStartAltitude, terrainGuardFullAltitude, altitude);
+  const timeToTerrain = projectedDescentSpeed > 0.001 ? altitude / projectedDescentSpeed : Infinity;
+  const terrainTimeGuardBlend = smoothstep(
+    config.atmosphereTerrainLookaheadTime,
+    config.atmosphereTerrainLookaheadFullTime,
+    timeToTerrain
+  );
+  const terrainDescentSignal = smoothstep(0.01, 0.08, descentRatio);
+  const terrainAltitudePressure = terrainAltitudeGuardBlend * THREE.MathUtils.lerp(0.35, 1.0, terrainDescentSignal);
+  const terrainEmergencyBlend = atmosphericFlightActive
+    ? Math.max(terrainAltitudePressure, terrainTimeGuardBlend) * THREE.MathUtils.lerp(1.0, 0.45, boostLevel)
+    : 0;
+  ship.fireCooldown = Math.max(0, ship.fireCooldown - dt);
+  const altitudeSpeedCap = atmosphericFlightActive
+    ? Math.max(
+      config.shipMinMaxSpeed,
+      state.nearestAltitude * config.shipAltMaxSpeedFac
+    )
+    : Infinity;
+  const shipSpeedCap = Math.min(altitudeSpeedCap, config.shipMaxMaxSpeed);
+  const brakeHalfLife = Math.max(0.1, config.freeBrakeHalfLife);
+  const brakeFactor = brakeActive ? Math.pow(0.5, dt / brakeHalfLife) : 1;
+
+  const turnSpeedScale = Math.max(0.1, config.shipTurnSpeedScale);
+  const targetBank = THREE.MathUtils.clamp(turnInput * 0.95, -0.95, 0.95);
+  const bankReturnRate = atmosphericFlightActive
+    ? THREE.MathUtils.lerp(config.atmosphereBankReturnRateMin, config.atmosphereBankReturnRateMax, atmosphereDepth) * THREE.MathUtils.lerp(config.atmosphereBankTurnScaleMin, config.atmosphereBankTurnScaleMax, autopilotStrength) * (Math.abs(turnInput) > 0.001 ? turnSpeedScale : 1)
+    : 0.0;
+  if (bankReturnRate > 0) {
+    ship.bank = THREE.MathUtils.lerp(ship.bank, targetBank, easeExp(dt, bankReturnRate));
+  }
+
+  if (ship.forward.lengthSq() < 1e-6) {
+    ship.forward.copy(Math.abs(localUp.dot(worldUp)) > 0.92
+      ? tempVecB.set(1, 0, 0).cross(localUp).normalize()
+      : tempVecB.copy(worldUp).cross(localUp).normalize());
+  }
+  ship.forward.normalize();
+  if (ship.up.lengthSq() < 1e-6) {
+    ship.up.copy(localUp);
+  }
+  ship.up.normalize();
+
+  const yawRate = THREE.MathUtils.lerp(config.atmosphereYawRateMin, config.atmosphereYawRateMax, atmosphereDepth) * THREE.MathUtils.lerp(config.atmosphereYawSpeedFactorMin, config.atmosphereYawSpeedFactorMax, clamp01(currentSpeed / 6)) * turnSpeedScale;
+  if (atmosphericFlightActive) {
+    ship.forward.applyAxisAngle(localUp, -ship.bank * yawRate * dt);
+  }
+
+  const rightAxis = tempVecC.copy(ship.up).cross(ship.forward);
+  if (rightAxis.lengthSq() < 1e-6) {
+    rightAxis.copy(localUp).cross(ship.forward);
+  }
+  if (rightAxis.lengthSq() < 1e-6) {
+    rightAxis.set(1, 0, 0).cross(ship.forward);
+  }
+  rightAxis.normalize();
+
+  const pitchRate = atmosphericFlightActive
+    ? THREE.MathUtils.lerp(config.atmospherePitchRateMin, config.atmospherePitchRateMax, atmosphereDepth)
+    : THREE.MathUtils.lerp(config.freeSpacePitchRateMin, config.freeSpacePitchRateMax, clamp01(currentSpeed / 18));
+  const stallPitchDown = atmosphericFlightActive ? THREE.MathUtils.lerp(
+    config.atmosphereStallPitchDownMin,
+    config.atmosphereStallPitchDownMax,
+    liftState.stallBlend
+  ) : 0;
+  const hardDiveOverride = atmosphericFlightActive ? smoothstep(
+    config.atmosphereHardDiveOverrideStart,
+    config.atmosphereHardDiveOverrideFull,
+    Math.max(0, pitchInput)
+  ) : 0;
+  const terrainOverrideScale = atmosphericFlightActive
+    ? 1 - hardDiveOverride * config.atmosphereHardDiveOverrideAuthority
+    : 1;
+  const terrainPullUpInput = atmosphericFlightActive ? -terrainEmergencyBlend
+    * config.atmosphereTerrainPullUpStrength
+    * terrainOverrideScale
+    * THREE.MathUtils.lerp(1.0, config.atmosphereTerrainPullUpBoostScale, boostLevel) : 0;
+  const basePitchInput = THREE.MathUtils.clamp(
+    pitchInput + stallPitchDown * liftState.stallBlend,
+    -1,
+    1
+  );
+  const controlPitchInput = THREE.MathUtils.clamp(
+    pitchInput + stallPitchDown * liftState.stallBlend + terrainPullUpInput,
+    -1,
+    1
+  );
+  if (atmosphericFlightActive) {
+    if (Math.abs(pitchInput) > 0.001) {
+      ship.pitchIdleTime = 0;
+      ship.forward.applyAxisAngle(rightAxis, basePitchInput * pitchRate * dt);
+      ship.up.applyAxisAngle(rightAxis, basePitchInput * pitchRate * dt);
+    } else {
+      ship.pitchIdleTime = boostLevel <= 0 ? ship.pitchIdleTime + dt : 0;
+    }
+  } else {
+    ship.pitchIdleTime = 0;
+  }
+
+  if (atmosphericFlightActive) {
+    const horizonForward = tempVecD.copy(ship.forward).addScaledVector(localUp, -ship.forward.dot(localUp));
+    if (horizonForward.lengthSq() > 1e-6 && boostLevel <= 0) {
+      horizonForward.normalize();
+      const levelAuthority = THREE.MathUtils.lerp(0.20, 1.0, liftState.liftAuthority);
+      const levelBlend = easeExp(dt, THREE.MathUtils.lerp(config.atmosphereLevelResponseMin, config.atmosphereLevelResponse, atmosphereDepth) * autopilotStrength * captureBlend * approachResponse * levelAuthority);
+      const controlFreedom = mouseIdle ? 1 : 1 - clamp01(Math.abs(pitchInput));
+      ship.forward.lerp(horizonForward, levelBlend * controlFreedom * controlFreedom);
+    }
+    const allowCurvatureTrim = boostLevel <= 0;
+    if (allowCurvatureTrim) {
+      const trimAuthority = mouseIdle ? 1 : Math.max(0, 1 - Math.abs(pitchInput) * 1.4);
+      const trimResponse = THREE.MathUtils.lerp(config.atmosphereTrimResponseMin, config.atmosphereTrimResponse, atmosphereDepth);
+      const altitudeTrimScale = altitudeError > 0
+        ? THREE.MathUtils.lerp(config.atmosphereTrimAltitudeScaleLiftMin, config.atmosphereTrimAltitudeScaleLiftMax, liftState.liftAuthority)
+        : THREE.MathUtils.lerp(config.atmosphereTrimAltitudeScaleStallMin, config.atmosphereTrimAltitudeScaleStallMax, liftState.stallBlend);
+      const trimPitch = trimAuthority > 0.001
+        ? THREE.MathUtils.clamp(-altitudeError * trimResponse * altitudeTrimScale * trimAuthority * autopilotStrength * captureBlend * approachResponse, config.atmosphereTrimPitchClampMin, config.atmosphereTrimPitchClampMax)
+        : 0;
+      if (trimPitch !== 0) {
+        ship.forward.applyAxisAngle(rightAxis, trimPitch * dt);
+        ship.up.applyAxisAngle(rightAxis, trimPitch * dt);
+      }
+    }
+    ship.bank = THREE.MathUtils.lerp(ship.bank, 0, easeExp(dt, THREE.MathUtils.lerp(config.atmosphereBankDecayResponseMin, config.atmosphereBankResponse, atmosphereDepth) * autopilotStrength * captureBlend));
+  } else {
+    const boostAcceleration = config.freeBoostAcceleration;
+    if (boostLevel > 0) {
+      const boostImpulse = boostAcceleration * boostLevel * dt;
+      ship.speed += boostImpulse;
+      state.fuel = Math.max(0, state.fuel - dt * (0.8 + boostLevel * 3.2));
+    } else if (!boostActive && ship.boostTimer <= 0 && state.fuel < state.maxFuel) {
+      state.fuel = Math.min(state.maxFuel, state.fuel + config.shipFuelRecharge * dt);
+    }
+
+    if (brakeFactor !== 1) {
+      ship.speed *= brakeFactor;
+    }
+    const freeSpaceSpeedHalfLife = Math.max(0, config.freeSpaceSpeedHalfLife || 0);
+    if (freeSpaceSpeedHalfLife > 0) {
+      ship.speed *= Math.pow(0.5, dt / freeSpaceSpeedHalfLife);
+    }
+    ship.speed = clampShipSpeed(ship.speed);
+
+    const freeCurrentSpeed = Math.max(ship.speed || 0, 0.0001);
+    const gravitySpeedFactor = 1 / (1 + freeCurrentSpeed * Math.max(0.0001, config.freeGravitySpeedDamping));
+    const gravityTurnRate = config.freeGravityTurnRate;
+    const gravityMaxTurnRate = config.freeGravityMaxTurnRate;
+    const gravityYawAngle = THREE.MathUtils.clamp(
+      -gravityPull.dot(ship.up) * gravityTurnRate * gravitySpeedFactor,
+      -gravityMaxTurnRate,
+      gravityMaxTurnRate
+    ) * dt;
+    const gravityPitchAngle = THREE.MathUtils.clamp(
+      -gravityPull.dot(rightAxis) * gravityTurnRate * gravitySpeedFactor,
+      -gravityMaxTurnRate,
+      gravityMaxTurnRate
+    ) * dt;
+    if (gravityYawAngle !== 0) {
+      ship.forward.applyAxisAngle(ship.up, gravityYawAngle);
+    }
+    if (gravityPitchAngle !== 0) {
+      ship.forward.applyAxisAngle(rightAxis, gravityPitchAngle);
+      ship.up.applyAxisAngle(rightAxis, gravityPitchAngle);
+    }
+
+    const spaceYawRate = THREE.MathUtils.lerp(config.freeSpaceYawRateMin, config.freeSpaceYawRateMax, clamp01(freeCurrentSpeed / 18)) * turnSpeedScale;
+    const spacePitchRate = THREE.MathUtils.lerp(config.freeSpacePitchRateMin, config.freeSpacePitchRateMax, clamp01(freeCurrentSpeed / 18)) * turnSpeedScale;
+    const freeControlScale = config.freeSpaceControlScale;
+    ship.forward.applyAxisAngle(ship.up, -turnInput * freeControlScale * spaceYawRate * dt);
+    ship.forward.applyAxisAngle(rightAxis, pitchInput * freeControlScale * spacePitchRate * dt);
+    ship.up.applyAxisAngle(rightAxis, pitchInput * freeControlScale * spacePitchRate * dt);
+    ship.bank = THREE.MathUtils.lerp(ship.bank, 0, easeExp(dt, config.freeFlightBankDecayResponse));
+  }
+
+  if (atmosphericFlightActive && liftState.stallBlend > 0) {
+    const climbDot = ship.forward.dot(localUp);
+    const allowedClimbDot = THREE.MathUtils.lerp(0.14, -0.10, liftState.stallBlend);
+    if (climbDot > allowedClimbDot) {
+      const ceilingForward = tempVecD.copy(ship.forward).addScaledVector(localUp, allowedClimbDot - climbDot);
+      if (ceilingForward.lengthSq() > 1e-6) {
+        const stallNoseDownRate = THREE.MathUtils.lerp(0.75, 3.4, liftState.stallBlend);
+        ship.forward.lerp(ceilingForward.normalize(), easeExp(dt, stallNoseDownRate)).normalize();
+      }
+    }
+  }
+
+  if (atmosphericFlightActive && ship.boundPlanet && boostLevel <= 0 && ship.pitchIdleTime > config.shipPitchReorientDelay) {
+    const referenceUp = atmosphericFlightActive && state.nearestPlanet
+      ? ship.position.clone().sub(state.nearestPlanet.position).normalize()
+      : worldUp;
+    const targetUp = referenceUp.clone().sub(tempVecD.copy(ship.forward).multiplyScalar(referenceUp.dot(ship.forward)));
+    const currentUp = ship.up.clone().sub(tempVecE.copy(ship.forward).multiplyScalar(ship.up.dot(ship.forward)));
+    if (targetUp.lengthSq() > 1e-6 && currentUp.lengthSq() > 1e-6) {
+      targetUp.normalize();
+      currentUp.normalize();
+      const rightingStrength = THREE.MathUtils.lerp(
+        0.15,
+        0.7,
+        clamp01((ship.pitchIdleTime - config.shipPitchReorientDelay) / 1.5)
+      );
+      ship.up.lerp(targetUp, rightingStrength * dt * 14.0).normalize();
+    }
+  }
+
+  if (atmosphericFlightActive && terrainEmergencyBlend > 0 && boostLevel <= 0.995) {
+    const desiredTerrainClimbDot = THREE.MathUtils.lerp(
+      -0.12,
+      config.atmosphereTerrainPullUpClimbDot,
+      terrainEmergencyBlend
+    );
+    const terrainClimbDot = ship.forward.dot(localUp);
+    if (terrainClimbDot < desiredTerrainClimbDot) {
+      const terrainPitchInput = terrainPullUpInput * THREE.MathUtils.lerp(config.atmosphereTerrainPullUpBoostScale, 1.0, terrainEmergencyBlend);
+      const terrainAngle = terrainPitchInput * pitchRate * dt;
+      ship.forward.applyAxisAngle(rightAxis, terrainAngle);
+      ship.up.applyAxisAngle(rightAxis, terrainAngle);
+    }
+  }
+
+  ship.forward.normalize();
+  ship.up.normalize();
+  const projectedUp = ship.up.clone().sub(tempVecF.copy(ship.forward).multiplyScalar(ship.up.dot(ship.forward)));
+  if (projectedUp.lengthSq() > 1e-6) {
+    ship.up.copy(projectedUp.normalize());
+  } else {
+    const fallbackAxis = Math.abs(ship.forward.dot(worldUp)) > 0.92
+      ? tempVecG.set(1, 0, 0)
+      : worldUp;
+    const fallbackUp = tempVecH.copy(fallbackAxis).sub(tempVecF.copy(ship.forward).multiplyScalar(fallbackAxis.dot(ship.forward)));
+    if (fallbackUp.lengthSq() > 1e-6) {
+      ship.up.copy(fallbackUp.normalize());
+    }
+  }
+
+  if (atmosphericFlightActive) {
+    const climbDot = THREE.MathUtils.clamp(ship.forward.dot(localUp), -1, 1);
+    const diveEnergy = clamp01(-climbDot);
+    const climbLoad = clamp01(climbDot);
+    const pitchEnergyBias = controlPitchInput >= 0
+      ? controlPitchInput * 0.12
+      : controlPitchInput * 0.08;
+    let targetSpeed = cruiseSpeed * THREE.MathUtils.clamp(
+      1
+        + diveEnergy * config.atmosphereDiveSpeedGain
+        - climbLoad * config.atmosphereClimbSpeedPenalty
+        + pitchEnergyBias,
+      0.28,
+      2.15
+    );
+
+    const speedResponse = targetSpeed > currentSpeed
+      ? config.atmosphereDiveAccelResponse
+      : (climbLoad > 0.05
+        ? config.atmosphereClimbBleedResponse
+        : config.atmosphereCruiseBleedResponse);
+    const speedTransitionScale = ship.captureTimer >= config.shipCaptureBlendTime
+      ? 1
+      : THREE.MathUtils.lerp(config.atmosphereCaptureSpeedTransitionScale, 1, captureBlend);
+    const speedBlend = easeExp(dt, speedResponse * THREE.MathUtils.lerp(config.atmosphereSpeedBlendDepthMin, config.atmosphereSpeedBlendDepthMax, atmosphereDepth) * THREE.MathUtils.lerp(config.atmosphereSpeedBlendBoostMin, config.atmosphereSpeedBlendBoostMax, 1 - boostLevel) * approachResponse * speedTransitionScale);
+    ship.speed = THREE.MathUtils.lerp(currentSpeed, targetSpeed, speedBlend);
+    if (brakeFactor !== 1) {
+      ship.speed *= brakeFactor;
+    }
+    ship.speed = clampShipSpeed(ship.speed);
+
+    relativeVelocity.copy(ship.forward).multiplyScalar(ship.speed);
+    if (boostLevel > 0) {
+      const boostImpulse = config.shipBoostThrust * boostLevel * dt;
+      relativeVelocity.addScaledVector(ship.forward, boostImpulse);
+      state.fuel = Math.max(0, state.fuel - dt * (0.8 + boostLevel * 3.2));
+    } else if (!boostActive && ship.boostTimer <= 0 && state.fuel < state.maxFuel) {
+      state.fuel = Math.min(state.maxFuel, state.fuel + config.shipFuelRecharge * dt);
+    }
+    if (liftState.stallBlend > 0) {
+      const radialSpeed = relativeVelocity.dot(outward);
+      const maxClimbSpeed = ship.speed * THREE.MathUtils.lerp(0.24, -0.05, liftState.stallBlend);
+      if (radialSpeed > maxClimbSpeed) {
+        relativeVelocity.addScaledVector(outward, -(radialSpeed - maxClimbSpeed) * THREE.MathUtils.lerp(0.18, 0.45, liftState.stallBlend));
+      }
+      const gentleSink = Math.min(ship.speed * 0.07, Math.max(0, altitude - targetAltitude) * 0.12) * liftState.stallBlend * liftState.stallBlend;
+      if (gentleSink > 0) {
+        relativeVelocity.addScaledVector(outward, -gentleSink);
+      }
+    }
+    if (relativeVelocity.lengthSq() > shipSpeedCap * shipSpeedCap) {
+      const softCap = THREE.MathUtils.lerp(ship.speed, shipSpeedCap, speedTransitionScale);
+      relativeVelocity.setLength(softCap);
+    }
+    ship.speed = relativeVelocity.length();
+    relativePosition.addScaledVector(relativeVelocity, dt);
+  const crashAltitude = Math.max(0.25, config.atmosphereTerrainCrashAltitude);
+    const crashDistance = planet.radius + crashAltitude;
+    if (isPlayerState && relativePosition.lengthSq() <= crashDistance * crashDistance) {
+      const crashNormal = relativePosition.lengthSq() > 1e-8
+        ? tempVecA.copy(relativePosition).normalize()
+        : tempVecA.copy(localUp);
+      crashPlayerShip(state, planet, crashNormal, planet.position.clone().addScaledVector(crashNormal, crashDistance));
+      return;
+    }
+    ship.relativeVelocity.copy(relativeVelocity);
+    if (ship.flightMode === 'bound' && ship.boundPlanet) {
+      syncShipWorldState(ship);
+    } else {
+      ship.position.copy(planet.position).add(relativePosition);
+      ship.velocity.copy(planet.velocity).add(relativeVelocity);
+    }
+    state.speed = ship.speed;
+  } else {
+    relativeVelocity.copy(ship.forward).multiplyScalar(ship.speed);
+    ship.position.addScaledVector(relativeVelocity, dt);
+    ship.velocity.copy(relativeVelocity);
+    if (planet) {
+      relativePosition.copy(ship.position).sub(planet.position);
+      relativeVelocity.copy(ship.velocity).sub(planet.velocity);
+    } else {
+      relativePosition.copy(ship.position);
+      relativeVelocity.copy(ship.velocity);
+    }
+    ship.relativePosition.copy(relativePosition);
+    ship.relativeVelocity.copy(relativeVelocity);
+    state.speed = ship.speed;
+  }
+
+  const sunRadius = config.starScale * 0.5;
+  if (ship.position.length() <= sunRadius) {
+    if (isPlayerState) {
+      crashPlayerShipIntoSun(state, ship.position.clone());
+    }
+    return;
+  }
+
+  if (fireActive && ship.fireCooldown <= 0) {
+    spawnProjectileBurst(state, ship, vectorLikeTo(tempVecE, controls.fireDirection, ship.forward).normalize().clone());
+    ship.fireCooldown = config.shipFireCooldown;
+  }
+
+  const updatedNearest = pickNearestPlanet(state.planets, ship.position);
+  state.nearestPlanet = updatedNearest.nearest;
+  state.nearestDistance = updatedNearest.nearestDistance;
+  state.nearestAltitude = updatedNearest.nearest ? Math.max(0, updatedNearest.nearestDistance - updatedNearest.nearest.radius) : 0;
+
+  if (ship.flightMode === 'free' && ship.recaptureLock <= 1e-6 && updatedNearest.nearest && state.nearestAltitude < config.planetCaptureAltitude) {
+    const capturePlanet = updatedNearest.nearest;
+    beginPlanetCapture(ship, capturePlanet);
+    state.nearestPlanet = capturePlanet;
+    state.nearestDistance = ship.position.distanceTo(capturePlanet.position);
+    state.nearestAltitude = Math.max(0, state.nearestDistance - capturePlanet.radius);
+  }
+
+  if (ship.flightMode === 'bound' && ship.boundPlanet && state.nearestAltitude > config.planetEscapeAltitude) {
+    ship.flightMode = 'free';
+    ship.boundPlanet = null;
+    ship.recaptureLock = config.shipRecaptureDelay;
+  }
+}
+
+function updatePlanets(state, dt, time) {
+  for (const planet of state.planets) {
+    updatePlanetState(planet, dt, time);
+  }
+  relaxPlanetSeparation(state.planets);
+  relaxStarSeparation(state.planets);
+  for (const planet of state.planets) {
+    planet.velocity.copy(planet.position).sub(planet.previousPosition).divideScalar(Math.max(dt, 1 / 240));
+  }
+}
+
+function updateFuelMotes(state, dt, time) {
+  for (const mote of state.fuelMotes) {
+    updateFuelMoteState(mote, dt, time, state);
+  }
+}
+
+function shufflePlanetFiles(rng) {
+  return shuffleFiles(PLANET_FILES, rng);
+}
+
 export function createOrbitalsSim(seed) {
-  const state = createGameState(seed);
+  const state = {
+    seed,
+    rng: mulberry32(seed >>> 0),
+    planets: [],
+    fuelMotes: [],
+    enemies: [],
+    encounterEntities: [],
+    projectiles: [],
+    enemyExplosions: [],
+    nextProjectileId: 1,
+    nextEnemyExplosionId: 1,
+    nextEnemyId: 1,
+    nextEnemySquadId: 1,
+    frameIndex: 0,
+    eventLog: [],
+    ship: null,
+    enemySquad: null,
+    enemySquads: [],
+    mothershipSquad: null,
+    mothershipSquads: [],
+    mothershipSpawnTimer: config.mothershipSpawnDelayMin,
+    mothershipRng: mulberry32(((seed >>> 0) ^ 0x9e3779b9) >>> 0),
+    encounterDirector: createEncounterDirectorState(),
+    loaded: false,
+    crashed: false,
+    nearestPlanet: null,
+    nearestAltitude: 0,
+    nearestDistance: 0,
+    time: 0,
+    fuel: 100,
+    maxFuel: 100,
+    speed: 0,
+    score: 0,
+    gamepadRespawnHeld: false,
+    crashTimer: 0,
+    crashRespawnReady: false,
+    respawnPlanetIndex: 0
+  };
 
   function bootstrapWorld() {
-    resetGameState(state);
+    state.planets.length = 0;
+    state.fuelMotes.length = 0;
+    state.enemies.length = 0;
+    state.encounterEntities.length = 0;
+    state.projectiles.length = 0;
+    state.enemyExplosions.length = 0;
+    state.frameIndex = 0;
+    state.eventLog.length = 0;
+    state.ship = createShipState();
+    state.enemySquad = null;
+    state.enemySquads.length = 0;
+    state.mothershipSquad = null;
+    state.mothershipSquads.length = 0;
+    state.crashed = false;
+    state.fuel = state.maxFuel;
+    state.speed = 0;
+    state.time = 0;
+    state.gamepadRespawnHeld = false;
+    state.crashTimer = 0;
+    state.crashRespawnReady = false;
+    state.nextEnemyExplosionId = 1;
+    state.nextEnemyId = 1;
+    state.nextEnemySquadId = 1;
+    state.mothershipRng = mulberry32(((state.seed >>> 0) ^ 0x9e3779b9) >>> 0);
+    state.mothershipSpawnTimer = config.mothershipSpawnDelayMin + state.mothershipRng() * (config.mothershipSpawnDelayMax - config.mothershipSpawnDelayMin);
+    resetEncounterDirectorState(state);
 
     const planetCount = Math.floor(state.rng() * (config.planetCountMax - config.planetCountMin + 1)) + config.planetCountMin;
     const chosenFiles = shufflePlanetFiles(state.rng).slice(0, planetCount);
@@ -3114,12 +4693,12 @@ export function createOrbitalsSim(seed) {
     state.time += dt;
     state.frameIndex += 1;
     updatePlanets(state, dt, state.time);
-    updatePlayerShipState(state, dt, controls, { spawnEnemyExplosion });
+    updateShipState(state, dt, controls);
     updateEncounterDirector(state, dt, state.time);
     updateEnemySquads(state, dt, state.time);
     updateMothershipSquads(state, dt, state.time);
-    updateShipShipCollisions(state, { handleShipCollision });
-    updateProjectiles(state, dt, { applyEnemyDamage });
+    updateShipShipCollisions(state);
+    updateProjectiles(state, dt);
     updateEnemyExplosions(state, dt);
     updateFuelMotes(state, dt, state.time);
     return state;

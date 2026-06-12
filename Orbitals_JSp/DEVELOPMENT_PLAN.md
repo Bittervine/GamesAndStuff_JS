@@ -128,78 +128,103 @@ The event log is the bridge for one-shot presentation effects, messages, sounds,
 ## 4. Target project structure
 
 The final file layout should move toward this shape:
-(The goal is to empty Orbitals_Sim.js and move it into subsystems)
 
 ```text
 src/
-├─ Orbitals_JS.js
+├─ main.js
 │  Browser entrypoint and render loop.
-|
-├─ orbitals_render.js
-│  Other things related to the render loop (if needed)
 │
-├─ orbitals_config.js
+├─ config.js
 │  All gameplay-tuning constants.
 │
-├─ orbitals_testbench.mjs
-│  Testcases
-|
-├─ orbitals_sim_main.js
-|  Main file for all game logic. Must stay possible to run headlessly in the testbench. 
-|  Uses the subsystems in the sim folder. As much as possible shall be put into subsystems
-|  so you can minimize this file.
-|
-└─ sim/
-  │  This folder contains the full game logic, possible to run headlessly in the testbench 
-  │  
-  ├─ state.js
-  │  createGameState(), resetGameState(), top-level nested GAME shape.
-  │
-  ├─ math.js
-  │  clamp, smoothstep, easing, seeded RNG, basis helpers, vector helpers.
-  │
-  ├─ world.js
-  │  planets, planet motion, fuel mote simulation, star/planet separation.
-  │
-  ├─ physics.js
-  │  shared atmosphere, bound/free flight, capture, lift, stall, terrain guard.
-  │
-  ├─ player.js
-  │  player ship state, player movement, fuel, firing requests, crash/respawn.
-  │
-  ├─ enemies.js
-  │  enemy state, enemy squads, fighter AI, swarm behavior, enemy damage.
-  │
-  ├─ motherships.js
-  │  mothership squads, arrival, hold, reorientation, release, exit.
-  │
-  ├─ encounters.js
-  │  encounter director, presenter assignment, objective attackers, missions.
-  │
-  ├─ projectiles.js
-  │  projectile spawning, homing, piercing, collision, lifetime.
-  │
-  ├─ pickups.js
-  │  power-up spawning, drifting, magnet pull, collection, expiration.
-  │
-  ├─ weapons.js
-  │  DART, TWIN, FAN, ROCKET, BEAM pattern generation and upgrade rules.
-  │
-  ├─ collisions.js
-  │  ship/ship, projectile/enemy, projectile/entity, terrain and sun crashes.
-  │
-  ├─ spatial_hash.js
-  │  broad-phase enemy lookup for dense swarms.
-  │
-  ├─ effects.js
-  │  simulation-side records for explosions and temporary gameplay effects.
-  │
-  └─ events.js
-     event log helpers and combat-log formatting.
-
-
-
- 
+├─ sim/
+│  ├─ sim.js
+│  │  createOrbitalsSim(), bootstrapWorld(), stepGame(), public test/debug API.
+│  │
+│  ├─ game_state.js
+│  │  createGameState(), resetGameState(), top-level nested GAME shape.
+│  │
+│  ├─ math.js
+│  │  clamp, smoothstep, easing, seeded RNG, basis helpers, vector helpers.
+│  │
+│  ├─ world.js
+│  │  planets, planet motion, fuel mote simulation, star/planet separation.
+│  │
+│  ├─ flight_physics.js
+│  │  shared atmosphere, bound/free flight, capture, lift, stall, terrain guard.
+│  │
+│  ├─ player.js
+│  │  player ship state, player movement, fuel, firing requests, crash/respawn.
+│  │
+│  ├─ enemies.js
+│  │  enemy state, enemy squads, fighter AI, swarm behavior, enemy damage.
+│  │
+│  ├─ motherships.js
+│  │  mothership squads, arrival, hold, reorientation, release, exit.
+│  │
+│  ├─ encounters.js
+│  │  encounter director, presenter assignment, objective attackers, missions.
+│  │
+│  ├─ projectiles.js
+│  │  projectile spawning, homing, piercing, collision, lifetime.
+│  │
+│  ├─ pickups.js
+│  │  power-up spawning, drifting, magnet pull, collection, expiration.
+│  │
+│  ├─ weapons.js
+│  │  DART, TWIN, FAN, ROCKET, BEAM pattern generation and upgrade rules.
+│  │
+│  ├─ collisions.js
+│  │  ship/ship, projectile/enemy, projectile/entity, terrain and sun crashes.
+│  │
+│  ├─ spatial_hash.js
+│  │  broad-phase enemy lookup for dense swarms.
+│  │
+│  ├─ effects.js
+│  │  simulation-side records for explosions and temporary gameplay effects.
+│  │
+│  └─ events.js
+│     event log helpers and combat-log formatting.
+│
+├─ render/
+│  ├─ renderer.js
+│  │  Three.js scene setup and render loop integration.
+│  │
+│  ├─ assets.js
+│  │  GLB loading, fallback models, asset cache.
+│  │
+│  ├─ world_view.js
+│  │  planet, star, fuel mote visuals.
+│  │
+│  ├─ player_view.js
+│  │  player ship visuals, engine effects, shield rings.
+│  │
+│  ├─ enemies_view.js
+│  │  enemy and encounter-entity visuals.
+│  │
+│  ├─ projectiles_view.js
+│  │  projectile meshes and weapon-specific visuals.
+│  │
+│  ├─ pickups_view.js
+│  │  pickup glow, labels, drift visuals.
+│  │
+│  ├─ effects_view.js
+│  │  explosions, flashes, transient visual effects.
+│  │
+│  ├─ hud.js
+│  │  HUD markers, shield display, weapon display, mission messages.
+│  │
+│  ├─ camera.js
+│  │  camera follow, free-flight roll alignment, atmospheric camera behavior.
+│  │
+│  ├─ audio.js
+│  │  sound generation and event-driven sound triggers.
+│  │
+│  └─ input.js
+│     mouse, keyboard, gamepad, pointer lock, controls object.
+│
+└─ tests/
+   └─ orbitals_testbench.mjs
 ```
 
 This layout is a target, not a mandatory one-patch change. The current import path may stay stable while modules are introduced.

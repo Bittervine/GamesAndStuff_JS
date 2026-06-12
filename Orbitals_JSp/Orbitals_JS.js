@@ -2,7 +2,6 @@ import * as THREE from './lib/three.module.js';
 import { GLTFLoader } from './lib/loaders/GLTFLoader.js';
 import { createOrbitalsSim, ENEMY_MODEL_FILES_BY_FAMILY, formatCombatLog } from './Orbitals_Sim.js';
 import { PLANET_FILES, config } from './orbitals_config.js';
-import { computeShipFireDirection } from './sim/projectiles.js';
 
 const ASSET_ROOT = './assets/';
 const PLAYER_FILE = `${ASSET_ROOT}player_spaceship.glb`;
@@ -48,11 +47,6 @@ renderer.setClearColor(0x050811, 1);
 app.appendChild(renderer.domElement);
 
 const loader = new GLTFLoader();
-// Force regular image loading for embedded glTF textures.
-// Some browsers decode the embedded blob textures more reliably this way than through ImageBitmapLoader.
-loader.textureLoader = new THREE.TextureLoader(loader.manager);
-loader.textureLoader.setCrossOrigin(loader.crossOrigin || 'anonymous');
-loader.textureLoader.setRequestHeader(loader.requestHeader);
 const clock = new THREE.Clock();
 
 const world = new THREE.Group();
@@ -79,7 +73,6 @@ const uiState = {
   aimX: 0,
   aimY: 0,
   pointerLocked: false,
-  gamepadFireStartLatch: false,
   gamepadConnected: false,
   mouseFireHeld: false,
   mouseBoostHeld: false,
@@ -112,6 +105,7 @@ const orbitalsAudio = {
   soundInitFailed: false,
   resumePromise: null
 };
+let lastProjectileIdForSfx = 0;
 let lastEnemyExplosionIdForSfx = 0;
 const spaceDebrisCount = 880;
 const spaceDebrisPositions = new Float32Array(spaceDebrisCount * 3);
@@ -1542,8 +1536,6 @@ function updateProjectileVisuals() {
     visual.position.copy(projectile.position);
     if (projectile.velocity.lengthSq() > 1e-6) {
       visual.lookAt(tempVecA.copy(projectile.position).add(projectile.velocity));
-    } else {
-      visual.position.copy(projectile.position);
     }
     const lifeT = clamp01(1 - projectile.age / projectile.lifetime);
     const sizeT = clamp01(projectile.age / 0.2);
@@ -1613,14 +1605,13 @@ function updateEnemyExplosionVisuals() {
 
 function computeFireDirectionFromReticle() {
   const viewport = renderer.domElement.getBoundingClientRect();
-  return computeShipFireDirection(
-    state.ship,
-    camera,
-    uiState.aimX,
-    uiState.aimY,
-    viewport.width,
-    viewport.height
-  );
+  const halfWidth = Math.max(1, viewport.width * 0.5);
+  const halfHeight = Math.max(1, viewport.height * 0.5);
+  const ndcX = (uiState.aimX * RETICLE_OFFSET_PX) / halfWidth;
+  const ndcY = -(uiState.aimY * RETICLE_OFFSET_PX) / halfHeight;
+  const near = tempVecA.set(ndcX, ndcY, -1).unproject(camera);
+  const far = tempVecB.set(ndcX, ndcY, 1).unproject(camera);
+  return tempVecD.copy(far).sub(near).normalize();
 }
 
 function setAimFromScreenPoint(clientX, clientY) {
@@ -1631,15 +1622,6 @@ function setAimFromScreenPoint(clientX, clientY) {
   const halfHeight = Math.max(1, viewport.height * 0.5);
   uiState.aimX = THREE.MathUtils.clamp((clientX - centerX) / halfWidth, -1, 1);
   uiState.aimY = THREE.MathUtils.clamp((clientY - centerY) / halfHeight, -1, 1);
-}
-
-function syncMouseButtonStateFromEvent(event) {
-  if (event.pointerType === 'touch' || typeof event.buttons !== 'number') {
-    return false;
-  }
-  uiState.mouseFireHeld = Boolean(event.buttons & 1);
-  uiState.mouseBoostHeld = Boolean(event.buttons & 2);
-  return true;
 }
 
 function handleCanvasPointerDown(event) {
@@ -1676,12 +1658,10 @@ function handleCanvasPointerDown(event) {
   if (!uiState.pointerLocked) {
     renderer.domElement.requestPointerLock?.();
   }
-  if (!syncMouseButtonStateFromEvent(event)) {
-    if (event.button === 0) {
-      uiState.mouseFireHeld = true;
-    } else if (event.button === 2) {
-      uiState.mouseBoostHeld = true;
-    }
+  if (event.button === 0) {
+    uiState.mouseFireHeld = true;
+  } else if (event.button === 2) {
+    uiState.mouseBoostHeld = true;
   }
   if (renderer.domElement.hasPointerCapture?.(event.pointerId) !== true) {
     try {
@@ -1705,12 +1685,10 @@ function handleCanvasPointerUp(event) {
     event.preventDefault();
     return;
   }
-  if (!syncMouseButtonStateFromEvent(event)) {
-    if (event.button === 0) {
-      uiState.mouseFireHeld = false;
-    } else if (event.button === 2) {
-      uiState.mouseBoostHeld = false;
-    }
+  if (event.button === 0) {
+    uiState.mouseFireHeld = false;
+  } else if (event.button === 2) {
+    uiState.mouseBoostHeld = false;
   }
   renderer.domElement.releasePointerCapture?.(event.pointerId);
 }
@@ -1782,56 +1760,20 @@ function maybeStartFromGamepad() {
     return;
   }
   const gamepad = readGamepadInput();
-  if (!gamepad.fire) {
-    uiState.gamepadFireStartLatch = false;
-  }
-  const resolved = resolveGamepadStartRestartAction({
-    loaded: uiState.loaded,
-    gameStarted: uiState.gameStarted,
-    crashed: state.crashed,
-    crashTimer: state.crashTimer || 0,
-    firePressed: ((uiState.gameStarted ? isFireGamepad(gamepad) : (gamepad.fire || gamepad.boost)) && !uiState.gamepadFireStartLatch),
-    crashRespawnDelay: config.crashRespawnDelay,
-    fireLatch: uiState.gamepadFireStartLatch
-  });
-  uiState.gamepadFireStartLatch = resolved.fireLatch;
-  if (resolved.action === 'start') {
+  if (!uiState.gameStarted && isFireGamepad(gamepad)) {
     startGame();
-  } else if (resolved.action === 'restart') {
+  } else if (state.crashed && isFireGamepad(gamepad)) {
     restartFromGameOver();
   }
 }
 
-function resolveGamepadStartRestartAction({ loaded, gameStarted, crashed, crashTimer = 0, firePressed, crashRespawnDelay, fireLatch = false }) {
-  if (!loaded || !firePressed) {
-    return { action: null, fireLatch: false };
-  }
-  if (!gameStarted) {
-    return { action: 'start', fireLatch: true };
-  }
-  if (crashed && crashTimer >= crashRespawnDelay) {
-    return { action: 'restart', fireLatch: true };
-  }
-  return { action: null, fireLatch };
-}
-
 function restartFromGameOver() {
-  if (!uiState.loaded) {
-    return false;
-  }
   respawnShip();
   resumeOrbitalsAudio().then((ctx) => {
     if (ctx && ctx.state === 'running') {
       playOrbitalsSfx('start');
     }
   });
-  uiState.gameStarted = true;
-  state.crashed = false;
-  state.crashTimer = 0;
-  state.crashRespawnReady = false;
-  updateTitleOverlay();
-  updateGameOverOverlay();
-  return true;
 }
 
 function relaxPlanetSeparation(planets) {
@@ -1927,14 +1869,12 @@ function updateShipControls(dt) {
     + (keys.has('KeyD') ? 1 : 0) - (keys.has('KeyA') ? 1 : 0);
   const keyboardPitch = (keys.has('ArrowUp') ? 1 : 0) - (keys.has('ArrowDown') ? 1 : 0)
     + (keys.has('KeyW') ? 1 : 0) - (keys.has('KeyS') ? 1 : 0);
-  const gamepadFire = !uiState.gamepadFireStartLatch && !uiState.pointerLocked && gamepad.fire;
-  if (!gamepad.fire) {
-    uiState.gamepadFireStartLatch = false;
-  }
+  const fire = uiState.mouseFireHeld || keys.has('ControlLeft') || keys.has('ControlRight') || (!uiState.pointerLocked && gamepad.fire);
   const boost = uiState.mouseBoostHeld || keys.has('Space') || (!uiState.pointerLocked && gamepad.boost);
-  const fire = uiState.mouseFireHeld || keys.has('ControlLeft') || keys.has('ControlRight') || gamepadFire;
   const mouseShipActive = uiState.pointerLocked || touchActive;
   const mouseShipInput = mouseShipActive ? getMouseShipControlInputs() : { turnInput: 0, pitchInput: 0 };
+  const fireDirection = fire ? computeFireDirectionFromReticle() : null;
+  const projectileIdBefore = lastProjectileIdForSfx;
   const explosionIdBefore = lastEnemyExplosionIdForSfx;
   const mouseTurn = mouseShipActive ? mouseShipInput.turnInput : 0;
   const mousePitch = mouseShipActive ? mouseShipInput.pitchInput : 0;
@@ -1945,11 +1885,14 @@ function updateShipControls(dt) {
   } else {
     uiState.mouseCenteredHoldTime = 0;
   }
+
+  const effectiveMouseTurn = mouseCenteredForShip ? 0 : mouseTurn;
+  const effectiveMousePitch = mouseCenteredForShip ? 0 : mousePitch;
   const nonMouseTurnInput = keyboardTurn + (uiState.pointerLocked ? 0 : gamepad.turnX);
   const nonMousePitchInput = keyboardPitch + (uiState.pointerLocked ? 0 : gamepad.pitchY);
-  const turnInput = THREE.MathUtils.clamp(nonMouseTurnInput + mouseTurn, -1, 1);
-  const pitchInput = THREE.MathUtils.clamp(nonMousePitchInput + mousePitch, -1, 1);
-  const mouseIdle = Boolean(mouseCenteredForShip && nonMouseTurnInput === 0 && nonMousePitchInput === 0);
+  const turnInput = THREE.MathUtils.clamp(nonMouseTurnInput + effectiveMouseTurn, -1, 1);
+  const pitchInput = THREE.MathUtils.clamp(nonMousePitchInput + effectiveMousePitch, -1, 1);
+  const mouseIdle = Boolean(mouseCenteredForShip && nonMousePitchInput === 0);
   uiState.keyboardIdle = !(
     keyboardTurn !== 0
     || keyboardPitch !== 0
@@ -1972,12 +1915,16 @@ function updateShipControls(dt) {
     brake: keys.has('ShiftLeft') || keys.has('ShiftRight') || (!uiState.pointerLocked && gamepad.brake),
     respawn: uiState.pointerLocked ? false : gamepad.respawn,
     fire,
-    fireDirection: fire ? computeFireDirectionFromReticle() : null,
+    fireDirection,
   });
   uiState._lastTurnInput = turnInput;
   uiState._lastPitchInput = pitchInput;
   uiState._lastBoostInput = boost ? 1 : 0;
   uiState._lastBrakeInput = (keys.has('ShiftLeft') || keys.has('ShiftRight') || (!uiState.pointerLocked && gamepad.brake)) ? 1 : 0;
+
+  if (fire && state.nextProjectileId > projectileIdBefore) {
+    playOrbitalsSfx('shoot');
+  }
   const newEnemyExplosions = state.enemyExplosions.filter((effect) => effect.id >= explosionIdBefore);
   for (const effect of newEnemyExplosions) {
     const distance = camera.position.distanceTo(effect.position);
@@ -1987,6 +1934,7 @@ function updateShipControls(dt) {
     const pan = THREE.MathUtils.clamp(relative.x / Math.max(distance, 1), -1, 1);
     playOrbitalsSfx('boom', { gainScale, pan, distance });
   }
+  lastProjectileIdForSfx = state.nextProjectileId || projectileIdBefore;
   lastEnemyExplosionIdForSfx = state.nextEnemyExplosionId || explosionIdBefore;
 }
 
@@ -2430,6 +2378,7 @@ async function bootstrap() {
 
   loadingText.textContent = 'Ready';
   loadingWrap.style.display = 'none';
+  lastProjectileIdForSfx = state.nextProjectileId || 0;
   lastEnemyExplosionIdForSfx = state.nextEnemyExplosionId || 0;
   uiState.loaded = true;
   updateTitleOverlay();
@@ -2450,7 +2399,6 @@ function handlePointerMove(event) {
     }
     return;
   }
-  syncMouseButtonStateFromEvent(event);
   if (!uiState.pointerLocked) {
     return;
   }
@@ -2526,7 +2474,6 @@ window.addEventListener('resize', handleResize);
 window.addEventListener('keydown', handleKeyDown);
 window.addEventListener('keyup', handleKeyUp);
 window.addEventListener('pointerdown', handleGlobalPointerDown, { capture: true });
-window.addEventListener('pointerup', syncMouseButtonStateFromEvent, { capture: true });
 window.addEventListener('mousedown', resumeOrbitalsAudio, { capture: true });
 window.addEventListener('touchstart', resumeOrbitalsAudio, { capture: true, passive: true });
 window.addEventListener('click', resumeOrbitalsAudio, { capture: true });
@@ -2541,8 +2488,8 @@ function render() {
   const dt = Math.min(clock.getDelta(), 0.05);
 
   if (uiState.loaded && state.ship) {
-    maybeStartFromGamepad();
     if (!uiState.gameStarted) {
+      maybeStartFromGamepad();
       updatePlanets(dt, clock.elapsedTime);
       updateStarCorona(clock.elapsedTime);
     } else {

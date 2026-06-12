@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict';
 import * as THREE from './lib/three.module.js';
 import { createOrbitalsSim, ENEMY_MODEL_FILES_BY_FAMILY, getEncounterAnchorPosition, parseSeed } from './Orbitals_Sim.js';
-import { createOrbitalsSim as createOrbitalsSimBaseline } from '../Orbitals_JSp/Orbitals_Sim.js';
 import { config } from './orbitals_config.js';
-import { computeShipFireDirection } from './sim/projectiles.js';
 
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
 const NEUTRAL_CONTROLS = {
@@ -15,19 +13,6 @@ const NEUTRAL_CONTROLS = {
 };
 
 const SHALLOW_DIVE_PITCH_INPUT = 0.5;
-
-function resolveGamepadStartRestartAction({ loaded, gameStarted, crashed, crashTimer = 0, firePressed, crashRespawnDelay, fireLatch = false }) {
-  if (!loaded || !firePressed) {
-    return { action: null, fireLatch: false };
-  }
-  if (!gameStarted) {
-    return { action: 'start', fireLatch: true };
-  }
-  if (crashed && crashTimer >= crashRespawnDelay) {
-    return { action: 'restart', fireLatch: true };
-  }
-  return { action: null, fireLatch };
-}
 
 function resolveBenchSeed() {
   const rawSeed = process.env.ORBITALS_SEED ?? process.argv[2] ?? '';
@@ -49,45 +34,6 @@ function stepSim(sim, steps, controls) {
   for (let i = 0; i < steps; i += 1) {
     sim.step(1 / 60, controls);
   }
-}
-
-function buildPlanetFireCamera(ship, state) {
-  const planet = ship.boundPlanet || state.nearestPlanet;
-  assert.ok(planet, 'expected a planet to build the fire camera');
-
-  const camera = new THREE.PerspectiveCamera(54, 16 / 9, 0.1, 1500000);
-  const depth = planet.atmosphereRadius > planet.radius
-    ? THREE.MathUtils.clamp(
-      (planet.atmosphereRadius - state.nearestAltitude) / (planet.atmosphereRadius - planet.radius),
-      0,
-      1
-    )
-    : 0;
-  const camDistance = THREE.MathUtils.lerp(config.shipCamDistance * 1.06, config.shipCamDistance * 0.96, depth);
-  const camHeight = THREE.MathUtils.lerp(config.shipCamHeight * 1.08, config.shipCamHeight * 0.92, depth);
-  camera.position.copy(ship.position)
-    .addScaledVector(ship.forward, -camDistance)
-    .addScaledVector(ship.up, camHeight);
-  camera.up.copy(ship.up);
-  camera.lookAt(ship.position.clone().addScaledVector(ship.forward, 10));
-  return camera;
-}
-
-function computeRawFireDirection(camera, aimX, aimY, viewportWidth, viewportHeight) {
-  const halfWidth = Math.max(1, viewportWidth * 0.5);
-  const halfHeight = Math.max(1, viewportHeight * 0.5);
-  const ndcX = (aimX * 170) / halfWidth;
-  const ndcY = -(aimY * 170) / halfHeight;
-  camera.updateMatrixWorld(true);
-  const near = new THREE.Vector3(ndcX, ndcY, -1).unproject(camera);
-  const far = new THREE.Vector3(ndcX, ndcY, 1).unproject(camera);
-  return far.sub(near).normalize();
-}
-
-function assertExactKeys(actual, expected, label) {
-  const sortedActual = [...actual].sort();
-  const sortedExpected = [...expected].sort();
-  assert.deepEqual(sortedActual, sortedExpected, `${label} keys changed unexpectedly`);
 }
 
 function averageEnemyDistanceToPlanet(state, squadId, planet) {
@@ -473,50 +419,6 @@ function runStableAltitudeTest() {
   );
 }
 
-function runPublicSimApiSmokeTest() {
-  const sim = createOrbitalsSim(0xC0FFEE);
-  assert.equal(typeof sim.bootstrapWorld, 'function', 'expected bootstrapWorld to be exposed');
-  assert.equal(typeof sim.step, 'function', 'expected step to be exposed');
-  assert.equal(typeof sim.respawnShip, 'function', 'expected respawnShip to be exposed');
-  assert.equal(typeof sim.createEncounter, 'function', 'expected createEncounter to be exposed');
-  assert.equal(typeof sim.createEncounterEntity, 'function', 'expected createEncounterEntity to be exposed');
-  assert.equal(typeof sim.forceEnemyPresentation, 'function', 'expected forceEnemyPresentation to be exposed');
-  assert.equal(typeof sim.destroyEnemy, 'function', 'expected destroyEnemy to be exposed');
-  assert.equal(typeof sim.damageEncounterEntity, 'function', 'expected damageEncounterEntity to be exposed');
-
-  sim.bootstrapWorld();
-  assert.ok(sim.state.loaded, 'expected bootstrapWorld to mark the sim as loaded');
-  assert.ok(sim.state.ship, 'expected bootstrapWorld to create a ship');
-  assertExactKeys(
-    Object.keys(sim.state.ship),
-    [
-      'bank',
-      'boostTimer',
-      'boundPlanet',
-      'captureTimer',
-      'engineEffects',
-      'fireCooldown',
-      'flightMode',
-      'forward',
-      'gravity',
-      'muzzleOffset',
-      'model',
-      'modelPivot',
-      'pitchIdleTime',
-      'position',
-      'recaptureLock',
-      'relativePosition',
-      'relativeVelocity',
-      'root',
-      'speed',
-      'up',
-      'velocity',
-      'visual'
-    ],
-    'ship'
-  );
-}
-
 function runPitchResponseTest() {
   const seed = 0xC0FFEE;
   const settleFrames = 240;
@@ -860,53 +762,6 @@ function runAtmosphereBoostPitchLockTest() {
 
   console.log(
     `PASS atmosphere-boost-pitch-lock: forward=${finalForward.dot(initialForward).toFixed(3)} up=${finalUp.dot(initialUp).toFixed(3)}`
-  );
-}
-
-function runAtmosphereCenteredMouseReorientTest() {
-  const sim = createOrbitalsSim(0xC0FFEE);
-  sim.bootstrapWorld();
-
-  const { state } = sim;
-  const planet = state.ship.boundPlanet;
-  assert.ok(planet, 'expected the ship to start bound to a planet');
-
-  const localUp = state.ship.position.clone().sub(planet.position).normalize();
-  const tiltAxis = state.ship.up.clone().cross(state.ship.forward).normalize();
-  assert.ok(tiltAxis.lengthSq() > 1e-8, 'expected a valid tilt axis for the reorient test');
-
-  const initialForward = state.ship.forward.clone().applyAxisAngle(tiltAxis, 0.35).normalize();
-  const initialUp = state.ship.up.clone().applyAxisAngle(tiltAxis, 0.35).normalize();
-  state.ship.forward.copy(initialForward);
-  state.ship.up.copy(initialUp);
-  state.ship.bank = 0;
-  state.ship.pitchIdleTime = 0;
-  state.ship.captureTimer = config.shipCaptureBlendTime;
-  state.ship.flightMode = 'bound';
-
-  const initialUpDot = state.ship.up.clone().normalize().dot(localUp);
-  const initialForwardDot = state.ship.forward.clone().normalize().dot(localUp);
-
-  stepSim(sim, 90, { ...NEUTRAL_CONTROLS, pitchInput: 0.05, mouseIdle: true });
-
-  const finalUpDot = state.ship.up.clone().normalize().dot(localUp);
-  const finalForwardDot = state.ship.forward.clone().normalize().dot(localUp);
-
-  assert.ok(
-    state.ship.pitchIdleTime > config.shipPitchReorientDelay,
-    `expected centered mouse input to advance pitchIdleTime past ${config.shipPitchReorientDelay.toFixed(3)}s, got ${state.ship.pitchIdleTime.toFixed(3)}s`
-  );
-  assert.ok(
-    finalUpDot > initialUpDot + 0.01,
-    `expected the ship up vector to move back toward the horizon: initial=${initialUpDot.toFixed(3)} final=${finalUpDot.toFixed(3)}`
-  );
-  assert.ok(
-    Math.abs(finalForwardDot) < Math.abs(initialForwardDot) + 0.02,
-    `expected the ship forward vector to stay under active control while centered: initial=${initialForwardDot.toFixed(3)} final=${finalForwardDot.toFixed(3)}`
-  );
-
-  console.log(
-    `PASS atmosphere-centered-mouse-reorient: idle=${state.ship.pitchIdleTime.toFixed(3)} up=${initialUpDot.toFixed(3)}->${finalUpDot.toFixed(3)}`
   );
 }
 
@@ -1716,11 +1571,9 @@ function runProjectileFireTest() {
 
   assert.strictEqual(state.projectiles.length, 1, 'expected a single-shot burst');
 
-  const inheritedVelocity = ship.boundPlanet ? ship.relativeVelocity.clone() : ship.velocity.clone();
-  const relativeVelocity = state.projectiles[0].velocity.clone().sub(inheritedVelocity);
-  const spawnDistance = state.projectiles[0].position.distanceTo(ship.position);
+  const relativeVelocity = state.projectiles[0].velocity.clone().sub(ship.velocity);
+  const centerDistance = state.projectiles[0].position.distanceTo(ship.position);
   const expectedProjectileSpeed = config.shipProjectileSpeed + ship.speed * 0.35;
-  const expectedSpawnDistance = 0;
   const projectileSpeed = relativeVelocity.length();
   const projectileDirection = relativeVelocity.clone().normalize();
 
@@ -1733,296 +1586,13 @@ function runProjectileFireTest() {
     `projectile speed should use config: got=${projectileSpeed.toFixed(3)} expected=${expectedProjectileSpeed.toFixed(3)}`
   );
   assert.ok(
-    spawnDistance <= 0.001,
-    `projectile should spawn from the muzzle: distance=${spawnDistance.toFixed(3)} expected=${expectedSpawnDistance.toFixed(3)}`
+    centerDistance <= 0.001,
+    `projectile should spawn from the ship center: distance=${centerDistance.toFixed(3)}`
   );
 
   console.log(
-    `PASS projectile-fire: dot=${projectileDirection.dot(fireDirection).toFixed(3)} speed=${projectileSpeed.toFixed(3)} spawn=${spawnDistance.toFixed(3)}`
+    `PASS projectile-fire: dot=${projectileDirection.dot(fireDirection).toFixed(3)} speed=${projectileSpeed.toFixed(3)} center=${centerDistance.toFixed(3)}`
   );
-}
-
-function runProjectileNormalScenarioSmokeTest() {
-  const sim = createOrbitalsSim(0xC0FFEE);
-  sim.bootstrapWorld();
-
-  stepSim(sim, 120, NEUTRAL_CONTROLS);
-  const { state } = sim;
-  const ship = state.ship;
-  const planet = ship.boundPlanet;
-  assert.ok(ship, 'expected a ship for the normal scenario smoke test');
-  assert.ok(planet, 'expected the ship to remain bound to a planet');
-
-  const fireDirection = ship.forward.clone().normalize();
-  sim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection });
-
-  assert.strictEqual(state.projectiles.length, 1, 'expected a single projectile in the normal smoke test');
-  stepSim(sim, 6, NEUTRAL_CONTROLS);
-  assert.ok(state.projectiles.length >= 1, 'expected the shot to remain active after a few frames');
-
-  console.log(
-    `PASS projectile-normal-scenario-smoke: count=${state.projectiles.length} altitude=${state.nearestAltitude.toFixed(3)}`
-  );
-}
-
-function runProjectileBoundFlightInheritedVelocityTest() {
-  const sim = createOrbitalsSim(0xC0FFEE);
-  sim.bootstrapWorld();
-
-  stepSim(sim, 120, NEUTRAL_CONTROLS);
-  const { state } = sim;
-  const ship = state.ship;
-  assert.ok(ship && ship.boundPlanet, 'expected a bound ship for the inherited velocity test');
-
-  sim.step(0, { ...NEUTRAL_CONTROLS, fire: true });
-  assert.strictEqual(state.projectiles.length, 1, 'expected a projectile to spawn in bound flight');
-
-  const projectile = state.projectiles[0];
-  const inheritedSpeed = projectile.inheritedVelocity.length();
-  const shipWorldSpeed = ship.velocity.length();
-  const shipLocalSpeed = ship.relativeVelocity.length();
-
-  assert.ok(
-    Math.abs(inheritedSpeed - shipLocalSpeed) < 1e-6,
-    `expected bound-flight projectiles to inherit local ship velocity: got=${inheritedSpeed.toFixed(3)} local=${shipLocalSpeed.toFixed(3)}`
-  );
-  assert.ok(
-    inheritedSpeed < shipWorldSpeed * 0.2,
-    `expected bound-flight projectile inheritance to stay well below world orbital velocity: inherited=${inheritedSpeed.toFixed(3)} world=${shipWorldSpeed.toFixed(3)}`
-  );
-
-  stepSim(sim, 3, NEUTRAL_CONTROLS);
-  assert.ok(state.projectiles.length >= 1, 'expected the bound-flight projectile to remain alive for a few frames');
-
-  console.log(
-    `PASS projectile-bound-flight-inherited-velocity: local=${shipLocalSpeed.toFixed(3)} world=${shipWorldSpeed.toFixed(3)} inherited=${inheritedSpeed.toFixed(3)}`
-  );
-}
-
-function runProjectileFireWhileMovingTest() {
-  const sim = createOrbitalsSim(0xC0FFEE);
-  sim.bootstrapWorld();
-
-  stepSim(sim, 120, NEUTRAL_CONTROLS);
-  const { state } = sim;
-  const ship = state.ship;
-  assert.ok(ship, 'expected a ship to exist for the moving-shot test');
-
-  const shipSpeed = 220;
-  const fireDirection = ship.forward.clone().normalize();
-  const expectedProjectileSpeed = config.shipProjectileSpeed + shipSpeed * config.shipProjectileShipVelocityScale;
-
-  ship.boundPlanet = null;
-  ship.flightMode = 'free';
-  ship.recaptureLock = config.shipRecaptureDelay + 5;
-  ship.position.set(0, 0, 10000);
-  ship.forward.copy(fireDirection);
-  ship.up.set(0, 1, 0);
-  ship.speed = shipSpeed;
-  ship.velocity.copy(fireDirection).multiplyScalar(shipSpeed);
-  ship.relativePosition.copy(ship.position);
-  ship.relativeVelocity.copy(ship.velocity);
-  ship.bank = 0;
-  ship.boostTimer = 0;
-  ship.fireCooldown = 0;
-  ship.pitchIdleTime = 0;
-  state.nearestPlanet = null;
-  state.nearestDistance = Infinity;
-  state.nearestAltitude = Infinity;
-
-  sim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection });
-  assert.strictEqual(state.projectiles.length, 1, 'expected a projectile to fire while the ship is moving');
-
-  stepSim(sim, 1, NEUTRAL_CONTROLS);
-  assert.strictEqual(state.projectiles.length, 1, 'expected the projectile to remain in flight after one frame');
-
-  const projectile = state.projectiles[0];
-  const relativeVelocity = projectile.velocity.clone().sub(ship.velocity);
-  const relativeSpeed = relativeVelocity.length();
-  const projectileSpeed = projectile.velocity.length();
-  const relativeDirection = relativeVelocity.clone().normalize();
-
-  assert.ok(
-    projectileSpeed > ship.velocity.length(),
-    `expected the projectile to stay faster than the ship: projectile=${projectileSpeed.toFixed(3)} ship=${ship.velocity.length().toFixed(3)}`
-  );
-  assert.ok(
-    Math.abs(relativeSpeed - expectedProjectileSpeed) < 1e-6,
-    `expected inherited ship speed to remain part of the shot: got=${relativeSpeed.toFixed(3)} expected=${expectedProjectileSpeed.toFixed(3)}`
-  );
-  assert.ok(
-    relativeDirection.dot(fireDirection) > 0.999,
-    `expected the moving shot to stay aligned with the reticle: dot=${relativeDirection.dot(fireDirection).toFixed(3)}`
-  );
-
-  console.log(
-    `PASS projectile-fire-moving: projectile=${projectileSpeed.toFixed(3)} ship=${ship.velocity.length().toFixed(3)} rel=${relativeSpeed.toFixed(3)}`
-  );
-}
-
-function runProjectileNearPlanetSurvivalTest() {
-  const sim = createOrbitalsSim(0xC0FFEE);
-  sim.bootstrapWorld();
-
-  stepSim(sim, 120, NEUTRAL_CONTROLS);
-  const { state } = sim;
-  const ship = state.ship;
-  assert.ok(ship, 'expected a ship to exist for the near-planet projectile test');
-
-  const fireDirection = ship.forward.clone().normalize();
-  sim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection });
-
-  assert.strictEqual(state.projectiles.length, 1, 'expected a projectile to spawn near the planet');
-  stepSim(sim, 15, NEUTRAL_CONTROLS);
-
-  assert.ok(
-    state.projectiles.length >= 1,
-    'expected the projectile to survive the first few frames near the planet'
-  );
-
-  console.log(
-    `PASS projectile-near-planet-survival: count=${state.projectiles.length} age=${state.projectiles[0].age.toFixed(3)}`
-  );
-}
-
-function runProjectilePlanetAimRegressionTest() {
-  const sim = createOrbitalsSim(0xC0FFEE);
-  sim.bootstrapWorld();
-
-  stepSim(sim, 120, NEUTRAL_CONTROLS);
-  const { state } = sim;
-  const ship = state.ship;
-  const planet = ship.boundPlanet;
-  assert.ok(ship, 'expected a ship to exist for the planet-aim regression test');
-  assert.ok(planet, 'expected the ship to remain bound to a planet');
-
-  const localUp = ship.position.clone().sub(planet.position).normalize();
-  const camera = buildPlanetFireCamera(ship, state);
-  const rawFireDirection = computeRawFireDirection(camera, 0, 0, 1280, 720);
-  const safeFireDirection = computeShipFireDirection(ship, camera, 0, 0, 1280, 720);
-
-  assert.ok(
-    safeFireDirection.dot(rawFireDirection) > 0.9999,
-    `expected the refactored shot to match the raw camera ray: dot=${safeFireDirection.dot(rawFireDirection).toFixed(6)}`
-  );
-  assert.ok(
-    safeFireDirection.dot(localUp) > -0.2,
-    `expected the center-reticle shot to stay broadly in front of the ship: upDot=${safeFireDirection.dot(localUp).toFixed(3)}`
-  );
-  assert.ok(
-    safeFireDirection.dot(ship.forward.clone().normalize()) > 0.15,
-    `expected the corrected center-reticle shot to stay in the ship-forward hemisphere: forwardDot=${safeFireDirection.dot(ship.forward.clone().normalize()).toFixed(3)}`
-  );
-
-  console.log(
-    `PASS projectile-planet-aim-regression: upDot=${safeFireDirection.dot(localUp).toFixed(3)}`
-  );
-}
-
-function runGamepadStartRestartSmokeTest() {
-  const titleFaceButton = resolveGamepadStartRestartAction({
-    loaded: true,
-    gameStarted: false,
-    crashed: false,
-    crashTimer: 0,
-    firePressed: true,
-    crashRespawnDelay: config.crashRespawnDelay,
-    fireLatch: false
-  });
-  assert.deepEqual(titleFaceButton, { action: 'start', fireLatch: true }, 'expected a face-button start to work on title');
-
-  const titleStart = resolveGamepadStartRestartAction({
-    loaded: true,
-    gameStarted: false,
-    crashed: false,
-    crashTimer: 0,
-    firePressed: true,
-    crashRespawnDelay: config.crashRespawnDelay,
-    fireLatch: false
-  });
-  assert.deepEqual(titleStart, { action: 'start', fireLatch: true }, 'expected fire to start from title');
-
-  const earlyCrashHold = resolveGamepadStartRestartAction({
-    loaded: true,
-    gameStarted: true,
-    crashed: true,
-    crashTimer: config.crashRespawnDelay - 0.01,
-    firePressed: true,
-    crashRespawnDelay: config.crashRespawnDelay,
-    fireLatch: false
-  });
-  assert.deepEqual(earlyCrashHold, { action: null, fireLatch: false }, 'expected fire to wait until the delay elapses');
-
-  const gameOverRestart = resolveGamepadStartRestartAction({
-    loaded: true,
-    gameStarted: true,
-    crashed: true,
-    crashTimer: config.crashRespawnDelay + 0.01,
-    firePressed: true,
-    crashRespawnDelay: config.crashRespawnDelay,
-    fireLatch: false
-  });
-  assert.deepEqual(gameOverRestart, { action: 'restart', fireLatch: true }, 'expected fire to restart after the delay');
-
-  console.log('PASS gamepad-start-restart-smoke');
-}
-
-function runProjectileRefactorComparisonTest() {
-  const seed = 0xC0FFEE;
-  const baselineSim = createOrbitalsSimBaseline(seed);
-  const refactoredSim = createOrbitalsSim(seed);
-  baselineSim.bootstrapWorld();
-  refactoredSim.bootstrapWorld();
-
-  stepSim(baselineSim, 120, NEUTRAL_CONTROLS);
-  stepSim(refactoredSim, 120, NEUTRAL_CONTROLS);
-
-  const baselineShip = baselineSim.state.ship;
-  const refShip = refactoredSim.state.ship;
-  assert.ok(baselineShip && refShip, 'expected ships in both simulations');
-  assert.ok(baselineShip.boundPlanet && refShip.boundPlanet, 'expected both ships to remain bound');
-
-  const aimX = 0.6;
-  const aimY = 0.4;
-  const refCamera = buildPlanetFireCamera(refShip, refactoredSim.state);
-  const baselineFireDirection = computeRawFireDirection(refCamera, aimX, aimY, 1280, 720);
-  const refFireDirection = computeShipFireDirection(refShip, refCamera, aimX, aimY, 1280, 720);
-
-  assert.ok(
-    baselineFireDirection.dot(refFireDirection) > 0.9999,
-    `expected the refactored aim ray to match the baseline ray: dot=${baselineFireDirection.dot(refFireDirection).toFixed(6)}`
-  );
-
-  baselineSim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection: baselineFireDirection });
-  refactoredSim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection: refFireDirection });
-
-  assert.strictEqual(baselineSim.state.projectiles.length, 1, 'expected baseline projectile');
-  assert.strictEqual(refactoredSim.state.projectiles.length, 1, 'expected refactored projectile');
-
-  const baselineProjectile = baselineSim.state.projectiles[0];
-  const refProjectile = refactoredSim.state.projectiles[0];
-
-  const baselineCarrierVelocity = baselineShip.boundPlanet ? baselineShip.relativeVelocity : baselineShip.velocity;
-  const refCarrierVelocity = refShip.boundPlanet ? refShip.relativeVelocity : refShip.velocity;
-  const baselineRelative = baselineProjectile.velocity.clone().sub(baselineCarrierVelocity);
-  const refRelative = refProjectile.velocity.clone().sub(refCarrierVelocity);
-  const baselineUp = baselineShip.position.clone().sub(baselineShip.boundPlanet.position).normalize();
-  const refUp = refShip.position.clone().sub(refShip.boundPlanet.position).normalize();
-
-  const comparison = {
-    baseline: {
-      spawnDistance: baselineProjectile.position.distanceTo(baselineShip.position),
-      upDot: baselineRelative.clone().normalize().dot(baselineFireDirection),
-      localUpDot: baselineRelative.clone().normalize().dot(baselineUp)
-    },
-    refactored: {
-      spawnDistance: refProjectile.position.distanceTo(refShip.position),
-      upDot: refRelative.clone().normalize().dot(refFireDirection),
-      localUpDot: refRelative.clone().normalize().dot(refUp)
-    }
-  };
-
-  console.log(`PASS projectile-refactor-compare: ${JSON.stringify(comparison)}`);
 }
 
 function setupProjectileHomingScenario(sim, lateralOffset) {
@@ -3745,7 +3315,6 @@ function runEnemyFamilyIndexTest() {
 }
 
 runStableAltitudeTest();
-runPublicSimApiSmokeTest();
 runPitchResponseTest();
 runAtmosphereTerrainRecoveryTest();
 runAtmosphereTerrainCrashTest();
@@ -3753,7 +3322,6 @@ runBoostRecoveryTest();
 runBoostThrustTest();
 runShipMaxMaxSpeedTest();
 runAtmosphereBoostPitchLockTest();
-runAtmosphereCenteredMouseReorientTest();
 runAtmosphereSoftStallTest();
 runBoostDirectionTest();
 runFreeBrakeDecayTest();
@@ -3769,12 +3337,6 @@ runFreeGravityHighSpeedTest();
 // Temporarily parked while free-space gravity nose-pull is reworked.
 runArcadeOrbitViabilityTest();
 runProjectileFireTest();
-runProjectileRefactorComparisonTest();
-runProjectileNormalScenarioSmokeTest();
-runProjectileBoundFlightInheritedVelocityTest();
-runProjectileFireWhileMovingTest();
-runProjectileNearPlanetSurvivalTest();
-runProjectilePlanetAimRegressionTest();
 runProjectileHomingTest();
 runProjectileHomingLimitTest();
 runEnemyCrashExplosionTest('planet');

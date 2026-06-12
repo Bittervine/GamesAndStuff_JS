@@ -3,3 +3,21 @@
 - For this folder, Playwright may only be used on expressed permission. The testbench shall be used instead.
 - No magic numbers! All constants that accept gameplay shall be in orbitals_config.js and this shall be the only definition! If individual testcases makes it absolutely neccesary to be able to change the parameters for a test, then go ahead and let the testcase reassign the values (then the config does not have to be const).
 
+## Planned simulation subsystem map
+- `sim/main.js`: future compatibility facade and explicit update order.
+- `sim/state.js`: game-state shape, creation, and reset helpers.
+- `sim/math.js`: shared math, RNG, basis, and vector helpers.
+- `sim/world.js`: planets, fuel motes, and world motion.
+- `sim/physics.js`: shared flight, atmosphere, capture, and terrain helpers.
+- `sim/player.js`: player ship state, movement, fuel, firing, crash, and respawn.
+- `sim/enemies.js`: enemy state, squads, AI, swarm behavior, and enemy damage.
+- `sim/motherships.js`: mothership arrival, hold, release, exit, and squad helpers.
+- `sim/encounters.js`: encounter director, presenters, objectives, and missions.
+- `sim/projectiles.js`: projectile spawning, homing, collisions, and lifetime.
+- `sim/pickups.js`: pickup spawning, drifting, collection, and expiration.
+- `sim/weapons.js`: weapon pattern generation and upgrade rules.
+- `sim/collisions.js`: ship, projectile, entity, terrain, and sun collision rules.
+- `sim/spatial_hash.js`: dense-swarm broad-phase lookup helpers.
+- `sim/effects.js`: simulation-side effect records.
+- `sim/events.js`: event-log helpers and combat-log formatting.
+
