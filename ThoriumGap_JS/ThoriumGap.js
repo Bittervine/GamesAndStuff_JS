@@ -233,6 +233,7 @@
   const bossArtLoadKeys = new Set();
   const bossGlowLoadKeys = new Set();
   const bossGlowTextures = new Map();
+  const boss3DArtEntries = new Map();
   const bossAlphaMasks = new Map();
   const bossPartLoadKeys = new Set();
   const bossPartTextures = new Map();
@@ -507,6 +508,11 @@
   const ENEMY_3D_BANK_HEADING_FACTOR = 0.1;
   const ENEMY_3D_LIB_THREE = './lib/three.module.js';
   const ENEMY_3D_LIB_GLTF = './lib/loaders/GLTFLoader.js';
+  const BOSS_3D_RENDER_ORDER_CLAW_GLOW = 56;
+  const BOSS_3D_RENDER_ORDER_CLAW_BODY = 57;
+  const BOSS_3D_RENDER_ORDER_GLOW = 58;
+  const BOSS_3D_RENDER_ORDER_BODY = 60;
+  const BOSS_3D_Z = 60;
   const PLANET_3D_MODEL_MIN = 1;
   const PLANET_3D_MODEL_MAX = 21;
   const PLANET_3D_ROTATION_SPEED = 0.06;
@@ -542,6 +548,7 @@
     playerModelLoad: null,
     playerModelFailed: false,
     playerInstance: null,
+    bossInstance: null,
     syncPending: false
   };
 
@@ -1414,6 +1421,12 @@
         const glowCanvas = makeBossGlowCanvas(normalized, '#ffffff', bossSize) || normalized;
         const glowTex = createTextureFromCanvas(glowCanvas);
         if (glowTex) bossGlowTextures.set(glowKey, glowTex);
+        boss3DArtEntries.set(key, {
+          canvas: normalized,
+          glowCanvas: glowCanvas,
+          size: bossSize,
+          glowSize: bossGlowCanvasSize(bossSize)
+        });
       } finally {
         bossArtLoadKeys.delete(key);
       }
@@ -1447,18 +1460,24 @@
             source = c;
           }
         }
-        const tex = createTextureFromCanvas(source);
-        const glowCanvas = makeBossGlowCanvas(source, '#ffffff', Math.max(1, img.naturalWidth || img.width || 1)) || source;
+        const rawW = Math.max(1, img.naturalWidth || img.width || 1);
+        const rawH = Math.max(1, img.naturalHeight || img.height || 1);
+        const partCanvas = makeCanvas(rawW, rawH);
+        const partCtx = partCanvas.getContext('2d');
+        if (partCtx) partCtx.drawImage(source, 0, 0, rawW, rawH);
+        const partSource = partCtx ? partCanvas : source;
+        const tex = createTextureFromCanvas(partSource);
+        const glowCanvas = makeBossGlowCanvas(partSource, '#ffffff', rawW) || partSource;
         const glowTex = createTextureFromCanvas(glowCanvas);
         if (tex) {
-          const rawW = Math.max(1, img.naturalWidth || img.width || 1);
-          const rawH = Math.max(1, img.naturalHeight || img.height || 1);
           const glowPad = bossGlowPad(rawW);
-          const bounds = getCanvasAlphaBounds(source);
-          const mask = makeCanvasAlphaMask(source, 8);
+          const bounds = getCanvasAlphaBounds(partSource);
+          const mask = makeCanvasAlphaMask(partSource, 8);
           bossPartTextures.set(key, {
             texture: tex,
             glowTexture: glowTex,
+            canvas: partSource,
+            glowCanvas: glowCanvas,
             glowPad: glowPad,
             glowW: rawW + glowPad * 2,
             glowH: rawH + glowPad * 2,
@@ -1506,6 +1525,14 @@
     const key = bossArtKey(levelNumber) + '|glow';
     const tex = bossGlowTextures.get(key);
     if (tex) return tex;
+    ensureBossTexture(levelNumber);
+    return null;
+  }
+
+  function getBoss3DArtEntry(levelNumber) {
+    const key = bossArtKey(levelNumber);
+    const entry = boss3DArtEntries.get(key);
+    if (entry) return entry;
     ensureBossTexture(levelNumber);
     return null;
   }
@@ -2001,6 +2028,7 @@
 
   function destroyEnemy3DRenderer() {
     clearPlayer3DInstance();
+    removeBoss3DInstance();
     clearEnemy3DInstances();
     clearPlanet3DInstances();
     if (enemy3DState.renderer && enemy3DState.renderer.dispose) {
@@ -2616,6 +2644,165 @@
       !!enemy3DState.playerInstance.valid;
   }
 
+  function createBoss3DPlane(source, renderOrder, additive) {
+    if (!source || !enemy3DState.THREE) return null;
+    const THREE = enemy3DState.THREE;
+    const texture = new THREE.CanvasTexture(source);
+    texture.generateMipmaps = false;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    if (THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
+    else if (THREE.sRGBEncoding) texture.encoding = THREE.sRGBEncoding;
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      opacity: 1,
+      alphaTest: 0.01,
+      depthWrite: false,
+      depthTest: false,
+      blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+      side: THREE.DoubleSide
+    });
+    material.toneMapped = false;
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material);
+    mesh.frustumCulled = false;
+    mesh.renderOrder = renderOrder || BOSS_3D_RENDER_ORDER_BODY;
+    return { mesh: mesh, material: material, texture: texture };
+  }
+
+  function disposeBoss3DPlane(plane) {
+    if (!plane) return;
+    if (plane.texture && plane.texture.dispose) {
+      try { plane.texture.dispose(); } catch (err) {}
+    }
+    if (plane.material && plane.material.dispose) {
+      try { plane.material.dispose(); } catch (err) {}
+    }
+    if (plane.mesh && plane.mesh.geometry && plane.mesh.geometry.dispose) {
+      try { plane.mesh.geometry.dispose(); } catch (err) {}
+    }
+  }
+
+  function removeBoss3DInstance() {
+    const entry = enemy3DState.bossInstance;
+    if (!entry) return;
+    if (entry.root && enemy3DState.root) {
+      try { enemy3DState.root.remove(entry.root); } catch (err) {}
+    }
+    disposeBoss3DPlane(entry.bodyGlow);
+    disposeBoss3DPlane(entry.body);
+    ['left', 'right'].forEach(function (side) {
+      const claw = entry.claws && entry.claws[side];
+      if (!claw) return;
+      disposeBoss3DPlane(claw.glow);
+      disposeBoss3DPlane(claw.body);
+    });
+    enemy3DState.bossInstance = null;
+  }
+
+  function setBoss3DPlanePose(plane, x, y, w, h, rot, alpha, color, z) {
+    if (!plane || !plane.mesh || !plane.material) return;
+    const shakeX = render.offsetX || 0;
+    const shakeY = render.offsetY || 0;
+    plane.mesh.position.set((x - view.w * 0.5) + shakeX, (view.h * 0.5 - y) - shakeY, z == null ? BOSS_3D_Z : z);
+    plane.mesh.scale.set(w, h, 1);
+    plane.mesh.rotation.set(0, 0, -(rot || 0));
+    plane.material.opacity = alpha == null ? 1 : alpha;
+    if (plane.material.color && color) plane.material.color.set(color);
+    plane.mesh.visible = plane.material.opacity > 0.01;
+  }
+
+  function ensureBoss3DClawPlane(instance, side, part) {
+    if (!instance || !part || !part.entry || !part.entry.canvas) return null;
+    if (!instance.claws) instance.claws = {};
+    let claw = instance.claws[side];
+    if (claw) return claw;
+    claw = {
+      glow: createBoss3DPlane(part.entry.glowCanvas, BOSS_3D_RENDER_ORDER_CLAW_GLOW, false),
+      body: createBoss3DPlane(part.entry.canvas, BOSS_3D_RENDER_ORDER_CLAW_BODY, false)
+    };
+    if (claw.glow) instance.root.add(claw.glow.mesh);
+    if (claw.body) instance.root.add(claw.body.mesh);
+    instance.claws[side] = claw;
+    return claw;
+  }
+
+  function ensureBoss3DInstance(b) {
+    if (!b || !enemy3DState.ready || !enemy3DState.root) return null;
+    const levelNumber = b.shipLevel || (state.levelIndex + 1);
+    if (enemy3DState.bossInstance && enemy3DState.bossInstance.boss === b && enemy3DState.bossInstance.levelNumber === levelNumber) {
+      return enemy3DState.bossInstance;
+    }
+    removeBoss3DInstance();
+    const art = getBoss3DArtEntry(levelNumber);
+    if (!art || !art.canvas || !art.glowCanvas) return null;
+    const root = new enemy3DState.THREE.Group();
+    const bodyGlow = createBoss3DPlane(art.glowCanvas, BOSS_3D_RENDER_ORDER_GLOW, false);
+    const body = createBoss3DPlane(art.canvas, BOSS_3D_RENDER_ORDER_BODY, false);
+    if (!body) return null;
+    if (bodyGlow) root.add(bodyGlow.mesh);
+    root.add(body.mesh);
+    enemy3DState.root.add(root);
+    enemy3DState.bossInstance = { boss: b, levelNumber: levelNumber, root: root, bodyGlow: bodyGlow, body: body, claws: {}, valid: true };
+    return enemy3DState.bossInstance;
+  }
+
+  function updateBoss3DInstance(dt) {
+    if (!shouldUseEnemy3DMode() || !state.boss) {
+      removeBoss3DInstance();
+      return;
+    }
+    const b = state.boss;
+    const instance = ensureBoss3DInstance(b);
+    if (!instance || !instance.valid) return;
+    const levelNumber = b.shipLevel || (state.levelIndex + 1);
+    const rot = finalBossBodyRot(b);
+    const size = Math.max(1, b.size || 512);
+    const glowSize = bossGlowCanvasSize(size);
+    const flipWhenMovingRight = b.flipWhenMovingRight !== false;
+    const facingRight = flipWhenMovingRight ? !!b.facingRight : false;
+    const boost = clamp(b.glowBoost || 0, 0, 1);
+    const tint = mixHex('#0038ff', '#ffffff', boost);
+    const glowAlpha = clamp(0.45 + 0.30 * Math.sin(Math.PI * b.age) + boost * 0.75, 0.15, 1);
+    if (instance.bodyGlow) {
+      setBoss3DPlanePose(instance.bodyGlow, b.x, b.y, facingRight ? -glowSize : glowSize, glowSize, rot, glowAlpha, tint, BOSS_3D_Z - 0.1);
+    }
+    setBoss3DPlanePose(instance.body, b.x, b.y, facingRight ? -size : size, size, rot, 0.98, '#ffffff', BOSS_3D_Z);
+    if (levelNumber !== 13) return;
+    const parts = getFinalBossClawParts(b, rot);
+    ['left', 'right'].forEach(function (side) {
+      const part = parts && parts[side];
+      const clawState = b.claws && b.claws[side];
+      const claw = ensureBoss3DClawPlane(instance, side, part);
+      if (!claw) return;
+      const visible = !!(part && clawState && !clawState.dead);
+      if (!visible) {
+        if (claw.glow && claw.glow.mesh) claw.glow.mesh.visible = false;
+        if (claw.body && claw.body.mesh) claw.body.mesh.visible = false;
+        return;
+      }
+      const clawBoost = clamp(clawState.glowBoost || 0, 0, 1);
+      const clawTint = mixHex('#0038ff', '#ffffff', clawBoost);
+      const clawGlowAlpha = clamp(0.45 + 0.30 * Math.sin(Math.PI * b.age) + clawBoost * 0.75, 0.15, 1);
+      const bodyCenter = getTextureRectCenterForLocalPoint(part);
+      setBoss3DPlanePose(claw.body, bodyCenter.x, bodyCenter.y, part.w, part.h, part.rot, 0.98, '#ffffff', BOSS_3D_Z + 0.2);
+      if (claw.glow) {
+        const glowScale = part.w / Math.max(1, part.entry.w);
+        const glowPart = {
+          socketX: part.socketX,
+          socketY: part.socketY,
+          w: part.entry.glowW * glowScale,
+          h: part.entry.glowH * glowScale,
+          localX: part.localX + part.entry.glowPad * glowScale,
+          localY: part.localY + part.entry.glowPad * glowScale,
+          rot: part.rot
+        };
+        const glowCenter = getTextureRectCenterForLocalPoint(glowPart);
+        setBoss3DPlanePose(claw.glow, glowCenter.x, glowCenter.y, glowPart.w, glowPart.h, part.rot, clawGlowAlpha, clawTint, BOSS_3D_Z + 0.1);
+      }
+    });
+  }
+
   function playerVisualPose() {
     const p = state.player;
     const respawning = p.respawnTimer > 0;
@@ -2791,6 +2978,7 @@
     if (!enemy3DState.ready &&
       (!state.enemies || state.enemies.length === 0) &&
       (!state.decorBackgrounds || state.decorBackgrounds.length === 0) &&
+      !(enable3DMode && state.boss) &&
       !shouldUsePlayer3DMode()) return;
     const ready = await ensureEnemy3DRenderer();
     if (!ready || !enemy3DState.ready || !enemy3DState.root) return;
@@ -2798,6 +2986,7 @@
     updateEnemy3DViewport();
     await syncPlanet3DInstances(dt);
     await syncPlayer3DInstance(dt);
+    updateBoss3DInstance(dt);
     const seen = new Set();
     for (let i = 0; i < state.enemies.length; i++) {
       const enemy = state.enemies[i];
@@ -2853,7 +3042,8 @@
     const hasEnemies = !!(state.enemies && state.enemies.length);
     const hasPlanets = !!(state.decorBackgrounds && state.decorBackgrounds.length);
     const hasPlayer = shouldUsePlayer3DMode();
-    if (!enemy3DState.ready && !enemy3DState.loadingPromise && !hasEnemies && !hasPlanets && !hasPlayer) return;
+    const hasBoss = !!(enable3DMode && state.boss);
+    if (!enemy3DState.ready && !enemy3DState.loadingPromise && !hasEnemies && !hasPlanets && !hasPlayer && !hasBoss) return;
     if (enemy3DState.syncPending) return;
     enemy3DState.syncPending = true;
     Promise.resolve(sync3DScene(dt)).catch(function () {}).finally(function () {
@@ -8702,8 +8892,17 @@
 
   function drawBoss(b) {
     if (!b) return;
-    drawBossBody(b);
+    if (!hasBoss3DInstance(b)) drawBossBody(b);
     drawBossOverlay(b);
+  }
+
+  function hasBoss3DInstance(b) {
+    return shouldUseEnemy3DMode() &&
+      !!b &&
+      enemy3DState.ready &&
+      !!enemy3DState.bossInstance &&
+      enemy3DState.bossInstance.boss === b &&
+      !!enemy3DState.bossInstance.valid;
   }
 
   function playerEngineFlameOffsets(shipSize, usePlayer3DMesh) {
