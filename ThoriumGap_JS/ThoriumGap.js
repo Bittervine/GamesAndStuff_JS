@@ -1712,6 +1712,8 @@
     }
   }
   function saveNum(key, v) { try { localStorage.setItem(key, String(v)); } catch (e) {} }
+  function loadString(key, fallback) { try { const v = localStorage.getItem(key); return v === null ? fallback : String(v); } catch (e) { return fallback; } }
+  function saveString(key, v) { try { localStorage.setItem(key, String(v)); } catch (e) {} }
   function loadBool(key, fallback) { try { const v = localStorage.getItem(key); return v === null ? fallback : v === '1' || v === 'true'; } catch (e) { return fallback; } }
   function saveBool(key, v) { try { localStorage.setItem(key, v ? '1' : '0'); } catch (e) {} }
   const DEBUG_LOG_KEY = 'ThroriumGap_debugLog';
@@ -3662,7 +3664,17 @@
     settingsPausedByDialog: false,
     levelIndex: 0,
     score: 0,
-    highScore: loadNum('ThroriumGap_highScore', 0),
+    highScore: loadNum('ThroriumGap_highScore', 250000),
+    highScoreInitials: (loadString('ThroriumGap_highScoreInitials', 'AAA') || 'AAA').toUpperCase().slice(0, 3).padEnd(3, 'A'),
+    highScoreRunStart: loadNum('ThroriumGap_highScore', 250000),
+    pendingHighScore: 0,
+    pendingHighScoreInitials: 'AAA',
+    pendingHighScoreEndMode: 'gameover',
+    initialsEntryActive: false,
+    initialsConfirmActive: false,
+    initialsConfirmChoice: 0,
+    initialsEntryIndex: 0,
+    initialsEntryBuffer: ['A', 'A', 'A'],
     settings: {
       sfxVolume: clamp(loadNum('ThroriumGap_sfxVolume', 0.8), 0, 1),
       musicVolume: clamp(loadNum('ThroriumGap_musicVolume', 0), 0, 1),
@@ -3976,6 +3988,7 @@
     saveBool('ThroriumGap_autoFullscreen', state.settings.autoFullscreen);
     saveNum('ThroriumGap_starfieldCap', state.settings.starfieldCap);
     saveNum('ThroriumGap_highScore', state.highScore);
+    saveString('ThroriumGap_highScoreInitials', state.highScoreInitials || 'AAA');
   }
 
   function syncSettingsUi() {
@@ -4232,6 +4245,7 @@
       state.gamepad.prevMenu = false;
       state.gamepad.fireHeld = false;
       state.gamepad.bombHeld = false;
+      state.gamepad.prevInitialNav = '';
       state.gamepad.joyX = 0;
       state.gamepad.joyY = 0;
       state.input.moveX = 0;
@@ -4284,14 +4298,16 @@
     const fireDown = aDown || rtDown;
     const bombDown = bDown || ltDown;
     const menuDown = selectDown || startDown;
+    const fireEdge = fireDown && !state.gamepad.prevFire;
+    updateInitialsGamepad(pad, buttons, fireDown, fireEdge);
     state.gamepad.fireHeld = fireDown;
     state.gamepad.bombHeld = bombDown;
     if (menuDown && !state.gamepad.prevMenu) toggleSettings();
-    if (fireDown && !state.gamepad.prevFire) {
+    if (!state.initialsEntryActive && !state.initialsConfirmActive && fireEdge) {
       if (state.mode === 'title') startGame();
       else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
     }
-    if (bombDown && !state.gamepad.prevBomb) {
+    if (!state.initialsEntryActive && !state.initialsConfirmActive && bombDown && !state.gamepad.prevBomb) {
       if (state.mode === 'title') startGame();
       else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
       else if (state.mode === 'playing') useBomb();
@@ -4586,6 +4602,7 @@
     clearArray(state.pickups);
     clearParticleList();
     state.boss = null;
+    state.highScoreRunStart = state.highScore;
     state.levelIndex = 0;
     state.currentTheme = THEMES[0];
     resetPlayer();
@@ -4625,6 +4642,82 @@
       state.highScore = state.score;
       saveNum('ThroriumGap_highScore', state.highScore);
     }
+  }
+
+  function startInitialsEntry(score, endMode) {
+    state.pendingHighScore = Math.max(0, score || 0);
+    state.pendingHighScoreInitials = 'AAA';
+    state.pendingHighScoreEndMode = endMode === 'victory' ? 'victory' : 'gameover';
+    state.initialsEntryBuffer = ['?', '?', '?'];
+    state.initialsEntryIndex = 0;
+    state.initialsEntryActive = true;
+    state.initialsConfirmActive = false;
+    state.initialsConfirmChoice = 0;
+    state.highScore = Math.max(state.highScore, state.pendingHighScore || 0);
+    state.highScoreInitials = '???';
+    saveNum('ThroriumGap_highScore', state.highScore);
+    saveString('ThroriumGap_highScoreInitials', state.highScoreInitials);
+    state.mode = state.pendingHighScoreEndMode;
+    state.banner = 'YOU HAVE BEATEN THE HIGHSCORE!';
+    state.bannerSub = '';
+    state.bannerTimer = 999;
+    state.endScreenReadyAt = state.animClock + 0.25;
+    state.flash = Math.max(state.flash, 0.35);
+    state.shake = Math.max(state.shake, 12);
+    syncMouseCursor();
+    applyAutoFullscreenPolicy();
+    hint('Enter your initials. A-Z, then confirm.', 4.5);
+    markHudDirty();
+  }
+
+  function finalizeInitialsEntry() {
+    if (!state.initialsEntryActive) return;
+    state.initialsEntryActive = false;
+    state.initialsConfirmActive = true;
+    state.initialsConfirmChoice = 0;
+    state.banner = 'CONFIRM INITIALS?';
+    state.bannerSub = '';
+    state.bannerTimer = 999;
+    state.endScreenReadyAt = state.animClock + 0.25;
+    state.flash = Math.max(state.flash, 0.2);
+    state.shake = Math.max(state.shake, 8);
+    hint('Confirm with YES. NO is selected by default.', 4.5);
+    markHudDirty();
+  }
+
+  function finalizeInitialsConfirm() {
+    if (!state.initialsConfirmActive) return;
+    const confirmYes = !!state.initialsConfirmChoice;
+    if (!confirmYes) {
+      state.initialsConfirmActive = false;
+      state.initialsEntryActive = true;
+      state.initialsEntryIndex = 0;
+      state.initialsConfirmChoice = 0;
+      state.highScoreInitials = '???';
+      saveString('ThroriumGap_highScoreInitials', state.highScoreInitials);
+      state.banner = 'YOU HAVE BEATEN THE HIGHSCORE!';
+      state.bannerSub = '';
+      state.bannerTimer = 999;
+      state.endScreenReadyAt = state.animClock + 0.25;
+      hint('Edit your initials, then confirm.', 4.0);
+      markHudDirty();
+      return;
+    }
+    const initials = (state.initialsEntryBuffer || ['?', '?', '?']).join('').toUpperCase().slice(0, 3).padEnd(3, '?');
+    state.highScoreInitials = initials;
+    saveString('ThroriumGap_highScoreInitials', state.highScoreInitials);
+    state.initialsConfirmActive = false;
+    state.pendingHighScore = 0;
+    state.pendingHighScoreInitials = 'AAA';
+    const endMode = state.pendingHighScoreEndMode === 'victory' ? 'victory' : 'gameover';
+    state.pendingHighScoreEndMode = 'gameover';
+    state.mode = endMode;
+    state.banner = endMode === 'victory' ? 'VICTORY' : 'GAME OVER';
+    state.bannerSub = endMode === 'victory' ? '' : (state.bannerSub || 'The void has taken the ship.');
+    state.bannerTimer = 999;
+    state.endScreenReadyAt = state.animClock + 4;
+    hint('Press fire to continue.', 6);
+    markHudDirty();
   }
 
   function startGame() {
@@ -4709,6 +4802,14 @@
 
   function endScreenContinue() {
     if (!endScreenCanContinue()) return;
+    if (state.initialsEntryActive) {
+      finalizeInitialsEntry();
+      return;
+    }
+    if (state.initialsConfirmActive) {
+      finalizeInitialsConfirm();
+      return;
+    }
     window.location.reload();
   }
 
@@ -4858,8 +4959,12 @@
     state.flash = 0.6;
     state.shake = 18;
     sfx('clear');
-    hint('Press fire to continue.', 6);
-    saveBest();
+    if (state.score > state.highScoreRunStart) {
+      startInitialsEntry(state.score, 'victory');
+    } else {
+      hint('Press fire to continue.', 6);
+      saveBest();
+    }
     markHudDirty();
   }
 
@@ -4881,8 +4986,12 @@
     state.endScreenReadyAt = state.animClock + 4;
     state.flash = 0.25;
     state.shake = 18;
-    hint('Press fire to continue.', 6);
-    saveBest();
+    if (state.score > state.highScoreRunStart) {
+      startInitialsEntry(state.score);
+    } else {
+      hint('Press fire to continue.', 6);
+      saveBest();
+    }
     markHudDirty();
   }
 
@@ -5657,7 +5766,7 @@
       state.banner = 'STAR';
       state.bannerSub = 'Invuln, full shields, full repair, cool weapon.';
     } else {
-      addScore(500);
+      addScore(2000);
       state.banner = 'GEM SCORE';
       state.bannerSub = 'Pure bonus juice.';
     }
@@ -5757,7 +5866,7 @@
       sfx('boom');
       state.shake = Math.max(state.shake, 18);
       state.flash = Math.max(state.flash, 0.42);
-      addScore(2500 + state.levelIndex * 300);
+      addScore(2500 + state.levelIndex * 500);
       state.banner = 'BOSS DOWN';
       state.bannerSub = b.name + ' has fallen.';
       state.bannerTimer = 2.2;
@@ -9377,9 +9486,29 @@
       hudCtx.fillRect(0, 0, view.w, view.h);
       drawCenterCard('PAUSED', 'Press P to resume.', ['The battle is frozen in place.'], theme.accent2, 'Hold FIRE when you are ready.');
     } else if (state.mode === 'gameover') {
-      drawCenterCard('GAME OVER', state.bannerSub, ['Score: ' + format(state.score), 'Best: ' + format(state.highScore)], '#ff8b79', 'Press fire to continue.');
+      if (state.initialsEntryActive) {
+        hudCtx.fillStyle = 'rgba(0,0,0,0.52)';
+        hudCtx.fillRect(0, 0, view.w, view.h);
+        drawInitialsEntryOverlay();
+      } else if (state.initialsConfirmActive) {
+        hudCtx.fillStyle = 'rgba(0,0,0,0.52)';
+        hudCtx.fillRect(0, 0, view.w, view.h);
+        drawInitialsConfirmOverlay();
+      } else {
+        drawCenterCard('GAME OVER', state.bannerSub, ['Score: ' + format(state.score), 'Best: ' + format(state.highScore) + '  |  ' + highScoreLabel()], '#ff8b79', 'Press fire to continue.');
+      }
     } else if (state.mode === 'victory') {
-      drawCenterCard('VICTORY', '', ['Score: ' + format(state.score), 'Best: ' + format(state.highScore)], '#ffe78a', 'Press fire to continue.');
+      if (state.initialsEntryActive) {
+        hudCtx.fillStyle = 'rgba(0,0,0,0.52)';
+        hudCtx.fillRect(0, 0, view.w, view.h);
+        drawInitialsEntryOverlay();
+      } else if (state.initialsConfirmActive) {
+        hudCtx.fillStyle = 'rgba(0,0,0,0.52)';
+        hudCtx.fillRect(0, 0, view.w, view.h);
+        drawInitialsConfirmOverlay();
+      } else {
+        drawCenterCard('VICTORY', '', ['Score: ' + format(state.score), 'Best: ' + format(state.highScore) + '  |  ' + highScoreLabel()], '#ffe78a', 'Press fire to continue.');
+      }
     }
     hudCtx.restore();
   }
@@ -9410,6 +9539,130 @@
       10,
       view.h - 10
     );
+    hudCtx.restore();
+  }
+
+  function highScoreLabel() {
+    return (state.highScoreInitials || 'AAA').toUpperCase().slice(0, 3).padEnd(3, 'A');
+  }
+
+  function initialsEntryText() {
+    const buf = state.initialsEntryBuffer || ['A', 'A', 'A'];
+    return buf.map(function (ch, i) {
+      return (i === state.initialsEntryIndex ? '[' + (ch || '_') + ']' : ' ' + (ch || '_') + ' ');
+    }).join(' ');
+  }
+
+  function drawHighScoreTitleBanner() {
+    hudCtx.save();
+    hudCtx.textAlign = 'center';
+    hudCtx.textBaseline = 'middle';
+    hudCtx.fillStyle = '#fff';
+    hudCtx.font = '900 15px "Trebuchet MS", "Segoe UI", sans-serif';
+    hudCtx.shadowColor = '#7cf7ff';
+    hudCtx.shadowBlur = 10;
+    hudCtx.fillText('BEST ' + format(state.highScore) + '  |  ' + highScoreLabel() + '  |  ' + THORIUM_GAP_REV, view.w * 0.5, view.h - view.controlsH - 18);
+    hudCtx.restore();
+  }
+
+  function drawArcadeFrame(x, y, w, h, color) {
+    hudCtx.save();
+    hudCtx.fillStyle = 'rgba(0,0,0,0.86)';
+    hudCtx.fillRect(x, y, w, h);
+    hudCtx.strokeStyle = color || '#ffcf55';
+    hudCtx.lineWidth = 3;
+    hudCtx.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
+    hudCtx.strokeStyle = 'rgba(255,255,255,0.18)';
+    hudCtx.lineWidth = 1;
+    hudCtx.strokeRect(x + 7, y + 7, w - 14, h - 14);
+    hudCtx.restore();
+  }
+
+  function drawInitialsEntryOverlay() {
+    if (!state.initialsEntryActive) return;
+    const w = Math.min(view.w * 0.82, 720);
+    const h = Math.min(view.h * 0.42, 280);
+    const x = (view.w - w) * 0.5;
+    const y = Math.max(30, view.h * 0.22);
+    drawArcadeFrame(x, y, w, h, '#ffcf55');
+    hudCtx.save();
+    hudCtx.textAlign = 'center';
+    hudCtx.textBaseline = 'middle';
+    hudCtx.fillStyle = '#ffcf55';
+    hudCtx.shadowColor = '#ff8b79';
+    hudCtx.shadowBlur = 16;
+    hudCtx.font = '900 ' + Math.max(20, Math.round(w * 0.044)) + 'px "Trebuchet MS", "Segoe UI", sans-serif';
+    hudCtx.fillText('YOU HAVE BEATEN THE HIGHSCORE!', view.w * 0.5, y + 48);
+    hudCtx.shadowBlur = 0;
+    hudCtx.fillStyle = '#f8fbff';
+    hudCtx.font = '800 ' + Math.max(16, Math.round(w * 0.032)) + 'px "Trebuchet MS", "Segoe UI", sans-serif';
+    hudCtx.fillText('ENTER YOUR INITIALS', view.w * 0.5, y + 104);
+    hudCtx.font = '900 ' + Math.max(24, Math.round(w * 0.058)) + 'px "Courier New", monospace';
+    hudCtx.fillStyle = '#7cf7ff';
+    hudCtx.shadowColor = '#7cf7ff';
+    hudCtx.shadowBlur = 8;
+    hudCtx.fillText(initialsEntryText(), view.w * 0.5, y + 160);
+    hudCtx.shadowBlur = 0;
+    hudCtx.font = '700 ' + Math.max(12, Math.round(w * 0.022)) + 'px "Trebuchet MS", "Segoe UI", sans-serif';
+    hudCtx.fillStyle = 'rgba(248,251,255,0.84)';
+    hudCtx.fillText('TYPE A-Z/0-9 or use UP/DOWN. FIRE/RIGHT advances.', view.w * 0.5, y + h - 32);
+    hudCtx.restore();
+  }
+
+  function drawInitialsConfirmOverlay() {
+    if (!state.initialsConfirmActive) return;
+    const w = Math.min(view.w * 0.76, 620);
+    const h = Math.min(view.h * 0.34, 220);
+    const x = (view.w - w) * 0.5;
+    const y = Math.max(40, view.h * 0.25);
+    drawArcadeFrame(x, y, w, h, '#ffcf55');
+    hudCtx.save();
+    hudCtx.textAlign = 'center';
+    hudCtx.textBaseline = 'middle';
+    hudCtx.fillStyle = '#ffcf55';
+    hudCtx.shadowColor = '#ff8b79';
+    hudCtx.shadowBlur = 14;
+    hudCtx.font = '900 ' + Math.max(18, Math.round(w * 0.042)) + 'px "Trebuchet MS", "Segoe UI", sans-serif';
+    hudCtx.fillText('CONFIRM INITIALS?', view.w * 0.5, y + 42);
+    hudCtx.shadowBlur = 0;
+    hudCtx.font = '900 ' + Math.max(22, Math.round(w * 0.055)) + 'px "Courier New", monospace';
+    hudCtx.fillStyle = '#7cf7ff';
+    hudCtx.fillText((state.initialsEntryBuffer || ['?', '?', '?']).join('').toUpperCase().slice(0, 3).padEnd(3, '?'), view.w * 0.5, y + 92);
+    const yesX = view.w * 0.5 - 92;
+    const noX = view.w * 0.5 + 92;
+    const selected = clamp(state.initialsConfirmChoice | 0, 0, 1);
+    const pulse = 0.5 + 0.5 * Math.sin((state.animClock || 0) * 10);
+    function drawConfirmOption(label, xPos, isSelected) {
+      hudCtx.save();
+      hudCtx.font = '900 ' + Math.max(20, Math.round(w * 0.05)) + 'px "Trebuchet MS", "Segoe UI", sans-serif';
+      hudCtx.textAlign = 'center';
+      hudCtx.textBaseline = 'middle';
+      if (isSelected) {
+        const tw = hudCtx.measureText(label).width + 34;
+        hudCtx.globalAlpha = 0.32 + pulse * 0.38;
+        hudCtx.fillStyle = 'rgba(255, 207, 85, 0.34)';
+        hudCtx.fillRect(xPos - tw * 0.5, y + 124, tw, 42);
+        hudCtx.strokeStyle = '#ffcf55';
+        hudCtx.lineWidth = 2 + pulse * 3;
+        hudCtx.strokeRect(xPos - tw * 0.5 - 4, y + 120, tw + 8, 50);
+        hudCtx.globalAlpha = 1;
+        hudCtx.shadowColor = '#ffcf55';
+        hudCtx.shadowBlur = 12 + pulse * 28;
+        hudCtx.fillStyle = '#ffcf55';
+        hudCtx.fillText('>', xPos - tw * 0.5 - 20, y + 145);
+        hudCtx.fillText('<', xPos + tw * 0.5 + 20, y + 145);
+      } else {
+        hudCtx.fillStyle = '#f8fbff';
+      }
+      hudCtx.fillText(label, xPos, y + 145);
+      hudCtx.restore();
+    }
+    hudCtx.font = '900 ' + Math.max(20, Math.round(w * 0.05)) + 'px "Trebuchet MS", "Segoe UI", sans-serif';
+    drawConfirmOption('YES', yesX, selected === 1);
+    drawConfirmOption('NO', noX, selected === 0);
+    hudCtx.font = '700 ' + Math.max(12, Math.round(w * 0.022)) + 'px "Trebuchet MS", "Segoe UI", sans-serif';
+    hudCtx.fillStyle = 'rgba(248,251,255,0.84)';
+    hudCtx.fillText('LEFT/RIGHT or D-PAD to choose. FIRE to confirm.', view.w * 0.5, y + h - 28);
     hudCtx.restore();
   }
 
@@ -9467,7 +9720,7 @@
     hudCtx.font = '800 15px "Trebuchet MS", "Segoe UI", sans-serif';
     hudCtx.shadowColor = theme.accent2;
     hudCtx.shadowBlur = 10;
-    hudCtx.fillText('BEST ' + format(state.highScore) + '  |  ' + THORIUM_GAP_REV, view.w * 0.5, view.h - view.controlsH - 18);
+    drawHighScoreTitleBanner();
     hudCtx.restore();
   }
 
@@ -9657,12 +9910,175 @@
     if (ev.button != null && ev.button !== 0) return;
     ev.preventDefault();
     resumeAudio();
+    if (state.initialsEntryActive) return;
+    if (state.initialsConfirmActive) {
+      const pt = canvasPoint(ev);
+      state.initialsConfirmChoice = pt.x < view.w * 0.5 ? 1 : 0;
+      finalizeInitialsConfirm();
+      return;
+    }
     if (ev.detail === 2) {
       if (state.mode === 'playing' && !state.paused) useBomb();
       return;
     }
     if (state.mode === 'title') startGame();
     else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
+  }
+
+  function handleInitialsKey(ev) {
+    if (!state.initialsEntryActive) return false;
+    const code = ev.code || '';
+    if (code === 'Enter' || code === 'Space' || code === 'ControlLeft' || code === 'ControlRight' || code === 'KeyX' || code === 'KeyZ') {
+      ev.preventDefault();
+      if (ev.repeat) return true;
+      moveInitialsCursor(1);
+      return true;
+    }
+    if (code === 'Backspace') {
+      ev.preventDefault();
+      const idx = clamp(state.initialsEntryIndex | 0, 0, 2);
+      if (state.initialsEntryBuffer && state.initialsEntryBuffer[idx]) {
+        state.initialsEntryBuffer[idx] = '?';
+      }
+      if (idx > 0 && state.initialsEntryBuffer && state.initialsEntryBuffer[idx] === '?') {
+        state.initialsEntryIndex = idx - 1;
+      }
+      markHudDirty();
+      return true;
+    }
+    if (code === 'ArrowLeft' || code === 'GamepadDPadLeft' || code === 'Numpad4') {
+      ev.preventDefault();
+      moveInitialsCursor(-1);
+      return true;
+    }
+    if (code === 'ArrowRight' || code === 'GamepadDPadRight' || code === 'Numpad6') {
+      ev.preventDefault();
+      moveInitialsCursor(1);
+      return true;
+    }
+    if (code === 'ArrowUp' || code === 'GamepadDPadUp' || code === 'Numpad8') {
+      ev.preventDefault();
+      adjustInitialChar(-1);
+      return true;
+    }
+    if (code === 'ArrowDown' || code === 'GamepadDPadDown' || code === 'Numpad2') {
+      ev.preventDefault();
+      adjustInitialChar(1);
+      return true;
+    }
+    const key = (ev.key || '').toUpperCase();
+    if (/^[A-Z0-9]$/.test(key)) {
+      ev.preventDefault();
+      const idx = clamp(state.initialsEntryIndex | 0, 0, 2);
+      state.initialsEntryBuffer[idx] = key;
+      if (idx < 2) state.initialsEntryIndex = idx + 1;
+      markHudDirty();
+      return true;
+    }
+    return false;
+  }
+
+  function cycleInitialChar(ch, delta) {
+    const chars = '?ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const current = chars.indexOf((ch || '?').toUpperCase());
+    const safeCurrent = current >= 0 ? current : 0;
+    const next = (safeCurrent + delta + chars.length) % chars.length;
+    return chars[next];
+  }
+
+  function moveInitialsCursor(delta) {
+    const next = (state.initialsEntryIndex | 0) + delta;
+    if (next > 2) {
+      state.initialsEntryActive = false;
+      state.initialsConfirmActive = true;
+      state.initialsConfirmChoice = 0;
+      state.banner = 'CONFIRM INITIALS?';
+      state.bannerSub = '';
+      state.bannerTimer = 999;
+      state.endScreenReadyAt = state.animClock + 0.25;
+      hint('Move left to YES, then press fire.', 4.5);
+      markHudDirty();
+      return;
+    }
+    state.initialsEntryIndex = clamp(next, 0, 2);
+    markHudDirty();
+  }
+
+  function adjustInitialChar(delta) {
+    const idx = clamp(state.initialsEntryIndex | 0, 0, 2);
+    if (!state.initialsEntryBuffer) state.initialsEntryBuffer = ['?', '?', '?'];
+    const current = state.initialsEntryBuffer[idx] || '?';
+    state.initialsEntryBuffer[idx] = cycleInitialChar(current, delta);
+    markHudDirty();
+  }
+
+  function chooseConfirm(delta) {
+    state.initialsConfirmChoice = delta > 0 ? 0 : 1;
+    markHudDirty();
+  }
+
+  function handleInitialsConfirmKey(ev) {
+    if (!state.initialsConfirmActive) return false;
+    const code = ev.code || '';
+    if (code === 'ArrowLeft' || code === 'GamepadDPadLeft' || code === 'Numpad4' || code === 'ArrowUp' || code === 'GamepadDPadUp' || code === 'Numpad8') {
+      ev.preventDefault();
+      state.initialsConfirmChoice = 1;
+      markHudDirty();
+      return true;
+    }
+    if (code === 'ArrowRight' || code === 'GamepadDPadRight' || code === 'Numpad6' || code === 'ArrowDown' || code === 'GamepadDPadDown' || code === 'Numpad2') {
+      ev.preventDefault();
+      state.initialsConfirmChoice = 0;
+      markHudDirty();
+      return true;
+    }
+    if (code === 'Enter' || code === 'Space' || code === 'ControlLeft' || code === 'ControlRight' || code === 'KeyX' || code === 'KeyB' || code === 'KeyZ') {
+      ev.preventDefault();
+      finalizeInitialsConfirm();
+      return true;
+    }
+    return false;
+  }
+
+  function updateInitialsGamepad(pad, buttons, fireDown, fireEdge) {
+    if (!state.initialsEntryActive && !state.initialsConfirmActive) {
+      state.gamepad.prevInitialNav = '';
+      return;
+    }
+    const lx = pad.axes && pad.axes.length > 0 ? pad.axes[0] : 0;
+    const ly = pad.axes && pad.axes.length > 1 ? pad.axes[1] : 0;
+    const rx = pad.axes && pad.axes.length > 2 ? pad.axes[2] : 0;
+    const ry = pad.axes && pad.axes.length > 3 ? pad.axes[3] : 0;
+    const useRightStick = (rx * rx + ry * ry) > (lx * lx + ly * ly);
+    const rawX = useRightStick ? rx : lx;
+    const rawY = useRightStick ? ry : ly;
+    const dpadLeft = !!(buttons[14] && buttons[14].pressed);
+    const dpadRight = !!(buttons[15] && buttons[15].pressed);
+    const dpadUp = !!(buttons[12] && buttons[12].pressed);
+    const dpadDown = !!(buttons[13] && buttons[13].pressed);
+    const stickLeft = rawX < -0.55;
+    const stickRight = rawX > 0.55;
+    const stickUp = rawY < -0.55;
+    const stickDown = rawY > 0.55;
+    const up = dpadUp || stickUp;
+    const down = dpadDown || stickDown;
+    const left = dpadLeft || stickLeft;
+    const right = dpadRight || stickRight;
+    const nav = up ? 'up' : down ? 'down' : left ? 'left' : right ? 'right' : '';
+    const navEdge = nav && nav !== state.gamepad.prevInitialNav;
+    if (state.initialsConfirmActive) {
+      if (navEdge && (left || up)) chooseConfirm(-1);
+      else if (navEdge && (right || down)) chooseConfirm(1);
+      if (fireEdge) finalizeInitialsConfirm();
+      state.gamepad.prevInitialNav = nav;
+      return;
+    }
+    if (!state.initialsEntryActive) return;
+    if (navEdge && up) adjustInitialChar(-1);
+    if (navEdge && down) adjustInitialChar(1);
+    if (navEdge && left) moveInitialsCursor(-1);
+    if ((navEdge && right) || fireEdge) moveInitialsCursor(1);
+    state.gamepad.prevInitialNav = nav;
   }
 
   function onKeyDown(ev) {
@@ -9673,6 +10089,18 @@
         ev.preventDefault();
         closeSettings();
       }
+      return;
+    }
+    if (handleInitialsConfirmKey(ev)) return;
+    if (handleInitialsKey(ev)) return;
+    if (state.initialsEntryActive) {
+      if (code === 'Escape' || code === 'KeyP' || code === 'KeyM' || code === 'KeyO') return;
+      ev.preventDefault();
+      return;
+    }
+    if (state.initialsConfirmActive) {
+      if (code === 'Escape' || code === 'KeyP' || code === 'KeyM' || code === 'KeyO') return;
+      ev.preventDefault();
       return;
     }
     if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'ArrowUp' || code === 'ArrowDown' || code === 'KeyA' || code === 'KeyD' || code === 'KeyW' || code === 'KeyS' || code === 'Space' || code === 'KeyZ' || code === 'ControlLeft' || code === 'ControlRight' || code === 'Enter' || code === 'KeyX' || code === 'KeyB' || code === 'KeyP' || code === 'KeyM' || code === 'KeyR' || code === 'KeyL' || code === 'KeyK' || code === 'Escape' || code === 'KeyO') {
