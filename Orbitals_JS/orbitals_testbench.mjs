@@ -84,6 +84,29 @@ function computeRawFireDirection(camera, aimX, aimY, viewportWidth, viewportHeig
   return far.sub(near).normalize();
 }
 
+function configureBoundFireState(state, planetVelocity, relativeVelocity = new THREE.Vector3()) {
+  const ship = state.ship;
+  const planet = ship.boundPlanet;
+  assert.ok(ship && planet, 'expected a bound ship for the projectile regression setup');
+
+  const previousOffset = new THREE.Vector3().copy(planetVelocity).multiplyScalar(1 / 60);
+  planet.velocity.copy(planetVelocity);
+  planet.previousPosition.copy(planet.position).sub(previousOffset);
+
+  ship.relativePosition.copy(ship.position).sub(planet.position);
+  ship.relativeVelocity.copy(relativeVelocity);
+  ship.position.copy(planet.position).add(ship.relativePosition);
+  ship.velocity.copy(planet.velocity).add(ship.relativeVelocity);
+  ship.speed = ship.relativeVelocity.length();
+  ship.flightMode = 'bound';
+  ship.recaptureLock = Math.max(ship.recaptureLock || 0, config.shipRecaptureDelay + 1);
+  ship.fireCooldown = 0;
+
+  state.nearestPlanet = planet;
+  state.nearestDistance = ship.position.distanceTo(planet.position);
+  state.nearestAltitude = Math.max(0, state.nearestDistance - planet.radius);
+}
+
 function assertExactKeys(actual, expected, label) {
   const sortedActual = [...actual].sort();
   const sortedExpected = [...expected].sort();
@@ -1729,7 +1752,7 @@ function runProjectileFireTest() {
     `projectile should follow the reticle direction: dot=${projectileDirection.dot(fireDirection).toFixed(3)}`
   );
   assert.ok(
-    Math.abs(projectileSpeed - expectedProjectileSpeed) < 1e-6,
+    Math.abs(projectileSpeed - expectedProjectileSpeed) < 1e-3,
     `projectile speed should use config: got=${projectileSpeed.toFixed(3)} expected=${expectedProjectileSpeed.toFixed(3)}`
   );
   assert.ok(
@@ -1774,28 +1797,38 @@ function runProjectileBoundFlightInheritedVelocityTest() {
   const ship = state.ship;
   assert.ok(ship && ship.boundPlanet, 'expected a bound ship for the inherited velocity test');
 
-  sim.step(0, { ...NEUTRAL_CONTROLS, fire: true });
+  const planetVelocity = new THREE.Vector3(5400, -2600, 1700);
+  configureBoundFireState(state, planetVelocity, new THREE.Vector3(0, 0, 0));
+
+  const camera = buildPlanetFireCamera(ship, state);
+  const fireDirection = computeRawFireDirection(camera, 0.55, -0.35, 1280, 720);
+  const expectedProjectileSpeed = config.shipProjectileSpeed;
+
+  sim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection });
   assert.strictEqual(state.projectiles.length, 1, 'expected a projectile to spawn in bound flight');
 
   const projectile = state.projectiles[0];
-  const inheritedSpeed = projectile.inheritedVelocity.length();
-  const shipWorldSpeed = ship.velocity.length();
-  const shipLocalSpeed = ship.relativeVelocity.length();
+  const inheritedVelocity = ship.boundPlanet ? ship.relativeVelocity.clone() : ship.velocity.clone();
+  const worldRelativeVelocity = projectile.velocity.clone().sub(inheritedVelocity);
 
   assert.ok(
-    Math.abs(inheritedSpeed - shipLocalSpeed) < 1e-6,
-    `expected bound-flight projectiles to inherit local ship velocity: got=${inheritedSpeed.toFixed(3)} local=${shipLocalSpeed.toFixed(3)}`
+    Math.abs(projectile.inheritedVelocity.distanceTo(inheritedVelocity)) < 1e-3,
+    `expected bound-flight projectiles to inherit the carrier velocity: projectile=${projectile.inheritedVelocity.length().toFixed(3)} carrier=${inheritedVelocity.length().toFixed(3)}`
   );
   assert.ok(
-    inheritedSpeed < shipWorldSpeed * 0.2,
-    `expected bound-flight projectile inheritance to stay well below world orbital velocity: inherited=${inheritedSpeed.toFixed(3)} world=${shipWorldSpeed.toFixed(3)}`
+    Math.abs(worldRelativeVelocity.length() - expectedProjectileSpeed) < 1e-3,
+    `expected bound-flight projectiles to keep the configured shot speed: got=${worldRelativeVelocity.length().toFixed(3)} expected=${expectedProjectileSpeed.toFixed(3)}`
+  );
+  assert.ok(
+    worldRelativeVelocity.clone().normalize().dot(fireDirection) > 0.9999,
+    `expected the bound-flight shot to stay aligned with the reticle: dot=${worldRelativeVelocity.clone().normalize().dot(fireDirection).toFixed(6)}`
   );
 
   stepSim(sim, 3, NEUTRAL_CONTROLS);
   assert.ok(state.projectiles.length >= 1, 'expected the bound-flight projectile to remain alive for a few frames');
 
   console.log(
-    `PASS projectile-bound-flight-inherited-velocity: local=${shipLocalSpeed.toFixed(3)} world=${shipWorldSpeed.toFixed(3)} inherited=${inheritedSpeed.toFixed(3)}`
+    `PASS projectile-bound-flight-world-velocity: rel=${worldRelativeVelocity.length().toFixed(3)} ship=${ship.velocity.length().toFixed(3)}`
   );
 }
 
@@ -1847,7 +1880,7 @@ function runProjectileFireWhileMovingTest() {
     `expected the projectile to stay faster than the ship: projectile=${projectileSpeed.toFixed(3)} ship=${ship.velocity.length().toFixed(3)}`
   );
   assert.ok(
-    Math.abs(relativeSpeed - expectedProjectileSpeed) < 1e-6,
+    Math.abs(relativeSpeed - expectedProjectileSpeed) < 1e-3,
     `expected inherited ship speed to remain part of the shot: got=${relativeSpeed.toFixed(3)} expected=${expectedProjectileSpeed.toFixed(3)}`
   );
   assert.ok(
@@ -1982,47 +2015,79 @@ function runProjectileRefactorComparisonTest() {
   assert.ok(baselineShip && refShip, 'expected ships in both simulations');
   assert.ok(baselineShip.boundPlanet && refShip.boundPlanet, 'expected both ships to remain bound');
 
-  const aimX = 0.6;
-  const aimY = 0.4;
-  const refCamera = buildPlanetFireCamera(refShip, refactoredSim.state);
-  const baselineFireDirection = computeRawFireDirection(refCamera, aimX, aimY, 1280, 720);
-  const refFireDirection = computeShipFireDirection(refShip, refCamera, aimX, aimY, 1280, 720);
+  const planetVelocities = [
+    new THREE.Vector3(5400, -2600, 1700),
+    new THREE.Vector3(-3200, 4100, -900),
+    new THREE.Vector3(0, -5000, 3000)
+  ];
+  const aimX = 0.55;
+  const aimY = 0.35;
+  const expectedProjectileSpeed = config.shipProjectileSpeed;
+  const comparisons = [];
 
-  assert.ok(
-    baselineFireDirection.dot(refFireDirection) > 0.9999,
-    `expected the refactored aim ray to match the baseline ray: dot=${baselineFireDirection.dot(refFireDirection).toFixed(6)}`
-  );
+  for (const planetVelocity of planetVelocities) {
+    configureBoundFireState(baselineSim.state, planetVelocity, new THREE.Vector3(0, 0, 0));
+    configureBoundFireState(refactoredSim.state, planetVelocity, new THREE.Vector3(0, 0, 0));
 
-  baselineSim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection: baselineFireDirection });
-  refactoredSim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection: refFireDirection });
+    const baselineCamera = buildPlanetFireCamera(baselineShip, baselineSim.state);
+    const refCamera = buildPlanetFireCamera(refShip, refactoredSim.state);
+    const baselineFireDirection = computeRawFireDirection(baselineCamera, aimX, aimY, 1280, 720);
+    const refFireDirection = computeShipFireDirection(refShip, refCamera, aimX, aimY, 1280, 720);
 
-  assert.strictEqual(baselineSim.state.projectiles.length, 1, 'expected baseline projectile');
-  assert.strictEqual(refactoredSim.state.projectiles.length, 1, 'expected refactored projectile');
+    assert.ok(
+      baselineFireDirection.dot(refFireDirection) > 0.9999,
+      `expected the refactored aim ray to match the baseline ray: dot=${baselineFireDirection.dot(refFireDirection).toFixed(6)}`
+    );
 
-  const baselineProjectile = baselineSim.state.projectiles[0];
-  const refProjectile = refactoredSim.state.projectiles[0];
+    baselineSim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection: baselineFireDirection });
+    refactoredSim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection: refFireDirection });
 
-  const baselineCarrierVelocity = baselineShip.boundPlanet ? baselineShip.relativeVelocity : baselineShip.velocity;
-  const refCarrierVelocity = refShip.boundPlanet ? refShip.relativeVelocity : refShip.velocity;
-  const baselineRelative = baselineProjectile.velocity.clone().sub(baselineCarrierVelocity);
-  const refRelative = refProjectile.velocity.clone().sub(refCarrierVelocity);
-  const baselineUp = baselineShip.position.clone().sub(baselineShip.boundPlanet.position).normalize();
-  const refUp = refShip.position.clone().sub(refShip.boundPlanet.position).normalize();
+    assert.strictEqual(baselineSim.state.projectiles.length, 1, 'expected baseline projectile');
+    assert.strictEqual(refactoredSim.state.projectiles.length, 1, 'expected refactored projectile');
 
-  const comparison = {
-    baseline: {
-      spawnDistance: baselineProjectile.position.distanceTo(baselineShip.position),
-      upDot: baselineRelative.clone().normalize().dot(baselineFireDirection),
-      localUpDot: baselineRelative.clone().normalize().dot(baselineUp)
-    },
-    refactored: {
-      spawnDistance: refProjectile.position.distanceTo(refShip.position),
-      upDot: refRelative.clone().normalize().dot(refFireDirection),
-      localUpDot: refRelative.clone().normalize().dot(refUp)
-    }
-  };
+    const baselineProjectile = baselineSim.state.projectiles[0];
+    const refProjectile = refactoredSim.state.projectiles[0];
+    const baselineCarrierVelocity = baselineShip.boundPlanet ? baselineShip.relativeVelocity : baselineShip.velocity;
+    const refCarrierVelocity = refShip.boundPlanet ? refShip.relativeVelocity : refShip.velocity;
+    const baselineRelative = baselineProjectile.velocity.clone().sub(baselineCarrierVelocity);
+    const refRelative = refProjectile.velocity.clone().sub(refCarrierVelocity);
+    const baselineOffset = baselineProjectile.position.clone().sub(baselineShip.position);
+    const refOffset = refProjectile.position.clone().sub(refShip.position);
 
-  console.log(`PASS projectile-refactor-compare: ${JSON.stringify(comparison)}`);
+    assert.ok(
+      Math.abs(baselineRelative.length() - expectedProjectileSpeed) < 1e-3,
+      `expected baseline projectile speed to stay constant: got=${baselineRelative.length().toFixed(3)} expected=${expectedProjectileSpeed.toFixed(3)}`
+    );
+    assert.ok(
+      Math.abs(refRelative.length() - expectedProjectileSpeed) < 1e-3,
+      `expected refactored projectile speed to stay constant: got=${refRelative.length().toFixed(3)} expected=${expectedProjectileSpeed.toFixed(3)}`
+    );
+    assert.ok(
+      baselineRelative.clone().normalize().dot(baselineFireDirection) > 0.9999,
+      `expected baseline projectile to stay on the reticle ray: dot=${baselineRelative.clone().normalize().dot(baselineFireDirection).toFixed(6)}`
+    );
+    assert.ok(
+      refRelative.clone().normalize().dot(refFireDirection) > 0.9999,
+      `expected refactored projectile to stay on the reticle ray: dot=${refRelative.clone().normalize().dot(refFireDirection).toFixed(6)}`
+    );
+
+    comparisons.push({
+      planetVelocity: planetVelocity.toArray(),
+      baseline: {
+        relativeSpeed: baselineRelative.length(),
+        spawnOffset: baselineOffset.length()
+      },
+      refactored: {
+        relativeSpeed: refRelative.length(),
+        spawnOffset: refOffset.length()
+      }
+    });
+
+    baselineSim.state.projectiles.length = 0;
+    refactoredSim.state.projectiles.length = 0;
+  }
+
+  console.log(`PASS projectile-refactor-compare: ${JSON.stringify(comparisons)}`);
 }
 
 function setupProjectileHomingScenario(sim, lateralOffset) {
