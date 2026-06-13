@@ -38,7 +38,14 @@
   const titleManualButton = document.getElementById('titleManual');
   const hudHint = document.getElementById('hudHint');
   const settingsDialog = document.getElementById('settingsDialog');
+  const settingsTitle = document.getElementById('settingsTitle');
+  const settingsSubtitle = document.getElementById('settingsSubtitle');
   const settingsClose = document.getElementById('settingsClose');
+  const dialogMenuPanel = document.getElementById('dialogMenuPanel');
+  const dialogSettingsPanel = document.getElementById('dialogSettingsPanel');
+  const menuSettingsButton = document.getElementById('menuSettingsButton');
+  const menuExitTitleButton = document.getElementById('menuExitTitleButton');
+  const menuExitDesktopButton = document.getElementById('menuExitDesktopButton');
   const sfxVolumeInput = document.getElementById('sfxVolume');
   const musicVolumeInput = document.getElementById('musicVolume');
   const sfxVolumeValue = document.getElementById('sfxVolumeValue');
@@ -59,6 +66,7 @@
   const DEBUG_MODE = URL_PARAMS.get('debug') === '1';
   const DEBUG_END_BOSS = URL_PARAMS.get('debug_endboss') === '1';
   const electronWindowBridge = window.electronWindow && window.electronWindow.isAvailable ? window.electronWindow : null;
+  document.body.classList.toggle('electron', !!electronWindowBridge);
   let electronFullscreenState = null;
   let stopElectronFullscreenListener = null;
   const render = {
@@ -3663,6 +3671,7 @@
     muted: false,
     settingsOpen: false,
     settingsPausedByDialog: false,
+    settingsScreen: 'menu',
     levelIndex: 0,
     score: 0,
     highScore: loadNum('ThroriumGap_highScore', 250000),
@@ -4021,8 +4030,28 @@
       btn.setAttribute('aria-pressed', String(idx === normalizeGraphicalEffects(state.settings.graphicalEffects)));
       btn.disabled = false;
     }
+    const inSettingsScreen = state.settingsScreen === 'settings';
+    if (settingsTitle) settingsTitle.textContent = inSettingsScreen ? 'Settings' : 'Menu';
+    if (settingsSubtitle) {
+      settingsSubtitle.textContent = inSettingsScreen
+        ? 'Tune audio and combat difficulty for the breach run.'
+        : (state.mode === 'title' ? 'Choose where to go next.' : 'Pause the breach and choose an action.');
+    }
+    if (dialogMenuPanel) dialogMenuPanel.hidden = inSettingsScreen;
+    if (dialogSettingsPanel) dialogSettingsPanel.hidden = !inSettingsScreen;
+    if (settingsClose) settingsClose.textContent = 'Back';
+    if (menuSettingsButton) menuSettingsButton.hidden = inSettingsScreen;
+    if (menuExitTitleButton) menuExitTitleButton.hidden = state.mode === 'title';
+    if (menuExitDesktopButton) menuExitDesktopButton.hidden = !electronWindowBridge;
     const soundBtn = controlsEl.querySelector('[data-act="sound"]');
+    const menuBtn = controlsEl.querySelector('[data-act="menu"]');
     if (soundBtn) soundBtn.textContent = state.muted ? 'MUTED' : 'SOUND';
+    if (menuBtn) {
+      menuBtn.textContent = 'MENU';
+      menuBtn.setAttribute('aria-label', state.settingsOpen ? 'Close menu' : 'Open menu');
+      menuBtn.setAttribute('aria-pressed', state.settingsOpen ? 'true' : 'false');
+      menuBtn.hidden = false;
+    }
     applyMute();
   }
 
@@ -4182,30 +4211,60 @@
     return true;
   }
 
-  function openSettings() {
-    if (state.settingsOpen) return;
+  function openSettings(screen) {
+    const nextScreen = screen === 'settings' ? 'settings' : 'menu';
+    const wasOpen = state.settingsOpen || settingsDialog.open;
     state.settingsOpen = true;
-    state.settingsPausedByDialog = state.mode === 'playing' && !state.paused;
-    if (state.settingsPausedByDialog) togglePause(true);
-    syncSettingsUi();
-    if (settingsDialog.showModal && !settingsDialog.open) settingsDialog.showModal();
-    else settingsDialog.setAttribute('open', '');
-  }
-
-  function closeSettings() {
-    if (!state.settingsOpen && !settingsDialog.open) return;
-    state.settingsOpen = false;
-    if (settingsDialog.open) settingsDialog.close();
-    else settingsDialog.removeAttribute('open');
-    if (state.settingsPausedByDialog) {
-      state.settingsPausedByDialog = false;
-      togglePause(false);
+    state.settingsScreen = nextScreen;
+    if (!wasOpen) {
+      state.settingsPausedByDialog = state.mode === 'playing' && !state.paused;
+      if (state.settingsPausedByDialog) togglePause(true, true, true);
+      if (settingsDialog.showModal && !settingsDialog.open) settingsDialog.showModal();
+      else settingsDialog.setAttribute('open', '');
     }
     syncSettingsUi();
   }
 
+  function closeSettings(restorePause) {
+    const shouldRestorePause = restorePause !== false;
+    if (!state.settingsOpen && !settingsDialog.open) return;
+    state.settingsOpen = false;
+    state.settingsScreen = 'menu';
+    if (settingsDialog.open) settingsDialog.close();
+    else settingsDialog.removeAttribute('open');
+    if (state.settingsPausedByDialog) {
+      state.settingsPausedByDialog = false;
+      if (shouldRestorePause) togglePause(false, true, true);
+    }
+    syncSettingsUi();
+  }
+
+  function handleDialogBack() {
+    if (state.settingsOpen && state.settingsScreen === 'settings') {
+      openSettings('menu');
+      return;
+    }
+    closeSettings();
+  }
+
   function toggleSettings() {
-    if (!settingsDialog.open) openSettings();
+    if (!settingsDialog.open) openSettings('menu');
+    else if (state.settingsScreen === 'settings') openSettings('menu');
+    else closeSettings();
+  }
+
+  function exitToTitle() {
+    resumeAudio();
+    closeSettings(false);
+    resetRun();
+  }
+
+  function exitToDesktop() {
+    resumeAudio();
+    closeSettings(false);
+    if (electronWindowBridge && typeof electronWindowBridge.quit === 'function') {
+      electronWindowBridge.quit();
+    }
   }
 
   function syncTitleManualButton() {
@@ -4215,6 +4274,7 @@
   }
 
   function syncBodyModeClass() {
+    document.body.classList.toggle('electron', !!electronWindowBridge);
     document.body.classList.toggle('playing', state.mode === 'playing' && !state.settingsOpen && !settingsDialog.open);
   }
 
@@ -4753,7 +4813,9 @@
   function titleScreenText() {
     if (state.assetsReady) {
       setBanner('THORIUM GAP', 'Click or press Space to launch.', 3.5);
-      hint('Drag to fly. Hold to fire. Open SETTINGS for audio and combat settings.', 5);
+      hint(electronWindowBridge
+        ? 'Drag to fly. Hold to fire. Press Escape for audio and combat settings.'
+        : 'Drag to fly. Hold to fire. Open MENU or press Escape for audio and combat settings.', 5);
     } else {
       setBanner('THORIUM GAP', 'Preloading textures...', 3.5);
       hint('Please wait while the game warms its textures.', 5);
@@ -9497,7 +9559,8 @@
     }
 
 
-    if (state.paused) {
+    const suppressPauseOverlay = state.settingsOpen && state.settingsPausedByDialog;
+    if (state.paused && !suppressPauseOverlay) {
       hudCtx.fillStyle = 'rgba(0,0,0,0.28)';
       hudCtx.fillRect(0, 0, view.w, view.h);
       drawCenterCard('PAUSED', 'Press P to resume.', ['The battle is frozen in place.'], theme.accent2, 'Hold FIRE when you are ready.');
@@ -9725,7 +9788,13 @@
       hudCtx.fillText('Click or press Space to begin.', view.w * 0.5, y + cardH - 28);
       hudCtx.globalAlpha = 0.82;
       hudCtx.font = '700 12px "Trebuchet MS", "Segoe UI", sans-serif';
-      hudCtx.fillText('Open SETTINGS for sound, music, and combat tuning.', view.w * 0.5, y + cardH - 48);
+      hudCtx.fillText(
+        electronWindowBridge
+          ? 'Press Escape for sound, music, and combat tuning.'
+          : 'Open MENU or press Escape for sound, music, and combat tuning.',
+        view.w * 0.5,
+        y + cardH - 48
+      );
     }
     hudCtx.restore();
 
@@ -9771,15 +9840,17 @@
     drawDebugFps();
   }
 
-  function togglePause(force) {
+  function togglePause(force, silent, skipAutoFullscreen) {
     if (state.mode !== 'playing') return;
     const next = force == null ? !state.paused : !!force;
     if (next === state.paused) return;
     state.paused = next;
     syncMouseCursor();
-    applyAutoFullscreenPolicy();
-    setBanner(state.paused ? 'PAUSED' : 'RESUMED', state.paused ? 'Press P to resume.' : 'Back in the fight.', 1.0);
-    hint(state.paused ? 'Paused.' : 'Back in action.', 1.3);
+    if (!skipAutoFullscreen) applyAutoFullscreenPolicy();
+    if (!silent) {
+      setBanner(state.paused ? 'PAUSED' : 'RESUMED', state.paused ? 'Press P to resume.' : 'Back in the fight.', 1.0);
+      hint(state.paused ? 'Paused.' : 'Back in action.', 1.3);
+    }
   }
 
   function toggleMute(force) {
@@ -9794,7 +9865,7 @@
       state.input[act] = down;
       return;
     }
-    if (act === 'settings' && down) {
+    if ((act === 'settings' || act === 'menu') && down) {
       toggleSettings();
       return;
     }
@@ -10102,10 +10173,6 @@
     const code = ev.code;
     feedPlayer3DCheat(ev);
     if (state.settingsOpen || settingsDialog.open) {
-      if (code === 'Escape' || code === 'KeyO') {
-        ev.preventDefault();
-        closeSettings();
-      }
       return;
     }
     if (handleInitialsConfirmKey(ev)) return;
@@ -10120,10 +10187,17 @@
       ev.preventDefault();
       return;
     }
-    if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'ArrowUp' || code === 'ArrowDown' || code === 'KeyA' || code === 'KeyD' || code === 'KeyW' || code === 'KeyS' || code === 'Space' || code === 'KeyZ' || code === 'ControlLeft' || code === 'ControlRight' || code === 'Enter' || code === 'KeyX' || code === 'KeyB' || code === 'KeyP' || code === 'KeyM' || code === 'KeyR' || code === 'KeyL' || code === 'KeyK' || code === 'Escape' || code === 'KeyO') {
-        ev.preventDefault();
-        resumeAudio();
-      }
+    if (!electronWindowBridge && code === 'Escape' && isFullscreenActive()) return;
+    if (code === 'Escape' || code === 'KeyO') {
+      ev.preventDefault();
+      resumeAudio();
+      if (!ev.repeat) toggleSettings();
+      return;
+    }
+    if (code === 'ArrowLeft' || code === 'ArrowRight' || code === 'ArrowUp' || code === 'ArrowDown' || code === 'KeyA' || code === 'KeyD' || code === 'KeyW' || code === 'KeyS' || code === 'Space' || code === 'KeyZ' || code === 'ControlLeft' || code === 'ControlRight' || code === 'Enter' || code === 'KeyX' || code === 'KeyB' || code === 'KeyP' || code === 'KeyM' || code === 'KeyR' || code === 'KeyL' || code === 'KeyK') {
+      ev.preventDefault();
+      resumeAudio();
+    }
     if (state.debugMode && code === 'KeyL') {
       ev.preventDefault();
       if (!ev.repeat) debugJumpToFinalBoss();
@@ -10161,7 +10235,7 @@
           if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
           else useBomb();
         }
-      } else if (code === 'KeyP' || code === 'Escape') {
+      } else if (code === 'KeyP') {
       if (!ev.repeat) togglePause();
     } else if (code === 'KeyM') {
       if (!ev.repeat) toggleMute();
@@ -10170,8 +10244,6 @@
         if (state.mode === 'title') startGame();
         else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
       }
-    } else if (code === 'KeyO') {
-      if (!ev.repeat) toggleSettings();
     }
   }
 
@@ -10228,12 +10300,27 @@
     bindButton(button, button.getAttribute('data-act'));
   });
   syncFullscreenButton();
+  if (menuSettingsButton) {
+    menuSettingsButton.addEventListener('click', function () {
+      openSettings('settings');
+    });
+  }
+  if (menuExitTitleButton) {
+    menuExitTitleButton.addEventListener('click', function () {
+      exitToTitle();
+    });
+  }
+  if (menuExitDesktopButton) {
+    menuExitDesktopButton.addEventListener('click', function () {
+      exitToDesktop();
+    });
+  }
   settingsClose.addEventListener('click', function () {
-    closeSettings();
+    handleDialogBack();
   });
   settingsDialog.addEventListener('cancel', function (ev) {
     ev.preventDefault();
-    return false;
+    handleDialogBack();
   });
   settingsDialog.addEventListener('click', function (ev) {
     if (ev.target === settingsDialog) {
