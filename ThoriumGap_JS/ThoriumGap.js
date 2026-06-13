@@ -5157,7 +5157,7 @@
     const list = [
       { type: 'weapon', w: weaponWeight },
       { type: 'rapid', w: state.player.rapidTimer > 4 ? 1 : 4 },
-      { type: 'shield', w: state.player.shield < 2 ? 4 : 2 },
+      { type: 'shield', w: state.player.shield < 1 ? 3 : 1 },
       { type: 'bomb', w: state.player.bombs < 2 ? 2 : 1 },
       { type: 'magnet', w: state.player.magnetTimer < 4 ? 3 : 1 },
       { type: 'invuln', w: 0.5 },
