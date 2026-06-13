@@ -152,7 +152,7 @@
   const PLAYER_3D_FLAME_LENGTH_SCALE = 1.5;
   const PLAYER_3D_FLAME_WIDTH_SCALE = 1.5;
   const PLAYER_3D_FLAME_Y_OFFSET = -0.015;
-  const PLAYER_3D_FLAME_OPACITY_SCALE = 0.82;
+  const PLAYER_3D_FLAME_OPACITY_SCALE = 1.0;
   const MAX_3D_BANK_DEG = 75;
   const PLAYER_3D_FLAME_CANVAS_W = 160;
   const PLAYER_3D_FLAME_CANVAS_H = 280;
@@ -2378,7 +2378,7 @@
     grad.addColorStop(0, 'rgba(255,255,255,0.98)');
     grad.addColorStop(0.18, 'rgba(200,248,255,0.92)');
     grad.addColorStop(0.42, 'rgba(84,208,255,0.84)');
-    grad.addColorStop(0.72, 'rgba(30,118,255,0.48)');
+    grad.addColorStop(0.72, 'rgba(30,118,255,0.72)');
     grad.addColorStop(1, 'rgba(10,42,120,0)');
     g.fillStyle = grad;
     g.beginPath();
@@ -2394,7 +2394,7 @@
     grad.addColorStop(0, 'rgba(255,255,255,0.98)');
     grad.addColorStop(0.24, 'rgba(242,253,255,0.95)');
     grad.addColorStop(0.52, 'rgba(132,236,255,0.72)');
-    grad.addColorStop(0.78, 'rgba(52,144,255,0.32)');
+    grad.addColorStop(0.78, 'rgba(52,144,255,0.58)');
     grad.addColorStop(1, 'rgba(12,40,116,0)');
     g.fillStyle = grad;
     g.beginPath();
@@ -2420,7 +2420,17 @@
       g.stroke();
     }
 
-    g.fillStyle = 'rgba(255,255,255,0.9)';
+    grad = g.createLinearGradient(0, h * 0.16, 0, h * 0.92);
+    grad.addColorStop(0, 'rgba(220,252,255,0.78)');
+    grad.addColorStop(0.34, 'rgba(104,224,255,0.86)');
+    grad.addColorStop(0.7, 'rgba(36,144,255,0.68)');
+    grad.addColorStop(1, 'rgba(20,70,180,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.ellipse(w * 0.5, h * 0.55, w * 0.105 * flare, h * 0.37, 0, 0, TAU);
+    g.fill();
+
+    g.fillStyle = 'rgba(210,250,255,0.72)';
     g.beginPath();
     g.arc(w * 0.5, h * 0.14, 8 * flare, 0, TAU);
     g.fill();
@@ -2553,7 +2563,6 @@
     if (!instance) return;
     const p = state.player;
     const sockets = instance.engineSockets || player3DEngineSockets();
-    const frame = Math.floor(state.musicStep * 6 + p.x * 0.02) & 3;
     const flameLenPulse = 1 + Math.sin(state.animClock * TAU * 10) * 0.1;
     const flameWPulse = 1 + Math.sin(state.animClock * TAU * 6) * 0.1;
     const verticalStretch = clamp(p.vy / 460, -1, 1) * 0.2;
@@ -2564,13 +2573,14 @@
       const fx = instance.flameFx[i];
       if (!fx || !fx.mesh) continue;
       const a = sockets[i] || sockets[sockets.length - 1] || player3DEngineSockets()[1];
-      const flameLenRoll = 0.7 + ((Math.sin(state.animClock * TAU * (8.0 + i) + i * 1.7) + 1) * 0.3);
+      const frame = (Math.floor(state.musicStep * (6 + i) + p.x * 0.02 + i * 1.37) & 3);
+      const flameLenRoll = 0.7 + ((Math.sin(state.animClock * TAU * (8.0 + i * 1.35) + i * 1.7) + 1) * 0.3);
       const flameH = flameLen * flameLenRoll * (a.s || 1);
       const w = Math.max(0.001, (flameW * (a.s || 1)) / safeScale);
       const h = Math.max(0.001, flameH / safeScale);
       const flameYOffset = PLAYER_3D_FLAME_Y_OFFSET * instance.maxXYDiameter;
       drawPlayer3DFlameTexture(fx, frame);
-      fx.material.opacity = clamp(PLAYER_3D_FLAME_OPACITY_SCALE * pose.flashAlpha * (i === 1 ? 1 : 0.78), 0, 1);
+      fx.material.opacity = clamp(PLAYER_3D_FLAME_OPACITY_SCALE * pose.flashAlpha, 0, 1);
       fx.mesh.scale.set(w, h, 1);
       fx.mesh.position.set((a.x || 0) * instance.maxXYDiameter, -(a.y || 0) * instance.maxXYDiameter - h * 0.5 - flameYOffset, 0);
       fx.mesh.visible = !pose.respawning || pose.flashAlpha > 0.18;
