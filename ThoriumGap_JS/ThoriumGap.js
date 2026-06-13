@@ -4049,8 +4049,15 @@
   }
 
   function toggleFullscreen() {
-    if (electronWindowBridge && typeof electronWindowBridge.quit === 'function') {
-      electronWindowBridge.quit();
+    if (electronWindowBridge) {
+      if (state.mode === 'playing') {
+        closeSettings();
+        resetRun();
+        return;
+      }
+      if (typeof electronWindowBridge.quit === 'function') {
+        electronWindowBridge.quit();
+      }
       return;
     }
     setFullscreenActive(!isFullscreenActive());
