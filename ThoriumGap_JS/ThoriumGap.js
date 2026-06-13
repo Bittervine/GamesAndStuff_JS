@@ -6,7 +6,7 @@
   const CLOUD_LAYER_FACTOR = 16;
   const PLANET_3D_COMPOSITE_LAYER = -10;
   const GLOW_3D_BOOST = 1.0;
-  const THORIUM_GAP_VERSION = window.THORIUM_GAP_VERSION || 'thoriumgap-v68';
+  const THORIUM_GAP_VERSION = window.THORIUM_GAP_VERSION || 'thoriumgap-v90';
   const THORIUM_GAP_REV = 'Rev ' + (((/v(\d+)/i.exec(THORIUM_GAP_VERSION) || [null, '??'])[1]) || '??');
   const canvas = document.getElementById('game');
   const hudCanvas = document.getElementById('hud');
@@ -141,20 +141,27 @@
   const PLAYER_3D_MODEL_ROLL_OFFSET_RAD = 0;
   const PLAYER_3D_SCALE_MULTIPLIER = 1.15;
   const PLAYER_3D_Z = 30;
-  const PLAYER_3D_ROLL_SMOOTH_RATE = 8.0;
-  const PLAYER_3D_MAX_ROLL_DEG = 60.75;
-  const PLAYER_3D_ROLL_SPEED_REF = 540;
-  const PLAYER_3D_PITCH_SMOOTH_RATE = 8.0;
-  const PLAYER_3D_MAX_PITCH_DEG = 10.4;
+  const PLAYER_3D_YAW_SMOOTH_RATE = 16.0;
+  const PLAYER_3D_MAX_YAW_DEG = 24.0;
+  const PLAYER_3D_BANK_SMOOTH_RATE = 8.0;
+  const PLAYER_3D_MAX_BANK_DEG = 75.0;
+  const PLAYER_3D_BANK_SPEED_REF = 540;
+  const PLAYER_3D_PITCH_SMOOTH_RATE = 6.5;
+  const PLAYER_3D_MAX_PITCH_DEG = 5.5;
   const PLAYER_3D_PITCH_SPEED_REF = 540;
-  const MAX_3D_BANK_DEG = 75;
-  const PLAYER_3D_FLAME_LENGTH_SCALE = 1.4;
-  const PLAYER_3D_FLAME_WIDTH_SCALE = 2.0;
+  const PLAYER_3D_FLAME_LENGTH_SCALE = 0.2;
+  const PLAYER_3D_FLAME_WIDTH_SCALE = 0.94;
   const PLAYER_3D_FLAME_Y_OFFSET = 0.01;
-  const PLAYER_3D_FLAME_OPACITY_SCALE = 1.18;
+  const PLAYER_3D_FLAME_OPACITY_SCALE = 0.96;
+  const MAX_3D_BANK_DEG = 75;
   const PLAYER_3D_FLAME_CANVAS_W = 96;
   const PLAYER_3D_FLAME_CANVAS_H = 192;
   const PLAYER_3D_SCREEN_FX_CANVAS_SIZE = 512;
+  const PLAYER_3D_ENGINE_SOCKETS = Object.freeze([
+    { x: -0.052, y: 0.552, s: 0.94 },
+    { x: 0, y: 0.566, s: 1.08 },
+    { x: 0.052, y: 0.552, s: 0.94 }
+  ]);
   let playerShipTextureLoading = false;
   let playerAuraTextureLoading = false;
   let playerShipSourceImage = null;
@@ -1851,30 +1858,8 @@
     return shouldUse3DRenderer() && !!state.player && !!player3DEnabled;
   }
 
-  function player3DEngineAnchorFallback() {
-    return [
-      { x: -0.064, y: 0.533, s: 1.08 },
-      { x: 0, y: 0.522, s: 1.22 },
-      { x: 0.064, y: 0.533, s: 1.08 }
-    ];
-  }
-
-  function extractPlayer3DEngineAnchors(scene, maxXYDiameter) {
-    const THREE = enemy3DState.THREE;
-    const denom = Math.max(0.001, maxXYDiameter || 1);
-    const anchors = [];
-    if (!THREE || !scene) return player3DEngineAnchorFallback();
-    scene.updateMatrixWorld(true);
-    scene.traverse(function (obj) {
-      const name = (obj && obj.name ? obj.name : '').toLowerCase();
-      if (!obj || !obj.isMesh || name.indexOf('enginenozzle') !== 0) return;
-      const box = new THREE.Box3().setFromObject(obj);
-      const center = box.getCenter(new THREE.Vector3());
-      const size = box.getSize(new THREE.Vector3());
-      if (!(size.x > 0 || size.y > 0 || size.z > 0)) return;
-      anchors.push({ x: center.x / denom, y: -box.min.y / denom, s: name.indexOf('center') >= 0 ? 1.22 : 1.08 });
-    });
-    return anchors.length ? anchors : player3DEngineAnchorFallback();
+  function player3DEngineSockets() {
+    return PLAYER_3D_ENGINE_SOCKETS;
   }
 
   function normalizeAngleDeg(value) {
@@ -2326,7 +2311,7 @@
         const bounds = new THREE.Box3().setFromObject(scene);
         const size = bounds.getSize(new THREE.Vector3());
         const maxXYDiameter = Math.max(0.001, size.x, size.y);
-        const entry = { scene: scene, maxXYDiameter: maxXYDiameter, engineAnchors: extractPlayer3DEngineAnchors(scene, maxXYDiameter) };
+        const entry = { scene: scene, maxXYDiameter: maxXYDiameter, engineSockets: player3DEngineSockets() };
         enemy3DState.playerModelEntry = entry;
         return entry;
       } catch (err) {
@@ -2533,17 +2518,17 @@
     const p = state.player;
     const invulnActive = p.invuln > 0;
     const damage = clamp(1 - (p.health / Math.max(1, p.maxHealth)), 0, 1);
-    const anchors = instance.engineAnchors || player3DEngineAnchorFallback();
+    const sockets = instance.engineSockets || player3DEngineSockets();
     const frame = Math.floor(state.musicStep * 6 + p.x * 0.02) & 3;
     const flameLenPulse = 1 + Math.sin(state.animClock * TAU * 10) * 0.1;
     const flameWPulse = 1 + Math.sin(state.animClock * TAU * 6) * 0.1;
     const verticalStretch = clamp(p.vy / 460, -1, 1) * 0.2;
-    const flameLen = pose.shipSize * 0.2885625 * PLAYER_3D_FLAME_LENGTH_SCALE * flameLenPulse * (1 - verticalStretch);
-    const flameW = pose.shipSize * 0.285 * PLAYER_3D_FLAME_WIDTH_SCALE * flameWPulse;
+    const flameLen = pose.shipSize * PLAYER_3D_FLAME_LENGTH_SCALE * flameLenPulse * (1 - verticalStretch);
+    const flameW = pose.shipSize * PLAYER_3D_FLAME_WIDTH_SCALE * flameWPulse;
     const safeScale = Math.max(0.001, rootScale || 1);
     for (let i = 0; i < (instance.flameFx || []).length; i++) {
       const fx = instance.flameFx[i];
-      const a = anchors[i] || anchors[anchors.length - 1] || player3DEngineAnchorFallback()[1];
+      const a = sockets[i] || sockets[sockets.length - 1] || player3DEngineSockets()[1];
       const flameLenRoll = 0.86 + Math.sin(state.animClock * TAU * (7.0 + i) + i * 1.7) * 0.18;
       const flameH = flameLen * flameLenRoll * (a.s || 1);
       const w = Math.max(1, (flameW * (a.s || 1)) / safeScale);
@@ -2573,7 +2558,8 @@
     if (!shouldUsePlayer3DMode() || !enemy3DState.ready || !enemy3DState.root) return null;
     if (!modelEntry || !modelEntry.scene || !(modelEntry.maxXYDiameter > 0)) return null;
     const root = new enemy3DState.THREE.Group();
-    const rollRoot = new enemy3DState.THREE.Group();
+    const yawRoot = new enemy3DState.THREE.Group();
+    const bankRoot = new enemy3DState.THREE.Group();
     const pitchRoot = new enemy3DState.THREE.Group();
     const screenRoot = new enemy3DState.THREE.Group();
     const modelScene = modelEntry.scene.clone(true);
@@ -2590,12 +2576,13 @@
         obj.material.depthWrite = false;
       }
     });
-    root.add(rollRoot);
-    rollRoot.add(pitchRoot);
+    root.add(yawRoot);
+    yawRoot.add(bankRoot);
+    bankRoot.add(pitchRoot);
     pitchRoot.add(modelScene);
-    const engineAnchors = modelEntry.engineAnchors || player3DEngineAnchorFallback();
+    const engineSockets = modelEntry.engineSockets || player3DEngineSockets();
     const flameFx = [];
-    for (let i = 0; i < Math.max(3, engineAnchors.length); i++) {
+    for (let i = 0; i < Math.max(3, engineSockets.length); i++) {
       const fx = createPlayer3DEffectPlane(PLAYER_3D_FLAME_CANVAS_W, PLAYER_3D_FLAME_CANVAS_H, true);
       fx.mesh.renderOrder = 34;
       flameFx.push(fx);
@@ -2609,7 +2596,7 @@
     screenRoot.add(damageFx.mesh);
     enemy3DState.root.add(root);
     enemy3DState.root.add(screenRoot);
-    enemy3DState.playerInstance = { root, rollRoot, pitchRoot, screenRoot, modelPath: PLAYER_3D_MODEL_PATH, maxXYDiameter: modelEntry.maxXYDiameter, engineAnchors, flameFx, shieldFx, damageFx, rollDeg: 0, pitchDeg: 0, valid: true };
+    enemy3DState.playerInstance = { root, yawRoot, bankRoot, pitchRoot, screenRoot, modelPath: PLAYER_3D_MODEL_PATH, maxXYDiameter: modelEntry.maxXYDiameter, engineSockets, flameFx, shieldFx, damageFx, yawDeg: 0, bankDeg: 0, pitchDeg: 0, valid: true };
     return enemy3DState.playerInstance;
   }
 
@@ -2636,13 +2623,18 @@
     instance.root.scale.set(scale, scale, scale);
     const smoothDt = Math.max(0, dt || 0);
     const vx = Number.isFinite(state.player && state.player.vx) ? state.player.vx : 0;
-    const vxNorm = clamp(vx / Math.max(1, PLAYER_3D_ROLL_SPEED_REF), -1, 1);
-    const targetRollDeg = pose.respawning ? 0 : clamp(-vxNorm * PLAYER_3D_MAX_ROLL_DEG, -MAX_3D_BANK_DEG, MAX_3D_BANK_DEG);
-    const targetPitchDeg = pose.respawning ? 0 : clamp(Math.abs(vxNorm) * PLAYER_3D_MAX_PITCH_DEG, 0, PLAYER_3D_MAX_PITCH_DEG);
-    instance.rollDeg = clamp(smooth(instance.rollDeg || 0, targetRollDeg, PLAYER_3D_ROLL_SMOOTH_RATE, smoothDt), -MAX_3D_BANK_DEG, MAX_3D_BANK_DEG);
+    const vy = Number.isFinite(state.player && state.player.vy) ? state.player.vy : 0;
+    const vxNorm = clamp(vx / Math.max(1, PLAYER_3D_BANK_SPEED_REF), -1, 1);
+    const vyNorm = clamp(vy / Math.max(1, PLAYER_3D_PITCH_SPEED_REF), -1, 1);
+    const targetYawDeg = pose.respawning ? 0 : clamp(-(pose.rot || 0) * 180 / Math.PI, -PLAYER_3D_MAX_YAW_DEG, PLAYER_3D_MAX_YAW_DEG);
+    const targetBankDeg = pose.respawning ? 0 : clamp((pose.rot || 0) * PLAYER_3D_MAX_BANK_DEG + vxNorm * 6.0, -PLAYER_3D_MAX_BANK_DEG, PLAYER_3D_MAX_BANK_DEG);
+    const targetPitchDeg = pose.respawning ? 0 : clamp((-vyNorm * PLAYER_3D_MAX_PITCH_DEG) * 0.72, -PLAYER_3D_MAX_PITCH_DEG, PLAYER_3D_MAX_PITCH_DEG);
+    instance.yawDeg = smooth(instance.yawDeg || 0, targetYawDeg, PLAYER_3D_YAW_SMOOTH_RATE, smoothDt);
+    instance.bankDeg = smooth(instance.bankDeg || 0, targetBankDeg, PLAYER_3D_BANK_SMOOTH_RATE, smoothDt);
     instance.pitchDeg = smooth(instance.pitchDeg || 0, targetPitchDeg, PLAYER_3D_PITCH_SMOOTH_RATE, smoothDt);
     instance.root.rotation.set(0, 0, 0);
-    if (instance.rollRoot) instance.rollRoot.rotation.set(0, -instance.rollDeg * Math.PI / 180, 0);
+    if (instance.yawRoot) instance.yawRoot.rotation.set(0, 0, instance.yawDeg * Math.PI / 180);
+    if (instance.bankRoot) instance.bankRoot.rotation.set(0, instance.bankDeg * Math.PI / 180, 0);
     if (instance.pitchRoot) instance.pitchRoot.rotation.set(instance.pitchDeg * Math.PI / 180, 0, 0);
     instance.root.visible = !pose.respawning || pose.flashAlpha > 0.18;
     updatePlayer3DEffectPlanes(instance, pose, scale);
@@ -9093,8 +9085,8 @@
   }
 
   function playerEngineFlameOffsets(shipSize, usePlayer3DMesh) {
-    if (usePlayer3DMesh && enemy3DState.playerInstance && enemy3DState.playerInstance.engineAnchors) {
-      const anchors = enemy3DState.playerInstance.engineAnchors;
+    if (usePlayer3DMesh && enemy3DState.playerInstance && enemy3DState.playerInstance.engineSockets) {
+      const anchors = enemy3DState.playerInstance.engineSockets;
       const scale = shipSize * PLAYER_3D_SCALE_MULTIPLIER;
       return anchors.map(function (a) {
         return { x: a.x * scale, y: a.y * scale, s: a.s || 1 };
