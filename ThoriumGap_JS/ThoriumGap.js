@@ -139,6 +139,7 @@
   const PLAYER_3D_PITCH_SMOOTH_RATE = 8.0;
   const PLAYER_3D_MAX_PITCH_DEG = 10.4;
   const PLAYER_3D_PITCH_SPEED_REF = 540;
+  const MAX_3D_BANK_DEG = 75;
   const PLAYER_3D_FLAME_LENGTH_SCALE = 1.4;
   const PLAYER_3D_FLAME_WIDTH_SCALE = 2.0;
   const PLAYER_3D_FLAME_Y_OFFSET = 0.01;
@@ -2628,9 +2629,9 @@
     const smoothDt = Math.max(0, dt || 0);
     const vx = Number.isFinite(state.player && state.player.vx) ? state.player.vx : 0;
     const vxNorm = clamp(vx / Math.max(1, PLAYER_3D_ROLL_SPEED_REF), -1, 1);
-    const targetRollDeg = pose.respawning ? 0 : clamp(-vxNorm * PLAYER_3D_MAX_ROLL_DEG, -90, 90);
+    const targetRollDeg = pose.respawning ? 0 : clamp(-vxNorm * PLAYER_3D_MAX_ROLL_DEG, -MAX_3D_BANK_DEG, MAX_3D_BANK_DEG);
     const targetPitchDeg = pose.respawning ? 0 : clamp(Math.abs(vxNorm) * PLAYER_3D_MAX_PITCH_DEG, 0, PLAYER_3D_MAX_PITCH_DEG);
-    instance.rollDeg = smooth(instance.rollDeg || 0, targetRollDeg, PLAYER_3D_ROLL_SMOOTH_RATE, smoothDt);
+    instance.rollDeg = clamp(smooth(instance.rollDeg || 0, targetRollDeg, PLAYER_3D_ROLL_SMOOTH_RATE, smoothDt), -MAX_3D_BANK_DEG, MAX_3D_BANK_DEG);
     instance.pitchDeg = smooth(instance.pitchDeg || 0, targetPitchDeg, PLAYER_3D_PITCH_SMOOTH_RATE, smoothDt);
     instance.root.rotation.set(0, 0, 0);
     if (instance.rollRoot) instance.rollRoot.rotation.set(0, -instance.rollDeg * Math.PI / 180, 0);
@@ -3005,8 +3006,8 @@
       const turnDeltaDeg = deltaAngleDeg(instance.prevFlightAngleDeg, flightDeg);
       const turnRateDegPerSec = dt > 0 ? (turnDeltaDeg / dt) : 0;
       const headingErrorDeg = deltaAngleDeg(instance.yawDeg, targetYawDeg);
-      const targetBankDeg = clamp((turnRateDegPerSec * ENEMY_3D_BANK_TURN_RATE_FACTOR) + (headingErrorDeg * ENEMY_3D_BANK_HEADING_FACTOR), -90, 90);
-      instance.bankDeg = smooth(instance.bankDeg, targetBankDeg, ENEMY_3D_BANK_SMOOTH_RATE, Math.max(0, dt || 0));
+      const targetBankDeg = clamp((turnRateDegPerSec * ENEMY_3D_BANK_TURN_RATE_FACTOR) + (headingErrorDeg * ENEMY_3D_BANK_HEADING_FACTOR), -MAX_3D_BANK_DEG, MAX_3D_BANK_DEG);
+      instance.bankDeg = clamp(smooth(instance.bankDeg, targetBankDeg, ENEMY_3D_BANK_SMOOTH_RATE, Math.max(0, dt || 0)), -MAX_3D_BANK_DEG, MAX_3D_BANK_DEG);
       instance.yawDeg = targetYawDeg;
       instance.prevFlightAngleDeg = flightDeg;
       const row = enemyFamilyRow(enemy.shipLevel || (state.levelIndex + 1), enemy.shipIndex || 0);
