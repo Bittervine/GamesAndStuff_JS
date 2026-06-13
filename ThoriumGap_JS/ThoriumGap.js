@@ -6,7 +6,7 @@
   const CLOUD_LAYER_FACTOR = 16;
   const PLANET_3D_COMPOSITE_LAYER = -10;
   const GLOW_3D_BOOST = 1.0;
-  const THORIUM_GAP_VERSION = window.THORIUM_GAP_VERSION || 'thoriumgap-v91';
+  const THORIUM_GAP_VERSION = window.THORIUM_GAP_VERSION || 'thoriumgap-v92';
   const THORIUM_GAP_REV = 'Rev ' + (((/v(\d+)/i.exec(THORIUM_GAP_VERSION) || [null, '??'])[1]) || '??');
   const canvas = document.getElementById('game');
   const hudCanvas = document.getElementById('hud');
@@ -149,7 +149,13 @@
   const PLAYER_3D_PITCH_SMOOTH_RATE = 6.5;
   const PLAYER_3D_MAX_PITCH_DEG = 5.5;
   const PLAYER_3D_PITCH_SPEED_REF = 540;
+  const PLAYER_3D_FLAME_LENGTH_SCALE = 1.5;
+  const PLAYER_3D_FLAME_WIDTH_SCALE = 1.5;
+  const PLAYER_3D_FLAME_Y_OFFSET = -0.015;
+  const PLAYER_3D_FLAME_OPACITY_SCALE = 0.82;
   const MAX_3D_BANK_DEG = 75;
+  const PLAYER_3D_FLAME_CANVAS_W = 160;
+  const PLAYER_3D_FLAME_CANVAS_H = 280;
   const PLAYER_3D_SCREEN_FX_CANVAS_SIZE = 512;
   const PLAYER_3D_ENGINE_SOCKETS = Object.freeze([
     { x: -0.125, y: 0.548, s: 0.92 },
@@ -2357,6 +2363,71 @@
     return 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + clamp(alpha == null ? 1 : alpha, 0, 1) + ')';
   }
 
+  function drawPlayer3DFlameTexture(fx, frame) {
+    if (!fx || !fx.ctx) return;
+    const g = fx.ctx;
+    const w = fx.canvas.width;
+    const h = fx.canvas.height;
+    const flare = [0.9, 1, 1.1, 0.98][clamp(frame | 0, 0, 3)];
+    const side = [0.48, 0.52, 0.54, 0.5][clamp(frame | 0, 0, 3)];
+    g.clearRect(0, 0, w, h);
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+
+    let grad = g.createLinearGradient(0, h * 0.05, 0, h * 0.98);
+    grad.addColorStop(0, 'rgba(255,255,255,0.98)');
+    grad.addColorStop(0.18, 'rgba(200,248,255,0.92)');
+    grad.addColorStop(0.42, 'rgba(84,208,255,0.84)');
+    grad.addColorStop(0.72, 'rgba(30,118,255,0.48)');
+    grad.addColorStop(1, 'rgba(10,42,120,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(w * 0.5, h * 0.96);
+    g.bezierCurveTo(w * (0.5 + side * 0.36), h * 0.76, w * (0.66 + frame * 0.01), h * 0.44, w * 0.57, h * 0.12);
+    g.bezierCurveTo(w * 0.54, h * 0.28, w * 0.52, h * 0.56, w * 0.5, h * 0.96);
+    g.bezierCurveTo(w * 0.48, h * 0.56, w * 0.46, h * 0.28, w * 0.43, h * 0.12);
+    g.bezierCurveTo(w * (0.34 - frame * 0.01), h * 0.44, w * (0.5 - side * 0.36), h * 0.76, w * 0.5, h * 0.96);
+    g.closePath();
+    g.fill();
+
+    grad = g.createLinearGradient(0, h * 0.08, 0, h * 0.96);
+    grad.addColorStop(0, 'rgba(255,255,255,0.98)');
+    grad.addColorStop(0.24, 'rgba(242,253,255,0.95)');
+    grad.addColorStop(0.52, 'rgba(132,236,255,0.72)');
+    grad.addColorStop(0.78, 'rgba(52,144,255,0.32)');
+    grad.addColorStop(1, 'rgba(12,40,116,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(w * 0.5, h * 0.9);
+    g.bezierCurveTo(w * (0.58 + side * 0.12), h * 0.66, w * 0.64, h * 0.42, w * 0.54, h * 0.16);
+    g.bezierCurveTo(w * 0.52, h * 0.34, w * 0.51, h * 0.58, w * 0.5, h * 0.9);
+    g.bezierCurveTo(w * 0.49, h * 0.58, w * 0.48, h * 0.34, w * 0.46, h * 0.16);
+    g.bezierCurveTo(w * 0.36, h * 0.42, w * (0.42 - side * 0.12), h * 0.66, w * 0.5, h * 0.9);
+    g.closePath();
+    g.fill();
+
+    g.strokeStyle = 'rgba(152, 238, 255, 0.72)';
+    g.lineWidth = 2.4;
+    g.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+      const a = -0.18 + i * 0.18 + frame * 0.02;
+      const x0 = w * 0.5 + Math.sin(a * 2.1) * 7 * flare;
+      const y0 = h * (0.22 + i * 0.06);
+      g.beginPath();
+      g.moveTo(x0, y0);
+      g.lineTo(w * 0.5 + Math.sin(a * 2.6 + 0.5) * 11 * flare, h * (0.54 + i * 0.08));
+      g.lineTo(w * 0.5 + Math.sin(a * 2.9 + 1.2) * 5 * flare, h * (0.86 + i * 0.03));
+      g.stroke();
+    }
+
+    g.fillStyle = 'rgba(255,255,255,0.9)';
+    g.beginPath();
+    g.arc(w * 0.5, h * 0.14, 8 * flare, 0, TAU);
+    g.fill();
+    g.restore();
+    fx.texture.needsUpdate = true;
+  }
+
   function updatePlayer3DShieldPlane(instance, pose) {
     const fx = instance && instance.shieldFx;
     if (!fx || !fx.ctx) return;
@@ -2480,9 +2551,29 @@
 
   function updatePlayer3DEffectPlanes(instance, pose, rootScale) {
     if (!instance) return;
+    const p = state.player;
+    const sockets = instance.engineSockets || player3DEngineSockets();
+    const frame = Math.floor(state.musicStep * 6 + p.x * 0.02) & 3;
+    const flameLenPulse = 1 + Math.sin(state.animClock * TAU * 10) * 0.1;
+    const flameWPulse = 1 + Math.sin(state.animClock * TAU * 6) * 0.1;
+    const verticalStretch = clamp(p.vy / 460, -1, 1) * 0.2;
+    const flameLen = pose.shipSize * 0.2885625 * PLAYER_3D_FLAME_LENGTH_SCALE * flameLenPulse * (1 - verticalStretch);
+    const flameW = pose.shipSize * 0.285 * PLAYER_3D_FLAME_WIDTH_SCALE * flameWPulse;
+    const safeScale = Math.max(0.001, rootScale || 1);
     for (let i = 0; i < (instance.flameFx || []).length; i++) {
       const fx = instance.flameFx[i];
-      if (fx && fx.mesh) fx.mesh.visible = false;
+      if (!fx || !fx.mesh) continue;
+      const a = sockets[i] || sockets[sockets.length - 1] || player3DEngineSockets()[1];
+      const flameLenRoll = 0.7 + ((Math.sin(state.animClock * TAU * (8.0 + i) + i * 1.7) + 1) * 0.3);
+      const flameH = flameLen * flameLenRoll * (a.s || 1);
+      const w = Math.max(0.001, (flameW * (a.s || 1)) / safeScale);
+      const h = Math.max(0.001, flameH / safeScale);
+      const flameYOffset = PLAYER_3D_FLAME_Y_OFFSET * instance.maxXYDiameter;
+      drawPlayer3DFlameTexture(fx, frame);
+      fx.material.opacity = clamp(PLAYER_3D_FLAME_OPACITY_SCALE * pose.flashAlpha * (i === 1 ? 1 : 0.78), 0, 1);
+      fx.mesh.scale.set(w, h, 1);
+      fx.mesh.position.set((a.x || 0) * instance.maxXYDiameter, -(a.y || 0) * instance.maxXYDiameter - h * 0.5 - flameYOffset, 0);
+      fx.mesh.visible = !pose.respawning || pose.flashAlpha > 0.18;
     }
     updatePlayer3DDamagePlane(instance, pose);
     updatePlayer3DShieldPlane(instance, pose);
@@ -2519,6 +2610,12 @@
     pitchRoot.add(modelScene);
     const engineSockets = modelEntry.engineSockets || player3DEngineSockets();
     const flameFx = [];
+    for (let i = 0; i < Math.max(3, engineSockets.length); i++) {
+      const fx = createPlayer3DEffectPlane(PLAYER_3D_FLAME_CANVAS_W, PLAYER_3D_FLAME_CANVAS_H, true);
+      fx.mesh.renderOrder = 34;
+      flameFx.push(fx);
+      pitchRoot.add(fx.mesh);
+    }
     const shieldFx = createPlayer3DEffectPlane(PLAYER_3D_SCREEN_FX_CANVAS_SIZE, PLAYER_3D_SCREEN_FX_CANVAS_SIZE, false);
     const damageFx = createPlayer3DEffectPlane(PLAYER_3D_SCREEN_FX_CANVAS_SIZE, PLAYER_3D_SCREEN_FX_CANVAS_SIZE, true);
     shieldFx.mesh.renderOrder = 26;
@@ -9093,7 +9190,7 @@
           if (flameTexture && !usePlayer3DMesh) {
             drawTextureRect(flameTexture, pos.x, pos.y, flameW * o.s, flameH, { rot: rot, alpha: flameAlpha * (i === 1 ? 1 : 0.78), layer: 5, lighter: true });
           }
-          if (shouldEmitHighQualityTrails() && !respawning && !usePlayer3DMesh) {
+          if (shouldEmitHighQualityTrails() && !respawning) {
             const trailPos = localToWorld(p.x, shipVisualY, rot, o.x, o.y + flameH * 0.95);
             const backDirX = -Math.sin(rot);
             const backDirY = Math.cos(rot);
