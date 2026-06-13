@@ -4303,12 +4303,17 @@
     updateInitialsGamepad(pad, buttons, fireDown, fireEdge);
     state.gamepad.fireHeld = fireDown;
     state.gamepad.bombHeld = bombDown;
-    if (menuDown && !state.gamepad.prevMenu) toggleSettings();
+    if (menuDown && !state.gamepad.prevMenu) {
+      resumeAudio();
+      toggleSettings();
+    }
     if (!state.initialsEntryActive && !state.initialsConfirmActive && fireEdge) {
+      resumeAudio();
       if (state.mode === 'title') startGame();
       else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
     }
     if (!state.initialsEntryActive && !state.initialsConfirmActive && bombDown && !state.gamepad.prevBomb) {
+      resumeAudio();
       if (state.mode === 'title') startGame();
       else if (state.mode === 'gameover' || state.mode === 'victory') endScreenContinue();
       else if (state.mode === 'playing') useBomb();
@@ -4722,6 +4727,7 @@
   }
 
   function startGame() {
+    resumeAudio();
     if (!state.assetsReady) {
       titleScreenText();
       markHudDirty();
@@ -4802,6 +4808,7 @@
   }
 
   function endScreenContinue() {
+    resumeAudio();
     if (!endScreenCanContinue()) return;
     if (state.initialsEntryActive) {
       finalizeInitialsEntry();
@@ -5556,6 +5563,7 @@
   }
 
   function fireWeapon() {
+    if (!audio.ctx || audio.ctx.state !== 'running') resumeAudio();
     const p = state.player;
     const diff = currentDifficulty();
     const mode = p.weaponMode;
@@ -9774,6 +9782,7 @@
   }
 
   function pressAction(act, down) {
+    if (down) resumeAudio();
     if (act === 'left' || act === 'right' || act === 'up' || act === 'down') {
       state.input[act] = down;
       return;
