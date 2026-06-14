@@ -139,7 +139,7 @@
   const PLAYER_3D_MODEL_PATH = 'models/player_spaceship.glb';
   const PLAYER_3D_MODEL_PITCH_OFFSET_RAD = Math.PI * 0.5;
   const PLAYER_3D_MODEL_ROLL_OFFSET_RAD = 0;
-  const PLAYER_3D_SCALE_MULTIPLIER = 1.15;
+  const PLAYER_3D_SCALE_MULTIPLIER = 1.0;
   const PLAYER_3D_Z = 30;
   const PLAYER_3D_YAW_SMOOTH_RATE = 16.0;
   const PLAYER_3D_MAX_YAW_DEG = 24.0;
@@ -2504,7 +2504,7 @@
     g.restore();
     fx.texture.needsUpdate = true;
     fx.mesh.visible = true;
-    fx.mesh.scale.set(shieldSize * 0.857375, shieldSize * 0.857375, 1);
+    fx.mesh.scale.set(shieldSize * 0.75 * PLAYER_3D_SCALE_MULTIPLIER, shieldSize * 0.75 * PLAYER_3D_SCALE_MULTIPLIER, 1);
     fx.mesh.position.set(0, 0, 0);
   }
 
