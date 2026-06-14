@@ -2377,7 +2377,7 @@
     const side = [0.48, 0.52, 0.54, 0.5][clamp(frame | 0, 0, 3)];
     g.clearRect(0, 0, w, h);
     g.save();
-    g.globalCompositeOperation = 'lighter';
+    g.globalCompositeOperation = 'source-over';
 
     let grad = g.createLinearGradient(0, h * 0.05, 0, h * 0.98);
     grad.addColorStop(0, 'rgba(255,255,255,0.98)');
@@ -2482,11 +2482,11 @@
     g.clearRect(0, 0, dim, dim);
     g.save();
     g.globalCompositeOperation = 'source-over';
-    const shieldColor = p.shield > 1 ? '#7fc8ff' : '#61a9ff';
+    const shieldColor = '#2060ff';
     if (p.shield > 0) {
       for (let i = 0; i < p.shield; i++) {
-        strokeRing(shieldRing + i * 4 + 20, shieldColor, 0.22, 2.4);
-        strokeRing(shieldRing + i * 4 + 20, shieldColor, 0.07, 4.8);
+        strokeRing(shieldRing + i * 4 + 20, shieldColor, 0.3, 2);
+        strokeRing(shieldRing + i * 4 + 20, shieldColor, 0.1, 2);
       }
     }
     if (invulnActive) {
@@ -2506,6 +2506,35 @@
     fx.mesh.visible = true;
     fx.mesh.scale.set(shieldSize * 0.75 * PLAYER_3D_SCALE_MULTIPLIER, shieldSize * 0.75 * PLAYER_3D_SCALE_MULTIPLIER, 1);
     fx.mesh.position.set(0, 0, 0);
+  }
+
+  function updatePlayer3DGlowPlane(instance, pose) {
+    const fx = instance && instance.glowFx;
+    if (!fx || !fx.ctx) return;
+    const dim = fx.canvas.width;
+    const g = fx.ctx;
+    const color = '#0000ff';
+    const rgb = hexToRgb(color);
+    g.clearRect(0, 0, dim, dim);
+    g.save();
+    g.globalCompositeOperation = 'source-over';
+    const grad = g.createRadialGradient(dim * 0.5, dim * 0.5, dim * 0.08, dim * 0.5, dim * 0.5, dim * 0.48);
+    grad.addColorStop(0, 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',0.5)');
+    grad.addColorStop(0.25, 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',0.3)');
+    grad.addColorStop(1, 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.arc(dim * 0.5, dim * 0.5, dim * 0.48, 0, TAU);
+    g.fill();
+    g.restore();
+    fx.texture.needsUpdate = true;
+    fx.material.depthTest = true;
+    fx.material.depthWrite = false;
+    fx.material.opacity = clamp(pose.flashAlpha, 0, 1);
+    fx.mesh.visible = !pose.respawning || pose.flashAlpha > 0.18;
+    const safeScale = Math.max(0.001, pose.shipSize / Math.max(0.001, instance.maxXYDiameter)) * PLAYER_3D_SCALE_MULTIPLIER;
+    fx.mesh.scale.set((pose.shipSize * 2.0 * PLAYER_3D_SCALE_MULTIPLIER) / safeScale, (pose.shipSize * 2.0 * PLAYER_3D_SCALE_MULTIPLIER) / safeScale, 1);
+    fx.mesh.position.set(0, 0, -0.08);
   }
 
   function updatePlayer3DDamagePlane(instance, pose) {
@@ -2593,6 +2622,7 @@
       fx.mesh.position.set((a.x || 0) * instance.maxXYDiameter, -(a.y || 0) * instance.maxXYDiameter - h * 0.5 - flameYOffset, 0);
       fx.mesh.visible = !pose.respawning || pose.flashAlpha > 0.18;
     }
+    updatePlayer3DGlowPlane(instance, pose);
     updatePlayer3DDamagePlane(instance, pose);
     updatePlayer3DShieldPlane(instance, pose);
   }
@@ -2625,8 +2655,11 @@
     root.add(yawRoot);
     yawRoot.add(bankRoot);
     bankRoot.add(pitchRoot);
-    pitchRoot.add(modelScene);
     const engineSockets = modelEntry.engineSockets || player3DEngineSockets();
+    const glowFx = createPlayer3DEffectPlane(PLAYER_3D_SCREEN_FX_CANVAS_SIZE, PLAYER_3D_SCREEN_FX_CANVAS_SIZE, false);
+    glowFx.mesh.renderOrder = 24;
+    pitchRoot.add(glowFx.mesh);
+    pitchRoot.add(modelScene);
     const flameFx = [];
     for (let i = 0; i < Math.max(3, engineSockets.length); i++) {
       const fx = createPlayer3DEffectPlane(PLAYER_3D_FLAME_CANVAS_W, PLAYER_3D_FLAME_CANVAS_H, true);
@@ -2642,7 +2675,7 @@
     screenRoot.add(damageFx.mesh);
     enemy3DState.root.add(root);
     enemy3DState.root.add(screenRoot);
-    enemy3DState.playerInstance = { root, yawRoot, bankRoot, pitchRoot, screenRoot, modelPath: PLAYER_3D_MODEL_PATH, maxXYDiameter: modelEntry.maxXYDiameter, engineSockets, flameFx, shieldFx, damageFx, yawDeg: 0, bankDeg: 0, pitchDeg: 0, valid: true };
+    enemy3DState.playerInstance = { root, yawRoot, bankRoot, pitchRoot, screenRoot, modelPath: PLAYER_3D_MODEL_PATH, maxXYDiameter: modelEntry.maxXYDiameter, engineSockets, flameFx, glowFx, shieldFx, damageFx, yawDeg: 0, bankDeg: 0, pitchDeg: 0, valid: true };
     return enemy3DState.playerInstance;
   }
 
