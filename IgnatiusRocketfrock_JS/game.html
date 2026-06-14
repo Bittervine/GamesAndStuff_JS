@@ -1,0 +1,2023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ignatius Rocketfrock - Proof of Concept</title>
+  <style>
+    :root {
+      --bg-0: #0d0b14;
+      --bg-1: #171426;
+      --bg-2: #251f39;
+      --panel: rgba(20, 17, 31, 0.88);
+      --panel-2: rgba(255, 255, 255, 0.05);
+      --text: #f7f1ff;
+      --muted: #c8bcdc;
+      --accent: #e7bf78;
+      --accent-2: #b989ff;
+      --line: rgba(255, 255, 255, 0.14);
+      --shadow: rgba(0, 0, 0, 0.4);
+      --good: #98e3a1;
+      --warn: #ffd17d;
+      --bad: #ff8f8f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      min-height: 100%;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      overflow: hidden;
+      color: var(--text);
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background:
+        radial-gradient(circle at 16% 10%, rgba(185, 137, 255, 0.17), transparent 18rem),
+        radial-gradient(circle at 82% 14%, rgba(231, 191, 120, 0.14), transparent 16rem),
+        radial-gradient(circle at 50% 0%, rgba(111, 86, 176, 0.18), transparent 20rem),
+        linear-gradient(180deg, var(--bg-2), var(--bg-0));
+    }
+
+    main.layout {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+      padding: 0;
+      display: block;
+    }
+
+    .stage-panel {
+      position: absolute;
+      inset: 0;
+    }
+
+    .hero {
+      display: none;
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 4.4vw, 3.7rem);
+      line-height: 0.96;
+      letter-spacing: 0.02em;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+      line-height: 1.45;
+      max-width: 72ch;
+    }
+
+    .canvas-shell {
+      position: absolute;
+      inset: 0;
+      border: 0;
+      border-radius: 0;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+        linear-gradient(180deg, #231b33 0%, #151221 65%, #0f0d18 100%);
+      box-shadow: none;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      aspect-ratio: auto;
+      touch-action: none;
+      user-select: none;
+      background: transparent;
+    }
+
+    .controls {
+      display: none;
+    }
+
+    .controls button,
+    .sidebar a,
+    .sidebar button {
+      appearance: none;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+      min-height: 50px;
+      padding: 10px 12px;
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+    }
+
+    .controls button:hover,
+    .sidebar a:hover,
+    .sidebar button:hover,
+    .controls button:focus-visible,
+    .sidebar a:focus-visible,
+    .sidebar button:focus-visible {
+      outline: none;
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(231, 191, 120, 0.34);
+    }
+
+    .controls button[data-hold="true"] {
+      background: rgba(231, 191, 120, 0.14);
+      border-color: rgba(231, 191, 120, 0.5);
+    }
+
+    .controls button[data-active="true"] {
+      background: rgba(231, 191, 120, 0.22);
+      border-color: rgba(231, 191, 120, 0.7);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+    }
+
+    .sidebar {
+      display: none;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+      padding: 14px;
+    }
+
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+      letter-spacing: 0.02em;
+    }
+
+    .card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.45;
+    }
+
+    .chapter-title {
+      color: var(--accent);
+      font-weight: 800;
+      line-height: 1.35;
+    }
+
+    .stat-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.83rem;
+      color: var(--muted);
+    }
+
+    .stat-list div {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .stat-list span:last-child {
+      color: var(--text);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      word-break: break-word;
+    }
+
+    .link-row {
+      display: grid;
+      gap: 8px;
+    }
+
+    .small-note {
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .message {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(231, 191, 120, 0.25);
+      background: rgba(231, 191, 120, 0.07);
+      color: #f2e2b6;
+      line-height: 1.4;
+      min-height: 54px;
+      white-space: pre-wrap;
+    }
+
+    .toggle-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .toggle-row label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toggle-row input {
+      accent-color: var(--accent);
+    }
+
+    @media (max-width: 1120px) {
+      main.layout {
+        grid-template-columns: none;
+      }
+
+      .sidebar {
+        position: static;
+      }
+    }
+
+    @media (max-width: 760px) {
+      main.layout {
+        width: 100vw;
+        padding-top: 0;
+      }
+
+      .controls {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .back-link {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 30;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(12, 10, 18, 0.72);
+      color: var(--text);
+      text-decoration: none;
+      font-weight: 700;
+      backdrop-filter: blur(8px);
+    }
+
+    .back-link:hover,
+    .back-link:focus-visible {
+      outline: none;
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(231, 191, 120, 0.36);
+    }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="IgnatiusRocketfrock_JS.html">Back</a>
+  <main class="layout">
+    <section class="stage-panel">
+      <div class="hero">
+        <div class="eyebrow">Technical proof of concept</div>
+        <h1>Ignatius Rocketfrock</h1>
+        <p class="subtitle">
+          Run, jump, launch, and release are live. The wizard pose uses the same rig values as the runner,
+          while the mailbox and level props stay deliberately placeholder-simple for now.
+        </p>
+      </div>
+
+      <div class="canvas-shell">
+        <canvas id="game-canvas" width="1280" height="720" aria-label="Ignatius Rocketfrock prototype game canvas"></canvas>
+      </div>
+
+      <div class="controls" aria-label="Mouse and touch controls">
+        <button type="button" data-action="left" data-hold="true">Left</button>
+        <button type="button" data-action="primary">Jump / Launch / Detach</button>
+        <button type="button" data-action="right" data-hold="true">Right</button>
+      </div>
+    </section>
+
+    <aside class="sidebar">
+      <section class="card">
+        <h2>Current Chapter</h2>
+        <p class="chapter-title" id="chapter-title">Ignatius Rocketfrock and the Introductory Pit of Mild Regret</p>
+        <div class="message" id="message">Walk to the mailbox to collect the editor's note.</div>
+      </section>
+
+      <section class="card">
+        <h2>Status</h2>
+        <div class="stat-list">
+          <div><span>Pos</span><span id="stat-pos">0, 0</span></div>
+          <div><span>Vel</span><span id="stat-vel">0, 0</span></div>
+          <div><span>Grounded</span><span id="stat-grounded">yes</span></div>
+          <div><span>Facing</span><span id="stat-facing">right</span></div>
+          <div><span>Rocket</span><span id="stat-rocket">attached</span></div>
+          <div><span>Mailbox</span><span id="stat-mailbox">waiting</span></div>
+        </div>
+        <div class="toggle-row">
+          <label><input id="debug-pivots" type="checkbox"> Show rig pivots</label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Controls</h2>
+        <p class="small-note">
+          Keyboard: Left or NumPad 4 to run left, Right or NumPad 6 to run right, Up or NumPad 8 to jump, launch, and detach.
+        </p>
+      </section>
+
+      <section class="card link-row">
+        <a href="IgnatiusRocketfrock_JS.html">Back to title card</a>
+        <a href="wizard_rig_runner.html">Open rig runner</a>
+      </section>
+    </aside>
+  </main>
+
+  <script>
+  (async () => {
+    "use strict";
+
+    const canvas = document.getElementById("game-canvas");
+    const ctx = canvas.getContext("2d", { alpha: false });
+
+    const chapterTitleEl = document.getElementById("chapter-title");
+    const messageEl = document.getElementById("message");
+    const statPosEl = document.getElementById("stat-pos");
+    const statVelEl = document.getElementById("stat-vel");
+    const statGroundedEl = document.getElementById("stat-grounded");
+    const statFacingEl = document.getElementById("stat-facing");
+    const statRocketEl = document.getElementById("stat-rocket");
+    const statMailboxEl = document.getElementById("stat-mailbox");
+    const debugPivotsEl = document.getElementById("debug-pivots");
+
+    const CHAPTER_TITLES = [
+      "Ignatius Rocketfrock and the Introductory Pit of Mild Regret",
+      "Ignatius Rocketfrock and the Caverns of Questionable Safety",
+      "Ignatius Rocketfrock and the Bridge That Was Probably Inspected",
+      "Ignatius Rocketfrock and the Mushroom Grotto of Suspicious Bounce",
+      "Ignatius Rocketfrock and the Library of Poorly Shelved Spells",
+      "Ignatius Rocketfrock and the Windmill of Vertical Opinions",
+      "Ignatius Rocketfrock and the Mines of Acceptable Liability",
+      "Ignatius Rocketfrock and the Clocktower of Unhelpful Timing",
+      "Ignatius Rocketfrock and the Sewer of Necessary Plot Development",
+      "Ignatius Rocketfrock and the Volcano of Editorial Concern"
+    ];
+
+    const FIXED_DRAW_ORDER = [
+      "leftArm",
+      "leftFoot",
+      "rocket",
+      "rightFoot",
+      "robe",
+      "head",
+      "hat",
+      "rightArm"
+    ];
+
+    const ASSET_CANDIDATES = {
+      hat: ["assets/wizard_hat.png", "wizard_hat.png"],
+      head: ["assets/wizard_head.png", "wizard_head.png"],
+      robe: ["assets/wizard_robe.png", "wizard_robe.png"],
+      leftArm: ["assets/wizard_left_arm.png", "wizard_left_arm.png"],
+      rightArm: ["assets/wizard_right_arm.png", "wizard_right_arm.png"],
+      leftFoot: ["assets/wizard_left_foot.png", "wizard_left_foot.png"],
+      rightFoot: ["assets/wizard_right_foot.png", "wizard_right_foot.png"],
+      rocket: ["assets/wizard_rocket.png", "wizard_rocket.png"]
+    };
+
+    const DEFAULT_CONFIG = {
+      "meta": {
+        "version": 2,
+        "note": "All positions are rig-space pixels unless otherwise stated. Pivot x/y are normalized sprite-space coordinates. Draw order is locked by the renderer."
+      },
+      "drawOrder": [
+        "leftArm",
+        "leftFoot",
+        "rocket",
+        "rightFoot",
+        "robe",
+        "head",
+        "hat",
+        "rightArm"
+      ],
+      "global": {
+        "scale": 0.64,
+        "lean": 0.19,
+        "rootX": 550,
+        "rootYOffsetFromGround": -146,
+        "groundOffset": -15,
+        "debugPivots": false
+      },
+      "animation": {
+        "speed": 2.06,
+        "torsoWobble": 0.035,
+        "headWobble": 0.025,
+        "headLeanMultiplier": 0.45,
+        "rootSway": 3.2,
+        "bobAmplitude": 5.5,
+        "bobCompression": 1.6,
+        "rocketBob": 2.2
+      },
+      "anchors": {
+        "shoulderCenter": { "x": 0, "y": -102 },
+        "leftShoulder": { "x": 20, "y": 4 },
+        "rightShoulder": { "x": -20, "y": 4 },
+        "neck": { "x": 4, "y": -134 },
+        "rocketMount": { "x": -45, "y": -64 },
+        "hatFromHead": { "x": -1, "y": -55 }
+      },
+      "legMotion": {
+        "stride": 37,
+        "lift": 26,
+        "groundRise": -4,
+        "leftBaseX": 13,
+        "rightBaseX": -13,
+        "angleStride": -0.15,
+        "angleLift": 0.1,
+        "anglePlanted": -0.03
+      },
+      "pivots": {
+        "leftArm": { "x": 0.27, "y": 0.14 },
+        "leftFoot": { "x": 0.38, "y": 0.86 },
+        "rocket": { "x": 0.72, "y": 0.58 },
+        "rightFoot": { "x": 0.42, "y": 0.86 },
+        "robe": { "x": 0.55, "y": 0.55 },
+        "head": { "x": 0.53, "y": 0.82 },
+        "hat": { "x": 0.46, "y": 0.76 },
+        "rightArm": { "x": 0.48, "y": 0.13 }
+      },
+      "parts": {
+        "leftArm": {
+          "targetHeight": 128,
+          "scale": 0.73,
+          "offset": { "x": -39, "y": 73 },
+          "rotation": { "base": -0.16, "swing": 0.52, "lift": -0.08, "torso": 1 },
+          "alpha": 1
+        },
+        "leftFoot": {
+          "targetHeight": 90,
+          "scale": 0.98,
+          "offset": { "x": -34, "y": 0 },
+          "rotation": { "base": 0 },
+          "alpha": 1
+        },
+        "rocket": {
+          "targetHeight": 220,
+          "scale": 1,
+          "offset": { "x": 0, "y": 0 },
+          "rotation": { "base": 0.07, "torso": 1 },
+          "alpha": 0.98
+        },
+        "rightFoot": {
+          "targetHeight": 90,
+          "scale": 1.02,
+          "offset": { "x": 0, "y": 0 },
+          "rotation": { "base": 0 },
+          "alpha": 1
+        },
+        "robe": {
+          "targetHeight": 258,
+          "scale": 0.73,
+          "offset": { "x": 0, "y": 0 },
+          "rotation": { "base": 0, "torso": 1 },
+          "alpha": 1
+        },
+        "head": {
+          "targetHeight": 78,
+          "scale": 1.28,
+          "offset": { "x": -14, "y": 54 },
+          "rotation": { "base": 0 },
+          "alpha": 1
+        },
+        "hat": {
+          "targetHeight": 76,
+          "scale": 1.31,
+          "offset": { "x": -9, "y": 23 },
+          "rotation": { "base": -0.02 },
+          "alpha": 1
+        },
+        "rightArm": {
+          "targetHeight": 128,
+          "scale": 1.03,
+          "offset": { "x": -25, "y": 47 },
+          "rotation": { "base": 0.03, "swing": 0.52, "lift": -0.08, "torso": 1 },
+          "alpha": 1
+        }
+      }
+    };
+
+    const state = {
+      now: performance.now(),
+      last: performance.now(),
+      assets: new Map(),
+      missingAssets: [],
+      rigConfig: normalizeConfig(DEFAULT_CONFIG),
+      viewW: 1280,
+      viewH: 720,
+      cameraX: 0,
+      starSeeds: [],
+      keys: {
+        keyboardLeft: false,
+        keyboardRight: false,
+        mouseLeft: false,
+        mouseRight: false,
+        gamepadLeft: false,
+        gamepadRight: false
+      },
+      queue: {
+        primary: false,
+        jump: false,
+        launch: false,
+        release: false
+      },
+      gamepad: {
+        index: null,
+        actionPressed: false
+      },
+      player: {
+        x: 180,
+        y: 640,
+        vx: 0,
+        vy: 0,
+        width: 24,
+        height: 46,
+        facing: 1,
+        onGround: true
+      },
+      rocket: {
+        attached: true,
+        active: false,
+        fireAt: 0,
+        readyAt: 0,
+        thrustDir: { x: 1, y: -0.38 },
+        free: null
+      },
+      mailbox: {
+        x: 236,
+        y: 0,
+        w: 82,
+        h: 96,
+        opened: false
+      },
+      solids: [],
+      particles: [],
+      chapterIndex: 0,
+      chapterVisibleUntil: performance.now() + 8000,
+      messageVisibleUntil: performance.now() + 8000,
+      debugPivots: false,
+      walkPhase: 0,
+      idlePhase: 0,
+      worldWidth: 0,
+      needsResize: true
+    };
+
+    function clone(value) {
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    function isPlainObject(value) {
+      return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+    }
+
+    function deepMerge(base, incoming) {
+      if (Array.isArray(base)) {
+        return Array.isArray(incoming) ? clone(incoming) : clone(base);
+      }
+
+      if (!isPlainObject(base)) {
+        return incoming === undefined ? base : incoming;
+      }
+
+      const result = clone(base);
+      if (!isPlainObject(incoming)) {
+        return result;
+      }
+
+      for (const key of Object.keys(incoming)) {
+        if (key in base) {
+          result[key] = deepMerge(base[key], incoming[key]);
+        } else {
+          result[key] = clone(incoming[key]);
+        }
+      }
+
+      return result;
+    }
+
+    function numeric(value, fallback) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function rectsIntersect(a, b) {
+      return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    }
+
+    function approach(value, target, delta) {
+      if (value < target) return Math.min(value + delta, target);
+      if (value > target) return Math.max(value - delta, target);
+      return target;
+    }
+
+    function jumpVelocityForHeight(height, gravity = 2050) {
+      return Math.sqrt(Math.max(0, 2 * gravity * height));
+    }
+
+    function normalizeVector(x, y) {
+      const length = Math.hypot(x, y) || 1;
+      return { x: x / length, y: y / length };
+    }
+
+    function queuePrimaryAction() {
+      state.queue.primary = true;
+    }
+
+    function isPrimaryKey(code) {
+      return code === "ArrowUp" || code === "Space" || code === "KeyW" || code === "Numpad8";
+    }
+
+    function isLeftKey(code) {
+      return code === "ArrowLeft" || code === "KeyA" || code === "Numpad4";
+    }
+
+    function isRightKey(code) {
+      return code === "ArrowRight" || code === "KeyD" || code === "Numpad6";
+    }
+
+    function getHorizontalInput() {
+      const left =
+        state.keys.keyboardLeft ||
+        state.keys.mouseLeft ||
+        state.keys.gamepadLeft;
+      const right =
+        state.keys.keyboardRight ||
+        state.keys.mouseRight ||
+        state.keys.gamepadRight;
+
+      return (right ? 1 : 0) - (left ? 1 : 0);
+    }
+
+    function getLaunchVector() {
+      const player = state.player;
+      const vx = Math.abs(player.vx) > 10 ? player.vx : (player.facing || 1) * 180;
+      const vy = player.vy < -10 ? player.vy : -24;
+      return normalizeVector(vx, vy);
+    }
+
+    function getCanvasPointerZone(clientX) {
+      const rect = canvas.getBoundingClientRect();
+      const x = (clientX - rect.left) / Math.max(1, rect.width);
+      if (x < 0.36) return -1;
+      if (x > 0.64) return 1;
+      return 0;
+    }
+
+    function normalizeConfig(rawConfig) {
+      const merged = deepMerge(DEFAULT_CONFIG, rawConfig);
+      merged.drawOrder = FIXED_DRAW_ORDER.slice();
+
+      for (const name of FIXED_DRAW_ORDER) {
+        merged.pivots[name] = merged.pivots[name] || clone(DEFAULT_CONFIG.pivots[name]);
+        merged.parts[name] = merged.parts[name] || clone(DEFAULT_CONFIG.parts[name]);
+        merged.parts[name].offset = merged.parts[name].offset || { x: 0, y: 0 };
+        merged.parts[name].rotation = merged.parts[name].rotation || {};
+        merged.parts[name].targetHeight = numeric(merged.parts[name].targetHeight, DEFAULT_CONFIG.parts[name].targetHeight);
+        merged.parts[name].scale = numeric(merged.parts[name].scale, 1);
+        merged.parts[name].alpha = numeric(merged.parts[name].alpha, 1);
+      }
+
+      return merged;
+    }
+
+    function makeMissingPart(name) {
+      const canvasPart = document.createElement("canvas");
+      canvasPart.width = 96;
+      canvasPart.height = 96;
+      const c = canvasPart.getContext("2d");
+      c.fillStyle = "rgba(111, 86, 176, 0.35)";
+      c.fillRect(0, 0, canvasPart.width, canvasPart.height);
+      c.strokeStyle = "rgba(255, 255, 255, 0.4)";
+      c.lineWidth = 4;
+      c.strokeRect(2, 2, canvasPart.width - 4, canvasPart.height - 4);
+      c.fillStyle = "#fff";
+      c.font = "700 14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+      c.textAlign = "center";
+      c.textBaseline = "middle";
+      c.fillText(name, canvasPart.width / 2, canvasPart.height / 2);
+      return {
+        canvas: canvasPart,
+        width: canvasPart.width,
+        height: canvasPart.height,
+        name,
+        missing: true
+      };
+    }
+
+    function loadImageFromURL(url) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.decoding = "async";
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error(`Could not load ${url}`));
+        img.src = url;
+      });
+    }
+
+    function trimImageByAlpha(img, name) {
+      const temp = document.createElement("canvas");
+      temp.width = img.naturalWidth || img.width;
+      temp.height = img.naturalHeight || img.height;
+      const tctx = temp.getContext("2d", { willReadFrequently: true });
+      tctx.drawImage(img, 0, 0);
+
+      let data;
+      try {
+        data = tctx.getImageData(0, 0, temp.width, temp.height).data;
+      } catch (error) {
+        const copy = document.createElement("canvas");
+        copy.width = temp.width;
+        copy.height = temp.height;
+        copy.getContext("2d").drawImage(img, 0, 0);
+        return {
+          canvas: copy,
+          width: copy.width,
+          height: copy.height,
+          name,
+          missing: false,
+          bounds: { x: 0, y: 0, w: copy.width, h: copy.height }
+        };
+      }
+
+      let minX = temp.width;
+      let minY = temp.height;
+      let maxX = -1;
+      let maxY = -1;
+      const threshold = 8;
+
+      for (let y = 0; y < temp.height; y += 1) {
+        for (let x = 0; x < temp.width; x += 1) {
+          const alpha = data[(y * temp.width + x) * 4 + 3];
+          if (alpha > threshold) {
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+          }
+        }
+      }
+
+      if (maxX < minX || maxY < minY) {
+        return makeMissingPart(name);
+      }
+
+      const pad = 2;
+      minX = Math.max(0, minX - pad);
+      minY = Math.max(0, minY - pad);
+      maxX = Math.min(temp.width - 1, maxX + pad);
+      maxY = Math.min(temp.height - 1, maxY + pad);
+
+      const w = maxX - minX + 1;
+      const h = maxY - minY + 1;
+      const trimmed = document.createElement("canvas");
+      trimmed.width = w;
+      trimmed.height = h;
+      trimmed.getContext("2d").drawImage(temp, minX, minY, w, h, 0, 0, w, h);
+
+      return {
+        canvas: trimmed,
+        width: w,
+        height: h,
+        name,
+        missing: false,
+        bounds: { x: minX, y: minY, w, h }
+      };
+    }
+
+    async function loadPart(name) {
+      const candidates = ASSET_CANDIDATES[name] || [];
+      for (const url of candidates) {
+        try {
+          const img = await loadImageFromURL(url);
+          const loadedAsset = trimImageByAlpha(img, name);
+          loadedAsset.source = url;
+          state.assets.set(name, loadedAsset);
+          return loadedAsset;
+        } catch (error) {
+          // Try the next path.
+        }
+      }
+
+      const missing = makeMissingPart(name);
+      state.assets.set(name, missing);
+      state.missingAssets.push(name);
+      return missing;
+    }
+
+    async function loadAllAssets() {
+      state.missingAssets = [];
+      await Promise.all(Object.keys(ASSET_CANDIDATES).map(loadPart));
+    }
+
+    function asset(name) {
+      return state.assets.get(name) || makeMissingPart(name);
+    }
+
+    function getPivot(name) {
+      return state.rigConfig.pivots[name] || { x: 0.5, y: 0.5 };
+    }
+
+    function getPartConfig(name) {
+      return state.rigConfig.parts[name] || DEFAULT_CONFIG.parts[name];
+    }
+
+    function scaleForHeight(name, targetHeight) {
+      const p = asset(name);
+      return targetHeight / Math.max(1, p.height);
+    }
+
+    function rotatePoint(localX, localY, angle) {
+      const c = Math.cos(angle);
+      const s = Math.sin(angle);
+      return {
+        x: localX * c - localY * s,
+        y: localX * s + localY * c
+      };
+    }
+
+    function add(a, b) {
+      return { x: a.x + b.x, y: a.y + b.y };
+    }
+
+    function scaledRotatedAnchor(anchor, scale, angle) {
+      return rotatePoint(anchor.x * scale, anchor.y * scale, angle);
+    }
+
+    function applyPartOffset(point, part, scale) {
+      const offset = part.offset || { x: 0, y: 0 };
+      return {
+        x: point.x + numeric(offset.x, 0) * scale,
+        y: point.y + numeric(offset.y, 0) * scale
+      };
+    }
+
+    function makeLegTransform(side, root, phase, scale) {
+      const name = side === "left" ? "leftFoot" : "rightFoot";
+      const part = getPartConfig(name);
+      const motion = state.rigConfig.legMotion;
+      const p = phase + (side === "left" ? 0 : Math.PI);
+      const stride = -Math.sin(p);
+      const lift = Math.max(0, -Math.cos(p));
+      const planted = Math.max(0, Math.cos(p));
+      const baseX = side === "left" ? motion.leftBaseX : motion.rightBaseX;
+      const basePoint = {
+        x: root.x + (numeric(baseX, 0) + stride * numeric(motion.stride, 0)) * scale,
+        y: root.groundY + (numeric(motion.groundRise, -4) - lift * numeric(motion.lift, 0)) * scale
+      };
+      const point = applyPartOffset(basePoint, part, scale);
+      return {
+        x: point.x,
+        y: point.y,
+        angle: numeric(part.rotation.base, 0) + numeric(motion.angleStride, 0) * stride + numeric(motion.angleLift, 0) * lift + numeric(motion.anglePlanted, 0) * planted,
+        targetHeight: numeric(part.targetHeight, 90) * scale * numeric(part.scale, 1),
+        alpha: numeric(part.alpha, 1)
+      };
+    }
+
+    function makeArmTransform(side, shoulder, phase, scale, torsoAngle) {
+      const name = side === "left" ? "leftArm" : "rightArm";
+      const part = getPartConfig(name);
+      const rotation = part.rotation || {};
+      const p = phase + (side === "left" ? 0 : Math.PI);
+      const swing = -Math.sin(p);
+      const lift = Math.max(0, -Math.cos(p));
+      const point = applyPartOffset(shoulder, part, scale);
+      return {
+        x: point.x,
+        y: point.y,
+        angle: torsoAngle * numeric(rotation.torso, 1) + numeric(rotation.base, 0) + swing * numeric(rotation.swing, 0) + lift * numeric(rotation.lift, 0),
+        targetHeight: numeric(part.targetHeight, 128) * scale * numeric(part.scale, 1),
+        alpha: numeric(part.alpha, 1)
+      };
+    }
+
+    function makeRigidTransform(name, point, baseAngle, scale) {
+      const part = getPartConfig(name);
+      const rotation = part.rotation || {};
+      const p = applyPartOffset(point, part, scale);
+      return {
+        x: p.x,
+        y: p.y,
+        angle: baseAngle * numeric(rotation.torso, 1) + numeric(rotation.base, 0),
+        targetHeight: numeric(part.targetHeight, 100) * scale * numeric(part.scale, 1),
+        alpha: numeric(part.alpha, 1)
+      };
+    }
+
+    function mirrorTransform(transform, root, facing) {
+      if (facing >= 0) {
+        return transform;
+      }
+
+      return {
+        x: root.x - (transform.x - root.x),
+        y: transform.y,
+        angle: -transform.angle,
+        targetHeight: transform.targetHeight,
+        alpha: transform.alpha
+      };
+    }
+
+    function computePose(groundY) {
+      const phase = state.walkPhase;
+      const scale = numeric(state.rigConfig.global.scale, 1) * 0.5;
+      const lean = numeric(state.rigConfig.global.lean, 0);
+      const anim = state.rigConfig.animation;
+      const anchors = state.rigConfig.anchors;
+      const player = state.player;
+      const speedInfluence = clamp(player.vx / 720, -0.24, 0.24);
+      const bob = player.onGround
+        ? Math.sin(phase * 2) * numeric(anim.bobAmplitude, 0) * scale - Math.max(0, Math.cos(phase * 2)) * numeric(anim.bobCompression, 0) * scale
+        : Math.sin(state.now * 0.01) * 1.5 * scale;
+      const root = {
+        x: player.x,
+        y: groundY + numeric(state.rigConfig.global.rootYOffsetFromGround, -146) * scale + bob,
+        groundY
+      };
+
+      const torsoAngle = lean + speedInfluence + Math.sin(phase * 2) * numeric(anim.torsoWobble, 0);
+      const headAngle = torsoAngle * numeric(anim.headLeanMultiplier, 0.45) + Math.sin(phase * 2 + 0.4) * numeric(anim.headWobble, 0);
+      const shoulderCenter = add(root, scaledRotatedAnchor(anchors.shoulderCenter, scale, torsoAngle));
+      const leftShoulder = add(shoulderCenter, scaledRotatedAnchor(anchors.leftShoulder, scale, torsoAngle));
+      const rightShoulder = add(shoulderCenter, scaledRotatedAnchor(anchors.rightShoulder, scale, torsoAngle));
+      const neck = add(root, scaledRotatedAnchor(anchors.neck, scale, torsoAngle));
+      const rocketMount = add(root, scaledRotatedAnchor(anchors.rocketMount, scale, torsoAngle));
+      const hatBase = add(neck, scaledRotatedAnchor(anchors.hatFromHead, scale, headAngle));
+      const rocketBobPoint = {
+        x: rocketMount.x,
+        y: rocketMount.y + Math.sin(phase * 2.0 + 0.7) * numeric(anim.rocketBob, 0) * scale
+      };
+
+      const transforms = {
+        leftArm: makeArmTransform("left", leftShoulder, phase, scale, torsoAngle),
+        leftFoot: makeLegTransform("left", root, phase, scale),
+        rocket: makeRigidTransform("rocket", rocketBobPoint, torsoAngle, scale),
+        rightFoot: makeLegTransform("right", root, phase, scale),
+        robe: makeRigidTransform("robe", root, torsoAngle, scale),
+        head: makeRigidTransform("head", neck, headAngle, scale),
+        hat: makeRigidTransform("hat", hatBase, headAngle, scale),
+        rightArm: makeArmTransform("right", rightShoulder, phase, scale, torsoAngle)
+      };
+
+      return {
+        root,
+        debugPoints: [root, shoulderCenter, leftShoulder, rightShoulder, neck, rocketMount, hatBase],
+        transforms,
+        phase,
+        scale,
+        torsoAngle,
+        headAngle
+      };
+    }
+
+    function worldToScreenX(x) {
+      return x - state.cameraX;
+    }
+
+    function drawSprite(name, transform, root, facing) {
+      const p = asset(name);
+      if (p.missing || !transform) {
+        return;
+      }
+
+      const pivot = getPivot(name);
+      const part = getPartConfig(name);
+      const angle = facing < 0 ? -numeric(transform.angle, 0) : numeric(transform.angle, 0);
+      const targetHeight = numeric(transform.targetHeight, part.targetHeight);
+      const spriteScale = scaleForHeight(name, targetHeight);
+      const screenX = worldToScreenX(transform.x);
+
+      ctx.save();
+      ctx.translate(screenX, transform.y);
+      ctx.rotate(angle);
+      if (facing < 0) {
+        ctx.scale(-1, 1);
+      }
+      ctx.scale(spriteScale, spriteScale);
+      ctx.globalAlpha = numeric(transform.alpha, 1);
+      ctx.drawImage(p.canvas, -pivot.x * p.width, -pivot.y * p.height);
+
+      if (state.debugPivots) {
+        ctx.save();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.36)";
+        ctx.lineWidth = 1 / Math.max(0.001, Math.abs(spriteScale));
+        ctx.strokeRect(-pivot.x * p.width, -pivot.y * p.height, p.width, p.height);
+        ctx.fillStyle = "rgba(255, 225, 120, 0.92)";
+        ctx.beginPath();
+        ctx.arc(0, 0, 4 / Math.max(0.001, Math.abs(spriteScale)), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      ctx.restore();
+    }
+
+    function drawBackground() {
+      const g = ctx.createLinearGradient(0, 0, 0, state.viewH);
+      g.addColorStop(0, "#271d3a");
+      g.addColorStop(0.55, "#171627");
+      g.addColorStop(1, "#0f0d18");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, state.viewW, state.viewH);
+
+      ctx.save();
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = "#ffffff";
+      for (const star of state.starSeeds) {
+        const x = ((star.x - state.cameraX * star.parallax) % (state.viewW + 160) + (state.viewW + 160)) % (state.viewW + 160) - 80;
+        if (x < -20 || x > state.viewW + 20) continue;
+        const y = star.y;
+        ctx.fillRect(x, y, star.size, star.size);
+      }
+      ctx.restore();
+
+      const glowX = state.viewW * 0.2 + Math.sin(state.now * 0.0002) * 20;
+      const glowY = state.viewH * 0.16;
+      const glow = ctx.createRadialGradient(glowX, glowY, 8, glowX, glowY, 240);
+      glow.addColorStop(0, "rgba(231, 191, 120, 0.20)");
+      glow.addColorStop(1, "rgba(231, 191, 120, 0)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, state.viewW, state.viewH);
+
+      ctx.save();
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = "#120f1f";
+      ctx.beginPath();
+      ctx.moveTo(0, 150);
+      ctx.bezierCurveTo(200, 70, 380, 110, 560, 170);
+      ctx.bezierCurveTo(760, 240, 940, 190, 1120, 110);
+      ctx.lineTo(state.viewW, 0);
+      ctx.lineTo(0, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawTerrain() {
+      const cameraX = state.cameraX;
+      const solids = state.solids;
+
+      for (const solid of solids) {
+        const sx = solid.x - cameraX;
+        if (sx + solid.w < -120 || sx > state.viewW + 120) continue;
+
+        const isGround = solid.y >= 620;
+        const baseColor = isGround ? "#241d2f" : "#312540";
+        const topColor = isGround ? "#5f4c72" : "#7b6592";
+        const shadowColor = isGround ? "rgba(0, 0, 0, 0.26)" : "rgba(0, 0, 0, 0.18)";
+
+        const grad = ctx.createLinearGradient(0, solid.y, 0, solid.y + solid.h);
+        grad.addColorStop(0, topColor);
+        grad.addColorStop(0.2, baseColor);
+        grad.addColorStop(1, shadowColor);
+        ctx.fillStyle = grad;
+        roundRect(sx, solid.y, solid.w, solid.h, 10);
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.1)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        if (isGround) {
+          ctx.save();
+          ctx.globalAlpha = 0.18;
+          ctx.strokeStyle = "#f5e0a4";
+          ctx.lineWidth = 1;
+          for (let x = sx + 8; x < sx + solid.w - 8; x += 44) {
+            ctx.beginPath();
+            ctx.moveTo(x, solid.y + 10);
+            ctx.lineTo(x + 18, solid.y + 10);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+      }
+
+      drawMailbox();
+    }
+
+    function drawMailbox() {
+      const box = state.mailbox;
+      const x = box.x - state.cameraX;
+      const active = box.opened;
+      const w = box.w;
+      const h = box.h;
+      const y = box.y;
+
+      ctx.save();
+      ctx.translate(x, y);
+      const grad = ctx.createLinearGradient(0, 0, 0, h);
+      grad.addColorStop(0, active ? "#6f4e92" : "#3a2d52");
+      grad.addColorStop(1, active ? "#3f2c58" : "#241b32");
+      ctx.fillStyle = grad;
+      roundRect(0, 0, w, h, 10);
+      ctx.fill();
+      ctx.strokeStyle = active ? "rgba(231, 191, 120, 0.75)" : "rgba(255, 255, 255, 0.16)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+      roundRect(8, 10, w - 16, 20, 8);
+      ctx.fill();
+
+      ctx.fillStyle = "#f9efd2";
+      ctx.font = "700 17px Georgia, serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("Mailbox", w / 2, h * 0.54);
+
+      ctx.fillStyle = active ? "#ffe28c" : "#b9a4d5";
+      ctx.font = "700 13px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+      ctx.fillText(active ? "Opened" : "Waiting", w / 2, h - 17);
+
+      ctx.restore();
+    }
+
+    function drawShadow(root, scale, phase) {
+      const x = worldToScreenX(root.x);
+      ctx.save();
+      ctx.translate(x, root.groundY + 5);
+      ctx.scale(scale, 1);
+      ctx.globalAlpha = 0.24 + 0.05 * Math.cos(phase * 2);
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 104, 16, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawDebugPoints(points) {
+      if (!state.debugPivots) return;
+
+      ctx.save();
+      ctx.fillStyle = "rgba(255, 225, 120, 0.92)";
+      ctx.strokeStyle = "rgba(255, 225, 120, 0.55)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i < points.length; i += 1) {
+        const p = points[i];
+        const sx = worldToScreenX(p.x);
+        if (i === 0) ctx.moveTo(sx, p.y);
+        else ctx.lineTo(sx, p.y);
+      }
+      ctx.stroke();
+      for (const p of points) {
+        const sx = worldToScreenX(p.x);
+        ctx.beginPath();
+        ctx.arc(sx, p.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawParticle(particle) {
+      const sx = worldToScreenX(particle.x);
+      ctx.save();
+      ctx.globalAlpha = clamp(particle.life / particle.maxLife, 0, 1);
+      ctx.fillStyle = particle.color;
+      ctx.beginPath();
+      ctx.arc(sx, particle.y, particle.size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawRocketProjectile(rocket) {
+      const p = asset("rocket");
+      if (p.missing) return;
+
+      const screenX = worldToScreenX(rocket.x);
+      const pivot = getPivot("rocket");
+      const spriteScale = 0.92;
+      const angle = Math.atan2(rocket.vy, rocket.vx);
+      const flame = clamp(rocket.thrust ?? 0, 0, 1);
+
+      ctx.save();
+      ctx.translate(screenX, rocket.y);
+      ctx.rotate(angle);
+      ctx.scale(spriteScale, spriteScale);
+      ctx.drawImage(p.canvas, -pivot.x * p.width, -pivot.y * p.height);
+      if (flame > 0) {
+        drawFlame(0, 0, Math.PI, flame, 1);
+      }
+      ctx.restore();
+    }
+
+    function drawFlame(localX, localY, angle, intensity, lengthScale) {
+      const tail = 68 * lengthScale;
+      const width = 20 + intensity * 6;
+      const grad = ctx.createLinearGradient(0, 0, -tail, 0);
+      grad.addColorStop(0, "rgba(255, 220, 114, 0.95)");
+      grad.addColorStop(0.35, "rgba(255, 146, 59, 0.82)");
+      grad.addColorStop(1, "rgba(255, 77, 20, 0)");
+
+      ctx.save();
+      ctx.translate(localX, localY);
+      ctx.rotate(angle);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(0, -width * 0.42);
+      ctx.quadraticCurveTo(-tail * 0.42, -width * 0.58, -tail, 0);
+      ctx.quadraticCurveTo(-tail * 0.42, width * 0.58, 0, width * 0.42);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawWizard() {
+      const player = state.player;
+      const facing = player.facing;
+      const pose = computePose(player.y);
+
+      drawShadow(pose.root, pose.scale, pose.phase);
+
+      for (const name of FIXED_DRAW_ORDER) {
+        if (name === "rocket" && !state.rocket.attached) {
+          continue;
+        }
+
+        const transform = mirrorTransform(pose.transforms[name], pose.root, facing);
+        drawSprite(name, transform, pose.root, facing);
+      }
+
+      if (state.rocket.attached) {
+        const rocketPose = mirrorTransform(pose.transforms.rocket, pose.root, facing);
+        const mountX = worldToScreenX(rocketPose.x);
+        const mountY = rocketPose.y;
+        const rocketAngle = facing < 0 ? -rocketPose.angle : rocketPose.angle;
+        if (state.rocket.active) {
+          ctx.save();
+          ctx.translate(mountX, mountY);
+          ctx.rotate(rocketAngle);
+          drawFlame(14, 18, Math.PI, 1, 1.1);
+          ctx.restore();
+        }
+      }
+
+      if (state.rocket.free) {
+        drawRocketProjectile(state.rocket.free);
+      }
+
+      drawDebugPoints(pose.debugPoints);
+    }
+
+    function roundRect(x, y, w, h, r) {
+      const radius = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + w, y, x + w, y + h, radius);
+      ctx.arcTo(x + w, y + h, x, y + h, radius);
+      ctx.arcTo(x, y + h, x, y, radius);
+      ctx.arcTo(x, y, x + w, y, radius);
+      ctx.closePath();
+    }
+
+    function initializeWorld() {
+      state.solids = [
+        { x: -1600, y: 640, w: 2100, h: 160 },
+        { x: 1020, y: 640, w: 3400, h: 160 },
+        { x: 540, y: 560, w: 180, h: 28 },
+        { x: 880, y: 512, w: 200, h: 28 },
+        { x: 1240, y: 460, w: 220, h: 28 },
+        { x: 1780, y: 548, w: 190, h: 28 },
+        { x: 2250, y: 492, w: 160, h: 28 }
+      ];
+      state.worldWidth = 4620;
+
+      state.mailbox.y = 640 - state.mailbox.h;
+
+      state.starSeeds = [];
+      const rng = mulberry32(0x5f0c7b1);
+      for (let i = 0; i < 160; i += 1) {
+        state.starSeeds.push({
+          x: Math.floor(rng() * 5600) - 400,
+          y: Math.floor(rng() * 260 + 24),
+          size: 1 + Math.floor(rng() * 3),
+          parallax: 0.05 + rng() * 0.2
+        });
+      }
+    }
+
+    function mulberry32(seed) {
+      return function () {
+        let t = seed += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function spawnSparks(x, y, baseVx, baseVy, color) {
+      const rng = mulberry32(Math.floor((x + y + state.now) % 1000000));
+      for (let i = 0; i < 16; i += 1) {
+        const angle = rng() * Math.PI * 2;
+        const speed = 70 + rng() * 260;
+        state.particles.push({
+          x,
+          y,
+          vx: baseVx * 0.2 + Math.cos(angle) * speed,
+          vy: baseVy * 0.2 + Math.sin(angle) * speed,
+          size: 1.5 + rng() * 2.2,
+          life: 0.75 + rng() * 0.45,
+          maxLife: 0.75 + rng() * 0.45,
+          color
+        });
+      }
+    }
+
+    function showMessage(text, duration = 3600) {
+      messageEl.textContent = text;
+      state.messageVisibleUntil = state.now + duration;
+    }
+
+    function setChapter(index) {
+      state.chapterIndex = (index + CHAPTER_TITLES.length) % CHAPTER_TITLES.length;
+      chapterTitleEl.textContent = CHAPTER_TITLES[state.chapterIndex];
+    }
+
+    function resetPlayer() {
+      state.player.x = 180;
+      state.player.y = 640;
+      state.player.vx = 0;
+      state.player.vy = 0;
+      state.player.facing = 1;
+      state.player.onGround = true;
+      state.rocket.attached = true;
+      state.rocket.active = false;
+      state.rocket.fireAt = 0;
+      state.rocket.readyAt = 0;
+      state.rocket.thrustDir = { x: 1, y: -0.38 };
+      state.rocket.free = null;
+      state.mailbox.opened = false;
+      showMessage("Walk to the mailbox to collect the editor's note.", 4200);
+    }
+
+    function buildChapterMessage() {
+      return [
+        "Dear Ignatius,",
+        "",
+        "Please retrieve this letter, avoid the suspicious gaps, and try not to make the rocket look like a mistake.",
+        "",
+        `Chapter title: ${CHAPTER_TITLES[state.chapterIndex]}`,
+        "",
+        "Regards, The Editor"
+      ].join("\n");
+    }
+
+    function tryOpenMailbox() {
+      if (state.mailbox.opened) {
+        return;
+      }
+
+      state.mailbox.opened = true;
+      setChapter(state.chapterIndex);
+      showMessage(buildChapterMessage(), 6400);
+    }
+
+    function resolveCollisionWithSolids(rect, dx, dy) {
+      const player = state.player;
+
+      if (dx !== 0) {
+        player.x += dx;
+        rect = playerRect();
+        for (const solid of state.solids) {
+          if (!rectsIntersect(rect, solid)) continue;
+          if (dx > 0) {
+            player.x = solid.x - rect.w / 2;
+          } else {
+            player.x = solid.x + solid.w + rect.w / 2;
+          }
+          player.vx = 0;
+          rect = playerRect();
+        }
+      }
+
+      player.onGround = false;
+      if (dy !== 0) {
+        player.y += dy;
+        rect = playerRect();
+        for (const solid of state.solids) {
+          if (!rectsIntersect(rect, solid)) continue;
+          if (dy > 0) {
+            player.y = solid.y;
+            player.onGround = true;
+          } else {
+            player.y = solid.y + solid.h + player.height;
+          }
+          player.vy = 0;
+          rect = playerRect();
+        }
+      }
+    }
+
+    function playerRect() {
+      const player = state.player;
+      return {
+        x: player.x - player.width / 2,
+        y: player.y - player.height,
+        w: player.width,
+        h: player.height
+      };
+    }
+
+    function rocketMountPoint() {
+      const pose = computePose(state.player.y);
+      const facing = state.player.facing;
+      const rocketTransform = mirrorTransform(pose.transforms.rocket, pose.root, facing);
+      return {
+        x: rocketTransform.x,
+        y: rocketTransform.y,
+        angle: rocketTransform.angle
+      };
+    }
+
+    function triggerJump() {
+      if (!state.player.onGround) {
+        return;
+      }
+
+      state.player.vy = -jumpVelocityForHeight(state.player.height * 2, 2050);
+      state.player.onGround = false;
+      showMessage("Jump.", 900);
+    }
+
+    function triggerLaunch() {
+      if (state.player.onGround) {
+        showMessage("Jump first, then launch in midair.", 1600);
+        return;
+      }
+
+      if (state.player.vy > 0) {
+        showMessage("Too late. Launch while the jump is still rising or level.", 1500);
+        return;
+      }
+
+      if (!state.rocket.attached) {
+        showMessage("Rocket is not on the wizard's back yet.", 1200);
+        return;
+      }
+
+      const thrustDir = getLaunchVector();
+      state.player.facing = thrustDir.x < 0 ? -1 : 1;
+      state.rocket.active = true;
+      state.rocket.fireAt = state.now;
+      state.rocket.readyAt = state.now + 5000;
+      state.rocket.thrustDir = thrustDir;
+      showMessage("Rocket launch engaged.", 1400);
+      const mount = rocketMountPoint();
+      spawnSparks(mount.x - thrustDir.x * 26, mount.y - thrustDir.y * 26, -thrustDir.x * 34, -thrustDir.y * 34, "rgba(255, 203, 112, 0.9)");
+    }
+
+    function triggerRelease() {
+      if (state.rocket.free) {
+        return;
+      }
+
+      if (!state.rocket.attached || !state.rocket.active) {
+        showMessage("The rocket is not firing yet.", 1000);
+        return;
+      }
+
+      const mount = rocketMountPoint();
+      const thrustDir = normalizeVector(state.rocket.thrustDir.x, state.rocket.thrustDir.y);
+      const releaseSpeed = 220;
+      state.rocket.free = {
+        x: mount.x,
+        y: mount.y,
+        vx: state.player.vx + thrustDir.x * releaseSpeed,
+        vy: state.player.vy + thrustDir.y * releaseSpeed,
+        angle: Math.atan2(thrustDir.y, thrustDir.x),
+        thrustDir: { x: thrustDir.x, y: thrustDir.y },
+        burnEndsAt: state.rocket.readyAt,
+        thrust: 1
+      };
+      state.rocket.attached = false;
+      state.rocket.active = false;
+      showMessage("Wizard released. The rocket will reform when ready.", 1800);
+      spawnSparks(mount.x, mount.y, thrustDir.x * 40, thrustDir.y * 40, "rgba(255, 160, 88, 0.95)");
+    }
+
+    function triggerPrimaryAction() {
+      if (state.player.onGround) {
+        triggerJump();
+        return;
+      }
+
+      if (state.rocket.attached && state.rocket.active) {
+        triggerRelease();
+        return;
+      }
+
+      if (state.rocket.attached) {
+        triggerLaunch();
+        return;
+      }
+
+      showMessage("The rocket is rebuilding. Hold tight.", 900);
+    }
+
+    function updateInputFromKeyboard(code, isDown) {
+      if (isLeftKey(code)) {
+        state.keys.keyboardLeft = isDown;
+      } else if (isRightKey(code)) {
+        state.keys.keyboardRight = isDown;
+      }
+    }
+
+    function queueActionFromKeyboard(code) {
+      if (isPrimaryKey(code)) {
+        queuePrimaryAction();
+      }
+    }
+
+    function bindControls() {
+      const buttons = document.querySelectorAll("[data-action]");
+      for (const button of buttons) {
+        const action = button.dataset.action;
+        const hold = button.dataset.hold === "true";
+
+        const press = (event) => {
+          event.preventDefault();
+          if (hold) {
+            button.dataset.hold = "true";
+            try {
+              button.setPointerCapture(event.pointerId);
+            } catch (captureError) {
+              // Pointer capture is best-effort.
+            }
+            button.dataset.active = "true";
+            if (action === "left") state.keys.mouseLeft = true;
+            if (action === "right") state.keys.mouseRight = true;
+          } else if (action === "primary") {
+            queuePrimaryAction();
+          }
+        };
+
+        const release = (event) => {
+          if (!hold) return;
+          event.preventDefault();
+          button.removeAttribute("data-active");
+          if (action === "left") state.keys.mouseLeft = false;
+          if (action === "right") state.keys.mouseRight = false;
+        };
+
+        button.addEventListener("pointerdown", press);
+        button.addEventListener("pointerup", release);
+        button.addEventListener("pointercancel", release);
+        button.addEventListener("pointerleave", (event) => {
+          if (event.buttons === 0) release(event);
+        });
+      }
+
+      let activePointerId = null;
+      const clearMouse = () => {
+        state.keys.mouseLeft = false;
+        state.keys.mouseRight = false;
+      };
+
+      const applyPointerZone = (event, queuePrimary = false) => {
+        const zone = getCanvasPointerZone(event.clientX);
+        state.keys.mouseLeft = zone < 0;
+        state.keys.mouseRight = zone > 0;
+        if (zone === 0 && queuePrimary) {
+          queuePrimaryAction();
+        }
+      };
+
+      canvas.addEventListener("pointerdown", (event) => {
+        if (event.pointerType === "mouse" && event.button !== 0) {
+          return;
+        }
+
+        event.preventDefault();
+        activePointerId = event.pointerId;
+        try {
+          canvas.setPointerCapture(event.pointerId);
+        } catch (captureError) {
+          // Pointer capture is best-effort.
+        }
+        applyPointerZone(event, true);
+      });
+
+      canvas.addEventListener("pointermove", (event) => {
+        if (activePointerId !== event.pointerId) return;
+        event.preventDefault();
+        applyPointerZone(event, false);
+      });
+
+      const releasePointer = (event) => {
+        if (activePointerId !== event.pointerId) return;
+        event.preventDefault();
+        activePointerId = null;
+        clearMouse();
+      };
+
+      canvas.addEventListener("pointerup", releasePointer);
+      canvas.addEventListener("pointercancel", releasePointer);
+      canvas.addEventListener("pointerleave", (event) => {
+        if (activePointerId === event.pointerId) {
+          clearMouse();
+        }
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if (isLeftKey(event.code) || isRightKey(event.code) || isPrimaryKey(event.code)) {
+          event.preventDefault();
+        }
+
+        if (event.repeat) {
+          updateInputFromKeyboard(event.code, true);
+          return;
+        }
+
+        updateInputFromKeyboard(event.code, true);
+        queueActionFromKeyboard(event.code);
+
+        if (event.code === "KeyT") {
+          resetPlayer();
+        }
+      }, { passive: false });
+
+      window.addEventListener("keyup", (event) => {
+        updateInputFromKeyboard(event.code, false);
+      });
+
+      window.addEventListener("blur", () => {
+        state.keys.keyboardLeft = false;
+        state.keys.keyboardRight = false;
+        clearMouse();
+        state.keys.gamepadLeft = false;
+        state.keys.gamepadRight = false;
+        state.gamepad.actionPressed = false;
+      });
+
+      debugPivotsEl.addEventListener("change", () => {
+        state.debugPivots = debugPivotsEl.checked;
+        state.rigConfig.global.debugPivots = state.debugPivots;
+      });
+    }
+
+    function pollGamepad() {
+      const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+      let pad = null;
+
+      if (state.gamepad.index != null) {
+        pad = pads[state.gamepad.index] || null;
+        if (pad && !pad.connected) {
+          pad = null;
+        }
+      }
+
+      if (!pad) {
+        for (const candidate of pads) {
+          if (candidate && candidate.connected) {
+            pad = candidate;
+            state.gamepad.index = candidate.index;
+            break;
+          }
+        }
+      }
+
+      state.keys.gamepadLeft = false;
+      state.keys.gamepadRight = false;
+
+      if (!pad) {
+        state.gamepad.actionPressed = false;
+        return;
+      }
+
+      state.gamepad.index = pad.index;
+      const axis = pad.axes && pad.axes.length > 0 ? pad.axes[0] : 0;
+      const deadzone = 0.34;
+      state.keys.gamepadLeft = axis < -deadzone || Boolean(pad.buttons?.[14]?.pressed);
+      state.keys.gamepadRight = axis > deadzone || Boolean(pad.buttons?.[15]?.pressed);
+
+      const primary = Boolean(pad.buttons?.[0]?.pressed);
+      if (primary && !state.gamepad.actionPressed) {
+        queuePrimaryAction();
+      }
+      state.gamepad.actionPressed = primary;
+    }
+
+    function updateCamera() {
+      const target = clamp(state.player.x - state.viewW * 0.34, 0, Math.max(0, state.worldWidth - state.viewW));
+      state.cameraX = lerp(state.cameraX, target, 1 - Math.pow(0.0015, state.dt));
+    }
+
+    function updateDebugReadouts() {
+      const player = state.player;
+      statPosEl.textContent = `${player.x.toFixed(0)}, ${player.y.toFixed(0)}`;
+      statVelEl.textContent = `${player.vx.toFixed(1)}, ${player.vy.toFixed(1)}`;
+      statGroundedEl.textContent = player.onGround ? "yes" : "no";
+      statFacingEl.textContent = player.facing < 0 ? "left" : "right";
+      statRocketEl.textContent = state.rocket.free ? "flying" : state.rocket.active ? "boosting" : state.rocket.attached ? "ready" : "reforming";
+      statMailboxEl.textContent = state.mailbox.opened ? "opened" : "waiting";
+    }
+
+    function consumeQueuedActions() {
+      if (state.queue.primary) {
+        triggerPrimaryAction();
+        state.queue.primary = false;
+      }
+    }
+
+    function updatePlayer(dt) {
+      const player = state.player;
+      const move = getHorizontalInput();
+      if (move !== 0) {
+        player.facing = move < 0 ? -1 : 1;
+      }
+
+      const runTopSpeed = 400;
+      const airTopSpeed = 300;
+      const runAccel = player.onGround ? 400 : 220;
+      const brake = player.onGround ? 560 : 90;
+      const targetSpeed = move !== 0 ? move * (player.onGround ? runTopSpeed : airTopSpeed) : 0;
+      const accel = move !== 0 ? runAccel : brake;
+      player.vx = approach(player.vx, targetSpeed, accel * dt);
+
+      const horizontalCap = state.rocket.active ? 760 : runTopSpeed;
+      player.vx = clamp(player.vx, -horizontalCap, horizontalCap);
+
+      if (move !== 0) {
+        player.vx = clamp(player.vx, -horizontalCap, horizontalCap);
+      }
+
+      if (state.rocket.active) {
+        const thrustDir = normalizeVector(state.rocket.thrustDir.x, state.rocket.thrustDir.y);
+        const thrust = 1240;
+        player.vx += thrustDir.x * thrust * dt;
+        player.vy += thrustDir.y * thrust * dt;
+        if (state.now >= state.rocket.readyAt) {
+          state.rocket.active = false;
+          showMessage("Rocket thrust exhausted. It can fire again now.", 1200);
+        }
+      }
+
+      player.vy += 2050 * dt;
+      if (player.vy > 1300) player.vy = 1300;
+
+      const oldX = player.x;
+      const oldY = player.y;
+
+      player.x += player.vx * dt;
+      let rect = playerRect();
+      for (const solid of state.solids) {
+        if (!rectsIntersect(rect, solid)) continue;
+        if (player.x > oldX) {
+          player.x = solid.x - rect.w / 2;
+        } else if (player.x < oldX) {
+          player.x = solid.x + solid.w + rect.w / 2;
+        }
+        player.vx = 0;
+        rect = playerRect();
+      }
+
+      player.y += player.vy * dt;
+      player.onGround = false;
+      rect = playerRect();
+      for (const solid of state.solids) {
+        if (!rectsIntersect(rect, solid)) continue;
+        if (player.vy > 0) {
+          player.y = solid.y;
+          player.onGround = true;
+        } else if (player.vy < 0) {
+          player.y = solid.y + solid.h + player.height;
+        }
+        player.vy = 0;
+        rect = playerRect();
+      }
+
+      if (player.onGround && Math.abs(move) > 0 && Math.abs(player.vx) > 6) {
+        const animationSpeed = numeric(state.rigConfig.animation.speed, 1);
+        const cadence = clamp(Math.abs(player.vx) / 80, 0, 5.2) * (animationSpeed / 2.06);
+        state.walkPhase = (state.walkPhase + dt * cadence * Math.PI * 2) % (Math.PI * 2);
+      }
+
+      state.idlePhase = (state.idlePhase + dt * 1.2) % (Math.PI * 2);
+
+      if (player.y > 980) {
+        resetPlayer();
+        showMessage("The wizard fell back to safety. Try the jump and rocket again.", 2800);
+      }
+    }
+
+    function updateRocket(dt) {
+      if (!state.rocket.attached && state.now >= state.rocket.readyAt) {
+        state.rocket.attached = true;
+        state.rocket.active = false;
+        const mount = rocketMountPoint();
+        spawnSparks(mount.x, mount.y, 0, -20, "rgba(255, 220, 140, 0.96)");
+        showMessage("A fresh rocket sparkles back into place.", 1800);
+      }
+
+      if (state.rocket.free) {
+        const rocket = state.rocket.free;
+        const thrustRemaining = Math.max(0, rocket.burnEndsAt - state.now);
+        rocket.thrust = clamp(thrustRemaining / 5000, 0, 1);
+        if (thrustRemaining > 0) {
+          const thrustPower = 860;
+          const thrustDir = normalizeVector(rocket.thrustDir.x, rocket.thrustDir.y);
+          rocket.vx += thrustDir.x * thrustPower * dt;
+          rocket.vy += thrustDir.y * thrustPower * dt;
+        }
+        rocket.vy += 960 * dt;
+        rocket.x += rocket.vx * dt;
+        rocket.y += rocket.vy * dt;
+        rocket.angle = Math.atan2(rocket.vy, rocket.vx);
+        rocket.vx *= 0.999;
+        rocket.vy *= 0.999;
+
+        const rocketRect = {
+          x: rocket.x - 18,
+          y: rocket.y - 12,
+          w: 36,
+          h: 24
+        };
+
+        let hit = false;
+        for (const solid of state.solids) {
+          if (rectsIntersect(rocketRect, solid)) {
+            hit = true;
+            break;
+          }
+        }
+
+        if (hit || rocket.x < state.cameraX - 180 || rocket.x > state.cameraX + state.viewW + 320 || rocket.y > 1060) {
+          spawnSparks(rocket.x, rocket.y, rocket.vx * 0.15, rocket.vy * 0.15, "rgba(255, 198, 120, 0.95)");
+          state.rocket.free = null;
+          if (!state.rocket.attached && state.now >= state.rocket.readyAt) {
+            state.rocket.attached = true;
+            const mount = rocketMountPoint();
+            spawnSparks(mount.x, mount.y, 0, -20, "rgba(255, 220, 140, 0.96)");
+            showMessage("A fresh rocket sparkles back into place.", 1800);
+          } else {
+            showMessage("Rocket crash detected. Re-forming soon.", 2200);
+          }
+        }
+      }
+    }
+
+    function updateMailboxInteraction() {
+      const player = state.player;
+      const rect = playerRect();
+      const mailboxRect = {
+        x: state.mailbox.x,
+        y: state.mailbox.y,
+        w: state.mailbox.w,
+        h: state.mailbox.h
+      };
+
+      if (!state.mailbox.opened && rectsIntersect(rect, mailboxRect)) {
+        state.mailbox.opened = true;
+        setChapter(state.chapterIndex);
+        showMessage(buildChapterMessage(), 6400);
+        spawnSparks(mailboxRect.x + mailboxRect.w * 0.5, mailboxRect.y + 18, 0, -40, "rgba(255, 214, 132, 0.95)");
+      }
+    }
+
+    function updateParticles(dt) {
+      state.particles = state.particles.filter((particle) => {
+        particle.life -= dt;
+        particle.x += particle.vx * dt;
+        particle.y += particle.vy * dt;
+        particle.vy += 180 * dt;
+        particle.vx *= Math.max(0, 1 - dt * 0.8);
+        return particle.life > 0;
+      });
+    }
+
+    function updateDebugMessage() {
+      if (state.now > state.messageVisibleUntil && !state.mailbox.opened) {
+        messageEl.textContent = "Walk to the mailbox to collect the editor's note.";
+      }
+    }
+
+    function resizeCanvas() {
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.max(320, Math.floor(rect.width));
+      const height = Math.max(220, Math.floor(rect.height));
+      if (canvas.width !== Math.floor(width * dpr) || canvas.height !== Math.floor(height * dpr)) {
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+      }
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      state.viewW = width;
+      state.viewH = height;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      state.needsResize = false;
+    }
+
+    function step(now) {
+      state.now = now;
+      state.dt = Math.min(0.05, (now - state.last) / 1000);
+      state.last = now;
+
+      if (state.needsResize) {
+        resizeCanvas();
+      }
+
+      pollGamepad();
+      consumeQueuedActions();
+      updatePlayer(state.dt);
+      updateRocket(state.dt);
+      updateMailboxInteraction();
+      updateParticles(state.dt);
+      updateCamera();
+      updateDebugReadouts();
+      updateDebugMessage();
+
+      drawBackground();
+      drawTerrain();
+      drawWizard();
+
+      for (const particle of state.particles) {
+        drawParticle(particle);
+      }
+
+      requestAnimationFrame(step);
+    }
+
+    async function loadRigConfig() {
+      try {
+        const response = await fetch("wizard_rig_config.json", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const parsed = await response.json();
+        state.rigConfig = normalizeConfig(parsed);
+      } catch (error) {
+        state.rigConfig = normalizeConfig(DEFAULT_CONFIG);
+      }
+      debugPivotsEl.checked = Boolean(state.rigConfig.global.debugPivots);
+      state.debugPivots = Boolean(state.rigConfig.global.debugPivots);
+    }
+
+    function syncChapterUI() {
+      chapterTitleEl.textContent = CHAPTER_TITLES[state.chapterIndex];
+    }
+
+    initializeWorld();
+    bindControls();
+    syncChapterUI();
+    showMessage("Walk to the mailbox to collect the editor's note.", 4200);
+    await loadRigConfig();
+    await loadAllAssets();
+    window.addEventListener("resize", () => {
+      state.needsResize = true;
+    });
+    resizeCanvas();
+    requestAnimationFrame(step);
+
+    window.getRocketfrockState = () => clone({
+      player: state.player,
+      rocket: state.rocket,
+      mailbox: state.mailbox,
+      chapterIndex: state.chapterIndex
+    });
+    window.resetRocketfrockPrototype = resetPlayer;
+  })();
+  </script>
+</body>
+</html>
