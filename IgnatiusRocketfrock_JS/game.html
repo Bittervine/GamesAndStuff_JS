@@ -1362,8 +1362,8 @@
     function rocketNozzleLocalPoint(p) {
       const pivot = getPivot("rocket");
       return {
-        x: (0.5 - pivot.x) * p.width,
-        y: (1 - pivot.y) * p.height - 2
+        x: (0.279 - pivot.x) * p.width,
+        y: (1.08 - pivot.y) * p.height
       };
     }
 
@@ -1385,7 +1385,21 @@
       }
       ctx.scale(spriteScale, spriteScale);
       ctx.translate(nozzle.x, nozzle.y);
-      drawFlame(0, 0, -Math.PI / 2, intensity, 1);
+      ctx.globalCompositeOperation = "lighter";
+      ctx.strokeStyle = "rgba(255, 234, 165, 0.94)";
+      ctx.lineWidth = 8;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, 110);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(255, 151, 64, 0.68)";
+      ctx.lineWidth = 16;
+      ctx.beginPath();
+      ctx.moveTo(0, 8);
+      ctx.lineTo(0, 98);
+      ctx.stroke();
+      drawFlame(0, 0, 0, intensity, 1);
       ctx.restore();
     }
 
@@ -1410,27 +1424,47 @@
       if (flame > 0) {
         const nozzle = rocketNozzleLocalPoint(p);
         ctx.translate(nozzle.x, nozzle.y);
-        drawFlame(0, 0, -Math.PI / 2, flame, 1);
+        ctx.globalCompositeOperation = "lighter";
+        ctx.strokeStyle = "rgba(255, 234, 165, 0.94)";
+        ctx.lineWidth = 8;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, 110);
+        ctx.stroke();
+        ctx.strokeStyle = "rgba(255, 151, 64, 0.68)";
+        ctx.lineWidth = 16;
+        ctx.beginPath();
+        ctx.moveTo(0, 8);
+        ctx.lineTo(0, 98);
+        ctx.stroke();
+        drawFlame(0, 0, 0, flame, 1);
       }
       ctx.restore();
     }
 
     function drawFlame(localX, localY, angle, intensity, lengthScale) {
-      const tail = 68 * lengthScale;
-      const width = 20 + intensity * 6;
-      const grad = ctx.createLinearGradient(0, 0, -tail, 0);
-      grad.addColorStop(0, "rgba(255, 220, 114, 0.95)");
-      grad.addColorStop(0.35, "rgba(255, 146, 59, 0.82)");
-      grad.addColorStop(1, "rgba(255, 77, 20, 0)");
+      const tail = 210 * lengthScale;
+      const width = 46 + intensity * 16;
+      const grad = ctx.createLinearGradient(0, 0, 0, tail);
+      grad.addColorStop(0, "rgba(255, 238, 170, 0.98)");
+      grad.addColorStop(0.28, "rgba(255, 182, 84, 0.9)");
+      grad.addColorStop(0.68, "rgba(255, 112, 38, 0.72)");
+      grad.addColorStop(1, "rgba(255, 67, 18, 0)");
 
       ctx.save();
       ctx.translate(localX, localY);
       ctx.rotate(angle);
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = "rgba(255, 205, 112, 0.42)";
+      ctx.beginPath();
+      ctx.ellipse(0, tail * 0.18, width * 0.78, width * 0.48, 0, 0, Math.PI * 2);
+      ctx.fill();
       ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.moveTo(0, -width * 0.42);
-      ctx.quadraticCurveTo(-tail * 0.42, -width * 0.58, -tail, 0);
-      ctx.quadraticCurveTo(-tail * 0.42, width * 0.58, 0, width * 0.42);
+      ctx.moveTo(-width * 0.42, 0);
+      ctx.quadraticCurveTo(-width * 0.58, tail * 0.42, 0, tail);
+      ctx.quadraticCurveTo(width * 0.58, tail * 0.42, width * 0.42, 0);
       ctx.closePath();
       ctx.fill();
       ctx.restore();
