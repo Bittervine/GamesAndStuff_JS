@@ -407,6 +407,12 @@
       rocket: ["assets/wizard_rocket.png", "wizard_rocket.png"]
     };
 
+    const GRAVITY = 2050;
+    const RUN_TOP_SPEED = 400;
+    const AIR_TOP_SPEED = 300;
+    const ROCKET_BURN_MS = 5000;
+    const ROCKET_THRUST = 2620; // Tuned so the 45-degree launch case tops out near the viewport edge.
+
     const DEFAULT_CONFIG = {
       "meta": {
         "version": 2,
@@ -564,7 +570,12 @@
         width: 24,
         height: 46,
         facing: 1,
-        onGround: true
+        onGround: true,
+        bodyRotation: 0,
+        bodyRotationStart: 0,
+        bodyRotationTarget: 0,
+        bodyRotationStartAt: 0,
+        bodyRotationEndAt: 0
       },
       rocket: {
         attached: true,
@@ -658,6 +669,46 @@
       return { x: x / length, y: y / length };
     }
 
+    function normalizeAngle(angle) {
+      let normalized = angle % (Math.PI * 2);
+      if (normalized <= -Math.PI) {
+        normalized += Math.PI * 2;
+      } else if (normalized > Math.PI) {
+        normalized -= Math.PI * 2;
+      }
+      return normalized;
+    }
+
+    function lerpAngle(a, b, t) {
+      return a + normalizeAngle(b - a) * t;
+    }
+
+    function rotateTransformAroundRoot(transform, root, angle) {
+      if (!angle) {
+        return transform;
+      }
+
+      const local = rotatePoint(transform.x - root.x, transform.y - root.y, angle);
+      return {
+        x: root.x + local.x,
+        y: root.y + local.y,
+        angle: transform.angle + angle,
+        targetHeight: transform.targetHeight,
+        alpha: transform.alpha
+      };
+    }
+
+    function bodyRotationForVector(vector) {
+      return Math.atan2(vector.y, vector.x) + Math.PI / 2;
+    }
+
+    function setBodyRotationTarget(target, duration) {
+      state.player.bodyRotationStart = state.player.bodyRotation;
+      state.player.bodyRotationTarget = target;
+      state.player.bodyRotationStartAt = state.now;
+      state.player.bodyRotationEndAt = state.now + duration;
+    }
+
     function queuePrimaryAction() {
       state.queue.primary = true;
     }
@@ -689,9 +740,20 @@
 
     function getLaunchVector() {
       const player = state.player;
-      const vx = Math.abs(player.vx) > 10 ? player.vx : (player.facing || 1) * 180;
-      const vy = player.vy < -10 ? player.vy : -24;
-      return normalizeVector(vx, vy);
+      const vx = Math.abs(player.vx) > 10 ? player.vx : 0;
+      const vy = player.vy < -10 ? -player.vy : 0;
+      if (vx === 0 && vy === 0) {
+        return { x: 0, y: -1 };
+      }
+      if (vx !== 0 && vy < 10) {
+        return { x: Math.sign(vx), y: 0 };
+      }
+      if (vx === 0) {
+        return { x: 0, y: -1 };
+      }
+      const jumpSpeed = jumpVelocityForHeight(player.height * 2, GRAVITY);
+      const launchPitchScale = RUN_TOP_SPEED / Math.max(1, jumpSpeed);
+      return normalizeVector(vx, -vy * launchPitchScale);
     }
 
     function getCanvasPointerZone(clientX) {
@@ -1266,6 +1328,7 @@
     function drawWizard() {
       const player = state.player;
       const facing = player.facing;
+      const bodyRotation = player.bodyRotation || 0;
       const pose = computePose(player.y);
 
       drawShadow(pose.root, pose.scale, pose.phase);
@@ -1275,15 +1338,16 @@
           continue;
         }
 
-        const transform = mirrorTransform(pose.transforms[name], pose.root, facing);
+        const mirrored = mirrorTransform(pose.transforms[name], pose.root, facing);
+        const transform = rotateTransformAroundRoot(mirrored, pose.root, bodyRotation);
         drawSprite(name, transform, pose.root, facing);
       }
 
       if (state.rocket.attached) {
-        const rocketPose = mirrorTransform(pose.transforms.rocket, pose.root, facing);
+        const rocketPose = rotateTransformAroundRoot(mirrorTransform(pose.transforms.rocket, pose.root, facing), pose.root, bodyRotation);
         const mountX = worldToScreenX(rocketPose.x);
         const mountY = rocketPose.y;
-        const rocketAngle = facing < 0 ? -rocketPose.angle : rocketPose.angle;
+        const rocketAngle = rocketPose.angle;
         if (state.rocket.active) {
           ctx.save();
           ctx.translate(mountX, mountY);
@@ -1313,8 +1377,7 @@
 
     function initializeWorld() {
       state.solids = [
-        { x: -1600, y: 640, w: 2100, h: 160 },
-        { x: 1020, y: 640, w: 3400, h: 160 },
+        { x: -1600, y: 640, w: 6220, h: 160 },
         { x: 540, y: 560, w: 180, h: 28 },
         { x: 880, y: 512, w: 200, h: 28 },
         { x: 1240, y: 460, w: 220, h: 28 },
@@ -1381,6 +1444,11 @@
       state.player.vy = 0;
       state.player.facing = 1;
       state.player.onGround = true;
+      state.player.bodyRotation = 0;
+      state.player.bodyRotationStart = 0;
+      state.player.bodyRotationTarget = 0;
+      state.player.bodyRotationStartAt = 0;
+      state.player.bodyRotationEndAt = 0;
       state.rocket.attached = true;
       state.rocket.active = false;
       state.rocket.fireAt = 0;
@@ -1462,7 +1530,8 @@
     function rocketMountPoint() {
       const pose = computePose(state.player.y);
       const facing = state.player.facing;
-      const rocketTransform = mirrorTransform(pose.transforms.rocket, pose.root, facing);
+      const bodyRotation = state.player.bodyRotation || 0;
+      const rocketTransform = rotateTransformAroundRoot(mirrorTransform(pose.transforms.rocket, pose.root, facing), pose.root, bodyRotation);
       return {
         x: rocketTransform.x,
         y: rocketTransform.y,
@@ -1475,7 +1544,7 @@
         return;
       }
 
-      state.player.vy = -jumpVelocityForHeight(state.player.height * 2, 2050);
+      state.player.vy = -jumpVelocityForHeight(state.player.height * 2, GRAVITY);
       state.player.onGround = false;
       showMessage("Jump.", 900);
     }
@@ -1497,10 +1566,13 @@
       }
 
       const thrustDir = getLaunchVector();
-      state.player.facing = thrustDir.x < 0 ? -1 : 1;
+      if (Math.abs(thrustDir.x) > 0.08) {
+        state.player.facing = thrustDir.x < 0 ? -1 : 1;
+      }
+      setBodyRotationTarget(bodyRotationForVector(thrustDir), 200);
       state.rocket.active = true;
       state.rocket.fireAt = state.now;
-      state.rocket.readyAt = state.now + 5000;
+      state.rocket.readyAt = state.now + ROCKET_BURN_MS;
       state.rocket.thrustDir = thrustDir;
       showMessage("Rocket launch engaged.", 1400);
       const mount = rocketMountPoint();
@@ -1520,6 +1592,7 @@
       const mount = rocketMountPoint();
       const thrustDir = normalizeVector(state.rocket.thrustDir.x, state.rocket.thrustDir.y);
       const releaseSpeed = 220;
+      setBodyRotationTarget(0, 320);
       state.rocket.free = {
         x: mount.x,
         y: mount.y,
@@ -1767,8 +1840,8 @@
         player.facing = move < 0 ? -1 : 1;
       }
 
-      const runTopSpeed = 400;
-      const airTopSpeed = 300;
+      const runTopSpeed = RUN_TOP_SPEED;
+      const airTopSpeed = AIR_TOP_SPEED;
       const runAccel = player.onGround ? 400 : 220;
       const brake = player.onGround ? 560 : 90;
       const targetSpeed = move !== 0 ? move * (player.onGround ? runTopSpeed : airTopSpeed) : 0;
@@ -1784,16 +1857,16 @@
 
       if (state.rocket.active) {
         const thrustDir = normalizeVector(state.rocket.thrustDir.x, state.rocket.thrustDir.y);
-        const thrust = 1240;
-        player.vx += thrustDir.x * thrust * dt;
-        player.vy += thrustDir.y * thrust * dt;
+        player.vx += thrustDir.x * ROCKET_THRUST * dt;
+        player.vy += thrustDir.y * ROCKET_THRUST * dt;
         if (state.now >= state.rocket.readyAt) {
           state.rocket.active = false;
+          setBodyRotationTarget(0, 320);
           showMessage("Rocket thrust exhausted. It can fire again now.", 1200);
         }
       }
 
-      player.vy += 2050 * dt;
+      player.vy += GRAVITY * dt;
       if (player.vy > 1300) player.vy = 1300;
 
       const oldX = player.x;
@@ -1827,6 +1900,18 @@
         rect = playerRect();
       }
 
+      if (state.rocket.active) {
+        const total = Math.max(1, player.bodyRotationEndAt - player.bodyRotationStartAt);
+        const t = clamp((state.now - player.bodyRotationStartAt) / total, 0, 1);
+        player.bodyRotation = lerpAngle(player.bodyRotationStart, player.bodyRotationTarget, t);
+      } else if (!player.onGround) {
+        const total = Math.max(1, player.bodyRotationEndAt - player.bodyRotationStartAt);
+        const t = clamp((state.now - player.bodyRotationStartAt) / total, 0, 1);
+        player.bodyRotation = lerpAngle(player.bodyRotationStart, player.bodyRotationTarget, t);
+      } else if (player.onGround) {
+        player.bodyRotation = lerpAngle(player.bodyRotation, 0, Math.min(1, dt * 10));
+      }
+
       if (player.onGround && Math.abs(move) > 0 && Math.abs(player.vx) > 6) {
         const animationSpeed = numeric(state.rigConfig.animation.speed, 1);
         const cadence = clamp(Math.abs(player.vx) / 80, 0, 5.2) * (animationSpeed / 2.06);
@@ -1853,9 +1938,9 @@
       if (state.rocket.free) {
         const rocket = state.rocket.free;
         const thrustRemaining = Math.max(0, rocket.burnEndsAt - state.now);
-        rocket.thrust = clamp(thrustRemaining / 5000, 0, 1);
+        rocket.thrust = clamp(thrustRemaining / ROCKET_BURN_MS, 0, 1);
         if (thrustRemaining > 0) {
-          const thrustPower = 860;
+          const thrustPower = ROCKET_THRUST;
           const thrustDir = normalizeVector(rocket.thrustDir.x, rocket.thrustDir.y);
           rocket.vx += thrustDir.x * thrustPower * dt;
           rocket.vy += thrustDir.y * thrustPower * dt;
