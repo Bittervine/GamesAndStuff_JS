@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ignatius Rocketfrock</title>
+  <style>
+    :root {
+      --bg-1: #13111a;
+      --bg-2: #1c1830;
+      --panel: rgba(23, 20, 34, 0.9);
+      --text: #f6f0ff;
+      --muted: #cbbfe0;
+      --accent: #d8b4ff;
+      --line: rgba(255, 255, 255, 0.14);
+      --shadow: rgba(0, 0, 0, 0.42);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 20% 18%, rgba(153, 102, 255, 0.25), transparent 34%),
+        radial-gradient(circle at 85% 8%, rgba(255, 207, 134, 0.14), transparent 28%),
+        linear-gradient(180deg, var(--bg-2), var(--bg-1));
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    main {
+      width: min(960px, 100%);
+      display: grid;
+      gap: 18px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      overflow: hidden;
+      background: var(--panel);
+      box-shadow: 0 24px 80px var(--shadow);
+    }
+
+    .title-wrap {
+      padding: 20px 20px 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 4.6vw, 3.8rem);
+      line-height: 1;
+      letter-spacing: 0.02em;
+    }
+
+    .subtitle {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.45;
+    }
+
+    .image-shell {
+      padding: 18px 20px 20px;
+    }
+
+    img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 0 20px 20px;
+    }
+
+    a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 16px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--text);
+      text-decoration: none;
+      background: rgba(255, 255, 255, 0.08);
+      font-weight: 700;
+    }
+
+    a:hover,
+    a:focus-visible {
+      background: rgba(255, 255, 255, 0.14);
+      outline: none;
+    }
+
+    .note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card" aria-label="Ignatius Rocketfrock title card">
+      <div class="title-wrap">
+        <h1>Ignatius Rocketfrock</h1>
+        <p class="subtitle">A wizard, a rocket, and a placeholder page for the rig runner.</p>
+      </div>
+
+      <div class="image-shell">
+        <img src="title_card.png" alt="Ignatius Rocketfrock title card">
+      </div>
+
+      <div class="links">
+        <a href="wizard_rig_runner.html">Open wizard rig runner</a>
+        <a href="../GamesAndStuff_JS.html">Back to Games And Stuff</a>
+      </div>
+    </section>
+
+    <p class="note">This page is just the title card landing page for now.</p>
+  </main>
+</body>
+</html>
