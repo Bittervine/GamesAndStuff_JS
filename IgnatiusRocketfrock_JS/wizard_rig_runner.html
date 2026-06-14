@@ -1,0 +1,1317 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Wizard Rocket Runner Rig</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --panel: rgba(20, 18, 27, 0.92);
+            --ink: #f2edf8;
+            --muted: #c8bbd7;
+            --line: rgba(255, 255, 255, 0.16);
+            --accent: #c9a7ff;
+            --warn: #ffcf86;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at 28% 20%, rgba(115, 88, 150, 0.28), transparent 34rem),
+                linear-gradient(180deg, #15121c 0%, #0d0c12 100%);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: var(--ink);
+            overflow: hidden;
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: 1fr 430px;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #stage-wrap {
+            min-width: 0;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+        }
+
+        canvas {
+            display: block;
+            width: min(100%, 1100px);
+            height: auto;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            background: linear-gradient(180deg, #26213a 0%, #161525 68%, #111019 100%);
+            box-shadow: 0 30px 90px rgba(0, 0, 0, 0.44);
+        }
+
+        aside {
+            border-left: 1px solid var(--line);
+            background: var(--panel);
+            padding: 18px;
+            overflow: auto;
+        }
+
+        h1 {
+            margin: 0 0 6px;
+            font-size: 19px;
+            letter-spacing: 0.02em;
+        }
+
+        p {
+            margin: 0 0 15px;
+            color: var(--muted);
+            line-height: 1.35;
+            font-size: 13px;
+        }
+
+        label {
+            display: grid;
+            gap: 6px;
+            margin: 12px 0;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        input[type="range"], textarea, select {
+            width: 100%;
+        }
+
+        input[type="range"] {
+            accent-color: #b68cff;
+        }
+
+        select, textarea {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.22);
+            color: var(--ink);
+            padding: 9px 10px;
+            font: inherit;
+        }
+
+        textarea {
+            min-height: 280px;
+            resize: vertical;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 11px;
+            line-height: 1.35;
+            white-space: pre;
+            tab-size: 4;
+        }
+
+        button {
+            width: 100%;
+            margin: 8px 0 0;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--ink);
+            cursor: pointer;
+            font-weight: 650;
+        }
+
+        button:hover {
+            background: rgba(255, 255, 255, 0.13);
+        }
+
+        .readout {
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .box {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 12px;
+            margin: 14px 0;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .asset-row {
+            display: grid;
+            grid-template-columns: 112px 1fr;
+            gap: 8px;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 12px;
+        }
+
+        .asset-row input {
+            min-width: 0;
+            color: var(--muted);
+        }
+
+        .button-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .button-row button {
+            margin-top: 8px;
+        }
+
+        code {
+            color: var(--accent);
+        }
+
+        #status, #config-message {
+            white-space: pre-wrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 11px;
+            line-height: 1.35;
+            color: var(--muted);
+            max-height: 190px;
+            overflow: auto;
+        }
+
+        #config-message {
+            color: var(--warn);
+            margin-top: 8px;
+        }
+
+        @media (max-width: 980px) {
+            body {
+                overflow: auto;
+            }
+
+            main {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+
+            aside {
+                border-left: 0;
+                border-top: 1px solid var(--line);
+            }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <div id="stage-wrap">
+        <canvas id="stage" width="1100" height="620" aria-label="Wizard rig runner canvas"></canvas>
+    </div>
+    <aside>
+        <h1>Wizard Rocket Runner Rig</h1>
+        <p>
+            This rig only uses the provided pieces: robe, head, hat, left arm, right arm, left leg sprite, right leg sprite, and rocket. The renderer always draws left arm, left leg, rocket, right leg, robe, head, hat, then right arm.
+        </p>
+
+        <div class="box">
+            <label>
+                <span class="readout"><span>Run speed</span><span id="speed-value"></span></span>
+                <input id="speed" type="range" min="0" max="3" step="0.01" value="1.25">
+            </label>
+            <label>
+                <span class="readout"><span>Global wizard scale</span><span id="scale-value"></span></span>
+                <input id="scale" type="range" min="0.35" max="2.00" step="0.01" value="0.92">
+            </label>
+            <label>
+                <span class="readout"><span>Body lean</span><span id="lean-value"></span></span>
+                <input id="lean" type="range" min="-0.45" max="0.45" step="0.01" value="0.19">
+            </label>
+            <label>
+                <span class="readout"><span>Ground offset</span><span id="ground-value"></span></span>
+                <input id="ground" type="range" min="-120" max="120" step="1" value="0">
+            </label>
+            <label>
+                <span class="readout"><span>Debug pivots</span><span id="debug-value"></span></span>
+                <input id="debug" type="range" min="0" max="1" step="1" value="0">
+            </label>
+            <button id="pause">Pause</button>
+            <button id="reset">Reset phase</button>
+        </div>
+
+        <div class="box">
+            <p>Selected part tuning. Pivot values are normalized across each trimmed sprite: <code>0,0</code> is top-left and <code>1,1</code> is bottom-right.</p>
+            <label>
+                <span>Part</span>
+                <select id="part-select"></select>
+            </label>
+            <label>
+                <span class="readout"><span>Pivot X</span><span id="pivot-x-value"></span></span>
+                <input id="pivot-x" type="range" min="-0.50" max="1.50" step="0.005" value="0.5">
+            </label>
+            <label>
+                <span class="readout"><span>Pivot Y</span><span id="pivot-y-value"></span></span>
+                <input id="pivot-y" type="range" min="-0.50" max="1.50" step="0.005" value="0.5">
+            </label>
+            <label>
+                <span class="readout"><span>Part scale</span><span id="part-scale-value"></span></span>
+                <input id="part-scale" type="range" min="0.20" max="3.00" step="0.01" value="1">
+            </label>
+            <label>
+                <span class="readout"><span>Target height</span><span id="target-height-value"></span></span>
+                <input id="target-height" type="range" min="10" max="420" step="1" value="100">
+            </label>
+            <label>
+                <span class="readout"><span>Offset X</span><span id="offset-x-value"></span></span>
+                <input id="offset-x" type="range" min="-220" max="220" step="1" value="0">
+            </label>
+            <label>
+                <span class="readout"><span>Offset Y</span><span id="offset-y-value"></span></span>
+                <input id="offset-y" type="range" min="-220" max="220" step="1" value="0">
+            </label>
+        </div>
+
+        <div class="box">
+            <p>
+                Rig JSON. Edit it here, apply it, copy it, or download it as <code>wizard_rig_config.json</code>. The draw order is deliberately locked by the renderer even if this JSON is edited.
+            </p>
+            <textarea id="config-json" spellcheck="false" aria-label="Wizard rig JSON configuration"></textarea>
+            <div class="button-row">
+                <button id="apply-config">Apply JSON</button>
+                <button id="copy-config">Copy JSON</button>
+                <button id="download-config">Download JSON</button>
+                <button id="refresh-config">Refresh JSON</button>
+            </div>
+            <label>
+                <span>Load JSON file</span>
+                <input id="config-file" type="file" accept="application/json,.json">
+            </label>
+            <div id="config-message"></div>
+        </div>
+
+        <div class="box">
+            <p>
+                File overrides. Use these while tuning, or place PNGs next to this HTML file using names such as <code>wizard_robe.png</code> and <code>wizard_left_arm.png</code>.
+            </p>
+            <div id="file-inputs"></div>
+        </div>
+
+        <div class="box">
+            <p>Status</p>
+            <div id="status"></div>
+        </div>
+    </aside>
+</main>
+
+<script>
+(() => {
+    "use strict";
+
+    const canvas = document.getElementById("stage");
+    const ctx = canvas.getContext("2d", { alpha: false });
+    const statusEl = document.getElementById("status");
+    const configText = document.getElementById("config-json");
+    const configMessage = document.getElementById("config-message");
+
+    const FIXED_DRAW_ORDER = [
+        "leftArm",
+        "leftFoot",
+        "rocket",
+        "rightFoot",
+        "robe",
+        "head",
+        "hat",
+        "rightArm"
+    ];
+
+    const PART_LABELS = {
+        leftArm: "1. Left arm",
+        leftFoot: "2. Left leg sprite",
+        rocket: "3. Rocket",
+        rightFoot: "4. Right leg sprite",
+        robe: "5. Robe / body",
+        head: "6. Head",
+        hat: "7. Hat",
+        rightArm: "8. Right arm"
+    };
+
+    const ASSET_CANDIDATES = {
+        hat: ["wizard_hat.png", "assets/wizard_hat.png", "assets/wizard/hat.png", "assets/hat.png"],
+        head: ["wizard_head.png", "assets/wizard_head.png", "assets/wizard/head.png", "assets/head.png"],
+        robe: ["wizard_robe.png", "assets/wizard_robe.png", "assets/wizard/robe.png", "assets/robe.png", "assets/wizard/body.png"],
+        leftArm: ["wizard_left_arm.png", "assets/wizard_left_arm.png", "assets/wizard/left_arm.png", "assets/left_arm.png"],
+        rightArm: ["wizard_right_arm.png", "assets/wizard_right_arm.png", "assets/wizard/right_arm.png", "assets/right_arm.png"],
+        leftFoot: ["wizard_left_foot.png", "assets/wizard_left_foot.png", "assets/wizard/left_foot.png", "assets/left_foot.png", "assets/wizard/left_leg.png"],
+        rightFoot: ["wizard_right_foot.png", "assets/wizard_right_foot.png", "assets/wizard/right_foot.png", "assets/right_foot.png", "assets/wizard/right_leg.png"],
+        rocket: ["wizard_rocket.png", "assets/wizard_rocket.png", "assets/wizard/rocket.png", "assets/rocket.png"]
+    };
+
+    const DEFAULT_CONFIG = 
+    {
+        "meta": {
+            "version": 2,
+            "note": "All positions are rig-space pixels unless otherwise stated. Pivot x/y are normalized sprite-space coordinates. Draw order is locked by the renderer."
+        },
+        "drawOrder": [
+            "leftArm",
+            "leftFoot",
+            "rocket",
+            "rightFoot",
+            "robe",
+            "head",
+            "hat",
+            "rightArm"
+        ],
+        "global": {
+            "scale": 0.64,
+            "lean": 0.19,
+            "rootX": 550,
+            "rootYOffsetFromGround": -146,
+            "groundOffset": -15,
+            "debugPivots": false
+        },
+        "animation": {
+            "speed": 1.2,
+            "torsoWobble": 0.035,
+            "headWobble": 0.025,
+            "headLeanMultiplier": 0.45,
+            "rootSway": 3.2,
+            "bobAmplitude": 5.5,
+            "bobCompression": 1.6,
+            "rocketBob": 2.2
+        },
+        "anchors": {
+            "shoulderCenter": {
+                "x": 0,
+                "y": -102
+            },
+            "leftShoulder": {
+                "x": 20,
+                "y": 4
+            },
+            "rightShoulder": {
+                "x": -20,
+                "y": 4
+            },
+            "neck": {
+                "x": 4,
+                "y": -134
+            },
+            "rocketMount": {
+                "x": -45,
+                "y": -64
+            },
+            "hatFromHead": {
+                "x": -1,
+                "y": -55
+            }
+        },
+        "legMotion": {
+            "stride": 37,
+            "lift": 26,
+            "groundRise": -4,
+            "leftBaseX": 13,
+            "rightBaseX": -13,
+            "angleStride": -0.15,
+            "angleLift": 0.1,
+            "anglePlanted": -0.03
+        },
+        "pivots": {
+            "leftArm": {
+                "x": 0.27,
+                "y": 0.14
+            },
+            "leftFoot": {
+                "x": 0.38,
+                "y": 0.86
+            },
+            "rocket": {
+                "x": 0.72,
+                "y": 0.58
+            },
+            "rightFoot": {
+                "x": 0.42,
+                "y": 0.86
+            },
+            "robe": {
+                "x": 0.55,
+                "y": 0.55
+            },
+            "head": {
+                "x": 0.53,
+                "y": 0.82
+            },
+            "hat": {
+                "x": 0.46,
+                "y": 0.76
+            },
+            "rightArm": {
+                "x": 0.48,
+                "y": 0.13
+            }
+        },
+        "parts": {
+            "leftArm": {
+                "targetHeight": 128,
+                "scale": 0.73,
+                "offset": {
+                    "x": -39,
+                    "y": 73
+                },
+                "rotation": {
+                    "base": -0.16,
+                    "swing": 0.52,
+                    "lift": -0.08,
+                    "torso": 1
+                },
+                "alpha": 1
+            },
+            "leftFoot": {
+                "targetHeight": 90,
+                "scale": 0.98,
+                "offset": {
+                    "x": -34,
+                    "y": 0
+                },
+                "rotation": {
+                    "base": 0
+                },
+                "alpha": 1
+            },
+            "rocket": {
+                "targetHeight": 220,
+                "scale": 1,
+                "offset": {
+                    "x": 0,
+                    "y": 0
+                },
+                "rotation": {
+                    "base": 0.07,
+                    "torso": 1
+                },
+                "alpha": 0.98
+            },
+            "rightFoot": {
+                "targetHeight": 90,
+                "scale": 1.02,
+                "offset": {
+                    "x": 0,
+                    "y": 0
+                },
+                "rotation": {
+                    "base": 0
+                },
+                "alpha": 1
+            },
+            "robe": {
+                "targetHeight": 258,
+                "scale": 0.73,
+                "offset": {
+                    "x": 0,
+                    "y": 0
+                },
+                "rotation": {
+                    "base": 0,
+                    "torso": 1
+                },
+                "alpha": 1
+            },
+            "head": {
+                "targetHeight": 78,
+                "scale": 1.28,
+                "offset": {
+                    "x": -14,
+                    "y": 54
+                },
+                "rotation": {
+                    "base": 0
+                },
+                "alpha": 1
+            },
+            "hat": {
+                "targetHeight": 76,
+                "scale": 2.42,
+                "offset": {
+                    "x": -18,
+                    "y": 48
+                },
+                "rotation": {
+                    "base": -0.02
+                },
+                "alpha": 1
+            },
+            "rightArm": {
+                "targetHeight": 128,
+                "scale": 1.03,
+                "offset": {
+                    "x": -25,
+                    "y": 47
+                },
+                "rotation": {
+                    "base": 0.03,
+                    "swing": 0.52,
+                    "lift": -0.08,
+                    "torso": 1
+                },
+                "alpha": 1
+            }
+        }
+    };
+
+    const control = {
+        speed: document.getElementById("speed"),
+        scale: document.getElementById("scale"),
+        lean: document.getElementById("lean"),
+        ground: document.getElementById("ground"),
+        debug: document.getElementById("debug"),
+        pause: document.getElementById("pause"),
+        reset: document.getElementById("reset"),
+        partSelect: document.getElementById("part-select"),
+        pivotX: document.getElementById("pivot-x"),
+        pivotY: document.getElementById("pivot-y"),
+        partScale: document.getElementById("part-scale"),
+        targetHeight: document.getElementById("target-height"),
+        offsetX: document.getElementById("offset-x"),
+        offsetY: document.getElementById("offset-y"),
+        applyConfig: document.getElementById("apply-config"),
+        copyConfig: document.getElementById("copy-config"),
+        downloadConfig: document.getElementById("download-config"),
+        refreshConfig: document.getElementById("refresh-config"),
+        configFile: document.getElementById("config-file")
+    };
+
+    const readout = {
+        speed: document.getElementById("speed-value"),
+        scale: document.getElementById("scale-value"),
+        lean: document.getElementById("lean-value"),
+        ground: document.getElementById("ground-value"),
+        debug: document.getElementById("debug-value"),
+        pivotX: document.getElementById("pivot-x-value"),
+        pivotY: document.getElementById("pivot-y-value"),
+        partScale: document.getElementById("part-scale-value"),
+        targetHeight: document.getElementById("target-height-value"),
+        offsetX: document.getElementById("offset-x-value"),
+        offsetY: document.getElementById("offset-y-value")
+    };
+
+    const state = {
+        assets: new Map(),
+        missing: [],
+        lastTime: performance.now(),
+        phase: 0,
+        paused: false,
+        syncingUi: false
+    };
+
+    let rigConfig = normalizeConfig(DEFAULT_CONFIG);
+
+    function clone(value) {
+        return JSON.parse(JSON.stringify(value));
+    }
+
+    function isPlainObject(value) {
+        return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+    }
+
+    function deepMerge(base, incoming) {
+        if (Array.isArray(base)) {
+            return Array.isArray(incoming) ? clone(incoming) : clone(base);
+        }
+
+        if (!isPlainObject(base)) {
+            return incoming === undefined ? base : incoming;
+        }
+
+        const result = clone(base);
+        if (!isPlainObject(incoming)) {
+            return result;
+        }
+
+        for (const key of Object.keys(incoming)) {
+            if (key in base) {
+                result[key] = deepMerge(base[key], incoming[key]);
+            } else {
+                result[key] = clone(incoming[key]);
+            }
+        }
+
+        return result;
+    }
+
+    function numeric(value, fallback) {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : fallback;
+    }
+
+    function normalizeConfig(rawConfig) {
+        const merged = deepMerge(DEFAULT_CONFIG, rawConfig);
+        merged.drawOrder = FIXED_DRAW_ORDER.slice();
+
+        for (const name of FIXED_DRAW_ORDER) {
+            merged.pivots[name] = merged.pivots[name] || clone(DEFAULT_CONFIG.pivots[name]);
+            merged.parts[name] = merged.parts[name] || clone(DEFAULT_CONFIG.parts[name]);
+            merged.parts[name].offset = merged.parts[name].offset || { x: 0, y: 0 };
+            merged.parts[name].rotation = merged.parts[name].rotation || {};
+            merged.parts[name].targetHeight = numeric(merged.parts[name].targetHeight, DEFAULT_CONFIG.parts[name].targetHeight);
+            merged.parts[name].scale = numeric(merged.parts[name].scale, 1);
+            merged.parts[name].alpha = numeric(merged.parts[name].alpha, 1);
+        }
+
+        return merged;
+    }
+
+    function showConfigMessage(text) {
+        configMessage.textContent = text || "";
+    }
+
+    function syncConfigText() {
+        configText.value = JSON.stringify(rigConfig, null, 4);
+    }
+
+    function controlsToConfig() {
+        if (state.syncingUi) return;
+        rigConfig.animation.speed = Number(control.speed.value);
+        rigConfig.global.scale = Number(control.scale.value);
+        rigConfig.global.lean = Number(control.lean.value);
+        rigConfig.global.groundOffset = Number(control.ground.value);
+        rigConfig.global.debugPivots = control.debug.value === "1";
+        updateReadouts();
+        syncConfigText();
+    }
+
+    function configToControls() {
+        state.syncingUi = true;
+        control.speed.value = numeric(rigConfig.animation.speed, 1.25);
+        control.scale.value = numeric(rigConfig.global.scale, 0.92);
+        control.lean.value = numeric(rigConfig.global.lean, 0.19);
+        control.ground.value = numeric(rigConfig.global.groundOffset, 0);
+        control.debug.value = rigConfig.global.debugPivots ? "1" : "0";
+        state.syncingUi = false;
+        updateReadouts();
+    }
+
+    function selectedPartName() {
+        return control.partSelect.value || FIXED_DRAW_ORDER[0];
+    }
+
+    function selectedPartToControls() {
+        const name = selectedPartName();
+        const pivot = rigConfig.pivots[name];
+        const part = rigConfig.parts[name];
+
+        state.syncingUi = true;
+        control.pivotX.value = numeric(pivot.x, 0.5);
+        control.pivotY.value = numeric(pivot.y, 0.5);
+        control.partScale.value = numeric(part.scale, 1);
+        control.targetHeight.value = numeric(part.targetHeight, 100);
+        control.offsetX.value = numeric(part.offset.x, 0);
+        control.offsetY.value = numeric(part.offset.y, 0);
+        state.syncingUi = false;
+        updatePartReadouts();
+    }
+
+    function partControlsToSelectedPart() {
+        if (state.syncingUi) return;
+        const name = selectedPartName();
+        const pivot = rigConfig.pivots[name];
+        const part = rigConfig.parts[name];
+        pivot.x = Number(control.pivotX.value);
+        pivot.y = Number(control.pivotY.value);
+        part.scale = Number(control.partScale.value);
+        part.targetHeight = Number(control.targetHeight.value);
+        part.offset.x = Number(control.offsetX.value);
+        part.offset.y = Number(control.offsetY.value);
+        updatePartReadouts();
+        syncConfigText();
+    }
+
+    function updateReadouts() {
+        readout.speed.textContent = `${Number(control.speed.value).toFixed(2)}x`;
+        readout.scale.textContent = `${Number(control.scale.value).toFixed(2)}x`;
+        readout.lean.textContent = `${Number(control.lean.value).toFixed(2)} rad`;
+        readout.ground.textContent = `${Number(control.ground.value)} px`;
+        readout.debug.textContent = control.debug.value === "1" ? "on" : "off";
+    }
+
+    function updatePartReadouts() {
+        readout.pivotX.textContent = Number(control.pivotX.value).toFixed(3);
+        readout.pivotY.textContent = Number(control.pivotY.value).toFixed(3);
+        readout.partScale.textContent = `${Number(control.partScale.value).toFixed(2)}x`;
+        readout.targetHeight.textContent = `${Number(control.targetHeight.value)} px`;
+        readout.offsetX.textContent = `${Number(control.offsetX.value)} px`;
+        readout.offsetY.textContent = `${Number(control.offsetY.value)} px`;
+    }
+
+    function setupPartSelect() {
+        for (const name of FIXED_DRAW_ORDER) {
+            const option = document.createElement("option");
+            option.value = name;
+            option.textContent = PART_LABELS[name] || name;
+            control.partSelect.appendChild(option);
+        }
+    }
+
+    function makeMissingPart(name) {
+        const c = document.createElement("canvas");
+        c.width = 1;
+        c.height = 1;
+        return {
+            canvas: c,
+            width: 1,
+            height: 1,
+            naturalWidth: 1,
+            naturalHeight: 1,
+            name,
+            missing: true,
+            bounds: { x: 0, y: 0, w: 1, h: 1 }
+        };
+    }
+
+    function loadImageFromURL(url) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.decoding = "async";
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error(`Could not load ${url}`));
+            img.src = url;
+        });
+    }
+
+    function loadImageFromFile(file) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const objectUrl = URL.createObjectURL(file);
+            img.onload = () => {
+                URL.revokeObjectURL(objectUrl);
+                resolve(img);
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(objectUrl);
+                reject(new Error(`Could not read ${file.name}`));
+            };
+            img.src = objectUrl;
+        });
+    }
+
+    function trimImageByAlpha(img, name) {
+        const temp = document.createElement("canvas");
+        temp.width = img.naturalWidth || img.width;
+        temp.height = img.naturalHeight || img.height;
+        const tctx = temp.getContext("2d", { willReadFrequently: true });
+        tctx.drawImage(img, 0, 0);
+
+        let data;
+        try {
+            data = tctx.getImageData(0, 0, temp.width, temp.height).data;
+        } catch (error) {
+            const copy = document.createElement("canvas");
+            copy.width = temp.width;
+            copy.height = temp.height;
+            copy.getContext("2d").drawImage(img, 0, 0);
+            return {
+                canvas: copy,
+                width: copy.width,
+                height: copy.height,
+                naturalWidth: temp.width,
+                naturalHeight: temp.height,
+                name,
+                missing: false,
+                trimWarning: "Canvas could not read pixels. Serve from a local web server to enable alpha trimming.",
+                bounds: { x: 0, y: 0, w: copy.width, h: copy.height }
+            };
+        }
+
+        let minX = temp.width;
+        let minY = temp.height;
+        let maxX = -1;
+        let maxY = -1;
+        const threshold = 8;
+
+        for (let y = 0; y < temp.height; y += 1) {
+            for (let x = 0; x < temp.width; x += 1) {
+                const alpha = data[(y * temp.width + x) * 4 + 3];
+                if (alpha > threshold) {
+                    minX = Math.min(minX, x);
+                    minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x);
+                    maxY = Math.max(maxY, y);
+                }
+            }
+        }
+
+        if (maxX < minX || maxY < minY) {
+            return makeMissingPart(name);
+        }
+
+        const pad = 2;
+        minX = Math.max(0, minX - pad);
+        minY = Math.max(0, minY - pad);
+        maxX = Math.min(temp.width - 1, maxX + pad);
+        maxY = Math.min(temp.height - 1, maxY + pad);
+
+        const w = maxX - minX + 1;
+        const h = maxY - minY + 1;
+        const trimmed = document.createElement("canvas");
+        trimmed.width = w;
+        trimmed.height = h;
+        trimmed.getContext("2d").drawImage(temp, minX, minY, w, h, 0, 0, w, h);
+
+        return {
+            canvas: trimmed,
+            width: w,
+            height: h,
+            naturalWidth: temp.width,
+            naturalHeight: temp.height,
+            name,
+            missing: false,
+            bounds: { x: minX, y: minY, w, h }
+        };
+    }
+
+    async function loadPart(name) {
+        const candidates = ASSET_CANDIDATES[name] || [];
+        for (const url of candidates) {
+            try {
+                const img = await loadImageFromURL(url);
+                const loadedAsset = trimImageByAlpha(img, name);
+                loadedAsset.source = url;
+                state.assets.set(name, loadedAsset);
+                return loadedAsset;
+            } catch (error) {
+                // Try the next path.
+            }
+        }
+
+        const missing = makeMissingPart(name);
+        state.assets.set(name, missing);
+        state.missing.push(name);
+        return missing;
+    }
+
+    async function loadAllDefaultAssets() {
+        state.missing = [];
+        await Promise.all(Object.keys(ASSET_CANDIDATES).map(loadPart));
+        writeStatus();
+    }
+
+    function writeStatus() {
+        const loaded = [];
+        const missing = [];
+        const warnings = [];
+
+        for (const [name, loadedAsset] of state.assets.entries()) {
+            if (loadedAsset.missing) {
+                missing.push(name);
+            } else {
+                loaded.push(`${name}: ${loadedAsset.source || "file override"}`);
+                if (loadedAsset.trimWarning) {
+                    warnings.push(`${name}: ${loadedAsset.trimWarning}`);
+                }
+            }
+        }
+
+        const drawOrderNames = FIXED_DRAW_ORDER.map((name, index) => `${index + 1}. ${name}`).join("\n");
+        statusEl.textContent = [
+            `Fixed draw order:\n${drawOrderNames}`,
+            loaded.length ? `\nLoaded:\n${loaded.join("\n")}` : "\nLoaded: none yet",
+            missing.length ? `\nMissing, skipped:\n${missing.join(", ")}` : "\nMissing: none",
+            warnings.length ? `\nWarnings:\n${warnings.join("\n")}` : ""
+        ].join("\n");
+    }
+
+    function setupFileInputs() {
+        const wrap = document.getElementById("file-inputs");
+        for (const name of FIXED_DRAW_ORDER) {
+            const row = document.createElement("label");
+            row.className = "asset-row";
+            row.innerHTML = `<span>${PART_LABELS[name] || name}</span><input type="file" accept="image/png,image/webp,image/jpeg">`;
+            const input = row.querySelector("input");
+            input.addEventListener("change", async () => {
+                const file = input.files && input.files[0];
+                if (!file) return;
+                const img = await loadImageFromFile(file);
+                const loadedAsset = trimImageByAlpha(img, name);
+                loadedAsset.source = file.name;
+                state.assets.set(name, loadedAsset);
+                writeStatus();
+            });
+            wrap.appendChild(row);
+        }
+    }
+
+    for (const input of [control.speed, control.scale, control.lean, control.ground, control.debug]) {
+        input.addEventListener("input", controlsToConfig);
+    }
+
+    for (const input of [control.pivotX, control.pivotY, control.partScale, control.targetHeight, control.offsetX, control.offsetY]) {
+        input.addEventListener("input", partControlsToSelectedPart);
+    }
+
+    control.partSelect.addEventListener("change", selectedPartToControls);
+
+    control.pause.addEventListener("click", () => {
+        state.paused = !state.paused;
+        control.pause.textContent = state.paused ? "Resume" : "Pause";
+    });
+
+    control.reset.addEventListener("click", () => {
+        state.phase = 0;
+    });
+
+    control.applyConfig.addEventListener("click", () => {
+        try {
+            const parsed = JSON.parse(configText.value);
+            rigConfig = normalizeConfig(parsed);
+            configToControls();
+            selectedPartToControls();
+            syncConfigText();
+            showConfigMessage("Applied JSON. Renderer draw order remains fixed.");
+        } catch (error) {
+            showConfigMessage(`Could not apply JSON:\n${error.message}`);
+        }
+    });
+
+    control.refreshConfig.addEventListener("click", () => {
+        syncConfigText();
+        showConfigMessage("JSON refreshed from the current live rig.");
+    });
+
+    control.copyConfig.addEventListener("click", async () => {
+        syncConfigText();
+        try {
+            await navigator.clipboard.writeText(configText.value);
+            showConfigMessage("Copied JSON to clipboard.");
+        } catch (error) {
+            configText.focus();
+            configText.select();
+            showConfigMessage("Clipboard permission was blocked. The JSON is selected so it can be copied manually.");
+        }
+    });
+
+    control.downloadConfig.addEventListener("click", () => {
+        syncConfigText();
+        const blob = new Blob([configText.value], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "wizard_rig_config.json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showConfigMessage("Downloaded wizard_rig_config.json.");
+    });
+
+    control.configFile.addEventListener("change", async () => {
+        const file = control.configFile.files && control.configFile.files[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const parsed = JSON.parse(text);
+            rigConfig = normalizeConfig(parsed);
+            configToControls();
+            selectedPartToControls();
+            syncConfigText();
+            showConfigMessage(`Loaded ${file.name}. Renderer draw order remains fixed.`);
+        } catch (error) {
+            showConfigMessage(`Could not load JSON file:\n${error.message}`);
+        }
+    });
+
+    function asset(name) {
+        return state.assets.get(name) || makeMissingPart(name);
+    }
+
+    function getPivot(name) {
+        return rigConfig.pivots[name] || { x: 0.5, y: 0.5 };
+    }
+
+    function getPartConfig(name) {
+        return rigConfig.parts[name] || DEFAULT_CONFIG.parts[name];
+    }
+
+    function scaleForHeight(name, targetHeight) {
+        const p = asset(name);
+        return targetHeight / Math.max(1, p.height);
+    }
+
+    function rotatePoint(localX, localY, angle) {
+        const c = Math.cos(angle);
+        const s = Math.sin(angle);
+        return {
+            x: localX * c - localY * s,
+            y: localX * s + localY * c
+        };
+    }
+
+    function add(a, b) {
+        return { x: a.x + b.x, y: a.y + b.y };
+    }
+
+    function scaledRotatedAnchor(anchor, scale, angle) {
+        return rotatePoint(anchor.x * scale, anchor.y * scale, angle);
+    }
+
+    function applyPartOffset(point, part, scale) {
+        const offset = part.offset || { x: 0, y: 0 };
+        return {
+            x: point.x + numeric(offset.x, 0) * scale,
+            y: point.y + numeric(offset.y, 0) * scale
+        };
+    }
+
+    function drawSprite(name, transform) {
+        const p = asset(name);
+        if (p.missing || !transform) return;
+
+        const pivot = getPivot(name);
+        const part = getPartConfig(name);
+        const angle = numeric(transform.angle, 0);
+        const targetHeight = numeric(transform.targetHeight, part.targetHeight);
+        const spriteScale = scaleForHeight(name, targetHeight);
+        const alpha = numeric(transform.alpha, 1);
+
+        ctx.save();
+        ctx.globalAlpha *= alpha;
+        ctx.translate(transform.x, transform.y);
+        ctx.rotate(angle);
+        ctx.scale(spriteScale, spriteScale);
+        ctx.drawImage(p.canvas, -pivot.x * p.width, -pivot.y * p.height);
+
+        if (rigConfig.global.debugPivots) {
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.42)";
+            ctx.lineWidth = 1 / Math.max(0.001, Math.abs(spriteScale));
+            ctx.strokeRect(-pivot.x * p.width, -pivot.y * p.height, p.width, p.height);
+            ctx.fillStyle = "rgba(255, 237, 120, 0.95)";
+            ctx.beginPath();
+            ctx.arc(0, 0, 4 / Math.max(0.001, Math.abs(spriteScale)), 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    }
+
+    function drawGround(time) {
+        const groundY = 496 + numeric(rigConfig.global.groundOffset, 0);
+        ctx.save();
+        ctx.fillStyle = "rgba(255, 255, 255, 0.04)";
+        ctx.fillRect(0, groundY, canvas.width, canvas.height - groundY);
+
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, groundY + 0.5);
+        ctx.lineTo(canvas.width, groundY + 0.5);
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+        ctx.lineWidth = 1;
+        const scroll = (time * 0.13) % 90;
+        for (let x = -90 - scroll; x < canvas.width + 120; x += 90) {
+            ctx.beginPath();
+            ctx.moveTo(x, groundY + 18);
+            ctx.lineTo(x + 42, groundY + 18);
+            ctx.stroke();
+        }
+        ctx.restore();
+        return groundY;
+    }
+
+    function drawShadow(root, phase, scale) {
+        ctx.save();
+        ctx.translate(root.x, root.groundY + 5);
+        ctx.scale(scale, 1);
+        ctx.globalAlpha = 0.25 + 0.05 * Math.cos(phase * 2);
+        ctx.fillStyle = "#000";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 102, 16, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    function debugLine(points) {
+        if (!rigConfig.global.debugPivots) return;
+        ctx.save();
+        ctx.strokeStyle = "rgba(255, 237, 120, 0.65)";
+        ctx.fillStyle = "rgba(255, 237, 120, 0.9)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i < points.length; i += 1) {
+            const p = points[i];
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+        }
+        ctx.stroke();
+        for (const p of points) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    function makeLegTransform(side, root, phase, scale) {
+        const name = side === "left" ? "leftFoot" : "rightFoot";
+        const part = getPartConfig(name);
+        const motion = rigConfig.legMotion;
+        const p = phase + (side === "left" ? 0 : Math.PI);
+        // Positive stride is defined as a forward foot position.
+        // The sign is inverted from the phase wave so a planted foot travels backward over the ground,
+        // while the lifted foot swings forward into the next step.
+        const stride = -Math.sin(p);
+        const lift = Math.max(0, -Math.cos(p));
+        const planted = Math.max(0, Math.cos(p));
+        const baseX = side === "left" ? motion.leftBaseX : motion.rightBaseX;
+        const basePoint = {
+            x: root.x + (numeric(baseX, 0) + stride * numeric(motion.stride, 0)) * scale,
+            y: root.groundY + (numeric(motion.groundRise, -4) - lift * numeric(motion.lift, 0)) * scale
+        };
+        const point = applyPartOffset(basePoint, part, scale);
+        return {
+            x: point.x,
+            y: point.y,
+            angle: numeric(part.rotation.base, 0) + numeric(motion.angleStride, 0) * stride + numeric(motion.angleLift, 0) * lift + numeric(motion.anglePlanted, 0) * planted,
+            targetHeight: numeric(part.targetHeight, 90) * scale * numeric(part.scale, 1),
+            alpha: numeric(part.alpha, 1)
+        };
+    }
+
+    function makeArmTransform(side, shoulder, phase, scale, torsoAngle) {
+        const name = side === "left" ? "leftArm" : "rightArm";
+        const part = getPartConfig(name);
+        const rotation = part.rotation || {};
+        const p = phase + (side === "left" ? 0 : Math.PI);
+        const swing = -Math.sin(p);
+        const lift = Math.max(0, -Math.cos(p));
+        const point = applyPartOffset(shoulder, part, scale);
+        return {
+            x: point.x,
+            y: point.y,
+            angle: torsoAngle * numeric(rotation.torso, 1) + numeric(rotation.base, 0) + swing * numeric(rotation.swing, 0) + lift * numeric(rotation.lift, 0),
+            targetHeight: numeric(part.targetHeight, 128) * scale * numeric(part.scale, 1),
+            alpha: numeric(part.alpha, 1)
+        };
+    }
+
+    function makeRigidTransform(name, point, baseAngle, scale) {
+        const part = getPartConfig(name);
+        const rotation = part.rotation || {};
+        const p = applyPartOffset(point, part, scale);
+        return {
+            x: p.x,
+            y: p.y,
+            angle: baseAngle * numeric(rotation.torso, 1) + numeric(rotation.base, 0),
+            targetHeight: numeric(part.targetHeight, 100) * scale * numeric(part.scale, 1),
+            alpha: numeric(part.alpha, 1)
+        };
+    }
+
+    function computePose(groundY) {
+        const phase = state.phase;
+        const scale = numeric(rigConfig.global.scale, 1);
+        const lean = numeric(rigConfig.global.lean, 0);
+        const anim = rigConfig.animation;
+        const anchors = rigConfig.anchors;
+        const bob = Math.sin(phase * 2) * numeric(anim.bobAmplitude, 0) * scale - Math.max(0, Math.cos(phase * 2)) * numeric(anim.bobCompression, 0) * scale;
+        const root = {
+            x: numeric(rigConfig.global.rootX, canvas.width * 0.5) + Math.sin(phase) * numeric(anim.rootSway, 0) * scale,
+            y: groundY + numeric(rigConfig.global.rootYOffsetFromGround, -146) * scale + bob,
+            groundY
+        };
+
+        const torsoAngle = lean + Math.sin(phase * 2) * numeric(anim.torsoWobble, 0);
+        const headAngle = torsoAngle * numeric(anim.headLeanMultiplier, 0.45) + Math.sin(phase * 2 + 0.4) * numeric(anim.headWobble, 0);
+        const shoulderCenter = add(root, scaledRotatedAnchor(anchors.shoulderCenter, scale, torsoAngle));
+        const leftShoulder = add(shoulderCenter, scaledRotatedAnchor(anchors.leftShoulder, scale, torsoAngle));
+        const rightShoulder = add(shoulderCenter, scaledRotatedAnchor(anchors.rightShoulder, scale, torsoAngle));
+        const neck = add(root, scaledRotatedAnchor(anchors.neck, scale, torsoAngle));
+        const rocketMount = add(root, scaledRotatedAnchor(anchors.rocketMount, scale, torsoAngle));
+        const hatBase = add(neck, scaledRotatedAnchor(anchors.hatFromHead, scale, headAngle));
+        const rocketBobPoint = {
+            x: rocketMount.x,
+            y: rocketMount.y + Math.sin(phase * 2.0 + 0.7) * numeric(anim.rocketBob, 0) * scale
+        };
+
+        const transforms = {
+            leftArm: makeArmTransform("left", leftShoulder, phase, scale, torsoAngle),
+            leftFoot: makeLegTransform("left", root, phase, scale),
+            rocket: makeRigidTransform("rocket", rocketBobPoint, torsoAngle, scale),
+            rightFoot: makeLegTransform("right", root, phase, scale),
+            robe: makeRigidTransform("robe", root, torsoAngle, scale),
+            head: makeRigidTransform("head", neck, headAngle, scale),
+            hat: makeRigidTransform("hat", hatBase, headAngle, scale),
+            rightArm: makeArmTransform("right", rightShoulder, phase, scale, torsoAngle)
+        };
+
+        return {
+            root,
+            debugPoints: [root, shoulderCenter, leftShoulder, rightShoulder, neck, rocketMount, hatBase],
+            transforms,
+            phase,
+            scale
+        };
+    }
+
+    function drawWizard(time) {
+        const groundY = drawGround(time);
+        const pose = computePose(groundY);
+        drawShadow(pose.root, pose.phase, pose.scale);
+
+        for (const name of FIXED_DRAW_ORDER) {
+            drawSprite(name, pose.transforms[name]);
+        }
+
+        debugLine(pose.debugPoints);
+    }
+
+    function clear() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const g = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        g.addColorStop(0, "#27223b");
+        g.addColorStop(0.62, "#171627");
+        g.addColorStop(1, "#111019");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        ctx.globalAlpha = 0.18;
+        ctx.fillStyle = "#ffffff";
+        for (let i = 0; i < 48; i += 1) {
+            const x = (i * 173 + 37) % canvas.width;
+            const y = (i * 97 + 61) % Math.floor(canvas.height * 0.62);
+            ctx.fillRect(x, y, 1.5, 1.5);
+        }
+        ctx.restore();
+    }
+
+    function frame(now) {
+        const dt = Math.min(0.045, (now - state.lastTime) / 1000);
+        state.lastTime = now;
+
+        if (!state.paused) {
+            const speed = numeric(rigConfig.animation.speed, 1);
+            state.phase = (state.phase + dt * speed * Math.PI * 2.0) % (Math.PI * 2);
+        }
+
+        clear();
+        drawWizard(now / 1000);
+        requestAnimationFrame(frame);
+    }
+
+    setupPartSelect();
+    setupFileInputs();
+    configToControls();
+    selectedPartToControls();
+    syncConfigText();
+    loadAllDefaultAssets();
+    requestAnimationFrame(frame);
+
+    window.getWizardRigConfig = () => clone(rigConfig);
+    window.setWizardRigConfig = (config) => {
+        rigConfig = normalizeConfig(config);
+        configToControls();
+        selectedPartToControls();
+        syncConfigText();
+    };
+})();
+</script>
+</body>
+</html>
