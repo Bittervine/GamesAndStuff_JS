@@ -275,7 +275,7 @@
     return ENABLE_3D_MODE_DEFAULT;
   }
   let enable3DMode = enemy3DModeFromParams(URL_PARAMS);
-  let player3DEnabled = false;
+  let player3DOverride = null;
   let player3DCheatBuffer = '';
   function enemy3DModeUrl(enabled) {
     const params = new URLSearchParams(window.location.search || '');
@@ -305,6 +305,7 @@
     //const shouldReloadForPerf = !desired && enemy3DRuntimeWasLoaded();
     const shouldReloadForPerf = false;
     enable3DMode = desired;
+    player3DOverride = null;
     if (enemy3DModeInput) enemy3DModeInput.checked = enable3DMode;
     try {
       if (window.history && window.history.replaceState) window.history.replaceState(null, '', nextUrl);
@@ -325,8 +326,8 @@
 
   function setPlayer3DEnabled(enabled) {
     const desired = !!enabled;
-    if (desired === player3DEnabled) return;
-    player3DEnabled = desired;
+    if (desired === isPlayer3DEnabled()) return;
+    player3DOverride = desired;
     if (!desired) {
       enemy3DState.playerModelFailed = false;
       clearPlayer3DInstance();
@@ -336,7 +337,11 @@
   }
 
   function togglePlayer3DEnabled() {
-    setPlayer3DEnabled(!player3DEnabled);
+    setPlayer3DEnabled(!isPlayer3DEnabled());
+  }
+
+  function isPlayer3DEnabled() {
+    return !!enable3DMode && (player3DOverride == null ? true : !!player3DOverride);
   }
 
   function feedPlayer3DCheat(ev) {
@@ -1847,7 +1852,7 @@
       !!state.settings &&
       !isLowGraphicalEffects() &&
       state.mode !== 'debug' &&
-      (!!enable3DMode || !!player3DEnabled);
+      (!!enable3DMode || !!isPlayer3DEnabled());
   }
 
   function shouldUseEnemy3DMode() {
@@ -1855,7 +1860,7 @@
   }
 
   function shouldUsePlayer3DMode() {
-    return shouldUse3DRenderer() && !!state.player && !!player3DEnabled;
+    return shouldUse3DRenderer() && !!state.player && isPlayer3DEnabled();
   }
 
   function player3DEngineSockets() {
@@ -2317,7 +2322,7 @@
       } catch (err) {
         enemy3DState.playerModelFailed = true;
         console.warn('Player 3D model failed to load, falling back to 2D:', PLAYER_3D_MODEL_PATH, err);
-        if (player3DEnabled && state && state.mode === 'playing') hint('3D player model failed to load.', 1.8);
+        if (isPlayer3DEnabled() && state && state.mode === 'playing') hint('3D player model failed to load.', 1.8);
         return null;
       } finally {
         enemy3DState.playerModelLoad = null;
@@ -2378,8 +2383,9 @@
     grad.addColorStop(0, 'rgba(255,255,255,0.98)');
     grad.addColorStop(0.18, 'rgba(200,248,255,0.92)');
     grad.addColorStop(0.42, 'rgba(84,208,255,0.84)');
-    grad.addColorStop(0.72, 'rgba(30,118,255,0.72)');
-    grad.addColorStop(1, 'rgba(10,42,120,0)');
+    grad.addColorStop(0.72, 'rgba(18,96,255,0.82)');
+    grad.addColorStop(0.9, 'rgba(0,54,230,0.66)');
+    grad.addColorStop(1, 'rgba(0,26,150,0)');
     g.fillStyle = grad;
     g.beginPath();
     g.moveTo(w * 0.5, h * 0.96);
@@ -2393,9 +2399,10 @@
     grad = g.createLinearGradient(0, h * 0.08, 0, h * 0.96);
     grad.addColorStop(0, 'rgba(255,255,255,0.98)');
     grad.addColorStop(0.24, 'rgba(242,253,255,0.95)');
-    grad.addColorStop(0.52, 'rgba(132,236,255,0.72)');
-    grad.addColorStop(0.78, 'rgba(52,144,255,0.58)');
-    grad.addColorStop(1, 'rgba(12,40,116,0)');
+    grad.addColorStop(0.48, 'rgba(112,226,255,0.78)');
+    grad.addColorStop(0.72, 'rgba(28,136,255,0.72)');
+    grad.addColorStop(0.9, 'rgba(0,72,255,0.62)');
+    grad.addColorStop(1, 'rgba(0,34,170,0)');
     g.fillStyle = grad;
     g.beginPath();
     g.moveTo(w * 0.5, h * 0.9);
@@ -2423,8 +2430,9 @@
     grad = g.createLinearGradient(0, h * 0.16, 0, h * 0.92);
     grad.addColorStop(0, 'rgba(220,252,255,0.78)');
     grad.addColorStop(0.34, 'rgba(104,224,255,0.86)');
-    grad.addColorStop(0.7, 'rgba(36,144,255,0.68)');
-    grad.addColorStop(1, 'rgba(20,70,180,0)');
+    grad.addColorStop(0.66, 'rgba(28,132,255,0.76)');
+    grad.addColorStop(0.88, 'rgba(0,70,255,0.62)');
+    grad.addColorStop(1, 'rgba(0,34,170,0)');
     g.fillStyle = grad;
     g.beginPath();
     g.ellipse(w * 0.5, h * 0.55, w * 0.105 * flare, h * 0.37, 0, 0, TAU);
