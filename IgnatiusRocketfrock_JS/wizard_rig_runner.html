@@ -344,216 +344,216 @@
     };
 
     const DEFAULT_CONFIG = 
-    {
-        "meta": {
-            "version": 2,
-            "note": "All positions are rig-space pixels unless otherwise stated. Pivot x/y are normalized sprite-space coordinates. Draw order is locked by the renderer."
+{
+    "meta": {
+        "version": 2,
+        "note": "All positions are rig-space pixels unless otherwise stated. Pivot x/y are normalized sprite-space coordinates. Draw order is locked by the renderer."
+    },
+    "drawOrder": [
+        "leftArm",
+        "leftFoot",
+        "rocket",
+        "rightFoot",
+        "robe",
+        "head",
+        "hat",
+        "rightArm"
+    ],
+    "global": {
+        "scale": 0.64,
+        "lean": 0.19,
+        "rootX": 550,
+        "rootYOffsetFromGround": -146,
+        "groundOffset": -15,
+        "debugPivots": false
+    },
+    "animation": {
+        "speed": 2.06,
+        "torsoWobble": 0.035,
+        "headWobble": 0.025,
+        "headLeanMultiplier": 0.45,
+        "rootSway": 3.2,
+        "bobAmplitude": 5.5,
+        "bobCompression": 1.6,
+        "rocketBob": 2.2
+    },
+    "anchors": {
+        "shoulderCenter": {
+            "x": 0,
+            "y": -102
         },
-        "drawOrder": [
-            "leftArm",
-            "leftFoot",
-            "rocket",
-            "rightFoot",
-            "robe",
-            "head",
-            "hat",
-            "rightArm"
-        ],
-        "global": {
-            "scale": 0.64,
-            "lean": 0.19,
-            "rootX": 550,
-            "rootYOffsetFromGround": -146,
-            "groundOffset": -15,
-            "debugPivots": false
+        "leftShoulder": {
+            "x": 20,
+            "y": 4
         },
-        "animation": {
-            "speed": 1.2,
-            "torsoWobble": 0.035,
-            "headWobble": 0.025,
-            "headLeanMultiplier": 0.45,
-            "rootSway": 3.2,
-            "bobAmplitude": 5.5,
-            "bobCompression": 1.6,
-            "rocketBob": 2.2
+        "rightShoulder": {
+            "x": -20,
+            "y": 4
         },
-        "anchors": {
-            "shoulderCenter": {
-                "x": 0,
-                "y": -102
-            },
-            "leftShoulder": {
-                "x": 20,
-                "y": 4
-            },
-            "rightShoulder": {
-                "x": -20,
-                "y": 4
-            },
-            "neck": {
-                "x": 4,
-                "y": -134
-            },
-            "rocketMount": {
-                "x": -45,
-                "y": -64
-            },
-            "hatFromHead": {
-                "x": -1,
-                "y": -55
-            }
+        "neck": {
+            "x": 4,
+            "y": -134
         },
-        "legMotion": {
-            "stride": 37,
-            "lift": 26,
-            "groundRise": -4,
-            "leftBaseX": 13,
-            "rightBaseX": -13,
-            "angleStride": -0.15,
-            "angleLift": 0.1,
-            "anglePlanted": -0.03
+        "rocketMount": {
+            "x": -45,
+            "y": -64
         },
-        "pivots": {
-            "leftArm": {
-                "x": 0.27,
-                "y": 0.14
-            },
-            "leftFoot": {
-                "x": 0.38,
-                "y": 0.86
-            },
-            "rocket": {
-                "x": 0.72,
-                "y": 0.58
-            },
-            "rightFoot": {
-                "x": 0.42,
-                "y": 0.86
-            },
-            "robe": {
-                "x": 0.55,
-                "y": 0.55
-            },
-            "head": {
-                "x": 0.53,
-                "y": 0.82
-            },
-            "hat": {
-                "x": 0.46,
-                "y": 0.76
-            },
-            "rightArm": {
-                "x": 0.48,
-                "y": 0.13
-            }
-        },
-        "parts": {
-            "leftArm": {
-                "targetHeight": 128,
-                "scale": 0.73,
-                "offset": {
-                    "x": -39,
-                    "y": 73
-                },
-                "rotation": {
-                    "base": -0.16,
-                    "swing": 0.52,
-                    "lift": -0.08,
-                    "torso": 1
-                },
-                "alpha": 1
-            },
-            "leftFoot": {
-                "targetHeight": 90,
-                "scale": 0.98,
-                "offset": {
-                    "x": -34,
-                    "y": 0
-                },
-                "rotation": {
-                    "base": 0
-                },
-                "alpha": 1
-            },
-            "rocket": {
-                "targetHeight": 220,
-                "scale": 1,
-                "offset": {
-                    "x": 0,
-                    "y": 0
-                },
-                "rotation": {
-                    "base": 0.07,
-                    "torso": 1
-                },
-                "alpha": 0.98
-            },
-            "rightFoot": {
-                "targetHeight": 90,
-                "scale": 1.02,
-                "offset": {
-                    "x": 0,
-                    "y": 0
-                },
-                "rotation": {
-                    "base": 0
-                },
-                "alpha": 1
-            },
-            "robe": {
-                "targetHeight": 258,
-                "scale": 0.73,
-                "offset": {
-                    "x": 0,
-                    "y": 0
-                },
-                "rotation": {
-                    "base": 0,
-                    "torso": 1
-                },
-                "alpha": 1
-            },
-            "head": {
-                "targetHeight": 78,
-                "scale": 1.28,
-                "offset": {
-                    "x": -14,
-                    "y": 54
-                },
-                "rotation": {
-                    "base": 0
-                },
-                "alpha": 1
-            },
-            "hat": {
-                "targetHeight": 76,
-                "scale": 1.45,
-                "offset": {
-                    "x": -9,
-                    "y": 34
-                },
-                "rotation": {
-                    "base": -0.02
-                },
-                "alpha": 1
-            },
-            "rightArm": {
-                "targetHeight": 128,
-                "scale": 1.03,
-                "offset": {
-                    "x": -25,
-                    "y": 47
-                },
-                "rotation": {
-                    "base": 0.03,
-                    "swing": 0.52,
-                    "lift": -0.08,
-                    "torso": 1
-                },
-                "alpha": 1
-            }
+        "hatFromHead": {
+            "x": -1,
+            "y": -55
         }
-    };
+    },
+    "legMotion": {
+        "stride": 37,
+        "lift": 26,
+        "groundRise": -4,
+        "leftBaseX": 13,
+        "rightBaseX": -13,
+        "angleStride": -0.15,
+        "angleLift": 0.1,
+        "anglePlanted": -0.03
+    },
+    "pivots": {
+        "leftArm": {
+            "x": 0.27,
+            "y": 0.14
+        },
+        "leftFoot": {
+            "x": 0.38,
+            "y": 0.86
+        },
+        "rocket": {
+            "x": 0.72,
+            "y": 0.58
+        },
+        "rightFoot": {
+            "x": 0.42,
+            "y": 0.86
+        },
+        "robe": {
+            "x": 0.55,
+            "y": 0.55
+        },
+        "head": {
+            "x": 0.53,
+            "y": 0.82
+        },
+        "hat": {
+            "x": 0.46,
+            "y": 0.76
+        },
+        "rightArm": {
+            "x": 0.48,
+            "y": 0.13
+        }
+    },
+    "parts": {
+        "leftArm": {
+            "targetHeight": 128,
+            "scale": 0.73,
+            "offset": {
+                "x": -39,
+                "y": 73
+            },
+            "rotation": {
+                "base": -0.16,
+                "swing": 0.52,
+                "lift": -0.08,
+                "torso": 1
+            },
+            "alpha": 1
+        },
+        "leftFoot": {
+            "targetHeight": 90,
+            "scale": 0.98,
+            "offset": {
+                "x": -34,
+                "y": 0
+            },
+            "rotation": {
+                "base": 0
+            },
+            "alpha": 1
+        },
+        "rocket": {
+            "targetHeight": 220,
+            "scale": 1,
+            "offset": {
+                "x": 0,
+                "y": 0
+            },
+            "rotation": {
+                "base": 0.07,
+                "torso": 1
+            },
+            "alpha": 0.98
+        },
+        "rightFoot": {
+            "targetHeight": 90,
+            "scale": 1.02,
+            "offset": {
+                "x": 0,
+                "y": 0
+            },
+            "rotation": {
+                "base": 0
+            },
+            "alpha": 1
+        },
+        "robe": {
+            "targetHeight": 258,
+            "scale": 0.73,
+            "offset": {
+                "x": 0,
+                "y": 0
+            },
+            "rotation": {
+                "base": 0,
+                "torso": 1
+            },
+            "alpha": 1
+        },
+        "head": {
+            "targetHeight": 78,
+            "scale": 1.28,
+            "offset": {
+                "x": -14,
+                "y": 54
+            },
+            "rotation": {
+                "base": 0
+            },
+            "alpha": 1
+        },
+        "hat": {
+            "targetHeight": 76,
+            "scale": 2.09,
+            "offset": {
+                "x": -9,
+                "y": 50
+            },
+            "rotation": {
+                "base": -0.02
+            },
+            "alpha": 1
+        },
+        "rightArm": {
+            "targetHeight": 128,
+            "scale": 1.03,
+            "offset": {
+                "x": -25,
+                "y": 47
+            },
+            "rotation": {
+                "base": 0.03,
+                "swing": 0.52,
+                "lift": -0.08,
+                "torso": 1
+            },
+            "alpha": 1
+        }
+    }
+};
 
     const control = {
         speed: document.getElementById("speed"),
