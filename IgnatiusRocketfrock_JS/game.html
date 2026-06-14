@@ -345,6 +345,7 @@
         <h2>Controls</h2>
         <p class="small-note">
           Keyboard: Left or NumPad 4 to run left, Right or NumPad 6 to run right, Up or NumPad 8 to jump, launch, and detach.
+          Mouse: left click to jump, launch, or detach; hold right click to run toward the cursor.
         </p>
       </section>
 
@@ -412,6 +413,7 @@
     const AIR_TOP_SPEED = 300;
     const ROCKET_BURN_MS = 5000;
     const ROCKET_THRUST = 2620; // Tuned so the 45-degree launch case tops out near the viewport edge.
+    const GAMEPAD_AIM_DEADZONE = 0.34;
 
     const DEFAULT_CONFIG = {
       "meta": {
@@ -560,8 +562,18 @@
       },
       gamepad: {
         index: null,
-        actionPressed: false
+        actionPressed: false,
+        aimX: 0,
+        aimY: 0,
+        aimReady: false
       },
+      pointer: {
+        mouseX: 0,
+        mouseY: 0,
+        mouseReady: false,
+        rightDown: false
+      },
+      aimSource: null,
       player: {
         x: 180,
         y: 640,
@@ -702,6 +714,10 @@
       return Math.atan2(vector.y, vector.x) + Math.PI / 2;
     }
 
+    function rocketAngleForVector(vector) {
+      return Math.atan2(vector.x, -vector.y);
+    }
+
     function setBodyRotationTarget(target, duration) {
       state.player.bodyRotationStart = state.player.bodyRotation;
       state.player.bodyRotationTarget = target;
@@ -726,6 +742,17 @@
     }
 
     function getHorizontalInput() {
+      const mouse =
+        state.pointer.rightDown && state.pointer.mouseReady
+          ? (() => {
+              const wizardScreenX = worldToScreenX(state.player.x);
+              const delta = state.pointer.mouseX - wizardScreenX;
+              if (Math.abs(delta) < 8) {
+                return 0;
+              }
+              return delta < 0 ? -1 : 1;
+            })()
+          : 0;
       const left =
         state.keys.keyboardLeft ||
         state.keys.mouseLeft ||
@@ -735,25 +762,74 @@
         state.keys.mouseRight ||
         state.keys.gamepadRight;
 
-      return (right ? 1 : 0) - (left ? 1 : 0);
+      return clamp((right ? 1 : 0) - (left ? 1 : 0) + mouse, -1, 1);
     }
 
     function getLaunchVector() {
       const player = state.player;
       const vx = Math.abs(player.vx) > 10 ? player.vx : 0;
-      const vy = player.vy < -10 ? -player.vy : 0;
+      const vy = Math.abs(player.vy) > 10 ? player.vy : 0;
       if (vx === 0 && vy === 0) {
         return { x: 0, y: -1 };
-      }
-      if (vx !== 0 && vy < 10) {
-        return { x: Math.sign(vx), y: 0 };
       }
       if (vx === 0) {
         return { x: 0, y: -1 };
       }
-      const jumpSpeed = jumpVelocityForHeight(player.height * 2, GRAVITY);
-      const launchPitchScale = RUN_TOP_SPEED / Math.max(1, jumpSpeed);
-      return normalizeVector(vx, -vy * launchPitchScale);
+      const vertical = Math.max(Math.abs(vx), Math.abs(vy));
+      return normalizeVector(vx, -vertical);
+    }
+
+    function getMouseAimVector() {
+      if (!state.pointer.mouseReady) {
+        return null;
+      }
+
+      const mount = rocketMountPoint();
+      const screenX = worldToScreenX(mount.x);
+      const screenY = mount.y;
+      const dx = state.pointer.mouseX - screenX;
+      const dy = state.pointer.mouseY - screenY;
+      if (Math.hypot(dx, dy) < 2) {
+        return null;
+      }
+
+      return normalizeVector(dx, dy);
+    }
+
+    function getGamepadAimVector() {
+      if (!state.gamepad.aimReady) {
+        return null;
+      }
+
+      return normalizeVector(state.gamepad.aimX, state.gamepad.aimY);
+    }
+
+    function getRocketReleaseVector() {
+      if (state.aimSource === "gamepad") {
+        const gamepadAim = getGamepadAimVector();
+        if (gamepadAim) {
+          return gamepadAim;
+        }
+      }
+
+      if (state.aimSource === "mouse") {
+        const mouseAim = getMouseAimVector();
+        if (mouseAim) {
+          return mouseAim;
+        }
+      }
+
+      const gamepadAim = getGamepadAimVector();
+      if (gamepadAim) {
+        return gamepadAim;
+      }
+
+      const mouseAim = getMouseAimVector();
+      if (mouseAim) {
+        return mouseAim;
+      }
+
+      return normalizeVector(state.rocket.thrustDir.x, state.rocket.thrustDir.y);
     }
 
     function getCanvasPointerZone(clientX) {
@@ -1283,6 +1359,36 @@
       ctx.restore();
     }
 
+    function rocketNozzleLocalPoint(p) {
+      const pivot = getPivot("rocket");
+      return {
+        x: (0.5 - pivot.x) * p.width,
+        y: (1 - pivot.y) * p.height - 2
+      };
+    }
+
+    function drawRocketFlame(transform, facing, angleOverride, intensity) {
+      const p = asset("rocket");
+      if (p.missing || !transform || intensity <= 0) return;
+
+      const part = getPartConfig("rocket");
+      const angle = facing < 0 ? -numeric(angleOverride ?? transform.angle, 0) : numeric(angleOverride ?? transform.angle, 0);
+      const targetHeight = numeric(transform.targetHeight, part.targetHeight);
+      const spriteScale = scaleForHeight("rocket", targetHeight);
+      const nozzle = rocketNozzleLocalPoint(p);
+
+      ctx.save();
+      ctx.translate(worldToScreenX(transform.x), transform.y);
+      ctx.rotate(angle);
+      if (facing < 0) {
+        ctx.scale(-1, 1);
+      }
+      ctx.scale(spriteScale, spriteScale);
+      ctx.translate(nozzle.x, nozzle.y);
+      drawFlame(0, 0, -Math.PI / 2, intensity, 1);
+      ctx.restore();
+    }
+
     function drawRocketProjectile(rocket) {
       const p = asset("rocket");
       if (p.missing) return;
@@ -1290,7 +1396,10 @@
       const screenX = worldToScreenX(rocket.x);
       const pivot = getPivot("rocket");
       const spriteScale = 0.92;
-      const angle = Math.atan2(rocket.vy, rocket.vx);
+      const vector = rocket.thrustDir && (rocket.thrustDir.x !== 0 || rocket.thrustDir.y !== 0)
+        ? rocket.thrustDir
+        : { x: rocket.vx, y: rocket.vy };
+      const angle = rocketAngleForVector(vector);
       const flame = clamp(rocket.thrust ?? 0, 0, 1);
 
       ctx.save();
@@ -1299,7 +1408,9 @@
       ctx.scale(spriteScale, spriteScale);
       ctx.drawImage(p.canvas, -pivot.x * p.width, -pivot.y * p.height);
       if (flame > 0) {
-        drawFlame(0, 0, Math.PI, flame, 1);
+        const nozzle = rocketNozzleLocalPoint(p);
+        ctx.translate(nozzle.x, nozzle.y);
+        drawFlame(0, 0, -Math.PI / 2, flame, 1);
       }
       ctx.restore();
     }
@@ -1330,6 +1441,9 @@
       const facing = player.facing;
       const bodyRotation = player.bodyRotation || 0;
       const pose = computePose(player.y);
+      const rocketAngle = state.rocket.active
+        ? rocketAngleForVector(state.rocket.thrustDir)
+        : null;
 
       drawShadow(pose.root, pose.scale, pose.phase);
 
@@ -1339,21 +1453,17 @@
         }
 
         const mirrored = mirrorTransform(pose.transforms[name], pose.root, facing);
-        const transform = rotateTransformAroundRoot(mirrored, pose.root, bodyRotation);
+        let transform = rotateTransformAroundRoot(mirrored, pose.root, bodyRotation);
+        if (name === "rocket" && rocketAngle != null) {
+          transform = { ...transform, angle: rocketAngle };
+        }
         drawSprite(name, transform, pose.root, facing);
       }
 
       if (state.rocket.attached) {
         const rocketPose = rotateTransformAroundRoot(mirrorTransform(pose.transforms.rocket, pose.root, facing), pose.root, bodyRotation);
-        const mountX = worldToScreenX(rocketPose.x);
-        const mountY = rocketPose.y;
-        const rocketAngle = rocketPose.angle;
         if (state.rocket.active) {
-          ctx.save();
-          ctx.translate(mountX, mountY);
-          ctx.rotate(rocketAngle);
-          drawFlame(14, 18, Math.PI, 1, 1.1);
-          ctx.restore();
+          drawRocketFlame(rocketPose, facing, rocketAngle ?? rocketPose.angle, 1);
         }
       }
 
@@ -1555,11 +1665,6 @@
         return;
       }
 
-      if (state.player.vy > 0) {
-        showMessage("Too late. Launch while the jump is still rising or level.", 1500);
-        return;
-      }
-
       if (!state.rocket.attached) {
         showMessage("Rocket is not on the wizard's back yet.", 1200);
         return;
@@ -1590,7 +1695,7 @@
       }
 
       const mount = rocketMountPoint();
-      const thrustDir = normalizeVector(state.rocket.thrustDir.x, state.rocket.thrustDir.y);
+      const thrustDir = getRocketReleaseVector();
       const releaseSpeed = 220;
       setBodyRotationTarget(0, 320);
       state.rocket.free = {
@@ -1685,9 +1790,22 @@
       const clearMouse = () => {
         state.keys.mouseLeft = false;
         state.keys.mouseRight = false;
+        state.pointer.rightDown = false;
+      };
+
+      const recordMouseAim = (event) => {
+        if (event.pointerType !== "mouse") {
+          return;
+        }
+
+        state.pointer.mouseX = event.clientX;
+        state.pointer.mouseY = event.clientY;
+        state.pointer.mouseReady = true;
+        state.aimSource = "mouse";
       };
 
       const applyPointerZone = (event, queuePrimary = false) => {
+        recordMouseAim(event);
         const zone = getCanvasPointerZone(event.clientX);
         state.keys.mouseLeft = zone < 0;
         state.keys.mouseRight = zone > 0;
@@ -1696,8 +1814,31 @@
         }
       };
 
+      canvas.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+      });
+
       canvas.addEventListener("pointerdown", (event) => {
-        if (event.pointerType === "mouse" && event.button !== 0) {
+        if (event.pointerType === "mouse") {
+          recordMouseAim(event);
+          if (event.button === 0) {
+            event.preventDefault();
+            queuePrimaryAction();
+            return;
+          }
+
+          if (event.button === 2) {
+            event.preventDefault();
+            activePointerId = event.pointerId;
+            state.pointer.rightDown = true;
+            try {
+              canvas.setPointerCapture(event.pointerId);
+            } catch (captureError) {
+              // Pointer capture is best-effort.
+            }
+            return;
+          }
+
           return;
         }
 
@@ -1712,12 +1853,26 @@
       });
 
       canvas.addEventListener("pointermove", (event) => {
+        recordMouseAim(event);
+        if (event.pointerType === "mouse") {
+          return;
+        }
+
         if (activePointerId !== event.pointerId) return;
         event.preventDefault();
         applyPointerZone(event, false);
       });
 
       const releasePointer = (event) => {
+        if (event.pointerType === "mouse") {
+          if (event.button === 2 || state.pointer.rightDown) {
+            event.preventDefault();
+            activePointerId = null;
+            clearMouse();
+          }
+          return;
+        }
+
         if (activePointerId !== event.pointerId) return;
         event.preventDefault();
         activePointerId = null;
@@ -1795,14 +1950,24 @@
 
       if (!pad) {
         state.gamepad.actionPressed = false;
+        state.gamepad.aimReady = false;
         return;
       }
 
       state.gamepad.index = pad.index;
       const axis = pad.axes && pad.axes.length > 0 ? pad.axes[0] : 0;
-      const deadzone = 0.34;
-      state.keys.gamepadLeft = axis < -deadzone || Boolean(pad.buttons?.[14]?.pressed);
-      state.keys.gamepadRight = axis > deadzone || Boolean(pad.buttons?.[15]?.pressed);
+      state.keys.gamepadLeft = axis < -GAMEPAD_AIM_DEADZONE || Boolean(pad.buttons?.[14]?.pressed);
+      state.keys.gamepadRight = axis > GAMEPAD_AIM_DEADZONE || Boolean(pad.buttons?.[15]?.pressed);
+
+      const aimX = pad.axes && pad.axes.length > 2 ? pad.axes[2] : 0;
+      const aimY = pad.axes && pad.axes.length > 3 ? pad.axes[3] : 0;
+      const aimMagnitude = Math.hypot(aimX, aimY);
+      if (aimMagnitude > GAMEPAD_AIM_DEADZONE) {
+        state.gamepad.aimX = aimX;
+        state.gamepad.aimY = aimY;
+        state.gamepad.aimReady = true;
+        state.aimSource = "gamepad";
+      }
 
       const primary = Boolean(pad.buttons?.[0]?.pressed);
       if (primary && !state.gamepad.actionPressed) {
