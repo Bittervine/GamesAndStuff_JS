@@ -411,8 +411,8 @@
     const GRAVITY = 2050;
     const RUN_TOP_SPEED = 400;
     const AIR_TOP_SPEED = 300;
-    const ROCKET_BURN_MS = 5000;
-    const ROCKET_THRUST = 2620; // Tuned so the 45-degree launch case tops out near the viewport edge.
+    const ROCKET_BURN_MS = 400;
+    const ROCKET_THRUST = 4630; // Tuned so the 45-degree launch case peaks near the top of the viewport.
     const GAMEPAD_AIM_DEADZONE = 0.34;
 
     const DEFAULT_CONFIG = {
@@ -2047,7 +2047,7 @@
       const accel = move !== 0 ? runAccel : brake;
       player.vx = approach(player.vx, targetSpeed, accel * dt);
 
-      const horizontalCap = state.rocket.active ? 760 : runTopSpeed;
+      const horizontalCap = state.rocket.active ? 9999 : runTopSpeed;
       player.vx = clamp(player.vx, -horizontalCap, horizontalCap);
 
       if (move !== 0) {
