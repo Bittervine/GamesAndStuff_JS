@@ -412,7 +412,7 @@
     const RUN_TOP_SPEED = 400;
     const AIR_TOP_SPEED = 300;
     const ROCKET_BURN_MS = 400;
-    const ROCKET_THRUST = 4630; // Tuned so the 45-degree launch case peaks near the top of the viewport.
+    const ROCKET_THRUST = 4850; // Tuned so the 45-degree launch case peaks near the top of the viewport.
     const GAMEPAD_AIM_DEADZONE = 0.34;
 
     const DEFAULT_CONFIG = {
@@ -768,15 +768,10 @@
     function getLaunchVector() {
       const player = state.player;
       const vx = Math.abs(player.vx) > 10 ? player.vx : 0;
-      const vy = Math.abs(player.vy) > 10 ? player.vy : 0;
-      if (vx === 0 && vy === 0) {
-        return { x: 0, y: -1 };
-      }
       if (vx === 0) {
         return { x: 0, y: -1 };
       }
-      const vertical = Math.max(Math.abs(vx), Math.abs(vy));
-      return normalizeVector(vx, -vertical);
+      return normalizeVector(vx, -Math.abs(vx));
     }
 
     function getMouseAimVector() {
@@ -1489,7 +1484,7 @@
         const mirrored = mirrorTransform(pose.transforms[name], pose.root, facing);
         let transform = rotateTransformAroundRoot(mirrored, pose.root, bodyRotation);
         if (name === "rocket" && rocketAngle != null) {
-          transform = { ...transform, angle: rocketAngle };
+          transform = { ...transform, angle: facing < 0 ? -rocketAngle : rocketAngle };
         }
         drawSprite(name, transform, pose.root, facing);
       }
@@ -2300,6 +2295,40 @@
       mailbox: state.mailbox,
       chapterIndex: state.chapterIndex
     });
+    window.getRocketfrockPose = () => {
+      const pose = computePose(state.player.y);
+      const facing = state.player.facing;
+      const bodyRotation = state.player.bodyRotation || 0;
+      const rocketAngle = state.rocket.active
+        ? rocketAngleForVector(state.rocket.thrustDir)
+        : null;
+      const rocketTransform = rotateTransformAroundRoot(mirrorTransform(pose.transforms.rocket, pose.root, facing), pose.root, bodyRotation);
+      const visibleAngle = numeric(rocketAngle ?? rocketTransform.angle, 0);
+      const rocketAsset = asset("rocket");
+      const nozzleLocal = rocketAsset.missing ? null : rocketNozzleLocalPoint(rocketAsset);
+      const noseDir = {
+        x: Math.sin(visibleAngle),
+        y: -Math.cos(visibleAngle)
+      };
+      const nozzleDir = {
+        x: -noseDir.x,
+        y: -noseDir.y
+      };
+
+      return clone({
+        playerFacing: facing,
+        bodyRotation,
+        root: pose.root,
+        rocket: {
+          x: rocketTransform.x,
+          y: rocketTransform.y,
+          angle: visibleAngle,
+          noseDir,
+          nozzleDir,
+          nozzleLocal
+        }
+      });
+    };
     window.resetRocketfrockPrototype = resetPlayer;
   })();
   </script>
