@@ -6,7 +6,7 @@
   const CLOUD_LAYER_FACTOR = 16;
   const PLANET_3D_COMPOSITE_LAYER = -10;
   const GLOW_3D_BOOST = 1.0;
-  const THORIUM_GAP_VERSION = window.THORIUM_GAP_VERSION || 'thoriumgap-v92';
+  const THORIUM_GAP_VERSION = window.THORIUM_GAP_VERSION || 'thoriumgap-v93';
   const THORIUM_GAP_REV = 'Rev ' + (((/v(\d+)/i.exec(THORIUM_GAP_VERSION) || [null, '??'])[1]) || '??');
   const canvas = document.getElementById('game');
   const hudCanvas = document.getElementById('hud');
@@ -4093,6 +4093,34 @@
     applyMute();
   }
 
+  function dialogFocusableElements() {
+    const root = state.settingsScreen === 'settings' ? dialogSettingsPanel : dialogMenuPanel;
+    if (!root) return [];
+    const items = [settingsClose].concat(Array.prototype.slice.call(root.querySelectorAll('button, input, select, textarea, [tabindex]')));
+    return items.filter(function (el) {
+      return !!el &&
+        !el.hidden &&
+        !el.disabled &&
+        el.getAttribute('aria-disabled') !== 'true' &&
+        el.offsetParent !== null;
+    });
+  }
+
+  function focusDialogItem(delta) {
+    const items = dialogFocusableElements();
+    if (!items.length) return;
+    const current = document.activeElement;
+    let idx = items.indexOf(current);
+    if (idx < 0) idx = delta > 0 ? -1 : 0;
+    const next = items[(idx + delta + items.length) % items.length];
+    if (next && typeof next.focus === 'function') next.focus();
+  }
+
+  function focusFirstDialogItem() {
+    const items = dialogFocusableElements();
+    if (items.length && typeof items[0].focus === 'function') items[0].focus();
+  }
+
   function isFullscreenActive() {
     if (electronWindowBridge) {
       return !!electronFullscreenState;
@@ -4261,6 +4289,7 @@
       else settingsDialog.setAttribute('open', '');
     }
     syncSettingsUi();
+    focusFirstDialogItem();
   }
 
   function closeSettings(restorePause) {
@@ -4289,6 +4318,30 @@
     if (!settingsDialog.open) openSettings('menu');
     else if (state.settingsScreen === 'settings') openSettings('menu');
     else closeSettings();
+  }
+
+  function handleDialogKey(ev) {
+    if (!state.settingsOpen && !settingsDialog.open) return false;
+    const code = ev.code;
+    if (code === 'ArrowDown') {
+      ev.preventDefault();
+      focusDialogItem(1);
+      return true;
+    }
+    if (code === 'ArrowUp') {
+      ev.preventDefault();
+      focusDialogItem(-1);
+      return true;
+    }
+    if (code === 'Enter' || code === 'NumpadEnter') {
+      const target = document.activeElement;
+      if (target && target.tagName === 'INPUT' && target.type === 'range') return false;
+      ev.preventDefault();
+      if (target && typeof target.click === 'function') target.click();
+      else focusFirstDialogItem();
+      return true;
+    }
+    return false;
   }
 
   function exitToTitle() {
@@ -10211,6 +10264,7 @@
     const code = ev.code;
     feedPlayer3DCheat(ev);
     if (state.settingsOpen || settingsDialog.open) {
+      if (handleDialogKey(ev)) return;
       return;
     }
     if (handleInitialsConfirmKey(ev)) return;
