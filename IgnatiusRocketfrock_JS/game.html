@@ -312,10 +312,10 @@
         <canvas id="game-canvas" width="1280" height="720" aria-label="Ignatius Rocketfrock prototype game canvas"></canvas>
       </div>
 
-      <div class="controls" aria-label="Mouse and touch controls">
+      <div class="controls" aria-label="Keyboard and controller controls">
         <button type="button" data-action="left" data-hold="true">Left</button>
-        <button type="button" data-action="primary">Jump / Launch / Detach</button>
-        <button type="button" data-action="right" data-hold="true">Right</button>
+        <button type="button" data-action="up">Up / A</button>
+        <button type="button" data-action="space">Space / B</button>
       </div>
     </section>
 
@@ -344,8 +344,7 @@
       <section class="card">
         <h2>Controls</h2>
         <p class="small-note">
-          Keyboard: Left or NumPad 4 to run left, Right or NumPad 6 to run right, Up or NumPad 8 to jump, launch, and detach.
-          Mouse: left click to jump, launch, or detach; hold right click to run toward the cursor.
+          Keyboard: Left or NumPad 4 to run left, Right or NumPad 6 to run right, Up or NumPad 8 or A to jump and boost, Space or B to aim the rocket arc.
         </p>
       </section>
 
@@ -412,7 +411,13 @@
     const RUN_TOP_SPEED = 400;
     const AIR_TOP_SPEED = 300;
     const ROCKET_BURN_MS = 800;
-    const ROCKET_THRUST = 1450; // Tuned for the lower gravity and longer burn so boosts still top out near the viewport edge.
+    const ROCKET_THRUST = 680;
+    const ROCKET_AIM_SLOWMO = 0.06;
+    const ROCKET_AIM_MAX_HOLD_MS = 1400;
+    const ROCKET_AIM_SIDE_SPEED = 520;
+    const ROCKET_AIM_UP_SPEED = 920;
+    const ROCKET_REFORM_DELAY_MS = 2000;
+    const ROCKET_REFILL_MS = 1300;
     const GAMEPAD_AIM_DEADZONE = 0.34;
 
     const DEFAULT_CONFIG = {
@@ -549,29 +554,26 @@
       keys: {
         keyboardLeft: false,
         keyboardRight: false,
-        mouseLeft: false,
-        mouseRight: false,
+        keyboardUp: false,
+        keyboardSpace: false,
         gamepadLeft: false,
-        gamepadRight: false
+        gamepadRight: false,
+        gamepadUp: false,
+        gamepadSpace: false
       },
       queue: {
-        primary: false,
-        jump: false,
-        launch: false,
-        release: false
+        up: false,
+        space: false
       },
       gamepad: {
         index: null,
-        actionPressed: false,
         aimX: 0,
         aimY: 0,
-        aimReady: false
-      },
-      pointer: {
-        mouseX: 0,
-        mouseY: 0,
-        mouseReady: false,
-        rightDown: false
+        aimReady: false,
+        upPressed: false,
+        spacePressed: false,
+        upWasPressed: false,
+        spaceWasPressed: false
       },
       aimSource: null,
       player: {
@@ -592,9 +594,18 @@
       rocket: {
         attached: true,
         active: false,
+        aiming: false,
+        boostArmed: false,
+        flame: 0,
+        phase: "attached",
+        inactiveSince: performance.now(),
+        respawnAt: performance.now() + ROCKET_REFORM_DELAY_MS,
+        aimStartedAt: 0,
+        aimHoldMs: 0,
         fireAt: 0,
         readyAt: 0,
         thrustDir: { x: 1, y: -0.38 },
+        launchVector: { x: 1, y: -0.4 },
         free: null
       },
       mailbox: {
@@ -725,12 +736,20 @@
       state.player.bodyRotationEndAt = state.now + duration;
     }
 
-    function queuePrimaryAction() {
-      state.queue.primary = true;
+    function queueUpAction() {
+      state.queue.up = true;
     }
 
-    function isPrimaryKey(code) {
-      return code === "ArrowUp" || code === "Space" || code === "KeyW" || code === "Numpad8";
+    function queueSpaceAction() {
+      state.queue.space = true;
+    }
+
+    function isUpKey(code) {
+      return code === "ArrowUp" || code === "KeyW" || code === "Numpad8";
+    }
+
+    function isSpaceKey(code) {
+      return code === "Space";
     }
 
     function isLeftKey(code) {
@@ -742,60 +761,16 @@
     }
 
     function getHorizontalInput() {
-      const mouseLeft = state.keys.mouseLeft;
-      const mouseRight = state.keys.mouseRight;
-      const mouse =
-        state.pointer.rightDown && state.pointer.mouseReady && !mouseLeft && !mouseRight
-          ? (() => {
-              const wizardScreenX = worldToScreenX(state.player.x);
-              const delta = state.pointer.mouseX - wizardScreenX;
-              if (Math.abs(delta) < 8) {
-                return 0;
-              }
-              return delta < 0 ? -1 : 1;
-            })()
-          : 0;
-      const left =
-        state.keys.keyboardLeft ||
-        mouseLeft ||
-        state.keys.gamepadLeft;
-      const right =
-        state.keys.keyboardRight ||
-        mouseRight ||
-        state.keys.gamepadRight;
-
-      return clamp((right ? 1 : 0) - (left ? 1 : 0) + mouse, -1, 1);
+      const left = state.keys.keyboardLeft || state.keys.gamepadLeft;
+      const right = state.keys.keyboardRight || state.keys.gamepadRight;
+      return clamp((right ? 1 : 0) - (left ? 1 : 0), -1, 1);
     }
 
-    function getRocketThrustVector() {
-      return { x: 0, y: -1 };
-    }
-
-    function getKeyboardLaunchVector() {
-      const left = state.keys.keyboardLeft;
-      const right = state.keys.keyboardRight;
-      const horizontal = (right ? 1 : 0) - (left ? 1 : 0);
-      if (horizontal === 0) {
-        return null;
-      }
-      return normalizeVector(horizontal, -1);
-    }
-
-    function getMouseAimVector() {
-      if (!state.pointer.mouseReady) {
-        return null;
-      }
-
-      const mount = rocketMountPoint();
-      const screenX = worldToScreenX(mount.x);
-      const screenY = mount.y;
-      const dx = state.pointer.mouseX - screenX;
-      const dy = state.pointer.mouseY - screenY;
-      if (Math.hypot(dx, dy) < 2) {
-        return null;
-      }
-
-      return normalizeVector(dx, dy);
+    function getRocketAimVector(holdMs = 0) {
+      const t = clamp(holdMs / ROCKET_AIM_MAX_HOLD_MS, 0, 1);
+      const side = ROCKET_AIM_SIDE_SPEED * t * t * state.player.facing;
+      const up = ROCKET_AIM_UP_SPEED;
+      return normalizeVector(side, -up);
     }
 
     function getGamepadAimVector() {
@@ -807,44 +782,7 @@
     }
 
     function getRocketReleaseVector() {
-      const keyboardLaunch = getKeyboardLaunchVector();
-      if (keyboardLaunch) {
-        return keyboardLaunch;
-      }
-
-      if (state.aimSource === "gamepad") {
-        const gamepadAim = getGamepadAimVector();
-        if (gamepadAim) {
-          return gamepadAim;
-        }
-      }
-
-      if (state.aimSource === "mouse") {
-        const mouseAim = getMouseAimVector();
-        if (mouseAim) {
-          return mouseAim;
-        }
-      }
-
-      const gamepadAim = getGamepadAimVector();
-      if (gamepadAim) {
-        return gamepadAim;
-      }
-
-      const mouseAim = getMouseAimVector();
-      if (mouseAim) {
-        return mouseAim;
-      }
-
       return normalizeVector(state.rocket.thrustDir.x, state.rocket.thrustDir.y);
-    }
-
-    function getCanvasPointerZone(clientX) {
-      const rect = canvas.getBoundingClientRect();
-      const x = (clientX - rect.left) / Math.max(1, rect.width);
-      if (x < 0.36) return -1;
-      if (x > 0.64) return 1;
-      return 0;
     }
 
     function normalizeConfig(rawConfig) {
@@ -1483,7 +1421,7 @@
       const facing = player.facing;
       const bodyRotation = player.bodyRotation || 0;
       const pose = computePose(player.y);
-      const rocketAngle = state.rocket.active
+      const rocketAngle = state.rocket.active || state.rocket.aiming
         ? rocketAngleForVector(state.rocket.thrustDir)
         : null;
 
@@ -1504,8 +1442,8 @@
 
       if (state.rocket.attached) {
         const rocketPose = rotateTransformAroundRoot(mirrorTransform(pose.transforms.rocket, pose.root, facing), pose.root, bodyRotation);
-        if (state.rocket.active) {
-          drawRocketFlame(rocketPose, facing, rocketAngle ?? rocketPose.angle, 1);
+        if (state.rocket.active || state.rocket.flame > 0) {
+          drawRocketFlame(rocketPose, facing, rocketAngle ?? rocketPose.angle, state.rocket.flame);
         }
       }
 
@@ -1519,14 +1457,14 @@
     function drawRocketFuelBar() {
       const fuel = state.rocket.free
         ? clamp(Math.max(0, state.rocket.free.burnEndsAt - state.now) / ROCKET_BURN_MS, 0, 1)
-        : state.rocket.active
-          ? clamp(Math.max(0, state.rocket.readyAt - state.now) / ROCKET_BURN_MS, 0, 1)
+        : state.rocket.attached
+          ? clamp(Math.max(0, state.now - state.rocket.inactiveSince - ROCKET_REFORM_DELAY_MS) / ROCKET_REFILL_MS, 0, 1)
           : 0;
 
       const x = 18;
-      const y = 24;
+      const h = Math.max(120, Math.round(state.viewH * 0.33));
+      const y = Math.round((state.viewH - h) / 2);
       const w = 14;
-      const h = Math.max(120, state.viewH - 48);
       const fillH = Math.max(0, Math.round((h - 4) * fuel));
 
       ctx.save();
@@ -1551,6 +1489,69 @@
       ctx.lineTo(w - 2, h - 2 - fillH);
       ctx.stroke();
       ctx.restore();
+    }
+
+    function drawRocketAimPreview() {
+      if (!state.rocket.aiming || state.rocket.phase !== "aiming" || !state.rocket.attached) {
+        return;
+      }
+
+      const mount = rocketMountPoint();
+      const holdMs = Math.max(0, state.now - state.rocket.aimStartedAt);
+      const launchVector = getRocketAimVector(holdMs);
+      const preview = simulateRocketArc({
+        x: mount.x,
+        y: mount.y,
+        vx: state.player.vx + launchVector.x * 260,
+        vy: state.player.vy + launchVector.y * 260
+      }, 1.45, 0.045);
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([10, 10]);
+      ctx.strokeStyle = "rgba(255, 223, 150, 0.34)";
+      ctx.beginPath();
+      for (let i = 0; i < preview.length; i += 1) {
+        const p = preview[i];
+        const sx = worldToScreenX(p.x);
+        if (i === 0) {
+          ctx.moveTo(sx, p.y);
+        } else {
+          ctx.lineTo(sx, p.y);
+        }
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      for (const p of preview.filter((_, i) => i % 5 === 0)) {
+        ctx.fillStyle = "rgba(255, 242, 196, 0.18)";
+        ctx.beginPath();
+        ctx.arc(worldToScreenX(p.x), p.y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function simulateRocketArc(initial, seconds, stepSeconds) {
+      const points = [];
+      const rocket = {
+        x: initial.x,
+        y: initial.y,
+        vx: initial.vx,
+        vy: initial.vy
+      };
+
+      for (let t = 0; t <= seconds; t += stepSeconds) {
+        points.push({ x: rocket.x, y: rocket.y });
+        rocket.vy += GRAVITY * stepSeconds;
+        rocket.x += rocket.vx * stepSeconds;
+        rocket.y += rocket.vy * stepSeconds;
+        rocket.vx *= 0.998;
+        rocket.vy *= 0.998;
+      }
+
+      return points;
     }
 
     function setMouseButtonState(button, isDown) {
@@ -1655,6 +1656,12 @@
       state.player.bodyRotationEndAt = 0;
       state.rocket.attached = true;
       state.rocket.active = false;
+      state.rocket.aiming = false;
+      state.rocket.boostArmed = false;
+      state.rocket.flame = 0;
+      state.rocket.phase = "attached";
+      state.rocket.inactiveSince = state.now;
+      state.rocket.respawnAt = state.now + ROCKET_REFORM_DELAY_MS;
       state.rocket.fireAt = 0;
       state.rocket.readyAt = 0;
       state.rocket.thrustDir = { x: 1, y: -0.38 };
@@ -1746,36 +1753,60 @@
 
     function triggerJump() {
       if (!state.player.onGround) {
-        return;
+        return false;
       }
 
       state.player.vy = -jumpVelocityForHeight(state.player.height * 2 * 1.5, GRAVITY);
       state.player.onGround = false;
       showMessage("Jump.", 900);
+      return true;
     }
 
-    function triggerLaunch() {
-      if (state.player.onGround) {
-        showMessage("The rocket can only fire while the wizard is airborne.", 1600);
-        return;
+    function startRocketBoost() {
+      if (state.player.onGround || !state.rocket.attached || !state.rocket.boostArmed) {
+        return false;
       }
 
-      if (!state.rocket.attached) {
-        showMessage("Rocket is not on the wizard's back yet.", 1200);
-        return;
+      if (!state.rocket.active) {
+        state.rocket.active = true;
+        state.rocket.phase = "boosting";
+        state.rocket.boostArmed = false;
+        state.rocket.thrustDir = { x: 0, y: -1 };
+        state.rocket.readyAt = state.now + ROCKET_BURN_MS;
+        state.rocket.flame = 1;
+        setBodyRotationTarget(bodyRotationForVector(state.rocket.thrustDir), 140);
+        showMessage("Rocket boost engaged.", 900);
       }
 
-      const thrustDir = getRocketThrustVector();
-      const rocketPose = computePose(state.player.y);
-      setBodyRotationTarget(bodyRotationForVector(thrustDir), 200);
-      state.rocket.active = true;
-      state.rocket.fireAt = state.now;
-      state.rocket.readyAt = state.now + ROCKET_BURN_MS;
-      state.rocket.thrustDir = thrustDir;
-      state.rocket.launchTargetHeight = rocketPose.transforms.rocket.targetHeight;
-      showMessage("Rocket launch engaged.", 1400);
-      const mount = rocketMountPoint();
-      spawnSparks(mount.x - thrustDir.x * 26, mount.y - thrustDir.y * 26, -thrustDir.x * 34, -thrustDir.y * 34, "rgba(255, 203, 112, 0.9)");
+      return true;
+    }
+
+    function stopRocketBoost() {
+      if (state.rocket.active && !state.rocket.aiming) {
+        state.rocket.active = false;
+        state.rocket.phase = "attached";
+        state.rocket.flame = 0;
+        setBodyRotationTarget(0, 240);
+        showMessage("Rocket boost off.", 700);
+      }
+    }
+
+    function startRocketAim() {
+      if (state.rocket.phase !== "attached") {
+        return false;
+      }
+
+      state.rocket.aiming = true;
+      state.rocket.phase = "aiming";
+      state.rocket.aimStartedAt = state.now;
+      state.rocket.aimHoldMs = 0;
+      state.rocket.active = false;
+      state.rocket.thrustDir = { x: 0, y: -1 };
+      state.rocket.flame = 0;
+      setBodyRotationTarget(0, 180);
+      state.rocket.launchTargetHeight = computePose(state.player.y).transforms.rocket.targetHeight;
+      showMessage("Hold Space/B to shape the arc.", 1400);
+      return true;
     }
 
     function triggerRelease() {
@@ -1783,49 +1814,37 @@
         return;
       }
 
-      if (!state.rocket.attached || !state.rocket.active) {
+      if (!state.rocket.attached || !state.rocket.aiming) {
         showMessage("The rocket is not firing yet.", 1000);
         return;
       }
 
       const mount = rocketMountPoint();
-      const thrustDir = getRocketReleaseVector();
-      const releaseSpeed = 220;
+      const holdMs = clamp(state.now - state.rocket.aimStartedAt, 0, ROCKET_AIM_MAX_HOLD_MS);
+      const launchVector = getRocketAimVector(holdMs);
+      const releaseSpeed = 170;
       setBodyRotationTarget(0, 320);
       state.rocket.free = {
         x: mount.x,
         y: mount.y,
-        vx: state.player.vx + thrustDir.x * releaseSpeed,
-        vy: state.player.vy + thrustDir.y * releaseSpeed,
-        angle: Math.atan2(thrustDir.y, thrustDir.x),
-        thrustDir: { x: thrustDir.x, y: thrustDir.y },
+        vx: state.player.vx + launchVector.x * releaseSpeed,
+        vy: state.player.vy + launchVector.y * releaseSpeed,
+        angle: Math.atan2(launchVector.y, launchVector.x),
+        thrustDir: { x: launchVector.x, y: launchVector.y },
         targetHeight: state.rocket.launchTargetHeight || getPartConfig("rocket").targetHeight * 0.5,
-        burnEndsAt: state.rocket.readyAt,
+        burnEndsAt: state.now + ROCKET_BURN_MS,
         thrust: 1
       };
       state.rocket.attached = false;
       state.rocket.active = false;
+      state.rocket.aiming = false;
+      state.rocket.phase = "projectile";
+      state.rocket.flame = 0;
+      state.rocket.aimHoldMs = holdMs;
+      state.rocket.inactiveSince = state.now;
+      state.rocket.respawnAt = state.now + ROCKET_REFORM_DELAY_MS;
       showMessage("Wizard released. The rocket will reform when ready.", 1800);
-      spawnSparks(mount.x, mount.y, thrustDir.x * 40, thrustDir.y * 40, "rgba(255, 160, 88, 0.95)");
-    }
-
-    function triggerPrimaryAction() {
-      if (state.player.onGround) {
-        triggerJump();
-        return;
-      }
-
-      if (state.rocket.attached && state.rocket.active) {
-        triggerRelease();
-        return;
-      }
-
-      if (state.rocket.attached) {
-        triggerLaunch();
-        return;
-      }
-
-      showMessage("The rocket is rebuilding. Hold tight.", 900);
+      spawnSparks(mount.x, mount.y, launchVector.x * 40, launchVector.y * 40, "rgba(255, 160, 88, 0.95)");
     }
 
     function updateInputFromKeyboard(code, isDown) {
@@ -1833,12 +1852,13 @@
         state.keys.keyboardLeft = isDown;
       } else if (isRightKey(code)) {
         state.keys.keyboardRight = isDown;
-      }
-    }
-
-    function queueActionFromKeyboard(code) {
-      if (isPrimaryKey(code)) {
-        queuePrimaryAction();
+      } else if (isUpKey(code)) {
+        state.keys.keyboardUp = isDown;
+        if (isDown) queueUpAction();
+        else if (!state.player.onGround && state.rocket.phase === "attached" && !state.rocket.aiming) state.rocket.boostArmed = true;
+      } else if (isSpaceKey(code)) {
+        state.keys.keyboardSpace = isDown;
+        if (isDown) queueSpaceAction();
       }
     }
 
@@ -1851,26 +1871,23 @@
         const press = (event) => {
           event.preventDefault();
           if (hold) {
-            button.dataset.hold = "true";
-            try {
-              button.setPointerCapture(event.pointerId);
-            } catch (captureError) {
-              // Pointer capture is best-effort.
-            }
             button.dataset.active = "true";
-            if (action === "left") state.keys.mouseLeft = true;
-            if (action === "right") state.keys.mouseRight = true;
-          } else if (action === "primary") {
-            queuePrimaryAction();
+            if (action === "left") state.keys.keyboardLeft = true;
           }
+          if (action === "up") queueUpAction();
+          if (action === "space") queueSpaceAction();
         };
 
         const release = (event) => {
-          if (!hold) return;
+          if (!hold && action !== "up" && action !== "space") return;
           event.preventDefault();
-          button.removeAttribute("data-active");
-          if (action === "left") state.keys.mouseLeft = false;
-          if (action === "right") state.keys.mouseRight = false;
+          if (hold) {
+            button.removeAttribute("data-active");
+          }
+          if (action === "left") state.keys.keyboardLeft = false;
+          if (action === "space" && state.rocket.aiming) {
+            triggerRelease();
+          }
         };
 
         button.addEventListener("pointerdown", press);
@@ -1881,139 +1898,8 @@
         });
       }
 
-      let activePointerId = null;
-      const clearMouse = () => {
-        state.keys.mouseLeft = false;
-        state.keys.mouseRight = false;
-        state.pointer.rightDown = false;
-      };
-
-      const recordMouseAim = (event) => {
-        if (event.pointerType !== "mouse") {
-          return;
-        }
-
-        state.pointer.mouseX = event.clientX;
-        state.pointer.mouseY = event.clientY;
-        state.pointer.mouseReady = true;
-        state.aimSource = "mouse";
-      };
-
-      const applyPointerZone = (event, queuePrimary = false) => {
-        recordMouseAim(event);
-        const zone = getCanvasPointerZone(event.clientX);
-        state.keys.mouseLeft = zone < 0;
-        state.keys.mouseRight = zone > 0;
-        if (zone === 0 && queuePrimary) {
-          queuePrimaryAction();
-        }
-      };
-
-      canvas.addEventListener("contextmenu", (event) => {
-        event.preventDefault();
-      });
-
-      canvas.addEventListener("pointerdown", (event) => {
-        if (event.pointerType === "mouse") {
-          recordMouseAim(event);
-          if (event.button === 0) {
-            event.preventDefault();
-            queuePrimaryAction();
-            return;
-          }
-
-          if (event.button === 2) {
-            event.preventDefault();
-            activePointerId = event.pointerId;
-            state.pointer.rightDown = true;
-            try {
-              canvas.setPointerCapture(event.pointerId);
-            } catch (captureError) {
-              // Pointer capture is best-effort.
-            }
-            return;
-          }
-
-          return;
-        }
-
-        event.preventDefault();
-        activePointerId = event.pointerId;
-        try {
-          canvas.setPointerCapture(event.pointerId);
-        } catch (captureError) {
-          // Pointer capture is best-effort.
-        }
-        applyPointerZone(event, true);
-      });
-
-      canvas.addEventListener("mousedown", (event) => {
-        if (event.button === 0 || event.button === 2) {
-          event.preventDefault();
-          recordMouseAim(event);
-          setMouseButtonState(event.button, true);
-        }
-
-        if (event.button === 0) {
-          queuePrimaryAction();
-        }
-      });
-
-      canvas.addEventListener("pointermove", (event) => {
-        recordMouseAim(event);
-        if (event.pointerType === "mouse") {
-          return;
-        }
-
-        if (activePointerId !== event.pointerId) return;
-        event.preventDefault();
-        applyPointerZone(event, false);
-      });
-
-      const releasePointer = (event) => {
-        if (event.pointerType === "mouse") {
-          if (event.button === 2) {
-            event.preventDefault();
-            activePointerId = null;
-            clearMouse();
-            return;
-          }
-
-          if (event.buttons === 0) {
-            event.preventDefault();
-            activePointerId = null;
-            clearMouse();
-          }
-          return;
-        }
-
-        if (activePointerId !== event.pointerId) return;
-        event.preventDefault();
-        activePointerId = null;
-        clearMouse();
-      };
-
-      canvas.addEventListener("pointerup", releasePointer);
-      canvas.addEventListener("pointercancel", releasePointer);
-      canvas.addEventListener("pointerleave", (event) => {
-        if (activePointerId === event.pointerId) {
-          clearMouse();
-        }
-      });
-
-      canvas.addEventListener("mouseup", (event) => {
-        if (event.button === 0 || event.button === 2) {
-          event.preventDefault();
-          setMouseButtonState(event.button, false);
-        }
-      });
-
-      canvas.addEventListener("mouseleave", () => {
-        clearMouse();
-      });
-
       window.addEventListener("keydown", (event) => {
-        if (isLeftKey(event.code) || isRightKey(event.code) || isPrimaryKey(event.code)) {
+        if (isLeftKey(event.code) || isRightKey(event.code) || isUpKey(event.code) || isSpaceKey(event.code)) {
           event.preventDefault();
         }
 
@@ -2023,7 +1909,6 @@
         }
 
         updateInputFromKeyboard(event.code, true);
-        queueActionFromKeyboard(event.code);
 
         if (event.code === "KeyT") {
           resetPlayer();
@@ -2032,15 +1917,22 @@
 
       window.addEventListener("keyup", (event) => {
         updateInputFromKeyboard(event.code, false);
+        if (isSpaceKey(event.code) && state.rocket.aiming) {
+          triggerRelease();
+        }
       });
 
       window.addEventListener("blur", () => {
         state.keys.keyboardLeft = false;
         state.keys.keyboardRight = false;
-        clearMouse();
         state.keys.gamepadLeft = false;
         state.keys.gamepadRight = false;
-        state.gamepad.actionPressed = false;
+        state.gamepad.upPressed = false;
+        state.gamepad.spacePressed = false;
+        if (state.rocket.aiming) {
+          triggerRelease();
+        }
+        stopRocketBoost();
       });
 
       debugPivotsEl.addEventListener("change", () => {
@@ -2074,8 +1966,11 @@
       state.keys.gamepadRight = false;
 
       if (!pad) {
-        state.gamepad.actionPressed = false;
         state.gamepad.aimReady = false;
+        state.gamepad.upPressed = false;
+        state.gamepad.spacePressed = false;
+        state.gamepad.upWasPressed = false;
+        state.gamepad.spaceWasPressed = false;
         return;
       }
 
@@ -2083,6 +1978,26 @@
       const axis = pad.axes && pad.axes.length > 0 ? pad.axes[0] : 0;
       state.keys.gamepadLeft = axis < -GAMEPAD_AIM_DEADZONE || Boolean(pad.buttons?.[14]?.pressed);
       state.keys.gamepadRight = axis > GAMEPAD_AIM_DEADZONE || Boolean(pad.buttons?.[15]?.pressed);
+      const upPressed = Boolean(pad.buttons?.[0]?.pressed);
+      const spacePressed = Boolean(pad.buttons?.[1]?.pressed);
+      state.gamepad.upPressed = upPressed;
+      state.gamepad.spacePressed = spacePressed;
+      if (upPressed && !state.gamepad.upWasPressed) {
+        queueUpAction();
+      }
+      if (!upPressed && state.gamepad.upWasPressed) {
+        if (!state.player.onGround && state.rocket.phase === "attached" && !state.rocket.aiming) {
+          state.rocket.boostArmed = true;
+        }
+      }
+      if (spacePressed && !state.gamepad.spaceWasPressed) {
+        queueSpaceAction();
+      }
+      if (!spacePressed && state.gamepad.spaceWasPressed && state.rocket.aiming) {
+        triggerRelease();
+      }
+      state.gamepad.upWasPressed = upPressed;
+      state.gamepad.spaceWasPressed = spacePressed;
 
       const aimX = pad.axes && pad.axes.length > 2 ? pad.axes[2] : 0;
       const aimY = pad.axes && pad.axes.length > 3 ? pad.axes[3] : 0;
@@ -2091,14 +2006,7 @@
         state.gamepad.aimX = aimX;
         state.gamepad.aimY = aimY;
         state.gamepad.aimReady = true;
-        state.aimSource = "gamepad";
       }
-
-      const primary = Boolean(pad.buttons?.[0]?.pressed);
-      if (primary && !state.gamepad.actionPressed) {
-        queuePrimaryAction();
-      }
-      state.gamepad.actionPressed = primary;
     }
 
     function updateCamera() {
@@ -2112,19 +2020,30 @@
       statVelEl.textContent = `${player.vx.toFixed(1)}, ${player.vy.toFixed(1)}`;
       statGroundedEl.textContent = player.onGround ? "yes" : "no";
       statFacingEl.textContent = player.facing < 0 ? "left" : "right";
-      statRocketEl.textContent = state.rocket.free ? "flying" : state.rocket.active ? "boosting" : state.rocket.attached ? "ready" : "reforming";
+      statRocketEl.textContent = state.rocket.free ? "flying" : state.rocket.aiming ? "aiming" : state.rocket.active ? "boosting" : state.rocket.attached ? "ready" : "reforming";
       statMailboxEl.textContent = state.mailbox.opened ? "opened" : "waiting";
     }
 
     function consumeQueuedActions() {
-      if (state.queue.primary) {
-        triggerPrimaryAction();
-        state.queue.primary = false;
+      if (state.queue.up) {
+        if (state.player.onGround) {
+          triggerJump();
+        } else if (state.rocket.boostArmed) {
+          startRocketBoost();
+        }
+        state.queue.up = false;
+      }
+
+      if (state.queue.space) {
+        startRocketAim();
+        state.queue.space = false;
       }
     }
 
     function updatePlayer(dt) {
       const player = state.player;
+      const timeScale = state.rocket.aiming ? ROCKET_AIM_SLOWMO : 1;
+      const scaledDt = dt * timeScale;
       const move = getHorizontalInput();
       if (move !== 0) {
         player.facing = move < 0 ? -1 : 1;
@@ -2145,24 +2064,32 @@
         player.vx = clamp(player.vx, -horizontalCap, horizontalCap);
       }
 
-      if (state.rocket.active) {
+      const spaceHeld = state.keys.keyboardSpace || state.gamepad.spacePressed;
+      if (state.rocket.attached && state.rocket.active && !state.rocket.aiming) {
         const thrustDir = normalizeVector(state.rocket.thrustDir.x, state.rocket.thrustDir.y);
         player.vx += thrustDir.x * ROCKET_THRUST * dt;
         player.vy += thrustDir.y * ROCKET_THRUST * dt;
-        if (state.now >= state.rocket.readyAt) {
-          state.rocket.active = false;
-          setBodyRotationTarget(0, 320);
-          showMessage("Rocket thrust exhausted. It can fire again now.", 1200);
-        }
+        state.rocket.flame = 1;
+      } else if (state.rocket.attached && state.rocket.aiming && spaceHeld) {
+        const holdMs = Math.max(0, state.now - state.rocket.aimStartedAt);
+        const thrustDir = getRocketAimVector(holdMs);
+        player.vx += thrustDir.x * ROCKET_THRUST * dt;
+        player.vy += thrustDir.y * ROCKET_THRUST * dt;
+        state.rocket.thrustDir = thrustDir;
+        state.rocket.flame = 1;
+      } else if (!state.rocket.free) {
+        state.rocket.flame = 0;
       }
 
-      player.vy += GRAVITY * dt;
+      if (!state.rocket.aiming) {
+        player.vy += GRAVITY * dt;
+      }
       if (player.vy > 1300) player.vy = 1300;
 
       const oldX = player.x;
       const oldY = player.y;
 
-      player.x += player.vx * dt;
+      player.x += player.vx * scaledDt;
       let rect = playerRect();
       for (const solid of state.solids) {
         if (!rectsIntersect(rect, solid)) continue;
@@ -2175,7 +2102,7 @@
         rect = playerRect();
       }
 
-      player.y += player.vy * dt;
+      player.y += player.vy * scaledDt;
       player.onGround = false;
       rect = playerRect();
       for (const solid of state.solids) {
@@ -2190,7 +2117,7 @@
         rect = playerRect();
       }
 
-      if (state.rocket.active) {
+      if ((state.rocket.active || state.rocket.aiming) && state.rocket.attached) {
         const total = Math.max(1, player.bodyRotationEndAt - player.bodyRotationStartAt);
         const t = clamp((state.now - player.bodyRotationStartAt) / total, 0, 1);
         player.bodyRotation = lerpAngle(player.bodyRotationStart, player.bodyRotationTarget, t);
@@ -2205,10 +2132,10 @@
       if (player.onGround && Math.abs(move) > 0 && Math.abs(player.vx) > 6) {
         const animationSpeed = numeric(state.rigConfig.animation.speed, 1);
         const cadence = clamp(Math.abs(player.vx) / 80, 0, 5.2) * (animationSpeed / 2.06);
-        state.walkPhase = (state.walkPhase + dt * cadence * Math.PI * 2) % (Math.PI * 2);
+        state.walkPhase = (state.walkPhase + scaledDt * cadence * Math.PI * 2) % (Math.PI * 2);
       }
 
-      state.idlePhase = (state.idlePhase + dt * 1.2) % (Math.PI * 2);
+      state.idlePhase = (state.idlePhase + scaledDt * 1.2) % (Math.PI * 2);
 
       if (player.y > 980) {
         resetPlayer();
@@ -2217,9 +2144,14 @@
     }
 
     function updateRocket(dt) {
-      if (!state.rocket.attached && state.now >= state.rocket.readyAt) {
+      const timeScale = state.rocket.aiming ? ROCKET_AIM_SLOWMO : 1;
+      const scaledDt = dt * timeScale;
+
+      if (state.rocket.phase === "projectile" && state.now >= state.rocket.respawnAt) {
         state.rocket.attached = true;
         state.rocket.active = false;
+        state.rocket.aiming = false;
+        state.rocket.phase = "attached";
         const mount = rocketMountPoint();
         spawnSparks(mount.x, mount.y, 0, -20, "rgba(255, 220, 140, 0.96)");
         showMessage("A fresh rocket sparkles back into place.", 1800);
@@ -2232,12 +2164,12 @@
         if (thrustRemaining > 0) {
           const thrustPower = ROCKET_THRUST;
           const thrustDir = normalizeVector(rocket.thrustDir.x, rocket.thrustDir.y);
-          rocket.vx += thrustDir.x * thrustPower * dt;
-          rocket.vy += thrustDir.y * thrustPower * dt;
+          rocket.vx += thrustDir.x * thrustPower * scaledDt;
+          rocket.vy += thrustDir.y * thrustPower * scaledDt;
         }
-        rocket.vy += 480 * dt;
-        rocket.x += rocket.vx * dt;
-        rocket.y += rocket.vy * dt;
+        rocket.vy += 480 * scaledDt;
+        rocket.x += rocket.vx * scaledDt;
+        rocket.y += rocket.vy * scaledDt;
         rocket.angle = Math.atan2(rocket.vy, rocket.vx);
         rocket.vx *= 0.999;
         rocket.vy *= 0.999;
@@ -2260,15 +2192,15 @@
         if (hit || rocket.x < state.cameraX - 180 || rocket.x > state.cameraX + state.viewW + 320 || rocket.y > 1060) {
           spawnExplosion(rocket.x, rocket.y, rocket.vx * 0.2, rocket.vy * 0.2);
           state.rocket.free = null;
-          if (!state.rocket.attached && state.now >= state.rocket.readyAt) {
-            state.rocket.attached = true;
-            const mount = rocketMountPoint();
-            spawnSparks(mount.x, mount.y, 0, -20, "rgba(255, 220, 140, 0.96)");
-            showMessage("A fresh rocket sparkles back into place.", 1800);
-          } else {
-            showMessage("Rocket crash detected. Re-forming soon.", 2200);
-          }
+          state.rocket.phase = "projectile";
+          state.rocket.inactiveSince = state.now;
+          state.rocket.respawnAt = state.now + ROCKET_REFORM_DELAY_MS;
+          showMessage("Rocket crash detected. Re-forming soon.", 2200);
         }
+      }
+
+      if (state.rocket.phase === "attached" && !state.rocket.active && !state.rocket.aiming && !state.rocket.free) {
+        state.rocket.inactiveSince = state.rocket.inactiveSince || state.now;
       }
     }
 
@@ -2346,6 +2278,7 @@
       drawBackground();
       drawTerrain();
       drawWizard();
+      drawRocketAimPreview();
       drawRocketFuelBar();
 
       for (const particle of state.particles) {
