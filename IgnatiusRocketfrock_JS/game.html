@@ -408,11 +408,11 @@
       rocket: ["assets/wizard_rocket.png", "wizard_rocket.png"]
     };
 
-    const GRAVITY = 2050;
+    const GRAVITY = 1025;
     const RUN_TOP_SPEED = 400;
     const AIR_TOP_SPEED = 300;
-    const ROCKET_BURN_MS = 400;
-    const ROCKET_THRUST = 4850; // Tuned so the 45-degree launch case peaks near the top of the viewport.
+    const ROCKET_BURN_MS = 800;
+    const ROCKET_THRUST = 1900; // Tuned for the lower gravity and longer burn so boosts still top out near the viewport edge.
     const GAMEPAD_AIM_DEADZONE = 0.34;
 
     const DEFAULT_CONFIG = {
@@ -765,13 +765,8 @@
       return clamp((right ? 1 : 0) - (left ? 1 : 0) + mouse, -1, 1);
     }
 
-    function getLaunchVector() {
-      const player = state.player;
-      const vx = Math.abs(player.vx) > 10 ? player.vx : 0;
-      if (vx === 0) {
-        return { x: 0, y: -1 };
-      }
-      return normalizeVector(vx, -Math.abs(vx));
+    function getRocketThrustVector() {
+      return { x: 0, y: -1 };
     }
 
     function getMouseAimVector() {
@@ -1154,7 +1149,7 @@
 
       const pivot = getPivot(name);
       const part = getPartConfig(name);
-      const angle = facing < 0 ? -numeric(transform.angle, 0) : numeric(transform.angle, 0);
+      const angle = numeric(transform.angle, 0);
       const targetHeight = numeric(transform.targetHeight, part.targetHeight);
       const spriteScale = scaleForHeight(name, targetHeight);
       const screenX = worldToScreenX(transform.x);
@@ -1367,7 +1362,7 @@
       if (p.missing || !transform || intensity <= 0) return;
 
       const part = getPartConfig("rocket");
-      const angle = facing < 0 ? -numeric(angleOverride ?? transform.angle, 0) : numeric(angleOverride ?? transform.angle, 0);
+      const angle = numeric(angleOverride ?? transform.angle, 0);
       const targetHeight = numeric(transform.targetHeight, part.targetHeight);
       const spriteScale = scaleForHeight("rocket", targetHeight);
       const nozzle = rocketNozzleLocalPoint(p);
@@ -1484,7 +1479,7 @@
         const mirrored = mirrorTransform(pose.transforms[name], pose.root, facing);
         let transform = rotateTransformAroundRoot(mirrored, pose.root, bodyRotation);
         if (name === "rocket" && rocketAngle != null) {
-          transform = { ...transform, angle: facing < 0 ? -rocketAngle : rocketAngle };
+          transform = { ...transform, angle: rocketAngle };
         }
         drawSprite(name, transform, pose.root, facing);
       }
@@ -1564,6 +1559,12 @@
           color
         });
       }
+    }
+
+    function spawnExplosion(x, y, baseVx, baseVy) {
+      spawnSparks(x, y, baseVx, baseVy, "rgba(255, 214, 132, 0.98)");
+      spawnSparks(x, y, baseVx * 0.6, baseVy * 0.6, "rgba(255, 155, 82, 0.96)");
+      spawnSparks(x, y, baseVx * 0.3, baseVy * 0.3, "rgba(255, 246, 220, 0.9)");
     }
 
     function showMessage(text, duration = 3600) {
@@ -1683,14 +1684,14 @@
         return;
       }
 
-      state.player.vy = -jumpVelocityForHeight(state.player.height * 2, GRAVITY);
+      state.player.vy = -jumpVelocityForHeight(state.player.height * 2 * 1.5, GRAVITY);
       state.player.onGround = false;
       showMessage("Jump.", 900);
     }
 
     function triggerLaunch() {
       if (state.player.onGround) {
-        showMessage("Jump first, then launch in midair.", 1600);
+        showMessage("The rocket can only fire while the wizard is airborne.", 1600);
         return;
       }
 
@@ -1699,10 +1700,7 @@
         return;
       }
 
-      const thrustDir = getLaunchVector();
-      if (Math.abs(thrustDir.x) > 0.08) {
-        state.player.facing = thrustDir.x < 0 ? -1 : 1;
-      }
+      const thrustDir = getRocketThrustVector();
       setBodyRotationTarget(bodyRotationForVector(thrustDir), 200);
       state.rocket.active = true;
       state.rocket.fireAt = state.now;
@@ -2139,7 +2137,7 @@
           rocket.vx += thrustDir.x * thrustPower * dt;
           rocket.vy += thrustDir.y * thrustPower * dt;
         }
-        rocket.vy += 960 * dt;
+        rocket.vy += 480 * dt;
         rocket.x += rocket.vx * dt;
         rocket.y += rocket.vy * dt;
         rocket.angle = Math.atan2(rocket.vy, rocket.vx);
@@ -2162,7 +2160,7 @@
         }
 
         if (hit || rocket.x < state.cameraX - 180 || rocket.x > state.cameraX + state.viewW + 320 || rocket.y > 1060) {
-          spawnSparks(rocket.x, rocket.y, rocket.vx * 0.15, rocket.vy * 0.15, "rgba(255, 198, 120, 0.95)");
+          spawnExplosion(rocket.x, rocket.y, rocket.vx * 0.2, rocket.vy * 0.2);
           state.rocket.free = null;
           if (!state.rocket.attached && state.now >= state.rocket.readyAt) {
             state.rocket.attached = true;
