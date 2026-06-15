@@ -26,9 +26,9 @@ Ignatius Rocketfrock and the Volcano of Editorial Concern
 Ignatius Rocketfrock and the Labyrinth of the Ancient McGuffin, Formerly the Caverns of Questionable Safety, Briefly the Tunnel of Reasonable Doom, Revised Edition
 
 The editor can gradually become more unhinged or more personally invested:
-“P.S. After further reflection, I have decided to retitle your account: Ignatius Rocketfrock and the Caverns of Questionable Safety. I trust this better reflects the dignity of your current predicament.”
-“P.P.S. I have also adjusted the subtitle again. Marketing insists that ‘deathtrap’ tests poorly with families.”
-“P.S. I am now calling this chapter Ignatius Rocketfrock and the Ravine of Perfectly Avoidable Consequences. Please try to make the title inaccurate.”
+"P.S. After further reflection, I have decided to retitle your account: Ignatius Rocketfrock and the Caverns of Questionable Safety. I trust this better reflects the dignity of your current predicament."
+"P.P.S. I have also adjusted the subtitle again. Marketing insists that 'deathtrap' tests poorly with families."
+"P.S. I am now calling this chapter Ignatius Rocketfrock and the Ravine of Perfectly Avoidable Consequences. Please try to make the title inaccurate."
 
 
 
