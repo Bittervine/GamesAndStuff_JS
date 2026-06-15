@@ -742,8 +742,10 @@
     }
 
     function getHorizontalInput() {
+      const mouseLeft = state.keys.mouseLeft;
+      const mouseRight = state.keys.mouseRight;
       const mouse =
-        state.pointer.rightDown && state.pointer.mouseReady
+        state.pointer.rightDown && state.pointer.mouseReady && !mouseLeft && !mouseRight
           ? (() => {
               const wizardScreenX = worldToScreenX(state.player.x);
               const delta = state.pointer.mouseX - wizardScreenX;
@@ -755,11 +757,11 @@
           : 0;
       const left =
         state.keys.keyboardLeft ||
-        state.keys.mouseLeft ||
+        mouseLeft ||
         state.keys.gamepadLeft;
       const right =
         state.keys.keyboardRight ||
-        state.keys.mouseRight ||
+        mouseRight ||
         state.keys.gamepadRight;
 
       return clamp((right ? 1 : 0) - (left ? 1 : 0) + mouse, -1, 1);
@@ -767,6 +769,16 @@
 
     function getRocketThrustVector() {
       return { x: 0, y: -1 };
+    }
+
+    function getKeyboardLaunchVector() {
+      const left = state.keys.keyboardLeft;
+      const right = state.keys.keyboardRight;
+      const horizontal = (right ? 1 : 0) - (left ? 1 : 0);
+      if (horizontal === 0) {
+        return null;
+      }
+      return normalizeVector(horizontal, -1);
     }
 
     function getMouseAimVector() {
@@ -795,6 +807,11 @@
     }
 
     function getRocketReleaseVector() {
+      const keyboardLaunch = getKeyboardLaunchVector();
+      if (keyboardLaunch) {
+        return keyboardLaunch;
+      }
+
       if (state.aimSource === "gamepad") {
         const gamepadAim = getGamepadAimVector();
         if (gamepadAim) {
@@ -1399,7 +1416,8 @@
 
       const screenX = worldToScreenX(rocket.x);
       const pivot = getPivot("rocket");
-      const spriteScale = 0.92;
+      const part = getPartConfig("rocket");
+      const spriteScale = scaleForHeight("rocket", numeric(rocket.targetHeight, part.targetHeight));
       const vector = rocket.thrustDir && (rocket.thrustDir.x !== 0 || rocket.thrustDir.y !== 0)
         ? rocket.thrustDir
         : { x: rocket.vx, y: rocket.vy };
@@ -1498,6 +1516,52 @@
       drawDebugPoints(pose.debugPoints);
     }
 
+    function drawRocketFuelBar() {
+      const fuel = state.rocket.free
+        ? clamp(Math.max(0, state.rocket.free.burnEndsAt - state.now) / ROCKET_BURN_MS, 0, 1)
+        : state.rocket.active
+          ? clamp(Math.max(0, state.rocket.readyAt - state.now) / ROCKET_BURN_MS, 0, 1)
+          : 0;
+
+      const x = 18;
+      const y = 24;
+      const w = 14;
+      const h = Math.max(120, state.viewH - 48);
+      const fillH = Math.max(0, Math.round((h - 4) * fuel));
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = "rgba(8, 7, 12, 0.45)";
+      roundRect(0, 0, w, h, 8);
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+      ctx.lineWidth = 1;
+      roundRect(0, 0, w, h, 8);
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(255, 214, 132, 0.24)";
+      ctx.fillRect(2, 2, w - 4, h - 4);
+      ctx.fillStyle = "rgba(255, 171, 75, 0.88)";
+      ctx.fillRect(2, h - 2 - fillH, w - 4, fillH);
+      ctx.strokeStyle = "rgba(255, 243, 214, 0.88)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(2, h - 2 - fillH);
+      ctx.lineTo(w - 2, h - 2 - fillH);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function setMouseButtonState(button, isDown) {
+      if (button === 0) {
+        state.keys.mouseLeft = isDown;
+      } else if (button === 2) {
+        state.keys.mouseRight = isDown;
+        state.pointer.rightDown = isDown;
+      }
+    }
+
     function roundRect(x, y, w, h, r) {
       const radius = Math.min(r, w / 2, h / 2);
       ctx.beginPath();
@@ -1594,6 +1658,7 @@
       state.rocket.fireAt = 0;
       state.rocket.readyAt = 0;
       state.rocket.thrustDir = { x: 1, y: -0.38 };
+      state.rocket.launchTargetHeight = null;
       state.rocket.free = null;
       state.mailbox.opened = false;
       showMessage("Walk to the mailbox to collect the editor's note.", 4200);
@@ -1701,11 +1766,13 @@
       }
 
       const thrustDir = getRocketThrustVector();
+      const rocketPose = computePose(state.player.y);
       setBodyRotationTarget(bodyRotationForVector(thrustDir), 200);
       state.rocket.active = true;
       state.rocket.fireAt = state.now;
       state.rocket.readyAt = state.now + ROCKET_BURN_MS;
       state.rocket.thrustDir = thrustDir;
+      state.rocket.launchTargetHeight = rocketPose.transforms.rocket.targetHeight;
       showMessage("Rocket launch engaged.", 1400);
       const mount = rocketMountPoint();
       spawnSparks(mount.x - thrustDir.x * 26, mount.y - thrustDir.y * 26, -thrustDir.x * 34, -thrustDir.y * 34, "rgba(255, 203, 112, 0.9)");
@@ -1732,6 +1799,7 @@
         vy: state.player.vy + thrustDir.y * releaseSpeed,
         angle: Math.atan2(thrustDir.y, thrustDir.x),
         thrustDir: { x: thrustDir.x, y: thrustDir.y },
+        targetHeight: state.rocket.launchTargetHeight || getPartConfig("rocket").targetHeight * 0.5,
         burnEndsAt: state.rocket.readyAt,
         thrust: 1
       };
@@ -1879,6 +1947,18 @@
         applyPointerZone(event, true);
       });
 
+      canvas.addEventListener("mousedown", (event) => {
+        if (event.button === 0 || event.button === 2) {
+          event.preventDefault();
+          recordMouseAim(event);
+          setMouseButtonState(event.button, true);
+        }
+
+        if (event.button === 0) {
+          queuePrimaryAction();
+        }
+      });
+
       canvas.addEventListener("pointermove", (event) => {
         recordMouseAim(event);
         if (event.pointerType === "mouse") {
@@ -1892,7 +1972,14 @@
 
       const releasePointer = (event) => {
         if (event.pointerType === "mouse") {
-          if (event.button === 2 || state.pointer.rightDown) {
+          if (event.button === 2) {
+            event.preventDefault();
+            activePointerId = null;
+            clearMouse();
+            return;
+          }
+
+          if (event.buttons === 0) {
             event.preventDefault();
             activePointerId = null;
             clearMouse();
@@ -1912,6 +1999,17 @@
         if (activePointerId === event.pointerId) {
           clearMouse();
         }
+      });
+
+      canvas.addEventListener("mouseup", (event) => {
+        if (event.button === 0 || event.button === 2) {
+          event.preventDefault();
+          setMouseButtonState(event.button, false);
+        }
+      });
+
+      canvas.addEventListener("mouseleave", () => {
+        clearMouse();
       });
 
       window.addEventListener("keydown", (event) => {
@@ -2248,6 +2346,7 @@
       drawBackground();
       drawTerrain();
       drawWizard();
+      drawRocketFuelBar();
 
       for (const particle of state.particles) {
         drawParticle(particle);

@@ -227,6 +227,8 @@
   titleArt.src = 'assets/thorium_gap_title.png';
   const glowImages = new Map();
   const glowImageLoads = new Set();
+  const pickupImages = new Map();
+  const pickupImageLoads = new Set();
   const ENEMY_SHIP_COLUMNS = 7;
   const ENEMY_SHIP_FALLBACK_BATCHES = 10;
   const ENEMY_SHIP_VARIANT = 'a';
@@ -944,6 +946,27 @@
     };
     img.onerror = function () {
       glowImageLoads.delete(src);
+    };
+    img.src = src;
+    return null;
+  }
+
+  function ensurePickupImage(type) {
+    const src = PICKUP_IMAGE_SOURCES[type];
+    if (!src) return null;
+    const cachedTex = pickupImages.get(src);
+    if (cachedTex) return cachedTex;
+    if (pickupImageLoads.has(src)) return null;
+    pickupImageLoads.add(src);
+    const img = new Image();
+    img.decoding = 'async';
+    img.onload = function () {
+      const tex = createTextureFromCanvas(img);
+      if (tex) pickupImages.set(src, tex);
+      pickupImageLoads.delete(src);
+    };
+    img.onerror = function () {
+      pickupImageLoads.delete(src);
     };
     img.src = src;
     return null;
@@ -3675,6 +3698,17 @@
     invuln: { emoji: E.star, color: '#ffff00', lighter: true, glowDiameter: 32 },
     score: { emoji: E.gem, color: '#f00000', lighter: false, glowDiameter: 50 },
     catalyst: { emoji: '', color: '#6fe7ff', lighter: true, glowDiameter: 92 }
+  };
+
+  const PICKUP_IMAGE_SOURCES = {
+    weapon: 'assets/pickup_icon_weapon.png',
+    rapid: 'assets/pickup_icon_rapid.png',
+    shield: 'assets/pickup_icon_shield.png',
+    bomb: 'assets/pickup_icon_bomb.png',
+    magnet: 'assets/pickup_icon_magnet.png',
+    invuln: 'assets/pickup_icon_invuln.png',
+    score: 'assets/pickup_icon_score.png',
+    catalyst: 'assets/pickup_icon_catalyst.png'
   };
 
   const ENEMIES = {
@@ -8734,8 +8768,17 @@
           const a = p.spin * 1.8 + k * (TAU / 3);
           const ox = Math.cos(a) * (baseR * 0.86 + Math.sin(p.bob * 1.7 + k) * baseR * 0.2);
           const oy = Math.sin(a * 1.3) * (baseR * 0.74);
-          drawEmojiGlyph('✶', p.x + ox, p.y + bob + oy, 18 * scale, { alpha: 0.92, rot: -a * 1.3, layer: 3, lighter: false, fill: '#04101a' });
           drawGlowCircle(p.x + ox, p.y + bob + oy, 4.2 * scale, '#a9f2ff', 0.34 * boost, 6 * scale);
+        }
+        const catalystImg = ensurePickupImage('catalyst');
+        if (catalystImg) {
+          const iconSize = 74 * scale;
+          drawTextureRect(catalystImg, p.x, p.y + bob, iconSize, iconSize, {
+            alpha: 1,
+            rot: p.spin * 0.18,
+            layer: 2,
+            lighter: false
+          });
         }
         continue;
       }
@@ -8746,7 +8789,18 @@
         drawGlowCircle(p.x, p.y + bob, glowRadiusOuter, p.color, 0.48 * boost, glowBlurOuter);
         drawGlowCircle(p.x, p.y + bob, glowRadiusInner, p.color, 0.85 * boost, glowBlurInner);
       }
-      drawEmojiGlyph(p.emoji, p.x, p.y + bob, 20 * scale, { alpha: 1, rot: Math.sin(p.spin + p.bob * 0.7) * 0.16, layer: 2, lighter: p.lighter !== false });
+      const pickupImg = ensurePickupImage(p.type);
+      if (pickupImg) {
+        const iconSize = p.type === 'shield' ? 53 * scale : 45 * scale;
+        drawTextureRect(pickupImg, p.x, p.y + bob, iconSize, iconSize, {
+          alpha: 1,
+          rot: Math.sin(p.spin + p.bob * 0.7) * 0.16,
+          layer: 2,
+          lighter: p.lighter !== false
+        });
+      } else {
+        drawEmojiGlyph(p.emoji, p.x, p.y + bob, 20 * scale, { alpha: 1, rot: Math.sin(p.spin + p.bob * 0.7) * 0.16, layer: 2, lighter: p.lighter !== false });
+      }
     }
   }
 
