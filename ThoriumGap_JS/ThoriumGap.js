@@ -8772,7 +8772,7 @@
         }
         const catalystImg = ensurePickupImage('catalyst');
         if (catalystImg) {
-          const iconSize = 74 * scale;
+          const iconSize = 75 * scale;
           drawTextureRect(catalystImg, p.x, p.y + bob, iconSize, iconSize, {
             alpha: 1,
             rot: p.spin * 0.18,
@@ -8791,7 +8791,7 @@
       }
       const pickupImg = ensurePickupImage(p.type);
       if (pickupImg) {
-        const iconSize = p.type === 'shield' ? 53 * scale : 45 * scale;
+        const iconSize = p.type === 'shield' ? 54 * scale : 46 * scale;
         drawTextureRect(pickupImg, p.x, p.y + bob, iconSize, iconSize, {
           alpha: 1,
           rot: Math.sin(p.spin + p.bob * 0.7) * 0.16,
