@@ -5101,7 +5101,6 @@
     warmBossArt(index + 1);
     clearArray(state.enemies);
     clearProjectileLists();
-    clearArray(state.pickups);
     clearAsteroids();
     state.boss = null;
     state.waveClock = 0;
