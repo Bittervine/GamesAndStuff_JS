@@ -141,9 +141,54 @@ function testBoostKickCannotBeTapExploited() {
     state.player.y = 600;
     state.player.vy = 0;
     state.player.onGround = true;
-    state.fuel.rechargeDelayTimer = 0;
+    state.fuel.rechargeDelayTimer = state.tuning.rechargeDelayAfterUse;
     stepSimulation(state, createInputFrame(), FIXED_DT);
-    assert.ok(state.equipment.rocket.boostKickCharge > 0.99, "kick charge should recharge once the inactivity delay has passed and Ignatius has landed");
+    assert.ok(state.equipment.rocket.boostKickCharge > 0.99, "kick charge should recharge as soon as Ignatius has landed, even during fuel recharge delay");
+}
+
+function testBoostKickCostsFuelAndRechargesOnLanding() {
+    const costly = createInitialGameState({
+        tuning: {
+            attachedBoostKickFuelCost: 10,
+            attachedBoostDrainRate: 0
+        }
+    });
+    settleOnGround(costly);
+    stepSimulation(costly, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    stepMany(costly, 8, () => createInputFrame({ jumpHeld: false }));
+    costly.fuel.amount = 10;
+    costly.equipment.rocket.boostKickCharge = 1;
+    const beforeKickFuel = costly.fuel.amount;
+    const beforeKickVy = costly.player.vy;
+    stepSimulation(costly, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    assert.ok(costly.player.vy < beforeKickVy - 180, `kick should fire when at least 10 fuel is available, before ${beforeKickVy}, after ${costly.player.vy}`);
+    approx(costly.fuel.amount, beforeKickFuel - 10, 0.001, "boost kick should spend its 10-fuel cost immediately");
+    approx(costly.equipment.rocket.boostKickCharge, 0, 0.001, "boost kick charge should be spent by the kick");
+
+    stepSimulation(costly, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
+    costly.player.y = 600;
+    costly.player.vy = 0;
+    costly.player.onGround = true;
+    costly.fuel.rechargeDelayTimer = costly.tuning.rechargeDelayAfterUse;
+    stepSimulation(costly, createInputFrame(), FIXED_DT);
+    assert.ok(costly.equipment.rocket.boostKickCharge > 0.99, "landing should recharge the kick even before fuel recharge starts");
+    approx(costly.fuel.amount, 0, 0.001, "fuel should still wait for its recharge delay after landing");
+
+    const lowFuel = createInitialGameState({
+        tuning: {
+            attachedBoostKickFuelCost: 10,
+            attachedBoostDrainRate: 0
+        }
+    });
+    settleOnGround(lowFuel);
+    stepSimulation(lowFuel, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    stepMany(lowFuel, 8, () => createInputFrame({ jumpHeld: false }));
+    lowFuel.fuel.amount = 9;
+    lowFuel.equipment.rocket.boostKickCharge = 1;
+    const beforeLowFuelVy = lowFuel.player.vy;
+    stepSimulation(lowFuel, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    assert.ok(lowFuel.player.vy > beforeLowFuelVy - 80, `less than 10 fuel should not fire the kick, before ${beforeLowFuelVy}, after ${lowFuel.player.vy}`);
+    assert.ok(lowFuel.equipment.rocket.boostKickCharge > 0.99, "failed low-fuel kick should not spend the landing-recharged kick charge");
 }
 
 function testHomingRocketLaunch() {
@@ -183,6 +228,7 @@ function testRocketTrailTracksCurvedPathAndPersistsAfterExplosion() {
     assert.ok(smokeCountDuringFlight > 8, `world-managed smoke puffs should be emitted during flight, got ${smokeCountDuringFlight}`);
     state.projectiles[0].age = state.projectiles[0].lifetime;
     stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.ok(state.effects.smokePuffs.length > smokeCountDuringFlight, "rocket impact should add smoke puffs instead of depending on a rendered explosion ring");
     stepMany(state, Math.ceil(state.tuning.rocketProjectileExplosionSeconds / FIXED_DT) + 2, () => createInputFrame());
     assert.equal(state.projectiles.length, 0, "rocket should be gone after explosion cleanup");
     assert.ok(state.effects.smokePuffs.length > 0, "world-managed smoke puffs should remain after the rocket is gone");
@@ -235,18 +281,20 @@ function testFuelRechargeDelayGroundRequirementAndCap() {
     approx(airborne.equipment.rocket.boostKickCharge, 0, 0.001, "kick charge should not recharge while airborne");
 }
 
-function testPhase1012TuningDefaultsDebugPoseAndFuelBulbFlash() {
-    assert.equal(DEFAULT_TUNING.attachedBoostStartImpulse, -700, "Phase 1.012 should bake in the current preferred boost kick");
-    assert.equal(DEFAULT_TUNING.rechargeDelayAfterUse, 1, "Phase 1.012 should bake in the current recharge delay");
-    assert.equal(DEFAULT_TUNING.rechargeRate, 52, "Phase 1.012 should bake in the current recharge rate");
-    assert.equal(DEFAULT_TUNING.rocketLaunchCost, 30, "Phase 1.012 should bake in the current rocket launch cost");
-    assert.equal(DEFAULT_TUNING.groundAcceleration, 950, "Phase 1.012 should bake in the softer ground acceleration");
-    assert.equal(DEFAULT_TUNING.groundFriction, 900, "Phase 1.012 should bake in the softer ground friction");
+function testPhase1013TuningDefaultsDebugPoseAndFuelBulbFlash() {
+    assert.equal(DEFAULT_TUNING.attachedBoostStartImpulse, -700, "Phase 1.013 should bake in the current preferred boost kick");
+    assert.equal(DEFAULT_TUNING.attachedBoostKickFuelCost, 10, "Phase 1.013 should make the double-jump kick cost 10 fuel");
+    assert.equal(DEFAULT_TUNING.rechargeDelayAfterUse, 1, "Phase 1.013 should bake in the current recharge delay");
+    assert.equal(DEFAULT_TUNING.rechargeRate, 52, "Phase 1.013 should bake in the current recharge rate");
+    assert.equal(DEFAULT_TUNING.rocketLaunchCost, 30, "Phase 1.013 should bake in the current rocket launch cost");
+    assert.equal(DEFAULT_TUNING.groundAcceleration, 950, "Phase 1.013 should bake in the softer ground acceleration");
+    assert.equal(DEFAULT_TUNING.groundFriction, 900, "Phase 1.013 should bake in the softer ground friction");
     assert.equal(DEFAULT_TUNING.attachedBoostSmokePuffInterval, 0.035);
     assert.equal(DEFAULT_TUNING.attachedBoostSmokePuffDownSpeed, 700);
     assert.equal(DEFAULT_TUNING.rocketSmokePuffLifetime, 1.5);
     assert.equal(DEFAULT_TUNING.rocketSmokePuffSpacing, 3);
     assert.equal(DEFAULT_TUNING.rocketSmokePuffScale, 1.5);
+    assert.equal(DEFAULT_TUNING.rocketImpactSmokePuffs, 24, "rocket impacts should use smoke puffs instead of a drawn explosion ring");
     assert.equal(DEFAULT_TUNING.rocketFuelBulbScale, 2.4);
     assert.equal(DEFAULT_TUNING.rocketFuelBulbEnabled, true, "rocket fuel bulb should be enabled by default");
     assert.equal(DEFAULT_TUNING.poseBlendSpeed, 14, "pose transitions should blend by default");
@@ -318,9 +366,9 @@ function testAttachedSmokeDownSpeedTuning() {
             attachedBoostSmokePuffSpeedJitter: 0
         }
     });
-    stepMany(state, {}, 8);
+    settleOnGround(state);
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
-    stepMany(state, { jumpHeld: true }, 3);
+    stepMany(state, 3, () => createInputFrame({ jumpHeld: true }));
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
     const attachedPuffs = state.effects.smokePuffs.filter((puff) => puff.kind === "attachedRocketSmokePuff");
     assert.ok(attachedPuffs.length >= 4, "expected attached boost smoke puffs");
@@ -336,13 +384,14 @@ const tests = [
     ["attached boost and fuel drain", testAttachedBoostStateAndFuelDrain],
     ["double-jump kick and hover governor", testDoubleJumpKickAndHoverGovernor],
     ["boost kick cannot be tap exploited", testBoostKickCannotBeTapExploited],
+    ["boost kick costs fuel and recharges on landing", testBoostKickCostsFuelAndRechargesOnLanding],
     ["homing rocket launch", testHomingRocketLaunch],
     ["rocket trail tracks curved path and persists", testRocketTrailTracksCurvedPathAndPersistsAfterExplosion],
     ["attached boost smoke and visual power", testAttachedRocketSmokeAndVisualPower],
     ["attached smoke down speed tuning", testAttachedSmokeDownSpeedTuning],
     ["fuel recharge delay, ground requirement and cap", testFuelRechargeDelayGroundRequirementAndCap],
     ["fuel recharge latch after grounded start", testFuelRechargeLatchAfterGroundedStart],
-    ["Phase 1.012 tuning defaults, debug pose blending and fuel bulb flash", testPhase1012TuningDefaultsDebugPoseAndFuelBulbFlash],
+    ["Phase 1.013 tuning defaults, debug pose blending and fuel bulb flash", testPhase1013TuningDefaultsDebugPoseAndFuelBulbFlash],
     ["wall collision", testWallCollision],
     ["manual reset", testReset]
 ];

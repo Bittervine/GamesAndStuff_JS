@@ -340,20 +340,9 @@ class RocketfrockRenderer {
         for (const projectile of state.projectiles || []) {
             if (projectile.state === "exploding") {
                 const p = this.worldToScreen(view, projectile.x, projectile.y);
-                const life = Math.max(0, projectile.explosionTimer / Math.max(0.001, projectile.lifetime || 1));
-                const ring = (34 + (1 - life) * 44) * view.zoom;
                 ctx.save();
-                ctx.globalAlpha = 0.55 + life * 0.35;
-                ctx.strokeStyle = "rgba(255, 213, 104, 0.9)";
-                ctx.lineWidth = 3 * view.dpr;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, ring, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.fillStyle = "rgba(255, 109, 87, 0.16)";
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, ring * 0.72, 0, Math.PI * 2);
-                ctx.fill();
-                this.drawSparkBurst(p.x, p.y, view, projectile.age + projectile.x, 18, ring * 0.6);
+                const sparkRadius = 32 * view.zoom;
+                this.drawSparkBurst(p.x, p.y, view, projectile.age + projectile.x, 14, sparkRadius);
                 ctx.restore();
                 continue;
             }

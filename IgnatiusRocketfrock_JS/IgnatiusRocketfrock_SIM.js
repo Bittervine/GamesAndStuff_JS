@@ -16,6 +16,7 @@ export const DEFAULT_TUNING = Object.freeze({
     airDrag: 0.12,
     attachedBoostAcceleration: -1580,
     attachedBoostStartImpulse: -700,
+    attachedBoostKickFuelCost: 10,
     attachedBoostStartMaxDownwardVelocity: 120,
     attachedBoostInitialAcceleration: -3050,
     attachedBoostSustainAcceleration: -1500,
@@ -51,6 +52,7 @@ export const DEFAULT_TUNING = Object.freeze({
     rocketProjectileLifetime: 4.6,
     rocketProjectileExplosionSeconds: 0.42,
     rocketProjectileImpactRadius: 24,
+    rocketImpactSmokePuffs: 24,
     rocketSmokePuffLifetime: 1.5,
     rocketSmokePuffSpacing: 3,
     rocketSmokeMaxPuffs: 260,
@@ -104,7 +106,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "phase-1.012-physics-arena",
+            build: "phase-1.013-physics-arena",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -424,13 +426,30 @@ function startAttachedBoost(state) {
     const rocket = state.equipment.rocket;
     const p = state.player;
     const t = state.tuning;
-    const kickCharge = clamp(rocket.boostKickCharge ?? t.attachedBoostKickChargeMax ?? 1, 0, t.attachedBoostKickChargeMax ?? 1);
-    const hasKickCharge = kickCharge > 0.001;
+    const kickMax = t.attachedBoostKickChargeMax ?? 1;
+    const kickCharge = clamp(rocket.boostKickCharge ?? kickMax, 0, kickMax);
+    const kickFuelCost = Math.max(0, t.attachedBoostKickFuelCost ?? 10);
+    const hasKickCharge = kickCharge > 0.001 && state.fuel.amount >= kickFuelCost;
+    const canSustainWithoutKick = t.attachedBoostAllowSustainWithoutKickCharge !== false && state.fuel.amount > 0;
+
+    if (!hasKickCharge && !canSustainWithoutKick) {
+        addEvent(state, "PLAYER_BOOST_BLOCKED", {
+            reason: state.fuel.amount < kickFuelCost ? "kickFuel" : "kickCharge",
+            fuel: round(state.fuel.amount),
+            kickFuelCost: round(kickFuelCost),
+            kickCharge: round(kickCharge)
+        });
+        return false;
+    }
+
     rocket.attachedBoosting = true;
     rocket.state = "attachedBoosting";
     rocket.attachedBoostTime = 0;
     rocket.boostBurstTimer = hasKickCharge ? Math.max(0, t.attachedBoostBurstDuration ?? 0.5) : 0;
-    rocket.boostKickCharge = 0;
+    if (hasKickCharge) {
+        rocket.boostKickCharge = 0;
+        state.fuel.amount = clamp(state.fuel.amount - kickFuelCost, 0, state.fuel.max);
+    }
     rocket.boostAccelerationNow = 0;
     rocket.boostVisualPowerNow = attachedBoostVisualPower(state);
     rocket.attachedSmokeTimer = 0;
@@ -444,8 +463,10 @@ function startAttachedBoost(state) {
     addEvent(state, "PLAYER_BOOST_STARTED", {
         fuel: round(state.fuel.amount),
         impulse: round(impulse),
-        kickCharge: round(rocket.boostKickCharge)
+        kickCharge: round(rocket.boostKickCharge),
+        kickFuelCost: hasKickCharge ? round(kickFuelCost) : 0
     });
+    return true;
 }
 
 function getAttachedBoostAcceleration(state) {
@@ -774,11 +795,41 @@ function explodeProjectile(state, projectile, reason) {
     if (projectile.state === "exploding" || projectile.state === "spent") {
         return;
     }
+    emitProjectileImpactSmoke(state, projectile);
     projectile.state = "exploding";
     projectile.vx = 0;
     projectile.vy = 0;
     projectile.explosionTimer = state.tuning.rocketProjectileExplosionSeconds;
     addEvent(state, "ROCKET_IMPACTED", { id: projectile.id, reason, x: round(projectile.x), y: round(projectile.y) });
+}
+
+function emitProjectileImpactSmoke(state, projectile) {
+    const t = state.tuning;
+    const count = Math.max(0, Math.floor(t.rocketImpactSmokePuffs ?? 24));
+    const incomingSpeed = Math.hypot(projectile.vx || 0, projectile.vy || 0);
+    const incomingAngle = Math.atan2(projectile.vy || 0, projectile.vx || 1);
+
+    for (let i = 0; i < count; i += 1) {
+        const u = count <= 1 ? 0 : i / (count - 1);
+        const seed = (state.clock.tick * 97 + i * 131 + Math.floor(projectile.x * 3 + projectile.y * 5)) % 10000;
+        const angle = incomingAngle + Math.PI + (u - 0.5) * Math.PI * 1.55 + (hash01(seed) - 0.5) * 0.65;
+        const speed = 60 + incomingSpeed * (0.08 + hash01(seed + 19) * 0.13) + i * 2.2;
+        const offset = 5 + hash01(seed + 41) * 16;
+        addSmokePuff(state, {
+            kind: "rocketImpactSmokePuff",
+            x: projectile.x + Math.cos(angle) * offset,
+            y: projectile.y + Math.sin(angle) * offset,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 18 + hash01(seed + 73) * 42,
+            lifetime: (t.rocketSmokePuffLifetime ?? 1.5) * (0.75 + hash01(seed + 101) * 0.65),
+            radius: 8 + hash01(seed + 157) * 10
+        });
+    }
+}
+
+function hash01(seed) {
+    const x = Math.sin(seed * 12.9898) * 43758.5453;
+    return x - Math.floor(x);
 }
 
 function findHomingTarget(state) {
@@ -871,6 +922,8 @@ function updateFuelRecharge(state, dt) {
 
     fuel.amount = clamp(fuel.amount, 0, fuel.max);
 
+    updateBoostKickGroundRecharge(state, dt);
+
     if (rocket.attachedBoosting) {
         return;
     }
@@ -888,26 +941,6 @@ function updateFuelRecharge(state, dt) {
         addEvent(state, "FUEL_RECHARGE_STARTED", { grounded: true });
     }
 
-    const kickMax = Math.max(0, t.attachedBoostKickChargeMax ?? 1);
-    rocket.boostKickCharge = clamp(rocket.boostKickCharge ?? kickMax, 0, kickMax);
-    if (rocket.boostKickCharge < kickMax) {
-        const previous = rocket.boostKickCharge;
-        if (t.attachedBoostKickRechargeInstant !== false) {
-            rocket.boostKickCharge = kickMax;
-        } else {
-            rocket.boostKickCharge = Math.min(kickMax, rocket.boostKickCharge + Math.max(0, t.attachedBoostKickChargeRechargeRate ?? 1) * dt);
-        }
-        if (previous !== rocket.boostKickCharge) {
-            if (t.rocketFuelBulbFlashOnKickRecharge !== false) {
-                rocket.fuelBulbFlashTimer = 0.45;
-            }
-            addEvent(state, "BOOST_KICK_RECHARGED", { charge: round(rocket.boostKickCharge) });
-        }
-        if (rocket.boostKickCharge < kickMax) {
-            return;
-        }
-    }
-
     const cap = clamp(fuel.rechargeCap, 0, fuel.max);
     if (fuel.amount < cap) {
         const previous = fuel.amount;
@@ -915,6 +948,31 @@ function updateFuelRecharge(state, dt) {
         if (Math.floor(previous) !== Math.floor(fuel.amount)) {
             addEvent(state, "FUEL_CHANGED", { amount: round(fuel.amount), cap });
         }
+    }
+}
+
+function updateBoostKickGroundRecharge(state, dt) {
+    const rocket = state.equipment.rocket;
+    const t = state.tuning;
+    const kickMax = Math.max(0, t.attachedBoostKickChargeMax ?? 1);
+    rocket.boostKickCharge = clamp(rocket.boostKickCharge ?? kickMax, 0, kickMax);
+
+    if (!state.player.onGround || rocket.boostKickCharge >= kickMax) {
+        return;
+    }
+
+    const previous = rocket.boostKickCharge;
+    if (t.attachedBoostKickRechargeInstant !== false) {
+        rocket.boostKickCharge = kickMax;
+    } else {
+        rocket.boostKickCharge = Math.min(kickMax, rocket.boostKickCharge + Math.max(0, t.attachedBoostKickChargeRechargeRate ?? 1) * dt);
+    }
+
+    if (previous !== rocket.boostKickCharge) {
+        if (t.rocketFuelBulbFlashOnKickRecharge !== false) {
+            rocket.fuelBulbFlashTimer = 0.45;
+        }
+        addEvent(state, "BOOST_KICK_RECHARGED", { charge: round(rocket.boostKickCharge), grounded: true });
     }
 }
 
