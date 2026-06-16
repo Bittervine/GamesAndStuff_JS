@@ -1,181 +1,241 @@
-import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import path from 'node:path';
-
-const require = createRequire(import.meta.url);
-const { chromium } = require('C:/Portable/Playwright/node_modules/playwright');
-
-const here = path.dirname(fileURLToPath(import.meta.url));
-const gameUrl = pathToFileURL(path.join(here, 'game.html')).href;
+import assert from "node:assert/strict";
+import {
+    FIXED_DT,
+    createInitialGameState,
+    createInputFrame,
+    stepSimulation,
+    cloneGameState,
+    serializeGameState,
+    restoreGameState,
+    resetPlayer
+} from "./IgnatiusRocketfrock_SIM.js";
 
 function approx(actual, expected, tolerance, label) {
-  assert.ok(
-    Math.abs(actual - expected) <= tolerance,
-    `${label}: expected ${expected} +/- ${tolerance}, got ${actual}`
-  );
-}
-
-async function runMirroredLaunchCase(page, direction) {
-  const key = direction === 'right' ? 'ArrowRight' : 'ArrowLeft';
-  const expectedFacing = direction === 'right' ? 1 : -1;
-  const expectedXSign = direction === 'right' ? 1 : -1;
-
-  await page.goto(gameUrl, { waitUntil: 'networkidle' });
-  await page.mouse.click(240, 500);
-
-  await page.keyboard.down(key);
-  await page.waitForTimeout(1100);
-  const runningState = await page.evaluate(() => getRocketfrockState());
-  assert.ok(runningState.player.onGround, 'expected the wizard to still be grounded before the jump');
-  assert.strictEqual(runningState.player.facing, expectedFacing, `expected the wizard to face ${direction} while running`);
-  assert.ok(Math.abs(runningState.player.vx) >= 330, `expected a fast run-up, got vx=${runningState.player.vx}`);
-
-  await page.keyboard.press('Space');
-  await page.waitForTimeout(16);
-  await page.keyboard.press('Space');
-  await page.keyboard.up(key);
-
-  const samples = [];
-  let burnEndY = null;
-  let burnStartAt = null;
-  let burnEndAt = null;
-  let minY = Number.POSITIVE_INFINITY;
-  let landingVx = null;
-  let settledVx = null;
-  let firstActiveSample = null;
-
-  for (let i = 0; i < 180; i += 1) {
-    await page.waitForTimeout(50);
-    const sample = await page.evaluate(() => {
-      const state = getRocketfrockState();
-      const pose = getRocketfrockPose();
-      return {
-        now: state.now,
-        x: state.player.x,
-        y: state.player.y,
-        vx: state.player.vx,
-        vy: state.player.vy,
-        onGround: state.player.onGround,
-        rocketActive: state.rocket.active,
-        rocketAttached: state.rocket.attached,
-        thrustDir: state.rocket.thrustDir,
-        fireAt: state.rocket.fireAt,
-        readyAt: state.rocket.readyAt,
-        pose
-      };
-    });
-    samples.push(sample);
-    minY = Math.min(minY, sample.y);
-    if (sample.fireAt && burnStartAt === null) {
-      burnStartAt = sample.fireAt;
-    }
-    if (sample.rocketActive && !firstActiveSample) {
-      firstActiveSample = sample;
-    }
-    if (burnStartAt !== null && !sample.rocketActive && burnEndAt === null) {
-      burnEndAt = sample.now;
-      burnEndY = sample.y;
-    }
-    if (sample.onGround && landingVx === null) {
-      landingVx = sample.vx;
-    }
-    if (landingVx !== null && samples.length > 20) {
-      settledVx = sample.vx;
-      if (Math.abs(sample.vx) < 20) {
-        break;
-      }
-    }
-  }
-
-  const finalState = await page.evaluate(() => getRocketfrockState());
-
-  assert.ok(finalState.rocket.fireAt > 0, 'expected rocket to fire');
-  assert.ok(finalState.rocket.readyAt > finalState.rocket.fireAt, 'expected rocket cooldown to be set');
-  approx(finalState.rocket.readyAt - finalState.rocket.fireAt, 400, 1, 'rocket burn duration');
-
-  const thrustDir = finalState.rocket.thrustDir;
-  assert.ok(thrustDir.x * expectedXSign > 0.65, `expected launch thrust to point ${direction}, got x=${thrustDir.x}`);
-  assert.ok(thrustDir.y < -0.65, `expected launch thrust to point upward, got y=${thrustDir.y}`);
-  approx(Math.abs(thrustDir.x), Math.abs(thrustDir.y), 0.08, '45 degree launch balance');
-
-  assert.ok(firstActiveSample, 'expected a live boosted frame to inspect the pose');
-  const poseSample = samples.find((sample) => sample.rocketActive && sample.now - finalState.rocket.fireAt >= 300) || firstActiveSample;
-  const launchPose = poseSample.pose.rocket;
-  approx(launchPose.noseDir.x, thrustDir.x, 0.12, 'rocket nose direction x');
-  approx(launchPose.noseDir.y, thrustDir.y, 0.12, 'rocket nose direction y');
-  approx(launchPose.nozzleDir.x, -thrustDir.x, 0.12, 'rocket nozzle direction x');
-  approx(launchPose.nozzleDir.y, -thrustDir.y, 0.12, 'rocket nozzle direction y');
-  assert.ok(launchPose.nozzleLocal, 'expected the rocket nozzle anchor to be exposed');
-  assert.ok(launchPose.nozzleLocal.x < 0, `expected the nozzle anchor to sit on the engine side, got x=${launchPose.nozzleLocal.x}`);
-  assert.ok(launchPose.nozzleLocal.y > 0, `expected the nozzle anchor to sit below the rocket body, got y=${launchPose.nozzleLocal.y}`);
-
-  assert.ok(burnEndAt !== null, 'expected rocket to burn out during the test');
-  assert.ok(burnEndY !== null, 'expected a burn end altitude');
-  assert.ok(
-    burnEndY > minY + 40,
-    `expected burn-out to happen before apogee: burnEndY=${burnEndY.toFixed(2)} minY=${minY.toFixed(2)}`
-  );
-  assert.ok(
-    minY <= 80 && minY >= -120,
-    `expected apogee to reach the top edge area: minY=${minY.toFixed(2)}`
-  );
-
-  assert.ok(landingVx !== null, 'expected the wizard to land');
-  assert.ok(Math.abs(landingVx) > 120, `expected a meaningful landing speed, got ${landingVx}`);
-  assert.ok(settledVx !== null, 'expected post-landing settling sample');
-  assert.ok(
-    Math.abs(settledVx) < 20,
-    `expected horizontal speed to bleed off after landing, got ${settledVx}`
-  );
-
-    return {
-      burnMs: Math.round(finalState.rocket.readyAt - finalState.rocket.fireAt),
-      angleDeg: (Math.atan2(thrustDir.x, -thrustDir.y) * 180 / Math.PI).toFixed(1),
-      minY: minY.toFixed(2),
-      burnEndY: burnEndY.toFixed(2),
-      landingVx: landingVx.toFixed(2),
-      settledVx: settledVx.toFixed(2)
-  };
-}
-
-async function main() {
-  const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
-
-  try {
-    const rightResult = await runMirroredLaunchCase(page, 'right');
-    const leftResult = await runMirroredLaunchCase(page, 'left');
-
-    console.log(
-      [
-        'PASS IgnatiusRocketfrock testcase 1',
-        `burn=${rightResult.burnMs}ms`,
-        `angle=${rightResult.angleDeg}deg`,
-        `minY=${rightResult.minY}`,
-        `burnEndY=${rightResult.burnEndY}`,
-        `landingVx=${rightResult.landingVx}`,
-        `settledVx=${rightResult.settledVx}`
-      ].join(' | ')
+    assert.ok(
+        Math.abs(actual - expected) <= tolerance,
+        `${label}: expected ${expected} +/- ${tolerance}, got ${actual}`
     );
-    console.log(
-      [
-        'PASS IgnatiusRocketfrock testcase 2',
-        `burn=${leftResult.burnMs}ms`,
-        `angle=${leftResult.angleDeg}deg`,
-        `minY=${leftResult.minY}`,
-        `burnEndY=${leftResult.burnEndY}`,
-        `landingVx=${leftResult.landingVx}`,
-        `settledVx=${leftResult.settledVx}`
-      ].join(' | ')
-    );
-  } finally {
-    await browser.close();
-  }
 }
 
-main().catch((error) => {
-  console.error('FAIL IgnatiusRocketfrock testbench');
-  console.error(error && error.stack ? error.stack : error);
-  process.exitCode = 1;
-});
+function stepMany(state, frames, inputFactory = () => createInputFrame()) {
+    for (let i = 0; i < frames; i += 1) {
+        const input = inputFactory(i, state);
+        stepSimulation(state, input, FIXED_DT);
+    }
+    return state;
+}
+
+function settleOnGround(state) {
+    stepMany(state, 90, () => createInputFrame());
+    assert.ok(state.player.onGround, "expected player to settle on the floor");
+    approx(state.player.y, 600, 0.001, "floor contact y");
+}
+
+function testStateSerialization() {
+    const state = createInitialGameState();
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    const cloned = cloneGameState(state);
+    assert.deepStrictEqual(cloned, state, "clone should be structurally identical");
+    const restored = restoreGameState(serializeGameState(state));
+    assert.deepStrictEqual(restored, state, "serialized state should restore cleanly");
+    assert.equal(typeof JSON.stringify(state), "string", "gameState should be JSON serializable");
+}
+
+function testHeadlessSteppingAndFloorCollision() {
+    const state = createInitialGameState();
+    settleOnGround(state);
+    assert.equal(state.player.vy, 0, "vertical velocity should be zero on settled floor");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "PLAYER_LANDED"), "landing should be logged");
+}
+
+function testLeftRightSymmetry() {
+    const right = createInitialGameState();
+    const left = createInitialGameState();
+    settleOnGround(right);
+    settleOnGround(left);
+
+    stepMany(right, 30, () => createInputFrame({ moveRight: true }));
+    stepMany(left, 30, () => createInputFrame({ moveLeft: true }));
+
+    assert.ok(right.player.x > right.world.start.x + 60, `expected right run to move forward, got x=${right.player.x}`);
+    assert.ok(left.player.x < left.world.start.x - 60, `expected left run to move backward, got x=${left.player.x}`);
+    approx(Math.abs(right.player.vx), Math.abs(left.player.vx), 0.001, "mirrored run velocity magnitude");
+    assert.equal(right.player.facing, 1, "right run should face right");
+    assert.equal(left.player.facing, -1, "left run should face left");
+}
+
+function testJumpTransition() {
+    const state = createInitialGameState();
+    settleOnGround(state);
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    assert.equal(state.player.onGround, false, "jump should leave the ground");
+    assert.ok(state.player.vy < -650, `jump should set upward velocity, got ${state.player.vy}`);
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "PLAYER_JUMPED"), "jump event should be logged");
+}
+
+function testAttachedBoostStateAndFuelDrain() {
+    const state = createInitialGameState();
+    settleOnGround(state);
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    stepMany(state, 8, () => createInputFrame({ jumpHeld: false }));
+
+    const beforeFuel = state.fuel.amount;
+    const beforeVy = state.player.vy;
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    assert.equal(state.equipment.rocket.attachedBoosting, true, "second jump press in air should start attached boost");
+    stepMany(state, 20, () => createInputFrame({ jumpHeld: true }));
+    assert.ok(state.fuel.amount < beforeFuel - 2.5, `fuel should drain while boosting, before ${beforeFuel}, after ${state.fuel.amount}`);
+    assert.ok(state.player.vy > beforeVy - 340, "held rocket should not stack a sustained upward acceleration on top of the double-jump kick");
+
+    stepSimulation(state, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
+    assert.equal(state.equipment.rocket.attachedBoosting, false, "jump release should stop attached boost");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "PLAYER_BOOST_STARTED"), "boost start event should be logged");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "PLAYER_BOOST_ENDED"), "boost end event should be logged");
+}
+
+function testDoubleJumpKickAndHoverGovernor() {
+    const state = createInitialGameState();
+    settleOnGround(state);
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    stepMany(state, 10, () => createInputFrame({ jumpHeld: false }));
+
+    const beforeBoostVy = state.player.vy;
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    const afterKickVy = state.player.vy;
+    assert.ok(afterKickVy < beforeBoostVy - 180, `rocket firing should add a one-shot double-jump kick, before ${beforeBoostVy}, after ${afterKickVy}`);
+
+    stepMany(state, 8, () => createInputFrame({ jumpHeld: true }));
+    assert.ok(state.player.vy > afterKickVy, `holding rocket while rising should not add extra upward velocity, afterKick ${afterKickVy}, now ${state.player.vy}`);
+
+    state.player.vy = 620;
+    stepMany(state, 36, () => createInputFrame({ jumpHeld: true }));
+    assert.ok(
+        state.player.vy <= state.tuning.attachedBoostHoverFallSpeed + 4,
+        `hover governor should reduce fast falls to the configured slow-fall speed, got ${state.player.vy}`
+    );
+    assert.ok(state.player.vy >= 0, `hover governor should not convert falling into upward flight, got ${state.player.vy}`);
+    assert.ok(state.equipment.rocket.boostAccelerationNow <= 0, "hover governor should only apply upward correction while trimming a fall");
+}
+
+function testBoostKickCannotBeTapExploited() {
+    const state = createInitialGameState();
+    settleOnGround(state);
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    stepMany(state, 8, () => createInputFrame({ jumpHeld: false }));
+
+    const beforeFirstKickVy = state.player.vy;
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    const firstKickVy = state.player.vy;
+    assert.ok(firstKickVy < beforeFirstKickVy - 180, `first air boost should spend the charged double-jump kick, before ${beforeFirstKickVy}, after ${firstKickVy}`);
+    assert.equal(state.equipment.rocket.boostKickCharge, 0, "charged kick should be empty immediately after firing the rocket");
+
+    stepSimulation(state, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
+    stepMany(state, 6, () => createInputFrame({ jumpHeld: false }));
+    const beforeSecondTapVy = state.player.vy;
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    const secondTapVy = state.player.vy;
+    assert.ok(secondTapVy > beforeSecondTapVy - 80, `rapid second tap should not receive another full kick, before ${beforeSecondTapVy}, after ${secondTapVy}`);
+
+    stepSimulation(state, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
+    stepMany(state, Math.ceil(state.tuning.rechargeDelayAfterUse / FIXED_DT) + 2, () => createInputFrame({ jumpHeld: false }));
+    assert.ok(state.equipment.rocket.boostKickCharge > 0.99, "kick charge should recharge after the rocket inactivity delay");
+}
+
+function testHomingRocketLaunch() {
+    const state = createInitialGameState();
+    settleOnGround(state);
+    const target = state.targets[0];
+    const startDistance = Math.hypot(target.x - state.player.x, target.y - (state.player.y - state.player.height * 0.72));
+    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    assert.equal(state.projectiles.length, 1, "weapon press should launch one test rocket");
+    assert.equal(state.projectiles[0].targetId, target.id, "test rocket should target the homing dot");
+    assert.equal(state.projectiles[0].vx, 0, "test rocket should launch straight up before homing");
+    assert.ok(state.projectiles[0].vy < -400, "test rocket should launch upward before turning");
+    assert.ok(state.projectiles[0].upLaunchTimer > 0, "test rocket should have a straight-up launch timer");
+    assert.ok(state.fuel.amount <= state.tuning.initialFuel - state.tuning.rocketLaunchCost, "rocket launch should spend fuel");
+    stepMany(state, 95, () => createInputFrame());
+    assert.ok(state.projectiles.length >= 1, "rocket should still be inspectable after a short flight");
+    const rocket = state.projectiles[0];
+    const flightDistance = Math.hypot(target.x - rocket.x, target.y - rocket.y);
+    assert.ok(flightDistance < startDistance - 430, `homing rocket should close distance to dot after its upward launch, start ${startDistance}, now ${flightDistance}`);
+}
+
+function testRocketTrailTracksCurvedPathAndPersistsAfterExplosion() {
+    const state = createInitialGameState();
+    settleOnGround(state);
+    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    stepMany(state, 75, () => createInputFrame());
+    assert.equal(state.projectiles.length, 1, "rocket should still exist while trail is inspected");
+    const trail = state.projectiles[0].trail;
+    assert.ok(Array.isArray(trail), "rocket should expose a serializable trail array");
+    assert.ok(trail.length > 12, `rocket trail should retain path samples, got ${trail.length}`);
+    const xSpan = Math.max(...trail.map((point) => point.x)) - Math.min(...trail.map((point) => point.x));
+    const ySpan = Math.max(...trail.map((point) => point.y)) - Math.min(...trail.map((point) => point.y));
+    assert.ok(xSpan > 80, `homing trail should bend sideways after the upward launch, xSpan=${xSpan}`);
+    assert.ok(ySpan > 120, `rocket trail should show the vertical launch path, ySpan=${ySpan}`);
+
+    const smokeCountDuringFlight = state.effects.smokePuffs.length;
+    assert.ok(smokeCountDuringFlight > 8, `world-managed smoke puffs should be emitted during flight, got ${smokeCountDuringFlight}`);
+    state.projectiles[0].age = state.projectiles[0].lifetime;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    stepMany(state, Math.ceil(state.tuning.rocketProjectileExplosionSeconds / FIXED_DT) + 2, () => createInputFrame());
+    assert.equal(state.projectiles.length, 0, "rocket should be gone after explosion cleanup");
+    assert.ok(state.effects.smokePuffs.length > 0, "world-managed smoke puffs should remain after the rocket is gone");
+}
+
+function testFuelRechargeDelayAndCap() {
+    const state = createInitialGameState();
+    state.fuel.amount = 0;
+    state.fuel.rechargeDelayTimer = state.tuning.rechargeDelayAfterUse;
+    stepMany(state, 60, () => createInputFrame());
+    approx(state.fuel.amount, 0, 0.001, "fuel should not recharge during delay");
+    stepMany(state, 180, () => createInputFrame());
+    assert.ok(state.fuel.amount > 10, `fuel should recharge after delay, got ${state.fuel.amount}`);
+    stepMany(state, 600, () => createInputFrame());
+    approx(state.fuel.amount, state.fuel.rechargeCap, 0.001, "fuel should recharge only to cap");
+}
+
+function testWallCollision() {
+    const state = createInitialGameState();
+    state.player.x = -245;
+    state.player.y = 600;
+    state.player.onGround = true;
+    stepMany(state, 30, () => createInputFrame({ moveLeft: true }));
+    assert.ok(state.player.x >= -243, `left wall should stop player, got x=${state.player.x}`);
+    assert.equal(state.player.vx, 0, "wall collision should zero horizontal velocity");
+}
+
+function testReset() {
+    const state = createInitialGameState();
+    state.player.x = 999;
+    state.player.y = 999;
+    state.player.vx = 120;
+    state.player.vy = 400;
+    resetPlayer(state, "test");
+    assert.equal(state.player.x, state.player.spawnX, "reset x");
+    assert.equal(state.player.y, state.player.spawnY, "reset y");
+    assert.equal(state.player.vx, 0, "reset vx");
+    assert.equal(state.player.vy, 0, "reset vy");
+}
+
+const tests = [
+    ["state serialization and cloning", testStateSerialization],
+    ["headless stepping and floor collision", testHeadlessSteppingAndFloorCollision],
+    ["left/right movement symmetry", testLeftRightSymmetry],
+    ["jump transition", testJumpTransition],
+    ["attached boost and fuel drain", testAttachedBoostStateAndFuelDrain],
+    ["double-jump kick and hover governor", testDoubleJumpKickAndHoverGovernor],
+    ["boost kick cannot be tap exploited", testBoostKickCannotBeTapExploited],
+    ["homing rocket launch", testHomingRocketLaunch],
+    ["rocket trail tracks curved path and persists", testRocketTrailTracksCurvedPathAndPersistsAfterExplosion],
+    ["fuel recharge delay and cap", testFuelRechargeDelayAndCap],
+    ["wall collision", testWallCollision],
+    ["manual reset", testReset]
+];
+
+for (const [name, fn] of tests) {
+    fn();
+    console.log(`PASS ${name}`);
+}
+
+console.log("PASS IgnatiusRocketfrock Phase 1 headless tests");
