@@ -98,7 +98,7 @@ function updateHud() {
     const healthPercent = gameState.health.amount / gameState.health.max * 100;
     fuelFill.style.width = `${fuelPercent.toFixed(1)}%`;
     healthFill.style.width = `${healthPercent.toFixed(1)}%`;
-    fuelText.textContent = `${gameState.fuel.amount.toFixed(1)} / ${gameState.fuel.max}  cap ${gameState.fuel.rechargeCap}`;
+    fuelText.textContent = `${gameState.fuel.amount.toFixed(1)} / ${gameState.fuel.max}  cap ${gameState.fuel.rechargeCap}${gameState.tuning.fuelRechargeRequiresGround !== false ? "  grounded recharge" : ""}`;
     healthText.textContent = `${gameState.health.amount.toFixed(1)} / ${gameState.health.max}`;
 }
 
@@ -117,7 +117,7 @@ function updateDebugText() {
         `${gameState.debug.paused ? "PAUSED" : "RUNNING"}  tick:${gameState.clock.tick}  t:${gameState.clock.time.toFixed(2)}`,
         `pos (${p.x.toFixed(1)}, ${p.y.toFixed(1)})  vel (${p.vx.toFixed(1)}, ${p.vy.toFixed(1)})`,
         `ground:${p.onGround}  facing:${p.facing > 0 ? "right" : "left"}  boost:${gameState.equipment.rocket.attachedBoosting}  hoverA:${gameState.equipment.rocket.boostAccelerationNow.toFixed(0)}  hoverLimit:${gameState.tuning.attachedBoostHoverFallSpeed.toFixed(0)}`,
-        `fuel:${fuel.amount.toFixed(2)}  delay:${fuel.rechargeDelayTimer.toFixed(2)}  cap:${fuel.rechargeCap}  kick:${gameState.equipment.rocket.boostKickCharge.toFixed(2)}`,
+        `fuel:${fuel.amount.toFixed(2)}  delay:${fuel.rechargeDelayTimer.toFixed(2)}  cap:${fuel.rechargeCap}  groundRecharge:${gameState.tuning.fuelRechargeRequiresGround !== false}  kick:${gameState.equipment.rocket.boostKickCharge.toFixed(2)}`,
         `rockets:${gameState.projectiles.length}  smoke:${gameState.effects?.smokePuffs?.length ?? 0}  upLaunch:${gameState.tuning.rocketProjectileUpLaunchSeconds.toFixed(2)}  homing:${gameState.tuning.rocketProjectileHomingStrength.toFixed(2)}  target:${gameState.targets[0].x.toFixed(0)},${gameState.targets[0].y.toFixed(0)}`,
         inputText,
         "events:",
@@ -136,14 +136,18 @@ function setupTuningControls() {
         { key: "attachedBoostBurstDuration", label: "Kick/burst charge seconds", min: 0.05, max: 1.2, step: 0.01 },
         { key: "attachedBoostHoverFallSpeed", label: "Hover slow-fall speed", min: 0, max: 260, step: 2 },
         { key: "attachedBoostHoverBrakeAcceleration", label: "Hover braking accel", min: 400, max: 7000, step: 50 },
-        { key: "attachedBoostVisualIdlePower", label: "Hover idle flame", min: 0.1, max: 1.1, step: 0.05 },
-        { key: "attachedBoostDrainRate", label: "Boost drain", min: 5, max: 60, step: 1 },
+        { key: "attachedBoostVisualIdlePower", label: "Hover idle flame", min: 0.05, max: 1.1, step: 0.05 },
+        { key: "attachedBoostKickVisualPower", label: "Kick flame power", min: 0.2, max: 1.8, step: 0.05 },
+        { key: "attachedBoostSustainVisualPower", label: "Sustain flame power", min: 0.05, max: 1.2, step: 0.05 },
+        { key: "attachedBoostSmokePuffInterval", label: "Attached smoke spacing", min: 0.025, max: 0.18, step: 0.005 },
+        { key: "attachedBoostDrainRate", label: "Boost drain", min: 10, max: 240, step: 2 },
         { key: "rocketProjectileUpLaunchSeconds", label: "Rocket straight-up time", min: 0, max: 1.0, step: 0.01 },
         { key: "rocketProjectileHomingStrength", label: "Homing", min: 0, max: 9, step: 0.1 },
         { key: "rocketProjectileSpeed", label: "Rocket speed", min: 180, max: 920, step: 10 },
         { key: "rocketSmokePuffLifetime", label: "Smoke puff lifetime", min: 0.4, max: 6, step: 0.1 },
         { key: "rocketSmokePuffSpacing", label: "Smoke puff spacing", min: 3, max: 34, step: 1 },
-        { key: "rechargeRate", label: "Recharge", min: 2, max: 80, step: 0.5 }
+        { key: "rechargeRate", label: "Recharge", min: 10, max: 360, step: 2 },
+        { key: "rocketLaunchCost", label: "Rocket launch cost", min: 0, max: 100, step: 1 }
     ];
 
     for (const spec of controls) {
@@ -203,6 +207,9 @@ function setupTuningJsonControls() {
                 throw new Error("The tuning JSON must be an object.");
             }
             Object.assign(gameState.tuning, parsed);
+            for (const key of Object.keys(parsed)) {
+                applyTuningSideEffects(key);
+            }
             syncSlidersFromTuning();
             syncTuningJson();
             showTuningMessage("Applied tuning JSON.");
@@ -219,6 +226,11 @@ function applyTuningSideEffects(key) {
     }
     if (key === "attachedBoostKickChargeMax") {
         gameState.equipment.rocket.boostKickCharge = Math.min(gameState.equipment.rocket.boostKickCharge, gameState.tuning.attachedBoostKickChargeMax);
+    }
+    if (["fuelMax", "baseRechargeCap", "initialFuel", "rechargeRate", "attachedBoostDrainRate", "rocketLaunchCost"].includes(key)) {
+        gameState.fuel.max = gameState.tuning.fuelMax;
+        gameState.fuel.rechargeCap = Math.min(gameState.tuning.baseRechargeCap, gameState.fuel.max);
+        gameState.fuel.amount = Math.min(gameState.fuel.amount, gameState.fuel.max);
     }
     gameState.clock.fixedDt = gameState.tuning.timestep || FIXED_DT;
 }

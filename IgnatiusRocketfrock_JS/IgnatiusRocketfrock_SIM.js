@@ -22,7 +22,11 @@ export const DEFAULT_TUNING = Object.freeze({
     attachedBoostBurstDuration: 0.5,
     attachedBoostHoverFallSpeed: 36,
     attachedBoostHoverBrakeAcceleration: 3600,
-    attachedBoostVisualIdlePower: 0.45,
+    attachedBoostVisualIdlePower: 0.32,
+    attachedBoostKickVisualPower: 1.08,
+    attachedBoostSustainVisualPower: 0.36,
+    attachedBoostSmokeKickPuffs: 7,
+    attachedBoostSmokePuffInterval: 0.065,
     attachedBoostKickChargeMax: 1,
     attachedBoostKickChargeRechargeRate: 999,
     attachedBoostKickRechargeInstant: true,
@@ -30,12 +34,13 @@ export const DEFAULT_TUNING = Object.freeze({
     attachedBoostMinFuelScale: 0.68,
     attachedBoostFuelPowerCurve: 0.55,
     fuelMax: 100,
-    initialFuel: 50,
-    baseRechargeCap: 25,
+    initialFuel: 100,
+    baseRechargeCap: 100,
+    fuelRechargeRequiresGround: true,
     rechargeDelayAfterUse: 2,
-    rechargeRate: 45,
-    attachedBoostDrainRate: 10,
-    rocketLaunchCost: 10,
+    rechargeRate: 180,
+    attachedBoostDrainRate: 40,
+    rocketLaunchCost: 40,
     rocketLaunchCooldown: 0.35,
     rocketProjectileSpeed: 520,
     rocketProjectileUpLaunchSeconds: 0.32,
@@ -88,7 +93,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "phase-1.004-physics-arena",
+            build: "phase-1.006-physics-arena",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -146,6 +151,7 @@ export function createInitialGameState(overrides = {}) {
                 boostBurstTimer: 0,
                 boostAccelerationNow: 0,
                 boostVisualPowerNow: 0,
+                attachedSmokeTimer: 0,
                 lastBoostStartTick: null,
                 lastBoostEndTick: null
             },
@@ -177,8 +183,8 @@ export function createInitialGameState(overrides = {}) {
             { id: "dummy_002", kind: "targetDummy", x: 2080, y: 330, width: 42, height: 80, health: 100, state: "idle" }
         ],
         pickups: [
-            { id: "fuel_001", kind: "fuel", x: 735, y: 300, radius: 14, amount: 10, collected: false },
-            { id: "fuel_002", kind: "fuel", x: 1840, y: 120, radius: 14, amount: 10, collected: false }
+            { id: "fuel_001", kind: "fuel", x: 735, y: 300, radius: 14, amount: 40, collected: false },
+            { id: "fuel_002", kind: "fuel", x: 1840, y: 120, radius: 14, amount: 40, collected: false }
         ],
         collisions: {
             playerTouching: { left: false, right: false, up: false, down: false },
@@ -348,7 +354,8 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
             rocket.attachedBoostTime += dt;
             rocket.boostBurstTimer = Math.max(0, rocket.boostBurstTimer - dt);
             rocket.boostAccelerationNow = 0;
-            rocket.boostVisualPowerNow = Math.max(0.1, t.attachedBoostVisualIdlePower ?? 0.45);
+            rocket.boostVisualPowerNow = attachedBoostVisualPower(state);
+            emitAttachedBoostSmoke(state, dt);
             const used = Math.min(fuel.amount, t.attachedBoostDrainRate * dt);
             fuel.amount = clamp(fuel.amount - used, 0, fuel.max);
             fuel.lastUsedAt = state.clock.time;
@@ -405,8 +412,10 @@ function startAttachedBoost(state) {
     rocket.boostBurstTimer = hasKickCharge ? Math.max(0, t.attachedBoostBurstDuration ?? 0.5) : 0;
     rocket.boostKickCharge = 0;
     rocket.boostAccelerationNow = 0;
-    rocket.boostVisualPowerNow = Math.max(0.1, t.attachedBoostVisualIdlePower ?? 0.45);
+    rocket.boostVisualPowerNow = attachedBoostVisualPower(state);
+    rocket.attachedSmokeTimer = 0;
     rocket.lastBoostStartTick = state.clock.tick;
+    emitAttachedBoostSmokeBurst(state, hasKickCharge ? (t.attachedBoostSmokeKickPuffs ?? 7) : 3);
     const impulse = hasKickCharge ? t.attachedBoostStartImpulse : 0;
     if (impulse !== 0) {
         p.vy = Math.min(p.vy, t.attachedBoostStartMaxDownwardVelocity) + impulse;
@@ -454,11 +463,21 @@ function applyAttachedHoverGovernor(state, dt) {
         rocket.boostAccelerationNow = correction;
         p.ay += correction;
         const gravityCancelPower = clamp(Math.abs(correction) / Math.max(1, t.gravity), 0, 1.2);
-        rocket.boostVisualPowerNow = Math.max(t.attachedBoostVisualIdlePower ?? 0.45, gravityCancelPower);
+        rocket.boostVisualPowerNow = Math.max(attachedBoostVisualPower(state), gravityCancelPower * 0.72);
     } else {
         rocket.boostAccelerationNow = 0;
-        rocket.boostVisualPowerNow = Math.max(0.1, t.attachedBoostVisualIdlePower ?? 0.45);
+        rocket.boostVisualPowerNow = attachedBoostVisualPower(state);
     }
+}
+
+function attachedBoostVisualPower(state) {
+    const t = state.tuning;
+    const rocket = state.equipment.rocket;
+    const burstDuration = Math.max(0.04, t.attachedBoostBurstDuration ?? 0.5);
+    const burstBlend = clamp((rocket.boostBurstTimer ?? 0) / burstDuration, 0, 1);
+    const kickPower = t.attachedBoostKickVisualPower ?? 1.08;
+    const sustainPower = t.attachedBoostSustainVisualPower ?? t.attachedBoostVisualIdlePower ?? 0.36;
+    return Math.max(0.08, sustainPower + (kickPower - sustainPower) * burstBlend);
 }
 
 function stopAttachedBoost(state, reason) {
@@ -472,6 +491,7 @@ function stopAttachedBoost(state, reason) {
     rocket.boostBurstTimer = 0;
     rocket.boostAccelerationNow = 0;
     rocket.boostVisualPowerNow = 0;
+    rocket.attachedSmokeTimer = 0;
     rocket.lastBoostEndTick = state.clock.tick;
     state.fuel.rechargeDelayTimer = state.tuning.rechargeDelayAfterUse;
     addEvent(state, "PLAYER_BOOST_ENDED", { reason, fuel: round(state.fuel.amount) });
@@ -644,6 +664,75 @@ function addRocketSmokePuff(state, projectile) {
     }
 }
 
+
+function addSmokePuff(state, spec) {
+    if (!state.effects) {
+        state.effects = { nextPuffId: 1, smokePuffs: [] };
+    }
+    if (!Array.isArray(state.effects.smokePuffs)) {
+        state.effects.smokePuffs = [];
+    }
+
+    const id = state.effects.nextPuffId || 1;
+    state.effects.nextPuffId = id + 1;
+    const seed = Math.floor(((spec.x || 0) * 17 + (spec.y || 0) * 31 + state.clock.tick * 7 + id * 13) % 100000);
+    state.effects.smokePuffs.push({
+        id: `smoke_${String(id).padStart(4, "0")}`,
+        kind: spec.kind || "rocketSmokePuff",
+        x: round(spec.x || 0),
+        y: round(spec.y || 0),
+        vx: round(spec.vx || 0),
+        vy: round(spec.vy || 0),
+        age: 0,
+        lifetime: spec.lifetime ?? state.tuning.rocketSmokePuffLifetime ?? 2.8,
+        radius: spec.radius ?? 12,
+        sparkleSeed: spec.sparkleSeed ?? seed
+    });
+
+    while (state.effects.smokePuffs.length > (state.tuning.rocketSmokeMaxPuffs ?? 260)) {
+        state.effects.smokePuffs.shift();
+    }
+}
+
+function attachedRocketNozzlePoint(state) {
+    const p = state.player;
+    return {
+        x: p.x - p.facing * 28,
+        y: p.y - p.height * 0.42
+    };
+}
+
+function emitAttachedBoostSmoke(state, dt) {
+    const rocket = state.equipment.rocket;
+    const interval = Math.max(0.025, state.tuning.attachedBoostSmokePuffInterval ?? 0.065);
+    rocket.attachedSmokeTimer = (rocket.attachedSmokeTimer ?? 0) - dt;
+    while (rocket.attachedSmokeTimer <= 0) {
+        emitAttachedBoostSmokeBurst(state, 1);
+        rocket.attachedSmokeTimer += interval;
+    }
+}
+
+function emitAttachedBoostSmokeBurst(state, count) {
+    const rocket = state.equipment.rocket;
+    const p = state.player;
+    const nozzle = attachedRocketNozzlePoint(state);
+    const power = clamp(rocket.boostVisualPowerNow || attachedBoostVisualPower(state), 0.18, 1.25);
+    const total = Math.max(0, Math.floor(count));
+    for (let i = 0; i < total; i += 1) {
+        const wobble = ((state.clock.tick * 37 + i * 53) % 100) / 100 - 0.5;
+        const spread = ((state.clock.tick * 19 + i * 29) % 100) / 100 - 0.5;
+        addSmokePuff(state, {
+            kind: "attachedRocketSmokePuff",
+            x: nozzle.x + spread * 9,
+            y: nozzle.y + i * 2,
+            vx: p.vx * 0.10 + spread * 42 - p.facing * 8,
+            vy: 92 + power * 70 + wobble * 36,
+            lifetime: 1.6 + power * 0.65,
+            radius: 8 + power * 9 + (i % 3) * 1.5
+        });
+    }
+}
+
 function updateWorldEffects(state, dt) {
     if (!state.effects || !Array.isArray(state.effects.smokePuffs)) {
         return;
@@ -768,6 +857,10 @@ function updateFuelRecharge(state, dt) {
         return;
     }
 
+    if (t.fuelRechargeRequiresGround !== false && !state.player.onGround) {
+        return;
+    }
+
     const kickMax = Math.max(0, t.attachedBoostKickChargeMax ?? 1);
     rocket.boostKickCharge = clamp(rocket.boostKickCharge ?? kickMax, 0, kickMax);
     if (rocket.boostKickCharge < kickMax) {
@@ -850,6 +943,7 @@ export function resetPlayer(state, reason = "manualReset") {
     state.equipment.rocket.boostBurstTimer = 0;
     state.equipment.rocket.boostAccelerationNow = 0;
     state.equipment.rocket.boostVisualPowerNow = 0;
+    state.equipment.rocket.attachedSmokeTimer = 0;
     state.weapons.launchCooldownTimer = 0;
     state.projectiles.length = 0;
     if (state.effects?.smokePuffs) {

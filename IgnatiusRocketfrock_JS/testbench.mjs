@@ -137,8 +137,12 @@ function testBoostKickCannotBeTapExploited() {
     assert.ok(secondTapVy > beforeSecondTapVy - 80, `rapid second tap should not receive another full kick, before ${beforeSecondTapVy}, after ${secondTapVy}`);
 
     stepSimulation(state, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
-    stepMany(state, Math.ceil(state.tuning.rechargeDelayAfterUse / FIXED_DT) + 2, () => createInputFrame({ jumpHeld: false }));
-    assert.ok(state.equipment.rocket.boostKickCharge > 0.99, "kick charge should recharge after the rocket inactivity delay");
+    state.player.y = 600;
+    state.player.vy = 0;
+    state.player.onGround = true;
+    state.fuel.rechargeDelayTimer = 0;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.ok(state.equipment.rocket.boostKickCharge > 0.99, "kick charge should recharge once the inactivity delay has passed and Ignatius has landed");
 }
 
 function testHomingRocketLaunch() {
@@ -183,16 +187,51 @@ function testRocketTrailTracksCurvedPathAndPersistsAfterExplosion() {
     assert.ok(state.effects.smokePuffs.length > 0, "world-managed smoke puffs should remain after the rocket is gone");
 }
 
-function testFuelRechargeDelayAndCap() {
+
+function testAttachedRocketSmokeAndVisualPower() {
     const state = createInitialGameState();
+    settleOnGround(state);
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    stepMany(state, 8, () => createInputFrame({ jumpHeld: false }));
+
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    const kickPower = state.equipment.rocket.boostVisualPowerNow;
+    assert.ok(kickPower > state.tuning.attachedBoostSustainVisualPower, `kick flame should be visually stronger than sustain, got ${kickPower}`);
+    const smokeAfterKick = state.effects.smokePuffs.filter((puff) => puff.kind === "attachedRocketSmokePuff").length;
+    assert.ok(smokeAfterKick >= 4, `attached boost kick should emit downward smoke puffs, got ${smokeAfterKick}`);
+
+    stepMany(state, Math.ceil(state.tuning.attachedBoostBurstDuration / FIXED_DT) + 4, () => createInputFrame({ jumpHeld: true }));
+    assert.ok(
+        state.equipment.rocket.boostVisualPowerNow <= kickPower,
+        `sustain flame should settle shorter than kick flame, kick ${kickPower}, sustain ${state.equipment.rocket.boostVisualPowerNow}`
+    );
+    const attachedPuffs = state.effects.smokePuffs.filter((puff) => puff.kind === "attachedRocketSmokePuff");
+    assert.ok(attachedPuffs.length > smokeAfterKick, "held sustain should keep adding attached boost smoke puffs");
+    assert.ok(attachedPuffs.some((puff) => puff.vy > 70), "attached boost puffs should travel downward from the nozzle");
+}
+
+function testFuelRechargeDelayGroundRequirementAndCap() {
+    const state = createInitialGameState();
+    settleOnGround(state);
     state.fuel.amount = 0;
     state.fuel.rechargeDelayTimer = state.tuning.rechargeDelayAfterUse;
     stepMany(state, 60, () => createInputFrame());
     approx(state.fuel.amount, 0, 0.001, "fuel should not recharge during delay");
     stepMany(state, 180, () => createInputFrame());
-    assert.ok(state.fuel.amount > 10, `fuel should recharge after delay, got ${state.fuel.amount}`);
+    assert.ok(state.fuel.amount > 40, `fuel should recharge quickly after the grounded delay, got ${state.fuel.amount}`);
     stepMany(state, 600, () => createInputFrame());
     approx(state.fuel.amount, state.fuel.rechargeCap, 0.001, "fuel should recharge only to cap");
+
+    const airborne = createInitialGameState();
+    airborne.player.y = -2000;
+    airborne.player.vy = 0;
+    airborne.player.onGround = false;
+    airborne.fuel.amount = 0;
+    airborne.fuel.rechargeDelayTimer = 0;
+    airborne.equipment.rocket.boostKickCharge = 0;
+    stepMany(airborne, 50, () => createInputFrame({ jumpHeld: false }));
+    approx(airborne.fuel.amount, 0, 0.001, "fuel should not recharge while airborne");
+    approx(airborne.equipment.rocket.boostKickCharge, 0, 0.001, "kick charge should not recharge while airborne");
 }
 
 function testWallCollision() {
@@ -228,7 +267,8 @@ const tests = [
     ["boost kick cannot be tap exploited", testBoostKickCannotBeTapExploited],
     ["homing rocket launch", testHomingRocketLaunch],
     ["rocket trail tracks curved path and persists", testRocketTrailTracksCurvedPathAndPersistsAfterExplosion],
-    ["fuel recharge delay and cap", testFuelRechargeDelayAndCap],
+    ["attached boost smoke and visual power", testAttachedRocketSmokeAndVisualPower],
+    ["fuel recharge delay, ground requirement and cap", testFuelRechargeDelayGroundRequirementAndCap],
     ["wall collision", testWallCollision],
     ["manual reset", testReset]
 ];
