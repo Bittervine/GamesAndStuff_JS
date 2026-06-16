@@ -14,7 +14,7 @@
         "rightArm"
     ],
     "global": {
-        "scale": 0.64,
+        "scale": 0.35,
         "lean": 0.19,
         "rootX": 550,
         "rootYOffsetFromGround": -146,
@@ -22,7 +22,7 @@
         "debugPivots": false
     },
     "animation": {
-        "speed": 2.06,
+        "speed": 3,
         "torsoWobble": 0.035,
         "headWobble": 0.025,
         "headLeanMultiplier": 0.45,
@@ -94,7 +94,7 @@
         },
         "hat": {
             "x": 0.46,
-            "y": 0.76
+            "y": 0.765
         },
         "rightArm": {
             "x": 0.48,
@@ -106,8 +106,8 @@
             "targetHeight": 128,
             "scale": 0.73,
             "offset": {
-                "x": -39,
-                "y": 73
+                "x": -12,
+                "y": 59
             },
             "rotation": {
                 "base": -0.16,
@@ -133,8 +133,8 @@
             "targetHeight": 220,
             "scale": 1,
             "offset": {
-                "x": 0,
-                "y": 0
+                "x": 3,
+                "y": 40
             },
             "rotation": {
                 "base": 0.07,
@@ -158,8 +158,8 @@
             "targetHeight": 258,
             "scale": 0.73,
             "offset": {
-                "x": 0,
-                "y": 0
+                "x": 9,
+                "y": 21
             },
             "rotation": {
                 "base": 0,
@@ -172,7 +172,7 @@
             "scale": 1.28,
             "offset": {
                 "x": -14,
-                "y": 54
+                "y": 71
             },
             "rotation": {
                 "base": 0
@@ -181,10 +181,10 @@
         },
         "hat": {
             "targetHeight": 76,
-            "scale": 1.31,
+            "scale": 1.33,
             "offset": {
-                "x": -9,
-                "y": 23
+                "x": -13,
+                "y": 55
             },
             "rotation": {
                 "base": -0.02
@@ -195,8 +195,8 @@
             "targetHeight": 128,
             "scale": 1.03,
             "offset": {
-                "x": -25,
-                "y": 47
+                "x": -10,
+                "y": 63
             },
             "rotation": {
                 "base": 0.03,

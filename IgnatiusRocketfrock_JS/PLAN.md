@@ -24,6 +24,8 @@ This is the punch list of things from the chat that are still only partially don
   - The parabola will start narrow and low and widen as long as `Space` is held.
   - Releasing `Space` fires the rocket as a projectile along the path
   - Gamepad `A` maps to `Up`, `B` maps to `Space`.
+  - There will be alternative firing methods in the future - where the rocket fires in a straight line towards the target that is selected when in the "slowed time mode"
+
 
 - [ ] Fix the targeting arc and projectile flight.
   - The arc should start straight up.
