@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
     FIXED_DT,
+    DEFAULT_TUNING,
     createInitialGameState,
     createInputFrame,
     stepSimulation,
@@ -196,14 +197,14 @@ function testAttachedRocketSmokeAndVisualPower() {
 
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
     const kickPower = state.equipment.rocket.boostVisualPowerNow;
-    assert.ok(kickPower > state.tuning.attachedBoostSustainVisualPower, `kick flame should be visually stronger than sustain, got ${kickPower}`);
+    assert.ok(kickPower > state.tuning.attachedBoostSustainVisualPower, `kick puff power should be visually stronger than sustain, got ${kickPower}`);
     const smokeAfterKick = state.effects.smokePuffs.filter((puff) => puff.kind === "attachedRocketSmokePuff").length;
     assert.ok(smokeAfterKick >= 4, `attached boost kick should emit downward smoke puffs, got ${smokeAfterKick}`);
 
     stepMany(state, Math.ceil(state.tuning.attachedBoostBurstDuration / FIXED_DT) + 4, () => createInputFrame({ jumpHeld: true }));
     assert.ok(
         state.equipment.rocket.boostVisualPowerNow <= kickPower,
-        `sustain flame should settle shorter than kick flame, kick ${kickPower}, sustain ${state.equipment.rocket.boostVisualPowerNow}`
+        `sustain puff power should settle below kick puff power, kick ${kickPower}, sustain ${state.equipment.rocket.boostVisualPowerNow}`
     );
     const attachedPuffs = state.effects.smokePuffs.filter((puff) => puff.kind === "attachedRocketSmokePuff");
     assert.ok(attachedPuffs.length > smokeAfterKick, "held sustain should keep adding attached boost smoke puffs");
@@ -234,6 +235,57 @@ function testFuelRechargeDelayGroundRequirementAndCap() {
     approx(airborne.equipment.rocket.boostKickCharge, 0, 0.001, "kick charge should not recharge while airborne");
 }
 
+function testPhase1012TuningDefaultsDebugPoseAndFuelBulbFlash() {
+    assert.equal(DEFAULT_TUNING.attachedBoostStartImpulse, -700, "Phase 1.012 should bake in the current preferred boost kick");
+    assert.equal(DEFAULT_TUNING.rechargeDelayAfterUse, 1, "Phase 1.012 should bake in the current recharge delay");
+    assert.equal(DEFAULT_TUNING.rechargeRate, 52, "Phase 1.012 should bake in the current recharge rate");
+    assert.equal(DEFAULT_TUNING.rocketLaunchCost, 30, "Phase 1.012 should bake in the current rocket launch cost");
+    assert.equal(DEFAULT_TUNING.groundAcceleration, 950, "Phase 1.012 should bake in the softer ground acceleration");
+    assert.equal(DEFAULT_TUNING.groundFriction, 900, "Phase 1.012 should bake in the softer ground friction");
+    assert.equal(DEFAULT_TUNING.attachedBoostSmokePuffInterval, 0.035);
+    assert.equal(DEFAULT_TUNING.attachedBoostSmokePuffDownSpeed, 700);
+    assert.equal(DEFAULT_TUNING.rocketSmokePuffLifetime, 1.5);
+    assert.equal(DEFAULT_TUNING.rocketSmokePuffSpacing, 3);
+    assert.equal(DEFAULT_TUNING.rocketSmokePuffScale, 1.5);
+    assert.equal(DEFAULT_TUNING.rocketFuelBulbScale, 2.4);
+    assert.equal(DEFAULT_TUNING.rocketFuelBulbEnabled, true, "rocket fuel bulb should be enabled by default");
+    assert.equal(DEFAULT_TUNING.poseBlendSpeed, 14, "pose transitions should blend by default");
+
+    const defaults = createInitialGameState();
+    assert.equal(defaults.debug.showHitboxes, false, "hitboxes should be hidden by default");
+    assert.equal(defaults.debug.showVelocity, false, "velocity vector should be hidden by default");
+
+    const state = createInitialGameState();
+    settleOnGround(state);
+    state.equipment.rocket.boostKickCharge = 0;
+    state.fuel.rechargeDelayTimer = 0;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.ok(state.equipment.rocket.boostKickCharge > 0.99, "grounded recharge should refill the kick charge");
+    assert.ok(state.equipment.rocket.fuelBulbFlashTimer > 0, "kick recharge should trigger a short bulb flash for the renderer");
+}
+
+function testFuelRechargeLatchAfterGroundedStart() {
+    const state = createInitialGameState();
+    settleOnGround(state);
+    state.fuel.amount = 40;
+    state.fuel.rechargeDelayTimer = 0;
+    state.fuel.rechargeLatched = false;
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.fuel.rechargeLatched, true, "grounded recharge should latch once it starts");
+    assert.ok(state.fuel.amount > 40, `fuel should begin recharging on the ground, got ${state.fuel.amount}`);
+
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    assert.equal(state.player.onGround, false, "normal jump should leave the ground");
+    const airborneFuel = state.fuel.amount;
+    stepMany(state, 12, () => createInputFrame());
+    assert.ok(state.fuel.amount > airborneFuel, `latched recharge should continue in the air until the rocket is used, before ${airborneFuel}, after ${state.fuel.amount}`);
+
+    state.fuel.amount = 100;
+    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    assert.equal(state.fuel.rechargeLatched, false, "firing the rocket should clear the recharge latch");
+}
+
 function testWallCollision() {
     const state = createInitialGameState();
     state.player.x = -245;
@@ -257,6 +309,25 @@ function testReset() {
     assert.equal(state.player.vy, 0, "reset vy");
 }
 
+
+function testAttachedSmokeDownSpeedTuning() {
+    const state = createInitialGameState({
+        tuning: {
+            attachedBoostSmokePuffDownSpeed: 260,
+            attachedBoostSmokePuffSideSpeed: 20,
+            attachedBoostSmokePuffSpeedJitter: 0
+        }
+    });
+    stepMany(state, {}, 8);
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    stepMany(state, { jumpHeld: true }, 3);
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    const attachedPuffs = state.effects.smokePuffs.filter((puff) => puff.kind === "attachedRocketSmokePuff");
+    assert.ok(attachedPuffs.length >= 4, "expected attached boost smoke puffs");
+    const maxVy = Math.max(...attachedPuffs.map((puff) => puff.vy));
+    assert.ok(maxVy >= 210, `expected smoke down speed tuning to affect vy, got ${maxVy}`);
+}
+
 const tests = [
     ["state serialization and cloning", testStateSerialization],
     ["headless stepping and floor collision", testHeadlessSteppingAndFloorCollision],
@@ -268,7 +339,10 @@ const tests = [
     ["homing rocket launch", testHomingRocketLaunch],
     ["rocket trail tracks curved path and persists", testRocketTrailTracksCurvedPathAndPersistsAfterExplosion],
     ["attached boost smoke and visual power", testAttachedRocketSmokeAndVisualPower],
+    ["attached smoke down speed tuning", testAttachedSmokeDownSpeedTuning],
     ["fuel recharge delay, ground requirement and cap", testFuelRechargeDelayGroundRequirementAndCap],
+    ["fuel recharge latch after grounded start", testFuelRechargeLatchAfterGroundedStart],
+    ["Phase 1.012 tuning defaults, debug pose blending and fuel bulb flash", testPhase1012TuningDefaultsDebugPoseAndFuelBulbFlash],
     ["wall collision", testWallCollision],
     ["manual reset", testReset]
 ];

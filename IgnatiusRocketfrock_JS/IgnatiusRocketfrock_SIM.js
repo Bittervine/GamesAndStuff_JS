@@ -9,13 +9,13 @@ export const DEFAULT_TUNING = Object.freeze({
     terminalVelocity: 1500,
     jumpVelocity: -775,
     maxRunSpeed: 360,
-    groundAcceleration: 2700,
+    groundAcceleration: 950,
     airAcceleration: 820,
-    groundFriction: 2200,
+    groundFriction: 900,
     landingFriction: 550,
     airDrag: 0.12,
     attachedBoostAcceleration: -1580,
-    attachedBoostStartImpulse: -260,
+    attachedBoostStartImpulse: -700,
     attachedBoostStartMaxDownwardVelocity: 120,
     attachedBoostInitialAcceleration: -3050,
     attachedBoostSustainAcceleration: -1500,
@@ -26,7 +26,10 @@ export const DEFAULT_TUNING = Object.freeze({
     attachedBoostKickVisualPower: 1.08,
     attachedBoostSustainVisualPower: 0.36,
     attachedBoostSmokeKickPuffs: 7,
-    attachedBoostSmokePuffInterval: 0.065,
+    attachedBoostSmokePuffInterval: 0.035,
+    attachedBoostSmokePuffDownSpeed: 700,
+    attachedBoostSmokePuffSideSpeed: 42,
+    attachedBoostSmokePuffSpeedJitter: 36,
     attachedBoostKickChargeMax: 1,
     attachedBoostKickChargeRechargeRate: 999,
     attachedBoostKickRechargeInstant: true,
@@ -37,10 +40,10 @@ export const DEFAULT_TUNING = Object.freeze({
     initialFuel: 100,
     baseRechargeCap: 100,
     fuelRechargeRequiresGround: true,
-    rechargeDelayAfterUse: 2,
-    rechargeRate: 180,
+    rechargeDelayAfterUse: 1,
+    rechargeRate: 52,
     attachedBoostDrainRate: 40,
-    rocketLaunchCost: 40,
+    rocketLaunchCost: 30,
     rocketLaunchCooldown: 0.35,
     rocketProjectileSpeed: 520,
     rocketProjectileUpLaunchSeconds: 0.32,
@@ -48,9 +51,17 @@ export const DEFAULT_TUNING = Object.freeze({
     rocketProjectileLifetime: 4.6,
     rocketProjectileExplosionSeconds: 0.42,
     rocketProjectileImpactRadius: 24,
-    rocketSmokePuffLifetime: 2.8,
-    rocketSmokePuffSpacing: 13,
+    rocketSmokePuffLifetime: 1.5,
+    rocketSmokePuffSpacing: 3,
     rocketSmokeMaxPuffs: 260,
+    rocketSmokePuffScale: 1.5,
+    rocketFuelBulbEnabled: true,
+    rocketFuelBulbLowThreshold: 25,
+    rocketFuelBulbMediumThreshold: 60,
+    rocketFuelBulbPulseWhenRecharging: true,
+    rocketFuelBulbFlashOnKickRecharge: true,
+    rocketFuelBulbScale: 2.4,
+    poseBlendSpeed: 14,
     maxHealth: 100,
     lowHealthThreshold: 34,
     healthRegenDelay: 5,
@@ -93,7 +104,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "phase-1.006-physics-arena",
+            build: "phase-1.012-physics-arena",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -133,6 +144,7 @@ export function createInitialGameState(overrides = {}) {
             max: tuning.fuelMax,
             rechargeCap: tuning.baseRechargeCap,
             rechargeDelayTimer: 0,
+            rechargeLatched: false,
             lastUsedAt: null
         },
         health: {
@@ -153,7 +165,8 @@ export function createInitialGameState(overrides = {}) {
                 boostVisualPowerNow: 0,
                 attachedSmokeTimer: 0,
                 lastBoostStartTick: null,
-                lastBoostEndTick: null
+                lastBoostEndTick: null,
+                fuelBulbFlashTimer: 0
             },
             weaponInputVisibleOnly: false
         },
@@ -195,8 +208,8 @@ export function createInitialGameState(overrides = {}) {
         },
         debug: {
             paused: false,
-            showHitboxes: true,
-            showVelocity: true,
+            showHitboxes: false,
+            showVelocity: false,
             showCollision: true,
             showInput: true,
             lastEvents: [],
@@ -312,6 +325,8 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     const fuel = state.fuel;
     const rocket = state.equipment.rocket;
 
+    rocket.fuelBulbFlashTimer = Math.max(0, (rocket.fuelBulbFlashTimer ?? 0) - dt);
+
     state.clock.tick += 1;
     state.clock.time += dt;
     state.debug.lastInputFrame = deepClone(input);
@@ -358,8 +373,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
             emitAttachedBoostSmoke(state, dt);
             const used = Math.min(fuel.amount, t.attachedBoostDrainRate * dt);
             fuel.amount = clamp(fuel.amount - used, 0, fuel.max);
-            fuel.lastUsedAt = state.clock.time;
-            fuel.rechargeDelayTimer = t.rechargeDelayAfterUse;
+            markRocketUse(state);
             if (fuel.amount <= 0) {
                 stopAttachedBoost(state, "fuelEmpty");
             }
@@ -400,6 +414,12 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     return state;
 }
 
+function markRocketUse(state) {
+    state.fuel.lastUsedAt = state.clock.time;
+    state.fuel.rechargeDelayTimer = state.tuning.rechargeDelayAfterUse;
+    state.fuel.rechargeLatched = false;
+}
+
 function startAttachedBoost(state) {
     const rocket = state.equipment.rocket;
     const p = state.player;
@@ -420,8 +440,7 @@ function startAttachedBoost(state) {
     if (impulse !== 0) {
         p.vy = Math.min(p.vy, t.attachedBoostStartMaxDownwardVelocity) + impulse;
     }
-    state.fuel.rechargeDelayTimer = state.tuning.rechargeDelayAfterUse;
-    state.fuel.lastUsedAt = state.clock.time;
+    markRocketUse(state);
     addEvent(state, "PLAYER_BOOST_STARTED", {
         fuel: round(state.fuel.amount),
         impulse: round(impulse),
@@ -493,7 +512,7 @@ function stopAttachedBoost(state, reason) {
     rocket.boostVisualPowerNow = 0;
     rocket.attachedSmokeTimer = 0;
     rocket.lastBoostEndTick = state.clock.tick;
-    state.fuel.rechargeDelayTimer = state.tuning.rechargeDelayAfterUse;
+    markRocketUse(state);
     addEvent(state, "PLAYER_BOOST_ENDED", { reason, fuel: round(state.fuel.amount) });
 }
 
@@ -537,8 +556,7 @@ function launchHomingRocket(state, input) {
     weapons.launchedThisPhase = true;
     state.projectiles.push(projectile);
     state.fuel.amount = clamp(state.fuel.amount - t.rocketLaunchCost, 0, state.fuel.max);
-    state.fuel.lastUsedAt = state.clock.time;
-    state.fuel.rechargeDelayTimer = t.rechargeDelayAfterUse;
+    markRocketUse(state);
     addEvent(state, "ROCKET_LAUNCHED", { id: projectile.id, targetId: projectile.targetId, fuel: round(state.fuel.amount) });
     return true;
 }
@@ -654,8 +672,8 @@ function addRocketSmokePuff(state, projectile) {
         vx: round(tailX * 8),
         vy: round(tailY * 8 - 10),
         age: 0,
-        lifetime: state.tuning.rocketSmokePuffLifetime ?? 2.8,
-        radius: 10 + (seed % 9),
+        lifetime: state.tuning.rocketSmokePuffLifetime ?? 1.5,
+        radius: (10 + (seed % 9)) * (state.tuning.rocketSmokePuffScale ?? 1.5),
         sparkleSeed: seed
     });
 
@@ -684,8 +702,8 @@ function addSmokePuff(state, spec) {
         vx: round(spec.vx || 0),
         vy: round(spec.vy || 0),
         age: 0,
-        lifetime: spec.lifetime ?? state.tuning.rocketSmokePuffLifetime ?? 2.8,
-        radius: spec.radius ?? 12,
+        lifetime: spec.lifetime ?? state.tuning.rocketSmokePuffLifetime ?? 1.5,
+        radius: (spec.radius ?? 12) * (state.tuning.rocketSmokePuffScale ?? 1.5),
         sparkleSeed: spec.sparkleSeed ?? seed
     });
 
@@ -715,9 +733,14 @@ function emitAttachedBoostSmoke(state, dt) {
 function emitAttachedBoostSmokeBurst(state, count) {
     const rocket = state.equipment.rocket;
     const p = state.player;
+    const t = state.tuning;
     const nozzle = attachedRocketNozzlePoint(state);
     const power = clamp(rocket.boostVisualPowerNow || attachedBoostVisualPower(state), 0.18, 1.25);
     const total = Math.max(0, Math.floor(count));
+    const downSpeed = Math.max(0, t.attachedBoostSmokePuffDownSpeed ?? 170);
+    const sideSpeed = Math.max(0, t.attachedBoostSmokePuffSideSpeed ?? 42);
+    const speedJitter = Math.max(0, t.attachedBoostSmokePuffSpeedJitter ?? 36);
+
     for (let i = 0; i < total; i += 1) {
         const wobble = ((state.clock.tick * 37 + i * 53) % 100) / 100 - 0.5;
         const spread = ((state.clock.tick * 19 + i * 29) % 100) / 100 - 0.5;
@@ -725,8 +748,8 @@ function emitAttachedBoostSmokeBurst(state, count) {
             kind: "attachedRocketSmokePuff",
             x: nozzle.x + spread * 9,
             y: nozzle.y + i * 2,
-            vx: p.vx * 0.10 + spread * 42 - p.facing * 8,
-            vy: 92 + power * 70 + wobble * 36,
+            vx: p.vx * 0.10 + spread * sideSpeed - p.facing * 8,
+            vy: downSpeed * (0.45 + power * 0.55) + wobble * speedJitter,
             lifetime: 1.6 + power * 0.65,
             radius: 8 + power * 9 + (i % 3) * 1.5
         });
@@ -857,8 +880,12 @@ function updateFuelRecharge(state, dt) {
         return;
     }
 
-    if (t.fuelRechargeRequiresGround !== false && !state.player.onGround) {
-        return;
+    if (t.fuelRechargeRequiresGround !== false && !fuel.rechargeLatched) {
+        if (!state.player.onGround) {
+            return;
+        }
+        fuel.rechargeLatched = true;
+        addEvent(state, "FUEL_RECHARGE_STARTED", { grounded: true });
     }
 
     const kickMax = Math.max(0, t.attachedBoostKickChargeMax ?? 1);
@@ -871,6 +898,9 @@ function updateFuelRecharge(state, dt) {
             rocket.boostKickCharge = Math.min(kickMax, rocket.boostKickCharge + Math.max(0, t.attachedBoostKickChargeRechargeRate ?? 1) * dt);
         }
         if (previous !== rocket.boostKickCharge) {
+            if (t.rocketFuelBulbFlashOnKickRecharge !== false) {
+                rocket.fuelBulbFlashTimer = 0.45;
+            }
             addEvent(state, "BOOST_KICK_RECHARGED", { charge: round(rocket.boostKickCharge) });
         }
         if (rocket.boostKickCharge < kickMax) {
@@ -939,6 +969,7 @@ export function resetPlayer(state, reason = "manualReset") {
     p.facing = 1;
     state.fuel.amount = state.tuning.initialFuel;
     state.fuel.rechargeDelayTimer = 0;
+    state.fuel.rechargeLatched = false;
     state.equipment.rocket.boostKickCharge = state.tuning.attachedBoostKickChargeMax ?? 1;
     state.equipment.rocket.boostBurstTimer = 0;
     state.equipment.rocket.boostAccelerationNow = 0;

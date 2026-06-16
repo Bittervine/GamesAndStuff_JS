@@ -135,12 +135,28 @@
             right: 16px;
             width: 330px;
             max-width: calc(100vw - 32px);
+            max-height: calc(100vh - 32px);
             border: 1px solid var(--line);
             border-radius: 16px;
             padding: 12px 14px;
             background: var(--panel-strong);
             box-shadow: 0 20px 70px rgba(0, 0, 0, 0.3);
             backdrop-filter: blur(10px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            scrollbar-gutter: stable;
+        }
+
+
+
+        #tuning::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        #tuning::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.22);
+            border-radius: 999px;
+            border: 2px solid rgba(0, 0, 0, 0.18);
         }
 
         #tuning h2 {
@@ -179,7 +195,7 @@
 
         textarea {
             width: 100%;
-            min-height: 210px;
+            min-height: 170px;
             margin-top: 8px;
             border: 1px solid var(--line);
             border-radius: 10px;
@@ -266,7 +282,7 @@
 
     <section id="tuning">
         <div class="tuning-header">
-            <h2>Phase 1.006 tuning</h2>
+            <h2>Phase 1.009 tuning</h2>
             <button id="toggle-tuning" type="button">Collapse</button>
         </div>
         <div class="small tuning-help">These write into <code>gameState.tuning</code>, so devtools exports include the current feel. The JSON box is copyable and editable.</div>

@@ -98,6 +98,9 @@ class RocketfrockRenderer {
         this.rigConfig = rigConfig;
         this.phase = 0;
         this.forcePhase = null;
+        this.visualPose = null;
+        this.lastVisualPoseMode = null;
+        this.lastRenderDt = 1 / 60;
         this.viewport = { w: canvas.width, h: canvas.height, dpr: 1 };
         this.lastBounds = null;
     }
@@ -119,15 +122,21 @@ class RocketfrockRenderer {
             return;
         }
         const speedRatio = Math.min(1.4, Math.abs(state.player.vx) / Math.max(1, state.tuning.maxRunSpeed));
-        if (state.player.onGround && speedRatio < 0.04) {
+        if (!state.player.onGround) {
+            // Airborne poses are now state poses, not a slow copy of the run cycle.
             this.phase = 0;
             return;
         }
-        const base = state.player.onGround ? 0.55 + speedRatio * 2.6 : 0.7;
+        if (speedRatio < 0.04) {
+            this.phase = 0;
+            return;
+        }
+        const base = 0.55 + speedRatio * 2.6;
         this.phase = (this.phase + dt * base * Math.PI * 2) % (Math.PI * 2);
     }
 
     render(state, inputFrame, dt) {
+        this.lastRenderDt = Math.max(0, Math.min(0.08, Number(dt) || 1 / 60));
         this.resize();
         this.updatePhase(state, dt);
         const ctx = this.ctx;
@@ -542,7 +551,8 @@ class RocketfrockRenderer {
 
     drawWizardRig(screenX, screenGroundY, facing, state, zoom) {
         const ctx = this.ctx;
-        const pose = this.computeRigPose(state, zoom);
+        const targetPose = this.computeRigPose(state, zoom);
+        const pose = this.blendRigPose(targetPose, state, zoom);
         const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
 
         ctx.save();
@@ -551,8 +561,10 @@ class RocketfrockRenderer {
         for (const name of FIXED_DRAW_ORDER) {
             const spriteBounds = this.drawSprite(name, pose.transforms[name], zoom);
             mergeBounds(bounds, spriteBounds, screenX, screenGroundY, facing);
-            if (name === "rocket" && state.equipment.rocket.attachedBoosting) {
-                this.drawMountedRocketFlame(pose.transforms[name], state, zoom);
+            if (name === "rocket") {
+                // Phase 1.011: attached boost exhaust is represented by world-managed smoke/spark puffs,
+                // not by a local flame sprite. The flying projectile still keeps its short nozzle flame.
+                this.drawMountedRocketFuelBulb(pose.transforms[name], state, zoom);
             }
         }
         ctx.restore();
@@ -569,12 +581,26 @@ class RocketfrockRenderer {
         const anchors = cfg.anchors;
         const speedRatio = Math.min(1.25, Math.abs(state.player.vx) / Math.max(1, state.tuning.maxRunSpeed));
         const groundMotion = smoothstep(0.05, 0.24, speedRatio);
-        const motionAmount = state.player.onGround ? groundMotion : Math.max(0.35, groundMotion);
-        const bob = (Math.sin(phase * 2) * anim.bobAmplitude - Math.max(0, Math.cos(phase * 2)) * anim.bobCompression) * scale * motionAmount;
+        const rocket = state.equipment.rocket;
+        const airborne = !state.player.onGround;
+        const kickWindow = Math.max(0.16, Math.min(0.34, (state.tuning.attachedBoostBurstDuration ?? 0.5) * 0.55));
+        const boostKickPose = airborne && rocket.attachedBoosting && rocket.attachedBoostTime <= kickWindow;
+        const hoverPose = airborne && rocket.attachedBoosting && !boostKickPose;
+        const poseMode = hoverPose ? "hover" : (airborne ? "jump" : "ground");
+        const motionAmount = poseMode === "ground" ? groundMotion : 0;
+        const bob = poseMode === "ground"
+            ? (Math.sin(phase * 2) * anim.bobAmplitude - Math.max(0, Math.cos(phase * 2)) * anim.bobCompression) * scale * motionAmount
+            : 0;
         const standLean = 0.02;
         const runLean = lean + speedRatio * 0.1;
-        const torsoAngle = standLean * (1 - motionAmount) + runLean * motionAmount + Math.sin(phase * 2) * anim.torsoWobble * motionAmount;
-        const headAngle = torsoAngle * anim.headLeanMultiplier + Math.sin(phase * 2 + 0.4) * anim.headWobble * motionAmount;
+        let torsoAngle = standLean * (1 - motionAmount) + runLean * motionAmount + Math.sin(phase * 2) * anim.torsoWobble * motionAmount;
+        if (poseMode === "jump") {
+            const riseLean = state.player.vy < 0 ? 0.08 : 0.045;
+            torsoAngle = boostKickPose ? 0.12 : riseLean;
+        } else if (poseMode === "hover") {
+            torsoAngle = 0.015 + Math.sin(state.clock.time * 5.5) * 0.012;
+        }
+        const headAngle = torsoAngle * anim.headLeanMultiplier + (poseMode === "ground" ? Math.sin(phase * 2 + 0.4) * anim.headWobble * motionAmount : 0);
         const root = {
             x: 0,
             y: cfg.global.rootYOffsetFromGround * scale + bob
@@ -585,32 +611,98 @@ class RocketfrockRenderer {
         const neck = add(root, scaledRotatedAnchor(anchors.neck, scale, torsoAngle));
         const rocketMount = add(root, scaledRotatedAnchor(anchors.rocketMount, scale, torsoAngle));
         const hatBase = add(neck, scaledRotatedAnchor(anchors.hatFromHead, scale, headAngle));
-        const rocketBob = state.equipment.rocket.attachedBoosting ? Math.sin(state.clock.time * 38) * 2.8 * scale : Math.sin(phase * 2 + 0.7) * anim.rocketBob * scale * motionAmount;
+        const rocketBob = rocket.attachedBoosting ? Math.sin(state.clock.time * 38) * 2.8 * scale : Math.sin(phase * 2 + 0.7) * anim.rocketBob * scale * motionAmount;
         const rocketBobPoint = { x: rocketMount.x, y: rocketMount.y + rocketBob };
 
         return {
+            poseMode,
             transforms: {
-                leftArm: this.makeArmTransform("left", leftShoulder, phase, scale, torsoAngle, motionAmount),
-                leftFoot: this.makeLegTransform("left", root, phase, scale, motionAmount),
+                leftArm: this.makeArmTransform("left", leftShoulder, phase, scale, torsoAngle, motionAmount, poseMode),
+                leftFoot: this.makeLegTransform("left", root, phase, scale, motionAmount, poseMode, state),
                 rocket: this.makeRigidTransform("rocket", rocketBobPoint, torsoAngle, scale),
-                rightFoot: this.makeLegTransform("right", root, phase, scale, motionAmount),
+                rightFoot: this.makeLegTransform("right", root, phase, scale, motionAmount, poseMode, state),
                 robe: this.makeRigidTransform("robe", root, torsoAngle, scale),
                 head: this.makeRigidTransform("head", neck, headAngle, scale),
                 hat: this.makeRigidTransform("hat", hatBase, headAngle, scale),
-                rightArm: this.makeArmTransform("right", rightShoulder, phase, scale, torsoAngle, motionAmount)
+                rightArm: this.makeArmTransform("right", rightShoulder, phase, scale, torsoAngle, motionAmount, poseMode)
             }
         };
     }
 
-    makeLegTransform(side, root, phase, scale, motionAmount = 1) {
+    blendRigPose(targetPose, state, zoom) {
+        const speed = Number(state.tuning.poseBlendSpeed ?? 14);
+        if (!Number.isFinite(speed) || speed <= 0 || !this.visualPose) {
+            this.visualPose = clonePose(targetPose);
+            this.lastVisualPoseMode = targetPose.poseMode;
+            return targetPose;
+        }
+
+        const alpha = 1 - Math.exp(-speed * this.lastRenderDt);
+        const blended = {
+            poseMode: targetPose.poseMode,
+            transforms: {}
+        };
+
+        for (const name of FIXED_DRAW_ORDER) {
+            const from = this.visualPose.transforms[name];
+            const to = targetPose.transforms[name];
+            blended.transforms[name] = from ? lerpTransform(from, to, alpha) : { ...to };
+        }
+
+        this.visualPose = clonePose(blended);
+        this.lastVisualPoseMode = targetPose.poseMode;
+        return blended;
+    }
+
+    makeLegTransform(side, root, phase, scale, motionAmount = 1, poseMode = "ground", state = null) {
         const name = side === "left" ? "leftFoot" : "rightFoot";
         const part = this.rigConfig.parts[name];
         const motion = this.rigConfig.legMotion;
+        const baseX = side === "left" ? motion.leftBaseX : motion.rightBaseX;
+
+        if (poseMode !== "ground") {
+            const falling = state ? state.player.vy > 120 : false;
+            const kick = state ? state.equipment.rocket.attachedBoosting && state.equipment.rocket.attachedBoostTime < 0.24 : false;
+            let poseX = baseX;
+            let poseY = motion.groundRise;
+            let angle = part.rotation.base;
+
+            if (poseMode === "hover") {
+                // Hovering should read as a passive dangle rather than airborne running.
+                poseX += side === "left" ? -4 : 4;
+                poseY += 2;
+                angle += side === "left" ? -0.025 : 0.025;
+            } else {
+                // Jump/kick pose: one leg trailing from takeoff and the other preparing to land.
+                const apart = kick ? 1.18 : 1.0;
+                if (side === "left") {
+                    poseX -= 24 * apart;
+                    poseY += falling ? -14 : -2;
+                    angle += -0.18;
+                } else {
+                    poseX += 32 * apart;
+                    poseY += falling ? -4 : -22;
+                    angle += 0.21;
+                }
+            }
+
+            const point = applyPartOffset({
+                x: root.x + poseX * scale,
+                y: poseY * scale
+            }, part, scale);
+            return {
+                x: point.x,
+                y: point.y,
+                angle,
+                targetHeight: part.targetHeight * scale * part.scale,
+                alpha: part.alpha
+            };
+        }
+
         const p = phase + (side === "left" ? 0 : Math.PI);
         const stride = -Math.sin(p) * motionAmount;
         const lift = Math.max(0, -Math.cos(p)) * motionAmount;
         const planted = Math.max(0, Math.cos(p)) * motionAmount;
-        const baseX = side === "left" ? motion.leftBaseX : motion.rightBaseX;
         const basePoint = {
             x: root.x + (baseX + stride * motion.stride) * scale,
             y: (motion.groundRise - lift * motion.lift) * scale
@@ -625,13 +717,26 @@ class RocketfrockRenderer {
         };
     }
 
-    makeArmTransform(side, shoulder, phase, scale, torsoAngle, motionAmount = 1) {
+    makeArmTransform(side, shoulder, phase, scale, torsoAngle, motionAmount = 1, poseMode = "ground") {
         const name = side === "left" ? "leftArm" : "rightArm";
         const part = this.rigConfig.parts[name];
+        const point = applyPartOffset(shoulder, part, scale);
+
+        if (poseMode !== "ground") {
+            const passive = poseMode === "hover";
+            const spread = passive ? 0 : (side === "left" ? -0.08 : 0.08);
+            return {
+                x: point.x,
+                y: point.y,
+                angle: torsoAngle * (part.rotation.torso ?? 1) + part.rotation.base + spread,
+                targetHeight: part.targetHeight * scale * part.scale,
+                alpha: part.alpha
+            };
+        }
+
         const p = phase + (side === "left" ? 0 : Math.PI);
         const swing = -Math.sin(p) * motionAmount;
         const lift = Math.max(0, -Math.cos(p)) * motionAmount;
-        const point = applyPartOffset(shoulder, part, scale);
         return {
             x: point.x,
             y: point.y,
@@ -655,6 +760,25 @@ class RocketfrockRenderer {
         ctx.rotate(transform.angle);
         ctx.scale(spriteScale, spriteScale);
         drawRocketFlameLocal(ctx, asset, pivot, state.clock.time * 1.7, power, 41);
+        ctx.restore();
+    }
+
+    drawMountedRocketFuelBulb(transform, state, zoom) {
+        if (state.tuning.rocketFuelBulbEnabled === false) {
+            return;
+        }
+        const asset = this.assets.get("rocket");
+        if (!asset || asset.missing || !transform) {
+            return;
+        }
+        const ctx = this.ctx;
+        const pivot = this.rigConfig.pivots.rocket;
+        const spriteScale = transform.targetHeight / Math.max(1, asset.height);
+        ctx.save();
+        ctx.translate(transform.x, transform.y);
+        ctx.rotate(transform.angle);
+        ctx.scale(spriteScale, spriteScale);
+        drawRocketFuelBulbLocal(ctx, asset, pivot, state, state.clock.time);
         ctx.restore();
     }
 
@@ -925,6 +1049,117 @@ function rotatePoint(localX, localY, angle) {
 }
 
 
+
+function drawRocketFuelBulbLocal(ctx, asset, pivot, state, time) {
+    const fuel = state.fuel || { amount: 0, max: 100, rechargeDelayTimer: 0, rechargeCap: 100 };
+    const tuning = state.tuning || {};
+    const rocket = state.equipment?.rocket || {};
+    const ratio = clamp(fuel.amount / Math.max(1, fuel.max || 100), 0, 1);
+    const percent = ratio * 100;
+    const low = tuning.rocketFuelBulbLowThreshold ?? 25;
+    const mid = tuning.rocketFuelBulbMediumThreshold ?? 60;
+    const scale = tuning.rocketFuelBulbScale ?? 1;
+    const bulbX = (0.46 - pivot.x) * asset.width;
+    const bulbY = (0.47 - pivot.y) * asset.height;
+    const radius = Math.max(5, Math.min(asset.width, asset.height) * 0.055 * scale);
+    const canRechargeNow = tuning.fuelRechargeRequiresGround === false || state.player.onGround || fuel.rechargeLatched === true;
+    const recharging = Boolean(
+        tuning.rocketFuelBulbPulseWhenRecharging !== false &&
+        !rocket.attachedBoosting &&
+        canRechargeNow &&
+        (fuel.rechargeDelayTimer ?? 0) <= 0 &&
+        fuel.amount < Math.min(fuel.rechargeCap ?? fuel.max, fuel.max)
+    );
+    const unavailable = (tuning.fuelRechargeRequiresGround !== false && !state.player.onGround && fuel.rechargeLatched !== true) || (fuel.rechargeDelayTimer ?? 0) > 0;
+    const flash = clamp((rocket.fuelBulbFlashTimer ?? 0) / 0.45, 0, 1);
+    const pulse = recharging ? 0.5 + 0.5 * Math.sin(time * 13.5) : 0;
+
+    let fill = "rgba(18, 16, 20, 0.88)";
+    let glow = "rgba(0, 0, 0, 0)";
+    if (percent > 0.5 && percent < low) {
+        fill = "rgba(220, 59, 58, 0.95)";
+        glow = "rgba(255, 67, 53, 0.45)";
+    } else if (percent >= low && percent < mid) {
+        fill = "rgba(239, 198, 71, 0.96)";
+        glow = "rgba(255, 217, 75, 0.42)";
+    } else if (percent >= mid) {
+        fill = "rgba(103, 218, 117, 0.96)";
+        glow = "rgba(100, 244, 126, 0.42)";
+    }
+
+    const dim = unavailable && !recharging ? 0.62 : 1;
+    const glowRadius = radius * (2.2 + pulse * 0.75 + flash * 1.8);
+
+    ctx.save();
+    ctx.translate(bulbX, bulbY);
+    ctx.globalCompositeOperation = "source-over";
+
+    if (percent > 0.5) {
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        const g = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, glowRadius);
+        g.addColorStop(0, glow);
+        g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.globalAlpha = dim * (0.55 + pulse * 0.35 + flash * 0.42);
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    ctx.globalAlpha = 0.82;
+    ctx.fillStyle = "rgba(5, 4, 7, 0.92)";
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 1.28, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.globalAlpha = dim;
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (fuel.amount > 0 && fuel.amount < fuel.max) {
+        ctx.save();
+        ctx.globalCompositeOperation = "source-over";
+        ctx.globalAlpha = 0.28;
+        ctx.fillStyle = "rgba(0, 0, 0, 0.92)";
+        ctx.beginPath();
+        ctx.rect(-radius, -radius, radius * 2, radius * 2 * (1 - ratio));
+        ctx.clip();
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    ctx.globalAlpha = 0.88;
+    ctx.strokeStyle = flash > 0.01 ? "rgba(255, 255, 210, 0.98)" : (unavailable ? "rgba(255, 255, 255, 0.32)" : "rgba(255, 255, 255, 0.66)");
+    ctx.lineWidth = Math.max(1.25, radius * 0.18);
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * (1.06 + flash * 0.35), 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.globalAlpha = 0.70;
+    ctx.fillStyle = "rgba(255, 255, 255, 0.82)";
+    ctx.beginPath();
+    ctx.arc(-radius * 0.28, -radius * 0.32, radius * 0.23, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (percent <= 0.5) {
+        ctx.globalAlpha = 0.42 + 0.22 * Math.sin(time * 10);
+        ctx.strokeStyle = "rgba(255, 80, 62, 0.76)";
+        ctx.lineWidth = Math.max(1, radius * 0.12);
+        ctx.beginPath();
+        ctx.moveTo(-radius * 0.55, radius * 0.52);
+        ctx.lineTo(radius * 0.55, -radius * 0.52);
+        ctx.stroke();
+    }
+
+    ctx.restore();
+}
+
 function drawRocketFlameLocal(ctx, asset, pivot, time, power = 1, seed = 0) {
     const nozzleX = (0.5 - pivot.x) * asset.width;
     const nozzleY = (0.965 - pivot.y) * asset.height;
@@ -982,6 +1217,37 @@ function drawRocketFlameLocal(ctx, asset, pivot, time, power = 1, seed = 0) {
         ctx.fill();
     }
     ctx.restore();
+}
+
+function clonePose(pose) {
+    return {
+        poseMode: pose.poseMode,
+        transforms: Object.fromEntries(
+            Object.entries(pose.transforms).map(([name, transform]) => [name, { ...transform }])
+        )
+    };
+}
+
+function lerpTransform(from, to, alpha) {
+    return {
+        x: lerp(from.x, to.x, alpha),
+        y: lerp(from.y, to.y, alpha),
+        angle: lerpAngle(from.angle, to.angle, alpha),
+        targetHeight: lerp(from.targetHeight, to.targetHeight, alpha),
+        alpha: lerp(from.alpha, to.alpha, alpha)
+    };
+}
+
+function lerp(a, b, t) {
+    return a + (b - a) * t;
+}
+
+function lerpAngle(a, b, t) {
+    let delta = (b - a + Math.PI) % (Math.PI * 2) - Math.PI;
+    if (delta < -Math.PI) {
+        delta += Math.PI * 2;
+    }
+    return a + delta * t;
 }
 
 function hashNoise(seed, i) {
