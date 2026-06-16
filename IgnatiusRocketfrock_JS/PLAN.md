@@ -722,7 +722,7 @@ Include:
 * Movement should be fun even on flat ground.
 * Combat targets should encourage creative rocket use.
 * Levels should start with Ignatius entering from the left-hand side.
-* Later levels may be procedurally generated.
+* Later levels may be procedurally generated from a seed that is fixed during development (so we can replay/debug)
 * Each level should have a distinct theme.
 
 ## Camera
