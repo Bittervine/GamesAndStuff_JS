@@ -359,20 +359,14 @@
         <p>Place atlas assets, move the wizard start, add future monsters/triggers, and export a level JSON. This editor is a first serious foundation, not yet a full shipped tool.</p>
 
         <div class="box">
-            <h2>Files</h2>
+            <h2>Level</h2>
+            <label>Existing level<select id="level-select"></select></label>
             <div class="row">
-                <button id="load-default-manifest">Load atlas_001</button>
-                <button id="starter-layout">Starter layout</button>
+                <button id="load-level">Load level</button>
+                <button id="new-level">New empty level</button>
             </div>
-            <div class="row">
-                <label>Atlas JSON<input id="manifest-file" type="file" accept="application/json,.json"></label>
-                <label>Atlas image<input id="image-file" type="file" accept="image/png,image/webp,image/jpeg"></label>
-            </div>
-            <div class="row">
-                <label>Level JSON<input id="level-file" type="file" accept="application/json,.json"></label>
-                <button id="new-level">New level</button>
-            </div>
-            <p class="small">Default paths are <code>assets/atlas_001.json</code> and <code>assets/atlas_001.png</code>.</p>
+            <label>Import level JSON<input id="level-file" type="file" accept="application/json,.json"></label>
+            <p class="small">Startup scans <code>assets/level_001.json</code>, <code>assets/level_002.json</code>, and onward up to <code>level_020</code>, stopping at the first missing level. Atlas files are loaded automatically from <code>assets/atlas_001.*</code> onward.</p>
         </div>
 
         <div class="box">
@@ -413,6 +407,10 @@
 
         <div class="box">
             <h2>Asset palette</h2>
+            <div class="row">
+                <label>Atlas<select id="asset-atlas"></select></label>
+                <button id="reload-atlas-library" type="button">Reload</button>
+            </div>
             <label>Search assets<input id="asset-search" placeholder="ledge, floor, pillar..."></label>
             <div id="asset-list" class="list"></div>
             <div class="asset-preview">
@@ -448,7 +446,7 @@
                     </select>
                 </label>
                 <label class="inline"><input id="inspect-mirror" type="checkbox"> Mirror X</label>
-                <label class="inline"><input id="inspect-collision" type="checkbox"> Collision lines</label>
+                <label class="inline"><input id="inspect-collision" type="checkbox"> Use atlas collision lines</label>
             </div>
             <label id="entity-type-row">Entity type
                 <select id="inspect-entity-type">
@@ -486,8 +484,24 @@
 
     const STORAGE_KEY = "ignatius_level_editor_v2";
     const DEFAULT_ATLAS_ID = "atlas_001";
-    const DEFAULT_MANIFEST_URL = "assets/atlas_001.json";
-    const DEFAULT_IMAGE_URL = "assets/atlas_001.png";
+    const DEFAULT_LEVEL_URL = "assets/level_001.json";
+    const ATLAS_AUTOLOAD_LIMIT = 20;
+    const LEVEL_AUTOLOAD_LIMIT = 20;
+
+    function atlasIdForIndex(index) {
+        return `atlas_${String(index).padStart(3, "0")}`;
+    }
+
+    function atlasManifestUrl(atlasId) {
+        return `assets/${atlasId}.json`;
+    }
+
+    function atlasImageUrl(atlasId) {
+        return `assets/${atlasId}.png`;
+    }
+
+    const DEFAULT_MANIFEST_URL = atlasManifestUrl(DEFAULT_ATLAS_ID);
+    const DEFAULT_IMAGE_URL = atlasImageUrl(DEFAULT_ATLAS_ID);
 
     const COLORS = {
         frame: "rgba(86,230,255,0.78)",
@@ -519,9 +533,11 @@
         showLabels: document.getElementById("show-labels"),
         levelId: document.getElementById("level-id"),
         levelTitle: document.getElementById("level-title"),
+        levelSelect: document.getElementById("level-select"),
         worldW: document.getElementById("world-w"),
         worldH: document.getElementById("world-h"),
         assetSearch: document.getElementById("asset-search"),
+        assetAtlas: document.getElementById("asset-atlas"),
         assetList: document.getElementById("asset-list"),
         assetPreviewCanvas: document.getElementById("asset-preview-canvas"),
         assetPreviewInfo: document.getElementById("asset-preview-info"),
@@ -552,17 +568,20 @@
         selectedId: "wizardStart",
         drag: null,
         camera: { x: -160, y: -80, zoom: 0.55 },
+        atlases: new Map(),
+        activeAtlasId: DEFAULT_ATLAS_ID,
         manifest: null,
         atlasImage: null,
         frameImageScale: 1,
-        level: null
+        level: null,
+        availableLevels: []
     };
 
     const STARTER_LEVEL = {
             "meta": {
                     "version": 1,
                     "editor": "Ignatius Rocketfrock Level Editor",
-                    "note": "Level placements are data. Runtime collision is derived from placement collisionFromManifest plus referenced atlas lines, not asset type. Cutout masks erase lower visual layers only."
+                    "note": "Level placements are data. Runtime collision is controlled by atlas lines plus the per-placement collision checkbox. Asset type is editor/catalog metadata only. Cutout masks erase lower visual layers only."
             },
             "levelId": "level_001",
             "title": "Ignatius Rocketfrock and the Level That Was Edited On Purpose",
@@ -884,7 +903,40 @@
         return cloneData(STARTER_LEVEL);
     }
 
-    state.level = makeDefaultLevel();
+
+
+    function makeEmptyLevel() {
+        return {
+            meta: {
+                version: 1,
+                editor: "Ignatius Rocketfrock Level Editor",
+                note: "Empty level created in the editor. Add atlas assets and entities, then export as JSON."
+            },
+            levelId: "level_new",
+            title: "Ignatius Rocketfrock and the Untitled Experiment",
+            world: {
+                bounds: { x: -320, y: -420, w: 5600, h: 1500 },
+                resetY: 1080
+            },
+            playerStart: {
+                id: "wizardStart",
+                x: 120,
+                y: 476,
+                notes: "Spawn point."
+            },
+            atlasRefs: [],
+            placements: [],
+            entities: []
+        };
+    }
+
+    function levelUrlForIndex(index) {
+        return `assets/level_${String(index).padStart(3, "0")}.json`;
+    }
+
+    function levelIdForIndex(index) {
+        return `level_${String(index).padStart(3, "0")}`;
+    }
 
     function resizeCanvas() {
         const dpr = window.devicePixelRatio || 1;
@@ -943,22 +995,14 @@
         return String(text).replace(/[&<>\"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
     }
 
-    async function loadDefaultManifest() {
-        try {
-            const response = await fetch(DEFAULT_MANIFEST_URL, { cache: "no-store" });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            state.manifest = await response.json();
-            await loadImageUrl(DEFAULT_IMAGE_URL);
-            renderAssetList();
-            setStatus(`Loaded ${DEFAULT_MANIFEST_URL}`);
-            draw();
-        } catch (error) {
-            setStatus(`Could not load ${DEFAULT_MANIFEST_URL}. Use the file picker or serve from a local web server.`, false);
-        }
+    async function loadJsonUrl(url) {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
     }
 
     async function loadImageUrl(url) {
-        state.atlasImage = await new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) => {
             const image = new Image();
             image.onload = () => resolve(image);
             image.onerror = () => reject(new Error(`Could not load ${url}`));
@@ -966,31 +1010,371 @@
         });
     }
 
-    function importManifest(manifest) {
-        state.manifest = manifest;
+    function inferAtlasIdFromName(name) {
+        const match = String(name || "").match(/atlas[_-]?(\d{1,3})/i);
+        if (!match) return "";
+        return atlasIdForIndex(Number(match[1]));
+    }
+
+    function normalizeAtlasManifest(manifest, fallbackAtlasId = DEFAULT_ATLAS_ID) {
+        const normalized = manifest && typeof manifest === "object" ? cloneData(manifest) : {};
+        normalized.atlasId = normalized.atlasId || fallbackAtlasId;
+        normalized.image = normalized.image || `${normalized.atlasId}.png`;
+        normalized.frames = normalized.frames || {};
+        normalized.objects = normalized.objects || {};
+        return normalized;
+    }
+
+    function registerAtlas(manifest, image = null, options = {}) {
+        const normalized = normalizeAtlasManifest(manifest, options.atlasId || manifest?.atlasId || DEFAULT_ATLAS_ID);
+        const atlasId = normalized.atlasId;
+        const existing = state.atlases.get(atlasId) || {};
+        const record = {
+            atlasId,
+            manifest: normalized,
+            image: image || existing.image || null,
+            manifestUrl: options.manifestUrl || existing.manifestUrl || atlasManifestUrl(atlasId),
+            imageUrl: options.imageUrl || existing.imageUrl || atlasImageUrl(atlasId),
+            fallback: Boolean(options.fallback || existing.fallback)
+        };
+        state.atlases.set(atlasId, record);
+        if (!state.activeAtlasId || !state.atlases.has(state.activeAtlasId)) {
+            state.activeAtlasId = atlasId;
+        }
+        if (state.activeAtlasId === atlasId) {
+            state.manifest = record.manifest;
+            state.atlasImage = record.image;
+        }
+        renderAtlasSelect();
+        return record;
+    }
+
+    function atlasRecord(atlasId = state.activeAtlasId) {
+        return state.atlases.get(atlasId) || null;
+    }
+
+    function activeAtlas() {
+        return atlasRecord(state.activeAtlasId);
+    }
+
+    function setActiveAtlas(atlasId, { redraw = true } = {}) {
+        const record = atlasRecord(atlasId);
+        if (!record) return false;
+        state.activeAtlasId = atlasId;
+        state.manifest = record.manifest;
+        state.atlasImage = record.image;
+        if (els.assetAtlas) {
+            els.assetAtlas.value = atlasId;
+        }
+        if (state.selectedAssetId && !frameFor(state.selectedAssetId, atlasId)) {
+            state.selectedAssetId = "";
+        }
+        if (!state.selectedAssetId) {
+            state.selectedAssetId = assetIds()[0] || "";
+        }
         renderAssetList();
-        setStatus(`Imported manifest ${manifest.atlasId || "atlas"}`);
+        drawAssetPreview(state.selectedAssetId);
+        if (redraw) draw();
+        return true;
+    }
+
+    function renderAtlasSelect() {
+        if (!els.assetAtlas) return;
+        const ids = [...state.atlases.keys()].sort();
+        els.assetAtlas.innerHTML = "";
+        for (const atlasId of ids) {
+            const option = document.createElement("option");
+            option.value = atlasId;
+            const record = atlasRecord(atlasId);
+            const imageStatus = record?.image ? "" : " (no image)";
+            option.textContent = `${atlasId}${imageStatus}`;
+            els.assetAtlas.appendChild(option);
+        }
+        if (ids.includes(state.activeAtlasId)) {
+            els.assetAtlas.value = state.activeAtlasId;
+        }
+    }
+
+    async function loadAtlasPair(atlasId) {
+        const manifestUrl = atlasManifestUrl(atlasId);
+        const imageUrl = atlasImageUrl(atlasId);
+        const manifest = normalizeAtlasManifest(await loadJsonUrl(manifestUrl), atlasId);
+        manifest.atlasId = manifest.atlasId || atlasId;
+        manifest.image = manifest.image || `${atlasId}.png`;
+        const image = await loadImageUrl(imageUrl);
+        return registerAtlas(manifest, image, { atlasId: manifest.atlasId, manifestUrl, imageUrl });
+    }
+
+    async function loadFallbackAtlas001() {
+        let image = null;
+        try {
+            image = await loadImageUrl(DEFAULT_IMAGE_URL);
+        } catch (error) {
+            // The editor remains usable with translucent placeholders when the image is unavailable.
+        }
+        return registerAtlas(ATLAS_MANIFEST_FALLBACK, image, {
+            atlasId: DEFAULT_ATLAS_ID,
+            manifestUrl: DEFAULT_MANIFEST_URL,
+            imageUrl: DEFAULT_IMAGE_URL,
+            fallback: true
+        });
+    }
+
+    async function loadAtlasLibrary() {
+        state.atlases.clear();
+        let loaded = 0;
+        let stoppedAt = "";
+        for (let index = 1; index <= ATLAS_AUTOLOAD_LIMIT; index += 1) {
+            const atlasId = atlasIdForIndex(index);
+            try {
+                await loadAtlasPair(atlasId);
+                loaded += 1;
+            } catch (error) {
+                stoppedAt = atlasId;
+                break;
+            }
+        }
+        if (!loaded) {
+            await loadFallbackAtlas001();
+            setActiveAtlas(DEFAULT_ATLAS_ID, { redraw: false });
+            setStatus(`Could not auto-load ${DEFAULT_MANIFEST_URL}/${DEFAULT_IMAGE_URL}; using embedded atlas_001 data. Serve from a local web server for live file auto-loading.`, false);
+            return 0;
+        }
+        setActiveAtlas(DEFAULT_ATLAS_ID, { redraw: false });
+        setStatus(`Loaded ${loaded} atlas${loaded === 1 ? "" : "es"}; stopped before ${stoppedAt || "the scan limit"}.`);
+        return loaded;
+    }
+
+    async function loadDefaultManifest() {
+        await loadAtlasLibrary();
+        renderAssetList();
+        drawAssetPreview(state.selectedAssetId);
         draw();
     }
 
-    function frameFor(assetId) {
-        return state.manifest?.frames?.[assetId] || null;
-    }
 
-    function objectFor(assetId) {
-        return state.manifest?.objects?.[assetId] || null;
-    }
+    function normalizeLevelDefaults(rawLevel) {
+        const source = rawLevel && typeof rawLevel === "object" ? cloneData(rawLevel) : {};
+        const fallback = makeEmptyLevel();
+        const normalized = {
+            meta: {
+                ...fallback.meta,
+                ...(source.meta && typeof source.meta === "object" ? source.meta : {})
+            },
+            levelId: source.levelId || source.id || fallback.levelId,
+            title: source.title || fallback.title,
+            world: {
+                bounds: {
+                    ...fallback.world.bounds,
+                    ...(source.world?.bounds && typeof source.world.bounds === "object" ? source.world.bounds : {}),
+                    ...(source.bounds && typeof source.bounds === "object" ? source.bounds : {})
+                },
+                resetY: Number(source.world?.resetY ?? source.resetY ?? fallback.world.resetY) || fallback.world.resetY
+            },
+            playerStart: {
+                ...fallback.playerStart,
+                ...(source.playerStart && typeof source.playerStart === "object" ? source.playerStart : {}),
+                ...(source.wizardStart && typeof source.wizardStart === "object" ? source.wizardStart : {})
+            },
+            atlasRefs: Array.isArray(source.atlasRefs) ? cloneData(source.atlasRefs) : [],
+            placements: Array.isArray(source.placements) ? cloneData(source.placements) : [],
+            entities: Array.isArray(source.entities) ? cloneData(source.entities) : []
+        };
 
-    function assetHasCollisionLines(assetId) {
-        const object = objectFor(assetId);
-        if (!object || !Array.isArray(object.lines)) {
-            return false;
+        normalized.playerStart.id = normalized.playerStart.id || "wizardStart";
+        normalized.playerStart.x = Number(normalized.playerStart.x) || fallback.playerStart.x;
+        normalized.playerStart.y = Number(normalized.playerStart.y) || fallback.playerStart.y;
+        normalized.world.bounds.x = Number(normalized.world.bounds.x) || fallback.world.bounds.x;
+        normalized.world.bounds.y = Number(normalized.world.bounds.y) || fallback.world.bounds.y;
+        normalized.world.bounds.w = Number(normalized.world.bounds.w) || fallback.world.bounds.w;
+        normalized.world.bounds.h = Number(normalized.world.bounds.h) || fallback.world.bounds.h;
+
+        normalized.atlasRefs = normalized.atlasRefs
+            .filter((ref) => ref && typeof ref === "object")
+            .map((ref) => {
+                const atlasId = ref.atlasId || inferAtlasIdFromName(ref.manifest) || inferAtlasIdFromName(ref.image) || DEFAULT_ATLAS_ID;
+                return {
+                    atlasId,
+                    manifest: ref.manifest || atlasManifestUrl(atlasId),
+                    image: ref.image || atlasImageUrl(atlasId)
+                };
+            });
+
+        const referencedAtlases = new Set(normalized.atlasRefs.map((ref) => ref.atlasId));
+        normalized.placements = normalized.placements
+            .filter((placement) => placement && typeof placement === "object")
+            .map((placement, index) => {
+                const kind = placement.kind || (placement.assetId ? "atlasAsset" : "atlasAsset");
+                if (kind === "cutoutMask") {
+                    return {
+                        id: placement.id || `cutoutMask_${String(index + 1).padStart(3, "0")}`,
+                        kind: "cutoutMask",
+                        x: Number(placement.x) || 0,
+                        y: Number(placement.y) || 0,
+                        w: Math.max(1, Number(placement.w) || 160),
+                        h: Math.max(1, Number(placement.h) || 120),
+                        layer: "mask",
+                        notes: placement.notes || "",
+                        order: Number.isFinite(Number(placement.order)) ? Number(placement.order) : index
+                    };
+                }
+
+                const atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
+                referencedAtlases.add(atlasId);
+                return {
+                    id: placement.id || `${placement.assetId || "asset"}_${String(index + 1).padStart(3, "0")}`,
+                    kind: "atlasAsset",
+                    atlasId,
+                    assetId: placement.assetId || placement.frame || "",
+                    x: Number(placement.x) || 0,
+                    y: Number(placement.y) || 0,
+                    w: Math.max(1, Number(placement.w) || 64),
+                    h: Math.max(1, Number(placement.h) || 64),
+                    mirrorX: Boolean(placement.mirrorX),
+                    layer: placement.layer || "terrain",
+                    collisionFromManifest: placement.collisionFromManifest !== undefined ? Boolean(placement.collisionFromManifest) : true,
+                    notes: placement.notes || "",
+                    order: Number.isFinite(Number(placement.order)) ? Number(placement.order) : index
+                };
+            });
+
+        if (!normalized.atlasRefs.length && referencedAtlases.size) {
+            normalized.atlasRefs = [...referencedAtlases].sort().map((atlasId) => ({
+                atlasId,
+                manifest: atlasManifestUrl(atlasId),
+                image: atlasImageUrl(atlasId)
+            }));
         }
-        return object.lines.some((line) => ["walkable", "blockable", "damaging", "killable"].includes(line.kind));
+
+        normalized.entities = normalized.entities
+            .filter((entity) => entity && typeof entity === "object")
+            .map((entity, index) => ({
+                id: entity.id || `${entity.type || entity.kind || "entity"}_${String(index + 1).padStart(3, "0")}`,
+                type: entity.type || entity.kind || "trigger",
+                x: Number(entity.x) || 0,
+                y: Number(entity.y) || 0,
+                w: Math.max(1, Number(entity.w) || 42),
+                h: Math.max(1, Number(entity.h) || 80),
+                ...(entity.radius !== undefined ? { radius: Number(entity.radius) || 14 } : {}),
+                ...(entity.amount !== undefined ? { amount: Number(entity.amount) || 40 } : {}),
+                notes: entity.notes || ""
+            }));
+
+        return normalized;
+    }
+
+    async function loadDefaultLevelOnly({ applyToEditor = true } = {}) {
+        const level = normalizeLevelDefaults(await loadJsonUrl(DEFAULT_LEVEL_URL));
+        if (applyToEditor) {
+            state.level = level;
+            state.selectedId = "wizardStart";
+            await ensureAtlasesForLevel(level);
+            normalizeLoadedLevelPlacements();
+            syncMetadataToUi();
+            persistUi();
+        }
+        return level;
+    }
+
+
+    async function scanAvailableLevels() {
+        state.availableLevels = [];
+        for (let index = 1; index <= LEVEL_AUTOLOAD_LIMIT; index += 1) {
+            const levelId = levelIdForIndex(index);
+            const url = levelUrlForIndex(index);
+            try {
+                const level = normalizeLevelDefaults(await loadJsonUrl(url));
+                state.availableLevels.push({ levelId: level.levelId || levelId, url, title: level.title || levelId });
+            } catch (error) {
+                break;
+            }
+        }
+        renderLevelSelect();
+        return state.availableLevels.length;
+    }
+
+    function renderLevelSelect() {
+        if (!els.levelSelect) return;
+        els.levelSelect.innerHTML = "";
+        if (!state.availableLevels.length) {
+            const option = document.createElement("option");
+            option.value = DEFAULT_LEVEL_URL;
+            option.textContent = "level_001 (not auto-detected)";
+            els.levelSelect.appendChild(option);
+            return;
+        }
+        for (const entry of state.availableLevels) {
+            const option = document.createElement("option");
+            option.value = entry.url;
+            option.textContent = `${entry.levelId} — ${entry.title}`;
+            els.levelSelect.appendChild(option);
+        }
+    }
+
+    async function loadLevelFromUrl(url) {
+        const level = normalizeLevelDefaults(await loadJsonUrl(url));
+        state.level = level;
+        state.selectedId = "wizardStart";
+        await ensureAtlasesForLevel(level);
+        normalizeLoadedLevelPlacements();
+        syncMetadataToUi();
+        persistUi();
+        return level;
+    }
+
+    async function loadSelectedLevel() {
+        const url = els.levelSelect?.value || DEFAULT_LEVEL_URL;
+        try {
+            const level = await loadLevelFromUrl(url);
+            setStatus(`Loaded ${url}: ${level.title || level.levelId || "level"}.`);
+        } catch (error) {
+            setStatus(`Could not load ${url}. Use Import level JSON or create a new empty level. ${error.message || error}`, false);
+        }
+    }
+
+    async function ensureAtlasesForLevel(level) {
+        for (const ref of level?.atlasRefs || []) {
+            const atlasId = ref.atlasId || inferAtlasIdFromName(ref.manifest) || inferAtlasIdFromName(ref.image);
+            if (!atlasId || state.atlases.has(atlasId) || !ref.manifest) continue;
+            try {
+                const manifest = normalizeAtlasManifest(await loadJsonUrl(ref.manifest), atlasId);
+                const image = ref.image ? await loadImageUrl(ref.image).catch(() => null) : null;
+                registerAtlas(manifest, image, { atlasId, manifestUrl: ref.manifest, imageUrl: ref.image || atlasImageUrl(atlasId) });
+            } catch (error) {
+                // Keep the level data even if this atlas cannot be displayed yet.
+            }
+        }
+    }
+
+    function importManifest(manifest, fileName = "") {
+        const fallbackId = manifest?.atlasId || inferAtlasIdFromName(fileName) || state.activeAtlasId || DEFAULT_ATLAS_ID;
+        const record = registerAtlas(manifest, atlasRecord(fallbackId)?.image || null, {
+            atlasId: fallbackId,
+            manifestUrl: fileName || atlasManifestUrl(fallbackId)
+        });
+        setActiveAtlas(record.atlasId);
+        setStatus(`Imported ${record.atlasId} atlas JSON`);
+    }
+
+    function frameFor(assetId, atlasId = state.activeAtlasId) {
+        return atlasRecord(atlasId)?.manifest?.frames?.[assetId] || null;
+    }
+
+    function objectFor(assetId, atlasId = state.activeAtlasId) {
+        return atlasRecord(atlasId)?.manifest?.objects?.[assetId] || null;
+    }
+
+    function imageForAtlas(atlasId = state.activeAtlasId) {
+        return atlasRecord(atlasId)?.image || null;
+    }
+
+    function hasRuntimeLines(object) {
+        return Array.isArray(object?.lines) && object.lines.some((line) => ["walkable", "blockable", "damaging", "killable"].includes(line.kind));
     }
 
     function assetIds() {
-        return Object.keys(state.manifest?.objects || state.manifest?.frames || {}).filter((id) => frameFor(id));
+        const record = activeAtlas();
+        return Object.keys(record?.manifest?.objects || record?.manifest?.frames || {}).filter((id) => frameFor(id, record.atlasId));
     }
 
     function updateEntityPalette() {
@@ -1005,11 +1389,12 @@
 
     function renderAssetList() {
         const query = els.assetSearch.value.trim().toLowerCase();
-        const ids = assetIds().filter((id) => !query || id.toLowerCase().includes(query) || objectFor(id)?.type?.includes(query));
+        const activeId = state.activeAtlasId;
+        const ids = assetIds().filter((id) => !query || id.toLowerCase().includes(query) || objectFor(id, activeId)?.type?.includes(query));
         els.assetList.innerHTML = "";
         for (const id of ids.sort()) {
-            const object = objectFor(id);
-            const frame = frameFor(id);
+            const object = objectFor(id, activeId);
+            const frame = frameFor(id, activeId);
             const row = document.createElement("div");
             row.className = `item${state.selectedAssetId === id ? " selected" : ""}`;
             row.innerHTML = `<span>${escapeHtml(id)}</span><span class="pill">${escapeHtml(object?.type || "asset")}</span>`;
@@ -1035,8 +1420,9 @@
         pctx.fillStyle = "rgba(0,0,0,0.18)";
         pctx.fillRect(0, 0, preview.width, preview.height);
 
-        const frame = frameFor(assetId);
-        const object = objectFor(assetId);
+        const atlasId = state.activeAtlasId;
+        const frame = frameFor(assetId, atlasId);
+        const object = objectFor(assetId, atlasId);
         if (!assetId || !frame) {
             els.assetPreviewInfo.textContent = "Select an asset to preview it.";
             return;
@@ -1049,8 +1435,9 @@
         const x = (preview.width - w) * 0.5;
         const y = (preview.height - h) * 0.5;
 
-        if (state.atlasImage) {
-            pctx.drawImage(state.atlasImage, frame.x, frame.y, frame.w, frame.h, x, y, w, h);
+        const previewImage = imageForAtlas(atlasId);
+        if (previewImage) {
+            pctx.drawImage(previewImage, frame.x, frame.y, frame.w, frame.h, x, y, w, h);
         } else {
             pctx.fillStyle = "rgba(86,230,255,0.14)";
             pctx.fillRect(x, y, w, h);
@@ -1082,7 +1469,7 @@
         const rows = [];
         rows.push({ id: "wizardStart", label: "wizardStart", kind: "spawn" });
         for (const placement of state.level.placements) {
-            rows.push({ id: placement.id, label: placement.id, kind: placement.kind === "cutoutMask" ? "cutout mask" : placement.assetId });
+            rows.push({ id: placement.id, label: placement.id, kind: placement.kind === "cutoutMask" ? "cutout mask" : `${placement.atlasId || DEFAULT_ATLAS_ID}:${placement.assetId}` });
         }
         for (const entity of state.level.entities) {
             rows.push({ id: entity.id, label: entity.id, kind: entity.type });
@@ -1126,12 +1513,13 @@
     }
 
     function placeAsset(point) {
-        if (!state.selectedAssetId || !frameFor(state.selectedAssetId)) {
+        const atlasId = state.activeAtlasId;
+        if (!state.selectedAssetId || !frameFor(state.selectedAssetId, atlasId)) {
             setStatus("Select an asset in the palette first.", false);
             return;
         }
-        const frame = frameFor(state.selectedAssetId);
-        const object = objectFor(state.selectedAssetId);
+        const frame = frameFor(state.selectedAssetId, atlasId);
+        const object = objectFor(state.selectedAssetId, atlasId);
         const scale = Number(object?.defaultScale) || 1.65;
         const w = Math.round(frame.w * scale);
         const h = Math.round(frame.h * scale);
@@ -1139,7 +1527,7 @@
         const placement = {
             id: nextId(state.selectedAssetId),
             kind: "atlasAsset",
-            atlasId: state.manifest?.atlasId || DEFAULT_ATLAS_ID,
+            atlasId,
             assetId: state.selectedAssetId,
             x: p.x,
             y: p.y,
@@ -1147,7 +1535,7 @@
             h,
             mirrorX: false,
             layer: object?.layer || "terrain",
-            collisionFromManifest: assetHasCollisionLines(state.selectedAssetId),
+            collisionFromManifest: hasRuntimeLines(object),
             notes: ""
         };
         state.level.placements.push(placement);
@@ -1358,18 +1746,20 @@
             return;
         }
 
-        const frame = frameFor(placement.assetId);
+        const atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
+        const frame = frameFor(placement.assetId, atlasId);
         const p = worldToScreen(placement.x, placement.y);
         const w = placement.w * state.camera.zoom;
         const h = placement.h * state.camera.zoom;
-        if (state.atlasImage && frame) {
+        const atlasImage = imageForAtlas(atlasId);
+        if (atlasImage && frame) {
             ctx.save();
             if (placement.mirrorX) {
                 ctx.translate(p.x + w, p.y);
                 ctx.scale(-1, 1);
-                ctx.drawImage(state.atlasImage, frame.x, frame.y, frame.w, frame.h, 0, 0, w, h);
+                ctx.drawImage(atlasImage, frame.x, frame.y, frame.w, frame.h, 0, 0, w, h);
             } else {
-                ctx.drawImage(state.atlasImage, frame.x, frame.y, frame.w, frame.h, p.x, p.y, w, h);
+                ctx.drawImage(atlasImage, frame.x, frame.y, frame.w, frame.h, p.x, p.y, w, h);
             }
             ctx.restore();
         } else {
@@ -1377,7 +1767,7 @@
             ctx.fillRect(p.x, p.y, w, h);
         }
         if (els.showAssetGuides.checked) drawPlacementGuides(placement);
-        if (els.showLabels.checked) drawLabel(placement.assetId, placement.x, placement.y - 8, COLORS.frame);
+        if (els.showLabels.checked) drawLabel(`${atlasId}:${placement.assetId}`, placement.x, placement.y - 8, COLORS.frame);
     }
 
     function drawCutoutMask(mask) {
@@ -1407,8 +1797,9 @@
     }
 
     function drawPlacementGuides(placement) {
-        const frame = frameFor(placement.assetId);
-        const object = objectFor(placement.assetId);
+        const atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
+        const frame = frameFor(placement.assetId, atlasId);
+        const object = objectFor(placement.assetId, atlasId);
         const p = worldToScreen(placement.x, placement.y);
         const w = placement.w * state.camera.zoom;
         const h = placement.h * state.camera.zoom;
@@ -1564,6 +1955,7 @@
             if (selected.kind === "asset") {
                 rec.layer = els.inspectLayer.value;
                 rec.mirrorX = els.inspectMirror.checked;
+                rec.atlasId = rec.atlasId || DEFAULT_ATLAS_ID;
                 rec.collisionFromManifest = els.inspectCollision.checked;
             } else if (selected.kind === "cutoutMask") {
                 rec.kind = "cutoutMask";
@@ -1596,8 +1988,31 @@
         els.worldH.value = state.level.world.bounds.h;
     }
 
+    function refreshLevelAtlasRefs() {
+        const existingRefs = new Map((state.level.atlasRefs || []).map((ref) => [ref.atlasId, ref]));
+        const atlasIds = new Set();
+        for (const placement of state.level.placements || []) {
+            if (placement?.kind === "atlasAsset") {
+                atlasIds.add(placement.atlasId || DEFAULT_ATLAS_ID);
+            }
+        }
+        if (!atlasIds.size && state.activeAtlasId) {
+            atlasIds.add(state.activeAtlasId);
+        }
+        state.level.atlasRefs = [...atlasIds].sort().map((atlasId) => {
+            const record = atlasRecord(atlasId);
+            const existing = existingRefs.get(atlasId) || {};
+            return {
+                atlasId,
+                manifest: record?.manifestUrl || existing.manifest || atlasManifestUrl(atlasId),
+                image: record?.imageUrl || existing.image || atlasImageUrl(atlasId)
+            };
+        });
+    }
+
     function updateJson() {
         syncMetadataFromUi();
+        refreshLevelAtlasRefs();
         els.zoom.value = state.camera.zoom.toFixed(2);
         els.levelJson.value = JSON.stringify(state.level, null, 4);
     }
@@ -1609,6 +2024,15 @@
         draw();
     }
 
+    function normalizeLoadedLevelPlacements() {
+        if (!Array.isArray(state.level.placements)) return;
+        for (const placement of state.level.placements) {
+            if (!placement || placement.kind !== "atlasAsset" || placement.collisionFromManifest !== undefined) continue;
+            placement.atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
+            placement.collisionFromManifest = hasRuntimeLines(objectFor(placement.assetId, placement.atlasId));
+        }
+    }
+
     function starterLayout() {
         state.level = makeDefaultLevel();
         state.selectedId = "wizardStart";
@@ -1617,7 +2041,7 @@
     }
 
     function placeData(id, assetId, x, y, w, h, layer) {
-        return { id, kind: "atlasAsset", atlasId: DEFAULT_ATLAS_ID, assetId, x, y, w, h, mirrorX: false, layer, collisionFromManifest: assetHasCollisionLines(assetId), notes: "" };
+        return { id, kind: "atlasAsset", atlasId: DEFAULT_ATLAS_ID, assetId, x, y, w, h, mirrorX: false, layer, collisionFromManifest: true, notes: "" };
     }
 
     function raiseSelectedToTop() {
@@ -1727,43 +2151,31 @@
     els.quickEntity.addEventListener("change", updateEntityPalette);
 
     els.assetSearch.addEventListener("input", renderAssetList);
-    document.getElementById("load-default-manifest").addEventListener("click", loadDefaultManifest);
-    document.getElementById("starter-layout").addEventListener("click", starterLayout);
-    document.getElementById("new-level").addEventListener("click", () => { state.level = makeDefaultLevel(); state.selectedId = "wizardStart"; persistUi(); });
+    els.assetAtlas?.addEventListener("change", () => setActiveAtlas(els.assetAtlas.value));
+    document.getElementById("new-level").addEventListener("click", () => { state.level = makeEmptyLevel(); state.selectedId = "wizardStart"; syncMetadataToUi(); persistUi(); setStatus("Created a new empty level."); });
+    document.getElementById("load-level").addEventListener("click", loadSelectedLevel);
+    document.getElementById("reload-atlas-library").addEventListener("click", loadDefaultManifest);
     document.getElementById("apply-inspector").addEventListener("click", applyInspector);
     document.getElementById("to-front").addEventListener("click", raiseSelectedToTop);
     document.getElementById("to-back").addEventListener("click", lowerSelectedToBottom);
     document.getElementById("play-browser-copy").addEventListener("click", playBrowserCopy);
     [els.showGrid, els.showAssetGuides, els.showLabels, els.snapEnabled, els.snap, els.worldW, els.worldH, els.levelId, els.levelTitle].forEach((el) => el.addEventListener("change", () => { syncMetadataFromUi(); draw(); }));
 
-    document.getElementById("manifest-file").addEventListener("change", async (event) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        importManifest(JSON.parse(await file.text()));
-    });
-
-    document.getElementById("image-file").addEventListener("change", async (event) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        state.atlasImage = await new Promise((resolve, reject) => {
-            const image = new Image();
-            image.onload = () => resolve(image);
-            image.onerror = reject;
-            image.src = URL.createObjectURL(file);
-        });
-        setStatus(`Loaded image ${file.name}`);
-        drawAssetPreview(state.selectedAssetId);
-        draw();
-    });
 
     document.getElementById("level-file").addEventListener("change", async (event) => {
         const file = event.target.files?.[0];
         if (!file) return;
-        state.level = JSON.parse(await file.text());
-        state.selectedId = "wizardStart";
-        syncMetadataToUi();
-        persistUi();
-        setStatus(`Loaded level ${file.name}`);
+        try {
+            state.level = normalizeLevelDefaults(JSON.parse(await file.text()));
+            await ensureAtlasesForLevel(state.level);
+            normalizeLoadedLevelPlacements();
+            state.selectedId = "wizardStart";
+            syncMetadataToUi();
+            persistUi();
+            setStatus(`Loaded level ${file.name}`);
+        } catch (error) {
+            setStatus(`Could not import ${file.name}: ${error.message || error}`, false);
+        }
     });
 
     document.getElementById("copy-json").addEventListener("click", async () => {
@@ -1795,21 +2207,42 @@
             setStatus("No browser copy found.", false);
             return;
         }
-        state.level = JSON.parse(saved);
-        state.selectedId = "wizardStart";
-        syncMetadataToUi();
-        persistUi();
+        state.level = normalizeLevelDefaults(JSON.parse(saved));
+        ensureAtlasesForLevel(state.level).finally(() => {
+            state.selectedId = "wizardStart";
+            syncMetadataToUi();
+            persistUi();
+        });
         setStatus("Loaded browser copy.");
     });
 
     window.addEventListener("resize", resizeCanvas);
 
-    syncMetadataToUi();
-    els.snap.value = "32";
-    setTool("select");
-    resizeCanvas();
-    starterLayout();
-    loadDefaultManifest();
+    async function initializeEditor() {
+        state.level = makeEmptyLevel();
+        els.snap.value = "32";
+        setTool("select");
+        resizeCanvas();
+        await loadAtlasLibrary();
+        const levelCount = await scanAvailableLevels();
+        if (levelCount > 0) {
+            try {
+                await loadLevelFromUrl(state.availableLevels[0].url);
+                setStatus(`Loaded ${levelCount} level${levelCount === 1 ? "" : "s"} and atlas library.`);
+            } catch (error) {
+                syncMetadataToUi();
+                persistUi();
+                setStatus("Detected levels, but the first level could not be loaded. Created an empty level instead.", false);
+            }
+        } else {
+            syncMetadataToUi();
+            persistUi();
+            setStatus("Loaded atlas library. No assets/level_001.json could be auto-detected; created an empty level. Use Import level JSON or add assets/level_001.json.", false);
+        }
+        fitView();
+    }
+
+    initializeEditor();
 })();
 </script>
 </body>

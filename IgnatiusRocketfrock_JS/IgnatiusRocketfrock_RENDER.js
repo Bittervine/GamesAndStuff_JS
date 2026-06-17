@@ -4662,9 +4662,15 @@ const FALLBACK_ATLAS_001_MANIFEST = {
     }
 };
 
-const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = [
-    { url: "assets/atlas_001.json", fallback: FALLBACK_ATLAS_001_MANIFEST, forceAtlasId: "atlas_001", forceImage: "atlas_001.png" }
-];
+const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = Array.from({ length: 20 }, (_, index) => {
+    const atlasId = `atlas_${String(index + 1).padStart(3, "0")}`;
+    return {
+        url: `assets/${atlasId}.json`,
+        fallback: atlasId === "atlas_001" ? FALLBACK_ATLAS_001_MANIFEST : null,
+        forceAtlasId: atlasId,
+        forceImage: `${atlasId}.png`
+    };
+});
 
 const FALLBACK_RIG_CONFIG = {
     meta: { version: 2 },
