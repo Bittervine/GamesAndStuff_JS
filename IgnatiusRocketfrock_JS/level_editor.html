@@ -253,6 +253,21 @@
             color: var(--orange);
         }
 
+        .entity-palette {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .entity-palette button {
+            text-align: left;
+        }
+
+        .entity-palette button.active {
+            border-color: rgba(139,224,255,0.78);
+            background: rgba(139,224,255,0.16);
+        }
+
         .asset-preview {
             display: grid;
             grid-template-columns: 112px 1fr;
@@ -311,19 +326,23 @@
             <button data-tool="pan">🖐 Pan</button>
             <button data-tool="placeAsset">🧱 Place asset</button>
             <button data-tool="placeEntity">🧙 Place entity</button>
-            <button data-tool="placeCutout">✂ Cutout mask</button>
+            <select id="quick-entity" aria-label="Entity type">
+                <option value="wizardStart">🧙 wizard start</option>
+                <option value="targetDummy">🎯 target dummy</option>
+                <option value="fuel">⛽ fuel pickup</option>
+                <option value="monsterSpawn">👾 monster spawn</option>
+                <option value="trigger">⚡ event trigger</option>
+                <option value="exit">🚪 exit</option>
+                <option value="cutoutMask">✂ cutout mask</option>
+            </select>
             <button data-tool="delete">🗑 Delete</button>
+            <button id="to-front" type="button">To Front</button>
+            <button id="to-back" type="button">To Back</button>
+            <button id="play-browser-copy" type="button">▶ Play</button>
             <button id="zoom-out">−</button>
             <button id="zoom-in">+</button>
             <button id="fit-view">Fit</button>
-            <select id="quick-entity">
-                <option value="wizardStart">wizard start</option>
-                <option value="targetDummy">target dummy</option>
-                <option value="fuel">fuel pickup</option>
-                <option value="monsterSpawn">monster spawn</option>
-                <option value="trigger">event trigger</option>
-                <option value="exit">exit</option>
-            </select>
+
         </div>
         <div id="canvas-wrap">
             <canvas id="stage" width="1280" height="720" aria-label="Level editor canvas"></canvas>
@@ -346,7 +365,7 @@
                 <button id="starter-layout">Starter layout</button>
             </div>
             <div class="row">
-                <label>Manifest JSON<input id="manifest-file" type="file" accept="application/json,.json"></label>
+                <label>Atlas JSON<input id="manifest-file" type="file" accept="application/json,.json"></label>
                 <label>Atlas image<input id="image-file" type="file" accept="image/png,image/webp,image/jpeg"></label>
             </div>
             <div class="row">
@@ -382,6 +401,20 @@
         </div>
 
         <div class="box">
+            <h2>Entity palette</h2>
+            <p class="small">Choose what Place Entity will create, including cutout masks. Clicking a button also switches to Place Entity mode.</p>
+            <div class="entity-palette" id="entity-palette">
+                <button data-entity="wizardStart">🧙 Wizard start</button>
+                <button data-entity="targetDummy">🎯 Target dummy</button>
+                <button data-entity="fuel">⛽ Fuel pickup</button>
+                <button data-entity="monsterSpawn">👾 Monster spawn</button>
+                <button data-entity="trigger">⚡ Event trigger</button>
+                <button data-entity="exit">🚪 Exit</button>
+                <button data-entity="cutoutMask">✂ Cutout mask</button>
+            </div>
+        </div>
+
+        <div class="box">
             <h2>Asset palette</h2>
             <label>Search assets<input id="asset-search" placeholder="ledge, floor, pillar..."></label>
             <div id="asset-list" class="list"></div>
@@ -397,7 +430,7 @@
         </div>
 
         <div class="box">
-            <h2>Inspector</h2>
+            <h2>Selected object</h2>
             <p id="selection-summary" class="small">Nothing selected.</p>
             <label>ID<input id="inspect-id"></label>
             <label>Kind<input id="inspect-kind" readonly></label>
@@ -427,14 +460,11 @@
                     <option value="monsterSpawn">monsterSpawn</option>
                     <option value="trigger">trigger</option>
                     <option value="exit">exit</option>
+                    <option value="cutoutMask">cutoutMask</option>
                 </select>
             </label>
             <label>Notes<textarea id="inspect-notes"></textarea></label>
-            <div class="row" id="stack-row">
-                <button id="raise-selected">Raise to top</button>
-                <button id="lower-selected">Lower to bottom</button>
-            </div>
-            <button id="apply-inspector">Apply inspector</button>
+            <button id="apply-inspector">Apply</button>
         </div>
 
         <div class="box">
@@ -513,9 +543,9 @@
         assetSizeRow: document.getElementById("asset-size-row"),
         assetExtraRow: document.getElementById("asset-extra-row"),
         entityTypeRow: document.getElementById("entity-type-row"),
-        stackRow: document.getElementById("stack-row"),
         levelJson: document.getElementById("level-json"),
-        quickEntity: document.getElementById("quick-entity")
+        quickEntity: document.getElementById("quick-entity"),
+        entityPalette: document.getElementById("entity-palette")
     };
 
     const state = {
@@ -650,6 +680,16 @@
 
     function assetIds() {
         return Object.keys(state.manifest?.objects || state.manifest?.frames || {}).filter((id) => frameFor(id));
+    }
+
+    function updateEntityPalette() {
+        if (!els.entityPalette || !els.quickEntity) {
+            return;
+        }
+        const selectedType = els.quickEntity.value;
+        for (const button of els.entityPalette.querySelectorAll("button[data-entity]")) {
+            button.classList.toggle("active", button.dataset.entity === selectedType);
+        }
     }
 
     function renderAssetList() {
@@ -823,6 +863,10 @@
 
     function placeEntity(point) {
         const type = els.quickEntity.value;
+        if (type === "cutoutMask") {
+            placeCutoutMask(point);
+            return;
+        }
         const p = snapPoint(point);
         if (type === "wizardStart") {
             state.level.playerStart.x = p.x;
@@ -1181,7 +1225,6 @@
         }
         els.assetSizeRow.style.display = selected.kind === "asset" || selected.kind === "cutoutMask" || selected.kind === "entity" ? "grid" : "none";
         els.assetExtraRow.style.display = selected.kind === "asset" ? "grid" : "none";
-        els.stackRow.style.display = selected.kind === "asset" || selected.kind === "cutoutMask" ? "grid" : "none";
         els.entityTypeRow.style.display = selected.kind === "entity" || selected.kind === "wizardStart" ? "grid" : "none";
         renderPlacementList();
     }
@@ -1303,6 +1346,15 @@
         persistUi();
     }
 
+    function playBrowserCopy() {
+        updateJson();
+        localStorage.setItem(STORAGE_KEY, els.levelJson.value);
+        setStatus("Saved browser copy for playtest.");
+        const url = new URL("game.html", window.location.href);
+        url.searchParams.set("playtest_browser_copy", "1");
+        window.open(url.href, "_blank");
+    }
+
     function fitView() {
         const rect = screenSize();
         const bounds = state.level.world.bounds;
@@ -1321,10 +1373,6 @@
         }
         if (state.tool === "placeEntity") {
             placeEntity(point);
-            return;
-        }
-        if (state.tool === "placeCutout") {
-            placeCutoutMask(point);
             return;
         }
         if (state.tool === "delete") {
@@ -1375,13 +1423,25 @@
     document.getElementById("zoom-out").addEventListener("click", () => { state.camera.zoom = Math.max(0.1, state.camera.zoom / 1.15); draw(); });
     document.getElementById("fit-view").addEventListener("click", fitView);
     els.zoom.addEventListener("change", () => { state.camera.zoom = Math.max(0.1, Math.min(5, Number(els.zoom.value) || state.camera.zoom)); draw(); });
+    if (els.entityPalette) {
+        for (const button of els.entityPalette.querySelectorAll("button[data-entity]")) {
+            button.addEventListener("click", () => {
+                els.quickEntity.value = button.dataset.entity;
+                updateEntityPalette();
+                setTool("placeEntity");
+            });
+        }
+    }
+    els.quickEntity.addEventListener("change", updateEntityPalette);
+
     els.assetSearch.addEventListener("input", renderAssetList);
     document.getElementById("load-default-manifest").addEventListener("click", loadDefaultManifest);
     document.getElementById("starter-layout").addEventListener("click", starterLayout);
     document.getElementById("new-level").addEventListener("click", () => { state.level = makeDefaultLevel(); state.selectedId = "wizardStart"; persistUi(); });
     document.getElementById("apply-inspector").addEventListener("click", applyInspector);
-    document.getElementById("raise-selected").addEventListener("click", raiseSelectedToTop);
-    document.getElementById("lower-selected").addEventListener("click", lowerSelectedToBottom);
+    document.getElementById("to-front").addEventListener("click", raiseSelectedToTop);
+    document.getElementById("to-back").addEventListener("click", lowerSelectedToBottom);
+    document.getElementById("play-browser-copy").addEventListener("click", playBrowserCopy);
     [els.showGrid, els.showAssetGuides, els.showLabels, els.snapEnabled, els.snap, els.worldW, els.worldH, els.levelId, els.themeId, els.levelTitle].forEach((el) => el.addEventListener("change", () => { syncMetadataFromUi(); draw(); }));
 
     document.getElementById("manifest-file").addEventListener("change", async (event) => {

@@ -6,6 +6,7 @@ import {
     createSubstepInputFrame,
     stepSimulation,
     applyAtlasManifestsToWorld,
+    applyEditorLevelToWorld,
     resetPlayer,
     cloneGameState,
     serializeGameState
@@ -24,7 +25,10 @@ const tuningJsonEl = document.getElementById("tuning-json");
 const tuningMessageEl = document.getElementById("tuning-message");
 const eventFilterEl = document.getElementById("event-filter");
 const assetGuidesButton = document.getElementById("toggle-asset-guides");
-const toggleTuningButton = document.getElementById("toggle-tuning");
+const debugPanelButton = document.getElementById("toggle-debug-panel");
+const gameTuningButton = document.getElementById("toggle-game-tuning");
+const helpPanelButton = document.getElementById("toggle-help-panel");
+const helpPanel = document.getElementById("help-panel");
 const applyTuningJsonButton = document.getElementById("apply-tuning-json");
 const copyTuningJsonButton = document.getElementById("copy-tuning-json");
 const refreshTuningJsonButton = document.getElementById("refresh-tuning-json");
@@ -33,6 +37,7 @@ const tuningPanel = document.getElementById("tuning");
 let gameState = createInitialGameState();
 const input = new RocketfrockInput(window);
 const renderer = await createRenderer(canvas);
+maybeApplyBrowserCopyLevel();
 applyLoadedAtlasCollisions();
 let accumulator = 0;
 let lastNow = performance.now();
@@ -42,21 +47,95 @@ const tuningSliders = new Map();
 
 setupTuningControls();
 setupTuningJsonControls();
-setupAssetGuidesButton();
+setupPanelToggleButtons();
 
-function setupAssetGuidesButton() {
-    if (!assetGuidesButton) {
-        return;
+function maybeApplyBrowserCopyLevel() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("playtest_browser_copy") !== "1") {
+        return false;
     }
-    const update = () => {
+    try {
+        const raw = localStorage.getItem("ignatius_level_editor_v1");
+        if (!raw) {
+            console.warn("Playtest requested, but no browser-saved level editor copy was found.");
+            return false;
+        }
+        const level = JSON.parse(raw);
+        const applied = applyEditorLevelToWorld(gameState, level);
+        if (!applied) {
+            console.warn("Playtest requested, but the browser-saved level could not be applied.");
+        }
+        return applied;
+    } catch (error) {
+        console.warn("Playtest requested, but loading the browser-saved level failed.", error);
+        return false;
+    }
+}
+
+function setupPanelToggleButtons() {
+    const updateAssetGuides = () => {
+        if (!assetGuidesButton) {
+            return;
+        }
         assetGuidesButton.textContent = `Asset guides: ${gameState.debug.showAssetGuides ? "on" : "off"}`;
         assetGuidesButton.setAttribute("aria-pressed", gameState.debug.showAssetGuides ? "true" : "false");
     };
-    assetGuidesButton.addEventListener("click", () => {
+
+    const updateDebugPanel = () => {
+        if (!debugPanelButton || !debugEl) {
+            return;
+        }
+        const visible = !debugEl.hidden;
+        debugPanelButton.textContent = `Debug panel: ${visible ? "on" : "off"}`;
+        debugPanelButton.setAttribute("aria-pressed", visible ? "true" : "false");
+    };
+
+    const updateGameTuning = () => {
+        if (!gameTuningButton || !tuningPanel) {
+            return;
+        }
+        const visible = !tuningPanel.hidden;
+        gameTuningButton.textContent = `Game tuning: ${visible ? "on" : "off"}`;
+        gameTuningButton.setAttribute("aria-pressed", visible ? "true" : "false");
+    };
+
+    const updateHelpPanel = () => {
+        if (!helpPanelButton || !helpPanel) {
+            return;
+        }
+        const visible = !helpPanel.hidden;
+        helpPanelButton.textContent = `Help panel: ${visible ? "on" : "off"}`;
+        helpPanelButton.setAttribute("aria-pressed", visible ? "true" : "false");
+    };
+
+    debugEl.hidden = true;
+    tuningPanel.hidden = true;
+    helpPanel.hidden = false;
+
+    assetGuidesButton?.addEventListener("click", () => {
         gameState.debug.showAssetGuides = !gameState.debug.showAssetGuides;
-        update();
+        updateAssetGuides();
     });
-    update();
+
+    debugPanelButton?.addEventListener("click", () => {
+        debugEl.hidden = !debugEl.hidden;
+        updateDebugPanel();
+    });
+
+    gameTuningButton?.addEventListener("click", () => {
+        tuningPanel.hidden = !tuningPanel.hidden;
+        updateGameTuning();
+    });
+
+    helpPanelButton?.addEventListener("click", () => {
+        helpPanel.hidden = !helpPanel.hidden;
+        updateHelpPanel();
+    });
+
+    updateAssetGuides();
+    updateDebugPanel();
+    updateGameTuning();
+    updateHelpPanel();
 }
 
 function applyLoadedAtlasCollisions() {
@@ -129,6 +208,11 @@ function handleDebugInput(inputFrame) {
     }
     if (inputFrame.toggleDebugPanelPressed) {
         debugEl.hidden = !debugEl.hidden;
+        if (debugPanelButton) {
+            const visible = !debugEl.hidden;
+            debugPanelButton.textContent = `Debug panel: ${visible ? "on" : "off"}`;
+            debugPanelButton.setAttribute("aria-pressed", visible ? "true" : "false");
+        }
     }
 }
 
@@ -259,11 +343,6 @@ function setupTuningJsonControls() {
             gameState.debug.eventFilterText = eventFilterEl.value;
         });
     }
-
-    toggleTuningButton.addEventListener("click", () => {
-        const collapsed = tuningPanel.classList.toggle("collapsed");
-        toggleTuningButton.textContent = collapsed ? "Expand" : "Collapse";
-    });
 
     refreshTuningJsonButton.addEventListener("click", () => {
         syncTuningJson();

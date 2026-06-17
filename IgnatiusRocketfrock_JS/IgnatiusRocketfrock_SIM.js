@@ -505,6 +505,143 @@ function atlasNodeToWorld(visual, frame, node) {
 }
 
 
+export function applyEditorLevelToWorld(state, editorLevel) {
+    if (!state?.world || !editorLevel || typeof editorLevel !== "object") {
+        return false;
+    }
+
+    const source = editorLevel.level || editorLevel;
+    const placements = Array.isArray(source.placements) ? source.placements : [];
+    const entities = Array.isArray(source.entities) ? source.entities : [];
+    const playerStart = source.playerStart || source.wizardStart || source.start || null;
+
+    const visuals = [];
+    for (const placement of placements) {
+        if (!placement || placement.kind === "cutoutMask") {
+            continue;
+        }
+        if (placement.kind !== "atlasAsset" && placement.kind !== "asset") {
+            continue;
+        }
+        const assetId = placement.assetId || placement.frame;
+        if (!assetId) {
+            continue;
+        }
+        visuals.push({
+            id: placement.id || `${assetId}_${visuals.length}`,
+            kind: "atlasSprite",
+            atlasId: placement.atlasId || source.atlasId || "theme_A_atlas_1",
+            assetId,
+            frame: placement.frame || assetId,
+            x: Number(placement.x) || 0,
+            y: Number(placement.y) || 0,
+            w: Math.max(1, Number(placement.w) || 64),
+            h: Math.max(1, Number(placement.h) || 64),
+            mirrorX: Boolean(placement.mirrorX),
+            layer: placement.layer || "terrain",
+            collisionFromManifest: placement.collisionFromManifest !== false,
+            order: Number.isFinite(Number(placement.order)) ? Number(placement.order) : visuals.length
+        });
+    }
+    visuals.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    if (!visuals.length && !playerStart && !entities.length) {
+        return false;
+    }
+
+    const bounds = source.world?.bounds || source.bounds || estimateEditorLevelBounds(visuals, playerStart, entities);
+    state.world = {
+        ...state.world,
+        levelId: source.levelId || source.id || "browser_copy_playtest",
+        themeId: source.themeId || "themeA",
+        bounds,
+        resetY: bounds.y + bounds.h + 240,
+        start: playerStart ? { x: Number(playerStart.x) || 120, y: Number(playerStart.y) || 360 } : state.world.start,
+        atlasManifests: ["assets/theme_A_atlas_1_manifest.json"],
+        visuals,
+        solids: [
+            { id: "left_wall", kind: "wall", x: bounds.x - 80, y: bounds.y - 400, w: 60, h: bounds.h + 800 },
+            { id: "right_wall", kind: "wall", x: bounds.x + bounds.w + 20, y: bounds.y - 400, w: 60, h: bounds.h + 800 }
+        ],
+        segments: [],
+        collisionMode: "editorLevelPendingManifest",
+        collisionSegmentCount: 0,
+        labels: [
+            { text: "browser copy playtest", x: (playerStart?.x ?? 120) - 30, y: (playerStart?.y ?? 360) - 70 }
+        ]
+    };
+
+    if (playerStart) {
+        state.player.x = state.world.start.x;
+        state.player.y = state.world.start.y;
+        state.player.spawnX = state.world.start.x;
+        state.player.spawnY = state.world.start.y;
+        state.player.vx = 0;
+        state.player.vy = 0;
+        state.player.onGround = false;
+        state.player.wasOnGround = false;
+        state.player.airBoostArmed = false;
+        state.camera.x = state.player.x;
+        state.camera.y = state.player.y - 170;
+    }
+
+    const targetLike = (entity) => entity.type === "targetDummy" || entity.kind === "targetDummy";
+    state.enemies = entities.filter(targetLike).map((entity, index) => ({
+        id: entity.id || `targetDummy_${index + 1}`,
+        kind: "targetDummy",
+        x: Number(entity.x) || 0,
+        y: Number(entity.y) || 0,
+        width: Number(entity.w) || 42,
+        height: Number(entity.h) || 80,
+        health: 100,
+        state: "idle"
+    }));
+
+    const fuelLike = (entity) => entity.type === "fuel" || entity.kind === "fuel" || entity.type === "fuelPickup" || entity.kind === "fuelPickup";
+    state.pickups = entities.filter(fuelLike).map((entity, index) => ({
+        id: entity.id || `fuel_${index + 1}`,
+        kind: "fuel",
+        x: Number(entity.x) || 0,
+        y: Number(entity.y) || 0,
+        radius: Number(entity.radius) || 14,
+        amount: Number(entity.amount) || 40,
+        collected: false
+    }));
+
+    const firstEnemy = state.enemies[0];
+    state.targets = [
+        firstEnemy ?
+            { id: "homing_dot", kind: "debugHomingDot", x: firstEnemy.x, y: firstEnemy.y - 120, radius: 15, state: "active" } :
+            { id: "homing_dot", kind: "debugHomingDot", x: state.player.x + 520, y: state.player.y - 160, radius: 15, state: "active" }
+    ];
+
+    state.story.levelTitle = source.title || source.levelTitle || "Ignatius Rocketfrock and the Browser Copy of Immediate Suspicion";
+    addEvent(state, "EDITOR_LEVEL_APPLIED", { placements: visuals.length, entities: entities.length });
+    return true;
+}
+
+function estimateEditorLevelBounds(visuals, playerStart, entities) {
+    const points = [];
+    for (const visual of visuals) {
+        points.push({ x: visual.x, y: visual.y });
+        points.push({ x: visual.x + visual.w, y: visual.y + visual.h });
+    }
+    if (playerStart) points.push({ x: Number(playerStart.x) || 0, y: Number(playerStart.y) || 0 });
+    for (const entity of entities) points.push({ x: Number(entity.x) || 0, y: Number(entity.y) || 0 });
+    if (!points.length) return { x: -320, y: -460, w: 5200, h: 1500 };
+    const minX = Math.min(...points.map((p) => p.x));
+    const minY = Math.min(...points.map((p) => p.y));
+    const maxX = Math.max(...points.map((p) => p.x));
+    const maxY = Math.max(...points.map((p) => p.y));
+    return {
+        x: Math.floor(minX - 520),
+        y: Math.floor(minY - 520),
+        w: Math.ceil(maxX - minX + 1040),
+        h: Math.ceil(maxY - minY + 1040)
+    };
+}
+
+
 export function cloneGameState(state) {
     return deepClone(state);
 }
