@@ -131,7 +131,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "theme-a-009-airier-manifest-level",
+            build: "theme-a-016-default-level-json-loader",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -431,7 +431,7 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
     const visuals = Array.isArray(state.world.visuals) ? state.world.visuals : [];
 
     for (const visual of visuals) {
-        if (visual.kind !== "atlasSprite") {
+        if (visual.kind !== "atlasSprite" || visual.collisionFromManifest === false) {
             continue;
         }
 
@@ -517,9 +517,25 @@ export function applyEditorLevelToWorld(state, editorLevel) {
 
     const visuals = [];
     for (const placement of placements) {
-        if (!placement || placement.kind === "cutoutMask") {
+        if (!placement) {
             continue;
         }
+
+        if (placement.kind === "cutoutMask") {
+            visuals.push({
+                id: placement.id || `cutoutMask_${visuals.length}`,
+                kind: "cutoutMask",
+                x: Number(placement.x) || 0,
+                y: Number(placement.y) || 0,
+                w: Math.max(1, Number(placement.w) || 64),
+                h: Math.max(1, Number(placement.h) || 64),
+                layer: placement.layer || "mask",
+                order: Number.isFinite(Number(placement.order)) ? Number(placement.order) : visuals.length,
+                notes: placement.notes || ""
+            });
+            continue;
+        }
+
         if (placement.kind !== "atlasAsset" && placement.kind !== "asset") {
             continue;
         }
@@ -550,14 +566,17 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     }
 
     const bounds = source.world?.bounds || source.bounds || estimateEditorLevelBounds(visuals, playerStart, entities);
+    const atlasManifests = Array.isArray(source.atlasRefs)
+        ? source.atlasRefs.map((ref) => ref.manifest).filter(Boolean)
+        : ["assets/theme_A_atlas_1_manifest.json"];
     state.world = {
         ...state.world,
         levelId: source.levelId || source.id || "browser_copy_playtest",
         themeId: source.themeId || "themeA",
         bounds,
-        resetY: bounds.y + bounds.h + 240,
+        resetY: Number(source.world?.resetY ?? source.resetY) || bounds.y + bounds.h + 240,
         start: playerStart ? { x: Number(playerStart.x) || 120, y: Number(playerStart.y) || 360 } : state.world.start,
-        atlasManifests: ["assets/theme_A_atlas_1_manifest.json"],
+        atlasManifests,
         visuals,
         solids: [
             { id: "left_wall", kind: "wall", x: bounds.x - 80, y: bounds.y - 400, w: 60, h: bounds.h + 800 },
@@ -567,7 +586,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         collisionMode: "editorLevelPendingManifest",
         collisionSegmentCount: 0,
         labels: [
-            { text: "browser copy playtest", x: (playerStart?.x ?? 120) - 30, y: (playerStart?.y ?? 360) - 70 }
+            { text: source.levelId || "loaded level", x: (playerStart?.x ?? 120) - 30, y: (playerStart?.y ?? 360) - 70 }
         ]
     };
 
@@ -615,7 +634,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             { id: "homing_dot", kind: "debugHomingDot", x: state.player.x + 520, y: state.player.y - 160, radius: 15, state: "active" }
     ];
 
-    state.story.levelTitle = source.title || source.levelTitle || "Ignatius Rocketfrock and the Browser Copy of Immediate Suspicion";
+    state.story.levelTitle = source.title || source.levelTitle || "Ignatius Rocketfrock and the Loaded Level of Reasonable Expectations";
     addEvent(state, "EDITOR_LEVEL_APPLIED", { placements: visuals.length, entities: entities.length });
     return true;
 }

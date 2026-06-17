@@ -253,8 +253,7 @@ class RocketfrockRenderer {
 
     drawWorld(state, view) {
         const ctx = this.ctx;
-        const drewVisuals = this.drawAtlasVisuals(state, view, "decorBack") |
-            this.drawAtlasVisuals(state, view, "terrain");
+        const drewVisuals = this.drawOrderedWorldVisuals(state, view);
 
         const shouldDrawCollision = Boolean(state.debug.showCollision) || !drewVisuals;
         if (shouldDrawCollision) {
@@ -282,8 +281,6 @@ class RocketfrockRenderer {
         if (state.debug.showCollision) {
             this.drawCollisionSegments(state, view);
         }
-
-        this.drawAtlasVisuals(state, view, "decorFront");
 
         if (state.debug.showAssetGuides) {
             this.drawAssetGuides(state, view);
@@ -320,6 +317,45 @@ class RocketfrockRenderer {
             ctx.lineTo(b.x, b.y);
             ctx.stroke();
         }
+        ctx.restore();
+    }
+
+    drawOrderedWorldVisuals(state, view) {
+        const visuals = (state.world.visuals || [])
+            .map((visual, index) => ({ visual, index }))
+            .sort((a, b) => this.visualSortKey(a.visual, a.index) - this.visualSortKey(b.visual, b.index));
+        let drewAny = false;
+        for (const { visual } of visuals) {
+            if (visual.kind === "atlasSprite") {
+                if (this.drawAtlasSpriteVisual(visual, view)) {
+                    drewAny = true;
+                }
+            } else if (visual.kind === "cutoutMask") {
+                this.drawCutoutMaskVisual(visual, view);
+                drewAny = true;
+            }
+        }
+        return drewAny;
+    }
+
+    visualSortKey(visual, index) {
+        if (Number.isFinite(Number(visual.order))) {
+            return Number(visual.order);
+        }
+        const layer = visual.layer || "terrain";
+        const layerOrder = layer === "decorBack" ? 0 : layer === "terrain" ? 10000 : layer === "mask" ? 20000 : 30000;
+        return layerOrder + index;
+    }
+
+    drawCutoutMaskVisual(mask, view) {
+        const ctx = this.ctx;
+        const p = this.worldToScreen(view, mask.x, mask.y);
+        const w = mask.w * view.zoom;
+        const h = mask.h * view.zoom;
+        ctx.save();
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.fillStyle = "rgba(0, 0, 0, 1)";
+        ctx.fillRect(p.x, p.y, w, h);
         ctx.restore();
     }
 
@@ -376,6 +412,19 @@ class RocketfrockRenderer {
         ctx.lineJoin = "round";
 
         for (const visual of visuals) {
+            if (visual.kind === "cutoutMask") {
+                const p = this.worldToScreen(view, visual.x, visual.y);
+                ctx.save();
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.82)";
+                ctx.lineWidth = 1.5 * view.dpr;
+                ctx.setLineDash([8 * view.dpr, 5 * view.dpr]);
+                ctx.strokeRect(p.x, p.y, visual.w * view.zoom, visual.h * view.zoom);
+                ctx.setLineDash([]);
+                ctx.fillStyle = "rgba(255, 255, 255, 0.82)";
+                ctx.fillText(visual.id || "cutoutMask", p.x + 4 * view.dpr, p.y - 5 * view.dpr);
+                ctx.restore();
+                continue;
+            }
             if (visual.kind !== "atlasSprite") {
                 continue;
             }

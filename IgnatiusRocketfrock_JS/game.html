@@ -115,7 +115,7 @@
         }
 
         #fuel-fill {
-            background: linear-gradient(90deg, #e36962 0%, #e4c55c 50%, #72d67a 100%);
+            background: linear-gradient(90deg, #72d67a 0%, #e4c55c 62%, #e36962 100%);
         }
 
         #health-fill {
@@ -214,11 +214,25 @@
             margin: 8px 0;
         }
 
-        .tuning-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
+        [hidden] {
+            display: none !important;
+        }
+
+        .tool-button,
+        .tool-link {
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 999px;
+            padding: 7px 10px;
+            color: #f2edf8;
+            background: rgba(18,15,24,0.76);
+            text-decoration: none;
+            font: 12px system-ui;
+            cursor: pointer;
+        }
+
+        .tool-button:hover,
+        .tool-link:hover {
+            background: rgba(255,255,255,0.14);
         }
 
         #tuning-message {
@@ -237,35 +251,6 @@
             font: 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         }
 
-        #tool-links {
-            position: fixed;
-            right: 14px;
-            bottom: 14px;
-            z-index: 20;
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-            max-width: calc(100vw - 28px);
-        }
-
-        .tool-button {
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            border-radius: 999px;
-            padding: 7px 10px;
-            color: #f2edf8;
-            background: rgba(18, 15, 24, 0.76);
-            text-decoration: none;
-            font: 12px system-ui;
-            cursor: pointer;
-            line-height: 1.1;
-        }
-
-        .tool-button[aria-pressed="true"] {
-            border-color: rgba(199, 163, 255, 0.7);
-            background: rgba(199, 163, 255, 0.18);
-        }
-
         @media (max-width: 860px) {
             #tuning {
                 display: none;
@@ -274,14 +259,14 @@
     </style>
 </head>
 <body>
-    <div id="tool-links">
-        <a class="tool-button" href="IgnatiusRocketfrock_JS.html">Main</a>
-        <a class="tool-button" href="level_editor.html">Level editor</a>
-        <a class="tool-button" href="atlas_manifest_tool.html">Atlas editor</a>
-        <button id="toggle-asset-guides" class="tool-button" type="button" aria-pressed="false">Asset guides: off</button>
-        <button id="toggle-debug-panel" class="tool-button" type="button" aria-pressed="false">Debug panel: off</button>
-        <button id="toggle-game-tuning" class="tool-button" type="button" aria-pressed="false">Game tuning: off</button>
-        <button id="toggle-help-panel" class="tool-button" type="button" aria-pressed="true">Help panel: on</button>
+    <div id="tool-links" style="position:fixed; right:14px; bottom:14px; z-index:20; display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center; max-width:calc(100vw - 28px);">
+        <a class="tool-link" href="IgnatiusRocketfrock_JS.html">Main</a>
+        <a class="tool-link" href="level_editor.html">Level editor</a>
+        <a class="tool-link" href="atlas_manifest_tool.html">Atlas editor</a>
+        <button id="toggle-asset-guides" class="tool-button" type="button">Asset guides: off</button>
+        <button id="toggle-debug-panel" class="tool-button" type="button">Debug panel: off</button>
+        <button id="toggle-game-tuning" class="tool-button" type="button">Game tuning: off</button>
+        <button id="toggle-help-panel" class="tool-button" type="button">Help panel: on</button>
     </div>
     <div id="game-shell">
         <canvas id="stage" aria-label="Ignatius Rocketfrock Phase 1 Physics Arena"></canvas>
@@ -310,9 +295,7 @@
     </section>
 
     <section id="tuning" hidden>
-        <div class="tuning-header">
-            <h2>Game tuning</h2>
-        </div>
+        <h2>Game tuning</h2>
         <div class="small tuning-help">These write into <code>gameState.tuning</code>, so devtools exports include the current feel. The JSON box is copyable and editable.</div>
         <div id="tuning-controls"></div>
         <textarea id="tuning-json" spellcheck="false" aria-label="Tuning JSON"></textarea>

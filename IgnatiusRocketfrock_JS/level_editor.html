@@ -1485,7 +1485,7 @@
         const blob = new Blob([els.levelJson.value], { type: "application/json" });
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = `${state.level.levelId || "ignatius_level"}.json`;
+        a.download = state.level.levelId === "theme_a_editor_level_001" ? "level_001.json" : `${state.level.levelId || "level_001"}.json`;
         document.body.appendChild(a);
         a.click();
         a.remove();
