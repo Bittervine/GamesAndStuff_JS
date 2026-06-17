@@ -23,7 +23,7 @@ const ASSET_CANDIDATES = {
 
 const FALLBACK_THEME_A1_MANIFEST = {
     meta: { version: 1, note: "Fallback copy of assets/theme_A_atlas_1_manifest.json for file:// testing." },
-    atlasId: "themeA1",
+    atlasId: "theme_A_atlas_1",
     image: "theme_A_atlas_1.png",
     frames: {
         ledge_left_chunk: { x: 56, y: 60, w: 191, h: 124 },
@@ -63,8 +63,7 @@ const FALLBACK_THEME_A1_MANIFEST = {
 };
 
 const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = [
-    { url: "assets/theme_A_atlas_1_manifest.json", fallback: FALLBACK_THEME_A1_MANIFEST },
-    { url: "theme_A_atlas_1_manifest.json", fallback: FALLBACK_THEME_A1_MANIFEST }
+    { url: "assets/theme_A_atlas_1_manifest.json", fallback: null }
 ];
 
 const FALLBACK_RIG_CONFIG = {
@@ -152,6 +151,10 @@ class RocketfrockRenderer {
         this.lastRenderDt = 1 / 60;
         this.viewport = { w: canvas.width, h: canvas.height, dpr: 1 };
         this.lastBounds = null;
+    }
+
+    getEnvironmentManifests() {
+        return this.environmentAtlases;
     }
 
     resize() {
@@ -276,7 +279,15 @@ class RocketfrockRenderer {
             }
         }
 
+        if (state.debug.showCollision) {
+            this.drawCollisionSegments(state, view);
+        }
+
         this.drawAtlasVisuals(state, view, "decorFront");
+
+        if (state.debug.showAssetGuides) {
+            this.drawAssetGuides(state, view);
+        }
 
         if (state.debug.showCollision) {
             ctx.save();
@@ -288,6 +299,28 @@ class RocketfrockRenderer {
             }
             ctx.restore();
         }
+    }
+
+    drawCollisionSegments(state, view) {
+        const ctx = this.ctx;
+        const segments = state.world.segments || [];
+        if (!segments.length) {
+            return;
+        }
+        ctx.save();
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.lineWidth = 3 * view.dpr;
+        for (const segment of segments) {
+            const a = this.worldToScreen(view, segment.x1, segment.y1);
+            const b = this.worldToScreen(view, segment.x2, segment.y2);
+            ctx.strokeStyle = assetLineColor(segment.kind);
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+        }
+        ctx.restore();
     }
 
     drawAtlasVisuals(state, view, layer) {
@@ -312,7 +345,8 @@ class RocketfrockRenderer {
         if (!atlas || atlas.missing || !atlas.image) {
             return false;
         }
-        const frame = atlas.frames?.[visual.frame];
+        const frameName = visual.frame || visual.assetId;
+        const frame = atlas.frames?.[frameName];
         if (!frame) {
             return false;
         }
@@ -331,6 +365,87 @@ class RocketfrockRenderer {
         }
         ctx.restore();
         return true;
+    }
+
+    drawAssetGuides(state, view) {
+        const visuals = state.world.visuals || [];
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.font = `${11 * view.dpr}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+
+        for (const visual of visuals) {
+            if (visual.kind !== "atlasSprite") {
+                continue;
+            }
+            const atlas = this.environmentAtlases.get(visual.atlasId);
+            if (!atlas || !atlas.manifest) {
+                continue;
+            }
+            const frameName = visual.frame || visual.assetId;
+            const frame = atlas.frames?.[frameName];
+            const object = atlas.manifest.objects?.[visual.assetId || frameName];
+            if (!frame) {
+                continue;
+            }
+
+            const p = this.worldToScreen(view, visual.x, visual.y);
+            ctx.save();
+            ctx.strokeStyle = "rgba(86, 230, 255, 0.72)";
+            ctx.lineWidth = 1.5 * view.dpr;
+            ctx.setLineDash([5 * view.dpr, 4 * view.dpr]);
+            ctx.strokeRect(p.x, p.y, visual.w * view.zoom, visual.h * view.zoom);
+            ctx.setLineDash([]);
+            ctx.fillStyle = "rgba(86, 230, 255, 0.78)";
+            ctx.fillText(visual.assetId || frameName, p.x + 4 * view.dpr, p.y - 5 * view.dpr);
+            ctx.restore();
+
+            if (!object || !Array.isArray(object.nodes) || !Array.isArray(object.lines)) {
+                continue;
+            }
+
+            for (const line of object.lines) {
+                const a = object.nodes.find((node) => node.id === line.from);
+                const b = object.nodes.find((node) => node.id === line.to);
+                if (!a || !b) {
+                    continue;
+                }
+                const ap = this.assetLocalToScreen(visual, frame, a, view);
+                const bp = this.assetLocalToScreen(visual, frame, b, view);
+                const color = assetLineColor(line.kind);
+                ctx.save();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2.5 * view.dpr;
+                ctx.beginPath();
+                ctx.moveTo(ap.x, ap.y);
+                ctx.lineTo(bp.x, bp.y);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            for (const node of object.nodes) {
+                const np = this.assetLocalToScreen(visual, frame, node, view);
+                ctx.save();
+                ctx.fillStyle = "rgba(255, 255, 255, 0.82)";
+                ctx.strokeStyle = "rgba(0, 0, 0, 0.65)";
+                ctx.lineWidth = 1 * view.dpr;
+                ctx.beginPath();
+                ctx.arc(np.x, np.y, 3.4 * view.dpr, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        ctx.restore();
+    }
+
+    assetLocalToScreen(visual, frame, node, view) {
+        const localX = visual.mirrorX ? frame.w - node.x : node.x;
+        const wx = visual.x + localX / Math.max(1, frame.w) * visual.w;
+        const wy = visual.y + node.y / Math.max(1, frame.h) * visual.h;
+        return this.worldToScreen(view, wx, wy);
     }
 
     drawTargets(state, view) {
@@ -924,9 +1039,17 @@ class RocketfrockRenderer {
             ctx.save();
             ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
             ctx.lineWidth = 1 * view.dpr;
-            for (const solid of state.world.solids) {
+            for (const solid of state.world.solids || []) {
                 const p = this.worldToScreen(view, solid.x, solid.y);
                 ctx.strokeRect(p.x, p.y, solid.w * view.zoom, solid.h * view.zoom);
+            }
+            for (const segment of state.world.segments || []) {
+                const a = this.worldToScreen(view, segment.x1, segment.y1);
+                const b = this.worldToScreen(view, segment.x2, segment.y2);
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.stroke();
             }
             ctx.restore();
         }
@@ -1038,13 +1161,15 @@ async function loadEnvironmentAtlases() {
     const atlases = new Map();
     for (const candidate of ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES) {
         let manifest = null;
-        try {
-            const response = await fetch(candidate.url, { cache: "no-store" });
-            if (response.ok) {
-                manifest = await response.json();
+        if (candidate.url) {
+            try {
+                const response = await fetch(candidate.url, { cache: "no-store" });
+                if (response.ok) {
+                    manifest = await response.json();
+                }
+            } catch (error) {
+                // file:// cannot reliably fetch JSON in all browsers. Try the next candidate.
             }
-        } catch (error) {
-            // file:// cannot reliably fetch JSON in all browsers. Use fallback metadata below.
         }
 
         manifest = manifest || candidate.fallback;
@@ -1054,9 +1179,7 @@ async function loadEnvironmentAtlases() {
 
         const basePath = pathDirectory(candidate.url);
         const imageCandidates = [
-            basePath + manifest.image,
-            manifest.image,
-            `assets/${manifest.image}`
+            basePath + manifest.image
         ];
 
         let image = null;
@@ -1071,22 +1194,19 @@ async function loadEnvironmentAtlases() {
             }
         }
 
-        if (image) {
-            atlases.set(manifest.atlasId, {
-                id: manifest.atlasId,
-                image,
-                frames: manifest.frames || {},
-                source,
-                manifest,
-                missing: false
-            });
-        } else {
-            atlases.set(manifest.atlasId, {
-                id: manifest.atlasId,
-                frames: manifest.frames || {},
-                manifest,
-                missing: true
-            });
+        const atlasRecord = {
+            id: manifest.atlasId,
+            image,
+            frames: manifest.frames || {},
+            source,
+            manifest,
+            missing: !image
+        };
+        atlases.set(manifest.atlasId, atlasRecord);
+
+        // Backward compatibility with older level sketches that used "themeA1".
+        if (manifest.atlasId === "theme_A_atlas_1") {
+            atlases.set("themeA1", atlasRecord);
         }
     }
     return atlases;
@@ -1490,4 +1610,13 @@ function deepMerge(base, incoming) {
         }
     }
     return result;
+}
+
+
+function assetLineColor(kind) {
+    if (kind === "walkable") return "rgba(88, 255, 158, 0.92)";
+    if (kind === "blockable") return "rgba(255, 225, 94, 0.92)";
+    if (kind === "damaging") return "rgba(255, 159, 67, 0.95)";
+    if (kind === "killable") return "rgba(255, 79, 97, 0.95)";
+    return "rgba(255, 255, 255, 0.85)";
 }

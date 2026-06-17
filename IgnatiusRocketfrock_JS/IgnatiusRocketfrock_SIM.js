@@ -126,12 +126,12 @@ export function createInitialGameState(overrides = {}) {
     }
 
     const world = createPhaseOneArena(tuning);
-    const spawn = overrides.spawn || { x: 120, y: 600 };
+    const spawn = overrides.spawn || world.start || { x: 120, y: 600 };
 
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "theme-a-002-arena-and-atlas-tool",
+            build: "theme-a-009-airier-manifest-level",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -149,8 +149,8 @@ export function createInitialGameState(overrides = {}) {
         },
         player: {
             id: "ignatius",
-            x: spawn.x,
-            y: spawn.y,
+            x: (spawn || world.start || { x: 120, y: 600 }).x,
+            y: (spawn || world.start || { x: 120, y: 600 }).y,
             spawnX: spawn.x,
             spawnY: spawn.y,
             vx: 0,
@@ -217,28 +217,29 @@ export function createInitialGameState(overrides = {}) {
             smokePuffs: []
         },
         targets: [
-            { id: "homing_dot", kind: "debugHomingDot", x: 890, y: 410, radius: 15, state: "active" }
+            { id: "homing_dot", kind: "debugHomingDot", x: 1800, y: 395, radius: 15, state: "active" }
         ],
         enemies: [
-            { id: "dummy_001", kind: "targetDummy", x: 1030, y: 560, width: 42, height: 80, health: 100, state: "idle" },
-            { id: "dummy_002", kind: "targetDummy", x: 2080, y: 330, width: 42, height: 80, health: 100, state: "idle" }
+            { id: "dummy_001", kind: "targetDummy", x: 1750, y: 580, width: 42, height: 80, health: 100, state: "idle" },
+            { id: "dummy_002", kind: "targetDummy", x: 3660, y: 580, width: 42, height: 80, health: 100, state: "idle" }
         ],
         pickups: [
-            { id: "fuel_001", kind: "fuel", x: 735, y: 300, radius: 14, amount: 40, collected: false },
-            { id: "fuel_002", kind: "fuel", x: 1840, y: 120, radius: 14, amount: 40, collected: false }
+            { id: "fuel_001", kind: "fuel", x: 835, y: 315, radius: 14, amount: 40, collected: false },
+            { id: "fuel_002", kind: "fuel", x: 3070, y: 115, radius: 14, amount: 40, collected: false }
         ],
         collisions: {
             playerTouching: { left: false, right: false, up: false, down: false },
             lastResolution: null
         },
         story: {
-            levelTitle: "Ignatius Rocketfrock and the Courtyard of Dubiously Stable Masonry"
+            levelTitle: "Ignatius Rocketfrock and the Gallery of Sensibly Spaced Ledges"
         },
         debug: {
             paused: false,
             showHitboxes: false,
             showVelocity: false,
             showCollision: false,
+            showAssetGuides: false,
             showInput: true,
             eventFilterText: "-FUEL_CHANGED",
             eventFilterIncludeInput: false,
@@ -249,220 +250,260 @@ export function createInitialGameState(overrides = {}) {
         }
     };
 
-    addEvent(state, "ARENA_CREATED", { solids: state.world.solids.length });
+    addEvent(state, "ARENA_CREATED", { solids: state.world.solids.length, segments: state.world.segments?.length ?? 0 });
     return state;
 }
 
 function createPhaseOneArena(tuning) {
-    const wh = tuning.wizardHeight;
     const solids = [];
     const visuals = [];
+    const atlasId = "theme_A_atlas_1";
 
-    const addIsland = (options) => {
+    const addAsset = (options) => {
+        const visualId = `${options.id}_art`;
         visuals.push({
-            id: `${options.id}_art`,
+            id: visualId,
             kind: "atlasSprite",
-            atlasId: options.atlasId || "themeA1",
-            frame: options.frame,
+            atlasId,
+            assetId: options.asset,
+            frame: options.asset,
             x: options.visual.x,
             y: options.visual.y,
             w: options.visual.w,
             h: options.visual.h,
             mirrorX: Boolean(options.mirrorX),
-            layer: options.layer || "terrain"
+            layer: options.layer || "terrain",
+            note: "Runtime collision is generated from this asset's manifest nodes/lines when the manifest is loaded."
         });
 
         if (options.solid) {
             solids.push({
                 id: options.id,
-                kind: options.kind || "platform",
+                kind: options.kind || "blockable",
                 x: options.solid.x,
                 y: options.solid.y,
                 w: options.solid.w,
                 h: options.solid.h,
-                visualId: `${options.id}_art`
+                visualId,
+                sourceAssetId: options.asset,
+                sourceLineKind: options.sourceLineKind || "blockable"
             });
         }
     };
 
     solids.push(
-        { id: "left_wall", kind: "wall", x: -320, y: -360, w: 60, h: 1320 },
-        { id: "right_wall", kind: "wall", x: 3940, y: -360, w: 60, h: 1320 }
+        { id: "left_wall", kind: "wall", x: -320, y: -520, w: 60, h: 1580 },
+        { id: "right_wall", kind: "wall", x: 5360, y: -520, w: 60, h: 1580 }
     );
 
-    // New arena layout: a compact cavern courtyard made from whole atlas islands,
-    // not an attempt to force the art into the older abstract calibration arrangement.
-    addIsland({
-        id: "start_courtyard",
-        kind: "floor",
-        frame: "floor_big_moss",
-        visual: { x: -150, y: 445, w: 650, h: 318 },
-        solid: { x: -120, y: 600, w: 560, h: 92 }
+    // Theme A 009: an airier gallery. The previous arrangement stacked large atlas
+    // islands too close together, so their lower blockable outline segments left very
+    // little headway. This pass mostly separates pieces horizontally, and any platform
+    // that overlaps another vertically has at least a generous wizard-height clearance.
+    addAsset({
+        id: "start_ground",
+        asset: "floor_big_moss",
+        kind: "blockable",
+        visual: { x: -80, y: 565, w: 620, h: 304 },
+        solid: { x: -55, y: 600, w: 565, h: 110 },
+        sourceLineKind: "blockable"
     });
-    addIsland({
-        id: "central_terrace",
-        kind: "floor",
-        frame: "floor_long_terrace",
-        visual: { x: 520, y: 480, w: 1100, h: 238 },
-        solid: { x: 560, y: 600, w: 980, h: 92 }
+    addAsset({
+        id: "first_high_step",
+        asset: "ledge_flat_long_a",
+        kind: "blockable",
+        visual: { x: 650, y: 350, w: 390, h: 118 },
+        solid: { x: 680, y: 370, w: 330, h: 34 },
+        sourceLineKind: "blockable"
     });
-    addIsland({
-        id: "east_courtyard",
-        kind: "floor",
-        frame: "floor_mossy_low",
-        visual: { x: 1730, y: 502, w: 810, h: 208 },
-        solid: { x: 1770, y: 600, w: 730, h: 90 }
+    addAsset({
+        id: "long_runway",
+        asset: "floor_long_terrace",
+        kind: "blockable",
+        visual: { x: 1120, y: 590, w: 1340, h: 292 },
+        solid: { x: 1165, y: 620, w: 1245, h: 110 },
+        sourceLineKind: "blockable"
     });
-    addIsland({
-        id: "far_right_perch",
-        kind: "floor",
-        frame: "floor_hanging_right",
-        visual: { x: 2810, y: 448, w: 720, h: 254 },
-        solid: { x: 2860, y: 600, w: 620, h: 90 }
+    addAsset({
+        id: "upper_left_gallery",
+        asset: "ledge_flat_long_b",
+        kind: "blockable",
+        visual: { x: 1425, y: 200, w: 455, h: 121 },
+        solid: { x: 1465, y: 220, w: 380, h: 34 },
+        sourceLineKind: "blockable"
     });
-
-    // Left-to-middle stepping route.
-    addIsland({
-        id: "left_step_one",
-        kind: "platform",
-        frame: "ledge_left_chunk",
-        visual: { x: 285, y: 382, w: 225, h: 145 },
-        solid: { x: 298, y: 600 - wh, w: 184, h: 26 }
+    addAsset({
+        id: "mid_air_gallery",
+        asset: "floor_cold_platform",
+        kind: "blockable",
+        visual: { x: 2250, y: 325, w: 450, h: 114 },
+        solid: { x: 2290, y: 345, w: 380, h: 34 },
+        sourceLineKind: "blockable"
     });
-    addIsland({
-        id: "left_step_two",
-        kind: "platform",
-        frame: "ledge_flat_long_a",
-        visual: { x: 560, y: 373, w: 340, h: 103 },
-        solid: { x: 585, y: 600 - wh - 6, w: 285, h: 28 }
+    addAsset({
+        id: "crystal_high_perch",
+        asset: "ledge_blue_crystals",
+        kind: "blockable",
+        visual: { x: 2850, y: 160, w: 430, h: 120 },
+        solid: { x: 2890, y: 180, w: 350, h: 32 },
+        sourceLineKind: "blockable"
     });
-    addIsland({
-        id: "central_upper_platform",
-        kind: "platform",
-        frame: "ledge_flat_long_b",
-        visual: { x: 960, y: 300, w: 395, h: 104 },
-        solid: { x: 995, y: 600 - wh * 2, w: 330, h: 30 }
+    addAsset({
+        id: "right_ground",
+        asset: "floor_hanging_right",
+        kind: "blockable",
+        visual: { x: 3380, y: 593, w: 790, h: 272 },
+        solid: { x: 3435, y: 620, w: 690, h: 110 },
+        sourceLineKind: "blockable"
     });
-    addIsland({
-        id: "crystal_roof_platform",
-        kind: "platform",
-        frame: "ledge_blue_crystals",
-        visual: { x: 1350, y: 188, w: 430, h: 120 },
-        solid: { x: 1386, y: 600 - wh * 3, w: 352, h: 30 }
+    addAsset({
+        id: "right_upper_gallery",
+        asset: "ledge_mossy_right",
+        kind: "blockable",
+        visual: { x: 3960, y: 230, w: 565, h: 203 },
+        solid: { x: 4015, y: 255, w: 470, h: 34 },
+        sourceLineKind: "blockable"
     });
-
-    // Central ruins and alternate upper route.
-    addIsland({
-        id: "hanging_walkway",
-        kind: "platform",
-        frame: "hanging_ledge",
-        visual: { x: 1955, y: 232, w: 290, h: 198 },
-        solid: { x: 2000, y: 330, w: 210, h: 28 }
+    addAsset({
+        id: "last_step",
+        asset: "ledge_right_chunk",
+        kind: "blockable",
+        visual: { x: 4660, y: 350, w: 360, h: 220 },
+        solid: { x: 4705, y: 385, w: 270, h: 36 },
+        sourceLineKind: "blockable"
     });
-    addIsland({
-        id: "cold_gallery",
-        kind: "platform",
-        frame: "floor_cold_platform",
-        visual: { x: 2265, y: 286, w: 470, h: 118 },
-        solid: { x: 2295, y: 342, w: 412, h: 30 }
-    });
-    addIsland({
-        id: "mossy_balcony",
-        kind: "platform",
-        frame: "ledge_mossy_right",
-        visual: { x: 2940, y: 254, w: 520, h: 186 },
-        solid: { x: 2978, y: 376, w: 445, h: 32 }
-    });
-
-    // Right-side boost practice pocket.
-    addIsland({
-        id: "shaft_left_art",
-        frame: "pillar_plain",
-        visual: { x: 2475, y: 260, w: 145, h: 228 },
-        solid: null,
-        layer: "decorBack"
-    });
-    addIsland({
-        id: "shaft_right_art",
-        frame: "pillar_broken",
-        visual: { x: 2705, y: 235, w: 140, h: 250 },
-        solid: null,
-        layer: "decorBack"
-    });
-    solids.push(
-        { id: "boost_pocket_left", kind: "shaftWall", x: 2558, y: 180, w: 34, h: 430 },
-        { id: "boost_pocket_right", kind: "shaftWall", x: 2776, y: 180, w: 34, h: 430 }
-    );
-    addIsland({
-        id: "boost_pocket_low",
-        kind: "platform",
-        frame: "ledge_small_flat",
-        visual: { x: 2595, y: 430, w: 165, h: 61 },
-        solid: { x: 2616, y: 466, w: 126, h: 22 }
-    });
-    addIsland({
-        id: "boost_pocket_mid",
-        kind: "platform",
-        frame: "ledge_small_round",
-        visual: { x: 2592, y: 327, w: 205, h: 72 },
-        solid: { x: 2610, y: 366, w: 148, h: 24 }
-    });
-    addIsland({
-        id: "boost_pocket_top",
-        kind: "platform",
-        frame: "ledge_purple_crystals",
-        visual: { x: 2540, y: 180, w: 290, h: 124 },
-        solid: { x: 2576, y: 245, w: 220, h: 26 }
-    });
-
-    // Additional small route pieces.
-    addIsland({
-        id: "mid_small_round",
-        kind: "platform",
-        frame: "ledge_small_round",
-        visual: { x: 1640, y: 350, w: 185, h: 64 },
-        solid: { x: 1656, y: 384, w: 138, h: 24 }
-    });
-    addIsland({
-        id: "mid_small_flat",
-        kind: "platform",
-        frame: "ledge_small_flat",
-        visual: { x: 1495, y: 430, w: 155, h: 56 },
-        solid: { x: 1514, y: 462, w: 122, h: 22 }
+    addAsset({
+        id: "exit_ground",
+        asset: "floor_mossy_low",
+        kind: "blockable",
+        visual: { x: 5020, y: 593, w: 780, h: 201 },
+        solid: { x: 5065, y: 620, w: 705, h: 110 },
+        sourceLineKind: "blockable"
     });
 
     visuals.push(
-        { id: "decor_arch_back", kind: "atlasSprite", atlasId: "themeA1", frame: "arch_ruin", x: 820, y: 372, w: 470, h: 238, layer: "decorBack", mirrorX: false },
-        { id: "decor_pillar_round", kind: "atlasSprite", atlasId: "themeA1", frame: "pillar_round", x: 720, y: 365, w: 135, h: 223, layer: "decorFront" },
-        { id: "decor_pillar_cap", kind: "atlasSprite", atlasId: "themeA1", frame: "pillar_plain", x: 1395, y: 365, w: 132, h: 223, layer: "decorFront" },
-        { id: "decor_stairs_right", kind: "atlasSprite", atlasId: "themeA1", frame: "ruin_stairs", x: 3350, y: 500, w: 170, h: 120, layer: "decorFront" },
-        { id: "decor_barrier", kind: "atlasSprite", atlasId: "themeA1", frame: "wood_barrier_low", x: 2060, y: 540, w: 164, h: 74, layer: "decorFront" },
-        { id: "decor_spikes", kind: "atlasSprite", atlasId: "themeA1", frame: "wood_spikes_low", x: 943, y: 540, w: 190, h: 68, layer: "decorFront" },
-        { id: "decor_lantern_a", kind: "atlasSprite", atlasId: "themeA1", frame: "lantern_gold_small", x: 1550, y: 300, w: 40, h: 82, layer: "decorFront" },
-        { id: "decor_lantern_b", kind: "atlasSprite", atlasId: "themeA1", frame: "lantern_silver_tall", x: 2425, y: 246, w: 38, h: 90, layer: "decorFront" },
-        { id: "decor_skulls", kind: "atlasSprite", atlasId: "themeA1", frame: "skull_pile_small", x: 3080, y: 540, w: 110, h: 62, layer: "decorFront" }
+        { id: "decor_arch_back", kind: "atlasSprite", atlasId, assetId: "arch_ruin", frame: "arch_ruin", x: 1600, y: 390, w: 510, h: 258, layer: "decorBack" },
+        { id: "decor_pillar_a", kind: "atlasSprite", atlasId, assetId: "pillar_plain", frame: "pillar_plain", x: 2600, y: 405, w: 142, h: 224, layer: "decorBack" },
+        { id: "decor_pillar_b", kind: "atlasSprite", atlasId, assetId: "pillar_fancy", frame: "pillar_fancy", x: 3180, y: 395, w: 170, h: 230, layer: "decorBack" },
+        { id: "decor_lantern_a", kind: "atlasSprite", atlasId, assetId: "lantern_gold_small", frame: "lantern_gold_small", x: 1890, y: 305, w: 42, h: 98, layer: "decorFront" },
+        { id: "decor_lantern_b", kind: "atlasSprite", atlasId, assetId: "lantern_silver_tall", frame: "lantern_silver_tall", x: 4430, y: 318, w: 42, h: 98, layer: "decorFront" },
+        { id: "decor_barrier_future_target", kind: "atlasSprite", atlasId, assetId: "wood_barrier_low", frame: "wood_barrier_low", x: 2180, y: 552, w: 160, h: 71, layer: "decorFront", futureDestroyable: true },
+        { id: "decor_spikes_damaging_source", kind: "atlasSprite", atlasId, assetId: "wood_spikes_low", frame: "wood_spikes_low", x: 3640, y: 552, w: 205, h: 74, layer: "decorFront" },
+        { id: "decor_skulls", kind: "atlasSprite", atlasId, assetId: "skull_pile_small", frame: "skull_pile_small", x: 5320, y: 560, w: 110, h: 62, layer: "decorFront" }
     );
 
     return {
-        levelId: "theme_a_test_arena_rebuilt",
+        levelId: "theme_a_manifest_gallery_airier",
         themeId: "themeA",
         gravityDirection: { x: 0, y: 1 },
-        bounds: { x: -320, y: -420, w: 4300, h: 1360 },
-        resetY: 1020,
-        start: { x: 120, y: 600 },
-        atlasManifests: ["assets/theme_A_atlas_1_manifest.json"],
+        bounds: { x: -360, y: -520, w: 5820, h: 1580 },
+        resetY: 1080,
+        // Spawn above the first platform so atlas segment collision gets a clean falling
+        // crossing and places Ignatius on the upper manifest line instead of starting him
+        // inside the island art.
+        start: { x: 135, y: 520 },
+        atlasManifests: [
+            "assets/theme_A_atlas_1_manifest.json"
+        ],
         visuals,
         solids,
+        segments: [],
+        collisionMode: "fallbackRectangles",
         labels: [
-            { text: "start courtyard", x: 90, y: 565 },
-            { text: "upper route", x: 1060, y: 250 },
-            { text: "ruin gallery", x: 2220, y: 310 },
-            { text: "boost pocket", x: 2584, y: 160 },
-            { text: "wide run-up", x: 620, y: 565 },
-            { text: "homing dot", x: 1060, y: 196 }
+            { text: "spawn above first platform", x: 40, y: 500 },
+            { text: "airy first jump", x: 610, y: 330 },
+            { text: "long runway", x: 1280, y: 565 },
+            { text: "upper route with headway", x: 1425, y: 180 },
+            { text: "boost / recover", x: 2280, y: 300 },
+            { text: "high crystal perch", x: 2850, y: 135 },
+            { text: "right gallery", x: 3980, y: 205 },
+            { text: "exit stretch", x: 5120, y: 565 }
         ]
     };
 }
+
+export function applyAtlasManifestsToWorld(state, environmentManifests) {
+    if (!state?.world || !environmentManifests || typeof environmentManifests.get !== "function") {
+        return false;
+    }
+
+    const segments = [];
+    const visuals = Array.isArray(state.world.visuals) ? state.world.visuals : [];
+
+    for (const visual of visuals) {
+        if (visual.kind !== "atlasSprite") {
+            continue;
+        }
+
+        const atlasRecord = environmentManifests.get(visual.atlasId);
+        const manifest = atlasRecord?.manifest || atlasRecord;
+        if (!manifest?.objects || !manifest?.frames) {
+            continue;
+        }
+
+        const assetId = visual.assetId || visual.frame;
+        const frameName = visual.frame || assetId;
+        const object = manifest.objects[assetId] || manifest.objects[frameName];
+        const frame = manifest.frames[frameName] || manifest.frames[assetId];
+        if (!object || !frame || !Array.isArray(object.nodes) || !Array.isArray(object.lines)) {
+            continue;
+        }
+
+        const nodeById = new Map(object.nodes.map((node) => [node.id, node]));
+        for (const line of object.lines) {
+            if (!isSolidSegmentKind(line.kind)) {
+                continue;
+            }
+
+            const a = nodeById.get(line.from);
+            const b = nodeById.get(line.to);
+            if (!a || !b) {
+                continue;
+            }
+
+            const p1 = atlasNodeToWorld(visual, frame, a);
+            const p2 = atlasNodeToWorld(visual, frame, b);
+            if (Math.hypot(p2.x - p1.x, p2.y - p1.y) < 1) {
+                continue;
+            }
+
+            segments.push({
+                id: `${visual.id || assetId}_${line.id || segments.length}`,
+                kind: line.kind,
+                x1: p1.x,
+                y1: p1.y,
+                x2: p2.x,
+                y2: p2.y,
+                visualId: visual.id,
+                assetId,
+                lineId: line.id,
+                tags: Array.isArray(line.tags) ? line.tags.slice() : []
+            });
+        }
+    }
+
+    if (!segments.length) {
+        state.world.collisionMode = "fallbackRectangles";
+        state.world.collisionSegmentCount = 0;
+        return false;
+    }
+
+    state.world.segments = segments;
+    state.world.solids = (state.world.solids || []).filter((solid) => solid.kind === "wall");
+    state.world.collisionMode = "atlasSegments";
+    state.world.collisionSegmentCount = segments.length;
+    addEvent(state, "ATLAS_COLLISION_APPLIED", { segments: segments.length });
+    return true;
+}
+
+function atlasNodeToWorld(visual, frame, node) {
+    const localX = visual.mirrorX ? frame.w - node.x : node.x;
+    return {
+        x: visual.x + localX / Math.max(1, frame.w) * visual.w,
+        y: visual.y + node.y / Math.max(1, frame.h) * visual.h
+    };
+}
+
 
 export function cloneGameState(state) {
     return deepClone(state);
@@ -1079,9 +1120,10 @@ function moveAndCollideX(state, dx) {
         return;
     }
 
+    const previousX = p.x;
     p.x += dx;
     let rect = getPlayerRect(state);
-    for (const solid of state.world.solids) {
+    for (const solid of state.world.solids || []) {
         if (!rectsOverlap(rect, solid)) {
             continue;
         }
@@ -1096,31 +1138,23 @@ function moveAndCollideX(state, dx) {
         state.collisions.lastResolution = { axis: "x", solidId: solid.id };
         rect = getPlayerRect(state);
     }
+
+    resolveSegmentXCollisions(state, previousX, dx);
 }
 
 function moveAndCollideY(state, dy, wasOnGround) {
     const p = state.player;
+    const previousY = p.y;
     p.y += dy;
     p.onGround = false;
 
     let rect = getPlayerRect(state);
-    for (const solid of state.world.solids) {
+    for (const solid of state.world.solids || []) {
         if (!rectsOverlap(rect, solid)) {
             continue;
         }
         if (dy > 0) {
-            p.y = solid.y;
-            p.vy = 0;
-            p.onGround = true;
-            p.airBoostArmed = false;
-            state.collisions.playerTouching.down = true;
-            if (state.equipment.rocket.attachedBoosting) {
-                stopAttachedBoost(state, "landed");
-            }
-            if (!wasOnGround) {
-                p.vx = approach(p.vx, 0, state.tuning.landingFriction * state.clock.fixedDt);
-                addEvent(state, "PLAYER_LANDED", { solidId: solid.id, x: round(p.x), y: round(p.y), vx: round(p.vx) });
-            }
+            landPlayerOn(state, solid.y, wasOnGround, solid.id);
         } else if (dy < 0) {
             p.y = solid.y + solid.h + p.height;
             p.vy = 0;
@@ -1129,6 +1163,185 @@ function moveAndCollideY(state, dy, wasOnGround) {
         state.collisions.lastResolution = { axis: "y", solidId: solid.id };
         rect = getPlayerRect(state);
     }
+
+    resolveSegmentYCollisions(state, previousY, dy, wasOnGround);
+}
+
+function resolveSegmentYCollisions(state, previousY, dy, wasOnGround) {
+    if (!Array.isArray(state.world.segments) || state.world.segments.length === 0 || dy === 0) {
+        return;
+    }
+
+    const p = state.player;
+    const samples = [
+        p.x,
+        p.x - p.width * 0.42,
+        p.x + p.width * 0.42
+    ];
+    const skin = 3;
+    let best = null;
+
+    for (const segment of state.world.segments) {
+        if (!isSolidSegmentKind(segment.kind)) {
+            continue;
+        }
+        if (Math.abs(segment.x2 - segment.x1) < 0.001) {
+            continue;
+        }
+
+        for (const x of samples) {
+            const y = segmentYAtX(segment, x);
+            if (y === null) {
+                continue;
+            }
+
+            if (dy > 0) {
+                if (previousY <= y + skin && p.y >= y - skin) {
+                    if (!best || y < best.y) {
+                        best = { y, segment };
+                    }
+                }
+            } else if (dy < 0 && segment.kind !== "walkable") {
+                const previousTop = previousY - p.height;
+                const currentTop = p.y - p.height;
+                if (previousTop >= y - skin && currentTop <= y + skin) {
+                    if (!best || y > best.y) {
+                        best = { y, segment, ceiling: true };
+                    }
+                }
+            }
+        }
+    }
+
+    if (!best) {
+        return;
+    }
+
+    if (best.ceiling) {
+        p.y = best.y + p.height;
+        p.vy = 0;
+        state.collisions.playerTouching.up = true;
+        state.collisions.lastResolution = { axis: "y", segmentId: best.segment.id, kind: best.segment.kind };
+        return;
+    }
+
+    landPlayerOn(state, best.y, wasOnGround, best.segment.id, best.segment.kind);
+}
+
+function resolveSegmentXCollisions(state, previousX, dx) {
+    if (!Array.isArray(state.world.segments) || state.world.segments.length === 0 || dx === 0) {
+        return;
+    }
+
+    const p = state.player;
+    const previousLeft = previousX - p.width / 2;
+    const previousRight = previousX + p.width / 2;
+    const currentLeft = p.x - p.width / 2;
+    const currentRight = p.x + p.width / 2;
+    const ySamples = [
+        p.y - p.height * 0.84,
+        p.y - p.height * 0.50,
+        p.y - p.height * 0.16
+    ];
+    const skin = 3;
+    let best = null;
+
+    for (const segment of state.world.segments) {
+        if (segment.kind === "walkable") {
+            continue;
+        }
+        // Shallow ledge tops are resolved by vertical landing/ceiling checks. Treat only
+        // steep sides as horizontal blockers, otherwise a top slope can behave like an
+        // invisible wall while running across it.
+        if (Math.abs(segment.y2 - segment.y1) <= Math.abs(segment.x2 - segment.x1) * 0.75) {
+            continue;
+        }
+
+        for (const y of ySamples) {
+            const x = segmentXAtY(segment, y);
+            if (x === null) {
+                continue;
+            }
+            if (dx > 0 && previousRight <= x + skin && currentRight >= x - skin) {
+                if (!best || x < best.x) {
+                    best = { x, segment, side: "right" };
+                }
+            } else if (dx < 0 && previousLeft >= x - skin && currentLeft <= x + skin) {
+                if (!best || x > best.x) {
+                    best = { x, segment, side: "left" };
+                }
+            }
+        }
+    }
+
+    if (!best) {
+        return;
+    }
+
+    if (best.side === "right") {
+        p.x = best.x - p.width / 2;
+        state.collisions.playerTouching.right = true;
+    } else {
+        p.x = best.x + p.width / 2;
+        state.collisions.playerTouching.left = true;
+    }
+    p.vx = 0;
+    state.collisions.lastResolution = { axis: "x", segmentId: best.segment.id, kind: best.segment.kind };
+}
+
+function landPlayerOn(state, y, wasOnGround, id, kind = "blockable") {
+    const p = state.player;
+    p.y = y;
+    p.vy = 0;
+    p.onGround = true;
+    p.airBoostArmed = false;
+    state.collisions.playerTouching.down = true;
+    if (state.equipment.rocket.attachedBoosting) {
+        stopAttachedBoost(state, "landed");
+    }
+    state.collisions.lastResolution = { axis: "y", id, kind };
+    if (!wasOnGround) {
+        p.vx = approach(p.vx, 0, state.tuning.landingFriction * state.clock.fixedDt);
+        addEvent(state, "PLAYER_LANDED", { solidId: id, kind, x: round(p.x), y: round(p.y), vx: round(p.vx) });
+    }
+}
+
+function isSolidSegmentKind(kind) {
+    return kind === "walkable" || kind === "blockable" || kind === "damaging" || kind === "killable";
+}
+
+function segmentYAtX(segment, x) {
+    const minX = Math.min(segment.x1, segment.x2) - 0.001;
+    const maxX = Math.max(segment.x1, segment.x2) + 0.001;
+    if (x < minX || x > maxX) {
+        return null;
+    }
+    const dx = segment.x2 - segment.x1;
+    if (Math.abs(dx) < 0.001) {
+        return null;
+    }
+    const t = (x - segment.x1) / dx;
+    if (t < -0.001 || t > 1.001) {
+        return null;
+    }
+    return segment.y1 + (segment.y2 - segment.y1) * t;
+}
+
+function segmentXAtY(segment, y) {
+    const minY = Math.min(segment.y1, segment.y2) - 0.001;
+    const maxY = Math.max(segment.y1, segment.y2) + 0.001;
+    if (y < minY || y > maxY) {
+        return null;
+    }
+    const dy = segment.y2 - segment.y1;
+    if (Math.abs(dy) < 0.001) {
+        return null;
+    }
+    const t = (y - segment.y1) / dy;
+    if (t < -0.001 || t > 1.001) {
+        return null;
+    }
+    return segment.x1 + (segment.x2 - segment.x1) * t;
 }
 
 function updateFuelRecharge(state, dt) {

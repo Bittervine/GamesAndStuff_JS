@@ -1,0 +1,1464 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ignatius Level Editor</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #111019;
+            --panel: rgba(23, 20, 31, 0.96);
+            --panel2: rgba(255,255,255,0.055);
+            --panel3: rgba(255,255,255,0.085);
+            --ink: #f2edf8;
+            --muted: #cdbfdc;
+            --line: rgba(255,255,255,0.16);
+            --accent: #c9a7ff;
+            --cyan: #56e6ff;
+            --green: #58ff9e;
+            --yellow: #ffe15e;
+            --orange: #ff9f43;
+            --red: #ff4f61;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            min-height: 100%;
+            overflow: hidden;
+            background:
+                radial-gradient(circle at 26% 10%, rgba(123, 91, 171, 0.30), transparent 34rem),
+                linear-gradient(180deg, #16121d 0%, #0d0b12 100%);
+            color: var(--ink);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 430px;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #workbench {
+            min-width: 0;
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+        }
+
+        #topbar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--line);
+            background: rgba(15, 12, 21, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 4;
+        }
+
+        #topbar button, #topbar select, .mini-button {
+            width: auto;
+            min-width: 0;
+            border-radius: 999px;
+            padding: 7px 10px;
+            white-space: nowrap;
+        }
+
+        #topbar button.active {
+            border-color: rgba(201,167,255,0.86);
+            background: rgba(201,167,255,0.22);
+        }
+
+        #canvas-wrap {
+            position: relative;
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+            background: #171525;
+        }
+
+        #hud-strip {
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+            align-items: center;
+            padding: 7px 12px;
+            border-top: 1px solid var(--line);
+            background: rgba(15, 12, 21, 0.94);
+            color: var(--muted);
+            font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+
+        aside {
+            overflow: auto;
+            border-left: 1px solid var(--line);
+            background: var(--panel);
+            padding: 14px;
+        }
+
+        h1 {
+            margin: 0 0 5px;
+            font-size: 20px;
+        }
+
+        h2 {
+            margin: 0 0 8px;
+            font-size: 14px;
+            color: var(--accent);
+        }
+
+        p {
+            margin: 0 0 10px;
+            font-size: 13px;
+            color: var(--muted);
+            line-height: 1.35;
+        }
+
+        .box {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 12px;
+            margin: 0 0 12px;
+            background: var(--panel2);
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .triple {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+        }
+
+        label {
+            display: grid;
+            gap: 4px;
+            margin: 8px 0;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        input, select, textarea, button {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            padding: 8px 9px;
+            color: var(--ink);
+            background: rgba(0,0,0,0.24);
+            font: inherit;
+        }
+
+        input[type="checkbox"] {
+            width: auto;
+        }
+
+        textarea {
+            min-height: 190px;
+            font: 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            white-space: pre;
+            resize: vertical;
+        }
+
+        button {
+            cursor: pointer;
+            font-weight: 700;
+            background: rgba(255,255,255,0.08);
+        }
+
+        button:hover {
+            background: rgba(255,255,255,0.14);
+        }
+
+        .inline {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .small {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .toplink {
+            display: inline-block;
+            margin: 0 0 10px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 6px 10px;
+            color: var(--ink);
+            background: rgba(255,255,255,0.08);
+            font-size: 12px;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .list {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            overflow: auto;
+            max-height: 210px;
+            background: rgba(0,0,0,0.12);
+        }
+
+        .item {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+            align-items: center;
+            padding: 7px 8px;
+            border-bottom: 1px solid var(--line);
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .item:last-child {
+            border-bottom: 0;
+        }
+
+        .item:hover, .item.selected {
+            background: rgba(201,167,255,0.18);
+        }
+
+        .pill {
+            display: inline-block;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 2px 6px;
+            color: var(--muted);
+            font-size: 10px;
+        }
+
+        .status-ok {
+            color: var(--green);
+        }
+
+        .status-warn {
+            color: var(--orange);
+        }
+
+        .asset-preview {
+            display: grid;
+            grid-template-columns: 112px 1fr;
+            gap: 10px;
+            align-items: center;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--line);
+        }
+
+        #asset-preview-canvas {
+            width: 112px;
+            height: 84px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background:
+                linear-gradient(45deg, rgba(255,255,255,0.07) 25%, transparent 25%),
+                linear-gradient(-45deg, rgba(255,255,255,0.07) 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.07) 75%),
+                linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.07) 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+        }
+
+        .cutout-mask-ui {
+            outline: 1px dashed rgba(255,255,255,0.46);
+            outline-offset: -4px;
+        }
+
+        @media (max-width: 1050px) {
+            html, body {
+                overflow: auto;
+            }
+
+            main {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+
+            #workbench {
+                height: 70vh;
+            }
+
+            aside {
+                border-left: 0;
+                border-top: 1px solid var(--line);
+            }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <section id="workbench">
+        <div id="topbar">
+            <button data-tool="select" class="active">☝ Select</button>
+            <button data-tool="pan">🖐 Pan</button>
+            <button data-tool="placeAsset">🧱 Place asset</button>
+            <button data-tool="placeEntity">🧙 Place entity</button>
+            <button data-tool="placeCutout">✂ Cutout mask</button>
+            <button data-tool="delete">🗑 Delete</button>
+            <button id="zoom-out">−</button>
+            <button id="zoom-in">+</button>
+            <button id="fit-view">Fit</button>
+            <select id="quick-entity">
+                <option value="wizardStart">wizard start</option>
+                <option value="targetDummy">target dummy</option>
+                <option value="fuel">fuel pickup</option>
+                <option value="monsterSpawn">monster spawn</option>
+                <option value="trigger">event trigger</option>
+                <option value="exit">exit</option>
+            </select>
+        </div>
+        <div id="canvas-wrap">
+            <canvas id="stage" width="1280" height="720" aria-label="Level editor canvas"></canvas>
+        </div>
+        <div id="hud-strip">
+            <span id="status">ready</span>
+            <span id="cursor-readout">x:0 y:0 zoom:1.00</span>
+        </div>
+    </section>
+
+    <aside>
+        <a class="toplink" href="IgnatiusRocketfrock_JS.html">Back to main</a>
+        <h1>Level Editor</h1>
+        <p>Place atlas assets, move the wizard start, add future monsters/triggers, and export a level JSON. This editor is a first serious foundation, not yet a full shipped tool.</p>
+
+        <div class="box">
+            <h2>Files</h2>
+            <div class="row">
+                <button id="load-default-manifest">Load Theme A manifest</button>
+                <button id="starter-layout">Starter layout</button>
+            </div>
+            <div class="row">
+                <label>Manifest JSON<input id="manifest-file" type="file" accept="application/json,.json"></label>
+                <label>Atlas image<input id="image-file" type="file" accept="image/png,image/webp,image/jpeg"></label>
+            </div>
+            <div class="row">
+                <label>Level JSON<input id="level-file" type="file" accept="application/json,.json"></label>
+                <button id="new-level">New level</button>
+            </div>
+            <p class="small">Default paths are <code>assets/theme_A_atlas_1_manifest.json</code> and <code>assets/theme_A_atlas_1.png</code>.</p>
+        </div>
+
+        <div class="box">
+            <h2>View</h2>
+            <div class="row">
+                <label>Zoom<input id="zoom" type="number" step="0.05" min="0.1" max="5"></label>
+                <label>Snap<input id="snap" type="number" step="1" min="1"></label>
+            </div>
+            <div class="inline"><input id="show-grid" type="checkbox" checked><span class="small">Show grid</span></div>
+            <div class="inline"><input id="snap-enabled" type="checkbox" checked><span class="small">Snap while placing/moving</span></div>
+            <div class="inline"><input id="show-asset-guides" type="checkbox" checked><span class="small">Show manifest boxes and line features</span></div>
+            <div class="inline"><input id="show-labels" type="checkbox" checked><span class="small">Show labels</span></div>
+        </div>
+
+        <div class="box">
+            <h2>Level metadata</h2>
+            <label>Level ID<input id="level-id"></label>
+            <div class="row">
+                <label>Theme ID<input id="theme-id"></label>
+                <label>Title<input id="level-title"></label>
+            </div>
+            <div class="row">
+                <label>World width<input id="world-w" type="number"></label>
+                <label>World height<input id="world-h" type="number"></label>
+            </div>
+        </div>
+
+        <div class="box">
+            <h2>Asset palette</h2>
+            <label>Search assets<input id="asset-search" placeholder="ledge, floor, pillar..."></label>
+            <div id="asset-list" class="list"></div>
+            <div class="asset-preview">
+                <canvas id="asset-preview-canvas" width="224" height="168" aria-label="Selected asset preview"></canvas>
+                <p id="asset-preview-info" class="small">Select an asset to preview it.</p>
+            </div>
+        </div>
+
+        <div class="box">
+            <h2>Placed objects</h2>
+            <div id="placement-list" class="list"></div>
+        </div>
+
+        <div class="box">
+            <h2>Inspector</h2>
+            <p id="selection-summary" class="small">Nothing selected.</p>
+            <label>ID<input id="inspect-id"></label>
+            <label>Kind<input id="inspect-kind" readonly></label>
+            <div class="row">
+                <label>X<input id="inspect-x" type="number"></label>
+                <label>Y<input id="inspect-y" type="number"></label>
+            </div>
+            <div class="row" id="asset-size-row">
+                <label>W<input id="inspect-w" type="number"></label>
+                <label>H<input id="inspect-h" type="number"></label>
+            </div>
+            <div class="row" id="asset-extra-row">
+                <label>Layer
+                    <select id="inspect-layer">
+                        <option value="decorBack">decorBack</option>
+                        <option value="terrain">terrain</option>
+                        <option value="decorFront">decorFront</option>
+                    </select>
+                </label>
+                <label class="inline"><input id="inspect-mirror" type="checkbox"> Mirror X</label>
+            </div>
+            <label id="entity-type-row">Entity type
+                <select id="inspect-entity-type">
+                    <option value="wizardStart">wizardStart</option>
+                    <option value="targetDummy">targetDummy</option>
+                    <option value="fuel">fuel</option>
+                    <option value="monsterSpawn">monsterSpawn</option>
+                    <option value="trigger">trigger</option>
+                    <option value="exit">exit</option>
+                </select>
+            </label>
+            <label>Notes<textarea id="inspect-notes"></textarea></label>
+            <div class="row" id="stack-row">
+                <button id="raise-selected">Raise to top</button>
+                <button id="lower-selected">Lower to bottom</button>
+            </div>
+            <button id="apply-inspector">Apply inspector</button>
+        </div>
+
+        <div class="box">
+            <h2>Export</h2>
+            <div class="row">
+                <button id="copy-json">Copy JSON</button>
+                <button id="download-json">Download JSON</button>
+            </div>
+            <div class="row">
+                <button id="save-local">Save browser copy</button>
+                <button id="load-local">Load browser copy</button>
+            </div>
+            <textarea id="level-json" spellcheck="false"></textarea>
+        </div>
+    </aside>
+</main>
+
+<script>
+(() => {
+    "use strict";
+
+    const STORAGE_KEY = "ignatius_level_editor_v1";
+    const DEFAULT_ATLAS_ID = "theme_A_atlas_1";
+    const DEFAULT_MANIFEST_URL = "assets/theme_A_atlas_1_manifest.json";
+    const DEFAULT_IMAGE_URL = "assets/theme_A_atlas_1.png";
+
+    const COLORS = {
+        frame: "rgba(86,230,255,0.78)",
+        selected: "rgba(255,255,255,0.96)",
+        walkable: "rgba(88,255,158,0.94)",
+        blockable: "rgba(255,225,94,0.94)",
+        damaging: "rgba(255,159,67,0.95)",
+        killable: "rgba(255,79,97,0.95)",
+        spawn: "rgba(201,167,255,0.96)",
+        entity: "rgba(139,224,255,0.94)",
+        cutout: "rgba(255,255,255,0.82)",
+        cutoutFill: "rgba(255,255,255,0.13)",
+        grid: "rgba(255,255,255,0.075)",
+        gridMajor: "rgba(255,255,255,0.14)"
+    };
+
+    const canvas = document.getElementById("stage");
+    const ctx = canvas.getContext("2d");
+    const wrap = document.getElementById("canvas-wrap");
+
+    const els = {
+        status: document.getElementById("status"),
+        cursor: document.getElementById("cursor-readout"),
+        zoom: document.getElementById("zoom"),
+        snap: document.getElementById("snap"),
+        showGrid: document.getElementById("show-grid"),
+        snapEnabled: document.getElementById("snap-enabled"),
+        showAssetGuides: document.getElementById("show-asset-guides"),
+        showLabels: document.getElementById("show-labels"),
+        levelId: document.getElementById("level-id"),
+        themeId: document.getElementById("theme-id"),
+        levelTitle: document.getElementById("level-title"),
+        worldW: document.getElementById("world-w"),
+        worldH: document.getElementById("world-h"),
+        assetSearch: document.getElementById("asset-search"),
+        assetList: document.getElementById("asset-list"),
+        assetPreviewCanvas: document.getElementById("asset-preview-canvas"),
+        assetPreviewInfo: document.getElementById("asset-preview-info"),
+        placementList: document.getElementById("placement-list"),
+        selectionSummary: document.getElementById("selection-summary"),
+        inspectId: document.getElementById("inspect-id"),
+        inspectKind: document.getElementById("inspect-kind"),
+        inspectX: document.getElementById("inspect-x"),
+        inspectY: document.getElementById("inspect-y"),
+        inspectW: document.getElementById("inspect-w"),
+        inspectH: document.getElementById("inspect-h"),
+        inspectLayer: document.getElementById("inspect-layer"),
+        inspectMirror: document.getElementById("inspect-mirror"),
+        inspectEntityType: document.getElementById("inspect-entity-type"),
+        inspectNotes: document.getElementById("inspect-notes"),
+        assetSizeRow: document.getElementById("asset-size-row"),
+        assetExtraRow: document.getElementById("asset-extra-row"),
+        entityTypeRow: document.getElementById("entity-type-row"),
+        stackRow: document.getElementById("stack-row"),
+        levelJson: document.getElementById("level-json"),
+        quickEntity: document.getElementById("quick-entity")
+    };
+
+    const state = {
+        tool: "select",
+        selectedAssetId: "",
+        selectedId: "wizardStart",
+        drag: null,
+        camera: { x: -160, y: -80, zoom: 0.55 },
+        manifest: null,
+        atlasImage: null,
+        frameImageScale: 1,
+        level: makeDefaultLevel()
+    };
+
+    function makeDefaultLevel() {
+        return {
+            meta: {
+                version: 1,
+                editor: "Ignatius Rocketfrock Level Editor",
+                note: "Level placements are data. Runtime collision can be derived from referenced atlas manifest lines. Cutout masks erase lower visual layers only."
+            },
+            levelId: "theme_a_editor_level_001",
+            themeId: "themeA",
+            title: "Ignatius Rocketfrock and the Level That Was Edited On Purpose",
+            world: {
+                bounds: { x: -320, y: -420, w: 5600, h: 1500 },
+                resetY: 1080
+            },
+            playerStart: { id: "wizardStart", x: 120, y: 476, notes: "Wizard starting point. Y means foot/ground position." },
+            atlasRefs: [
+                { atlasId: DEFAULT_ATLAS_ID, manifest: DEFAULT_MANIFEST_URL, image: DEFAULT_IMAGE_URL }
+            ],
+            placements: [],
+            entities: []
+        };
+    }
+
+    function resizeCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = wrap.getBoundingClientRect();
+        canvas.width = Math.max(640, Math.floor(rect.width * dpr));
+        canvas.height = Math.max(360, Math.floor(rect.height * dpr));
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        draw();
+    }
+
+    function screenSize() {
+        return canvas.getBoundingClientRect();
+    }
+
+    function worldToScreen(x, y) {
+        const zoom = state.camera.zoom;
+        return {
+            x: (x - state.camera.x) * zoom,
+            y: (y - state.camera.y) * zoom
+        };
+    }
+
+    function screenToWorld(x, y) {
+        const zoom = state.camera.zoom;
+        return {
+            x: state.camera.x + x / zoom,
+            y: state.camera.y + y / zoom
+        };
+    }
+
+    function snapped(value) {
+        if (!els.snapEnabled.checked) return value;
+        const grid = Math.max(1, Number(els.snap.value) || 16);
+        return Math.round(value / grid) * grid;
+    }
+
+    function snapPoint(point) {
+        return { x: snapped(point.x), y: snapped(point.y) };
+    }
+
+    function setTool(tool) {
+        state.tool = tool;
+        document.querySelectorAll("#topbar button[data-tool]").forEach((button) => {
+            button.classList.toggle("active", button.dataset.tool === tool);
+        });
+        draw();
+    }
+
+    function setStatus(text, ok = true) {
+        els.status.innerHTML = `<span class="${ok ? "status-ok" : "status-warn"}">${escapeHtml(text)}</span>`;
+    }
+
+    function escapeHtml(text) {
+        return String(text).replace(/[&<>\"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
+    }
+
+    async function loadDefaultManifest() {
+        try {
+            const response = await fetch(DEFAULT_MANIFEST_URL, { cache: "no-store" });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            state.manifest = await response.json();
+            await loadImageUrl(DEFAULT_IMAGE_URL);
+            renderAssetList();
+            setStatus(`Loaded ${DEFAULT_MANIFEST_URL}`);
+            draw();
+        } catch (error) {
+            setStatus(`Could not load ${DEFAULT_MANIFEST_URL}. Use the file picker or serve from a local web server.`, false);
+        }
+    }
+
+    async function loadImageUrl(url) {
+        state.atlasImage = await new Promise((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = () => reject(new Error(`Could not load ${url}`));
+            image.src = url;
+        });
+    }
+
+    function importManifest(manifest) {
+        state.manifest = manifest;
+        renderAssetList();
+        setStatus(`Imported manifest ${manifest.atlasId || "atlas"}`);
+        draw();
+    }
+
+    function frameFor(assetId) {
+        return state.manifest?.frames?.[assetId] || null;
+    }
+
+    function objectFor(assetId) {
+        return state.manifest?.objects?.[assetId] || null;
+    }
+
+    function assetIds() {
+        return Object.keys(state.manifest?.objects || state.manifest?.frames || {}).filter((id) => frameFor(id));
+    }
+
+    function renderAssetList() {
+        const query = els.assetSearch.value.trim().toLowerCase();
+        const ids = assetIds().filter((id) => !query || id.toLowerCase().includes(query) || objectFor(id)?.type?.includes(query));
+        els.assetList.innerHTML = "";
+        for (const id of ids.sort()) {
+            const object = objectFor(id);
+            const frame = frameFor(id);
+            const row = document.createElement("div");
+            row.className = `item${state.selectedAssetId === id ? " selected" : ""}`;
+            row.innerHTML = `<span>${escapeHtml(id)}</span><span class="pill">${escapeHtml(object?.type || "asset")}</span>`;
+            row.addEventListener("click", () => {
+                state.selectedAssetId = id;
+                setTool("placeAsset");
+                renderAssetList();
+                drawAssetPreview(id);
+                draw();
+            });
+            row.addEventListener("mouseenter", () => drawAssetPreview(id));
+            row.addEventListener("mouseleave", () => drawAssetPreview(state.selectedAssetId));
+            row.title = frame ? `${frame.w}×${frame.h}` : id;
+            els.assetList.appendChild(row);
+        }
+        drawAssetPreview(state.selectedAssetId);
+    }
+
+    function drawAssetPreview(assetId) {
+        const preview = els.assetPreviewCanvas;
+        const pctx = preview.getContext("2d");
+        pctx.clearRect(0, 0, preview.width, preview.height);
+        pctx.fillStyle = "rgba(0,0,0,0.18)";
+        pctx.fillRect(0, 0, preview.width, preview.height);
+
+        const frame = frameFor(assetId);
+        const object = objectFor(assetId);
+        if (!assetId || !frame) {
+            els.assetPreviewInfo.textContent = "Select an asset to preview it.";
+            return;
+        }
+
+        const pad = 10;
+        const scale = Math.min((preview.width - pad * 2) / frame.w, (preview.height - pad * 2) / frame.h);
+        const w = frame.w * scale;
+        const h = frame.h * scale;
+        const x = (preview.width - w) * 0.5;
+        const y = (preview.height - h) * 0.5;
+
+        if (state.atlasImage) {
+            pctx.drawImage(state.atlasImage, frame.x, frame.y, frame.w, frame.h, x, y, w, h);
+        } else {
+            pctx.fillStyle = "rgba(86,230,255,0.14)";
+            pctx.fillRect(x, y, w, h);
+        }
+
+        pctx.strokeStyle = "rgba(86,230,255,0.95)";
+        pctx.setLineDash([5, 4]);
+        pctx.strokeRect(x, y, w, h);
+        pctx.setLineDash([]);
+
+        if (object?.nodes && object?.lines) {
+            for (const line of object.lines) {
+                const a = object.nodes.find((node) => node.id === line.from);
+                const b = object.nodes.find((node) => node.id === line.to);
+                if (!a || !b) continue;
+                pctx.strokeStyle = COLORS[line.kind] || COLORS.blockable;
+                pctx.lineWidth = 2;
+                pctx.beginPath();
+                pctx.moveTo(x + a.x * scale, y + a.y * scale);
+                pctx.lineTo(x + b.x * scale, y + b.y * scale);
+                pctx.stroke();
+            }
+        }
+
+        els.assetPreviewInfo.textContent = `${assetId}\n${object?.type || "asset"} · ${frame.w}×${frame.h}`;
+    }
+
+    function renderPlacementList() {
+        const rows = [];
+        rows.push({ id: "wizardStart", label: "wizardStart", kind: "spawn" });
+        for (const placement of state.level.placements) {
+            rows.push({ id: placement.id, label: placement.id, kind: placement.kind === "cutoutMask" ? "cutout mask" : placement.assetId });
+        }
+        for (const entity of state.level.entities) {
+            rows.push({ id: entity.id, label: entity.id, kind: entity.type });
+        }
+        els.placementList.innerHTML = "";
+        for (const rowData of rows) {
+            const row = document.createElement("div");
+            row.className = `item${state.selectedId === rowData.id ? " selected" : ""}`;
+            row.innerHTML = `<span>${escapeHtml(rowData.label)}</span><span class="pill">${escapeHtml(rowData.kind)}</span>`;
+            row.addEventListener("click", () => {
+                state.selectedId = rowData.id;
+                syncInspector();
+                draw();
+            });
+            els.placementList.appendChild(row);
+        }
+    }
+
+    function placementById(id) {
+        return state.level.placements.find((item) => item.id === id) || null;
+    }
+
+    function entityById(id) {
+        return state.level.entities.find((item) => item.id === id) || null;
+    }
+
+    function selectedRecord() {
+        if (state.selectedId === "wizardStart") return { kind: "wizardStart", record: state.level.playerStart };
+        const placement = placementById(state.selectedId);
+        if (placement) return { kind: placement.kind === "cutoutMask" ? "cutoutMask" : "asset", record: placement };
+        const entity = entityById(state.selectedId);
+        if (entity) return { kind: "entity", record: entity };
+        return null;
+    }
+
+    function nextId(prefix) {
+        let index = 1;
+        const used = new Set(["wizardStart", ...state.level.placements.map((p) => p.id), ...state.level.entities.map((e) => e.id)]);
+        while (used.has(`${prefix}_${String(index).padStart(3, "0")}`)) index += 1;
+        return `${prefix}_${String(index).padStart(3, "0")}`;
+    }
+
+    function placeAsset(point) {
+        if (!state.selectedAssetId || !frameFor(state.selectedAssetId)) {
+            setStatus("Select an asset in the palette first.", false);
+            return;
+        }
+        const frame = frameFor(state.selectedAssetId);
+        const object = objectFor(state.selectedAssetId);
+        const scale = Number(object?.defaultScale) || 1.65;
+        const w = Math.round(frame.w * scale);
+        const h = Math.round(frame.h * scale);
+        const p = snapPoint(point);
+        const placement = {
+            id: nextId(state.selectedAssetId),
+            kind: "atlasAsset",
+            atlasId: state.manifest?.atlasId || DEFAULT_ATLAS_ID,
+            assetId: state.selectedAssetId,
+            x: p.x,
+            y: p.y,
+            w,
+            h,
+            mirrorX: false,
+            layer: object?.layer || "terrain",
+            collisionFromManifest: object?.layer !== "decorFront" && object?.layer !== "decorBack",
+            notes: ""
+        };
+        state.level.placements.push(placement);
+        state.selectedId = placement.id;
+        persistUi();
+    }
+
+    function placeCutoutMask(point) {
+        const p = snapPoint(point);
+        const placement = {
+            id: nextId("cutoutMask"),
+            kind: "cutoutMask",
+            x: p.x - 80,
+            y: p.y - 60,
+            w: 160,
+            h: 120,
+            layer: "mask",
+            notes: "Editor/rendering mask. Clears pixels drawn before this mask, but does not block later assets or gameplay."
+        };
+        state.level.placements.push(placement);
+        state.selectedId = placement.id;
+        persistUi();
+    }
+
+    function placeEntity(point) {
+        const type = els.quickEntity.value;
+        const p = snapPoint(point);
+        if (type === "wizardStart") {
+            state.level.playerStart.x = p.x;
+            state.level.playerStart.y = p.y;
+            state.selectedId = "wizardStart";
+            persistUi();
+            return;
+        }
+        const entity = {
+            id: nextId(type),
+            type,
+            x: p.x,
+            y: p.y,
+            w: type === "trigger" ? 180 : 42,
+            h: type === "trigger" ? 120 : 80,
+            notes: ""
+        };
+        if (type === "fuel") {
+            entity.amount = 40;
+            entity.radius = 14;
+        }
+        state.level.entities.push(entity);
+        state.selectedId = entity.id;
+        persistUi();
+    }
+
+    function deleteSelected() {
+        if (state.selectedId === "wizardStart") return;
+        state.level.placements = state.level.placements.filter((item) => item.id !== state.selectedId);
+        state.level.entities = state.level.entities.filter((item) => item.id !== state.selectedId);
+        state.selectedId = "wizardStart";
+        persistUi();
+    }
+
+    function objectRect(record, kind) {
+        if (kind === "wizardStart") {
+            return { x: record.x - 18, y: record.y - 104, w: 36, h: 104 };
+        }
+        if (kind === "entity") {
+            if (record.type === "fuel") return { x: record.x - 14, y: record.y - 14, w: 28, h: 28 };
+            return { x: record.x - (record.w || 42) * 0.5, y: record.y - (record.h || 80), w: record.w || 42, h: record.h || 80 };
+        }
+        return { x: record.x, y: record.y, w: record.w, h: record.h };
+    }
+
+    function hitTest(point) {
+        const spawnRect = objectRect(state.level.playerStart, "wizardStart");
+        if (pointInRect(point, spawnRect)) return { id: "wizardStart", kind: "wizardStart" };
+        for (let i = state.level.entities.length - 1; i >= 0; i -= 1) {
+            const entity = state.level.entities[i];
+            if (pointInRect(point, objectRect(entity, "entity"))) return { id: entity.id, kind: "entity" };
+        }
+        for (let i = state.level.placements.length - 1; i >= 0; i -= 1) {
+            const placement = state.level.placements[i];
+            if (pointInRect(point, objectRect(placement, "asset"))) return { id: placement.id, kind: placement.kind === "cutoutMask" ? "cutoutMask" : "asset" };
+        }
+        return null;
+    }
+
+    function pointInRect(point, rect) {
+        return point.x >= rect.x && point.x <= rect.x + rect.w && point.y >= rect.y && point.y <= rect.y + rect.h;
+    }
+
+    function startDrag(point, event) {
+        if (state.tool === "pan") {
+            state.drag = { kind: "pan", sx: event.clientX, sy: event.clientY, camera: { ...state.camera } };
+            return;
+        }
+        const hit = hitTest(point);
+        if (!hit) return;
+        state.selectedId = hit.id;
+        const selected = selectedRecord();
+        if (!selected) return;
+        state.drag = { kind: "move", id: hit.id, start: point, original: { ...selected.record } };
+        syncInspector();
+        draw();
+    }
+
+    function updateDrag(point, event) {
+        if (!state.drag) return;
+        if (state.drag.kind === "pan") {
+            state.camera.x = state.drag.camera.x - (event.clientX - state.drag.sx) / state.camera.zoom;
+            state.camera.y = state.drag.camera.y - (event.clientY - state.drag.sy) / state.camera.zoom;
+            draw();
+            return;
+        }
+        if (state.drag.kind === "move") {
+            const selected = selectedRecord();
+            if (!selected) return;
+            const dx = point.x - state.drag.start.x;
+            const dy = point.y - state.drag.start.y;
+            selected.record.x = snapped(state.drag.original.x + dx);
+            selected.record.y = snapped(state.drag.original.y + dy);
+            syncInspector(false);
+            draw();
+        }
+    }
+
+    function endDrag() {
+        if (!state.drag) return;
+        state.drag = null;
+        persistUi();
+    }
+
+    function draw() {
+        const rect = screenSize();
+        ctx.clearRect(0, 0, rect.width, rect.height);
+        drawBackground(rect);
+        if (els.showGrid.checked) drawGrid(rect);
+        drawWorldBounds();
+        for (const placement of sortedPlacements()) drawPlacement(placement);
+        for (const entity of state.level.entities) drawEntity(entity);
+        drawWizardStart();
+        drawSelection();
+        updateJson();
+    }
+
+    function drawBackground(rect) {
+        const g = ctx.createLinearGradient(0, 0, 0, rect.height);
+        g.addColorStop(0, "#1b172b");
+        g.addColorStop(1, "#100f18");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, rect.width, rect.height);
+    }
+
+    function drawGrid(rect) {
+        const grid = Math.max(8, Number(els.snap.value) || 32);
+        const startX = Math.floor(state.camera.x / grid) * grid;
+        const endX = state.camera.x + rect.width / state.camera.zoom;
+        const startY = Math.floor(state.camera.y / grid) * grid;
+        const endY = state.camera.y + rect.height / state.camera.zoom;
+        ctx.save();
+        for (let x = startX; x <= endX; x += grid) {
+            const p = worldToScreen(x, 0);
+            ctx.strokeStyle = x % (grid * 4) === 0 ? COLORS.gridMajor : COLORS.grid;
+            ctx.beginPath();
+            ctx.moveTo(p.x, 0);
+            ctx.lineTo(p.x, rect.height);
+            ctx.stroke();
+        }
+        for (let y = startY; y <= endY; y += grid) {
+            const p = worldToScreen(0, y);
+            ctx.strokeStyle = y % (grid * 4) === 0 ? COLORS.gridMajor : COLORS.grid;
+            ctx.beginPath();
+            ctx.moveTo(0, p.y);
+            ctx.lineTo(rect.width, p.y);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
+    function drawWorldBounds() {
+        const b = state.level.world.bounds;
+        const p = worldToScreen(b.x, b.y);
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,255,255,0.30)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(p.x, p.y, b.w * state.camera.zoom, b.h * state.camera.zoom);
+        ctx.restore();
+    }
+
+    function normalizeStackOrder() {
+        state.level.placements.forEach((placement, index) => {
+            if (!Number.isFinite(Number(placement.order))) {
+                placement.order = index;
+            }
+        });
+    }
+
+    function sortedPlacements() {
+        normalizeStackOrder();
+        return state.level.placements.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    }
+
+    function drawPlacement(placement) {
+        if (placement.kind === "cutoutMask") {
+            drawCutoutMask(placement);
+            return;
+        }
+
+        const frame = frameFor(placement.assetId);
+        const p = worldToScreen(placement.x, placement.y);
+        const w = placement.w * state.camera.zoom;
+        const h = placement.h * state.camera.zoom;
+        if (state.atlasImage && frame) {
+            ctx.save();
+            if (placement.mirrorX) {
+                ctx.translate(p.x + w, p.y);
+                ctx.scale(-1, 1);
+                ctx.drawImage(state.atlasImage, frame.x, frame.y, frame.w, frame.h, 0, 0, w, h);
+            } else {
+                ctx.drawImage(state.atlasImage, frame.x, frame.y, frame.w, frame.h, p.x, p.y, w, h);
+            }
+            ctx.restore();
+        } else {
+            ctx.fillStyle = "rgba(86,230,255,0.12)";
+            ctx.fillRect(p.x, p.y, w, h);
+        }
+        if (els.showAssetGuides.checked) drawPlacementGuides(placement);
+        if (els.showLabels.checked) drawLabel(placement.assetId, placement.x, placement.y - 8, COLORS.frame);
+    }
+
+    function drawCutoutMask(mask) {
+        const p = worldToScreen(mask.x, mask.y);
+        const w = mask.w * state.camera.zoom;
+        const h = mask.h * state.camera.zoom;
+
+        ctx.save();
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.fillStyle = "rgba(0,0,0,1)";
+        ctx.fillRect(p.x, p.y, w, h);
+        ctx.restore();
+
+        // Editor-only guide. The mask itself is transparent in the intended level render.
+        ctx.save();
+        ctx.strokeStyle = COLORS.cutout;
+        ctx.fillStyle = COLORS.cutoutFill;
+        ctx.setLineDash([8, 5]);
+        ctx.lineWidth = 2;
+        ctx.fillRect(p.x, p.y, w, h);
+        ctx.strokeRect(p.x, p.y, w, h);
+        ctx.setLineDash([]);
+        ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+        ctx.fillStyle = COLORS.cutout;
+        ctx.fillText(mask.id || "cutoutMask", p.x + 6, p.y + 16);
+        ctx.restore();
+    }
+
+    function drawPlacementGuides(placement) {
+        const frame = frameFor(placement.assetId);
+        const object = objectFor(placement.assetId);
+        const p = worldToScreen(placement.x, placement.y);
+        const w = placement.w * state.camera.zoom;
+        const h = placement.h * state.camera.zoom;
+        ctx.save();
+        ctx.strokeStyle = COLORS.frame;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(p.x, p.y, w, h);
+        ctx.setLineDash([]);
+        ctx.restore();
+        if (!frame || !object) return;
+        for (const line of object.lines || []) {
+            const a = (object.nodes || []).find((node) => node.id === line.from);
+            const b = (object.nodes || []).find((node) => node.id === line.to);
+            if (!a || !b) continue;
+            const ap = assetNodeToWorld(placement, frame, a);
+            const bp = assetNodeToWorld(placement, frame, b);
+            drawWorldLine(ap, bp, COLORS[line.kind] || COLORS.blockable, 2.5);
+        }
+    }
+
+    function assetNodeToWorld(placement, frame, node) {
+        const nx = placement.mirrorX ? frame.w - node.x : node.x;
+        return {
+            x: placement.x + nx / Math.max(1, frame.w) * placement.w,
+            y: placement.y + node.y / Math.max(1, frame.h) * placement.h
+        };
+    }
+
+    function drawWorldLine(a, b, color, width) {
+        const ap = worldToScreen(a.x, a.y);
+        const bp = worldToScreen(b.x, b.y);
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(ap.x, ap.y);
+        ctx.lineTo(bp.x, bp.y);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function drawEntity(entity) {
+        const rect = objectRect(entity, "entity");
+        const p = worldToScreen(rect.x, rect.y);
+        ctx.save();
+        ctx.strokeStyle = entity.type === "trigger" ? "rgba(255,207,134,0.86)" : COLORS.entity;
+        ctx.fillStyle = entity.type === "fuel" ? "rgba(88,255,158,0.22)" : "rgba(139,224,255,0.12)";
+        ctx.lineWidth = 2;
+        if (entity.type === "fuel") {
+            ctx.beginPath();
+            ctx.arc(worldToScreen(entity.x, entity.y).x, worldToScreen(entity.x, entity.y).y, (entity.radius || 14) * state.camera.zoom, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        } else {
+            ctx.fillRect(p.x, p.y, rect.w * state.camera.zoom, rect.h * state.camera.zoom);
+            ctx.strokeRect(p.x, p.y, rect.w * state.camera.zoom, rect.h * state.camera.zoom);
+        }
+        if (els.showLabels.checked) drawLabel(entity.id, entity.x, rect.y - 8, COLORS.entity);
+        ctx.restore();
+    }
+
+    function drawWizardStart() {
+        const s = state.level.playerStart;
+        const rect = objectRect(s, "wizardStart");
+        const p = worldToScreen(rect.x, rect.y);
+        ctx.save();
+        ctx.strokeStyle = COLORS.spawn;
+        ctx.fillStyle = "rgba(201,167,255,0.16)";
+        ctx.lineWidth = 2;
+        ctx.fillRect(p.x, p.y, rect.w * state.camera.zoom, rect.h * state.camera.zoom);
+        ctx.strokeRect(p.x, p.y, rect.w * state.camera.zoom, rect.h * state.camera.zoom);
+        const foot = worldToScreen(s.x, s.y);
+        ctx.fillStyle = COLORS.spawn;
+        ctx.beginPath();
+        ctx.arc(foot.x, foot.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        if (els.showLabels.checked) drawLabel("wizardStart", rect.x, rect.y - 8, COLORS.spawn);
+        ctx.restore();
+    }
+
+    function drawSelection() {
+        const selected = selectedRecord();
+        if (!selected) return;
+        const rect = objectRect(selected.record, (selected.kind === "asset" || selected.kind === "cutoutMask") ? "asset" : selected.kind === "entity" ? "entity" : "wizardStart");
+        const p = worldToScreen(rect.x, rect.y);
+        ctx.save();
+        ctx.strokeStyle = COLORS.selected;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 5]);
+        ctx.strokeRect(p.x - 4, p.y - 4, rect.w * state.camera.zoom + 8, rect.h * state.camera.zoom + 8);
+        ctx.restore();
+    }
+
+    function drawLabel(text, x, y, color) {
+        const p = worldToScreen(x, y);
+        ctx.save();
+        ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+        ctx.fillStyle = "rgba(0,0,0,0.75)";
+        ctx.fillText(text, p.x + 1, p.y + 1);
+        ctx.fillStyle = color;
+        ctx.fillText(text, p.x, p.y);
+        ctx.restore();
+    }
+
+    function syncInspector(syncFields = true) {
+        const selected = selectedRecord();
+        if (!selected) {
+            els.selectionSummary.textContent = "Nothing selected.";
+            return;
+        }
+        const rec = selected.record;
+        els.selectionSummary.textContent = `${selected.kind}: ${rec.id || state.selectedId}`;
+        if (syncFields) {
+            els.inspectId.value = rec.id || state.selectedId;
+            els.inspectKind.value = selected.kind === "cutoutMask" ? "cutoutMask" : selected.kind;
+            els.inspectX.value = Math.round(rec.x || 0);
+            els.inspectY.value = Math.round(rec.y || 0);
+            els.inspectW.value = Math.round(rec.w || 0);
+            els.inspectH.value = Math.round(rec.h || 0);
+            els.inspectLayer.value = rec.layer || (selected.kind === "cutoutMask" ? "mask" : "terrain");
+            els.inspectMirror.checked = Boolean(rec.mirrorX);
+            els.inspectEntityType.value = selected.kind === "wizardStart" ? "wizardStart" : rec.type || "targetDummy";
+            els.inspectNotes.value = rec.notes || "";
+        }
+        els.assetSizeRow.style.display = selected.kind === "asset" || selected.kind === "cutoutMask" || selected.kind === "entity" ? "grid" : "none";
+        els.assetExtraRow.style.display = selected.kind === "asset" ? "grid" : "none";
+        els.stackRow.style.display = selected.kind === "asset" || selected.kind === "cutoutMask" ? "grid" : "none";
+        els.entityTypeRow.style.display = selected.kind === "entity" || selected.kind === "wizardStart" ? "grid" : "none";
+        renderPlacementList();
+    }
+
+    function applyInspector() {
+        const selected = selectedRecord();
+        if (!selected) return;
+        const rec = selected.record;
+        const newId = els.inspectId.value.trim() || rec.id || state.selectedId;
+        if (selected.kind !== "wizardStart" && newId !== rec.id && idExists(newId)) {
+            setStatus("That ID is already used.", false);
+            return;
+        }
+        if (selected.kind === "wizardStart") {
+            rec.x = Number(els.inspectX.value) || rec.x;
+            rec.y = Number(els.inspectY.value) || rec.y;
+            rec.notes = els.inspectNotes.value;
+        } else {
+            rec.id = newId;
+            rec.x = Number(els.inspectX.value) || 0;
+            rec.y = Number(els.inspectY.value) || 0;
+            rec.w = Number(els.inspectW.value) || rec.w || 1;
+            rec.h = Number(els.inspectH.value) || rec.h || 1;
+            rec.notes = els.inspectNotes.value;
+            if (selected.kind === "asset") {
+                rec.layer = els.inspectLayer.value;
+                rec.mirrorX = els.inspectMirror.checked;
+            } else if (selected.kind === "cutoutMask") {
+                rec.kind = "cutoutMask";
+                rec.layer = "mask";
+            }
+            if (selected.kind === "entity") {
+                rec.type = els.inspectEntityType.value;
+            }
+            state.selectedId = rec.id;
+        }
+        persistUi();
+    }
+
+    function idExists(id) {
+        if (id === "wizardStart") return true;
+        return state.level.placements.some((item) => item.id === id) || state.level.entities.some((item) => item.id === id);
+    }
+
+    function syncMetadataFromUi() {
+        state.level.levelId = els.levelId.value.trim() || state.level.levelId;
+        state.level.themeId = els.themeId.value.trim() || state.level.themeId;
+        state.level.title = els.levelTitle.value.trim() || state.level.title;
+        state.level.world.bounds.w = Number(els.worldW.value) || state.level.world.bounds.w;
+        state.level.world.bounds.h = Number(els.worldH.value) || state.level.world.bounds.h;
+    }
+
+    function syncMetadataToUi() {
+        els.levelId.value = state.level.levelId;
+        els.themeId.value = state.level.themeId;
+        els.levelTitle.value = state.level.title;
+        els.worldW.value = state.level.world.bounds.w;
+        els.worldH.value = state.level.world.bounds.h;
+    }
+
+    function updateJson() {
+        syncMetadataFromUi();
+        els.zoom.value = state.camera.zoom.toFixed(2);
+        els.levelJson.value = JSON.stringify(state.level, null, 4);
+    }
+
+    function persistUi() {
+        syncMetadataToUi();
+        syncInspector();
+        renderPlacementList();
+        draw();
+    }
+
+    function starterLayout() {
+        state.level = makeDefaultLevel();
+        state.level.placements = [
+            placeData("start_ground", "floor_big_moss", -145, 456, 620, 304, "terrain"),
+            placeData("runway", "floor_long_terrace", 760, 474, 1340, 292, "terrain"),
+            placeData("left_step", "ledge_flat_long_a", 640, 270, 390, 118, "terrain"),
+            placeData("upper_step", "ledge_flat_long_b", 1260, 74, 455, 121, "terrain"),
+            placeData("crystal_step", "ledge_blue_crystals", 2160, -92, 430, 120, "terrain"),
+            placeData("right_ground", "floor_hanging_right", 3040, 456, 790, 272, "terrain"),
+            placeData("right_gallery", "ledge_mossy_right", 3820, 160, 565, 203, "terrain"),
+            placeData("exit_ground", "floor_mossy_low", 4720, 502, 780, 201, "terrain"),
+            placeData("arch_back", "arch_ruin", 1090, 380, 510, 258, "decorBack"),
+            placeData("pillar_a", "pillar_plain", 2450, 392, 142, 224, "decorBack"),
+            placeData("spikes_preview", "wood_spikes_low", 3380, 530, 205, 74, "decorFront")
+        ];
+        state.level.entities = [
+            { id: "targetDummy_001", type: "targetDummy", x: 3060, y: 560, w: 42, h: 80, notes: "Future enemy slot." },
+            { id: "fuel_001", type: "fuel", x: 780, y: 240, radius: 14, amount: 40, notes: "Fuel pickup." },
+            { id: "exit_001", type: "exit", x: 5250, y: 600, w: 64, h: 120, notes: "Future level exit." }
+        ];
+        state.level.playerStart = { id: "wizardStart", x: 120, y: 476, notes: "Spawn above the first platform." };
+        state.selectedId = "wizardStart";
+        fitView();
+        persistUi();
+    }
+
+    function placeData(id, assetId, x, y, w, h, layer) {
+        return { id, kind: "atlasAsset", atlasId: DEFAULT_ATLAS_ID, assetId, x, y, w, h, mirrorX: false, layer, collisionFromManifest: layer === "terrain", notes: "" };
+    }
+
+    function raiseSelectedToTop() {
+        const selected = selectedRecord();
+        if (!selected || (selected.kind !== "asset" && selected.kind !== "cutoutMask")) return;
+        normalizeStackOrder();
+        const maxOrder = Math.max(-1, ...state.level.placements.map((item) => Number(item.order) || 0));
+        selected.record.order = maxOrder + 1;
+        persistUi();
+    }
+
+    function lowerSelectedToBottom() {
+        const selected = selectedRecord();
+        if (!selected || (selected.kind !== "asset" && selected.kind !== "cutoutMask")) return;
+        normalizeStackOrder();
+        const minOrder = Math.min(0, ...state.level.placements.map((item) => Number(item.order) || 0));
+        selected.record.order = minOrder - 1;
+        persistUi();
+    }
+
+    function fitView() {
+        const rect = screenSize();
+        const bounds = state.level.world.bounds;
+        state.camera.zoom = Math.max(0.1, Math.min(1.4, Math.min(rect.width / bounds.w, rect.height / bounds.h) * 0.92));
+        state.camera.x = bounds.x - (rect.width / state.camera.zoom - bounds.w) * 0.5;
+        state.camera.y = bounds.y - (rect.height / state.camera.zoom - bounds.h) * 0.5;
+        draw();
+    }
+
+    canvas.addEventListener("pointerdown", (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const point = screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
+        if (state.tool === "placeAsset") {
+            placeAsset(point);
+            return;
+        }
+        if (state.tool === "placeEntity") {
+            placeEntity(point);
+            return;
+        }
+        if (state.tool === "placeCutout") {
+            placeCutoutMask(point);
+            return;
+        }
+        if (state.tool === "delete") {
+            const hit = hitTest(point);
+            if (hit) {
+                state.selectedId = hit.id;
+                deleteSelected();
+            }
+            return;
+        }
+        if (state.tool === "select") {
+            const hit = hitTest(point);
+            if (hit) {
+                state.selectedId = hit.id;
+                syncInspector();
+                draw();
+                startDrag(point, event);
+            }
+            return;
+        }
+        startDrag(point, event);
+    });
+
+    canvas.addEventListener("pointermove", (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const point = screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
+        els.cursor.textContent = `x:${point.x.toFixed(0)} y:${point.y.toFixed(0)} zoom:${state.camera.zoom.toFixed(2)}`;
+        updateDrag(point, event);
+    });
+
+    canvas.addEventListener("pointerup", endDrag);
+    canvas.addEventListener("pointercancel", endDrag);
+
+    canvas.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const before = screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
+        const factor = event.deltaY < 0 ? 1.12 : 0.89;
+        state.camera.zoom = Math.max(0.1, Math.min(5, state.camera.zoom * factor));
+        const after = screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
+        state.camera.x += before.x - after.x;
+        state.camera.y += before.y - after.y;
+        draw();
+    }, { passive: false });
+
+    document.querySelectorAll("#topbar button[data-tool]").forEach((button) => button.addEventListener("click", () => setTool(button.dataset.tool)));
+    document.getElementById("zoom-in").addEventListener("click", () => { state.camera.zoom = Math.min(5, state.camera.zoom * 1.15); draw(); });
+    document.getElementById("zoom-out").addEventListener("click", () => { state.camera.zoom = Math.max(0.1, state.camera.zoom / 1.15); draw(); });
+    document.getElementById("fit-view").addEventListener("click", fitView);
+    els.zoom.addEventListener("change", () => { state.camera.zoom = Math.max(0.1, Math.min(5, Number(els.zoom.value) || state.camera.zoom)); draw(); });
+    els.assetSearch.addEventListener("input", renderAssetList);
+    document.getElementById("load-default-manifest").addEventListener("click", loadDefaultManifest);
+    document.getElementById("starter-layout").addEventListener("click", starterLayout);
+    document.getElementById("new-level").addEventListener("click", () => { state.level = makeDefaultLevel(); state.selectedId = "wizardStart"; persistUi(); });
+    document.getElementById("apply-inspector").addEventListener("click", applyInspector);
+    document.getElementById("raise-selected").addEventListener("click", raiseSelectedToTop);
+    document.getElementById("lower-selected").addEventListener("click", lowerSelectedToBottom);
+    [els.showGrid, els.showAssetGuides, els.showLabels, els.snapEnabled, els.snap, els.worldW, els.worldH, els.levelId, els.themeId, els.levelTitle].forEach((el) => el.addEventListener("change", () => { syncMetadataFromUi(); draw(); }));
+
+    document.getElementById("manifest-file").addEventListener("change", async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        importManifest(JSON.parse(await file.text()));
+    });
+
+    document.getElementById("image-file").addEventListener("change", async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        state.atlasImage = await new Promise((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = reject;
+            image.src = URL.createObjectURL(file);
+        });
+        setStatus(`Loaded image ${file.name}`);
+        drawAssetPreview(state.selectedAssetId);
+        draw();
+    });
+
+    document.getElementById("level-file").addEventListener("change", async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        state.level = JSON.parse(await file.text());
+        state.selectedId = "wizardStart";
+        syncMetadataToUi();
+        persistUi();
+        setStatus(`Loaded level ${file.name}`);
+    });
+
+    document.getElementById("copy-json").addEventListener("click", async () => {
+        updateJson();
+        await navigator.clipboard.writeText(els.levelJson.value);
+        setStatus("Copied level JSON.");
+    });
+
+    document.getElementById("download-json").addEventListener("click", () => {
+        updateJson();
+        const blob = new Blob([els.levelJson.value], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `${state.level.levelId || "ignatius_level"}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    });
+
+    document.getElementById("save-local").addEventListener("click", () => {
+        updateJson();
+        localStorage.setItem(STORAGE_KEY, els.levelJson.value);
+        setStatus("Saved browser copy.");
+    });
+
+    document.getElementById("load-local").addEventListener("click", () => {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) {
+            setStatus("No browser copy found.", false);
+            return;
+        }
+        state.level = JSON.parse(saved);
+        state.selectedId = "wizardStart";
+        syncMetadataToUi();
+        persistUi();
+        setStatus("Loaded browser copy.");
+    });
+
+    window.addEventListener("resize", resizeCanvas);
+
+    syncMetadataToUi();
+    els.snap.value = "32";
+    setTool("select");
+    resizeCanvas();
+    starterLayout();
+    loadDefaultManifest();
+})();
+</script>
+</body>
+</html>

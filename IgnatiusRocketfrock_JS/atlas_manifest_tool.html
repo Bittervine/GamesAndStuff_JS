@@ -34,7 +34,7 @@
 
         main {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 470px;
+            grid-template-columns: minmax(0, 1fr) 430px;
             min-height: 100vh;
         }
 
@@ -231,6 +231,10 @@
             color: var(--accent);
         }
 
+        .danger {
+            border-color: rgba(255, 79, 97, 0.38);
+        }
+
         @media (max-width: 1050px) {
             main {
                 grid-template-columns: 1fr;
@@ -276,6 +280,7 @@
         </p>
 
         <div class="box">
+            <h2>Files</h2>
             <div class="row">
                 <label>Atlas image<input id="image-file" type="file" accept="image/png,image/webp,image/jpeg"></label>
                 <label>Import JSON<input id="manifest-file" type="file" accept="application/json,.json"></label>
@@ -291,7 +296,7 @@
         </div>
 
         <div class="box">
-            <h2>Canvas options</h2>
+            <h2>Canvas</h2>
             <div class="row">
                 <label>Zoom<input id="zoom" type="number" min="0.25" max="4" step="0.05"></label>
                 <label>Hit radius<input id="hit-radius" type="number" min="3" max="40" step="1"></label>
@@ -314,7 +319,7 @@
             <h2>Assets / cyan boxes</h2>
             <div class="row">
                 <button id="new-object">New cyan box</button>
-                <button id="delete-object">Delete selected box</button>
+                <button id="delete-object" class="danger">Delete selected box</button>
             </div>
             <div id="object-list" class="list"></div>
         </div>
@@ -372,15 +377,6 @@
         </div>
 
         <div class="box">
-            <h2>Nodes and lines</h2>
-            <div class="row">
-                <button id="delete-selected-node">Delete selected node</button>
-                <button id="delete-selected-line">Delete selected line</button>
-            </div>
-            <div id="line-list" class="list"></div>
-        </div>
-
-        <div class="box">
             <h2>Selected node</h2>
             <div class="row">
                 <label>x<input id="node-x" type="number"></label>
@@ -407,6 +403,11 @@
         </div>
 
         <div class="box">
+            <h2>Lines in selected asset</h2>
+            <div id="line-list" class="list"></div>
+        </div>
+
+        <div class="box">
             <h2>Export</h2>
             <div class="row">
                 <button id="refresh-json">Refresh JSON</button>
@@ -415,7 +416,7 @@
             <button id="copy-json">Copy JSON</button>
             <textarea id="manifest-json" spellcheck="false"></textarea>
             <p class="small">
-                Node coordinates are local to the cyan box. Lines connect node IDs. This is easier to edit than long unstructured polylines.
+                Node coordinates are local to the cyan box. Lines connect node IDs.
             </p>
         </div>
     </aside>
@@ -430,7 +431,7 @@
             version: 4,
             note: "Theme A cave/ruin atlas. Cyan boxes identify visual islands/assets. Nodes and lines are local to each box."
         },
-        atlasId: "themeA1",
+        atlasId: "theme_A_atlas_1",
         image: "theme_A_atlas_1.png",
         frames: {
             ledge_left_chunk: { x: 56, y: 60, w: 191, h: 124 },
@@ -466,7 +467,7 @@
         objects: {}
     };
 
-    const STORAGE_KEY = "ignatius_atlas_manifest_v4";
+    const STORAGE_KEY = "ignatius_atlas_manifest_v5";
     const COLOR = {
         frame: "#56e6ff",
         walkable: "#58ff9e",
@@ -477,16 +478,18 @@
         node: "#f2edf8"
     };
     const MODE_HELP = {
-        select: "Select Mode: click a cyan box, node, or line to edit it in the right panel.",
-        move: "Move Mode: drag a node or cyan-box corner. The item moves when you release.",
+        select: "Select Mode: click a cyan box, node, or line to edit it.",
+        move: "Move Mode: drag a node, cyan box, or cyan-box corner.",
         addNode: "Add Node Mode: click inside the selected cyan box to add a node.",
-        addLine: "Add Line Mode: press on a node, drag to another node, and release to connect them.",
-        addBox: "Add Box Mode: click to create a cyan box. Drag after creation by using Move Mode.",
+        addLine: "Add Line Mode: press on a node, drag to another node, release to connect.",
+        addBox: "Add Box Mode: click to create a cyan box.",
         delete: "Delete Mode: click a line or box to remove it. Click a node to remove it and attached lines."
     };
 
     const canvas = document.getElementById("atlas");
     const ctx = canvas.getContext("2d");
+    const imageFile = document.getElementById("image-file");
+    const manifestFile = document.getElementById("manifest-file");
     const modeButtons = Array.from(document.querySelectorAll("#topbar button[data-mode]"));
     const lineKindEl = document.getElementById("line-kind");
     const modeHelp = document.getElementById("mode-help");
@@ -534,6 +537,7 @@
     let selectedLineId = null;
     let drag = null;
     let lineStart = null;
+    let suppressSync = false;
 
     function splitCsv(text) {
         return String(text || "").split(",").map((value) => value.trim()).filter(Boolean);
@@ -611,15 +615,6 @@
                     tags: Array.isArray(feature.tags) ? feature.tags : []
                 });
             }
-            if (feature.closed && ids.length > 2) {
-                object.lines.push({
-                    id: nextLineId(object, feature.kind || "blockable"),
-                    kind: feature.kind || "blockable",
-                    from: ids[ids.length - 1],
-                    to: ids[0],
-                    tags: Array.isArray(feature.tags) ? feature.tags : []
-                });
-            }
         }
     }
 
@@ -632,16 +627,14 @@
         return obj ? manifest.frames[obj.frame] : null;
     }
 
-    function localPoint(worldPoint, obj = object()) {
+    function localPoint(world, obj = object()) {
         const f = obj ? manifest.frames[obj.frame] : null;
-        if (!f) return { x: 0, y: 0 };
-        return { x: snap(worldPoint.x - f.x), y: snap(worldPoint.y - f.y) };
+        return f ? { x: snap(world.x - f.x), y: snap(world.y - f.y) } : { x: 0, y: 0 };
     }
 
     function worldPoint(local, obj = object()) {
         const f = obj ? manifest.frames[obj.frame] : null;
-        if (!f) return { x: local.x, y: local.y };
-        return { x: f.x + local.x, y: f.y + local.y };
+        return f ? { x: f.x + local.x, y: f.y + local.y } : { x: local.x, y: local.y };
     }
 
     function snap(value) {
@@ -748,6 +741,7 @@
         if (atlasImage) {
             ctx.drawImage(atlasImage, 0, 0, atlasImage.naturalWidth * zoom, atlasImage.naturalHeight * zoom);
         }
+
         ensureObjects();
         for (const [id, obj] of Object.entries(manifest.objects)) {
             const f = manifest.frames[obj.frame];
@@ -755,10 +749,7 @@
             const selected = id === selectedObjectId;
             drawRect(f, selected ? COLOR.selected : COLOR.frame, "rgba(86,230,255,0.035)", selected ? 3 : 1.5);
             drawText(f.x + 4, Math.max(12, f.y - 5), id, selected ? COLOR.selected : COLOR.frame);
-            if (selected) {
-                const corners = frameCorners(f);
-                corners.forEach((corner) => drawCorner(corner));
-            }
+            if (selected) frameCorners(f).forEach((corner) => drawCorner(corner));
 
             for (const line of obj.lines) {
                 const a = getNode(obj, line.from);
@@ -769,20 +760,18 @@
 
             if (selected) {
                 for (const node of obj.nodes) {
-                    const lineKinds = obj.lines.filter((line) => line.from === node.id || line.to === node.id).map((line) => line.kind);
-                    const color = lineKinds.includes("killable") ? COLOR.killable :
-                        lineKinds.includes("damaging") ? COLOR.damaging :
-                        lineKinds.includes("blockable") ? COLOR.blockable :
-                        lineKinds.includes("walkable") ? COLOR.walkable :
+                    const kinds = obj.lines.filter((line) => line.from === node.id || line.to === node.id).map((line) => line.kind);
+                    const color = kinds.includes("killable") ? COLOR.killable :
+                        kinds.includes("damaging") ? COLOR.damaging :
+                        kinds.includes("blockable") ? COLOR.blockable :
+                        kinds.includes("walkable") ? COLOR.walkable :
                         COLOR.node;
                     drawNode(worldPoint(node, obj), color, node.id === selectedNodeId);
                 }
             }
         }
 
-        if (lineStart && drag?.point) {
-            drawLine(lineStart.point, drag.point, COLOR[lineKindEl.value] || COLOR.blockable, true);
-        }
+        if (lineStart && drag?.point) drawLine(lineStart.point, drag.point, COLOR[lineKindEl.value] || COLOR.blockable, true);
     }
 
     function frameCorners(f) {
@@ -801,9 +790,7 @@
         const wy = point.y - a.y;
         const len2 = vx * vx + vy * vy || 1;
         const t = Math.max(0, Math.min(1, (wx * vx + wy * vy) / len2));
-        const px = a.x + vx * t;
-        const py = a.y + vy * t;
-        return Math.hypot(point.x - px, point.y - py);
+        return Math.hypot(point.x - (a.x + vx * t), point.y - (a.y + vy * t));
     }
 
     function hitTest(point) {
@@ -814,21 +801,16 @@
             const f = frame();
             if (obj && f) {
                 for (const corner of frameCorners(f)) {
-                    if (Math.hypot(point.x - corner.x, point.y - corner.y) <= radius) {
-                        return { type: "corner", objectId: selectedObjectId, corner: corner.name };
-                    }
+                    if (Math.hypot(point.x - corner.x, point.y - corner.y) <= radius) return { type: "corner", objectId: selectedObjectId, corner: corner.name };
                 }
                 for (const node of obj.nodes) {
                     const wp = worldPoint(node, obj);
-                    if (Math.hypot(point.x - wp.x, point.y - wp.y) <= radius) {
-                        return { type: "node", objectId: selectedObjectId, nodeId: node.id };
-                    }
+                    if (Math.hypot(point.x - wp.x, point.y - wp.y) <= radius) return { type: "node", objectId: selectedObjectId, nodeId: node.id };
                 }
                 for (const line of obj.lines) {
                     const a = getNode(obj, line.from);
                     const b = getNode(obj, line.to);
-                    if (!a || !b) continue;
-                    if (pointToSegmentDistance(point, worldPoint(a, obj), worldPoint(b, obj)) <= radius) {
+                    if (a && b && pointToSegmentDistance(point, worldPoint(a, obj), worldPoint(b, obj)) <= radius) {
                         return { type: "line", objectId: selectedObjectId, lineId: line.id };
                     }
                 }
@@ -838,9 +820,7 @@
         for (const [id, obj] of Object.entries(manifest.objects)) {
             const f = manifest.frames[obj.frame];
             if (!f) continue;
-            if (point.x >= f.x && point.x <= f.x + f.w && point.y >= f.y && point.y <= f.y + f.h) {
-                return { type: "box", objectId: id };
-            }
+            if (point.x >= f.x && point.x <= f.x + f.w && point.y >= f.y && point.y <= f.y + f.h) return { type: "box", objectId: id };
         }
 
         return null;
@@ -888,12 +868,14 @@
     }
 
     function syncAll() {
+        suppressSync = true;
         syncAtlasFields();
         syncObjectFields();
         syncNodeFields();
         syncLineFields();
         renderLists();
-        refreshJson();
+        refreshJson(false);
+        suppressSync = false;
         draw();
     }
 
@@ -945,6 +927,7 @@
     }
 
     function applyObjectFields() {
+        if (suppressSync) return;
         applyAtlasFields();
         const oldId = selectedObjectId;
         const newId = objectIdEl.value.trim() || oldId || nextObjectId();
@@ -1008,8 +991,8 @@
         persistAndRedraw();
     }
 
-    function refreshJson() {
-        applyAtlasFields();
+    function refreshJson(applyFields = true) {
+        if (applyFields) applyAtlasFields();
         manifestJson.value = JSON.stringify(manifest, null, 4);
     }
 
@@ -1112,8 +1095,7 @@
         const obj = manifest.objects[hit.objectId];
         if (hit.type === "node") deleteNode(obj, hit.nodeId);
         else if (hit.type === "line") deleteLine(obj, hit.lineId);
-        else if (hit.type === "box") deleteObject(hit.objectId);
-        else if (hit.type === "corner") deleteObject(hit.objectId);
+        else if (hit.type === "box" || hit.type === "corner") deleteObject(hit.objectId);
         persistAndRedraw();
     }
 
@@ -1158,17 +1140,13 @@
                 f.h = Math.max(1, y2 - newY);
                 f.y = newY;
             }
-            if (drag.corner.includes("s")) {
-                f.h = Math.max(1, snap(point.y) - f.y);
-            }
+            if (drag.corner.includes("s")) f.h = Math.max(1, snap(point.y) - f.y);
             if (drag.corner.includes("w")) {
                 const newX = snap(point.x);
                 f.w = Math.max(1, x2 - newX);
                 f.x = newX;
             }
-            if (drag.corner.includes("e")) {
-                f.w = Math.max(1, snap(point.x) - f.x);
-            }
+            if (drag.corner.includes("e")) f.w = Math.max(1, snap(point.x) - f.x);
             syncObjectFields();
             draw();
         }
@@ -1254,17 +1232,24 @@
 
     document.getElementById("load-default-image").addEventListener("click", () => {
         loadImageSrc("assets/theme_A_atlas_1.png");
-        setTimeout(() => {
-            if (!atlasImage) loadImageSrc("theme_A_atlas_1.png");
-        }, 60);
     });
 
-    document.getElementById("load-default-json").addEventListener("click", () => {
-        manifest = structuredClone(DEFAULT_MANIFEST);
-        ensureObjects();
-        selectedObjectId = Object.keys(manifest.objects)[0] || Object.keys(manifest.frames)[0] || null;
-        syncAll();
-        saveLocal();
+    document.getElementById("load-default-json").addEventListener("click", async () => {
+        try {
+            const response = await fetch("assets/theme_A_atlas_1_manifest.json", { cache: "no-store" });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            manifest = await response.json();
+            ensureObjects();
+            selectedObjectId = Object.keys(manifest.objects)[0] || Object.keys(manifest.frames)[0] || null;
+            selectedNodeId = null;
+            selectedLineId = null;
+            syncAll();
+            saveLocal();
+        } catch (error) {
+            alert(`Could not load assets/theme_A_atlas_1_manifest.json. ${error.message}`);
+        }
     });
 
     document.getElementById("zoom-in").addEventListener("click", () => setZoom(zoom + 0.15));
@@ -1312,24 +1297,13 @@
     document.getElementById("apply-object-fields").addEventListener("click", applyObjectFields);
     document.getElementById("apply-node").addEventListener("click", applyNodeFields);
     document.getElementById("apply-line").addEventListener("click", applyLineFields);
-    document.getElementById("delete-selected-node").addEventListener("click", () => {
-        const obj = object();
-        if (!obj || !selectedNodeId) return;
-        deleteNode(obj, selectedNodeId);
-        persistAndRedraw();
-    });
-    document.getElementById("delete-selected-line").addEventListener("click", () => {
-        const obj = object();
-        if (!obj || !selectedLineId) return;
-        deleteLine(obj, selectedLineId);
-        persistAndRedraw();
-    });
 
     document.getElementById("save-local").addEventListener("click", () => {
-        applyObjectFields();
+        applyAtlasFields();
         saveLocal();
         alert("Atlas data saved in this browser.");
     });
+
     document.getElementById("load-local").addEventListener("click", () => {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (!saved) {
@@ -1344,7 +1318,7 @@
         syncAll();
     });
 
-    document.getElementById("refresh-json").addEventListener("click", refreshJson);
+    document.getElementById("refresh-json").addEventListener("click", () => refreshJson());
     document.getElementById("copy-json").addEventListener("click", async () => {
         refreshJson();
         await navigator.clipboard.writeText(manifestJson.value);
@@ -1373,6 +1347,8 @@
     hitRadiusEl.value = "12";
     setMode("select");
     syncAll();
+
+    window.getIgnatiusAtlasManifest = () => JSON.parse(JSON.stringify(manifest));
 })();
 </script>
 </body>

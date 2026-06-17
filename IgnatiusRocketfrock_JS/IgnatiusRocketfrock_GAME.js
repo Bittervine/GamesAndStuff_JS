@@ -5,6 +5,7 @@ import {
     createInputFrame,
     createSubstepInputFrame,
     stepSimulation,
+    applyAtlasManifestsToWorld,
     resetPlayer,
     cloneGameState,
     serializeGameState
@@ -22,6 +23,7 @@ const tuningControlsEl = document.getElementById("tuning-controls");
 const tuningJsonEl = document.getElementById("tuning-json");
 const tuningMessageEl = document.getElementById("tuning-message");
 const eventFilterEl = document.getElementById("event-filter");
+const assetGuidesButton = document.getElementById("toggle-asset-guides");
 const toggleTuningButton = document.getElementById("toggle-tuning");
 const applyTuningJsonButton = document.getElementById("apply-tuning-json");
 const copyTuningJsonButton = document.getElementById("copy-tuning-json");
@@ -31,6 +33,7 @@ const tuningPanel = document.getElementById("tuning");
 let gameState = createInitialGameState();
 const input = new RocketfrockInput(window);
 const renderer = await createRenderer(canvas);
+applyLoadedAtlasCollisions();
 let accumulator = 0;
 let lastNow = performance.now();
 let lastInputFrame = createInputFrame();
@@ -39,6 +42,33 @@ const tuningSliders = new Map();
 
 setupTuningControls();
 setupTuningJsonControls();
+setupAssetGuidesButton();
+
+function setupAssetGuidesButton() {
+    if (!assetGuidesButton) {
+        return;
+    }
+    const update = () => {
+        assetGuidesButton.textContent = `Asset guides: ${gameState.debug.showAssetGuides ? "on" : "off"}`;
+        assetGuidesButton.setAttribute("aria-pressed", gameState.debug.showAssetGuides ? "true" : "false");
+    };
+    assetGuidesButton.addEventListener("click", () => {
+        gameState.debug.showAssetGuides = !gameState.debug.showAssetGuides;
+        update();
+    });
+    update();
+}
+
+function applyLoadedAtlasCollisions() {
+    if (!renderer || typeof renderer.getEnvironmentManifests !== "function") {
+        console.warn("Atlas manifest collision data could not be read from the renderer. Using fallback rectangle collision.");
+        return;
+    }
+    const applied = applyAtlasManifestsToWorld(gameState, renderer.getEnvironmentManifests());
+    if (!applied) {
+        console.warn("Atlas manifest collision data was not available from assets/theme_A_atlas_1_manifest.json. Using fallback rectangle collision.");
+    }
+}
 
 function frame(now) {
     const realDt = Math.min(0.08, (now - lastNow) / 1000);
@@ -130,8 +160,8 @@ function updateDebugText() {
         `pos (${p.x.toFixed(1)}, ${p.y.toFixed(1)})  vel (${p.vx.toFixed(1)}, ${p.vy.toFixed(1)})`,
         `ground:${p.onGround}  facing:${p.facing > 0 ? "right" : "left"}  boost:${gameState.equipment.rocket.attachedBoosting}  hoverA:${gameState.equipment.rocket.boostAccelerationNow.toFixed(0)}  hoverLimit:${gameState.tuning.attachedBoostHoverFallSpeed.toFixed(0)}`,
         `fuel:${fuel.amount.toFixed(2)}  delay:${fuel.rechargeDelayTimer.toFixed(2)}  cap:${fuel.rechargeCap}  rechargeLatched:${fuel.rechargeLatched ? "yes" : "no"}  groundRecharge:${gameState.tuning.fuelRechargeRequiresGround !== false}  kick:${gameState.equipment.rocket.boostKickCharge.toFixed(2)}  smokeDown:${(gameState.tuning.attachedBoostSmokePuffDownSpeed ?? 170).toFixed(0)}  bulbFlash:${(gameState.equipment.rocket.fuelBulbFlashTimer ?? 0).toFixed(2)}`,
-        `rockets:${gameState.projectiles.length}  smoke:${gameState.effects?.smokePuffs?.length ?? 0}  upLaunch:${gameState.tuning.rocketProjectileUpLaunchSeconds.toFixed(2)}  homing:${gameState.tuning.rocketProjectileHomingStrength.toFixed(2)}  target:${gameState.targets[0].x.toFixed(0)},${gameState.targets[0].y.toFixed(0)}`,
-        inputText + `  inputConsole:${input.isConsoleLoggingEnabled() ? "on" : "off"}`,
+        `rockets:${gameState.projectiles.length}  smoke:${gameState.effects?.smokePuffs?.length ?? 0}  collision:${gameState.world.collisionMode || "rectangles"} seg:${gameState.world.segments?.length ?? 0}  upLaunch:${gameState.tuning.rocketProjectileUpLaunchSeconds.toFixed(2)}  homing:${gameState.tuning.rocketProjectileHomingStrength.toFixed(2)}  target:${gameState.targets[0].x.toFixed(0)},${gameState.targets[0].y.toFixed(0)}`,
+        inputText + `  inputConsole:${input.isConsoleLoggingEnabled() ? "on" : "off"}  assetGuides:${gameState.debug.showAssetGuides ? "on" : "off"}`,
         `eventFilter:${gameState.debug.eventFilterText || "(none)"}`,
         "events:",
         events || "(none after filter)",
@@ -339,6 +369,7 @@ window.__rocketfrockDev = {
     },
     reset() {
         gameState = createInitialGameState();
+        applyLoadedAtlasCollisions();
     },
     setPhase(phase) {
         renderer.forcePhase = phase;
