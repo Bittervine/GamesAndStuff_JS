@@ -1,0 +1,208 @@
+{
+    "meta": {
+        "version": 2,
+        "note": "Theme A cave/ruin atlas. Frames are whole-island art chunks for placeable arena pieces. Additional object metadata can be authored in atlas_manifest_tool.html."
+    },
+    "atlasId": "themeA1",
+    "image": "theme_A_atlas_1.png",
+    "frames": {
+        "ledge_left_chunk": {
+            "x": 56,
+            "y": 60,
+            "w": 191,
+            "h": 124
+        },
+        "ledge_flat_long_a": {
+            "x": 268,
+            "y": 84,
+            "w": 290,
+            "h": 88
+        },
+        "ledge_flat_long_b": {
+            "x": 576,
+            "y": 84,
+            "w": 335,
+            "h": 89
+        },
+        "ledge_blue_crystals": {
+            "x": 927,
+            "y": 85,
+            "w": 322,
+            "h": 90
+        },
+        "ledge_mossy_left": {
+            "x": 43,
+            "y": 204,
+            "w": 275,
+            "h": 116
+        },
+        "ledge_mossy_right": {
+            "x": 1148,
+            "y": 204,
+            "w": 343,
+            "h": 123
+        },
+        "ledge_flat_mid": {
+            "x": 625,
+            "y": 210,
+            "w": 264,
+            "h": 94
+        },
+        "ledge_purple_crystals": {
+            "x": 896,
+            "y": 208,
+            "w": 238,
+            "h": 103
+        },
+        "ledge_small_round": {
+            "x": 187,
+            "y": 350,
+            "w": 151,
+            "h": 52
+        },
+        "ledge_small_flat": {
+            "x": 207,
+            "y": 413,
+            "w": 114,
+            "h": 42
+        },
+        "ruin_stairs": {
+            "x": 1100,
+            "y": 333,
+            "w": 160,
+            "h": 112
+        },
+        "hanging_ledge": {
+            "x": 1286,
+            "y": 363,
+            "w": 196,
+            "h": 134
+        },
+        "rubble_skull": {
+            "x": 366,
+            "y": 459,
+            "w": 261,
+            "h": 67
+        },
+        "rubble_long": {
+            "x": 648,
+            "y": 479,
+            "w": 278,
+            "h": 41
+        },
+        "floor_big_moss": {
+            "x": 43,
+            "y": 559,
+            "w": 290,
+            "h": 142
+        },
+        "pillar_broken": {
+            "x": 831,
+            "y": 541,
+            "w": 126,
+            "h": 225
+        },
+        "pillar_round": {
+            "x": 516,
+            "y": 551,
+            "w": 125,
+            "h": 206
+        },
+        "pillar_plain": {
+            "x": 351,
+            "y": 552,
+            "w": 131,
+            "h": 207
+        },
+        "arch_ruin": {
+            "x": 970,
+            "y": 566,
+            "w": 407,
+            "h": 206
+        },
+        "floor_long_terrace": {
+            "x": 37,
+            "y": 721,
+            "w": 734,
+            "h": 159
+        },
+        "floor_cold_platform": {
+            "x": 794,
+            "y": 789,
+            "w": 336,
+            "h": 85
+        },
+        "floor_hanging_right": {
+            "x": 1151,
+            "y": 789,
+            "w": 338,
+            "h": 120
+        },
+        "floor_mossy_low": {
+            "x": 47,
+            "y": 889,
+            "w": 342,
+            "h": 88
+        },
+        "wood_barrier_low": {
+            "x": 520,
+            "y": 898,
+            "w": 174,
+            "h": 77
+        },
+        "wood_spikes_low": {
+            "x": 705,
+            "y": 893,
+            "w": 227,
+            "h": 82
+        },
+        "skull_pile_small": {
+            "x": 950,
+            "y": 904,
+            "w": 128,
+            "h": 72
+        },
+        "rubble_low_small": {
+            "x": 1305,
+            "y": 910,
+            "w": 184,
+            "h": 63
+        },
+        "lantern_gold_small": {
+            "x": 665,
+            "y": 342,
+            "w": 42,
+            "h": 95
+        },
+        "lantern_gold_round": {
+            "x": 721,
+            "y": 344,
+            "w": 42,
+            "h": 93
+        },
+        "lantern_gold_tall": {
+            "x": 780,
+            "y": 335,
+            "w": 44,
+            "h": 102
+        },
+        "lantern_silver_tall": {
+            "x": 839,
+            "y": 337,
+            "w": 41,
+            "h": 101
+        },
+        "lantern_gold_medium": {
+            "x": 897,
+            "y": 342,
+            "w": 41,
+            "h": 95
+        },
+        "lantern_silver_round": {
+            "x": 956,
+            "y": 342,
+            "w": 41,
+            "h": 95
+        }
+    }
+}

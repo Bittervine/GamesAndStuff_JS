@@ -1,75 +1,37 @@
-# Ignatius Rocketfrock: Phase 1.002 Physics Arena
 
-This bundle is a second small Phase 1 patch, not Phase 2. It keeps the project focused on the physics arena and tuning tools.
+# Ignatius Rocketfrock Theme A 002
 
-## Run
+This build does two things:
 
-Use a local static server from this folder:
+1. Rebuilds the test arena around the actual whole-island blocks available in `theme_A_atlas_1.png` instead of trying to force the atlas to mimic the earlier abstract calibration arena.
+2. Adds a real `atlas_manifest_tool.html` editor so atlas sheets can be annotated by hand.
 
-```bash
-python3 -m http.server 8000
-```
+## What changed in the arena
 
-Then open:
+The new Theme A arena is a fresh cave/ruin courtyard layout with:
 
-```text
-http://localhost:8000/game.html
-```
+- a left start courtyard
+- a broad central terrace for running and jumping
+- an upper route across whole ledges
+- a ruin gallery / hanging walkway section
+- a right-side vertical boost pocket for rocket-hover testing
+- existing test dummies, pickups, and homing dot repositioned into the new space
 
-The rig reference page is available at:
+The environment art is still treated as **whole placeable chunks**. Collision remains simple and simulation-owned.
 
-```text
-http://localhost:8000/wizard_rig_runner.html
-```
+## Atlas data editor
 
-## Controls
+Open `atlas_manifest_tool.html` in a browser.
 
-- Move: Left/Right arrows or A/D
-- Jump: Up arrow, W, or Z
-- Rocket double-jump / hover: press jump again while airborne and hold
-- Launch homing test rocket: Space, X, or K
-- Pause: P
-- Single-frame step: O
-- Reset: R
-- Toggle hitboxes: H
-- Toggle velocity vector: V
-- Toggle collision drawing: C
-- Export `gameState`: E
-- Toggle debug panel: F1
+It supports:
 
-## What changed in Phase 1.001
+- loading an atlas image
+- loading/saving manifest JSON
+- drawing object frame rectangles
+- drawing local regions such as walkable, solid, destructible, oneway, hazard, decor, and weakpoint
+- per-object metadata: type, layer hint, mirrorable, default scale, pivot, tags, notes
+- per-region metadata: id, kind, x/y/w/h, tags
+- copy/download JSON export
+- browser-local save/load for work in progress
 
-- The attached rocket boost now starts with a stronger kick, then decays into a gentler sustained thrust.
-- Boost power also tapers as fuel runs down, so high fuel gives stronger lift and low fuel becomes more hover/slow-fall than full lift.
-- Ignatius now stands still when idle: both feet stay on the ground and the arm/leg run cycle stops.
-- Ignatius stands nearly upright when idle and leans a little more when running.
-- The tuning panel is collapsible.
-- The current tuning block is shown as editable JSON in a textbox, with Apply, Copy, and Refresh buttons.
-- A temporary homing target dot was added for Phase 1 rocket testing.
-- Pressing Space launches a simple homing rocket toward the dot.
-- The rocket sprite is drawn in flight.
-- Rocket flame and spark particles are drawn during attached boost and launched rocket flight.
-
-## Tuning JSON
-
-The JSON textarea shows only `gameState.tuning`. This is usually the part you want to copy when you find a feel that works. The full game state can still be exported with `E`.
-
-## OCR note
-
-The available image in this run was a blank white image with a red square, so no slider numbers could be extracted from it. The Phase 1.001 defaults therefore start from the previous tuned values and add the new boost / homing fields.
-
-## Phase 1.002 changes
-
-- The boost kick is now a separate charge on `gameState.equipment.rocket.boostKickCharge`.
-- Starting the attached rocket consumes the kick charge immediately.
-- Rapid tap/restart attempts can sustain boost if fuel remains, but do not receive another full kick or charged burst.
-- The kick charge recharges first after `rechargeDelayAfterUse` reaches zero.
-- The launched test rocket starts straight upward for `rocketProjectileUpLaunchSeconds`, then homes toward the debug dot.
-- The launched rocket now draws a long sparkling trail, roughly one third of the screen.
-- Tuning JSON remains available in the collapsible panel.
-
-## Test
-
-```bash
-node testbench.mjs
-```
+The exported JSON format is intended to be editable and future-friendly. The current renderer only needs `frames`, but the richer `objects` block is there for later gameplay use.

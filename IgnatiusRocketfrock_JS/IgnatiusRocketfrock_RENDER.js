@@ -20,6 +20,53 @@ const ASSET_CANDIDATES = {
     rocket: ["assets/wizard_rocket.png", "wizard_rocket.png"]
 };
 
+
+const FALLBACK_THEME_A1_MANIFEST = {
+    meta: { version: 1, note: "Fallback copy of assets/theme_A_atlas_1_manifest.json for file:// testing." },
+    atlasId: "themeA1",
+    image: "theme_A_atlas_1.png",
+    frames: {
+        ledge_left_chunk: { x: 56, y: 60, w: 191, h: 124 },
+        ledge_flat_long_a: { x: 268, y: 84, w: 290, h: 88 },
+        ledge_flat_long_b: { x: 576, y: 84, w: 335, h: 89 },
+        ledge_blue_crystals: { x: 927, y: 85, w: 322, h: 90 },
+        ledge_mossy_left: { x: 43, y: 204, w: 275, h: 116 },
+        ledge_mossy_right: { x: 1148, y: 204, w: 343, h: 123 },
+        ledge_flat_mid: { x: 625, y: 210, w: 264, h: 94 },
+        ledge_purple_crystals: { x: 896, y: 208, w: 238, h: 103 },
+        ledge_small_round: { x: 187, y: 350, w: 151, h: 52 },
+        ledge_small_flat: { x: 207, y: 413, w: 114, h: 42 },
+        ruin_stairs: { x: 1100, y: 333, w: 160, h: 112 },
+        hanging_ledge: { x: 1286, y: 363, w: 196, h: 134 },
+        rubble_skull: { x: 366, y: 459, w: 261, h: 67 },
+        rubble_long: { x: 648, y: 479, w: 278, h: 41 },
+        floor_big_moss: { x: 43, y: 559, w: 290, h: 142 },
+        pillar_broken: { x: 831, y: 541, w: 126, h: 225 },
+        pillar_round: { x: 516, y: 551, w: 125, h: 206 },
+        pillar_plain: { x: 351, y: 552, w: 131, h: 207 },
+        arch_ruin: { x: 970, y: 566, w: 407, h: 206 },
+        floor_long_terrace: { x: 37, y: 721, w: 734, h: 159 },
+        floor_cold_platform: { x: 794, y: 789, w: 336, h: 85 },
+        floor_hanging_right: { x: 1151, y: 789, w: 338, h: 120 },
+        floor_mossy_low: { x: 47, y: 889, w: 342, h: 88 },
+        wood_barrier_low: { x: 520, y: 898, w: 174, h: 77 },
+        wood_spikes_low: { x: 705, y: 893, w: 227, h: 82 },
+        skull_pile_small: { x: 950, y: 904, w: 128, h: 72 },
+        rubble_low_small: { x: 1305, y: 910, w: 184, h: 63 },
+        lantern_silver_round: { x: 956, y: 342, w: 41, h: 95 },
+        lantern_gold_medium: { x: 897, y: 342, w: 41, h: 95 },
+        lantern_silver_tall: { x: 839, y: 337, w: 41, h: 101 },
+        lantern_gold_tall: { x: 780, y: 335, w: 44, h: 102 },
+        lantern_gold_round: { x: 721, y: 344, w: 42, h: 93 },
+        lantern_gold_small: { x: 665, y: 342, w: 42, h: 95 }
+    }
+};
+
+const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = [
+    { url: "assets/theme_A_atlas_1_manifest.json", fallback: FALLBACK_THEME_A1_MANIFEST },
+    { url: "theme_A_atlas_1_manifest.json", fallback: FALLBACK_THEME_A1_MANIFEST }
+];
+
 const FALLBACK_RIG_CONFIG = {
     meta: { version: 2 },
     drawOrder: FIXED_DRAW_ORDER,
@@ -86,16 +133,18 @@ export async function createRenderer(canvas) {
     const assets = new Map();
     const rigConfig = await loadRigConfig();
     await loadAllAssets(assets);
+    const environmentAtlases = await loadEnvironmentAtlases();
 
-    return new RocketfrockRenderer(canvas, ctx, assets, normalizeRigConfig(rigConfig));
+    return new RocketfrockRenderer(canvas, ctx, assets, normalizeRigConfig(rigConfig), environmentAtlases);
 }
 
 class RocketfrockRenderer {
-    constructor(canvas, ctx, assets, rigConfig) {
+    constructor(canvas, ctx, assets, rigConfig, environmentAtlases = new Map()) {
         this.canvas = canvas;
         this.ctx = ctx;
         this.assets = assets;
         this.rigConfig = rigConfig;
+        this.environmentAtlases = environmentAtlases;
         this.phase = 0;
         this.forcePhase = null;
         this.visualPose = null;
@@ -201,29 +250,87 @@ class RocketfrockRenderer {
 
     drawWorld(state, view) {
         const ctx = this.ctx;
-        for (const solid of state.world.solids) {
-            const p = this.worldToScreen(view, solid.x, solid.y);
-            const w = solid.w * view.zoom;
-            const h = solid.h * view.zoom;
-            ctx.save();
-            ctx.fillStyle = solid.kind === "floor" ? "rgba(122, 104, 149, 0.45)" : "rgba(92, 81, 124, 0.52)";
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
-            ctx.lineWidth = 1.5 * view.dpr;
-            ctx.beginPath();
-            roundedRect(ctx, p.x, p.y, w, h, 8 * view.dpr);
-            ctx.fill();
-            ctx.stroke();
-            ctx.restore();
+        const drewVisuals = this.drawAtlasVisuals(state, view, "decorBack") |
+            this.drawAtlasVisuals(state, view, "terrain");
+
+        const shouldDrawCollision = Boolean(state.debug.showCollision) || !drewVisuals;
+        if (shouldDrawCollision) {
+            for (const solid of state.world.solids) {
+                const p = this.worldToScreen(view, solid.x, solid.y);
+                const w = solid.w * view.zoom;
+                const h = solid.h * view.zoom;
+                ctx.save();
+                if (state.debug.showCollision) {
+                    ctx.fillStyle = solid.kind === "floor" ? "rgba(122, 104, 149, 0.18)" : "rgba(92, 81, 124, 0.20)";
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.26)";
+                } else {
+                    ctx.fillStyle = solid.kind === "floor" ? "rgba(122, 104, 149, 0.45)" : "rgba(92, 81, 124, 0.52)";
+                    ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
+                }
+                ctx.lineWidth = 1.5 * view.dpr;
+                ctx.beginPath();
+                roundedRect(ctx, p.x, p.y, w, h, 8 * view.dpr);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
         }
 
+        this.drawAtlasVisuals(state, view, "decorFront");
+
+        if (state.debug.showCollision) {
+            ctx.save();
+            ctx.font = `${12 * view.dpr}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+            ctx.fillStyle = "rgba(255, 255, 255, 0.64)";
+            for (const label of state.world.labels) {
+                const p = this.worldToScreen(view, label.x, label.y);
+                ctx.fillText(label.text, p.x, p.y);
+            }
+            ctx.restore();
+        }
+    }
+
+    drawAtlasVisuals(state, view, layer) {
+        const visuals = state.world.visuals || [];
+        let drewAny = false;
+        for (const visual of visuals) {
+            if ((visual.layer || "terrain") !== layer) {
+                continue;
+            }
+            if (visual.kind !== "atlasSprite") {
+                continue;
+            }
+            if (this.drawAtlasSpriteVisual(visual, view)) {
+                drewAny = true;
+            }
+        }
+        return drewAny;
+    }
+
+    drawAtlasSpriteVisual(visual, view) {
+        const atlas = this.environmentAtlases.get(visual.atlasId);
+        if (!atlas || atlas.missing || !atlas.image) {
+            return false;
+        }
+        const frame = atlas.frames?.[visual.frame];
+        if (!frame) {
+            return false;
+        }
+        const ctx = this.ctx;
+        const p = this.worldToScreen(view, visual.x, visual.y);
+        const w = visual.w * view.zoom;
+        const h = visual.h * view.zoom;
         ctx.save();
-        ctx.font = `${12 * view.dpr}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
-        ctx.fillStyle = "rgba(255, 255, 255, 0.56)";
-        for (const label of state.world.labels) {
-            const p = this.worldToScreen(view, label.x, label.y);
-            ctx.fillText(label.text, p.x, p.y);
+        ctx.globalAlpha *= visual.alpha ?? 1;
+        if (visual.mirrorX) {
+            ctx.translate(p.x + w, p.y);
+            ctx.scale(-1, 1);
+            ctx.drawImage(atlas.image, frame.x, frame.y, frame.w, frame.h, 0, 0, w, h);
+        } else {
+            ctx.drawImage(atlas.image, frame.x, frame.y, frame.w, frame.h, p.x, p.y, w, h);
         }
         ctx.restore();
+        return true;
     }
 
     drawTargets(state, view) {
@@ -925,6 +1032,70 @@ async function loadAllAssets(assets) {
     await Promise.all(FIXED_DRAW_ORDER.map(async (name) => {
         assets.set(name, await loadPart(name));
     }));
+}
+
+async function loadEnvironmentAtlases() {
+    const atlases = new Map();
+    for (const candidate of ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES) {
+        let manifest = null;
+        try {
+            const response = await fetch(candidate.url, { cache: "no-store" });
+            if (response.ok) {
+                manifest = await response.json();
+            }
+        } catch (error) {
+            // file:// cannot reliably fetch JSON in all browsers. Use fallback metadata below.
+        }
+
+        manifest = manifest || candidate.fallback;
+        if (!manifest || !manifest.atlasId || atlases.has(manifest.atlasId)) {
+            continue;
+        }
+
+        const basePath = pathDirectory(candidate.url);
+        const imageCandidates = [
+            basePath + manifest.image,
+            manifest.image,
+            `assets/${manifest.image}`
+        ];
+
+        let image = null;
+        let source = null;
+        for (const url of imageCandidates) {
+            try {
+                image = await loadImage(url);
+                source = url;
+                break;
+            } catch (error) {
+                // Try the next path.
+            }
+        }
+
+        if (image) {
+            atlases.set(manifest.atlasId, {
+                id: manifest.atlasId,
+                image,
+                frames: manifest.frames || {},
+                source,
+                manifest,
+                missing: false
+            });
+        } else {
+            atlases.set(manifest.atlasId, {
+                id: manifest.atlasId,
+                frames: manifest.frames || {},
+                manifest,
+                missing: true
+            });
+        }
+    }
+    return atlases;
+}
+
+function pathDirectory(url) {
+    const text = String(url || "");
+    const slash = text.lastIndexOf("/");
+    return slash >= 0 ? text.slice(0, slash + 1) : "";
 }
 
 async function loadPart(name) {

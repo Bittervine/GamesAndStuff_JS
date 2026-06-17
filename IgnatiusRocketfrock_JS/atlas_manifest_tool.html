@@ -1,0 +1,1379 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ignatius Atlas Manifest Tool</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --panel: rgba(23, 20, 31, 0.96);
+            --panel2: rgba(255,255,255,0.05);
+            --ink: #f2edf8;
+            --muted: #cdbfdc;
+            --line: rgba(255,255,255,0.16);
+            --accent: #c9a7ff;
+            --cyan: #56e6ff;
+            --green: #58ff9e;
+            --yellow: #ffe15e;
+            --orange: #ff9f43;
+            --red: #ff4f61;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            min-height: 100%;
+            background: linear-gradient(180deg, #16121d 0%, #0d0b12 100%);
+            color: var(--ink);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 470px;
+            min-height: 100vh;
+        }
+
+        #topbar {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--line);
+            background: rgba(15, 12, 21, 0.94);
+            backdrop-filter: blur(10px);
+        }
+
+        #topbar button, #topbar select {
+            width: auto;
+            min-width: 0;
+            padding: 7px 10px;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+
+        #topbar button.active {
+            border-color: rgba(201, 167, 255, 0.84);
+            background: rgba(201, 167, 255, 0.22);
+        }
+
+        #viewport-shell {
+            min-width: 0;
+            display: grid;
+            grid-template-rows: auto 1fr;
+        }
+
+        #viewport {
+            overflow: auto;
+            padding: 16px;
+        }
+
+        canvas {
+            display: block;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background:
+                linear-gradient(45deg, rgba(255,255,255,0.07) 25%, transparent 25%),
+                linear-gradient(-45deg, rgba(255,255,255,0.07) 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.07) 75%),
+                linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.07) 75%);
+            background-size: 24px 24px;
+            background-position: 0 0, 0 12px, 12px -12px, -12px 0;
+            touch-action: none;
+        }
+
+        aside {
+            overflow: auto;
+            max-height: 100vh;
+            border-left: 1px solid var(--line);
+            background: var(--panel);
+            padding: 16px;
+        }
+
+        h1 {
+            margin: 0 0 6px;
+            font-size: 20px;
+        }
+
+        h2 {
+            margin: 0 0 8px;
+            font-size: 14px;
+            color: var(--accent);
+        }
+
+        p {
+            margin: 0 0 10px;
+            font-size: 13px;
+            line-height: 1.35;
+            color: var(--muted);
+        }
+
+        .box {
+            background: var(--panel2);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 12px;
+            margin: 0 0 12px;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        label {
+            display: grid;
+            gap: 4px;
+            font-size: 12px;
+            color: var(--muted);
+            margin: 8px 0;
+        }
+
+        input, select, textarea, button {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 8px 9px;
+            font: inherit;
+            color: var(--ink);
+            background: rgba(0,0,0,0.22);
+        }
+
+        input[type="checkbox"] {
+            width: auto;
+        }
+
+        button {
+            cursor: pointer;
+            font-weight: 650;
+            background: rgba(255,255,255,0.08);
+        }
+
+        button:hover {
+            background: rgba(255,255,255,0.14);
+        }
+
+        textarea {
+            min-height: 220px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 11px;
+            white-space: pre;
+        }
+
+        .inline {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .small {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .list {
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            max-height: 180px;
+            overflow: auto;
+        }
+
+        .item {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 6px;
+            align-items: center;
+            padding: 7px 8px;
+            border-bottom: 1px solid var(--line);
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .item:last-child {
+            border-bottom: 0;
+        }
+
+        .item.selected {
+            background: rgba(201, 167, 255, 0.20);
+        }
+
+        .pill {
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 2px 6px;
+            color: var(--muted);
+            font-size: 10px;
+        }
+
+        .toplink {
+            display: inline-block;
+            margin-bottom: 10px;
+            color: var(--ink);
+            text-decoration: none;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 6px 10px;
+            background: rgba(255,255,255,0.08);
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        code {
+            color: var(--accent);
+        }
+
+        @media (max-width: 1050px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+
+            aside {
+                max-height: none;
+                border-left: 0;
+                border-top: 1px solid var(--line);
+            }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <section id="viewport-shell">
+        <div id="topbar">
+            <button data-mode="select" class="active">Select Mode</button>
+            <button data-mode="move">Move Mode</button>
+            <button data-mode="addNode">Add Node Mode</button>
+            <button data-mode="addLine">Add Line Mode</button>
+            <select id="line-kind">
+                <option value="walkable">walkable</option>
+                <option value="blockable">blockable</option>
+                <option value="damaging">damaging</option>
+                <option value="killable">killable</option>
+            </select>
+            <button data-mode="addBox">Add Box Mode</button>
+            <button data-mode="delete">Delete Mode</button>
+            <button id="zoom-out">Zoom −</button>
+            <button id="zoom-in">Zoom +</button>
+        </div>
+        <div id="viewport">
+            <canvas id="atlas" width="1400" height="900" aria-label="Atlas manifest editing canvas"></canvas>
+        </div>
+    </section>
+
+    <aside>
+        <a class="toplink" href="IgnatiusRocketfrock_JS.html">Back to main</a>
+        <h1>Atlas Manifest Tool</h1>
+        <p>
+            Cyan boxes are visual islands/assets. Feature lines use shared nodes: green walkable, yellow blockable, orange damaging, red killable.
+        </p>
+
+        <div class="box">
+            <div class="row">
+                <label>Atlas image<input id="image-file" type="file" accept="image/png,image/webp,image/jpeg"></label>
+                <label>Import JSON<input id="manifest-file" type="file" accept="application/json,.json"></label>
+            </div>
+            <div class="row">
+                <button id="load-default-image">Load theme_A_atlas_1.png</button>
+                <button id="load-default-json">Load default manifest</button>
+            </div>
+            <div class="row">
+                <button id="save-local">Save to browser</button>
+                <button id="load-local">Load browser save</button>
+            </div>
+        </div>
+
+        <div class="box">
+            <h2>Canvas options</h2>
+            <div class="row">
+                <label>Zoom<input id="zoom" type="number" min="0.25" max="4" step="0.05"></label>
+                <label>Hit radius<input id="hit-radius" type="number" min="3" max="40" step="1"></label>
+            </div>
+            <div class="inline"><input id="show-labels" type="checkbox" checked><span class="small">Show labels</span></div>
+            <div class="inline"><input id="snap-pixels" type="checkbox" checked><span class="small">Round to integer pixels</span></div>
+            <p class="small" id="mode-help"></p>
+        </div>
+
+        <div class="box">
+            <h2>Atlas metadata</h2>
+            <div class="row">
+                <label>Atlas ID<input id="atlas-id"></label>
+                <label>Image filename<input id="atlas-image-name"></label>
+            </div>
+            <label>Notes<textarea id="atlas-note"></textarea></label>
+        </div>
+
+        <div class="box">
+            <h2>Assets / cyan boxes</h2>
+            <div class="row">
+                <button id="new-object">New cyan box</button>
+                <button id="delete-object">Delete selected box</button>
+            </div>
+            <div id="object-list" class="list"></div>
+        </div>
+
+        <div class="box">
+            <h2>Selected asset</h2>
+            <label>ID/name<input id="object-id"></label>
+            <div class="row">
+                <label>Type
+                    <select id="object-type">
+                        <option value="platform">platform</option>
+                        <option value="floor">floor</option>
+                        <option value="decor">decor</option>
+                        <option value="pillar">pillar</option>
+                        <option value="barrier">barrier</option>
+                        <option value="hazard">hazard</option>
+                    </select>
+                </label>
+                <label>Layer
+                    <select id="object-layer">
+                        <option value="terrain">terrain</option>
+                        <option value="decorBack">decorBack</option>
+                        <option value="decorFront">decorFront</option>
+                    </select>
+                </label>
+            </div>
+            <div class="row">
+                <label>Default scale<input id="object-scale" type="number" step="0.05"></label>
+                <label class="inline"><input id="object-mirrorable" type="checkbox" checked> Mirrorable</label>
+            </div>
+            <div class="row">
+                <label>Pivot X<input id="pivot-x" type="number" step="0.01"></label>
+                <label>Pivot Y<input id="pivot-y" type="number" step="0.01"></label>
+            </div>
+            <label class="inline"><input id="object-destroyable" type="checkbox"> Destroyable rocket target</label>
+            <div class="row">
+                <label>Destroy HP<input id="destroy-hp" type="number" step="1"></label>
+                <label>Explosion radius<input id="destroy-radius" type="number" step="1"></label>
+            </div>
+            <label>Tags<input id="object-tags"></label>
+            <label>Notes<textarea id="object-notes"></textarea></label>
+        </div>
+
+        <div class="box">
+            <h2>Cyan box rectangle</h2>
+            <div class="row">
+                <label>x<input id="frame-x" type="number"></label>
+                <label>y<input id="frame-y" type="number"></label>
+            </div>
+            <div class="row">
+                <label>w<input id="frame-w" type="number"></label>
+                <label>h<input id="frame-h" type="number"></label>
+            </div>
+            <button id="apply-object-fields">Apply asset fields</button>
+        </div>
+
+        <div class="box">
+            <h2>Nodes and lines</h2>
+            <div class="row">
+                <button id="delete-selected-node">Delete selected node</button>
+                <button id="delete-selected-line">Delete selected line</button>
+            </div>
+            <div id="line-list" class="list"></div>
+        </div>
+
+        <div class="box">
+            <h2>Selected node</h2>
+            <div class="row">
+                <label>x<input id="node-x" type="number"></label>
+                <label>y<input id="node-y" type="number"></label>
+            </div>
+            <button id="apply-node">Apply node</button>
+        </div>
+
+        <div class="box">
+            <h2>Selected line</h2>
+            <div class="row">
+                <label>Kind
+                    <select id="selected-line-kind">
+                        <option value="walkable">walkable</option>
+                        <option value="blockable">blockable</option>
+                        <option value="damaging">damaging</option>
+                        <option value="killable">killable</option>
+                    </select>
+                </label>
+                <label>ID<input id="selected-line-id"></label>
+            </div>
+            <label>Tags<input id="selected-line-tags"></label>
+            <button id="apply-line">Apply line</button>
+        </div>
+
+        <div class="box">
+            <h2>Export</h2>
+            <div class="row">
+                <button id="refresh-json">Refresh JSON</button>
+                <button id="download-json">Download JSON</button>
+            </div>
+            <button id="copy-json">Copy JSON</button>
+            <textarea id="manifest-json" spellcheck="false"></textarea>
+            <p class="small">
+                Node coordinates are local to the cyan box. Lines connect node IDs. This is easier to edit than long unstructured polylines.
+            </p>
+        </div>
+    </aside>
+</main>
+
+<script>
+(() => {
+    "use strict";
+
+    const DEFAULT_MANIFEST = {
+        meta: {
+            version: 4,
+            note: "Theme A cave/ruin atlas. Cyan boxes identify visual islands/assets. Nodes and lines are local to each box."
+        },
+        atlasId: "themeA1",
+        image: "theme_A_atlas_1.png",
+        frames: {
+            ledge_left_chunk: { x: 56, y: 60, w: 191, h: 124 },
+            ledge_flat_long_a: { x: 268, y: 84, w: 290, h: 88 },
+            ledge_flat_long_b: { x: 576, y: 84, w: 335, h: 89 },
+            ledge_blue_crystals: { x: 927, y: 85, w: 322, h: 90 },
+            ledge_mossy_left: { x: 43, y: 204, w: 275, h: 116 },
+            ledge_mossy_right: { x: 1148, y: 204, w: 343, h: 123 },
+            ledge_flat_mid: { x: 625, y: 210, w: 264, h: 94 },
+            ledge_purple_crystals: { x: 896, y: 208, w: 238, h: 103 },
+            ledge_small_round: { x: 187, y: 350, w: 151, h: 52 },
+            ledge_small_flat: { x: 207, y: 413, w: 114, h: 42 },
+            ruin_stairs: { x: 1100, y: 333, w: 160, h: 112 },
+            hanging_ledge: { x: 1286, y: 363, w: 196, h: 134 },
+            rubble_skull: { x: 366, y: 459, w: 261, h: 67 },
+            rubble_long: { x: 648, y: 479, w: 278, h: 41 },
+            floor_big_moss: { x: 43, y: 559, w: 290, h: 142 },
+            pillar_broken: { x: 831, y: 541, w: 126, h: 225 },
+            pillar_round: { x: 516, y: 551, w: 125, h: 206 },
+            pillar_plain: { x: 351, y: 552, w: 131, h: 207 },
+            arch_ruin: { x: 970, y: 566, w: 407, h: 206 },
+            floor_long_terrace: { x: 37, y: 721, w: 734, h: 159 },
+            floor_cold_platform: { x: 794, y: 789, w: 336, h: 85 },
+            floor_hanging_right: { x: 1151, y: 789, w: 338, h: 120 },
+            floor_mossy_low: { x: 47, y: 889, w: 342, h: 88 },
+            wood_barrier_low: { x: 520, y: 898, w: 174, h: 77 },
+            wood_spikes_low: { x: 705, y: 893, w: 227, h: 82 },
+            skull_pile_small: { x: 950, y: 904, w: 128, h: 72 },
+            rubble_low_small: { x: 1305, y: 910, w: 184, h: 63 },
+            lantern_gold_small: { x: 665, y: 342, w: 42, h: 95 },
+            lantern_silver_tall: { x: 839, y: 337, w: 41, h: 101 }
+        },
+        objects: {}
+    };
+
+    const STORAGE_KEY = "ignatius_atlas_manifest_v4";
+    const COLOR = {
+        frame: "#56e6ff",
+        walkable: "#58ff9e",
+        blockable: "#ffe15e",
+        damaging: "#ff9f43",
+        killable: "#ff4f61",
+        selected: "#ffffff",
+        node: "#f2edf8"
+    };
+    const MODE_HELP = {
+        select: "Select Mode: click a cyan box, node, or line to edit it in the right panel.",
+        move: "Move Mode: drag a node or cyan-box corner. The item moves when you release.",
+        addNode: "Add Node Mode: click inside the selected cyan box to add a node.",
+        addLine: "Add Line Mode: press on a node, drag to another node, and release to connect them.",
+        addBox: "Add Box Mode: click to create a cyan box. Drag after creation by using Move Mode.",
+        delete: "Delete Mode: click a line or box to remove it. Click a node to remove it and attached lines."
+    };
+
+    const canvas = document.getElementById("atlas");
+    const ctx = canvas.getContext("2d");
+    const modeButtons = Array.from(document.querySelectorAll("#topbar button[data-mode]"));
+    const lineKindEl = document.getElementById("line-kind");
+    const modeHelp = document.getElementById("mode-help");
+
+    const atlasIdEl = document.getElementById("atlas-id");
+    const atlasImageNameEl = document.getElementById("atlas-image-name");
+    const atlasNoteEl = document.getElementById("atlas-note");
+    const objectList = document.getElementById("object-list");
+    const lineList = document.getElementById("line-list");
+    const objectIdEl = document.getElementById("object-id");
+    const objectTypeEl = document.getElementById("object-type");
+    const objectLayerEl = document.getElementById("object-layer");
+    const objectScaleEl = document.getElementById("object-scale");
+    const objectMirrorableEl = document.getElementById("object-mirrorable");
+    const objectDestroyableEl = document.getElementById("object-destroyable");
+    const destroyHpEl = document.getElementById("destroy-hp");
+    const destroyRadiusEl = document.getElementById("destroy-radius");
+    const objectTagsEl = document.getElementById("object-tags");
+    const objectNotesEl = document.getElementById("object-notes");
+    const pivotXEl = document.getElementById("pivot-x");
+    const pivotYEl = document.getElementById("pivot-y");
+    const frameFields = {
+        x: document.getElementById("frame-x"),
+        y: document.getElementById("frame-y"),
+        w: document.getElementById("frame-w"),
+        h: document.getElementById("frame-h")
+    };
+    const nodeXEl = document.getElementById("node-x");
+    const nodeYEl = document.getElementById("node-y");
+    const selectedLineKindEl = document.getElementById("selected-line-kind");
+    const selectedLineIdEl = document.getElementById("selected-line-id");
+    const selectedLineTagsEl = document.getElementById("selected-line-tags");
+    const manifestJson = document.getElementById("manifest-json");
+    const zoomEl = document.getElementById("zoom");
+    const hitRadiusEl = document.getElementById("hit-radius");
+    const showLabelsEl = document.getElementById("show-labels");
+    const snapPixelsEl = document.getElementById("snap-pixels");
+
+    let manifest = structuredClone(DEFAULT_MANIFEST);
+    let atlasImage = null;
+    let zoom = 1;
+    let mode = "select";
+    let selectedObjectId = null;
+    let selectedNodeId = null;
+    let selectedLineId = null;
+    let drag = null;
+    let lineStart = null;
+
+    function splitCsv(text) {
+        return String(text || "").split(",").map((value) => value.trim()).filter(Boolean);
+    }
+
+    function inferType(id) {
+        if (id.includes("pillar")) return "pillar";
+        if (id.includes("barrier") || id.includes("spikes")) return "barrier";
+        if (id.includes("skull") || id.includes("rubble") || id.includes("arch") || id.includes("lantern")) return "decor";
+        if (id.includes("floor")) return "floor";
+        return "platform";
+    }
+
+    function makeDefaultObject(id) {
+        return {
+            id,
+            frame: id,
+            type: inferType(id),
+            layer: inferType(id) === "decor" ? "decorFront" : "terrain",
+            mirrorable: true,
+            defaultScale: 1,
+            pivot: { x: 0.5, y: 1 },
+            destroyable: false,
+            targetableByRocket: false,
+            destroy: { hp: 1, explosionRadius: 64, fadeToBlackSeconds: 0.18, removeAfterSeconds: 0.22 },
+            tags: [],
+            notes: "",
+            nodes: [],
+            lines: []
+        };
+    }
+
+    function ensureObjects() {
+        manifest.meta = manifest.meta || { version: 4, note: "" };
+        manifest.frames = manifest.frames || {};
+        manifest.objects = manifest.objects || {};
+        for (const id of Object.keys(manifest.frames)) {
+            manifest.objects[id] = manifest.objects[id] || makeDefaultObject(id);
+        }
+        for (const [id, object] of Object.entries(manifest.objects)) {
+            object.id = object.id || id;
+            object.frame = object.frame || id;
+            object.type = object.type || inferType(id);
+            object.layer = object.layer || (object.type === "decor" ? "decorFront" : "terrain");
+            object.defaultScale = Number.isFinite(Number(object.defaultScale)) ? Number(object.defaultScale) : 1;
+            object.pivot = object.pivot || { x: 0.5, y: 1 };
+            object.tags = Array.isArray(object.tags) ? object.tags : splitCsv(object.tags);
+            object.notes = object.notes || "";
+            object.nodes = Array.isArray(object.nodes) ? object.nodes : [];
+            object.lines = Array.isArray(object.lines) ? object.lines : [];
+            if (Array.isArray(object.features)) {
+                convertFeaturesToGraph(object);
+                delete object.features;
+            }
+            if (typeof object.destroyable !== "boolean") object.destroyable = false;
+            object.targetableByRocket = Boolean(object.targetableByRocket || object.destroyable);
+            object.destroy = object.destroy || { hp: 1, explosionRadius: 64, fadeToBlackSeconds: 0.18, removeAfterSeconds: 0.22 };
+        }
+    }
+
+    function convertFeaturesToGraph(object) {
+        for (const feature of object.features || []) {
+            const ids = [];
+            for (const node of feature.nodes || []) {
+                const id = nextNodeId(object);
+                object.nodes.push({ id, x: node.x || 0, y: node.y || 0 });
+                ids.push(id);
+            }
+            for (let i = 0; i < ids.length - 1; i += 1) {
+                object.lines.push({
+                    id: nextLineId(object, feature.kind || "blockable"),
+                    kind: feature.kind || "blockable",
+                    from: ids[i],
+                    to: ids[i + 1],
+                    tags: Array.isArray(feature.tags) ? feature.tags : []
+                });
+            }
+            if (feature.closed && ids.length > 2) {
+                object.lines.push({
+                    id: nextLineId(object, feature.kind || "blockable"),
+                    kind: feature.kind || "blockable",
+                    from: ids[ids.length - 1],
+                    to: ids[0],
+                    tags: Array.isArray(feature.tags) ? feature.tags : []
+                });
+            }
+        }
+    }
+
+    function object() {
+        return selectedObjectId ? manifest.objects[selectedObjectId] : null;
+    }
+
+    function frame() {
+        const obj = object();
+        return obj ? manifest.frames[obj.frame] : null;
+    }
+
+    function localPoint(worldPoint, obj = object()) {
+        const f = obj ? manifest.frames[obj.frame] : null;
+        if (!f) return { x: 0, y: 0 };
+        return { x: snap(worldPoint.x - f.x), y: snap(worldPoint.y - f.y) };
+    }
+
+    function worldPoint(local, obj = object()) {
+        const f = obj ? manifest.frames[obj.frame] : null;
+        if (!f) return { x: local.x, y: local.y };
+        return { x: f.x + local.x, y: f.y + local.y };
+    }
+
+    function snap(value) {
+        return snapPixelsEl.checked ? Math.round(value) : value;
+    }
+
+    function nextNodeId(obj) {
+        let index = obj.nodes.length + 1;
+        while (obj.nodes.some((node) => node.id === `n${index}`)) index += 1;
+        return `n${index}`;
+    }
+
+    function nextLineId(obj, kind) {
+        let index = obj.lines.length + 1;
+        while (obj.lines.some((line) => line.id === `${kind}_${index}`)) index += 1;
+        return `${kind}_${index}`;
+    }
+
+    function getNode(obj, id) {
+        return obj.nodes.find((node) => node.id === id) || null;
+    }
+
+    function getLine(obj, id) {
+        return obj.lines.find((line) => line.id === id) || null;
+    }
+
+    function imagePoint(event) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: (event.clientX - rect.left) / zoom,
+            y: (event.clientY - rect.top) / zoom
+        };
+    }
+
+    function setZoom(nextZoom) {
+        zoom = Math.max(0.25, Math.min(4, Number(nextZoom) || 1));
+        zoomEl.value = zoom.toFixed(2);
+        if (atlasImage) {
+            canvas.width = Math.max(900, Math.round(atlasImage.naturalWidth * zoom));
+            canvas.height = Math.max(650, Math.round(atlasImage.naturalHeight * zoom));
+        }
+        draw();
+    }
+
+    function drawRect(rect, stroke, fill, width = 2) {
+        ctx.save();
+        ctx.scale(zoom, zoom);
+        ctx.strokeStyle = stroke;
+        ctx.fillStyle = fill;
+        ctx.lineWidth = width / zoom;
+        ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+        ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+        ctx.restore();
+    }
+
+    function drawText(x, y, text, color) {
+        if (!showLabelsEl.checked) return;
+        ctx.save();
+        ctx.scale(zoom, zoom);
+        ctx.font = `${12 / zoom}px ui-monospace, monospace`;
+        ctx.fillStyle = "rgba(0,0,0,0.76)";
+        ctx.fillText(text, x + 1, y + 1);
+        ctx.fillStyle = color;
+        ctx.fillText(text, x, y);
+        ctx.restore();
+    }
+
+    function drawLine(a, b, color, selected = false) {
+        ctx.save();
+        ctx.scale(zoom, zoom);
+        ctx.strokeStyle = selected ? COLOR.selected : color;
+        ctx.lineWidth = (selected ? 5 : 3.5) / zoom;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function drawNode(point, color, selected = false) {
+        ctx.save();
+        ctx.scale(zoom, zoom);
+        ctx.fillStyle = selected ? COLOR.selected : color;
+        ctx.strokeStyle = "rgba(0,0,0,0.76)";
+        ctx.lineWidth = 1.5 / zoom;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, (selected ? 6 : 4.5) / zoom, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function drawCorner(point, selected = false) {
+        ctx.save();
+        ctx.scale(zoom, zoom);
+        ctx.fillStyle = selected ? COLOR.selected : COLOR.frame;
+        ctx.fillRect(point.x - 5 / zoom, point.y - 5 / zoom, 10 / zoom, 10 / zoom);
+        ctx.restore();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (atlasImage) {
+            ctx.drawImage(atlasImage, 0, 0, atlasImage.naturalWidth * zoom, atlasImage.naturalHeight * zoom);
+        }
+        ensureObjects();
+        for (const [id, obj] of Object.entries(manifest.objects)) {
+            const f = manifest.frames[obj.frame];
+            if (!f) continue;
+            const selected = id === selectedObjectId;
+            drawRect(f, selected ? COLOR.selected : COLOR.frame, "rgba(86,230,255,0.035)", selected ? 3 : 1.5);
+            drawText(f.x + 4, Math.max(12, f.y - 5), id, selected ? COLOR.selected : COLOR.frame);
+            if (selected) {
+                const corners = frameCorners(f);
+                corners.forEach((corner) => drawCorner(corner));
+            }
+
+            for (const line of obj.lines) {
+                const a = getNode(obj, line.from);
+                const b = getNode(obj, line.to);
+                if (!a || !b) continue;
+                drawLine(worldPoint(a, obj), worldPoint(b, obj), COLOR[line.kind] || COLOR.blockable, selected && line.id === selectedLineId);
+            }
+
+            if (selected) {
+                for (const node of obj.nodes) {
+                    const lineKinds = obj.lines.filter((line) => line.from === node.id || line.to === node.id).map((line) => line.kind);
+                    const color = lineKinds.includes("killable") ? COLOR.killable :
+                        lineKinds.includes("damaging") ? COLOR.damaging :
+                        lineKinds.includes("blockable") ? COLOR.blockable :
+                        lineKinds.includes("walkable") ? COLOR.walkable :
+                        COLOR.node;
+                    drawNode(worldPoint(node, obj), color, node.id === selectedNodeId);
+                }
+            }
+        }
+
+        if (lineStart && drag?.point) {
+            drawLine(lineStart.point, drag.point, COLOR[lineKindEl.value] || COLOR.blockable, true);
+        }
+    }
+
+    function frameCorners(f) {
+        return [
+            { name: "nw", x: f.x, y: f.y },
+            { name: "ne", x: f.x + f.w, y: f.y },
+            { name: "sw", x: f.x, y: f.y + f.h },
+            { name: "se", x: f.x + f.w, y: f.y + f.h }
+        ];
+    }
+
+    function pointToSegmentDistance(point, a, b) {
+        const vx = b.x - a.x;
+        const vy = b.y - a.y;
+        const wx = point.x - a.x;
+        const wy = point.y - a.y;
+        const len2 = vx * vx + vy * vy || 1;
+        const t = Math.max(0, Math.min(1, (wx * vx + wy * vy) / len2));
+        const px = a.x + vx * t;
+        const py = a.y + vy * t;
+        return Math.hypot(point.x - px, point.y - py);
+    }
+
+    function hitTest(point) {
+        const radius = (Number(hitRadiusEl.value) || 12) / zoom;
+
+        if (selectedObjectId) {
+            const obj = object();
+            const f = frame();
+            if (obj && f) {
+                for (const corner of frameCorners(f)) {
+                    if (Math.hypot(point.x - corner.x, point.y - corner.y) <= radius) {
+                        return { type: "corner", objectId: selectedObjectId, corner: corner.name };
+                    }
+                }
+                for (const node of obj.nodes) {
+                    const wp = worldPoint(node, obj);
+                    if (Math.hypot(point.x - wp.x, point.y - wp.y) <= radius) {
+                        return { type: "node", objectId: selectedObjectId, nodeId: node.id };
+                    }
+                }
+                for (const line of obj.lines) {
+                    const a = getNode(obj, line.from);
+                    const b = getNode(obj, line.to);
+                    if (!a || !b) continue;
+                    if (pointToSegmentDistance(point, worldPoint(a, obj), worldPoint(b, obj)) <= radius) {
+                        return { type: "line", objectId: selectedObjectId, lineId: line.id };
+                    }
+                }
+            }
+        }
+
+        for (const [id, obj] of Object.entries(manifest.objects)) {
+            const f = manifest.frames[obj.frame];
+            if (!f) continue;
+            if (point.x >= f.x && point.x <= f.x + f.w && point.y >= f.y && point.y <= f.y + f.h) {
+                return { type: "box", objectId: id };
+            }
+        }
+
+        return null;
+    }
+
+    function selectHit(hit) {
+        if (!hit) return;
+        selectedObjectId = hit.objectId;
+        selectedNodeId = hit.type === "node" ? hit.nodeId : null;
+        selectedLineId = hit.type === "line" ? hit.lineId : null;
+        syncAll();
+    }
+
+    function renderLists() {
+        ensureObjects();
+        objectList.innerHTML = "";
+        for (const id of Object.keys(manifest.objects).sort()) {
+            const obj = manifest.objects[id];
+            const row = document.createElement("div");
+            row.className = `item${id === selectedObjectId ? " selected" : ""}`;
+            row.innerHTML = `<span>${id}</span><span class="pill">${obj.type}</span><span class="pill">${obj.nodes.length}/${obj.lines.length}</span>`;
+            row.addEventListener("click", () => {
+                selectedObjectId = id;
+                selectedNodeId = null;
+                selectedLineId = null;
+                syncAll();
+            });
+            objectList.appendChild(row);
+        }
+
+        lineList.innerHTML = "";
+        const obj = object();
+        if (!obj) return;
+        for (const line of obj.lines) {
+            const row = document.createElement("div");
+            row.className = `item${line.id === selectedLineId ? " selected" : ""}`;
+            row.innerHTML = `<span>${line.id}</span><span class="pill">${line.kind}</span><span class="pill">${line.from}→${line.to}</span>`;
+            row.addEventListener("click", () => {
+                selectedLineId = line.id;
+                selectedNodeId = null;
+                syncAll();
+            });
+            lineList.appendChild(row);
+        }
+    }
+
+    function syncAll() {
+        syncAtlasFields();
+        syncObjectFields();
+        syncNodeFields();
+        syncLineFields();
+        renderLists();
+        refreshJson();
+        draw();
+    }
+
+    function syncAtlasFields() {
+        atlasIdEl.value = manifest.atlasId || "";
+        atlasImageNameEl.value = manifest.image || "";
+        atlasNoteEl.value = manifest.meta?.note || "";
+    }
+
+    function syncObjectFields() {
+        const obj = object();
+        const f = frame();
+        objectIdEl.value = selectedObjectId || "";
+        objectTypeEl.value = obj?.type || "platform";
+        objectLayerEl.value = obj?.layer || "terrain";
+        objectScaleEl.value = obj?.defaultScale ?? 1;
+        objectMirrorableEl.checked = obj?.mirrorable !== false;
+        objectDestroyableEl.checked = Boolean(obj?.destroyable);
+        destroyHpEl.value = obj?.destroy?.hp ?? 1;
+        destroyRadiusEl.value = obj?.destroy?.explosionRadius ?? 64;
+        pivotXEl.value = obj?.pivot?.x ?? 0.5;
+        pivotYEl.value = obj?.pivot?.y ?? 1;
+        objectTagsEl.value = (obj?.tags || []).join(", ");
+        objectNotesEl.value = obj?.notes || "";
+        for (const key of ["x", "y", "w", "h"]) frameFields[key].value = f ? f[key] : "";
+    }
+
+    function syncNodeFields() {
+        const obj = object();
+        const node = obj && selectedNodeId ? getNode(obj, selectedNodeId) : null;
+        nodeXEl.value = node ? node.x : "";
+        nodeYEl.value = node ? node.y : "";
+    }
+
+    function syncLineFields() {
+        const obj = object();
+        const line = obj && selectedLineId ? getLine(obj, selectedLineId) : null;
+        selectedLineKindEl.value = line?.kind || "walkable";
+        selectedLineIdEl.value = line?.id || "";
+        selectedLineTagsEl.value = (line?.tags || []).join(", ");
+    }
+
+    function applyAtlasFields() {
+        manifest.atlasId = atlasIdEl.value.trim() || "atlas";
+        manifest.image = atlasImageNameEl.value.trim() || manifest.image || "atlas.png";
+        manifest.meta = manifest.meta || {};
+        manifest.meta.version = 4;
+        manifest.meta.note = atlasNoteEl.value;
+    }
+
+    function applyObjectFields() {
+        applyAtlasFields();
+        const oldId = selectedObjectId;
+        const newId = objectIdEl.value.trim() || oldId || nextObjectId();
+        if (!oldId) createObjectAt({ x: 0, y: 0 }, newId);
+        if (oldId && oldId !== newId) {
+            manifest.objects[newId] = manifest.objects[oldId];
+            manifest.objects[newId].id = newId;
+            manifest.objects[newId].frame = newId;
+            delete manifest.objects[oldId];
+            manifest.frames[newId] = manifest.frames[oldId];
+            delete manifest.frames[oldId];
+            selectedObjectId = newId;
+        }
+        const obj = object();
+        obj.type = objectTypeEl.value;
+        obj.layer = objectLayerEl.value;
+        obj.defaultScale = Number(objectScaleEl.value) || 1;
+        obj.mirrorable = objectMirrorableEl.checked;
+        obj.destroyable = objectDestroyableEl.checked;
+        obj.targetableByRocket = objectDestroyableEl.checked;
+        obj.destroy = {
+            hp: Number(destroyHpEl.value) || 1,
+            explosionRadius: Number(destroyRadiusEl.value) || 64,
+            fadeToBlackSeconds: obj.destroy?.fadeToBlackSeconds ?? 0.18,
+            removeAfterSeconds: obj.destroy?.removeAfterSeconds ?? 0.22
+        };
+        obj.tags = splitCsv(objectTagsEl.value);
+        obj.notes = objectNotesEl.value;
+        obj.pivot = { x: Number(pivotXEl.value) || 0.5, y: Number(pivotYEl.value) || 1 };
+        manifest.frames[selectedObjectId] = {
+            x: Number(frameFields.x.value) || 0,
+            y: Number(frameFields.y.value) || 0,
+            w: Number(frameFields.w.value) || 1,
+            h: Number(frameFields.h.value) || 1
+        };
+        persistAndRedraw();
+    }
+
+    function applyNodeFields() {
+        const obj = object();
+        const node = obj && selectedNodeId ? getNode(obj, selectedNodeId) : null;
+        if (!node) return;
+        node.x = Number(nodeXEl.value) || 0;
+        node.y = Number(nodeYEl.value) || 0;
+        persistAndRedraw();
+    }
+
+    function applyLineFields() {
+        const obj = object();
+        const line = obj && selectedLineId ? getLine(obj, selectedLineId) : null;
+        if (!line) return;
+        const newId = selectedLineIdEl.value.trim() || line.id;
+        if (newId !== line.id && obj.lines.some((candidate) => candidate.id === newId)) {
+            alert("That line ID already exists in this asset.");
+            return;
+        }
+        line.id = newId;
+        selectedLineId = newId;
+        line.kind = selectedLineKindEl.value;
+        line.tags = splitCsv(selectedLineTagsEl.value);
+        persistAndRedraw();
+    }
+
+    function refreshJson() {
+        applyAtlasFields();
+        manifestJson.value = JSON.stringify(manifest, null, 4);
+    }
+
+    function saveLocal() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(manifest));
+    }
+
+    function persistAndRedraw() {
+        refreshJson();
+        saveLocal();
+        syncAll();
+    }
+
+    function nextObjectId() {
+        let index = Object.keys(manifest.objects || {}).length + 1;
+        while (manifest.objects[`object_${String(index).padStart(3, "0")}`]) index += 1;
+        return `object_${String(index).padStart(3, "0")}`;
+    }
+
+    function createObjectAt(point, id = nextObjectId()) {
+        manifest.frames[id] = { x: snap(point.x - 40), y: snap(point.y - 28), w: 80, h: 56 };
+        manifest.objects[id] = makeDefaultObject(id);
+        selectedObjectId = id;
+        selectedNodeId = null;
+        selectedLineId = null;
+        syncAll();
+        saveLocal();
+    }
+
+    function deleteNode(obj, nodeId) {
+        obj.nodes = obj.nodes.filter((node) => node.id !== nodeId);
+        obj.lines = obj.lines.filter((line) => line.from !== nodeId && line.to !== nodeId);
+        if (selectedNodeId === nodeId) selectedNodeId = null;
+        if (selectedLineId && !getLine(obj, selectedLineId)) selectedLineId = null;
+    }
+
+    function deleteLine(obj, lineId) {
+        obj.lines = obj.lines.filter((line) => line.id !== lineId);
+        if (selectedLineId === lineId) selectedLineId = null;
+    }
+
+    function deleteObject(id) {
+        delete manifest.objects[id];
+        delete manifest.frames[id];
+        if (selectedObjectId === id) {
+            selectedObjectId = Object.keys(manifest.objects)[0] || null;
+            selectedNodeId = null;
+            selectedLineId = null;
+        }
+    }
+
+    function setMode(nextMode) {
+        mode = nextMode;
+        modeButtons.forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
+        modeHelp.textContent = MODE_HELP[mode] || "";
+        lineStart = null;
+        drag = null;
+        draw();
+    }
+
+    function addNode(point) {
+        const obj = object();
+        const f = frame();
+        if (!obj || !f) return;
+        if (point.x < f.x || point.x > f.x + f.w || point.y < f.y || point.y > f.y + f.h) return;
+        const p = localPoint(point, obj);
+        const node = { id: nextNodeId(obj), x: p.x, y: p.y };
+        obj.nodes.push(node);
+        selectedNodeId = node.id;
+        selectedLineId = null;
+        persistAndRedraw();
+    }
+
+    function addLine(fromHit, toHit) {
+        if (!fromHit || !toHit || fromHit.type !== "node" || toHit.type !== "node") return;
+        if (fromHit.objectId !== toHit.objectId || fromHit.nodeId === toHit.nodeId) return;
+        selectedObjectId = fromHit.objectId;
+        const obj = object();
+        const kind = lineKindEl.value;
+        const exists = obj.lines.some((line) =>
+            (line.from === fromHit.nodeId && line.to === toHit.nodeId) ||
+            (line.from === toHit.nodeId && line.to === fromHit.nodeId)
+        );
+        if (exists) return;
+        const line = {
+            id: nextLineId(obj, kind),
+            kind,
+            from: fromHit.nodeId,
+            to: toHit.nodeId,
+            tags: []
+        };
+        obj.lines.push(line);
+        selectedLineId = line.id;
+        selectedNodeId = null;
+        persistAndRedraw();
+    }
+
+    function applyDelete(hit) {
+        if (!hit) return;
+        const obj = manifest.objects[hit.objectId];
+        if (hit.type === "node") deleteNode(obj, hit.nodeId);
+        else if (hit.type === "line") deleteLine(obj, hit.lineId);
+        else if (hit.type === "box") deleteObject(hit.objectId);
+        else if (hit.type === "corner") deleteObject(hit.objectId);
+        persistAndRedraw();
+    }
+
+    function startMove(hit, point) {
+        if (!hit) return;
+        selectHit(hit);
+        if (hit.type === "node") {
+            drag = { type: "node", objectId: hit.objectId, nodeId: hit.nodeId };
+            return;
+        }
+        if (hit.type === "corner") {
+            drag = { type: "corner", objectId: hit.objectId, corner: hit.corner };
+            return;
+        }
+        if (hit.type === "box") {
+            const f = manifest.frames[hit.objectId];
+            drag = { type: "box", objectId: hit.objectId, start: point, frame: { ...f } };
+        }
+    }
+
+    function updateMove(point) {
+        if (!drag) return;
+        const obj = manifest.objects[drag.objectId];
+        const f = manifest.frames[obj.frame];
+        if (drag.type === "node") {
+            const node = getNode(obj, drag.nodeId);
+            Object.assign(node, localPoint(point, obj));
+            syncNodeFields();
+            draw();
+        }
+        if (drag.type === "box") {
+            f.x = snap(drag.frame.x + point.x - drag.start.x);
+            f.y = snap(drag.frame.y + point.y - drag.start.y);
+            syncObjectFields();
+            draw();
+        }
+        if (drag.type === "corner") {
+            const x2 = f.x + f.w;
+            const y2 = f.y + f.h;
+            if (drag.corner.includes("n")) {
+                const newY = snap(point.y);
+                f.h = Math.max(1, y2 - newY);
+                f.y = newY;
+            }
+            if (drag.corner.includes("s")) {
+                f.h = Math.max(1, snap(point.y) - f.y);
+            }
+            if (drag.corner.includes("w")) {
+                const newX = snap(point.x);
+                f.w = Math.max(1, x2 - newX);
+                f.x = newX;
+            }
+            if (drag.corner.includes("e")) {
+                f.w = Math.max(1, snap(point.x) - f.x);
+            }
+            syncObjectFields();
+            draw();
+        }
+    }
+
+    canvas.addEventListener("pointerdown", (event) => {
+        const point = imagePoint(event);
+        const hit = hitTest(point);
+
+        if (mode === "select") {
+            selectHit(hit);
+            return;
+        }
+
+        if (mode === "move") {
+            startMove(hit, point);
+            canvas.setPointerCapture(event.pointerId);
+            return;
+        }
+
+        if (mode === "addNode") {
+            if (hit?.type === "box") {
+                selectedObjectId = hit.objectId;
+                syncAll();
+            }
+            addNode(point);
+            return;
+        }
+
+        if (mode === "addLine") {
+            if (hit?.type === "node") {
+                lineStart = { ...hit, point };
+                drag = { point };
+                canvas.setPointerCapture(event.pointerId);
+            }
+            return;
+        }
+
+        if (mode === "addBox") {
+            createObjectAt(point);
+            return;
+        }
+
+        if (mode === "delete") {
+            applyDelete(hit);
+        }
+    });
+
+    canvas.addEventListener("pointermove", (event) => {
+        const point = imagePoint(event);
+        if (mode === "move" && drag) updateMove(point);
+        if (mode === "addLine" && lineStart) {
+            drag = { point };
+            draw();
+        }
+    });
+
+    canvas.addEventListener("pointerup", (event) => {
+        const point = imagePoint(event);
+        if (mode === "move" && drag) {
+            updateMove(point);
+            drag = null;
+            persistAndRedraw();
+        }
+        if (mode === "addLine" && lineStart) {
+            const hit = hitTest(point);
+            addLine(lineStart, hit);
+            lineStart = null;
+            drag = null;
+            draw();
+        }
+    });
+
+    function loadImageSrc(src) {
+        const img = new Image();
+        img.onload = () => {
+            atlasImage = img;
+            setZoom(zoom);
+        };
+        img.onerror = () => alert("Could not load the default atlas. Open this page beside the assets folder, or use the file picker.");
+        img.src = src;
+    }
+
+    document.getElementById("load-default-image").addEventListener("click", () => {
+        loadImageSrc("assets/theme_A_atlas_1.png");
+        setTimeout(() => {
+            if (!atlasImage) loadImageSrc("theme_A_atlas_1.png");
+        }, 60);
+    });
+
+    document.getElementById("load-default-json").addEventListener("click", () => {
+        manifest = structuredClone(DEFAULT_MANIFEST);
+        ensureObjects();
+        selectedObjectId = Object.keys(manifest.objects)[0] || Object.keys(manifest.frames)[0] || null;
+        syncAll();
+        saveLocal();
+    });
+
+    document.getElementById("zoom-in").addEventListener("click", () => setZoom(zoom + 0.15));
+    document.getElementById("zoom-out").addEventListener("click", () => setZoom(zoom - 0.15));
+    zoomEl.addEventListener("change", () => setZoom(Number(zoomEl.value) || 1));
+    showLabelsEl.addEventListener("change", draw);
+    snapPixelsEl.addEventListener("change", draw);
+    hitRadiusEl.addEventListener("change", draw);
+
+    imageFile.addEventListener("change", async () => {
+        const file = imageFile.files?.[0];
+        if (!file) return;
+        const img = new Image();
+        img.onload = () => {
+            atlasImage = img;
+            manifest.image = file.name;
+            atlasImageNameEl.value = file.name;
+            setZoom(zoom);
+            refreshJson();
+            saveLocal();
+        };
+        img.src = URL.createObjectURL(file);
+    });
+
+    manifestFile.addEventListener("change", async () => {
+        const file = manifestFile.files?.[0];
+        if (!file) return;
+        manifest = JSON.parse(await file.text());
+        ensureObjects();
+        selectedObjectId = Object.keys(manifest.objects)[0] || Object.keys(manifest.frames)[0] || null;
+        selectedNodeId = null;
+        selectedLineId = null;
+        syncAll();
+        saveLocal();
+    });
+
+    modeButtons.forEach((button) => button.addEventListener("click", () => setMode(button.dataset.mode)));
+
+    document.getElementById("new-object").addEventListener("click", () => createObjectAt({ x: 80, y: 80 }));
+    document.getElementById("delete-object").addEventListener("click", () => {
+        if (!selectedObjectId) return;
+        deleteObject(selectedObjectId);
+        persistAndRedraw();
+    });
+    document.getElementById("apply-object-fields").addEventListener("click", applyObjectFields);
+    document.getElementById("apply-node").addEventListener("click", applyNodeFields);
+    document.getElementById("apply-line").addEventListener("click", applyLineFields);
+    document.getElementById("delete-selected-node").addEventListener("click", () => {
+        const obj = object();
+        if (!obj || !selectedNodeId) return;
+        deleteNode(obj, selectedNodeId);
+        persistAndRedraw();
+    });
+    document.getElementById("delete-selected-line").addEventListener("click", () => {
+        const obj = object();
+        if (!obj || !selectedLineId) return;
+        deleteLine(obj, selectedLineId);
+        persistAndRedraw();
+    });
+
+    document.getElementById("save-local").addEventListener("click", () => {
+        applyObjectFields();
+        saveLocal();
+        alert("Atlas data saved in this browser.");
+    });
+    document.getElementById("load-local").addEventListener("click", () => {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) {
+            alert("No browser save found.");
+            return;
+        }
+        manifest = JSON.parse(saved);
+        ensureObjects();
+        selectedObjectId = Object.keys(manifest.objects)[0] || Object.keys(manifest.frames)[0] || null;
+        selectedNodeId = null;
+        selectedLineId = null;
+        syncAll();
+    });
+
+    document.getElementById("refresh-json").addEventListener("click", refreshJson);
+    document.getElementById("copy-json").addEventListener("click", async () => {
+        refreshJson();
+        await navigator.clipboard.writeText(manifestJson.value);
+    });
+    document.getElementById("download-json").addEventListener("click", () => {
+        refreshJson();
+        const blob = new Blob([manifestJson.value], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `${manifest.atlasId || "atlas"}_manifest.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    });
+
+    [atlasIdEl, atlasImageNameEl, atlasNoteEl, objectIdEl, objectTypeEl, objectLayerEl, objectScaleEl, objectMirrorableEl, objectDestroyableEl, destroyHpEl, destroyRadiusEl, objectTagsEl, objectNotesEl, pivotXEl, pivotYEl].forEach((el) => {
+        el.addEventListener("change", applyObjectFields);
+    });
+    [selectedLineKindEl, selectedLineIdEl, selectedLineTagsEl].forEach((el) => {
+        el.addEventListener("change", applyLineFields);
+    });
+
+    ensureObjects();
+    selectedObjectId = Object.keys(manifest.objects)[0] || Object.keys(manifest.frames)[0] || null;
+    zoomEl.value = "1.00";
+    hitRadiusEl.value = "12";
+    setMode("select");
+    syncAll();
+})();
+</script>
+</body>
+</html>

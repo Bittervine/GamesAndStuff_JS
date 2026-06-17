@@ -126,12 +126,12 @@ export function createInitialGameState(overrides = {}) {
     }
 
     const world = createPhaseOneArena(tuning);
-    const spawn = overrides.spawn || { x: 210, y: 600 };
+    const spawn = overrides.spawn || { x: 120, y: 600 };
 
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "phase-1.015-physics-arena",
+            build: "theme-a-002-arena-and-atlas-tool",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -232,13 +232,13 @@ export function createInitialGameState(overrides = {}) {
             lastResolution: null
         },
         story: {
-            levelTitle: "Ignatius Rocketfrock and the Arena of Preliminary Liability"
+            levelTitle: "Ignatius Rocketfrock and the Courtyard of Dubiously Stable Masonry"
         },
         debug: {
             paused: false,
             showHitboxes: false,
             showVelocity: false,
-            showCollision: true,
+            showCollision: false,
             showInput: true,
             eventFilterText: "-FUEL_CHANGED",
             eventFilterIncludeInput: false,
@@ -255,35 +255,211 @@ export function createInitialGameState(overrides = {}) {
 
 function createPhaseOneArena(tuning) {
     const wh = tuning.wizardHeight;
-    const solids = [
-        { id: "floor_left", kind: "floor", x: -260, y: 600, w: 1080, h: 90 },
-        { id: "floor_right", kind: "floor", x: 1120, y: 600, w: 1920, h: 90 },
-        { id: "left_wall", kind: "wall", x: -320, y: -360, w: 60, h: 1050 },
-        { id: "right_wall", kind: "wall", x: 3040, y: -360, w: 60, h: 1050 },
-        { id: "platform_1wh", kind: "platform", x: 520, y: 600 - wh, w: 180, h: 26 },
-        { id: "platform_2wh", kind: "platform", x: 650, y: 600 - wh * 2, w: 230, h: 26 },
-        { id: "platform_3wh", kind: "platform", x: 1240, y: 600 - wh * 3, w: 240, h: 26 },
-        { id: "shaft_left", kind: "shaftWall", x: 1670, y: 100, w: 42, h: 500 },
-        { id: "shaft_right", kind: "shaftWall", x: 1980, y: 100, w: 42, h: 500 },
-        { id: "shaft_mid_platform", kind: "platform", x: 1765, y: 420, w: 120, h: 24 },
-        { id: "high_boost_ledge", kind: "platform", x: 1760, y: 190, w: 140, h: 26 },
-        { id: "right_test_platform", kind: "platform", x: 2310, y: 465, w: 260, h: 26 }
-    ];
+    const solids = [];
+    const visuals = [];
+
+    const addIsland = (options) => {
+        visuals.push({
+            id: `${options.id}_art`,
+            kind: "atlasSprite",
+            atlasId: options.atlasId || "themeA1",
+            frame: options.frame,
+            x: options.visual.x,
+            y: options.visual.y,
+            w: options.visual.w,
+            h: options.visual.h,
+            mirrorX: Boolean(options.mirrorX),
+            layer: options.layer || "terrain"
+        });
+
+        if (options.solid) {
+            solids.push({
+                id: options.id,
+                kind: options.kind || "platform",
+                x: options.solid.x,
+                y: options.solid.y,
+                w: options.solid.w,
+                h: options.solid.h,
+                visualId: `${options.id}_art`
+            });
+        }
+    };
+
+    solids.push(
+        { id: "left_wall", kind: "wall", x: -320, y: -360, w: 60, h: 1320 },
+        { id: "right_wall", kind: "wall", x: 3940, y: -360, w: 60, h: 1320 }
+    );
+
+    // New arena layout: a compact cavern courtyard made from whole atlas islands,
+    // not an attempt to force the art into the older abstract calibration arrangement.
+    addIsland({
+        id: "start_courtyard",
+        kind: "floor",
+        frame: "floor_big_moss",
+        visual: { x: -150, y: 445, w: 650, h: 318 },
+        solid: { x: -120, y: 600, w: 560, h: 92 }
+    });
+    addIsland({
+        id: "central_terrace",
+        kind: "floor",
+        frame: "floor_long_terrace",
+        visual: { x: 520, y: 480, w: 1100, h: 238 },
+        solid: { x: 560, y: 600, w: 980, h: 92 }
+    });
+    addIsland({
+        id: "east_courtyard",
+        kind: "floor",
+        frame: "floor_mossy_low",
+        visual: { x: 1730, y: 502, w: 810, h: 208 },
+        solid: { x: 1770, y: 600, w: 730, h: 90 }
+    });
+    addIsland({
+        id: "far_right_perch",
+        kind: "floor",
+        frame: "floor_hanging_right",
+        visual: { x: 2810, y: 448, w: 720, h: 254 },
+        solid: { x: 2860, y: 600, w: 620, h: 90 }
+    });
+
+    // Left-to-middle stepping route.
+    addIsland({
+        id: "left_step_one",
+        kind: "platform",
+        frame: "ledge_left_chunk",
+        visual: { x: 285, y: 382, w: 225, h: 145 },
+        solid: { x: 298, y: 600 - wh, w: 184, h: 26 }
+    });
+    addIsland({
+        id: "left_step_two",
+        kind: "platform",
+        frame: "ledge_flat_long_a",
+        visual: { x: 560, y: 373, w: 340, h: 103 },
+        solid: { x: 585, y: 600 - wh - 6, w: 285, h: 28 }
+    });
+    addIsland({
+        id: "central_upper_platform",
+        kind: "platform",
+        frame: "ledge_flat_long_b",
+        visual: { x: 960, y: 300, w: 395, h: 104 },
+        solid: { x: 995, y: 600 - wh * 2, w: 330, h: 30 }
+    });
+    addIsland({
+        id: "crystal_roof_platform",
+        kind: "platform",
+        frame: "ledge_blue_crystals",
+        visual: { x: 1350, y: 188, w: 430, h: 120 },
+        solid: { x: 1386, y: 600 - wh * 3, w: 352, h: 30 }
+    });
+
+    // Central ruins and alternate upper route.
+    addIsland({
+        id: "hanging_walkway",
+        kind: "platform",
+        frame: "hanging_ledge",
+        visual: { x: 1955, y: 232, w: 290, h: 198 },
+        solid: { x: 2000, y: 330, w: 210, h: 28 }
+    });
+    addIsland({
+        id: "cold_gallery",
+        kind: "platform",
+        frame: "floor_cold_platform",
+        visual: { x: 2265, y: 286, w: 470, h: 118 },
+        solid: { x: 2295, y: 342, w: 412, h: 30 }
+    });
+    addIsland({
+        id: "mossy_balcony",
+        kind: "platform",
+        frame: "ledge_mossy_right",
+        visual: { x: 2940, y: 254, w: 520, h: 186 },
+        solid: { x: 2978, y: 376, w: 445, h: 32 }
+    });
+
+    // Right-side boost practice pocket.
+    addIsland({
+        id: "shaft_left_art",
+        frame: "pillar_plain",
+        visual: { x: 2475, y: 260, w: 145, h: 228 },
+        solid: null,
+        layer: "decorBack"
+    });
+    addIsland({
+        id: "shaft_right_art",
+        frame: "pillar_broken",
+        visual: { x: 2705, y: 235, w: 140, h: 250 },
+        solid: null,
+        layer: "decorBack"
+    });
+    solids.push(
+        { id: "boost_pocket_left", kind: "shaftWall", x: 2558, y: 180, w: 34, h: 430 },
+        { id: "boost_pocket_right", kind: "shaftWall", x: 2776, y: 180, w: 34, h: 430 }
+    );
+    addIsland({
+        id: "boost_pocket_low",
+        kind: "platform",
+        frame: "ledge_small_flat",
+        visual: { x: 2595, y: 430, w: 165, h: 61 },
+        solid: { x: 2616, y: 466, w: 126, h: 22 }
+    });
+    addIsland({
+        id: "boost_pocket_mid",
+        kind: "platform",
+        frame: "ledge_small_round",
+        visual: { x: 2592, y: 327, w: 205, h: 72 },
+        solid: { x: 2610, y: 366, w: 148, h: 24 }
+    });
+    addIsland({
+        id: "boost_pocket_top",
+        kind: "platform",
+        frame: "ledge_purple_crystals",
+        visual: { x: 2540, y: 180, w: 290, h: 124 },
+        solid: { x: 2576, y: 245, w: 220, h: 26 }
+    });
+
+    // Additional small route pieces.
+    addIsland({
+        id: "mid_small_round",
+        kind: "platform",
+        frame: "ledge_small_round",
+        visual: { x: 1640, y: 350, w: 185, h: 64 },
+        solid: { x: 1656, y: 384, w: 138, h: 24 }
+    });
+    addIsland({
+        id: "mid_small_flat",
+        kind: "platform",
+        frame: "ledge_small_flat",
+        visual: { x: 1495, y: 430, w: 155, h: 56 },
+        solid: { x: 1514, y: 462, w: 122, h: 22 }
+    });
+
+    visuals.push(
+        { id: "decor_arch_back", kind: "atlasSprite", atlasId: "themeA1", frame: "arch_ruin", x: 820, y: 372, w: 470, h: 238, layer: "decorBack", mirrorX: false },
+        { id: "decor_pillar_round", kind: "atlasSprite", atlasId: "themeA1", frame: "pillar_round", x: 720, y: 365, w: 135, h: 223, layer: "decorFront" },
+        { id: "decor_pillar_cap", kind: "atlasSprite", atlasId: "themeA1", frame: "pillar_plain", x: 1395, y: 365, w: 132, h: 223, layer: "decorFront" },
+        { id: "decor_stairs_right", kind: "atlasSprite", atlasId: "themeA1", frame: "ruin_stairs", x: 3350, y: 500, w: 170, h: 120, layer: "decorFront" },
+        { id: "decor_barrier", kind: "atlasSprite", atlasId: "themeA1", frame: "wood_barrier_low", x: 2060, y: 540, w: 164, h: 74, layer: "decorFront" },
+        { id: "decor_spikes", kind: "atlasSprite", atlasId: "themeA1", frame: "wood_spikes_low", x: 943, y: 540, w: 190, h: 68, layer: "decorFront" },
+        { id: "decor_lantern_a", kind: "atlasSprite", atlasId: "themeA1", frame: "lantern_gold_small", x: 1550, y: 300, w: 40, h: 82, layer: "decorFront" },
+        { id: "decor_lantern_b", kind: "atlasSprite", atlasId: "themeA1", frame: "lantern_silver_tall", x: 2425, y: 246, w: 38, h: 90, layer: "decorFront" },
+        { id: "decor_skulls", kind: "atlasSprite", atlasId: "themeA1", frame: "skull_pile_small", x: 3080, y: 540, w: 110, h: 62, layer: "decorFront" }
+    );
 
     return {
-        levelId: "phase1_physics_arena",
+        levelId: "theme_a_test_arena_rebuilt",
+        themeId: "themeA",
         gravityDirection: { x: 0, y: 1 },
-        bounds: { x: -320, y: -420, w: 3420, h: 1110 },
-        resetY: 930,
-        start: { x: 210, y: 600 },
+        bounds: { x: -320, y: -420, w: 4300, h: 1360 },
+        resetY: 1020,
+        start: { x: 120, y: 600 },
+        atlasManifests: ["assets/theme_A_atlas_1_manifest.json"],
+        visuals,
         solids,
         labels: [
-            { text: "1WH", x: 580, y: 600 - wh - 12 },
-            { text: "2WH", x: 720, y: 600 - wh * 2 - 12 },
-            { text: "3WH", x: 1315, y: 600 - wh * 3 - 12 },
-            { text: "wide gap", x: 930, y: 570 },
-            { text: "boost shaft", x: 1770, y: 565 },
-            { text: "homing dot", x: 835, y: 386 }
+            { text: "start courtyard", x: 90, y: 565 },
+            { text: "upper route", x: 1060, y: 250 },
+            { text: "ruin gallery", x: 2220, y: 310 },
+            { text: "boost pocket", x: 2584, y: 160 },
+            { text: "wide run-up", x: 620, y: 565 },
+            { text: "homing dot", x: 1060, y: 196 }
         ]
     };
 }
