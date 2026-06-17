@@ -7,7 +7,7 @@ const KEY_BINDINGS = {
     weapon: ["Space", "KeyX", "KeyK"]
 };
 
-const DEBUG_KEYS = new Set(["KeyP", "KeyO", "KeyR", "KeyH", "KeyV", "KeyC", "KeyE", "F1"]);
+const DEBUG_KEYS = new Set(["KeyP", "KeyO", "KeyR", "KeyH", "KeyV", "KeyC", "KeyE", "KeyL", "F1"]);
 
 export class RocketfrockInput {
     constructor(target = window) {
@@ -22,8 +22,11 @@ export class RocketfrockInput {
             velocity: false,
             collision: false,
             exportState: false,
+            inputConsoleLog: false,
             debugPanel: false
         };
+        this.eventLog = [];
+        this.consoleLogging = false;
 
         target.addEventListener("keydown", (event) => this.onKeyDown(event), { passive: false });
         target.addEventListener("keyup", (event) => this.onKeyUp(event), { passive: false });
@@ -43,10 +46,12 @@ export class RocketfrockInput {
             if (event.code === "KeyV") this.debugPressed.velocity = true;
             if (event.code === "KeyC") this.debugPressed.collision = true;
             if (event.code === "KeyE") this.debugPressed.exportState = true;
+            if (event.code === "KeyL") this.debugPressed.inputConsoleLog = true;
             if (event.code === "F1") this.debugPressed.debugPanel = true;
         }
 
         this.keys.add(event.code);
+        this.recordKeyEvent("down", event);
     }
 
     onKeyUp(event) {
@@ -54,11 +59,42 @@ export class RocketfrockInput {
             event.preventDefault();
         }
         this.keys.delete(event.code);
+        this.recordKeyEvent("up", event);
     }
 
     clear() {
         this.keys.clear();
         this.previous = createInputFrame();
+        this.recordKeyEvent("clear", { code: "WindowBlur", repeat: false });
+    }
+
+    recordKeyEvent(kind, event) {
+        const entry = {
+            time: Number((performance.now() / 1000).toFixed(3)),
+            kind,
+            code: event.code || "Unknown",
+            repeat: Boolean(event.repeat),
+            keys: Array.from(this.keys).sort()
+        };
+        this.eventLog.push(entry);
+        while (this.eventLog.length > 80) {
+            this.eventLog.shift();
+        }
+        if (this.consoleLogging) {
+            console.log("Rocketfrock input", entry);
+        }
+    }
+
+    getRecentEvents(limit = 8) {
+        return this.eventLog.slice(-limit).map((entry) => ({ ...entry, keys: entry.keys.slice() }));
+    }
+
+    setConsoleLogging(enabled) {
+        this.consoleLogging = Boolean(enabled);
+    }
+
+    isConsoleLoggingEnabled() {
+        return this.consoleLogging;
     }
 
     isGameplayKey(code) {
@@ -86,6 +122,7 @@ export class RocketfrockInput {
         current.toggleVelocityPressed = take(this.debugPressed, "velocity");
         current.toggleCollisionPressed = take(this.debugPressed, "collision");
         current.exportStatePressed = take(this.debugPressed, "exportState");
+        current.toggleInputConsoleLogPressed = take(this.debugPressed, "inputConsoleLog");
         current.toggleDebugPanelPressed = take(this.debugPressed, "debugPanel");
 
         this.previous = current;

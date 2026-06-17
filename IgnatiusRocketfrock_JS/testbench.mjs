@@ -4,6 +4,7 @@ import {
     DEFAULT_TUNING,
     createInitialGameState,
     createInputFrame,
+    createSubstepInputFrame,
     stepSimulation,
     cloneGameState,
     serializeGameState,
@@ -334,6 +335,29 @@ function testFuelRechargeLatchAfterGroundedStart() {
     assert.equal(state.fuel.rechargeLatched, false, "firing the rocket should clear the recharge latch");
 }
 
+
+function testSingleJumpPressIsNotReusedAcrossCatchupSubsteps() {
+    const state = createInitialGameState();
+    settleOnGround(state);
+
+    const browserFrameInput = createInputFrame({ jumpPressed: true, jumpHeld: true });
+    stepSimulation(state, createSubstepInputFrame(browserFrameInput, 0), FIXED_DT);
+    assert.equal(state.player.onGround, false, "first catch-up substep should perform the ground jump");
+    const afterJumpVy = state.player.vy;
+
+    stepSimulation(state, createSubstepInputFrame(browserFrameInput, 1), FIXED_DT);
+    assert.equal(state.equipment.rocket.attachedBoosting, false, "same physical key press must not become a boost on the second catch-up substep");
+    assert.ok(state.player.vy > afterJumpVy, "second catch-up substep should only apply normal gravity while Up is held");
+    assert.ok(
+        !state.debug.lastEvents.some((event) => event.type === "PLAYER_BOOST_STARTED"),
+        "holding the original jump press during catch-up should not log a boost start"
+    );
+
+    stepSimulation(state, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    assert.equal(state.equipment.rocket.attachedBoosting, true, "a later distinct airborne jump press should still start the boost");
+}
+
 function testWallCollision() {
     const state = createInitialGameState();
     state.player.x = -245;
@@ -391,7 +415,8 @@ const tests = [
     ["attached smoke down speed tuning", testAttachedSmokeDownSpeedTuning],
     ["fuel recharge delay, ground requirement and cap", testFuelRechargeDelayGroundRequirementAndCap],
     ["fuel recharge latch after grounded start", testFuelRechargeLatchAfterGroundedStart],
-    ["Phase 1.013 tuning defaults, debug pose blending and fuel bulb flash", testPhase1013TuningDefaultsDebugPoseAndFuelBulbFlash],
+    ["Phase 1.014 tuning defaults, debug pose blending and fuel bulb flash", testPhase1013TuningDefaultsDebugPoseAndFuelBulbFlash],
+    ["single jump press is not reused across catch-up substeps", testSingleJumpPressIsNotReusedAcrossCatchupSubsteps],
     ["wall collision", testWallCollision],
     ["manual reset", testReset]
 ];

@@ -90,8 +90,33 @@ export function createInputFrame(overrides = {}) {
         pausePressed: false,
         stepPressed: false,
         resetPressed: false,
+        toggleHitboxesPressed: false,
+        toggleVelocityPressed: false,
+        toggleCollisionPressed: false,
+        exportStatePressed: false,
+        toggleInputConsoleLogPressed: false,
+        toggleDebugPanelPressed: false,
         ...overrides
     };
+}
+
+export function createSubstepInputFrame(inputFrame, substepIndex = 0) {
+    const input = createInputFrame(inputFrame || {});
+    if (substepIndex <= 0) {
+        return input;
+    }
+
+    // Held states continue across catch-up sim steps, but edge-triggered presses/releases
+    // must only be consumed by the first fixed step for a browser frame. Otherwise a slow
+    // render frame can turn one physical Up press into jump on substep 0 and boost on substep 1.
+    return createInputFrame({
+        moveLeft: input.moveLeft,
+        moveRight: input.moveRight,
+        jumpHeld: input.jumpHeld,
+        weaponHeld: input.weaponHeld,
+        aimVector: input.aimVector,
+        aimTarget: input.aimTarget
+    });
 }
 
 export function createInitialGameState(overrides = {}) {
@@ -106,7 +131,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "phase-1.013-physics-arena",
+            build: "phase-1.014-physics-arena",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -214,6 +239,9 @@ export function createInitialGameState(overrides = {}) {
             showVelocity: false,
             showCollision: true,
             showInput: true,
+            eventFilterText: "-FUEL_CHANGED",
+            eventFilterIncludeInput: false,
+            inputConsoleLogging: false,
             lastEvents: [],
             lastInputFrame: createInputFrame(),
             exportedAt: null

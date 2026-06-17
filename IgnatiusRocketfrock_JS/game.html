@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Ignatius Rocketfrock: Phase 1 Physics Arena</title>
+    <title>Ignatius Rocketfrock: Phase 1.014 Physics Arena</title>
     <style>
         :root {
             color-scheme: dark;
@@ -193,8 +193,22 @@
             background: rgba(255, 255, 255, 0.14);
         }
 
-        textarea {
+        textarea,
+        #event-filter {
             width: 100%;
+        }
+
+        #event-filter {
+            margin-top: 8px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 8px 9px;
+            background: rgba(0, 0, 0, 0.28);
+            color: var(--ink);
+            font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+
+        textarea {
             min-height: 170px;
             margin-top: 8px;
             border: 1px solid var(--line);
@@ -282,10 +296,15 @@
 
     <section id="tuning">
         <div class="tuning-header">
-            <h2>Phase 1.009 tuning</h2>
+            <h2>Phase 1.014 tuning</h2>
             <button id="toggle-tuning" type="button">Collapse</button>
         </div>
         <div class="small tuning-help">These write into <code>gameState.tuning</code>, so devtools exports include the current feel. The JSON box is copyable and editable.</div>
+        <label class="tuning-help" style="display:block; margin-top:8px; font-size:12px; color:var(--muted);">
+            Event filter
+            <input id="event-filter" type="text" value="-FUEL_CHANGED" spellcheck="false" aria-label="Debug event filter" title="Use tokens such as PLAYER or ROCKET. Prefix with - to hide event types, for example -FUEL_CHANGED.">
+        </label>
+        <div class="small tuning-help">Filter examples: <code>-FUEL_CHANGED</code>, <code>PLAYER ROCKET</code>, or blank for all events. <kbd>L</kbd> toggles key event logging to the browser console.</div>
         <div id="tuning-controls"></div>
         <textarea id="tuning-json" spellcheck="false" aria-label="Tuning JSON"></textarea>
         <div class="button-row">
@@ -295,7 +314,7 @@
         </div>
         <div id="tuning-message"></div>
         <div class="small tuning-help">
-            <kbd>P</kbd> pause, <kbd>O</kbd> step, <kbd>R</kbd> reset, <kbd>H</kbd> hitboxes, <kbd>V</kbd> velocity, <kbd>C</kbd> collision, <kbd>E</kbd> export state.
+            <kbd>P</kbd> pause, <kbd>O</kbd> step, <kbd>R</kbd> reset, <kbd>H</kbd> hitboxes, <kbd>V</kbd> velocity, <kbd>C</kbd> collision, <kbd>E</kbd> export state, <kbd>L</kbd> key log to console.
         </div>
     </section>
 

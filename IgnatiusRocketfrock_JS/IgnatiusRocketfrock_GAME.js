@@ -3,6 +3,7 @@ import {
     DEFAULT_TUNING,
     createInitialGameState,
     createInputFrame,
+    createSubstepInputFrame,
     stepSimulation,
     resetPlayer,
     cloneGameState,
@@ -20,6 +21,7 @@ const debugEl = document.getElementById("debug");
 const tuningControlsEl = document.getElementById("tuning-controls");
 const tuningJsonEl = document.getElementById("tuning-json");
 const tuningMessageEl = document.getElementById("tuning-message");
+const eventFilterEl = document.getElementById("event-filter");
 const toggleTuningButton = document.getElementById("toggle-tuning");
 const applyTuningJsonButton = document.getElementById("apply-tuning-json");
 const copyTuningJsonButton = document.getElementById("copy-tuning-json");
@@ -53,7 +55,8 @@ function frame(now) {
 
     let safety = 0;
     while (accumulator >= FIXED_DT && safety < 8) {
-        stepSimulation(gameState, inputFrame, FIXED_DT);
+        const stepInput = createSubstepInputFrame(inputFrame, safety);
+        stepSimulation(gameState, stepInput, FIXED_DT);
         accumulator -= FIXED_DT;
         safety += 1;
     }
@@ -88,6 +91,12 @@ function handleDebugInput(inputFrame) {
     if (inputFrame.exportStatePressed) {
         exportState();
     }
+    if (inputFrame.toggleInputConsoleLogPressed) {
+        const next = !input.isConsoleLoggingEnabled();
+        input.setConsoleLogging(next);
+        gameState.debug.inputConsoleLogging = next;
+        console.log(`Rocketfrock input console logging ${next ? "enabled" : "disabled"}`);
+    }
     if (inputFrame.toggleDebugPanelPressed) {
         debugEl.hidden = !debugEl.hidden;
     }
@@ -108,9 +117,12 @@ function updateDebugText() {
     const inputText = gameState.debug.showInput
         ? `input L:${Number(lastInputFrame.moveLeft)} R:${Number(lastInputFrame.moveRight)} jump:${Number(lastInputFrame.jumpHeld)} weapon:${Number(lastInputFrame.weaponHeld)}`
         : "input hidden";
-    const events = gameState.debug.lastEvents
+    const events = filteredDebugEvents(gameState.debug.lastEvents, gameState.debug.eventFilterText)
         .slice(-8)
         .map((event) => `${String(event.tick).padStart(5, " ")} ${event.type}`)
+        .join("\n");
+    const inputEvents = input.getRecentEvents(6)
+        .map((event) => `${event.time.toFixed(3)} ${event.kind.padEnd(5)} ${event.code}${event.repeat ? " repeat" : ""}`)
         .join("\n");
 
     debugEl.textContent = [
@@ -119,10 +131,33 @@ function updateDebugText() {
         `ground:${p.onGround}  facing:${p.facing > 0 ? "right" : "left"}  boost:${gameState.equipment.rocket.attachedBoosting}  hoverA:${gameState.equipment.rocket.boostAccelerationNow.toFixed(0)}  hoverLimit:${gameState.tuning.attachedBoostHoverFallSpeed.toFixed(0)}`,
         `fuel:${fuel.amount.toFixed(2)}  delay:${fuel.rechargeDelayTimer.toFixed(2)}  cap:${fuel.rechargeCap}  rechargeLatched:${fuel.rechargeLatched ? "yes" : "no"}  groundRecharge:${gameState.tuning.fuelRechargeRequiresGround !== false}  kick:${gameState.equipment.rocket.boostKickCharge.toFixed(2)}  smokeDown:${(gameState.tuning.attachedBoostSmokePuffDownSpeed ?? 170).toFixed(0)}  bulbFlash:${(gameState.equipment.rocket.fuelBulbFlashTimer ?? 0).toFixed(2)}`,
         `rockets:${gameState.projectiles.length}  smoke:${gameState.effects?.smokePuffs?.length ?? 0}  upLaunch:${gameState.tuning.rocketProjectileUpLaunchSeconds.toFixed(2)}  homing:${gameState.tuning.rocketProjectileHomingStrength.toFixed(2)}  target:${gameState.targets[0].x.toFixed(0)},${gameState.targets[0].y.toFixed(0)}`,
-        inputText,
+        inputText + `  inputConsole:${input.isConsoleLoggingEnabled() ? "on" : "off"}`,
+        `eventFilter:${gameState.debug.eventFilterText || "(none)"}`,
         "events:",
-        events
+        events || "(none after filter)",
+        "key events:",
+        inputEvents || "(none)"
     ].join("\n");
+}
+
+function filteredDebugEvents(events, filterText = "") {
+    const tokens = String(filterText || "")
+        .split(/[\s,]+/)
+        .map((token) => token.trim())
+        .filter(Boolean);
+    if (!tokens.length) {
+        return events;
+    }
+
+    const include = tokens.filter((token) => !token.startsWith("-"));
+    const exclude = tokens.filter((token) => token.startsWith("-")).map((token) => token.slice(1));
+    return events.filter((event) => {
+        const type = event.type || "";
+        if (exclude.some((token) => type.includes(token))) {
+            return false;
+        }
+        return include.length === 0 || include.some((token) => type.includes(token));
+    });
 }
 
 function setupTuningControls() {
@@ -188,6 +223,13 @@ function setupTuningControls() {
 }
 
 function setupTuningJsonControls() {
+    if (eventFilterEl) {
+        eventFilterEl.value = gameState.debug.eventFilterText || "";
+        eventFilterEl.addEventListener("input", () => {
+            gameState.debug.eventFilterText = eventFilterEl.value;
+        });
+    }
+
     toggleTuningButton.addEventListener("click", () => {
         const collapsed = tuningPanel.classList.toggle("collapsed");
         toggleTuningButton.textContent = collapsed ? "Expand" : "Collapse";
@@ -316,6 +358,13 @@ window.__rocketfrockDev = {
     },
     getRigMetrics() {
         return renderer.getRigMetrics(gameState);
+    },
+    getInputEvents(limit = 20) {
+        return input.getRecentEvents(limit);
+    },
+    setInputConsoleLogging(enabled) {
+        input.setConsoleLogging(enabled);
+        gameState.debug.inputConsoleLogging = input.isConsoleLoggingEnabled();
     }
 };
 
