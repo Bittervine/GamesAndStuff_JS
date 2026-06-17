@@ -33,6 +33,10 @@ function settleOnGround(state) {
     approx(state.player.y, 600, 0.001, "floor contact y");
 }
 
+function releaseJumpAfterTakeoff(state) {
+    stepSimulation(state, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
+}
+
 function testStateSerialization() {
     const state = createInitialGameState();
     stepSimulation(state, createInputFrame(), FIXED_DT);
@@ -79,7 +83,8 @@ function testAttachedBoostStateAndFuelDrain() {
     const state = createInitialGameState();
     settleOnGround(state);
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
-    stepMany(state, 8, () => createInputFrame({ jumpHeld: false }));
+    releaseJumpAfterTakeoff(state);
+    stepMany(state, 7, () => createInputFrame({ jumpHeld: false }));
 
     const beforeFuel = state.fuel.amount;
     const beforeVy = state.player.vy;
@@ -99,7 +104,8 @@ function testDoubleJumpKickAndHoverGovernor() {
     const state = createInitialGameState();
     settleOnGround(state);
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
-    stepMany(state, 10, () => createInputFrame({ jumpHeld: false }));
+    releaseJumpAfterTakeoff(state);
+    stepMany(state, 9, () => createInputFrame({ jumpHeld: false }));
 
     const beforeBoostVy = state.player.vy;
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
@@ -123,7 +129,8 @@ function testBoostKickCannotBeTapExploited() {
     const state = createInitialGameState();
     settleOnGround(state);
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
-    stepMany(state, 8, () => createInputFrame({ jumpHeld: false }));
+    releaseJumpAfterTakeoff(state);
+    stepMany(state, 7, () => createInputFrame({ jumpHeld: false }));
 
     const beforeFirstKickVy = state.player.vy;
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
@@ -156,7 +163,8 @@ function testBoostKickCostsFuelAndRechargesOnLanding() {
     });
     settleOnGround(costly);
     stepSimulation(costly, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
-    stepMany(costly, 8, () => createInputFrame({ jumpHeld: false }));
+    releaseJumpAfterTakeoff(costly);
+    stepMany(costly, 7, () => createInputFrame({ jumpHeld: false }));
     costly.fuel.amount = 10;
     costly.equipment.rocket.boostKickCharge = 1;
     const beforeKickFuel = costly.fuel.amount;
@@ -183,7 +191,8 @@ function testBoostKickCostsFuelAndRechargesOnLanding() {
     });
     settleOnGround(lowFuel);
     stepSimulation(lowFuel, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
-    stepMany(lowFuel, 8, () => createInputFrame({ jumpHeld: false }));
+    releaseJumpAfterTakeoff(lowFuel);
+    stepMany(lowFuel, 7, () => createInputFrame({ jumpHeld: false }));
     lowFuel.fuel.amount = 9;
     lowFuel.equipment.rocket.boostKickCharge = 1;
     const beforeLowFuelVy = lowFuel.player.vy;
@@ -240,7 +249,8 @@ function testAttachedRocketSmokeAndVisualPower() {
     const state = createInitialGameState();
     settleOnGround(state);
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
-    stepMany(state, 8, () => createInputFrame({ jumpHeld: false }));
+    releaseJumpAfterTakeoff(state);
+    stepMany(state, 7, () => createInputFrame({ jumpHeld: false }));
 
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
     const kickPower = state.equipment.rocket.boostVisualPowerNow;
@@ -283,13 +293,13 @@ function testFuelRechargeDelayGroundRequirementAndCap() {
 }
 
 function testPhase1013TuningDefaultsDebugPoseAndFuelBulbFlash() {
-    assert.equal(DEFAULT_TUNING.attachedBoostStartImpulse, -700, "Phase 1.013 should bake in the current preferred boost kick");
-    assert.equal(DEFAULT_TUNING.attachedBoostKickFuelCost, 10, "Phase 1.013 should make the double-jump kick cost 10 fuel");
-    assert.equal(DEFAULT_TUNING.rechargeDelayAfterUse, 1, "Phase 1.013 should bake in the current recharge delay");
-    assert.equal(DEFAULT_TUNING.rechargeRate, 52, "Phase 1.013 should bake in the current recharge rate");
-    assert.equal(DEFAULT_TUNING.rocketLaunchCost, 30, "Phase 1.013 should bake in the current rocket launch cost");
-    assert.equal(DEFAULT_TUNING.groundAcceleration, 950, "Phase 1.013 should bake in the softer ground acceleration");
-    assert.equal(DEFAULT_TUNING.groundFriction, 900, "Phase 1.013 should bake in the softer ground friction");
+    assert.equal(DEFAULT_TUNING.attachedBoostStartImpulse, -700, "Phase 1.015 should bake in the current preferred boost kick");
+    assert.equal(DEFAULT_TUNING.attachedBoostKickFuelCost, 10, "Phase 1.015 should make the double-jump kick cost 10 fuel");
+    assert.equal(DEFAULT_TUNING.rechargeDelayAfterUse, 1, "Phase 1.015 should bake in the current recharge delay");
+    assert.equal(DEFAULT_TUNING.rechargeRate, 52, "Phase 1.015 should bake in the current recharge rate");
+    assert.equal(DEFAULT_TUNING.rocketLaunchCost, 30, "Phase 1.015 should bake in the current rocket launch cost");
+    assert.equal(DEFAULT_TUNING.groundAcceleration, 950, "Phase 1.015 should bake in the softer ground acceleration");
+    assert.equal(DEFAULT_TUNING.groundFriction, 900, "Phase 1.015 should bake in the softer ground friction");
     assert.equal(DEFAULT_TUNING.attachedBoostSmokePuffInterval, 0.035);
     assert.equal(DEFAULT_TUNING.attachedBoostSmokePuffDownSpeed, 700);
     assert.equal(DEFAULT_TUNING.rocketSmokePuffLifetime, 1.5);
@@ -358,6 +368,24 @@ function testSingleJumpPressIsNotReusedAcrossCatchupSubsteps() {
     assert.equal(state.equipment.rocket.attachedBoosting, true, "a later distinct airborne jump press should still start the boost");
 }
 
+function testAirBoostRequiresReleaseAfterGroundJump() {
+    const state = createInitialGameState();
+    settleOnGround(state);
+
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    assert.equal(state.player.airBoostArmed, false, "ground jump should disarm air boost until jump is released");
+
+    stepMany(state, 12, () => createInputFrame({ jumpHeld: true }));
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    assert.equal(state.equipment.rocket.attachedBoosting, false, "held or repeated jump input should not start boost before release");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "PLAYER_BOOST_BLOCKED" && event.reason === "jumpNotReleased"), "blocked boost should explain that jump was not released");
+
+    stepSimulation(state, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
+    assert.equal(state.player.airBoostArmed, true, "airborne jump release should arm the air boost");
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    assert.equal(state.equipment.rocket.attachedBoosting, true, "pressing jump again after release should start boost");
+}
+
 function testWallCollision() {
     const state = createInitialGameState();
     state.player.x = -245;
@@ -392,7 +420,8 @@ function testAttachedSmokeDownSpeedTuning() {
     });
     settleOnGround(state);
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
-    stepMany(state, 3, () => createInputFrame({ jumpHeld: true }));
+    releaseJumpAfterTakeoff(state);
+    stepMany(state, 3, () => createInputFrame({ jumpHeld: false }));
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
     const attachedPuffs = state.effects.smokePuffs.filter((puff) => puff.kind === "attachedRocketSmokePuff");
     assert.ok(attachedPuffs.length >= 4, "expected attached boost smoke puffs");
@@ -415,8 +444,9 @@ const tests = [
     ["attached smoke down speed tuning", testAttachedSmokeDownSpeedTuning],
     ["fuel recharge delay, ground requirement and cap", testFuelRechargeDelayGroundRequirementAndCap],
     ["fuel recharge latch after grounded start", testFuelRechargeLatchAfterGroundedStart],
-    ["Phase 1.014 tuning defaults, debug pose blending and fuel bulb flash", testPhase1013TuningDefaultsDebugPoseAndFuelBulbFlash],
+    ["Phase 1.015 tuning defaults, debug pose blending and fuel bulb flash", testPhase1013TuningDefaultsDebugPoseAndFuelBulbFlash],
     ["single jump press is not reused across catch-up substeps", testSingleJumpPressIsNotReusedAcrossCatchupSubsteps],
+    ["air boost requires release after ground jump", testAirBoostRequiresReleaseAfterGroundJump],
     ["wall collision", testWallCollision],
     ["manual reset", testReset]
 ];

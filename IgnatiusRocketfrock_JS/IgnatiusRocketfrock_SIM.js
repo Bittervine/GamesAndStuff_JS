@@ -131,7 +131,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "phase-1.014-physics-arena",
+            build: "phase-1.015-physics-arena",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -164,6 +164,7 @@ export function createInitialGameState(overrides = {}) {
             wasOnGround: false,
             airborneTime: 0,
             coyoteTimer: 0,
+            airBoostArmed: false,
             lowHealthPulse: 0
         },
         fuel: {
@@ -382,13 +383,23 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
 
     p.vx = clamp(p.vx, -t.maxRunSpeed, t.maxRunSpeed);
 
+    if (input.jumpReleased && !wasOnGround) {
+        p.airBoostArmed = true;
+    }
+
     if (input.jumpPressed && wasOnGround) {
         p.vy = t.jumpVelocity;
         p.onGround = false;
         p.airborneTime = 0;
+        p.airBoostArmed = false;
         addEvent(state, "PLAYER_JUMPED", { x: round(p.x), y: round(p.y), vx: round(p.vx), vy: round(p.vy) });
-    } else if (input.jumpPressed && !wasOnGround && !rocket.attachedBoosting && fuel.amount > 0) {
-        startAttachedBoost(state);
+    } else if (input.jumpPressed && !wasOnGround && !rocket.attachedBoosting) {
+        if (p.airBoostArmed) {
+            p.airBoostArmed = false;
+            startAttachedBoost(state);
+        } else {
+            addEvent(state, "PLAYER_BOOST_BLOCKED", { reason: "jumpNotReleased" });
+        }
     }
 
     if (rocket.attachedBoosting) {
@@ -925,6 +936,7 @@ function moveAndCollideY(state, dy, wasOnGround) {
             p.y = solid.y;
             p.vy = 0;
             p.onGround = true;
+            p.airBoostArmed = false;
             state.collisions.playerTouching.down = true;
             if (state.equipment.rocket.attachedBoosting) {
                 stopAttachedBoost(state, "landed");
@@ -1052,6 +1064,7 @@ export function resetPlayer(state, reason = "manualReset") {
     p.vy = 0;
     p.onGround = false;
     p.wasOnGround = false;
+    p.airBoostArmed = false;
     p.facing = 1;
     state.fuel.amount = state.tuning.initialFuel;
     state.fuel.rechargeDelayTimer = 0;

@@ -38,6 +38,11 @@ export class RocketfrockInput {
             event.preventDefault();
         }
 
+        if (event.repeat) {
+            this.recordKeyEvent("repeat", event);
+            return;
+        }
+
         if (!this.keys.has(event.code)) {
             if (event.code === "KeyP") this.debugPressed.pause = true;
             if (event.code === "KeyO") this.debugPressed.step = true;
