@@ -361,7 +361,7 @@
         <div class="box">
             <h2>Files</h2>
             <div class="row">
-                <button id="load-default-manifest">Load Theme A manifest</button>
+                <button id="load-default-manifest">Load atlas_001</button>
                 <button id="starter-layout">Starter layout</button>
             </div>
             <div class="row">
@@ -372,7 +372,7 @@
                 <label>Level JSON<input id="level-file" type="file" accept="application/json,.json"></label>
                 <button id="new-level">New level</button>
             </div>
-            <p class="small">Default paths are <code>assets/theme_A_atlas_1_manifest.json</code> and <code>assets/theme_A_atlas_1.png</code>.</p>
+            <p class="small">Default paths are <code>assets/atlas_001.json</code> and <code>assets/atlas_001.png</code>.</p>
         </div>
 
         <div class="box">
@@ -390,10 +390,7 @@
         <div class="box">
             <h2>Level metadata</h2>
             <label>Level ID<input id="level-id"></label>
-            <div class="row">
-                <label>Theme ID<input id="theme-id"></label>
-                <label>Title<input id="level-title"></label>
-            </div>
+            <label>Title<input id="level-title"></label>
             <div class="row">
                 <label>World width<input id="world-w" type="number"></label>
                 <label>World height<input id="world-h" type="number"></label>
@@ -451,6 +448,7 @@
                     </select>
                 </label>
                 <label class="inline"><input id="inspect-mirror" type="checkbox"> Mirror X</label>
+                <label class="inline"><input id="inspect-collision" type="checkbox"> Collision lines</label>
             </div>
             <label id="entity-type-row">Entity type
                 <select id="inspect-entity-type">
@@ -486,10 +484,10 @@
 (() => {
     "use strict";
 
-    const STORAGE_KEY = "ignatius_level_editor_v1";
-    const DEFAULT_ATLAS_ID = "theme_A_atlas_1";
-    const DEFAULT_MANIFEST_URL = "assets/theme_A_atlas_1_manifest.json";
-    const DEFAULT_IMAGE_URL = "assets/theme_A_atlas_1.png";
+    const STORAGE_KEY = "ignatius_level_editor_v2";
+    const DEFAULT_ATLAS_ID = "atlas_001";
+    const DEFAULT_MANIFEST_URL = "assets/atlas_001.json";
+    const DEFAULT_IMAGE_URL = "assets/atlas_001.png";
 
     const COLORS = {
         frame: "rgba(86,230,255,0.78)",
@@ -520,7 +518,6 @@
         showAssetGuides: document.getElementById("show-asset-guides"),
         showLabels: document.getElementById("show-labels"),
         levelId: document.getElementById("level-id"),
-        themeId: document.getElementById("theme-id"),
         levelTitle: document.getElementById("level-title"),
         worldW: document.getElementById("world-w"),
         worldH: document.getElementById("world-h"),
@@ -538,6 +535,7 @@
         inspectH: document.getElementById("inspect-h"),
         inspectLayer: document.getElementById("inspect-layer"),
         inspectMirror: document.getElementById("inspect-mirror"),
+        inspectCollision: document.getElementById("inspect-collision"),
         inspectEntityType: document.getElementById("inspect-entity-type"),
         inspectNotes: document.getElementById("inspect-notes"),
         assetSizeRow: document.getElementById("asset-size-row"),
@@ -557,31 +555,336 @@
         manifest: null,
         atlasImage: null,
         frameImageScale: 1,
-        level: makeDefaultLevel()
+        level: null
     };
 
-    function makeDefaultLevel() {
-        return {
-            meta: {
-                version: 1,
-                editor: "Ignatius Rocketfrock Level Editor",
-                note: "Level placements are data. Runtime collision can be derived from referenced atlas manifest lines. Cutout masks erase lower visual layers only."
+    const STARTER_LEVEL = {
+            "meta": {
+                    "version": 1,
+                    "editor": "Ignatius Rocketfrock Level Editor",
+                    "note": "Level placements are data. Runtime collision is derived from placement collisionFromManifest plus referenced atlas lines, not asset type. Cutout masks erase lower visual layers only."
             },
-            levelId: "theme_a_editor_level_001",
-            themeId: "themeA",
-            title: "Ignatius Rocketfrock and the Level That Was Edited On Purpose",
-            world: {
-                bounds: { x: -320, y: -420, w: 5600, h: 1500 },
-                resetY: 1080
+            "levelId": "level_001",
+            "title": "Ignatius Rocketfrock and the Level That Was Edited On Purpose",
+            "world": {
+                    "bounds": {
+                            "x": -320,
+                            "y": -420,
+                            "w": 5600,
+                            "h": 1500
+                    },
+                    "resetY": 1080
             },
-            playerStart: { id: "wizardStart", x: 120, y: 476, notes: "Wizard starting point. Y means foot/ground position." },
-            atlasRefs: [
-                { atlasId: DEFAULT_ATLAS_ID, manifest: DEFAULT_MANIFEST_URL, image: DEFAULT_IMAGE_URL }
+            "playerStart": {
+                    "id": "wizardStart",
+                    "x": 120,
+                    "y": 476,
+                    "notes": "Spawn above the first platform."
+            },
+            "atlasRefs": [
+                    {
+                            "atlasId": "atlas_001",
+                            "manifest": "assets/atlas_001.json",
+                            "image": "assets/atlas_001.png"
+                    }
             ],
-            placements: [],
-            entities: []
-        };
+            "placements": [
+                    {
+                            "id": "start_ground",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "floor_big_moss",
+                            "x": -145,
+                            "y": 456,
+                            "w": 620,
+                            "h": 304,
+                            "mirrorX": false,
+                            "layer": "terrain",
+                            "collisionFromManifest": true,
+                            "notes": "",
+                            "order": 0
+                    },
+                    {
+                            "id": "left_step",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "ledge_flat_long_a",
+                            "x": 640,
+                            "y": 270,
+                            "w": 390,
+                            "h": 118,
+                            "mirrorX": false,
+                            "layer": "terrain",
+                            "collisionFromManifest": true,
+                            "notes": "",
+                            "order": 2
+                    },
+                    {
+                            "id": "upper_step",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "ledge_flat_long_b",
+                            "x": 1260,
+                            "y": 74,
+                            "w": 455,
+                            "h": 121,
+                            "mirrorX": false,
+                            "layer": "terrain",
+                            "collisionFromManifest": true,
+                            "notes": "",
+                            "order": 3
+                    },
+                    {
+                            "id": "crystal_step",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "ledge_blue_crystals",
+                            "x": 2160,
+                            "y": -92,
+                            "w": 430,
+                            "h": 120,
+                            "mirrorX": false,
+                            "layer": "terrain",
+                            "collisionFromManifest": true,
+                            "notes": "",
+                            "order": 4
+                    },
+                    {
+                            "id": "right_gallery",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "ledge_mossy_right",
+                            "x": 3820,
+                            "y": 160,
+                            "w": 565,
+                            "h": 203,
+                            "mirrorX": false,
+                            "layer": "terrain",
+                            "collisionFromManifest": true,
+                            "notes": "",
+                            "order": 6
+                    },
+                    {
+                            "id": "exit_ground",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "floor_mossy_low",
+                            "x": 4416,
+                            "y": 480,
+                            "w": 780,
+                            "h": 201,
+                            "mirrorX": false,
+                            "layer": "terrain",
+                            "collisionFromManifest": true,
+                            "notes": "",
+                            "order": 7
+                    },
+                    {
+                            "id": "arch_back",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "arch_ruin",
+                            "x": 3040,
+                            "y": 96,
+                            "w": 510,
+                            "h": 258,
+                            "mirrorX": false,
+                            "layer": "decorBack",
+                            "collisionFromManifest": false,
+                            "notes": "",
+                            "order": 8
+                    },
+                    {
+                            "id": "pillar_a",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "pillar_plain",
+                            "x": 2432,
+                            "y": 640,
+                            "w": 142,
+                            "h": 224,
+                            "mirrorX": false,
+                            "layer": "decorBack",
+                            "collisionFromManifest": false,
+                            "notes": "",
+                            "order": 11
+                    },
+                    {
+                            "id": "spikes_preview",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "wood_spikes_low",
+                            "x": 3360,
+                            "y": 800,
+                            "w": 205,
+                            "h": 74,
+                            "mirrorX": false,
+                            "layer": "decorFront",
+                            "collisionFromManifest": false,
+                            "notes": "",
+                            "order": 10
+                    },
+                    {
+                            "id": "floor_cold_platform_001",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "floor_cold_platform",
+                            "x": 32,
+                            "y": 832,
+                            "w": 5000,
+                            "h": 85,
+                            "mirrorX": false,
+                            "layer": "terrain",
+                            "collisionFromManifest": true,
+                            "notes": "",
+                            "order": 9
+                    },
+                    {
+                            "id": "lantern_silver_tall_001",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "lantern_silver_tall",
+                            "x": 1376,
+                            "y": 160,
+                            "w": 50,
+                            "h": 117,
+                            "mirrorX": false,
+                            "layer": "decorFront",
+                            "collisionFromManifest": false,
+                            "notes": "",
+                            "order": 10
+                    },
+                    {
+                            "id": "lantern_gold_small_001",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "lantern_gold_small",
+                            "x": 1504,
+                            "y": 160,
+                            "w": 46,
+                            "h": 108,
+                            "mirrorX": false,
+                            "layer": "decorFront",
+                            "collisionFromManifest": false,
+                            "notes": "",
+                            "order": 11
+                    },
+                    {
+                            "id": "lantern_gold_small_002",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "lantern_gold_small",
+                            "x": 1664,
+                            "y": 160,
+                            "w": 46,
+                            "h": 108,
+                            "mirrorX": false,
+                            "layer": "decorFront",
+                            "collisionFromManifest": false,
+                            "notes": "",
+                            "order": 12
+                    },
+                    {
+                            "id": "skull_pile_small_001",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "skull_pile_small",
+                            "x": 1952,
+                            "y": 800,
+                            "w": 128,
+                            "h": 72,
+                            "mirrorX": false,
+                            "layer": "decorFront",
+                            "collisionFromManifest": false,
+                            "notes": "",
+                            "order": 13
+                    },
+                    {
+                            "id": "skull_pile_small_002",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "skull_pile_small",
+                            "x": 960,
+                            "y": 800,
+                            "w": 128,
+                            "h": 72,
+                            "mirrorX": false,
+                            "layer": "decorFront",
+                            "collisionFromManifest": false,
+                            "notes": "",
+                            "order": 14
+                    },
+                    {
+                            "id": "skull_pile_small_003",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "skull_pile_small",
+                            "x": 2944,
+                            "y": 800,
+                            "w": 128,
+                            "h": 72,
+                            "mirrorX": false,
+                            "layer": "decorFront",
+                            "collisionFromManifest": false,
+                            "notes": "",
+                            "order": 15
+                    },
+                    {
+                            "id": "object_036_001",
+                            "kind": "atlasAsset",
+                            "atlasId": "atlas_001",
+                            "assetId": "object_036",
+                            "x": 1472,
+                            "y": 640,
+                            "w": 158,
+                            "h": 231,
+                            "mirrorX": false,
+                            "layer": "terrain",
+                            "collisionFromManifest": true,
+                            "notes": "",
+                            "order": 16
+                    }
+            ],
+            "entities": [
+                    {
+                            "id": "targetDummy_001",
+                            "type": "targetDummy",
+                            "x": 2496,
+                            "y": 416,
+                            "w": 42,
+                            "h": 80,
+                            "notes": "Future enemy slot."
+                    },
+                    {
+                            "id": "fuel_001",
+                            "type": "fuel",
+                            "x": 780,
+                            "y": 240,
+                            "radius": 14,
+                            "amount": 40,
+                            "notes": "Fuel pickup."
+                    },
+                    {
+                            "id": "exit_001",
+                            "type": "exit",
+                            "x": 4992,
+                            "y": 448,
+                            "w": 64,
+                            "h": 120,
+                            "notes": "Future level exit."
+                    }
+            ]
+    };
+
+    function cloneData(value) {
+        return JSON.parse(JSON.stringify(value));
     }
+
+    function makeDefaultLevel() {
+        return cloneData(STARTER_LEVEL);
+    }
+
+    state.level = makeDefaultLevel();
 
     function resizeCanvas() {
         const dpr = window.devicePixelRatio || 1;
@@ -676,6 +979,14 @@
 
     function objectFor(assetId) {
         return state.manifest?.objects?.[assetId] || null;
+    }
+
+    function assetHasCollisionLines(assetId) {
+        const object = objectFor(assetId);
+        if (!object || !Array.isArray(object.lines)) {
+            return false;
+        }
+        return object.lines.some((line) => ["walkable", "blockable", "damaging", "killable"].includes(line.kind));
     }
 
     function assetIds() {
@@ -836,7 +1147,7 @@
             h,
             mirrorX: false,
             layer: object?.layer || "terrain",
-            collisionFromManifest: object?.layer !== "decorFront" && object?.layer !== "decorBack",
+            collisionFromManifest: assetHasCollisionLines(state.selectedAssetId),
             notes: ""
         };
         state.level.placements.push(placement);
@@ -1220,6 +1531,7 @@
             els.inspectH.value = Math.round(rec.h || 0);
             els.inspectLayer.value = rec.layer || (selected.kind === "cutoutMask" ? "mask" : "terrain");
             els.inspectMirror.checked = Boolean(rec.mirrorX);
+            els.inspectCollision.checked = rec.collisionFromManifest !== false;
             els.inspectEntityType.value = selected.kind === "wizardStart" ? "wizardStart" : rec.type || "targetDummy";
             els.inspectNotes.value = rec.notes || "";
         }
@@ -1252,6 +1564,7 @@
             if (selected.kind === "asset") {
                 rec.layer = els.inspectLayer.value;
                 rec.mirrorX = els.inspectMirror.checked;
+                rec.collisionFromManifest = els.inspectCollision.checked;
             } else if (selected.kind === "cutoutMask") {
                 rec.kind = "cutoutMask";
                 rec.layer = "mask";
@@ -1271,7 +1584,6 @@
 
     function syncMetadataFromUi() {
         state.level.levelId = els.levelId.value.trim() || state.level.levelId;
-        state.level.themeId = els.themeId.value.trim() || state.level.themeId;
         state.level.title = els.levelTitle.value.trim() || state.level.title;
         state.level.world.bounds.w = Number(els.worldW.value) || state.level.world.bounds.w;
         state.level.world.bounds.h = Number(els.worldH.value) || state.level.world.bounds.h;
@@ -1279,7 +1591,6 @@
 
     function syncMetadataToUi() {
         els.levelId.value = state.level.levelId;
-        els.themeId.value = state.level.themeId;
         els.levelTitle.value = state.level.title;
         els.worldW.value = state.level.world.bounds.w;
         els.worldH.value = state.level.world.bounds.h;
@@ -1300,32 +1611,13 @@
 
     function starterLayout() {
         state.level = makeDefaultLevel();
-        state.level.placements = [
-            placeData("start_ground", "floor_big_moss", -145, 456, 620, 304, "terrain"),
-            placeData("runway", "floor_long_terrace", 760, 474, 1340, 292, "terrain"),
-            placeData("left_step", "ledge_flat_long_a", 640, 270, 390, 118, "terrain"),
-            placeData("upper_step", "ledge_flat_long_b", 1260, 74, 455, 121, "terrain"),
-            placeData("crystal_step", "ledge_blue_crystals", 2160, -92, 430, 120, "terrain"),
-            placeData("right_ground", "floor_hanging_right", 3040, 456, 790, 272, "terrain"),
-            placeData("right_gallery", "ledge_mossy_right", 3820, 160, 565, 203, "terrain"),
-            placeData("exit_ground", "floor_mossy_low", 4720, 502, 780, 201, "terrain"),
-            placeData("arch_back", "arch_ruin", 1090, 380, 510, 258, "decorBack"),
-            placeData("pillar_a", "pillar_plain", 2450, 392, 142, 224, "decorBack"),
-            placeData("spikes_preview", "wood_spikes_low", 3380, 530, 205, 74, "decorFront")
-        ];
-        state.level.entities = [
-            { id: "targetDummy_001", type: "targetDummy", x: 3060, y: 560, w: 42, h: 80, notes: "Future enemy slot." },
-            { id: "fuel_001", type: "fuel", x: 780, y: 240, radius: 14, amount: 40, notes: "Fuel pickup." },
-            { id: "exit_001", type: "exit", x: 5250, y: 600, w: 64, h: 120, notes: "Future level exit." }
-        ];
-        state.level.playerStart = { id: "wizardStart", x: 120, y: 476, notes: "Spawn above the first platform." };
         state.selectedId = "wizardStart";
         fitView();
         persistUi();
     }
 
     function placeData(id, assetId, x, y, w, h, layer) {
-        return { id, kind: "atlasAsset", atlasId: DEFAULT_ATLAS_ID, assetId, x, y, w, h, mirrorX: false, layer, collisionFromManifest: layer === "terrain", notes: "" };
+        return { id, kind: "atlasAsset", atlasId: DEFAULT_ATLAS_ID, assetId, x, y, w, h, mirrorX: false, layer, collisionFromManifest: assetHasCollisionLines(assetId), notes: "" };
     }
 
     function raiseSelectedToTop() {
@@ -1442,7 +1734,7 @@
     document.getElementById("to-front").addEventListener("click", raiseSelectedToTop);
     document.getElementById("to-back").addEventListener("click", lowerSelectedToBottom);
     document.getElementById("play-browser-copy").addEventListener("click", playBrowserCopy);
-    [els.showGrid, els.showAssetGuides, els.showLabels, els.snapEnabled, els.snap, els.worldW, els.worldH, els.levelId, els.themeId, els.levelTitle].forEach((el) => el.addEventListener("change", () => { syncMetadataFromUi(); draw(); }));
+    [els.showGrid, els.showAssetGuides, els.showLabels, els.snapEnabled, els.snap, els.worldW, els.worldH, els.levelId, els.levelTitle].forEach((el) => el.addEventListener("change", () => { syncMetadataFromUi(); draw(); }));
 
     document.getElementById("manifest-file").addEventListener("change", async (event) => {
         const file = event.target.files?.[0];
@@ -1485,7 +1777,7 @@
         const blob = new Blob([els.levelJson.value], { type: "application/json" });
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = state.level.levelId === "theme_a_editor_level_001" ? "level_001.json" : `${state.level.levelId || "level_001"}.json`;
+        a.download = `${state.level.levelId || "level_001"}.json`;
         document.body.appendChild(a);
         a.click();
         a.remove();

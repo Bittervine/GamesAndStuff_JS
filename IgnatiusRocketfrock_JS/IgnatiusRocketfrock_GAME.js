@@ -58,7 +58,7 @@ function maybeApplyBrowserCopyLevel() {
         return false;
     }
     try {
-        const raw = localStorage.getItem("ignatius_level_editor_v1");
+        const raw = localStorage.getItem("ignatius_level_editor_v2") || localStorage.getItem("ignatius_level_editor_v1");
         if (!raw) {
             console.warn("Playtest requested, but no browser-saved level editor copy was found.");
             return false;
@@ -167,7 +167,7 @@ function applyLoadedAtlasCollisions() {
     }
     const applied = applyAtlasManifestsToWorld(gameState, renderer.getEnvironmentManifests());
     if (!applied) {
-        console.warn("Atlas manifest collision data was not available from assets/theme_A_atlas_1_manifest.json. Using fallback rectangle collision.");
+        console.warn("Atlas manifest collision data was not available from assets/atlas_001.json. Using fallback rectangle collision.");
     }
 }
 

@@ -131,7 +131,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "theme-a-016-default-level-json-loader",
+            build: "017-default-level-atlas-001-loader",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -257,7 +257,7 @@ export function createInitialGameState(overrides = {}) {
 function createPhaseOneArena(tuning) {
     const solids = [];
     const visuals = [];
-    const atlasId = "theme_A_atlas_1";
+    const atlasId = "atlas_001";
 
     const addAsset = (options) => {
         const visualId = `${options.id}_art`;
@@ -296,7 +296,7 @@ function createPhaseOneArena(tuning) {
         { id: "right_wall", kind: "wall", x: 5360, y: -520, w: 60, h: 1580 }
     );
 
-    // Theme A 009: an airier gallery. The previous arrangement stacked large atlas
+    // Fallback atlas arena: an airier gallery. The previous arrangement stacked large atlas
     // islands too close together, so their lower blockable outline segments left very
     // little headway. This pass mostly separates pieces horizontally, and any platform
     // that overlaps another vertically has at least a generous wizard-height clearance.
@@ -393,8 +393,7 @@ function createPhaseOneArena(tuning) {
     );
 
     return {
-        levelId: "theme_a_manifest_gallery_airier",
-        themeId: "themeA",
+        levelId: "manifest_gallery_airier",
         gravityDirection: { x: 0, y: 1 },
         bounds: { x: -360, y: -520, w: 5820, h: 1580 },
         resetY: 1080,
@@ -403,7 +402,7 @@ function createPhaseOneArena(tuning) {
         // inside the island art.
         start: { x: 135, y: 520 },
         atlasManifests: [
-            "assets/theme_A_atlas_1_manifest.json"
+            "assets/atlas_001.json"
         ],
         visuals,
         solids,
@@ -505,6 +504,15 @@ function atlasNodeToWorld(visual, frame, node) {
 }
 
 
+function normalizeAtlasManifestPath(path) {
+    const text = String(path || "");
+    return text.includes("theme_A_atlas_1") ? "assets/atlas_001.json" : text;
+}
+
+function normalizeAtlasId(atlasId) {
+    return atlasId === "theme_A_atlas_1" || atlasId === "themeA1" ? "atlas_001" : atlasId;
+}
+
 export function applyEditorLevelToWorld(state, editorLevel) {
     if (!state?.world || !editorLevel || typeof editorLevel !== "object") {
         return false;
@@ -546,7 +554,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         visuals.push({
             id: placement.id || `${assetId}_${visuals.length}`,
             kind: "atlasSprite",
-            atlasId: placement.atlasId || source.atlasId || "theme_A_atlas_1",
+            atlasId: normalizeAtlasId(placement.atlasId || source.atlasId || "atlas_001"),
             assetId,
             frame: placement.frame || assetId,
             x: Number(placement.x) || 0,
@@ -567,12 +575,11 @@ export function applyEditorLevelToWorld(state, editorLevel) {
 
     const bounds = source.world?.bounds || source.bounds || estimateEditorLevelBounds(visuals, playerStart, entities);
     const atlasManifests = Array.isArray(source.atlasRefs)
-        ? source.atlasRefs.map((ref) => ref.manifest).filter(Boolean)
-        : ["assets/theme_A_atlas_1_manifest.json"];
+        ? source.atlasRefs.map((ref) => ref.manifest).filter(Boolean).map(normalizeAtlasManifestPath)
+        : ["assets/atlas_001.json"];
     state.world = {
         ...state.world,
         levelId: source.levelId || source.id || "browser_copy_playtest",
-        themeId: source.themeId || "themeA",
         bounds,
         resetY: Number(source.world?.resetY ?? source.resetY) || bounds.y + bounds.h + 240,
         start: playerStart ? { x: Number(playerStart.x) || 120, y: Number(playerStart.y) || 360 } : state.world.start,

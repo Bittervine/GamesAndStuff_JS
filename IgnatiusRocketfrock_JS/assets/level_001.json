@@ -2,10 +2,9 @@
     "meta": {
         "version": 1,
         "editor": "Ignatius Rocketfrock Level Editor",
-        "note": "Level placements are data. Runtime collision can be derived from referenced atlas manifest lines. Cutout masks erase lower visual layers only."
+        "note": "Level placements are data. Runtime collision is derived from placement collisionFromManifest plus referenced atlas lines, not asset type. Cutout masks erase lower visual layers only."
     },
-    "levelId": "theme_a_editor_level_001",
-    "themeId": "themeA",
+    "levelId": "level_001",
     "title": "Ignatius Rocketfrock and the Level That Was Edited On Purpose",
     "world": {
         "bounds": {
@@ -24,16 +23,16 @@
     },
     "atlasRefs": [
         {
-            "atlasId": "theme_A_atlas_1",
-            "manifest": "assets/theme_A_atlas_1_manifest.json",
-            "image": "assets/theme_A_atlas_1.png"
+            "atlasId": "atlas_001",
+            "manifest": "assets/atlas_001.json",
+            "image": "assets/atlas_001.png"
         }
     ],
     "placements": [
         {
             "id": "start_ground",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "floor_big_moss",
             "x": -145,
             "y": 456,
@@ -48,7 +47,7 @@
         {
             "id": "left_step",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "ledge_flat_long_a",
             "x": 640,
             "y": 270,
@@ -63,7 +62,7 @@
         {
             "id": "upper_step",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "ledge_flat_long_b",
             "x": 1260,
             "y": 74,
@@ -78,7 +77,7 @@
         {
             "id": "crystal_step",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "ledge_blue_crystals",
             "x": 2160,
             "y": -92,
@@ -93,7 +92,7 @@
         {
             "id": "right_gallery",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "ledge_mossy_right",
             "x": 3820,
             "y": 160,
@@ -108,7 +107,7 @@
         {
             "id": "exit_ground",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "floor_mossy_low",
             "x": 4416,
             "y": 480,
@@ -123,7 +122,7 @@
         {
             "id": "arch_back",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "arch_ruin",
             "x": 3040,
             "y": 96,
@@ -138,7 +137,7 @@
         {
             "id": "pillar_a",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "pillar_plain",
             "x": 2432,
             "y": 640,
@@ -153,7 +152,7 @@
         {
             "id": "spikes_preview",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "wood_spikes_low",
             "x": 3360,
             "y": 800,
@@ -168,7 +167,7 @@
         {
             "id": "floor_cold_platform_001",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "floor_cold_platform",
             "x": 32,
             "y": 832,
@@ -183,7 +182,7 @@
         {
             "id": "lantern_silver_tall_001",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "lantern_silver_tall",
             "x": 1376,
             "y": 160,
@@ -198,7 +197,7 @@
         {
             "id": "lantern_gold_small_001",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "lantern_gold_small",
             "x": 1504,
             "y": 160,
@@ -213,7 +212,7 @@
         {
             "id": "lantern_gold_small_002",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "lantern_gold_small",
             "x": 1664,
             "y": 160,
@@ -228,7 +227,7 @@
         {
             "id": "skull_pile_small_001",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "skull_pile_small",
             "x": 1952,
             "y": 800,
@@ -243,7 +242,7 @@
         {
             "id": "skull_pile_small_002",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "skull_pile_small",
             "x": 960,
             "y": 800,
@@ -258,7 +257,7 @@
         {
             "id": "skull_pile_small_003",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "skull_pile_small",
             "x": 2944,
             "y": 800,
@@ -273,7 +272,7 @@
         {
             "id": "object_036_001",
             "kind": "atlasAsset",
-            "atlasId": "theme_A_atlas_1",
+            "atlasId": "atlas_001",
             "assetId": "object_036",
             "x": 1472,
             "y": 640,
@@ -295,15 +294,6 @@
             "w": 42,
             "h": 80,
             "notes": "Future enemy slot."
-        },
-        {
-            "id": "fuel_001",
-            "type": "fuel",
-            "x": 780,
-            "y": 240,
-            "radius": 14,
-            "amount": 40,
-            "notes": "Fuel pickup."
         },
         {
             "id": "exit_001",
