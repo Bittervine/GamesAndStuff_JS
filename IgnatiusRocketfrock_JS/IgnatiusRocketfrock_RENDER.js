@@ -4907,10 +4907,25 @@ class RocketfrockRenderer {
     drawCollisionSegments(state, view) {
         const ctx = this.ctx;
         const segments = state.world.segments || [];
-        if (!segments.length) {
+        const polygons = state.world.collisionPolygons || [];
+        if (!segments.length && !polygons.length) {
             return;
         }
         ctx.save();
+        for (const polygon of polygons) {
+            if (!Array.isArray(polygon.points) || polygon.points.length < 3) {
+                continue;
+            }
+            ctx.fillStyle = assetAreaColor(polygon.kind);
+            ctx.beginPath();
+            for (let i = 0; i < polygon.points.length; i += 1) {
+                const p = this.worldToScreen(view, polygon.points[i].x, polygon.points[i].y);
+                if (i === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         ctx.lineWidth = 3 * view.dpr;
@@ -5058,6 +5073,24 @@ class RocketfrockRenderer {
 
             if (!object || !Array.isArray(object.nodes) || !Array.isArray(object.lines)) {
                 continue;
+            }
+
+            for (const loop of findClosedCollisionLoops(object)) {
+                const points = loop.points.map((point) => this.assetLocalToScreen(visual, frame, point, view));
+                if (points.length < 3) {
+                    continue;
+                }
+                ctx.save();
+                ctx.fillStyle = assetAreaColor(loop.kind);
+                ctx.beginPath();
+                for (let i = 0; i < points.length; i += 1) {
+                    const p = points[i];
+                    if (i === 0) ctx.moveTo(p.x, p.y);
+                    else ctx.lineTo(p.x, p.y);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
             }
 
             for (const line of object.lines) {
@@ -6283,10 +6316,180 @@ function deepMerge(base, incoming) {
 }
 
 
+
+function findClosedCollisionLoops(object) {
+    if (!object || !Array.isArray(object.nodes) || !Array.isArray(object.lines)) {
+        return [];
+    }
+
+    const nodeById = new Map(object.nodes.map((node) => [node.id, node]));
+    const blockerLines = object.lines.filter((line) => isAreaBlockingLineKind(line.kind) && nodeById.has(line.from) && nodeById.has(line.to));
+    const blockerLoops = findClosedLoopsFromLines(blockerLines, nodeById);
+    if (blockerLoops.length) {
+        return blockerLoops;
+    }
+
+    const solidLines = object.lines.filter((line) => isSolidGuideLineKind(line.kind) && nodeById.has(line.from) && nodeById.has(line.to));
+    return findClosedLoopsFromLines(solidLines, nodeById).filter((loop) => loop.lines.some((line) => isAreaBlockingLineKind(line.kind)));
+}
+
+function isSolidGuideLineKind(kind) {
+    return kind === "walkable" || kind === "blockable" || kind === "damaging" || kind === "killable";
+}
+
+function isAreaBlockingLineKind(kind) {
+    return kind === "blockable" || kind === "damaging" || kind === "killable";
+}
+
+function findClosedLoopsFromLines(lines, nodeById) {
+    const components = collectLineComponents(lines);
+    const loops = [];
+
+    for (const component of components) {
+        if (component.length < 3) {
+            continue;
+        }
+
+        const degree = new Map();
+        for (const line of component) {
+            degree.set(line.from, (degree.get(line.from) || 0) + 1);
+            degree.set(line.to, (degree.get(line.to) || 0) + 1);
+        }
+        if ([...degree.values()].some((count) => count !== 2)) {
+            continue;
+        }
+
+        const ordered = orderClosedLineLoop(component, nodeById);
+        if (!ordered || ordered.points.length < 3) {
+            continue;
+        }
+
+        const area = polygonArea(ordered.points);
+        if (Math.abs(area) < 4) {
+            continue;
+        }
+
+        loops.push({
+            kind: collisionLoopKind(component),
+            points: area < 0 ? ordered.points.slice().reverse() : ordered.points,
+            lineIds: component.map((line) => line.id || ""),
+            lines: component
+        });
+    }
+
+    return loops;
+}
+
+function collectLineComponents(lines) {
+    const byNode = new Map();
+    for (const line of lines) {
+        if (!byNode.has(line.from)) byNode.set(line.from, []);
+        if (!byNode.has(line.to)) byNode.set(line.to, []);
+        byNode.get(line.from).push(line);
+        byNode.get(line.to).push(line);
+    }
+
+    const components = [];
+    const seen = new Set();
+    for (const line of lines) {
+        const lineKey = line.id || `${line.from}->${line.to}`;
+        if (seen.has(lineKey)) {
+            continue;
+        }
+        const stack = [line];
+        const component = [];
+        while (stack.length) {
+            const current = stack.pop();
+            const key = current.id || `${current.from}->${current.to}`;
+            if (seen.has(key)) {
+                continue;
+            }
+            seen.add(key);
+            component.push(current);
+            for (const nodeId of [current.from, current.to]) {
+                for (const next of byNode.get(nodeId) || []) {
+                    const nextKey = next.id || `${next.from}->${next.to}`;
+                    if (!seen.has(nextKey)) {
+                        stack.push(next);
+                    }
+                }
+            }
+        }
+        components.push(component);
+    }
+    return components;
+}
+
+function orderClosedLineLoop(lines, nodeById) {
+    const adjacency = new Map();
+    for (const line of lines) {
+        if (!adjacency.has(line.from)) adjacency.set(line.from, []);
+        if (!adjacency.has(line.to)) adjacency.set(line.to, []);
+        adjacency.get(line.from).push({ to: line.to, line });
+        adjacency.get(line.to).push({ to: line.from, line });
+    }
+
+    const start = lines[0].from;
+    let current = start;
+    let previous = null;
+    const used = new Set();
+    const points = [];
+
+    for (let guard = 0; guard < lines.length + 2; guard += 1) {
+        const node = nodeById.get(current);
+        if (!node) {
+            return null;
+        }
+        points.push({ x: node.x, y: node.y });
+        const candidates = adjacency.get(current) || [];
+        const nextEdge = candidates.find((candidate) => {
+            const key = candidate.line.id || `${candidate.line.from}->${candidate.line.to}`;
+            return candidate.to !== previous && !used.has(key);
+        }) || candidates.find((candidate) => {
+            const key = candidate.line.id || `${candidate.line.from}->${candidate.line.to}`;
+            return !used.has(key);
+        });
+        if (!nextEdge) {
+            return null;
+        }
+        const key = nextEdge.line.id || `${nextEdge.line.from}->${nextEdge.line.to}`;
+        used.add(key);
+        previous = current;
+        current = nextEdge.to;
+        if (current === start) {
+            return used.size === lines.length ? { points } : null;
+        }
+    }
+
+    return null;
+}
+
+function collisionLoopKind(lines) {
+    if (lines.some((line) => line.kind === "killable")) return "killable";
+    if (lines.some((line) => line.kind === "damaging")) return "damaging";
+    return "blockable";
+}
+
+function polygonArea(points) {
+    let area = 0;
+    for (let i = 0; i < points.length; i += 1) {
+        const a = points[i];
+        const b = points[(i + 1) % points.length];
+        area += a.x * b.y - b.x * a.y;
+    }
+    return area * 0.5;
+}
+
 function assetLineColor(kind) {
     if (kind === "walkable") return "rgba(88, 255, 158, 0.92)";
     if (kind === "blockable") return "rgba(255, 225, 94, 0.92)";
     if (kind === "damaging") return "rgba(255, 159, 67, 0.95)";
     if (kind === "killable") return "rgba(255, 79, 97, 0.95)";
     return "rgba(255, 255, 255, 0.85)";
+}
+
+function assetAreaColor(kind) {
+    if (kind === "damaging") return "rgba(255, 159, 67, 0.20)";
+    if (kind === "killable") return "rgba(255, 79, 97, 0.22)";
+    return "rgba(255, 225, 94, 0.18)";
 }

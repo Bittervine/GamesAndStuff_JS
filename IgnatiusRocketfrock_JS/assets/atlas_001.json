@@ -1,7 +1,7 @@
 {
     "meta": {
         "version": 4,
-        "note": "Atlas 001 cave/ruin assets. Cyan boxes identify visual islands/assets. Nodes and lines are local to each box. Object type is editor/catalog metadata only; gameplay collision comes from placement collisionFromManifest plus line kinds."
+        "note": "Cave/ruin atlas. Cyan boxes identify visual islands/assets. Nodes and lines are local to each box."
     },
     "atlasId": "atlas_001",
     "image": "atlas_001.png",
@@ -2095,8 +2095,8 @@
                 },
                 {
                     "id": "n3",
-                    "x": 200,
-                    "y": 13
+                    "x": 133,
+                    "y": 25
                 },
                 {
                     "id": "n4",
@@ -2562,7 +2562,7 @@
         "arch_ruin": {
             "id": "arch_ruin",
             "frame": "arch_ruin",
-            "type": "pillar",
+            "type": "decor",
             "layer": "decorFront",
             "mirrorable": true,
             "defaultScale": 1,
@@ -2583,18 +2583,18 @@
             "nodes": [
                 {
                     "id": "n1",
-                    "x": 68,
-                    "y": 186
+                    "x": 66,
+                    "y": 178
                 },
                 {
                     "id": "n2",
-                    "x": 334,
-                    "y": 195
+                    "x": 328,
+                    "y": 179
                 },
                 {
                     "id": "n3",
-                    "x": 16,
-                    "y": 41
+                    "x": 15,
+                    "y": 43
                 },
                 {
                     "id": "n4",
@@ -2618,28 +2618,28 @@
                 },
                 {
                     "id": "n8",
-                    "x": 328,
-                    "y": 52
+                    "x": 319,
+                    "y": 56
                 },
                 {
                     "id": "n9",
-                    "x": 376,
-                    "y": 88
+                    "x": 361,
+                    "y": 78
                 },
                 {
                     "id": "n10",
-                    "x": 377,
-                    "y": 186
+                    "x": 389,
+                    "y": 175
                 },
                 {
                     "id": "n11",
-                    "x": 132,
-                    "y": 193
+                    "x": 126,
+                    "y": 179
                 },
                 {
                     "id": "n12",
-                    "x": 217,
-                    "y": 197
+                    "x": 222,
+                    "y": 181
                 },
                 {
                     "id": "n13",
@@ -2648,8 +2648,8 @@
                 },
                 {
                     "id": "n14",
-                    "x": 14,
-                    "y": 178
+                    "x": 25,
+                    "y": 175
                 }
             ],
             "lines": [
@@ -2736,20 +2736,6 @@
                     "from": "n14",
                     "to": "n1",
                     "tags": []
-                },
-                {
-                    "id": "blockable_13",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n14",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_14",
-                    "kind": "blockable",
-                    "from": "n9",
-                    "to": "n10",
-                    "tags": []
                 }
             ]
         },
@@ -2775,11 +2761,6 @@
             "tags": [],
             "notes": "",
             "nodes": [
-                {
-                    "id": "n1",
-                    "x": 10,
-                    "y": 13
-                },
                 {
                     "id": "n2",
                     "x": 268,
@@ -2834,6 +2815,16 @@
                     "id": "n12",
                     "x": 198,
                     "y": 20
+                },
+                {
+                    "id": "n13",
+                    "x": 21,
+                    "y": 66
+                },
+                {
+                    "id": "n14",
+                    "x": 10,
+                    "y": 22
                 }
             ],
             "lines": [
@@ -2908,16 +2899,23 @@
                     "tags": []
                 },
                 {
-                    "id": "walkable_11",
-                    "kind": "walkable",
+                    "id": "blockable_11",
+                    "kind": "blockable",
                     "from": "n12",
-                    "to": "n1",
+                    "to": "n14",
                     "tags": []
                 },
                 {
                     "id": "blockable_12",
                     "kind": "blockable",
-                    "from": "n1",
+                    "from": "n14",
+                    "to": "n13",
+                    "tags": []
+                },
+                {
+                    "id": "blockable_13",
+                    "kind": "blockable",
+                    "from": "n13",
                     "to": "n5",
                     "tags": []
                 }

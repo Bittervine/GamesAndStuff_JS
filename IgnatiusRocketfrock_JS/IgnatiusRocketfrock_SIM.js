@@ -427,6 +427,7 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
     }
 
     const segments = [];
+    const polygons = [];
     const visuals = Array.isArray(state.world.visuals) ? state.world.visuals : [];
 
     for (const visual of visuals) {
@@ -479,19 +480,41 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
                 tags: Array.isArray(line.tags) ? line.tags.slice() : []
             });
         }
+
+        const collisionLoops = findClosedCollisionLoops(object);
+        for (const loop of collisionLoops) {
+            const points = loop.points
+                .map((point) => atlasNodeToWorld(visual, frame, point))
+                .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+            if (points.length < 3 || Math.abs(polygonArea(points)) < 4) {
+                continue;
+            }
+            polygons.push({
+                id: `${visual.id || assetId}_area_${polygons.length}`,
+                kind: loop.kind,
+                points,
+                visualId: visual.id,
+                assetId,
+                lineIds: loop.lineIds.slice()
+            });
+        }
     }
 
-    if (!segments.length) {
+    if (!segments.length && !polygons.length) {
         state.world.collisionMode = "fallbackRectangles";
         state.world.collisionSegmentCount = 0;
+        state.world.collisionPolygonCount = 0;
+        state.world.collisionPolygons = [];
         return false;
     }
 
     state.world.segments = segments;
+    state.world.collisionPolygons = polygons;
     state.world.solids = (state.world.solids || []).filter((solid) => solid.kind === "wall");
-    state.world.collisionMode = "atlasSegments";
+    state.world.collisionMode = polygons.length ? "atlasSegmentsAndAreas" : "atlasSegments";
     state.world.collisionSegmentCount = segments.length;
-    addEvent(state, "ATLAS_COLLISION_APPLIED", { segments: segments.length });
+    state.world.collisionPolygonCount = polygons.length;
+    addEvent(state, "ATLAS_COLLISION_APPLIED", { segments: segments.length, polygons: polygons.length });
     return true;
 }
 
@@ -501,6 +524,159 @@ function atlasNodeToWorld(visual, frame, node) {
         x: visual.x + localX / Math.max(1, frame.w) * visual.w,
         y: visual.y + node.y / Math.max(1, frame.h) * visual.h
     };
+}
+
+
+function findClosedCollisionLoops(object) {
+    if (!object || !Array.isArray(object.nodes) || !Array.isArray(object.lines)) {
+        return [];
+    }
+
+    const nodeById = new Map(object.nodes.map((node) => [node.id, node]));
+    const blockerLines = object.lines.filter((line) => isAreaBlockingSegmentKind(line.kind) && nodeById.has(line.from) && nodeById.has(line.to));
+    const loops = findClosedLoopsFromLines(blockerLines, nodeById);
+    if (loops.length) {
+        return loops;
+    }
+
+    const solidLines = object.lines.filter((line) => isSolidSegmentKind(line.kind) && nodeById.has(line.from) && nodeById.has(line.to));
+    return findClosedLoopsFromLines(solidLines, nodeById).filter((loop) => loop.lines.some((line) => isAreaBlockingSegmentKind(line.kind)));
+}
+
+function findClosedLoopsFromLines(lines, nodeById) {
+    const components = collectLineComponents(lines);
+    const loops = [];
+
+    for (const component of components) {
+        if (component.length < 3) {
+            continue;
+        }
+        const degree = new Map();
+        for (const line of component) {
+            degree.set(line.from, (degree.get(line.from) || 0) + 1);
+            degree.set(line.to, (degree.get(line.to) || 0) + 1);
+        }
+        if ([...degree.values()].some((count) => count !== 2)) {
+            continue;
+        }
+
+        const ordered = orderClosedLineLoop(component, nodeById);
+        if (!ordered || ordered.points.length < 3) {
+            continue;
+        }
+        const area = polygonArea(ordered.points);
+        if (Math.abs(area) < 4) {
+            continue;
+        }
+        loops.push({
+            kind: collisionLoopKind(component),
+            points: area < 0 ? ordered.points.slice().reverse() : ordered.points,
+            lineIds: component.map((line) => line.id || ""),
+            lines: component
+        });
+    }
+
+    return loops;
+}
+
+function collectLineComponents(lines) {
+    const byNode = new Map();
+    for (const line of lines) {
+        if (!byNode.has(line.from)) byNode.set(line.from, []);
+        if (!byNode.has(line.to)) byNode.set(line.to, []);
+        byNode.get(line.from).push(line);
+        byNode.get(line.to).push(line);
+    }
+
+    const components = [];
+    const seen = new Set();
+    for (const line of lines) {
+        const lineKey = line.id || `${line.from}->${line.to}`;
+        if (seen.has(lineKey)) {
+            continue;
+        }
+        const stack = [line];
+        const component = [];
+        while (stack.length) {
+            const current = stack.pop();
+            const key = current.id || `${current.from}->${current.to}`;
+            if (seen.has(key)) {
+                continue;
+            }
+            seen.add(key);
+            component.push(current);
+            for (const nodeId of [current.from, current.to]) {
+                for (const next of byNode.get(nodeId) || []) {
+                    const nextKey = next.id || `${next.from}->${next.to}`;
+                    if (!seen.has(nextKey)) {
+                        stack.push(next);
+                    }
+                }
+            }
+        }
+        components.push(component);
+    }
+    return components;
+}
+
+function orderClosedLineLoop(lines, nodeById) {
+    const adjacency = new Map();
+    for (const line of lines) {
+        if (!adjacency.has(line.from)) adjacency.set(line.from, []);
+        if (!adjacency.has(line.to)) adjacency.set(line.to, []);
+        adjacency.get(line.from).push({ to: line.to, line });
+        adjacency.get(line.to).push({ to: line.from, line });
+    }
+
+    const start = lines[0].from;
+    let current = start;
+    let previous = null;
+    const used = new Set();
+    const points = [];
+
+    for (let guard = 0; guard < lines.length + 2; guard += 1) {
+        const node = nodeById.get(current);
+        if (!node) {
+            return null;
+        }
+        points.push({ x: node.x, y: node.y });
+        const candidates = adjacency.get(current) || [];
+        const nextEdge = candidates.find((candidate) => {
+            const key = candidate.line.id || `${candidate.line.from}->${candidate.line.to}`;
+            return candidate.to !== previous && !used.has(key);
+        }) || candidates.find((candidate) => {
+            const key = candidate.line.id || `${candidate.line.from}->${candidate.line.to}`;
+            return !used.has(key);
+        });
+        if (!nextEdge) {
+            return null;
+        }
+        const key = nextEdge.line.id || `${nextEdge.line.from}->${nextEdge.line.to}`;
+        used.add(key);
+        previous = current;
+        current = nextEdge.to;
+        if (current === start) {
+            return used.size === lines.length ? { points } : null;
+        }
+    }
+
+    return null;
+}
+
+function collisionLoopKind(lines) {
+    if (lines.some((line) => line.kind === "killable")) return "killable";
+    if (lines.some((line) => line.kind === "damaging")) return "damaging";
+    return "blockable";
+}
+
+function polygonArea(points) {
+    let area = 0;
+    for (let i = 0; i < points.length; i += 1) {
+        const a = points[i];
+        const b = points[(i + 1) % points.length];
+        area += a.x * b.y - b.x * a.y;
+    }
+    return area * 0.5;
 }
 
 
@@ -1303,6 +1479,7 @@ function moveAndCollideX(state, dx) {
     }
 
     resolveSegmentXCollisions(state, previousX, dx);
+    resolvePolygonXCollisions(state, previousX, dx);
 }
 
 function moveAndCollideY(state, dy, wasOnGround) {
@@ -1328,6 +1505,7 @@ function moveAndCollideY(state, dy, wasOnGround) {
     }
 
     resolveSegmentYCollisions(state, previousY, dy, wasOnGround);
+    resolvePolygonYCollisions(state, previousY, dy, wasOnGround);
 }
 
 function resolveSegmentYCollisions(state, previousY, dy, wasOnGround) {
@@ -1452,6 +1630,163 @@ function resolveSegmentXCollisions(state, previousX, dx) {
     state.collisions.lastResolution = { axis: "x", segmentId: best.segment.id, kind: best.segment.kind };
 }
 
+
+function resolvePolygonYCollisions(state, previousY, dy, wasOnGround) {
+    if (!Array.isArray(state.world.collisionPolygons) || state.world.collisionPolygons.length === 0 || dy === 0) {
+        return;
+    }
+
+    const p = state.player;
+    const samples = [
+        p.x,
+        p.x - p.width * 0.42,
+        p.x + p.width * 0.42
+    ];
+    const previousTop = previousY - p.height;
+    const currentTop = p.y - p.height;
+    const skin = 3;
+    let best = null;
+
+    for (const polygon of state.world.collisionPolygons) {
+        if (!isAreaBlockingSegmentKind(polygon.kind)) {
+            continue;
+        }
+        for (const x of samples) {
+            const intervals = polygonYIntervalsAtX(polygon, x);
+            for (const interval of intervals) {
+                if (dy > 0) {
+                    const y = interval[0];
+                    if (previousY <= y + skin && p.y >= y - skin) {
+                        if (!best || y < best.y) {
+                            best = { y, polygon };
+                        }
+                    }
+                } else if (dy < 0) {
+                    const y = interval[1];
+                    if (previousTop >= y - skin && currentTop <= y + skin) {
+                        if (!best || y > best.y) {
+                            best = { y, polygon, ceiling: true };
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (!best) {
+        return;
+    }
+
+    if (best.ceiling) {
+        p.y = best.y + p.height;
+        p.vy = 0;
+        state.collisions.playerTouching.up = true;
+        state.collisions.lastResolution = { axis: "y", polygonId: best.polygon.id, kind: best.polygon.kind };
+        return;
+    }
+
+    landPlayerOn(state, best.y, wasOnGround, best.polygon.id, best.polygon.kind);
+}
+
+function resolvePolygonXCollisions(state, previousX, dx) {
+    if (!Array.isArray(state.world.collisionPolygons) || state.world.collisionPolygons.length === 0 || dx === 0) {
+        return;
+    }
+
+    const p = state.player;
+    const previousLeft = previousX - p.width / 2;
+    const previousRight = previousX + p.width / 2;
+    const currentLeft = p.x - p.width / 2;
+    const currentRight = p.x + p.width / 2;
+    const ySamples = [
+        p.y - p.height * 0.84,
+        p.y - p.height * 0.50,
+        p.y - p.height * 0.16
+    ];
+    const skin = 3;
+    let best = null;
+
+    for (const polygon of state.world.collisionPolygons) {
+        if (!isAreaBlockingSegmentKind(polygon.kind)) {
+            continue;
+        }
+        for (const y of ySamples) {
+            const intervals = polygonXIntervalsAtY(polygon, y);
+            for (const interval of intervals) {
+                if (dx > 0) {
+                    const x = interval[0];
+                    if (previousRight <= x + skin && currentRight >= x - skin) {
+                        if (!best || x < best.x) {
+                            best = { x, polygon, side: "right" };
+                        }
+                    }
+                } else if (dx < 0) {
+                    const x = interval[1];
+                    if (previousLeft >= x - skin && currentLeft <= x + skin) {
+                        if (!best || x > best.x) {
+                            best = { x, polygon, side: "left" };
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (!best) {
+        return;
+    }
+
+    if (best.side === "right") {
+        p.x = best.x - p.width / 2;
+        state.collisions.playerTouching.right = true;
+    } else {
+        p.x = best.x + p.width / 2;
+        state.collisions.playerTouching.left = true;
+    }
+    p.vx = 0;
+    state.collisions.lastResolution = { axis: "x", polygonId: best.polygon.id, kind: best.polygon.kind };
+}
+
+function polygonXIntervalsAtY(polygon, y) {
+    const intersections = [];
+    const points = polygon.points || [];
+    for (let i = 0; i < points.length; i += 1) {
+        const a = points[i];
+        const b = points[(i + 1) % points.length];
+        if ((a.y > y) === (b.y > y)) {
+            continue;
+        }
+        const t = (y - a.y) / (b.y - a.y);
+        intersections.push(a.x + (b.x - a.x) * t);
+    }
+    intersections.sort((a, b) => a - b);
+    const intervals = [];
+    for (let i = 0; i + 1 < intersections.length; i += 2) {
+        intervals.push([intersections[i], intersections[i + 1]]);
+    }
+    return intervals;
+}
+
+function polygonYIntervalsAtX(polygon, x) {
+    const intersections = [];
+    const points = polygon.points || [];
+    for (let i = 0; i < points.length; i += 1) {
+        const a = points[i];
+        const b = points[(i + 1) % points.length];
+        if ((a.x > x) === (b.x > x)) {
+            continue;
+        }
+        const t = (x - a.x) / (b.x - a.x);
+        intersections.push(a.y + (b.y - a.y) * t);
+    }
+    intersections.sort((a, b) => a - b);
+    const intervals = [];
+    for (let i = 0; i + 1 < intersections.length; i += 2) {
+        intervals.push([intersections[i], intersections[i + 1]]);
+    }
+    return intervals;
+}
+
 function landPlayerOn(state, y, wasOnGround, id, kind = "blockable") {
     const p = state.player;
     p.y = y;
@@ -1471,6 +1806,10 @@ function landPlayerOn(state, y, wasOnGround, id, kind = "blockable") {
 
 function isSolidSegmentKind(kind) {
     return kind === "walkable" || kind === "blockable" || kind === "damaging" || kind === "killable";
+}
+
+function isAreaBlockingSegmentKind(kind) {
+    return kind === "blockable" || kind === "damaging" || kind === "killable";
 }
 
 function segmentYAtX(segment, x) {

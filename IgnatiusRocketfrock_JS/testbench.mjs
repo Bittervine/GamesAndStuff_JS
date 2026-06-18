@@ -9,7 +9,8 @@ import {
     cloneGameState,
     serializeGameState,
     restoreGameState,
-    resetPlayer
+    resetPlayer,
+    applyAtlasManifestsToWorld
 } from "./IgnatiusRocketfrock_SIM.js";
 
 function approx(actual, expected, tolerance, label) {
@@ -396,6 +397,60 @@ function testWallCollision() {
     assert.equal(state.player.vx, 0, "wall collision should zero horizontal velocity");
 }
 
+
+function testClosedAtlasLoopCreatesCollisionArea() {
+    const state = createInitialGameState();
+    state.world.visuals = [{
+        id: "test_loop_visual",
+        kind: "atlasSprite",
+        atlasId: "test_atlas",
+        assetId: "test_square",
+        frame: "test_square",
+        x: 310,
+        y: 496,
+        w: 100,
+        h: 104,
+        collisionFromManifest: true
+    }];
+    state.world.solids = [];
+    const manifest = {
+        atlasId: "test_atlas",
+        frames: {
+            test_square: { x: 0, y: 0, w: 100, h: 100 }
+        },
+        objects: {
+            test_square: {
+                id: "test_square",
+                frame: "test_square",
+                nodes: [
+                    { id: "a", x: 0, y: 0 },
+                    { id: "b", x: 100, y: 0 },
+                    { id: "c", x: 100, y: 100 },
+                    { id: "d", x: 0, y: 100 }
+                ],
+                lines: [
+                    { id: "l1", kind: "blockable", from: "a", to: "b" },
+                    { id: "l2", kind: "blockable", from: "b", to: "c" },
+                    { id: "l3", kind: "blockable", from: "c", to: "d" },
+                    { id: "l4", kind: "blockable", from: "d", to: "a" }
+                ]
+            }
+        }
+    };
+
+    assert.equal(applyAtlasManifestsToWorld(state, new Map([["test_atlas", { manifest }]])), true, "atlas collision should apply");
+    assert.equal(state.world.collisionPolygons.length, 1, "closed blockable loop should become a collision area");
+    state.world.solids.push({ id: "test_floor", kind: "floor", x: -1000, y: 600, w: 4000, h: 60 });
+    state.player.x = 240;
+    state.player.y = 600;
+    state.player.vx = 360;
+    state.player.vy = 0;
+    state.player.onGround = true;
+    stepMany(state, 80, () => createInputFrame({ moveRight: true }));
+    assert.ok(state.player.x <= 294, `closed blockable area should stop the player before entry, got x=${state.player.x}`);
+    assert.ok(!state.world.collisionPolygons.some((polygon) => polygon.points.length < 3), "collision areas should be valid polygons");
+}
+
 function testReset() {
     const state = createInitialGameState();
     state.player.x = 999;
@@ -448,6 +503,7 @@ const tests = [
     ["single jump press is not reused across catch-up substeps", testSingleJumpPressIsNotReusedAcrossCatchupSubsteps],
     ["air boost requires release after ground jump", testAirBoostRequiresReleaseAfterGroundJump],
     ["wall collision", testWallCollision],
+    ["closed atlas loop creates collision area", testClosedAtlasLoopCreatesCollisionArea],
     ["manual reset", testReset]
 ];
 
