@@ -29,7 +29,6 @@ Goal: establish a playable and testable foundation for movement, rocket behavior
 * [x] Keep input mapping separate from simulation rules.
 * [x] Store gameplay state inside a serializable `gameState`.
 * [x] Support running, jumping, airborne boost, fuel, health, and detached rocket launch.
-* [x] Support speed-based fall damage above the safe quick double-jump impact speed.
 * [x] Support level loading from `assets/level_001.json`.
 * [x] Support asset manifests from `assets/at_atlas_001.json`, `assets/at_atlas_002.json`, and so on.
 * [x] Support level placements that reference `atlasId` plus `assetId`.

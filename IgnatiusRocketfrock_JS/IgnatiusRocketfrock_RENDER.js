@@ -702,17 +702,6 @@ class RocketfrockRenderer {
         this.drawShadow(p.x, p.y, view.zoom);
         const bounds = this.drawWizardRig(p.x, p.y, state.player.facing, state, view.zoom);
         this.lastBounds = bounds;
-
-        if (state.health.low) {
-            const ctx = this.ctx;
-            ctx.save();
-            ctx.globalAlpha = 0.14 + 0.16 * state.player.lowHealthPulse;
-            ctx.fillStyle = "#e84e48";
-            ctx.beginPath();
-            ctx.ellipse(p.x, p.y - state.player.height * view.zoom * 0.5, 62 * view.zoom, 78 * view.zoom, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-        }
     }
 
     drawShadow(x, groundY, zoom) {
@@ -736,8 +725,10 @@ class RocketfrockRenderer {
         ctx.save();
         ctx.translate(screenX, screenGroundY);
         ctx.scale(facing, 1);
+        const lowHealthTint = getLowHealthTintAlpha(state);
         for (const name of FIXED_DRAW_ORDER) {
-            const spriteBounds = this.drawSprite(name, pose.transforms[name], zoom);
+            const spriteTint = name === "rocket" ? 0 : lowHealthTint;
+            const spriteBounds = this.drawSprite(name, pose.transforms[name], zoom, spriteTint);
             mergeBounds(bounds, spriteBounds, screenX, screenGroundY, facing);
             if (name === "rocket") {
                 // Phase 1.011: attached boost exhaust is represented by world-managed smoke/spark puffs,
@@ -973,7 +964,7 @@ class RocketfrockRenderer {
         };
     }
 
-    drawSprite(name, transform, zoom) {
+    drawSprite(name, transform, zoom, tintAlpha = 0) {
         const asset = this.assets.get(name);
         if (!asset || asset.missing || !transform) {
             return null;
@@ -982,18 +973,27 @@ class RocketfrockRenderer {
         const ctx = this.ctx;
         const pivot = this.rigConfig.pivots[name];
         const spriteScale = transform.targetHeight / Math.max(1, asset.height);
+        const drawX = -pivot.x * asset.width;
+        const drawY = -pivot.y * asset.height;
         ctx.save();
         ctx.globalAlpha *= transform.alpha;
         ctx.translate(transform.x, transform.y);
         ctx.rotate(transform.angle);
         ctx.scale(spriteScale, spriteScale);
-        ctx.drawImage(asset.canvas, -pivot.x * asset.width, -pivot.y * asset.height);
+        ctx.drawImage(asset.canvas, drawX, drawY);
+
+        if (tintAlpha > 0 && asset.lowHealthCanvas) {
+            const baseAlpha = ctx.globalAlpha;
+            ctx.globalAlpha = baseAlpha * clamp(tintAlpha, 0, 1);
+            ctx.drawImage(asset.lowHealthCanvas, drawX, drawY);
+            ctx.globalAlpha = baseAlpha;
+        }
 
         if (this.rigConfig.global.debugPivots) {
             ctx.globalAlpha = 1;
             ctx.strokeStyle = "rgba(255, 237, 120, 0.72)";
             ctx.lineWidth = 1 / Math.max(0.001, Math.abs(spriteScale));
-            ctx.strokeRect(-pivot.x * asset.width, -pivot.y * asset.height, asset.width, asset.height);
+            ctx.strokeRect(drawX, drawY, asset.width, asset.height);
         }
         ctx.restore();
 
@@ -1166,8 +1166,10 @@ function makeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, atlasId)
     canvas.width = w;
     canvas.height = h;
     canvas.getContext("2d").drawImage(image, x, y, w, h, 0, 0, w, h);
+    const lowHealthCanvas = makeTintedSpriteCanvas(canvas, "#f04b45");
     return {
         canvas,
+        lowHealthCanvas,
         width: w,
         height: h,
         naturalWidth: image.naturalWidth || image.width,
@@ -1181,6 +1183,25 @@ function makeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, atlasId)
     };
 }
 
+function makeTintedSpriteCanvas(sourceCanvas, color) {
+    const canvas = document.createElement("canvas");
+    canvas.width = sourceCanvas.width;
+    canvas.height = sourceCanvas.height;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(sourceCanvas, 0, 0);
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return canvas;
+}
+
+function getLowHealthTintAlpha(state) {
+    if (!state || !state.health || !state.health.low) {
+        return 0;
+    }
+    const pulse = clamp(Number(state.player?.lowHealthPulse) || 0, 0, 1);
+    return 0.18 + pulse * 0.34;
+}
 
 async function loadEnvironmentAtlases() {
     const atlases = new Map();
