@@ -1,5 +1,35 @@
 # Ignatius Rocketfrock Plan
 
+## Files
+
+These files are currently being used (also clarifies which that should be in the assets folder)
+
+assets/at_atlas_001.json
+assets/at_atlas_001.png
+assets/ct_anim_wizard_run_1.json
+assets/ct_atlas_wizard_1.json
+assets/ct_atlas_wizard_1.png
+assets/ct_char_wizard_1.json
+assets/ct_rig_wizard_1.json
+assets/level_001.json
+assets/title_card.png
+AGENTS.md
+asset_tool.html
+character_tool.html
+game.html
+IgnatiusRocketfrock_GAME.js
+IgnatiusRocketfrock_INPUT.js
+IgnatiusRocketfrock_JS.html
+IgnatiusRocketfrock_RENDER.js
+IgnatiusRocketfrock_SIM.js
+IMPLEMENTATION_CHECKLIST.md
+level_editor.html
+PLAN.md
+renderer_smoke.html
+testbench.mjs
+
+
+
 ## Intro
 
 This is a 2D platformer starring Ignatius Rocketfrock, a cartoony wizard who can conjure a rocket onto his back.
