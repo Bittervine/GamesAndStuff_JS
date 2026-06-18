@@ -4809,7 +4809,6 @@ class RocketfrockRenderer {
         this.drawProjectiles(state, view);
         this.drawPlayer(state, view);
         this.drawDebug(state, view, inputFrame);
-        this.drawVignette();
     }
 
     computeView(state) {
@@ -4836,42 +4835,15 @@ class RocketfrockRenderer {
 
     clear(view) {
         const ctx = this.ctx;
-        const g = ctx.createLinearGradient(0, 0, 0, view.h);
-        g.addColorStop(0, "#2a2441");
-        g.addColorStop(0.58, "#17172a");
-        g.addColorStop(1, "#101019");
-        ctx.fillStyle = g;
+        // Flat cave backing. Theme art should define the scene, and ultra-faint
+        // gradients can band on some displays.
+        ctx.fillStyle = "rgb(6, 6, 12)";
         ctx.fillRect(0, 0, view.w, view.h);
     }
 
     drawBackdrop(view) {
-        const ctx = this.ctx;
-        ctx.save();
-
-        // Cave ambience only. Avoid star/speckle dots in the background because the
-        // first theme is underground. Outdoor themes can replace this later with a
-        // theme-specific sky renderer.
-        const upperGlow = ctx.createRadialGradient(
-            view.w * 0.42,
-            view.h * 0.18,
-            0,
-            view.w * 0.42,
-            view.h * 0.18,
-            Math.max(view.w, view.h) * 0.72
-        );
-        upperGlow.addColorStop(0, "rgba(105, 88, 145, 0.16)");
-        upperGlow.addColorStop(0.46, "rgba(65, 55, 96, 0.08)");
-        upperGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
-        ctx.fillStyle = upperGlow;
-        ctx.fillRect(0, 0, view.w, view.h);
-
-        const floorHaze = ctx.createLinearGradient(0, view.h * 0.48, 0, view.h);
-        floorHaze.addColorStop(0, "rgba(0, 0, 0, 0)");
-        floorHaze.addColorStop(1, "rgba(18, 14, 26, 0.22)");
-        ctx.fillStyle = floorHaze;
-        ctx.fillRect(0, 0, view.w, view.h);
-
-        ctx.restore();
+        // Intentionally empty for the cave theme. Outdoor themes can replace this
+        // later with a theme-specific sky renderer.
     }
 
     drawWorld(state, view) {
@@ -5808,12 +5780,8 @@ class RocketfrockRenderer {
     }
 
     drawVignette() {
-        const ctx = this.ctx;
-        const g = ctx.createRadialGradient(this.viewport.w * 0.5, this.viewport.h * 0.5, this.viewport.h * 0.25, this.viewport.w * 0.5, this.viewport.h * 0.5, this.viewport.h * 0.78);
-        g.addColorStop(0, "rgba(0,0,0,0)");
-        g.addColorStop(1, "rgba(0,0,0,0.36)");
-        ctx.fillStyle = g;
-        ctx.fillRect(0, 0, this.viewport.w, this.viewport.h);
+        // Disabled for the cave theme. A flat deep blue-black background avoids
+        // radial-gradient banding and leaves room for future explicit cave silhouettes.
     }
 
     getRigMetrics(state) {
