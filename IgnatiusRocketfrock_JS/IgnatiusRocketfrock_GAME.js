@@ -39,9 +39,11 @@ const input = new RocketfrockInput(window);
 const renderer = await createRenderer(canvas);
 const loadedBrowserCopy = maybeApplyBrowserCopyLevel();
 if (!loadedBrowserCopy) {
-    await maybeApplyDefaultLevel();
+    await applyRequiredDefaultLevel();
 }
-applyLoadedAtlasCollisions();
+if (!applyLoadedAtlasCollisions()) {
+    failStartup("Required atlas collision data could not be applied. Check assets/atlas_001.json and the level atlasRefs.");
+}
 let accumulator = 0;
 let lastNow = performance.now();
 let lastInputFrame = createInputFrame();
@@ -58,7 +60,7 @@ function maybeApplyBrowserCopyLevel() {
         return false;
     }
     try {
-        const raw = localStorage.getItem("ignatius_level_editor_v2") || localStorage.getItem("ignatius_level_editor_v1");
+        const raw = localStorage.getItem("ignatius_level_editor_v2");
         if (!raw) {
             console.warn("Playtest requested, but no browser-saved level editor copy was found.");
             return false;
@@ -75,23 +77,48 @@ function maybeApplyBrowserCopyLevel() {
     }
 }
 
-async function maybeApplyDefaultLevel() {
+async function applyRequiredDefaultLevel() {
+    const url = "assets/level_001.json";
+    let response;
     try {
-        const response = await fetch("assets/level_001.json", { cache: "no-store" });
-        if (!response.ok) {
-            console.info("No assets/level_001.json found. Using built-in fallback arena.");
-            return false;
-        }
-        const level = await response.json();
-        const applied = applyEditorLevelToWorld(gameState, level);
-        if (!applied) {
-            console.warn("assets/level_001.json was found, but could not be applied. Using built-in fallback arena.");
-        }
-        return applied;
+        response = await fetch(url, { cache: "no-store" });
     } catch (error) {
-        console.info("Could not load assets/level_001.json. Using built-in fallback arena.", error);
-        return false;
+        failStartup(`Required level file could not be loaded: ${url}. Serve the project from a local web server and make sure the file exists.`, error);
     }
+
+    if (!response.ok) {
+        failStartup(`Required level file is missing or unavailable: ${url} (${response.status}).`);
+    }
+
+    let level;
+    try {
+        level = await response.json();
+    } catch (error) {
+        failStartup(`Required level file is not valid JSON: ${url}.`, error);
+    }
+
+    if (!applyEditorLevelToWorld(gameState, level)) {
+        failStartup(`Required level file could not be applied: ${url}.`);
+    }
+}
+
+function failStartup(message, error) {
+    console.error(message, error || "");
+    const panel = document.createElement("div");
+    panel.setAttribute("role", "alert");
+    panel.style.position = "fixed";
+    panel.style.inset = "24px auto auto 24px";
+    panel.style.maxWidth = "720px";
+    panel.style.zIndex = "9999";
+    panel.style.padding = "16px 18px";
+    panel.style.border = "1px solid rgba(255, 120, 120, 0.65)";
+    panel.style.borderRadius = "14px";
+    panel.style.background = "rgba(22, 10, 14, 0.96)";
+    panel.style.color = "#ffe8e8";
+    panel.style.font = "14px/1.45 system-ui, sans-serif";
+    panel.textContent = message;
+    document.body.appendChild(panel);
+    throw new Error(message);
 }
 
 function setupPanelToggleButtons() {
@@ -162,13 +189,9 @@ function setupPanelToggleButtons() {
 
 function applyLoadedAtlasCollisions() {
     if (!renderer || typeof renderer.getEnvironmentManifests !== "function") {
-        console.warn("Atlas manifest collision data could not be read from the renderer. Using fallback rectangle collision.");
-        return;
+        return false;
     }
-    const applied = applyAtlasManifestsToWorld(gameState, renderer.getEnvironmentManifests());
-    if (!applied) {
-        console.warn("Atlas manifest collision data was not available from assets/atlas_001.json. Using fallback rectangle collision.");
-    }
+    return applyAtlasManifestsToWorld(gameState, renderer.getEnvironmentManifests());
 }
 
 function frame(now) {

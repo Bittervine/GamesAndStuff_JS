@@ -125,13 +125,13 @@ export function createInitialGameState(overrides = {}) {
         Object.assign(tuning, overrides.tuning);
     }
 
-    const world = createPhaseOneArena(tuning);
+    const world = createTestArena(tuning);
     const spawn = overrides.spawn || world.start || { x: 120, y: 600 };
 
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "033-rocket-terrain-polygon-point-test-fix",
+            build: "035-test-arena-cleanup",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -250,156 +250,44 @@ export function createInitialGameState(overrides = {}) {
         }
     };
 
-    addEvent(state, "ARENA_CREATED", { solids: state.world.solids.length, segments: state.world.segments?.length ?? 0 });
+    addEvent(state, "TEST_ARENA_CREATED", { solids: state.world.solids.length, segments: state.world.segments?.length ?? 0 });
     return state;
 }
 
-function createPhaseOneArena(tuning) {
-    const solids = [];
-    const visuals = [];
+function createTestArena(tuning) {
+    // This is a compact headless-test fixture, not the browser game's authored level.
+    // Browser play loads assets/level_001.json and replaces this world before play.
+    // Keep this arena deliberately small: tests need a floor at y=600, side walls,
+    // a valid atlas visual for optional manifest-collision checks, and a little room
+    // for run/jump/rocket mechanics.
     const atlasId = "atlas_001";
-
-    const addAsset = (options) => {
-        const visualId = `${options.id}_art`;
-        visuals.push({
-            id: visualId,
+    const solids = [
+        { id: "left_wall", kind: "wall", x: -320, y: -520, w: 60, h: 1580 },
+        { id: "right_wall", kind: "wall", x: 2360, y: -520, w: 60, h: 1580 },
+        { id: "test_floor", kind: "floor", x: -260, y: 600, w: 2620, h: 110 }
+    ];
+    const visuals = [
+        {
+            id: "test_floor_art",
             kind: "atlasSprite",
             atlasId,
-            assetId: options.asset,
-            frame: options.asset,
-            x: options.visual.x,
-            y: options.visual.y,
-            w: options.visual.w,
-            h: options.visual.h,
-            mirrorX: Boolean(options.mirrorX),
-            layer: options.layer || "terrain",
-            note: "Runtime collision is generated from this asset's manifest nodes/lines when the manifest is loaded."
-        });
-
-        if (options.solid) {
-            solids.push({
-                id: options.id,
-                kind: options.kind || "blockable",
-                x: options.solid.x,
-                y: options.solid.y,
-                w: options.solid.w,
-                h: options.solid.h,
-                visualId,
-                sourceAssetId: options.asset,
-                sourceLineKind: options.sourceLineKind || "blockable"
-            });
+            assetId: "floor_cold_platform",
+            frame: "floor_cold_platform",
+            x: -260,
+            y: 600,
+            w: 2620,
+            h: 110,
+            layer: "terrain",
+            collisionFromManifest: false,
+            note: "Visual marker for the headless test arena. Authored gameplay levels come from assets/level_001.json."
         }
-    };
-
-    solids.push(
-        { id: "left_wall", kind: "wall", x: -320, y: -520, w: 60, h: 1580 },
-        { id: "right_wall", kind: "wall", x: 5360, y: -520, w: 60, h: 1580 }
-    );
-
-    // Fallback atlas arena: an airier gallery. The previous arrangement stacked large atlas
-    // islands too close together, so their lower blockable outline segments left very
-    // little headway. This pass mostly separates pieces horizontally, and any platform
-    // that overlaps another vertically has at least a generous wizard-height clearance.
-    addAsset({
-        id: "start_ground",
-        asset: "floor_big_moss",
-        kind: "blockable",
-        visual: { x: -80, y: 565, w: 620, h: 304 },
-        solid: { x: -55, y: 600, w: 565, h: 110 },
-        sourceLineKind: "blockable"
-    });
-    addAsset({
-        id: "first_high_step",
-        asset: "ledge_flat_long_a",
-        kind: "blockable",
-        visual: { x: 650, y: 350, w: 390, h: 118 },
-        solid: { x: 680, y: 370, w: 330, h: 34 },
-        sourceLineKind: "blockable"
-    });
-    addAsset({
-        id: "long_runway",
-        asset: "floor_long_terrace",
-        kind: "blockable",
-        visual: { x: 1120, y: 590, w: 1340, h: 292 },
-        solid: { x: 1165, y: 620, w: 1245, h: 110 },
-        sourceLineKind: "blockable"
-    });
-    addAsset({
-        id: "upper_left_gallery",
-        asset: "ledge_flat_long_b",
-        kind: "blockable",
-        visual: { x: 1425, y: 200, w: 455, h: 121 },
-        solid: { x: 1465, y: 220, w: 380, h: 34 },
-        sourceLineKind: "blockable"
-    });
-    addAsset({
-        id: "mid_air_gallery",
-        asset: "floor_cold_platform",
-        kind: "blockable",
-        visual: { x: 2250, y: 325, w: 450, h: 114 },
-        solid: { x: 2290, y: 345, w: 380, h: 34 },
-        sourceLineKind: "blockable"
-    });
-    addAsset({
-        id: "crystal_high_perch",
-        asset: "ledge_blue_crystals",
-        kind: "blockable",
-        visual: { x: 2850, y: 160, w: 430, h: 120 },
-        solid: { x: 2890, y: 180, w: 350, h: 32 },
-        sourceLineKind: "blockable"
-    });
-    addAsset({
-        id: "right_ground",
-        asset: "floor_hanging_right",
-        kind: "blockable",
-        visual: { x: 3380, y: 593, w: 790, h: 272 },
-        solid: { x: 3435, y: 620, w: 690, h: 110 },
-        sourceLineKind: "blockable"
-    });
-    addAsset({
-        id: "right_upper_gallery",
-        asset: "ledge_mossy_right",
-        kind: "blockable",
-        visual: { x: 3960, y: 230, w: 565, h: 203 },
-        solid: { x: 4015, y: 255, w: 470, h: 34 },
-        sourceLineKind: "blockable"
-    });
-    addAsset({
-        id: "last_step",
-        asset: "ledge_right_chunk",
-        kind: "blockable",
-        visual: { x: 4660, y: 350, w: 360, h: 220 },
-        solid: { x: 4705, y: 385, w: 270, h: 36 },
-        sourceLineKind: "blockable"
-    });
-    addAsset({
-        id: "exit_ground",
-        asset: "floor_mossy_low",
-        kind: "blockable",
-        visual: { x: 5020, y: 593, w: 780, h: 201 },
-        solid: { x: 5065, y: 620, w: 705, h: 110 },
-        sourceLineKind: "blockable"
-    });
-
-    visuals.push(
-        { id: "decor_arch_back", kind: "atlasSprite", atlasId, assetId: "arch_ruin", frame: "arch_ruin", x: 1600, y: 390, w: 510, h: 258, layer: "decorBack" },
-        { id: "decor_pillar_a", kind: "atlasSprite", atlasId, assetId: "pillar_plain", frame: "pillar_plain", x: 2600, y: 405, w: 142, h: 224, layer: "decorBack" },
-        { id: "decor_pillar_b", kind: "atlasSprite", atlasId, assetId: "pillar_fancy", frame: "pillar_fancy", x: 3180, y: 395, w: 170, h: 230, layer: "decorBack" },
-        { id: "decor_lantern_a", kind: "atlasSprite", atlasId, assetId: "lantern_gold_small", frame: "lantern_gold_small", x: 1890, y: 305, w: 42, h: 98, layer: "decorFront" },
-        { id: "decor_lantern_b", kind: "atlasSprite", atlasId, assetId: "lantern_silver_tall", frame: "lantern_silver_tall", x: 4430, y: 318, w: 42, h: 98, layer: "decorFront" },
-        { id: "decor_barrier_future_target", kind: "atlasSprite", atlasId, assetId: "wood_barrier_low", frame: "wood_barrier_low", x: 2180, y: 552, w: 160, h: 71, layer: "decorFront", futureDestroyable: true },
-        { id: "decor_spikes_damaging_source", kind: "atlasSprite", atlasId, assetId: "wood_spikes_low", frame: "wood_spikes_low", x: 3640, y: 552, w: 205, h: 74, layer: "decorFront" },
-        { id: "decor_skulls", kind: "atlasSprite", atlasId, assetId: "skull_pile_small", frame: "skull_pile_small", x: 5320, y: 560, w: 110, h: 62, layer: "decorFront" }
-    );
+    ];
 
     return {
-        levelId: "manifest_gallery_airier",
+        levelId: "headless_test_arena",
         gravityDirection: { x: 0, y: 1 },
-        bounds: { x: -360, y: -520, w: 5820, h: 1580 },
+        bounds: { x: -360, y: -520, w: 2820, h: 1580 },
         resetY: 1080,
-        // Spawn above the first platform so atlas segment collision gets a clean falling
-        // crossing and places Ignatius on the upper manifest line instead of starting him
-        // inside the island art.
         start: { x: 135, y: 520 },
         atlasManifests: [
             "assets/atlas_001.json"
@@ -409,14 +297,8 @@ function createPhaseOneArena(tuning) {
         segments: [],
         collisionMode: "fallbackRectangles",
         labels: [
-            { text: "spawn above first platform", x: 40, y: 500 },
-            { text: "airy first jump", x: 610, y: 330 },
-            { text: "long runway", x: 1280, y: 565 },
-            { text: "upper route with headway", x: 1425, y: 180 },
-            { text: "boost / recover", x: 2280, y: 300 },
-            { text: "high crystal perch", x: 2850, y: 135 },
-            { text: "right gallery", x: 3980, y: 205 },
-            { text: "exit stretch", x: 5120, y: 565 }
+            { text: "headless test arena", x: 20, y: 555 },
+            { text: "browser play loads assets/level_001.json", x: 520, y: 555 }
         ]
     };
 }
@@ -681,12 +563,11 @@ function polygonArea(points) {
 
 
 function normalizeAtlasManifestPath(path) {
-    const text = String(path || "");
-    return text.includes("theme_A_atlas_1") ? "assets/atlas_001.json" : text;
+    return String(path || "");
 }
 
 function normalizeAtlasId(atlasId) {
-    return atlasId === "theme_A_atlas_1" || atlasId === "themeA1" ? "atlas_001" : atlasId;
+    return String(atlasId || "");
 }
 
 export function applyEditorLevelToWorld(state, editorLevel) {
