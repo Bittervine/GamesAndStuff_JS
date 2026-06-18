@@ -82,9 +82,13 @@ export function createInputFrame(overrides = {}) {
     return {
         moveLeft: false,
         moveRight: false,
+        moveAxis: 0,
         jumpPressed: false,
         jumpHeld: false,
         jumpReleased: false,
+        boostPressed: false,
+        boostHeld: false,
+        boostReleased: false,
         weaponPressed: false,
         weaponHeld: false,
         weaponReleased: false,
@@ -115,7 +119,9 @@ export function createSubstepInputFrame(inputFrame, substepIndex = 0) {
     return createInputFrame({
         moveLeft: input.moveLeft,
         moveRight: input.moveRight,
+        moveAxis: input.moveAxis,
         jumpHeld: input.jumpHeld,
+        boostHeld: input.boostHeld,
         weaponHeld: input.weaponHeld,
         aimVector: input.aimVector,
         aimTarget: input.aimTarget
@@ -809,8 +815,10 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     p.ax = 0;
     p.ay = t.gravity;
 
-    const moveAxis = (input.moveRight ? 1 : 0) - (input.moveLeft ? 1 : 0);
-    if (moveAxis !== 0) {
+    const digitalMoveAxis = (input.moveRight ? 1 : 0) - (input.moveLeft ? 1 : 0);
+    const analogMoveAxis = Number.isFinite(input.moveAxis) ? clamp(input.moveAxis, -1, 1) : 0;
+    const moveAxis = Math.abs(analogMoveAxis) > 0.001 ? analogMoveAxis : digitalMoveAxis;
+    if (Math.abs(moveAxis) > 0.001) {
         p.facing = moveAxis > 0 ? 1 : -1;
         const accel = wasOnGround ? t.groundAcceleration : t.airAcceleration;
         p.vx += moveAxis * accel * dt;
@@ -833,7 +841,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         p.airborneTime = 0;
         p.airBoostArmed = false;
         addEvent(state, "PLAYER_JUMPED", { x: round(p.x), y: round(p.y), vx: round(p.vx), vy: round(p.vy) });
-    } else if (input.jumpPressed && !wasOnGround && !rocket.attachedBoosting) {
+    } else if ((input.jumpPressed || input.boostPressed) && !wasOnGround && !rocket.attachedBoosting) {
         if (p.airBoostArmed) {
             p.airBoostArmed = false;
             startAttachedBoost(state);
@@ -843,9 +851,10 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     }
 
     if (rocket.attachedBoosting) {
-        const shouldStop = input.jumpReleased || !input.jumpHeld || fuel.amount <= 0;
+        const boostIntentHeld = input.jumpHeld || input.boostHeld;
+        const shouldStop = !boostIntentHeld || fuel.amount <= 0;
         if (shouldStop) {
-            stopAttachedBoost(state, fuel.amount <= 0 ? "fuelEmpty" : "jumpReleased");
+            stopAttachedBoost(state, fuel.amount <= 0 ? "fuelEmpty" : "boostReleased");
         } else {
             rocket.attachedBoostTime += dt;
             rocket.boostBurstTimer = Math.max(0, rocket.boostBurstTimer - dt);

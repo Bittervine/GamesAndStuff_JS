@@ -9,6 +9,16 @@ const KEY_BINDINGS = {
 
 const DEBUG_KEYS = new Set(["KeyP", "KeyO", "KeyR", "KeyH", "KeyV", "KeyC", "KeyE", "KeyL", "F1"]);
 
+const POINTER_CONTROL = Object.freeze({
+    stickRadius: 96,
+    moveDeadzone: 16,
+    jumpThreshold: 36,
+    doubleTapSeconds: 0.3,
+    doubleTapMaxDistance: 56
+});
+
+const POINTER_IGNORED_SELECTOR = "a, button, input, textarea, select, label, [role='button'], [data-ignore-game-pointer]";
+
 export class RocketfrockInput {
     constructor(target = window) {
         this.target = target;
@@ -25,12 +35,18 @@ export class RocketfrockInput {
             inputConsoleLog: false,
             debugPanel: false
         };
+        this.pointer = createPointerState();
         this.eventLog = [];
         this.consoleLogging = false;
 
         target.addEventListener("keydown", (event) => this.onKeyDown(event), { passive: false });
         target.addEventListener("keyup", (event) => this.onKeyUp(event), { passive: false });
         target.addEventListener("blur", () => this.clear());
+
+        target.addEventListener("pointerdown", (event) => this.onPointerDown(event), { passive: false });
+        target.addEventListener("pointermove", (event) => this.onPointerMove(event), { passive: false });
+        target.addEventListener("pointerup", (event) => this.onPointerEnd(event), { passive: false });
+        target.addEventListener("pointercancel", (event) => this.onPointerEnd(event), { passive: false });
     }
 
     onKeyDown(event) {
@@ -67,8 +83,102 @@ export class RocketfrockInput {
         this.recordKeyEvent("up", event);
     }
 
+    onPointerDown(event) {
+        if (!this.shouldUsePointerEvent(event)) {
+            return;
+        }
+
+        event.preventDefault();
+        const now = performance.now() / 1000;
+        const x = event.clientX;
+        const y = event.clientY;
+        const lastDistance = Math.hypot(x - this.pointer.lastTapX, y - this.pointer.lastTapY);
+        if (now - this.pointer.lastTapTime <= POINTER_CONTROL.doubleTapSeconds && lastDistance <= POINTER_CONTROL.doubleTapMaxDistance) {
+            this.pointer.weaponPulse = true;
+            this.pointer.lastTapTime = -Infinity;
+            this.recordPointerEvent("doubleTap", event);
+        } else {
+            this.pointer.lastTapTime = now;
+            this.pointer.lastTapX = x;
+            this.pointer.lastTapY = y;
+        }
+
+        this.pointer.active = true;
+        this.pointer.pointerId = event.pointerId;
+        this.pointer.startX = x;
+        this.pointer.startY = y;
+        this.pointer.currentX = x;
+        this.pointer.currentY = y;
+        this.updatePointerStick();
+        this.capturePointer(event);
+        this.recordPointerEvent("start", event);
+    }
+
+    onPointerMove(event) {
+        if (!this.pointer.active || event.pointerId !== this.pointer.pointerId) {
+            return;
+        }
+
+        event.preventDefault();
+        this.pointer.currentX = event.clientX;
+        this.pointer.currentY = event.clientY;
+        this.updatePointerStick();
+    }
+
+    onPointerEnd(event) {
+        if (!this.pointer.active || event.pointerId !== this.pointer.pointerId) {
+            return;
+        }
+
+        event.preventDefault();
+        this.pointer.active = false;
+        this.pointer.pointerId = null;
+        this.pointer.moveAxis = 0;
+        this.pointer.jumpHeld = false;
+        this.recordPointerEvent(event.type === "pointercancel" ? "cancel" : "end", event);
+    }
+
+    shouldUsePointerEvent(event) {
+        if (event.button !== undefined && event.button !== 0) {
+            return false;
+        }
+        if (event.target?.closest?.(POINTER_IGNORED_SELECTOR)) {
+            return false;
+        }
+        return true;
+    }
+
+    capturePointer(event) {
+        try {
+            event.target?.setPointerCapture?.(event.pointerId);
+        } catch (_error) {
+            // Some targets, browsers, or synthetic events cannot capture. Window-level listeners still work.
+        }
+    }
+
+    updatePointerStick() {
+        const dx = this.pointer.currentX - this.pointer.startX;
+        const dy = this.pointer.currentY - this.pointer.startY;
+        const radius = POINTER_CONTROL.stickRadius;
+        const moveMagnitude = Math.abs(dx);
+
+        if (moveMagnitude <= POINTER_CONTROL.moveDeadzone) {
+            this.pointer.moveAxis = 0;
+        } else {
+            const sign = Math.sign(dx);
+            const scaled = (moveMagnitude - POINTER_CONTROL.moveDeadzone) / Math.max(1, radius - POINTER_CONTROL.moveDeadzone);
+            this.pointer.moveAxis = sign * clamp(scaled, 0, 1);
+        }
+
+        this.pointer.jumpHeld = dy < -POINTER_CONTROL.jumpThreshold;
+    }
+
     clear() {
         this.keys.clear();
+        this.pointer.active = false;
+        this.pointer.pointerId = null;
+        this.pointer.moveAxis = 0;
+        this.pointer.jumpHeld = false;
         this.previous = createInputFrame();
         this.recordKeyEvent("clear", { code: "WindowBlur", repeat: false });
     }
@@ -81,6 +191,21 @@ export class RocketfrockInput {
             repeat: Boolean(event.repeat),
             keys: Array.from(this.keys).sort()
         };
+        this.recordEvent(entry);
+    }
+
+    recordPointerEvent(kind, event) {
+        const entry = {
+            time: Number((performance.now() / 1000).toFixed(3)),
+            kind: `pointer:${kind}`,
+            code: event.pointerType || "pointer",
+            repeat: false,
+            keys: Array.from(this.keys).sort()
+        };
+        this.recordEvent(entry);
+    }
+
+    recordEvent(entry) {
         this.eventLog.push(entry);
         while (this.eventLog.length > 80) {
             this.eventLog.shift();
@@ -108,16 +233,24 @@ export class RocketfrockInput {
 
     sample() {
         const gamepad = readGamepad();
+        const keyboardMoveAxis = (anyKey(this.keys, KEY_BINDINGS.moveRight) ? 1 : 0) - (anyKey(this.keys, KEY_BINDINGS.moveLeft) ? 1 : 0);
+        const moveAxis = clamp(keyboardMoveAxis + gamepad.moveAxis + this.pointer.moveAxis, -1, 1);
+        const pointerWeaponPulse = this.pointer.weaponPulse;
         const current = createInputFrame({
-            moveLeft: anyKey(this.keys, KEY_BINDINGS.moveLeft) || gamepad.moveLeft,
-            moveRight: anyKey(this.keys, KEY_BINDINGS.moveRight) || gamepad.moveRight,
-            jumpHeld: anyKey(this.keys, KEY_BINDINGS.jump) || gamepad.jumpHeld,
-            weaponHeld: anyKey(this.keys, KEY_BINDINGS.weapon) || gamepad.weaponHeld,
-            aimVector: gamepad.aimVector || { x: 1, y: 0 }
+            moveLeft: anyKey(this.keys, KEY_BINDINGS.moveLeft) || gamepad.moveLeft || moveAxis < -0.35,
+            moveRight: anyKey(this.keys, KEY_BINDINGS.moveRight) || gamepad.moveRight || moveAxis > 0.35,
+            moveAxis,
+            jumpHeld: anyKey(this.keys, KEY_BINDINGS.jump) || gamepad.jumpHeld || this.pointer.jumpHeld,
+            boostHeld: false,
+            weaponHeld: anyKey(this.keys, KEY_BINDINGS.weapon) || gamepad.weaponHeld || pointerWeaponPulse,
+            aimVector: gamepad.aimVector || pointerAimVector(this.pointer) || { x: 1, y: 0 }
         });
 
+        this.pointer.weaponPulse = false;
         current.jumpPressed = current.jumpHeld && !this.previous.jumpHeld;
         current.jumpReleased = !current.jumpHeld && this.previous.jumpHeld;
+        current.boostPressed = current.boostHeld && !this.previous.boostHeld;
+        current.boostReleased = !current.boostHeld && this.previous.boostHeld;
         current.weaponPressed = current.weaponHeld && !this.previous.weaponHeld;
         current.weaponReleased = !current.weaponHeld && this.previous.weaponHeld;
         current.pausePressed = take(this.debugPressed, "pause");
@@ -135,6 +268,23 @@ export class RocketfrockInput {
     }
 }
 
+function createPointerState() {
+    return {
+        active: false,
+        pointerId: null,
+        startX: 0,
+        startY: 0,
+        currentX: 0,
+        currentY: 0,
+        moveAxis: 0,
+        jumpHeld: false,
+        weaponPulse: false,
+        lastTapTime: -Infinity,
+        lastTapX: 0,
+        lastTapY: 0
+    };
+}
+
 function anyKey(keys, bindings) {
     return bindings.some((code) => keys.has(code));
 }
@@ -149,12 +299,13 @@ function readGamepad() {
     const empty = {
         moveLeft: false,
         moveRight: false,
+        moveAxis: 0,
         jumpHeld: false,
         weaponHeld: false,
         aimVector: null
     };
 
-    if (!navigator.getGamepads) {
+    if (typeof navigator === "undefined" || !navigator.getGamepads) {
         return empty;
     }
 
@@ -166,16 +317,31 @@ function readGamepad() {
 
     const lx = pad.axes[0] || 0;
     const ly = pad.axes[1] || 0;
+    const moveAxis = Math.abs(lx) > 0.16 ? lx : 0;
     return {
         moveLeft: lx < -0.35 || Boolean(pad.buttons[14]?.pressed),
         moveRight: lx > 0.35 || Boolean(pad.buttons[15]?.pressed),
+        moveAxis,
         jumpHeld: Boolean(pad.buttons[0]?.pressed || pad.buttons[12]?.pressed || ly < -0.55),
         weaponHeld: Boolean(pad.buttons[1]?.pressed),
         aimVector: Math.hypot(lx, ly) > 0.25 ? normalize({ x: lx, y: ly }) : null
     };
 }
 
+function pointerAimVector(pointer) {
+    if (!pointer.active) {
+        return null;
+    }
+    const dx = pointer.currentX - pointer.startX;
+    const dy = pointer.currentY - pointer.startY;
+    return Math.hypot(dx, dy) > POINTER_CONTROL.moveDeadzone ? normalize({ x: dx, y: dy }) : null;
+}
+
 function normalize(v) {
     const length = Math.hypot(v.x, v.y) || 1;
     return { x: v.x / length, y: v.y / length };
+}
+
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
 }
