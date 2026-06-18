@@ -526,10 +526,10 @@ function testRocketImpactsAtlasCollisionLinesAndAreas() {
 
 function testRocketLaunchDoesNotFalseHitUnrelatedAtlasArea() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
-    const atlas = JSON.parse(readFileSync("./assets/atlas_001.json", "utf8"));
+    const atlas = JSON.parse(readFileSync("./assets/at_atlas_001.json", "utf8"));
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply");
-    assert.equal(applyAtlasManifestsToWorld(state, new Map([["atlas_001", { manifest: atlas }]])), true, "atlas_001 collision should apply");
+    assert.equal(applyAtlasManifestsToWorld(state, new Map([["at_atlas_001", { manifest: atlas }]])), true, "at_atlas_001 collision should apply");
 
     stepMany(state, 180, () => createInputFrame());
     assert.ok(state.player.onGround, "player should settle before firing");

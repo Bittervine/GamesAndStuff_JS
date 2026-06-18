@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 2,
-        "note": "All positions are rig-space pixels unless otherwise stated. Pivot x/y are normalized sprite-space coordinates. Draw order is locked by the renderer."
+        "version": 3,
+        "note": "Atlas-backed Ignatius rig. Positions/pivots preserve the former individual PNG rig output. Draw order is locked by the renderer for now."
     },
     "drawOrder": [
         "leftArm",
@@ -115,7 +115,9 @@
                 "lift": -0.08,
                 "torso": 1
             },
-            "alpha": 1
+            "alpha": 1,
+            "frame": "left_arm",
+            "role": "leftArm"
         },
         "leftFoot": {
             "targetHeight": 90,
@@ -127,7 +129,9 @@
             "rotation": {
                 "base": 0
             },
-            "alpha": 1
+            "alpha": 1,
+            "frame": "left_foot",
+            "role": "leftFoot"
         },
         "rocket": {
             "targetHeight": 220,
@@ -140,7 +144,9 @@
                 "base": 0.07,
                 "torso": 1
             },
-            "alpha": 0.98
+            "alpha": 0.98,
+            "frame": "rocket",
+            "role": "rocket"
         },
         "rightFoot": {
             "targetHeight": 90,
@@ -152,7 +158,9 @@
             "rotation": {
                 "base": 0
             },
-            "alpha": 1
+            "alpha": 1,
+            "frame": "right_foot",
+            "role": "rightFoot"
         },
         "robe": {
             "targetHeight": 258,
@@ -165,7 +173,9 @@
                 "base": 0,
                 "torso": 1
             },
-            "alpha": 1
+            "alpha": 1,
+            "frame": "robe",
+            "role": "robe"
         },
         "head": {
             "targetHeight": 78,
@@ -177,7 +187,9 @@
             "rotation": {
                 "base": 0
             },
-            "alpha": 1
+            "alpha": 1,
+            "frame": "head",
+            "role": "head"
         },
         "hat": {
             "targetHeight": 76,
@@ -189,7 +201,9 @@
             "rotation": {
                 "base": -0.02
             },
-            "alpha": 1
+            "alpha": 1,
+            "frame": "hat",
+            "role": "hat"
         },
         "rightArm": {
             "targetHeight": 128,
@@ -204,7 +218,12 @@
                 "lift": -0.08,
                 "torso": 1
             },
-            "alpha": 1
+            "alpha": 1,
+            "frame": "right_arm",
+            "role": "rightArm"
         }
-    }
+    },
+    "rigId": "ct_rig_wizard_1",
+    "atlasId": "ct_atlas_wizard_1",
+    "atlasManifest": "ct_atlas_wizard_1.json"
 }

@@ -1,0 +1,18 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Character definition mapping Ignatius to an atlas-backed rig and future animation slots."
+    },
+    "characterId": "ct_char_wizard_1",
+    "displayName": "Ignatius Rocketfrock",
+    "rig": "ct_rig_wizard_1.json",
+    "defaultFacing": "right",
+    "mirrorable": true,
+    "animationMap": {
+        "run": "ct_anim_wizard_run_1.json",
+        "idle": null,
+        "jump": null,
+        "hover": null,
+        "rocketLaunch": null
+    }
+}

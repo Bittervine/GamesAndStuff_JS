@@ -30,14 +30,14 @@ Goal: establish a playable and testable foundation for movement, rocket behavior
 * [x] Store gameplay state inside a serializable `gameState`.
 * [x] Support running, jumping, airborne boost, fuel, health, and detached rocket launch.
 * [x] Support level loading from `assets/level_001.json`.
-* [x] Support atlas manifests from `assets/atlas_001.json`, `assets/atlas_002.json`, and so on.
+* [x] Support asset manifests from `assets/at_atlas_001.json`, `assets/at_atlas_002.json`, and so on.
 * [x] Support level placements that reference `atlasId` plus `assetId`.
 * [x] Support atlas collision lines: `walkable`, `blockable`, `damaging`, and `killable`.
 * [x] Support filled closed collision loops when collision lines form areas.
 * [x] Support rocket impacts against blockable terrain lines and filled areas.
 * [x] Support asset guide overlays for atlas collision lines and filled collision areas.
 * [x] Create a level editor for placing atlas assets and entities.
-* [x] Create an atlas manifest tool for defining frames, nodes, and collision lines.
+* [x] Create an asset tool for defining frames, nodes, and collision lines.
 * [x] Make the hardcoded simulation arena explicitly a headless test fixture.
 * [x] Remove large hardcoded level and atlas fallbacks from the runtime path.
 
@@ -53,8 +53,8 @@ Goal: replace custom wizard body-part loading and hardcoded character posing wit
 
 ### Phase 2 Design Rules
 
-* [ ] Load Ignatius from `wizard_atlas.png` rather than individual body-part PNG files.
-* [ ] Use a separate atlas manifest for character part frames.
+* [ ] Load Ignatius from `ct_atlas_wizard_1.png` rather than individual body-part PNG files.
+* [ ] Use a separate asset manifest for character part frames.
 * [ ] Use a separate rig JSON to define how frames become a character body.
 * [ ] Use separate animation JSON files for reusable or character-specific motion.
 * [ ] Use a character definition JSON to assign a rig and animation set to a character.
@@ -66,11 +66,11 @@ Goal: replace custom wizard body-part loading and hardcoded character posing wit
 
 ### File Format Targets
 
-* [ ] Create `wizard_atlas.json` for frames inside `wizard_atlas.png`.
-* [ ] Create `rig_wizard_1.json` converted from the current wizard rig settings.
-* [ ] Create `anim_wizard_run_1.json` that reproduces the current hardcoded run.
-* [ ] Create `char_wizard_1.json` that maps gameplay animation states to the wizard rig and animation files.
-* [ ] Define a character atlas manifest format that can later be shared with monsters.
+* [ ] Create `ct_atlas_wizard_1.json` for frames inside `ct_atlas_wizard_1.png`.
+* [ ] Create `ct_rig_wizard_1.json` converted from the current wizard rig settings.
+* [ ] Create `ct_anim_wizard_run_1.json` that reproduces the current hardcoded run.
+* [ ] Create `ct_char_wizard_1.json` that maps gameplay animation states to the wizard rig and animation files.
+* [ ] Define a character asset manifest format that can later be shared with monsters.
 * [ ] Define a rig format with part IDs, frame IDs, parent anchors, pivots, offsets, scale, rotation, draw order, roles, and tags.
 * [ ] Define an animation format with duration, looping, tracks, keyframes, interpolation, and optional root motion flags.
 * [ ] Define a character format that maps animation states such as `idle`, `run`, `jump`, `fall`, `hover`, `launch`, `hurt`, and `attack`.
@@ -111,9 +111,9 @@ Goal: replace custom wizard body-part loading and hardcoded character posing wit
 
 ### Wizard Migration
 
-* [ ] Create frame definitions in `wizard_atlas.json` matching current wizard parts.
-* [ ] Convert current `wizard_rig_config.json` values into `rig_wizard_1.json`.
-* [ ] Render the wizard from `wizard_atlas.png` with no visible pose regression.
+* [ ] Create frame definitions in `ct_atlas_wizard_1.json` matching current wizard parts.
+* [ ] Convert current `wizard_rig_config.json` values into `ct_rig_wizard_1.json`.
+* [ ] Render the wizard from `ct_atlas_wizard_1.png` with no visible pose regression.
 * [ ] Keep a temporary comparison path against the old individual-PNG renderer until parity is confirmed.
 * [ ] Verify draw order matches the old wizard renderer.
 * [ ] Verify pivots and offsets match the old wizard renderer.
@@ -123,7 +123,7 @@ Goal: replace custom wizard body-part loading and hardcoded character posing wit
 ### Wizard Run Ground Truth
 
 * [ ] Treat the current wizard run animation as ground truth.
-* [ ] Recreate the current hardcoded run as `anim_wizard_run_1.json`.
+* [ ] Recreate the current hardcoded run as `ct_anim_wizard_run_1.json`.
 * [ ] Add a comparison mode that can overlay or toggle between legacy run pose and new keyframed run pose.
 * [ ] Sample the run cycle at 16 or 24 points and compare part transforms.
 * [ ] Tune keyframes until the new run is near pixel-perfect.
@@ -172,7 +172,7 @@ Goal: create a tool where rigs and animations can be created, duplicated, edited
 
 ### Phase 2 Completion
 
-* [ ] The wizard renders from `wizard_atlas.png` and no longer needs individual body-part PNG files.
+* [ ] The wizard renders from `ct_atlas_wizard_1.png` and no longer needs individual body-part PNG files.
 * [ ] The wizard run animation is reproduced by data-driven animation with near pixel-perfect parity.
 * [ ] Jump, fall, hover, launch, idle, and landing poses are animation data rather than renderer-specific hardcoding.
 * [ ] The character tool can edit and export wizard rig and animation data.

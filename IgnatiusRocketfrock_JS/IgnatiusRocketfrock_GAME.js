@@ -42,7 +42,7 @@ if (!loadedBrowserCopy) {
     await applyRequiredDefaultLevel();
 }
 if (!applyLoadedAtlasCollisions()) {
-    failStartup("Required atlas collision data could not be applied. Check assets/atlas_001.json and the level atlasRefs.");
+    failStartup("Required atlas collision data could not be applied. Check assets/at_atlas_001.json and the level atlasRefs.");
 }
 let accumulator = 0;
 let lastNow = performance.now();

@@ -260,7 +260,7 @@ function createTestArena(tuning) {
     // Keep this arena deliberately small: tests need a floor at y=600, side walls,
     // a valid atlas visual for optional manifest-collision checks, and a little room
     // for run/jump/rocket mechanics.
-    const atlasId = "atlas_001";
+    const atlasId = "at_atlas_001";
     const solids = [
         { id: "left_wall", kind: "wall", x: -320, y: -520, w: 60, h: 1580 },
         { id: "right_wall", kind: "wall", x: 2360, y: -520, w: 60, h: 1580 },
@@ -290,7 +290,7 @@ function createTestArena(tuning) {
         resetY: 1080,
         start: { x: 135, y: 520 },
         atlasManifests: [
-            "assets/atlas_001.json"
+            "assets/at_atlas_001.json"
         ],
         visuals,
         solids,
@@ -611,7 +611,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         visuals.push({
             id: placement.id || `${assetId}_${visuals.length}`,
             kind: "atlasSprite",
-            atlasId: normalizeAtlasId(placement.atlasId || source.atlasId || "atlas_001"),
+            atlasId: normalizeAtlasId(placement.atlasId || source.atlasId || "at_atlas_001"),
             assetId,
             frame: placement.frame || assetId,
             x: Number(placement.x) || 0,
@@ -633,7 +633,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     const bounds = source.world?.bounds || source.bounds || estimateEditorLevelBounds(visuals, playerStart, entities);
     const atlasManifests = Array.isArray(source.atlasRefs)
         ? source.atlasRefs.map((ref) => ref.manifest).filter(Boolean).map(normalizeAtlasManifestPath)
-        : ["assets/atlas_001.json"];
+        : ["assets/at_atlas_001.json"];
     state.world = {
         ...state.world,
         levelId: source.levelId || source.id || "browser_copy_playtest",

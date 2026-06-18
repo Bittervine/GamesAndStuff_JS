@@ -1,0 +1,17 @@
+<!doctype html><meta charset="utf-8"><body>START<script type="module">
+import { createRenderer } from './IgnatiusRocketfrock_RENDER.js';
+try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 800;
+    canvas.height = 600;
+    canvas.style.width = '800px';
+    canvas.style.height = '600px';
+    document.body.appendChild(canvas);
+    const renderer = await createRenderer(canvas);
+    document.body.setAttribute('data-result', 'PASS');
+    document.body.textContent = 'PASS renderer smoke ' + renderer.getEnvironmentManifests().size;
+} catch (error) {
+    document.body.setAttribute('data-result', 'FAIL');
+    document.body.textContent = 'FAIL ' + (error && error.stack ? error.stack : error);
+}
+</script></body>

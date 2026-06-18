@@ -1,0 +1,148 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Character-tool wizard atlas frames intentionally match the old alpha-trimmed individual body-part PNGs, including padding, so the legacy rig stays pixel-aligned."
+    },
+    "atlasId": "ct_atlas_wizard_1",
+    "image": "ct_atlas_wizard_1.png",
+    "frames": {
+        "rocket": {
+            "x": 66,
+            "y": 143,
+            "w": 329,
+            "h": 660
+        },
+        "head": {
+            "x": 510,
+            "y": 75,
+            "w": 291,
+            "h": 291
+        },
+        "hat": {
+            "x": 900,
+            "y": 115,
+            "w": 403,
+            "h": 228
+        },
+        "left_arm": {
+            "x": 982,
+            "y": 447,
+            "w": 230,
+            "h": 243
+        },
+        "robe": {
+            "x": 605,
+            "y": 405,
+            "w": 304,
+            "h": 394
+        },
+        "right_arm": {
+            "x": 459,
+            "y": 442,
+            "w": 141,
+            "h": 270
+        },
+        "left_foot": {
+            "x": 499,
+            "y": 789,
+            "w": 150,
+            "h": 202
+        },
+        "right_foot": {
+            "x": 919,
+            "y": 795,
+            "w": 161,
+            "h": 196
+        }
+    },
+    "objects": {
+        "rocket": {
+            "id": "rocket",
+            "frame": "rocket",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "wizard",
+                "bodyPart"
+            ]
+        },
+        "head": {
+            "id": "head",
+            "frame": "head",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "wizard",
+                "bodyPart"
+            ]
+        },
+        "hat": {
+            "id": "hat",
+            "frame": "hat",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "wizard",
+                "bodyPart"
+            ]
+        },
+        "left_arm": {
+            "id": "left_arm",
+            "frame": "left_arm",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "wizard",
+                "bodyPart"
+            ]
+        },
+        "robe": {
+            "id": "robe",
+            "frame": "robe",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "wizard",
+                "bodyPart"
+            ]
+        },
+        "right_arm": {
+            "id": "right_arm",
+            "frame": "right_arm",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "wizard",
+                "bodyPart"
+            ]
+        },
+        "left_foot": {
+            "id": "left_foot",
+            "frame": "left_foot",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "wizard",
+                "bodyPart"
+            ]
+        },
+        "right_foot": {
+            "id": "right_foot",
+            "frame": "right_foot",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "wizard",
+                "bodyPart"
+            ]
+        }
+    }
+}

@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Ignatius Atlas Manifest Tool</title>
+    <title>Ignatius Asset Tool</title>
     <style>
         :root {
             color-scheme: dark;
@@ -268,13 +268,13 @@
             <button id="zoom-in">Zoom +</button>
         </div>
         <div id="viewport">
-            <canvas id="atlas" width="1400" height="900" aria-label="Atlas manifest editing canvas"></canvas>
+            <canvas id="atlas" width="1400" height="900" aria-label="Asset manifest editing canvas"></canvas>
         </div>
     </section>
 
     <aside>
         <a class="toplink" href="IgnatiusRocketfrock_JS.html">Back to main</a>
-        <h1>Atlas Manifest Tool</h1>
+        <h1>Asset Tool</h1>
         <p>
             Cyan boxes are visual islands/assets. Feature lines use shared nodes: green walkable, yellow blockable, orange damaging, red killable.
         </p>
@@ -286,8 +286,8 @@
                 <label>Import JSON<input id="manifest-file" type="file" accept="application/json,.json"></label>
             </div>
             <div class="row">
-                <button id="load-default-image">Load atlas_001.png</button>
-                <button id="load-default-json">Load default manifest</button>
+                <button id="load-default-image">Load at_atlas_001.png</button>
+                <button id="load-default-json">Load at_atlas_001.json</button>
             </div>
             <div class="row">
                 <button id="save-local">Save to browser</button>
@@ -426,13 +426,17 @@
 (() => {
     "use strict";
 
+    const DEFAULT_ASSET_ATLAS_ID = "at_atlas_001";
+    const DEFAULT_ASSET_MANIFEST_URL = `assets/${DEFAULT_ASSET_ATLAS_ID}.json`;
+    const DEFAULT_ASSET_IMAGE_URL = `assets/${DEFAULT_ASSET_ATLAS_ID}.png`;
+
     const DEFAULT_MANIFEST = {
             "meta": {
                     "version": 4,
                     "note": "Cave/ruin atlas. Cyan boxes identify visual islands/assets. Nodes and lines are local to each box."
             },
-            "atlasId": "atlas_001",
-            "image": "atlas_001.png",
+            "atlasId": "at_atlas_001",
+            "image": "at_atlas_001.png",
             "frames": {
                     "ledge_left_chunk": {
                             "x": 56,
@@ -5991,23 +5995,30 @@
         }
     });
 
-    function loadImageSrc(src) {
-        const img = new Image();
-        img.onload = () => {
-            atlasImage = img;
-            setZoom(zoom);
-        };
-        img.onerror = () => alert("Could not load the default atlas. Open this page beside the assets folder, or use the file picker.");
-        img.src = src;
+    function loadImageSrc(src, options = {}) {
+        const quiet = Boolean(options.quiet);
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                atlasImage = img;
+                setZoom(zoom);
+                resolve(img);
+            };
+            img.onerror = () => {
+                const error = new Error(`Could not load ${src}`);
+                if (!quiet) {
+                    alert("Could not load the default asset atlas image. Open this page beside the assets folder, or use the file picker.");
+                }
+                reject(error);
+            };
+            img.src = src;
+        });
     }
 
-    document.getElementById("load-default-image").addEventListener("click", () => {
-        loadImageSrc("assets/atlas_001.png");
-    });
-
-    document.getElementById("load-default-json").addEventListener("click", async () => {
+    async function loadDefaultManifest(options = {}) {
+        const quiet = Boolean(options.quiet);
         try {
-            const response = await fetch("assets/atlas_001.json", { cache: "no-store" });
+            const response = await fetch(DEFAULT_ASSET_MANIFEST_URL, { cache: "no-store" });
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
@@ -6017,10 +6028,33 @@
             selectedNodeId = null;
             selectedLineId = null;
             syncAll();
-            saveLocal();
+            if (options.save) saveLocal();
+            return true;
         } catch (error) {
-            alert(`Could not load assets/atlas_001.json. ${error.message}`);
+            if (!quiet) {
+                alert(`Could not load ${DEFAULT_ASSET_MANIFEST_URL}. ${error.message}`);
+            }
+            return false;
         }
+    }
+
+    async function loadDefaultAssetFiles(options = {}) {
+        const quiet = Boolean(options.quiet);
+        const manifestLoaded = await loadDefaultManifest({ quiet, save: options.save });
+        try {
+            await loadImageSrc(DEFAULT_ASSET_IMAGE_URL, { quiet });
+        } catch (error) {
+            // The tool can still edit frame data without the image, but previews are not useful.
+        }
+        return manifestLoaded;
+    }
+
+    document.getElementById("load-default-image").addEventListener("click", () => {
+        loadImageSrc(DEFAULT_ASSET_IMAGE_URL).catch(() => {});
+    });
+
+    document.getElementById("load-default-json").addEventListener("click", () => {
+        loadDefaultManifest({ save: true });
     });
 
     document.getElementById("zoom-in").addEventListener("click", () => setZoom(zoom + 0.15));
@@ -6099,7 +6133,7 @@
         const blob = new Blob([manifestJson.value], { type: "application/json" });
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = `${manifest.atlasId || "atlas_001"}.json`;
+        a.download = `${manifest.atlasId || "at_atlas_001"}.json`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -6112,14 +6146,20 @@
         el.addEventListener("change", applyLineFields);
     });
 
-    ensureObjects();
-    selectedObjectId = Object.keys(manifest.objects)[0] || Object.keys(manifest.frames)[0] || null;
-    zoomEl.value = "1.00";
-    hitRadiusEl.value = "12";
-    setMode("select");
-    syncAll();
+    async function initialize() {
+        ensureObjects();
+        selectedObjectId = Object.keys(manifest.objects)[0] || Object.keys(manifest.frames)[0] || null;
+        zoomEl.value = "1.00";
+        hitRadiusEl.value = "12";
+        setMode("select");
+        syncAll();
+        await loadDefaultAssetFiles({ quiet: true });
+    }
 
-    window.getIgnatiusAtlasManifest = () => JSON.parse(JSON.stringify(manifest));
+    window.getIgnatiusAssetManifest = () => JSON.parse(JSON.stringify(manifest));
+    window.getIgnatiusAtlasManifest = window.getIgnatiusAssetManifest;
+
+    initialize();
 })();
 </script>
 </body>

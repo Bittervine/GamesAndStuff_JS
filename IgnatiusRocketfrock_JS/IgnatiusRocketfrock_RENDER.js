@@ -9,20 +9,10 @@ const FIXED_DRAW_ORDER = [
     "rightArm"
 ];
 
-const ASSET_CANDIDATES = {
-    hat: ["assets/wizard_hat.png", "wizard_hat.png"],
-    head: ["assets/wizard_head.png", "wizard_head.png"],
-    robe: ["assets/wizard_robe.png", "wizard_robe.png"],
-    leftArm: ["assets/wizard_left_arm.png", "wizard_left_arm.png"],
-    rightArm: ["assets/wizard_right_arm.png", "wizard_right_arm.png"],
-    leftFoot: ["assets/wizard_left_foot.png", "wizard_left_foot.png"],
-    rightFoot: ["assets/wizard_right_foot.png", "wizard_right_foot.png"],
-    rocket: ["assets/wizard_rocket.png", "wizard_rocket.png"]
-};
-
+const DEFAULT_CHARACTER_URL = "assets/ct_char_wizard_1.json";
 
 const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = Array.from({ length: 20 }, (_, index) => {
-    const atlasId = `atlas_${String(index + 1).padStart(3, "0")}`;
+    const atlasId = `at_atlas_${String(index + 1).padStart(3, "0")}`;
     return {
         url: `assets/${atlasId}.json`,
         forceAtlasId: atlasId,
@@ -30,83 +20,25 @@ const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = Array.from({ length: 20 }, (_, ind
     };
 });
 
-const FALLBACK_RIG_CONFIG = {
-    meta: { version: 2 },
-    drawOrder: FIXED_DRAW_ORDER,
-    global: {
-        scale: 0.35,
-        lean: 0.19,
-        rootX: 550,
-        rootYOffsetFromGround: -146,
-        groundOffset: -15,
-        debugPivots: false
-    },
-    animation: {
-        speed: 3,
-        torsoWobble: 0.035,
-        headWobble: 0.025,
-        headLeanMultiplier: 0.45,
-        rootSway: 3.2,
-        bobAmplitude: 5.5,
-        bobCompression: 1.6,
-        rocketBob: 2.2
-    },
-    anchors: {
-        shoulderCenter: { x: 0, y: -102 },
-        leftShoulder: { x: 20, y: 4 },
-        rightShoulder: { x: -20, y: 4 },
-        neck: { x: 4, y: -134 },
-        rocketMount: { x: -45, y: -64 },
-        hatFromHead: { x: -1, y: -55 }
-    },
-    legMotion: {
-        stride: 37,
-        lift: 26,
-        groundRise: -4,
-        leftBaseX: 13,
-        rightBaseX: -13,
-        angleStride: -0.15,
-        angleLift: 0.1,
-        anglePlanted: -0.03
-    },
-    pivots: {
-        leftArm: { x: 0.27, y: 0.14 },
-        leftFoot: { x: 0.38, y: 0.86 },
-        rocket: { x: 0.72, y: 0.58 },
-        rightFoot: { x: 0.42, y: 0.86 },
-        robe: { x: 0.55, y: 0.55 },
-        head: { x: 0.53, y: 0.82 },
-        hat: { x: 0.46, y: 0.765 },
-        rightArm: { x: 0.48, y: 0.13 }
-    },
-    parts: {
-        leftArm: { targetHeight: 128, scale: 0.73, offset: { x: -12, y: 59 }, rotation: { base: -0.16, swing: 0.52, lift: -0.08, torso: 1 }, alpha: 1 },
-        leftFoot: { targetHeight: 90, scale: 0.98, offset: { x: -34, y: 0 }, rotation: { base: 0 }, alpha: 1 },
-        rocket: { targetHeight: 220, scale: 1, offset: { x: 3, y: 40 }, rotation: { base: 0.07, torso: 1 }, alpha: 0.98 },
-        rightFoot: { targetHeight: 90, scale: 1.02, offset: { x: 0, y: 0 }, rotation: { base: 0 }, alpha: 1 },
-        robe: { targetHeight: 258, scale: 0.73, offset: { x: 9, y: 21 }, rotation: { base: 0, torso: 1 }, alpha: 1 },
-        head: { targetHeight: 78, scale: 1.28, offset: { x: -14, y: 71 }, rotation: { base: 0 }, alpha: 1 },
-        hat: { targetHeight: 76, scale: 1.33, offset: { x: -13, y: 55 }, rotation: { base: -0.02 }, alpha: 1 },
-        rightArm: { targetHeight: 128, scale: 1.03, offset: { x: -10, y: 63 }, rotation: { base: 0.03, swing: 0.52, lift: -0.08, torso: 1 }, alpha: 1 }
-    }
-};
+const REQUIRED_RIG_SECTIONS = ["global", "animation", "anchors", "legMotion", "pivots", "parts"];
 
 export async function createRenderer(canvas) {
     const ctx = canvas.getContext("2d", { alpha: false });
-    const assets = new Map();
-    const rigConfig = await loadRigConfig();
-    await loadAllAssets(assets);
+    const character = await loadCharacterDefinition(DEFAULT_CHARACTER_URL);
+    const rigConfig = await loadRigConfig(character);
+    const assets = await loadCharacterAtlasParts(character, rigConfig);
     const environmentAtlases = await loadEnvironmentAtlases();
 
-    return new RocketfrockRenderer(canvas, ctx, assets, normalizeRigConfig(rigConfig), environmentAtlases);
+    return new RocketfrockRenderer(canvas, ctx, assets, normalizeRigConfig(rigConfig), environmentAtlases, character);
 }
 
 class RocketfrockRenderer {
-    constructor(canvas, ctx, assets, rigConfig, environmentAtlases = new Map()) {
+    constructor(canvas, ctx, assets, rigConfig, environmentAtlases = new Map(), character = null) {
         this.canvas = canvas;
         this.ctx = ctx;
         this.assets = assets;
         this.rigConfig = rigConfig;
+        this.character = character;
         this.environmentAtlases = environmentAtlases;
         this.phase = 0;
         this.forcePhase = null;
@@ -1159,34 +1091,96 @@ class RocketfrockRenderer {
             drawOrder: FIXED_DRAW_ORDER.slice(),
             parts: partMetrics,
             lastBounds: this.lastBounds,
-            renderer: "Phase1 renderer uses the same rig config and part transform formula as wizard_rig_runner.html."
+            renderer: "Atlas-backed character renderer using assets/ct_char_wizard_1.json and assets/ct_rig_wizard_1.json."
         };
     }
 }
 
-async function loadRigConfig() {
-    try {
-        const response = await fetch("./wizard_rig_config.json", { cache: "no-store" });
-        if (response.ok) {
-            return await response.json();
-        }
-    } catch (error) {
-        // Fall back below. This keeps file:// testing alive, though a local server is recommended.
+async function loadCharacterDefinition(url) {
+    const character = await loadJsonStrict(url, "character definition");
+    character.sourceUrl = url;
+    if (!character.rig) {
+        throw new Error(`Character definition ${url} does not specify a rig file.`);
     }
-    return FALLBACK_RIG_CONFIG;
+    return character;
+}
+
+async function loadRigConfig(character) {
+    const rigUrl = resolveRelativeUrl(character.sourceUrl || DEFAULT_CHARACTER_URL, character.rig);
+    const rig = await loadJsonStrict(rigUrl, "character rig");
+    rig.sourceUrl = rigUrl;
+    return rig;
 }
 
 function normalizeRigConfig(rawConfig) {
-    const config = deepMerge(FALLBACK_RIG_CONFIG, rawConfig || {});
+    const config = rawConfig || {};
+    for (const section of REQUIRED_RIG_SECTIONS) {
+        if (!config[section]) {
+            throw new Error(`Character rig is missing required section "${section}".`);
+        }
+    }
     config.drawOrder = FIXED_DRAW_ORDER.slice();
+    for (const name of FIXED_DRAW_ORDER) {
+        if (!config.parts[name]) {
+            throw new Error(`Character rig is missing required part "${name}".`);
+        }
+        if (!config.pivots[name]) {
+            throw new Error(`Character rig is missing required pivot "${name}".`);
+        }
+        config.parts[name].frame = config.parts[name].frame || name;
+        config.parts[name].offset = config.parts[name].offset || { x: 0, y: 0 };
+        config.parts[name].rotation = config.parts[name].rotation || {};
+        config.parts[name].scale = Number.isFinite(Number(config.parts[name].scale)) ? Number(config.parts[name].scale) : 1;
+        config.parts[name].alpha = Number.isFinite(Number(config.parts[name].alpha)) ? Number(config.parts[name].alpha) : 1;
+    }
     return config;
 }
 
-async function loadAllAssets(assets) {
-    await Promise.all(FIXED_DRAW_ORDER.map(async (name) => {
-        assets.set(name, await loadPart(name));
-    }));
+async function loadCharacterAtlasParts(character, rigConfig) {
+    const rigUrl = rigConfig.sourceUrl || resolveRelativeUrl(character.sourceUrl || DEFAULT_CHARACTER_URL, character.rig);
+    const atlasManifestUrl = resolveRelativeUrl(rigUrl, rigConfig.atlasManifest || `${rigConfig.atlasId || "ct_atlas_wizard_1"}.json`);
+    const atlasManifest = await loadJsonStrict(atlasManifestUrl, "character asset manifest");
+    const imageUrl = resolveRelativeUrl(atlasManifestUrl, atlasManifest.image);
+    const image = await loadImage(imageUrl);
+    const assets = new Map();
+
+    for (const partName of FIXED_DRAW_ORDER) {
+        const part = rigConfig.parts[partName] || {};
+        const frameId = part.frame || partName;
+        const frame = atlasManifest.frames && atlasManifest.frames[frameId];
+        if (!frame) {
+            throw new Error(`Character atlas ${atlasManifestUrl} is missing frame "${frameId}" for rig part "${partName}".`);
+        }
+        assets.set(partName, makeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, atlasManifest.atlasId));
+    }
+
+    return assets;
 }
+
+function makeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, atlasId) {
+    const x = Number(frame.x) || 0;
+    const y = Number(frame.y) || 0;
+    const w = Math.max(1, Number(frame.w) || 1);
+    const h = Math.max(1, Number(frame.h) || 1);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext("2d").drawImage(image, x, y, w, h, 0, 0, w, h);
+    return {
+        canvas,
+        width: w,
+        height: h,
+        naturalWidth: image.naturalWidth || image.width,
+        naturalHeight: image.naturalHeight || image.height,
+        bounds: { x, y, w, h },
+        name: partName,
+        frameId,
+        atlasId,
+        source: `${imageUrl}#${frameId}`,
+        missing: false
+    };
+}
+
 
 async function loadEnvironmentAtlases() {
     const atlases = new Map();
@@ -1207,7 +1201,7 @@ async function loadEnvironmentAtlases() {
             break;
         }
 
-        const imageUrl = pathDirectory(candidate.url) + manifest.image;
+        const imageUrl = resolveRelativeUrl(candidate.url, manifest.image);
         let image = null;
         try {
             image = await loadImage(imageUrl);
@@ -1228,7 +1222,7 @@ async function loadEnvironmentAtlases() {
 }
 
 function normalizeEnvironmentManifest(manifest, forcedAtlasId, forcedImage) {
-    const normalized = JSON.parse(JSON.stringify(manifest));
+    const normalized = JSON.parse(JSON.stringify(manifest || {}));
     if (forcedAtlasId) {
         normalized.atlasId = forcedAtlasId;
     }
@@ -1236,27 +1230,6 @@ function normalizeEnvironmentManifest(manifest, forcedAtlasId, forcedImage) {
         normalized.image = forcedImage;
     }
     return normalized;
-}
-
-function pathDirectory(url) {
-    const text = String(url || "");
-    const slash = text.lastIndexOf("/");
-    return slash >= 0 ? text.slice(0, slash + 1) : "";
-}
-
-async function loadPart(name) {
-    const candidates = ASSET_CANDIDATES[name] || [];
-    for (const url of candidates) {
-        try {
-            const img = await loadImage(url);
-            const asset = trimImageByAlpha(img, name);
-            asset.source = url;
-            return asset;
-        } catch (error) {
-            // Try the next candidate.
-        }
-    }
-    return makeMissingPart(name);
 }
 
 function loadImage(url) {
@@ -1269,65 +1242,31 @@ function loadImage(url) {
     });
 }
 
-function trimImageByAlpha(img, name) {
-    const temp = document.createElement("canvas");
-    temp.width = img.naturalWidth || img.width;
-    temp.height = img.naturalHeight || img.height;
-    const tctx = temp.getContext("2d", { willReadFrequently: true });
-    tctx.drawImage(img, 0, 0);
-    const data = tctx.getImageData(0, 0, temp.width, temp.height).data;
-
-    let minX = temp.width;
-    let minY = temp.height;
-    let maxX = -1;
-    let maxY = -1;
-    const threshold = 8;
-    for (let y = 0; y < temp.height; y += 1) {
-        for (let x = 0; x < temp.width; x += 1) {
-            const alpha = data[(y * temp.width + x) * 4 + 3];
-            if (alpha > threshold) {
-                minX = Math.min(minX, x);
-                minY = Math.min(minY, y);
-                maxX = Math.max(maxX, x);
-                maxY = Math.max(maxY, y);
-            }
-        }
+async function loadJsonStrict(url, label) {
+    let response;
+    try {
+        response = await fetch(url, { cache: "no-store" });
+    } catch (error) {
+        throw new Error(`Could not load ${label} from ${url}. Use a local web server and make sure the file exists. ${error.message}`);
     }
-
-    if (maxX < minX || maxY < minY) {
-        return makeMissingPart(name);
+    if (!response.ok) {
+        throw new Error(`Could not load ${label} from ${url}: HTTP ${response.status}.`);
     }
-
-    const pad = 2;
-    minX = Math.max(0, minX - pad);
-    minY = Math.max(0, minY - pad);
-    maxX = Math.min(temp.width - 1, maxX + pad);
-    maxY = Math.min(temp.height - 1, maxY + pad);
-
-    const w = maxX - minX + 1;
-    const h = maxY - minY + 1;
-    const trimmed = document.createElement("canvas");
-    trimmed.width = w;
-    trimmed.height = h;
-    trimmed.getContext("2d").drawImage(temp, minX, minY, w, h, 0, 0, w, h);
-
-    return {
-        canvas: trimmed,
-        width: w,
-        height: h,
-        naturalWidth: temp.width,
-        naturalHeight: temp.height,
-        bounds: { x: minX, y: minY, w, h },
-        name,
-        missing: false
-    };
+    return await response.json();
 }
 
-function makeMissingPart(name) {
-    const canvas = document.createElement("canvas");
-    canvas.width = 1;
-    canvas.height = 1;
-    return { canvas, width: 1, height: 1, name, missing: true, bounds: { x: 0, y: 0, w: 1, h: 1 } };
+function pathDirectory(url) {
+    const text = String(url || "");
+    const slash = text.lastIndexOf("/");
+    return slash >= 0 ? text.slice(0, slash + 1) : "";
+}
+
+function resolveRelativeUrl(baseUrl, relativeUrl) {
+    const text = String(relativeUrl || "");
+    if (/^(?:[a-z]+:)?\/\//i.test(text) || text.startsWith("/")) {
+        return text;
+    }
+    return pathDirectory(baseUrl) + text;
 }
 
 function applyPartOffset(point, part, scale) {
@@ -1616,29 +1555,6 @@ function roundedRect(ctx, x, y, w, h, r) {
     ctx.lineTo(x, y + radius);
     ctx.quadraticCurveTo(x, y, x + radius, y);
 }
-
-function deepMerge(base, incoming) {
-    if (Array.isArray(base)) {
-        return Array.isArray(incoming) ? JSON.parse(JSON.stringify(incoming)) : JSON.parse(JSON.stringify(base));
-    }
-    if (!base || typeof base !== "object") {
-        return incoming === undefined ? base : incoming;
-    }
-    const result = JSON.parse(JSON.stringify(base));
-    if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) {
-        return result;
-    }
-    for (const key of Object.keys(incoming)) {
-        if (key in base) {
-            result[key] = deepMerge(base[key], incoming[key]);
-        } else {
-            result[key] = JSON.parse(JSON.stringify(incoming[key]));
-        }
-    }
-    return result;
-}
-
-
 
 function findClosedCollisionLoops(object) {
     if (!object || !Array.isArray(object.nodes) || !Array.isArray(object.lines)) {

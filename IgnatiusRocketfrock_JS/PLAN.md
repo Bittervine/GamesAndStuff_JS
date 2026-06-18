@@ -249,7 +249,7 @@ This makes it easier to debug not only what the state is, but how it recently go
 * The renderer should remain a thin presentation layer.
 * The renderer should support sprite-based rigging for Ignatius, monsters, and other animated characters.
 * Character art should be loaded from atlas images rather than many individual body-part image files.
-* Ignatius should move from individual body-part PNG files to `wizard_atlas.png` plus atlas, rig, animation, and character JSON files.
+* Ignatius should move from individual body-part PNG files to `ct_atlas_wizard_1.png` plus atlas, rig, animation, and character JSON files.
 * Character rendering should be generic: draw atlas frames with pivots, transforms, alpha, mirroring, and draw order.
 * Assets should be mirrorable.
 * Beard, hair, robe details, wings, dangling pieces, and similar secondary details may later use simple procedural modifiers layered on top of keyframed animation.
@@ -261,11 +261,11 @@ The game should use a reusable character pipeline instead of one custom renderer
 
 A character is assembled from these data layers:
 
-* A character atlas image, such as `wizard_atlas.png`.
-* A character atlas manifest, such as `wizard_atlas.json`, containing named frame rectangles.
-* A rig definition, such as `rig_wizard_1.json`, describing parts, pivots, parent anchors, offsets, scale, roles, tags, and draw order.
-* Animation definitions, such as `anim_wizard_run_1.json`, describing keyframed motion over time.
-* A character definition, such as `char_wizard_1.json`, assigning a rig and animation set to a gameplay character.
+* A character atlas image, such as `ct_atlas_wizard_1.png`.
+* A character asset manifest, such as `ct_atlas_wizard_1.json`, containing named frame rectangles.
+* A rig definition, such as `ct_rig_wizard_1.json`, describing parts, pivots, parent anchors, offsets, scale, roles, tags, and draw order.
+* Animation definitions, such as `ct_anim_wizard_run_1.json`, describing keyframed motion over time.
+* A character definition, such as `ct_char_wizard_1.json`, assigning a rig and animation set to a gameplay character.
 
 Rigs should use part IDs and optional broad roles such as `root`, `torso`, `head`, `leftArm`, `rightArm`, `leftLeg`, `rightLeg`, `leftWing`, `rightWing`, `hat`, and `weaponMount`.
 
@@ -281,9 +281,9 @@ The current hardcoded jump, hover, launch, and airborne poses should eventually 
 
 ## Character Tool
 
-A dedicated `character_tool.html` should be added for rigging and animation work. It should be separate from the atlas manifest tool and level editor.
+A dedicated `character_tool.html` should be added for rigging and animation work. It should be separate from the asset tool and level editor.
 
-The atlas manifest tool is for world and character atlas frames, nodes, and collision data.
+The asset tool is for world and character atlas frames, nodes, and collision data.
 
 The level editor is for placing world assets and entities.
 
@@ -989,7 +989,7 @@ It established:
 * Atlas-based level loading from `assets/level_001.json`.
 * Multi-atlas level references.
 * Atlas collision lines and closed collision areas.
-* Level editor and atlas manifest tool.
+* Level editor and asset tool.
 * Debug overlays and asset guides.
 * Headless movement, fuel, collision, and game-state tests.
 
@@ -1001,8 +1001,8 @@ The next milestone is to move Ignatius and future monsters onto a generic charac
 
 Include:
 
-* Convert Ignatius from individual body-part PNG files to `wizard_atlas.png`.
-* Add `wizard_atlas.json`, `rig_wizard_1.json`, `anim_wizard_run_1.json`, and `char_wizard_1.json`.
+* Convert Ignatius from individual body-part PNG files to `ct_atlas_wizard_1.png`.
+* Add `ct_atlas_wizard_1.json`, `ct_rig_wizard_1.json`, `ct_anim_wizard_run_1.json`, and `ct_char_wizard_1.json`.
 * Build a generic character renderer that draws atlas frames by rig and pose data.
 * Preserve the current wizard appearance and draw order during migration.
 * Recreate the current hardcoded wizard run as data-driven keyframes.
@@ -1012,7 +1012,7 @@ Include:
 * Support duplicate/edit workflows for animation sequences.
 * Prepare the renderer data model for later WebGL2 batching.
 
-This milestone is successful when the wizard renders from `wizard_atlas.png`, the run animation is near pixel-perfect compared with the current version, and the character tool can edit and export the wizard rig and animations.
+This milestone is successful when the wizard renders from `ct_atlas_wizard_1.png`, the run animation is near pixel-perfect compared with the current version, and the character tool can edit and export the wizard rig and animations.
 
 ## Milestone 3: Monster Character Pipeline
 
@@ -1086,7 +1086,7 @@ Things to avoid:
 * Should jump height vary depending on button hold duration?
 * Should attached boost require the rocket to be visually mounted?
 * Can Ignatius use detached weapons while boosting?
-* How much trim metadata does `wizard_atlas.json` need to reproduce individual-PNG pivots exactly?
+* How much trim metadata does `ct_atlas_wizard_1.json` need to reproduce individual-PNG pivots exactly?
 * Should animation blending live entirely in the renderer, or should gameplay-relevant animation state also be recorded in `gameState`?
 * Which procedural secondary-animation modifiers should be added first after keyframes are stable?
 * Can the rocket be unavailable while reforming?

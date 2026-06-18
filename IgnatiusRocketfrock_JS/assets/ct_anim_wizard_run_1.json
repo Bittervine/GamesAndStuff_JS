@@ -1,0 +1,12 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Reserved for the next step: recreating the current hardcoded wizard run as keyframes."
+    },
+    "animationId": "ct_anim_wizard_run_1",
+    "profile": "humanoid",
+    "mirrorable": true,
+    "duration": 0.72,
+    "loop": true,
+    "tracks": {}
+}
