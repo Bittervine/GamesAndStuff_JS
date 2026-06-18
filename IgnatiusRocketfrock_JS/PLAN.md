@@ -245,22 +245,66 @@ This makes it easier to debug not only what the state is, but how it recently go
 
 ## Rendering
 
-* Use WebGL for performance when practical.
+* Use WebGL for performance when practical, but keep the renderer data-driven so the canvas renderer and later WebGL2 renderer can share the same character draw data.
 * The renderer should remain a thin presentation layer.
-* The renderer should support sprite-based rigging for Ignatius.
-* Ignatius is built from separate parts:
-
-  * robe/body
-  * head
-  * hat
-  * left arm
-  * right arm
-  * left leg/foot sprite
-  * right leg/foot sprite
-  * rocket or mounted weapon
+* The renderer should support sprite-based rigging for Ignatius, monsters, and other animated characters.
+* Character art should be loaded from atlas images rather than many individual body-part image files.
+* Ignatius should move from individual body-part PNG files to `wizard_atlas.png` plus atlas, rig, animation, and character JSON files.
+* Character rendering should be generic: draw atlas frames with pivots, transforms, alpha, mirroring, and draw order.
 * Assets should be mirrorable.
-* Beard, hair, and robe details may later use simple physics or secondary animation.
+* Beard, hair, robe details, wings, dangling pieces, and similar secondary details may later use simple procedural modifiers layered on top of keyframed animation.
 * The body should use relatively short hair and a short full beard in-game, with longer simulated strands added as separate animated details.
+
+## Character Rigging and Animation
+
+The game should use a reusable character pipeline instead of one custom renderer per character.
+
+A character is assembled from these data layers:
+
+* A character atlas image, such as `wizard_atlas.png`.
+* A character atlas manifest, such as `wizard_atlas.json`, containing named frame rectangles.
+* A rig definition, such as `rig_wizard_1.json`, describing parts, pivots, parent anchors, offsets, scale, roles, tags, and draw order.
+* Animation definitions, such as `anim_wizard_run_1.json`, describing keyframed motion over time.
+* A character definition, such as `char_wizard_1.json`, assigning a rig and animation set to a gameplay character.
+
+Rigs should use part IDs and optional broad roles such as `root`, `torso`, `head`, `leftArm`, `rightArm`, `leftLeg`, `rightLeg`, `leftWing`, `rightWing`, `hat`, and `weaponMount`.
+
+Animations should be mostly keyframed at first. They should support interpolation modes such as `step`, `linear`, `easeIn`, `easeOut`, and `easeInOut`. JavaScript expression based animation should not be the first solution because it is harder to edit visually, harder to validate, and less friendly to future tools.
+
+Animations should be reusable as templates, but each character must explicitly choose which animation sequence it uses for each gameplay state. Not every animation must make sense for every rig. A bat may classify wings as arm-like controls, but it should still use a bat flap animation rather than automatically inheriting a humanoid run.
+
+Animation data should support duplication and editing. A shared starting animation such as a humanoid run can be duplicated and tweaked into a wizard run, goblin run, skeleton shuffle, or other character-specific motion.
+
+Ignatius is the calibration character for this system. The first goal is not to invent a new run, but to reproduce the current hardcoded wizard run as closely as possible using atlas frames, rig data, and keyframed animation. A temporary comparison mode should allow the old run pose and new animation pose to be compared until parity is good enough.
+
+The current hardcoded jump, hover, launch, and airborne poses should eventually move into animation data. The simulation should describe gameplay state and relevant parameters; the animation system should choose, play, and blend poses for display.
+
+## Character Tool
+
+A dedicated `character_tool.html` should be added for rigging and animation work. It should be separate from the atlas manifest tool and level editor.
+
+The atlas manifest tool is for world and character atlas frames, nodes, and collision data.
+
+The level editor is for placing world assets and entities.
+
+The character tool is for assembling character rigs and editing animation sequences.
+
+The character tool should support:
+
+* Loading atlas images and atlas JSON.
+* Loading and saving rig JSON.
+* Loading, duplicating, editing, and saving animation JSON.
+* Loading and saving character definition JSON.
+* Drag editing of pivots, offsets, anchors, and part transforms.
+* Exact numeric entry for pivots, offsets, scale, rotation, draw order, roles, and tags.
+* Timeline editing with keyframes.
+* Playback, pause, scrubbing, frame stepping, loop control, and speed control.
+* Interpolation selection per keyframe or track segment.
+* Ghost previous/next pose display.
+* Copy pose, paste pose, paste mirrored pose, and paired-limb helpers.
+* A wizard run comparison mode against the current hardcoded run.
+
+This tool is expected to be used heavily, so it should favor a comfortable editing workflow rather than a minimal debug UI.
 
 ## Scale and Physics
 
@@ -930,52 +974,75 @@ The level generator and headless validator must understand when a level requires
 * Rendering reflects simulation state.
 * Debug state can be inspected during Playwright tests.
 
-## First Milestone
+## Milestone 1: Completed Physics and Atlas-Level Foundation
 
-Build a calibration arena.
+The first milestone is now considered complete enough to stop treating it as the current development target.
 
-Include:
+It established:
 
 * Fullscreen play area.
 * Single hierarchical `gameState`.
 * Fixed timestep simulation.
-* Ignatius movement.
-* Running.
-* Jumping.
-* Attached vertical rocket boost.
-* Fuel gauge.
-* Fuel recharge.
-* Basic health.
-* Low health reddish pulse.
-* Simple hat state support, even if not fully used yet.
-* Stationary target monsters.
-* One simple detachable rocket weapon mode.
-* Debug overlay.
-* Headless movement, fuel, and game-state tests.
+* Ignatius movement, running, jumping, and attached vertical rocket boost.
+* Fuel and health HUD.
+* Detached rocket launch and terrain impact.
+* Atlas-based level loading from `assets/level_001.json`.
+* Multi-atlas level references.
+* Atlas collision lines and closed collision areas.
+* Level editor and atlas manifest tool.
+* Debug overlays and asset guides.
+* Headless movement, fuel, collision, and game-state tests.
 
-Do not build complicated levels yet.
+Going forward, the browser game should load real level and atlas files from `assets/`. It may fail loudly when required files are missing. Hardcoded geometry should be limited to explicit test fixtures and blank editor documents.
 
-The first milestone is successful when Ignatius is fun to run, jump, and boost around an empty arena.
+## Milestone 2: Character Atlas, Rigging, and Animation Pipeline
 
-## Second Milestone
-
-Add detached weapon behavior properly.
+The next milestone is to move Ignatius and future monsters onto a generic character rig and animation system.
 
 Include:
 
-* Weapon button input interpretation.
-* Quick launch.
-* Held aimed launch.
-* Homing launch.
-* Ballistic launch if still desired.
-* Launch clearance.
-* Explosion.
-* Enemy hit detection.
-* Fuel costs.
-* Tests for all launch modes.
-* Generic weapon framework that can support many future weapon modes.
+* Convert Ignatius from individual body-part PNG files to `wizard_atlas.png`.
+* Add `wizard_atlas.json`, `rig_wizard_1.json`, `anim_wizard_run_1.json`, and `char_wizard_1.json`.
+* Build a generic character renderer that draws atlas frames by rig and pose data.
+* Preserve the current wizard appearance and draw order during migration.
+* Recreate the current hardcoded wizard run as data-driven keyframes.
+* Add comparison tooling so the new run can be checked against the old run.
+* Move jump, fall, hover, launch, idle, and landing poses into animation data.
+* Add `character_tool.html` for rigging and animation editing.
+* Support duplicate/edit workflows for animation sequences.
+* Prepare the renderer data model for later WebGL2 batching.
 
-## Third Milestone
+This milestone is successful when the wizard renders from `wizard_atlas.png`, the run animation is near pixel-perfect compared with the current version, and the character tool can edit and export the wizard rig and animations.
+
+## Milestone 3: Monster Character Pipeline
+
+Add the first non-wizard characters using the same rig and animation system.
+
+Include:
+
+* Simple humanoid enemy rig.
+* Simple bat rig.
+* Character definitions that assign rigs and animation sets.
+* Idle, move, attack, and hurt animations.
+* Animation template duplication and character-specific tweaking.
+* Renderer support for monsters without custom per-species code.
+
+## Milestone 4: Combat, Destructibles, and Weapon Framework
+
+Expand rocket and weapon interactions after the character pipeline is stable.
+
+Include:
+
+* Generic weapon framework.
+* Quick, aimed, homing, and possibly ballistic launch modes.
+* Enemy hit detection.
+* Player damage.
+* Destructible barriers and reactive objects.
+* Falling tree or bridge prototype.
+* Smoke-heavy destruction effects.
+* Tests for projectile, monster, and reactive-object state transitions.
+
+## Milestone 5: Handmade Level and Story Wrapper
 
 Add level structure and story wrapper.
 
@@ -984,10 +1051,10 @@ Include:
 * Mailbox.
 * Editor letter scroll.
 * Thought bubbles.
-* First themed level.
+* First complete themed level.
 * Title revision gag.
-* Basic pickups.
-* Simple enemy placement.
+* Pickups.
+* Enemy placement.
 * Camera tuning.
 
 ## Design Warning List
@@ -1006,6 +1073,9 @@ Things to avoid:
 * Do not store browser/rendering resources in `gameState`.
 * Do not build procedural levels before the movement arena feels good.
 * Do not add many weapons before the weapon framework is clean.
+* Do not build one-off custom renderers for every character unless a creature truly needs special treatment.
+* Do not assume one animation will work for every rig. Treat shared animations as templates that can be duplicated and adjusted.
+* Do not switch to WebGL2 before the character data model is stable enough to render correctly in canvas.
 
 ## Current Open Questions
 
@@ -1016,6 +1086,9 @@ Things to avoid:
 * Should jump height vary depending on button hold duration?
 * Should attached boost require the rocket to be visually mounted?
 * Can Ignatius use detached weapons while boosting?
+* How much trim metadata does `wizard_atlas.json` need to reproduce individual-PNG pivots exactly?
+* Should animation blending live entirely in the renderer, or should gameplay-relevant animation state also be recorded in `gameState`?
+* Which procedural secondary-animation modifiers should be added first after keyframes are stable?
 * Can the rocket be unavailable while reforming?
 * Should weapon mode be selected by input gesture, equipped mode, pickups, or upgrades?
 * Should fuel and health pickups be separate?

@@ -1,717 +1,325 @@
-# Ignatius Rocketfrock Implementation Plan
+# Ignatius Rocketfrock Implementation Checklist
 
 This document augments `PLAN.md`.
 
-`PLAN.md` describes the game design.
-This document describes the implementation order and provides checkable development tasks.
+`PLAN.md` describes the game design. This document describes the implementation order and provides checkable development tasks.
 
-The current development target is **Phase 1 only**. After Phase 1, development should pause so the physics can be tested, tuned, and played with before content is added.
+The old Phase 1 physics arena is now considered complete enough to stop treating it as the current milestone. The current development target is **Phase 2: Character Atlas, Rigging, and Animation Tooling**.
 
-## Phase 1: Physics Test Arena
+## Current Status
 
-Goal: create a minimal playable arena for testing Ignatius movement, physics, fuel, and attached boost behavior.
+The project now has a working browser game loop, deterministic simulation layer, asset-atlas based level construction, atlas and level editor tools, atlas-derived collision lines and filled collision loops, detached rocket terrain impacts, health/fuel HUD, and headless tests.
 
-This phase intentionally uses simple placeholder geometry and minimal presentation.
+The main cleanup direction is to reduce ad-hoc character rendering and move Ignatius, monsters, and future mobs into a shared data-driven character rig and animation pipeline.
 
-### Project Structure
+## Phase 1: Completed Physics, Level, and Atlas Foundation
 
-* [ ] Create or clean up the main project file structure.
-* [ ] Create `game.html`.
-* [ ] Create `IgnatiusRocketfrock_SIM.js`.
-* [ ] Create `IgnatiusRocketfrock_INPUT.js`.
-* [ ] Create `IgnatiusRocketfrock_RENDER.js`.
-* [ ] Create `IgnatiusRocketfrock_GAME.js`.
-* [ ] Create or update `testbench.mjs`.
-* [ ] Keep simulation code independent from DOM, canvas, WebGL, and browser events.
-* [ ] Keep rendering code thin and state-driven.
-* [ ] Keep input mapping separate from simulation rules.
+Goal: establish a playable and testable foundation for movement, rocket behavior, level loading, and atlas-based environment construction.
 
-### Single Game State
+### Completed Foundation
 
-* [ ] Define the initial top-level `gameState` structure.
-* [ ] Store all gameplay state inside `gameState`.
-* [ ] Keep loaded images, canvas contexts, DOM nodes, and renderer caches outside `gameState`.
-* [ ] Add a simple `gameState.meta.schemaVersion`.
-* [ ] Add `gameState.clock`.
-* [ ] Add `gameState.player`.
-* [ ] Add `gameState.fuel`.
-* [ ] Add `gameState.world`.
-* [ ] Add `gameState.collisions`.
-* [ ] Add `gameState.debug`.
-* [ ] Add `gameState.debug.lastEvents`.
-* [ ] Make `gameState` serializable to JSON.
-* [ ] Make `gameState` cloneable for debugging/tests.
+* [x] Create `game.html` and main browser entry points.
+* [x] Create `IgnatiusRocketfrock_SIM.js` for deterministic simulation.
+* [x] Create `IgnatiusRocketfrock_INPUT.js` for keyboard/gamepad input mapping.
+* [x] Create `IgnatiusRocketfrock_RENDER.js` for state-driven rendering.
+* [x] Create `IgnatiusRocketfrock_GAME.js` for orchestration and fixed timestep loop.
+* [x] Create `testbench.mjs` for headless and integration tests.
+* [x] Keep simulation code independent from DOM, canvas, WebGL, and browser events.
+* [x] Keep rendering code thin and state-driven.
+* [x] Keep input mapping separate from simulation rules.
+* [x] Store gameplay state inside a serializable `gameState`.
+* [x] Support running, jumping, airborne boost, fuel, health, and detached rocket launch.
+* [x] Support level loading from `assets/level_001.json`.
+* [x] Support atlas manifests from `assets/atlas_001.json`, `assets/atlas_002.json`, and so on.
+* [x] Support level placements that reference `atlasId` plus `assetId`.
+* [x] Support atlas collision lines: `walkable`, `blockable`, `damaging`, and `killable`.
+* [x] Support filled closed collision loops when collision lines form areas.
+* [x] Support rocket impacts against blockable terrain lines and filled areas.
+* [x] Support asset guide overlays for atlas collision lines and filled collision areas.
+* [x] Create a level editor for placing atlas assets and entities.
+* [x] Create an atlas manifest tool for defining frames, nodes, and collision lines.
+* [x] Make the hardcoded simulation arena explicitly a headless test fixture.
+* [x] Remove large hardcoded level and atlas fallbacks from the runtime path.
 
-### Fixed Timestep Simulation
+### Phase 1 Rule Going Forward
 
-* [ ] Implement a fixed timestep update loop.
-* [ ] Make the simulation step accept `gameState` and `inputFrame`.
-* [ ] Make the simulation step return or mutate `gameState` consistently.
-* [ ] Prevent simulation behavior from depending directly on browser frame rate.
-* [ ] Add pause.
-* [ ] Add single-frame stepping.
-* [ ] Add reset to initial arena state.
+The browser game should load real level and atlas files from `assets/`. It is acceptable for the game to fail loudly if `assets/level_001.json` or referenced atlas files are missing or invalid.
 
-### Input
+Hardcoded test data may remain only when it is explicitly used as a test fixture or blank editor starting state.
 
-* [ ] Read keyboard input.
-* [ ] Convert keyboard state into an `inputFrame`.
-* [ ] Support left movement.
-* [ ] Support right movement.
-* [ ] Support jump press, hold, and release.
-* [ ] Support weapon/rocket button press, hold, and release, even if detached weapons are not fully implemented yet.
-* [ ] Add basic gamepad input only if it does not distract from physics work.
-* [ ] Make input state visible in the debug overlay.
+## Phase 2: Character Atlas, Rigging, and Animation Tooling
 
-### Arena Geometry
+Goal: replace custom wizard body-part loading and hardcoded character posing with a data-driven character pipeline. This phase starts with Ignatius and must preserve the current wizard run animation as the visual ground truth.
 
-* [ ] Create a simple test arena.
-* [ ] Add a floor.
-* [ ] Add left and right boundary walls.
-* [ ] Add a few rectangular test platforms.
-* [ ] Add a vertical test shaft.
-* [ ] Add a wide horizontal test gap.
-* [ ] Add a safe reset area or reset shortcut.
-* [ ] Store arena collision geometry in `gameState`.
-* [ ] Render collision geometry with placeholders.
-* [ ] Add optional debug drawing for collision bounds.
+### Phase 2 Design Rules
 
-### Player Movement
+* [ ] Load Ignatius from `wizard_atlas.png` rather than individual body-part PNG files.
+* [ ] Use a separate atlas manifest for character part frames.
+* [ ] Use a separate rig JSON to define how frames become a character body.
+* [ ] Use separate animation JSON files for reusable or character-specific motion.
+* [ ] Use a character definition JSON to assign a rig and animation set to a character.
+* [ ] Keep rendering resources outside `gameState`.
+* [ ] Keep animation state in or derivable from `gameState` when it affects gameplay, replay, debugging, or deterministic state transitions.
+* [ ] Keep character rendering data compatible with a later WebGL2 renderer.
+* [ ] Treat reusable animations as templates that can be duplicated and tweaked per character.
+* [ ] Do not force every character to use every animation.
 
-* [ ] Add player position.
-* [ ] Add player velocity.
-* [ ] Add player acceleration or accumulated forces.
-* [ ] Add gravity.
-* [ ] Add horizontal acceleration.
-* [ ] Add horizontal friction.
-* [ ] Add ground detection.
-* [ ] Add wall collision.
-* [ ] Add platform collision.
-* [ ] Add jump behavior.
-* [ ] Add airborne state.
-* [ ] Add facing direction.
-* [ ] Add basic landing behavior.
-* [ ] Add debug display for movement values.
+### File Format Targets
 
-### Attached Rocket Boost
+* [ ] Create `wizard_atlas.json` for frames inside `wizard_atlas.png`.
+* [ ] Create `rig_wizard_1.json` converted from the current wizard rig settings.
+* [ ] Create `anim_wizard_run_1.json` that reproduces the current hardcoded run.
+* [ ] Create `char_wizard_1.json` that maps gameplay animation states to the wizard rig and animation files.
+* [ ] Define a character atlas manifest format that can later be shared with monsters.
+* [ ] Define a rig format with part IDs, frame IDs, parent anchors, pivots, offsets, scale, rotation, draw order, roles, and tags.
+* [ ] Define an animation format with duration, looping, tracks, keyframes, interpolation, and optional root motion flags.
+* [ ] Define a character format that maps animation states such as `idle`, `run`, `jump`, `fall`, `hover`, `launch`, `hurt`, and `attack`.
 
-* [ ] Add attached boost state.
-* [ ] Trigger attached boost from the jump input while airborne.
-* [ ] Stop attached boost when jump is released.
-* [ ] Stop attached boost when fuel runs out.
-* [ ] Stop attached boost when Ignatius lands.
-* [ ] Apply boost force through the simulation.
-* [ ] Drain fuel while boosting.
-* [ ] Emit debug events for boost start and boost end.
-* [ ] Render a simple placeholder rocket or use the existing rocket sprite if convenient.
+### Rig Roles and Retargeting Preparation
 
-### Fuel
+* [ ] Add optional rig roles such as `root`, `torso`, `head`, `leftArm`, `rightArm`, `leftLeg`, `rightLeg`, `leftWing`, `rightWing`, `hat`, and `weaponMount`.
+* [ ] Allow non-humanoid rigs to map parts to broad roles where useful.
+* [ ] Allow bats to classify wings as arm-like controls without pretending every bat animation is a humanoid run.
+* [ ] Let each animation declare required and optional roles.
+* [ ] Let each character explicitly choose which animations it uses for each gameplay state.
+* [ ] Support duplicated/forked animations so shared templates can become character-specific animations.
 
-* [ ] Add fuel amount.
-* [ ] Add maximum fuel.
-* [ ] Add recharge cap.
-* [ ] Add recharge delay after use.
-* [ ] Add recharge over time.
-* [ ] Prevent fuel from going below minimum.
-* [ ] Prevent fuel from going above maximum.
-* [ ] Prevent recharge above the current recharge cap.
-* [ ] Show fuel in debug overlay.
-* [ ] Add a temporary simple fuel gauge.
+### Animation Data
 
-### Debug Tools
+* [ ] Prefer keyframes over JavaScript expressions for the first animation system.
+* [ ] Support interpolation modes: `step`, `linear`, `easeIn`, `easeOut`, and `easeInOut`.
+* [ ] Support tracks for position, rotation, scale, alpha, and optional visibility.
+* [ ] Support looped animations.
+* [ ] Support one-shot animations.
+* [ ] Support per-animation playback speed.
+* [ ] Support mirrored playback when the character faces left.
+* [ ] Support paired limb helpers such as left/right copy, mirror, and phase offset.
+* [ ] Defer procedural modifiers until keyframed animation is stable.
+* [ ] Later support procedural modifiers for beard, hair strands, robe edges, wings, dangling parts, and rocket bob.
 
-* [ ] Add on-screen debug overlay.
-* [ ] Show current simulation tick.
-* [ ] Show player position.
-* [ ] Show player velocity.
-* [ ] Show player grounded/airborne state.
-* [ ] Show facing direction.
-* [ ] Show fuel amount.
-* [ ] Show boost state.
-* [ ] Show input state.
-* [ ] Show recent debug events.
-* [ ] Add toggle for hitboxes.
-* [ ] Add toggle for velocity vector.
-* [ ] Add toggle for collision geometry.
-* [ ] Add state export to console or clipboard.
-* [ ] Add simple way to inspect `gameState` from browser devtools.
-* [ ] Add simple live tuning of important physics constants if practical.
+### Generic Character Renderer
 
-### Headless Tests
+* [ ] Create a generic character renderer that draws parts from atlas frames.
+* [ ] Remove direct dependency on individual wizard body-part image files.
+* [ ] Keep the existing canvas renderer working first.
+* [ ] Return a simple draw-command list that can later be used by WebGL2.
+* [ ] Draw character parts by atlas frame, transform, pivot, alpha, and draw order.
+* [ ] Support mirroring without duplicating art.
+* [ ] Support frame-local pivots.
+* [ ] Support optional trim metadata if atlas-frame padding causes alignment drift.
+* [ ] Keep the mounted rocket or weapon as a rig part or equipment mount, not as a special renderer island.
 
-* [ ] Make the sim importable from `testbench.mjs`.
-* [ ] Create an initial test arena state without browser rendering.
-* [ ] Test that the simulation can step headlessly.
-* [ ] Test that `gameState` can be serialized.
-* [ ] Test that `gameState` can be cloned.
-* [ ] Test basic left/right movement symmetry.
-* [ ] Test jump state transitions.
-* [ ] Test boost state transitions.
-* [ ] Test fuel drain.
-* [ ] Test fuel recharge delay.
-* [ ] Test collision stability with floor.
-* [ ] Test collision stability with wall.
-* [ ] Add a simple pass/fail console report.
+### Wizard Migration
 
-### Phase 1 Stop Point
+* [ ] Create frame definitions in `wizard_atlas.json` matching current wizard parts.
+* [ ] Convert current `wizard_rig_config.json` values into `rig_wizard_1.json`.
+* [ ] Render the wizard from `wizard_atlas.png` with no visible pose regression.
+* [ ] Keep a temporary comparison path against the old individual-PNG renderer until parity is confirmed.
+* [ ] Verify draw order matches the old wizard renderer.
+* [ ] Verify pivots and offsets match the old wizard renderer.
+* [ ] Verify left/right mirroring matches the old wizard renderer.
+* [ ] Remove individual body-part loading only after the atlas version is visually equivalent.
 
-* [ ] Confirm the arena runs in the browser.
-* [ ] Confirm the headless tests run.
-* [ ] Confirm debug tools are enough to tune physics.
-* [ ] Confirm movement constants can be adjusted without hunting through code.
-* [ ] Stop adding new gameplay features.
-* [ ] Spend time playing with physics.
-* [ ] Tune movement, jump, boost, friction, and fuel behavior.
-* [ ] Update `PLAN.md` if the physics experiments change the intended design.
+### Wizard Run Ground Truth
 
-## Phase 2: User Asset Intake and Asset Pipeline
+* [ ] Treat the current wizard run animation as ground truth.
+* [ ] Recreate the current hardcoded run as `anim_wizard_run_1.json`.
+* [ ] Add a comparison mode that can overlay or toggle between legacy run pose and new keyframed run pose.
+* [ ] Sample the run cycle at 16 or 24 points and compare part transforms.
+* [ ] Tune keyframes until the new run is near pixel-perfect.
+* [ ] Preserve the current run timing and stride unless deliberately retuned.
+* [ ] Add a headless or browser-assisted regression test for sampled run-pose parity.
 
-Goal: integrate the next batch of user-provided assets without changing core simulation logic.
+### Other Wizard Animation States
 
-This phase starts after the physics arena feels good.
+* [ ] Add `idle` animation.
+* [ ] Add `jumpStart` animation.
+* [ ] Add `airborneRise` animation.
+* [ ] Add `airborneFall` animation.
+* [ ] Add `rocketHover` animation.
+* [ ] Add `rocketLaunch` animation.
+* [ ] Add `land` animation.
+* [ ] Add `hurt` animation.
+* [ ] Move current hardcoded jump and hover poses out of the game renderer and into animation data.
+* [ ] Add simple animation blending between major states.
 
-The user is expected to add assets such as monsters, monster parts, floor pieces, pillars, platforms, obstacles, pickups, and decorations.
+### Character Tool
 
-### Asset Loading
+Goal: create a tool where rigs and animations can be created, duplicated, edited, previewed, and exported.
 
-* [ ] Create an asset manifest format.
-* [ ] Add image loading.
-* [ ] Add missing-asset placeholders.
-* [ ] Add asset load status reporting.
-* [ ] Add support for local development paths.
-* [ ] Add support for grouped assets by category.
-* [ ] Keep asset objects outside `gameState`.
-
-### Player Asset Integration
-
-* [ ] Hook existing Ignatius rig assets into the new renderer.
-* [ ] Render the current wizard rig from simulation state.
-* [ ] Preserve support for mirroring.
-* [ ] Keep rig configuration data separate from gameplay state.
-* [ ] Add basic animation state driven by `gameState.player`.
-
-### Monster Asset Support
-
-* [ ] Define a simple monster rig format.
-* [ ] Support monsters with fewer parts than Ignatius.
-* [ ] Support static placeholder monsters.
-* [ ] Support rigged monster rendering.
-* [ ] Support mirrored monster rendering.
-* [ ] Add monster asset previews or debug placement view.
-
-### Environment Pieces
-
-* [ ] Define floor section asset type.
-* [ ] Define pillar asset type.
-* [ ] Define platform asset type.
-* [ ] Define obstacle asset type.
-* [ ] Define decorative asset type.
-* [ ] Connect visual pieces to collision definitions.
-* [ ] Allow placeholder collision-only pieces during development.
+* [ ] Create `character_tool.html`.
+* [ ] Load a character atlas image.
+* [ ] Load a character atlas JSON.
+* [ ] Load a rig JSON.
+* [ ] Load an animation JSON.
+* [ ] Load a character definition JSON.
+* [ ] Provide tabs or modes for atlas parts, rig, animation, preview, and export.
+* [ ] Show a rig preview canvas.
+* [ ] Allow click-and-drag editing of pivots, offsets, anchors, and part transforms.
+* [ ] Provide exact numeric fields for all important rig values.
+* [ ] Provide draw-order controls.
+* [ ] Provide part role/tag editing.
+* [ ] Provide animation playback controls: play, pause, loop, frame step, speed, and scrubber.
+* [ ] Provide a timeline with keyframes.
+* [ ] Allow adding, moving, deleting, copying, and pasting keyframes.
+* [ ] Allow duplicating an animation.
+* [ ] Allow copying a pose and pasting it mirrored.
+* [ ] Allow paired-limb phase offset helpers.
+* [ ] Show ghost previous/next poses while animating.
+* [ ] Provide a legacy comparison mode for the wizard run migration.
+* [ ] Export atlas, rig, animation, and character JSON.
+* [ ] Keep the tool pleasant enough for long manual tuning sessions.
 
 ### Phase 2 Completion
 
-* [ ] User-provided assets can be loaded.
-* [ ] New monster visuals can be displayed.
-* [ ] Modular floor and platform pieces can be displayed.
-* [ ] Collision remains simulation-owned.
-* [ ] Rendering still reads from `gameState`.
+* [ ] The wizard renders from `wizard_atlas.png` and no longer needs individual body-part PNG files.
+* [ ] The wizard run animation is reproduced by data-driven animation with near pixel-perfect parity.
+* [ ] Jump, fall, hover, launch, idle, and landing poses are animation data rather than renderer-specific hardcoding.
+* [ ] The character tool can edit and export wizard rig and animation data.
+* [ ] The generic character renderer is ready to support monsters and other mobs.
+* [ ] Headless and/or browser tests cover key migration risks.
 
-## Phase 3: Handmade Arena With Assets
+## Phase 3: Monster and Mob Character Pipeline
 
-Goal: replace the plain physics arena with a visually assembled arena using modular pieces and early monsters.
+Goal: use the Phase 2 character pipeline for enemies and non-wizard creatures.
 
-### Arena Construction
+### Monster Rig Support
 
-* [ ] Build an arena from modular floor pieces.
-* [ ] Add pillars.
-* [ ] Add platforms.
-* [ ] Add simple obstacles.
-* [ ] Add placeholder or first-pass decorations.
-* [ ] Place stationary monsters.
-* [ ] Place fuel pickups.
-* [ ] Add a simple start point.
-* [ ] Add a simple exit or end marker.
+* [ ] Create a simple humanoid enemy rig.
+* [ ] Create a simple bat rig.
+* [ ] Support rigs with fewer or different parts than Ignatius.
+* [ ] Support mirrored monster rendering.
+* [ ] Support non-humanoid role mappings.
+* [ ] Support per-character animation state assignment.
+* [ ] Allow characters to reuse, duplicate, or override animation templates.
 
-### Entity Placement
+### First Monster Animations
 
-* [ ] Add entity placement data to level definitions.
-* [ ] Spawn player from level data.
-* [ ] Spawn monsters from level data.
-* [ ] Spawn pickups from level data.
-* [ ] Spawn obstacles from level data.
-* [ ] Add debug labels for entity IDs.
+* [ ] Create a humanoid idle animation template.
+* [ ] Create a humanoid walk/run animation template.
+* [ ] Create a melee attack animation template.
+* [ ] Create a hurt/recoil animation template.
+* [ ] Create a bat flap animation.
+* [ ] Create a bat dive/attack animation.
+* [ ] Let `char_bat_1` map `fly` to a bat flap animation and `attack` to a bat attack animation.
+* [ ] Let a humanoid enemy map `run` and `attack` to humanoid-style animations.
 
 ### Phase 3 Completion
 
-* [ ] The arena is built from reusable pieces.
-* [ ] The arena still works with headless tests.
-* [ ] Assets improve readability without changing the physics model.
+* [ ] At least one non-wizard character uses the generic rig renderer.
+* [ ] At least one monster has assigned animations for idle/move/attack/hurt.
+* [ ] Monster visuals remain renderer-owned while monster gameplay state remains simulation-owned.
 
-## Phase 4: Basic Combat Prototype
+## Phase 4: Combat, Destructibles, and Reactive Objects
 
-Goal: make Ignatius interact with monsters and hazards.
+Goal: make rockets and future weapons interact with enemies and world objects.
 
-### Monsters
+### Combat
 
-* [ ] Add monster state to `gameState`.
-* [ ] Add monster health.
-* [ ] Add monster hitboxes.
-* [ ] Add monster hurt/death state.
-* [ ] Add stationary monster behavior.
-* [ ] Add simple monster animation hooks.
-* [ ] Add monster debug display.
-
-### Player Health
-
-* [ ] Add player health state.
-* [ ] Add player damage.
-* [ ] Add invulnerability window after damage if needed.
-* [ ] Add health regeneration delay.
-* [ ] Add health regeneration.
-* [ ] Add low-health visual state.
-* [ ] Add health debug events.
-
-### First Projectile
-
-* [ ] Add projectile list to `gameState`.
-* [ ] Add basic projectile spawn.
-* [ ] Add projectile movement.
+* [ ] Add monster health and hurt/death state to `gameState`.
 * [ ] Add projectile collision with monsters.
-* [ ] Add projectile collision with terrain.
-* [ ] Add projectile lifetime.
-* [ ] Add projectile impact event.
-* [ ] Add placeholder explosion effect.
+* [ ] Add projectile collision with terrain and destructible objects.
+* [ ] Add player damage from hazards and enemies.
+* [ ] Add health regeneration delay and feedback.
+* [ ] Add hit flash and impact feedback.
+
+### Destructible and Reactive Objects
+
+* [ ] Define reactive world object data format.
+* [ ] Add reactive objects to `gameState`.
+* [ ] Add object health or trigger state.
+* [ ] Add object state transitions: `intact`, `damaged`, `breaking`, `falling`, `fallen`, `destroyed`, `inactive`.
+* [ ] Allow reactive objects to change collision geometry when their state changes.
+* [ ] Add destructible barrier.
+* [ ] Add breakable crate or obstacle.
+* [ ] Add falling tree prototype that can become a bridge.
+* [ ] Add projectile and explosion interaction with reactive objects.
+* [ ] Add smoke-heavy destruction effects.
+* [ ] Add tests for object state, collision updates, and serialization.
 
 ### Phase 4 Completion
 
-* [ ] Ignatius can damage a monster.
-* [ ] Ignatius can take damage.
-* [ ] Health can regenerate.
-* [ ] Projectiles are tracked in `gameState`.
-* [ ] Combat can be tested headlessly.
+* [ ] Ignatius can damage enemies.
+* [ ] Ignatius can damage or alter reactive world objects.
+* [ ] Destructible and reactive changes are serialized in `gameState`.
+* [ ] Rocket impacts no longer pass through gameplay-relevant objects.
 
-## Phase 5: Generic Weapon Framework
+## Phase 5: Weapon Framework
 
-Goal: turn the first projectile into a flexible weapon system.
-
-### Weapon Definitions
+Goal: turn the current rocket behavior into a flexible weapon system.
 
 * [ ] Define weapon data format.
-* [ ] Define weapon mode data format.
+* [ ] Define launch mode data format.
 * [ ] Define projectile data format.
-* [ ] Add weapon cooldown.
-* [ ] Add weapon fuel cost.
-* [ ] Add weapon availability checks.
-* [ ] Add mounted equipment state.
-* [ ] Add weapon debug display.
-
-### Launch Modes
-
-* [ ] Implement quick launch mode.
-* [ ] Implement held aimed launch mode.
-* [ ] Implement homing launch mode.
-* [ ] Implement ballistic launch mode if still desired.
-* [ ] Add launch clearance behavior where relevant.
+* [ ] Add quick launch mode.
+* [ ] Add held aimed launch mode.
+* [ ] Add homing launch mode.
+* [ ] Add ballistic launch mode if still desired.
+* [ ] Add weapon cooldowns and fuel costs.
 * [ ] Add deterministic fallback behavior when no target is found.
-* [ ] Add tests for each implemented launch mode.
+* [ ] Add tests for launch modes and projectile outcomes.
 
-### Phase 5 Completion
-
-* [ ] New weapon modes can be added as data plus behavior functions.
-* [ ] Player movement code does not need to know weapon internals.
-* [ ] Existing rocket behavior is expressed through the weapon framework.
-
-## Phase 6: Hat and Secondary Character States
-
-Goal: support the hat as an independent stateful object and prepare for more character reactions.
-
-### Hat
-
-* [ ] Add hat state to `gameState`.
-* [ ] Support worn hat state.
-* [ ] Support detached hat state.
-* [ ] Support flying hat physics.
-* [ ] Support landed hat state.
-* [ ] Support hat return or reattach.
-* [ ] Add temporary trigger for hat loss.
-* [ ] Add debug events for hat loss and return.
-* [ ] Ensure gameplay does not break when the hat is not worn.
-
-### Secondary Animation Hooks
-
-* [ ] Add hooks for beard motion.
-* [ ] Add hooks for hair strands.
-* [ ] Add hooks for robe secondary motion.
-* [ ] Keep these visual systems from owning gameplay state.
-
-### Phase 6 Completion
-
-* [ ] Hat can leave and return.
-* [ ] Hat behavior is visible in `gameState`.
-* [ ] Secondary animation hooks are ready for polish.
-
-## Phase 7: Camera, HUD, and Game Feel
+## Phase 6: Camera, HUD, and Game Feel
 
 Goal: make the prototype readable and pleasant during fast movement.
 
-### Camera
-
-* [ ] Add camera state.
-* [ ] Add smooth follow.
+* [ ] Add smooth camera follow.
 * [ ] Add horizontal look-ahead.
 * [ ] Add vertical anticipation.
 * [ ] Add camera bounds.
-* [ ] Add debug camera mode.
-* [ ] Decide which camera values belong in `gameState`.
-
-### HUD
-
-* [ ] Replace temporary fuel gauge with proper HUD fuel gauge.
-* [ ] Add health display.
+* [ ] Add camera debug mode.
+* [ ] Polish fuel and health HUD.
 * [ ] Add weapon indicator.
 * [ ] Add aiming reticle.
-* [ ] Add optional debug HUD panel.
-* [ ] Add low-health visual treatment.
+* [ ] Add landing, boost, launch, damage, and impact feedback.
+* [ ] Add sound hooks when useful.
 
-### Game Feel
+## Phase 7: Handmade Level and Story Wrapper
 
-* [ ] Add hit flash.
-* [ ] Add landing feedback.
-* [ ] Add boost feedback.
-* [ ] Add projectile launch feedback.
-* [ ] Add explosion feedback.
-* [ ] Add temporary sound hooks.
-* [ ] Add screen shake only where useful.
+Goal: build one complete data-driven level with story wrapper elements.
 
-### Phase 7 Completion
-
-* [ ] Fast movement remains readable.
-* [ ] Fuel, health, and weapon state are understandable without debug overlay.
-* [ ] Camera supports the current arena size.
-
-## Phase 8: Level Format and Handmade Level
-
-Goal: define the level data format and build one small handmade level.
-
-### Level Format
-
-* [ ] Define level metadata.
-* [ ] Define static geometry list.
-* [ ] Define collision list.
-* [ ] Define entity spawn list.
-* [ ] Define pickup spawn list.
-* [ ] Define decoration list.
-* [ ] Define start and exit.
-* [ ] Define theme ID.
-* [ ] Define story/mailbox fields.
-* [ ] Add level loading.
-* [ ] Add level reset.
-
-### Handmade Level
-
-* [ ] Build one complete handmade test level.
-* [ ] Add start area.
-* [ ] Add mailbox placeholder.
-* [ ] Add movement section.
-* [ ] Add boost section.
-* [ ] Add combat section.
-* [ ] Add pickups.
-* [ ] Add exit.
-* [ ] Add restart on failure or manual reset.
-
-## Phase 7.5: Destructible and Reactive World Objects
-
-Goal: support gameplay objects that can change the traversable level state.
-
-### Object Framework
-
-- [ ] Define reactive world object data format.
-- [ ] Add reactive objects to `gameState`.
-- [ ] Add object health or trigger state.
-- [ ] Add object state transitions.
-- [ ] Add object collision updates.
-- [ ] Add object rendering state.
-- [ ] Add debug events for object state changes.
-- [ ] Add save/load support for changed object state.
-
-### First Reactive Objects
-
-- [ ] Add destructible barrier.
-- [ ] Add breakable crate or obstacle.
-- [ ] Add falling tree prototype.
-- [ ] Make fallen tree create a walkable bridge.
-- [ ] Add projectile interaction with reactive objects.
-- [ ] Add explosion interaction with reactive objects.
-- [ ] Add debug visualization for before/after collision shapes.
-
-### Tests
-
-- [ ] Test that a projectile can damage a reactive object.
-- [ ] Test that object state changes are stored in `gameState`.
-- [ ] Test that collision changes after destruction or falling.
-- [ ] Test that a fallen bridge can be crossed.
-- [ ] Test serialization after object state changes.
-- [ ] Test replay determinism for object interactions.
-
-### Generator Support
-
-- [ ] Mark reactive objects as optional, required, or decorative.
-- [ ] Allow generated levels to include required reactive-object solutions.
-- [ ] Teach structural validation about state-changing paths.
-- [ ] Teach headless winnability testing to use required object interactions.
-- [ ] Store failure reasons when a reactive-object puzzle cannot be solved.
-
-### Phase 8 Completion
-
-* [ ] A small handmade level can be played from start to finish.
-* [ ] The level is data-driven.
-* [ ] The same level can be loaded in browser and headless testbench.
-
-## Phase 9: Story Wrapper Prototype
-
-Goal: add the level intro structure without building the whole narrative system at once.
-
-### Mailbox and Letters
-
+* [ ] Build one complete handmade level using atlas assets.
+* [ ] Add start area, movement section, boost section, combat section, pickups, and exit.
 * [ ] Add mailbox entity.
-* [ ] Add mailbox interaction.
-* [ ] Add editor letter data.
-* [ ] Add scroll display.
-* [ ] Add thought bubble display.
+* [ ] Add editor letter scroll.
+* [ ] Add thought bubbles.
 * [ ] Add level title display.
-* [ ] Add simple continue/close input.
-* [ ] Store story progress in `gameState`.
+* [ ] Add title revision gag.
+* [ ] Add restart/reset behavior.
 
-### Phase 9 Completion
+## Phase 8: Procedural Generation Foundation
 
-* [ ] A level can start with a mailbox letter.
-* [ ] The letter can introduce the level.
-* [ ] The title gag can be displayed.
-* [ ] Gameplay can resume after the letter.
-
-## Phase 10: Procedural Generation Foundation
-
-Goal: generate simple levels from reusable pieces.
-
-### Generator Structure
+Goal: generate simple playable levels from reusable pieces.
 
 * [ ] Create seeded level generator.
-* [ ] Add generator input parameters.
-* [ ] Add generator output format compatible with the level loader.
-* [ ] Add theme field.
-* [ ] Add size parameters.
-* [ ] Add difficulty parameter.
-* [ ] Add required mechanics parameter.
-* [ ] Add debug output for generated levels.
+* [ ] Generate floor paths, platforms, vertical spaces, obstacles, start, exit, pickups, monsters, and decorations.
+* [ ] Define generator parameters for size, difficulty, theme, and required mechanics.
+* [ ] Add structural validation.
+* [ ] Add headless winnability testing.
+* [ ] Store failed seeds and failure reasons.
+* [ ] Account for reactive-object solutions such as falling bridges.
 
-### Geometry Generation
-
-* [ ] Generate floor path.
-* [ ] Generate platforms.
-* [ ] Generate vertical spaces.
-* [ ] Generate obstacles.
-* [ ] Generate start location.
-* [ ] Generate exit location.
-* [ ] Generate pickup locations.
-* [ ] Generate monster locations.
-* [ ] Generate decoration placements.
-
-### Phase 10 Completion
-
-* [ ] A generated level can be loaded and played.
-* [ ] A generated level can be reproduced from its seed.
-* [ ] A generated level can be inspected in debug mode.
-
-## Phase 11: Structural Validation for Generated Levels
-
-Goal: reject obviously broken generated levels before running expensive play tests.
-
-### Validation
-
-* [ ] Confirm start exists.
-* [ ] Confirm exit exists.
-* [ ] Confirm player spawn is not blocked.
-* [ ] Confirm exit is not blocked.
-* [ ] Confirm required pickups are reachable according to coarse graph checks.
-* [ ] Confirm major regions are connected.
-* [ ] Confirm no required path is sealed.
-* [ ] Confirm generated collision geometry is valid.
-* [ ] Report validation failure reason.
-* [ ] Store failed seed for debugging.
-
-### Phase 11 Completion
-
-* [ ] Structurally invalid generated levels are rejected automatically.
-* [ ] Failure reasons are clear enough to debug generator rules.
-
-## Phase 12: Headless Winnability Testing
-
-Goal: generated levels must be playable by the simulation before the user is asked to play them.
-
-### Headless Runner
-
-* [ ] Add headless level loading.
-* [ ] Add headless simulation runner.
-* [ ] Add replay trace format.
-* [ ] Add timeout handling.
-* [ ] Add success condition detection.
-* [ ] Add failure reason reporting.
-* [ ] Add seed rejection/regeneration loop.
-
-### Bot Controller
-
-* [ ] Implement simple navigation bot.
-* [ ] Add path-following behavior.
-* [ ] Add jump decision behavior.
-* [ ] Add boost decision behavior.
-* [ ] Add pickup-seeking behavior when required.
-* [ ] Add basic hazard avoidance.
-* [ ] Add basic enemy avoidance or combat behavior if required.
-* [ ] Save replay trace when bot succeeds.
-* [ ] Save failure trace when bot fails.
-
-### Robustness Pass
-
-* [ ] Test at least one successful route.
-* [ ] Test with imperfect timing where practical.
-* [ ] Test with some optional pickups ignored.
-* [ ] Test with minor damage allowed.
-* [ ] Reject levels that require perfect play unless explicitly intended.
-
-### Phase 12 Completion
-
-* [ ] Generated levels are not shown to the player until they pass validation.
-* [ ] A passing generated level has a replayable headless success trace.
-* [ ] Failed generated levels can be reproduced from seed and failure report.
-
-## Phase 13: Themed Procedural Levels
+## Phase 9: Themed Procedural Levels
 
 Goal: generate distinct validated levels for different themes.
 
-### Theme System
-
 * [ ] Define theme data format.
-* [ ] Add theme-specific tiles/pieces.
-* [ ] Add theme-specific decorations.
-* [ ] Add theme-specific hazards.
-* [ ] Add theme-specific monster sets.
-* [ ] Add theme-specific pickup rules.
-* [ ] Add theme-specific generation rules.
-* [ ] Add theme-specific editor title data.
-
-### Theme Progression
-
-* [ ] Add first theme.
-* [ ] Add second theme.
-* [ ] Add third theme.
+* [ ] Add theme-specific atlases, decorations, hazards, monsters, pickup rules, and generation rules.
+* [ ] Add multiple themes.
 * [ ] Add difficulty scaling between themes.
-* [ ] Add generated level selection flow.
 * [ ] Add fallback if generation repeatedly fails.
 
-### Phase 13 Completion
+## Phase 10: Progression, Enemy Variety, Bosses, and Release Preparation
 
-* [ ] Multiple themes can generate distinct playable levels.
-* [ ] Generated levels pass structural validation and headless winnability tests.
-* [ ] Theme identity is visible in layout, art, hazards, and story wrapper.
-
-## Phase 14: Progression and Upgrades
-
-Goal: add longer-term structure beyond isolated levels.
-
-### Player Progression
+Goal: grow the game beyond isolated prototype levels.
 
 * [ ] Add save data.
-* [ ] Add unlocked upgrades.
-* [ ] Add fuel upgrades.
-* [ ] Add health upgrades if desired.
-* [ ] Add weapon unlocks.
-* [ ] Add weapon mode unlocks.
-* [ ] Add level/theme progression.
-* [ ] Add upgrade collection or reward flow.
-
-### Phase 14 Completion
-
-* [ ] Player progress persists.
-* [ ] Upgrades affect future runs or levels.
-* [ ] Progression does not break headless validation assumptions.
-
-## Phase 15: Enemy Variety and Bosses
-
-Goal: expand encounters after the core game loop works.
-
-### Enemy Expansion
-
-* [ ] Add moving enemy.
-* [ ] Add flying enemy.
-* [ ] Add shielded enemy.
-* [ ] Add enemy with weak point.
-* [ ] Add enemy that encourages a specific weapon mode.
-* [ ] Add enemy that interacts with hat behavior if useful.
-* [ ] Add enemy behavior tests.
-
-### Bosses
-
+* [ ] Add upgrades and unlocks.
+* [ ] Add varied enemies.
 * [ ] Add boss arena format.
-* [ ] Add first boss prototype.
-* [ ] Add boss health/state machine.
-* [ ] Add boss attacks.
-* [ ] Add boss-specific camera behavior.
-* [ ] Add boss-specific editor letter.
-* [ ] Add boss headless validation or scripted test coverage.
-
-### Phase 15 Completion
-
-* [ ] Enemies create varied play situations.
-* [ ] At least one boss encounter is playable.
-* [ ] New enemy behavior remains testable.
-
-## Phase 16: Polish, Accessibility, and Release Preparation
-
-Goal: turn the game from working prototype into finished playable game.
-
-### Polish
-
-* [ ] Replace placeholder visuals.
-* [ ] Add final animations.
-* [ ] Add final effects.
-* [ ] Add sound effects.
-* [ ] Add music.
-* [ ] Add menu.
-* [ ] Add pause screen.
-* [ ] Add settings screen.
-* [ ] Add credits.
-* [ ] Add title screen.
-* [ ] Add loading flow.
-
-### Accessibility and Usability
-
-* [ ] Add remappable controls.
-* [ ] Add keyboard-only support.
-* [ ] Add gamepad support.
-* [ ] Add volume controls.
-* [ ] Add screen shake intensity setting.
-* [ ] Add readable font sizing.
-* [ ] Add colorblind-safe HUD review.
-* [ ] Add reduced flashing option if needed.
-* [ ] Add difficulty options if needed.
-
-### QA
-
-* [ ] Add smoke test suite.
-* [ ] Add generated-level regression seeds.
-* [ ] Add replay-based bug reproduction.
-* [ ] Add performance profiling.
-* [ ] Add memory usage checks.
-* [ ] Add browser compatibility checks.
-* [ ] Add save compatibility checks.
-* [ ] Add release build process.
-
-### Phase 16 Completion
-
-* [ ] The game is content-complete.
-* [ ] The game can be played through.
-* [ ] Generated levels are validated before play.
-* [ ] Major systems are covered by tests.
-* [ ] Known issues are tracked.
-* [ ] Release build is ready.
+* [ ] Add boss prototype.
+* [ ] Add accessibility options.
+* [ ] Add performance pass.
+* [ ] Add WebGL2 renderer if needed.
+* [ ] Add audio and polish.
+* [ ] Package a playable release build.
