@@ -932,6 +932,9 @@ Important state transitions should add small debug events to `gameState.debug.la
 * Reddish pulse appears during low health.
 * Health regeneration starts only after the injury delay.
 * Taking damage resets the regeneration delay.
+* Fall damage is based on vertical impact speed, not fall distance, so rocket braking can reduce or prevent damage.
+* The quick jump-plus-rocket-kick arc is the safe no-damage impact reference.
+* Excess impact energy above that reference deals `10 HP` per wizard-height equivalent.
 * Health does not exceed maximum.
 
 ### Hat

@@ -6,7 +6,10 @@ export const DEFAULT_TUNING = Object.freeze({
     playerWidth: 34,
     playerHeight: 104,
     gravity: 1490,
-    terminalVelocity: 1500,
+    terminalVelocity: 2500,
+    fallDamageEnabled: true,
+    fallDamageSafeImpactSpeed: 1441,
+    fallDamagePerWizardHeight: 10,
     jumpVelocity: -775,
     maxRunSpeed: 360,
     groundAcceleration: 950,
@@ -1963,6 +1966,7 @@ function polygonYIntervalsAtX(polygon, x) {
 
 function landPlayerOn(state, y, wasOnGround, id, kind = "blockable") {
     const p = state.player;
+    const impactVy = Math.max(0, p.vy || 0);
     p.y = y;
     p.vy = 0;
     p.onGround = true;
@@ -1973,9 +1977,48 @@ function landPlayerOn(state, y, wasOnGround, id, kind = "blockable") {
     }
     state.collisions.lastResolution = { axis: "y", id, kind };
     if (!wasOnGround) {
+        const fallDamage = applyFallDamageOnLanding(state, impactVy, id, kind);
         p.vx = approach(p.vx, 0, state.tuning.landingFriction * state.clock.fixedDt);
-        addEvent(state, "PLAYER_LANDED", { solidId: id, kind, x: round(p.x), y: round(p.y), vx: round(p.vx) });
+        addEvent(state, "PLAYER_LANDED", {
+            solidId: id,
+            kind,
+            x: round(p.x),
+            y: round(p.y),
+            vx: round(p.vx),
+            impactVy: round(impactVy),
+            fallDamage: round(fallDamage)
+        });
     }
+}
+
+function applyFallDamageOnLanding(state, impactVy, id, kind) {
+    const t = state.tuning;
+    if (t.fallDamageEnabled === false || impactVy <= 0) {
+        return 0;
+    }
+
+    const safeImpactSpeed = Math.max(0, t.fallDamageSafeImpactSpeed ?? 0);
+    const gravity = Math.max(1, t.gravity ?? DEFAULT_TUNING.gravity);
+    const wizardHeight = Math.max(1, t.wizardHeight ?? t.playerHeight ?? DEFAULT_TUNING.wizardHeight);
+    const damagePerWizardHeight = Math.max(0, t.fallDamagePerWizardHeight ?? 10);
+    const excessImpactEnergy = Math.max(0, impactVy * impactVy - safeImpactSpeed * safeImpactSpeed);
+    const excessWizardHeights = excessImpactEnergy / (2 * gravity * wizardHeight);
+    const damage = excessWizardHeights * damagePerWizardHeight;
+
+    if (damage <= 0.0001) {
+        return 0;
+    }
+
+    damagePlayer(state, damage, "fallDamage");
+    addEvent(state, "PLAYER_FALL_DAMAGE", {
+        amount: round(damage),
+        impactVy: round(impactVy),
+        safeImpactSpeed: round(safeImpactSpeed),
+        excessWizardHeights: round(excessWizardHeights),
+        solidId: id,
+        kind
+    });
+    return damage;
 }
 
 function isSolidSegmentKind(kind) {

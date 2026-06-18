@@ -271,6 +271,55 @@ function testAttachedRocketSmokeAndVisualPower() {
     assert.ok(attachedPuffs.some((puff) => puff.vy > 70), "attached boost puffs should travel downward from the nozzle");
 }
 
+
+function targetImpactSpeedForExtraFallWh(state, extraWizardHeights) {
+    const t = state.tuning;
+    const safeImpactSpeed = t.fallDamageSafeImpactSpeed;
+    return Math.sqrt(safeImpactSpeed * safeImpactSpeed + 2 * t.gravity * t.wizardHeight * extraWizardHeights);
+}
+
+function forceLandingAtImpactSpeed(state, impactSpeed) {
+    state.player.x = state.world.start.x;
+    state.player.y = 580;
+    state.player.vy = impactSpeed - state.tuning.gravity * FIXED_DT;
+    state.player.onGround = false;
+    state.player.wasOnGround = false;
+    state.player.airborneTime = 1;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.ok(state.player.onGround, "forced impact should land on the test floor");
+}
+
+function testFallDamageIgnoresNormalDoubleJumpHeight() {
+    const state = createInitialGameState();
+    settleOnGround(state);
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    stepSimulation(state, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    stepSimulation(state, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
+
+    stepMany(state, 240, () => createInputFrame());
+    assert.ok(state.player.onGround, "quick double-jump arc should land back on the floor");
+    approx(state.health.amount, state.health.max, 0.001, "quick double-jump landing should be harmless");
+    assert.ok(
+        !state.debug.lastEvents.some((event) => event.type === "PLAYER_FALL_DAMAGE"),
+        "harmless double-jump landing should not emit fall damage"
+    );
+}
+
+function testFallDamageUsesExcessKineticEnergy() {
+    const state = createInitialGameState();
+    settleOnGround(state);
+    const oneExtraWhImpact = targetImpactSpeedForExtraFallWh(state, 1);
+    forceLandingAtImpactSpeed(state, oneExtraWhImpact);
+    approx(state.health.amount, 90, 0.05, "one extra wizard-height impact should deal 10 HP");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "PLAYER_FALL_DAMAGE"), "damaging landing should emit fall damage event");
+
+    const terminal = createInitialGameState();
+    settleOnGround(terminal);
+    forceLandingAtImpactSpeed(terminal, terminal.tuning.terminalVelocity);
+    approx(terminal.health.amount, 0, 0.001, "terminal-velocity impact should be lethal from full health");
+}
+
 function testFuelRechargeDelayGroundRequirementAndCap() {
     const state = createInitialGameState();
     settleOnGround(state);
@@ -309,6 +358,10 @@ function testPhase1013TuningDefaultsDebugPoseAndFuelBulbFlash() {
     assert.equal(DEFAULT_TUNING.rocketSmokePuffSpacing, 3);
     assert.equal(DEFAULT_TUNING.rocketSmokePuffScale, 1.5);
     assert.equal(DEFAULT_TUNING.rocketImpactSmokePuffs, 24, "rocket impacts should use smoke puffs instead of a drawn explosion ring");
+    assert.equal(DEFAULT_TUNING.terminalVelocity, 2500, "terminal velocity should allow very long falls to be lethal");
+    assert.equal(DEFAULT_TUNING.fallDamageEnabled, true, "fall damage should be enabled by default");
+    assert.equal(DEFAULT_TUNING.fallDamageSafeImpactSpeed, 1441, "normal quick double-jump landing should be harmless");
+    assert.equal(DEFAULT_TUNING.fallDamagePerWizardHeight, 10, "fall damage should scale as 10 HP per excess wizard-height");
     assert.equal(DEFAULT_TUNING.rocketFuelBulbScale, 2.4);
     assert.equal(DEFAULT_TUNING.rocketFuelBulbEnabled, true, "rocket fuel bulb should be enabled by default");
     assert.equal(DEFAULT_TUNING.poseBlendSpeed, 14, "pose transitions should blend by default");
@@ -587,6 +640,8 @@ const tests = [
     ["rocket trail tracks curved path and persists", testRocketTrailTracksCurvedPathAndPersistsAfterExplosion],
     ["attached boost smoke and visual power", testAttachedRocketSmokeAndVisualPower],
     ["attached smoke down speed tuning", testAttachedSmokeDownSpeedTuning],
+    ["fall damage ignores normal double-jump height", testFallDamageIgnoresNormalDoubleJumpHeight],
+    ["fall damage uses excess kinetic energy", testFallDamageUsesExcessKineticEnergy],
     ["fuel recharge delay, ground requirement and cap", testFuelRechargeDelayGroundRequirementAndCap],
     ["fuel recharge latch after grounded start", testFuelRechargeLatchAfterGroundedStart],
     ["Phase 1.015 tuning defaults, debug pose blending and fuel bulb flash", testPhase1013TuningDefaultsDebugPoseAndFuelBulbFlash],
