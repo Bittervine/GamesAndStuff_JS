@@ -4847,13 +4847,30 @@ class RocketfrockRenderer {
     drawBackdrop(view) {
         const ctx = this.ctx;
         ctx.save();
-        ctx.globalAlpha = 0.19;
-        ctx.fillStyle = "#ffffff";
-        for (let i = 0; i < 70; i += 1) {
-            const x = (i * 211 + 47 - view.x * 0.05) % view.w;
-            const y = (i * 113 + 71 - view.y * 0.04) % Math.max(1, view.h * 0.72);
-            ctx.fillRect(x, y, 1.4 * view.dpr, 1.4 * view.dpr);
-        }
+
+        // Cave ambience only. Avoid star/speckle dots in the background because the
+        // first theme is underground. Outdoor themes can replace this later with a
+        // theme-specific sky renderer.
+        const upperGlow = ctx.createRadialGradient(
+            view.w * 0.42,
+            view.h * 0.18,
+            0,
+            view.w * 0.42,
+            view.h * 0.18,
+            Math.max(view.w, view.h) * 0.72
+        );
+        upperGlow.addColorStop(0, "rgba(105, 88, 145, 0.16)");
+        upperGlow.addColorStop(0.46, "rgba(65, 55, 96, 0.08)");
+        upperGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+        ctx.fillStyle = upperGlow;
+        ctx.fillRect(0, 0, view.w, view.h);
+
+        const floorHaze = ctx.createLinearGradient(0, view.h * 0.48, 0, view.h);
+        floorHaze.addColorStop(0, "rgba(0, 0, 0, 0)");
+        floorHaze.addColorStop(1, "rgba(18, 14, 26, 0.22)");
+        ctx.fillStyle = floorHaze;
+        ctx.fillRect(0, 0, view.w, view.h);
+
         ctx.restore();
     }
 
