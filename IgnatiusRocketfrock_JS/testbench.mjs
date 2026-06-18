@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
     FIXED_DT,
     DEFAULT_TUNING,
@@ -10,6 +11,7 @@ import {
     serializeGameState,
     restoreGameState,
     resetPlayer,
+    applyEditorLevelToWorld,
     applyAtlasManifestsToWorld
 } from "./IgnatiusRocketfrock_SIM.js";
 
@@ -451,6 +453,94 @@ function testClosedAtlasLoopCreatesCollisionArea() {
     assert.ok(!state.world.collisionPolygons.some((polygon) => polygon.points.length < 3), "collision areas should be valid polygons");
 }
 
+function testRocketImpactsAtlasCollisionLinesAndAreas() {
+    const lineState = createInitialGameState();
+    lineState.targets = [];
+    lineState.world.solids = [];
+    lineState.world.segments = [{
+        id: "test_blockable_line",
+        kind: "blockable",
+        x1: 100,
+        y1: 20,
+        x2: 100,
+        y2: 120
+    }];
+    lineState.world.collisionPolygons = [];
+    lineState.projectiles.push({
+        id: "rocket_line_test",
+        kind: "homingRocket",
+        state: "launched",
+        x: 80,
+        y: 70,
+        vx: 720,
+        vy: 0,
+        targetId: null,
+        upLaunchTimer: 999,
+        age: 0,
+        lifetime: 2,
+        explosionTimer: 0,
+        radius: 8,
+        trail: []
+    });
+    stepSimulation(lineState, createInputFrame(), FIXED_DT);
+    assert.equal(lineState.projectiles[0].state, "exploding", "rocket should explode on a blockable atlas line");
+    assert.equal(lineState.debug.lastEvents.at(-1).type, "ROCKET_IMPACTED", "line impact should emit rocket impact event");
+    assert.equal(lineState.debug.lastEvents.at(-1).reason, "test_blockable_line", "impact event should identify the collision line");
+
+    const areaState = createInitialGameState();
+    areaState.targets = [];
+    areaState.world.solids = [];
+    areaState.world.segments = [];
+    areaState.world.collisionPolygons = [{
+        id: "test_blockable_area",
+        kind: "blockable",
+        points: [
+            { x: 120, y: 40 },
+            { x: 160, y: 40 },
+            { x: 160, y: 90 },
+            { x: 120, y: 90 }
+        ]
+    }];
+    areaState.projectiles.push({
+        id: "rocket_area_test",
+        kind: "homingRocket",
+        state: "launched",
+        x: 90,
+        y: 65,
+        vx: 2400,
+        vy: 0,
+        targetId: null,
+        upLaunchTimer: 999,
+        age: 0,
+        lifetime: 2,
+        explosionTimer: 0,
+        radius: 4,
+        trail: []
+    });
+    stepSimulation(areaState, createInputFrame(), FIXED_DT);
+    assert.equal(areaState.projectiles[0].state, "exploding", "rocket should explode on a closed blockable collision area");
+    assert.equal(areaState.debug.lastEvents.at(-1).type, "ROCKET_IMPACTED", "area impact should emit rocket impact event");
+    assert.equal(areaState.debug.lastEvents.at(-1).reason, "test_blockable_area", "impact event should identify the collision area");
+}
+
+
+function testRocketLaunchDoesNotFalseHitUnrelatedAtlasArea() {
+    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const atlas = JSON.parse(readFileSync("./assets/atlas_001.json", "utf8"));
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply");
+    assert.equal(applyAtlasManifestsToWorld(state, new Map([["atlas_001", { manifest: atlas }]])), true, "atlas_001 collision should apply");
+
+    stepMany(state, 180, () => createInputFrame());
+    assert.ok(state.player.onGround, "player should settle before firing");
+    const launchFrame = createInputFrame({ weaponPressed: true, weaponHeld: true });
+    stepSimulation(state, launchFrame, FIXED_DT);
+
+    assert.equal(state.projectiles.length, 1, "rocket should exist after launch");
+    assert.equal(state.projectiles[0].state, "launched", "rocket should not instantly explode from an unrelated collision area");
+    assert.ok(!state.debug.lastEvents.some((event) => event.type === "ROCKET_IMPACTED"), "rocket should not report an immediate terrain impact at launch");
+}
+
 function testReset() {
     const state = createInitialGameState();
     state.player.x = 999;
@@ -504,6 +594,8 @@ const tests = [
     ["air boost requires release after ground jump", testAirBoostRequiresReleaseAfterGroundJump],
     ["wall collision", testWallCollision],
     ["closed atlas loop creates collision area", testClosedAtlasLoopCreatesCollisionArea],
+    ["rocket impacts atlas collision lines and areas", testRocketImpactsAtlasCollisionLinesAndAreas],
+    ["rocket launch ignores unrelated atlas areas", testRocketLaunchDoesNotFalseHitUnrelatedAtlasArea],
     ["manual reset", testReset]
 ];
 

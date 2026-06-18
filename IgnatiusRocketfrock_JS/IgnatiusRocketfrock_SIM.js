@@ -131,7 +131,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "017-default-level-atlas-001-loader",
+            build: "033-rocket-terrain-polygon-point-test-fix",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -1215,15 +1215,18 @@ function updateProjectiles(state, dt) {
             }
         }
 
+        const previousX = projectile.x;
+        const previousY = projectile.y;
         projectile.x += projectile.vx * dt;
         projectile.y += projectile.vy * dt;
         recordProjectileTrail(state, projectile);
 
-        for (const solid of state.world.solids) {
-            if (circleRectOverlap(projectile.x, projectile.y, projectile.radius, solid)) {
-                explodeProjectile(state, projectile, solid.id);
-                break;
-            }
+        const terrainImpact = findProjectileTerrainImpact(state, projectile, previousX, previousY);
+        if (terrainImpact) {
+            projectile.x = terrainImpact.x;
+            projectile.y = terrainImpact.y;
+            explodeProjectile(state, projectile, terrainImpact.id);
+            continue;
         }
 
         if (projectile.age >= projectile.lifetime) {
@@ -1451,6 +1454,296 @@ function circleRectOverlap(cx, cy, radius, rect) {
     const closestX = clamp(cx, rect.x, rect.x + rect.w);
     const closestY = clamp(cy, rect.y, rect.y + rect.h);
     return Math.hypot(cx - closestX, cy - closestY) <= radius;
+}
+
+function findProjectileTerrainImpact(state, projectile, previousX, previousY) {
+    const start = { x: previousX, y: previousY };
+    const end = { x: projectile.x, y: projectile.y };
+    const radius = Math.max(0, projectile.radius || 0);
+    let best = null;
+
+    function record(hit) {
+        if (!hit) return;
+        if (!best || hit.t < best.t) {
+            best = hit;
+        }
+    }
+
+    for (const solid of state.world.solids || []) {
+        const hit = sweptCircleRectImpact(start, end, radius, solid);
+        if (hit) {
+            record({
+                t: hit.t,
+                x: hit.x,
+                y: hit.y,
+                id: solid.id || "solid",
+                kind: solid.kind || "blockable"
+            });
+        }
+    }
+
+    for (const segment of state.world.segments || []) {
+        if (!isSolidSegmentKind(segment.kind)) {
+            continue;
+        }
+        const hit = sweptCircleSegmentImpact(start, end, radius, segment);
+        if (hit) {
+            record({
+                t: hit.t,
+                x: hit.x,
+                y: hit.y,
+                id: segment.id || "segment",
+                kind: segment.kind
+            });
+        }
+    }
+
+    for (const polygon of state.world.collisionPolygons || []) {
+        if (!isAreaBlockingSegmentKind(polygon.kind)) {
+            continue;
+        }
+        const hit = sweptCirclePolygonImpact(start, end, radius, polygon);
+        if (hit) {
+            record({
+                t: hit.t,
+                x: hit.x,
+                y: hit.y,
+                id: polygon.id || "collisionArea",
+                kind: polygon.kind
+            });
+        }
+    }
+
+    return best;
+}
+
+function sweptCircleRectImpact(start, end, radius, rect) {
+    if (circleRectOverlap(start.x, start.y, radius, rect)) {
+        return { t: 0, x: start.x, y: start.y };
+    }
+    if (circleRectOverlap(end.x, end.y, radius, rect)) {
+        return { t: 1, x: end.x, y: end.y };
+    }
+
+    const expanded = {
+        x: rect.x - radius,
+        y: rect.y - radius,
+        w: rect.w + radius * 2,
+        h: rect.h + radius * 2
+    };
+    const hit = segmentRectIntersection(start, end, expanded);
+    if (hit) {
+        return hit;
+    }
+    return null;
+}
+
+function sweptCircleSegmentImpact(start, end, radius, segment) {
+    const a = { x: segment.x1, y: segment.y1 };
+    const b = { x: segment.x2, y: segment.y2 };
+    const crossing = segmentSegmentIntersection(start, end, a, b);
+    if (crossing) {
+        return crossing;
+    }
+
+    const distanceStart = pointSegmentDistance(start, a, b);
+    if (distanceStart <= radius) {
+        return { t: 0, x: start.x, y: start.y };
+    }
+
+    const distanceEnd = pointSegmentDistance(end, a, b);
+    if (distanceEnd <= radius) {
+        return { t: 1, x: end.x, y: end.y };
+    }
+
+    if (segmentSegmentDistance(start, end, a, b) <= radius) {
+        return closestPathImpactPoint(start, end, a, b);
+    }
+
+    return null;
+}
+
+function sweptCirclePolygonImpact(start, end, radius, polygon) {
+    const points = Array.isArray(polygon.points) ? polygon.points : [];
+    if (points.length < 3) {
+        return null;
+    }
+
+    if (pointInPolygon(start, polygon)) {
+        return { t: 0, x: start.x, y: start.y };
+    }
+    if (pointInPolygon(end, polygon)) {
+        const crossing = firstSegmentPolygonBoundaryIntersection(start, end, polygon);
+        return crossing || { t: 1, x: end.x, y: end.y };
+    }
+
+    const boundaryHit = firstSegmentPolygonBoundaryIntersection(start, end, polygon);
+    if (boundaryHit) {
+        return boundaryHit;
+    }
+
+    let nearest = null;
+    for (let i = 0; i < points.length; i += 1) {
+        const a = points[i];
+        const b = points[(i + 1) % points.length];
+        if (pointSegmentDistance(end, a, b) <= radius) {
+            const candidate = closestPathImpactPoint(start, end, a, b);
+            if (!nearest || candidate.t < nearest.t) {
+                nearest = candidate;
+            }
+        }
+    }
+    return nearest;
+}
+
+function firstSegmentPolygonBoundaryIntersection(start, end, polygon) {
+    const points = polygon.points || [];
+    let best = null;
+    for (let i = 0; i < points.length; i += 1) {
+        const hit = segmentSegmentIntersection(start, end, points[i], points[(i + 1) % points.length]);
+        if (hit && (!best || hit.t < best.t)) {
+            best = hit;
+        }
+    }
+    return best;
+}
+
+function pointInPolygon(point, polygon) {
+    const points = polygon.points || [];
+    let inside = false;
+    for (let i = 0, j = points.length - 1; i < points.length; j = i, i += 1) {
+        const a = points[i];
+        const b = points[j];
+        const dy = b.y - a.y;
+        if (Math.abs(dy) < 0.000001) {
+            continue;
+        }
+        const intersects = ((a.y > point.y) !== (b.y > point.y)) &&
+            point.x < (b.x - a.x) * (point.y - a.y) / dy + a.x;
+        if (intersects) {
+            inside = !inside;
+        }
+    }
+    return inside;
+}
+
+function segmentRectIntersection(start, end, rect) {
+    const points = [
+        { x: rect.x, y: rect.y },
+        { x: rect.x + rect.w, y: rect.y },
+        { x: rect.x + rect.w, y: rect.y + rect.h },
+        { x: rect.x, y: rect.y + rect.h }
+    ];
+    if (pointInRect(start, rect)) {
+        return { t: 0, x: start.x, y: start.y };
+    }
+    let best = null;
+    for (let i = 0; i < points.length; i += 1) {
+        const hit = segmentSegmentIntersection(start, end, points[i], points[(i + 1) % points.length]);
+        if (hit && (!best || hit.t < best.t)) {
+            best = hit;
+        }
+    }
+    return best;
+}
+
+function pointInRect(point, rect) {
+    return point.x >= rect.x && point.x <= rect.x + rect.w && point.y >= rect.y && point.y <= rect.y + rect.h;
+}
+
+function segmentSegmentIntersection(a, b, c, d) {
+    const rx = b.x - a.x;
+    const ry = b.y - a.y;
+    const sx = d.x - c.x;
+    const sy = d.y - c.y;
+    const denom = cross(rx, ry, sx, sy);
+    const qpx = c.x - a.x;
+    const qpy = c.y - a.y;
+
+    if (Math.abs(denom) < 0.000001) {
+        return null;
+    }
+
+    const t = cross(qpx, qpy, sx, sy) / denom;
+    const u = cross(qpx, qpy, rx, ry) / denom;
+    if (t < -0.0001 || t > 1.0001 || u < -0.0001 || u > 1.0001) {
+        return null;
+    }
+
+    const clampedT = clamp(t, 0, 1);
+    return {
+        t: clampedT,
+        x: a.x + rx * clampedT,
+        y: a.y + ry * clampedT
+    };
+}
+
+function cross(ax, ay, bx, by) {
+    return ax * by - ay * bx;
+}
+
+function pointSegmentDistance(point, a, b) {
+    const closest = closestPointOnSegment(point, a, b);
+    return Math.hypot(point.x - closest.x, point.y - closest.y);
+}
+
+function segmentSegmentDistance(a, b, c, d) {
+    if (segmentSegmentIntersection(a, b, c, d)) {
+        return 0;
+    }
+    return Math.min(
+        pointSegmentDistance(a, c, d),
+        pointSegmentDistance(b, c, d),
+        pointSegmentDistance(c, a, b),
+        pointSegmentDistance(d, a, b)
+    );
+}
+
+function closestPathImpactPoint(start, end, a, b) {
+    const samples = [
+        closestPointOnSegment(a, start, end),
+        closestPointOnSegment(b, start, end),
+        closestPointOnSegment(start, start, end),
+        closestPointOnSegment(end, start, end)
+    ];
+    let best = samples[0];
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (const candidate of samples) {
+        const distance = pointSegmentDistance(candidate, a, b);
+        if (distance < bestDistance) {
+            bestDistance = distance;
+            best = candidate;
+        }
+    }
+    return {
+        t: segmentParameter(start, end, best),
+        x: best.x,
+        y: best.y
+    };
+}
+
+function closestPointOnSegment(point, a, b) {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared <= 0.000001) {
+        return { x: a.x, y: a.y };
+    }
+    const t = clamp(((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared, 0, 1);
+    return {
+        x: a.x + dx * t,
+        y: a.y + dy * t
+    };
+}
+
+function segmentParameter(start, end, point) {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared <= 0.000001) {
+        return 0;
+    }
+    return clamp(((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared, 0, 1);
 }
 
 function moveAndCollideX(state, dx) {
