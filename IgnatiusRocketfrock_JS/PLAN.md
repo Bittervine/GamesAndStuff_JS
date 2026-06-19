@@ -323,7 +323,9 @@ As of revision 056, the ground run is exclusively data-driven. `ct_char_wizard_1
 
 The obsolete procedural run and `data` / `legacy` / `compare` controls have been removed. The headless testbench now validates clip structure, loop closure, finite sampled poses, editor mutations, and the absence of the retired migration path.
 
-`character_tool.html` loads the mapped animation file and previews it through the same evaluator used by the game. It supports playback, pause, scrubbing, stepping between authored key times, loop and speed controls, per-part/per-property timelines, draggable key markers, exact time/value/easing edits, add/delete/copy/paste operations, and animation JSON export. Shared editing operations live in `IgnatiusRocketfrock_ANIMATION_EDITOR.js`. Airborne jump and hover poses remain renderer-specific and are the next animation-data migration target.
+`character_tool.html` loads the mapped animation file and previews it through the same evaluator used by the game. It supports playback, pause, scrubbing, stepping between authored key times, loop and speed controls, per-part/per-property timelines, draggable key markers, exact time/value/easing edits, add/delete/copy/paste operations, and animation JSON export. Shared editing operations live in `IgnatiusRocketfrock_ANIMATION_EDITOR.js`.
+
+The next structural step is to remove the tool's hardwired wizard-project assumption. Add character selection and creation, explicit PNG/JSON file selection, atlas rectangle authoring, rig-part creation, and role/tag assignment before migrating the remaining airborne poses. This ensures the upcoming idle, jump, hover, enemy, and NPC animation work is created through the same reusable workflow rather than through another wizard-only path.
 
 ## Character Tool
 
@@ -337,7 +339,12 @@ The character tool is for assembling character rigs and editing animation sequen
 
 The character tool should support:
 
+* Selecting an existing character project rather than being hardwired to Ignatius.
+* Creating a new character project with blank atlas, rig, character-definition, and animation templates.
+* Choosing the atlas PNG and each related JSON file through browser file pickers, while retaining URL-based loading for files served from the project.
 * Loading atlas images and atlas JSON.
+* Drawing, selecting, moving, resizing, naming, and deleting frame rectangles directly over the atlas image.
+* Creating rig parts and assigning each rig part to a named atlas frame.
 * Loading and saving rig JSON.
 * Loading, duplicating, editing, and saving animation JSON.
 * Loading and saving character definition JSON.
@@ -348,6 +355,10 @@ The character tool should support:
 * Interpolation selection per keyframe or track segment.
 * Ghost previous/next pose display.
 * Copy pose, paste pose, paste mirrored pose, and paired-limb helpers.
+
+Atlas rectangles and rig semantics must remain separate. The atlas manifest answers “which pixels form this reusable frame?” The rig answers “what body part uses that frame, where is its pivot, and is it a left leg, hat, wing, weapon mount, or some other role?” A frame may be reused by several rig parts, so semantic roles and gameplay tags belong primarily on rig parts rather than being baked into the image rectangle. Optional descriptive frame tags may still be useful for search and organization.
+
+Browser security does not allow the tool to silently browse arbitrary local folders. Local workflows should therefore use explicit file or directory selection, keep selected files in an in-memory project workspace, preserve relative references where possible, and export changed files individually or as a downloadable project bundle. URL-based loading should remain available when the tool is served beside the game assets.
 
 This tool is expected to be used heavily, so it should favor a comfortable editing workflow rather than a minimal debug UI.
 
@@ -1052,12 +1063,15 @@ Include:
 * Preserve the current wizard appearance and draw order during migration.
 * Recreate the current hardcoded wizard run as data-driven keyframes.
 * Add comparison tooling so the new run can be checked against the old run.
-* Move jump, fall, hover, launch, idle, and landing poses into animation data.
 * Add `character_tool.html` for rigging and animation editing.
+* Add character-project selection and creation so the tool is not hardwired to the wizard.
+* Add explicit PNG/JSON file selection and an atlas-frame editor for marking reusable image rectangles.
+* Let rig parts map those frames to semantic roles and tags such as legs, arms, wings, hats, and equipment mounts.
 * Support duplicate/edit workflows for animation sequences.
+* Move jump, fall, hover, launch, idle, and landing poses into animation data after the character-project and atlas-authoring workflow is stable.
 * Prepare the renderer data model for later WebGL2 batching.
 
-This milestone is successful when the wizard renders from `ct_atlas_wizard_1.png`, the run animation is near pixel-perfect compared with the current version, and the character tool can edit and export the wizard rig and animations.
+This milestone is successful when the wizard renders from `ct_atlas_wizard_1.png`, the run animation is data-driven, the character tool can open or create more than one character project, atlas regions and rig semantics can be authored without hand-editing JSON, and the wizard rig and animations can be edited and exported.
 
 ## Milestone 3: Monster Character Pipeline
 

@@ -146,6 +146,27 @@ The run clip is loaded through `ct_char_wizard_1.json`, validated by `IgnatiusRo
 
 `character_tool.html` now loads and edits mapped animation JSON. It provides playback, pause, loop, speed, scrubbing, stepping between authored key times, a per-part/per-property timeline, draggable key markers, exact key time/value/easing fields, add/delete/copy/paste operations, and animation JSON export. Shared mutation logic is tested through `IgnatiusRocketfrock_ANIMATION_EDITOR.js`.
 
+### Next Step: Character Project and Atlas Authoring
+
+Complete this structural tool work before adding the larger set of wizard and monster animations. It prevents the editor from becoming a polished wizard-only special case.
+
+* [ ] Add a character-project selector that can switch between available character definitions.
+* [ ] Add a “New character” workflow that creates blank, consistently named atlas, rig, character-definition, and animation templates.
+* [ ] Allow the user to choose an atlas PNG, atlas JSON, rig JSON, character JSON, and animation JSON through explicit browser file pickers.
+* [ ] Retain URL-based loading for assets served beside the tool.
+* [ ] Support directory/project selection where the browser permits it, with ordinary multi-file selection as the portable fallback.
+* [ ] Track unsaved changes independently for atlas, rig, character definition, and each animation clip.
+* [ ] Add an atlas-parts mode that displays the selected PNG at pixel-accurate scale.
+* [ ] Allow drawing, selecting, moving, resizing, renaming, duplicating, and deleting atlas frame rectangles.
+* [ ] Validate frame rectangles for duplicate IDs, invalid dimensions, and pixels outside the image.
+* [ ] Allow creating and deleting rig parts, then assigning each rig part to an atlas frame.
+* [ ] Keep atlas-frame identity separate from rig-part semantics: rectangles identify reusable pixels; rig parts carry body roles, tags, pivots, anchors, and draw order.
+* [ ] Add rig-part role and tag editing, including broad roles such as head, torso, left/right arm, left/right leg, wing, hat, and weapon mount.
+* [ ] Add searchable optional frame labels for organization without treating them as gameplay roles.
+* [ ] Add character-definition editing for rig references and animation-slot mappings.
+* [ ] Export atlas, rig, character definition, and animations individually, and provide a project-bundle export when practical.
+* [ ] Add validation that reports missing files, missing frame references, duplicate part IDs, invalid pivots, and broken animation mappings before export.
+
 ### Other Wizard Animation States
 
 * [ ] Add `idle` animation.
@@ -164,12 +185,15 @@ The run clip is loaded through `ct_char_wizard_1.json`, validated by `IgnatiusRo
 Goal: create a tool where rigs and animations can be created, duplicated, edited, previewed, and exported.
 
 * [x] Create `character_tool.html`.
-* [x] Load a character atlas image.
-* [x] Load a character atlas JSON.
-* [x] Load a rig JSON.
-* [x] Load an animation JSON.
-* [x] Load a character definition JSON.
-* [ ] Provide tabs or modes for atlas parts, rig, animation, preview, and export.
+* [ ] Select which character project to edit.
+* [ ] Create a new character project from blank templates.
+* [x] Load the wizard character atlas image from its configured project URL.
+* [x] Load the wizard character atlas JSON from its configured project URL.
+* [x] Load the wizard rig JSON from its configured project URL.
+* [x] Load the wizard animation JSON from its configured project URL.
+* [x] Load the wizard character definition JSON from its configured project URL.
+* [ ] Choose arbitrary PNG and JSON files through browser file selection rather than requiring hardcoded paths.
+* [ ] Provide tabs or modes for project, atlas parts, rig, animation, preview, validation, and export.
 * [x] Show a rig preview canvas.
 * [ ] Allow click-and-drag editing of pivots, offsets, anchors, and part transforms.
 * [x] Provide exact numeric fields for all important rig values.
