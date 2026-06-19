@@ -25,6 +25,28 @@ import {
     upsertAnimationKeyframe
 } from "./IgnatiusRocketfrock_ANIMATION_EDITOR.js";
 import {
+    atlasFrameFromDrag,
+    atlasToCanvasPoint,
+    atlasViewTransform,
+    canvasToAtlasPoint,
+    createAtlasFrame,
+    duplicateAtlasFrame,
+    hitTestAtlasFrames,
+    moveAtlasFrame,
+    renameAtlasFrame,
+    resizeAtlasFrame,
+    uniqueAtlasFrameId,
+    validateAtlasFrames,
+    zoomAtlasViewAtCanvasPoint
+} from "./IgnatiusRocketfrock_ATLAS_EDITOR.js";
+import {
+    characterProjectDirtySummary,
+    characterProjectHasUnsavedChanges,
+    createCharacterDirtyTracker,
+    markCharacterProjectClean,
+    markCharacterProjectDirty
+} from "./IgnatiusRocketfrock_CHARACTER_DIRTY.js";
+import {
     TRANSFORM_EDIT_PROPERTY,
     canvasToPreviewPoint,
     characterViewTransform,
@@ -137,6 +159,78 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes("atlas-image-file"), "character tool should expose an explicit atlas PNG picker");
     assert.ok(toolHtml.includes("Character JSON"), "character tool should expose character-definition editing and export");
     assert.ok(toolHtml.includes("Atlas JSON"), "character tool should expose atlas-manifest editing and export");
+    assert.ok(toolHtml.includes("Atlas parts"), "character tool should expose atlas rectangle authoring mode");
+    assert.ok(toolHtml.includes("Unsaved change status"), "character tool should expose independent dirty-state status");
+}
+
+function testCharacterAtlasEditorOperations() {
+    const atlas = { atlasId: "test", image: "test.png", frames: {}, objects: {} };
+    const rig = {
+        drawOrder: ["arm"],
+        pivots: { arm: { x: 0.5, y: 0.5 } },
+        parts: { arm: { frame: "arm", targetHeight: 64 } }
+    };
+    createAtlasFrame(atlas, "arm", { x: 10.2, y: 20.8, w: 30.4, h: 40.6 });
+    assert.deepEqual(atlas.frames.arm, { x: 10, y: 21, w: 30, h: 41 }, "frame creation should normalize to pixel rectangles");
+    assert.equal(atlas.objects.arm.frame, "arm", "frame creation should create a matching atlas object");
+    assert.equal(uniqueAtlasFrameId(atlas, "arm"), "arm_2", "duplicate frame IDs should receive a stable suffix");
+
+    const duplicateId = duplicateAtlasFrame(atlas, "arm", "arm_copy", 8);
+    assert.equal(duplicateId, "arm_copy", "duplicate should use the requested free ID");
+    assert.deepEqual(atlas.frames.arm_copy, { x: 18, y: 29, w: 30, h: 41 }, "duplicate should offset its rectangle");
+
+    const renamed = renameAtlasFrame(atlas, rig, "arm", "left_arm");
+    assert.equal(renamed, "left_arm", "rename should return the new ID");
+    assert.equal(rig.parts.arm.frame, "left_arm", "renaming a frame should update rig references");
+    assert.equal(atlas.objects.left_arm.frame, "left_arm", "renaming should update atlas object references");
+
+    const moved = moveAtlasFrame(atlas.frames.left_arm, -999, 999, 100, 100);
+    assert.deepEqual(moved, { x: 0, y: 59, w: 30, h: 41 }, "frame movement should remain inside image bounds");
+    const resized = resizeAtlasFrame({ x: 20, y: 20, w: 30, h: 30 }, "nw", 10, 5, 100, 100);
+    assert.deepEqual(resized, { x: 30, y: 25, w: 20, h: 25 }, "corner resize should move the requested edges");
+    const drawn = atlasFrameFromDrag({ x: 80, y: 70 }, { x: 30, y: 20 }, 100, 100);
+    assert.deepEqual(drawn, { x: 30, y: 20, w: 50, h: 50 }, "drawing should work in any drag direction");
+
+    assert.equal(hitTestAtlasFrames({ x: 30, y: 25 }, { selected: resized }, "selected", 3)?.mode, "resize", "selected corners should resize");
+    assert.equal(hitTestAtlasFrames({ x: 40, y: 35 }, { selected: resized }, "selected", 3)?.mode, "move", "frame interiors should move");
+
+    const validation = validateAtlasFrames(atlas, 100, 100, rig);
+    assert.equal(validation.valid, true, "valid frame data should pass validation");
+    atlas.frames.bad = { x: 95, y: 95, w: 20, h: 20 };
+    assert.equal(validateAtlasFrames(atlas, 100, 100, rig).valid, false, "out-of-bounds frames should fail validation");
+
+    const view = atlasViewTransform({ canvasWidth: 800, canvasHeight: 600, imageWidth: 200, imageHeight: 100, zoom: 2, panX: 20, panY: -10 });
+    const atlasPoint = { x: 75, y: 30 };
+    const canvasPoint = atlasToCanvasPoint(atlasPoint, view);
+    const roundTrip = canvasToAtlasPoint(canvasPoint, view);
+    approx(roundTrip.x, atlasPoint.x, 0.000001, "atlas view x round trip");
+    approx(roundTrip.y, atlasPoint.y, 0.000001, "atlas view y round trip");
+    const zoomed = zoomAtlasViewAtCanvasPoint(
+        { zoom: 1, panX: 0, panY: 0 },
+        canvasPoint,
+        2,
+        { canvasWidth: 800, canvasHeight: 600, imageWidth: 200, imageHeight: 100, minZoom: 0.1, maxZoom: 8 }
+    );
+    const zoomedView = atlasViewTransform({ canvasWidth: 800, canvasHeight: 600, imageWidth: 200, imageHeight: 100, ...zoomed });
+    const anchored = atlasToCanvasPoint(canvasToAtlasPoint(canvasPoint, atlasViewTransform({ canvasWidth: 800, canvasHeight: 600, imageWidth: 200, imageHeight: 100, zoom: 1, panX: 0, panY: 0 })), zoomedView);
+    approx(anchored.x, canvasPoint.x, 0.000001, "atlas zoom should anchor x beneath the pointer");
+    approx(anchored.y, canvasPoint.y, 0.000001, "atlas zoom should anchor y beneath the pointer");
+}
+
+function testCharacterDirtyTracking() {
+    const tracker = createCharacterDirtyTracker();
+    assert.equal(characterProjectHasUnsavedChanges(tracker), false, "fresh projects should be clean");
+    markCharacterProjectDirty(tracker, "atlas");
+    markCharacterProjectDirty(tracker, "animation", "run");
+    markCharacterProjectDirty(tracker, "animation", "idle");
+    let summary = characterProjectDirtySummary(tracker);
+    assert.equal(summary.atlas, true, "atlas dirty state should be independent");
+    assert.deepEqual(summary.animations, ["idle", "run"], "animation dirty states should be tracked per clip");
+    markCharacterProjectClean(tracker, "animation", "run");
+    summary = characterProjectDirtySummary(tracker);
+    assert.deepEqual(summary.animations, ["idle"], "saving one animation should not clean another");
+    markCharacterProjectClean(tracker);
+    assert.equal(characterProjectHasUnsavedChanges(tracker), false, "cleaning the project should clear every document");
 }
 
 function testCharacterToolDirectTransformGeometry() {
@@ -196,7 +290,7 @@ function testCharacterToolDirectTransformGeometry() {
     const toolHtml = readFileSync(new URL("./character_tool.html", import.meta.url), "utf8");
     assert.ok(toolHtml.includes("X, Y and Angle (drag)"), "character tool should expose combined transform editing");
     assert.ok(toolHtml.includes("beginPartTransformDrag"), "character tool should wire direct part dragging");
-    assert.ok(toolHtml.includes("Use the mouse wheel over the preview"), "character tool should document direct wheel preview zooming");
+    assert.ok(toolHtml.includes("Use the mouse wheel over the canvas"), "character tool should document direct wheel preview zooming");
     assert.ok(!toolHtml.includes("if (!event.ctrlKey)"), "character preview zoom should not require Ctrl");
     assert.ok(toolHtml.includes("Base rig / setup values"), "character tool should distinguish base rig values from animation keys");
     assert.ok(toolHtml.includes("keyValue.disabled = transformMode"), "combined transform mode should disable the scalar value field");
@@ -906,6 +1000,8 @@ function testAttachedSmokeDownSpeedTuning() {
 const tests = [
     ["responsive viewport scaling", testResponsiveViewportScaling],
     ["character project workspace", testCharacterProjectWorkspace],
+    ["character atlas editor operations", testCharacterAtlasEditorOperations],
+    ["character project dirty tracking", testCharacterDirtyTracking],
     ["character tool direct transform geometry", testCharacterToolDirectTransformGeometry],
     ["data-driven wizard run animation", testDataDrivenRunAnimation],
     ["animation editor keyframe operations", testAnimationEditorOperations],

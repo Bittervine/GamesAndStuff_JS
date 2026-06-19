@@ -1,0 +1,14 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Blank character definition template."
+    },
+    "characterId": "ct_char_skeleton_1",
+    "displayName": "skeleton_1",
+    "rig": "ct_rig_skeleton_1.json",
+    "defaultFacing": "right",
+    "mirrorable": true,
+    "animationMap": {
+        "idle": "ct_anim_skeleton_1_idle_1.json"
+    }
+}

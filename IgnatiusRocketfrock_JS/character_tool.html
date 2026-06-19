@@ -279,6 +279,48 @@
             font-variant-numeric: tabular-nums;
         }
 
+        .mode-panel[hidden] {
+            display: none;
+        }
+
+        .dirty-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+
+        .dirty-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 7px 8px;
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            color: var(--muted);
+            background: rgba(0, 0, 0, 0.18);
+        }
+
+        .dirty-item strong {
+            color: #aee9ba;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .dirty-item strong.changed {
+            color: var(--warn);
+        }
+
+        .atlas-validation {
+            white-space: pre-wrap;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 11px;
+            line-height: 1.35;
+            color: var(--muted);
+        }
+
         #status {
             white-space: pre-wrap;
             font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -310,12 +352,34 @@
         <canvas id="stage" width="1160" height="660" aria-label="Puppet Forge character preview"></canvas>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 060</small></h1>
+        <h1>Puppet Forge <small>rev 061</small></h1>
         <p><a href="IgnatiusRocketfrock_JS.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
         </p>
 
+
+        <section class="box">
+            <h2>Workspace</h2>
+            <label>
+                <span>Editor mode</span>
+                <select id="editor-mode">
+                    <option value="animation">Rig and animation</option>
+                    <option value="atlas">Atlas parts</option>
+                </select>
+            </label>
+            <div class="dirty-grid" aria-label="Unsaved change status">
+                <div class="dirty-item"><span>Character</span><strong id="dirty-character">saved</strong></div>
+                <div class="dirty-item"><span>Atlas</span><strong id="dirty-atlas">saved</strong></div>
+                <div class="dirty-item"><span>Rig</span><strong id="dirty-rig">saved</strong></div>
+                <div class="dirty-item"><span>Animations</span><strong id="dirty-animations">saved</strong></div>
+            </div>
+            <div class="inline-readout">
+                <span>View zoom: <strong id="zoom-value">100%</strong></span>
+                <button id="reset-view" type="button">Reset to 100%</button>
+            </div>
+            <p>Use the mouse wheel over the canvas to zoom the active workspace. Each project document is tracked separately; downloading a JSON file marks only that document as saved.</p>
+        </section>
 
         <section class="box">
             <h2>Character project</h2>
@@ -361,7 +425,38 @@
             </div>
         </section>
 
-        <section class="box">
+        <section class="box mode-panel atlas-panel" hidden>
+            <h2>Atlas parts</h2>
+            <p>At 100% zoom, one atlas image pixel equals one preview-canvas pixel. Drag empty image space to draw a frame, drag inside a frame to move it, and drag a selected corner to resize it. Shift-drag or middle-drag pans the atlas.</p>
+            <label>
+                <span>Selected frame</span>
+                <select id="atlas-frame-select"></select>
+            </label>
+            <label><span>Frame ID</span><input id="atlas-frame-id" type="text" spellcheck="false"></label>
+            <div class="row">
+                <label><span>X</span><input id="atlas-frame-x" type="number" step="1"></label>
+                <label><span>Y</span><input id="atlas-frame-y" type="number" step="1"></label>
+            </div>
+            <div class="row">
+                <label><span>Width</span><input id="atlas-frame-w" type="number" min="1" step="1"></label>
+                <label><span>Height</span><input id="atlas-frame-h" type="number" min="1" step="1"></label>
+            </div>
+            <div class="row">
+                <button id="new-atlas-frame" type="button">New frame</button>
+                <button id="duplicate-atlas-frame" type="button">Duplicate</button>
+            </div>
+            <div class="row">
+                <button id="rename-atlas-frame" type="button">Rename / apply ID</button>
+                <button id="delete-atlas-frame" type="button">Delete</button>
+            </div>
+            <div class="row">
+                <button id="fit-atlas" type="button">Fit image</button>
+                <button id="validate-atlas" type="button">Validate frames</button>
+            </div>
+            <div id="atlas-validation" class="atlas-validation"></div>
+        </section>
+
+        <section class="box mode-panel animation-panel">
             <h2>Animation preview</h2>
             <label>
                 <span>Animation slot</span>
@@ -384,15 +479,10 @@
                 <button id="mirror" type="button">Facing: right</button>
                 <button id="reload" type="button">Reload files</button>
             </div>
-            <div class="inline-readout">
-                <span>View zoom: <strong id="zoom-value">100%</strong></span>
-                <button id="reset-view" type="button">Reset view</button>
-            </div>
-            <p>Use the mouse wheel over the preview to zoom around the pointer.</p>
             <label class="check-row"><input id="loop" type="checkbox" checked> Loop preview and exported clip</label>
         </section>
 
-        <section class="box">
+        <section class="box mode-panel animation-panel">
             <h2>Animation track</h2>
             <label>
                 <span>Rig part</span>
@@ -440,7 +530,7 @@
             <p>For X, Y and Angle mode, drag inside the selected yellow rectangle to move the part and drag a yellow corner handle to rotate it. The first drag creates transform keys at the playhead. For single properties, edit the numeric value directly; typing at an unkeyed playhead creates a key automatically.</p>
         </section>
 
-        <section class="box">
+        <section class="box mode-panel animation-panel">
             <h2>Base rig / setup values</h2>
             <div class="row">
                 <label><span>Pivot X</span><input id="pivot-x" type="number" step="0.005"></label>
@@ -476,7 +566,7 @@
                 <button id="refresh-atlas-json" type="button">Refresh</button>
                 <button id="download-atlas-json" type="button">Download</button>
             </div>
-            <p>Rectangle authoring over the atlas image is the next tool slice. This revision establishes project and file ownership first.</p>
+            <p>Use Atlas parts mode to author frame rectangles directly over the selected PNG. The JSON remains available for exact inspection and advanced edits.</p>
         </section>
 
         <section class="box">
@@ -537,6 +627,30 @@ import {
     rotationFromPointerDrag,
     zoomCharacterViewAtCanvasPoint
 } from "./IgnatiusRocketfrock_CHARACTER_VIEW.js";
+import {
+    atlasFrameFromDrag,
+    atlasToCanvasPoint,
+    atlasViewTransform,
+    canvasToAtlasPoint,
+    clampAtlasFrameRect,
+    createAtlasFrame,
+    deleteAtlasFrame,
+    duplicateAtlasFrame,
+    hitTestAtlasFrames,
+    moveAtlasFrame,
+    renameAtlasFrame,
+    resizeAtlasFrame,
+    uniqueAtlasFrameId,
+    validateAtlasFrames,
+    zoomAtlasViewAtCanvasPoint
+} from "./IgnatiusRocketfrock_ATLAS_EDITOR.js";
+import {
+    characterProjectDirtySummary,
+    characterProjectHasUnsavedChanges,
+    createCharacterDirtyTracker,
+    markCharacterProjectClean,
+    markCharacterProjectDirty
+} from "./IgnatiusRocketfrock_CHARACTER_DIRTY.js";
 
 const FALLBACK_DRAW_ORDER = [
     "leftArm",
@@ -569,6 +683,11 @@ const els = {
     characterUrl: document.getElementById("character-url"),
     loadCharacterUrl: document.getElementById("load-character-url"),
     projectSource: document.getElementById("project-source"),
+    editorMode: document.getElementById("editor-mode"),
+    dirtyCharacter: document.getElementById("dirty-character"),
+    dirtyAtlas: document.getElementById("dirty-atlas"),
+    dirtyRig: document.getElementById("dirty-rig"),
+    dirtyAnimations: document.getElementById("dirty-animations"),
     projectFiles: document.getElementById("project-files"),
     projectDirectory: document.getElementById("project-directory"),
     characterFile: document.getElementById("character-file"),
@@ -578,6 +697,19 @@ const els = {
     animationFiles: document.getElementById("animation-files"),
     loadProjectFiles: document.getElementById("load-project-files"),
     clearProjectFiles: document.getElementById("clear-project-files"),
+    atlasFrameSelect: document.getElementById("atlas-frame-select"),
+    atlasFrameId: document.getElementById("atlas-frame-id"),
+    atlasFrameX: document.getElementById("atlas-frame-x"),
+    atlasFrameY: document.getElementById("atlas-frame-y"),
+    atlasFrameW: document.getElementById("atlas-frame-w"),
+    atlasFrameH: document.getElementById("atlas-frame-h"),
+    newAtlasFrame: document.getElementById("new-atlas-frame"),
+    duplicateAtlasFrame: document.getElementById("duplicate-atlas-frame"),
+    renameAtlasFrame: document.getElementById("rename-atlas-frame"),
+    deleteAtlasFrame: document.getElementById("delete-atlas-frame"),
+    fitAtlas: document.getElementById("fit-atlas"),
+    validateAtlas: document.getElementById("validate-atlas"),
+    atlasValidation: document.getElementById("atlas-validation"),
     animationSelect: document.getElementById("animation-select"),
     speed: document.getElementById("speed"),
     speedValue: document.getElementById("speed-value"),
@@ -643,6 +775,14 @@ const state = {
     localAliases: new Map(),
     localObjectUrls: new Set(),
     generatedAnimations: new Map(),
+    animationCache: new Map(),
+    dirty: createCharacterDirtyTracker(),
+    editorMode: "animation",
+    selectedAtlasFrame: null,
+    atlasDrag: null,
+    atlasViewZoom: 1,
+    atlasViewPanX: 0,
+    atlasViewPanY: 0,
     rig: null,
     rigUrl: null,
     atlas: null,
@@ -668,6 +808,58 @@ const state = {
     viewPanX: 0,
     viewPanY: 0
 };
+
+function currentAnimationDirtyKey() {
+    return state.animationSlot || state.animationUrl || "animation";
+}
+
+function updateDirtySummary() {
+    const summary = characterProjectDirtySummary(state.dirty);
+    const set = (element, dirty, text = null) => {
+        element.textContent = text || (dirty ? "changed" : "saved");
+        element.classList.toggle("changed", dirty);
+    };
+    set(els.dirtyCharacter, summary.character);
+    set(els.dirtyAtlas, summary.atlas);
+    set(els.dirtyRig, summary.rig);
+    set(
+        els.dirtyAnimations,
+        summary.animations.length > 0,
+        summary.animations.length ? `${summary.animations.length} changed` : "saved"
+    );
+}
+
+function markDirty(kind, key = null) {
+    markCharacterProjectDirty(state.dirty, kind, key || (kind === "animation" ? currentAnimationDirtyKey() : null));
+    updateDirtySummary();
+}
+
+function markClean(kind = null, key = null) {
+    markCharacterProjectClean(state.dirty, kind, key || (kind === "animation" ? currentAnimationDirtyKey() : null));
+    updateDirtySummary();
+}
+
+function confirmDiscardChanges(actionLabel = "load another project") {
+    if (!characterProjectHasUnsavedChanges(state.dirty)) {
+        return true;
+    }
+    return window.confirm(`Unsaved Puppet Forge changes will be discarded if you ${actionLabel}. Continue?`);
+}
+
+function setEditorMode(mode) {
+    state.editorMode = mode === "atlas" ? "atlas" : "animation";
+    els.editorMode.value = state.editorMode;
+    for (const panel of document.querySelectorAll(".animation-panel")) {
+        panel.hidden = state.editorMode !== "animation";
+    }
+    for (const panel of document.querySelectorAll(".atlas-panel")) {
+        panel.hidden = state.editorMode !== "atlas";
+    }
+    state.partDrag = null;
+    state.atlasDrag = null;
+    canvas.style.cursor = "default";
+    updateReadouts();
+}
 
 function pathDirectory(url) {
     const text = String(url || "");
@@ -779,6 +971,7 @@ function drawOrder() {
 
 async function loadCharacter() {
     state.generatedAnimations.clear();
+    state.animationCache.clear();
     state.character = await loadJson(state.characterUrl);
     state.rigUrl = resolveRelativeUrl(state.characterUrl, state.character.rig);
     state.rig = await loadJson(state.rigUrl);
@@ -793,6 +986,10 @@ async function loadCharacter() {
         imageWarning = `\nImage warning: ${error.message}`;
     }
     state.assets = buildAssetsFromAtlas(state.image, state.atlas, state.rig, state.imageUrl);
+    state.atlasViewZoom = 1;
+    state.atlasViewPanX = 0;
+    state.atlasViewPanY = 0;
+    setupAtlasFrameSelect();
     setupAnimationSelect();
     setupPartSelect();
     selectPart(els.partSelect.value || drawOrder()[0]);
@@ -821,7 +1018,12 @@ async function loadGeneratedProject(project) {
     state.image = null;
     state.imageUrl = project.filenames.image;
     state.assets = new Map();
+    state.atlasViewZoom = 1;
+    state.atlasViewPanX = 0;
+    state.atlasViewPanY = 0;
     state.generatedAnimations = new Map(Object.entries(project.animations));
+    state.animationCache.clear();
+    setupAtlasFrameSelect();
     setupAnimationSelect();
     setupPartSelect();
     selectPart(drawOrder()[0]);
@@ -1046,6 +1248,7 @@ async function applyCharacterJson() {
         }
         state.character = parsed;
         state.projectLabel = parsed.displayName || parsed.characterId || state.projectLabel;
+        state.animationCache.clear();
         setupAnimationSelect();
         if (els.animationSelect.value) {
             await loadAnimationSlot(els.animationSelect.value);
@@ -1054,6 +1257,7 @@ async function applyCharacterJson() {
         }
         refreshCharacterJson();
         updateProjectSource();
+        markDirty("character");
         setStatus("Applied character-definition JSON. Rig references take effect when the project is reloaded.");
     } catch (error) {
         setStatus(error.stack || error.message);
@@ -1068,7 +1272,10 @@ function applyAtlasJson() {
         }
         state.atlas = parsed;
         state.assets = buildAssetsFromAtlas(state.image, state.atlas, state.rig, state.imageUrl);
+        setupAtlasFrameSelect();
         refreshAtlasJson();
+        markDirty("atlas");
+        validateCurrentAtlas();
         setStatus("Applied atlas JSON and rebuilt the current rig-part image cache.");
     } catch (error) {
         setStatus(error.stack || error.message);
@@ -1086,6 +1293,8 @@ function applyRigJson() {
         setupPartSelect();
         selectPart(drawOrder()[0]);
         refreshRigJson();
+        markDirty("rig");
+        validateCurrentAtlas();
         setStatus("Applied rig JSON and rebuilt the preview parts.");
     } catch (error) {
         setStatus(error.stack || error.message);
@@ -1102,7 +1311,7 @@ function buildAssetsFromAtlas(image, atlas, rig, imageUrl) {
         const frameId = part.frame || partName;
         const frame = atlas.frames[frameId];
         if (!frame) {
-            throw new Error(`Missing atlas frame ${frameId} for ${partName}`);
+            continue;
         }
         const canvasPart = document.createElement("canvas");
         canvasPart.width = frame.w;
@@ -1117,6 +1326,446 @@ function buildAssetsFromAtlas(image, atlas, rig, imageUrl) {
         });
     }
     return result;
+}
+
+function atlasFrameIds() {
+    return Object.keys(state.atlas?.frames || {});
+}
+
+function setupAtlasFrameSelect(preferredId = null) {
+    const previous = preferredId || state.selectedAtlasFrame || els.atlasFrameSelect.value;
+    const ids = atlasFrameIds();
+    els.atlasFrameSelect.innerHTML = "";
+    for (const frameId of ids) {
+        const option = document.createElement("option");
+        option.value = frameId;
+        option.textContent = frameId;
+        els.atlasFrameSelect.appendChild(option);
+    }
+    if (!ids.length) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "(no frames)";
+        els.atlasFrameSelect.appendChild(option);
+        els.atlasFrameSelect.disabled = true;
+        state.selectedAtlasFrame = null;
+        syncAtlasFrameControls();
+        return;
+    }
+    els.atlasFrameSelect.disabled = false;
+    const selected = ids.includes(previous) ? previous : ids[0];
+    state.selectedAtlasFrame = selected;
+    els.atlasFrameSelect.value = selected;
+    syncAtlasFrameControls();
+}
+
+function selectedAtlasFrameRect() {
+    return state.selectedAtlasFrame ? state.atlas?.frames?.[state.selectedAtlasFrame] || null : null;
+}
+
+function syncAtlasFrameControls() {
+    const frame = selectedAtlasFrameRect();
+    const disabled = !frame;
+    for (const input of [els.atlasFrameId, els.atlasFrameX, els.atlasFrameY, els.atlasFrameW, els.atlasFrameH]) {
+        input.disabled = disabled;
+    }
+    els.duplicateAtlasFrame.disabled = disabled;
+    els.renameAtlasFrame.disabled = disabled;
+    els.deleteAtlasFrame.disabled = disabled;
+    if (!frame) {
+        els.atlasFrameId.value = "";
+        els.atlasFrameX.value = "";
+        els.atlasFrameY.value = "";
+        els.atlasFrameW.value = "";
+        els.atlasFrameH.value = "";
+        return;
+    }
+    const rect = clampAtlasFrameRect(frame, state.image?.naturalWidth || Number.MAX_SAFE_INTEGER, state.image?.naturalHeight || Number.MAX_SAFE_INTEGER);
+    state.syncing = true;
+    els.atlasFrameId.value = state.selectedAtlasFrame;
+    els.atlasFrameX.value = rect.x;
+    els.atlasFrameY.value = rect.y;
+    els.atlasFrameW.value = rect.w;
+    els.atlasFrameH.value = rect.h;
+    state.syncing = false;
+}
+
+function selectAtlasFrame(frameId) {
+    if (!frameId || !state.atlas?.frames?.[frameId]) {
+        state.selectedAtlasFrame = null;
+        syncAtlasFrameControls();
+        return;
+    }
+    state.selectedAtlasFrame = frameId;
+    els.atlasFrameSelect.value = frameId;
+    syncAtlasFrameControls();
+}
+
+function rebuildAssetsAfterAtlasEdit() {
+    state.assets = buildAssetsFromAtlas(state.image, state.atlas, state.rig, state.imageUrl);
+}
+
+function updateAtlasJsonAfterEdit({ rigChanged = false } = {}) {
+    refreshAtlasJson();
+    rebuildAssetsAfterAtlasEdit();
+    markDirty("atlas");
+    if (rigChanged) {
+        refreshRigJson();
+        markDirty("rig");
+    }
+    validateCurrentAtlas();
+}
+
+function writeAtlasFrameFromUi() {
+    if (state.syncing || !state.image || !state.selectedAtlasFrame) {
+        return;
+    }
+    const rect = clampAtlasFrameRect({
+        x: Number(els.atlasFrameX.value),
+        y: Number(els.atlasFrameY.value),
+        w: Number(els.atlasFrameW.value),
+        h: Number(els.atlasFrameH.value)
+    }, state.image.naturalWidth, state.image.naturalHeight);
+    state.atlas.frames[state.selectedAtlasFrame] = rect;
+    syncAtlasFrameControls();
+    updateAtlasJsonAfterEdit();
+}
+
+function createNewAtlasFrame() {
+    if (!state.atlas || !state.image) {
+        setStatus("Load an atlas PNG before creating frame rectangles.");
+        return;
+    }
+    const view = currentAtlasViewTransform();
+    const center = canvasToAtlasPoint({ x: canvas.width / 2, y: canvas.height / 2 }, view);
+    const rect = clampAtlasFrameRect({ x: center.x - 48, y: center.y - 48, w: 96, h: 96 }, state.image.naturalWidth, state.image.naturalHeight);
+    const frameId = uniqueAtlasFrameId(state.atlas, "part");
+    createAtlasFrame(state.atlas, frameId, rect);
+    setupAtlasFrameSelect(frameId);
+    updateAtlasJsonAfterEdit();
+    setStatus(`Created atlas frame ${frameId}. Drag it over the desired sprite pixels, then rename it.`);
+}
+
+function duplicateSelectedAtlasFrame() {
+    if (!state.selectedAtlasFrame) {
+        return;
+    }
+    try {
+        const frameId = duplicateAtlasFrame(state.atlas, state.selectedAtlasFrame);
+        if (state.image) {
+            state.atlas.frames[frameId] = clampAtlasFrameRect(
+                state.atlas.frames[frameId],
+                state.image.naturalWidth,
+                state.image.naturalHeight
+            );
+        }
+        setupAtlasFrameSelect(frameId);
+        updateAtlasJsonAfterEdit();
+        setStatus(`Duplicated ${state.selectedAtlasFrame} as ${frameId}.`);
+    } catch (error) {
+        setStatus(error.message);
+    }
+}
+
+function renameSelectedAtlasFrame() {
+    if (!state.selectedAtlasFrame) {
+        return;
+    }
+    try {
+        const oldId = state.selectedAtlasFrame;
+        const nextId = renameAtlasFrame(state.atlas, state.rig, oldId, els.atlasFrameId.value);
+        setupAtlasFrameSelect(nextId);
+        updateAtlasJsonAfterEdit({ rigChanged: nextId !== oldId });
+        setStatus(nextId === oldId ? `Frame ${oldId} already has that ID.` : `Renamed atlas frame ${oldId} to ${nextId}; rig references were updated.`);
+    } catch (error) {
+        setStatus(error.message);
+    }
+}
+
+function deleteSelectedAtlasFrame() {
+    const frameId = state.selectedAtlasFrame;
+    if (!frameId) {
+        return;
+    }
+    const referencedBy = Object.entries(state.rig?.parts || {})
+        .filter(([, part]) => part?.frame === frameId)
+        .map(([partId]) => partId);
+    const suffix = referencedBy.length ? ` It is referenced by rig part(s): ${referencedBy.join(", ")}.` : "";
+    if (!window.confirm(`Delete atlas frame ${frameId}?${suffix}`)) {
+        return;
+    }
+    deleteAtlasFrame(state.atlas, frameId);
+    setupAtlasFrameSelect();
+    updateAtlasJsonAfterEdit();
+    setStatus(`Deleted atlas frame ${frameId}.${referencedBy.length ? " Validation now reports the broken rig reference." : ""}`);
+}
+
+function validateCurrentAtlas() {
+    const validation = validateAtlasFrames(
+        state.atlas,
+        state.image?.naturalWidth,
+        state.image?.naturalHeight,
+        state.rig
+    );
+    const lines = [];
+    if (state.image) {
+        lines.push(`Image: ${state.image.naturalWidth} × ${state.image.naturalHeight} px`);
+    } else {
+        lines.push("Image: not loaded");
+    }
+    lines.push(`Frames: ${atlasFrameIds().length}`);
+    lines.push(validation.valid ? "Validation: OK" : `Validation: ${validation.errors.length} error(s)`);
+    for (const error of validation.errors) {
+        lines.push(`ERROR: ${error}`);
+    }
+    for (const warning of validation.warnings) {
+        lines.push(`WARN: ${warning}`);
+    }
+    els.atlasValidation.textContent = lines.join("\n");
+    return validation;
+}
+
+function currentAtlasViewTransform() {
+    return atlasViewTransform({
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+        imageWidth: state.image?.naturalWidth || 1,
+        imageHeight: state.image?.naturalHeight || 1,
+        zoom: state.atlasViewZoom,
+        panX: state.atlasViewPanX,
+        panY: state.atlasViewPanY
+    });
+}
+
+function atlasPointFromClient(clientX, clientY) {
+    return canvasToAtlasPoint(clientPointOnCanvas(clientX, clientY), currentAtlasViewTransform());
+}
+
+function beginAtlasPointer(event) {
+    if (state.editorMode !== "atlas" || !state.image || !state.atlas) {
+        return;
+    }
+    event.preventDefault();
+    const canvasPoint = clientPointOnCanvas(event.clientX, event.clientY);
+    if (event.button === 1 || event.shiftKey) {
+        state.atlasDrag = {
+            pointerId: event.pointerId,
+            mode: "pan",
+            startCanvas: canvasPoint,
+            startPanX: state.atlasViewPanX,
+            startPanY: state.atlasViewPanY
+        };
+        canvas.setPointerCapture?.(event.pointerId);
+        canvas.style.cursor = "grabbing";
+        return;
+    }
+    if (event.button !== 0) {
+        return;
+    }
+    const point = atlasPointFromClient(event.clientX, event.clientY);
+    const hit = hitTestAtlasFrames(point, state.atlas.frames, state.selectedAtlasFrame, 9 / state.atlasViewZoom);
+    if (hit) {
+        selectAtlasFrame(hit.frameId);
+        state.atlasDrag = {
+            pointerId: event.pointerId,
+            mode: hit.mode,
+            handle: hit.handle,
+            frameId: hit.frameId,
+            startPoint: point,
+            startRect: { ...state.atlas.frames[hit.frameId] }
+        };
+        canvas.setPointerCapture?.(event.pointerId);
+        canvas.style.cursor = hit.mode === "move" ? "grabbing" : `${hit.handle}-resize`;
+        return;
+    }
+    state.selectedAtlasFrame = null;
+    syncAtlasFrameControls();
+    state.atlasDrag = {
+        pointerId: event.pointerId,
+        mode: "draw",
+        startPoint: point,
+        currentPoint: point
+    };
+    canvas.setPointerCapture?.(event.pointerId);
+    canvas.style.cursor = "crosshair";
+}
+
+function dragAtlasPointer(event) {
+    const drag = state.atlasDrag;
+    if (!drag || event.pointerId !== drag.pointerId || !state.image) {
+        return;
+    }
+    event.preventDefault();
+    if (drag.mode === "pan") {
+        const point = clientPointOnCanvas(event.clientX, event.clientY);
+        state.atlasViewPanX = drag.startPanX + point.x - drag.startCanvas.x;
+        state.atlasViewPanY = drag.startPanY + point.y - drag.startCanvas.y;
+        updateReadouts();
+        return;
+    }
+    const point = atlasPointFromClient(event.clientX, event.clientY);
+    if (drag.mode === "draw") {
+        drag.currentPoint = point;
+        return;
+    }
+    const dx = point.x - drag.startPoint.x;
+    const dy = point.y - drag.startPoint.y;
+    if (drag.mode === "move") {
+        state.atlas.frames[drag.frameId] = moveAtlasFrame(
+            drag.startRect,
+            dx,
+            dy,
+            state.image.naturalWidth,
+            state.image.naturalHeight
+        );
+    } else if (drag.mode === "resize") {
+        state.atlas.frames[drag.frameId] = resizeAtlasFrame(
+            drag.startRect,
+            drag.handle,
+            dx,
+            dy,
+            state.image.naturalWidth,
+            state.image.naturalHeight
+        );
+    }
+    syncAtlasFrameControls();
+    refreshAtlasJson();
+    markDirty("atlas");
+}
+
+function endAtlasPointer(event) {
+    const drag = state.atlasDrag;
+    if (!drag || event.pointerId !== drag.pointerId) {
+        return;
+    }
+    canvas.releasePointerCapture?.(event.pointerId);
+    state.atlasDrag = null;
+    canvas.style.cursor = "default";
+    if (drag.mode === "draw" && state.image) {
+        const rect = atlasFrameFromDrag(
+            drag.startPoint,
+            drag.currentPoint,
+            state.image.naturalWidth,
+            state.image.naturalHeight
+        );
+        if (rect.w >= 2 && rect.h >= 2) {
+            const frameId = uniqueAtlasFrameId(state.atlas, "part");
+            createAtlasFrame(state.atlas, frameId, rect);
+            setupAtlasFrameSelect(frameId);
+            updateAtlasJsonAfterEdit();
+            setStatus(`Drew atlas frame ${frameId}: ${rect.x}, ${rect.y}, ${rect.w} × ${rect.h}.`);
+            return;
+        }
+        return;
+    }
+    if (drag.mode === "move" || drag.mode === "resize") {
+        rebuildAssetsAfterAtlasEdit();
+        refreshAtlasJson();
+        validateCurrentAtlas();
+        setStatus(`${drag.mode === "move" ? "Moved" : "Resized"} atlas frame ${drag.frameId}.`);
+    }
+}
+
+function updateAtlasCursor(event) {
+    if (state.editorMode !== "atlas" || state.atlasDrag || !state.image) {
+        return;
+    }
+    if (event.shiftKey) {
+        canvas.style.cursor = "grab";
+        return;
+    }
+    const hit = hitTestAtlasFrames(
+        atlasPointFromClient(event.clientX, event.clientY),
+        state.atlas?.frames,
+        state.selectedAtlasFrame,
+        9 / state.atlasViewZoom
+    );
+    canvas.style.cursor = hit ? (hit.mode === "move" ? "grab" : `${hit.handle}-resize`) : "crosshair";
+}
+
+function fitAtlasImage() {
+    if (!state.image) {
+        return;
+    }
+    state.atlasViewZoom = Math.min(
+        (canvas.width - 40) / Math.max(1, state.image.naturalWidth),
+        (canvas.height - 40) / Math.max(1, state.image.naturalHeight)
+    );
+    state.atlasViewPanX = 0;
+    state.atlasViewPanY = 0;
+    updateReadouts();
+}
+
+function drawAtlasEditor() {
+    if (!state.image) {
+        ctx.fillStyle = "rgba(255,255,255,0.65)";
+        ctx.font = "18px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("Load an atlas PNG to author frame rectangles.", canvas.width / 2, canvas.height / 2);
+        return;
+    }
+    const view = currentAtlasViewTransform();
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    ctx.translate(view.originX, view.originY);
+    ctx.scale(view.zoom, view.zoom);
+    ctx.drawImage(state.image, 0, 0);
+    ctx.restore();
+
+    for (const [frameId, source] of Object.entries(state.atlas?.frames || {})) {
+        const topLeft = atlasToCanvasPoint({ x: source.x, y: source.y }, view);
+        const width = Number(source.w) * view.zoom;
+        const height = Number(source.h) * view.zoom;
+        const selected = frameId === state.selectedAtlasFrame;
+        ctx.save();
+        ctx.strokeStyle = selected ? "#ffe36f" : "rgba(201, 167, 255, 0.88)";
+        ctx.lineWidth = selected ? 2.5 : 1.25;
+        ctx.strokeRect(topLeft.x, topLeft.y, width, height);
+        ctx.fillStyle = selected ? "rgba(255, 227, 111, 0.13)" : "rgba(201, 167, 255, 0.07)";
+        ctx.fillRect(topLeft.x, topLeft.y, width, height);
+        if (width > 48 && height > 22) {
+            ctx.font = "12px ui-monospace, monospace";
+            ctx.textAlign = "left";
+            ctx.textBaseline = "top";
+            const textWidth = ctx.measureText(frameId).width + 8;
+            ctx.fillStyle = "rgba(0,0,0,0.72)";
+            ctx.fillRect(topLeft.x + 2, topLeft.y + 2, textWidth, 18);
+            ctx.fillStyle = selected ? "#ffe36f" : "#f0dcff";
+            ctx.fillText(frameId, topLeft.x + 6, topLeft.y + 4);
+        }
+        if (selected) {
+            for (const point of [
+                { x: topLeft.x, y: topLeft.y },
+                { x: topLeft.x + width, y: topLeft.y },
+                { x: topLeft.x + width, y: topLeft.y + height },
+                { x: topLeft.x, y: topLeft.y + height }
+            ]) {
+                ctx.fillStyle = "#ffe36f";
+                ctx.fillRect(point.x - 5, point.y - 5, 10, 10);
+                ctx.strokeStyle = "rgba(0,0,0,0.85)";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(point.x - 5, point.y - 5, 10, 10);
+            }
+        }
+        ctx.restore();
+    }
+
+    const drag = state.atlasDrag;
+    if (drag?.mode === "draw" && drag.currentPoint) {
+        const rect = atlasFrameFromDrag(
+            drag.startPoint,
+            drag.currentPoint,
+            state.image.naturalWidth,
+            state.image.naturalHeight
+        );
+        const topLeft = atlasToCanvasPoint({ x: rect.x, y: rect.y }, view);
+        ctx.save();
+        ctx.setLineDash([7, 5]);
+        ctx.strokeStyle = "#ffe36f";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(topLeft.x, topLeft.y, rect.w * view.zoom, rect.h * view.zoom);
+        ctx.restore();
+    }
 }
 
 function setupAnimationSelect() {
@@ -1161,9 +1810,14 @@ async function loadAnimationSlot(slot) {
         return;
     }
     const url = resolveRelativeUrl(state.characterUrl, relativeUrl);
-    const generated = state.projectMode === "generated" ? state.generatedAnimations.get(slot) : null;
-    const raw = generated || await loadJson(url);
-    state.animation = createEditableAnimationClip(raw, `animation ${slot}`);
+    let editable = state.animationCache.get(slot);
+    if (!editable) {
+        const generated = state.projectMode === "generated" ? state.generatedAnimations.get(slot) : null;
+        const raw = generated || await loadJson(url);
+        editable = createEditableAnimationClip(raw, `animation ${slot}`);
+        state.animationCache.set(slot, editable);
+    }
+    state.animation = editable;
     state.animationUrl = url;
     state.animationSlot = slot;
     state.normalizedAnimation = null;
@@ -1277,6 +1931,7 @@ function writePartFromUi() {
     part.scale = Number(els.partScale.value);
     part.targetHeight = Number(els.targetHeight.value);
     refreshRigJson();
+    markDirty("rig");
 }
 
 function normalizedAnimation() {
@@ -1291,6 +1946,10 @@ function normalizedAnimation() {
 
 function invalidateAnimation(refreshJson = true) {
     state.normalizedAnimation = null;
+    if (state.animation) {
+        state.animationCache.set(currentAnimationDirtyKey(), state.animation);
+        markDirty("animation");
+    }
     if (refreshJson) {
         refreshAnimationJson();
     }
@@ -1324,8 +1983,12 @@ function updateReadouts() {
     const duration = Number(state.animation?.duration || 0);
     els.speedValue.textContent = `${Number(els.speed.value).toFixed(2)}x`;
     els.timeValue.textContent = `${state.time.toFixed(3)} / ${duration.toFixed(3)} s`;
-    els.zoomValue.textContent = `${Math.round(state.viewZoom * 100)}%`;
+    const activeZoom = state.editorMode === "atlas" ? state.atlasViewZoom : state.viewZoom;
+    els.zoomValue.textContent = `${Math.round(activeZoom * 100)}%`;
     els.timelinePlayhead.style.left = `${duration > 0 ? state.time / duration * 100 : 0}%`;
+    if (state.editorMode === "atlas") {
+        return;
+    }
     const pose = samplePose();
     const partName = selectedPartName();
     const partPose = pose?.[partName];
@@ -1792,6 +2455,7 @@ function applyAnimationJson() {
     try {
         const parsed = JSON.parse(els.animationJson.value);
         state.animation = createEditableAnimationClip(parsed, "animation JSON editor");
+        state.animationCache.set(currentAnimationDirtyKey(), state.animation);
         state.normalizedAnimation = null;
         state.time = clamp(state.time, 0, Number(state.animation.duration));
         state.selectedKeyIndex = -1;
@@ -1799,6 +2463,7 @@ function applyAnimationJson() {
         syncAnimationControls();
         rebuildTimeline();
         refreshAnimationJson();
+        markDirty("animation");
         setStatus("Applied and validated animation JSON.");
     } catch (error) {
         setStatus(error.stack || error.message);
@@ -2070,6 +2735,33 @@ function zoomStage(event) {
     event.preventDefault();
     const point = clientPointOnCanvas(event.clientX, event.clientY);
     const factor = Math.exp(-Number(event.deltaY) * 0.002);
+    if (state.editorMode === "atlas") {
+        if (!state.image) {
+            return;
+        }
+        const next = zoomAtlasViewAtCanvasPoint(
+            {
+                zoom: state.atlasViewZoom,
+                panX: state.atlasViewPanX,
+                panY: state.atlasViewPanY
+            },
+            point,
+            factor,
+            {
+                canvasWidth: canvas.width,
+                canvasHeight: canvas.height,
+                imageWidth: state.image.naturalWidth,
+                imageHeight: state.image.naturalHeight,
+                minZoom: 0.05,
+                maxZoom: 16
+            }
+        );
+        state.atlasViewZoom = next.zoom;
+        state.atlasViewPanX = next.panX;
+        state.atlasViewPanY = next.panY;
+        updateReadouts();
+        return;
+    }
     const next = zoomCharacterViewAtCanvasPoint(
         {
             zoom: state.viewZoom,
@@ -2093,9 +2785,15 @@ function zoomStage(event) {
 }
 
 function resetStageView() {
-    state.viewZoom = 1;
-    state.viewPanX = 0;
-    state.viewPanY = 0;
+    if (state.editorMode === "atlas") {
+        state.atlasViewZoom = 1;
+        state.atlasViewPanX = 0;
+        state.atlasViewPanY = 0;
+    } else {
+        state.viewZoom = 1;
+        state.viewPanX = 0;
+        state.viewPanY = 0;
+    }
     updateReadouts();
 }
 
@@ -2103,7 +2801,7 @@ function render(now) {
     const dt = Math.min(0.05, Math.max(0, (now - state.lastTime) / 1000));
     state.lastTime = now;
     const duration = Number(state.animation?.duration || 0);
-    if (!state.paused && duration > 0) {
+    if (state.editorMode === "animation" && !state.paused && duration > 0) {
         state.time += dt * Number(els.speed.value);
         if (state.time >= duration) {
             if (els.loop.checked) {
@@ -2122,19 +2820,23 @@ function render(now) {
 
     ctx.fillStyle = "rgb(6, 6, 12)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    const view = currentViewTransform();
-    const pose = renderedPose();
-    ctx.save();
-    ctx.translate(view.originX, view.originY);
-    ctx.scale(view.zoom * view.facing, view.zoom);
-    if (pose) {
-        for (const name of drawOrder()) {
-            drawSprite(name, pose[name]);
+    if (state.editorMode === "atlas") {
+        drawAtlasEditor();
+    } else {
+        const view = currentViewTransform();
+        const pose = renderedPose();
+        ctx.save();
+        ctx.translate(view.originX, view.originY);
+        ctx.scale(view.zoom * view.facing, view.zoom);
+        if (pose) {
+            for (const name of drawOrder()) {
+                drawSprite(name, pose[name]);
+            }
         }
-    }
-    ctx.restore();
-    if (pose) {
-        drawSelectionOverlay(pose);
+        ctx.restore();
+        if (pose) {
+            drawSelectionOverlay(pose);
+        }
     }
     requestAnimationFrame(render);
 }
@@ -2148,15 +2850,24 @@ function clamp(value, min, max) {
 }
 
 els.loadKnownProject.addEventListener("click", () => {
+    if (!confirmDiscardChanges("load the selected project")) {
+        return;
+    }
     const url = KNOWN_PROJECTS[els.projectSelect.value];
     loadUrlProject(url, els.projectSelect.options[els.projectSelect.selectedIndex]?.textContent)
         .catch((error) => setStatus(error.stack || error.message));
 });
 els.loadCharacterUrl.addEventListener("click", () => {
+    if (!confirmDiscardChanges("load the entered project URL")) {
+        return;
+    }
     loadUrlProject(els.characterUrl.value)
         .catch((error) => setStatus(error.stack || error.message));
 });
 els.newCharacter.addEventListener("click", () => {
+    if (!confirmDiscardChanges("create a new character")) {
+        return;
+    }
     const displayName = window.prompt("Character display name", "New Character");
     if (displayName === null) {
         return;
@@ -2165,9 +2876,33 @@ els.newCharacter.addEventListener("click", () => {
         .catch((error) => setStatus(error.stack || error.message));
 });
 els.loadProjectFiles.addEventListener("click", () => {
+    if (!confirmDiscardChanges("load the selected local files")) {
+        return;
+    }
     loadSelectedProjectFiles().catch((error) => setStatus(error.stack || error.message));
 });
 els.clearProjectFiles.addEventListener("click", clearLocalFileSelection);
+els.editorMode.addEventListener("change", () => setEditorMode(els.editorMode.value));
+els.atlasFrameSelect.addEventListener("change", () => selectAtlasFrame(els.atlasFrameSelect.value));
+for (const input of [els.atlasFrameX, els.atlasFrameY, els.atlasFrameW, els.atlasFrameH]) {
+    input.addEventListener("input", writeAtlasFrameFromUi);
+}
+els.atlasFrameId.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        renameSelectedAtlasFrame();
+        els.atlasFrameId.blur();
+    }
+});
+els.newAtlasFrame.addEventListener("click", createNewAtlasFrame);
+els.duplicateAtlasFrame.addEventListener("click", duplicateSelectedAtlasFrame);
+els.renameAtlasFrame.addEventListener("click", renameSelectedAtlasFrame);
+els.deleteAtlasFrame.addEventListener("click", deleteSelectedAtlasFrame);
+els.fitAtlas.addEventListener("click", fitAtlasImage);
+els.validateAtlas.addEventListener("click", () => {
+    const validation = validateCurrentAtlas();
+    setStatus(validation.valid ? "Atlas frame validation passed." : `Atlas validation found ${validation.errors.length} error(s).`);
+});
 els.applyCharacterJson.addEventListener("click", applyCharacterJson);
 els.refreshCharacterJson.addEventListener("click", refreshCharacterJson);
 els.downloadCharacterJson.addEventListener("click", () => {
@@ -2175,6 +2910,7 @@ els.downloadCharacterJson.addEventListener("click", () => {
         return;
     }
     downloadJson(characterFilename(), state.character);
+    markClean("character");
     setStatus(`Downloaded ${characterFilename()}.`);
 });
 els.applyAtlasJson.addEventListener("click", applyAtlasJson);
@@ -2184,6 +2920,7 @@ els.downloadAtlasJson.addEventListener("click", () => {
         return;
     }
     downloadJson(atlasFilename(), state.atlas);
+    markClean("atlas");
     setStatus(`Downloaded ${atlasFilename()}.`);
 });
 els.applyRigJson.addEventListener("click", applyRigJson);
@@ -2225,6 +2962,9 @@ els.reload.addEventListener("click", () => {
         setStatus("Refreshed the in-memory new-character project. Download JSON files to preserve it outside this browser tab.");
         return;
     }
+    if (!confirmDiscardChanges("reload the project from disk or URL")) {
+        return;
+    }
     loadCharacter().catch((error) => setStatus(error.stack || error.message));
 });
 els.loop.addEventListener("change", () => {
@@ -2234,10 +2974,22 @@ els.loop.addEventListener("change", () => {
     }
 });
 els.timeline.addEventListener("pointerdown", scrubTimeline);
-canvas.addEventListener("pointerdown", beginPartTransformDrag);
-canvas.addEventListener("pointermove", updateStageCursor);
+canvas.addEventListener("pointerdown", (event) => {
+    if (state.editorMode === "atlas") {
+        beginAtlasPointer(event);
+    } else {
+        beginPartTransformDrag(event);
+    }
+});
+canvas.addEventListener("pointermove", (event) => {
+    if (state.editorMode === "atlas") {
+        updateAtlasCursor(event);
+    } else {
+        updateStageCursor(event);
+    }
+});
 canvas.addEventListener("pointerleave", () => {
-    if (!state.partDrag) {
+    if (!state.partDrag && !state.atlasDrag) {
         canvas.style.cursor = "default";
     }
 });
@@ -2245,14 +2997,17 @@ canvas.addEventListener("wheel", zoomStage, { passive: false });
 window.addEventListener("pointermove", (event) => {
     dragSelectedKey(event);
     dragPartTransform(event);
+    dragAtlasPointer(event);
 }, { passive: false });
 window.addEventListener("pointerup", (event) => {
     endKeyDrag(event);
     endPartTransformDrag(event);
+    endAtlasPointer(event);
 });
 window.addEventListener("pointercancel", (event) => {
     endKeyDrag(event);
     endPartTransformDrag(event);
+    endAtlasPointer(event);
 });
 els.addKey.addEventListener("click", addKeyAtPlayhead);
 els.applyKey.addEventListener("click", () => applySelectedKey(true));
@@ -2277,6 +3032,7 @@ els.refreshAnimationJson.addEventListener("click", refreshAnimationJson);
 els.downloadAnimationJson.addEventListener("click", () => {
     try {
         downloadJson(animationFilename(), serializeEditableAnimationClip(state.animation));
+        markClean("animation");
         setStatus(`Downloaded ${animationFilename()}.`);
     } catch (error) {
         setStatus(error.message);
@@ -2285,11 +3041,22 @@ els.downloadAnimationJson.addEventListener("click", () => {
 els.refreshRigJson.addEventListener("click", refreshRigJson);
 els.downloadRigJson.addEventListener("click", () => {
     downloadJson(rigFilename(), state.rig);
+    markClean("rig");
     setStatus(`Downloaded ${rigFilename()}.`);
+});
+
+window.addEventListener("beforeunload", (event) => {
+    if (!characterProjectHasUnsavedChanges(state.dirty)) {
+        return;
+    }
+    event.preventDefault();
+    event.returnValue = "";
 });
 
 updateKeyButtons();
 updateProjectSource();
+updateDirtySummary();
+setEditorMode("animation");
 loadUrlProject(KNOWN_PROJECTS.wizard, "Ignatius Rocketfrock")
     .catch((error) => setStatus(error.stack || error.message));
 requestAnimationFrame(render);

@@ -155,10 +155,10 @@ Complete this structural tool work before adding the larger set of wizard and mo
 * [x] Allow the user to choose an atlas PNG, atlas JSON, rig JSON, character JSON, and animation JSON through explicit browser file pickers.
 * [x] Retain URL-based loading for assets served beside the tool.
 * [x] Support directory/project selection where the browser permits it, with ordinary multi-file selection as the portable fallback.
-* [ ] Track unsaved changes independently for atlas, rig, character definition, and each animation clip.
-* [ ] Add an atlas-parts mode that displays the selected PNG at pixel-accurate scale.
-* [ ] Allow drawing, selecting, moving, resizing, renaming, duplicating, and deleting atlas frame rectangles.
-* [ ] Validate frame rectangles for duplicate IDs, invalid dimensions, and pixels outside the image.
+* [x] Track unsaved changes independently for atlas, rig, character definition, and each animation clip.
+* [x] Add an atlas-parts mode that displays the selected PNG at pixel-accurate scale.
+* [x] Allow drawing, selecting, moving, resizing, renaming, duplicating, and deleting atlas frame rectangles.
+* [x] Validate frame rectangles for duplicate IDs, invalid dimensions, and pixels outside the image.
 * [ ] Allow creating and deleting rig parts, then assigning each rig part to an atlas frame.
 * [ ] Keep atlas-frame identity separate from rig-part semantics: rectangles identify reusable pixels; rig parts carry body roles, tags, pivots, anchors, and draw order.
 * [ ] Add rig-part role and tag editing, including broad roles such as head, torso, left/right arm, left/right leg, wing, hat, and weapon mount.
@@ -183,6 +183,14 @@ Puppet Forge now has a combined `X, Y and Angle` animation property mode. Draggi
 ### Revision 060 Rig Value Clarification
 
 Puppet Forge now zooms the preview with the mouse wheel alone. The rig panel is labeled as base/setup data and explains that pivot and target height remain shared geometry, while setup offsets and base scale currently support procedural airborne poses and fallback rig setup. Data-driven clips author absolute X, Y, and scale values that take precedence during their playback.
+
+### Revision 061 Atlas Authoring Baseline
+
+Puppet Forge now has separate Rig/Animation and Atlas Parts workspace modes. Atlas Parts displays the configured PNG in image-pixel coordinates: at 100% view zoom, one image pixel is one preview-canvas coordinate. Empty-space drags draw new rectangles, rectangle interiors move frames, selected corner handles resize them, and Shift-drag or middle-drag pans the image. Frames can also be selected numerically, renamed, duplicated, deleted, and validated for invalid dimensions, out-of-image bounds, exact duplicate rectangles, and broken rig references. Frame renaming updates atlas objects and any rig parts that reference the old frame ID.
+
+Character, atlas, rig, and animation documents now have independent dirty states. Multiple edited animation slots remain cached in memory while switching clips, and downloading one JSON document marks only that document as saved. Project reloads warn before discarding unsaved work.
+
+The next structural slice is rig-part creation/deletion, frame assignment, draw-order editing, and role/tag authoring. Complete that before migrating the remaining wizard airborne animations.
 
 ### Other Wizard Animation States
 

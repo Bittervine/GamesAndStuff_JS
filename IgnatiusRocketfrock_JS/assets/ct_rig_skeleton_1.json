@@ -1,0 +1,41 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Blank character rig template. The root part keeps the project valid until real atlas frames and body parts are authored."
+    },
+    "atlasManifest": "ct_atlas_skeleton_1.json",
+    "drawOrder": [
+        "root"
+    ],
+    "global": {
+        "scale": 1,
+        "lean": 0,
+        "rootX": 0,
+        "rootYOffsetFromGround": 0,
+        "groundOffset": 0,
+        "debugPivots": false
+    },
+    "anchors": {},
+    "pivots": {
+        "root": {
+            "x": 0.5,
+            "y": 0.5
+        }
+    },
+    "parts": {
+        "root": {
+            "frame": "root",
+            "role": "root",
+            "tags": [
+                "root",
+                "placeholder"
+            ],
+            "offset": {
+                "x": 0,
+                "y": 0
+            },
+            "scale": 1,
+            "targetHeight": 64
+        }
+    }
+}

@@ -1,0 +1,69 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Blank idle animation template."
+    },
+    "animationId": "ct_anim_skeleton_1_idle_1",
+    "duration": 1,
+    "loop": true,
+    "mirrorable": true,
+    "playback": {
+        "idleThreshold": 0.04,
+        "baseCyclesPerSecond": 1,
+        "speedCyclesPerSecond": 1,
+        "maxSpeedRatio": 1
+    },
+    "rootMotion": {
+        "enabled": false,
+        "xTrack": null,
+        "yTrack": null
+    },
+    "referencePose": {
+        "root": {
+            "x": 0,
+            "y": 0,
+            "rotation": 0,
+            "scale": 1,
+            "alpha": 1
+        }
+    },
+    "tracks": {
+        "root": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "linear"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ]
+        }
+    }
+}

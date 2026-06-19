@@ -17,6 +17,12 @@ AGENTS.md
 asset_tool.html
 character_tool.html
 game.html
+IgnatiusRocketfrock_ANIMATION.js
+IgnatiusRocketfrock_ANIMATION_EDITOR.js
+IgnatiusRocketfrock_ATLAS_EDITOR.js
+IgnatiusRocketfrock_CHARACTER_DIRTY.js
+IgnatiusRocketfrock_CHARACTER_PROJECT.js
+IgnatiusRocketfrock_CHARACTER_VIEW.js
 IgnatiusRocketfrock_GAME.js
 IgnatiusRocketfrock_INPUT.js
 IgnatiusRocketfrock_JS.html
@@ -331,7 +337,9 @@ Revision 059 added direct animation-pose manipulation. In the combined `X, Y and
 
 Revision 060 made preview zoom use the mouse wheel directly, without requiring Ctrl. Puppet Forge now labels the rig panel as base/setup data and explains the current split: pivot and target height remain shared sprite geometry, while setup offsets and base scale are transitional rig defaults that data-driven clips override with their authored absolute X, Y, and scale values during playback.
 
-The next structural step is atlas rectangle authoring and dirty-state tracking, followed by rig-part creation and role/tag assignment. Complete those pieces before migrating the remaining airborne poses so the upcoming idle, jump, hover, enemy, and NPC animation work is created through the same reusable workflow rather than through another wizard-only path.
+Revision 061 added an Atlas Parts workspace. It draws the configured atlas PNG in image-pixel coordinates and supports drawing, selecting, moving, resizing, renaming, duplicating, deleting, and validating frame rectangles. Renaming a frame updates atlas-object and rig-part references. The tool also tracks unsaved character, atlas, rig, and per-animation documents independently, preserves edited clips while switching animation slots, and warns before a project reload discards work.
+
+The next structural step is rig-part creation and deletion, atlas-frame assignment, draw-order editing, and role/tag authoring. Complete that before migrating the remaining airborne poses so the upcoming idle, jump, hover, enemy, and NPC animation work is created through the same reusable workflow rather than through another wizard-only path.
 
 ## Character Tool
 
