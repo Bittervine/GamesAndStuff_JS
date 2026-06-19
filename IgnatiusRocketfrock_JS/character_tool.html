@@ -3,16 +3,17 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Puppet Forge: Character Rig Tool</title>
+    <title>Puppet Forge: Character Animation Tool</title>
     <style>
         :root {
             color-scheme: dark;
             --bg: rgb(6, 6, 12);
-            --panel: rgba(21, 18, 30, 0.94);
+            --panel: rgba(21, 18, 30, 0.96);
             --ink: #f2edf8;
             --muted: #c8bbd7;
             --line: rgba(255, 255, 255, 0.16);
             --accent: #c9a7ff;
+            --accent-strong: #f0dcff;
             --warn: #ffcf86;
         }
 
@@ -31,7 +32,7 @@
 
         main {
             display: grid;
-            grid-template-columns: 1fr 420px;
+            grid-template-columns: minmax(0, 1fr) 460px;
             width: 100vw;
             height: 100vh;
         }
@@ -66,11 +67,20 @@
             letter-spacing: 0.02em;
         }
 
+        h2 {
+            margin: 0 0 10px;
+            font-size: 14px;
+        }
+
         p {
             margin: 0 0 14px;
             color: var(--muted);
-            line-height: 1.35;
+            line-height: 1.4;
             font-size: 13px;
+        }
+
+        code {
+            color: var(--accent-strong);
         }
 
         a {
@@ -131,6 +141,11 @@
             background: rgba(255, 255, 255, 0.13);
         }
 
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
         .box {
             border: 1px solid var(--line);
             border-radius: 14px;
@@ -145,10 +160,82 @@
             gap: 8px;
         }
 
+        .row.three {
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+
         .readout {
             display: flex;
             justify-content: space-between;
             gap: 14px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .check-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 10px 0;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .check-row input {
+            width: auto;
+        }
+
+        #timeline {
+            position: relative;
+            height: 54px;
+            margin: 10px 0 4px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background:
+                linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px) 0 0 / 10% 100%,
+                rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            touch-action: none;
+            cursor: crosshair;
+        }
+
+        #timeline-playhead {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--warn);
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .key-marker {
+            position: absolute;
+            top: 18px;
+            width: 16px;
+            height: 16px;
+            margin: 0;
+            padding: 0;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.75);
+            background: var(--accent);
+            transform: translateX(-50%) rotate(45deg);
+            z-index: 3;
+            touch-action: none;
+        }
+
+        .key-marker.selected {
+            background: var(--warn);
+            box-shadow: 0 0 0 3px rgba(255, 207, 134, 0.2);
+        }
+
+        .key-marker:hover {
+            background: var(--accent-strong);
+        }
+
+        .muted-line {
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.35;
             font-variant-numeric: tabular-nums;
         }
 
@@ -183,35 +270,87 @@
         <canvas id="stage" width="1160" height="660" aria-label="Puppet Forge character preview"></canvas>
     </div>
     <aside>
-        <h1>Puppet Forge</h1>
+        <h1>Puppet Forge <small>rev 056</small></h1>
         <p><a href="IgnatiusRocketfrock_JS.html">Back to tools</a></p>
         <p>
-            First-pass character rig tool. It loads <code>assets/ct_char_wizard_1.json</code>,
-            <code>assets/ct_rig_wizard_1.json</code>, and <code>assets/ct_atlas_wizard_1.png</code>.
-            This version is for atlas-backed rig parity before the proper keyframe animation editor arrives.
+            Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
         </p>
 
-        <div class="box">
+        <section class="box">
+            <h2>Animation preview</h2>
+            <label>
+                <span>Animation slot</span>
+                <select id="animation-select"></select>
+            </label>
             <label>
                 <span class="readout"><span>Preview speed</span><span id="speed-value"></span></span>
-                <input id="speed" type="range" min="0" max="3" step="0.01" value="1.25">
+                <input id="speed" type="range" min="0.05" max="3" step="0.01" value="1">
             </label>
             <label>
-                <span class="readout"><span>Phase</span><span id="phase-value"></span></span>
-                <input id="phase" type="range" min="0" max="6.28318" step="0.001" value="0">
+                <span class="readout"><span>Playhead</span><span id="time-value"></span></span>
+                <input id="time" type="range" min="0" max="1" step="0.001" value="0">
             </label>
-            <div class="row">
-                <button id="pause">Pause</button>
-                <button id="mirror">Facing: right</button>
+            <div class="row three">
+                <button id="step-back" type="button">Previous key</button>
+                <button id="pause" type="button">Pause</button>
+                <button id="step-forward" type="button">Next key</button>
             </div>
-            <button id="reload">Reload character files</button>
-        </div>
+            <div class="row">
+                <button id="mirror" type="button">Facing: right</button>
+                <button id="reload" type="button">Reload files</button>
+            </div>
+            <label class="check-row"><input id="loop" type="checkbox" checked> Loop preview and exported clip</label>
+        </section>
 
-        <div class="box">
+        <section class="box">
+            <h2>Animation track</h2>
             <label>
                 <span>Rig part</span>
                 <select id="part-select"></select>
             </label>
+            <label>
+                <span>Property</span>
+                <select id="property-select">
+                    <option value="x">X position</option>
+                    <option value="y">Y position</option>
+                    <option value="rotation">Rotation</option>
+                    <option value="scale">Scale</option>
+                    <option value="alpha">Alpha</option>
+                </select>
+            </label>
+            <div id="timeline" aria-label="Animation keyframe timeline">
+                <div id="timeline-playhead"></div>
+            </div>
+            <div id="track-summary" class="muted-line"></div>
+            <div id="sample-value" class="muted-line"></div>
+            <div class="row">
+                <label><span>Key time</span><input id="key-time" type="number" min="0" step="0.001"></label>
+                <label><span>Key value</span><input id="key-value" type="number" step="0.001"></label>
+            </div>
+            <label>
+                <span>Interpolation after key</span>
+                <select id="key-easing">
+                    <option value="step">Step</option>
+                    <option value="linear">Linear</option>
+                    <option value="easeIn">Ease in</option>
+                    <option value="easeOut">Ease out</option>
+                    <option value="easeInOut">Ease in/out</option>
+                </select>
+            </label>
+            <div class="row three">
+                <button id="add-key" type="button">Add at playhead</button>
+                <button id="apply-key" type="button">Apply selected</button>
+                <button id="delete-key" type="button">Delete selected</button>
+            </div>
+            <div class="row">
+                <button id="copy-key" type="button">Copy key</button>
+                <button id="paste-key" type="button">Paste at playhead</button>
+            </div>
+            <p>Click the timeline to scrub. Drag a diamond to move its keyframe in time. Numeric fields edit the selected key exactly.</p>
+        </section>
+
+        <section class="box">
+            <h2>Rig part values</h2>
             <div class="row">
                 <label><span>Pivot X</span><input id="pivot-x" type="number" step="0.005"></label>
                 <label><span>Pivot Y</span><input id="pivot-y" type="number" step="0.005"></label>
@@ -224,405 +363,809 @@
                 <label><span>Part scale</span><input id="part-scale" type="number" step="0.01"></label>
                 <label><span>Target height</span><input id="target-height" type="number" step="1"></label>
             </div>
-            <button id="copy-mirrored-note">Mirror note</button>
-        </div>
+        </section>
 
-        <div class="box">
-            <p>Rig JSON export. This writes the atlas-backed rig, not the old individual-PNG config.</p>
+        <section class="box">
+            <h2>Animation JSON</h2>
+            <textarea id="animation-json" spellcheck="false"></textarea>
+            <div class="row three">
+                <button id="apply-animation-json" type="button">Apply JSON</button>
+                <button id="refresh-animation-json" type="button">Refresh</button>
+                <button id="download-animation-json" type="button">Download</button>
+            </div>
+        </section>
+
+        <section class="box">
+            <h2>Rig JSON</h2>
             <textarea id="rig-json" spellcheck="false"></textarea>
             <div class="row">
-                <button id="refresh-json">Refresh JSON</button>
-                <button id="download-json">Download rig</button>
+                <button id="refresh-rig-json" type="button">Refresh</button>
+                <button id="download-rig-json" type="button">Download rig</button>
             </div>
-        </div>
+        </section>
 
-        <div class="box">
-            <p>Status</p>
+        <section class="box">
+            <h2>Status</h2>
             <div id="status"></div>
-        </div>
+        </section>
     </aside>
 </main>
 
-<script>
-(() => {
-    "use strict";
+<script type="module">
+import {
+    normalizeAnimationClip,
+    sampleAnimationClip
+} from "./IgnatiusRocketfrock_ANIMATION.js";
+import {
+    animationTrackSummary,
+    createEditableAnimationClip,
+    deleteAnimationKeyframe,
+    getAnimationTrack,
+    serializeEditableAnimationClip,
+    updateAnimationKeyframe,
+    upsertAnimationKeyframe
+} from "./IgnatiusRocketfrock_ANIMATION_EDITOR.js";
 
-    const FIXED_DRAW_ORDER = [
-        "leftArm",
-        "leftFoot",
-        "rocket",
-        "rightFoot",
-        "robe",
-        "head",
-        "hat",
-        "rightArm"
-    ];
+const FALLBACK_DRAW_ORDER = [
+    "leftArm",
+    "leftFoot",
+    "rocket",
+    "rightFoot",
+    "robe",
+    "head",
+    "hat",
+    "rightArm"
+];
 
-    const PART_LABELS = {
-        leftArm: "Left arm",
-        leftFoot: "Left leg sprite",
-        rocket: "Rocket",
-        rightFoot: "Right leg sprite",
-        robe: "Robe / body",
-        head: "Head",
-        hat: "Hat",
-        rightArm: "Right arm"
-    };
+const PART_LABELS = {
+    leftArm: "Left arm",
+    leftFoot: "Left leg sprite",
+    rocket: "Rocket",
+    rightFoot: "Right leg sprite",
+    robe: "Robe / body",
+    head: "Head",
+    hat: "Hat",
+    rightArm: "Right arm"
+};
 
-    const canvas = document.getElementById("stage");
-    const ctx = canvas.getContext("2d", { alpha: false });
-    const els = {
-        speed: document.getElementById("speed"),
-        speedValue: document.getElementById("speed-value"),
-        phase: document.getElementById("phase"),
-        phaseValue: document.getElementById("phase-value"),
-        pause: document.getElementById("pause"),
-        mirror: document.getElementById("mirror"),
-        reload: document.getElementById("reload"),
-        partSelect: document.getElementById("part-select"),
-        pivotX: document.getElementById("pivot-x"),
-        pivotY: document.getElementById("pivot-y"),
-        offsetX: document.getElementById("offset-x"),
-        offsetY: document.getElementById("offset-y"),
-        partScale: document.getElementById("part-scale"),
-        targetHeight: document.getElementById("target-height"),
-        rigJson: document.getElementById("rig-json"),
-        refreshJson: document.getElementById("refresh-json"),
-        downloadJson: document.getElementById("download-json"),
-        status: document.getElementById("status"),
-        copyMirroredNote: document.getElementById("copy-mirrored-note")
-    };
+const canvas = document.getElementById("stage");
+const ctx = canvas.getContext("2d", { alpha: false });
+const els = {
+    animationSelect: document.getElementById("animation-select"),
+    speed: document.getElementById("speed"),
+    speedValue: document.getElementById("speed-value"),
+    time: document.getElementById("time"),
+    timeValue: document.getElementById("time-value"),
+    pause: document.getElementById("pause"),
+    stepBack: document.getElementById("step-back"),
+    stepForward: document.getElementById("step-forward"),
+    mirror: document.getElementById("mirror"),
+    reload: document.getElementById("reload"),
+    loop: document.getElementById("loop"),
+    partSelect: document.getElementById("part-select"),
+    propertySelect: document.getElementById("property-select"),
+    timeline: document.getElementById("timeline"),
+    timelinePlayhead: document.getElementById("timeline-playhead"),
+    trackSummary: document.getElementById("track-summary"),
+    sampleValue: document.getElementById("sample-value"),
+    keyTime: document.getElementById("key-time"),
+    keyValue: document.getElementById("key-value"),
+    keyEasing: document.getElementById("key-easing"),
+    addKey: document.getElementById("add-key"),
+    applyKey: document.getElementById("apply-key"),
+    deleteKey: document.getElementById("delete-key"),
+    copyKey: document.getElementById("copy-key"),
+    pasteKey: document.getElementById("paste-key"),
+    pivotX: document.getElementById("pivot-x"),
+    pivotY: document.getElementById("pivot-y"),
+    offsetX: document.getElementById("offset-x"),
+    offsetY: document.getElementById("offset-y"),
+    partScale: document.getElementById("part-scale"),
+    targetHeight: document.getElementById("target-height"),
+    animationJson: document.getElementById("animation-json"),
+    applyAnimationJson: document.getElementById("apply-animation-json"),
+    refreshAnimationJson: document.getElementById("refresh-animation-json"),
+    downloadAnimationJson: document.getElementById("download-animation-json"),
+    rigJson: document.getElementById("rig-json"),
+    refreshRigJson: document.getElementById("refresh-rig-json"),
+    downloadRigJson: document.getElementById("download-rig-json"),
+    status: document.getElementById("status")
+};
 
-    const state = {
-        character: null,
-        rig: null,
-        atlas: null,
-        image: null,
-        assets: new Map(),
-        paused: false,
-        facing: 1,
-        lastTime: performance.now(),
-        phase: 0,
-        syncing: false
-    };
+const state = {
+    character: null,
+    characterUrl: "assets/ct_char_wizard_1.json",
+    rig: null,
+    rigUrl: null,
+    atlas: null,
+    image: null,
+    assets: new Map(),
+    animation: null,
+    animationUrl: null,
+    animationSlot: null,
+    normalizedAnimation: null,
+    paused: false,
+    facing: 1,
+    lastTime: performance.now(),
+    time: 0,
+    syncing: false,
+    selectedKeyIndex: -1,
+    copiedKey: null,
+    dragKey: null
+};
 
-    function pathDirectory(url) {
-        const text = String(url || "");
-        const slash = text.lastIndexOf("/");
-        return slash >= 0 ? text.slice(0, slash + 1) : "";
+function pathDirectory(url) {
+    const text = String(url || "");
+    const slash = text.lastIndexOf("/");
+    return slash >= 0 ? text.slice(0, slash + 1) : "";
+}
+
+function resolveRelativeUrl(baseUrl, relativeUrl) {
+    const text = String(relativeUrl || "");
+    if (/^(?:[a-z]+:)?\/\//i.test(text) || text.startsWith("/")) {
+        return text;
     }
+    return pathDirectory(baseUrl) + text;
+}
 
-    function resolveRelativeUrl(baseUrl, relativeUrl) {
-        const text = String(relativeUrl || "");
-        if (/^(?:[a-z]+:)?\/\//i.test(text) || text.startsWith("/")) return text;
-        return pathDirectory(baseUrl) + text;
+async function loadJson(url) {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) {
+        throw new Error(`Could not load ${url}: HTTP ${response.status}`);
     }
+    return response.json();
+}
 
-    async function loadJson(url) {
-        const response = await fetch(url, { cache: "no-store" });
-        if (!response.ok) throw new Error(`Could not load ${url}: HTTP ${response.status}`);
-        return response.json();
-    }
+function loadImage(url) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.decoding = "async";
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error(`Could not load ${url}`));
+        img.src = url;
+    });
+}
 
-    function loadImage(url) {
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.decoding = "async";
-            img.onload = () => resolve(img);
-            img.onerror = () => reject(new Error(`Could not load ${url}`));
-            img.src = url;
+function drawOrder() {
+    const source = state.rig?.drawOrder;
+    return Array.isArray(source) && source.length ? source : FALLBACK_DRAW_ORDER;
+}
+
+async function loadCharacter() {
+    state.character = await loadJson(state.characterUrl);
+    state.rigUrl = resolveRelativeUrl(state.characterUrl, state.character.rig);
+    state.rig = await loadJson(state.rigUrl);
+    const atlasUrl = resolveRelativeUrl(state.rigUrl, state.rig.atlasManifest || `${state.rig.atlasId}.json`);
+    state.atlas = await loadJson(atlasUrl);
+    const imageUrl = resolveRelativeUrl(atlasUrl, state.atlas.image);
+    state.image = await loadImage(imageUrl);
+    state.assets = buildAssetsFromAtlas(state.image, state.atlas, state.rig, imageUrl);
+    setupAnimationSelect();
+    setupPartSelect();
+    selectPart(els.partSelect.value || drawOrder()[0]);
+    await loadAnimationSlot(els.animationSelect.value);
+    refreshRigJson();
+    setStatus(`Loaded ${state.character.characterId}\nRig: ${state.rigUrl}\nAtlas: ${atlasUrl}\nImage: ${imageUrl}`);
+}
+
+function buildAssetsFromAtlas(image, atlas, rig, imageUrl) {
+    const result = new Map();
+    for (const partName of drawOrder()) {
+        const part = rig.parts[partName];
+        const frameId = part.frame || partName;
+        const frame = atlas.frames[frameId];
+        if (!frame) {
+            throw new Error(`Missing atlas frame ${frameId} for ${partName}`);
+        }
+        const canvasPart = document.createElement("canvas");
+        canvasPart.width = frame.w;
+        canvasPart.height = frame.h;
+        canvasPart.getContext("2d").drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
+        result.set(partName, {
+            canvas: canvasPart,
+            width: frame.w,
+            height: frame.h,
+            frameId,
+            source: `${imageUrl}#${frameId}`
         });
     }
+    return result;
+}
 
-    function clone(value) {
-        return JSON.parse(JSON.stringify(value));
+function setupAnimationSelect() {
+    const previous = els.animationSelect.value;
+    els.animationSelect.innerHTML = "";
+    const entries = Object.entries(state.character.animationMap || {}).filter(([, url]) => Boolean(url));
+    for (const [slot] of entries) {
+        const option = document.createElement("option");
+        option.value = slot;
+        option.textContent = slot;
+        els.animationSelect.appendChild(option);
     }
-
-    async function loadCharacter() {
-        state.character = await loadJson("assets/ct_char_wizard_1.json");
-        state.character.sourceUrl = "assets/ct_char_wizard_1.json";
-        const rigUrl = resolveRelativeUrl(state.character.sourceUrl, state.character.rig);
-        state.rig = await loadJson(rigUrl);
-        state.rig.sourceUrl = rigUrl;
-        const atlasUrl = resolveRelativeUrl(rigUrl, state.rig.atlasManifest || `${state.rig.atlasId}.json`);
-        state.atlas = await loadJson(atlasUrl);
-        state.atlas.sourceUrl = atlasUrl;
-        const imageUrl = resolveRelativeUrl(atlasUrl, state.atlas.image);
-        state.image = await loadImage(imageUrl);
-        state.assets = buildAssetsFromAtlas(state.image, state.atlas, state.rig, imageUrl);
-        setupPartSelect();
-        selectPart(els.partSelect.value || FIXED_DRAW_ORDER[0]);
-        refreshJson();
-        setStatus(`Loaded ${state.character.characterId}\nRig: ${rigUrl}\nAtlas: ${atlasUrl}\nImage: ${imageUrl}`);
+    if (!entries.length) {
+        throw new Error("Character definition does not map any animation files.");
     }
+    els.animationSelect.value = entries.some(([slot]) => slot === previous) ? previous : entries[0][0];
+}
 
-    function buildAssetsFromAtlas(image, atlas, rig, imageUrl) {
-        const result = new Map();
-        for (const partName of FIXED_DRAW_ORDER) {
-            const part = rig.parts[partName];
-            const frameId = part.frame || partName;
-            const frame = atlas.frames[frameId];
-            if (!frame) throw new Error(`Missing atlas frame ${frameId} for ${partName}`);
-            const canvasPart = document.createElement("canvas");
-            canvasPart.width = frame.w;
-            canvasPart.height = frame.h;
-            canvasPart.getContext("2d").drawImage(image, frame.x, frame.y, frame.w, frame.h, 0, 0, frame.w, frame.h);
-            result.set(partName, {
-                canvas: canvasPart,
-                width: frame.w,
-                height: frame.h,
-                frameId,
-                source: `${imageUrl}#${frameId}`
-            });
+async function loadAnimationSlot(slot) {
+    const relativeUrl = state.character.animationMap?.[slot];
+    if (!relativeUrl) {
+        throw new Error(`Animation slot "${slot}" has no file.`);
+    }
+    const url = resolveRelativeUrl(state.characterUrl, relativeUrl);
+    const raw = await loadJson(url);
+    state.animation = createEditableAnimationClip(raw, `animation ${slot}`);
+    state.animationUrl = url;
+    state.animationSlot = slot;
+    state.normalizedAnimation = null;
+    state.time = 0;
+    state.selectedKeyIndex = -1;
+    state.paused = false;
+    els.pause.textContent = "Pause";
+    syncAnimationControls();
+    refreshAnimationJson();
+    rebuildTimeline();
+    setStatus(`Loaded animation slot ${slot}\nAnimation: ${url}\nDuration: ${state.animation.duration.toFixed(3)} seconds`);
+}
+
+function setupPartSelect() {
+    const previous = els.partSelect.value;
+    els.partSelect.innerHTML = "";
+    for (const name of drawOrder()) {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = PART_LABELS[name] || name;
+        els.partSelect.appendChild(option);
+    }
+    els.partSelect.value = drawOrder().includes(previous) ? previous : drawOrder()[0];
+}
+
+function selectedPartName() {
+    return els.partSelect.value || drawOrder()[0];
+}
+
+function selectedProperty() {
+    return els.propertySelect.value || "x";
+}
+
+function selectPart(name) {
+    if (!state.rig) {
+        return;
+    }
+    const part = state.rig.parts[name];
+    const pivot = state.rig.pivots[name];
+    state.syncing = true;
+    els.partSelect.value = name;
+    els.pivotX.value = Number(pivot.x).toFixed(3);
+    els.pivotY.value = Number(pivot.y).toFixed(3);
+    els.offsetX.value = Math.round(part.offset?.x || 0);
+    els.offsetY.value = Math.round(part.offset?.y || 0);
+    els.partScale.value = Number(part.scale ?? 1).toFixed(3);
+    els.targetHeight.value = Math.round(part.targetHeight || 100);
+    state.syncing = false;
+    state.selectedKeyIndex = -1;
+    rebuildTimeline();
+}
+
+function writePartFromUi() {
+    if (state.syncing || !state.rig) {
+        return;
+    }
+    const name = selectedPartName();
+    const part = state.rig.parts[name];
+    const pivot = state.rig.pivots[name];
+    part.offset = part.offset || { x: 0, y: 0 };
+    pivot.x = Number(els.pivotX.value);
+    pivot.y = Number(els.pivotY.value);
+    part.offset.x = Number(els.offsetX.value);
+    part.offset.y = Number(els.offsetY.value);
+    part.scale = Number(els.partScale.value);
+    part.targetHeight = Number(els.targetHeight.value);
+    refreshRigJson();
+}
+
+function normalizedAnimation() {
+    if (!state.animation) {
+        return null;
+    }
+    if (!state.normalizedAnimation) {
+        state.normalizedAnimation = normalizeAnimationClip(state.animation, `animation ${state.animationSlot}`);
+    }
+    return state.normalizedAnimation;
+}
+
+function invalidateAnimation() {
+    state.normalizedAnimation = null;
+    refreshAnimationJson();
+}
+
+function samplePose() {
+    const clip = normalizedAnimation();
+    return clip ? sampleAnimationClip(clip, state.time) : null;
+}
+
+function syncAnimationControls() {
+    if (!state.animation) {
+        return;
+    }
+    const duration = Number(state.animation.duration);
+    state.syncing = true;
+    els.time.max = duration;
+    els.time.value = clamp(state.time, 0, duration);
+    els.loop.checked = state.animation.loop !== false;
+    state.syncing = false;
+    updateReadouts();
+}
+
+function updateReadouts() {
+    const duration = Number(state.animation?.duration || 0);
+    els.speedValue.textContent = `${Number(els.speed.value).toFixed(2)}x`;
+    els.timeValue.textContent = `${state.time.toFixed(3)} / ${duration.toFixed(3)} s`;
+    els.timelinePlayhead.style.left = `${duration > 0 ? state.time / duration * 100 : 0}%`;
+    const pose = samplePose();
+    const value = pose?.[selectedPartName()]?.[selectedProperty()];
+    els.sampleValue.textContent = Number.isFinite(value)
+        ? `Sampled ${selectedPartName()}.${selectedProperty()} = ${formatValue(value)}`
+        : "No sampled value for this track.";
+    if (state.selectedKeyIndex < 0 && document.activeElement !== els.keyValue) {
+        els.keyTime.value = state.time.toFixed(3);
+        if (Number.isFinite(value)) {
+            els.keyValue.value = formatValue(value);
         }
-        return result;
     }
+}
 
-    function setupPartSelect() {
-        const previous = els.partSelect.value;
-        els.partSelect.innerHTML = "";
-        for (const name of FIXED_DRAW_ORDER) {
-            const option = document.createElement("option");
-            option.value = name;
-            option.textContent = PART_LABELS[name] || name;
-            els.partSelect.appendChild(option);
+function rebuildTimeline() {
+    for (const marker of [...els.timeline.querySelectorAll(".key-marker")]) {
+        marker.remove();
+    }
+    if (!state.animation) {
+        return;
+    }
+    const duration = Number(state.animation.duration);
+    const track = getAnimationTrack(state.animation, selectedPartName(), selectedProperty(), false) || [];
+    const summary = animationTrackSummary(state.animation, selectedPartName(), selectedProperty());
+    els.trackSummary.textContent = `${summary.partName}.${summary.property}: ${summary.keyCount} keyframes`;
+    track.forEach((key, index) => {
+        const marker = document.createElement("button");
+        marker.type = "button";
+        marker.className = `key-marker${index === state.selectedKeyIndex ? " selected" : ""}`;
+        marker.style.left = `${duration > 0 ? Number(key.time) / duration * 100 : 0}%`;
+        marker.title = `${Number(key.time).toFixed(3)} s · ${formatValue(Number(key.value))} · ${key.easing}`;
+        marker.setAttribute("aria-label", marker.title);
+        marker.addEventListener("pointerdown", (event) => beginKeyDrag(event, index));
+        marker.addEventListener("click", (event) => {
+            event.stopPropagation();
+            selectKey(index);
+        });
+        els.timeline.appendChild(marker);
+    });
+    updateKeyButtons();
+    updateReadouts();
+}
+
+function selectKey(index) {
+    const track = getAnimationTrack(state.animation, selectedPartName(), selectedProperty(), false) || [];
+    const key = track[index];
+    if (!key) {
+        state.selectedKeyIndex = -1;
+        updateKeyButtons();
+        return;
+    }
+    state.selectedKeyIndex = index;
+    state.time = Number(key.time);
+    state.syncing = true;
+    els.time.value = state.time;
+    els.keyTime.value = Number(key.time).toFixed(3);
+    els.keyValue.value = formatValue(Number(key.value));
+    els.keyEasing.value = key.easing || "linear";
+    state.syncing = false;
+    rebuildTimeline();
+}
+
+function updateKeyButtons() {
+    const selected = state.selectedKeyIndex >= 0;
+    els.applyKey.disabled = !selected;
+    els.deleteKey.disabled = !selected;
+    els.copyKey.disabled = !selected;
+    els.pasteKey.disabled = !state.copiedKey;
+}
+
+function addKeyAtPlayhead() {
+    try {
+        const pose = samplePose();
+        const sampledValue = pose?.[selectedPartName()]?.[selectedProperty()];
+        const uiValue = Number(els.keyValue.value);
+        const value = Number.isFinite(uiValue) ? uiValue : sampledValue;
+        const index = upsertAnimationKeyframe(state.animation, selectedPartName(), selectedProperty(), {
+            time: state.time,
+            value,
+            easing: els.keyEasing.value || "linear"
+        });
+        state.selectedKeyIndex = index;
+        invalidateAnimation();
+        rebuildTimeline();
+        selectKey(index);
+        setStatus(`Added/updated ${selectedPartName()}.${selectedProperty()} at ${state.time.toFixed(3)} s.`);
+    } catch (error) {
+        setStatus(error.message);
+    }
+}
+
+function applySelectedKey() {
+    try {
+        const index = updateAnimationKeyframe(
+            state.animation,
+            selectedPartName(),
+            selectedProperty(),
+            state.selectedKeyIndex,
+            {
+                time: Number(els.keyTime.value),
+                value: Number(els.keyValue.value),
+                easing: els.keyEasing.value
+            }
+        );
+        state.selectedKeyIndex = index;
+        const track = getAnimationTrack(state.animation, selectedPartName(), selectedProperty(), false);
+        state.time = Number(track[index].time);
+        invalidateAnimation();
+        rebuildTimeline();
+        selectKey(index);
+        setStatus(`Applied keyframe ${index + 1} on ${selectedPartName()}.${selectedProperty()}.`);
+    } catch (error) {
+        setStatus(error.message);
+    }
+}
+
+function deleteSelectedKey() {
+    try {
+        if (deleteAnimationKeyframe(state.animation, selectedPartName(), selectedProperty(), state.selectedKeyIndex)) {
+            state.selectedKeyIndex = -1;
+            invalidateAnimation();
+            rebuildTimeline();
+            setStatus(`Deleted keyframe from ${selectedPartName()}.${selectedProperty()}.`);
         }
-        els.partSelect.value = previous || FIXED_DRAW_ORDER[0];
+    } catch (error) {
+        setStatus(error.message);
     }
+}
 
-    function selectedPartName() {
-        return els.partSelect.value || FIXED_DRAW_ORDER[0];
+function copySelectedKey() {
+    const track = getAnimationTrack(state.animation, selectedPartName(), selectedProperty(), false) || [];
+    const key = track[state.selectedKeyIndex];
+    if (!key) {
+        return;
     }
+    state.copiedKey = { ...key };
+    updateKeyButtons();
+    setStatus(`Copied key value ${formatValue(Number(key.value))} with ${key.easing} interpolation.`);
+}
 
-    function selectPart(name) {
-        if (!state.rig) return;
+function pasteKeyAtPlayhead() {
+    if (!state.copiedKey) {
+        return;
+    }
+    try {
+        const index = upsertAnimationKeyframe(state.animation, selectedPartName(), selectedProperty(), {
+            ...state.copiedKey,
+            time: state.time
+        });
+        state.selectedKeyIndex = index;
+        invalidateAnimation();
+        rebuildTimeline();
+        selectKey(index);
+        setStatus(`Pasted key at ${state.time.toFixed(3)} s.`);
+    } catch (error) {
+        setStatus(error.message);
+    }
+}
+
+function beginKeyDrag(event, index) {
+    event.preventDefault();
+    event.stopPropagation();
+    selectKey(index);
+    state.dragKey = { pointerId: event.pointerId };
+}
+
+function dragSelectedKey(event) {
+    if (!state.dragKey || event.pointerId !== state.dragKey.pointerId || state.selectedKeyIndex < 0) {
+        return;
+    }
+    event.preventDefault();
+    const time = timelineTimeFromClientX(event.clientX);
+    try {
+        const index = updateAnimationKeyframe(
+            state.animation,
+            selectedPartName(),
+            selectedProperty(),
+            state.selectedKeyIndex,
+            { time }
+        );
+        state.selectedKeyIndex = index;
+        state.time = time;
+        invalidateAnimation();
+        const track = getAnimationTrack(state.animation, selectedPartName(), selectedProperty(), false);
+        els.keyTime.value = Number(track[index].time).toFixed(3);
+        els.keyValue.value = formatValue(Number(track[index].value));
+        els.keyEasing.value = track[index].easing;
+        rebuildTimeline();
+    } catch (error) {
+        setStatus(error.message);
+    }
+}
+
+function endKeyDrag(event) {
+    if (!state.dragKey || event.pointerId !== state.dragKey.pointerId) {
+        return;
+    }
+    state.dragKey = null;
+    setStatus(`Moved keyframe to ${state.time.toFixed(3)} s.`);
+}
+
+function timelineTimeFromClientX(clientX) {
+    const rect = els.timeline.getBoundingClientRect();
+    const ratio = clamp((clientX - rect.left) / Math.max(1, rect.width), 0, 1);
+    return ratio * Number(state.animation?.duration || 0);
+}
+
+function scrubTimeline(event) {
+    if (event.target.classList.contains("key-marker")) {
+        return;
+    }
+    state.time = timelineTimeFromClientX(event.clientX);
+    state.selectedKeyIndex = -1;
+    state.syncing = true;
+    els.time.value = state.time;
+    state.syncing = false;
+    rebuildTimeline();
+}
+
+function allKeyTimes() {
+    const times = new Set([0, Number(state.animation?.duration || 0)]);
+    for (const partTracks of Object.values(state.animation?.tracks || {})) {
+        for (const track of Object.values(partTracks || {})) {
+            for (const key of track || []) {
+                times.add(Number(key.time));
+            }
+        }
+    }
+    return [...times].filter(Number.isFinite).sort((a, b) => a - b);
+}
+
+function stepPlayhead(direction) {
+    const times = allKeyTimes();
+    if (!times.length) {
+        return;
+    }
+    const epsilon = 0.00001;
+    let target;
+    if (direction > 0) {
+        target = times.find((time) => time > state.time + epsilon);
+        if (target === undefined) {
+            target = els.loop.checked ? times[0] : times[times.length - 1];
+        }
+    } else {
+        target = [...times].reverse().find((time) => time < state.time - epsilon);
+        if (target === undefined) {
+            target = els.loop.checked ? times[times.length - 1] : times[0];
+        }
+    }
+    state.time = target;
+    state.selectedKeyIndex = -1;
+    state.syncing = true;
+    els.time.value = state.time;
+    state.syncing = false;
+    rebuildTimeline();
+}
+
+function refreshAnimationJson() {
+    if (!state.animation) {
+        return;
+    }
+    try {
+        els.animationJson.value = JSON.stringify(serializeEditableAnimationClip(state.animation), null, 4);
+    } catch (error) {
+        setStatus(error.message);
+    }
+}
+
+function applyAnimationJson() {
+    try {
+        const parsed = JSON.parse(els.animationJson.value);
+        state.animation = createEditableAnimationClip(parsed, "animation JSON editor");
+        state.normalizedAnimation = null;
+        state.time = clamp(state.time, 0, Number(state.animation.duration));
+        state.selectedKeyIndex = -1;
+        syncAnimationControls();
+        rebuildTimeline();
+        refreshAnimationJson();
+        setStatus("Applied and validated animation JSON.");
+    } catch (error) {
+        setStatus(error.stack || error.message);
+    }
+}
+
+function refreshRigJson() {
+    if (!state.rig) {
+        return;
+    }
+    els.rigJson.value = JSON.stringify(state.rig, null, 4);
+}
+
+function downloadJson(filename, value) {
+    const blob = new Blob([JSON.stringify(value, null, 4)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+}
+
+function animationFilename() {
+    return state.animationUrl?.split("/").pop() || `${state.animation?.animationId || "animation"}.json`;
+}
+
+function setStatus(text) {
+    els.status.textContent = text;
+}
+
+function drawSprite(name, transform) {
+    const asset = state.assets.get(name);
+    if (!asset || !transform) {
+        return;
+    }
+    const pivot = state.rig.pivots[name];
+    const spriteScale = transform.targetHeight / Math.max(1, asset.height);
+    ctx.save();
+    ctx.globalAlpha *= transform.alpha;
+    ctx.translate(transform.x, transform.y);
+    ctx.rotate(transform.angle);
+    ctx.scale(spriteScale, spriteScale);
+    ctx.drawImage(asset.canvas, -pivot.x * asset.width, -pivot.y * asset.height);
+    ctx.strokeStyle = name === selectedPartName() ? "rgba(255, 237, 120, 0.95)" : "rgba(255, 255, 255, 0.22)";
+    ctx.lineWidth = name === selectedPartName() ? 2 / spriteScale : 1 / spriteScale;
+    ctx.strokeRect(-pivot.x * asset.width, -pivot.y * asset.height, asset.width, asset.height);
+    ctx.fillStyle = "rgba(255, 237, 120, 0.95)";
+    ctx.beginPath();
+    ctx.arc(0, 0, 4 / spriteScale, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+}
+
+function renderedPose() {
+    const pose = samplePose();
+    if (!pose || !state.rig) {
+        return null;
+    }
+    const globalScale = state.rig.global.scale * 1.9;
+    const result = {};
+    for (const name of drawOrder()) {
+        const local = pose[name];
         const part = state.rig.parts[name];
-        const pivot = state.rig.pivots[name];
+        result[name] = {
+            x: local.x * globalScale,
+            y: local.y * globalScale,
+            angle: local.rotation,
+            targetHeight: part.targetHeight * globalScale * local.scale,
+            alpha: local.alpha
+        };
+    }
+    return result;
+}
+
+function render(now) {
+    const dt = Math.min(0.05, Math.max(0, (now - state.lastTime) / 1000));
+    state.lastTime = now;
+    const duration = Number(state.animation?.duration || 0);
+    if (!state.paused && duration > 0) {
+        state.time += dt * Number(els.speed.value);
+        if (state.time >= duration) {
+            if (els.loop.checked) {
+                state.time %= duration;
+            } else {
+                state.time = duration;
+                state.paused = true;
+                els.pause.textContent = "Play";
+            }
+        }
         state.syncing = true;
-        els.partSelect.value = name;
-        els.pivotX.value = Number(pivot.x).toFixed(3);
-        els.pivotY.value = Number(pivot.y).toFixed(3);
-        els.offsetX.value = Math.round(part.offset?.x || 0);
-        els.offsetY.value = Math.round(part.offset?.y || 0);
-        els.partScale.value = Number(part.scale ?? 1).toFixed(2);
-        els.targetHeight.value = Math.round(part.targetHeight || 100);
+        els.time.value = state.time;
         state.syncing = false;
     }
+    updateReadouts();
 
-    function writePartFromUi() {
-        if (state.syncing || !state.rig) return;
-        const name = selectedPartName();
-        const part = state.rig.parts[name];
-        const pivot = state.rig.pivots[name];
-        part.offset = part.offset || { x: 0, y: 0 };
-        pivot.x = Number(els.pivotX.value);
-        pivot.y = Number(els.pivotY.value);
-        part.offset.x = Number(els.offsetX.value);
-        part.offset.y = Number(els.offsetY.value);
-        part.scale = Number(els.partScale.value);
-        part.targetHeight = Number(els.targetHeight.value);
-        refreshJson();
-    }
-
-    function refreshJson() {
-        if (!state.rig) return;
-        els.rigJson.value = JSON.stringify(state.rig, null, 4);
-    }
-
-    function setStatus(text) {
-        els.status.textContent = text;
-    }
-
-    function add(a, b) {
-        return { x: a.x + b.x, y: a.y + b.y };
-    }
-
-    function rotatePoint(x, y, angle) {
-        const c = Math.cos(angle);
-        const s = Math.sin(angle);
-        return { x: x * c - y * s, y: x * s + y * c };
-    }
-
-    function scaledRotatedAnchor(anchor, scale, angle) {
-        return rotatePoint(anchor.x * scale, anchor.y * scale, angle);
-    }
-
-    function applyPartOffset(point, part, scale) {
-        return {
-            x: point.x + (part.offset?.x || 0) * scale,
-            y: point.y + (part.offset?.y || 0) * scale
-        };
-    }
-
-    function makeRigidTransform(name, point, baseAngle, scale) {
-        const part = state.rig.parts[name];
-        const rotation = part.rotation || {};
-        const p = applyPartOffset(point, part, scale);
-        return {
-            x: p.x,
-            y: p.y,
-            angle: baseAngle * (rotation.torso ?? 1) + (rotation.base ?? 0),
-            targetHeight: part.targetHeight * scale * part.scale,
-            alpha: part.alpha ?? 1
-        };
-    }
-
-    function makeLegTransform(side, root, phase, scale) {
-        const name = side === "left" ? "leftFoot" : "rightFoot";
-        const part = state.rig.parts[name];
-        const motion = state.rig.legMotion;
-        const p = phase + (side === "left" ? 0 : Math.PI);
-        const stride = -Math.sin(p);
-        const lift = Math.max(0, -Math.cos(p));
-        const planted = Math.max(0, Math.cos(p));
-        const baseX = side === "left" ? motion.leftBaseX : motion.rightBaseX;
-        const basePoint = {
-            x: root.x + (baseX + stride * motion.stride) * scale,
-            y: (motion.groundRise - lift * motion.lift) * scale
-        };
-        const point = applyPartOffset(basePoint, part, scale);
-        return {
-            x: point.x,
-            y: point.y,
-            angle: part.rotation.base + motion.angleStride * stride + motion.angleLift * lift + motion.anglePlanted * planted,
-            targetHeight: part.targetHeight * scale * part.scale,
-            alpha: part.alpha ?? 1
-        };
-    }
-
-    function makeArmTransform(side, shoulder, phase, scale, torsoAngle) {
-        const name = side === "left" ? "leftArm" : "rightArm";
-        const part = state.rig.parts[name];
-        const rotation = part.rotation || {};
-        const p = phase + (side === "left" ? 0 : Math.PI);
-        const swing = -Math.sin(p);
-        const lift = Math.max(0, -Math.cos(p));
-        const point = applyPartOffset(shoulder, part, scale);
-        return {
-            x: point.x,
-            y: point.y,
-            angle: torsoAngle * (rotation.torso ?? 1) + (rotation.base ?? 0) + swing * (rotation.swing ?? 0) + lift * (rotation.lift ?? 0),
-            targetHeight: part.targetHeight * scale * part.scale,
-            alpha: part.alpha ?? 1
-        };
-    }
-
-    function computePose() {
-        const phase = state.phase;
-        const cfg = state.rig;
-        const scale = cfg.global.scale * 1.9;
-        const anim = cfg.animation;
-        const anchors = cfg.anchors;
-        const bob = Math.sin(phase * 2) * anim.bobAmplitude - Math.max(0, Math.cos(phase * 2)) * anim.bobCompression;
-        const torsoAngle = cfg.global.lean + Math.sin(phase * 2) * anim.torsoWobble;
-        const headAngle = torsoAngle * anim.headLeanMultiplier + Math.sin(phase * 2 + 0.4) * anim.headWobble;
-        const root = { x: 0, y: cfg.global.rootYOffsetFromGround * scale + bob * scale };
-        const shoulderCenter = add(root, scaledRotatedAnchor(anchors.shoulderCenter, scale, torsoAngle));
-        const leftShoulder = add(shoulderCenter, scaledRotatedAnchor(anchors.leftShoulder, scale, torsoAngle));
-        const rightShoulder = add(shoulderCenter, scaledRotatedAnchor(anchors.rightShoulder, scale, torsoAngle));
-        const neck = add(root, scaledRotatedAnchor(anchors.neck, scale, torsoAngle));
-        const rocketMount = add(root, scaledRotatedAnchor(anchors.rocketMount, scale, torsoAngle));
-        const hatBase = add(neck, scaledRotatedAnchor(anchors.hatFromHead, scale, headAngle));
-        const rocketBob = Math.sin(phase * 2 + 0.7) * anim.rocketBob * scale;
-        const rocketBobPoint = { x: rocketMount.x, y: rocketMount.y + rocketBob };
-        return {
-            leftArm: makeArmTransform("left", leftShoulder, phase, scale, torsoAngle),
-            leftFoot: makeLegTransform("left", root, phase, scale),
-            rocket: makeRigidTransform("rocket", rocketBobPoint, torsoAngle, scale),
-            rightFoot: makeLegTransform("right", root, phase, scale),
-            robe: makeRigidTransform("robe", root, torsoAngle, scale),
-            head: makeRigidTransform("head", neck, headAngle, scale),
-            hat: makeRigidTransform("hat", hatBase, headAngle, scale),
-            rightArm: makeArmTransform("right", rightShoulder, phase, scale, torsoAngle)
-        };
-    }
-
-    function drawSprite(name, transform) {
-        const asset = state.assets.get(name);
-        if (!asset || !transform) return;
-        const pivot = state.rig.pivots[name];
-        const spriteScale = transform.targetHeight / Math.max(1, asset.height);
-        ctx.save();
-        ctx.globalAlpha *= transform.alpha;
-        ctx.translate(transform.x, transform.y);
-        ctx.rotate(transform.angle);
-        ctx.scale(spriteScale, spriteScale);
-        ctx.drawImage(asset.canvas, -pivot.x * asset.width, -pivot.y * asset.height);
-        ctx.strokeStyle = name === selectedPartName() ? "rgba(255, 237, 120, 0.95)" : "rgba(255, 255, 255, 0.22)";
-        ctx.lineWidth = name === selectedPartName() ? 2 / spriteScale : 1 / spriteScale;
-        ctx.strokeRect(-pivot.x * asset.width, -pivot.y * asset.height, asset.width, asset.height);
-        ctx.fillStyle = "rgba(255, 237, 120, 0.95)";
-        ctx.beginPath();
-        ctx.arc(0, 0, 4 / spriteScale, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-    }
-
-    function render(now) {
-        const dt = Math.min(0.05, Math.max(0, (now - state.lastTime) / 1000));
-        state.lastTime = now;
-        if (!state.paused) {
-            state.phase = (state.phase + dt * Number(els.speed.value) * Math.PI * 2) % (Math.PI * 2);
-            state.syncing = true;
-            els.phase.value = state.phase;
-            state.syncing = false;
-        } else {
-            state.phase = Number(els.phase.value);
+    ctx.fillStyle = "rgb(6, 6, 12)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.translate(canvas.width * 0.5, canvas.height * 0.78);
+    ctx.scale(state.facing, 1);
+    const pose = renderedPose();
+    if (pose) {
+        for (const name of drawOrder()) {
+            drawSprite(name, pose[name]);
         }
-        els.speedValue.textContent = `${Number(els.speed.value).toFixed(2)}x`;
-        els.phaseValue.textContent = state.phase.toFixed(3);
-
-        ctx.fillStyle = "rgb(6, 6, 12)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.save();
-        ctx.translate(canvas.width * 0.5, canvas.height * 0.78);
-        ctx.scale(state.facing, 1);
-        if (state.rig) {
-            const pose = computePose();
-            for (const name of FIXED_DRAW_ORDER) drawSprite(name, pose[name]);
-        }
-        ctx.restore();
-        requestAnimationFrame(render);
     }
-
-    els.partSelect.addEventListener("change", () => selectPart(selectedPartName()));
-    for (const el of [els.pivotX, els.pivotY, els.offsetX, els.offsetY, els.partScale, els.targetHeight]) {
-        el.addEventListener("input", writePartFromUi);
-    }
-    els.phase.addEventListener("input", () => {
-        if (!state.syncing) state.phase = Number(els.phase.value);
-    });
-    els.pause.addEventListener("click", () => {
-        state.paused = !state.paused;
-        els.pause.textContent = state.paused ? "Resume" : "Pause";
-    });
-    els.mirror.addEventListener("click", () => {
-        state.facing *= -1;
-        els.mirror.textContent = state.facing === 1 ? "Facing: right" : "Facing: left";
-    });
-    els.reload.addEventListener("click", () => {
-        loadCharacter().catch((error) => setStatus(error.stack || error.message));
-    });
-    els.refreshJson.addEventListener("click", refreshJson);
-    els.downloadJson.addEventListener("click", () => {
-        refreshJson();
-        const blob = new Blob([els.rigJson.value], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "ct_rig_wizard_1.json";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-    });
-    els.copyMirroredNote.addEventListener("click", () => {
-        setStatus("Most future character animations should be authored facing right and tagged mirrorable. The runtime should flip the final rig when facing left; paste-mirrored pose is only a convenience for rare asymmetric edits.");
-    });
-
-    loadCharacter().catch((error) => setStatus(error.stack || error.message));
+    ctx.restore();
     requestAnimationFrame(render);
-})();
+}
+
+function formatValue(value) {
+    return Number(value).toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
+els.animationSelect.addEventListener("change", () => {
+    loadAnimationSlot(els.animationSelect.value).catch((error) => setStatus(error.stack || error.message));
+});
+els.partSelect.addEventListener("change", () => selectPart(selectedPartName()));
+els.propertySelect.addEventListener("change", () => {
+    state.selectedKeyIndex = -1;
+    rebuildTimeline();
+});
+for (const el of [els.pivotX, els.pivotY, els.offsetX, els.offsetY, els.partScale, els.targetHeight]) {
+    el.addEventListener("input", writePartFromUi);
+}
+els.time.addEventListener("input", () => {
+    if (!state.syncing) {
+        state.time = Number(els.time.value);
+        state.selectedKeyIndex = -1;
+        rebuildTimeline();
+    }
+});
+els.pause.addEventListener("click", () => {
+    state.paused = !state.paused;
+    els.pause.textContent = state.paused ? "Play" : "Pause";
+});
+els.stepBack.addEventListener("click", () => stepPlayhead(-1));
+els.stepForward.addEventListener("click", () => stepPlayhead(1));
+els.mirror.addEventListener("click", () => {
+    state.facing *= -1;
+    els.mirror.textContent = state.facing === 1 ? "Facing: right" : "Facing: left";
+});
+els.reload.addEventListener("click", () => {
+    loadCharacter().catch((error) => setStatus(error.stack || error.message));
+});
+els.loop.addEventListener("change", () => {
+    if (state.animation) {
+        state.animation.loop = els.loop.checked;
+        invalidateAnimation();
+    }
+});
+els.timeline.addEventListener("pointerdown", scrubTimeline);
+window.addEventListener("pointermove", dragSelectedKey, { passive: false });
+window.addEventListener("pointerup", endKeyDrag);
+window.addEventListener("pointercancel", endKeyDrag);
+els.addKey.addEventListener("click", addKeyAtPlayhead);
+els.applyKey.addEventListener("click", applySelectedKey);
+els.deleteKey.addEventListener("click", deleteSelectedKey);
+els.copyKey.addEventListener("click", copySelectedKey);
+els.pasteKey.addEventListener("click", pasteKeyAtPlayhead);
+els.applyAnimationJson.addEventListener("click", applyAnimationJson);
+els.refreshAnimationJson.addEventListener("click", refreshAnimationJson);
+els.downloadAnimationJson.addEventListener("click", () => {
+    try {
+        downloadJson(animationFilename(), serializeEditableAnimationClip(state.animation));
+        setStatus(`Downloaded ${animationFilename()}.`);
+    } catch (error) {
+        setStatus(error.message);
+    }
+});
+els.refreshRigJson.addEventListener("click", refreshRigJson);
+els.downloadRigJson.addEventListener("click", () => {
+    downloadJson(state.rigUrl?.split("/").pop() || "ct_rig_wizard_1.json", state.rig);
+    setStatus("Downloaded rig JSON.");
+});
+
+updateKeyButtons();
+loadCharacter().catch((error) => setStatus(error.stack || error.message));
+requestAnimationFrame(render);
 </script>
 </body>
 </html>

@@ -2,6 +2,21 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { computeResponsiveViewportMetrics } from "./IgnatiusRocketfrock_RENDER.js";
 import {
+    animationTimeFromPhase,
+    blendAnimationPoses,
+    normalizeAnimationClip,
+    sampleAnimationClip,
+    sampleAnimationTrack
+} from "./IgnatiusRocketfrock_ANIMATION.js";
+import {
+    createEditableAnimationClip,
+    deleteAnimationKeyframe,
+    getAnimationTrack,
+    serializeEditableAnimationClip,
+    updateAnimationKeyframe,
+    upsertAnimationKeyframe
+} from "./IgnatiusRocketfrock_ANIMATION_EDITOR.js";
+import {
     FIXED_DT,
     DEFAULT_TUNING,
     createInitialGameState,
@@ -52,6 +67,120 @@ function testResponsiveViewportScaling() {
     approx(desktop.cssScale, 1, 0.001, "desktop scale should not shrink");
     approx(desktop.virtualWidth, 1280, 0.001, "wide screens should keep their real CSS width");
     approx(desktop.zoom, 1.5, 0.001, "desktop zoom should remain DPR-only");
+}
+
+
+function testDataDrivenRunAnimation() {
+    const rawClip = JSON.parse(readFileSync(new URL("./assets/ct_anim_wizard_run_1.json", import.meta.url), "utf8"));
+    const clip = normalizeAnimationClip(rawClip, "wizard run animation");
+    const expectedParts = ["leftArm", "leftFoot", "rocket", "rightFoot", "robe", "head", "hat", "rightArm"];
+
+    assert.equal(clip.animationId, "ct_anim_wizard_run_1", "run clip id should be stable");
+    assert.equal(clip.loop, true, "run clip should loop");
+    assert.equal(clip.duration, 0.72, "run clip duration should remain explicit data");
+    assert.deepStrictEqual(Object.keys(clip.referencePose), expectedParts, "run clip should define every rig part");
+    assert.equal(clip.playback.baseCyclesPerSecond, 0.55, "run playback base cadence should come from JSON");
+    assert.equal(clip.playback.speedCyclesPerSecond, 2.6, "run playback speed response should come from JSON");
+
+    for (const partName of expectedParts) {
+        const partTracks = clip.tracks[partName];
+        assert.ok(partTracks, `${partName} should have an animation track group`);
+        for (const property of ["x", "y", "rotation"]) {
+            const track = partTracks[property];
+            assert.ok(Array.isArray(track) && track.length >= 1, `${partName}.${property} should have keyframes`);
+            assert.equal(track[0].time, 0, `${partName}.${property} should begin at time zero`);
+            assert.equal(track[track.length - 1].time, clip.duration, `${partName}.${property} should close at the clip duration`);
+            approx(track[0].value, track[track.length - 1].value, 0.000001, `${partName}.${property} loop closure`);
+        }
+    }
+
+    for (let sampleIndex = 0; sampleIndex <= 48; sampleIndex += 1) {
+        const time = clip.duration * sampleIndex / 48;
+        const pose = sampleAnimationClip(clip, time);
+        for (const partName of expectedParts) {
+            for (const property of ["x", "y", "rotation", "scale", "alpha"]) {
+                assert.ok(Number.isFinite(pose[partName][property]), `${partName}.${property} should be finite at sample ${sampleIndex}`);
+            }
+        }
+    }
+
+    const loopStart = sampleAnimationClip(clip, 0);
+    const loopEnd = sampleAnimationClip(clip, clip.duration);
+    assert.deepStrictEqual(loopEnd, loopStart, "loop end should wrap exactly to loop start");
+
+    const halfMotion = blendAnimationPoses(clip.referencePose, sampleAnimationClip(clip, clip.duration * 0.25), 0.5);
+    assert.ok(Number.isFinite(halfMotion.leftFoot.x), "pose blending should produce finite transforms");
+
+    const rendererSource = readFileSync(new URL("./IgnatiusRocketfrock_RENDER.js", import.meta.url), "utf8");
+    const gameSource = readFileSync(new URL("./IgnatiusRocketfrock_GAME.js", import.meta.url), "utf8");
+    const gameHtml = readFileSync(new URL("./game.html", import.meta.url), "utf8");
+    assert.equal(rendererSource.includes("computeLegacyGroundAnimationPose"), false, "legacy procedural run should be removed");
+    assert.equal(rendererSource.includes("comparisonPose"), false, "legacy comparison drawing should be removed");
+    assert.equal(gameSource.includes("cycleAnimationMode"), false, "animation comparison mode should be removed from the game");
+    assert.equal(gameHtml.includes("toggle-animation-mode"), false, "animation comparison button should be removed from the game UI");
+}
+
+function testAnimationEditorOperations() {
+    const rawClip = JSON.parse(readFileSync(new URL("./assets/ct_anim_wizard_run_1.json", import.meta.url), "utf8"));
+    const editable = createEditableAnimationClip(rawClip, "editable run");
+    const originalTrack = getAnimationTrack(editable, "hat", "rotation", false);
+    const originalCount = originalTrack.length;
+
+    const insertedIndex = upsertAnimationKeyframe(editable, "hat", "rotation", {
+        time: 0.111,
+        value: 0.25,
+        easing: "easeInOut"
+    });
+    let track = getAnimationTrack(editable, "hat", "rotation", false);
+    assert.equal(track.length, originalCount + 1, "adding a keyframe should increase the track length");
+    approx(track[insertedIndex].time, 0.111, 0.000001, "inserted key time");
+    approx(track[insertedIndex].value, 0.25, 0.000001, "inserted key value");
+
+    const movedIndex = updateAnimationKeyframe(editable, "hat", "rotation", insertedIndex, {
+        time: 0.112,
+        value: 0.3,
+        easing: "easeOut"
+    });
+    track = getAnimationTrack(editable, "hat", "rotation", false);
+    approx(track[movedIndex].time, 0.112, 0.000001, "moved key time");
+    approx(track[movedIndex].value, 0.3, 0.000001, "edited key value");
+    assert.equal(track[movedIndex].easing, "easeOut", "edited easing should persist");
+
+    assert.equal(deleteAnimationKeyframe(editable, "hat", "rotation", movedIndex), true, "selected key should delete");
+    assert.equal(getAnimationTrack(editable, "hat", "rotation", false).length, originalCount, "deleting should restore track length");
+
+    const serialized = serializeEditableAnimationClip(editable, "serialized editable run");
+    assert.equal(serialized._normalizedAnimationClip, undefined, "editor metadata should not leak into exported JSON");
+    assert.equal(serialized.sourceUrl, undefined, "source URL should not leak into exported JSON");
+    normalizeAnimationClip(serialized, "round-tripped editor animation");
+
+    const toolHtml = readFileSync(new URL("./character_tool.html", import.meta.url), "utf8");
+    assert.ok(toolHtml.includes("Animation track"), "character tool should expose animation track editing");
+    assert.ok(toolHtml.includes("Add at playhead"), "character tool should expose keyframe creation");
+    assert.ok(toolHtml.includes("Drag a diamond"), "character tool should explain draggable keyframes");
+}
+
+function testAnimationEasingModes() {
+    const track = [
+        { time: 0, value: 0, easing: "linear" },
+        { time: 1, value: 10, easing: "linear" }
+    ];
+    approx(sampleAnimationTrack(track, 0.5, 1, false), 5, 0.000001, "linear keyframe interpolation");
+    approx(sampleAnimationTrack(track, 2, 1, false), 10, 0.000001, "one-shot tracks should clamp at their final key");
+    approx(sampleAnimationTrack(track, 1.25, 1, true), 2.5, 0.000001, "looped tracks should wrap after their duration");
+
+    const stepTrack = [
+        { time: 0, value: 3, easing: "step" },
+        { time: 1, value: 9, easing: "linear" }
+    ];
+    approx(sampleAnimationTrack(stepTrack, 0.75, 1, false), 3, 0.000001, "step keyframe interpolation");
+
+    const easeTrack = [
+        { time: 0, value: 0, easing: "easeInOut" },
+        { time: 1, value: 10, easing: "linear" }
+    ];
+    approx(sampleAnimationTrack(easeTrack, 0.25, 1, false), 1.25, 0.000001, "ease-in-out first quarter");
+    approx(sampleAnimationTrack(easeTrack, 0.75, 1, false), 8.75, 0.000001, "ease-in-out third quarter");
 }
 
 function testStateSerialization() {
@@ -643,6 +772,9 @@ function testAttachedSmokeDownSpeedTuning() {
 
 const tests = [
     ["responsive viewport scaling", testResponsiveViewportScaling],
+    ["data-driven wizard run animation", testDataDrivenRunAnimation],
+    ["animation editor keyframe operations", testAnimationEditorOperations],
+    ["animation easing modes", testAnimationEasingModes],
     ["state serialization and cloning", testStateSerialization],
     ["headless stepping and floor collision", testHeadlessSteppingAndFloorCollision],
     ["left/right movement symmetry", testLeftRightSymmetry],

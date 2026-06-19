@@ -62,12 +62,12 @@ Goal: replace custom wizard body-part loading and hardcoded character posing wit
 
 ### Phase 2 Design Rules
 
-* [ ] Load Ignatius from `ct_atlas_wizard_1.png` rather than individual body-part PNG files.
-* [ ] Use a separate asset manifest for character part frames.
-* [ ] Use a separate rig JSON to define how frames become a character body.
-* [ ] Use separate animation JSON files for reusable or character-specific motion.
-* [ ] Use a character definition JSON to assign a rig and animation set to a character.
-* [ ] Keep rendering resources outside `gameState`.
+* [x] Load Ignatius from `ct_atlas_wizard_1.png` rather than individual body-part PNG files.
+* [x] Use a separate asset manifest for character part frames.
+* [x] Use a separate rig JSON to define how frames become a character body.
+* [x] Use separate animation JSON files for reusable or character-specific motion.
+* [x] Use a character definition JSON to assign a rig and animation set to a character.
+* [x] Keep rendering resources outside `gameState`.
 * [ ] Keep animation state in or derivable from `gameState` when it affects gameplay, replay, debugging, or deterministic state transitions.
 * [ ] Keep character rendering data compatible with a later WebGL2 renderer.
 * [ ] Treat reusable animations as templates that can be duplicated and tweaked per character.
@@ -75,14 +75,14 @@ Goal: replace custom wizard body-part loading and hardcoded character posing wit
 
 ### File Format Targets
 
-* [ ] Create `ct_atlas_wizard_1.json` for frames inside `ct_atlas_wizard_1.png`.
-* [ ] Create `ct_rig_wizard_1.json` converted from the current wizard rig settings.
-* [ ] Create `ct_anim_wizard_run_1.json` that reproduces the current hardcoded run.
-* [ ] Create `ct_char_wizard_1.json` that maps gameplay animation states to the wizard rig and animation files.
-* [ ] Define a character asset manifest format that can later be shared with monsters.
-* [ ] Define a rig format with part IDs, frame IDs, parent anchors, pivots, offsets, scale, rotation, draw order, roles, and tags.
-* [ ] Define an animation format with duration, looping, tracks, keyframes, interpolation, and optional root motion flags.
-* [ ] Define a character format that maps animation states such as `idle`, `run`, `jump`, `fall`, `hover`, `launch`, `hurt`, and `attack`.
+* [x] Create `ct_atlas_wizard_1.json` for frames inside `ct_atlas_wizard_1.png`.
+* [x] Create `ct_rig_wizard_1.json` converted from the current wizard rig settings.
+* [x] Create `ct_anim_wizard_run_1.json` that reproduces the current hardcoded run.
+* [x] Create `ct_char_wizard_1.json` that maps gameplay animation states to the wizard rig and animation files.
+* [x] Define a character asset manifest format that can later be shared with monsters.
+* [x] Define a rig format with part IDs, frame IDs, parent anchors, pivots, offsets, scale, rotation, draw order, roles, and tags.
+* [x] Define an animation format with duration, looping, tracks, keyframes, interpolation, and optional root motion flags.
+* [x] Define a character format that maps animation states such as `idle`, `run`, `jump`, `fall`, `hover`, `launch`, `hurt`, and `attack`.
 
 ### Rig Roles and Retargeting Preparation
 
@@ -95,15 +95,16 @@ Goal: replace custom wizard body-part loading and hardcoded character posing wit
 
 ### Animation Data
 
-* [ ] Prefer keyframes over JavaScript expressions for the first animation system.
-* [ ] Support interpolation modes: `step`, `linear`, `easeIn`, `easeOut`, and `easeInOut`.
-* [ ] Support tracks for position, rotation, scale, alpha, and optional visibility.
-* [ ] Support looped animations.
-* [ ] Support one-shot animations.
-* [ ] Support per-animation playback speed.
-* [ ] Support mirrored playback when the character faces left.
+* [x] Prefer keyframes over JavaScript expressions for the first animation system.
+* [x] Support interpolation modes: `step`, `linear`, `easeIn`, `easeOut`, and `easeInOut`.
+* [x] Support tracks for position, rotation, scale, and alpha.
+* [ ] Add optional visibility tracks when the first animation actually needs them.
+* [x] Support looped animations.
+* [x] Support one-shot animations.
+* [x] Support per-animation playback speed.
+* [x] Support mirrored playback when the character faces left.
 * [ ] Support paired limb helpers such as left/right copy, mirror, and phase offset.
-* [ ] Defer procedural modifiers until keyframed animation is stable.
+* [x] Defer procedural modifiers until keyframed animation is stable.
 * [ ] Later support procedural modifiers for beard, hair strands, robe edges, wings, dangling parts, and rocket bob.
 
 ### Generic Character Renderer
@@ -120,24 +121,30 @@ Goal: replace custom wizard body-part loading and hardcoded character posing wit
 
 ### Wizard Migration
 
-* [ ] Create frame definitions in `ct_atlas_wizard_1.json` matching current wizard parts.
-* [ ] Convert current `wizard_rig_config.json` values into `ct_rig_wizard_1.json`.
-* [ ] Render the wizard from `ct_atlas_wizard_1.png` with no visible pose regression.
-* [ ] Keep a temporary comparison path against the old individual-PNG renderer until parity is confirmed.
-* [ ] Verify draw order matches the old wizard renderer.
-* [ ] Verify pivots and offsets match the old wizard renderer.
-* [ ] Verify left/right mirroring matches the old wizard renderer.
-* [ ] Remove individual body-part loading only after the atlas version is visually equivalent.
+* [x] Create frame definitions in `ct_atlas_wizard_1.json` matching current wizard parts.
+* [x] Convert current `wizard_rig_config.json` values into `ct_rig_wizard_1.json`.
+* [x] Render the wizard from `ct_atlas_wizard_1.png` with no visible pose regression.
+* [x] Remove the temporary run comparison path after parity was confirmed.
+* [x] Verify draw order matches the old wizard renderer.
+* [x] Verify pivots and offsets match the old wizard renderer.
+* [x] Verify left/right mirroring matches the old wizard renderer.
+* [x] Remove individual body-part loading only after the atlas version is visually equivalent.
 
 ### Wizard Run Ground Truth
 
-* [ ] Treat the current wizard run animation as ground truth.
-* [ ] Recreate the current hardcoded run as `ct_anim_wizard_run_1.json`.
-* [ ] Add a comparison mode that can overlay or toggle between legacy run pose and new keyframed run pose.
-* [ ] Sample the run cycle at 16 or 24 points and compare part transforms.
-* [ ] Tune keyframes until the new run is near pixel-perfect.
-* [ ] Preserve the current run timing and stride unless deliberately retuned.
-* [ ] Add a headless or browser-assisted regression test for sampled run-pose parity.
+* [x] Treat the current wizard run animation as ground truth.
+* [x] Recreate the current hardcoded run as `ct_anim_wizard_run_1.json`.
+* [x] Add a comparison mode that can overlay or toggle between legacy run pose and new keyframed run pose.
+* [x] Sample the run cycle at 16 or 24 points and compare part transforms.
+* [x] Tune keyframes until the new run is near pixel-perfect.
+* [x] Preserve the current run timing and stride unless deliberately retuned.
+* [x] Add a headless or browser-assisted regression test for sampled run-pose parity.
+
+### Revision 056 Animation Baseline
+
+The run clip is loaded through `ct_char_wizard_1.json`, validated by `IgnatiusRocketfrock_ANIMATION.js`, and sampled as rig-space keyframes. The old procedural run, comparison overlay, toolbar button, and <kbd>N</kbd> shortcut have been removed. `ct_anim_wizard_run_1.json` is now the sole ground-run source of truth.
+
+`character_tool.html` now loads and edits mapped animation JSON. It provides playback, pause, loop, speed, scrubbing, stepping between authored key times, a per-part/per-property timeline, draggable key markers, exact key time/value/easing fields, add/delete/copy/paste operations, and animation JSON export. Shared mutation logic is tested through `IgnatiusRocketfrock_ANIMATION_EDITOR.js`.
 
 ### Other Wizard Animation States
 
@@ -156,37 +163,37 @@ Goal: replace custom wizard body-part loading and hardcoded character posing wit
 
 Goal: create a tool where rigs and animations can be created, duplicated, edited, previewed, and exported.
 
-* [ ] Create `character_tool.html`.
-* [ ] Load a character atlas image.
-* [ ] Load a character atlas JSON.
-* [ ] Load a rig JSON.
-* [ ] Load an animation JSON.
-* [ ] Load a character definition JSON.
+* [x] Create `character_tool.html`.
+* [x] Load a character atlas image.
+* [x] Load a character atlas JSON.
+* [x] Load a rig JSON.
+* [x] Load an animation JSON.
+* [x] Load a character definition JSON.
 * [ ] Provide tabs or modes for atlas parts, rig, animation, preview, and export.
-* [ ] Show a rig preview canvas.
+* [x] Show a rig preview canvas.
 * [ ] Allow click-and-drag editing of pivots, offsets, anchors, and part transforms.
-* [ ] Provide exact numeric fields for all important rig values.
+* [x] Provide exact numeric fields for all important rig values.
 * [ ] Provide draw-order controls.
 * [ ] Provide part role/tag editing.
-* [ ] Provide animation playback controls: play, pause, loop, frame step, speed, and scrubber.
-* [ ] Provide a timeline with keyframes.
-* [ ] Allow adding, moving, deleting, copying, and pasting keyframes.
+* [x] Provide animation playback controls: play, pause, loop, frame step, speed, and scrubber.
+* [x] Provide a timeline with keyframes.
+* [x] Allow adding, moving, deleting, copying, and pasting keyframes.
 * [ ] Allow duplicating an animation.
 * [ ] Allow copying a pose and pasting it mirrored.
 * [ ] Allow paired-limb phase offset helpers.
 * [ ] Show ghost previous/next poses while animating.
-* [ ] Provide a legacy comparison mode for the wizard run migration.
-* [ ] Export atlas, rig, animation, and character JSON.
+* [x] Remove the no-longer-needed legacy comparison mode after run parity was accepted.
+* [ ] Export atlas, rig, animation, and character JSON. Rig and animation export are implemented; atlas and character-definition export remain.
 * [ ] Keep the tool pleasant enough for long manual tuning sessions.
 
 ### Phase 2 Completion
 
 * [ ] The wizard renders from `ct_atlas_wizard_1.png` and no longer needs individual body-part PNG files.
-* [ ] The wizard run animation is reproduced by data-driven animation with near pixel-perfect parity.
+* [x] The wizard run animation is reproduced by data-driven animation with near pixel-perfect parity.
 * [ ] Jump, fall, hover, launch, idle, and landing poses are animation data rather than renderer-specific hardcoding.
-* [ ] The character tool can edit and export wizard rig and animation data.
+* [x] The character tool can edit and export wizard rig and animation data.
 * [ ] The generic character renderer is ready to support monsters and other mobs.
-* [ ] Headless and/or browser tests cover key migration risks.
+* [x] Headless and/or browser tests cover key migration risks.
 
 ## Phase 3: Monster and Mob Character Pipeline
 

@@ -1,3 +1,10 @@
+import {
+    animationTimeFromPhase,
+    blendAnimationPoses,
+    normalizeAnimationClip,
+    sampleAnimationClip
+} from "./IgnatiusRocketfrock_ANIMATION.js";
+
 const FIXED_DRAW_ORDER = [
     "leftArm",
     "leftFoot",
@@ -61,22 +68,25 @@ export async function createRenderer(canvas) {
     const character = await loadCharacterDefinition(DEFAULT_CHARACTER_URL);
     const rigConfig = await loadRigConfig(character);
     const assets = await loadCharacterAtlasParts(character, rigConfig);
+    const animations = await loadCharacterAnimations(character);
     const environmentAtlases = await loadEnvironmentAtlases();
 
-    return new RocketfrockRenderer(canvas, ctx, assets, normalizeRigConfig(rigConfig), environmentAtlases, character);
+    return new RocketfrockRenderer(canvas, ctx, assets, normalizeRigConfig(rigConfig), environmentAtlases, character, animations);
 }
 
 class RocketfrockRenderer {
-    constructor(canvas, ctx, assets, rigConfig, environmentAtlases = new Map(), character = null) {
+    constructor(canvas, ctx, assets, rigConfig, environmentAtlases = new Map(), character = null, animations = new Map()) {
         this.canvas = canvas;
         this.ctx = ctx;
         this.assets = assets;
         this.rigConfig = rigConfig;
         this.character = character;
+        this.animations = animations;
         this.environmentAtlases = environmentAtlases;
         this.phase = 0;
         this.forcePhase = null;
         this.visualPose = null;
+        this.lastAnimationDiagnostics = null;
         this.lastVisualPoseMode = null;
         this.lastRenderDt = 1 / 60;
         this.viewport = { w: canvas.width, h: canvas.height, dpr: 1 };
@@ -116,18 +126,28 @@ class RocketfrockRenderer {
             this.phase = this.forcePhase;
             return;
         }
-        const speedRatio = Math.min(1.4, Math.abs(state.player.vx) / Math.max(1, state.tuning.maxRunSpeed));
+        const runClip = this.animations.get("run");
+        const playback = runClip?.playback || {
+            idleThreshold: 0.04,
+            baseCyclesPerSecond: 0.55,
+            speedCyclesPerSecond: 2.6,
+            maxSpeedRatio: 1.4
+        };
+        const speedRatio = Math.min(
+            playback.maxSpeedRatio,
+            Math.abs(state.player.vx) / Math.max(1, state.tuning.maxRunSpeed)
+        );
         if (!state.player.onGround) {
-            // Airborne poses are now state poses, not a slow copy of the run cycle.
+            // Airborne poses are state poses, not a slow copy of the run cycle.
             this.phase = 0;
             return;
         }
-        if (speedRatio < 0.04) {
+        if (speedRatio < playback.idleThreshold) {
             this.phase = 0;
             return;
         }
-        const base = 0.55 + speedRatio * 2.6;
-        this.phase = (this.phase + dt * base * Math.PI * 2) % (Math.PI * 2);
+        const cyclesPerSecond = playback.baseCyclesPerSecond + speedRatio * playback.speedCyclesPerSecond;
+        this.phase = (this.phase + dt * cyclesPerSecond * Math.PI * 2) % (Math.PI * 2);
     }
 
     render(state, inputFrame, dt) {
@@ -774,62 +794,94 @@ class RocketfrockRenderer {
     }
 
     drawWizardRig(screenX, screenGroundY, facing, state, zoom) {
-        const ctx = this.ctx;
         const targetPose = this.computeRigPose(state, zoom);
         const pose = this.blendRigPose(targetPose, state, zoom);
         const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
 
+        this.drawRigPose(screenX, screenGroundY, facing, pose, state, zoom, bounds, {
+            alpha: 1,
+            drawFuelBulb: true
+        });
+
+        return bounds;
+    }
+
+    drawRigPose(screenX, screenGroundY, facing, pose, state, zoom, bounds, options = {}) {
+        const ctx = this.ctx;
+        const alpha = Number.isFinite(Number(options.alpha)) ? Number(options.alpha) : 1;
         ctx.save();
+        ctx.globalAlpha *= alpha;
         ctx.translate(screenX, screenGroundY);
         ctx.scale(facing, 1);
-        const lowHealthTint = getLowHealthTintAlpha(state);
+        const lowHealthTint = alpha >= 0.99 ? getLowHealthTintAlpha(state) : 0;
         for (const name of FIXED_DRAW_ORDER) {
             const spriteTint = name === "rocket" ? 0 : lowHealthTint;
             const spriteBounds = this.drawSprite(name, pose.transforms[name], zoom, spriteTint);
             mergeBounds(bounds, spriteBounds, screenX, screenGroundY, facing);
-            if (name === "rocket") {
+            if (name === "rocket" && options.drawFuelBulb !== false) {
                 // Phase 1.011: attached boost exhaust is represented by world-managed smoke/spark puffs,
                 // not by a local flame sprite. The flying projectile still keeps its short nozzle flame.
                 this.drawMountedRocketFuelBulb(pose.transforms[name], state, zoom);
             }
         }
         ctx.restore();
-
-        return bounds;
     }
 
     computeRigPose(state, zoom = 1) {
-        const phase = this.phase;
+        const runClip = this.animations.get("run");
+        if (state.player.onGround) {
+            if (!runClip) {
+                throw new Error("Character is missing its required run animation clip.");
+            }
+            const dataResult = this.computeDataDrivenGroundPose(state, zoom, runClip);
+            this.lastAnimationDiagnostics = {
+                mode: "data",
+                clipId: runClip.animationId,
+                available: true
+            };
+            return dataResult.pose;
+        }
+
+        const airbornePose = this.computeAirborneRigPose(state, zoom);
+        this.lastAnimationDiagnostics = {
+            mode: airbornePose.poseMode,
+            clipId: null,
+            available: true
+        };
+        return airbornePose;
+    }
+
+    computeDataDrivenGroundPose(state, zoom, clip) {
+        const speedRatio = Math.min(1.25, Math.abs(state.player.vx) / Math.max(1, state.tuning.maxRunSpeed));
+        const motionAmount = smoothstep(0.05, 0.24, speedRatio);
+        const time = animationTimeFromPhase(this.phase, clip.duration);
+        const sampledPose = sampleAnimationClip(clip, time);
+        const localPose = blendAnimationPoses(clip.referencePose, sampledPose, motionAmount);
+        return {
+            localPose,
+            pose: animationPoseToRenderedPose(localPose, this.rigConfig, zoom, "ground")
+        };
+    }
+
+    computeAirborneRigPose(state, zoom = 1) {
         const cfg = this.rigConfig;
         const scale = cfg.global.scale * zoom;
-        const lean = cfg.global.lean;
-        const anim = cfg.animation;
         const anchors = cfg.anchors;
-        const speedRatio = Math.min(1.25, Math.abs(state.player.vx) / Math.max(1, state.tuning.maxRunSpeed));
-        const groundMotion = smoothstep(0.05, 0.24, speedRatio);
         const rocket = state.equipment.rocket;
-        const airborne = !state.player.onGround;
         const kickWindow = Math.max(0.16, Math.min(0.34, (state.tuning.attachedBoostBurstDuration ?? 0.5) * 0.55));
-        const boostKickPose = airborne && rocket.attachedBoosting && rocket.attachedBoostTime <= kickWindow;
-        const hoverPose = airborne && rocket.attachedBoosting && !boostKickPose;
-        const poseMode = hoverPose ? "hover" : (airborne ? "jump" : "ground");
-        const motionAmount = poseMode === "ground" ? groundMotion : 0;
-        const bob = poseMode === "ground"
-            ? (Math.sin(phase * 2) * anim.bobAmplitude - Math.max(0, Math.cos(phase * 2)) * anim.bobCompression) * scale * motionAmount
-            : 0;
-        const standLean = 0.02;
-        const runLean = lean + speedRatio * 0.1;
-        let torsoAngle = standLean * (1 - motionAmount) + runLean * motionAmount + Math.sin(phase * 2) * anim.torsoWobble * motionAmount;
-        if (poseMode === "jump") {
+        const boostKickPose = rocket.attachedBoosting && rocket.attachedBoostTime <= kickWindow;
+        const poseMode = rocket.attachedBoosting && !boostKickPose ? "hover" : "jump";
+        let torsoAngle;
+        if (poseMode === "hover") {
+            torsoAngle = 0.015 + Math.sin(state.clock.time * 5.5) * 0.012;
+        } else {
             const riseLean = state.player.vy < 0 ? 0.08 : 0.045;
             torsoAngle = boostKickPose ? 0.12 : riseLean;
-        } else if (poseMode === "hover") {
-            torsoAngle = 0.015 + Math.sin(state.clock.time * 5.5) * 0.012;
         }
-        const headAngle = torsoAngle * anim.headLeanMultiplier + (poseMode === "ground" ? Math.sin(phase * 2 + 0.4) * anim.headWobble * motionAmount : 0);
+        const headAngle = torsoAngle * cfg.animation.headLeanMultiplier;
         const root = {
             x: 0,
-            y: cfg.global.rootYOffsetFromGround * scale + bob
+            y: cfg.global.rootYOffsetFromGround * scale
         };
         const shoulderCenter = add(root, scaledRotatedAnchor(anchors.shoulderCenter, scale, torsoAngle));
         const leftShoulder = add(shoulderCenter, scaledRotatedAnchor(anchors.leftShoulder, scale, torsoAngle));
@@ -837,20 +889,20 @@ class RocketfrockRenderer {
         const neck = add(root, scaledRotatedAnchor(anchors.neck, scale, torsoAngle));
         const rocketMount = add(root, scaledRotatedAnchor(anchors.rocketMount, scale, torsoAngle));
         const hatBase = add(neck, scaledRotatedAnchor(anchors.hatFromHead, scale, headAngle));
-        const rocketBob = rocket.attachedBoosting ? Math.sin(state.clock.time * 38) * 2.8 * scale : Math.sin(phase * 2 + 0.7) * anim.rocketBob * scale * motionAmount;
+        const rocketBob = rocket.attachedBoosting ? Math.sin(state.clock.time * 38) * 2.8 * scale : 0;
         const rocketBobPoint = { x: rocketMount.x, y: rocketMount.y + rocketBob };
 
         return {
             poseMode,
             transforms: {
-                leftArm: this.makeArmTransform("left", leftShoulder, phase, scale, torsoAngle, motionAmount, poseMode),
-                leftFoot: this.makeLegTransform("left", root, phase, scale, motionAmount, poseMode, state),
+                leftArm: this.makeAirborneArmTransform("left", leftShoulder, scale, torsoAngle, poseMode),
+                leftFoot: this.makeAirborneLegTransform("left", root, scale, poseMode, state),
                 rocket: this.makeRigidTransform("rocket", rocketBobPoint, torsoAngle, scale),
-                rightFoot: this.makeLegTransform("right", root, phase, scale, motionAmount, poseMode, state),
+                rightFoot: this.makeAirborneLegTransform("right", root, scale, poseMode, state),
                 robe: this.makeRigidTransform("robe", root, torsoAngle, scale),
                 head: this.makeRigidTransform("head", neck, headAngle, scale),
                 hat: this.makeRigidTransform("hat", hatBase, headAngle, scale),
-                rightArm: this.makeArmTransform("right", rightShoulder, phase, scale, torsoAngle, motionAmount, poseMode)
+                rightArm: this.makeAirborneArmTransform("right", rightShoulder, scale, torsoAngle, poseMode)
             }
         };
     }
@@ -880,93 +932,61 @@ class RocketfrockRenderer {
         return blended;
     }
 
-    makeLegTransform(side, root, phase, scale, motionAmount = 1, poseMode = "ground", state = null) {
+    getAnimationDiagnostics() {
+        return this.lastAnimationDiagnostics ? { ...this.lastAnimationDiagnostics } : null;
+    }
+
+    makeAirborneLegTransform(side, root, scale, poseMode, state) {
         const name = side === "left" ? "leftFoot" : "rightFoot";
         const part = this.rigConfig.parts[name];
         const motion = this.rigConfig.legMotion;
         const baseX = side === "left" ? motion.leftBaseX : motion.rightBaseX;
+        const falling = state.player.vy > 120;
+        const kick = state.equipment.rocket.attachedBoosting && state.equipment.rocket.attachedBoostTime < 0.24;
+        let poseX = baseX;
+        let poseY = motion.groundRise;
+        let angle = part.rotation.base;
 
-        if (poseMode !== "ground") {
-            const falling = state ? state.player.vy > 120 : false;
-            const kick = state ? state.equipment.rocket.attachedBoosting && state.equipment.rocket.attachedBoostTime < 0.24 : false;
-            let poseX = baseX;
-            let poseY = motion.groundRise;
-            let angle = part.rotation.base;
-
-            if (poseMode === "hover") {
-                // Hovering should read as a passive dangle rather than airborne running.
-                poseX += side === "left" ? -4 : 4;
-                poseY += 2;
-                angle += side === "left" ? -0.025 : 0.025;
+        if (poseMode === "hover") {
+            poseX += side === "left" ? -4 : 4;
+            poseY += 2;
+            angle += side === "left" ? -0.025 : 0.025;
+        } else {
+            const apart = kick ? 1.18 : 1.0;
+            if (side === "left") {
+                poseX -= 24 * apart;
+                poseY += falling ? -14 : -2;
+                angle -= 0.18;
             } else {
-                // Jump/kick pose: one leg trailing from takeoff and the other preparing to land.
-                const apart = kick ? 1.18 : 1.0;
-                if (side === "left") {
-                    poseX -= 24 * apart;
-                    poseY += falling ? -14 : -2;
-                    angle += -0.18;
-                } else {
-                    poseX += 32 * apart;
-                    poseY += falling ? -4 : -22;
-                    angle += 0.21;
-                }
+                poseX += 32 * apart;
+                poseY += falling ? -4 : -22;
+                angle += 0.21;
             }
-
-            const point = applyPartOffset({
-                x: root.x + poseX * scale,
-                y: poseY * scale
-            }, part, scale);
-            return {
-                x: point.x,
-                y: point.y,
-                angle,
-                targetHeight: part.targetHeight * scale * part.scale,
-                alpha: part.alpha
-            };
         }
 
-        const p = phase + (side === "left" ? 0 : Math.PI);
-        const stride = -Math.sin(p) * motionAmount;
-        const lift = Math.max(0, -Math.cos(p)) * motionAmount;
-        const planted = Math.max(0, Math.cos(p)) * motionAmount;
-        const basePoint = {
-            x: root.x + (baseX + stride * motion.stride) * scale,
-            y: (motion.groundRise - lift * motion.lift) * scale
-        };
-        const point = applyPartOffset(basePoint, part, scale);
+        const point = applyPartOffset({
+            x: root.x + poseX * scale,
+            y: poseY * scale
+        }, part, scale);
         return {
             x: point.x,
             y: point.y,
-            angle: part.rotation.base + motion.angleStride * stride + motion.angleLift * lift + motion.anglePlanted * planted,
+            angle,
             targetHeight: part.targetHeight * scale * part.scale,
             alpha: part.alpha
         };
     }
 
-    makeArmTransform(side, shoulder, phase, scale, torsoAngle, motionAmount = 1, poseMode = "ground") {
+    makeAirborneArmTransform(side, shoulder, scale, torsoAngle, poseMode) {
         const name = side === "left" ? "leftArm" : "rightArm";
         const part = this.rigConfig.parts[name];
         const point = applyPartOffset(shoulder, part, scale);
-
-        if (poseMode !== "ground") {
-            const passive = poseMode === "hover";
-            const spread = passive ? 0 : (side === "left" ? -0.08 : 0.08);
-            return {
-                x: point.x,
-                y: point.y,
-                angle: torsoAngle * (part.rotation.torso ?? 1) + part.rotation.base + spread,
-                targetHeight: part.targetHeight * scale * part.scale,
-                alpha: part.alpha
-            };
-        }
-
-        const p = phase + (side === "left" ? 0 : Math.PI);
-        const swing = -Math.sin(p) * motionAmount;
-        const lift = Math.max(0, -Math.cos(p)) * motionAmount;
+        const passive = poseMode === "hover";
+        const spread = passive ? 0 : (side === "left" ? -0.08 : 0.08);
         return {
             x: point.x,
             y: point.y,
-            angle: torsoAngle * part.rotation.torso + part.rotation.base + swing * part.rotation.swing + lift * part.rotation.lift,
+            angle: torsoAngle * (part.rotation.torso ?? 1) + part.rotation.base + spread,
             targetHeight: part.targetHeight * scale * part.scale,
             alpha: part.alpha
         };
@@ -1167,6 +1187,24 @@ async function loadRigConfig(character) {
     const rig = await loadJsonStrict(rigUrl, "character rig");
     rig.sourceUrl = rigUrl;
     return rig;
+}
+
+async function loadCharacterAnimations(character) {
+    const animations = new Map();
+    const animationMap = character.animationMap && typeof character.animationMap === "object"
+        ? character.animationMap
+        : {};
+    for (const [slot, relativeUrl] of Object.entries(animationMap)) {
+        if (!relativeUrl) {
+            continue;
+        }
+        const animationUrl = resolveRelativeUrl(character.sourceUrl || DEFAULT_CHARACTER_URL, relativeUrl);
+        const rawClip = await loadJsonStrict(animationUrl, `character animation "${slot}"`);
+        const clip = normalizeAnimationClip(rawClip, `character animation "${slot}" (${animationUrl})`);
+        clip.sourceUrl = animationUrl;
+        animations.set(slot, clip);
+    }
+    return animations;
 }
 
 function normalizeRigConfig(rawConfig) {
@@ -1541,6 +1579,29 @@ function drawRocketFlameLocal(ctx, asset, pivot, time, power = 1, seed = 0) {
     }
     ctx.restore();
 }
+
+function animationPoseToRenderedPose(animationPose, rigConfig, zoom = 1, poseMode = "ground") {
+    const globalScale = rigConfig.global.scale * zoom;
+    const transforms = {};
+    for (const name of FIXED_DRAW_ORDER) {
+        const local = animationPose[name] || {
+            x: 0,
+            y: 0,
+            rotation: 0,
+            scale: rigConfig.parts[name].scale,
+            alpha: rigConfig.parts[name].alpha
+        };
+        transforms[name] = {
+            x: local.x * globalScale,
+            y: local.y * globalScale,
+            angle: local.rotation,
+            targetHeight: rigConfig.parts[name].targetHeight * globalScale * local.scale,
+            alpha: local.alpha
+        };
+    }
+    return { poseMode, transforms };
+}
+
 
 function clonePose(pose) {
     return {

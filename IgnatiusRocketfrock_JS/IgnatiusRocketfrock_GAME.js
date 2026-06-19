@@ -35,7 +35,7 @@ const copyTuningJsonButton = document.getElementById("copy-tuning-json");
 const refreshTuningJsonButton = document.getElementById("refresh-tuning-json");
 const tuningPanel = document.getElementById("tuning");
 
-const GAME_REVISION = "054";
+const GAME_REVISION = "056";
 
 let gameState = createInitialGameState();
 gameState.debug.revision = GAME_REVISION;
@@ -135,6 +135,7 @@ function setupPanelToggleButtons() {
         assetGuidesButton.setAttribute("aria-pressed", gameState.debug.showAssetGuides ? "true" : "false");
     };
 
+
     const updateDebugPanel = () => {
         if (!debugPanelButton || !debugEl) {
             return;
@@ -170,6 +171,7 @@ function setupPanelToggleButtons() {
         gameState.debug.showAssetGuides = !gameState.debug.showAssetGuides;
         updateAssetGuides();
     });
+
 
     debugPanelButton?.addEventListener("click", () => {
         debugEl.hidden = !debugEl.hidden;
@@ -266,6 +268,7 @@ function handleDebugInput(inputFrame) {
     }
 }
 
+
 function updateHud() {
     const fuelPercent = gameState.fuel.amount / gameState.fuel.max * 100;
     const healthPercent = gameState.health.amount / gameState.health.max * 100;
@@ -289,6 +292,11 @@ function updateDebugText() {
         .map((event) => `${event.time.toFixed(3)} ${event.kind.padEnd(5)} ${event.code}${event.repeat ? " repeat" : ""}`)
         .join("\n");
 
+    const animation = renderer.getAnimationDiagnostics?.() || {};
+    const animationText = animation.available
+        ? `anim:${animation.mode || "data"} clip:${animation.clipId || "none"}`
+        : "anim:unavailable clip:none";
+
     const viewport = renderer.getViewportMetrics?.() || {};
     const viewText = viewport.clientW
         ? `view css:${viewport.clientW.toFixed(0)}x${viewport.clientH.toFixed(0)} virt:${viewport.virtualW.toFixed(0)}x${viewport.virtualH.toFixed(0)} scale:${viewport.cssScale.toFixed(2)}`
@@ -297,6 +305,7 @@ function updateDebugText() {
     debugEl.textContent = [
         `rev:${GAME_REVISION}  ${gameState.debug.paused ? "PAUSED" : "RUNNING"}  tick:${gameState.clock.tick}  t:${gameState.clock.time.toFixed(2)}`,
         viewText,
+        animationText,
         `pos (${p.x.toFixed(1)}, ${p.y.toFixed(1)})  vel (${p.vx.toFixed(1)}, ${p.vy.toFixed(1)})`,
         `ground:${p.onGround}  facing:${p.facing > 0 ? "right" : "left"}  boost:${gameState.equipment.rocket.attachedBoosting}  hoverA:${gameState.equipment.rocket.boostAccelerationNow.toFixed(0)}  hoverLimit:${gameState.tuning.attachedBoostHoverFallSpeed.toFixed(0)}`,
         `fuel:${fuel.amount.toFixed(2)}  delay:${fuel.rechargeDelayTimer.toFixed(2)}  cap:${fuel.rechargeCap}  rechargeLatched:${fuel.rechargeLatched ? "yes" : "no"}  groundRecharge:${gameState.tuning.fuelRechargeRequiresGround !== false}  kick:${gameState.equipment.rocket.boostKickCharge.toFixed(2)}  smokeDown:${(gameState.tuning.attachedBoostSmokePuffDownSpeed ?? 170).toFixed(0)}  bulbFlash:${(gameState.equipment.rocket.fuelBulbFlashTimer ?? 0).toFixed(2)}`,

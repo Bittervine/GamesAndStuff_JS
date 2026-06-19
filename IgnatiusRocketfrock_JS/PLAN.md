@@ -313,9 +313,17 @@ Animations should be reusable as templates, but each character must explicitly c
 
 Animation data should support duplication and editing. A shared starting animation such as a humanoid run can be duplicated and tweaked into a wizard run, goblin run, skeleton shuffle, or other character-specific motion.
 
-Ignatius is the calibration character for this system. The first goal is not to invent a new run, but to reproduce the current hardcoded wizard run as closely as possible using atlas frames, rig data, and keyframed animation. A temporary comparison mode should allow the old run pose and new animation pose to be compared until parity is good enough.
+Ignatius is the calibration character for this system. The first goal was to reproduce the original hardcoded wizard run as closely as possible using atlas frames, rig data, and keyframed animation. That migration reached parity in revision 055; revision 056 removed the procedural run and its temporary comparison controls so the JSON clip is now the single source of truth.
 
 The current hardcoded jump, hover, launch, and airborne poses should eventually move into animation data. The simulation should describe gameplay state and relevant parameters; the animation system should choose, play, and blend poses for display.
+
+### Current Animation Implementation Baseline
+
+As of revision 056, the ground run is exclusively data-driven. `ct_char_wizard_1.json` maps the `run` slot to `ct_anim_wizard_run_1.json`, and `IgnatiusRocketfrock_ANIMATION.js` validates and samples the clip. Animation transforms use unscaled rig-space pixels for `x` and `y`, radians for `rotation`, a target-height multiplier for `scale`, and a scalar for `alpha`. Clips declare duration, looping, playback cadence, interpolation per keyframe, and optional root-motion metadata.
+
+The obsolete procedural run and `data` / `legacy` / `compare` controls have been removed. The headless testbench now validates clip structure, loop closure, finite sampled poses, editor mutations, and the absence of the retired migration path.
+
+`character_tool.html` loads the mapped animation file and previews it through the same evaluator used by the game. It supports playback, pause, scrubbing, stepping between authored key times, loop and speed controls, per-part/per-property timelines, draggable key markers, exact time/value/easing edits, add/delete/copy/paste operations, and animation JSON export. Shared editing operations live in `IgnatiusRocketfrock_ANIMATION_EDITOR.js`. Airborne jump and hover poses remain renderer-specific and are the next animation-data migration target.
 
 ## Character Tool
 
@@ -340,7 +348,6 @@ The character tool should support:
 * Interpolation selection per keyframe or track segment.
 * Ghost previous/next pose display.
 * Copy pose, paste pose, paste mirrored pose, and paired-limb helpers.
-* A wizard run comparison mode against the current hardcoded run.
 
 This tool is expected to be used heavily, so it should favor a comfortable editing workflow rather than a minimal debug UI.
 
