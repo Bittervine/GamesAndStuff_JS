@@ -343,7 +343,9 @@ Revision 063 added Skeleton Guard as a directly selectable known project and con
 
 Revision 064 refined the Skeleton Guard into a correctly layered equipped rig. The rear shield arm is drawn first, the front sword arm is drawn last, and the shield and sword use grip pivots that stay aligned with their hand positions in both idle and walk data. A complete editable two-step walk/march clip is now mapped through the skeleton character definition.
 
-The next structural step is completing rig authoring with part deletion, frame reassignment, draw-order editing, role/tag authoring, and direct pivot editing. Complete that before migrating the remaining wizard airborne poses so future character and NPC animation work continues through the same reusable workflow rather than through another wizard-only path.
+Revision 065 added selected-part draw-order authoring directly to Puppet Forge. The Base rig / setup values panel now exposes **To Back** and **To Front**, operating on the rig's shared back-to-front `drawOrder` without changing animation transforms or atlas data.
+
+The next structural step is completing rig authoring with part deletion, frame reassignment, role/tag authoring, and direct pivot editing. Complete that before migrating the remaining wizard airborne poses so future character and NPC animation work continues through the same reusable workflow rather than through another wizard-only path.
 
 ## Character Tool
 

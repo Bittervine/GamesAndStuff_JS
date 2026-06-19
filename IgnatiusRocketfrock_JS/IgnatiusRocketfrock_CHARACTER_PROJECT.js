@@ -253,6 +253,32 @@ export function addRigPartToAnimation(animation, partName, removedParts = [], tr
     return animation;
 }
 
+export function moveRigPartToBack(rig, partName) {
+    return moveRigPartToDrawOrderEdge(rig, partName, 0);
+}
+
+export function moveRigPartToFront(rig, partName) {
+    const lastIndex = Array.isArray(rig?.drawOrder) ? Math.max(0, rig.drawOrder.length - 1) : 0;
+    return moveRigPartToDrawOrderEdge(rig, partName, lastIndex);
+}
+
+function moveRigPartToDrawOrderEdge(rig, partName, targetIndex) {
+    if (!rig || !Array.isArray(rig.drawOrder)) {
+        throw new Error("Rig must contain a drawOrder array before parts can be reordered.");
+    }
+    const index = rig.drawOrder.indexOf(partName);
+    if (index < 0) {
+        throw new Error(`Rig drawOrder does not contain part ${partName}.`);
+    }
+    const clampedTarget = Math.max(0, Math.min(rig.drawOrder.length - 1, targetIndex));
+    if (index === clampedTarget) {
+        return false;
+    }
+    rig.drawOrder.splice(index, 1);
+    rig.drawOrder.splice(clampedTarget, 0, partName);
+    return true;
+}
+
 function normalizePath(value) {
     const parts = String(value || "").replace(/\\/g, "/").split("/");
     const normalized = [];

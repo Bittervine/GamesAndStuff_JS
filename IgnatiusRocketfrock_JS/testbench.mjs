@@ -15,6 +15,8 @@ import {
     classifyCharacterProjectJson,
     createBlankCharacterProject,
     inventoryCharacterProjectJson,
+    moveRigPartToBack,
+    moveRigPartToFront,
     normalizeCharacterSlug,
     resolveCharacterProjectReference
 } from "./IgnatiusRocketfrock_CHARACTER_PROJECT.js";
@@ -165,6 +167,8 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes("Add selected to rig"), "character tool should expose atlas-frame to rig assignment");
     assert.ok(toolHtml.includes("Skeleton Guard"), "character tool should expose the skeleton as a known project");
     assert.ok(toolHtml.includes("Unsaved change status"), "character tool should expose independent dirty-state status");
+    assert.ok(toolHtml.includes("part-to-back"), "character tool should expose a selected-part To Back control");
+    assert.ok(toolHtml.includes("part-to-front"), "character tool should expose a selected-part To Front control");
 
     const frame = { x: 10, y: 20, w: 80, h: 120 };
     const { partName, removedParts } = addAtlasFrameToRig(project.rig, "leftArm", frame);
@@ -176,6 +180,17 @@ function testCharacterProjectWorkspace() {
     assert.equal(project.animations.idle.referencePose.root, undefined, "animation synchronization should remove the placeholder pose");
     assert.equal(project.animations.idle.referencePose.leftArm.scale, 1, "animation synchronization should add a complete default transform");
     normalizeAnimationClip(project.animations.idle, "rig-synchronized blank project idle");
+
+    project.rig.drawOrder.push("torso", "head");
+    project.rig.parts.torso = { frame: "torso" };
+    project.rig.parts.head = { frame: "head" };
+    project.rig.pivots.torso = { x: 0.5, y: 0.5 };
+    project.rig.pivots.head = { x: 0.5, y: 0.5 };
+    assert.equal(moveRigPartToFront(project.rig, "leftArm"), true, "To Front should report a changed draw order");
+    assert.deepEqual(project.rig.drawOrder, ["torso", "head", "leftArm"], "To Front should make the selected part draw last");
+    assert.equal(moveRigPartToBack(project.rig, "leftArm"), true, "To Back should report a changed draw order");
+    assert.deepEqual(project.rig.drawOrder, ["leftArm", "torso", "head"], "To Back should make the selected part draw first");
+    assert.equal(moveRigPartToBack(project.rig, "leftArm"), false, "moving an already rear-most part should be a no-op");
 }
 
 function testCharacterAtlasEditorOperations() {

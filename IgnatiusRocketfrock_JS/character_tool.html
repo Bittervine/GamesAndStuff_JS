@@ -352,7 +352,7 @@
         <canvas id="stage" width="1160" height="660" aria-label="Puppet Forge character preview"></canvas>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 064</small></h1>
+        <h1>Puppet Forge <small>rev 065</small></h1>
         <p><a href="IgnatiusRocketfrock_JS.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -549,6 +549,11 @@
                 <label><span>Base scale</span><input id="part-scale" type="number" step="0.01"></label>
                 <label><span>Target height</span><input id="target-height" type="number" step="1"></label>
             </div>
+            <div class="row">
+                <button id="part-to-back" type="button">To Back</button>
+                <button id="part-to-front" type="button">To Front</button>
+            </div>
+            <p>Draw order runs from back to front. The first part is drawn lowest; the last part is drawn on top.</p>
             <p>Pivot and target height define shared sprite geometry. Setup offsets and base scale are still used by the current procedural airborne poses and as rig defaults, but a data-driven clip such as Run supplies its own absolute X, Y, and scale values while that clip is playing.</p>
         </section>
 
@@ -611,6 +616,8 @@ import {
     addRigPartToAnimation,
     createBlankCharacterProject,
     inventoryCharacterProjectJson,
+    moveRigPartToBack,
+    moveRigPartToFront,
     resolveCharacterProjectReference
 } from "./IgnatiusRocketfrock_CHARACTER_PROJECT.js";
 import {
@@ -752,6 +759,8 @@ const els = {
     offsetY: document.getElementById("offset-y"),
     partScale: document.getElementById("part-scale"),
     targetHeight: document.getElementById("target-height"),
+    partToBack: document.getElementById("part-to-back"),
+    partToFront: document.getElementById("part-to-front"),
     characterJson: document.getElementById("character-json"),
     applyCharacterJson: document.getElementById("apply-character-json"),
     refreshCharacterJson: document.getElementById("refresh-character-json"),
@@ -1939,10 +1948,12 @@ function setupPartSelect() {
         option.textContent = "(no rig parts)";
         els.partSelect.appendChild(option);
         els.partSelect.disabled = true;
+        updateDrawOrderButtons();
         return;
     }
     els.partSelect.disabled = false;
     els.partSelect.value = names.includes(previous) ? previous : names[0];
+    updateDrawOrderButtons();
 }
 
 function selectedPartName() {
@@ -2001,10 +2012,46 @@ function selectPart(name) {
     els.offsetY.value = Math.round(part.offset?.y || 0);
     els.partScale.value = Number(part.scale ?? 1).toFixed(3);
     els.targetHeight.value = Math.round(part.targetHeight || 100);
+    updateDrawOrderButtons();
     state.syncing = false;
     state.selectedKeyIndex = -1;
     state.selectedTransformTime = null;
     rebuildTimeline();
+}
+
+function updateDrawOrderButtons() {
+    const order = drawOrder();
+    const name = selectedPartName();
+    const index = order.indexOf(name);
+    const unavailable = !name || index < 0 || order.length < 2;
+    els.partToBack.disabled = unavailable || index === 0;
+    els.partToFront.disabled = unavailable || index === order.length - 1;
+}
+
+function moveSelectedPartInDrawOrder(direction) {
+    if (!state.rig) {
+        return;
+    }
+    const name = selectedPartName();
+    let changed = false;
+    try {
+        changed = direction === "back"
+            ? moveRigPartToBack(state.rig, name)
+            : moveRigPartToFront(state.rig, name);
+    } catch (error) {
+        setStatus(error.message);
+        return;
+    }
+    if (!changed) {
+        updateDrawOrderButtons();
+        return;
+    }
+    setupPartSelect();
+    els.partSelect.value = name;
+    updateDrawOrderButtons();
+    refreshRigJson();
+    markDirty("rig");
+    setStatus(`Moved ${name} to the ${direction} of the draw order.`);
 }
 
 function writePartFromUi() {
@@ -3022,6 +3069,8 @@ els.animationSelect.addEventListener("change", () => {
     loadAnimationSlot(els.animationSelect.value).catch((error) => setStatus(error.stack || error.message));
 });
 els.partSelect.addEventListener("change", () => selectPart(selectedPartName()));
+els.partToBack.addEventListener("click", () => moveSelectedPartInDrawOrder("back"));
+els.partToFront.addEventListener("click", () => moveSelectedPartInDrawOrder("front"));
 els.propertySelect.addEventListener("change", () => {
     state.selectedKeyIndex = -1;
     state.selectedTransformTime = null;

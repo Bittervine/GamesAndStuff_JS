@@ -204,7 +204,11 @@ The remaining rig-authoring work is deletion, frame reassignment, draw-order con
 
 The Skeleton Guard rig now draws the rear left arm first and the front right arm last. The shield pivot is authored at its hidden lower-right grip and the sword pivot is centered in its handle; both idle and walk clips keep those pivots on the corresponding animated hand positions. The character now maps an editable `walk` slot to `ct_anim_skeleton_1_walk.json`, containing a complete two-step loop with alternating leg swing, lift, body bob, arm motion, and synchronized held equipment.
 
-The remaining rig-authoring work is still deletion, frame reassignment, draw-order controls, role/tag editing, and direct pivot editing.
+The remaining rig-authoring work is still deletion, frame reassignment, role/tag editing, and direct pivot editing.
+
+### Revision 065 Draw-Order Controls
+
+Puppet Forge now provides **To Back** and **To Front** buttons in the Base rig / setup values panel. They move the selected rig part to the first or last position of the shared back-to-front `drawOrder`, refresh the preview and rig JSON immediately, preserve the selection, and mark only the rig document dirty.
 
 ### Other Wizard Animation States
 
@@ -237,7 +241,7 @@ Goal: create a tool where rigs and animations can be created, duplicated, edited
 * [x] Allow click-and-drag editing of animation part X/Y position and rotation.
 * [ ] Allow click-and-drag editing of rig pivots, offsets, and anchors.
 * [x] Provide exact numeric fields for all important rig values.
-* [ ] Provide draw-order controls.
+* [x] Provide draw-order controls with selected-part **To Back** and **To Front** actions.
 * [ ] Provide part role/tag editing.
 * [x] Provide animation playback controls: play, pause, loop, frame step, speed, and scrubber.
 * [x] Provide a timeline with keyframes.
