@@ -21,6 +21,32 @@ const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = Array.from({ length: 20 }, (_, ind
 });
 
 const REQUIRED_RIG_SECTIONS = ["global", "animation", "anchors", "legMotion", "pivots", "parts"];
+const MIN_TOUCH_VIEWPORT_WIDTH = 600;
+
+export function computeResponsiveViewportMetrics(clientWidth, clientHeight, dpr = 1, minVirtualWidth = MIN_TOUCH_VIEWPORT_WIDTH) {
+    const safeClientWidth = Math.max(1, Number(clientWidth) || 1);
+    const safeClientHeight = Math.max(1, Number(clientHeight) || 1);
+    const safeDpr = Math.max(1, Math.min(2.5, Number(dpr) || 1));
+    const safeMinVirtualWidth = Math.max(1, Number(minVirtualWidth) || 1);
+    const cssScale = safeClientWidth < safeMinVirtualWidth ? safeClientWidth / safeMinVirtualWidth : 1;
+    const virtualWidth = safeClientWidth / cssScale;
+    const virtualHeight = safeClientHeight / cssScale;
+    const backingWidth = Math.max(1, Math.floor(safeClientWidth * safeDpr));
+    const backingHeight = Math.max(1, Math.floor(safeClientHeight * safeDpr));
+
+    return {
+        backingWidth,
+        backingHeight,
+        clientWidth: safeClientWidth,
+        clientHeight: safeClientHeight,
+        virtualWidth,
+        virtualHeight,
+        dpr: safeDpr,
+        cssScale,
+        zoom: safeDpr * cssScale,
+        minVirtualWidth: safeMinVirtualWidth
+    };
+}
 
 export async function createRenderer(canvas) {
     const ctx = canvas.getContext("2d", { alpha: false });
@@ -54,14 +80,27 @@ class RocketfrockRenderer {
     }
 
     resize() {
-        const dpr = Math.max(1, Math.min(2.5, window.devicePixelRatio || 1));
-        const width = Math.floor(this.canvas.clientWidth * dpr);
-        const height = Math.floor(this.canvas.clientHeight * dpr);
-        if (this.canvas.width !== width || this.canvas.height !== height) {
-            this.canvas.width = width;
-            this.canvas.height = height;
+        const metrics = computeResponsiveViewportMetrics(
+            this.canvas.clientWidth,
+            this.canvas.clientHeight,
+            typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1
+        );
+        if (this.canvas.width !== metrics.backingWidth || this.canvas.height !== metrics.backingHeight) {
+            this.canvas.width = metrics.backingWidth;
+            this.canvas.height = metrics.backingHeight;
         }
-        this.viewport = { w: width, h: height, dpr };
+        this.viewport = {
+            w: metrics.backingWidth,
+            h: metrics.backingHeight,
+            dpr: metrics.dpr,
+            zoom: metrics.zoom,
+            cssScale: metrics.cssScale,
+            clientW: metrics.clientWidth,
+            clientH: metrics.clientHeight,
+            virtualW: metrics.virtualWidth,
+            virtualH: metrics.virtualHeight,
+            minVirtualW: metrics.minVirtualWidth
+        };
     }
 
     updatePhase(state, dt) {
@@ -105,15 +144,25 @@ class RocketfrockRenderer {
         const w = this.viewport.w;
         const h = this.viewport.h;
         const dpr = this.viewport.dpr;
-        const zoom = dpr;
+        const zoom = this.viewport.zoom || dpr;
         return {
             w,
             h,
             dpr,
             zoom,
+            cssScale: this.viewport.cssScale || 1,
+            clientW: this.viewport.clientW || w / dpr,
+            clientH: this.viewport.clientH || h / dpr,
+            virtualW: this.viewport.virtualW || w / zoom,
+            virtualH: this.viewport.virtualH || h / zoom,
+            minVirtualW: this.viewport.minVirtualW || MIN_TOUCH_VIEWPORT_WIDTH,
             x: state.camera.x - w / zoom * 0.5,
             y: state.camera.y - h / zoom * 0.56
         };
+    }
+
+    getViewportMetrics() {
+        return { ...this.viewport };
     }
 
     worldToScreen(view, x, y) {
@@ -154,9 +203,9 @@ class RocketfrockRenderer {
                     ctx.fillStyle = solid.kind === "floor" ? "rgba(122, 104, 149, 0.45)" : "rgba(92, 81, 124, 0.52)";
                     ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
                 }
-                ctx.lineWidth = 1.5 * view.dpr;
+                ctx.lineWidth = 1.5 * view.zoom;
                 ctx.beginPath();
-                roundedRect(ctx, p.x, p.y, w, h, 8 * view.dpr);
+                roundedRect(ctx, p.x, p.y, w, h, 8 * view.zoom);
                 ctx.fill();
                 ctx.stroke();
                 ctx.restore();
@@ -173,7 +222,7 @@ class RocketfrockRenderer {
 
         if (state.debug.showCollision) {
             ctx.save();
-            ctx.font = `${12 * view.dpr}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+            ctx.font = `${12 * view.zoom}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
             ctx.fillStyle = "rgba(255, 255, 255, 0.64)";
             for (const label of state.world.labels) {
                 const p = this.worldToScreen(view, label.x, label.y);
@@ -207,7 +256,7 @@ class RocketfrockRenderer {
         }
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
-        ctx.lineWidth = 3 * view.dpr;
+        ctx.lineWidth = 3 * view.zoom;
         for (const segment of segments) {
             const a = this.worldToScreen(view, segment.x1, segment.y1);
             const b = this.worldToScreen(view, segment.x2, segment.y2);
@@ -307,7 +356,7 @@ class RocketfrockRenderer {
         const visuals = state.world.visuals || [];
         const ctx = this.ctx;
         ctx.save();
-        ctx.font = `${11 * view.dpr}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+        ctx.font = `${11 * view.zoom}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
 
@@ -316,12 +365,12 @@ class RocketfrockRenderer {
                 const p = this.worldToScreen(view, visual.x, visual.y);
                 ctx.save();
                 ctx.strokeStyle = "rgba(255, 255, 255, 0.82)";
-                ctx.lineWidth = 1.5 * view.dpr;
-                ctx.setLineDash([8 * view.dpr, 5 * view.dpr]);
+                ctx.lineWidth = 1.5 * view.zoom;
+                ctx.setLineDash([8 * view.zoom, 5 * view.zoom]);
                 ctx.strokeRect(p.x, p.y, visual.w * view.zoom, visual.h * view.zoom);
                 ctx.setLineDash([]);
                 ctx.fillStyle = "rgba(255, 255, 255, 0.82)";
-                ctx.fillText(visual.id || "cutoutMask", p.x + 4 * view.dpr, p.y - 5 * view.dpr);
+                ctx.fillText(visual.id || "cutoutMask", p.x + 4 * view.zoom, p.y - 5 * view.zoom);
                 ctx.restore();
                 continue;
             }
@@ -342,12 +391,12 @@ class RocketfrockRenderer {
             const p = this.worldToScreen(view, visual.x, visual.y);
             ctx.save();
             ctx.strokeStyle = "rgba(86, 230, 255, 0.72)";
-            ctx.lineWidth = 1.5 * view.dpr;
-            ctx.setLineDash([5 * view.dpr, 4 * view.dpr]);
+            ctx.lineWidth = 1.5 * view.zoom;
+            ctx.setLineDash([5 * view.zoom, 4 * view.zoom]);
             ctx.strokeRect(p.x, p.y, visual.w * view.zoom, visual.h * view.zoom);
             ctx.setLineDash([]);
             ctx.fillStyle = "rgba(86, 230, 255, 0.78)";
-            ctx.fillText(visual.assetId || frameName, p.x + 4 * view.dpr, p.y - 5 * view.dpr);
+            ctx.fillText(visual.assetId || frameName, p.x + 4 * view.zoom, p.y - 5 * view.zoom);
             ctx.restore();
 
             if (!object || !Array.isArray(object.nodes) || !Array.isArray(object.lines)) {
@@ -383,7 +432,7 @@ class RocketfrockRenderer {
                 const color = assetLineColor(line.kind);
                 ctx.save();
                 ctx.strokeStyle = color;
-                ctx.lineWidth = 2.5 * view.dpr;
+                ctx.lineWidth = 2.5 * view.zoom;
                 ctx.beginPath();
                 ctx.moveTo(ap.x, ap.y);
                 ctx.lineTo(bp.x, bp.y);
@@ -396,9 +445,9 @@ class RocketfrockRenderer {
                 ctx.save();
                 ctx.fillStyle = "rgba(255, 255, 255, 0.82)";
                 ctx.strokeStyle = "rgba(0, 0, 0, 0.65)";
-                ctx.lineWidth = 1 * view.dpr;
+                ctx.lineWidth = 1 * view.zoom;
                 ctx.beginPath();
-                ctx.arc(np.x, np.y, 3.4 * view.dpr, 0, Math.PI * 2);
+                ctx.arc(np.x, np.y, 3.4 * view.zoom, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.stroke();
                 ctx.restore();
@@ -422,7 +471,7 @@ class RocketfrockRenderer {
             const p = this.worldToScreen(view, target.x, target.y);
             const pulse = 0.5 + 0.5 * Math.sin(state.clock.time * 5.5);
             ctx.save();
-            ctx.lineWidth = 2 * view.dpr;
+            ctx.lineWidth = 2 * view.zoom;
             ctx.strokeStyle = `rgba(255, 234, 124, ${0.55 + pulse * 0.25})`;
             ctx.fillStyle = "rgba(255, 126, 98, 0.82)";
             ctx.beginPath();
@@ -447,7 +496,7 @@ class RocketfrockRenderer {
             ctx.globalAlpha = 0.82 + 0.18 * Math.sin(state.clock.time * 5 + pickup.x);
             ctx.fillStyle = "rgba(113, 224, 126, 0.82)";
             ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
-            ctx.lineWidth = 2 * view.dpr;
+            ctx.lineWidth = 2 * view.zoom;
             ctx.beginPath();
             ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
             ctx.fill();
@@ -463,15 +512,15 @@ class RocketfrockRenderer {
             ctx.save();
             ctx.fillStyle = "rgba(202, 135, 255, 0.62)";
             ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
-            ctx.lineWidth = 2 * view.dpr;
+            ctx.lineWidth = 2 * view.zoom;
             ctx.beginPath();
-            roundedRect(ctx, p.x, p.y, enemy.width * view.zoom, enemy.height * view.zoom, 14 * view.dpr);
+            roundedRect(ctx, p.x, p.y, enemy.width * view.zoom, enemy.height * view.zoom, 14 * view.zoom);
             ctx.fill();
             ctx.stroke();
             ctx.fillStyle = "rgba(255, 255, 255, 0.84)";
             ctx.beginPath();
-            ctx.arc(p.x + enemy.width * view.zoom * 0.38, p.y + enemy.height * view.zoom * 0.35, 3 * view.dpr, 0, Math.PI * 2);
-            ctx.arc(p.x + enemy.width * view.zoom * 0.62, p.y + enemy.height * view.zoom * 0.35, 3 * view.dpr, 0, Math.PI * 2);
+            ctx.arc(p.x + enemy.width * view.zoom * 0.38, p.y + enemy.height * view.zoom * 0.35, 3 * view.zoom, 0, Math.PI * 2);
+            ctx.arc(p.x + enemy.width * view.zoom * 0.62, p.y + enemy.height * view.zoom * 0.35, 3 * view.zoom, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
         }
@@ -511,7 +560,7 @@ class RocketfrockRenderer {
                     const angle = hashNoise(seed, i) * Math.PI * 2;
                     const r = radius * (0.12 + hashNoise(seed + 31, i) * 0.64);
                     const twinkle = 0.72 + 0.28 * Math.sin((state.clock.time + puff.age) * 18 + i * 1.4);
-                    const size = (0.9 + hashNoise(seed + 79, i) * 2.6) * view.dpr;
+                    const size = (0.9 + hashNoise(seed + 79, i) * 2.6) * view.zoom;
                     ctx.globalAlpha = clamp(0.12 + sparkFade * twinkle * 0.72, 0, 0.82);
                     ctx.fillStyle = i % 3 === 0 ? "rgba(204, 157, 255, 0.92)" : "rgba(255, 238, 129, 0.94)";
                     ctx.beginPath();
@@ -618,7 +667,7 @@ class RocketfrockRenderer {
             const u = i / Math.max(1, visible.length - 2);
             const age = clamp((state.clock.time - (a.time ?? state.clock.time)) / 2.15, 0, 1);
             const smokeAlpha = (0.06 + 0.24 * u) * (1 - age * 0.45);
-            const smokeWidth = (28 - u * 16) * view.dpr;
+            const smokeWidth = (28 - u * 16) * view.zoom;
             ctx.globalCompositeOperation = "source-over";
             ctx.globalAlpha = smokeAlpha;
             ctx.strokeStyle = "rgba(184, 172, 198, 1)";
@@ -646,12 +695,12 @@ class RocketfrockRenderer {
             const nx = -dy / length;
             const ny = dx / length;
             const u = (segmentIndex + t) / Math.max(1, visible.length - 1);
-            const spread = (8 + (1 - u) * 24) * view.dpr;
+            const spread = (8 + (1 - u) * 24) * view.zoom;
             const jitter = (hashNoise(seed + 71, i) - 0.5) * spread;
             const age = clamp((state.clock.time - (a.time ?? state.clock.time)) / 2.15, 0, 1);
             const twinkle = 0.72 + 0.28 * Math.sin(state.clock.time * 19 + i * 1.7);
             const fade = Math.pow(u, 0.38) * (1 - age * 0.55) * twinkle;
-            const size = (1.0 + hashNoise(seed + 101, i) * 3.6) * view.dpr * (0.55 + fade);
+            const size = (1.0 + hashNoise(seed + 101, i) * 3.6) * view.zoom * (0.55 + fade);
             ctx.globalAlpha = clamp(0.05 + fade * 0.72, 0, 0.86);
             ctx.fillStyle = i % 7 === 0 ? "rgba(197, 151, 255, 0.95)" : (i % 2 === 0 ? "rgba(255, 239, 126, 0.94)" : "rgba(255, 133, 82, 0.9)");
             ctx.beginPath();
@@ -667,13 +716,13 @@ class RocketfrockRenderer {
         const length = Math.hypot(vx, vy) || 1;
         const tailX = -vx / length;
         const tailY = -vy / length;
-        const core = ctx.createRadialGradient(newest.x + tailX * 18 * view.dpr, newest.y + tailY * 18 * view.dpr, 1, newest.x + tailX * 28 * view.dpr, newest.y + tailY * 28 * view.dpr, 34 * view.dpr);
+        const core = ctx.createRadialGradient(newest.x + tailX * 18 * view.zoom, newest.y + tailY * 18 * view.zoom, 1, newest.x + tailX * 28 * view.zoom, newest.y + tailY * 28 * view.zoom, 34 * view.zoom);
         core.addColorStop(0, "rgba(255, 235, 126, 0.46)");
         core.addColorStop(1, "rgba(255, 116, 70, 0)");
         ctx.globalAlpha = 1;
         ctx.fillStyle = core;
         ctx.beginPath();
-        ctx.arc(newest.x + tailX * 24 * view.dpr, newest.y + tailY * 24 * view.dpr, 34 * view.dpr, 0, Math.PI * 2);
+        ctx.arc(newest.x + tailX * 24 * view.zoom, newest.y + tailY * 24 * view.zoom, 34 * view.zoom, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
@@ -687,7 +736,7 @@ class RocketfrockRenderer {
             const r = (0.25 + hashNoise(seed + 31, i) * 0.75) * radius;
             const px = x + Math.cos(a) * r;
             const py = y + Math.sin(a) * r;
-            const size = (1.2 + hashNoise(seed + 71, i) * 2.7) * view.dpr;
+            const size = (1.2 + hashNoise(seed + 71, i) * 2.7) * view.zoom;
             ctx.globalAlpha = 0.35 + hashNoise(seed + 109, i) * 0.5;
             ctx.fillStyle = i % 3 === 0 ? "rgba(255, 246, 166, 0.9)" : "rgba(255, 137, 82, 0.86)";
             ctx.beginPath();
@@ -1005,7 +1054,7 @@ class RocketfrockRenderer {
         if (state.debug.showCollision) {
             ctx.save();
             ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
-            ctx.lineWidth = 1 * view.dpr;
+            ctx.lineWidth = 1 * view.zoom;
             for (const solid of state.world.solids || []) {
                 const p = this.worldToScreen(view, solid.x, solid.y);
                 ctx.strokeRect(p.x, p.y, solid.w * view.zoom, solid.h * view.zoom);
@@ -1031,7 +1080,7 @@ class RocketfrockRenderer {
             const p = this.worldToScreen(view, rect.x, rect.y);
             ctx.save();
             ctx.strokeStyle = "rgba(127, 232, 255, 0.82)";
-            ctx.lineWidth = 2 * view.dpr;
+            ctx.lineWidth = 2 * view.zoom;
             ctx.strokeRect(p.x, p.y, rect.w * view.zoom, rect.h * view.zoom);
             ctx.restore();
         }
@@ -1039,7 +1088,7 @@ class RocketfrockRenderer {
         if (state.debug.showHitboxes) {
             ctx.save();
             ctx.strokeStyle = "rgba(255, 220, 110, 0.68)";
-            ctx.lineWidth = 1.5 * view.dpr;
+            ctx.lineWidth = 1.5 * view.zoom;
             for (const projectile of state.projectiles || []) {
                 if (projectile.state !== "launched") continue;
                 const p = this.worldToScreen(view, projectile.x, projectile.y);
@@ -1060,7 +1109,7 @@ class RocketfrockRenderer {
             const start = this.worldToScreen(view, state.player.x, state.player.y - state.player.height * 0.5);
             ctx.save();
             ctx.strokeStyle = "rgba(255, 223, 116, 0.92)";
-            ctx.lineWidth = 2 * view.dpr;
+            ctx.lineWidth = 2 * view.zoom;
             ctx.beginPath();
             ctx.moveTo(start.x, start.y);
             ctx.lineTo(start.x + state.player.vx * 0.16 * view.zoom, start.y + state.player.vy * 0.16 * view.zoom);

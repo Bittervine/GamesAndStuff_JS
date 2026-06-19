@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { computeResponsiveViewportMetrics } from "./IgnatiusRocketfrock_RENDER.js";
 import {
     FIXED_DT,
     DEFAULT_TUNING,
@@ -38,6 +39,19 @@ function settleOnGround(state) {
 
 function releaseJumpAfterTakeoff(state) {
     stepSimulation(state, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
+}
+
+function testResponsiveViewportScaling() {
+    const phone = computeResponsiveViewportMetrics(390, 844, 2, 600);
+    assert.equal(phone.backingWidth, 780, "phone backing width should still match the real canvas pixels");
+    approx(phone.cssScale, 0.65, 0.001, "phone CSS scale should fit 600 virtual pixels into 390 CSS pixels");
+    approx(phone.virtualWidth, 600, 0.001, "narrow screens should see a 600-unit-wide virtual viewport");
+    approx(phone.zoom, 1.3, 0.001, "phone world-to-canvas zoom should include DPR and the responsive scale");
+
+    const desktop = computeResponsiveViewportMetrics(1280, 720, 1.5, 600);
+    approx(desktop.cssScale, 1, 0.001, "desktop scale should not shrink");
+    approx(desktop.virtualWidth, 1280, 0.001, "wide screens should keep their real CSS width");
+    approx(desktop.zoom, 1.5, 0.001, "desktop zoom should remain DPR-only");
 }
 
 function testStateSerialization() {
@@ -628,6 +642,7 @@ function testAttachedSmokeDownSpeedTuning() {
 }
 
 const tests = [
+    ["responsive viewport scaling", testResponsiveViewportScaling],
     ["state serialization and cloning", testStateSerialization],
     ["headless stepping and floor collision", testHeadlessSteppingAndFloorCollision],
     ["left/right movement symmetry", testLeftRightSymmetry],
