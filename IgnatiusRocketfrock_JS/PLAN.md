@@ -275,6 +275,14 @@ This makes it easier to debug not only what the state is, but how it recently go
 
 ## Rendering
 
+### Responsive Canvas Scaling Rule
+
+The game uses a virtual viewport for small screens. Gameplay coordinates, physics, sprite placement, collisions, camera logic, particles, and input state should remain in virtual game coordinates. The renderer scales the whole canvas down when the visible CSS width is below the mobile minimum width.
+
+Do not solve mobile sizing by individually scaling sprites, hitboxes, physics values, particles, camera values, or level geometry. That risks inconsistent scale bugs. Instead, keep game systems in virtual coordinates and adjust only the shared viewport/canvas transform layer.
+
+Input coordinates from mouse, touch, and pointer events must be converted through the same viewport transform before being used by gameplay or virtual joystick logic.
+
 * Use WebGL for performance when practical, but keep the renderer data-driven so the canvas renderer and later WebGL2 renderer can share the same character draw data.
 * The renderer should remain a thin presentation layer.
 * The renderer should support sprite-based rigging for Ignatius, monsters, and other animated characters.

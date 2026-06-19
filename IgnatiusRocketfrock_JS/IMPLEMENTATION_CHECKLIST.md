@@ -6,6 +6,15 @@ This document augments `PLAN.md`.
 
 The old Phase 1 physics arena is now considered complete enough to stop treating it as the current milestone. The current development target is **Phase 2: Character Atlas, Rigging, and Animation Tooling**.
 
+## Always Remember: Responsive Viewport Scaling
+
+The browser game uses a shared virtual viewport. On screens narrower than the mobile minimum width, the whole canvas render is scaled down, while gameplay continues in virtual game coordinates.
+
+* [ ] When adding new drawing code, confirm it uses the shared render transform / virtual viewport system rather than its own mobile scale.
+* [ ] When adding new input code, confirm screen coordinates are converted into virtual canvas/game coordinates before gameplay or virtual joystick code uses them.
+* [ ] Do not add separate per-sprite mobile scaling unless there is a deliberate special-case reason documented next to the code.
+* [ ] Keep physics, collisions, particles, camera math, and level geometry in virtual game coordinates.
+
 ## Current Status
 
 The project now has a working browser game loop, deterministic simulation layer, asset-atlas based level construction, atlas and level editor tools, atlas-derived collision lines and filled collision loops, detached rocket terrain impacts, health/fuel HUD, and headless tests.

@@ -21,6 +21,14 @@ const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = Array.from({ length: 20 }, (_, ind
 });
 
 const REQUIRED_RIG_SECTIONS = ["global", "animation", "anchors", "legMotion", "pivots", "parts"];
+
+// IMPORTANT VIEWPORT RULE:
+// The game uses virtual viewport coordinates. On narrow mobile screens the
+// whole canvas render is scaled down so gameplay behaves as if the screen were
+// at least MIN_TOUCH_VIEWPORT_WIDTH wide. Keep sprites, physics, collisions,
+// particles, camera, and controls in virtual/game coordinates. Do not add
+// separate per-sprite mobile scaling. Pointer/touch/mouse coordinates must be
+// converted through this same viewport transform before gameplay sees them.
 const MIN_TOUCH_VIEWPORT_WIDTH = 600;
 
 export function computeResponsiveViewportMetrics(clientWidth, clientHeight, dpr = 1, minVirtualWidth = MIN_TOUCH_VIEWPORT_WIDTH) {
