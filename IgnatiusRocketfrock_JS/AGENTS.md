@@ -15,4 +15,4 @@ Ground running is data-driven through `assets/ct_anim_wizard_run_1.json` and `Ig
 
 ## CHARACTER TOOL DATA-LAYER RULE ##
 
-Do not merge atlas-frame rectangles with rig-part semantics. The atlas manifest identifies reusable pixel rectangles in a PNG. The rig assigns those frames to parts and owns pivots, anchors, draw order, roles, and gameplay/editor tags. Future character-tool work must support selecting or creating character projects and explicitly choosing PNG/JSON files instead of adding more wizard-only hardcoded paths.
+Do not merge atlas-frame rectangles with rig-part semantics. The atlas manifest identifies reusable pixel rectangles in a PNG. The rig assigns those frames to parts and owns pivots, anchors, draw order, roles, and gameplay/editor tags. Character project selection, blank-template creation, URL loading, and local PNG/JSON workspaces are centralized through `character_tool.html` and `IgnatiusRocketfrock_CHARACTER_PROJECT.js`; do not reintroduce wizard-only hardcoded paths. The next editor work should add atlas rectangle authoring and independent dirty-state tracking before expanding the animation library.

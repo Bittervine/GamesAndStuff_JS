@@ -99,7 +99,7 @@
             font: inherit;
         }
 
-        input[type="range"], textarea, select, input[type="number"] {
+        input[type="range"], textarea, select, input[type="number"], input[type="text"], input[type="file"] {
             width: 100%;
         }
 
@@ -107,7 +107,7 @@
             accent-color: #b68cff;
         }
 
-        select, textarea, input[type="number"] {
+        select, textarea, input[type="number"], input[type="text"], input[type="file"] {
             border: 1px solid var(--line);
             border-radius: 10px;
             background: rgba(0, 0, 0, 0.24);
@@ -162,6 +162,27 @@
 
         .row.three {
             grid-template-columns: 1fr 1fr 1fr;
+        }
+
+        .file-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .file-grid label {
+            min-width: 0;
+        }
+
+        input[type="file"] {
+            min-width: 0;
+            padding: 6px;
+            font-size: 11px;
+        }
+
+        .project-source {
+            color: var(--accent-strong);
+            overflow-wrap: anywhere;
         }
 
         .readout {
@@ -270,11 +291,56 @@
         <canvas id="stage" width="1160" height="660" aria-label="Puppet Forge character preview"></canvas>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 057</small></h1>
+        <h1>Puppet Forge <small>rev 058</small></h1>
         <p><a href="IgnatiusRocketfrock_JS.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
         </p>
+
+
+        <section class="box">
+            <h2>Character project</h2>
+            <label>
+                <span>Known project</span>
+                <select id="project-select">
+                    <option value="wizard">Ignatius Rocketfrock</option>
+                </select>
+            </label>
+            <div class="row">
+                <button id="load-known-project" type="button">Load selected project</button>
+                <button id="new-character" type="button">New character</button>
+            </div>
+            <label>
+                <span>Character definition URL</span>
+                <input id="character-url" type="text" value="assets/ct_char_wizard_1.json" spellcheck="false">
+            </label>
+            <button id="load-character-url" type="button">Load character URL</button>
+            <p id="project-source" class="project-source">URL project: assets/ct_char_wizard_1.json</p>
+        </section>
+
+        <section class="box">
+            <h2>Local project files</h2>
+            <p>Select a complete folder or a portable group of files. Puppet Forge resolves the references inside the character, rig, atlas, and animation JSON in memory; browsers never grant silent folder access.</p>
+            <label>
+                <span>Project files</span>
+                <input id="project-files" type="file" accept=".json,.png,application/json,image/png" multiple>
+            </label>
+            <label>
+                <span>Project directory, where supported</span>
+                <input id="project-directory" type="file" accept=".json,.png,application/json,image/png" multiple webkitdirectory directory>
+            </label>
+            <div class="file-grid">
+                <label><span>Character JSON</span><input id="character-file" type="file" accept=".json,application/json"></label>
+                <label><span>Rig JSON</span><input id="rig-file" type="file" accept=".json,application/json"></label>
+                <label><span>Atlas JSON</span><input id="atlas-file" type="file" accept=".json,application/json"></label>
+                <label><span>Atlas PNG</span><input id="atlas-image-file" type="file" accept=".png,image/png"></label>
+            </div>
+            <label><span>Animation JSON files</span><input id="animation-files" type="file" accept=".json,application/json" multiple></label>
+            <div class="row">
+                <button id="load-project-files" type="button">Load selected files</button>
+                <button id="clear-project-files" type="button">Clear local files</button>
+            </div>
+        </section>
 
         <section class="box">
             <h2>Animation preview</h2>
@@ -365,6 +431,28 @@
             </div>
         </section>
 
+
+        <section class="box">
+            <h2>Character JSON</h2>
+            <textarea id="character-json" spellcheck="false"></textarea>
+            <div class="row three">
+                <button id="apply-character-json" type="button">Apply JSON</button>
+                <button id="refresh-character-json" type="button">Refresh</button>
+                <button id="download-character-json" type="button">Download</button>
+            </div>
+        </section>
+
+        <section class="box">
+            <h2>Atlas JSON</h2>
+            <textarea id="atlas-json" spellcheck="false"></textarea>
+            <div class="row three">
+                <button id="apply-atlas-json" type="button">Apply JSON</button>
+                <button id="refresh-atlas-json" type="button">Refresh</button>
+                <button id="download-atlas-json" type="button">Download</button>
+            </div>
+            <p>Rectangle authoring over the atlas image is the next tool slice. This revision establishes project and file ownership first.</p>
+        </section>
+
         <section class="box">
             <h2>Animation JSON</h2>
             <textarea id="animation-json" spellcheck="false"></textarea>
@@ -378,9 +466,10 @@
         <section class="box">
             <h2>Rig JSON</h2>
             <textarea id="rig-json" spellcheck="false"></textarea>
-            <div class="row">
+            <div class="row three">
+                <button id="apply-rig-json" type="button">Apply JSON</button>
                 <button id="refresh-rig-json" type="button">Refresh</button>
-                <button id="download-rig-json" type="button">Download rig</button>
+                <button id="download-rig-json" type="button">Download</button>
             </div>
         </section>
 
@@ -396,6 +485,11 @@ import {
     normalizeAnimationClip,
     sampleAnimationClip
 } from "./IgnatiusRocketfrock_ANIMATION.js";
+import {
+    createBlankCharacterProject,
+    inventoryCharacterProjectJson,
+    resolveCharacterProjectReference
+} from "./IgnatiusRocketfrock_CHARACTER_PROJECT.js";
 import {
     animationTrackSummary,
     createEditableAnimationClip,
@@ -431,6 +525,21 @@ const PART_LABELS = {
 const canvas = document.getElementById("stage");
 const ctx = canvas.getContext("2d", { alpha: false });
 const els = {
+    projectSelect: document.getElementById("project-select"),
+    loadKnownProject: document.getElementById("load-known-project"),
+    newCharacter: document.getElementById("new-character"),
+    characterUrl: document.getElementById("character-url"),
+    loadCharacterUrl: document.getElementById("load-character-url"),
+    projectSource: document.getElementById("project-source"),
+    projectFiles: document.getElementById("project-files"),
+    projectDirectory: document.getElementById("project-directory"),
+    characterFile: document.getElementById("character-file"),
+    rigFile: document.getElementById("rig-file"),
+    atlasFile: document.getElementById("atlas-file"),
+    atlasImageFile: document.getElementById("atlas-image-file"),
+    animationFiles: document.getElementById("animation-files"),
+    loadProjectFiles: document.getElementById("load-project-files"),
+    clearProjectFiles: document.getElementById("clear-project-files"),
     animationSelect: document.getElementById("animation-select"),
     speed: document.getElementById("speed"),
     speedValue: document.getElementById("speed-value"),
@@ -462,23 +571,44 @@ const els = {
     offsetY: document.getElementById("offset-y"),
     partScale: document.getElementById("part-scale"),
     targetHeight: document.getElementById("target-height"),
+    characterJson: document.getElementById("character-json"),
+    applyCharacterJson: document.getElementById("apply-character-json"),
+    refreshCharacterJson: document.getElementById("refresh-character-json"),
+    downloadCharacterJson: document.getElementById("download-character-json"),
+    atlasJson: document.getElementById("atlas-json"),
+    applyAtlasJson: document.getElementById("apply-atlas-json"),
+    refreshAtlasJson: document.getElementById("refresh-atlas-json"),
+    downloadAtlasJson: document.getElementById("download-atlas-json"),
     animationJson: document.getElementById("animation-json"),
     applyAnimationJson: document.getElementById("apply-animation-json"),
     refreshAnimationJson: document.getElementById("refresh-animation-json"),
     downloadAnimationJson: document.getElementById("download-animation-json"),
     rigJson: document.getElementById("rig-json"),
+    applyRigJson: document.getElementById("apply-rig-json"),
     refreshRigJson: document.getElementById("refresh-rig-json"),
     downloadRigJson: document.getElementById("download-rig-json"),
     status: document.getElementById("status")
 };
 
+const KNOWN_PROJECTS = Object.freeze({
+    wizard: "assets/ct_char_wizard_1.json"
+});
+
 const state = {
     character: null,
     characterUrl: "assets/ct_char_wizard_1.json",
+    projectMode: "url",
+    projectLabel: "Ignatius Rocketfrock",
+    localFiles: new Map(),
+    localAliases: new Map(),
+    localObjectUrls: new Set(),
+    generatedAnimations: new Map(),
     rig: null,
     rigUrl: null,
     atlas: null,
+    atlasUrl: null,
     image: null,
+    imageUrl: null,
     assets: new Map(),
     animation: null,
     animationUrl: null,
@@ -508,7 +638,57 @@ function resolveRelativeUrl(baseUrl, relativeUrl) {
     return pathDirectory(baseUrl) + text;
 }
 
+function normalizeWorkspacePath(value) {
+    const parts = String(value || "").replace(/\\/g, "/").split("/");
+    const normalized = [];
+    for (const part of parts) {
+        if (!part || part === ".") {
+            continue;
+        }
+        if (part === "..") {
+            normalized.pop();
+            continue;
+        }
+        normalized.push(part);
+    }
+    return normalized.join("/");
+}
+
+function workspaceFileKey(file) {
+    return normalizeWorkspacePath(file?.webkitRelativePath || file?.name || "");
+}
+
+function fileBasename(value) {
+    const normalized = normalizeWorkspacePath(value);
+    const slash = normalized.lastIndexOf("/");
+    return slash >= 0 ? normalized.slice(slash + 1) : normalized;
+}
+
+function localFileForUrl(url) {
+    const normalized = normalizeWorkspacePath(url);
+    const aliasKey = state.localAliases.get(normalized);
+    if (aliasKey && state.localFiles.has(aliasKey)) {
+        return state.localFiles.get(aliasKey);
+    }
+    if (state.localFiles.has(normalized)) {
+        return state.localFiles.get(normalized);
+    }
+    const resolvedName = resolveCharacterProjectReference("", normalized, state.localFiles.keys());
+    return resolvedName ? state.localFiles.get(resolvedName) : null;
+}
+
 async function loadJson(url) {
+    if (state.projectMode === "local") {
+        const file = localFileForUrl(url);
+        if (!file) {
+            throw new Error(`The local project does not contain ${url}. Select the referenced file or load the complete project folder.`);
+        }
+        try {
+            return JSON.parse(await file.text());
+        } catch (error) {
+            throw new Error(`Could not parse ${file.name}: ${error.message}`);
+        }
+    }
     const response = await fetch(url, { cache: "no-store" });
     if (!response.ok) {
         throw new Error(`Could not load ${url}: HTTP ${response.status}`);
@@ -522,34 +702,356 @@ function loadImage(url) {
         img.decoding = "async";
         img.onload = () => resolve(img);
         img.onerror = () => reject(new Error(`Could not load ${url}`));
-        img.src = url;
+        if (state.projectMode === "local") {
+            const file = localFileForUrl(url);
+            if (!file) {
+                reject(new Error(`The local project does not contain ${url}. Select the atlas PNG.`));
+                return;
+            }
+            const objectUrl = URL.createObjectURL(file);
+            state.localObjectUrls.add(objectUrl);
+            img.src = objectUrl;
+        } else {
+            img.src = url;
+        }
     });
+}
+
+function revokeLocalObjectUrls() {
+    for (const url of state.localObjectUrls) {
+        URL.revokeObjectURL(url);
+    }
+    state.localObjectUrls.clear();
 }
 
 function drawOrder() {
     const source = state.rig?.drawOrder;
-    return Array.isArray(source) && source.length ? source : FALLBACK_DRAW_ORDER;
+    if (Array.isArray(source) && source.length) {
+        return source;
+    }
+    return state.rig?.parts ? Object.keys(state.rig.parts) : [];
 }
 
 async function loadCharacter() {
+    state.generatedAnimations.clear();
     state.character = await loadJson(state.characterUrl);
     state.rigUrl = resolveRelativeUrl(state.characterUrl, state.character.rig);
     state.rig = await loadJson(state.rigUrl);
-    const atlasUrl = resolveRelativeUrl(state.rigUrl, state.rig.atlasManifest || `${state.rig.atlasId}.json`);
-    state.atlas = await loadJson(atlasUrl);
-    const imageUrl = resolveRelativeUrl(atlasUrl, state.atlas.image);
-    state.image = await loadImage(imageUrl);
-    state.assets = buildAssetsFromAtlas(state.image, state.atlas, state.rig, imageUrl);
+    state.atlasUrl = resolveRelativeUrl(state.rigUrl, state.rig.atlasManifest || `${state.rig.atlasId}.json`);
+    state.atlas = await loadJson(state.atlasUrl);
+    state.imageUrl = resolveRelativeUrl(state.atlasUrl, state.atlas.image);
+    let imageWarning = "";
+    try {
+        state.image = await loadImage(state.imageUrl);
+    } catch (error) {
+        state.image = null;
+        imageWarning = `\nImage warning: ${error.message}`;
+    }
+    state.assets = buildAssetsFromAtlas(state.image, state.atlas, state.rig, state.imageUrl);
     setupAnimationSelect();
     setupPartSelect();
     selectPart(els.partSelect.value || drawOrder()[0]);
+    if (els.animationSelect.value) {
+        await loadAnimationSlot(els.animationSelect.value);
+    } else {
+        clearAnimationState();
+    }
+    refreshAllJsonEditors();
+    updateProjectSource();
+    setStatus(`Loaded ${state.character.characterId}\nRig: ${state.rigUrl}\nAtlas: ${state.atlasUrl}\nImage: ${state.imageUrl}${imageWarning}`);
+}
+
+async function loadGeneratedProject(project) {
+    revokeLocalObjectUrls();
+    state.projectMode = "generated";
+    state.projectLabel = project.displayName;
+    state.localFiles.clear();
+    state.localAliases.clear();
+    state.character = project.character;
+    state.characterUrl = project.filenames.character;
+    state.rig = project.rig;
+    state.rigUrl = project.filenames.rig;
+    state.atlas = project.atlas;
+    state.atlasUrl = project.filenames.atlas;
+    state.image = null;
+    state.imageUrl = project.filenames.image;
+    state.assets = new Map();
+    state.generatedAnimations = new Map(Object.entries(project.animations));
+    setupAnimationSelect();
+    setupPartSelect();
+    selectPart(drawOrder()[0]);
     await loadAnimationSlot(els.animationSelect.value);
+    refreshAllJsonEditors();
+    updateProjectSource();
+    setStatus(`Created blank project ${project.displayName}.\nThe placeholder root keeps the JSON valid until an atlas PNG and real frames are selected.`);
+}
+
+
+function updateProjectSource() {
+    const label = state.projectMode === "local"
+        ? `Local project: ${state.projectLabel}`
+        : state.projectMode === "generated"
+            ? `New in-memory project: ${state.projectLabel}`
+            : `URL project: ${state.characterUrl}`;
+    els.projectSource.textContent = label;
+    els.characterUrl.value = state.projectMode === "url" ? state.characterUrl : els.characterUrl.value;
+}
+
+function registerLocalFile(file) {
+    if (!file) {
+        return null;
+    }
+    const key = workspaceFileKey(file);
+    if (!key) {
+        return null;
+    }
+    state.localFiles.set(key, file);
+    return key;
+}
+
+function aliasLocalReference(requestedUrl, file) {
+    const key = registerLocalFile(file);
+    if (key) {
+        state.localAliases.set(normalizeWorkspacePath(requestedUrl), key);
+    }
+}
+
+async function parseJsonFile(file) {
+    try {
+        return JSON.parse(await file.text());
+    } catch (error) {
+        throw new Error(`Could not parse ${file.name}: ${error.message}`);
+    }
+}
+
+function selectedFiles(input) {
+    return input?.files ? [...input.files] : [];
+}
+
+function collectLocalProjectFiles() {
+    const all = [
+        ...selectedFiles(els.projectFiles),
+        ...selectedFiles(els.projectDirectory),
+        ...selectedFiles(els.characterFile),
+        ...selectedFiles(els.rigFile),
+        ...selectedFiles(els.atlasFile),
+        ...selectedFiles(els.atlasImageFile),
+        ...selectedFiles(els.animationFiles)
+    ];
+    const unique = new Map();
+    for (const file of all) {
+        const signature = `${workspaceFileKey(file)}|${file.size}|${file.lastModified}`;
+        unique.set(signature, file);
+    }
+    return [...unique.values()];
+}
+
+async function loadSelectedProjectFiles() {
+    const files = collectLocalProjectFiles();
+    if (!files.length) {
+        throw new Error("Select a project folder, a group of files, or the explicit character files first.");
+    }
+
+    revokeLocalObjectUrls();
+    state.projectMode = "local";
+    state.localFiles.clear();
+    state.localAliases.clear();
+    state.generatedAnimations.clear();
+    for (const file of files) {
+        registerLocalFile(file);
+    }
+
+    const jsonFiles = files.filter((file) => file.name.toLowerCase().endsWith(".json"));
+    const records = [];
+    for (const file of jsonFiles) {
+        records.push({ file, name: workspaceFileKey(file), data: await parseJsonFile(file) });
+    }
+    const inventory = inventoryCharacterProjectJson(records);
+    const explicitCharacter = els.characterFile.files?.[0] || null;
+    const characterRecord = explicitCharacter
+        ? records.find((record) => record.file === explicitCharacter)
+        : inventory.character[0];
+    if (!characterRecord) {
+        throw new Error("No character-definition JSON was found. Select a JSON containing characterId, rig, and animationMap.");
+    }
+
+    state.characterUrl = characterRecord.name;
+    state.projectLabel = characterRecord.data.displayName || characterRecord.data.characterId || characterRecord.file.name;
+
+    const explicitRig = els.rigFile.files?.[0] || null;
+    if (explicitRig) {
+        aliasLocalReference(resolveRelativeUrl(state.characterUrl, characterRecord.data.rig), explicitRig);
+    }
+    const rigUrl = resolveRelativeUrl(state.characterUrl, characterRecord.data.rig);
+    const rigFile = localFileForUrl(rigUrl);
+    if (!rigFile) {
+        throw new Error(`Could not resolve rig file ${characterRecord.data.rig}. Select it explicitly or include it in the project files.`);
+    }
+    const rigData = explicitRig
+        ? records.find((record) => record.file === explicitRig)?.data || await parseJsonFile(explicitRig)
+        : await parseJsonFile(rigFile);
+
+    const atlasReference = rigData.atlasManifest || `${rigData.atlasId}.json`;
+    const atlasUrl = resolveRelativeUrl(rigUrl, atlasReference);
+    const explicitAtlas = els.atlasFile.files?.[0] || null;
+    if (explicitAtlas) {
+        aliasLocalReference(atlasUrl, explicitAtlas);
+    }
+    const atlasFile = localFileForUrl(atlasUrl);
+    if (!atlasFile) {
+        throw new Error(`Could not resolve atlas manifest ${atlasReference}. Select it explicitly or include it in the project files.`);
+    }
+    const atlasData = explicitAtlas
+        ? records.find((record) => record.file === explicitAtlas)?.data || await parseJsonFile(explicitAtlas)
+        : await parseJsonFile(atlasFile);
+
+    const imageUrl = resolveRelativeUrl(atlasUrl, atlasData.image);
+    const explicitImage = els.atlasImageFile.files?.[0] || null;
+    if (explicitImage) {
+        aliasLocalReference(imageUrl, explicitImage);
+    }
+
+    const explicitAnimationFiles = selectedFiles(els.animationFiles);
+    const animationRecords = records.filter((record) => inventory.animation.includes(record));
+    const animationCandidates = explicitAnimationFiles.length
+        ? animationRecords.filter((record) => explicitAnimationFiles.includes(record.file))
+        : animationRecords;
+    const unresolved = [];
+    for (const [slot, reference] of Object.entries(characterRecord.data.animationMap || {})) {
+        if (!reference) {
+            continue;
+        }
+        const animationUrl = resolveRelativeUrl(state.characterUrl, reference);
+        if (localFileForUrl(animationUrl)) {
+            continue;
+        }
+        const refBase = fileBasename(reference).toLowerCase();
+        const slotLower = slot.toLowerCase();
+        const matches = animationCandidates.filter((record) => {
+            const filename = record.file.name.toLowerCase();
+            const animationId = String(record.data.animationId || "").toLowerCase();
+            return filename === refBase || filename.includes(slotLower) || animationId.includes(slotLower);
+        });
+        if (matches.length === 1) {
+            aliasLocalReference(animationUrl, matches[0].file);
+        } else {
+            unresolved.push({ slot, animationUrl });
+        }
+    }
+    if (unresolved.length === 1 && animationCandidates.length === 1) {
+        aliasLocalReference(unresolved[0].animationUrl, animationCandidates[0].file);
+    }
+
+    await loadCharacter();
+    setStatus(`${els.status.textContent}\nLocal workspace: ${files.length} files (${inventory.animation.length} animations).`);
+}
+
+function clearLocalFileSelection() {
+    for (const input of [
+        els.projectFiles,
+        els.projectDirectory,
+        els.characterFile,
+        els.rigFile,
+        els.atlasFile,
+        els.atlasImageFile,
+        els.animationFiles
+    ]) {
+        input.value = "";
+    }
+    revokeLocalObjectUrls();
+    state.localFiles.clear();
+    state.localAliases.clear();
+    setStatus("Cleared selected local files. The currently loaded in-memory data remains available until another project is loaded.");
+}
+
+async function loadUrlProject(url, label = null) {
+    const cleanUrl = String(url || "").trim();
+    if (!cleanUrl) {
+        throw new Error("Enter a character-definition URL.");
+    }
+    revokeLocalObjectUrls();
+    state.projectMode = "url";
+    state.projectLabel = label || cleanUrl;
+    state.characterUrl = cleanUrl;
+    state.localFiles.clear();
+    state.localAliases.clear();
+    await loadCharacter();
+}
+
+function refreshCharacterJson() {
+    els.characterJson.value = state.character ? JSON.stringify(state.character, null, 4) : "";
+}
+
+function refreshAtlasJson() {
+    els.atlasJson.value = state.atlas ? JSON.stringify(state.atlas, null, 4) : "";
+}
+
+function refreshAllJsonEditors() {
+    refreshCharacterJson();
+    refreshAtlasJson();
     refreshRigJson();
-    setStatus(`Loaded ${state.character.characterId}\nRig: ${state.rigUrl}\nAtlas: ${atlasUrl}\nImage: ${imageUrl}`);
+    refreshAnimationJson();
+}
+
+async function applyCharacterJson() {
+    try {
+        const parsed = JSON.parse(els.characterJson.value);
+        if (!parsed || typeof parsed.rig !== "string" || !parsed.animationMap || typeof parsed.animationMap !== "object") {
+            throw new Error("Character JSON must contain a rig reference and animationMap object.");
+        }
+        state.character = parsed;
+        state.projectLabel = parsed.displayName || parsed.characterId || state.projectLabel;
+        setupAnimationSelect();
+        if (els.animationSelect.value) {
+            await loadAnimationSlot(els.animationSelect.value);
+        } else {
+            clearAnimationState();
+        }
+        refreshCharacterJson();
+        updateProjectSource();
+        setStatus("Applied character-definition JSON. Rig references take effect when the project is reloaded.");
+    } catch (error) {
+        setStatus(error.stack || error.message);
+    }
+}
+
+function applyAtlasJson() {
+    try {
+        const parsed = JSON.parse(els.atlasJson.value);
+        if (!parsed || typeof parsed.image !== "string" || !parsed.frames || typeof parsed.frames !== "object") {
+            throw new Error("Atlas JSON must contain an image reference and frames object.");
+        }
+        state.atlas = parsed;
+        state.assets = buildAssetsFromAtlas(state.image, state.atlas, state.rig, state.imageUrl);
+        refreshAtlasJson();
+        setStatus("Applied atlas JSON and rebuilt the current rig-part image cache.");
+    } catch (error) {
+        setStatus(error.stack || error.message);
+    }
+}
+
+function applyRigJson() {
+    try {
+        const parsed = JSON.parse(els.rigJson.value);
+        if (!parsed || !parsed.parts || !parsed.pivots || !Array.isArray(parsed.drawOrder)) {
+            throw new Error("Rig JSON must contain drawOrder, parts, and pivots.");
+        }
+        state.rig = parsed;
+        state.assets = buildAssetsFromAtlas(state.image, state.atlas, state.rig, state.imageUrl);
+        setupPartSelect();
+        selectPart(drawOrder()[0]);
+        refreshRigJson();
+        setStatus("Applied rig JSON and rebuilt the preview parts.");
+    } catch (error) {
+        setStatus(error.stack || error.message);
+    }
 }
 
 function buildAssetsFromAtlas(image, atlas, rig, imageUrl) {
     const result = new Map();
+    if (!image || !atlas?.frames || !rig?.parts) {
+        return result;
+    }
     for (const partName of drawOrder()) {
         const part = rig.parts[partName];
         const frameId = part.frame || partName;
@@ -583,18 +1085,38 @@ function setupAnimationSelect() {
         els.animationSelect.appendChild(option);
     }
     if (!entries.length) {
-        throw new Error("Character definition does not map any animation files.");
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "(no mapped animations)";
+        els.animationSelect.appendChild(option);
+        els.animationSelect.disabled = true;
+        return;
     }
+    els.animationSelect.disabled = false;
     els.animationSelect.value = entries.some(([slot]) => slot === previous) ? previous : entries[0][0];
+}
+
+function clearAnimationState() {
+    state.animation = null;
+    state.animationUrl = null;
+    state.animationSlot = null;
+    state.normalizedAnimation = null;
+    state.time = 0;
+    state.selectedKeyIndex = -1;
+    els.animationJson.value = "";
+    rebuildTimeline();
+    syncAnimationControls();
 }
 
 async function loadAnimationSlot(slot) {
     const relativeUrl = state.character.animationMap?.[slot];
     if (!relativeUrl) {
-        throw new Error(`Animation slot "${slot}" has no file.`);
+        clearAnimationState();
+        return;
     }
     const url = resolveRelativeUrl(state.characterUrl, relativeUrl);
-    const raw = await loadJson(url);
+    const generated = state.projectMode === "generated" ? state.generatedAnimations.get(slot) : null;
+    const raw = generated || await loadJson(url);
     state.animation = createEditableAnimationClip(raw, `animation ${slot}`);
     state.animationUrl = url;
     state.animationSlot = slot;
@@ -612,13 +1134,23 @@ async function loadAnimationSlot(slot) {
 function setupPartSelect() {
     const previous = els.partSelect.value;
     els.partSelect.innerHTML = "";
-    for (const name of drawOrder()) {
+    const names = drawOrder();
+    for (const name of names) {
         const option = document.createElement("option");
         option.value = name;
         option.textContent = PART_LABELS[name] || name;
         els.partSelect.appendChild(option);
     }
-    els.partSelect.value = drawOrder().includes(previous) ? previous : drawOrder()[0];
+    if (!names.length) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "(no rig parts)";
+        els.partSelect.appendChild(option);
+        els.partSelect.disabled = true;
+        return;
+    }
+    els.partSelect.disabled = false;
+    els.partSelect.value = names.includes(previous) ? previous : names[0];
 }
 
 function selectedPartName() {
@@ -630,11 +1162,15 @@ function selectedProperty() {
 }
 
 function selectPart(name) {
-    if (!state.rig) {
+    if (!state.rig || !name) {
         return;
     }
-    const part = state.rig.parts[name];
-    const pivot = state.rig.pivots[name];
+    const part = state.rig.parts?.[name];
+    const pivot = state.rig.pivots?.[name];
+    if (!part || !pivot) {
+        setStatus(`Rig part ${name} is missing its part or pivot definition.`);
+        return;
+    }
     state.syncing = true;
     els.partSelect.value = name;
     els.pivotX.value = Number(pivot.x).toFixed(3);
@@ -687,6 +1223,12 @@ function samplePose() {
 
 function syncAnimationControls() {
     if (!state.animation) {
+        state.syncing = true;
+        els.time.max = 1;
+        els.time.value = 0;
+        els.loop.checked = false;
+        state.syncing = false;
+        updateReadouts();
         return;
     }
     const duration = Number(state.animation.duration);
@@ -721,6 +1263,10 @@ function rebuildTimeline() {
         marker.remove();
     }
     if (!state.animation) {
+        els.trackSummary.textContent = "No animation loaded.";
+        els.sampleValue.textContent = "";
+        updateKeyButtons();
+        updateReadouts();
         return;
     }
     const duration = Number(state.animation.duration);
@@ -1009,6 +1555,18 @@ function animationFilename() {
     return state.animationUrl?.split("/").pop() || `${state.animation?.animationId || "animation"}.json`;
 }
 
+function characterFilename() {
+    return state.characterUrl?.split("/").pop() || `${state.character?.characterId || "character"}.json`;
+}
+
+function atlasFilename() {
+    return state.atlasUrl?.split("/").pop() || `${state.atlas?.atlasId || "atlas"}.json`;
+}
+
+function rigFilename() {
+    return state.rigUrl?.split("/").pop() || "character_rig.json";
+}
+
 function setStatus(text) {
     els.status.textContent = text;
 }
@@ -1018,7 +1576,7 @@ function drawSprite(name, transform) {
     if (!asset || !transform) {
         return;
     }
-    const pivot = state.rig.pivots[name];
+    const pivot = state.rig.pivots?.[name] || { x: 0.5, y: 0.5 };
     const spriteScale = transform.targetHeight / Math.max(1, asset.height);
     ctx.save();
     ctx.globalAlpha *= transform.alpha;
@@ -1041,17 +1599,20 @@ function renderedPose() {
     if (!pose || !state.rig) {
         return null;
     }
-    const globalScale = state.rig.global.scale * 1.9;
+    const globalScale = Number(state.rig.global?.scale ?? 1) * 1.9;
     const result = {};
     for (const name of drawOrder()) {
-        const local = pose[name];
-        const part = state.rig.parts[name];
+        const local = pose[name] || { x: 0, y: 0, rotation: 0, scale: 1, alpha: 1 };
+        const part = state.rig.parts?.[name];
+        if (!part) {
+            continue;
+        }
         result[name] = {
-            x: local.x * globalScale,
-            y: local.y * globalScale,
-            angle: local.rotation,
-            targetHeight: part.targetHeight * globalScale * local.scale,
-            alpha: local.alpha
+            x: Number(local.x || 0) * globalScale,
+            y: Number(local.y || 0) * globalScale,
+            angle: Number(local.rotation || 0),
+            targetHeight: Number(part.targetHeight || 100) * globalScale * Number(local.scale ?? 1),
+            alpha: Number(local.alpha ?? 1)
         };
     }
     return result;
@@ -1101,6 +1662,47 @@ function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
 
+els.loadKnownProject.addEventListener("click", () => {
+    const url = KNOWN_PROJECTS[els.projectSelect.value];
+    loadUrlProject(url, els.projectSelect.options[els.projectSelect.selectedIndex]?.textContent)
+        .catch((error) => setStatus(error.stack || error.message));
+});
+els.loadCharacterUrl.addEventListener("click", () => {
+    loadUrlProject(els.characterUrl.value)
+        .catch((error) => setStatus(error.stack || error.message));
+});
+els.newCharacter.addEventListener("click", () => {
+    const displayName = window.prompt("Character display name", "New Character");
+    if (displayName === null) {
+        return;
+    }
+    loadGeneratedProject(createBlankCharacterProject(displayName))
+        .catch((error) => setStatus(error.stack || error.message));
+});
+els.loadProjectFiles.addEventListener("click", () => {
+    loadSelectedProjectFiles().catch((error) => setStatus(error.stack || error.message));
+});
+els.clearProjectFiles.addEventListener("click", clearLocalFileSelection);
+els.applyCharacterJson.addEventListener("click", applyCharacterJson);
+els.refreshCharacterJson.addEventListener("click", refreshCharacterJson);
+els.downloadCharacterJson.addEventListener("click", () => {
+    if (!state.character) {
+        return;
+    }
+    downloadJson(characterFilename(), state.character);
+    setStatus(`Downloaded ${characterFilename()}.`);
+});
+els.applyAtlasJson.addEventListener("click", applyAtlasJson);
+els.refreshAtlasJson.addEventListener("click", refreshAtlasJson);
+els.downloadAtlasJson.addEventListener("click", () => {
+    if (!state.atlas) {
+        return;
+    }
+    downloadJson(atlasFilename(), state.atlas);
+    setStatus(`Downloaded ${atlasFilename()}.`);
+});
+els.applyRigJson.addEventListener("click", applyRigJson);
+
 els.animationSelect.addEventListener("change", () => {
     loadAnimationSlot(els.animationSelect.value).catch((error) => setStatus(error.stack || error.message));
 });
@@ -1130,6 +1732,11 @@ els.mirror.addEventListener("click", () => {
     els.mirror.textContent = state.facing === 1 ? "Facing: right" : "Facing: left";
 });
 els.reload.addEventListener("click", () => {
+    if (state.projectMode === "generated") {
+        refreshAllJsonEditors();
+        setStatus("Refreshed the in-memory new-character project. Download JSON files to preserve it outside this browser tab.");
+        return;
+    }
     loadCharacter().catch((error) => setStatus(error.stack || error.message));
 });
 els.loop.addEventListener("change", () => {
@@ -1159,12 +1766,14 @@ els.downloadAnimationJson.addEventListener("click", () => {
 });
 els.refreshRigJson.addEventListener("click", refreshRigJson);
 els.downloadRigJson.addEventListener("click", () => {
-    downloadJson(state.rigUrl?.split("/").pop() || "ct_rig_wizard_1.json", state.rig);
-    setStatus("Downloaded rig JSON.");
+    downloadJson(rigFilename(), state.rig);
+    setStatus(`Downloaded ${rigFilename()}.`);
 });
 
 updateKeyButtons();
-loadCharacter().catch((error) => setStatus(error.stack || error.message));
+updateProjectSource();
+loadUrlProject(KNOWN_PROJECTS.wizard, "Ignatius Rocketfrock")
+    .catch((error) => setStatus(error.stack || error.message));
 requestAnimationFrame(render);
 </script>
 </body>

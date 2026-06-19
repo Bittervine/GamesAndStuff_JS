@@ -9,6 +9,14 @@ import {
     sampleAnimationTrack
 } from "./IgnatiusRocketfrock_ANIMATION.js";
 import {
+    CHARACTER_PROJECT_FILE_KIND,
+    classifyCharacterProjectJson,
+    createBlankCharacterProject,
+    inventoryCharacterProjectJson,
+    normalizeCharacterSlug,
+    resolveCharacterProjectReference
+} from "./IgnatiusRocketfrock_CHARACTER_PROJECT.js";
+import {
     createEditableAnimationClip,
     deleteAnimationKeyframe,
     getAnimationTrack,
@@ -69,6 +77,56 @@ function testResponsiveViewportScaling() {
     approx(desktop.zoom, 1.5, 0.001, "desktop zoom should remain DPR-only");
 }
 
+
+
+function testCharacterProjectWorkspace() {
+    assert.equal(normalizeCharacterSlug("  Brass Bat!  "), "brass_bat", "character names should become stable file slugs");
+    const project = createBlankCharacterProject("Brass Bat");
+    assert.equal(project.filenames.character, "ct_char_brass_bat_1.json", "blank project should use consistent character filenames");
+    assert.equal(project.character.rig, project.filenames.rig, "blank character should reference its generated rig");
+    assert.equal(project.rig.atlasManifest, project.filenames.atlas, "blank rig should reference its generated atlas manifest");
+    assert.equal(project.atlas.image, project.filenames.image, "blank atlas should reference its generated PNG name");
+    assert.equal(project.character.animationMap.idle, project.filenames.animation, "blank character should map an editable idle animation");
+    normalizeAnimationClip(project.animations.idle, "blank project idle");
+
+    assert.equal(classifyCharacterProjectJson(project.character), CHARACTER_PROJECT_FILE_KIND.CHARACTER, "character JSON should classify correctly");
+    assert.equal(classifyCharacterProjectJson(project.rig), CHARACTER_PROJECT_FILE_KIND.RIG, "rig JSON should classify correctly");
+    assert.equal(classifyCharacterProjectJson(project.atlas), CHARACTER_PROJECT_FILE_KIND.ATLAS, "atlas JSON should classify correctly");
+    assert.equal(classifyCharacterProjectJson(project.animations.idle), CHARACTER_PROJECT_FILE_KIND.ANIMATION, "animation JSON should classify correctly");
+
+    const inventory = inventoryCharacterProjectJson([
+        { name: project.filenames.character, data: project.character },
+        { name: project.filenames.rig, data: project.rig },
+        { name: project.filenames.atlas, data: project.atlas },
+        { name: project.filenames.animation, data: project.animations.idle }
+    ]);
+    assert.equal(inventory.character.length, 1, "workspace inventory should find one character definition");
+    assert.equal(inventory.animation.length, 1, "workspace inventory should find one animation");
+
+    const available = [
+        `characters/brass/${project.filenames.character}`,
+        `characters/brass/${project.filenames.rig}`,
+        `characters/brass/${project.filenames.atlas}`
+    ];
+    assert.equal(
+        resolveCharacterProjectReference(available[0], project.character.rig, available),
+        available[1],
+        "relative project references should resolve inside a selected folder"
+    );
+    assert.equal(
+        resolveCharacterProjectReference("unrelated/location.json", project.character.rig, available),
+        available[1],
+        "a unique basename should provide the portable multi-file fallback"
+    );
+
+    const toolHtml = readFileSync(new URL("./character_tool.html", import.meta.url), "utf8");
+    assert.ok(toolHtml.includes("Character project"), "character tool should expose project selection");
+    assert.ok(toolHtml.includes("New character"), "character tool should expose blank project creation");
+    assert.ok(toolHtml.includes("project-directory"), "character tool should expose directory selection where supported");
+    assert.ok(toolHtml.includes("atlas-image-file"), "character tool should expose an explicit atlas PNG picker");
+    assert.ok(toolHtml.includes("Character JSON"), "character tool should expose character-definition editing and export");
+    assert.ok(toolHtml.includes("Atlas JSON"), "character tool should expose atlas-manifest editing and export");
+}
 
 function testDataDrivenRunAnimation() {
     const rawClip = JSON.parse(readFileSync(new URL("./assets/ct_anim_wizard_run_1.json", import.meta.url), "utf8"));
@@ -772,6 +830,7 @@ function testAttachedSmokeDownSpeedTuning() {
 
 const tests = [
     ["responsive viewport scaling", testResponsiveViewportScaling],
+    ["character project workspace", testCharacterProjectWorkspace],
     ["data-driven wizard run animation", testDataDrivenRunAnimation],
     ["animation editor keyframe operations", testAnimationEditorOperations],
     ["animation easing modes", testAnimationEasingModes],

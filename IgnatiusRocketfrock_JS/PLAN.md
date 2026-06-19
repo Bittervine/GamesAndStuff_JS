@@ -325,7 +325,9 @@ The obsolete procedural run and `data` / `legacy` / `compare` controls have been
 
 `character_tool.html` loads the mapped animation file and previews it through the same evaluator used by the game. It supports playback, pause, scrubbing, stepping between authored key times, loop and speed controls, per-part/per-property timelines, draggable key markers, exact time/value/easing edits, add/delete/copy/paste operations, and animation JSON export. Shared editing operations live in `IgnatiusRocketfrock_ANIMATION_EDITOR.js`.
 
-The next structural step is to remove the tool's hardwired wizard-project assumption. Add character selection and creation, explicit PNG/JSON file selection, atlas rectangle authoring, rig-part creation, and role/tag assignment before migrating the remaining airborne poses. This ensures the upcoming idle, jump, hover, enemy, and NPC animation work is created through the same reusable workflow rather than through another wizard-only path.
+Revision 058 removed the tool's hardwired wizard-project assumption. Puppet Forge can now load a known character, an arbitrary character-definition URL, selected local files, or a selected project directory. It can also create a consistently named blank character project containing mutually referenced atlas, rig, character-definition, and idle-animation templates. The local workflow keeps browser-selected files in memory and resolves relative references without pretending the browser can silently access arbitrary folders.
+
+The next structural step is atlas rectangle authoring and dirty-state tracking, followed by rig-part creation and role/tag assignment. Complete those pieces before migrating the remaining airborne poses so the upcoming idle, jump, hover, enemy, and NPC animation work is created through the same reusable workflow rather than through another wizard-only path.
 
 ## Character Tool
 
