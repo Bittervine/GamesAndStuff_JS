@@ -52,6 +52,8 @@
             border-radius: 18px;
             background: rgb(6, 6, 12);
             box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42);
+            touch-action: none;
+            user-select: none;
         }
 
         aside {
@@ -141,9 +143,26 @@
             background: rgba(255, 255, 255, 0.13);
         }
 
-        button:disabled {
+        button:disabled, input:disabled, select:disabled {
             opacity: 0.45;
             cursor: not-allowed;
+        }
+
+        .inline-readout {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 8px;
+            color: var(--muted);
+            font-size: 12px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .inline-readout button {
+            width: auto;
+            min-width: 116px;
+            margin: 0;
         }
 
         .box {
@@ -291,7 +310,7 @@
         <canvas id="stage" width="1160" height="660" aria-label="Puppet Forge character preview"></canvas>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 058</small></h1>
+        <h1>Puppet Forge <small>rev 059</small></h1>
         <p><a href="IgnatiusRocketfrock_JS.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -365,6 +384,11 @@
                 <button id="mirror" type="button">Facing: right</button>
                 <button id="reload" type="button">Reload files</button>
             </div>
+            <div class="inline-readout">
+                <span>View zoom: <strong id="zoom-value">100%</strong></span>
+                <button id="reset-view" type="button">Reset view</button>
+            </div>
+            <p>Hold Ctrl and use the mouse wheel over the preview to zoom around the pointer.</p>
             <label class="check-row"><input id="loop" type="checkbox" checked> Loop preview and exported clip</label>
         </section>
 
@@ -377,6 +401,7 @@
             <label>
                 <span>Property</span>
                 <select id="property-select">
+                    <option value="transform">X, Y and Angle (drag)</option>
                     <option value="x">X position</option>
                     <option value="y">Y position</option>
                     <option value="rotation">Rotation</option>
@@ -412,7 +437,7 @@
                 <button id="copy-key" type="button">Copy key</button>
                 <button id="paste-key" type="button">Paste at playhead</button>
             </div>
-            <p>Click the timeline to scrub. Drag a diamond to move its keyframe in time. Numeric fields edit the selected key exactly.</p>
+            <p>For X, Y and Angle mode, drag inside the selected yellow rectangle to move the part and drag a yellow corner handle to rotate it. The first drag creates transform keys at the playhead. For single properties, edit the numeric value directly; typing at an unkeyed playhead creates a key automatically.</p>
         </section>
 
         <section class="box">
@@ -494,11 +519,23 @@ import {
     animationTrackSummary,
     createEditableAnimationClip,
     deleteAnimationKeyframe,
+    findKeyframeIndex,
     getAnimationTrack,
     serializeEditableAnimationClip,
     updateAnimationKeyframe,
     upsertAnimationKeyframe
 } from "./IgnatiusRocketfrock_ANIMATION_EDITOR.js";
+import {
+    TRANSFORM_EDIT_PROPERTY,
+    canvasPointFromClient,
+    canvasToPreviewPoint,
+    characterViewTransform,
+    geometryToCanvas,
+    hitTestPartGeometry,
+    partRectangleGeometry,
+    rotationFromPointerDrag,
+    zoomCharacterViewAtCanvasPoint
+} from "./IgnatiusRocketfrock_CHARACTER_VIEW.js";
 
 const FALLBACK_DRAW_ORDER = [
     "leftArm",
@@ -550,6 +587,8 @@ const els = {
     stepForward: document.getElementById("step-forward"),
     mirror: document.getElementById("mirror"),
     reload: document.getElementById("reload"),
+    zoomValue: document.getElementById("zoom-value"),
+    resetView: document.getElementById("reset-view"),
     loop: document.getElementById("loop"),
     partSelect: document.getElementById("part-select"),
     propertySelect: document.getElementById("property-select"),
@@ -621,7 +660,12 @@ const state = {
     syncing: false,
     selectedKeyIndex: -1,
     copiedKey: null,
-    dragKey: null
+    dragKey: null,
+    selectedTransformTime: null,
+    partDrag: null,
+    viewZoom: 1,
+    viewPanX: 0,
+    viewPanY: 0
 };
 
 function pathDirectory(url) {
@@ -1103,6 +1147,7 @@ function clearAnimationState() {
     state.normalizedAnimation = null;
     state.time = 0;
     state.selectedKeyIndex = -1;
+    state.selectedTransformTime = null;
     els.animationJson.value = "";
     rebuildTimeline();
     syncAnimationControls();
@@ -1123,6 +1168,7 @@ async function loadAnimationSlot(slot) {
     state.normalizedAnimation = null;
     state.time = 0;
     state.selectedKeyIndex = -1;
+    state.selectedTransformTime = null;
     state.paused = false;
     els.pause.textContent = "Pause";
     syncAnimationControls();
@@ -1158,7 +1204,37 @@ function selectedPartName() {
 }
 
 function selectedProperty() {
-    return els.propertySelect.value || "x";
+    return els.propertySelect.value || TRANSFORM_EDIT_PROPERTY;
+}
+
+function isTransformEditMode() {
+    return selectedProperty() === TRANSFORM_EDIT_PROPERTY;
+}
+
+function animationPreviewScale() {
+    return Number(state.rig?.global?.scale ?? 1) * 1.9;
+}
+
+function currentViewTransform() {
+    return characterViewTransform({
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+        zoom: state.viewZoom,
+        panX: state.viewPanX,
+        panY: state.viewPanY,
+        facing: state.facing
+    });
+}
+
+function clientPointOnCanvas(clientX, clientY) {
+    return canvasPointFromClient(clientX, clientY, canvas.getBoundingClientRect(), canvas.width, canvas.height);
+}
+
+function pauseForDirectEditing() {
+    if (!state.paused) {
+        state.paused = true;
+        els.pause.textContent = "Play";
+    }
 }
 
 function selectPart(name) {
@@ -1181,6 +1257,7 @@ function selectPart(name) {
     els.targetHeight.value = Math.round(part.targetHeight || 100);
     state.syncing = false;
     state.selectedKeyIndex = -1;
+    state.selectedTransformTime = null;
     rebuildTimeline();
 }
 
@@ -1211,9 +1288,11 @@ function normalizedAnimation() {
     return state.normalizedAnimation;
 }
 
-function invalidateAnimation() {
+function invalidateAnimation(refreshJson = true) {
     state.normalizedAnimation = null;
-    refreshAnimationJson();
+    if (refreshJson) {
+        refreshAnimationJson();
+    }
 }
 
 function samplePose() {
@@ -1244,11 +1323,24 @@ function updateReadouts() {
     const duration = Number(state.animation?.duration || 0);
     els.speedValue.textContent = `${Number(els.speed.value).toFixed(2)}x`;
     els.timeValue.textContent = `${state.time.toFixed(3)} / ${duration.toFixed(3)} s`;
+    els.zoomValue.textContent = `${Math.round(state.viewZoom * 100)}%`;
     els.timelinePlayhead.style.left = `${duration > 0 ? state.time / duration * 100 : 0}%`;
     const pose = samplePose();
-    const value = pose?.[selectedPartName()]?.[selectedProperty()];
+    const partName = selectedPartName();
+    const partPose = pose?.[partName];
+    if (isTransformEditMode()) {
+        els.sampleValue.textContent = partPose
+            ? `Sampled ${partName}: X ${formatValue(partPose.x)}, Y ${formatValue(partPose.y)}, angle ${formatValue(partPose.rotation)} rad`
+            : "No sampled transform for this part.";
+        if (document.activeElement !== els.keyTime) {
+            els.keyTime.value = Number(state.selectedTransformTime ?? state.time).toFixed(3);
+        }
+        els.keyValue.value = "";
+        return;
+    }
+    const value = partPose?.[selectedProperty()];
     els.sampleValue.textContent = Number.isFinite(value)
-        ? `Sampled ${selectedPartName()}.${selectedProperty()} = ${formatValue(value)}`
+        ? `Sampled ${partName}.${selectedProperty()} = ${formatValue(value)}`
         : "No sampled value for this track.";
     if (state.selectedKeyIndex < 0 && document.activeElement !== els.keyValue) {
         els.keyTime.value = state.time.toFixed(3);
@@ -1256,6 +1348,35 @@ function updateReadouts() {
             els.keyValue.value = formatValue(value);
         }
     }
+}
+
+function transformTrackTimes(partName = selectedPartName()) {
+    const times = new Set();
+    for (const property of ["x", "y", "rotation"]) {
+        const track = getAnimationTrack(state.animation, partName, property, false) || [];
+        for (const key of track) {
+            times.add(Number(key.time));
+        }
+    }
+    return [...times].filter(Number.isFinite).sort((a, b) => a - b);
+}
+
+function createTimelineMarker(time, title, selected, onClick, onPointerDown = null) {
+    const duration = Number(state.animation?.duration || 0);
+    const marker = document.createElement("button");
+    marker.type = "button";
+    marker.className = `key-marker${selected ? " selected" : ""}`;
+    marker.style.left = `${duration > 0 ? Number(time) / duration * 100 : 0}%`;
+    marker.title = title;
+    marker.setAttribute("aria-label", title);
+    if (onPointerDown) {
+        marker.addEventListener("pointerdown", onPointerDown);
+    }
+    marker.addEventListener("click", (event) => {
+        event.stopPropagation();
+        onClick();
+    });
+    els.timeline.appendChild(marker);
 }
 
 function rebuildTimeline() {
@@ -1269,29 +1390,64 @@ function rebuildTimeline() {
         updateReadouts();
         return;
     }
-    const duration = Number(state.animation.duration);
+    if (isTransformEditMode()) {
+        const partName = selectedPartName();
+        const times = transformTrackTimes(partName);
+        els.trackSummary.textContent = `${partName}.X/Y/Angle: ${times.length} authored times`;
+        for (const time of times) {
+            const properties = ["x", "y", "rotation"].filter((property) => findKeyframeIndex(state.animation, partName, property, time) >= 0);
+            createTimelineMarker(
+                time,
+                `${time.toFixed(3)} s · ${properties.join(", ")}`,
+                state.selectedTransformTime !== null && Math.abs(state.selectedTransformTime - time) < 0.0005,
+                () => selectTransformTime(time)
+            );
+        }
+        updateKeyButtons();
+        updateReadouts();
+        return;
+    }
     const track = getAnimationTrack(state.animation, selectedPartName(), selectedProperty(), false) || [];
     const summary = animationTrackSummary(state.animation, selectedPartName(), selectedProperty());
     els.trackSummary.textContent = `${summary.partName}.${summary.property}: ${summary.keyCount} keyframes`;
     track.forEach((key, index) => {
-        const marker = document.createElement("button");
-        marker.type = "button";
-        marker.className = `key-marker${index === state.selectedKeyIndex ? " selected" : ""}`;
-        marker.style.left = `${duration > 0 ? Number(key.time) / duration * 100 : 0}%`;
-        marker.title = `${Number(key.time).toFixed(3)} s · ${formatValue(Number(key.value))} · ${key.easing}`;
-        marker.setAttribute("aria-label", marker.title);
-        marker.addEventListener("pointerdown", (event) => beginKeyDrag(event, index));
-        marker.addEventListener("click", (event) => {
-            event.stopPropagation();
-            selectKey(index);
-        });
-        els.timeline.appendChild(marker);
+        createTimelineMarker(
+            Number(key.time),
+            `${Number(key.time).toFixed(3)} s · ${formatValue(Number(key.value))} · ${key.easing}`,
+            index === state.selectedKeyIndex,
+            () => selectKey(index),
+            (event) => beginKeyDrag(event, index)
+        );
     });
     updateKeyButtons();
     updateReadouts();
 }
 
+function selectTransformTime(time) {
+    state.selectedTransformTime = Number(time);
+    state.selectedKeyIndex = -1;
+    state.time = Number(time);
+    const partName = selectedPartName();
+    const firstKey = ["x", "y", "rotation"]
+        .map((property) => {
+            const track = getAnimationTrack(state.animation, partName, property, false) || [];
+            return track[findKeyframeIndex(state.animation, partName, property, time)];
+        })
+        .find(Boolean);
+    state.syncing = true;
+    els.time.value = state.time;
+    els.keyTime.value = state.time.toFixed(3);
+    if (firstKey) {
+        els.keyEasing.value = firstKey.easing || "linear";
+    }
+    state.syncing = false;
+    rebuildTimeline();
+}
+
 function selectKey(index) {
+    if (isTransformEditMode()) {
+        return;
+    }
     const track = getAnimationTrack(state.animation, selectedPartName(), selectedProperty(), false) || [];
     const key = track[index];
     if (!key) {
@@ -1300,6 +1456,7 @@ function selectKey(index) {
         return;
     }
     state.selectedKeyIndex = index;
+    state.selectedTransformTime = null;
     state.time = Number(key.time);
     state.syncing = true;
     els.time.value = state.time;
@@ -1311,15 +1468,50 @@ function selectKey(index) {
 }
 
 function updateKeyButtons() {
+    const transformMode = isTransformEditMode();
     const selected = state.selectedKeyIndex >= 0;
-    els.applyKey.disabled = !selected;
-    els.deleteKey.disabled = !selected;
-    els.copyKey.disabled = !selected;
-    els.pasteKey.disabled = !state.copiedKey;
+    els.addKey.disabled = !state.animation;
+    els.keyTime.disabled = transformMode;
+    els.keyValue.disabled = transformMode;
+    els.applyKey.disabled = transformMode || !selected;
+    els.deleteKey.disabled = transformMode ? state.selectedTransformTime === null : !selected;
+    els.copyKey.disabled = transformMode || !selected;
+    els.pasteKey.disabled = transformMode || !state.copiedKey;
+}
+
+function ensureTransformKeysAtPlayhead(partName, pose = null) {
+    const sampled = pose || samplePose()?.[partName];
+    if (!sampled) {
+        throw new Error(`No sampled transform is available for ${partName}.`);
+    }
+    const indices = {};
+    for (const property of ["x", "y", "rotation"]) {
+        let index = findKeyframeIndex(state.animation, partName, property, state.time);
+        if (index < 0) {
+            index = upsertAnimationKeyframe(state.animation, partName, property, {
+                time: state.time,
+                value: Number(sampled[property]),
+                easing: els.keyEasing.value || "linear"
+            });
+        }
+        indices[property] = index;
+    }
+    state.selectedTransformTime = state.time;
+    state.selectedKeyIndex = -1;
+    invalidateAnimation(false);
+    return indices;
 }
 
 function addKeyAtPlayhead() {
     try {
+        if (isTransformEditMode()) {
+            ensureTransformKeysAtPlayhead(selectedPartName());
+            invalidateAnimation();
+            rebuildTimeline();
+            selectTransformTime(state.time);
+            setStatus(`Added X, Y and angle keys for ${selectedPartName()} at ${state.time.toFixed(3)} s.`);
+            return;
+        }
         const pose = samplePose();
         const sampledValue = pose?.[selectedPartName()]?.[selectedProperty()];
         const uiValue = Number(els.keyValue.value);
@@ -1339,7 +1531,10 @@ function addKeyAtPlayhead() {
     }
 }
 
-function applySelectedKey() {
+function applySelectedKey(announce = true) {
+    if (isTransformEditMode()) {
+        return;
+    }
     try {
         const index = updateAnimationKeyframe(
             state.animation,
@@ -1358,7 +1553,48 @@ function applySelectedKey() {
         invalidateAnimation();
         rebuildTimeline();
         selectKey(index);
-        setStatus(`Applied keyframe ${index + 1} on ${selectedPartName()}.${selectedProperty()}.`);
+        if (announce) {
+            setStatus(`Applied keyframe ${index + 1} on ${selectedPartName()}.${selectedProperty()}.`);
+        }
+    } catch (error) {
+        setStatus(error.message);
+    }
+}
+
+function previewSelectedKeyValue() {
+    if (state.syncing || isTransformEditMode() || !state.animation) {
+        return;
+    }
+    const value = Number(els.keyValue.value);
+    if (!Number.isFinite(value)) {
+        return;
+    }
+    try {
+        pauseForDirectEditing();
+        if (state.selectedKeyIndex < 0) {
+            state.selectedKeyIndex = upsertAnimationKeyframe(
+                state.animation,
+                selectedPartName(),
+                selectedProperty(),
+                {
+                    time: state.time,
+                    value,
+                    easing: els.keyEasing.value || "linear"
+                }
+            );
+            els.keyTime.value = state.time.toFixed(3);
+            rebuildTimeline();
+        } else {
+            state.selectedKeyIndex = updateAnimationKeyframe(
+                state.animation,
+                selectedPartName(),
+                selectedProperty(),
+                state.selectedKeyIndex,
+                { value }
+            );
+        }
+        invalidateAnimation(false);
+        updateReadouts();
     } catch (error) {
         setStatus(error.message);
     }
@@ -1366,6 +1602,32 @@ function applySelectedKey() {
 
 function deleteSelectedKey() {
     try {
+        if (isTransformEditMode()) {
+            if (state.selectedTransformTime === null) {
+                return;
+            }
+            const partName = selectedPartName();
+            const removals = [];
+            for (const property of ["x", "y", "rotation"]) {
+                const track = getAnimationTrack(state.animation, partName, property, false) || [];
+                const index = findKeyframeIndex(state.animation, partName, property, state.selectedTransformTime);
+                if (index >= 0) {
+                    if (track.length <= 1) {
+                        throw new Error(`${partName}.${property} must keep at least one keyframe.`);
+                    }
+                    removals.push({ property, index });
+                }
+            }
+            for (const removal of removals) {
+                deleteAnimationKeyframe(state.animation, partName, removal.property, removal.index);
+            }
+            const deletedTime = state.selectedTransformTime;
+            state.selectedTransformTime = null;
+            invalidateAnimation();
+            rebuildTimeline();
+            setStatus(`Deleted transform keys from ${partName} at ${deletedTime.toFixed(3)} s.`);
+            return;
+        }
         if (deleteAnimationKeyframe(state.animation, selectedPartName(), selectedProperty(), state.selectedKeyIndex)) {
             state.selectedKeyIndex = -1;
             invalidateAnimation();
@@ -1378,6 +1640,9 @@ function deleteSelectedKey() {
 }
 
 function copySelectedKey() {
+    if (isTransformEditMode()) {
+        return;
+    }
     const track = getAnimationTrack(state.animation, selectedPartName(), selectedProperty(), false) || [];
     const key = track[state.selectedKeyIndex];
     if (!key) {
@@ -1389,7 +1654,7 @@ function copySelectedKey() {
 }
 
 function pasteKeyAtPlayhead() {
-    if (!state.copiedKey) {
+    if (isTransformEditMode() || !state.copiedKey) {
         return;
     }
     try {
@@ -1408,6 +1673,9 @@ function pasteKeyAtPlayhead() {
 }
 
 function beginKeyDrag(event, index) {
+    if (isTransformEditMode()) {
+        return;
+    }
     event.preventDefault();
     event.stopPropagation();
     selectKey(index);
@@ -1430,7 +1698,7 @@ function dragSelectedKey(event) {
         );
         state.selectedKeyIndex = index;
         state.time = time;
-        invalidateAnimation();
+        invalidateAnimation(false);
         const track = getAnimationTrack(state.animation, selectedPartName(), selectedProperty(), false);
         els.keyTime.value = Number(track[index].time).toFixed(3);
         els.keyValue.value = formatValue(Number(track[index].value));
@@ -1446,6 +1714,7 @@ function endKeyDrag(event) {
         return;
     }
     state.dragKey = null;
+    invalidateAnimation();
     setStatus(`Moved keyframe to ${state.time.toFixed(3)} s.`);
 }
 
@@ -1461,6 +1730,7 @@ function scrubTimeline(event) {
     }
     state.time = timelineTimeFromClientX(event.clientX);
     state.selectedKeyIndex = -1;
+    state.selectedTransformTime = null;
     state.syncing = true;
     els.time.value = state.time;
     state.syncing = false;
@@ -1499,6 +1769,7 @@ function stepPlayhead(direction) {
     }
     state.time = target;
     state.selectedKeyIndex = -1;
+    state.selectedTransformTime = null;
     state.syncing = true;
     els.time.value = state.time;
     state.syncing = false;
@@ -1523,6 +1794,7 @@ function applyAnimationJson() {
         state.normalizedAnimation = null;
         state.time = clamp(state.time, 0, Number(state.animation.duration));
         state.selectedKeyIndex = -1;
+        state.selectedTransformTime = null;
         syncAnimationControls();
         rebuildTimeline();
         refreshAnimationJson();
@@ -1571,6 +1843,11 @@ function setStatus(text) {
     els.status.textContent = text;
 }
 
+function stagePixelScale() {
+    const rect = canvas.getBoundingClientRect();
+    return canvas.width / Math.max(1, rect.width);
+}
+
 function drawSprite(name, transform) {
     const asset = state.assets.get(name);
     if (!asset || !transform) {
@@ -1578,6 +1855,7 @@ function drawSprite(name, transform) {
     }
     const pivot = state.rig.pivots?.[name] || { x: 0.5, y: 0.5 };
     const spriteScale = transform.targetHeight / Math.max(1, asset.height);
+    const viewLineScale = Math.max(0.0001, spriteScale * state.viewZoom);
     ctx.save();
     ctx.globalAlpha *= transform.alpha;
     ctx.translate(transform.x, transform.y);
@@ -1585,11 +1863,11 @@ function drawSprite(name, transform) {
     ctx.scale(spriteScale, spriteScale);
     ctx.drawImage(asset.canvas, -pivot.x * asset.width, -pivot.y * asset.height);
     ctx.strokeStyle = name === selectedPartName() ? "rgba(255, 237, 120, 0.95)" : "rgba(255, 255, 255, 0.22)";
-    ctx.lineWidth = name === selectedPartName() ? 2 / spriteScale : 1 / spriteScale;
+    ctx.lineWidth = (name === selectedPartName() ? 2 : 1) / viewLineScale;
     ctx.strokeRect(-pivot.x * asset.width, -pivot.y * asset.height, asset.width, asset.height);
     ctx.fillStyle = "rgba(255, 237, 120, 0.95)";
     ctx.beginPath();
-    ctx.arc(0, 0, 4 / spriteScale, 0, Math.PI * 2);
+    ctx.arc(0, 0, 4 / viewLineScale, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
 }
@@ -1599,7 +1877,7 @@ function renderedPose() {
     if (!pose || !state.rig) {
         return null;
     }
-    const globalScale = Number(state.rig.global?.scale ?? 1) * 1.9;
+    const globalScale = animationPreviewScale();
     const result = {};
     for (const name of drawOrder()) {
         const local = pose[name] || { x: 0, y: 0, rotation: 0, scale: 1, alpha: 1 };
@@ -1616,6 +1894,211 @@ function renderedPose() {
         };
     }
     return result;
+}
+
+function selectedPartCanvasGeometry(pose = null) {
+    const partName = selectedPartName();
+    const rendered = pose || renderedPose();
+    const transform = rendered?.[partName];
+    const asset = state.assets.get(partName);
+    const pivot = state.rig?.pivots?.[partName];
+    if (!transform || !asset || !pivot) {
+        return null;
+    }
+    const previewGeometry = partRectangleGeometry(transform, asset, pivot);
+    return {
+        partName,
+        transform,
+        previewGeometry,
+        canvasGeometry: geometryToCanvas(previewGeometry, currentViewTransform())
+    };
+}
+
+function drawSelectionOverlay(pose) {
+    const geometry = selectedPartCanvasGeometry(pose);
+    if (!geometry) {
+        return;
+    }
+    const pixelScale = stagePixelScale();
+    const corners = geometry.canvasGeometry.corners;
+    ctx.save();
+    ctx.strokeStyle = "rgba(255, 237, 120, 0.98)";
+    ctx.fillStyle = "rgba(255, 237, 120, 0.98)";
+    ctx.lineWidth = 2 * pixelScale;
+    ctx.beginPath();
+    ctx.moveTo(corners[0].x, corners[0].y);
+    for (let index = 1; index < corners.length; index += 1) {
+        ctx.lineTo(corners[index].x, corners[index].y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+    if (isTransformEditMode()) {
+        const handleSize = 10 * pixelScale;
+        for (const corner of corners) {
+            ctx.fillRect(corner.x - handleSize * 0.5, corner.y - handleSize * 0.5, handleSize, handleSize);
+        }
+        const center = geometry.canvasGeometry.center;
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, 7 * pixelScale, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(20, 16, 30, 0.95)";
+        ctx.lineWidth = 2 * pixelScale;
+        ctx.beginPath();
+        ctx.moveTo(center.x - 4 * pixelScale, center.y);
+        ctx.lineTo(center.x + 4 * pixelScale, center.y);
+        ctx.moveTo(center.x, center.y - 4 * pixelScale);
+        ctx.lineTo(center.x, center.y + 4 * pixelScale);
+        ctx.stroke();
+    }
+    ctx.restore();
+}
+
+function stageTransformHit(clientX, clientY) {
+    if (!isTransformEditMode()) {
+        return null;
+    }
+    const geometry = selectedPartCanvasGeometry();
+    if (!geometry) {
+        return null;
+    }
+    const canvasPoint = clientPointOnCanvas(clientX, clientY);
+    const hit = hitTestPartGeometry(canvasPoint, geometry.canvasGeometry, 18 * stagePixelScale());
+    return hit ? { ...hit, canvasPoint, geometry } : null;
+}
+
+function beginPartTransformDrag(event) {
+    if (!state.animation || !isTransformEditMode()) {
+        return;
+    }
+    const hit = stageTransformHit(event.clientX, event.clientY);
+    if (!hit) {
+        return;
+    }
+    event.preventDefault();
+    pauseForDirectEditing();
+    const partName = selectedPartName();
+    const sampledPart = samplePose()?.[partName];
+    if (!sampledPart) {
+        return;
+    }
+    try {
+        const indices = ensureTransformKeysAtPlayhead(partName, sampledPart);
+        const view = currentViewTransform();
+        const pointerPreview = canvasToPreviewPoint(hit.canvasPoint, view);
+        state.partDrag = {
+            pointerId: event.pointerId,
+            mode: hit.mode,
+            partName,
+            indices,
+            startPointerPreview: pointerPreview,
+            pivotPreview: { x: hit.geometry.transform.x, y: hit.geometry.transform.y },
+            startValues: {
+                x: Number(sampledPart.x),
+                y: Number(sampledPart.y),
+                rotation: Number(sampledPart.rotation)
+            }
+        };
+        canvas.setPointerCapture?.(event.pointerId);
+        canvas.style.cursor = hit.mode === "move" ? "grabbing" : "crosshair";
+        rebuildTimeline();
+    } catch (error) {
+        setStatus(error.message);
+    }
+}
+
+function dragPartTransform(event) {
+    const drag = state.partDrag;
+    if (!drag || event.pointerId !== drag.pointerId) {
+        return;
+    }
+    event.preventDefault();
+    const canvasPoint = clientPointOnCanvas(event.clientX, event.clientY);
+    const pointerPreview = canvasToPreviewPoint(canvasPoint, currentViewTransform());
+    try {
+        if (drag.mode === "move") {
+            const scale = Math.max(0.000001, animationPreviewScale());
+            const x = drag.startValues.x + (pointerPreview.x - drag.startPointerPreview.x) / scale;
+            const y = drag.startValues.y + (pointerPreview.y - drag.startPointerPreview.y) / scale;
+            drag.indices.x = updateAnimationKeyframe(state.animation, drag.partName, "x", drag.indices.x, { value: x });
+            drag.indices.y = updateAnimationKeyframe(state.animation, drag.partName, "y", drag.indices.y, { value: y });
+        } else {
+            const rotation = rotationFromPointerDrag(
+                drag.startValues.rotation,
+                drag.pivotPreview,
+                drag.startPointerPreview,
+                pointerPreview
+            );
+            drag.indices.rotation = updateAnimationKeyframe(
+                state.animation,
+                drag.partName,
+                "rotation",
+                drag.indices.rotation,
+                { value: rotation }
+            );
+        }
+        invalidateAnimation(false);
+        updateReadouts();
+    } catch (error) {
+        setStatus(error.message);
+    }
+}
+
+function endPartTransformDrag(event) {
+    const drag = state.partDrag;
+    if (!drag || event.pointerId !== drag.pointerId) {
+        return;
+    }
+    canvas.releasePointerCapture?.(event.pointerId);
+    state.partDrag = null;
+    canvas.style.cursor = "default";
+    invalidateAnimation();
+    rebuildTimeline();
+    const action = drag.mode === "move" ? "Moved" : "Rotated";
+    setStatus(`${action} ${drag.partName} at ${state.time.toFixed(3)} s. X, Y and angle keys are now authored at this playhead.`);
+}
+
+function updateStageCursor(event) {
+    if (state.partDrag) {
+        return;
+    }
+    const hit = stageTransformHit(event.clientX, event.clientY);
+    canvas.style.cursor = hit ? (hit.mode === "move" ? "grab" : "crosshair") : "default";
+}
+
+function zoomStage(event) {
+    if (!event.ctrlKey) {
+        return;
+    }
+    event.preventDefault();
+    const point = clientPointOnCanvas(event.clientX, event.clientY);
+    const factor = Math.exp(-Number(event.deltaY) * 0.002);
+    const next = zoomCharacterViewAtCanvasPoint(
+        {
+            zoom: state.viewZoom,
+            panX: state.viewPanX,
+            panY: state.viewPanY
+        },
+        point,
+        factor,
+        {
+            canvasWidth: canvas.width,
+            canvasHeight: canvas.height,
+            facing: state.facing,
+            minZoom: 0.25,
+            maxZoom: 6
+        }
+    );
+    state.viewZoom = next.zoom;
+    state.viewPanX = next.panX;
+    state.viewPanY = next.panY;
+    updateReadouts();
+}
+
+function resetStageView() {
+    state.viewZoom = 1;
+    state.viewPanX = 0;
+    state.viewPanY = 0;
+    updateReadouts();
 }
 
 function render(now) {
@@ -1641,16 +2124,20 @@ function render(now) {
 
     ctx.fillStyle = "rgb(6, 6, 12)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.save();
-    ctx.translate(canvas.width * 0.5, canvas.height * 0.78);
-    ctx.scale(state.facing, 1);
+    const view = currentViewTransform();
     const pose = renderedPose();
+    ctx.save();
+    ctx.translate(view.originX, view.originY);
+    ctx.scale(view.zoom * view.facing, view.zoom);
     if (pose) {
         for (const name of drawOrder()) {
             drawSprite(name, pose[name]);
         }
     }
     ctx.restore();
+    if (pose) {
+        drawSelectionOverlay(pose);
+    }
     requestAnimationFrame(render);
 }
 
@@ -1709,6 +2196,7 @@ els.animationSelect.addEventListener("change", () => {
 els.partSelect.addEventListener("change", () => selectPart(selectedPartName()));
 els.propertySelect.addEventListener("change", () => {
     state.selectedKeyIndex = -1;
+    state.selectedTransformTime = null;
     rebuildTimeline();
 });
 for (const el of [els.pivotX, els.pivotY, els.offsetX, els.offsetY, els.partScale, els.targetHeight]) {
@@ -1718,6 +2206,7 @@ els.time.addEventListener("input", () => {
     if (!state.syncing) {
         state.time = Number(els.time.value);
         state.selectedKeyIndex = -1;
+        state.selectedTransformTime = null;
         rebuildTimeline();
     }
 });
@@ -1731,6 +2220,7 @@ els.mirror.addEventListener("click", () => {
     state.facing *= -1;
     els.mirror.textContent = state.facing === 1 ? "Facing: right" : "Facing: left";
 });
+els.resetView.addEventListener("click", resetStageView);
 els.reload.addEventListener("click", () => {
     if (state.projectMode === "generated") {
         refreshAllJsonEditors();
@@ -1746,14 +2236,44 @@ els.loop.addEventListener("change", () => {
     }
 });
 els.timeline.addEventListener("pointerdown", scrubTimeline);
-window.addEventListener("pointermove", dragSelectedKey, { passive: false });
-window.addEventListener("pointerup", endKeyDrag);
-window.addEventListener("pointercancel", endKeyDrag);
+canvas.addEventListener("pointerdown", beginPartTransformDrag);
+canvas.addEventListener("pointermove", updateStageCursor);
+canvas.addEventListener("pointerleave", () => {
+    if (!state.partDrag) {
+        canvas.style.cursor = "default";
+    }
+});
+canvas.addEventListener("wheel", zoomStage, { passive: false });
+window.addEventListener("pointermove", (event) => {
+    dragSelectedKey(event);
+    dragPartTransform(event);
+}, { passive: false });
+window.addEventListener("pointerup", (event) => {
+    endKeyDrag(event);
+    endPartTransformDrag(event);
+});
+window.addEventListener("pointercancel", (event) => {
+    endKeyDrag(event);
+    endPartTransformDrag(event);
+});
 els.addKey.addEventListener("click", addKeyAtPlayhead);
-els.applyKey.addEventListener("click", applySelectedKey);
+els.applyKey.addEventListener("click", () => applySelectedKey(true));
 els.deleteKey.addEventListener("click", deleteSelectedKey);
 els.copyKey.addEventListener("click", copySelectedKey);
 els.pasteKey.addEventListener("click", pasteKeyAtPlayhead);
+els.keyValue.addEventListener("input", previewSelectedKeyValue);
+els.keyValue.addEventListener("change", () => applySelectedKey(false));
+els.keyTime.addEventListener("change", () => applySelectedKey(false));
+els.keyEasing.addEventListener("change", () => applySelectedKey(false));
+for (const input of [els.keyTime, els.keyValue]) {
+    input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            applySelectedKey(true);
+            input.blur();
+        }
+    });
+}
 els.applyAnimationJson.addEventListener("click", applyAnimationJson);
 els.refreshAnimationJson.addEventListener("click", refreshAnimationJson);
 els.downloadAnimationJson.addEventListener("click", () => {

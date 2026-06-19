@@ -25,6 +25,17 @@ import {
     upsertAnimationKeyframe
 } from "./IgnatiusRocketfrock_ANIMATION_EDITOR.js";
 import {
+    TRANSFORM_EDIT_PROPERTY,
+    canvasToPreviewPoint,
+    characterViewTransform,
+    geometryToCanvas,
+    hitTestPartGeometry,
+    partRectangleGeometry,
+    previewToCanvasPoint,
+    rotationFromPointerDrag,
+    zoomCharacterViewAtCanvasPoint
+} from "./IgnatiusRocketfrock_CHARACTER_VIEW.js";
+import {
     FIXED_DT,
     DEFAULT_TUNING,
     createInitialGameState,
@@ -128,6 +139,67 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes("Atlas JSON"), "character tool should expose atlas-manifest editing and export");
 }
 
+function testCharacterToolDirectTransformGeometry() {
+    assert.equal(TRANSFORM_EDIT_PROPERTY, "transform", "combined transform mode should have a stable property id");
+    const view = characterViewTransform({
+        canvasWidth: 1160,
+        canvasHeight: 660,
+        zoom: 2,
+        panX: 40,
+        panY: -20,
+        facing: 1
+    });
+    const previewPoint = { x: 75, y: -130 };
+    const canvasPoint = previewToCanvasPoint(previewPoint, view);
+    const roundTrip = canvasToPreviewPoint(canvasPoint, view);
+    approx(roundTrip.x, previewPoint.x, 0.000001, "view transform x round trip");
+    approx(roundTrip.y, previewPoint.y, 0.000001, "view transform y round trip");
+
+    const geometry = partRectangleGeometry(
+        { x: 20, y: 30, angle: Math.PI / 4, targetHeight: 100 },
+        { width: 80, height: 100 },
+        { x: 0.5, y: 0.5 }
+    );
+    const canvasGeometry = geometryToCanvas(geometry, view);
+    assert.equal(hitTestPartGeometry(canvasGeometry.center, canvasGeometry)?.mode, "move", "rectangle center should start an XY drag");
+    assert.equal(hitTestPartGeometry(canvasGeometry.corners[0], canvasGeometry)?.mode, "rotate", "rectangle corner should start a rotation drag");
+    assert.equal(hitTestPartGeometry({ x: -999, y: -999 }, canvasGeometry), null, "outside point should not begin an edit");
+
+    const rotated = rotationFromPointerDrag(0.25, { x: 0, y: 0 }, { x: 10, y: 0 }, { x: 0, y: 10 });
+    approx(rotated, 0.25 + Math.PI / 2, 0.000001, "corner drag should add pointer angle delta");
+
+    const zoomed = zoomCharacterViewAtCanvasPoint(
+        { zoom: 1, panX: 0, panY: 0 },
+        canvasPoint,
+        2,
+        { canvasWidth: 1160, canvasHeight: 660, facing: 1, minZoom: 0.25, maxZoom: 6 }
+    );
+    const zoomedView = characterViewTransform({
+        canvasWidth: 1160,
+        canvasHeight: 660,
+        zoom: zoomed.zoom,
+        panX: zoomed.panX,
+        panY: zoomed.panY,
+        facing: 1
+    });
+    const anchored = previewToCanvasPoint(canvasToPreviewPoint(canvasPoint, characterViewTransform({
+        canvasWidth: 1160,
+        canvasHeight: 660,
+        zoom: 1,
+        panX: 0,
+        panY: 0,
+        facing: 1
+    })), zoomedView);
+    approx(anchored.x, canvasPoint.x, 0.000001, "zoom should keep pointer anchor x fixed");
+    approx(anchored.y, canvasPoint.y, 0.000001, "zoom should keep pointer anchor y fixed");
+
+    const toolHtml = readFileSync(new URL("./character_tool.html", import.meta.url), "utf8");
+    assert.ok(toolHtml.includes("X, Y and Angle (drag)"), "character tool should expose combined transform editing");
+    assert.ok(toolHtml.includes("beginPartTransformDrag"), "character tool should wire direct part dragging");
+    assert.ok(toolHtml.includes("Hold Ctrl and use the mouse wheel"), "character tool should document preview zooming");
+    assert.ok(toolHtml.includes("keyValue.disabled = transformMode"), "combined transform mode should disable the scalar value field");
+}
+
 function testDataDrivenRunAnimation() {
     const rawClip = JSON.parse(readFileSync(new URL("./assets/ct_anim_wizard_run_1.json", import.meta.url), "utf8"));
     const clip = normalizeAnimationClip(rawClip, "wizard run animation");
@@ -215,7 +287,8 @@ function testAnimationEditorOperations() {
     const toolHtml = readFileSync(new URL("./character_tool.html", import.meta.url), "utf8");
     assert.ok(toolHtml.includes("Animation track"), "character tool should expose animation track editing");
     assert.ok(toolHtml.includes("Add at playhead"), "character tool should expose keyframe creation");
-    assert.ok(toolHtml.includes("Drag a diamond"), "character tool should explain draggable keyframes");
+    assert.ok(toolHtml.includes("Drag a diamond") || toolHtml.includes("drag a yellow corner"), "character tool should explain direct keyframe manipulation");
+    assert.ok(toolHtml.includes("previewSelectedKeyValue"), "numeric key values should preview and commit directly");
 }
 
 function testAnimationEasingModes() {
@@ -831,6 +904,7 @@ function testAttachedSmokeDownSpeedTuning() {
 const tests = [
     ["responsive viewport scaling", testResponsiveViewportScaling],
     ["character project workspace", testCharacterProjectWorkspace],
+    ["character tool direct transform geometry", testCharacterToolDirectTransformGeometry],
     ["data-driven wizard run animation", testDataDrivenRunAnimation],
     ["animation editor keyframe operations", testAnimationEditorOperations],
     ["animation easing modes", testAnimationEasingModes],

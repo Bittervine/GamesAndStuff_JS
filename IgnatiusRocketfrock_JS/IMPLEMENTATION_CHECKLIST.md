@@ -176,6 +176,10 @@ The “New character” workflow creates consistently named, mutually referenced
 
 The next tool slice is atlas rectangle authoring plus independent dirty-state tracking. Do not begin the larger wizard animation set until the editor can visibly own and edit the PNG frame definitions that those rigs depend on.
 
+### Revision 059 Direct Animation Editing Baseline
+
+Puppet Forge now has a combined `X, Y and Angle` animation property mode. Dragging inside the selected yellow part rectangle edits X/Y keys, while dragging a corner handle edits rotation. Direct manipulation pauses playback and creates missing transform keys at the current playhead from the sampled pose before applying the edit. Ctrl+mouse-wheel zooms the preview around the pointer, with a Reset View control. Scalar numeric editing remains available for every property; typing now previews immediately and creates a key at an unkeyed playhead instead of snapping back.
+
 ### Other Wizard Animation States
 
 * [ ] Add `idle` animation.
@@ -204,7 +208,8 @@ Goal: create a tool where rigs and animations can be created, duplicated, edited
 * [x] Choose arbitrary PNG and JSON files through browser file selection rather than requiring hardcoded paths.
 * [ ] Provide tabs or modes for project, atlas parts, rig, animation, preview, validation, and export.
 * [x] Show a rig preview canvas.
-* [ ] Allow click-and-drag editing of pivots, offsets, anchors, and part transforms.
+* [x] Allow click-and-drag editing of animation part X/Y position and rotation.
+* [ ] Allow click-and-drag editing of rig pivots, offsets, and anchors.
 * [x] Provide exact numeric fields for all important rig values.
 * [ ] Provide draw-order controls.
 * [ ] Provide part role/tag editing.

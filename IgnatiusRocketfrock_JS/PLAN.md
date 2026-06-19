@@ -327,6 +327,8 @@ The obsolete procedural run and `data` / `legacy` / `compare` controls have been
 
 Revision 058 removed the tool's hardwired wizard-project assumption. Puppet Forge can now load a known character, an arbitrary character-definition URL, selected local files, or a selected project directory. It can also create a consistently named blank character project containing mutually referenced atlas, rig, character-definition, and idle-animation templates. The local workflow keeps browser-selected files in memory and resolves relative references without pretending the browser can silently access arbitrary folders.
 
+Revision 059 added direct animation-pose manipulation. In the combined `X, Y and Angle` property mode, dragging inside the selected part rectangle authors position keys at the current playhead and dragging a corner handle authors rotation. Missing transform keys are created automatically from the sampled pose so edits cannot disappear between existing keys. Numeric key values now preview immediately and create a key at an unkeyed playhead. The preview supports pointer-anchored Ctrl+mouse-wheel zoom without changing animation or rig coordinates.
+
 The next structural step is atlas rectangle authoring and dirty-state tracking, followed by rig-part creation and role/tag assignment. Complete those pieces before migrating the remaining airborne poses so the upcoming idle, jump, hover, enemy, and NPC animation work is created through the same reusable workflow rather than through another wizard-only path.
 
 ## Character Tool
