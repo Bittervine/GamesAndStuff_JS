@@ -43,10 +43,25 @@ export class RocketfrockInput {
         target.addEventListener("keyup", (event) => this.onKeyUp(event), { passive: false });
         target.addEventListener("blur", () => this.clear());
 
-        target.addEventListener("pointerdown", (event) => this.onPointerDown(event), { passive: false });
-        target.addEventListener("pointermove", (event) => this.onPointerMove(event), { passive: false });
-        target.addEventListener("pointerup", (event) => this.onPointerEnd(event), { passive: false });
-        target.addEventListener("pointercancel", (event) => this.onPointerEnd(event), { passive: false });
+        this.preferNativeTouchEvents = supportsTouchEvents();
+
+        if (supportsPointerEvents()) {
+            target.addEventListener("pointerdown", (event) => this.onPointerDown(event), { passive: false });
+            target.addEventListener("pointermove", (event) => this.onPointerMove(event), { passive: false });
+            target.addEventListener("pointerup", (event) => this.onPointerEnd(event), { passive: false });
+            target.addEventListener("pointercancel", (event) => this.onPointerEnd(event), { passive: false });
+        } else {
+            target.addEventListener("mousedown", (event) => this.onMouseDown(event), { passive: false });
+            target.addEventListener("mousemove", (event) => this.onMouseMove(event), { passive: false });
+            target.addEventListener("mouseup", (event) => this.onMouseEnd(event), { passive: false });
+        }
+
+        if (this.preferNativeTouchEvents) {
+            target.addEventListener("touchstart", (event) => this.onTouchStart(event), { passive: false });
+            target.addEventListener("touchmove", (event) => this.onTouchMove(event), { passive: false });
+            target.addEventListener("touchend", (event) => this.onTouchEnd(event), { passive: false });
+            target.addEventListener("touchcancel", (event) => this.onTouchEnd(event), { passive: false });
+        }
     }
 
     onKeyDown(event) {
@@ -84,34 +99,15 @@ export class RocketfrockInput {
     }
 
     onPointerDown(event) {
+        if (event.pointerType === "touch" && this.preferNativeTouchEvents) {
+            return;
+        }
         if (!this.shouldUsePointerEvent(event)) {
             return;
         }
 
-        event.preventDefault();
-        const now = performance.now() / 1000;
-        const x = event.clientX;
-        const y = event.clientY;
-        const lastDistance = Math.hypot(x - this.pointer.lastTapX, y - this.pointer.lastTapY);
-        if (now - this.pointer.lastTapTime <= POINTER_CONTROL.doubleTapSeconds && lastDistance <= POINTER_CONTROL.doubleTapMaxDistance) {
-            this.pointer.weaponPulse = true;
-            this.pointer.lastTapTime = -Infinity;
-            this.recordPointerEvent("doubleTap", event);
-        } else {
-            this.pointer.lastTapTime = now;
-            this.pointer.lastTapX = x;
-            this.pointer.lastTapY = y;
-        }
-
-        this.pointer.active = true;
-        this.pointer.pointerId = event.pointerId;
-        this.pointer.startX = x;
-        this.pointer.startY = y;
-        this.pointer.currentX = x;
-        this.pointer.currentY = y;
-        this.updatePointerStick();
+        this.beginPointerContact(event, event.pointerId, event.clientX, event.clientY, event.pointerType || "pointer", "pointer");
         this.capturePointer(event);
-        this.recordPointerEvent("start", event);
     }
 
     onPointerMove(event) {
@@ -119,10 +115,7 @@ export class RocketfrockInput {
             return;
         }
 
-        event.preventDefault();
-        this.pointer.currentX = event.clientX;
-        this.pointer.currentY = event.clientY;
-        this.updatePointerStick();
+        this.movePointerContact(event, event.clientX, event.clientY);
     }
 
     onPointerEnd(event) {
@@ -130,12 +123,167 @@ export class RocketfrockInput {
             return;
         }
 
+        if (event.type === "pointercancel" && pointerTypeFromEvent(event) === "touch") {
+            this.deferTouchPointerCancel(event);
+            return;
+        }
+
+        this.endPointerContact(event, event.type === "pointercancel" ? "cancel" : "end");
+    }
+
+    onMouseDown(event) {
+        if (!this.shouldUsePointerEvent(event)) {
+            return;
+        }
+        this.beginPointerContact(event, "mouse", event.clientX, event.clientY, "mouse");
+    }
+
+    onMouseMove(event) {
+        if (!this.pointer.active || this.pointer.pointerId !== "mouse") {
+            return;
+        }
+        this.movePointerContact(event, event.clientX, event.clientY);
+    }
+
+    onMouseEnd(event) {
+        if (!this.pointer.active || this.pointer.pointerId !== "mouse") {
+            return;
+        }
+        this.endPointerContact(event, "end");
+    }
+
+    onTouchStart(event) {
+        if (event.changedTouches.length <= 0 || !this.shouldUsePointerEvent(event)) {
+            return;
+        }
+
+        const touch = event.changedTouches[0];
+        if (this.pointer.active) {
+            if (this.pointer.pointerType === "touch") {
+                event.preventDefault();
+                this.pointer.activeTouchId = touchId(touch);
+            }
+            return;
+        }
+
+        this.beginPointerContact(event, touchId(touch), touch.clientX, touch.clientY, "touch", "touch");
+    }
+
+    onTouchMove(event) {
+        if (!this.pointer.active || this.pointer.pointerType !== "touch") {
+            return;
+        }
+
+        const touch = this.findRelevantTouch(event.changedTouches);
+        if (!touch) {
+            return;
+        }
+
+        this.pointer.pointerCancelGraceUntil = 0;
+        this.movePointerContact(event, touch.clientX, touch.clientY);
+    }
+
+    onTouchEnd(event) {
+        if (!this.pointer.active || this.pointer.pointerType !== "touch") {
+            return;
+        }
+
+        const touch = this.findRelevantTouch(event.changedTouches);
+        if (!touch) {
+            return;
+        }
+
+        this.endPointerContact(event, event.type === "touchcancel" ? "cancel" : "end");
+    }
+
+    beginPointerContact(event, pointerId, x, y, pointerType, source = "pointer") {
         event.preventDefault();
+        const now = performance.now() / 1000;
+        const lastDistance = Math.hypot(x - this.pointer.lastTapX, y - this.pointer.lastTapY);
+        if (now - this.pointer.lastTapTime <= POINTER_CONTROL.doubleTapSeconds && lastDistance <= POINTER_CONTROL.doubleTapMaxDistance) {
+            this.pointer.weaponPulse = true;
+            this.pointer.lastTapTime = -Infinity;
+            this.recordPointerEvent("doubleTap", event, pointerType);
+        } else {
+            this.pointer.lastTapTime = now;
+            this.pointer.lastTapX = x;
+            this.pointer.lastTapY = y;
+        }
+
+        this.pointer.active = true;
+        this.pointer.pointerId = pointerId;
+        this.pointer.pointerType = pointerType;
+        this.pointer.source = source;
+        this.pointer.activeTouchId = pointerType === "touch" && source === "touch" ? pointerId : null;
+        this.pointer.pointerCancelGraceUntil = 0;
+        this.pointer.startX = x;
+        this.pointer.startY = y;
+        this.pointer.currentX = x;
+        this.pointer.currentY = y;
+        this.updatePointerStick();
+        this.recordPointerEvent("start", event, pointerType);
+    }
+
+    movePointerContact(event, x, y) {
+        event.preventDefault();
+        this.pointer.pointerCancelGraceUntil = 0;
+        this.pointer.currentX = x;
+        this.pointer.currentY = y;
+        this.updatePointerStick();
+    }
+
+    endPointerContact(event, kind) {
+        event.preventDefault();
+        const pointerType = pointerTypeFromEvent(event);
         this.pointer.active = false;
         this.pointer.pointerId = null;
+        this.pointer.pointerType = "pointer";
+        this.pointer.source = null;
+        this.pointer.activeTouchId = null;
+        this.pointer.pointerCancelGraceUntil = 0;
         this.pointer.moveAxis = 0;
         this.pointer.jumpHeld = false;
-        this.recordPointerEvent(event.type === "pointercancel" ? "cancel" : "end", event);
+        this.recordPointerEvent(kind, event, pointerType);
+    }
+
+    deferTouchPointerCancel(event) {
+        event.preventDefault();
+        if (!this.preferNativeTouchEvents) {
+            this.endPointerContact(event, "cancel");
+            return;
+        }
+        this.pointer.pointerCancelGraceUntil = performance.now() / 1000 + 0.35;
+        this.recordPointerEvent("cancelWait", event, "touch");
+    }
+
+    expireDeferredPointerCancel() {
+        if (!this.pointer.active || this.pointer.pointerCancelGraceUntil <= 0) {
+            return;
+        }
+        if (performance.now() / 1000 <= this.pointer.pointerCancelGraceUntil) {
+            return;
+        }
+        const pointerType = this.pointer.pointerType;
+        this.pointer.active = false;
+        this.pointer.pointerId = null;
+        this.pointer.pointerType = "pointer";
+        this.pointer.source = null;
+        this.pointer.activeTouchId = null;
+        this.pointer.pointerCancelGraceUntil = 0;
+        this.pointer.moveAxis = 0;
+        this.pointer.jumpHeld = false;
+        this.recordPointerEvent("cancelTimeout", { type: "pointercancel" }, pointerType);
+    }
+
+    findRelevantTouch(touchList) {
+        const preferredId = this.pointer.activeTouchId || (String(this.pointer.pointerId).startsWith("touch:") ? this.pointer.pointerId : null);
+        if (preferredId) {
+            const touch = findChangedTouch(touchList, preferredId);
+            if (touch) {
+                return touch;
+            }
+        }
+        return touchList.length === 1 ? touchList[0] : null;
     }
 
     shouldUsePointerEvent(event) {
@@ -177,6 +325,10 @@ export class RocketfrockInput {
         this.keys.clear();
         this.pointer.active = false;
         this.pointer.pointerId = null;
+        this.pointer.pointerType = "pointer";
+        this.pointer.source = null;
+        this.pointer.activeTouchId = null;
+        this.pointer.pointerCancelGraceUntil = 0;
         this.pointer.moveAxis = 0;
         this.pointer.jumpHeld = false;
         this.previous = createInputFrame();
@@ -194,11 +346,11 @@ export class RocketfrockInput {
         this.recordEvent(entry);
     }
 
-    recordPointerEvent(kind, event) {
+    recordPointerEvent(kind, event, pointerType = pointerTypeFromEvent(event)) {
         const entry = {
             time: Number((performance.now() / 1000).toFixed(3)),
             kind: `pointer:${kind}`,
-            code: event.pointerType || "pointer",
+            code: pointerType,
             repeat: false,
             keys: Array.from(this.keys).sort()
         };
@@ -232,6 +384,7 @@ export class RocketfrockInput {
     }
 
     sample() {
+        this.expireDeferredPointerCancel();
         const gamepad = readGamepad();
         const keyboardMoveAxis = (anyKey(this.keys, KEY_BINDINGS.moveRight) ? 1 : 0) - (anyKey(this.keys, KEY_BINDINGS.moveLeft) ? 1 : 0);
         const moveAxis = clamp(keyboardMoveAxis + gamepad.moveAxis + this.pointer.moveAxis, -1, 1);
@@ -268,10 +421,52 @@ export class RocketfrockInput {
     }
 }
 
+function supportsPointerEvents() {
+    return typeof window !== "undefined" && "PointerEvent" in window;
+}
+
+function supportsTouchEvents() {
+    if (typeof window === "undefined") {
+        return false;
+    }
+    const maxTouchPoints = typeof navigator !== "undefined" ? navigator.maxTouchPoints || 0 : 0;
+    return "TouchEvent" in window || "ontouchstart" in window || maxTouchPoints > 0;
+}
+
+function touchId(touch) {
+    return `touch:${touch.identifier}`;
+}
+
+function findChangedTouch(touchList, pointerId) {
+    for (const touch of touchList) {
+        if (touchId(touch) === pointerId) {
+            return touch;
+        }
+    }
+    return null;
+}
+
+function pointerTypeFromEvent(event) {
+    if (event.pointerType) {
+        return event.pointerType;
+    }
+    if (event.type?.startsWith?.("touch")) {
+        return "touch";
+    }
+    if (event.type?.startsWith?.("mouse")) {
+        return "mouse";
+    }
+    return "pointer";
+}
+
 function createPointerState() {
     return {
         active: false,
         pointerId: null,
+        pointerType: "pointer",
+        source: null,
+        activeTouchId: null,
+        pointerCancelGraceUntil: 0,
         startX: 0,
         startY: 0,
         currentX: 0,
