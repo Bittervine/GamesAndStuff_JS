@@ -196,7 +196,9 @@ function testCharacterToolDirectTransformGeometry() {
     const toolHtml = readFileSync(new URL("./character_tool.html", import.meta.url), "utf8");
     assert.ok(toolHtml.includes("X, Y and Angle (drag)"), "character tool should expose combined transform editing");
     assert.ok(toolHtml.includes("beginPartTransformDrag"), "character tool should wire direct part dragging");
-    assert.ok(toolHtml.includes("Hold Ctrl and use the mouse wheel"), "character tool should document preview zooming");
+    assert.ok(toolHtml.includes("Use the mouse wheel over the preview"), "character tool should document direct wheel preview zooming");
+    assert.ok(!toolHtml.includes("if (!event.ctrlKey)"), "character preview zoom should not require Ctrl");
+    assert.ok(toolHtml.includes("Base rig / setup values"), "character tool should distinguish base rig values from animation keys");
     assert.ok(toolHtml.includes("keyValue.disabled = transformMode"), "combined transform mode should disable the scalar value field");
 }
 

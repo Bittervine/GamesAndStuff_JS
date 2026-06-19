@@ -310,7 +310,7 @@
         <canvas id="stage" width="1160" height="660" aria-label="Puppet Forge character preview"></canvas>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 059</small></h1>
+        <h1>Puppet Forge <small>rev 060</small></h1>
         <p><a href="IgnatiusRocketfrock_JS.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -388,7 +388,7 @@
                 <span>View zoom: <strong id="zoom-value">100%</strong></span>
                 <button id="reset-view" type="button">Reset view</button>
             </div>
-            <p>Hold Ctrl and use the mouse wheel over the preview to zoom around the pointer.</p>
+            <p>Use the mouse wheel over the preview to zoom around the pointer.</p>
             <label class="check-row"><input id="loop" type="checkbox" checked> Loop preview and exported clip</label>
         </section>
 
@@ -441,19 +441,20 @@
         </section>
 
         <section class="box">
-            <h2>Rig part values</h2>
+            <h2>Base rig / setup values</h2>
             <div class="row">
                 <label><span>Pivot X</span><input id="pivot-x" type="number" step="0.005"></label>
                 <label><span>Pivot Y</span><input id="pivot-y" type="number" step="0.005"></label>
             </div>
             <div class="row">
-                <label><span>Offset X</span><input id="offset-x" type="number" step="1"></label>
-                <label><span>Offset Y</span><input id="offset-y" type="number" step="1"></label>
+                <label><span>Setup offset X</span><input id="offset-x" type="number" step="1"></label>
+                <label><span>Setup offset Y</span><input id="offset-y" type="number" step="1"></label>
             </div>
             <div class="row">
-                <label><span>Part scale</span><input id="part-scale" type="number" step="0.01"></label>
+                <label><span>Base scale</span><input id="part-scale" type="number" step="0.01"></label>
                 <label><span>Target height</span><input id="target-height" type="number" step="1"></label>
             </div>
+            <p>Pivot and target height define shared sprite geometry. Setup offsets and base scale are still used by the current procedural airborne poses and as rig defaults, but a data-driven clip such as Run supplies its own absolute X, Y, and scale values while that clip is playing.</p>
         </section>
 
 
@@ -2066,9 +2067,6 @@ function updateStageCursor(event) {
 }
 
 function zoomStage(event) {
-    if (!event.ctrlKey) {
-        return;
-    }
     event.preventDefault();
     const point = clientPointOnCanvas(event.clientX, event.clientY);
     const factor = Math.exp(-Number(event.deltaY) * 0.002);
