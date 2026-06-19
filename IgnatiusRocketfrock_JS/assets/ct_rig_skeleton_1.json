@@ -1,41 +1,250 @@
 {
     "meta": {
-        "version": 1,
-        "note": "Blank character rig template. The root part keeps the project valid until real atlas frames and body parts are authored."
+        "version": 3,
+        "note": "Atlas-backed skeleton rig refined in revision 064. The rear left arm is drawn first, the front right arm is drawn last, and shield/sword pivots are authored at their hand grips. Animation positions remain absolute rig-space values."
     },
+    "rigId": "ct_rig_skeleton_1",
+    "atlasId": "ct_atlas_skeleton_1",
     "atlasManifest": "ct_atlas_skeleton_1.json",
     "drawOrder": [
-        "root"
+        "leftArm",
+        "shield",
+        "leftLeg",
+        "rightLeg",
+        "torso",
+        "head",
+        "sword",
+        "rightArm"
     ],
     "global": {
-        "scale": 1,
+        "scale": 0.5,
         "lean": 0,
         "rootX": 0,
         "rootYOffsetFromGround": 0,
         "groundOffset": 0,
         "debugPivots": false
     },
-    "anchors": {},
+    "anchors": {
+        "neck": {
+            "x": 0,
+            "y": -292
+        },
+        "leftShoulder": {
+            "x": -48,
+            "y": -278
+        },
+        "rightShoulder": {
+            "x": 50,
+            "y": -280
+        },
+        "leftHand": {
+            "x": -18.920521,
+            "y": -150.767789
+        },
+        "rightHand": {
+            "x": 53.699025,
+            "y": -148.734935
+        },
+        "leftHip": {
+            "x": -24,
+            "y": -170
+        },
+        "rightHip": {
+            "x": 24,
+            "y": -170
+        }
+    },
     "pivots": {
-        "root": {
+        "leftArm": {
             "x": 0.5,
-            "y": 0.5
+            "y": 0.1
+        },
+        "leftLeg": {
+            "x": 0.5,
+            "y": 0.08
+        },
+        "rightLeg": {
+            "x": 0.5,
+            "y": 0.08
+        },
+        "torso": {
+            "x": 0.5,
+            "y": 0.84
+        },
+        "head": {
+            "x": 0.61,
+            "y": 0.9
+        },
+        "rightArm": {
+            "x": 0.48,
+            "y": 0.09
+        },
+        "shield": {
+            "x": 0.82,
+            "y": 0.78
+        },
+        "sword": {
+            "x": 0.5,
+            "y": 0.765
         }
     },
     "parts": {
-        "root": {
-            "frame": "root",
-            "role": "root",
+        "leftArm": {
+            "frame": "leftArm",
+            "role": "leftArm",
             "tags": [
-                "root",
-                "placeholder"
+                "arm",
+                "rear",
+                "shieldArm",
+                "holder"
+            ],
+            "offset": {
+                "x": -48,
+                "y": -278
+            },
+            "scale": 1,
+            "targetHeight": 176,
+            "alpha": 1
+        },
+        "leftLeg": {
+            "frame": "leftLeg",
+            "role": "leftLeg",
+            "tags": [
+                "leg",
+                "rear"
+            ],
+            "offset": {
+                "x": -24,
+                "y": -170
+            },
+            "scale": 1,
+            "targetHeight": 184,
+            "alpha": 1
+        },
+        "rightLeg": {
+            "frame": "rightLeg",
+            "role": "rightLeg",
+            "tags": [
+                "leg",
+                "front"
+            ],
+            "offset": {
+                "x": 24,
+                "y": -170
+            },
+            "scale": 1,
+            "targetHeight": 184,
+            "alpha": 1
+        },
+        "torso": {
+            "frame": "torso",
+            "role": "torso",
+            "tags": [
+                "body",
+                "ribcage",
+                "pelvis"
             ],
             "offset": {
                 "x": 0,
-                "y": 0
+                "y": -166
             },
             "scale": 1,
-            "targetHeight": 64
+            "targetHeight": 176,
+            "alpha": 1
+        },
+        "head": {
+            "frame": "head",
+            "role": "head",
+            "tags": [
+                "head",
+                "skull"
+            ],
+            "offset": {
+                "x": 2,
+                "y": -298
+            },
+            "scale": 1,
+            "targetHeight": 136,
+            "alpha": 1
+        },
+        "rightArm": {
+            "frame": "rightArm",
+            "role": "rightArm",
+            "tags": [
+                "arm",
+                "front",
+                "weaponArm",
+                "holder"
+            ],
+            "offset": {
+                "x": 50,
+                "y": -280
+            },
+            "scale": 1,
+            "targetHeight": 176,
+            "alpha": 1
+        },
+        "shield": {
+            "frame": "shield",
+            "role": "shield",
+            "tags": [
+                "equipment",
+                "offhand",
+                "shield",
+                "held",
+                "leftHand"
+            ],
+            "offset": {
+                "x": -18.920521,
+                "y": -150.767789
+            },
+            "scale": 1,
+            "targetHeight": 142,
+            "alpha": 1
+        },
+        "sword": {
+            "frame": "sword",
+            "role": "sword",
+            "tags": [
+                "equipment",
+                "weapon",
+                "sword",
+                "held",
+                "rightHand"
+            ],
+            "offset": {
+                "x": 53.699025,
+                "y": -148.734935
+            },
+            "scale": 1,
+            "targetHeight": 182,
+            "alpha": 1
+        }
+    },
+    "attachments": {
+        "shield": {
+            "holder": "leftArm",
+            "holderPoint": {
+                "x": 0.61,
+                "y": 0.84
+            },
+            "equipmentPivot": {
+                "x": 0.82,
+                "y": 0.78
+            },
+            "note": "The shield pivot is the hidden grip point at its lower-right side. Animation values remain absolute rig-space transforms."
+        },
+        "sword": {
+            "holder": "rightArm",
+            "holderPoint": {
+                "x": 0.68,
+                "y": 0.83
+            },
+            "equipmentPivot": {
+                "x": 0.5,
+                "y": 0.765
+            },
+            "note": "The sword pivot is centered in the grip so the right hand can be drawn over the handle."
         }
     }
 }

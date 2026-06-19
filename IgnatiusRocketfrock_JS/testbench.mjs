@@ -9,6 +9,8 @@ import {
     sampleAnimationTrack
 } from "./IgnatiusRocketfrock_ANIMATION.js";
 import {
+    addAtlasFrameToRig,
+    addRigPartToAnimation,
     CHARACTER_PROJECT_FILE_KIND,
     classifyCharacterProjectJson,
     createBlankCharacterProject,
@@ -160,7 +162,20 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes("Character JSON"), "character tool should expose character-definition editing and export");
     assert.ok(toolHtml.includes("Atlas JSON"), "character tool should expose atlas-manifest editing and export");
     assert.ok(toolHtml.includes("Atlas parts"), "character tool should expose atlas rectangle authoring mode");
+    assert.ok(toolHtml.includes("Add selected to rig"), "character tool should expose atlas-frame to rig assignment");
+    assert.ok(toolHtml.includes("Skeleton Guard"), "character tool should expose the skeleton as a known project");
     assert.ok(toolHtml.includes("Unsaved change status"), "character tool should expose independent dirty-state status");
+
+    const frame = { x: 10, y: 20, w: 80, h: 120 };
+    const { partName, removedParts } = addAtlasFrameToRig(project.rig, "leftArm", frame);
+    assert.equal(partName, "leftArm", "frame assignment should use the frame ID as the initial rig-part ID");
+    assert.deepEqual(removedParts, ["root"], "the first real rig part should remove the blank placeholder");
+    assert.equal(project.rig.parts.leftArm.frame, "leftArm", "new rig parts should reference the selected atlas frame");
+    assert.equal(project.rig.parts.leftArm.targetHeight, 120, "new rig parts should begin at the frame's source height");
+    addRigPartToAnimation(project.animations.idle, partName, removedParts);
+    assert.equal(project.animations.idle.referencePose.root, undefined, "animation synchronization should remove the placeholder pose");
+    assert.equal(project.animations.idle.referencePose.leftArm.scale, 1, "animation synchronization should add a complete default transform");
+    normalizeAnimationClip(project.animations.idle, "rig-synchronized blank project idle");
 }
 
 function testCharacterAtlasEditorOperations() {
@@ -215,6 +230,83 @@ function testCharacterAtlasEditorOperations() {
     const anchored = atlasToCanvasPoint(canvasToAtlasPoint(canvasPoint, atlasViewTransform({ canvasWidth: 800, canvasHeight: 600, imageWidth: 200, imageHeight: 100, zoom: 1, panX: 0, panY: 0 })), zoomedView);
     approx(anchored.x, canvasPoint.x, 0.000001, "atlas zoom should anchor x beneath the pointer");
     approx(anchored.y, canvasPoint.y, 0.000001, "atlas zoom should anchor y beneath the pointer");
+}
+
+function testRevision064AuthoredAssets() {
+    const atlasCases = [
+        ["./assets/at_atlas_002.json", 1500, 1600, 43],
+        ["./assets/at_atlas_003.json", 1599, 1609, 21]
+    ];
+    for (const [filename, imageWidth, imageHeight, expectedCount] of atlasCases) {
+        const atlas = JSON.parse(readFileSync(filename, "utf8"));
+        assert.equal(Object.keys(atlas.frames).length, expectedCount, `${filename} should contain every detected visual island`);
+        assert.equal(Object.keys(atlas.objects).length, expectedCount, `${filename} should have one object per frame`);
+        for (const [objectId, object] of Object.entries(atlas.objects)) {
+            const frame = atlas.frames[object.frame];
+            assert.ok(frame, `${filename} object ${objectId} should reference an existing frame`);
+            assert.ok(frame.x >= 0 && frame.y >= 0 && frame.w > 0 && frame.h > 0, `${filename} frame ${object.frame} should be valid`);
+            assert.ok(frame.x + frame.w <= imageWidth && frame.y + frame.h <= imageHeight, `${filename} frame ${object.frame} should remain inside the PNG`);
+            const nodeIds = new Set(object.nodes.map((node) => node.id));
+            assert.ok(object.lines.length >= 3, `${filename} object ${objectId} should have a closed blockable outline`);
+            assert.ok(object.lines.every((line) => line.kind === "blockable"), `${filename} object ${objectId} should use blockable collision lines`);
+            assert.ok(object.lines.every((line) => nodeIds.has(line.from) && nodeIds.has(line.to)), `${filename} object ${objectId} lines should reference valid nodes`);
+            assert.ok(object.nodes.every((node) => node.x >= 0 && node.y >= 0 && node.x <= frame.w && node.y <= frame.h), `${filename} object ${objectId} nodes should remain local to the frame`);
+        }
+    }
+
+    const character = JSON.parse(readFileSync("./assets/ct_char_skeleton_1.json", "utf8"));
+    const rig = JSON.parse(readFileSync("./assets/ct_rig_skeleton_1.json", "utf8"));
+    const atlas = JSON.parse(readFileSync("./assets/ct_atlas_skeleton_1.json", "utf8"));
+    const idle = JSON.parse(readFileSync("./assets/ct_anim_skeleton_1_idle.json", "utf8"));
+    const walk = JSON.parse(readFileSync("./assets/ct_anim_skeleton_1_walk.json", "utf8"));
+    assert.equal(character.animationMap.idle, "ct_anim_skeleton_1_idle.json", "skeleton character should reference the existing idle filename");
+    assert.equal(character.animationMap.walk, "ct_anim_skeleton_1_walk.json", "skeleton character should reference the walk filename");
+    assert.deepEqual(
+        rig.drawOrder,
+        ["leftArm", "shield", "leftLeg", "rightLeg", "torso", "head", "sword", "rightArm"],
+        "skeleton draw order should keep the rear arm at the bottom and the front arm on top"
+    );
+    assert.equal(Object.keys(atlas.frames).length, 8, "skeleton atlas should use semantic frame IDs for all parts");
+    for (const partName of rig.drawOrder) {
+        assert.ok(atlas.frames[rig.parts[partName].frame], `skeleton rig part ${partName} should reference an atlas frame`);
+        assert.ok(idle.referencePose[partName], `skeleton idle should contain ${partName}`);
+        assert.ok(walk.referencePose[partName], `skeleton walk should contain ${partName}`);
+    }
+
+    const expectedAttachmentPosition = (pose, equipmentName) => {
+        const attachment = rig.attachments[equipmentName];
+        const holderName = attachment.holder;
+        const holder = pose[holderName];
+        const frame = atlas.frames[rig.parts[holderName].frame];
+        const pivot = rig.pivots[holderName];
+        const holderPoint = attachment.holderPoint;
+        const spriteScale = rig.parts[holderName].targetHeight * holder.scale / frame.h;
+        const localX = (holderPoint.x - pivot.x) * frame.w * spriteScale;
+        const localY = (holderPoint.y - pivot.y) * frame.h * spriteScale;
+        return {
+            x: holder.x + localX * Math.cos(holder.rotation) - localY * Math.sin(holder.rotation),
+            y: holder.y + localX * Math.sin(holder.rotation) + localY * Math.cos(holder.rotation)
+        };
+    };
+    const assertEquipmentHeld = (clip, times, label) => {
+        const normalized = normalizeAnimationClip(clip, label);
+        for (const time of times) {
+            const pose = sampleAnimationClip(normalized, time);
+            for (const equipmentName of ["shield", "sword"]) {
+                const expected = expectedAttachmentPosition(pose, equipmentName);
+                approx(pose[equipmentName].x, expected.x, 0.001, `${label} ${equipmentName} grip x at ${time}`);
+                approx(pose[equipmentName].y, expected.y, 0.001, `${label} ${equipmentName} grip y at ${time}`);
+            }
+            assert.ok(Object.values(pose).every((part) => Object.values(part).every(Number.isFinite)), `${label} should sample to finite transforms at ${time}`);
+        }
+    };
+
+    assertEquipmentHeld(idle, [0, 0.6], "skeleton idle");
+    assertEquipmentHeld(walk, [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7], "skeleton walk");
+    assert.equal(walk.duration, 0.8, "skeleton walk should contain one brisk two-step cycle");
+    assert.ok(walk.tracks.leftLeg.rotation.length >= 9, "skeleton walk should author a complete alternating leg cycle");
+    assert.ok(walk.tracks.rightLeg.y.some((key) => key.value < -170), "skeleton walk should lift the swinging right foot");
+    assert.ok(walk.tracks.leftLeg.y.some((key) => key.value < -170), "skeleton walk should lift the swinging left foot");
 }
 
 function testCharacterDirtyTracking() {
@@ -1001,6 +1093,7 @@ const tests = [
     ["responsive viewport scaling", testResponsiveViewportScaling],
     ["character project workspace", testCharacterProjectWorkspace],
     ["character atlas editor operations", testCharacterAtlasEditorOperations],
+    ["revision 064 authored assets", testRevision064AuthoredAssets],
     ["character project dirty tracking", testCharacterDirtyTracking],
     ["character tool direct transform geometry", testCharacterToolDirectTransformGeometry],
     ["data-driven wizard run animation", testDataDrivenRunAnimation],

@@ -339,7 +339,11 @@ Revision 060 made preview zoom use the mouse wheel directly, without requiring C
 
 Revision 061 added an Atlas Parts workspace. It draws the configured atlas PNG in image-pixel coordinates and supports drawing, selecting, moving, resizing, renaming, duplicating, deleting, and validating frame rectangles. Renaming a frame updates atlas-object and rig-part references. The tool also tracks unsaved character, atlas, rig, and per-animation documents independently, preserves edited clips while switching animation slots, and warns before a project reload discards work.
 
-The next structural step is rig-part creation and deletion, atlas-frame assignment, draw-order editing, and role/tag authoring. Complete that before migrating the remaining airborne poses so the upcoming idle, jump, hover, enemy, and NPC animation work is created through the same reusable workflow rather than through another wizard-only path.
+Revision 063 added Skeleton Guard as a directly selectable known project and connected its atlas, rig, character definition, and idle animation. Atlas Parts mode can now create a rig part from the selected frame or create parts for every unassigned frame; matching animation transforms are added to loaded clips so the parts appear immediately in the rig preview. Atlas 002 and Atlas 003 were segmented into reusable frame rectangles and given closed blockable silhouette traces.
+
+Revision 064 refined the Skeleton Guard into a correctly layered equipped rig. The rear shield arm is drawn first, the front sword arm is drawn last, and the shield and sword use grip pivots that stay aligned with their hand positions in both idle and walk data. A complete editable two-step walk/march clip is now mapped through the skeleton character definition.
+
+The next structural step is completing rig authoring with part deletion, frame reassignment, draw-order editing, role/tag authoring, and direct pivot editing. Complete that before migrating the remaining wizard airborne poses so future character and NPC animation work continues through the same reusable workflow rather than through another wizard-only path.
 
 ## Character Tool
 

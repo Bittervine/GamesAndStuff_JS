@@ -1,14 +1,18 @@
 {
     "meta": {
-        "version": 1,
-        "note": "Blank character definition template."
+        "version": 3,
+        "note": "Skeleton Guard character definition refined in revision 064 with hand-held equipment and editable idle and walk clips."
     },
     "characterId": "ct_char_skeleton_1",
-    "displayName": "skeleton_1",
+    "displayName": "Skeleton Guard",
     "rig": "ct_rig_skeleton_1.json",
     "defaultFacing": "right",
     "mirrorable": true,
     "animationMap": {
-        "idle": "ct_anim_skeleton_1_idle_1.json"
+        "idle": "ct_anim_skeleton_1_idle.json",
+        "walk": "ct_anim_skeleton_1_walk.json",
+        "attack": null,
+        "hurt": null,
+        "death": null
     }
 }

@@ -352,7 +352,7 @@
         <canvas id="stage" width="1160" height="660" aria-label="Puppet Forge character preview"></canvas>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 061</small></h1>
+        <h1>Puppet Forge <small>rev 064</small></h1>
         <p><a href="IgnatiusRocketfrock_JS.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -387,6 +387,7 @@
                 <span>Known project</span>
                 <select id="project-select">
                     <option value="wizard">Ignatius Rocketfrock</option>
+                    <option value="skeleton">Skeleton Guard</option>
                 </select>
             </label>
             <div class="row">
@@ -444,6 +445,10 @@
             <div class="row">
                 <button id="new-atlas-frame" type="button">New frame</button>
                 <button id="duplicate-atlas-frame" type="button">Duplicate</button>
+            </div>
+            <div class="row">
+                <button id="add-frame-to-rig" type="button">Add selected to rig</button>
+                <button id="add-all-frames-to-rig" type="button">Add all unassigned</button>
             </div>
             <div class="row">
                 <button id="rename-atlas-frame" type="button">Rename / apply ID</button>
@@ -602,6 +607,8 @@ import {
     sampleAnimationClip
 } from "./IgnatiusRocketfrock_ANIMATION.js";
 import {
+    addAtlasFrameToRig,
+    addRigPartToAnimation,
     createBlankCharacterProject,
     inventoryCharacterProjectJson,
     resolveCharacterProjectReference
@@ -705,6 +712,8 @@ const els = {
     atlasFrameH: document.getElementById("atlas-frame-h"),
     newAtlasFrame: document.getElementById("new-atlas-frame"),
     duplicateAtlasFrame: document.getElementById("duplicate-atlas-frame"),
+    addFrameToRig: document.getElementById("add-frame-to-rig"),
+    addAllFramesToRig: document.getElementById("add-all-frames-to-rig"),
     renameAtlasFrame: document.getElementById("rename-atlas-frame"),
     deleteAtlasFrame: document.getElementById("delete-atlas-frame"),
     fitAtlas: document.getElementById("fit-atlas"),
@@ -763,7 +772,8 @@ const els = {
 };
 
 const KNOWN_PROJECTS = Object.freeze({
-    wizard: "assets/ct_char_wizard_1.json"
+    wizard: "assets/ct_char_wizard_1.json",
+    skeleton: "assets/ct_char_skeleton_1.json"
 });
 
 const state = {
@@ -1370,6 +1380,8 @@ function syncAtlasFrameControls() {
         input.disabled = disabled;
     }
     els.duplicateAtlasFrame.disabled = disabled;
+    els.addFrameToRig.disabled = disabled || !state.rig;
+    els.addAllFramesToRig.disabled = atlasFrameIds().length === 0 || !state.rig;
     els.renameAtlasFrame.disabled = disabled;
     els.deleteAtlasFrame.disabled = disabled;
     if (!frame) {
@@ -1498,6 +1510,85 @@ function deleteSelectedAtlasFrame() {
     setupAtlasFrameSelect();
     updateAtlasJsonAfterEdit();
     setStatus(`Deleted atlas frame ${frameId}.${referencedBy.length ? " Validation now reports the broken rig reference." : ""}`);
+}
+
+function animationDocumentsForRigSync() {
+    const documents = new Map();
+    for (const [slot, clip] of state.animationCache.entries()) {
+        if (clip) {
+            documents.set(slot, clip);
+        }
+    }
+    for (const [slot, clip] of state.generatedAnimations.entries()) {
+        if (clip && !documents.has(slot)) {
+            documents.set(slot, clip);
+        }
+    }
+    if (state.animation) {
+        documents.set(state.animationSlot || currentAnimationDirtyKey(), state.animation);
+    }
+    return documents;
+}
+
+function synchronizeRigPartWithAnimations(partName, removedParts) {
+    const documents = animationDocumentsForRigSync();
+    for (const [slot, clip] of documents.entries()) {
+        addRigPartToAnimation(clip, partName, removedParts);
+        markDirty("animation", slot);
+    }
+    state.normalizedAnimation = null;
+    if (state.animation) {
+        refreshAnimationJson();
+    }
+}
+
+function addAtlasFrameAsRigPart(frameId) {
+    const frame = state.atlas?.frames?.[frameId];
+    if (!frame || !state.rig) {
+        throw new Error("Select an atlas frame and load a rig before creating a rig part.");
+    }
+    const result = addAtlasFrameToRig(state.rig, frameId, frame);
+    synchronizeRigPartWithAnimations(result.partName, result.removedParts);
+    return result.partName;
+}
+
+function addSelectedAtlasFrameToRig() {
+    try {
+        const frameId = state.selectedAtlasFrame;
+        const partName = addAtlasFrameAsRigPart(frameId);
+        rebuildAssetsAfterAtlasEdit();
+        setupPartSelect();
+        setEditorMode("animation");
+        selectPart(partName);
+        refreshRigJson();
+        markDirty("rig");
+        validateCurrentAtlas();
+        setStatus(`Added atlas frame ${frameId} to the rig as ${partName}. The part is now selected in Rig and animation mode.`);
+    } catch (error) {
+        setStatus(error.message);
+    }
+}
+
+function addAllUnassignedAtlasFramesToRig() {
+    try {
+        const assigned = new Set(Object.values(state.rig?.parts || {}).map((part) => part?.frame).filter(Boolean));
+        const frameIds = atlasFrameIds().filter((frameId) => !assigned.has(frameId));
+        if (!frameIds.length) {
+            setStatus("Every atlas frame is already assigned to at least one rig part.");
+            return;
+        }
+        const added = frameIds.map((frameId) => addAtlasFrameAsRigPart(frameId));
+        rebuildAssetsAfterAtlasEdit();
+        setupPartSelect();
+        setEditorMode("animation");
+        selectPart(added[0]);
+        refreshRigJson();
+        markDirty("rig");
+        validateCurrentAtlas();
+        setStatus(`Added ${added.length} atlas frame(s) to the rig. ${added[0]} is selected; arrange the parts and edit their pivots in Rig and animation mode.`);
+    } catch (error) {
+        setStatus(error.message);
+    }
 }
 
 function validateCurrentAtlas() {
@@ -2896,6 +2987,8 @@ els.atlasFrameId.addEventListener("keydown", (event) => {
 });
 els.newAtlasFrame.addEventListener("click", createNewAtlasFrame);
 els.duplicateAtlasFrame.addEventListener("click", duplicateSelectedAtlasFrame);
+els.addFrameToRig.addEventListener("click", addSelectedAtlasFrameToRig);
+els.addAllFramesToRig.addEventListener("click", addAllUnassignedAtlasFramesToRig);
 els.renameAtlasFrame.addEventListener("click", renameSelectedAtlasFrame);
 els.deleteAtlasFrame.addEventListener("click", deleteSelectedAtlasFrame);
 els.fitAtlas.addEventListener("click", fitAtlasImage);

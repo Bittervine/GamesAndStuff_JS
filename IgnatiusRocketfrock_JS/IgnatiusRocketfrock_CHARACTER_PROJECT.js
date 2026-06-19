@@ -199,6 +199,60 @@ export function inventoryCharacterProjectJson(records) {
     return inventory;
 }
 
+export function addAtlasFrameToRig(rig, frameId, frame, preferredPartName = null) {
+    if (!rig || !Array.isArray(rig.drawOrder) || !isObject(rig.parts) || !isObject(rig.pivots)) {
+        throw new Error("Rig must contain drawOrder, parts, and pivots before an atlas frame can be assigned.");
+    }
+    if (!frameId || !frame || !Number.isFinite(Number(frame.w)) || !Number.isFinite(Number(frame.h))) {
+        throw new Error("A valid atlas frame is required before creating a rig part.");
+    }
+
+    const baseName = normalizeRigPartName(preferredPartName || frameId);
+    let partName = baseName;
+    let suffix = 2;
+    while (rig.parts[partName]) {
+        partName = `${baseName}_${suffix}`;
+        suffix += 1;
+    }
+
+    const removedParts = removeSolePlaceholderPart(rig);
+    rig.drawOrder.push(partName);
+    rig.pivots[partName] = { x: 0.5, y: 0.5 };
+    rig.parts[partName] = {
+        frame: String(frameId),
+        role: partName,
+        tags: [],
+        offset: { x: 0, y: 0 },
+        scale: 1,
+        targetHeight: Math.max(1, Math.round(Number(frame.h))),
+        alpha: 1
+    };
+
+    return { partName, removedParts };
+}
+
+export function addRigPartToAnimation(animation, partName, removedParts = [], transform = null) {
+    if (!animation || !isObject(animation.referencePose) || !isObject(animation.tracks)) {
+        throw new Error("Animation must contain referencePose and tracks before a rig part can be added.");
+    }
+    const pose = {
+        x: Number(transform?.x || 0),
+        y: Number(transform?.y || 0),
+        rotation: Number(transform?.rotation || 0),
+        scale: Number(transform?.scale ?? 1),
+        alpha: Number(transform?.alpha ?? 1)
+    };
+    for (const removed of removedParts || []) {
+        delete animation.referencePose[removed];
+        delete animation.tracks[removed];
+    }
+    animation.referencePose[partName] = { ...pose };
+    animation.tracks[partName] = Object.fromEntries(
+        Object.entries(pose).map(([property, value]) => [property, [{ time: 0, value, easing: "linear" }]])
+    );
+    return animation;
+}
+
 function normalizePath(value) {
     const parts = String(value || "").replace(/\\/g, "/").split("/");
     const normalized = [];
@@ -213,6 +267,30 @@ function normalizePath(value) {
         normalized.push(part);
     }
     return normalized.join("/");
+}
+
+function normalizeRigPartName(value) {
+    const name = String(value || "part")
+        .trim()
+        .replace(/[^A-Za-z0-9_]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .replace(/_+/g, "_");
+    return name || "part";
+}
+
+function removeSolePlaceholderPart(rig) {
+    if (rig.drawOrder.length !== 1) {
+        return [];
+    }
+    const name = rig.drawOrder[0];
+    const part = rig.parts[name];
+    if (!part || !Array.isArray(part.tags) || !part.tags.includes("placeholder")) {
+        return [];
+    }
+    rig.drawOrder.length = 0;
+    delete rig.parts[name];
+    delete rig.pivots[name];
+    return [name];
 }
 
 function directoryName(value) {

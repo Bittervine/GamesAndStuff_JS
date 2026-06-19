@@ -159,7 +159,7 @@ Complete this structural tool work before adding the larger set of wizard and mo
 * [x] Add an atlas-parts mode that displays the selected PNG at pixel-accurate scale.
 * [x] Allow drawing, selecting, moving, resizing, renaming, duplicating, and deleting atlas frame rectangles.
 * [x] Validate frame rectangles for duplicate IDs, invalid dimensions, and pixels outside the image.
-* [ ] Allow creating and deleting rig parts, then assigning each rig part to an atlas frame.
+* [ ] Allow creating and deleting rig parts, then assigning each rig part to an atlas frame. Creation and frame assignment are implemented; deletion remains.
 * [ ] Keep atlas-frame identity separate from rig-part semantics: rectangles identify reusable pixels; rig parts carry body roles, tags, pivots, anchors, and draw order.
 * [ ] Add rig-part role and tag editing, including broad roles such as head, torso, left/right arm, left/right leg, wing, hat, and weapon mount.
 * [ ] Add searchable optional frame labels for organization without treating them as gameplay roles.
@@ -191,6 +191,20 @@ Puppet Forge now has separate Rig/Animation and Atlas Parts workspace modes. Atl
 Character, atlas, rig, and animation documents now have independent dirty states. Multiple edited animation slots remain cached in memory while switching clips, and downloading one JSON document marks only that document as saved. Project reloads warn before discarding unsaved work.
 
 The next structural slice is rig-part creation/deletion, frame assignment, draw-order editing, and role/tag authoring. Complete that before migrating the remaining wizard airborne animations.
+
+### Revision 063 Skeleton Project and Rig Assignment Baseline
+
+Puppet Forge now lists both Ignatius Rocketfrock and Skeleton Guard in the known-project selector. Atlas Parts mode can promote the selected frame, or every currently unassigned frame, into rig parts. The first real part removes the blank placeholder; loaded animation documents receive matching default transform tracks so the new part appears immediately in Rig and animation mode instead of remaining an atlas-only rectangle.
+
+The skeleton project now uses semantic atlas frame IDs, a complete eight-part rig, and an editable idle animation. Its character definition points to the correct idle filename. Atlas 002 and Atlas 003 now contain cyan frame rectangles for every alpha-isolated visual asset and closed blockable collision traces generated from each sprite silhouette.
+
+The remaining rig-authoring work is deletion, frame reassignment, draw-order controls, role/tag editing, and direct pivot editing.
+
+### Revision 064 Skeleton Equipment and Walk Baseline
+
+The Skeleton Guard rig now draws the rear left arm first and the front right arm last. The shield pivot is authored at its hidden lower-right grip and the sword pivot is centered in its handle; both idle and walk clips keep those pivots on the corresponding animated hand positions. The character now maps an editable `walk` slot to `ct_anim_skeleton_1_walk.json`, containing a complete two-step loop with alternating leg swing, lift, body bob, arm motion, and synchronized held equipment.
+
+The remaining rig-authoring work is still deletion, frame reassignment, draw-order controls, role/tag editing, and direct pivot editing.
 
 ### Other Wizard Animation States
 
