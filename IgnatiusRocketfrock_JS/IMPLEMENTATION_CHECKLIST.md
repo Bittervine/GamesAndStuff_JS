@@ -430,3 +430,33 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Save normalized `colorMap` settings in the level JSON.
 - [x] Preview the same cached recoloured atlases in the level editor and game runtime.
 - [x] Rebuild atlas pixel caches only when settings change, while retaining normal per-frame sprite drawing.
+
+### Revision 070 interactive/story items
+
+* [x] Define `it_atlas_001.json` for the mixed interactive-item PNG.
+* [x] Add `it_entities_001.json` as a stateful entity-to-visual catalog.
+* [x] Auto-load the interactive atlas in the Level Editor and runtime renderer.
+* [x] Let entity palette placements carry self-contained visual states.
+* [x] Add editable entity-state selection in the inspector.
+* [x] Support an `actorFront` visual pass for portal foreground layering.
+* [x] Implement the scripted level-start entrance portal: closed, open, masked walk-out, close, then release controls.
+* [ ] Implement the mirrored level-exit portal sequence.
+* [ ] Implement mailbox letters, chest loot, switch channels, gates, herbs, keys, and hazards as gameplay systems.
+
+### Revision 071 scripted portal entrance
+
+* [x] Let a `magicPortal` entity opt into the entrance sequence with `portalRole: "entrance"`.
+* [x] Keep Ignatius hidden while the portal is initially closed and opening.
+* [x] Lock normal controls while moving Ignatius to the authored `playerStart`.
+* [x] Use the open portal's `actorFront` half-door to mask the emerging wizard.
+* [x] Close the portal after Ignatius clears it and then restore player control.
+* [x] Make entity visual-state changes rebuild runtime visuals through a shared helper.
+* [x] Add a large entrance portal to `level_001.json`.
+
+### Revision 072 revised portal atlas alignment
+
+* [x] Update closed, open, and foreground portal frame rectangles for the revised `it_atlas_001.png`.
+* [x] Preserve one common source-pixel scale across all three portal visuals.
+* [x] Align the open portal and actor-front foreground layer to the closed portal's left and bottom edges.
+* [x] Add regression assertions for the authored frame rectangles and visual factors.
+

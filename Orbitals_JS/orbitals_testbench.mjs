@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync, readdirSync } from 'node:fs';
 import * as THREE from './lib/three.module.js';
 import { createOrbitalsSim, ENEMY_MODEL_FILES_BY_FAMILY, getEncounterAnchorPosition, parseSeed } from './Orbitals_Sim.js';
 import { createOrbitalsSim as createOrbitalsSimBaseline } from '../Orbitals_JSp/Orbitals_Sim.js';
@@ -15,6 +16,155 @@ const NEUTRAL_CONTROLS = {
 };
 
 const SHALLOW_DIVE_PITCH_INPUT = 0.5;
+
+
+const LEGACY_SIM_NUMERIC_CONSTANTS = new Set([
+  'Orbitals_Sim.js:ENEMY_SPAWN_DELAY_MIN',
+  'Orbitals_Sim.js:ENEMY_SPAWN_DELAY_MAX',
+  'Orbitals_Sim.js:ENEMY_MAX_SQUADS',
+  'Orbitals_Sim.js:ENEMY_SQUAD_SIZE_MIN',
+  'Orbitals_Sim.js:ENEMY_SQUAD_SIZE_MAX',
+  'Orbitals_Sim.js:ENEMY_APPROACH_ALTITUDE',
+  'Orbitals_Sim.js:ENEMY_SWARM_ALTITUDE',
+  'Orbitals_Sim.js:ENEMY_DEPART_ALTITUDE',
+  'Orbitals_Sim.js:ENEMY_SPEED_SCALE_MIN',
+  'Orbitals_Sim.js:ENEMY_SPEED_SCALE_MAX',
+  'Orbitals_Sim.js:ENEMY_TURN_RATE_MIN',
+  'Orbitals_Sim.js:ENEMY_TURN_RATE_MAX',
+  'Orbitals_Sim.js:ENEMY_UP_RATE_MIN',
+  'Orbitals_Sim.js:ENEMY_UP_RATE_MAX',
+  'Orbitals_Sim.js:ENEMY_TARGET_SMOOTH_RATE_SWARM',
+  'Orbitals_Sim.js:ENEMY_TARGET_SMOOTH_RATE_TRAVEL',
+  'Orbitals_Sim.js:ENEMY_INPUT_SMOOTH_RATE_SWARM',
+  'Orbitals_Sim.js:ENEMY_INPUT_SMOOTH_RATE_TRAVEL',
+  'Orbitals_Sim.js:ENEMY_SWARM_WANDER_TURN',
+  'Orbitals_Sim.js:ENEMY_SWARM_WANDER_PITCH',
+  'Orbitals_Sim.js:ENEMY_TRAVEL_WANDER_TURN',
+  'Orbitals_Sim.js:ENEMY_TRAVEL_WANDER_PITCH',
+  'Orbitals_Sim.js:ATMOSPHERE_SOFT_STALL_START',
+  'Orbitals_Sim.js:ATMOSPHERE_SOFT_STALL_FULL',
+  'Orbitals_Sim.js:ENEMY_SWARM_DURATION_MIN',
+  'Orbitals_Sim.js:ENEMY_SWARM_DURATION_MAX',
+  'Orbitals_Sim.js:ENEMY_DEPART_DURATION_MIN',
+  'Orbitals_Sim.js:ENEMY_DEPART_DURATION_MAX',
+  'Orbitals_Sim.js:ENEMY_CRASH_MARGIN',
+  'sim/effects.js:ENEMY_EXPLOSION_PARTICLE_COUNT',
+  'sim/effects.js:ENEMY_EXPLOSION_LIFETIME_MIN',
+  'sim/effects.js:ENEMY_EXPLOSION_LIFETIME_MAX',
+  'sim/projectiles.js:PROJECTILE_HOMING_RANGE',
+  'sim/projectiles.js:RETICLE_OFFSET_PX',
+  'sim/state.js:ENEMY_HIT_RADIUS',
+  'sim/world.js:ATMOSPHERE_SOFT_STALL_START',
+  'sim/world.js:ATMOSPHERE_SOFT_STALL_FULL'
+]);
+
+const LEGACY_SIM_VISUAL_FIELDS = new Map([
+  ['sim/projectiles.js:spawnProjectileBurst:visual', 1],
+  ['sim/state.js:createShipState:root', 1],
+  ['sim/state.js:createShipState:visual', 1],
+  ['sim/state.js:createShipState:modelPivot', 1],
+  ['sim/state.js:createShipState:model', 1],
+  ['sim/state.js:createShipState:engineEffects', 1],
+  ['sim/state.js:createEnemyState:root', 1],
+  ['sim/state.js:createEnemyState:visual', 1],
+  ['sim/state.js:createEnemyState:modelPivot', 1],
+  ['sim/state.js:createEnemyState:model', 1],
+  ['sim/state.js:createEncounterEntityState:root', 1],
+  ['sim/state.js:createEncounterEntityState:visual', 1],
+  ['sim/state.js:createEncounterEntityState:modelPivot', 1],
+  ['sim/state.js:createEncounterEntityState:model', 1],
+  ['sim/world.js:createPlanetConfig:root', 1],
+  ['sim/world.js:createPlanetConfig:visual', 1],
+  ['sim/world.js:createFuelMote:visual', 1]
+]);
+
+function readSimulationSourceFiles() {
+  const files = [
+    ['Orbitals_Sim.js', new URL('./Orbitals_Sim.js', import.meta.url)]
+  ];
+  const simDirectory = new URL('./sim/', import.meta.url);
+  const moduleNames = readdirSync(simDirectory, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.js'))
+    .map((entry) => entry.name)
+    .sort();
+  for (const moduleName of moduleNames) {
+    files.push([`sim/${moduleName}`, new URL(`./sim/${moduleName}`, import.meta.url)]);
+  }
+  return files.map(([name, url]) => ({
+    name,
+    source: readFileSync(url, 'utf8')
+  }));
+}
+
+function runSimulationArchitectureGuardTest() {
+  const sources = readSimulationSourceFiles();
+  const numericConstantPattern = /^(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?\s*;/;
+  const visualFieldPattern = /^\s*(root|visual|modelPivot|model|engineEffects)\s*:\s*null\b/;
+  const visualConstructorPattern = /\bnew\s+THREE\.(?:Object3D|Group|Scene|Mesh|Sprite|Points|Line|LineSegments|WebGLRenderer|PerspectiveCamera|OrthographicCamera|Audio|PositionalAudio|AudioListener|\w*Material|\w*Geometry|Texture|CanvasTexture)\b/;
+  const newNumericConstants = [];
+  const unexpectedVisualFields = [];
+  const visualFieldCounts = new Map();
+  const visualConstructors = [];
+
+  for (const { name, source } of sources) {
+    let functionContext = '<module>';
+    const lines = source.split(/\r?\n/);
+    lines.forEach((line, index) => {
+      const functionMatch = line.match(/^(?:export\s+)?function\s+([A-Za-z_$][\w$]*)\s*\(/);
+      if (functionMatch) {
+        functionContext = functionMatch[1];
+      }
+
+      const numericMatch = line.match(numericConstantPattern);
+      if (numericMatch) {
+        const key = `${name}:${numericMatch[1]}`;
+        if (!LEGACY_SIM_NUMERIC_CONSTANTS.has(key)) {
+          newNumericConstants.push(`${key} at line ${index + 1}`);
+        }
+      }
+
+      const visualFieldMatch = line.match(visualFieldPattern);
+      if (visualFieldMatch) {
+        const key = `${name}:${functionContext}:${visualFieldMatch[1]}`;
+        visualFieldCounts.set(key, (visualFieldCounts.get(key) || 0) + 1);
+        if (!LEGACY_SIM_VISUAL_FIELDS.has(key)) {
+          unexpectedVisualFields.push(`${key} at line ${index + 1}`);
+        }
+      }
+
+      if (visualConstructorPattern.test(line)) {
+        visualConstructors.push(`${name}:${index + 1}: ${line.trim()}`);
+      }
+    });
+  }
+
+  for (const [key, count] of visualFieldCounts) {
+    const allowedCount = LEGACY_SIM_VISUAL_FIELDS.get(key) || 0;
+    if (count > allowedCount && !unexpectedVisualFields.some((entry) => entry.startsWith(key))) {
+      unexpectedVisualFields.push(`${key} appears ${count} times; legacy allowance is ${allowedCount}`);
+    }
+  }
+
+  assert.deepEqual(
+    newNumericConstants,
+    [],
+    `new module-level numeric gameplay constants must be moved to orbitals_config.js:\n${newNumericConstants.join('\n')}`
+  );
+  assert.deepEqual(
+    unexpectedVisualFields,
+    [],
+    `new renderer-owned fields must not be added to simulation state:\n${unexpectedVisualFields.join('\n')}`
+  );
+  assert.deepEqual(
+    visualConstructors,
+    [],
+    `simulation modules must not construct Three.js presentation objects:\n${visualConstructors.join('\n')}`
+  );
+
+  console.log(
+    `PASS architecture-guards: files=${sources.length} legacyConstants=${LEGACY_SIM_NUMERIC_CONSTANTS.size} legacyVisualFields=${visualFieldCounts.size}`
+  );
+}
 
 function resolveGamepadStartRestartAction({ loaded, gameStarted, crashed, crashTimer = 0, firePressed, crashRespawnDelay, fireLatch = false }) {
   if (!loaded || !firePressed) {
@@ -498,6 +648,7 @@ function runStableAltitudeTest() {
 
 function runPublicSimApiSmokeTest() {
   const sim = createOrbitalsSim(0xC0FFEE);
+  assert.ok(sim.state && typeof sim.state === 'object', 'expected state to be exposed');
   assert.equal(typeof sim.bootstrapWorld, 'function', 'expected bootstrapWorld to be exposed');
   assert.equal(typeof sim.step, 'function', 'expected step to be exposed');
   assert.equal(typeof sim.respawnShip, 'function', 'expected respawnShip to be exposed');
@@ -3967,6 +4118,7 @@ function runEnemyFamilyIndexTest() {
   console.log(`PASS enemy-family-index: families=${familyEntries.length} files=${totalFiles}`);
 }
 
+runSimulationArchitectureGuardTest();
 runStableAltitudeTest();
 runPublicSimApiSmokeTest();
 runPitchResponseTest();

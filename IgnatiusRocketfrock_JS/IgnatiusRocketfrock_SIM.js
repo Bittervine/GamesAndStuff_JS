@@ -177,7 +177,8 @@ export function createInitialGameState(overrides = {}) {
             airborneTime: 0,
             coyoteTimer: 0,
             airBoostArmed: false,
-            lowHealthPulse: 0
+            lowHealthPulse: 0,
+            visible: true
         },
         fuel: {
             amount: tuning.initialFuel,
@@ -244,7 +245,8 @@ export function createInitialGameState(overrides = {}) {
             lastResolution: null
         },
         story: {
-            levelTitle: "Ignatius Rocketfrock and the Gallery of Sensibly Spaced Ledges"
+            levelTitle: "Ignatius Rocketfrock and the Gallery of Sensibly Spaced Ledges",
+            portalIntro: null
         },
         debug: {
             paused: false,
@@ -578,6 +580,204 @@ function normalizeAtlasId(atlasId) {
     return String(atlasId || "");
 }
 
+function editorEntityVisuals(entity) {
+    if (!entity || typeof entity !== "object") return [];
+    const states = entity.visualStates && typeof entity.visualStates === "object" ? entity.visualStates : null;
+    const selected = states ? states[entity.state] || states[Object.keys(states)[0]] : null;
+    if (Array.isArray(selected)) return selected;
+    if (Array.isArray(selected?.visuals)) return selected.visuals;
+    if (Array.isArray(entity.visuals)) return entity.visuals;
+    if (entity.visual && typeof entity.visual === "object") return [entity.visual];
+    return [];
+}
+
+function editorEntityVisualToWorld(entity, visual, index, stateName = entity.state || "") {
+    const baseW = Math.max(1, Number(entity.w) || 42);
+    const baseH = Math.max(1, Number(entity.h) || 80);
+    const widthFactor = Number(visual.widthFactor ?? 1) || 1;
+    const heightFactor = Number(visual.heightFactor ?? 1) || 1;
+    const w = Math.max(1, baseW * widthFactor);
+    const h = Math.max(1, baseH * heightFactor);
+    const direction = entity.mirrorX ? -1 : 1;
+    const offsetX = ((Number(visual.offsetX) || 0) + (Number(visual.offsetXFactor) || 0) * baseW) * direction;
+    const offsetY = (Number(visual.offsetY) || 0) + (Number(visual.offsetYFactor) || 0) * baseH;
+    return {
+        id: `${entity.id || entity.type || "entity"}_${stateName || "default"}_visual_${index + 1}`,
+        kind: "atlasSprite",
+        atlasId: normalizeAtlasId(visual.atlasId || "it_atlas_001"),
+        assetId: visual.assetId,
+        frame: visual.frame || visual.assetId,
+        x: (Number(entity.x) || 0) + offsetX - w * 0.5,
+        y: (Number(entity.y) || 0) + offsetY - h,
+        w,
+        h,
+        mirrorX: Boolean(entity.mirrorX) !== Boolean(visual.mirrorX),
+        mirrorY: Boolean(entity.mirrorY) !== Boolean(visual.mirrorY),
+        rotation: normalizeRotationRadians(visual.rotation, visual.angle) + normalizeRotationRadians(entity.rotation, entity.angle),
+        alpha: Number(visual.alpha ?? 1),
+        layer: visual.layer || "decorFront",
+        entityId: entity.id || "",
+        entityType: entity.type || entity.kind || "",
+        entityState: stateName || ""
+    };
+}
+
+function worldEntityById(state, entityId) {
+    return (state.world?.entities || []).find((entity) => entity.id === entityId) || null;
+}
+
+export function setWorldEntityState(state, entityId, nextState) {
+    const entity = worldEntityById(state, entityId);
+    if (!entity || !entity.visualStates || !entity.visualStates[nextState]) {
+        return false;
+    }
+    entity.state = nextState;
+    if (!state.world.entityStates) state.world.entityStates = {};
+    state.world.entityStates[entityId] = nextState;
+    state.world.visuals = (state.world.visuals || []).filter((visual) => visual.entityId !== entityId);
+    const visuals = editorEntityVisuals(entity);
+    visuals.forEach((visual, index) => {
+        if (visual?.assetId) state.world.visuals.push(editorEntityVisualToWorld(entity, visual, index, nextState));
+    });
+    state.world.visuals.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    return true;
+}
+
+function portalIntroEntity(entities) {
+    return entities.find((entity) =>
+        (entity.type === "magicPortal" || entity.kind === "magicPortal") &&
+        (entity.portalRole === "entrance" || entity.introRole === "entrance" || entity.startSequence === true)
+    ) || null;
+}
+
+function configurePortalIntro(state, entities) {
+    const portal = portalIntroEntity(entities);
+    if (!portal) {
+        state.story.portalIntro = null;
+        state.player.visible = true;
+        return false;
+    }
+
+    const finalX = state.world.start.x;
+    const finalY = state.world.start.y;
+    const fallbackDirection = Number(portal.exitDirection) < 0 ? -1 : 1;
+    const direction = Math.abs(finalX - Number(portal.x || 0)) > 4 ? Math.sign(finalX - Number(portal.x || 0)) : fallbackDirection;
+    const hiddenX = Number(portal.x || 0) - direction * Math.max(12, Number(portal.w || 150) * 0.08);
+    const distance = Math.abs(finalX - hiddenX);
+    const walkSpeed = Math.max(40, Number(portal.walkSpeed) || 105);
+    const walkDuration = Math.max(0.7, distance / walkSpeed);
+
+    state.story.portalIntro = {
+        active: true,
+        portalId: portal.id,
+        phase: "closed",
+        phaseTime: 0,
+        direction,
+        hiddenX,
+        finalX,
+        groundY: finalY,
+        walkDuration,
+        closedDuration: Math.max(0, Number(portal.closedDuration) || 0.55),
+        openDuration: Math.max(0.05, Number(portal.openDuration) || 0.38),
+        clearDuration: Math.max(0, Number(portal.clearDuration) || 0.28),
+        closeDuration: Math.max(0.05, Number(portal.closeDuration) || 0.42)
+    };
+    setWorldEntityState(state, portal.id, "closed");
+    state.player.visible = false;
+    state.player.x = hiddenX;
+    state.player.y = finalY;
+    state.player.vx = 0;
+    state.player.vy = 0;
+    state.player.facing = direction;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.camera.x = Number(portal.x) || finalX;
+    state.camera.y = finalY - 170;
+    addEvent(state, "PORTAL_INTRO_STARTED", { portalId: portal.id });
+    return true;
+}
+
+function advancePortalIntroPhase(state, intro, phase) {
+    intro.phase = phase;
+    intro.phaseTime = 0;
+    if (phase === "opening") {
+        setWorldEntityState(state, intro.portalId, "open");
+        addEvent(state, "PORTAL_OPENED", { portalId: intro.portalId });
+    } else if (phase === "emerging") {
+        state.player.visible = true;
+        addEvent(state, "PLAYER_EMERGING_FROM_PORTAL", { portalId: intro.portalId });
+    } else if (phase === "closing") {
+        addEvent(state, "PORTAL_CLOSING", { portalId: intro.portalId });
+    } else if (phase === "complete") {
+        setWorldEntityState(state, intro.portalId, "closed");
+        intro.active = false;
+        state.player.visible = true;
+        state.player.x = intro.finalX;
+        state.player.y = intro.groundY;
+        state.player.vx = 0;
+        state.player.vy = 0;
+        state.player.onGround = true;
+        state.player.wasOnGround = true;
+        state.player.spawnX = intro.finalX;
+        state.player.spawnY = intro.groundY;
+        addEvent(state, "PORTAL_INTRO_COMPLETE", { portalId: intro.portalId });
+    }
+}
+
+function updatePortalIntro(state, dt) {
+    const intro = state.story?.portalIntro;
+    if (!intro?.active) return false;
+
+    const p = state.player;
+    intro.phaseTime += dt;
+    p.ax = 0;
+    p.ay = 0;
+    p.vy = 0;
+    p.facing = intro.direction;
+    p.onGround = true;
+    p.wasOnGround = true;
+
+    if (intro.phase === "closed") {
+        p.visible = false;
+        p.x = intro.hiddenX;
+        p.vx = 0;
+        if (intro.phaseTime >= intro.closedDuration) advancePortalIntroPhase(state, intro, "opening");
+    } else if (intro.phase === "opening") {
+        p.visible = false;
+        p.x = intro.hiddenX;
+        p.vx = 0;
+        if (intro.phaseTime >= intro.openDuration) advancePortalIntroPhase(state, intro, "emerging");
+    } else if (intro.phase === "emerging") {
+        const t = clamp(intro.phaseTime / Math.max(0.001, intro.walkDuration), 0, 1);
+        const eased = t * t * (3 - 2 * t);
+        p.visible = true;
+        p.x = intro.hiddenX + (intro.finalX - intro.hiddenX) * eased;
+        p.y = intro.groundY;
+        p.vx = (intro.finalX - intro.hiddenX) / Math.max(0.001, intro.walkDuration);
+        if (t >= 1) advancePortalIntroPhase(state, intro, "clear");
+    } else if (intro.phase === "clear") {
+        p.visible = true;
+        p.x = intro.finalX;
+        p.y = intro.groundY;
+        p.vx = 0;
+        if (intro.phaseTime >= intro.clearDuration) advancePortalIntroPhase(state, intro, "closing");
+    } else if (intro.phase === "closing") {
+        p.visible = true;
+        p.x = intro.finalX;
+        p.y = intro.groundY;
+        p.vx = 0;
+        if (intro.phaseTime >= intro.closeDuration * 0.5 && state.world.entityStates?.[intro.portalId] !== "closed") {
+            setWorldEntityState(state, intro.portalId, "closed");
+            addEvent(state, "PORTAL_CLOSED", { portalId: intro.portalId });
+        }
+        if (intro.phaseTime >= intro.closeDuration) advancePortalIntroPhase(state, intro, "complete");
+    }
+
+    state.camera.x += (p.x + 80 * intro.direction - state.camera.x) * Math.min(1, dt * 5);
+    state.camera.y += (p.y - 170 - state.camera.y) * Math.min(1, dt * 5);
+    return true;
+}
+
 export function applyEditorLevelToWorld(state, editorLevel) {
     if (!state?.world || !editorLevel || typeof editorLevel !== "object") {
         return false;
@@ -634,6 +834,13 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             order: Number.isFinite(Number(placement.order)) ? Number(placement.order) : visuals.length
         });
     }
+    const runtimeEntities = deepClone(entities);
+    for (const entity of runtimeEntities) {
+        editorEntityVisuals(entity).forEach((visual, index) => {
+            if (visual?.assetId) visuals.push(editorEntityVisualToWorld(entity, visual, index, entity.state || ""));
+        });
+    }
+
     visuals.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     if (!visuals.length && !playerStart && !entities.length) {
@@ -653,6 +860,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         atlasManifests,
         colorMap: normalizeLevelColorMap(source.colorMap),
         visuals,
+        entities: runtimeEntities,
+        entityStates: Object.fromEntries(runtimeEntities.filter((entity) => entity.id).map((entity) => [entity.id, entity.state || ""])),
         solids: [
             { id: "left_wall", kind: "wall", x: bounds.x - 80, y: bounds.y - 400, w: 60, h: bounds.h + 800 },
             { id: "right_wall", kind: "wall", x: bounds.x + bounds.w + 20, y: bounds.y - 400, w: 60, h: bounds.h + 800 }
@@ -679,27 +888,31 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         state.camera.y = state.player.y - 170;
     }
 
+    configurePortalIntro(state, runtimeEntities);
+
     const targetLike = (entity) => entity.type === "targetDummy" || entity.kind === "targetDummy";
-    state.enemies = entities.filter(targetLike).map((entity, index) => ({
+    state.enemies = runtimeEntities.filter(targetLike).map((entity, index) => ({
         id: entity.id || `targetDummy_${index + 1}`,
         kind: "targetDummy",
         x: Number(entity.x) || 0,
         y: Number(entity.y) || 0,
         width: Number(entity.w) || 42,
         height: Number(entity.h) || 80,
-        health: 100,
-        state: "idle"
+        health: Number(entity.health) || 100,
+        state: "idle",
+        visualized: editorEntityVisuals(entity).length > 0
     }));
 
     const fuelLike = (entity) => entity.type === "fuel" || entity.kind === "fuel" || entity.type === "fuelPickup" || entity.kind === "fuelPickup";
-    state.pickups = entities.filter(fuelLike).map((entity, index) => ({
+    state.pickups = runtimeEntities.filter(fuelLike).map((entity, index) => ({
         id: entity.id || `fuel_${index + 1}`,
         kind: "fuel",
         x: Number(entity.x) || 0,
         y: Number(entity.y) || 0,
         radius: Number(entity.radius) || 14,
         amount: Number(entity.amount) || 40,
-        collected: false
+        collected: false,
+        visualized: editorEntityVisuals(entity).length > 0
     }));
 
     const firstEnemy = state.enemies[0];
@@ -811,6 +1024,10 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     state.debug.lastInputFrame = deepClone(input);
     state.collisions.playerTouching = { left: false, right: false, up: false, down: false };
     state.collisions.lastResolution = null;
+
+    if (updatePortalIntro(state, dt)) {
+        return;
+    }
 
     const wasOnGround = p.onGround;
     p.wasOnGround = wasOnGround;
@@ -2185,6 +2402,7 @@ export function resetPlayer(state, reason = "manualReset") {
     p.wasOnGround = false;
     p.airBoostArmed = false;
     p.facing = 1;
+    p.visible = true;
     state.fuel.amount = state.tuning.initialFuel;
     state.fuel.rechargeDelayTimer = 0;
     state.fuel.rechargeLatched = false;

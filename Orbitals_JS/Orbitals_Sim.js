@@ -1,3 +1,26 @@
+/*
+ * Orbitals simulation compatibility facade.
+ *
+ * Gameplay state and deterministic behavior belong in this file and the
+ * modules under ./sim/. Browser presentation belongs in Orbitals_JS.js.
+ * Subsystems expose plain state plus explicit functions; avoid actor-class
+ * hierarchies and keep the central update order visible in step().
+ *
+ * Intended ownership:
+ *   state       game-state creation and reset
+ *   world       planets, fuel motes, and world motion
+ *   player      player flight, firing requests, crash, and respawn
+ *   encounters  encounter direction, presenters, and objectives
+ *   enemies     enemy state, squads, steering, and damage
+ *   motherships mothership arrival, release, and exit
+ *   collisions  gameplay collision resolution
+ *   projectiles projectile movement, homing, and hits
+ *   pickups     pickup lifecycle and collection
+ *   effects     simulation-side effect records
+ *
+ * createOrbitalsSim() remains the stable public facade while implementation
+ * is moved into those subsystems one piece at a time.
+ */
 import * as THREE from './lib/three.module.js';
 import { config } from './orbitals_config.js';
 import {
@@ -3110,6 +3133,13 @@ export function createOrbitalsSim(seed) {
     return state;
   }
 
+  // Simulation update order is deliberate:
+  // 1. advance clocks and world motion,
+  // 2. update the player before encounters inspect player-relative state,
+  // 3. assign encounter roles before enemy and mothership steering,
+  // 4. resolve ship collisions before projectile hits,
+  // 5. age one-shot effects and ambient fuel motes last.
+  // Keep this list as the simulation's table of contents as modules are extracted.
   function step(dt, controls = {}) {
     state.time += dt;
     state.frameIndex += 1;

@@ -17,15 +17,20 @@
     },
     "playerStart": {
         "id": "wizardStart",
-        "x": 96,
-        "y": 448,
-        "notes": "Spawn above the first platform."
+        "x": 192,
+        "y": 480,
+        "notes": "Control begins here after Ignatius walks out of entrance_portal_001."
     },
     "atlasRefs": [
         {
             "atlasId": "at_atlas_001",
             "manifest": "assets/at_atlas_001.json",
             "image": "assets/at_atlas_001.png"
+        },
+        {
+            "atlasId": "it_atlas_001",
+            "manifest": "assets/it_atlas_001.json",
+            "image": "assets/it_atlas_001.png"
         }
     ],
     "colorMap": {
@@ -46,6 +51,8 @@
             "w": 620,
             "h": 304,
             "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": true,
             "notes": "",
@@ -61,6 +68,8 @@
             "w": 390,
             "h": 118,
             "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": true,
             "notes": "",
@@ -76,6 +85,8 @@
             "w": 455,
             "h": 121,
             "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": true,
             "notes": "",
@@ -91,6 +102,8 @@
             "w": 430,
             "h": 120,
             "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": true,
             "notes": "",
@@ -106,6 +119,8 @@
             "w": 565,
             "h": 203,
             "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": true,
             "notes": "",
@@ -121,6 +136,8 @@
             "w": 780,
             "h": 201,
             "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": true,
             "notes": "",
@@ -136,6 +153,8 @@
             "w": 5000,
             "h": 85,
             "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": true,
             "notes": "",
@@ -151,6 +170,8 @@
             "w": 50,
             "h": 117,
             "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
             "layer": "decorFront",
             "collisionFromManifest": false,
             "notes": "",
@@ -166,6 +187,8 @@
             "w": 46,
             "h": 108,
             "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
             "layer": "decorFront",
             "collisionFromManifest": false,
             "notes": "",
@@ -181,6 +204,8 @@
             "w": 46,
             "h": 108,
             "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
             "layer": "decorFront",
             "collisionFromManifest": false,
             "notes": "",
@@ -196,6 +221,8 @@
             "w": 128,
             "h": 72,
             "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
             "layer": "decorFront",
             "collisionFromManifest": false,
             "notes": "",
@@ -211,6 +238,8 @@
             "w": 128,
             "h": 72,
             "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
             "layer": "decorFront",
             "collisionFromManifest": false,
             "notes": "",
@@ -226,6 +255,8 @@
             "w": 128,
             "h": 72,
             "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
             "layer": "decorFront",
             "collisionFromManifest": false,
             "notes": "",
@@ -241,6 +272,8 @@
             "w": 158,
             "h": 231,
             "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
             "layer": "terrain",
             "collisionFromManifest": true,
             "notes": "",
@@ -256,6 +289,8 @@
             "w": 407,
             "h": 206,
             "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
             "layer": "decorFront",
             "collisionFromManifest": true,
             "notes": "",
@@ -271,6 +306,8 @@
             "w": 261,
             "h": 67,
             "mirrorX": false,
+            "mirrorY": false,
+            "rotation": 0,
             "layer": "decorFront",
             "collisionFromManifest": true,
             "notes": "",
@@ -279,13 +316,56 @@
     ],
     "entities": [
         {
-            "id": "targetDummy_001",
-            "type": "targetDummy",
-            "x": 2496,
-            "y": 416,
-            "w": 42,
-            "h": 80,
-            "notes": "Future enemy slot."
+            "id": "entrance_portal_001",
+            "type": "magicPortal",
+            "catalogId": "it_entities_001",
+            "x": 0,
+            "y": 512,
+            "w": 250,
+            "h": 328,
+            "state": "closed",
+            "visualStates": {
+                "closed": [
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "portal_closed",
+                        "layer": "decorFront"
+                    }
+                ],
+                "open": [
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "portal_open",
+                        "layer": "decorBack",
+                        "widthFactor": 1.1366120218579234,
+                        "heightFactor": 1,
+                        "offsetXFactor": 0.06830601092896176
+                    },
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "portal_foreground",
+                        "layer": "actorFront",
+                        "widthFactor": 0.6229508196721312,
+                        "heightFactor": 1,
+                        "offsetXFactor": -0.1885245901639344
+                    }
+                ]
+            },
+            "stateLabels": {
+                "closed": "Closed",
+                "open": "Open"
+            },
+            "interaction": "levelPortal",
+            "destination": "",
+            "startsOpen": false,
+            "portalRole": "entrance",
+            "exitDirection": 1,
+            "walkSpeed": 135,
+            "closedDuration": 0.55,
+            "openDuration": 0.38,
+            "clearDuration": 0.28,
+            "closeDuration": 0.42,
+            "notes": "Level entrance. On level start the door opens, Ignatius walks out behind its actorFront half-door, and it closes again."
         },
         {
             "id": "exit_001",
@@ -295,6 +375,62 @@
             "w": 64,
             "h": 120,
             "notes": "Future level exit."
+        },
+        {
+            "id": "mailbox_001",
+            "type": "mailbox",
+            "catalogId": "it_entities_001",
+            "x": 256,
+            "y": 480,
+            "w": 55,
+            "h": 80,
+            "state": "letterAvailable",
+            "visualStates": {
+                "letterAvailable": [
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "mailbox_with_letter",
+                        "layer": "decorFront"
+                    }
+                ],
+                "empty": [
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "mailbox_empty",
+                        "layer": "decorFront"
+                    }
+                ]
+            },
+            "stateLabels": {
+                "letterAvailable": "Letter available",
+                "empty": "Empty"
+            },
+            "interaction": "editorLetter",
+            "notes": "Start-of-level mailbox used by Ignatius's editor."
+        },
+        {
+            "id": "targetDummy_002",
+            "type": "targetDummy",
+            "catalogId": "it_entities_001",
+            "x": 2496,
+            "y": 448,
+            "w": 103,
+            "h": 151,
+            "state": "idle",
+            "visualStates": {
+                "idle": [
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "target_dummy",
+                        "layer": "decorFront"
+                    }
+                ]
+            },
+            "stateLabels": {
+                "idle": "Idle"
+            },
+            "health": 100,
+            "notes": "Rocket target and combat-training prop."
         }
     ]
 }

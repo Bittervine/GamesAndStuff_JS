@@ -406,7 +406,7 @@ These items are inherited from `PLANETARY_COMBAT_PLAN.md` and `PLANETARY_COMBAT_
 - [ ] Move enemy base speed, turn, and up-scale ranges into config.
 - [ ] Move enemy AI smoothing and wander constants into config.
 - [ ] Move enemy hit radius and explosion constants into config.
-- [ ] Add a static guard that fails when new gameplay constants appear inside simulation files.
+- [x] Add a static guard that fails when new gameplay constants appear inside simulation files.
 
 ### 9.2 Route anchor support
 
@@ -581,10 +581,10 @@ Goal: make future changes safer without changing gameplay.
 
 Tasks:
 
-- [ ] Create a short architecture header comment in `Orbitals_Sim.js` describing the intended subsystem split.
-- [ ] Add a subsystem map to this development plan or `AGENTS.md`.
-- [ ] Add an update-order comment above `step()`.
-- [ ] Add a testbench smoke test that validates the public sim API still exists:
+- [x] Create a short architecture header comment in `Orbitals_Sim.js` describing the intended subsystem split.
+- [x] Add a subsystem map to this development plan or `AGENTS.md`.
+- [x] Add an update-order comment above `step()`.
+- [x] Add a testbench smoke test that validates the public sim API still exists:
     - `state`,
     - `bootstrapWorld`,
     - `step`,
@@ -594,15 +594,15 @@ Tasks:
     - `forceEnemyPresentation`,
     - `destroyEnemy`,
     - `damageEncounterEntity`.
-- [ ] Add a static or semi-static test that searches for obvious new gameplay magic numbers in sim files.
-- [ ] Add a static or semi-static test that warns if Three.js visual fields are added to new sim state objects.
+- [x] Add a static or semi-static test that searches for obvious new gameplay magic numbers in sim files.
+- [x] Add a static or semi-static test that warns if Three.js visual fields are added to new sim state objects.
 
 Acceptance:
 
-- [ ] No gameplay behavior changes.
-- [ ] Existing active tests pass.
-- [ ] New guard tests pass.
-- [ ] Future coding agents have a visible structural target.
+- [x] No gameplay behavior changes.
+- [x] Existing active tests pass.
+- [x] New guard tests pass.
+- [x] Future coding agents have a visible structural target.
 
 Expected files:
 

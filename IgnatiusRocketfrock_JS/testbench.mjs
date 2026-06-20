@@ -88,7 +88,8 @@ import {
     restoreGameState,
     resetPlayer,
     applyEditorLevelToWorld,
-    applyAtlasManifestsToWorld
+    applyAtlasManifestsToWorld,
+    setWorldEntityState
 } from "./IgnatiusRocketfrock_SIM.js";
 
 function approx(actual, expected, tolerance, label) {
@@ -350,6 +351,118 @@ function testEditorLevelTransformRuntime() {
     approx(segment.y1, 180, 0.000001, "rotated collision y1");
     approx(segment.x2, 120, 0.000001, "rotated collision x2");
     approx(segment.y2, 260, 0.000001, "rotated collision y2");
+}
+
+function testInteractiveItemAtlasAndEntityVisuals() {
+    const atlas = JSON.parse(readFileSync(new URL("./assets/it_atlas_001.json", import.meta.url), "utf8"));
+    const catalog = JSON.parse(readFileSync(new URL("./assets/it_entities_001.json", import.meta.url), "utf8"));
+    assert.equal(atlas.atlasId, "it_atlas_001", "interactive atlas should use its dedicated atlas id");
+    assert.equal(atlas.image, "it_atlas_001.png", "interactive atlas should reference the user-supplied PNG name");
+    assert.equal(Object.keys(atlas.frames).length, 42, "interactive atlas should expose all authored item frames");
+    assert.ok(atlas.frames.mailbox_with_letter && atlas.frames.portal_foreground && atlas.frames.letter_scroll, "story-item frames should be present");
+    assert.ok(catalog.entities.mailbox && catalog.entities.treasureChest && catalog.entities.magicPortal, "catalog should define the core stateful story entities");
+    const openPortal = catalog.entities.magicPortal.states.open.visuals;
+    assert.equal(openPortal.length, 2, "open portal should use background and foreground visuals");
+    assert.equal(openPortal[1].layer, "actorFront", "portal foreground should render after the player");
+    assert.deepEqual(atlas.frames.portal_closed, { x: 28, y: 289, w: 183, h: 263 }, "closed portal frame should match the revised atlas");
+    assert.deepEqual(atlas.frames.portal_open, { x: 352, y: 290, w: 208, h: 263 }, "open portal frame should match the revised atlas");
+    assert.deepEqual(atlas.frames.portal_foreground, { x: 223, y: 291, w: 114, h: 263 }, "foreground portal frame should match the revised atlas");
+    approx(openPortal[0].widthFactor, 208 / 183, 0.0000001, "open portal should preserve source-pixel scale");
+    approx(openPortal[0].offsetXFactor, 25 / 366, 0.0000001, "open portal should keep its left edge aligned");
+    approx(openPortal[1].widthFactor, 114 / 183, 0.0000001, "foreground portal should preserve source-pixel scale");
+    approx(openPortal[1].offsetXFactor, -69 / 366, 0.0000001, "foreground portal should keep its left edge aligned");
+
+    const state = createInitialGameState();
+    const mailboxDef = catalog.entities.mailbox;
+    const fuelDef = catalog.entities.fuel;
+    const level = {
+        levelId: "interactive_items_test",
+        world: { bounds: { x: 0, y: 0, w: 1000, h: 700 }, resetY: 900 },
+        playerStart: { x: 80, y: 500 },
+        atlasRefs: catalog.atlasRefs,
+        placements: [],
+        entities: [
+            {
+                id: "mailbox_test",
+                type: "mailbox",
+                x: 200,
+                y: 500,
+                w: mailboxDef.defaultSize.w,
+                h: mailboxDef.defaultSize.h,
+                state: mailboxDef.defaultState,
+                visualStates: Object.fromEntries(Object.entries(mailboxDef.states).map(([id, def]) => [id, def.visuals]))
+            },
+            {
+                id: "fuel_test",
+                type: "fuel",
+                x: 400,
+                y: 360,
+                w: fuelDef.defaultSize.w,
+                h: fuelDef.defaultSize.h,
+                radius: fuelDef.defaults.radius,
+                amount: fuelDef.defaults.amount,
+                state: fuelDef.defaultState,
+                visualStates: Object.fromEntries(Object.entries(fuelDef.states).map(([id, def]) => [id, def.visuals]))
+            }
+        ]
+    };
+    assert.equal(applyEditorLevelToWorld(state, level), true, "interactive item entities should apply to the runtime world");
+    assert.ok(state.world.visuals.some((visual) => visual.entityId === "mailbox_test" && visual.assetId === "mailbox_with_letter"), "mailbox state should become an atlas visual");
+    assert.ok(state.world.visuals.some((visual) => visual.entityId === "fuel_test" && visual.assetId === "rocket_fuel_canister"), "fuel should become an atlas visual");
+    assert.equal(state.pickups[0].visualized, true, "atlas-backed fuel should suppress the old debug-circle rendering");
+}
+
+
+function testPortalEntranceSequence() {
+    const catalog = JSON.parse(readFileSync(new URL("./assets/it_entities_001.json", import.meta.url), "utf8"));
+    const portalDef = catalog.entities.magicPortal;
+    const visualStates = Object.fromEntries(Object.entries(portalDef.states).map(([id, def]) => [id, def.visuals]));
+    const state = createInitialGameState();
+    const level = {
+        levelId: "portal_intro_test",
+        world: { bounds: { x: -300, y: -300, w: 1400, h: 1000 }, resetY: 900 },
+        playerStart: { x: 160, y: 520 },
+        atlasRefs: catalog.atlasRefs,
+        placements: [],
+        entities: [{
+            id: "entrance_test",
+            type: "magicPortal",
+            x: 0,
+            y: 520,
+            w: 250,
+            h: 328,
+            state: "closed",
+            visualStates,
+            portalRole: "entrance",
+            walkSpeed: 120,
+            closedDuration: 0.1,
+            openDuration: 0.1,
+            clearDuration: 0.1,
+            closeDuration: 0.1
+        }]
+    };
+
+    assert.equal(applyEditorLevelToWorld(state, level), true, "portal intro level should apply");
+    state.world.solids.push({ id: "portal_test_floor", kind: "floor", x: -500, y: 520, w: 2000, h: 100 });
+    assert.equal(state.player.visible, false, "wizard should be hidden behind the initially closed portal");
+    assert.equal(state.world.entityStates.entrance_test, "closed", "portal should begin closed");
+    assert.ok(state.world.visuals.some((visual) => visual.entityId === "entrance_test" && visual.assetId === "portal_closed"), "closed portal visual should be active first");
+
+    stepMany(state, 20, () => createInputFrame({ moveRight: true, jumpPressed: true, jumpHeld: true }));
+    assert.equal(state.world.entityStates.entrance_test, "open", "portal should open before the wizard emerges");
+    assert.ok(state.world.visuals.some((visual) => visual.entityId === "entrance_test" && visual.layer === "actorFront"), "open portal should add its foreground masking layer");
+    assert.equal(state.projectiles.length, 0, "player input should remain locked during the entrance sequence");
+
+    stepMany(state, 180, () => createInputFrame());
+    assert.equal(state.story.portalIntro.active, false, "entrance sequence should finish");
+    assert.equal(state.player.visible, true, "wizard should be visible after walking out");
+    approx(state.player.x, 160, 0.001, "wizard should finish at authored playerStart x");
+    approx(state.player.y, 520, 0.001, "wizard should finish at authored playerStart y");
+    assert.equal(state.world.entityStates.entrance_test, "closed", "portal should close after the wizard clears it");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "PORTAL_INTRO_COMPLETE"), "sequence should emit a completion event");
+
+    assert.equal(setWorldEntityState(state, "entrance_test", "open"), true, "runtime entity state helper should reopen the portal");
+    assert.ok(state.world.visuals.some((visual) => visual.entityId === "entrance_test" && visual.assetId === "portal_open"), "state helper should rebuild the entity visuals");
 }
 
 function testCharacterAtlasEditorOperations() {
@@ -963,7 +1076,7 @@ function testFuelRechargeDelayGroundRequirementAndCap() {
     state.fuel.rechargeDelayTimer = state.tuning.rechargeDelayAfterUse;
     stepMany(state, 60, () => createInputFrame());
     approx(state.fuel.amount, 0, 0.001, "fuel should not recharge during delay");
-    stepMany(state, 180, () => createInputFrame());
+    stepMany(state, 260, () => createInputFrame());
     assert.ok(state.fuel.amount > 40, `fuel should recharge quickly after the grounded delay, got ${state.fuel.amount}`);
     stepMany(state, 600, () => createInputFrame());
     approx(state.fuel.amount, state.fuel.rechargeCap, 0.001, "fuel should recharge only to cap");
@@ -1220,7 +1333,7 @@ function testRocketLaunchDoesNotFalseHitUnrelatedAtlasArea() {
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply");
     assert.equal(applyAtlasManifestsToWorld(state, new Map([["at_atlas_001", { manifest: atlas }]])), true, "at_atlas_001 collision should apply");
 
-    stepMany(state, 180, () => createInputFrame());
+    stepMany(state, 260, () => createInputFrame());
     assert.ok(state.player.onGround, "player should settle before firing");
     const launchFrame = createInputFrame({ weaponPressed: true, weaponHeld: true });
     stepSimulation(state, launchFrame, FIXED_DT);
@@ -1269,6 +1382,8 @@ const tests = [
     ["level placement copy and cutout backing", testLevelPlacementCopy],
     ["level placement transforms", testLevelPlacementTransforms],
     ["editor level transform runtime", testEditorLevelTransformRuntime],
+    ["interactive item atlas and entity visuals", testInteractiveItemAtlasAndEntityVisuals],
+    ["scripted portal entrance", testPortalEntranceSequence],
     ["character project workspace", testCharacterProjectWorkspace],
     ["character atlas editor operations", testCharacterAtlasEditorOperations],
     ["revision 064 authored assets", testRevision064AuthoredAssets],

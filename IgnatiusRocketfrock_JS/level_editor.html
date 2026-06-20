@@ -374,7 +374,7 @@
 
     <aside>
         <a class="toplink" href="IgnatiusRocketfrock_JS.html">Back to main</a>
-        <h1>Level Editor <small>rev 069</small></h1>
+        <h1>Level Editor <small>rev 072</small></h1>
         <p>Place atlas assets, move the wizard start, add future monsters/triggers, and export a level JSON. This editor is a first serious foundation, not yet a full shipped tool.</p>
 
         <div class="box">
@@ -432,7 +432,7 @@
                 <button id="color-map-reset" type="button">Reset colour map</button>
                 <span id="color-map-status" class="small">Original atlas colours</span>
             </div>
-            <p class="small">The original PNG files are never changed. Recoloured atlas copies are cached only when these settings change. The background, entities, collisions, and characters are unaffected.</p>
+            <p class="small">The original PNG files are never changed. Recoloured atlas copies are cached only when these settings change. Characters, collision geometry, and the deep-blue background are unaffected. Atlas-backed entity artwork is recoloured with the rest of the level.</p>
         </div>
 
         <div class="box">
@@ -509,6 +509,9 @@
                     <option value="cutoutMask">cutoutMask</option>
                 </select>
             </label>
+            <label id="entity-state-row">Entity state
+                <select id="inspect-entity-state"></select>
+            </label>
             <label>Notes<textarea id="inspect-notes"></textarea></label>
             <button id="apply-inspector">Apply</button>
         </div>
@@ -553,6 +556,8 @@ import {
     const DEFAULT_LEVEL_URL = "assets/level_001.json";
     const ATLAS_AUTOLOAD_LIMIT = 20;
     const LEVEL_AUTOLOAD_LIMIT = 20;
+    const SPECIAL_ATLAS_IDS = ["it_atlas_001"];
+    const ENTITY_CATALOG_URL = "assets/it_entities_001.json";
 
     function atlasIdForIndex(index) {
         return `at_atlas_${String(index).padStart(3, "0")}`;
@@ -633,10 +638,12 @@ import {
         inspectMirrorY: document.getElementById("inspect-mirror-y"),
         inspectCollision: document.getElementById("inspect-collision"),
         inspectEntityType: document.getElementById("inspect-entity-type"),
+        inspectEntityState: document.getElementById("inspect-entity-state"),
         inspectNotes: document.getElementById("inspect-notes"),
         assetSizeRow: document.getElementById("asset-size-row"),
         assetExtraRow: document.getElementById("asset-extra-row"),
         entityTypeRow: document.getElementById("entity-type-row"),
+        entityStateRow: document.getElementById("entity-state-row"),
         levelJson: document.getElementById("level-json"),
         quickEntity: document.getElementById("quick-entity"),
         copyAsset: document.getElementById("copy-asset"),
@@ -656,7 +663,8 @@ import {
         frameImageScale: 1,
         colorMapCacheKey: "",
         level: null,
-        availableLevels: []
+        availableLevels: [],
+        entityCatalog: new Map()
     };
     let colorMapRefreshTimer = null;
 
@@ -883,13 +891,21 @@ import {
                 break;
             }
         }
+        for (const atlasId of SPECIAL_ATLAS_IDS) {
+            try {
+                await loadAtlasPair(atlasId);
+                loaded += 1;
+            } catch (error) {
+                // Optional special atlases may not have been copied into a particular build yet.
+            }
+        }
         if (!loaded) {
             setActiveAtlas(DEFAULT_ATLAS_ID, { redraw: false });
             setStatus(`Could not auto-load ${DEFAULT_MANIFEST_URL}/${DEFAULT_IMAGE_URL}. Add the asset files or serve the project from a local web server.`, false);
             return 0;
         }
         setActiveAtlas(DEFAULT_ATLAS_ID, { redraw: false });
-        setStatus(`Loaded ${loaded} atlas${loaded === 1 ? "" : "es"}; stopped before ${stoppedAt || "the scan limit"}.`);
+        setStatus(`Loaded ${loaded} atlas${loaded === 1 ? "" : "es"}; numbered scan stopped before ${stoppedAt || "the scan limit"}.`);
         return loaded;
     }
 
@@ -999,17 +1015,31 @@ import {
 
         normalized.entities = normalized.entities
             .filter((entity) => entity && typeof entity === "object")
-            .map((entity, index) => ({
-                id: entity.id || `${entity.type || entity.kind || "entity"}_${String(index + 1).padStart(3, "0")}`,
-                type: entity.type || entity.kind || "trigger",
-                x: Number(entity.x) || 0,
-                y: Number(entity.y) || 0,
-                w: Math.max(1, Number(entity.w) || 42),
-                h: Math.max(1, Number(entity.h) || 80),
-                ...(entity.radius !== undefined ? { radius: Number(entity.radius) || 14 } : {}),
-                ...(entity.amount !== undefined ? { amount: Number(entity.amount) || 40 } : {}),
-                notes: entity.notes || ""
-            }));
+            .map((entity, index) => {
+                const normalizedEntity = {
+                    ...cloneData(entity),
+                    id: entity.id || `${entity.type || entity.kind || "entity"}_${String(index + 1).padStart(3, "0")}`,
+                    type: entity.type || entity.kind || "trigger",
+                    x: Number(entity.x) || 0,
+                    y: Number(entity.y) || 0,
+                    w: Math.max(1, Number(entity.w) || 42),
+                    h: Math.max(1, Number(entity.h) || 80),
+                    notes: entity.notes || ""
+                };
+                if (entity.radius !== undefined) normalizedEntity.radius = Number(entity.radius) || 14;
+                if (entity.amount !== undefined) normalizedEntity.amount = Number(entity.amount) || 40;
+                for (const visual of entityVisuals(normalizedEntity)) {
+                    if (visual.atlasId) referencedAtlases.add(visual.atlasId);
+                }
+                return normalizedEntity;
+            });
+
+        for (const atlasId of referencedAtlases) {
+            if (!normalized.atlasRefs.some((ref) => ref.atlasId === atlasId)) {
+                normalized.atlasRefs.push({ atlasId, manifest: atlasManifestUrl(atlasId), image: atlasImageUrl(atlasId) });
+            }
+        }
+        normalized.atlasRefs.sort((a, b) => a.atlasId.localeCompare(b.atlasId));
 
         return normalized;
     }
@@ -1354,6 +1384,104 @@ import {
         return Object.keys(record?.manifest?.objects || record?.manifest?.frames || {}).filter((id) => frameFor(id, record.atlasId));
     }
 
+    function entityVisuals(entity) {
+        if (!entity || typeof entity !== "object") return [];
+        const states = entity.visualStates && typeof entity.visualStates === "object" ? entity.visualStates : null;
+        const selected = states ? states[entity.state] || states[Object.keys(states)[0]] : null;
+        if (Array.isArray(selected)) return selected;
+        if (Array.isArray(selected?.visuals)) return selected.visuals;
+        if (Array.isArray(entity.visuals)) return entity.visuals;
+        if (entity.visual && typeof entity.visual === "object") return [entity.visual];
+        return [];
+    }
+
+    function entityVisualRect(entity, visual) {
+        const widthFactor = Number(visual.widthFactor ?? 1) || 1;
+        const heightFactor = Number(visual.heightFactor ?? 1) || 1;
+        const w = Math.max(1, (Number(entity.w) || 42) * widthFactor);
+        const h = Math.max(1, (Number(entity.h) || 80) * heightFactor);
+        const offsetX = (Number(visual.offsetX) || 0) + (Number(visual.offsetXFactor) || 0) * (Number(entity.w) || 42);
+        const offsetY = (Number(visual.offsetY) || 0) + (Number(visual.offsetYFactor) || 0) * (Number(entity.h) || 80);
+        return { x: entity.x + offsetX - w * 0.5, y: entity.y + offsetY - h, w, h };
+    }
+
+    function catalogDefinition(type) {
+        return state.entityCatalog.get(type) || null;
+    }
+
+    function instantiateCatalogEntity(type, point) {
+        const definition = catalogDefinition(type);
+        if (!definition) return null;
+        const p = snapPoint(point);
+        const defaultState = definition.defaultState || Object.keys(definition.states || {})[0] || "default";
+        const visualStates = {};
+        const stateLabels = {};
+        for (const [stateId, stateDef] of Object.entries(definition.states || {})) {
+            visualStates[stateId] = cloneData(stateDef.visuals || []);
+            stateLabels[stateId] = stateDef.label || stateId;
+        }
+        return {
+            id: nextId(type),
+            type,
+            catalogId: definition.catalogId || "it_entities_001",
+            x: p.x,
+            y: p.y,
+            w: Math.max(1, Number(definition.defaultSize?.w) || 42),
+            h: Math.max(1, Number(definition.defaultSize?.h) || 80),
+            state: defaultState,
+            visualStates,
+            stateLabels,
+            ...cloneData(definition.defaults || {}),
+            notes: definition.description || ""
+        };
+    }
+
+    function addEntityPaletteOption(type, definition) {
+        const label = definition.label || type;
+        const icon = definition.icon || "◆";
+        if (!els.quickEntity.querySelector(`option[value="${CSS.escape(type)}"]`)) {
+            const option = document.createElement("option");
+            option.value = type;
+            option.textContent = `${icon} ${label}`;
+            els.quickEntity.appendChild(option);
+        }
+        if (!els.inspectEntityType.querySelector(`option[value="${CSS.escape(type)}"]`)) {
+            const option = document.createElement("option");
+            option.value = type;
+            option.textContent = type;
+            els.inspectEntityType.appendChild(option);
+        }
+        if (!els.entityPalette.querySelector(`button[data-entity="${CSS.escape(type)}"]`)) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.dataset.entity = type;
+            button.textContent = `${icon} ${label}`;
+            button.addEventListener("click", () => {
+                els.quickEntity.value = type;
+                updateEntityPalette();
+                setTool("placeEntity");
+            });
+            els.entityPalette.appendChild(button);
+        }
+    }
+
+    async function loadEntityCatalog() {
+        try {
+            const catalog = await loadJsonUrl(ENTITY_CATALOG_URL);
+            state.entityCatalog.clear();
+            for (const [type, rawDefinition] of Object.entries(catalog.entities || {})) {
+                const definition = { ...cloneData(rawDefinition), type, catalogId: catalog.catalogId || "it_entities_001" };
+                state.entityCatalog.set(type, definition);
+                addEntityPaletteOption(type, definition);
+            }
+            updateEntityPalette();
+            return state.entityCatalog.size;
+        } catch (error) {
+            setStatus(`Interactive-item catalog could not load: ${error.message || error}`, false);
+            return 0;
+        }
+    }
+
     function updateEntityPalette() {
         if (!els.entityPalette || !els.quickEntity) {
             return;
@@ -1555,7 +1683,7 @@ import {
             persistUi();
             return;
         }
-        const entity = {
+        const entity = instantiateCatalogEntity(type, p) || {
             id: nextId(type),
             type,
             x: p.x,
@@ -1564,7 +1692,7 @@ import {
             h: type === "trigger" ? 120 : 80,
             notes: ""
         };
-        if (type === "fuel") {
+        if (type === "fuel" && !catalogDefinition(type)) {
             entity.amount = 40;
             entity.radius = 14;
         }
@@ -1866,18 +1994,33 @@ import {
     }
 
     function drawEntity(entity) {
+        const visuals = entityVisuals(entity).slice().sort((a, b) => {
+            const rank = (layer) => layer === "decorBack" ? 0 : layer === "decorFront" ? 1 : layer === "actorFront" ? 2 : 1;
+            return rank(a.layer) - rank(b.layer);
+        });
+        let drewVisual = false;
+        for (const visual of visuals) {
+            const frame = frameFor(visual.assetId, visual.atlasId);
+            const image = imageForAtlas(visual.atlasId);
+            if (!frame || !image) continue;
+            const rect = entityVisualRect(entity, visual);
+            const center = worldToScreen(rect.x + rect.w * 0.5, rect.y + rect.h * 0.5);
+            ctx.save();
+            ctx.globalAlpha *= Number(visual.alpha ?? 1);
+            ctx.translate(center.x, center.y);
+            ctx.scale(visual.mirrorX ? -1 : 1, visual.mirrorY ? -1 : 1);
+            ctx.drawImage(image, frame.x, frame.y, frame.w, frame.h, -rect.w * state.camera.zoom * 0.5, -rect.h * state.camera.zoom * 0.5, rect.w * state.camera.zoom, rect.h * state.camera.zoom);
+            ctx.restore();
+            drewVisual = true;
+        }
+
         const rect = objectRect(entity, "entity");
         const p = worldToScreen(rect.x, rect.y);
         ctx.save();
         ctx.strokeStyle = entity.type === "trigger" ? "rgba(255,207,134,0.86)" : COLORS.entity;
-        ctx.fillStyle = entity.type === "fuel" ? "rgba(88,255,158,0.22)" : "rgba(139,224,255,0.12)";
+        ctx.fillStyle = entity.type === "fuel" ? "rgba(88,255,158,0.12)" : "rgba(139,224,255,0.08)";
         ctx.lineWidth = 2;
-        if (entity.type === "fuel") {
-            ctx.beginPath();
-            ctx.arc(worldToScreen(entity.x, entity.y).x, worldToScreen(entity.x, entity.y).y, (entity.radius || 14) * state.camera.zoom, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-        } else {
+        if (!drewVisual || els.showAssetGuides.checked) {
             ctx.fillRect(p.x, p.y, rect.w * state.camera.zoom, rect.h * state.camera.zoom);
             ctx.strokeRect(p.x, p.y, rect.w * state.camera.zoom, rect.h * state.camera.zoom);
         }
@@ -1962,11 +2105,21 @@ import {
             els.inspectMirrorY.checked = Boolean(rec.mirrorY);
             els.inspectCollision.checked = rec.collisionFromManifest !== false;
             els.inspectEntityType.value = selected.kind === "wizardStart" ? "wizardStart" : rec.type || "targetDummy";
+            els.inspectEntityState.innerHTML = "";
+            const stateIds = Object.keys(rec.visualStates || {});
+            for (const stateId of stateIds) {
+                const option = document.createElement("option");
+                option.value = stateId;
+                option.textContent = rec.stateLabels?.[stateId] || stateId;
+                els.inspectEntityState.appendChild(option);
+            }
+            els.inspectEntityState.value = rec.state || stateIds[0] || "";
             els.inspectNotes.value = rec.notes || "";
         }
         els.assetSizeRow.style.display = selected.kind === "asset" || selected.kind === "cutoutMask" || selected.kind === "entity" ? "grid" : "none";
         els.assetExtraRow.style.display = selected.kind === "asset" ? "grid" : "none";
         els.entityTypeRow.style.display = selected.kind === "entity" || selected.kind === "wizardStart" ? "grid" : "none";
+        els.entityStateRow.style.display = selected.kind === "entity" && Object.keys(rec.visualStates || {}).length ? "grid" : "none";
         renderPlacementList();
     }
 
@@ -2003,6 +2156,7 @@ import {
             }
             if (selected.kind === "entity") {
                 rec.type = els.inspectEntityType.value;
+                if (els.inspectEntityState.value) rec.state = els.inspectEntityState.value;
             }
             state.selectedId = rec.id;
         }
@@ -2084,6 +2238,11 @@ import {
         for (const placement of state.level.placements || []) {
             if (placement?.kind === "atlasAsset") {
                 atlasIds.add(placement.atlasId || DEFAULT_ATLAS_ID);
+            }
+        }
+        for (const entity of state.level.entities || []) {
+            for (const visual of entityVisuals(entity)) {
+                if (visual.atlasId) atlasIds.add(visual.atlasId);
             }
         }
         if (!atlasIds.size && state.activeAtlasId) {
@@ -2341,6 +2500,7 @@ import {
         setTool("select");
         resizeCanvas();
         await loadAtlasLibrary();
+        await loadEntityCatalog();
         const levelCount = await scanAvailableLevels();
         if (levelCount > 0) {
             try {

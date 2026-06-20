@@ -29,14 +29,21 @@ const FIXED_DRAW_ORDER = [
 
 const DEFAULT_CHARACTER_URL = "assets/ct_char_wizard_1.json";
 
-const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = Array.from({ length: 20 }, (_, index) => {
-    const atlasId = `at_atlas_${String(index + 1).padStart(3, "0")}`;
-    return {
-        url: `assets/${atlasId}.json`,
-        forceAtlasId: atlasId,
-        forceImage: `${atlasId}.png`
-    };
-});
+const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = [
+    ...Array.from({ length: 20 }, (_, index) => {
+        const atlasId = `at_atlas_${String(index + 1).padStart(3, "0")}`;
+        return {
+            url: `assets/${atlasId}.json`,
+            forceAtlasId: atlasId,
+            forceImage: `${atlasId}.png`
+        };
+    }),
+    {
+        url: "assets/it_atlas_001.json",
+        forceAtlasId: "it_atlas_001",
+        forceImage: "it_atlas_001.png"
+    }
+];
 
 const REQUIRED_RIG_SECTIONS = ["global", "animation", "anchors", "legMotion", "pivots", "parts"];
 
@@ -190,12 +197,14 @@ class RocketfrockRenderer {
         this.clear(view);
         this.drawBackdrop(view);
         this.drawWorld(state, view);
+        this.drawPortalIntroGlow(state, view);
         this.drawTargets(state, view);
         this.drawPickups(state, view);
         this.drawEnemies(state, view);
         this.drawWorldEffects(state, view);
         this.drawProjectiles(state, view);
         this.drawPlayer(state, view);
+        this.drawOrderedWorldVisuals(state, view, true);
         this.drawDebug(state, view, inputFrame);
     }
 
@@ -246,7 +255,7 @@ class RocketfrockRenderer {
 
     drawWorld(state, view) {
         const ctx = this.ctx;
-        const drewVisuals = this.drawOrderedWorldVisuals(state, view);
+        const drewVisuals = this.drawOrderedWorldVisuals(state, view, false);
 
         const shouldDrawCollision = Boolean(state.debug.showCollision) || !drewVisuals;
         if (shouldDrawCollision) {
@@ -328,14 +337,15 @@ class RocketfrockRenderer {
         ctx.restore();
     }
 
-    drawOrderedWorldVisuals(state, view) {
+    drawOrderedWorldVisuals(state, view, actorFrontOnly = false) {
         const visuals = (state.world.visuals || [])
             .map((visual, index) => ({ visual, index }))
+            .filter(({ visual }) => actorFrontOnly ? visual.layer === "actorFront" : visual.layer !== "actorFront")
             .sort((a, b) => this.visualSortKey(a.visual, a.index) - this.visualSortKey(b.visual, b.index));
         let drewAny = false;
         for (const { visual } of visuals) {
             if (visual.kind === "atlasSprite") {
-                if (this.drawAtlasSpriteVisual(visual, view)) {
+                if (this.drawAtlasSpriteVisual(visual, view, state)) {
                     drewAny = true;
                 }
             } else if (visual.kind === "cutoutMask") {
@@ -386,7 +396,17 @@ class RocketfrockRenderer {
         return drewAny;
     }
 
-    drawAtlasSpriteVisual(visual, view) {
+    drawAtlasSpriteVisual(visual, view, state = null) {
+        if (visual.entityId && state) {
+            if (visual.entityType === "fuel") {
+                const pickup = (state.pickups || []).find((item) => item.id === visual.entityId);
+                if (pickup?.collected) return false;
+            }
+            if (visual.entityType === "targetDummy") {
+                const enemy = (state.enemies || []).find((item) => item.id === visual.entityId);
+                if (enemy && enemy.health <= 0) return false;
+            }
+        }
         const atlas = this.environmentAtlases.get(visual.atlasId);
         if (!atlas || atlas.missing || !atlas.image) {
             return false;
@@ -554,7 +574,7 @@ class RocketfrockRenderer {
     drawPickups(state, view) {
         const ctx = this.ctx;
         for (const pickup of state.pickups) {
-            if (pickup.collected) continue;
+            if (pickup.collected || pickup.visualized) continue;
             const p = this.worldToScreen(view, pickup.x, pickup.y);
             const r = pickup.radius * view.zoom;
             ctx.save();
@@ -573,6 +593,7 @@ class RocketfrockRenderer {
     drawEnemies(state, view) {
         const ctx = this.ctx;
         for (const enemy of state.enemies) {
+            if (enemy.visualized) continue;
             const p = this.worldToScreen(view, enemy.x - enemy.width / 2, enemy.y - enemy.height);
             ctx.save();
             ctx.fillStyle = "rgba(202, 135, 255, 0.62)";
@@ -811,7 +832,33 @@ class RocketfrockRenderer {
         ctx.restore();
     }
 
+
+    drawPortalIntroGlow(state, view) {
+        const intro = state.story?.portalIntro;
+        if (!intro?.active || intro.phase === "closed") return;
+        const portal = (state.world?.entities || []).find((entity) => entity.id === intro.portalId);
+        if (!portal) return;
+        const center = this.worldToScreen(view, Number(portal.x) || 0, (Number(portal.y) || 0) - (Number(portal.h) || 197) * 0.48);
+        const radius = Math.max(Number(portal.w) || 150, Number(portal.h) || 197) * 0.55 * view.zoom;
+        const pulse = 0.78 + Math.sin(state.clock.time * 8) * 0.12;
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        const gradient = ctx.createRadialGradient(center.x, center.y, 0, center.x, center.y, Math.max(1, radius));
+        gradient.addColorStop(0, `rgba(154, 82, 255, ${0.18 * pulse})`);
+        gradient.addColorStop(0.52, `rgba(92, 52, 220, ${0.09 * pulse})`);
+        gradient.addColorStop(1, "rgba(42, 20, 110, 0)");
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
     drawPlayer(state, view) {
+        if (state.player.visible === false) {
+            this.lastBounds = null;
+            return;
+        }
         const p = this.worldToScreen(view, state.player.x, state.player.y);
         this.drawShadow(p.x, p.y, view.zoom);
         const bounds = this.drawWizardRig(p.x, p.y, state.player.facing, state, view.zoom);
@@ -1342,16 +1389,16 @@ async function loadEnvironmentAtlases() {
         try {
             const response = await fetch(candidate.url, { cache: "no-store" });
             if (!response.ok) {
-                break;
+                continue;
             }
             manifest = await response.json();
         } catch (error) {
-            break;
+            continue;
         }
 
         manifest = normalizeEnvironmentManifest(manifest, candidate.forceAtlasId, candidate.forceImage);
         if (!manifest || !manifest.atlasId || atlases.has(manifest.atlasId)) {
-            break;
+            continue;
         }
 
         const imageUrl = resolveRelativeUrl(candidate.url, manifest.image);
@@ -1359,7 +1406,7 @@ async function loadEnvironmentAtlases() {
         try {
             image = await loadImage(imageUrl);
         } catch (error) {
-            break;
+            continue;
         }
 
         atlases.set(manifest.atlasId, {
