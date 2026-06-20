@@ -35,7 +35,7 @@ const copyTuningJsonButton = document.getElementById("copy-tuning-json");
 const refreshTuningJsonButton = document.getElementById("refresh-tuning-json");
 const tuningPanel = document.getElementById("tuning");
 
-const GAME_REVISION = "068";
+const GAME_REVISION = "069";
 
 let gameState = createInitialGameState();
 gameState.debug.revision = GAME_REVISION;
@@ -49,6 +49,9 @@ if (!loadedBrowserCopy) {
 if (!applyLoadedAtlasCollisions()) {
     failStartup("Required atlas collision data could not be applied. Check assets/at_atlas_001.json and the level atlasRefs.");
 }
+// Build any level-wide recoloured atlas copies once during level startup. The
+// render loop only compares the cache key and uses ordinary drawImage calls.
+renderer.syncEnvironmentColorMap(gameState.world.colorMap);
 let accumulator = 0;
 let lastNow = performance.now();
 let lastInputFrame = createInputFrame();

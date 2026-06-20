@@ -301,6 +301,20 @@
             outline-offset: -4px;
         }
 
+        .color-map-preview {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 8px;
+            align-items: center;
+            margin-top: 8px;
+        }
+
+        .color-chip {
+            min-height: 34px;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+        }
+
         @media (max-width: 1050px) {
             html, body {
                 overflow: auto;
@@ -360,7 +374,7 @@
 
     <aside>
         <a class="toplink" href="IgnatiusRocketfrock_JS.html">Back to main</a>
-        <h1>Level Editor <small>rev 068</small></h1>
+        <h1>Level Editor <small>rev 069</small></h1>
         <p>Place atlas assets, move the wizard start, add future monsters/triggers, and export a level JSON. This editor is a first serious foundation, not yet a full shipped tool.</p>
 
         <div class="box">
@@ -395,6 +409,30 @@
                 <label>World width<input id="world-w" type="number"></label>
                 <label>World height<input id="world-h" type="number"></label>
             </div>
+        </div>
+
+
+        <div class="box">
+            <h2>Level colour map</h2>
+            <div class="inline"><input id="color-map-enabled" type="checkbox"><span class="small">Apply selective hue rotation to all environment assets</span></div>
+            <div class="row">
+                <label>Source hue °<input id="color-map-source" type="number" min="0" max="359" step="1"></label>
+                <label>Selected width °<input id="color-map-range" type="number" min="0" max="360" step="1"></label>
+            </div>
+            <div class="row">
+                <label>Feather °<input id="color-map-feather" type="number" min="0" max="180" step="1"></label>
+                <label>Rotation °<input id="color-map-rotation" type="number" min="-360" max="360" step="1"></label>
+            </div>
+            <div class="color-map-preview" aria-label="Hue mapping preview">
+                <div id="color-map-source-chip" class="color-chip"></div>
+                <span>to</span>
+                <div id="color-map-target-chip" class="color-chip"></div>
+            </div>
+            <div class="row">
+                <button id="color-map-reset" type="button">Reset colour map</button>
+                <span id="color-map-status" class="small">Original atlas colours</span>
+            </div>
+            <p class="small">The original PNG files are never changed. Recoloured atlas copies are cached only when these settings change. The background, entities, collisions, and characters are unaffected.</p>
         </div>
 
         <div class="box">
@@ -499,6 +537,13 @@ import {
     placementCorners,
     pointInPlacement
 } from "./IgnatiusRocketfrock_LEVEL_TRANSFORM.js";
+import {
+    colorMapCacheKey,
+    createColorMappedCanvas,
+    DEFAULT_LEVEL_COLOR_MAP,
+    normalizeHueDegrees,
+    normalizeLevelColorMap
+} from "./IgnatiusRocketfrock_COLORMAP.js";
 
 (() => {
     "use strict";
@@ -560,6 +605,15 @@ import {
         levelSelect: document.getElementById("level-select"),
         worldW: document.getElementById("world-w"),
         worldH: document.getElementById("world-h"),
+        colorMapEnabled: document.getElementById("color-map-enabled"),
+        colorMapSource: document.getElementById("color-map-source"),
+        colorMapRange: document.getElementById("color-map-range"),
+        colorMapFeather: document.getElementById("color-map-feather"),
+        colorMapRotation: document.getElementById("color-map-rotation"),
+        colorMapSourceChip: document.getElementById("color-map-source-chip"),
+        colorMapTargetChip: document.getElementById("color-map-target-chip"),
+        colorMapStatus: document.getElementById("color-map-status"),
+        colorMapReset: document.getElementById("color-map-reset"),
         assetSearch: document.getElementById("asset-search"),
         assetAtlas: document.getElementById("asset-atlas"),
         assetList: document.getElementById("asset-list"),
@@ -600,9 +654,11 @@ import {
         manifest: null,
         atlasImage: null,
         frameImageScale: 1,
+        colorMapCacheKey: "",
         level: null,
         availableLevels: []
     };
+    let colorMapRefreshTimer = null;
 
     function cloneData(value) {
         return JSON.parse(JSON.stringify(value));
@@ -628,6 +684,7 @@ import {
                 notes: "Spawn point."
             },
             atlasRefs: [],
+            colorMap: normalizeLevelColorMap(DEFAULT_LEVEL_COLOR_MAP),
             placements: [],
             entities: []
         };
@@ -732,21 +789,25 @@ import {
         const normalized = normalizeAtlasManifest(manifest, options.atlasId || manifest?.atlasId || DEFAULT_ATLAS_ID);
         const atlasId = normalized.atlasId;
         const existing = state.atlases.get(atlasId) || {};
+        const sourceImage = image || existing.image || null;
         const record = {
             atlasId,
             manifest: normalized,
-            image: image || existing.image || null,
+            image: sourceImage,
+            renderImage: sourceImage === existing.image ? (existing.renderImage || sourceImage) : sourceImage,
+            colorMapCacheKey: sourceImage === existing.image ? (existing.colorMapCacheKey || "") : "",
             manifestUrl: options.manifestUrl || existing.manifestUrl || atlasManifestUrl(atlasId),
             imageUrl: options.imageUrl || existing.imageUrl || atlasImageUrl(atlasId),
             fallback: Boolean(options.fallback || existing.fallback)
         };
+        rebuildAtlasColorCache(record);
         state.atlases.set(atlasId, record);
         if (!state.activeAtlasId || !state.atlases.has(state.activeAtlasId)) {
             state.activeAtlasId = atlasId;
         }
         if (state.activeAtlasId === atlasId) {
             state.manifest = record.manifest;
-            state.atlasImage = record.image;
+            state.atlasImage = record.renderImage || record.image;
         }
         renderAtlasSelect();
         return record;
@@ -765,7 +826,7 @@ import {
         if (!record) return false;
         state.activeAtlasId = atlasId;
         state.manifest = record.manifest;
-        state.atlasImage = record.image;
+        state.atlasImage = record.renderImage || record.image;
         if (els.assetAtlas) {
             els.assetAtlas.value = atlasId;
         }
@@ -864,6 +925,7 @@ import {
                 ...(source.wizardStart && typeof source.wizardStart === "object" ? source.wizardStart : {})
             },
             atlasRefs: Array.isArray(source.atlasRefs) ? cloneData(source.atlasRefs) : [],
+            colorMap: normalizeLevelColorMap(source.colorMap),
             placements: Array.isArray(source.placements) ? cloneData(source.placements) : [],
             entities: Array.isArray(source.entities) ? cloneData(source.entities) : []
         };
@@ -959,6 +1021,7 @@ import {
             state.selectedId = "wizardStart";
             await ensureAtlasesForLevel(level);
             normalizeLoadedLevelPlacements();
+            refreshColorMappedAtlases({ redraw: false });
             syncMetadataToUi();
             persistUi();
         }
@@ -1006,6 +1069,7 @@ import {
         state.selectedId = "wizardStart";
         await ensureAtlasesForLevel(level);
         normalizeLoadedLevelPlacements();
+        refreshColorMappedAtlases({ redraw: false });
         syncMetadataToUi();
         persistUi();
         return level;
@@ -1054,7 +1118,47 @@ import {
     }
 
     function imageForAtlas(atlasId = state.activeAtlasId) {
-        return atlasRecord(atlasId)?.image || null;
+        const record = atlasRecord(atlasId);
+        return record?.renderImage || record?.image || null;
+    }
+
+    function rebuildAtlasColorCache(record) {
+        if (!record?.image) {
+            return false;
+        }
+        const colorMap = normalizeLevelColorMap(state.level?.colorMap);
+        const cacheKey = colorMapCacheKey(colorMap);
+        if (record.colorMapCacheKey === cacheKey && record.renderImage) {
+            return false;
+        }
+        record.renderImage = createColorMappedCanvas(record.image, colorMap);
+        record.colorMapCacheKey = cacheKey;
+        return true;
+    }
+
+    function refreshColorMappedAtlases({ redraw = true, announce = false } = {}) {
+        const colorMap = normalizeLevelColorMap(state.level?.colorMap);
+        const cacheKey = colorMapCacheKey(colorMap);
+        let rebuilt = 0;
+        for (const record of state.atlases.values()) {
+            if (rebuildAtlasColorCache(record)) {
+                rebuilt += 1;
+            }
+        }
+        state.colorMapCacheKey = cacheKey;
+        const active = atlasRecord();
+        state.atlasImage = active?.renderImage || active?.image || null;
+        updateColorMapPreview();
+        drawAssetPreview(state.selectedAssetId);
+        if (redraw) {
+            draw();
+        }
+        if (announce) {
+            const status = colorMap.enabled && Math.abs(colorMap.rotation) > 0.0001
+                ? `Cached recoloured copies of ${rebuilt || state.atlases.size} loaded atlas${state.atlases.size === 1 ? "" : "es"}.`
+                : "Restored original atlas colours.";
+            setStatus(status);
+        }
     }
 
     function hasRuntimeLines(object) {
@@ -1910,7 +2014,56 @@ import {
         return state.level.placements.some((item) => item.id === id) || state.level.entities.some((item) => item.id === id);
     }
 
+    function readColorMapControls() {
+        return normalizeLevelColorMap({
+            enabled: els.colorMapEnabled.checked,
+            sourceHue: els.colorMapSource.value,
+            range: els.colorMapRange.value,
+            feather: els.colorMapFeather.value,
+            rotation: els.colorMapRotation.value
+        });
+    }
+
+    function updateColorMapPreview() {
+        const colorMap = normalizeLevelColorMap(state.level?.colorMap);
+        const targetHue = normalizeHueDegrees(colorMap.sourceHue + colorMap.rotation);
+        els.colorMapSourceChip.style.background = `hsl(${colorMap.sourceHue} 78% 52%)`;
+        els.colorMapTargetChip.style.background = `hsl(${targetHue} 78% 52%)`;
+        els.colorMapSourceChip.title = `Source hue ${Math.round(colorMap.sourceHue)}°`;
+        els.colorMapTargetChip.title = `Target hue ${Math.round(targetHue)}°`;
+        els.colorMapStatus.textContent = colorMap.enabled && Math.abs(colorMap.rotation) > 0.0001
+            ? `${Math.round(colorMap.range)}° around ${Math.round(colorMap.sourceHue)}°, feather ${Math.round(colorMap.feather)}°, rotate ${Math.round(colorMap.rotation)}°`
+            : "Original atlas colours";
+    }
+
+    function syncColorMapToUi() {
+        const colorMap = normalizeLevelColorMap(state.level?.colorMap);
+        els.colorMapEnabled.checked = colorMap.enabled;
+        els.colorMapSource.value = String(Math.round(colorMap.sourceHue * 1000) / 1000);
+        els.colorMapRange.value = String(Math.round(colorMap.range * 1000) / 1000);
+        els.colorMapFeather.value = String(Math.round(colorMap.feather * 1000) / 1000);
+        els.colorMapRotation.value = String(Math.round(colorMap.rotation * 1000) / 1000);
+        updateColorMapPreview();
+    }
+
+    function applyColorMapControls({ announce = true } = {}) {
+        state.level.colorMap = readColorMapControls();
+        refreshColorMappedAtlases({ redraw: true, announce });
+        updateJson();
+    }
+
+    function scheduleColorMapRefresh() {
+        state.level.colorMap = readColorMapControls();
+        updateColorMapPreview();
+        window.clearTimeout(colorMapRefreshTimer);
+        colorMapRefreshTimer = window.setTimeout(() => {
+            refreshColorMappedAtlases({ redraw: true, announce: false });
+            updateJson();
+        }, 140);
+    }
+
     function syncMetadataFromUi() {
+        state.level.colorMap = readColorMapControls();
         state.level.levelId = els.levelId.value.trim() || state.level.levelId;
         state.level.title = els.levelTitle.value.trim() || state.level.title;
         state.level.world.bounds.w = Number(els.worldW.value) || state.level.world.bounds.w;
@@ -1922,6 +2075,7 @@ import {
         els.levelTitle.value = state.level.title;
         els.worldW.value = state.level.world.bounds.w;
         els.worldH.value = state.level.world.bounds.h;
+        syncColorMapToUi();
     }
 
     function refreshLevelAtlasRefs() {
@@ -2094,7 +2248,14 @@ import {
 
     els.assetSearch.addEventListener("input", renderAssetList);
     els.assetAtlas?.addEventListener("change", () => setActiveAtlas(els.assetAtlas.value));
-    document.getElementById("new-level").addEventListener("click", () => { state.level = makeEmptyLevel(); state.selectedId = "wizardStart"; syncMetadataToUi(); persistUi(); setStatus("Created a new empty level."); });
+    document.getElementById("new-level").addEventListener("click", () => {
+        state.level = makeEmptyLevel();
+        state.selectedId = "wizardStart";
+        refreshColorMappedAtlases({ redraw: false });
+        syncMetadataToUi();
+        persistUi();
+        setStatus("Created a new empty level.");
+    });
     document.getElementById("load-level").addEventListener("click", loadSelectedLevel);
     document.getElementById("reload-atlas-library").addEventListener("click", loadDefaultManifest);
     document.getElementById("apply-inspector").addEventListener("click", applyInspector);
@@ -2102,6 +2263,18 @@ import {
     document.getElementById("to-back").addEventListener("click", lowerSelectedToBottom);
     document.getElementById("play-browser-copy").addEventListener("click", playBrowserCopy);
     [els.showGrid, els.showAssetGuides, els.showLabels, els.snapEnabled, els.snap, els.worldW, els.worldH, els.levelId, els.levelTitle].forEach((el) => el.addEventListener("change", () => { syncMetadataFromUi(); draw(); }));
+
+    [els.colorMapSource, els.colorMapRange, els.colorMapFeather, els.colorMapRotation].forEach((el) => {
+        el.addEventListener("input", scheduleColorMapRefresh);
+        el.addEventListener("change", () => applyColorMapControls({ announce: true }));
+    });
+    els.colorMapEnabled.addEventListener("change", () => applyColorMapControls({ announce: true }));
+    els.colorMapReset.addEventListener("click", () => {
+        state.level.colorMap = normalizeLevelColorMap(DEFAULT_LEVEL_COLOR_MAP);
+        syncColorMapToUi();
+        refreshColorMappedAtlases({ redraw: true, announce: true });
+        updateJson();
+    });
 
 
     document.getElementById("level-file").addEventListener("change", async (event) => {
@@ -2111,6 +2284,7 @@ import {
             state.level = normalizeLevelDefaults(JSON.parse(await file.text()));
             await ensureAtlasesForLevel(state.level);
             normalizeLoadedLevelPlacements();
+            refreshColorMappedAtlases({ redraw: false });
             state.selectedId = "wizardStart";
             syncMetadataToUi();
             persistUi();
@@ -2151,6 +2325,7 @@ import {
         }
         state.level = normalizeLevelDefaults(JSON.parse(saved));
         ensureAtlasesForLevel(state.level).finally(() => {
+            refreshColorMappedAtlases({ redraw: false });
             state.selectedId = "wizardStart";
             syncMetadataToUi();
             persistUi();

@@ -51,6 +51,9 @@ Goal: establish a playable and testable foundation for movement, rocket behavior
 * [x] Apply the same placement transform to rendering, guide overlays, hit testing, and atlas-derived collision.
 * [x] Pan the level editor canvas by holding the right mouse button.
 * [x] After placing an atlas asset, keep it selected and automatically return to the Select tool for fine-tuning.
+* [x] Store a selective level-wide environment-asset hue rotation in level JSON.
+* [x] Cache recoloured atlas copies only when level colour-map settings change; never process pixels every frame.
+* [x] Keep colour mapping visual-only so collision, entities, characters, transparency, and the level background are unchanged.
 * [x] Create an asset tool for defining frames, nodes, and collision lines.
 * [x] Make the hardcoded simulation arena explicitly a headless test fixture.
 * [x] Remove large hardcoded level and atlas fallbacks from the runtime path.
@@ -419,3 +422,11 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Add **Copy asset** immediately before **Place asset** in the level-editor toolbar.
 - [x] Copy all placement transform and rendering attributes, changing only ID and the small up-right position offset.
 - [x] Select the copied asset and keep the Select tool active for immediate positioning.
+
+### Revision 069 level colour mapping
+
+- [x] Add the Level colour map panel between Level metadata and Entity palette.
+- [x] Support source hue, selected hue width, feather, and hue rotation.
+- [x] Save normalized `colorMap` settings in the level JSON.
+- [x] Preview the same cached recoloured atlases in the level editor and game runtime.
+- [x] Rebuild atlas pixel caches only when settings change, while retaining normal per-frame sprite drawing.

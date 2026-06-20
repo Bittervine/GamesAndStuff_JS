@@ -1,4 +1,5 @@
 import { atlasNodeToPlacementWorld, normalizeRotationRadians } from "./IgnatiusRocketfrock_LEVEL_TRANSFORM.js";
+import { normalizeLevelColorMap } from "./IgnatiusRocketfrock_COLORMAP.js";
 
 export const FIXED_DT = 1 / 60;
 
@@ -650,6 +651,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         resetY: Number(source.world?.resetY ?? source.resetY) || bounds.y + bounds.h + 240,
         start: playerStart ? { x: Number(playerStart.x) || 120, y: Number(playerStart.y) || 360 } : state.world.start,
         atlasManifests,
+        colorMap: normalizeLevelColorMap(source.colorMap),
         visuals,
         solids: [
             { id: "left_wall", kind: "wall", x: bounds.x - 80, y: bounds.y - 400, w: 60, h: bounds.h + 800 },

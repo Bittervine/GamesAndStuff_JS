@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { computeResponsiveViewportMetrics } from "./IgnatiusRocketfrock_RENDER.js";
 import {
+    colorMapCacheKey,
+    normalizeLevelColorMap,
+    remapRgb,
+    selectiveHueWeight
+} from "./IgnatiusRocketfrock_COLORMAP.js";
+import {
     atlasNodeToPlacementWorld,
     duplicateLevelPlacement,
     LEVEL_BACKGROUND_COLOR,
@@ -213,6 +219,34 @@ function testCharacterProjectWorkspace() {
     assert.equal(moveRigPartToBack(project.rig, "leftArm"), false, "moving an already rear-most part should be a no-op");
 }
 
+function testSelectiveLevelColorMap() {
+    const colorMap = normalizeLevelColorMap({
+        enabled: true,
+        sourceHue: 0,
+        range: 30,
+        feather: 15,
+        rotation: 120
+    });
+    assert.equal(colorMapCacheKey(colorMap), "1:0:30:15:120", "colour-map settings should produce a stable cache key");
+    assert.equal(selectiveHueWeight(0, colorMap), 1, "the selected hue centre should receive the full rotation");
+    assert.equal(selectiveHueWeight(180, colorMap), 0, "distant hues should remain untouched");
+
+    const rotatedRed = remapRgb(255, 0, 0, colorMap);
+    assert.ok(rotatedRed[1] >= 250 && rotatedRed[0] <= 5 && rotatedRed[2] <= 5, `red should rotate to green, got ${rotatedRed}`);
+    assert.deepEqual(remapRgb(0, 0, 255, colorMap), [0, 0, 255], "blue outside the selected range should remain blue");
+    assert.deepEqual(remapRgb(128, 128, 128, colorMap), [128, 128, 128], "neutral greys should remain unchanged");
+
+    const levelEditorHtml = readFileSync(new URL("./level_editor.html", import.meta.url), "utf8");
+    assert.ok(levelEditorHtml.includes('id="color-map-enabled"'), "level editor should expose the level colour-map panel");
+    assert.ok(levelEditorHtml.includes("createColorMappedCanvas"), "level editor should build cached recoloured atlases");
+    const rendererSource = readFileSync(new URL("./IgnatiusRocketfrock_RENDER.js", import.meta.url), "utf8");
+    assert.ok(rendererSource.includes("environmentColorMapKey"), "runtime should track the active atlas colour cache key");
+    assert.ok(rendererSource.includes("atlas.renderImage = createColorMappedCanvas"), "runtime should rebuild atlas caches only when settings change");
+    const gameSource = readFileSync(new URL("./IgnatiusRocketfrock_GAME.js", import.meta.url), "utf8");
+    assert.ok(gameSource.includes("renderer.syncEnvironmentColorMap(gameState.world.colorMap)"), "runtime should build the colour cache during level startup");
+    assert.ok(!rendererSource.includes("this.syncEnvironmentColorMap(state.world?.colorMap)"), "normal render frames should not rebuild or rescan colour caches");
+}
+
 function testLevelPlacementCopy() {
     assert.equal(LEVEL_BACKGROUND_COLOR, "rgb(6, 6, 12)", "cutout masks should reveal the shared deep-blue cave backing");
     const original = {
@@ -277,6 +311,7 @@ function testEditorLevelTransformRuntime() {
         world: { bounds: { x: 0, y: 0, w: 800, h: 600 }, resetY: 900 },
         playerStart: { x: 20, y: 100 },
         atlasRefs: [{ atlasId: "test_atlas", manifest: "assets/test_atlas.json", image: "assets/test_atlas.png" }],
+        colorMap: { enabled: true, sourceHue: 210, range: 70, feather: 20, rotation: 45 },
         placements: [{
             id: "rotated_asset",
             kind: "atlasAsset",
@@ -297,6 +332,8 @@ function testEditorLevelTransformRuntime() {
     assert.equal(applyEditorLevelToWorld(state, level), true, "transformed level should apply");
     const visual = state.world.visuals.find((item) => item.id === "rotated_asset");
     assert.equal(visual.mirrorY, true, "vertical mirror should survive level loading");
+    assert.equal(state.world.colorMap.enabled, true, "level colour-map settings should survive level loading");
+    assert.equal(state.world.colorMap.rotation, 45, "level hue rotation should survive level loading");
     approx(visual.rotation, Math.PI / 2, 0.000001, "rotation should survive level loading");
     const manifest = {
         frames: { beam: { x: 0, y: 0, w: 100, h: 50 } },
@@ -1228,6 +1265,7 @@ function testAttachedSmokeDownSpeedTuning() {
 
 const tests = [
     ["responsive viewport scaling", testResponsiveViewportScaling],
+    ["selective level colour map", testSelectiveLevelColorMap],
     ["level placement copy and cutout backing", testLevelPlacementCopy],
     ["level placement transforms", testLevelPlacementTransforms],
     ["editor level transform runtime", testEditorLevelTransformRuntime],

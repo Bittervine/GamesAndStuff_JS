@@ -10,6 +10,11 @@ import {
     normalizeRotationRadians,
     placementCenter
 } from "./IgnatiusRocketfrock_LEVEL_TRANSFORM.js";
+import {
+    colorMapCacheKey,
+    createColorMappedCanvas,
+    normalizeLevelColorMap
+} from "./IgnatiusRocketfrock_COLORMAP.js";
 
 const FIXED_DRAW_ORDER = [
     "leftArm",
@@ -89,6 +94,8 @@ class RocketfrockRenderer {
         this.character = character;
         this.animations = animations;
         this.environmentAtlases = environmentAtlases;
+        this.environmentColorMap = normalizeLevelColorMap(null);
+        this.environmentColorMapKey = "";
         this.phase = 0;
         this.forcePhase = null;
         this.visualPose = null;
@@ -101,6 +108,24 @@ class RocketfrockRenderer {
 
     getEnvironmentManifests() {
         return this.environmentAtlases;
+    }
+
+    syncEnvironmentColorMap(value) {
+        const colorMap = normalizeLevelColorMap(value);
+        const cacheKey = colorMapCacheKey(colorMap);
+        if (cacheKey === this.environmentColorMapKey) {
+            return false;
+        }
+        this.environmentColorMap = colorMap;
+        this.environmentColorMapKey = cacheKey;
+        for (const atlas of this.environmentAtlases.values()) {
+            if (!atlas?.image) {
+                continue;
+            }
+            atlas.renderImage = createColorMappedCanvas(atlas.image, colorMap);
+            atlas.colorMapCacheKey = cacheKey;
+        }
+        return true;
     }
 
     resize() {
@@ -381,7 +406,8 @@ class RocketfrockRenderer {
         ctx.translate(center.x, center.y);
         ctx.rotate(normalizeRotationRadians(visual.rotation, visual.angle));
         ctx.scale(visual.mirrorX ? -1 : 1, visual.mirrorY ? -1 : 1);
-        ctx.drawImage(atlas.image, frame.x, frame.y, frame.w, frame.h, -w * 0.5, -h * 0.5, w, h);
+        const renderImage = atlas.renderImage || atlas.image;
+        ctx.drawImage(renderImage, frame.x, frame.y, frame.w, frame.h, -w * 0.5, -h * 0.5, w, h);
         ctx.restore();
         return true;
     }
@@ -1339,6 +1365,8 @@ async function loadEnvironmentAtlases() {
         atlases.set(manifest.atlasId, {
             id: manifest.atlasId,
             image,
+            renderImage: image,
+            colorMapCacheKey: "",
             frames: manifest.frames || {},
             source: imageUrl,
             manifest,

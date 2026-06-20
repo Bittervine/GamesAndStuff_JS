@@ -28,6 +28,13 @@
             "image": "assets/at_atlas_001.png"
         }
     ],
+    "colorMap": {
+        "enabled": false,
+        "sourceHue": 200,
+        "range": 80,
+        "feather": 24,
+        "rotation": 0
+    },
     "placements": [
         {
             "id": "start_ground",

@@ -10,6 +10,10 @@ He will be animated from a part of assets.
 The game uses a shared virtual viewport. On narrow mobile screens the renderer scales the whole canvas down instead of scaling individual sprites or physics values. Keep gameplay, collision, camera, particle, and level coordinates in virtual game coordinates. Convert mouse, touch, and pointer screen coordinates through the viewport transform before passing them into gameplay controls.
 
 
+## LEVEL COLOUR-MAP RULE ##
+
+Level-wide environment recolouring is stored in `level.colorMap` and implemented through `IgnatiusRocketfrock_COLORMAP.js`. Preserve the original atlas image and rebuild an offscreen recoloured atlas only when the normalized colour-map cache key changes. Normal render frames must use the cached image through ordinary `drawImage`; never loop over pixels per frame. Apply the map only to environment atlas artwork, not to the cave background, characters, entities, alpha, or collision data.
+
 ## LEVEL PLACEMENT TRANSFORM RULE ##
 
 Level atlas placements may use `mirrorX`, `mirrorY`, and center-based `rotation` in radians. The level editor displays rotation in degrees, but exported/runtime data remains radians. Rendering, editor hit testing, selection outlines, asset guide overlays, and atlas-derived collision must all use `IgnatiusRocketfrock_LEVEL_TRANSFORM.js`. Never add a separate visual-only rotation or mirror path, because it would desynchronize collision from the art. Right-mouse drag is reserved for panning the level editor regardless of the active placement tool.
