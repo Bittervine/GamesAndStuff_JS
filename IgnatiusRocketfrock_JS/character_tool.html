@@ -352,7 +352,7 @@
         <canvas id="stage" width="1160" height="660" aria-label="Puppet Forge character preview"></canvas>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 076</small></h1>
+        <h1>Puppet Forge <small>rev 077</small></h1>
         <p><a href="IgnatiusRocketfrock_JS.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -387,7 +387,7 @@
                 <span>Known project</span>
                 <select id="project-select">
                     <option value="wizard">Ignatius Rocketfrock</option>
-                    <option value="skeleton">Skeleton Guard</option>
+                    <option value="enemy_001">Enemy 001: Skeleton Guard</option>
                 </select>
             </label>
             <div class="row">
@@ -782,7 +782,7 @@ const els = {
 
 const KNOWN_PROJECTS = Object.freeze({
     wizard: "assets/ct_char_wizard_1.json",
-    skeleton: "assets/ct_char_skeleton_1.json"
+    enemy_001: "assets/ct_char_enemy_001.json"
 });
 
 const state = {

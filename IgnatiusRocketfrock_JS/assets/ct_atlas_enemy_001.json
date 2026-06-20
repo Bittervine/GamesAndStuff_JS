@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 3,
-        "note": "Skeleton character atlas with semantic frame names. Revision 064 adds held-equipment tags used by the refined rig."
+        "version": 4,
+        "note": "Enemy 001 character atlas with semantic frame names. Renamed from skeleton_1 in revision 077."
     },
     "atlasId": "ct_atlas_enemy_001",
     "image": "ct_atlas_enemy_001.png",

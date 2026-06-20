@@ -202,7 +202,7 @@ The next structural slice is rig-part creation/deletion, frame assignment, draw-
 
 ### Revision 063 Skeleton Project and Rig Assignment Baseline
 
-Puppet Forge now lists both Ignatius Rocketfrock and Skeleton Guard in the known-project selector. Atlas Parts mode can promote the selected frame, or every currently unassigned frame, into rig parts. The first real part removes the blank placeholder; loaded animation documents receive matching default transform tracks so the new part appears immediately in Rig and animation mode instead of remaining an atlas-only rectangle.
+Puppet Forge now lists both Ignatius Rocketfrock and Enemy 001: Skeleton Guard in the known-project selector. Atlas Parts mode can promote the selected frame, or every currently unassigned frame, into rig parts. The first real part removes the blank placeholder; loaded animation documents receive matching default transform tracks so the new part appears immediately in Rig and animation mode instead of remaining an atlas-only rectangle.
 
 The skeleton project now uses semantic atlas frame IDs, a complete eight-part rig, and an editable idle animation. Its character definition points to the correct idle filename. Atlas 002 and Atlas 003 now contain cyan frame rectangles for every alpha-isolated visual asset and closed blockable collision traces generated from each sprite silhouette.
 
@@ -210,7 +210,7 @@ The remaining rig-authoring work is deletion, frame reassignment, draw-order con
 
 ### Revision 064 Skeleton Equipment and Walk Baseline
 
-The Skeleton Guard rig now draws the rear left arm first and the front right arm last. The shield pivot is authored at its hidden lower-right grip and the sword pivot is centered in its handle; both idle and walk clips keep those pivots on the corresponding animated hand positions. The character now maps an editable `walk` slot to `ct_anim_skeleton_1_walk.json`, containing a complete two-step loop with alternating leg swing, lift, body bob, arm motion, and synchronized held equipment.
+The Enemy 001 Skeleton Guard has an authored back-to-front layer order plus editable idle and walk clips. Revision 077 preserves the user's revised rig and animation data under `ct_anim_enemy_001_walk.json` and the other numbered enemy filenames.
 
 The remaining rig-authoring work is still deletion, frame reassignment, role/tag editing, and direct pivot editing.
 
@@ -499,3 +499,14 @@ Goal: grow the game beyond isolated prototype levels.
 [x] Auto-scroll overflowing thought text and display a scrollbar.
 [x] Vertically center letter and thought text when it fits without scrolling.
 [x] Keep Jump progression as letter → thought → control returned.
+
+### Revision 077 numbered enemy projects
+
+[x] Rename the first enemy project stem from `skeleton_1` to `enemy_001`.
+[x] Update character, rig, atlas, PNG, idle, and walk references to the `ct_*_enemy_001` convention.
+[x] Update Puppet Forge's known-project selector to load `ct_char_enemy_001.json`.
+[x] Preserve `Skeleton Guard` as the human-readable display name rather than encoding the species in filenames.
+[x] Add regression coverage for the numbered IDs, filenames, layer order, and animation sampling.
+[ ] Add a generated enemy index or controlled numbered discovery pass for `ct_char_enemy_0XX.json`.
+[ ] Populate future level-editor enemy palettes from that enemy index.
+

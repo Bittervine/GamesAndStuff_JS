@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 3,
-        "note": "Editable skeleton guard idle refined in revision 064. Shield and sword pivots follow the hand grips at every authored pose."
+        "version": 4,
+        "note": "Enemy 001 editable idle animation, preserving the user-authored revision 077 pose and layer-compatible transforms."
     },
     "animationId": "ct_anim_enemy_001_idle",
     "duration": 1.2,

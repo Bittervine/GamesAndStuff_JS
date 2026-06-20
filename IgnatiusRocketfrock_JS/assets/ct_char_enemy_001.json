@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 3,
-        "note": "Skeleton Guard character definition refined in revision 064 with hand-held equipment and editable idle and walk clips."
+        "version": 4,
+        "note": "Enemy 001 character definition. Renamed from the earlier skeleton_1 project stem in revision 077; Skeleton Guard remains the display name."
     },
     "characterId": "ct_char_enemy_001",
     "displayName": "Skeleton Guard",

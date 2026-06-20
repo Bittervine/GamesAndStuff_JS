@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 3,
-        "note": "Atlas-backed skeleton rig refined in revision 064. The rear left arm is drawn first, the front right arm is drawn last, and shield/sword pivots are authored at their hand grips. Animation positions remain absolute rig-space values."
+        "version": 4,
+        "note": "Enemy 001 rig using the user-authored layer order and setup values. Renamed from skeleton_1 in revision 077."
     },
     "rigId": "ct_rig_enemy_001",
     "atlasId": "ct_atlas_enemy_001",

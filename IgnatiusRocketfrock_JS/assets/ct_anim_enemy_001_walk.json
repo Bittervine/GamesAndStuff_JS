@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 3,
-        "note": "Editable two-step skeleton guard walk/march added in revision 064. Equipment remains authored at the hand grips throughout the loop."
+        "version": 4,
+        "note": "Enemy 001 editable walk animation, preserving the user-authored revision 077 cycle."
     },
     "animationId": "ct_anim_enemy_001_walk",
     "duration": 0.8,
