@@ -148,10 +148,7 @@ export function createPlanetConfig(rng, index, file) {
     position: new THREE.Vector3(),
     previousPosition: new THREE.Vector3(),
     velocity: new THREE.Vector3(),
-    fuelMotes: [],
-    root: null,
-    visual: null,
-    halo: null
+    fuelMotes: []
   };
 }
 
@@ -172,8 +169,7 @@ export function createFuelMote(rng, planet, moteIndex) {
     phase: rng() * Math.PI * 2,
     pulse: rng() * Math.PI * 2,
     position: new THREE.Vector3(),
-    scale: 1,
-    visual: null
+    scale: 1
   };
 }
 

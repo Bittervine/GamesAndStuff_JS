@@ -616,14 +616,14 @@ Goal: make renderer-owned data live in the renderer.
 
 Tasks:
 
-- [ ] Identify all sim fields used only for presentation:
+- [x] Identify all sim fields used only for presentation:
     - `root`,
     - `visual`,
     - `modelPivot`,
     - `model`,
     - `engineEffects`,
     - any future pickup/projectile visual handles.
-- [ ] Introduce renderer-side maps for visual bundles:
+- [x] Introduce renderer-side maps for visual bundles:
     - `shipView`,
     - `planetViews`,
     - `enemyViews`,
@@ -632,29 +632,37 @@ Tasks:
     - `projectileViews`,
     - `pickupViews`,
     - `explosionViews`.
-- [ ] Update renderer creation and cleanup to use IDs and maps.
-- [ ] Remove visual object fields from sim state factories after renderer maps are working.
-- [ ] Keep gameplay metadata in sim when needed by renderer:
+- [x] Update renderer creation and cleanup to use IDs and maps.
+- [x] Remove visual object fields from sim state factories after renderer maps are working.
+- [x] Keep gameplay metadata in sim when needed by renderer:
     - `assetFile`,
     - `family`,
     - `visualScale`,
     - `radius`,
     - `kind`,
     - `id`.
-- [ ] Verify sim state can be stepped in the testbench without any visual fields.
+- [x] Verify sim state can be stepped in the testbench without any visual fields.
 
 Acceptance:
 
-- [ ] No Three.js object reference is stored in sim gameplay objects.
-- [ ] Browser still renders planets, player, enemies, projectiles, explosions, and encounter entities.
-- [ ] Testbench still passes.
-- [ ] Renderer cleanup removes orphan visuals when sim objects disappear.
+- [x] No Three.js object reference is stored in sim gameplay objects.
+- [x] Browser still renders planets, player, enemies, projectiles, explosions, and encounter entities.
+- [x] Testbench still passes.
+- [x] Renderer cleanup removes orphan visuals when sim objects disappear.
 
 Expected files:
 
 - `Orbitals_JS.js`
 - `Orbitals_Sim.js`
 - `orbitals_testbench.mjs`
+
+Revision 005 completion evidence:
+
+- Renderer-owned maps now hold ship, planet, enemy, mothership, encounter-entity, projectile, pickup, and explosion views.
+- Simulation factories no longer add Three.js handle fields to gameplay objects.
+- Renderer cleanup removes views when planets, enemies, motherships, encounter entities, projectiles, or explosions leave simulation state.
+- The architecture guard now allows zero legacy renderer-owned fields in simulation modules.
+- The public API smoke test verifies field-free ship, planet, fuel-mote, enemy, encounter-entity, and projectile state.
 
 ## 15. Phase C: Extract low-risk simulation modules
 

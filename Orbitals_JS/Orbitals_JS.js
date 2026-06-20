@@ -98,9 +98,15 @@ const uiState = {
   gameStarted: false,
   cameraOffset: new THREE.Vector3()
 };
-const projectileVisuals = new Map();
-const enemyVisuals = new Map();
-const enemyExplosionVisuals = new Map();
+// Renderer-owned presentation registry. Simulation objects never receive Three.js handles.
+let shipView = null;
+const planetViews = new Map();
+const enemyViews = new Map();
+const mothershipViews = new Map();
+const encounterEntityViews = new Map();
+const projectileViews = new Map();
+const pickupViews = new Map();
+const explosionViews = new Map();
 const enemyFamilyTemplates = new Map();
 const enemyTemplateLoadPromises = new Map();
 const lazyModelLoadQueue = [];
@@ -1085,7 +1091,8 @@ function createShipEngineEffects(root) {
 
 function updateShipEngineEffects(time) {
   const ship = state.ship;
-  if (!ship || !ship.engineEffects) {
+  const engineEffects = shipView?.engineEffects;
+  if (!ship || !engineEffects) {
     return;
   }
 
@@ -1095,7 +1102,7 @@ function updateShipEngineEffects(time) {
   const heatMix = boostLevel * pulse;
   updateBoostNoise(boostLevel, pulse);
 
-  for (const entry of ship.engineEffects.heatMaterials) {
+  for (const entry of engineEffects.heatMaterials) {
     const material = entry.material;
     if (entry.baseColor && material.color) {
       tempColorA.copy(entry.baseColor).lerp(tempColorB.set(0xffffff), heatMix * 0.9);
@@ -1113,7 +1120,7 @@ function updateShipEngineEffects(time) {
     }
   }
 
-  for (const emitter of ship.engineEffects.emitterEffects) {
+  for (const emitter of engineEffects.emitterEffects) {
     const boost = boostLevel;
     if (time >= emitter.motionNextUpdate) {
       emitter.motionTarget.set(
@@ -1421,53 +1428,6 @@ function updateStarCorona(time) {
   starLight.intensity = 24000 + Math.sin(time * 1.4) * 1500 + Math.sin(time * 2.7 + 0.6) * 900;
 }
 
-function createPlanetConfig(index, file) {
-  const scale = config.planetScale;
-  const orbitScale = config.orbitScale;
-  const radius = (randRange(3.4, 6.8) + (index % 3) * 0.5) * scale;
-  const atmosphereRadius = radius * randRange(config.atmosphereRatioMin, config.atmosphereRatioMax);
-  const gravityRadius = radius * randRange(6.8, 10.5);
-  const orbitRadius = (config.clusterRadius + index * randRange(1.05, 1.25) + randRange(-0.06, 0.06)) * orbitScale;
-  const orbitRadiusB = orbitRadius * randRange(0.96, 1.04);
-  const orbitSpeed = randRange(0.0075, 0.0225) * (index % 2 === 0 ? 1 : -1);
-  const orbitPhase = randRange(0, Math.PI * 2);
-  const orbitPrecession = randRange(-0.0022, 0.0022);
-  const orbitTilt = randomUnitVector();
-  const orbitPlane = buildBasisFromNormal(orbitTilt);
-  const wobbleAxis = randomUnitVector();
-  const surfaceOrbitPeriod = randRange(config.surfaceOrbitPeriodMin, config.surfaceOrbitPeriodMax);
-  const gravityStrength = (4 * Math.PI * Math.PI * Math.pow(radius, 3)) / (surfaceOrbitPeriod * surfaceOrbitPeriod);
-  const hueShift = randRange(-0.08, 0.1);
-  return {
-    name: `Planet ${index + 1}`,
-    file,
-    radius,
-    atmosphereRadius,
-    gravityRadius,
-    gravityStrength,
-    surfaceOrbitPeriod,
-    orbitRadius,
-    orbitRadiusB,
-    orbitSpeed,
-    orbitPhase,
-    orbitPrecession,
-    orbitPlane,
-    wobbleAxis,
-    wobblePhase: randRange(0, Math.PI * 2),
-    wobbleSpeed: randRange(0.18, 0.55),
-    wobbleStrength: randRange(0.4, 1.7),
-    spinSpeed: randRange(-0.5, 0.8),
-    hueShift,
-    position: new THREE.Vector3(),
-    previousPosition: new THREE.Vector3(),
-    velocity: new THREE.Vector3(),
-    root: new THREE.Group(),
-    visual: new THREE.Group(),
-    glow: null,
-    fuelMotes: []
-  };
-}
-
 function createFuelMoteVisual(mote, moteIndex) {
   const mesh = new THREE.Mesh(
     new THREE.SphereGeometry(mote.size ?? randRange(0.06, 0.11), 10, 8),
@@ -1480,12 +1440,17 @@ function createFuelMoteVisual(mote, moteIndex) {
   return mesh;
 }
 
+function getFuelMoteView(mote) {
+  return planetViews.get(mote.planet)?.moteViews.get(mote) || null;
+}
+
 function updateFuelMote(mote, dt, time) {
-  if (!mote.visual) {
+  const visual = getFuelMoteView(mote);
+  if (!visual) {
     return;
   }
-  mote.visual.position.copy(mote.position);
-  mote.visual.scale.setScalar(mote.scale);
+  visual.position.copy(mote.position);
+  visual.scale.setScalar(mote.scale);
 }
 
 function createProjectileVisual(projectile) {
@@ -1559,27 +1524,27 @@ function createEnemyExplosionVisual(effect) {
 }
 
 function updatePlanetVisual(planet, dt, time) {
-  if (planet.root) {
-    planet.root.position.copy(planet.position);
+  const view = planetViews.get(planet);
+  if (!view) {
+    return;
   }
-  if (planet.glow) {
-    const toCamera = planet.position.clone().sub(camera.position);
-    if (toCamera.lengthSq() > 1e-8) {
-      toCamera.normalize().multiplyScalar(planet.radius * 0.02);
-      planet.glow.position.copy(toCamera);
-    } else {
-      planet.glow.position.set(0, 0, planet.radius * 0.02);
-    }
+  view.root.position.copy(planet.position);
+  const toCamera = planet.position.clone().sub(camera.position);
+  if (toCamera.lengthSq() > 1e-8) {
+    toCamera.normalize().multiplyScalar(planet.radius * 0.02);
+    view.glow.position.copy(toCamera);
+  } else {
+    view.glow.position.set(0, 0, planet.radius * 0.02);
   }
 }
 
 function updateProjectileVisuals() {
   const seen = new Set();
   for (const projectile of state.projectiles) {
-    let visual = projectileVisuals.get(projectile.id);
+    let visual = projectileViews.get(projectile.id);
     if (!visual) {
       visual = createProjectileVisual(projectile);
-      projectileVisuals.set(projectile.id, visual);
+      projectileViews.set(projectile.id, visual);
       world.add(visual);
     }
     visual.position.copy(projectile.position);
@@ -1598,7 +1563,7 @@ function updateProjectileVisuals() {
     seen.add(projectile.id);
   }
 
-  for (const [id, visual] of projectileVisuals.entries()) {
+  for (const [id, visual] of projectileViews.entries()) {
     if (seen.has(id)) {
       continue;
     }
@@ -1606,17 +1571,17 @@ function updateProjectileVisuals() {
       visual.material.dispose();
     }
     world.remove(visual);
-    projectileVisuals.delete(id);
+    projectileViews.delete(id);
   }
 }
 
 function updateEnemyExplosionVisuals() {
   const seen = new Set();
   for (const effect of state.enemyExplosions) {
-    let visual = enemyExplosionVisuals.get(effect.id);
+    let visual = explosionViews.get(effect.id);
     if (!visual) {
       visual = createEnemyExplosionVisual(effect);
-      enemyExplosionVisuals.set(effect.id, visual);
+      explosionViews.set(effect.id, visual);
       world.add(visual);
     }
 
@@ -1643,14 +1608,14 @@ function updateEnemyExplosionVisuals() {
     seen.add(effect.id);
   }
 
-  for (const [id, visual] of enemyExplosionVisuals.entries()) {
+  for (const [id, visual] of explosionViews.entries()) {
     if (seen.has(id)) {
       continue;
     }
     world.remove(visual);
     visual.geometry.dispose();
     visual.material.dispose();
-    enemyExplosionVisuals.delete(id);
+    explosionViews.delete(id);
   }
 }
 
@@ -1934,10 +1899,10 @@ function transferShipToPlanet(nextPlanet) {
 
 function updateShipOrientation(dt, localUp) {
   const ship = state.ship;
-  if (!ship || !ship.root || !ship.visual) {
+  if (!ship || !shipView) {
     return;
   }
-  updateShipDisplayTransform(ship, ship.position, ship.forward, ship.up, ship.bank);
+  updateShipDisplayTransform(shipView, ship.position, ship.forward, ship.up, ship.bank);
 }
 
 function updateShipControls(dt) {
@@ -2282,14 +2247,15 @@ function configurePlanetModel(root, planet, index) {
   return root;
 }
 
-function ensurePlanetDisplay(planet) {
-  if (planet.root && planet.visual) {
-    return;
+function ensurePlanetView(planet) {
+  let view = planetViews.get(planet);
+  if (view) {
+    return view;
   }
 
-  planet.root = new THREE.Group();
-  planet.visual = new THREE.Group();
-  planet.root.add(planet.visual);
+  const root = new THREE.Group();
+  const visual = new THREE.Group();
+  root.add(visual);
   const glowMaterial = new THREE.SpriteMaterial({
     map: atmosphereGlowTexture,
     color: 0xffffff,
@@ -2301,30 +2267,57 @@ function ensurePlanetDisplay(planet) {
     toneMapped: false
   });
   glowMaterial.color.offsetHSL(planet.hueShift * 0.2, 0, 0);
-  planet.glow = new THREE.Sprite(glowMaterial);
-  planet.glow.frustumCulled = false;
-  planet.glow.renderOrder = -10;
+  const glow = new THREE.Sprite(glowMaterial);
+  glow.frustumCulled = false;
+  glow.renderOrder = -10;
   const glowDiameter = planet.radius * 2.9;
-  planet.glow.scale.set(glowDiameter, glowDiameter, 1);
-  planet.root.add(planet.glow);
-  world.add(planet.root);
+  glow.scale.set(glowDiameter, glowDiameter, 1);
+  root.add(glow);
 
+  view = {
+    root,
+    visual,
+    glow,
+    modelRoot: null,
+    moteViews: new Map()
+  };
+  planetViews.set(planet, view);
+  world.add(root);
+  syncPlanetMoteViews(planet, view);
+  return view;
+}
+
+function syncPlanetMoteViews(planet, view) {
+  const activeMotes = new Set(planet.fuelMotes);
   for (let i = 0; i < planet.fuelMotes.length; i += 1) {
     const mote = planet.fuelMotes[i];
-    mote.visual = createFuelMoteVisual(mote, i);
-    planet.root.add(mote.visual);
+    if (view.moteViews.has(mote)) {
+      continue;
+    }
+    const moteVisual = createFuelMoteVisual(mote, i);
+    view.moteViews.set(mote, moteVisual);
+    view.root.add(moteVisual);
+  }
+  for (const [mote, moteVisual] of view.moteViews.entries()) {
+    if (activeMotes.has(mote)) {
+      continue;
+    }
+    view.root.remove(moteVisual);
+    moteVisual.geometry?.dispose();
+    moteVisual.material?.dispose();
+    view.moteViews.delete(mote);
   }
 }
 
 function installPlanetModel(planet, index, root) {
-  ensurePlanetDisplay(planet);
+  const view = ensurePlanetView(planet);
   configurePlanetModel(root, planet, index);
-  if (planet.modelRoot) {
-    planet.visual.remove(planet.modelRoot);
+  if (view.modelRoot) {
+    view.visual.remove(view.modelRoot);
   }
-  planet.modelRoot = root;
-  planet.visual.add(root);
-  planet.root.position.copy(planet.position);
+  view.modelRoot = root;
+  view.visual.add(root);
+  view.root.position.copy(planet.position);
   updatePlanetVisual(planet, 0, 0);
 }
 
@@ -2369,25 +2362,19 @@ async function loadShipVisual({ placeholder = false } = {}) {
   }
   normalizeLoadedModel(root, 3.0);
   const ship = state.ship;
-  if (!ship.root) {
-    const display = createShipDisplay(root);
-    world.add(display.root);
-    ship.root = display.root;
-    ship.visual = display.visual;
-    ship.modelPivot = display.modelPivot;
-    ship.model = display.model;
+  if (!shipView) {
+    shipView = createShipDisplay(root);
+    world.add(shipView.root);
   } else {
-    replaceShipDisplayModel(ship, root);
-    ship.model = root;
+    replaceShipDisplayModel(shipView, root);
   }
-  ship.engineEffects = createShipEngineEffects(root);
-  ship.root.position.copy(ship.position);
-  ship.muzzleOffset = config.shipMuzzleOffset;
+  shipView.engineEffects = createShipEngineEffects(root);
+  shipView.root.position.copy(ship.position);
   const localUp = ship.boundPlanet
     ? ship.position.clone().sub(ship.boundPlanet.position).normalize()
     : new THREE.Vector3(0, 1, 0);
-  ship.root.quaternion.copy(quatFromForwardUp(ship.forward, localUp));
-  ship.visual.rotation.z = 0;
+  shipView.root.quaternion.copy(quatFromForwardUp(ship.forward, localUp));
+  shipView.visual.rotation.z = 0;
 }
 
 async function upgradeShipVisual() {
@@ -2397,10 +2384,13 @@ async function upgradeShipVisual() {
   try {
     const root = await loadGltf(PLAYER_FILE);
     normalizeLoadedModel(root, 3.0);
-    const ship = state.ship;
-    replaceShipDisplayModel(ship, root);
-    ship.model = root;
-    ship.engineEffects = createShipEngineEffects(root);
+    if (!shipView) {
+      shipView = createShipDisplay(root);
+      world.add(shipView.root);
+    } else {
+      replaceShipDisplayModel(shipView, root);
+    }
+    shipView.engineEffects = createShipEngineEffects(root);
   } catch (error) {
     console.warn('Lazy player ship asset load failed; keeping placeholder.', error);
   }
@@ -2481,25 +2471,32 @@ function loadEnemyTemplateLazily(familyKey, assetFile) {
   return promise;
 }
 
-function upgradeEnemyDisplayWhenReady(enemy, display, familyKey, assetFile) {
+function getEnemyViewMap(enemy) {
+  return enemy.kind === 'mothership' ? mothershipViews : enemyViews;
+}
+
+function removeActorView(viewMap, id, display) {
+  world.remove(display.root);
+  viewMap.delete(id);
+}
+
+function upgradeActorDisplayWhenReady(actor, display, viewMap, familyKey, assetFile) {
   loadEnemyTemplateLazily(familyKey, assetFile).then((template) => {
-    if (!template || enemyVisuals.get(enemy.id) !== display) {
+    if (!template || viewMap.get(actor.id) !== display) {
       return;
     }
-    const model = template.clone(true);
-    replaceShipDisplayModel(display, model);
-    enemy.model = model;
+    replaceShipDisplayModel(display, template.clone(true));
   });
 }
 
-function ensureEnemyVisual(enemy) {
-  let display = enemyVisuals.get(enemy.id);
+function ensureActorView(actor, viewMap) {
+  let display = viewMap.get(actor.id);
   if (display) {
     return display;
   }
 
-  const familyKey = enemy.family || ENEMY_FAMILY_KEYS[0];
-  const assetFile = enemy.assetFile || getEnemyFallbackAssetFile(familyKey);
+  const familyKey = actor.family || ENEMY_FAMILY_KEYS[0];
+  const assetFile = actor.assetFile || getEnemyFallbackAssetFile(familyKey);
   const template = placeholderModelsOnly ? null : getEnemyTemplate(familyKey, assetFile);
   const model = template ? template.clone(true) : normalizeLoadedModel(createFallbackShip(), 3.0);
   display = createShipDisplay(model);
@@ -2509,38 +2506,59 @@ function ensureEnemyVisual(enemy) {
   display.familyKey = familyKey;
   display.assetFile = assetFile;
   world.add(display.root);
-  enemyVisuals.set(enemy.id, display);
-  enemy.root = display.root;
-  enemy.visual = display.visual;
-  enemy.modelPivot = display.modelPivot;
-  enemy.model = display.model;
+  viewMap.set(actor.id, display);
 
   if (lazyModelLoading && !template) {
-    upgradeEnemyDisplayWhenReady(enemy, display, familyKey, assetFile);
+    upgradeActorDisplayWhenReady(actor, display, viewMap, familyKey, assetFile);
   }
   return display;
 }
 
-function getEnemyVisualScale(enemy) {
-  return Math.max(0.01, enemy?.visualScale || 1);
+function cleanupActorViews(viewMap, seenIds) {
+  for (const [id, display] of viewMap.entries()) {
+    if (seenIds.has(id)) {
+      continue;
+    }
+    removeActorView(viewMap, id, display);
+  }
+}
+
+function getActorVisualScale(actor) {
+  return Math.max(0.01, actor?.visualScale || 1);
 }
 
 function updateEnemyVisuals() {
-  const seen = new Set();
+  const seenEnemies = new Set();
+  const seenMotherships = new Set();
   for (const enemy of state.enemies) {
-    const display = ensureEnemyVisual(enemy);
-    display.root.scale.setScalar(getEnemyVisualScale(enemy));
+    const viewMap = getEnemyViewMap(enemy);
+    const staleMap = viewMap === enemyViews ? mothershipViews : enemyViews;
+    const staleView = staleMap.get(enemy.id);
+    if (staleView) {
+      removeActorView(staleMap, enemy.id, staleView);
+    }
+    const display = ensureActorView(enemy, viewMap);
+    display.root.scale.setScalar(getActorVisualScale(enemy));
     updateShipDisplayTransform(display, enemy.position, enemy.forward, enemy.up, enemy.bank);
-    seen.add(enemy.id);
+    (viewMap === enemyViews ? seenEnemies : seenMotherships).add(enemy.id);
   }
 
-  for (const [id, display] of enemyVisuals.entries()) {
-    if (seen.has(id)) {
+  cleanupActorViews(enemyViews, seenEnemies);
+  cleanupActorViews(mothershipViews, seenMotherships);
+}
+
+function updateEncounterEntityViews() {
+  const seen = new Set();
+  for (const entity of state.encounterEntities || []) {
+    if (!entity || entity.destroyed || entity.health <= 0) {
       continue;
     }
-    world.remove(display.root);
-    enemyVisuals.delete(id);
+    const display = ensureActorView(entity, encounterEntityViews);
+    display.root.scale.setScalar(getActorVisualScale(entity));
+    updateShipDisplayTransform(display, entity.position, entity.forward, entity.up, 0);
+    seen.add(entity.id);
   }
+  cleanupActorViews(encounterEntityViews, seen);
 }
 
 function runLazyModelQueue() {
@@ -2629,7 +2647,10 @@ async function bootstrap() {
   }));
 
   for (const planet of state.planets) {
-    planet.visual.rotation.set(0, 0, 0);
+    const view = planetViews.get(planet);
+    if (view) {
+      view.visual.rotation.set(0, 0, 0);
+    }
   }
 
   respawnShip();
@@ -2745,8 +2766,20 @@ window.addEventListener('touchstart', resumeOrbitalsAudio, { capture: true, pass
 window.addEventListener('click', resumeOrbitalsAudio, { capture: true });
 
 function updatePlanets(dt, time) {
+  const activePlanets = new Set(state.planets);
   for (const planet of state.planets) {
+    const view = planetViews.get(planet);
+    if (view) {
+      syncPlanetMoteViews(planet, view);
+    }
     updatePlanetVisual(planet, dt, time);
+  }
+  for (const [planet, view] of planetViews.entries()) {
+    if (activePlanets.has(planet)) {
+      continue;
+    }
+    world.remove(view.root);
+    planetViews.delete(planet);
   }
 }
 
@@ -2764,6 +2797,7 @@ function render() {
       updateFuelMotes(dt, clock.elapsedTime);
       updateProjectileVisuals();
       updateEnemyVisuals();
+      updateEncounterEntityViews();
       updateEnemyExplosionVisuals();
       updateSpaceDebris(dt);
       updateStarCorona(clock.elapsedTime);
@@ -2773,8 +2807,8 @@ function render() {
       if (localUp) {
         updateShipOrientation(dt, localUp);
       }
-      if (state.ship && state.ship.root) {
-        state.ship.root.visible = !state.crashed;
+      if (shipView) {
+        shipView.root.visible = !state.crashed;
       }
       updateShipEngineEffects(clock.elapsedTime);
       updateCamera(dt);

@@ -181,8 +181,7 @@ export function spawnProjectileBurst(state, ship, fireDirection) {
     radius: config.shipProjectileSize,
     side: 0,
     spawnFrame: state.frameIndex,
-    targetEnemyId: null,
-    visual: null
+    targetEnemyId: null
   });
   state.nextProjectileId += 1;
 }

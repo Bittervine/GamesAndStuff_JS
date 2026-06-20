@@ -22,12 +22,7 @@ export function createShipState() {
     pitchIdleTime: 0,
     recaptureLock: 0,
     muzzleOffset: config.shipMuzzleOffset,
-    speed: 0,
-    root: null,
-    visual: null,
-    modelPivot: null,
-    model: null,
-    engineEffects: null
+    speed: 0
   };
 }
 
@@ -89,11 +84,7 @@ export function createEnemyState() {
     presentationShootableFrames: 0,
     presentationKindLastUsed: '',
     isPrimaryThreat: false,
-    hudPriority: config.encounterReserveHudPriority,
-    root: null,
-    visual: null,
-    modelPivot: null,
-    model: null
+    hudPriority: config.encounterReserveHudPriority
   };
 }
 
@@ -178,11 +169,7 @@ export function createEncounterEntityState(state, options = {}) {
     routeDirection: options.routeDirection ? options.routeDirection.clone().normalize() : null,
     routeRemaining: options.routeRemaining ?? Infinity,
     destroyed: false,
-    visualScale: options.visualScale ?? 2.4,
-    root: null,
-    visual: null,
-    modelPivot: null,
-    model: null
+    visualScale: options.visualScale ?? 2.4
   };
   if (!Array.isArray(state.encounterEntities)) {
     state.encounterEntities = [];

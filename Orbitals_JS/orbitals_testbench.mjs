@@ -5,6 +5,7 @@ import { createOrbitalsSim, ENEMY_MODEL_FILES_BY_FAMILY, getEncounterAnchorPosit
 import { createOrbitalsSim as createOrbitalsSimBaseline } from '../Orbitals_JSp/Orbitals_Sim.js';
 import { config } from './orbitals_config.js';
 import { computeShipFireDirection } from './sim/projectiles.js';
+import { createEnemyState } from './sim/state.js';
 
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
 const NEUTRAL_CONTROLS = {
@@ -58,24 +59,15 @@ const LEGACY_SIM_NUMERIC_CONSTANTS = new Set([
   'sim/world.js:ATMOSPHERE_SOFT_STALL_FULL'
 ]);
 
-const LEGACY_SIM_VISUAL_FIELDS = new Map([
-  ['sim/projectiles.js:spawnProjectileBurst:visual', 1],
-  ['sim/state.js:createShipState:root', 1],
-  ['sim/state.js:createShipState:visual', 1],
-  ['sim/state.js:createShipState:modelPivot', 1],
-  ['sim/state.js:createShipState:model', 1],
-  ['sim/state.js:createShipState:engineEffects', 1],
-  ['sim/state.js:createEnemyState:root', 1],
-  ['sim/state.js:createEnemyState:visual', 1],
-  ['sim/state.js:createEnemyState:modelPivot', 1],
-  ['sim/state.js:createEnemyState:model', 1],
-  ['sim/state.js:createEncounterEntityState:root', 1],
-  ['sim/state.js:createEncounterEntityState:visual', 1],
-  ['sim/state.js:createEncounterEntityState:modelPivot', 1],
-  ['sim/state.js:createEncounterEntityState:model', 1],
-  ['sim/world.js:createPlanetConfig:root', 1],
-  ['sim/world.js:createPlanetConfig:visual', 1],
-  ['sim/world.js:createFuelMote:visual', 1]
+const RENDERER_OWNED_STATE_KEYS = new Set([
+  'root',
+  'visual',
+  'modelPivot',
+  'model',
+  'modelRoot',
+  'engineEffects',
+  'glow',
+  'halo'
 ]);
 
 function readSimulationSourceFiles() {
@@ -99,11 +91,10 @@ function readSimulationSourceFiles() {
 function runSimulationArchitectureGuardTest() {
   const sources = readSimulationSourceFiles();
   const numericConstantPattern = /^(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=\s*[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?\s*;/;
-  const visualFieldPattern = /^\s*(root|visual|modelPivot|model|engineEffects)\s*:\s*null\b/;
+  const visualFieldPattern = /^\s*(root|visual|modelPivot|model|modelRoot|engineEffects|glow|halo)\s*:/;
   const visualConstructorPattern = /\bnew\s+THREE\.(?:Object3D|Group|Scene|Mesh|Sprite|Points|Line|LineSegments|WebGLRenderer|PerspectiveCamera|OrthographicCamera|Audio|PositionalAudio|AudioListener|\w*Material|\w*Geometry|Texture|CanvasTexture)\b/;
   const newNumericConstants = [];
   const unexpectedVisualFields = [];
-  const visualFieldCounts = new Map();
   const visualConstructors = [];
 
   for (const { name, source } of sources) {
@@ -126,23 +117,13 @@ function runSimulationArchitectureGuardTest() {
       const visualFieldMatch = line.match(visualFieldPattern);
       if (visualFieldMatch) {
         const key = `${name}:${functionContext}:${visualFieldMatch[1]}`;
-        visualFieldCounts.set(key, (visualFieldCounts.get(key) || 0) + 1);
-        if (!LEGACY_SIM_VISUAL_FIELDS.has(key)) {
-          unexpectedVisualFields.push(`${key} at line ${index + 1}`);
-        }
+        unexpectedVisualFields.push(`${key} at line ${index + 1}`);
       }
 
       if (visualConstructorPattern.test(line)) {
         visualConstructors.push(`${name}:${index + 1}: ${line.trim()}`);
       }
     });
-  }
-
-  for (const [key, count] of visualFieldCounts) {
-    const allowedCount = LEGACY_SIM_VISUAL_FIELDS.get(key) || 0;
-    if (count > allowedCount && !unexpectedVisualFields.some((entry) => entry.startsWith(key))) {
-      unexpectedVisualFields.push(`${key} appears ${count} times; legacy allowance is ${allowedCount}`);
-    }
   }
 
   assert.deepEqual(
@@ -162,7 +143,7 @@ function runSimulationArchitectureGuardTest() {
   );
 
   console.log(
-    `PASS architecture-guards: files=${sources.length} legacyConstants=${LEGACY_SIM_NUMERIC_CONSTANTS.size} legacyVisualFields=${visualFieldCounts.size}`
+    `PASS architecture-guards: files=${sources.length} legacyConstants=${LEGACY_SIM_NUMERIC_CONSTANTS.size} rendererFields=0`
   );
 }
 
@@ -479,10 +460,6 @@ function createTestFighter(state, squad, encounter, planet, options = {}) {
     presentationKindLastUsed: '',
     isPrimaryThreat: false,
     hudPriority: config.encounterReserveHudPriority,
-    root: null,
-    visual: null,
-    modelPivot: null,
-    model: null,
     spawnFrame: state.frameIndex - Math.ceil(config.encounterCandidateMinAge * 60) - 1,
     spawnTime: state.time - config.encounterCandidateMinAge - 1,
     parentMothershipId: squad.parentMothershipId
@@ -646,6 +623,13 @@ function runStableAltitudeTest() {
   );
 }
 
+function assertNoRendererOwnedFields(object, label) {
+  assert.ok(object && typeof object === 'object', `${label} must be an object`);
+  for (const key of RENDERER_OWNED_STATE_KEYS) {
+    assert.ok(!Object.hasOwn(object, key), `${label} must not contain renderer-owned field ${key}`);
+  }
+}
+
 function runPublicSimApiSmokeTest() {
   const sim = createOrbitalsSim(0xC0FFEE);
   assert.ok(sim.state && typeof sim.state === 'object', 'expected state to be exposed');
@@ -668,27 +652,49 @@ function runPublicSimApiSmokeTest() {
       'boostTimer',
       'boundPlanet',
       'captureTimer',
-      'engineEffects',
       'fireCooldown',
       'flightMode',
       'forward',
       'gravity',
       'muzzleOffset',
-      'model',
-      'modelPivot',
       'pitchIdleTime',
       'position',
       'recaptureLock',
       'relativePosition',
       'relativeVelocity',
-      'root',
       'speed',
       'up',
       'velocity',
-      'visual'
     ],
     'ship'
   );
+
+  assertNoRendererOwnedFields(sim.state.ship, 'ship');
+  sim.state.planets.forEach((planet, index) => {
+    assertNoRendererOwnedFields(planet, `planet[${index}]`);
+  });
+  sim.state.fuelMotes.forEach((mote, index) => {
+    assertNoRendererOwnedFields(mote, `fuelMote[${index}]`);
+  });
+  sim.state.enemies.forEach((enemy, index) => {
+    assertNoRendererOwnedFields(enemy, `enemy[${index}]`);
+  });
+  assertNoRendererOwnedFields(createEnemyState(), 'enemyFactoryState');
+
+  const entity = sim.createEncounterEntity({
+    position: sim.state.ship.position,
+    forward: sim.state.ship.forward,
+    up: sim.state.ship.up
+  });
+  assertNoRendererOwnedFields(entity, 'encounterEntity');
+
+  sim.step(0, {
+    ...NEUTRAL_CONTROLS,
+    fire: true,
+    fireDirection: sim.state.ship.forward.clone()
+  });
+  assert.equal(sim.state.projectiles.length, 1, 'expected smoke test to create one projectile');
+  assertNoRendererOwnedFields(sim.state.projectiles[0], 'projectile');
 }
 
 function runPitchResponseTest() {
@@ -2576,10 +2582,6 @@ function setupEnemyCrashScenario(sim, collisionKind) {
     targetPlanetIndex: 0,
     nextPlanetIndex: squad.nextPlanetIndex,
     modeTimer: 0,
-    root: null,
-    visual: null,
-    modelPivot: null,
-    model: null,
     spawnFrame: state.frameIndex,
     spawnTime: state.time,
     parentMothershipId: null
