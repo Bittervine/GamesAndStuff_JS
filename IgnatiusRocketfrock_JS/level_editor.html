@@ -89,6 +89,10 @@
             background: #171525;
         }
 
+        canvas.panning {
+            cursor: grabbing;
+        }
+
         #hud-strip {
             display: flex;
             gap: 10px;
@@ -324,6 +328,7 @@
         <div id="topbar">
             <button data-tool="select" class="active">☝ Select</button>
             <button data-tool="pan">🖐 Pan</button>
+            <button id="copy-asset" type="button" disabled>⧉ Copy asset</button>
             <button data-tool="placeAsset">🧱 Place asset</button>
             <button data-tool="placeEntity">🧙 Place entity</button>
             <select id="quick-entity" aria-label="Entity type">
@@ -355,7 +360,7 @@
 
     <aside>
         <a class="toplink" href="IgnatiusRocketfrock_JS.html">Back to main</a>
-        <h1>Level Editor</h1>
+        <h1>Level Editor <small>rev 068</small></h1>
         <p>Place atlas assets, move the wizard start, add future monsters/triggers, and export a level JSON. This editor is a first serious foundation, not yet a full shipped tool.</p>
 
         <div class="box">
@@ -379,6 +384,7 @@
             <div class="inline"><input id="snap-enabled" type="checkbox" checked><span class="small">Snap while placing/moving</span></div>
             <div class="inline"><input id="show-asset-guides" type="checkbox" checked><span class="small">Show manifest boxes and line features</span></div>
             <div class="inline"><input id="show-labels" type="checkbox" checked><span class="small">Show labels</span></div>
+            <p class="small">Hold the right mouse button and drag anywhere on the canvas to pan, regardless of the active tool.</p>
         </div>
 
         <div class="box">
@@ -437,16 +443,22 @@
                 <label>W<input id="inspect-w" type="number"></label>
                 <label>H<input id="inspect-h" type="number"></label>
             </div>
-            <div class="row" id="asset-extra-row">
-                <label>Layer
-                    <select id="inspect-layer">
-                        <option value="decorBack">decorBack</option>
-                        <option value="terrain">terrain</option>
-                        <option value="decorFront">decorFront</option>
-                    </select>
-                </label>
-                <label class="inline"><input id="inspect-mirror" type="checkbox"> Mirror X</label>
-                <label class="inline"><input id="inspect-collision" type="checkbox"> Use atlas collision lines</label>
+            <div id="asset-extra-row">
+                <div class="row">
+                    <label>Layer
+                        <select id="inspect-layer">
+                            <option value="decorBack">decorBack</option>
+                            <option value="terrain">terrain</option>
+                            <option value="decorFront">decorFront</option>
+                        </select>
+                    </label>
+                    <label>Angle (degrees)<input id="inspect-angle" type="number" step="1"></label>
+                </div>
+                <div class="triple">
+                    <label class="inline"><input id="inspect-mirror-x" type="checkbox"> Mirror X</label>
+                    <label class="inline"><input id="inspect-mirror-y" type="checkbox"> Mirror Y</label>
+                    <label class="inline"><input id="inspect-collision" type="checkbox"> Atlas collision</label>
+                </div>
             </div>
             <label id="entity-type-row">Entity type
                 <select id="inspect-entity-type">
@@ -478,7 +490,16 @@
     </aside>
 </main>
 
-<script>
+<script type="module">
+import {
+    atlasNodeToPlacementWorld,
+    duplicateLevelPlacement,
+    normalizeRotationRadians,
+    placementCenter,
+    placementCorners,
+    pointInPlacement
+} from "./IgnatiusRocketfrock_LEVEL_TRANSFORM.js";
+
 (() => {
     "use strict";
 
@@ -553,7 +574,9 @@
         inspectW: document.getElementById("inspect-w"),
         inspectH: document.getElementById("inspect-h"),
         inspectLayer: document.getElementById("inspect-layer"),
-        inspectMirror: document.getElementById("inspect-mirror"),
+        inspectAngle: document.getElementById("inspect-angle"),
+        inspectMirrorX: document.getElementById("inspect-mirror-x"),
+        inspectMirrorY: document.getElementById("inspect-mirror-y"),
         inspectCollision: document.getElementById("inspect-collision"),
         inspectEntityType: document.getElementById("inspect-entity-type"),
         inspectNotes: document.getElementById("inspect-notes"),
@@ -562,6 +585,7 @@
         entityTypeRow: document.getElementById("entity-type-row"),
         levelJson: document.getElementById("level-json"),
         quickEntity: document.getElementById("quick-entity"),
+        copyAsset: document.getElementById("copy-asset"),
         entityPalette: document.getElementById("entity-palette")
     };
 
@@ -894,6 +918,8 @@
                     w: Math.max(1, Number(placement.w) || 64),
                     h: Math.max(1, Number(placement.h) || 64),
                     mirrorX: Boolean(placement.mirrorX),
+                    mirrorY: Boolean(placement.mirrorY),
+                    rotation: normalizeRotationRadians(placement.rotation, placement.angle),
                     layer: placement.layer || "terrain",
                     collisionFromManifest: placement.collisionFromManifest !== undefined ? Boolean(placement.collisionFromManifest) : true,
                     notes: placement.notes || "",
@@ -1364,7 +1390,7 @@
         const atlasId = state.activeAtlasId;
         if (!state.selectedAssetId || !frameFor(state.selectedAssetId, atlasId)) {
             setStatus("Select an asset in the palette first.", false);
-            return;
+            return null;
         }
         const frame = frameFor(state.selectedAssetId, atlasId);
         const object = objectFor(state.selectedAssetId, atlasId);
@@ -1382,6 +1408,8 @@
             w,
             h,
             mirrorX: false,
+            mirrorY: false,
+            rotation: 0,
             layer: object?.layer || "terrain",
             collisionFromManifest: hasRuntimeLines(object),
             notes: ""
@@ -1389,6 +1417,7 @@
         state.level.placements.push(placement);
         state.selectedId = placement.id;
         persistUi();
+        return placement;
     }
 
     function placeCutoutMask(point) {
@@ -1401,7 +1430,7 @@
             w: 160,
             h: 120,
             layer: "mask",
-            notes: "Editor/rendering mask. Clears pixels drawn before this mask, but does not block later assets or gameplay."
+            notes: "Editor/rendering mask. Restores the cave background over visuals drawn before this mask, but does not block later assets or gameplay."
         };
         state.level.placements.push(placement);
         state.selectedId = placement.id;
@@ -1440,6 +1469,29 @@
         persistUi();
     }
 
+    function copySelectedAsset() {
+        const selected = selectedRecord();
+        if (!selected || selected.kind !== "asset") {
+            setStatus("Select a placed atlas asset before copying it.", false);
+            syncInspector();
+            return null;
+        }
+        const grid = Math.max(1, Number(els.snap.value) || 16);
+        const offset = Math.max(8, Math.min(32, grid));
+        const source = selected.record;
+        const copy = duplicateLevelPlacement(source, {
+            id: nextId(source.assetId || "asset"),
+            dx: offset,
+            dy: -offset
+        });
+        state.level.placements.push(copy);
+        state.selectedId = copy.id;
+        setTool("select");
+        persistUi();
+        setStatus(`Copied ${source.id} as ${copy.id}.`);
+        return copy;
+    }
+
     function deleteSelected() {
         if (state.selectedId === "wizardStart") return;
         state.level.placements = state.level.placements.filter((item) => item.id !== state.selectedId);
@@ -1466,9 +1518,13 @@
             const entity = state.level.entities[i];
             if (pointInRect(point, objectRect(entity, "entity"))) return { id: entity.id, kind: "entity" };
         }
-        for (let i = state.level.placements.length - 1; i >= 0; i -= 1) {
-            const placement = state.level.placements[i];
-            if (pointInRect(point, objectRect(placement, "asset"))) return { id: placement.id, kind: placement.kind === "cutoutMask" ? "cutoutMask" : "asset" };
+        const placements = sortedPlacements();
+        for (let i = placements.length - 1; i >= 0; i -= 1) {
+            const placement = placements[i];
+            const hit = placement.kind === "cutoutMask"
+                ? pointInRect(point, objectRect(placement, "asset"))
+                : pointInPlacement(point, placement);
+            if (hit) return { id: placement.id, kind: placement.kind === "cutoutMask" ? "cutoutMask" : "asset" };
         }
         return null;
     }
@@ -1477,9 +1533,10 @@
         return point.x >= rect.x && point.x <= rect.x + rect.w && point.y >= rect.y && point.y <= rect.y + rect.h;
     }
 
-    function startDrag(point, event) {
-        if (state.tool === "pan") {
-            state.drag = { kind: "pan", sx: event.clientX, sy: event.clientY, camera: { ...state.camera } };
+    function startDrag(point, event, forcePan = false) {
+        if (forcePan || state.tool === "pan") {
+            state.drag = { kind: "pan", sx: event.clientX, sy: event.clientY, camera: { ...state.camera }, pointerId: event.pointerId };
+            canvas.classList.add("panning");
             return;
         }
         const hit = hitTest(point);
@@ -1512,10 +1569,14 @@
         }
     }
 
-    function endDrag() {
+    function endDrag(event) {
         if (!state.drag) return;
+        if (event?.pointerId !== undefined && state.drag.pointerId !== undefined && event.pointerId !== state.drag.pointerId) return;
+        const completedDrag = state.drag;
         state.drag = null;
-        persistUi();
+        canvas.classList.remove("panning");
+        if (completedDrag.kind === "move") persistUi();
+        else draw();
     }
 
     function draw() {
@@ -1596,40 +1657,47 @@
 
         const atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
         const frame = frameFor(placement.assetId, atlasId);
-        const p = worldToScreen(placement.x, placement.y);
+        const centerWorld = placementCenter(placement);
+        const center = worldToScreen(centerWorld.x, centerWorld.y);
         const w = placement.w * state.camera.zoom;
         const h = placement.h * state.camera.zoom;
+        const rotation = normalizeRotationRadians(placement.rotation, placement.angle);
         const atlasImage = imageForAtlas(atlasId);
+        ctx.save();
+        ctx.translate(center.x, center.y);
+        ctx.rotate(rotation);
+        ctx.scale(placement.mirrorX ? -1 : 1, placement.mirrorY ? -1 : 1);
         if (atlasImage && frame) {
-            ctx.save();
-            if (placement.mirrorX) {
-                ctx.translate(p.x + w, p.y);
-                ctx.scale(-1, 1);
-                ctx.drawImage(atlasImage, frame.x, frame.y, frame.w, frame.h, 0, 0, w, h);
-            } else {
-                ctx.drawImage(atlasImage, frame.x, frame.y, frame.w, frame.h, p.x, p.y, w, h);
-            }
-            ctx.restore();
+            ctx.drawImage(atlasImage, frame.x, frame.y, frame.w, frame.h, -w * 0.5, -h * 0.5, w, h);
         } else {
             ctx.fillStyle = "rgba(86,230,255,0.12)";
-            ctx.fillRect(p.x, p.y, w, h);
+            ctx.fillRect(-w * 0.5, -h * 0.5, w, h);
         }
+        ctx.restore();
         if (els.showAssetGuides.checked) drawPlacementGuides(placement);
-        if (els.showLabels.checked) drawLabel(`${atlasId}:${placement.assetId}`, placement.x, placement.y - 8, COLORS.frame);
+        if (els.showLabels.checked) {
+            const topLeft = placementCorners(placement)[0];
+            drawLabel(`${atlasId}:${placement.assetId}`, topLeft.x, topLeft.y - 8, COLORS.frame);
+        }
     }
 
     function drawCutoutMask(mask) {
         const p = worldToScreen(mask.x, mask.y);
         const w = mask.w * state.camera.zoom;
         const h = mask.h * state.camera.zoom;
+        const rect = screenSize();
 
+        // Repaint the editor backdrop through a clip. This hides visuals drawn
+        // below the mask while preserving the same deep-blue background and grid.
         ctx.save();
-        ctx.globalCompositeOperation = "destination-out";
-        ctx.fillStyle = "rgba(0,0,0,1)";
-        ctx.fillRect(p.x, p.y, w, h);
+        ctx.beginPath();
+        ctx.rect(p.x, p.y, w, h);
+        ctx.clip();
+        drawBackground(rect);
+        if (els.showGrid.checked) drawGrid(rect);
         ctx.restore();
 
-        // Editor-only guide. The mask itself is transparent in the intended level render.
+        // Editor-only guide. The mask itself reveals the level background.
         ctx.save();
         ctx.strokeStyle = COLORS.cutout;
         ctx.fillStyle = COLORS.cutoutFill;
@@ -1648,13 +1716,16 @@
         const atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
         const frame = frameFor(placement.assetId, atlasId);
         const object = objectFor(placement.assetId, atlasId);
-        const p = worldToScreen(placement.x, placement.y);
+        const centerWorld = placementCenter(placement);
+        const center = worldToScreen(centerWorld.x, centerWorld.y);
         const w = placement.w * state.camera.zoom;
         const h = placement.h * state.camera.zoom;
         ctx.save();
+        ctx.translate(center.x, center.y);
+        ctx.rotate(normalizeRotationRadians(placement.rotation, placement.angle));
         ctx.strokeStyle = COLORS.frame;
         ctx.setLineDash([6, 4]);
-        ctx.strokeRect(p.x, p.y, w, h);
+        ctx.strokeRect(-w * 0.5, -h * 0.5, w, h);
         ctx.setLineDash([]);
         ctx.restore();
         if (!frame || !object) return;
@@ -1673,11 +1744,7 @@
     }
 
     function assetNodeToWorld(placement, frame, node) {
-        const nx = placement.mirrorX ? frame.w - node.x : node.x;
-        return {
-            x: placement.x + nx / Math.max(1, frame.w) * placement.w,
-            y: placement.y + node.y / Math.max(1, frame.h) * placement.h
-        };
+        return atlasNodeToPlacementWorld(placement, frame, node);
     }
 
     function drawWorldLine(a, b, color, width) {
@@ -1736,13 +1803,23 @@
     function drawSelection() {
         const selected = selectedRecord();
         if (!selected) return;
-        const rect = objectRect(selected.record, (selected.kind === "asset" || selected.kind === "cutoutMask") ? "asset" : selected.kind === "entity" ? "entity" : "wizardStart");
-        const p = worldToScreen(rect.x, rect.y);
         ctx.save();
         ctx.strokeStyle = COLORS.selected;
         ctx.lineWidth = 2;
         ctx.setLineDash([8, 5]);
-        ctx.strokeRect(p.x - 4, p.y - 4, rect.w * state.camera.zoom + 8, rect.h * state.camera.zoom + 8);
+        if (selected.kind === "asset") {
+            const centerWorld = placementCenter(selected.record);
+            const center = worldToScreen(centerWorld.x, centerWorld.y);
+            const w = selected.record.w * state.camera.zoom;
+            const h = selected.record.h * state.camera.zoom;
+            ctx.translate(center.x, center.y);
+            ctx.rotate(normalizeRotationRadians(selected.record.rotation, selected.record.angle));
+            ctx.strokeRect(-w * 0.5 - 4, -h * 0.5 - 4, w + 8, h + 8);
+        } else {
+            const rect = objectRect(selected.record, selected.kind === "cutoutMask" ? "asset" : selected.kind === "entity" ? "entity" : "wizardStart");
+            const p = worldToScreen(rect.x, rect.y);
+            ctx.strokeRect(p.x - 4, p.y - 4, rect.w * state.camera.zoom + 8, rect.h * state.camera.zoom + 8);
+        }
         ctx.restore();
     }
 
@@ -1759,6 +1836,9 @@
 
     function syncInspector(syncFields = true) {
         const selected = selectedRecord();
+        if (els.copyAsset) {
+            els.copyAsset.disabled = !selected || selected.kind !== "asset";
+        }
         if (!selected) {
             els.selectionSummary.textContent = "Nothing selected.";
             return;
@@ -1773,7 +1853,9 @@
             els.inspectW.value = Math.round(rec.w || 0);
             els.inspectH.value = Math.round(rec.h || 0);
             els.inspectLayer.value = rec.layer || (selected.kind === "cutoutMask" ? "mask" : "terrain");
-            els.inspectMirror.checked = Boolean(rec.mirrorX);
+            els.inspectAngle.value = ((normalizeRotationRadians(rec.rotation, rec.angle) * 180 / Math.PI) || 0).toFixed(1).replace(/\.0$/, "");
+            els.inspectMirrorX.checked = Boolean(rec.mirrorX);
+            els.inspectMirrorY.checked = Boolean(rec.mirrorY);
             els.inspectCollision.checked = rec.collisionFromManifest !== false;
             els.inspectEntityType.value = selected.kind === "wizardStart" ? "wizardStart" : rec.type || "targetDummy";
             els.inspectNotes.value = rec.notes || "";
@@ -1806,7 +1888,9 @@
             rec.notes = els.inspectNotes.value;
             if (selected.kind === "asset") {
                 rec.layer = els.inspectLayer.value;
-                rec.mirrorX = els.inspectMirror.checked;
+                rec.rotation = (Number(els.inspectAngle.value) || 0) * Math.PI / 180;
+                rec.mirrorX = els.inspectMirrorX.checked;
+                rec.mirrorY = els.inspectMirrorY.checked;
                 rec.atlasId = rec.atlasId || DEFAULT_ATLAS_ID;
                 rec.collisionFromManifest = els.inspectCollision.checked;
             } else if (selected.kind === "cutoutMask") {
@@ -1924,8 +2008,20 @@
     canvas.addEventListener("pointerdown", (event) => {
         const rect = canvas.getBoundingClientRect();
         const point = screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
+        if (event.button === 2) {
+            event.preventDefault();
+            canvas.setPointerCapture?.(event.pointerId);
+            startDrag(point, event, true);
+            return;
+        }
+        if (event.button !== 0) return;
+        canvas.setPointerCapture?.(event.pointerId);
         if (state.tool === "placeAsset") {
-            placeAsset(point);
+            const placement = placeAsset(point);
+            if (placement) {
+                setTool("select");
+                setStatus(`Placed ${placement.id}. Select tool active for fine-tuning.`);
+            }
             return;
         }
         if (state.tool === "placeEntity") {
@@ -1960,8 +2056,12 @@
         updateDrag(point, event);
     });
 
-    canvas.addEventListener("pointerup", endDrag);
+    canvas.addEventListener("pointerup", (event) => {
+        endDrag(event);
+        if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    });
     canvas.addEventListener("pointercancel", endDrag);
+    canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
     canvas.addEventListener("wheel", (event) => {
         event.preventDefault();
@@ -1979,6 +2079,7 @@
     document.getElementById("zoom-in").addEventListener("click", () => { state.camera.zoom = Math.min(5, state.camera.zoom * 1.15); draw(); });
     document.getElementById("zoom-out").addEventListener("click", () => { state.camera.zoom = Math.max(0.1, state.camera.zoom / 1.15); draw(); });
     document.getElementById("fit-view").addEventListener("click", fitView);
+    els.copyAsset.addEventListener("click", copySelectedAsset);
     els.zoom.addEventListener("change", () => { state.camera.zoom = Math.max(0.1, Math.min(5, Number(els.zoom.value) || state.camera.zoom)); draw(); });
     if (els.entityPalette) {
         for (const button of els.entityPalette.querySelectorAll("button[data-entity]")) {

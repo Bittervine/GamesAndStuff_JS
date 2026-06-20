@@ -2,6 +2,15 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { computeResponsiveViewportMetrics } from "./IgnatiusRocketfrock_RENDER.js";
 import {
+    atlasNodeToPlacementWorld,
+    duplicateLevelPlacement,
+    LEVEL_BACKGROUND_COLOR,
+    placementCenter,
+    placementCorners,
+    pointInPlacement,
+    worldToPlacementLocal
+} from "./IgnatiusRocketfrock_LEVEL_TRANSFORM.js";
+import {
     animationTimeFromPhase,
     blendAnimationPoses,
     normalizeAnimationClip,
@@ -170,6 +179,17 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes("part-to-back"), "character tool should expose a selected-part To Back control");
     assert.ok(toolHtml.includes("part-to-front"), "character tool should expose a selected-part To Front control");
 
+    const levelEditorHtml = readFileSync(new URL("./level_editor.html", import.meta.url), "utf8");
+    assert.ok(levelEditorHtml.includes("const placement = placeAsset(point);"), "level editor should inspect whether asset placement succeeded");
+    assert.ok(levelEditorHtml.includes('setTool("select");'), "successful asset placement should return the level editor to Select mode");
+    assert.ok(levelEditorHtml.includes("Select tool active for fine-tuning"), "level editor should explain the automatic tool switch");
+    assert.ok(levelEditorHtml.includes('id="copy-asset"'), "level editor should expose Copy asset beside placement tools");
+    assert.ok(levelEditorHtml.includes("duplicateLevelPlacement(source"), "Copy asset should preserve the selected placement through the shared duplication helper");
+    assert.ok(!levelEditorHtml.includes('globalCompositeOperation = "destination-out"'), "editor cutout masks should not erase the canvas alpha");
+    const rendererSource = readFileSync(new URL("./IgnatiusRocketfrock_RENDER.js", import.meta.url), "utf8");
+    assert.ok(rendererSource.includes("ctx.fillStyle = LEVEL_BACKGROUND_COLOR"), "runtime cutout masks should repaint the shared cave backing");
+    assert.ok(!rendererSource.includes('globalCompositeOperation = "destination-out"'), "runtime cutout masks should not erase canvas alpha");
+
     const frame = { x: 10, y: 20, w: 80, h: 120 };
     const { partName, removedParts } = addAtlasFrameToRig(project.rig, "leftArm", frame);
     assert.equal(partName, "leftArm", "frame assignment should use the frame ID as the initial rig-part ID");
@@ -191,6 +211,108 @@ function testCharacterProjectWorkspace() {
     assert.equal(moveRigPartToBack(project.rig, "leftArm"), true, "To Back should report a changed draw order");
     assert.deepEqual(project.rig.drawOrder, ["leftArm", "torso", "head"], "To Back should make the selected part draw first");
     assert.equal(moveRigPartToBack(project.rig, "leftArm"), false, "moving an already rear-most part should be a no-op");
+}
+
+function testLevelPlacementCopy() {
+    assert.equal(LEVEL_BACKGROUND_COLOR, "rgb(6, 6, 12)", "cutout masks should reveal the shared deep-blue cave backing");
+    const original = {
+        id: "ledge_004",
+        kind: "atlasAsset",
+        atlasId: "at_atlas_002",
+        assetId: "ledge",
+        x: 320,
+        y: 480,
+        w: 222,
+        h: 91,
+        mirrorX: true,
+        mirrorY: true,
+        rotation: 0.73,
+        layer: "decorFront",
+        collisionFromManifest: true,
+        notes: "keep me"
+    };
+    const copy = duplicateLevelPlacement(original, { id: "ledge_005", dx: 24, dy: -24 });
+    assert.notEqual(copy, original, "copy should be a distinct placement object");
+    assert.equal(copy.id, "ledge_005", "copy should receive its own identifier");
+    assert.equal(copy.x, 344, "copy should move slightly right");
+    assert.equal(copy.y, 456, "copy should move slightly up");
+    assert.equal(copy.w, original.w, "copy should preserve width");
+    assert.equal(copy.h, original.h, "copy should preserve height");
+    assert.equal(copy.mirrorX, true, "copy should preserve horizontal mirroring");
+    assert.equal(copy.mirrorY, true, "copy should preserve vertical mirroring");
+    assert.equal(copy.rotation, original.rotation, "copy should preserve rotation");
+    assert.equal(copy.layer, original.layer, "copy should preserve layer");
+    assert.equal(copy.collisionFromManifest, original.collisionFromManifest, "copy should preserve collision settings");
+    assert.equal(original.id, "ledge_004", "copying should not mutate the source placement");
+}
+
+function testLevelPlacementTransforms() {
+    const placement = {
+        x: 100,
+        y: 200,
+        w: 80,
+        h: 40,
+        rotation: Math.PI / 2,
+        mirrorX: true,
+        mirrorY: true
+    };
+    assert.deepEqual(placementCenter(placement), { x: 140, y: 220 }, "placement center should use the unrotated box center");
+    const corners = placementCorners(placement);
+    approx(corners[0].x, 160, 0.000001, "rotated top-left x");
+    approx(corners[0].y, 180, 0.000001, "rotated top-left y");
+    assert.equal(pointInPlacement({ x: 140, y: 220 }, placement), true, "center should hit a rotated placement");
+    assert.equal(pointInPlacement({ x: 100, y: 200 }, placement), false, "old unrotated corner should not necessarily hit after rotation");
+    const local = worldToPlacementLocal(placement, 140, 220);
+    approx(local.x, 40, 0.000001, "center inverse local x");
+    approx(local.y, 20, 0.000001, "center inverse local y");
+    const node = atlasNodeToPlacementWorld(placement, { w: 100, h: 50 }, { x: 10, y: 5 });
+    approx(node.x, 124, 0.000001, "mirrored and rotated atlas node x");
+    approx(node.y, 252, 0.000001, "mirrored and rotated atlas node y");
+}
+
+function testEditorLevelTransformRuntime() {
+    const state = createInitialGameState();
+    const level = {
+        levelId: "transform_test",
+        world: { bounds: { x: 0, y: 0, w: 800, h: 600 }, resetY: 900 },
+        playerStart: { x: 20, y: 100 },
+        atlasRefs: [{ atlasId: "test_atlas", manifest: "assets/test_atlas.json", image: "assets/test_atlas.png" }],
+        placements: [{
+            id: "rotated_asset",
+            kind: "atlasAsset",
+            atlasId: "test_atlas",
+            assetId: "beam",
+            x: 100,
+            y: 200,
+            w: 80,
+            h: 40,
+            mirrorX: false,
+            mirrorY: true,
+            rotation: Math.PI / 2,
+            layer: "terrain",
+            collisionFromManifest: true
+        }],
+        entities: []
+    };
+    assert.equal(applyEditorLevelToWorld(state, level), true, "transformed level should apply");
+    const visual = state.world.visuals.find((item) => item.id === "rotated_asset");
+    assert.equal(visual.mirrorY, true, "vertical mirror should survive level loading");
+    approx(visual.rotation, Math.PI / 2, 0.000001, "rotation should survive level loading");
+    const manifest = {
+        frames: { beam: { x: 0, y: 0, w: 100, h: 50 } },
+        objects: {
+            beam: {
+                nodes: [{ id: "a", x: 0, y: 0 }, { id: "b", x: 100, y: 0 }],
+                lines: [{ id: "top", from: "a", to: "b", kind: "blockable" }]
+            }
+        }
+    };
+    assert.equal(applyAtlasManifestsToWorld(state, new Map([["test_atlas", { manifest }]])), true, "transformed collision should apply");
+    const segment = state.world.segments.find((item) => item.visualId === "rotated_asset");
+    approx(segment.x1, 120, 0.000001, "rotated collision x1");
+    approx(segment.y1, 180, 0.000001, "rotated collision y1");
+    approx(segment.x2, 120, 0.000001, "rotated collision x2");
+    approx(segment.y2, 260, 0.000001, "rotated collision y2");
 }
 
 function testCharacterAtlasEditorOperations() {
@@ -1106,6 +1228,9 @@ function testAttachedSmokeDownSpeedTuning() {
 
 const tests = [
     ["responsive viewport scaling", testResponsiveViewportScaling],
+    ["level placement copy and cutout backing", testLevelPlacementCopy],
+    ["level placement transforms", testLevelPlacementTransforms],
+    ["editor level transform runtime", testEditorLevelTransformRuntime],
     ["character project workspace", testCharacterProjectWorkspace],
     ["character atlas editor operations", testCharacterAtlasEditorOperations],
     ["revision 064 authored assets", testRevision064AuthoredAssets],

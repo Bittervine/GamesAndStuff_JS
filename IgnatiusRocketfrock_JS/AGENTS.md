@@ -9,6 +9,11 @@ He will be animated from a part of assets.
 
 The game uses a shared virtual viewport. On narrow mobile screens the renderer scales the whole canvas down instead of scaling individual sprites or physics values. Keep gameplay, collision, camera, particle, and level coordinates in virtual game coordinates. Convert mouse, touch, and pointer screen coordinates through the viewport transform before passing them into gameplay controls.
 
+
+## LEVEL PLACEMENT TRANSFORM RULE ##
+
+Level atlas placements may use `mirrorX`, `mirrorY`, and center-based `rotation` in radians. The level editor displays rotation in degrees, but exported/runtime data remains radians. Rendering, editor hit testing, selection outlines, asset guide overlays, and atlas-derived collision must all use `IgnatiusRocketfrock_LEVEL_TRANSFORM.js`. Never add a separate visual-only rotation or mirror path, because it would desynchronize collision from the art. Right-mouse drag is reserved for panning the level editor regardless of the active placement tool.
+
 ## ANIMATION PIPELINE RULE ##
 
 Ground running is data-driven through `assets/ct_anim_wizard_run_1.json` and `IgnatiusRocketfrock_ANIMATION.js`. Do not add new run-pose formulas to the renderer or scale animation values per sprite. Animation `x`/`y` values are unscaled rig-space pixels, `rotation` is radians, `scale` multiplies the rig part target height, and `alpha` is scalar opacity. The procedural run and its comparison mode were removed in revision 056. Edit run keyframes in `character_tool.html`; shared keyframe mutations belong in `IgnatiusRocketfrock_ANIMATION_EDITOR.js`.

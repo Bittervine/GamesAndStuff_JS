@@ -345,6 +345,12 @@ Revision 064 refined the Skeleton Guard into a correctly layered equipped rig. T
 
 Revision 065 added selected-part draw-order authoring directly to Puppet Forge. The Base rig / setup values panel now exposes **To Back** and **To Front**, operating on the rig's shared back-to-front `drawOrder` without changing animation transforms or atlas data.
 
+Revision 066 extended level placements with a shared transform pipeline. Atlas assets can be mirrored independently on X and Y and rotated around their center. The level editor preview, selection hit testing, runtime rendering, atlas guide overlays, and atlas-derived collision geometry must all use `IgnatiusRocketfrock_LEVEL_TRANSFORM.js` so visual art and gameplay collision cannot drift apart. Placement `rotation` is stored in radians, while the editor exposes degrees. Right-mouse dragging pans the level view regardless of the selected tool.
+
+Revision 067 streamlined the normal placement workflow: choosing an asset enters Place Asset mode, and a successful placement immediately selects the new object and returns the editor to Select mode for fine positioning. Failed placements must leave the current tool unchanged.
+
+Revision 068 made cutout masks reveal the renderer's opaque deep-blue cave backing instead of erasing canvas alpha, which could appear as pure black. The level editor now also exposes **Copy asset** beside **Place asset**. Copying duplicates every placement property, assigns a fresh ID, offsets the copy slightly up and right, selects it, and returns to Select mode.
+
 The next structural step is completing rig authoring with part deletion, frame reassignment, role/tag authoring, and direct pivot editing. Complete that before migrating the remaining wizard airborne poses so future character and NPC animation work continues through the same reusable workflow rather than through another wizard-only path.
 
 ## Character Tool

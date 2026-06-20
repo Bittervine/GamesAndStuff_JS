@@ -46,6 +46,11 @@ Goal: establish a playable and testable foundation for movement, rocket behavior
 * [x] Support rocket impacts against blockable terrain lines and filled areas.
 * [x] Support asset guide overlays for atlas collision lines and filled collision areas.
 * [x] Create a level editor for placing atlas assets and entities.
+* [x] Support horizontal and vertical mirroring for placed atlas assets.
+* [x] Support center-based rotation for placed atlas assets.
+* [x] Apply the same placement transform to rendering, guide overlays, hit testing, and atlas-derived collision.
+* [x] Pan the level editor canvas by holding the right mouse button.
+* [x] After placing an atlas asset, keep it selected and automatically return to the Select tool for fine-tuning.
 * [x] Create an asset tool for defining frames, nodes, and collision lines.
 * [x] Make the hardcoded simulation arena explicitly a headless test fixture.
 * [x] Remove large hardcoded level and atlas fallbacks from the runtime path.
@@ -407,3 +412,10 @@ Goal: grow the game beyond isolated prototype levels.
 * [ ] Add WebGL2 renderer if needed.
 * [ ] Add audio and polish.
 * [ ] Package a playable release build.
+
+### Revision 068 level-editor workflow
+
+- [x] Cutout masks cover earlier visuals with the shared opaque cave background rather than erasing canvas alpha to black.
+- [x] Add **Copy asset** immediately before **Place asset** in the level-editor toolbar.
+- [x] Copy all placement transform and rendering attributes, changing only ID and the small up-right position offset.
+- [x] Select the copied asset and keep the Select tool active for immediate positioning.

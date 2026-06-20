@@ -4,6 +4,12 @@ import {
     normalizeAnimationClip,
     sampleAnimationClip
 } from "./IgnatiusRocketfrock_ANIMATION.js";
+import {
+    atlasNodeToPlacementWorld,
+    LEVEL_BACKGROUND_COLOR,
+    normalizeRotationRadians,
+    placementCenter
+} from "./IgnatiusRocketfrock_LEVEL_TRANSFORM.js";
 
 const FIXED_DRAW_ORDER = [
     "leftArm",
@@ -204,7 +210,7 @@ class RocketfrockRenderer {
         const ctx = this.ctx;
         // Flat cave backing. Theme art should define the scene, and ultra-faint
         // gradients can band on some displays.
-        ctx.fillStyle = "rgb(6, 6, 12)";
+        ctx.fillStyle = LEVEL_BACKGROUND_COLOR;
         ctx.fillRect(0, 0, view.w, view.h);
     }
 
@@ -330,8 +336,10 @@ class RocketfrockRenderer {
         const w = mask.w * view.zoom;
         const h = mask.h * view.zoom;
         ctx.save();
-        ctx.globalCompositeOperation = "destination-out";
-        ctx.fillStyle = "rgba(0, 0, 0, 1)";
+        // Paint the same opaque cave backing over earlier visuals. Erasing alpha
+        // would expose the browser/canvas backing as black instead of revealing
+        // the intended deep blue background.
+        ctx.fillStyle = LEVEL_BACKGROUND_COLOR;
         ctx.fillRect(p.x, p.y, w, h);
         ctx.restore();
     }
@@ -364,18 +372,16 @@ class RocketfrockRenderer {
             return false;
         }
         const ctx = this.ctx;
-        const p = this.worldToScreen(view, visual.x, visual.y);
+        const centerWorld = placementCenter(visual);
+        const center = this.worldToScreen(view, centerWorld.x, centerWorld.y);
         const w = visual.w * view.zoom;
         const h = visual.h * view.zoom;
         ctx.save();
         ctx.globalAlpha *= visual.alpha ?? 1;
-        if (visual.mirrorX) {
-            ctx.translate(p.x + w, p.y);
-            ctx.scale(-1, 1);
-            ctx.drawImage(atlas.image, frame.x, frame.y, frame.w, frame.h, 0, 0, w, h);
-        } else {
-            ctx.drawImage(atlas.image, frame.x, frame.y, frame.w, frame.h, p.x, p.y, w, h);
-        }
+        ctx.translate(center.x, center.y);
+        ctx.rotate(normalizeRotationRadians(visual.rotation, visual.angle));
+        ctx.scale(visual.mirrorX ? -1 : 1, visual.mirrorY ? -1 : 1);
+        ctx.drawImage(atlas.image, frame.x, frame.y, frame.w, frame.h, -w * 0.5, -h * 0.5, w, h);
         ctx.restore();
         return true;
     }
@@ -416,15 +422,22 @@ class RocketfrockRenderer {
                 continue;
             }
 
-            const p = this.worldToScreen(view, visual.x, visual.y);
+            const centerWorld = placementCenter(visual);
+            const center = this.worldToScreen(view, centerWorld.x, centerWorld.y);
+            const visualW = visual.w * view.zoom;
+            const visualH = visual.h * view.zoom;
             ctx.save();
+            ctx.translate(center.x, center.y);
+            ctx.rotate(normalizeRotationRadians(visual.rotation, visual.angle));
             ctx.strokeStyle = "rgba(86, 230, 255, 0.72)";
             ctx.lineWidth = 1.5 * view.zoom;
             ctx.setLineDash([5 * view.zoom, 4 * view.zoom]);
-            ctx.strokeRect(p.x, p.y, visual.w * view.zoom, visual.h * view.zoom);
+            ctx.strokeRect(-visualW * 0.5, -visualH * 0.5, visualW, visualH);
             ctx.setLineDash([]);
+            ctx.restore();
+            ctx.save();
             ctx.fillStyle = "rgba(86, 230, 255, 0.78)";
-            ctx.fillText(visual.assetId || frameName, p.x + 4 * view.zoom, p.y - 5 * view.zoom);
+            ctx.fillText(visual.assetId || frameName, center.x - visualW * 0.5 + 4 * view.zoom, center.y - visualH * 0.5 - 5 * view.zoom);
             ctx.restore();
 
             if (!object || !Array.isArray(object.nodes) || !Array.isArray(object.lines)) {
@@ -486,10 +499,8 @@ class RocketfrockRenderer {
     }
 
     assetLocalToScreen(visual, frame, node, view) {
-        const localX = visual.mirrorX ? frame.w - node.x : node.x;
-        const wx = visual.x + localX / Math.max(1, frame.w) * visual.w;
-        const wy = visual.y + node.y / Math.max(1, frame.h) * visual.h;
-        return this.worldToScreen(view, wx, wy);
+        const world = atlasNodeToPlacementWorld(visual, frame, node);
+        return this.worldToScreen(view, world.x, world.y);
     }
 
     drawTargets(state, view) {

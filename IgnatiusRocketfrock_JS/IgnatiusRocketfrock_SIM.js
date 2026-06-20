@@ -1,3 +1,5 @@
+import { atlasNodeToPlacementWorld, normalizeRotationRadians } from "./IgnatiusRocketfrock_LEVEL_TRANSFORM.js";
+
 export const FIXED_DT = 1 / 60;
 
 export const DEFAULT_TUNING = Object.freeze({
@@ -410,11 +412,7 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
 }
 
 function atlasNodeToWorld(visual, frame, node) {
-    const localX = visual.mirrorX ? frame.w - node.x : node.x;
-    return {
-        x: visual.x + localX / Math.max(1, frame.w) * visual.w,
-        y: visual.y + node.y / Math.max(1, frame.h) * visual.h
-    };
+    return atlasNodeToPlacementWorld(visual, frame, node);
 }
 
 
@@ -628,6 +626,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             w: Math.max(1, Number(placement.w) || 64),
             h: Math.max(1, Number(placement.h) || 64),
             mirrorX: Boolean(placement.mirrorX),
+            mirrorY: Boolean(placement.mirrorY),
+            rotation: normalizeRotationRadians(placement.rotation, placement.angle),
             layer: placement.layer || "terrain",
             collisionFromManifest: placement.collisionFromManifest !== false,
             order: Number.isFinite(Number(placement.order)) ? Number(placement.order) : visuals.length
