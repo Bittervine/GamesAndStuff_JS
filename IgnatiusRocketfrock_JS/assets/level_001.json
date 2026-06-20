@@ -18,7 +18,7 @@
     "playerStart": {
         "id": "wizardStart",
         "x": 192,
-        "y": 480,
+        "y": 485.0502978336733,
         "notes": "Control begins here after Ignatius walks out of entrance_portal_001."
     },
     "atlasRefs": [
@@ -406,7 +406,17 @@
                 "empty": "Empty"
             },
             "interaction": "editorLetter",
-            "notes": "Start-of-level mailbox used by Ignatius's editor."
+            "notes": "The level’s single editor-letter mailbox. Letter and one scrollable thought are editable in the Level Editor.",
+            "triggerDistance": 72,
+            "letterDuration": 7,
+            "thoughtDuration": 4.5,
+            "letterAtlasId": "it_atlas_001",
+            "letterAssetId": "letter_scroll",
+            "thoughtAtlasId": "it_atlas_001",
+            "thoughtAssetId": "thought_bubble_large",
+            "letterTitle": "A Letter from Your Humble Editor",
+            "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: “Ignatius Rocketfrock and the Introductory Cave of Training.” Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
+            "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn’t look quite like it did in the brochures, but I’m sure it will be fine."
         },
         {
             "id": "targetDummy_002",
@@ -430,7 +440,13 @@
                 "idle": "Idle"
             },
             "health": 100,
-            "notes": "Rocket target and combat-training prop."
+            "notes": "Rocket target and combat-training prop.",
+            "targetAnchor": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "targetRadius": 16,
+            "showTargetMarker": false
         }
     ]
 }

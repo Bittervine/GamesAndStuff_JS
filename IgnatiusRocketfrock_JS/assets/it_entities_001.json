@@ -23,7 +23,13 @@
                 "h": 151
             },
             "defaults": {
-                "health": 100
+                "health": 100,
+                "targetAnchor": {
+                    "x": 0.5,
+                    "y": 0.5
+                },
+                "targetRadius": 16,
+                "showTargetMarker": false
             },
             "states": {
                 "idle": {
@@ -42,14 +48,24 @@
             "type": "mailbox",
             "label": "Editor's mailbox",
             "icon": "📬",
-            "description": "Start-of-level mailbox used by Ignatius's editor.",
+            "description": "The level’s single editor-letter mailbox. It opens a timed, scrollable letter followed by one editable, scrollable thought.",
             "defaultState": "letterAvailable",
             "defaultSize": {
                 "w": 110,
-                "h": 157
+                "h": 158
             },
             "defaults": {
-                "interaction": "editorLetter"
+                "interaction": "editorLetter",
+                "triggerDistance": 72,
+                "letterDuration": 7,
+                "thoughtDuration": 4.5,
+                "letterAtlasId": "it_atlas_001",
+                "letterAssetId": "letter_scroll",
+                "thoughtAtlasId": "it_atlas_001",
+                "thoughtAssetId": "thought_bubble_large",
+                "letterTitle": "A Letter from Your Humble Editor",
+                "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: “Ignatius Rocketfrock and the Introductory Cave of Training.” Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
+                "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn’t look quite like it did in the brochures, but I’m sure it will be fine."
             },
             "states": {
                 "letterAvailable": {

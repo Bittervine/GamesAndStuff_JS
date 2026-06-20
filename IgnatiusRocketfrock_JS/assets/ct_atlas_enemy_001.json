@@ -3,8 +3,8 @@
         "version": 3,
         "note": "Skeleton character atlas with semantic frame names. Revision 064 adds held-equipment tags used by the refined rig."
     },
-    "atlasId": "ct_atlas_skeleton_1",
-    "image": "ct_atlas_skeleton_1.png",
+    "atlasId": "ct_atlas_enemy_001",
+    "image": "ct_atlas_enemy_001.png",
     "frames": {
         "head": {
             "x": 137,
@@ -18,7 +18,7 @@
             "w": 282,
             "h": 450
         },
-        "rightArm": {
+        "leftArm": {
             "x": 863,
             "y": 234,
             "w": 206,
@@ -36,19 +36,19 @@
             "w": 167,
             "h": 366
         },
-        "rightLeg": {
+        "leftLeg": {
             "x": 700,
             "y": 690,
             "w": 206,
             "h": 378
         },
-        "leftLeg": {
+        "rightLeg": {
             "x": 235,
             "y": 609,
             "w": 239,
             "h": 393
         },
-        "leftArm": {
+        "rightArm": {
             "x": 23,
             "y": 427,
             "w": 163,
@@ -79,9 +79,9 @@
                 "pelvis"
             ]
         },
-        "rightArm": {
-            "id": "rightArm",
-            "frame": "rightArm",
+        "leftArm": {
+            "id": "leftArm",
+            "frame": "leftArm",
             "type": "characterPart",
             "layer": "character",
             "mirrorable": true,
@@ -140,9 +140,9 @@
                 "leg"
             ]
         },
-        "leftArm": {
-            "id": "leftArm",
-            "frame": "leftArm",
+        "rightArm": {
+            "id": "rightArm",
+            "frame": "rightArm",
             "type": "characterPart",
             "layer": "character",
             "mirrorable": true,

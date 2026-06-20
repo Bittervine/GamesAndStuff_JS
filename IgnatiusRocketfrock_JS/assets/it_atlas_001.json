@@ -7,10 +7,10 @@
     "image": "it_atlas_001.png",
     "frames": {
         "mailbox_with_letter": {
-            "x": 25,
+            "x": 24,
             "y": 0,
-            "w": 183,
-            "h": 260
+            "w": 185,
+            "h": 265
         },
         "mailbox_empty": {
             "x": 269,

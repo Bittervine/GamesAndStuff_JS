@@ -31,3 +31,12 @@ Do not merge atlas-frame rectangles with rig-part semantics. The atlas manifest 
 Puppet Forge direct transform editing uses the same rig-space animation coordinates as exported JSON. The canvas view zoom is presentation-only. Convert pointer positions through `IgnatiusRocketfrock_CHARACTER_VIEW.js`; never bake preview zoom, canvas pixels, mirroring, or CSS scale into X/Y/rotation keyframe values. Direct drags must create missing keys at the current playhead before mutation so sampled in-between poses do not masquerade as persistent edits.
 
 Interactive and story props use `assets/it_atlas_001.json` for pixel rectangles and `assets/it_entities_001.json` for editor templates/state-to-visual mappings. Do not hardcode item sprites directly into the Level Editor or renderer. Placed catalog entities copy `visualStates` into level JSON, and entity visuals may use `actorFront` when artwork must be drawn after the player, such as the foreground half of an open portal. Runtime state changes must go through `setWorldEntityState` so the current visuals stay synchronized with entity state. A portal with `portalRole: "entrance"` owns the level-start closed/open/walk-out/close sequence; normal gameplay input remains locked until that sequence completes. Behaviour systems remain separate from the visual catalog.
+
+## PLAYER START AND ARTWORK TARGET RULE ##
+
+Authored `wizardStart` coordinates are foot positions. After atlas collision is built, starts within half a wizard height above a `walkable` or `blockable` line are snapped to that support; keep the runtime and Level Editor implementations behaviorally identical. Portal introductions must use the resolved ground Y before control is released. Atlas-backed target entities should expose a normalized `targetAnchor` inside their entity rectangle and may set `showTargetMarker: false`; do not reintroduce a separate visible homing dot when the artwork already contains a clear bullseye.
+
+
+## Mailbox story guardrail
+
+Mailbox letters are entity-authored story data. Keep trigger distance, durations, atlas frame IDs, editor copy, and Ignatius's thought on the mailbox entity in level JSON. The simulation owns phase progression and input locking; the renderer only draws the active scroll or thought bubble from `state.story.mailboxEvent`. Do not hardcode level-specific prose or trigger coordinates in the renderer.

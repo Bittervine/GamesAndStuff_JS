@@ -246,7 +246,8 @@ export function createInitialGameState(overrides = {}) {
         },
         story: {
             levelTitle: "Ignatius Rocketfrock and the Gallery of Sensibly Spaced Ledges",
-            portalIntro: null
+            portalIntro: null,
+            mailboxEvent: null
         },
         debug: {
             paused: false,
@@ -410,8 +411,88 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
     state.world.collisionMode = polygons.length ? "atlasSegmentsAndAreas" : "atlasSegments";
     state.world.collisionSegmentCount = segments.length;
     state.world.collisionPolygonCount = polygons.length;
-    addEvent(state, "ATLAS_COLLISION_APPLIED", { segments: segments.length, polygons: polygons.length });
+    let startSnap = null;
+    if (!state.world.playerStartGroundSnapResolved) {
+        state.world.playerStartGroundSnapResolved = true;
+        startSnap = snapPlayerStartToNearbyGround(state);
+    }
+    addEvent(state, "ATLAS_COLLISION_APPLIED", {
+        segments: segments.length,
+        polygons: polygons.length,
+        playerStartSnapped: Boolean(startSnap)
+    });
     return true;
+}
+
+export function snapPlayerStartToNearbyGround(state, maxDistance = null) {
+    const start = state?.world?.start;
+    if (!start || !Number.isFinite(Number(start.x)) || !Number.isFinite(Number(start.y))) {
+        return null;
+    }
+
+    const playerWidth = Math.max(1, Number(state.player?.width) || Number(state.tuning?.playerWidth) || DEFAULT_TUNING.playerWidth);
+    const wizardHeight = Math.max(1, Number(state.player?.height) || Number(state.tuning?.wizardHeight) || DEFAULT_TUNING.wizardHeight);
+    const requestedLimit = maxDistance === null || maxDistance === undefined ? wizardHeight * 0.5 : Number(maxDistance);
+    const limit = Math.max(0, Number.isFinite(requestedLimit) ? requestedLimit : wizardHeight * 0.5);
+    const startX = Number(start.x);
+    const startY = Number(start.y);
+    const samples = [startX, startX - playerWidth * 0.42, startX + playerWidth * 0.42];
+    let best = null;
+
+    for (const segment of state.world.segments || []) {
+        if (segment.kind !== "walkable" && segment.kind !== "blockable") {
+            continue;
+        }
+        if (Math.abs(Number(segment.x2) - Number(segment.x1)) < 0.001) {
+            continue;
+        }
+        for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
+            const y = segmentYAtX(segment, samples[sampleIndex]);
+            if (y === null) {
+                continue;
+            }
+            const delta = y - startY;
+            if (delta < -3 || delta > limit) {
+                continue;
+            }
+            const score = Math.abs(delta) + sampleIndex * 0.001;
+            if (!best || score < best.score) {
+                best = { y, delta, score, segment, sampleX: samples[sampleIndex] };
+            }
+        }
+    }
+
+    if (!best) {
+        return null;
+    }
+
+    start.y = best.y;
+    if (state.player) {
+        state.player.y = best.y;
+        state.player.spawnY = best.y;
+        state.player.vy = 0;
+        state.player.onGround = true;
+        state.player.wasOnGround = true;
+    }
+    const intro = state.story?.portalIntro;
+    if (intro) {
+        intro.groundY = best.y;
+    }
+    addEvent(state, "PLAYER_START_SNAPPED_TO_GROUND", {
+        fromY: round(startY),
+        toY: round(best.y),
+        delta: round(best.delta),
+        segmentId: best.segment.id,
+        kind: best.segment.kind
+    });
+    return {
+        fromY: startY,
+        y: best.y,
+        delta: best.delta,
+        segmentId: best.segment.id,
+        kind: best.segment.kind,
+        sampleX: best.sampleX
+    };
 }
 
 function atlasNodeToWorld(visual, frame, node) {
@@ -778,6 +859,143 @@ function updatePortalIntro(state, dt) {
     return true;
 }
 
+function mailboxStoryEntity(entities) {
+    return entities.find((entity) =>
+        (entity.type === "mailbox" || entity.kind === "mailbox") &&
+        (entity.interaction === "editorLetter" || entity.mailboxRole === "editorLetter")
+    ) || null;
+}
+
+
+function normalizeMailboxThoughtText(mailbox) {
+    const directThought = String(mailbox?.thoughtText || "").trim();
+    if (directThought) return directThought;
+
+    // Older revision-075 levels stored several bubbles. Preserve their words
+    // by joining them into the single scrollable thought used now.
+    if (Array.isArray(mailbox?.thoughts)) {
+        const legacyThoughts = mailbox.thoughts
+            .map((entry) => String(entry || "").trim())
+            .filter(Boolean);
+        if (legacyThoughts.length) return legacyThoughts.join(" ");
+    }
+
+    return "How kind of him! I hope I can make him proud. This cave doesn’t look quite like it did in the brochures, but I’m sure it will be fine.";
+}
+
+function configureMailboxStory(state, entities) {
+    const mailbox = mailboxStoryEntity(entities);
+    if (!mailbox) {
+        state.story.mailboxEvent = null;
+        return false;
+    }
+
+    const initialState = mailbox.state || "letterAvailable";
+    state.story.mailboxEvent = {
+        active: false,
+        completed: initialState === "empty",
+        mailboxId: mailbox.id,
+        phase: initialState === "empty" ? "complete" : "armed",
+        phaseTime: 0,
+        triggerDistance: Math.max(8, Number(mailbox.triggerDistance) || 72),
+        verticalTolerance: Math.max(24, Number(mailbox.verticalTolerance) || Math.max(state.player.height * 0.75, Number(mailbox.h) || 80)),
+        letterDuration: Math.max(0.25, Number(mailbox.letterDuration) || 7),
+        thoughtDuration: Math.max(0.25, Number(mailbox.thoughtDuration) || 4.5),
+        letterAtlasId: mailbox.letterAtlasId || "it_atlas_001",
+        letterAssetId: mailbox.letterAssetId || "letter_scroll",
+        thoughtAtlasId: mailbox.thoughtAtlasId || "it_atlas_001",
+        thoughtAssetId: mailbox.thoughtAssetId || "thought_bubble_large",
+        letterTitle: mailbox.letterTitle || "A Letter from Your Humble Editor",
+        letterText: mailbox.letterText || "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: ‘Ignatius Rocketfrock and the Introductory Cave of Training.’ Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
+        thoughtText: normalizeMailboxThoughtText(mailbox),
+        startedAt: null,
+        completedAt: null
+    };
+    return true;
+}
+
+function startMailboxStory(state, story) {
+    story.active = true;
+    story.completed = false;
+    story.phase = "letter";
+    story.phaseTime = 0;
+    story.startedAt = state.clock.time;
+    setWorldEntityState(state, story.mailboxId, "empty");
+    state.player.vx = 0;
+    state.player.vy = 0;
+    state.player.ax = 0;
+    state.player.ay = 0;
+    addEvent(state, "MAILBOX_LETTER_OPENED", { mailboxId: story.mailboxId });
+}
+
+function advanceMailboxStory(state, story, phase, reason) {
+    story.phase = phase;
+    story.phaseTime = 0;
+    if (phase === "thought") {
+        addEvent(state, "MAILBOX_THOUGHT_SHOWN", {
+            mailboxId: story.mailboxId,
+            reason
+        });
+    } else if (phase === "complete") {
+        story.active = false;
+        story.completed = true;
+        story.completedAt = state.clock.time;
+        state.player.vx = 0;
+        state.player.vy = 0;
+        addEvent(state, "MAILBOX_EVENT_COMPLETE", { mailboxId: story.mailboxId, reason });
+    }
+}
+
+
+function updateMailboxStory(state, input, dt) {
+    const story = state.story?.mailboxEvent;
+    if (!story || story.completed) return false;
+
+    const mailbox = worldEntityById(state, story.mailboxId);
+    if (!mailbox) {
+        story.completed = true;
+        story.phase = "complete";
+        return false;
+    }
+
+    let startedThisFrame = false;
+    if (!story.active) {
+        const horizontalDistance = Math.abs(state.player.x - (Number(mailbox.x) || 0));
+        const verticalDistance = Math.abs(state.player.y - (Number(mailbox.y) || 0));
+        if (horizontalDistance <= story.triggerDistance && verticalDistance <= story.verticalTolerance) {
+            startMailboxStory(state, story);
+            startedThisFrame = true;
+        } else {
+            return false;
+        }
+    }
+
+    const p = state.player;
+    story.phaseTime += dt;
+    p.ax = 0;
+    p.ay = 0;
+    p.vx = 0;
+    p.vy = 0;
+    p.onGround = true;
+    p.wasOnGround = true;
+
+    const skipped = !startedThisFrame && Boolean(input.jumpPressed);
+    if (story.phase === "letter" && (skipped || story.phaseTime >= story.letterDuration)) {
+        if (story.thoughtText.trim()) {
+            advanceMailboxStory(state, story, "thought", skipped ? "jump" : "timeout");
+        } else {
+            advanceMailboxStory(state, story, "complete", skipped ? "jump" : "timeout");
+        }
+    } else if (story.phase === "thought" && (skipped || story.phaseTime >= story.thoughtDuration)) {
+        advanceMailboxStory(state, story, "complete", skipped ? "jump" : "timeout");
+    }
+
+    const focusX = (p.x + (Number(mailbox.x) || p.x)) * 0.5;
+    state.camera.x += (focusX - state.camera.x) * Math.min(1, dt * 5);
+    state.camera.y += (p.y - 170 - state.camera.y) * Math.min(1, dt * 5);
+    return true;
+}
+
 export function applyEditorLevelToWorld(state, editorLevel) {
     if (!state?.world || !editorLevel || typeof editorLevel !== "object") {
         return false;
@@ -871,7 +1089,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         collisionSegmentCount: 0,
         labels: [
             { text: source.levelId || "loaded level", x: (playerStart?.x ?? 120) - 30, y: (playerStart?.y ?? 360) - 70 }
-        ]
+        ],
+        playerStartGroundSnapResolved: false
     };
 
     if (playerStart) {
@@ -889,19 +1108,34 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     }
 
     configurePortalIntro(state, runtimeEntities);
+    configureMailboxStory(state, runtimeEntities);
 
     const targetLike = (entity) => entity.type === "targetDummy" || entity.kind === "targetDummy";
-    state.enemies = runtimeEntities.filter(targetLike).map((entity, index) => ({
-        id: entity.id || `targetDummy_${index + 1}`,
-        kind: "targetDummy",
-        x: Number(entity.x) || 0,
-        y: Number(entity.y) || 0,
-        width: Number(entity.w) || 42,
-        height: Number(entity.h) || 80,
-        health: Number(entity.health) || 100,
-        state: "idle",
-        visualized: editorEntityVisuals(entity).length > 0
-    }));
+    state.enemies = runtimeEntities.filter(targetLike).map((entity, index) => {
+        const x = Number(entity.x) || 0;
+        const y = Number(entity.y) || 0;
+        const width = Number(entity.w) || 42;
+        const height = Number(entity.h) || 80;
+        const visualized = editorEntityVisuals(entity).length > 0;
+        const anchor = entity.targetAnchor && typeof entity.targetAnchor === "object" ? entity.targetAnchor : null;
+        const anchorX = clamp(Number(anchor?.x ?? 0.5), 0, 1);
+        const anchorY = clamp(Number(anchor?.y ?? (visualized ? 0.52 : 0.5)), 0, 1);
+        return {
+            id: entity.id || `targetDummy_${index + 1}`,
+            kind: "targetDummy",
+            x,
+            y,
+            width,
+            height,
+            health: Number(entity.health) || 100,
+            state: "idle",
+            visualized,
+            targetX: x - width * 0.5 + anchorX * width,
+            targetY: y - height + anchorY * height,
+            targetRadius: Math.max(4, Number(entity.targetRadius) || Math.min(width, height) * 0.12),
+            showTargetMarker: entity.showTargetMarker ?? !visualized
+        };
+    });
 
     const fuelLike = (entity) => entity.type === "fuel" || entity.kind === "fuel" || entity.type === "fuelPickup" || entity.kind === "fuelPickup";
     state.pickups = runtimeEntities.filter(fuelLike).map((entity, index) => ({
@@ -915,11 +1149,17 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         visualized: editorEntityVisuals(entity).length > 0
     }));
 
-    const firstEnemy = state.enemies[0];
-    state.targets = [
-        firstEnemy ?
-            { id: "homing_dot", kind: "debugHomingDot", x: firstEnemy.x, y: firstEnemy.y - 120, radius: 15, state: "active" } :
-            { id: "homing_dot", kind: "debugHomingDot", x: state.player.x + 520, y: state.player.y - 160, radius: 15, state: "active" }
+    state.targets = state.enemies.length ? state.enemies.map((enemy) => ({
+        id: `${enemy.id}_target`,
+        kind: "targetDummyBullseye",
+        enemyId: enemy.id,
+        x: enemy.targetX,
+        y: enemy.targetY,
+        radius: enemy.targetRadius,
+        state: "active",
+        showMarker: enemy.showTargetMarker
+    })) : [
+        { id: "homing_dot", kind: "debugHomingDot", x: state.player.x + 520, y: state.player.y - 160, radius: 15, state: "active", showMarker: true }
     ];
 
     state.story.levelTitle = source.title || source.levelTitle || "Ignatius Rocketfrock and the Loaded Level of Reasonable Expectations";
@@ -1026,6 +1266,9 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     state.collisions.lastResolution = null;
 
     if (updatePortalIntro(state, dt)) {
+        return;
+    }
+    if (updateMailboxStory(state, input, dt)) {
         return;
     }
 

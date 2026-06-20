@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { computeResponsiveViewportMetrics } from "./IgnatiusRocketfrock_RENDER.js";
+import { computeResponsiveViewportMetrics, computeTimedTextViewportLayout } from "./IgnatiusRocketfrock_RENDER.js";
 import {
     colorMapCacheKey,
     normalizeLevelColorMap,
@@ -117,6 +117,22 @@ function releaseJumpAfterTakeoff(state) {
     stepSimulation(state, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
 }
 
+function testTimedTextViewportLayout() {
+    const centered = computeTimedTextViewportLayout(80, 200, 0, 5);
+    assert.equal(centered.centered, true, "short story text should be vertically centered");
+    approx(centered.contentOffset, 60, 0.000001, "short story text should receive a centered top offset");
+    assert.equal(centered.maxScroll, 0, "short story text should not create a scrollbar");
+
+    const starting = computeTimedTextViewportLayout(320, 200, 0, 5);
+    assert.equal(starting.centered, false, "long story text should use scrolling");
+    approx(starting.scrollOffset, 0, 0.000001, "long story text should begin at the top");
+    approx(starting.maxScroll, 120, 0.000001, "scroll distance should equal content overflow");
+
+    const finished = computeTimedTextViewportLayout(320, 200, 5, 5);
+    approx(finished.scrollOffset, 120, 0.000001, "long story text should reach the final line before timeout");
+    approx(finished.contentOffset, -120, 0.000001, "scrolling should move content upward by its overflow");
+}
+
 function testResponsiveViewportScaling() {
     const phone = computeResponsiveViewportMetrics(390, 844, 2, 600);
     assert.equal(phone.backingWidth, 780, "phone backing width should still match the real canvas pixels");
@@ -192,6 +208,7 @@ function testCharacterProjectWorkspace() {
     assert.ok(levelEditorHtml.includes("Select tool active for fine-tuning"), "level editor should explain the automatic tool switch");
     assert.ok(levelEditorHtml.includes('id="copy-asset"'), "level editor should expose Copy asset beside placement tools");
     assert.ok(levelEditorHtml.includes("duplicateLevelPlacement(source"), "Copy asset should preserve the selected placement through the shared duplication helper");
+    assert.ok(levelEditorHtml.includes("snapWizardStartToNearbyGround"), "level editor should snap wizardStart to nearby authored collision lines");
     assert.ok(!levelEditorHtml.includes('globalCompositeOperation = "destination-out"'), "editor cutout masks should not erase the canvas alpha");
     const rendererSource = readFileSync(new URL("./IgnatiusRocketfrock_RENDER.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("ctx.fillStyle = LEVEL_BACKGROUND_COLOR"), "runtime cutout masks should repaint the shared cave backing");
@@ -353,6 +370,52 @@ function testEditorLevelTransformRuntime() {
     approx(segment.y2, 260, 0.000001, "rotated collision y2");
 }
 
+function testPlayerStartSnapsToNearbyGround() {
+    const manifest = {
+        frames: { platform: { x: 0, y: 0, w: 200, h: 40 } },
+        objects: {
+            platform: {
+                nodes: [{ id: "a", x: 0, y: 0 }, { id: "b", x: 200, y: 0 }],
+                lines: [{ id: "top", from: "a", to: "b", kind: "blockable" }]
+            }
+        }
+    };
+    const nearbyLevel = {
+        levelId: "nearby_ground_snap",
+        world: { bounds: { x: -200, y: -200, w: 800, h: 800 }, resetY: 900 },
+        playerStart: { x: 100, y: 100 },
+        atlasRefs: [],
+        placements: [{
+            id: "platform_001",
+            kind: "atlasAsset",
+            atlasId: "test_atlas",
+            assetId: "platform",
+            x: 0,
+            y: 106,
+            w: 200,
+            h: 40,
+            collisionFromManifest: true
+        }],
+        entities: []
+    };
+    const nearby = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(nearby, nearbyLevel), true, "nearby-ground level should apply");
+    assert.equal(applyAtlasManifestsToWorld(nearby, new Map([["test_atlas", { manifest }]])), true, "nearby platform collision should apply");
+    approx(nearby.world.start.y, 106, 0.000001, "playerStart should snap down to nearby support");
+    approx(nearby.player.y, 106, 0.000001, "runtime player should use snapped start height");
+    approx(nearby.player.spawnY, 106, 0.000001, "respawn height should use snapped start height");
+    assert.equal(nearby.player.onGround, true, "snapped player should begin grounded");
+    assert.ok(nearby.debug.lastEvents.some((event) => event.type === "PLAYER_START_SNAPPED_TO_GROUND"), "ground snap should be visible in debug events");
+
+    const distantLevel = structuredClone(nearbyLevel);
+    distantLevel.levelId = "distant_ground_no_snap";
+    distantLevel.placements[0].y = 180;
+    const distant = createInitialGameState();
+    applyEditorLevelToWorld(distant, distantLevel);
+    applyAtlasManifestsToWorld(distant, new Map([["test_atlas", { manifest }]]));
+    approx(distant.world.start.y, 100, 0.000001, "ground farther than half a wizard height should not move playerStart");
+}
+
 function testInteractiveItemAtlasAndEntityVisuals() {
     const atlas = JSON.parse(readFileSync(new URL("./assets/it_atlas_001.json", import.meta.url), "utf8"));
     const catalog = JSON.parse(readFileSync(new URL("./assets/it_entities_001.json", import.meta.url), "utf8"));
@@ -364,6 +427,8 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     const openPortal = catalog.entities.magicPortal.states.open.visuals;
     assert.equal(openPortal.length, 2, "open portal should use background and foreground visuals");
     assert.equal(openPortal[1].layer, "actorFront", "portal foreground should render after the player");
+    assert.deepEqual(atlas.frames.mailbox_with_letter, { x: 24, y: 0, w: 185, h: 265 }, "letter mailbox frame should match the revised pixel-aligned atlas");
+    assert.deepEqual(atlas.frames.mailbox_empty, { x: 269, y: 0, w: 185, h: 265 }, "empty mailbox frame should share the same pixel dimensions");
     assert.deepEqual(atlas.frames.portal_closed, { x: 28, y: 289, w: 183, h: 263 }, "closed portal frame should match the revised atlas");
     assert.deepEqual(atlas.frames.portal_open, { x: 352, y: 290, w: 208, h: 263 }, "open portal frame should match the revised atlas");
     assert.deepEqual(atlas.frames.portal_foreground, { x: 223, y: 291, w: 114, h: 263 }, "foreground portal frame should match the revised atlas");
@@ -375,6 +440,7 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     const state = createInitialGameState();
     const mailboxDef = catalog.entities.mailbox;
     const fuelDef = catalog.entities.fuel;
+    const targetDef = catalog.entities.targetDummy;
     const level = {
         levelId: "interactive_items_test",
         world: { bounds: { x: 0, y: 0, w: 1000, h: 700 }, resetY: 900 },
@@ -403,6 +469,20 @@ function testInteractiveItemAtlasAndEntityVisuals() {
                 amount: fuelDef.defaults.amount,
                 state: fuelDef.defaultState,
                 visualStates: Object.fromEntries(Object.entries(fuelDef.states).map(([id, def]) => [id, def.visuals]))
+            },
+            {
+                id: "target_test",
+                type: "targetDummy",
+                x: 600,
+                y: 500,
+                w: targetDef.defaultSize.w,
+                h: targetDef.defaultSize.h,
+                health: targetDef.defaults.health,
+                targetAnchor: targetDef.defaults.targetAnchor,
+                targetRadius: targetDef.defaults.targetRadius,
+                showTargetMarker: targetDef.defaults.showTargetMarker,
+                state: targetDef.defaultState,
+                visualStates: Object.fromEntries(Object.entries(targetDef.states).map(([id, def]) => [id, def.visuals]))
             }
         ]
     };
@@ -410,8 +490,62 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.ok(state.world.visuals.some((visual) => visual.entityId === "mailbox_test" && visual.assetId === "mailbox_with_letter"), "mailbox state should become an atlas visual");
     assert.ok(state.world.visuals.some((visual) => visual.entityId === "fuel_test" && visual.assetId === "rocket_fuel_canister"), "fuel should become an atlas visual");
     assert.equal(state.pickups[0].visualized, true, "atlas-backed fuel should suppress the old debug-circle rendering");
+    assert.equal(state.enemies[0].visualized, true, "atlas-backed target dummy should be recognized as artwork-backed");
+    approx(state.targets[0].x, 600, 0.000001, "target dummy homing point should be centered on the bullseye");
+    approx(state.targets[0].y, 500 - targetDef.defaultSize.h * 0.5, 0.000001, "target dummy homing point should use the belly bullseye height");
+    assert.equal(state.targets[0].showMarker, false, "artwork-backed target dummy should suppress the old dot and pulse marker");
 }
 
+
+function testMailboxLetterSequence() {
+    const catalog = JSON.parse(readFileSync(new URL("./assets/it_entities_001.json", import.meta.url), "utf8"));
+    const mailboxDef = catalog.entities.mailbox;
+    const state = createInitialGameState();
+    const level = {
+        levelId: "mailbox_story_test",
+        world: { bounds: { x: -200, y: -200, w: 1000, h: 900 }, resetY: 1000 },
+        playerStart: { x: 192, y: 500 },
+        atlasRefs: catalog.atlasRefs,
+        placements: [],
+        entities: [{
+            id: "mailbox_story",
+            type: "mailbox",
+            x: 256,
+            y: 500,
+            w: 55,
+            h: 80,
+            state: mailboxDef.defaultState,
+            visualStates: Object.fromEntries(Object.entries(mailboxDef.states).map(([id, def]) => [id, def.visuals])),
+            ...structuredClone(mailboxDef.defaults)
+        }]
+    };
+
+    assert.equal(applyEditorLevelToWorld(state, level), true, "mailbox story level should apply");
+    assert.equal(state.story.mailboxEvent.phase, "armed", "mailbox story should wait for proximity");
+    assert.ok(state.world.visuals.some((visual) => visual.entityId === "mailbox_story" && visual.assetId === "mailbox_with_letter"), "mailbox should initially show the letter state");
+
+    stepSimulation(state, createInputFrame({ moveRight: true, weaponPressed: true }), FIXED_DT);
+    assert.equal(state.story.mailboxEvent.phase, "letter", "approaching the mailbox should open the letter");
+    assert.equal(state.world.entityStates.mailbox_story, "empty", "mailbox should switch to its empty artwork immediately");
+    assert.ok(state.world.visuals.some((visual) => visual.entityId === "mailbox_story" && visual.assetId === "mailbox_empty"), "empty mailbox visual should replace the letter state");
+    approx(state.player.x, 192, 0.000001, "mailbox story should lock movement");
+    assert.equal(state.projectiles.length, 0, "mailbox story should suppress weapon input");
+
+    assert.ok(state.story.mailboxEvent.thoughtText.includes("How kind of him!"), "mailbox story should preserve Ignatius's single thought text");
+    assert.ok(state.story.mailboxEvent.thoughtText.includes("brochures"), "the single thought should retain the full response");
+    assert.equal("thoughts" in state.story.mailboxEvent, false, "runtime mailbox state should no longer split thoughts into multiple bubbles");
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    assert.equal(state.story.mailboxEvent.phase, "thought", "jump should advance from the letter to the thought");
+    stepSimulation(state, createInputFrame({ jumpHeld: false }), FIXED_DT);
+    assert.equal(state.story.mailboxEvent.phase, "thought", "releasing jump should not close the thought automatically");
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    assert.equal(state.story.mailboxEvent.active, false, "the next Jump press should close the single thought");
+    assert.equal(state.story.mailboxEvent.completed, true, "mailbox event should complete only once");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "MAILBOX_EVENT_COMPLETE"), "mailbox sequence should emit a completion event");
+
+    stepMany(state, 5, () => createInputFrame({ moveRight: true }));
+    assert.ok(state.player.vx > 0, "control should return after the mailbox sequence");
+}
 
 function testPortalEntranceSequence() {
     const catalog = JSON.parse(readFileSync(new URL("./assets/it_entities_001.json", import.meta.url), "utf8"));
@@ -1334,6 +1468,13 @@ function testRocketLaunchDoesNotFalseHitUnrelatedAtlasArea() {
     assert.equal(applyAtlasManifestsToWorld(state, new Map([["at_atlas_001", { manifest: atlas }]])), true, "at_atlas_001 collision should apply");
 
     stepMany(state, 260, () => createInputFrame());
+    let mailboxAdvanceSafety = 0;
+    while (state.story.mailboxEvent?.active && mailboxAdvanceSafety < 8) {
+        stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+        stepSimulation(state, createInputFrame({ jumpReleased: true, jumpHeld: false }), FIXED_DT);
+        mailboxAdvanceSafety += 1;
+    }
+    stepMany(state, 30, () => createInputFrame());
     assert.ok(state.player.onGround, "player should settle before firing");
     const launchFrame = createInputFrame({ weaponPressed: true, weaponHeld: true });
     stepSimulation(state, launchFrame, FIXED_DT);
@@ -1377,12 +1518,15 @@ function testAttachedSmokeDownSpeedTuning() {
 }
 
 const tests = [
+    ["timed story text layout", testTimedTextViewportLayout],
     ["responsive viewport scaling", testResponsiveViewportScaling],
     ["selective level colour map", testSelectiveLevelColorMap],
     ["level placement copy and cutout backing", testLevelPlacementCopy],
     ["level placement transforms", testLevelPlacementTransforms],
     ["editor level transform runtime", testEditorLevelTransformRuntime],
+    ["player start snaps to nearby ground", testPlayerStartSnapsToNearbyGround],
     ["interactive item atlas and entity visuals", testInteractiveItemAtlasAndEntityVisuals],
+    ["scripted mailbox letter", testMailboxLetterSequence],
     ["scripted portal entrance", testPortalEntranceSequence],
     ["character project workspace", testCharacterProjectWorkspace],
     ["character atlas editor operations", testCharacterAtlasEditorOperations],

@@ -56,6 +56,34 @@ const REQUIRED_RIG_SECTIONS = ["global", "animation", "anchors", "legMotion", "p
 // converted through this same viewport transform before gameplay sees them.
 const MIN_TOUCH_VIEWPORT_WIDTH = 600;
 
+export function computeTimedTextViewportLayout(contentHeight, viewportHeight, phaseTime = 0, duration = 1) {
+    const safeContentHeight = Math.max(0, Number(contentHeight) || 0);
+    const safeViewportHeight = Math.max(1, Number(viewportHeight) || 1);
+    const maxScroll = Math.max(0, safeContentHeight - safeViewportHeight);
+    if (maxScroll <= 0.5) {
+        return {
+            centered: true,
+            contentOffset: Math.max(0, (safeViewportHeight - safeContentHeight) * 0.5),
+            maxScroll: 0,
+            progress: 0,
+            scrollOffset: 0
+        };
+    }
+
+    const safeDuration = Math.max(0.25, Number(duration) || 1);
+    const rawProgress = clamp((Number(phaseTime) || 0) / safeDuration, 0, 1);
+    const progress = clamp((rawProgress - 0.16) / 0.68, 0, 1);
+    const easedProgress = progress * progress * (3 - 2 * progress);
+    const scrollOffset = maxScroll * easedProgress;
+    return {
+        centered: false,
+        contentOffset: -scrollOffset,
+        maxScroll,
+        progress: easedProgress,
+        scrollOffset
+    };
+}
+
 export function computeResponsiveViewportMetrics(clientWidth, clientHeight, dpr = 1, minVirtualWidth = MIN_TOUCH_VIEWPORT_WIDTH) {
     const safeClientWidth = Math.max(1, Number(clientWidth) || 1);
     const safeClientHeight = Math.max(1, Number(clientHeight) || 1);
@@ -205,6 +233,7 @@ class RocketfrockRenderer {
         this.drawProjectiles(state, view);
         this.drawPlayer(state, view);
         this.drawOrderedWorldVisuals(state, view, true);
+        this.drawMailboxStoryOverlay(state, view);
         this.drawDebug(state, view, inputFrame);
     }
 
@@ -552,7 +581,7 @@ class RocketfrockRenderer {
     drawTargets(state, view) {
         const ctx = this.ctx;
         for (const target of state.targets || []) {
-            if (target.state !== "active") continue;
+            if (target.state !== "active" || target.showMarker === false) continue;
             const p = this.worldToScreen(view, target.x, target.y);
             const pulse = 0.5 + 0.5 * Math.sin(state.clock.time * 5.5);
             ctx.save();
@@ -854,6 +883,220 @@ class RocketfrockRenderer {
         ctx.fill();
         ctx.restore();
     }
+
+    drawMailboxStoryOverlay(state, view) {
+        const story = state.story?.mailboxEvent;
+        if (!story?.active || (story.phase !== "letter" && story.phase !== "thought")) return;
+
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.fillStyle = story.phase === "letter" ? "rgba(5, 7, 18, 0.52)" : "rgba(5, 7, 18, 0.30)";
+        ctx.fillRect(0, 0, view.w, view.h);
+        ctx.restore();
+
+        if (story.phase === "letter") {
+            this.drawLetterOverlay(story, view);
+        } else {
+            this.drawThoughtOverlay(state, story, view);
+        }
+    }
+
+    drawLetterOverlay(story, view) {
+        const atlas = this.environmentAtlases.get(story.letterAtlasId || "it_atlas_001");
+        const frame = atlas?.frames?.[story.letterAssetId || "letter_scroll"];
+        if (!atlas?.image || !frame) return;
+
+        const virtualW = Math.min(520, view.virtualW * 0.84);
+        const virtualH = virtualW * frame.h / Math.max(1, frame.w);
+        const w = virtualW * view.zoom;
+        const h = virtualH * view.zoom;
+        const x = (view.w - w) * 0.5;
+        const y = (view.h - h) * 0.48;
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.drawImage(atlas.renderImage || atlas.image, frame.x, frame.y, frame.w, frame.h, x, y, w, h);
+
+        const textX = x + w * 0.17;
+        const textW = w * 0.66;
+        const titleY = y + h * 0.18;
+        const bodyTop = y + h * 0.285;
+        const bodyBottom = y + h * 0.735;
+        const bodyHeight = Math.max(1, bodyBottom - bodyTop);
+        const fontScale = view.dpr || 1;
+        ctx.fillStyle = "rgba(58, 33, 27, 0.96)";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.font = `700 ${20 * fontScale}px Georgia, 'Times New Roman', serif`;
+        ctx.fillText(story.letterTitle || "A Letter", x + w * 0.5, titleY, textW);
+
+        // Use the same heavier, rounded story type as Ignatius's thought bubble.
+        ctx.textAlign = "left";
+        ctx.font = `600 ${17 * fontScale}px Georgia, 'Times New Roman', serif`;
+        const lineHeight = 23 * fontScale;
+        const lines = this.wrapTextLines(story.letterText || "", textW);
+        const contentHeight = this.wrappedLinesHeight(lines, lineHeight);
+        const layout = computeTimedTextViewportLayout(contentHeight, bodyHeight, story.phaseTime, story.letterDuration);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(textX, bodyTop, textW, bodyHeight);
+        ctx.clip();
+        this.drawWrappedLines(lines, textX, bodyTop + layout.contentOffset, textW, lineHeight);
+        ctx.restore();
+
+        if (layout.maxScroll > 0) {
+            this.drawStoryScrollbar(textX + textW + 6 * fontScale, bodyTop, bodyHeight, contentHeight, layout.scrollOffset, fontScale,
+                "rgba(91, 54, 37, 0.18)", "rgba(91, 54, 37, 0.52)");
+        }
+
+        ctx.textAlign = "center";
+        ctx.font = `600 ${13 * fontScale}px system-ui, sans-serif`;
+        ctx.fillStyle = "rgba(74, 44, 34, 0.78)";
+        ctx.fillText(layout.maxScroll > 0 ? "Jump to continue · Letter scrolls automatically" : "Jump to continue", x + w * 0.5, y + h * 0.80, textW * 1.2);
+        ctx.restore();
+    }
+
+    drawThoughtOverlay(state, story, view) {
+        const atlas = this.environmentAtlases.get(story.thoughtAtlasId || "it_atlas_001");
+        const frame = atlas?.frames?.[story.thoughtAssetId || "thought_bubble_large"];
+        if (!atlas?.image || !frame) return;
+
+        const virtualW = Math.min(460, view.virtualW * 0.78);
+        const virtualH = virtualW * frame.h / Math.max(1, frame.w);
+        const w = virtualW * view.zoom;
+        const h = virtualH * view.zoom;
+        const playerScreen = this.worldToScreen(view, state.player.x, state.player.y - state.player.height * 0.7);
+        const preferredX = playerScreen.x + state.player.facing * 90 * view.zoom - (state.player.facing < 0 ? w : 0);
+        const x = clamp(preferredX, 16 * (view.dpr || 1), view.w - w - 16 * (view.dpr || 1));
+        const preferredY = playerScreen.y - h - 34 * view.zoom;
+        const y = clamp(preferredY, 14 * (view.dpr || 1), view.h - h - 50 * (view.dpr || 1));
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.drawImage(atlas.renderImage || atlas.image, frame.x, frame.y, frame.w, frame.h, x, y, w, h);
+
+        const fontScale = view.dpr || 1;
+        const textX = x + w * 0.15;
+        const textW = w * 0.70;
+        const bodyTop = y + h * 0.20;
+        const bodyBottom = y + h * 0.68;
+        const bodyHeight = Math.max(1, bodyBottom - bodyTop);
+        const lineHeight = 23 * fontScale;
+        ctx.fillStyle = "rgba(53, 35, 67, 0.96)";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        ctx.font = `600 ${17 * fontScale}px Georgia, 'Times New Roman', serif`;
+
+        const thoughtText = story.thoughtText || "";
+        const lines = this.wrapTextLines(thoughtText, textW);
+        const contentHeight = this.wrappedLinesHeight(lines, lineHeight);
+        const layout = computeTimedTextViewportLayout(contentHeight, bodyHeight, story.phaseTime, story.thoughtDuration);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(textX, bodyTop, textW, bodyHeight);
+        ctx.clip();
+        this.drawWrappedLines(lines, textX, bodyTop + layout.contentOffset, textW, lineHeight, true);
+        ctx.restore();
+
+        if (layout.maxScroll > 0) {
+            this.drawStoryScrollbar(textX + textW + 4 * fontScale, bodyTop, bodyHeight, contentHeight, layout.scrollOffset, fontScale,
+                "rgba(76, 48, 90, 0.16)", "rgba(76, 48, 90, 0.48)");
+        }
+
+        ctx.font = `600 ${12 * fontScale}px system-ui, sans-serif`;
+        ctx.fillStyle = "rgba(76, 48, 90, 0.72)";
+        ctx.fillText(layout.maxScroll > 0 ? "Jump to continue · Thought scrolls automatically" : "Jump to continue", x + w * 0.5, y + h * 0.74);
+        ctx.restore();
+    }
+
+    drawStoryScrollbar(trackX, trackY, trackHeight, contentHeight, scrollOffset, fontScale, trackColor, thumbColor) {
+        const ctx = this.ctx;
+        const thumbHeight = Math.max(18 * fontScale, trackHeight * Math.min(1, trackHeight / Math.max(1, contentHeight)));
+        const maxScroll = Math.max(0, contentHeight - trackHeight);
+        const thumbY = trackY + (trackHeight - thumbHeight) * (maxScroll > 0 ? scrollOffset / maxScroll : 0);
+        ctx.fillStyle = trackColor;
+        ctx.fillRect(trackX, trackY, 3 * fontScale, trackHeight);
+        ctx.fillStyle = thumbColor;
+        ctx.fillRect(trackX, thumbY, 3 * fontScale, thumbHeight);
+    }
+
+    wrapTextLines(text, maxWidth) {
+        const ctx = this.ctx;
+        const lines = [];
+        const paragraphs = String(text || "").split(/\n/);
+        for (const rawParagraph of paragraphs) {
+            const paragraph = rawParagraph.trim();
+            if (!paragraph) {
+                lines.push({ text: "", spacing: 0.7 });
+                continue;
+            }
+            const words = paragraph.split(/\s+/);
+            let line = "";
+            for (const word of words) {
+                const candidate = line ? `${line} ${word}` : word;
+                if (line && ctx.measureText(candidate).width > maxWidth) {
+                    lines.push({ text: line, spacing: 1 });
+                    line = word;
+                } else {
+                    line = candidate;
+                }
+            }
+            if (line) lines.push({ text: line, spacing: 1 });
+        }
+        return lines;
+    }
+
+    wrappedLinesHeight(lines, lineHeight) {
+        return lines.reduce((height, line) => height + lineHeight * (Number(line.spacing) || 1), 0);
+    }
+
+    drawWrappedLines(lines, x, y, maxWidth, lineHeight, centered = false) {
+        const ctx = this.ctx;
+        let cursorY = y;
+        for (const line of lines) {
+            if (line.text) {
+                ctx.fillText(line.text, centered ? x + maxWidth * 0.5 : x, cursorY, maxWidth);
+            }
+            cursorY += lineHeight * (Number(line.spacing) || 1);
+        }
+        return cursorY;
+    }
+
+    drawWrappedText(text, x, y, maxWidth, lineHeight, maxLines = Infinity, centered = false) {
+        const ctx = this.ctx;
+        const paragraphs = String(text || "").split(/\n/);
+        let lineCount = 0;
+        let cursorY = y;
+        for (let paragraphIndex = 0; paragraphIndex < paragraphs.length && lineCount < maxLines; paragraphIndex += 1) {
+            const paragraph = paragraphs[paragraphIndex].trim();
+            if (!paragraph) {
+                cursorY += lineHeight * 0.7;
+                lineCount += 1;
+                continue;
+            }
+            const words = paragraph.split(/\s+/);
+            let line = "";
+            for (const word of words) {
+                const candidate = line ? `${line} ${word}` : word;
+                if (line && ctx.measureText(candidate).width > maxWidth) {
+                    ctx.fillText(line, centered ? x + maxWidth * 0.5 : x, cursorY, maxWidth);
+                    cursorY += lineHeight;
+                    lineCount += 1;
+                    if (lineCount >= maxLines) return cursorY;
+                    line = word;
+                } else {
+                    line = candidate;
+                }
+            }
+            if (line && lineCount < maxLines) {
+                ctx.fillText(line, centered ? x + maxWidth * 0.5 : x, cursorY, maxWidth);
+                cursorY += lineHeight;
+                lineCount += 1;
+            }
+        }
+        return cursorY;
+    }
+
     drawPlayer(state, view) {
         if (state.player.visible === false) {
             this.lastBounds = null;

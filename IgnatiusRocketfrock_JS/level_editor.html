@@ -374,7 +374,7 @@
 
     <aside>
         <a class="toplink" href="IgnatiusRocketfrock_JS.html">Back to main</a>
-        <h1>Level Editor <small>rev 072</small></h1>
+        <h1>Level Editor <small>rev 076</small></h1>
         <p>Place atlas assets, move the wizard start, add future monsters/triggers, and export a level JSON. This editor is a first serious foundation, not yet a full shipped tool.</p>
 
         <div class="box">
@@ -512,6 +512,20 @@
             <label id="entity-state-row">Entity state
                 <select id="inspect-entity-state"></select>
             </label>
+            <div id="mailbox-story-row" style="display:none">
+                <h3>Mailbox story</h3>
+                <div class="row">
+                    <label>Trigger distance<input id="inspect-mailbox-distance" type="number" min="8" step="1"></label>
+                    <label>Letter seconds<input id="inspect-mailbox-letter-duration" type="number" min="0.25" step="0.25"></label>
+                </div>
+                <label>Thought seconds<input id="inspect-mailbox-thought-duration" type="number" min="0.25" step="0.25"></label>
+                <label>Letter title<input id="inspect-mailbox-title"></label>
+                <label>Letter text<textarea id="inspect-mailbox-letter"></textarea></label>
+                <label>Ignatius's thought
+                    <textarea id="inspect-mailbox-thought" rows="7" placeholder="Ignatius's response after reading the letter"></textarea>
+                </label>
+                <p class="small">There is one editor-letter mailbox per level. Long letters and long thoughts scroll automatically. Jump advances from the letter to the thought, then closes the thought before their timers expire.</p>
+            </div>
             <label>Notes<textarea id="inspect-notes"></textarea></label>
             <button id="apply-inspector">Apply</button>
         </div>
@@ -558,6 +572,8 @@ import {
     const LEVEL_AUTOLOAD_LIMIT = 20;
     const SPECIAL_ATLAS_IDS = ["it_atlas_001"];
     const ENTITY_CATALOG_URL = "assets/it_entities_001.json";
+    const WIZARD_EDITOR_WIDTH = 36;
+    const WIZARD_EDITOR_HEIGHT = 104;
 
     function atlasIdForIndex(index) {
         return `at_atlas_${String(index).padStart(3, "0")}`;
@@ -639,6 +655,13 @@ import {
         inspectCollision: document.getElementById("inspect-collision"),
         inspectEntityType: document.getElementById("inspect-entity-type"),
         inspectEntityState: document.getElementById("inspect-entity-state"),
+        mailboxStoryRow: document.getElementById("mailbox-story-row"),
+        inspectMailboxDistance: document.getElementById("inspect-mailbox-distance"),
+        inspectMailboxLetterDuration: document.getElementById("inspect-mailbox-letter-duration"),
+        inspectMailboxThoughtDuration: document.getElementById("inspect-mailbox-thought-duration"),
+        inspectMailboxTitle: document.getElementById("inspect-mailbox-title"),
+        inspectMailboxLetter: document.getElementById("inspect-mailbox-letter"),
+        inspectMailboxThought: document.getElementById("inspect-mailbox-thought"),
         inspectNotes: document.getElementById("inspect-notes"),
         assetSizeRow: document.getElementById("asset-size-row"),
         assetExtraRow: document.getElementById("asset-extra-row"),
@@ -670,6 +693,18 @@ import {
 
     function cloneData(value) {
         return JSON.parse(JSON.stringify(value));
+    }
+
+    function formatMailboxThoughtText(record) {
+        const directThought = String(record?.thoughtText || "").trim();
+        if (directThought) return directThought;
+        if (Array.isArray(record?.thoughts)) {
+            return record.thoughts
+                .map((entry) => String(entry || "").trim())
+                .filter(Boolean)
+                .join(" ");
+        }
+        return "";
     }
 
     function makeEmptyLevel() {
@@ -745,6 +780,64 @@ import {
 
     function snapPoint(point) {
         return { x: snapped(point.x), y: snapped(point.y) };
+    }
+
+    function supportYAtX(a, b, x) {
+        const minX = Math.min(a.x, b.x) - 0.001;
+        const maxX = Math.max(a.x, b.x) + 0.001;
+        if (x < minX || x > maxX) return null;
+        const dx = b.x - a.x;
+        if (Math.abs(dx) < 0.001) return null;
+        const t = (x - a.x) / dx;
+        return a.y + (b.y - a.y) * t;
+    }
+
+    function snapWizardStartToNearbyGround({ announce = false } = {}) {
+        const start = state.level?.playerStart;
+        if (!start) return null;
+        const startX = Number(start.x);
+        const startY = Number(start.y);
+        if (!Number.isFinite(startX) || !Number.isFinite(startY)) return null;
+
+        const maxDistance = WIZARD_EDITOR_HEIGHT * 0.5;
+        const samples = [startX, startX - WIZARD_EDITOR_WIDTH * 0.42, startX + WIZARD_EDITOR_WIDTH * 0.42];
+        let best = null;
+
+        for (const placement of state.level.placements || []) {
+            if (!placement || (placement.kind !== "atlasAsset" && placement.kind !== "asset") || placement.collisionFromManifest === false) continue;
+            const atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
+            const assetId = placement.assetId || placement.frame;
+            const frame = frameFor(placement.frame || assetId, atlasId) || frameFor(assetId, atlasId);
+            const object = objectFor(assetId, atlasId) || objectFor(placement.frame, atlasId);
+            if (!frame || !object || !Array.isArray(object.nodes) || !Array.isArray(object.lines)) continue;
+            const nodes = new Map(object.nodes.map((node) => [node.id, node]));
+
+            for (const line of object.lines) {
+                if (line.kind !== "walkable" && line.kind !== "blockable") continue;
+                const nodeA = nodes.get(line.from);
+                const nodeB = nodes.get(line.to);
+                if (!nodeA || !nodeB) continue;
+                const a = atlasNodeToPlacementWorld(placement, frame, nodeA);
+                const b = atlasNodeToPlacementWorld(placement, frame, nodeB);
+                for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
+                    const y = supportYAtX(a, b, samples[sampleIndex]);
+                    if (y === null) continue;
+                    const delta = y - startY;
+                    if (delta < -3 || delta > maxDistance) continue;
+                    const score = Math.abs(delta) + sampleIndex * 0.001;
+                    if (!best || score < best.score) {
+                        best = { y, delta, score, placementId: placement.id, lineId: line.id || "" };
+                    }
+                }
+            }
+        }
+
+        if (!best) return null;
+        start.y = best.y;
+        if (announce && Math.abs(best.delta) > 0.001) {
+            setStatus(`Snapped wizardStart ${best.delta.toFixed(1)} px down to ${best.placementId || "nearby ground"}.`);
+        }
+        return best;
     }
 
     function setTool(tool) {
@@ -1051,6 +1144,7 @@ import {
             state.selectedId = "wizardStart";
             await ensureAtlasesForLevel(level);
             normalizeLoadedLevelPlacements();
+            snapWizardStartToNearbyGround();
             refreshColorMappedAtlases({ redraw: false });
             syncMetadataToUi();
             persistUi();
@@ -1099,6 +1193,7 @@ import {
         state.selectedId = "wizardStart";
         await ensureAtlasesForLevel(level);
         normalizeLoadedLevelPlacements();
+        snapWizardStartToNearbyGround();
         refreshColorMappedAtlases({ redraw: false });
         syncMetadataToUi();
         persistUi();
@@ -1671,6 +1766,16 @@ import {
 
     function placeEntity(point) {
         const type = els.quickEntity.value;
+        if (type === "mailbox") {
+            const existingMailbox = state.level.entities.find((entity) => entity.type === "mailbox" || entity.interaction === "editorLetter");
+            if (existingMailbox) {
+                state.selectedId = existingMailbox.id;
+                setTool("select");
+                persistUi();
+                setStatus("This level already has its editor-letter mailbox. The existing mailbox has been selected.", true);
+                return;
+            }
+        }
         if (type === "cutoutMask") {
             placeCutoutMask(point);
             return;
@@ -1680,6 +1785,7 @@ import {
             state.level.playerStart.x = p.x;
             state.level.playerStart.y = p.y;
             state.selectedId = "wizardStart";
+            snapWizardStartToNearbyGround({ announce: true });
             persistUi();
             return;
         }
@@ -1807,8 +1913,10 @@ import {
         const completedDrag = state.drag;
         state.drag = null;
         canvas.classList.remove("panning");
-        if (completedDrag.kind === "move") persistUi();
-        else draw();
+        if (completedDrag.kind === "move") {
+            if (completedDrag.id === "wizardStart") snapWizardStartToNearbyGround({ announce: true });
+            persistUi();
+        } else draw();
     }
 
     function draw() {
@@ -2114,8 +2222,16 @@ import {
                 els.inspectEntityState.appendChild(option);
             }
             els.inspectEntityState.value = rec.state || stateIds[0] || "";
+            els.inspectMailboxDistance.value = Number(rec.triggerDistance) || 72;
+            els.inspectMailboxLetterDuration.value = Number(rec.letterDuration) || 7;
+            els.inspectMailboxThoughtDuration.value = Number(rec.thoughtDuration) || 4.5;
+            els.inspectMailboxTitle.value = rec.letterTitle || "A Letter from Your Humble Editor";
+            els.inspectMailboxLetter.value = rec.letterText || "";
+            els.inspectMailboxThought.value = formatMailboxThoughtText(rec);
             els.inspectNotes.value = rec.notes || "";
         }
+        const isMailboxStory = selected.kind === "entity" && (rec.type === "mailbox" || rec.interaction === "editorLetter");
+        els.mailboxStoryRow.style.display = isMailboxStory ? "block" : "none";
         els.assetSizeRow.style.display = selected.kind === "asset" || selected.kind === "cutoutMask" || selected.kind === "entity" ? "grid" : "none";
         els.assetExtraRow.style.display = selected.kind === "asset" ? "grid" : "none";
         els.entityTypeRow.style.display = selected.kind === "entity" || selected.kind === "wizardStart" ? "grid" : "none";
@@ -2136,6 +2252,7 @@ import {
             rec.x = Number(els.inspectX.value) || rec.x;
             rec.y = Number(els.inspectY.value) || rec.y;
             rec.notes = els.inspectNotes.value;
+            snapWizardStartToNearbyGround({ announce: true });
         } else {
             rec.id = newId;
             rec.x = Number(els.inspectX.value) || 0;
@@ -2155,8 +2272,30 @@ import {
                 rec.layer = "mask";
             }
             if (selected.kind === "entity") {
-                rec.type = els.inspectEntityType.value;
+                const requestedType = els.inspectEntityType.value;
+                if (requestedType === "mailbox") {
+                    const otherMailbox = state.level.entities.find((entity) => entity.id !== rec.id && (entity.type === "mailbox" || entity.interaction === "editorLetter"));
+                    if (otherMailbox) {
+                        setStatus("This level already has its editor-letter mailbox.", false);
+                        return;
+                    }
+                }
+                rec.type = requestedType;
                 if (els.inspectEntityState.value) rec.state = els.inspectEntityState.value;
+                if (rec.type === "mailbox" || rec.interaction === "editorLetter") {
+                    rec.interaction = "editorLetter";
+                    rec.triggerDistance = Math.max(8, Number(els.inspectMailboxDistance.value) || 72);
+                    rec.letterDuration = Math.max(0.25, Number(els.inspectMailboxLetterDuration.value) || 7);
+                    rec.thoughtDuration = Math.max(0.25, Number(els.inspectMailboxThoughtDuration.value) || 4.5);
+                    rec.letterTitle = els.inspectMailboxTitle.value.trim() || "A Letter from Your Humble Editor";
+                    rec.letterText = els.inspectMailboxLetter.value;
+                    rec.thoughtText = els.inspectMailboxThought.value.trim();
+                    delete rec.thoughts;
+                    rec.letterAtlasId = rec.letterAtlasId || "it_atlas_001";
+                    rec.letterAssetId = rec.letterAssetId || "letter_scroll";
+                    rec.thoughtAtlasId = rec.thoughtAtlasId || "it_atlas_001";
+                    rec.thoughtAssetId = rec.thoughtAssetId || "thought_bubble_large";
+                }
             }
             state.selectedId = rec.id;
         }
@@ -2484,6 +2623,8 @@ import {
         }
         state.level = normalizeLevelDefaults(JSON.parse(saved));
         ensureAtlasesForLevel(state.level).finally(() => {
+            normalizeLoadedLevelPlacements();
+            snapWizardStartToNearbyGround();
             refreshColorMappedAtlases({ redraw: false });
             state.selectedId = "wizardStart";
             syncMetadataToUi();

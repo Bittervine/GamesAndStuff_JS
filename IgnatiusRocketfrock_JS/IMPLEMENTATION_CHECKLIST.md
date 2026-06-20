@@ -460,3 +460,42 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Align the open portal and actor-front foreground layer to the closed portal's left and bottom edges.
 * [x] Add regression assertions for the authored frame rectangles and visual factors.
 
+
+### Revision 073 grounded starts and artwork targets
+
+* [x] Snap `wizardStart` to a nearby `walkable` or `blockable` collision line when it is no more than half a wizard height below the authored point.
+* [x] Apply the same snapping rule in the Level Editor after load, placement, drag, and numeric edits.
+* [x] Update the portal intro, current player Y, and respawn Y to the resolved grounded start.
+* [x] Let target-dummy entities define a normalized bullseye anchor and target radius.
+* [x] Aim rockets at the straw dummy's belly bullseye.
+* [x] Suppress the legacy target dot and pulse for atlas-backed target artwork.
+
+
+### Revision 074 mailbox letter event
+
+[x] Pixel-align the revised mailbox-with-letter and empty-mailbox atlas frames.
+[x] Trigger the editor mailbox sequence at a configurable proximity distance.
+[x] Replace the mailbox artwork with its empty state when the letter is collected.
+[x] Display the scroll and editor text, advancing by timeout or Jump.
+[x] Display Ignatius's thought bubble and text, advancing by timeout or Jump.
+[x] Lock movement, jump, boost, and weapon input until the sequence completes.
+[x] Expose mailbox trigger distance, timings, title, letter text, and thought text in the Level Editor inspector.
+[x] Add headless regression coverage for state changes, input locking, and control return.
+
+### Revision 075 mailbox script authoring (historical; multi-bubble format superseded by revision 076)
+
+[x] Copy-edit and store Wilfred of Bittervine's introductory letter in `level_001.json`.
+[x] Make the letter title, body, timing, and ordered thought bubbles editable in the Level Editor.
+[x] Serialize thought bubbles as an ordered array while retaining compatibility with the older single `thoughtText` field.
+[x] Auto-scroll letter text vertically when it exceeds the visible parchment area.
+[x] Let Jump or timeout advance through every thought bubble before returning control.
+[x] Prevent placement of more than one editor-letter mailbox per level.
+
+### Revision 076 unified story text
+
+[x] Use the thought-bubble typeface for the letter body.
+[x] Replace the multi-bubble thought sequence with one editable thought.
+[x] Retain backward compatibility by joining older `thoughts` arrays when loading.
+[x] Auto-scroll overflowing thought text and display a scrollbar.
+[x] Vertically center letter and thought text when it fits without scrolling.
+[x] Keep Jump progression as letter → thought → control returned.

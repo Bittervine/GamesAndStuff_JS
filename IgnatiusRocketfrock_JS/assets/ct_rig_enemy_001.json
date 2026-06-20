@@ -3,18 +3,18 @@
         "version": 3,
         "note": "Atlas-backed skeleton rig refined in revision 064. The rear left arm is drawn first, the front right arm is drawn last, and shield/sword pivots are authored at their hand grips. Animation positions remain absolute rig-space values."
     },
-    "rigId": "ct_rig_skeleton_1",
-    "atlasId": "ct_atlas_skeleton_1",
-    "atlasManifest": "ct_atlas_skeleton_1.json",
+    "rigId": "ct_rig_enemy_001",
+    "atlasId": "ct_atlas_enemy_001",
+    "atlasManifest": "ct_atlas_enemy_001.json",
     "drawOrder": [
-        "leftArm",
-        "shield",
         "leftLeg",
+        "leftArm",
         "rightLeg",
         "torso",
         "head",
         "sword",
-        "rightArm"
+        "rightArm",
+        "shield"
     ],
     "global": {
         "scale": 0.5,
@@ -56,8 +56,8 @@
     },
     "pivots": {
         "leftArm": {
-            "x": 0.5,
-            "y": 0.1
+            "x": 0.25,
+            "y": 0.155
         },
         "leftLeg": {
             "x": 0.5,
@@ -99,7 +99,7 @@
                 "holder"
             ],
             "offset": {
-                "x": -48,
+                "x": -32,
                 "y": -278
             },
             "scale": 1,
@@ -132,7 +132,7 @@
                 "x": 24,
                 "y": -170
             },
-            "scale": 1,
+            "scale": 0.6,
             "targetHeight": 184,
             "alpha": 1
         },

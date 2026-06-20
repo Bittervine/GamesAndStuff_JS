@@ -3,7 +3,7 @@
         "version": 3,
         "note": "Editable skeleton guard idle refined in revision 064. Shield and sword pivots follow the hand grips at every authored pose."
     },
-    "animationId": "ct_anim_skeleton_1_idle",
+    "animationId": "ct_anim_enemy_001_idle",
     "duration": 1.2,
     "loop": true,
     "mirrorable": true,
@@ -20,91 +20,91 @@
     },
     "referencePose": {
         "leftArm": {
-            "x": -48.0,
-            "y": -278.0,
+            "x": -48,
+            "y": -278,
             "rotation": -0.16,
-            "scale": 1.0,
-            "alpha": 1.0
-        },
-        "leftLeg": {
-            "x": -24.0,
-            "y": -170.0,
-            "rotation": 0.02,
-            "scale": 1.0,
-            "alpha": 1.0
+            "scale": 1,
+            "alpha": 1
         },
         "rightLeg": {
-            "x": 24.0,
-            "y": -170.0,
+            "x": -24,
+            "y": -170,
+            "rotation": 0.02,
+            "scale": 1,
+            "alpha": 1
+        },
+        "leftLeg": {
+            "x": 24,
+            "y": -170,
             "rotation": -0.02,
-            "scale": 1.0,
-            "alpha": 1.0
+            "scale": 1,
+            "alpha": 1
         },
         "torso": {
-            "x": 0.0,
-            "y": -166.0,
-            "rotation": 0.0,
-            "scale": 1.0,
-            "alpha": 1.0
+            "x": 0,
+            "y": -166,
+            "rotation": 0,
+            "scale": 1,
+            "alpha": 1
         },
         "head": {
-            "x": 2.0,
-            "y": -298.0,
+            "x": 2,
+            "y": -298,
             "rotation": 0.02,
-            "scale": 1.0,
-            "alpha": 1.0
+            "scale": 1,
+            "alpha": 1
         },
         "rightArm": {
-            "x": 50.0,
-            "y": -280.0,
+            "x": 50,
+            "y": -280,
             "rotation": 0.1,
-            "scale": 1.0,
-            "alpha": 1.0
+            "scale": 1,
+            "alpha": 1
         },
         "shield": {
             "x": -18.920521,
             "y": -150.767789,
             "rotation": -0.1192,
-            "scale": 1.0,
-            "alpha": 1.0
+            "scale": 1,
+            "alpha": 1
         },
         "sword": {
             "x": 53.699025,
             "y": -148.734935,
             "rotation": 0.125,
-            "scale": 1.0,
-            "alpha": 1.0
+            "scale": 1,
+            "alpha": 1
         }
     },
     "tracks": {
-        "leftArm": {
+        "rightArm": {
             "x": [
                 {
                     "time": 0,
-                    "value": -48.0,
+                    "value": -48,
                     "easing": "linear"
                 }
             ],
             "y": [
                 {
-                    "time": 0.0,
-                    "value": -278.0,
+                    "time": 0,
+                    "value": -278,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": -281.0,
+                    "value": -281,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 1.2,
-                    "value": -278.0,
+                    "value": -278,
                     "easing": "easeInOut"
                 }
             ],
             "rotation": [
                 {
-                    "time": 0.0,
+                    "time": 0,
                     "value": -0.16,
                     "easing": "easeInOut"
                 },
@@ -137,7 +137,7 @@
         "shield": {
             "x": [
                 {
-                    "time": 0.0,
+                    "time": 0,
                     "value": -18.920521,
                     "easing": "easeInOut"
                 },
@@ -154,7 +154,7 @@
             ],
             "y": [
                 {
-                    "time": 0.0,
+                    "time": 0,
                     "value": -150.767789,
                     "easing": "easeInOut"
                 },
@@ -171,7 +171,7 @@
             ],
             "rotation": [
                 {
-                    "time": 0.0,
+                    "time": 0,
                     "value": -0.1192,
                     "easing": "easeInOut"
                 },
@@ -201,34 +201,34 @@
                 }
             ]
         },
-        "leftLeg": {
+        "rightLeg": {
             "x": [
                 {
                     "time": 0,
-                    "value": -24.0,
+                    "value": -24,
                     "easing": "linear"
                 }
             ],
             "y": [
                 {
-                    "time": 0.0,
-                    "value": -170.0,
+                    "time": 0,
+                    "value": -170,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": -171.0,
+                    "value": -171,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 1.2,
-                    "value": -170.0,
+                    "value": -170,
                     "easing": "easeInOut"
                 }
             ],
             "rotation": [
                 {
-                    "time": 0.0,
+                    "time": 0,
                     "value": 0.02,
                     "easing": "easeInOut"
                 },
@@ -258,34 +258,34 @@
                 }
             ]
         },
-        "rightLeg": {
+        "leftLeg": {
             "x": [
                 {
                     "time": 0,
-                    "value": 24.0,
+                    "value": 24,
                     "easing": "linear"
                 }
             ],
             "y": [
                 {
-                    "time": 0.0,
-                    "value": -170.0,
+                    "time": 0,
+                    "value": -170,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": -171.0,
+                    "value": -171,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 1.2,
-                    "value": -170.0,
+                    "value": -170,
                     "easing": "easeInOut"
                 }
             ],
             "rotation": [
                 {
-                    "time": 0.0,
+                    "time": 0,
                     "value": -0.02,
                     "easing": "easeInOut"
                 },
@@ -319,31 +319,31 @@
             "x": [
                 {
                     "time": 0,
-                    "value": 0.0,
+                    "value": 0,
                     "easing": "linear"
                 }
             ],
             "y": [
                 {
-                    "time": 0.0,
-                    "value": -166.0,
+                    "time": 0,
+                    "value": -166,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": -169.0,
+                    "value": -169,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 1.2,
-                    "value": -166.0,
+                    "value": -166,
                     "easing": "easeInOut"
                 }
             ],
             "rotation": [
                 {
-                    "time": 0.0,
-                    "value": 0.0,
+                    "time": 0,
+                    "value": 0,
                     "easing": "easeInOut"
                 },
                 {
@@ -353,7 +353,7 @@
                 },
                 {
                     "time": 1.2,
-                    "value": 0.0,
+                    "value": 0,
                     "easing": "easeInOut"
                 }
             ],
@@ -376,30 +376,30 @@
             "x": [
                 {
                     "time": 0,
-                    "value": 2.0,
+                    "value": 2,
                     "easing": "linear"
                 }
             ],
             "y": [
                 {
-                    "time": 0.0,
-                    "value": -298.0,
+                    "time": 0,
+                    "value": -298,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": -301.0,
+                    "value": -301,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 1.2,
-                    "value": -298.0,
+                    "value": -298,
                     "easing": "easeInOut"
                 }
             ],
             "rotation": [
                 {
-                    "time": 0.0,
+                    "time": 0,
                     "value": 0.02,
                     "easing": "easeInOut"
                 },
@@ -432,52 +432,37 @@
         "sword": {
             "x": [
                 {
-                    "time": 0.0,
-                    "value": 53.699025,
+                    "time": 0,
+                    "value": 70.55670588125423,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": 47.790346,
-                    "easing": "easeInOut"
-                },
-                {
-                    "time": 1.2,
-                    "value": 53.699025,
+                    "value": 66.52099964392225,
                     "easing": "easeInOut"
                 }
             ],
             "y": [
                 {
-                    "time": 0.0,
-                    "value": -148.734935,
+                    "time": 0,
+                    "value": -158.0867572287989,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": -151.701419,
-                    "easing": "easeInOut"
-                },
-                {
-                    "time": 1.2,
-                    "value": -148.734935,
+                    "value": -161.98842602023274,
                     "easing": "easeInOut"
                 }
             ],
             "rotation": [
                 {
-                    "time": 0.0,
-                    "value": 0.125,
+                    "time": 0,
+                    "value": 0.9938603328971869,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": 0.14525,
-                    "easing": "easeInOut"
-                },
-                {
-                    "time": 1.2,
-                    "value": 0.125,
+                    "value": 1.0465399538991726,
                     "easing": "easeInOut"
                 }
             ],
@@ -496,34 +481,34 @@
                 }
             ]
         },
-        "rightArm": {
+        "leftArm": {
             "x": [
                 {
                     "time": 0,
-                    "value": 50.0,
+                    "value": 50,
                     "easing": "linear"
                 }
             ],
             "y": [
                 {
-                    "time": 0.0,
-                    "value": -280.0,
+                    "time": 0,
+                    "value": -280,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": -283.0,
+                    "value": -283,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 1.2,
-                    "value": -280.0,
+                    "value": -280,
                     "easing": "easeInOut"
                 }
             ],
             "rotation": [
                 {
-                    "time": 0.0,
+                    "time": 0,
                     "value": 0.1,
                     "easing": "easeInOut"
                 },
