@@ -26,6 +26,10 @@ const gameOverOverlayEl = document.getElementById('gameOverOverlay');
 const gameOverTimerEl = document.getElementById('gameOverTimer');
 
 const params = new URLSearchParams(window.location.search);
+const requestedDebugMode = Number.parseInt(params.get('debug') || '0', 10);
+const debugAssetMode = requestedDebugMode === 2 ? 2 : (requestedDebugMode === 1 ? 1 : 0);
+const lazyModelLoading = debugAssetMode === 1;
+const placeholderModelsOnly = debugAssetMode === 2;
 const seed = params.has('seed')
   ? parseSeed(params.get('seed'))
   : (config.debug ? config.debugSeed : parseSeed(''));
@@ -98,6 +102,10 @@ const projectileVisuals = new Map();
 const enemyVisuals = new Map();
 const enemyExplosionVisuals = new Map();
 const enemyFamilyTemplates = new Map();
+const enemyTemplateLoadPromises = new Map();
+const lazyModelLoadQueue = [];
+let lazyModelLoadActive = false;
+let starModelRoot = null;
 const enemyHudMarkers = [];
 const orbitalsAudio = {
   ctx: null,
@@ -150,6 +158,9 @@ scene.add(starLight);
 
 window.__orbitals = config.debug ? {
   state,
+  debugAssetMode,
+  lazyModelLoading,
+  placeholderModelsOnly,
   getCombatEvents() {
     return state.eventLog.map((event) => ({ ...event }));
   },
@@ -857,19 +868,31 @@ function createShipDisplay(root) {
   };
 }
 
+function replaceShipDisplayModel(display, root) {
+  if (!display || !display.modelPivot || !root) {
+    return;
+  }
+  if (display.model) {
+    display.modelPivot.remove(display.model);
+  }
+  display.modelPivot.add(root);
+  display.model = root;
+}
+
 function createFallbackShip() {
   const group = new THREE.Group();
   const body = new THREE.Mesh(
     new THREE.ConeGeometry(0.6, 2.2, 6),
     new THREE.MeshStandardMaterial({ color: 0xaec9ff, metalness: 0.3, roughness: 0.45 })
   );
-  body.rotation.x = Math.PI / 2;
+  body.rotation.x = -Math.PI / 2;
   const fin = new THREE.Mesh(
     new THREE.BoxGeometry(0.12, 0.9, 0.8),
     new THREE.MeshStandardMaterial({ color: 0x4966aa, metalness: 0.2, roughness: 0.6 })
   );
-  fin.position.set(0, 0, -0.2);
+  fin.position.set(0, 0, 0.2);
   group.add(body, fin);
+  group.rotation.z = Math.PI / 2;
   return group;
 }
 
@@ -1274,49 +1297,69 @@ function makeStarfield() {
   scene.add(points);
 }
 
-async function loadStarVisual() {
-  let root;
-  try {
-    root = await loadGltf(withDotSlash(STAR_FILE));
-  } catch (error) {
-    console.warn('Star asset failed, using fallback.', error);
-    root = createFallbackStar();
-  }
+function configureStarModel(root) {
   normalizeLoadedModel(root, config.starScale);
   root.traverse((obj) => {
-    if (obj.isMesh && obj.material) {
-      obj.castShadow = false;
-      obj.receiveShadow = false;
-      if (Array.isArray(obj.material)) {
-        obj.material.forEach((mat) => {
-          if (!mat) {
-            return;
-          }
-          if (mat.color) {
-            mat.color.set(0xfff3c4);
-          }
-          if ('emissive' in mat) {
-            mat.emissive = new THREE.Color(0xffe2a0);
-            mat.emissiveIntensity = 18;
-          }
-          mat.toneMapped = false;
-        });
-      } else {
-        if (obj.material.color) {
-          obj.material.color.set(0xfff3c4);
-        }
-        if ('emissive' in obj.material) {
-          obj.material.emissive = new THREE.Color(0xffe2a0);
-          obj.material.emissiveIntensity = 18;
-        }
-        obj.material.toneMapped = false;
-      }
+    if (!obj.isMesh || !obj.material) {
+      return;
     }
+    const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+    materials.forEach((mat) => {
+      if (!mat) {
+        return;
+      }
+      if (mat.color) {
+        mat.color.set(0xfff3c4);
+      }
+      if ('emissive' in mat) {
+        mat.emissive = new THREE.Color(0xffe2a0);
+        mat.emissiveIntensity = 18;
+      }
+      mat.toneMapped = false;
+    });
+    obj.castShadow = false;
+    obj.receiveShadow = false;
   });
+  return root;
+}
+
+function installStarModel(root) {
+  configureStarModel(root);
+  if (starModelRoot) {
+    starRoot.remove(starModelRoot);
+  }
+  starModelRoot = root;
   starRoot.add(root);
   starRoot.position.set(0, 0, 0);
   rebuildStarCorona();
   starLight.intensity = 24000;
+}
+
+async function loadStarVisual({ placeholder = false } = {}) {
+  let root;
+  if (placeholder || placeholderModelsOnly) {
+    root = createFallbackStar();
+  } else {
+    try {
+      root = await loadGltf(withDotSlash(STAR_FILE));
+    } catch (error) {
+      console.warn('Star asset failed, using fallback.', error);
+      root = createFallbackStar();
+    }
+  }
+  installStarModel(root);
+}
+
+async function upgradeStarVisual() {
+  if (!lazyModelLoading) {
+    return;
+  }
+  try {
+    const root = await loadGltf(withDotSlash(STAR_FILE));
+    installStarModel(root);
+  } catch (error) {
+    console.warn('Lazy star asset load failed; keeping placeholder.', error);
+  }
 }
 
 function initSpaceDebris() {
@@ -2212,48 +2255,40 @@ function updateFuelMotes(dt, time) {
   }
 }
 
-async function loadPlanetVisual(planet, index) {
-  let root;
-  try {
-    root = await loadGltf(withDotSlash(`${ASSET_ROOT}${planet.file}`));
-  } catch (error) {
-    console.warn(`Planet asset failed for ${planet.file}, using fallback.`, error);
-    root = createFallbackPlanet(0x6277aa);
-  }
+function configurePlanetModel(root, planet, index) {
   normalizeLoadedModel(root, planet.radius * 2);
   root.traverse((obj) => {
-    if (obj.isMesh && obj.material) {
-      obj.castShadow = false;
-      obj.receiveShadow = false;
-      if (Array.isArray(obj.material)) {
-        obj.material.forEach((mat, matIndex) => {
-          if (mat && mat.color) {
-            mat.color.offsetHSL(planet.hueShift, 0, 0);
-            mat.metalness = Math.min(1, (mat.metalness ?? 0.05) + index * 0.01);
-            mat.roughness = Math.max(0.12, (mat.roughness ?? 0.8) - 0.05);
-            mat.transparent = false;
-            mat.opacity = 1;
-            mat.alphaTest = 0;
-            mat.depthWrite = true;
-            mat.depthTest = true;
-            mat.blending = THREE.NormalBlending;
-          }
-        });
-      } else if (obj.material.color) {
-        obj.material.color.offsetHSL(planet.hueShift, 0, 0);
-        obj.material.transparent = false;
-        obj.material.opacity = 1;
-        obj.material.alphaTest = 0;
-        obj.material.depthWrite = true;
-        obj.material.depthTest = true;
-        obj.material.blending = THREE.NormalBlending;
-      }
+    if (!obj.isMesh || !obj.material) {
+      return;
     }
+    obj.castShadow = false;
+    obj.receiveShadow = false;
+    const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+    materials.forEach((mat) => {
+      if (!mat || !mat.color) {
+        return;
+      }
+      mat.color.offsetHSL(planet.hueShift, 0, 0);
+      mat.metalness = Math.min(1, (mat.metalness ?? 0.05) + index * 0.01);
+      mat.roughness = Math.max(0.12, (mat.roughness ?? 0.8) - 0.05);
+      mat.transparent = false;
+      mat.opacity = 1;
+      mat.alphaTest = 0;
+      mat.depthWrite = true;
+      mat.depthTest = true;
+      mat.blending = THREE.NormalBlending;
+    });
   });
+  return root;
+}
+
+function ensurePlanetDisplay(planet) {
+  if (planet.root && planet.visual) {
+    return;
+  }
 
   planet.root = new THREE.Group();
   planet.visual = new THREE.Group();
-  planet.visual.add(root);
   planet.root.add(planet.visual);
   const glowMaterial = new THREE.SpriteMaterial({
     map: atmosphereGlowTexture,
@@ -2279,27 +2314,72 @@ async function loadPlanetVisual(planet, index) {
     mote.visual = createFuelMoteVisual(mote, i);
     planet.root.add(mote.visual);
   }
+}
 
+function installPlanetModel(planet, index, root) {
+  ensurePlanetDisplay(planet);
+  configurePlanetModel(root, planet, index);
+  if (planet.modelRoot) {
+    planet.visual.remove(planet.modelRoot);
+  }
+  planet.modelRoot = root;
+  planet.visual.add(root);
   planet.root.position.copy(planet.position);
   updatePlanetVisual(planet, 0, 0);
 }
 
-async function loadShipVisual() {
+async function loadPlanetVisual(planet, index, { placeholder = false } = {}) {
   let root;
+  if (placeholder || placeholderModelsOnly) {
+    root = createFallbackPlanet(0x6277aa);
+  } else {
+    try {
+      root = await loadGltf(withDotSlash(`${ASSET_ROOT}${planet.file}`));
+    } catch (error) {
+      console.warn(`Planet asset failed for ${planet.file}, using fallback.`, error);
+      root = createFallbackPlanet(0x6277aa);
+    }
+  }
+  installPlanetModel(planet, index, root);
+}
+
+async function upgradePlanetVisual(planet, index) {
+  if (!lazyModelLoading) {
+    return;
+  }
   try {
-    root = await loadGltf(PLAYER_FILE);
+    const root = await loadGltf(withDotSlash(`${ASSET_ROOT}${planet.file}`));
+    installPlanetModel(planet, index, root);
   } catch (error) {
-    console.warn('Player ship asset failed, using fallback.', error);
+    console.warn(`Lazy planet asset load failed for ${planet.file}; keeping placeholder.`, error);
+  }
+}
+
+async function loadShipVisual({ placeholder = false } = {}) {
+  let root;
+  if (placeholder || placeholderModelsOnly) {
     root = createFallbackShip();
+  } else {
+    try {
+      root = await loadGltf(PLAYER_FILE);
+    } catch (error) {
+      console.warn('Player ship asset failed, using fallback.', error);
+      root = createFallbackShip();
+    }
   }
   normalizeLoadedModel(root, 3.0);
   const ship = state.ship;
-  const display = createShipDisplay(root);
-  world.add(display.root);
-  ship.root = display.root;
-  ship.visual = display.visual;
-  ship.modelPivot = display.modelPivot;
-  ship.model = display.model;
+  if (!ship.root) {
+    const display = createShipDisplay(root);
+    world.add(display.root);
+    ship.root = display.root;
+    ship.visual = display.visual;
+    ship.modelPivot = display.modelPivot;
+    ship.model = display.model;
+  } else {
+    replaceShipDisplayModel(ship, root);
+    ship.model = root;
+  }
   ship.engineEffects = createShipEngineEffects(root);
   ship.root.position.copy(ship.position);
   ship.muzzleOffset = config.shipMuzzleOffset;
@@ -2308,6 +2388,22 @@ async function loadShipVisual() {
     : new THREE.Vector3(0, 1, 0);
   ship.root.quaternion.copy(quatFromForwardUp(ship.forward, localUp));
   ship.visual.rotation.z = 0;
+}
+
+async function upgradeShipVisual() {
+  if (!lazyModelLoading) {
+    return;
+  }
+  try {
+    const root = await loadGltf(PLAYER_FILE);
+    normalizeLoadedModel(root, 3.0);
+    const ship = state.ship;
+    replaceShipDisplayModel(ship, root);
+    ship.model = root;
+    ship.engineEffects = createShipEngineEffects(root);
+  } catch (error) {
+    console.warn('Lazy player ship asset load failed; keeping placeholder.', error);
+  }
 }
 
 async function loadEnemyFamilyVisual(familyKey) {
@@ -2332,30 +2428,96 @@ function getEnemyFallbackAssetFile(familyKey) {
   return familyFiles[0] || ENEMY_MODEL_FILES[0] || '';
 }
 
+function getEnemyTemplate(familyKey, assetFile) {
+  const familyTemplates = enemyFamilyTemplates.get(familyKey) || enemyFamilyTemplates.get(ENEMY_FAMILY_KEYS[0]);
+  if (!familyTemplates) {
+    return null;
+  }
+  return familyTemplates.get(assetFile)
+    || familyTemplates.get(getEnemyFallbackAssetFile(familyKey))
+    || familyTemplates.values().next().value
+    || null;
+}
+
+function lazyEnemyTemplateKey(familyKey, assetFile) {
+  return `${familyKey}/${assetFile}`;
+}
+
+function loadEnemyTemplateLazily(familyKey, assetFile) {
+  if (!lazyModelLoading || !assetFile) {
+    return Promise.resolve(null);
+  }
+
+  const existingTemplate = getEnemyTemplate(familyKey, assetFile);
+  if (existingTemplate) {
+    return Promise.resolve(existingTemplate);
+  }
+
+  const key = lazyEnemyTemplateKey(familyKey, assetFile);
+  const existingPromise = enemyTemplateLoadPromises.get(key);
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const promise = loadGltf(withDotSlash(`${ASSET_ROOT}${assetFile}`))
+    .then((root) => {
+      normalizeLoadedModel(root, 3.0);
+      let familyTemplates = enemyFamilyTemplates.get(familyKey);
+      if (!familyTemplates) {
+        familyTemplates = new Map();
+        enemyFamilyTemplates.set(familyKey, familyTemplates);
+      }
+      familyTemplates.set(assetFile, root);
+      return root;
+    })
+    .catch((error) => {
+      console.warn(`Lazy enemy asset load failed for ${familyKey}/${assetFile}; keeping placeholder.`, error);
+      return null;
+    })
+    .finally(() => {
+      enemyTemplateLoadPromises.delete(key);
+    });
+  enemyTemplateLoadPromises.set(key, promise);
+  return promise;
+}
+
+function upgradeEnemyDisplayWhenReady(enemy, display, familyKey, assetFile) {
+  loadEnemyTemplateLazily(familyKey, assetFile).then((template) => {
+    if (!template || enemyVisuals.get(enemy.id) !== display) {
+      return;
+    }
+    const model = template.clone(true);
+    replaceShipDisplayModel(display, model);
+    enemy.model = model;
+  });
+}
+
 function ensureEnemyVisual(enemy) {
   let display = enemyVisuals.get(enemy.id);
   if (display) {
     return display;
   }
 
-  const familyTemplates = enemyFamilyTemplates.get(enemy.family) || enemyFamilyTemplates.get(ENEMY_FAMILY_KEYS[0]);
-  const assetFile = enemy.assetFile || getEnemyFallbackAssetFile(enemy.family);
-  const template = familyTemplates
-    ? familyTemplates.get(assetFile)
-      || familyTemplates.get(getEnemyFallbackAssetFile(enemy.family))
-      || familyTemplates.values().next().value
-    : null;
-  const model = template ? template.clone(true) : createFallbackShip();
+  const familyKey = enemy.family || ENEMY_FAMILY_KEYS[0];
+  const assetFile = enemy.assetFile || getEnemyFallbackAssetFile(familyKey);
+  const template = placeholderModelsOnly ? null : getEnemyTemplate(familyKey, assetFile);
+  const model = template ? template.clone(true) : normalizeLoadedModel(createFallbackShip(), 3.0);
   display = createShipDisplay(model);
   display.root.renderOrder = 20;
   display.root.frustumCulled = false;
   display.visual.frustumCulled = false;
+  display.familyKey = familyKey;
+  display.assetFile = assetFile;
   world.add(display.root);
   enemyVisuals.set(enemy.id, display);
   enemy.root = display.root;
   enemy.visual = display.visual;
   enemy.modelPivot = display.modelPivot;
   enemy.model = display.model;
+
+  if (lazyModelLoading && !template) {
+    upgradeEnemyDisplayWhenReady(enemy, display, familyKey, assetFile);
+  }
   return display;
 }
 
@@ -2381,6 +2543,49 @@ function updateEnemyVisuals() {
   }
 }
 
+function runLazyModelQueue() {
+  if (lazyModelLoadActive || lazyModelLoadQueue.length === 0) {
+    return;
+  }
+  lazyModelLoadActive = true;
+  const runNext = async () => {
+    const task = lazyModelLoadQueue.shift();
+    if (!task) {
+      lazyModelLoadActive = false;
+      return;
+    }
+    try {
+      await task();
+    } catch (error) {
+      console.warn('Lazy model task failed.', error);
+    }
+    lazyModelLoadActive = false;
+    runLazyModelQueue();
+  };
+
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(() => runNext(), { timeout: 1200 });
+  } else {
+    window.setTimeout(runNext, 0);
+  }
+}
+
+function enqueueLazyModelLoad(task) {
+  lazyModelLoadQueue.push(task);
+  runLazyModelQueue();
+}
+
+function queueLazyWorldModels(planetConfigs) {
+  if (!lazyModelLoading) {
+    return;
+  }
+  enqueueLazyModelLoad(() => upgradeStarVisual());
+  enqueueLazyModelLoad(() => upgradeShipVisual());
+  planetConfigs.forEach((planet, index) => {
+    enqueueLazyModelLoad(() => upgradePlanetVisual(planet, index));
+  });
+}
+
 async function bootstrap() {
   loadingText.textContent = 'Choosing planets...';
   sim.bootstrapWorld();
@@ -2388,35 +2593,39 @@ async function bootstrap() {
   makeStarfield();
 
   const planetConfigs = state.planets;
-
-  const totalLoads = 2 + ENEMY_MODEL_FILES.length + planetConfigs.length;
+  const useStartupPlaceholders = lazyModelLoading || placeholderModelsOnly;
+  const totalLoads = useStartupPlaceholders
+    ? 2 + planetConfigs.length
+    : 2 + ENEMY_MODEL_FILES.length + planetConfigs.length;
   let completedLoads = 0;
   const reportProgress = (label, increment = 1) => {
     completedLoads += increment;
-    const pct = Math.round((completedLoads / totalLoads) * 100);
+    const pct = Math.round((completedLoads / Math.max(1, totalLoads)) * 100);
     loadingBarInner.style.width = `${pct}%`;
     loadingText.textContent = label;
   };
 
-  loadingText.textContent = 'Loading star...';
-  await loadStarVisual();
-  reportProgress('Star loaded');
+  loadingText.textContent = useStartupPlaceholders ? 'Building star placeholder...' : 'Loading star...';
+  await loadStarVisual({ placeholder: useStartupPlaceholders });
+  reportProgress(useStartupPlaceholders ? 'Star placeholder ready' : 'Star loaded');
 
-  loadingText.textContent = 'Loading ship...';
-  await loadShipVisual();
-  reportProgress('Ship loaded');
+  loadingText.textContent = useStartupPlaceholders ? 'Building ship placeholder...' : 'Loading ship...';
+  await loadShipVisual({ placeholder: useStartupPlaceholders });
+  reportProgress(useStartupPlaceholders ? 'Ship placeholder ready' : 'Ship loaded');
 
-  for (const familyKey of ENEMY_FAMILY_KEYS) {
-    const familyFiles = ENEMY_MODEL_FILES_BY_FAMILY[familyKey] || [];
-    loadingText.textContent = `Loading ${familyKey} enemies...`;
-    await loadEnemyFamilyVisual(familyKey);
-    reportProgress(`Loaded ${familyKey} enemies`, familyFiles.length || 1);
+  if (!useStartupPlaceholders) {
+    for (const familyKey of ENEMY_FAMILY_KEYS) {
+      const familyFiles = ENEMY_MODEL_FILES_BY_FAMILY[familyKey] || [];
+      loadingText.textContent = `Loading ${familyKey} enemies...`;
+      await loadEnemyFamilyVisual(familyKey);
+      reportProgress(`Loaded ${familyKey} enemies`, familyFiles.length || 1);
+    }
   }
 
   await Promise.all(planetConfigs.map(async (planet, i) => {
-    loadingText.textContent = `Loading ${planet.name}...`;
-    await loadPlanetVisual(planet, i);
-    reportProgress(`Loaded ${planet.name}`);
+    loadingText.textContent = useStartupPlaceholders ? `Building ${planet.name} placeholder...` : `Loading ${planet.name}...`;
+    await loadPlanetVisual(planet, i, { placeholder: useStartupPlaceholders });
+    reportProgress(useStartupPlaceholders ? `${planet.name} placeholder ready` : `Loaded ${planet.name}`);
   }));
 
   for (const planet of state.planets) {
@@ -2435,6 +2644,10 @@ async function bootstrap() {
   updateTitleOverlay();
   statusLine.textContent = 'Press Fire to start.';
   updateMouseLockButton();
+
+  if (lazyModelLoading) {
+    queueLazyWorldModels(planetConfigs);
+  }
 }
 
 function handleResize() {
