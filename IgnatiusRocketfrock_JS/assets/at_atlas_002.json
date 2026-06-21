@@ -288,7 +288,7 @@
             "tags": [
                 "wall"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -484,7 +484,7 @@
             "tags": [
                 "ceiling"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -776,7 +776,7 @@
             "tags": [
                 "ceiling"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -960,7 +960,7 @@
             "tags": [
                 "wall"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -1108,7 +1108,7 @@
             "tags": [
                 "stalactite"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -1256,7 +1256,7 @@
             "tags": [
                 "stalactite"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -1404,7 +1404,7 @@
             "tags": [
                 "stalactite"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -1564,7 +1564,7 @@
             "tags": [
                 "stalactite"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -1700,7 +1700,7 @@
             "tags": [
                 "stalactite"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -1824,7 +1824,7 @@
             "tags": [
                 "stalactite"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -1960,7 +1960,7 @@
             "tags": [
                 "stalactite"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -2132,7 +2132,7 @@
             "tags": [
                 "stalactite"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -2292,7 +2292,7 @@
             "tags": [
                 "stalactite"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -2500,7 +2500,7 @@
             "tags": [
                 "stalagmite"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -2672,7 +2672,7 @@
             "tags": [
                 "stalagmite"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -2820,7 +2820,7 @@
             "tags": [
                 "stalagmite"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -2968,7 +2968,7 @@
             "tags": [
                 "stalagmite"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -3140,7 +3140,7 @@
             "tags": [
                 "stalagmite"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -3384,7 +3384,7 @@
             "tags": [
                 "stalagmite"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -3604,7 +3604,7 @@
             "tags": [
                 "stalagmite"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -3788,7 +3788,7 @@
             "tags": [
                 "pillar"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -3996,7 +3996,7 @@
             "tags": [
                 "wall"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -4132,7 +4132,7 @@
             "tags": [
                 "wall"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -4292,7 +4292,7 @@
             "tags": [
                 "rubble"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -4548,7 +4548,7 @@
             "tags": [
                 "rubble"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -4732,7 +4732,7 @@
             "tags": [
                 "rubble"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -4976,7 +4976,7 @@
             "tags": [
                 "rubble"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -5172,7 +5172,7 @@
             "tags": [
                 "rubble"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -5368,7 +5368,7 @@
             "tags": [
                 "rubble"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -5576,7 +5576,7 @@
             "tags": [
                 "wall"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -5772,7 +5772,7 @@
             "tags": [
                 "floor"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -5920,7 +5920,7 @@
             "tags": [
                 "wall"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -6056,7 +6056,7 @@
             "tags": [
                 "floor"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -6228,7 +6228,7 @@
             "tags": [
                 "floor"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -6436,7 +6436,7 @@
             "tags": [
                 "floor"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -6633,7 +6633,7 @@
                 "floor",
                 "corner"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -6842,7 +6842,7 @@
                 "floor",
                 "corner"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -7002,7 +7002,7 @@
             "tags": [
                 "rock"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -7282,7 +7282,7 @@
             "tags": [
                 "rock"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -7466,7 +7466,7 @@
             "tags": [
                 "rock"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -7686,7 +7686,7 @@
             "tags": [
                 "rock"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -7942,7 +7942,7 @@
             "tags": [
                 "rock"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",
@@ -8174,7 +8174,7 @@
             "tags": [
                 "pillar"
             ],
-            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset_tool.html when gameplay needs a simpler or one-way surface.",
+            "notes": "Alpha-silhouette collision trace generated for revision 063; refine individual edges in asset-editor.html when gameplay needs a simpler or one-way surface.",
             "nodes": [
                 {
                     "id": "n1",

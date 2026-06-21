@@ -11,9 +11,9 @@ import {
     cloneGameState,
     serializeGameState,
     addEvent
-} from "./IgnatiusRocketfrock_SIM.js";
-import { RocketfrockInput } from "./IgnatiusRocketfrock_INPUT.js";
-import { createRenderer } from "./IgnatiusRocketfrock_RENDER.js";
+} from "../core/simulation.js";
+import { RocketfrockInput } from "./browser-input.js";
+import { createRenderer } from "../presentation/canvas-renderer.js";
 
 const canvas = document.getElementById("stage");
 const fuelText = document.getElementById("fuel-text");
@@ -35,7 +35,7 @@ const copyTuningJsonButton = document.getElementById("copy-tuning-json");
 const refreshTuningJsonButton = document.getElementById("refresh-tuning-json");
 const tuningPanel = document.getElementById("tuning");
 
-const GAME_REVISION = "097";
+const GAME_REVISION = "098";
 
 let gameState = createInitialGameState();
 gameState.debug.revision = GAME_REVISION;

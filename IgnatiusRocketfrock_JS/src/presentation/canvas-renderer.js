@@ -2,24 +2,24 @@ import {
     animationTimeFromPhase,
     blendAnimationPoses,
     sampleAnimationClip
-} from "./IgnatiusRocketfrock_ANIMATION.js";
+} from "../shared/animation-data.js";
 import {
     atlasNodeToPlacementWorld,
     LEVEL_BACKGROUND_COLOR,
     normalizeRotationRadians,
     placementCenter
-} from "./IgnatiusRocketfrock_LEVEL_TRANSFORM.js";
+} from "../shared/level-transform.js";
 import {
     colorMapCacheKey,
     createColorMappedCanvas,
     normalizeLevelColorMap
-} from "./IgnatiusRocketfrock_COLORMAP.js";
+} from "./level-color-map.js";
 import {
     animationPoseToRuntimeTransforms,
     buildRuntimeCharacterDrawCommands,
     loadRuntimeCharacterProject,
     sampleRuntimeCharacterPose
-} from "./IgnatiusRocketfrock_CHARACTER_RUNTIME.js";
+} from "./character-runtime.js";
 
 const FIXED_DRAW_ORDER = [
     "leftArm",

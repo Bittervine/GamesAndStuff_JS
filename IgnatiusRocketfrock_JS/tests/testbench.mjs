@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { computeResponsiveViewportMetrics, computeTimedTextViewportLayout } from "./IgnatiusRocketfrock_RENDER.js";
-import { RocketfrockInput } from "./IgnatiusRocketfrock_INPUT.js";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { computeResponsiveViewportMetrics, computeTimedTextViewportLayout } from "../src/presentation/canvas-renderer.js";
+import { RocketfrockInput } from "../src/browser/browser-input.js";
 import {
     colorMapCacheKey,
     normalizeLevelColorMap,
     remapRgb,
     selectiveHueWeight
-} from "./IgnatiusRocketfrock_COLORMAP.js";
+} from "../src/presentation/level-color-map.js";
 import {
     atlasNodeToPlacementWorld,
     duplicateLevelPlacement,
@@ -16,7 +16,7 @@ import {
     placementCorners,
     pointInPlacement,
     worldToPlacementLocal
-} from "./IgnatiusRocketfrock_LEVEL_TRANSFORM.js";
+} from "../src/shared/level-transform.js";
 import {
     animationTimeFromPhase,
     blendAnimationPoses,
@@ -24,7 +24,7 @@ import {
     sampleAnimationClip,
     sampleAnimationClipAtPlayhead,
     sampleAnimationTrack
-} from "./IgnatiusRocketfrock_ANIMATION.js";
+} from "../src/shared/animation-data.js";
 import {
     addAtlasFrameToRig,
     addRigPartToAnimation,
@@ -38,7 +38,7 @@ import {
     normalizeAnimationSlot,
     normalizeCharacterSlug,
     resolveCharacterProjectReference
-} from "./IgnatiusRocketfrock_CHARACTER_PROJECT.js";
+} from "../src/tools/character-editor/character-project.js";
 import {
     createEditableAnimationClip,
     deleteAnimationKeyframe,
@@ -48,7 +48,7 @@ import {
     updateAnimationClipMetadata,
     updateAnimationKeyframe,
     upsertAnimationKeyframe
-} from "./IgnatiusRocketfrock_ANIMATION_EDITOR.js";
+} from "../src/tools/character-editor/animation-editor.js";
 import {
     atlasFrameFromDrag,
     atlasToCanvasPoint,
@@ -63,14 +63,14 @@ import {
     uniqueAtlasFrameId,
     validateAtlasFrames,
     zoomAtlasViewAtCanvasPoint
-} from "./IgnatiusRocketfrock_ATLAS_EDITOR.js";
+} from "../src/tools/character-editor/atlas-editor.js";
 import {
     characterProjectDirtySummary,
     characterProjectHasUnsavedChanges,
     createCharacterDirtyTracker,
     markCharacterProjectClean,
     markCharacterProjectDirty
-} from "./IgnatiusRocketfrock_CHARACTER_DIRTY.js";
+} from "../src/tools/character-editor/character-dirty-state.js";
 import {
     TRANSFORM_EDIT_PROPERTY,
     canvasToPreviewPoint,
@@ -81,7 +81,7 @@ import {
     previewToCanvasPoint,
     rotationFromPointerDrag,
     zoomCharacterViewAtCanvasPoint
-} from "./IgnatiusRocketfrock_CHARACTER_VIEW.js";
+} from "../src/tools/character-editor/character-editor-view.js";
 import {
     animationPoseToRuntimeTransforms,
     buildRuntimeCharacterDrawCommands,
@@ -90,7 +90,7 @@ import {
     normalizeRuntimeCharacterRig,
     resolveRuntimeAnimationSlot,
     sampleRuntimeCharacterPose
-} from "./IgnatiusRocketfrock_CHARACTER_RUNTIME.js";
+} from "../src/presentation/character-runtime.js";
 import {
     FIXED_DT,
     DEFAULT_TUNING,
@@ -107,7 +107,69 @@ import {
     defaultNextLevelId,
     setWorldEntityState,
     damagePlayer
-} from "./IgnatiusRocketfrock_SIM.js";
+} from "../src/core/simulation.js";
+
+function testSourceOrganization() {
+    const expectedFiles = [
+        "../index.html",
+        "../asset-editor.html",
+        "../level-editor.html",
+        "../character-editor.html",
+        "../renderer-smoke.html",
+        "../ARCHITECTURE.md",
+        "../package.json",
+        "../src/core/simulation.js",
+        "../src/browser/browser-input.js",
+        "../src/browser/game-bootstrap.js",
+        "../src/presentation/canvas-renderer.js",
+        "../src/presentation/character-runtime.js",
+        "../src/presentation/level-color-map.js",
+        "../src/shared/animation-data.js",
+        "../src/shared/level-transform.js",
+        "../src/tools/character-editor/animation-editor.js",
+        "../src/tools/character-editor/atlas-editor.js",
+        "../src/tools/character-editor/character-dirty-state.js",
+        "../src/tools/character-editor/character-editor-view.js",
+        "../src/tools/character-editor/character-project.js"
+    ];
+    for (const relativePath of expectedFiles) {
+        assert.equal(existsSync(new URL(relativePath, import.meta.url)), true, `${relativePath} should exist in the organized source tree`);
+    }
+
+    const retiredFiles = [
+        "../IgnatiusRocketfrock_SIM.js",
+        "../IgnatiusRocketfrock_RENDER.js",
+        "../IgnatiusRocketfrock_GAME.js",
+        "../IgnatiusRocketfrock_INPUT.js",
+        "../IgnatiusRocketfrock_JS.html",
+        "../asset_tool.html",
+        "../level_editor.html",
+        "../character_tool.html",
+        "../renderer_smoke.html"
+    ];
+    for (const relativePath of retiredFiles) {
+        assert.equal(existsSync(new URL(relativePath, import.meta.url)), false, `${relativePath} should remain retired`);
+    }
+
+    const looseRootScripts = readdirSync(new URL("../", import.meta.url), { withFileTypes: true })
+        .filter((entry) => entry.isFile() && entry.name.endsWith(".js"))
+        .map((entry) => entry.name);
+    assert.deepEqual(looseRootScripts, [], "production JavaScript modules should not drift back into the project root");
+
+    const packageMetadata = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+    assert.equal(packageMetadata.type, "module", "package metadata should declare ES modules explicitly");
+    assert.equal(packageMetadata.scripts?.test, "node tests/testbench.mjs", "package metadata should expose the aggregate test command");
+
+    const architecture = readFileSync(new URL("../ARCHITECTURE.md", import.meta.url), "utf8");
+    assert.ok(architecture.includes("PORTABLE CORE"), "architecture map should classify portable core modules");
+    assert.ok(architecture.includes("RocketfrockCore/Simulation.h/.cpp"), "architecture map should preserve the future C++ correspondence");
+    assert.ok(architecture.includes("Known temporary boundary violation"), "architecture map should record current boundary debt explicitly");
+
+    const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
+    assert.ok(gameHtml.includes('./src/browser/game-bootstrap.js'), "game page should load the reorganized browser bootstrap");
+    const indexHtml = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+    assert.ok(indexHtml.includes('asset-editor.html') && indexHtml.includes('level-editor.html') && indexHtml.includes('character-editor.html'), "landing page should link to the renamed tools");
+}
 
 function approx(actual, expected, tolerance, label) {
     assert.ok(
@@ -263,7 +325,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(skeleton.defaults.chaseSpeed > skeleton.defaults.walkSpeed, "alert Skeleton Guard should rush faster than it patrols");
     assert.ok(skeleton.defaults.attackCooldown < 0.25, "Skeleton Guard should chain rapid sword chops");
 
-    const editorHtml = readFileSync(new URL("./level_editor.html", import.meta.url), "utf8");
+    const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(editorHtml.includes("ENEMY_CATALOG_URL"), "level editor should load the explicit enemy catalog");
     assert.ok(editorHtml.includes('value="enemy_001"'), "level editor palette should expose the Skeleton Guard");
     assert.ok(editorHtml.includes('id="enemy-settings-row"'), "level editor should expose character-enemy behaviour controls");
@@ -770,9 +832,9 @@ function testTerrainInterceptsRocketBeforeEnemy() {
 
 function testEditorDropdownContrast() {
     const editorFiles = [
-        "./character_tool.html",
-        "./level_editor.html",
-        "./asset_tool.html"
+        "../character-editor.html",
+        "../level-editor.html",
+        "../asset-editor.html"
     ];
     for (const filename of editorFiles) {
         const html = readFileSync(new URL(filename, import.meta.url), "utf8");
@@ -830,7 +892,7 @@ function testCharacterProjectWorkspace() {
         "a unique basename should provide the portable multi-file fallback"
     );
 
-    const toolHtml = readFileSync(new URL("./character_tool.html", import.meta.url), "utf8");
+    const toolHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     assert.ok(toolHtml.includes("Character project"), "character tool should expose project selection");
     assert.ok(toolHtml.includes("New character"), "character tool should expose blank project creation");
     assert.ok(toolHtml.includes("project-directory"), "character tool should expose directory selection where supported");
@@ -845,7 +907,7 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes("part-to-back"), "character tool should expose a selected-part To Back control");
     assert.ok(toolHtml.includes("part-to-front"), "character tool should expose a selected-part To Front control");
 
-    const levelEditorHtml = readFileSync(new URL("./level_editor.html", import.meta.url), "utf8");
+    const levelEditorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(levelEditorHtml.includes("const placement = placeAsset(point);"), "level editor should inspect whether asset placement succeeded");
     assert.ok(levelEditorHtml.includes('setTool("select");'), "successful asset placement should return the level editor to Select mode");
     assert.ok(levelEditorHtml.includes("Select tool active for fine-tuning"), "level editor should explain the automatic tool switch");
@@ -855,7 +917,7 @@ function testCharacterProjectWorkspace() {
     assert.ok(levelEditorHtml.includes("wizard_entry_door") && levelEditorHtml.includes("wizard_exit_door"), "level editor should expose dedicated entry and exit door types");
     assert.ok(!levelEditorHtml.includes('data-entity="wizardStart"'), "the retired wizard-start entity should not remain in the palette");
     assert.ok(!levelEditorHtml.includes('globalCompositeOperation = "destination-out"'), "editor cutout masks should not erase the canvas alpha");
-    const rendererSource = readFileSync(new URL("./IgnatiusRocketfrock_RENDER.js", import.meta.url), "utf8");
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("ctx.fillStyle = LEVEL_BACKGROUND_COLOR"), "runtime cutout masks should repaint the shared cave backing");
     assert.ok(!rendererSource.includes('globalCompositeOperation = "destination-out"'), "runtime cutout masks should not erase canvas alpha");
 
@@ -899,13 +961,13 @@ function testSelectiveLevelColorMap() {
     assert.deepEqual(remapRgb(0, 0, 255, colorMap), [0, 0, 255], "blue outside the selected range should remain blue");
     assert.deepEqual(remapRgb(128, 128, 128, colorMap), [128, 128, 128], "neutral greys should remain unchanged");
 
-    const levelEditorHtml = readFileSync(new URL("./level_editor.html", import.meta.url), "utf8");
+    const levelEditorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(levelEditorHtml.includes('id="color-map-enabled"'), "level editor should expose the level colour-map panel");
     assert.ok(levelEditorHtml.includes("createColorMappedCanvas"), "level editor should build cached recoloured atlases");
-    const rendererSource = readFileSync(new URL("./IgnatiusRocketfrock_RENDER.js", import.meta.url), "utf8");
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("environmentColorMapKey"), "runtime should track the active atlas colour cache key");
     assert.ok(rendererSource.includes("atlas.renderImage = createColorMappedCanvas"), "runtime should rebuild atlas caches only when settings change");
-    const gameSource = readFileSync(new URL("./IgnatiusRocketfrock_GAME.js", import.meta.url), "utf8");
+    const gameSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     assert.ok(gameSource.includes("renderer.syncEnvironmentColorMap(gameState.world.colorMap)"), "runtime should build the colour cache during level startup");
     assert.ok(!rendererSource.includes("this.syncEnvironmentColorMap(state.world?.colorMap)"), "normal render frames should not rebuild or rescan colour caches");
 }
@@ -1062,8 +1124,8 @@ function testPlayerStartSnapsToNearbyGround() {
 }
 
 function testInteractiveItemAtlasAndEntityVisuals() {
-    const atlas = JSON.parse(readFileSync(new URL("./assets/it_atlas_001.json", import.meta.url), "utf8"));
-    const catalog = JSON.parse(readFileSync(new URL("./assets/it_entities_001.json", import.meta.url), "utf8"));
+    const atlas = JSON.parse(readFileSync(new URL("../assets/it_atlas_001.json", import.meta.url), "utf8"));
+    const catalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
     assert.equal(atlas.atlasId, "it_atlas_001", "interactive atlas should use its dedicated atlas id");
     assert.equal(atlas.image, "it_atlas_001.png", "interactive atlas should reference the user-supplied PNG name");
     assert.equal(Object.keys(atlas.frames).length, 42, "interactive atlas should expose all authored item frames");
@@ -1087,7 +1149,7 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     approx(openPortal[1].widthFactor, 114 / 183, 0.0000001, "foreground portal should preserve source-pixel scale");
     approx(openPortal[1].offsetXFactor, -69 / 366, 0.0000001, "foreground portal should keep its left edge aligned");
 
-    const levelOne = JSON.parse(readFileSync(new URL("./assets/level_001.json", import.meta.url), "utf8"));
+    const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
     const levelEntryDoor = levelOne.entities.find((entity) => entity.type === "wizard_entry_door");
     const levelExitDoor = levelOne.entities.find((entity) => entity.type === "wizard_exit_door");
     assert.deepEqual({ w: levelEntryDoor.w, h: levelEntryDoor.h }, { w: 125, h: 164 }, "level_001 entry doorway should be half its revision-087 size");
@@ -1154,7 +1216,7 @@ function testInteractiveItemAtlasAndEntityVisuals() {
 
 
 function testMailboxLetterSequence() {
-    const catalog = JSON.parse(readFileSync(new URL("./assets/it_entities_001.json", import.meta.url), "utf8"));
+    const catalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
     const mailboxDef = catalog.entities.mailbox;
     const state = createInitialGameState();
     const level = {
@@ -1208,7 +1270,7 @@ function testMailboxLetterSequence() {
 }
 
 function testPortalEntranceSequence() {
-    const catalog = JSON.parse(readFileSync(new URL("./assets/it_entities_001.json", import.meta.url), "utf8"));
+    const catalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
     const portalDef = catalog.entities.wizard_entry_door;
     const visualStates = Object.fromEntries(Object.entries(portalDef.states).map(([id, def]) => [id, def.visuals]));
     const state = createInitialGameState();
@@ -1266,7 +1328,7 @@ function testPortalEntranceSequence() {
 }
 
 function testPortalExitSequence() {
-    const catalog = JSON.parse(readFileSync(new URL("./assets/it_entities_001.json", import.meta.url), "utf8"));
+    const catalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
     const def = catalog.entities.wizard_exit_door;
     const visualStates = Object.fromEntries(Object.entries(def.states).map(([id, stateDef]) => [id, stateDef.visuals]));
     const state = createInitialGameState();
@@ -1515,7 +1577,7 @@ function testCharacterToolDirectTransformGeometry() {
     approx(anchored.x, canvasPoint.x, 0.000001, "zoom should keep pointer anchor x fixed");
     approx(anchored.y, canvasPoint.y, 0.000001, "zoom should keep pointer anchor y fixed");
 
-    const toolHtml = readFileSync(new URL("./character_tool.html", import.meta.url), "utf8");
+    const toolHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     assert.ok(toolHtml.includes("X, Y and Angle (drag)"), "character tool should expose combined transform editing");
     assert.ok(toolHtml.includes("beginPartTransformDrag"), "character tool should wire direct part dragging");
     assert.ok(toolHtml.includes("Use the mouse wheel over the canvas"), "character tool should document direct wheel preview zooming");
@@ -1525,7 +1587,7 @@ function testCharacterToolDirectTransformGeometry() {
 }
 
 function testDataDrivenRunAnimation() {
-    const rawClip = JSON.parse(readFileSync(new URL("./assets/ct_anim_wizard_run_1.json", import.meta.url), "utf8"));
+    const rawClip = JSON.parse(readFileSync(new URL("../assets/ct_anim_wizard_run_1.json", import.meta.url), "utf8"));
     const clip = normalizeAnimationClip(rawClip, "wizard run animation");
     const expectedParts = ["leftArm", "leftFoot", "rocket", "rightFoot", "robe", "head", "hat", "rightArm"];
 
@@ -1565,9 +1627,9 @@ function testDataDrivenRunAnimation() {
     const halfMotion = blendAnimationPoses(clip.referencePose, sampleAnimationClip(clip, clip.duration * 0.25), 0.5);
     assert.ok(Number.isFinite(halfMotion.leftFoot.x), "pose blending should produce finite transforms");
 
-    const rendererSource = readFileSync(new URL("./IgnatiusRocketfrock_RENDER.js", import.meta.url), "utf8");
-    const gameSource = readFileSync(new URL("./IgnatiusRocketfrock_GAME.js", import.meta.url), "utf8");
-    const gameHtml = readFileSync(new URL("./game.html", import.meta.url), "utf8");
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    const gameSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     assert.equal(rendererSource.includes("computeLegacyGroundAnimationPose"), false, "legacy procedural run should be removed");
     assert.equal(rendererSource.includes("comparisonPose"), false, "legacy comparison drawing should be removed");
     assert.equal(gameSource.includes("cycleAnimationMode"), false, "animation comparison mode should be removed from the game");
@@ -1575,7 +1637,7 @@ function testDataDrivenRunAnimation() {
 }
 
 function testAnimationEditorOperations() {
-    const rawClip = JSON.parse(readFileSync(new URL("./assets/ct_anim_wizard_run_1.json", import.meta.url), "utf8"));
+    const rawClip = JSON.parse(readFileSync(new URL("../assets/ct_anim_wizard_run_1.json", import.meta.url), "utf8"));
     const editable = createEditableAnimationClip(rawClip, "editable run");
     const originalTrack = getAnimationTrack(editable, "hat", "rotation", false);
     const originalCount = originalTrack.length;
@@ -1637,7 +1699,7 @@ function testAnimationEditorOperations() {
     assert.equal(serialized.sourceUrl, undefined, "source URL should not leak into exported JSON");
     normalizeAnimationClip(serialized, "round-tripped editor animation");
 
-    const toolHtml = readFileSync(new URL("./character_tool.html", import.meta.url), "utf8");
+    const toolHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     assert.ok(toolHtml.includes("Animation track"), "character tool should expose animation track editing");
     assert.ok(toolHtml.includes("Add at playhead"), "character tool should expose keyframe creation");
     assert.ok(toolHtml.includes("Drag a diamond") || toolHtml.includes("drag a yellow corner"), "character tool should explain direct keyframe manipulation");
@@ -1686,7 +1748,7 @@ function testAnimationEasingModes() {
     }, "editor terminal key test");
     approx(sampleAnimationClip(loopedClip, 1).part.x, 0, 0.000001, "runtime loop sampling should still wrap at the duration");
     approx(sampleAnimationClipAtPlayhead(loopedClip, 1).part.x, 25, 0.000001, "editor playhead sampling should expose the editable terminal key");
-    const toolHtml = readFileSync(new URL("./character_tool.html", import.meta.url), "utf8");
+    const toolHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
     assert.ok(toolHtml.includes("sampleAnimationClipAtPlayhead"), "Puppet Forge should use terminal-aware playhead sampling");
 }
 
@@ -2381,6 +2443,7 @@ function testAttachedSmokeDownSpeedTuning() {
 }
 
 const tests = [
+    ["source organization and architecture map", testSourceOrganization],
     ["left and right Ctrl weapon binding", testControlKeysLaunchWeapon],
     ["timed story text layout", testTimedTextViewportLayout],
     ["responsive viewport scaling", testResponsiveViewportScaling],
@@ -2445,4 +2508,4 @@ for (const [name, fn] of tests) {
     console.log(`PASS ${name}`);
 }
 
-console.log("PASS IgnatiusRocketfrock Phase 1 headless tests");
+console.log("PASS IgnatiusRocketfrock headless tests");

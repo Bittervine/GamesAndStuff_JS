@@ -28,9 +28,20 @@ The HTML and JavaScript game remains the reference implementation, but new gamep
 * [ ] Keep presentation interpolation, particles, flashes, UI timers, and colour treatment from writing back into authoritative gameplay.
 * [ ] Add or update headless tests whenever simulation update order, collision tie-breaking, or a shared schema changes.
 
+## Always Remember: Source Organization
+
+`ARCHITECTURE.md` defines the source classifications, dependency direction, and future JavaScript/C++ mapping.
+
+* [ ] Put portable gameplay logic in `src/core/` and engine-neutral cross-layer helpers in `src/shared/`.
+* [ ] Put browser startup and device adaptation in `src/browser/`, Canvas and visual runtime code in `src/presentation/`, and editor-only code in `src/tools/`.
+* [ ] Use lowercase kebab-case and unique descriptive filenames; do not create several ambiguous `app.js`, `view.js`, or `model.js` files.
+* [ ] Keep root HTML files as stable entry points and move reusable implementation into modules rather than adding more loose root JavaScript files.
+* [ ] Update imports, HTML links, tests, `ARCHITECTURE.md`, `PLAN.md`, `IMPLEMENTATION_CHECKLIST.md`, and `AGENTS.md` whenever a module moves or changes architectural classification.
+* [ ] Do not let `src/core/` import browser, presentation, or editor modules. The existing colour-map import is documented temporary debt to remove at the runtime-level checkpoint.
+
 ## Current Status
 
-The project now has a working browser game loop, deterministic simulation layer, asset-atlas based level construction, atlas and level editor tools, atlas-derived collision lines and filled collision loops, detached rocket terrain impacts, health/fuel HUD, and headless tests.
+The project now has a working browser game loop, deterministic simulation layer, asset-atlas based level construction, atlas and level editor tools, atlas-derived collision lines and filled collision loops, detached rocket terrain impacts, health/fuel HUD, and headless tests. Revision 098 also places implementation modules under explicit core, shared, browser, presentation, and tool directories, with `ARCHITECTURE.md` serving as the dependency and future C++ parity map.
 
 The immediate gameplay direction is destructible and reactive world objects, building on the completed first enemy/player combat loop. In parallel, portability preparation should remove renderer-owned gameplay data and establish language-neutral schemas and parity fixtures before Phase 8 procedural generation expands the simulation surface.
 
@@ -41,11 +52,11 @@ Goal: establish a playable and testable foundation for movement, rocket behavior
 ### Completed Foundation
 
 * [x] Create `game.html` and main browser entry points.
-* [x] Create `IgnatiusRocketfrock_SIM.js` for deterministic simulation.
-* [x] Create `IgnatiusRocketfrock_INPUT.js` for keyboard/gamepad input mapping.
-* [x] Create `IgnatiusRocketfrock_RENDER.js` for state-driven rendering.
-* [x] Create `IgnatiusRocketfrock_GAME.js` for orchestration and fixed timestep loop.
-* [x] Create `testbench.mjs` for headless and integration tests.
+* [x] Create `src/core/simulation.js` for deterministic simulation.
+* [x] Create `src/browser/browser-input.js` for keyboard/gamepad input mapping.
+* [x] Create `src/presentation/canvas-renderer.js` for state-driven rendering.
+* [x] Create `src/browser/game-bootstrap.js` for orchestration and fixed timestep loop.
+* [x] Create `tests/testbench.mjs` for headless and integration tests.
 * [x] Keep simulation code independent from DOM, canvas, WebGL, and browser events.
 * [x] Keep rendering code thin and state-driven.
 * [x] Keep input mapping separate from simulation rules.
@@ -163,9 +174,9 @@ Goal: replace custom wizard body-part loading and hardcoded character posing wit
 
 ### Revision 056 Animation Baseline
 
-The run clip is loaded through `ct_char_wizard_1.json`, validated by `IgnatiusRocketfrock_ANIMATION.js`, and sampled as rig-space keyframes. The old procedural run, comparison overlay, toolbar button, and <kbd>N</kbd> shortcut have been removed. `ct_anim_wizard_run_1.json` is now the sole ground-run source of truth.
+The run clip is loaded through `ct_char_wizard_1.json`, validated by `src/shared/animation-data.js`, and sampled as rig-space keyframes. The old procedural run, comparison overlay, toolbar button, and <kbd>N</kbd> shortcut have been removed. `ct_anim_wizard_run_1.json` is now the sole ground-run source of truth.
 
-`character_tool.html` now loads and edits mapped animation JSON. It provides playback, pause, loop, speed, scrubbing, stepping between authored key times, a per-part/per-property timeline, draggable key markers, exact key time/value/easing fields, add/delete/copy/paste operations, and animation JSON export. Shared mutation logic is tested through `IgnatiusRocketfrock_ANIMATION_EDITOR.js`.
+`character-editor.html` now loads and edits mapped animation JSON. It provides playback, pause, loop, speed, scrubbing, stepping between authored key times, a per-part/per-property timeline, draggable key markers, exact key time/value/easing fields, add/delete/copy/paste operations, and animation JSON export. Shared mutation logic is tested through `src/tools/character-editor/animation-editor.js`.
 
 ### Character Project and Atlas Authoring
 
@@ -191,9 +202,9 @@ Complete this structural tool work before adding the larger set of wizard and mo
 
 ### Revision 058 Character Workspace Baseline
 
-`character_tool.html` can now load a known character project, an arbitrary character-definition URL, a browser-selected group of files, or a selected project directory where the browser supports directory picking. Local files remain in an in-memory workspace and their relative JSON references are resolved without requiring hardcoded wizard paths. Explicit pickers are available for the character definition, rig, atlas manifest, atlas PNG, and one or more animation files.
+`character-editor.html` can now load a known character project, an arbitrary character-definition URL, a browser-selected group of files, or a selected project directory where the browser supports directory picking. Local files remain in an in-memory workspace and their relative JSON references are resolved without requiring hardcoded wizard paths. Explicit pickers are available for the character definition, rig, atlas manifest, atlas PNG, and one or more animation files.
 
-The “New character” workflow creates consistently named, mutually referenced atlas, rig, character-definition, and idle-animation templates. A placeholder root frame/part keeps the new project structurally valid until real atlas rectangles and rig parts are authored. Character and atlas JSON can now be applied, refreshed, and exported alongside the existing rig and animation exports. Shared project-template, classification, inventory, and path-resolution logic lives in `IgnatiusRocketfrock_CHARACTER_PROJECT.js` and is covered by the headless testbench.
+The “New character” workflow creates consistently named, mutually referenced atlas, rig, character-definition, and idle-animation templates. A placeholder root frame/part keeps the new project structurally valid until real atlas rectangles and rig parts are authored. Character and atlas JSON can now be applied, refreshed, and exported alongside the existing rig and animation exports. Shared project-template, classification, inventory, and path-resolution logic lives in `src/tools/character-editor/character-project.js` and is covered by the headless testbench.
 
 The next tool slice is atlas rectangle authoring plus independent dirty-state tracking. Do not begin the larger wizard animation set until the editor can visibly own and edit the PNG frame definitions that those rigs depend on.
 
@@ -252,7 +263,7 @@ Puppet Forge now edits clip metadata directly: animation ID, duration, loop flag
 
 Goal: create a tool where rigs and animations can be created, duplicated, edited, previewed, and exported.
 
-* [x] Create `character_tool.html`.
+* [x] Create `character-editor.html`.
 * [x] Select which character project to edit.
 * [x] Create a new character project from blank templates.
 * [x] Load the wizard character atlas image from its configured project URL.
@@ -450,8 +461,10 @@ This checkpoint should be completed before or during the start of Phase 8. It do
 
 ### Simulation Modules and Events
 
+* [x] Establish `src/core/`, `src/shared/`, `src/browser/`, `src/presentation/`, `src/tools/`, and `tests/` as explicit architectural boundaries.
+* [x] Add `ARCHITECTURE.md` with module classifications, dependency direction, unique naming rules, and the planned JavaScript/C++ mapping.
 * [ ] Extract shared core math, vector, rectangle, clamp, approach, and geometry helpers.
-* [ ] Extract collision construction and collision resolution from `IgnatiusRocketfrock_SIM.js`.
+* [ ] Extract collision construction and collision resolution from `src/core/simulation.js`.
 * [ ] Extract player movement, fuel, health, hat, and equipment updates.
 * [ ] Extract weapon and projectile updates.
 * [ ] Extract enemy state and AI updates.
@@ -731,3 +744,18 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Update the placed `level_001` Skeleton Guard to the new aggression and attack defaults.
 * [x] Add headless regression coverage for awareness, chase speed, attack lunge, strike timing, and rapid repeat attacks.
 
+### Revision 098 source organization and architecture map
+
+* [x] Move deterministic simulation to `src/core/simulation.js`.
+* [x] Move browser input and startup orchestration to `src/browser/`.
+* [x] Move Canvas, character-runtime, and colour-map code to `src/presentation/`.
+* [x] Move engine-neutral animation and level-transform helpers to `src/shared/`.
+* [x] Move reusable Puppet Forge helpers to `src/tools/character-editor/`.
+* [x] Rename browser entry pages to concise kebab-case names and use `index.html` as the project landing page.
+* [x] Move the aggregate headless runner to `tests/testbench.mjs`.
+* [x] Add a dependency-free `package.json` that declares ES modules and exposes the suite through `npm test`.
+* [x] Update every module import, HTML link, source-inspection test, manifest note, and revision label.
+* [x] Add a regression test that verifies the new source tree and rejects the retired loose filenames.
+* [x] Add `ARCHITECTURE.md` with source classifications, dependency rules, unique filename guidance, known boundary debt, and future C++ counterparts.
+* [x] Update `PLAN.md`, `IMPLEMENTATION_CHECKLIST.md`, and `AGENTS.md` to use the new paths.
+* [x] Keep the restructuring behavior-neutral and pass the complete headless suite.

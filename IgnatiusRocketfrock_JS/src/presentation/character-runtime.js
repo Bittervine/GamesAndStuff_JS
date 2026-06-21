@@ -2,7 +2,7 @@ import {
     defaultAnimationTransform,
     normalizeAnimationClip,
     sampleAnimationClip
-} from "./IgnatiusRocketfrock_ANIMATION.js";
+} from "../shared/animation-data.js";
 
 export function normalizeRuntimeCharacterRig(rawRig, label = "character rig") {
     if (!rawRig || typeof rawRig !== "object" || Array.isArray(rawRig)) {

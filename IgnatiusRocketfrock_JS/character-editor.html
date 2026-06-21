@@ -373,7 +373,7 @@
     </div>
     <aside>
         <h1>Puppet Forge <small>rev 086</small></h1>
-        <p><a href="IgnatiusRocketfrock_JS.html">Back to tools</a></p>
+        <p><a href="index.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
         </p>
@@ -648,7 +648,7 @@
 import {
     normalizeAnimationClip,
     sampleAnimationClipAtPlayhead
-} from "./IgnatiusRocketfrock_ANIMATION.js";
+} from "./src/shared/animation-data.js";
 import {
     addAtlasFrameToRig,
     addRigPartToAnimation,
@@ -659,7 +659,7 @@ import {
     moveRigPartToFront,
     normalizeAnimationSlot,
     resolveCharacterProjectReference
-} from "./IgnatiusRocketfrock_CHARACTER_PROJECT.js";
+} from "./src/tools/character-editor/character-project.js";
 import {
     animationTrackSummary,
     createEditableAnimationClip,
@@ -671,7 +671,7 @@ import {
     updateAnimationClipMetadata,
     updateAnimationKeyframe,
     upsertAnimationKeyframe
-} from "./IgnatiusRocketfrock_ANIMATION_EDITOR.js";
+} from "./src/tools/character-editor/animation-editor.js";
 import {
     TRANSFORM_EDIT_PROPERTY,
     canvasPointFromClient,
@@ -682,7 +682,7 @@ import {
     partRectangleGeometry,
     rotationFromPointerDrag,
     zoomCharacterViewAtCanvasPoint
-} from "./IgnatiusRocketfrock_CHARACTER_VIEW.js";
+} from "./src/tools/character-editor/character-editor-view.js";
 import {
     atlasFrameFromDrag,
     atlasToCanvasPoint,
@@ -699,14 +699,14 @@ import {
     uniqueAtlasFrameId,
     validateAtlasFrames,
     zoomAtlasViewAtCanvasPoint
-} from "./IgnatiusRocketfrock_ATLAS_EDITOR.js";
+} from "./src/tools/character-editor/atlas-editor.js";
 import {
     characterProjectDirtySummary,
     characterProjectHasUnsavedChanges,
     createCharacterDirtyTracker,
     markCharacterProjectClean,
     markCharacterProjectDirty
-} from "./IgnatiusRocketfrock_CHARACTER_DIRTY.js";
+} from "./src/tools/character-editor/character-dirty-state.js";
 
 const FALLBACK_DRAW_ORDER = [
     "leftArm",

@@ -1,7 +1,7 @@
 import {
     normalizeAnimationClip,
     sampleAnimationClip
-} from "./IgnatiusRocketfrock_ANIMATION.js";
+} from "../../shared/animation-data.js";
 
 export const ANIMATION_TRANSFORM_PROPERTIES = Object.freeze(["x", "y", "rotation", "scale", "alpha"]);
 export const ANIMATION_EASINGS = Object.freeze(["step", "linear", "easeIn", "easeOut", "easeInOut"]);

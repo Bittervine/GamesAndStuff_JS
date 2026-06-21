@@ -1,5 +1,5 @@
-import { atlasNodeToPlacementWorld, normalizeRotationRadians } from "./IgnatiusRocketfrock_LEVEL_TRANSFORM.js";
-import { normalizeLevelColorMap } from "./IgnatiusRocketfrock_COLORMAP.js";
+import { atlasNodeToPlacementWorld, normalizeRotationRadians } from "../shared/level-transform.js";
+import { normalizeLevelColorMap } from "../presentation/level-color-map.js";
 
 export const FIXED_DT = 1 / 60;
 

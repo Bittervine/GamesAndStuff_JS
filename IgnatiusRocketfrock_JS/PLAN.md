@@ -1,41 +1,49 @@
 # Ignatius Rocketfrock Plan
 
-## Files
+## Project Layout
 
-These files are currently being used (also clarifies which that should be in the assets folder)
+The project uses directory context instead of repeating `IgnatiusRocketfrock_` in every filename.
 
-assets/at_atlas_001.json
-assets/at_atlas_001.png
-assets/ct_anim_wizard_run_1.json
-assets/ct_atlas_wizard_1.json
-assets/ct_atlas_wizard_1.png
-assets/ct_char_wizard_1.json
-assets/ct_rig_wizard_1.json
-assets/level_001.json
-assets/title_card.png
-AGENTS.md
-asset_tool.html
-character_tool.html
-game.html
-IgnatiusRocketfrock_ANIMATION.js
-IgnatiusRocketfrock_ANIMATION_EDITOR.js
-IgnatiusRocketfrock_ATLAS_EDITOR.js
-IgnatiusRocketfrock_CHARACTER_DIRTY.js
-IgnatiusRocketfrock_CHARACTER_PROJECT.js
-IgnatiusRocketfrock_CHARACTER_RUNTIME.js
-IgnatiusRocketfrock_CHARACTER_VIEW.js
-IgnatiusRocketfrock_GAME.js
-IgnatiusRocketfrock_INPUT.js
-IgnatiusRocketfrock_JS.html
-IgnatiusRocketfrock_RENDER.js
-IgnatiusRocketfrock_SIM.js
-IMPLEMENTATION_CHECKLIST.md
-level_editor.html
-PLAN.md
-renderer_smoke.html
-testbench.mjs
+```text
+IgnatiusRocketfrock_JS/
+├── index.html
+├── game.html
+├── asset-editor.html
+├── level-editor.html
+├── character-editor.html
+├── renderer-smoke.html
+├── src/
+│   ├── core/
+│   │   └── simulation.js
+│   ├── browser/
+│   │   ├── browser-input.js
+│   │   └── game-bootstrap.js
+│   ├── presentation/
+│   │   ├── canvas-renderer.js
+│   │   ├── character-runtime.js
+│   │   └── level-color-map.js
+│   ├── shared/
+│   │   ├── animation-data.js
+│   │   └── level-transform.js
+│   └── tools/
+│       └── character-editor/
+│           ├── animation-editor.js
+│           ├── atlas-editor.js
+│           ├── character-dirty-state.js
+│           ├── character-editor-view.js
+│           └── character-project.js
+├── tests/
+│   └── testbench.mjs
+├── assets/
+├── devel/
+├── package.json
+├── AGENTS.md
+├── ARCHITECTURE.md
+├── IMPLEMENTATION_CHECKLIST.md
+└── PLAN.md
+```
 
-
+`package.json` declares the browser-style ES-module format and provides the dependency-free `npm test` command. `ARCHITECTURE.md` is the authoritative directory, dependency, classification, and JavaScript-to-C++ parity map. The root HTML pages remain stable browser entry points. Their large inline editor applications should be extracted one editor at a time into uniquely named modules such as `level-editor-app.js`; do not use several ambiguous files all named `app.js`.
 
 ## Intro
 
@@ -60,9 +68,18 @@ The core game fantasy is not only jumping, but converting movement into chaotic 
 
 ## Architecture
 
-Separate the game into clean layers.
+Separate the game into clean layers. The current source directories encode those boundaries:
 
-### `IgnatiusRocketfrock_SIM.js`
+* `src/core/` is the future portable gameplay core and should have close C++ parity.
+* `src/shared/` contains engine-neutral data and mathematics used by multiple layers.
+* `src/browser/` owns browser startup, timing, and device adaptation.
+* `src/presentation/` owns Canvas rendering and visual-only runtime work.
+* `src/tools/` owns editor-only helpers and future editor entry modules.
+* `tests/` owns headless, integration, and future cross-language parity fixtures.
+
+New source files should use lowercase kebab-case and unique descriptive filenames. Browser, presentation, and editor modules do not require file-for-file C++ equivalents. The parity commitment applies to the portable core interface and shared data contracts.
+
+### `src/core/simulation.js`
 
 Pure deterministic simulation.
 
@@ -96,7 +113,7 @@ This file should not contain:
 
 The sim should accept fixed time steps and input snapshots, then update and return the game state.
 
-### `IgnatiusRocketfrock_INPUT.js`
+### `src/browser/browser-input.js`
 
 Converts messy input devices into clean game commands.
 
@@ -121,7 +138,7 @@ The input layer should produce input-frame objects with commands such as:
 
 The simulation should only receive these clean input frames. It should not care where they came from.
 
-### `IgnatiusRocketfrock_RENDER.js`
+### `src/presentation/canvas-renderer.js`
 
 Thin presentation layer.
 
@@ -144,7 +161,7 @@ Rendering includes:
 
 The renderer should read from `gameState`, but should not own gameplay state.
 
-### `IgnatiusRocketfrock_GAME.js`
+### `src/browser/game-bootstrap.js`
 
 Main browser orchestration.
 
@@ -158,7 +175,7 @@ Responsibilities:
 * Manage fixed timestep simulation.
 * Handle pause, restart, debug flags, and dev tools.
 
-### `testbench.mjs`
+### `tests/testbench.mjs`
 
 Headless and integration tests.
 
@@ -246,7 +263,7 @@ As the simulation grows, split it into engine-neutral modules with future C++ eq
 * Destructible and reactive objects.
 * Story and level transitions.
 * Simulation events.
-* A small `SIM` facade that owns and documents fixed update order.
+* A small `simulation.js` facade that owns and documents fixed update order.
 
 Module extraction must preserve behavior. `stepSimulation(...)` remains the authoritative orchestration boundary.
 
@@ -429,11 +446,11 @@ The current hardcoded jump, hover, launch, and airborne poses should eventually 
 
 ### Current Animation Implementation Baseline
 
-As of revision 056, the ground run is exclusively data-driven. `ct_char_wizard_1.json` maps the `run` slot to `ct_anim_wizard_run_1.json`, and `IgnatiusRocketfrock_ANIMATION.js` validates and samples the clip. Animation transforms use unscaled rig-space pixels for `x` and `y`, radians for `rotation`, a target-height multiplier for `scale`, and a scalar for `alpha`. Clips declare duration, looping, playback cadence, interpolation per keyframe, and optional root-motion metadata.
+As of revision 056, the ground run is exclusively data-driven. `ct_char_wizard_1.json` maps the `run` slot to `ct_anim_wizard_run_1.json`, and `src/shared/animation-data.js` validates and samples the clip. Animation transforms use unscaled rig-space pixels for `x` and `y`, radians for `rotation`, a target-height multiplier for `scale`, and a scalar for `alpha`. Clips declare duration, looping, playback cadence, interpolation per keyframe, and optional root-motion metadata.
 
 The obsolete procedural run and `data` / `legacy` / `compare` controls have been removed. The headless testbench now validates clip structure, loop closure, finite sampled poses, editor mutations, and the absence of the retired migration path.
 
-`character_tool.html` loads the mapped animation file and previews it through the same evaluator used by the game. It supports playback, pause, scrubbing, stepping between authored key times, loop and speed controls, per-part/per-property timelines, draggable key markers, exact time/value/easing edits, add/delete/copy/paste operations, and animation JSON export. Shared editing operations live in `IgnatiusRocketfrock_ANIMATION_EDITOR.js`.
+`character-editor.html` loads the mapped animation file and previews it through the same evaluator used by the game. It supports playback, pause, scrubbing, stepping between authored key times, loop and speed controls, per-part/per-property timelines, draggable key markers, exact time/value/easing edits, add/delete/copy/paste operations, and animation JSON export. Shared editing operations live in `src/tools/character-editor/animation-editor.js`.
 
 Revision 058 removed the tool's hardwired wizard-project assumption. Puppet Forge can now load a known character, an arbitrary character-definition URL, selected local files, or a selected project directory. It can also create a consistently named blank character project containing mutually referenced atlas, rig, character-definition, and idle-animation templates. The local workflow keeps browser-selected files in memory and resolves relative references without pretending the browser can silently access arbitrary folders.
 
@@ -451,9 +468,9 @@ Revision 065 added selected-part draw-order authoring directly to Puppet Forge. 
 
 Revision 084 added direct animation-metadata authoring and clip duplication. Puppet Forge can now edit the animation ID, duration, loop flag, mirrorability, idle threshold, playback cadence, and maximum speed ratio without hand-editing JSON. Shortening a clip below its final authored key is rejected rather than silently deleting or merging keys. **Duplicate current** creates a deep-copied animation under a new character slot, assigns a stable `ct_anim_<character>_<slot>.json` filename, updates the character definition in memory, and tracks the new character and animation documents independently for export.
 
-Revision 085 introduced `IgnatiusRocketfrock_CHARACTER_RUNTIME.js` as the shared browser runtime loader for character definitions, rigs, atlases, atlas PNGs, and mapped animation clips. Runtime rigs no longer assume wizard or humanoid part names. The module normalizes arbitrary draw orders and pivots, samples named animation slots, converts rig-space poses into rendered transforms, and produces a simple ordered draw-command list suitable for the current Canvas 2D renderer and a later WebGL renderer. The game preloads both Ignatius and `enemy_001`; level data can already author a static `characterEnemy` with a `characterId`, animation slot, facing, and render scale. Enemy placement UI and movement behaviour remain the next milestone.
+Revision 085 introduced `src/presentation/character-runtime.js` as the shared browser runtime loader for character definitions, rigs, atlases, atlas PNGs, and mapped animation clips. Runtime rigs no longer assume wizard or humanoid part names. The module normalizes arbitrary draw orders and pivots, samples named animation slots, converts rig-space poses into rendered transforms, and produces a simple ordered draw-command list suitable for the current Canvas 2D renderer and a later WebGL renderer. The game preloads both Ignatius and `enemy_001`; level data can already author a static `characterEnemy` with a `characterId`, animation slot, facing, and render scale. Enemy placement UI and movement behaviour remain the next milestone.
 
-Revision 066 extended level placements with a shared transform pipeline. Atlas assets can be mirrored independently on X and Y and rotated around their center. The level editor preview, selection hit testing, runtime rendering, atlas guide overlays, and atlas-derived collision geometry must all use `IgnatiusRocketfrock_LEVEL_TRANSFORM.js` so visual art and gameplay collision cannot drift apart. Placement `rotation` is stored in radians, while the editor exposes degrees. Right-mouse dragging pans the level view regardless of the selected tool.
+Revision 066 extended level placements with a shared transform pipeline. Atlas assets can be mirrored independently on X and Y and rotated around their center. The level editor preview, selection hit testing, runtime rendering, atlas guide overlays, and atlas-derived collision geometry must all use `src/shared/level-transform.js` so visual art and gameplay collision cannot drift apart. Placement `rotation` is stored in radians, while the editor exposes degrees. Right-mouse dragging pans the level view regardless of the selected tool.
 
 Revision 067 streamlined the normal placement workflow: choosing an asset enters Place Asset mode, and a successful placement immediately selects the new object and returns the editor to Select mode for fine positioning. Failed placements must leave the current tool unchanged.
 
@@ -469,7 +486,7 @@ The generic runtime character loader and Canvas 2D draw-command renderer arrived
 
 ## Character Tool
 
-A dedicated `character_tool.html` should be added for rigging and animation work. It should be separate from the asset tool and level editor.
+A dedicated `character-editor.html` should be added for rigging and animation work. It should be separate from the asset tool and level editor.
 
 The asset tool is for world and character atlas frames, nodes, and collision data.
 
@@ -1203,7 +1220,7 @@ Include:
 * Preserve the current wizard appearance and draw order during migration.
 * Recreate the current hardcoded wizard run as data-driven keyframes.
 * Add comparison tooling so the new run can be checked against the old run.
-* Add `character_tool.html` for rigging and animation editing.
+* Add `character-editor.html` for rigging and animation editing.
 * Add character-project selection and creation so the tool is not hardwired to the wizard.
 * Add explicit PNG/JSON file selection and an atlas-frame editor for marking reusable image rectangles.
 * Let rig parts map those frames to semantic roles and tags such as legs, arms, wings, hats, and equipment mounts.
@@ -1348,7 +1365,7 @@ Both physical Control keys now act as alternate weapon-launch buttons. The input
 
 An explicit `assets/ct_enemies_001.json` catalog now registers enemy projects for browser tools that cannot enumerate the assets directory. The Level Editor exposes the Skeleton Guard (`enemy_001`) as a placeable entity, previews it through the shared runtime character loader and draw-command pipeline, snaps its foot position to nearby authored support lines, and provides guard/patrol controls for facing, patrol span, speed, pauses, and visual scale.
 
-Placed character enemies now own simulation state for guard and patrol behaviour. Patrols alternate between idle and walk animation slots, follow nearby walkable or blockable support, reverse at their authored limits, ledges, or blocking geometry, and keep their homing target anchor synchronized while moving. `level_001` includes the first Skeleton Guard patrol on the right gallery. Rendering remains presentation-only; enemy movement and animation-state selection live in `IgnatiusRocketfrock_SIM.js`.
+Placed character enemies now own simulation state for guard and patrol behaviour. Patrols alternate between idle and walk animation slots, follow nearby walkable or blockable support, reverse at their authored limits, ledges, or blocking geometry, and keep their homing target anchor synchronized while moving. `level_001` includes the first Skeleton Guard patrol on the right gallery. Rendering remains presentation-only; enemy movement and animation-state selection live in `src/core/simulation.js`.
 
 
 
@@ -1372,3 +1389,8 @@ Skeleton Guards now distinguish calm patrol speed from alerted chase speed. A pa
 
 The sword attack is now a compact 0.44-second overhead chop with the visible downstroke aligned to the gameplay strike. The blade and body follow-through extend farther forward, while the simulation applies a bounded pre-strike lunge so the sword reaches Ignatius instead of damaging him from empty air. A short recovery permits rapid chained attacks. Chase speed, stationary-guard awareness range, attack reach, damage, and cooldown remain authorable in the Level Editor; additional timing and lunge values remain serializable enemy data.
 
+### Revision 098 source organization and parity map
+
+The loose project-root JavaScript files now live under `src/core`, `src/browser`, `src/presentation`, `src/shared`, and `src/tools/character-editor`, with concise lowercase kebab-case names. Browser entry pages now use stable descriptive names such as `index.html`, `asset-editor.html`, `level-editor.html`, and `character-editor.html`; the aggregate test entry point is `tests/testbench.mjs`, exposed through `npm test`. All imports, links, tests, source-inspection checks, manifest notes, and revision labels were updated without changing gameplay behavior.
+
+`ARCHITECTURE.md` now classifies each module as portable core, shared data/math, browser adapter, presentation-only, editor-only, or test-only. It records dependency direction, the known temporary simulation-to-colour-map boundary violation, unique filename rules, the planned JavaScript/C++ module correspondence, and the stable `InputFrame + fixed dt -> stepSimulation -> GameState + SimulationEvent[]` parity boundary.

@@ -1,0 +1,8 @@
+{
+    "name": "ignatius-rocketfrock",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "test": "node tests/testbench.mjs"
+    }
+}

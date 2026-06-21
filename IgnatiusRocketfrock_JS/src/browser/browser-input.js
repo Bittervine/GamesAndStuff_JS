@@ -1,4 +1,4 @@
-import { createInputFrame } from "./IgnatiusRocketfrock_SIM.js";
+import { createInputFrame } from "../core/simulation.js";
 
 const KEY_BINDINGS = {
     moveLeft: ["ArrowLeft", "KeyA"],

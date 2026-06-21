@@ -395,8 +395,8 @@
     </section>
 
     <aside>
-        <a class="toplink" href="IgnatiusRocketfrock_JS.html">Back to main</a>
-        <h1>Level Editor <small>rev 097</small></h1>
+        <a class="toplink" href="index.html">Back to main</a>
+        <h1>Level Editor <small>rev 098</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -626,20 +626,20 @@ import {
     placementCenter,
     placementCorners,
     pointInPlacement
-} from "./IgnatiusRocketfrock_LEVEL_TRANSFORM.js";
+} from "./src/shared/level-transform.js";
 import {
     colorMapCacheKey,
     createColorMappedCanvas,
     DEFAULT_LEVEL_COLOR_MAP,
     normalizeHueDegrees,
     normalizeLevelColorMap
-} from "./IgnatiusRocketfrock_COLORMAP.js";
+} from "./src/presentation/level-color-map.js";
 import {
     animationPoseToRuntimeTransforms,
     buildRuntimeCharacterDrawCommands,
     loadRuntimeCharacterProject,
     sampleRuntimeCharacterPose
-} from "./IgnatiusRocketfrock_CHARACTER_RUNTIME.js";
+} from "./src/presentation/character-runtime.js";
 
 (() => {
     "use strict";
