@@ -1111,7 +1111,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     configureMailboxStory(state, runtimeEntities);
 
     const targetLike = (entity) => entity.type === "targetDummy" || entity.kind === "targetDummy";
-    state.enemies = runtimeEntities.filter(targetLike).map((entity, index) => {
+    const targetDummies = runtimeEntities.filter(targetLike).map((entity, index) => {
         const x = Number(entity.x) || 0;
         const y = Number(entity.y) || 0;
         const width = Number(entity.w) || 42;
@@ -1136,6 +1136,42 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             showTargetMarker: entity.showTargetMarker ?? !visualized
         };
     });
+
+    const characterEnemyLike = (entity) =>
+        entity.type === "characterEnemy" ||
+        entity.kind === "characterEnemy" ||
+        (entity.type === "enemy" && (entity.characterId || entity.characterProject));
+    const characterEnemies = runtimeEntities.filter(characterEnemyLike).map((entity, index) => {
+        const x = Number(entity.x) || 0;
+        const y = Number(entity.y) || 0;
+        const width = Math.max(1, Number(entity.w) || Number(entity.width) || 72);
+        const height = Math.max(1, Number(entity.h) || Number(entity.height) || 150);
+        const anchor = entity.targetAnchor && typeof entity.targetAnchor === "object" ? entity.targetAnchor : null;
+        const anchorX = clamp(Number(anchor?.x ?? 0.5), 0, 1);
+        const anchorY = clamp(Number(anchor?.y ?? 0.42), 0, 1);
+        return {
+            id: entity.id || `characterEnemy_${index + 1}`,
+            kind: "characterEnemy",
+            characterId: String(entity.characterId || entity.characterProject || "ct_char_enemy_001"),
+            x,
+            y,
+            width,
+            height,
+            health: Math.max(0, Number(entity.health) || 100),
+            state: String(entity.state || entity.animationSlot || "idle"),
+            animationSlot: String(entity.animationSlot || entity.state || "idle"),
+            animationTime: Number.isFinite(Number(entity.animationTime)) ? Number(entity.animationTime) : null,
+            animationTimeOffset: Number(entity.animationTimeOffset) || 0,
+            facing: Number(entity.facing) < 0 ? -1 : 1,
+            renderScale: Math.max(0.05, Number(entity.renderScale) || 1),
+            visualized: false,
+            targetX: x - width * 0.5 + anchorX * width,
+            targetY: y - height + anchorY * height,
+            targetRadius: Math.max(4, Number(entity.targetRadius) || Math.min(width, height) * 0.16),
+            showTargetMarker: entity.showTargetMarker === true
+        };
+    });
+    state.enemies = [...targetDummies, ...characterEnemies];
 
     const fuelLike = (entity) => entity.type === "fuel" || entity.kind === "fuel" || entity.type === "fuelPickup" || entity.kind === "fuelPickup";
     state.pickups = runtimeEntities.filter(fuelLike).map((entity, index) => ({

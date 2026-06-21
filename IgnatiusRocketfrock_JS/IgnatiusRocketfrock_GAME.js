@@ -35,7 +35,7 @@ const copyTuningJsonButton = document.getElementById("copy-tuning-json");
 const refreshTuningJsonButton = document.getElementById("refresh-tuning-json");
 const tuningPanel = document.getElementById("tuning");
 
-const GAME_REVISION = "084";
+const GAME_REVISION = "085";
 
 let gameState = createInitialGameState();
 gameState.debug.revision = GAME_REVISION;
@@ -304,10 +304,13 @@ function updateDebugText() {
     const viewText = viewport.clientW
         ? `view css:${viewport.clientW.toFixed(0)}x${viewport.clientH.toFixed(0)} virt:${viewport.virtualW.toFixed(0)}x${viewport.virtualH.toFixed(0)} scale:${viewport.cssScale.toFixed(2)}`
         : "view pending";
+    const runtimeProjects = renderer.getRuntimeCharacterProjects?.() || new Map();
+    const characterText = `characters:${[...runtimeProjects.keys()].join(",") || "none"}`;
 
     debugEl.textContent = [
         `rev:${GAME_REVISION}  ${gameState.debug.paused ? "PAUSED" : "RUNNING"}  tick:${gameState.clock.tick}  t:${gameState.clock.time.toFixed(2)}`,
         viewText,
+        characterText,
         animationText,
         `intro:${gameState.story?.portalIntro?.active ? gameState.story.portalIntro.phase : "complete/off"}  mailbox:${gameState.story?.mailboxEvent?.active ? gameState.story.mailboxEvent.phase : (gameState.story?.mailboxEvent?.completed ? "complete" : "armed/off")}  playerVisible:${p.visible !== false}`,
         `pos (${p.x.toFixed(1)}, ${p.y.toFixed(1)})  vel (${p.vx.toFixed(1)}, ${p.vy.toFixed(1)})`,

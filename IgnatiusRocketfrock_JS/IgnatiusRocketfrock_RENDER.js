@@ -1,7 +1,6 @@
 import {
     animationTimeFromPhase,
     blendAnimationPoses,
-    normalizeAnimationClip,
     sampleAnimationClip
 } from "./IgnatiusRocketfrock_ANIMATION.js";
 import {
@@ -15,6 +14,12 @@ import {
     createColorMappedCanvas,
     normalizeLevelColorMap
 } from "./IgnatiusRocketfrock_COLORMAP.js";
+import {
+    animationPoseToRuntimeTransforms,
+    buildRuntimeCharacterDrawCommands,
+    loadRuntimeCharacterProject,
+    sampleRuntimeCharacterPose
+} from "./IgnatiusRocketfrock_CHARACTER_RUNTIME.js";
 
 const FIXED_DRAW_ORDER = [
     "leftArm",
@@ -28,6 +33,7 @@ const FIXED_DRAW_ORDER = [
 ];
 
 const DEFAULT_CHARACTER_URL = "assets/ct_char_wizard_1.json";
+const ENEMY_001_CHARACTER_URL = "assets/ct_char_enemy_001.json";
 
 const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = [
     ...Array.from({ length: 20 }, (_, index) => {
@@ -111,23 +117,34 @@ export function computeResponsiveViewportMetrics(clientWidth, clientHeight, dpr 
 
 export async function createRenderer(canvas) {
     const ctx = canvas.getContext("2d", { alpha: false });
-    const character = await loadCharacterDefinition(DEFAULT_CHARACTER_URL);
-    const rigConfig = await loadRigConfig(character);
-    const assets = await loadCharacterAtlasParts(character, rigConfig);
-    const animations = await loadCharacterAnimations(character);
-    const environmentAtlases = await loadEnvironmentAtlases();
+    const playerProject = await loadRuntimeCharacterProject(DEFAULT_CHARACTER_URL);
+    playerProject.rig = normalizeRigConfig(playerProject.rig);
+    for (const asset of playerProject.assets.values()) {
+        asset.lowHealthCanvas = makeTintedSpriteCanvas(asset.canvas, "#f04b45");
+    }
 
-    return new RocketfrockRenderer(canvas, ctx, assets, normalizeRigConfig(rigConfig), environmentAtlases, character, animations);
+    const characterProjects = new Map([[playerProject.characterId, playerProject]]);
+    try {
+        const enemyProject = await loadRuntimeCharacterProject(ENEMY_001_CHARACTER_URL);
+        characterProjects.set(enemyProject.characterId, enemyProject);
+    } catch (error) {
+        console.warn(`Optional runtime character could not be loaded: ${ENEMY_001_CHARACTER_URL}`, error);
+    }
+
+    const environmentAtlases = await loadEnvironmentAtlases();
+    return new RocketfrockRenderer(canvas, ctx, playerProject, environmentAtlases, characterProjects);
 }
 
 class RocketfrockRenderer {
-    constructor(canvas, ctx, assets, rigConfig, environmentAtlases = new Map(), character = null, animations = new Map()) {
+    constructor(canvas, ctx, playerProject, environmentAtlases = new Map(), characterProjects = new Map()) {
         this.canvas = canvas;
         this.ctx = ctx;
-        this.assets = assets;
-        this.rigConfig = rigConfig;
-        this.character = character;
-        this.animations = animations;
+        this.playerProject = playerProject;
+        this.assets = playerProject.assets;
+        this.rigConfig = playerProject.rig;
+        this.character = playerProject.character;
+        this.animations = playerProject.animations;
+        this.characterProjects = characterProjects;
         this.environmentAtlases = environmentAtlases;
         this.environmentColorMap = normalizeLevelColorMap(null);
         this.environmentColorMapKey = "";
@@ -139,10 +156,15 @@ class RocketfrockRenderer {
         this.lastRenderDt = 1 / 60;
         this.viewport = { w: canvas.width, h: canvas.height, dpr: 1 };
         this.lastBounds = null;
+        this.lastCharacterDraws = [];
     }
 
     getEnvironmentManifests() {
         return this.environmentAtlases;
+    }
+
+    getRuntimeCharacterProjects() {
+        return new Map(this.characterProjects);
     }
 
     syncEnvironmentColorMap(value) {
@@ -222,6 +244,7 @@ class RocketfrockRenderer {
         this.updatePhase(state, dt);
         const ctx = this.ctx;
         const view = this.computeView(state);
+        this.lastCharacterDraws = [];
         this.clear(view);
         this.drawBackdrop(view);
         this.drawWorld(state, view);
@@ -623,6 +646,12 @@ class RocketfrockRenderer {
         const ctx = this.ctx;
         for (const enemy of state.enemies) {
             if (enemy.visualized) continue;
+            const characterProject = this.getCharacterProject(enemy.characterId || enemy.characterProject);
+            if (characterProject) {
+                this.drawRuntimeCharacterEnemy(characterProject, enemy, state, view);
+                continue;
+            }
+
             const p = this.worldToScreen(view, enemy.x - enemy.width / 2, enemy.y - enemy.height);
             ctx.save();
             ctx.fillStyle = "rgba(202, 135, 255, 0.62)";
@@ -639,6 +668,52 @@ class RocketfrockRenderer {
             ctx.fill();
             ctx.restore();
         }
+    }
+
+    getCharacterProject(characterId) {
+        if (!characterId) {
+            return null;
+        }
+        const key = String(characterId);
+        if (this.characterProjects.has(key)) {
+            return this.characterProjects.get(key);
+        }
+        for (const project of this.characterProjects.values()) {
+            const shortId = String(project.characterId || "").replace(/^ct_char_/, "");
+            if (
+                project.characterId === key ||
+                shortId === key ||
+                project.sourceUrl === key ||
+                project.sourceUrl?.endsWith(`/${key}.json`)
+            ) {
+                return project;
+            }
+        }
+        return null;
+    }
+
+    drawRuntimeCharacterEnemy(project, enemy, state, view) {
+        const screen = this.worldToScreen(view, enemy.x, enemy.y);
+        const actorScale = Math.max(0.05, Number(enemy.renderScale) || 1);
+        const facing = Number(enemy.facing) < 0 ? -1 : 1;
+        const requestedSlot = enemy.animationSlot || enemy.state || "idle";
+        const time = Number.isFinite(Number(enemy.animationTime))
+            ? Number(enemy.animationTime)
+            : state.clock.time + (Number(enemy.animationTimeOffset) || 0);
+        const sampled = sampleRuntimeCharacterPose(project, requestedSlot, time);
+        const transforms = animationPoseToRuntimeTransforms(sampled.pose, project.rig, view.zoom, actorScale);
+
+        this.drawShadow(screen.x, screen.y, view.zoom * actorScale * 0.72);
+        const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+        this.drawCharacterProjectPose(project, screen.x, screen.y, facing, transforms, bounds, {
+            alpha: enemy.health <= 0 ? 0.72 : 1
+        });
+        this.lastCharacterDraws.push({
+            actorId: enemy.id,
+            characterId: project.characterId,
+            animationSlot: sampled.slot,
+            bounds: Number.isFinite(bounds.minX) ? { ...bounds } : null
+        });
     }
 
     drawWorldEffects(state, view) {
@@ -1134,24 +1209,65 @@ class RocketfrockRenderer {
     }
 
     drawRigPose(screenX, screenGroundY, facing, pose, state, zoom, bounds, options = {}) {
+        const lowHealthTint = Number(options.alpha ?? 1) >= 0.99 ? getLowHealthTintAlpha(state) : 0;
+        this.drawCharacterProjectPose(this.playerProject, screenX, screenGroundY, facing, pose.transforms, bounds, {
+            ...options,
+            tintAlpha: lowHealthTint,
+            afterPart: (partName) => {
+                if (partName === "rocket" && options.drawFuelBulb !== false) {
+                    // Phase 1.011: attached boost exhaust is represented by world-managed smoke/spark puffs,
+                    // not by a local flame sprite. The flying projectile still keeps its short nozzle flame.
+                    this.drawMountedRocketFuelBulb(pose.transforms[partName], state, zoom);
+                }
+            }
+        });
+    }
+
+    drawCharacterProjectPose(project, screenX, screenGroundY, facing, renderedTransforms, bounds, options = {}) {
         const ctx = this.ctx;
         const alpha = Number.isFinite(Number(options.alpha)) ? Number(options.alpha) : 1;
+        const tintAlpha = clamp(Number(options.tintAlpha) || 0, 0, 1);
+        const commands = buildRuntimeCharacterDrawCommands(project, renderedTransforms);
         ctx.save();
         ctx.globalAlpha *= alpha;
         ctx.translate(screenX, screenGroundY);
         ctx.scale(facing, 1);
-        const lowHealthTint = alpha >= 0.99 ? getLowHealthTintAlpha(state) : 0;
-        for (const name of FIXED_DRAW_ORDER) {
-            const spriteTint = name === "rocket" ? 0 : lowHealthTint;
-            const spriteBounds = this.drawSprite(name, pose.transforms[name], zoom, spriteTint);
+        for (const command of commands) {
+            const partTint = command.partName === "rocket" ? 0 : tintAlpha;
+            const spriteBounds = this.drawCharacterCommand(project, command, partTint);
             mergeBounds(bounds, spriteBounds, screenX, screenGroundY, facing);
-            if (name === "rocket" && options.drawFuelBulb !== false) {
-                // Phase 1.011: attached boost exhaust is represented by world-managed smoke/spark puffs,
-                // not by a local flame sprite. The flying projectile still keeps its short nozzle flame.
-                this.drawMountedRocketFuelBulb(pose.transforms[name], state, zoom);
-            }
+            options.afterPart?.(command.partName, command);
         }
         ctx.restore();
+        return commands;
+    }
+
+    drawCharacterCommand(project, command, tintAlpha = 0) {
+        const { asset, transform, pivot, spriteScale, drawX, drawY, partName } = command;
+        if (!asset || asset.missing || !transform) {
+            return null;
+        }
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.globalAlpha *= transform.alpha;
+        ctx.translate(transform.x, transform.y);
+        ctx.rotate(transform.angle);
+        ctx.scale(spriteScale, spriteScale);
+        ctx.drawImage(asset.canvas, drawX, drawY);
+        if (tintAlpha > 0 && asset.lowHealthCanvas) {
+            const baseAlpha = ctx.globalAlpha;
+            ctx.globalAlpha = baseAlpha * tintAlpha;
+            ctx.drawImage(asset.lowHealthCanvas, drawX, drawY);
+            ctx.globalAlpha = baseAlpha;
+        }
+        if (project.rig.global.debugPivots) {
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = "rgba(255, 237, 120, 0.72)";
+            ctx.lineWidth = 1 / Math.max(0.001, Math.abs(spriteScale));
+            ctx.strokeRect(drawX, drawY, asset.width, asset.height);
+        }
+        ctx.restore();
+        return transformedSpriteBounds(asset, pivot, transform, spriteScale);
     }
 
     computeRigPose(state, zoom = 1) {
@@ -1186,7 +1302,10 @@ class RocketfrockRenderer {
         const localPose = blendAnimationPoses(clip.referencePose, sampledPose, motionAmount);
         return {
             localPose,
-            pose: animationPoseToRenderedPose(localPose, this.rigConfig, zoom, "ground")
+            pose: {
+                poseMode: "ground",
+                transforms: animationPoseToRuntimeTransforms(localPose, this.rigConfig, zoom)
+            }
         };
     }
 
@@ -1368,41 +1487,6 @@ class RocketfrockRenderer {
         };
     }
 
-    drawSprite(name, transform, zoom, tintAlpha = 0) {
-        const asset = this.assets.get(name);
-        if (!asset || asset.missing || !transform) {
-            return null;
-        }
-
-        const ctx = this.ctx;
-        const pivot = this.rigConfig.pivots[name];
-        const spriteScale = transform.targetHeight / Math.max(1, asset.height);
-        const drawX = -pivot.x * asset.width;
-        const drawY = -pivot.y * asset.height;
-        ctx.save();
-        ctx.globalAlpha *= transform.alpha;
-        ctx.translate(transform.x, transform.y);
-        ctx.rotate(transform.angle);
-        ctx.scale(spriteScale, spriteScale);
-        ctx.drawImage(asset.canvas, drawX, drawY);
-
-        if (tintAlpha > 0 && asset.lowHealthCanvas) {
-            const baseAlpha = ctx.globalAlpha;
-            ctx.globalAlpha = baseAlpha * clamp(tintAlpha, 0, 1);
-            ctx.drawImage(asset.lowHealthCanvas, drawX, drawY);
-            ctx.globalAlpha = baseAlpha;
-        }
-
-        if (this.rigConfig.global.debugPivots) {
-            ctx.globalAlpha = 1;
-            ctx.strokeStyle = "rgba(255, 237, 120, 0.72)";
-            ctx.lineWidth = 1 / Math.max(0.001, Math.abs(spriteScale));
-            ctx.strokeRect(drawX, drawY, asset.width, asset.height);
-        }
-        ctx.restore();
-
-        return transformedSpriteBounds(asset, pivot, transform, spriteScale);
-    }
 
     drawDebug(state, view, inputFrame) {
         const ctx = this.ctx;
@@ -1495,43 +1579,9 @@ class RocketfrockRenderer {
             drawOrder: FIXED_DRAW_ORDER.slice(),
             parts: partMetrics,
             lastBounds: this.lastBounds,
-            renderer: "Atlas-backed character renderer using assets/ct_char_wizard_1.json and assets/ct_rig_wizard_1.json."
+            renderer: "Generic atlas-rig draw-command renderer; Ignatius retains temporary wizard-specific airborne pose selection."
         };
     }
-}
-
-async function loadCharacterDefinition(url) {
-    const character = await loadJsonStrict(url, "character definition");
-    character.sourceUrl = url;
-    if (!character.rig) {
-        throw new Error(`Character definition ${url} does not specify a rig file.`);
-    }
-    return character;
-}
-
-async function loadRigConfig(character) {
-    const rigUrl = resolveRelativeUrl(character.sourceUrl || DEFAULT_CHARACTER_URL, character.rig);
-    const rig = await loadJsonStrict(rigUrl, "character rig");
-    rig.sourceUrl = rigUrl;
-    return rig;
-}
-
-async function loadCharacterAnimations(character) {
-    const animations = new Map();
-    const animationMap = character.animationMap && typeof character.animationMap === "object"
-        ? character.animationMap
-        : {};
-    for (const [slot, relativeUrl] of Object.entries(animationMap)) {
-        if (!relativeUrl) {
-            continue;
-        }
-        const animationUrl = resolveRelativeUrl(character.sourceUrl || DEFAULT_CHARACTER_URL, relativeUrl);
-        const rawClip = await loadJsonStrict(animationUrl, `character animation "${slot}"`);
-        const clip = normalizeAnimationClip(rawClip, `character animation "${slot}" (${animationUrl})`);
-        clip.sourceUrl = animationUrl;
-        animations.set(slot, clip);
-    }
-    return animations;
 }
 
 function normalizeRigConfig(rawConfig) {
@@ -1556,53 +1606,6 @@ function normalizeRigConfig(rawConfig) {
         config.parts[name].alpha = Number.isFinite(Number(config.parts[name].alpha)) ? Number(config.parts[name].alpha) : 1;
     }
     return config;
-}
-
-async function loadCharacterAtlasParts(character, rigConfig) {
-    const rigUrl = rigConfig.sourceUrl || resolveRelativeUrl(character.sourceUrl || DEFAULT_CHARACTER_URL, character.rig);
-    const atlasManifestUrl = resolveRelativeUrl(rigUrl, rigConfig.atlasManifest || `${rigConfig.atlasId || "ct_atlas_wizard_1"}.json`);
-    const atlasManifest = await loadJsonStrict(atlasManifestUrl, "character asset manifest");
-    const imageUrl = resolveRelativeUrl(atlasManifestUrl, atlasManifest.image);
-    const image = await loadImage(imageUrl);
-    const assets = new Map();
-
-    for (const partName of FIXED_DRAW_ORDER) {
-        const part = rigConfig.parts[partName] || {};
-        const frameId = part.frame || partName;
-        const frame = atlasManifest.frames && atlasManifest.frames[frameId];
-        if (!frame) {
-            throw new Error(`Character atlas ${atlasManifestUrl} is missing frame "${frameId}" for rig part "${partName}".`);
-        }
-        assets.set(partName, makeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, atlasManifest.atlasId));
-    }
-
-    return assets;
-}
-
-function makeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, atlasId) {
-    const x = Number(frame.x) || 0;
-    const y = Number(frame.y) || 0;
-    const w = Math.max(1, Number(frame.w) || 1);
-    const h = Math.max(1, Number(frame.h) || 1);
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    canvas.getContext("2d").drawImage(image, x, y, w, h, 0, 0, w, h);
-    const lowHealthCanvas = makeTintedSpriteCanvas(canvas, "#f04b45");
-    return {
-        canvas,
-        lowHealthCanvas,
-        width: w,
-        height: h,
-        naturalWidth: image.naturalWidth || image.width,
-        naturalHeight: image.naturalHeight || image.height,
-        bounds: { x, y, w, h },
-        name: partName,
-        frameId,
-        atlasId,
-        source: `${imageUrl}#${frameId}`,
-        missing: false
-    };
 }
 
 function makeTintedSpriteCanvas(sourceCanvas, color) {
@@ -1907,28 +1910,6 @@ function drawRocketFlameLocal(ctx, asset, pivot, time, power = 1, seed = 0) {
         ctx.fill();
     }
     ctx.restore();
-}
-
-function animationPoseToRenderedPose(animationPose, rigConfig, zoom = 1, poseMode = "ground") {
-    const globalScale = rigConfig.global.scale * zoom;
-    const transforms = {};
-    for (const name of FIXED_DRAW_ORDER) {
-        const local = animationPose[name] || {
-            x: 0,
-            y: 0,
-            rotation: 0,
-            scale: rigConfig.parts[name].scale,
-            alpha: rigConfig.parts[name].alpha
-        };
-        transforms[name] = {
-            x: local.x * globalScale,
-            y: local.y * globalScale,
-            angle: local.rotation,
-            targetHeight: rigConfig.parts[name].targetHeight * globalScale * local.scale,
-            alpha: local.alpha
-        };
-    }
-    return { poseMode, transforms };
 }
 
 

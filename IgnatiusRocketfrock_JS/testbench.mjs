@@ -82,6 +82,15 @@ import {
     zoomCharacterViewAtCanvasPoint
 } from "./IgnatiusRocketfrock_CHARACTER_VIEW.js";
 import {
+    animationPoseToRuntimeTransforms,
+    buildRuntimeCharacterDrawCommands,
+    createRuntimeCharacterSetupPose,
+    loadRuntimeCharacterProject,
+    normalizeRuntimeCharacterRig,
+    resolveRuntimeAnimationSlot,
+    sampleRuntimeCharacterPose
+} from "./IgnatiusRocketfrock_CHARACTER_RUNTIME.js";
+import {
     FIXED_DT,
     DEFAULT_TUNING,
     createInitialGameState,
@@ -152,6 +161,90 @@ function testResponsiveViewportScaling() {
 }
 
 
+
+async function testGenericRuntimeCharacterProject() {
+    const jsonByUrl = new Map();
+    for (const filename of [
+        "ct_char_enemy_001.json",
+        "ct_rig_enemy_001.json",
+        "ct_atlas_enemy_001.json",
+        "ct_anim_enemy_001_idle.json",
+        "ct_anim_enemy_001_walk.json",
+        "ct_anim_enemy_001_attack.json",
+        "ct_anim_enemy_001_hurt.json",
+        "ct_anim_enemy_001_death.json"
+    ]) {
+        jsonByUrl.set(`assets/${filename}`, JSON.parse(readFileSync(`./assets/${filename}`, "utf8")));
+    }
+    const drawCalls = [];
+    const project = await loadRuntimeCharacterProject("assets/ct_char_enemy_001.json", {
+        loadJson: async (url) => {
+            assert.ok(jsonByUrl.has(url), `runtime loader should resolve known project URL ${url}`);
+            return JSON.parse(JSON.stringify(jsonByUrl.get(url)));
+        },
+        loadImage: async (url) => ({ width: 1536, height: 1152, naturalWidth: 1536, naturalHeight: 1152, url }),
+        createCanvas: (width, height) => ({
+            width,
+            height,
+            getContext: () => ({
+                drawImage: (...args) => drawCalls.push(args)
+            })
+        })
+    });
+
+    assert.equal(project.characterId, "ct_char_enemy_001", "runtime loader should retain the character ID");
+    assert.equal(project.rig.drawOrder.length, 8, "generic runtime rig should preserve every enemy part");
+    assert.equal(project.animations.size, 5, "runtime loader should load all mapped enemy animations");
+    assert.equal(drawCalls.length, 8, "runtime loader should crop one atlas frame for every rig part");
+    assert.equal(resolveRuntimeAnimationSlot(project, "attack"), "attack", "requested mapped animation should resolve directly");
+    assert.equal(resolveRuntimeAnimationSlot(project, "missing"), "idle", "missing slots should fall back to idle");
+
+    const sampled = sampleRuntimeCharacterPose(project, "walk", 0.2);
+    assert.equal(sampled.slot, "walk", "runtime character sampler should use the requested walk slot");
+    const transforms = animationPoseToRuntimeTransforms(sampled.pose, project.rig, 2, 0.75);
+    const commands = buildRuntimeCharacterDrawCommands(project, transforms);
+    assert.deepEqual(commands.map((command) => command.partName), project.rig.drawOrder, "draw commands should follow rig draw order");
+    assert.ok(commands.every((command) => Number.isFinite(command.spriteScale) && command.spriteScale > 0), "draw commands should have finite positive scales");
+
+    const arbitraryRig = normalizeRuntimeCharacterRig({
+        rigId: "tiny",
+        drawOrder: ["wing", "body"],
+        global: { scale: 1 },
+        pivots: { wing: { x: 0.1, y: 0.2 } },
+        parts: {
+            body: { frame: "body", offset: { x: 3, y: 4 }, targetHeight: 20 },
+            wing: { frame: "wing", offset: { x: -2, y: 1 }, targetHeight: 10 }
+        }
+    });
+    assert.deepEqual(arbitraryRig.drawOrder, ["wing", "body"], "generic rigs must not assume wizard or humanoid part names");
+    const setupPose = createRuntimeCharacterSetupPose(arbitraryRig);
+    assert.equal(setupPose.wing.x, -2, "setup pose should use rig offsets");
+    assert.equal(arbitraryRig.pivots.body.x, 0.5, "missing pivots should receive a safe frame-centre default");
+
+    const state = createInitialGameState();
+    const level = {
+        levelId: "runtime_character_test",
+        playerStart: { x: 0, y: 600 },
+        entities: [{
+            id: "skeleton_runtime_001",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 400,
+            y: 600,
+            w: 72,
+            h: 150,
+            facing: -1,
+            animationSlot: "idle",
+            renderScale: 0.8
+        }]
+    };
+    assert.equal(applyEditorLevelToWorld(state, level), true, "runtime character level entity should apply");
+    const enemy = state.enemies.find((item) => item.id === "skeleton_runtime_001");
+    assert.ok(enemy, "character enemy should enter simulation presentation state");
+    assert.equal(enemy.characterId, "ct_char_enemy_001", "character enemy should retain its project ID");
+    assert.equal(enemy.facing, -1, "character enemy should retain authored facing");
+    assert.equal(enemy.animationSlot, "idle", "character enemy should retain authored animation slot");
+}
 
 function testEditorDropdownContrast() {
     const editorFiles = [
@@ -1616,6 +1709,7 @@ const tests = [
     ["scripted mailbox letter", testMailboxLetterSequence],
     ["scripted portal entrance", testPortalEntranceSequence],
     ["editor dropdown contrast", testEditorDropdownContrast],
+    ["generic runtime character project", testGenericRuntimeCharacterProject],
     ["character project workspace", testCharacterProjectWorkspace],
     ["character atlas editor operations", testCharacterAtlasEditorOperations],
     ["numbered enemy_001 authored assets", testNumberedEnemy001Assets],
@@ -1651,7 +1745,7 @@ const tests = [
 ];
 
 for (const [name, fn] of tests) {
-    fn();
+    await fn();
     console.log(`PASS ${name}`);
 }
 

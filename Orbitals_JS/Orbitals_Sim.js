@@ -37,7 +37,6 @@ export {
 import { pushEvent } from './sim/events.js';
 export { formatCombatLog } from './sim/events.js';
 import {
-  computeAtmosphereLiftState,
   createFuelMote,
   createPlanetConfig,
   pickNearestPlanet,
@@ -73,11 +72,15 @@ import {
   updateProjectiles
 } from './sim/projectiles.js';
 import {
-  beginPlanetCapture,
   crashPlayerShip,
   respawnShip,
   updateShipState as updatePlayerShipState
 } from './sim/player.js';
+import {
+  beginPlanetCapture,
+  computeAtmosphereLiftState
+} from './sim/physics.js';
+import { stepGame } from './sim/main.js';
 
 const worldUp = new THREE.Vector3(0, 1, 0);
 const tempVecA = new THREE.Vector3();
@@ -2980,26 +2983,26 @@ export function createOrbitalsSim(seed) {
     return state;
   }
 
-  // Simulation update order is deliberate:
-  // 1. advance clocks and world motion,
-  // 2. update the player before encounters inspect player-relative state,
-  // 3. assign encounter roles before enemy and mothership steering,
-  // 4. resolve ship collisions before projectile hits,
-  // 5. age one-shot effects and ambient fuel motes last.
-  // Keep this list as the simulation's table of contents as modules are extracted.
+  const stepSystems = {
+    updateWorld: updatePlanets,
+    updatePlayer: (currentState, deltaTime, controls) => {
+      updatePlayerShipState(currentState, deltaTime, controls, { spawnEnemyExplosion });
+    },
+    updateEncounters: updateEncounterDirector,
+    updateEnemies: updateEnemySquads,
+    updateMotherships: updateMothershipSquads,
+    updateShipCollisions: (currentState) => {
+      updateShipShipCollisions(currentState, { handleShipCollision });
+    },
+    updateProjectiles: (currentState, deltaTime) => {
+      updateProjectiles(currentState, deltaTime, { applyEnemyDamage });
+    },
+    updateEffects: updateEnemyExplosions,
+    updateFuelMotes
+  };
+
   function step(dt, controls = {}) {
-    state.time += dt;
-    state.frameIndex += 1;
-    updatePlanets(state, dt, state.time);
-    updatePlayerShipState(state, dt, controls, { spawnEnemyExplosion });
-    updateEncounterDirector(state, dt, state.time);
-    updateEnemySquads(state, dt, state.time);
-    updateMothershipSquads(state, dt, state.time);
-    updateShipShipCollisions(state, { handleShipCollision });
-    updateProjectiles(state, dt, { applyEnemyDamage });
-    updateEnemyExplosions(state, dt);
-    updateFuelMotes(state, dt, state.time);
-    return state;
+    return stepGame(state, dt, controls, stepSystems);
   }
 
   return {

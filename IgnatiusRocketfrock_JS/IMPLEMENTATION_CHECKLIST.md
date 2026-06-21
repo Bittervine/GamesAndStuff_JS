@@ -117,15 +117,15 @@ Goal: replace custom wizard body-part loading and hardcoded character posing wit
 
 ### Generic Character Renderer
 
-* [ ] Create a generic character renderer that draws parts from atlas frames.
-* [ ] Remove direct dependency on individual wizard body-part image files.
-* [ ] Keep the existing canvas renderer working first.
-* [ ] Return a simple draw-command list that can later be used by WebGL2.
-* [ ] Draw character parts by atlas frame, transform, pivot, alpha, and draw order.
-* [ ] Support mirroring without duplicating art.
-* [ ] Support frame-local pivots.
+* [x] Create a generic character renderer that draws parts from atlas frames.
+* [x] Remove direct dependency on individual wizard body-part image files.
+* [x] Keep the existing canvas renderer working first.
+* [x] Return a simple draw-command list that can later be used by WebGL2.
+* [x] Draw character parts by atlas frame, transform, pivot, alpha, and draw order.
+* [x] Support mirroring without duplicating art.
+* [x] Support frame-local pivots.
 * [ ] Support optional trim metadata if atlas-frame padding causes alignment drift.
-* [ ] Keep the mounted rocket or weapon as a rig part or equipment mount, not as a special renderer island.
+* [x] Keep the mounted rocket or weapon as a rig part or equipment mount, not as a special renderer island.
 
 ### Wizard Migration
 
@@ -267,13 +267,24 @@ Goal: create a tool where rigs and animations can be created, duplicated, edited
 * [x] Export atlas, rig, animation, and character JSON individually. Project-bundle export remains a later convenience.
 * [ ] Keep the tool pleasant enough for long manual tuning sessions.
 
+
+### Revision 085 Generic Runtime Characters
+
+* [x] Add a shared runtime loader for character, rig, atlas, image, and animation files.
+* [x] Normalize arbitrary rig part names and back-to-front draw order without wizard assumptions.
+* [x] Generate Canvas 2D draw commands from atlas frames, pivots, pose transforms, alpha, and facing.
+* [x] Load `enemy_001` alongside Ignatius without adding enemy AI to the renderer.
+* [x] Accept data-authored static `characterEnemy` entities with character ID, animation slot, facing, and scale.
+* [x] Keep gameplay behaviour outside the runtime character loader and renderer.
+* [ ] Add `enemy_001` to the Level Editor palette and implement simulation-owned idle/walk behaviour.
+
 ### Phase 2 Completion
 
-* [ ] The wizard renders from `ct_atlas_wizard_1.png` and no longer needs individual body-part PNG files.
+* [x] The wizard renders from `ct_atlas_wizard_1.png` and no longer needs individual body-part PNG files.
 * [x] The wizard run animation is reproduced by data-driven animation with near pixel-perfect parity.
 * [ ] Jump, fall, hover, launch, idle, and landing poses are animation data rather than renderer-specific hardcoding.
 * [x] The character tool can edit and export wizard rig and animation data.
-* [ ] The generic character renderer is ready to support monsters and other mobs.
+* [x] The generic character renderer is ready to support monsters and other mobs.
 * [x] Headless and/or browser tests cover key migration risks.
 
 ## Phase 3: Monster and Mob Character Pipeline
@@ -284,10 +295,10 @@ Goal: use the Phase 2 character pipeline for enemies and non-wizard creatures.
 
 * [x] Create a simple humanoid enemy rig (`enemy_001`, Skeleton Guard).
 * [ ] Create a simple bat rig.
-* [ ] Support rigs with fewer or different parts than Ignatius.
-* [ ] Support mirrored monster rendering.
+* [x] Support rigs with fewer or different parts than Ignatius.
+* [x] Support mirrored monster rendering.
 * [ ] Support non-humanoid role mappings.
-* [ ] Support per-character animation state assignment.
+* [x] Support per-character animation state assignment.
 * [ ] Allow characters to reuse, duplicate, or override animation templates.
 
 ### First Monster Animations

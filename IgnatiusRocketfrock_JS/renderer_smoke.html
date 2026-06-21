@@ -9,7 +9,9 @@ try {
     document.body.appendChild(canvas);
     const renderer = await createRenderer(canvas);
     document.body.setAttribute('data-result', 'PASS');
-    document.body.textContent = 'PASS renderer smoke ' + renderer.getEnvironmentManifests().size;
+    const projects = renderer.getRuntimeCharacterProjects();
+    if (!projects.has('ct_char_enemy_001')) throw new Error('enemy_001 runtime project missing');
+    document.body.textContent = 'PASS renderer smoke atlases=' + renderer.getEnvironmentManifests().size + ' characters=' + projects.size;
 } catch (error) {
     document.body.setAttribute('data-result', 'FAIL');
     document.body.textContent = 'FAIL ' + (error && error.stack ? error.stack : error);

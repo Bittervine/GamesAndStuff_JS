@@ -1,107 +1,11 @@
 import * as THREE from '../lib/three.module.js';
 import { PLANET_FILES, config } from '../orbitals_config.js';
-import { buildBasisFromNormal, randomUnitVector, shuffleFiles, smoothstep, clamp01 } from './math.js';
+import { buildBasisFromNormal, randomUnitVector, shuffleFiles } from './math.js';
 
 const tempVecA = new THREE.Vector3();
 const tempVecB = new THREE.Vector3();
 const tempVecC = new THREE.Vector3();
 const tempVecD = new THREE.Vector3();
-const tempVecG = new THREE.Vector3();
-const tempVecH = new THREE.Vector3();
-
-export function computeAtmosphereLiftState(planet, altitude, currentSpeed, cruiseSpeed, boostLevel = 0) {
-  const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 0.0001);
-  const targetAltitude = atmosphereThickness * config.atmosphereCruiseAltitudeFactor;
-  const altitudeRatio = clamp01(altitude / atmosphereThickness);
-  const densityCurve = Math.max(0.25, config.atmosphereDensityCurve);
-  const density = Math.pow(1 - smoothstep(0, 1, altitudeRatio), densityCurve);
-  const edgeFade = 1 - smoothstep(0.82, 1.0, altitudeRatio);
-  const surfaceSpeed = Math.sqrt(Math.max(planet.gravityStrength / Math.max(planet.radius + targetAltitude, 1.0), 1.0));
-  const minLiftSpeed = Math.max(0.0001, cruiseSpeed * config.atmosphereLiftMinSpeedFactor);
-  const goodLiftSpeed = Math.max(minLiftSpeed + 0.0001, cruiseSpeed * config.atmosphereLiftGoodSpeedFactor);
-  const speedLift = smoothstep(minLiftSpeed, goodLiftSpeed, currentSpeed);
-  const liftAuthority = clamp01(density * speedLift);
-  const thinAir = smoothstep(0.55, 0.98, altitudeRatio);
-  const thinAirBlend = smoothstep(0.08, 0.85, thinAir);
-  const atmosphereBlend = clamp01((atmosphereThickness * 1.35 - altitude) / Math.max(atmosphereThickness * 0.35, 1));
-  const requiredLiftSpeed = THREE.MathUtils.lerp(minLiftSpeed, goodLiftSpeed, 0.72);
-  const liftSupport = liftAuthority / Math.max(config.atmosphereLiftCruiseAuthority, 0.0001);
-  const liftDeficit = 1 - liftAuthority;
-  const stallStart = config.atmosphereLiftStallStart;
-  const stallFull = config.atmosphereLiftStallFull;
-  const stallBlend = boostLevel > 0
-    ? 0
-    : smoothstep(stallStart, stallFull, liftAuthority) * smoothstep(0.30, 0.98, altitudeRatio) * (1 - boostLevel * 0.85);
-
-  return {
-    atmosphereThickness,
-    targetAltitude,
-    altitudeRatio,
-    softStallStartAltitude: atmosphereThickness * config.atmosphereSoftStallStartFactor,
-    softStallFullAltitude: atmosphereThickness * config.atmosphereSoftStallFullFactor,
-    density,
-    edgeFade,
-    speedLift,
-    liftAuthority,
-    liftDeficit,
-    thinAir,
-    thinAirBlend,
-    atmosphereBlend,
-    requiredLiftSpeed,
-    liftSupport,
-    stallBlend,
-    surfaceSpeed
-  };
-}
-
-export function computeFreeGravityPull(state, ship) {
-  const gravityPull = tempVecG.set(0, 0, 0);
-  const speedDamping = 1 / (1 + Math.max(0, ship.speed || 0) * Math.max(0.0001, config.freeGravitySpeedDamping));
-  const planetScale = config.freeGravityPlanetInfluenceScale;
-  const sunScale = config.freeGravitySunInfluenceScale;
-  const planetNearRangeScale = config.freeGravityPlanetNearRangeScale;
-  const planetAtmosphereBufferScale = config.freeGravityPlanetAtmosphereBufferScale;
-  const planetFarRangePadding = config.freeGravityPlanetFarRangePadding;
-  const sunNearRangeScale = config.freeGravitySunNearRangeScale;
-  const sunFarRangeScale = config.freeGravitySunFarRangeScale;
-
-  for (const planet of state.planets) {
-    const toPlanet = tempVecH.copy(planet.position).sub(ship.position);
-    const distance = toPlanet.length();
-    if (distance <= 1e-6) {
-      continue;
-    }
-
-    const nearRange = Math.max(
-      planet.atmosphereRadius + planet.radius * planetAtmosphereBufferScale,
-      planet.radius * planetNearRangeScale
-    );
-    const farRange = Math.max(planet.gravityRadius, nearRange + planetFarRangePadding);
-    const influence = 1 - smoothstep(nearRange, farRange, distance);
-    if (influence <= 0) {
-      continue;
-    }
-
-    const planetBase = (planet.gravityStrength / Math.max(planet.gravityRadius * planet.gravityRadius, 1)) * planetScale;
-    gravityPull.addScaledVector(
-      toPlanet.multiplyScalar(1 / distance),
-      planetBase * influence * speedDamping
-    );
-  }
-
-  const sunDistance = ship.position.length();
-  if (sunDistance > 1e-6) {
-    const sunNearRange = config.starScale * sunNearRangeScale;
-    const sunFarRange = Math.max(config.orbitScale * sunFarRangeScale, sunNearRange + 1);
-    const sunInfluence = 1 - smoothstep(sunNearRange, sunFarRange, sunDistance);
-    if (sunInfluence > 0) {
-      const sunDirection = tempVecH.copy(ship.position).multiplyScalar(-1 / sunDistance);
-      gravityPull.addScaledVector(sunDirection, sunScale * sunInfluence * speedDamping);
-    }
-  }
-
-  return gravityPull;
-}
 
 export function createPlanetConfig(rng, index, file) {
   const scale = config.planetScale;

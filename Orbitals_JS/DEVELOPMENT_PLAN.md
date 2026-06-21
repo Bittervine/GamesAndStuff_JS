@@ -736,10 +736,19 @@ Important dependency rule:
 
 Acceptance:
 
-- [ ] `stepGame()` reads as the central table of contents.
+- [x] `stepGame()` reads as the central table of contents.
 - [ ] Each subsystem has a single obvious update function.
 - [ ] New coders can locate enemy, mothership, pickup, projectile, and encounter behavior without search spelunking.
-- [ ] Existing active tests pass.
+- [x] Existing active tests pass.
+
+Revision 007 progress evidence:
+
+- `sim/physics.js` now owns the shared ship-flight implementation, including atmosphere lift, free-space gravity, capture transitions, terrain protection, steering, speed integration, and firing movement.
+- The duplicated flight bodies in `player.js` and `enemies.js` were removed; both now delegate to `updateFlightState()` through small ownership-specific wrappers.
+- `sim/main.js` now owns `stepGame()` and displays the deterministic subsystem update order directly.
+- `Orbitals_Sim.js` remains the public compatibility facade and supplies subsystem callbacks to `stepGame()`.
+- Module smoke tests verify the explicit Phase D exports, while the complete active regression suite confirms unchanged gameplay behavior.
+- The next extraction boundary is the encounter director, followed by mothership lifecycle behavior.
 
 ## 17. Phase E: Nested subsystem state migration
 

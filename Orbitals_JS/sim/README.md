@@ -6,14 +6,22 @@
 
 - `math.js`: deterministic RNG, scalar helpers, vector bases, and shuffling.
 - `events.js`: event-log insertion and combat-log formatting.
-- `world.js`: planet creation and motion, atmosphere/gravity helpers, and fuel motes.
+- `world.js`: planet creation and motion, separation, nearest-planet queries, and fuel motes.
 - `projectiles.js`: projectile spawning, guidance, movement, and hit checks.
 - `effects.js`: simulation-side explosion records and lifetime cleanup.
 - `state.js`: gameplay-state factories and reset helpers.
 
-## Partially extracted gameplay modules
+## Active Phase D modules
 
-- `player.js`, `enemies.js`, and `collisions.js` already own substantial behavior, but Phase D still has to make the central update path and ownership boundaries fully explicit.
-- `encounters.js`, `motherships.js`, `physics.js`, `pickups.js`, `weapons.js`, `spatial_hash.js`, and `main.js` remain reserved for later phases.
+- `physics.js`: the single shared implementation for atmosphere lift, free-space gravity, capture transitions, speed limits, terrain guards, steering, and ship integration.
+- `player.js`: player lifecycle, respawn, crash handling, and the player-facing flight wrapper.
+- `enemies.js`: enemy model-family data and the enemy-facing flight wrapper.
+- `collisions.js`: active ship-collision rules.
+- `main.js`: the explicit deterministic frame order used by the compatibility facade.
+
+## Remaining Phase D extractions
+
+- `encounters.js` and `motherships.js` are the next large ownership boundaries still implemented in `../Orbitals_Sim.js`.
+- `pickups.js`, `weapons.js`, and `spatial_hash.js` remain reserved for their gameplay phases.
 
 Keep gameplay tuning in `../orbitals_config.js`. Do not add renderer-owned objects, Three.js groups, DOM nodes, audio nodes, or other presentation handles to simulation state. Use stable gameplay IDs and renderer-side maps instead.

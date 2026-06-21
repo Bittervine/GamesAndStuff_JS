@@ -125,7 +125,7 @@ async function runLowRiskSimulationModuleSmokeTest() {
   const expectedExports = new Map([
     ['./sim/math.js', ['parseSeed', 'mulberry32', 'clamp01', 'smoothstep', 'easeExp', 'buildBasisFromNormal']],
     ['./sim/events.js', ['pushEvent', 'formatCombatLog']],
-    ['./sim/world.js', ['computeAtmosphereLiftState', 'computeFreeGravityPull', 'createPlanetConfig', 'createFuelMote', 'updateFuelMotes', 'updatePlanets']],
+    ['./sim/world.js', ['createPlanetConfig', 'createFuelMote', 'updateFuelMotes', 'updatePlanets']],
     ['./sim/projectiles.js', ['segmentIntersectsSphere', 'findProjectileHomingTarget', 'steerProjectileTowardsTarget', 'spawnProjectileBurst', 'computeShipFireDirection', 'updateProjectiles']],
     ['./sim/effects.js', ['createEnemyExplosionState', 'spawnEnemyExplosion', 'updateEnemyExplosions']]
   ]);
@@ -138,6 +138,41 @@ async function runLowRiskSimulationModuleSmokeTest() {
   }
 
   console.log(`PASS low-risk-module-imports: modules=${expectedExports.size}`);
+}
+
+async function runPhaseDModuleSmokeTest() {
+  const expectedExports = new Map([
+    ['./sim/physics.js', [
+      'computeAtmosphereLiftState',
+      'computeFreeGravityPull',
+      'clampShipSpeed',
+      'syncShipWorldState',
+      'transferShipToPlanet',
+      'beginPlanetCapture',
+      'vectorLikeTo',
+      'updateFlightState'
+    ]],
+    ['./sim/player.js', [
+      'respawnShip',
+      'crashPlayerShip',
+      'crashPlayerShipIntoSun',
+      'updateShipState'
+    ]],
+    ['./sim/enemies.js', [
+      'getEnemyFamilyFiles',
+      'updateEnemyShipState'
+    ]],
+    ['./sim/main.js', ['stepGame']]
+  ]);
+
+  for (const [specifier, names] of expectedExports) {
+    const module = await import(specifier);
+    for (const name of names) {
+      assert.equal(typeof module[name], 'function', `${specifier} must explicitly export ${name}()`);
+    }
+  }
+
+  console.log(`PASS phase-d-module-imports: modules=${expectedExports.size}`);
 }
 
 function resolveGamepadStartRestartAction({ loaded, gameStarted, crashed, crashTimer = 0, firePressed, crashRespawnDelay, fireLatch = false }) {
@@ -4112,6 +4147,7 @@ function runEnemyFamilyIndexTest() {
 
 runSimulationArchitectureGuardTest();
 await runLowRiskSimulationModuleSmokeTest();
+await runPhaseDModuleSmokeTest();
 runStableAltitudeTest();
 runPublicSimApiSmokeTest();
 runPitchResponseTest();
