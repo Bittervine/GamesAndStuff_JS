@@ -170,6 +170,20 @@ export function relaxStarSeparation(planets) {
   }
 }
 
+export function pickRandomPlanetIndex(state, excludeIndex = -1, rng = state.rng) {
+  if (state.planets.length === 0) {
+    return -1;
+  }
+  if (state.planets.length === 1) {
+    return 0;
+  }
+  let index = Math.floor(rng() * state.planets.length);
+  if (index === excludeIndex) {
+    index = (index + 1 + Math.floor(rng() * (state.planets.length - 1))) % state.planets.length;
+  }
+  return index;
+}
+
 export function pickNearestPlanet(planets, position) {
   let nearest = null;
   let nearestDistance = Infinity;

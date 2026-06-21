@@ -771,6 +771,16 @@ Revision 009 projectile-guidance correction:
 - The six free-space gravity tests remain deliberately parked; no gravity behavior changed in this revision.
 - The next planned architecture boundary remains mothership lifecycle and fighter-release behavior.
 
+Revision 010 progress evidence:
+
+- `sim/motherships.js` now owns mothership RNG, squad construction, spawn geometry, approach, smooth hold reorientation, fighter release, exit, and mothership-specific event records.
+- Mothership fighter creation remains coordinated with encounter bookkeeping and generic enemy state through explicit subsystem services rather than renderer or browser state.
+- `updateMothershipSquads()` is the single mothership frame entry point used by `stepGame()` through the compatibility facade.
+- The generic random-planet selector moved to `sim/world.js` so both ordinary enemy departure and mothership route selection share one implementation.
+- `Orbitals_Sim.js` dropped from 2,533 lines to 1,716 lines without numerical gameplay changes.
+- Phase D module smoke tests now verify the mothership exports, and the complete active regression output is identical to revision 009 apart from the module count.
+- The next Phase D boundary is the remaining enemy squad, patrol, and presenter-flight implementation still in `Orbitals_Sim.js`; `pickups.js`, `weapons.js`, and `spatial_hash.js` remain reserved for their later gameplay phases.
+
 ## 17. Phase E: Nested subsystem state migration
 
 Goal: move from flat `state` arrays to a nested `GAME` object.

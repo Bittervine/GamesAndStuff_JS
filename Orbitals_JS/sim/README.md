@@ -18,12 +18,12 @@
 - `enemies.js`: enemy model-family data and the enemy-facing flight wrapper.
 - `collisions.js`: active ship-collision rules.
 - `encounters.js`: encounter creation, route entities, activation, missions, presenter/objective budgets, outcomes, and encounter bookkeeping.
+- `motherships.js`: mothership squad construction, deterministic spawning, approach, hold reorientation, fighter release, exit, and mothership-specific event records.
 - `main.js`: the explicit deterministic frame order used by the compatibility facade.
 
 ## Remaining Phase D extractions
 
-- `motherships.js` is the next large ownership boundary still implemented in `../Orbitals_Sim.js`.
-- Detailed presenter flight geometry remains in the facade/enemy layer and is called by `encounters.js` through an explicit service interface.
+- Remaining enemy squad transitions, patrol steering, and detailed presenter flight geometry still live in the facade/enemy layer. They should move into `enemies.js` while preserving the explicit service interface used by `encounters.js`.
 - `pickups.js`, `weapons.js`, and `spatial_hash.js` remain reserved for their gameplay phases.
 
 Keep gameplay tuning in `../orbitals_config.js`. Do not add renderer-owned objects, Three.js groups, DOM nodes, audio nodes, or other presentation handles to simulation state. Use stable gameplay IDs and renderer-side maps instead.

@@ -128,7 +128,7 @@ async function runLowRiskSimulationModuleSmokeTest() {
   const expectedExports = new Map([
     ['./sim/math.js', ['parseSeed', 'mulberry32', 'clamp01', 'smoothstep', 'easeExp', 'buildBasisFromNormal']],
     ['./sim/events.js', ['pushEvent', 'formatCombatLog']],
-    ['./sim/world.js', ['createPlanetConfig', 'createFuelMote', 'updateFuelMotes', 'updatePlanets']],
+    ['./sim/world.js', ['createPlanetConfig', 'createFuelMote', 'pickRandomPlanetIndex', 'updateFuelMotes', 'updatePlanets']],
     ['./sim/projectiles.js', ['segmentIntersectsSphere', 'findProjectileHomingTarget', 'steerProjectileTowardsTarget', 'spawnProjectileBurst', 'computeShipFireDirection', 'updateProjectiles']],
     ['./sim/effects.js', ['createEnemyExplosionState', 'spawnEnemyExplosion', 'updateEnemyExplosions']]
   ]);
@@ -181,6 +181,12 @@ async function runPhaseDModuleSmokeTest() {
       'updateEncounterEntities',
       'isEncounterActive',
       'updateEncounterDirector'
+    ]],
+    ['./sim/motherships.js', [
+      'spawnMothershipSquad',
+      'spawnFighterSquadFromMothership',
+      'updateMothershipEnemy',
+      'updateMothershipSquads'
     ]],
     ['./sim/main.js', ['stepGame']]
   ]);
