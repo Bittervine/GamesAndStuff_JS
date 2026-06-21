@@ -35,7 +35,7 @@ const copyTuningJsonButton = document.getElementById("copy-tuning-json");
 const refreshTuningJsonButton = document.getElementById("refresh-tuning-json");
 const tuningPanel = document.getElementById("tuning");
 
-const GAME_REVISION = "085";
+const GAME_REVISION = "086";
 
 let gameState = createInitialGameState();
 gameState.debug.revision = GAME_REVISION;
@@ -56,6 +56,7 @@ let accumulator = 0;
 let lastNow = performance.now();
 let lastInputFrame = createInputFrame();
 let devSingleStepArmed = false;
+let levelTransitionLoading = false;
 const tuningSliders = new Map();
 
 setupTuningControls();
@@ -108,6 +109,68 @@ async function applyRequiredDefaultLevel() {
     if (!applyEditorLevelToWorld(gameState, level)) {
         failStartup(`Required level file could not be applied: ${url}.`);
     }
+}
+
+
+function normalizedLevelId(value, fallback = "level_001") {
+    const match = /^level_(\d+)$/i.exec(String(value || "").trim());
+    if (!match) return fallback;
+    return `level_${match[1].padStart(3, "0")}`;
+}
+
+async function fetchOptionalLevel(levelId) {
+    const id = normalizedLevelId(levelId);
+    const url = `assets/${id}.json`;
+    try {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) return null;
+        return await response.json();
+    } catch (error) {
+        console.warn(`Could not load optional level ${url}.`, error);
+        return null;
+    }
+}
+
+function processLevelTransitionRequest() {
+    const request = gameState.story?.levelTransitionRequest;
+    if (!request || levelTransitionLoading) return;
+    gameState.story.levelTransitionRequest = null;
+    levelTransitionLoading = true;
+    void loadRequestedLevel(request).finally(() => {
+        levelTransitionLoading = false;
+    });
+}
+
+async function loadRequestedLevel(request) {
+    const currentLevelId = normalizedLevelId(request.fallbackLevelId || gameState.world.levelId);
+    const requestedLevelId = normalizedLevelId(request.requestedLevelId, currentLevelId);
+    let loadedLevelId = requestedLevelId;
+    let level = await fetchOptionalLevel(requestedLevelId);
+    if (!level) {
+        loadedLevelId = currentLevelId;
+        level = await fetchOptionalLevel(currentLevelId);
+    }
+    if (!level) {
+        console.error(`Level transition failed: neither ${requestedLevelId} nor fallback ${currentLevelId} could be loaded.`);
+        gameState.player.visible = true;
+        return false;
+    }
+    if (!applyEditorLevelToWorld(gameState, level)) {
+        console.error(`Level transition failed while applying ${loadedLevelId}.`);
+        gameState.player.visible = true;
+        return false;
+    }
+    if (!applyLoadedAtlasCollisions()) {
+        console.error(`Level transition loaded ${loadedLevelId}, but its atlas collision could not be applied.`);
+    }
+    renderer.syncEnvironmentColorMap(gameState.world.colorMap);
+    accumulator = 0;
+    addEvent(gameState, "LEVEL_TRANSITION_COMPLETE", {
+        requestedLevelId,
+        loadedLevelId,
+        usedFallback: loadedLevelId !== requestedLevelId
+    });
+    return true;
 }
 
 function failStartup(message, error) {
@@ -226,6 +289,7 @@ function frame(now) {
     }
 
     lastInputFrame = inputFrame;
+    processLevelTransitionRequest();
     renderer.render(gameState, inputFrame, realDt);
     updateHud();
     updateDebugText();
@@ -312,7 +376,7 @@ function updateDebugText() {
         viewText,
         characterText,
         animationText,
-        `intro:${gameState.story?.portalIntro?.active ? gameState.story.portalIntro.phase : "complete/off"}  mailbox:${gameState.story?.mailboxEvent?.active ? gameState.story.mailboxEvent.phase : (gameState.story?.mailboxEvent?.completed ? "complete" : "armed/off")}  playerVisible:${p.visible !== false}`,
+        `intro:${gameState.story?.portalIntro?.active ? gameState.story.portalIntro.phase : "complete/off"}  exit:${gameState.story?.portalExit?.active ? gameState.story.portalExit.phase : (gameState.story?.portalExit ? "armed" : "off")}  mailbox:${gameState.story?.mailboxEvent?.active ? gameState.story.mailboxEvent.phase : "armed/off"}  playerVisible:${p.visible !== false}`,
         `pos (${p.x.toFixed(1)}, ${p.y.toFixed(1)})  vel (${p.vx.toFixed(1)}, ${p.vy.toFixed(1)})`,
         `ground:${p.onGround}  facing:${p.facing > 0 ? "right" : "left"}  boost:${gameState.equipment.rocket.attachedBoosting}  hoverA:${gameState.equipment.rocket.boostAccelerationNow.toFixed(0)}  hoverLimit:${gameState.tuning.attachedBoostHoverFallSpeed.toFixed(0)}`,
         `fuel:${fuel.amount.toFixed(2)}  delay:${fuel.rechargeDelayTimer.toFixed(2)}  cap:${fuel.rechargeCap}  rechargeLatched:${fuel.rechargeLatched ? "yes" : "no"}  groundRecharge:${gameState.tuning.fuelRechargeRequiresGround !== false}  kick:${gameState.equipment.rocket.boostKickCharge.toFixed(2)}  smokeDown:${(gameState.tuning.attachedBoostSmokePuffDownSpeed ?? 170).toFixed(0)}  bulbFlash:${(gameState.equipment.rocket.fuelBulbFlashTimer ?? 0).toFixed(2)}`,

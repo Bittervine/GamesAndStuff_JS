@@ -103,6 +103,7 @@ import {
     resetPlayer,
     applyEditorLevelToWorld,
     applyAtlasManifestsToWorld,
+    defaultNextLevelId,
     setWorldEntityState
 } from "./IgnatiusRocketfrock_SIM.js";
 
@@ -329,7 +330,9 @@ function testCharacterProjectWorkspace() {
     assert.ok(levelEditorHtml.includes("Select tool active for fine-tuning"), "level editor should explain the automatic tool switch");
     assert.ok(levelEditorHtml.includes('id="copy-asset"'), "level editor should expose Copy asset beside placement tools");
     assert.ok(levelEditorHtml.includes("duplicateLevelPlacement(source"), "Copy asset should preserve the selected placement through the shared duplication helper");
-    assert.ok(levelEditorHtml.includes("snapWizardStartToNearbyGround"), "level editor should snap wizardStart to nearby authored collision lines");
+    assert.ok(levelEditorHtml.includes("snapWizardDoorToNearbyGround"), "level editor should snap wizard entry/exit doors to nearby authored collision lines");
+    assert.ok(levelEditorHtml.includes("wizard_entry_door") && levelEditorHtml.includes("wizard_exit_door"), "level editor should expose dedicated entry and exit door types");
+    assert.ok(!levelEditorHtml.includes('data-entity="wizardStart"'), "the retired wizard-start entity should not remain in the palette");
     assert.ok(!levelEditorHtml.includes('globalCompositeOperation = "destination-out"'), "editor cutout masks should not erase the canvas alpha");
     const rendererSource = readFileSync(new URL("./IgnatiusRocketfrock_RENDER.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("ctx.fillStyle = LEVEL_BACKGROUND_COLOR"), "runtime cutout masks should repaint the shared cave backing");
@@ -544,8 +547,9 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.equal(atlas.image, "it_atlas_001.png", "interactive atlas should reference the user-supplied PNG name");
     assert.equal(Object.keys(atlas.frames).length, 42, "interactive atlas should expose all authored item frames");
     assert.ok(atlas.frames.mailbox_with_letter && atlas.frames.portal_foreground && atlas.frames.letter_scroll, "story-item frames should be present");
-    assert.ok(catalog.entities.mailbox && catalog.entities.treasureChest && catalog.entities.magicPortal, "catalog should define the core stateful story entities");
-    const openPortal = catalog.entities.magicPortal.states.open.visuals;
+    assert.ok(catalog.entities.mailbox && catalog.entities.treasureChest && catalog.entities.wizard_entry_door && catalog.entities.wizard_exit_door, "catalog should define mailboxes plus dedicated wizard entry/exit doors");
+    assert.equal(catalog.entities.wizard_exit_door.defaults.mirrorX, true, "exit doorway should be mirrored by default");
+    const openPortal = catalog.entities.wizard_entry_door.states.open.visuals;
     assert.equal(openPortal.length, 2, "open portal should use background and foreground visuals");
     assert.equal(openPortal[1].layer, "actorFront", "portal foreground should render after the player");
     assert.deepEqual(atlas.frames.mailbox_with_letter, { x: 24, y: 0, w: 185, h: 265 }, "letter mailbox frame should match the revised pixel-aligned atlas");
@@ -642,9 +646,11 @@ function testMailboxLetterSequence() {
     };
 
     assert.equal(applyEditorLevelToWorld(state, level), true, "mailbox story level should apply");
-    assert.equal(state.story.mailboxEvent.phase, "armed", "mailbox story should wait for proximity");
-    assert.equal(state.story.mailboxEvent.letterDuration, 14, "mailbox letters should use the slower readable default duration");
-    assert.equal(state.story.mailboxEvent.thoughtDuration, 9, "mailbox thoughts should use the slower readable default duration");
+    assert.equal(state.story.mailboxEvent, null, "no mailbox should be active before proximity");
+    assert.equal(state.story.mailboxEvents.length, 1, "each mailbox should receive its own runtime story record");
+    assert.equal(state.story.mailboxEvents[0].phase, "armed", "mailbox story should wait for proximity");
+    assert.equal(state.story.mailboxEvents[0].letterDuration, 14, "mailbox letters should use the slower readable default duration");
+    assert.equal(state.story.mailboxEvents[0].thoughtDuration, 9, "mailbox thoughts should use the slower readable default duration");
     assert.ok(state.world.visuals.some((visual) => visual.entityId === "mailbox_story" && visual.assetId === "mailbox_with_letter"), "mailbox should initially show the letter state");
 
     stepSimulation(state, createInputFrame({ moveRight: true, weaponPressed: true }), FIXED_DT);
@@ -662,8 +668,8 @@ function testMailboxLetterSequence() {
     stepSimulation(state, createInputFrame({ jumpHeld: false }), FIXED_DT);
     assert.equal(state.story.mailboxEvent.phase, "thought", "releasing jump should not close the thought automatically");
     stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
-    assert.equal(state.story.mailboxEvent.active, false, "the next Jump press should close the single thought");
-    assert.equal(state.story.mailboxEvent.completed, true, "mailbox event should complete only once");
+    assert.equal(state.story.mailboxEvent, null, "closing the thought should clear the active mailbox pointer");
+    assert.equal(state.story.mailboxEvents[0].completed, true, "mailbox event should complete only once");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "MAILBOX_EVENT_COMPLETE"), "mailbox sequence should emit a completion event");
 
     stepMany(state, 5, () => createInputFrame({ moveRight: true }));
@@ -672,18 +678,17 @@ function testMailboxLetterSequence() {
 
 function testPortalEntranceSequence() {
     const catalog = JSON.parse(readFileSync(new URL("./assets/it_entities_001.json", import.meta.url), "utf8"));
-    const portalDef = catalog.entities.magicPortal;
+    const portalDef = catalog.entities.wizard_entry_door;
     const visualStates = Object.fromEntries(Object.entries(portalDef.states).map(([id, def]) => [id, def.visuals]));
     const state = createInitialGameState();
     const level = {
         levelId: "portal_intro_test",
         world: { bounds: { x: -300, y: -300, w: 1400, h: 1000 }, resetY: 900 },
-        playerStart: { x: 160, y: 520 },
         atlasRefs: catalog.atlasRefs,
         placements: [],
         entities: [{
             id: "entrance_test",
-            type: "magicPortal",
+            type: "wizard_entry_door",
             x: 0,
             y: 520,
             w: 250,
@@ -691,6 +696,8 @@ function testPortalEntranceSequence() {
             state: "closed",
             visualStates,
             portalRole: "entrance",
+            emergeDistance: 160,
+            walkDirection: 1,
             walkSpeed: 120,
             closedDuration: 0.1,
             openDuration: 0.1,
@@ -713,13 +720,52 @@ function testPortalEntranceSequence() {
     stepMany(state, 180, () => createInputFrame());
     assert.equal(state.story.portalIntro.active, false, "entrance sequence should finish");
     assert.equal(state.player.visible, true, "wizard should be visible after walking out");
-    approx(state.player.x, 160, 0.001, "wizard should finish at authored playerStart x");
-    approx(state.player.y, 520, 0.001, "wizard should finish at authored playerStart y");
+    approx(state.player.x, 160, 0.001, "wizard should finish at the entry door's authored emergence distance");
+    approx(state.player.y, 520, 0.001, "wizard should finish on the entry door baseline");
     assert.equal(state.world.entityStates.entrance_test, "closed", "portal should close after the wizard clears it");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "PORTAL_INTRO_COMPLETE"), "sequence should emit a completion event");
 
     assert.equal(setWorldEntityState(state, "entrance_test", "open"), true, "runtime entity state helper should reopen the portal");
     assert.ok(state.world.visuals.some((visual) => visual.entityId === "entrance_test" && visual.assetId === "portal_open"), "state helper should rebuild the entity visuals");
+}
+
+function testPortalExitSequence() {
+    const catalog = JSON.parse(readFileSync(new URL("./assets/it_entities_001.json", import.meta.url), "utf8"));
+    const def = catalog.entities.wizard_exit_door;
+    const visualStates = Object.fromEntries(Object.entries(def.states).map(([id, stateDef]) => [id, stateDef.visuals]));
+    const state = createInitialGameState();
+    const level = {
+        levelId: "level_009",
+        world: { bounds: { x: -200, y: -200, w: 1200, h: 900 }, resetY: 1000 },
+        playerStart: { x: 300, y: 520 },
+        atlasRefs: catalog.atlasRefs,
+        placements: [],
+        entities: [{
+            id: "exit_test",
+            type: "wizard_exit_door",
+            x: 330,
+            y: 520,
+            w: 250,
+            h: 328,
+            state: "closed",
+            visualStates,
+            mirrorX: true,
+            portalRole: "exit",
+            walkDirection: 1,
+            triggerDistance: 80,
+            destinationLevel: "level_012",
+            openDuration: 0.05,
+            closeDuration: 0.05,
+            walkSpeed: 400
+        }]
+    };
+    assert.equal(applyEditorLevelToWorld(state, level), true, "exit-door level should apply");
+    assert.equal(state.story.portalExit.requestedLevelId, "level_012", "explicit destination levels should be preserved");
+    stepMany(state, 55, () => createInputFrame());
+    assert.equal(state.story.levelTransitionRequest.requestedLevelId, "level_012", "walking through the exit should request its destination level");
+    assert.equal(state.story.levelTransitionRequest.fallbackLevelId, "level_009", "exit requests should name the current level as fallback");
+    assert.equal(state.player.visible, false, "wizard should be hidden after entering the exit door");
+    assert.equal(defaultNextLevelId("level_009"), "level_010", "default destinations should increment numbered levels");
 }
 
 function testCharacterAtlasEditorOperations() {
@@ -1708,6 +1754,7 @@ const tests = [
     ["interactive item atlas and entity visuals", testInteractiveItemAtlasAndEntityVisuals],
     ["scripted mailbox letter", testMailboxLetterSequence],
     ["scripted portal entrance", testPortalEntranceSequence],
+    ["scripted portal exit", testPortalExitSequence],
     ["editor dropdown contrast", testEditorDropdownContrast],
     ["generic runtime character project", testGenericRuntimeCharacterProject],
     ["character project workspace", testCharacterProjectWorkspace],

@@ -456,7 +456,7 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Add editable entity-state selection in the inspector.
 * [x] Support an `actorFront` visual pass for portal foreground layering.
 * [x] Implement the scripted level-start entrance portal: closed, open, masked walk-out, close, then release controls.
-* [ ] Implement the mirrored level-exit portal sequence.
+* [x] Implement the mirrored level-exit portal sequence with destination-level fallback.
 * [ ] Implement mailbox letters, chest loot, switch channels, gates, herbs, keys, and hazards as gameplay systems.
 
 ### Revision 071 scripted portal entrance
@@ -505,7 +505,7 @@ Goal: grow the game beyond isolated prototype levels.
 [x] Serialize thought bubbles as an ordered array while retaining compatibility with the older single `thoughtText` field.
 [x] Auto-scroll letter text vertically when it exceeds the visible parchment area.
 [x] Let Jump or timeout advance through every thought bubble before returning control.
-[x] Prevent placement of more than one editor-letter mailbox per level.
+[x] Historical revision-075 restriction: prevented more than one mailbox. Superseded in revision 086 by independent per-mailbox story records.
 
 ### Revision 076 unified story text
 
@@ -526,3 +526,15 @@ Goal: grow the game beyond isolated prototype levels.
 [ ] Add a generated enemy index or controlled numbered discovery pass for `ct_char_enemy_0XX.json`.
 [ ] Populate future level-editor enemy palettes from that enemy index.
 
+
+
+### Revision 086 entry/exit doorway transition model
+
+* [x] Replace editor `wizardStart` and plain `exit` markers with `wizard_entry_door` and `wizard_exit_door`.
+* [x] Snap both doorway baselines to nearby walkable/blockable collision.
+* [x] Derive player spawn and respawn from the entry doorway and its emergence distance.
+* [x] Mirror exit-door artwork by default.
+* [x] Open the exit on proximity, walk Ignatius through its actor-front layer, close it, and request a level transition.
+* [x] Default empty destinations to the next numbered level and fall back to the current level when the requested JSON is missing.
+* [x] Permit multiple mailboxes and keep story text/timings on each mailbox entity.
+* [x] Preserve Level Editor import migration for legacy `magicPortal`, `wizardStart`, and `exit` records.

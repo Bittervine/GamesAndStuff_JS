@@ -2,7 +2,7 @@
     "meta": {
         "version": 1,
         "editor": "Ignatius Rocketfrock Level Editor",
-        "note": "Level placements are data. Runtime collision is derived from placement collisionFromManifest plus referenced atlas lines, not asset type. Cutout masks erase lower visual layers only."
+        "note": "Level placements are data. Revision 086 uses wizard_entry_door as the effective start and wizard_exit_door for transitions; mailbox story text lives on each mailbox entity."
     },
     "levelId": "level_001",
     "title": "Ignatius Rocketfrock and the Level That Was Edited On Purpose",
@@ -14,12 +14,6 @@
             "h": 1500
         },
         "resetY": 1080
-    },
-    "playerStart": {
-        "id": "wizardStart",
-        "x": 192,
-        "y": 485.0502978336733,
-        "notes": "Control begins here after Ignatius walks out of entrance_portal_001."
     },
     "atlasRefs": [
         {
@@ -316,8 +310,8 @@
     ],
     "entities": [
         {
-            "id": "entrance_portal_001",
-            "type": "magicPortal",
+            "id": "wizard_entry_door_001",
+            "type": "wizard_entry_door",
             "catalogId": "it_entities_001",
             "x": 0,
             "y": 512,
@@ -356,7 +350,6 @@
                 "open": "Open"
             },
             "interaction": "levelPortal",
-            "destination": "",
             "startsOpen": false,
             "portalRole": "entrance",
             "exitDirection": 1,
@@ -365,16 +358,10 @@
             "openDuration": 0.38,
             "clearDuration": 0.28,
             "closeDuration": 0.42,
-            "notes": "Level entrance. On level start the door opens, Ignatius walks out behind its actorFront half-door, and it closes again."
-        },
-        {
-            "id": "exit_001",
-            "type": "exit",
-            "x": 4992,
-            "y": 448,
-            "w": 64,
-            "h": 120,
-            "notes": "Future level exit."
+            "notes": "Effective level start. The doorway opens, Ignatius walks out behind its actorFront half-door, and it closes behind him.",
+            "walkDirection": 1,
+            "emergeDistance": 192,
+            "groundSnapDistance": 72
         },
         {
             "id": "mailbox_001",
@@ -406,7 +393,7 @@
                 "empty": "Empty"
             },
             "interaction": "editorLetter",
-            "notes": "The level’s single editor-letter mailbox. Letter and one scrollable thought are editable in the Level Editor.",
+            "notes": "Tutorial mailbox. Its letter, thought, trigger distance, and timings are stored on this mailbox entity; more mailboxes may be added to the same level.",
             "triggerDistance": 72,
             "letterDuration": 14,
             "thoughtDuration": 9,
@@ -447,6 +434,62 @@
             },
             "targetRadius": 16,
             "showTargetMarker": false
+        },
+        {
+            "id": "wizard_exit_door_001",
+            "type": "wizard_exit_door",
+            "catalogId": "it_entities_001",
+            "x": 4992,
+            "y": 448,
+            "w": 250,
+            "h": 328,
+            "state": "closed",
+            "visualStates": {
+                "closed": [
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "portal_closed",
+                        "layer": "decorFront"
+                    }
+                ],
+                "open": [
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "portal_open",
+                        "layer": "decorBack",
+                        "widthFactor": 1.1366120218579234,
+                        "heightFactor": 1,
+                        "offsetXFactor": 0.06830601092896176
+                    },
+                    {
+                        "atlasId": "it_atlas_001",
+                        "assetId": "portal_foreground",
+                        "layer": "actorFront",
+                        "widthFactor": 0.6229508196721312,
+                        "heightFactor": 1,
+                        "offsetXFactor": -0.1885245901639344
+                    }
+                ]
+            },
+            "stateLabels": {
+                "closed": "Closed",
+                "open": "Open"
+            },
+            "interaction": "levelPortal",
+            "startsOpen": false,
+            "portalRole": "exit",
+            "exitDirection": 1,
+            "walkSpeed": 135,
+            "closedDuration": 0.55,
+            "openDuration": 0.38,
+            "clearDuration": 0.28,
+            "closeDuration": 0.42,
+            "notes": "Mirrored level exit. Opens when Ignatius approaches, walks him through, then loads destinationLevel. Missing destinations fall back to the current level.",
+            "walkDirection": 1,
+            "groundSnapDistance": 72,
+            "mirrorX": true,
+            "triggerDistance": 96,
+            "destinationLevel": "level_002"
         }
     ]
 }

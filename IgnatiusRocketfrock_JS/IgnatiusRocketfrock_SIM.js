@@ -247,7 +247,10 @@ export function createInitialGameState(overrides = {}) {
         story: {
             levelTitle: "Ignatius Rocketfrock and the Gallery of Sensibly Spaced Ledges",
             portalIntro: null,
-            mailboxEvent: null
+            portalExit: null,
+            mailboxEvent: null,
+            mailboxEvents: [],
+            levelTransitionRequest: null
         },
         debug: {
             paused: false,
@@ -412,14 +415,25 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
     state.world.collisionSegmentCount = segments.length;
     state.world.collisionPolygonCount = polygons.length;
     let startSnap = null;
+    let doorSnaps = [];
     if (!state.world.playerStartGroundSnapResolved) {
         state.world.playerStartGroundSnapResolved = true;
-        startSnap = snapPlayerStartToNearbyGround(state);
+        doorSnaps = snapWizardDoorsToNearbyGround(state);
+        const entryDoor = wizardEntryDoorEntity(state.world.entities || []);
+        if (entryDoor) {
+            applyEntryDoorAsPlayerStart(state, entryDoor, { resetPlayer: true });
+            startSnap = snapPlayerStartToNearbyGround(state);
+            configurePortalIntro(state, state.world.entities || []);
+            configurePortalExit(state, state.world.entities || []);
+        } else {
+            startSnap = snapPlayerStartToNearbyGround(state);
+        }
     }
     addEvent(state, "ATLAS_COLLISION_APPLIED", {
         segments: segments.length,
         polygons: polygons.length,
-        playerStartSnapped: Boolean(startSnap)
+        playerStartSnapped: Boolean(startSnap),
+        wizardDoorsSnapped: doorSnaps.length
     });
     return true;
 }
@@ -452,7 +466,7 @@ export function snapPlayerStartToNearbyGround(state, maxDistance = null) {
                 continue;
             }
             const delta = y - startY;
-            if (delta < -3 || delta > limit) {
+            if (Math.abs(delta) > limit) {
                 continue;
             }
             const score = Math.abs(delta) + sampleIndex * 0.001;
@@ -724,15 +738,124 @@ export function setWorldEntityState(state, entityId, nextState) {
     return true;
 }
 
-function portalIntroEntity(entities) {
-    return entities.find((entity) =>
-        (entity.type === "magicPortal" || entity.kind === "magicPortal") &&
-        (entity.portalRole === "entrance" || entity.introRole === "entrance" || entity.startSequence === true)
-    ) || null;
+function isWizardEntryDoor(entity) {
+    return Boolean(entity) && (
+        entity.type === "wizard_entry_door" ||
+        entity.kind === "wizard_entry_door" ||
+        ((entity.type === "magicPortal" || entity.kind === "magicPortal") &&
+            (entity.portalRole === "entrance" || entity.introRole === "entrance" || entity.startSequence === true))
+    );
+}
+
+function isWizardExitDoor(entity) {
+    return Boolean(entity) && (
+        entity.type === "wizard_exit_door" ||
+        entity.kind === "wizard_exit_door" ||
+        ((entity.type === "magicPortal" || entity.kind === "magicPortal") && entity.portalRole === "exit")
+    );
+}
+
+function wizardEntryDoorEntity(entities) {
+    return (entities || []).find(isWizardEntryDoor) || null;
+}
+
+function wizardExitDoorEntity(entities) {
+    return (entities || []).find(isWizardExitDoor) || null;
+}
+
+export function defaultNextLevelId(levelId) {
+    const match = /^level_(\d+)$/i.exec(String(levelId || ""));
+    if (!match) return "level_001";
+    return `level_${String(Number(match[1]) + 1).padStart(match[1].length, "0")}`;
+}
+
+function doorWalkDirection(door, fallback = 1) {
+    const value = Number(door?.walkDirection ?? door?.exitDirection);
+    if (value < 0) return -1;
+    if (value > 0) return 1;
+    return fallback < 0 ? -1 : 1;
+}
+
+function refreshEntityVisuals(state, entity) {
+    if (!entity?.id) return;
+    state.world.visuals = (state.world.visuals || []).filter((visual) => visual.entityId !== entity.id);
+    editorEntityVisuals(entity).forEach((visual, index) => {
+        if (visual?.assetId) state.world.visuals.push(editorEntityVisualToWorld(entity, visual, index, entity.state || ""));
+    });
+    state.world.visuals.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+}
+
+function snapEntityBaselineToNearbyGround(state, entity, maxDistance = null) {
+    if (!entity || !Number.isFinite(Number(entity.x)) || !Number.isFinite(Number(entity.y))) return null;
+    const wizardHeight = Math.max(1, Number(state.player?.height) || Number(state.tuning?.wizardHeight) || DEFAULT_TUNING.wizardHeight);
+    const requested = maxDistance ?? entity.groundSnapDistance ?? wizardHeight * 0.5;
+    const limit = Math.max(0, Number(requested) || wizardHeight * 0.5);
+    const width = Math.max(16, Number(entity.w) || Number(state.player?.width) || 36);
+    const x = Number(entity.x);
+    const y = Number(entity.y);
+    const samples = [x, x - width * 0.32, x + width * 0.32];
+    let best = null;
+    for (const segment of state.world.segments || []) {
+        if (segment.kind !== "walkable" && segment.kind !== "blockable") continue;
+        if (Math.abs(Number(segment.x2) - Number(segment.x1)) < 0.001) continue;
+        for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
+            const supportY = segmentYAtX(segment, samples[sampleIndex]);
+            if (supportY === null) continue;
+            const delta = supportY - y;
+            if (Math.abs(delta) > limit) continue;
+            const score = Math.abs(delta) + sampleIndex * 0.001;
+            if (!best || score < best.score) best = { supportY, delta, score, segment };
+        }
+    }
+    if (!best) return null;
+    entity.y = best.supportY;
+    refreshEntityVisuals(state, entity);
+    addEvent(state, "WIZARD_DOOR_SNAPPED_TO_GROUND", {
+        doorId: entity.id,
+        fromY: round(y),
+        toY: round(best.supportY),
+        delta: round(best.delta),
+        segmentId: best.segment.id
+    });
+    return { entityId: entity.id, fromY: y, y: best.supportY, delta: best.delta, segmentId: best.segment.id };
+}
+
+export function snapWizardDoorsToNearbyGround(state) {
+    const results = [];
+    for (const entity of state.world?.entities || []) {
+        if (!isWizardEntryDoor(entity) && !isWizardExitDoor(entity)) continue;
+        const result = snapEntityBaselineToNearbyGround(state, entity);
+        if (result) results.push(result);
+    }
+    return results;
+}
+
+function applyEntryDoorAsPlayerStart(state, entryDoor, { resetPlayer = false } = {}) {
+    if (!entryDoor) return false;
+    const direction = doorWalkDirection(entryDoor, 1);
+    const distance = Math.max(48, Number(entryDoor.emergeDistance) || Math.max(120, Number(entryDoor.w) || 150));
+    const start = {
+        x: Number(entryDoor.x) + direction * distance,
+        y: Number(entryDoor.y)
+    };
+    state.world.start = start;
+    if (resetPlayer && state.player) {
+        state.player.x = start.x;
+        state.player.y = start.y;
+        state.player.spawnX = start.x;
+        state.player.spawnY = start.y;
+        state.player.vx = 0;
+        state.player.vy = 0;
+        state.player.onGround = true;
+        state.player.wasOnGround = true;
+        state.camera.x = start.x;
+        state.camera.y = start.y - 170;
+    }
+    return true;
 }
 
 function configurePortalIntro(state, entities) {
-    const portal = portalIntroEntity(entities);
+    const portal = wizardEntryDoorEntity(entities);
     if (!portal) {
         state.story.portalIntro = null;
         state.player.visible = true;
@@ -741,8 +864,7 @@ function configurePortalIntro(state, entities) {
 
     const finalX = state.world.start.x;
     const finalY = state.world.start.y;
-    const fallbackDirection = Number(portal.exitDirection) < 0 ? -1 : 1;
-    const direction = Math.abs(finalX - Number(portal.x || 0)) > 4 ? Math.sign(finalX - Number(portal.x || 0)) : fallbackDirection;
+    const direction = doorWalkDirection(portal, 1);
     const hiddenX = Number(portal.x || 0) - direction * Math.max(12, Number(portal.w || 150) * 0.08);
     const distance = Math.abs(finalX - hiddenX);
     const walkSpeed = Math.max(40, Number(portal.walkSpeed) || 105);
@@ -859,39 +981,135 @@ function updatePortalIntro(state, dt) {
     return true;
 }
 
-function mailboxStoryEntity(entities) {
-    return entities.find((entity) =>
-        (entity.type === "mailbox" || entity.kind === "mailbox") &&
-        (entity.interaction === "editorLetter" || entity.mailboxRole === "editorLetter")
-    ) || null;
+function configurePortalExit(state, entities) {
+    const portal = wizardExitDoorEntity(entities);
+    if (!portal) {
+        state.story.portalExit = null;
+        return false;
+    }
+    const direction = doorWalkDirection(portal, 1);
+    const requestedDestination = String(portal.destinationLevel || portal.destination || "").trim();
+    state.story.portalExit = {
+        active: false,
+        completed: false,
+        portalId: portal.id,
+        phase: "armed",
+        phaseTime: 0,
+        direction,
+        triggerDistance: Math.max(24, Number(portal.triggerDistance) || 96),
+        verticalTolerance: Math.max(32, Number(portal.verticalTolerance) || Math.max(state.player.height, Number(portal.h) || 197)),
+        walkSpeed: Math.max(40, Number(portal.walkSpeed) || 105),
+        openDuration: Math.max(0.05, Number(portal.openDuration) || 0.38),
+        closeDuration: Math.max(0.05, Number(portal.closeDuration) || 0.42),
+        requestedLevelId: requestedDestination || defaultNextLevelId(state.world.levelId),
+        approachX: null,
+        hiddenX: Number(portal.x || 0) + direction * Math.max(10, Number(portal.w || 150) * 0.10),
+        groundY: Number(portal.y) || state.player.y
+    };
+    setWorldEntityState(state, portal.id, "closed");
+    return true;
 }
 
+function startPortalExit(state, exit) {
+    exit.active = true;
+    exit.phase = "opening";
+    exit.phaseTime = 0;
+    exit.approachX = state.player.x;
+    exit.groundY = Number(worldEntityById(state, exit.portalId)?.y) || state.player.y;
+    setWorldEntityState(state, exit.portalId, "open");
+    state.player.vx = 0;
+    state.player.vy = 0;
+    addEvent(state, "PORTAL_EXIT_OPENED", { portalId: exit.portalId, destinationLevel: exit.requestedLevelId });
+}
+
+function updatePortalExit(state, dt) {
+    const exit = state.story?.portalExit;
+    if (!exit || exit.completed) return false;
+    const portal = worldEntityById(state, exit.portalId);
+    if (!portal) return false;
+
+    if (!exit.active) {
+        const horizontalDistance = Math.abs(state.player.x - Number(portal.x || 0));
+        const verticalDistance = Math.abs(state.player.y - Number(portal.y || 0));
+        if (horizontalDistance > exit.triggerDistance || verticalDistance > exit.verticalTolerance) return false;
+        startPortalExit(state, exit);
+    }
+
+    const p = state.player;
+    exit.phaseTime += dt;
+    p.ax = 0;
+    p.ay = 0;
+    p.vy = 0;
+    p.onGround = true;
+    p.wasOnGround = true;
+    p.facing = exit.direction;
+
+    if (exit.phase === "opening") {
+        p.vx = 0;
+        if (exit.phaseTime >= exit.openDuration) {
+            exit.phase = "entering";
+            exit.phaseTime = 0;
+            exit.walkDuration = Math.max(0.55, Math.abs(exit.hiddenX - exit.approachX) / exit.walkSpeed);
+            addEvent(state, "PLAYER_ENTERING_PORTAL", { portalId: exit.portalId });
+        }
+    } else if (exit.phase === "entering") {
+        const t = clamp(exit.phaseTime / Math.max(0.001, exit.walkDuration), 0, 1);
+        const eased = t * t * (3 - 2 * t);
+        p.visible = true;
+        p.x = exit.approachX + (exit.hiddenX - exit.approachX) * eased;
+        p.y = exit.groundY;
+        p.vx = (exit.hiddenX - exit.approachX) / Math.max(0.001, exit.walkDuration);
+        if (t >= 1) {
+            p.visible = false;
+            p.vx = 0;
+            exit.phase = "closing";
+            exit.phaseTime = 0;
+        }
+    } else if (exit.phase === "closing") {
+        p.visible = false;
+        p.x = exit.hiddenX;
+        p.y = exit.groundY;
+        p.vx = 0;
+        if (exit.phaseTime >= exit.closeDuration * 0.5 && state.world.entityStates?.[exit.portalId] !== "closed") {
+            setWorldEntityState(state, exit.portalId, "closed");
+        }
+        if (exit.phaseTime >= exit.closeDuration) {
+            exit.phase = "awaitingLevel";
+            exit.completed = true;
+            state.story.levelTransitionRequest = {
+                portalId: exit.portalId,
+                requestedLevelId: exit.requestedLevelId,
+                fallbackLevelId: state.world.levelId
+            };
+            addEvent(state, "LEVEL_TRANSITION_REQUESTED", state.story.levelTransitionRequest);
+        }
+    }
+
+    state.camera.x += (Number(portal.x) - state.camera.x) * Math.min(1, dt * 5);
+    state.camera.y += (exit.groundY - 170 - state.camera.y) * Math.min(1, dt * 5);
+    return true;
+}
+
+function mailboxStoryEntities(entities) {
+    return (entities || []).filter((entity) =>
+        (entity.type === "mailbox" || entity.kind === "mailbox") &&
+        (entity.interaction === "editorLetter" || entity.mailboxRole === "editorLetter")
+    );
+}
 
 function normalizeMailboxThoughtText(mailbox) {
     const directThought = String(mailbox?.thoughtText || "").trim();
     if (directThought) return directThought;
-
-    // Older revision-075 levels stored several bubbles. Preserve their words
-    // by joining them into the single scrollable thought used now.
     if (Array.isArray(mailbox?.thoughts)) {
-        const legacyThoughts = mailbox.thoughts
-            .map((entry) => String(entry || "").trim())
-            .filter(Boolean);
+        const legacyThoughts = mailbox.thoughts.map((entry) => String(entry || "").trim()).filter(Boolean);
         if (legacyThoughts.length) return legacyThoughts.join(" ");
     }
-
     return "How kind of him! I hope I can make him proud. This cave doesn’t look quite like it did in the brochures, but I’m sure it will be fine.";
 }
 
-function configureMailboxStory(state, entities) {
-    const mailbox = mailboxStoryEntity(entities);
-    if (!mailbox) {
-        state.story.mailboxEvent = null;
-        return false;
-    }
-
+function mailboxStoryRecord(state, mailbox) {
     const initialState = mailbox.state || "letterAvailable";
-    state.story.mailboxEvent = {
+    return {
         active: false,
         completed: initialState === "empty",
         mailboxId: mailbox.id,
@@ -906,12 +1124,17 @@ function configureMailboxStory(state, entities) {
         thoughtAtlasId: mailbox.thoughtAtlasId || "it_atlas_001",
         thoughtAssetId: mailbox.thoughtAssetId || "thought_bubble_large",
         letterTitle: mailbox.letterTitle || "A Letter from Your Humble Editor",
-        letterText: mailbox.letterText || "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: ‘Ignatius Rocketfrock and the Introductory Cave of Training.’ Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
+        letterText: mailbox.letterText || "Dear Ignatius,\n\nPlease proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
         thoughtText: normalizeMailboxThoughtText(mailbox),
         startedAt: null,
         completedAt: null
     };
-    return true;
+}
+
+function configureMailboxStory(state, entities) {
+    state.story.mailboxEvents = mailboxStoryEntities(entities).map((mailbox) => mailboxStoryRecord(state, mailbox));
+    state.story.mailboxEvent = null;
+    return state.story.mailboxEvents.length > 0;
 }
 
 function startMailboxStory(state, story) {
@@ -920,6 +1143,7 @@ function startMailboxStory(state, story) {
     story.phase = "letter";
     story.phaseTime = 0;
     story.startedAt = state.clock.time;
+    state.story.mailboxEvent = story;
     setWorldEntityState(state, story.mailboxId, "empty");
     state.player.vx = 0;
     state.player.vy = 0;
@@ -932,44 +1156,45 @@ function advanceMailboxStory(state, story, phase, reason) {
     story.phase = phase;
     story.phaseTime = 0;
     if (phase === "thought") {
-        addEvent(state, "MAILBOX_THOUGHT_SHOWN", {
-            mailboxId: story.mailboxId,
-            reason
-        });
+        addEvent(state, "MAILBOX_THOUGHT_SHOWN", { mailboxId: story.mailboxId, reason });
     } else if (phase === "complete") {
         story.active = false;
         story.completed = true;
         story.completedAt = state.clock.time;
         state.player.vx = 0;
         state.player.vy = 0;
+        state.story.mailboxEvent = null;
         addEvent(state, "MAILBOX_EVENT_COMPLETE", { mailboxId: story.mailboxId, reason });
     }
 }
 
-
 function updateMailboxStory(state, input, dt) {
-    const story = state.story?.mailboxEvent;
-    if (!story || story.completed) return false;
+    let story = state.story?.mailboxEvent || null;
+    if (!story) {
+        for (const candidate of state.story?.mailboxEvents || []) {
+            if (candidate.completed || candidate.active) continue;
+            const mailbox = worldEntityById(state, candidate.mailboxId);
+            if (!mailbox) continue;
+            const horizontalDistance = Math.abs(state.player.x - (Number(mailbox.x) || 0));
+            const verticalDistance = Math.abs(state.player.y - (Number(mailbox.y) || 0));
+            if (horizontalDistance <= candidate.triggerDistance && verticalDistance <= candidate.verticalTolerance) {
+                story = candidate;
+                startMailboxStory(state, story);
+                break;
+            }
+        }
+        if (!story) return false;
+    }
 
     const mailbox = worldEntityById(state, story.mailboxId);
     if (!mailbox) {
         story.completed = true;
         story.phase = "complete";
+        state.story.mailboxEvent = null;
         return false;
     }
 
-    let startedThisFrame = false;
-    if (!story.active) {
-        const horizontalDistance = Math.abs(state.player.x - (Number(mailbox.x) || 0));
-        const verticalDistance = Math.abs(state.player.y - (Number(mailbox.y) || 0));
-        if (horizontalDistance <= story.triggerDistance && verticalDistance <= story.verticalTolerance) {
-            startMailboxStory(state, story);
-            startedThisFrame = true;
-        } else {
-            return false;
-        }
-    }
-
+    const startedThisFrame = story.phaseTime === 0 && story.startedAt === state.clock.time;
     const p = state.player;
     story.phaseTime += dt;
     p.ax = 0;
@@ -981,11 +1206,8 @@ function updateMailboxStory(state, input, dt) {
 
     const skipped = !startedThisFrame && Boolean(input.jumpPressed);
     if (story.phase === "letter" && (skipped || story.phaseTime >= story.letterDuration)) {
-        if (story.thoughtText.trim()) {
-            advanceMailboxStory(state, story, "thought", skipped ? "jump" : "timeout");
-        } else {
-            advanceMailboxStory(state, story, "complete", skipped ? "jump" : "timeout");
-        }
+        if (story.thoughtText.trim()) advanceMailboxStory(state, story, "thought", skipped ? "jump" : "timeout");
+        else advanceMailboxStory(state, story, "complete", skipped ? "jump" : "timeout");
     } else if (story.phase === "thought" && (skipped || story.phaseTime >= story.thoughtDuration)) {
         advanceMailboxStory(state, story, "complete", skipped ? "jump" : "timeout");
     }
@@ -1004,7 +1226,14 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     const source = editorLevel.level || editorLevel;
     const placements = Array.isArray(source.placements) ? source.placements : [];
     const entities = Array.isArray(source.entities) ? source.entities : [];
-    const playerStart = source.playerStart || source.wizardStart || source.start || null;
+    const entryDoorSource = wizardEntryDoorEntity(entities);
+    const legacyPlayerStart = source.playerStart || source.wizardStart || source.start || null;
+    const playerStart = entryDoorSource
+        ? {
+            x: Number(entryDoorSource.x) + doorWalkDirection(entryDoorSource, 1) * Math.max(48, Number(entryDoorSource.emergeDistance) || Math.max(120, Number(entryDoorSource.w) || 150)),
+            y: Number(entryDoorSource.y) || 360
+        }
+        : legacyPlayerStart;
 
     const visuals = [];
     for (const placement of placements) {
@@ -1092,6 +1321,11 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         ],
         playerStartGroundSnapResolved: false
     };
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.story.mailboxEvents = [];
+    state.story.levelTransitionRequest = null;
 
     if (playerStart) {
         state.player.x = state.world.start.x;
@@ -1108,6 +1342,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     }
 
     configurePortalIntro(state, runtimeEntities);
+    configurePortalExit(state, runtimeEntities);
     configureMailboxStory(state, runtimeEntities);
 
     const targetLike = (entity) => entity.type === "targetDummy" || entity.kind === "targetDummy";
@@ -1305,6 +1540,9 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         return;
     }
     if (updateMailboxStory(state, input, dt)) {
+        return;
+    }
+    if (updatePortalExit(state, dt)) {
         return;
     }
 
