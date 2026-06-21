@@ -6,7 +6,7 @@
   const CLOUD_LAYER_FACTOR = 16;
   const PLANET_3D_COMPOSITE_LAYER = -10;
   const GLOW_3D_BOOST = 1.0;
-  const THORIUM_GAP_VERSION = window.THORIUM_GAP_VERSION || 'thoriumgap-v94';
+  const THORIUM_GAP_VERSION = window.THORIUM_GAP_VERSION || 'thoriumgap-v97';
   const THORIUM_GAP_REV = 'Rev ' + (((/v(\d+)/i.exec(THORIUM_GAP_VERSION) || [null, '??'])[1]) || '??');
   const canvas = document.getElementById('game');
   const hudCanvas = document.getElementById('hud');
@@ -158,9 +158,9 @@
   const PLAYER_3D_FLAME_CANVAS_H = 280;
   const PLAYER_3D_SCREEN_FX_CANVAS_SIZE = 512;
   const PLAYER_3D_ENGINE_SOCKETS = Object.freeze([
-    { x: -0.125, y: 0.548, s: 0.92 },
-    { x: 0, y: 0.582, s: 1.08 },
-    { x: 0.125, y: 0.548, s: 0.92 }
+    { x: -0.125, y: 0.515, s: 0.92 },
+    { x: 0, y: 0.505, s: 1.08 },
+    { x: 0.125, y: 0.515, s: 0.92 }
   ]);
   let playerShipTextureLoading = false;
   let playerAuraTextureLoading = false;
