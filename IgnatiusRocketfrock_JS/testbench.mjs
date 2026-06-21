@@ -149,6 +149,22 @@ function testResponsiveViewportScaling() {
 
 
 
+function testEditorDropdownContrast() {
+    const editorFiles = [
+        "./character_tool.html",
+        "./level_editor.html",
+        "./asset_tool.html"
+    ];
+    for (const filename of editorFiles) {
+        const html = readFileSync(new URL(filename, import.meta.url), "utf8");
+        assert.ok(html.includes("<select"), `${filename} should contain dropdown controls`);
+        assert.ok(html.includes("color-scheme: dark"), `${filename} should request dark native controls`);
+        assert.ok(html.includes("select option"), `${filename} should explicitly style opened dropdown items`);
+        assert.ok(html.includes("select optgroup"), `${filename} should explicitly style dropdown groups`);
+        assert.ok(html.includes("option:checked"), `${filename} should provide a readable selected-option treatment`);
+    }
+}
+
 function testCharacterProjectWorkspace() {
     assert.equal(normalizeCharacterSlug("  Brass Bat!  "), "brass_bat", "character names should become stable file slugs");
     const project = createBlankCharacterProject("Brass Bat");
@@ -524,6 +540,8 @@ function testMailboxLetterSequence() {
 
     assert.equal(applyEditorLevelToWorld(state, level), true, "mailbox story level should apply");
     assert.equal(state.story.mailboxEvent.phase, "armed", "mailbox story should wait for proximity");
+    assert.equal(state.story.mailboxEvent.letterDuration, 14, "mailbox letters should use the slower readable default duration");
+    assert.equal(state.story.mailboxEvent.thoughtDuration, 9, "mailbox thoughts should use the slower readable default duration");
     assert.ok(state.world.visuals.some((visual) => visual.entityId === "mailbox_story" && visual.assetId === "mailbox_with_letter"), "mailbox should initially show the letter state");
 
     stepSimulation(state, createInputFrame({ moveRight: true, weaponPressed: true }), FIXED_DT);
@@ -1554,6 +1572,7 @@ const tests = [
     ["interactive item atlas and entity visuals", testInteractiveItemAtlasAndEntityVisuals],
     ["scripted mailbox letter", testMailboxLetterSequence],
     ["scripted portal entrance", testPortalEntranceSequence],
+    ["editor dropdown contrast", testEditorDropdownContrast],
     ["character project workspace", testCharacterProjectWorkspace],
     ["character atlas editor operations", testCharacterAtlasEditorOperations],
     ["numbered enemy_001 authored assets", testNumberedEnemy001Assets],

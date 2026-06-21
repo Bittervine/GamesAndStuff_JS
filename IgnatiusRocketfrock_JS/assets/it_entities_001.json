@@ -57,8 +57,8 @@
             "defaults": {
                 "interaction": "editorLetter",
                 "triggerDistance": 72,
-                "letterDuration": 7,
-                "thoughtDuration": 4.5,
+                "letterDuration": 14,
+                "thoughtDuration": 9,
                 "letterAtlasId": "it_atlas_001",
                 "letterAssetId": "letter_scroll",
                 "thoughtAtlasId": "it_atlas_001",

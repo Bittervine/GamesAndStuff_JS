@@ -168,6 +168,27 @@
             font: inherit;
         }
 
+
+
+        /* Native dropdown popups may ignore the surrounding dark panel unless
+           the select and its option list are both styled explicitly. */
+        select {
+            color-scheme: dark;
+            background-color: rgb(17, 14, 24);
+            color: var(--ink);
+        }
+
+        select option,
+        select optgroup {
+            background-color: rgb(23, 19, 33);
+            color: var(--ink);
+        }
+
+        select option:checked {
+            background-color: rgb(82, 61, 111);
+            color: #ffffff;
+        }
+
         input[type="checkbox"] {
             width: auto;
         }
@@ -374,7 +395,7 @@
 
     <aside>
         <a class="toplink" href="IgnatiusRocketfrock_JS.html">Back to main</a>
-        <h1>Level Editor <small>rev 080</small></h1>
+        <h1>Level Editor <small>rev 083</small></h1>
         <p>Place atlas assets, move the wizard start, add future monsters/triggers, and export a level JSON. This editor is a first serious foundation, not yet a full shipped tool.</p>
 
         <div class="box">
@@ -2223,8 +2244,8 @@ import {
             }
             els.inspectEntityState.value = rec.state || stateIds[0] || "";
             els.inspectMailboxDistance.value = Number(rec.triggerDistance) || 72;
-            els.inspectMailboxLetterDuration.value = Number(rec.letterDuration) || 7;
-            els.inspectMailboxThoughtDuration.value = Number(rec.thoughtDuration) || 4.5;
+            els.inspectMailboxLetterDuration.value = Number(rec.letterDuration) || 14;
+            els.inspectMailboxThoughtDuration.value = Number(rec.thoughtDuration) || 9;
             els.inspectMailboxTitle.value = rec.letterTitle || "A Letter from Your Humble Editor";
             els.inspectMailboxLetter.value = rec.letterText || "";
             els.inspectMailboxThought.value = formatMailboxThoughtText(rec);
@@ -2285,8 +2306,8 @@ import {
                 if (rec.type === "mailbox" || rec.interaction === "editorLetter") {
                     rec.interaction = "editorLetter";
                     rec.triggerDistance = Math.max(8, Number(els.inspectMailboxDistance.value) || 72);
-                    rec.letterDuration = Math.max(0.25, Number(els.inspectMailboxLetterDuration.value) || 7);
-                    rec.thoughtDuration = Math.max(0.25, Number(els.inspectMailboxThoughtDuration.value) || 4.5);
+                    rec.letterDuration = Math.max(0.25, Number(els.inspectMailboxLetterDuration.value) || 14);
+                    rec.thoughtDuration = Math.max(0.25, Number(els.inspectMailboxThoughtDuration.value) || 9);
                     rec.letterTitle = els.inspectMailboxTitle.value.trim() || "A Letter from Your Humble Editor";
                     rec.letterText = els.inspectMailboxLetter.value;
                     rec.thoughtText = els.inspectMailboxThought.value.trim();
