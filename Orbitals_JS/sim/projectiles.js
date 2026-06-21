@@ -9,14 +9,6 @@ const tempVecD = new THREE.Vector3();
 const tempVecE = new THREE.Vector3();
 const tempVecF = new THREE.Vector3();
 
-const PROJECTILE_HOMING_LOCK_ANGLE = THREE.MathUtils.degToRad(5);
-const PROJECTILE_HOMING_ACQUIRE_ANGLE = THREE.MathUtils.degToRad(7.5);
-const PROJECTILE_HOMING_RETAIN_ANGLE = THREE.MathUtils.degToRad(18);
-const PROJECTILE_HOMING_RANGE = 900;
-const PROJECTILE_HOMING_MIN_TURN = THREE.MathUtils.degToRad(10);
-const PROJECTILE_HOMING_MAX_TURN = THREE.MathUtils.degToRad(45);
-const RETICLE_OFFSET_PX = 170;
-
 function applyProjectileGuidanceVelocity(projectile, includeInheritedVelocity = true) {
   if (!projectile.guidanceDirection) {
     return;
@@ -43,6 +35,8 @@ export function segmentIntersectsSphere(start, end, center, radius) {
 }
 
 export function findProjectileHomingTarget(state, projectile) {
+  const acquireAngle = THREE.MathUtils.degToRad(config.projectileHomingAcquireAngleDeg);
+  const retainAngle = THREE.MathUtils.degToRad(config.projectileHomingRetainAngleDeg);
   const headingSource = projectile.guidanceDirection || projectile.velocity;
   if (!state.enemies.length || headingSource.lengthSq() < 1e-6) {
     return null;
@@ -56,9 +50,9 @@ export function findProjectileHomingTarget(state, projectile) {
   if (currentTarget) {
     const currentTargetOffset = tempVecB.copy(currentTarget.position).sub(projectile.position);
     const currentTargetDistance = currentTargetOffset.length();
-    if (currentTargetDistance > 1e-6 && currentTargetDistance <= PROJECTILE_HOMING_RANGE) {
+    if (currentTargetDistance > 1e-6 && currentTargetDistance <= config.projectileHomingRange) {
       const currentTargetAngle = currentHeading.angleTo(currentTargetOffset.divideScalar(currentTargetDistance));
-      if (currentTargetAngle <= PROJECTILE_HOMING_RETAIN_ANGLE) {
+      if (currentTargetAngle <= retainAngle) {
         return currentTarget;
       }
     }
@@ -74,17 +68,17 @@ export function findProjectileHomingTarget(state, projectile) {
 
     const offset = tempVecB.copy(enemy.position).sub(projectile.position);
     const distance = offset.length();
-    if (distance <= 1e-6 || distance > PROJECTILE_HOMING_RANGE) {
+    if (distance <= 1e-6 || distance > config.projectileHomingRange) {
       continue;
     }
 
     const direction = offset.multiplyScalar(1 / distance);
     const angle = currentHeading.angleTo(direction);
-    if (angle > PROJECTILE_HOMING_ACQUIRE_ANGLE) {
+    if (angle > acquireAngle) {
       continue;
     }
 
-    const score = (angle / PROJECTILE_HOMING_ACQUIRE_ANGLE) * 0.7 + (distance / PROJECTILE_HOMING_RANGE) * 0.3;
+    const score = (angle / acquireAngle) * 0.7 + (distance / config.projectileHomingRange) * 0.3;
     if (score < bestScore) {
       bestScore = score;
       bestTarget = enemy;
@@ -95,6 +89,10 @@ export function findProjectileHomingTarget(state, projectile) {
 }
 
 export function steerProjectileTowardsTarget(projectile, target, dt) {
+  const acquireAngle = THREE.MathUtils.degToRad(config.projectileHomingAcquireAngleDeg);
+  const lockAngle = THREE.MathUtils.degToRad(config.projectileHomingLockAngleDeg);
+  const minTurnRate = THREE.MathUtils.degToRad(config.projectileHomingMinTurnDeg);
+  const maxTurnRate = THREE.MathUtils.degToRad(config.projectileHomingMaxTurnDeg);
   const headingSource = projectile.guidanceDirection || projectile.velocity;
   if (!target || headingSource.lengthSq() < 1e-6) {
     return;
@@ -119,17 +117,17 @@ export function steerProjectileTowardsTarget(projectile, target, dt) {
   }
 
   const angleAssist = THREE.MathUtils.clamp(
-    (PROJECTILE_HOMING_ACQUIRE_ANGLE - angle) / (PROJECTILE_HOMING_ACQUIRE_ANGLE - PROJECTILE_HOMING_LOCK_ANGLE),
+    (acquireAngle - angle) / (acquireAngle - lockAngle),
     0,
     1
   );
-  const distanceAssist = THREE.MathUtils.clamp(1 - (distance / PROJECTILE_HOMING_RANGE), 0, 1);
+  const distanceAssist = THREE.MathUtils.clamp(1 - (distance / config.projectileHomingRange), 0, 1);
   const assist = angleAssist * (0.5 + distanceAssist * 0.5);
   if (assist <= 0) {
     return;
   }
 
-  const turnRate = THREE.MathUtils.lerp(PROJECTILE_HOMING_MIN_TURN, PROJECTILE_HOMING_MAX_TURN, assist);
+  const turnRate = THREE.MathUtils.lerp(minTurnRate, maxTurnRate, assist);
   const maxTurn = turnRate * dt;
   const turn = Math.min(angle, maxTurn);
   if (turn <= 0) {
@@ -193,8 +191,8 @@ export function computeShipFireDirection(ship, camera, aimX, aimY, viewportWidth
 
   const halfWidth = Math.max(1, viewportWidth * 0.5);
   const halfHeight = Math.max(1, viewportHeight * 0.5);
-  const ndcX = THREE.MathUtils.clamp((aimX * RETICLE_OFFSET_PX) / halfWidth, -1.5, 1.5);
-  const ndcY = THREE.MathUtils.clamp(-(aimY * RETICLE_OFFSET_PX) / halfHeight, -1.5, 1.5);
+  const ndcX = THREE.MathUtils.clamp((aimX * config.reticleOffsetPx) / halfWidth, -1.5, 1.5);
+  const ndcY = THREE.MathUtils.clamp(-(aimY * config.reticleOffsetPx) / halfHeight, -1.5, 1.5);
   camera.updateMatrixWorld(true);
   const near = tempVecA.set(ndcX, ndcY, -1).unproject(camera);
   const far = tempVecB.set(ndcX, ndcY, 1).unproject(camera);

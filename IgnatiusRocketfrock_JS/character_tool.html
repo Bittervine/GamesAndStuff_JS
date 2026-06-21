@@ -372,7 +372,7 @@
         <canvas id="stage" width="1160" height="660" aria-label="Puppet Forge character preview"></canvas>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 083</small></h1>
+        <h1>Puppet Forge <small>rev 084</small></h1>
         <p><a href="IgnatiusRocketfrock_JS.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -487,6 +487,18 @@
                 <span>Animation slot</span>
                 <select id="animation-select"></select>
             </label>
+            <div class="row">
+                <label><span>Animation ID</span><input id="animation-id" type="text"></label>
+                <label><span>Duration (seconds)</span><input id="animation-duration" type="number" min="0.001" step="0.001"></label>
+            </div>
+            <div class="row">
+                <label><span>Base cycles / second</span><input id="base-cycles-per-second" type="number" min="0.001" step="0.01"></label>
+                <label><span>Speed cycles / second</span><input id="speed-cycles-per-second" type="number" min="0.001" step="0.01"></label>
+            </div>
+            <div class="row">
+                <label><span>Maximum speed ratio</span><input id="max-speed-ratio" type="number" min="0.001" step="0.01"></label>
+                <label><span>Idle threshold</span><input id="idle-threshold" type="number" min="0" step="0.01"></label>
+            </div>
             <label>
                 <span class="readout"><span>Preview speed</span><span id="speed-value"></span></span>
                 <input id="speed" type="range" min="0.05" max="3" step="0.01" value="1">
@@ -505,6 +517,12 @@
                 <button id="reload" type="button">Reload files</button>
             </div>
             <label class="check-row"><input id="loop" type="checkbox" checked> Loop preview and exported clip</label>
+            <label class="check-row"><input id="animation-mirrorable" type="checkbox" checked> Animation may be mirrored</label>
+            <div class="row">
+                <label><span>New animation slot</span><input id="duplicate-animation-slot" type="text" placeholder="for example: block"></label>
+                <button id="duplicate-animation" type="button">Duplicate current</button>
+            </div>
+            <p>Duplicate current creates a new in-memory animation file and adds its slot to the character definition. Download both changed JSON files to keep the new clip.</p>
         </section>
 
         <section class="box mode-panel animation-panel">
@@ -634,19 +652,23 @@ import {
 import {
     addAtlasFrameToRig,
     addRigPartToAnimation,
+    animationFilenameForCharacterSlot,
     createBlankCharacterProject,
     inventoryCharacterProjectJson,
     moveRigPartToBack,
     moveRigPartToFront,
+    normalizeAnimationSlot,
     resolveCharacterProjectReference
 } from "./IgnatiusRocketfrock_CHARACTER_PROJECT.js";
 import {
     animationTrackSummary,
     createEditableAnimationClip,
     deleteAnimationKeyframe,
+    duplicateEditableAnimationClip,
     findKeyframeIndex,
     getAnimationTrack,
     serializeEditableAnimationClip,
+    updateAnimationClipMetadata,
     updateAnimationKeyframe,
     upsertAnimationKeyframe
 } from "./IgnatiusRocketfrock_ANIMATION_EDITOR.js";
@@ -747,6 +769,15 @@ const els = {
     validateAtlas: document.getElementById("validate-atlas"),
     atlasValidation: document.getElementById("atlas-validation"),
     animationSelect: document.getElementById("animation-select"),
+    animationId: document.getElementById("animation-id"),
+    animationDuration: document.getElementById("animation-duration"),
+    baseCyclesPerSecond: document.getElementById("base-cycles-per-second"),
+    speedCyclesPerSecond: document.getElementById("speed-cycles-per-second"),
+    maxSpeedRatio: document.getElementById("max-speed-ratio"),
+    idleThreshold: document.getElementById("idle-threshold"),
+    animationMirrorable: document.getElementById("animation-mirrorable"),
+    duplicateAnimationSlot: document.getElementById("duplicate-animation-slot"),
+    duplicateAnimation: document.getElementById("duplicate-animation"),
     speed: document.getElementById("speed"),
     speedValue: document.getElementById("speed-value"),
     time: document.getElementById("time"),
@@ -1932,7 +1963,7 @@ async function loadAnimationSlot(slot) {
     const url = resolveRelativeUrl(state.characterUrl, relativeUrl);
     let editable = state.animationCache.get(slot);
     if (!editable) {
-        const generated = state.projectMode === "generated" ? state.generatedAnimations.get(slot) : null;
+        const generated = state.generatedAnimations.get(slot) || null;
         const raw = generated || await loadJson(url);
         editable = createEditableAnimationClip(raw, `animation ${slot}`);
         state.animationCache.set(slot, editable);
@@ -2119,22 +2150,119 @@ function samplePose() {
 }
 
 function syncAnimationControls() {
+    const metadataControls = [
+        els.animationId,
+        els.animationDuration,
+        els.baseCyclesPerSecond,
+        els.speedCyclesPerSecond,
+        els.maxSpeedRatio,
+        els.idleThreshold,
+        els.animationMirrorable,
+        els.duplicateAnimationSlot,
+        els.duplicateAnimation
+    ];
     if (!state.animation) {
         state.syncing = true;
         els.time.max = 1;
         els.time.value = 0;
         els.loop.checked = false;
+        els.animationMirrorable.checked = false;
+        els.animationId.value = "";
+        els.animationDuration.value = "";
+        els.baseCyclesPerSecond.value = "";
+        els.speedCyclesPerSecond.value = "";
+        els.maxSpeedRatio.value = "";
+        els.idleThreshold.value = "";
+        for (const control of metadataControls) {
+            control.disabled = true;
+        }
         state.syncing = false;
         updateReadouts();
         return;
     }
     const duration = Number(state.animation.duration);
+    const playback = {
+        idleThreshold: 0.04,
+        baseCyclesPerSecond: 0.55,
+        speedCyclesPerSecond: 2.6,
+        maxSpeedRatio: 1.4,
+        ...(state.animation.playback || {})
+    };
     state.syncing = true;
     els.time.max = duration;
     els.time.value = clamp(state.time, 0, duration);
     els.loop.checked = state.animation.loop !== false;
+    els.animationMirrorable.checked = state.animation.mirrorable !== false;
+    els.animationId.value = String(state.animation.animationId || "");
+    els.animationDuration.value = duration.toFixed(3);
+    els.baseCyclesPerSecond.value = Number(playback.baseCyclesPerSecond).toFixed(3);
+    els.speedCyclesPerSecond.value = Number(playback.speedCyclesPerSecond).toFixed(3);
+    els.maxSpeedRatio.value = Number(playback.maxSpeedRatio).toFixed(3);
+    els.idleThreshold.value = Number(playback.idleThreshold).toFixed(3);
+    for (const control of metadataControls) {
+        control.disabled = false;
+    }
     state.syncing = false;
     updateReadouts();
+}
+
+function applyAnimationMetadataFromUi() {
+    if (state.syncing || !state.animation) {
+        return;
+    }
+    try {
+        updateAnimationClipMetadata(state.animation, {
+            animationId: els.animationId.value,
+            duration: Number(els.animationDuration.value),
+            loop: els.loop.checked,
+            mirrorable: els.animationMirrorable.checked,
+            playback: {
+                baseCyclesPerSecond: Number(els.baseCyclesPerSecond.value),
+                speedCyclesPerSecond: Number(els.speedCyclesPerSecond.value),
+                maxSpeedRatio: Number(els.maxSpeedRatio.value),
+                idleThreshold: Number(els.idleThreshold.value)
+            }
+        });
+        state.time = clamp(state.time, 0, Number(state.animation.duration));
+        invalidateAnimation();
+        syncAnimationControls();
+        rebuildTimeline();
+        setStatus(`Updated metadata for ${state.animationSlot}.`);
+    } catch (error) {
+        syncAnimationControls();
+        setStatus(error.message);
+    }
+}
+
+async function duplicateCurrentAnimation() {
+    if (!state.animation || !state.character) {
+        return;
+    }
+    try {
+        const slot = normalizeAnimationSlot(els.duplicateAnimationSlot.value);
+        state.character.animationMap = state.character.animationMap || {};
+        if (state.character.animationMap[slot]) {
+            throw new Error(`Animation slot "${slot}" already exists.`);
+        }
+        const filename = animationFilenameForCharacterSlot(state.character, slot);
+        const animationId = filename.replace(/\.json$/i, "");
+        const duplicate = duplicateEditableAnimationClip(state.animation, animationId);
+        state.character.animationMap[slot] = filename;
+        state.generatedAnimations.set(slot, duplicate);
+        state.animationCache.set(slot, duplicate);
+        markDirty("character");
+        markDirty("animation", slot);
+        refreshCharacterJson();
+        setupAnimationSelect();
+        els.animationSelect.value = slot;
+        els.duplicateAnimationSlot.value = "";
+        await loadAnimationSlot(slot);
+        state.paused = true;
+        els.pause.textContent = "Play";
+        setStatus(`Duplicated the current clip into slot ${slot}.\nNew file: ${filename}\nDownload the Animation JSON and Character JSON to preserve it.`);
+    } catch (error) {
+        setStatus(error.message);
+    }
 }
 
 function updateReadouts() {
@@ -3129,10 +3257,32 @@ els.reload.addEventListener("click", () => {
     }
     loadCharacter().catch((error) => setStatus(error.stack || error.message));
 });
-els.loop.addEventListener("change", () => {
-    if (state.animation) {
-        state.animation.loop = els.loop.checked;
-        invalidateAnimation();
+for (const control of [
+    els.animationId,
+    els.animationDuration,
+    els.baseCyclesPerSecond,
+    els.speedCyclesPerSecond,
+    els.maxSpeedRatio,
+    els.idleThreshold,
+    els.loop,
+    els.animationMirrorable
+]) {
+    control.addEventListener("change", applyAnimationMetadataFromUi);
+}
+els.animationId.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        applyAnimationMetadataFromUi();
+        els.animationId.blur();
+    }
+});
+els.duplicateAnimation.addEventListener("click", () => {
+    duplicateCurrentAnimation().catch((error) => setStatus(error.stack || error.message));
+});
+els.duplicateAnimationSlot.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        duplicateCurrentAnimation().catch((error) => setStatus(error.stack || error.message));
     }
 });
 els.timeline.addEventListener("pointerdown", scrubTimeline);

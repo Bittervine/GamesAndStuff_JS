@@ -27,20 +27,24 @@ import {
 import {
     addAtlasFrameToRig,
     addRigPartToAnimation,
+    animationFilenameForCharacterSlot,
     CHARACTER_PROJECT_FILE_KIND,
     classifyCharacterProjectJson,
     createBlankCharacterProject,
     inventoryCharacterProjectJson,
     moveRigPartToBack,
     moveRigPartToFront,
+    normalizeAnimationSlot,
     normalizeCharacterSlug,
     resolveCharacterProjectReference
 } from "./IgnatiusRocketfrock_CHARACTER_PROJECT.js";
 import {
     createEditableAnimationClip,
     deleteAnimationKeyframe,
+    duplicateEditableAnimationClip,
     getAnimationTrack,
     serializeEditableAnimationClip,
+    updateAnimationClipMetadata,
     updateAnimationKeyframe,
     upsertAnimationKeyframe
 } from "./IgnatiusRocketfrock_ANIMATION_EDITOR.js";
@@ -173,6 +177,12 @@ function testCharacterProjectWorkspace() {
     assert.equal(project.rig.atlasManifest, project.filenames.atlas, "blank rig should reference its generated atlas manifest");
     assert.equal(project.atlas.image, project.filenames.image, "blank atlas should reference its generated PNG name");
     assert.equal(project.character.animationMap.idle, project.filenames.animation, "blank character should map an editable idle animation");
+    assert.equal(normalizeAnimationSlot(" Heavy Slash! "), "heavy_slash", "animation slots should become stable identifiers");
+    assert.equal(
+        animationFilenameForCharacterSlot(project.character, "Heavy Slash"),
+        "ct_anim_brass_bat_1_heavy_slash.json",
+        "duplicated animation filenames should derive from the character ID and slot"
+    );
     normalizeAnimationClip(project.animations.idle, "blank project idle");
 
     assert.equal(classifyCharacterProjectJson(project.character), CHARACTER_PROJECT_FILE_KIND.CHARACTER, "character JSON should classify correctly");
@@ -913,6 +923,35 @@ function testAnimationEditorOperations() {
     assert.equal(deleteAnimationKeyframe(editable, "hat", "rotation", movedIndex), true, "selected key should delete");
     assert.equal(getAnimationTrack(editable, "hat", "rotation", false).length, originalCount, "deleting should restore track length");
 
+    updateAnimationClipMetadata(editable, {
+        animationId: "ct_anim_wizard_run_metadata_test",
+        duration: 1.25,
+        loop: false,
+        mirrorable: false,
+        playback: {
+            idleThreshold: 0.08,
+            baseCyclesPerSecond: 0.8,
+            speedCyclesPerSecond: 2.2,
+            maxSpeedRatio: 1.7
+        }
+    });
+    assert.equal(editable.animationId, "ct_anim_wizard_run_metadata_test", "animation ID metadata should be editable");
+    assert.equal(editable.duration, 1.25, "animation duration metadata should be editable");
+    assert.equal(editable.loop, false, "loop metadata should be editable");
+    assert.equal(editable.mirrorable, false, "mirrorable metadata should be editable");
+    assert.equal(editable.playback.maxSpeedRatio, 1.7, "playback metadata should be editable");
+    assert.throws(
+        () => updateAnimationClipMetadata(editable, { duration: 0.1 }),
+        /final key/,
+        "shortening duration past existing keys should be rejected rather than destroying authored timing"
+    );
+
+    const duplicate = duplicateEditableAnimationClip(editable, "ct_anim_wizard_run_duplicate_test");
+    assert.equal(duplicate.animationId, "ct_anim_wizard_run_duplicate_test", "animation duplication should assign a fresh ID");
+    assert.notEqual(duplicate, editable, "animation duplication should create a separate object");
+    duplicate.tracks.hat.rotation[0].value += 1;
+    assert.notEqual(duplicate.tracks.hat.rotation[0].value, editable.tracks.hat.rotation[0].value, "editing a duplicate should not mutate its source");
+
     const serialized = serializeEditableAnimationClip(editable, "serialized editable run");
     assert.equal(serialized._normalizedAnimationClip, undefined, "editor metadata should not leak into exported JSON");
     assert.equal(serialized.sourceUrl, undefined, "source URL should not leak into exported JSON");
@@ -923,6 +962,10 @@ function testAnimationEditorOperations() {
     assert.ok(toolHtml.includes("Add at playhead"), "character tool should expose keyframe creation");
     assert.ok(toolHtml.includes("Drag a diamond") || toolHtml.includes("drag a yellow corner"), "character tool should explain direct keyframe manipulation");
     assert.ok(toolHtml.includes("previewSelectedKeyValue"), "numeric key values should preview and commit directly");
+    assert.ok(toolHtml.includes('id="animation-duration"'), "character tool should expose animation duration metadata");
+    assert.ok(toolHtml.includes('id="animation-mirrorable"'), "character tool should expose animation mirroring metadata");
+    assert.ok(toolHtml.includes('id="duplicate-animation"'), "character tool should expose animation duplication");
+    assert.ok(toolHtml.includes("duplicateCurrentAnimation"), "character tool should wire animation duplication into the current project");
 }
 
 function testAnimationEasingModes() {

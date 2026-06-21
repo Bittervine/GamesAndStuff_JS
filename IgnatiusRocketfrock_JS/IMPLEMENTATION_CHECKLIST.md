@@ -78,7 +78,7 @@ Goal: replace custom wizard body-part loading and hardcoded character posing wit
 * [x] Keep rendering resources outside `gameState`.
 * [ ] Keep animation state in or derivable from `gameState` when it affects gameplay, replay, debugging, or deterministic state transitions.
 * [ ] Keep character rendering data compatible with a later WebGL2 renderer.
-* [ ] Treat reusable animations as templates that can be duplicated and tweaked per character.
+* [x] Treat reusable animations as templates that can be duplicated and tweaked per character.
 * [ ] Do not force every character to use every animation.
 
 ### File Format Targets
@@ -99,7 +99,7 @@ Goal: replace custom wizard body-part loading and hardcoded character posing wit
 * [ ] Allow bats to classify wings as arm-like controls without pretending every bat animation is a humanoid run.
 * [ ] Let each animation declare required and optional roles.
 * [ ] Let each character explicitly choose which animations it uses for each gameplay state.
-* [ ] Support duplicated/forked animations so shared templates can become character-specific animations.
+* [x] Support duplicated/forked animations so shared templates can become character-specific animations.
 
 ### Animation Data
 
@@ -218,6 +218,10 @@ The remaining rig-authoring work is still deletion, frame reassignment, role/tag
 
 Puppet Forge now provides **To Back** and **To Front** buttons in the Base rig / setup values panel. They move the selected rig part to the first or last position of the shared back-to-front `drawOrder`, refresh the preview and rig JSON immediately, preserve the selection, and mark only the rig document dirty.
 
+### Revision 084 Animation Metadata and Duplication
+
+Puppet Forge now edits clip metadata directly: animation ID, duration, loop flag, mirrorability, idle threshold, base and movement playback cadence, and maximum speed ratio. Duration cannot be shortened past the final existing key. The **Duplicate current** workflow deep-copies the selected animation, creates a stable filename from the character ID and requested slot, adds the slot to the in-memory character definition, and marks both resulting documents as changed for individual download.
+
 ### Other Wizard Animation States
 
 * [ ] Add `idle` animation.
@@ -252,9 +256,10 @@ Goal: create a tool where rigs and animations can be created, duplicated, edited
 * [x] Provide draw-order controls with selected-part **To Back** and **To Front** actions.
 * [ ] Provide part role/tag editing.
 * [x] Provide animation playback controls: play, pause, loop, frame step, speed, and scrubber.
+* [x] Edit animation ID, duration, loop flag, mirrorability, idle threshold, playback cadence, and maximum speed ratio.
 * [x] Provide a timeline with keyframes.
 * [x] Allow adding, moving, deleting, copying, and pasting keyframes.
-* [ ] Allow duplicating an animation.
+* [x] Allow duplicating an animation.
 * [ ] Allow copying a pose and pasting it mirrored.
 * [ ] Allow paired-limb phase offset helpers.
 * [ ] Show ghost previous/next poses while animating.
@@ -277,7 +282,7 @@ Goal: use the Phase 2 character pipeline for enemies and non-wizard creatures.
 
 ### Monster Rig Support
 
-* [ ] Create a simple humanoid enemy rig.
+* [x] Create a simple humanoid enemy rig (`enemy_001`, Skeleton Guard).
 * [ ] Create a simple bat rig.
 * [ ] Support rigs with fewer or different parts than Ignatius.
 * [ ] Support mirrored monster rendering.
@@ -299,7 +304,7 @@ Goal: use the Phase 2 character pipeline for enemies and non-wizard creatures.
 ### Phase 3 Completion
 
 * [ ] At least one non-wizard character uses the generic rig renderer.
-* [ ] At least one monster has assigned animations for idle/move/attack/hurt.
+* [x] At least one monster has assigned animations for idle/move/attack/hurt (`enemy_001`, with death also authored).
 * [ ] Monster visuals remain renderer-owned while monster gameplay state remains simulation-owned.
 
 ## Phase 4: Combat, Destructibles, and Reactive Objects

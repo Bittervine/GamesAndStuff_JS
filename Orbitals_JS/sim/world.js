@@ -9,9 +9,6 @@ const tempVecD = new THREE.Vector3();
 const tempVecG = new THREE.Vector3();
 const tempVecH = new THREE.Vector3();
 
-const ATMOSPHERE_SOFT_STALL_START = 0.62;
-const ATMOSPHERE_SOFT_STALL_FULL = 0.94;
-
 export function computeAtmosphereLiftState(planet, altitude, currentSpeed, cruiseSpeed, boostLevel = 0) {
   const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 0.0001);
   const targetAltitude = atmosphereThickness * config.atmosphereCruiseAltitudeFactor;
@@ -40,8 +37,8 @@ export function computeAtmosphereLiftState(planet, altitude, currentSpeed, cruis
     atmosphereThickness,
     targetAltitude,
     altitudeRatio,
-    softStallStartAltitude: atmosphereThickness * ATMOSPHERE_SOFT_STALL_START,
-    softStallFullAltitude: atmosphereThickness * ATMOSPHERE_SOFT_STALL_FULL,
+    softStallStartAltitude: atmosphereThickness * config.atmosphereSoftStallStartFactor,
+    softStallFullAltitude: atmosphereThickness * config.atmosphereSoftStallFullFactor,
     density,
     edgeFade,
     speedLift,

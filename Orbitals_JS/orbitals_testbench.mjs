@@ -1,11 +1,23 @@
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import * as THREE from './lib/three.module.js';
-import { createOrbitalsSim, ENEMY_MODEL_FILES_BY_FAMILY, getEncounterAnchorPosition, parseSeed } from './Orbitals_Sim.js';
-import { createOrbitalsSim as createOrbitalsSimBaseline } from '../Orbitals_JSp/Orbitals_Sim.js';
+let THREE;
+try {
+  THREE = await import('./lib/three.module.js');
+} catch (error) {
+  throw new Error('Orbitals testbench could not load ./lib/three.module.js from the provided bundle.', { cause: error });
+}
 import { config } from './orbitals_config.js';
-import { computeShipFireDirection } from './sim/projectiles.js';
-import { createEnemyState } from './sim/state.js';
+const {
+  createOrbitalsSim,
+  ENEMY_MODEL_FILES_BY_FAMILY,
+  getEncounterAnchorPosition,
+  parseSeed
+} = await import('./Orbitals_Sim.js');
+const {
+  computeShipFireDirection,
+  spawnProjectileBurst
+} = await import('./sim/projectiles.js');
+const { createEnemyState } = await import('./sim/state.js');
 
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
 const NEUTRAL_CONTROLS = {
@@ -19,45 +31,7 @@ const NEUTRAL_CONTROLS = {
 const SHALLOW_DIVE_PITCH_INPUT = 0.5;
 
 
-const LEGACY_SIM_NUMERIC_CONSTANTS = new Set([
-  'Orbitals_Sim.js:ENEMY_SPAWN_DELAY_MIN',
-  'Orbitals_Sim.js:ENEMY_SPAWN_DELAY_MAX',
-  'Orbitals_Sim.js:ENEMY_MAX_SQUADS',
-  'Orbitals_Sim.js:ENEMY_SQUAD_SIZE_MIN',
-  'Orbitals_Sim.js:ENEMY_SQUAD_SIZE_MAX',
-  'Orbitals_Sim.js:ENEMY_APPROACH_ALTITUDE',
-  'Orbitals_Sim.js:ENEMY_SWARM_ALTITUDE',
-  'Orbitals_Sim.js:ENEMY_DEPART_ALTITUDE',
-  'Orbitals_Sim.js:ENEMY_SPEED_SCALE_MIN',
-  'Orbitals_Sim.js:ENEMY_SPEED_SCALE_MAX',
-  'Orbitals_Sim.js:ENEMY_TURN_RATE_MIN',
-  'Orbitals_Sim.js:ENEMY_TURN_RATE_MAX',
-  'Orbitals_Sim.js:ENEMY_UP_RATE_MIN',
-  'Orbitals_Sim.js:ENEMY_UP_RATE_MAX',
-  'Orbitals_Sim.js:ENEMY_TARGET_SMOOTH_RATE_SWARM',
-  'Orbitals_Sim.js:ENEMY_TARGET_SMOOTH_RATE_TRAVEL',
-  'Orbitals_Sim.js:ENEMY_INPUT_SMOOTH_RATE_SWARM',
-  'Orbitals_Sim.js:ENEMY_INPUT_SMOOTH_RATE_TRAVEL',
-  'Orbitals_Sim.js:ENEMY_SWARM_WANDER_TURN',
-  'Orbitals_Sim.js:ENEMY_SWARM_WANDER_PITCH',
-  'Orbitals_Sim.js:ENEMY_TRAVEL_WANDER_TURN',
-  'Orbitals_Sim.js:ENEMY_TRAVEL_WANDER_PITCH',
-  'Orbitals_Sim.js:ATMOSPHERE_SOFT_STALL_START',
-  'Orbitals_Sim.js:ATMOSPHERE_SOFT_STALL_FULL',
-  'Orbitals_Sim.js:ENEMY_SWARM_DURATION_MIN',
-  'Orbitals_Sim.js:ENEMY_SWARM_DURATION_MAX',
-  'Orbitals_Sim.js:ENEMY_DEPART_DURATION_MIN',
-  'Orbitals_Sim.js:ENEMY_DEPART_DURATION_MAX',
-  'Orbitals_Sim.js:ENEMY_CRASH_MARGIN',
-  'sim/effects.js:ENEMY_EXPLOSION_PARTICLE_COUNT',
-  'sim/effects.js:ENEMY_EXPLOSION_LIFETIME_MIN',
-  'sim/effects.js:ENEMY_EXPLOSION_LIFETIME_MAX',
-  'sim/projectiles.js:PROJECTILE_HOMING_RANGE',
-  'sim/projectiles.js:RETICLE_OFFSET_PX',
-  'sim/state.js:ENEMY_HIT_RADIUS',
-  'sim/world.js:ATMOSPHERE_SOFT_STALL_START',
-  'sim/world.js:ATMOSPHERE_SOFT_STALL_FULL'
-]);
+const LEGACY_SIM_NUMERIC_CONSTANTS = new Set();
 
 const RENDERER_OWNED_STATE_KEYS = new Set([
   'root',
@@ -147,6 +121,25 @@ function runSimulationArchitectureGuardTest() {
   );
 }
 
+async function runLowRiskSimulationModuleSmokeTest() {
+  const expectedExports = new Map([
+    ['./sim/math.js', ['parseSeed', 'mulberry32', 'clamp01', 'smoothstep', 'easeExp', 'buildBasisFromNormal']],
+    ['./sim/events.js', ['pushEvent', 'formatCombatLog']],
+    ['./sim/world.js', ['computeAtmosphereLiftState', 'computeFreeGravityPull', 'createPlanetConfig', 'createFuelMote', 'updateFuelMotes', 'updatePlanets']],
+    ['./sim/projectiles.js', ['segmentIntersectsSphere', 'findProjectileHomingTarget', 'steerProjectileTowardsTarget', 'spawnProjectileBurst', 'computeShipFireDirection', 'updateProjectiles']],
+    ['./sim/effects.js', ['createEnemyExplosionState', 'spawnEnemyExplosion', 'updateEnemyExplosions']]
+  ]);
+
+  for (const [specifier, names] of expectedExports) {
+    const module = await import(specifier);
+    for (const name of names) {
+      assert.equal(typeof module[name], 'function', `${specifier} must explicitly export ${name}()`);
+    }
+  }
+
+  console.log(`PASS low-risk-module-imports: modules=${expectedExports.size}`);
+}
+
 function resolveGamepadStartRestartAction({ loaded, gameStarted, crashed, crashTimer = 0, firePressed, crashRespawnDelay, fireLatch = false }) {
   if (!loaded || !firePressed) {
     return { action: null, fireLatch: false };
@@ -207,8 +200,8 @@ function buildPlanetFireCamera(ship, state) {
 function computeRawFireDirection(camera, aimX, aimY, viewportWidth, viewportHeight) {
   const halfWidth = Math.max(1, viewportWidth * 0.5);
   const halfHeight = Math.max(1, viewportHeight * 0.5);
-  const ndcX = (aimX * 170) / halfWidth;
-  const ndcY = -(aimY * 170) / halfHeight;
+  const ndcX = (aimX * config.reticleOffsetPx) / halfWidth;
+  const ndcY = -(aimY * config.reticleOffsetPx) / halfHeight;
   camera.updateMatrixWorld(true);
   const near = new THREE.Vector3(ndcX, ndcY, -1).unproject(camera);
   const far = new THREE.Vector3(ndcX, ndcY, 1).unproject(camera);
@@ -2315,20 +2308,20 @@ function runGamepadStartRestartSmokeTest() {
   console.log('PASS gamepad-start-restart-smoke');
 }
 
-function runProjectileRefactorComparisonTest() {
+function runProjectileModuleFacadeComparisonTest() {
   const seed = 0xC0FFEE;
-  const baselineSim = createOrbitalsSimBaseline(seed);
-  const refactoredSim = createOrbitalsSim(seed);
-  baselineSim.bootstrapWorld();
-  refactoredSim.bootstrapWorld();
+  const facadeSim = createOrbitalsSim(seed);
+  const moduleSim = createOrbitalsSim(seed);
+  facadeSim.bootstrapWorld();
+  moduleSim.bootstrapWorld();
 
-  stepSim(baselineSim, 120, NEUTRAL_CONTROLS);
-  stepSim(refactoredSim, 120, NEUTRAL_CONTROLS);
+  stepSim(facadeSim, 120, NEUTRAL_CONTROLS);
+  stepSim(moduleSim, 120, NEUTRAL_CONTROLS);
 
-  const baselineShip = baselineSim.state.ship;
-  const refShip = refactoredSim.state.ship;
-  assert.ok(baselineShip && refShip, 'expected ships in both simulations');
-  assert.ok(baselineShip.boundPlanet && refShip.boundPlanet, 'expected both ships to remain bound');
+  const facadeShip = facadeSim.state.ship;
+  const moduleShip = moduleSim.state.ship;
+  assert.ok(facadeShip && moduleShip, 'expected ships in both simulations');
+  assert.ok(facadeShip.boundPlanet && moduleShip.boundPlanet, 'expected both ships to remain bound');
 
   const planetVelocities = [
     new THREE.Vector3(5400, -2600, 1700),
@@ -2341,68 +2334,65 @@ function runProjectileRefactorComparisonTest() {
   const comparisons = [];
 
   for (const planetVelocity of planetVelocities) {
-    configureBoundFireState(baselineSim.state, planetVelocity, new THREE.Vector3(0, 0, 0));
-    configureBoundFireState(refactoredSim.state, planetVelocity, new THREE.Vector3(0, 0, 0));
+    configureBoundFireState(facadeSim.state, planetVelocity, new THREE.Vector3(0, 0, 0));
+    configureBoundFireState(moduleSim.state, planetVelocity, new THREE.Vector3(0, 0, 0));
 
-    const baselineCamera = buildPlanetFireCamera(baselineShip, baselineSim.state);
-    const refCamera = buildPlanetFireCamera(refShip, refactoredSim.state);
-    const baselineFireDirection = computeRawFireDirection(baselineCamera, aimX, aimY, 1280, 720);
-    const refFireDirection = computeShipFireDirection(refShip, refCamera, aimX, aimY, 1280, 720);
-
-    assert.ok(
-      baselineFireDirection.dot(refFireDirection) > 0.9999,
-      `expected the refactored aim ray to match the baseline ray: dot=${baselineFireDirection.dot(refFireDirection).toFixed(6)}`
-    );
-
-    baselineSim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection: baselineFireDirection });
-    refactoredSim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection: refFireDirection });
-
-    assert.strictEqual(baselineSim.state.projectiles.length, 1, 'expected baseline projectile');
-    assert.strictEqual(refactoredSim.state.projectiles.length, 1, 'expected refactored projectile');
-
-    const baselineProjectile = baselineSim.state.projectiles[0];
-    const refProjectile = refactoredSim.state.projectiles[0];
-    const baselineCarrierVelocity = baselineShip.velocity;
-    const refCarrierVelocity = refShip.velocity;
-    const baselineRelative = baselineProjectile.velocity.clone().sub(baselineCarrierVelocity);
-    const refRelative = refProjectile.velocity.clone().sub(refCarrierVelocity);
-    const baselineOffset = baselineProjectile.position.clone().sub(baselineShip.position);
-    const refOffset = refProjectile.position.clone().sub(refShip.position);
+    const facadeCamera = buildPlanetFireCamera(facadeShip, facadeSim.state);
+    const moduleCamera = buildPlanetFireCamera(moduleShip, moduleSim.state);
+    const expectedFireDirection = computeRawFireDirection(facadeCamera, aimX, aimY, 1280, 720);
+    const moduleFireDirection = computeShipFireDirection(moduleShip, moduleCamera, aimX, aimY, 1280, 720);
 
     assert.ok(
-      Math.abs(baselineRelative.length() - expectedProjectileSpeed) < 1e-3,
-      `expected baseline projectile speed to stay constant: got=${baselineRelative.length().toFixed(3)} expected=${expectedProjectileSpeed.toFixed(3)}`
-    );
-    assert.ok(
-      Math.abs(refRelative.length() - expectedProjectileSpeed) < 1e-3,
-      `expected refactored projectile speed to stay constant: got=${refRelative.length().toFixed(3)} expected=${expectedProjectileSpeed.toFixed(3)}`
-    );
-    assert.ok(
-      baselineRelative.clone().normalize().dot(baselineFireDirection) > 0.9999,
-      `expected baseline projectile to stay on the reticle ray: dot=${baselineRelative.clone().normalize().dot(baselineFireDirection).toFixed(6)}`
-    );
-    assert.ok(
-      refRelative.clone().normalize().dot(refFireDirection) > 0.9999,
-      `expected refactored projectile to stay on the reticle ray: dot=${refRelative.clone().normalize().dot(refFireDirection).toFixed(6)}`
+      expectedFireDirection.dot(moduleFireDirection) > 0.9999,
+      `expected the projectile module aim ray to match the independent ray: dot=${expectedFireDirection.dot(moduleFireDirection).toFixed(6)}`
     );
 
+    facadeSim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection: moduleFireDirection });
+    spawnProjectileBurst(moduleSim.state, moduleShip, moduleFireDirection);
+
+    assert.strictEqual(facadeSim.state.projectiles.length, 1, 'expected facade projectile');
+    assert.strictEqual(moduleSim.state.projectiles.length, 1, 'expected direct module projectile');
+
+    const facadeProjectile = facadeSim.state.projectiles[0];
+    const moduleProjectile = moduleSim.state.projectiles[0];
+    const facadeRelative = facadeProjectile.velocity.clone().sub(facadeShip.velocity);
+    const moduleRelative = moduleProjectile.velocity.clone().sub(moduleShip.velocity);
+    const facadeOffset = facadeProjectile.position.clone().sub(facadeShip.position);
+    const moduleOffset = moduleProjectile.position.clone().sub(moduleShip.position);
+
+    assert.ok(
+      Math.abs(facadeRelative.length() - expectedProjectileSpeed) < 1e-3,
+      `expected facade projectile speed to stay constant: got=${facadeRelative.length().toFixed(3)} expected=${expectedProjectileSpeed.toFixed(3)}`
+    );
+    assert.ok(
+      Math.abs(moduleRelative.length() - expectedProjectileSpeed) < 1e-3,
+      `expected direct module projectile speed to stay constant: got=${moduleRelative.length().toFixed(3)} expected=${expectedProjectileSpeed.toFixed(3)}`
+    );
+    assert.ok(
+      facadeRelative.clone().normalize().dot(moduleFireDirection) > 0.9999,
+      `expected facade projectile to stay on the module aim ray: dot=${facadeRelative.clone().normalize().dot(moduleFireDirection).toFixed(6)}`
+    );
+    assert.ok(
+      moduleRelative.clone().normalize().dot(moduleFireDirection) > 0.9999,
+      `expected direct module projectile to stay on the module aim ray: dot=${moduleRelative.clone().normalize().dot(moduleFireDirection).toFixed(6)}`
+    );
     comparisons.push({
       planetVelocity: planetVelocity.toArray(),
-      baseline: {
-        relativeSpeed: baselineRelative.length(),
-        spawnOffset: baselineOffset.length()
+      facade: {
+        relativeSpeed: facadeRelative.length(),
+        spawnOffset: facadeOffset.length()
       },
-      refactored: {
-        relativeSpeed: refRelative.length(),
-        spawnOffset: refOffset.length()
+      module: {
+        relativeSpeed: moduleRelative.length(),
+        spawnOffset: moduleOffset.length()
       }
     });
 
-    baselineSim.state.projectiles.length = 0;
-    refactoredSim.state.projectiles.length = 0;
+    facadeSim.state.projectiles.length = 0;
+    moduleSim.state.projectiles.length = 0;
   }
 
-  console.log(`PASS projectile-refactor-compare: ${JSON.stringify(comparisons)}`);
+  console.log(`PASS projectile-module-facade-compare: ${JSON.stringify(comparisons)}`);
 }
 
 function setupProjectileHomingScenario(sim, lateralOffset) {
@@ -4121,6 +4111,7 @@ function runEnemyFamilyIndexTest() {
 }
 
 runSimulationArchitectureGuardTest();
+await runLowRiskSimulationModuleSmokeTest();
 runStableAltitudeTest();
 runPublicSimApiSmokeTest();
 runPitchResponseTest();
@@ -4146,7 +4137,7 @@ runFreeGravityHighSpeedTest();
 // Temporarily parked while free-space gravity nose-pull is reworked.
 runArcadeOrbitViabilityTest();
 runProjectileFireTest();
-runProjectileRefactorComparisonTest();
+runProjectileModuleFacadeComparisonTest();
 runProjectileNormalScenarioSmokeTest();
 runProjectileBoundFlightInheritedVelocityTest();
 runProjectileFireWhileMovingTest();

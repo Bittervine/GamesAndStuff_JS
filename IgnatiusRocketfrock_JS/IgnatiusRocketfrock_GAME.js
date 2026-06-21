@@ -35,7 +35,7 @@ const copyTuningJsonButton = document.getElementById("copy-tuning-json");
 const refreshTuningJsonButton = document.getElementById("refresh-tuning-json");
 const tuningPanel = document.getElementById("tuning");
 
-const GAME_REVISION = "083";
+const GAME_REVISION = "084";
 
 let gameState = createInitialGameState();
 gameState.debug.revision = GAME_REVISION;

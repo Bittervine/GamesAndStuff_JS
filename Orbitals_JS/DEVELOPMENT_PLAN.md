@@ -401,11 +401,11 @@ These items are inherited from `PLANETARY_COMBAT_PLAN.md` and `PLANETARY_COMBAT_
 
 ### 9.1 Config cleanup
 
-- [ ] Move remaining gameplay-affecting constants from `Orbitals_Sim.js` into `orbitals_config.js`.
-- [ ] Move projectile homing constants into config.
-- [ ] Move enemy base speed, turn, and up-scale ranges into config.
-- [ ] Move enemy AI smoothing and wander constants into config.
-- [ ] Move enemy hit radius and explosion constants into config.
+- [x] Move remaining gameplay-affecting constants from `Orbitals_Sim.js` into `orbitals_config.js`.
+- [x] Move projectile homing constants into config.
+- [x] Move enemy base speed, turn, and up-scale ranges into config.
+- [x] Move enemy AI smoothing and wander constants into config.
+- [x] Move enemy hit radius and explosion constants into config.
 - [x] Add a static guard that fails when new gameplay constants appear inside simulation files.
 
 ### 9.2 Route anchor support
@@ -460,8 +460,8 @@ Some transport defense tests exist. Keep these items open until tested through n
 
 ### 9.7 Testbench dependency
 
-- [ ] Ensure the uploaded/testable repo includes `lib/three.module.js`, or update imports so the testbench runs from the provided bundle.
-- [ ] Add a bootstrap test that fails clearly if Three.js cannot be loaded.
+- [x] Ensure the uploaded/testable repo includes `lib/three.module.js`, or update imports so the testbench runs from the provided bundle.
+- [x] Add a bootstrap test that fails clearly if Three.js cannot be loaded.
 
 ### 9.8 Free-space gravity rework
 
@@ -680,25 +680,35 @@ Suggested first extractions:
 
 Tasks:
 
-- [ ] Create a `src/sim/` directory, or a flat `sim_*.js` transition if changing paths is too disruptive.
-- [ ] Move helpers one group at a time.
-- [ ] Keep exports small and explicit.
-- [ ] Run the testbench after each extraction.
-- [ ] Avoid circular imports.
-- [ ] Keep `createOrbitalsSim()` as the compatibility facade.
+- [x] Create a `src/sim/` directory, or a flat `sim_*.js` transition if changing paths is too disruptive.
+- [x] Move helpers one group at a time.
+- [x] Keep exports small and explicit.
+- [x] Run the testbench after each extraction.
+- [x] Avoid circular imports.
+- [x] Keep `createOrbitalsSim()` as the compatibility facade.
 
 Acceptance:
 
-- [ ] Testbench passes after each extracted module.
-- [ ] No behavior changes.
-- [ ] The main sim file becomes shorter and more navigable.
-- [ ] The extracted modules have obvious ownership.
+- [x] Testbench passes after each extracted module.
+- [x] No behavior changes.
+- [x] The main sim file becomes shorter and more navigable.
+- [x] The extracted modules have obvious ownership.
 
 Expected files:
 
 - `Orbitals_Sim.js`
 - new `src/sim/*.js` files or transitional module files
 - `orbitals_testbench.mjs` if imports need updating
+
+Revision 006 completion evidence:
+
+- The facade now imports shared math and atmosphere helpers instead of retaining duplicate implementations.
+- `math.js`, `events.js`, `world.js`, `projectiles.js`, and `effects.js` are active modules with explicit exports.
+- A module import smoke test verifies their public functions independently of the facade.
+- Remaining enemy, homing, hit-radius, explosion, and atmosphere threshold tuning moved into `orbitals_config.js`.
+- The architecture guard requires zero legacy module-level numeric gameplay constants.
+- The testbench now runs from the provided bundle without an external revision-baseline folder and reports a clear Three.js bootstrap error.
+- `createOrbitalsSim()` remains the stable public compatibility facade.
 
 ## 16. Phase D: Extract high-value gameplay subsystems
 

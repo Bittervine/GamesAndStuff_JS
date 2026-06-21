@@ -20,6 +20,104 @@ export function serializeEditableAnimationClip(rawClip, label = "animation clip"
     return serializable;
 }
 
+
+export function animationMaxKeyTime(rawClip) {
+    let maxTime = 0;
+    for (const partTracks of Object.values(rawClip?.tracks || {})) {
+        if (!partTracks || typeof partTracks !== "object") {
+            continue;
+        }
+        for (const track of Object.values(partTracks)) {
+            if (!Array.isArray(track)) {
+                continue;
+            }
+            for (const key of track) {
+                const time = Number(key?.time);
+                if (Number.isFinite(time)) {
+                    maxTime = Math.max(maxTime, time);
+                }
+            }
+        }
+    }
+    return maxTime;
+}
+
+export function updateAnimationClipMetadata(rawClip, updates = {}) {
+    if (!rawClip || typeof rawClip !== "object" || Array.isArray(rawClip)) {
+        throw new Error("Animation metadata can only be edited on an animation object.");
+    }
+
+    if (updates.animationId !== undefined) {
+        const animationId = String(updates.animationId || "").trim();
+        if (!animationId) {
+            throw new Error("Animation ID cannot be empty.");
+        }
+        rawClip.animationId = animationId;
+    }
+
+    if (updates.duration !== undefined) {
+        const duration = Number(updates.duration);
+        if (!Number.isFinite(duration) || duration <= 0) {
+            throw new Error("Animation duration must be a positive number.");
+        }
+        const lastKeyTime = animationMaxKeyTime(rawClip);
+        if (duration + 0.0000001 < lastKeyTime) {
+            throw new Error(`Duration cannot be shorter than the final key at ${lastKeyTime.toFixed(3)} seconds.`);
+        }
+        rawClip.duration = duration;
+    }
+
+    if (updates.loop !== undefined) {
+        rawClip.loop = updates.loop === true;
+    }
+    if (updates.mirrorable !== undefined) {
+        rawClip.mirrorable = updates.mirrorable === true;
+    }
+
+    if (updates.playback && typeof updates.playback === "object") {
+        const current = rawClip.playback && typeof rawClip.playback === "object" ? rawClip.playback : {};
+        const playback = { ...current };
+        const constraints = {
+            idleThreshold: { min: 0, inclusive: true },
+            baseCyclesPerSecond: { min: 0, inclusive: false },
+            speedCyclesPerSecond: { min: 0, inclusive: false },
+            maxSpeedRatio: { min: 0, inclusive: false }
+        };
+        for (const [field, rule] of Object.entries(constraints)) {
+            if (updates.playback[field] === undefined) {
+                continue;
+            }
+            const value = Number(updates.playback[field]);
+            const invalid = !Number.isFinite(value) || (rule.inclusive ? value < rule.min : value <= rule.min);
+            if (invalid) {
+                const wording = rule.inclusive ? "zero or greater" : "greater than zero";
+                throw new Error(`${field} must be ${wording}.`);
+            }
+            playback[field] = value;
+        }
+        rawClip.playback = playback;
+    }
+
+    normalizeAnimationClip(rawClip, `animation ${rawClip.animationId || "metadata"}`);
+    return rawClip;
+}
+
+export function duplicateEditableAnimationClip(rawClip, newAnimationId) {
+    const animationId = String(newAnimationId || "").trim();
+    if (!animationId) {
+        throw new Error("The duplicated animation needs a non-empty animation ID.");
+    }
+    const duplicate = serializeEditableAnimationClip(rawClip, "animation duplicate source");
+    const sourceId = String(duplicate.animationId || "animation");
+    duplicate.animationId = animationId;
+    const sourceNote = String(duplicate.meta?.note || "").trim();
+    duplicate.meta = {
+        ...(duplicate.meta || {}),
+        note: [sourceNote, `Duplicated from ${sourceId} in Puppet Forge.`].filter(Boolean).join("\n")
+    };
+    return createEditableAnimationClip(duplicate, `animation duplicate ${animationId}`);
+}
+
 export function sampleEditableAnimationClip(rawClip, timeSeconds, label = "animation clip") {
     return sampleAnimationClip(normalizeAnimationClip(rawClip, label), timeSeconds);
 }

@@ -18,6 +18,26 @@ export function normalizeCharacterSlug(value) {
     return slug || "new_character";
 }
 
+export function normalizeAnimationSlot(value) {
+    const slot = String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .replace(/_+/g, "_");
+    if (!slot) {
+        throw new Error("Animation slot cannot be empty.");
+    }
+    return slot;
+}
+
+export function animationFilenameForCharacterSlot(character, requestedSlot) {
+    const slot = normalizeAnimationSlot(requestedSlot);
+    const characterId = String(character?.characterId || "ct_char_character").trim();
+    const stem = characterId.replace(/^ct_char_/, "") || "character";
+    return `ct_anim_${stem}_${slot}.json`;
+}
+
 export function classifyCharacterProjectJson(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
         return FILE_KIND.UNKNOWN;

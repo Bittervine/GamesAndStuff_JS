@@ -2,7 +2,7 @@ import * as THREE from '../lib/three.module.js';
 import { config } from '../orbitals_config.js';
 import { mulberry32 } from './math.js';
 
-export const ENEMY_HIT_RADIUS = 2.6;
+export const ENEMY_HIT_RADIUS = config.enemyHitRadius;
 
 export function createShipState() {
   return {

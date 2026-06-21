@@ -37,6 +37,7 @@ export {
 import { pushEvent } from './sim/events.js';
 export { formatCombatLog } from './sim/events.js';
 import {
+  computeAtmosphereLiftState,
   createFuelMote,
   createPlanetConfig,
   pickNearestPlanet,
@@ -44,7 +45,13 @@ import {
   updateFuelMotes,
   updatePlanets
 } from './sim/world.js';
-import { buildBasisFromNormal } from './sim/math.js';
+import {
+  buildBasisFromNormal,
+  easeExp,
+  mulberry32,
+  smoothstep
+} from './sim/math.js';
+export { parseSeed } from './sim/math.js';
 import {
   createEncounterEntityState,
   createEncounterState,
@@ -88,171 +95,11 @@ const tempVecL = new THREE.Vector3();
 const tempVecM = new THREE.Vector3();
 const tempVecN = new THREE.Vector3();
 
-const ENEMY_SPAWN_DELAY_MIN = 0.8;
-const ENEMY_SPAWN_DELAY_MAX = 2.0;
-const ENEMY_MAX_SQUADS = 4;
-const ENEMY_SQUAD_SIZE_MIN = 1;
-const ENEMY_SQUAD_SIZE_MAX = 1;
-const ENEMY_APPROACH_ALTITUDE = 0.92;
-const ENEMY_SWARM_ALTITUDE = 0.54;
-const ENEMY_DEPART_ALTITUDE = 1.05;
-const ENEMY_SPEED_SCALE_MIN = 0.34;
-const ENEMY_SPEED_SCALE_MAX = 0.58;
-const ENEMY_TURN_RATE_MIN = 1.05;
-const ENEMY_TURN_RATE_MAX = 1.8;
-const ENEMY_UP_RATE_MIN = 0.85;
-const ENEMY_UP_RATE_MAX = 1.45;
-const ENEMY_TARGET_SMOOTH_RATE_SWARM = 2.4;
-const ENEMY_TARGET_SMOOTH_RATE_TRAVEL = 5.5;
-const ENEMY_INPUT_SMOOTH_RATE_SWARM = 3.2;
-const ENEMY_INPUT_SMOOTH_RATE_TRAVEL = 5.4;
-const ENEMY_SWARM_WANDER_TURN = 0.11;
-const ENEMY_SWARM_WANDER_PITCH = 0.07;
-const ENEMY_TRAVEL_WANDER_TURN = 0.028;
-const ENEMY_TRAVEL_WANDER_PITCH = 0.018;
-const ATMOSPHERE_SOFT_STALL_START = 0.62;
-const ATMOSPHERE_SOFT_STALL_FULL = 0.94;
-const ENEMY_SWARM_DURATION_MIN = 60.0;
-const ENEMY_SWARM_DURATION_MAX = 120.0;
-const ENEMY_DEPART_DURATION_MIN = 8.0;
-const ENEMY_DEPART_DURATION_MAX = 16.0;
-const ENEMY_CRASH_MARGIN = 4.0;
-
-export function parseSeed(rawValue) {
-  if (rawValue == null || rawValue === '') {
-    return Math.floor(Date.now()) >>> 0;
-  }
-  if (/^\d+$/.test(rawValue)) {
-    return Number(rawValue) >>> 0;
-  }
-  let hash = 2166136261 >>> 0;
-  for (let i = 0; i < rawValue.length; i += 1) {
-    hash ^= rawValue.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
-function mulberry32(a) {
-  return function rng() {
-    let t = a += 0x6d2b79f5;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 function getMothershipRng(state) {
   if (!state.mothershipRng) {
     state.mothershipRng = mulberry32(((state.seed >>> 0) ^ 0x9e3779b9) >>> 0);
   }
   return state.mothershipRng;
-}
-
-function clamp01(v) {
-  return Math.min(1, Math.max(0, v));
-}
-
-function smoothstep(edge0, edge1, x) {
-  const t = clamp01((x - edge0) / (edge1 - edge0));
-  return t * t * (3 - 2 * t);
-}
-
-function easeExp(value, rate) {
-  return 1 - Math.exp(-Math.max(0.0001, rate) * value);
-}
-
-function computeAtmosphereLiftState(planet, altitude, currentSpeed, cruiseSpeed, boostLevel = 0) {
-  const atmosphereThickness = Math.max(planet.atmosphereRadius - planet.radius, 0.0001);
-  const targetAltitude = atmosphereThickness * config.atmosphereCruiseAltitudeFactor;
-  const altitudeRatio = clamp01(altitude / atmosphereThickness);
-  const densityCurve = Math.max(0.25, config.atmosphereDensityCurve);
-  const density = Math.pow(1 - smoothstep(0, 1, altitudeRatio), densityCurve);
-  const edgeFade = 1 - smoothstep(0.82, 1.0, altitudeRatio);
-  const surfaceSpeed = Math.sqrt(Math.max(planet.gravityStrength / Math.max(planet.radius + targetAltitude, 1.0), 1.0));
-  const minLiftSpeed = Math.max(0.0001, cruiseSpeed * config.atmosphereLiftMinSpeedFactor);
-  const goodLiftSpeed = Math.max(minLiftSpeed + 0.0001, cruiseSpeed * config.atmosphereLiftGoodSpeedFactor);
-  const speedLift = smoothstep(minLiftSpeed, goodLiftSpeed, currentSpeed);
-  const liftAuthority = clamp01(density * speedLift);
-  const thinAir = smoothstep(0.55, 0.98, altitudeRatio);
-  const thinAirBlend = smoothstep(0.08, 0.85, thinAir);
-  const atmosphereBlend = clamp01((atmosphereThickness * 1.35 - altitude) / Math.max(atmosphereThickness * 0.35, 1));
-  const requiredLiftSpeed = THREE.MathUtils.lerp(minLiftSpeed, goodLiftSpeed, 0.72);
-  const liftSupport = liftAuthority / Math.max(config.atmosphereLiftCruiseAuthority, 0.0001);
-  const liftDeficit = 1 - liftAuthority;
-  const stallStart = config.atmosphereLiftStallStart;
-  const stallFull = config.atmosphereLiftStallFull;
-  const stallBlend = boostLevel > 0
-    ? 0
-    : smoothstep(stallStart, stallFull, liftAuthority) * smoothstep(0.30, 0.98, altitudeRatio) * (1 - boostLevel * 0.85);
-
-  return {
-    atmosphereThickness,
-    targetAltitude,
-    altitudeRatio,
-    softStallStartAltitude: atmosphereThickness * ATMOSPHERE_SOFT_STALL_START,
-    softStallFullAltitude: atmosphereThickness * ATMOSPHERE_SOFT_STALL_FULL,
-    density,
-    edgeFade,
-    speedLift,
-    liftAuthority,
-    liftDeficit,
-    thinAir,
-    thinAirBlend,
-    atmosphereBlend,
-    requiredLiftSpeed,
-    liftSupport,
-    stallBlend
-  };
-}
-
-function computeFreeGravityPull(state, ship) {
-  const gravityPull = tempVecG.set(0, 0, 0);
-  const speedDamping = 1 / (1 + Math.max(0, ship.speed || 0) * Math.max(0.0001, config.freeGravitySpeedDamping));
-  const planetScale = config.freeGravityPlanetInfluenceScale;
-  const sunScale = config.freeGravitySunInfluenceScale;
-  const planetNearRangeScale = config.freeGravityPlanetNearRangeScale;
-  const planetAtmosphereBufferScale = config.freeGravityPlanetAtmosphereBufferScale;
-  const planetFarRangePadding = config.freeGravityPlanetFarRangePadding;
-  const sunNearRangeScale = config.freeGravitySunNearRangeScale;
-  const sunFarRangeScale = config.freeGravitySunFarRangeScale;
-
-  for (const planet of state.planets) {
-    const toPlanet = tempVecH.copy(planet.position).sub(ship.position);
-    const distance = toPlanet.length();
-    if (distance <= 1e-6) {
-      continue;
-    }
-
-    const nearRange = Math.max(
-      planet.atmosphereRadius + planet.radius * planetAtmosphereBufferScale,
-      planet.radius * planetNearRangeScale
-    );
-    const farRange = Math.max(planet.gravityRadius, nearRange + planetFarRangePadding);
-    const influence = 1 - smoothstep(nearRange, farRange, distance);
-    if (influence <= 0) {
-      continue;
-    }
-
-    const planetBase = (planet.gravityStrength / Math.max(planet.gravityRadius * planet.gravityRadius, 1)) * planetScale;
-    gravityPull.addScaledVector(
-      toPlanet.multiplyScalar(1 / distance),
-      planetBase * influence * speedDamping
-    );
-  }
-
-  const sunDistance = ship.position.length();
-  if (sunDistance > 1e-6) {
-    const sunNearRange = config.starScale * sunNearRangeScale;
-    const sunFarRange = Math.max(config.orbitScale * sunFarRangeScale, sunNearRange + 1);
-    const sunInfluence = 1 - smoothstep(sunNearRange, sunFarRange, sunDistance);
-    if (sunInfluence > 0) {
-      const sunDirection = tempVecH.copy(ship.position).multiplyScalar(-1 / sunDistance);
-      gravityPull.addScaledVector(sunDirection, sunScale * sunInfluence * speedDamping);
-    }
-  }
-
-  return gravityPull;
 }
 
 function getEncounterById(state, encounterId) {
@@ -512,8 +359,8 @@ function createEnemySquadState(state, targetPlanetIndex = -1, kind = 'regular', 
     modeTimer: 0,
     spawnTimer: 0,
     orbitDirection: rng() < 0.5 ? -1 : 1,
-    swarmDuration: ENEMY_SWARM_DURATION_MIN + rng() * (ENEMY_SWARM_DURATION_MAX - ENEMY_SWARM_DURATION_MIN),
-    departDuration: ENEMY_DEPART_DURATION_MIN + rng() * (ENEMY_DEPART_DURATION_MAX - ENEMY_DEPART_DURATION_MIN),
+    swarmDuration: config.enemySwarmDurationMin + rng() * (config.enemySwarmDurationMax - config.enemySwarmDurationMin),
+    departDuration: config.enemyDepartDurationMin + rng() * (config.enemyDepartDurationMax - config.enemyDepartDurationMin),
     parentMothershipId: -1,
     fighterReleaseCooldown: 0,
     fightersTotal: 0,
@@ -599,7 +446,7 @@ function createEnemyWave(state, squad, options = {}) {
   if (!planet) {
     return;
   }
-  const enemyCount = options.enemyCount ?? (Math.floor(rng() * (ENEMY_SQUAD_SIZE_MAX - ENEMY_SQUAD_SIZE_MIN + 1)) + ENEMY_SQUAD_SIZE_MIN);
+  const enemyCount = options.enemyCount ?? (Math.floor(rng() * (config.enemySquadSizeMax - config.enemySquadSizeMin + 1)) + config.enemySquadSizeMin);
   const radial = options.radial
     ? tempVecA.copy(options.radial).normalize()
     : state.ship && state.ship.boundPlanet === planet
@@ -649,9 +496,9 @@ function createEnemyWave(state, squad, options = {}) {
     enemy.recaptureLock = 0;
     enemy.relativePosition.copy(enemy.position).sub(planet.position);
     enemy.relativeVelocity.copy(enemy.velocity).sub(planet.velocity);
-    enemy.speedScale = ENEMY_SPEED_SCALE_MIN + rng() * (ENEMY_SPEED_SCALE_MAX - ENEMY_SPEED_SCALE_MIN);
-    enemy.turnScale = ENEMY_TURN_RATE_MIN + rng() * (ENEMY_TURN_RATE_MAX - ENEMY_TURN_RATE_MIN);
-    enemy.upScale = ENEMY_UP_RATE_MIN + rng() * (ENEMY_UP_RATE_MAX - ENEMY_UP_RATE_MIN);
+    enemy.speedScale = config.enemySpeedScaleMin + rng() * (config.enemySpeedScaleMax - config.enemySpeedScaleMin);
+    enemy.turnScale = config.enemyTurnScaleMin + rng() * (config.enemyTurnScaleMax - config.enemyTurnScaleMin);
+    enemy.upScale = config.enemyUpScaleMin + rng() * (config.enemyUpScaleMax - config.enemyUpScaleMin);
     enemy.formationAngle = ringAngle;
     enemy.formationRadius = 14 + rng() * 32;
     enemy.phase = rng() * Math.PI * 2;
@@ -1088,7 +935,7 @@ function removeEnemySilently(state, enemy) {
 
 function detectEnemyCrash(state, enemy) {
   for (const planet of state.planets) {
-    if (enemy.position.distanceTo(planet.position) <= planet.radius + ENEMY_CRASH_MARGIN) {
+    if (enemy.position.distanceTo(planet.position) <= planet.radius + config.enemyCrashMargin) {
       return {
         type: 'planet',
         planet
@@ -1097,7 +944,7 @@ function detectEnemyCrash(state, enemy) {
   }
 
   const starRadius = config.starScale * 0.5;
-  if (enemy.position.length() <= starRadius + ENEMY_CRASH_MARGIN) {
+  if (enemy.position.length() <= starRadius + config.enemyCrashMargin) {
     return {
       type: 'sun',
       planet: null
@@ -1750,8 +1597,8 @@ function computeEnemyTargetPoint(state, enemy, squad, planet, time) {
   const fighterPatrolAltitudeFactor = squad.parentMothershipId >= 0 && squad.mode === 'swarm' && squad.fighterPatrolAltitudeFactor > 0
     ? squad.fighterPatrolAltitudeFactor
     : fighterApproachAltitudeFactor;
-  const approachAltitude = planet.radius + atmosphereThickness * (fighterApproachAltitudeFactor ?? ENEMY_APPROACH_ALTITUDE);
-  const swarmAltitude = planet.radius + atmosphereThickness * (fighterPatrolAltitudeFactor ?? ENEMY_SWARM_ALTITUDE);
+  const approachAltitude = planet.radius + atmosphereThickness * (fighterApproachAltitudeFactor ?? config.enemyApproachAltitudeFactor);
+  const swarmAltitude = planet.radius + atmosphereThickness * (fighterPatrolAltitudeFactor ?? config.enemySwarmAltitudeFactor);
   const orbitLead = squad.mode === 'swarm'
     ? THREE.MathUtils.lerp(0.55, 0.9, enemy.speedScale)
     : squad.mode === 'depart'
@@ -1909,10 +1756,10 @@ function computeEnemyControlTargetSpeed(state, targetPlanet, enemy, squad) {
       : fighterApproachAltitudeFactor != null
         ? fighterApproachAltitudeFactor
       : squad.mode === 'swarm'
-        ? ENEMY_SWARM_ALTITUDE
+        ? config.enemySwarmAltitudeFactor
       : squad.mode === 'depart'
-        ? ENEMY_DEPART_ALTITUDE
-        : ENEMY_APPROACH_ALTITUDE
+        ? config.enemyDepartAltitudeFactor
+        : config.enemyApproachAltitudeFactor
   );
   const surfaceSpeed = Math.sqrt(Math.max(targetPlanet.gravityStrength / Math.max(desiredRadius, 1.0), 1.0));
   let presentationSpeedMultiplier = enemy.combatRole === 'presenter' && enemy.presentation && enemy.presentation.phase !== 'cooldown'
@@ -1952,7 +1799,7 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
     enemy.aiDepartPlanetIndex = squad.departPlanetIndex;
     enemy.aiPresentationSignature = presentationSignature;
   } else {
-    const targetSmoothRate = travelMode ? ENEMY_TARGET_SMOOTH_RATE_TRAVEL : ENEMY_TARGET_SMOOTH_RATE_SWARM;
+    const targetSmoothRate = travelMode ? config.enemyTargetSmoothRateTravel : config.enemyTargetSmoothRateSwarm;
     enemy.smoothedTargetPoint.lerp(rawTargetPoint, easeExp(dt, targetSmoothRate));
 
     const maxLag = Math.max(18, targetPlanet.atmosphereRadius * (travelMode ? 0.18 : 0.055));
@@ -1988,11 +1835,11 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
 
   const yawError = Math.atan2(desiredForward.dot(rightAxis), desiredForward.dot(enemy.forward));
   const wanderTurn = travelMode
-    ? Math.sin(time * 0.11 + enemy.phase) * ENEMY_TRAVEL_WANDER_TURN
-    : Math.sin(time * 0.22 + enemy.phase) * ENEMY_SWARM_WANDER_TURN;
+    ? Math.sin(time * 0.11 + enemy.phase) * config.enemyTravelWanderTurn
+    : Math.sin(time * 0.22 + enemy.phase) * config.enemySwarmWanderTurn;
   const wanderPitch = travelMode
-    ? Math.cos(time * 0.09 + enemy.phase * 1.7) * ENEMY_TRAVEL_WANDER_PITCH * 0.45
-    : Math.cos(time * 0.19 + enemy.phase * 1.7) * ENEMY_SWARM_WANDER_PITCH * 0.55;
+    ? Math.cos(time * 0.09 + enemy.phase * 1.7) * config.enemyTravelWanderPitch * 0.45
+    : Math.cos(time * 0.19 + enemy.phase * 1.7) * config.enemySwarmWanderPitch * 0.55;
   const presentationTurnMultiplier = presentationMode ? config.enemyPresentationTurnMultiplier : 1;
   const presentationPitchMultiplier = presentationMode ? config.enemyPresentationPitchMultiplier : 1;
   const turnGain = (travelMode ? 3.2 : 1.55) * enemy.turnScale * presentationTurnMultiplier;
@@ -2008,8 +1855,8 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
   const fighterPatrolAltitudeFactor = squad.parentMothershipId >= 0 && squad.mode === 'swarm' && squad.fighterPatrolAltitudeFactor > 0
     ? squad.fighterPatrolAltitudeFactor
     : fighterApproachAltitudeFactor;
-  const desiredApproachAltitude = atmosphereThickness * (fighterApproachAltitudeFactor ?? ENEMY_APPROACH_ALTITUDE);
-  const desiredSwarmAltitudeFactor = fighterPatrolAltitudeFactor ?? ENEMY_SWARM_ALTITUDE;
+  const desiredApproachAltitude = atmosphereThickness * (fighterApproachAltitudeFactor ?? config.enemyApproachAltitudeFactor);
+  const desiredSwarmAltitudeFactor = fighterPatrolAltitudeFactor ?? config.enemySwarmAltitudeFactor;
   const patrolAltitudeMinFactor = squad.parentMothershipId >= 0 && config.fighterPatrolAltitudeMinFactor > 0
     ? config.fighterPatrolAltitudeMinFactor
     : desiredSwarmAltitudeFactor;
@@ -2202,7 +2049,7 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
     }
   }
 
-  const inputSmoothRate = travelMode ? ENEMY_INPUT_SMOOTH_RATE_TRAVEL : ENEMY_INPUT_SMOOTH_RATE_SWARM;
+  const inputSmoothRate = travelMode ? config.enemyInputSmoothRateTravel : config.enemyInputSmoothRateSwarm;
   enemy.aiTurnInput = THREE.MathUtils.lerp(enemy.aiTurnInput || 0, rawTurnInput, easeExp(dt, inputSmoothRate));
   enemy.aiPitchInput = THREE.MathUtils.lerp(enemy.aiPitchInput || 0, rawPitchInput, easeExp(dt, inputSmoothRate));
 

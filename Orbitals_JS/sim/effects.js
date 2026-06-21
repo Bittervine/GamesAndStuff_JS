@@ -1,9 +1,7 @@
 import * as THREE from '../lib/three.module.js';
+import { config } from '../orbitals_config.js';
 import { mulberry32 } from './math.js';
 
-const ENEMY_EXPLOSION_PARTICLE_COUNT = 70;
-const ENEMY_EXPLOSION_LIFETIME_MIN = 0.34;
-const ENEMY_EXPLOSION_LIFETIME_MAX = 0.58;
 
 export function createEnemyExplosionState(state, position, cause = 'projectile') {
   const explosionSeed = ((state.seed >>> 0) ^ Math.imul(state.nextEnemyExplosionId + 1, 0x9e3779b9)) >>> 0;
@@ -13,9 +11,9 @@ export function createEnemyExplosionState(state, position, cause = 'projectile')
     position: position.clone(),
     age: 0,
     lifetime: cause === 'crash'
-      ? ENEMY_EXPLOSION_LIFETIME_MIN + rng() * (ENEMY_EXPLOSION_LIFETIME_MAX - ENEMY_EXPLOSION_LIFETIME_MIN)
-      : (ENEMY_EXPLOSION_LIFETIME_MIN * 0.85) + rng() * ((ENEMY_EXPLOSION_LIFETIME_MAX * 0.9) - (ENEMY_EXPLOSION_LIFETIME_MIN * 0.85)),
-    particleCount: ENEMY_EXPLOSION_PARTICLE_COUNT,
+      ? config.enemyExplosionLifetimeMin + rng() * (config.enemyExplosionLifetimeMax - config.enemyExplosionLifetimeMin)
+      : (config.enemyExplosionLifetimeMin * 0.85) + rng() * ((config.enemyExplosionLifetimeMax * 0.9) - (config.enemyExplosionLifetimeMin * 0.85)),
+    particleCount: config.enemyExplosionParticleCount,
     cause
   };
 }
