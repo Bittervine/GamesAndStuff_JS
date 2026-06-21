@@ -4,7 +4,7 @@ This document augments `PLAN.md`.
 
 `PLAN.md` describes the game design. This document describes the implementation order and provides checkable development tasks.
 
-The old Phase 1 physics arena is now considered complete enough to stop treating it as the current milestone. The current development target is **Phase 2: Character Atlas, Rigging, and Animation Tooling**.
+The old Phase 1 physics arena is complete enough to serve as the mechanical foundation. Character tooling and the first enemy pipeline are operational, so the active gameplay target is now **Phase 4: Combat, Destructibles, and Reactive Objects**, while unfinished Phase 2 animation-authoring work remains on the backlog.
 
 ## Always Remember: Responsive Viewport Scaling
 
@@ -15,11 +15,24 @@ The browser game uses a shared virtual viewport. On screens narrower than the mo
 * [ ] Do not add separate per-sprite mobile scaling unless there is a deliberate special-case reason documented next to the code.
 * [ ] Keep physics, collisions, particles, camera math, and level geometry in virtual game coordinates.
 
+## Always Remember: Future C++ and Unreal Portability
+
+The HTML and JavaScript game remains the reference implementation, but new gameplay work must preserve a clean path to an engine-neutral C++ core and a thin Unreal presentation adapter.
+
+* [ ] Keep gameplay logic independent of DOM, Canvas, browser events, asset objects, audio objects, Unreal Actors, UObjects, Character Movement, and Chaos physics.
+* [ ] Pass gameplay only normalized plain data, fixed `dt`, and an `InputFrame`.
+* [ ] Keep gameplay coordinates X-right, Y-down, baseline-anchored, and radians-based.
+* [ ] Use finite double-precision-compatible values and named collision tolerances.
+* [ ] Use shared constants for gameplay states, entity kinds, event types, and collision kinds instead of scattered string literals.
+* [ ] Do not add gameplay dependencies on renderer-owned manifests, PNG contents, editor DOM structures, or visual colour mapping.
+* [ ] Keep presentation interpolation, particles, flashes, UI timers, and colour treatment from writing back into authoritative gameplay.
+* [ ] Add or update headless tests whenever simulation update order, collision tie-breaking, or a shared schema changes.
+
 ## Current Status
 
 The project now has a working browser game loop, deterministic simulation layer, asset-atlas based level construction, atlas and level editor tools, atlas-derived collision lines and filled collision loops, detached rocket terrain impacts, health/fuel HUD, and headless tests.
 
-The main cleanup direction is to reduce ad-hoc character rendering and move Ignatius, monsters, and future mobs into a shared data-driven character rig and animation pipeline.
+The immediate gameplay direction is enemy/player combat plus destructible and reactive world objects. In parallel, portability preparation should remove renderer-owned gameplay data and establish language-neutral schemas and parity fixtures before Phase 8 procedural generation expands the simulation surface.
 
 ## Phase 1: Completed Physics, Level, and Atlas Foundation
 
@@ -395,6 +408,91 @@ Goal: build one complete data-driven level with story wrapper elements.
 * [ ] Add title revision gag.
 * [ ] Add restart/reset behavior.
 
+## Portability Preparation Checkpoint
+
+Goal: remove browser-presentation coupling and prove that the gameplay model can be translated into a standalone C++ core before procedural generation multiplies the amount of simulation and level data.
+
+This checkpoint should be completed before or during the start of Phase 8. It does not require beginning the full Unreal port.
+
+### Runtime Level Boundary
+
+* [ ] Define and document a versioned normalized `LevelDefinition` format.
+* [ ] Split authored-level processing into `normalizeLevelDefinition(...)` and `applyLevelDefinition(...)`.
+* [ ] Move atlas-collision loading or compilation out of the renderer.
+* [ ] Supply normalized collision data directly to the simulation.
+* [ ] Supply visual placements, atlas resources, and colour mapping independently to the renderer.
+* [ ] Remove the simulation dependency on presentation-only colour-map code.
+* [ ] Confirm that a normalized level can load and run headlessly without PNG files or renderer resources.
+
+### Authoritative State Audit
+
+* [ ] Inventory every `gameState` field and classify it as authoritative gameplay, presentation, authoring, cache, or debug.
+* [ ] Move environment visual placements and colour-map processing outside authoritative gameplay state.
+* [ ] Derive doorway-only wizard scaling from transition state or move it to presentation state.
+* [ ] Derive low-health pulsing from health and time rather than storing pulse intensity as gameplay state.
+* [ ] Move decorative smoke and other non-gameplay particles to presentation state driven by simulation events.
+* [ ] Move hit flashes and temporary health-bar display timers to presentation state.
+* [ ] Separate gameplay animation intent from renderer animation playback clocks.
+* [ ] Decide which camera targets are authoritative and keep smoothing/interpolation presentation-owned.
+* [ ] Ensure save data, replay data, and state hashes exclude presentation-only fields.
+
+### Runtime Schemas and Validation
+
+* [ ] Assign schema names and versions to `GameState`, `InputFrame`, `LevelDefinition`, tuning, enemies, weapons, projectiles, reactive objects, and simulation events.
+* [ ] Document units, defaults, required fields, optional fields, valid ranges, and canonical wire strings.
+* [ ] Add normalization and validation functions for shared runtime schemas.
+* [ ] Reject or repair `NaN`, infinity, invalid dimensions, duplicate IDs, and unknown required state values.
+* [ ] Add explicit migration functions before changing existing persisted runtime formats.
+* [ ] Define stable ID-generation rules that do not depend on array position.
+* [ ] Document collision boundary inclusion, epsilon values, tie-breaking, and update order.
+
+### Simulation Modules and Events
+
+* [ ] Extract shared core math, vector, rectangle, clamp, approach, and geometry helpers.
+* [ ] Extract collision construction and collision resolution from `IgnatiusRocketfrock_SIM.js`.
+* [ ] Extract player movement, fuel, health, hat, and equipment updates.
+* [ ] Extract weapon and projectile updates.
+* [ ] Extract enemy state and AI updates.
+* [ ] Add a dedicated reactive-object module before destructible behavior becomes large.
+* [ ] Extract story, doorway, mailbox, and level-transition state machines.
+* [ ] Keep `stepSimulation(...)` as a small facade with an explicitly documented update order.
+* [ ] Define a versioned `SimulationEvent` schema and expose each tick's events separately from the capped debug history.
+* [ ] Drive transient smoke, impacts, flashes, health bars, sounds, and camera impulses from simulation events.
+* [ ] Ensure events contain stable IDs and gameplay positions, but no Canvas, sprite, audio, browser, or Unreal asset references.
+* [ ] Run the complete headless suite after every extraction without changing expected behavior.
+
+### Shared Parity Fixtures
+
+* [ ] Define a language-neutral JSON fixture format containing initial state or level, tuning overrides, tick-numbered input frames, expected events, expected checkpoints, and numeric tolerances.
+* [ ] Convert representative existing headless tests into shared fixture files.
+* [ ] Add fixtures for movement symmetry, jumping, boost, fuel, slopes, wall collision, polygon collision, depenetration, door transitions, projectile sweeps, homing, enemy damage, death, and save/restore.
+* [ ] Add a canonical authoritative-state summary function.
+* [ ] Add a deterministic state hash that excludes presentation, caches, and debug prose.
+* [ ] Confirm that fixtures produce the same result after serialize/restore at an intermediate tick.
+* [ ] Store failed procedural seeds and input traces in the same fixture format once procedural generation begins.
+
+### Early C++ and Unreal Spike
+
+* [ ] Create a small standalone `RocketfrockCore` C++ test project before the full game is ported.
+* [ ] Keep the standalone core free of Unreal headers and libraries.
+* [ ] Port core numeric types, `InputFrame`, a minimal `GameState`, and one representative movement/collision fixture.
+* [ ] Use `double` for gameplay numeric values.
+* [ ] Load the same JSON fixture used by the JavaScript testbench.
+* [ ] Compare discrete state and events exactly, and floating-point values using documented tolerances.
+* [ ] Create a thin experimental Unreal module that advances the portable core and moves a visual Actor without making Character Movement or Chaos authoritative.
+* [ ] Record any naming, schema, coordinate, or update-order corrections revealed by the spike in `PLAN.md` before continuing into large procedural systems.
+
+### Checkpoint Completion
+
+* [ ] The renderer is no longer the owner or provider of gameplay collision manifests.
+* [ ] The simulation no longer imports presentation-only colour-map code.
+* [ ] A normalized level runs headlessly without images or renderer resources.
+* [ ] Authoritative and presentation state have an explicit documented boundary.
+* [ ] Shared runtime schemas are validated and versioned.
+* [ ] Important scenarios exist as language-neutral parity fixtures.
+* [ ] A minimal standalone C++ core passes at least one shared fixture.
+* [ ] An Unreal presentation spike displays C++ simulation state without replacing the custom gameplay simulation.
+
 ## Phase 8: Procedural Generation Foundation
 
 Goal: generate simple playable levels from reusable pieces.
@@ -595,3 +693,13 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Add simulation-timed hit flash and temporary health-bar feedback.
 * [x] Expose enemy health in the Level Editor inspector.
 * [x] Add headless regression coverage for damage, hurt recovery, death, retargeting, and terrain interception.
+
+### Revision 095 future C++ and Unreal portability roadmap
+
+* [x] Assess the current simulation, renderer, level-loading, data, and test boundaries for a future Unreal Engine port.
+* [x] Define the intended split between an engine-neutral `RocketfrockCore` and a thin Unreal presentation adapter.
+* [x] Document the gameplay coordinate and double-precision numeric contract.
+* [x] Add permanent portability guardrails for future gameplay changes.
+* [x] Add a pre-procedural-generation checkpoint covering normalized levels, state ownership, schemas, module extraction, simulation events, parity fixtures, and an early C++/Unreal spike.
+* [x] Keep revision 095 documentation-only so runtime behavior remains unchanged.
+

@@ -150,7 +150,9 @@ Main browser orchestration.
 
 Responsibilities:
 
-* Load assets.
+* Load assets and authoring documents.
+* Normalize authored level data and collision manifests before applying them to the simulation.
+* Pass gameplay level definitions to the simulation and visual resources to the renderer independently.
 * Start the game loop.
 * Connect input, sim, and renderer.
 * Manage fixed timestep simulation.
@@ -163,6 +165,100 @@ Headless and integration tests.
 The testbench should be able to run the simulation without rendering.
 
 Some integration tests may still use Playwright to verify browser behavior, but most mechanical tests should target the simulation directly.
+
+## Future C++ and Unreal Engine Portability
+
+The HTML and JavaScript version remains the reference implementation while the game is developed. A later Unreal Engine port should translate the gameplay model rather than redesign it around Unreal-specific gameplay physics.
+
+The eventual port should have two layers:
+
+* `RocketfrockCore`: ordinary engine-neutral C++ containing gameplay state, fixed-step simulation, collision, weapons, enemies, reactive objects, story state, serialization, and tests.
+* `RocketfrockUnreal`: a thin Unreal adapter that loads assets, converts device input into an input frame, advances the portable core, and presents state through Actors, components, sprites, audio, particles, UI, and camera systems.
+
+The portable core must not depend on Actors, UObjects, rendering APIs, audio APIs, browser objects, Chaos physics, or Unreal Character Movement. Those systems may be used for presentation and non-authoritative debris, but the custom Rocketfrock simulation remains authoritative for gameplay motion and collision.
+
+### Portable Simulation Contract
+
+The JavaScript and C++ cores should preserve close structural and behavioral parity. Important functions should retain equivalent names, responsibilities, data fields, and update order where practical.
+
+The core interface should remain conceptually equivalent to:
+
+```text
+createInitialGameState(configuration) -> GameState
+normalizeLevelDefinition(authoringData, manifests) -> LevelDefinition
+applyLevelDefinition(gameState, levelDefinition)
+stepSimulation(gameState, inputFrame, fixedDt) -> SimulationEvent[]
+serializeGameState(gameState)
+restoreGameState(serializedState)
+```
+
+Parity means identical state-machine choices, events, collision outcomes, IDs, integer values, and update ordering, with floating-point values compared using documented tolerances. It does not require byte-identical floating-point results on every platform.
+
+### Coordinate and Numeric Contract
+
+The engine-neutral gameplay convention is:
+
+* Positive X points right.
+* Positive Y points down.
+* Character Y positions normally identify the foot or ground baseline unless a field explicitly documents another anchor.
+* Distances use virtual game units.
+* Rotations use radians.
+* Positive rotation is clockwise in the Y-down gameplay coordinate system.
+* Gameplay calculations use finite double-precision-compatible numbers.
+* Collision comparisons use named tolerances and documented tie-breaking rules.
+
+The Unreal adapter is responsible for converting this convention into Unreal axes and units. Unreal coordinate conventions must not leak back into the portable core or shared gameplay JSON.
+
+### Runtime Level Boundary
+
+Authoring data and runtime gameplay data must be separated before procedural generation and reactive-world systems expand the level format.
+
+Level loading should have two stages:
+
+1. Import and normalize editor JSON, atlas collision manifests, and defaults into a versioned `LevelDefinition`.
+2. Apply the normalized `LevelDefinition` to `GameState`, while passing visual placements and asset references separately to the presentation layer.
+
+A runtime `LevelDefinition` may contain world bounds, doorway and player anchors, normalized collision geometry, stable entity IDs, enemies, pickups, hazards, reactive objects, and story definitions. PNG paths, atlas rectangles, colour-map settings, render layers, editor notes, and visual placements are presentation or authoring data.
+
+The simulation must never obtain gameplay collision by querying the renderer. Asset loading or a dedicated level compiler should provide normalized collision to the simulation independently of visual resources.
+
+### Authoritative State and Presentation State
+
+`GameState` contains authoritative gameplay, story, save, replay, and deterministic state. Presentation-only data should be derived from authoritative state, maintained outside it, or produced in response to serializable `SimulationEvent` records.
+
+Presentation-only examples include decorative smoke, camera interpolation, render interpolation, low-health colour pulse, hit flashes, temporary health-bar display timers, environment colour mapping, and doorway-only visual scaling. Gameplay animation intent may remain authoritative, but sprite or rig playback clocks should not silently control gameplay timing unless the same timing is represented explicitly in gameplay data.
+
+Important one-tick transitions should be emitted as events such as `PLAYER_JUMPED`, `PLAYER_LANDED`, `BOOST_STARTED`, `WEAPON_LAUNCHED`, `PROJECTILE_IMPACTED`, `ENEMY_DAMAGED`, `ENEMY_DEFEATED`, and `LEVEL_TRANSITION_REQUESTED`. Presentation systems consume these events for effects without becoming gameplay authorities.
+
+### Shared Schemas and Module Boundaries
+
+Every cross-language runtime document should have a schema name and version. Required fields, optional fields, exact defaults, units, ranges, canonical string values, unknown-field behavior, and migrations must be documented.
+
+As the simulation grows, split it into engine-neutral modules with future C++ equivalents:
+
+* Core types, math, constants, tolerances, and deterministic random generation.
+* State creation, validation, serialization, and migration.
+* Runtime level definitions and entity spawning.
+* Collision geometry and movement resolution.
+* Player movement, health, fuel, hat, and equipment.
+* Weapons and projectiles.
+* Enemies and AI.
+* Destructible and reactive objects.
+* Story and level transitions.
+* Simulation events.
+* A small `SIM` facade that owns and documents fixed update order.
+
+Module extraction must preserve behavior. `stepSimulation(...)` remains the authoritative orchestration boundary.
+
+### Cross-Implementation Parity Tests
+
+Before the full Unreal port begins, create language-neutral JSON fixtures containing an initial state or level, tuning overrides, tick-numbered input frames, expected events, selected expected state values, and numeric tolerances.
+
+The JavaScript testbench and future C++ test runner should consume the same fixtures. They should cover movement, slopes, penetration recovery, doors, fuel, health, homing, projectile sweeps, enemies, reactive objects, procedural generation, and save/restore.
+
+Maintain a canonical authoritative-state summary or hash. Exclude presentation state, renderer caches, debug prose, and unordered implementation details.
+
+A small standalone C++ portability spike should be completed before procedural generation greatly expands the code and data surface. It only needs to port the core numeric types, input frame, a minimal game state, and representative movement/collision fixtures. The purpose is to expose schema, coordinate, update-order, and floating-point problems while they are still inexpensive to correct.
 
 ## Game State Structure
 
@@ -195,10 +291,10 @@ Input should be converted into a clean `inputFrame` object before being passed i
 * Pickups.
 * Level collision state.
 * Story flags.
-* Camera-relevant world state.
+* Authoritative camera targets or bounds, but not presentation smoothing.
 * Deterministic random seed and random generator state.
-* Debug flags.
-* Recent gameplay events.
+* Serializable debug flags that affect simulation inspection.
+* Current-tick simulation events or a capped serializable copy of recent gameplay events.
 
 ### What does not belong in `gameState`
 
@@ -216,12 +312,19 @@ Keep these outside the simulation state:
 * Raw gamepad objects.
 * Renderer caches.
 * Loaded asset blobs.
+* Environment visual placements and colour-map processing.
+* Decorative particles and non-gameplay debris.
+* Camera smoothing and render interpolation.
+* Hit flashes, temporary health-bar timers, low-health colour pulse, and other transient UI effects.
+* Doorway-only visual scale or other presentation transforms that do not alter collision.
 
 ### State ownership rule
 
-If it affects gameplay, save/load, replay, tests, or debugging, it belongs in `gameState`.
+If it affects authoritative gameplay, save/load, replay, deterministic tests, or a gameplay state transition, it belongs in `gameState`.
 
-If it only displays, loads, or plays the state, it belongs outside `gameState`.
+Serializable debug history may keep a capped copy of authoritative events, but debug prose, renderer caches, and presentation-only timing are excluded from save, replay, and parity hashes.
+
+If it only displays, loads, interpolates, or plays the state, it belongs outside `gameState`.
 
 ### Suggested top-level state shape
 
@@ -248,7 +351,7 @@ Avoid making the hierarchy unnecessarily deep. The state should be organized eno
 
 ### Debug event log
 
-`gameState.debug.lastEvents` should store recent important events.
+`stepSimulation(...)` should expose the authoritative events generated by the current tick. `gameState.debug.lastEvents` may store a capped serializable copy for inspection.
 
 Example event types:
 
@@ -1252,3 +1355,8 @@ Placed character enemies now own simulation state for guard and patrol behaviour
 ### Revision 094 enemy rocket combat
 
 Placed enemies now own serializable maximum/current health and combat state. Rockets carry authored damage, sweep their circular body against enemy rectangles and terrain each fixed step, and resolve whichever impact occurs first so enemies cannot be hit through a nearer wall. Surviving Skeleton Guards pause in their authored hurt clip before resuming guard or patrol behaviour; lethal hits select the non-looping death clip, stop movement, and deactivate the associated homing target while leaving the corpse visible. The renderer reads simulation-owned flash and health-bar timers for immediate feedback without owning combat decisions.
+
+### Revision 095 future C++ and Unreal portability roadmap
+
+The plan now treats the browser game as the reference implementation for a later engine-neutral C++ gameplay core and Unreal presentation adapter. It defines the fixed simulation interface, coordinate and numeric conventions, normalized runtime level boundary, authoritative-versus-presentation state split, simulation-event interface, versioned schema rules, future module boundaries, shared parity fixtures, and an early standalone C++ spike. These are architectural guardrails and scheduled preparation work; revision 095 does not yet move gameplay code or change runtime behavior.
+
