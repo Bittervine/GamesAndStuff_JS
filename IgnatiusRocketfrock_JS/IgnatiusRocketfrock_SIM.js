@@ -420,9 +420,11 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
     state.world.collisionPolygonCount = polygons.length;
     let startSnap = null;
     let doorSnaps = [];
+    let enemySnaps = [];
     if (!state.world.playerStartGroundSnapResolved) {
         state.world.playerStartGroundSnapResolved = true;
         doorSnaps = snapWizardDoorsToNearbyGround(state);
+        enemySnaps = snapCharacterEnemiesToNearbyGround(state);
         const entryDoor = wizardEntryDoorEntity(state.world.entities || []);
         if (entryDoor) {
             applyEntryDoorAsPlayerStart(state, entryDoor, { resetPlayer: true });
@@ -437,7 +439,8 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
         segments: segments.length,
         polygons: polygons.length,
         playerStartSnapped: Boolean(startSnap),
-        wizardDoorsSnapped: doorSnaps.length
+        wizardDoorsSnapped: doorSnaps.length,
+        characterEnemiesSnapped: enemySnaps.length
     });
     return true;
 }
@@ -1421,22 +1424,42 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         const anchor = entity.targetAnchor && typeof entity.targetAnchor === "object" ? entity.targetAnchor : null;
         const anchorX = clamp(Number(anchor?.x ?? 0.5), 0, 1);
         const anchorY = clamp(Number(anchor?.y ?? 0.42), 0, 1);
+        const facing = Number(entity.facing) < 0 ? -1 : 1;
+        const behavior = String(entity.behavior || "guard") === "patrol" ? "patrol" : "guard";
+        const patrolDistance = Math.max(0, finiteNumberOr(entity.patrolDistance, 0));
+        const idleDuration = Math.max(0, finiteNumberOr(entity.idleDuration, 1.1));
         return {
             id: entity.id || `characterEnemy_${index + 1}`,
             kind: "characterEnemy",
             characterId: String(entity.characterId || entity.characterProject || "ct_char_enemy_001"),
             x,
             y,
+            spawnX: x,
+            spawnY: y,
             width,
             height,
-            health: Math.max(0, Number(entity.health) || 100),
-            state: String(entity.state || entity.animationSlot || "idle"),
-            animationSlot: String(entity.animationSlot || entity.state || "idle"),
-            animationTime: Number.isFinite(Number(entity.animationTime)) ? Number(entity.animationTime) : null,
+            health: Math.max(0, finiteNumberOr(entity.health, 100)),
+            state: "idle",
+            animationSlot: "idle",
+            animationTime: Number.isFinite(Number(entity.animationTime)) ? Number(entity.animationTime) : 0,
             animationTimeOffset: Number(entity.animationTimeOffset) || 0,
-            facing: Number(entity.facing) < 0 ? -1 : 1,
+            facing,
+            behavior,
+            patrolDistance,
+            patrolMinX: x - patrolDistance * 0.5,
+            patrolMaxX: x + patrolDistance * 0.5,
+            walkSpeed: Math.max(0, finiteNumberOr(entity.walkSpeed, 56)),
+            idleDuration,
+            turnPause: Math.max(0, finiteNumberOr(entity.turnPause, 0.5)),
+            maxStepHeight: Math.max(0, finiteNumberOr(entity.maxStepHeight, 26)),
+            maxDropDistance: Math.max(0, finiteNumberOr(entity.maxDropDistance, 34)),
+            groundSnapDistance: Math.max(0, finiteNumberOr(entity.groundSnapDistance, 96)),
+            movementPhase: behavior === "patrol" && patrolDistance > 0 ? "idle" : "guard",
+            phaseTimer: behavior === "patrol" && patrolDistance > 0 ? idleDuration : 0,
             renderScale: Math.max(0.05, Number(entity.renderScale) || 1),
             visualized: false,
+            targetAnchorX: anchorX,
+            targetAnchorY: anchorY,
             targetX: x - width * 0.5 + anchorX * width,
             targetY: y - height + anchorY * height,
             targetRadius: Math.max(4, Number(entity.targetRadius) || Math.min(width, height) * 0.16),
@@ -1554,8 +1577,225 @@ function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
 
+function finiteNumberOr(value, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+}
+
 function sanitizeInput(inputFrame) {
     return createInputFrame(inputFrame || {});
+}
+
+function isCharacterEnemyState(enemy) {
+    return enemy?.kind === "characterEnemy";
+}
+
+function snapCharacterEnemiesToNearbyGround(state) {
+    const snapped = [];
+    const sourceEntities = state.world?.entities || [];
+    for (const enemy of state.enemies || []) {
+        if (!isCharacterEnemyState(enemy)) {
+            continue;
+        }
+        const support = findCharacterEnemyGroundSupport(
+            state,
+            enemy.x,
+            enemy.y,
+            enemy.groundSnapDistance,
+            enemy.groundSnapDistance,
+            enemy.width
+        );
+        if (!support) {
+            continue;
+        }
+        const fromY = enemy.y;
+        enemy.y = support.y;
+        enemy.spawnY = support.y;
+        syncCharacterEnemyTarget(state, enemy);
+        const source = sourceEntities.find((entity) => entity.id === enemy.id);
+        if (source) {
+            source.y = support.y;
+        }
+        snapped.push({
+            enemyId: enemy.id,
+            fromY,
+            y: support.y,
+            delta: support.y - fromY,
+            supportId: support.id
+        });
+    }
+    return snapped;
+}
+
+function findCharacterEnemyGroundSupport(state, x, referenceY, maxStepUp, maxDrop, width = 1) {
+    const samples = [x, x - Math.max(0, width) * 0.24, x + Math.max(0, width) * 0.24];
+    let best = null;
+    const consider = (y, id, kind, sampleIndex) => {
+        if (!Number.isFinite(y)) {
+            return;
+        }
+        const delta = y - referenceY;
+        if (delta < -Math.max(0, maxStepUp) || delta > Math.max(0, maxDrop)) {
+            return;
+        }
+        const score = sampleIndex * 100000 + Math.abs(delta);
+        if (!best || score < best.score) {
+            best = { y, delta, id, kind, score };
+        }
+    };
+
+    for (const segment of state.world?.segments || []) {
+        if (segment.kind !== "walkable" && segment.kind !== "blockable") {
+            continue;
+        }
+        if (Math.abs(Number(segment.x2) - Number(segment.x1)) < 0.001) {
+            continue;
+        }
+        for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
+            const y = segmentYAtX(segment, samples[sampleIndex]);
+            if (y !== null) {
+                consider(y, segment.id || "segment", segment.kind, sampleIndex);
+            }
+        }
+    }
+
+    for (const solid of state.world?.solids || []) {
+        for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
+            const sampleX = samples[sampleIndex];
+            if (sampleX < solid.x - 0.001 || sampleX > solid.x + solid.w + 0.001) {
+                continue;
+            }
+            consider(solid.y, solid.id || "solid", solid.kind || "solid", sampleIndex);
+        }
+    }
+
+    return best;
+}
+
+function setCharacterEnemyAnimation(enemy, slot) {
+    const normalized = String(slot || "idle");
+    if (enemy.animationSlot !== normalized) {
+        enemy.animationSlot = normalized;
+        enemy.state = normalized;
+        enemy.animationTime = 0;
+    }
+}
+
+function syncCharacterEnemyTarget(state, enemy) {
+    const anchorX = clamp(Number(enemy.targetAnchorX ?? 0.5), 0, 1);
+    const anchorY = clamp(Number(enemy.targetAnchorY ?? 0.42), 0, 1);
+    enemy.targetX = enemy.x - enemy.width * 0.5 + anchorX * enemy.width;
+    enemy.targetY = enemy.y - enemy.height + anchorY * enemy.height;
+    const target = (state.targets || []).find((item) => item.enemyId === enemy.id);
+    if (target) {
+        target.x = enemy.targetX;
+        target.y = enemy.targetY;
+        target.radius = enemy.targetRadius;
+        target.state = enemy.health > 0 ? "active" : "inactive";
+    }
+}
+
+function characterEnemyBodyBlockedAt(state, enemy, x, groundY) {
+    const bodyWidth = Math.max(8, enemy.width * 0.58);
+    const footClearance = Math.max(8, Math.min(18, enemy.height * 0.12));
+    const headClearance = Math.max(2, Math.min(10, enemy.height * 0.04));
+    const rect = {
+        x: x - bodyWidth * 0.5,
+        y: groundY - enemy.height + headClearance,
+        w: bodyWidth,
+        h: Math.max(1, enemy.height - headClearance - footClearance)
+    };
+
+    for (const solid of state.world?.solids || []) {
+        if (rectsOverlap(rect, solid)) {
+            return true;
+        }
+    }
+    for (const polygon of state.world?.collisionPolygons || []) {
+        if (isAreaBlockingSegmentKind(polygon.kind) && polygonOverlapsRect(polygon, rect)) {
+            return true;
+        }
+    }
+    for (const segment of state.world?.segments || []) {
+        if (!isSolidSegmentKind(segment.kind)) {
+            continue;
+        }
+        if (segmentRectIntersection(
+            { x: segment.x1, y: segment.y1 },
+            { x: segment.x2, y: segment.y2 },
+            rect
+        )) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function pauseAndTurnCharacterEnemy(enemy) {
+    enemy.facing *= -1;
+    enemy.movementPhase = "idle";
+    enemy.phaseTimer = Math.max(0, enemy.turnPause);
+    setCharacterEnemyAnimation(enemy, "idle");
+}
+
+function updateCharacterEnemies(state, dt) {
+    for (const enemy of state.enemies || []) {
+        if (!isCharacterEnemyState(enemy)) {
+            continue;
+        }
+        enemy.animationTime = Math.max(0, Number(enemy.animationTime) || 0) + dt;
+        if (enemy.health <= 0) {
+            enemy.movementPhase = "dead";
+            setCharacterEnemyAnimation(enemy, "death");
+            syncCharacterEnemyTarget(state, enemy);
+            continue;
+        }
+        if (enemy.behavior !== "patrol" || enemy.patrolDistance <= 0 || enemy.walkSpeed <= 0) {
+            enemy.movementPhase = "guard";
+            setCharacterEnemyAnimation(enemy, "idle");
+            syncCharacterEnemyTarget(state, enemy);
+            continue;
+        }
+
+        if (enemy.movementPhase !== "walk") {
+            enemy.movementPhase = "idle";
+            setCharacterEnemyAnimation(enemy, "idle");
+            enemy.phaseTimer = Math.max(0, (Number(enemy.phaseTimer) || 0) - dt);
+            if (enemy.phaseTimer <= 0) {
+                enemy.movementPhase = "walk";
+                setCharacterEnemyAnimation(enemy, "walk");
+            }
+            syncCharacterEnemyTarget(state, enemy);
+            continue;
+        }
+
+        setCharacterEnemyAnimation(enemy, "walk");
+        const direction = enemy.facing < 0 ? -1 : 1;
+        const unclampedX = enemy.x + direction * enemy.walkSpeed * dt;
+        const candidateX = clamp(unclampedX, enemy.patrolMinX, enemy.patrolMaxX);
+        const reachedBoundary = Math.abs(candidateX - unclampedX) > 0.0001 ||
+            candidateX <= enemy.patrolMinX + 0.001 || candidateX >= enemy.patrolMaxX - 0.001;
+        const support = findCharacterEnemyGroundSupport(
+            state,
+            candidateX,
+            enemy.y,
+            enemy.maxStepHeight,
+            enemy.maxDropDistance,
+            enemy.width
+        );
+        if (!support || characterEnemyBodyBlockedAt(state, enemy, candidateX, support.y)) {
+            pauseAndTurnCharacterEnemy(enemy);
+            syncCharacterEnemyTarget(state, enemy);
+            continue;
+        }
+
+        enemy.x = candidateX;
+        enemy.y = support.y;
+        if (reachedBoundary) {
+            pauseAndTurnCharacterEnemy(enemy);
+        }
+        syncCharacterEnemyTarget(state, enemy);
+    }
 }
 
 export function stepSimulation(state, inputFrame = createInputFrame(), dt = state.clock.fixedDt || FIXED_DT) {
@@ -1582,6 +1822,8 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     if (updatePortalExit(state, dt)) {
         return;
     }
+
+    updateCharacterEnemies(state, dt);
 
     const wasOnGround = p.onGround;
     p.wasOnGround = wasOnGround;

@@ -370,6 +370,7 @@
                 <option value="wizard_entry_door">🚪 wizard entry door</option>
                 <option value="wizard_exit_door">🚪 wizard exit door</option>
                 <option value="targetDummy">🎯 target dummy</option>
+                <option value="enemy_001">☠ Skeleton Guard</option>
                 <option value="fuel">⛽ fuel pickup</option>
                 <option value="monsterSpawn">👾 monster spawn</option>
                 <option value="trigger">⚡ event trigger</option>
@@ -395,7 +396,7 @@
 
     <aside>
         <a class="toplink" href="IgnatiusRocketfrock_JS.html">Back to main</a>
-        <h1>Level Editor <small>rev 086</small></h1>
+        <h1>Level Editor <small>rev 093</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -463,6 +464,7 @@
                 <button data-entity="wizard_entry_door">🚪 Wizard entry door</button>
                 <button data-entity="wizard_exit_door">🚪 Wizard exit door</button>
                 <button data-entity="targetDummy">🎯 Target dummy</button>
+                <button data-entity="enemy_001">☠ Skeleton Guard</button>
                 <button data-entity="fuel">⛽ Fuel pickup</button>
                 <button data-entity="monsterSpawn">👾 Monster spawn</button>
                 <button data-entity="trigger">⚡ Event trigger</button>
@@ -524,6 +526,7 @@
                     <option value="wizard_entry_door">wizard_entry_door</option>
                     <option value="wizard_exit_door">wizard_exit_door</option>
                     <option value="targetDummy">targetDummy</option>
+                    <option value="characterEnemy">characterEnemy</option>
                     <option value="fuel">fuel</option>
                     <option value="monsterSpawn">monsterSpawn</option>
                     <option value="trigger">trigger</option>
@@ -555,6 +558,34 @@
                     <label>Walk speed<input id="inspect-door-walk-speed" type="number" min="40" step="1"></label>
                 </div>
                 <p class="small">Entry doors replace the old wizard-start marker. Exit doors are mirrored by default. Empty exit destinations use the next numbered level; if it cannot be loaded, the current level is loaded again.</p>
+            </div>
+            <div id="enemy-settings-row" style="display:none">
+                <h3>Character enemy</h3>
+                <label>Character project<input id="inspect-enemy-character" value="ct_char_enemy_001"></label>
+                <div class="row">
+                    <label>Behaviour
+                        <select id="inspect-enemy-behavior">
+                            <option value="patrol">Patrol</option>
+                            <option value="guard">Stand guard</option>
+                        </select>
+                    </label>
+                    <label>Facing
+                        <select id="inspect-enemy-facing">
+                            <option value="-1">Left</option>
+                            <option value="1">Right</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="row">
+                    <label>Patrol distance<input id="inspect-enemy-patrol-distance" type="number" min="0" step="8"></label>
+                    <label>Walk speed<input id="inspect-enemy-walk-speed" type="number" min="0" step="1"></label>
+                </div>
+                <div class="row">
+                    <label>Initial idle seconds<input id="inspect-enemy-idle-duration" type="number" min="0" step="0.1"></label>
+                    <label>Turn pause seconds<input id="inspect-enemy-turn-pause" type="number" min="0" step="0.1"></label>
+                </div>
+                <label>Visual scale<input id="inspect-enemy-render-scale" type="number" min="0.05" step="0.05"></label>
+                <p class="small">The placement point is the enemy's foot position. Patrol distance is the full left-to-right span centred on that point. Skeletons follow nearby walkable ground and turn around at ledges, walls, and patrol limits.</p>
             </div>
             <label>Notes<textarea id="inspect-notes"></textarea></label>
             <button id="apply-inspector">Apply</button>
@@ -591,6 +622,12 @@ import {
     normalizeHueDegrees,
     normalizeLevelColorMap
 } from "./IgnatiusRocketfrock_COLORMAP.js";
+import {
+    animationPoseToRuntimeTransforms,
+    buildRuntimeCharacterDrawCommands,
+    loadRuntimeCharacterProject,
+    sampleRuntimeCharacterPose
+} from "./IgnatiusRocketfrock_CHARACTER_RUNTIME.js";
 
 (() => {
     "use strict";
@@ -602,6 +639,7 @@ import {
     const LEVEL_AUTOLOAD_LIMIT = 20;
     const SPECIAL_ATLAS_IDS = ["it_atlas_001"];
     const ENTITY_CATALOG_URL = "assets/it_entities_001.json";
+    const ENEMY_CATALOG_URL = "assets/ct_enemies_001.json";
     const WIZARD_EDITOR_WIDTH = 36;
     const WIZARD_EDITOR_HEIGHT = 104;
     const WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR = 239 / 263;
@@ -699,6 +737,15 @@ import {
         inspectDoorDestination: document.getElementById("inspect-door-destination"),
         inspectDoorDistance: document.getElementById("inspect-door-distance"),
         inspectDoorWalkSpeed: document.getElementById("inspect-door-walk-speed"),
+        enemySettingsRow: document.getElementById("enemy-settings-row"),
+        inspectEnemyCharacter: document.getElementById("inspect-enemy-character"),
+        inspectEnemyBehavior: document.getElementById("inspect-enemy-behavior"),
+        inspectEnemyFacing: document.getElementById("inspect-enemy-facing"),
+        inspectEnemyPatrolDistance: document.getElementById("inspect-enemy-patrol-distance"),
+        inspectEnemyWalkSpeed: document.getElementById("inspect-enemy-walk-speed"),
+        inspectEnemyIdleDuration: document.getElementById("inspect-enemy-idle-duration"),
+        inspectEnemyTurnPause: document.getElementById("inspect-enemy-turn-pause"),
+        inspectEnemyRenderScale: document.getElementById("inspect-enemy-render-scale"),
         inspectNotes: document.getElementById("inspect-notes"),
         assetSizeRow: document.getElementById("asset-size-row"),
         assetExtraRow: document.getElementById("asset-extra-row"),
@@ -724,12 +771,19 @@ import {
         colorMapCacheKey: "",
         level: null,
         availableLevels: [],
-        entityCatalog: new Map()
+        entityCatalog: new Map(),
+        enemyCatalog: new Map(),
+        characterProjects: new Map()
     };
     let colorMapRefreshTimer = null;
 
     function cloneData(value) {
         return JSON.parse(JSON.stringify(value));
+    }
+
+    function finiteEditorNumber(value, fallback) {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : fallback;
     }
 
     function formatMailboxThoughtText(record) {
@@ -827,6 +881,12 @@ import {
         return record?.type === "wizard_entry_door" || record?.type === "wizard_exit_door";
     }
 
+    function isCharacterEnemy(record) {
+        return record?.type === "characterEnemy" ||
+            record?.kind === "characterEnemy" ||
+            (record?.type === "enemy" && Boolean(record.characterId || record.characterProject));
+    }
+
     function entityFloorAnchorYFactor(record) {
         const authored = Number(record?.floorAnchorYFactor);
         if (Number.isFinite(authored)) return Math.max(0, Math.min(1, authored));
@@ -889,6 +949,61 @@ import {
         const results = [];
         for (const entity of state.level?.entities || []) {
             const result = snapWizardDoorToNearbyGround(entity);
+            if (result) results.push(result);
+        }
+        return results;
+    }
+
+    function snapCharacterEnemyToNearbyGround(enemy, { announce = false } = {}) {
+        if (!isCharacterEnemy(enemy)) return null;
+        const enemyX = Number(enemy.x);
+        const enemyY = Number(enemy.y);
+        if (!Number.isFinite(enemyX) || !Number.isFinite(enemyY)) return null;
+
+        const maxDistance = Math.max(0, finiteEditorNumber(enemy.groundSnapDistance, 96));
+        const width = Math.max(24, Number(enemy.w) || 72);
+        const samples = [enemyX, enemyX - width * 0.24, enemyX + width * 0.24];
+        let best = null;
+
+        for (const placement of state.level.placements || []) {
+            if (!placement || (placement.kind !== "atlasAsset" && placement.kind !== "asset") || placement.collisionFromManifest === false) continue;
+            const atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
+            const assetId = placement.assetId || placement.frame;
+            const frame = frameFor(placement.frame || assetId, atlasId) || frameFor(assetId, atlasId);
+            const object = objectFor(assetId, atlasId) || objectFor(placement.frame, atlasId);
+            if (!frame || !object || !Array.isArray(object.nodes) || !Array.isArray(object.lines)) continue;
+            const nodes = new Map(object.nodes.map((node) => [node.id, node]));
+
+            for (const line of object.lines) {
+                if (line.kind !== "walkable" && line.kind !== "blockable") continue;
+                const nodeA = nodes.get(line.from);
+                const nodeB = nodes.get(line.to);
+                if (!nodeA || !nodeB) continue;
+                const a = atlasNodeToPlacementWorld(placement, frame, nodeA);
+                const b = atlasNodeToPlacementWorld(placement, frame, nodeB);
+                for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
+                    const y = supportYAtX(a, b, samples[sampleIndex]);
+                    if (y === null) continue;
+                    const delta = y - enemyY;
+                    if (Math.abs(delta) > maxDistance) continue;
+                    const score = sampleIndex * 100000 + Math.abs(delta);
+                    if (!best || score < best.score) best = { y, delta, score, placementId: placement.id, lineId: line.id || "" };
+                }
+            }
+        }
+
+        if (!best) return null;
+        enemy.y = best.y;
+        if (announce && Math.abs(best.delta) > 0.001) {
+            setStatus(`Snapped ${enemy.id || "character enemy"} ${best.delta.toFixed(1)} px to ${best.placementId || "nearby ground"}.`);
+        }
+        return best;
+    }
+
+    function snapAllCharacterEnemiesToNearbyGround() {
+        const results = [];
+        for (const entity of state.level?.entities || []) {
+            const result = snapCharacterEnemyToNearbyGround(entity);
             if (result) results.push(result);
         }
         return results;
@@ -1207,6 +1322,7 @@ import {
             await ensureAtlasesForLevel(level);
             normalizeLoadedLevelPlacements();
             snapAllWizardDoorsToNearbyGround();
+            snapAllCharacterEnemiesToNearbyGround();
             refreshColorMappedAtlases({ redraw: false });
             syncMetadataToUi();
             persistUi();
@@ -1256,6 +1372,7 @@ import {
         await ensureAtlasesForLevel(level);
         normalizeLoadedLevelPlacements();
         snapAllWizardDoorsToNearbyGround();
+        snapAllCharacterEnemiesToNearbyGround();
         refreshColorMappedAtlases({ redraw: false });
         syncMetadataToUi();
         persistUi();
@@ -1640,6 +1757,81 @@ import {
         }
     }
 
+    function enemyCatalogDefinition(enemyId) {
+        return state.enemyCatalog.get(enemyId) || null;
+    }
+
+    function instantiateEnemyCatalogEntity(enemyId, point) {
+        const definition = enemyCatalogDefinition(enemyId);
+        if (!definition) return null;
+        const p = snapPoint(point);
+        return {
+            id: nextId(enemyId),
+            type: "characterEnemy",
+            enemyCatalogId: enemyId,
+            characterId: String(definition.characterId || "ct_char_enemy_001"),
+            x: p.x,
+            y: p.y,
+            w: Math.max(1, Number(definition.defaultSize?.w) || 72),
+            h: Math.max(1, Number(definition.defaultSize?.h) || 150),
+            ...cloneData(definition.defaults || {}),
+            notes: definition.description || definition.label || enemyId
+        };
+    }
+
+    function addEnemyPaletteOption(enemyId, definition) {
+        const label = definition.label || enemyId;
+        const icon = definition.icon || "◆";
+        if (!els.quickEntity.querySelector(`option[value="${CSS.escape(enemyId)}"]`)) {
+            const option = document.createElement("option");
+            option.value = enemyId;
+            option.textContent = `${icon} ${label}`;
+            els.quickEntity.appendChild(option);
+        }
+        if (!els.entityPalette.querySelector(`button[data-entity="${CSS.escape(enemyId)}"]`)) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.dataset.entity = enemyId;
+            button.textContent = `${icon} ${label}`;
+            button.addEventListener("click", () => {
+                els.quickEntity.value = enemyId;
+                updateEntityPalette();
+                setTool("placeEntity");
+            });
+            els.entityPalette.appendChild(button);
+        }
+    }
+
+    async function loadEnemyCatalog() {
+        try {
+            const catalog = await loadJsonUrl(ENEMY_CATALOG_URL);
+            state.enemyCatalog.clear();
+            const projectLoads = [];
+            for (const [enemyId, rawDefinition] of Object.entries(catalog.enemies || {})) {
+                const definition = { ...cloneData(rawDefinition), enemyId, catalogId: catalog.catalogId || "ct_enemies_001" };
+                state.enemyCatalog.set(enemyId, definition);
+                addEnemyPaletteOption(enemyId, definition);
+                const characterId = String(definition.characterId || "");
+                if (characterId) {
+                    const configuredUrl = String(definition.characterUrl || characterId);
+                    const withExtension = configuredUrl.endsWith(".json") ? configuredUrl : `${configuredUrl}.json`;
+                    const characterUrl = withExtension.startsWith("assets/") ? withExtension : `assets/${withExtension}`;
+                    projectLoads.push(
+                        loadRuntimeCharacterProject(characterUrl)
+                            .then((project) => state.characterProjects.set(project.characterId, project))
+                            .catch((error) => console.warn(`Could not load editor character preview ${characterUrl}.`, error))
+                    );
+                }
+            }
+            await Promise.all(projectLoads);
+            updateEntityPalette();
+            return state.enemyCatalog.size;
+        } catch (error) {
+            setStatus(`Enemy catalog could not load: ${error.message || error}`, false);
+            return 0;
+        }
+    }
+
     function updateEntityPalette() {
         if (!els.entityPalette || !els.quickEntity) {
             return;
@@ -1832,7 +2024,7 @@ import {
             return;
         }
         const p = snapPoint(point);
-        const entity = instantiateCatalogEntity(type, p) || {
+        const entity = instantiateEnemyCatalogEntity(type, p) || instantiateCatalogEntity(type, p) || {
             id: nextId(type),
             type,
             x: p.x,
@@ -1852,6 +2044,7 @@ import {
         state.level.entities.push(entity);
         state.selectedId = entity.id;
         if (isWizardDoor(entity)) snapWizardDoorToNearbyGround(entity, { announce: true });
+        if (isCharacterEnemy(entity)) snapCharacterEnemyToNearbyGround(entity, { announce: true });
         persistUi();
     }
 
@@ -1959,6 +2152,7 @@ import {
         if (completedDrag.kind === "move") {
             const moved = entityById(completedDrag.id);
             if (isWizardDoor(moved)) snapWizardDoorToNearbyGround(moved, { announce: true });
+            if (isCharacterEnemy(moved)) snapCharacterEnemyToNearbyGround(moved, { announce: true });
             persistUi();
         } else draw();
     }
@@ -2144,12 +2338,78 @@ import {
         ctx.restore();
     }
 
+    function characterProjectForEntity(entity) {
+        const requested = String(entity.characterId || entity.characterProject || "");
+        if (state.characterProjects.has(requested)) return state.characterProjects.get(requested);
+        for (const project of state.characterProjects.values()) {
+            if (project.characterId === requested || project.sourceUrl?.endsWith(`/${requested}.json`)) return project;
+        }
+        return null;
+    }
+
+    function drawCharacterEnemyPreview(entity) {
+        if (!isCharacterEnemy(entity)) return false;
+        const project = characterProjectForEntity(entity);
+        if (!project) return false;
+        const sampled = sampleRuntimeCharacterPose(project, entity.animationSlot || "idle", 0);
+        const transforms = animationPoseToRuntimeTransforms(
+            sampled.pose,
+            project.rig,
+            state.camera.zoom,
+            Math.max(0.05, Number(entity.renderScale) || 0.8)
+        );
+        const commands = buildRuntimeCharacterDrawCommands(project, transforms);
+        const origin = worldToScreen(entity.x, entity.y);
+        const facing = Number(entity.facing) < 0 ? -1 : 1;
+        ctx.save();
+        ctx.translate(origin.x, origin.y);
+        ctx.scale(facing, 1);
+        for (const command of commands) {
+            const { asset, transform, spriteScale, drawX, drawY } = command;
+            if (!asset?.canvas || !transform) continue;
+            ctx.save();
+            ctx.globalAlpha *= transform.alpha;
+            ctx.translate(transform.x, transform.y);
+            ctx.rotate(transform.angle);
+            ctx.scale(spriteScale, spriteScale);
+            ctx.drawImage(asset.canvas, drawX, drawY);
+            ctx.restore();
+        }
+        ctx.restore();
+        return commands.length > 0;
+    }
+
+    function drawCharacterEnemyPatrolGuide(entity) {
+        if (!isCharacterEnemy(entity) || entity.behavior !== "patrol") return;
+        const distance = Math.max(0, Number(entity.patrolDistance) || 0);
+        if (distance <= 0) return;
+        const left = worldToScreen(entity.x - distance * 0.5, entity.y);
+        const right = worldToScreen(entity.x + distance * 0.5, entity.y);
+        ctx.save();
+        ctx.strokeStyle = "rgba(201,167,255,0.82)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([7, 5]);
+        ctx.beginPath();
+        ctx.moveTo(left.x, left.y);
+        ctx.lineTo(right.x, right.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        for (const point of [left, right]) {
+            ctx.beginPath();
+            ctx.moveTo(point.x, point.y - 7);
+            ctx.lineTo(point.x, point.y + 7);
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
     function drawEntity(entity) {
+        if (els.showAssetGuides.checked) drawCharacterEnemyPatrolGuide(entity);
         const visuals = entityVisuals(entity).slice().sort((a, b) => {
             const rank = (layer) => layer === "decorBack" ? 0 : layer === "decorFront" ? 1 : layer === "actorFront" ? 2 : 1;
             return rank(a.layer) - rank(b.layer);
         });
-        let drewVisual = false;
+        let drewVisual = drawCharacterEnemyPreview(entity);
         for (const visual of visuals) {
             const frame = frameFor(visual.assetId, visual.atlasId);
             const image = imageForAtlas(visual.atlasId);
@@ -2260,12 +2520,22 @@ import {
             els.doorDistanceLabel.firstChild.textContent = isEntryDoor ? "Emergence distance" : "Trigger distance";
             els.inspectDoorDistance.value = isEntryDoor ? (Number(rec.emergeDistance) || 180) : (Number(rec.triggerDistance) || 96);
             els.inspectDoorWalkSpeed.value = Number(rec.walkSpeed) || 105;
+            els.inspectEnemyCharacter.value = rec.characterId || rec.characterProject || "ct_char_enemy_001";
+            els.inspectEnemyBehavior.value = rec.behavior === "patrol" ? "patrol" : "guard";
+            els.inspectEnemyFacing.value = Number(rec.facing) < 0 ? "-1" : "1";
+            els.inspectEnemyPatrolDistance.value = Math.max(0, finiteEditorNumber(rec.patrolDistance, 0));
+            els.inspectEnemyWalkSpeed.value = Math.max(0, finiteEditorNumber(rec.walkSpeed, 56));
+            els.inspectEnemyIdleDuration.value = Math.max(0, finiteEditorNumber(rec.idleDuration, 1.1));
+            els.inspectEnemyTurnPause.value = Math.max(0, finiteEditorNumber(rec.turnPause, 0.5));
+            els.inspectEnemyRenderScale.value = Math.max(0.05, finiteEditorNumber(rec.renderScale, 0.8));
             els.inspectNotes.value = rec.notes || "";
         }
         const isMailboxStory = selected.kind === "entity" && (rec.type === "mailbox" || rec.interaction === "editorLetter");
         const isDoor = selected.kind === "entity" && isWizardDoor(rec);
+        const isEnemy = selected.kind === "entity" && isCharacterEnemy(rec);
         els.mailboxStoryRow.style.display = isMailboxStory ? "block" : "none";
         els.doorSettingsRow.style.display = isDoor ? "block" : "none";
+        els.enemySettingsRow.style.display = isEnemy ? "block" : "none";
         els.assetSizeRow.style.display = selected.kind === "asset" || selected.kind === "cutoutMask" || selected.kind === "entity" ? "grid" : "none";
         els.assetExtraRow.style.display = selected.kind === "asset" ? "grid" : "none";
         els.entityTypeRow.style.display = selected.kind === "entity" ? "grid" : "none";
@@ -2329,6 +2599,21 @@ import {
                     rec.mirrorX = rec.mirrorX !== false;
                 }
                 snapWizardDoorToNearbyGround(rec, { announce: true });
+            }
+            if (isCharacterEnemy(rec)) {
+                rec.type = "characterEnemy";
+                rec.characterId = els.inspectEnemyCharacter.value.trim() || "ct_char_enemy_001";
+                rec.behavior = els.inspectEnemyBehavior.value === "patrol" ? "patrol" : "guard";
+                rec.facing = Number(els.inspectEnemyFacing.value) < 0 ? -1 : 1;
+                rec.patrolDistance = Math.max(0, Number(els.inspectEnemyPatrolDistance.value) || 0);
+                rec.walkSpeed = Math.max(0, Number(els.inspectEnemyWalkSpeed.value) || 0);
+                rec.idleDuration = Math.max(0, Number(els.inspectEnemyIdleDuration.value) || 0);
+                rec.turnPause = Math.max(0, Number(els.inspectEnemyTurnPause.value) || 0);
+                rec.renderScale = Math.max(0.05, Number(els.inspectEnemyRenderScale.value) || 0.8);
+                rec.groundSnapDistance = Math.max(0, finiteEditorNumber(rec.groundSnapDistance, 96));
+                rec.animationSlot = "idle";
+                rec.state = "idle";
+                snapCharacterEnemyToNearbyGround(rec, { announce: true });
             }
         }
         state.selectedId = rec.id;
@@ -2614,6 +2899,8 @@ import {
             state.level = normalizeLevelDefaults(JSON.parse(await file.text()));
             await ensureAtlasesForLevel(state.level);
             normalizeLoadedLevelPlacements();
+            snapAllWizardDoorsToNearbyGround();
+            snapAllCharacterEnemiesToNearbyGround();
             refreshColorMappedAtlases({ redraw: false });
             state.selectedId = state.level.entities[0]?.id || state.level.placements[0]?.id || "";
             syncMetadataToUi();
@@ -2657,6 +2944,7 @@ import {
         ensureAtlasesForLevel(state.level).finally(() => {
             normalizeLoadedLevelPlacements();
             snapAllWizardDoorsToNearbyGround();
+            snapAllCharacterEnemiesToNearbyGround();
             refreshColorMappedAtlases({ redraw: false });
             state.selectedId = state.level.entities[0]?.id || state.level.placements[0]?.id || "";
             syncMetadataToUi();
@@ -2674,6 +2962,7 @@ import {
         resizeCanvas();
         await loadAtlasLibrary();
         await loadEntityCatalog();
+        await loadEnemyCatalog();
         const levelCount = await scanAvailableLevels();
         if (levelCount > 0) {
             try {

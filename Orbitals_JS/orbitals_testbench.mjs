@@ -162,6 +162,23 @@ async function runPhaseDModuleSmokeTest() {
       'getEnemyFamilyFiles',
       'updateEnemyShipState'
     ]],
+    ['./sim/encounters.js', [
+      'createEncounter',
+      'createEncounterEntity',
+      'damageEncounterEntity',
+      'getEncounterById',
+      'getEncounterAnchorPosition',
+      'getEncounterAnchorVelocity',
+      'getEncounterEnemies',
+      'getEncounterProtectedEntity',
+      'markEncounterActive',
+      'ensurePlanetInvasionEncounterForMothership',
+      'registerEncounterEnemyReleased',
+      'registerEncounterEnemyDestroyed',
+      'updateEncounterEntities',
+      'isEncounterActive',
+      'updateEncounterDirector'
+    ]],
     ['./sim/main.js', ['stepGame']]
   ]);
 

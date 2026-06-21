@@ -276,7 +276,7 @@ Goal: create a tool where rigs and animations can be created, duplicated, edited
 * [x] Load `enemy_001` alongside Ignatius without adding enemy AI to the renderer.
 * [x] Accept data-authored static `characterEnemy` entities with character ID, animation slot, facing, and scale.
 * [x] Keep gameplay behaviour outside the runtime character loader and renderer.
-* [ ] Add `enemy_001` to the Level Editor palette and implement simulation-owned idle/walk behaviour.
+* [x] Add `enemy_001` to the Level Editor palette and implement simulation-owned idle/walk behaviour.
 
 ### Phase 2 Completion
 
@@ -314,9 +314,9 @@ Goal: use the Phase 2 character pipeline for enemies and non-wizard creatures.
 
 ### Phase 3 Completion
 
-* [ ] At least one non-wizard character uses the generic rig renderer.
+* [x] At least one non-wizard character uses the generic rig renderer.
 * [x] At least one monster has assigned animations for idle/move/attack/hurt (`enemy_001`, with death also authored).
-* [ ] Monster visuals remain renderer-owned while monster gameplay state remains simulation-owned.
+* [x] Monster visuals remain renderer-owned while monster gameplay state remains simulation-owned.
 
 ## Phase 4: Combat, Destructibles, and Reactive Objects
 
@@ -568,3 +568,17 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Map both `ControlLeft` and `ControlRight` to weapon launch.
 * [x] Update the in-game controls help.
 * [x] Add headless regression coverage for both physical Control keys.
+
+### Revision 093 enemy catalog, placement, and patrol
+
+* [x] Add an explicit enemy catalog suitable for static browser hosting.
+* [x] Add the Skeleton Guard to the Level Editor entity palette.
+* [x] Preview placed character enemies through the generic runtime rig renderer.
+* [x] Snap character-enemy foot positions to nearby authored support lines.
+* [x] Add editor controls for guard/patrol behaviour, facing, patrol span, speed, pauses, and visual scale.
+* [x] Implement deterministic simulation-owned idle/walk patrol state.
+* [x] Follow sloped support and turn at patrol limits, ledges, and blocking geometry.
+* [x] Keep homing target anchors synchronized with moving enemies.
+* [x] Place the first Skeleton Guard patrol in `level_001`.
+* [x] Add headless coverage for catalog/editor integration, patrol movement, turning, target synchronization, and stand-guard behaviour.
+

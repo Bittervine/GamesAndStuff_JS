@@ -2,7 +2,7 @@
     "meta": {
         "version": 1,
         "editor": "Ignatius Rocketfrock Level Editor",
-        "note": "Level placements are data. Revision 090 uses half-size wizard entry/exit doors whose authored y-coordinate is the walkable threshold, with transition-only wizard scaling; mailbox story text lives on each mailbox entity."
+        "note": "Level placements are data. Revision 093 adds the first catalogued Skeleton Guard patrol; wizard doorway thresholds and mailbox story data remain entity-authored."
     },
     "levelId": "level_001",
     "title": "Ignatius Rocketfrock and the Level That Was Edited On Purpose",
@@ -436,6 +436,34 @@
             },
             "targetRadius": 16,
             "showTargetMarker": false
+        },
+        {
+            "id": "enemy_001_001",
+            "type": "characterEnemy",
+            "enemyCatalogId": "enemy_001",
+            "characterId": "ct_char_enemy_001",
+            "x": 3700,
+            "y": 252,
+            "w": 72,
+            "h": 150,
+            "behavior": "patrol",
+            "facing": -1,
+            "patrolDistance": 260,
+            "walkSpeed": 56,
+            "idleDuration": 1.1,
+            "turnPause": 0.5,
+            "groundSnapDistance": 96,
+            "maxStepHeight": 26,
+            "maxDropDistance": 34,
+            "renderScale": 0.8,
+            "health": 100,
+            "animationSlot": "idle",
+            "targetAnchor": {
+                "x": 0.5,
+                "y": 0.4
+            },
+            "showTargetMarker": false,
+            "notes": "First runtime Skeleton Guard patrol. Gameplay behaviour is simulation-owned."
         },
         {
             "id": "wizard_exit_door_001",

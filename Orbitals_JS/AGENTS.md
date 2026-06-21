@@ -27,4 +27,5 @@
 - `sim/main.js` owns the deterministic update order through `stepGame()`.
 - `sim/physics.js` is the sole shared ship-flight implementation. Do not duplicate flight integration in `player.js` or `enemies.js`.
 - `sim/player.js` owns player lifecycle hooks; `sim/enemies.js` owns enemy family data and its flight wrapper.
-- The next Phase D ownership boundaries are `sim/encounters.js` and `sim/motherships.js`.
+- `sim/encounters.js` owns encounter creation, route entities, activation, presenter/objective budgets, mission outcomes, and encounter bookkeeping. Detailed presenter flight geometry remains behind its explicit service interface.
+- The next Phase D ownership boundary is `sim/motherships.js`.

@@ -750,6 +750,16 @@ Revision 007 progress evidence:
 - Module smoke tests verify the explicit Phase D exports, while the complete active regression suite confirms unchanged gameplay behavior.
 - The next extraction boundary is the encounter director, followed by mothership lifecycle behavior.
 
+
+Revision 008 progress evidence:
+
+- `sim/encounters.js` now owns encounter creation, encounter entities, activation, mission messages, mission success/failure/abort outcomes, presenter and objective-attacker budgets, and encounter enemy accounting.
+- Mothership invasion registration and enemy-destruction bookkeeping now use the encounter subsystem API instead of mutating director arrays in the facade.
+- Detailed presentation flight geometry remains outside the director temporarily and is reached through three explicit services: target-planet lookup, player-frame measurement, and presentation start.
+- `Orbitals_Sim.js` remains the stable public facade and re-exports the existing encounter anchor helpers.
+- Phase D module smoke tests now verify the encounter subsystem exports, while all existing encounter, presentation, transport, convoy, boss-wave, and mothership regression tests remain active.
+- The next extraction boundary is mothership lifecycle and fighter-release behavior.
+
 ## 17. Phase E: Nested subsystem state migration
 
 Goal: move from flat `state` arrays to a nested `GAME` object.

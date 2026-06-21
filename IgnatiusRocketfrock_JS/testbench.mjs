@@ -248,6 +248,103 @@ async function testGenericRuntimeCharacterProject() {
     assert.equal(enemy.animationSlot, "idle", "character enemy should retain authored animation slot");
 }
 
+function testEnemyCatalogAndLevelEditorIntegration() {
+    const catalog = JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"));
+    const skeleton = catalog.enemies?.enemy_001;
+    assert.ok(skeleton, "enemy catalog should register enemy_001");
+    assert.equal(skeleton.characterId, "ct_char_enemy_001", "enemy_001 should reference its generic character project");
+    assert.equal(skeleton.defaults.behavior, "patrol", "Skeleton Guard should default to patrol behaviour");
+    assert.ok(skeleton.defaults.patrolDistance > 0, "Skeleton Guard should have a visible default patrol span");
+
+    const editorHtml = readFileSync(new URL("./level_editor.html", import.meta.url), "utf8");
+    assert.ok(editorHtml.includes("ENEMY_CATALOG_URL"), "level editor should load the explicit enemy catalog");
+    assert.ok(editorHtml.includes('value="enemy_001"'), "level editor palette should expose the Skeleton Guard");
+    assert.ok(editorHtml.includes('id="enemy-settings-row"'), "level editor should expose character-enemy behaviour controls");
+    assert.ok(editorHtml.includes("drawCharacterEnemyPreview"), "level editor should preview enemies through the generic character renderer");
+    assert.ok(editorHtml.includes("snapCharacterEnemyToNearbyGround"), "placed enemies should snap their feet to authored support lines");
+
+    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const placed = level.entities.find((entity) => entity.id === "enemy_001_001");
+    assert.ok(placed, "level_001 should include the first placed Skeleton Guard");
+    assert.equal(placed.type, "characterEnemy", "placed Skeleton Guard should use the generic runtime entity type");
+    assert.equal(placed.behavior, "patrol", "placed Skeleton Guard should use simulation-owned patrol behaviour");
+}
+
+function testCharacterEnemyPatrolBehavior() {
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "enemy_patrol_test",
+        playerStart: { x: 0, y: 600 },
+        entities: [{
+            id: "patrol_enemy",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 100,
+            y: 600,
+            w: 72,
+            h: 150,
+            facing: 1,
+            behavior: "patrol",
+            patrolDistance: 80,
+            walkSpeed: 60,
+            idleDuration: 0,
+            turnPause: 0,
+            renderScale: 0.8,
+            targetAnchor: { x: 0.5, y: 0.4 }
+        }]
+    }), true, "patrol test level should apply");
+    state.world.segments = [{ id: "patrol_floor", kind: "walkable", x1: -100, y1: 600, x2: 300, y2: 600 }];
+    state.world.collisionPolygons = [];
+    state.world.solids = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+
+    const enemy = state.enemies.find((item) => item.id === "patrol_enemy");
+    const target = state.targets.find((item) => item.enemyId === enemy.id);
+    assert.equal(enemy.movementPhase, "idle", "patrolling enemy should begin with an idle phase");
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(enemy.animationSlot, "walk", "patrolling enemy should switch to its walk animation when idle time expires");
+
+    stepMany(state, 20);
+    approx(enemy.x, 120, 0.01, "patrolling enemy should move at its authored walk speed");
+    assert.equal(enemy.y, 600, "patrolling enemy should keep its feet on the support line");
+    approx(target.x, enemy.x, 0.001, "homing target should follow the moving enemy");
+
+    stepMany(state, 20);
+    approx(enemy.x, 140, 0.01, "patrolling enemy should stop at the authored patrol limit");
+    assert.equal(enemy.facing, -1, "patrolling enemy should turn around at the patrol limit");
+    assert.equal(enemy.animationSlot, "idle", "turning enemy should enter its idle animation during the pause");
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.ok(enemy.x < 140, "enemy should resume walking in the opposite direction after turning");
+    assert.equal(enemy.animationSlot, "walk", "enemy should return to the walk animation after turning");
+
+    const guardState = createInitialGameState();
+    applyEditorLevelToWorld(guardState, {
+        levelId: "enemy_guard_test",
+        playerStart: { x: 0, y: 600 },
+        entities: [{
+            id: "guard_enemy",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 100,
+            y: 600,
+            behavior: "guard",
+            patrolDistance: 200,
+            walkSpeed: 60
+        }]
+    });
+    guardState.world.segments = [{ id: "guard_floor", kind: "walkable", x1: -100, y1: 600, x2: 300, y2: 600 }];
+    guardState.world.collisionPolygons = [];
+    guardState.world.solids = [];
+    stepMany(guardState, 120);
+    const guard = guardState.enemies.find((item) => item.id === "guard_enemy");
+    assert.equal(guard.x, 100, "stand-guard behaviour should not move the enemy");
+    assert.equal(guard.animationSlot, "idle", "stand-guard behaviour should remain in idle animation");
+}
+
 function testEditorDropdownContrast() {
     const editorFiles = [
         "./character_tool.html",
@@ -1873,6 +1970,8 @@ const tests = [
     ["scripted portal exit", testPortalExitSequence],
     ["editor dropdown contrast", testEditorDropdownContrast],
     ["generic runtime character project", testGenericRuntimeCharacterProject],
+    ["enemy catalog and Level Editor integration", testEnemyCatalogAndLevelEditorIntegration],
+    ["simulation-owned character enemy patrol", testCharacterEnemyPatrolBehavior],
     ["character project workspace", testCharacterProjectWorkspace],
     ["character atlas editor operations", testCharacterAtlasEditorOperations],
     ["numbered enemy_001 authored assets", testNumberedEnemy001Assets],
