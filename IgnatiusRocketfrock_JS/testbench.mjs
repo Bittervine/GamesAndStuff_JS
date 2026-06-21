@@ -21,6 +21,7 @@ import {
     blendAnimationPoses,
     normalizeAnimationClip,
     sampleAnimationClip,
+    sampleAnimationClipAtPlayhead,
     sampleAnimationTrack
 } from "./IgnatiusRocketfrock_ANIMATION.js";
 import {
@@ -681,10 +682,16 @@ function testNumberedEnemy001Assets() {
     const atlas = JSON.parse(readFileSync("./assets/ct_atlas_enemy_001.json", "utf8"));
     const idle = JSON.parse(readFileSync("./assets/ct_anim_enemy_001_idle.json", "utf8"));
     const walk = JSON.parse(readFileSync("./assets/ct_anim_enemy_001_walk.json", "utf8"));
+    const attack = JSON.parse(readFileSync("./assets/ct_anim_enemy_001_attack.json", "utf8"));
+    const hurt = JSON.parse(readFileSync("./assets/ct_anim_enemy_001_hurt.json", "utf8"));
+    const death = JSON.parse(readFileSync("./assets/ct_anim_enemy_001_death.json", "utf8"));
     assert.equal(character.characterId, "ct_char_enemy_001", "enemy character ID should follow the numbered enemy convention");
     assert.equal(character.rig, "ct_rig_enemy_001.json", "enemy character should reference its numbered rig filename");
     assert.equal(character.animationMap.idle, "ct_anim_enemy_001_idle.json", "enemy character should reference its numbered idle filename");
     assert.equal(character.animationMap.walk, "ct_anim_enemy_001_walk.json", "enemy character should reference its numbered walk filename");
+    assert.equal(character.animationMap.attack, "ct_anim_enemy_001_attack.json", "enemy character should reference its numbered attack filename");
+    assert.equal(character.animationMap.hurt, "ct_anim_enemy_001_hurt.json", "enemy character should reference its numbered hurt filename");
+    assert.equal(character.animationMap.death, "ct_anim_enemy_001_death.json", "enemy character should reference its numbered death filename");
     assert.equal(rig.rigId, "ct_rig_enemy_001", "enemy rig ID should follow the numbered enemy convention");
     assert.equal(rig.atlasManifest, "ct_atlas_enemy_001.json", "enemy rig should reference the numbered atlas manifest");
     assert.equal(atlas.atlasId, "ct_atlas_enemy_001", "enemy atlas ID should follow the numbered enemy convention");
@@ -700,6 +707,9 @@ function testNumberedEnemy001Assets() {
         assert.ok(atlas.frames[rig.parts[partName].frame], `enemy_001 rig part ${partName} should reference an atlas frame`);
         assert.ok(idle.referencePose[partName], `enemy_001 idle should contain ${partName}`);
         assert.ok(walk.referencePose[partName], `enemy_001 walk should contain ${partName}`);
+        assert.ok(attack.referencePose[partName], `enemy_001 attack should contain ${partName}`);
+        assert.ok(hurt.referencePose[partName], `enemy_001 hurt should contain ${partName}`);
+        assert.ok(death.referencePose[partName], `enemy_001 death should contain ${partName}`);
     }
 
     const assertFiniteClip = (clip, times, label) => {
@@ -712,6 +722,15 @@ function testNumberedEnemy001Assets() {
 
     assertFiniteClip(idle, [0, 0.6, 1.2], "enemy_001 idle");
     assertFiniteClip(walk, [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8], "enemy_001 walk");
+    assertFiniteClip(attack, [0, 0.12, 0.26, 0.34, 0.48, 0.60, 0.72], "enemy_001 attack");
+    assertFiniteClip(hurt, [0, 0.12, 0.24, 0.36, 0.48], "enemy_001 hurt");
+    assertFiniteClip(death, [0, 0.18, 0.36, 0.56, 0.78, 1.0, 1.18], "enemy_001 death");
+    assert.equal(attack.loop, false, "enemy_001 attack should be a one-shot clip");
+    const swordRaised = attack.tracks.sword.y.find((key) => Math.abs(key.time - 0.34) < 0.000001);
+    const swordDown = attack.tracks.sword.y.find((key) => Math.abs(key.time - 0.60) < 0.000001);
+    assert.ok(swordRaised.value < -300, "enemy_001 attack should raise the sword above the head");
+    assert.ok(swordDown.value > -160, "enemy_001 attack should finish the slash forward and down");
+    assert.ok(attack.tracks.sword.x.find((key) => Math.abs(key.time - 0.60) < 0.000001).value > 120, "enemy_001 attack should carry the sword forward");
     assert.equal(walk.duration, 0.8, "enemy_001 walk should contain one brisk two-step cycle");
     assert.ok(walk.tracks.leftLeg.rotation.length >= 9, "enemy_001 walk should author a complete alternating leg cycle");
     assert.ok(walk.tracks.rightLeg.y.some((key) => key.value < -170), "enemy_001 walk should lift the swinging right foot");
@@ -909,6 +928,25 @@ function testAnimationEasingModes() {
     ];
     approx(sampleAnimationTrack(easeTrack, 0.25, 1, false), 1.25, 0.000001, "ease-in-out first quarter");
     approx(sampleAnimationTrack(easeTrack, 0.75, 1, false), 8.75, 0.000001, "ease-in-out third quarter");
+
+    const loopedClip = normalizeAnimationClip({
+        animationId: "editor_terminal_key_test",
+        duration: 1,
+        loop: true,
+        referencePose: { part: { x: 0, y: 0, rotation: 0, scale: 1, alpha: 1 } },
+        tracks: {
+            part: {
+                x: [
+                    { time: 0, value: 0, easing: "linear" },
+                    { time: 1, value: 25, easing: "linear" }
+                ]
+            }
+        }
+    }, "editor terminal key test");
+    approx(sampleAnimationClip(loopedClip, 1).part.x, 0, 0.000001, "runtime loop sampling should still wrap at the duration");
+    approx(sampleAnimationClipAtPlayhead(loopedClip, 1).part.x, 25, 0.000001, "editor playhead sampling should expose the editable terminal key");
+    const toolHtml = readFileSync(new URL("./character_tool.html", import.meta.url), "utf8");
+    assert.ok(toolHtml.includes("sampleAnimationClipAtPlayhead"), "Puppet Forge should use terminal-aware playhead sampling");
 }
 
 function testStateSerialization() {

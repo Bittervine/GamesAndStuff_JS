@@ -71,6 +71,17 @@ export function sampleAnimationClip(clip, timeSeconds) {
     return pose;
 }
 
+// Editor playheads need to distinguish the authored terminal pose from the
+// wrapped first pose of a looping clip. Runtime sampling should still wrap.
+export function sampleAnimationClipAtPlayhead(clip, timeSeconds) {
+    const normalizedClip = clip?._normalizedAnimationClip === true ? clip : normalizeAnimationClip(clip);
+    const time = Number(timeSeconds);
+    if (normalizedClip.loop && Number.isFinite(time) && Math.abs(time - normalizedClip.duration) <= 0.0000001) {
+        return sampleAnimationClip({ ...normalizedClip, loop: false }, normalizedClip.duration);
+    }
+    return sampleAnimationClip(normalizedClip, time);
+}
+
 export function sampleAnimationTrack(track, timeSeconds, duration, loop = true, angular = false) {
     if (!Array.isArray(track) || track.length === 0) {
         throw new Error("Cannot sample an empty animation track.");
