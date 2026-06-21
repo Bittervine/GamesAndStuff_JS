@@ -3,6 +3,9 @@ import { normalizeLevelColorMap } from "./IgnatiusRocketfrock_COLORMAP.js";
 
 export const FIXED_DT = 1 / 60;
 
+const WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR = 242 / 263;
+const DEFAULT_WIZARD_DOOR_INSIDE_SCALE = 0.84;
+
 export const DEFAULT_TUNING = Object.freeze({
     timestep: FIXED_DT,
     wizardHeight: 104,
@@ -178,7 +181,8 @@ export function createInitialGameState(overrides = {}) {
             coyoteTimer: 0,
             airBoostArmed: false,
             lowHealthPulse: 0,
-            visible: true
+            visible: true,
+            renderScale: 1
         },
         fuel: {
             amount: tuning.initialFuel,
@@ -696,6 +700,7 @@ function editorEntityVisualToWorld(entity, visual, index, stateName = entity.sta
     const direction = entity.mirrorX ? -1 : 1;
     const offsetX = ((Number(visual.offsetX) || 0) + (Number(visual.offsetXFactor) || 0) * baseW) * direction;
     const offsetY = (Number(visual.offsetY) || 0) + (Number(visual.offsetYFactor) || 0) * baseH;
+    const floorAnchorYFactor = entityFloorAnchorYFactor(entity);
     return {
         id: `${entity.id || entity.type || "entity"}_${stateName || "default"}_visual_${index + 1}`,
         kind: "atlasSprite",
@@ -703,7 +708,7 @@ function editorEntityVisualToWorld(entity, visual, index, stateName = entity.sta
         assetId: visual.assetId,
         frame: visual.frame || visual.assetId,
         x: (Number(entity.x) || 0) + offsetX - w * 0.5,
-        y: (Number(entity.y) || 0) + offsetY - h,
+        y: (Number(entity.y) || 0) + offsetY - h * floorAnchorYFactor,
         w,
         h,
         mirrorX: Boolean(entity.mirrorX) !== Boolean(visual.mirrorX),
@@ -753,6 +758,21 @@ function isWizardExitDoor(entity) {
         entity.kind === "wizard_exit_door" ||
         ((entity.type === "magicPortal" || entity.kind === "magicPortal") && entity.portalRole === "exit")
     );
+}
+
+function isWizardDoor(entity) {
+    return isWizardEntryDoor(entity) || isWizardExitDoor(entity);
+}
+
+function entityFloorAnchorYFactor(entity) {
+    const authored = Number(entity?.floorAnchorYFactor);
+    if (Number.isFinite(authored)) return clamp(authored, 0, 1);
+    return isWizardDoor(entity) ? WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR : 1;
+}
+
+function wizardDoorInsideScale(entity) {
+    const authored = Number(entity?.wizardInsideScale);
+    return clamp(Number.isFinite(authored) ? authored : DEFAULT_WIZARD_DOOR_INSIDE_SCALE, 0.5, 1);
 }
 
 function wizardEntryDoorEntity(entities) {
@@ -846,6 +866,7 @@ function applyEntryDoorAsPlayerStart(state, entryDoor, { resetPlayer = false } =
         state.player.spawnY = start.y;
         state.player.vx = 0;
         state.player.vy = 0;
+        state.player.renderScale = 1;
         state.player.onGround = true;
         state.player.wasOnGround = true;
         state.camera.x = start.x;
@@ -859,6 +880,7 @@ function configurePortalIntro(state, entities) {
     if (!portal) {
         state.story.portalIntro = null;
         state.player.visible = true;
+        state.player.renderScale = 1;
         return false;
     }
 
@@ -876,6 +898,7 @@ function configurePortalIntro(state, entities) {
         phase: "closed",
         phaseTime: 0,
         direction,
+        insideScale: wizardDoorInsideScale(portal),
         hiddenX,
         finalX,
         groundY: finalY,
@@ -887,6 +910,7 @@ function configurePortalIntro(state, entities) {
     };
     setWorldEntityState(state, portal.id, "closed");
     state.player.visible = false;
+    state.player.renderScale = state.story.portalIntro.insideScale;
     state.player.x = hiddenX;
     state.player.y = finalY;
     state.player.vx = 0;
@@ -915,6 +939,7 @@ function advancePortalIntroPhase(state, intro, phase) {
         setWorldEntityState(state, intro.portalId, "closed");
         intro.active = false;
         state.player.visible = true;
+        state.player.renderScale = 1;
         state.player.x = intro.finalX;
         state.player.y = intro.groundY;
         state.player.vx = 0;
@@ -942,11 +967,13 @@ function updatePortalIntro(state, dt) {
 
     if (intro.phase === "closed") {
         p.visible = false;
+        p.renderScale = intro.insideScale;
         p.x = intro.hiddenX;
         p.vx = 0;
         if (intro.phaseTime >= intro.closedDuration) advancePortalIntroPhase(state, intro, "opening");
     } else if (intro.phase === "opening") {
         p.visible = false;
+        p.renderScale = intro.insideScale;
         p.x = intro.hiddenX;
         p.vx = 0;
         if (intro.phaseTime >= intro.openDuration) advancePortalIntroPhase(state, intro, "emerging");
@@ -954,18 +981,21 @@ function updatePortalIntro(state, dt) {
         const t = clamp(intro.phaseTime / Math.max(0.001, intro.walkDuration), 0, 1);
         const eased = t * t * (3 - 2 * t);
         p.visible = true;
+        p.renderScale = intro.insideScale + (1 - intro.insideScale) * eased;
         p.x = intro.hiddenX + (intro.finalX - intro.hiddenX) * eased;
         p.y = intro.groundY;
         p.vx = (intro.finalX - intro.hiddenX) / Math.max(0.001, intro.walkDuration);
         if (t >= 1) advancePortalIntroPhase(state, intro, "clear");
     } else if (intro.phase === "clear") {
         p.visible = true;
+        p.renderScale = 1;
         p.x = intro.finalX;
         p.y = intro.groundY;
         p.vx = 0;
         if (intro.phaseTime >= intro.clearDuration) advancePortalIntroPhase(state, intro, "closing");
     } else if (intro.phase === "closing") {
         p.visible = true;
+        p.renderScale = 1;
         p.x = intro.finalX;
         p.y = intro.groundY;
         p.vx = 0;
@@ -996,6 +1026,7 @@ function configurePortalExit(state, entities) {
         phase: "armed",
         phaseTime: 0,
         direction,
+        insideScale: wizardDoorInsideScale(portal),
         triggerDistance: Math.max(24, Number(portal.triggerDistance) || 96),
         verticalTolerance: Math.max(32, Number(portal.verticalTolerance) || Math.max(state.player.height, Number(portal.h) || 197)),
         walkSpeed: Math.max(40, Number(portal.walkSpeed) || 105),
@@ -1019,6 +1050,7 @@ function startPortalExit(state, exit) {
     setWorldEntityState(state, exit.portalId, "open");
     state.player.vx = 0;
     state.player.vy = 0;
+    state.player.renderScale = 1;
     addEvent(state, "PORTAL_EXIT_OPENED", { portalId: exit.portalId, destinationLevel: exit.requestedLevelId });
 }
 
@@ -1046,6 +1078,7 @@ function updatePortalExit(state, dt) {
 
     if (exit.phase === "opening") {
         p.vx = 0;
+        p.renderScale = 1;
         if (exit.phaseTime >= exit.openDuration) {
             exit.phase = "entering";
             exit.phaseTime = 0;
@@ -1056,6 +1089,7 @@ function updatePortalExit(state, dt) {
         const t = clamp(exit.phaseTime / Math.max(0.001, exit.walkDuration), 0, 1);
         const eased = t * t * (3 - 2 * t);
         p.visible = true;
+        p.renderScale = 1 + (exit.insideScale - 1) * eased;
         p.x = exit.approachX + (exit.hiddenX - exit.approachX) * eased;
         p.y = exit.groundY;
         p.vx = (exit.hiddenX - exit.approachX) / Math.max(0.001, exit.walkDuration);
@@ -1067,6 +1101,7 @@ function updatePortalExit(state, dt) {
         }
     } else if (exit.phase === "closing") {
         p.visible = false;
+        p.renderScale = exit.insideScale;
         p.x = exit.hiddenX;
         p.y = exit.groundY;
         p.vx = 0;
@@ -1076,6 +1111,7 @@ function updatePortalExit(state, dt) {
         if (exit.phaseTime >= exit.closeDuration) {
             exit.phase = "awaitingLevel";
             exit.completed = true;
+            p.renderScale = 1;
             state.story.levelTransitionRequest = {
                 portalId: exit.portalId,
                 requestedLevelId: exit.requestedLevelId,
@@ -1334,6 +1370,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         state.player.spawnY = state.world.start.y;
         state.player.vx = 0;
         state.player.vy = 0;
+        state.player.renderScale = 1;
         state.player.onGround = false;
         state.player.wasOnGround = false;
         state.player.airBoostArmed = false;
@@ -2920,6 +2957,7 @@ export function resetPlayer(state, reason = "manualReset") {
     p.airBoostArmed = false;
     p.facing = 1;
     p.visible = true;
+    p.renderScale = 1;
     state.fuel.amount = state.tuning.initialFuel;
     state.fuel.rechargeDelayTimer = 0;
     state.fuel.rechargeLatched = false;

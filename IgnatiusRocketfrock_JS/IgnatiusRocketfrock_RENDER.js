@@ -1178,8 +1178,9 @@ class RocketfrockRenderer {
             return;
         }
         const p = this.worldToScreen(view, state.player.x, state.player.y);
-        this.drawShadow(p.x, p.y, view.zoom);
-        const bounds = this.drawWizardRig(p.x, p.y, state.player.facing, state, view.zoom);
+        const renderScale = Math.max(0.05, Number(state.player.renderScale) || 1);
+        this.drawShadow(p.x, p.y, view.zoom * renderScale);
+        const bounds = this.drawWizardRig(p.x, p.y, state.player.facing, state, view.zoom, renderScale);
         this.lastBounds = bounds;
     }
 
@@ -1195,14 +1196,15 @@ class RocketfrockRenderer {
         ctx.restore();
     }
 
-    drawWizardRig(screenX, screenGroundY, facing, state, zoom) {
+    drawWizardRig(screenX, screenGroundY, facing, state, zoom, renderScale = 1) {
         const targetPose = this.computeRigPose(state, zoom);
         const pose = this.blendRigPose(targetPose, state, zoom);
         const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
 
         this.drawRigPose(screenX, screenGroundY, facing, pose, state, zoom, bounds, {
             alpha: 1,
-            drawFuelBulb: true
+            drawFuelBulb: true,
+            renderScale
         });
 
         return bounds;
@@ -1210,7 +1212,8 @@ class RocketfrockRenderer {
 
     drawRigPose(screenX, screenGroundY, facing, pose, state, zoom, bounds, options = {}) {
         const lowHealthTint = Number(options.alpha ?? 1) >= 0.99 ? getLowHealthTintAlpha(state) : 0;
-        this.drawCharacterProjectPose(this.playerProject, screenX, screenGroundY, facing, pose.transforms, bounds, {
+        const renderedTransforms = scalePoseTransforms(pose.transforms, options.renderScale);
+        this.drawCharacterProjectPose(this.playerProject, screenX, screenGroundY, facing, renderedTransforms, bounds, {
             ...options,
             tintAlpha: lowHealthTint,
             afterPart: (partName) => {
@@ -1920,6 +1923,17 @@ function clonePose(pose) {
             Object.entries(pose.transforms).map(([name, transform]) => [name, { ...transform }])
         )
     };
+}
+
+function scalePoseTransforms(transforms, scale = 1) {
+    const safeScale = Math.max(0.05, Number(scale) || 1);
+    if (Math.abs(safeScale - 1) < 0.000001) return transforms;
+    return Object.fromEntries(Object.entries(transforms).map(([name, transform]) => [name, {
+        ...transform,
+        x: transform.x * safeScale,
+        y: transform.y * safeScale,
+        targetHeight: transform.targetHeight * safeScale
+    }]));
 }
 
 function lerpTransform(from, to, alpha) {

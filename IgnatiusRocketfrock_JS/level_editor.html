@@ -604,6 +604,7 @@ import {
     const ENTITY_CATALOG_URL = "assets/it_entities_001.json";
     const WIZARD_EDITOR_WIDTH = 36;
     const WIZARD_EDITOR_HEIGHT = 104;
+    const WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR = 242 / 263;
 
     function atlasIdForIndex(index) {
         return `at_atlas_${String(index).padStart(3, "0")}`;
@@ -824,6 +825,12 @@ import {
 
     function isWizardDoor(record) {
         return record?.type === "wizard_entry_door" || record?.type === "wizard_exit_door";
+    }
+
+    function entityFloorAnchorYFactor(record) {
+        const authored = Number(record?.floorAnchorYFactor);
+        if (Number.isFinite(authored)) return Math.max(0, Math.min(1, authored));
+        return isWizardDoor(record) ? WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR : 1;
     }
 
     function defaultNextLevelId(levelId) {
@@ -1553,7 +1560,7 @@ import {
         const direction = entity.mirrorX ? -1 : 1;
         const offsetX = ((Number(visual.offsetX) || 0) + (Number(visual.offsetXFactor) || 0) * (Number(entity.w) || 42)) * direction;
         const offsetY = (Number(visual.offsetY) || 0) + (Number(visual.offsetYFactor) || 0) * (Number(entity.h) || 80);
-        return { x: entity.x + offsetX - w * 0.5, y: entity.y + offsetY - h, w, h };
+        return { x: entity.x + offsetX - w * 0.5, y: entity.y + offsetY - h * entityFloorAnchorYFactor(entity), w, h };
     }
 
     function catalogDefinition(type) {
@@ -1881,7 +1888,8 @@ import {
     function objectRect(record, kind) {
         if (kind === "entity") {
             if (record.type === "fuel") return { x: record.x - 14, y: record.y - 14, w: 28, h: 28 };
-            return { x: record.x - (record.w || 42) * 0.5, y: record.y - (record.h || 80), w: record.w || 42, h: record.h || 80 };
+            const h = record.h || 80;
+            return { x: record.x - (record.w || 42) * 0.5, y: record.y - h * entityFloorAnchorYFactor(record), w: record.w || 42, h };
         }
         return { x: record.x, y: record.y, w: record.w, h: record.h };
     }

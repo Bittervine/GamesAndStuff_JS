@@ -549,6 +549,10 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.ok(atlas.frames.mailbox_with_letter && atlas.frames.portal_foreground && atlas.frames.letter_scroll, "story-item frames should be present");
     assert.ok(catalog.entities.mailbox && catalog.entities.treasureChest && catalog.entities.wizard_entry_door && catalog.entities.wizard_exit_door, "catalog should define mailboxes plus dedicated wizard entry/exit doors");
     assert.equal(catalog.entities.wizard_exit_door.defaults.mirrorX, true, "exit doorway should be mirrored by default");
+    assert.deepEqual(catalog.entities.wizard_entry_door.defaultSize, { w: 75, h: 98.5 }, "new entry doors should use the half-size doorway dimensions");
+    assert.deepEqual(catalog.entities.wizard_exit_door.defaultSize, { w: 75, h: 98.5 }, "new exit doors should use the half-size doorway dimensions");
+    approx(catalog.entities.wizard_entry_door.defaults.floorAnchorYFactor, 242 / 263, 0.0000001, "door floors should align to the bottom of the meeting door leaves rather than the sprite bottom");
+    approx(catalog.entities.wizard_entry_door.defaults.wizardInsideScale, 0.84, 0.0000001, "door transitions should use a slightly reduced inside-wizard scale");
     const openPortal = catalog.entities.wizard_entry_door.states.open.visuals;
     assert.equal(openPortal.length, 2, "open portal should use background and foreground visuals");
     assert.equal(openPortal[1].layer, "actorFront", "portal foreground should render after the player");
@@ -561,6 +565,12 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     approx(openPortal[0].offsetXFactor, 25 / 366, 0.0000001, "open portal should keep its left edge aligned");
     approx(openPortal[1].widthFactor, 114 / 183, 0.0000001, "foreground portal should preserve source-pixel scale");
     approx(openPortal[1].offsetXFactor, -69 / 366, 0.0000001, "foreground portal should keep its left edge aligned");
+
+    const levelOne = JSON.parse(readFileSync(new URL("./assets/level_001.json", import.meta.url), "utf8"));
+    const levelEntryDoor = levelOne.entities.find((entity) => entity.type === "wizard_entry_door");
+    const levelExitDoor = levelOne.entities.find((entity) => entity.type === "wizard_exit_door");
+    assert.deepEqual({ w: levelEntryDoor.w, h: levelEntryDoor.h }, { w: 125, h: 164 }, "level_001 entry doorway should be half its revision-087 size");
+    assert.deepEqual({ w: levelExitDoor.w, h: levelExitDoor.h }, { w: 125, h: 164 }, "level_001 exit doorway should be half its revision-087 size");
 
     const state = createInitialGameState();
     const mailboxDef = catalog.entities.mailbox;
@@ -709,17 +719,22 @@ function testPortalEntranceSequence() {
     assert.equal(applyEditorLevelToWorld(state, level), true, "portal intro level should apply");
     state.world.solids.push({ id: "portal_test_floor", kind: "floor", x: -500, y: 520, w: 2000, h: 100 });
     assert.equal(state.player.visible, false, "wizard should be hidden behind the initially closed portal");
+    approx(state.player.renderScale, 0.84, 0.000001, "wizard should begin the doorway sequence at the reduced inside scale");
     assert.equal(state.world.entityStates.entrance_test, "closed", "portal should begin closed");
-    assert.ok(state.world.visuals.some((visual) => visual.entityId === "entrance_test" && visual.assetId === "portal_closed"), "closed portal visual should be active first");
+    const closedVisual = state.world.visuals.find((visual) => visual.entityId === "entrance_test" && visual.assetId === "portal_closed");
+    assert.ok(closedVisual, "closed portal visual should be active first");
+    approx(closedVisual.y, 520 - 328 * (242 / 263), 0.000001, "door artwork should place its leaf threshold on the authored floor line");
 
     stepMany(state, 20, () => createInputFrame({ moveRight: true, jumpPressed: true, jumpHeld: true }));
     assert.equal(state.world.entityStates.entrance_test, "open", "portal should open before the wizard emerges");
     assert.ok(state.world.visuals.some((visual) => visual.entityId === "entrance_test" && visual.layer === "actorFront"), "open portal should add its foreground masking layer");
     assert.equal(state.projectiles.length, 0, "player input should remain locked during the entrance sequence");
+    assert.ok(state.player.renderScale > 0.84 && state.player.renderScale < 1, "wizard should scale toward full height while walking out");
 
     stepMany(state, 180, () => createInputFrame());
     assert.equal(state.story.portalIntro.active, false, "entrance sequence should finish");
     assert.equal(state.player.visible, true, "wizard should be visible after walking out");
+    approx(state.player.renderScale, 1, 0.000001, "wizard should finish the entrance at full scale");
     approx(state.player.x, 160, 0.001, "wizard should finish at the entry door's authored emergence distance");
     approx(state.player.y, 520, 0.001, "wizard should finish on the entry door baseline");
     assert.equal(state.world.entityStates.entrance_test, "closed", "portal should close after the wizard clears it");
@@ -761,10 +776,14 @@ function testPortalExitSequence() {
     };
     assert.equal(applyEditorLevelToWorld(state, level), true, "exit-door level should apply");
     assert.equal(state.story.portalExit.requestedLevelId, "level_012", "explicit destination levels should be preserved");
-    stepMany(state, 55, () => createInputFrame());
+    stepMany(state, 20, () => createInputFrame());
+    assert.ok(state.player.visible, "wizard should remain visible while walking into the exit doorway");
+    assert.ok(state.player.renderScale < 1 && state.player.renderScale > 0.84, "wizard should scale down while entering the exit doorway");
+    stepMany(state, 35, () => createInputFrame());
     assert.equal(state.story.levelTransitionRequest.requestedLevelId, "level_012", "walking through the exit should request its destination level");
     assert.equal(state.story.levelTransitionRequest.fallbackLevelId, "level_009", "exit requests should name the current level as fallback");
     assert.equal(state.player.visible, false, "wizard should be hidden after entering the exit door");
+    approx(state.player.renderScale, 1, 0.000001, "hidden player scale should reset before the destination level is applied");
     assert.equal(defaultNextLevelId("level_009"), "level_010", "default destinations should increment numbered levels");
 }
 

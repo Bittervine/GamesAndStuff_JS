@@ -1,7 +1,7 @@
 {
     "meta": {
         "version": 1,
-        "note": "Level-editor catalog for interactive/story items in it_atlas_001. Revision 086 adds dedicated wizard entry/exit doors and permits multiple mailbox story events per level."
+        "note": "Level-editor catalog for interactive/story items in it_atlas_001. Revision 088 halves the wizard doorway defaults, anchors their floor line at the door-leaf threshold, and adds a slightly reduced wizard scale for doorway transitions."
     },
     "catalogId": "it_entities_001",
     "atlasRefs": [
@@ -97,8 +97,8 @@
             "description": "The effective level start. It snaps to nearby ground, opens, lets Ignatius walk out behind the foreground door layer, then closes.",
             "defaultState": "closed",
             "defaultSize": {
-                "w": 150,
-                "h": 197
+                "w": 75,
+                "h": 98.5
             },
             "defaults": {
                 "interaction": "levelPortal",
@@ -112,7 +112,9 @@
                 "portalRole": "entrance",
                 "mirrorX": false,
                 "walkDirection": 1,
-                "emergeDistance": 180
+                "emergeDistance": 180,
+                "floorAnchorYFactor": 0.9201520912547528,
+                "wizardInsideScale": 0.84
             },
             "states": {
                 "closed": {
@@ -155,8 +157,8 @@
             "description": "The level exit. It is mirrored by default, snaps to nearby ground, opens when Ignatius approaches, and walks him through before loading its destination level.",
             "defaultState": "closed",
             "defaultSize": {
-                "w": 150,
-                "h": 197
+                "w": 75,
+                "h": 98.5
             },
             "defaults": {
                 "interaction": "levelPortal",
@@ -171,7 +173,9 @@
                 "mirrorX": true,
                 "walkDirection": 1,
                 "triggerDistance": 96,
-                "destinationLevel": ""
+                "destinationLevel": "",
+                "floorAnchorYFactor": 0.9201520912547528,
+                "wizardInsideScale": 0.84
             },
             "states": {
                 "closed": {

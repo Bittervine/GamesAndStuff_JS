@@ -538,3 +538,13 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Default empty destinations to the next numbered level and fall back to the current level when the requested JSON is missing.
 * [x] Permit multiple mailboxes and keep story text/timings on each mailbox entity.
 * [x] Preserve Level Editor import migration for legacy `magicPortal`, `wizardStart`, and `exit` records.
+
+### Revision 088 compact threshold-aligned doorways
+
+* [x] Halve the catalog default width and height of both wizard doorway entities.
+* [x] Halve the authored entry and exit doorway dimensions in `level_001.json`.
+* [x] Align doorway artwork so the authored floor line passes through the door-leaf threshold rather than the sprite bottom.
+* [x] Use the same doorway floor anchor in runtime rendering, Level Editor drawing, selection, hit testing, and ground snapping.
+* [x] Scale Ignatius smoothly from the reduced inside-door size to full size during entry.
+* [x] Scale Ignatius smoothly down while entering the exit doorway without changing his physics dimensions.
+* [x] Add headless regression coverage for doorway dimensions, floor anchoring, and both scale transitions.

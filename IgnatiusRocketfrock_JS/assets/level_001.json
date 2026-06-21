@@ -2,7 +2,7 @@
     "meta": {
         "version": 1,
         "editor": "Ignatius Rocketfrock Level Editor",
-        "note": "Level placements are data. Revision 086 uses wizard_entry_door as the effective start and wizard_exit_door for transitions; mailbox story text lives on each mailbox entity."
+        "note": "Level placements are data. Revision 088 uses half-size wizard entry/exit doors whose authored y-coordinate is the walkable threshold, with transition-only wizard scaling; mailbox story text lives on each mailbox entity."
     },
     "levelId": "level_001",
     "title": "Ignatius Rocketfrock and the Level That Was Edited On Purpose",
@@ -315,8 +315,8 @@
             "catalogId": "it_entities_001",
             "x": 0,
             "y": 512,
-            "w": 250,
-            "h": 328,
+            "w": 125,
+            "h": 164,
             "state": "closed",
             "visualStates": {
                 "closed": [
@@ -361,7 +361,9 @@
             "notes": "Effective level start. The doorway opens, Ignatius walks out behind its actorFront half-door, and it closes behind him.",
             "walkDirection": 1,
             "emergeDistance": 192,
-            "groundSnapDistance": 72
+            "groundSnapDistance": 72,
+            "floorAnchorYFactor": 0.9201520912547528,
+            "wizardInsideScale": 0.84
         },
         {
             "id": "mailbox_001",
@@ -441,8 +443,8 @@
             "catalogId": "it_entities_001",
             "x": 4992,
             "y": 448,
-            "w": 250,
-            "h": 328,
+            "w": 125,
+            "h": 164,
             "state": "closed",
             "visualStates": {
                 "closed": [
@@ -489,7 +491,9 @@
             "groundSnapDistance": 72,
             "mirrorX": true,
             "triggerDistance": 96,
-            "destinationLevel": "level_002"
+            "destinationLevel": "level_002",
+            "floorAnchorYFactor": 0.9201520912547528,
+            "wizardInsideScale": 0.84
         }
     ]
 }
