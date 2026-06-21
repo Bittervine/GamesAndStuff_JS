@@ -3,7 +3,7 @@ import { normalizeLevelColorMap } from "./IgnatiusRocketfrock_COLORMAP.js";
 
 export const FIXED_DT = 1 / 60;
 
-const WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR = 242 / 263;
+const WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR = 239 / 263;
 const DEFAULT_WIZARD_DOOR_INSIDE_SCALE = 0.84;
 
 export const DEFAULT_TUNING = Object.freeze({
@@ -1658,6 +1658,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
 
     moveAndCollideX(state, p.vx * dt);
     moveAndCollideY(state, p.vy * dt, wasOnGround);
+    resolvePlayerPenetrations(state, wasOnGround);
 
     if (!p.onGround) {
         p.airborneTime += dt;
@@ -2465,6 +2466,245 @@ function moveAndCollideY(state, dy, wasOnGround) {
 
     resolveSegmentYCollisions(state, previousY, dy, wasOnGround);
     resolvePolygonYCollisions(state, previousY, dy, wasOnGround);
+}
+
+function resolvePlayerPenetrations(state, wasOnGround) {
+    const maxPasses = 8;
+    const corrections = [];
+
+    for (let pass = 0; pass < maxPasses; pass += 1) {
+        const rect = getPlayerRect(state);
+        const candidates = [];
+
+        for (const solid of state.world.solids || []) {
+            if (!rectsOverlap(rect, solid)) {
+                continue;
+            }
+            candidates.push(...rectDepenetrationCandidates(rect, solid, {
+                id: solid.id,
+                kind: solid.kind || "solid",
+                source: "solid"
+            }));
+        }
+
+        for (const polygon of state.world.collisionPolygons || []) {
+            if (!isAreaBlockingSegmentKind(polygon.kind) || !polygonOverlapsRect(polygon, rect)) {
+                continue;
+            }
+            candidates.push(...polygonDepenetrationCandidates(rect, polygon));
+        }
+
+        if (!candidates.length) {
+            break;
+        }
+
+        candidates.sort((a, b) => {
+            const distanceDelta = a.distance - b.distance;
+            if (Math.abs(distanceDelta) > 0.000001) {
+                return distanceDelta;
+            }
+            return depenetrationDirectionPriority(state.player, a.direction) -
+                depenetrationDirectionPriority(state.player, b.direction);
+        });
+
+        const best = candidates[0];
+        applyPlayerDepenetration(state, best, wasOnGround);
+        corrections.push(best);
+    }
+
+    if (corrections.length) {
+        const last = corrections[corrections.length - 1];
+        addEvent(state, "PLAYER_COLLISION_RECOVERED", {
+            passes: corrections.length,
+            direction: last.direction,
+            distance: round(corrections.reduce((sum, correction) => sum + correction.distance, 0)),
+            source: last.source,
+            id: last.id,
+            kind: last.kind
+        });
+    }
+}
+
+function rectDepenetrationCandidates(rect, solid, detail) {
+    const separation = 0.02;
+    return [
+        depenetrationCandidate("left", solid.x - (rect.x + rect.w) - separation, 0, detail),
+        depenetrationCandidate("right", solid.x + solid.w - rect.x + separation, 0, detail),
+        depenetrationCandidate("up", 0, solid.y - (rect.y + rect.h) - separation, detail),
+        depenetrationCandidate("down", 0, solid.y + solid.h - rect.y + separation, detail)
+    ];
+}
+
+function polygonDepenetrationCandidates(rect, polygon) {
+    const bounds = polygonBounds(polygon);
+    if (!bounds) {
+        return [];
+    }
+
+    const detail = {
+        id: polygon.id,
+        kind: polygon.kind || "blockable",
+        source: "polygon"
+    };
+    const separation = 0.02;
+    const limits = {
+        left: Math.max(0, rect.x + rect.w - bounds.minX) + 2,
+        right: Math.max(0, bounds.maxX - rect.x) + 2,
+        up: Math.max(0, rect.y + rect.h - bounds.minY) + 2,
+        down: Math.max(0, bounds.maxY - rect.y) + 2
+    };
+
+    return [
+        depenetrationCandidate("left", -findPolygonExitDistance(polygon, rect, -1, 0, limits.left) - separation, 0, detail),
+        depenetrationCandidate("right", findPolygonExitDistance(polygon, rect, 1, 0, limits.right) + separation, 0, detail),
+        depenetrationCandidate("up", 0, -findPolygonExitDistance(polygon, rect, 0, -1, limits.up) - separation, detail),
+        depenetrationCandidate("down", 0, findPolygonExitDistance(polygon, rect, 0, 1, limits.down) + separation, detail)
+    ];
+}
+
+function depenetrationCandidate(direction, dx, dy, detail) {
+    return {
+        direction,
+        dx,
+        dy,
+        distance: Math.abs(dx) + Math.abs(dy),
+        ...detail
+    };
+}
+
+function depenetrationDirectionPriority(player, direction) {
+    if (direction === "left" && player.vx > 0) return 0;
+    if (direction === "right" && player.vx < 0) return 0;
+    if (direction === "up" && player.vy > 0) return 0;
+    if (direction === "down" && player.vy < 0) return 0;
+    if (direction === "up") return 1;
+    if (direction === "down") return 2;
+    return 3;
+}
+
+function findPolygonExitDistance(polygon, rect, stepX, stepY, maxDistance) {
+    if (!(maxDistance > 0)) {
+        return 0;
+    }
+
+    const scanStep = 1;
+    let previousDistance = 0;
+    for (let distance = Math.min(scanStep, maxDistance); distance <= maxDistance + 0.000001; distance = Math.min(distance + scanStep, maxDistance)) {
+        const moved = translateRect(rect, stepX * distance, stepY * distance);
+        if (!polygonOverlapsRect(polygon, moved)) {
+            let low = previousDistance;
+            let high = distance;
+            for (let iteration = 0; iteration < 12; iteration += 1) {
+                const middle = (low + high) * 0.5;
+                if (polygonOverlapsRect(polygon, translateRect(rect, stepX * middle, stepY * middle))) {
+                    low = middle;
+                } else {
+                    high = middle;
+                }
+            }
+            return high;
+        }
+        if (distance >= maxDistance) {
+            break;
+        }
+        previousDistance = distance;
+    }
+    return maxDistance;
+}
+
+function polygonBounds(polygon) {
+    const points = polygon.points || [];
+    if (points.length < 3) {
+        return null;
+    }
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const point of points) {
+        minX = Math.min(minX, point.x);
+        minY = Math.min(minY, point.y);
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+    }
+    return { minX, minY, maxX, maxY };
+}
+
+function translateRect(rect, dx, dy) {
+    return {
+        x: rect.x + dx,
+        y: rect.y + dy,
+        w: rect.w,
+        h: rect.h
+    };
+}
+
+function polygonOverlapsRect(polygon, rect) {
+    const inset = 0.05;
+    const innerRect = {
+        x: rect.x + inset,
+        y: rect.y + inset,
+        w: rect.w - inset * 2,
+        h: rect.h - inset * 2
+    };
+    if (innerRect.w <= 0 || innerRect.h <= 0) {
+        return false;
+    }
+
+    const corners = [
+        { x: innerRect.x, y: innerRect.y },
+        { x: innerRect.x + innerRect.w, y: innerRect.y },
+        { x: innerRect.x + innerRect.w, y: innerRect.y + innerRect.h },
+        { x: innerRect.x, y: innerRect.y + innerRect.h }
+    ];
+    if (corners.some((corner) => pointInPolygon(corner, polygon))) {
+        return true;
+    }
+
+    const points = polygon.points || [];
+    if (points.some((point) => pointInRect(point, innerRect))) {
+        return true;
+    }
+
+    for (let i = 0; i < points.length; i += 1) {
+        if (segmentRectIntersection(points[i], points[(i + 1) % points.length], innerRect)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function applyPlayerDepenetration(state, correction, wasOnGround) {
+    const p = state.player;
+    p.x += correction.dx;
+    p.y += correction.dy;
+
+    if (correction.direction === "left") {
+        if (p.vx > 0) p.vx = 0;
+        state.collisions.playerTouching.right = true;
+    } else if (correction.direction === "right") {
+        if (p.vx < 0) p.vx = 0;
+        state.collisions.playerTouching.left = true;
+    } else if (correction.direction === "up") {
+        if (p.vy >= 0) {
+            landPlayerOn(state, p.y, wasOnGround, correction.id, correction.kind);
+        } else {
+            state.collisions.playerTouching.down = true;
+        }
+    } else if (correction.direction === "down") {
+        if (p.vy < 0) p.vy = 0;
+        p.onGround = false;
+        state.collisions.playerTouching.up = true;
+    }
+
+    state.collisions.lastResolution = {
+        axis: "depenetration",
+        direction: correction.direction,
+        distance: correction.distance,
+        source: correction.source,
+        id: correction.id,
+        kind: correction.kind
+    };
 }
 
 function resolveSegmentYCollisions(state, previousY, dy, wasOnGround) {

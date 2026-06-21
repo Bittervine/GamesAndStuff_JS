@@ -4,7 +4,7 @@ const KEY_BINDINGS = {
     moveLeft: ["ArrowLeft", "KeyA"],
     moveRight: ["ArrowRight", "KeyD"],
     jump: ["ArrowUp", "KeyW", "KeyZ"],
-    weapon: ["Space", "KeyX", "KeyK"]
+    weapon: ["Space", "KeyX", "KeyK", "ControlLeft", "ControlRight"]
 };
 
 const DEBUG_KEYS = new Set(["KeyP", "KeyO", "KeyR", "KeyH", "KeyV", "KeyC", "KeyE", "KeyL", "F1"]);

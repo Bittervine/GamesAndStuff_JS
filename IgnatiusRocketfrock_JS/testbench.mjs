@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { computeResponsiveViewportMetrics, computeTimedTextViewportLayout } from "./IgnatiusRocketfrock_RENDER.js";
+import { RocketfrockInput } from "./IgnatiusRocketfrock_INPUT.js";
 import {
     colorMapCacheKey,
     normalizeLevelColorMap,
@@ -551,7 +552,7 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.equal(catalog.entities.wizard_exit_door.defaults.mirrorX, true, "exit doorway should be mirrored by default");
     assert.deepEqual(catalog.entities.wizard_entry_door.defaultSize, { w: 75, h: 98.5 }, "new entry doors should use the half-size doorway dimensions");
     assert.deepEqual(catalog.entities.wizard_exit_door.defaultSize, { w: 75, h: 98.5 }, "new exit doors should use the half-size doorway dimensions");
-    approx(catalog.entities.wizard_entry_door.defaults.floorAnchorYFactor, 242 / 263, 0.0000001, "door floors should align to the bottom of the meeting door leaves rather than the sprite bottom");
+    approx(catalog.entities.wizard_entry_door.defaults.floorAnchorYFactor, 239 / 263, 0.0000001, "door floors should align to the bottom of the meeting door leaves rather than the sprite bottom");
     approx(catalog.entities.wizard_entry_door.defaults.wizardInsideScale, 0.84, 0.0000001, "door transitions should use a slightly reduced inside-wizard scale");
     const openPortal = catalog.entities.wizard_entry_door.states.open.visuals;
     assert.equal(openPortal.length, 2, "open portal should use background and foreground visuals");
@@ -723,7 +724,7 @@ function testPortalEntranceSequence() {
     assert.equal(state.world.entityStates.entrance_test, "closed", "portal should begin closed");
     const closedVisual = state.world.visuals.find((visual) => visual.entityId === "entrance_test" && visual.assetId === "portal_closed");
     assert.ok(closedVisual, "closed portal visual should be active first");
-    approx(closedVisual.y, 520 - 328 * (242 / 263), 0.000001, "door artwork should place its leaf threshold on the authored floor line");
+    approx(closedVisual.y, 520 - 328 * (239 / 263), 0.000001, "door artwork should place its leaf threshold on the authored floor line");
 
     stepMany(state, 20, () => createInputFrame({ moveRight: true, jumpPressed: true, jumpHeld: true }));
     assert.equal(state.world.entityStates.entrance_test, "open", "portal should open before the wizard emerges");
@@ -1634,6 +1635,67 @@ function testClosedAtlasLoopCreatesCollisionArea() {
     assert.ok(!state.world.collisionPolygons.some((polygon) => polygon.points.length < 3), "collision areas should be valid polygons");
 }
 
+function testCollisionAreaRejectsShallowCornerEntry() {
+    const state = createInitialGameState();
+    state.world.solids = [];
+    state.world.segments = [];
+    state.world.collisionPolygons = [{
+        id: "corner_block",
+        kind: "blockable",
+        points: [
+            { x: 100, y: 100 },
+            { x: 300, y: 100 },
+            { x: 300, y: 300 },
+            { x: 100, y: 300 }
+        ]
+    }];
+    state.player.x = 84;
+    state.player.y = 108;
+    state.player.vx = 360;
+    state.player.vy = 0;
+    state.player.onGround = false;
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+
+    const rect = {
+        left: state.player.x - state.player.width / 2,
+        right: state.player.x + state.player.width / 2,
+        top: state.player.y - state.player.height,
+        bottom: state.player.y
+    };
+    assert.ok(rect.right <= 100.06, `shallow corner entry should push the wizard back outside, got right=${rect.right}`);
+    assert.equal(state.player.vx, 0, "corner rejection should remove velocity into the rock");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "PLAYER_COLLISION_RECOVERED"), "corner recovery should be visible in debug history");
+}
+
+function testCollisionAreaPushesEmbeddedPlayerToNearestSide() {
+    const state = createInitialGameState();
+    state.world.solids = [];
+    state.world.segments = [];
+    state.world.collisionPolygons = [{
+        id: "embedded_block",
+        kind: "blockable",
+        points: [
+            { x: 100, y: 100 },
+            { x: 300, y: 100 },
+            { x: 300, y: 300 },
+            { x: 100, y: 300 }
+        ]
+    }];
+    state.player.x = 200;
+    state.player.y = 290;
+    state.player.vx = 0;
+    state.player.vy = 0;
+    state.player.onGround = false;
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+
+    assert.ok(state.player.y - state.player.height >= 299.94, `embedded wizard should be expelled through the nearer bottom edge, got top=${state.player.y - state.player.height}`);
+    assert.equal(state.player.onGround, false, "downward recovery should not falsely mark the wizard grounded");
+    assert.equal(state.collisions.playerTouching.up, true, "downward recovery should report rock contact above the wizard");
+    assert.equal(state.collisions.lastResolution.direction, "down", "nearest-edge recovery should choose the bottom edge");
+}
+
 function testRocketImpactsAtlasCollisionLinesAndAreas() {
     const lineState = createInitialGameState();
     lineState.targets = [];
@@ -1743,6 +1805,40 @@ function testReset() {
 }
 
 
+
+function testControlKeysLaunchWeapon() {
+    const target = {
+        addEventListener() {}
+    };
+    const input = new RocketfrockInput(target);
+
+    for (const code of ["ControlLeft", "ControlRight"]) {
+        let prevented = false;
+        input.onKeyDown({
+            code,
+            repeat: false,
+            preventDefault() {
+                prevented = true;
+            }
+        });
+        const pressed = input.sample();
+        assert.equal(prevented, true, `${code} should suppress the browser's default shortcut handling`);
+        assert.equal(pressed.weaponHeld, true, `${code} should hold the weapon input`);
+        assert.equal(pressed.weaponPressed, true, `${code} should produce a fresh weapon press`);
+        assert.equal(pressed.moveLeft, false, `${code} should not move left`);
+        assert.equal(pressed.moveRight, false, `${code} should not move right`);
+
+        input.onKeyUp({
+            code,
+            repeat: false,
+            preventDefault() {}
+        });
+        const released = input.sample();
+        assert.equal(released.weaponHeld, false, `${code} release should clear the weapon input`);
+        assert.equal(released.weaponReleased, true, `${code} should produce a weapon release`);
+    }
+}
+
 function testAttachedSmokeDownSpeedTuning() {
     const state = createInitialGameState({
         tuning: {
@@ -1763,6 +1859,7 @@ function testAttachedSmokeDownSpeedTuning() {
 }
 
 const tests = [
+    ["left and right Ctrl weapon binding", testControlKeysLaunchWeapon],
     ["timed story text layout", testTimedTextViewportLayout],
     ["responsive viewport scaling", testResponsiveViewportScaling],
     ["selective level colour map", testSelectiveLevelColorMap],
@@ -1805,6 +1902,8 @@ const tests = [
     ["air boost requires release after ground jump", testAirBoostRequiresReleaseAfterGroundJump],
     ["wall collision", testWallCollision],
     ["closed atlas loop creates collision area", testClosedAtlasLoopCreatesCollisionArea],
+    ["collision area rejects shallow corner entry", testCollisionAreaRejectsShallowCornerEntry],
+    ["collision area pushes embedded player to nearest side", testCollisionAreaPushesEmbeddedPlayerToNearestSide],
     ["rocket impacts atlas collision lines and areas", testRocketImpactsAtlasCollisionLinesAndAreas],
     ["rocket launch ignores unrelated atlas areas", testRocketLaunchDoesNotFalseHitUnrelatedAtlasArea],
     ["manual reset", testReset]

@@ -548,3 +548,23 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Scale Ignatius smoothly from the reduced inside-door size to full size during entry.
 * [x] Scale Ignatius smoothly down while entering the exit doorway without changing his physics dimensions.
 * [x] Add headless regression coverage for doorway dimensions, floor anchoring, and both scale transitions.
+
+### Revision 090 doorway seam threshold correction
+
+* [x] Align the authored doorway floor line to the point where the central seam between the two wooden door leaves reaches the threshold.
+* [x] Apply the corrected anchor consistently to entry and exit doors in runtime, level data, catalog defaults, and Level Editor geometry.
+* [x] Preserve the existing doorway-only wizard scaling and verify the transition tests still pass.
+
+### Revision 091 solid-area depenetration
+
+* [x] Detect player overlap with closed blockable collision polygons after the normal X/Y collision sweeps.
+* [x] Push shallow corner impacts back outside even when the three side samples miss the collision edge.
+* [x] Recover an already embedded wizard through the nearest axis-aligned exit from the solid area.
+* [x] Apply the same recovery to fallback rectangle solids and cancel velocity that points back into the obstacle.
+* [x] Add headless regression coverage for corner entry and nearest-edge downward recovery.
+
+### Revision 092 Ctrl weapon binding
+
+* [x] Map both `ControlLeft` and `ControlRight` to weapon launch.
+* [x] Update the in-game controls help.
+* [x] Add headless regression coverage for both physical Control keys.

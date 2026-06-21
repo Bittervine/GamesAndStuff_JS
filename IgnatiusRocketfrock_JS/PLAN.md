@@ -459,7 +459,7 @@ Default controls:
 * `LeftArrow`, `GamepadLeftDPad`, `GamepadLeftStickLeft`: run left.
 * `RightArrow`, `GamepadRightDPad`, `GamepadLeftStickRight`: run right.
 * `UpArrow`, `GamepadDPadUp`, `GamepadLeftStickUp`, `GamepadA`: jump / attached boost.
-* `Space`, `GamepadB`: weapon / rocket launch.
+* `Space`, `X`, `K`, either `Ctrl`, or `GamepadB`: weapon / rocket launch.
 
 ### Jump Button
 
@@ -1228,6 +1228,15 @@ Mailbox story data remains on each mailbox entity. Multiple mailboxes are allowe
 
 ### Revision 088 compact threshold-aligned doorways
 
-Wizard entry and exit doorways now render at half their revision-087 width and height. Their authored `y` coordinate remains the walkable support line, but the sprite is positioned using `floorAnchorYFactor` so the support passes through the threshold at the bottom of the two meeting door leaves rather than through the lowest stone pixels. The Level Editor uses the same anchor for drawing, selection, hit testing, and support snapping.
+Wizard entry and exit doorways now render at half their revision-087 width and height. Their authored `y` coordinate remains the walkable support line, but the sprite is positioned using `floorAnchorYFactor` so the support passes through the exact point where the central seam between the two meeting wooden door leaves reaches the threshold, rather than through either the upper door panel or the lowest stone pixels. The Level Editor uses the same anchor for drawing, selection, hit testing, and support snapping.
 
 Ignatius uses a doorway-only presentation scale while crossing the portal. He begins the entry sequence slightly reduced and grows smoothly to full size as he walks out. The exit performs the inverse, shrinking him as he walks behind the foreground door leaf. Physics dimensions and normal gameplay scale remain unchanged.
+
+### Revision 091 solid-area collision recovery
+
+Closed blockable atlas loops now behave as fully solid regions even when an ordinary side or floor sweep misses a very shallow corner impact. After the normal horizontal and vertical collision passes, the simulation checks Ignatius's collision rectangle against solid rectangles and closed collision polygons. Any overlap is resolved along the shortest axis-aligned route out of the obstacle, with velocity into the contacted surface cancelled. This also repairs invalid states where Ignatius is already embedded in terrain; for example, a wizard whose body is nearer the underside than the top is expelled downward rather than remaining trapped inside the rock.
+
+
+### Revision 092 Ctrl weapon binding
+
+Both physical Control keys now act as alternate weapon-launch buttons. The input layer uses `KeyboardEvent.code`, so `ControlLeft` and `ControlRight` behave identically to Space, X, and K while remaining independent of keyboard layout.

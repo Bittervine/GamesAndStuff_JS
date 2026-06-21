@@ -41,6 +41,8 @@ Interactive and story props use `assets/it_atlas_001.json` for pixel rectangles 
 
 Authored `wizardStart` coordinates are foot positions. After atlas collision is built, starts within half a wizard height above a `walkable` or `blockable` line are snapped to that support; keep the runtime and Level Editor implementations behaviorally identical. Portal introductions must use the resolved ground Y before control is released. Atlas-backed target entities should expose a normalized `targetAnchor` inside their entity rectangle and may set `showTargetMarker: false`; do not reintroduce a separate visible homing dot when the artwork already contains a clear bullseye.
 
+Closed blockable atlas loops are solid areas, not only boundary hints. After ordinary axis sweeps, the simulation must depenetrate Ignatius from any overlapping solid rectangle or closed collision polygon along the nearest axis exit. This recovery must also work from a stationary or already-invalid embedded state, and must not change the player's authored collision dimensions.
+
 
 ## Mailbox story guardrail
 

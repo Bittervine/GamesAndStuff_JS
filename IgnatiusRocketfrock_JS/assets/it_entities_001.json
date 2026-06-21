@@ -113,7 +113,7 @@
                 "mirrorX": false,
                 "walkDirection": 1,
                 "emergeDistance": 180,
-                "floorAnchorYFactor": 0.9201520912547528,
+                "floorAnchorYFactor": 0.908745247148289,
                 "wizardInsideScale": 0.84
             },
             "states": {
@@ -174,7 +174,7 @@
                 "walkDirection": 1,
                 "triggerDistance": 96,
                 "destinationLevel": "",
-                "floorAnchorYFactor": 0.9201520912547528,
+                "floorAnchorYFactor": 0.908745247148289,
                 "wizardInsideScale": 0.84
             },
             "states": {

@@ -2,7 +2,7 @@
     "meta": {
         "version": 1,
         "editor": "Ignatius Rocketfrock Level Editor",
-        "note": "Level placements are data. Revision 088 uses half-size wizard entry/exit doors whose authored y-coordinate is the walkable threshold, with transition-only wizard scaling; mailbox story text lives on each mailbox entity."
+        "note": "Level placements are data. Revision 090 uses half-size wizard entry/exit doors whose authored y-coordinate is the walkable threshold, with transition-only wizard scaling; mailbox story text lives on each mailbox entity."
     },
     "levelId": "level_001",
     "title": "Ignatius Rocketfrock and the Level That Was Edited On Purpose",
@@ -362,7 +362,7 @@
             "walkDirection": 1,
             "emergeDistance": 192,
             "groundSnapDistance": 72,
-            "floorAnchorYFactor": 0.9201520912547528,
+            "floorAnchorYFactor": 0.908745247148289,
             "wizardInsideScale": 0.84
         },
         {
@@ -492,7 +492,7 @@
             "mirrorX": true,
             "triggerDistance": 96,
             "destinationLevel": "level_002",
-            "floorAnchorYFactor": 0.9201520912547528,
+            "floorAnchorYFactor": 0.908745247148289,
             "wizardInsideScale": 0.84
         }
     ]
