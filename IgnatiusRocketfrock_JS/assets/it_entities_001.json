@@ -1,7 +1,7 @@
 {
     "meta": {
         "version": 1,
-        "note": "Level-editor catalog for interactive/story items in it_atlas_001. Revision 088 halves the wizard doorway defaults, anchors their floor line at the door-leaf threshold, and adds a slightly reduced wizard scale for doorway transitions."
+        "note": "Level-editor catalog for interactive/story items in it_atlas_001. Revision 100 adds the first simulation-owned reactive object: a breakable crate with intact, damaged, and destroyed states."
     },
     "catalogId": "it_entities_001",
     "atlasRefs": [
@@ -255,6 +255,66 @@
                             "layer": "decorFront"
                         }
                     ]
+                }
+            }
+        },
+        "breakableCrate": {
+            "type": "breakableCrate",
+            "label": "Breakable crate",
+            "icon": "▣",
+            "description": "A solid reactive crate that intercepts rockets, becomes damaged, then disappears when destroyed.",
+            "defaultState": "intact",
+            "defaultSize": {
+                "w": 92,
+                "h": 94
+            },
+            "defaults": {
+                "reactiveKind": "destructible",
+                "health": 60,
+                "maxHealth": 60,
+                "damagedHealthThreshold": 30,
+                "projectileDamageMultiplier": 1,
+                "blocksPlayer": true,
+                "blocksProjectiles": true,
+                "collisionStates": [
+                    "intact",
+                    "damaged"
+                ],
+                "projectileCollisionStates": [
+                    "intact",
+                    "damaged"
+                ],
+                "collisionInsetX": 7,
+                "collisionInsetTop": 8,
+                "collisionInsetBottom": 3
+            },
+            "states": {
+                "intact": {
+                    "label": "Intact",
+                    "visuals": [
+                        {
+                            "atlasId": "it_atlas_001",
+                            "assetId": "crate",
+                            "layer": "decorFront"
+                        }
+                    ]
+                },
+                "damaged": {
+                    "label": "Damaged",
+                    "visuals": [
+                        {
+                            "atlasId": "it_atlas_001",
+                            "assetId": "crate",
+                            "layer": "decorFront",
+                            "rotation": 0.055,
+                            "offsetYFactor": 0.018,
+                            "alpha": 0.82
+                        }
+                    ]
+                },
+                "destroyed": {
+                    "label": "Destroyed",
+                    "visuals": []
                 }
             }
         },

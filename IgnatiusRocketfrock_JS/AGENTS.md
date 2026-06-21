@@ -48,6 +48,10 @@ Authored `wizardStart` coordinates are foot positions. After atlas collision is 
 Closed blockable atlas loops are solid areas, not only boundary hints. After ordinary axis sweeps, the simulation must depenetrate Ignatius from any overlapping solid rectangle or closed collision polygon along the nearest axis exit. This recovery must also work from a stationary or already-invalid embedded state, and must not change the player's authored collision dimensions.
 
 
+## REACTIVE WORLD OBJECT RULE ##
+
+Destructible and otherwise gameplay-relevant world props are authoritative `gameState.reactiveObjects`, not renderer effects. Level entities may author health, state names, projectile multipliers, blocking flags, collision-state lists, collision insets, and state-to-visual mappings. Projectile sweeps must resolve the earliest enemy, reactive-object, or terrain impact. When a reactive state changes, update its entity visual through `setWorldEntityState` and rebuild only that object's dynamic solid. Destroyed or inactive objects must not leave invisible player or projectile collision behind. Keep reactive-object transitions, health, collision, events, and serialization in `src/core/`; the renderer only presents world visuals and smoke.
+
 ## Mailbox story guardrail
 
 Mailbox letters are entity-authored story data, and a level may contain several mailboxes. Keep trigger distance, durations, atlas frame IDs, editor copy, and Ignatius's thought on each mailbox entity in level JSON. The simulation owns phase progression and input locking; the renderer only draws the active scroll or thought bubble from `state.story.mailboxEvent`. Do not hardcode level-specific prose or trigger coordinates in the renderer.

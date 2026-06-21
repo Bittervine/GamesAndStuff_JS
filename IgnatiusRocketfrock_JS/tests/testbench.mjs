@@ -830,6 +830,75 @@ function testTerrainInterceptsRocketBeforeEnemy() {
     assert.equal(impact.impactKind, "terrain", "impact event should classify terrain interception");
 }
 
+function testBreakableCrateReactiveObject() {
+    const catalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
+    const definition = catalog.entities.breakableCrate;
+    const levelEditorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.ok(levelEditorSource.includes("reactive-settings-row"), "Level Editor should expose reactive-object tuning fields");
+    assert.ok(levelEditorSource.includes("inspect-reactive-damaged-health"), "Level Editor should author the damaged-state threshold");
+
+    const state = createInitialGameState();
+    const entity = {
+        id: "breakable_crate_test",
+        type: definition.type,
+        catalogId: catalog.catalogId,
+        x: 100,
+        y: 100,
+        w: definition.defaultSize.w,
+        h: definition.defaultSize.h,
+        state: definition.defaultState,
+        visualStates: Object.fromEntries(Object.entries(definition.states).map(([id, record]) => [id, record.visuals])),
+        stateLabels: Object.fromEntries(Object.entries(definition.states).map(([id, record]) => [id, record.label || id])),
+        ...structuredClone(definition.defaults)
+    };
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "reactive_crate_test",
+        world: { bounds: { x: -300, y: -200, w: 900, h: 700 }, resetY: 900 },
+        playerStart: { x: -200, y: 600 },
+        entities: [entity]
+    }), true, "breakable crate level should apply");
+    state.world.solids.push({ id: "wall_behind_crate", kind: "wall", x: 175, y: 0, w: 20, h: 130 });
+    state.world.segments = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+
+    const object = state.reactiveObjects.find((item) => item.id === entity.id);
+    assert.ok(object, "reactive object should be normalized into authoritative gameState");
+    assert.equal(object.health, 60, "reactive object should begin at authored health");
+    assert.ok(state.world.solids.some((solid) => solid.reactiveObjectId === object.id), "intact crate should contribute blocking player collision");
+    assert.ok(state.world.visuals.some((visual) => visual.entityId === object.id && visual.entityState === "intact"), "intact visual should be active initially");
+
+    const firstRocket = addTestRocket(state, { id: "crate_hit_1", x: 0, y: 60, vx: 12000, damage: 35 });
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(firstRocket.state, "exploding", "rocket should explode on the reactive object");
+    assert.equal(object.health, 25, "rocket damage should reduce reactive-object health");
+    assert.equal(object.state, "damaged", "crossing the threshold should select the damaged state");
+    assert.ok(state.world.solids.some((solid) => solid.reactiveObjectId === object.id), "damaged crate should remain solid");
+    assert.ok(state.world.visuals.some((visual) => visual.entityId === object.id && visual.entityState === "damaged"), "damaged state should refresh the entity visual");
+    const firstImpact = state.debug.lastEvents.findLast((event) => event.type === "ROCKET_IMPACTED");
+    assert.equal(firstImpact.impactKind, "reactiveObject", "reactive object should intercept the rocket before terrain behind it");
+    assert.equal(firstImpact.reason, object.id, "rocket impact should identify the reactive object");
+
+    state.projectiles = [];
+    const smokeBeforeDestruction = state.effects.smokePuffs.length;
+    const secondRocket = addTestRocket(state, { id: "crate_hit_2", x: 0, y: 60, vx: 12000, damage: 30 });
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(secondRocket.state, "exploding", "lethal rocket should still resolve against the crate");
+    assert.equal(object.health, 0, "lethal damage should clamp reactive-object health to zero");
+    assert.equal(object.state, "destroyed", "lethal damage should select the destroyed state");
+    assert.equal(state.world.solids.some((solid) => solid.reactiveObjectId === object.id), false, "destroyed crate should remove its blocking collision");
+    assert.equal(state.world.visuals.some((visual) => visual.entityId === object.id), false, "destroyed state with no visuals should remove the crate artwork");
+    assert.ok(state.effects.smokePuffs.length > smokeBeforeDestruction, "destruction should add a smoke-heavy feedback burst");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "REACTIVE_OBJECT_DESTROYED" && event.objectId === object.id), "destruction should emit an authoritative event");
+
+    const restored = restoreGameState(serializeGameState(state));
+    assert.equal(restored.reactiveObjects[0].state, "destroyed", "reactive-object state should survive serialization");
+    assert.equal(restored.reactiveObjects[0].health, 0, "reactive-object health should survive serialization");
+    assert.equal(restored.world.solids.some((solid) => solid.reactiveObjectId === object.id), false, "serialized destroyed state should keep collision removed");
+}
+
 function testEditorDropdownContrast() {
     const editorFiles = [
         "../character-editor.html",
@@ -1131,6 +1200,8 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.equal(Object.keys(atlas.frames).length, 42, "interactive atlas should expose all authored item frames");
     assert.ok(atlas.frames.mailbox_with_letter && atlas.frames.portal_foreground && atlas.frames.letter_scroll, "story-item frames should be present");
     assert.ok(catalog.entities.mailbox && catalog.entities.treasureChest && catalog.entities.wizard_entry_door && catalog.entities.wizard_exit_door, "catalog should define mailboxes plus dedicated wizard entry/exit doors");
+    assert.ok(catalog.entities.breakableCrate, "interactive catalog should expose the first reactive destructible object");
+    assert.deepEqual(Object.keys(catalog.entities.breakableCrate.states), ["intact", "damaged", "destroyed"], "breakable crate should author explicit intact, damaged, and destroyed visuals");
     assert.equal(catalog.entities.wizard_exit_door.defaults.mirrorX, true, "exit doorway should be mirrored by default");
     assert.deepEqual(catalog.entities.wizard_entry_door.defaultSize, { w: 75, h: 98.5 }, "new entry doors should use the half-size doorway dimensions");
     assert.deepEqual(catalog.entities.wizard_exit_door.defaultSize, { w: 75, h: 98.5 }, "new exit doors should use the half-size doorway dimensions");
@@ -2467,6 +2538,7 @@ const tests = [
     ["player damage invulnerability", testPlayerDamageInvulnerability],
     ["damaging and killable surface hazards", testDamagingAndKillableSurfaceHazards],
     ["terrain intercepts rocket before enemy", testTerrainInterceptsRocketBeforeEnemy],
+    ["breakable crate reactive object", testBreakableCrateReactiveObject],
     ["character project workspace", testCharacterProjectWorkspace],
     ["character atlas editor operations", testCharacterAtlasEditorOperations],
     ["numbered enemy_001 authored assets", testNumberedEnemy001Assets],

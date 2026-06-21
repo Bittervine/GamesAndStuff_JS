@@ -396,7 +396,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 098</small></h1>
+        <h1>Level Editor <small>rev 100</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -599,6 +599,19 @@
                 <label>Attack cooldown seconds<input id="inspect-enemy-attack-cooldown" type="number" min="0" step="0.05"></label>
                 <p class="small">The placement point is the enemy's foot position. A patroller becomes alert when Ignatius enters its patrol span; a stationary guard uses its awareness range. Alert skeletons rush at chase speed, close to visible sword distance, and chain rapid chops while line of sight remains clear.</p>
             </div>
+            <div id="reactive-settings-row" style="display:none">
+                <h3>Reactive object</h3>
+                <div class="row">
+                    <label>Health<input id="inspect-reactive-health" type="number" min="1" step="5"></label>
+                    <label>Damaged at health<input id="inspect-reactive-damaged-health" type="number" min="0" step="5"></label>
+                </div>
+                <label>Projectile damage multiplier<input id="inspect-reactive-damage-multiplier" type="number" min="0" step="0.1"></label>
+                <div class="row">
+                    <label class="inline"><input id="inspect-reactive-blocks-player" type="checkbox"> Blocks player</label>
+                    <label class="inline"><input id="inspect-reactive-blocks-projectiles" type="checkbox"> Blocks rockets</label>
+                </div>
+                <p class="small">Reactive objects live in authoritative game state. Rockets strike them before terrain behind them, and their collision is removed when they enter a non-blocking state such as destroyed.</p>
+            </div>
             <label>Notes<textarea id="inspect-notes"></textarea></label>
             <button id="apply-inspector">Apply</button>
         </div>
@@ -764,6 +777,12 @@ import {
         inspectEnemyAttackDamage: document.getElementById("inspect-enemy-attack-damage"),
         inspectEnemyAttackRange: document.getElementById("inspect-enemy-attack-range"),
         inspectEnemyAttackCooldown: document.getElementById("inspect-enemy-attack-cooldown"),
+        reactiveSettingsRow: document.getElementById("reactive-settings-row"),
+        inspectReactiveHealth: document.getElementById("inspect-reactive-health"),
+        inspectReactiveDamagedHealth: document.getElementById("inspect-reactive-damaged-health"),
+        inspectReactiveDamageMultiplier: document.getElementById("inspect-reactive-damage-multiplier"),
+        inspectReactiveBlocksPlayer: document.getElementById("inspect-reactive-blocks-player"),
+        inspectReactiveBlocksProjectiles: document.getElementById("inspect-reactive-blocks-projectiles"),
         inspectNotes: document.getElementById("inspect-notes"),
         assetSizeRow: document.getElementById("asset-size-row"),
         assetExtraRow: document.getElementById("asset-extra-row"),
@@ -903,6 +922,11 @@ import {
         return record?.type === "characterEnemy" ||
             record?.kind === "characterEnemy" ||
             (record?.type === "enemy" && Boolean(record.characterId || record.characterProject));
+    }
+
+    function isReactiveObject(record) {
+        const type = String(record?.type || record?.kind || "");
+        return record?.reactiveKind === "destructible" || type === "breakableCrate" || type === "destructibleBarrier";
     }
 
     function entityFloorAnchorYFactor(record) {
@@ -2552,14 +2576,22 @@ import {
             els.inspectEnemyAttackDamage.value = Math.max(0, finiteEditorNumber(rec.attackDamage, 24));
             els.inspectEnemyAttackRange.value = Math.max(1, finiteEditorNumber(rec.attackRange, 66));
             els.inspectEnemyAttackCooldown.value = Math.max(0, finiteEditorNumber(rec.attackCooldown, 0.12));
+            const reactiveHealth = Math.max(1, finiteEditorNumber(rec.maxHealth, finiteEditorNumber(rec.health, 60)));
+            els.inspectReactiveHealth.value = reactiveHealth;
+            els.inspectReactiveDamagedHealth.value = Math.max(0, Math.min(reactiveHealth, finiteEditorNumber(rec.damagedHealthThreshold, reactiveHealth * 0.5)));
+            els.inspectReactiveDamageMultiplier.value = Math.max(0, finiteEditorNumber(rec.projectileDamageMultiplier, 1));
+            els.inspectReactiveBlocksPlayer.checked = rec.blocksPlayer !== false;
+            els.inspectReactiveBlocksProjectiles.checked = rec.blocksProjectiles !== false;
             els.inspectNotes.value = rec.notes || "";
         }
         const isMailboxStory = selected.kind === "entity" && (rec.type === "mailbox" || rec.interaction === "editorLetter");
         const isDoor = selected.kind === "entity" && isWizardDoor(rec);
         const isEnemy = selected.kind === "entity" && isCharacterEnemy(rec);
+        const isReactive = selected.kind === "entity" && isReactiveObject(rec);
         els.mailboxStoryRow.style.display = isMailboxStory ? "block" : "none";
         els.doorSettingsRow.style.display = isDoor ? "block" : "none";
         els.enemySettingsRow.style.display = isEnemy ? "block" : "none";
+        els.reactiveSettingsRow.style.display = isReactive ? "block" : "none";
         els.assetSizeRow.style.display = selected.kind === "asset" || selected.kind === "cutoutMask" || selected.kind === "entity" ? "grid" : "none";
         els.assetExtraRow.style.display = selected.kind === "asset" ? "grid" : "none";
         els.entityTypeRow.style.display = selected.kind === "entity" ? "grid" : "none";
@@ -2623,6 +2655,17 @@ import {
                     rec.mirrorX = rec.mirrorX !== false;
                 }
                 snapWizardDoorToNearbyGround(rec, { announce: true });
+            }
+            if (isReactiveObject(rec)) {
+                rec.reactiveKind = "destructible";
+                rec.maxHealth = Math.max(1, Number(els.inspectReactiveHealth.value) || 60);
+                rec.health = rec.maxHealth;
+                rec.damagedHealthThreshold = Math.max(0, Math.min(rec.maxHealth, Number(els.inspectReactiveDamagedHealth.value) || 0));
+                rec.projectileDamageMultiplier = Math.max(0, Number(els.inspectReactiveDamageMultiplier.value) || 0);
+                rec.blocksPlayer = els.inspectReactiveBlocksPlayer.checked;
+                rec.blocksProjectiles = els.inspectReactiveBlocksProjectiles.checked;
+                rec.collisionStates = Array.isArray(rec.collisionStates) ? rec.collisionStates : ["intact", "damaged"];
+                rec.projectileCollisionStates = Array.isArray(rec.projectileCollisionStates) ? rec.projectileCollisionStates : ["intact", "damaged"];
             }
             if (isCharacterEnemy(rec)) {
                 rec.type = "characterEnemy";

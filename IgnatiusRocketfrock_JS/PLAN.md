@@ -482,7 +482,7 @@ Revision 070 introduced the interactive/story-item atlas `it_atlas_001`. Its com
 
 Revision 071 implemented the first scripted story-item behaviour: a portal marked with `portalRole: "entrance"` can own the level-start sequence. The runtime begins with the portal closed and Ignatius hidden, switches the entity to its open visual state, walks Ignatius from inside the doorway to the authored `playerStart` while normal input is locked, draws the portal's `actorFront` half-door after the player, then closes the portal and releases control. Portal timing and walk speed live on the entity, and runtime visual-state changes go through the shared entity-state helper rather than hardcoded renderer sprite swaps. The same portal/state foundation should later support mirrored exits.
 
-The generic runtime character loader and Canvas 2D draw-command renderer arrived in revision 085. Revision 093 completed the first real enemy integration: `enemy_001` is catalogued and placeable in the Level Editor, previews through the generic rig renderer, snaps to authored ground, and uses simulation-owned idle/patrol behaviour. Revision 094 made placed enemies combat-active: rockets use swept body collision, terrain can intercept the shot first, health drives hurt/death states, defeated enemies stop moving and leave the homing pool, and short hit/health feedback is renderer-presented from simulation timers. Revision 096 added terrain-shielded melee attacks, player damage, knockback, invulnerability, and damaging/killable collision. Revision 097 makes the Skeleton Guard react as an aggressive close-range enemy: entering its patrol span alerts it, pursuit uses a separate faster chase speed, the attack wind-up lunges to visible sword-contact distance, and the shortened animation/cooldown produces repeated chops. The next Phase 4 milestone is the first reactive or destructible world object. Remaining Puppet Forge rig polish includes part deletion, frame reassignment, role/tag authoring, and direct pivot editing; those improvements should continue without delaying gameplay integration.
+The generic runtime character loader and Canvas 2D draw-command renderer arrived in revision 085. Revision 093 completed the first real enemy integration: `enemy_001` is catalogued and placeable in the Level Editor, previews through the generic rig renderer, snaps to authored ground, and uses simulation-owned idle/patrol behaviour. Revision 094 made placed enemies combat-active: rockets use swept body collision, terrain can intercept the shot first, health drives hurt/death states, defeated enemies stop moving and leave the homing pool, and short hit/health feedback is renderer-presented from simulation timers. Revision 096 added terrain-shielded melee attacks, player damage, knockback, invulnerability, and damaging/killable collision. Revision 097 makes the Skeleton Guard react as an aggressive close-range enemy: entering its patrol span alerts it, pursuit uses a separate faster chase speed, the attack wind-up lunges to visible sword-contact distance, and the shortened animation/cooldown produces repeated chops. Revision 100 establishes the first reactive-world slice with an editor-placeable breakable crate. The crate owns serializable health and intact/damaged/destroyed state, contributes dynamic blocking collision while active, intercepts swept rockets before terrain behind it, refreshes its state-authored visual, removes collision and artwork when destroyed, and emits destruction smoke plus authoritative events. The next Phase 4 milestone should generalize this foundation into a destructible barrier and multi-stage moving geometry such as the falling-tree bridge. Remaining Puppet Forge rig polish includes part deletion, frame reassignment, role/tag authoring, and direct pivot editing; those improvements should continue without delaying gameplay integration.
 
 ## Character Tool
 
@@ -1167,6 +1167,18 @@ Possible object states:
 
 Reactive objects may change collision geometry when their state changes.
 
+Revision 100 uses the following first-pass authoring/runtime contract:
+
+* A level entity identifies a destructible object with `reactiveKind: "destructible"`.
+* `health`, `maxHealth`, and `damagedHealthThreshold` drive the first `intact` → `damaged` → `destroyed` transition.
+* `projectileDamageMultiplier` scales projectile damage without changing projectile data.
+* `blocksPlayer`, `blocksProjectiles`, `collisionStates`, and `projectileCollisionStates` declare which states participate in collision.
+* `collisionInsetX`, `collisionInsetTop`, and `collisionInsetBottom` describe the current rectangular gameplay body independently of atlas padding.
+* `visualStates` remain authoring/presentation data, while the normalized object record and its state live in `gameState.reactiveObjects`.
+* State changes refresh the entity visual and rebuild only the object's dynamic solid.
+
+The first breakable crate deliberately stops at the three-state health model. Later barriers, trees, pillars, and hanging objects may add `breaking`, `falling`, `fallen`, and `inactive` transitions without replacing the base schema.
+
 The level generator and headless validator must understand when a level requires a world-state change, such as knocking down a tree to create a bridge.
 
 
@@ -1389,8 +1401,15 @@ Skeleton Guards now distinguish calm patrol speed from alerted chase speed. A pa
 
 The sword attack is now a compact 0.44-second overhead chop with the visible downstroke aligned to the gameplay strike. The blade and body follow-through extend farther forward, while the simulation applies a bounded pre-strike lunge so the sword reaches Ignatius instead of damaging him from empty air. A short recovery permits rapid chained attacks. Chase speed, stationary-guard awareness range, attack reach, damage, and cooldown remain authorable in the Level Editor; additional timing and lunge values remain serializable enemy data.
 
-### Revision 098 source organization and parity map
+### Revision 099 source organization and parity map
 
 The loose project-root JavaScript files now live under `src/core`, `src/browser`, `src/presentation`, `src/shared`, and `src/tools/character-editor`, with concise lowercase kebab-case names. Browser entry pages now use stable descriptive names such as `index.html`, `asset-editor.html`, `level-editor.html`, and `character-editor.html`; the aggregate test entry point is `tests/testbench.mjs`, exposed through `npm test`. All imports, links, tests, source-inspection checks, manifest notes, and revision labels were updated without changing gameplay behavior.
 
 `ARCHITECTURE.md` now classifies each module as portable core, shared data/math, browser adapter, presentation-only, editor-only, or test-only. It records dependency direction, the known temporary simulation-to-colour-map boundary violation, unique filename rules, the planned JavaScript/C++ module correspondence, and the stable `InputFrame + fixed dt -> stepSimulation -> GameState + SimulationEvent[]` parity boundary.
+
+
+### Revision 100 first reactive object and breakable crate
+
+The interactive-item catalog now includes an editor-placeable `breakableCrate` using the existing crate atlas frame. Its authored defaults define health, a damaged threshold, projectile damage scaling, player/projectile blocking, collision-state lists, collision insets, and intact/damaged/destroyed visual states. The Level Editor exposes the principal health, threshold, multiplier, and blocking settings without introducing renderer-owned gameplay fields.
+
+Applying a level normalizes destructible entities into serializable `gameState.reactiveObjects`. Active crates contribute dynamic rectangle solids. Rocket sweeps now compare enemy, reactive-object, and terrain contacts and resolve the earliest hit, so a crate shields whatever is behind it. Damage selects damaged or destroyed state, refreshes state-authored visuals, removes collision when destroyed, emits authoritative state/damage/destruction events, and adds a smoke-heavy destruction burst. Headless tests cover catalog/editor integration, projectile ordering, health transitions, visual refresh, collision removal, events, smoke, and save/restore.

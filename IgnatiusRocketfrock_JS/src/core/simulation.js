@@ -90,6 +90,7 @@ export const DEFAULT_TUNING = Object.freeze({
     playerHitFlashSeconds: 0.24,
     hazardContactDamage: 20,
     rocketImpactSmokePuffs: 24,
+    reactiveObjectDestructionSmokePuffs: 18,
     rocketSmokePuffLifetime: 1.5,
     rocketSmokePuffSpacing: 3,
     rocketSmokeMaxPuffs: 260,
@@ -174,7 +175,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "035-test-arena-cleanup",
+            build: "100-reactive-breakable-crate",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -259,6 +260,7 @@ export function createInitialGameState(overrides = {}) {
             launchedThisPhase: false
         },
         projectiles: [],
+        reactiveObjects: [],
         effects: {
             nextPuffId: 1,
             smokePuffs: []
@@ -444,7 +446,7 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
 
     state.world.segments = segments;
     state.world.collisionPolygons = polygons;
-    state.world.solids = (state.world.solids || []).filter((solid) => solid.kind === "wall");
+    state.world.solids = (state.world.solids || []).filter((solid) => solid.kind === "wall" || solid.reactiveObjectId);
     state.world.collisionMode = polygons.length ? "atlasSegmentsAndAreas" : "atlasSegments";
     state.world.collisionSegmentCount = segments.length;
     state.world.collisionPolygonCount = polygons.length;
@@ -773,6 +775,78 @@ export function setWorldEntityState(state, entityId, nextState) {
         if (visual?.assetId) state.world.visuals.push(editorEntityVisualToWorld(entity, visual, index, nextState));
     });
     state.world.visuals.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    return true;
+}
+
+function isReactiveWorldEntity(entity) {
+    const type = String(entity?.type || entity?.kind || "");
+    return entity?.reactiveKind === "destructible" ||
+        type === "breakableCrate" ||
+        type === "destructibleBarrier";
+}
+
+function reactiveObjectCollisionRect(object) {
+    const width = Math.max(1, Number(object?.width) || 1);
+    const height = Math.max(1, Number(object?.height) || 1);
+    const insetX = clamp(Number(object?.collisionInsetX) || 0, 0, width * 0.45);
+    const insetTop = clamp(Number(object?.collisionInsetTop) || 0, 0, height * 0.9);
+    const insetBottom = clamp(Number(object?.collisionInsetBottom) || 0, 0, height * 0.9 - insetTop);
+    return {
+        x: (Number(object?.x) || 0) - width * 0.5 + insetX,
+        y: (Number(object?.y) || 0) - height + insetTop,
+        w: Math.max(1, width - insetX * 2),
+        h: Math.max(1, height - insetTop - insetBottom)
+    };
+}
+
+function reactiveObjectStateIsActive(object) {
+    return object?.state !== "destroyed" && object?.state !== "inactive" && Number(object?.health) > 0;
+}
+
+function reactiveObjectBlocksPlayer(object) {
+    if (!object?.blocksPlayer || !reactiveObjectStateIsActive(object)) return false;
+    const states = Array.isArray(object.collisionStates) ? object.collisionStates : null;
+    return !states || states.includes(object.state);
+}
+
+function reactiveObjectBlocksProjectiles(object) {
+    if (!object?.blocksProjectiles || !reactiveObjectStateIsActive(object)) return false;
+    const states = Array.isArray(object.projectileCollisionStates) ? object.projectileCollisionStates : object.collisionStates;
+    return !Array.isArray(states) || states.includes(object.state);
+}
+
+function syncReactiveObjectCollision(state, object) {
+    if (!state?.world || !object?.id) return;
+    state.world.solids = (state.world.solids || []).filter((solid) => solid.reactiveObjectId !== object.id);
+    if (!reactiveObjectBlocksPlayer(object)) return;
+    state.world.solids.push({
+        id: `${object.id}_reactive_solid`,
+        kind: "reactiveObject",
+        reactiveObjectId: object.id,
+        ...reactiveObjectCollisionRect(object)
+    });
+}
+
+function setReactiveObjectState(state, object, nextState) {
+    if (!object || object.state === nextState) return false;
+    const previousState = object.state;
+    object.state = nextState;
+    const sourceEntity = worldEntityById(state, object.entityId || object.id);
+    if (sourceEntity) {
+        sourceEntity.state = nextState;
+        sourceEntity.health = object.health;
+        if (!setWorldEntityState(state, sourceEntity.id, nextState)) {
+            if (!state.world.entityStates) state.world.entityStates = {};
+            state.world.entityStates[sourceEntity.id] = nextState;
+        }
+    }
+    syncReactiveObjectCollision(state, object);
+    addEvent(state, "REACTIVE_OBJECT_STATE_CHANGED", {
+        objectId: object.id,
+        previousState,
+        state: nextState,
+        health: round(object.health)
+    });
     return true;
 }
 
@@ -1547,6 +1621,52 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         collected: false,
         visualized: editorEntityVisuals(entity).length > 0
     }));
+
+    state.reactiveObjects = runtimeEntities.filter(isReactiveWorldEntity).map((entity, index) => {
+        const authoredHealth = finiteNumberOr(entity.health, 60);
+        const maxHealth = Math.max(1, finiteNumberOr(entity.maxHealth, authoredHealth));
+        const initialState = String(entity.state || "intact");
+        const health = initialState === "destroyed" || initialState === "inactive"
+            ? 0
+            : clamp(finiteNumberOr(entity.currentHealth, authoredHealth), 0, maxHealth);
+        const damagedHealthThreshold = clamp(
+            finiteNumberOr(entity.damagedHealthThreshold, maxHealth * 0.5),
+            0,
+            maxHealth
+        );
+        return {
+            id: entity.id || `reactiveObject_${index + 1}`,
+            entityId: entity.id || `reactiveObject_${index + 1}`,
+            kind: String(entity.reactiveKind || "destructible"),
+            type: String(entity.type || entity.kind || "reactiveObject"),
+            x: Number(entity.x) || 0,
+            y: Number(entity.y) || 0,
+            width: Math.max(1, Number(entity.w) || Number(entity.width) || 80),
+            height: Math.max(1, Number(entity.h) || Number(entity.height) || 80),
+            health,
+            maxHealth,
+            state: health <= 0 ? "destroyed" : initialState,
+            intactState: String(entity.intactState || "intact"),
+            damagedState: String(entity.damagedState || "damaged"),
+            destroyedState: String(entity.destroyedState || "destroyed"),
+            damagedHealthThreshold,
+            projectileDamageMultiplier: Math.max(0, finiteNumberOr(entity.projectileDamageMultiplier, 1)),
+            blocksPlayer: entity.blocksPlayer !== false,
+            blocksProjectiles: entity.blocksProjectiles !== false,
+            collisionStates: Array.isArray(entity.collisionStates) ? entity.collisionStates.slice() : ["intact", "damaged"],
+            projectileCollisionStates: Array.isArray(entity.projectileCollisionStates)
+                ? entity.projectileCollisionStates.slice()
+                : ["intact", "damaged"],
+            collisionInsetX: Math.max(0, finiteNumberOr(entity.collisionInsetX, 0)),
+            collisionInsetTop: Math.max(0, finiteNumberOr(entity.collisionInsetTop, 0)),
+            collisionInsetBottom: Math.max(0, finiteNumberOr(entity.collisionInsetBottom, 0)),
+            lastDamagedAt: null,
+            lastHitBy: null
+        };
+    });
+    for (const object of state.reactiveObjects) {
+        syncReactiveObjectCollision(state, object);
+    }
 
     state.targets = state.enemies.length ? state.enemies.map((enemy) => ({
         id: `${enemy.id}_target`,
@@ -2497,25 +2617,45 @@ function updateProjectiles(state, dt) {
         recordProjectileTrail(state, projectile);
 
         const enemyImpact = findProjectileEnemyImpact(state, projectile, previousX, previousY);
+        const reactiveImpact = findProjectileReactiveObjectImpact(state, projectile, previousX, previousY);
         const terrainImpact = findProjectileTerrainImpact(state, projectile, previousX, previousY);
-        const hitEnemyFirst = enemyImpact && (!terrainImpact || enemyImpact.t <= terrainImpact.t);
-        if (hitEnemyFirst) {
-            projectile.x = enemyImpact.x;
-            projectile.y = enemyImpact.y;
-            const damageResult = applyProjectileDamageToEnemy(state, projectile, enemyImpact.enemy);
-            explodeProjectile(state, projectile, enemyImpact.enemy.id, {
+        const impacts = [
+            enemyImpact ? { ...enemyImpact, impactKind: "enemy", priority: 0 } : null,
+            reactiveImpact ? { ...reactiveImpact, impactKind: "reactiveObject", priority: 1 } : null,
+            terrainImpact ? { ...terrainImpact, impactKind: "terrain", priority: 2 } : null
+        ].filter(Boolean).sort((a, b) => (a.t - b.t) || (a.priority - b.priority));
+        const impact = impacts[0] || null;
+        if (impact?.impactKind === "enemy") {
+            projectile.x = impact.x;
+            projectile.y = impact.y;
+            const damageResult = applyProjectileDamageToEnemy(state, projectile, impact.enemy);
+            explodeProjectile(state, projectile, impact.enemy.id, {
                 impactKind: "enemy",
-                enemyId: enemyImpact.enemy.id,
+                enemyId: impact.enemy.id,
                 damage: damageResult.damage,
                 health: damageResult.health,
                 defeated: damageResult.defeated
             });
             continue;
         }
-        if (terrainImpact) {
-            projectile.x = terrainImpact.x;
-            projectile.y = terrainImpact.y;
-            explodeProjectile(state, projectile, terrainImpact.id, { impactKind: "terrain" });
+        if (impact?.impactKind === "reactiveObject") {
+            projectile.x = impact.x;
+            projectile.y = impact.y;
+            const damageResult = applyProjectileDamageToReactiveObject(state, projectile, impact.object);
+            explodeProjectile(state, projectile, impact.object.id, {
+                impactKind: "reactiveObject",
+                objectId: impact.object.id,
+                damage: damageResult.damage,
+                health: damageResult.health,
+                state: damageResult.state,
+                destroyed: damageResult.destroyed
+            });
+            continue;
+        }
+        if (impact?.impactKind === "terrain") {
+            projectile.x = impact.x;
+            projectile.y = impact.y;
+            explodeProjectile(state, projectile, impact.id, { impactKind: "terrain" });
             continue;
         }
 
@@ -2767,6 +2907,69 @@ function enemyCollisionRect(enemy) {
     };
 }
 
+function findProjectileReactiveObjectImpact(state, projectile, previousX, previousY) {
+    const start = { x: previousX, y: previousY };
+    const end = { x: projectile.x, y: projectile.y };
+    const radius = Math.max(0, projectile.radius || 0);
+    let best = null;
+
+    for (const object of state.reactiveObjects || []) {
+        if (!reactiveObjectBlocksProjectiles(object)) continue;
+        const hit = sweptCircleRectImpact(start, end, radius, reactiveObjectCollisionRect(object));
+        if (!hit || (best && hit.t >= best.t)) continue;
+        best = { t: hit.t, x: hit.x, y: hit.y, object };
+    }
+    return best;
+}
+
+function applyProjectileDamageToReactiveObject(state, projectile, object) {
+    const before = Math.max(0, Number(object.health) || 0);
+    const requestedDamage = Math.max(0, Number(projectile.damage ?? state.tuning.rocketProjectileDamage) || 0);
+    const scaledDamage = requestedDamage * Math.max(0, Number(object.projectileDamageMultiplier) || 0);
+    const damage = Math.min(before, scaledDamage);
+    object.health = Math.max(0, before - scaledDamage);
+    object.lastDamagedAt = state.clock.time;
+    object.lastHitBy = projectile.id;
+
+    let nextState = object.intactState || "intact";
+    if (object.health <= 0) nextState = object.destroyedState || "destroyed";
+    else if (object.health <= object.damagedHealthThreshold) nextState = object.damagedState || "damaged";
+    setReactiveObjectState(state, object, nextState);
+
+    const sourceEntity = worldEntityById(state, object.entityId || object.id);
+    if (sourceEntity) sourceEntity.health = object.health;
+    const destroyed = object.health <= 0;
+    if (destroyed) emitReactiveObjectDestructionSmoke(state, object);
+    addEvent(state, destroyed ? "REACTIVE_OBJECT_DESTROYED" : "REACTIVE_OBJECT_DAMAGED", {
+        objectId: object.id,
+        projectileId: projectile.id,
+        damage: round(damage),
+        health: round(object.health),
+        maxHealth: round(object.maxHealth),
+        state: object.state
+    });
+    return { damage, health: object.health, state: object.state, destroyed };
+}
+
+function emitReactiveObjectDestructionSmoke(state, object) {
+    const rect = reactiveObjectCollisionRect(object);
+    const count = Math.max(0, Math.floor(state.tuning.reactiveObjectDestructionSmokePuffs ?? 18));
+    for (let i = 0; i < count; i += 1) {
+        const seed = state.clock.tick * 109 + i * 149 + Math.floor(object.x * 7 + object.y * 11);
+        const angle = -Math.PI + hash01(seed) * Math.PI;
+        const speed = 45 + hash01(seed + 17) * 150;
+        addSmokePuff(state, {
+            kind: "reactiveObjectDestructionSmokePuff",
+            x: rect.x + rect.w * hash01(seed + 31),
+            y: rect.y + rect.h * hash01(seed + 47),
+            vx: Math.cos(angle) * speed,
+            vy: -35 - Math.abs(Math.sin(angle)) * speed - hash01(seed + 61) * 55,
+            lifetime: (state.tuning.rocketSmokePuffLifetime ?? 1.5) * (0.9 + hash01(seed + 79) * 0.8),
+            radius: 9 + hash01(seed + 97) * 13
+        });
+    }
+}
+
 function findProjectileEnemyImpact(state, projectile, previousX, previousY) {
     const start = { x: previousX, y: previousY };
     const end = { x: projectile.x, y: projectile.y };
@@ -2861,6 +3064,7 @@ function findProjectileTerrainImpact(state, projectile, previousX, previousY) {
     }
 
     for (const solid of state.world.solids || []) {
+        if (solid.reactiveObjectId) continue;
         const hit = sweptCircleRectImpact(start, end, radius, solid);
         if (hit) {
             record({

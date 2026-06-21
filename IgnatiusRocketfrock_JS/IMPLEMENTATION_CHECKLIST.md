@@ -41,9 +41,9 @@ The HTML and JavaScript game remains the reference implementation, but new gamep
 
 ## Current Status
 
-The project now has a working browser game loop, deterministic simulation layer, asset-atlas based level construction, atlas and level editor tools, atlas-derived collision lines and filled collision loops, detached rocket terrain impacts, health/fuel HUD, and headless tests. Revision 098 also places implementation modules under explicit core, shared, browser, presentation, and tool directories, with `ARCHITECTURE.md` serving as the dependency and future C++ parity map.
+The project now has a working browser game loop, deterministic simulation layer, asset-atlas based level construction, atlas and level editor tools, atlas-derived collision lines and filled collision loops, detached rocket terrain impacts, health/fuel HUD, and headless tests. Revision 099 also places implementation modules under explicit core, shared, browser, presentation, and tool directories, with `ARCHITECTURE.md` serving as the dependency and future C++ parity map.
 
-The immediate gameplay direction is destructible and reactive world objects, building on the completed first enemy/player combat loop. In parallel, portability preparation should remove renderer-owned gameplay data and establish language-neutral schemas and parity fixtures before Phase 8 procedural generation expands the simulation surface.
+Revision 100 now provides the first destructible/reactive-world slice: an editor-placeable breakable crate with authoritative health/state, dynamic collision, rocket interception, state-authored visuals, destruction smoke, events, and serialization. The immediate gameplay direction is to generalize that foundation into barriers and moving geometry such as a falling-tree bridge. In parallel, portability preparation should remove renderer-owned gameplay data and establish language-neutral schemas and parity fixtures before Phase 8 procedural generation expands the simulation surface.
 
 ## Phase 1: Completed Physics, Level, and Atlas Foundation
 
@@ -351,7 +351,7 @@ Goal: make rockets and future weapons interact with enemies and world objects.
 * [x] Add monster health and hurt/death state to `gameState`.
 * [x] Add projectile collision with monsters.
 * [x] Add projectile collision with terrain.
-* [ ] Add projectile collision with destructible objects.
+* [x] Add projectile collision with destructible objects.
 * [x] Add player damage from hazards and enemies.
 * [x] Add enemy awareness, pursuit, melee attack, and rapid repeat-attack behaviour.
 * [x] Add health regeneration delay and feedback.
@@ -359,24 +359,24 @@ Goal: make rockets and future weapons interact with enemies and world objects.
 
 ### Destructible and Reactive Objects
 
-* [ ] Define reactive world object data format.
-* [ ] Add reactive objects to `gameState`.
-* [ ] Add object health or trigger state.
+* [x] Define reactive world object data format.
+* [x] Add reactive objects to `gameState`.
+* [x] Add object health or trigger state.
 * [ ] Add object state transitions: `intact`, `damaged`, `breaking`, `falling`, `fallen`, `destroyed`, `inactive`.
-* [ ] Allow reactive objects to change collision geometry when their state changes.
+* [x] Allow reactive objects to change collision geometry when their state changes.
 * [ ] Add destructible barrier.
-* [ ] Add breakable crate or obstacle.
+* [x] Add breakable crate or obstacle.
 * [ ] Add falling tree prototype that can become a bridge.
 * [ ] Add projectile and explosion interaction with reactive objects.
-* [ ] Add smoke-heavy destruction effects.
-* [ ] Add tests for object state, collision updates, and serialization.
+* [x] Add smoke-heavy destruction effects.
+* [x] Add tests for object state, collision updates, and serialization.
 
 ### Phase 4 Completion
 
 * [x] Ignatius can damage enemies.
-* [ ] Ignatius can damage or alter reactive world objects.
-* [ ] Destructible and reactive changes are serialized in `gameState`.
-* [ ] Rocket impacts no longer pass through gameplay-relevant objects.
+* [x] Ignatius can damage or alter reactive world objects.
+* [x] Destructible and reactive changes are serialized in `gameState`.
+* [x] Rocket impacts no longer pass through gameplay-relevant objects.
 
 ## Phase 5: Weapon Framework
 
@@ -636,8 +636,8 @@ Goal: grow the game beyond isolated prototype levels.
 [x] Update Puppet Forge's known-project selector to load `ct_char_enemy_001.json`.
 [x] Preserve `Skeleton Guard` as the human-readable display name rather than encoding the species in filenames.
 [x] Add regression coverage for the numbered IDs, filenames, layer order, and animation sampling.
-[ ] Add a generated enemy index or controlled numbered discovery pass for `ct_char_enemy_0XX.json`.
-[ ] Populate future level-editor enemy palettes from that enemy index.
+[x] Add a generated enemy index or controlled numbered discovery pass for `ct_char_enemy_0XX.json` (implemented as the explicit `ct_enemies_001.json` catalog in revision 093).
+[x] Populate the Level Editor enemy palette from that enemy index/catalog (revision 093).
 
 
 
@@ -744,7 +744,7 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Update the placed `level_001` Skeleton Guard to the new aggression and attack defaults.
 * [x] Add headless regression coverage for awareness, chase speed, attack lunge, strike timing, and rapid repeat attacks.
 
-### Revision 098 source organization and architecture map
+### Revision 099 source organization and architecture map
 
 * [x] Move deterministic simulation to `src/core/simulation.js`.
 * [x] Move browser input and startup orchestration to `src/browser/`.
@@ -759,3 +759,15 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Add `ARCHITECTURE.md` with source classifications, dependency rules, unique filename guidance, known boundary debt, and future C++ counterparts.
 * [x] Update `PLAN.md`, `IMPLEMENTATION_CHECKLIST.md`, and `AGENTS.md` to use the new paths.
 * [x] Keep the restructuring behavior-neutral and pass the complete headless suite.
+
+
+### Revision 100 first reactive object and breakable crate
+
+* [x] Add `breakableCrate` to the interactive entity catalog with intact, damaged, and destroyed visual states.
+* [x] Expose reactive-object health, damaged threshold, projectile multiplier, and blocking flags in the Level Editor.
+* [x] Normalize authored destructible entities into serializable `gameState.reactiveObjects`.
+* [x] Add state-dependent dynamic player collision and remove it when the object is destroyed.
+* [x] Sweep rockets against reactive-object bodies and resolve the earliest enemy/object/terrain contact.
+* [x] Apply projectile damage, transition intact → damaged → destroyed, and synchronize state-authored visuals.
+* [x] Emit reactive-object state, damage, and destruction events plus a smoke-heavy destruction burst.
+* [x] Add headless regression coverage for catalog/editor integration, collision, projectile ordering, state transitions, visuals, smoke, events, and serialization.
