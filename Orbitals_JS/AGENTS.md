@@ -29,3 +29,4 @@
 - `sim/player.js` owns player lifecycle hooks; `sim/enemies.js` owns enemy family data and its flight wrapper.
 - `sim/encounters.js` owns encounter creation, route entities, activation, presenter/objective budgets, mission outcomes, and encounter bookkeeping. Detailed presenter flight geometry remains behind its explicit service interface.
 - The next Phase D ownership boundary is `sim/motherships.js`.
+- Projectile homing is a bounded launch assist: preserve `inheritedVelocity`, never rewrite the firing ray, acquire at launch only, and keep `guidanceDirection` inside the configured cone around immutable `launchDirection`.

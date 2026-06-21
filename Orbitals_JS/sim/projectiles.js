@@ -8,17 +8,112 @@ const tempVecC = new THREE.Vector3();
 const tempVecD = new THREE.Vector3();
 const tempVecE = new THREE.Vector3();
 const tempVecF = new THREE.Vector3();
+const tempVecG = new THREE.Vector3();
+const tempVecH = new THREE.Vector3();
+const tempVecI = new THREE.Vector3();
+const tempVecJ = new THREE.Vector3();
+const tempVecK = new THREE.Vector3();
 
-function applyProjectileGuidanceVelocity(projectile, includeInheritedVelocity = true) {
+function getProjectileLaunchDirection(projectile, out) {
+  if (projectile.launchDirection?.lengthSq() > 1e-10) {
+    return out.copy(projectile.launchDirection).normalize();
+  }
+  if (projectile.guidanceDirection?.lengthSq() > 1e-10) {
+    return out.copy(projectile.guidanceDirection).normalize();
+  }
+
+  out.copy(projectile.velocity);
+  if (projectile.inheritedVelocity) {
+    out.sub(projectile.inheritedVelocity);
+  }
+  if (out.lengthSq() <= 1e-10) {
+    out.copy(projectile.velocity);
+  }
+  return out.normalize();
+}
+
+function applyProjectileGuidanceVelocity(projectile) {
   if (!projectile.guidanceDirection) {
     return;
   }
 
   const speed = projectile.speed ?? projectile.velocity.length();
-  const inheritedVelocity = includeInheritedVelocity
-    ? (projectile.inheritedVelocity || tempVecE.set(0, 0, 0))
-    : tempVecE.set(0, 0, 0);
+  const inheritedVelocity = projectile.inheritedVelocity || tempVecK.set(0, 0, 0);
   projectile.velocity.copy(inheritedVelocity).addScaledVector(projectile.guidanceDirection, speed);
+}
+
+function rotateDirectionTowards(out, fromDirection, toDirection, maxTurn, axisScratch) {
+  out.copy(fromDirection).normalize();
+  const targetDirection = tempVecK.copy(toDirection).normalize();
+  const angle = out.angleTo(targetDirection);
+  if (angle <= 1e-8 || maxTurn <= 0) {
+    return out;
+  }
+  if (angle <= maxTurn) {
+    return out.copy(targetDirection);
+  }
+
+  axisScratch.copy(out).cross(targetDirection);
+  if (axisScratch.lengthSq() <= 1e-12) {
+    return out;
+  }
+  return out.applyAxisAngle(axisScratch.normalize(), maxTurn).normalize();
+}
+
+function computeInterceptTime(offset, relativeTargetVelocity, projectileSpeed) {
+  if (projectileSpeed <= 1e-8) {
+    return 0;
+  }
+
+  const distance = offset.length();
+  let interceptTime = distance / projectileSpeed;
+  const a = relativeTargetVelocity.lengthSq() - projectileSpeed * projectileSpeed;
+  const b = 2 * offset.dot(relativeTargetVelocity);
+  const c = offset.lengthSq();
+
+  if (Math.abs(a) <= 1e-8) {
+    if (Math.abs(b) > 1e-8) {
+      const linearTime = -c / b;
+      if (linearTime > 0) {
+        interceptTime = linearTime;
+      }
+    }
+  } else {
+    const discriminant = b * b - 4 * a * c;
+    if (discriminant >= 0) {
+      const root = Math.sqrt(discriminant);
+      const first = (-b - root) / (2 * a);
+      const second = (-b + root) / (2 * a);
+      const candidates = [first, second].filter((value) => value > 0);
+      if (candidates.length > 0) {
+        interceptTime = Math.min(...candidates);
+      }
+    }
+  }
+
+  return THREE.MathUtils.clamp(interceptTime, 0, config.projectileHomingMaxLeadTime);
+}
+
+function canRetainProjectileTarget(projectile, target) {
+  if (!target || target.health <= 0) {
+    return false;
+  }
+
+  const offset = tempVecA.copy(target.position).sub(projectile.position);
+  const distance = offset.length();
+  if (distance <= 1e-8 || distance > config.projectileHomingRange) {
+    return false;
+  }
+
+  const targetDirection = offset.multiplyScalar(1 / distance);
+  const currentDirection = tempVecB.copy(projectile.guidanceDirection || projectile.velocity).normalize();
+  if (currentDirection.dot(targetDirection) <= 0) {
+    return false;
+  }
+
+  const launchDirection = getProjectileLaunchDirection(projectile, tempVecC);
+  const retainAngle = THREE.MathUtils.degToRad(config.projectileHomingRetainAngleDeg);
+  return launchDirection.angleTo(targetDirection) <= retainAngle;
 }
 
 export function segmentIntersectsSphere(start, end, center, radius) {
@@ -35,31 +130,30 @@ export function segmentIntersectsSphere(start, end, center, radius) {
 }
 
 export function findProjectileHomingTarget(state, projectile) {
-  const acquireAngle = THREE.MathUtils.degToRad(config.projectileHomingAcquireAngleDeg);
-  const retainAngle = THREE.MathUtils.degToRad(config.projectileHomingRetainAngleDeg);
-  const headingSource = projectile.guidanceDirection || projectile.velocity;
-  if (!state.enemies.length || headingSource.lengthSq() < 1e-6) {
+  if (projectile.homingDisabled) {
     return null;
   }
 
-  const currentHeading = tempVecA.copy(headingSource).normalize();
   const currentTarget = projectile.targetEnemyId != null
     ? state.enemies.find((enemy) => enemy.id === projectile.targetEnemyId)
     : null;
-
   if (currentTarget) {
-    const currentTargetOffset = tempVecB.copy(currentTarget.position).sub(projectile.position);
-    const currentTargetDistance = currentTargetOffset.length();
-    if (currentTargetDistance > 1e-6 && currentTargetDistance <= config.projectileHomingRange) {
-      const currentTargetAngle = currentHeading.angleTo(currentTargetOffset.divideScalar(currentTargetDistance));
-      if (currentTargetAngle <= retainAngle) {
-        return currentTarget;
-      }
-    }
+    return canRetainProjectileTarget(projectile, currentTarget) ? currentTarget : null;
+  }
+
+  if (projectile.homingAcquisitionComplete) {
+    return null;
+  }
+
+  const acquireAngle = THREE.MathUtils.degToRad(config.projectileHomingAcquireAngleDeg);
+  const launchDirection = getProjectileLaunchDirection(projectile, tempVecA);
+  if (!state.enemies.length || launchDirection.lengthSq() < 1e-10) {
+    return null;
   }
 
   let bestTarget = null;
-  let bestScore = Infinity;
+  let bestAngle = Infinity;
+  let bestDistance = Infinity;
 
   for (const enemy of state.enemies) {
     if (!enemy || enemy.health <= 0) {
@@ -68,19 +162,19 @@ export function findProjectileHomingTarget(state, projectile) {
 
     const offset = tempVecB.copy(enemy.position).sub(projectile.position);
     const distance = offset.length();
-    if (distance <= 1e-6 || distance > config.projectileHomingRange) {
+    if (distance <= 1e-8 || distance > config.projectileHomingRange) {
       continue;
     }
 
     const direction = offset.multiplyScalar(1 / distance);
-    const angle = currentHeading.angleTo(direction);
+    const angle = launchDirection.angleTo(direction);
     if (angle > acquireAngle) {
       continue;
     }
 
-    const score = (angle / acquireAngle) * 0.7 + (distance / config.projectileHomingRange) * 0.3;
-    if (score < bestScore) {
-      bestScore = score;
+    if (angle < bestAngle - 1e-8 || (Math.abs(angle - bestAngle) <= 1e-8 && distance < bestDistance)) {
+      bestAngle = angle;
+      bestDistance = distance;
       bestTarget = enemy;
     }
   }
@@ -89,61 +183,58 @@ export function findProjectileHomingTarget(state, projectile) {
 }
 
 export function steerProjectileTowardsTarget(projectile, target, dt) {
-  const acquireAngle = THREE.MathUtils.degToRad(config.projectileHomingAcquireAngleDeg);
-  const lockAngle = THREE.MathUtils.degToRad(config.projectileHomingLockAngleDeg);
-  const minTurnRate = THREE.MathUtils.degToRad(config.projectileHomingMinTurnDeg);
-  const maxTurnRate = THREE.MathUtils.degToRad(config.projectileHomingMaxTurnDeg);
-  const headingSource = projectile.guidanceDirection || projectile.velocity;
-  if (!target || headingSource.lengthSq() < 1e-6) {
+  if (!target || !projectile.guidanceDirection || projectile.guidanceDirection.lengthSq() < 1e-10) {
     return;
   }
 
   const speed = projectile.speed ?? projectile.velocity.length();
-  if (speed <= 1e-6) {
+  if (speed <= 1e-8) {
     return;
   }
 
-  const currentDirection = tempVecA.copy(headingSource).normalize();
-  const desiredOffset = tempVecB.copy(target.position).sub(projectile.position);
-  const distance = desiredOffset.length();
-  if (distance <= 1e-6) {
+  if (projectile.age < config.projectileHomingDelay) {
+    applyProjectileGuidanceVelocity(projectile);
     return;
   }
 
-  const desiredDirection = desiredOffset.multiplyScalar(1 / distance);
-  const angle = currentDirection.angleTo(desiredDirection);
-  if (angle <= 1e-4) {
+  const targetOffset = tempVecD.copy(target.position).sub(projectile.position);
+  if (targetOffset.lengthSq() <= 1e-10) {
     return;
   }
 
-  const angleAssist = THREE.MathUtils.clamp(
-    (acquireAngle - angle) / (acquireAngle - lockAngle),
+  const inheritedVelocity = projectile.inheritedVelocity || tempVecE.set(0, 0, 0);
+  const targetVelocity = target.velocity || tempVecF.set(0, 0, 0);
+  const relativeTargetVelocity = tempVecG.copy(targetVelocity).sub(inheritedVelocity);
+  const interceptTime = computeInterceptTime(targetOffset, relativeTargetVelocity, speed);
+  const interceptDirection = tempVecH.copy(targetOffset)
+    .addScaledVector(relativeTargetVelocity, interceptTime)
+    .normalize();
+
+  const launchDirection = getProjectileLaunchDirection(projectile, tempVecC);
+  const maxCorrection = THREE.MathUtils.degToRad(config.projectileHomingMaxCorrectionDeg);
+  const desiredAngleFromLaunch = launchDirection.angleTo(interceptDirection);
+  const constrainedDirection = desiredAngleFromLaunch > maxCorrection
+    ? rotateDirectionTowards(tempVecI, launchDirection, interceptDirection, maxCorrection, tempVecJ)
+    : tempVecI.copy(interceptDirection);
+
+  const rampDuration = Math.max(1e-8, config.projectileHomingRampDuration);
+  const ramp = THREE.MathUtils.clamp(
+    (projectile.age - config.projectileHomingDelay) / rampDuration,
     0,
     1
   );
-  const distanceAssist = THREE.MathUtils.clamp(1 - (distance / config.projectileHomingRange), 0, 1);
-  const assist = angleAssist * (0.5 + distanceAssist * 0.5);
-  if (assist <= 0) {
-    return;
+  const maxTurn = THREE.MathUtils.degToRad(config.projectileHomingTurnRateDeg) * ramp * dt;
+  const currentDirection = tempVecA.copy(projectile.guidanceDirection).normalize();
+  rotateDirectionTowards(tempVecB, currentDirection, constrainedDirection, maxTurn, tempVecJ);
+
+  const correctedAngleFromLaunch = launchDirection.angleTo(tempVecB);
+  if (correctedAngleFromLaunch > maxCorrection) {
+    tempVecI.copy(tempVecB);
+    rotateDirectionTowards(tempVecB, launchDirection, tempVecI, maxCorrection, tempVecJ);
   }
 
-  const turnRate = THREE.MathUtils.lerp(minTurnRate, maxTurnRate, assist);
-  const maxTurn = turnRate * dt;
-  const turn = Math.min(angle, maxTurn);
-  if (turn <= 0) {
-    return;
-  }
-
-  const rotationAxis = tempVecC.copy(currentDirection).cross(desiredDirection);
-  if (rotationAxis.lengthSq() > 1e-10) {
-    currentDirection.applyAxisAngle(rotationAxis.normalize(), turn);
-  } else {
-    currentDirection.copy(desiredDirection);
-  }
-
-  projectile.guidanceDirection = projectile.guidanceDirection || new THREE.Vector3();
-  projectile.guidanceDirection.copy(currentDirection);
-  applyProjectileGuidanceVelocity(projectile, false);
+  projectile.guidanceDirection.copy(tempVecB);
+  applyProjectileGuidanceVelocity(projectile);
 }
 
 export function spawnProjectileBurst(state, ship, fireDirection) {
@@ -165,12 +256,13 @@ export function spawnProjectileBurst(state, ship, fireDirection) {
   const baseSpeed = config.shipProjectileSpeed + ship.speed * config.shipProjectileShipVelocityScale;
   const direction = tempVecD.copy(forward).normalize();
   const inheritedVelocity = ship.velocity.clone();
-  state.projectiles.push({
+  const projectile = {
     id: state.nextProjectileId,
     position: origin.clone(),
     previousPosition: origin.clone(),
     velocity: inheritedVelocity.clone().addScaledVector(direction, baseSpeed),
     inheritedVelocity,
+    launchDirection: direction.clone(),
     guidanceDirection: direction.clone(),
     speed: baseSpeed,
     age: 0,
@@ -179,8 +271,15 @@ export function spawnProjectileBurst(state, ship, fireDirection) {
     radius: config.shipProjectileSize,
     side: 0,
     spawnFrame: state.frameIndex,
-    targetEnemyId: null
-  });
+    targetEnemyId: null,
+    homingAcquisitionComplete: false,
+    homingDisabled: false
+  };
+
+  const homingTarget = findProjectileHomingTarget(state, projectile);
+  projectile.targetEnemyId = homingTarget ? homingTarget.id : null;
+  projectile.homingAcquisitionComplete = true;
+  state.projectiles.push(projectile);
   state.nextProjectileId += 1;
 }
 
@@ -208,12 +307,17 @@ export function updateProjectiles(state, dt, options = {}) {
     }
     projectile.age += dt;
     projectile.previousPosition.copy(projectile.position);
+
+    const previousTargetId = projectile.targetEnemyId;
     const homingTarget = findProjectileHomingTarget(state, projectile);
-    projectile.targetEnemyId = homingTarget ? homingTarget.id : null;
     if (homingTarget) {
       steerProjectileTowardsTarget(projectile, homingTarget, dt);
-    } else if (projectile.guidanceDirection) {
-      applyProjectileGuidanceVelocity(projectile, projectile.targetEnemyId == null);
+    } else {
+      if (previousTargetId != null) {
+        projectile.targetEnemyId = null;
+        projectile.homingDisabled = true;
+      }
+      applyProjectileGuidanceVelocity(projectile);
     }
     projectile.position.addScaledVector(projectile.velocity, dt);
 

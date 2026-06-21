@@ -15,7 +15,10 @@ const {
 } = await import('./Orbitals_Sim.js');
 const {
   computeShipFireDirection,
-  spawnProjectileBurst
+  findProjectileHomingTarget,
+  spawnProjectileBurst,
+  steerProjectileTowardsTarget,
+  updateProjectiles
 } = await import('./sim/projectiles.js');
 const { createEnemyState } = await import('./sim/state.js');
 
@@ -2503,13 +2506,18 @@ function runProjectileHomingTest() {
 
   sim.step(0, { ...NEUTRAL_CONTROLS, fire: true, fireDirection });
   assert.strictEqual(state.projectiles.length, 1, 'expected a single projectile to fire');
+  assert.strictEqual(
+    state.projectiles[0].targetEnemyId,
+    enemy.id,
+    'expected homing target selection to happen once at launch'
+  );
 
-  stepSim(sim, 12, NEUTRAL_CONTROLS);
+  stepSim(sim, 30, NEUTRAL_CONTROLS);
   assert.strictEqual(state.projectiles.length, 1, 'expected the projectile to still be in flight');
   assert.strictEqual(state.projectiles[0].targetEnemyId, enemy.id, 'expected the projectile to lock onto the target');
 
   const projectile = state.projectiles[0];
-  const currentDirection = projectile.velocity.clone().normalize();
+  const currentDirection = projectile.velocity.clone().sub(projectile.inheritedVelocity).normalize();
   const currentTargetDirection = enemy.position.clone().sub(projectile.position).normalize();
   const currentAngle = THREE.MathUtils.radToDeg(currentDirection.angleTo(currentTargetDirection));
 
@@ -2537,6 +2545,177 @@ function runProjectileHomingTest() {
   console.log(
     `PASS projectile-homing: angle=${initialAngle.toFixed(2)}->${currentAngle.toFixed(2)} lock=${state.projectiles.length === 0 ? 'hit' : 'miss'}`
   );
+}
+
+
+function runProjectileHomingReferenceFrameTest() {
+  const carrierVelocity = new THREE.Vector3(820, -360, 240);
+  const launchDirection = new THREE.Vector3(1, 0, 0);
+  const projectileSpeed = config.shipProjectileSpeed;
+  const projectile = {
+    position: new THREE.Vector3(0, 0, 0),
+    velocity: carrierVelocity.clone().addScaledVector(launchDirection, projectileSpeed),
+    inheritedVelocity: carrierVelocity.clone(),
+    launchDirection: launchDirection.clone(),
+    guidanceDirection: launchDirection.clone(),
+    speed: projectileSpeed,
+    age: config.projectileHomingDelay + config.projectileHomingRampDuration
+  };
+  const target = {
+    id: 7001,
+    health: 1,
+    position: new THREE.Vector3(260, 22, 0),
+    velocity: carrierVelocity.clone()
+  };
+
+  const beforeVelocity = projectile.velocity.clone();
+  steerProjectileTowardsTarget(projectile, target, 1 / 60);
+
+  const relativeVelocity = projectile.velocity.clone().sub(carrierVelocity);
+  const velocityChange = projectile.velocity.distanceTo(beforeVelocity);
+  const maximumExpectedChange = projectileSpeed
+    * THREE.MathUtils.degToRad(config.projectileHomingTurnRateDeg)
+    * (1 / 60)
+    * 1.05;
+
+  assert.ok(
+    projectile.inheritedVelocity.distanceTo(carrierVelocity) < 1e-9,
+    'expected homing to preserve the launch-frame inherited velocity'
+  );
+  assert.ok(
+    Math.abs(relativeVelocity.length() - projectileSpeed) < 1e-6,
+    `expected homing to preserve projectile speed in the launch frame: got=${relativeVelocity.length().toFixed(6)}`
+  );
+  assert.ok(
+    velocityChange <= maximumExpectedChange,
+    `expected the first guided correction to be continuous: change=${velocityChange.toFixed(6)} max=${maximumExpectedChange.toFixed(6)}`
+  );
+
+  const delayedProjectile = {
+    ...projectile,
+    velocity: beforeVelocity.clone(),
+    inheritedVelocity: carrierVelocity.clone(),
+    launchDirection: launchDirection.clone(),
+    guidanceDirection: launchDirection.clone(),
+    age: config.projectileHomingDelay * 0.5
+  };
+  steerProjectileTowardsTarget(delayedProjectile, target, 1 / 60);
+  assert.ok(
+    delayedProjectile.velocity.distanceTo(beforeVelocity) < 1e-9,
+    'expected the launch delay to leave the initial firing direction untouched'
+  );
+
+  console.log(
+    `PASS projectile-homing-reference-frame: carrier=${carrierVelocity.length().toFixed(3)} correction=${velocityChange.toFixed(6)}`
+  );
+}
+
+function runProjectileHomingCorrectionCorridorTest() {
+  const launchDirection = new THREE.Vector3(1, 0, 0);
+  const projectile = {
+    position: new THREE.Vector3(0, 0, 0),
+    velocity: launchDirection.clone().multiplyScalar(config.shipProjectileSpeed),
+    inheritedVelocity: new THREE.Vector3(),
+    launchDirection: launchDirection.clone(),
+    guidanceDirection: launchDirection.clone(),
+    speed: config.shipProjectileSpeed,
+    age: config.projectileHomingDelay + config.projectileHomingRampDuration
+  };
+  const target = {
+    id: 7002,
+    health: 1,
+    position: new THREE.Vector3(300, 28, 0),
+    velocity: new THREE.Vector3(0, 150, 0)
+  };
+
+  const dt = 1 / 60;
+  const maxCorrection = config.projectileHomingMaxCorrectionDeg;
+  const maxTurnPerFrame = config.projectileHomingTurnRateDeg * dt;
+  let largestCorrection = 0;
+  let largestFrameTurn = 0;
+
+  for (let i = 0; i < 180; i += 1) {
+    const beforeDirection = projectile.guidanceDirection.clone();
+    projectile.age += dt;
+    steerProjectileTowardsTarget(projectile, target, dt);
+    const correction = THREE.MathUtils.radToDeg(
+      launchDirection.angleTo(projectile.guidanceDirection)
+    );
+    const frameTurn = THREE.MathUtils.radToDeg(
+      beforeDirection.angleTo(projectile.guidanceDirection)
+    );
+    largestCorrection = Math.max(largestCorrection, correction);
+    largestFrameTurn = Math.max(largestFrameTurn, frameTurn);
+    projectile.position.addScaledVector(projectile.velocity, dt);
+    target.position.addScaledVector(target.velocity, dt);
+  }
+
+  assert.ok(
+    largestCorrection <= maxCorrection + 1e-6,
+    `expected guidance to stay inside the launch corridor: correction=${largestCorrection.toFixed(6)} max=${maxCorrection.toFixed(6)}`
+  );
+  assert.ok(
+    largestFrameTurn <= maxTurnPerFrame + 1e-6,
+    `expected guidance to make only a small per-frame correction: turn=${largestFrameTurn.toFixed(6)} max=${maxTurnPerFrame.toFixed(6)}`
+  );
+  assert.ok(
+    largestCorrection > 0.5,
+    `expected the guidance to make a measurable correction: correction=${largestCorrection.toFixed(6)}`
+  );
+
+  console.log(
+    `PASS projectile-homing-corridor: correction=${largestCorrection.toFixed(3)} frameTurn=${largestFrameTurn.toFixed(3)}`
+  );
+}
+
+function runProjectileHomingNoRetargetTest() {
+  const launchDirection = new THREE.Vector3(1, 0, 0);
+  const projectile = {
+    id: 7003,
+    position: new THREE.Vector3(0, 0, 0),
+    previousPosition: new THREE.Vector3(0, 0, 0),
+    velocity: launchDirection.clone().multiplyScalar(config.shipProjectileSpeed),
+    inheritedVelocity: new THREE.Vector3(),
+    launchDirection: launchDirection.clone(),
+    guidanceDirection: launchDirection.clone(),
+    speed: config.shipProjectileSpeed,
+    age: 0.5,
+    lifetime: config.shipProjectileLifetime,
+    planetCollisionGrace: 0,
+    radius: config.shipProjectileSize,
+    spawnFrame: 0,
+    targetEnemyId: 7100,
+    homingAcquisitionComplete: true,
+    homingDisabled: false
+  };
+  const replacementTarget = {
+    id: 7101,
+    health: 1,
+    radius: 2,
+    position: new THREE.Vector3(500, 0, 0),
+    velocity: new THREE.Vector3()
+  };
+  const state = {
+    frameIndex: 1,
+    projectiles: [projectile],
+    planets: [],
+    enemies: [replacementTarget]
+  };
+
+  assert.strictEqual(
+    findProjectileHomingTarget(state, projectile),
+    null,
+    'expected a projectile with a completed launch lock to refuse a replacement target'
+  );
+
+  updateProjectiles(state, 1 / 60);
+  assert.strictEqual(projectile.targetEnemyId, null, 'expected a lost launch target to be cleared');
+  assert.strictEqual(projectile.homingDisabled, true, 'expected guidance to remain disabled after losing its launch target');
+
+  updateProjectiles(state, 1 / 60);
+  assert.strictEqual(projectile.targetEnemyId, null, 'expected the projectile not to retarget on a later frame');
+
+  console.log('PASS projectile-homing-no-retarget');
 }
 
 function setupEnemyCrashScenario(sim, collisionKind) {
@@ -4201,6 +4380,9 @@ runProjectilePlanetFlightVelocityCapTest();
 runProjectilePlanetMotionSpeedDiagnosticTest();
 runProjectileHomingTest();
 runProjectileHomingLimitTest();
+runProjectileHomingReferenceFrameTest();
+runProjectileHomingCorrectionCorridorTest();
+runProjectileHomingNoRetargetTest();
 runEnemyCrashExplosionTest('planet');
 runEnemyCrashExplosionTest('sun');
 runPlanetOrbitTest();

@@ -574,7 +574,7 @@
 
       <section>
         <h3>Homing assist</h3>
-        <p>Projectiles have a narrow homing assist. They can acquire or retain a target within a small forward cone and within the configured homing range. The homing turn rate is limited, so shots bend rather than snapping instantly.</p>
+        <p>Projectiles have a weak launch-time homing assist. A shot can select one enemy inside a narrow forward cone when it is fired, but it will not change targets later. The projectile keeps the ship and planet velocity inherited at launch, waits briefly before correcting, predicts a modest intercept, and turns only a little on each frame. Guidance is clamped to a narrow corridor around the original firing direction, so it fine-tunes an aimed shot rather than making a large pursuit arc.</p>
       </section>
 
       <section>

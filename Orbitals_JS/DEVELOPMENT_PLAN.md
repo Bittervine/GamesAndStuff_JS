@@ -760,6 +760,17 @@ Revision 008 progress evidence:
 - Phase D module smoke tests now verify the encounter subsystem exports, while all existing encounter, presentation, transport, convoy, boss-wave, and mothership regression tests remain active.
 - The next extraction boundary is mothership lifecycle and fighter-release behavior.
 
+Revision 009 projectile-guidance correction:
+
+- The existing reticle-derived launch direction remains unchanged and is stored as immutable `launchDirection`.
+- Homing now preserves the projectile's inherited ship and planetary velocity for its complete lifetime.
+- A projectile may acquire one target at launch and never retargets after that target is lost, destroyed, passed, or leaves the correction corridor.
+- Guidance uses a velocity-aware intercept estimate rather than pure pursuit.
+- Guidance begins after a short delay, ramps in gently, turns at a low configured rate, and cannot leave a narrow cone around the original firing direction.
+- Regression tests cover launch-frame velocity continuity, per-frame turn limits, maximum correction angle, launch-only acquisition, and refusal to retarget.
+- The six free-space gravity tests remain deliberately parked; no gravity behavior changed in this revision.
+- The next planned architecture boundary remains mothership lifecycle and fighter-release behavior.
+
 ## 17. Phase E: Nested subsystem state migration
 
 Goal: move from flat `state` arrays to a nested `GAME` object.
