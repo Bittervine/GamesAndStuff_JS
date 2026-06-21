@@ -141,6 +141,17 @@
 
         #health-fill {
             background: linear-gradient(90deg, #e05a58, #f3d16c, #73d37c);
+            transition: width 90ms linear, filter 120ms ease, box-shadow 120ms ease;
+        }
+
+        #health-fill.regenerating {
+            filter: brightness(1.28) saturate(1.18);
+            box-shadow: 0 0 10px rgba(116, 214, 128, 0.76);
+        }
+
+        #health-fill.recently-damaged {
+            filter: brightness(1.5) saturate(0.72);
+            box-shadow: 0 0 12px rgba(224, 90, 88, 0.86);
         }
 
         #debug {

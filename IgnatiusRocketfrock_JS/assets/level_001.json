@@ -404,8 +404,8 @@
             "thoughtAtlasId": "it_atlas_001",
             "thoughtAssetId": "thought_bubble_large",
             "letterTitle": "A Letter from Your Humble Editor",
-            "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: “Ignatius Rocketfrock and the Introductory Cave of Training.” Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
-            "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn’t look quite like it did in the brochures, but I’m sure it will be fine."
+            "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: \u201cIgnatius Rocketfrock and the Introductory Cave of Training.\u201d Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
+            "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn\u2019t look quite like it did in the brochures, but I\u2019m sure it will be fine."
         },
         {
             "id": "targetDummy_002",
@@ -463,7 +463,21 @@
                 "y": 0.4
             },
             "showTargetMarker": false,
-            "notes": "First runtime Skeleton Guard patrol. Gameplay behaviour is simulation-owned."
+            "notes": "First runtime Skeleton Guard patrol. It rushes Ignatius inside its patrol area and uses a rapid close-range sword combo.",
+            "attackDamage": 24,
+            "attackRange": 66,
+            "attackVerticalRange": 104,
+            "attackDuration": 0.44,
+            "attackHitTime": 0.36,
+            "attackCooldown": 0.12,
+            "attackKnockbackX": 330,
+            "attackKnockbackY": -250,
+            "chaseSpeed": 150,
+            "awarenessRange": 300,
+            "awarenessVerticalRange": 190,
+            "awarenessHoldDuration": 1.2,
+            "attackLungeDistance": 20,
+            "attackLungeSpeed": 180
         },
         {
             "id": "wizard_exit_door_001",
@@ -523,5 +537,6 @@
             "floorAnchorYFactor": 0.908745247148289,
             "wizardInsideScale": 0.84
         }
-    ]
+    ],
+    "note": "Level placements are data. Revision 097 makes the Skeleton Guard rush intruders inside its patrol area and chain rapid close-range sword attacks."
 }

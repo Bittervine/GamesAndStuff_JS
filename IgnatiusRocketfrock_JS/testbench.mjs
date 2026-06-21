@@ -105,7 +105,8 @@ import {
     applyEditorLevelToWorld,
     applyAtlasManifestsToWorld,
     defaultNextLevelId,
-    setWorldEntityState
+    setWorldEntityState,
+    damagePlayer
 } from "./IgnatiusRocketfrock_SIM.js";
 
 function approx(actual, expected, tolerance, label) {
@@ -257,6 +258,10 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(skeleton.characterId, "ct_char_enemy_001", "enemy_001 should reference its generic character project");
     assert.equal(skeleton.defaults.behavior, "patrol", "Skeleton Guard should default to patrol behaviour");
     assert.ok(skeleton.defaults.patrolDistance > 0, "Skeleton Guard should have a visible default patrol span");
+    assert.ok(skeleton.defaults.attackDamage > 0, "Skeleton Guard should have authored melee damage");
+    assert.ok(skeleton.defaults.attackRange > 0, "Skeleton Guard should have authored melee reach");
+    assert.ok(skeleton.defaults.chaseSpeed > skeleton.defaults.walkSpeed, "alert Skeleton Guard should rush faster than it patrols");
+    assert.ok(skeleton.defaults.attackCooldown < 0.25, "Skeleton Guard should chain rapid sword chops");
 
     const editorHtml = readFileSync(new URL("./level_editor.html", import.meta.url), "utf8");
     assert.ok(editorHtml.includes("ENEMY_CATALOG_URL"), "level editor should load the explicit enemy catalog");
@@ -265,6 +270,10 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(editorHtml.includes("drawCharacterEnemyPreview"), "level editor should preview enemies through the generic character renderer");
     assert.ok(editorHtml.includes("snapCharacterEnemyToNearbyGround"), "placed enemies should snap their feet to authored support lines");
     assert.ok(editorHtml.includes('id="inspect-enemy-health"'), "level editor should expose enemy health authoring");
+    assert.ok(editorHtml.includes('id="inspect-enemy-attack-damage"'), "level editor should expose enemy melee damage");
+    assert.ok(editorHtml.includes('id="inspect-enemy-attack-range"'), "level editor should expose enemy melee reach");
+    assert.ok(editorHtml.includes('id="inspect-enemy-chase-speed"'), "level editor should expose alerted chase speed");
+    assert.ok(editorHtml.includes('id="inspect-enemy-awareness-range"'), "level editor should expose stationary-guard awareness range");
 
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
     const placed = level.entities.find((entity) => entity.id === "enemy_001_001");
@@ -277,7 +286,7 @@ function testCharacterEnemyPatrolBehavior() {
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, {
         levelId: "enemy_patrol_test",
-        playerStart: { x: 0, y: 600 },
+        playerStart: { x: -300, y: 600 },
         entities: [{
             id: "patrol_enemy",
             type: "characterEnemy",
@@ -327,7 +336,7 @@ function testCharacterEnemyPatrolBehavior() {
     const guardState = createInitialGameState();
     applyEditorLevelToWorld(guardState, {
         levelId: "enemy_guard_test",
-        playerStart: { x: 0, y: 600 },
+        playerStart: { x: -300, y: 600 },
         entities: [{
             id: "guard_enemy",
             type: "characterEnemy",
@@ -346,6 +355,101 @@ function testCharacterEnemyPatrolBehavior() {
     const guard = guardState.enemies.find((item) => item.id === "guard_enemy");
     assert.equal(guard.x, 100, "stand-guard behaviour should not move the enemy");
     assert.equal(guard.animationSlot, "idle", "stand-guard behaviour should remain in idle animation");
+}
+
+function testCharacterEnemyAggressiveChaseAndCombo() {
+    const state = createInitialGameState({
+        tuning: {
+            healthRegenDelay: 99
+        }
+    });
+    applyEditorLevelToWorld(state, {
+        levelId: "enemy_aggression_test",
+        playerStart: { x: 10, y: 600 },
+        entities: [{
+            id: "rush_guard",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 100,
+            y: 600,
+            w: 72,
+            h: 150,
+            facing: -1,
+            behavior: "patrol",
+            patrolDistance: 300,
+            walkSpeed: 40,
+            chaseSpeed: 180,
+            awarenessVerticalRange: 180,
+            awarenessHoldDuration: 1,
+            attackDamage: 0,
+            attackRange: 66,
+            attackVerticalRange: 110,
+            attackDuration: 0.44,
+            attackHitTime: 0.36,
+            attackCooldown: 0.12,
+            attackLungeDistance: 20,
+            attackLungeSpeed: 180
+        }]
+    });
+    state.world.solids = [];
+    state.world.segments = [{ id: "rush_floor", kind: "walkable", x1: -200, y1: 600, x2: 400, y2: 600 }];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 10;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    const enemy = state.enemies.find((item) => item.id === "rush_guard");
+    const attackStartX = enemy.x;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(enemy.alerted, true, "patroller should become alert when Ignatius enters its patrol span");
+    assert.equal(enemy.combatState, "attacking", "an alert guard already in sword range should attack immediately");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_ALERTED"), "first awareness should emit an alert event");
+
+    stepMany(state, 22);
+    assert.ok(enemy.x < attackStartX - 15, "attack wind-up should lunge the guard close enough for visible sword contact");
+    assert.equal(enemy.attackHitApplied, true, "rapid clip should apply its strike on the visible downstroke");
+
+    stepMany(state, 17);
+    assert.equal(enemy.combatState, "attacking", "short recovery should already have started the next chop");
+    assert.ok(enemy.animationTime < 0.2, "second chop should restart the authored attack clip rather than lingering in recovery");
+
+    const chaseState = createInitialGameState();
+    applyEditorLevelToWorld(chaseState, {
+        levelId: "enemy_chase_speed_test",
+        playerStart: { x: -20, y: 600 },
+        entities: [{
+            id: "chase_guard",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 100,
+            y: 600,
+            behavior: "patrol",
+            patrolDistance: 300,
+            walkSpeed: 40,
+            chaseSpeed: 180,
+            attackRange: 50,
+            attackDamage: 0
+        }]
+    });
+    chaseState.world.solids = [];
+    chaseState.world.segments = [{ id: "chase_floor", kind: "walkable", x1: -200, y1: 600, x2: 400, y2: 600 }];
+    chaseState.world.collisionPolygons = [];
+    chaseState.story.portalIntro = null;
+    chaseState.story.portalExit = null;
+    chaseState.story.mailboxEvent = null;
+    chaseState.player.x = -20;
+    chaseState.player.y = 600;
+    chaseState.player.onGround = true;
+    chaseState.player.wasOnGround = true;
+    const chaser = chaseState.enemies.find((item) => item.id === "chase_guard");
+    stepMany(chaseState, 10);
+    assert.equal(chaser.movementPhase, "chase", "alert enemy outside sword reach should use the chase phase");
+    assert.ok(chaser.x < 75, "chase movement should be substantially faster than the 40-unit patrol pace");
+    assert.equal(chaser.animationSlot, "walk", "rapid pursuit should reuse the authored walking animation");
 }
 
 function addTestRocket(state, overrides = {}) {
@@ -411,6 +515,11 @@ function testCharacterEnemyRocketCombat() {
     const enemy = state.enemies.find((item) => item.id === "combat_guard");
     const target = state.targets.find((item) => item.enemyId === enemy.id);
     const reserveTarget = state.targets.find((item) => item.enemyId === "reserve_guard");
+    enemy.combatState = "attacking";
+    enemy.movementPhase = "attack";
+    enemy.animationSlot = "attack";
+    enemy.attackTimer = 0.3;
+    enemy.attackHitApplied = false;
     const first = addTestRocket(state, { id: "combat_hit_1" });
     stepSimulation(state, createInputFrame(), FIXED_DT);
 
@@ -419,6 +528,7 @@ function testCharacterEnemyRocketCombat() {
     assert.equal(enemy.maxHealth, 100, "enemy maximum health should remain stable after damage");
     assert.equal(enemy.combatState, "hurt", "surviving enemy should enter hurt combat state");
     assert.equal(enemy.animationSlot, "hurt", "surviving Skeleton Guard should play the authored hurt clip");
+    assert.equal(enemy.attackTimer, 0, "rocket hurt should interrupt an in-progress melee attack");
     assert.ok(enemy.hitFlashTimer > 0, "enemy hit should start a renderer-facing flash timer");
     assert.ok(enemy.healthBarTimer > 0, "enemy hit should temporarily reveal its health bar");
     assert.equal(target.state, "active", "surviving enemy should remain a homing target");
@@ -449,6 +559,178 @@ function testCharacterEnemyRocketCombat() {
     stepMany(state, 100);
     assert.equal(enemy.x, deadX, "defeated enemy should remain stationary");
     assert.equal(enemy.animationSlot, "death", "defeated enemy should remain on its non-looping death presentation");
+}
+
+function testCharacterEnemyMeleeAttack() {
+    const state = createInitialGameState({
+        tuning: {
+            healthRegenDelay: 0.4,
+            healthRegenRate: 20,
+            playerDamageInvulnerabilitySeconds: 0.3
+        }
+    });
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "enemy_melee_test",
+        playerStart: { x: 0, y: 600 },
+        entities: [{
+            id: "melee_guard",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 76,
+            y: 600,
+            w: 72,
+            h: 150,
+            facing: -1,
+            behavior: "guard",
+            health: 100,
+            attackDamage: 25,
+            attackRange: 92,
+            attackVerticalRange: 110,
+            attackDuration: 0.3,
+            attackHitTime: 0.1,
+            attackCooldown: 0.4,
+            attackKnockbackX: 280,
+            attackKnockbackY: -210
+        }]
+    }), true, "melee combat test level should apply");
+    state.world.solids = [];
+    state.world.segments = [{ id: "melee_floor", kind: "walkable", x1: -200, y1: 600, x2: 300, y2: 600 }];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 0;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    const enemy = state.enemies.find((item) => item.id === "melee_guard");
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(enemy.combatState, "attacking", "guard should enter an explicit attack combat state");
+    assert.equal(enemy.animationSlot, "attack", "guard should use the authored attack clip");
+    assert.equal(enemy.facing, -1, "guard should face Ignatius when the attack begins");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED"), "attack start should emit an event");
+
+    stepMany(state, 7);
+    approx(state.health.amount, 75, 0.001, "sword hit should subtract authored damage once");
+    assert.ok(state.health.invulnerabilityTimer > 0, "successful hit should start player damage invulnerability");
+    assert.ok(state.player.vx < -200, "sword hit should knock Ignatius away from the attacker");
+    assert.ok(state.player.vy < 0, "sword hit should lift Ignatius with authored knockback");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_HIT"), "successful sword hit should emit a hit event");
+
+    const healthAfterHit = state.health.amount;
+    stepMany(state, 8);
+    approx(state.health.amount, healthAfterHit, 0.001, "one sword swing should never deal damage more than once");
+    stepMany(state, 20);
+    assert.notEqual(enemy.combatState, "attacking", "guard should leave attack state when the authored clip duration ends");
+
+    state.player.x = -300;
+    state.player.y = 600;
+    state.player.vx = 0;
+    state.player.vy = 0;
+    state.player.onGround = true;
+    stepMany(state, 30);
+    assert.ok(state.health.amount > healthAfterHit, "health should begin regenerating after the configured delay");
+    assert.ok(
+        state.debug.lastEvents.some((event) => event.type === "PLAYER_HEALTH_REGEN_STARTED"),
+        "health regeneration should emit presentation feedback"
+    );
+}
+
+function testEnemyMeleeBlockedByTerrain() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "enemy_melee_cover_test",
+        playerStart: { x: -20, y: 600 },
+        entities: [{
+            id: "blocked_melee_guard",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 76,
+            y: 600,
+            w: 72,
+            h: 150,
+            facing: -1,
+            behavior: "guard",
+            attackRange: 110,
+            attackVerticalRange: 120,
+            attackDamage: 25
+        }]
+    });
+    state.world.solids = [{ id: "melee_wall", kind: "wall", x: 28, y: 390, w: 18, h: 210 }];
+    state.world.segments = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = -20;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    const enemy = state.enemies.find((item) => item.id === "blocked_melee_guard");
+    stepMany(state, 20);
+    assert.equal(enemy.animationSlot, "idle", "blocking terrain should keep the guard from starting a melee swing through a wall");
+    approx(state.health.amount, state.health.max, 0.001, "wall should shield Ignatius from melee damage");
+    assert.equal(
+        state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED"),
+        false,
+        "blocked melee line of sight should not emit an attack start"
+    );
+}
+
+function testPlayerDamageInvulnerability() {
+    const state = createInitialGameState({
+        tuning: {
+            playerDamageInvulnerabilitySeconds: 0.2,
+            healthRegenDelay: 99
+        }
+    });
+    const first = damagePlayer(state, 18, "first_hit");
+    const blocked = damagePlayer(state, 18, "second_hit");
+    assert.equal(first.damage, 18, "first damage source should apply fully");
+    assert.equal(blocked.damage, 0, "immediate repeated damage should be blocked");
+    approx(state.health.amount, 82, 0.001, "blocked damage should not reduce health");
+    stepMany(state, Math.ceil(0.2 / FIXED_DT) + 1);
+    const third = damagePlayer(state, 18, "third_hit");
+    assert.equal(third.damage, 18, "damage should apply again after invulnerability expires");
+    approx(state.health.amount, 64, 0.001, "post-invulnerability hit should reduce health");
+}
+
+function testDamagingAndKillableSurfaceHazards() {
+    const state = createInitialGameState({
+        tuning: {
+            hazardContactDamage: 20,
+            playerDamageInvulnerabilitySeconds: 0.4,
+            healthRegenDelay: 99
+        }
+    });
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.world.segments = [{ id: "spike_line", kind: "damaging", x1: -100, y1: 600, x2: 100, y2: 600 }];
+    state.player.x = 0;
+    state.player.y = 600;
+    state.player.spawnX = 0;
+    state.player.spawnY = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    approx(state.health.amount, 80, 0.001, "damaging collision line should hurt Ignatius");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "PLAYER_HAZARD_CONTACT" && event.kind === "damaging"), "damaging contact should emit a hazard event");
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    approx(state.health.amount, 80, 0.001, "damage invulnerability should prevent per-tick hazard shredding");
+
+    state.world.segments[0].kind = "killable";
+    state.player.x = 0;
+    state.player.y = 600;
+    state.player.vx = 0;
+    state.player.vy = 0;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    approx(state.health.amount, 0, 0.001, "killable collision line should defeat Ignatius even during ordinary invulnerability");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "PLAYER_DEFEATED"), "lethal hazard should emit player defeat");
 }
 
 function testTerrainInterceptsRocketBeforeEnemy() {
@@ -1147,15 +1429,16 @@ function testNumberedEnemy001Assets() {
 
     assertFiniteClip(idle, [0, 0.6, 1.2], "enemy_001 idle");
     assertFiniteClip(walk, [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8], "enemy_001 walk");
-    assertFiniteClip(attack, [0, 0.12, 0.26, 0.34, 0.48, 0.60, 0.72], "enemy_001 attack");
+    assertFiniteClip(attack, [0, 0.073333, 0.158889, 0.207778, 0.293333, 0.366667, 0.44], "enemy_001 attack");
     assertFiniteClip(hurt, [0, 0.12, 0.24, 0.36, 0.48], "enemy_001 hurt");
     assertFiniteClip(death, [0, 0.18, 0.36, 0.56, 0.78, 1.0, 1.18], "enemy_001 death");
     assert.equal(attack.loop, false, "enemy_001 attack should be a one-shot clip");
-    const swordRaised = attack.tracks.sword.y.find((key) => Math.abs(key.time - 0.34) < 0.000001);
-    const swordDown = attack.tracks.sword.y.find((key) => Math.abs(key.time - 0.60) < 0.000001);
+    const swordRaised = attack.tracks.sword.y.find((key) => Math.abs(key.time - 0.207778) < 0.000001);
+    const swordDown = attack.tracks.sword.y.find((key) => Math.abs(key.time - 0.366667) < 0.000001);
     assert.ok(swordRaised.value < -300, "enemy_001 attack should raise the sword above the head");
     assert.ok(swordDown.value > -160, "enemy_001 attack should finish the slash forward and down");
-    assert.ok(attack.tracks.sword.x.find((key) => Math.abs(key.time - 0.60) < 0.000001).value > 120, "enemy_001 attack should carry the sword forward");
+    assert.ok(attack.tracks.sword.x.find((key) => Math.abs(key.time - 0.366667) < 0.000001).value >= 190, "enemy_001 attack should carry the sword far enough forward for contact");
+    assert.equal(attack.duration, 0.44, "enemy_001 attack should be a rapid one-shot chop");
     assert.equal(walk.duration, 0.8, "enemy_001 walk should contain one brisk two-step cycle");
     assert.ok(walk.tracks.leftLeg.rotation.length >= 9, "enemy_001 walk should author a complete alternating leg cycle");
     assert.ok(walk.tracks.rightLeg.y.some((key) => key.value < -170), "enemy_001 walk should lift the swinging right foot");
@@ -2114,7 +2397,12 @@ const tests = [
     ["generic runtime character project", testGenericRuntimeCharacterProject],
     ["enemy catalog and Level Editor integration", testEnemyCatalogAndLevelEditorIntegration],
     ["simulation-owned character enemy patrol", testCharacterEnemyPatrolBehavior],
+    ["character enemy aggressive chase and combo", testCharacterEnemyAggressiveChaseAndCombo],
     ["character enemy rocket combat", testCharacterEnemyRocketCombat],
+    ["character enemy melee attack", testCharacterEnemyMeleeAttack],
+    ["terrain shields player from enemy melee", testEnemyMeleeBlockedByTerrain],
+    ["player damage invulnerability", testPlayerDamageInvulnerability],
+    ["damaging and killable surface hazards", testDamagingAndKillableSurfaceHazards],
     ["terrain intercepts rocket before enemy", testTerrainInterceptsRocketBeforeEnemy],
     ["character project workspace", testCharacterProjectWorkspace],
     ["character atlas editor operations", testCharacterAtlasEditorOperations],

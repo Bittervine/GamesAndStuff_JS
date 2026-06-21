@@ -32,7 +32,7 @@ The HTML and JavaScript game remains the reference implementation, but new gamep
 
 The project now has a working browser game loop, deterministic simulation layer, asset-atlas based level construction, atlas and level editor tools, atlas-derived collision lines and filled collision loops, detached rocket terrain impacts, health/fuel HUD, and headless tests.
 
-The immediate gameplay direction is enemy/player combat plus destructible and reactive world objects. In parallel, portability preparation should remove renderer-owned gameplay data and establish language-neutral schemas and parity fixtures before Phase 8 procedural generation expands the simulation surface.
+The immediate gameplay direction is destructible and reactive world objects, building on the completed first enemy/player combat loop. In parallel, portability preparation should remove renderer-owned gameplay data and establish language-neutral schemas and parity fixtures before Phase 8 procedural generation expands the simulation surface.
 
 ## Phase 1: Completed Physics, Level, and Atlas Foundation
 
@@ -339,9 +339,11 @@ Goal: make rockets and future weapons interact with enemies and world objects.
 
 * [x] Add monster health and hurt/death state to `gameState`.
 * [x] Add projectile collision with monsters.
-* [ ] Add projectile collision with terrain and destructible objects.
-* [ ] Add player damage from hazards and enemies.
-* [ ] Add health regeneration delay and feedback.
+* [x] Add projectile collision with terrain.
+* [ ] Add projectile collision with destructible objects.
+* [x] Add player damage from hazards and enemies.
+* [x] Add enemy awareness, pursuit, melee attack, and rapid repeat-attack behaviour.
+* [x] Add health regeneration delay and feedback.
 * [x] Add hit flash and impact feedback.
 
 ### Destructible and Reactive Objects
@@ -702,4 +704,30 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Add permanent portability guardrails for future gameplay changes.
 * [x] Add a pre-procedural-generation checkpoint covering normalized levels, state ownership, schemas, module extraction, simulation events, parity fixtures, and an early C++/Unreal spike.
 * [x] Keep revision 095 documentation-only so runtime behavior remains unchanged.
+
+### Revision 096 enemy melee attacks and player damage
+
+* [x] Add a deterministic Skeleton Guard melee attack state that interrupts guard or patrol movement.
+* [x] Face the player, play the authored attack clip, and apply damage once at the authored hit time.
+* [x] Prevent melee attacks from reaching through blocking terrain.
+* [x] Add configurable attack damage, reach, cooldown, timing, and knockback to enemy runtime data.
+* [x] Expose Skeleton Guard attack damage, reach, and cooldown in the Level Editor inspector.
+* [x] Add player damage invulnerability and knockback so overlapping attacks or hazards cannot drain health every tick.
+* [x] Make `damaging` collision hurt the player and `killable` collision defeat the player.
+* [x] Emit player-damage, defeat, enemy-attack, hazard-contact, and health-regeneration events.
+* [x] Add player hit flash plus HUD feedback for recent damage, regeneration delay, and active regeneration.
+* [x] Add headless regression coverage for melee damage, attack timing, invulnerability, hazards, and regeneration.
+
+### Revision 097 aggressive Skeleton Guard pursuit and rapid sword combo
+
+* [x] Alert patrolling Skeleton Guards when Ignatius enters their authored patrol span.
+* [x] Give stationary guards a configurable awareness range and all guards a short awareness hold timer.
+* [x] Add a separate alerted chase speed that is substantially faster than patrol movement.
+* [x] Reuse support, ledge, patrol-limit, and blocking-geometry checks during pursuit.
+* [x] Shorten the Skeleton Guard attack animation and align the gameplay strike with the visible downstroke.
+* [x] Extend the authored sword follow-through and add a bounded pre-strike lunge so the blade reaches Ignatius.
+* [x] Reduce attack recovery enough to produce repeated chop-chop-chop pressure.
+* [x] Expose chase speed and stationary-guard awareness range in the Level Editor.
+* [x] Update the placed `level_001` Skeleton Guard to the new aggression and attack defaults.
+* [x] Add headless regression coverage for awareness, chase speed, attack lunge, strike timing, and rapid repeat attacks.
 

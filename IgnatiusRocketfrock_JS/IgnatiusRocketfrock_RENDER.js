@@ -1214,7 +1214,13 @@ class RocketfrockRenderer {
         const p = this.worldToScreen(view, state.player.x, state.player.y);
         const renderScale = Math.max(0.05, Number(state.player.renderScale) || 1);
         this.drawShadow(p.x, p.y, view.zoom * renderScale);
+        const hitFlash = getPlayerHitFlash(state);
+        this.ctx.save();
+        if (hitFlash > 0) {
+            this.ctx.filter = `brightness(${1 + hitFlash * 1.65}) saturate(${1 - hitFlash * 0.64}) sepia(${hitFlash * 0.32})`;
+        }
         const bounds = this.drawWizardRig(p.x, p.y, state.player.facing, state, view.zoom, renderScale);
+        this.ctx.restore();
         this.lastBounds = bounds;
     }
 
@@ -1655,6 +1661,22 @@ function makeTintedSpriteCanvas(sourceCanvas, color) {
     ctx.fillStyle = color;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     return canvas;
+}
+
+function getPlayerHitFlash(state) {
+    const rawLastDamagedAt = state?.health?.lastDamagedAt;
+    const lastDamagedAt = Number(rawLastDamagedAt);
+    const duration = Math.max(0.001, Number(state?.tuning?.playerHitFlashSeconds) || 0.24);
+    if (rawLastDamagedAt === null || rawLastDamagedAt === undefined || !Number.isFinite(lastDamagedAt)) {
+        return 0;
+    }
+    const age = Math.max(0, Number(state?.clock?.time) - lastDamagedAt);
+    if (age >= duration) {
+        return 0;
+    }
+    const envelope = 1 - age / duration;
+    const flicker = Math.sin(age * 92) > -0.15 ? 1 : 0.28;
+    return clamp(envelope * flicker, 0, 1);
 }
 
 function getLowHealthTintAlpha(state) {

@@ -5,6 +5,12 @@ export const FIXED_DT = 1 / 60;
 
 const WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR = 239 / 263;
 const DEFAULT_WIZARD_DOOR_INSIDE_SCALE = 0.84;
+const ENEMY_COMBAT_STATE = Object.freeze({
+    ALIVE: "alive",
+    HURT: "hurt",
+    ATTACKING: "attacking",
+    DEAD: "dead"
+});
 
 export const DEFAULT_TUNING = Object.freeze({
     timestep: FIXED_DT,
@@ -66,6 +72,23 @@ export const DEFAULT_TUNING = Object.freeze({
     enemyHealthBarSeconds: 1.4,
     enemyDefaultHurtSeconds: 0.48,
     enemyDefaultDeathSeconds: 1.18,
+    enemyDefaultChaseSpeed: 150,
+    enemyDefaultAwarenessRange: 300,
+    enemyDefaultAwarenessVerticalRange: 190,
+    enemyDefaultAwarenessHoldSeconds: 1.2,
+    enemyDefaultAttackDamage: 24,
+    enemyDefaultAttackRange: 66,
+    enemyDefaultAttackVerticalRange: 104,
+    enemyDefaultAttackDuration: 0.44,
+    enemyDefaultAttackHitTime: 0.36,
+    enemyDefaultAttackCooldown: 0.12,
+    enemyDefaultAttackLungeDistance: 20,
+    enemyDefaultAttackLungeSpeed: 180,
+    enemyDefaultAttackKnockbackX: 330,
+    enemyDefaultAttackKnockbackY: -250,
+    playerDamageInvulnerabilitySeconds: 0.45,
+    playerHitFlashSeconds: 0.24,
+    hazardContactDamage: 20,
     rocketImpactSmokePuffs: 24,
     rocketSmokePuffLifetime: 1.5,
     rocketSmokePuffSpacing: 3,
@@ -201,6 +224,8 @@ export function createInitialGameState(overrides = {}) {
             amount: tuning.maxHealth,
             max: tuning.maxHealth,
             lastDamagedAt: null,
+            invulnerabilityTimer: 0,
+            regenerating: false,
             low: false
         },
         equipment: {
@@ -1463,6 +1488,12 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             patrolMinX: x - patrolDistance * 0.5,
             patrolMaxX: x + patrolDistance * 0.5,
             walkSpeed: Math.max(0, finiteNumberOr(entity.walkSpeed, 56)),
+            chaseSpeed: Math.max(0, finiteNumberOr(entity.chaseSpeed, state.tuning.enemyDefaultChaseSpeed)),
+            awarenessRange: Math.max(0, finiteNumberOr(entity.awarenessRange, state.tuning.enemyDefaultAwarenessRange)),
+            awarenessVerticalRange: Math.max(0, finiteNumberOr(entity.awarenessVerticalRange, state.tuning.enemyDefaultAwarenessVerticalRange)),
+            awarenessHoldDuration: Math.max(0, finiteNumberOr(entity.awarenessHoldDuration, state.tuning.enemyDefaultAwarenessHoldSeconds)),
+            awarenessTimer: 0,
+            alerted: false,
             idleDuration,
             turnPause: Math.max(0, finiteNumberOr(entity.turnPause, 0.5)),
             maxStepHeight: Math.max(0, finiteNumberOr(entity.maxStepHeight, 26)),
@@ -1472,6 +1503,20 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             phaseTimer: behavior === "patrol" && patrolDistance > 0 ? idleDuration : 0,
             hurtDuration: Math.max(FIXED_DT, finiteNumberOr(entity.hurtDuration, state.tuning.enemyDefaultHurtSeconds)),
             deathDuration: Math.max(FIXED_DT, finiteNumberOr(entity.deathDuration, state.tuning.enemyDefaultDeathSeconds)),
+            attackDamage: Math.max(0, finiteNumberOr(entity.attackDamage, state.tuning.enemyDefaultAttackDamage)),
+            attackRange: Math.max(1, finiteNumberOr(entity.attackRange, state.tuning.enemyDefaultAttackRange)),
+            attackVerticalRange: Math.max(1, finiteNumberOr(entity.attackVerticalRange, state.tuning.enemyDefaultAttackVerticalRange)),
+            attackDuration: Math.max(FIXED_DT, finiteNumberOr(entity.attackDuration, state.tuning.enemyDefaultAttackDuration)),
+            attackHitTime: Math.max(0, finiteNumberOr(entity.attackHitTime, state.tuning.enemyDefaultAttackHitTime)),
+            attackCooldown: Math.max(0, finiteNumberOr(entity.attackCooldown, state.tuning.enemyDefaultAttackCooldown)),
+            attackLungeDistance: Math.max(0, finiteNumberOr(entity.attackLungeDistance, state.tuning.enemyDefaultAttackLungeDistance)),
+            attackLungeSpeed: Math.max(0, finiteNumberOr(entity.attackLungeSpeed, state.tuning.enemyDefaultAttackLungeSpeed)),
+            attackKnockbackX: Math.max(0, finiteNumberOr(entity.attackKnockbackX, state.tuning.enemyDefaultAttackKnockbackX)),
+            attackKnockbackY: finiteNumberOr(entity.attackKnockbackY, state.tuning.enemyDefaultAttackKnockbackY),
+            attackTimer: 0,
+            attackCooldownTimer: 0,
+            attackLungeRemaining: 0,
+            attackHitApplied: false,
             hurtTimer: 0,
             deathTimer: health <= 0 ? Math.max(FIXED_DT, finiteNumberOr(entity.deathDuration, state.tuning.enemyDefaultDeathSeconds)) : 0,
             hitFlashTimer: 0,
@@ -1761,6 +1806,233 @@ function pauseAndTurnCharacterEnemy(enemy) {
     setCharacterEnemyAnimation(enemy, "idle");
 }
 
+function characterEnemyAttackRect(enemy) {
+    const facing = Number(enemy.facing) < 0 ? -1 : 1;
+    const reach = Math.max(1, Number(enemy.attackRange) || 1);
+    const bodyInset = Math.max(4, Number(enemy.width) * 0.12 || 4);
+    const front = enemy.x + facing * bodyInset;
+    return {
+        x: facing > 0 ? front : front - reach,
+        y: enemy.y - Math.max(1, Number(enemy.attackVerticalRange) || enemy.height || 1),
+        w: reach,
+        h: Math.max(1, Number(enemy.attackVerticalRange) || enemy.height || 1)
+    };
+}
+
+function characterEnemyAttackBlockedByTerrain(state, enemy) {
+    const player = state.player;
+    const start = {
+        x: enemy.x,
+        y: enemy.y - enemy.height * 0.5
+    };
+    const end = {
+        x: player.x,
+        y: player.y - player.height * 0.5
+    };
+
+    for (const solid of state.world?.solids || []) {
+        if (segmentRectIntersection(start, end, solid)) {
+            return true;
+        }
+    }
+    for (const segment of state.world?.segments || []) {
+        if (!isAreaBlockingSegmentKind(segment.kind) && segment.kind !== "walkable") {
+            continue;
+        }
+        if (segmentSegmentIntersection(start, end, { x: segment.x1, y: segment.y1 }, { x: segment.x2, y: segment.y2 })) {
+            return true;
+        }
+    }
+    for (const polygon of state.world?.collisionPolygons || []) {
+        if (!isAreaBlockingSegmentKind(polygon.kind)) {
+            continue;
+        }
+        if (pointInPolygon(start, polygon) || pointInPolygon(end, polygon) || firstSegmentPolygonBoundaryIntersection(start, end, polygon)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function characterEnemyCanReachPlayer(state, enemy) {
+    if (state.player.visible === false || state.health.amount <= 0) {
+        return false;
+    }
+    const playerRect = getPlayerRect(state);
+    const attackRect = characterEnemyAttackRect(enemy);
+    return rectsOverlap(playerRect, attackRect) && !characterEnemyAttackBlockedByTerrain(state, enemy);
+}
+
+function characterEnemyCanNoticePlayer(state, enemy) {
+    const player = state.player;
+    if (player.visible === false || state.health.amount <= 0) {
+        return false;
+    }
+
+    const enemyCenterY = enemy.y - enemy.height * 0.5;
+    const playerCenterY = player.y - player.height * 0.5;
+    if (Math.abs(playerCenterY - enemyCenterY) > Math.max(0, Number(enemy.awarenessVerticalRange) || 0)) {
+        return false;
+    }
+
+    if (enemy.behavior === "patrol" && enemy.patrolDistance > 0) {
+        const playerHalfWidth = Math.max(0, Number(player.width) || 0) * 0.5;
+        if (player.x < enemy.patrolMinX - playerHalfWidth || player.x > enemy.patrolMaxX + playerHalfWidth) {
+            return false;
+        }
+    } else if (Math.abs(player.x - enemy.x) > Math.max(0, Number(enemy.awarenessRange) || 0)) {
+        return false;
+    }
+
+    return !characterEnemyAttackBlockedByTerrain(state, enemy);
+}
+
+function updateCharacterEnemyAwareness(state, enemy, dt) {
+    const wasAlerted = enemy.alerted === true;
+    if (characterEnemyCanNoticePlayer(state, enemy)) {
+        enemy.awarenessTimer = Math.max(FIXED_DT, Number(enemy.awarenessHoldDuration) || state.tuning.enemyDefaultAwarenessHoldSeconds || 1.2);
+    } else {
+        enemy.awarenessTimer = Math.max(0, (Number(enemy.awarenessTimer) || 0) - dt);
+    }
+    enemy.alerted = enemy.awarenessTimer > 0;
+
+    if (enemy.alerted && !wasAlerted) {
+        addEvent(state, "ENEMY_ALERTED", { enemyId: enemy.id });
+    } else if (!enemy.alerted && wasAlerted) {
+        addEvent(state, "ENEMY_ALERT_LOST", { enemyId: enemy.id });
+    }
+    return enemy.alerted;
+}
+
+function moveCharacterEnemyToward(state, enemy, targetX, speed, dt, stopDistance = 0) {
+    const dx = targetX - enemy.x;
+    const distance = Math.abs(dx);
+    const remainingDistance = Math.max(0, distance - Math.max(0, stopDistance));
+    if (remainingDistance <= 0.0001 || speed <= 0 || dt <= 0) {
+        return 0;
+    }
+
+    const direction = dx < 0 ? -1 : 1;
+    let candidateX = enemy.x + direction * Math.min(remainingDistance, speed * dt);
+    if (enemy.behavior === "patrol" && enemy.patrolDistance > 0) {
+        candidateX = clamp(candidateX, enemy.patrolMinX, enemy.patrolMaxX);
+    }
+    if (Math.abs(candidateX - enemy.x) <= 0.0001) {
+        return 0;
+    }
+
+    const support = findCharacterEnemyGroundSupport(
+        state,
+        candidateX,
+        enemy.y,
+        enemy.maxStepHeight,
+        enemy.maxDropDistance,
+        enemy.width
+    );
+    if (!support || characterEnemyBodyBlockedAt(state, enemy, candidateX, support.y)) {
+        return 0;
+    }
+
+    const moved = Math.abs(candidateX - enemy.x);
+    enemy.facing = direction;
+    enemy.x = candidateX;
+    enemy.y = support.y;
+    return moved;
+}
+
+function advanceCharacterEnemyAttackLunge(state, enemy, dt, elapsed, hitTime) {
+    if (enemy.attackHitApplied || elapsed > hitTime || enemy.attackLungeRemaining <= 0) {
+        return;
+    }
+    const player = state.player;
+    const dx = player.x - enemy.x;
+    if (Math.abs(dx) <= 0.001) {
+        return;
+    }
+
+    enemy.facing = dx < 0 ? -1 : 1;
+    const stopDistance = Math.max(
+        Number(enemy.attackRange) || 1,
+        (Math.max(1, Number(enemy.width) || 1) + Math.max(1, Number(player.width) || 1)) * 0.5 - 4
+    );
+    const speed = Math.min(
+        Math.max(0, Number(enemy.attackLungeSpeed) || 0),
+        enemy.attackLungeRemaining / Math.max(FIXED_DT, dt)
+    );
+    const moved = moveCharacterEnemyToward(state, enemy, player.x, speed, dt, stopDistance);
+    enemy.attackLungeRemaining = Math.max(0, enemy.attackLungeRemaining - moved);
+}
+
+function startCharacterEnemyAttack(state, enemy) {
+    enemy.attackDamage = Math.max(0, finiteNumberOr(enemy.attackDamage, state.tuning.enemyDefaultAttackDamage));
+    enemy.attackRange = Math.max(1, finiteNumberOr(enemy.attackRange, state.tuning.enemyDefaultAttackRange));
+    enemy.attackVerticalRange = Math.max(1, finiteNumberOr(enemy.attackVerticalRange, state.tuning.enemyDefaultAttackVerticalRange));
+    enemy.attackDuration = Math.max(FIXED_DT, finiteNumberOr(enemy.attackDuration, state.tuning.enemyDefaultAttackDuration));
+    enemy.attackHitTime = Math.max(0, finiteNumberOr(enemy.attackHitTime, state.tuning.enemyDefaultAttackHitTime));
+    enemy.attackCooldown = Math.max(0, finiteNumberOr(enemy.attackCooldown, state.tuning.enemyDefaultAttackCooldown));
+    enemy.attackLungeDistance = Math.max(0, finiteNumberOr(enemy.attackLungeDistance, state.tuning.enemyDefaultAttackLungeDistance));
+    enemy.attackLungeSpeed = Math.max(0, finiteNumberOr(enemy.attackLungeSpeed, state.tuning.enemyDefaultAttackLungeSpeed));
+    enemy.attackKnockbackX = Math.max(0, finiteNumberOr(enemy.attackKnockbackX, state.tuning.enemyDefaultAttackKnockbackX));
+    enemy.attackKnockbackY = finiteNumberOr(enemy.attackKnockbackY, state.tuning.enemyDefaultAttackKnockbackY);
+    const dx = state.player.x - enemy.x;
+    if (Math.abs(dx) > 0.001) {
+        enemy.facing = dx < 0 ? -1 : 1;
+    }
+    enemy.combatState = ENEMY_COMBAT_STATE.ATTACKING;
+    enemy.movementPhase = "attack";
+    enemy.attackTimer = Math.max(FIXED_DT, Number(enemy.attackDuration) || state.tuning.enemyDefaultAttackDuration || 0.44);
+    enemy.attackLungeRemaining = Math.max(0, Number(enemy.attackLungeDistance) || 0);
+    enemy.attackHitApplied = false;
+    setCharacterEnemyAnimation(enemy, "attack");
+    addEvent(state, "ENEMY_ATTACK_STARTED", {
+        enemyId: enemy.id,
+        damage: round(enemy.attackDamage),
+        facing: enemy.facing
+    });
+}
+
+function updateCharacterEnemyAttack(state, enemy, dt) {
+    const duration = Math.max(FIXED_DT, Number(enemy.attackDuration) || state.tuning.enemyDefaultAttackDuration || 0.44);
+    const previousElapsed = duration - Math.max(0, Number(enemy.attackTimer) || 0);
+    enemy.attackTimer = Math.max(0, (Number(enemy.attackTimer) || 0) - dt);
+    const elapsed = duration - enemy.attackTimer;
+    const hitTime = clamp(Number(enemy.attackHitTime) || 0, 0, duration);
+
+    enemy.combatState = ENEMY_COMBAT_STATE.ATTACKING;
+    enemy.movementPhase = "attack";
+    setCharacterEnemyAnimation(enemy, "attack");
+    advanceCharacterEnemyAttackLunge(state, enemy, dt, elapsed, hitTime);
+
+    if (!enemy.attackHitApplied && previousElapsed <= hitTime && elapsed >= hitTime) {
+        enemy.attackHitApplied = true;
+        if (characterEnemyCanReachPlayer(state, enemy)) {
+            const result = damagePlayer(state, enemy.attackDamage, enemy.id, {
+                knockbackX: enemy.facing * enemy.attackKnockbackX,
+                knockbackY: enemy.attackKnockbackY
+            });
+            addEvent(state, result.damage > 0 ? "ENEMY_ATTACK_HIT" : "ENEMY_ATTACK_BLOCKED", {
+                enemyId: enemy.id,
+                damage: round(result.damage),
+                health: round(state.health.amount)
+            });
+        } else {
+            addEvent(state, "ENEMY_ATTACK_MISSED", { enemyId: enemy.id });
+        }
+    }
+
+    if (enemy.attackTimer <= 0) {
+        enemy.combatState = ENEMY_COMBAT_STATE.ALIVE;
+        enemy.movementPhase = "idle";
+        enemy.phaseTimer = 0;
+        enemy.attackCooldownTimer = Math.max(0, Number(enemy.attackCooldown) || 0);
+        enemy.attackLungeRemaining = 0;
+        enemy.attackHitApplied = false;
+        setCharacterEnemyAnimation(enemy, "idle");
+        addEvent(state, "ENEMY_ATTACK_ENDED", { enemyId: enemy.id });
+    }
+    syncCharacterEnemyTarget(state, enemy);
+}
+
 function updateCharacterEnemies(state, dt) {
     for (const enemy of state.enemies || []) {
         enemy.hitFlashTimer = Math.max(0, (Number(enemy.hitFlashTimer) || 0) - dt);
@@ -1778,13 +2050,22 @@ function updateCharacterEnemies(state, dt) {
         }
 
         enemy.animationTime = Math.max(0, Number(enemy.animationTime) || 0) + dt;
-        if (enemy.health <= 0 || enemy.combatState === "dead") {
+        enemy.attackCooldownTimer = Math.max(0, (Number(enemy.attackCooldownTimer) || 0) - dt);
+        if (enemy.health <= 0 || enemy.combatState === ENEMY_COMBAT_STATE.DEAD) {
             enemy.health = 0;
-            enemy.combatState = "dead";
+            enemy.combatState = ENEMY_COMBAT_STATE.DEAD;
             enemy.movementPhase = "dead";
+            enemy.attackTimer = 0;
+            enemy.attackLungeRemaining = 0;
+            enemy.attackHitApplied = false;
             enemy.deathTimer = Math.max(0, (Number(enemy.deathTimer) || 0) - dt);
             setCharacterEnemyAnimation(enemy, "death");
             syncCharacterEnemyTarget(state, enemy);
+            continue;
+        }
+
+        if (enemy.combatState === ENEMY_COMBAT_STATE.ATTACKING || (Number(enemy.attackTimer) || 0) > 0) {
+            updateCharacterEnemyAttack(state, enemy, dt);
             continue;
         }
 
@@ -1796,10 +2077,45 @@ function updateCharacterEnemies(state, dt) {
             syncCharacterEnemyTarget(state, enemy);
             continue;
         }
-        if (enemy.combatState === "hurt") {
-            enemy.combatState = "alive";
+        if (enemy.combatState === ENEMY_COMBAT_STATE.HURT) {
+            enemy.combatState = ENEMY_COMBAT_STATE.ALIVE;
             enemy.movementPhase = "idle";
             enemy.phaseTimer = Math.max(Number(enemy.phaseTimer) || 0, Math.min(0.18, Number(enemy.turnPause) || 0));
+        }
+
+        const alerted = updateCharacterEnemyAwareness(state, enemy, dt);
+        if (alerted) {
+            const dx = state.player.x - enemy.x;
+            if (Math.abs(dx) > 0.001) {
+                enemy.facing = dx < 0 ? -1 : 1;
+            }
+            if (enemy.attackCooldownTimer <= 0 && characterEnemyCanReachPlayer(state, enemy)) {
+                startCharacterEnemyAttack(state, enemy);
+                syncCharacterEnemyTarget(state, enemy);
+                continue;
+            }
+
+            const stopDistance = Math.max(
+                Number(enemy.attackRange) || 1,
+                (Math.max(1, Number(enemy.width) || 1) + Math.max(1, Number(state.player.width) || 1)) * 0.5 - 4
+            );
+            const moved = moveCharacterEnemyToward(
+                state,
+                enemy,
+                state.player.x,
+                Math.max(0, Number(enemy.chaseSpeed) || state.tuning.enemyDefaultChaseSpeed || 0),
+                dt,
+                stopDistance
+            );
+            if (moved > 0) {
+                enemy.movementPhase = "chase";
+                setCharacterEnemyAnimation(enemy, "walk");
+            } else {
+                enemy.movementPhase = "alert";
+                setCharacterEnemyAnimation(enemy, "idle");
+            }
+            syncCharacterEnemyTarget(state, enemy);
+            continue;
         }
 
         if (enemy.behavior !== "patrol" || enemy.patrolDistance <= 0 || enemy.walkSpeed <= 0) {
@@ -1953,6 +2269,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     moveAndCollideX(state, p.vx * dt);
     moveAndCollideY(state, p.vy * dt, wasOnGround);
     resolvePlayerPenetrations(state, wasOnGround);
+    applyPlayerSurfaceHazards(state);
 
     if (!p.onGround) {
         p.airborneTime += dt;
@@ -2492,15 +2809,21 @@ function applyProjectileDamageToEnemy(state, projectile, enemy) {
         enemy.combatState = "dead";
         enemy.state = isCharacterEnemyState(enemy) ? "death" : "destroyed";
         enemy.movementPhase = "dead";
+        enemy.attackTimer = 0;
+        enemy.attackHitApplied = false;
         enemy.hurtTimer = 0;
         enemy.deathTimer = Math.max(FIXED_DT, Number(enemy.deathDuration) || state.tuning.enemyDefaultDeathSeconds || 1.18);
         if (isCharacterEnemyState(enemy)) {
             setCharacterEnemyAnimation(enemy, "death");
         }
     } else {
-        enemy.combatState = "hurt";
+        enemy.combatState = ENEMY_COMBAT_STATE.HURT;
         enemy.state = "hurt";
         if (isCharacterEnemyState(enemy)) {
+            enemy.attackTimer = 0;
+            enemy.attackLungeRemaining = 0;
+            enemy.attackHitApplied = false;
+            enemy.attackCooldownTimer = Math.max(Number(enemy.attackCooldownTimer) || 0, Number(enemy.attackCooldown) || 0);
             enemy.hurtTimer = Math.max(FIXED_DT, Number(enemy.hurtDuration) || state.tuning.enemyDefaultHurtSeconds || 0.48);
             enemy.movementPhase = "hurt";
             setCharacterEnemyAnimation(enemy, "hurt");
@@ -3432,16 +3755,16 @@ function applyFallDamageOnLanding(state, impactVy, id, kind) {
         return 0;
     }
 
-    damagePlayer(state, damage, "fallDamage");
+    const result = damagePlayer(state, damage, "fallDamage", { bypassInvulnerability: true });
     addEvent(state, "PLAYER_FALL_DAMAGE", {
-        amount: round(damage),
+        amount: round(result.damage),
         impactVy: round(impactVy),
         safeImpactSpeed: round(safeImpactSpeed),
         excessWizardHeights: round(excessWizardHeights),
         solidId: id,
         kind
     });
-    return damage;
+    return result.damage;
 }
 
 function isSolidSegmentKind(kind) {
@@ -3484,6 +3807,78 @@ function segmentXAtY(segment, y) {
         return null;
     }
     return segment.x1 + (segment.x2 - segment.x1) * t;
+}
+
+function expandedRect(rect, amount) {
+    return {
+        x: rect.x - amount,
+        y: rect.y - amount,
+        w: rect.w + amount * 2,
+        h: rect.h + amount * 2
+    };
+}
+
+function polygonTouchesRect(polygon, rect) {
+    const touchRect = expandedRect(rect, 0.25);
+    if (polygonOverlapsRect(polygon, touchRect)) {
+        return true;
+    }
+    const points = polygon.points || [];
+    for (let i = 0; i < points.length; i += 1) {
+        if (segmentRectIntersection(points[i], points[(i + 1) % points.length], touchRect)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function findPlayerSurfaceHazard(state) {
+    const rect = expandedRect(getPlayerRect(state), 0.25);
+    for (const solid of state.world?.solids || []) {
+        if ((solid.kind === "damaging" || solid.kind === "killable") && rectsOverlap(rect, solid)) {
+            return { id: solid.id || "solidHazard", kind: solid.kind };
+        }
+    }
+    for (const segment of state.world?.segments || []) {
+        if (segment.kind !== "damaging" && segment.kind !== "killable") {
+            continue;
+        }
+        if (segmentRectIntersection({ x: segment.x1, y: segment.y1 }, { x: segment.x2, y: segment.y2 }, rect)) {
+            return { id: segment.id || "segmentHazard", kind: segment.kind };
+        }
+    }
+    for (const polygon of state.world?.collisionPolygons || []) {
+        if ((polygon.kind === "damaging" || polygon.kind === "killable") && polygonTouchesRect(polygon, rect)) {
+            return { id: polygon.id || "polygonHazard", kind: polygon.kind };
+        }
+    }
+    return null;
+}
+
+function applyPlayerSurfaceHazards(state) {
+    const hazard = findPlayerSurfaceHazard(state);
+    if (!hazard) {
+        return false;
+    }
+    const lethal = hazard.kind === "killable";
+    const result = damagePlayer(
+        state,
+        lethal ? state.health.max : state.tuning.hazardContactDamage,
+        hazard.id,
+        {
+            bypassInvulnerability: lethal,
+            knockbackY: lethal ? 0 : -180
+        }
+    );
+    if (result.damage > 0) {
+        addEvent(state, "PLAYER_HAZARD_CONTACT", {
+            hazardId: hazard.id,
+            kind: hazard.kind,
+            damage: round(result.damage),
+            health: round(state.health.amount)
+        });
+    }
+    return result.damage > 0;
 }
 
 function updateFuelRecharge(state, dt) {
@@ -3550,10 +3945,30 @@ function updateBoostKickGroundRecharge(state, dt) {
 function updateHealth(state, dt) {
     const health = state.health;
     const t = state.tuning;
+    health.invulnerabilityTimer = Math.max(0, (Number(health.invulnerabilityTimer) || 0) - dt);
     health.low = health.amount <= t.lowHealthThreshold;
 
-    if (state.clock.time - health.lastDamagedAt >= t.healthRegenDelay && health.amount < health.max) {
+    const rawLastDamagedAt = health.lastDamagedAt;
+    const lastDamagedAt = rawLastDamagedAt !== null && rawLastDamagedAt !== undefined && Number.isFinite(Number(rawLastDamagedAt))
+        ? Number(rawLastDamagedAt)
+        : null;
+    const delayElapsed = lastDamagedAt === null || state.clock.time - lastDamagedAt >= t.healthRegenDelay;
+    const shouldRegenerate = delayElapsed && health.amount > 0 && health.amount < health.max && t.healthRegenRate > 0;
+    if (shouldRegenerate) {
+        const wasRegenerating = health.regenerating === true;
+        health.regenerating = true;
+        const before = health.amount;
         health.amount = Math.min(health.max, health.amount + t.healthRegenRate * dt);
+        if (!wasRegenerating) {
+            addEvent(state, "PLAYER_HEALTH_REGEN_STARTED", { health: round(before) });
+        }
+        if (health.amount >= health.max) {
+            health.regenerating = false;
+            addEvent(state, "PLAYER_HEALTH_REGEN_COMPLETED", { health: round(health.amount) });
+        }
+    } else if (health.regenerating) {
+        health.regenerating = false;
+        addEvent(state, "PLAYER_HEALTH_REGEN_STOPPED", { health: round(health.amount) });
     }
 
     state.player.lowHealthPulse = health.low ? (Math.sin(state.clock.time * 9) + 1) * 0.5 : 0;
@@ -3580,10 +3995,59 @@ function updateCameraHint(state, dt) {
     state.camera.y += (targetY - state.camera.y) * blend;
 }
 
-export function damagePlayer(state, amount = 34, sourceId = "debug") {
-    state.health.amount = clamp(state.health.amount - amount, 0, state.health.max);
-    state.health.lastDamagedAt = state.clock.time;
-    addEvent(state, "PLAYER_DAMAGED", { amount, sourceId, health: round(state.health.amount) });
+export function damagePlayer(state, amount = 34, sourceId = "debug", options = {}) {
+    const health = state.health;
+    const requestedDamage = Math.max(0, Number(amount) || 0);
+    const before = clamp(Number(health.amount) || 0, 0, health.max);
+    const blocked = options.bypassInvulnerability !== true && (Number(health.invulnerabilityTimer) || 0) > 0;
+    if (requestedDamage <= 0 || before <= 0 || blocked) {
+        return {
+            damage: 0,
+            health: before,
+            defeated: before <= 0,
+            blocked
+        };
+    }
+
+    const damage = Math.min(before, requestedDamage);
+    health.amount = Math.max(0, before - requestedDamage);
+    health.lastDamagedAt = state.clock.time;
+    if (health.regenerating) {
+        addEvent(state, "PLAYER_HEALTH_REGEN_STOPPED", {
+            health: round(health.amount),
+            reason: "damaged"
+        });
+    }
+    health.regenerating = false;
+    health.invulnerabilityTimer = Math.max(
+        0,
+        Number(options.invulnerabilitySeconds ?? state.tuning.playerDamageInvulnerabilitySeconds) || 0
+    );
+
+    if (Number.isFinite(Number(options.knockbackX))) {
+        state.player.vx = Number(options.knockbackX);
+    }
+    if (Number.isFinite(Number(options.knockbackY))) {
+        state.player.vy = Number(options.knockbackY);
+        state.player.onGround = false;
+    }
+
+    const defeated = health.amount <= 0;
+    addEvent(state, "PLAYER_DAMAGED", {
+        amount: round(damage),
+        sourceId,
+        health: round(health.amount),
+        defeated
+    });
+    if (defeated) {
+        addEvent(state, "PLAYER_DEFEATED", { sourceId });
+    }
+    return {
+        damage,
+        health: health.amount,
+        defeated,
+        blocked: false
+    };
 }
 
 export function resetPlayer(state, reason = "manualReset") {
@@ -3613,6 +4077,9 @@ export function resetPlayer(state, reason = "manualReset") {
         state.effects.smokePuffs.length = 0;
     }
     state.health.amount = state.health.max;
+    state.health.lastDamagedAt = null;
+    state.health.invulnerabilityTimer = 0;
+    state.health.regenerating = false;
     state.health.low = false;
     addEvent(state, "PLAYER_RESET", { reason });
 }

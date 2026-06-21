@@ -1,13 +1,13 @@
 {
     "meta": {
-        "version": 1,
-        "note": "Explicit enemy catalog for Level Editor placement. Static browser tools cannot enumerate the assets directory, so new enemies are registered here."
+        "version": 2,
+        "note": "Explicit enemy catalog for Level Editor placement. Revision 097 adds alert pursuit, faster chase movement, close-range lunges, and rapid sword-combo defaults."
     },
     "catalogId": "ct_enemies_001",
     "enemies": {
         "enemy_001": {
             "label": "Skeleton Guard",
-            "icon": "☠",
+            "icon": "\u2620",
             "characterId": "ct_char_enemy_001",
             "defaultSize": {
                 "w": 72,
@@ -30,7 +30,21 @@
                     "x": 0.5,
                     "y": 0.4
                 },
-                "showTargetMarker": false
+                "showTargetMarker": false,
+                "attackDamage": 24,
+                "attackRange": 66,
+                "attackVerticalRange": 104,
+                "attackDuration": 0.44,
+                "attackHitTime": 0.36,
+                "attackCooldown": 0.12,
+                "attackKnockbackX": 330,
+                "attackKnockbackY": -250,
+                "chaseSpeed": 150,
+                "awarenessRange": 300,
+                "awarenessVerticalRange": 190,
+                "awarenessHoldDuration": 1.2,
+                "attackLungeDistance": 20,
+                "attackLungeSpeed": 180
             }
         }
     }

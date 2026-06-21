@@ -35,7 +35,7 @@ const copyTuningJsonButton = document.getElementById("copy-tuning-json");
 const refreshTuningJsonButton = document.getElementById("refresh-tuning-json");
 const tuningPanel = document.getElementById("tuning");
 
-const GAME_REVISION = "095";
+const GAME_REVISION = "097";
 
 let gameState = createInitialGameState();
 gameState.debug.revision = GAME_REVISION;
@@ -341,8 +341,18 @@ function updateHud() {
     const healthPercent = gameState.health.amount / gameState.health.max * 100;
     fuelFill.style.width = `${fuelPercent.toFixed(1)}%`;
     healthFill.style.width = `${healthPercent.toFixed(1)}%`;
+    healthFill.classList.toggle("regenerating", gameState.health.regenerating === true);
+    healthFill.classList.toggle("recently-damaged", (Number(gameState.health.invulnerabilityTimer) || 0) > 0);
     fuelText.textContent = `${gameState.fuel.amount.toFixed(1)} / ${gameState.fuel.max}  cap ${gameState.fuel.rechargeCap}${gameState.tuning.fuelRechargeRequiresGround !== false ? "  grounded recharge" : ""}`;
-    healthText.textContent = `${gameState.health.amount.toFixed(1)} / ${gameState.health.max}`;
+    const rawLastDamagedAt = gameState.health.lastDamagedAt;
+    const lastDamagedAt = Number(rawLastDamagedAt);
+    const regenWait = rawLastDamagedAt !== null && rawLastDamagedAt !== undefined && Number.isFinite(lastDamagedAt)
+        ? Math.max(0, gameState.tuning.healthRegenDelay - (gameState.clock.time - lastDamagedAt))
+        : 0;
+    const healthStatus = gameState.health.regenerating
+        ? "  regenerating"
+        : (gameState.health.amount < gameState.health.max && regenWait > 0 ? `  regen in ${regenWait.toFixed(1)}s` : "");
+    healthText.textContent = `${gameState.health.amount.toFixed(1)} / ${gameState.health.max}${healthStatus}`;
 }
 
 function updateDebugText() {
@@ -434,6 +444,10 @@ function setupTuningControls() {
         { key: "rocketProjectileHomingStrength", label: "Homing", min: 0, max: 9, step: 0.1 },
         { key: "rocketProjectileSpeed", label: "Rocket speed", min: 180, max: 920, step: 10 },
         { key: "rocketProjectileDamage", label: "Rocket damage", min: 0, max: 200, step: 5 },
+        { key: "hazardContactDamage", label: "Hazard contact damage", min: 0, max: 100, step: 1 },
+        { key: "playerDamageInvulnerabilitySeconds", label: "Damage invulnerability", min: 0, max: 2, step: 0.05 },
+        { key: "healthRegenDelay", label: "Health regen delay", min: 0, max: 15, step: 0.25 },
+        { key: "healthRegenRate", label: "Health regen rate", min: 0, max: 30, step: 0.5 },
         { key: "rocketSmokePuffLifetime", label: "Smoke puff lifetime", min: 0.4, max: 6, step: 0.1 },
         { key: "rocketSmokePuffSpacing", label: "Smoke puff spacing", min: 2, max: 34, step: 1 },
         { key: "rocketSmokePuffScale", label: "Smoke puff scale", min: 0.5, max: 2.5, step: 0.05 },

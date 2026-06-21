@@ -396,7 +396,7 @@
 
     <aside>
         <a class="toplink" href="IgnatiusRocketfrock_JS.html">Back to main</a>
-        <h1>Level Editor <small>rev 095</small></h1>
+        <h1>Level Editor <small>rev 097</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -578,7 +578,11 @@
                 </div>
                 <div class="row">
                     <label>Patrol distance<input id="inspect-enemy-patrol-distance" type="number" min="0" step="8"></label>
-                    <label>Walk speed<input id="inspect-enemy-walk-speed" type="number" min="0" step="1"></label>
+                    <label>Patrol speed<input id="inspect-enemy-walk-speed" type="number" min="0" step="1"></label>
+                </div>
+                <div class="row">
+                    <label>Chase speed<input id="inspect-enemy-chase-speed" type="number" min="0" step="1"></label>
+                    <label>Guard awareness range<input id="inspect-enemy-awareness-range" type="number" min="0" step="8"></label>
                 </div>
                 <div class="row">
                     <label>Initial idle seconds<input id="inspect-enemy-idle-duration" type="number" min="0" step="0.1"></label>
@@ -588,7 +592,12 @@
                     <label>Health<input id="inspect-enemy-health" type="number" min="1" step="5"></label>
                     <label>Visual scale<input id="inspect-enemy-render-scale" type="number" min="0.05" step="0.05"></label>
                 </div>
-                <p class="small">The placement point is the enemy's foot position. Patrol distance is the full left-to-right span centred on that point. Skeletons follow nearby walkable ground and turn around at ledges, walls, and patrol limits.</p>
+                <div class="row">
+                    <label>Attack damage<input id="inspect-enemy-attack-damage" type="number" min="0" step="1"></label>
+                    <label>Attack reach<input id="inspect-enemy-attack-range" type="number" min="1" step="1"></label>
+                </div>
+                <label>Attack cooldown seconds<input id="inspect-enemy-attack-cooldown" type="number" min="0" step="0.05"></label>
+                <p class="small">The placement point is the enemy's foot position. A patroller becomes alert when Ignatius enters its patrol span; a stationary guard uses its awareness range. Alert skeletons rush at chase speed, close to visible sword distance, and chain rapid chops while line of sight remains clear.</p>
             </div>
             <label>Notes<textarea id="inspect-notes"></textarea></label>
             <button id="apply-inspector">Apply</button>
@@ -746,10 +755,15 @@ import {
         inspectEnemyFacing: document.getElementById("inspect-enemy-facing"),
         inspectEnemyPatrolDistance: document.getElementById("inspect-enemy-patrol-distance"),
         inspectEnemyWalkSpeed: document.getElementById("inspect-enemy-walk-speed"),
+        inspectEnemyChaseSpeed: document.getElementById("inspect-enemy-chase-speed"),
+        inspectEnemyAwarenessRange: document.getElementById("inspect-enemy-awareness-range"),
         inspectEnemyIdleDuration: document.getElementById("inspect-enemy-idle-duration"),
         inspectEnemyTurnPause: document.getElementById("inspect-enemy-turn-pause"),
         inspectEnemyHealth: document.getElementById("inspect-enemy-health"),
         inspectEnemyRenderScale: document.getElementById("inspect-enemy-render-scale"),
+        inspectEnemyAttackDamage: document.getElementById("inspect-enemy-attack-damage"),
+        inspectEnemyAttackRange: document.getElementById("inspect-enemy-attack-range"),
+        inspectEnemyAttackCooldown: document.getElementById("inspect-enemy-attack-cooldown"),
         inspectNotes: document.getElementById("inspect-notes"),
         assetSizeRow: document.getElementById("asset-size-row"),
         assetExtraRow: document.getElementById("asset-extra-row"),
@@ -2529,10 +2543,15 @@ import {
             els.inspectEnemyFacing.value = Number(rec.facing) < 0 ? "-1" : "1";
             els.inspectEnemyPatrolDistance.value = Math.max(0, finiteEditorNumber(rec.patrolDistance, 0));
             els.inspectEnemyWalkSpeed.value = Math.max(0, finiteEditorNumber(rec.walkSpeed, 56));
+            els.inspectEnemyChaseSpeed.value = Math.max(0, finiteEditorNumber(rec.chaseSpeed, 150));
+            els.inspectEnemyAwarenessRange.value = Math.max(0, finiteEditorNumber(rec.awarenessRange, 300));
             els.inspectEnemyIdleDuration.value = Math.max(0, finiteEditorNumber(rec.idleDuration, 1.1));
             els.inspectEnemyTurnPause.value = Math.max(0, finiteEditorNumber(rec.turnPause, 0.5));
             els.inspectEnemyHealth.value = Math.max(1, finiteEditorNumber(rec.health, 100));
             els.inspectEnemyRenderScale.value = Math.max(0.05, finiteEditorNumber(rec.renderScale, 0.8));
+            els.inspectEnemyAttackDamage.value = Math.max(0, finiteEditorNumber(rec.attackDamage, 24));
+            els.inspectEnemyAttackRange.value = Math.max(1, finiteEditorNumber(rec.attackRange, 66));
+            els.inspectEnemyAttackCooldown.value = Math.max(0, finiteEditorNumber(rec.attackCooldown, 0.12));
             els.inspectNotes.value = rec.notes || "";
         }
         const isMailboxStory = selected.kind === "entity" && (rec.type === "mailbox" || rec.interaction === "editorLetter");
@@ -2612,10 +2631,24 @@ import {
                 rec.facing = Number(els.inspectEnemyFacing.value) < 0 ? -1 : 1;
                 rec.patrolDistance = Math.max(0, Number(els.inspectEnemyPatrolDistance.value) || 0);
                 rec.walkSpeed = Math.max(0, Number(els.inspectEnemyWalkSpeed.value) || 0);
+                rec.chaseSpeed = Math.max(0, Number(els.inspectEnemyChaseSpeed.value) || 0);
+                rec.awarenessRange = Math.max(0, Number(els.inspectEnemyAwarenessRange.value) || 0);
+                rec.awarenessVerticalRange = Math.max(0, finiteEditorNumber(rec.awarenessVerticalRange, 190));
+                rec.awarenessHoldDuration = Math.max(0, finiteEditorNumber(rec.awarenessHoldDuration, 1.2));
                 rec.idleDuration = Math.max(0, Number(els.inspectEnemyIdleDuration.value) || 0);
                 rec.turnPause = Math.max(0, Number(els.inspectEnemyTurnPause.value) || 0);
                 rec.health = Math.max(1, Number(els.inspectEnemyHealth.value) || 100);
                 rec.renderScale = Math.max(0.05, Number(els.inspectEnemyRenderScale.value) || 0.8);
+                rec.attackDamage = Math.max(0, Number(els.inspectEnemyAttackDamage.value) || 0);
+                rec.attackRange = Math.max(1, Number(els.inspectEnemyAttackRange.value) || 66);
+                rec.attackCooldown = Math.max(0, Number(els.inspectEnemyAttackCooldown.value) || 0);
+                rec.attackVerticalRange = Math.max(1, finiteEditorNumber(rec.attackVerticalRange, 104));
+                rec.attackDuration = Math.max(0.05, finiteEditorNumber(rec.attackDuration, 0.44));
+                rec.attackHitTime = Math.max(0, finiteEditorNumber(rec.attackHitTime, 0.36));
+                rec.attackLungeDistance = Math.max(0, finiteEditorNumber(rec.attackLungeDistance, 20));
+                rec.attackLungeSpeed = Math.max(0, finiteEditorNumber(rec.attackLungeSpeed, 180));
+                rec.attackKnockbackX = Math.max(0, finiteEditorNumber(rec.attackKnockbackX, 330));
+                rec.attackKnockbackY = finiteEditorNumber(rec.attackKnockbackY, -250);
                 rec.groundSnapDistance = Math.max(0, finiteEditorNumber(rec.groundSnapDistance, 96));
                 rec.animationSlot = "idle";
                 rec.state = "idle";
