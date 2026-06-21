@@ -1,0 +1,37 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Explicit enemy catalog for Level Editor placement. Static browser tools cannot enumerate the assets directory, so new enemies are registered here."
+    },
+    "catalogId": "ct_enemies_001",
+    "enemies": {
+        "enemy_001": {
+            "label": "Skeleton Guard",
+            "icon": "☠",
+            "characterId": "ct_char_enemy_001",
+            "defaultSize": {
+                "w": 72,
+                "h": 150
+            },
+            "defaults": {
+                "behavior": "patrol",
+                "facing": -1,
+                "patrolDistance": 260,
+                "walkSpeed": 56,
+                "idleDuration": 1.1,
+                "turnPause": 0.5,
+                "groundSnapDistance": 96,
+                "maxStepHeight": 26,
+                "maxDropDistance": 34,
+                "renderScale": 0.8,
+                "health": 100,
+                "animationSlot": "idle",
+                "targetAnchor": {
+                    "x": 0.5,
+                    "y": 0.4
+                },
+                "showTargetMarker": false
+            }
+        }
+    }
+}
