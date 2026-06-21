@@ -396,7 +396,7 @@
 
     <aside>
         <a class="toplink" href="IgnatiusRocketfrock_JS.html">Back to main</a>
-        <h1>Level Editor <small>rev 093</small></h1>
+        <h1>Level Editor <small>rev 094</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -584,7 +584,10 @@
                     <label>Initial idle seconds<input id="inspect-enemy-idle-duration" type="number" min="0" step="0.1"></label>
                     <label>Turn pause seconds<input id="inspect-enemy-turn-pause" type="number" min="0" step="0.1"></label>
                 </div>
-                <label>Visual scale<input id="inspect-enemy-render-scale" type="number" min="0.05" step="0.05"></label>
+                <div class="row">
+                    <label>Health<input id="inspect-enemy-health" type="number" min="1" step="5"></label>
+                    <label>Visual scale<input id="inspect-enemy-render-scale" type="number" min="0.05" step="0.05"></label>
+                </div>
                 <p class="small">The placement point is the enemy's foot position. Patrol distance is the full left-to-right span centred on that point. Skeletons follow nearby walkable ground and turn around at ledges, walls, and patrol limits.</p>
             </div>
             <label>Notes<textarea id="inspect-notes"></textarea></label>
@@ -745,6 +748,7 @@ import {
         inspectEnemyWalkSpeed: document.getElementById("inspect-enemy-walk-speed"),
         inspectEnemyIdleDuration: document.getElementById("inspect-enemy-idle-duration"),
         inspectEnemyTurnPause: document.getElementById("inspect-enemy-turn-pause"),
+        inspectEnemyHealth: document.getElementById("inspect-enemy-health"),
         inspectEnemyRenderScale: document.getElementById("inspect-enemy-render-scale"),
         inspectNotes: document.getElementById("inspect-notes"),
         assetSizeRow: document.getElementById("asset-size-row"),
@@ -2527,6 +2531,7 @@ import {
             els.inspectEnemyWalkSpeed.value = Math.max(0, finiteEditorNumber(rec.walkSpeed, 56));
             els.inspectEnemyIdleDuration.value = Math.max(0, finiteEditorNumber(rec.idleDuration, 1.1));
             els.inspectEnemyTurnPause.value = Math.max(0, finiteEditorNumber(rec.turnPause, 0.5));
+            els.inspectEnemyHealth.value = Math.max(1, finiteEditorNumber(rec.health, 100));
             els.inspectEnemyRenderScale.value = Math.max(0.05, finiteEditorNumber(rec.renderScale, 0.8));
             els.inspectNotes.value = rec.notes || "";
         }
@@ -2609,6 +2614,7 @@ import {
                 rec.walkSpeed = Math.max(0, Number(els.inspectEnemyWalkSpeed.value) || 0);
                 rec.idleDuration = Math.max(0, Number(els.inspectEnemyIdleDuration.value) || 0);
                 rec.turnPause = Math.max(0, Number(els.inspectEnemyTurnPause.value) || 0);
+                rec.health = Math.max(1, Number(els.inspectEnemyHealth.value) || 100);
                 rec.renderScale = Math.max(0.05, Number(els.inspectEnemyRenderScale.value) || 0.8);
                 rec.groundSnapDistance = Math.max(0, finiteEditorNumber(rec.groundSnapDistance, 96));
                 rec.animationSlot = "idle";

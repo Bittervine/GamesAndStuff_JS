@@ -246,6 +246,8 @@ async function testGenericRuntimeCharacterProject() {
     assert.equal(enemy.characterId, "ct_char_enemy_001", "character enemy should retain its project ID");
     assert.equal(enemy.facing, -1, "character enemy should retain authored facing");
     assert.equal(enemy.animationSlot, "idle", "character enemy should retain authored animation slot");
+    assert.equal(enemy.maxHealth, 100, "character enemy should retain serializable maximum health");
+    assert.equal(enemy.combatState, "alive", "fresh character enemy should begin alive");
 }
 
 function testEnemyCatalogAndLevelEditorIntegration() {
@@ -262,6 +264,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(editorHtml.includes('id="enemy-settings-row"'), "level editor should expose character-enemy behaviour controls");
     assert.ok(editorHtml.includes("drawCharacterEnemyPreview"), "level editor should preview enemies through the generic character renderer");
     assert.ok(editorHtml.includes("snapCharacterEnemyToNearbyGround"), "placed enemies should snap their feet to authored support lines");
+    assert.ok(editorHtml.includes('id="inspect-enemy-health"'), "level editor should expose enemy health authoring");
 
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
     const placed = level.entities.find((entity) => entity.id === "enemy_001_001");
@@ -343,6 +346,144 @@ function testCharacterEnemyPatrolBehavior() {
     const guard = guardState.enemies.find((item) => item.id === "guard_enemy");
     assert.equal(guard.x, 100, "stand-guard behaviour should not move the enemy");
     assert.equal(guard.animationSlot, "idle", "stand-guard behaviour should remain in idle animation");
+}
+
+function addTestRocket(state, overrides = {}) {
+    const projectile = {
+        id: overrides.id || `test_rocket_${state.projectiles.length + 1}`,
+        kind: "homingRocket",
+        state: "launched",
+        x: overrides.x ?? 0,
+        y: overrides.y ?? 50,
+        vx: overrides.vx ?? 12000,
+        vy: overrides.vy ?? 0,
+        targetId: overrides.targetId ?? null,
+        upLaunchTimer: overrides.upLaunchTimer ?? 999,
+        age: 0,
+        lifetime: overrides.lifetime ?? 2,
+        explosionTimer: 0,
+        radius: overrides.radius ?? 6,
+        damage: overrides.damage ?? 55,
+        trail: []
+    };
+    state.projectiles.push(projectile);
+    return projectile;
+}
+
+function testCharacterEnemyRocketCombat() {
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "enemy_combat_test",
+        playerStart: { x: -200, y: 600 },
+        entities: [{
+            id: "combat_guard",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 180,
+            y: 100,
+            w: 72,
+            h: 150,
+            health: 100,
+            behavior: "guard",
+            facing: -1,
+            hurtDuration: 0.48,
+            deathDuration: 1.18
+        }, {
+            id: "reserve_guard",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 520,
+            y: 100,
+            w: 72,
+            h: 150,
+            health: 100,
+            behavior: "guard",
+            facing: -1
+        }]
+    }), true, "enemy combat test level should apply");
+    state.world.solids = [];
+    state.world.segments = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+
+    const enemy = state.enemies.find((item) => item.id === "combat_guard");
+    const target = state.targets.find((item) => item.enemyId === enemy.id);
+    const reserveTarget = state.targets.find((item) => item.enemyId === "reserve_guard");
+    const first = addTestRocket(state, { id: "combat_hit_1" });
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+
+    assert.equal(first.state, "exploding", "rocket should explode on the enemy body");
+    assert.equal(enemy.health, 45, "first rocket should subtract its serialized damage");
+    assert.equal(enemy.maxHealth, 100, "enemy maximum health should remain stable after damage");
+    assert.equal(enemy.combatState, "hurt", "surviving enemy should enter hurt combat state");
+    assert.equal(enemy.animationSlot, "hurt", "surviving Skeleton Guard should play the authored hurt clip");
+    assert.ok(enemy.hitFlashTimer > 0, "enemy hit should start a renderer-facing flash timer");
+    assert.ok(enemy.healthBarTimer > 0, "enemy hit should temporarily reveal its health bar");
+    assert.equal(target.state, "active", "surviving enemy should remain a homing target");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_DAMAGED" && event.enemyId === enemy.id), "damage should emit an enemy event");
+
+    state.projectiles = [];
+    stepMany(state, Math.ceil(enemy.hurtDuration / FIXED_DT) + 2);
+    assert.equal(enemy.combatState, "alive", "enemy should leave hurt state after the authored recoil duration");
+    assert.equal(enemy.animationSlot, "idle", "guard enemy should return to idle after hurt recovery");
+
+    const second = addTestRocket(state, { id: "combat_hit_2" });
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(second.state, "exploding", "lethal rocket should still resolve as an enemy impact");
+    assert.equal(enemy.health, 0, "second rocket should defeat the damaged guard");
+    assert.equal(enemy.combatState, "dead", "lethal damage should enter dead combat state");
+    assert.equal(enemy.animationSlot, "death", "lethal damage should select the authored death clip");
+    assert.equal(enemy.movementPhase, "dead", "defeated guard should stop patrol movement");
+    assert.equal(target.state, "inactive", "defeated enemy should leave the homing target pool");
+    assert.equal(reserveTarget.state, "active", "other living enemies should remain targetable");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_DEFEATED" && event.enemyId === enemy.id), "lethal damage should emit a defeat event");
+
+    state.projectiles = [];
+    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    assert.equal(state.projectiles[0].targetId, reserveTarget.id, "new rockets should retarget the next living enemy");
+
+    const deadX = enemy.x;
+    state.projectiles = [];
+    stepMany(state, 100);
+    assert.equal(enemy.x, deadX, "defeated enemy should remain stationary");
+    assert.equal(enemy.animationSlot, "death", "defeated enemy should remain on its non-looping death presentation");
+}
+
+function testTerrainInterceptsRocketBeforeEnemy() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "enemy_cover_test",
+        playerStart: { x: -200, y: 600 },
+        entities: [{
+            id: "covered_guard",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 210,
+            y: 100,
+            w: 72,
+            h: 150,
+            health: 100,
+            behavior: "guard"
+        }]
+    });
+    state.world.solids = [{ id: "cover_wall", kind: "wall", x: 90, y: -20, w: 20, h: 150 }];
+    state.world.segments = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+
+    const enemy = state.enemies.find((item) => item.id === "covered_guard");
+    const rocket = addTestRocket(state, { id: "cover_test", vx: 15000 });
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+
+    assert.equal(rocket.state, "exploding", "rocket should explode on the nearer wall");
+    assert.equal(enemy.health, 100, "terrain in front of an enemy should absorb the rocket");
+    const impact = state.debug.lastEvents.findLast((event) => event.type === "ROCKET_IMPACTED");
+    assert.equal(impact.reason, "cover_wall", "impact should identify the nearer terrain obstacle");
+    assert.equal(impact.impactKind, "terrain", "impact event should classify terrain interception");
 }
 
 function testEditorDropdownContrast() {
@@ -1576,6 +1717,7 @@ function testPhase1013TuningDefaultsDebugPoseAndFuelBulbFlash() {
     assert.equal(DEFAULT_TUNING.rechargeDelayAfterUse, 1, "Phase 1.015 should bake in the current recharge delay");
     assert.equal(DEFAULT_TUNING.rechargeRate, 52, "Phase 1.015 should bake in the current recharge rate");
     assert.equal(DEFAULT_TUNING.rocketLaunchCost, 30, "Phase 1.015 should bake in the current rocket launch cost");
+    assert.equal(DEFAULT_TUNING.rocketProjectileDamage, 55, "enemy combat should use the current two-hit Skeleton Guard damage");
     assert.equal(DEFAULT_TUNING.groundAcceleration, 950, "Phase 1.015 should bake in the softer ground acceleration");
     assert.equal(DEFAULT_TUNING.groundFriction, 900, "Phase 1.015 should bake in the softer ground friction");
     assert.equal(DEFAULT_TUNING.attachedBoostSmokePuffInterval, 0.035);
@@ -1972,6 +2114,8 @@ const tests = [
     ["generic runtime character project", testGenericRuntimeCharacterProject],
     ["enemy catalog and Level Editor integration", testEnemyCatalogAndLevelEditorIntegration],
     ["simulation-owned character enemy patrol", testCharacterEnemyPatrolBehavior],
+    ["character enemy rocket combat", testCharacterEnemyRocketCombat],
+    ["terrain intercepts rocket before enemy", testTerrainInterceptsRocketBeforeEnemy],
     ["character project workspace", testCharacterProjectWorkspace],
     ["character atlas editor operations", testCharacterAtlasEditorOperations],
     ["numbered enemy_001 authored assets", testNumberedEnemy001Assets],

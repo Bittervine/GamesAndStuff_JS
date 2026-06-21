@@ -35,7 +35,7 @@ const copyTuningJsonButton = document.getElementById("copy-tuning-json");
 const refreshTuningJsonButton = document.getElementById("refresh-tuning-json");
 const tuningPanel = document.getElementById("tuning");
 
-const GAME_REVISION = "093";
+const GAME_REVISION = "094";
 
 let gameState = createInitialGameState();
 gameState.debug.revision = GAME_REVISION;
@@ -433,6 +433,7 @@ function setupTuningControls() {
         { key: "rocketProjectileUpLaunchSeconds", label: "Rocket straight-up time", min: 0, max: 1.0, step: 0.01 },
         { key: "rocketProjectileHomingStrength", label: "Homing", min: 0, max: 9, step: 0.1 },
         { key: "rocketProjectileSpeed", label: "Rocket speed", min: 180, max: 920, step: 10 },
+        { key: "rocketProjectileDamage", label: "Rocket damage", min: 0, max: 200, step: 5 },
         { key: "rocketSmokePuffLifetime", label: "Smoke puff lifetime", min: 0.4, max: 6, step: 0.1 },
         { key: "rocketSmokePuffSpacing", label: "Smoke puff spacing", min: 2, max: 34, step: 1 },
         { key: "rocketSmokePuffScale", label: "Smoke puff scale", min: 0.5, max: 2.5, step: 0.05 },

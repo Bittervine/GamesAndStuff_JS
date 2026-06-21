@@ -61,6 +61,11 @@ export const DEFAULT_TUNING = Object.freeze({
     rocketProjectileLifetime: 4.6,
     rocketProjectileExplosionSeconds: 0.42,
     rocketProjectileImpactRadius: 24,
+    rocketProjectileDamage: 55,
+    enemyHitFlashSeconds: 0.16,
+    enemyHealthBarSeconds: 1.4,
+    enemyDefaultHurtSeconds: 0.48,
+    enemyDefaultDeathSeconds: 1.18,
     rocketImpactSmokePuffs: 24,
     rocketSmokePuffLifetime: 1.5,
     rocketSmokePuffSpacing: 3,
@@ -1395,6 +1400,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         const anchor = entity.targetAnchor && typeof entity.targetAnchor === "object" ? entity.targetAnchor : null;
         const anchorX = clamp(Number(anchor?.x ?? 0.5), 0, 1);
         const anchorY = clamp(Number(anchor?.y ?? (visualized ? 0.52 : 0.5)), 0, 1);
+        const health = Math.max(0, finiteNumberOr(entity.health, 100));
         return {
             id: entity.id || `targetDummy_${index + 1}`,
             kind: "targetDummy",
@@ -1402,8 +1408,13 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             y,
             width,
             height,
-            health: Number(entity.health) || 100,
-            state: "idle",
+            health,
+            maxHealth: health,
+            combatState: health > 0 ? "alive" : "dead",
+            state: health > 0 ? "idle" : "destroyed",
+            hitFlashTimer: 0,
+            hitFlashDuration: state.tuning.enemyHitFlashSeconds,
+            healthBarTimer: 0,
             visualized,
             targetX: x - width * 0.5 + anchorX * width,
             targetY: y - height + anchorY * height,
@@ -1428,6 +1439,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         const behavior = String(entity.behavior || "guard") === "patrol" ? "patrol" : "guard";
         const patrolDistance = Math.max(0, finiteNumberOr(entity.patrolDistance, 0));
         const idleDuration = Math.max(0, finiteNumberOr(entity.idleDuration, 1.1));
+        const health = Math.max(0, finiteNumberOr(entity.health, 100));
         return {
             id: entity.id || `characterEnemy_${index + 1}`,
             kind: "characterEnemy",
@@ -1438,9 +1450,11 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             spawnY: y,
             width,
             height,
-            health: Math.max(0, finiteNumberOr(entity.health, 100)),
-            state: "idle",
-            animationSlot: "idle",
+            health,
+            maxHealth: health,
+            combatState: health > 0 ? "alive" : "dead",
+            state: health > 0 ? "idle" : "death",
+            animationSlot: health > 0 ? "idle" : "death",
             animationTime: Number.isFinite(Number(entity.animationTime)) ? Number(entity.animationTime) : 0,
             animationTimeOffset: Number(entity.animationTimeOffset) || 0,
             facing,
@@ -1454,8 +1468,17 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             maxStepHeight: Math.max(0, finiteNumberOr(entity.maxStepHeight, 26)),
             maxDropDistance: Math.max(0, finiteNumberOr(entity.maxDropDistance, 34)),
             groundSnapDistance: Math.max(0, finiteNumberOr(entity.groundSnapDistance, 96)),
-            movementPhase: behavior === "patrol" && patrolDistance > 0 ? "idle" : "guard",
+            movementPhase: health <= 0 ? "dead" : (behavior === "patrol" && patrolDistance > 0 ? "idle" : "guard"),
             phaseTimer: behavior === "patrol" && patrolDistance > 0 ? idleDuration : 0,
+            hurtDuration: Math.max(FIXED_DT, finiteNumberOr(entity.hurtDuration, state.tuning.enemyDefaultHurtSeconds)),
+            deathDuration: Math.max(FIXED_DT, finiteNumberOr(entity.deathDuration, state.tuning.enemyDefaultDeathSeconds)),
+            hurtTimer: 0,
+            deathTimer: health <= 0 ? Math.max(FIXED_DT, finiteNumberOr(entity.deathDuration, state.tuning.enemyDefaultDeathSeconds)) : 0,
+            hitFlashTimer: 0,
+            hitFlashDuration: state.tuning.enemyHitFlashSeconds,
+            healthBarTimer: 0,
+            lastDamagedAt: null,
+            lastHitBy: null,
             renderScale: Math.max(0.05, Number(entity.renderScale) || 1),
             visualized: false,
             targetAnchorX: anchorX,
@@ -1487,7 +1510,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         x: enemy.targetX,
         y: enemy.targetY,
         radius: enemy.targetRadius,
-        state: "active",
+        state: enemy.health > 0 ? "active" : "inactive",
         showMarker: enemy.showTargetMarker
     })) : [
         { id: "homing_dot", kind: "debugHomingDot", x: state.player.x + 520, y: state.player.y - 160, radius: 15, state: "active", showMarker: true }
@@ -1740,16 +1763,45 @@ function pauseAndTurnCharacterEnemy(enemy) {
 
 function updateCharacterEnemies(state, dt) {
     for (const enemy of state.enemies || []) {
+        enemy.hitFlashTimer = Math.max(0, (Number(enemy.hitFlashTimer) || 0) - dt);
+        enemy.healthBarTimer = Math.max(0, (Number(enemy.healthBarTimer) || 0) - dt);
+
         if (!isCharacterEnemyState(enemy)) {
+            if (enemy.health <= 0) {
+                enemy.combatState = "dead";
+                enemy.state = "destroyed";
+            } else if (enemy.state === "hurt" && enemy.hitFlashTimer <= 0) {
+                enemy.combatState = "alive";
+                enemy.state = "idle";
+            }
             continue;
         }
+
         enemy.animationTime = Math.max(0, Number(enemy.animationTime) || 0) + dt;
-        if (enemy.health <= 0) {
+        if (enemy.health <= 0 || enemy.combatState === "dead") {
+            enemy.health = 0;
+            enemy.combatState = "dead";
             enemy.movementPhase = "dead";
+            enemy.deathTimer = Math.max(0, (Number(enemy.deathTimer) || 0) - dt);
             setCharacterEnemyAnimation(enemy, "death");
             syncCharacterEnemyTarget(state, enemy);
             continue;
         }
+
+        if ((Number(enemy.hurtTimer) || 0) > 0) {
+            enemy.hurtTimer = Math.max(0, enemy.hurtTimer - dt);
+            enemy.combatState = "hurt";
+            enemy.movementPhase = "hurt";
+            setCharacterEnemyAnimation(enemy, "hurt");
+            syncCharacterEnemyTarget(state, enemy);
+            continue;
+        }
+        if (enemy.combatState === "hurt") {
+            enemy.combatState = "alive";
+            enemy.movementPhase = "idle";
+            enemy.phaseTimer = Math.max(Number(enemy.phaseTimer) || 0, Math.min(0.18, Number(enemy.turnPause) || 0));
+        }
+
         if (enemy.behavior !== "patrol" || enemy.patrolDistance <= 0 || enemy.walkSpeed <= 0) {
             enemy.movementPhase = "guard";
             setCharacterEnemyAnimation(enemy, "idle");
@@ -2071,6 +2123,7 @@ function launchHomingRocket(state, input) {
         lifetime: t.rocketProjectileLifetime,
         explosionTimer: 0,
         radius: 15,
+        damage: Math.max(0, t.rocketProjectileDamage ?? 55),
         trail: [
             { x: p.x, y: p.y - p.height * 0.72, time: state.clock.time }
         ]
@@ -2118,10 +2171,6 @@ function updateProjectiles(state, dt) {
             const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
             projectile.vx = projectile.vx / speed * t.rocketProjectileSpeed;
             projectile.vy = projectile.vy / speed * t.rocketProjectileSpeed;
-            if (distance(projectile, target) <= (target.radius || t.rocketProjectileImpactRadius) + projectile.radius) {
-                explodeProjectile(state, projectile, "target");
-                continue;
-            }
         }
 
         const previousX = projectile.x;
@@ -2130,11 +2179,26 @@ function updateProjectiles(state, dt) {
         projectile.y += projectile.vy * dt;
         recordProjectileTrail(state, projectile);
 
+        const enemyImpact = findProjectileEnemyImpact(state, projectile, previousX, previousY);
         const terrainImpact = findProjectileTerrainImpact(state, projectile, previousX, previousY);
+        const hitEnemyFirst = enemyImpact && (!terrainImpact || enemyImpact.t <= terrainImpact.t);
+        if (hitEnemyFirst) {
+            projectile.x = enemyImpact.x;
+            projectile.y = enemyImpact.y;
+            const damageResult = applyProjectileDamageToEnemy(state, projectile, enemyImpact.enemy);
+            explodeProjectile(state, projectile, enemyImpact.enemy.id, {
+                impactKind: "enemy",
+                enemyId: enemyImpact.enemy.id,
+                damage: damageResult.damage,
+                health: damageResult.health,
+                defeated: damageResult.defeated
+            });
+            continue;
+        }
         if (terrainImpact) {
             projectile.x = terrainImpact.x;
             projectile.y = terrainImpact.y;
-            explodeProjectile(state, projectile, terrainImpact.id);
+            explodeProjectile(state, projectile, terrainImpact.id, { impactKind: "terrain" });
             continue;
         }
 
@@ -2298,7 +2362,7 @@ function updateWorldEffects(state, dt) {
     state.effects.smokePuffs = state.effects.smokePuffs.filter((puff) => puff.age < puff.lifetime);
 }
 
-function explodeProjectile(state, projectile, reason) {
+function explodeProjectile(state, projectile, reason, detail = {}) {
     if (projectile.state === "exploding" || projectile.state === "spent") {
         return;
     }
@@ -2307,7 +2371,13 @@ function explodeProjectile(state, projectile, reason) {
     projectile.vx = 0;
     projectile.vy = 0;
     projectile.explosionTimer = state.tuning.rocketProjectileExplosionSeconds;
-    addEvent(state, "ROCKET_IMPACTED", { id: projectile.id, reason, x: round(projectile.x), y: round(projectile.y) });
+    addEvent(state, "ROCKET_IMPACTED", {
+        id: projectile.id,
+        reason,
+        x: round(projectile.x),
+        y: round(projectile.y),
+        ...detail
+    });
 }
 
 function emitProjectileImpactSmoke(state, projectile) {
@@ -2363,6 +2433,95 @@ function circleRectOverlap(cx, cy, radius, rect) {
     const closestX = clamp(cx, rect.x, rect.x + rect.w);
     const closestY = clamp(cy, rect.y, rect.y + rect.h);
     return Math.hypot(cx - closestX, cy - closestY) <= radius;
+}
+
+function enemyCollisionRect(enemy) {
+    const width = Math.max(1, Number(enemy.width) || 1);
+    const height = Math.max(1, Number(enemy.height) || 1);
+    const insetXFactor = enemy.kind === "characterEnemy" ? 0.08 : 0;
+    const insetTopFactor = enemy.kind === "characterEnemy" ? 0.04 : 0;
+    const insetX = width * insetXFactor;
+    const insetTop = height * insetTopFactor;
+    return {
+        x: enemy.x - width * 0.5 + insetX,
+        y: enemy.y - height + insetTop,
+        w: Math.max(1, width - insetX * 2),
+        h: Math.max(1, height - insetTop)
+    };
+}
+
+function findProjectileEnemyImpact(state, projectile, previousX, previousY) {
+    const start = { x: previousX, y: previousY };
+    const end = { x: projectile.x, y: projectile.y };
+    const radius = Math.max(0, projectile.radius || 0);
+    let best = null;
+
+    for (const enemy of state.enemies || []) {
+        if (!enemy || enemy.health <= 0 || enemy.combatState === "dead") {
+            continue;
+        }
+        const hit = sweptCircleRectImpact(start, end, radius, enemyCollisionRect(enemy));
+        if (!hit || (best && hit.t >= best.t)) {
+            continue;
+        }
+        best = {
+            t: hit.t,
+            x: hit.x,
+            y: hit.y,
+            enemy
+        };
+    }
+    return best;
+}
+
+function applyProjectileDamageToEnemy(state, projectile, enemy) {
+    const before = Math.max(0, Number(enemy.health) || 0);
+    const requestedDamage = Math.max(0, Number(projectile.damage ?? state.tuning.rocketProjectileDamage) || 0);
+    const damage = Math.min(before, requestedDamage);
+    enemy.maxHealth = Math.max(before, Number(enemy.maxHealth) || before);
+    enemy.health = Math.max(0, before - requestedDamage);
+    enemy.lastDamagedAt = state.clock.time;
+    enemy.lastHitBy = projectile.id;
+    enemy.hitFlashDuration = Math.max(FIXED_DT, Number(enemy.hitFlashDuration) || state.tuning.enemyHitFlashSeconds || 0.16);
+    enemy.hitFlashTimer = enemy.hitFlashDuration;
+    enemy.healthBarTimer = Math.max(0, state.tuning.enemyHealthBarSeconds ?? 1.4);
+
+    const defeated = enemy.health <= 0;
+    if (defeated) {
+        enemy.health = 0;
+        enemy.combatState = "dead";
+        enemy.state = isCharacterEnemyState(enemy) ? "death" : "destroyed";
+        enemy.movementPhase = "dead";
+        enemy.hurtTimer = 0;
+        enemy.deathTimer = Math.max(FIXED_DT, Number(enemy.deathDuration) || state.tuning.enemyDefaultDeathSeconds || 1.18);
+        if (isCharacterEnemyState(enemy)) {
+            setCharacterEnemyAnimation(enemy, "death");
+        }
+    } else {
+        enemy.combatState = "hurt";
+        enemy.state = "hurt";
+        if (isCharacterEnemyState(enemy)) {
+            enemy.hurtTimer = Math.max(FIXED_DT, Number(enemy.hurtDuration) || state.tuning.enemyDefaultHurtSeconds || 0.48);
+            enemy.movementPhase = "hurt";
+            setCharacterEnemyAnimation(enemy, "hurt");
+        }
+    }
+
+    const target = (state.targets || []).find((item) => item.enemyId === enemy.id);
+    if (target) {
+        target.state = defeated ? "inactive" : "active";
+        target.x = enemy.targetX ?? target.x;
+        target.y = enemy.targetY ?? target.y;
+    }
+
+    addEvent(state, defeated ? "ENEMY_DEFEATED" : "ENEMY_DAMAGED", {
+        enemyId: enemy.id,
+        projectileId: projectile.id,
+        damage: round(damage),
+        health: round(enemy.health),
+        maxHealth: round(enemy.maxHealth)
+    });
+    return { damage, health: enemy.health, defeated };
 }
 
 function findProjectileTerrainImpact(state, projectile, previousX, previousY) {

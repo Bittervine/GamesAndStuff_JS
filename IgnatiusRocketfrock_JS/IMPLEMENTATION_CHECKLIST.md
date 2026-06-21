@@ -324,12 +324,12 @@ Goal: make rockets and future weapons interact with enemies and world objects.
 
 ### Combat
 
-* [ ] Add monster health and hurt/death state to `gameState`.
-* [ ] Add projectile collision with monsters.
+* [x] Add monster health and hurt/death state to `gameState`.
+* [x] Add projectile collision with monsters.
 * [ ] Add projectile collision with terrain and destructible objects.
 * [ ] Add player damage from hazards and enemies.
 * [ ] Add health regeneration delay and feedback.
-* [ ] Add hit flash and impact feedback.
+* [x] Add hit flash and impact feedback.
 
 ### Destructible and Reactive Objects
 
@@ -347,7 +347,7 @@ Goal: make rockets and future weapons interact with enemies and world objects.
 
 ### Phase 4 Completion
 
-* [ ] Ignatius can damage enemies.
+* [x] Ignatius can damage enemies.
 * [ ] Ignatius can damage or alter reactive world objects.
 * [ ] Destructible and reactive changes are serialized in `gameState`.
 * [ ] Rocket impacts no longer pass through gameplay-relevant objects.
@@ -582,3 +582,16 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Place the first Skeleton Guard patrol in `level_001`.
 * [x] Add headless coverage for catalog/editor integration, patrol movement, turning, target synchronization, and stand-guard behaviour.
 
+
+
+### Revision 094 enemy rocket combat
+
+* [x] Give placed enemies serializable current/max health and explicit alive, hurt, and dead combat state.
+* [x] Store rocket damage on each launched projectile.
+* [x] Sweep rockets against enemy bodies so fast projectiles cannot tunnel through them.
+* [x] Resolve the earliest enemy or terrain hit so walls shield enemies.
+* [x] Select the authored hurt clip for surviving Skeleton Guards and pause patrol movement during recoil.
+* [x] Select the authored non-looping death clip, stop movement, and deactivate defeated homing targets.
+* [x] Add simulation-timed hit flash and temporary health-bar feedback.
+* [x] Expose enemy health in the Level Editor inspector.
+* [x] Add headless regression coverage for damage, hurt recovery, death, retargeting, and terrain interception.

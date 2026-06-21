@@ -651,10 +651,13 @@ class RocketfrockRenderer {
                 this.drawRuntimeCharacterEnemy(characterProject, enemy, state, view);
                 continue;
             }
+            if (enemy.health <= 0) {
+                continue;
+            }
 
             const p = this.worldToScreen(view, enemy.x - enemy.width / 2, enemy.y - enemy.height);
             ctx.save();
-            ctx.fillStyle = "rgba(202, 135, 255, 0.62)";
+            ctx.fillStyle = enemy.hitFlashTimer > 0 ? "rgba(255, 246, 214, 0.92)" : "rgba(202, 135, 255, 0.62)";
             ctx.strokeStyle = "rgba(255, 255, 255, 0.22)";
             ctx.lineWidth = 2 * view.zoom;
             ctx.beginPath();
@@ -667,6 +670,7 @@ class RocketfrockRenderer {
             ctx.arc(p.x + enemy.width * view.zoom * 0.62, p.y + enemy.height * view.zoom * 0.35, 3 * view.zoom, 0, Math.PI * 2);
             ctx.fill();
             ctx.restore();
+            this.drawEnemyHealthBar(enemy, view, 1);
         }
     }
 
@@ -705,15 +709,45 @@ class RocketfrockRenderer {
 
         this.drawShadow(screen.x, screen.y, view.zoom * actorScale * 0.72);
         const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+        const flashDuration = Math.max(0.001, Number(enemy.hitFlashDuration) || state.tuning.enemyHitFlashSeconds || 0.16);
+        const flash = clamp((Number(enemy.hitFlashTimer) || 0) / flashDuration, 0, 1);
+        this.ctx.save();
+        if (flash > 0) {
+            this.ctx.filter = `brightness(${1 + flash * 1.9}) saturate(${1 - flash * 0.72})`;
+        }
         this.drawCharacterProjectPose(project, screen.x, screen.y, facing, transforms, bounds, {
             alpha: enemy.health <= 0 ? 0.72 : 1
         });
+        this.ctx.restore();
+        this.drawEnemyHealthBar(enemy, view, actorScale);
         this.lastCharacterDraws.push({
             actorId: enemy.id,
             characterId: project.characterId,
             animationSlot: sampled.slot,
             bounds: Number.isFinite(bounds.minX) ? { ...bounds } : null
         });
+    }
+
+    drawEnemyHealthBar(enemy, view, actorScale = 1) {
+        const maxHealth = Math.max(0, Number(enemy.maxHealth) || 0);
+        const health = clamp(Number(enemy.health) || 0, 0, maxHealth || 1);
+        if (health <= 0 || maxHealth <= 0 || health >= maxHealth || (Number(enemy.healthBarTimer) || 0) <= 0) {
+            return;
+        }
+
+        const ctx = this.ctx;
+        const center = this.worldToScreen(view, enemy.x, enemy.y - enemy.height - 10 / Math.max(0.05, actorScale));
+        const width = Math.max(34, Math.min(74, enemy.width * Math.max(0.75, actorScale))) * view.zoom;
+        const height = 6 * view.zoom;
+        const ratio = health / maxHealth;
+        ctx.save();
+        ctx.fillStyle = "rgba(14, 10, 22, 0.78)";
+        ctx.fillRect(center.x - width * 0.5 - view.zoom, center.y - view.zoom, width + view.zoom * 2, height + view.zoom * 2);
+        ctx.fillStyle = "rgba(92, 36, 52, 0.92)";
+        ctx.fillRect(center.x - width * 0.5, center.y, width, height);
+        ctx.fillStyle = "rgba(245, 202, 86, 0.96)";
+        ctx.fillRect(center.x - width * 0.5, center.y, width * ratio, height);
+        ctx.restore();
     }
 
     drawWorldEffects(state, view) {
