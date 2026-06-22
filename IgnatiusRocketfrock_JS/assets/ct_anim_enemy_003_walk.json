@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 4,
-        "note": "Musket Goblin walk. Based directly on the user-authored Enemy 002 animation with the closed front arm kept visible, the open casting arm hidden, and the musket attached as a separate held weapon."
+        "version": 5,
+        "note": "Musket Goblin walk. Based directly on the user-authored Enemy 002 animation with the closed front arm kept visible, the open casting arm hidden, and the musket attached as a separate held weapon. Revision 113 applies the one-time +52 rig-space Y normalization so local y=0 matches the runtime ground."
     },
     "animationId": "ct_anim_enemy_003_walk",
     "duration": 0.8,
@@ -10,63 +10,63 @@
     "referencePose": {
         "rightLeg": {
             "x": -21.40066810759692,
-            "y": -181.67350945803452,
+            "y": -129.67350945803452,
             "rotation": -0.4211052855081367,
             "scale": 1,
             "alpha": 1
         },
         "rightArm": {
             "x": -35.98026207912,
-            "y": -267.9566949919054,
+            "y": -215.9566949919054,
             "rotation": 1.2300818500481683,
             "scale": 1,
             "alpha": 1
         },
         "torso": {
             "x": 0,
-            "y": -162,
+            "y": -110.0,
             "rotation": -0.018,
             "scale": 1,
             "alpha": 1
         },
         "head": {
             "x": -22.187678143899525,
-            "y": -273.4757046898062,
+            "y": -221.4757046898062,
             "rotation": -0.018,
             "scale": 1,
             "alpha": 1
         },
         "leftLeg": {
             "x": -0.3361009425047873,
-            "y": -189.70037937065834,
+            "y": -137.70037937065834,
             "rotation": 0.11200000000000002,
             "scale": 1,
             "alpha": 1
         },
         "leftArm": {
             "x": 16.169183509547675,
-            "y": -275.29294286090726,
+            "y": -223.29294286090726,
             "rotation": 1.3157356564965406,
             "scale": 1,
             "alpha": 0
         },
         "leftArmClosed": {
             "x": 34.349254369900926,
-            "y": -274.0644299776148,
+            "y": -222.0644299776148,
             "rotation": 1.037545251047716,
             "scale": 0.5,
             "alpha": 1
         },
         "weapon": {
             "x": 103.75905655419429,
-            "y": -231.87888223908215,
+            "y": -179.87888223908215,
             "rotation": -0.018,
             "scale": 1,
             "alpha": 1
         },
         "cannonball": {
             "x": 0,
-            "y": 0,
+            "y": 52.0,
             "rotation": 0,
             "scale": 1,
             "alpha": 1
@@ -94,17 +94,17 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -172.30452695593405,
+                    "value": -120.30452695593405,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.4015710813830432,
-                    "value": -173.06206504175182,
+                    "value": -121.06206504175182,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6007855594203962,
-                    "value": -187.09767579331796,
+                    "value": -135.09767579331796,
                     "easing": "easeInOut"
                 }
             ],
@@ -152,22 +152,22 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -267.9566949919054,
+                    "value": -215.9566949919054,
                     "easing": "linear"
                 },
                 {
                     "time": 0.2,
-                    "value": -272.0861399635353,
+                    "value": -220.0861399635353,
                     "easing": "linear"
                 },
                 {
                     "time": 0.4,
-                    "value": -269.1830521389634,
+                    "value": -217.18305213896338,
                     "easing": "linear"
                 },
                 {
                     "time": 0.6,
-                    "value": -271.0641588114618,
+                    "value": -219.06415881146182,
                     "easing": "linear"
                 }
             ],
@@ -220,22 +220,22 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -162,
+                    "value": -110.0,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.2,
-                    "value": -165,
+                    "value": -113.0,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.4,
-                    "value": -162,
+                    "value": -110.0,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": -165,
+                    "value": -113.0,
                     "easing": "easeInOut"
                 }
             ],
@@ -288,22 +288,22 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -270.3540644431647,
+                    "value": -218.3540644431647,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.2,
-                    "value": -272.75525710420374,
+                    "value": -220.75525710420374,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.4,
-                    "value": -270.5986137779325,
+                    "value": -218.59861377793248,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": -272.0822604755667,
+                    "value": -220.08226047556673,
                     "easing": "easeInOut"
                 }
             ],
@@ -351,17 +351,17 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -178.16933455734767,
+                    "value": -126.16933455734767,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.20047132186778602,
-                    "value": -196.48675590803822,
+                    "value": -144.48675590803822,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.39465828673889003,
-                    "value": -184.5452713116993,
+                    "value": -132.5452713116993,
                     "easing": "easeInOut"
                 }
             ],
@@ -409,22 +409,22 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -275.29294286090726,
+                    "value": -223.29294286090726,
                     "easing": "linear"
                 },
                 {
                     "time": 0.2,
-                    "value": -277.6977742357394,
+                    "value": -225.69777423573942,
                     "easing": "linear"
                 },
                 {
                     "time": 0.4,
-                    "value": -274.6375720793643,
+                    "value": -222.6375720793643,
                     "easing": "linear"
                 },
                 {
                     "time": 0.6,
-                    "value": -278.24392556527937,
+                    "value": -226.24392556527937,
                     "easing": "linear"
                 }
             ],
@@ -484,22 +484,22 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -274.0644299776148,
+                    "value": -222.0644299776148,
                     "easing": "linear"
                 },
                 {
                     "time": 0.2,
-                    "value": -275.87009676222306,
+                    "value": -223.87009676222306,
                     "easing": "linear"
                 },
                 {
                     "time": 0.4,
-                    "value": -272.7555139945456,
+                    "value": -220.7555139945456,
                     "easing": "linear"
                 },
                 {
                     "time": 0.6,
-                    "value": -276.96087807951994,
+                    "value": -224.96087807951994,
                     "easing": "linear"
                 }
             ],
@@ -566,22 +566,22 @@
             "y": [
                 {
                     "time": 0.005027493688219436,
-                    "value": -133.8652075167954,
+                    "value": -81.86520751679541,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.20047132186778602,
-                    "value": -134.40365200664354,
+                    "value": -82.40365200664354,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.40785544886789493,
-                    "value": -134.39919692970375,
+                    "value": -82.39919692970375,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": -134.67079329873022,
+                    "value": -82.67079329873022,
                     "easing": "easeInOut"
                 }
             ],
@@ -626,7 +626,7 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -374.03774206334487,
+                    "value": -322.03774206334487,
                     "easing": "linear"
                 }
             ],
@@ -663,7 +663,7 @@
             "y": [
                 {
                     "time": 0.16669999999999568,
-                    "value": -647.8506481197209,
+                    "value": -595.8506481197209,
                     "easing": "step"
                 }
             ],

@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 3,
-        "note": "Revision 108 hurt reaction preserves the corrected shoulder and hip attachment points while the body recoils as a connected mass."
+        "version": 4,
+        "note": "Revision 108 hurt reaction preserves the corrected shoulder and hip attachment points while the body recoils as a connected mass. Revision 113 applies the one-time +52 rig-space Y normalization so local y=0 matches the runtime ground."
     },
     "animationId": "ct_anim_enemy_002_hurt",
     "duration": 0.48,
@@ -10,56 +10,56 @@
     "referencePose": {
         "rightLeg": {
             "x": -21.043097245065788,
-            "y": -182.05551366037764,
+            "y": -130.05551366037764,
             "rotation": -0.2831052855081367,
             "scale": 1,
             "alpha": 1
         },
         "rightArm": {
             "x": -34.067315912423965,
-            "y": -268.58714021594227,
+            "y": -216.58714021594227,
             "rotation": 1.1480818500481682,
             "scale": 1,
             "alpha": 1
         },
         "torso": {
             "x": 0,
-            "y": -162,
+            "y": -110.0,
             "rotation": 0,
             "scale": 1,
             "alpha": 1
         },
         "head": {
             "x": -20.17762950530119,
-            "y": -273.85700275375234,
+            "y": -221.85700275375234,
             "rotation": -0.012,
             "scale": 1,
             "alpha": 1
         },
         "leftLeg": {
             "x": 0.16253340871708843,
-            "y": -189.7019415206407,
+            "y": -137.7019415206407,
             "rotation": -0.04,
             "scale": 1,
             "alpha": 1
         },
         "leftArm": {
             "x": 18.205727025082183,
-            "y": -274.9835603127217,
+            "y": -222.9835603127217,
             "rotation": 1.3337356564965406,
             "scale": 1,
             "alpha": 0
         },
         "leftArmClosed": {
             "x": 36.36074075567074,
-            "y": -273.4280228383991,
+            "y": -221.4280228383991,
             "rotation": 1.1555452510477162,
             "scale": 0.5,
             "alpha": 1
         },
         "weapon": {
             "x": -508.58849776418583,
-            "y": -329.44804747296234,
+            "y": -277.44804747296234,
             "rotation": 0,
             "scale": 1,
             "alpha": 0
@@ -87,17 +87,17 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -182.05551366037764,
+                    "value": -130.05551366037764,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.26,
-                    "value": -181.08216600984744,
+                    "value": -129.08216600984744,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.48,
-                    "value": -182.05551366037764,
+                    "value": -130.05551366037764,
                     "easing": "easeInOut"
                 }
             ],
@@ -135,12 +135,12 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -268.58714021594227,
+                    "value": -216.58714021594227,
                     "easing": "linear"
                 },
                 {
                     "time": 0.475852,
-                    "value": -268.58714021594227,
+                    "value": -216.58714021594227,
                     "easing": "linear"
                 }
             ],
@@ -178,12 +178,12 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -162,
+                    "value": -110.0,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.4758523169206062,
-                    "value": -162,
+                    "value": -110.0,
                     "easing": "easeInOut"
                 }
             ],
@@ -221,17 +221,17 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -273.85700275375234,
+                    "value": -221.85700275375234,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.20021995040474147,
-                    "value": -252.92602015454435,
+                    "value": -200.92602015454435,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.39968576574367176,
-                    "value": -264.5394673624363,
+                    "value": -212.5394673624363,
                     "easing": "easeInOut"
                 }
             ],
@@ -274,17 +274,17 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -189.7019415206407,
+                    "value": -137.7019415206407,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.26,
-                    "value": -187.65919802243963,
+                    "value": -135.65919802243963,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.48,
-                    "value": -189.7019415206407,
+                    "value": -137.7019415206407,
                     "easing": "easeInOut"
                 }
             ],
@@ -322,12 +322,12 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -274.9835603127217,
+                    "value": -222.9835603127217,
                     "easing": "linear"
                 },
                 {
                     "time": 0.475852,
-                    "value": -274.9835603127217,
+                    "value": -222.9835603127217,
                     "easing": "linear"
                 }
             ],
@@ -370,12 +370,12 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -273.4280228383991,
+                    "value": -221.4280228383991,
                     "easing": "linear"
                 },
                 {
                     "time": 0.475852,
-                    "value": -273.4280228383991,
+                    "value": -221.4280228383991,
                     "easing": "linear"
                 }
             ],
@@ -415,7 +415,7 @@
             "y": [
                 {
                     "time": 0.123,
-                    "value": -609.1315436689547,
+                    "value": -557.1315436689547,
                     "easing": "easeInOut"
                 }
             ],
@@ -438,7 +438,7 @@
             "y": [
                 {
                     "time": 0.48,
-                    "value": -446.6165413533835,
+                    "value": -394.6165413533835,
                     "easing": "linear"
                 }
             ],

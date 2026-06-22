@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 4,
-        "note": "Musket Goblin rebuilt from the user-authored Fireball Goblin motions. The front arm stays as the closed-hand variant, the musket remains attached, and the attack clip includes a spawned cannonball projectile sprite cue."
+        "version": 6,
+        "note": "Musket Goblin rebuilt from the user-authored Fireball Goblin motions. The front arm stays as the closed-hand variant, the musket remains attached, and the attack clip includes a spawned cannonball projectile sprite cue. Revision 112 selects the active animation-authored projectile part for this character variant. Revision 113 bakes the goblin ground correction into authored setup coordinates."
     },
     "characterId": "ct_char_enemy_003",
     "displayName": "Musket Goblin",
@@ -13,7 +13,7 @@
             "frame": "rightArmClosed",
             "offset": {
                 "x": 22,
-                "y": -257
+                "y": -205.0
             },
             "targetHeight": 110
         },
@@ -21,7 +21,7 @@
             "frame": "musket",
             "offset": {
                 "x": 105,
-                "y": -230
+                "y": -178.0
             },
             "targetHeight": 78,
             "alpha": 1
@@ -43,5 +43,6 @@
         "attack": "ct_anim_enemy_003_attack.json",
         "hurt": "ct_anim_enemy_003_hurt.json",
         "death": "ct_anim_enemy_003_death.json"
-    }
+    },
+    "projectilePart": "cannonball"
 }

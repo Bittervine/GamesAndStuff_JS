@@ -72,6 +72,8 @@ export const DEFAULT_TUNING = Object.freeze({
     enemyHealthBarSeconds: 1.4,
     enemyDefaultHurtSeconds: 0.48,
     enemyDefaultDeathSeconds: 1.18,
+    enemyCorpseHoldSeconds: 2,
+    enemyCorpseFadeSeconds: 3,
     enemyDefaultChaseSpeed: 150,
     enemyDefaultAwarenessRange: 300,
     enemyDefaultAwarenessVerticalRange: 190,
@@ -1599,6 +1601,13 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             preferredAttackRange: Math.max(0, finiteNumberOr(entity.preferredAttackRange, state.tuning.enemyDefaultPreferredAttackRange)),
             preferredAttackMinRange: Math.max(0, finiteNumberOr(entity.preferredAttackMinRange, Math.min((Number(entity.attackRange) || state.tuning.enemyDefaultAttackRange) * 0.45, state.tuning.enemyDefaultPreferredAttackRange * 0.6))),
             projectileKind: String(entity.projectileKind || state.tuning.enemyDefaultProjectileKind || "fireball"),
+            projectileLaunchType: String(entity.projectileLaunchType || ""),
+            projectileReleaseTime: Math.max(0, finiteNumberOr(entity.projectileReleaseTime, entity.attackHitTime ?? state.tuning.enemyDefaultAttackHitTime)),
+            projectilePartName: entity.projectilePartName ? String(entity.projectilePartName) : null,
+            projectileFrameId: entity.projectileFrameId ? String(entity.projectileFrameId) : null,
+            projectileOriginLocalX: Number.isFinite(Number(entity.projectileOriginLocalX)) ? Number(entity.projectileOriginLocalX) : null,
+            projectileOriginLocalY: Number.isFinite(Number(entity.projectileOriginLocalY)) ? Number(entity.projectileOriginLocalY) : null,
+            projectileRigScale: Math.max(0.0001, finiteNumberOr(entity.projectileRigScale, 1)),
             projectileSpeed: Math.max(1, finiteNumberOr(entity.projectileSpeed, state.tuning.enemyDefaultProjectileSpeed)),
             projectileGravity: finiteNumberOr(entity.projectileGravity, state.tuning.enemyDefaultProjectileGravity),
             projectileLifetime: Math.max(FIXED_DT, finiteNumberOr(entity.projectileLifetime, state.tuning.enemyDefaultProjectileLifetime)),
@@ -1618,6 +1627,10 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             attackHitApplied: false,
             hurtTimer: 0,
             deathTimer: health <= 0 ? Math.max(FIXED_DT, finiteNumberOr(entity.deathDuration, state.tuning.enemyDefaultDeathSeconds)) : 0,
+            deathElapsed: 0,
+            corpseHoldDuration: Math.max(0, finiteNumberOr(entity.corpseHoldDuration, state.tuning.enemyCorpseHoldSeconds)),
+            corpseFadeDuration: Math.max(0, finiteNumberOr(entity.corpseFadeDuration, state.tuning.enemyCorpseFadeSeconds)),
+            renderOpacity: 1,
             hitFlashTimer: 0,
             hitFlashDuration: state.tuning.enemyHitFlashSeconds,
             healthBarTimer: 0,
@@ -1709,6 +1722,50 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     state.story.levelTitle = source.title || source.levelTitle || "Ignatius Rocketfrock and the Loaded Level of Reasonable Expectations";
     addEvent(state, "EDITOR_LEVEL_APPLIED", { placements: visuals.length, entities: entities.length });
     return true;
+}
+
+export function applyCharacterCombatProfiles(state, profiles) {
+    const profileMap = profiles instanceof Map
+        ? profiles
+        : new Map(Object.entries(profiles && typeof profiles === "object" ? profiles : {}));
+    let applied = 0;
+
+    for (const enemy of state.enemies || []) {
+        if (!isCharacterEnemyState(enemy)) {
+            continue;
+        }
+        const profile = profileMap.get(enemy.characterId);
+        if (!profile || typeof profile !== "object") {
+            continue;
+        }
+        const projectiles = Array.isArray(profile.projectiles) ? profile.projectiles : [];
+        const projectile = projectiles.find((item) => String(item?.animationSlot || "attack") === "attack") || projectiles[0];
+        if (!projectile) {
+            continue;
+        }
+        const releaseTime = Math.max(0, finiteNumberOr(projectile.releaseTime, enemy.attackHitTime));
+        enemy.attackMode = "projectile";
+        enemy.attackDuration = Math.max(
+            FIXED_DT,
+            releaseTime + FIXED_DT,
+            finiteNumberOr(profile.attackDuration, enemy.attackDuration)
+        );
+        enemy.attackHitTime = releaseTime;
+        enemy.projectileReleaseTime = releaseTime;
+        enemy.projectileLaunchType = String(projectile.launchType || enemy.projectileLaunchType || "straight");
+        enemy.projectilePartName = projectile.partName ? String(projectile.partName) : enemy.projectilePartName;
+        enemy.projectileFrameId = projectile.frameId ? String(projectile.frameId) : enemy.projectileFrameId;
+        enemy.projectileKind = String(projectile.projectileKind || enemy.projectileKind || "fireball");
+        enemy.projectileOriginLocalX = finiteNumberOr(projectile.localX, enemy.projectileOriginLocalX);
+        enemy.projectileOriginLocalY = finiteNumberOr(projectile.localY, enemy.projectileOriginLocalY);
+        enemy.projectileRigScale = Math.max(0.0001, finiteNumberOr(projectile.rigScale, enemy.projectileRigScale));
+        applied += 1;
+    }
+
+    if (applied > 0) {
+        addEvent(state, "CHARACTER_COMBAT_PROFILES_APPLIED", { enemies: applied });
+    }
+    return applied;
 }
 
 function estimateEditorLevelBounds(visuals, playerStart, entities) {
@@ -2025,6 +2082,16 @@ function characterEnemyCanUseProjectile(state, enemy) {
 }
 
 function enemyProjectileSpawnPoint(enemy) {
+    const localX = Number(enemy.projectileOriginLocalX);
+    const localY = Number(enemy.projectileOriginLocalY);
+    if (Number.isFinite(localX) && Number.isFinite(localY)) {
+        const authoredScale = Math.max(0.0001, Number(enemy.projectileRigScale) || 1) * Math.max(0.05, Number(enemy.renderScale) || 1);
+        const facing = enemy.facing < 0 ? -1 : 1;
+        return {
+            x: enemy.x + localX * authoredScale * facing,
+            y: enemy.y + localY * authoredScale
+        };
+    }
     return {
         x: enemy.x + (enemy.facing < 0 ? -1 : 1) * Math.max(16, enemy.width * 0.18),
         y: enemy.y - enemy.height * 0.67
@@ -2065,6 +2132,7 @@ function launchCharacterEnemyProjectile(state, enemy) {
     };
 
     const projectileKind = String(enemy.projectileKind || "fireball");
+    const launchType = String(enemy.projectileLaunchType || (projectileKind === "musketBall" ? "ballistic" : "homing_lo"));
     let vx = 0;
     let vy = 0;
     let gravity = Number(enemy.projectileGravity) || 0;
@@ -2076,7 +2144,7 @@ function launchCharacterEnemyProjectile(state, enemy) {
     let lifetime = Math.max(FIXED_DT, Number(enemy.projectileLifetime) || 1);
     let trail = [];
 
-    if (projectileKind === "musketBall") {
+    if (launchType === "ballistic") {
         gravity = gravity || 980;
         let launchSpeed = Math.max(1, Number(enemy.projectileSpeed) || 1);
         let ballistic = solveBallisticLaunchVelocity(origin, target, launchSpeed, gravity);
@@ -2103,7 +2171,13 @@ function launchCharacterEnemyProjectile(state, enemy) {
         vx = aim.x * enemy.projectileSpeed;
         vy = aim.y * enemy.projectileSpeed;
         gravity = 0;
-        homingStrength = Math.max(0, Number(enemy.projectileHomingStrength) || 0);
+        if (launchType === "homing_hi" || launchType === "pathing_hi") {
+            homingStrength = Math.max(2.4, Number(enemy.projectileHomingStrength) || 0);
+        } else if (launchType === "homing_lo" || launchType === "pathing_lo") {
+            homingStrength = Math.max(0.65, Number(enemy.projectileHomingStrength) || 0);
+        } else {
+            homingStrength = 0;
+        }
         radius = Math.max(6, radius);
         trail = [{ x: origin.x, y: origin.y, time: state.clock.time }];
     }
@@ -2112,7 +2186,11 @@ function launchCharacterEnemyProjectile(state, enemy) {
         id: `enemy_projectile_${String(state.weapons.nextProjectileId).padStart(3, "0")}`,
         owner: "enemy",
         enemyId: enemy.id,
-        kind: projectileKind === "musketBall" ? "enemyMusketBall" : "enemyFireball",
+        characterId: enemy.characterId,
+        frameId: enemy.projectileFrameId,
+        projectilePartName: enemy.projectilePartName,
+        launchType,
+        kind: projectileKind === "musketBall" || launchType === "ballistic" ? "enemyMusketBall" : "enemyFireball",
         state: "launched",
         x: origin.x,
         y: origin.y,
@@ -2241,7 +2319,7 @@ function startCharacterEnemyAttack(state, enemy) {
     enemy.attackRange = Math.max(1, finiteNumberOr(enemy.attackRange, state.tuning.enemyDefaultAttackRange));
     enemy.attackVerticalRange = Math.max(1, finiteNumberOr(enemy.attackVerticalRange, state.tuning.enemyDefaultAttackVerticalRange));
     enemy.attackDuration = Math.max(FIXED_DT, finiteNumberOr(enemy.attackDuration, state.tuning.enemyDefaultAttackDuration));
-    enemy.attackHitTime = Math.max(0, finiteNumberOr(enemy.attackHitTime, state.tuning.enemyDefaultAttackHitTime));
+    enemy.attackHitTime = Math.max(0, finiteNumberOr(enemy.projectileReleaseTime, finiteNumberOr(enemy.attackHitTime, state.tuning.enemyDefaultAttackHitTime)));
     enemy.attackCooldown = Math.max(0, finiteNumberOr(enemy.attackCooldown, state.tuning.enemyDefaultAttackCooldown));
     enemy.attackMode = String(enemy.attackMode || state.tuning.enemyDefaultAttackMode || "melee") === "projectile" ? "projectile" : "melee";
     enemy.projectileSpeed = Math.max(1, finiteNumberOr(enemy.projectileSpeed, state.tuning.enemyDefaultProjectileSpeed));
@@ -2295,7 +2373,11 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
                 addEvent(state, "ENEMY_PROJECTILE_FIRED", {
                     enemyId: enemy.id,
                     projectileId: projectile.id,
-                    projectileKind: projectile.kind
+                    projectileKind: projectile.kind,
+                    projectilePartName: projectile.projectilePartName,
+                    launchType: projectile.launchType,
+                    x: round(projectile.x),
+                    y: round(projectile.y)
                 });
             } else {
                 addEvent(state, "ENEMY_ATTACK_MISSED", { enemyId: enemy.id, reason: "projectileLaunchFailed" });
@@ -2328,6 +2410,21 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
     syncCharacterEnemyTarget(state, enemy);
 }
 
+function updateDeadEnemyPresentation(state, enemy, dt) {
+    const holdDuration = Math.max(0, finiteNumberOr(enemy.corpseHoldDuration, state.tuning.enemyCorpseHoldSeconds));
+    const fadeDuration = Math.max(0, finiteNumberOr(enemy.corpseFadeDuration, state.tuning.enemyCorpseFadeSeconds));
+    enemy.deathElapsed = Math.max(0, Number(enemy.deathElapsed) || 0) + Math.max(0, Number(dt) || 0);
+    if (enemy.deathElapsed <= holdDuration) {
+        enemy.renderOpacity = 1;
+        return;
+    }
+    if (fadeDuration <= 0) {
+        enemy.renderOpacity = 0;
+        return;
+    }
+    enemy.renderOpacity = clamp(1 - (enemy.deathElapsed - holdDuration) / fadeDuration, 0, 1);
+}
+
 function updateCharacterEnemies(state, dt) {
     for (const enemy of state.enemies || []) {
         enemy.hitFlashTimer = Math.max(0, (Number(enemy.hitFlashTimer) || 0) - dt);
@@ -2354,10 +2451,14 @@ function updateCharacterEnemies(state, dt) {
             enemy.attackLungeRemaining = 0;
             enemy.attackHitApplied = false;
             enemy.deathTimer = Math.max(0, (Number(enemy.deathTimer) || 0) - dt);
+            updateDeadEnemyPresentation(state, enemy, dt);
             setCharacterEnemyAnimation(enemy, "death");
             syncCharacterEnemyTarget(state, enemy);
             continue;
         }
+
+        enemy.deathElapsed = 0;
+        enemy.renderOpacity = 1;
 
         if (enemy.combatState === ENEMY_COMBAT_STATE.ATTACKING || (Number(enemy.attackTimer) || 0) > 0) {
             updateCharacterEnemyAttack(state, enemy, dt);
@@ -3356,6 +3457,8 @@ function applyProjectileDamageToEnemy(state, projectile, enemy) {
         enemy.attackHitApplied = false;
         enemy.hurtTimer = 0;
         enemy.deathTimer = Math.max(FIXED_DT, Number(enemy.deathDuration) || state.tuning.enemyDefaultDeathSeconds || 1.18);
+        enemy.deathElapsed = 0;
+        enemy.renderOpacity = 1;
         if (isCharacterEnemyState(enemy)) {
             setCharacterEnemyAnimation(enemy, "death");
         }

@@ -7,6 +7,7 @@ import {
     stepSimulation,
     applyAtlasManifestsToWorld,
     applyEditorLevelToWorld,
+    applyCharacterCombatProfiles,
     resetPlayer,
     cloneGameState,
     serializeGameState,
@@ -35,7 +36,7 @@ const copyTuningJsonButton = document.getElementById("copy-tuning-json");
 const refreshTuningJsonButton = document.getElementById("refresh-tuning-json");
 const tuningPanel = document.getElementById("tuning");
 
-const GAME_REVISION = "098";
+const GAME_REVISION = "112";
 
 let gameState = createInitialGameState();
 gameState.debug.revision = GAME_REVISION;
@@ -46,6 +47,7 @@ const loadedBrowserCopy = maybeApplyBrowserCopyLevel();
 if (!loadedBrowserCopy) {
     await applyRequiredDefaultLevel();
 }
+syncLoadedCharacterCombatProfiles();
 if (!applyLoadedAtlasCollisions()) {
     failStartup("Required atlas collision data could not be applied. Check assets/at_atlas_001.json and the level atlasRefs.");
 }
@@ -62,6 +64,22 @@ const tuningSliders = new Map();
 setupTuningControls();
 setupTuningJsonControls();
 setupPanelToggleButtons();
+
+function syncLoadedCharacterCombatProfiles() {
+    const profiles = new Map();
+    for (const project of renderer.getRuntimeCharacterProjects().values()) {
+        const projectiles = project.projectiles instanceof Map ? [...project.projectiles.values()] : [];
+        if (!projectiles.length) {
+            continue;
+        }
+        profiles.set(project.characterId, {
+            characterId: project.characterId,
+            attackDuration: project.animations.get("attack")?.duration,
+            projectiles: projectiles.map((projectile) => ({ ...projectile }))
+        });
+    }
+    return applyCharacterCombatProfiles(gameState, profiles);
+}
 
 function maybeApplyBrowserCopyLevel() {
     const params = new URLSearchParams(window.location.search);
@@ -160,6 +178,7 @@ async function loadRequestedLevel(request) {
         gameState.player.visible = true;
         return false;
     }
+    syncLoadedCharacterCombatProfiles();
     if (!applyLoadedAtlasCollisions()) {
         console.error(`Level transition loaded ${loadedLevelId}, but its atlas collision could not be applied.`);
     }

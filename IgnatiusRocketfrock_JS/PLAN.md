@@ -1454,11 +1454,11 @@ Rig and animation mode now has a compact toolbar above the canvas for Select, Ad
 
 Playback and key timing now live in a full-width dock below the canvas. The wider playhead slider, previous/play-next controls, and timeline remain visible while the right inspector scrolls. Existing scalar key markers remain draggable, and grouped X/Y/rotation markers can now be dragged together without breaking their shared time. Right-side panels have independent collapse buttons, with collapsed state stored only in browser `localStorage` so editor preferences never contaminate character data.
 
-### Planned animation-authored projectile handoff
+### Animation-authored projectile handoff
 
-Projectile handoff from an attack animation is intentionally deferred to a separate gameplay revision. The rig or character schema should gain explicit metadata rather than inferring gameplay from part names. A candidate contract is a rig-part `projectile` descriptor containing a stable projectile ID, launch type (`ballistic`, `straight`, `homing_lo`, `homing_hi`, `pathing_lo`, or `pathing_hi`), and optional launch-origin/pivot information. The release time for a projectile part should be derived from the final authored key belonging to that part in the active attack clip, not from the final key of the whole animation, so recoil and recovery may continue afterward.
+Revision 112 implements the first animation-to-simulation projectile handoff. Rig parts may carry an explicit `projectile` descriptor containing a stable projectile ID, launch type (`ballistic`, `straight`, `homing_lo`, `homing_hi`, `pathing_lo`, or `pathing_hi`), animation slot, optional projectile-kind override, and an authored `releaseTime` in seconds. Character definitions using a shared rig select their active tagged part with `projectilePart`. Release time is deliberately explicit rather than inferred from the last key. Puppet Forge shows the selected part's final keyed time as a reference, but the entered release time remains authoritative so the artist can place handoff precisely while recoil and recovery continue.
 
-Character/enemy combat metadata should also define projectile, melee, and contact damage independently. The simulation must consume a normalized attack-release event and take ownership of the projectile at the release time, preserving its sampled world transform before the animation-controlled rig part becomes hidden or detached. Pathing modes require deterministic obstacle-aware steering and therefore belong in the portable simulation core, not in Puppet Forge or the renderer.
+The browser character runtime validates tagged parts and samples their rig-space position at release. The browser adapter hydrates that plain data into simulation enemies. At release, the core launches from the sampled world position, hides the rig-controlled copy through presentation state, and owns movement, collision, damage, and events thereafter. Revision 112 wires the Fireball Goblin to `homing_lo` and the Musket Goblin to `ballistic`. Straight and high-homing descriptors are normalized by the same path; true obstacle-planning behaviour for `pathing_lo` and `pathing_hi`, plus character-level projectile/melee/contact damage metadata, remain later extensions.
 
 ### Revision 108 user-refined goblin joints and animation rebuild
 
@@ -1474,4 +1474,21 @@ The goblin regression checks now validate the accepted authored structure rather
 ### Revision 111 finalized goblin animation bundle restored verbatim
 
 Revision 111 replaces the Enemy 002/003 goblin rig, atlas manifest, character definitions, and all ten goblin animation clips directly from the user-supplied `ct.zip`. These files are treated as finalized authored assets and are copied without normalization or rewriting. The shared goblin rig again includes `fireball` and `cannonball` as previewable animated parts, while the attack clips retain their authored projectile visibility/spawn tracks.
+### Revision 112 explicit projectile handoff and level placement
 
+Puppet Forge now exposes projectile metadata for the selected rig part: enable/disable, stable projectile ID, launch type, animation slot, explicit release time, and whether that part is the active projectile for the current character variant. It also reports the final keyed time for that part in the configured clip as a comparison aid. The shared goblin rig tags `fireball` as `homing_lo` at 0.372 seconds and `cannonball` as `ballistic` at 0.495318 seconds.
+
+Character loading compiles each release pose, the browser hydrates plain combat profiles into authoritative enemy state, and simulation launches from the sampled animated world position at the exact release time. The renderer removes the rig-controlled projectile copy at handoff, preventing the old fireball or cannonball from remaining attached at the end of the attack. `level_001` now includes one Fireball Goblin and one Musket Goblin on the lower route.
+
+### Revision 113 visible character ground and baked goblin normalization
+
+Puppet Forge now draws a persistent cyan `GROUND · y = 0` line in Rig and animation mode. The guide follows zoom and panning, and its label can be dragged vertically to reposition the editor view. This drag is deliberately presentation-only: it changes `viewPanY`, not rig coordinates, animation keys, or runtime data.
+
+The shared goblin project is normalized once in authored rig space rather than carrying a permanent runtime correction. A uniform `+52` Y translation is baked into the shared rig anchors and setup offsets, both goblin character override offsets, and every reference-pose and Y-track value in all Enemy 002 and Enemy 003 clips. Fireball and cannonball release times remain unchanged, while their sampled release positions move with their owners. `groundOffset` and `rootYOffsetFromGround` remain zero, so enemy world Y continues to mean the actual terrain contact line.
+
+
+### Revision 114 defeated-monster linger and fade
+
+Defeated character enemies now remain fully visible for two seconds from the lethal hit, then fade linearly to zero opacity over the following three seconds. The death animation continues to sample normally during this presentation window, enemy movement and targeting remain disabled, and the character shadow fades with the corpse. Once the five-second presentation window has elapsed, the enemy remains inert in simulation state but is no longer rendered.
+
+The timing is represented by the portable simulation fields `deathElapsed` and `renderOpacity`, with defaults controlled by `enemyCorpseHoldSeconds` and `enemyCorpseFadeSeconds`. This keeps the renderer passive and makes the fade deterministic in headless tests.

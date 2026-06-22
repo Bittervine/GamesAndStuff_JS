@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 2,
-        "note": "Shared goblin rig corrected in revision 103. Anatomical left limbs are the visible/front limbs for a right-facing profile; right limbs are rear. Draw order is depth-first. Projectile sprites are not rig parts."
+        "version": 5,
+        "note": "Shared goblin rig with projectile parts. Revision 113 bakes a 52-pixel rig-space ground correction into anchors and setup offsets so local y=0 is the actual runtime ground; no runtime ground offset is used."
     },
     "rigId": "ct_rig_enemy_002",
     "atlasId": "ct_atlas_enemy_002",
@@ -29,35 +29,35 @@
     "anchors": {
         "neck": {
             "x": 2,
-            "y": -282
+            "y": -230.0
         },
         "rightShoulder": {
             "x": 22,
-            "y": -257
+            "y": -205.0
         },
         "leftShoulder": {
             "x": 45,
-            "y": -253
+            "y": -201.0
         },
         "rightHip": {
             "x": -22,
-            "y": -140
+            "y": -88.0
         },
         "leftHip": {
             "x": 26,
-            "y": -140
+            "y": -88.0
         },
         "rightHand": {
             "x": 164,
-            "y": -238
+            "y": -186.0
         },
         "leftHand": {
             "x": 190,
-            "y": -228
+            "y": -176.0
         },
         "weaponGrip": {
             "x": 145,
-            "y": -231
+            "y": -179.0
         }
     },
     "pivots": {
@@ -112,7 +112,7 @@
             ],
             "offset": {
                 "x": -22,
-                "y": -140
+                "y": -88.0
             },
             "scale": 1,
             "targetHeight": 170,
@@ -128,7 +128,7 @@
             ],
             "offset": {
                 "x": 22,
-                "y": -257
+                "y": -205.0
             },
             "scale": 1,
             "targetHeight": 110,
@@ -143,7 +143,7 @@
             ],
             "offset": {
                 "x": 0,
-                "y": -162
+                "y": -110.0
             },
             "scale": 1,
             "targetHeight": 186,
@@ -157,7 +157,7 @@
             ],
             "offset": {
                 "x": 2,
-                "y": -282
+                "y": -230.0
             },
             "scale": 1,
             "targetHeight": 138,
@@ -173,7 +173,7 @@
             ],
             "offset": {
                 "x": 145,
-                "y": -231
+                "y": -179.0
             },
             "scale": 1,
             "targetHeight": 78,
@@ -189,7 +189,7 @@
             ],
             "offset": {
                 "x": 26,
-                "y": -140
+                "y": -88.0
             },
             "scale": 1,
             "targetHeight": 166,
@@ -205,7 +205,7 @@
             ],
             "offset": {
                 "x": 45,
-                "y": -253
+                "y": -201.0
             },
             "scale": 1,
             "targetHeight": 94,
@@ -218,7 +218,7 @@
             "tags": [],
             "offset": {
                 "x": 0,
-                "y": 0
+                "y": 52.0
             },
             "scale": 0.46,
             "targetHeight": 229,
@@ -230,11 +230,19 @@
             "tags": [],
             "offset": {
                 "x": 0,
-                "y": 0
+                "y": 52.0
             },
             "scale": 0.2,
             "targetHeight": 144,
-            "alpha": 1
+            "alpha": 1,
+            "projectile": {
+                "enabled": true,
+                "id": "cannonball",
+                "launchType": "ballistic",
+                "projectileKind": "musketBall",
+                "animationSlot": "attack",
+                "releaseTime": 0.49531814840382643
+            }
         },
         "fireball": {
             "frame": "fireball",
@@ -242,11 +250,19 @@
             "tags": [],
             "offset": {
                 "x": 0,
-                "y": 0
+                "y": 52.0
             },
             "scale": 1,
             "targetHeight": 163,
-            "alpha": 1
+            "alpha": 1,
+            "projectile": {
+                "enabled": true,
+                "id": "fireball",
+                "launchType": "homing_lo",
+                "projectileKind": "fireball",
+                "animationSlot": "attack",
+                "releaseTime": 0.372
+            }
         }
     },
     "attachments": {

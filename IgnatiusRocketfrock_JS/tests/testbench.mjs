@@ -84,6 +84,7 @@ import {
 } from "../src/tools/character-editor/character-editor-view.js";
 import {
     animationPoseToRuntimeTransforms,
+    applyRuntimeProjectileHandoffVisibility,
     buildRuntimeCharacterDrawCommands,
     createRuntimeCharacterSetupPose,
     loadRuntimeCharacterProject,
@@ -103,6 +104,7 @@ import {
     restoreGameState,
     resetPlayer,
     applyEditorLevelToWorld,
+    applyCharacterCombatProfiles,
     applyAtlasManifestsToWorld,
     defaultNextLevelId,
     setWorldEntityState,
@@ -367,6 +369,24 @@ async function testGoblinRuntimeCharacterProjects() {
     assert.equal(musket.atlasAssets.get("cannonball")?.frameId, "cannonball", "runtime project should expose unattached cannonball atlas resources");
     assert.equal(fireball.animations.size, 5, "fireball goblin should resolve its dedicated animation set");
     assert.equal(musket.animations.size, 5, "musket goblin should resolve its dedicated weapon-aware animation set");
+    assert.equal(fireball.projectiles.size, 1, "Fireball Goblin should activate only its selected projectile part");
+    assert.equal(musket.projectiles.size, 1, "Musket Goblin should activate only its selected projectile part");
+    const fireballProjectile = fireball.projectiles.get("fireball");
+    const musketProjectile = musket.projectiles.get("cannonball");
+    assert.equal(fireballProjectile.launchType, "homing_lo", "Fireball Goblin rig should tag the fireball as low-homing");
+    assert.equal(fireballProjectile.animationSlot, "attack", "fireball handoff should be attached to the attack slot");
+    approx(fireballProjectile.releaseTime, 0.372, 0.000001, "fireball handoff should use the explicit authored release time");
+    assert.ok(fireballProjectile.localX > 200 && fireballProjectile.localY < -180, "fireball release should sample the ground-normalized authored attack position");
+    assert.equal(musketProjectile.launchType, "ballistic", "Musket Goblin rig should tag the cannonball as ballistic");
+    approx(musketProjectile.releaseTime, 0.49531814840382643, 0.000001, "cannonball handoff should use the explicit authored release time");
+    assert.ok(musketProjectile.localX > 180 && musketProjectile.localY < -220, "cannonball release should sample the ground-normalized muzzle position");
+    const beforeRelease = sampleRuntimeCharacterPose(fireball, "attack", 0.35);
+    const beforeTransforms = animationPoseToRuntimeTransforms(beforeRelease.pose, fireball.rig, 1, 1);
+    assert.equal(applyRuntimeProjectileHandoffVisibility(fireball, "attack", 0.35, beforeTransforms), 0, "projectile rig part should remain visible before handoff");
+    const released = sampleRuntimeCharacterPose(fireball, "attack", fireballProjectile.releaseTime);
+    const releasedTransforms = animationPoseToRuntimeTransforms(released.pose, fireball.rig, 1, 1);
+    assert.equal(applyRuntimeProjectileHandoffVisibility(fireball, "attack", fireballProjectile.releaseTime, releasedTransforms), 1, "projectile rig part should be hidden at handoff");
+    assert.equal(releasedTransforms.fireball.alpha, 0, "released fireball should no longer remain attached to the character pose");
 }
 
 function testEnemyCatalogAndLevelEditorIntegration() {
@@ -380,6 +400,9 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(skeleton.defaults.attackRange > 0, "Skeleton Guard should have authored melee reach");
     assert.ok(skeleton.defaults.chaseSpeed > skeleton.defaults.walkSpeed, "alert Skeleton Guard should rush faster than it patrols");
     assert.ok(skeleton.defaults.attackCooldown < 0.25, "Skeleton Guard should chain rapid sword chops");
+    const levelOne = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_002"), "level_001 should contain a Fireball Goblin");
+    assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_003"), "level_001 should contain a Musket Goblin");
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(editorHtml.includes("ENEMY_CATALOG_URL"), "level editor should load the explicit enemy catalog");
@@ -664,6 +687,7 @@ function testCharacterEnemyRocketCombat() {
     assert.equal(enemy.combatState, "dead", "lethal damage should enter dead combat state");
     assert.equal(enemy.animationSlot, "death", "lethal damage should select the authored death clip");
     assert.equal(enemy.movementPhase, "dead", "defeated guard should stop patrol movement");
+    assert.equal(enemy.renderOpacity, 1, "defeated enemy should initially remain fully opaque");
     assert.equal(target.state, "inactive", "defeated enemy should leave the homing target pool");
     assert.equal(reserveTarget.state, "active", "other living enemies should remain targetable");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_DEFEATED" && event.enemyId === enemy.id), "lethal damage should emit a defeat event");
@@ -677,6 +701,13 @@ function testCharacterEnemyRocketCombat() {
     stepMany(state, 100);
     assert.equal(enemy.x, deadX, "defeated enemy should remain stationary");
     assert.equal(enemy.animationSlot, "death", "defeated enemy should remain on its non-looping death presentation");
+    assert.equal(enemy.renderOpacity, 1, "defeated enemy should remain fully opaque for the first two seconds");
+
+    stepMany(state, 90);
+    assert.ok(enemy.renderOpacity > 0.5 && enemy.renderOpacity < 0.75, "defeated enemy should fade gradually after the two-second hold");
+
+    stepMany(state, 120);
+    assert.equal(enemy.renderOpacity, 0, "defeated enemy should be fully transparent after the three-second fade");
 }
 
 function testCharacterEnemyMeleeAttack() {
@@ -838,6 +869,20 @@ function testFireballGoblinProjectileAttack() {
             awarenessVerticalRange: 200
         }]
     });
+    applyCharacterCombatProfiles(state, new Map([["ct_char_enemy_002", {
+        attackDuration: 0.62,
+        projectiles: [{
+            partName: "fireball",
+            frameId: "fireball",
+            animationSlot: "attack",
+            launchType: "homing_lo",
+            projectileKind: "fireball",
+            releaseTime: 0.372,
+            localX: 235.0526306831884,
+            localY: -244.29922123959187,
+            rigScale: 0.5
+        }]
+    }]]));
     state.world.solids = [];
     state.world.segments = [{ id: "floor", kind: "walkable", x1: -300, y1: 600, x2: 400, y2: 600 }];
     state.world.collisionPolygons = [];
@@ -852,10 +897,15 @@ function testFireballGoblinProjectileAttack() {
     const enemy = state.enemies.find((item) => item.id === "fireball_goblin");
     stepMany(state, 20);
     assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED" && event.enemyId === enemy.id), "fireball goblin should start a ranged attack");
-    stepMany(state, 20);
+    assert.equal(state.projectiles.some((item) => item.owner === "enemy" && item.enemyId === enemy.id), false, "fireball should remain animation-owned before its explicit release time");
+    stepMany(state, 8);
     const projectile = state.projectiles.find((item) => item.owner === "enemy" && item.enemyId === enemy.id);
     assert.ok(projectile, "fireball goblin should spawn an enemy projectile");
     assert.equal(projectile.kind, "enemyFireball", "fireball goblin should launch the fireball projectile kind");
+    assert.equal(projectile.launchType, "homing_lo", "released fireball should retain the tagged launch type");
+    const firedEvent = state.debug.lastEvents.find((event) => event.type === "ENEMY_PROJECTILE_FIRED" && event.enemyId === enemy.id);
+    approx(firedEvent.x, 92.474, 0.01, "fireball should transfer from the sampled animated world X");
+    approx(firedEvent.y, 477.85, 0.01, "fireball should transfer from the sampled animated world Y");
     const startHealth = state.health.amount;
     stepMany(state, 180);
     assert.ok(state.health.amount < startHealth, `fireball projectile should eventually hurt the player, before ${startHealth}, after ${state.health.amount}`);
@@ -903,6 +953,20 @@ function testMusketGoblinProjectileAttack() {
             awarenessVerticalRange: 220
         }]
     });
+    applyCharacterCombatProfiles(state, new Map([["ct_char_enemy_003", {
+        attackDuration: 0.62,
+        projectiles: [{
+            partName: "cannonball",
+            frameId: "cannonball",
+            animationSlot: "attack",
+            launchType: "ballistic",
+            projectileKind: "musketBall",
+            releaseTime: 0.49531814840382643,
+            localX: 189.17163009094236,
+            localY: -286.5805672576993,
+            rigScale: 0.5
+        }]
+    }]]));
     state.world.solids = [];
     state.world.segments = [{ id: "floor", kind: "walkable", x1: -300, y1: 600, x2: 500, y2: 600 }];
     state.world.collisionPolygons = [];
@@ -915,9 +979,12 @@ function testMusketGoblinProjectileAttack() {
     state.player.wasOnGround = true;
 
     stepMany(state, 24);
+    assert.equal(state.projectiles.some((item) => item.owner === "enemy"), false, "cannonball should remain attached before its explicit release time");
+    stepMany(state, 10);
     const projectile = state.projectiles.find((item) => item.owner === "enemy");
     assert.ok(projectile, "musket goblin should spawn an enemy projectile");
     assert.equal(projectile.kind, "enemyMusketBall", "musket goblin should launch the musket ball projectile kind");
+    assert.equal(projectile.launchType, "ballistic", "released cannonball should retain the tagged ballistic launch type");
     assert.ok(projectile.gravity > 0, "musket ball should use ballistic gravity rather than a straight-line shot");
     const startHealth = state.health.amount;
     stepMany(state, 180);
@@ -1162,6 +1229,10 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes('enemy_003: "assets/ct_char_enemy_003.json"'), "known enemy_003 project should resolve to its character definition");
     assert.ok(toolHtml.includes("applyCharacterRigOverrides(loadedRig, state.character)"), "character tool should apply character-level goblin part overrides while loading known projects");
     assert.ok(toolHtml.includes('id="apply-preview-alpha"'), "character tool should expose an animation-preview alpha toggle");
+    assert.ok(toolHtml.includes('id="projectile-enabled"') && toolHtml.includes('id="projectile-release-time"'), "character tool should expose projectile tagging and explicit release-time controls");
+    assert.ok(toolHtml.includes('id="projectile-active-character"'), "character tool should select which shared-rig projectile belongs to the current character variant");
+    assert.ok(toolHtml.includes('value="ballistic"') && toolHtml.includes('value="homing_lo"'), "projectile editor should expose ballistic and low-homing launch types");
+    assert.ok(toolHtml.includes("projectilePartFinalKeyTime") && toolHtml.includes("Final keyed time"), "projectile editor should show the selected part's final keyed time as a reference");
     assert.ok(toolHtml.includes("selected part is fully opaque") && toolHtml.includes("ghosted between 10% and 50%"), "character tool should explain selected and unselected alpha-preview behaviour");
     assert.ok(toolHtml.includes("clamp(effectiveAlpha, 0.1, 0.5)"), "alpha-off preview should cap unselected parts between ten and fifty percent opacity");
     assert.ok(toolHtml.includes('id="quick-toolbar"') && toolHtml.includes('id="quick-select"') && toolHtml.includes('id="quick-adjust"'), "character tool should expose Select and Adjust shortcuts above the canvas");
@@ -1170,6 +1241,7 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes('id="track-step-back"') && toolHtml.includes('&lt;--') && toolHtml.includes('&lt;-') && toolHtml.includes('PLAY/PAUSE') && toolHtml.includes('-&gt;') && toolHtml.includes('--&gt;'), "animation dock should expose global and track-specific keyframe navigation buttons");
     assert.ok(toolHtml.includes("beginTransformKeyDrag") && toolHtml.includes("dragTransformKey"), "bottom timeline should support dragging grouped transform key times");
     assert.ok(toolHtml.includes("event.button !== 2") && toolHtml.includes('contextmenu'), "right-button dragging should pan the character and atlas preview without opening a context menu");
+    assert.ok(toolHtml.includes("GROUND · y = 0 · drag label") && toolHtml.includes("beginGroundGuideDrag") && toolHtml.includes("drawGroundGuide"), "character tool should show a draggable view-only runtime-ground guide");
     assert.ok(toolHtml.includes("PANEL_STORAGE_KEY") && toolHtml.includes("setupCollapsiblePanels") && toolHtml.includes("localStorage.setItem"), "right-side panels should collapse and remember their state in local storage");
     assert.ok(toolHtml.includes("selectPartFromCanvas") && toolHtml.includes('setAnimationTool("adjust")'), "canvas Select mode should choose a rig box and return to Adjust mode");
     assert.ok(toolHtml.includes("toggleSelectedPartVisibility"), "quick toolbar should author visible/hidden alpha keys");
@@ -1772,17 +1844,25 @@ function testNumberedEnemy001Assets() {
     assert.equal(goblinAtlas.objects.fireball.type, "projectileSprite", "fireball should remain in the atlas as an unattached projectile resource");
     assert.equal(goblinAtlas.objects.cannonball.type, "projectileSprite", "cannonball should remain in the atlas as an unattached projectile resource");
     assert.equal(goblinFireballCharacter.rigPartOverrides.weapon.alpha, 0, "fireball goblin should hide the shared weapon slot instead of attaching the projectile");
-    assert.deepEqual(goblinFireballCharacter.rigPartOverrides.weapon.offset, { x: 145, y: -231 }, "hidden Fireball Goblin weapon slot should retain an explicit movable setup offset");
+    assert.equal(goblinFireballCharacter.projectilePart, "fireball", "Fireball Goblin should select the fireball from the shared projectile rig parts");
+    assert.equal(goblinMusketCharacter.projectilePart, "cannonball", "Musket Goblin should select the cannonball from the shared projectile rig parts");
+    assert.deepEqual(goblinFireballCharacter.rigPartOverrides.weapon.offset, { x: 145, y: -179 }, "hidden Fireball Goblin weapon slot should retain the baked ground-normalized setup offset");
     assert.equal(goblinMusketCharacter.rigPartOverrides.weapon.frame, "musket", "musket goblin should keep the musket attached to its rig");
     assert.equal(goblinMusketCharacter.rigPartOverrides.leftArm, undefined, "musket goblin should use the dedicated leftArmClosed rig part instead of duplicating it through leftArm");
     assert.deepEqual(goblinRig.drawOrder, ["leftArm", "leftArmClosed", "leftLeg", "rightLeg", "head", "torso", "weapon", "rightArm", "cannonball", "fireball"], "goblin draw order should preserve the accepted user-authored depth order including previewable projectile parts");
     assert.ok(goblinRig.parts.leftArmClosed, "shared goblin rig should retain the alternate closed left arm as an independently animatable part");
+    assert.equal(goblinRig.parts.fireball.projectile.launchType, "homing_lo", "fireball rig part should be tagged as low-homing");
+    approx(goblinRig.parts.fireball.projectile.releaseTime, 0.372, 0.000001, "fireball rig part should carry an explicit release time");
+    assert.equal(goblinRig.parts.cannonball.projectile.launchType, "ballistic", "cannonball rig part should be tagged as ballistic");
+    approx(goblinRig.parts.cannonball.projectile.releaseTime, 0.49531814840382643, 0.000001, "cannonball rig part should carry an explicit release time");
 
     const fireIdle = JSON.parse(readFileSync("./assets/ct_anim_enemy_002_idle.json", "utf8"));
     const fireAttack = JSON.parse(readFileSync("./assets/ct_anim_enemy_002_attack.json", "utf8"));
     const musketIdle = JSON.parse(readFileSync("./assets/ct_anim_enemy_003_idle.json", "utf8"));
     const musketAttack = JSON.parse(readFileSync("./assets/ct_anim_enemy_003_attack.json", "utf8"));
-    assert.ok(fireIdle.tracks.rightLeg.y[0].value < -175 && fireIdle.tracks.leftLeg.y[0].value < -185, "corrected Fireball Goblin idle should keep its legs pulled into the compact dwarfish body");
+    assert.equal(goblinRig.global.groundOffset, 0, "goblin ground correction should be baked into authored coordinates rather than applied at runtime");
+    approx(fireIdle.tracks.rightLeg.y[0].value, -130.05551366037764, 0.000001, "Fireball Goblin right foot should use the baked +52 ground normalization");
+    approx(fireIdle.tracks.leftLeg.y[0].value, -137.7019415206407, 0.000001, "Fireball Goblin left foot should use the baked +52 ground normalization");
     assert.equal(fireIdle.tracks.leftArm.alpha[0].value, 0, "Fireball Goblin idle should hide the open casting arm");
     assert.equal(fireIdle.tracks.leftArmClosed.alpha[0].value, 1, "Fireball Goblin idle should show the closed alternate arm");
     assert.deepEqual(

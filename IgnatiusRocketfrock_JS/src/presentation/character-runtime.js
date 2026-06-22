@@ -4,6 +4,17 @@ import {
     sampleAnimationClip
 } from "../shared/animation-data.js";
 
+export const CHARACTER_PROJECTILE_LAUNCH_TYPES = Object.freeze([
+    "ballistic",
+    "straight",
+    "homing_lo",
+    "homing_hi",
+    "pathing_lo",
+    "pathing_hi"
+]);
+
+const CHARACTER_PROJECTILE_LAUNCH_TYPE_SET = new Set(CHARACTER_PROJECTILE_LAUNCH_TYPES);
+
 export function normalizeRuntimeCharacterRig(rawRig, label = "character rig") {
     if (!rawRig || typeof rawRig !== "object" || Array.isArray(rawRig)) {
         throw new Error(`${label} must be a JSON object.`);
@@ -188,6 +199,27 @@ export function animationPoseToRuntimeTransforms(animationPose, rig, zoom = 1, a
     return transforms;
 }
 
+export function applyRuntimeProjectileHandoffVisibility(project, animationSlot, timeSeconds, renderedTransforms) {
+    if (!(project?.projectiles instanceof Map) || !renderedTransforms) {
+        return 0;
+    }
+    const slot = String(animationSlot || "");
+    const time = Math.max(0, finiteOr(timeSeconds, 0));
+    let hidden = 0;
+    for (const projectile of project.projectiles.values()) {
+        if (slot !== projectile.animationSlot || time < projectile.releaseTime) {
+            continue;
+        }
+        const transform = renderedTransforms[projectile.partName];
+        if (!transform) {
+            continue;
+        }
+        transform.alpha = 0;
+        hidden += 1;
+    }
+    return hidden;
+}
+
 export function buildRuntimeCharacterDrawCommands(project, renderedTransforms) {
     if (!project?.rig || !(project.assets instanceof Map)) {
         throw new Error("Runtime character project must contain a normalized rig and an assets map.");
@@ -213,6 +245,54 @@ export function buildRuntimeCharacterDrawCommands(project, renderedTransforms) {
         });
     }
     return commands;
+}
+
+export function compileRuntimeCharacterProjectiles(rig, animations, label = "character project") {
+    const normalizedRig = rig?._normalizedRuntimeRig === true ? rig : normalizeRuntimeCharacterRig(rig);
+    const animationMap = animations instanceof Map ? animations : new Map(Object.entries(animations || {}));
+    const projectiles = new Map();
+
+    for (const partName of normalizedRig.drawOrder) {
+        const part = normalizedRig.parts[partName];
+        const raw = part?.projectile;
+        if (!raw || typeof raw !== "object" || Array.isArray(raw) || raw.enabled === false) {
+            continue;
+        }
+        const animationSlot = String(raw.animationSlot || "attack").trim() || "attack";
+        const clip = animationMap.get(animationSlot);
+        if (!clip) {
+            throw new Error(`${label} projectile part "${partName}" references missing animation slot "${animationSlot}".`);
+        }
+        const launchType = String(raw.launchType || "straight").trim();
+        if (!CHARACTER_PROJECTILE_LAUNCH_TYPE_SET.has(launchType)) {
+            throw new Error(`${label} projectile part "${partName}" uses unsupported launch type "${launchType}".`);
+        }
+        const releaseTime = clamp(finiteOr(raw.releaseTime, 0), 0, clip.duration);
+        const releasePose = sampleAnimationClip({ ...clip, loop: false }, releaseTime);
+        const sampled = releasePose?.[partName] || {
+            x: part.offset.x,
+            y: part.offset.y,
+            rotation: finiteOr(part.rotation?.base, 0),
+            scale: part.scale,
+            alpha: part.alpha
+        };
+        projectiles.set(partName, {
+            partName,
+            projectileId: String(raw.id || partName),
+            frameId: String(part.frame || partName),
+            animationSlot,
+            launchType,
+            releaseTime,
+            localX: finiteOr(sampled.x, part.offset.x),
+            localY: finiteOr(sampled.y, part.offset.y),
+            localRotation: finiteOr(sampled.rotation, finiteOr(part.rotation?.base, 0)),
+            localScale: Math.max(0, finiteOr(sampled.scale, part.scale)),
+            rigScale: normalizedRig.global.scale,
+            projectileKind: raw.projectileKind ? String(raw.projectileKind) : null
+        });
+    }
+
+    return projectiles;
 }
 
 export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
@@ -268,6 +348,17 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
         animations.set(slot, clip);
         animationSources.set(slot, animationUrl);
     }
+    const compiledProjectiles = compileRuntimeCharacterProjectiles(rig, animations, `character project (${characterSourceUrl})`);
+    const requestedProjectileParts = Array.isArray(character.projectileParts)
+        ? character.projectileParts.map(String)
+        : (character.projectilePart ? [String(character.projectilePart)] : []);
+    const projectiles = requestedProjectileParts.length
+        ? new Map(requestedProjectileParts.filter((partName) => compiledProjectiles.has(partName)).map((partName) => [partName, compiledProjectiles.get(partName)]))
+        : compiledProjectiles;
+    if (requestedProjectileParts.length && projectiles.size !== requestedProjectileParts.length) {
+        const missing = requestedProjectileParts.filter((partName) => !compiledProjectiles.has(partName));
+        throw new Error(`Character definition ${characterSourceUrl} references untagged projectile part(s): ${missing.join(", ")}.`);
+    }
 
     return {
         character: { ...character, sourceUrl: characterSourceUrl },
@@ -281,7 +372,8 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
         assets,
         atlasAssets,
         animations,
-        animationSources
+        animationSources,
+        projectiles
     };
 }
 

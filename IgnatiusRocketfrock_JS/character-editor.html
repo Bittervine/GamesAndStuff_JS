@@ -516,7 +516,7 @@
         </section>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 108</small></h1>
+        <h1>Puppet Forge <small>rev 113</small></h1>
         <p><a href="index.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -542,7 +542,7 @@
                 <span>View zoom: <strong id="zoom-value">100%</strong></span>
                 <button id="reset-view" type="button">Reset to 100%</button>
             </div>
-            <p>Use the mouse wheel over the canvas to zoom and right-drag to pan the active workspace. Each project document is tracked separately; downloading a JSON file marks only that document as saved.</p>
+            <p>Use the mouse wheel over the canvas to zoom and right-drag to pan the active workspace. In Rig and animation mode, the cyan GROUND · y = 0 guide is the runtime floor; drag its label vertically to reposition the view without changing character data. Each project document is tracked separately; downloading a JSON file marks only that document as saved.</p>
         </section>
 
         <section class="box">
@@ -727,6 +727,31 @@
                 <button id="part-to-back" type="button">To Back</button>
                 <button id="part-to-front" type="button">To Front</button>
             </div>
+            <h3>Projectile handoff</h3>
+            <label class="check-row"><input id="projectile-enabled" type="checkbox"> This rig part becomes a gameplay projectile</label>
+            <label class="check-row"><input id="projectile-active-character" type="checkbox"> Use this projectile part for the current character variant</label>
+            <div id="projectile-fields">
+                <div class="row">
+                    <label><span>Projectile ID</span><input id="projectile-id" type="text" placeholder="fireball"></label>
+                    <label>
+                        <span>Launch type</span>
+                        <select id="projectile-launch-type">
+                            <option value="ballistic">ballistic</option>
+                            <option value="straight">straight</option>
+                            <option value="homing_lo">homing_lo</option>
+                            <option value="homing_hi">homing_hi</option>
+                            <option value="pathing_lo">pathing_lo (reserved)</option>
+                            <option value="pathing_hi">pathing_hi (reserved)</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="row">
+                    <label><span>Animation slot</span><input id="projectile-animation-slot" type="text" value="attack"></label>
+                    <label><span>Release time (seconds)</span><input id="projectile-release-time" type="number" min="0" step="0.001"></label>
+                </div>
+                <div id="projectile-last-key-time" class="muted-line"></div>
+            </div>
+            <p>The projectile remains animation-controlled before Release time. At that time the game copies its sampled world position, hides the rig part, and gives the projectile to the simulation. The final keyed time is shown only as a reference. Pathing modes are reserved for a later obstacle-planning pass.</p>
             <p>Draw order runs from back to front. The first part is drawn lowest; the last part is drawn on top.</p>
             <p>Pivot and target height define shared sprite geometry. Setup offsets and base scale are still used by the current procedural airborne poses and as rig defaults, but a data-driven clip such as Run supplies its own absolute X, Y, and scale values while that clip is playing.</p>
         </section>
@@ -958,6 +983,14 @@ const els = {
     targetHeight: document.getElementById("target-height"),
     partToBack: document.getElementById("part-to-back"),
     partToFront: document.getElementById("part-to-front"),
+    projectileEnabled: document.getElementById("projectile-enabled"),
+    projectileActiveCharacter: document.getElementById("projectile-active-character"),
+    projectileFields: document.getElementById("projectile-fields"),
+    projectileId: document.getElementById("projectile-id"),
+    projectileLaunchType: document.getElementById("projectile-launch-type"),
+    projectileAnimationSlot: document.getElementById("projectile-animation-slot"),
+    projectileReleaseTime: document.getElementById("projectile-release-time"),
+    projectileLastKeyTime: document.getElementById("projectile-last-key-time"),
     characterJson: document.getElementById("character-json"),
     applyCharacterJson: document.getElementById("apply-character-json"),
     refreshCharacterJson: document.getElementById("refresh-character-json"),
@@ -1024,6 +1057,7 @@ const state = {
     selectedTransformTime: null,
     partDrag: null,
     previewPanDrag: null,
+    groundGuideDrag: null,
     dragTransformKey: null,
     animationTool: "adjust",
     viewZoom: 1,
@@ -1082,6 +1116,7 @@ function setEditorMode(mode) {
     state.partDrag = null;
     state.atlasDrag = null;
     state.previewPanDrag = null;
+    state.groundGuideDrag = null;
     canvas.style.cursor = "default";
     updateQuickToolbar();
     updateReadouts();
@@ -2330,6 +2365,111 @@ function pauseForDirectEditing() {
     }
 }
 
+function projectileAnimationForSlot(slot) {
+    const normalizedSlot = String(slot || "attack").trim() || "attack";
+    if (state.animationSlot === normalizedSlot) {
+        return state.animation;
+    }
+    return state.animationCache.get(normalizedSlot) || state.generatedAnimations.get(normalizedSlot) || null;
+}
+
+function projectilePartFinalKeyTime(partName, animationSlot = "attack") {
+    const animation = projectileAnimationForSlot(animationSlot);
+    const partTracks = animation?.tracks?.[partName];
+    if (!partTracks || typeof partTracks !== "object") {
+        return null;
+    }
+    let finalTime = null;
+    for (const track of Object.values(partTracks)) {
+        for (const key of track || []) {
+            const time = Number(key?.time);
+            if (Number.isFinite(time) && (finalTime === null || time > finalTime)) {
+                finalTime = time;
+            }
+        }
+    }
+    return finalTime;
+}
+
+function syncProjectilePartControls(partName = selectedPartName()) {
+    const part = state.rig?.parts?.[partName] || null;
+    const projectile = part?.projectile && typeof part.projectile === "object" ? part.projectile : null;
+    const enabled = Boolean(projectile && projectile.enabled !== false);
+    const animationSlot = String(projectile?.animationSlot || "attack");
+    state.syncing = true;
+    els.projectileEnabled.checked = enabled;
+    els.projectileActiveCharacter.checked = String(state.character?.projectilePart || "") === String(partName || "");
+    els.projectileActiveCharacter.disabled = !enabled || !state.character;
+    els.projectileId.value = String(projectile?.id || partName || "projectile");
+    els.projectileLaunchType.value = String(projectile?.launchType || "straight");
+    els.projectileAnimationSlot.value = animationSlot;
+    els.projectileReleaseTime.value = Number.isFinite(Number(projectile?.releaseTime))
+        ? Number(projectile.releaseTime).toFixed(3)
+        : "";
+    for (const control of [els.projectileId, els.projectileLaunchType, els.projectileAnimationSlot, els.projectileReleaseTime]) {
+        control.disabled = !enabled;
+    }
+    const finalTime = projectilePartFinalKeyTime(partName, animationSlot);
+    els.projectileLastKeyTime.textContent = finalTime === null
+        ? `Final keyed time: unavailable until the ${animationSlot} clip is loaded.`
+        : `Final keyed time for ${partName} in ${animationSlot}: ${finalTime.toFixed(3)} s`;
+    state.syncing = false;
+}
+
+function writeActiveCharacterProjectileFromUi() {
+    if (state.syncing || !state.character) {
+        return;
+    }
+    const partName = selectedPartName();
+    if (els.projectileActiveCharacter.checked) {
+        state.character.projectilePart = partName;
+    } else if (String(state.character.projectilePart || "") === partName) {
+        delete state.character.projectilePart;
+    }
+    refreshCharacterJson();
+    markDirty("character");
+    syncProjectilePartControls(partName);
+}
+
+function writeProjectilePartFromUi() {
+    if (state.syncing || !state.rig) {
+        return;
+    }
+    const partName = selectedPartName();
+    const part = state.rig.parts?.[partName];
+    if (!part) {
+        return;
+    }
+    if (!els.projectileEnabled.checked) {
+        delete part.projectile;
+        if (state.character && String(state.character.projectilePart || "") === partName) {
+            delete state.character.projectilePart;
+            refreshCharacterJson();
+            markDirty("character");
+        }
+        syncProjectilePartControls(partName);
+        refreshRigJson();
+        markDirty("rig");
+        return;
+    }
+    const animationSlot = String(els.projectileAnimationSlot.value || "attack").trim() || "attack";
+    let releaseTime = Number(els.projectileReleaseTime.value);
+    if (!Number.isFinite(releaseTime) || releaseTime < 0) {
+        releaseTime = projectilePartFinalKeyTime(partName, animationSlot) ?? state.time ?? 0;
+    }
+    part.projectile = {
+        ...(part.projectile && typeof part.projectile === "object" ? part.projectile : {}),
+        enabled: true,
+        id: String(els.projectileId.value || partName).trim() || partName,
+        launchType: String(els.projectileLaunchType.value || "straight"),
+        animationSlot,
+        releaseTime
+    };
+    syncProjectilePartControls(partName);
+    refreshRigJson();
+    markDirty("rig");
+}
+
 function selectPart(name) {
     if (!state.rig || !name) {
         return;
@@ -2350,6 +2490,7 @@ function selectPart(name) {
     els.targetHeight.value = Math.round(part.targetHeight || 100);
     updateDrawOrderButtons();
     state.syncing = false;
+    syncProjectilePartControls(name);
     state.selectedKeyIndex = -1;
     state.selectedTransformTime = null;
     rebuildTimeline();
@@ -2490,6 +2631,7 @@ function syncAnimationControls() {
         }
         state.syncing = false;
         updateReadouts();
+        syncProjectilePartControls();
         return;
     }
     const duration = Number(state.animation.duration);
@@ -2516,6 +2658,7 @@ function syncAnimationControls() {
     }
     state.syncing = false;
     updateReadouts();
+    syncProjectilePartControls();
 }
 
 function applyAnimationMetadataFromUi() {
@@ -3254,6 +3397,95 @@ function stagePixelScale() {
     return canvas.width / Math.max(1, rect.width);
 }
 
+function groundGuideHandleRect() {
+    const pixelScale = stagePixelScale();
+    const groundY = currentViewTransform().originY;
+    return {
+        x: 12 * pixelScale,
+        y: groundY - 27 * pixelScale,
+        width: 218 * pixelScale,
+        height: 24 * pixelScale
+    };
+}
+
+function pointInRect(point, rect) {
+    return point.x >= rect.x
+        && point.x <= rect.x + rect.width
+        && point.y >= rect.y
+        && point.y <= rect.y + rect.height;
+}
+
+function drawGroundGuide() {
+    const view = currentViewTransform();
+    const pixelScale = stagePixelScale();
+    const groundY = view.originY;
+    const handle = groundGuideHandleRect();
+    ctx.save();
+    ctx.setLineDash([12 * pixelScale, 8 * pixelScale]);
+    ctx.strokeStyle = "rgba(76, 220, 238, 0.92)";
+    ctx.lineWidth = 2 * pixelScale;
+    ctx.beginPath();
+    ctx.moveTo(0, groundY);
+    ctx.lineTo(canvas.width, groundY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.strokeStyle = "rgba(255, 221, 92, 0.95)";
+    ctx.beginPath();
+    ctx.moveTo(view.originX, groundY - 8 * pixelScale);
+    ctx.lineTo(view.originX, groundY + 8 * pixelScale);
+    ctx.stroke();
+    ctx.fillStyle = "rgba(12, 32, 42, 0.94)";
+    ctx.fillRect(handle.x, handle.y, handle.width, handle.height);
+    ctx.strokeStyle = "rgba(76, 220, 238, 0.95)";
+    ctx.strokeRect(handle.x, handle.y, handle.width, handle.height);
+    ctx.fillStyle = "rgba(194, 248, 255, 0.98)";
+    ctx.font = `${13 * pixelScale}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+    ctx.textBaseline = "middle";
+    ctx.fillText("GROUND · y = 0 · drag label", handle.x + 8 * pixelScale, handle.y + handle.height * 0.5);
+    ctx.restore();
+}
+
+function beginGroundGuideDrag(event) {
+    if (state.editorMode !== "animation" || event.button !== 0) {
+        return false;
+    }
+    const canvasPoint = clientPointOnCanvas(event.clientX, event.clientY);
+    if (!pointInRect(canvasPoint, groundGuideHandleRect())) {
+        return false;
+    }
+    event.preventDefault();
+    state.groundGuideDrag = {
+        pointerId: event.pointerId,
+        startCanvasY: canvasPoint.y,
+        startPanY: state.viewPanY
+    };
+    canvas.setPointerCapture?.(event.pointerId);
+    canvas.style.cursor = "ns-resize";
+    setStatus("Dragging the ground label repositions the editor view only. Character coordinates remain unchanged; runtime ground is always local y = 0.");
+    return true;
+}
+
+function dragGroundGuide(event) {
+    const drag = state.groundGuideDrag;
+    if (!drag || event.pointerId !== drag.pointerId) {
+        return;
+    }
+    event.preventDefault();
+    const canvasPoint = clientPointOnCanvas(event.clientX, event.clientY);
+    state.viewPanY = drag.startPanY + canvasPoint.y - drag.startCanvasY;
+    updateReadouts();
+}
+
+function endGroundGuideDrag(event) {
+    const drag = state.groundGuideDrag;
+    if (!drag || event.pointerId !== drag.pointerId) {
+        return;
+    }
+    canvas.releasePointerCapture?.(event.pointerId);
+    state.groundGuideDrag = null;
+    canvas.style.cursor = "default";
+}
+
 function drawSprite(name, transform) {
     const asset = state.assets.get(name);
     if (!asset || !transform) {
@@ -3554,11 +3786,15 @@ function endPartTransformDrag(event) {
 }
 
 function updateStageCursor(event) {
-    if (state.partDrag || state.previewPanDrag) {
+    if (state.partDrag || state.previewPanDrag || state.groundGuideDrag) {
+        return;
+    }
+    const canvasPoint = clientPointOnCanvas(event.clientX, event.clientY);
+    if (pointInRect(canvasPoint, groundGuideHandleRect())) {
+        canvas.style.cursor = "ns-resize";
         return;
     }
     if (state.animationTool === "select") {
-        const canvasPoint = clientPointOnCanvas(event.clientX, event.clientY);
         canvas.style.cursor = partAtCanvasPoint(canvasPoint) ? "pointer" : "default";
         return;
     }
@@ -3672,6 +3908,7 @@ function render(now) {
         if (pose) {
             drawSelectionOverlay(pose);
         }
+        drawGroundGuide();
     }
     requestAnimationFrame(render);
 }
@@ -3791,6 +4028,17 @@ els.propertySelect.addEventListener("change", () => {
 for (const el of [els.pivotX, els.pivotY, els.offsetX, els.offsetY, els.partScale, els.targetHeight]) {
     el.addEventListener("input", writePartFromUi);
 }
+els.projectileEnabled.addEventListener("change", () => {
+    if (els.projectileEnabled.checked && !els.projectileReleaseTime.value) {
+        const finalTime = projectilePartFinalKeyTime(selectedPartName(), els.projectileAnimationSlot.value || "attack");
+        els.projectileReleaseTime.value = Number(finalTime ?? state.time ?? 0).toFixed(3);
+    }
+    writeProjectilePartFromUi();
+});
+els.projectileActiveCharacter.addEventListener("change", writeActiveCharacterProjectileFromUi);
+for (const el of [els.projectileId, els.projectileLaunchType, els.projectileAnimationSlot, els.projectileReleaseTime]) {
+    el.addEventListener(el.tagName === "SELECT" ? "change" : "input", writeProjectilePartFromUi);
+}
 els.time.addEventListener("input", () => {
     if (!state.syncing) {
         state.time = Number(els.time.value);
@@ -3856,6 +4104,9 @@ canvas.addEventListener("pointerdown", (event) => {
     if (beginPreviewPan(event)) {
         return;
     }
+    if (beginGroundGuideDrag(event)) {
+        return;
+    }
     if (state.editorMode === "atlas") {
         beginAtlasPointer(event);
     } else {
@@ -3871,7 +4122,7 @@ canvas.addEventListener("pointermove", (event) => {
     }
 });
 canvas.addEventListener("pointerleave", () => {
-    if (!state.partDrag && !state.atlasDrag && !state.previewPanDrag) {
+    if (!state.partDrag && !state.atlasDrag && !state.previewPanDrag && !state.groundGuideDrag) {
         canvas.style.cursor = "default";
     }
 });
@@ -3882,6 +4133,7 @@ window.addEventListener("pointermove", (event) => {
     dragPartTransform(event);
     dragAtlasPointer(event);
     dragPreviewPan(event);
+    dragGroundGuide(event);
 }, { passive: false });
 window.addEventListener("pointerup", (event) => {
     endKeyDrag(event);
@@ -3889,6 +4141,7 @@ window.addEventListener("pointerup", (event) => {
     endPartTransformDrag(event);
     endAtlasPointer(event);
     endPreviewPan(event);
+    endGroundGuideDrag(event);
 });
 window.addEventListener("pointercancel", (event) => {
     endKeyDrag(event);
@@ -3896,6 +4149,7 @@ window.addEventListener("pointercancel", (event) => {
     endPartTransformDrag(event);
     endAtlasPointer(event);
     endPreviewPan(event);
+    endGroundGuideDrag(event);
 });
 els.addKey.addEventListener("click", addKeyAtPlayhead);
 els.applyKey.addEventListener("click", () => applySelectedKey(true));

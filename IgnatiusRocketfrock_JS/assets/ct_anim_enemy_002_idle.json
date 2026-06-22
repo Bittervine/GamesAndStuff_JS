@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 2,
-        "note": "User-corrected canonical Fireball Goblin idle adopted in revision 108. Its compact proportions and shoulder/hip placements are the source pose for all other goblin animations."
+        "version": 3,
+        "note": "User-corrected canonical Fireball Goblin idle adopted in revision 108. Its compact proportions and shoulder/hip placements are the source pose for all other goblin animations. Revision 113 applies the one-time +52 rig-space Y normalization so local y=0 matches the runtime ground."
     },
     "animationId": "ct_anim_enemy_002_idle",
     "duration": 1.2,
@@ -10,56 +10,56 @@
     "referencePose": {
         "rightLeg": {
             "x": -22,
-            "y": -140,
+            "y": -88.0,
             "rotation": 0.06,
             "scale": 1,
             "alpha": 1
         },
         "rightArm": {
             "x": 22,
-            "y": -257,
+            "y": -205.0,
             "rotation": 0.1,
             "scale": 1,
             "alpha": 1
         },
         "torso": {
             "x": 0,
-            "y": -162,
+            "y": -110.0,
             "rotation": 0,
             "scale": 1,
             "alpha": 1
         },
         "head": {
             "x": 2,
-            "y": -282,
+            "y": -230.0,
             "rotation": 0,
             "scale": 1,
             "alpha": 1
         },
         "leftLeg": {
             "x": 26,
-            "y": -140,
+            "y": -88.0,
             "rotation": -0.04,
             "scale": 1,
             "alpha": 1
         },
         "leftArm": {
             "x": 45,
-            "y": -253,
+            "y": -201.0,
             "rotation": 0.02,
             "scale": 1,
             "alpha": 1
         },
         "leftArmClosed": {
             "x": 0,
-            "y": 0,
+            "y": 52.0,
             "rotation": 0,
             "scale": 1,
             "alpha": 1
         },
         "fireball": {
             "x": 0,
-            "y": 0,
+            "y": 52.0,
             "rotation": 0,
             "scale": 1,
             "alpha": 1
@@ -70,12 +70,12 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -162,
+                    "value": -110.0,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": -165,
+                    "value": -113.0,
                     "easing": "easeInOut"
                 }
             ]
@@ -84,17 +84,17 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -273.85700275375234,
+                    "value": -221.85700275375234,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.033400000000003364,
-                    "value": -273.8745637411903,
+                    "value": -221.8745637411903,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": -276.69053724659335,
+                    "value": -224.69053724659335,
                     "easing": "easeInOut"
                 }
             ],
@@ -137,12 +137,12 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -268.58714021594227,
+                    "value": -216.58714021594227,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": -271.3188304532086,
+                    "value": -219.3188304532086,
                     "easing": "easeInOut"
                 }
             ],
@@ -175,12 +175,12 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -274.9835603127217,
+                    "value": -222.9835603127217,
                     "easing": "easeInOut"
                 },
                 {
                     "time": 0.6,
-                    "value": -279.8951512348944,
+                    "value": -227.8951512348944,
                     "easing": "easeInOut"
                 }
             ],
@@ -232,12 +232,12 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -273.4280228383991,
+                    "value": -221.4280228383991,
                     "easing": "linear"
                 },
                 {
                     "time": 0.6085302913387899,
-                    "value": -276.83575970605216,
+                    "value": -224.83575970605216,
                     "easing": "linear"
                 }
             ],
@@ -279,7 +279,7 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -329.44804747296234,
+                    "value": -277.44804747296234,
                     "easing": "linear"
                 }
             ],
@@ -309,7 +309,7 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -189.7019415206407,
+                    "value": -137.7019415206407,
                     "easing": "linear"
                 }
             ],
@@ -332,7 +332,7 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -182.05551366037764,
+                    "value": -130.05551366037764,
                     "easing": "linear"
                 }
             ],
@@ -355,7 +355,7 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -432.7218082972936,
+                    "value": -380.7218082972936,
                     "easing": "linear"
                 }
             ],
@@ -399,7 +399,7 @@
             "y": [
                 {
                     "time": 0,
-                    "value": -453.5639362765434,
+                    "value": -401.5639362765434,
                     "easing": "linear"
                 }
             ],

@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 4,
-        "note": "Explicit enemy catalog. Revision 103 corrects goblin limb identity, depth order, joined animations, and keeps projectile sprites separate from character rigs."
+        "version": 5,
+        "note": "Explicit enemy catalog. Revision 112 aligns goblin ranged-attack fallbacks with animation-authored projectile handoff metadata."
     },
     "catalogId": "ct_enemies_001",
     "enemies": {
@@ -78,7 +78,7 @@
                 "attackRange": 340,
                 "attackVerticalRange": 180,
                 "attackDuration": 0.62,
-                "attackHitTime": 0.3,
+                "attackHitTime": 0.372,
                 "attackCooldown": 0.16,
                 "projectileCooldown": 1.0,
                 "projectileKind": "fireball",
@@ -97,7 +97,9 @@
                 "awarenessVerticalRange": 210,
                 "awarenessHoldDuration": 1.5,
                 "attackLungeDistance": 0,
-                "attackLungeSpeed": 0
+                "attackLungeSpeed": 0,
+                "projectileReleaseTime": 0.372,
+                "projectileLaunchType": "homing_lo"
             }
         },
         "enemy_003": {
@@ -130,8 +132,8 @@
                 "attackDamage": 18,
                 "attackRange": 420,
                 "attackVerticalRange": 220,
-                "attackDuration": 0.7,
-                "attackHitTime": 0.29,
+                "attackDuration": 0.62,
+                "attackHitTime": 0.49531814840382643,
                 "attackCooldown": 0.18,
                 "projectileCooldown": 1.2,
                 "projectileKind": "musketBall",
@@ -150,7 +152,9 @@
                 "awarenessVerticalRange": 220,
                 "awarenessHoldDuration": 1.6,
                 "attackLungeDistance": 0,
-                "attackLungeSpeed": 0
+                "attackLungeSpeed": 0,
+                "projectileReleaseTime": 0.49531814840382643,
+                "projectileLaunchType": "ballistic"
             }
         }
     }

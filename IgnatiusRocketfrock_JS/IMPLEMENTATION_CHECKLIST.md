@@ -385,15 +385,16 @@ Goal: turn the current rocket behavior into a flexible weapon system.
 * [ ] Define weapon data format.
 * [ ] Define launch mode data format.
 * [ ] Define projectile data format.
-* [ ] Define animation-authored projectile-part metadata with stable ID, launch type, and launch origin.
-* [ ] Derive projectile release from the final key belonging to the tagged projectile part in the attack clip.
-* [ ] Transfer the sampled projectile world transform from animation ownership to simulation ownership at release.
-* [ ] Support `ballistic`, `straight`, `homing_lo`, `homing_hi`, `pathing_lo`, and `pathing_hi` launch types deterministically.
+* [x] Define animation-authored projectile-part metadata with stable ID, launch type, animation slot, explicit release time, and sampled launch origin.
+* [x] Use an explicit user-authored projectile release time while showing the part's final keyed time as an editor reference.
+* [x] Transfer the sampled projectile world transform from animation ownership to simulation ownership at release.
+* [x] Support deterministic `ballistic`, `straight`, `homing_lo`, and `homing_hi` launch behaviour.
+* [ ] Add true deterministic obstacle planning for `pathing_lo` and `pathing_hi`.
 * [ ] Add independent character/enemy damage fields for projectile, melee, and touch/contact damage.
 * [ ] Add quick launch mode.
 * [ ] Add held aimed launch mode.
 * [ ] Add homing launch mode.
-* [ ] Add ballistic launch mode if still desired.
+* [x] Add ballistic launch mode for the Musket Goblin.
 * [ ] Add weapon cooldowns and fuel costs.
 * [ ] Add deterministic fallback behavior when no target is found.
 * [ ] Add tests for launch modes and projectile outcomes.
@@ -839,14 +840,15 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Add independent collapse controls to right-side panels and persist their state through browser local storage.
 * [x] Add source regression checks for all new editor controls and behaviours.
 
-### Deferred animation-authored projectile handoff
+### Animation-authored projectile handoff
 
-* [ ] Add explicit projectile metadata to rig parts or character attack definitions; do not infer gameplay from part names.
-* [ ] Treat the final key on the tagged projectile part as its release time even when other body parts have later recoil/recovery keys.
-* [ ] Add projectile launch-type metadata for ballistic, straight, low/high homing, and low/high obstacle-pathing shots.
+* [x] Add explicit projectile metadata to rig parts; do not infer gameplay from part names.
+* [x] Add an explicit release-time field and show the projectile part's final key only as a reference.
+* [x] Add projectile launch-type metadata for ballistic, straight, low/high homing, and reserved low/high obstacle-pathing shots.
 * [ ] Add projectile, melee, and touch/contact damage fields to character-level combat data.
-* [ ] Update the simulation to consume animation release events and take ownership of the projectile at its sampled world transform.
-* [ ] Add deterministic tests for release timing, ownership transfer, obstacle interception, launch modes, and damage sources.
+* [x] Update the simulation to consume explicit animation release metadata and take ownership at the sampled world transform.
+* [x] Add deterministic tests for explicit release timing, sampled ownership transfer, low-homing fireballs, and ballistic cannonballs.
+* [ ] Extend handoff tests to true pathing modes and character-level damage-source metadata.
 
 ### Revision 108 user-refined goblin joints and animation rebuild
 
@@ -870,4 +872,32 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Replace the goblin rig, atlas manifest, character definitions, and Enemy 002/003 animation clips from the user-supplied ZIP without rewriting them.
 * [x] Preserve the Fireball Goblin attack's animated fireball part and the Musket Goblin attack's animated cannonball part.
 * [x] Verify every supplied JSON file remains byte-identical inside the packaged revision.
+### Revision 112 explicit projectile handoff and level placement
 
+* [x] Add projectile tagging, launch-type selection, animation-slot selection, explicit release-time editing, and per-character active-projectile selection to Puppet Forge.
+* [x] Show the selected projectile part's final keyed time as a non-authoritative reference.
+* [x] Tag the Fireball Goblin fireball as `homing_lo` and the Musket Goblin cannonball as `ballistic`.
+* [x] Compile the projectile part's sampled release transform while loading the character project.
+* [x] Hydrate character combat profiles into portable enemy state after each level load.
+* [x] Launch simulation-owned projectiles from the sampled animated world position and hide the rig copy at release.
+* [x] Add both goblin variants to `level_001`.
+* [x] Add regression coverage for metadata, release timing, origin transfer, visibility handoff, and level placement.
+
+### Revision 113 visible character ground and baked goblin normalization
+
+* [x] Draw the authoritative local `y = 0` ground line in Puppet Forge's Rig and animation workspace.
+* [x] Make the ground-guide label vertically draggable as a view-only operation.
+* [x] Bake a one-time `+52` rig-space Y correction into the shared goblin rig anchors and setup offsets.
+* [x] Apply the same correction to Enemy 002/003 character overrides, reference poses, and every animation Y keyframe.
+* [x] Preserve projectile release times and translate projectile preparation/release positions with the character.
+* [x] Keep runtime `groundOffset` and `rootYOffsetFromGround` at zero.
+* [x] Add regression checks for the editor guide, normalized goblin feet, zero runtime offset, and shifted projectile release positions.
+
+
+### Revision 114 defeated-monster linger and fade
+
+* [x] Keep defeated character enemies fully opaque for two seconds.
+* [x] Fade defeated character enemies linearly to zero opacity over the following three seconds.
+* [x] Fade the character shadow together with the defeated monster.
+* [x] Keep dead enemies stationary, untargetable, and on their authored death animation.
+* [x] Add deterministic simulation regression coverage for the hold, partial fade, and fully transparent states.

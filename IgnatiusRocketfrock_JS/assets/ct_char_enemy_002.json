@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 3,
-        "note": "Fireball Goblin. Uses the shared goblin rig with the correctly identified open left casting arm. The fireball is an independent projectile sprite, not a character part. Revision 104 keeps an explicit hidden-weapon offset so Puppet Forge can position the unused shared slot."
+        "version": 6,
+        "note": "Fireball Goblin. Uses the shared goblin rig with the correctly identified open left casting arm. The fireball is an independent projectile sprite, not a character part. Revision 104 keeps an explicit hidden-weapon offset so Puppet Forge can position the unused shared slot. Revision 112 selects the active animation-authored projectile part for this character variant. Revision 113 bakes the goblin ground correction into authored setup coordinates."
     },
     "characterId": "ct_char_enemy_002",
     "displayName": "Fireball Goblin",
@@ -13,7 +13,7 @@
             "frame": "leftArmOpen",
             "offset": {
                 "x": 45,
-                "y": -253
+                "y": -201.0
             },
             "targetHeight": 94
         },
@@ -21,7 +21,7 @@
             "alpha": 0,
             "offset": {
                 "x": 145,
-                "y": -231
+                "y": -179.0
             }
         }
     },
@@ -37,5 +37,6 @@
         "attack": "ct_anim_enemy_002_attack.json",
         "hurt": "ct_anim_enemy_002_hurt.json",
         "death": "ct_anim_enemy_002_death.json"
-    }
+    },
+    "projectilePart": "fireball"
 }

@@ -16,6 +16,7 @@ import {
 } from "./level-color-map.js";
 import {
     animationPoseToRuntimeTransforms,
+    applyRuntimeProjectileHandoffVisibility,
     buildRuntimeCharacterDrawCommands,
     loadRuntimeCharacterProject,
     sampleRuntimeCharacterPose
@@ -708,6 +709,12 @@ class RocketfrockRenderer {
     }
 
     drawRuntimeCharacterEnemy(project, enemy, state, view) {
+        const renderOpacity = enemy.health <= 0
+            ? clamp(Number(enemy.renderOpacity ?? 1), 0, 1)
+            : 1;
+        if (renderOpacity <= 0) {
+            return;
+        }
         const screen = this.worldToScreen(view, enemy.x, enemy.y);
         const actorScale = Math.max(0.05, Number(enemy.renderScale) || 1);
         const facing = Number(enemy.facing) < 0 ? -1 : 1;
@@ -717,18 +724,18 @@ class RocketfrockRenderer {
             : state.clock.time + (Number(enemy.animationTimeOffset) || 0);
         const sampled = sampleRuntimeCharacterPose(project, requestedSlot, time);
         const transforms = animationPoseToRuntimeTransforms(sampled.pose, project.rig, view.zoom, actorScale);
+        applyRuntimeProjectileHandoffVisibility(project, sampled.slot, time, transforms);
 
-        this.drawShadow(screen.x, screen.y, view.zoom * actorScale * 0.72);
         const bounds = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
         const flashDuration = Math.max(0.001, Number(enemy.hitFlashDuration) || state.tuning.enemyHitFlashSeconds || 0.16);
         const flash = clamp((Number(enemy.hitFlashTimer) || 0) / flashDuration, 0, 1);
         this.ctx.save();
+        this.ctx.globalAlpha *= renderOpacity;
+        this.drawShadow(screen.x, screen.y, view.zoom * actorScale * 0.72);
         if (flash > 0) {
             this.ctx.filter = `brightness(${1 + flash * 1.9}) saturate(${1 - flash * 0.72})`;
         }
-        this.drawCharacterProjectPose(project, screen.x, screen.y, facing, transforms, bounds, {
-            alpha: enemy.health <= 0 ? 0.72 : 1
-        });
+        this.drawCharacterProjectPose(project, screen.x, screen.y, facing, transforms, bounds, { alpha: 1 });
         this.ctx.restore();
         this.drawEnemyHealthBar(enemy, view, actorScale);
         this.lastCharacterDraws.push({
@@ -877,7 +884,8 @@ class RocketfrockRenderer {
             ctx.restore();
         }
 
-        const asset = this.getCharacterAtlasFrame("ct_char_enemy_002", "fireball");
+        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_002", projectile.frameId || "fireball") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_002", "fireball");
         const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
         const angle = Math.atan2(projectile.vy / speed, projectile.vx / speed);
         const pulse = 0.94 + 0.06 * Math.sin(state.clock.time * 16 + projectile.x * 0.03);
@@ -924,7 +932,8 @@ class RocketfrockRenderer {
     drawProjectileMusketBall(projectile, state, view) {
         const ctx = this.ctx;
         const p = this.worldToScreen(view, projectile.x, projectile.y);
-        const asset = this.getCharacterAtlasFrame("ct_char_enemy_003", "cannonball") ||
+        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_003", projectile.frameId || "cannonball") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_003", "cannonball") ||
             this.getCharacterAtlasFrame("ct_char_enemy_002", "cannonball");
         if (asset && !asset.missing) {
             const targetHeight = projectile.radius * 2.45 * view.zoom;
