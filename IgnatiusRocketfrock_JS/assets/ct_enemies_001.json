@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 5,
-        "note": "Explicit enemy catalog. Revision 112 aligns goblin ranged-attack fallbacks with animation-authored projectile handoff metadata."
+        "version": 6,
+        "note": "Explicit enemy catalog. Revision 115 adds strategy-driven hunter navigation, single-jump reachability, attack-position selection, glare, return-home, and stranded patrol defaults."
     },
     "catalogId": "ct_enemies_001",
     "enemies": {
@@ -44,7 +44,11 @@
                 "awarenessVerticalRange": 190,
                 "awarenessHoldDuration": 1.2,
                 "attackLungeDistance": 20,
-                "attackLungeSpeed": 180
+                "attackLungeSpeed": 180,
+                "strategy": "simple_patrol",
+                "runSpeed": 150,
+                "jumpHeight": 0,
+                "unreachableGlareDuration": 5
             }
         },
         "enemy_002": {
@@ -56,7 +60,7 @@
                 "h": 148
             },
             "defaults": {
-                "behavior": "guard",
+                "behavior": "patrol",
                 "facing": -1,
                 "patrolDistance": 240,
                 "walkSpeed": 54,
@@ -99,7 +103,15 @@
                 "attackLungeDistance": 0,
                 "attackLungeSpeed": 0,
                 "projectileReleaseTime": 0.372,
-                "projectileLaunchType": "homing_lo"
+                "projectileLaunchType": "homing_lo",
+                "strategy": "hunter",
+                "runSpeed": 124,
+                "jumpHeight": 124,
+                "jumpGravity": 1250,
+                "maxFallDistance": 280,
+                "unreachableGlareDuration": 5,
+                "routeRepathInterval": 0.3,
+                "homeRetryInterval": 4
             }
         },
         "enemy_003": {
@@ -111,7 +123,7 @@
                 "h": 148
             },
             "defaults": {
-                "behavior": "guard",
+                "behavior": "patrol",
                 "facing": -1,
                 "patrolDistance": 260,
                 "walkSpeed": 52,
@@ -154,7 +166,15 @@
                 "attackLungeDistance": 0,
                 "attackLungeSpeed": 0,
                 "projectileReleaseTime": 0.49531814840382643,
-                "projectileLaunchType": "ballistic"
+                "projectileLaunchType": "ballistic",
+                "strategy": "hunter",
+                "runSpeed": 116,
+                "jumpHeight": 112,
+                "jumpGravity": 1250,
+                "maxFallDistance": 280,
+                "unreachableGlareDuration": 5,
+                "routeRepathInterval": 0.3,
+                "homeRetryInterval": 4
             }
         }
     }

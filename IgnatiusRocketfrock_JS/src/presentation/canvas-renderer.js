@@ -738,12 +738,47 @@ class RocketfrockRenderer {
         this.drawCharacterProjectPose(project, screen.x, screen.y, facing, transforms, bounds, { alpha: 1 });
         this.ctx.restore();
         this.drawEnemyHealthBar(enemy, view, actorScale);
+        if (state.debug.showHitboxes) {
+            this.drawEnemyNavigationDebug(enemy, view);
+        }
         this.lastCharacterDraws.push({
             actorId: enemy.id,
             characterId: project.characterId,
             animationSlot: sampled.slot,
             bounds: Number.isFinite(bounds.minX) ? { ...bounds } : null
         });
+    }
+
+    drawEnemyNavigationDebug(enemy, view) {
+        const ctx = this.ctx;
+        const route = Array.isArray(enemy.route) ? enemy.route.slice(Math.max(0, Number(enemy.routeIndex) || 0)) : [];
+        const origin = this.worldToScreen(view, enemy.x, enemy.y - 6);
+        ctx.save();
+        ctx.font = `${Math.max(10, 11 * view.zoom)}px ui-monospace, monospace`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillStyle = "rgba(144, 239, 255, 0.96)";
+        ctx.fillText(`${enemy.strategy || "legacy"}:${enemy.aiState || enemy.movementPhase || "idle"}`, origin.x, origin.y - enemy.height * view.zoom - 8 * view.zoom);
+        if (route.length || Number.isFinite(Number(enemy.routeTargetX))) {
+            ctx.strokeStyle = "rgba(89, 225, 255, 0.82)";
+            ctx.lineWidth = Math.max(1, 1.5 * view.zoom);
+            ctx.setLineDash([6 * view.zoom, 4 * view.zoom]);
+            ctx.beginPath();
+            ctx.moveTo(origin.x, origin.y);
+            for (const edge of route) {
+                const launch = this.worldToScreen(view, edge.launchX, edge.launchY);
+                const landing = this.worldToScreen(view, edge.landingX, edge.landingY);
+                ctx.lineTo(launch.x, launch.y);
+                ctx.lineTo(landing.x, landing.y);
+            }
+            if (Number.isFinite(Number(enemy.routeTargetX)) && Number.isFinite(Number(enemy.routeTargetY))) {
+                const target = this.worldToScreen(view, Number(enemy.routeTargetX), Number(enemy.routeTargetY));
+                ctx.lineTo(target.x, target.y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        ctx.restore();
     }
 
     drawEnemyHealthBar(enemy, view, actorScale = 1) {

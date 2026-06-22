@@ -901,3 +901,32 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Fade the character shadow together with the defeated monster.
 * [x] Keep dead enemies stationary, untargetable, and on their authored death animation.
 * [x] Add deterministic simulation regression coverage for the hold, partial fade, and fully transparent states.
+
+### Revision 115 strategy-driven hunter AI and platform routing
+
+* [x] Preserve the existing local behaviour as the `simple_patrol` strategy.
+* [x] Add stationary `sentry` and roaming `hunter` strategy values.
+* [x] Add enemy-archetype/runtime fields for run speed, jump height, jump gravity, fall limit, glare duration, repath cadence, and home retry cadence.
+* [x] Extract walkable supports and directed step/jump/drop edges into `src/core/enemy-navigation.js`.
+* [x] Reject routes that exceed the enemy's authored single-jump capability.
+* [x] Select reachable melee or projectile attack positions using preferred range and line of sight.
+* [x] Add deterministic airborne traversal and landing for ordinary single jumps and drops.
+* [x] Add unreachable glare, return-home, and stranded temporary-patrol states.
+* [x] Periodically retry the original home route from a stranded patrol.
+* [x] Expose strategy, run speed, jump height, awareness, and glare controls in the Level Editor.
+* [x] Configure the Skeleton Guard as `simple_patrol` and both goblins as `hunter` in the catalog and `level_001`.
+* [x] Add debug route/state visualization and deterministic graph, jump, positioning, and stranded-fallback tests.
+### Revision 116 hunter jump-route and ranged-fallback fixes
+
+* [x] Classify only upward-facing closed-polygon edges as walkable navigation supports.
+* [x] Split broad floor supports around blocking polygon and solid footprints using enemy body dimensions.
+* [x] Generate side-entry jump and side-exit drop transitions for vertically overlapping obstacle tops.
+* [x] Include current-position-to-launch walking distance in route selection.
+* [x] Preserve support identity at shared vertices while traversing segmented platform tops.
+* [x] Prefer a reachable wizard support region over opportunistic attacks from a lower support.
+* [x] Search all reachable supports for a projectile position before entering unreachable glare.
+* [x] Validate fireball lines and musket-ball ballistic arcs from the authored projectile origin.
+* [x] Sample the complete usable firing window densely enough to find narrow clear-shot positions.
+* [x] Add a regression test using the real `level_001` arch and a 555-pixel hunter jump.
+* [x] Add a regression test requiring repositioning to a reachable firing fallback before glare.
+

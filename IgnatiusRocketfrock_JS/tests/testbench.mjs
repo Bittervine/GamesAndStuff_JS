@@ -93,6 +93,11 @@ import {
     sampleRuntimeCharacterPose
 } from "../src/presentation/character-runtime.js";
 import {
+    buildEnemyNavigationSupports,
+    findEnemyNavigationSupport,
+    planEnemyNavigationRoute
+} from "../src/core/enemy-navigation.js";
+import {
     FIXED_DT,
     DEFAULT_TUNING,
     createInitialGameState,
@@ -121,6 +126,7 @@ function testSourceOrganization() {
         "../ARCHITECTURE.md",
         "../package.json",
         "../src/core/simulation.js",
+        "../src/core/enemy-navigation.js",
         "../src/browser/browser-input.js",
         "../src/browser/game-bootstrap.js",
         "../src/presentation/canvas-renderer.js",
@@ -395,6 +401,10 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(skeleton, "enemy catalog should register enemy_001");
     assert.equal(skeleton.characterId, "ct_char_enemy_001", "enemy_001 should reference its generic character project");
     assert.equal(skeleton.defaults.behavior, "patrol", "Skeleton Guard should default to patrol behaviour");
+    assert.equal(skeleton.defaults.strategy, "simple_patrol", "Skeleton Guard should preserve the original simple-minded local strategy");
+    assert.equal(catalog.enemies.enemy_002.defaults.strategy, "hunter", "Fireball Goblin should use the hunter strategy");
+    assert.equal(catalog.enemies.enemy_003.defaults.strategy, "hunter", "Musket Goblin should use the hunter strategy");
+    assert.ok(catalog.enemies.enemy_002.defaults.jumpHeight > 0, "hunter goblins should have an authored single-jump height");
     assert.ok(skeleton.defaults.patrolDistance > 0, "Skeleton Guard should have a visible default patrol span");
     assert.ok(skeleton.defaults.attackDamage > 0, "Skeleton Guard should have authored melee damage");
     assert.ok(skeleton.defaults.attackRange > 0, "Skeleton Guard should have authored melee reach");
@@ -414,13 +424,359 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(editorHtml.includes('id="inspect-enemy-attack-damage"'), "level editor should expose enemy melee damage");
     assert.ok(editorHtml.includes('id="inspect-enemy-attack-range"'), "level editor should expose enemy melee reach");
     assert.ok(editorHtml.includes('id="inspect-enemy-chase-speed"'), "level editor should expose alerted chase speed");
-    assert.ok(editorHtml.includes('id="inspect-enemy-awareness-range"'), "level editor should expose stationary-guard awareness range");
+    assert.ok(editorHtml.includes('id="inspect-enemy-awareness-range"'), "level editor should expose enemy awareness range");
+    assert.ok(editorHtml.includes('id="inspect-enemy-strategy"'), "level editor should expose AI strategy selection");
+    assert.ok(editorHtml.includes('id="inspect-enemy-jump-height"'), "level editor should expose maximum jump height");
+    assert.ok(editorHtml.includes('id="inspect-enemy-glare-duration"'), "level editor should expose unreachable glare duration");
 
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
     const placed = level.entities.find((entity) => entity.id === "enemy_001_001");
     assert.ok(placed, "level_001 should include the first placed Skeleton Guard");
     assert.equal(placed.type, "characterEnemy", "placed Skeleton Guard should use the generic runtime entity type");
     assert.equal(placed.behavior, "patrol", "placed Skeleton Guard should use simulation-owned patrol behaviour");
+}
+
+
+function testEnemyNavigationGraphAndJumpReachability() {
+    const supports = buildEnemyNavigationSupports({
+        segments: [
+            { id: "low", kind: "walkable", x1: -100, y1: 600, x2: 100, y2: 600 },
+            { id: "high", kind: "walkable", x1: 140, y1: 500, x2: 280, y2: 500 }
+        ],
+        solids: []
+    });
+    const start = findEnemyNavigationSupport(supports, 0, 600, { maxRise: 30, maxDrop: 40, width: 72 });
+    assert.equal(start?.support.id, "low", "navigation should identify the enemy's current support");
+    const route = planEnemyNavigationRoute(supports, "low", "high", {
+        maxStepHeight: 26,
+        maxStepGap: 18,
+        jumpHeight: 140,
+        gravity: 1200,
+        runSpeed: 180,
+        maxFallDistance: 280,
+        edgeInset: 12
+    });
+    assert.ok(route, "a sufficiently athletic enemy should find a route to the upper platform");
+    assert.equal(route.edges.length, 1, "the two-platform route should contain one traversal edge");
+    assert.equal(route.edges[0].type, "jump", "the upward traversal should be classified as a jump");
+    assert.ok(route.edges[0].vy < 0, "the jump should launch upward exactly once");
+
+    const unreachable = planEnemyNavigationRoute(supports, "low", "high", {
+        maxStepHeight: 26,
+        maxStepGap: 18,
+        jumpHeight: 50,
+        gravity: 1200,
+        runSpeed: 180,
+        maxFallDistance: 280,
+        edgeInset: 12
+    });
+    assert.equal(unreachable, null, "a platform above the authored jump height should be unreachable");
+}
+
+function testHunterEnemyJumpAndAttackPositioning() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "hunter_jump_test",
+        playerStart: { x: 190, y: 500 },
+        entities: [{
+            id: "hunter",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 0,
+            y: 600,
+            w: 72,
+            h: 148,
+            facing: 1,
+            behavior: "patrol",
+            strategy: "hunter",
+            patrolDistance: 100,
+            walkSpeed: 40,
+            runSpeed: 180,
+            jumpHeight: 140,
+            jumpGravity: 1200,
+            maxFallDistance: 280,
+            awarenessRange: 500,
+            awarenessVerticalRange: 300,
+            attackMode: "melee",
+            attackRange: 60,
+            attackVerticalRange: 100,
+            attackDamage: 0
+        }]
+    });
+    state.world.segments = [
+        { id: "low", kind: "walkable", x1: -100, y1: 600, x2: 100, y2: 600 },
+        { id: "high", kind: "walkable", x1: 140, y1: 500, x2: 280, y2: 500 }
+    ];
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 190;
+    state.player.y = 500;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    const enemy = state.enemies.find((item) => item.id === "hunter");
+    let sawAirborne = false;
+    stepMany(state, 100, () => {
+        sawAirborne ||= enemy.airborne;
+        return createInputFrame();
+    });
+    sawAirborne ||= enemy.airborne;
+    assert.equal(enemy.strategy, "hunter", "hunter strategy should survive level deserialization");
+    assert.equal(sawAirborne, true, "hunter should perform a single authored jump to a reachable platform");
+    assert.equal(enemy.currentSupportId, "high", "hunter should land on the target platform");
+    assert.ok(enemy.y <= 501, "hunter feet should settle on the upper support");
+    assert.ok(["pursue", "attack", "position_for_attack"].includes(enemy.movementPhase), "hunter should continue positioning or attacking after landing");
+}
+
+
+function testHunterRangedAttackPositionSelection() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "hunter_ranged_position_test",
+        playerStart: { x: 40, y: 600 },
+        entities: [{
+            id: "ranged_hunter",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_002",
+            x: 0,
+            y: 600,
+            w: 72,
+            h: 148,
+            facing: 1,
+            behavior: "patrol",
+            strategy: "hunter",
+            patrolDistance: 100,
+            walkSpeed: 40,
+            runSpeed: 150,
+            jumpHeight: 100,
+            jumpGravity: 1200,
+            maxFallDistance: 240,
+            awarenessRange: 500,
+            awarenessVerticalRange: 200,
+            attackMode: "projectile",
+            attackRange: 320,
+            attackVerticalRange: 160,
+            preferredAttackRange: 180,
+            preferredAttackMinRange: 110,
+            attackDamage: 0,
+            projectileDamage: 0,
+            projectileCooldown: 1
+        }]
+    });
+    state.world.segments = [{ id: "floor", kind: "walkable", x1: -400, y1: 600, x2: 400, y2: 600 }];
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 40;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    const enemy = state.enemies.find((item) => item.id === "ranged_hunter");
+    stepMany(state, 20);
+    assert.ok(enemy.x < -30, "ranged hunter should back away from a target that is inside its minimum firing distance");
+    assert.notEqual(enemy.combatState, "attacking", "ranged hunter should not fire before establishing minimum range");
+    stepMany(state, 40);
+    assert.ok(Math.abs(state.player.x - enemy.x) >= 100, "ranged hunter should settle near an authored firing distance rather than the nearest point");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED"), "ranged hunter should attack after reaching a valid firing position");
+}
+
+
+function testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump() {
+    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    const musketGoblin = level.entities.find((entity) => entity.id === "enemy_003_001");
+    assert.ok(musketGoblin, "level_001 should contain the Musket Goblin used by the arch regression test");
+    musketGoblin.jumpHeight = 555;
+    musketGoblin.awarenessRange = 800;
+    musketGoblin.awarenessVerticalRange = 500;
+    musketGoblin.attackDamage = 0;
+    musketGoblin.projectileDamage = 0;
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the hunter arch regression test");
+    const manifests = new Map();
+    for (const atlasId of ["at_atlas_001", "at_atlas_002", "at_atlas_003"]) {
+        manifests.set(atlasId, {
+            manifest: JSON.parse(readFileSync(`./assets/${atlasId}.json`, "utf8"))
+        });
+    }
+    assert.equal(applyAtlasManifestsToWorld(state, manifests), true, "level collision atlases should apply for the arch regression test");
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 3310;
+    state.player.y = 683;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+
+    const enemy = state.enemies.find((item) => item.id === "enemy_003_001");
+    let sawAirborne = false;
+    let landedOnArch = false;
+    let glaredBeforeJump = false;
+    for (let frame = 0; frame < 220; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        if (!sawAirborne && enemy.aiState === "unreachable_glare") {
+            glaredBeforeJump = true;
+        }
+        sawAirborne ||= enemy.airborne;
+        landedOnArch ||= sawAirborne && !enemy.airborne && String(enemy.currentSupportId || "").startsWith("arch_ruin_001_blockable_");
+    }
+
+    assert.equal(glaredBeforeJump, false, "hunter should not glare while a valid side-entry jump route exists");
+    assert.equal(sawAirborne, true, "a 555 px jump setting should make the goblin launch toward the level_001 arch");
+    assert.equal(landedOnArch, true, "hunter should land on the arch instead of colliding with its wall and abandoning the route");
+}
+
+function testHunterFindsReachableFiringFallbackBeforeGlare() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "hunter_firing_fallback_test",
+        playerStart: { x: 300, y: 400 },
+        entities: [{
+            id: "fallback_hunter",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_002",
+            x: 500,
+            y: 600,
+            w: 72,
+            h: 148,
+            facing: 1,
+            behavior: "patrol",
+            strategy: "hunter",
+            patrolDistance: 100,
+            walkSpeed: 40,
+            runSpeed: 160,
+            jumpHeight: 100,
+            jumpGravity: 1200,
+            maxFallDistance: 300,
+            awarenessRange: 1200,
+            awarenessVerticalRange: 500,
+            unreachableGlareDuration: 1,
+            attackMode: "projectile",
+            attackRange: 700,
+            attackVerticalRange: 400,
+            preferredAttackRange: 300,
+            preferredAttackMinRange: 120,
+            projectileKind: "fireball",
+            projectileLaunchType: "homing_lo",
+            projectileSpeed: 280,
+            projectileRadius: 14,
+            projectileDamage: 0,
+            projectileCooldown: 1
+        }]
+    });
+    state.world.segments = [
+        { id: "floor", kind: "walkable", x1: -100, y1: 600, x2: 1000, y2: 600 },
+        { id: "platform_top", visualId: "platform", lineId: "top", kind: "blockable", x1: 200, y1: 400, x2: 400, y2: 400 },
+        { id: "platform_right", visualId: "platform", lineId: "right", kind: "blockable", x1: 400, y1: 400, x2: 400, y2: 600 },
+        { id: "platform_bottom", visualId: "platform", lineId: "bottom", kind: "blockable", x1: 400, y1: 600, x2: 200, y2: 600 },
+        { id: "platform_left", visualId: "platform", lineId: "left", kind: "blockable", x1: 200, y1: 600, x2: 200, y2: 400 }
+    ];
+    state.world.solids = [];
+    state.world.collisionPolygons = [{
+        id: "platform_poly",
+        visualId: "platform",
+        kind: "blockable",
+        points: [
+            { x: 200, y: 400 },
+            { x: 400, y: 400 },
+            { x: 400, y: 600 },
+            { x: 200, y: 600 }
+        ],
+        lineIds: ["top", "right", "bottom", "left"]
+    }];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 300;
+    state.player.y = 400;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+
+    const enemy = state.enemies.find((item) => item.id === "fallback_hunter");
+    enemy.engaged = true;
+    enemy.alerted = true;
+    enemy.aiState = "pursue";
+    enemy.routeRepathTimer = 0;
+    const startX = enemy.x;
+    let attacked = false;
+    let glared = false;
+    for (let frame = 0; frame < 180 && !attacked; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        glared ||= enemy.aiState === "unreachable_glare";
+        attacked ||= state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED" && event.enemyId === enemy.id);
+    }
+
+    assert.equal(glared, false, "an unreachable target should not trigger glare while a reachable firing position exists");
+    assert.equal(attacked, true, "hunter should fire from a fallback support when it cannot reach the wizard's platform");
+    assert.ok(enemy.x > startX + 120, "hunter should deliberately reposition to clear the blocking platform before firing");
+    assert.equal(enemy.airborne, false, "fallback firing should not invent an impossible jump");
+}
+
+function testHunterEnemyStrandedFallback() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "hunter_stranded_test",
+        playerStart: { x: 430, y: 300 },
+        entities: [{
+            id: "stranded_hunter",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 100,
+            y: 600,
+            w: 72,
+            h: 148,
+            facing: 1,
+            behavior: "patrol",
+            strategy: "hunter",
+            patrolDistance: 120,
+            walkSpeed: 50,
+            runSpeed: 150,
+            jumpHeight: 70,
+            jumpGravity: 1200,
+            maxFallDistance: 280,
+            awarenessRange: 600,
+            awarenessVerticalRange: 400,
+            unreachableGlareDuration: 0.1,
+            homeRetryInterval: 0.2,
+            attackRange: 60,
+            attackVerticalRange: 100,
+            attackDamage: 0
+        }]
+    });
+    state.world.segments = [
+        { id: "low", kind: "walkable", x1: 0, y1: 600, x2: 260, y2: 600 },
+        { id: "home", kind: "walkable", x1: 360, y1: 300, x2: 520, y2: 300 }
+    ];
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 430;
+    state.player.y = 300;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    const enemy = state.enemies.find((item) => item.id === "stranded_hunter");
+    enemy.homeSupportId = "home";
+    enemy.spawnX = 430;
+    enemy.spawnY = 300;
+    enemy.engaged = true;
+    enemy.alerted = true;
+    enemy.aiState = "pursue";
+    stepMany(state, 30);
+    assert.equal(enemy.aiState, "stranded_patrol", "hunter unable to reach either player or home should adopt the current platform");
+    assert.ok(Number.isFinite(enemy.temporaryPatrolMinX) && Number.isFinite(enemy.temporaryPatrolMaxX), "stranded hunter should receive a bounded temporary patrol region");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_TARGET_UNREACHABLE"), "unreachable player should produce the glare transition event");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_STRANDED"), "failed return route should produce the stranded fallback event");
 }
 
 function testCharacterEnemyPatrolBehavior() {
@@ -2888,6 +3244,12 @@ const tests = [
     ["generic runtime character project", testGenericRuntimeCharacterProject],
     ["goblin runtime character projects", testGoblinRuntimeCharacterProjects],
     ["enemy catalog and Level Editor integration", testEnemyCatalogAndLevelEditorIntegration],
+    ["enemy navigation graph and jump reachability", testEnemyNavigationGraphAndJumpReachability],
+    ["hunter enemy jump and attack positioning", testHunterEnemyJumpAndAttackPositioning],
+    ["hunter ranged attack-position selection", testHunterRangedAttackPositionSelection],
+    ["hunter jumps onto level_001 arch", testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump],
+    ["hunter reachable firing fallback", testHunterFindsReachableFiringFallbackBeforeGlare],
+    ["hunter enemy stranded fallback", testHunterEnemyStrandedFallback],
     ["simulation-owned character enemy patrol", testCharacterEnemyPatrolBehavior],
     ["character enemy aggressive chase and combo", testCharacterEnemyAggressiveChaseAndCombo],
     ["character enemy rocket combat", testCharacterEnemyRocketCombat],

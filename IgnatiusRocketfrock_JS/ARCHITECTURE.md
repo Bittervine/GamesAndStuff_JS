@@ -25,6 +25,7 @@ IgnatiusRocketfrock_JS/
 ├── renderer-smoke.html
 ├── src/
 │   ├── core/
+│   │   ├── enemy-navigation.js
 │   │   └── simulation.js
 │   ├── browser/
 │   │   ├── browser-input.js
@@ -85,7 +86,8 @@ More precisely:
 
 | Module | Classification | Responsibility |
 |---|---|---|
-| `src/core/simulation.js` | PORTABLE CORE | Authoritative fixed-step state, player physics, collisions, weapons, enemies, reactive objects, story state, level runtime conversion, serialization, and update order. |
+| `src/core/enemy-navigation.js` | PORTABLE CORE | Deterministic support extraction, directed step/jump/drop edges, jump-feasibility calculation, and lowest-cost platform routing for character enemies. |
+| `src/core/simulation.js` | PORTABLE CORE | Authoritative fixed-step state, player physics, collisions, weapons, enemy strategy state machines, reactive objects, story state, level runtime conversion, serialization, and update order. |
 | `src/shared/animation-data.js` | SHARED DATA / MATH | Animation schema normalization, sampling, interpolation, and pose blending. |
 | `src/shared/level-transform.js` | SHARED DATA / MATH | Mirroring, rotation, placement geometry, hit testing, and atlas-node conversion shared by runtime and editor. |
 | `src/browser/browser-input.js` | BROWSER ADAPTER | Keyboard, gamepad, mouse, and touch state converted into `InputFrame`. |
@@ -96,6 +98,17 @@ More precisely:
 | `src/tools/character-editor/*` | EDITOR ONLY | Reusable Puppet Forge project, animation, atlas, dirty-state, and view operations. |
 | `tests/testbench.mjs` | TEST ONLY | Headless simulation tests, data tests, source-boundary checks, and browser-entry integration checks. |
 
+
+
+## Enemy strategy and navigation boundary
+
+Revision 115 introduces an explicit enemy strategy layer. `simple_patrol` preserves the earlier local patrol/attack behaviour, `sentry` remains stationary until a target enters awareness range, and `hunter` owns a portable state machine with `patrol`, `pursue`, `position_for_attack`, `jump`, `drop`, `unreachable_glare`, `return_home`, and `stranded_patrol` states.
+
+Navigation is deliberately platform-oriented rather than a generic polygon navmesh. `src/core/enemy-navigation.js` extracts upward-facing support intervals from authored collision segments and solid tops, removes floor intervals obstructed by closed collision geometry, and retains obstacle footprints so vertically overlapping tops are entered from a clear side rather than from beneath. It creates directed edges for steps, single jumps, and controlled drops, and rejects edges that exceed the enemy's run speed, jump height, gravity, maximum fall distance, or body-access requirements. Route cost includes the walk from the current position to the launch point. Runtime traversal still validates body clearance and landing, so a geometrically plausible graph edge cannot force an enemy through a wall.
+
+Hunters remember their original support and patrol interval. Planning first tries to reach the wizard's step-connected support region. Ranged hunters only fall back to another support when that region is genuinely unreachable; the fallback search validates the actual authored projectile origin and either the direct fireball path or solved ballistic musket-ball arc. Only after both pursuit and reachable firing-position search fail does the enemy face Ignatius during the authored glare delay. If the original support cannot then be reached, the enemy adopts the reachable support as a bounded temporary patrol and periodically retries the home route. This fallback is deterministic and visible; no enemy despawns merely because it made an unfortunate jump.
+
+Movement capability and behaviour flavour are enemy-archetype/runtime data, not character-art data. The enemy catalog and level entity may author `strategy`, `walkSpeed`, `runSpeed`, `jumpHeight`, `jumpGravity`, `maxFallDistance`, `awarenessRange`, `unreachableGlareDuration`, `routeRepathInterval`, and `homeRetryInterval`. Character JSON remains concerned with rig, animation, and projectile handoff, preserving the presentation/gameplay boundary.
 
 ## Character ground and editor-guide boundary
 
@@ -137,6 +150,7 @@ The first implementation remains inside `src/core/simulation.js` to avoid a beha
 | `src/core/weapons.js` | `RocketfrockCore/Weapons.h/.cpp` |
 | `src/core/projectiles.js` | `RocketfrockCore/Projectiles.h/.cpp` |
 | `src/core/enemies.js` | `RocketfrockCore/Enemies.h/.cpp` |
+| `src/core/enemy-navigation.js` | `RocketfrockCore/EnemyNavigation.h/.cpp` |
 | `src/core/reactive-objects.js` | `RocketfrockCore/ReactiveObjects.h/.cpp` |
 | `src/core/story.js` | `RocketfrockCore/Story.h/.cpp` |
 | `src/core/level-runtime.js` | `RocketfrockCore/LevelRuntime.h/.cpp` |
