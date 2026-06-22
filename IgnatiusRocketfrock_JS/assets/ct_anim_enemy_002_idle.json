@@ -1,0 +1,325 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Shared goblin idle. Upper-body bob is applied equally to torso, head, and shoulder pivots so the rig remains joined."
+    },
+    "animationId": "ct_anim_enemy_002_idle",
+    "duration": 1.2,
+    "loop": true,
+    "mirrorable": true,
+    "referencePose": {
+        "rightLeg": {
+            "x": -22,
+            "y": -140,
+            "rotation": 0.06,
+            "scale": 1,
+            "alpha": 1
+        },
+        "rightArm": {
+            "x": 22,
+            "y": -257,
+            "rotation": 0.1,
+            "scale": 1,
+            "alpha": 1
+        },
+        "torso": {
+            "x": 0,
+            "y": -162,
+            "rotation": 0,
+            "scale": 1,
+            "alpha": 1
+        },
+        "head": {
+            "x": 2,
+            "y": -282,
+            "rotation": 0,
+            "scale": 1,
+            "alpha": 1
+        },
+        "leftLeg": {
+            "x": 26,
+            "y": -140,
+            "rotation": -0.04,
+            "scale": 1,
+            "alpha": 1
+        },
+        "leftArm": {
+            "x": 45,
+            "y": -253,
+            "rotation": 0.02,
+            "scale": 1,
+            "alpha": 1
+        },
+        "leftArmClosed": {
+            "x": 0,
+            "y": 0,
+            "rotation": 0,
+            "scale": 1,
+            "alpha": 1
+        }
+    },
+    "tracks": {
+        "torso": {
+            "y": [
+                {
+                    "time": 0,
+                    "value": -162,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -165,
+                    "easing": "easeInOut"
+                }
+            ]
+        },
+        "head": {
+            "y": [
+                {
+                    "time": 0,
+                    "value": -282,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -285,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": -0.012,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": 0.016,
+                    "easing": "easeInOut"
+                }
+            ]
+        },
+        "rightArm": {
+            "y": [
+                {
+                    "time": 0,
+                    "value": -271.3370843237794,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -273.38128084124645,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 1.1480818500481682,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": 1.1542370068916261,
+                    "easing": "easeInOut"
+                }
+            ],
+            "x": [
+                {
+                    "time": 0,
+                    "value": -24.889969675164473,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": -26.318435410439797,
+                    "easing": "easeInOut"
+                }
+            ]
+        },
+        "leftArm": {
+            "y": [
+                {
+                    "time": 0,
+                    "value": -274.9835603127217,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -279.8951512348944,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 1.3337356564965406,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": 1.4812744561708029,
+                    "easing": "easeInOut"
+                }
+            ],
+            "x": [
+                {
+                    "time": 0,
+                    "value": 18.205727025082183,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6,
+                    "value": 23.979513914605164,
+                    "easing": "easeInOut"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "leftArmClosed": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 36.36074075567074,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6085302913387899,
+                    "value": 35.84087724319359,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -271.4511090736992,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6085302913387899,
+                    "value": -276.83575970605216,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 1.0988756699495703,
+                    "easing": "linear"
+                },
+                {
+                    "time": 0.6085302913387899,
+                    "value": 1.1546331299867383,
+                    "easing": "linear"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.5,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "weapon": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": -508.58849776418583,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -329.44804747296234,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "leftLeg": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 0.16253340871708843,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -189.7019415206407,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": -0.04,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "rightLeg": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": -21.043097245065788,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -182.05551366037764,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": -0.2831052855081367,
+                    "easing": "linear"
+                }
+            ]
+        }
+    },
+    "playback": {
+        "idleThreshold": 0.04,
+        "baseCyclesPerSecond": 0.55,
+        "speedCyclesPerSecond": 2.2,
+        "maxSpeedRatio": 1.4
+    },
+    "rootMotion": {
+        "enabled": false,
+        "xTrack": null,
+        "yTrack": null
+    }
+}

@@ -69,6 +69,47 @@ export function normalizeRuntimeCharacterRig(rawRig, label = "character rig") {
     };
 }
 
+export function applyRuntimeCharacterRigOverrides(rig, rigPartOverrides = {}, rigPivotOverrides = {}) {
+    const normalizedRig = rig?._normalizedRuntimeRig === true ? rig : normalizeRuntimeCharacterRig(rig);
+    const nextParts = {};
+    const nextPivots = {};
+
+    for (const partName of normalizedRig.drawOrder) {
+        const basePart = normalizedRig.parts[partName] || {};
+        const rawOverride = rigPartOverrides && typeof rigPartOverrides === "object" ? rigPartOverrides[partName] : null;
+        const partOverride = rawOverride && typeof rawOverride === "object" && !Array.isArray(rawOverride) ? rawOverride : null;
+        nextParts[partName] = {
+            ...basePart,
+            ...(partOverride || {}),
+            frame: String((partOverride && partOverride.frame) || basePart.frame || partName),
+            offset: {
+                x: finiteOr(partOverride?.offset?.x, basePart.offset?.x ?? 0),
+                y: finiteOr(partOverride?.offset?.y, basePart.offset?.y ?? 0)
+            },
+            rotation: partOverride?.rotation && typeof partOverride.rotation === "object"
+                ? { ...(basePart.rotation || {}), ...partOverride.rotation }
+                : { ...(basePart.rotation || {}) },
+            scale: finiteOr(partOverride?.scale, basePart.scale ?? 1),
+            targetHeight: Math.max(0.0001, finiteOr(partOverride?.targetHeight, basePart.targetHeight ?? 1)),
+            alpha: clamp(finiteOr(partOverride?.alpha, basePart.alpha ?? 1), 0, 1)
+        };
+
+        const basePivot = normalizedRig.pivots[partName] || { x: 0.5, y: 0.5 };
+        const rawPivotOverride = rigPivotOverrides && typeof rigPivotOverrides === "object" ? rigPivotOverrides[partName] : null;
+        const pivotOverride = rawPivotOverride && typeof rawPivotOverride === "object" && !Array.isArray(rawPivotOverride) ? rawPivotOverride : null;
+        nextPivots[partName] = {
+            x: finiteOr(pivotOverride?.x, basePivot.x),
+            y: finiteOr(pivotOverride?.y, basePivot.y)
+        };
+    }
+
+    return {
+        ...normalizedRig,
+        parts: nextParts,
+        pivots: nextPivots
+    };
+}
+
 export function createRuntimeCharacterSetupPose(rig) {
     const normalizedRig = rig?._normalizedRuntimeRig === true ? rig : normalizeRuntimeCharacterRig(rig);
     const pose = {};
@@ -185,7 +226,12 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
     const characterSourceUrl = String(characterUrl);
     const rigUrl = resolveRelativeUrl(characterSourceUrl, character.rig);
     const rawRig = await loadJson(rigUrl, "character rig");
-    const rig = normalizeRuntimeCharacterRig({ ...rawRig, sourceUrl: rigUrl }, `character rig (${rigUrl})`);
+    const baseRig = normalizeRuntimeCharacterRig({ ...rawRig, sourceUrl: rigUrl }, `character rig (${rigUrl})`);
+    const rig = applyRuntimeCharacterRigOverrides(
+        baseRig,
+        character.rigPartOverrides && typeof character.rigPartOverrides === "object" ? character.rigPartOverrides : {},
+        character.rigPivotOverrides && typeof character.rigPivotOverrides === "object" ? character.rigPivotOverrides : {}
+    );
     const atlasManifestUrl = resolveRelativeUrl(rigUrl, rig.atlasManifest || `${rig.atlasId || "character_atlas"}.json`);
     const atlas = await loadJson(atlasManifestUrl, "character atlas manifest");
     if (!atlas?.image || !atlas?.frames) {
@@ -193,14 +239,19 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
     }
     const imageUrl = resolveRelativeUrl(atlasManifestUrl, atlas.image);
     const image = await loadImage(imageUrl);
+    const atlasAssets = new Map();
+    for (const [frameId, frame] of Object.entries(atlas.frames)) {
+        atlasAssets.set(frameId, makeRuntimeAtlasFrameAsset(image, frame, frameId, frameId, imageUrl, atlas.atlasId, createCanvas));
+    }
+
     const assets = new Map();
     for (const partName of rig.drawOrder) {
         const part = rig.parts[partName];
-        const frame = atlas.frames[part.frame];
-        if (!frame) {
+        const atlasAsset = atlasAssets.get(part.frame);
+        if (!atlasAsset) {
             throw new Error(`Character atlas ${atlasManifestUrl} is missing frame "${part.frame}" for rig part "${partName}".`);
         }
-        assets.set(partName, makeRuntimeAtlasFrameAsset(image, frame, partName, part.frame, imageUrl, atlas.atlasId, createCanvas));
+        assets.set(partName, { ...atlasAsset, name: partName });
     }
 
     const animations = new Map();
@@ -228,6 +279,7 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
         atlas: { ...atlas, sourceUrl: atlasManifestUrl, imageUrl },
         image,
         assets,
+        atlasAssets,
         animations,
         animationSources
     };

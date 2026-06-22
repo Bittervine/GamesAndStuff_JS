@@ -313,6 +313,62 @@ async function testGenericRuntimeCharacterProject() {
     assert.equal(enemy.combatState, "alive", "fresh character enemy should begin alive");
 }
 
+async function testGoblinRuntimeCharacterProjects() {
+    const jsonByUrl = new Map();
+    for (const filename of [
+        "ct_char_enemy_002.json",
+        "ct_char_enemy_003.json",
+        "ct_rig_enemy_002.json",
+        "ct_atlas_enemy_002.json",
+        "ct_anim_enemy_002_idle.json",
+        "ct_anim_enemy_002_walk.json",
+        "ct_anim_enemy_002_attack.json",
+        "ct_anim_enemy_002_hurt.json",
+        "ct_anim_enemy_002_death.json",
+        "ct_anim_enemy_003_idle.json",
+        "ct_anim_enemy_003_walk.json",
+        "ct_anim_enemy_003_attack.json",
+        "ct_anim_enemy_003_hurt.json",
+        "ct_anim_enemy_003_death.json"
+    ]) {
+        jsonByUrl.set(`assets/${filename}`, JSON.parse(readFileSync(`./assets/${filename}`, "utf8")));
+    }
+    const loader = {
+        loadJson: async (url) => {
+            assert.ok(jsonByUrl.has(url), `goblin runtime loader should resolve ${url}`);
+            return JSON.parse(JSON.stringify(jsonByUrl.get(url)));
+        },
+        loadImage: async (url) => ({ width: 1371, height: 979, naturalWidth: 1371, naturalHeight: 979, url }),
+        createCanvas: (width, height) => ({
+            width,
+            height,
+            getContext: () => ({ drawImage: () => {} })
+        })
+    };
+
+    const fireball = await loadRuntimeCharacterProject("assets/ct_char_enemy_002.json", loader);
+    const musket = await loadRuntimeCharacterProject("assets/ct_char_enemy_003.json", loader);
+
+    assert.equal(fireball.characterId, "ct_char_enemy_002", "fireball goblin should keep its character ID");
+    assert.equal(musket.characterId, "ct_char_enemy_003", "musket goblin should keep its character ID");
+    assert.equal(fireball.rig.parts.leftArm.frame, "leftArmOpen", "fireball goblin should override its correctly identified casting arm frame");
+    assert.equal(fireball.rig.parts.weapon.frame, "musket", "shared weapon slot may retain a valid atlas frame even when hidden");
+    assert.equal(fireball.rig.parts.weapon.alpha, 0, "fireball should not be attached to the Fireball Goblin rig");
+    assert.equal(musket.rig.parts.leftArm.frame, "leftArmOpen", "shared goblin rig should retain the open casting arm as a hidden swappable part");
+    assert.equal(musket.rig.parts.leftArmClosed.frame, "leftArmClosed", "musket goblin should use the dedicated corrected closed left support arm");
+    assert.equal(musket.rig.parts.rightArm.frame, "rightArmClosed", "musket goblin should use the corrected closed right trigger arm");
+    assert.equal(musket.rig.parts.weapon.frame, "musket", "musket goblin should use the musket frame");
+    assert.deepEqual(
+        fireball.rig.drawOrder,
+        ["leftArm", "leftArmClosed", "leftLeg", "rightLeg", "head", "weapon", "torso", "rightArm"],
+        "goblin rig should preserve the user-corrected depth-first order"
+    );
+    assert.equal(fireball.atlasAssets.get("fireball")?.frameId, "fireball", "runtime project should expose unattached fireball atlas resources");
+    assert.equal(musket.atlasAssets.get("cannonball")?.frameId, "cannonball", "runtime project should expose unattached cannonball atlas resources");
+    assert.equal(fireball.animations.size, 5, "fireball goblin should resolve its dedicated animation set");
+    assert.equal(musket.animations.size, 5, "musket goblin should resolve its dedicated weapon-aware animation set");
+}
+
 function testEnemyCatalogAndLevelEditorIntegration() {
     const catalog = JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"));
     const skeleton = catalog.enemies?.enemy_001;
@@ -741,6 +797,134 @@ function testEnemyMeleeBlockedByTerrain() {
     );
 }
 
+function testFireballGoblinProjectileAttack() {
+    const state = createInitialGameState({
+        tuning: {
+            playerDamageInvulnerabilitySeconds: 0.1,
+            healthRegenDelay: 99
+        }
+    });
+    applyEditorLevelToWorld(state, {
+        levelId: "fireball_goblin_test",
+        playerStart: { x: 0, y: 600 },
+        entities: [{
+            id: "fireball_goblin",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_002",
+            x: 210,
+            y: 600,
+            w: 72,
+            h: 148,
+            facing: -1,
+            behavior: "guard",
+            health: 80,
+            attackMode: "projectile",
+            attackRange: 340,
+            attackVerticalRange: 180,
+            attackDuration: 0.4,
+            attackHitTime: 0.1,
+            attackCooldown: 0.12,
+            projectileCooldown: 0.8,
+            projectileKind: "fireball",
+            projectileSpeed: 260,
+            projectileGravity: 0,
+            projectileLifetime: 3.2,
+            projectileRadius: 14,
+            projectileDamage: 12,
+            projectileHomingStrength: 1.1,
+            preferredAttackRange: 220,
+            preferredAttackMinRange: 90,
+            awarenessRange: 360,
+            awarenessVerticalRange: 200
+        }]
+    });
+    state.world.solids = [];
+    state.world.segments = [{ id: "floor", kind: "walkable", x1: -300, y1: 600, x2: 400, y2: 600 }];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 0;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    const enemy = state.enemies.find((item) => item.id === "fireball_goblin");
+    stepMany(state, 20);
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED" && event.enemyId === enemy.id), "fireball goblin should start a ranged attack");
+    stepMany(state, 20);
+    const projectile = state.projectiles.find((item) => item.owner === "enemy" && item.enemyId === enemy.id);
+    assert.ok(projectile, "fireball goblin should spawn an enemy projectile");
+    assert.equal(projectile.kind, "enemyFireball", "fireball goblin should launch the fireball projectile kind");
+    const startHealth = state.health.amount;
+    stepMany(state, 180);
+    assert.ok(state.health.amount < startHealth, `fireball projectile should eventually hurt the player, before ${startHealth}, after ${state.health.amount}`);
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_PROJECTILE_IMPACTED" && event.impactKind === "player"), "fireball impact should emit a player-impact event");
+}
+
+function testMusketGoblinProjectileAttack() {
+    const state = createInitialGameState({
+        tuning: {
+            playerDamageInvulnerabilitySeconds: 0.1,
+            healthRegenDelay: 99
+        }
+    });
+    applyEditorLevelToWorld(state, {
+        levelId: "musket_goblin_test",
+        playerStart: { x: 0, y: 600 },
+        entities: [{
+            id: "musket_goblin",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_003",
+            x: 250,
+            y: 600,
+            w: 76,
+            h: 148,
+            facing: -1,
+            behavior: "guard",
+            health: 90,
+            attackMode: "projectile",
+            attackRange: 420,
+            attackVerticalRange: 220,
+            attackDuration: 0.42,
+            attackHitTime: 0.1,
+            attackCooldown: 0.12,
+            projectileCooldown: 0.9,
+            projectileKind: "musketBall",
+            projectileSpeed: 380,
+            projectileGravity: 820,
+            projectileLifetime: 3.1,
+            projectileRadius: 7,
+            projectileDamage: 18,
+            projectileHomingStrength: 0,
+            preferredAttackRange: 250,
+            preferredAttackMinRange: 120,
+            awarenessRange: 430,
+            awarenessVerticalRange: 220
+        }]
+    });
+    state.world.solids = [];
+    state.world.segments = [{ id: "floor", kind: "walkable", x1: -300, y1: 600, x2: 500, y2: 600 }];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 0;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    stepMany(state, 24);
+    const projectile = state.projectiles.find((item) => item.owner === "enemy");
+    assert.ok(projectile, "musket goblin should spawn an enemy projectile");
+    assert.equal(projectile.kind, "enemyMusketBall", "musket goblin should launch the musket ball projectile kind");
+    assert.ok(projectile.gravity > 0, "musket ball should use ballistic gravity rather than a straight-line shot");
+    const startHealth = state.health.amount;
+    stepMany(state, 180);
+    assert.ok(state.health.amount < startHealth, `musket ball should eventually hit the player, before ${startHealth}, after ${state.health.amount}`);
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_PROJECTILE_FIRED" && event.projectileKind === "enemyMusketBall"), "musket shot should emit a firing event");
+}
+
 function testPlayerDamageInvulnerability() {
     const state = createInitialGameState({
         tuning: {
@@ -971,7 +1155,14 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes("Atlas parts"), "character tool should expose atlas rectangle authoring mode");
     assert.ok(toolHtml.includes("Add selected to rig"), "character tool should expose atlas-frame to rig assignment");
     assert.ok(toolHtml.includes("Enemy 001: Skeleton Guard"), "character tool should expose enemy_001 as a known project");
-    assert.ok(toolHtml.includes('enemy_001: "assets/ct_char_enemy_001.json"'), "known enemy project should use the numbered enemy filename convention");
+    assert.ok(toolHtml.includes("Enemy 002: Fireball Goblin"), "character tool should expose the Fireball Goblin as a known project");
+    assert.ok(toolHtml.includes("Enemy 003: Musket Goblin"), "character tool should expose the Musket Goblin as a known project");
+    assert.ok(toolHtml.includes('enemy_001: "assets/ct_char_enemy_001.json"'), "known enemy_001 project should use the numbered enemy filename convention");
+    assert.ok(toolHtml.includes('enemy_002: "assets/ct_char_enemy_002.json"'), "known enemy_002 project should resolve to its character definition");
+    assert.ok(toolHtml.includes('enemy_003: "assets/ct_char_enemy_003.json"'), "known enemy_003 project should resolve to its character definition");
+    assert.ok(toolHtml.includes("applyCharacterRigOverrides(loadedRig, state.character)"), "character tool should apply character-level goblin part overrides while loading known projects");
+    assert.ok(toolHtml.includes('id="apply-preview-alpha"'), "character tool should expose an animation-preview alpha toggle");
+    assert.ok(toolHtml.includes("Leave alpha preview off while positioning hidden parts"), "character tool should explain hidden-part editing versus final alpha preview");
     assert.ok(toolHtml.includes("Unsaved change status"), "character tool should expose independent dirty-state status");
     assert.ok(toolHtml.includes("part-to-back"), "character tool should expose a selected-part To Back control");
     assert.ok(toolHtml.includes("part-to-front"), "character tool should expose a selected-part To Front control");
@@ -1552,6 +1743,58 @@ function testNumberedEnemy001Assets() {
         assert.ok(death.referencePose[partName], `enemy_001 death should contain ${partName}`);
     }
 
+    const goblinFireballCharacter = JSON.parse(readFileSync("./assets/ct_char_enemy_002.json", "utf8"));
+    const goblinMusketCharacter = JSON.parse(readFileSync("./assets/ct_char_enemy_003.json", "utf8"));
+    const goblinRig = JSON.parse(readFileSync("./assets/ct_rig_enemy_002.json", "utf8"));
+    const goblinAtlas = JSON.parse(readFileSync("./assets/ct_atlas_enemy_002.json", "utf8"));
+    assert.equal(goblinFireballCharacter.characterId, "ct_char_enemy_002", "fireball goblin character ID should follow numbered enemy convention");
+    assert.equal(goblinMusketCharacter.characterId, "ct_char_enemy_003", "musket goblin character ID should follow numbered enemy convention");
+    assert.equal(goblinRig.rigId, "ct_rig_enemy_002", "shared goblin rig should use the next numbered rig filename");
+    assert.equal(goblinAtlas.atlasId, "ct_atlas_enemy_002", "shared goblin atlas should use the next numbered atlas filename");
+    assert.ok(goblinAtlas.frames.fireball, "goblin atlas should include the fireball projectile frame");
+    assert.ok(goblinAtlas.frames.cannonball, "goblin atlas should include the cannonball projectile frame");
+    assert.ok(goblinAtlas.frames.musket, "goblin atlas should include the musket frame");
+    assert.equal(goblinAtlas.frames.leftArmOpen.x, 409, "open left casting arm should retain its correct atlas rectangle");
+    assert.equal(goblinAtlas.frames.leftArmClosed.x, 865, "closed left arm should use the formerly mislabelled right-side rectangle");
+    assert.equal(goblinAtlas.frames.rightArmClosed.x, 432, "closed right arm should use the formerly mislabelled left-side rectangle");
+    assert.equal(goblinAtlas.frames.leftLeg.x, 586, "left leg should use the corrected front-leg rectangle");
+    assert.equal(goblinAtlas.frames.rightLeg.x, 335, "right leg should use the corrected rear-leg rectangle");
+    assert.equal(goblinAtlas.objects.fireball.type, "projectileSprite", "fireball should remain in the atlas as an unattached projectile resource");
+    assert.equal(goblinAtlas.objects.cannonball.type, "projectileSprite", "cannonball should remain in the atlas as an unattached projectile resource");
+    assert.equal(goblinFireballCharacter.rigPartOverrides.weapon.alpha, 0, "fireball goblin should hide the shared weapon slot instead of attaching the projectile");
+    assert.deepEqual(goblinFireballCharacter.rigPartOverrides.weapon.offset, { x: 145, y: -231 }, "hidden Fireball Goblin weapon slot should retain an explicit movable setup offset");
+    assert.equal(goblinMusketCharacter.rigPartOverrides.weapon.frame, "musket", "musket goblin should keep the musket attached to its rig");
+    assert.equal(goblinMusketCharacter.rigPartOverrides.leftArm, undefined, "musket goblin should use the dedicated leftArmClosed rig part instead of duplicating it through leftArm");
+    assert.deepEqual(goblinRig.drawOrder, ["leftArm", "leftArmClosed", "leftLeg", "rightLeg", "head", "weapon", "torso", "rightArm"], "goblin draw order should preserve the user-corrected depth order");
+    assert.ok(goblinRig.parts.leftArmClosed, "shared goblin rig should retain the alternate closed left arm as an independently animatable part");
+
+    const fireIdle = JSON.parse(readFileSync("./assets/ct_anim_enemy_002_idle.json", "utf8"));
+    const musketIdle = JSON.parse(readFileSync("./assets/ct_anim_enemy_003_idle.json", "utf8"));
+    assert.ok(fireIdle.tracks.rightLeg.y[0].value < -175 && fireIdle.tracks.leftLeg.y[0].value < -185, "corrected Fireball Goblin idle should keep its legs pulled into the compact dwarfish body");
+    assert.equal(fireIdle.tracks.leftArm.alpha[0].value, 0, "Fireball Goblin idle should hide the open casting arm");
+    assert.equal(fireIdle.tracks.leftArmClosed.alpha[0].value, 1, "Fireball Goblin idle should show the closed alternate arm");
+    assert.deepEqual(
+        { x: musketIdle.referencePose.rightLeg.x, y: musketIdle.referencePose.rightLeg.y, rotation: musketIdle.referencePose.rightLeg.rotation },
+        { x: fireIdle.tracks.rightLeg.x[0].value, y: fireIdle.tracks.rightLeg.y[0].value, rotation: fireIdle.tracks.rightLeg.rotation[0].value },
+        "Musket Goblin idle should inherit the corrected compact right-leg placement"
+    );
+    assert.deepEqual(
+        { x: musketIdle.referencePose.leftLeg.x, y: musketIdle.referencePose.leftLeg.y, rotation: musketIdle.referencePose.leftLeg.rotation },
+        { x: fireIdle.tracks.leftLeg.x[0].value, y: fireIdle.tracks.leftLeg.y[0].value, rotation: fireIdle.tracks.leftLeg.rotation[0].value },
+        "Musket Goblin idle should inherit the corrected compact left-leg placement"
+    );
+
+    const goblinAnimationFiles = [
+        "ct_anim_enemy_002_walk.json", "ct_anim_enemy_002_attack.json", "ct_anim_enemy_002_hurt.json", "ct_anim_enemy_002_death.json",
+        "ct_anim_enemy_003_idle.json", "ct_anim_enemy_003_walk.json", "ct_anim_enemy_003_attack.json", "ct_anim_enemy_003_hurt.json", "ct_anim_enemy_003_death.json"
+    ];
+    for (const filename of goblinAnimationFiles) {
+        const animation = JSON.parse(readFileSync(`./assets/${filename}`, "utf8"));
+        for (const partName of goblinRig.drawOrder) {
+            assert.ok(animation.referencePose[partName], `${filename} should carry a complete reference transform for ${partName}`);
+        }
+    }
+
     const assertFiniteClip = (clip, times, label) => {
         const normalized = normalizeAnimationClip(clip, label);
         for (const time of times) {
@@ -1655,6 +1898,9 @@ function testCharacterToolDirectTransformGeometry() {
     assert.ok(!toolHtml.includes("if (!event.ctrlKey)"), "character preview zoom should not require Ctrl");
     assert.ok(toolHtml.includes("Base rig / setup values"), "character tool should distinguish base rig values from animation keys");
     assert.ok(toolHtml.includes("keyValue.disabled = transformMode"), "combined transform mode should disable the scalar value field");
+    assert.ok(toolHtml.includes("function rigSetupTransform(partName)"), "character tool should synthesize setup transforms for rig parts missing from an animation clip");
+    assert.ok(toolHtml.includes("authored ? { ...setup, ...authored } : setup"), "missing animation parts should remain selectable and movable from their rig setup pose");
+    assert.ok(toolHtml.includes("els.applyPreviewAlpha.checked"), "sprite drawing should switch between edit visibility and effective alpha preview");
 }
 
 function testDataDrivenRunAnimation() {
@@ -2529,12 +2775,15 @@ const tests = [
     ["scripted portal exit", testPortalExitSequence],
     ["editor dropdown contrast", testEditorDropdownContrast],
     ["generic runtime character project", testGenericRuntimeCharacterProject],
+    ["goblin runtime character projects", testGoblinRuntimeCharacterProjects],
     ["enemy catalog and Level Editor integration", testEnemyCatalogAndLevelEditorIntegration],
     ["simulation-owned character enemy patrol", testCharacterEnemyPatrolBehavior],
     ["character enemy aggressive chase and combo", testCharacterEnemyAggressiveChaseAndCombo],
     ["character enemy rocket combat", testCharacterEnemyRocketCombat],
     ["character enemy melee attack", testCharacterEnemyMeleeAttack],
     ["terrain shields player from enemy melee", testEnemyMeleeBlockedByTerrain],
+    ["fireball goblin projectile attack", testFireballGoblinProjectileAttack],
+    ["musket goblin projectile attack", testMusketGoblinProjectileAttack],
     ["player damage invulnerability", testPlayerDamageInvulnerability],
     ["damaging and killable surface hazards", testDamagingAndKillableSurfaceHazards],
     ["terrain intercepts rocket before enemy", testTerrainInterceptsRocketBeforeEnemy],

@@ -33,7 +33,11 @@ const FIXED_DRAW_ORDER = [
 ];
 
 const DEFAULT_CHARACTER_URL = "assets/ct_char_wizard_1.json";
-const ENEMY_001_CHARACTER_URL = "assets/ct_char_enemy_001.json";
+const KNOWN_ENEMY_CHARACTER_URLS = [
+    "assets/ct_char_enemy_001.json",
+    "assets/ct_char_enemy_002.json",
+    "assets/ct_char_enemy_003.json"
+];
 
 const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = [
     ...Array.from({ length: 20 }, (_, index) => {
@@ -124,11 +128,13 @@ export async function createRenderer(canvas) {
     }
 
     const characterProjects = new Map([[playerProject.characterId, playerProject]]);
-    try {
-        const enemyProject = await loadRuntimeCharacterProject(ENEMY_001_CHARACTER_URL);
-        characterProjects.set(enemyProject.characterId, enemyProject);
-    } catch (error) {
-        console.warn(`Optional runtime character could not be loaded: ${ENEMY_001_CHARACTER_URL}`, error);
+    for (const characterUrl of KNOWN_ENEMY_CHARACTER_URLS) {
+        try {
+            const enemyProject = await loadRuntimeCharacterProject(characterUrl);
+            characterProjects.set(enemyProject.characterId, enemyProject);
+        } catch (error) {
+            console.warn(`Optional runtime character could not be loaded: ${characterUrl}`, error);
+        }
     }
 
     const environmentAtlases = await loadEnvironmentAtlases();
@@ -696,6 +702,11 @@ class RocketfrockRenderer {
         return null;
     }
 
+    getCharacterAtlasFrame(characterId, frameId) {
+        const project = this.getCharacterProject(characterId);
+        return project?.atlasAssets instanceof Map ? project.atlasAssets.get(frameId) || null : null;
+    }
+
     drawRuntimeCharacterEnemy(project, enemy, state, view) {
         const screen = this.worldToScreen(view, enemy.x, enemy.y);
         const actorScale = Math.max(0.05, Number(enemy.renderScale) || 1);
@@ -803,8 +814,8 @@ class RocketfrockRenderer {
             if (projectile.state === "exploding") {
                 const p = this.worldToScreen(view, projectile.x, projectile.y);
                 ctx.save();
-                const sparkRadius = 32 * view.zoom;
-                this.drawSparkBurst(p.x, p.y, view, projectile.age + projectile.x, 14, sparkRadius);
+                const sparkRadius = projectile.owner === "enemy" ? 22 * view.zoom : 32 * view.zoom;
+                this.drawSparkBurst(p.x, p.y, view, projectile.age + projectile.x, projectile.owner === "enemy" ? 10 : 14, sparkRadius);
                 ctx.restore();
                 continue;
             }
@@ -812,7 +823,13 @@ class RocketfrockRenderer {
             if (projectile.state !== "launched") {
                 continue;
             }
-            this.drawProjectileRocket(projectile, state, view);
+            if (projectile.kind === "enemyFireball") {
+                this.drawProjectileFireball(projectile, state, view);
+            } else if (projectile.kind === "enemyMusketBall") {
+                this.drawProjectileMusketBall(projectile, state, view);
+            } else {
+                this.drawProjectileRocket(projectile, state, view);
+            }
         }
     }
 
@@ -836,6 +853,101 @@ class RocketfrockRenderer {
         ctx.scale(spriteScale, spriteScale);
         ctx.drawImage(asset.canvas, -pivot.x * asset.width, -pivot.y * asset.height);
         drawRocketFlameLocal(ctx, asset, pivot, state.clock.time + projectile.age * 11, 0.55, projectile.id.length * 13);
+        ctx.restore();
+    }
+
+    drawProjectileFireball(projectile, state, view) {
+        const ctx = this.ctx;
+        const p = this.worldToScreen(view, projectile.x, projectile.y);
+        const trail = Array.isArray(projectile.trail) ? projectile.trail : [];
+        if (trail.length >= 2) {
+            ctx.save();
+            ctx.lineCap = "round";
+            for (let i = 1; i < trail.length; i += 1) {
+                const a = this.worldToScreen(view, trail[i - 1].x, trail[i - 1].y);
+                const b = this.worldToScreen(view, trail[i].x, trail[i].y);
+                const alpha = i / trail.length;
+                ctx.strokeStyle = `rgba(255, 132, 32, ${0.10 + alpha * 0.28})`;
+                ctx.lineWidth = (projectile.radius * 0.58 * alpha + 2) * view.zoom;
+                ctx.beginPath();
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        const asset = this.getCharacterAtlasFrame("ct_char_enemy_002", "fireball");
+        const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
+        const angle = Math.atan2(projectile.vy / speed, projectile.vx / speed);
+        const pulse = 0.94 + 0.06 * Math.sin(state.clock.time * 16 + projectile.x * 0.03);
+        if (asset && !asset.missing) {
+            const targetHeight = projectile.radius * 2.35 * view.zoom * pulse;
+            const spriteScale = targetHeight / Math.max(1, asset.height);
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(angle);
+            ctx.globalCompositeOperation = "lighter";
+            ctx.globalAlpha = 0.35;
+            ctx.fillStyle = "rgba(255, 112, 16, 0.78)";
+            ctx.beginPath();
+            ctx.arc(0, 0, projectile.radius * 1.35 * view.zoom, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalCompositeOperation = "source-over";
+            ctx.globalAlpha = 1;
+            ctx.scale(spriteScale, spriteScale);
+            ctx.drawImage(asset.canvas, -asset.width * 0.82, -asset.height * 0.5);
+            ctx.restore();
+            return;
+        }
+
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        const outer = projectile.radius * 1.8 * view.zoom * pulse;
+        const mid = projectile.radius * 1.15 * view.zoom;
+        const inner = projectile.radius * 0.62 * view.zoom;
+        ctx.fillStyle = "rgba(255, 120, 18, 0.22)";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, outer, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255, 170, 64, 0.55)";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, mid, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255, 241, 184, 0.9)";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, inner, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    drawProjectileMusketBall(projectile, state, view) {
+        const ctx = this.ctx;
+        const p = this.worldToScreen(view, projectile.x, projectile.y);
+        const asset = this.getCharacterAtlasFrame("ct_char_enemy_003", "cannonball") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_002", "cannonball");
+        if (asset && !asset.missing) {
+            const targetHeight = projectile.radius * 2.45 * view.zoom;
+            const spriteScale = targetHeight / Math.max(1, asset.height);
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(projectile.age * 8);
+            ctx.scale(spriteScale, spriteScale);
+            ctx.drawImage(asset.canvas, -asset.width * 0.5, -asset.height * 0.5);
+            ctx.restore();
+            return;
+        }
+
+        const r = projectile.radius * view.zoom;
+        ctx.save();
+        ctx.fillStyle = "rgba(42, 44, 49, 0.98)";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+        ctx.beginPath();
+        ctx.arc(p.x - r * 0.28, p.y - r * 0.3, Math.max(1.3, r * 0.28), 0, Math.PI * 2);
+        ctx.fill();
         ctx.restore();
     }
 

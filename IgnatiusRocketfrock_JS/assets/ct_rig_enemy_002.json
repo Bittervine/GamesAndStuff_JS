@@ -1,0 +1,226 @@
+{
+    "meta": {
+        "version": 2,
+        "note": "Shared goblin rig corrected in revision 103. Anatomical left limbs are the visible/front limbs for a right-facing profile; right limbs are rear. Draw order is depth-first. Projectile sprites are not rig parts."
+    },
+    "rigId": "ct_rig_enemy_002",
+    "atlasId": "ct_atlas_enemy_002",
+    "atlasManifest": "ct_atlas_enemy_002.json",
+    "drawOrder": [
+        "leftArm",
+        "leftArmClosed",
+        "leftLeg",
+        "rightLeg",
+        "head",
+        "weapon",
+        "torso",
+        "rightArm"
+    ],
+    "global": {
+        "scale": 0.5,
+        "lean": 0,
+        "rootX": 0,
+        "rootYOffsetFromGround": 0,
+        "groundOffset": 0,
+        "debugPivots": false
+    },
+    "anchors": {
+        "neck": {
+            "x": 2,
+            "y": -282
+        },
+        "rightShoulder": {
+            "x": 22,
+            "y": -257
+        },
+        "leftShoulder": {
+            "x": 45,
+            "y": -253
+        },
+        "rightHip": {
+            "x": -22,
+            "y": -140
+        },
+        "leftHip": {
+            "x": 26,
+            "y": -140
+        },
+        "rightHand": {
+            "x": 164,
+            "y": -238
+        },
+        "leftHand": {
+            "x": 190,
+            "y": -228
+        },
+        "weaponGrip": {
+            "x": 145,
+            "y": -231
+        }
+    },
+    "pivots": {
+        "rightArm": {
+            "x": 0.165,
+            "y": 0.29
+        },
+        "leftArm": {
+            "x": 0.155,
+            "y": 0.28
+        },
+        "rightLeg": {
+            "x": 0.46,
+            "y": 0.18
+        },
+        "leftLeg": {
+            "x": 0.25,
+            "y": 0.18
+        },
+        "torso": {
+            "x": 0.45,
+            "y": 0.84
+        },
+        "head": {
+            "x": 0.16,
+            "y": 0.93
+        },
+        "weapon": {
+            "x": 0.18,
+            "y": 0.58
+        },
+        "leftArmClosed": {
+            "x": 0.18,
+            "y": 0.265
+        }
+    },
+    "parts": {
+        "rightLeg": {
+            "frame": "rightLeg",
+            "role": "rightLeg",
+            "tags": [
+                "leg",
+                "rear"
+            ],
+            "offset": {
+                "x": -22,
+                "y": -140
+            },
+            "scale": 1,
+            "targetHeight": 170,
+            "alpha": 1
+        },
+        "rightArm": {
+            "frame": "rightArmClosed",
+            "role": "rightArm",
+            "tags": [
+                "arm",
+                "rear",
+                "holder"
+            ],
+            "offset": {
+                "x": 22,
+                "y": -257
+            },
+            "scale": 1,
+            "targetHeight": 110,
+            "alpha": 1
+        },
+        "torso": {
+            "frame": "torso",
+            "role": "torso",
+            "tags": [
+                "body"
+            ],
+            "offset": {
+                "x": 0,
+                "y": -162
+            },
+            "scale": 1,
+            "targetHeight": 186,
+            "alpha": 1
+        },
+        "head": {
+            "frame": "head",
+            "role": "head",
+            "tags": [
+                "head"
+            ],
+            "offset": {
+                "x": 2,
+                "y": -282
+            },
+            "scale": 1,
+            "targetHeight": 138,
+            "alpha": 1
+        },
+        "weapon": {
+            "frame": "musket",
+            "role": "weapon",
+            "tags": [
+                "equipment",
+                "held",
+                "musket"
+            ],
+            "offset": {
+                "x": 145,
+                "y": -231
+            },
+            "scale": 1,
+            "targetHeight": 78,
+            "alpha": 0,
+            "rotation": {}
+        },
+        "leftLeg": {
+            "frame": "leftLeg",
+            "role": "leftLeg",
+            "tags": [
+                "leg",
+                "front"
+            ],
+            "offset": {
+                "x": 26,
+                "y": -140
+            },
+            "scale": 1,
+            "targetHeight": 166,
+            "alpha": 1
+        },
+        "leftArm": {
+            "frame": "leftArmOpen",
+            "role": "leftArm",
+            "tags": [
+                "arm",
+                "front",
+                "holder"
+            ],
+            "offset": {
+                "x": 45,
+                "y": -253
+            },
+            "scale": 1,
+            "targetHeight": 94,
+            "alpha": 1,
+            "rotation": {}
+        },
+        "leftArmClosed": {
+            "frame": "leftArmClosed",
+            "role": "leftArmClosed",
+            "tags": [],
+            "offset": {
+                "x": 0,
+                "y": 0
+            },
+            "scale": 0.46,
+            "targetHeight": 229,
+            "alpha": 1
+        }
+    },
+    "attachments": {
+        "weapon": {
+            "holders": [
+                "rightArm",
+                "leftArm"
+            ],
+            "note": "Musket is drawn between the rear and front arms. Projectile sprites are atlas resources and are not attached to the rig."
+        }
+    }
+}

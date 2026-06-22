@@ -1,0 +1,41 @@
+{
+    "meta": {
+        "version": 3,
+        "note": "Fireball Goblin. Uses the shared goblin rig with the correctly identified open left casting arm. The fireball is an independent projectile sprite, not a character part. Revision 104 keeps an explicit hidden-weapon offset so Puppet Forge can position the unused shared slot."
+    },
+    "characterId": "ct_char_enemy_002",
+    "displayName": "Fireball Goblin",
+    "rig": "ct_rig_enemy_002.json",
+    "defaultFacing": "right",
+    "mirrorable": true,
+    "rigPartOverrides": {
+        "leftArm": {
+            "frame": "leftArmOpen",
+            "offset": {
+                "x": 45,
+                "y": -253
+            },
+            "targetHeight": 94
+        },
+        "weapon": {
+            "alpha": 0,
+            "offset": {
+                "x": 145,
+                "y": -231
+            }
+        }
+    },
+    "rigPivotOverrides": {
+        "leftArm": {
+            "x": 0.075,
+            "y": 0.5
+        }
+    },
+    "animationMap": {
+        "idle": "ct_anim_enemy_002_idle.json",
+        "walk": "ct_anim_enemy_002_walk.json",
+        "attack": "ct_anim_enemy_002_attack.json",
+        "hurt": "ct_anim_enemy_002_hurt.json",
+        "death": "ct_anim_enemy_002_death.json"
+    }
+}

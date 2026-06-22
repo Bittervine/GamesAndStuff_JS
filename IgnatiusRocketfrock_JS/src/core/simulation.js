@@ -86,6 +86,18 @@ export const DEFAULT_TUNING = Object.freeze({
     enemyDefaultAttackLungeSpeed: 180,
     enemyDefaultAttackKnockbackX: 330,
     enemyDefaultAttackKnockbackY: -250,
+    enemyDefaultAttackMode: "melee",
+    enemyDefaultPreferredAttackRange: 180,
+    enemyDefaultProjectileKind: "fireball",
+    enemyDefaultProjectileSpeed: 320,
+    enemyDefaultProjectileGravity: 0,
+    enemyDefaultProjectileLifetime: 4.2,
+    enemyDefaultProjectileRadius: 14,
+    enemyDefaultProjectileDamage: 18,
+    enemyDefaultProjectileCooldown: 0.9,
+    enemyDefaultProjectileHomingStrength: 0,
+    enemyDefaultProjectileKnockbackX: 180,
+    enemyDefaultProjectileKnockbackY: -120,
     playerDamageInvulnerabilitySeconds: 0.45,
     playerHitFlashSeconds: 0.24,
     hazardContactDamage: 20,
@@ -1583,6 +1595,19 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             attackDuration: Math.max(FIXED_DT, finiteNumberOr(entity.attackDuration, state.tuning.enemyDefaultAttackDuration)),
             attackHitTime: Math.max(0, finiteNumberOr(entity.attackHitTime, state.tuning.enemyDefaultAttackHitTime)),
             attackCooldown: Math.max(0, finiteNumberOr(entity.attackCooldown, state.tuning.enemyDefaultAttackCooldown)),
+            attackMode: String(entity.attackMode || state.tuning.enemyDefaultAttackMode || "melee") === "projectile" ? "projectile" : "melee",
+            preferredAttackRange: Math.max(0, finiteNumberOr(entity.preferredAttackRange, state.tuning.enemyDefaultPreferredAttackRange)),
+            preferredAttackMinRange: Math.max(0, finiteNumberOr(entity.preferredAttackMinRange, Math.min((Number(entity.attackRange) || state.tuning.enemyDefaultAttackRange) * 0.45, state.tuning.enemyDefaultPreferredAttackRange * 0.6))),
+            projectileKind: String(entity.projectileKind || state.tuning.enemyDefaultProjectileKind || "fireball"),
+            projectileSpeed: Math.max(1, finiteNumberOr(entity.projectileSpeed, state.tuning.enemyDefaultProjectileSpeed)),
+            projectileGravity: finiteNumberOr(entity.projectileGravity, state.tuning.enemyDefaultProjectileGravity),
+            projectileLifetime: Math.max(FIXED_DT, finiteNumberOr(entity.projectileLifetime, state.tuning.enemyDefaultProjectileLifetime)),
+            projectileRadius: Math.max(1, finiteNumberOr(entity.projectileRadius, state.tuning.enemyDefaultProjectileRadius)),
+            projectileDamage: Math.max(0, finiteNumberOr(entity.projectileDamage, state.tuning.enemyDefaultProjectileDamage)),
+            projectileCooldown: Math.max(0, finiteNumberOr(entity.projectileCooldown, state.tuning.enemyDefaultProjectileCooldown)),
+            projectileHomingStrength: Math.max(0, finiteNumberOr(entity.projectileHomingStrength, state.tuning.enemyDefaultProjectileHomingStrength)),
+            projectileKnockbackX: Math.max(0, finiteNumberOr(entity.projectileKnockbackX, state.tuning.enemyDefaultProjectileKnockbackX)),
+            projectileKnockbackY: finiteNumberOr(entity.projectileKnockbackY, state.tuning.enemyDefaultProjectileKnockbackY),
             attackLungeDistance: Math.max(0, finiteNumberOr(entity.attackLungeDistance, state.tuning.enemyDefaultAttackLungeDistance)),
             attackLungeSpeed: Math.max(0, finiteNumberOr(entity.attackLungeSpeed, state.tuning.enemyDefaultAttackLungeSpeed)),
             attackKnockbackX: Math.max(0, finiteNumberOr(entity.attackKnockbackX, state.tuning.enemyDefaultAttackKnockbackX)),
@@ -1983,6 +2008,134 @@ function characterEnemyCanReachPlayer(state, enemy) {
     return rectsOverlap(playerRect, attackRect) && !characterEnemyAttackBlockedByTerrain(state, enemy);
 }
 
+function characterEnemyCanUseProjectile(state, enemy) {
+    const player = state.player;
+    if (player.visible === false || state.health.amount <= 0) {
+        return false;
+    }
+    const playerCenterY = player.y - player.height * 0.5;
+    const enemyCenterY = enemy.y - enemy.height * 0.55;
+    if (Math.abs(playerCenterY - enemyCenterY) > Math.max(0, Number(enemy.attackVerticalRange) || 0)) {
+        return false;
+    }
+    if (Math.abs(player.x - enemy.x) > Math.max(0, Number(enemy.attackRange) || 0)) {
+        return false;
+    }
+    return !characterEnemyAttackBlockedByTerrain(state, enemy);
+}
+
+function enemyProjectileSpawnPoint(enemy) {
+    return {
+        x: enemy.x + (enemy.facing < 0 ? -1 : 1) * Math.max(16, enemy.width * 0.18),
+        y: enemy.y - enemy.height * 0.67
+    };
+}
+
+function solveBallisticLaunchVelocity(origin, target, launchSpeed, gravity) {
+    const dx = target.x - origin.x;
+    const dyUp = origin.y - target.y;
+    const x = Math.abs(dx);
+    const speed = Math.max(1, Number(launchSpeed) || 1);
+    const g = Math.max(0.0001, Math.abs(Number(gravity) || 0.0001));
+    if (x <= 0.0001) {
+        return { x: 0, y: -speed };
+    }
+    const speedSq = speed * speed;
+    const discriminant = speedSq * speedSq - g * (g * x * x + 2 * dyUp * speedSq);
+    if (discriminant < 0) {
+        return null;
+    }
+    const root = Math.sqrt(discriminant);
+    const tanTheta = (speedSq + root) / (g * x);
+    const cosTheta = 1 / Math.sqrt(1 + tanTheta * tanTheta);
+    const sinTheta = tanTheta * cosTheta;
+    const direction = dx < 0 ? -1 : 1;
+    return {
+        x: direction * speed * cosTheta,
+        y: -speed * sinTheta
+    };
+}
+
+function launchCharacterEnemyProjectile(state, enemy) {
+    const player = state.player;
+    const origin = enemyProjectileSpawnPoint(enemy);
+    const target = {
+        x: player.x,
+        y: player.y - player.height * 0.56
+    };
+
+    const projectileKind = String(enemy.projectileKind || "fireball");
+    let vx = 0;
+    let vy = 0;
+    let gravity = Number(enemy.projectileGravity) || 0;
+    let homingStrength = 0;
+    let radius = Math.max(1, Number(enemy.projectileRadius) || 12);
+    let damage = Math.max(0, Number(enemy.projectileDamage) || 0);
+    let knockbackX = Math.max(0, Number(enemy.projectileKnockbackX) || 0);
+    let knockbackY = Number(enemy.projectileKnockbackY) || 0;
+    let lifetime = Math.max(FIXED_DT, Number(enemy.projectileLifetime) || 1);
+    let trail = [];
+
+    if (projectileKind === "musketBall") {
+        gravity = gravity || 980;
+        let launchSpeed = Math.max(1, Number(enemy.projectileSpeed) || 1);
+        let ballistic = solveBallisticLaunchVelocity(origin, target, launchSpeed, gravity);
+        if (!ballistic) {
+            for (const multiplier of [1.1, 1.2, 1.35, 1.5, 1.75, 2]) {
+                ballistic = solveBallisticLaunchVelocity(origin, target, launchSpeed * multiplier, gravity);
+                if (ballistic) {
+                    launchSpeed *= multiplier;
+                    break;
+                }
+            }
+        }
+        if (ballistic) {
+            vx = ballistic.x;
+            vy = ballistic.y;
+        } else {
+            const aim = normalizeVector({ x: target.x - origin.x, y: target.y - origin.y });
+            vx = aim.x * launchSpeed;
+            vy = aim.y * launchSpeed;
+        }
+        radius = Math.max(3, radius);
+    } else {
+        const aim = normalizeVector({ x: target.x - origin.x, y: target.y - origin.y });
+        vx = aim.x * enemy.projectileSpeed;
+        vy = aim.y * enemy.projectileSpeed;
+        gravity = 0;
+        homingStrength = Math.max(0, Number(enemy.projectileHomingStrength) || 0);
+        radius = Math.max(6, radius);
+        trail = [{ x: origin.x, y: origin.y, time: state.clock.time }];
+    }
+
+    const projectile = {
+        id: `enemy_projectile_${String(state.weapons.nextProjectileId).padStart(3, "0")}`,
+        owner: "enemy",
+        enemyId: enemy.id,
+        kind: projectileKind === "musketBall" ? "enemyMusketBall" : "enemyFireball",
+        state: "launched",
+        x: origin.x,
+        y: origin.y,
+        vx,
+        vy,
+        gravity,
+        homingStrength,
+        facing: enemy.facing,
+        targetId: "player",
+        age: 0,
+        lifetime,
+        explosionTimer: 0,
+        radius,
+        damage,
+        knockbackX,
+        knockbackY,
+        trail
+    };
+    state.weapons.nextProjectileId += 1;
+    state.projectiles.push(projectile);
+    return projectile;
+}
+
 function characterEnemyCanNoticePlayer(state, enemy) {
     const player = state.player;
     if (player.visible === false || state.health.amount <= 0) {
@@ -2090,6 +2243,16 @@ function startCharacterEnemyAttack(state, enemy) {
     enemy.attackDuration = Math.max(FIXED_DT, finiteNumberOr(enemy.attackDuration, state.tuning.enemyDefaultAttackDuration));
     enemy.attackHitTime = Math.max(0, finiteNumberOr(enemy.attackHitTime, state.tuning.enemyDefaultAttackHitTime));
     enemy.attackCooldown = Math.max(0, finiteNumberOr(enemy.attackCooldown, state.tuning.enemyDefaultAttackCooldown));
+    enemy.attackMode = String(enemy.attackMode || state.tuning.enemyDefaultAttackMode || "melee") === "projectile" ? "projectile" : "melee";
+    enemy.projectileSpeed = Math.max(1, finiteNumberOr(enemy.projectileSpeed, state.tuning.enemyDefaultProjectileSpeed));
+    enemy.projectileGravity = finiteNumberOr(enemy.projectileGravity, state.tuning.enemyDefaultProjectileGravity);
+    enemy.projectileLifetime = Math.max(FIXED_DT, finiteNumberOr(enemy.projectileLifetime, state.tuning.enemyDefaultProjectileLifetime));
+    enemy.projectileRadius = Math.max(1, finiteNumberOr(enemy.projectileRadius, state.tuning.enemyDefaultProjectileRadius));
+    enemy.projectileDamage = Math.max(0, finiteNumberOr(enemy.projectileDamage, state.tuning.enemyDefaultProjectileDamage));
+    enemy.projectileCooldown = Math.max(0, finiteNumberOr(enemy.projectileCooldown, state.tuning.enemyDefaultProjectileCooldown));
+    enemy.projectileHomingStrength = Math.max(0, finiteNumberOr(enemy.projectileHomingStrength, state.tuning.enemyDefaultProjectileHomingStrength));
+    enemy.projectileKnockbackX = Math.max(0, finiteNumberOr(enemy.projectileKnockbackX, state.tuning.enemyDefaultProjectileKnockbackX));
+    enemy.projectileKnockbackY = finiteNumberOr(enemy.projectileKnockbackY, state.tuning.enemyDefaultProjectileKnockbackY);
     enemy.attackLungeDistance = Math.max(0, finiteNumberOr(enemy.attackLungeDistance, state.tuning.enemyDefaultAttackLungeDistance));
     enemy.attackLungeSpeed = Math.max(0, finiteNumberOr(enemy.attackLungeSpeed, state.tuning.enemyDefaultAttackLungeSpeed));
     enemy.attackKnockbackX = Math.max(0, finiteNumberOr(enemy.attackKnockbackX, state.tuning.enemyDefaultAttackKnockbackX));
@@ -2101,12 +2264,13 @@ function startCharacterEnemyAttack(state, enemy) {
     enemy.combatState = ENEMY_COMBAT_STATE.ATTACKING;
     enemy.movementPhase = "attack";
     enemy.attackTimer = Math.max(FIXED_DT, Number(enemy.attackDuration) || state.tuning.enemyDefaultAttackDuration || 0.44);
-    enemy.attackLungeRemaining = Math.max(0, Number(enemy.attackLungeDistance) || 0);
+    enemy.attackLungeRemaining = enemy.attackMode === "projectile" ? 0 : Math.max(0, Number(enemy.attackLungeDistance) || 0);
     enemy.attackHitApplied = false;
     setCharacterEnemyAnimation(enemy, "attack");
     addEvent(state, "ENEMY_ATTACK_STARTED", {
         enemyId: enemy.id,
-        damage: round(enemy.attackDamage),
+        damage: round(enemy.attackMode === "projectile" ? enemy.projectileDamage : enemy.attackDamage),
+        attackMode: enemy.attackMode,
         facing: enemy.facing
     });
 }
@@ -2125,7 +2289,18 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
 
     if (!enemy.attackHitApplied && previousElapsed <= hitTime && elapsed >= hitTime) {
         enemy.attackHitApplied = true;
-        if (characterEnemyCanReachPlayer(state, enemy)) {
+        if (enemy.attackMode === "projectile") {
+            const projectile = launchCharacterEnemyProjectile(state, enemy);
+            if (projectile) {
+                addEvent(state, "ENEMY_PROJECTILE_FIRED", {
+                    enemyId: enemy.id,
+                    projectileId: projectile.id,
+                    projectileKind: projectile.kind
+                });
+            } else {
+                addEvent(state, "ENEMY_ATTACK_MISSED", { enemyId: enemy.id, reason: "projectileLaunchFailed" });
+            }
+        } else if (characterEnemyCanReachPlayer(state, enemy)) {
             const result = damagePlayer(state, enemy.attackDamage, enemy.id, {
                 knockbackX: enemy.facing * enemy.attackKnockbackX,
                 knockbackY: enemy.attackKnockbackY
@@ -2144,7 +2319,7 @@ function updateCharacterEnemyAttack(state, enemy, dt) {
         enemy.combatState = ENEMY_COMBAT_STATE.ALIVE;
         enemy.movementPhase = "idle";
         enemy.phaseTimer = 0;
-        enemy.attackCooldownTimer = Math.max(0, Number(enemy.attackCooldown) || 0);
+        enemy.attackCooldownTimer = Math.max(0, enemy.attackMode === "projectile" ? (Number(enemy.projectileCooldown) || 0) : (Number(enemy.attackCooldown) || 0));
         enemy.attackLungeRemaining = 0;
         enemy.attackHitApplied = false;
         setCharacterEnemyAnimation(enemy, "idle");
@@ -2209,6 +2384,49 @@ function updateCharacterEnemies(state, dt) {
             if (Math.abs(dx) > 0.001) {
                 enemy.facing = dx < 0 ? -1 : 1;
             }
+
+            if (enemy.attackMode === "projectile") {
+                const horizontalDistance = Math.abs(dx);
+                if (enemy.attackCooldownTimer <= 0 && characterEnemyCanUseProjectile(state, enemy)) {
+                    startCharacterEnemyAttack(state, enemy);
+                    syncCharacterEnemyTarget(state, enemy);
+                    continue;
+                }
+
+                const preferredRange = Math.max(0, Number(enemy.preferredAttackRange) || Number(enemy.attackRange) * 0.72 || 0);
+                const minRange = Math.max(0, Number(enemy.preferredAttackMinRange) || Math.min(preferredRange * 0.55, Number(enemy.attackRange) * 0.45 || 0));
+                let moved = 0;
+                if (horizontalDistance > Math.max(preferredRange, Math.min(Number(enemy.attackRange) || 0, preferredRange + 1))) {
+                    moved = moveCharacterEnemyToward(
+                        state,
+                        enemy,
+                        state.player.x,
+                        Math.max(0, Number(enemy.chaseSpeed) || state.tuning.enemyDefaultChaseSpeed || 0),
+                        dt,
+                        Math.max(0, preferredRange)
+                    );
+                } else if (horizontalDistance < minRange && preferredRange > 0) {
+                    const desiredX = state.player.x - enemy.facing * preferredRange;
+                    moved = moveCharacterEnemyToward(
+                        state,
+                        enemy,
+                        desiredX,
+                        Math.max(0, Number(enemy.chaseSpeed) || state.tuning.enemyDefaultChaseSpeed || 0),
+                        dt,
+                        0
+                    );
+                }
+                if (moved > 0) {
+                    enemy.movementPhase = "chase";
+                    setCharacterEnemyAnimation(enemy, "walk");
+                } else {
+                    enemy.movementPhase = "alert";
+                    setCharacterEnemyAnimation(enemy, "idle");
+                }
+                syncCharacterEnemyTarget(state, enemy);
+                continue;
+            }
+
             if (enemy.attackCooldownTimer <= 0 && characterEnemyCanReachPlayer(state, enemy)) {
                 startCharacterEnemyAttack(state, enemy);
                 syncCharacterEnemyTarget(state, enemy);
@@ -2595,26 +2813,100 @@ function updateProjectiles(state, dt) {
             continue;
         }
 
-        projectile.upLaunchTimer = Math.max(0, (projectile.upLaunchTimer ?? 0) - dt);
-        const target = findTargetById(state, projectile.targetId) || findHomingTarget(state);
-        if (target && projectile.upLaunchTimer <= 0) {
-            projectile.targetId = target.id;
-            const desired = normalizeVector({ x: target.x - projectile.x, y: target.y - projectile.y });
-            const desiredVx = desired.x * t.rocketProjectileSpeed;
-            const desiredVy = desired.y * t.rocketProjectileSpeed;
-            const blend = clamp(t.rocketProjectileHomingStrength * dt, 0, 1);
-            projectile.vx += (desiredVx - projectile.vx) * blend;
-            projectile.vy += (desiredVy - projectile.vy) * blend;
-            const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
-            projectile.vx = projectile.vx / speed * t.rocketProjectileSpeed;
-            projectile.vy = projectile.vy / speed * t.rocketProjectileSpeed;
+        if (projectile.kind === "homingRocket") {
+            projectile.upLaunchTimer = Math.max(0, (projectile.upLaunchTimer ?? 0) - dt);
+            const target = findTargetById(state, projectile.targetId) || findHomingTarget(state);
+            if (target && projectile.upLaunchTimer <= 0) {
+                projectile.targetId = target.id;
+                const desired = normalizeVector({ x: target.x - projectile.x, y: target.y - projectile.y });
+                const desiredVx = desired.x * t.rocketProjectileSpeed;
+                const desiredVy = desired.y * t.rocketProjectileSpeed;
+                const blend = clamp(t.rocketProjectileHomingStrength * dt, 0, 1);
+                projectile.vx += (desiredVx - projectile.vx) * blend;
+                projectile.vy += (desiredVy - projectile.vy) * blend;
+                const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
+                projectile.vx = projectile.vx / speed * t.rocketProjectileSpeed;
+                projectile.vy = projectile.vy / speed * t.rocketProjectileSpeed;
+            }
+        } else if (projectile.kind === "enemyFireball") {
+            const playerTarget = state.player.visible === false ? null : { x: state.player.x, y: state.player.y - state.player.height * 0.56 };
+            if (playerTarget) {
+                const speed = Math.hypot(projectile.vx, projectile.vy) || Math.max(1, Number(projectile.projectileSpeed) || 1);
+                const desired = normalizeVector({ x: playerTarget.x - projectile.x, y: playerTarget.y - projectile.y });
+                const desiredVx = desired.x * speed;
+                const desiredVy = desired.y * speed;
+                const blend = clamp((Number(projectile.homingStrength) || 0) * dt, 0, 1);
+                projectile.vx += (desiredVx - projectile.vx) * blend;
+                projectile.vy += (desiredVy - projectile.vy) * blend;
+                const nextSpeed = Math.hypot(projectile.vx, projectile.vy) || 1;
+                projectile.vx = projectile.vx / nextSpeed * speed;
+                projectile.vy = projectile.vy / nextSpeed * speed;
+            }
+        }
+
+        if (projectile.kind !== "homingRocket") {
+            projectile.vy += (Number(projectile.gravity) || 0) * dt;
         }
 
         const previousX = projectile.x;
         const previousY = projectile.y;
         projectile.x += projectile.vx * dt;
         projectile.y += projectile.vy * dt;
-        recordProjectileTrail(state, projectile);
+
+        if (projectile.kind === "homingRocket") {
+            recordProjectileTrail(state, projectile);
+        } else if (projectile.kind === "enemyFireball") {
+            recordEnemyFireballTrail(state, projectile);
+        }
+
+        if (projectile.owner === "enemy") {
+            const playerImpact = findProjectilePlayerImpact(state, projectile, previousX, previousY);
+            const reactiveImpact = findProjectileReactiveObjectImpact(state, projectile, previousX, previousY);
+            const terrainImpact = findProjectileTerrainImpact(state, projectile, previousX, previousY);
+            const impacts = [
+                playerImpact ? { ...playerImpact, impactKind: "player", priority: 0 } : null,
+                reactiveImpact ? { ...reactiveImpact, impactKind: "reactiveObject", priority: 1 } : null,
+                terrainImpact ? { ...terrainImpact, impactKind: "terrain", priority: 2 } : null
+            ].filter(Boolean).sort((a, b) => (a.t - b.t) || (a.priority - b.priority));
+            const impact = impacts[0] || null;
+            if (impact?.impactKind === "player") {
+                projectile.x = impact.x;
+                projectile.y = impact.y;
+                const damageResult = applyProjectileDamageToPlayer(state, projectile);
+                explodeProjectile(state, projectile, state.player.id || "player", {
+                    impactKind: "player",
+                    damage: damageResult.damage,
+                    health: damageResult.health,
+                    defeated: damageResult.defeated,
+                    blocked: damageResult.blocked
+                });
+                continue;
+            }
+            if (impact?.impactKind === "reactiveObject") {
+                projectile.x = impact.x;
+                projectile.y = impact.y;
+                const damageResult = applyProjectileDamageToReactiveObject(state, projectile, impact.object);
+                explodeProjectile(state, projectile, impact.object.id, {
+                    impactKind: "reactiveObject",
+                    objectId: impact.object.id,
+                    damage: damageResult.damage,
+                    health: damageResult.health,
+                    state: damageResult.state,
+                    destroyed: damageResult.destroyed
+                });
+                continue;
+            }
+            if (impact?.impactKind === "terrain") {
+                projectile.x = impact.x;
+                projectile.y = impact.y;
+                explodeProjectile(state, projectile, impact.id, { impactKind: "terrain" });
+                continue;
+            }
+            if (projectile.age >= projectile.lifetime) {
+                explodeProjectile(state, projectile, "lifetime");
+            }
+            continue;
+        }
 
         const enemyImpact = findProjectileEnemyImpact(state, projectile, previousX, previousY);
         const reactiveImpact = findProjectileReactiveObjectImpact(state, projectile, previousX, previousY);
@@ -2695,6 +2987,24 @@ function recordProjectileTrail(state, projectile) {
         projectile.trail.shift();
     }
     while (projectile.trail.length > 180) {
+        projectile.trail.shift();
+    }
+}
+
+function recordEnemyFireballTrail(state, projectile) {
+    if (!Array.isArray(projectile.trail)) {
+        projectile.trail = [];
+    }
+    const previous = projectile.trail[projectile.trail.length - 1];
+    const spacing = Math.max(4, (projectile.radius || 10) * 0.55);
+    if (!previous || Math.hypot(projectile.x - previous.x, projectile.y - previous.y) >= spacing) {
+        projectile.trail.push({ x: round(projectile.x), y: round(projectile.y), time: Number(state.clock.time.toFixed(4)) });
+    }
+    const cutoff = state.clock.time - 0.9;
+    while (projectile.trail.length > 2 && projectile.trail[0].time < cutoff) {
+        projectile.trail.shift();
+    }
+    while (projectile.trail.length > 48) {
         projectile.trail.shift();
     }
 }
@@ -2828,7 +3138,8 @@ function explodeProjectile(state, projectile, reason, detail = {}) {
     projectile.vx = 0;
     projectile.vy = 0;
     projectile.explosionTimer = state.tuning.rocketProjectileExplosionSeconds;
-    addEvent(state, "ROCKET_IMPACTED", {
+    const eventType = projectile.owner === "enemy" ? "ENEMY_PROJECTILE_IMPACTED" : "ROCKET_IMPACTED";
+    addEvent(state, eventType, {
         id: projectile.id,
         reason,
         x: round(projectile.x),
@@ -2968,6 +3279,35 @@ function emitReactiveObjectDestructionSmoke(state, object) {
             radius: 9 + hash01(seed + 97) * 13
         });
     }
+}
+
+function findProjectilePlayerImpact(state, projectile, previousX, previousY) {
+    if (state.player.visible === false || state.health.amount <= 0) {
+        return null;
+    }
+    const hit = sweptCircleRectImpact(
+        { x: previousX, y: previousY },
+        { x: projectile.x, y: projectile.y },
+        Math.max(0, projectile.radius || 0),
+        getPlayerRect(state)
+    );
+    if (!hit) {
+        return null;
+    }
+    return { t: hit.t, x: hit.x, y: hit.y };
+}
+
+function applyProjectileDamageToPlayer(state, projectile) {
+    const result = damagePlayer(state, projectile.damage, projectile.enemyId || projectile.id, {
+        knockbackX: (projectile.vx || 0) < 0 ? -Math.abs(projectile.knockbackX || 0) : Math.abs(projectile.knockbackX || 0),
+        knockbackY: projectile.knockbackY || 0
+    });
+    return {
+        damage: result.damage,
+        health: state.health.amount,
+        defeated: state.health.amount <= 0,
+        blocked: result.damage <= 0
+    };
 }
 
 function findProjectileEnemyImpact(state, projectile, previousX, previousY) {

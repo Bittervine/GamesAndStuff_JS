@@ -1,0 +1,47 @@
+{
+    "meta": {
+        "version": 3,
+        "note": "Musket Goblin based on the corrected shared compact goblin rig. The open leftArm slot remains hidden; the dedicated leftArmClosed part supports the musket with the right closed arm."
+    },
+    "characterId": "ct_char_enemy_003",
+    "displayName": "Musket Goblin",
+    "rig": "ct_rig_enemy_002.json",
+    "defaultFacing": "right",
+    "mirrorable": true,
+    "rigPartOverrides": {
+        "rightArm": {
+            "frame": "rightArmClosed",
+            "offset": {
+                "x": 22,
+                "y": -257
+            },
+            "targetHeight": 110
+        },
+        "weapon": {
+            "frame": "musket",
+            "offset": {
+                "x": 105,
+                "y": -230
+            },
+            "targetHeight": 78,
+            "alpha": 1
+        }
+    },
+    "rigPivotOverrides": {
+        "rightArm": {
+            "x": 0.075,
+            "y": 0.43
+        },
+        "weapon": {
+            "x": 0.18,
+            "y": 0.58
+        }
+    },
+    "animationMap": {
+        "idle": "ct_anim_enemy_003_idle.json",
+        "walk": "ct_anim_enemy_003_walk.json",
+        "attack": "ct_anim_enemy_003_attack.json",
+        "hurt": "ct_anim_enemy_003_hurt.json",
+        "death": "ct_anim_enemy_003_death.json"
+    }
+}

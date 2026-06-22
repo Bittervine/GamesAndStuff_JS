@@ -408,6 +408,8 @@
                 <select id="project-select">
                     <option value="wizard">Ignatius Rocketfrock</option>
                     <option value="enemy_001">Enemy 001: Skeleton Guard</option>
+                    <option value="enemy_002">Enemy 002: Fireball Goblin</option>
+                    <option value="enemy_003">Enemy 003: Musket Goblin</option>
                 </select>
             </label>
             <div class="row">
@@ -517,7 +519,9 @@
                 <button id="reload" type="button">Reload files</button>
             </div>
             <label class="check-row"><input id="loop" type="checkbox" checked> Loop preview and exported clip</label>
+            <label class="check-row"><input id="apply-preview-alpha" type="checkbox"> Apply alpha values in preview</label>
             <label class="check-row"><input id="animation-mirrorable" type="checkbox" checked> Animation may be mirrored</label>
+            <p>Leave alpha preview off while positioning hidden parts. Turn it on to preview the effective rig and animation opacity used in the game.</p>
             <div class="row">
                 <label><span>New animation slot</span><input id="duplicate-animation-slot" type="text" placeholder="for example: block"></label>
                 <button id="duplicate-animation" type="button">Duplicate current</button>
@@ -790,6 +794,7 @@ const els = {
     zoomValue: document.getElementById("zoom-value"),
     resetView: document.getElementById("reset-view"),
     loop: document.getElementById("loop"),
+    applyPreviewAlpha: document.getElementById("apply-preview-alpha"),
     partSelect: document.getElementById("part-select"),
     propertySelect: document.getElementById("property-select"),
     timeline: document.getElementById("timeline"),
@@ -833,7 +838,9 @@ const els = {
 
 const KNOWN_PROJECTS = Object.freeze({
     wizard: "assets/ct_char_wizard_1.json",
-    enemy_001: "assets/ct_char_enemy_001.json"
+    enemy_001: "assets/ct_char_enemy_001.json",
+    enemy_002: "assets/ct_char_enemy_002.json",
+    enemy_003: "assets/ct_char_enemy_003.json"
 });
 
 const state = {
@@ -1031,6 +1038,41 @@ function revokeLocalObjectUrls() {
     state.localObjectUrls.clear();
 }
 
+function applyCharacterRigOverrides(rawRig, character) {
+    const rig = JSON.parse(JSON.stringify(rawRig || {}));
+    const partOverrides = character?.rigPartOverrides && typeof character.rigPartOverrides === "object"
+        ? character.rigPartOverrides
+        : {};
+    const pivotOverrides = character?.rigPivotOverrides && typeof character.rigPivotOverrides === "object"
+        ? character.rigPivotOverrides
+        : {};
+
+    for (const [partName, override] of Object.entries(partOverrides)) {
+        if (!rig.parts?.[partName] || !override || typeof override !== "object" || Array.isArray(override)) {
+            continue;
+        }
+        const base = rig.parts[partName];
+        rig.parts[partName] = {
+            ...base,
+            ...override,
+            offset: override.offset && typeof override.offset === "object"
+                ? { ...(base.offset || {}), ...override.offset }
+                : { ...(base.offset || {}) },
+            rotation: override.rotation && typeof override.rotation === "object"
+                ? { ...(base.rotation || {}), ...override.rotation }
+                : { ...(base.rotation || {}) }
+        };
+    }
+
+    for (const [partName, override] of Object.entries(pivotOverrides)) {
+        if (!rig.pivots?.[partName] || !override || typeof override !== "object" || Array.isArray(override)) {
+            continue;
+        }
+        rig.pivots[partName] = { ...rig.pivots[partName], ...override };
+    }
+    return rig;
+}
+
 function drawOrder() {
     const source = state.rig?.drawOrder;
     if (Array.isArray(source) && source.length) {
@@ -1044,8 +1086,9 @@ async function loadCharacter() {
     state.animationCache.clear();
     state.character = await loadJson(state.characterUrl);
     state.rigUrl = resolveRelativeUrl(state.characterUrl, state.character.rig);
-    state.rig = await loadJson(state.rigUrl);
-    state.atlasUrl = resolveRelativeUrl(state.rigUrl, state.rig.atlasManifest || `${state.rig.atlasId}.json`);
+    const loadedRig = await loadJson(state.rigUrl);
+    state.rig = applyCharacterRigOverrides(loadedRig, state.character);
+    state.atlasUrl = resolveRelativeUrl(state.rigUrl, loadedRig.atlasManifest || `${loadedRig.atlasId}.json`);
     state.atlas = await loadJson(state.atlasUrl);
     state.imageUrl = resolveRelativeUrl(state.atlasUrl, state.atlas.image);
     let imageWarning = "";
@@ -2144,9 +2187,31 @@ function invalidateAnimation(refreshJson = true) {
     }
 }
 
+function rigSetupTransform(partName) {
+    const part = state.rig?.parts?.[partName] || {};
+    const offset = part.offset && typeof part.offset === "object" ? part.offset : {};
+    return {
+        x: Number(offset.x) || 0,
+        y: Number(offset.y) || 0,
+        rotation: Number(part.rotation?.base) || 0,
+        scale: Number.isFinite(Number(part.scale)) ? Number(part.scale) : 1,
+        alpha: Number.isFinite(Number(part.alpha)) ? Number(part.alpha) : 1
+    };
+}
+
 function samplePose() {
     const clip = normalizedAnimation();
-    return clip ? sampleAnimationClipAtPlayhead(clip, state.time) : null;
+    if (!clip || !state.rig) {
+        return null;
+    }
+    const sampled = sampleAnimationClipAtPlayhead(clip, state.time);
+    const pose = {};
+    for (const partName of drawOrder()) {
+        const setup = rigSetupTransform(partName);
+        const authored = sampled?.[partName];
+        pose[partName] = authored ? { ...setup, ...authored } : setup;
+    }
+    return pose;
 }
 
 function syncAnimationControls() {
@@ -2809,7 +2874,7 @@ function drawSprite(name, transform) {
     const spriteScale = transform.targetHeight / Math.max(1, asset.height);
     const viewLineScale = Math.max(0.0001, spriteScale * state.viewZoom);
     ctx.save();
-    ctx.globalAlpha *= transform.alpha;
+    ctx.globalAlpha *= els.applyPreviewAlpha.checked ? clamp(Number(transform.alpha) || 0, 0, 1) : 1;
     ctx.translate(transform.x, transform.y);
     ctx.rotate(transform.angle);
     ctx.scale(spriteScale, spriteScale);
@@ -3139,7 +3204,12 @@ els.loadKnownProject.addEventListener("click", () => {
     if (!confirmDiscardChanges("load the selected project")) {
         return;
     }
-    const url = KNOWN_PROJECTS[els.projectSelect.value];
+    const projectId = els.projectSelect.value;
+    const url = KNOWN_PROJECTS[projectId];
+    if (!url) {
+        setStatus(`Unknown known-project entry: ${projectId}`);
+        return;
+    }
     loadUrlProject(url, els.projectSelect.options[els.projectSelect.selectedIndex]?.textContent)
         .catch((error) => setStatus(error.stack || error.message));
 });
@@ -3169,6 +3239,11 @@ els.loadProjectFiles.addEventListener("click", () => {
 });
 els.clearProjectFiles.addEventListener("click", clearLocalFileSelection);
 els.editorMode.addEventListener("change", () => setEditorMode(els.editorMode.value));
+els.applyPreviewAlpha.addEventListener("change", () => {
+    setStatus(els.applyPreviewAlpha.checked
+        ? "Animation preview now applies effective alpha values."
+        : "Animation preview now keeps hidden parts visible for editing.");
+});
 els.atlasFrameSelect.addEventListener("change", () => selectAtlasFrame(els.atlasFrameSelect.value));
 for (const input of [els.atlasFrameX, els.atlasFrameY, els.atlasFrameW, els.atlasFrameH]) {
     input.addEventListener("input", writeAtlasFrameFromUi);

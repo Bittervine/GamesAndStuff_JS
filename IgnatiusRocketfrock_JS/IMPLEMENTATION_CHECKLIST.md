@@ -43,7 +43,7 @@ The HTML and JavaScript game remains the reference implementation, but new gamep
 
 The project now has a working browser game loop, deterministic simulation layer, asset-atlas based level construction, atlas and level editor tools, atlas-derived collision lines and filled collision loops, detached rocket terrain impacts, health/fuel HUD, and headless tests. Revision 099 also places implementation modules under explicit core, shared, browser, presentation, and tool directories, with `ARCHITECTURE.md` serving as the dependency and future C++ parity map.
 
-Revision 100 now provides the first destructible/reactive-world slice: an editor-placeable breakable crate with authoritative health/state, dynamic collision, rocket interception, state-authored visuals, destruction smoke, events, and serialization. The immediate gameplay direction is to generalize that foundation into barriers and moving geometry such as a falling-tree bridge. In parallel, portability preparation should remove renderer-owned gameplay data and establish language-neutral schemas and parity fixtures before Phase 8 procedural generation expands the simulation surface.
+Revision 100 now provides the first destructible/reactive-world slice: an editor-placeable breakable crate with authoritative health/state, dynamic collision, rocket interception, state-authored visuals, destruction smoke, events, and serialization. Revision 101 adds the first ranged enemy variants, revision 103 corrects their semantic part identities and projectile presentation, and revision 105 adopts the user's compact goblin rig/idle as the canonical animation foundation for both variants. The immediate gameplay direction is to keep widening enemy/reactive interactions, then generalize the reactive foundation into barriers and moving geometry such as a falling-tree bridge. In parallel, portability preparation should remove renderer-owned gameplay data and establish language-neutral schemas and parity fixtures before Phase 8 procedural generation expands the simulation surface.
 
 ## Phase 1: Completed Physics, Level, and Atlas Foundation
 
@@ -771,3 +771,54 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Apply projectile damage, transition intact → damaged → destroyed, and synchronize state-authored visuals.
 * [x] Emit reactive-object state, damage, and destruction events plus a smoke-heavy destruction burst.
 * [x] Add headless regression coverage for catalog/editor integration, collision, projectile ordering, state transitions, visuals, smoke, events, and serialization.
+
+### Revision 101 first ranged goblin variants
+
+* [x] Add the shared goblin atlas and rig under the numbered enemy project convention.
+* [x] Add Fireball Goblin (`enemy_002`) and Musket Goblin (`enemy_003`) character definitions and catalog entries.
+* [x] Support character-level rig part and pivot overrides in the runtime character loader.
+* [x] Add simulation-owned ranged enemy attacks and enemy projectile ownership.
+* [x] Implement weakly homing fireballs and gravity-driven ballistic musket shots.
+* [x] Add renderer presentation and headless regression coverage for both projectile types.
+
+### Revision 102 Puppet Forge goblin project loading fix
+
+* [x] Map the visible `enemy_002` selector entry to `assets/ct_char_enemy_002.json`.
+* [x] Map the visible `enemy_003` selector entry to `assets/ct_char_enemy_003.json`.
+* [x] Guard against future known-project selector entries without a corresponding URL mapping.
+* [x] Apply character-level rig part and pivot overrides when Puppet Forge loads a project.
+* [x] Add source regression checks for the goblin mappings and editor override path.
+
+### Revision 103 corrected goblin rig and animation pass
+
+* [x] Swap the mislabeled closed left/right arm frames while preserving the correctly identified open left arm.
+* [x] Swap the mislabeled left/right leg frames.
+* [x] Rebuild the shared rig in rear-to-front depth order with corrected shoulder and hip pivots.
+* [x] Remove the fireball from the Fireball Goblin rig and keep it simulation-owned.
+* [x] Add dedicated Fireball Goblin idle, walk, cast, hurt, and death clips.
+* [x] Add dedicated Musket Goblin weapon-aware idle, walk, fire, hurt, and death clips.
+* [x] Expose unattached character-atlas frames as runtime atlas assets.
+* [x] Render fireball and cannonball projectiles from their supplied atlas frames with procedural fallbacks.
+* [x] Add regression checks for corrected frame identities, draw order, hidden fireball rig slot, and projectile atlas access.
+
+### Revision 104 Puppet Forge alpha preview and hidden-part editing
+
+* [x] Add an Animation preview checkbox that switches between edit visibility and effective alpha preview.
+* [x] Keep alpha-zero parts visible by default so hidden equipment can still be selected and positioned.
+* [x] Fill animation poses from rig setup values when a clip intentionally omits a part.
+* [x] Allow direct X/Y/rotation editing to create tracks for previously omitted rig parts.
+* [x] Record the Fireball Goblin's hidden weapon-slot offset explicitly in its character override.
+* [x] Add regression checks for the alpha toggle, setup-pose fallback, and movable hidden weapon slot.
+
+### Revision 105 user-corrected compact goblin animation foundation
+
+* [x] Replace the project copies of the shared goblin atlas, rig, Fireball Goblin character definition, and Enemy 002 idle clip with the user's corrected files.
+* [x] Preserve the user-authored depth order, pivots, alternate `leftArmClosed` rig part, and pulled-in dwarfish leg placement.
+* [x] Rebuild Enemy 003 idle from the corrected Enemy 002 body and leg pose.
+* [x] Stop Enemy 003 from duplicating the closed left arm through the ordinary `leftArm` slot; use the dedicated alternate part instead.
+* [x] Rebuild both goblin walk cycles around the compact stance.
+* [x] Rebuild Fireball Goblin casting with closed/open arm alpha replacement while keeping the fireball simulation-owned.
+* [x] Rebuild Musket Goblin firing so both hands and the musket raise, recoil, and settle together.
+* [x] Rebuild both hurt and death clips so connected body groups remain joined.
+* [x] Add regression checks for compact leg placement, alternate-arm visibility, complete rig-part reference poses, corrected draw order, and Enemy 003 idle inheritance.
+

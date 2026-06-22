@@ -1,0 +1,311 @@
+{
+    "meta": {
+        "version": 2,
+        "note": "Musket Goblin idle rebuilt directly from the user-corrected Enemy 002 compact pose. The same dwarfish leg placement and upper-body proportions are retained while both closed arms support the musket."
+    },
+    "animationId": "ct_anim_enemy_003_idle",
+    "duration": 1.2,
+    "loop": true,
+    "mirrorable": true,
+    "referencePose": {
+        "leftArm": {
+            "x": 18.205727025082183,
+            "y": -274.9835603127217,
+            "rotation": 1.3337356564965406,
+            "scale": 1,
+            "alpha": 0
+        },
+        "leftArmClosed": {
+            "x": 48,
+            "y": -240,
+            "rotation": 0.0,
+            "scale": 0.5,
+            "alpha": 1
+        },
+        "leftLeg": {
+            "x": 0.16253340871708843,
+            "y": -189.7019415206407,
+            "rotation": -0.04,
+            "scale": 1,
+            "alpha": 1
+        },
+        "rightLeg": {
+            "x": -21.043097245065788,
+            "y": -182.05551366037764,
+            "rotation": -0.2831052855081367,
+            "scale": 1,
+            "alpha": 1
+        },
+        "head": {
+            "x": 2,
+            "y": -282,
+            "rotation": -0.012,
+            "scale": 1,
+            "alpha": 1
+        },
+        "weapon": {
+            "x": 105,
+            "y": -230,
+            "rotation": 0.0,
+            "scale": 1,
+            "alpha": 1
+        },
+        "torso": {
+            "x": 0,
+            "y": -162,
+            "rotation": 0,
+            "scale": 1,
+            "alpha": 1
+        },
+        "rightArm": {
+            "x": -5,
+            "y": -255,
+            "rotation": 0.35,
+            "scale": 1,
+            "alpha": 1
+        }
+    },
+    "tracks": {
+        "torso": {
+            "y": [
+                {
+                    "time": 0,
+                    "value": -162,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -165,
+                    "easing": "easeInOut"
+                }
+            ]
+        },
+        "head": {
+            "y": [
+                {
+                    "time": 0,
+                    "value": -282,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -285,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": -0.012,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": 0.016,
+                    "easing": "easeInOut"
+                }
+            ]
+        },
+        "rightArm": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": -5,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -6,
+                    "easing": "easeInOut"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -255,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -258,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0.35,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": 0.37,
+                    "easing": "easeInOut"
+                }
+            ]
+        },
+        "leftArmClosed": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 48,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": 47,
+                    "easing": "easeInOut"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -240,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -243,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0.0,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": 0.02,
+                    "easing": "easeInOut"
+                }
+            ],
+            "scale": [
+                {
+                    "time": 0,
+                    "value": 0.5,
+                    "easing": "linear"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "weapon": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 105,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": 104,
+                    "easing": "easeInOut"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -230,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": -233,
+                    "easing": "easeInOut"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": 0.0,
+                    "easing": "easeInOut"
+                },
+                {
+                    "time": 0.6,
+                    "value": 0.015,
+                    "easing": "easeInOut"
+                }
+            ],
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 1,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "leftArm": {
+            "alpha": [
+                {
+                    "time": 0,
+                    "value": 0,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "leftLeg": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": 0.16253340871708843,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -189.7019415206407,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": -0.04,
+                    "easing": "linear"
+                }
+            ]
+        },
+        "rightLeg": {
+            "x": [
+                {
+                    "time": 0,
+                    "value": -21.043097245065788,
+                    "easing": "linear"
+                }
+            ],
+            "y": [
+                {
+                    "time": 0,
+                    "value": -182.05551366037764,
+                    "easing": "linear"
+                }
+            ],
+            "rotation": [
+                {
+                    "time": 0,
+                    "value": -0.2831052855081367,
+                    "easing": "linear"
+                }
+            ]
+        }
+    },
+    "playback": {
+        "idleThreshold": 0.04,
+        "baseCyclesPerSecond": 0.55,
+        "speedCyclesPerSecond": 2.2,
+        "maxSpeedRatio": 1.4
+    },
+    "rootMotion": {
+        "enabled": false,
+        "xTrack": null,
+        "yTrack": null
+    }
+}
