@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 3,
-        "note": "Musket Goblin based on the corrected shared compact goblin rig. The open leftArm slot remains hidden; the dedicated leftArmClosed part supports the musket with the right closed arm."
+        "version": 4,
+        "note": "Musket Goblin rebuilt from the user-authored Fireball Goblin motions. The front arm stays as the closed-hand variant, the musket remains attached, and the attack clip includes a spawned cannonball projectile sprite cue."
     },
     "characterId": "ct_char_enemy_003",
     "displayName": "Musket Goblin",

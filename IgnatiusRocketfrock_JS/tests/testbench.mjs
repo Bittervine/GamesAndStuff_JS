@@ -360,10 +360,10 @@ async function testGoblinRuntimeCharacterProjects() {
     assert.equal(musket.rig.parts.weapon.frame, "musket", "musket goblin should use the musket frame");
     assert.deepEqual(
         fireball.rig.drawOrder,
-        ["leftArm", "leftArmClosed", "leftLeg", "rightLeg", "head", "weapon", "torso", "rightArm"],
-        "goblin rig should preserve the user-corrected depth-first order"
+        jsonByUrl.get("assets/ct_rig_enemy_002.json").drawOrder,
+        "runtime goblin rig should preserve the user-authored depth-first order"
     );
-    assert.equal(fireball.atlasAssets.get("fireball")?.frameId, "fireball", "runtime project should expose unattached fireball atlas resources");
+    assert.equal(fireball.atlasAssets.get("fireball")?.frameId, "fireball", "runtime project should expose the authored fireball atlas resource");
     assert.equal(musket.atlasAssets.get("cannonball")?.frameId, "cannonball", "runtime project should expose unattached cannonball atlas resources");
     assert.equal(fireball.animations.size, 5, "fireball goblin should resolve its dedicated animation set");
     assert.equal(musket.animations.size, 5, "musket goblin should resolve its dedicated weapon-aware animation set");
@@ -1162,7 +1162,17 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes('enemy_003: "assets/ct_char_enemy_003.json"'), "known enemy_003 project should resolve to its character definition");
     assert.ok(toolHtml.includes("applyCharacterRigOverrides(loadedRig, state.character)"), "character tool should apply character-level goblin part overrides while loading known projects");
     assert.ok(toolHtml.includes('id="apply-preview-alpha"'), "character tool should expose an animation-preview alpha toggle");
-    assert.ok(toolHtml.includes("Leave alpha preview off while positioning hidden parts"), "character tool should explain hidden-part editing versus final alpha preview");
+    assert.ok(toolHtml.includes("selected part is fully opaque") && toolHtml.includes("ghosted between 10% and 50%"), "character tool should explain selected and unselected alpha-preview behaviour");
+    assert.ok(toolHtml.includes("clamp(effectiveAlpha, 0.1, 0.5)"), "alpha-off preview should cap unselected parts between ten and fifty percent opacity");
+    assert.ok(toolHtml.includes('id="quick-toolbar"') && toolHtml.includes('id="quick-select"') && toolHtml.includes('id="quick-adjust"'), "character tool should expose Select and Adjust shortcuts above the canvas");
+    assert.ok(toolHtml.includes('id="quick-visibility"') && toolHtml.includes('id="quick-to-back"') && toolHtml.includes('id="quick-to-front"'), "character toolbar should expose visibility and draw-order shortcuts");
+    assert.ok(toolHtml.includes('id="animation-dock"') && toolHtml.includes('class="dock-playhead"'), "character tool should expose the wide bottom animation dock");
+    assert.ok(toolHtml.includes('id="track-step-back"') && toolHtml.includes('&lt;--') && toolHtml.includes('&lt;-') && toolHtml.includes('PLAY/PAUSE') && toolHtml.includes('-&gt;') && toolHtml.includes('--&gt;'), "animation dock should expose global and track-specific keyframe navigation buttons");
+    assert.ok(toolHtml.includes("beginTransformKeyDrag") && toolHtml.includes("dragTransformKey"), "bottom timeline should support dragging grouped transform key times");
+    assert.ok(toolHtml.includes("event.button !== 2") && toolHtml.includes('contextmenu'), "right-button dragging should pan the character and atlas preview without opening a context menu");
+    assert.ok(toolHtml.includes("PANEL_STORAGE_KEY") && toolHtml.includes("setupCollapsiblePanels") && toolHtml.includes("localStorage.setItem"), "right-side panels should collapse and remember their state in local storage");
+    assert.ok(toolHtml.includes("selectPartFromCanvas") && toolHtml.includes('setAnimationTool("adjust")'), "canvas Select mode should choose a rig box and return to Adjust mode");
+    assert.ok(toolHtml.includes("toggleSelectedPartVisibility"), "quick toolbar should author visible/hidden alpha keys");
     assert.ok(toolHtml.includes("Unsaved change status"), "character tool should expose independent dirty-state status");
     assert.ok(toolHtml.includes("part-to-back"), "character tool should expose a selected-part To Back control");
     assert.ok(toolHtml.includes("part-to-front"), "character tool should expose a selected-part To Front control");
@@ -1765,11 +1775,13 @@ function testNumberedEnemy001Assets() {
     assert.deepEqual(goblinFireballCharacter.rigPartOverrides.weapon.offset, { x: 145, y: -231 }, "hidden Fireball Goblin weapon slot should retain an explicit movable setup offset");
     assert.equal(goblinMusketCharacter.rigPartOverrides.weapon.frame, "musket", "musket goblin should keep the musket attached to its rig");
     assert.equal(goblinMusketCharacter.rigPartOverrides.leftArm, undefined, "musket goblin should use the dedicated leftArmClosed rig part instead of duplicating it through leftArm");
-    assert.deepEqual(goblinRig.drawOrder, ["leftArm", "leftArmClosed", "leftLeg", "rightLeg", "head", "weapon", "torso", "rightArm"], "goblin draw order should preserve the user-corrected depth order");
+    assert.deepEqual(goblinRig.drawOrder, ["leftArm", "leftArmClosed", "leftLeg", "rightLeg", "head", "torso", "weapon", "rightArm", "cannonball", "fireball"], "goblin draw order should preserve the accepted user-authored depth order including previewable projectile parts");
     assert.ok(goblinRig.parts.leftArmClosed, "shared goblin rig should retain the alternate closed left arm as an independently animatable part");
 
     const fireIdle = JSON.parse(readFileSync("./assets/ct_anim_enemy_002_idle.json", "utf8"));
+    const fireAttack = JSON.parse(readFileSync("./assets/ct_anim_enemy_002_attack.json", "utf8"));
     const musketIdle = JSON.parse(readFileSync("./assets/ct_anim_enemy_003_idle.json", "utf8"));
+    const musketAttack = JSON.parse(readFileSync("./assets/ct_anim_enemy_003_attack.json", "utf8"));
     assert.ok(fireIdle.tracks.rightLeg.y[0].value < -175 && fireIdle.tracks.leftLeg.y[0].value < -185, "corrected Fireball Goblin idle should keep its legs pulled into the compact dwarfish body");
     assert.equal(fireIdle.tracks.leftArm.alpha[0].value, 0, "Fireball Goblin idle should hide the open casting arm");
     assert.equal(fireIdle.tracks.leftArmClosed.alpha[0].value, 1, "Fireball Goblin idle should show the closed alternate arm");
@@ -1783,15 +1795,34 @@ function testNumberedEnemy001Assets() {
         { x: fireIdle.tracks.leftLeg.x[0].value, y: fireIdle.tracks.leftLeg.y[0].value, rotation: fireIdle.tracks.leftLeg.rotation[0].value },
         "Musket Goblin idle should inherit the corrected compact left-leg placement"
     );
+    assert.ok(fireAttack.tracks.fireball, "Fireball Goblin attack should retain the authored fireball spawn cue");
+    assert.ok(musketAttack.tracks.cannonball, "Musket Goblin attack should author a cannonball spawn cue");
+    assert.equal(musketAttack.tracks.leftArm.alpha[0].value, 0, "Musket Goblin attack should keep the open casting arm hidden");
+    assert.equal(musketAttack.tracks.leftArmClosed.alpha[0].value, 1, "Musket Goblin attack should begin with the closed front arm visible");
 
     const goblinAnimationFiles = [
         "ct_anim_enemy_002_walk.json", "ct_anim_enemy_002_attack.json", "ct_anim_enemy_002_hurt.json", "ct_anim_enemy_002_death.json",
         "ct_anim_enemy_003_idle.json", "ct_anim_enemy_003_walk.json", "ct_anim_enemy_003_attack.json", "ct_anim_enemy_003_hurt.json", "ct_anim_enemy_003_death.json"
     ];
+    const requiredGoblinBodyParts = goblinRig.drawOrder.filter((partName) => {
+        const frameName = goblinRig.parts?.[partName]?.frame;
+        return goblinAtlas.objects?.[frameName]?.type !== "projectileSprite";
+    });
     for (const filename of goblinAnimationFiles) {
-        const animation = JSON.parse(readFileSync(`./assets/${filename}`, "utf8"));
-        for (const partName of goblinRig.drawOrder) {
-            assert.ok(animation.referencePose[partName], `${filename} should carry a complete reference transform for ${partName}`);
+        const rawAnimation = JSON.parse(readFileSync(`./assets/${filename}`, "utf8"));
+        for (const partName of requiredGoblinBodyParts) {
+            assert.ok(rawAnimation.referencePose[partName], `${filename} should carry a reference transform for body part ${partName}`);
+        }
+        const animation = normalizeAnimationClip(rawAnimation, filename);
+        const keyTimes = new Set([0, Number(rawAnimation.duration || 0)]);
+        for (const partTracks of Object.values(rawAnimation.tracks || {})) {
+            for (const track of Object.values(partTracks || {})) {
+                for (const key of track || []) keyTimes.add(Number(key.time));
+            }
+        }
+        for (const time of keyTimes) {
+            const pose = sampleAnimationClip(animation, time);
+            assert.ok(Object.values(pose).every((part) => Object.values(part).every(Number.isFinite)), `${filename} should sample to finite transforms at ${time}`);
         }
     }
 

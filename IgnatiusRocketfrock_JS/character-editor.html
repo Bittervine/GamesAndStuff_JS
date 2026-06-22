@@ -39,15 +39,21 @@
 
         #stage-wrap {
             min-width: 0;
+            min-height: 0;
             display: grid;
-            place-items: center;
-            padding: 18px;
+            grid-template-rows: auto minmax(0, 1fr) auto;
+            justify-items: center;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 18px;
+            overflow: hidden;
         }
 
         canvas {
             display: block;
             width: min(100%, 1160px);
             height: auto;
+            max-height: calc(100vh - 196px);
             border: 1px solid var(--line);
             border-radius: 18px;
             background: rgb(6, 6, 12);
@@ -349,6 +355,103 @@
             color: var(--muted);
         }
 
+        .stage-toolbar {
+            width: min(100%, 1160px);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: rgba(21, 18, 30, 0.94);
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
+        }
+
+        .stage-toolbar[hidden],
+        #quick-toolbar[hidden],
+        #animation-dock[hidden] {
+            display: none;
+        }
+
+        #quick-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 7px;
+            padding: 7px;
+        }
+
+        .stage-toolbar button:not(.key-marker) {
+            width: auto;
+            min-width: 86px;
+            margin: 0;
+            padding: 7px 11px;
+        }
+
+        .stage-toolbar button.active {
+            border-color: var(--accent-strong);
+            background: rgba(201, 167, 255, 0.25);
+            box-shadow: inset 0 0 0 1px rgba(240, 220, 255, 0.28);
+        }
+
+        #animation-dock {
+            display: grid;
+            gap: 7px;
+            padding: 8px 10px 9px;
+        }
+
+        .dock-controls {
+            display: grid;
+            grid-template-columns: auto auto auto auto auto minmax(180px, 1fr) auto;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .dock-controls button {
+            min-width: 52px;
+        }
+
+        .dock-playhead {
+            display: grid;
+            grid-template-columns: auto minmax(140px, 1fr);
+            align-items: center;
+            gap: 8px;
+            color: var(--muted);
+            font-size: 12px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #animation-dock #timeline {
+            height: 44px;
+            margin: 0;
+        }
+
+        #animation-dock .key-marker {
+            top: 13px;
+        }
+
+        .box > h2 {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .panel-collapse-toggle {
+            width: 28px;
+            min-width: 28px;
+            height: 28px;
+            margin: -5px -4px -5px 0;
+            padding: 0;
+            border-radius: 8px;
+            font-size: 15px;
+            line-height: 1;
+        }
+
+        .box.collapsed > :not(h2) {
+            display: none !important;
+        }
+
+        .box.collapsed {
+            padding-bottom: 8px;
+        }
+
         @media (max-width: 980px) {
             body {
                 overflow: auto;
@@ -357,6 +460,23 @@
             main {
                 grid-template-columns: 1fr;
                 height: auto;
+            }
+
+            #stage-wrap {
+                min-height: 720px;
+                overflow: visible;
+            }
+
+            canvas {
+                max-height: none;
+            }
+
+            .dock-controls {
+                grid-template-columns: auto auto auto auto auto 1fr;
+            }
+
+            .dock-controls > .dock-time-readout {
+                grid-column: 1 / -1;
             }
 
             aside {
@@ -369,10 +489,34 @@
 <body>
 <main>
     <div id="stage-wrap">
+        <nav id="quick-toolbar" class="stage-toolbar" aria-label="Rig editing shortcuts">
+            <button id="quick-select" type="button">Select</button>
+            <button id="quick-adjust" type="button" class="active">Adjust</button>
+            <button id="quick-visibility" type="button">Visible / Hidden</button>
+            <button id="quick-to-back" type="button">To Bottom</button>
+            <button id="quick-to-front" type="button">To Front</button>
+        </nav>
         <canvas id="stage" width="1160" height="660" aria-label="Puppet Forge character preview"></canvas>
+        <section id="animation-dock" class="stage-toolbar" aria-label="Animation timeline controls">
+            <div class="dock-controls">
+                <button id="track-step-back" type="button" title="Previous keyframe for this rig item and value">&lt;--</button>
+                <button id="step-back" type="button" title="Previous keyframe (any)">&lt;-</button>
+                <button id="pause" type="button" title="Play or pause preview">PLAY/PAUSE</button>
+                <button id="step-forward" type="button" title="Next keyframe (any)">-&gt;</button>
+                <button id="track-step-forward" type="button" title="Next keyframe for this rig item and value">--&gt;</button>
+                <label class="dock-playhead">
+                    <span>Playhead</span>
+                    <input id="time" type="range" min="0" max="1" step="0.001" value="0">
+                </label>
+                <span id="time-value" class="dock-time-readout">0.000 / 0.000 s</span>
+            </div>
+            <div id="timeline" aria-label="Animation keyframe timeline">
+                <div id="timeline-playhead"></div>
+            </div>
+        </section>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 086</small></h1>
+        <h1>Puppet Forge <small>rev 108</small></h1>
         <p><a href="index.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -398,7 +542,7 @@
                 <span>View zoom: <strong id="zoom-value">100%</strong></span>
                 <button id="reset-view" type="button">Reset to 100%</button>
             </div>
-            <p>Use the mouse wheel over the canvas to zoom the active workspace. Each project document is tracked separately; downloading a JSON file marks only that document as saved.</p>
+            <p>Use the mouse wheel over the canvas to zoom and right-drag to pan the active workspace. Each project document is tracked separately; downloading a JSON file marks only that document as saved.</p>
         </section>
 
         <section class="box">
@@ -450,7 +594,7 @@
 
         <section class="box mode-panel atlas-panel" hidden>
             <h2>Atlas parts</h2>
-            <p>At 100% zoom, one atlas image pixel equals one preview-canvas pixel. Drag empty image space to draw a frame, drag inside a frame to move it, and drag a selected corner to resize it. Shift-drag or middle-drag pans the atlas.</p>
+            <p>At 100% zoom, one atlas image pixel equals one preview-canvas pixel. Drag empty image space to draw a frame, drag inside a frame to move it, and drag a selected corner to resize it. Shift-drag, middle-drag, or right-drag pans the atlas.</p>
             <label>
                 <span>Selected frame</span>
                 <select id="atlas-frame-select"></select>
@@ -505,15 +649,6 @@
                 <span class="readout"><span>Preview speed</span><span id="speed-value"></span></span>
                 <input id="speed" type="range" min="0.05" max="3" step="0.01" value="1">
             </label>
-            <label>
-                <span class="readout"><span>Playhead</span><span id="time-value"></span></span>
-                <input id="time" type="range" min="0" max="1" step="0.001" value="0">
-            </label>
-            <div class="row three">
-                <button id="step-back" type="button">Previous key</button>
-                <button id="pause" type="button">Pause</button>
-                <button id="step-forward" type="button">Next key</button>
-            </div>
             <div class="row">
                 <button id="mirror" type="button">Facing: right</button>
                 <button id="reload" type="button">Reload files</button>
@@ -521,7 +656,7 @@
             <label class="check-row"><input id="loop" type="checkbox" checked> Loop preview and exported clip</label>
             <label class="check-row"><input id="apply-preview-alpha" type="checkbox"> Apply alpha values in preview</label>
             <label class="check-row"><input id="animation-mirrorable" type="checkbox" checked> Animation may be mirrored</label>
-            <p>Leave alpha preview off while positioning hidden parts. Turn it on to preview the effective rig and animation opacity used in the game.</p>
+            <p>With alpha preview on, parts use their in-game opacity. With it off, the selected part is fully opaque while other parts are ghosted between 10% and 50%, making rear and hidden parts easier to position and select.</p>
             <div class="row">
                 <label><span>New animation slot</span><input id="duplicate-animation-slot" type="text" placeholder="for example: block"></label>
                 <button id="duplicate-animation" type="button">Duplicate current</button>
@@ -546,9 +681,6 @@
                     <option value="alpha">Alpha</option>
                 </select>
             </label>
-            <div id="timeline" aria-label="Animation keyframe timeline">
-                <div id="timeline-playhead"></div>
-            </div>
             <div id="track-summary" class="muted-line"></div>
             <div id="sample-value" class="muted-line"></div>
             <div class="row">
@@ -574,7 +706,7 @@
                 <button id="copy-key" type="button">Copy key</button>
                 <button id="paste-key" type="button">Paste at playhead</button>
             </div>
-            <p>For X, Y and Angle mode, drag inside the selected yellow rectangle to move the part and drag a yellow corner handle to rotate it. The first drag creates transform keys at the playhead. For single properties, edit the numeric value directly; typing at an unkeyed playhead creates a key automatically.</p>
+            <p>For X, Y and Angle mode, drag inside the selected yellow rectangle to move the part and drag a yellow corner handle to rotate it. The first drag creates transform keys at the playhead. Drag a diamond in the bottom timeline to move its key time; grouped X/Y/Angle diamonds move together. For single properties, edit the numeric value directly; typing at an unkeyed playhead creates a key automatically.</p>
         </section>
 
         <section class="box mode-panel animation-panel">
@@ -737,6 +869,13 @@ const PART_LABELS = {
 const canvas = document.getElementById("stage");
 const ctx = canvas.getContext("2d", { alpha: false });
 const els = {
+    quickToolbar: document.getElementById("quick-toolbar"),
+    quickSelect: document.getElementById("quick-select"),
+    quickAdjust: document.getElementById("quick-adjust"),
+    quickVisibility: document.getElementById("quick-visibility"),
+    quickToBack: document.getElementById("quick-to-back"),
+    quickToFront: document.getElementById("quick-to-front"),
+    animationDock: document.getElementById("animation-dock"),
     projectSelect: document.getElementById("project-select"),
     loadKnownProject: document.getElementById("load-known-project"),
     newCharacter: document.getElementById("new-character"),
@@ -787,8 +926,10 @@ const els = {
     time: document.getElementById("time"),
     timeValue: document.getElementById("time-value"),
     pause: document.getElementById("pause"),
+    trackStepBack: document.getElementById("track-step-back"),
     stepBack: document.getElementById("step-back"),
     stepForward: document.getElementById("step-forward"),
+    trackStepForward: document.getElementById("track-step-forward"),
     mirror: document.getElementById("mirror"),
     reload: document.getElementById("reload"),
     zoomValue: document.getElementById("zoom-value"),
@@ -842,6 +983,7 @@ const KNOWN_PROJECTS = Object.freeze({
     enemy_002: "assets/ct_char_enemy_002.json",
     enemy_003: "assets/ct_char_enemy_003.json"
 });
+const PANEL_STORAGE_KEY = "ignatiusRocketfrock.characterEditor.collapsedPanels.v1";
 
 const state = {
     character: null,
@@ -881,6 +1023,9 @@ const state = {
     dragKey: null,
     selectedTransformTime: null,
     partDrag: null,
+    previewPanDrag: null,
+    dragTransformKey: null,
+    animationTool: "adjust",
     viewZoom: 1,
     viewPanX: 0,
     viewPanY: 0
@@ -932,10 +1077,100 @@ function setEditorMode(mode) {
     for (const panel of document.querySelectorAll(".atlas-panel")) {
         panel.hidden = state.editorMode !== "atlas";
     }
+    els.quickToolbar.hidden = state.editorMode !== "animation";
+    els.animationDock.hidden = state.editorMode !== "animation";
     state.partDrag = null;
     state.atlasDrag = null;
+    state.previewPanDrag = null;
     canvas.style.cursor = "default";
+    updateQuickToolbar();
     updateReadouts();
+}
+
+function setAnimationTool(tool) {
+    state.animationTool = tool === "select" ? "select" : "adjust";
+    if (state.animationTool === "adjust") {
+        els.propertySelect.value = TRANSFORM_EDIT_PROPERTY;
+        state.selectedKeyIndex = -1;
+        state.selectedTransformTime = null;
+        rebuildTimeline();
+    }
+    updateQuickToolbar();
+}
+
+function updateQuickToolbar() {
+    const animationMode = state.editorMode === "animation";
+    const partName = selectedPartName();
+    const order = drawOrder();
+    const index = order.indexOf(partName);
+    els.quickSelect.classList.toggle("active", animationMode && state.animationTool === "select");
+    els.quickAdjust.classList.toggle("active", animationMode && state.animationTool === "adjust");
+    els.quickSelect.disabled = !animationMode || !state.rig;
+    els.quickAdjust.disabled = !animationMode || !state.rig || !state.animation;
+    els.quickVisibility.disabled = !animationMode || !state.animation || !partName;
+    els.quickToBack.disabled = !animationMode || index <= 0;
+    els.quickToFront.disabled = !animationMode || index < 0 || index >= order.length - 1;
+}
+
+function panelKeyFromHeading(heading, index) {
+    const slug = String(heading || `panel-${index + 1}`)
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+    return slug || `panel-${index + 1}`;
+}
+
+function readCollapsedPanels() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(PANEL_STORAGE_KEY) || "{}");
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeCollapsedPanels(value) {
+    try {
+        localStorage.setItem(PANEL_STORAGE_KEY, JSON.stringify(value));
+    } catch {
+        // Storage may be unavailable in private or locked-down browser contexts.
+    }
+}
+
+function setupCollapsiblePanels() {
+    const remembered = readCollapsedPanels();
+    const panels = [...document.querySelectorAll("aside section.box")];
+    panels.forEach((panel, index) => {
+        const heading = panel.querySelector(":scope > h2");
+        if (!heading) {
+            return;
+        }
+        const key = panel.dataset.panelKey || panelKeyFromHeading(heading.childNodes[0]?.textContent || heading.textContent, index);
+        panel.dataset.panelKey = key;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "panel-collapse-toggle";
+        button.setAttribute("aria-label", `Collapse or expand ${heading.textContent.trim()}`);
+        heading.appendChild(button);
+
+        const apply = (collapsed) => {
+            panel.classList.toggle("collapsed", collapsed);
+            button.textContent = collapsed ? "+" : "−";
+            button.title = collapsed ? "Expand panel" : "Collapse panel";
+            button.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        };
+        apply(remembered[key] === true);
+        button.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const collapsed = !panel.classList.contains("collapsed");
+            apply(collapsed);
+            const next = readCollapsedPanels();
+            next[key] = collapsed;
+            writeCollapsedPanels(next);
+        });
+    });
 }
 
 function pathDirectory(url) {
@@ -2019,7 +2254,7 @@ async function loadAnimationSlot(slot) {
     state.selectedKeyIndex = -1;
     state.selectedTransformTime = null;
     state.paused = false;
-    els.pause.textContent = "Pause";
+    updatePlayPauseButton();
     syncAnimationControls();
     refreshAnimationJson();
     rebuildTimeline();
@@ -2043,11 +2278,13 @@ function setupPartSelect() {
         els.partSelect.appendChild(option);
         els.partSelect.disabled = true;
         updateDrawOrderButtons();
+        updateQuickToolbar();
         return;
     }
     els.partSelect.disabled = false;
     els.partSelect.value = names.includes(previous) ? previous : names[0];
     updateDrawOrderButtons();
+    updateQuickToolbar();
 }
 
 function selectedPartName() {
@@ -2081,10 +2318,15 @@ function clientPointOnCanvas(clientX, clientY) {
     return canvasPointFromClient(clientX, clientY, canvas.getBoundingClientRect(), canvas.width, canvas.height);
 }
 
+function updatePlayPauseButton() {
+    els.pause.setAttribute("aria-pressed", state.paused ? "false" : "true");
+    els.pause.title = state.paused ? "Play preview" : "Pause preview";
+}
+
 function pauseForDirectEditing() {
     if (!state.paused) {
         state.paused = true;
-        els.pause.textContent = "Play";
+        updatePlayPauseButton();
     }
 }
 
@@ -2111,6 +2353,7 @@ function selectPart(name) {
     state.selectedKeyIndex = -1;
     state.selectedTransformTime = null;
     rebuildTimeline();
+    updateQuickToolbar();
 }
 
 function updateDrawOrderButtons() {
@@ -2120,6 +2363,10 @@ function updateDrawOrderButtons() {
     const unavailable = !name || index < 0 || order.length < 2;
     els.partToBack.disabled = unavailable || index === 0;
     els.partToFront.disabled = unavailable || index === order.length - 1;
+    if (els.quickToBack && els.quickToFront) {
+        els.quickToBack.disabled = unavailable || index === 0;
+        els.quickToFront.disabled = unavailable || index === order.length - 1;
+    }
 }
 
 function moveSelectedPartInDrawOrder(direction) {
@@ -2323,7 +2570,7 @@ async function duplicateCurrentAnimation() {
         els.duplicateAnimationSlot.value = "";
         await loadAnimationSlot(slot);
         state.paused = true;
-        els.pause.textContent = "Play";
+        updatePlayPauseButton();
         setStatus(`Duplicated the current clip into slot ${slot}.\nNew file: ${filename}\nDownload the Animation JSON and Character JSON to preserve it.`);
     } catch (error) {
         setStatus(error.message);
@@ -2415,7 +2662,8 @@ function rebuildTimeline() {
                 time,
                 `${time.toFixed(3)} s · ${properties.join(", ")}`,
                 state.selectedTransformTime !== null && Math.abs(state.selectedTransformTime - time) < 0.0005,
-                () => selectTransformTime(time)
+                () => selectTransformTime(time),
+                (event) => beginTransformKeyDrag(event, time)
             );
         }
         updateKeyButtons();
@@ -2687,6 +2935,83 @@ function pasteKeyAtPlayhead() {
     }
 }
 
+function beginTransformKeyDrag(event, time) {
+    if (!isTransformEditMode() || !state.animation) {
+        return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    const partName = selectedPartName();
+    const properties = ["x", "y", "rotation"].filter((property) =>
+        findKeyframeIndex(state.animation, partName, property, time) >= 0
+    );
+    if (!properties.length) {
+        return;
+    }
+    const originalTracks = {};
+    for (const property of properties) {
+        originalTracks[property] = JSON.parse(JSON.stringify(getAnimationTrack(state.animation, partName, property, false) || []));
+    }
+    state.dragTransformKey = {
+        pointerId: event.pointerId,
+        partName,
+        originalTime: Number(time),
+        properties,
+        originalTracks
+    };
+    selectTransformTime(time);
+}
+
+function restoreTransformDragTracks(drag) {
+    state.animation.tracks = state.animation.tracks || {};
+    state.animation.tracks[drag.partName] = state.animation.tracks[drag.partName] || {};
+    for (const property of drag.properties) {
+        state.animation.tracks[drag.partName][property] = JSON.parse(JSON.stringify(drag.originalTracks[property]));
+    }
+}
+
+function dragTransformKey(event) {
+    const drag = state.dragTransformKey;
+    if (!drag || event.pointerId !== drag.pointerId) {
+        return;
+    }
+    event.preventDefault();
+    const time = timelineTimeFromClientX(event.clientX);
+    restoreTransformDragTracks(drag);
+    try {
+        for (const property of drag.properties) {
+            const index = findKeyframeIndex(state.animation, drag.partName, property, drag.originalTime, 0.0000001);
+            if (index >= 0) {
+                updateAnimationKeyframe(state.animation, drag.partName, property, index, { time });
+            }
+        }
+        state.selectedTransformTime = time;
+        state.time = time;
+        state.syncing = true;
+        els.time.value = time;
+        state.syncing = false;
+        invalidateAnimation(false);
+        rebuildTimeline();
+    } catch (error) {
+        restoreTransformDragTracks(drag);
+        state.selectedTransformTime = drag.originalTime;
+        state.time = drag.originalTime;
+        invalidateAnimation(false);
+        rebuildTimeline();
+        setStatus(error.message);
+    }
+}
+
+function endTransformKeyDrag(event) {
+    const drag = state.dragTransformKey;
+    if (!drag || event.pointerId !== drag.pointerId) {
+        return;
+    }
+    state.dragTransformKey = null;
+    invalidateAnimation();
+    setStatus(`Moved ${drag.partName} transform keys to ${state.time.toFixed(3)} s.`);
+}
+
 function beginKeyDrag(event, index) {
     if (isTransformEditMode()) {
         return;
@@ -2764,8 +3089,21 @@ function allKeyTimes() {
     return [...times].filter(Number.isFinite).sort((a, b) => a - b);
 }
 
-function stepPlayhead(direction) {
-    const times = allKeyTimes();
+function selectedTrackKeyTimes() {
+    if (!state.animation) {
+        return [];
+    }
+    if (isTransformEditMode()) {
+        return transformTrackTimes(selectedPartName());
+    }
+    const track = getAnimationTrack(state.animation, selectedPartName(), selectedProperty(), false) || [];
+    return track
+        .map((key) => Number(key.time))
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+}
+
+function stepPlayheadFromTimes(times, direction, selectionScope = "all") {
     if (!times.length) {
         return;
     }
@@ -2784,11 +3122,62 @@ function stepPlayhead(direction) {
     }
     state.time = target;
     state.selectedKeyIndex = -1;
-    state.selectedTransformTime = null;
+    if (selectionScope === "track") {
+        if (isTransformEditMode()) {
+            state.selectedTransformTime = target;
+        } else {
+            state.selectedTransformTime = null;
+            state.selectedKeyIndex = findKeyframeIndex(state.animation, selectedPartName(), selectedProperty(), target);
+        }
+    } else {
+        state.selectedTransformTime = null;
+    }
     state.syncing = true;
     els.time.value = state.time;
     state.syncing = false;
+    if (selectionScope === "track" && isTransformEditMode()) {
+        selectTransformTime(target);
+        return;
+    }
+    if (selectionScope === "track" && !isTransformEditMode() && state.selectedKeyIndex >= 0) {
+        const track = getAnimationTrack(state.animation, selectedPartName(), selectedProperty(), false) || [];
+        const key = track[state.selectedKeyIndex];
+        if (key) {
+            els.keyTime.value = Number(key.time).toFixed(3);
+            els.keyValue.value = formatValue(Number(key.value));
+            els.keyEasing.value = key.easing || "linear";
+        }
+    }
     rebuildTimeline();
+}
+
+function stepPlayhead(direction) {
+    stepPlayheadFromTimes(allKeyTimes(), direction, "all");
+}
+
+function stepPlayheadOnSelectedTrack(direction) {
+    stepPlayheadFromTimes(selectedTrackKeyTimes(), direction, "track");
+}
+
+function toggleSelectedPartVisibility() {
+    if (!state.animation) {
+        return;
+    }
+    const partName = selectedPartName();
+    const currentAlpha = Number(samplePose()?.[partName]?.alpha ?? 1);
+    const nextAlpha = Math.abs(currentAlpha) > 0.000001 ? 0 : 1;
+    try {
+        upsertAnimationKeyframe(state.animation, partName, "alpha", {
+            time: state.time,
+            value: nextAlpha,
+            easing: "step"
+        });
+        invalidateAnimation();
+        rebuildTimeline();
+        setStatus(`${partName} is now ${nextAlpha === 0 ? "hidden" : "visible"} from the alpha key at ${state.time.toFixed(3)} s.`);
+    } catch (error) {
+        setStatus(error.message);
+    }
 }
 
 function refreshAnimationJson() {
@@ -2874,7 +3263,11 @@ function drawSprite(name, transform) {
     const spriteScale = transform.targetHeight / Math.max(1, asset.height);
     const viewLineScale = Math.max(0.0001, spriteScale * state.viewZoom);
     ctx.save();
-    ctx.globalAlpha *= els.applyPreviewAlpha.checked ? clamp(Number(transform.alpha) || 0, 0, 1) : 1;
+    const effectiveAlpha = clamp(Number(transform.alpha) || 0, 0, 1);
+    const previewAlpha = els.applyPreviewAlpha.checked
+        ? effectiveAlpha
+        : (name === selectedPartName() ? 1 : clamp(effectiveAlpha, 0.1, 0.5));
+    ctx.globalAlpha *= previewAlpha;
     ctx.translate(transform.x, transform.y);
     ctx.rotate(transform.angle);
     ctx.scale(spriteScale, spriteScale);
@@ -2913,8 +3306,7 @@ function renderedPose() {
     return result;
 }
 
-function selectedPartCanvasGeometry(pose = null) {
-    const partName = selectedPartName();
+function partCanvasGeometry(partName, pose = null) {
     const rendered = pose || renderedPose();
     const transform = rendered?.[partName];
     const asset = state.assets.get(partName);
@@ -2929,6 +3321,26 @@ function selectedPartCanvasGeometry(pose = null) {
         previewGeometry,
         canvasGeometry: geometryToCanvas(previewGeometry, currentViewTransform())
     };
+}
+
+function selectedPartCanvasGeometry(pose = null) {
+    return partCanvasGeometry(selectedPartName(), pose);
+}
+
+function partAtCanvasPoint(canvasPoint, pose = null) {
+    const rendered = pose || renderedPose();
+    const names = [...drawOrder()].reverse();
+    for (const partName of names) {
+        const geometry = partCanvasGeometry(partName, rendered);
+        if (!geometry) {
+            continue;
+        }
+        const hit = hitTestPartGeometry(canvasPoint, geometry.canvasGeometry, 0.5);
+        if (hit?.mode === "move") {
+            return geometry;
+        }
+    }
+    return null;
 }
 
 function drawSelectionOverlay(pose) {
@@ -2983,7 +3395,74 @@ function stageTransformHit(clientX, clientY) {
     return hit ? { ...hit, canvasPoint, geometry } : null;
 }
 
+function selectPartFromCanvas(event) {
+    if (state.editorMode !== "animation" || event.button !== 0) {
+        return false;
+    }
+    const canvasPoint = clientPointOnCanvas(event.clientX, event.clientY);
+    const hit = partAtCanvasPoint(canvasPoint);
+    if (!hit) {
+        return false;
+    }
+    event.preventDefault();
+    selectPart(hit.partName);
+    setAnimationTool("adjust");
+    setStatus(`Selected ${hit.partName}. Adjust mode is active.`);
+    return true;
+}
+
+function beginPreviewPan(event) {
+    if (event.button !== 2) {
+        return false;
+    }
+    event.preventDefault();
+    const point = clientPointOnCanvas(event.clientX, event.clientY);
+    state.previewPanDrag = {
+        pointerId: event.pointerId,
+        editorMode: state.editorMode,
+        startCanvas: point,
+        startPanX: state.editorMode === "atlas" ? state.atlasViewPanX : state.viewPanX,
+        startPanY: state.editorMode === "atlas" ? state.atlasViewPanY : state.viewPanY
+    };
+    canvas.setPointerCapture?.(event.pointerId);
+    canvas.style.cursor = "grabbing";
+    return true;
+}
+
+function dragPreviewPan(event) {
+    const drag = state.previewPanDrag;
+    if (!drag || event.pointerId !== drag.pointerId) {
+        return;
+    }
+    event.preventDefault();
+    const point = clientPointOnCanvas(event.clientX, event.clientY);
+    const panX = drag.startPanX + point.x - drag.startCanvas.x;
+    const panY = drag.startPanY + point.y - drag.startCanvas.y;
+    if (drag.editorMode === "atlas") {
+        state.atlasViewPanX = panX;
+        state.atlasViewPanY = panY;
+    } else {
+        state.viewPanX = panX;
+        state.viewPanY = panY;
+    }
+    updateReadouts();
+}
+
+function endPreviewPan(event) {
+    const drag = state.previewPanDrag;
+    if (!drag || event.pointerId !== drag.pointerId) {
+        return;
+    }
+    canvas.releasePointerCapture?.(event.pointerId);
+    state.previewPanDrag = null;
+    canvas.style.cursor = "default";
+}
+
 function beginPartTransformDrag(event) {
+    if (event.button !== 0 || state.animationTool === "select") {
+        selectPartFromCanvas(event);
+        return;
+    }
     if (!state.animation || !isTransformEditMode()) {
         return;
     }
@@ -3075,7 +3554,12 @@ function endPartTransformDrag(event) {
 }
 
 function updateStageCursor(event) {
-    if (state.partDrag) {
+    if (state.partDrag || state.previewPanDrag) {
+        return;
+    }
+    if (state.animationTool === "select") {
+        const canvasPoint = clientPointOnCanvas(event.clientX, event.clientY);
+        canvas.style.cursor = partAtCanvasPoint(canvasPoint) ? "pointer" : "default";
         return;
     }
     const hit = stageTransformHit(event.clientX, event.clientY);
@@ -3160,7 +3644,7 @@ function render(now) {
             } else {
                 state.time = duration;
                 state.paused = true;
-                els.pause.textContent = "Play";
+                updatePlayPauseButton();
             }
         }
         state.syncing = true;
@@ -3239,10 +3723,15 @@ els.loadProjectFiles.addEventListener("click", () => {
 });
 els.clearProjectFiles.addEventListener("click", clearLocalFileSelection);
 els.editorMode.addEventListener("change", () => setEditorMode(els.editorMode.value));
+els.quickSelect.addEventListener("click", () => setAnimationTool("select"));
+els.quickAdjust.addEventListener("click", () => setAnimationTool("adjust"));
+els.quickVisibility.addEventListener("click", toggleSelectedPartVisibility);
+els.quickToBack.addEventListener("click", () => moveSelectedPartInDrawOrder("back"));
+els.quickToFront.addEventListener("click", () => moveSelectedPartInDrawOrder("front"));
 els.applyPreviewAlpha.addEventListener("change", () => {
     setStatus(els.applyPreviewAlpha.checked
-        ? "Animation preview now applies effective alpha values."
-        : "Animation preview now keeps hidden parts visible for editing.");
+        ? "Animation preview now applies effective in-game alpha values."
+        : "Selected part is fully opaque; unselected parts are ghosted between 10% and 50%.");
 });
 els.atlasFrameSelect.addEventListener("change", () => selectAtlasFrame(els.atlasFrameSelect.value));
 for (const input of [els.atlasFrameX, els.atlasFrameY, els.atlasFrameW, els.atlasFrameH]) {
@@ -3312,10 +3801,12 @@ els.time.addEventListener("input", () => {
 });
 els.pause.addEventListener("click", () => {
     state.paused = !state.paused;
-    els.pause.textContent = state.paused ? "Play" : "Pause";
+    updatePlayPauseButton();
 });
+els.trackStepBack.addEventListener("click", () => stepPlayheadOnSelectedTrack(-1));
 els.stepBack.addEventListener("click", () => stepPlayhead(-1));
 els.stepForward.addEventListener("click", () => stepPlayhead(1));
+els.trackStepForward.addEventListener("click", () => stepPlayheadOnSelectedTrack(1));
 els.mirror.addEventListener("click", () => {
     state.facing *= -1;
     els.mirror.textContent = state.facing === 1 ? "Facing: right" : "Facing: left";
@@ -3362,12 +3853,16 @@ els.duplicateAnimationSlot.addEventListener("keydown", (event) => {
 });
 els.timeline.addEventListener("pointerdown", scrubTimeline);
 canvas.addEventListener("pointerdown", (event) => {
+    if (beginPreviewPan(event)) {
+        return;
+    }
     if (state.editorMode === "atlas") {
         beginAtlasPointer(event);
     } else {
         beginPartTransformDrag(event);
     }
 });
+canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 canvas.addEventListener("pointermove", (event) => {
     if (state.editorMode === "atlas") {
         updateAtlasCursor(event);
@@ -3376,25 +3871,31 @@ canvas.addEventListener("pointermove", (event) => {
     }
 });
 canvas.addEventListener("pointerleave", () => {
-    if (!state.partDrag && !state.atlasDrag) {
+    if (!state.partDrag && !state.atlasDrag && !state.previewPanDrag) {
         canvas.style.cursor = "default";
     }
 });
 canvas.addEventListener("wheel", zoomStage, { passive: false });
 window.addEventListener("pointermove", (event) => {
     dragSelectedKey(event);
+    dragTransformKey(event);
     dragPartTransform(event);
     dragAtlasPointer(event);
+    dragPreviewPan(event);
 }, { passive: false });
 window.addEventListener("pointerup", (event) => {
     endKeyDrag(event);
+    endTransformKeyDrag(event);
     endPartTransformDrag(event);
     endAtlasPointer(event);
+    endPreviewPan(event);
 });
 window.addEventListener("pointercancel", (event) => {
     endKeyDrag(event);
+    endTransformKeyDrag(event);
     endPartTransformDrag(event);
     endAtlasPointer(event);
+    endPreviewPan(event);
 });
 els.addKey.addEventListener("click", addKeyAtPlayhead);
 els.applyKey.addEventListener("click", () => applySelectedKey(true));
@@ -3440,6 +3941,8 @@ window.addEventListener("beforeunload", (event) => {
     event.returnValue = "";
 });
 
+setupCollapsiblePanels();
+updatePlayPauseButton();
 updateKeyButtons();
 updateProjectSource();
 updateDirtySummary();

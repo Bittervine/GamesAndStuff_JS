@@ -12,9 +12,11 @@
         "leftLeg",
         "rightLeg",
         "head",
-        "weapon",
         "torso",
-        "rightArm"
+        "weapon",
+        "rightArm",
+        "cannonball",
+        "fireball"
     ],
     "global": {
         "scale": 0.5,
@@ -60,12 +62,12 @@
     },
     "pivots": {
         "rightArm": {
-            "x": 0.165,
-            "y": 0.29
+            "x": 0.14,
+            "y": 0.295
         },
         "leftArm": {
-            "x": 0.155,
-            "y": 0.28
+            "x": 0.075,
+            "y": 0.5
         },
         "rightLeg": {
             "x": 0.46,
@@ -90,6 +92,14 @@
         "leftArmClosed": {
             "x": 0.18,
             "y": 0.265
+        },
+        "cannonball": {
+            "x": 0.5,
+            "y": 0.5
+        },
+        "fireball": {
+            "x": 0.5,
+            "y": 0.5
         }
     },
     "parts": {
@@ -122,7 +132,8 @@
             },
             "scale": 1,
             "targetHeight": 110,
-            "alpha": 1
+            "alpha": 1,
+            "rotation": {}
         },
         "torso": {
             "frame": "torso",
@@ -211,6 +222,30 @@
             },
             "scale": 0.46,
             "targetHeight": 229,
+            "alpha": 1
+        },
+        "cannonball": {
+            "frame": "cannonball",
+            "role": "cannonball",
+            "tags": [],
+            "offset": {
+                "x": 0,
+                "y": 0
+            },
+            "scale": 0.2,
+            "targetHeight": 144,
+            "alpha": 1
+        },
+        "fireball": {
+            "frame": "fireball",
+            "role": "fireball",
+            "tags": [],
+            "offset": {
+                "x": 0,
+                "y": 0
+            },
+            "scale": 1,
+            "targetHeight": 163,
             "alpha": 1
         }
     },

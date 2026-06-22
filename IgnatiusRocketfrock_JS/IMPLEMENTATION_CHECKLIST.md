@@ -43,7 +43,7 @@ The HTML and JavaScript game remains the reference implementation, but new gamep
 
 The project now has a working browser game loop, deterministic simulation layer, asset-atlas based level construction, atlas and level editor tools, atlas-derived collision lines and filled collision loops, detached rocket terrain impacts, health/fuel HUD, and headless tests. Revision 099 also places implementation modules under explicit core, shared, browser, presentation, and tool directories, with `ARCHITECTURE.md` serving as the dependency and future C++ parity map.
 
-Revision 100 now provides the first destructible/reactive-world slice: an editor-placeable breakable crate with authoritative health/state, dynamic collision, rocket interception, state-authored visuals, destruction smoke, events, and serialization. Revision 101 adds the first ranged enemy variants, revision 103 corrects their semantic part identities and projectile presentation, and revision 105 adopts the user's compact goblin rig/idle as the canonical animation foundation for both variants. The immediate gameplay direction is to keep widening enemy/reactive interactions, then generalize the reactive foundation into barriers and moving geometry such as a falling-tree bridge. In parallel, portability preparation should remove renderer-owned gameplay data and establish language-neutral schemas and parity fixtures before Phase 8 procedural generation expands the simulation surface.
+Revision 100 now provides the first destructible/reactive-world slice: an editor-placeable breakable crate with authoritative health/state, dynamic collision, rocket interception, state-authored visuals, destruction smoke, events, and serialization. Revision 101 adds the first ranged enemy variants, revision 103 corrects their semantic part identities and projectile presentation, revision 105 adopts the user's compact goblin rig/idle as the canonical animation foundation, and revision 106 makes Puppet Forge substantially faster to operate. The immediate gameplay direction is to keep widening enemy/reactive interactions, then generalize the reactive foundation into barriers and moving geometry such as a falling-tree bridge. Animation-authored projectile handoff is recorded as a dedicated future gameplay slice rather than being mixed into the editor ergonomics revision. In parallel, portability preparation should remove renderer-owned gameplay data and establish language-neutral schemas and parity fixtures before Phase 8 procedural generation expands the simulation surface.
 
 ## Phase 1: Completed Physics, Level, and Atlas Foundation
 
@@ -385,6 +385,11 @@ Goal: turn the current rocket behavior into a flexible weapon system.
 * [ ] Define weapon data format.
 * [ ] Define launch mode data format.
 * [ ] Define projectile data format.
+* [ ] Define animation-authored projectile-part metadata with stable ID, launch type, and launch origin.
+* [ ] Derive projectile release from the final key belonging to the tagged projectile part in the attack clip.
+* [ ] Transfer the sampled projectile world transform from animation ownership to simulation ownership at release.
+* [ ] Support `ballistic`, `straight`, `homing_lo`, `homing_hi`, `pathing_lo`, and `pathing_hi` launch types deterministically.
+* [ ] Add independent character/enemy damage fields for projectile, melee, and touch/contact damage.
 * [ ] Add quick launch mode.
 * [ ] Add held aimed launch mode.
 * [ ] Add homing launch mode.
@@ -821,4 +826,48 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Rebuild Musket Goblin firing so both hands and the musket raise, recoil, and settle together.
 * [x] Rebuild both hurt and death clips so connected body groups remain joined.
 * [x] Add regression checks for compact leg placement, alternate-arm visibility, complete rig-part reference poses, corrected draw order, and Enemy 003 idle inheritance.
+
+### Revision 106 Puppet Forge editing ergonomics
+
+* [x] When final alpha preview is off, draw the selected part fully opaque and clamp unselected parts to 5–25% opacity.
+* [x] Add right-button drag panning to both rig/animation and atlas workspaces while suppressing the browser context menu.
+* [x] Add a Rig and animation toolbar with Select, Adjust, Visible/Hidden, To Bottom, and To Front shortcuts.
+* [x] Make canvas Select choose the frontmost rig rectangle and automatically return to Adjust mode.
+* [x] Make Visible/Hidden author a step alpha key at the current playhead.
+* [x] Move previous/play-next, the playhead slider, and key timeline into a wide dock below the canvas.
+* [x] Allow grouped X/Y/rotation timeline markers to be dragged together to a new key time.
+* [x] Add independent collapse controls to right-side panels and persist their state through browser local storage.
+* [x] Add source regression checks for all new editor controls and behaviours.
+
+### Deferred animation-authored projectile handoff
+
+* [ ] Add explicit projectile metadata to rig parts or character attack definitions; do not infer gameplay from part names.
+* [ ] Treat the final key on the tagged projectile part as its release time even when other body parts have later recoil/recovery keys.
+* [ ] Add projectile launch-type metadata for ballistic, straight, low/high homing, and low/high obstacle-pathing shots.
+* [ ] Add projectile, melee, and touch/contact damage fields to character-level combat data.
+* [ ] Update the simulation to consume animation release events and take ownership of the projectile at its sampled world transform.
+* [ ] Add deterministic tests for release timing, ownership transfer, obstacle interception, launch modes, and damage sources.
+
+### Revision 108 user-refined goblin joints and animation rebuild
+
+* [x] Adopt the user's latest Enemy 002 rig, atlas, character definition, and idle clip as authoritative.
+* [x] Preserve the revised compact proportions, head frame, pivots, and depth order.
+* [x] Rebuild Enemy 002 walk, attack, hurt, and death from the corrected idle pose.
+* [x] Rebuild Enemy 003 idle, walk, attack, hurt, and death from the same corrected body pose.
+* [x] Keep neck, shoulder, and hip pivots rigidly attached to torso motion throughout authored clips.
+* [x] Preserve closed/open arm swapping for fireball casting and coordinated musket recoil.
+* [x] Add regression checks for shoulder-to-torso attachment at authored torso keyframes.
+
+### Revision 110 accepted authored goblin animations
+
+* [x] Replace Enemy 002 idle, walk, attack, hurt, and death with the user's accepted files unchanged.
+* [x] Replace Enemy 003 idle, walk, attack, hurt, and death with the user's accepted files unchanged.
+* [x] Replace the shared goblin atlas manifest, rig, and both character definitions unchanged.
+* [x] Include the supplied Enemy 001 hurt and death updates unchanged.
+* [x] Update regression checks to accept optional projectile-preview parts while retaining runtime and finite-sampling validation.
+### Revision 111 finalized goblin animation bundle restored verbatim
+
+* [x] Replace the goblin rig, atlas manifest, character definitions, and Enemy 002/003 animation clips from the user-supplied ZIP without rewriting them.
+* [x] Preserve the Fireball Goblin attack's animated fireball part and the Musket Goblin attack's animated cannonball part.
+* [x] Verify every supplied JSON file remains byte-identical inside the packaged revision.
 
