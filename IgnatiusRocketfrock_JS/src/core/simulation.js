@@ -1644,6 +1644,12 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             awarenessViewHalfAngle: clamp(finiteNumberOr(entity.awarenessViewHalfAngle, state.tuning.enemyDefaultAwarenessViewHalfAngle), 0, 180),
             awarenessTimer: 0,
             alerted: false,
+            lastSeenPlayerX: null,
+            lastSeenPlayerY: null,
+            lastSeenAt: null,
+            lastSeenSupportId: null,
+            glareFocusX: null,
+            glareFocusY: null,
             idleDuration,
             turnPause: Math.max(0, finiteNumberOr(entity.turnPause, 0.5)),
             maxStepHeight: Math.max(0, finiteNumberOr(entity.maxStepHeight, 26)),
@@ -2127,8 +2133,19 @@ function characterEnemyAttackBlockedByTerrain(state, enemy) {
     return false;
 }
 
+function playerIsAvailableCombatTarget(state) {
+    const player = state.player;
+    if (!player || player.visible === false) {
+        return false;
+    }
+    // Health reaching zero is not yet a complete player-death lifecycle. Until a
+    // dedicated defeated state hides or disables Ignatius, enemies and projectiles
+    // must continue treating the visible player as a live combat target.
+    return player.combatState !== "dead" && player.targetable !== false;
+}
+
 function characterEnemyCanReachPlayer(state, enemy) {
-    if (state.player.visible === false || state.health.amount <= 0) {
+    if (!playerIsAvailableCombatTarget(state)) {
         return false;
     }
     const playerRect = getPlayerRect(state);
@@ -2138,7 +2155,7 @@ function characterEnemyCanReachPlayer(state, enemy) {
 
 function characterEnemyCanUseProjectile(state, enemy) {
     const player = state.player;
-    if (player.visible === false || state.health.amount <= 0) {
+    if (!playerIsAvailableCombatTarget(state)) {
         return false;
     }
     const horizontalDistance = Math.abs(player.x - enemy.x);
@@ -2338,7 +2355,7 @@ function launchCharacterEnemyProjectile(state, enemy) {
 
 function characterEnemyCanNoticePlayer(state, enemy) {
     const player = state.player;
-    if (player.visible === false || state.health.amount <= 0) {
+    if (!playerIsAvailableCombatTarget(state)) {
         return false;
     }
 
@@ -2882,6 +2899,157 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
     return fallback;
 }
 
+function rememberCharacterEnemyPlayerPosition(state, enemy, navigation) {
+    enemy.lastSeenPlayerX = Number(state.player.x) || 0;
+    enemy.lastSeenPlayerY = Number(state.player.y) || 0;
+    enemy.lastSeenAt = Number(state.clock?.time) || 0;
+    const support = navigation
+        ? characterEnemyPlayerSupport(state, enemy, navigation.supports)
+        : null;
+    enemy.lastSeenSupportId = support?.support?.id || null;
+}
+
+function chooseCharacterEnemyLastSeenPlan(state, enemy, navigation) {
+    const startSupport = navigation.current?.support;
+    const hasLastSeenX = typeof enemy.lastSeenPlayerX === "number" && Number.isFinite(enemy.lastSeenPlayerX);
+    const hasLastSeenY = typeof enemy.lastSeenPlayerY === "number" && Number.isFinite(enemy.lastSeenPlayerY);
+    const targetX = hasLastSeenX ? enemy.lastSeenPlayerX : NaN;
+    const targetY = hasLastSeenY ? enemy.lastSeenPlayerY : NaN;
+    if (!startSupport || !hasLastSeenX || !hasLastSeenY) {
+        return null;
+    }
+
+    const edgeMap = navigation.edgeMap || buildEnemyNavigationEdges(navigation.supports, {
+        ...characterEnemyNavigationOptions(enemy, state),
+        world: state.world
+    });
+    const inset = Math.max(4, enemy.width * 0.35);
+    let best = null;
+
+    for (const support of navigation.supports) {
+        const point = supportPoint(support, targetX, inset);
+        if (characterEnemyBodyBlockedAt(state, enemy, point.x, point.y)) {
+            continue;
+        }
+        const route = characterEnemyRoute(
+            state,
+            enemy,
+            navigation.supports,
+            startSupport.id,
+            support.id,
+            edgeMap,
+            point.x
+        );
+        if (!route) {
+            continue;
+        }
+        const remainingDistance = Math.hypot(point.x - targetX, point.y - targetY);
+        const arrivalX = route.edges.at(-1)?.landingX ?? enemy.x;
+        const travelCost = route.cost + Math.abs(point.x - arrivalX);
+        const candidate = {
+            kind: "last_seen",
+            supportId: support.id,
+            targetX: point.x,
+            targetY: point.y,
+            route,
+            remainingDistance,
+            score: travelCost
+        };
+        if (!best ||
+            candidate.remainingDistance < best.remainingDistance - 0.25 ||
+            (Math.abs(candidate.remainingDistance - best.remainingDistance) <= 0.25 && candidate.score < best.score)) {
+            best = candidate;
+        }
+    }
+    return best;
+}
+
+function characterEnemyReachedNavigationTarget(enemy, navigation, tolerance = 3) {
+    if (!enemy.routeTargetSupportId || !Number.isFinite(Number(enemy.routeTargetX))) {
+        return false;
+    }
+    const currentSupportId = navigation.current?.support?.id || enemy.currentSupportId;
+    return currentSupportId === enemy.routeTargetSupportId &&
+        enemy.routeIndex >= (enemy.route?.length || 0) &&
+        Math.abs(enemy.x - Number(enemy.routeTargetX)) <= Math.max(0.5, tolerance);
+}
+
+function updateCharacterEnemyLastSeenInvestigation(state, enemy, navigation, dt) {
+    if (!(typeof enemy.lastSeenPlayerX === "number" && Number.isFinite(enemy.lastSeenPlayerX)) ||
+        !(typeof enemy.lastSeenPlayerY === "number" && Number.isFinite(enemy.lastSeenPlayerY))) {
+        enterCharacterEnemyGlare(state, enemy);
+        return;
+    }
+
+    if (enemy.aiState !== "investigate_last_seen") {
+        clearCharacterEnemyNavigationPlan(enemy);
+        enemy.aiState = "investigate_last_seen";
+        enemy.movementPhase = "investigate_last_seen";
+        enemy.routeRepathTimer = 0;
+        enemy.navigationFailureCount = 0;
+        addEvent(state, "ENEMY_INVESTIGATING_LAST_SEEN", {
+            enemyId: enemy.id,
+            x: round(enemy.lastSeenPlayerX),
+            y: round(enemy.lastSeenPlayerY)
+        });
+    }
+
+    enemy.engaged = true;
+    enemy.alerted = true;
+    enemy.routeRepathTimer = Math.max(0, (Number(enemy.routeRepathTimer) || 0) - dt);
+
+    if (characterEnemyReachedNavigationTarget(enemy, navigation)) {
+        enterCharacterEnemyGlare(state, enemy, {
+            focusX: enemy.lastSeenPlayerX,
+            focusY: enemy.lastSeenPlayerY
+        });
+        return;
+    }
+
+    if ((enemy.routeRepathTimer <= 0 || !enemy.routeTargetSupportId) && !characterEnemyHasCommittedTraversal(enemy)) {
+        const plan = chooseCharacterEnemyLastSeenPlan(state, enemy, navigation);
+        if (!plan) {
+            enterCharacterEnemyGlare(state, enemy, {
+                focusX: enemy.lastSeenPlayerX,
+                focusY: enemy.lastSeenPlayerY
+            });
+            return;
+        }
+        setCharacterEnemyNavigationPlan(enemy, plan);
+        enemy.lastSeenRemainingDistance = plan.remainingDistance;
+        if (characterEnemyReachedNavigationTarget(enemy, navigation)) {
+            enterCharacterEnemyGlare(state, enemy, {
+                focusX: enemy.lastSeenPlayerX,
+                focusY: enemy.lastSeenPlayerY
+            });
+            return;
+        }
+    }
+
+    if (!followCharacterEnemyNavigationPlan(state, enemy, navigation, dt)) {
+        enemy.navigationFailureCount = (Number(enemy.navigationFailureCount) || 0) + 1;
+        if (enemy.navigationFailureCount >= 2) {
+            enterCharacterEnemyGlare(state, enemy, {
+                focusX: enemy.lastSeenPlayerX,
+                focusY: enemy.lastSeenPlayerY
+            });
+        } else {
+            clearCharacterEnemyNavigationPlan(enemy);
+            enemy.routeRepathTimer = 0;
+        }
+        return;
+    }
+
+    enemy.navigationFailureCount = 0;
+    enemy.movementPhase = "investigate_last_seen";
+    if (!enemy.airborne && characterEnemyReachedNavigationTarget(enemy, navigation)) {
+        enterCharacterEnemyGlare(state, enemy, {
+            focusX: enemy.lastSeenPlayerX,
+            focusY: enemy.lastSeenPlayerY
+        });
+    }
+}
+
 function setCharacterEnemyNavigationPlan(enemy, plan) {
     enemy.route = Array.isArray(plan?.route?.edges) ? plan.route.edges.map((edge) => ({ ...edge })) : [];
     enemy.routeIndex = 0;
@@ -2891,6 +3059,7 @@ function setCharacterEnemyNavigationPlan(enemy, plan) {
     enemy.routeTargetSupportId = plan?.supportId || null;
     enemy.routeTargetX = Number.isFinite(Number(plan?.targetX)) ? Number(plan.targetX) : null;
     enemy.routeTargetY = Number.isFinite(Number(plan?.targetY)) ? Number(plan.targetY) : null;
+    enemy.routePurpose = plan?.kind ? String(plan.kind) : null;
     enemy.routeRepathTimer = Math.max(FIXED_DT, Number(enemy.routeRepathInterval) || FIXED_DT);
 }
 
@@ -2903,6 +3072,7 @@ function clearCharacterEnemyNavigationPlan(enemy) {
     enemy.routeTargetSupportId = null;
     enemy.routeTargetX = null;
     enemy.routeTargetY = null;
+    enemy.routePurpose = null;
 }
 
 function beginCharacterEnemyAirTraversal(enemy, edge) {
@@ -3149,6 +3319,12 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
     if (Math.abs(enemy.x - finalPoint.x) <= 2) {
         enemy.x = finalPoint.x;
         enemy.y = finalPoint.y;
+        if (enemy.engaged && (enemy.routePurpose === "attack_position" || enemy.routePurpose === "pursue")) {
+            const dx = state.player.x - enemy.x;
+            if (Math.abs(dx) > 0.001) {
+                enemy.facing = dx < 0 ? -1 : 1;
+            }
+        }
         return true;
     }
     const moved = moveCharacterEnemyToward(state, enemy, finalPoint.x, speed, dt, 0);
@@ -3160,15 +3336,29 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
     return true;
 }
 
-function enterCharacterEnemyGlare(state, enemy) {
+function enterCharacterEnemyGlare(state, enemy, options = {}) {
     clearCharacterEnemyNavigationPlan(enemy);
     enemy.engaged = false;
     enemy.alerted = false;
     enemy.aiState = "unreachable_glare";
     enemy.glareTimer = Math.max(0, Number(enemy.unreachableGlareDuration) || state.tuning.enemyDefaultGlareSeconds || 5);
+    enemy.glareFocusX = typeof options.focusX === "number" && Number.isFinite(options.focusX)
+        ? options.focusX
+        : (typeof enemy.lastSeenPlayerX === "number" && Number.isFinite(enemy.lastSeenPlayerX)
+            ? enemy.lastSeenPlayerX
+            : state.player.x);
+    enemy.glareFocusY = typeof options.focusY === "number" && Number.isFinite(options.focusY)
+        ? options.focusY
+        : (typeof enemy.lastSeenPlayerY === "number" && Number.isFinite(enemy.lastSeenPlayerY)
+            ? enemy.lastSeenPlayerY
+            : state.player.y);
     enemy.movementPhase = "glare";
     setCharacterEnemyAnimation(enemy, "idle");
-    addEvent(state, "ENEMY_TARGET_UNREACHABLE", { enemyId: enemy.id });
+    addEvent(state, "ENEMY_TARGET_UNREACHABLE", {
+        enemyId: enemy.id,
+        focusX: round(enemy.glareFocusX),
+        focusY: round(enemy.glareFocusY)
+    });
 }
 
 function enterCharacterEnemyStrandedPatrol(state, enemy, navigation) {
@@ -3237,16 +3427,49 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
     }
 
     const seesPlayer = characterEnemyCanNoticePlayer(state, enemy);
-    if (seesPlayer && !enemy.engaged && enemy.aiState === "patrol") {
-        enemy.engaged = true;
-        enemy.alerted = true;
-        enemy.aiState = "pursue";
-        enemy.routeRepathTimer = 0;
-        addEvent(state, "ENEMY_ALERTED", { enemyId: enemy.id });
+    if (seesPlayer) {
+        enemy.awarenessTimer = Math.max(
+            FIXED_DT,
+            Number(enemy.awarenessHoldDuration) || state.tuning.enemyDefaultAwarenessHoldSeconds || 1.2
+        );
+        rememberCharacterEnemyPlayerPosition(state, enemy, navigation);
+        enemy.glareFocusX = null;
+        enemy.glareFocusY = null;
+        if (enemy.aiState === "investigate_last_seen") {
+            clearCharacterEnemyNavigationPlan(enemy);
+            enemy.aiState = "pursue";
+            enemy.movementPhase = "pursue";
+            enemy.routeRepathTimer = 0;
+            addEvent(state, "ENEMY_REACQUIRED_PLAYER", { enemyId: enemy.id });
+        }
+        if (!enemy.engaged && enemy.aiState === "patrol") {
+            enemy.engaged = true;
+            enemy.alerted = true;
+            enemy.aiState = "pursue";
+            enemy.routeRepathTimer = 0;
+            clearCharacterEnemyNavigationPlan(enemy);
+            addEvent(state, "ENEMY_ALERTED", { enemyId: enemy.id });
+        }
+    } else {
+        const hasLastSeen = typeof enemy.lastSeenPlayerX === "number" && Number.isFinite(enemy.lastSeenPlayerX) &&
+            typeof enemy.lastSeenPlayerY === "number" && Number.isFinite(enemy.lastSeenPlayerY);
+        if (enemy.engaged && !hasLastSeen) {
+            rememberCharacterEnemyPlayerPosition(state, enemy, navigation);
+            enemy.awarenessTimer = Math.max(
+                FIXED_DT,
+                Number(enemy.awarenessHoldDuration) || state.tuning.enemyDefaultAwarenessHoldSeconds || 1.2
+            );
+        } else {
+            enemy.awarenessTimer = Math.max(0, (Number(enemy.awarenessTimer) || 0) - dt);
+        }
     }
+    const hasRecentSight = seesPlayer || enemy.awarenessTimer > 0;
 
     if (enemy.aiState === "unreachable_glare") {
-        const dx = state.player.x - enemy.x;
+        const focusX = typeof enemy.glareFocusX === "number" && Number.isFinite(enemy.glareFocusX)
+            ? enemy.glareFocusX
+            : state.player.x;
+        const dx = focusX - enemy.x;
         if (Math.abs(dx) > 0.001) {
             enemy.facing = dx < 0 ? -1 : 1;
         }
@@ -3271,6 +3494,12 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
             enemy.aiState = "return_home";
             enemy.routeRepathTimer = 0;
         }
+        syncCharacterEnemyTarget(state, enemy);
+        return;
+    }
+
+    if (enemy.engaged && !hasRecentSight) {
+        updateCharacterEnemyLastSeenInvestigation(state, enemy, navigation, dt);
         syncCharacterEnemyTarget(state, enemy);
         return;
     }
@@ -3365,7 +3594,7 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
         enemy.routeRepathTimer = Math.max(0, (Number(enemy.routeRepathTimer) || 0) - dt);
         const currentSupportId = navigation.current?.support?.id || null;
         const reachedPlannedSupport = !enemy.routeTargetSupportId || enemy.routeTargetSupportId === currentSupportId;
-        if (enemy.attackCooldownTimer <= 0 && reachedPlannedSupport) {
+        if (seesPlayer && enemy.attackCooldownTimer <= 0 && reachedPlannedSupport) {
             const canAttack = characterEnemyReadyToAttackFromCurrentPosition(state, enemy);
             if (canAttack) {
                 startCharacterEnemyAttack(state, enemy);
@@ -3373,7 +3602,7 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
                 return;
             }
         }
-        if ((enemy.routeRepathTimer <= 0 || !enemy.routeTargetSupportId) && !characterEnemyHasCommittedTraversal(enemy)) {
+        if (seesPlayer && (enemy.routeRepathTimer <= 0 || !enemy.routeTargetSupportId) && !characterEnemyHasCommittedTraversal(enemy)) {
             const plan = chooseCharacterEnemyAttackPlan(state, enemy, navigation);
             if (!plan) {
                 enterCharacterEnemyGlare(state, enemy);
@@ -4287,7 +4516,28 @@ function hash01(seed) {
 }
 
 function findHomingTarget(state) {
-    return state.targets.find((target) => target.state === "active") || null;
+    const activeTargets = (state.targets || []).filter((target) => target.state === "active");
+    if (!activeTargets.length) {
+        return null;
+    }
+
+    const player = state.player || { x: 0, y: 0, height: 0, facing: 1 };
+    const facing = player.facing < 0 ? -1 : 1;
+    const originX = Number(player.x) || 0;
+    const originY = (Number(player.y) || 0) - (Number(player.height) || 0) * 0.72;
+    const forwardTargets = activeTargets.filter((target) => (Number(target.x) - originX) * facing >= -0.001);
+    const candidates = forwardTargets.length ? forwardTargets : activeTargets;
+
+    return candidates.reduce((best, target) => {
+        const dx = Number(target.x) - originX;
+        const dy = Number(target.y) - originY;
+        const distanceSquared = dx * dx + dy * dy;
+        if (!best || distanceSquared < best.distanceSquared - 0.0001 ||
+            (Math.abs(distanceSquared - best.distanceSquared) <= 0.0001 && String(target.id) < String(best.target.id))) {
+            return { target, distanceSquared };
+        }
+        return best;
+    }, null)?.target || null;
 }
 
 function findTargetById(state, id) {
@@ -4391,7 +4641,7 @@ function emitReactiveObjectDestructionSmoke(state, object) {
 }
 
 function findProjectilePlayerImpact(state, projectile, previousX, previousY) {
-    if (state.player.visible === false || state.health.amount <= 0) {
+    if (!playerIsAvailableCombatTarget(state)) {
         return null;
     }
     const hit = sweptCircleRectImpact(

@@ -1555,3 +1555,15 @@ The Level Editor graph preview draws the run-up as a dashed segment leading into
 ### Revision 122 doorway-scaled rocket fuel indicator
 
 The mounted rocket fuel indicator now receives the exact rendered rocket-part transform rather than the unscaled source pose. During entry and exit doorway sequences, its local position, radius, rotation, and facing therefore inherit the same `player.renderScale` transform as the rocket and the rest of Ignatius. Normal full-scale rendering is unchanged.
+
+### Revision 123 last-seen pursuit and facing-priority rocket targeting
+
+Hunters now persist the wizard's last genuinely observed foot position. A short authored awareness hold prevents deliberate tactical backpedalling from instantly erasing contact, but once that hold expires the hunter stops planning against the hidden current player. It enters `investigate_last_seen`, evaluates every support reachable through its current mobility graph, and chooses the point with the smallest remaining world-space distance to the remembered position. Route cost breaks ties between equally close points. The hunter traverses to that point before entering the five-second glare/give-up sequence, and the glare remains aimed at the remembered position rather than tracking Ignatius through concealment or distance.
+
+Ignatius's homing rocket now selects targets by facing priority. Active targets in the forward half-plane are considered first and the closest of those is selected from the rocket launch point. Targets behind Ignatius are considered only when no forward target exists. Existing in-flight rockets retain valid targets, while replacement targeting uses the same rule after a target is defeated.
+
+### Revision 124 visible-player targeting after health reaches zero
+
+Player health reaching zero is not yet a complete death lifecycle. Until a dedicated defeated state explicitly marks Ignatius as dead, hidden, or untargetable, the visible player remains a valid awareness, melee, projectile, and collision target. Enemy combat logic therefore no longer uses the raw health amount as a proxy for player existence.
+
+This prevents ranged hunters from slipping into last-seen investigation or unreachable glare after repeated attacks merely because the health display has reached zero. Projectiles continue to collide and produce impact presentation, while `damagePlayer` correctly applies no further health reduction. A later player-death implementation should disable targeting through an explicit player lifecycle state rather than by reintroducing scattered health checks.

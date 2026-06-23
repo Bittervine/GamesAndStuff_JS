@@ -1003,3 +1003,24 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Draw the mounted fuel indicator from the rendered rocket command transform.
 - [x] Preserve the indicator's local attachment, rotation, and facing while the wizard scales through doors.
 - [x] Add a regression guard preventing the indicator from using the unscaled source pose.
+
+## Revision 123 last-seen investigation and rocket target priority
+
+- [x] Store each hunter's last genuinely seen player foot position and support ID.
+- [x] Preserve a brief awareness hold so planned backpedalling does not instantly discard contact.
+- [x] Add the `investigate_last_seen` hunter state.
+- [x] Search all reachable supports and choose the point closest in world space to the last seen position.
+- [x] Route to that closest reachable point before entering unreachable glare.
+- [x] Aim the glare at the last seen position rather than the hidden current player.
+- [x] Reacquire and resume ordinary pursuit when Ignatius becomes visible during investigation or glare.
+- [x] Prioritize the nearest active rocket target in Ignatius's facing half-plane.
+- [x] Fall back to the nearest rear target only when no forward target exists.
+- [x] Add deterministic regressions for closest-reachable last-seen pursuit and forward-side rocket targeting.
+
+## Revision 124 visible-player combat-target stability
+
+- [x] Decouple player targetability from the raw health amount.
+- [x] Keep a visible player targetable until an explicit dead or untargetable lifecycle state is set.
+- [x] Preserve hunter awareness and engagement after the health display reaches zero.
+- [x] Allow enemy projectiles to keep colliding and producing impacts against the visible zero-health player.
+- [x] Add a prolonged ranged-combat regression that reaches zero health, moves Ignatius slightly, and verifies the hunter never enters investigate, glare, return-home, or stranded states.

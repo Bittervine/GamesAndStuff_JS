@@ -1371,6 +1371,179 @@ function testMonsterAwarenessUsesDistanceAndFacingCone() {
     assert.equal(outsideCone.alerted, false, "a target just behind the ±90 degree forward half-plane should not be noticed");
 }
 
+function testHunterInvestigatesClosestReachableLastSeenPositionBeforeGlare() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "hunter_last_seen_test",
+        playerStart: { x: 450, y: 300 },
+        entities: [{
+            id: "last_seen_hunter",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 60,
+            y: 600,
+            w: 72,
+            h: 148,
+            facing: 1,
+            behavior: "patrol",
+            strategy: "hunter",
+            patrolDistance: 80,
+            walkSpeed: 40,
+            runSpeed: 150,
+            jumpHeight: 0,
+            jumpGravity: 1200,
+            maxFallDistance: 0,
+            awarenessRange: 1000,
+            awarenessHoldDuration: 0.05,
+            awarenessViewHalfAngle: 90,
+            unreachableGlareDuration: 5,
+            attackMode: "melee",
+            attackRange: 44,
+            attackVerticalRange: 100,
+            attackDamage: 0
+        }]
+    });
+    state.world.segments = [
+        { id: "lower_floor", kind: "walkable", x1: 0, y1: 600, x2: 300, y2: 600 },
+        { id: "unreachable_upper", kind: "walkable", x1: 400, y1: 300, x2: 500, y2: 300 }
+    ];
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 10;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    const enemy = state.enemies.find((item) => item.id === "last_seen_hunter");
+    enemy.engaged = true;
+    enemy.alerted = true;
+    enemy.aiState = "pursue";
+    enemy.awarenessTimer = 0;
+    enemy.lastSeenPlayerX = 450;
+    enemy.lastSeenPlayerY = 300;
+    enemy.lastSeenAt = state.clock.time;
+    enemy.lastSeenSupportId = "unreachable_upper";
+    let sawInvestigation = false;
+    let sawGlare = false;
+    let minimumXAtGlare = Infinity;
+    for (let frame = 0; frame < 260; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        sawInvestigation ||= enemy.aiState === "investigate_last_seen";
+        if (enemy.aiState === "unreachable_glare") {
+            sawGlare = true;
+            minimumXAtGlare = Math.min(minimumXAtGlare, enemy.x);
+            break;
+        }
+    }
+
+    assert.equal(sawInvestigation, true, "hunter should enter an explicit last-seen investigation state after losing awareness");
+    assert.equal(sawGlare, true, "hunter should glare only after reaching the closest reachable point to the last seen position");
+    assert.ok(minimumXAtGlare > 260, `hunter should approach the right edge of the reachable floor before glaring, x=${minimumXAtGlare}`);
+    approx(enemy.glareFocusX, 450, 0.001, "glare should remain focused on the last seen position rather than the wizard's hidden current position");
+    assert.ok(
+        state.debug.lastEvents.some((event) => event.type === "ENEMY_INVESTIGATING_LAST_SEEN" && event.enemyId === enemy.id),
+        "last-seen pursuit should emit an investigation event"
+    );
+}
+
+function testHunterRemainsEngagedAfterPlayerHealthReachesZero() {
+    const state = createInitialGameState({
+        tuning: {
+            maxHealth: 30,
+            playerDamageInvulnerabilitySeconds: 0,
+            healthRegenDelay: 999,
+            maxDebugEvents: 300
+        }
+    });
+    applyEditorLevelToWorld(state, {
+        levelId: "hunter_zero_health_target_test",
+        playerStart: { x: 0, y: 600 },
+        entities: [{
+            id: "persistent_hunter",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_002",
+            x: 220,
+            y: 600,
+            w: 76,
+            h: 148,
+            facing: -1,
+            behavior: "guard",
+            strategy: "hunter",
+            health: 90,
+            attackMode: "projectile",
+            attackRange: 420,
+            attackVerticalRange: 220,
+            attackDuration: 0.2,
+            projectileReleaseTime: 0.05,
+            projectileCooldown: 0.25,
+            projectileKind: "fireball",
+            projectileLaunchType: "homing_lo",
+            projectileSpeed: 500,
+            projectileGravity: 0,
+            projectileLifetime: 2,
+            projectileRadius: 10,
+            projectileDamage: 30,
+            projectileHomingStrength: 3,
+            preferredAttackRange: 220,
+            preferredAttackMinRange: 80,
+            awarenessRange: 500,
+            awarenessViewHalfAngle: 90,
+            runSpeed: 300,
+            jumpHeight: 200,
+            jumpGravity: 1200,
+            maxFallDistance: 300
+        }]
+    });
+    state.world.segments = [{ id: "floor", kind: "walkable", x1: -500, y1: 600, x2: 500, y2: 600 }];
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 0;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    const enemy = state.enemies.find((item) => item.id === "persistent_hunter");
+    let safety = 240;
+    while (state.health.amount > 0 && safety > 0) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        safety -= 1;
+    }
+    assert.equal(state.health.amount, 0, "the first projectile should reduce the temporary player health pool to zero");
+
+    state.debug.lastEvents = [];
+    let enteredGiveUpState = false;
+    for (let frame = 0; frame < 240; frame += 1) {
+        if (frame === 90) {
+            state.player.x = 18;
+        }
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        enteredGiveUpState ||= [
+            "investigate_last_seen",
+            "unreachable_glare",
+            "return_home",
+            "stranded_patrol"
+        ].includes(enemy.aiState);
+    }
+
+    assert.equal(enteredGiveUpState, false, "zero health alone should not make a visible player disappear from the hunter state machine");
+    assert.equal(enemy.engaged, true, "hunter should remain engaged with the still-visible player");
+    assert.equal(enemy.alerted, true, "hunter should remain alerted after the health display reaches zero");
+    assert.ok(
+        state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED" && event.enemyId === enemy.id),
+        "hunter should keep starting attacks after zero health until an actual player-death lifecycle disables targeting"
+    );
+    assert.ok(
+        state.debug.lastEvents.some((event) => event.type === "ENEMY_PROJECTILE_IMPACTED" && event.impactKind === "player"),
+        "enemy projectiles should continue colliding with the visible player after zero health"
+    );
+}
+
 function testHunterEnemyStrandedFallback() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
@@ -3373,6 +3546,30 @@ function testHomingRocketLaunch() {
     assert.ok(flightDistance < startDistance - 430, `homing rocket should close distance to dot after its upward launch, start ${startDistance}, now ${flightDistance}`);
 }
 
+function testRocketTargetPrefersClosestEnemyInFacingDirection() {
+    const state = createInitialGameState();
+    settleOnGround(state);
+    state.player.x = 0;
+    state.player.facing = 1;
+    state.targets = [
+        { id: "rear_near", enemyId: "rear_near_enemy", x: -20, y: state.player.y - 60, radius: 12, state: "active" },
+        { id: "rear_far", enemyId: "rear_far_enemy", x: -120, y: state.player.y - 60, radius: 12, state: "active" },
+        { id: "forward_far", enemyId: "forward_far_enemy", x: 300, y: state.player.y - 60, radius: 12, state: "active" },
+        { id: "forward_near", enemyId: "forward_near_enemy", x: 110, y: state.player.y - 60, radius: 12, state: "active" }
+    ];
+
+    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    assert.equal(state.projectiles[0].targetId, "forward_near", "rocket should prefer the closest target in Ignatius's facing direction even when a rear target is nearer overall");
+
+    state.projectiles = [];
+    state.weapons.launchCooldownTimer = 0;
+    state.fuel.amount = state.fuel.max;
+    state.targets.find((target) => target.id === "forward_far").state = "inactive";
+    state.targets.find((target) => target.id === "forward_near").state = "inactive";
+    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    assert.equal(state.projectiles[0].targetId, "rear_near", "rocket should fall back to the closest target behind Ignatius only when no forward target remains");
+}
+
 function testRocketTrailTracksCurvedPathAndPersistsAfterExplosion() {
     const state = createInitialGameState();
     settleOnGround(state);
@@ -3912,6 +4109,8 @@ const tests = [
     ["hunter walk-off drop clears source pillar", testHunterWalkOffDropClearsSourcePillar],
     ["hunter awareness is consistent behind occluders", testHunterAwarenessIsConsistentBehindOccluder],
     ["monster awareness uses distance and facing cone", testMonsterAwarenessUsesDistanceAndFacingCone],
+    ["hunter investigates last seen position before glare", testHunterInvestigatesClosestReachableLastSeenPositionBeforeGlare],
+    ["hunter remains engaged after player health reaches zero", testHunterRemainsEngagedAfterPlayerHealthReachesZero],
     ["hunter reachable firing fallback", testHunterFindsReachableFiringFallbackBeforeGlare],
     ["hunter enemy stranded fallback", testHunterEnemyStrandedFallback],
     ["simulation-owned character enemy patrol", testCharacterEnemyPatrolBehavior],
@@ -3942,6 +4141,7 @@ const tests = [
     ["boost kick cannot be tap exploited", testBoostKickCannotBeTapExploited],
     ["boost kick costs fuel and recharges on landing", testBoostKickCostsFuelAndRechargesOnLanding],
     ["homing rocket launch", testHomingRocketLaunch],
+    ["rocket target prioritizes facing direction", testRocketTargetPrefersClosestEnemyInFacingDirection],
     ["rocket trail tracks curved path and persists", testRocketTrailTracksCurvedPathAndPersistsAfterExplosion],
     ["attached boost smoke and visual power", testAttachedRocketSmokeAndVisualPower],
     ["attached smoke down speed tuning", testAttachedSmokeDownSpeedTuning],
