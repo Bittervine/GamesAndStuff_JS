@@ -1,714 +1,775 @@
 {
-    "meta": {
-        "version": 1,
-        "note": "Level-editor catalog for interactive/story items in it_atlas_001. Revision 100 adds the first simulation-owned reactive object: a breakable crate with intact, damaged, and destroyed states."
-    },
-    "catalogId": "it_entities_001",
-    "atlasRefs": [
-        {
-            "atlasId": "it_atlas_001",
-            "manifest": "assets/it_atlas_001.json",
-            "image": "assets/it_atlas_001.png"
-        }
-    ],
-    "entities": {
-        "targetDummy": {
-            "type": "targetDummy",
-            "label": "Target dummy",
-            "icon": "🎯",
-            "description": "Rocket target and combat-training prop.",
-            "defaultState": "idle",
-            "defaultSize": {
-                "w": 103,
-                "h": 151
-            },
-            "defaults": {
-                "health": 100,
-                "targetAnchor": {
-                    "x": 0.5,
-                    "y": 0.5
-                },
-                "targetRadius": 16,
-                "showTargetMarker": false
-            },
-            "states": {
-                "idle": {
-                    "label": "Idle",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "target_dummy",
-                            "layer": "decorFront"
-                        }
-                    ]
-                }
-            }
-        },
-        "mailbox": {
-            "type": "mailbox",
-            "label": "Editor's mailbox",
-            "icon": "📬",
-            "description": "An editor-letter mailbox. Each placed mailbox owns its own trigger distance, letter, thought, and timing metadata, so a level can contain several tutorial letters.",
-            "defaultState": "letterAvailable",
-            "defaultSize": {
-                "w": 110,
-                "h": 158
-            },
-            "defaults": {
-                "interaction": "editorLetter",
-                "triggerDistance": 72,
-                "letterDuration": 14,
-                "thoughtDuration": 9,
-                "letterAtlasId": "it_atlas_001",
-                "letterAssetId": "letter_scroll",
-                "thoughtAtlasId": "it_atlas_001",
-                "thoughtAssetId": "thought_bubble_large",
-                "letterTitle": "A Letter from Your Humble Editor",
-                "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: “Ignatius Rocketfrock and the Introductory Cave of Training.” Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
-                "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn’t look quite like it did in the brochures, but I’m sure it will be fine."
-            },
-            "states": {
-                "letterAvailable": {
-                    "label": "Letter available",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "mailbox_with_letter",
-                            "layer": "decorFront"
-                        }
-                    ]
-                },
-                "empty": {
-                    "label": "Empty",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "mailbox_empty",
-                            "layer": "decorFront"
-                        }
-                    ]
-                }
-            }
-        },
-        "wizard_entry_door": {
-            "type": "wizard_entry_door",
-            "label": "Wizard entry door",
-            "icon": "🚪",
-            "description": "The effective level start. It snaps to nearby ground, opens, lets Ignatius walk out behind the foreground door layer, then closes.",
-            "defaultState": "closed",
-            "defaultSize": {
-                "w": 75,
-                "h": 98.5
-            },
-            "defaults": {
-                "interaction": "levelPortal",
-                "startsOpen": false,
-                "walkSpeed": 105,
-                "closedDuration": 0.55,
-                "openDuration": 0.38,
-                "clearDuration": 0.28,
-                "closeDuration": 0.42,
-                "groundSnapDistance": 72,
-                "portalRole": "entrance",
-                "mirrorX": false,
-                "walkDirection": 1,
-                "emergeDistance": 180,
-                "floorAnchorYFactor": 0.908745247148289,
-                "wizardInsideScale": 0.84
-            },
-            "states": {
-                "closed": {
-                    "label": "Closed",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "portal_closed",
-                            "layer": "decorFront"
-                        }
-                    ]
-                },
-                "open": {
-                    "label": "Open",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "portal_open",
-                            "layer": "decorBack",
-                            "widthFactor": 1.1366120218579234,
-                            "heightFactor": 1,
-                            "offsetXFactor": 0.06830601092896176
-                        },
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "portal_foreground",
-                            "layer": "actorFront",
-                            "widthFactor": 0.6229508196721312,
-                            "heightFactor": 1,
-                            "offsetXFactor": -0.1885245901639344
-                        }
-                    ]
-                }
-            }
-        },
-        "wizard_exit_door": {
-            "type": "wizard_exit_door",
-            "label": "Wizard exit door",
-            "icon": "🚪",
-            "description": "The level exit. It is mirrored by default, snaps to nearby ground, opens when Ignatius approaches, and walks him through before loading its destination level.",
-            "defaultState": "closed",
-            "defaultSize": {
-                "w": 75,
-                "h": 98.5
-            },
-            "defaults": {
-                "interaction": "levelPortal",
-                "startsOpen": false,
-                "walkSpeed": 105,
-                "closedDuration": 0.55,
-                "openDuration": 0.38,
-                "clearDuration": 0.28,
-                "closeDuration": 0.42,
-                "groundSnapDistance": 72,
-                "portalRole": "exit",
-                "mirrorX": true,
-                "walkDirection": 1,
-                "triggerDistance": 96,
-                "destinationLevel": "",
-                "floorAnchorYFactor": 0.908745247148289,
-                "wizardInsideScale": 0.84
-            },
-            "states": {
-                "closed": {
-                    "label": "Closed",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "portal_closed",
-                            "layer": "decorFront"
-                        }
-                    ]
-                },
-                "open": {
-                    "label": "Open",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "portal_open",
-                            "layer": "decorBack",
-                            "widthFactor": 1.1366120218579234,
-                            "heightFactor": 1,
-                            "offsetXFactor": 0.06830601092896176
-                        },
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "portal_foreground",
-                            "layer": "actorFront",
-                            "widthFactor": 0.6229508196721312,
-                            "heightFactor": 1,
-                            "offsetXFactor": -0.1885245901639344
-                        }
-                    ]
-                }
-            }
-        },
-        "treasureChest": {
-            "type": "treasureChest",
-            "label": "Treasure chest",
-            "icon": "🧰",
-            "description": "Stateful chest: closed, discovered loot, then emptied.",
-            "defaultState": "closed",
-            "defaultSize": {
-                "w": 130,
-                "h": 150
-            },
-            "defaults": {
-                "interaction": "openChest",
-                "lootId": ""
-            },
-            "states": {
-                "closed": {
-                    "label": "Closed",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "chest_closed",
-                            "layer": "decorFront"
-                        }
-                    ]
-                },
-                "openLoot": {
-                    "label": "Open with loot",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "chest_open_loot",
-                            "layer": "decorFront"
-                        }
-                    ]
-                },
-                "openEmpty": {
-                    "label": "Open and empty",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "chest_open_empty",
-                            "layer": "decorFront"
-                        }
-                    ]
-                }
-            }
-        },
-        "breakableCrate": {
-            "type": "breakableCrate",
-            "label": "Breakable crate",
-            "icon": "▣",
-            "description": "A solid reactive crate that intercepts rockets, becomes damaged, then disappears when destroyed.",
-            "defaultState": "intact",
-            "defaultSize": {
-                "w": 92,
-                "h": 94
-            },
-            "defaults": {
-                "reactiveKind": "destructible",
-                "health": 60,
-                "maxHealth": 60,
-                "damagedHealthThreshold": 30,
-                "projectileDamageMultiplier": 1,
-                "blocksPlayer": true,
-                "blocksProjectiles": true,
-                "collisionStates": [
-                    "intact",
-                    "damaged"
-                ],
-                "projectileCollisionStates": [
-                    "intact",
-                    "damaged"
-                ],
-                "collisionInsetX": 7,
-                "collisionInsetTop": 8,
-                "collisionInsetBottom": 3
-            },
-            "states": {
-                "intact": {
-                    "label": "Intact",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "crate",
-                            "layer": "decorFront"
-                        }
-                    ]
-                },
-                "damaged": {
-                    "label": "Damaged",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "crate",
-                            "layer": "decorFront",
-                            "rotation": 0.055,
-                            "offsetYFactor": 0.018,
-                            "alpha": 0.82
-                        }
-                    ]
-                },
-                "destroyed": {
-                    "label": "Destroyed",
-                    "visuals": []
-                }
-            }
-        },
-        "leverSwitch": {
-            "type": "leverSwitch",
-            "label": "Lever switch",
-            "icon": "🎚️",
-            "description": "Switch that can toggle gates or other channel-linked devices.",
-            "defaultState": "off",
-            "defaultSize": {
-                "w": 98,
-                "h": 82
-            },
-            "defaults": {
-                "interaction": "toggle",
-                "channel": "A"
-            },
-            "states": {
-                "off": {
-                    "label": "Off",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "lever_off",
-                            "layer": "decorFront"
-                        }
-                    ]
-                },
-                "on": {
-                    "label": "On",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "lever_on",
-                            "layer": "decorFront"
-                        }
-                    ]
-                }
-            }
-        },
-        "spikedGate": {
-            "type": "spikedGate",
-            "label": "Spiked gate",
-            "icon": "⛓️",
-            "description": "Switchable vertical gate.",
-            "defaultState": "closed",
-            "defaultSize": {
-                "w": 94,
-                "h": 196
-            },
-            "defaults": {
-                "channel": "A",
-                "blocksPlayer": true
-            },
-            "states": {
-                "closed": {
-                    "label": "Closed",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "gate_spiked",
-                            "layer": "decorFront"
-                        }
-                    ]
-                },
-                "open": {
-                    "label": "Raised",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "gate_spiked",
-                            "layer": "decorFront",
-                            "offsetYFactor": -0.85
-                        }
-                    ]
-                }
-            }
-        },
-        "hangingGate": {
-            "type": "hangingGate",
-            "label": "Hanging iron bars",
-            "icon": "⛓️",
-            "description": "Alternative switchable iron gate.",
-            "defaultState": "closed",
-            "defaultSize": {
-                "w": 118,
-                "h": 157
-            },
-            "defaults": {
-                "channel": "A",
-                "blocksPlayer": true
-            },
-            "states": {
-                "closed": {
-                    "label": "Closed",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "gate_hanging",
-                            "layer": "decorFront"
-                        }
-                    ]
-                },
-                "open": {
-                    "label": "Raised",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "gate_hanging",
-                            "layer": "decorFront",
-                            "offsetYFactor": -0.9
-                        }
-                    ]
-                }
-            }
-        },
-        "fuel": {
-            "type": "fuel",
-            "label": "Rocket fuel",
-            "icon": "⛽",
-            "description": "Mid-air rocket-fuel pickup.",
-            "defaultState": "available",
-            "defaultSize": {
-                "w": 54,
-                "h": 90
-            },
-            "defaults": {
-                "amount": 40,
-                "radius": 22
-            },
-            "states": {
-                "available": {
-                    "label": "Available",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "rocket_fuel_canister",
-                            "layer": "decorFront"
-                        }
-                    ]
-                }
-            }
-        },
-        "herbPickupBlue": {
-            "type": "herbPickupBlue",
-            "label": "Blue herb",
-            "icon": "🌿",
-            "description": "Potential power-up ingredient.",
-            "defaultState": "available",
-            "defaultSize": {
-                "w": 72,
-                "h": 86
-            },
-            "defaults": {
-                "pickupKind": "herbBlue",
-                "amount": 1
-            },
-            "states": {
-                "available": {
-                    "label": "Available",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "herb_blue",
-                            "layer": "decorFront"
-                        }
-                    ]
-                }
-            }
-        },
-        "mushroomPickup": {
-            "type": "mushroomPickup",
-            "label": "Red mushroom",
-            "icon": "🍄",
-            "description": "",
-            "defaultState": "available",
-            "defaultSize": {
-                "w": 66,
-                "h": 88
-            },
-            "defaults": {
-                "pickupKind": "mushroomRed",
-                "amount": 1
-            },
-            "states": {
-                "available": {
-                    "label": "Available",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "mushroom_red",
-                            "layer": "decorFront"
-                        }
-                    ]
-                }
-            }
-        },
-        "herbPickupPurple": {
-            "type": "herbPickupPurple",
-            "label": "Purple bell herb",
-            "icon": "🌿",
-            "description": "",
-            "defaultState": "available",
-            "defaultSize": {
-                "w": 68,
-                "h": 90
-            },
-            "defaults": {
-                "pickupKind": "herbPurple",
-                "amount": 1
-            },
-            "states": {
-                "available": {
-                    "label": "Available",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "herb_purple",
-                            "layer": "decorFront"
-                        }
-                    ]
-                }
-            }
-        },
-        "herbPickupYellow": {
-            "type": "herbPickupYellow",
-            "label": "Yellow herb",
-            "icon": "🌿",
-            "description": "",
-            "defaultState": "available",
-            "defaultSize": {
-                "w": 69,
-                "h": 90
-            },
-            "defaults": {
-                "pickupKind": "herbYellow",
-                "amount": 1
-            },
-            "states": {
-                "available": {
-                    "label": "Available",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "herb_yellow",
-                            "layer": "decorFront"
-                        }
-                    ]
-                }
-            }
-        },
-        "ornateKeyPickup": {
-            "type": "ornateKeyPickup",
-            "label": "Ornate key",
-            "icon": "🗝️",
-            "description": "",
-            "defaultState": "available",
-            "defaultSize": {
-                "w": 42,
-                "h": 82
-            },
-            "defaults": {
-                "pickupKind": "ornateKey",
-                "amount": 1
-            },
-            "states": {
-                "available": {
-                    "label": "Available",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "ornate_key",
-                            "layer": "decorFront"
-                        }
-                    ]
-                }
-            }
-        },
-        "ironKeyPickup": {
-            "type": "ironKeyPickup",
-            "label": "Iron key",
-            "icon": "🗝️",
-            "description": "",
-            "defaultState": "available",
-            "defaultSize": {
-                "w": 45,
-                "h": 69
-            },
-            "defaults": {
-                "pickupKind": "ironKey",
-                "amount": 1
-            },
-            "states": {
-                "available": {
-                    "label": "Available",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "iron_key",
-                            "layer": "decorFront"
-                        }
-                    ]
-                }
-            }
-        },
-        "magicRingPickup": {
-            "type": "magicRingPickup",
-            "label": "Magic ring",
-            "icon": "💍",
-            "description": "",
-            "defaultState": "available",
-            "defaultSize": {
-                "w": 55,
-                "h": 54
-            },
-            "defaults": {
-                "pickupKind": "magicRing",
-                "amount": 1
-            },
-            "states": {
-                "available": {
-                    "label": "Available",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "magic_ring_blue",
-                            "layer": "decorFront"
-                        }
-                    ]
-                }
-            }
-        },
-        "checkpointRune": {
-            "type": "checkpointRune",
-            "label": "Rune checkpoint",
-            "icon": "🔮",
-            "description": "",
-            "defaultState": "inactive",
-            "defaultSize": {
-                "w": 70,
-                "h": 88
-            },
-            "defaults": {
-                "interaction": "checkpoint"
-            },
-            "states": {
-                "inactive": {
-                    "label": "Inactive",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "rune_marker",
-                            "layer": "decorFront"
-                        }
-                    ]
-                },
-                "active": {
-                    "label": "Active",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "rune_marker",
-                            "layer": "decorFront"
-                        }
-                    ]
-                }
-            }
-        },
-        "spikedBallHazard": {
-            "type": "spikedBallHazard",
-            "label": "Spiked ball hazard",
-            "icon": "☠️",
-            "description": "",
-            "defaultState": "active",
-            "defaultSize": {
-                "w": 90,
-                "h": 119
-            },
-            "defaults": {
-                "damage": 1,
-                "hazardRadius": 44
-            },
-            "states": {
-                "active": {
-                    "label": "Active",
-                    "visuals": [
-                        {
-                            "atlasId": "it_atlas_001",
-                            "assetId": "spiked_ball",
-                            "layer": "decorFront"
-                        }
-                    ]
-                }
-            }
-        }
+  "meta": {
+    "version": 2,
+    "note": "Revision 126 adds a placeable destructible iron barrier alongside the breakable crate, using the shared reactive-object state and collision pipeline."
+  },
+  "catalogId": "it_entities_001",
+  "atlasRefs": [
+    {
+      "atlasId": "it_atlas_001",
+      "manifest": "assets/it_atlas_001.json",
+      "image": "assets/it_atlas_001.png"
     }
+  ],
+  "entities": {
+    "targetDummy": {
+      "type": "targetDummy",
+      "label": "Target dummy",
+      "icon": "\ud83c\udfaf",
+      "description": "Rocket target and combat-training prop.",
+      "defaultState": "idle",
+      "defaultSize": {
+        "w": 103,
+        "h": 151
+      },
+      "defaults": {
+        "health": 100,
+        "targetAnchor": {
+          "x": 0.5,
+          "y": 0.5
+        },
+        "targetRadius": 16,
+        "showTargetMarker": false
+      },
+      "states": {
+        "idle": {
+          "label": "Idle",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "target_dummy",
+              "layer": "decorFront"
+            }
+          ]
+        }
+      }
+    },
+    "mailbox": {
+      "type": "mailbox",
+      "label": "Editor's mailbox",
+      "icon": "\ud83d\udcec",
+      "description": "An editor-letter mailbox. Each placed mailbox owns its own trigger distance, letter, thought, and timing metadata, so a level can contain several tutorial letters.",
+      "defaultState": "letterAvailable",
+      "defaultSize": {
+        "w": 110,
+        "h": 158
+      },
+      "defaults": {
+        "interaction": "editorLetter",
+        "triggerDistance": 72,
+        "letterDuration": 14,
+        "thoughtDuration": 9,
+        "letterAtlasId": "it_atlas_001",
+        "letterAssetId": "letter_scroll",
+        "thoughtAtlasId": "it_atlas_001",
+        "thoughtAssetId": "thought_bubble_large",
+        "letterTitle": "A Letter from Your Humble Editor",
+        "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: \u201cIgnatius Rocketfrock and the Introductory Cave of Training.\u201d Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
+        "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn\u2019t look quite like it did in the brochures, but I\u2019m sure it will be fine."
+      },
+      "states": {
+        "letterAvailable": {
+          "label": "Letter available",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "mailbox_with_letter",
+              "layer": "decorFront"
+            }
+          ]
+        },
+        "empty": {
+          "label": "Empty",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "mailbox_empty",
+              "layer": "decorFront"
+            }
+          ]
+        }
+      }
+    },
+    "wizard_entry_door": {
+      "type": "wizard_entry_door",
+      "label": "Wizard entry door",
+      "icon": "\ud83d\udeaa",
+      "description": "The effective level start. It snaps to nearby ground, opens, lets Ignatius walk out behind the foreground door layer, then closes.",
+      "defaultState": "closed",
+      "defaultSize": {
+        "w": 75,
+        "h": 98.5
+      },
+      "defaults": {
+        "interaction": "levelPortal",
+        "startsOpen": false,
+        "walkSpeed": 105,
+        "closedDuration": 0.55,
+        "openDuration": 0.38,
+        "clearDuration": 0.28,
+        "closeDuration": 0.42,
+        "groundSnapDistance": 72,
+        "portalRole": "entrance",
+        "mirrorX": false,
+        "walkDirection": 1,
+        "emergeDistance": 180,
+        "floorAnchorYFactor": 0.908745247148289,
+        "wizardInsideScale": 0.84
+      },
+      "states": {
+        "closed": {
+          "label": "Closed",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "portal_closed",
+              "layer": "decorFront"
+            }
+          ]
+        },
+        "open": {
+          "label": "Open",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "portal_open",
+              "layer": "decorBack",
+              "widthFactor": 1.1366120218579234,
+              "heightFactor": 1,
+              "offsetXFactor": 0.06830601092896176
+            },
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "portal_foreground",
+              "layer": "actorFront",
+              "widthFactor": 0.6229508196721312,
+              "heightFactor": 1,
+              "offsetXFactor": -0.1885245901639344
+            }
+          ]
+        }
+      }
+    },
+    "wizard_exit_door": {
+      "type": "wizard_exit_door",
+      "label": "Wizard exit door",
+      "icon": "\ud83d\udeaa",
+      "description": "The level exit. It is mirrored by default, snaps to nearby ground, opens when Ignatius approaches, and walks him through before loading its destination level.",
+      "defaultState": "closed",
+      "defaultSize": {
+        "w": 75,
+        "h": 98.5
+      },
+      "defaults": {
+        "interaction": "levelPortal",
+        "startsOpen": false,
+        "walkSpeed": 105,
+        "closedDuration": 0.55,
+        "openDuration": 0.38,
+        "clearDuration": 0.28,
+        "closeDuration": 0.42,
+        "groundSnapDistance": 72,
+        "portalRole": "exit",
+        "mirrorX": true,
+        "walkDirection": 1,
+        "triggerDistance": 96,
+        "destinationLevel": "",
+        "floorAnchorYFactor": 0.908745247148289,
+        "wizardInsideScale": 0.84
+      },
+      "states": {
+        "closed": {
+          "label": "Closed",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "portal_closed",
+              "layer": "decorFront"
+            }
+          ]
+        },
+        "open": {
+          "label": "Open",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "portal_open",
+              "layer": "decorBack",
+              "widthFactor": 1.1366120218579234,
+              "heightFactor": 1,
+              "offsetXFactor": 0.06830601092896176
+            },
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "portal_foreground",
+              "layer": "actorFront",
+              "widthFactor": 0.6229508196721312,
+              "heightFactor": 1,
+              "offsetXFactor": -0.1885245901639344
+            }
+          ]
+        }
+      }
+    },
+    "treasureChest": {
+      "type": "treasureChest",
+      "label": "Treasure chest",
+      "icon": "\ud83e\uddf0",
+      "description": "Stateful chest: closed, discovered loot, then emptied.",
+      "defaultState": "closed",
+      "defaultSize": {
+        "w": 130,
+        "h": 150
+      },
+      "defaults": {
+        "interaction": "openChest",
+        "lootId": ""
+      },
+      "states": {
+        "closed": {
+          "label": "Closed",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "chest_closed",
+              "layer": "decorFront"
+            }
+          ]
+        },
+        "openLoot": {
+          "label": "Open with loot",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "chest_open_loot",
+              "layer": "decorFront"
+            }
+          ]
+        },
+        "openEmpty": {
+          "label": "Open and empty",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "chest_open_empty",
+              "layer": "decorFront"
+            }
+          ]
+        }
+      }
+    },
+    "breakableCrate": {
+      "type": "breakableCrate",
+      "label": "Breakable crate",
+      "icon": "\u25a3",
+      "description": "A solid reactive crate that intercepts rockets, becomes damaged, then disappears when destroyed.",
+      "defaultState": "intact",
+      "defaultSize": {
+        "w": 92,
+        "h": 94
+      },
+      "defaults": {
+        "reactiveKind": "destructible",
+        "health": 60,
+        "maxHealth": 60,
+        "damagedHealthThreshold": 30,
+        "projectileDamageMultiplier": 1,
+        "blocksPlayer": true,
+        "blocksProjectiles": true,
+        "collisionStates": [
+          "intact",
+          "damaged"
+        ],
+        "projectileCollisionStates": [
+          "intact",
+          "damaged"
+        ],
+        "collisionInsetX": 7,
+        "collisionInsetTop": 8,
+        "collisionInsetBottom": 3
+      },
+      "states": {
+        "intact": {
+          "label": "Intact",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "crate",
+              "layer": "decorFront"
+            }
+          ]
+        },
+        "damaged": {
+          "label": "Damaged",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "crate",
+              "layer": "decorFront",
+              "rotation": 0.055,
+              "offsetYFactor": 0.018,
+              "alpha": 0.82
+            }
+          ]
+        },
+        "destroyed": {
+          "label": "Destroyed",
+          "visuals": []
+        }
+      }
+    },
+    "destructibleBarrier": {
+      "type": "destructibleBarrier",
+      "label": "Breakable iron barrier",
+      "icon": "\u25a5",
+      "description": "A tall solid barrier that intercepts rockets, bends when damaged, and removes its collision when destroyed.",
+      "defaultState": "intact",
+      "defaultSize": {
+        "w": 94,
+        "h": 196
+      },
+      "defaults": {
+        "reactiveKind": "destructible",
+        "health": 140,
+        "maxHealth": 140,
+        "damagedHealthThreshold": 70,
+        "projectileDamageMultiplier": 1,
+        "blocksPlayer": true,
+        "blocksProjectiles": true,
+        "collisionStates": [
+          "intact",
+          "damaged"
+        ],
+        "projectileCollisionStates": [
+          "intact",
+          "damaged"
+        ],
+        "collisionInsetX": 12,
+        "collisionInsetTop": 8,
+        "collisionInsetBottom": 2
+      },
+      "states": {
+        "intact": {
+          "label": "Intact",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "gate_hanging",
+              "layer": "decorFront"
+            }
+          ]
+        },
+        "damaged": {
+          "label": "Bent",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "gate_hanging",
+              "layer": "decorFront",
+              "rotation": 0.045,
+              "offsetXFactor": 0.025,
+              "offsetYFactor": 0.012,
+              "alpha": 0.84
+            }
+          ]
+        },
+        "destroyed": {
+          "label": "Destroyed",
+          "visuals": []
+        }
+      }
+    },
+    "leverSwitch": {
+      "type": "leverSwitch",
+      "label": "Lever switch",
+      "icon": "\ud83c\udf9a\ufe0f",
+      "description": "Switch that can toggle gates or other channel-linked devices.",
+      "defaultState": "off",
+      "defaultSize": {
+        "w": 98,
+        "h": 82
+      },
+      "defaults": {
+        "interaction": "toggle",
+        "channel": "A"
+      },
+      "states": {
+        "off": {
+          "label": "Off",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "lever_off",
+              "layer": "decorFront"
+            }
+          ]
+        },
+        "on": {
+          "label": "On",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "lever_on",
+              "layer": "decorFront"
+            }
+          ]
+        }
+      }
+    },
+    "spikedGate": {
+      "type": "spikedGate",
+      "label": "Spiked gate",
+      "icon": "\u26d3\ufe0f",
+      "description": "Switchable vertical gate.",
+      "defaultState": "closed",
+      "defaultSize": {
+        "w": 94,
+        "h": 196
+      },
+      "defaults": {
+        "channel": "A",
+        "blocksPlayer": true
+      },
+      "states": {
+        "closed": {
+          "label": "Closed",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "gate_spiked",
+              "layer": "decorFront"
+            }
+          ]
+        },
+        "open": {
+          "label": "Raised",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "gate_spiked",
+              "layer": "decorFront",
+              "offsetYFactor": -0.85
+            }
+          ]
+        }
+      }
+    },
+    "hangingGate": {
+      "type": "hangingGate",
+      "label": "Hanging iron bars",
+      "icon": "\u26d3\ufe0f",
+      "description": "Alternative switchable iron gate.",
+      "defaultState": "closed",
+      "defaultSize": {
+        "w": 118,
+        "h": 157
+      },
+      "defaults": {
+        "channel": "A",
+        "blocksPlayer": true
+      },
+      "states": {
+        "closed": {
+          "label": "Closed",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "gate_hanging",
+              "layer": "decorFront"
+            }
+          ]
+        },
+        "open": {
+          "label": "Raised",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "gate_hanging",
+              "layer": "decorFront",
+              "offsetYFactor": -0.9
+            }
+          ]
+        }
+      }
+    },
+    "fuel": {
+      "type": "fuel",
+      "label": "Rocket fuel",
+      "icon": "\u26fd",
+      "description": "Mid-air rocket-fuel pickup.",
+      "defaultState": "available",
+      "defaultSize": {
+        "w": 54,
+        "h": 90
+      },
+      "defaults": {
+        "amount": 40,
+        "radius": 22
+      },
+      "states": {
+        "available": {
+          "label": "Available",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "rocket_fuel_canister",
+              "layer": "decorFront"
+            }
+          ]
+        }
+      }
+    },
+    "herbPickupBlue": {
+      "type": "herbPickupBlue",
+      "label": "Blue herb",
+      "icon": "\ud83c\udf3f",
+      "description": "Potential power-up ingredient.",
+      "defaultState": "available",
+      "defaultSize": {
+        "w": 72,
+        "h": 86
+      },
+      "defaults": {
+        "pickupKind": "herbBlue",
+        "amount": 1
+      },
+      "states": {
+        "available": {
+          "label": "Available",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "herb_blue",
+              "layer": "decorFront"
+            }
+          ]
+        }
+      }
+    },
+    "mushroomPickup": {
+      "type": "mushroomPickup",
+      "label": "Red mushroom",
+      "icon": "\ud83c\udf44",
+      "description": "",
+      "defaultState": "available",
+      "defaultSize": {
+        "w": 66,
+        "h": 88
+      },
+      "defaults": {
+        "pickupKind": "mushroomRed",
+        "amount": 1
+      },
+      "states": {
+        "available": {
+          "label": "Available",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "mushroom_red",
+              "layer": "decorFront"
+            }
+          ]
+        }
+      }
+    },
+    "herbPickupPurple": {
+      "type": "herbPickupPurple",
+      "label": "Purple bell herb",
+      "icon": "\ud83c\udf3f",
+      "description": "",
+      "defaultState": "available",
+      "defaultSize": {
+        "w": 68,
+        "h": 90
+      },
+      "defaults": {
+        "pickupKind": "herbPurple",
+        "amount": 1
+      },
+      "states": {
+        "available": {
+          "label": "Available",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "herb_purple",
+              "layer": "decorFront"
+            }
+          ]
+        }
+      }
+    },
+    "herbPickupYellow": {
+      "type": "herbPickupYellow",
+      "label": "Yellow herb",
+      "icon": "\ud83c\udf3f",
+      "description": "",
+      "defaultState": "available",
+      "defaultSize": {
+        "w": 69,
+        "h": 90
+      },
+      "defaults": {
+        "pickupKind": "herbYellow",
+        "amount": 1
+      },
+      "states": {
+        "available": {
+          "label": "Available",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "herb_yellow",
+              "layer": "decorFront"
+            }
+          ]
+        }
+      }
+    },
+    "ornateKeyPickup": {
+      "type": "ornateKeyPickup",
+      "label": "Ornate key",
+      "icon": "\ud83d\udddd\ufe0f",
+      "description": "",
+      "defaultState": "available",
+      "defaultSize": {
+        "w": 42,
+        "h": 82
+      },
+      "defaults": {
+        "pickupKind": "ornateKey",
+        "amount": 1
+      },
+      "states": {
+        "available": {
+          "label": "Available",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "ornate_key",
+              "layer": "decorFront"
+            }
+          ]
+        }
+      }
+    },
+    "ironKeyPickup": {
+      "type": "ironKeyPickup",
+      "label": "Iron key",
+      "icon": "\ud83d\udddd\ufe0f",
+      "description": "",
+      "defaultState": "available",
+      "defaultSize": {
+        "w": 45,
+        "h": 69
+      },
+      "defaults": {
+        "pickupKind": "ironKey",
+        "amount": 1
+      },
+      "states": {
+        "available": {
+          "label": "Available",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "iron_key",
+              "layer": "decorFront"
+            }
+          ]
+        }
+      }
+    },
+    "magicRingPickup": {
+      "type": "magicRingPickup",
+      "label": "Magic ring",
+      "icon": "\ud83d\udc8d",
+      "description": "",
+      "defaultState": "available",
+      "defaultSize": {
+        "w": 55,
+        "h": 54
+      },
+      "defaults": {
+        "pickupKind": "magicRing",
+        "amount": 1
+      },
+      "states": {
+        "available": {
+          "label": "Available",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "magic_ring_blue",
+              "layer": "decorFront"
+            }
+          ]
+        }
+      }
+    },
+    "checkpointRune": {
+      "type": "checkpointRune",
+      "label": "Rune checkpoint",
+      "icon": "\ud83d\udd2e",
+      "description": "",
+      "defaultState": "inactive",
+      "defaultSize": {
+        "w": 70,
+        "h": 88
+      },
+      "defaults": {
+        "interaction": "checkpoint"
+      },
+      "states": {
+        "inactive": {
+          "label": "Inactive",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "rune_marker",
+              "layer": "decorFront"
+            }
+          ]
+        },
+        "active": {
+          "label": "Active",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "rune_marker",
+              "layer": "decorFront"
+            }
+          ]
+        }
+      }
+    },
+    "spikedBallHazard": {
+      "type": "spikedBallHazard",
+      "label": "Spiked ball hazard",
+      "icon": "\u2620\ufe0f",
+      "description": "",
+      "defaultState": "active",
+      "defaultSize": {
+        "w": 90,
+        "h": 119
+      },
+      "defaults": {
+        "damage": 1,
+        "hazardRadius": 44
+      },
+      "states": {
+        "active": {
+          "label": "Active",
+          "visuals": [
+            {
+              "atlasId": "it_atlas_001",
+              "assetId": "spiked_ball",
+              "layer": "decorFront"
+            }
+          ]
+        }
+      }
+    }
+  }
 }

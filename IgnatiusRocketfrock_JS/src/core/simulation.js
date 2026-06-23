@@ -1,4 +1,5 @@
 import { atlasNodeToPlacementWorld, normalizeRotationRadians } from "../shared/level-transform.js";
+import { characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../shared/actor-geometry.js";
 import { normalizeLevelColorMap } from "../presentation/level-color-map.js";
 import {
     buildEnemyNavigationEdges,
@@ -326,6 +327,7 @@ export function createInitialGameState(overrides = {}) {
             showVelocity: false,
             showCollision: false,
             showAssetGuides: false,
+            showPuppetGuide: false,
             showInput: true,
             eventFilterText: "-FUEL_CHANGED",
             eventFilterIncludeInput: false,
@@ -2085,19 +2087,6 @@ function pauseAndTurnCharacterEnemy(enemy) {
     setCharacterEnemyAnimation(enemy, "idle");
 }
 
-function characterEnemyAttackRect(enemy) {
-    const facing = Number(enemy.facing) < 0 ? -1 : 1;
-    const reach = Math.max(1, Number(enemy.attackRange) || 1);
-    const bodyInset = Math.max(4, Number(enemy.width) * 0.12 || 4);
-    const front = enemy.x + facing * bodyInset;
-    return {
-        x: facing > 0 ? front : front - reach,
-        y: enemy.y - Math.max(1, Number(enemy.attackVerticalRange) || enemy.height || 1),
-        w: reach,
-        h: Math.max(1, Number(enemy.attackVerticalRange) || enemy.height || 1)
-    };
-}
-
 function characterEnemyAttackBlockedByTerrain(state, enemy) {
     const player = state.player;
     const start = {
@@ -2149,7 +2138,7 @@ function characterEnemyCanReachPlayer(state, enemy) {
         return false;
     }
     const playerRect = getPlayerRect(state);
-    const attackRect = characterEnemyAttackRect(enemy);
+    const attackRect = characterEnemyMeleeAttackRect(enemy);
     return rectsOverlap(playerRect, attackRect) && !characterEnemyAttackBlockedByTerrain(state, enemy);
 }
 
@@ -4562,21 +4551,6 @@ function circleRectOverlap(cx, cy, radius, rect) {
     return Math.hypot(cx - closestX, cy - closestY) <= radius;
 }
 
-function enemyCollisionRect(enemy) {
-    const width = Math.max(1, Number(enemy.width) || 1);
-    const height = Math.max(1, Number(enemy.height) || 1);
-    const insetXFactor = enemy.kind === "characterEnemy" ? 0.08 : 0;
-    const insetTopFactor = enemy.kind === "characterEnemy" ? 0.04 : 0;
-    const insetX = width * insetXFactor;
-    const insetTop = height * insetTopFactor;
-    return {
-        x: enemy.x - width * 0.5 + insetX,
-        y: enemy.y - height + insetTop,
-        w: Math.max(1, width - insetX * 2),
-        h: Math.max(1, height - insetTop)
-    };
-}
-
 function findProjectileReactiveObjectImpact(state, projectile, previousX, previousY) {
     const start = { x: previousX, y: previousY };
     const end = { x: projectile.x, y: projectile.y };
@@ -4679,7 +4653,7 @@ function findProjectileEnemyImpact(state, projectile, previousX, previousY) {
         if (!enemy || enemy.health <= 0 || enemy.combatState === "dead") {
             continue;
         }
-        const hit = sweptCircleRectImpact(start, end, radius, enemyCollisionRect(enemy));
+        const hit = sweptCircleRectImpact(start, end, radius, enemyProjectileHitbox(enemy));
         if (!hit || (best && hit.t >= best.t)) {
             continue;
         }

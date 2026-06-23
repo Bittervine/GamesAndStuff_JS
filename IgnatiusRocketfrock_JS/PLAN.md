@@ -14,6 +14,7 @@ IgnatiusRocketfrock_JS/
 ├── renderer-smoke.html
 ├── src/
 │   ├── core/
+│   │   ├── enemy-navigation.js
 │   │   └── simulation.js
 │   ├── browser/
 │   │   ├── browser-input.js
@@ -23,6 +24,7 @@ IgnatiusRocketfrock_JS/
 │   │   ├── character-runtime.js
 │   │   └── level-color-map.js
 │   ├── shared/
+│   │   ├── actor-geometry.js
 │   │   ├── animation-data.js
 │   │   └── level-transform.js
 │   └── tools/
@@ -160,6 +162,8 @@ Rendering includes:
 * Debug overlays.
 
 The renderer should read from `gameState`, but should not own gameplay state.
+
+Revision 126 adds a dedicated Puppet Guide toggle for enemy diagnostics. It is disabled by default and draws enemy body/hurtbox geometry, awareness, attack windows, target anchors, patrol/route information, and last-seen markers without changing gameplay. Exact projectile and melee rectangles come from `src/shared/actor-geometry.js`, which is also used by the simulation.
 
 ### `src/browser/game-bootstrap.js`
 
@@ -482,7 +486,7 @@ Revision 070 introduced the interactive/story-item atlas `it_atlas_001`. Its com
 
 Revision 071 implemented the first scripted story-item behaviour: a portal marked with `portalRole: "entrance"` can own the level-start sequence. The runtime begins with the portal closed and Ignatius hidden, switches the entity to its open visual state, walks Ignatius from inside the doorway to the authored `playerStart` while normal input is locked, draws the portal's `actorFront` half-door after the player, then closes the portal and releases control. Portal timing and walk speed live on the entity, and runtime visual-state changes go through the shared entity-state helper rather than hardcoded renderer sprite swaps. The same portal/state foundation should later support mirrored exits.
 
-The generic runtime character loader and Canvas 2D draw-command renderer arrived in revision 085. Revision 093 completed the first real enemy integration: `enemy_001` is catalogued and placeable in the Level Editor, previews through the generic rig renderer, snaps to authored ground, and uses simulation-owned idle/patrol behaviour. Revision 094 made placed enemies combat-active: rockets use swept body collision, terrain can intercept the shot first, health drives hurt/death states, defeated enemies stop moving and leave the homing pool, and short hit/health feedback is renderer-presented from simulation timers. Revision 096 added terrain-shielded melee attacks, player damage, knockback, invulnerability, and damaging/killable collision. Revision 097 makes the Skeleton Guard react as an aggressive close-range enemy: entering its patrol span alerts it, pursuit uses a separate faster chase speed, the attack wind-up lunges to visible sword-contact distance, and the shortened animation/cooldown produces repeated chops. Revision 100 establishes the first reactive-world slice with an editor-placeable breakable crate. The crate owns serializable health and intact/damaged/destroyed state, contributes dynamic blocking collision while active, intercepts swept rockets before terrain behind it, refreshes its state-authored visual, removes collision and artwork when destroyed, and emits destruction smoke plus authoritative events. The next Phase 4 milestone should generalize this foundation into a destructible barrier and multi-stage moving geometry such as the falling-tree bridge. Revision 106 improves Puppet Forge's daily editing ergonomics with canvas toolbars, a bottom timeline dock, right-drag panning, bounded ghost opacity, grouped transform-key dragging, and persistent collapsible inspector panels. Remaining rig polish includes part deletion, frame reassignment, role/tag authoring, and direct pivot editing; those improvements should continue without delaying gameplay integration.
+The generic runtime character loader and Canvas 2D draw-command renderer arrived in revision 085. Revision 093 completed the first real enemy integration: `enemy_001` is catalogued and placeable in the Level Editor, previews through the generic rig renderer, snaps to authored ground, and uses simulation-owned idle/patrol behaviour. Revision 094 made placed enemies combat-active: rockets use swept body collision, terrain can intercept the shot first, health drives hurt/death states, defeated enemies stop moving and leave the homing pool, and short hit/health feedback is renderer-presented from simulation timers. Revision 096 added terrain-shielded melee attacks, player damage, knockback, invulnerability, and damaging/killable collision. Revision 097 makes the Skeleton Guard react as an aggressive close-range enemy: entering its patrol span alerts it, pursuit uses a separate faster chase speed, the attack wind-up lunges to visible sword-contact distance, and the shortened animation/cooldown produces repeated chops. Revision 100 establishes the first reactive-world slice with an editor-placeable breakable crate. The crate owns serializable health and intact/damaged/destroyed state, contributes dynamic blocking collision while active, intercepts swept rockets before terrain behind it, refreshes its state-authored visual, removes collision and artwork when destroyed, and emits destruction smoke plus authoritative events. Revision 126 generalizes the same foundation into a tall destructible iron barrier. The next Phase 4 milestone is multi-stage moving geometry, beginning with the falling-tree bridge. Revision 106 improves Puppet Forge's daily editing ergonomics with canvas toolbars, a bottom timeline dock, right-drag panning, bounded ghost opacity, grouped transform-key dragging, and persistent collapsible inspector panels. Remaining rig polish includes part deletion, frame reassignment, role/tag authoring, and direct pivot editing; those improvements should continue without delaying gameplay integration.
 
 ## Character Tool
 
@@ -1177,7 +1181,7 @@ Revision 100 uses the following first-pass authoring/runtime contract:
 * `visualStates` remain authoring/presentation data, while the normalized object record and its state live in `gameState.reactiveObjects`.
 * State changes refresh the entity visual and rebuild only the object's dynamic solid.
 
-The first breakable crate deliberately stops at the three-state health model. Later barriers, trees, pillars, and hanging objects may add `breaking`, `falling`, `fallen`, and `inactive` transitions without replacing the base schema.
+The breakable crate and revision-126 destructible iron barrier both use the three-state health model. The barrier proves the schema works for tall passage-blocking geometry as well as compact props: it remains solid while intact or damaged, intercepts rockets, swaps to a bent visual below its threshold, and removes both visual and collision when destroyed. Trees, pillars, and hanging objects may later add `breaking`, `falling`, `fallen`, and `inactive` transitions without replacing the base schema.
 
 The level generator and headless validator must understand when a level requires a world-state change, such as knocking down a tree to create a bridge.
 
@@ -1567,3 +1571,9 @@ Ignatius's homing rocket now selects targets by facing priority. Active targets 
 Player health reaching zero is not yet a complete death lifecycle. Until a dedicated defeated state explicitly marks Ignatius as dead, hidden, or untargetable, the visible player remains a valid awareness, melee, projectile, and collision target. Enemy combat logic therefore no longer uses the raw health amount as a proxy for player existence.
 
 This prevents ranged hunters from slipping into last-seen investigation or unreachable glare after repeated attacks merely because the health display has reached zero. Projectiles continue to collide and produce impact presentation, while `damagePlayer` correctly applies no further health reduction. A later player-death implementation should disable targeting through an explicit player lifecycle state rather than by reintroducing scattered health checks.
+### Revision 126 Puppet Guide and destructible barrier
+
+The game view now has a separate `Puppet guide` button, disabled by default. When enabled, every non-visualized enemy receives diagnostic overlays for its baseline-anchored movement body, exact projectile hurtbox, awareness cone, attack reach/window, target anchor, patrol span, route, AI state, and last genuinely seen player position. Shared actor geometry moved into `src/shared/actor-geometry.js` so the renderer and portable simulation use the same projectile-hit and melee-reach rectangles.
+
+The next Phase 4 reactive-object step is also complete: the interactive catalog includes a placeable destructible iron barrier using existing atlas art. It has authoritative health, intact/bent/destroyed visuals, dynamic player/projectile collision, rocket interception, smoke feedback, and destruction cleanup through the generic reactive-object pipeline. The next reactive-world target is moving geometry, beginning with the falling-tree bridge prototype.
+

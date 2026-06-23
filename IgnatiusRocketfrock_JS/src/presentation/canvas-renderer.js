@@ -10,6 +10,11 @@ import {
     placementCenter
 } from "../shared/level-transform.js";
 import {
+    actorBodyRect,
+    characterEnemyMeleeAttackRect,
+    enemyProjectileHitbox
+} from "../shared/actor-geometry.js";
+import {
     colorMapCacheKey,
     createColorMappedCanvas,
     normalizeLevelColorMap
@@ -679,6 +684,14 @@ class RocketfrockRenderer {
             ctx.restore();
             this.drawEnemyHealthBar(enemy, view, 1);
         }
+
+        if (state.debug.showPuppetGuide) {
+            for (const enemy of state.enemies) {
+                if (!enemy.visualized) {
+                    this.drawEnemyPuppetGuide(enemy, state, view);
+                }
+            }
+        }
     }
 
     getCharacterProject(characterId) {
@@ -738,15 +751,173 @@ class RocketfrockRenderer {
         this.drawCharacterProjectPose(project, screen.x, screen.y, facing, transforms, bounds, { alpha: 1 });
         this.ctx.restore();
         this.drawEnemyHealthBar(enemy, view, actorScale);
-        if (state.debug.showHitboxes) {
-            this.drawEnemyNavigationDebug(enemy, view);
-        }
         this.lastCharacterDraws.push({
             actorId: enemy.id,
             characterId: project.characterId,
             animationSlot: sampled.slot,
             bounds: Number.isFinite(bounds.minX) ? { ...bounds } : null
         });
+    }
+
+    drawEnemyPuppetGuide(enemy, state, view) {
+        const ctx = this.ctx;
+        const body = actorBodyRect(enemy);
+        const projectileHitbox = enemyProjectileHitbox(enemy);
+        const bodyScreen = this.worldToScreen(view, body.x, body.y);
+        const hitboxScreen = this.worldToScreen(view, projectileHitbox.x, projectileHitbox.y);
+        const enemyCenter = {
+            x: Number(enemy.x) || 0,
+            y: (Number(enemy.y) || 0) - Math.max(1, Number(enemy.height) || 1) * 0.5
+        };
+        const centerScreen = this.worldToScreen(view, enemyCenter.x, enemyCenter.y);
+        const facing = Number(enemy.facing) < 0 ? -1 : 1;
+        const awarenessRange = Math.max(0, Number(enemy.awarenessRange) || 0);
+        const awarenessHalfAngle = clamp(Number(enemy.awarenessViewHalfAngle) || 0, 0, 180) * Math.PI / 180;
+        const facingAngle = facing < 0 ? Math.PI : 0;
+
+        ctx.save();
+
+        if (awarenessRange > 0 && awarenessHalfAngle > 0) {
+            ctx.fillStyle = enemy.alerted
+                ? "rgba(255, 118, 84, 0.10)"
+                : "rgba(98, 224, 174, 0.075)";
+            ctx.strokeStyle = enemy.alerted
+                ? "rgba(255, 132, 94, 0.70)"
+                : "rgba(103, 234, 187, 0.56)";
+            ctx.lineWidth = Math.max(1, 1.25 * view.zoom);
+            ctx.beginPath();
+            ctx.moveTo(centerScreen.x, centerScreen.y);
+            ctx.arc(
+                centerScreen.x,
+                centerScreen.y,
+                awarenessRange * view.zoom,
+                facingAngle - awarenessHalfAngle,
+                facingAngle + awarenessHalfAngle
+            );
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+        }
+
+        ctx.strokeStyle = "rgba(87, 225, 255, 0.92)";
+        ctx.lineWidth = Math.max(1, 1.75 * view.zoom);
+        ctx.setLineDash([]);
+        ctx.strokeRect(bodyScreen.x, bodyScreen.y, body.w * view.zoom, body.h * view.zoom);
+
+        ctx.strokeStyle = "rgba(255, 219, 99, 0.92)";
+        ctx.lineWidth = Math.max(1, 1.4 * view.zoom);
+        ctx.setLineDash([5 * view.zoom, 3 * view.zoom]);
+        ctx.strokeRect(
+            hitboxScreen.x,
+            hitboxScreen.y,
+            projectileHitbox.w * view.zoom,
+            projectileHitbox.h * view.zoom
+        );
+        ctx.setLineDash([]);
+
+        if (enemy.attackMode === "projectile") {
+            const attackRange = Math.max(1, Number(enemy.attackRange) || 1);
+            const verticalRange = Math.max(1, Number(enemy.attackVerticalRange) || 1);
+            const attackWindow = {
+                x: enemyCenter.x - attackRange,
+                y: enemyCenter.y - verticalRange,
+                w: attackRange * 2,
+                h: verticalRange * 2
+            };
+            const attackScreen = this.worldToScreen(view, attackWindow.x, attackWindow.y);
+            ctx.strokeStyle = "rgba(255, 151, 210, 0.55)";
+            ctx.lineWidth = Math.max(1, view.zoom);
+            ctx.setLineDash([9 * view.zoom, 5 * view.zoom]);
+            ctx.strokeRect(attackScreen.x, attackScreen.y, attackWindow.w * view.zoom, attackWindow.h * view.zoom);
+            const minimumRange = Math.max(0, Number(enemy.preferredAttackMinRange) || 0);
+            if (minimumRange > 0) {
+                const left = this.worldToScreen(view, enemyCenter.x - minimumRange, enemyCenter.y);
+                const right = this.worldToScreen(view, enemyCenter.x + minimumRange, enemyCenter.y);
+                ctx.beginPath();
+                ctx.moveTo(left.x, attackScreen.y);
+                ctx.lineTo(left.x, attackScreen.y + attackWindow.h * view.zoom);
+                ctx.moveTo(right.x, attackScreen.y);
+                ctx.lineTo(right.x, attackScreen.y + attackWindow.h * view.zoom);
+                ctx.stroke();
+            }
+            ctx.setLineDash([]);
+        } else {
+            const melee = characterEnemyMeleeAttackRect(enemy);
+            const meleeScreen = this.worldToScreen(view, melee.x, melee.y);
+            ctx.strokeStyle = "rgba(255, 151, 210, 0.72)";
+            ctx.lineWidth = Math.max(1, 1.2 * view.zoom);
+            ctx.setLineDash([7 * view.zoom, 4 * view.zoom]);
+            ctx.strokeRect(meleeScreen.x, meleeScreen.y, melee.w * view.zoom, melee.h * view.zoom);
+            ctx.setLineDash([]);
+        }
+
+        if (Number.isFinite(Number(enemy.patrolMinX)) && Number.isFinite(Number(enemy.patrolMaxX))) {
+            const patrolY = (Number(enemy.y) || 0) + 5;
+            const patrolStart = this.worldToScreen(view, Number(enemy.patrolMinX), patrolY);
+            const patrolEnd = this.worldToScreen(view, Number(enemy.patrolMaxX), patrolY);
+            ctx.strokeStyle = "rgba(194, 154, 255, 0.72)";
+            ctx.lineWidth = Math.max(1, 1.2 * view.zoom);
+            ctx.beginPath();
+            ctx.moveTo(patrolStart.x, patrolStart.y);
+            ctx.lineTo(patrolEnd.x, patrolEnd.y);
+            ctx.stroke();
+        }
+
+        const targetX = Number(enemy.targetX);
+        const targetY = Number(enemy.targetY);
+        if (Number.isFinite(targetX) && Number.isFinite(targetY)) {
+            const target = this.worldToScreen(view, targetX, targetY);
+            const radius = Math.max(4, Number(enemy.targetRadius) || 4) * view.zoom;
+            ctx.strokeStyle = "rgba(255, 246, 174, 0.92)";
+            ctx.lineWidth = Math.max(1, 1.2 * view.zoom);
+            ctx.beginPath();
+            ctx.arc(target.x, target.y, radius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(target.x - 5 * view.zoom, target.y);
+            ctx.lineTo(target.x + 5 * view.zoom, target.y);
+            ctx.moveTo(target.x, target.y - 5 * view.zoom);
+            ctx.lineTo(target.x, target.y + 5 * view.zoom);
+            ctx.stroke();
+        }
+
+        const hasLastSeenPosition = enemy.lastSeenPlayerX !== null && enemy.lastSeenPlayerX !== undefined &&
+            enemy.lastSeenPlayerY !== null && enemy.lastSeenPlayerY !== undefined;
+        const lastSeenX = Number(enemy.lastSeenPlayerX);
+        const lastSeenY = Number(enemy.lastSeenPlayerY);
+        if (hasLastSeenPosition && Number.isFinite(lastSeenX) && Number.isFinite(lastSeenY)) {
+            const lastSeen = this.worldToScreen(view, lastSeenX, lastSeenY);
+            const marker = 7 * view.zoom;
+            ctx.strokeStyle = "rgba(255, 128, 102, 0.90)";
+            ctx.lineWidth = Math.max(1, 1.5 * view.zoom);
+            ctx.beginPath();
+            ctx.moveTo(lastSeen.x - marker, lastSeen.y - marker);
+            ctx.lineTo(lastSeen.x + marker, lastSeen.y + marker);
+            ctx.moveTo(lastSeen.x + marker, lastSeen.y - marker);
+            ctx.lineTo(lastSeen.x - marker, lastSeen.y + marker);
+            ctx.stroke();
+        }
+
+        if (state.player?.visible !== false) {
+            const playerCenter = this.worldToScreen(
+                view,
+                Number(state.player.x) || 0,
+                (Number(state.player.y) || 0) - (Number(state.player.height) || 0) * 0.5
+            );
+            ctx.strokeStyle = enemy.alerted
+                ? "rgba(255, 137, 101, 0.58)"
+                : "rgba(114, 235, 192, 0.34)";
+            ctx.lineWidth = Math.max(1, view.zoom);
+            ctx.setLineDash([3 * view.zoom, 5 * view.zoom]);
+            ctx.beginPath();
+            ctx.moveTo(centerScreen.x, centerScreen.y);
+            ctx.lineTo(playerCenter.x, playerCenter.y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        ctx.restore();
+        this.drawEnemyNavigationDebug(enemy, view);
     }
 
     drawEnemyNavigationDebug(enemy, view) {

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { computeResponsiveViewportMetrics, computeTimedTextViewportLayout } from "../src/presentation/canvas-renderer.js";
+import { actorBodyRect, characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../src/shared/actor-geometry.js";
 import { RocketfrockInput } from "../src/browser/browser-input.js";
 import {
     colorMapCacheKey,
@@ -136,6 +137,7 @@ function testSourceOrganization() {
         "../src/presentation/character-runtime.js",
         "../src/presentation/level-color-map.js",
         "../src/shared/animation-data.js",
+        "../src/shared/actor-geometry.js",
         "../src/shared/level-transform.js",
         "../src/tools/character-editor/animation-editor.js",
         "../src/tools/character-editor/atlas-editor.js",
@@ -2331,6 +2333,67 @@ function testBreakableCrateReactiveObject() {
     assert.equal(restored.world.solids.some((solid) => solid.reactiveObjectId === object.id), false, "serialized destroyed state should keep collision removed");
 }
 
+function testDestructibleBarrierReactiveObject() {
+    const catalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
+    const definition = catalog.entities.destructibleBarrier;
+    const state = createInitialGameState();
+    const entity = {
+        id: "destructible_barrier_test",
+        type: definition.type,
+        catalogId: catalog.catalogId,
+        x: 120,
+        y: 220,
+        w: definition.defaultSize.w,
+        h: definition.defaultSize.h,
+        state: definition.defaultState,
+        visualStates: Object.fromEntries(Object.entries(definition.states).map(([id, record]) => [id, record.visuals])),
+        stateLabels: Object.fromEntries(Object.entries(definition.states).map(([id, record]) => [id, record.label || id])),
+        ...structuredClone(definition.defaults)
+    };
+
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "reactive_barrier_test",
+        world: { bounds: { x: -300, y: -200, w: 900, h: 700 }, resetY: 900 },
+        playerStart: { x: -200, y: 600 },
+        entities: [entity]
+    }), true, "destructible barrier level should apply");
+    state.world.solids.push({ id: "wall_behind_barrier", kind: "wall", x: 190, y: 0, w: 20, h: 260 });
+    state.world.segments = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+
+    const barrier = state.reactiveObjects.find((item) => item.id === entity.id);
+    assert.ok(barrier, "destructible barrier should normalize through the generic reactive-object pipeline");
+    assert.equal(barrier.health, 140, "barrier should begin at its authored health");
+    assert.ok(state.world.solids.some((solid) => solid.reactiveObjectId === barrier.id), "intact barrier should block the player");
+
+    const firstRocket = addTestRocket(state, { id: "barrier_hit_1", x: 0, y: 120, vx: 12000, damage: 55 });
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(firstRocket.state, "exploding", "barrier should intercept rockets before terrain behind it");
+    assert.equal(barrier.health, 85, "first rocket should damage but not bend the barrier yet");
+    assert.equal(barrier.state, "intact", "barrier should remain intact above its damaged threshold");
+
+    state.projectiles = [];
+    const secondRocket = addTestRocket(state, { id: "barrier_hit_2", x: 0, y: 120, vx: 12000, damage: 55 });
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(secondRocket.state, "exploding", "second rocket should still be intercepted by the barrier");
+    assert.equal(barrier.health, 30, "second rocket should cross the damaged threshold");
+    assert.equal(barrier.state, "damaged", "barrier should switch to its bent visual state");
+    assert.ok(state.world.visuals.some((visual) => visual.entityId === barrier.id && visual.entityState === "damaged"), "damaged barrier should refresh its authored visual");
+    assert.ok(state.world.solids.some((solid) => solid.reactiveObjectId === barrier.id), "damaged barrier should remain solid");
+
+    state.projectiles = [];
+    const thirdRocket = addTestRocket(state, { id: "barrier_hit_3", x: 0, y: 120, vx: 12000, damage: 55 });
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(thirdRocket.state, "exploding", "lethal rocket should resolve against the barrier");
+    assert.equal(barrier.health, 0, "lethal damage should clamp barrier health to zero");
+    assert.equal(barrier.state, "destroyed", "lethal damage should destroy the barrier");
+    assert.equal(state.world.solids.some((solid) => solid.reactiveObjectId === barrier.id), false, "destroyed barrier should remove its collision");
+    assert.equal(state.world.visuals.some((visual) => visual.entityId === barrier.id), false, "destroyed barrier should remove its artwork");
+}
+
 function testEditorDropdownContrast() {
     const editorFiles = [
         "../character-editor.html",
@@ -2467,6 +2530,32 @@ function testCharacterProjectWorkspace() {
     assert.equal(moveRigPartToBack(project.rig, "leftArm"), true, "To Back should report a changed draw order");
     assert.deepEqual(project.rig.drawOrder, ["leftArm", "torso", "head"], "To Back should make the selected part draw first");
     assert.equal(moveRigPartToBack(project.rig, "leftArm"), false, "moving an already rear-most part should be a no-op");
+}
+
+function testPuppetGuideDebugOverlay() {
+    const defaults = createInitialGameState();
+    assert.equal(defaults.debug.showPuppetGuide, false, "Puppet Guide should be disabled by default");
+
+    const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    assert.ok(gameHtml.includes('id="toggle-puppet-guide"') && gameHtml.includes("Puppet guide: off"), "game page should expose the off-by-default Puppet Guide button");
+    assert.ok(bootstrapSource.includes("showPuppetGuide") && bootstrapSource.includes("updatePuppetGuide"), "browser bootstrap should toggle Puppet Guide state");
+    assert.ok(rendererSource.includes("drawEnemyPuppetGuide") && rendererSource.includes("awarenessViewHalfAngle") && rendererSource.includes("lastSeenPlayerX"), "renderer should draw enemy body, awareness, and last-seen diagnostics");
+
+    const enemy = {
+        kind: "characterEnemy",
+        x: 100,
+        y: 200,
+        width: 50,
+        height: 100,
+        facing: -1,
+        attackRange: 60,
+        attackVerticalRange: 80
+    };
+    assert.deepEqual(actorBodyRect(enemy), { x: 75, y: 100, w: 50, h: 100 }, "Puppet Guide body should use the shared foot-position convention");
+    assert.deepEqual(enemyProjectileHitbox(enemy), { x: 79, y: 104, w: 42, h: 96 }, "Puppet Guide projectile hitbox should exactly match simulation geometry");
+    assert.deepEqual(characterEnemyMeleeAttackRect(enemy), { x: 34, y: 120, w: 60, h: 80 }, "Puppet Guide melee reach should exactly match simulation geometry");
 }
 
 function testSelectiveLevelColorMap() {
@@ -2657,7 +2746,9 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.ok(atlas.frames.mailbox_with_letter && atlas.frames.portal_foreground && atlas.frames.letter_scroll, "story-item frames should be present");
     assert.ok(catalog.entities.mailbox && catalog.entities.treasureChest && catalog.entities.wizard_entry_door && catalog.entities.wizard_exit_door, "catalog should define mailboxes plus dedicated wizard entry/exit doors");
     assert.ok(catalog.entities.breakableCrate, "interactive catalog should expose the first reactive destructible object");
+    assert.ok(catalog.entities.destructibleBarrier, "interactive catalog should expose the destructible iron barrier");
     assert.deepEqual(Object.keys(catalog.entities.breakableCrate.states), ["intact", "damaged", "destroyed"], "breakable crate should author explicit intact, damaged, and destroyed visuals");
+    assert.deepEqual(Object.keys(catalog.entities.destructibleBarrier.states), ["intact", "damaged", "destroyed"], "destructible barrier should use the shared three-state reactive lifecycle");
     assert.equal(catalog.entities.wizard_exit_door.defaults.mirrorX, true, "exit doorway should be mirrored by default");
     assert.deepEqual(catalog.entities.wizard_entry_door.defaultSize, { w: 75, h: 98.5 }, "new entry doors should use the half-size doorway dimensions");
     assert.deepEqual(catalog.entities.wizard_exit_door.defaultSize, { w: 75, h: 98.5 }, "new exit doors should use the half-size doorway dimensions");
@@ -4082,6 +4173,7 @@ const tests = [
     ["left and right Ctrl weapon binding", testControlKeysLaunchWeapon],
     ["timed story text layout", testTimedTextViewportLayout],
     ["responsive viewport scaling", testResponsiveViewportScaling],
+    ["Puppet Guide debug overlay", testPuppetGuideDebugOverlay],
     ["selective level colour map", testSelectiveLevelColorMap],
     ["level placement copy and cutout backing", testLevelPlacementCopy],
     ["level placement transforms", testLevelPlacementTransforms],
@@ -4124,6 +4216,7 @@ const tests = [
     ["damaging and killable surface hazards", testDamagingAndKillableSurfaceHazards],
     ["terrain intercepts rocket before enemy", testTerrainInterceptsRocketBeforeEnemy],
     ["breakable crate reactive object", testBreakableCrateReactiveObject],
+    ["destructible barrier reactive object", testDestructibleBarrierReactiveObject],
     ["character project workspace", testCharacterProjectWorkspace],
     ["character atlas editor operations", testCharacterAtlasEditorOperations],
     ["numbered enemy_001 authored assets", testNumberedEnemy001Assets],

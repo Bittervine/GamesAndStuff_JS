@@ -28,7 +28,7 @@ Ground running is data-driven through `assets/ct_anim_wizard_run_1.json` and `sr
 
 ## SHARED ACTOR COLLISION RULE ##
 
-Player and enemy feet use the same foot-position convention and the same swept horizontal/vertical collision queries against solids, collision segments, and collision polygons. Enemy navigation may predict transitions offline, but runtime traversal must still pass through those shared actor collision queries. Do not let NPC drops ignore ordinary ground collision or let baked jump arcs use a narrower body than runtime collision.
+Player and enemy feet use the same foot-position convention and the same swept horizontal/vertical collision queries against solids, collision segments, and collision polygons. Enemy navigation may predict transitions offline, but runtime traversal must still pass through those shared actor collision queries. Do not let NPC drops ignore ordinary ground collision or let baked jump arcs use a narrower body than runtime collision. Shared baseline body rectangles, enemy projectile hurtboxes, and melee reach rectangles belong in `src/shared/actor-geometry.js`; debug overlays must call those helpers rather than copying gameplay geometry.
 
 ## CHARACTER GROUND CONVENTION ##
 

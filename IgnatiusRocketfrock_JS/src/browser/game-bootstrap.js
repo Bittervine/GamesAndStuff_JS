@@ -27,6 +27,7 @@ const tuningJsonEl = document.getElementById("tuning-json");
 const tuningMessageEl = document.getElementById("tuning-message");
 const eventFilterEl = document.getElementById("event-filter");
 const assetGuidesButton = document.getElementById("toggle-asset-guides");
+const puppetGuideButton = document.getElementById("toggle-puppet-guide");
 const debugPanelButton = document.getElementById("toggle-debug-panel");
 const gameTuningButton = document.getElementById("toggle-game-tuning");
 const helpPanelButton = document.getElementById("toggle-help-panel");
@@ -36,7 +37,7 @@ const copyTuningJsonButton = document.getElementById("copy-tuning-json");
 const refreshTuningJsonButton = document.getElementById("refresh-tuning-json");
 const tuningPanel = document.getElementById("tuning");
 
-const GAME_REVISION = "115";
+const GAME_REVISION = "126";
 
 let gameState = createInitialGameState();
 gameState.debug.revision = GAME_REVISION;
@@ -220,6 +221,13 @@ function setupPanelToggleButtons() {
         assetGuidesButton.setAttribute("aria-pressed", gameState.debug.showAssetGuides ? "true" : "false");
     };
 
+    const updatePuppetGuide = () => {
+        if (!puppetGuideButton) {
+            return;
+        }
+        puppetGuideButton.textContent = `Puppet guide: ${gameState.debug.showPuppetGuide ? "on" : "off"}`;
+        puppetGuideButton.setAttribute("aria-pressed", gameState.debug.showPuppetGuide ? "true" : "false");
+    };
 
     const updateDebugPanel = () => {
         if (!debugPanelButton || !debugEl) {
@@ -257,6 +265,10 @@ function setupPanelToggleButtons() {
         updateAssetGuides();
     });
 
+    puppetGuideButton?.addEventListener("click", () => {
+        gameState.debug.showPuppetGuide = !gameState.debug.showPuppetGuide;
+        updatePuppetGuide();
+    });
 
     debugPanelButton?.addEventListener("click", () => {
         debugEl.hidden = !debugEl.hidden;
@@ -274,6 +286,7 @@ function setupPanelToggleButtons() {
     });
 
     updateAssetGuides();
+    updatePuppetGuide();
     updateDebugPanel();
     updateGameTuning();
     updateHelpPanel();
@@ -410,7 +423,7 @@ function updateDebugText() {
         `ground:${p.onGround}  facing:${p.facing > 0 ? "right" : "left"}  boost:${gameState.equipment.rocket.attachedBoosting}  hoverA:${gameState.equipment.rocket.boostAccelerationNow.toFixed(0)}  hoverLimit:${gameState.tuning.attachedBoostHoverFallSpeed.toFixed(0)}`,
         `fuel:${fuel.amount.toFixed(2)}  delay:${fuel.rechargeDelayTimer.toFixed(2)}  cap:${fuel.rechargeCap}  rechargeLatched:${fuel.rechargeLatched ? "yes" : "no"}  groundRecharge:${gameState.tuning.fuelRechargeRequiresGround !== false}  kick:${gameState.equipment.rocket.boostKickCharge.toFixed(2)}  smokeDown:${(gameState.tuning.attachedBoostSmokePuffDownSpeed ?? 170).toFixed(0)}  bulbFlash:${(gameState.equipment.rocket.fuelBulbFlashTimer ?? 0).toFixed(2)}`,
         `rockets:${gameState.projectiles.length}  smoke:${gameState.effects?.smokePuffs?.length ?? 0}  collision:${gameState.world.collisionMode || "rectangles"} seg:${gameState.world.segments?.length ?? 0}  upLaunch:${gameState.tuning.rocketProjectileUpLaunchSeconds.toFixed(2)}  homing:${gameState.tuning.rocketProjectileHomingStrength.toFixed(2)}  target:${gameState.targets[0] ? `${gameState.targets[0].x.toFixed(0)},${gameState.targets[0].y.toFixed(0)}` : "none"}`,
-        inputText + `  inputConsole:${input.isConsoleLoggingEnabled() ? "on" : "off"}  assetGuides:${gameState.debug.showAssetGuides ? "on" : "off"}`,
+        inputText + `  inputConsole:${input.isConsoleLoggingEnabled() ? "on" : "off"}  assetGuides:${gameState.debug.showAssetGuides ? "on" : "off"}  puppetGuide:${gameState.debug.showPuppetGuide ? "on" : "off"}`,
         `eventFilter:${gameState.debug.eventFilterText || "(none)"}`,
         "events:",
         events || "(none after filter)",

@@ -43,7 +43,7 @@ The HTML and JavaScript game remains the reference implementation, but new gamep
 
 The project now has a working browser game loop, deterministic simulation layer, asset-atlas based level construction, atlas and level editor tools, atlas-derived collision lines and filled collision loops, detached rocket terrain impacts, health/fuel HUD, and headless tests. Revision 099 also places implementation modules under explicit core, shared, browser, presentation, and tool directories, with `ARCHITECTURE.md` serving as the dependency and future C++ parity map.
 
-Revision 100 now provides the first destructible/reactive-world slice: an editor-placeable breakable crate with authoritative health/state, dynamic collision, rocket interception, state-authored visuals, destruction smoke, events, and serialization. Revision 101 adds the first ranged enemy variants, revision 103 corrects their semantic part identities and projectile presentation, revision 105 adopts the user's compact goblin rig/idle as the canonical animation foundation, and revision 106 makes Puppet Forge substantially faster to operate. The immediate gameplay direction is to keep widening enemy/reactive interactions, then generalize the reactive foundation into barriers and moving geometry such as a falling-tree bridge. Animation-authored projectile handoff is recorded as a dedicated future gameplay slice rather than being mixed into the editor ergonomics revision. In parallel, portability preparation should remove renderer-owned gameplay data and establish language-neutral schemas and parity fixtures before Phase 8 procedural generation expands the simulation surface.
+Revision 100 provides the first destructible/reactive-world slice: an editor-placeable breakable crate with authoritative health/state, dynamic collision, rocket interception, state-authored visuals, destruction smoke, events, and serialization. Revision 126 adds the second shape class, a tall destructible iron barrier, and an off-by-default Puppet Guide that exposes exact enemy hitboxes, awareness, attack windows, routes, target anchors, patrol spans, and last-seen state. Exact projectile and melee rectangles now live in shared actor geometry used by both core and renderer. The immediate reactive-world target is moving geometry, beginning with a falling-tree bridge. In parallel, portability preparation should remove renderer-owned gameplay data and establish language-neutral schemas and parity fixtures before Phase 8 procedural generation expands the simulation surface.
 
 ## Phase 1: Completed Physics, Level, and Atlas Foundation
 
@@ -364,7 +364,7 @@ Goal: make rockets and future weapons interact with enemies and world objects.
 * [x] Add object health or trigger state.
 * [ ] Add object state transitions: `intact`, `damaged`, `breaking`, `falling`, `fallen`, `destroyed`, `inactive`.
 * [x] Allow reactive objects to change collision geometry when their state changes.
-* [ ] Add destructible barrier.
+* [x] Add destructible barrier.
 * [x] Add breakable crate or obstacle.
 * [ ] Add falling tree prototype that can become a bridge.
 * [ ] Add projectile and explosion interaction with reactive objects.
@@ -1024,3 +1024,16 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Preserve hunter awareness and engagement after the health display reaches zero.
 - [x] Allow enemy projectiles to keep colliding and producing impacts against the visible zero-health player.
 - [x] Add a prolonged ranged-combat regression that reaches zero health, moves Ignatius slightly, and verifies the hunter never enters investigate, glare, return-home, or stranded states.
+## Revision 126 Puppet Guide and destructible barrier
+
+- [x] Add a dedicated `Puppet guide` game button that is off by default.
+- [x] Keep Puppet Guide independent from the existing player/projectile hitbox toggle.
+- [x] Draw enemy movement bodies and exact projectile hurtboxes.
+- [x] Draw awareness cones, melee reach or ranged attack windows, target anchors, patrol spans, routes, current AI state, and last-seen markers.
+- [x] Move shared actor body, projectile hurtbox, and melee rectangle math into `src/shared/actor-geometry.js`.
+- [x] Use the same geometry helpers in portable simulation and Canvas diagnostics.
+- [x] Add a placeable destructible iron barrier using the generic reactive-object pipeline and existing atlas artwork.
+- [x] Keep intact and damaged barrier states solid and projectile-blocking; remove collision and visuals on destruction.
+- [x] Remove the retired `IgnatiusRocketfrock_JS.html` redirect that caused the source-organization regression.
+- [x] Add regressions for Puppet Guide defaults/shared geometry and the complete barrier damage lifecycle.
+
