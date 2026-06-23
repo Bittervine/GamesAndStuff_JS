@@ -95,7 +95,7 @@ export const DEFAULT_TUNING = Object.freeze({
     enemyDefaultHomeRetrySeconds: 4,
     enemyDefaultAwarenessRange: 300,
     enemyDefaultAwarenessVerticalRange: 190,
-    enemyDefaultAwarenessViewHalfAngle: 90,
+    enemyDefaultAwarenessViewHalfAngle: 60,
     enemyDefaultAwarenessHoldSeconds: 1.2,
     enemyDefaultAttackDamage: 24,
     enemyDefaultAttackRange: 66,
@@ -2964,15 +2964,20 @@ function characterEnemyReachedNavigationTarget(enemy, navigation, tolerance = 3)
         Math.abs(enemy.x - Number(enemy.routeTargetX)) <= Math.max(0.5, tolerance);
 }
 
-function updateCharacterEnemyLastSeenInvestigation(state, enemy, navigation, dt) {
+function updateCharacterEnemyLastSeenInvestigation(state, enemy, navigation, dt, options = {}) {
+    const allowGlare = options.allowGlare !== false;
     if (!(typeof enemy.lastSeenPlayerX === "number" && Number.isFinite(enemy.lastSeenPlayerX)) ||
         !(typeof enemy.lastSeenPlayerY === "number" && Number.isFinite(enemy.lastSeenPlayerY))) {
-        enterCharacterEnemyGlare(state, enemy);
+        if (allowGlare) {
+            enterCharacterEnemyGlare(state, enemy);
+        }
         return;
     }
 
     if (enemy.aiState !== "investigate_last_seen") {
-        clearCharacterEnemyNavigationPlan(enemy);
+        if (!characterEnemyHasCommittedTraversal(enemy)) {
+            clearCharacterEnemyNavigationPlan(enemy);
+        }
         enemy.aiState = "investigate_last_seen";
         enemy.movementPhase = "investigate_last_seen";
         enemy.routeRepathTimer = 0;
@@ -2989,29 +2994,44 @@ function updateCharacterEnemyLastSeenInvestigation(state, enemy, navigation, dt)
     enemy.routeRepathTimer = Math.max(0, (Number(enemy.routeRepathTimer) || 0) - dt);
 
     if (characterEnemyReachedNavigationTarget(enemy, navigation)) {
-        enterCharacterEnemyGlare(state, enemy, {
-            focusX: enemy.lastSeenPlayerX,
-            focusY: enemy.lastSeenPlayerY
-        });
+        if (allowGlare) {
+            enterCharacterEnemyGlare(state, enemy, {
+                focusX: enemy.lastSeenPlayerX,
+                focusY: enemy.lastSeenPlayerY
+            });
+        } else {
+            enemy.movementPhase = "investigate_last_seen";
+            setCharacterEnemyAnimation(enemy, "idle");
+        }
         return;
     }
 
     if ((enemy.routeRepathTimer <= 0 || !enemy.routeTargetSupportId) && !characterEnemyHasCommittedTraversal(enemy)) {
         const plan = chooseCharacterEnemyLastSeenPlan(state, enemy, navigation);
         if (!plan) {
-            enterCharacterEnemyGlare(state, enemy, {
-                focusX: enemy.lastSeenPlayerX,
-                focusY: enemy.lastSeenPlayerY
-            });
+            if (allowGlare) {
+                enterCharacterEnemyGlare(state, enemy, {
+                    focusX: enemy.lastSeenPlayerX,
+                    focusY: enemy.lastSeenPlayerY
+                });
+            } else {
+                enemy.movementPhase = "investigate_last_seen";
+                setCharacterEnemyAnimation(enemy, "idle");
+            }
             return;
         }
         setCharacterEnemyNavigationPlan(enemy, plan);
         enemy.lastSeenRemainingDistance = plan.remainingDistance;
         if (characterEnemyReachedNavigationTarget(enemy, navigation)) {
-            enterCharacterEnemyGlare(state, enemy, {
-                focusX: enemy.lastSeenPlayerX,
-                focusY: enemy.lastSeenPlayerY
-            });
+            if (allowGlare) {
+                enterCharacterEnemyGlare(state, enemy, {
+                    focusX: enemy.lastSeenPlayerX,
+                    focusY: enemy.lastSeenPlayerY
+                });
+            } else {
+                enemy.movementPhase = "investigate_last_seen";
+                setCharacterEnemyAnimation(enemy, "idle");
+            }
             return;
         }
     }
@@ -3033,10 +3053,14 @@ function updateCharacterEnemyLastSeenInvestigation(state, enemy, navigation, dt)
     enemy.navigationFailureCount = 0;
     enemy.movementPhase = "investigate_last_seen";
     if (!enemy.airborne && characterEnemyReachedNavigationTarget(enemy, navigation)) {
-        enterCharacterEnemyGlare(state, enemy, {
-            focusX: enemy.lastSeenPlayerX,
-            focusY: enemy.lastSeenPlayerY
-        });
+        if (allowGlare) {
+            enterCharacterEnemyGlare(state, enemy, {
+                focusX: enemy.lastSeenPlayerX,
+                focusY: enemy.lastSeenPlayerY
+            });
+        } else {
+            setCharacterEnemyAnimation(enemy, "idle");
+        }
     }
 }
 
@@ -3509,8 +3533,25 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
         return;
     }
 
-    if (enemy.engaged && !hasRecentSight) {
-        updateCharacterEnemyLastSeenInvestigation(state, enemy, navigation, dt);
+    if (enemy.engaged && !seesPlayer) {
+        if (hasRecentSight && enemy.routeTargetSupportId) {
+            // Keep executing a route chosen while the target was visible. This is
+            // especially important for ranged backpedalling: turning away to create
+            // space briefly moves Ignatius outside the facing cone, but should not
+            // cancel the already committed tactical movement.
+            if (!followCharacterEnemyNavigationPlan(state, enemy, navigation, dt)) {
+                clearCharacterEnemyNavigationPlan(enemy);
+                enemy.routeRepathTimer = 0;
+            }
+            syncCharacterEnemyTarget(state, enemy);
+            return;
+        }
+        updateCharacterEnemyLastSeenInvestigation(state, enemy, navigation, dt, {
+            // Awareness hold keeps the engagement alive and delays the glare/give-up
+            // sequence. It must not make a hunter stand motionless while its last
+            // genuinely seen target has already moved onto another support.
+            allowGlare: !hasRecentSight
+        });
         syncCharacterEnemyTarget(state, enemy);
         return;
     }

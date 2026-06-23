@@ -1550,7 +1550,7 @@ The Level Editor exposes the view half-angle beside the other enemy AI fields. E
 
 ### Revision 121 forward-half-plane awareness and committed jump run-ups
 
-Monster first-notice awareness uses an authored facing cone. Revision 121 established the full ±90-degree half-plane behaviour and its boundary handling; the current enemy catalog is tuned to a narrower ±45-degree default. Targets outside the authored cone remain unnoticed even when they are within radial range. Collision geometry still does not occlude awareness, and attack trajectory checks remain separate.
+Monster first-notice awareness uses an authored facing cone. Revision 121 established the full ±90-degree half-plane behaviour and its boundary handling, after which the enemy catalog was tuned to ±45 degrees. Revision 132 widens the current authored default to ±60 degrees. Targets outside the authored cone remain unnoticed even when they are within radial range. Collision geometry still does not occlude awareness, and attack trajectory checks remain separate.
 
 Jump navigation now models the ground approach as part of each baked edge. Every non-vertical jump may carry a `runUpX`, `runUpY`, required launch speed, acceleration, and run-up distance. The graph baker rejects a jump when the source support lacks enough clear corridor to accelerate into takeoff. Runtime first moves to the run-up point, commits to the edge, accelerates through the takeoff point, and only then transfers to airborne traversal. Repathing does not interrupt this committed approach. This fixes the common failure where a hunter reached the obstacle wall, stopped, and repeatedly attempted the jump from rest.
 
@@ -1592,3 +1592,15 @@ The `level_001` pillar regression came from two coupled assumptions in the graph
 
 Browser startup now owns an explicit loading lifecycle. `game.html` paints a loading card, percentage, and progress bar before JavaScript starts. The bootstrap loads the active level first and gives its referenced atlas manifests to the renderer, eliminating the old sequential probe through twenty possible environment atlases. Wizard, enemy, animation, and atlas work is progress-reported and independent projects load concurrently; image completion waits for decoded pixels. The overlay remains until collision manifests, the level colour map, UI setup, and a first paint are ready. Level transitions reuse the same surface and call `ensureEnvironmentAtlases` before applying collision when a future level introduces a new atlas.
 
+
+### Revision 131 immediate last-seen pursuit and compact downward run-ups
+
+The apparent ledge stall was a timing interaction rather than a missing graph edge. With Ignatius below and slightly ahead, the centre-to-centre bearing can sit just outside the goblin's authored ±45-degree facing cone. Revision 130 kept the engagement alive for the authored awareness-hold duration, but while that timer ran it neither continued toward the remembered support nor selected a replacement route. Once the hold expired, the downward edge then requested a nearly full-width run-up across the narrow pillar top. The combined pause, backtrack, acceleration, and long ballistic arc looked like a hunter that had decided to live on the ledge permanently.
+
+An engaged hunter now continues a route selected while the target was visible, which preserves intentional ranged backpedalling when turning briefly puts the target behind the facing cone. When no route is active, the hunter begins last-seen routing immediately. The hold timer still prevents instant disengagement and delays the glare/give-up sequence, but no longer freezes locomotion.
+
+Downward jumps now choose a preferred run-up from the speed actually required, the authored ground acceleration, and a modest stability margin. This keeps the physically necessary run-up while avoiding a full traverse of a small platform for a low-speed exit. Upward wall-clearing jumps retain the longer run-up needed for reliable obstacle clearance. `level_001` has been rebaked and the central-pillar screenshot arrangement is covered by a deterministic simulation regression.
+
+### Revision 132 wider authored awareness cone
+
+The default monster facing cone is widened from ±45 degrees to ±60 degrees, producing a 120-degree total field of awareness. This keeps a substantial rear blind zone while making targets noticeably below or above a ledge less likely to fall just outside perception. The enemy catalog, current `level_001` placements, simulation fallback, Level Editor fallback, documentation, and regression expectations now agree on the same value. Navigation graphs are unchanged because perception angle is behavioural data rather than a mobility-profile input.

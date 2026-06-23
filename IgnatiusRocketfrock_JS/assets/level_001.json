@@ -2,7 +2,7 @@
     "meta": {
         "version": 10,
         "editor": "Ignatius Rocketfrock Level Editor",
-        "note": "Revision 121 uses a ±90 degree monster awareness cone and run-up-aware baked jump routes."
+        "note": "Revision 121 uses a \u00b190 degree monster awareness cone and run-up-aware baked jump routes."
     },
     "levelId": "level_001",
     "title": "Ignatius Rocketfrock and the Level That Was Edited On Purpose",
@@ -404,8 +404,8 @@
             "thoughtAtlasId": "it_atlas_001",
             "thoughtAssetId": "thought_bubble_large",
             "letterTitle": "A Letter from Your Humble Editor",
-            "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: “Ignatius Rocketfrock and the Introductory Cave of Training.” Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
-            "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn’t look quite like it did in the brochures, but I’m sure it will be fine."
+            "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: \u201cIgnatius Rocketfrock and the Introductory Cave of Training.\u201d Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
+            "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn\u2019t look quite like it did in the brochures, but I\u2019m sure it will be fine."
         },
         {
             "id": "enemy_002_001",
@@ -467,7 +467,7 @@
             "unreachableGlareDuration": 5,
             "routeRepathInterval": 0.3,
             "homeRetryInterval": 4,
-            "awarenessViewHalfAngle": 45
+            "awarenessViewHalfAngle": 60
         },
         {
             "id": "enemy_003_001",
@@ -529,7 +529,7 @@
             "unreachableGlareDuration": 5,
             "routeRepathInterval": 0.3,
             "homeRetryInterval": 4,
-            "awarenessViewHalfAngle": 45
+            "awarenessViewHalfAngle": 60
         },
         {
             "id": "targetDummy_002",
@@ -605,7 +605,7 @@
             "strategy": "simple_patrol",
             "runSpeed": 150,
             "jumpHeight": 0,
-            "awarenessViewHalfAngle": 45
+            "awarenessViewHalfAngle": 60
         },
         {
             "id": "wizard_exit_door_001",
@@ -669,11 +669,12 @@
     "note": "Level placements are data. Revision 097 makes the Skeleton Guard rush intruders inside its patrol area and chain rapid close-range sword attacks.",
     "navigationGraphs": {
         "version": 2,
+        "stale": false,
         "profiles": [
             {
                 "version": 2,
                 "id": "w70_h105_r200_a950_j200_g1250_f280_s26_q22.4",
-                "label": "Run 200, jump 200, body 70×105",
+                "label": "Run 200, jump 200, body 70\u00d7105",
                 "profile": {
                     "bodyWidth": 70,
                     "bodyHeight": 105,
@@ -1106,10 +1107,10 @@
                         "flightTime": 1.373088,
                         "fromObstacleId": "left_step_area_1",
                         "toObstacleId": "start_ground_area_0",
-                        "cost": 505.707,
-                        "runUpX": 781.659,
-                        "runUpY": 292.166,
-                        "runUpDistance": 115.5,
+                        "cost": 481.525,
+                        "runUpX": 712.568,
+                        "runUpY": 293.206,
+                        "runUpDistance": 46.41,
                         "requiredLaunchSpeed": 167.561,
                         "groundAcceleration": 950,
                         "blockerIds": []
@@ -1129,10 +1130,10 @@
                         "flightTime": 1.370643,
                         "fromObstacleId": "left_step_area_1",
                         "toObstacleId": "start_ground_area_0",
-                        "cost": 525.582,
-                        "runUpX": 781.659,
-                        "runUpY": 292.166,
-                        "runUpDistance": 115.5,
+                        "cost": 502.3,
+                        "runUpX": 715.138,
+                        "runUpY": 293.167,
+                        "runUpDistance": 48.979,
                         "requiredLaunchSpeed": 183.619,
                         "groundAcceleration": 950,
                         "blockerIds": []
@@ -1656,10 +1657,10 @@
                         "flightTime": 1.351699,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 336.624,
-                        "runUpX": 1596.6,
-                        "runUpY": 658.867,
-                        "runUpDistance": 85.2,
+                        "cost": 317.248,
+                        "runUpX": 1541.24,
+                        "runUpY": 658.39,
+                        "runUpDistance": 29.84,
                         "requiredLaunchSpeed": 64,
                         "groundAcceleration": 950,
                         "blockerIds": []
@@ -1679,10 +1680,10 @@
                         "flightTime": 1.351688,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 385.278,
-                        "runUpX": 1596.6,
-                        "runUpY": 658.867,
-                        "runUpDistance": 85.2,
+                        "cost": 367.918,
+                        "runUpX": 1547,
+                        "runUpY": 658.44,
+                        "runUpDistance": 35.6,
                         "requiredLaunchSpeed": 100.001,
                         "groundAcceleration": 950,
                         "blockerIds": []
@@ -1702,10 +1703,10 @@
                         "flightTime": 1.351676,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 444.744,
-                        "runUpX": 1596.6,
-                        "runUpY": 658.867,
-                        "runUpDistance": 85.2,
+                        "cost": 429.848,
+                        "runUpX": 1554.04,
+                        "runUpY": 658.5,
+                        "runUpDistance": 42.64,
                         "requiredLaunchSpeed": 144.003,
                         "groundAcceleration": 950,
                         "blockerIds": []
@@ -1725,10 +1726,10 @@
                         "flightTime": 1.351005,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 336.102,
-                        "runUpX": 1511.4,
-                        "runUpY": 658.133,
-                        "runUpDistance": 85.2,
+                        "cost": 316.726,
+                        "runUpX": 1566.76,
+                        "runUpY": 658.61,
+                        "runUpDistance": 29.84,
                         "requiredLaunchSpeed": 64,
                         "groundAcceleration": 950,
                         "blockerIds": []
@@ -1748,10 +1749,10 @@
                         "flightTime": 1.351016,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 384.746,
-                        "runUpX": 1511.4,
-                        "runUpY": 658.133,
-                        "runUpDistance": 85.2,
+                        "cost": 367.386,
+                        "runUpX": 1561,
+                        "runUpY": 658.56,
+                        "runUpDistance": 35.6,
                         "requiredLaunchSpeed": 99.999,
                         "groundAcceleration": 950,
                         "blockerIds": []
@@ -1771,10 +1772,10 @@
                         "flightTime": 1.351028,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 444.198,
-                        "runUpX": 1511.4,
-                        "runUpY": 658.133,
-                        "runUpDistance": 85.2,
+                        "cost": 429.302,
+                        "runUpX": 1553.96,
+                        "runUpY": 658.5,
+                        "runUpDistance": 42.64,
                         "requiredLaunchSpeed": 143.997,
                         "groundAcceleration": 950,
                         "blockerIds": []
@@ -1794,10 +1795,10 @@
                         "flightTime": 1.351044,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 519.866,
-                        "runUpX": 1511.4,
-                        "runUpY": 658.133,
-                        "runUpDistance": 85.2,
+                        "cost": 508.105,
+                        "runUpX": 1545.001,
+                        "runUpY": 658.422,
+                        "runUpDistance": 51.599,
                         "requiredLaunchSpeed": 199.994,
                         "groundAcceleration": 950,
                         "blockerIds": []
@@ -1922,10 +1923,10 @@
                         "flightTime": 1.315075,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 346.036,
-                        "runUpX": 3161.6,
-                        "runUpY": 685.397,
-                        "runUpDistance": 37.2,
+                        "cost": 345.724,
+                        "runUpX": 3160.708,
+                        "runUpY": 685.594,
+                        "runUpDistance": 36.308,
                         "requiredLaunchSpeed": 104.422,
                         "groundAcceleration": 950,
                         "blockerIds": []
@@ -2027,10 +2028,10 @@
                         "flightTime": 1.326946,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 446.703,
-                        "runUpX": 3240.6,
-                        "runUpY": 683.61,
-                        "runUpDistance": 48.2,
+                        "cost": 446.243,
+                        "runUpX": 3239.286,
+                        "runUpY": 683.577,
+                        "runUpDistance": 46.886,
                         "requiredLaunchSpeed": 170.537,
                         "groundAcceleration": 950,
                         "blockerIds": []
@@ -2050,10 +2051,10 @@
                         "flightTime": 1.326949,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 436.418,
-                        "runUpX": 3240.6,
-                        "runUpY": 683.61,
-                        "runUpDistance": 48.2,
+                        "cost": 435.524,
+                        "runUpX": 3238.046,
+                        "runUpY": 683.545,
+                        "runUpDistance": 45.646,
                         "requiredLaunchSpeed": 162.785,
                         "groundAcceleration": 950,
                         "blockerIds": []
@@ -2373,11 +2374,10 @@
                 "build": {
                     "method": "ballistic_graph_with_run_up",
                     "samplesPerSecond": 60,
-                    "generatedBy": "Ignatius Rocketfrock Level Editor"
+                    "generatedBy": "Ignatius Rocketfrock Level Editor revision 131"
                 }
             }
-        ],
-        "stale": false
+        ]
     },
     "navigationBlockers": []
 }

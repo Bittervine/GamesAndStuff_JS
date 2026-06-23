@@ -920,7 +920,13 @@ function attachJumpRunUp(edge, from, options = {}) {
     const requiredSpeed = Math.abs(edge.vx);
     const accelerationDistance = requiredSpeed * requiredSpeed / (2 * acceleration);
     const minimumDistance = accelerationDistance + Math.max(4, bodyWidth * 0.18);
-    const preferredDistance = Math.max(minimumDistance, bodyWidth * 1.65);
+    const downwardJump = edge.landingY > edge.launchY + EPSILON;
+    const preferredDistance = downwardJump
+        ? Math.max(
+            minimumDistance,
+            Math.min(bodyWidth * 0.9, bodyWidth * 0.28 + requiredSpeed * 0.16)
+        )
+        : Math.max(minimumDistance, bodyWidth * 1.65);
     const safeMin = from.xMin + Math.min(inset, Math.max(0, (from.xMax - from.xMin) * 0.45));
     const safeMax = from.xMax - Math.min(inset, Math.max(0, (from.xMax - from.xMin) * 0.45));
     const availableDistance = direction > 0

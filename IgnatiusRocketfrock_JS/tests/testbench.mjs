@@ -435,9 +435,10 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(catalog.enemies.enemy_003.defaults.runSpeed, 200, "Musket Goblin should default to the authored 200 px/s run speed");
     assert.equal(catalog.enemies.enemy_002.defaults.jumpHeight, 200, "Fireball Goblin should default to the playtested 200 px jump height");
     assert.equal(catalog.enemies.enemy_003.defaults.jumpHeight, 200, "Musket Goblin should default to the playtested 200 px jump height");
-    assert.equal(skeleton.defaults.awarenessViewHalfAngle, 45, "Skeleton Guard should default to the authored ±45 degree awareness cone");
-    assert.equal(catalog.enemies.enemy_002.defaults.awarenessViewHalfAngle, 45, "Fireball Goblin should default to the authored ±45 degree awareness cone");
-    assert.equal(catalog.enemies.enemy_003.defaults.awarenessViewHalfAngle, 45, "Musket Goblin should default to the authored ±45 degree awareness cone");
+    assert.equal(skeleton.defaults.awarenessViewHalfAngle, 60, "Skeleton Guard should default to the authored ±60 degree awareness cone");
+    assert.equal(catalog.enemies.enemy_002.defaults.awarenessViewHalfAngle, 60, "Fireball Goblin should default to the authored ±60 degree awareness cone");
+    assert.equal(catalog.enemies.enemy_003.defaults.awarenessViewHalfAngle, 60, "Musket Goblin should default to the authored ±60 degree awareness cone");
+    assert.equal(DEFAULT_TUNING.enemyDefaultAwarenessViewHalfAngle, 60, "simulation fallback should match the authored ±60 degree awareness cone");
     assert.ok(skeleton.defaults.patrolDistance > 0, "Skeleton Guard should have a visible default patrol span");
     assert.ok(skeleton.defaults.attackDamage > 0, "Skeleton Guard should have authored melee damage");
     assert.ok(skeleton.defaults.attackRange > 0, "Skeleton Guard should have authored melee reach");
@@ -449,7 +450,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     for (const goblin of levelOne.entities.filter((entity) => entity.characterId === "ct_char_enemy_002" || entity.characterId === "ct_char_enemy_003")) {
         assert.equal(goblin.runSpeed, 200, `${goblin.id} should use the baked 200 px/s run profile`);
         assert.equal(goblin.jumpHeight, 200, `${goblin.id} should use the baked 200 px jump profile`);
-        assert.equal(goblin.awarenessViewHalfAngle, 45, `${goblin.id} should use the authored ±45 degree awareness cone`);
+        assert.equal(goblin.awarenessViewHalfAngle, 60, `${goblin.id} should use the authored ±60 degree awareness cone`);
     }
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
@@ -464,6 +465,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(editorHtml.includes('id="inspect-enemy-chase-speed"'), "level editor should expose alerted chase speed");
     assert.ok(editorHtml.includes('id="inspect-enemy-awareness-range"'), "level editor should expose enemy awareness range");
     assert.ok(editorHtml.includes('id="inspect-enemy-view-half-angle"'), "level editor should expose enemy awareness view half-angle");
+    assert.ok(editorHtml.includes("finiteEditorNumber(rec.awarenessViewHalfAngle, 60)"), "level editor should default missing awareness cones to the authored ±60 degree value");
     assert.ok(editorHtml.includes('id="inspect-enemy-strategy"'), "level editor should expose AI strategy selection");
     assert.ok(editorHtml.includes('id="inspect-enemy-jump-height"'), "level editor should expose maximum jump height");
     assert.ok(editorHtml.includes('id="inspect-enemy-glare-duration"'), "level editor should expose unreachable glare duration");
@@ -839,6 +841,68 @@ function testHunterCrossesLevelOneCentralPillarAndJumpsDown() {
     assert.equal(launchedDownward, true, "the hunter should deliberately jump down from the pillar top");
     assert.equal(landedOnLeftFloor, true, "the hunter should complete the route onto the lower floor");
     assert.equal(enemy.navigationFailureCount, 0, "safe alternate landings should not be counted as navigation failures");
+}
+
+function testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer() {
+    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_002_001");
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the ledge-exit awareness regression test");
+    const manifests = new Map();
+    for (const ref of level.atlasRefs || []) {
+        const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
+        manifests.set(ref.atlasId, { manifest: JSON.parse(readFileSync(path, "utf8")) });
+    }
+    assert.equal(applyAtlasManifestsToWorld(state, manifests), true, "level collision should apply for the ledge-exit awareness regression test");
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 1700;
+    state.player.y = 844.35;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+
+    const enemy = state.enemies.find((item) => item.id === "enemy_002_001");
+    assert.ok(enemy, "level_001 should instantiate the fireball goblin used by the ledge-exit regression test");
+    enemy.x = 1550;
+    enemy.y = 658.5;
+    enemy.homeX = 1550;
+    enemy.homeY = 658.5;
+    enemy.currentSupportId = "object_036_001_blockable_1";
+    enemy.homeSupportId = "object_036_001_blockable_1";
+    enemy.facing = 1;
+    enemy.awarenessRange = 2000;
+    enemy.awarenessVerticalRange = 1000;
+    enemy.awarenessViewHalfAngle = 45;
+    enemy.awarenessTimer = 1.5;
+    enemy.lastSeenPlayerX = state.player.x;
+    enemy.lastSeenPlayerY = state.player.y;
+    enemy.lastSeenSupportId = "floor_cold_platform_001_blockable_2_nav_2";
+    enemy.engaged = true;
+    enemy.alerted = true;
+    enemy.aiState = "pursue";
+    enemy.routeRepathTimer = 0;
+
+    const startX = enemy.x;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    const firstEdge = enemy.route?.[enemy.routeIndex];
+    assert.equal(enemy.aiState, "investigate_last_seen", "losing the narrow facing cone should begin last-seen pursuit immediately instead of idling through the awareness hold");
+    assert.equal(enemy.routePurpose, "last_seen", "the immediate pursuit should use the genuinely remembered player position");
+    assert.equal(firstEdge?.to, "floor_cold_platform_001_blockable_2_nav_2", "the remembered lower-floor position should produce an exit route from the pillar");
+    assert.ok(enemy.x > startX, "the short downward-jump run-up should move toward the nearby right edge instead of backing across the whole ledge");
+
+    let launchFrame = null;
+    for (let frame = 1; frame < 90; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        if (enemy.airborne) {
+            launchFrame = frame;
+            break;
+        }
+    }
+    assert.ok(launchFrame !== null, "the hunter should commit to leaving the ledge");
+    assert.ok(launchFrame < 60, `the ledge exit should launch promptly rather than looking stuck, launched on frame ${launchFrame}`);
 }
 
 function testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping() {
@@ -4363,6 +4427,7 @@ const tests = [
     ["hunter ranged attack-position selection", testHunterRangedAttackPositionSelection],
     ["level_001 baked hunter navigation graphs", testLevelOneUsesBakedHunterNavigationGraphs],
     ["hunter crosses and descends level_001 central pillar", testHunterCrossesLevelOneCentralPillarAndJumpsDown],
+    ["engaged hunter immediately leaves pillar for last seen player", testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer],
     ["hunter climbs level_001 pillar from the left", testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping],
     ["hunter jumps onto level_001 arch", testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump],
     ["hunter obstacle-clear jump run-up", testHunterJumpUsesObstacleClearRunUp],

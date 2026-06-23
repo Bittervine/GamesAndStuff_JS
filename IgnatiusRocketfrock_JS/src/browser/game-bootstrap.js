@@ -42,7 +42,7 @@ const loadingTrack = document.getElementById("loading-track");
 const loadingBarFill = document.getElementById("loading-bar-fill");
 const loadingDetail = document.getElementById("loading-detail");
 
-const GAME_REVISION = "130";
+const GAME_REVISION = "131";
 
 let displayedLoadingProgress = 0;
 let gameState = createInitialGameState();

@@ -1070,3 +1070,21 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Load newly referenced atlases during level transitions before applying collision.
 - [x] Keep startup failure messages visible above or instead of the loading surface.
 
+
+## Revision 131 immediate ledge exit after cone loss
+
+- [x] Continue any active tactical route while an engaged hunter is briefly outside its facing cone.
+- [x] Begin last-seen routing immediately when no active route exists instead of idling for the awareness-hold duration.
+- [x] Keep the awareness hold as a delay before glare/give-up rather than a delay before movement.
+- [x] Size downward-jump run-ups from required acceleration distance plus a modest stability margin.
+- [x] Retain the longer body-width run-up for upward obstacle-clearing jumps.
+- [x] Rebuild `level_001` navigation with the shorter ledge-exit run-ups.
+- [x] Add a full-simulation regression for the screenshot scenario: wizard below-right, goblin on the central pillar, and the target just outside the ±45° cone.
+
+## Revision 132 wider authored awareness cone
+
+- [x] Increase the enemy-catalog awareness half-angle from 45 to 60 degrees.
+- [x] Update current `level_001` enemy placements to use the 60-degree half-angle.
+- [x] Align simulation and Level Editor fallback values with the authored default.
+- [x] Preserve configurable narrower and wider cones for individual enemies and tests.
+- [x] Update architecture notes and regression expectations.

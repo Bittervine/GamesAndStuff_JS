@@ -49,7 +49,7 @@
                 "runSpeed": 150,
                 "jumpHeight": 0,
                 "unreachableGlareDuration": 5,
-                "awarenessViewHalfAngle": 45
+                "awarenessViewHalfAngle": 60
             }
         },
         "enemy_002": {
@@ -113,7 +113,7 @@
                 "unreachableGlareDuration": 5,
                 "routeRepathInterval": 0.3,
                 "homeRetryInterval": 4,
-                "awarenessViewHalfAngle": 45
+                "awarenessViewHalfAngle": 60
             }
         },
         "enemy_003": {
@@ -177,7 +177,7 @@
                 "unreachableGlareDuration": 5,
                 "routeRepathInterval": 0.3,
                 "homeRetryInterval": 4,
-                "awarenessViewHalfAngle": 45
+                "awarenessViewHalfAngle": 60
             }
         }
     }
