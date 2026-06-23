@@ -1,13 +1,13 @@
 {
     "meta": {
-        "version": 9,
-        "note": "Revision 121 widens monster awareness to a \u00b190 degree forward half-plane and retains terrain-independent detection."
+        "version": 10,
+        "note": "Revision 134 preserves controlled walk-off drops and makes grounded monster body-clearance probes slope-aware so hunters can traverse connected downhill blockable surfaces."
     },
     "catalogId": "ct_enemies_001",
     "enemies": {
         "enemy_001": {
             "label": "Skeleton Guard",
-            "icon": "\u2620",
+            "icon": "☠",
             "characterId": "ct_char_enemy_001",
             "defaultSize": {
                 "w": 72,
@@ -54,7 +54,7 @@
         },
         "enemy_002": {
             "label": "Fireball Goblin",
-            "icon": "\ud83d\udd25",
+            "icon": "🔥",
             "characterId": "ct_char_enemy_002",
             "defaultSize": {
                 "w": 70,
@@ -109,7 +109,7 @@
                 "runSpeed": 200,
                 "jumpHeight": 200,
                 "jumpGravity": 1250,
-                "maxFallDistance": 280,
+                "maxFallDistance": 600,
                 "unreachableGlareDuration": 5,
                 "routeRepathInterval": 0.3,
                 "homeRetryInterval": 4,
@@ -118,7 +118,7 @@
         },
         "enemy_003": {
             "label": "Musket Goblin",
-            "icon": "\ud83d\udd2b",
+            "icon": "🔫",
             "characterId": "ct_char_enemy_003",
             "defaultSize": {
                 "w": 70,
@@ -173,7 +173,7 @@
                 "runSpeed": 200,
                 "jumpHeight": 200,
                 "jumpGravity": 1250,
-                "maxFallDistance": 280,
+                "maxFallDistance": 600,
                 "unreachableGlareDuration": 5,
                 "routeRepathInterval": 0.3,
                 "homeRetryInterval": 4,

@@ -749,10 +749,11 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
         assert.equal(graph.profile.runSpeed, 200, "the baked hunter profile should match the authored run speed");
         assert.equal(graph.profile.bodyWidth, 70, "the baked hunter profile should match the authored body width");
         assert.equal(graph.profile.bodyHeight, 105, "the baked hunter profile should match the authored body height");
+        assert.equal(graph.profile.maxFallDistance, 600, "the baked hunter profile should permit the authored long ledge descent");
         assert.ok(graph.edges.some((edge) => edge.type === "jump"), "the baked graph should retain jump transitions");
         assert.ok(
-            graph.edges.some((edge) => edge.type === "jump" && edge.landingY > edge.launchY + 80),
-            "the baked graph should retain deliberate downward jump transitions"
+            graph.edges.some((edge) => edge.type === "drop" && edge.walkOff === true),
+            "the baked graph should retain deliberate walk-off drops"
         );
     }
 
@@ -769,8 +770,11 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
     );
     assert.ok(pillarRoute, "the baked graph should route a hunter across and down from the central pillar");
     assert.ok(
-        pillarRoute.edges.some((edge) => edge.type === "jump" && edge.landingY > edge.launchY + 80),
-        "the central-pillar route should include a downward jump rather than strand the hunter on top"
+        pillarRoute.edges.some((edge) => (
+            edge.type === "drop" ||
+            (edge.type === "jump" && edge.landingY > edge.launchY + 80)
+        )),
+        "the central-pillar route should include a deliberate descent rather than strand the hunter on top"
     );
     assert.ok(
         pillarRoute.edges[0].takeoffClearance >= graph.profile.bodyWidth * 0.54,
@@ -904,6 +908,66 @@ function testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer() {
     assert.ok(launchFrame !== null, "the hunter should commit to leaving the ledge");
     assert.ok(launchFrame < 60, `the ledge exit should launch promptly rather than looking stuck, launched on frame ${launchFrame}`);
 }
+
+function testHunterWalksOffLevelOneLeftLedge() {
+    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_002_001");
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the long ledge walk-off regression test");
+    const manifests = new Map();
+    for (const ref of level.atlasRefs || []) {
+        const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
+        manifests.set(ref.atlasId, { manifest: JSON.parse(readFileSync(path, "utf8")) });
+    }
+    assert.equal(applyAtlasManifestsToWorld(state, manifests), true, "level collision should apply for the long ledge walk-off regression test");
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 1700;
+    state.player.y = 844.33;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+
+    const enemy = state.enemies.find((item) => item.id === "enemy_002_001");
+    assert.ok(enemy, "level_001 should instantiate the fireball goblin used by the long ledge regression test");
+    enemy.x = 970;
+    enemy.y = 289.33;
+    enemy.spawnX = 970;
+    enemy.spawnY = 289.33;
+    enemy.homeSupportId = "left_step_blockable_1";
+    enemy.currentSupportId = "left_step_blockable_1";
+    enemy.facing = 1;
+    enemy.awarenessRange = 2000;
+    enemy.awarenessVerticalRange = 1000;
+    enemy.engaged = true;
+    enemy.alerted = true;
+    enemy.aiState = "pursue";
+    enemy.routeRepathTimer = 0;
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    const firstEdge = enemy.route?.[enemy.routeIndex];
+    assert.notEqual(enemy.aiState, "unreachable_glare", "the visible lower target should not be classified as unreachable from the ledge");
+    assert.equal(firstEdge?.type, "drop", "the hunter should choose a gravity-only drop instead of jumping from the ledge");
+    assert.equal(firstEdge?.walkOff, true, "the descent should be marked as a controlled walk-off");
+    assert.equal(firstEdge?.direction, "right", "the hunter should leave from the edge facing the wizard");
+    assert.equal(firstEdge?.to, "floor_cold_platform_001_blockable_2_nav_1", "the walk-off should land on the verified floor below");
+    assert.equal(firstEdge?.vy, 0, "walking off should not add an upward jump impulse");
+
+    let sawDrop = false;
+    let landed = false;
+    for (let frame = 1; frame < 120; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        sawDrop ||= enemy.airborne && enemy.aiState === "drop";
+        landed ||= sawDrop && !enemy.airborne && enemy.currentSupportId === "floor_cold_platform_001_blockable_2_nav_1";
+        if (landed) break;
+    }
+    assert.equal(sawDrop, true, "the hunter should actually step off the ledge");
+    assert.equal(landed, true, "the hunter should land on the lower floor and continue pursuit");
+    assert.equal(enemy.navigationFailureCount, 0, "the controlled walk-off should not count as a navigation failure");
+}
+
 
 function testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
@@ -1455,6 +1519,72 @@ function testHunterWalkOffDropClearsSourcePillar() {
     assert.equal(landed, true, "hunter should clear the source pillar and land on the offset floor");
     assert.ok(enemy.x < 170, "hunter should finish the drop on the lower floor rather than re-landing on the pillar");
 }
+
+function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
+    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_003_001");
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the sloped blockable arch regression test");
+    const manifests = new Map();
+    for (const ref of level.atlasRefs || []) {
+        const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
+        manifests.set(ref.atlasId, { manifest: JSON.parse(readFileSync(path, "utf8")) });
+    }
+    assert.equal(applyAtlasManifestsToWorld(state, manifests), true, "level collision should apply for the sloped blockable arch regression test");
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 3900;
+    state.player.y = 844.8;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+
+    const enemy = state.enemies.find((item) => item.id === "enemy_003_001");
+    assert.ok(enemy, "level_001 should instantiate the musket goblin used by the sloped arch regression test");
+    enemy.x = 3330;
+    enemy.y = 706.462;
+    enemy.spawnX = enemy.x;
+    enemy.spawnY = enemy.y;
+    enemy.homeSupportId = null;
+    enemy.currentSupportId = null;
+    enemy.facing = 1;
+    enemy.awarenessRange = 2000;
+    enemy.awarenessVerticalRange = 1000;
+    enemy.engaged = true;
+    enemy.alerted = true;
+    enemy.aiState = "pursue";
+    enemy.routeRepathTimer = 0;
+    enemy.attackCooldownTimer = 0;
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(enemy.currentSupportId, "arch_ruin_001_blockable_5", "the goblin should identify the downward-sloping arch support under its feet");
+    assert.equal(enemy.route?.[0]?.type, "step", "the route should traverse the connected sloped support before the ledge drop");
+    assert.equal(enemy.route?.[0]?.to, "arch_ruin_001_blockable_6", "the first edge should continue down the same blockable polygon");
+    assert.equal(enemy.route?.[1]?.type, "drop", "the next edge should be a gravity-only ledge exit");
+    assert.equal(enemy.route?.[1]?.walkOff, true, "the arch exit should retain the preferred walk-off behavior");
+
+    let crossedSteepSlope = false;
+    let sawDrop = false;
+    let landed = false;
+    for (let frame = 1; frame < 180; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        crossedSteepSlope ||= !enemy.airborne && enemy.currentSupportId === "arch_ruin_001_blockable_6" && enemy.x > 3378;
+        sawDrop ||= enemy.airborne && enemy.aiState === "drop";
+        landed ||= sawDrop && !enemy.airborne && enemy.currentSupportId === "floor_cold_platform_001_blockable_2_nav_3";
+        if (landed || enemy.aiState === "unreachable_glare") {
+            break;
+        }
+    }
+
+    assert.equal(crossedSteepSlope, true, "the upright body probe should not mistake the downhill support under the goblin for a wall");
+    assert.equal(sawDrop, true, "the goblin should walk off the right edge of the sloped arch");
+    assert.equal(landed, true, "the goblin should land on the broad floor to the right of the arch");
+    assert.notEqual(enemy.aiState, "unreachable_glare", "the connected sloped blockable polygon must not be classified as unreachable");
+    assert.equal(enemy.navigationFailureCount, 0, "crossing the sloped polygon and dropping should not accumulate navigation failures");
+}
+
 
 function testHunterAwarenessIsConsistentBehindOccluder() {
     const state = createInitialGameState();
@@ -4428,12 +4558,14 @@ const tests = [
     ["level_001 baked hunter navigation graphs", testLevelOneUsesBakedHunterNavigationGraphs],
     ["hunter crosses and descends level_001 central pillar", testHunterCrossesLevelOneCentralPillarAndJumpsDown],
     ["engaged hunter immediately leaves pillar for last seen player", testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer],
+    ["hunter walks off level_001 left ledge", testHunterWalksOffLevelOneLeftLedge],
     ["hunter climbs level_001 pillar from the left", testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping],
     ["hunter jumps onto level_001 arch", testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump],
     ["hunter obstacle-clear jump run-up", testHunterJumpUsesObstacleClearRunUp],
     ["hunter reverse jump backs away for run-up", testHunterJumpBacksAwayForReverseRunUp],
     ["hunter drop uses ordinary collision geometry", testHunterDropLandsOnOrdinaryCollisionGeometry],
     ["hunter walk-off drop clears source pillar", testHunterWalkOffDropClearsSourcePillar],
+    ["hunter crosses sloped blockable arch and drops", testHunterWalksAcrossSlopedBlockableArchAndDrops],
     ["hunter awareness is consistent behind occluders", testHunterAwarenessIsConsistentBehindOccluder],
     ["monster awareness uses distance and facing cone", testMonsterAwarenessUsesDistanceAndFacingCone],
     ["hunter investigates last seen position before glare", testHunterInvestigatesClosestReachableLastSeenPositionBeforeGlare],

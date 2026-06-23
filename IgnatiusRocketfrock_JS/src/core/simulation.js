@@ -3,6 +3,7 @@ import { characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../shared/
 import { normalizeLevelColorMap } from "../presentation/level-color-map.js";
 import {
     buildEnemyNavigationEdges,
+    ENEMY_DROP_SOURCE_CLEARANCE_HEIGHT_FACTOR,
     buildEnemyNavigationSupports,
     enemyNavigationEdgeMapFromFlat,
     enemyNavigationSupportsSignature,
@@ -1627,6 +1628,9 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             routeTraversalPhase: null,
             routeTraversalEdgeIndex: -1,
             airTimer: 0,
+            airTraversalType: null,
+            airSourceSupportId: null,
+            airSourceObstacleId: null,
             airTargetSupportId: null,
             walkSpeed: Math.max(0, finiteNumberOr(entity.walkSpeed, 56)),
             chaseSpeed: Math.max(0, finiteNumberOr(entity.runSpeed, finiteNumberOr(entity.chaseSpeed, state.tuning.enemyDefaultChaseSpeed))),
@@ -1970,7 +1974,7 @@ function snapCharacterEnemiesToNearbyGround(state) {
 function findCharacterEnemyGroundSupport(state, x, referenceY, maxStepUp, maxDrop, width = 1) {
     const samples = [x, x - Math.max(0, width) * 0.24, x + Math.max(0, width) * 0.24];
     let best = null;
-    const consider = (y, id, kind, sampleIndex) => {
+    const consider = (y, id, kind, sampleIndex, slope = 0) => {
         if (!Number.isFinite(y)) {
             return;
         }
@@ -1980,7 +1984,7 @@ function findCharacterEnemyGroundSupport(state, x, referenceY, maxStepUp, maxDro
         }
         const score = sampleIndex * 100000 + Math.abs(delta);
         if (!best || score < best.score) {
-            best = { y, delta, id, kind, score };
+            best = { y, delta, id, kind, slope: finiteNumberOr(slope, 0), score };
         }
     };
 
@@ -1991,10 +1995,14 @@ function findCharacterEnemyGroundSupport(state, x, referenceY, maxStepUp, maxDro
         if (Math.abs(Number(segment.x2) - Number(segment.x1)) < 0.001) {
             continue;
         }
+        const dx = Number(segment.x2) - Number(segment.x1);
+        const slope = Math.abs(dx) > 0.001
+            ? (Number(segment.y2) - Number(segment.y1)) / dx
+            : 0;
         for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
             const y = segmentYAtX(segment, samples[sampleIndex]);
             if (y !== null) {
-                consider(y, segment.id || "segment", segment.kind, sampleIndex);
+                consider(y, segment.id || "segment", segment.kind, sampleIndex, slope);
             }
         }
     }
@@ -2005,7 +2013,7 @@ function findCharacterEnemyGroundSupport(state, x, referenceY, maxStepUp, maxDro
             if (sampleX < solid.x - 0.001 || sampleX > solid.x + solid.w + 0.001) {
                 continue;
             }
-            consider(solid.y, solid.id || "solid", solid.kind || "solid", sampleIndex);
+            consider(solid.y, solid.id || "solid", solid.kind || "solid", sampleIndex, 0);
         }
     }
 
@@ -2037,7 +2045,16 @@ function syncCharacterEnemyTarget(state, enemy) {
 
 function characterEnemyBodyBlockedAt(state, enemy, x, groundY, options = {}) {
     const bodyWidth = Math.max(8, enemy.width * 0.58);
-    const footClearance = Math.max(8, Math.min(18, enemy.height * 0.12));
+    const baseFootClearance = Math.max(8, Math.min(18, enemy.height * 0.12));
+    // Ground movement represents the actor by an upright body rectangle while its
+    // feet follow a sloped support. On a sufficiently steep downhill segment, the
+    // uphill half of that same support can otherwise intrude into the probe and be
+    // mistaken for a wall. Raise only the occupancy probe's lower edge by the
+    // terrain rise across half the probe width; the actor position and shared swept
+    // airborne collision geometry remain unchanged.
+    const groundSlope = Math.abs(finiteNumberOr(options.groundSlope, 0));
+    const slopeClearance = Math.min(enemy.height * 0.35, bodyWidth * 0.5 * groundSlope);
+    const footClearance = baseFootClearance + slopeClearance;
     const headClearance = Math.max(2, Math.min(10, enemy.height * 0.04));
     const rect = {
         x: x - bodyWidth * 0.5,
@@ -2419,7 +2436,7 @@ function moveCharacterEnemyToward(state, enemy, targetX, speed, dt, stopDistance
         enemy.maxDropDistance,
         enemy.width
     );
-    if (!support || characterEnemyBodyBlockedAt(state, enemy, candidateX, support.y)) {
+    if (!support || characterEnemyBodyBlockedAt(state, enemy, candidateX, support.y, { groundSlope: support.slope })) {
         return 0;
     }
 
@@ -2583,6 +2600,13 @@ function characterEnemyAttackBlockedFromPoint(state, enemy, originX, originY) {
         }
     }
     return false;
+}
+
+function characterEnemySupportSlope(support) {
+    const dx = Number(support?.x2) - Number(support?.x1);
+    return Math.abs(dx) > 0.001
+        ? (Number(support?.y2) - Number(support?.y1)) / dx
+        : 0;
 }
 
 function characterEnemyNavigationOptions(enemy, state = null) {
@@ -2787,7 +2811,7 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
         let best = null;
         for (const candidateX of characterEnemyAttackCandidateXs(enemy, support, player.x, preferredRange)) {
             const point = supportPoint(support, candidateX, Math.max(4, enemy.width * 0.35));
-            if (characterEnemyBodyBlockedAt(state, enemy, point.x, point.y)) {
+            if (characterEnemyBodyBlockedAt(state, enemy, point.x, point.y, { groundSlope: characterEnemySupportSlope(support) })) {
                 continue;
             }
             if (!characterEnemyCanAttackFromPoint(state, enemy, point)) {
@@ -2918,7 +2942,7 @@ function chooseCharacterEnemyLastSeenPlan(state, enemy, navigation) {
 
     for (const support of navigation.supports) {
         const point = supportPoint(support, targetX, inset);
-        if (characterEnemyBodyBlockedAt(state, enemy, point.x, point.y)) {
+        if (characterEnemyBodyBlockedAt(state, enemy, point.x, point.y, { groundSlope: characterEnemySupportSlope(support) })) {
             continue;
         }
         const route = characterEnemyRoute(
@@ -3095,6 +3119,7 @@ function beginCharacterEnemyAirTraversal(enemy, edge) {
     enemy.groundVelocityX = 0;
     enemy.airborne = true;
     enemy.airTimer = 0;
+    enemy.airTraversalType = edge.type || null;
     enemy.airSourceSupportId = edge.from || enemy.currentSupportId || null;
     enemy.airSourceObstacleId = edge.fromObstacleId || null;
     enemy.airTargetSupportId = edge.to;
@@ -3119,27 +3144,81 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
     enemy.velocityY = (Number(enemy.velocityY) || 0) + Math.max(1, Number(enemy.jumpGravity) || 1) * dt;
 
     const previousX = enemy.x;
+    const previousY = enemy.y;
     const nextX = previousX + (Number(enemy.velocityX) || 0) * dt;
-    const horizontalCollision = findActorHorizontalSweepCollision(state, enemy, previousX, nextX);
+    const nextY = previousY + (Number(enemy.velocityY) || 0) * dt;
+    const sourceSupport = navigationSupportById(supports, enemy.airSourceSupportId);
+    const sourceIgnoreIds = [enemy.airSourceSupportId, enemy.airSourceObstacleId].filter(Boolean);
+    const sourcePolygon = state.world?.collisionPolygons?.find((polygon) => polygon.id === enemy.airSourceObstacleId) || null;
+    if (sourcePolygon) {
+        const lineIds = new Set((sourcePolygon.lineIds || []).map((id) => String(id)));
+        for (const segment of state.world?.segments || []) {
+            if (
+                segment.visualId === sourcePolygon.visualId &&
+                (!lineIds.size || lineIds.has(String(segment.lineId || "")))
+            ) {
+                sourceIgnoreIds.push(segment.id);
+            }
+        }
+    }
+    const dropDepartureIgnoresSourceAt = (x, y) => {
+        if (enemy.airTraversalType !== "drop" || !sourceSupport) {
+            return false;
+        }
+        const sourcePoint = supportPoint(sourceSupport, clamp(x, sourceSupport.xMin, sourceSupport.xMax), 0);
+        const departureDrop = Math.max(
+            6,
+            Math.min(
+                enemy.height * ENEMY_DROP_SOURCE_CLEARANCE_HEIGHT_FACTOR,
+                enemy.width * 0.8
+            )
+        );
+        if (Math.abs(Number(enemy.velocityX) || 0) <= 0.001) {
+            // A straight gravity drop through a one-way walkable support has no
+            // horizontal edge to clear. Ignore only that source support until
+            // the body has fallen decisively below it, then ordinary collision
+            // resumes for the destination and all other geometry.
+            return y <= sourcePoint.y + departureDrop + 0.5 && enemy.airTimer <= 1;
+        }
+        const direction = enemy.velocityX < 0 ? -1 : 1;
+        const obstacleEdge = direction < 0
+            ? (Number.isFinite(sourceSupport.obstacleXMin) ? sourceSupport.obstacleXMin : sourceSupport.xMin)
+            : (Number.isFinite(sourceSupport.obstacleXMax) ? sourceSupport.obstacleXMax : sourceSupport.xMax);
+        const clearCenterX = obstacleEdge + direction * (enemy.width * 0.5 + 2);
+        const clearedHorizontally = direction < 0 ? x <= clearCenterX : x >= clearCenterX;
+        return !clearedHorizontally && y <= sourcePoint.y + departureDrop + 0.5 && enemy.airTimer <= 1;
+    };
+
+    const horizontalIgnoreIds = dropDepartureIgnoresSourceAt(nextX, previousY)
+        ? sourceIgnoreIds
+        : [];
+    const horizontalCollision = findActorHorizontalSweepCollision(
+        state,
+        enemy,
+        previousX,
+        nextX,
+        { ignoreIds: horizontalIgnoreIds }
+    );
     enemy.x = horizontalCollision ? horizontalCollision.x : nextX;
     if (horizontalCollision) {
         enemy.velocityX = 0;
     }
 
-    const previousY = enemy.y;
-    const nextY = previousY + (Number(enemy.velocityY) || 0) * dt;
-    const sourceSupport = navigationSupportById(supports, enemy.airSourceSupportId);
-    let departingSource = false;
-    if (sourceSupport) {
+    let departingSource = dropDepartureIgnoresSourceAt(enemy.x, nextY);
+    if (!departingSource && enemy.airTraversalType !== "drop" && sourceSupport) {
         const sourcePoint = supportPoint(sourceSupport, clamp(enemy.x, sourceSupport.xMin, sourceSupport.xMax), 0);
         const departedHorizontally = enemy.x < sourceSupport.xMin - enemy.width * 0.5 || enemy.x > sourceSupport.xMax + enemy.width * 0.5;
         const departedVertically = nextY > sourcePoint.y + Math.max(4, enemy.height * 0.08);
         departingSource = !departedHorizontally && !departedVertically && enemy.airTimer <= 1;
     }
-    const ignoreIds = departingSource
-        ? [enemy.airSourceSupportId, enemy.airSourceObstacleId].filter(Boolean)
-        : [];
-    const verticalCollision = findActorVerticalSweepCollision(state, enemy, previousY, nextY, { ignoreIds });
+    const verticalIgnoreIds = departingSource ? sourceIgnoreIds : [];
+    const verticalCollision = findActorVerticalSweepCollision(
+        state,
+        enemy,
+        previousY,
+        nextY,
+        { ignoreIds: verticalIgnoreIds }
+    );
     enemy.y = verticalCollision ? verticalCollision.y : nextY;
 
     if (verticalCollision?.ceiling) {
@@ -3149,6 +3228,7 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
         enemy.velocityY = 0;
         enemy.airborne = false;
         enemy.airTimer = 0;
+        enemy.airTraversalType = null;
         const intendedSupportId = enemy.airTargetSupportId;
         const landedSupport = findEnemyNavigationSupport(supports, enemy.x, enemy.y, {
             maxRise: 5,
@@ -3213,6 +3293,7 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
         enemy.airborne = false;
         enemy.velocityX = 0;
         enemy.velocityY = 0;
+        enemy.airTraversalType = null;
         enemy.airSourceSupportId = null;
         enemy.airSourceObstacleId = null;
         enemy.airTargetSupportId = null;
@@ -3331,7 +3412,10 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
             return true;
         }
         if (edge.type === "step") {
-            if (characterEnemyBodyBlockedAt(state, enemy, edge.landingX, edge.landingY)) {
+            const landingSupport = navigationSupportById(navigation.supports, edge.to);
+            if (characterEnemyBodyBlockedAt(state, enemy, edge.landingX, edge.landingY, {
+                groundSlope: characterEnemySupportSlope(landingSupport)
+            })) {
                 return false;
             }
             enemy.x = edge.landingX;
@@ -3441,7 +3525,7 @@ function updateCharacterEnemyPatrolRange(state, enemy, dt, minX, maxX, phase = "
         enemy.maxDropDistance,
         enemy.width
     );
-    if (!support || characterEnemyBodyBlockedAt(state, enemy, candidateX, support.y)) {
+    if (!support || characterEnemyBodyBlockedAt(state, enemy, candidateX, support.y, { groundSlope: support.slope })) {
         pauseAndTurnCharacterEnemy(enemy);
         return;
     }
@@ -3879,7 +3963,7 @@ function updateCharacterEnemies(state, dt) {
             enemy.maxDropDistance,
             enemy.width
         );
-        if (!support || characterEnemyBodyBlockedAt(state, enemy, candidateX, support.y)) {
+        if (!support || characterEnemyBodyBlockedAt(state, enemy, candidateX, support.y, { groundSlope: support.slope })) {
             pauseAndTurnCharacterEnemy(enemy);
             syncCharacterEnemyTarget(state, enemy);
             continue;

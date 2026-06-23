@@ -1088,3 +1088,24 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Align simulation and Level Editor fallback values with the authored default.
 - [x] Preserve configurable narrower and wider cones for individual enemies and tests.
 - [x] Update architecture notes and regression expectations.
+
+## Revision 133 controlled ledge walk-offs
+
+- [x] Generate controlled drops from either physical edge when a broad lower floor overlaps the source ledge horizontally.
+- [x] Require a stable full-body landing interval beyond the source obstacle wall.
+- [x] Mark ordinary ledge exits as gravity-driven `walkOff` transitions with zero initial vertical velocity.
+- [x] Ignore only the complete source polygon/segment set during a bounded departure window, then restore ordinary swept collision.
+- [x] Preserve straight drops through one-way walkable supports without allowing them to reland immediately on their source.
+- [x] Raise the current goblin fall capability to 600 pixels and rebake `level_001` for the new mobility profile.
+- [x] Add screenshot-scale regression coverage for leaving the left ledge and landing on the lower floor without navigation failure.
+- [x] Retain regressions for ordinary shared collision landings and offset source-wall clearance.
+
+## Revision 134 slope-aware grounded traversal
+
+- [x] Reproduce the `hunter:unreachable_glare` failure on the real multi-segment `arch_ruin_001` blockable polygon.
+- [x] Confirm that the route graph already contains the connected slope steps and preferred right-hand walk-off.
+- [x] Carry the selected ground segment slope through local grounded-support queries.
+- [x] Raise only the body-occupancy probe's foot clearance by the support rise across half its width.
+- [x] Preserve the actor foot position, rendered pose, navigation graph, and shared airborne collision geometry.
+- [x] Apply the same slope-aware occupancy check to pursuit, patrol, attack-position sampling, last-seen sampling, and step landings.
+- [x] Add a regression using the actual `level_001` arch geometry that crosses the downhill segments, walks off, lands on the lower floor, and never enters glare.
