@@ -1308,41 +1308,6 @@ function revokeLocalObjectUrls() {
     state.localObjectUrls.clear();
 }
 
-function applyCharacterRigOverrides(rawRig, character) {
-    const rig = JSON.parse(JSON.stringify(rawRig || {}));
-    const partOverrides = character?.rigPartOverrides && typeof character.rigPartOverrides === "object"
-        ? character.rigPartOverrides
-        : {};
-    const pivotOverrides = character?.rigPivotOverrides && typeof character.rigPivotOverrides === "object"
-        ? character.rigPivotOverrides
-        : {};
-
-    for (const [partName, override] of Object.entries(partOverrides)) {
-        if (!rig.parts?.[partName] || !override || typeof override !== "object" || Array.isArray(override)) {
-            continue;
-        }
-        const base = rig.parts[partName];
-        rig.parts[partName] = {
-            ...base,
-            ...override,
-            offset: override.offset && typeof override.offset === "object"
-                ? { ...(base.offset || {}), ...override.offset }
-                : { ...(base.offset || {}) },
-            rotation: override.rotation && typeof override.rotation === "object"
-                ? { ...(base.rotation || {}), ...override.rotation }
-                : { ...(base.rotation || {}) }
-        };
-    }
-
-    for (const [partName, override] of Object.entries(pivotOverrides)) {
-        if (!rig.pivots?.[partName] || !override || typeof override !== "object" || Array.isArray(override)) {
-            continue;
-        }
-        rig.pivots[partName] = { ...rig.pivots[partName], ...override };
-    }
-    return rig;
-}
-
 function drawOrder() {
     const source = state.rig?.drawOrder;
     if (Array.isArray(source) && source.length) {
@@ -1356,9 +1321,8 @@ async function loadCharacter() {
     state.animationCache.clear();
     state.character = await loadJson(state.characterUrl);
     state.rigUrl = resolveRelativeUrl(state.characterUrl, state.character.rig);
-    const loadedRig = await loadJson(state.rigUrl);
-    state.rig = applyCharacterRigOverrides(loadedRig, state.character);
-    state.atlasUrl = resolveRelativeUrl(state.rigUrl, loadedRig.atlasManifest || `${loadedRig.atlasId}.json`);
+    state.rig = await loadJson(state.rigUrl);
+    state.atlasUrl = resolveRelativeUrl(state.rigUrl, state.rig.atlasManifest || `${state.rig.atlasId}.json`);
     state.atlas = await loadJson(state.atlasUrl);
     state.imageUrl = resolveRelativeUrl(state.atlasUrl, state.atlas.image);
     let imageWarning = "";

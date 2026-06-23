@@ -40,6 +40,70 @@
             inset: 0;
         }
 
+
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: rgb(6, 6, 12);
+            transition: opacity 180ms ease;
+        }
+
+        #loading-card {
+            width: min(430px, calc(100vw - 48px));
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 20px;
+            background: var(--panel-strong);
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+        }
+
+        #loading-title-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+
+        #loading-title {
+            font-size: 19px;
+            font-weight: 760;
+            letter-spacing: 0.02em;
+        }
+
+        #loading-percent {
+            color: var(--muted);
+            font-variant-numeric: tabular-nums;
+            font-size: 14px;
+        }
+
+        #loading-track {
+            height: 14px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 999px;
+            background: rgba(0, 0, 0, 0.38);
+        }
+
+        #loading-bar-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #8f72cc, #c7a3ff, #efe5ff);
+            transition: width 100ms linear;
+        }
+
+        #loading-detail {
+            min-height: 18px;
+            margin-top: 10px;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
         #game-shell {
             position: fixed;
             inset: 0;
@@ -291,6 +355,18 @@
     </style>
 </head>
 <body>
+    <div id="loading-screen" role="status" aria-live="polite" aria-label="Loading game">
+        <div id="loading-card">
+            <div id="loading-title-row">
+                <div id="loading-title">Loading…</div>
+                <div id="loading-percent">0%</div>
+            </div>
+            <div id="loading-track" role="progressbar" aria-label="Game loading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div id="loading-bar-fill"></div>
+            </div>
+            <div id="loading-detail">Preparing the cave.</div>
+        </div>
+    </div>
     <div id="tool-links" style="position:fixed; right:14px; bottom:14px; z-index:20; display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center; max-width:calc(100vw - 28px);">
         <a class="tool-link" href="index.html">Main</a>
         <a class="tool-link" href="level-editor.html">Level editor</a>

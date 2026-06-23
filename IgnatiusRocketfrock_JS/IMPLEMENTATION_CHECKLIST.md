@@ -780,9 +780,9 @@ Goal: grow the game beyond isolated prototype levels.
 
 ### Revision 101 first ranged goblin variants
 
-* [x] Add the shared goblin atlas and rig under the numbered enemy project convention.
+* [x] Add the shared goblin atlas and numbered character rigs under the enemy project convention.
 * [x] Add Fireball Goblin (`enemy_002`) and Musket Goblin (`enemy_003`) character definitions and catalog entries.
-* [x] Support character-level rig part and pivot overrides in the runtime character loader.
+* [x] Load the dedicated rig referenced by each character definition as the authoritative geometry source.
 * [x] Add simulation-owned ranged enemy attacks and enemy projectile ownership.
 * [x] Implement weakly homing fireballs and gravity-driven ballistic musket shots.
 * [x] Add renderer presentation and headless regression coverage for both projectile types.
@@ -792,14 +792,14 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Map the visible `enemy_002` selector entry to `assets/ct_char_enemy_002.json`.
 * [x] Map the visible `enemy_003` selector entry to `assets/ct_char_enemy_003.json`.
 * [x] Guard against future known-project selector entries without a corresponding URL mapping.
-* [x] Apply character-level rig part and pivot overrides when Puppet Forge loads a project.
-* [x] Add source regression checks for the goblin mappings and editor override path.
+* [x] Load each known project's referenced rig directly in Puppet Forge.
+* [x] Add source regression checks for the goblin mappings and direct rig-loading path.
 
 ### Revision 103 corrected goblin rig and animation pass
 
 * [x] Swap the mislabeled closed left/right arm frames while preserving the correctly identified open left arm.
 * [x] Swap the mislabeled left/right leg frames.
-* [x] Rebuild the shared rig in rear-to-front depth order with corrected shoulder and hip pivots.
+* [x] Rebuild the goblin rigs in rear-to-front depth order with corrected shoulder and hip pivots.
 * [x] Remove the fireball from the Fireball Goblin rig and keep it simulation-owned.
 * [x] Add dedicated Fireball Goblin idle, walk, cast, hurt, and death clips.
 * [x] Add dedicated Musket Goblin weapon-aware idle, walk, fire, hurt, and death clips.
@@ -887,8 +887,8 @@ Goal: grow the game beyond isolated prototype levels.
 
 * [x] Draw the authoritative local `y = 0` ground line in Puppet Forge's Rig and animation workspace.
 * [x] Make the ground-guide label vertically draggable as a view-only operation.
-* [x] Bake a one-time `+52` rig-space Y correction into the shared goblin rig anchors and setup offsets.
-* [x] Apply the same correction to Enemy 002/003 character overrides, reference poses, and every animation Y keyframe.
+* [x] Bake a one-time `+52` rig-space Y correction into both goblin rigs' anchors and setup offsets.
+* [x] Apply the same correction to both Enemy 002/003 rig files, reference poses, and every animation Y keyframe.
 * [x] Preserve projectile release times and translate projectile preparation/release positions with the character.
 * [x] Keep runtime `groundOffset` and `rootYOffsetFromGround` at zero.
 * [x] Add regression checks for the editor guide, normalized goblin feet, zero runtime offset, and shifted projectile release positions.
@@ -950,7 +950,7 @@ Goal: grow the game beyond isolated prototype levels.
 
 ## Revision 118 hunter traversal corrections
 
-- [x] Set Fireball Goblin and Musket Goblin defaults to `runSpeed: 300` and `jumpHeight: 200`.
+- [x] Set Fireball Goblin and Musket Goblin defaults to `runSpeed: 200` and `jumpHeight: 200`.
 - [x] Update the placed `level_001` goblins to those mobility values.
 - [x] Re-bake both `level_001` navigation profiles for the new mobility settings.
 - [x] Generate physics-guided run-up candidates for raised obstacle jumps.
@@ -986,7 +986,7 @@ Goal: grow the game beyond isolated prototype levels.
 
 ## Revision 121
 
-- [x] Change default monster awareness from ±60° to ±90°.
+- [x] Support authored monster awareness half-angles, including the ±90° forward-half-plane case.
 - [x] Preserve distance and facing as the only first-notice gates.
 - [x] Add ground acceleration to enemy navigation mobility profiles and baked-profile keys.
 - [x] Bake explicit run-up start, distance, acceleration, and required launch speed into jump edges.
@@ -996,7 +996,7 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Show dashed run-up segments in the Level Editor graph preview.
 - [x] Rebuild both `level_001` goblin graphs using graph format version 2.
 - [x] Add regressions for left-to-right and right-to-left pillar jumps, including visible backing away before the reverse jump.
-- [x] Add ±90° awareness boundary regressions.
+- [x] Add ±90° awareness boundary regressions while allowing narrower catalog tuning.
 
 ## Revision 122 doorway fuel-indicator transform
 
@@ -1034,6 +1034,39 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Use the same geometry helpers in portable simulation and Canvas diagnostics.
 - [x] Add a placeable destructible iron barrier using the generic reactive-object pipeline and existing atlas artwork.
 - [x] Keep intact and damaged barrier states solid and projectile-blocking; remove collision and visuals on destruction.
-- [x] Remove the retired `IgnatiusRocketfrock_JS.html` redirect that caused the source-organization regression.
+- [x] Keep `IgnatiusRocketfrock_JS.html` as a backwards-compatible redirect to `index.html` and cover it with a source-organization regression.
 - [x] Add regressions for Puppet Guide defaults/shared geometry and the complete barrier damage lifecycle.
+## Revision 128 authoritative rig ownership
+
+- [x] Confirm that no current character definition contains character-level rig-part or pivot replacement data.
+- [x] Remove character-level rig replacement logic from the runtime character loader.
+- [x] Remove the corresponding merge path from Puppet Forge.
+- [x] Keep Enemy 002 and Enemy 003 on distinct numbered rig files while reusing their shared atlas.
+- [x] Add regressions proving that each goblin's right-arm pivot comes directly from its own rig.
+- [x] Reject the removed character-level rig patch fields in source and asset checks.
+- [x] Preserve `IgnatiusRocketfrock_JS.html` as a backwards-compatible entry link.
+
+## Revision 129 downward traversal and early takeoff recovery
+
+- [x] Generate deliberate downward-jump candidates for lower supports beyond a source obstacle.
+- [x] Require downward jumps to clear the hunter's full body past the source wall before descent.
+- [x] Add a takeoff-clearance preference so route search favours earlier obstacle-clear ascent launches.
+- [x] Detect landed supports using near-full-body sampling after airborne traversal.
+- [x] Accept a safe neighbouring-support landing and replan without incrementing navigation failure state.
+- [x] Rebuild `level_001` for the current shared 70×105, 200 px/s goblin profile.
+- [x] Add graph and full-simulation regressions for the central-pillar climb and downward exit.
+
+## Revision 130 early pillar ascent and loading progress
+
+- [x] Reject navigation arcs that clip an unrelated wall or ledge on the destination polygon.
+- [x] Permit stable partial-overlap first contact on narrow upward landing supports.
+- [x] Rebuild `level_001` with direct early jumps onto the central pillar from both sides.
+- [x] Add a full-simulation regression for the left-side pillar climb succeeding on the first jump.
+- [x] Paint a loading surface before the game module executes.
+- [x] Show monotonic loading text, percentage, and progress-bar updates.
+- [x] Load only the active level's referenced environment atlases during initial startup.
+- [x] Load independent character projects, animations, and environment atlases concurrently.
+- [x] Wait for atlas image decoding before reporting the resource ready.
+- [x] Load newly referenced atlases during level transitions before applying collision.
+- [x] Keep startup failure messages visible above or instead of the loading surface.
 

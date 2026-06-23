@@ -2654,6 +2654,7 @@ function characterEnemyNavigationContext(state, enemy) {
         maxRise: Math.max(8, Number(enemy.maxStepHeight) || 0),
         maxDrop: Math.max(12, Number(enemy.maxDropDistance) || 0),
         width: enemy.width,
+        sampleHalfWidthFactor: enemy.currentSupportId ? 0.48 : 0.22,
         preferredSupportId: enemy.currentSupportId
     });
     if (current) {
@@ -3129,6 +3130,7 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
             maxRise: 5,
             maxDrop: 5,
             width: enemy.width,
+            sampleHalfWidthFactor: 0.48,
             preferredSupportId: intendedSupportId
         });
         enemy.currentSupportId = landedSupport?.support?.id || null;
@@ -3137,15 +3139,35 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
         enemy.airTargetSupportId = null;
 
         if (intendedSupportId && enemy.currentSupportId !== intendedSupportId) {
-            enemy.navigationFailureCount = (Number(enemy.navigationFailureCount) || 0) + 1;
             clearCharacterEnemyNavigationPlan(enemy);
             enemy.routeRepathTimer = 0;
-            if (enemy.navigationFailureCount >= 2) {
-                enterCharacterEnemyGlare(state, enemy);
-            } else {
+            if (enemy.currentSupportId) {
+                // Full-body collision can safely catch a hunter on a neighbouring
+                // ledge or on the top of the same obstacle before the baked arc's
+                // nominal landing point. That is a valid landing, not a failed
+                // traversal. Pull the feet onto the usable part of that support,
+                // then replan from the support actually reached.
+                const recoveredSupport = landedSupport.support;
+                const recoveredPoint = supportPoint(
+                    recoveredSupport,
+                    enemy.x,
+                    Math.min(Math.max(2, enemy.width * 0.1), Math.max(0, (recoveredSupport.xMax - recoveredSupport.xMin) * 0.4))
+                );
+                enemy.x = recoveredPoint.x;
+                enemy.y = recoveredPoint.y;
+                enemy.navigationFailureCount = 0;
                 enemy.aiState = enemy.engaged ? "pursue" : "return_home";
                 enemy.movementPhase = enemy.aiState;
-                setCharacterEnemyAnimation(enemy, "idle");
+                setCharacterEnemyAnimation(enemy, "walk");
+            } else {
+                enemy.navigationFailureCount = (Number(enemy.navigationFailureCount) || 0) + 1;
+                if (enemy.navigationFailureCount >= 2) {
+                    enterCharacterEnemyGlare(state, enemy);
+                } else {
+                    enemy.aiState = enemy.engaged ? "pursue" : "return_home";
+                    enemy.movementPhase = enemy.aiState;
+                    setCharacterEnemyAnimation(enemy, "idle");
+                }
             }
             return true;
         }

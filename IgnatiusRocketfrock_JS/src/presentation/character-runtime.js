@@ -80,47 +80,6 @@ export function normalizeRuntimeCharacterRig(rawRig, label = "character rig") {
     };
 }
 
-export function applyRuntimeCharacterRigOverrides(rig, rigPartOverrides = {}, rigPivotOverrides = {}) {
-    const normalizedRig = rig?._normalizedRuntimeRig === true ? rig : normalizeRuntimeCharacterRig(rig);
-    const nextParts = {};
-    const nextPivots = {};
-
-    for (const partName of normalizedRig.drawOrder) {
-        const basePart = normalizedRig.parts[partName] || {};
-        const rawOverride = rigPartOverrides && typeof rigPartOverrides === "object" ? rigPartOverrides[partName] : null;
-        const partOverride = rawOverride && typeof rawOverride === "object" && !Array.isArray(rawOverride) ? rawOverride : null;
-        nextParts[partName] = {
-            ...basePart,
-            ...(partOverride || {}),
-            frame: String((partOverride && partOverride.frame) || basePart.frame || partName),
-            offset: {
-                x: finiteOr(partOverride?.offset?.x, basePart.offset?.x ?? 0),
-                y: finiteOr(partOverride?.offset?.y, basePart.offset?.y ?? 0)
-            },
-            rotation: partOverride?.rotation && typeof partOverride.rotation === "object"
-                ? { ...(basePart.rotation || {}), ...partOverride.rotation }
-                : { ...(basePart.rotation || {}) },
-            scale: finiteOr(partOverride?.scale, basePart.scale ?? 1),
-            targetHeight: Math.max(0.0001, finiteOr(partOverride?.targetHeight, basePart.targetHeight ?? 1)),
-            alpha: clamp(finiteOr(partOverride?.alpha, basePart.alpha ?? 1), 0, 1)
-        };
-
-        const basePivot = normalizedRig.pivots[partName] || { x: 0.5, y: 0.5 };
-        const rawPivotOverride = rigPivotOverrides && typeof rigPivotOverrides === "object" ? rigPivotOverrides[partName] : null;
-        const pivotOverride = rawPivotOverride && typeof rawPivotOverride === "object" && !Array.isArray(rawPivotOverride) ? rawPivotOverride : null;
-        nextPivots[partName] = {
-            x: finiteOr(pivotOverride?.x, basePivot.x),
-            y: finiteOr(pivotOverride?.y, basePivot.y)
-        };
-    }
-
-    return {
-        ...normalizedRig,
-        parts: nextParts,
-        pivots: nextPivots
-    };
-}
-
 export function createRuntimeCharacterSetupPose(rig) {
     const normalizedRig = rig?._normalizedRuntimeRig === true ? rig : normalizeRuntimeCharacterRig(rig);
     const pose = {};
@@ -299,26 +258,81 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
     const loadJson = options.loadJson || defaultLoadJson;
     const loadImage = options.loadImage || defaultLoadImage;
     const createCanvas = options.createCanvas || defaultCreateCanvas;
+    const onProgress = typeof options.onProgress === "function" ? options.onProgress : () => {};
+    const progressParts = {
+        character: 0,
+        rig: 0,
+        atlas: 0,
+        image: 0,
+        animations: 0,
+        finalize: 0
+    };
+    const progressWeights = {
+        character: 0.1,
+        rig: 0.15,
+        atlas: 0.1,
+        image: 0.35,
+        animations: 0.25,
+        finalize: 0.05
+    };
+    const reportProgress = (label) => {
+        const progress = Object.keys(progressParts).reduce(
+            (sum, key) => sum + progressParts[key] * progressWeights[key],
+            0
+        );
+        onProgress({ progress: clamp(progress, 0, 1), label: String(label || "Loading character") });
+    };
+
+    reportProgress(`Loading ${characterUrl}`);
     const character = await loadJson(characterUrl, "character definition");
+    progressParts.character = 1;
+    reportProgress(`Loaded character definition ${characterUrl}`);
     if (!character?.rig) {
         throw new Error(`Character definition ${characterUrl} does not specify a rig file.`);
     }
+
     const characterSourceUrl = String(characterUrl);
+    const animationMap = character.animationMap && typeof character.animationMap === "object" ? character.animationMap : {};
+    const animationEntries = Object.entries(animationMap).filter(([, relativeUrl]) => Boolean(relativeUrl));
+    let loadedAnimationCount = 0;
+    if (!animationEntries.length) {
+        progressParts.animations = 1;
+    }
+    const animationJobs = animationEntries.map(async ([slot, relativeUrl]) => {
+        const animationUrl = resolveRelativeUrl(characterSourceUrl, relativeUrl);
+        const rawClip = await loadJson(animationUrl, `character animation "${slot}"`);
+        const clip = normalizeAnimationClip(rawClip, `character animation "${slot}" (${animationUrl})`);
+        clip.sourceUrl = animationUrl;
+        loadedAnimationCount += 1;
+        progressParts.animations = loadedAnimationCount / animationEntries.length;
+        reportProgress(`Loaded ${character.displayName || character.characterId || "character"} animation ${slot}`);
+        return { slot, animationUrl, clip };
+    });
+
     const rigUrl = resolveRelativeUrl(characterSourceUrl, character.rig);
     const rawRig = await loadJson(rigUrl, "character rig");
-    const baseRig = normalizeRuntimeCharacterRig({ ...rawRig, sourceUrl: rigUrl }, `character rig (${rigUrl})`);
-    const rig = applyRuntimeCharacterRigOverrides(
-        baseRig,
-        character.rigPartOverrides && typeof character.rigPartOverrides === "object" ? character.rigPartOverrides : {},
-        character.rigPivotOverrides && typeof character.rigPivotOverrides === "object" ? character.rigPivotOverrides : {}
-    );
+    progressParts.rig = 1;
+    reportProgress(`Loaded character rig ${rigUrl}`);
+    const rig = normalizeRuntimeCharacterRig({ ...rawRig, sourceUrl: rigUrl }, `character rig (${rigUrl})`);
     const atlasManifestUrl = resolveRelativeUrl(rigUrl, rig.atlasManifest || `${rig.atlasId || "character_atlas"}.json`);
     const atlas = await loadJson(atlasManifestUrl, "character atlas manifest");
+    progressParts.atlas = 1;
+    reportProgress(`Loaded character atlas manifest ${atlasManifestUrl}`);
     if (!atlas?.image || !atlas?.frames) {
         throw new Error(`Character atlas ${atlasManifestUrl} must specify image and frames.`);
     }
+
     const imageUrl = resolveRelativeUrl(atlasManifestUrl, atlas.image);
-    const image = await loadImage(imageUrl);
+    const imageJob = loadImage(imageUrl).then((image) => {
+        progressParts.image = 1;
+        reportProgress(`Decoded character atlas ${atlas.image}`);
+        return image;
+    });
+    const [image, loadedAnimations] = await Promise.all([
+        imageJob,
+        Promise.all(animationJobs)
+    ]);
+
     const atlasAssets = new Map();
     for (const [frameId, frame] of Object.entries(atlas.frames)) {
         atlasAssets.set(frameId, makeRuntimeAtlasFrameAsset(image, frame, frameId, frameId, imageUrl, atlas.atlasId, createCanvas));
@@ -336,15 +350,7 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
 
     const animations = new Map();
     const animationSources = new Map();
-    const animationMap = character.animationMap && typeof character.animationMap === "object" ? character.animationMap : {};
-    for (const [slot, relativeUrl] of Object.entries(animationMap)) {
-        if (!relativeUrl) {
-            continue;
-        }
-        const animationUrl = resolveRelativeUrl(characterSourceUrl, relativeUrl);
-        const rawClip = await loadJson(animationUrl, `character animation "${slot}"`);
-        const clip = normalizeAnimationClip(rawClip, `character animation "${slot}" (${animationUrl})`);
-        clip.sourceUrl = animationUrl;
+    for (const { slot, animationUrl, clip } of loadedAnimations) {
         animations.set(slot, clip);
         animationSources.set(slot, animationUrl);
     }
@@ -360,6 +366,8 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
         throw new Error(`Character definition ${characterSourceUrl} references untagged projectile part(s): ${missing.join(", ")}.`);
     }
 
+    progressParts.finalize = 1;
+    reportProgress(`Prepared ${character.displayName || character.characterId || "character"}`);
     return {
         character: { ...character, sourceUrl: characterSourceUrl },
         characterId: String(character.characterId || characterUrl),
@@ -429,7 +437,18 @@ async function defaultLoadJson(url, label = "JSON") {
 function defaultLoadImage(url) {
     return new Promise((resolve, reject) => {
         const image = new Image();
-        image.onload = () => resolve(image);
+        image.decoding = "async";
+        image.onload = async () => {
+            try {
+                if (typeof image.decode === "function") {
+                    await image.decode();
+                }
+            } catch (error) {
+                // onload already guarantees usable pixels; decode can reject on
+                // browsers that consider the image decoded before this call.
+            }
+            resolve(image);
+        };
         image.onerror = () => reject(new Error(`Could not load ${url}`));
         image.src = url;
     });

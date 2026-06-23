@@ -1,7 +1,7 @@
 {
     "meta": {
         "version": 6,
-        "note": "Musket Goblin rebuilt from the user-authored Fireball Goblin motions. The front arm stays as the closed-hand variant, the musket remains attached, and the attack clip includes a spawned cannonball projectile sprite cue. Revision 112 selects the active animation-authored projectile part for this character variant. Revision 113 bakes the goblin ground correction into authored setup coordinates."
+        "note": "Musket Goblin. Uses its dedicated numbered rig and the shared goblin atlas. The front arm stays as the closed-hand variant, the musket remains attached, and the cannonball rig part hands off to simulation at the authored release time. Revision 113 bakes the goblin ground correction into authored setup coordinates. Revision 128 makes the referenced rig the sole source of pivots and part setup."
     },
     "characterId": "ct_char_enemy_003",
     "displayName": "Musket Goblin",

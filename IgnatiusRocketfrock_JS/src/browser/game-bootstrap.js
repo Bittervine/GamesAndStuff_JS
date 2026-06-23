@@ -36,17 +36,35 @@ const applyTuningJsonButton = document.getElementById("apply-tuning-json");
 const copyTuningJsonButton = document.getElementById("copy-tuning-json");
 const refreshTuningJsonButton = document.getElementById("refresh-tuning-json");
 const tuningPanel = document.getElementById("tuning");
+const loadingScreen = document.getElementById("loading-screen");
+const loadingPercent = document.getElementById("loading-percent");
+const loadingTrack = document.getElementById("loading-track");
+const loadingBarFill = document.getElementById("loading-bar-fill");
+const loadingDetail = document.getElementById("loading-detail");
 
-const GAME_REVISION = "126";
+const GAME_REVISION = "130";
 
+let displayedLoadingProgress = 0;
 let gameState = createInitialGameState();
 gameState.debug.revision = GAME_REVISION;
 addEvent(gameState, `BUILD_REVISION_${GAME_REVISION}`);
 const input = new RocketfrockInput(window);
-const renderer = await createRenderer(canvas);
+showLoadingScreen("Loading level data", 0.02);
 const loadedBrowserCopy = maybeApplyBrowserCopyLevel();
 if (!loadedBrowserCopy) {
     await applyRequiredDefaultLevel();
+}
+setLoadingProgress(0.1, "Level data ready");
+let renderer;
+try {
+    renderer = await createRenderer(canvas, {
+        environmentAtlasManifestUrls: gameState.world.atlasManifests,
+        onProgress: ({ progress, label }) => {
+            setLoadingProgress(0.1 + clamp01(progress) * 0.85, label);
+        }
+    });
+} catch (error) {
+    failStartup(`Game assets could not be loaded: ${error.message}`, error);
 }
 syncLoadedCharacterCombatProfiles();
 if (!applyLoadedAtlasCollisions()) {
@@ -55,6 +73,7 @@ if (!applyLoadedAtlasCollisions()) {
 // Build any level-wide recoloured atlas copies once during level startup. The
 // render loop only compares the cache key and uses ordinary drawImage calls.
 renderer.syncEnvironmentColorMap(gameState.world.colorMap);
+setLoadingProgress(0.98, "Preparing the first frame");
 let accumulator = 0;
 let lastNow = performance.now();
 let lastInputFrame = createInputFrame();
@@ -65,6 +84,51 @@ const tuningSliders = new Map();
 setupTuningControls();
 setupTuningJsonControls();
 setupPanelToggleButtons();
+setLoadingProgress(1, "Ready");
+await nextPaint();
+hideLoadingScreen();
+
+function clamp01(value) {
+    return Math.max(0, Math.min(1, Number(value) || 0));
+}
+
+function setLoadingProgress(progress, label = "Loading game assets") {
+    displayedLoadingProgress = Math.max(displayedLoadingProgress, clamp01(progress));
+    const percent = Math.round(displayedLoadingProgress * 100);
+    if (loadingPercent) {
+        loadingPercent.textContent = `${percent}%`;
+    }
+    if (loadingBarFill) {
+        loadingBarFill.style.width = `${percent}%`;
+    }
+    if (loadingDetail) {
+        loadingDetail.textContent = String(label || "Loading game assets");
+    }
+    loadingTrack?.setAttribute("aria-valuenow", String(percent));
+}
+
+function showLoadingScreen(label = "Loading game assets", progress = 0) {
+    displayedLoadingProgress = clamp01(progress);
+    if (loadingScreen) {
+        loadingScreen.hidden = false;
+        loadingScreen.style.opacity = "1";
+    }
+    setLoadingProgress(displayedLoadingProgress, label);
+}
+
+function hideLoadingScreen() {
+    if (!loadingScreen) {
+        return;
+    }
+    loadingScreen.style.opacity = "0";
+    window.setTimeout(() => {
+        loadingScreen.hidden = true;
+    }, 190);
+}
+
+function nextPaint() {
+    return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
 
 function syncLoadedCharacterCombatProfiles() {
     const profiles = new Map();
@@ -161,46 +225,62 @@ function processLevelTransitionRequest() {
 }
 
 async function loadRequestedLevel(request) {
-    const currentLevelId = normalizedLevelId(request.fallbackLevelId || gameState.world.levelId);
-    const requestedLevelId = normalizedLevelId(request.requestedLevelId, currentLevelId);
-    let loadedLevelId = requestedLevelId;
-    let level = await fetchOptionalLevel(requestedLevelId);
-    if (!level) {
-        loadedLevelId = currentLevelId;
-        level = await fetchOptionalLevel(currentLevelId);
+    showLoadingScreen("Loading next level", 0.04);
+    try {
+        const currentLevelId = normalizedLevelId(request.fallbackLevelId || gameState.world.levelId);
+        const requestedLevelId = normalizedLevelId(request.requestedLevelId, currentLevelId);
+        let loadedLevelId = requestedLevelId;
+        let level = await fetchOptionalLevel(requestedLevelId);
+        if (!level) {
+            loadedLevelId = currentLevelId;
+            level = await fetchOptionalLevel(currentLevelId);
+        }
+        if (!level) {
+            console.error(`Level transition failed: neither ${requestedLevelId} nor fallback ${currentLevelId} could be loaded.`);
+            gameState.player.visible = true;
+            return false;
+        }
+        setLoadingProgress(0.22, `Loaded ${loadedLevelId}`);
+        if (!applyEditorLevelToWorld(gameState, level)) {
+            console.error(`Level transition failed while applying ${loadedLevelId}.`);
+            gameState.player.visible = true;
+            return false;
+        }
+        await renderer.ensureEnvironmentAtlases(gameState.world.atlasManifests, {
+            onProgress: ({ progress, label }) => {
+                setLoadingProgress(0.22 + clamp01(progress) * 0.66, label);
+            }
+        });
+        syncLoadedCharacterCombatProfiles();
+        if (!applyLoadedAtlasCollisions()) {
+            console.error(`Level transition loaded ${loadedLevelId}, but its atlas collision could not be applied.`);
+        }
+        renderer.syncEnvironmentColorMap(gameState.world.colorMap);
+        accumulator = 0;
+        addEvent(gameState, "LEVEL_TRANSITION_COMPLETE", {
+            requestedLevelId,
+            loadedLevelId,
+            usedFallback: loadedLevelId !== requestedLevelId
+        });
+        setLoadingProgress(1, "Level ready");
+        await nextPaint();
+        return true;
+    } finally {
+        hideLoadingScreen();
     }
-    if (!level) {
-        console.error(`Level transition failed: neither ${requestedLevelId} nor fallback ${currentLevelId} could be loaded.`);
-        gameState.player.visible = true;
-        return false;
-    }
-    if (!applyEditorLevelToWorld(gameState, level)) {
-        console.error(`Level transition failed while applying ${loadedLevelId}.`);
-        gameState.player.visible = true;
-        return false;
-    }
-    syncLoadedCharacterCombatProfiles();
-    if (!applyLoadedAtlasCollisions()) {
-        console.error(`Level transition loaded ${loadedLevelId}, but its atlas collision could not be applied.`);
-    }
-    renderer.syncEnvironmentColorMap(gameState.world.colorMap);
-    accumulator = 0;
-    addEvent(gameState, "LEVEL_TRANSITION_COMPLETE", {
-        requestedLevelId,
-        loadedLevelId,
-        usedFallback: loadedLevelId !== requestedLevelId
-    });
-    return true;
 }
 
 function failStartup(message, error) {
     console.error(message, error || "");
+    if (loadingScreen) {
+        loadingScreen.hidden = true;
+    }
     const panel = document.createElement("div");
     panel.setAttribute("role", "alert");
     panel.style.position = "fixed";
     panel.style.inset = "24px auto auto 24px";
     panel.style.maxWidth = "720px";
-    panel.style.zIndex = "9999";
+    panel.style.zIndex = "10001";
     panel.style.padding = "16px 18px";
     panel.style.border = "1px solid rgba(255, 120, 120, 0.65)";
     panel.style.borderRadius = "14px";

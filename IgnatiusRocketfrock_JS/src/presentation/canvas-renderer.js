@@ -125,30 +125,99 @@ export function computeResponsiveViewportMetrics(clientWidth, clientHeight, dpr 
     };
 }
 
-export async function createRenderer(canvas) {
+export async function createRenderer(canvas, options = {}) {
     const ctx = canvas.getContext("2d", { alpha: false });
-    const playerProject = await loadRuntimeCharacterProject(DEFAULT_CHARACTER_URL);
+    const onProgress = typeof options.onProgress === "function" ? options.onProgress : () => {};
+    const hasExplicitEnvironmentManifestUrls = Array.isArray(options.environmentAtlasManifestUrls);
+    const environmentManifestUrls = hasExplicitEnvironmentManifestUrls
+        ? options.environmentAtlasManifestUrls.map(String).filter(Boolean)
+        : [];
+    const environmentCandidates = hasExplicitEnvironmentManifestUrls
+        ? environmentManifestUrls.map((url) => ({ url }))
+        : ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES;
+    const projectSpecs = [
+        { key: "player", url: DEFAULT_CHARACTER_URL, required: true, weight: 2 },
+        ...KNOWN_ENEMY_CHARACTER_URLS.map((url, index) => ({
+            key: `enemy_${index + 1}`,
+            url,
+            required: false,
+            weight: 2
+        }))
+    ];
+    const taskWeights = new Map();
+    for (const spec of projectSpecs) {
+        taskWeights.set(spec.key, spec.weight);
+    }
+    for (const candidate of environmentCandidates) {
+        taskWeights.set(`atlas:${candidate.url}`, 1);
+    }
+    const taskProgress = new Map([...taskWeights.keys()].map((key) => [key, 0]));
+    const totalWeight = [...taskWeights.values()].reduce((sum, weight) => sum + weight, 0) || 1;
+    const reportTaskProgress = (key, progress, label) => {
+        taskProgress.set(key, clamp(Number(progress) || 0, 0, 1));
+        const weightedProgress = [...taskWeights.entries()].reduce(
+            (sum, [taskKey, weight]) => sum + weight * (taskProgress.get(taskKey) || 0),
+            0
+        );
+        onProgress({
+            progress: clamp(weightedProgress / totalWeight, 0, 1),
+            label: String(label || "Loading game assets")
+        });
+    };
+
+    const projectJobs = projectSpecs.map(async (spec) => {
+        try {
+            const project = await loadRuntimeCharacterProject(spec.url, {
+                onProgress: ({ progress, label }) => reportTaskProgress(spec.key, progress, label)
+            });
+            reportTaskProgress(spec.key, 1, `Prepared ${project.displayName}`);
+            return { spec, project };
+        } catch (error) {
+            reportTaskProgress(spec.key, 1, `Skipped unavailable character ${spec.url}`);
+            if (spec.required) {
+                throw error;
+            }
+            console.warn(`Optional runtime character could not be loaded: ${spec.url}`, error);
+            return { spec, project: null };
+        }
+    });
+    const environmentJob = loadEnvironmentAtlases({
+        candidates: environmentCandidates,
+        onProgress: ({ url, progress, label }) => reportTaskProgress(`atlas:${url}`, progress, label)
+    });
+    const [projectResults, environmentAtlases] = await Promise.all([
+        Promise.all(projectJobs),
+        environmentJob
+    ]);
+
+    const playerProject = projectResults.find((result) => result.spec.key === "player")?.project;
+    if (!playerProject) {
+        throw new Error(`Required runtime character could not be loaded: ${DEFAULT_CHARACTER_URL}`);
+    }
     playerProject.rig = normalizeRigConfig(playerProject.rig);
     for (const asset of playerProject.assets.values()) {
         asset.lowHealthCanvas = makeTintedSpriteCanvas(asset.canvas, "#f04b45");
     }
 
-    const characterProjects = new Map([[playerProject.characterId, playerProject]]);
-    for (const characterUrl of KNOWN_ENEMY_CHARACTER_URLS) {
-        try {
-            const enemyProject = await loadRuntimeCharacterProject(characterUrl);
-            characterProjects.set(enemyProject.characterId, enemyProject);
-        } catch (error) {
-            console.warn(`Optional runtime character could not be loaded: ${characterUrl}`, error);
+    const characterProjects = new Map();
+    for (const result of projectResults) {
+        if (result.project) {
+            characterProjects.set(result.project.characterId, result.project);
         }
     }
-
-    const environmentAtlases = await loadEnvironmentAtlases();
-    return new RocketfrockRenderer(canvas, ctx, playerProject, environmentAtlases, characterProjects);
+    onProgress({ progress: 1, label: "Game assets ready" });
+    return new RocketfrockRenderer(
+        canvas,
+        ctx,
+        playerProject,
+        environmentAtlases,
+        characterProjects,
+        [...environmentAtlases.values()].map((atlas) => atlas.manifestUrl).filter(Boolean)
+    );
 }
 
 class RocketfrockRenderer {
-    constructor(canvas, ctx, playerProject, environmentAtlases = new Map(), characterProjects = new Map()) {
+    constructor(canvas, ctx, playerProject, environmentAtlases = new Map(), characterProjects = new Map(), environmentManifestUrls = []) {
         this.canvas = canvas;
         this.ctx = ctx;
         this.playerProject = playerProject;
@@ -158,6 +227,7 @@ class RocketfrockRenderer {
         this.animations = playerProject.animations;
         this.characterProjects = characterProjects;
         this.environmentAtlases = environmentAtlases;
+        this.environmentManifestUrls = new Set((environmentManifestUrls || []).map(String));
         this.environmentColorMap = normalizeLevelColorMap(null);
         this.environmentColorMapKey = "";
         this.phase = 0;
@@ -173,6 +243,30 @@ class RocketfrockRenderer {
 
     getEnvironmentManifests() {
         return this.environmentAtlases;
+    }
+
+    async ensureEnvironmentAtlases(manifestUrls = [], options = {}) {
+        const requestedUrls = [...new Set((manifestUrls || []).map(String).filter(Boolean))];
+        const missingUrls = requestedUrls.filter((url) => !this.environmentManifestUrls.has(url));
+        if (!missingUrls.length) {
+            options.onProgress?.({ progress: 1, label: "Level atlases already loaded" });
+            return false;
+        }
+        const loaded = await loadEnvironmentAtlases({
+            candidates: missingUrls.map((url) => ({ url })),
+            onProgress: ({ progress, label }) => options.onProgress?.({ progress, label })
+        });
+        for (const [atlasId, atlas] of loaded) {
+            this.environmentAtlases.set(atlasId, atlas);
+        }
+        for (const atlas of loaded.values()) {
+            if (atlas.manifestUrl) {
+                this.environmentManifestUrls.add(atlas.manifestUrl);
+            }
+        }
+        this.environmentColorMapKey = "";
+        this.syncEnvironmentColorMap(this.environmentColorMap);
+        return loaded.size > 0;
     }
 
     getRuntimeCharacterProjects() {
@@ -2016,43 +2110,61 @@ function getLowHealthTintAlpha(state) {
     return 0.18 + pulse * 0.34;
 }
 
-async function loadEnvironmentAtlases() {
-    const atlases = new Map();
-    for (const candidate of ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES) {
+async function loadEnvironmentAtlases(options = {}) {
+    const candidates = Array.isArray(options.candidates)
+        ? options.candidates
+        : ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES;
+    const onProgress = typeof options.onProgress === "function" ? options.onProgress : () => {};
+    const records = await Promise.all(candidates.map(async (candidate) => {
+        const url = String(candidate.url || "");
+        onProgress({ url, progress: 0.02, label: `Loading atlas manifest ${url}` });
         let manifest = null;
         try {
-            const response = await fetch(candidate.url, { cache: "no-store" });
+            const response = await fetch(url, { cache: "no-store" });
             if (!response.ok) {
-                continue;
+                onProgress({ url, progress: 1, label: `Skipped unavailable atlas ${url}` });
+                return null;
             }
             manifest = await response.json();
         } catch (error) {
-            continue;
+            onProgress({ url, progress: 1, label: `Skipped unavailable atlas ${url}` });
+            return null;
         }
 
         manifest = normalizeEnvironmentManifest(manifest, candidate.forceAtlasId, candidate.forceImage);
-        if (!manifest || !manifest.atlasId || atlases.has(manifest.atlasId)) {
-            continue;
+        if (!manifest || !manifest.atlasId || !manifest.image) {
+            onProgress({ url, progress: 1, label: `Skipped invalid atlas ${url}` });
+            return null;
         }
+        onProgress({ url, progress: 0.35, label: `Loaded atlas manifest ${manifest.atlasId}` });
 
-        const imageUrl = resolveRelativeUrl(candidate.url, manifest.image);
+        const imageUrl = resolveRelativeUrl(url, manifest.image);
         let image = null;
         try {
             image = await loadImage(imageUrl);
         } catch (error) {
-            continue;
+            onProgress({ url, progress: 1, label: `Skipped missing atlas image ${manifest.image}` });
+            return null;
         }
-
-        atlases.set(manifest.atlasId, {
+        onProgress({ url, progress: 1, label: `Decoded atlas ${manifest.atlasId}` });
+        return {
             id: manifest.atlasId,
             image,
             renderImage: image,
             colorMapCacheKey: "",
             frames: manifest.frames || {},
             source: imageUrl,
+            manifestUrl: url,
             manifest,
             missing: false
-        });
+        };
+    }));
+
+    const atlases = new Map();
+    for (const atlas of records) {
+        if (atlas && !atlases.has(atlas.id)) {
+            atlases.set(atlas.id, atlas);
+        }
     }
     return atlases;
 }
@@ -2072,7 +2184,16 @@ function loadImage(url) {
     return new Promise((resolve, reject) => {
         const img = new Image();
         img.decoding = "async";
-        img.onload = () => resolve(img);
+        img.onload = async () => {
+            try {
+                if (typeof img.decode === "function") {
+                    await img.decode();
+                }
+            } catch (error) {
+                // The onload event already guarantees a drawable image.
+            }
+            resolve(img);
+        };
         img.onerror = () => reject(new Error(`Could not load ${url}`));
         img.src = url;
     });

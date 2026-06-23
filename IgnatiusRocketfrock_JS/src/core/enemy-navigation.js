@@ -234,6 +234,18 @@ function transitionTrajectoryClear(edge, options = {}) {
         if (!endpointSupport) {
             return false;
         }
+        // Contact with the source or destination obstacle is only harmless
+        // while the actor centre is actually over that support. A target
+        // support can be a tiny ledge on a much larger polygon; allowing every
+        // collision with that polygon made wall-clipping arcs look valid to
+        // the baker even though runtime horizontal collision stopped them.
+        const horizontalAllowance = isSource && edge.type === "drop" ? halfWidth + 2 : 0;
+        if (
+            x < endpointSupport.xMin - horizontalAllowance - EPSILON ||
+            x > endpointSupport.xMax + horizontalAllowance + EPSILON
+        ) {
+            return false;
+        }
         const surfaceX = clamp(x, endpointSupport.xMin, endpointSupport.xMax);
         const collisionSampleY = isSource && edge.type === "drop"
             ? feetY - bodyHeight * 0.16
@@ -394,7 +406,8 @@ export function buildEnemyNavigationSupports(world, options = {}) {
 export function findEnemyNavigationSupport(supports, x, y, options = {}) {
     const maxRise = Math.max(0, finite(options.maxRise, 30));
     const maxDrop = Math.max(0, finite(options.maxDrop, 80));
-    const halfWidth = Math.max(0, finite(options.width, 1)) * 0.22;
+    const sampleHalfWidthFactor = clamp(finite(options.sampleHalfWidthFactor, 0.22), 0, 0.5);
+    const halfWidth = Math.max(0, finite(options.width, 1)) * sampleHalfWidthFactor;
     const samples = [x, x - halfWidth, x + halfWidth];
     let best = null;
     for (const support of supports || []) {
@@ -585,6 +598,84 @@ function physicsGuidedDropCandidates(from, to, options = {}) {
     return candidates;
 }
 
+function physicsGuidedDownwardJumpCandidates(from, to, options = {}) {
+    const candidates = [];
+    const targetRight = to.xMin >= from.xMax - EPSILON;
+    const targetLeft = to.xMax <= from.xMin + EPSILON;
+    if (!targetLeft && !targetRight) {
+        return candidates;
+    }
+
+    const inset = Math.max(4, finite(options.edgeInset, 10));
+    const bodyWidth = Math.max(8, finite(options.bodyWidth, 48));
+    const halfWidth = bodyWidth * 0.5;
+    const jumpHeight = Math.max(0, finite(options.jumpHeight, 0));
+    const gravity = Math.max(1, finite(options.gravity, 1200));
+    const runSpeed = Math.max(1, finite(options.runSpeed, 1));
+    const maxFallDistance = Math.max(0, finite(options.maxFallDistance, jumpHeight * 2 + 80));
+    const direction = targetLeft ? -1 : 1;
+    const sourceEdge = targetLeft ? from.obstacleXMin : from.obstacleXMax;
+    if (!Number.isFinite(sourceEdge) || jumpHeight <= EPSILON) {
+        return candidates;
+    }
+
+    const launchX = targetLeft
+        ? clamp(from.xMin + inset, from.xMin, from.xMax)
+        : clamp(from.xMax - inset, from.xMin, from.xMax);
+    const launchY = supportYAt(from, launchX);
+    const safeInset = Math.min(
+        Math.max(inset, halfWidth + 2),
+        Math.max(0, (to.xMax - to.xMin) * 0.45)
+    );
+    const safeMin = to.xMin + safeInset;
+    const safeMax = to.xMax - safeInset;
+    if (safeMin > safeMax + EPSILON) {
+        return candidates;
+    }
+
+    const probeLandingX = targetLeft ? safeMax : safeMin;
+    const landingY = supportYAt(to, probeLandingX);
+    const deltaY = landingY - launchY;
+    if (deltaY <= EPSILON || deltaY > maxFallDistance + EPSILON) {
+        return candidates;
+    }
+
+    const jumpVelocity = -Math.sqrt(2 * gravity * Math.max(1, jumpHeight));
+    const discriminant = jumpVelocity * jumpVelocity + 2 * gravity * deltaY;
+    if (discriminant < 0) {
+        return candidates;
+    }
+    const flightTime = (-jumpVelocity + Math.sqrt(discriminant)) / gravity;
+    const sourceReturnTime = -2 * jumpVelocity / gravity;
+    if (!(flightTime > sourceReturnTime + EPSILON)) {
+        return candidates;
+    }
+
+    // A downward jump must carry the full body beyond the source wall before
+    // the feet descend below the source surface again. The old edge-only
+    // candidates often produced a very slow arc that clipped the wall on the
+    // way down, leaving no usable transition for slower, smaller enemies.
+    const clearCenterX = targetLeft
+        ? sourceEdge - halfWidth - 2
+        : sourceEdge + halfWidth + 2;
+    const minimumClearSpeed = Math.abs(clearCenterX - launchX) / Math.max(EPSILON, sourceReturnTime);
+    if (minimumClearSpeed > runSpeed + EPSILON) {
+        return candidates;
+    }
+
+    const preferredSpeeds = [
+        Math.min(runSpeed, Math.max(minimumClearSpeed * 1.18, runSpeed * 0.32)),
+        Math.min(runSpeed, Math.max(minimumClearSpeed * 1.1, runSpeed * 0.5)),
+        Math.min(runSpeed, Math.max(minimumClearSpeed * 1.05, runSpeed * 0.72)),
+        runSpeed
+    ];
+    for (const speed of preferredSpeeds) {
+        const landingX = clamp(launchX + direction * speed * flightTime, safeMin, safeMax);
+        addUniqueTransition(candidates, { launchX, landingX });
+    }
+    return candidates;
+}
+
 function physicsGuidedJumpCandidates(from, to, options = {}) {
     const candidates = [];
     const overlapMin = Math.max(from.xMin, to.xMin);
@@ -627,7 +718,14 @@ function physicsGuidedJumpCandidates(from, to, options = {}) {
     const inset = Math.max(4, finite(options.edgeInset, 10));
     const ratio = ascentTime / flightTime;
     const sourceInset = Math.min(inset, Math.max(0, (from.xMax - from.xMin) * 0.45));
-    const targetInset = Math.min(Math.max(inset, halfWidth + 2), Math.max(0, (to.xMax - to.xMin) * 0.45));
+    // Upward landings only need a stable majority overlap with the target
+    // surface; requiring the entire body to fit before the first contact can
+    // make tall, narrow pillars unreachable for slower actors. Trajectory
+    // validation still uses the full body and rejects any side-wall clipping.
+    const targetInset = Math.min(
+        Math.max(inset, bodyWidth * 0.18 + 2),
+        Math.max(0, (to.xMax - to.xMin) * 0.45)
+    );
     const launchMin = from.xMin + sourceInset;
     const launchMax = from.xMax - sourceInset;
     const landingMin = to.xMin + targetInset;
@@ -639,8 +737,8 @@ function physicsGuidedJumpCandidates(from, to, options = {}) {
             return;
         }
         const landingX = side === "left"
-            ? Math.min(landingMax, Math.max(landingMin, obstacleEdge + halfWidth + 2))
-            : Math.max(landingMin, Math.min(landingMax, obstacleEdge - halfWidth - 2));
+            ? Math.min(landingMax, Math.max(landingMin, obstacleEdge + targetInset))
+            : Math.max(landingMin, Math.min(landingMax, obstacleEdge - targetInset));
         const edgeClearX = side === "left"
             ? obstacleEdge - halfWidth - 2
             : obstacleEdge + halfWidth + 2;
@@ -693,6 +791,9 @@ function directionalTransitionCandidates(from, to, options = {}) {
         addUniqueTransition(candidates, candidate);
     }
     for (const candidate of physicsGuidedDropCandidates(from, to, options)) {
+        addUniqueTransition(candidates, candidate);
+    }
+    for (const candidate of physicsGuidedDownwardJumpCandidates(from, to, options)) {
         addUniqueTransition(candidates, candidate);
     }
     for (const candidate of physicsGuidedJumpCandidates(from, to, options)) {
@@ -872,6 +973,21 @@ function solveJumpTransitionCandidate(from, to, points, options) {
     if (Math.abs(requiredVx) > runSpeed + EPSILON) {
         return null;
     }
+    const bodyWidth = Math.max(8, finite(options.bodyWidth, 48));
+    const halfWidth = bodyWidth * 0.5;
+    const targetLeft = to.xMax <= from.xMin + EPSILON;
+    const targetRight = to.xMin >= from.xMax - EPSILON;
+    let takeoffClearance = null;
+    if (rise > EPSILON && targetLeft && Number.isFinite(to.obstacleXMax)) {
+        takeoffClearance = points.launchX - (to.obstacleXMax + halfWidth);
+    } else if (rise > EPSILON && targetRight && Number.isFinite(to.obstacleXMin)) {
+        takeoffClearance = (to.obstacleXMin - halfWidth) - points.launchX;
+    }
+    const preferredTakeoffClearance = Math.max(8, bodyWidth * 0.55);
+    const takeoffClearancePenalty = Number.isFinite(takeoffClearance)
+        ? Math.max(0, preferredTakeoffClearance - takeoffClearance) * 2.5
+        : 0;
+
     return {
         type: "jump",
         direction: requiredVx < -EPSILON ? "left" : (requiredVx > EPSILON ? "right" : "up"),
@@ -886,7 +1002,8 @@ function solveJumpTransitionCandidate(from, to, points, options) {
         flightTime,
         fromObstacleId: from.sourcePolygonId,
         toObstacleId: to.sourcePolygonId,
-        cost: Math.abs(points.dx) + Math.abs(deltaY) * 0.7 + 90
+        takeoffClearance: Number.isFinite(takeoffClearance) ? takeoffClearance : undefined,
+        cost: Math.abs(points.dx) + Math.abs(deltaY) * 0.7 + 90 + takeoffClearancePenalty
     };
 }
 
@@ -1033,6 +1150,7 @@ export function bakeEnemyNavigationGraph(world, rawProfile = {}, metadata = {}) 
         runUpDistance: Number.isFinite(Number(edge.runUpDistance)) ? rounded(edge.runUpDistance) : undefined,
         requiredLaunchSpeed: Number.isFinite(Number(edge.requiredLaunchSpeed)) ? rounded(edge.requiredLaunchSpeed) : undefined,
         groundAcceleration: Number.isFinite(Number(edge.groundAcceleration)) ? rounded(edge.groundAcceleration) : undefined,
+        takeoffClearance: Number.isFinite(Number(edge.takeoffClearance)) ? rounded(edge.takeoffClearance) : undefined,
         landingX: rounded(edge.landingX),
         landingY: rounded(edge.landingY),
         vx: rounded(edge.vx),

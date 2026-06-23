@@ -127,6 +127,7 @@ function testSourceOrganization() {
         "../level-editor.html",
         "../character-editor.html",
         "../renderer-smoke.html",
+        "../IgnatiusRocketfrock_JS.html",
         "../ARCHITECTURE.md",
         "../package.json",
         "../src/core/simulation.js",
@@ -154,7 +155,6 @@ function testSourceOrganization() {
         "../IgnatiusRocketfrock_RENDER.js",
         "../IgnatiusRocketfrock_GAME.js",
         "../IgnatiusRocketfrock_INPUT.js",
-        "../IgnatiusRocketfrock_JS.html",
         "../asset_tool.html",
         "../level_editor.html",
         "../character_tool.html",
@@ -180,8 +180,23 @@ function testSourceOrganization() {
 
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     assert.ok(gameHtml.includes('./src/browser/game-bootstrap.js'), "game page should load the reorganized browser bootstrap");
+    assert.ok(gameHtml.includes('id="loading-screen"') && gameHtml.includes('id="loading-percent"') && gameHtml.includes('id="loading-bar-fill"'), "game page should show loading text, percentage, and a progress bar before the module starts");
+    const gameBootstrap = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    assert.ok(gameBootstrap.includes("environmentAtlasManifestUrls: gameState.world.atlasManifests"), "startup should preload only the atlases referenced by the active level");
+    assert.ok(gameBootstrap.includes("setLoadingProgress") && gameBootstrap.includes("ensureEnvironmentAtlases"), "startup and level transitions should report controlled atlas-loading progress");
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    assert.ok(rendererSource.includes("Promise.all(projectJobs)") && rendererSource.includes("async ensureEnvironmentAtlases"), "renderer startup should load independent character and atlas projects concurrently and support later level atlases");
+    const characterRuntime = readFileSync(new URL("../src/presentation/character-runtime.js", import.meta.url), "utf8");
+    assert.ok(!characterRuntime.includes("rigPartOverrides") && !characterRuntime.includes("rigPivotOverrides") && !characterRuntime.includes("applyRuntimeCharacterRigOverrides"), "runtime character loading should not contain character-level rig replacement support");
+    for (const characterFile of ["ct_char_wizard_1.json", "ct_char_enemy_001.json", "ct_char_enemy_002.json", "ct_char_enemy_003.json"]) {
+        const character = JSON.parse(readFileSync(new URL(`../assets/${characterFile}`, import.meta.url), "utf8"));
+        assert.equal("rigPartOverrides" in character, false, `${characterFile} should not contain rig-part replacement data`);
+        assert.equal("rigPivotOverrides" in character, false, `${characterFile} should not contain pivot replacement data`);
+    }
     const indexHtml = readFileSync(new URL("../index.html", import.meta.url), "utf8");
     assert.ok(indexHtml.includes('asset-editor.html') && indexHtml.includes('level-editor.html') && indexHtml.includes('character-editor.html'), "landing page should link to the renamed tools");
+    const compatibilityHtml = readFileSync(new URL("../IgnatiusRocketfrock_JS.html", import.meta.url), "utf8");
+    assert.ok(compatibilityHtml.includes("window.location.replace('index.html' + window.location.search + window.location.hash)"), "legacy project links should redirect to index.html while preserving query and hash values");
 }
 
 function approx(actual, expected, tolerance, label) {
@@ -255,7 +270,9 @@ async function testGenericRuntimeCharacterProject() {
         jsonByUrl.set(`assets/${filename}`, JSON.parse(readFileSync(`./assets/${filename}`, "utf8")));
     }
     const drawCalls = [];
+    const loadingProgress = [];
     const project = await loadRuntimeCharacterProject("assets/ct_char_enemy_001.json", {
+        onProgress: (entry) => loadingProgress.push(entry),
         loadJson: async (url) => {
             assert.ok(jsonByUrl.has(url), `runtime loader should resolve known project URL ${url}`);
             return JSON.parse(JSON.stringify(jsonByUrl.get(url)));
@@ -271,6 +288,9 @@ async function testGenericRuntimeCharacterProject() {
     });
 
     assert.equal(project.characterId, "ct_char_enemy_001", "runtime loader should retain the character ID");
+    assert.ok(loadingProgress.length >= 5, "runtime character loading should report meaningful intermediate progress");
+    assert.equal(loadingProgress.at(-1).progress, 1, "runtime character loading should finish at 100 percent");
+    assert.ok(loadingProgress.every((entry, index) => index === 0 || entry.progress >= loadingProgress[index - 1].progress), "runtime character loading progress should never move backwards");
     assert.equal(project.rig.drawOrder.length, 8, "generic runtime rig should preserve every enemy part");
     assert.equal(project.animations.size, 5, "runtime loader should load all mapped enemy animations");
     assert.equal(drawCalls.length, 8, "runtime loader should crop one atlas frame for every rig part");
@@ -332,6 +352,7 @@ async function testGoblinRuntimeCharacterProjects() {
         "ct_char_enemy_002.json",
         "ct_char_enemy_003.json",
         "ct_rig_enemy_002.json",
+        "ct_rig_enemy_003.json",
         "ct_atlas_enemy_002.json",
         "ct_anim_enemy_002_idle.json",
         "ct_anim_enemy_002_walk.json",
@@ -364,13 +385,14 @@ async function testGoblinRuntimeCharacterProjects() {
 
     assert.equal(fireball.characterId, "ct_char_enemy_002", "fireball goblin should keep its character ID");
     assert.equal(musket.characterId, "ct_char_enemy_003", "musket goblin should keep its character ID");
-    assert.equal(fireball.rig.parts.leftArm.frame, "leftArmOpen", "fireball goblin should override its correctly identified casting arm frame");
-    assert.equal(fireball.rig.parts.weapon.frame, "musket", "shared weapon slot may retain a valid atlas frame even when hidden");
-    assert.equal(fireball.rig.parts.weapon.alpha, 0, "fireball should not be attached to the Fireball Goblin rig");
-    assert.equal(musket.rig.parts.leftArm.frame, "leftArmOpen", "shared goblin rig should retain the open casting arm as a hidden swappable part");
-    assert.equal(musket.rig.parts.leftArmClosed.frame, "leftArmClosed", "musket goblin should use the dedicated corrected closed left support arm");
-    assert.equal(musket.rig.parts.rightArm.frame, "rightArmClosed", "musket goblin should use the corrected closed right trigger arm");
-    assert.equal(musket.rig.parts.weapon.frame, "musket", "musket goblin should use the musket frame");
+    assert.equal(fireball.rig.rigId, "ct_rig_enemy_002", "Fireball Goblin should load its dedicated rig");
+    assert.equal(musket.rig.rigId, "ct_rig_enemy_003", "Musket Goblin should load its dedicated rig");
+    assert.equal(fireball.rig.parts.leftArm.frame, "leftArmOpen", "Fireball Goblin rig should retain the open casting arm part");
+    assert.equal(musket.rig.parts.leftArmClosed.frame, "leftArmClosed", "Musket Goblin rig should retain the closed support arm part");
+    assert.equal(musket.rig.parts.rightArm.frame, "rightArmClosed", "Musket Goblin should use the corrected closed right trigger arm");
+    assert.equal(musket.rig.parts.weapon.frame, "musket", "Musket Goblin should use the musket frame");
+    assert.deepEqual(fireball.rig.pivots.rightArm, { x: 0.18, y: 0.31 }, "Enemy 002 right-arm pivot should come directly from its rig");
+    assert.deepEqual(musket.rig.pivots.rightArm, { x: 0.17, y: 0.29 }, "Enemy 003 right-arm pivot should come directly from its rig without character-level replacement");
     assert.deepEqual(
         fireball.rig.drawOrder,
         jsonByUrl.get("assets/ct_rig_enemy_002.json").drawOrder,
@@ -409,13 +431,13 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(skeleton.defaults.strategy, "simple_patrol", "Skeleton Guard should preserve the original simple-minded local strategy");
     assert.equal(catalog.enemies.enemy_002.defaults.strategy, "hunter", "Fireball Goblin should use the hunter strategy");
     assert.equal(catalog.enemies.enemy_003.defaults.strategy, "hunter", "Musket Goblin should use the hunter strategy");
-    assert.equal(catalog.enemies.enemy_002.defaults.runSpeed, 300, "Fireball Goblin should default to the playtested 300 px/s run speed");
-    assert.equal(catalog.enemies.enemy_003.defaults.runSpeed, 300, "Musket Goblin should default to the playtested 300 px/s run speed");
+    assert.equal(catalog.enemies.enemy_002.defaults.runSpeed, 200, "Fireball Goblin should default to the authored 200 px/s run speed");
+    assert.equal(catalog.enemies.enemy_003.defaults.runSpeed, 200, "Musket Goblin should default to the authored 200 px/s run speed");
     assert.equal(catalog.enemies.enemy_002.defaults.jumpHeight, 200, "Fireball Goblin should default to the playtested 200 px jump height");
     assert.equal(catalog.enemies.enemy_003.defaults.jumpHeight, 200, "Musket Goblin should default to the playtested 200 px jump height");
-    assert.equal(skeleton.defaults.awarenessViewHalfAngle, 90, "Skeleton Guard should default to a ±90 degree awareness cone");
-    assert.equal(catalog.enemies.enemy_002.defaults.awarenessViewHalfAngle, 90, "Fireball Goblin should default to a ±90 degree awareness cone");
-    assert.equal(catalog.enemies.enemy_003.defaults.awarenessViewHalfAngle, 90, "Musket Goblin should default to a ±90 degree awareness cone");
+    assert.equal(skeleton.defaults.awarenessViewHalfAngle, 45, "Skeleton Guard should default to the authored ±45 degree awareness cone");
+    assert.equal(catalog.enemies.enemy_002.defaults.awarenessViewHalfAngle, 45, "Fireball Goblin should default to the authored ±45 degree awareness cone");
+    assert.equal(catalog.enemies.enemy_003.defaults.awarenessViewHalfAngle, 45, "Musket Goblin should default to the authored ±45 degree awareness cone");
     assert.ok(skeleton.defaults.patrolDistance > 0, "Skeleton Guard should have a visible default patrol span");
     assert.ok(skeleton.defaults.attackDamage > 0, "Skeleton Guard should have authored melee damage");
     assert.ok(skeleton.defaults.attackRange > 0, "Skeleton Guard should have authored melee reach");
@@ -425,9 +447,9 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_002"), "level_001 should contain a Fireball Goblin");
     assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_003"), "level_001 should contain a Musket Goblin");
     for (const goblin of levelOne.entities.filter((entity) => entity.characterId === "ct_char_enemy_002" || entity.characterId === "ct_char_enemy_003")) {
-        assert.equal(goblin.runSpeed, 300, `${goblin.id} should use the baked 300 px/s run profile`);
+        assert.equal(goblin.runSpeed, 200, `${goblin.id} should use the baked 200 px/s run profile`);
         assert.equal(goblin.jumpHeight, 200, `${goblin.id} should use the baked 200 px jump profile`);
-        assert.equal(goblin.awarenessViewHalfAngle, 90, `${goblin.id} should use the default ±90 degree awareness cone`);
+        assert.equal(goblin.awarenessViewHalfAngle, 45, `${goblin.id} should use the authored ±45 degree awareness cone`);
     }
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
@@ -719,12 +741,39 @@ function testHunterRangedAttackPositionSelection() {
 
 function testLevelOneUsesBakedHunterNavigationGraphs() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
-    assert.ok(Array.isArray(level.navigationGraphs?.profiles) && level.navigationGraphs.profiles.length >= 2, "level_001 should contain baked navigation profiles for both hunter goblins");
+    assert.equal(level.navigationGraphs?.profiles?.length, 1, "level_001 should contain one shared baked profile for the identically tuned hunter goblins");
     for (const graph of level.navigationGraphs.profiles) {
         assert.ok(graph.supportSignature, "each baked graph should include a geometry signature");
-        assert.ok(graph.edges.some((edge) => edge.type === "drop"), "each baked graph should retain deliberate falling transitions");
-        assert.ok(graph.edges.some((edge) => edge.type === "jump"), "each baked graph should retain jump transitions");
+        assert.equal(graph.profile.runSpeed, 200, "the baked hunter profile should match the authored run speed");
+        assert.equal(graph.profile.bodyWidth, 70, "the baked hunter profile should match the authored body width");
+        assert.equal(graph.profile.bodyHeight, 105, "the baked hunter profile should match the authored body height");
+        assert.ok(graph.edges.some((edge) => edge.type === "jump"), "the baked graph should retain jump transitions");
+        assert.ok(
+            graph.edges.some((edge) => edge.type === "jump" && edge.landingY > edge.launchY + 80),
+            "the baked graph should retain deliberate downward jump transitions"
+        );
     }
+
+    const graph = level.navigationGraphs.profiles[0];
+    const pillarRoute = planEnemyNavigationRoute(
+        graph.supports,
+        "floor_cold_platform_001_blockable_2_nav_2",
+        "floor_cold_platform_001_blockable_2_nav_1",
+        {
+            edgeMap: enemyNavigationEdgeMapFromFlat(graph.edges),
+            startX: 2140,
+            targetX: 1200
+        }
+    );
+    assert.ok(pillarRoute, "the baked graph should route a hunter across and down from the central pillar");
+    assert.ok(
+        pillarRoute.edges.some((edge) => edge.type === "jump" && edge.landingY > edge.launchY + 80),
+        "the central-pillar route should include a downward jump rather than strand the hunter on top"
+    );
+    assert.ok(
+        pillarRoute.edges[0].takeoffClearance >= graph.profile.bodyWidth * 0.54,
+        "the approach jump should launch with body clearance instead of waiting until the hunter reaches the wall"
+    );
 
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for baked graph verification");
@@ -741,6 +790,116 @@ function testLevelOneUsesBakedHunterNavigationGraphs() {
     const hunters = state.enemies.filter((enemy) => enemy.strategy === "hunter");
     assert.ok(hunters.length >= 2, "level_001 should instantiate both hunter goblins");
     assert.ok(hunters.every((enemy) => enemy.navigationGraphSource === "baked"), "hunters with matching mobility and geometry should consume the pre-baked graph");
+}
+
+
+function testHunterCrossesLevelOneCentralPillarAndJumpsDown() {
+    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_002_001");
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the central-pillar traversal regression test");
+    const manifests = new Map();
+    for (const ref of level.atlasRefs || []) {
+        const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
+        manifests.set(ref.atlasId, { manifest: JSON.parse(readFileSync(path, "utf8")) });
+    }
+    assert.equal(applyAtlasManifestsToWorld(state, manifests), true, "level collision should apply for central-pillar traversal");
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 1200;
+    state.player.y = 844.2;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+
+    const enemy = state.enemies.find((item) => item.id === "enemy_002_001");
+    assert.ok(enemy, "level_001 should instantiate the fireball goblin used by the central-pillar regression test");
+    enemy.awarenessRange = 2000;
+    enemy.awarenessVerticalRange = 1000;
+    enemy.facing = -1;
+
+    let landedOnPillarTop = false;
+    let launchedDownward = false;
+    let landedOnLeftFloor = false;
+    let glared = false;
+    for (let frame = 0; frame < 380 && !landedOnLeftFloor; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        glared ||= enemy.aiState === "unreachable_glare";
+        landedOnPillarTop ||= !enemy.airborne && enemy.currentSupportId === "object_036_001_blockable_1";
+        launchedDownward ||= landedOnPillarTop
+            && enemy.airborne
+            && enemy.route?.[enemy.routeIndex]?.to === "floor_cold_platform_001_blockable_2_nav_1";
+        landedOnLeftFloor ||= !enemy.airborne && enemy.currentSupportId === "floor_cold_platform_001_blockable_2_nav_1";
+    }
+
+    assert.equal(glared, false, "the hunter should not abandon a valid route across the central pillar");
+    assert.equal(landedOnPillarTop, true, "the hunter should accept a safe full-body landing on the pillar top and replan");
+    assert.equal(launchedDownward, true, "the hunter should deliberately jump down from the pillar top");
+    assert.equal(landedOnLeftFloor, true, "the hunter should complete the route onto the lower floor");
+    assert.equal(enemy.navigationFailureCount, 0, "safe alternate landings should not be counted as navigation failures");
+}
+
+function testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping() {
+    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    level.entities = level.entities.filter((entity) => entity.type !== "characterEnemy" || entity.id === "enemy_002_001");
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for the left-side pillar regression test");
+    const manifests = new Map();
+    for (const ref of level.atlasRefs || []) {
+        const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
+        manifests.set(ref.atlasId, { manifest: JSON.parse(readFileSync(path, "utf8")) });
+    }
+    assert.equal(applyAtlasManifestsToWorld(state, manifests), true, "level collision should apply for the left-side pillar regression test");
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 1550;
+    state.player.y = 658.5;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+
+    const enemy = state.enemies.find((item) => item.id === "enemy_002_001");
+    assert.ok(enemy, "level_001 should instantiate the fireball goblin used by the left-side pillar regression test");
+    enemy.x = 1300;
+    enemy.y = 844.24;
+    enemy.homeX = 1300;
+    enemy.homeY = 844.24;
+    enemy.facing = 1;
+    enemy.awarenessRange = 2000;
+    enemy.awarenessVerticalRange = 1000;
+    enemy.engaged = true;
+    enemy.alerted = true;
+    enemy.aiState = "pursue";
+    enemy.routeRepathTimer = 0;
+
+    let plannedJump = null;
+    let jumpStarts = 0;
+    let wasAirborne = false;
+    let landedOnPillarTop = false;
+    for (let frame = 0; frame < 220; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        plannedJump ||= enemy.route?.find((edge) => edge.type === "jump");
+        if (enemy.airborne && !wasAirborne) {
+            jumpStarts += 1;
+        }
+        wasAirborne = enemy.airborne;
+        landedOnPillarTop ||= !enemy.airborne && enemy.currentSupportId === "object_036_001_blockable_1";
+        if (landedOnPillarTop) {
+            break;
+        }
+    }
+
+    assert.ok(plannedJump, "the hunter should plan an upward jump from the left floor");
+    assert.equal(plannedJump.to, "object_036_001_blockable_1", "the upward route should target the pillar top directly instead of a tiny side ledge");
+    assert.ok(plannedJump.launchX <= 1390, `the hunter should launch early enough to clear the left wall, got ${plannedJump.launchX}`);
+    assert.ok(plannedJump.takeoffClearance >= 70, `the early launch should preserve full-body wall clearance, got ${plannedJump.takeoffClearance}`);
+    assert.equal(jumpStarts, 1, "the left-side pillar climb should succeed on the first jump attempt");
+    assert.equal(landedOnPillarTop, true, "the hunter should land on the pillar top instead of clipping the wall and falling back");
+    assert.equal(enemy.navigationFailureCount, 0, "the successful left-side climb should not record navigation failures");
 }
 
 function testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump() {
@@ -2471,7 +2630,8 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes('enemy_001: "assets/ct_char_enemy_001.json"'), "known enemy_001 project should use the numbered enemy filename convention");
     assert.ok(toolHtml.includes('enemy_002: "assets/ct_char_enemy_002.json"'), "known enemy_002 project should resolve to its character definition");
     assert.ok(toolHtml.includes('enemy_003: "assets/ct_char_enemy_003.json"'), "known enemy_003 project should resolve to its character definition");
-    assert.ok(toolHtml.includes("applyCharacterRigOverrides(loadedRig, state.character)"), "character tool should apply character-level goblin part overrides while loading known projects");
+    assert.ok(toolHtml.includes("state.rig = await loadJson(state.rigUrl)"), "character tool should load the referenced rig directly");
+    assert.ok(!toolHtml.includes("rigPartOverrides") && !toolHtml.includes("rigPivotOverrides") && !toolHtml.includes("applyCharacterRigOverrides"), "character tool should not support character-level rig overrides");
     assert.ok(toolHtml.includes('id="apply-preview-alpha"'), "character tool should expose an animation-preview alpha toggle");
     assert.ok(toolHtml.includes('id="projectile-enabled"') && toolHtml.includes('id="projectile-release-time"'), "character tool should expose projectile tagging and explicit release-time controls");
     assert.ok(toolHtml.includes('id="projectile-active-character"'), "character tool should select which shared-rig projectile belongs to the current character variant");
@@ -3101,11 +3261,15 @@ function testNumberedEnemy001Assets() {
 
     const goblinFireballCharacter = JSON.parse(readFileSync("./assets/ct_char_enemy_002.json", "utf8"));
     const goblinMusketCharacter = JSON.parse(readFileSync("./assets/ct_char_enemy_003.json", "utf8"));
-    const goblinRig = JSON.parse(readFileSync("./assets/ct_rig_enemy_002.json", "utf8"));
+    const goblinFireballRig = JSON.parse(readFileSync("./assets/ct_rig_enemy_002.json", "utf8"));
+    const goblinMusketRig = JSON.parse(readFileSync("./assets/ct_rig_enemy_003.json", "utf8"));
     const goblinAtlas = JSON.parse(readFileSync("./assets/ct_atlas_enemy_002.json", "utf8"));
     assert.equal(goblinFireballCharacter.characterId, "ct_char_enemy_002", "fireball goblin character ID should follow numbered enemy convention");
     assert.equal(goblinMusketCharacter.characterId, "ct_char_enemy_003", "musket goblin character ID should follow numbered enemy convention");
-    assert.equal(goblinRig.rigId, "ct_rig_enemy_002", "shared goblin rig should use the next numbered rig filename");
+    assert.equal(goblinFireballCharacter.rig, "ct_rig_enemy_002.json", "Fireball Goblin should reference its dedicated rig");
+    assert.equal(goblinMusketCharacter.rig, "ct_rig_enemy_003.json", "Musket Goblin should reference its dedicated rig");
+    assert.equal(goblinFireballRig.rigId, "ct_rig_enemy_002", "Fireball Goblin rig should use the numbered rig filename");
+    assert.equal(goblinMusketRig.rigId, "ct_rig_enemy_003", "Musket Goblin rig should use the numbered rig filename");
     assert.equal(goblinAtlas.atlasId, "ct_atlas_enemy_002", "shared goblin atlas should use the next numbered atlas filename");
     assert.ok(goblinAtlas.frames.fireball, "goblin atlas should include the fireball projectile frame");
     assert.ok(goblinAtlas.frames.cannonball, "goblin atlas should include the cannonball projectile frame");
@@ -3117,24 +3281,28 @@ function testNumberedEnemy001Assets() {
     assert.equal(goblinAtlas.frames.rightLeg.x, 335, "right leg should use the corrected rear-leg rectangle");
     assert.equal(goblinAtlas.objects.fireball.type, "projectileSprite", "fireball should remain in the atlas as an unattached projectile resource");
     assert.equal(goblinAtlas.objects.cannonball.type, "projectileSprite", "cannonball should remain in the atlas as an unattached projectile resource");
-    assert.equal(goblinFireballCharacter.rigPartOverrides.weapon.alpha, 0, "fireball goblin should hide the shared weapon slot instead of attaching the projectile");
-    assert.equal(goblinFireballCharacter.projectilePart, "fireball", "Fireball Goblin should select the fireball from the shared projectile rig parts");
-    assert.equal(goblinMusketCharacter.projectilePart, "cannonball", "Musket Goblin should select the cannonball from the shared projectile rig parts");
-    assert.deepEqual(goblinFireballCharacter.rigPartOverrides.weapon.offset, { x: 145, y: -179 }, "hidden Fireball Goblin weapon slot should retain the baked ground-normalized setup offset");
-    assert.equal(goblinMusketCharacter.rigPartOverrides.weapon.frame, "musket", "musket goblin should keep the musket attached to its rig");
-    assert.equal(goblinMusketCharacter.rigPartOverrides.leftArm, undefined, "musket goblin should use the dedicated leftArmClosed rig part instead of duplicating it through leftArm");
-    assert.deepEqual(goblinRig.drawOrder, ["leftArm", "leftArmClosed", "leftLeg", "rightLeg", "head", "torso", "weapon", "rightArm", "cannonball", "fireball"], "goblin draw order should preserve the accepted user-authored depth order including previewable projectile parts");
-    assert.ok(goblinRig.parts.leftArmClosed, "shared goblin rig should retain the alternate closed left arm as an independently animatable part");
-    assert.equal(goblinRig.parts.fireball.projectile.launchType, "homing_lo", "fireball rig part should be tagged as low-homing");
-    approx(goblinRig.parts.fireball.projectile.releaseTime, 0.372, 0.000001, "fireball rig part should carry an explicit release time");
-    assert.equal(goblinRig.parts.cannonball.projectile.launchType, "ballistic", "cannonball rig part should be tagged as ballistic");
-    approx(goblinRig.parts.cannonball.projectile.releaseTime, 0.49531814840382643, 0.000001, "cannonball rig part should carry an explicit release time");
+    assert.equal("rigPartOverrides" in goblinFireballCharacter, false, "Fireball Goblin character data should not contain rig-part overrides");
+    assert.equal("rigPivotOverrides" in goblinFireballCharacter, false, "Fireball Goblin character data should not contain pivot overrides");
+    assert.equal("rigPartOverrides" in goblinMusketCharacter, false, "Musket Goblin character data should not contain rig-part overrides");
+    assert.equal("rigPivotOverrides" in goblinMusketCharacter, false, "Musket Goblin character data should not contain pivot overrides");
+    assert.equal(goblinFireballCharacter.projectilePart, "fireball", "Fireball Goblin should select the fireball projectile part");
+    assert.equal(goblinMusketCharacter.projectilePart, "cannonball", "Musket Goblin should select the cannonball projectile part");
+    assert.deepEqual(goblinFireballRig.drawOrder, ["leftArm", "leftArmClosed", "leftLeg", "rightLeg", "head", "torso", "weapon", "rightArm", "cannonball", "fireball"], "Fireball Goblin draw order should preserve the accepted user-authored depth order including previewable projectile parts");
+    assert.deepEqual(goblinMusketRig.drawOrder, goblinFireballRig.drawOrder, "both dedicated goblin rigs should preserve the accepted depth order");
+    assert.deepEqual(goblinFireballRig.pivots.rightArm, { x: 0.18, y: 0.31 }, "Enemy 002 right-arm pivot should remain authoritative in its rig file");
+    assert.deepEqual(goblinMusketRig.pivots.rightArm, { x: 0.17, y: 0.29 }, "Enemy 003 right-arm pivot should remain authoritative in its rig file");
+    assert.ok(goblinFireballRig.parts.leftArmClosed && goblinMusketRig.parts.leftArmClosed, "both goblin rigs should retain the alternate closed left arm as an independently animatable part");
+    assert.equal(goblinFireballRig.parts.fireball.projectile.launchType, "homing_lo", "fireball rig part should be tagged as low-homing");
+    approx(goblinFireballRig.parts.fireball.projectile.releaseTime, 0.372, 0.000001, "fireball rig part should carry an explicit release time");
+    assert.equal(goblinMusketRig.parts.cannonball.projectile.launchType, "ballistic", "cannonball rig part should be tagged as ballistic");
+    approx(goblinMusketRig.parts.cannonball.projectile.releaseTime, 0.49531814840382643, 0.000001, "cannonball rig part should carry an explicit release time");
 
     const fireIdle = JSON.parse(readFileSync("./assets/ct_anim_enemy_002_idle.json", "utf8"));
     const fireAttack = JSON.parse(readFileSync("./assets/ct_anim_enemy_002_attack.json", "utf8"));
     const musketIdle = JSON.parse(readFileSync("./assets/ct_anim_enemy_003_idle.json", "utf8"));
     const musketAttack = JSON.parse(readFileSync("./assets/ct_anim_enemy_003_attack.json", "utf8"));
-    assert.equal(goblinRig.global.groundOffset, 0, "goblin ground correction should be baked into authored coordinates rather than applied at runtime");
+    assert.equal(goblinFireballRig.global.groundOffset, 0, "Fireball Goblin ground correction should be baked into authored coordinates rather than applied at runtime");
+    assert.equal(goblinMusketRig.global.groundOffset, 0, "Musket Goblin ground correction should be baked into authored coordinates rather than applied at runtime");
     approx(fireIdle.tracks.rightLeg.y[0].value, -130.05551366037764, 0.000001, "Fireball Goblin right foot should use the baked +52 ground normalization");
     approx(fireIdle.tracks.leftLeg.y[0].value, -137.7019415206407, 0.000001, "Fireball Goblin left foot should use the baked +52 ground normalization");
     assert.equal(fireIdle.tracks.leftArm.alpha[0].value, 0, "Fireball Goblin idle should hide the open casting arm");
@@ -3158,8 +3326,8 @@ function testNumberedEnemy001Assets() {
         "ct_anim_enemy_002_walk.json", "ct_anim_enemy_002_attack.json", "ct_anim_enemy_002_hurt.json", "ct_anim_enemy_002_death.json",
         "ct_anim_enemy_003_idle.json", "ct_anim_enemy_003_walk.json", "ct_anim_enemy_003_attack.json", "ct_anim_enemy_003_hurt.json", "ct_anim_enemy_003_death.json"
     ];
-    const requiredGoblinBodyParts = goblinRig.drawOrder.filter((partName) => {
-        const frameName = goblinRig.parts?.[partName]?.frame;
+    const requiredGoblinBodyParts = goblinFireballRig.drawOrder.filter((partName) => {
+        const frameName = goblinFireballRig.parts?.[partName]?.frame;
         return goblinAtlas.objects?.[frameName]?.type !== "projectileSprite";
     });
     for (const filename of goblinAnimationFiles) {
@@ -4194,6 +4362,8 @@ const tests = [
     ["hunter deliberate drop traversal", testHunterUsesDeliberateDropTraversal],
     ["hunter ranged attack-position selection", testHunterRangedAttackPositionSelection],
     ["level_001 baked hunter navigation graphs", testLevelOneUsesBakedHunterNavigationGraphs],
+    ["hunter crosses and descends level_001 central pillar", testHunterCrossesLevelOneCentralPillarAndJumpsDown],
+    ["hunter climbs level_001 pillar from the left", testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping],
     ["hunter jumps onto level_001 arch", testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump],
     ["hunter obstacle-clear jump run-up", testHunterJumpUsesObstacleClearRunUp],
     ["hunter reverse jump backs away for run-up", testHunterJumpBacksAwayForReverseRunUp],

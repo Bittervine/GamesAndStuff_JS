@@ -1,7 +1,7 @@
 {
     "meta": {
         "version": 5,
-        "note": "Shared goblin rig with projectile parts. Revision 113 bakes a 52-pixel rig-space ground correction into anchors and setup offsets so local y=0 is the actual runtime ground; no runtime ground offset is used."
+        "note": "Dedicated Musket Goblin rig with projectile preview parts. Revision 113 bakes a 52-pixel rig-space ground correction into anchors and setup offsets so local y=0 is the actual runtime ground; no runtime ground offset is used. Revision 128 makes this file authoritative for all part and pivot geometry."
     },
     "rigId": "ct_rig_enemy_003",
     "atlasId": "ct_atlas_enemy_002",
