@@ -413,8 +413,8 @@
             "characterId": "ct_char_enemy_002",
             "x": 2140,
             "y": 800,
-            "w": 72,
-            "h": 148,
+            "w": 70,
+            "h": 105,
             "behavior": "patrol",
             "facing": -1,
             "patrolDistance": 240,
@@ -424,7 +424,7 @@
             "groundSnapDistance": 96,
             "maxStepHeight": 26,
             "maxDropDistance": 34,
-            "renderScale": 0.6,
+            "renderScale": 0.55,
             "health": 80,
             "animationSlot": "idle",
             "targetAnchor": {
@@ -460,14 +460,14 @@
             "projectileReleaseTime": 0.372,
             "projectileLaunchType": "homing_lo",
             "strategy": "hunter",
-            "runSpeed": 300,
+            "runSpeed": 200,
             "jumpHeight": 200,
             "jumpGravity": 1250,
             "maxFallDistance": 280,
             "unreachableGlareDuration": 5,
             "routeRepathInterval": 0.3,
             "homeRetryInterval": 4,
-            "awarenessViewHalfAngle": 90
+            "awarenessViewHalfAngle": 45
         },
         {
             "id": "enemy_003_001",
@@ -475,8 +475,8 @@
             "characterId": "ct_char_enemy_003",
             "x": 2860,
             "y": 800,
-            "w": 76,
-            "h": 148,
+            "w": 70,
+            "h": 105,
             "behavior": "patrol",
             "facing": -1,
             "patrolDistance": 260,
@@ -486,7 +486,7 @@
             "groundSnapDistance": 96,
             "maxStepHeight": 26,
             "maxDropDistance": 34,
-            "renderScale": 0.6,
+            "renderScale": 0.55,
             "health": 90,
             "animationSlot": "idle",
             "targetAnchor": {
@@ -522,14 +522,14 @@
             "projectileReleaseTime": 0.49531814840382643,
             "projectileLaunchType": "ballistic",
             "strategy": "hunter",
-            "runSpeed": 300,
+            "runSpeed": 200,
             "jumpHeight": 200,
             "jumpGravity": 1250,
             "maxFallDistance": 280,
             "unreachableGlareDuration": 5,
             "routeRepathInterval": 0.3,
             "homeRetryInterval": 4,
-            "awarenessViewHalfAngle": 90
+            "awarenessViewHalfAngle": 45
         },
         {
             "id": "targetDummy_002",
@@ -569,7 +569,7 @@
             "x": 3700,
             "y": 252,
             "w": 72,
-            "h": 150,
+            "h": 170,
             "behavior": "patrol",
             "facing": -1,
             "patrolDistance": 260,
@@ -605,7 +605,7 @@
             "strategy": "simple_patrol",
             "runSpeed": 150,
             "jumpHeight": 0,
-            "awarenessViewHalfAngle": 90
+            "awarenessViewHalfAngle": 45
         },
         {
             "id": "wizard_exit_door_001",

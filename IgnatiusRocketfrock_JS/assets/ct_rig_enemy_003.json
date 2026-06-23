@@ -3,7 +3,7 @@
         "version": 5,
         "note": "Shared goblin rig with projectile parts. Revision 113 bakes a 52-pixel rig-space ground correction into anchors and setup offsets so local y=0 is the actual runtime ground; no runtime ground offset is used."
     },
-    "rigId": "ct_rig_enemy_002",
+    "rigId": "ct_rig_enemy_003",
     "atlasId": "ct_atlas_enemy_002",
     "atlasManifest": "ct_atlas_enemy_002.json",
     "drawOrder": [
@@ -62,8 +62,8 @@
     },
     "pivots": {
         "rightArm": {
-            "x": 0.18,
-            "y": 0.31
+            "x": 0.17,
+            "y": 0.29
         },
         "leftArm": {
             "x": 0.075,

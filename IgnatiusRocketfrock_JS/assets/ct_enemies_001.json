@@ -49,7 +49,7 @@
                 "runSpeed": 150,
                 "jumpHeight": 0,
                 "unreachableGlareDuration": 5,
-                "awarenessViewHalfAngle": 90
+                "awarenessViewHalfAngle": 45
             }
         },
         "enemy_002": {
@@ -57,8 +57,8 @@
             "icon": "\ud83d\udd25",
             "characterId": "ct_char_enemy_002",
             "defaultSize": {
-                "w": 72,
-                "h": 148
+                "w": 70,
+                "h": 105
             },
             "defaults": {
                 "behavior": "patrol",
@@ -70,7 +70,7 @@
                 "groundSnapDistance": 96,
                 "maxStepHeight": 26,
                 "maxDropDistance": 34,
-                "renderScale": 0.6,
+                "renderScale": 0.55,
                 "health": 80,
                 "animationSlot": "idle",
                 "targetAnchor": {
@@ -106,14 +106,14 @@
                 "projectileReleaseTime": 0.372,
                 "projectileLaunchType": "homing_lo",
                 "strategy": "hunter",
-                "runSpeed": 300,
+                "runSpeed": 200,
                 "jumpHeight": 200,
                 "jumpGravity": 1250,
                 "maxFallDistance": 280,
                 "unreachableGlareDuration": 5,
                 "routeRepathInterval": 0.3,
                 "homeRetryInterval": 4,
-                "awarenessViewHalfAngle": 90
+                "awarenessViewHalfAngle": 45
             }
         },
         "enemy_003": {
@@ -121,8 +121,8 @@
             "icon": "\ud83d\udd2b",
             "characterId": "ct_char_enemy_003",
             "defaultSize": {
-                "w": 76,
-                "h": 148
+                "w": 70,
+                "h": 105
             },
             "defaults": {
                 "behavior": "patrol",
@@ -134,7 +134,7 @@
                 "groundSnapDistance": 96,
                 "maxStepHeight": 26,
                 "maxDropDistance": 34,
-                "renderScale": 0.6,
+                "renderScale": 0.55,
                 "health": 90,
                 "animationSlot": "idle",
                 "targetAnchor": {
@@ -170,14 +170,14 @@
                 "projectileReleaseTime": 0.49531814840382643,
                 "projectileLaunchType": "ballistic",
                 "strategy": "hunter",
-                "runSpeed": 300,
+                "runSpeed": 200,
                 "jumpHeight": 200,
                 "jumpGravity": 1250,
                 "maxFallDistance": 280,
                 "unreachableGlareDuration": 5,
                 "routeRepathInterval": 0.3,
                 "homeRetryInterval": 4,
-                "awarenessViewHalfAngle": 90
+                "awarenessViewHalfAngle": 45
             }
         }
     }
