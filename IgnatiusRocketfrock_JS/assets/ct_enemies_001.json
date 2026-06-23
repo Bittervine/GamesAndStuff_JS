@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 8,
-        "note": "Revision 120 makes monster awareness depend on distance and a configurable facing cone only. Collision geometry no longer occludes awareness; all catalog enemies default to a \u00b160 degree view cone."
+        "version": 9,
+        "note": "Revision 121 widens monster awareness to a \u00b190 degree forward half-plane and retains terrain-independent detection."
     },
     "catalogId": "ct_enemies_001",
     "enemies": {
@@ -49,7 +49,7 @@
                 "runSpeed": 150,
                 "jumpHeight": 0,
                 "unreachableGlareDuration": 5,
-                "awarenessViewHalfAngle": 60
+                "awarenessViewHalfAngle": 90
             }
         },
         "enemy_002": {
@@ -113,7 +113,7 @@
                 "unreachableGlareDuration": 5,
                 "routeRepathInterval": 0.3,
                 "homeRetryInterval": 4,
-                "awarenessViewHalfAngle": 60
+                "awarenessViewHalfAngle": 90
             }
         },
         "enemy_003": {
@@ -177,7 +177,7 @@
                 "unreachableGlareDuration": 5,
                 "routeRepathInterval": 0.3,
                 "homeRetryInterval": 4,
-                "awarenessViewHalfAngle": 60
+                "awarenessViewHalfAngle": 90
             }
         }
     }

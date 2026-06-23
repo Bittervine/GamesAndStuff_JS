@@ -1708,6 +1708,7 @@ import {
             bodyWidth: width,
             bodyHeight: height,
             runSpeed: Math.max(1, finiteEditorNumber(entity.runSpeed ?? entity.chaseSpeed, 160)),
+            groundAcceleration: Math.max(1, finiteEditorNumber(entity.runAcceleration, 950)),
             jumpHeight: Math.max(0, finiteEditorNumber(entity.jumpHeight, 120)),
             gravity: Math.max(1, finiteEditorNumber(entity.jumpGravity, 1200)),
             maxFallDistance: Math.max(0, finiteEditorNumber(entity.maxFallDistance, 320)),
@@ -1803,7 +1804,7 @@ import {
             profilesById.set(enemyNavigationProfileKey(profile), profile);
         }
         if (!profilesById.size) {
-            state.level.navigationGraphs = { version: 1, profiles: [] };
+            state.level.navigationGraphs = { version: 2, profiles: [] };
             if (refreshUi) refreshNavigationGraphUi();
             if (!silent) setStatus("No hunter enemies are placed in this level.", false);
             return { built: false, profiles: 0, supports: 0, edges: 0 };
@@ -1814,7 +1815,7 @@ import {
             label: `Run ${profile.runSpeed}, jump ${profile.jumpHeight}, body ${profile.bodyWidth}×${profile.bodyHeight}`
         }));
         state.level.navigationGraphs = {
-            version: 1,
+            version: 2,
             profiles
         };
         state.navigationPreviewGraphId = profiles[0]?.id || "";
@@ -1852,6 +1853,17 @@ import {
         ctx.fillStyle = color;
         ctx.lineWidth = edge.type === "step" ? 1.5 : 2;
         ctx.globalAlpha = 0.82;
+        if (edge.type === "jump" && Number.isFinite(Number(edge.runUpX))) {
+            const runUp = worldToScreen(Number(edge.runUpX), Number(edge.runUpY ?? edge.launchY));
+            ctx.save();
+            ctx.setLineDash([7, 5]);
+            ctx.globalAlpha = 0.58;
+            ctx.beginPath();
+            ctx.moveTo(runUp.x, runUp.y);
+            ctx.lineTo(a.x, a.y);
+            ctx.stroke();
+            ctx.restore();
+        }
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
         if (edge.type === "jump") {
@@ -2805,7 +2817,7 @@ import {
             els.inspectEnemyWalkSpeed.value = Math.max(0, finiteEditorNumber(rec.walkSpeed, 56));
             els.inspectEnemyChaseSpeed.value = Math.max(0, finiteEditorNumber(rec.chaseSpeed, 150));
             els.inspectEnemyAwarenessRange.value = Math.max(0, finiteEditorNumber(rec.awarenessRange, 300));
-            els.inspectEnemyViewHalfAngle.value = Math.max(0, Math.min(180, finiteEditorNumber(rec.awarenessViewHalfAngle, 60)));
+            els.inspectEnemyViewHalfAngle.value = Math.max(0, Math.min(180, finiteEditorNumber(rec.awarenessViewHalfAngle, 90)));
             els.inspectEnemyJumpHeight.value = Math.max(0, finiteEditorNumber(rec.jumpHeight, 118));
             els.inspectEnemyGlareDuration.value = Math.max(0, finiteEditorNumber(rec.unreachableGlareDuration, 5));
             els.inspectEnemyIdleDuration.value = Math.max(0, finiteEditorNumber(rec.idleDuration, 1.1));
@@ -3213,7 +3225,7 @@ import {
     document.getElementById("play-browser-copy").addEventListener("click", playBrowserCopy);
     els.buildNavigationGraphs.addEventListener("click", buildPlacedHunterNavigationGraphs);
     els.clearNavigationGraphs.addEventListener("click", () => {
-        state.level.navigationGraphs = { version: 1, profiles: [] };
+        state.level.navigationGraphs = { version: 2, profiles: [] };
         state.navigationPreviewGraphId = "";
         refreshNavigationGraphUi();
         persistUi();

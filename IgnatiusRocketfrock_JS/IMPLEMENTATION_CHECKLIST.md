@@ -983,3 +983,23 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Default all catalog enemies and `level_001` monsters to a ±60 degree cone.
 - [x] Expose the view half-angle in the Level Editor.
 - [x] Add regression coverage for occluded awareness, wrong-facing rejection, and cone boundaries.
+
+## Revision 121
+
+- [x] Change default monster awareness from ±60° to ±90°.
+- [x] Preserve distance and facing as the only first-notice gates.
+- [x] Add ground acceleration to enemy navigation mobility profiles and baked-profile keys.
+- [x] Bake explicit run-up start, distance, acceleration, and required launch speed into jump edges.
+- [x] Reject jump edges without a clear and sufficiently long source-support run-up corridor.
+- [x] Route toward the run-up point rather than directly toward takeoff.
+- [x] Commit runtime traversal through approach, acceleration, takeoff, and airborne phases without periodic repathing resetting the maneuver.
+- [x] Show dashed run-up segments in the Level Editor graph preview.
+- [x] Rebuild both `level_001` goblin graphs using graph format version 2.
+- [x] Add regressions for left-to-right and right-to-left pillar jumps, including visible backing away before the reverse jump.
+- [x] Add ±90° awareness boundary regressions.
+
+## Revision 122 doorway fuel-indicator transform
+
+- [x] Draw the mounted fuel indicator from the rendered rocket command transform.
+- [x] Preserve the indicator's local attachment, rotation, and facing while the wizard scales through doors.
+- [x] Add a regression guard preventing the indicator from using the unscaled source pose.

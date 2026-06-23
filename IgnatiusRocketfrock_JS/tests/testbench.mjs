@@ -411,9 +411,9 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(catalog.enemies.enemy_003.defaults.runSpeed, 300, "Musket Goblin should default to the playtested 300 px/s run speed");
     assert.equal(catalog.enemies.enemy_002.defaults.jumpHeight, 200, "Fireball Goblin should default to the playtested 200 px jump height");
     assert.equal(catalog.enemies.enemy_003.defaults.jumpHeight, 200, "Musket Goblin should default to the playtested 200 px jump height");
-    assert.equal(skeleton.defaults.awarenessViewHalfAngle, 60, "Skeleton Guard should default to a ±60 degree awareness cone");
-    assert.equal(catalog.enemies.enemy_002.defaults.awarenessViewHalfAngle, 60, "Fireball Goblin should default to a ±60 degree awareness cone");
-    assert.equal(catalog.enemies.enemy_003.defaults.awarenessViewHalfAngle, 60, "Musket Goblin should default to a ±60 degree awareness cone");
+    assert.equal(skeleton.defaults.awarenessViewHalfAngle, 90, "Skeleton Guard should default to a ±90 degree awareness cone");
+    assert.equal(catalog.enemies.enemy_002.defaults.awarenessViewHalfAngle, 90, "Fireball Goblin should default to a ±90 degree awareness cone");
+    assert.equal(catalog.enemies.enemy_003.defaults.awarenessViewHalfAngle, 90, "Musket Goblin should default to a ±90 degree awareness cone");
     assert.ok(skeleton.defaults.patrolDistance > 0, "Skeleton Guard should have a visible default patrol span");
     assert.ok(skeleton.defaults.attackDamage > 0, "Skeleton Guard should have authored melee damage");
     assert.ok(skeleton.defaults.attackRange > 0, "Skeleton Guard should have authored melee reach");
@@ -425,7 +425,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     for (const goblin of levelOne.entities.filter((entity) => entity.characterId === "ct_char_enemy_002" || entity.characterId === "ct_char_enemy_003")) {
         assert.equal(goblin.runSpeed, 300, `${goblin.id} should use the baked 300 px/s run profile`);
         assert.equal(goblin.jumpHeight, 200, `${goblin.id} should use the baked 200 px jump profile`);
-        assert.equal(goblin.awarenessViewHalfAngle, 60, `${goblin.id} should use the default ±60 degree awareness cone`);
+        assert.equal(goblin.awarenessViewHalfAngle, 90, `${goblin.id} should use the default ±90 degree awareness cone`);
     }
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
@@ -589,7 +589,7 @@ function testHunterEnemyJumpAndAttackPositioning() {
 
     const enemy = state.enemies.find((item) => item.id === "hunter");
     let sawAirborne = false;
-    stepMany(state, 100, () => {
+    stepMany(state, 180, () => {
         sawAirborne ||= enemy.airborne;
         return createInputFrame();
     });
@@ -774,7 +774,7 @@ function testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump() {
     let sawAirborne = false;
     let landedOnArch = false;
     let glaredBeforeJump = false;
-    for (let frame = 0; frame < 220; frame += 1) {
+    for (let frame = 0; frame < 340; frame += 1) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
         if (!sawAirborne && enemy.aiState === "unreachable_glare") {
             glaredBeforeJump = true;
@@ -938,7 +938,9 @@ function testHunterJumpUsesObstacleClearRunUp() {
     stepSimulation(state, createInputFrame(), FIXED_DT);
     const firstJump = enemy.route.find((edge) => edge.type === "jump");
     assert.ok(firstJump, "hunter should plan a jump onto the pillar");
-    assert.ok(firstJump.launchX <= 150, `jump should begin with meaningful run-up before the x=200 wall, got ${firstJump.launchX}`);
+    assert.ok(Number.isFinite(firstJump.runUpX), "jump edge should include an explicit run-up start");
+    assert.ok(firstJump.runUpX < firstJump.launchX - 80, `rightward jump should back up before accelerating, run-up ${firstJump.runUpX}, takeoff ${firstJump.launchX}`);
+    assert.ok(firstJump.launchX <= 170, `takeoff should still clear the x=200 wall with the full body, got ${firstJump.launchX}`);
 
     let jumpStarts = 0;
     let wasAirborne = false;
@@ -953,6 +955,91 @@ function testHunterJumpUsesObstacleClearRunUp() {
     assert.equal(jumpStarts, 1, "a valid run-up jump should reach the pillar on the first attempt");
     assert.equal(landed, true, "hunter should clear the pillar wall and land on its top");
     assert.equal(enemy.navigationFailureCount, 0, "successful run-up jump should not record a navigation failure");
+}
+
+function testHunterJumpBacksAwayForReverseRunUp() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "hunter_reverse_run_up_test",
+        playerStart: { x: 280, y: 430 },
+        entities: [{
+            id: "reverse_run_up_hunter",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_002",
+            x: 405,
+            y: 600,
+            w: 72,
+            h: 148,
+            facing: -1,
+            behavior: "patrol",
+            strategy: "hunter",
+            patrolDistance: 80,
+            walkSpeed: 52,
+            runSpeed: 300,
+            runAcceleration: 950,
+            jumpHeight: 200,
+            jumpGravity: 1250,
+            maxFallDistance: 300,
+            maxStepHeight: 26,
+            awarenessRange: 1200,
+            awarenessViewHalfAngle: 90,
+            attackMode: "melee",
+            attackRange: 58,
+            attackVerticalRange: 110,
+            attackDamage: 0
+        }]
+    });
+    state.world.segments = [
+        { id: "floor", kind: "walkable", x1: -200, y1: 600, x2: 760, y2: 600 },
+        { id: "pillar_top", visualId: "pillar", kind: "blockable", x1: 200, y1: 430, x2: 360, y2: 430 },
+        { id: "pillar_right", visualId: "pillar", kind: "blockable", x1: 360, y1: 430, x2: 360, y2: 600 },
+        { id: "pillar_bottom", visualId: "pillar", kind: "blockable", x1: 360, y1: 600, x2: 200, y2: 600 },
+        { id: "pillar_left", visualId: "pillar", kind: "blockable", x1: 200, y1: 600, x2: 200, y2: 430 }
+    ];
+    state.world.solids = [];
+    state.world.collisionPolygons = [{
+        id: "pillar_area",
+        visualId: "pillar",
+        kind: "blockable",
+        points: [
+            { x: 200, y: 430 },
+            { x: 360, y: 430 },
+            { x: 360, y: 600 },
+            { x: 200, y: 600 }
+        ]
+    }];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 280;
+    state.player.y = 430;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+
+    const enemy = state.enemies.find((item) => item.id === "reverse_run_up_hunter");
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    const firstJump = enemy.route.find((edge) => edge.type === "jump" && edge.vx < 0);
+    assert.ok(firstJump, "hunter on the right should plan a leftward jump onto the pillar");
+    assert.ok(Number.isFinite(firstJump.runUpX), "leftward jump should include an explicit run-up start");
+    assert.ok(firstJump.runUpX > firstJump.launchX + 80, `leftward jump should first move farther right, run-up ${firstJump.runUpX}, takeoff ${firstJump.launchX}`);
+
+    const startX = enemy.x;
+    let furthestRight = enemy.x;
+    let jumpStarts = 0;
+    let wasAirborne = false;
+    let landed = false;
+    for (let frame = 0; frame < 300; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        if (!enemy.airborne) furthestRight = Math.max(furthestRight, enemy.x);
+        if (enemy.airborne && !wasAirborne) jumpStarts += 1;
+        wasAirborne = enemy.airborne;
+        landed ||= !enemy.airborne && String(enemy.currentSupportId || "").startsWith("pillar_top");
+        if (landed) break;
+    }
+    assert.ok(furthestRight > startX + 60, `hunter should visibly back away from the pillar before its leftward run-up, moved only ${furthestRight - startX}`);
+    assert.equal(jumpStarts, 1, "reverse run-up should land on the first jump attempt");
+    assert.equal(landed, true, "hunter should accelerate left through takeoff and land on the pillar");
 }
 
 function testHunterDropLandsOnOrdinaryCollisionGeometry() {
@@ -1234,7 +1321,7 @@ function testMonsterAwarenessUsesDistanceAndFacingCone() {
                 patrolDistance: 500,
                 awarenessRange: 240,
                 awarenessVerticalRange: verticalRange,
-                awarenessViewHalfAngle: 60,
+                awarenessViewHalfAngle: 90,
                 attackDamage: 0,
                 attackRange: 50
             }]
@@ -1274,11 +1361,14 @@ function testMonsterAwarenessUsesDistanceAndFacingCone() {
     const wrongDirection = runCase({ strategy: "hunter", facing: 1, relativeAngleDegrees: 180, withWall: false });
     assert.equal(wrongDirection.alerted, false, "a monster should not notice Ignatius directly behind its facing direction");
 
-    const insideCone = runCase({ strategy: "hunter", facing: -1, relativeAngleDegrees: 59, withWall: false, verticalRange: 20 });
-    assert.equal(insideCone.alerted, true, "a target just inside the ±60 degree cone should be noticed even beyond a legacy vertical-awareness limit");
+    const insideCone = runCase({ strategy: "hunter", facing: -1, relativeAngleDegrees: 89, withWall: false, verticalRange: 20 });
+    assert.equal(insideCone.alerted, true, "a target just inside the ±90 degree forward half-plane should be noticed even beyond a legacy vertical-awareness limit");
 
-    const outsideCone = runCase({ strategy: "hunter", facing: -1, relativeAngleDegrees: 61, withWall: false });
-    assert.equal(outsideCone.alerted, false, "a target just outside the ±60 degree cone should not be noticed");
+    const boundaryCone = runCase({ strategy: "hunter", facing: -1, relativeAngleDegrees: 90, withWall: false });
+    assert.equal(boundaryCone.alerted, true, "a target exactly perpendicular to the facing direction should remain inside the ±90 degree cone");
+
+    const outsideCone = runCase({ strategy: "hunter", facing: -1, relativeAngleDegrees: 91, withWall: false });
+    assert.equal(outsideCone.alerted, false, "a target just behind the ±90 degree forward half-plane should not be noticed");
 }
 
 function testHunterEnemyStrandedFallback() {
@@ -2180,6 +2270,8 @@ function testCharacterProjectWorkspace() {
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("ctx.fillStyle = LEVEL_BACKGROUND_COLOR"), "runtime cutout masks should repaint the shared cave backing");
     assert.ok(!rendererSource.includes('globalCompositeOperation = "destination-out"'), "runtime cutout masks should not erase canvas alpha");
+    assert.ok(rendererSource.includes("this.drawMountedRocketFuelBulb(command?.transform ?? renderedTransforms[partName], state, zoom)"), "mounted fuel bulb should use the same scaled rocket transform as the doorway-scaled wizard sprite");
+    assert.ok(!rendererSource.includes("this.drawMountedRocketFuelBulb(pose.transforms[partName], state, zoom)"), "mounted fuel bulb should not bypass the player render-scale transform");
 
     const frame = { x: 10, y: 20, w: 80, h: 120 };
     const { partName, removedParts } = addAtlasFrameToRig(project.rig, "leftArm", frame);
@@ -3815,6 +3907,7 @@ const tests = [
     ["level_001 baked hunter navigation graphs", testLevelOneUsesBakedHunterNavigationGraphs],
     ["hunter jumps onto level_001 arch", testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump],
     ["hunter obstacle-clear jump run-up", testHunterJumpUsesObstacleClearRunUp],
+    ["hunter reverse jump backs away for run-up", testHunterJumpBacksAwayForReverseRunUp],
     ["hunter drop uses ordinary collision geometry", testHunterDropLandsOnOrdinaryCollisionGeometry],
     ["hunter walk-off drop clears source pillar", testHunterWalkOffDropClearsSourcePillar],
     ["hunter awareness is consistent behind occluders", testHunterAwarenessIsConsistentBehindOccluder],

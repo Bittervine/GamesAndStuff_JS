@@ -1412,11 +1412,13 @@ class RocketfrockRenderer {
         this.drawCharacterProjectPose(this.playerProject, screenX, screenGroundY, facing, renderedTransforms, bounds, {
             ...options,
             tintAlpha: lowHealthTint,
-            afterPart: (partName) => {
+            afterPart: (partName, command) => {
                 if (partName === "rocket" && options.drawFuelBulb !== false) {
                     // Phase 1.011: attached boost exhaust is represented by world-managed smoke/spark puffs,
                     // not by a local flame sprite. The flying projectile still keeps its short nozzle flame.
-                    this.drawMountedRocketFuelBulb(pose.transforms[partName], state, zoom);
+                    // Use the exact transformed rocket command so the local bulb inherits doorway scale,
+                    // position, rotation, and facing together with the sprite it is mounted on.
+                    this.drawMountedRocketFuelBulb(command?.transform ?? renderedTransforms[partName], state, zoom);
                 }
             }
         });

@@ -94,7 +94,7 @@ export const DEFAULT_TUNING = Object.freeze({
     enemyDefaultHomeRetrySeconds: 4,
     enemyDefaultAwarenessRange: 300,
     enemyDefaultAwarenessVerticalRange: 190,
-    enemyDefaultAwarenessViewHalfAngle: 60,
+    enemyDefaultAwarenessViewHalfAngle: 90,
     enemyDefaultAwarenessHoldSeconds: 1.2,
     enemyDefaultAttackDamage: 24,
     enemyDefaultAttackRange: 66,
@@ -1621,11 +1621,15 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             airborne: false,
             velocityX: 0,
             velocityY: 0,
+            groundVelocityX: 0,
+            routeTraversalPhase: null,
+            routeTraversalEdgeIndex: -1,
             airTimer: 0,
             airTargetSupportId: null,
             walkSpeed: Math.max(0, finiteNumberOr(entity.walkSpeed, 56)),
             chaseSpeed: Math.max(0, finiteNumberOr(entity.runSpeed, finiteNumberOr(entity.chaseSpeed, state.tuning.enemyDefaultChaseSpeed))),
             runSpeed: Math.max(0, finiteNumberOr(entity.runSpeed, finiteNumberOr(entity.chaseSpeed, state.tuning.enemyDefaultChaseSpeed))),
+            runAcceleration: Math.max(1, finiteNumberOr(entity.runAcceleration, state.tuning.groundAcceleration)),
             jumpHeight: Math.max(0, finiteNumberOr(entity.jumpHeight, state.tuning.enemyDefaultJumpHeight)),
             jumpGravity: Math.max(1, finiteNumberOr(entity.jumpGravity, state.tuning.enemyDefaultJumpGravity)),
             maxFallDistance: Math.max(0, finiteNumberOr(entity.maxFallDistance, state.tuning.enemyDefaultMaxFallDistance)),
@@ -2575,7 +2579,7 @@ function characterEnemyAttackBlockedFromPoint(state, enemy, originX, originY) {
     return false;
 }
 
-function characterEnemyNavigationOptions(enemy) {
+function characterEnemyNavigationOptions(enemy, state = null) {
     return {
         bodyWidth: Math.max(8, Number(enemy.width) || 48),
         bodyHeight: Math.max(24, Number(enemy.height) || 120),
@@ -2584,6 +2588,7 @@ function characterEnemyNavigationOptions(enemy) {
         jumpHeight: Math.max(0, Number(enemy.jumpHeight) || 0),
         gravity: Math.max(1, Number(enemy.jumpGravity) || 1),
         runSpeed: Math.max(1, Number(enemy.runSpeed) || Number(enemy.chaseSpeed) || 1),
+        groundAcceleration: Math.max(1, Number(enemy.runAcceleration) || state?.tuning?.groundAcceleration || 950),
         maxFallDistance: Math.max(0, Number(enemy.maxFallDistance) || 0),
         edgeInset: Math.max(6, Number(enemy.width) * 0.22 || 10),
         bodyClearance: Math.max(10, Number(enemy.width) * 0.34 || 12)
@@ -2623,7 +2628,7 @@ function characterEnemyNavigationAdjustedEdge(state, edge, graph = null) {
 }
 
 function characterEnemyNavigationContext(state, enemy) {
-    const options = characterEnemyNavigationOptions(enemy);
+    const options = characterEnemyNavigationOptions(enemy, state);
     const liveSupports = buildEnemyNavigationSupports(state.world, options);
     const candidateGraph = findBakedEnemyNavigationGraph(state.world?.navigationGraphs, options);
     const bakedGraph = candidateGraph?.supportSignature === enemyNavigationSupportsSignature(liveSupports)
@@ -2671,7 +2676,7 @@ function characterEnemyRoute(state, enemy, supports, startSupportId, targetSuppo
         startSupportId,
         targetSupportId,
         {
-            ...characterEnemyNavigationOptions(enemy),
+            ...characterEnemyNavigationOptions(enemy, state),
             edgeMap,
             startX: enemy.x,
             targetX
@@ -2766,7 +2771,7 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
         ? Math.max(0, Number(enemy.preferredAttackRange) || Number(enemy.attackRange) * 0.72)
         : Math.max(10, Math.min(Number(enemy.attackRange) * 0.72, Number(enemy.attackRange) - 4));
     const edgeMap = navigation.edgeMap || buildEnemyNavigationEdges(navigation.supports, {
-        ...characterEnemyNavigationOptions(enemy),
+        ...characterEnemyNavigationOptions(enemy, state),
         world: state.world
     });
 
@@ -2880,6 +2885,9 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
 function setCharacterEnemyNavigationPlan(enemy, plan) {
     enemy.route = Array.isArray(plan?.route?.edges) ? plan.route.edges.map((edge) => ({ ...edge })) : [];
     enemy.routeIndex = 0;
+    enemy.routeTraversalPhase = null;
+    enemy.routeTraversalEdgeIndex = -1;
+    enemy.groundVelocityX = 0;
     enemy.routeTargetSupportId = plan?.supportId || null;
     enemy.routeTargetX = Number.isFinite(Number(plan?.targetX)) ? Number(plan.targetX) : null;
     enemy.routeTargetY = Number.isFinite(Number(plan?.targetY)) ? Number(plan.targetY) : null;
@@ -2889,12 +2897,18 @@ function setCharacterEnemyNavigationPlan(enemy, plan) {
 function clearCharacterEnemyNavigationPlan(enemy) {
     enemy.route = [];
     enemy.routeIndex = 0;
+    enemy.routeTraversalPhase = null;
+    enemy.routeTraversalEdgeIndex = -1;
+    enemy.groundVelocityX = 0;
     enemy.routeTargetSupportId = null;
     enemy.routeTargetX = null;
     enemy.routeTargetY = null;
 }
 
 function beginCharacterEnemyAirTraversal(enemy, edge) {
+    enemy.routeTraversalPhase = null;
+    enemy.routeTraversalEdgeIndex = -1;
+    enemy.groundVelocityX = 0;
     enemy.airborne = true;
     enemy.airTimer = 0;
     enemy.airSourceSupportId = edge.from || enemy.currentSupportId || null;
@@ -2982,6 +2996,9 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
         if (enemy.route?.[enemy.routeIndex]?.to === enemy.currentSupportId) {
             enemy.routeIndex += 1;
         }
+        enemy.routeTraversalPhase = null;
+        enemy.routeTraversalEdgeIndex = -1;
+        enemy.groundVelocityX = 0;
         setCharacterEnemyAnimation(enemy, "walk");
         return true;
     }
@@ -3005,6 +3022,74 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
     return true;
 }
 
+function characterEnemyHasCommittedTraversal(enemy) {
+    return enemy.routeTraversalPhase === "approach_run_up" || enemy.routeTraversalPhase === "run_up";
+}
+
+function prepareCharacterEnemyRunUp(enemy, edge) {
+    enemy.routeTraversalPhase = "approach_run_up";
+    enemy.routeTraversalEdgeIndex = enemy.routeIndex;
+    enemy.groundVelocityX = 0;
+    enemy.movementPhase = "approach_run_up";
+}
+
+function followCharacterEnemyJumpRunUp(state, enemy, edge, speed, dt) {
+    const runUpX = Number(edge.runUpX);
+    const launchX = Number(edge.launchX);
+    const requiredVelocity = Number(edge.vx) || 0;
+    const direction = requiredVelocity < 0 ? -1 : 1;
+    const acceleration = Math.max(1, Number(edge.groundAcceleration) || Number(enemy.runAcceleration) || state.tuning.groundAcceleration || 950);
+    const targetSpeed = Math.max(1, Math.min(speed, Math.abs(requiredVelocity)));
+    const arrivalTolerance = Math.max(1.5, speed * dt * 0.75);
+
+    if (enemy.routeTraversalEdgeIndex !== enemy.routeIndex || !characterEnemyHasCommittedTraversal(enemy)) {
+        prepareCharacterEnemyRunUp(enemy, edge);
+    }
+
+    if (enemy.routeTraversalPhase === "approach_run_up") {
+        const distance = Math.abs(enemy.x - runUpX);
+        if (distance > arrivalTolerance) {
+            const moved = moveCharacterEnemyToward(state, enemy, runUpX, speed, dt, 0);
+            if (moved <= 0) {
+                return false;
+            }
+            enemy.movementPhase = "approach_run_up";
+            setCharacterEnemyAnimation(enemy, "walk");
+            return true;
+        }
+        enemy.x = runUpX;
+        enemy.y = Number.isFinite(Number(edge.runUpY)) ? Number(edge.runUpY) : enemy.y;
+        enemy.routeTraversalPhase = "run_up";
+        enemy.groundVelocityX = 0;
+    }
+
+    const distanceToLaunch = Math.abs(launchX - enemy.x);
+    if (distanceToLaunch <= arrivalTolerance) {
+        enemy.x = launchX;
+        enemy.y = Number(edge.launchY);
+        beginCharacterEnemyAirTraversal(enemy, edge);
+        return true;
+    }
+
+    const currentSpeed = Math.abs(Number(enemy.groundVelocityX) || 0);
+    const nextSpeed = Math.min(targetSpeed, currentSpeed + acceleration * dt);
+    const moved = moveCharacterEnemyToward(state, enemy, launchX, Math.max(1, nextSpeed), dt, 0);
+    if (moved <= 0) {
+        return false;
+    }
+    enemy.groundVelocityX = direction * nextSpeed;
+    enemy.facing = direction;
+    enemy.movementPhase = "run_up";
+    setCharacterEnemyAnimation(enemy, "walk");
+
+    if (Math.abs(launchX - enemy.x) <= arrivalTolerance) {
+        enemy.x = launchX;
+        enemy.y = Number(edge.launchY);
+        beginCharacterEnemyAirTraversal(enemy, edge);
+    }
+    return true;
+}
+
 function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
     if (enemy.airborne) {
         return updateCharacterEnemyAirTraversal(state, enemy, dt, navigation.supports);
@@ -3022,7 +3107,13 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
     const speed = Math.max(0, Number(enemy.runSpeed) || Number(enemy.chaseSpeed) || 0);
     if (edge) {
         if (edge.from !== current.id) {
+            enemy.routeTraversalPhase = null;
+            enemy.routeTraversalEdgeIndex = -1;
+            enemy.groundVelocityX = 0;
             return false;
+        }
+        if (edge.type === "jump" && Number.isFinite(Number(edge.runUpX)) && Math.abs(Number(edge.vx) || 0) > 0.001) {
+            return followCharacterEnemyJumpRunUp(state, enemy, edge, speed, dt);
         }
         const distanceToLaunch = Math.abs(enemy.x - edge.launchX);
         if (distanceToLaunch > Math.max(2, speed * dt * 1.25)) {
@@ -3042,6 +3133,9 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
             enemy.y = edge.landingY;
             enemy.currentSupportId = edge.to;
             enemy.routeIndex += 1;
+            enemy.routeTraversalPhase = null;
+            enemy.routeTraversalEdgeIndex = -1;
+            enemy.groundVelocityX = 0;
             enemy.movementPhase = "pursue";
             setCharacterEnemyAnimation(enemy, "walk");
             return true;
@@ -3198,7 +3292,7 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
             return;
         }
         enemy.routeRepathTimer = Math.max(0, (Number(enemy.routeRepathTimer) || 0) - dt);
-        if (enemy.routeRepathTimer <= 0 || !enemy.route?.length) {
+        if ((enemy.routeRepathTimer <= 0 || !enemy.route?.length) && !characterEnemyHasCommittedTraversal(enemy)) {
             const homeSupport = navigationSupportById(navigation.supports, enemy.homeSupportId);
             const route = homeSupport && navigation.current
                 ? characterEnemyRoute(state, enemy, navigation.supports, navigation.current.support.id, homeSupport.id, navigation.edgeMap)
@@ -3279,7 +3373,7 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
                 return;
             }
         }
-        if (enemy.routeRepathTimer <= 0 || !enemy.routeTargetSupportId) {
+        if ((enemy.routeRepathTimer <= 0 || !enemy.routeTargetSupportId) && !characterEnemyHasCommittedTraversal(enemy)) {
             const plan = chooseCharacterEnemyAttackPlan(state, enemy, navigation);
             if (!plan) {
                 enterCharacterEnemyGlare(state, enemy);

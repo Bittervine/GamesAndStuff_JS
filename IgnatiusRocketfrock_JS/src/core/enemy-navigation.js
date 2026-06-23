@@ -23,6 +23,7 @@ export function normalizeEnemyNavigationProfile(raw = {}) {
         bodyWidth: Math.max(8, stableProfileNumber(raw.bodyWidth, 48)),
         bodyHeight: Math.max(24, stableProfileNumber(raw.bodyHeight, 120)),
         runSpeed: Math.max(1, stableProfileNumber(raw.runSpeed, 120)),
+        groundAcceleration: Math.max(1, stableProfileNumber(raw.groundAcceleration, 950)),
         jumpHeight: Math.max(0, stableProfileNumber(raw.jumpHeight, 0)),
         gravity: Math.max(1, stableProfileNumber(raw.gravity, 1200)),
         maxFallDistance: Math.max(0, stableProfileNumber(raw.maxFallDistance, Math.max(160, finite(raw.jumpHeight, 0) * 2 + 80))),
@@ -39,6 +40,7 @@ export function enemyNavigationProfileKey(raw = {}) {
         `w${profile.bodyWidth}`,
         `h${profile.bodyHeight}`,
         `r${profile.runSpeed}`,
+        `a${profile.groundAcceleration}`,
         `j${profile.jumpHeight}`,
         `g${profile.gravity}`,
         `f${profile.maxFallDistance}`,
@@ -765,6 +767,85 @@ function solveDropTransitionCandidate(from, to, points, options) {
     };
 }
 
+function runUpCorridorClear(from, runUpX, launchX, options = {}) {
+    const obstacles = Array.isArray(options.obstacles)
+        ? options.obstacles
+        : navigationBlockingObstacles(options.world || {});
+    if (!obstacles.length || Math.abs(runUpX - launchX) <= EPSILON) {
+        return true;
+    }
+
+    const bodyWidth = Math.max(8, finite(options.bodyWidth, 48));
+    const bodyHeight = Math.max(24, finite(options.bodyHeight, 120));
+    const halfWidth = bodyWidth * 0.5;
+    const distance = Math.abs(launchX - runUpX);
+    const sampleCount = Math.max(2, Math.ceil(distance / Math.max(6, bodyWidth * 0.18)));
+    for (let index = 0; index <= sampleCount; index += 1) {
+        const ratio = index / sampleCount;
+        const x = runUpX + (launchX - runUpX) * ratio;
+        const feetY = supportYAt(from, x);
+        const left = x - halfWidth;
+        const right = x + halfWidth;
+        const top = feetY - bodyHeight;
+        const bottom = feetY;
+        for (const obstacle of obstacles) {
+            if (!rectangleIntersectsObstacle(left, top, right, bottom, obstacle)) {
+                continue;
+            }
+            if (obstacle.id === from.sourcePolygonId) {
+                const surfaceX = clamp(x, from.xMin, from.xMax);
+                if (bottom <= supportYAt(from, surfaceX) + 0.5) {
+                    continue;
+                }
+            }
+            if (obstacle.dynamic) {
+                continue;
+            }
+            return false;
+        }
+    }
+    return true;
+}
+
+function attachJumpRunUp(edge, from, options = {}) {
+    if (!edge || edge.type !== "jump" || Math.abs(edge.vx) <= EPSILON) {
+        return edge;
+    }
+
+    const direction = edge.vx < 0 ? -1 : 1;
+    const bodyWidth = Math.max(8, finite(options.bodyWidth, 48));
+    const inset = Math.max(4, finite(options.edgeInset, 10));
+    const acceleration = Math.max(1, finite(options.groundAcceleration, 950));
+    const requiredSpeed = Math.abs(edge.vx);
+    const accelerationDistance = requiredSpeed * requiredSpeed / (2 * acceleration);
+    const minimumDistance = accelerationDistance + Math.max(4, bodyWidth * 0.18);
+    const preferredDistance = Math.max(minimumDistance, bodyWidth * 1.65);
+    const safeMin = from.xMin + Math.min(inset, Math.max(0, (from.xMax - from.xMin) * 0.45));
+    const safeMax = from.xMax - Math.min(inset, Math.max(0, (from.xMax - from.xMin) * 0.45));
+    const availableDistance = direction > 0
+        ? edge.launchX - safeMin
+        : safeMax - edge.launchX;
+    if (availableDistance + EPSILON < minimumDistance) {
+        return null;
+    }
+
+    const runUpDistance = Math.min(preferredDistance, availableDistance);
+    const runUpX = edge.launchX - direction * runUpDistance;
+    if (!runUpCorridorClear(from, runUpX, edge.launchX, options)) {
+        return null;
+    }
+
+    return {
+        ...edge,
+        runUpX,
+        runUpY: supportYAt(from, runUpX),
+        runUpDistance,
+        requiredLaunchSpeed: requiredSpeed,
+        groundAcceleration: acceleration,
+        cost: edge.cost + runUpDistance * 0.35
+    };
+}
+
 function solveJumpTransitionCandidate(from, to, points, options) {
     const launchY = supportYAt(from, points.launchX);
     const landingY = supportYAt(to, points.landingX);
@@ -885,7 +966,8 @@ export function buildEnemyNavigationEdges(supports, options = {}) {
                         addBestEdge(edgeList, drop);
                     }
                 }
-                const jump = solveJumpTransitionCandidate(from, to, candidate, normalizedOptions);
+                const solvedJump = solveJumpTransitionCandidate(from, to, candidate, normalizedOptions);
+                const jump = attachJumpRunUp(solvedJump, from, normalizedOptions);
                 if (jump) {
                     const validation = transitionTrajectoryClear(jump, { ...normalizedOptions, fromSupport: from, toSupport: to });
                     if (validation.clear) {
@@ -946,6 +1028,11 @@ export function bakeEnemyNavigationGraph(world, rawProfile = {}, metadata = {}) 
         ...edge,
         launchX: rounded(edge.launchX),
         launchY: rounded(edge.launchY),
+        runUpX: Number.isFinite(Number(edge.runUpX)) ? rounded(edge.runUpX) : undefined,
+        runUpY: Number.isFinite(Number(edge.runUpY)) ? rounded(edge.runUpY) : undefined,
+        runUpDistance: Number.isFinite(Number(edge.runUpDistance)) ? rounded(edge.runUpDistance) : undefined,
+        requiredLaunchSpeed: Number.isFinite(Number(edge.requiredLaunchSpeed)) ? rounded(edge.requiredLaunchSpeed) : undefined,
+        groundAcceleration: Number.isFinite(Number(edge.groundAcceleration)) ? rounded(edge.groundAcceleration) : undefined,
         landingX: rounded(edge.landingX),
         landingY: rounded(edge.landingY),
         vx: rounded(edge.vx),
@@ -954,7 +1041,7 @@ export function bakeEnemyNavigationGraph(world, rawProfile = {}, metadata = {}) 
         cost: rounded(edge.cost)
     }));
     return {
-        version: 1,
+        version: 2,
         id: String(metadata.id || enemyNavigationProfileKey(profile)),
         label: String(metadata.label || `Run ${profile.runSpeed}, jump ${profile.jumpHeight}`),
         profile,
@@ -963,8 +1050,8 @@ export function bakeEnemyNavigationGraph(world, rawProfile = {}, metadata = {}) 
         edges,
         dynamicCostRules: Array.isArray(metadata.dynamicCostRules) ? metadata.dynamicCostRules.map((rule) => ({ ...rule })) : [],
         build: {
-            method: "sampled_ballistic_graph",
-            samplesPerSecond: 30,
+            method: "ballistic_graph_with_run_up",
+            samplesPerSecond: 60,
             generatedBy: String(metadata.generatedBy || "Ignatius Rocketfrock Level Editor")
         }
     };
@@ -1037,7 +1124,8 @@ export function planEnemyNavigationRoute(supports, startSupportId, targetSupport
         }
 
         for (const edge of edgeMap.get(current.supportId) || []) {
-            const approachCost = Math.abs(edge.launchX - current.arrivalX);
+            const approachX = Number.isFinite(Number(edge.runUpX)) ? Number(edge.runUpX) : edge.launchX;
+            const approachCost = Math.abs(approachX - current.arrivalX);
             const nextCost = current.cost + approachCost + Math.max(0, finite(edge.cost));
             const nextKey = routeStateKey(edge.to, edge.landingX);
             const known = states.get(nextKey);

@@ -1543,3 +1543,15 @@ The Level Editor's Play command now rebuilds all placed hunter mobility graphs i
 Monster awareness no longer performs a terrain line-of-sight query. Walkable lines, blockable areas, pillars, doors, and other collision geometry may still prevent movement and block a real melee or projectile attack, but they do not make Ignatius invisible. Initial notice requires the player to be inside the authored radial awareness range and inside a configurable facing cone. The legacy vertical-awareness field is retained for old data but no longer blocks perception. The default half-angle is 60 degrees, producing a 120-degree total cone.
 
 The Level Editor exposes the view half-angle beside the other enemy AI fields. Existing `awarenessRequiresLineOfSight` data is no longer consulted by simulation, avoiding strategy-specific perception rules.
+
+### Revision 121 forward-half-plane awareness and committed jump run-ups
+
+Monster first-notice awareness now defaults to a ±90 degree cone. In practice this is the complete half-plane in front of the monster: targets directly ahead or exactly perpendicular to its facing direction are visible within range, while targets even slightly behind remain unnoticed. Collision geometry still does not occlude awareness, and attack trajectory checks remain separate.
+
+Jump navigation now models the ground approach as part of each baked edge. Every non-vertical jump may carry a `runUpX`, `runUpY`, required launch speed, acceleration, and run-up distance. The graph baker rejects a jump when the source support lacks enough clear corridor to accelerate into takeoff. Runtime first moves to the run-up point, commits to the edge, accelerates through the takeoff point, and only then transfers to airborne traversal. Repathing does not interrupt this committed approach. This fixes the common failure where a hunter reached the obstacle wall, stopped, and repeatedly attempted the jump from rest.
+
+The Level Editor graph preview draws the run-up as a dashed segment leading into the purple jump arc. `level_001` baked profiles were rebuilt with the shared 950 px/s² ground acceleration and graph format version 2.
+
+### Revision 122 doorway-scaled rocket fuel indicator
+
+The mounted rocket fuel indicator now receives the exact rendered rocket-part transform rather than the unscaled source pose. During entry and exit doorway sequences, its local position, radius, rotation, and facing therefore inherit the same `player.renderScale` transform as the rocket and the rest of Ignatius. Normal full-scale rendering is unchanged.

@@ -1,8 +1,8 @@
 {
     "meta": {
-        "version": 9,
+        "version": 10,
         "editor": "Ignatius Rocketfrock Level Editor",
-        "note": "Revision 120 gives all placed monsters a \u00b160 degree awareness cone. Level collision geometry no longer hides Ignatius from awareness, while it still blocks movement and projectile/melee attacks."
+        "note": "Revision 121 uses a ±90 degree monster awareness cone and run-up-aware baked jump routes."
     },
     "levelId": "level_001",
     "title": "Ignatius Rocketfrock and the Level That Was Edited On Purpose",
@@ -404,8 +404,8 @@
             "thoughtAtlasId": "it_atlas_001",
             "thoughtAssetId": "thought_bubble_large",
             "letterTitle": "A Letter from Your Humble Editor",
-            "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: \u201cIgnatius Rocketfrock and the Introductory Cave of Training.\u201d Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
-            "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn\u2019t look quite like it did in the brochures, but I\u2019m sure it will be fine."
+            "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: “Ignatius Rocketfrock and the Introductory Cave of Training.” Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
+            "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn’t look quite like it did in the brochures, but I’m sure it will be fine."
         },
         {
             "id": "enemy_002_001",
@@ -467,7 +467,7 @@
             "unreachableGlareDuration": 5,
             "routeRepathInterval": 0.3,
             "homeRetryInterval": 4,
-            "awarenessViewHalfAngle": 60
+            "awarenessViewHalfAngle": 90
         },
         {
             "id": "enemy_003_001",
@@ -529,7 +529,7 @@
             "unreachableGlareDuration": 5,
             "routeRepathInterval": 0.3,
             "homeRetryInterval": 4,
-            "awarenessViewHalfAngle": 60
+            "awarenessViewHalfAngle": 90
         },
         {
             "id": "targetDummy_002",
@@ -605,7 +605,7 @@
             "strategy": "simple_patrol",
             "runSpeed": 150,
             "jumpHeight": 0,
-            "awarenessViewHalfAngle": 60
+            "awarenessViewHalfAngle": 90
         },
         {
             "id": "wizard_exit_door_001",
@@ -668,16 +668,17 @@
     ],
     "note": "Level placements are data. Revision 097 makes the Skeleton Guard rush intruders inside its patrol area and chain rapid close-range sword attacks.",
     "navigationGraphs": {
-        "version": 1,
+        "version": 2,
         "profiles": [
             {
-                "version": 1,
-                "id": "w72_h148_r300_j200_g1250_f280_s26_q23.04",
-                "label": "Run 300, jump 200, body 72\u00d7148",
+                "version": 2,
+                "id": "w72_h148_r300_a950_j200_g1250_f280_s26_q23.04",
+                "label": "Run 300, jump 200, body 72×148",
                 "profile": {
                     "bodyWidth": 72,
                     "bodyHeight": 148,
                     "runSpeed": 300,
+                    "groundAcceleration": 950,
                     "jumpHeight": 200,
                     "gravity": 1250,
                     "maxFallDistance": 280,
@@ -1105,7 +1106,12 @@
                         "flightTime": 1.373045,
                         "fromObstacleId": "left_step_area_1",
                         "toObstacleId": "start_ground_area_0",
-                        "cost": 466.131,
+                        "cost": 507.711,
+                        "runUpX": 785.399,
+                        "runUpY": 292.11,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 168.207,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
@@ -1123,7 +1129,12 @@
                         "flightTime": 1.370328,
                         "fromObstacleId": "left_step_area_1",
                         "toObstacleId": "start_ground_area_0",
-                        "cost": 472.436,
+                        "cost": 514.016,
+                        "runUpX": 771.459,
+                        "runUpY": 292.32,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 174.54,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
@@ -1141,7 +1152,12 @@
                         "flightTime": 1.363768,
                         "fromObstacleId": "left_step_area_1",
                         "toObstacleId": "start_ground_area_0",
-                        "cost": 525.436,
+                        "cost": 567.016,
+                        "runUpX": 771.459,
+                        "runUpY": 292.32,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 217.615,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
@@ -1159,7 +1175,12 @@
                         "flightTime": 1.365252,
                         "fromObstacleId": "left_step_area_1",
                         "toObstacleId": "start_ground_area_0",
-                        "cost": 529.261,
+                        "cost": 570.841,
+                        "runUpX": 785.399,
+                        "runUpY": 292.11,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 219.42,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
@@ -1177,7 +1198,12 @@
                         "flightTime": 1.355811,
                         "fromObstacleId": "left_step_area_1",
                         "toObstacleId": "start_ground_area_0",
-                        "cost": 622.983,
+                        "cost": 664.563,
+                        "runUpX": 785.399,
+                        "runUpY": 292.11,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 294.918,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
@@ -1195,7 +1221,12 @@
                         "flightTime": 1.358968,
                         "fromObstacleId": "upper_step_area_2",
                         "toObstacleId": "left_step_area_1",
-                        "cost": 534.308,
+                        "cost": 575.888,
+                        "runUpX": 1419.088,
+                        "runUpY": 95.305,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 227.371,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
@@ -1213,7 +1244,12 @@
                         "flightTime": 1.359251,
                         "fromObstacleId": "upper_step_area_2",
                         "toObstacleId": "left_step_area_1",
-                        "cost": 540.824,
+                        "cost": 582.404,
+                        "runUpX": 1403.248,
+                        "runUpY": 95.358,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 231.973,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
@@ -1231,7 +1267,12 @@
                         "flightTime": 1.360125,
                         "fromObstacleId": "upper_step_area_2",
                         "toObstacleId": "left_step_area_1",
-                        "cost": 599.031,
+                        "cost": 640.611,
+                        "runUpX": 1403.248,
+                        "runUpY": 95.358,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 274.173,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
@@ -1254,60 +1295,6 @@
                     },
                     {
                         "id": "nav_edge_12",
-                        "type": "jump",
-                        "direction": "left",
-                        "from": "upper_step_blockable_2",
-                        "to": "left_step_blockable_1",
-                        "launchX": 1281.273,
-                        "launchY": 97.796,
-                        "landingX": 991.298,
-                        "landingY": 289.011,
-                        "vx": -213.712,
-                        "vy": -707.107,
-                        "flightTime": 1.356852,
-                        "fromObstacleId": "upper_step_area_2",
-                        "toObstacleId": "left_step_area_1",
-                        "cost": 513.826,
-                        "blockerIds": []
-                    },
-                    {
-                        "id": "nav_edge_13",
-                        "type": "jump",
-                        "direction": "left",
-                        "from": "upper_step_blockable_2",
-                        "to": "left_step_blockable_1",
-                        "launchX": 1267.334,
-                        "launchY": 106.766,
-                        "landingX": 969.138,
-                        "landingY": 289.345,
-                        "vx": -221.202,
-                        "vy": -707.107,
-                        "flightTime": 1.348071,
-                        "fromObstacleId": "upper_step_area_2",
-                        "toObstacleId": "left_step_area_1",
-                        "cost": 516.001,
-                        "blockerIds": []
-                    },
-                    {
-                        "id": "nav_edge_14",
-                        "type": "jump",
-                        "direction": "left",
-                        "from": "upper_step_blockable_2",
-                        "to": "left_step_blockable_1",
-                        "launchX": 1267.334,
-                        "launchY": 106.766,
-                        "landingX": 911.538,
-                        "landingY": 290.212,
-                        "vx": -263.756,
-                        "vy": -707.107,
-                        "flightTime": 1.348956,
-                        "fromObstacleId": "upper_step_area_2",
-                        "toObstacleId": "left_step_area_1",
-                        "cost": 574.208,
-                        "blockerIds": []
-                    },
-                    {
-                        "id": "nav_edge_15",
                         "type": "step",
                         "direction": "overlap",
                         "from": "upper_step_blockable_2",
@@ -1325,7 +1312,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_16",
+                        "id": "nav_edge_13",
                         "type": "step",
                         "direction": "overlap",
                         "from": "crystal_step_blockable_1",
@@ -1343,7 +1330,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_17",
+                        "id": "nav_edge_14",
                         "type": "step",
                         "direction": "overlap",
                         "from": "crystal_step_blockable_1",
@@ -1361,7 +1348,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_18",
+                        "id": "nav_edge_15",
                         "type": "step",
                         "direction": "overlap",
                         "from": "crystal_step_blockable_2",
@@ -1379,7 +1366,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_19",
+                        "id": "nav_edge_16",
                         "type": "step",
                         "direction": "overlap",
                         "from": "crystal_step_blockable_13",
@@ -1397,7 +1384,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_20",
+                        "id": "nav_edge_17",
                         "type": "step",
                         "direction": "overlap",
                         "from": "right_gallery_blockable_1",
@@ -1415,7 +1402,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_21",
+                        "id": "nav_edge_18",
                         "type": "step",
                         "direction": "overlap",
                         "from": "right_gallery_blockable_1",
@@ -1433,7 +1420,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_22",
+                        "id": "nav_edge_19",
                         "type": "step",
                         "direction": "overlap",
                         "from": "right_gallery_blockable_2",
@@ -1451,7 +1438,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_23",
+                        "id": "nav_edge_20",
                         "type": "step",
                         "direction": "overlap",
                         "from": "right_gallery_blockable_2",
@@ -1469,7 +1456,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_24",
+                        "id": "nav_edge_21",
                         "type": "step",
                         "direction": "overlap",
                         "from": "right_gallery_blockable_4",
@@ -1487,7 +1474,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_25",
+                        "id": "nav_edge_22",
                         "type": "step",
                         "direction": "overlap",
                         "from": "right_gallery_blockable_13",
@@ -1505,7 +1492,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_26",
+                        "id": "nav_edge_23",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_1",
@@ -1519,11 +1506,16 @@
                         "flightTime": 0.715751,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 403.222,
+                        "cost": 444.802,
+                        "runUpX": 1232.126,
+                        "runUpY": 844.228,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 255.779,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_27",
+                        "id": "nav_edge_24",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_1",
@@ -1537,11 +1529,16 @@
                         "flightTime": 0.715766,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 416.546,
+                        "cost": 458.126,
+                        "runUpX": 1218.8,
+                        "runUpY": 844.225,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 274.391,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_28",
+                        "id": "nav_edge_25",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_1",
@@ -1555,11 +1552,16 @@
                         "flightTime": 1.079692,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 268.728,
+                        "cost": 310.308,
+                        "runUpX": 1330.533,
+                        "runUpY": 844.248,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 142.927,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_29",
+                        "id": "nav_edge_26",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_1",
@@ -1573,11 +1575,16 @@
                         "flightTime": 1.079701,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 297.657,
+                        "cost": 339.237,
+                        "runUpX": 1301.6,
+                        "runUpY": 844.242,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 169.723,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_30",
+                        "id": "nav_edge_27",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_1",
@@ -1591,11 +1598,16 @@
                         "flightTime": 1.07971,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 322.853,
+                        "cost": 364.433,
+                        "runUpX": 1276.4,
+                        "runUpY": 844.237,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 193.061,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_31",
+                        "id": "nav_edge_28",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_1",
@@ -1609,11 +1621,16 @@
                         "flightTime": 1.079718,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 348.05,
+                        "cost": 389.63,
+                        "runUpX": 1251.2,
+                        "runUpY": 844.232,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 216.399,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_32",
+                        "id": "nav_edge_29",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_1",
@@ -1627,11 +1644,16 @@
                         "flightTime": 1.079728,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 380.445,
+                        "cost": 422.025,
+                        "runUpX": 1218.8,
+                        "runUpY": 844.225,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 246.405,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_33",
+                        "id": "nav_edge_30",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1645,11 +1667,16 @@
                         "flightTime": 0.717133,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 402.88,
+                        "cost": 444.46,
+                        "runUpX": 1875.714,
+                        "runUpY": 844.362,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 255.063,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_34",
+                        "id": "nav_edge_31",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1663,11 +1690,16 @@
                         "flightTime": 0.717116,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 418.368,
+                        "cost": 459.948,
+                        "runUpX": 1891.2,
+                        "runUpY": 844.365,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 276.664,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_35",
+                        "id": "nav_edge_32",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1681,11 +1713,16 @@
                         "flightTime": 1.072445,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 173.928,
+                        "cost": 215.508,
+                        "runUpX": 1772.24,
+                        "runUpY": 844.34,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 52.478,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_36",
+                        "id": "nav_edge_33",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1699,11 +1736,16 @@
                         "flightTime": 1.079626,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 164.708,
+                        "cost": 206.288,
+                        "runUpX": 1772.717,
+                        "runUpY": 844.34,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 46.56,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_37",
+                        "id": "nav_edge_34",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1717,11 +1759,16 @@
                         "flightTime": 1.079614,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 200.396,
+                        "cost": 241.976,
+                        "runUpX": 1808.4,
+                        "runUpY": 844.348,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 79.612,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_38",
+                        "id": "nav_edge_35",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1735,11 +1782,16 @@
                         "flightTime": 1.079606,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 225.6,
+                        "cost": 267.18,
+                        "runUpX": 1833.6,
+                        "runUpY": 844.353,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 102.954,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_39",
+                        "id": "nav_edge_36",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1753,11 +1805,16 @@
                         "flightTime": 1.079598,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 250.804,
+                        "cost": 292.384,
+                        "runUpX": 1858.8,
+                        "runUpY": 844.358,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 126.297,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_40",
+                        "id": "nav_edge_37",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1771,11 +1828,16 @@
                         "flightTime": 1.079587,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 283.208,
+                        "cost": 324.788,
+                        "runUpX": 1891.2,
+                        "runUpY": 844.365,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 156.31,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_41",
+                        "id": "nav_edge_38",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1789,11 +1851,16 @@
                         "flightTime": 1.080559,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 162.961,
+                        "cost": 204.541,
+                        "runUpX": 1772.24,
+                        "runUpY": 844.34,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 45.291,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_42",
+                        "id": "nav_edge_39",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1807,11 +1874,16 @@
                         "flightTime": 0.874505,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 281.974,
+                        "cost": 323.554,
+                        "runUpX": 2872.652,
+                        "runUpY": 844.569,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 107.144,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_43",
+                        "id": "nav_edge_40",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1825,11 +1897,16 @@
                         "flightTime": 0.874512,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 295.024,
+                        "cost": 336.604,
+                        "runUpX": 2859.6,
+                        "runUpY": 844.567,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 122.068,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_44",
+                        "id": "nav_edge_41",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1843,11 +1920,16 @@
                         "flightTime": 0.874526,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 320.22,
+                        "cost": 361.8,
+                        "runUpX": 2834.4,
+                        "runUpY": 844.561,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 150.882,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_45",
+                        "id": "nav_edge_42",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1861,11 +1943,16 @@
                         "flightTime": 0.874539,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 345.417,
+                        "cost": 386.997,
+                        "runUpX": 2809.2,
+                        "runUpY": 844.556,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 179.695,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_46",
+                        "id": "nav_edge_43",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1879,11 +1966,16 @@
                         "flightTime": 0.874557,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 377.812,
+                        "cost": 419.392,
+                        "runUpX": 2776.8,
+                        "runUpY": 844.549,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 216.738,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_47",
+                        "id": "nav_edge_44",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1897,11 +1989,16 @@
                         "flightTime": 0.835986,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 384.435,
+                        "cost": 426.015,
+                        "runUpX": 2834.4,
+                        "runUpY": 844.561,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 222.97,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_48",
+                        "id": "nav_edge_45",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1915,11 +2012,16 @@
                         "flightTime": 0.836001,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 409.632,
+                        "cost": 451.212,
+                        "runUpX": 2809.2,
+                        "runUpY": 844.556,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 253.11,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_49",
+                        "id": "nav_edge_46",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -1933,11 +2035,16 @@
                         "flightTime": 0.836021,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 442.027,
+                        "cost": 483.607,
+                        "runUpX": 2776.8,
+                        "runUpY": 844.549,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 291.859,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_50",
+                        "id": "nav_edge_47",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -1951,11 +2058,16 @@
                         "flightTime": 0.896751,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 324.904,
+                        "cost": 366.484,
+                        "runUpX": 3606.256,
+                        "runUpY": 844.722,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 159.304,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_51",
+                        "id": "nav_edge_48",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -1969,11 +2081,16 @@
                         "flightTime": 0.896748,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 330.049,
+                        "cost": 371.629,
+                        "runUpX": 3611.4,
+                        "runUpY": 844.723,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 165.041,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_52",
+                        "id": "nav_edge_49",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -1987,11 +2104,16 @@
                         "flightTime": 0.896736,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 355.252,
+                        "cost": 396.832,
+                        "runUpX": 3636.6,
+                        "runUpY": 844.728,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 193.145,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_53",
+                        "id": "nav_edge_50",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -2005,11 +2127,16 @@
                         "flightTime": 0.896723,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 380.456,
+                        "cost": 422.036,
+                        "runUpX": 3661.8,
+                        "runUpY": 844.734,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 221.25,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_54",
+                        "id": "nav_edge_51",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -2023,11 +2150,16 @@
                         "flightTime": 0.896707,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 412.861,
+                        "cost": 454.441,
+                        "runUpX": 3694.2,
+                        "runUpY": 844.74,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 257.386,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_55",
+                        "id": "nav_edge_52",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -2041,11 +2173,16 @@
                         "flightTime": 0.956597,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 238.91,
+                        "cost": 280.49,
+                        "runUpX": 3584.165,
+                        "runUpY": 844.717,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 79.203,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_56",
+                        "id": "nav_edge_53",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -2059,11 +2196,16 @@
                         "flightTime": 0.956585,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 266.149,
+                        "cost": 307.729,
+                        "runUpX": 3611.4,
+                        "runUpY": 844.723,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 107.675,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_57",
+                        "id": "nav_edge_54",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -2077,11 +2219,16 @@
                         "flightTime": 0.956575,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 291.352,
+                        "cost": 332.932,
+                        "runUpX": 3636.6,
+                        "runUpY": 844.728,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 134.02,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_58",
+                        "id": "nav_edge_55",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -2095,11 +2242,16 @@
                         "flightTime": 0.956564,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 316.556,
+                        "cost": 358.136,
+                        "runUpX": 3661.8,
+                        "runUpY": 844.734,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 160.366,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_59",
+                        "id": "nav_edge_56",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -2113,11 +2265,16 @@
                         "flightTime": 0.95655,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 348.961,
+                        "cost": 390.541,
+                        "runUpX": 3694.2,
+                        "runUpY": 844.74,
+                        "runUpDistance": 118.8,
+                        "requiredLaunchSpeed": 194.24,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_60",
+                        "id": "nav_edge_57",
                         "type": "step",
                         "direction": "overlap",
                         "from": "rubble_skull_001_blockable_1",
@@ -2135,7 +2292,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_61",
+                        "id": "nav_edge_58",
                         "type": "step",
                         "direction": "overlap",
                         "from": "rubble_skull_001_blockable_1",
@@ -2153,7 +2310,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_62",
+                        "id": "nav_edge_59",
                         "type": "step",
                         "direction": "overlap",
                         "from": "rubble_skull_001_blockable_2",
@@ -2171,7 +2328,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_63",
+                        "id": "nav_edge_60",
                         "type": "step",
                         "direction": "overlap",
                         "from": "rubble_skull_001_blockable_7",
@@ -2189,7 +2346,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_64",
+                        "id": "nav_edge_61",
                         "type": "drop",
                         "direction": "left",
                         "from": "object_036_001_blockable_1",
@@ -2207,7 +2364,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_65",
+                        "id": "nav_edge_62",
                         "type": "jump",
                         "direction": "left",
                         "from": "object_036_001_blockable_1",
@@ -2221,11 +2378,16 @@
                         "flightTime": 1.351806,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 345.7,
+                        "cost": 380.091,
+                        "runUpX": 1596.16,
+                        "runUpY": 658.863,
+                        "runUpDistance": 98.259,
+                        "requiredLaunchSpeed": 92.714,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_66",
+                        "id": "nav_edge_63",
                         "type": "drop",
                         "direction": "left",
                         "from": "object_036_001_blockable_1",
@@ -2243,7 +2405,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_67",
+                        "id": "nav_edge_64",
                         "type": "jump",
                         "direction": "left",
                         "from": "object_036_001_blockable_1",
@@ -2257,11 +2419,16 @@
                         "flightTime": 1.351801,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 367.758,
+                        "cost": 402.149,
+                        "runUpX": 1596.16,
+                        "runUpY": 658.863,
+                        "runUpDistance": 98.259,
+                        "requiredLaunchSpeed": 109.034,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_68",
+                        "id": "nav_edge_65",
                         "type": "jump",
                         "direction": "left",
                         "from": "object_036_001_blockable_1",
@@ -2275,11 +2442,16 @@
                         "flightTime": 1.351798,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 384.133,
+                        "cost": 418.523,
+                        "runUpX": 1596.16,
+                        "runUpY": 658.863,
+                        "runUpDistance": 98.259,
+                        "requiredLaunchSpeed": 121.15,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_69",
+                        "id": "nav_edge_66",
                         "type": "jump",
                         "direction": "left",
                         "from": "object_036_001_blockable_1",
@@ -2293,11 +2465,16 @@
                         "flightTime": 1.351819,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 283.878,
+                        "cost": 318.269,
+                        "runUpX": 1596.16,
+                        "runUpY": 658.863,
+                        "runUpDistance": 98.259,
+                        "requiredLaunchSpeed": 46.974,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_70",
+                        "id": "nav_edge_67",
                         "type": "drop",
                         "direction": "left",
                         "from": "object_036_001_blockable_1",
@@ -2315,7 +2492,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_71",
+                        "id": "nav_edge_68",
                         "type": "jump",
                         "direction": "left",
                         "from": "object_036_001_blockable_1",
@@ -2329,11 +2506,16 @@
                         "flightTime": 1.351807,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 341.47,
+                        "cost": 375.861,
+                        "runUpX": 1596.16,
+                        "runUpY": 658.863,
+                        "runUpDistance": 98.259,
+                        "requiredLaunchSpeed": 89.584,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_72",
+                        "id": "nav_edge_69",
                         "type": "drop",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -2351,7 +2533,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_73",
+                        "id": "nav_edge_70",
                         "type": "jump",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -2365,11 +2547,16 @@
                         "flightTime": 1.350882,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 345.061,
+                        "cost": 380.117,
+                        "runUpX": 1511.84,
+                        "runUpY": 658.137,
+                        "runUpDistance": 100.16,
+                        "requiredLaunchSpeed": 92.775,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_74",
+                        "id": "nav_edge_71",
                         "type": "drop",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -2387,7 +2574,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_75",
+                        "id": "nav_edge_72",
                         "type": "jump",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -2401,11 +2588,16 @@
                         "flightTime": 1.350886,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 366.759,
+                        "cost": 401.815,
+                        "runUpX": 1511.84,
+                        "runUpY": 658.137,
+                        "runUpDistance": 100.16,
+                        "requiredLaunchSpeed": 108.834,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_76",
+                        "id": "nav_edge_73",
                         "type": "drop",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -2423,7 +2615,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_77",
+                        "id": "nav_edge_74",
                         "type": "jump",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -2437,11 +2629,16 @@
                         "flightTime": 1.35089,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 383.098,
+                        "cost": 418.154,
+                        "runUpX": 1511.84,
+                        "runUpY": 658.137,
+                        "runUpDistance": 100.16,
+                        "requiredLaunchSpeed": 120.927,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_78",
+                        "id": "nav_edge_75",
                         "type": "jump",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -2455,11 +2652,16 @@
                         "flightTime": 1.350868,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 283.324,
+                        "cost": 318.38,
+                        "runUpX": 1511.84,
+                        "runUpY": 658.137,
+                        "runUpDistance": 100.16,
+                        "requiredLaunchSpeed": 47.081,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_79",
+                        "id": "nav_edge_76",
                         "type": "drop",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -2477,7 +2679,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_80",
+                        "id": "nav_edge_77",
                         "type": "jump",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -2491,11 +2693,16 @@
                         "flightTime": 1.350881,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 340.933,
+                        "cost": 375.989,
+                        "runUpX": 1511.84,
+                        "runUpY": 658.137,
+                        "runUpDistance": 100.16,
+                        "requiredLaunchSpeed": 89.719,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_81",
+                        "id": "nav_edge_78",
                         "type": "drop",
                         "direction": "right",
                         "from": "object_036_001_blockable_5",
@@ -2513,25 +2720,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_82",
-                        "type": "jump",
-                        "direction": "right",
-                        "from": "object_036_001_blockable_5",
-                        "to": "floor_cold_platform_001_blockable_2_nav_2",
-                        "launchX": 1597.16,
-                        "launchY": 804.819,
-                        "landingX": 1653.44,
-                        "landingY": 844.316,
-                        "vx": 47.505,
-                        "vy": -707.107,
-                        "flightTime": 1.184713,
-                        "fromObstacleId": "object_036_001_area_8",
-                        "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 173.928,
-                        "blockerIds": []
-                    },
-                    {
-                        "id": "nav_edge_83",
+                        "id": "nav_edge_79",
                         "type": "drop",
                         "direction": "right",
                         "from": "object_036_001_blockable_5",
@@ -2549,25 +2738,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_84",
-                        "type": "jump",
-                        "direction": "right",
-                        "from": "object_036_001_blockable_5",
-                        "to": "floor_cold_platform_001_blockable_2_nav_2",
-                        "launchX": 1612.099,
-                        "launchY": 815.364,
-                        "landingX": 1675.6,
-                        "landingY": 844.32,
-                        "vx": 54.231,
-                        "vy": -707.107,
-                        "flightTime": 1.170937,
-                        "fromObstacleId": "object_036_001_area_8",
-                        "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 173.77,
-                        "blockerIds": []
-                    },
-                    {
-                        "id": "nav_edge_85",
+                        "id": "nav_edge_80",
                         "type": "drop",
                         "direction": "right",
                         "from": "object_036_001_blockable_5",
@@ -2585,43 +2756,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_86",
-                        "type": "jump",
-                        "direction": "right",
-                        "from": "object_036_001_blockable_5",
-                        "to": "floor_cold_platform_001_blockable_2_nav_2",
-                        "launchX": 1612.099,
-                        "launchY": 815.364,
-                        "landingX": 1676.672,
-                        "landingY": 844.321,
-                        "vx": 55.146,
-                        "vy": -707.107,
-                        "flightTime": 1.170938,
-                        "fromObstacleId": "object_036_001_area_8",
-                        "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 174.843,
-                        "blockerIds": []
-                    },
-                    {
-                        "id": "nav_edge_87",
-                        "type": "jump",
-                        "direction": "right",
-                        "from": "object_036_001_blockable_5",
-                        "to": "floor_cold_platform_001_blockable_2_nav_2",
-                        "launchX": 1612.099,
-                        "launchY": 815.364,
-                        "landingX": 1733.2,
-                        "landingY": 844.332,
-                        "vx": 103.421,
-                        "vy": -707.107,
-                        "flightTime": 1.170953,
-                        "fromObstacleId": "object_036_001_area_8",
-                        "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 231.378,
-                        "blockerIds": []
-                    },
-                    {
-                        "id": "nav_edge_88",
+                        "id": "nav_edge_81",
                         "type": "jump",
                         "direction": "up",
                         "from": "object_036_001_blockable_5",
@@ -2639,7 +2774,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_89",
+                        "id": "nav_edge_82",
                         "type": "drop",
                         "direction": "left",
                         "from": "arch_ruin_001_blockable_1",
@@ -2657,7 +2792,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_90",
+                        "id": "nav_edge_83",
                         "type": "jump",
                         "direction": "left",
                         "from": "arch_ruin_001_blockable_1",
@@ -2671,11 +2806,16 @@
                         "flightTime": 1.294065,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 287.72,
+                        "cost": 300.726,
+                        "runUpX": 3093.16,
+                        "runUpY": 701.782,
+                        "runUpDistance": 37.16,
+                        "requiredLaunchSpeed": 81.611,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_91",
+                        "id": "nav_edge_84",
                         "type": "drop",
                         "direction": "left",
                         "from": "arch_ruin_001_blockable_1",
@@ -2693,7 +2833,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_92",
+                        "id": "nav_edge_85",
                         "type": "jump",
                         "direction": "left",
                         "from": "arch_ruin_001_blockable_1",
@@ -2707,11 +2847,16 @@
                         "flightTime": 1.294061,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 305.999,
+                        "cost": 319.005,
+                        "runUpX": 3093.16,
+                        "runUpY": 701.782,
+                        "runUpDistance": 37.16,
+                        "requiredLaunchSpeed": 95.739,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_93",
+                        "id": "nav_edge_86",
                         "type": "jump",
                         "direction": "left",
                         "from": "arch_ruin_001_blockable_1",
@@ -2725,11 +2870,16 @@
                         "flightTime": 1.294058,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 319.763,
+                        "cost": 332.769,
+                        "runUpX": 3093.16,
+                        "runUpY": 701.782,
+                        "runUpDistance": 37.16,
+                        "requiredLaunchSpeed": 106.377,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_94",
+                        "id": "nav_edge_87",
                         "type": "jump",
                         "direction": "left",
                         "from": "arch_ruin_001_blockable_1",
@@ -2743,11 +2893,16 @@
                         "flightTime": 1.294075,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 245.716,
+                        "cost": 258.722,
+                        "runUpX": 3093.16,
+                        "runUpY": 701.782,
+                        "runUpDistance": 37.16,
+                        "requiredLaunchSpeed": 49.147,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_95",
+                        "id": "nav_edge_88",
                         "type": "drop",
                         "direction": "left",
                         "from": "arch_ruin_001_blockable_1",
@@ -2765,7 +2920,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_96",
+                        "id": "nav_edge_89",
                         "type": "jump",
                         "direction": "left",
                         "from": "arch_ruin_001_blockable_1",
@@ -2779,11 +2934,16 @@
                         "flightTime": 1.294061,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 303.308,
+                        "cost": 316.314,
+                        "runUpX": 3093.16,
+                        "runUpY": 701.782,
+                        "runUpDistance": 37.16,
+                        "requiredLaunchSpeed": 93.659,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_97",
+                        "id": "nav_edge_90",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_1",
@@ -2801,7 +2961,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_98",
+                        "id": "nav_edge_91",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_2",
@@ -2819,7 +2979,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_99",
+                        "id": "nav_edge_92",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_2",
@@ -2837,7 +2997,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_100",
+                        "id": "nav_edge_93",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_3",
@@ -2855,7 +3015,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_101",
+                        "id": "nav_edge_94",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_3",
@@ -2873,7 +3033,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_102",
+                        "id": "nav_edge_95",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_4",
@@ -2891,7 +3051,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_103",
+                        "id": "nav_edge_96",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_4",
@@ -2909,7 +3069,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_104",
+                        "id": "nav_edge_97",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_5",
@@ -2927,7 +3087,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_105",
+                        "id": "nav_edge_98",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_5",
@@ -2945,7 +3105,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_106",
+                        "id": "nav_edge_99",
                         "type": "drop",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -2963,7 +3123,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_107",
+                        "id": "nav_edge_100",
                         "type": "jump",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -2977,11 +3137,16 @@
                         "flightTime": 1.241408,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 234.615,
+                        "cost": 245.556,
+                        "runUpX": 3383.84,
+                        "runUpY": 735.88,
+                        "runUpDistance": 31.259,
+                        "requiredLaunchSpeed": 68.352,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_108",
+                        "id": "nav_edge_101",
                         "type": "drop",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -2999,7 +3164,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_109",
+                        "id": "nav_edge_102",
                         "type": "jump",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -3013,11 +3178,16 @@
                         "flightTime": 1.241411,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 249.553,
+                        "cost": 260.494,
+                        "runUpX": 3383.84,
+                        "runUpY": 735.88,
+                        "runUpDistance": 31.259,
+                        "requiredLaunchSpeed": 80.383,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_110",
+                        "id": "nav_edge_103",
                         "type": "drop",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -3035,7 +3205,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_111",
+                        "id": "nav_edge_104",
                         "type": "jump",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -3049,11 +3219,16 @@
                         "flightTime": 1.241414,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 260.642,
+                        "cost": 271.583,
+                        "runUpX": 3383.84,
+                        "runUpY": 735.88,
+                        "runUpDistance": 31.259,
+                        "requiredLaunchSpeed": 89.314,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_112",
+                        "id": "nav_edge_105",
                         "type": "jump",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -3067,11 +3242,16 @@
                         "flightTime": 1.241403,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 213.26,
+                        "cost": 224.201,
+                        "runUpX": 3383.84,
+                        "runUpY": 735.88,
+                        "runUpDistance": 31.259,
+                        "requiredLaunchSpeed": 51.152,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_113",
+                        "id": "nav_edge_106",
                         "type": "jump",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -3085,11 +3265,16 @@
                         "flightTime": 1.241417,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 270.869,
+                        "cost": 281.81,
+                        "runUpX": 3383.84,
+                        "runUpY": 735.88,
+                        "runUpDistance": 31.259,
+                        "requiredLaunchSpeed": 97.55,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_114",
+                        "id": "nav_edge_107",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_6",
@@ -3109,19 +3294,20 @@
                 ],
                 "dynamicCostRules": [],
                 "build": {
-                    "method": "sampled_ballistic_graph",
-                    "samplesPerSecond": 30,
+                    "method": "ballistic_graph_with_run_up",
+                    "samplesPerSecond": 60,
                     "generatedBy": "Ignatius Rocketfrock Level Editor"
                 }
             },
             {
-                "version": 1,
-                "id": "w76_h148_r300_j200_g1250_f280_s26_q24.32",
-                "label": "Run 300, jump 200, body 76\u00d7148",
+                "version": 2,
+                "id": "w76_h148_r300_a950_j200_g1250_f280_s26_q24.32",
+                "label": "Run 300, jump 200, body 76×148",
                 "profile": {
                     "bodyWidth": 76,
                     "bodyHeight": 148,
                     "runSpeed": 300,
+                    "groundAcceleration": 950,
                     "jumpHeight": 200,
                     "gravity": 1250,
                     "maxFallDistance": 280,
@@ -3549,7 +3735,12 @@
                         "flightTime": 1.372959,
                         "fromObstacleId": "left_step_area_1",
                         "toObstacleId": "start_ground_area_0",
-                        "cost": 467.83,
+                        "cost": 511.72,
+                        "runUpX": 792.879,
+                        "runUpY": 291.997,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 169.5,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
@@ -3567,7 +3758,12 @@
                         "flightTime": 1.370102,
                         "fromObstacleId": "left_step_area_1",
                         "toObstacleId": "start_ground_area_0",
-                        "cost": 474.383,
+                        "cost": 518.273,
+                        "runUpX": 778.165,
+                        "runUpY": 292.219,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 176.105,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
@@ -3585,7 +3781,12 @@
                         "flightTime": 1.363175,
                         "fromObstacleId": "left_step_area_1",
                         "toObstacleId": "start_ground_area_0",
-                        "cost": 530.328,
+                        "cost": 574.218,
+                        "runUpX": 778.165,
+                        "runUpY": 292.219,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 221.602,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
@@ -3603,7 +3804,12 @@
                         "flightTime": 1.365265,
                         "fromObstacleId": "left_step_area_1",
                         "toObstacleId": "start_ground_area_0",
-                        "cost": 530.15,
+                        "cost": 574.04,
+                        "runUpX": 792.879,
+                        "runUpY": 291.997,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 220.063,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
@@ -3621,7 +3827,12 @@
                         "flightTime": 1.355838,
                         "fromObstacleId": "left_step_area_1",
                         "toObstacleId": "start_ground_area_0",
-                        "cost": 624.762,
+                        "cost": 668.652,
+                        "runUpX": 792.879,
+                        "runUpY": 291.997,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 296.21,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
@@ -3639,7 +3850,12 @@
                         "flightTime": 1.358985,
                         "fromObstacleId": "upper_step_area_2",
                         "toObstacleId": "left_step_area_1",
-                        "cost": 536.079,
+                        "cost": 579.969,
+                        "runUpX": 1426.568,
+                        "runUpY": 95.28,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 228.663,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
@@ -3662,60 +3878,6 @@
                     },
                     {
                         "id": "nav_edge_10",
-                        "type": "jump",
-                        "direction": "left",
-                        "from": "upper_step_blockable_2",
-                        "to": "left_step_blockable_1",
-                        "launchX": 1282.153,
-                        "launchY": 97.23,
-                        "landingX": 990.418,
-                        "landingY": 289.024,
-                        "vx": -214.916,
-                        "vy": -707.107,
-                        "flightTime": 1.357438,
-                        "fromObstacleId": "upper_step_area_2",
-                        "toObstacleId": "left_step_area_1",
-                        "cost": 515.991,
-                        "blockerIds": []
-                    },
-                    {
-                        "id": "nav_edge_11",
-                        "type": "jump",
-                        "direction": "left",
-                        "from": "upper_step_blockable_2",
-                        "to": "left_step_blockable_1",
-                        "launchX": 1267.439,
-                        "launchY": 106.698,
-                        "landingX": 967.138,
-                        "landingY": 289.375,
-                        "vx": -222.747,
-                        "vy": -707.107,
-                        "flightTime": 1.348171,
-                        "fromObstacleId": "upper_step_area_2",
-                        "toObstacleId": "left_step_area_1",
-                        "cost": 518.175,
-                        "blockerIds": []
-                    },
-                    {
-                        "id": "nav_edge_12",
-                        "type": "jump",
-                        "direction": "left",
-                        "from": "upper_step_blockable_2",
-                        "to": "left_step_blockable_1",
-                        "launchX": 1267.439,
-                        "launchY": 106.698,
-                        "landingX": 906.338,
-                        "landingY": 290.29,
-                        "vx": -267.66,
-                        "vy": -707.107,
-                        "flightTime": 1.349106,
-                        "fromObstacleId": "upper_step_area_2",
-                        "toObstacleId": "left_step_area_1",
-                        "cost": 579.616,
-                        "blockerIds": []
-                    },
-                    {
-                        "id": "nav_edge_13",
                         "type": "step",
                         "direction": "overlap",
                         "from": "upper_step_blockable_2",
@@ -3733,7 +3895,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_14",
+                        "id": "nav_edge_11",
                         "type": "step",
                         "direction": "overlap",
                         "from": "crystal_step_blockable_1",
@@ -3751,7 +3913,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_15",
+                        "id": "nav_edge_12",
                         "type": "step",
                         "direction": "overlap",
                         "from": "crystal_step_blockable_1",
@@ -3769,7 +3931,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_16",
+                        "id": "nav_edge_13",
                         "type": "step",
                         "direction": "overlap",
                         "from": "crystal_step_blockable_2",
@@ -3787,7 +3949,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_17",
+                        "id": "nav_edge_14",
                         "type": "step",
                         "direction": "overlap",
                         "from": "crystal_step_blockable_13",
@@ -3805,7 +3967,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_18",
+                        "id": "nav_edge_15",
                         "type": "step",
                         "direction": "overlap",
                         "from": "right_gallery_blockable_1",
@@ -3823,7 +3985,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_19",
+                        "id": "nav_edge_16",
                         "type": "step",
                         "direction": "overlap",
                         "from": "right_gallery_blockable_1",
@@ -3841,7 +4003,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_20",
+                        "id": "nav_edge_17",
                         "type": "step",
                         "direction": "overlap",
                         "from": "right_gallery_blockable_2",
@@ -3859,7 +4021,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_21",
+                        "id": "nav_edge_18",
                         "type": "step",
                         "direction": "overlap",
                         "from": "right_gallery_blockable_2",
@@ -3877,7 +4039,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_22",
+                        "id": "nav_edge_19",
                         "type": "step",
                         "direction": "overlap",
                         "from": "right_gallery_blockable_4",
@@ -3895,7 +4057,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_23",
+                        "id": "nav_edge_20",
                         "type": "step",
                         "direction": "overlap",
                         "from": "right_gallery_blockable_13",
@@ -3913,7 +4075,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_24",
+                        "id": "nav_edge_21",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_1",
@@ -3927,11 +4089,16 @@
                         "flightTime": 0.715852,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 412.843,
+                        "cost": 456.733,
+                        "runUpX": 1217.892,
+                        "runUpY": 844.225,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 269.201,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_25",
+                        "id": "nav_edge_22",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_1",
@@ -3945,11 +4112,16 @@
                         "flightTime": 0.715868,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 427.332,
+                        "cost": 471.222,
+                        "runUpX": 1203.4,
+                        "runUpY": 844.222,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 289.439,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_26",
+                        "id": "nav_edge_23",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_1",
@@ -3963,11 +4135,16 @@
                         "flightTime": 1.079693,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 270.847,
+                        "cost": 314.737,
+                        "runUpX": 1321.814,
+                        "runUpY": 844.247,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 144.889,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_27",
+                        "id": "nav_edge_24",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_1",
@@ -3981,11 +4158,16 @@
                         "flightTime": 1.079703,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 301.856,
+                        "cost": 345.746,
+                        "runUpX": 1290.8,
+                        "runUpY": 844.24,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 173.613,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_28",
+                        "id": "nav_edge_25",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_1",
@@ -3999,11 +4181,16 @@
                         "flightTime": 1.079711,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 328.453,
+                        "cost": 372.343,
+                        "runUpX": 1264.2,
+                        "runUpY": 844.235,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 198.247,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_29",
+                        "id": "nav_edge_26",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_1",
@@ -4017,11 +4204,16 @@
                         "flightTime": 1.07972,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 355.049,
+                        "cost": 398.939,
+                        "runUpX": 1237.6,
+                        "runUpY": 844.229,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 222.882,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_30",
+                        "id": "nav_edge_27",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_1",
@@ -4035,11 +4227,16 @@
                         "flightTime": 1.079731,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 389.244,
+                        "cost": 433.134,
+                        "runUpX": 1203.4,
+                        "runUpY": 844.222,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 254.554,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_31",
+                        "id": "nav_edge_28",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -4053,11 +4250,16 @@
                         "flightTime": 0.717034,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 412.274,
+                        "cost": 456.164,
+                        "runUpX": 1889.696,
+                        "runUpY": 844.365,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 268.182,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_32",
+                        "id": "nav_edge_29",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -4071,11 +4273,16 @@
                         "flightTime": 0.717015,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 429.181,
+                        "cost": 473.071,
+                        "runUpX": 1906.6,
+                        "runUpY": 844.368,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 291.765,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_33",
+                        "id": "nav_edge_30",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -4089,11 +4296,16 @@
                         "flightTime": 1.071463,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 177.323,
+                        "cost": 221.213,
+                        "runUpX": 1780.92,
+                        "runUpY": 844.342,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 55.289,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_34",
+                        "id": "nav_edge_31",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -4107,11 +4319,16 @@
                         "flightTime": 1.079625,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 166.788,
+                        "cost": 210.678,
+                        "runUpX": 1781.397,
+                        "runUpY": 844.342,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 48.486,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_35",
+                        "id": "nav_edge_32",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -4125,11 +4342,16 @@
                         "flightTime": 1.079613,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 204.597,
+                        "cost": 248.487,
+                        "runUpX": 1819.2,
+                        "runUpY": 844.35,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 83.502,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_36",
+                        "id": "nav_edge_33",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -4143,11 +4365,16 @@
                         "flightTime": 1.079604,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 231.201,
+                        "cost": 275.091,
+                        "runUpX": 1845.8,
+                        "runUpY": 844.356,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 108.141,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_37",
+                        "id": "nav_edge_34",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -4161,11 +4388,16 @@
                         "flightTime": 1.079596,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 257.805,
+                        "cost": 301.695,
+                        "runUpX": 1872.4,
+                        "runUpY": 844.361,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 132.781,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_38",
+                        "id": "nav_edge_35",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -4179,11 +4411,16 @@
                         "flightTime": 1.079585,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 292.01,
+                        "cost": 335.9,
+                        "runUpX": 1906.6,
+                        "runUpY": 844.368,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 164.461,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_39",
+                        "id": "nav_edge_36",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -4197,11 +4434,16 @@
                         "flightTime": 1.080558,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "object_036_001_area_8",
-                        "cost": 165.041,
+                        "cost": 208.931,
+                        "runUpX": 1780.92,
+                        "runUpY": 844.342,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 47.216,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_40",
+                        "id": "nav_edge_37",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -4215,11 +4457,16 @@
                         "flightTime": 0.874506,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 284.683,
+                        "cost": 328.573,
+                        "runUpX": 2863.342,
+                        "runUpY": 844.567,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 110.243,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_41",
+                        "id": "nav_edge_38",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -4233,11 +4480,16 @@
                         "flightTime": 0.874514,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 299.223,
+                        "cost": 343.113,
+                        "runUpX": 2848.8,
+                        "runUpY": 844.564,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 126.87,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_42",
+                        "id": "nav_edge_39",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -4251,11 +4503,16 @@
                         "flightTime": 0.874529,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 325.819,
+                        "cost": 369.709,
+                        "runUpX": 2822.2,
+                        "runUpY": 844.559,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 157.285,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_43",
+                        "id": "nav_edge_40",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -4269,11 +4526,16 @@
                         "flightTime": 0.874543,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 352.416,
+                        "cost": 396.306,
+                        "runUpX": 2795.6,
+                        "runUpY": 844.553,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 187.698,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_44",
+                        "id": "nav_edge_41",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -4287,11 +4549,16 @@
                         "flightTime": 0.874561,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 386.611,
+                        "cost": 430.501,
+                        "runUpX": 2761.4,
+                        "runUpY": 844.546,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 226.799,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_45",
+                        "id": "nav_edge_42",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -4305,11 +4572,16 @@
                         "flightTime": 0.835989,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 390.034,
+                        "cost": 433.924,
+                        "runUpX": 2822.2,
+                        "runUpY": 844.559,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 229.668,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_46",
+                        "id": "nav_edge_43",
                         "type": "jump",
                         "direction": "right",
                         "from": "floor_cold_platform_001_blockable_2_nav_2",
@@ -4323,11 +4595,16 @@
                         "flightTime": 0.836006,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 416.631,
+                        "cost": 460.521,
+                        "runUpX": 2795.6,
+                        "runUpY": 844.553,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 261.482,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_47",
+                        "id": "nav_edge_44",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -4341,11 +4618,16 @@
                         "flightTime": 0.89675,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 327.493,
+                        "cost": 371.383,
+                        "runUpX": 3615.444,
+                        "runUpY": 844.724,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 162.191,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_48",
+                        "id": "nav_edge_45",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -4359,11 +4641,16 @@
                         "flightTime": 0.896746,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 334.249,
+                        "cost": 378.139,
+                        "runUpX": 3622.2,
+                        "runUpY": 844.725,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 169.725,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_49",
+                        "id": "nav_edge_46",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -4377,11 +4664,16 @@
                         "flightTime": 0.896733,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 360.853,
+                        "cost": 404.743,
+                        "runUpX": 3648.8,
+                        "runUpY": 844.731,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 199.39,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_50",
+                        "id": "nav_edge_47",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -4395,11 +4687,16 @@
                         "flightTime": 0.89672,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 387.457,
+                        "cost": 431.347,
+                        "runUpX": 3675.4,
+                        "runUpY": 844.736,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 229.057,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_51",
+                        "id": "nav_edge_48",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -4413,11 +4710,16 @@
                         "flightTime": 0.896702,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 421.662,
+                        "cost": 465.552,
+                        "runUpX": 3709.6,
+                        "runUpY": 844.743,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 267.201,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_52",
+                        "id": "nav_edge_49",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -4431,11 +4733,16 @@
                         "flightTime": 0.956596,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 241.227,
+                        "cost": 285.117,
+                        "runUpX": 3593.082,
+                        "runUpY": 844.719,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 81.625,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_53",
+                        "id": "nav_edge_50",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -4449,11 +4756,16 @@
                         "flightTime": 0.956584,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 270.349,
+                        "cost": 314.239,
+                        "runUpX": 3622.2,
+                        "runUpY": 844.725,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 112.065,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_54",
+                        "id": "nav_edge_51",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -4467,11 +4779,16 @@
                         "flightTime": 0.956572,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 296.953,
+                        "cost": 340.843,
+                        "runUpX": 3648.8,
+                        "runUpY": 844.731,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 139.874,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_55",
+                        "id": "nav_edge_52",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -4485,11 +4802,16 @@
                         "flightTime": 0.956561,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 323.557,
+                        "cost": 367.447,
+                        "runUpX": 3675.4,
+                        "runUpY": 844.736,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 167.684,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_56",
+                        "id": "nav_edge_53",
                         "type": "jump",
                         "direction": "left",
                         "from": "floor_cold_platform_001_blockable_2_nav_3",
@@ -4503,11 +4825,16 @@
                         "flightTime": 0.956546,
                         "fromObstacleId": "floor_cold_platform_001_area_6",
                         "toObstacleId": "arch_ruin_001_area_9",
-                        "cost": 357.762,
+                        "cost": 401.652,
+                        "runUpX": 3709.6,
+                        "runUpY": 844.743,
+                        "runUpDistance": 125.4,
+                        "requiredLaunchSpeed": 203.44,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_57",
+                        "id": "nav_edge_54",
                         "type": "step",
                         "direction": "overlap",
                         "from": "rubble_skull_001_blockable_1",
@@ -4525,7 +4852,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_58",
+                        "id": "nav_edge_55",
                         "type": "step",
                         "direction": "overlap",
                         "from": "rubble_skull_001_blockable_1",
@@ -4543,7 +4870,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_59",
+                        "id": "nav_edge_56",
                         "type": "step",
                         "direction": "overlap",
                         "from": "rubble_skull_001_blockable_2",
@@ -4561,7 +4888,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_60",
+                        "id": "nav_edge_57",
                         "type": "step",
                         "direction": "overlap",
                         "from": "rubble_skull_001_blockable_7",
@@ -4579,7 +4906,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_61",
+                        "id": "nav_edge_58",
                         "type": "drop",
                         "direction": "left",
                         "from": "object_036_001_blockable_1",
@@ -4597,7 +4924,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_62",
+                        "id": "nav_edge_59",
                         "type": "jump",
                         "direction": "left",
                         "from": "object_036_001_blockable_1",
@@ -4611,11 +4938,16 @@
                         "flightTime": 1.351804,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 352.312,
+                        "cost": 386.358,
+                        "runUpX": 1595.28,
+                        "runUpY": 658.856,
+                        "runUpDistance": 97.274,
+                        "requiredLaunchSpeed": 97.607,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_63",
+                        "id": "nav_edge_60",
                         "type": "drop",
                         "direction": "left",
                         "from": "object_036_001_blockable_1",
@@ -4633,7 +4965,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_64",
+                        "id": "nav_edge_61",
                         "type": "jump",
                         "direction": "left",
                         "from": "object_036_001_blockable_1",
@@ -4647,11 +4979,16 @@
                         "flightTime": 1.3518,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 367.757,
+                        "cost": 401.803,
+                        "runUpX": 1595.28,
+                        "runUpY": 658.856,
+                        "runUpDistance": 97.274,
+                        "requiredLaunchSpeed": 109.034,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_65",
+                        "id": "nav_edge_62",
                         "type": "jump",
                         "direction": "left",
                         "from": "object_036_001_blockable_1",
@@ -4665,11 +5002,16 @@
                         "flightTime": 1.351797,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 384.131,
+                        "cost": 418.177,
+                        "runUpX": 1595.28,
+                        "runUpY": 658.856,
+                        "runUpDistance": 97.274,
+                        "requiredLaunchSpeed": 121.149,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_66",
+                        "id": "nav_edge_63",
                         "type": "jump",
                         "direction": "left",
                         "from": "object_036_001_blockable_1",
@@ -4683,11 +5025,16 @@
                         "flightTime": 1.351817,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 287.183,
+                        "cost": 321.229,
+                        "runUpX": 1595.28,
+                        "runUpY": 658.856,
+                        "runUpDistance": 97.274,
+                        "requiredLaunchSpeed": 49.42,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_67",
+                        "id": "nav_edge_64",
                         "type": "drop",
                         "direction": "left",
                         "from": "object_036_001_blockable_1",
@@ -4705,7 +5052,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_68",
+                        "id": "nav_edge_65",
                         "type": "jump",
                         "direction": "left",
                         "from": "object_036_001_blockable_1",
@@ -4719,11 +5066,16 @@
                         "flightTime": 1.351804,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 347.974,
+                        "cost": 382.02,
+                        "runUpX": 1595.28,
+                        "runUpY": 658.856,
+                        "runUpDistance": 97.274,
+                        "requiredLaunchSpeed": 94.397,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_69",
+                        "id": "nav_edge_66",
                         "type": "drop",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -4741,7 +5093,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_70",
+                        "id": "nav_edge_67",
                         "type": "jump",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -4755,11 +5107,16 @@
                         "flightTime": 1.350883,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 351.349,
+                        "cost": 386.095,
+                        "runUpX": 1512.72,
+                        "runUpY": 658.144,
+                        "runUpDistance": 99.274,
+                        "requiredLaunchSpeed": 97.429,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_71",
+                        "id": "nav_edge_68",
                         "type": "drop",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -4777,7 +5134,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_72",
+                        "id": "nav_edge_69",
                         "type": "jump",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -4791,11 +5148,16 @@
                         "flightTime": 1.350886,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 366.76,
+                        "cost": 401.505,
+                        "runUpX": 1512.72,
+                        "runUpY": 658.144,
+                        "runUpDistance": 99.274,
+                        "requiredLaunchSpeed": 108.835,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_73",
+                        "id": "nav_edge_70",
                         "type": "drop",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -4813,7 +5175,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_74",
+                        "id": "nav_edge_71",
                         "type": "jump",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -4827,11 +5189,16 @@
                         "flightTime": 1.35089,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 383.098,
+                        "cost": 417.844,
+                        "runUpX": 1512.72,
+                        "runUpY": 658.144,
+                        "runUpDistance": 99.274,
+                        "requiredLaunchSpeed": 120.927,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_75",
+                        "id": "nav_edge_72",
                         "type": "jump",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -4845,11 +5212,16 @@
                         "flightTime": 1.350869,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 286.531,
+                        "cost": 321.277,
+                        "runUpX": 1512.72,
+                        "runUpY": 658.144,
+                        "runUpDistance": 99.274,
+                        "requiredLaunchSpeed": 49.454,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_76",
+                        "id": "nav_edge_73",
                         "type": "drop",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -4867,7 +5239,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_77",
+                        "id": "nav_edge_74",
                         "type": "jump",
                         "direction": "right",
                         "from": "object_036_001_blockable_1",
@@ -4881,11 +5253,16 @@
                         "flightTime": 1.350882,
                         "fromObstacleId": "object_036_001_area_8",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 347.34,
+                        "cost": 382.086,
+                        "runUpX": 1512.72,
+                        "runUpY": 658.144,
+                        "runUpDistance": 99.274,
+                        "requiredLaunchSpeed": 94.462,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_78",
+                        "id": "nav_edge_75",
                         "type": "drop",
                         "direction": "right",
                         "from": "object_036_001_blockable_5",
@@ -4903,61 +5280,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_79",
-                        "type": "jump",
-                        "direction": "right",
-                        "from": "object_036_001_blockable_5",
-                        "to": "floor_cold_platform_001_blockable_2_nav_2",
-                        "launchX": 1596.28,
-                        "launchY": 804.198,
-                        "landingX": 1655.52,
-                        "landingY": 844.316,
-                        "vx": 49.97,
-                        "vy": -707.107,
-                        "flightTime": 1.185516,
-                        "fromObstacleId": "object_036_001_area_8",
-                        "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 177.323,
-                        "blockerIds": []
-                    },
-                    {
-                        "id": "nav_edge_80",
-                        "type": "jump",
-                        "direction": "right",
-                        "from": "object_036_001_blockable_5",
-                        "to": "floor_cold_platform_001_blockable_2_nav_2",
-                        "launchX": 1611.994,
-                        "launchY": 815.29,
-                        "landingX": 1678.8,
-                        "landingY": 844.321,
-                        "vx": 57.049,
-                        "vy": -707.107,
-                        "flightTime": 1.171037,
-                        "fromObstacleId": "object_036_001_area_8",
-                        "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 177.128,
-                        "blockerIds": []
-                    },
-                    {
-                        "id": "nav_edge_81",
-                        "type": "jump",
-                        "direction": "right",
-                        "from": "object_036_001_blockable_5",
-                        "to": "floor_cold_platform_001_blockable_2_nav_2",
-                        "launchX": 1611.994,
-                        "launchY": 815.29,
-                        "landingX": 1739.6,
-                        "landingY": 844.334,
-                        "vx": 108.967,
-                        "vy": -707.107,
-                        "flightTime": 1.171053,
-                        "fromObstacleId": "object_036_001_area_8",
-                        "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 237.937,
-                        "blockerIds": []
-                    },
-                    {
-                        "id": "nav_edge_82",
+                        "id": "nav_edge_76",
                         "type": "jump",
                         "direction": "up",
                         "from": "object_036_001_blockable_5",
@@ -4975,7 +5298,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_83",
+                        "id": "nav_edge_77",
                         "type": "drop",
                         "direction": "left",
                         "from": "arch_ruin_001_blockable_1",
@@ -4993,7 +5316,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_84",
+                        "id": "nav_edge_78",
                         "type": "jump",
                         "direction": "left",
                         "from": "arch_ruin_001_blockable_1",
@@ -5007,11 +5330,16 @@
                         "flightTime": 1.294066,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 293.019,
+                        "cost": 305.714,
+                        "runUpX": 3092.28,
+                        "runUpY": 702.048,
+                        "runUpDistance": 36.274,
+                        "requiredLaunchSpeed": 85.705,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_85",
+                        "id": "nav_edge_79",
                         "type": "drop",
                         "direction": "left",
                         "from": "arch_ruin_001_blockable_1",
@@ -5029,7 +5357,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_86",
+                        "id": "nav_edge_80",
                         "type": "jump",
                         "direction": "left",
                         "from": "arch_ruin_001_blockable_1",
@@ -5043,11 +5371,16 @@
                         "flightTime": 1.294063,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 306.001,
+                        "cost": 318.697,
+                        "runUpX": 3092.28,
+                        "runUpY": 702.048,
+                        "runUpDistance": 36.274,
+                        "requiredLaunchSpeed": 95.739,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_87",
+                        "id": "nav_edge_81",
                         "type": "jump",
                         "direction": "left",
                         "from": "arch_ruin_001_blockable_1",
@@ -5061,11 +5394,16 @@
                         "flightTime": 1.29406,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 319.765,
+                        "cost": 332.46,
+                        "runUpX": 3092.28,
+                        "runUpY": 702.048,
+                        "runUpDistance": 36.274,
+                        "requiredLaunchSpeed": 106.377,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_88",
+                        "id": "nav_edge_82",
                         "type": "jump",
                         "direction": "left",
                         "from": "arch_ruin_001_blockable_1",
@@ -5079,11 +5417,16 @@
                         "flightTime": 1.294076,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 248.923,
+                        "cost": 261.619,
+                        "runUpX": 3092.28,
+                        "runUpY": 702.048,
+                        "runUpDistance": 36.274,
+                        "requiredLaunchSpeed": 51.625,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_89",
+                        "id": "nav_edge_83",
                         "type": "drop",
                         "direction": "left",
                         "from": "arch_ruin_001_blockable_1",
@@ -5101,7 +5444,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_90",
+                        "id": "nav_edge_84",
                         "type": "jump",
                         "direction": "left",
                         "from": "arch_ruin_001_blockable_1",
@@ -5115,11 +5458,16 @@
                         "flightTime": 1.294062,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 309.714,
+                        "cost": 322.41,
+                        "runUpX": 3092.28,
+                        "runUpY": 702.048,
+                        "runUpDistance": 36.274,
+                        "requiredLaunchSpeed": 98.609,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_91",
+                        "id": "nav_edge_85",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_1",
@@ -5137,7 +5485,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_92",
+                        "id": "nav_edge_86",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_2",
@@ -5155,7 +5503,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_93",
+                        "id": "nav_edge_87",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_2",
@@ -5173,7 +5521,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_94",
+                        "id": "nav_edge_88",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_3",
@@ -5191,7 +5539,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_95",
+                        "id": "nav_edge_89",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_3",
@@ -5209,7 +5557,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_96",
+                        "id": "nav_edge_90",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_4",
@@ -5227,7 +5575,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_97",
+                        "id": "nav_edge_91",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_4",
@@ -5245,7 +5593,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_98",
+                        "id": "nav_edge_92",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_5",
@@ -5263,7 +5611,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_99",
+                        "id": "nav_edge_93",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_5",
@@ -5281,7 +5629,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_100",
+                        "id": "nav_edge_94",
                         "type": "drop",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -5299,7 +5647,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_101",
+                        "id": "nav_edge_95",
                         "type": "jump",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -5313,11 +5661,16 @@
                         "flightTime": 1.241503,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 239.191,
+                        "cost": 249.787,
+                        "runUpX": 3384.72,
+                        "runUpY": 736.54,
+                        "runUpDistance": 30.274,
+                        "requiredLaunchSpeed": 71.987,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_102",
+                        "id": "nav_edge_96",
                         "type": "drop",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -5335,7 +5688,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_103",
+                        "id": "nav_edge_97",
                         "type": "jump",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -5349,11 +5702,16 @@
                         "flightTime": 1.241505,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 249.655,
+                        "cost": 260.251,
+                        "runUpX": 3384.72,
+                        "runUpY": 736.54,
+                        "runUpDistance": 30.274,
+                        "requiredLaunchSpeed": 80.414,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_104",
+                        "id": "nav_edge_98",
                         "type": "drop",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -5371,7 +5729,7 @@
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_105",
+                        "id": "nav_edge_99",
                         "type": "jump",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -5385,11 +5743,16 @@
                         "flightTime": 1.241508,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 260.75,
+                        "cost": 271.345,
+                        "runUpX": 3384.72,
+                        "runUpY": 736.54,
+                        "runUpDistance": 30.274,
+                        "requiredLaunchSpeed": 89.349,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_106",
+                        "id": "nav_edge_100",
                         "type": "jump",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -5403,11 +5766,16 @@
                         "flightTime": 1.241497,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 216.622,
+                        "cost": 227.218,
+                        "runUpX": 3384.72,
+                        "runUpY": 736.54,
+                        "runUpDistance": 30.274,
+                        "requiredLaunchSpeed": 53.811,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_107",
+                        "id": "nav_edge_101",
                         "type": "jump",
                         "direction": "right",
                         "from": "arch_ruin_001_blockable_6",
@@ -5421,11 +5789,16 @@
                         "flightTime": 1.241512,
                         "fromObstacleId": "arch_ruin_001_area_9",
                         "toObstacleId": "floor_cold_platform_001_area_6",
-                        "cost": 277.431,
+                        "cost": 288.027,
+                        "runUpX": 3384.72,
+                        "runUpY": 736.54,
+                        "runUpDistance": 30.274,
+                        "requiredLaunchSpeed": 102.783,
+                        "groundAcceleration": 950,
                         "blockerIds": []
                     },
                     {
-                        "id": "nav_edge_108",
+                        "id": "nav_edge_102",
                         "type": "step",
                         "direction": "overlap",
                         "from": "arch_ruin_001_blockable_6",
@@ -5445,8 +5818,8 @@
                 ],
                 "dynamicCostRules": [],
                 "build": {
-                    "method": "sampled_ballistic_graph",
-                    "samplesPerSecond": 30,
+                    "method": "ballistic_graph_with_run_up",
+                    "samplesPerSecond": 60,
                     "generatedBy": "Ignatius Rocketfrock Level Editor"
                 }
             }
