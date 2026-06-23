@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 6,
-        "note": "Explicit enemy catalog. Revision 115 adds strategy-driven hunter navigation, single-jump reachability, attack-position selection, glare, return-home, and stranded patrol defaults."
+        "version": 8,
+        "note": "Revision 120 makes monster awareness depend on distance and a configurable facing cone only. Collision geometry no longer occludes awareness; all catalog enemies default to a \u00b160 degree view cone."
     },
     "catalogId": "ct_enemies_001",
     "enemies": {
@@ -48,7 +48,8 @@
                 "strategy": "simple_patrol",
                 "runSpeed": 150,
                 "jumpHeight": 0,
-                "unreachableGlareDuration": 5
+                "unreachableGlareDuration": 5,
+                "awarenessViewHalfAngle": 60
             }
         },
         "enemy_002": {
@@ -96,7 +97,7 @@
                 "projectileKnockbackY": -110,
                 "preferredAttackRange": 220,
                 "preferredAttackMinRange": 110,
-                "chaseSpeed": 124,
+                "chaseSpeed": 300,
                 "awarenessRange": 360,
                 "awarenessVerticalRange": 210,
                 "awarenessHoldDuration": 1.5,
@@ -105,13 +106,14 @@
                 "projectileReleaseTime": 0.372,
                 "projectileLaunchType": "homing_lo",
                 "strategy": "hunter",
-                "runSpeed": 124,
-                "jumpHeight": 124,
+                "runSpeed": 300,
+                "jumpHeight": 200,
                 "jumpGravity": 1250,
                 "maxFallDistance": 280,
                 "unreachableGlareDuration": 5,
                 "routeRepathInterval": 0.3,
-                "homeRetryInterval": 4
+                "homeRetryInterval": 4,
+                "awarenessViewHalfAngle": 60
             }
         },
         "enemy_003": {
@@ -159,7 +161,7 @@
                 "projectileKnockbackY": -150,
                 "preferredAttackRange": 250,
                 "preferredAttackMinRange": 125,
-                "chaseSpeed": 116,
+                "chaseSpeed": 300,
                 "awarenessRange": 430,
                 "awarenessVerticalRange": 220,
                 "awarenessHoldDuration": 1.6,
@@ -168,13 +170,14 @@
                 "projectileReleaseTime": 0.49531814840382643,
                 "projectileLaunchType": "ballistic",
                 "strategy": "hunter",
-                "runSpeed": 116,
-                "jumpHeight": 112,
+                "runSpeed": 300,
+                "jumpHeight": 200,
                 "jumpGravity": 1250,
                 "maxFallDistance": 280,
                 "unreachableGlareDuration": 5,
                 "routeRepathInterval": 0.3,
-                "homeRetryInterval": 4
+                "homeRetryInterval": 4,
+                "awarenessViewHalfAngle": 60
             }
         }
     }

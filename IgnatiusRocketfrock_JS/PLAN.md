@@ -1508,3 +1508,38 @@ Revision 116 corrects two failures exposed by playtesting the goblins beneath th
 
 Hunter planning now treats pursuit and ranged fallback as ordered alternatives. If the wizard's connected support region is reachable, the hunter commits to that route and does not interrupt a valid jump with an opportunistic lower-floor shot. If the support region is unreachable, the planner searches every reachable support for a position from which the actual projectile path is clear. Fireballs test their authored launch point against the direct path, while musket balls test the solved ballistic arc. Candidate positions sample the usable attack-range window rather than only four preferred points. The five-second glare state is entered only after both route pursuit and reachable firing-position search fail. Regression coverage exercises the real `level_001` arch with a 555-pixel jump and an elevated-target case where a hunter must move around blocking geometry before firing.
 
+
+### Revision 117 baked directed navigation graphs
+
+Enemy navigation now has an editor-authored baking path as well as the runtime fallback. The Level Editor derives one mobility profile for each distinct placed hunter body size, running speed, jump height, gravity, fall limit, and step capability. Its graph builder uses the same portable `enemy-navigation.js` implementation as gameplay, then stores directed supports and transitions in `level.navigationGraphs`.
+
+The baked graph explicitly distinguishes jumping left, jumping right, falling left, falling right, and same-height chasm crossings. Downward destinations now receive genuine zero-upward-impulse `drop` edges rather than being treated as jumps merely because a monster has a large maximum jump height. Each graph carries a support signature. Runtime performs the inexpensive support extraction and consumes baked edges only when the current level geometry and monster mobility exactly match; changed geometry or mobility falls back safely to live construction instead of using stale routes.
+
+The Level Editor can preview a selected graph over the level. Cyan lines show walkable supports, purple arcs show jumps, orange arrows show drops, and green arrows show step connections. `level_001` includes baked profiles for both hunter goblins.
+
+Dynamic world changes are represented without rebuilding the search algorithm. Edges may carry blocker IDs, and baked graphs may carry dynamic cost rules that disable an edge or add a penalty according to an entity state. This is the extension point for doors, destructible passages, lifts, and other conditional routes. The first revision establishes the data and runtime evaluation boundary; authoring richer blocker rules remains part of the door/destruction work.
+
+A dedicated navigation-maze fixture verifies that the route search can initially move away from Ignatius, climb twice to the right, fall to the right, reverse beneath an impassable wall, cross a gap to the left, climb leftward steps, and finally cross back to the right. Separate graph-baker tests require all six directional transition families: jump left/right, drop left/right, and chasm jump left/right.
+
+The runtime departure step also distinguishes leaving a support from landing on it. A controlled drop temporarily ignores the source support for body blocking and landing checks while the enemy clears its edge, then restores ordinary collision validation. This fixes the repeated launch-and-immediate-reland loop that previously made hunters appear unwilling to fall, especially when a very large jump-height value caused downward routes to be represented poorly.
+
+### Revision 118 shared actor collision and obstacle-clear hunter traversal
+
+Hunter jump baking now generates physics-guided takeoff candidates rather than favoring the point nearest a raised wall. Candidate arcs are trial-run at the simulation's fixed 60 Hz split-axis cadence with the actor's full collision width, so a route is rejected when the body would hit a pillar before the feet clear its lip. Route cost still includes the approach from the monster's current position, allowing a nearby but unsafe takeoff to lose against a slightly longer, reliable run-up.
+
+Airborne hunter traversal now uses shared actor sweep queries for solids, collision segments, and collision polygons. Those same queries drive Ignatius's ordinary X/Y collision wrappers, keeping feet, walls, ceilings, and landing behavior under one geometry rule set. A controlled drop ignores only its source landing surface during the brief ledge-departure window; it never disables the ground below or the source obstacle's side wall.
+
+Hunter awareness is now consistent across occluding scenery: the configured awareness range forms the default aggro radius for the `hunter` strategy, after which graph navigation and attack-position checks deal with obstacles. Revision 120 supersedes the earlier optional line-of-sight flag with distance-and-facing perception for every strategy. Both goblins now default to a run speed of 300 px/s and jump height of 200 px, and `level_001` carries freshly baked graphs for those exact profiles.
+
+### Revision 119 walk-off drops and automatic playtest baking
+
+The graph baker now distinguishes a physically executable walk-off drop from a merely mathematical fall between two support points. For a lower support beyond the side of a solid platform, it places the launch point at the source edge and chooses enough horizontal velocity to clear the source obstacle with the monster's complete body width before the body descends alongside the wall. Candidate trajectories continue to be validated with the same fixed-step split-axis cadence used by runtime.
+
+The Level Editor's Play command now rebuilds all placed hunter mobility graphs immediately before serializing the browser playtest copy. The explicit Build button remains useful for graph preview and inspection, but stale or absent baked data can no longer result from forgetting that step during ordinary playtesting. The baker remains fast because support extraction and candidate generation are analytical and only promising transitions receive fixed-step trajectory trials; it does not brute-force every possible position and velocity.
+
+
+### Revision 120 distance-and-facing monster awareness
+
+Monster awareness no longer performs a terrain line-of-sight query. Walkable lines, blockable areas, pillars, doors, and other collision geometry may still prevent movement and block a real melee or projectile attack, but they do not make Ignatius invisible. Initial notice requires the player to be inside the authored radial awareness range and inside a configurable facing cone. The legacy vertical-awareness field is retained for old data but no longer blocks perception. The default half-angle is 60 degrees, producing a 120-degree total cone.
+
+The Level Editor exposes the view half-angle beside the other enemy AI fields. Existing `awarenessRequiresLineOfSight` data is no longer consulted by simulation, avoiding strategy-specific perception rules.

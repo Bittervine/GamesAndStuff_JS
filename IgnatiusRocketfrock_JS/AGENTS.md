@@ -26,6 +26,10 @@ Level atlas placements may use `mirrorX`, `mirrorY`, and center-based `rotation`
 
 Ground running is data-driven through `assets/ct_anim_wizard_run_1.json` and `src/shared/animation-data.js`. Do not add new run-pose formulas to the renderer or scale animation values per sprite. Animation `x`/`y` values are unscaled rig-space pixels, `rotation` is radians, `scale` multiplies the rig part target height, and `alpha` is scalar opacity. The procedural run and its comparison mode were removed in revision 056. Edit run keyframes in `character-editor.html`; shared keyframe mutations belong in `src/tools/character-editor/animation-editor.js`.
 
+## SHARED ACTOR COLLISION RULE ##
+
+Player and enemy feet use the same foot-position convention and the same swept horizontal/vertical collision queries against solids, collision segments, and collision polygons. Enemy navigation may predict transitions offline, but runtime traversal must still pass through those shared actor collision queries. Do not let NPC drops ignore ordinary ground collision or let baked jump arcs use a narrower body than runtime collision.
+
 ## CHARACTER GROUND CONVENTION ##
 
 Character-local `y = 0` is the authoritative runtime ground/foot line. Puppet Forge must draw this line in Rig and animation mode. Dragging the guide label may reposition the editor view, but must never mutate rig or animation data. Do not rely on per-character runtime ground offsets to repair authored hovering. Normalize a character project offline by applying one uniform rig-space Y translation to rig anchors, setup offsets, character overrides, animation reference poses, and every Y keyframe, including projectile parts. Keep `rig.global.groundOffset` and `rootYOffsetFromGround` at zero for normalized generic characters.

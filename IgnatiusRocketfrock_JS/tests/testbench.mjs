@@ -93,7 +93,10 @@ import {
     sampleRuntimeCharacterPose
 } from "../src/presentation/character-runtime.js";
 import {
+    bakeEnemyNavigationGraph,
+    buildEnemyNavigationEdges,
     buildEnemyNavigationSupports,
+    enemyNavigationEdgeMapFromFlat,
     findEnemyNavigationSupport,
     planEnemyNavigationRoute
 } from "../src/core/enemy-navigation.js";
@@ -404,7 +407,13 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(skeleton.defaults.strategy, "simple_patrol", "Skeleton Guard should preserve the original simple-minded local strategy");
     assert.equal(catalog.enemies.enemy_002.defaults.strategy, "hunter", "Fireball Goblin should use the hunter strategy");
     assert.equal(catalog.enemies.enemy_003.defaults.strategy, "hunter", "Musket Goblin should use the hunter strategy");
-    assert.ok(catalog.enemies.enemy_002.defaults.jumpHeight > 0, "hunter goblins should have an authored single-jump height");
+    assert.equal(catalog.enemies.enemy_002.defaults.runSpeed, 300, "Fireball Goblin should default to the playtested 300 px/s run speed");
+    assert.equal(catalog.enemies.enemy_003.defaults.runSpeed, 300, "Musket Goblin should default to the playtested 300 px/s run speed");
+    assert.equal(catalog.enemies.enemy_002.defaults.jumpHeight, 200, "Fireball Goblin should default to the playtested 200 px jump height");
+    assert.equal(catalog.enemies.enemy_003.defaults.jumpHeight, 200, "Musket Goblin should default to the playtested 200 px jump height");
+    assert.equal(skeleton.defaults.awarenessViewHalfAngle, 60, "Skeleton Guard should default to a ±60 degree awareness cone");
+    assert.equal(catalog.enemies.enemy_002.defaults.awarenessViewHalfAngle, 60, "Fireball Goblin should default to a ±60 degree awareness cone");
+    assert.equal(catalog.enemies.enemy_003.defaults.awarenessViewHalfAngle, 60, "Musket Goblin should default to a ±60 degree awareness cone");
     assert.ok(skeleton.defaults.patrolDistance > 0, "Skeleton Guard should have a visible default patrol span");
     assert.ok(skeleton.defaults.attackDamage > 0, "Skeleton Guard should have authored melee damage");
     assert.ok(skeleton.defaults.attackRange > 0, "Skeleton Guard should have authored melee reach");
@@ -413,6 +422,11 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const levelOne = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
     assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_002"), "level_001 should contain a Fireball Goblin");
     assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_003"), "level_001 should contain a Musket Goblin");
+    for (const goblin of levelOne.entities.filter((entity) => entity.characterId === "ct_char_enemy_002" || entity.characterId === "ct_char_enemy_003")) {
+        assert.equal(goblin.runSpeed, 300, `${goblin.id} should use the baked 300 px/s run profile`);
+        assert.equal(goblin.jumpHeight, 200, `${goblin.id} should use the baked 200 px jump profile`);
+        assert.equal(goblin.awarenessViewHalfAngle, 60, `${goblin.id} should use the default ±60 degree awareness cone`);
+    }
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(editorHtml.includes("ENEMY_CATALOG_URL"), "level editor should load the explicit enemy catalog");
@@ -425,15 +439,20 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(editorHtml.includes('id="inspect-enemy-attack-range"'), "level editor should expose enemy melee reach");
     assert.ok(editorHtml.includes('id="inspect-enemy-chase-speed"'), "level editor should expose alerted chase speed");
     assert.ok(editorHtml.includes('id="inspect-enemy-awareness-range"'), "level editor should expose enemy awareness range");
+    assert.ok(editorHtml.includes('id="inspect-enemy-view-half-angle"'), "level editor should expose enemy awareness view half-angle");
     assert.ok(editorHtml.includes('id="inspect-enemy-strategy"'), "level editor should expose AI strategy selection");
     assert.ok(editorHtml.includes('id="inspect-enemy-jump-height"'), "level editor should expose maximum jump height");
     assert.ok(editorHtml.includes('id="inspect-enemy-glare-duration"'), "level editor should expose unreachable glare duration");
+    assert.ok(editorHtml.includes('id="build-navigation-graphs"'), "level editor should expose a baked navigation graph builder");
+    assert.ok(editorHtml.includes('id="show-navigation-graph"'), "level editor should preview baked directed navigation edges");
+    assert.ok(editorHtml.includes("bakeEnemyNavigationGraph"), "level editor should use the shared navigation graph baker rather than a separate approximation");
 
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
     const placed = level.entities.find((entity) => entity.id === "enemy_001_001");
     assert.ok(placed, "level_001 should include the first placed Skeleton Guard");
     assert.equal(placed.type, "characterEnemy", "placed Skeleton Guard should use the generic runtime entity type");
     assert.equal(placed.behavior, "patrol", "placed Skeleton Guard should use simulation-owned patrol behaviour");
+    assert.ok(editorHtml.includes('buildPlacedHunterNavigationGraphs({ silent: true, refreshUi: false })'), "Play should automatically rebuild hunter navigation graphs before serializing the browser copy");
 }
 
 
@@ -471,6 +490,57 @@ function testEnemyNavigationGraphAndJumpReachability() {
         edgeInset: 12
     });
     assert.equal(unreachable, null, "a platform above the authored jump height should be unreachable");
+}
+
+function testBakedNavigationGraphDirectionalTransitions() {
+    const graph = bakeEnemyNavigationGraph({
+        segments: [
+            { id: "center", kind: "walkable", x1: 0, y1: 300, x2: 100, y2: 300 },
+            { id: "upperLeft", kind: "walkable", x1: -170, y1: 220, x2: -70, y2: 220 },
+            { id: "upperRight", kind: "walkable", x1: 170, y1: 220, x2: 270, y2: 220 },
+            { id: "lowerLeft", kind: "walkable", x1: -170, y1: 430, x2: -70, y2: 430 },
+            { id: "lowerRight", kind: "walkable", x1: 170, y1: 430, x2: 270, y2: 430 },
+            { id: "sameLeft", kind: "walkable", x1: -280, y1: 300, x2: -190, y2: 300 },
+            { id: "sameRight", kind: "walkable", x1: 290, y1: 300, x2: 380, y2: 300 }
+        ],
+        solids: [],
+        collisionPolygons: []
+    }, {
+        bodyWidth: 48,
+        bodyHeight: 96,
+        runSpeed: 240,
+        jumpHeight: 120,
+        gravity: 1200,
+        maxFallDistance: 180,
+        maxStepHeight: 20,
+        maxStepGap: 15,
+        edgeInset: 10,
+        bodyClearance: 16
+    });
+    const centerEdges = graph.edges.filter((edge) => edge.from === "center");
+    const has = (type, direction, to) => centerEdges.some((edge) => edge.type === type && edge.direction === direction && edge.to === to);
+    assert.equal(has("jump", "left", "upperLeft"), true, "baked graph should include a jump left to a higher platform");
+    assert.equal(has("jump", "right", "upperRight"), true, "baked graph should include a jump right to a higher platform");
+    assert.equal(has("drop", "left", "lowerLeft"), true, "baked graph should include a deliberate fall left to a lower platform");
+    assert.equal(has("drop", "right", "lowerRight"), true, "baked graph should include a deliberate fall right to a lower platform");
+    assert.equal(has("jump", "left", "sameLeft"), true, "baked graph should include a leftward chasm jump");
+    assert.equal(has("jump", "right", "sameRight"), true, "baked graph should include a rightward chasm jump");
+    assert.ok(graph.supportSignature, "baked graph should carry a support signature for stale-geometry rejection");
+}
+
+function testNavigationMazeDetourRoute() {
+    const fixture = JSON.parse(readFileSync("./tests/fixtures/hunter_navigation_maze.json", "utf8"));
+    const route = planEnemyNavigationRoute(fixture.supports, fixture.startSupportId, fixture.targetSupportId, {
+        edgeMap: enemyNavigationEdgeMapFromFlat(fixture.edges, fixture.supports),
+        startX: fixture.startX,
+        targetX: fixture.targetX
+    });
+    assert.ok(route, "the detour maze should remain solvable even though the first move runs away from the wizard");
+    assert.deepEqual(route.supportIds, fixture.expectedSupportIds, "route search should retain the full climb, drop, reversal, leftward gap crossing, stair climb, and final rightward crossing");
+    assert.equal(route.edges[0].direction, "right", "the first transition should deliberately move away from the wizard");
+    assert.equal(route.edges.some((edge) => edge.type === "drop" && edge.direction === "right"), true, "maze route should include a deliberate rightward fall");
+    assert.equal(route.edges.some((edge) => edge.type === "jump" && edge.direction === "left"), true, "maze route should include leftward jumps");
+    assert.equal(route.edges.at(-1).direction, "right", "the final gap crossing should approach the wizard from the left");
 }
 
 function testHunterEnemyJumpAndAttackPositioning() {
@@ -532,6 +602,64 @@ function testHunterEnemyJumpAndAttackPositioning() {
 }
 
 
+function testHunterUsesDeliberateDropTraversal() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "hunter_drop_test",
+        playerStart: { x: 220, y: 560 },
+        entities: [{
+            id: "drop_hunter",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 40,
+            y: 400,
+            w: 72,
+            h: 148,
+            facing: 1,
+            behavior: "patrol",
+            strategy: "hunter",
+            patrolDistance: 80,
+            walkSpeed: 40,
+            runSpeed: 180,
+            jumpHeight: 555,
+            jumpGravity: 1200,
+            maxFallDistance: 300,
+            maxStepHeight: 26,
+            awarenessRange: 800,
+            awarenessVerticalRange: 400,
+            attackMode: "melee",
+            attackRange: 58,
+            attackVerticalRange: 120,
+            attackDamage: 0
+        }]
+    });
+    state.world.segments = [
+        { id: "upper", kind: "walkable", x1: 0, y1: 400, x2: 100, y2: 400 },
+        { id: "lower_right", kind: "walkable", x1: 140, y1: 560, x2: 320, y2: 560 }
+    ];
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 220;
+    state.player.y = 560;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    const enemy = state.enemies.find((item) => item.id === "drop_hunter");
+    let sawDropState = false;
+    let landed = false;
+    for (let frame = 0; frame < 160; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        sawDropState ||= enemy.aiState === "drop" && enemy.airborne && Math.abs(enemy.velocityY) < 0.001;
+        landed ||= sawDropState && !enemy.airborne && enemy.currentSupportId === "lower_right";
+        if (landed) break;
+    }
+    assert.equal(sawDropState, true, "a lower reachable platform should use a zero-upward-impulse drop even when jump height is very large");
+    assert.equal(landed, true, "hunter should land on the lower-right support and continue pursuit");
+}
+
 function testHunterRangedAttackPositionSelection() {
     const state = createInitialGameState();
     applyEditorLevelToWorld(state, {
@@ -587,11 +715,38 @@ function testHunterRangedAttackPositionSelection() {
 }
 
 
+function testLevelOneUsesBakedHunterNavigationGraphs() {
+    const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
+    assert.ok(Array.isArray(level.navigationGraphs?.profiles) && level.navigationGraphs.profiles.length >= 2, "level_001 should contain baked navigation profiles for both hunter goblins");
+    for (const graph of level.navigationGraphs.profiles) {
+        assert.ok(graph.supportSignature, "each baked graph should include a geometry signature");
+        assert.ok(graph.edges.some((edge) => edge.type === "drop"), "each baked graph should retain deliberate falling transitions");
+        assert.ok(graph.edges.some((edge) => edge.type === "jump"), "each baked graph should retain jump transitions");
+    }
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, level), true, "level_001 should apply for baked graph verification");
+    const manifests = new Map();
+    for (const ref of level.atlasRefs || []) {
+        const path = String(ref.manifest || "").replace(/^assets\//, "./assets/");
+        manifests.set(ref.atlasId, { manifest: JSON.parse(readFileSync(path, "utf8")) });
+    }
+    assert.equal(applyAtlasManifestsToWorld(state, manifests), true, "level collision should apply before baked graph verification");
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    const hunters = state.enemies.filter((enemy) => enemy.strategy === "hunter");
+    assert.ok(hunters.length >= 2, "level_001 should instantiate both hunter goblins");
+    assert.ok(hunters.every((enemy) => enemy.navigationGraphSource === "baked"), "hunters with matching mobility and geometry should consume the pre-baked graph");
+}
+
 function testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
     const musketGoblin = level.entities.find((entity) => entity.id === "enemy_003_001");
     assert.ok(musketGoblin, "level_001 should contain the Musket Goblin used by the arch regression test");
     musketGoblin.jumpHeight = 555;
+    musketGoblin.facing = 1;
     musketGoblin.awarenessRange = 800;
     musketGoblin.awarenessVerticalRange = 500;
     musketGoblin.attackDamage = 0;
@@ -718,6 +873,412 @@ function testHunterFindsReachableFiringFallbackBeforeGlare() {
     assert.equal(attacked, true, "hunter should fire from a fallback support when it cannot reach the wizard's platform");
     assert.ok(enemy.x > startX + 120, "hunter should deliberately reposition to clear the blocking platform before firing");
     assert.equal(enemy.airborne, false, "fallback firing should not invent an impossible jump");
+}
+
+function testHunterJumpUsesObstacleClearRunUp() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "hunter_run_up_test",
+        playerStart: { x: 280, y: 430 },
+        entities: [{
+            id: "run_up_hunter",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_003",
+            x: 20,
+            y: 600,
+            w: 76,
+            h: 148,
+            facing: 1,
+            behavior: "patrol",
+            strategy: "hunter",
+            patrolDistance: 80,
+            walkSpeed: 52,
+            runSpeed: 300,
+            jumpHeight: 200,
+            jumpGravity: 1250,
+            maxFallDistance: 300,
+            maxStepHeight: 26,
+            awarenessRange: 1200,
+            awarenessVerticalRange: 500,
+            attackMode: "melee",
+            attackRange: 58,
+            attackVerticalRange: 110,
+            attackDamage: 0
+        }]
+    });
+    state.world.segments = [
+        { id: "floor", kind: "walkable", x1: -200, y1: 600, x2: 520, y2: 600 },
+        { id: "pillar_top", visualId: "pillar", kind: "blockable", x1: 200, y1: 430, x2: 360, y2: 430 },
+        { id: "pillar_right", visualId: "pillar", kind: "blockable", x1: 360, y1: 430, x2: 360, y2: 600 },
+        { id: "pillar_bottom", visualId: "pillar", kind: "blockable", x1: 360, y1: 600, x2: 200, y2: 600 },
+        { id: "pillar_left", visualId: "pillar", kind: "blockable", x1: 200, y1: 600, x2: 200, y2: 430 }
+    ];
+    state.world.solids = [];
+    state.world.collisionPolygons = [{
+        id: "pillar_area",
+        visualId: "pillar",
+        kind: "blockable",
+        points: [
+            { x: 200, y: 430 },
+            { x: 360, y: 430 },
+            { x: 360, y: 600 },
+            { x: 200, y: 600 }
+        ]
+    }];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 280;
+    state.player.y = 430;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+
+    const enemy = state.enemies.find((item) => item.id === "run_up_hunter");
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    const firstJump = enemy.route.find((edge) => edge.type === "jump");
+    assert.ok(firstJump, "hunter should plan a jump onto the pillar");
+    assert.ok(firstJump.launchX <= 150, `jump should begin with meaningful run-up before the x=200 wall, got ${firstJump.launchX}`);
+
+    let jumpStarts = 0;
+    let wasAirborne = false;
+    let landed = false;
+    for (let frame = 0; frame < 240; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        if (enemy.airborne && !wasAirborne) jumpStarts += 1;
+        wasAirborne = enemy.airborne;
+        landed ||= !enemy.airborne && String(enemy.currentSupportId || "").startsWith("pillar_top");
+        if (landed) break;
+    }
+    assert.equal(jumpStarts, 1, "a valid run-up jump should reach the pillar on the first attempt");
+    assert.equal(landed, true, "hunter should clear the pillar wall and land on its top");
+    assert.equal(enemy.navigationFailureCount, 0, "successful run-up jump should not record a navigation failure");
+}
+
+function testHunterDropLandsOnOrdinaryCollisionGeometry() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "hunter_shared_collision_drop_test",
+        playerStart: { x: 260, y: 620 },
+        entities: [{
+            id: "collision_drop_hunter",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_002",
+            x: 60,
+            y: 360,
+            w: 72,
+            h: 148,
+            facing: 1,
+            behavior: "patrol",
+            strategy: "hunter",
+            patrolDistance: 80,
+            walkSpeed: 54,
+            runSpeed: 300,
+            jumpHeight: 200,
+            jumpGravity: 1250,
+            maxFallDistance: 400,
+            maxStepHeight: 26,
+            awarenessRange: 1000,
+            awarenessVerticalRange: 500,
+            attackMode: "projectile",
+            attackRange: 340,
+            attackVerticalRange: 220,
+            projectileKind: "fireball",
+            projectileLaunchType: "homing_lo",
+            projectileDamage: 0
+        }]
+    });
+    state.world.segments = [
+        { id: "upper", kind: "walkable", x1: 0, y1: 360, x2: 110, y2: 360 },
+        { id: "ground_top", visualId: "ground", kind: "blockable", x1: -200, y1: 620, x2: 500, y2: 620 },
+        { id: "ground_right", visualId: "ground", kind: "blockable", x1: 500, y1: 620, x2: 500, y2: 700 },
+        { id: "ground_bottom", visualId: "ground", kind: "blockable", x1: 500, y1: 700, x2: -200, y2: 700 },
+        { id: "ground_left", visualId: "ground", kind: "blockable", x1: -200, y1: 700, x2: -200, y2: 620 }
+    ];
+    state.world.solids = [];
+    state.world.collisionPolygons = [{
+        id: "ground_area",
+        visualId: "ground",
+        kind: "blockable",
+        points: [
+            { x: -200, y: 620 },
+            { x: 500, y: 620 },
+            { x: 500, y: 700 },
+            { x: -200, y: 700 }
+        ]
+    }];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 260;
+    state.player.y = 620;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+
+    const enemy = state.enemies.find((item) => item.id === "collision_drop_hunter");
+    let sawDrop = false;
+    let landed = false;
+    let deepestY = enemy.y;
+    for (let frame = 0; frame < 220; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        sawDrop ||= enemy.aiState === "drop" && enemy.airborne;
+        deepestY = Math.max(deepestY, enemy.y);
+        landed ||= sawDrop && !enemy.airborne && Math.abs(enemy.y - 620) < 0.1;
+        if (landed) break;
+    }
+    assert.equal(sawDrop, true, "hunter should deliberately leave the upper platform");
+    assert.equal(landed, true, "hunter should land on the same blockable polygon top that catches the player");
+    assert.ok(deepestY <= 623, `enemy should not tunnel through the ground polygon, deepest feet y was ${deepestY}`);
+}
+
+
+function testHunterWalkOffDropClearsSourcePillar() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "hunter_offset_walk_off_drop_test",
+        playerStart: { x: 0, y: 620 },
+        entities: [{
+            id: "offset_drop_hunter",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_002",
+            x: 280,
+            y: 430,
+            w: 72,
+            h: 148,
+            facing: -1,
+            behavior: "patrol",
+            strategy: "hunter",
+            patrolDistance: 80,
+            walkSpeed: 54,
+            runSpeed: 300,
+            jumpHeight: 200,
+            jumpGravity: 1250,
+            maxFallDistance: 400,
+            maxStepHeight: 26,
+            awarenessRange: 1000,
+            awarenessVerticalRange: 500,
+            attackMode: "melee",
+            attackRange: 55,
+            attackVerticalRange: 120,
+            attackDamage: 0
+        }]
+    });
+    state.world.segments = [
+        { id: "pillar_top", visualId: "pillar", kind: "blockable", x1: 200, y1: 430, x2: 360, y2: 430 },
+        { id: "pillar_right", visualId: "pillar", kind: "blockable", x1: 360, y1: 430, x2: 360, y2: 620 },
+        { id: "pillar_bottom", visualId: "pillar", kind: "blockable", x1: 360, y1: 620, x2: 200, y2: 620 },
+        { id: "pillar_left", visualId: "pillar", kind: "blockable", x1: 200, y1: 620, x2: 200, y2: 430 },
+        { id: "floor_top", visualId: "floor", kind: "blockable", x1: -300, y1: 620, x2: 170, y2: 620 },
+        { id: "floor_right", visualId: "floor", kind: "blockable", x1: 170, y1: 620, x2: 170, y2: 700 },
+        { id: "floor_bottom", visualId: "floor", kind: "blockable", x1: 170, y1: 700, x2: -300, y2: 700 },
+        { id: "floor_left", visualId: "floor", kind: "blockable", x1: -300, y1: 700, x2: -300, y2: 620 }
+    ];
+    state.world.solids = [];
+    state.world.collisionPolygons = [
+        {
+            id: "pillar_poly",
+            visualId: "pillar",
+            kind: "blockable",
+            points: [
+                { x: 200, y: 430 },
+                { x: 360, y: 430 },
+                { x: 360, y: 620 },
+                { x: 200, y: 620 }
+            ]
+        },
+        {
+            id: "floor_poly",
+            visualId: "floor",
+            kind: "blockable",
+            points: [
+                { x: -300, y: 620 },
+                { x: 170, y: 620 },
+                { x: 170, y: 700 },
+                { x: -300, y: 700 }
+            ]
+        }
+    ];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 0;
+    state.player.y = 620;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+
+    const enemy = state.enemies.find((item) => item.id === "offset_drop_hunter");
+    const profile = {
+        bodyWidth: enemy.width,
+        bodyHeight: enemy.height,
+        runSpeed: enemy.runSpeed,
+        jumpHeight: enemy.jumpHeight,
+        gravity: enemy.jumpGravity,
+        maxFallDistance: enemy.maxFallDistance,
+        maxStepHeight: enemy.maxStepHeight,
+        maxStepGap: Math.max(10, Math.min(28, enemy.width * 0.32)),
+        edgeInset: Math.max(6, enemy.width * 0.22),
+        bodyClearance: Math.max(10, enemy.width * 0.34)
+    };
+    const baked = bakeEnemyNavigationGraph(state.world, profile, { id: "offset_drop_profile" });
+    const dropEdges = baked.edges.filter((edge) => edge.type === "drop" && edge.from === "pillar_top" && edge.to === "floor_top");
+    assert.ok(dropEdges.length > 0, "graph builder should bake a left walk-off drop from the pillar to the offset floor");
+    assert.ok(dropEdges.some((edge) => edge.launchX <= 204 && edge.landingX < 100), "walk-off drop should launch at the pillar edge and carry enough horizontal speed to clear its side");
+    state.world.navigationGraphs = { version: 1, profiles: [baked] };
+
+    enemy.engaged = true;
+    enemy.alerted = true;
+    enemy.aiState = "pursue";
+    enemy.routeRepathTimer = 0;
+    let sawDrop = false;
+    let landed = false;
+    for (let frame = 0; frame < 180; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        sawDrop ||= enemy.aiState === "drop" && enemy.airborne;
+        landed ||= sawDrop && !enemy.airborne && Math.abs(enemy.y - 620) < 0.5;
+        if (landed) break;
+    }
+    assert.equal(sawDrop, true, "hunter should execute the baked walk-off drop instead of waiting on the pillar");
+    assert.equal(landed, true, "hunter should clear the source pillar and land on the offset floor");
+    assert.ok(enemy.x < 170, "hunter should finish the drop on the lower floor rather than re-landing on the pillar");
+}
+
+function testHunterAwarenessIsConsistentBehindOccluder() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "hunter_awareness_occluder_test",
+        playerStart: { x: 0, y: 600 },
+        entities: [
+            {
+                id: "near_hunter",
+                type: "characterEnemy",
+                characterId: "ct_char_enemy_002",
+                x: 420,
+                y: 600,
+                w: 72,
+                h: 148,
+                facing: -1,
+                behavior: "patrol",
+                strategy: "hunter",
+                runSpeed: 300,
+                jumpHeight: 200,
+                awarenessRange: 5000,
+                awarenessVerticalRange: 500,
+                attackMode: "projectile",
+                attackRange: 340,
+                attackVerticalRange: 220,
+                projectileDamage: 0
+            },
+            {
+                id: "far_hunter",
+                type: "characterEnemy",
+                characterId: "ct_char_enemy_003",
+                x: 760,
+                y: 600,
+                w: 76,
+                h: 148,
+                facing: -1,
+                behavior: "patrol",
+                strategy: "hunter",
+                runSpeed: 300,
+                jumpHeight: 200,
+                awarenessRange: 5000,
+                awarenessVerticalRange: 500,
+                attackMode: "projectile",
+                attackRange: 420,
+                attackVerticalRange: 240,
+                projectileDamage: 0
+            }
+        ]
+    });
+    state.world.segments = [{ id: "floor", kind: "walkable", x1: -200, y1: 600, x2: 1000, y2: 600 }];
+    state.world.solids = [{ id: "occluding_wall", kind: "blockable", x: 180, y: 100, w: 80, h: 500 }];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 0;
+    state.player.y = 600;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.visible = true;
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    const alertedIds = new Set(state.debug.lastEvents
+        .filter((event) => event.type === "ENEMY_ALERTED")
+        .map((event) => event.enemyId));
+    assert.equal(alertedIds.has("near_hunter"), true, "near hunter should notice the wizard within its awareness radius even when a pillar occludes the first frame");
+    assert.equal(alertedIds.has("far_hunter"), true, "far hunter should use the same awareness rule as the near hunter");
+    const hunters = state.enemies.filter((enemy) => enemy.strategy === "hunter");
+    assert.equal(new Set(hunters.map((enemy) => enemy.aiState)).size, 1, "equivalent hunters behind the same occluder should enter the same AI state");
+}
+
+function testMonsterAwarenessUsesDistanceAndFacingCone() {
+    function runCase({ strategy = "sentry", facing = -1, relativeAngleDegrees = 0, withWall = false, verticalRange = 240 }) {
+        const state = createInitialGameState();
+        applyEditorLevelToWorld(state, {
+            levelId: "monster_awareness_cone_test",
+            playerStart: { x: 0, y: 600 },
+            entities: [{
+                id: "watcher",
+                type: "characterEnemy",
+                characterId: "ct_char_enemy_001",
+                x: 300,
+                y: 600,
+                w: 72,
+                h: 148,
+                facing,
+                behavior: strategy === "sentry" ? "guard" : "patrol",
+                strategy,
+                patrolDistance: 500,
+                awarenessRange: 240,
+                awarenessVerticalRange: verticalRange,
+                awarenessViewHalfAngle: 60,
+                attackDamage: 0,
+                attackRange: 50
+            }]
+        });
+        const enemy = state.enemies.find((item) => item.id === "watcher");
+        const distance = 160;
+        const forwardAngle = facing < 0 ? Math.PI : 0;
+        const angle = forwardAngle + relativeAngleDegrees * Math.PI / 180;
+        const dx = Math.cos(angle) * distance;
+        const dy = Math.sin(angle) * distance;
+        state.player.x = enemy.x + dx;
+        state.player.y = enemy.y - enemy.height * 0.5 + dy + state.player.height * 0.5;
+        state.player.onGround = false;
+        state.player.wasOnGround = false;
+        state.player.visible = true;
+        state.story.portalIntro = null;
+        state.story.portalExit = null;
+        state.story.mailboxEvent = null;
+        state.world.segments = [];
+        state.world.collisionPolygons = [];
+        state.world.solids = withWall
+            ? [{ id: "occluding_wall", kind: "blockable", x: 205, y: 200, w: 40, h: 500 }]
+            : [];
+
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        const events = state.debug.lastEvents;
+        return {
+            alerted: events.some((event) => event.type === "ENEMY_ALERTED"),
+            events
+        };
+    }
+
+    const throughWall = runCase({ strategy: "sentry", facing: -1, relativeAngleDegrees: 0, withWall: true });
+    assert.equal(throughWall.alerted, true, "a facing monster should notice Ignatius through blockable level geometry");
+    assert.ok(throughWall.events.some((event) => event.type === "ENEMY_ALERTED"), "terrain-independent awareness should emit the normal alert event");
+
+    const wrongDirection = runCase({ strategy: "hunter", facing: 1, relativeAngleDegrees: 180, withWall: false });
+    assert.equal(wrongDirection.alerted, false, "a monster should not notice Ignatius directly behind its facing direction");
+
+    const insideCone = runCase({ strategy: "hunter", facing: -1, relativeAngleDegrees: 59, withWall: false, verticalRange: 20 });
+    assert.equal(insideCone.alerted, true, "a target just inside the ±60 degree cone should be noticed even beyond a legacy vertical-awareness limit");
+
+    const outsideCone = runCase({ strategy: "hunter", facing: -1, relativeAngleDegrees: 61, withWall: false });
+    assert.equal(outsideCone.alerted, false, "a target just outside the ±60 degree cone should not be noticed");
 }
 
 function testHunterEnemyStrandedFallback() {
@@ -924,6 +1485,7 @@ function testCharacterEnemyAggressiveChaseAndCombo() {
             characterId: "ct_char_enemy_001",
             x: 100,
             y: 600,
+            facing: -1,
             behavior: "patrol",
             patrolDistance: 300,
             walkSpeed: 40,
@@ -3245,9 +3807,18 @@ const tests = [
     ["goblin runtime character projects", testGoblinRuntimeCharacterProjects],
     ["enemy catalog and Level Editor integration", testEnemyCatalogAndLevelEditorIntegration],
     ["enemy navigation graph and jump reachability", testEnemyNavigationGraphAndJumpReachability],
+    ["baked navigation graph directional transitions", testBakedNavigationGraphDirectionalTransitions],
+    ["navigation maze detour route", testNavigationMazeDetourRoute],
     ["hunter enemy jump and attack positioning", testHunterEnemyJumpAndAttackPositioning],
+    ["hunter deliberate drop traversal", testHunterUsesDeliberateDropTraversal],
     ["hunter ranged attack-position selection", testHunterRangedAttackPositionSelection],
+    ["level_001 baked hunter navigation graphs", testLevelOneUsesBakedHunterNavigationGraphs],
     ["hunter jumps onto level_001 arch", testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump],
+    ["hunter obstacle-clear jump run-up", testHunterJumpUsesObstacleClearRunUp],
+    ["hunter drop uses ordinary collision geometry", testHunterDropLandsOnOrdinaryCollisionGeometry],
+    ["hunter walk-off drop clears source pillar", testHunterWalkOffDropClearsSourcePillar],
+    ["hunter awareness is consistent behind occluders", testHunterAwarenessIsConsistentBehindOccluder],
+    ["monster awareness uses distance and facing cone", testMonsterAwarenessUsesDistanceAndFacingCone],
     ["hunter reachable firing fallback", testHunterFindsReachableFiringFallbackBeforeGlare],
     ["hunter enemy stranded fallback", testHunterEnemyStrandedFallback],
     ["simulation-owned character enemy patrol", testCharacterEnemyPatrolBehavior],

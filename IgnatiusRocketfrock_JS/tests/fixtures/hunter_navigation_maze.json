@@ -1,0 +1,45 @@
+{
+    "meta": {
+        "version": 1,
+        "purpose": "Regression fixture for a hunter route that must initially move away from the wizard, climb right, fall right, reverse below an impassable wall, cross a gap left, climb left, and finally cross right to the wizard."
+    },
+    "startSupportId": "enemy_start",
+    "targetSupportId": "wizard_goal",
+    "startX": 970,
+    "targetX": 500,
+    "supports": [
+        { "id": "enemy_start", "x1": 900, "y1": 600, "x2": 1040, "y2": 600, "xMin": 900, "xMax": 1040 },
+        { "id": "right_platform_1", "x1": 1180, "y1": 500, "x2": 1320, "y2": 500, "xMin": 1180, "xMax": 1320 },
+        { "id": "right_platform_2", "x1": 1460, "y1": 380, "x2": 1600, "y2": 380, "xMin": 1460, "xMax": 1600 },
+        { "id": "right_drop", "x1": 1740, "y1": 540, "x2": 1880, "y2": 540, "xMin": 1740, "xMax": 1880 },
+        { "id": "under_wall", "x1": 520, "y1": 760, "x2": 2020, "y2": 760, "xMin": 520, "xMax": 2020 },
+        { "id": "left_gap_landing", "x1": 260, "y1": 760, "x2": 420, "y2": 760, "xMin": 260, "xMax": 420 },
+        { "id": "left_step_1", "x1": 60, "y1": 660, "x2": 200, "y2": 660, "xMin": 60, "xMax": 200 },
+        { "id": "left_step_2", "x1": -140, "y1": 540, "x2": 0, "y2": 540, "xMin": -140, "xMax": 0 },
+        { "id": "cross_right", "x1": 120, "y1": 430, "x2": 280, "y2": 430, "xMin": 120, "xMax": 280 },
+        { "id": "wizard_goal", "x1": 400, "y1": 430, "x2": 560, "y2": 430, "xMin": 400, "xMax": 560 }
+    ],
+    "edges": [
+        { "type": "jump", "direction": "right", "from": "enemy_start", "to": "right_platform_1", "launchX": 1028, "landingX": 1192, "cost": 120 },
+        { "type": "jump", "direction": "right", "from": "right_platform_1", "to": "right_platform_2", "launchX": 1308, "landingX": 1472, "cost": 120 },
+        { "type": "drop", "direction": "right", "from": "right_platform_2", "to": "right_drop", "launchX": 1588, "landingX": 1752, "cost": 80 },
+        { "type": "drop", "direction": "right", "from": "right_drop", "to": "under_wall", "launchX": 1868, "landingX": 1900, "cost": 70 },
+        { "type": "jump", "direction": "left", "from": "under_wall", "to": "left_gap_landing", "launchX": 532, "landingX": 408, "cost": 110 },
+        { "type": "jump", "direction": "left", "from": "left_gap_landing", "to": "left_step_1", "launchX": 272, "landingX": 188, "cost": 105 },
+        { "type": "jump", "direction": "left", "from": "left_step_1", "to": "left_step_2", "launchX": 72, "landingX": -12, "cost": 105 },
+        { "type": "jump", "direction": "right", "from": "left_step_2", "to": "cross_right", "launchX": -12, "landingX": 132, "cost": 115 },
+        { "type": "jump", "direction": "right", "from": "cross_right", "to": "wizard_goal", "launchX": 268, "landingX": 412, "cost": 115 }
+    ],
+    "expectedSupportIds": [
+        "enemy_start",
+        "right_platform_1",
+        "right_platform_2",
+        "right_drop",
+        "under_wall",
+        "left_gap_landing",
+        "left_step_1",
+        "left_step_2",
+        "cross_right",
+        "wizard_goal"
+    ]
+}

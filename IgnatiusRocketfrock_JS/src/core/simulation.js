@@ -3,6 +3,9 @@ import { normalizeLevelColorMap } from "../presentation/level-color-map.js";
 import {
     buildEnemyNavigationEdges,
     buildEnemyNavigationSupports,
+    enemyNavigationEdgeMapFromFlat,
+    enemyNavigationSupportsSignature,
+    findBakedEnemyNavigationGraph,
     findEnemyNavigationSupport,
     navigationSupportById,
     planEnemyNavigationRoute,
@@ -91,6 +94,7 @@ export const DEFAULT_TUNING = Object.freeze({
     enemyDefaultHomeRetrySeconds: 4,
     enemyDefaultAwarenessRange: 300,
     enemyDefaultAwarenessVerticalRange: 190,
+    enemyDefaultAwarenessViewHalfAngle: 60,
     enemyDefaultAwarenessHoldSeconds: 1.2,
     enemyDefaultAttackDamage: 24,
     enemyDefaultAttackRange: 66,
@@ -1490,6 +1494,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         labels: [
             { text: source.levelId || "loaded level", x: (playerStart?.x ?? 120) - 30, y: (playerStart?.y ?? 360) - 70 }
         ],
+        navigationGraphs: deepClone(source.navigationGraphs || { version: 1, profiles: [] }),
+        navigationBlockers: deepClone(source.navigationBlockers || []),
         playerStartGroundSnapResolved: false
     };
     state.story.portalIntro = null;
@@ -1631,6 +1637,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             awarenessRange: Math.max(0, finiteNumberOr(entity.awarenessRange, state.tuning.enemyDefaultAwarenessRange)),
             awarenessVerticalRange: Math.max(0, finiteNumberOr(entity.awarenessVerticalRange, state.tuning.enemyDefaultAwarenessVerticalRange)),
             awarenessHoldDuration: Math.max(0, finiteNumberOr(entity.awarenessHoldDuration, state.tuning.enemyDefaultAwarenessHoldSeconds)),
+            awarenessViewHalfAngle: clamp(finiteNumberOr(entity.awarenessViewHalfAngle, state.tuning.enemyDefaultAwarenessViewHalfAngle), 0, 180),
             awarenessTimer: 0,
             alerted: false,
             idleDuration,
@@ -2016,7 +2023,7 @@ function syncCharacterEnemyTarget(state, enemy) {
     }
 }
 
-function characterEnemyBodyBlockedAt(state, enemy, x, groundY) {
+function characterEnemyBodyBlockedAt(state, enemy, x, groundY, options = {}) {
     const bodyWidth = Math.max(8, enemy.width * 0.58);
     const footClearance = Math.max(8, Math.min(18, enemy.height * 0.12));
     const headClearance = Math.max(2, Math.min(10, enemy.height * 0.04));
@@ -2028,16 +2035,25 @@ function characterEnemyBodyBlockedAt(state, enemy, x, groundY) {
     };
 
     for (const solid of state.world?.solids || []) {
+        if (options.ignoreObstacleId && solid.id === options.ignoreObstacleId) {
+            continue;
+        }
         if (rectsOverlap(rect, solid)) {
             return true;
         }
     }
     for (const polygon of state.world?.collisionPolygons || []) {
+        if (options.ignoreObstacleId && polygon.id === options.ignoreObstacleId) {
+            continue;
+        }
         if (isAreaBlockingSegmentKind(polygon.kind) && polygonOverlapsRect(polygon, rect)) {
             return true;
         }
     }
     for (const segment of state.world?.segments || []) {
+        if (options.ignoreSupportId && (segment.id === options.ignoreSupportId || options.ignoreSupportId.startsWith(`${segment.id}_nav_`))) {
+            continue;
+        }
         if (!isSolidSegmentKind(segment.kind)) {
             continue;
         }
@@ -2324,20 +2340,31 @@ function characterEnemyCanNoticePlayer(state, enemy) {
 
     const enemyCenterY = enemy.y - enemy.height * 0.5;
     const playerCenterY = player.y - player.height * 0.5;
-    if (Math.abs(playerCenterY - enemyCenterY) > Math.max(0, Number(enemy.awarenessVerticalRange) || 0)) {
+    const dx = player.x - enemy.x;
+    const dy = playerCenterY - enemyCenterY;
+    const awarenessRange = Math.max(0, Number(enemy.awarenessRange) || 0);
+    const distance = Math.hypot(dx, dy);
+    if (distance > awarenessRange) {
         return false;
     }
-
-    if (enemy.strategy === "simple_patrol" && enemy.behavior === "patrol" && enemy.patrolDistance > 0) {
-        const playerHalfWidth = Math.max(0, Number(player.width) || 0) * 0.5;
-        if (player.x < enemy.patrolMinX - playerHalfWidth || player.x > enemy.patrolMaxX + playerHalfWidth) {
-            return false;
-        }
-    } else if (Math.abs(player.x - enemy.x) > Math.max(0, Number(enemy.awarenessRange) || 0)) {
-        return false;
+    if (distance <= 0.0001) {
+        return true;
     }
 
-    return !characterEnemyAttackBlockedByTerrain(state, enemy);
+    const facing = enemy.facing < 0 ? -1 : 1;
+    const halfAngleDegrees = clamp(
+        finiteNumberOr(enemy.awarenessViewHalfAngle, state.tuning.enemyDefaultAwarenessViewHalfAngle),
+        0,
+        180
+    );
+    const minimumForwardDot = Math.cos(halfAngleDegrees * Math.PI / 180);
+    const forwardDot = dx * facing / distance;
+
+    // Awareness is intentionally independent of collision geometry. Pillars, doors,
+    // walkable lines, and blockable areas may obstruct movement or an actual attack,
+    // but they do not make Ignatius invisible. Distance and the authored facing cone are
+    // the only first-notice gates.
+    return forwardDot + 1e-9 >= minimumForwardDot;
 }
 
 function updateCharacterEnemyAwareness(state, enemy, dt) {
@@ -2550,6 +2577,8 @@ function characterEnemyAttackBlockedFromPoint(state, enemy, originX, originY) {
 
 function characterEnemyNavigationOptions(enemy) {
     return {
+        bodyWidth: Math.max(8, Number(enemy.width) || 48),
+        bodyHeight: Math.max(24, Number(enemy.height) || 120),
         maxStepHeight: Math.max(0, Number(enemy.maxStepHeight) || 0),
         maxStepGap: Math.max(10, Math.min(28, Number(enemy.width) * 0.32 || 18)),
         jumpHeight: Math.max(0, Number(enemy.jumpHeight) || 0),
@@ -2561,11 +2590,55 @@ function characterEnemyNavigationOptions(enemy) {
     };
 }
 
+function characterEnemyNavigationAdjustedEdge(state, edge, graph = null) {
+    let adjustedCost = Math.max(0, Number(edge?.cost) || 0);
+    const blockers = state.world?.navigationBlockers || [];
+    for (const blockerId of edge?.blockerIds || []) {
+        const blocker = blockers.find((item) => item.id === blockerId);
+        const stateValue = state.world?.entityStates?.[blockerId] ?? blocker?.state ?? blocker?.closedState ?? "closed";
+        const openStates = Array.isArray(blocker?.openStates) ? blocker.openStates : ["open", "opened", "destroyed", "disabled"];
+        if (!openStates.includes(String(stateValue))) {
+            return null;
+        }
+    }
+    for (const rule of graph?.dynamicCostRules || []) {
+        const matchesEdge = Array.isArray(rule.edgeIds) && rule.edgeIds.includes(edge.id);
+        const matchesBlocker = rule.blockerId && (edge?.blockerIds || []).includes(rule.blockerId);
+        if (!matchesEdge && !matchesBlocker) {
+            continue;
+        }
+        const blockerId = String(rule.blockerId || "");
+        const blocker = blockers.find((item) => item.id === blockerId);
+        const stateValue = state.world?.entityStates?.[blockerId] ?? blocker?.state ?? rule.defaultState ?? "closed";
+        const activeStates = Array.isArray(rule.activeStates) ? rule.activeStates : ["closed", "locked", "intact", "active"];
+        if (!activeStates.includes(String(stateValue))) {
+            continue;
+        }
+        if (rule.disabledWhenActive === true) {
+            return null;
+        }
+        adjustedCost += Math.max(0, Number(rule.penalty) || 0);
+    }
+    return adjustedCost === Number(edge.cost) ? edge : { ...edge, cost: adjustedCost };
+}
+
 function characterEnemyNavigationContext(state, enemy) {
-    const supports = buildEnemyNavigationSupports(state.world, {
-        bodyHeight: enemy.height,
-        bodyWidth: enemy.width
-    });
+    const options = characterEnemyNavigationOptions(enemy);
+    const liveSupports = buildEnemyNavigationSupports(state.world, options);
+    const candidateGraph = findBakedEnemyNavigationGraph(state.world?.navigationGraphs, options);
+    const bakedGraph = candidateGraph?.supportSignature === enemyNavigationSupportsSignature(liveSupports)
+        ? candidateGraph
+        : null;
+    const supports = bakedGraph?.supports?.length ? bakedGraph.supports : liveSupports;
+    const rawEdgeMap = bakedGraph?.edges?.length
+        ? enemyNavigationEdgeMapFromFlat(bakedGraph.edges, supports)
+        : buildEnemyNavigationEdges(supports, { ...options, world: state.world });
+    const edgeMap = new Map();
+    for (const support of supports) {
+        edgeMap.set(support.id, (rawEdgeMap.get(support.id) || [])
+            .map((edge) => characterEnemyNavigationAdjustedEdge(state, edge, bakedGraph))
+            .filter(Boolean));
+    }
     const current = findEnemyNavigationSupport(supports, enemy.x, enemy.y, {
         maxRise: Math.max(8, Number(enemy.maxStepHeight) || 0),
         maxDrop: Math.max(12, Number(enemy.maxDropDistance) || 0),
@@ -2579,7 +2652,9 @@ function characterEnemyNavigationContext(state, enemy) {
             enemy.spawnY = current.y;
         }
     }
-    return { supports, current };
+    enemy.navigationGraphSource = bakedGraph ? "baked" : "runtime";
+    enemy.navigationGraphId = bakedGraph?.id || null;
+    return { supports, current, edgeMap, bakedGraph };
 }
 
 function characterEnemyPlayerSupport(state, enemy, supports) {
@@ -2690,7 +2765,10 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
     const preferredRange = enemy.attackMode === "projectile"
         ? Math.max(0, Number(enemy.preferredAttackRange) || Number(enemy.attackRange) * 0.72)
         : Math.max(10, Math.min(Number(enemy.attackRange) * 0.72, Number(enemy.attackRange) - 4));
-    const edgeMap = buildEnemyNavigationEdges(navigation.supports, characterEnemyNavigationOptions(enemy));
+    const edgeMap = navigation.edgeMap || buildEnemyNavigationEdges(navigation.supports, {
+        ...characterEnemyNavigationOptions(enemy),
+        world: state.world
+    });
 
     const bestAttackPositionOnSupport = (support, route) => {
         const arrivalX = route.edges.at(-1)?.landingX ?? enemy.x;
@@ -2819,6 +2897,8 @@ function clearCharacterEnemyNavigationPlan(enemy) {
 function beginCharacterEnemyAirTraversal(enemy, edge) {
     enemy.airborne = true;
     enemy.airTimer = 0;
+    enemy.airSourceSupportId = edge.from || enemy.currentSupportId || null;
+    enemy.airSourceObstacleId = edge.fromObstacleId || null;
     enemy.airTargetSupportId = edge.to;
     enemy.velocityX = Number(edge.vx) || 0;
     enemy.velocityY = Number(edge.vy) || 0;
@@ -2836,61 +2916,74 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
     if (!enemy.airborne) {
         return false;
     }
-    const previousY = enemy.y;
-    const previousX = enemy.x;
+
     enemy.airTimer = Math.max(0, Number(enemy.airTimer) || 0) + dt;
     enemy.velocityY = (Number(enemy.velocityY) || 0) + Math.max(1, Number(enemy.jumpGravity) || 1) * dt;
-    enemy.x += (Number(enemy.velocityX) || 0) * dt;
-    enemy.y += enemy.velocityY * dt;
 
-    if (characterEnemyBodyBlockedAt(state, enemy, enemy.x, enemy.y)) {
-        enemy.x = previousX;
+    const previousX = enemy.x;
+    const nextX = previousX + (Number(enemy.velocityX) || 0) * dt;
+    const horizontalCollision = findActorHorizontalSweepCollision(state, enemy, previousX, nextX);
+    enemy.x = horizontalCollision ? horizontalCollision.x : nextX;
+    if (horizontalCollision) {
         enemy.velocityX = 0;
     }
 
-    if (enemy.velocityY >= 0) {
-        const ordered = [...supports].sort((a, b) => {
-            const aTarget = a.id === enemy.airTargetSupportId ? -1 : 0;
-            const bTarget = b.id === enemy.airTargetSupportId ? -1 : 0;
-            return aTarget - bTarget;
+    const previousY = enemy.y;
+    const nextY = previousY + (Number(enemy.velocityY) || 0) * dt;
+    const sourceSupport = navigationSupportById(supports, enemy.airSourceSupportId);
+    let departingSource = false;
+    if (sourceSupport) {
+        const sourcePoint = supportPoint(sourceSupport, clamp(enemy.x, sourceSupport.xMin, sourceSupport.xMax), 0);
+        const departedHorizontally = enemy.x < sourceSupport.xMin - enemy.width * 0.5 || enemy.x > sourceSupport.xMax + enemy.width * 0.5;
+        const departedVertically = nextY > sourcePoint.y + Math.max(4, enemy.height * 0.08);
+        departingSource = !departedHorizontally && !departedVertically && enemy.airTimer <= 1;
+    }
+    const ignoreIds = departingSource
+        ? [enemy.airSourceSupportId, enemy.airSourceObstacleId].filter(Boolean)
+        : [];
+    const verticalCollision = findActorVerticalSweepCollision(state, enemy, previousY, nextY, { ignoreIds });
+    enemy.y = verticalCollision ? verticalCollision.y : nextY;
+
+    if (verticalCollision?.ceiling) {
+        enemy.velocityY = 0;
+    } else if (verticalCollision) {
+        enemy.velocityX = 0;
+        enemy.velocityY = 0;
+        enemy.airborne = false;
+        enemy.airTimer = 0;
+        const intendedSupportId = enemy.airTargetSupportId;
+        const landedSupport = findEnemyNavigationSupport(supports, enemy.x, enemy.y, {
+            maxRise: 5,
+            maxDrop: 5,
+            width: enemy.width,
+            preferredSupportId: intendedSupportId
         });
-        for (const support of ordered) {
-            if (enemy.x < support.xMin - enemy.width * 0.1 || enemy.x > support.xMax + enemy.width * 0.1) {
-                continue;
-            }
-            const landing = supportPoint(support, enemy.x, 0);
-            if (previousY <= landing.y + 2 && enemy.y >= landing.y - 1) {
-                enemy.x = landing.x;
-                enemy.y = landing.y;
-                enemy.velocityX = 0;
-                enemy.velocityY = 0;
-                enemy.airborne = false;
-                enemy.airTimer = 0;
-                enemy.currentSupportId = support.id;
-                const intendedSupportId = enemy.airTargetSupportId;
-                enemy.airTargetSupportId = null;
-                if (intendedSupportId && support.id !== intendedSupportId) {
-                    enemy.navigationFailureCount = (Number(enemy.navigationFailureCount) || 0) + 1;
-                    clearCharacterEnemyNavigationPlan(enemy);
-                    enemy.routeRepathTimer = 0;
-                    if (enemy.navigationFailureCount >= 2) {
-                        enterCharacterEnemyGlare(state, enemy);
-                    } else {
-                        enemy.aiState = enemy.engaged ? "pursue" : "return_home";
-                        enemy.movementPhase = enemy.aiState;
-                        setCharacterEnemyAnimation(enemy, "idle");
-                    }
-                    return true;
-                }
+        enemy.currentSupportId = landedSupport?.support?.id || null;
+        enemy.airSourceSupportId = null;
+        enemy.airSourceObstacleId = null;
+        enemy.airTargetSupportId = null;
+
+        if (intendedSupportId && enemy.currentSupportId !== intendedSupportId) {
+            enemy.navigationFailureCount = (Number(enemy.navigationFailureCount) || 0) + 1;
+            clearCharacterEnemyNavigationPlan(enemy);
+            enemy.routeRepathTimer = 0;
+            if (enemy.navigationFailureCount >= 2) {
+                enterCharacterEnemyGlare(state, enemy);
+            } else {
                 enemy.aiState = enemy.engaged ? "pursue" : "return_home";
                 enemy.movementPhase = enemy.aiState;
-                if (enemy.route?.[enemy.routeIndex]?.to === support.id) {
-                    enemy.routeIndex += 1;
-                }
-                setCharacterEnemyAnimation(enemy, "walk");
-                return true;
+                setCharacterEnemyAnimation(enemy, "idle");
             }
+            return true;
         }
+
+        enemy.aiState = enemy.engaged ? "pursue" : "return_home";
+        enemy.movementPhase = enemy.aiState;
+        if (enemy.route?.[enemy.routeIndex]?.to === enemy.currentSupportId) {
+            enemy.routeIndex += 1;
+        }
+        setCharacterEnemyAnimation(enemy, "walk");
+        return true;
     }
 
     const bottom = Number(state.world?.bounds?.y || 0) + Number(state.world?.bounds?.h || 1200) + 500;
@@ -2898,6 +2991,8 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
         enemy.airborne = false;
         enemy.velocityX = 0;
         enemy.velocityY = 0;
+        enemy.airSourceSupportId = null;
+        enemy.airSourceObstacleId = null;
         enemy.airTargetSupportId = null;
         clearCharacterEnemyNavigationPlan(enemy);
         enemy.navigationFailureCount = (Number(enemy.navigationFailureCount) || 0) + 1;
@@ -3048,7 +3143,7 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
     }
 
     const seesPlayer = characterEnemyCanNoticePlayer(state, enemy);
-    if (seesPlayer && !enemy.engaged && enemy.aiState !== "unreachable_glare") {
+    if (seesPlayer && !enemy.engaged && enemy.aiState === "patrol") {
         enemy.engaged = true;
         enemy.alerted = true;
         enemy.aiState = "pursue";
@@ -3106,7 +3201,7 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
         if (enemy.routeRepathTimer <= 0 || !enemy.route?.length) {
             const homeSupport = navigationSupportById(navigation.supports, enemy.homeSupportId);
             const route = homeSupport && navigation.current
-                ? characterEnemyRoute(state, enemy, navigation.supports, navigation.current.support.id, homeSupport.id)
+                ? characterEnemyRoute(state, enemy, navigation.supports, navigation.current.support.id, homeSupport.id, navigation.edgeMap)
                 : null;
             if (!route) {
                 enterCharacterEnemyStrandedPatrol(state, enemy, navigation);
@@ -3145,7 +3240,7 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
             enemy.homeRetryTimer = Math.max(FIXED_DT, Number(enemy.homeRetryInterval) || state.tuning.enemyDefaultHomeRetrySeconds || 4);
             const homeSupport = navigationSupportById(navigation.supports, enemy.homeSupportId);
             const route = homeSupport && navigation.current
-                ? characterEnemyRoute(state, enemy, navigation.supports, navigation.current.support.id, homeSupport.id)
+                ? characterEnemyRoute(state, enemy, navigation.supports, navigation.current.support.id, homeSupport.id, navigation.edgeMap)
                 : null;
             if (route) {
                 enemy.aiState = "return_home";
@@ -4603,59 +4698,241 @@ function segmentParameter(start, end, point) {
     return clamp(((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared, 0, 1);
 }
 
+function collisionIdIgnored(id, options = {}) {
+    if (!id) {
+        return false;
+    }
+    const value = String(id);
+    for (const ignored of options.ignoreIds || []) {
+        const ignoredValue = String(ignored || "");
+        if (!ignoredValue) {
+            continue;
+        }
+        if (value === ignoredValue || value.startsWith(`${ignoredValue}_nav_`) || ignoredValue.startsWith(`${value}_nav_`)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function findActorHorizontalSweepCollision(state, actor, previousX, nextX, options = {}) {
+    const dx = nextX - previousX;
+    if (Math.abs(dx) <= 0.000001) {
+        return null;
+    }
+    const previousLeft = previousX - actor.width / 2;
+    const previousRight = previousX + actor.width / 2;
+    const currentLeft = nextX - actor.width / 2;
+    const currentRight = nextX + actor.width / 2;
+    const top = actor.y - actor.height;
+    const bottom = actor.y;
+    const ySamples = [
+        actor.y - actor.height * 0.84,
+        actor.y - actor.height * 0.50,
+        actor.y - actor.height * 0.16
+    ];
+    const skin = 3;
+    let best = null;
+    const consider = (contactX, detail) => {
+        if (!Number.isFinite(contactX)) {
+            return;
+        }
+        if (dx > 0) {
+            if (previousRight > contactX + skin || currentRight < contactX - skin) {
+                return;
+            }
+            if (!best || contactX < best.contactX) {
+                best = { contactX, x: contactX - actor.width / 2, side: "right", ...detail };
+            }
+        } else {
+            if (previousLeft < contactX - skin || currentLeft > contactX + skin) {
+                return;
+            }
+            if (!best || contactX > best.contactX) {
+                best = { contactX, x: contactX + actor.width / 2, side: "left", ...detail };
+            }
+        }
+    };
+
+    for (const solid of state.world?.solids || []) {
+        if (collisionIdIgnored(solid.id, options) || bottom <= solid.y + 0.05 || top >= solid.y + solid.h - 0.05) {
+            continue;
+        }
+        consider(dx > 0 ? solid.x : solid.x + solid.w, {
+            id: solid.id,
+            kind: solid.kind || "solid",
+            source: "solid"
+        });
+    }
+
+    for (const segment of state.world?.segments || []) {
+        if (collisionIdIgnored(segment.id, options) || segment.kind === "walkable") {
+            continue;
+        }
+        if (Math.abs(segment.y2 - segment.y1) <= Math.abs(segment.x2 - segment.x1) * 0.75) {
+            continue;
+        }
+        for (const y of ySamples) {
+            const x = segmentXAtY(segment, y);
+            if (x !== null) {
+                consider(x, {
+                    id: segment.id,
+                    kind: segment.kind,
+                    source: "segment"
+                });
+            }
+        }
+    }
+
+    for (const polygon of state.world?.collisionPolygons || []) {
+        if (collisionIdIgnored(polygon.id, options) || !isAreaBlockingSegmentKind(polygon.kind)) {
+            continue;
+        }
+        for (const y of ySamples) {
+            for (const interval of polygonXIntervalsAtY(polygon, y)) {
+                consider(dx > 0 ? interval[0] : interval[1], {
+                    id: polygon.id,
+                    kind: polygon.kind,
+                    source: "polygon"
+                });
+            }
+        }
+    }
+    return best;
+}
+
+function findActorVerticalSweepCollision(state, actor, previousY, nextY, options = {}) {
+    const dy = nextY - previousY;
+    if (Math.abs(dy) <= 0.000001) {
+        return null;
+    }
+    const samples = [
+        actor.x,
+        actor.x - actor.width * 0.42,
+        actor.x + actor.width * 0.42
+    ];
+    const previousTop = previousY - actor.height;
+    const currentTop = nextY - actor.height;
+    const skin = 3;
+    let best = null;
+    const consider = (surfaceY, detail, ceiling = false) => {
+        if (!Number.isFinite(surfaceY)) {
+            return;
+        }
+        if (!ceiling) {
+            if (previousY > surfaceY + skin || nextY < surfaceY - skin) {
+                return;
+            }
+            if (!best || surfaceY < best.surfaceY) {
+                best = { surfaceY, y: surfaceY, ceiling: false, ...detail };
+            }
+        } else {
+            if (previousTop < surfaceY - skin || currentTop > surfaceY + skin) {
+                return;
+            }
+            if (!best || !best.ceiling || surfaceY > best.surfaceY) {
+                best = { surfaceY, y: surfaceY + actor.height, ceiling: true, ...detail };
+            }
+        }
+    };
+
+    for (const solid of state.world?.solids || []) {
+        if (collisionIdIgnored(solid.id, options)) {
+            continue;
+        }
+        if (!samples.some((x) => x >= solid.x - 0.001 && x <= solid.x + solid.w + 0.001)) {
+            continue;
+        }
+        if (dy > 0) {
+            consider(solid.y, { id: solid.id, kind: solid.kind || "solid", source: "solid" });
+        } else {
+            consider(solid.y + solid.h, { id: solid.id, kind: solid.kind || "solid", source: "solid" }, true);
+        }
+    }
+
+    for (const segment of state.world?.segments || []) {
+        if (collisionIdIgnored(segment.id, options) || !isSolidSegmentKind(segment.kind) || Math.abs(segment.x2 - segment.x1) < 0.001) {
+            continue;
+        }
+        for (const x of samples) {
+            const y = segmentYAtX(segment, x);
+            if (y === null) {
+                continue;
+            }
+            if (dy > 0) {
+                consider(y, { id: segment.id, kind: segment.kind, source: "segment" });
+            } else if (segment.kind !== "walkable") {
+                consider(y, { id: segment.id, kind: segment.kind, source: "segment" }, true);
+            }
+        }
+    }
+
+    for (const polygon of state.world?.collisionPolygons || []) {
+        if (collisionIdIgnored(polygon.id, options) || !isAreaBlockingSegmentKind(polygon.kind)) {
+            continue;
+        }
+        for (const x of samples) {
+            for (const interval of polygonYIntervalsAtX(polygon, x)) {
+                if (dy > 0) {
+                    consider(interval[0], { id: polygon.id, kind: polygon.kind, source: "polygon" });
+                } else {
+                    consider(interval[1], { id: polygon.id, kind: polygon.kind, source: "polygon" }, true);
+                }
+            }
+        }
+    }
+    return best;
+}
+
 function moveAndCollideX(state, dx) {
     const p = state.player;
     if (dx === 0) {
         return;
     }
-
     const previousX = p.x;
-    p.x += dx;
-    let rect = getPlayerRect(state);
-    for (const solid of state.world.solids || []) {
-        if (!rectsOverlap(rect, solid)) {
-            continue;
-        }
-        if (dx > 0) {
-            p.x = solid.x - p.width / 2;
-            state.collisions.playerTouching.right = true;
-        } else {
-            p.x = solid.x + solid.w + p.width / 2;
-            state.collisions.playerTouching.left = true;
-        }
-        p.vx = 0;
-        state.collisions.lastResolution = { axis: "x", solidId: solid.id };
-        rect = getPlayerRect(state);
+    const nextX = previousX + dx;
+    const collision = findActorHorizontalSweepCollision(state, p, previousX, nextX);
+    p.x = collision ? collision.x : nextX;
+    if (!collision) {
+        return;
     }
-
-    resolveSegmentXCollisions(state, previousX, dx);
-    resolvePolygonXCollisions(state, previousX, dx);
+    p.vx = 0;
+    if (collision.side === "right") {
+        state.collisions.playerTouching.right = true;
+    } else {
+        state.collisions.playerTouching.left = true;
+    }
+    state.collisions.lastResolution = {
+        axis: "x",
+        id: collision.id,
+        kind: collision.kind,
+        source: collision.source
+    };
 }
 
 function moveAndCollideY(state, dy, wasOnGround) {
     const p = state.player;
     const previousY = p.y;
-    p.y += dy;
+    const nextY = previousY + dy;
     p.onGround = false;
-
-    let rect = getPlayerRect(state);
-    for (const solid of state.world.solids || []) {
-        if (!rectsOverlap(rect, solid)) {
-            continue;
-        }
-        if (dy > 0) {
-            landPlayerOn(state, solid.y, wasOnGround, solid.id);
-        } else if (dy < 0) {
-            p.y = solid.y + solid.h + p.height;
-            p.vy = 0;
-            state.collisions.playerTouching.up = true;
-        }
-        state.collisions.lastResolution = { axis: "y", solidId: solid.id };
-        rect = getPlayerRect(state);
+    const collision = findActorVerticalSweepCollision(state, p, previousY, nextY);
+    p.y = collision ? collision.y : nextY;
+    if (!collision) {
+        return;
     }
-
-    resolveSegmentYCollisions(state, previousY, dy, wasOnGround);
-    resolvePolygonYCollisions(state, previousY, dy, wasOnGround);
+    if (collision.ceiling) {
+        p.vy = 0;
+        state.collisions.playerTouching.up = true;
+        state.collisions.lastResolution = {
+            axis: "y",
+            id: collision.id,
+            kind: collision.kind,
+            source: collision.source,
+            ceiling: true
+        };
+        return;
+    }
+    landPlayerOn(state, collision.y, wasOnGround, collision.id, collision.kind);
 }
 
 function resolvePlayerPenetrations(state, wasOnGround) {

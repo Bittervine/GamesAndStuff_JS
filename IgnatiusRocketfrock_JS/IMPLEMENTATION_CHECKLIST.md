@@ -930,3 +930,56 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Add a regression test using the real `level_001` arch and a 555-pixel hunter jump.
 * [x] Add a regression test requiring repositioning to a reachable firing fallback before glare.
 
+
+### Revision 117 baked directed navigation graphs
+
+* [x] Add a Level Editor command that bakes graphs for every distinct placed hunter mobility profile.
+* [x] Store baked support nodes and directed transitions in `level.navigationGraphs`.
+* [x] Preview a selected graph in the Level Editor with distinct support, step, jump, and drop rendering.
+* [x] Generate explicit jump-left, jump-right, drop-left, drop-right, chasm-left, and chasm-right edges.
+* [x] Classify downward transitions as genuine drops even when the monster has a very large jump-height setting.
+* [x] Validate sampled jump/drop trajectories against static obstacle geometry while baking.
+* [x] Carry dynamic blocker IDs and dynamic edge-cost rules for future doors and destructible passages.
+* [x] Add a support signature and reject stale baked graphs when level geometry changes.
+* [x] Fall back to live graph construction when no exact baked mobility profile exists.
+* [x] Bake both hunter-goblin profiles into `level_001`.
+* [x] Add a directional-edge regression test covering all required left/right jump and fall cases.
+* [x] Add a long detour-maze fixture whose valid route begins by moving away from Ignatius and includes climbs, drops, reversals, and gaps in both directions.
+* [x] Prevent a deliberate drop from immediately re-landing on its source support, and ignore that source surface only during the departure window.
+* [x] Add a runtime regression with a 555-pixel jump setting that must still choose and complete a zero-upward-impulse drop.
+
+## Revision 118 hunter traversal corrections
+
+- [x] Set Fireball Goblin and Musket Goblin defaults to `runSpeed: 300` and `jumpHeight: 200`.
+- [x] Update the placed `level_001` goblins to those mobility values.
+- [x] Re-bake both `level_001` navigation profiles for the new mobility settings.
+- [x] Generate physics-guided run-up candidates for raised obstacle jumps.
+- [x] Validate baked arcs at the same fixed-step X-then-Y cadence used at runtime.
+- [x] Use the actor's complete collision width when checking navigation clearance.
+- [x] Route both Ignatius and airborne enemies through shared swept actor collision queries.
+- [x] Preserve source-platform departure without disabling side or destination collision.
+- [x] Land controlled drops on ordinary solid, segment, and polygon geometry.
+- [x] Make hunter awareness-range behavior consistent behind initial occluders.
+- [x] Prevent return-home enemies from immediately re-engaging before completing the fallback state.
+- [x] Add regression coverage for first-attempt run-up jumps, polygon-ground drops, and occluded hunter awareness consistency.
+
+## Revision 119 walk-off drop completion and playtest graph baking
+
+- [x] Generate physics-guided walk-off drop candidates at solid platform edges.
+- [x] Require enough horizontal velocity to clear the source obstacle with the actor's full collision width.
+- [x] Preserve ordinary destination collision and landing behavior.
+- [x] Re-bake both `level_001` goblin navigation profiles with the corrected drop transitions.
+- [x] Rebuild placed hunter navigation graphs automatically whenever the Level Editor Play button is pressed.
+- [x] Keep the explicit graph-builder command for preview and inspection.
+- [x] Add a regression where a hunter must leave a pillar and land on a horizontally offset lower floor.
+- [x] Add a regression check that Play invokes graph rebuilding before serialization.
+
+
+## Revision 120 distance-and-facing monster awareness
+
+- [x] Remove terrain occlusion from monster awareness checks.
+- [x] Keep terrain collision and line-of-fire checks for movement and actual attacks.
+- [x] Add configurable `awarenessViewHalfAngle` enemy data.
+- [x] Default all catalog enemies and `level_001` monsters to a ±60 degree cone.
+- [x] Expose the view half-angle in the Level Editor.
+- [x] Add regression coverage for occluded awareness, wrong-facing rejection, and cone boundaries.

@@ -9,6 +9,44 @@ function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
 }
 
+function rounded(value, digits = 3) {
+    const scale = 10 ** digits;
+    return Math.round(finite(value) * scale) / scale;
+}
+
+function stableProfileNumber(value, fallback = 0) {
+    return rounded(finite(value, fallback), 3);
+}
+
+export function normalizeEnemyNavigationProfile(raw = {}) {
+    return {
+        bodyWidth: Math.max(8, stableProfileNumber(raw.bodyWidth, 48)),
+        bodyHeight: Math.max(24, stableProfileNumber(raw.bodyHeight, 120)),
+        runSpeed: Math.max(1, stableProfileNumber(raw.runSpeed, 120)),
+        jumpHeight: Math.max(0, stableProfileNumber(raw.jumpHeight, 0)),
+        gravity: Math.max(1, stableProfileNumber(raw.gravity, 1200)),
+        maxFallDistance: Math.max(0, stableProfileNumber(raw.maxFallDistance, Math.max(160, finite(raw.jumpHeight, 0) * 2 + 80))),
+        maxStepHeight: Math.max(0, stableProfileNumber(raw.maxStepHeight, 24)),
+        maxStepGap: Math.max(0, stableProfileNumber(raw.maxStepGap, 18)),
+        edgeInset: Math.max(2, stableProfileNumber(raw.edgeInset, Math.max(8, finite(raw.bodyWidth, 48) * 0.22))),
+        bodyClearance: Math.max(4, stableProfileNumber(raw.bodyClearance, Math.max(10, finite(raw.bodyWidth, 48) * 0.34)))
+    };
+}
+
+export function enemyNavigationProfileKey(raw = {}) {
+    const profile = normalizeEnemyNavigationProfile(raw);
+    return [
+        `w${profile.bodyWidth}`,
+        `h${profile.bodyHeight}`,
+        `r${profile.runSpeed}`,
+        `j${profile.jumpHeight}`,
+        `g${profile.gravity}`,
+        `f${profile.maxFallDistance}`,
+        `s${profile.maxStepHeight}`,
+        `q${profile.maxStepGap}`
+    ].join("_");
+}
+
 function supportYAt(support, x) {
     const span = support.x2 - support.x1;
     if (Math.abs(span) < EPSILON) {
@@ -141,11 +179,108 @@ function navigationBlockingObstacles(world) {
                 minX: x,
                 minY: y,
                 maxX: x + w,
-                maxY: y + h
+                maxY: y + h,
+                dynamic: Boolean(solid.dynamicNavigationBlocker || solid.navigationBlockerId)
+            });
+        }
+    }
+    for (const blocker of world?.navigationBlockers || []) {
+        const x = finite(blocker.x);
+        const y = finite(blocker.y);
+        const w = Math.max(0, finite(blocker.w));
+        const h = Math.max(0, finite(blocker.h));
+        if (w >= 4 && h >= 4) {
+            obstacles.push({
+                id: String(blocker.id || `navigationBlocker_${obstacles.length + 1}`),
+                minX: x,
+                minY: y,
+                maxX: x + w,
+                maxY: y + h,
+                dynamic: blocker.dynamic !== false,
+                closedState: String(blocker.closedState || "closed")
             });
         }
     }
     return obstacles;
+}
+
+function rectangleIntersectsObstacle(left, top, right, bottom, obstacle, epsilon = 0.5) {
+    return right > obstacle.minX + epsilon && left < obstacle.maxX - epsilon &&
+        bottom > obstacle.minY + epsilon && top < obstacle.maxY - epsilon;
+}
+
+function transitionTrajectoryClear(edge, options = {}) {
+    const obstacles = Array.isArray(options.obstacles)
+        ? options.obstacles
+        : navigationBlockingObstacles(options.world || {});
+    if (!obstacles.length || edge.type === "step") {
+        return { clear: true, blockerIds: [] };
+    }
+    const bodyWidth = Math.max(8, finite(options.bodyWidth, 48));
+    const bodyHeight = Math.max(24, finite(options.bodyHeight, 120));
+    const halfWidth = bodyWidth * 0.5;
+    const gravity = Math.max(1, finite(options.gravity, 1200));
+    const blockerIds = new Set();
+
+    const endpointSurfaceAllows = (obstacle, x, feetY) => {
+        const isSource = obstacle.id === edge.fromObstacleId;
+        const endpointSupport = isSource
+            ? options.fromSupport
+            : obstacle.id === edge.toObstacleId
+                ? options.toSupport
+                : null;
+        if (!endpointSupport) {
+            return false;
+        }
+        const surfaceX = clamp(x, endpointSupport.xMin, endpointSupport.xMax);
+        const collisionSampleY = isSource && edge.type === "drop"
+            ? feetY - bodyHeight * 0.16
+            : feetY;
+        return collisionSampleY <= supportYAt(endpointSupport, surfaceX) + 0.25;
+    };
+    const checkPose = (x, y) => {
+        const left = x - halfWidth;
+        const right = x + halfWidth;
+        const top = y - bodyHeight;
+        const bottom = y;
+        for (const obstacle of obstacles) {
+            if (!rectangleIntersectsObstacle(left, top, right, bottom, obstacle)) {
+                continue;
+            }
+            if (endpointSurfaceAllows(obstacle, x, bottom)) {
+                continue;
+            }
+            if (obstacle.dynamic) {
+                blockerIds.add(obstacle.id);
+                continue;
+            }
+            return false;
+        }
+        return true;
+    };
+
+    // Trial-run the trajectory at the same 60 Hz split-axis cadence used by the
+    // simulation. Horizontal collision is tested at the previous vertical position,
+    // then vertical collision at the new position. This deliberately rejects a jump
+    // that is mathematically clear as a point parabola but clips a wall because the
+    // actor's full body reaches the wall one simulation step before its feet clear the top.
+    const fixedStep = 1 / 60;
+    let time = 0;
+    let previousY = edge.launchY;
+    while (time < edge.flightTime - EPSILON) {
+        const nextTime = Math.min(edge.flightTime, time + fixedStep);
+        const nextX = edge.launchX + edge.vx * nextTime;
+        if (!checkPose(nextX, previousY)) {
+            return { clear: false, blockerIds: [] };
+        }
+        const nextY = edge.launchY + edge.vy * nextTime + 0.5 * gravity * nextTime * nextTime;
+        if (!checkPose(nextX, nextY)) {
+            return { clear: false, blockerIds: [] };
+        }
+        time = nextTime;
+        previousY = nextY;
+    }
+    return { clear: true, blockerIds: [...blockerIds] };
 }
 
 function splitSupportAroundObstacles(support, obstacles, options) {
@@ -314,7 +449,8 @@ function addUniqueTransition(candidates, candidate) {
 function overlappingTransitionCandidates(from, to, options) {
     const candidates = [];
     const inset = Math.max(4, finite(options.edgeInset, 10));
-    const clearance = Math.max(inset + 2, finite(options.bodyClearance, inset + 4));
+    const bodyWidth = Math.max(8, finite(options.bodyWidth, 48));
+    const clearance = Math.max(inset + 2, bodyWidth * 0.5 + 4, finite(options.bodyClearance, inset + 4));
     const overlapMin = Math.max(from.xMin, to.xMin);
     const overlapMax = Math.min(from.xMax, to.xMax);
     if (overlapMin > overlapMax) {
@@ -365,6 +501,270 @@ function overlappingTransitionCandidates(from, to, options) {
     return candidates;
 }
 
+function physicsGuidedDropCandidates(from, to, options = {}) {
+    const candidates = [];
+    const overlapMin = Math.max(from.xMin, to.xMin);
+    const overlapMax = Math.min(from.xMax, to.xMax);
+    const targetRight = to.xMin >= from.xMax - EPSILON;
+    const targetLeft = to.xMax <= from.xMin + EPSILON;
+    if (!targetLeft && !targetRight) {
+        return candidates;
+    }
+
+    const sourceEdge = targetLeft ? from.obstacleXMin : from.obstacleXMax;
+    if (!Number.isFinite(sourceEdge)) {
+        return candidates;
+    }
+
+    const bodyWidth = Math.max(8, finite(options.bodyWidth, 48));
+    const halfWidth = bodyWidth * 0.5;
+    const edgeNudge = Math.max(0.75, Math.min(2.5, finite(options.edgeInset, 10) * 0.12));
+    const launchX = targetLeft
+        ? clamp(sourceEdge + edgeNudge, from.xMin, from.xMax)
+        : clamp(sourceEdge - edgeNudge, from.xMin, from.xMax);
+    const launchY = supportYAt(from, launchX);
+
+    const safeMin = to.xMin + halfWidth + 2;
+    const safeMax = to.xMax - halfWidth - 2;
+    if (safeMin > safeMax + EPSILON) {
+        return candidates;
+    }
+
+    const probeLandingX = targetLeft ? safeMax : safeMin;
+    const landingY = supportYAt(to, probeLandingX);
+    const deltaY = landingY - launchY;
+    const gravity = Math.max(1, finite(options.gravity, 1200));
+    const maxFallDistance = Math.max(0, finite(options.maxFallDistance, 240));
+    const maxStepHeight = Math.max(0, finite(options.maxStepHeight, 24));
+    if (deltaY <= maxStepHeight + EPSILON || deltaY > maxFallDistance + EPSILON) {
+        return candidates;
+    }
+
+    const flightTime = Math.sqrt(2 * deltaY / gravity);
+    if (!Number.isFinite(flightTime) || flightTime <= EPSILON) {
+        return candidates;
+    }
+
+    // A walk-off drop must clear the source obstacle's side before the actor's
+    // feet descend far enough for the side wall to become relevant. Merely
+    // aiming at the nearest point below often produces a slow, almost vertical
+    // fall that the full-width actor cannot physically perform.
+    const verticalAllowance = Math.max(6, Math.min(bodyWidth * 0.55, finite(options.bodyHeight, 120) * 0.16));
+    const clearanceTime = Math.sqrt(2 * verticalAllowance / gravity);
+    const clearCenterX = targetLeft
+        ? sourceEdge - halfWidth - 2
+        : sourceEdge + halfWidth + 2;
+    const minimumClearSpeed = Math.abs(clearCenterX - launchX) / Math.max(EPSILON, clearanceTime);
+    const runSpeed = Math.max(1, finite(options.runSpeed, 1));
+    if (minimumClearSpeed > runSpeed + EPSILON) {
+        return candidates;
+    }
+
+    const direction = targetLeft ? -1 : 1;
+    const preferredSpeeds = [
+        Math.min(runSpeed, Math.max(minimumClearSpeed * 1.12, runSpeed * 0.72)),
+        Math.min(runSpeed, Math.max(minimumClearSpeed * 1.04, runSpeed * 0.9)),
+        runSpeed
+    ];
+    for (const speed of preferredSpeeds) {
+        const landingX = clamp(launchX + direction * speed * flightTime, safeMin, safeMax);
+        addUniqueTransition(candidates, { launchX, landingX });
+    }
+
+    // Keep a couple of geometry-derived alternatives so narrow destination
+    // supports can still produce a valid edge when the ideal ballistic point
+    // lies outside their usable center interval.
+    const nearEdge = targetLeft ? safeMax : safeMin;
+    const deeper = targetLeft
+        ? Math.max(safeMin, safeMax - bodyWidth * 0.8)
+        : Math.min(safeMax, safeMin + bodyWidth * 0.8);
+    addUniqueTransition(candidates, { launchX, landingX: nearEdge });
+    addUniqueTransition(candidates, { launchX, landingX: deeper });
+    return candidates;
+}
+
+function physicsGuidedJumpCandidates(from, to, options = {}) {
+    const candidates = [];
+    const overlapMin = Math.max(from.xMin, to.xMin);
+    const overlapMax = Math.min(from.xMax, to.xMax);
+    const targetRight = to.xMin >= from.xMax - EPSILON;
+    const targetLeft = to.xMax <= from.xMin + EPSILON;
+    const probeFromX = targetRight
+        ? from.xMax
+        : targetLeft
+            ? from.xMin
+            : (overlapMin + overlapMax) * 0.5;
+    const probeToX = targetRight
+        ? to.xMin
+        : targetLeft
+            ? to.xMax
+            : (overlapMin + overlapMax) * 0.5;
+    const launchY = supportYAt(from, probeFromX);
+    const landingY = supportYAt(to, probeToX);
+    const rise = launchY - landingY;
+    const jumpHeight = Math.max(0, finite(options.jumpHeight, 0));
+    const gravity = Math.max(1, finite(options.gravity, 1200));
+    if (rise <= EPSILON || rise > jumpHeight + EPSILON) {
+        return candidates;
+    }
+
+    const jumpVelocityMagnitude = Math.sqrt(2 * gravity * Math.max(1, jumpHeight));
+    const discriminant = jumpVelocityMagnitude * jumpVelocityMagnitude - 2 * gravity * rise;
+    if (discriminant < 0) {
+        return candidates;
+    }
+    const root = Math.sqrt(discriminant);
+    const ascentTime = (jumpVelocityMagnitude - root) / gravity;
+    const flightTime = (jumpVelocityMagnitude + root) / gravity;
+    if (!(ascentTime > EPSILON) || !(flightTime > ascentTime + EPSILON)) {
+        return candidates;
+    }
+
+    const bodyWidth = Math.max(8, finite(options.bodyWidth, 48));
+    const halfWidth = bodyWidth * 0.5;
+    const inset = Math.max(4, finite(options.edgeInset, 10));
+    const ratio = ascentTime / flightTime;
+    const sourceInset = Math.min(inset, Math.max(0, (from.xMax - from.xMin) * 0.45));
+    const targetInset = Math.min(Math.max(inset, halfWidth + 2), Math.max(0, (to.xMax - to.xMin) * 0.45));
+    const launchMin = from.xMin + sourceInset;
+    const launchMax = from.xMax - sourceInset;
+    const landingMin = to.xMin + targetInset;
+    const landingMax = to.xMax - targetInset;
+
+    const addSide = (side) => {
+        const obstacleEdge = side === "left" ? to.obstacleXMin : to.obstacleXMax;
+        if (!Number.isFinite(obstacleEdge)) {
+            return;
+        }
+        const landingX = side === "left"
+            ? Math.min(landingMax, Math.max(landingMin, obstacleEdge + halfWidth + 2))
+            : Math.max(landingMin, Math.min(landingMax, obstacleEdge - halfWidth - 2));
+        const edgeClearX = side === "left"
+            ? obstacleEdge - halfWidth - 2
+            : obstacleEdge + halfWidth + 2;
+        const idealLaunchX = (edgeClearX - landingX * ratio) / Math.max(EPSILON, 1 - ratio);
+        if (idealLaunchX >= launchMin - EPSILON && idealLaunchX <= launchMax + EPSILON) {
+            addUniqueTransition(candidates, {
+                launchX: clamp(idealLaunchX, launchMin, launchMax),
+                landingX
+            });
+        }
+        for (const multiplier of [0.55, 0.9, 1.25, 1.7]) {
+            const runUpX = side === "left"
+                ? obstacleEdge - halfWidth - bodyWidth * multiplier
+                : obstacleEdge + halfWidth + bodyWidth * multiplier;
+            if (runUpX >= launchMin - EPSILON && runUpX <= launchMax + EPSILON) {
+                addUniqueTransition(candidates, {
+                    launchX: clamp(runUpX, launchMin, launchMax),
+                    landingX
+                });
+            }
+        }
+    };
+
+    if (!targetLeft) {
+        addSide("left");
+    }
+    if (!targetRight) {
+        addSide("right");
+    }
+    return candidates;
+}
+
+function directionalTransitionCandidates(from, to, options = {}) {
+    const candidates = [];
+    const inset = Math.max(4, finite(options.edgeInset, 10));
+    const centerFrom = (from.xMin + from.xMax) * 0.5;
+    const centerTo = (to.xMin + to.xMax) * 0.5;
+    const launchXs = [
+        clamp(from.xMin + inset, from.xMin, from.xMax),
+        centerFrom,
+        clamp(from.xMax - inset, from.xMin, from.xMax)
+    ];
+    const landingXs = [
+        clamp(to.xMin + inset, to.xMin, to.xMax),
+        centerTo,
+        clamp(to.xMax - inset, to.xMin, to.xMax)
+    ];
+
+    for (const candidate of overlappingTransitionCandidates(from, to, options)) {
+        addUniqueTransition(candidates, candidate);
+    }
+    for (const candidate of physicsGuidedDropCandidates(from, to, options)) {
+        addUniqueTransition(candidates, candidate);
+    }
+    for (const candidate of physicsGuidedJumpCandidates(from, to, options)) {
+        addUniqueTransition(candidates, candidate);
+    }
+
+    if (to.xMin >= from.xMax - EPSILON) {
+        addUniqueTransition(candidates, { launchX: launchXs[2], landingX: landingXs[0] });
+        addUniqueTransition(candidates, { launchX: launchXs[2], landingX: landingXs[1] });
+    } else if (to.xMax <= from.xMin + EPSILON) {
+        addUniqueTransition(candidates, { launchX: launchXs[0], landingX: landingXs[2] });
+        addUniqueTransition(candidates, { launchX: launchXs[0], landingX: landingXs[1] });
+    } else {
+        const overlapMin = Math.max(from.xMin, to.xMin);
+        const overlapMax = Math.min(from.xMax, to.xMax);
+        const overlapCenter = (overlapMin + overlapMax) * 0.5;
+        addUniqueTransition(candidates, { launchX: clamp(overlapCenter, from.xMin, from.xMax), landingX: clamp(overlapCenter, to.xMin, to.xMax) });
+
+        const fromY = supportYAt(from, overlapCenter);
+        const toY = supportYAt(to, overlapCenter);
+        if (toY > fromY + EPSILON) {
+            const leftLaunch = Number.isFinite(from.obstacleXMin) ? from.obstacleXMin - inset : from.xMin + inset;
+            const rightLaunch = Number.isFinite(from.obstacleXMax) ? from.obstacleXMax + inset : from.xMax - inset;
+            if (leftLaunch >= from.xMin - EPSILON && leftLaunch <= from.xMax + EPSILON) {
+                addUniqueTransition(candidates, { launchX: clamp(leftLaunch, from.xMin, from.xMax), landingX: landingXs[0] });
+            }
+            if (rightLaunch >= from.xMin - EPSILON && rightLaunch <= from.xMax + EPSILON) {
+                addUniqueTransition(candidates, { launchX: clamp(rightLaunch, from.xMin, from.xMax), landingX: landingXs[2] });
+            }
+            addUniqueTransition(candidates, { launchX: launchXs[0], landingX: landingXs[0] });
+            addUniqueTransition(candidates, { launchX: launchXs[2], landingX: landingXs[2] });
+        }
+    }
+
+    return candidates;
+}
+
+function solveDropTransitionCandidate(from, to, points, options) {
+    const launchY = supportYAt(from, points.launchX);
+    const landingY = supportYAt(to, points.landingX);
+    const deltaY = landingY - launchY;
+    const gravity = Math.max(1, finite(options.gravity, 1200));
+    const runSpeed = Math.max(1, finite(options.runSpeed, 1));
+    const maxFallDistance = Math.max(0, finite(options.maxFallDistance, 240));
+    const maxStepHeight = Math.max(0, finite(options.maxStepHeight, 24));
+    if (deltaY <= maxStepHeight + EPSILON || deltaY > maxFallDistance + EPSILON) {
+        return null;
+    }
+    const flightTime = Math.sqrt(2 * deltaY / gravity);
+    if (!Number.isFinite(flightTime) || flightTime <= EPSILON) {
+        return null;
+    }
+    const requiredVx = points.dx / flightTime;
+    if (Math.abs(requiredVx) > runSpeed + EPSILON) {
+        return null;
+    }
+    return {
+        type: "drop",
+        direction: requiredVx < -EPSILON ? "left" : (requiredVx > EPSILON ? "right" : "down"),
+        from: from.id,
+        to: to.id,
+        launchX: points.launchX,
+        launchY,
+        landingX: points.landingX,
+        landingY,
+        vx: requiredVx,
+        vy: 0,
+        flightTime,
+        fromObstacleId: from.sourcePolygonId,
+        toObstacleId: to.sourcePolygonId,
+        cost: Math.abs(points.dx) + deltaY * 0.45 + 42
+    };
+}
+
 function solveJumpTransitionCandidate(from, to, points, options) {
     const launchY = supportYAt(from, points.launchX);
     const landingY = supportYAt(to, points.landingX);
@@ -376,27 +776,6 @@ function solveJumpTransitionCandidate(from, to, points, options) {
     const maxFallDistance = Math.max(0, finite(options.maxFallDistance, jumpHeight * 2 + 80));
     if (rise > jumpHeight + EPSILON || deltaY > maxFallDistance + EPSILON) {
         return null;
-    }
-
-    if (deltaY > jumpHeight * 0.55 && rise <= EPSILON) {
-        const flightTime = Math.sqrt(2 * Math.max(1, deltaY) / gravity);
-        const requiredVx = points.dx / flightTime;
-        if (!Number.isFinite(flightTime) || flightTime <= EPSILON || Math.abs(requiredVx) > runSpeed + EPSILON) {
-            return null;
-        }
-        return {
-            type: "drop",
-            from: from.id,
-            to: to.id,
-            launchX: points.launchX,
-            launchY,
-            landingX: points.landingX,
-            landingY,
-            vx: requiredVx,
-            vy: 0,
-            flightTime,
-            cost: Math.abs(points.dx) + Math.abs(deltaY) * 0.55 + 55
-        };
     }
 
     const jumpVelocity = -Math.sqrt(2 * gravity * Math.max(1, jumpHeight));
@@ -414,6 +793,7 @@ function solveJumpTransitionCandidate(from, to, points, options) {
     }
     return {
         type: "jump",
+        direction: requiredVx < -EPSILON ? "left" : (requiredVx > EPSILON ? "right" : "up"),
         from: from.id,
         to: to.id,
         launchX: points.launchX,
@@ -423,6 +803,8 @@ function solveJumpTransitionCandidate(from, to, points, options) {
         vx: requiredVx,
         vy: jumpVelocity,
         flightTime,
+        fromObstacleId: from.sourcePolygonId,
+        toObstacleId: to.sourcePolygonId,
         cost: Math.abs(points.dx) + Math.abs(deltaY) * 0.7 + 90
     };
 }
@@ -439,6 +821,7 @@ function directTransition(from, to, options) {
     }
     return {
         type: "step",
+        direction: points.dx < -EPSILON ? "left" : (points.dx > EPSILON ? "right" : "overlap"),
         from: from.id,
         to: to.id,
         launchX: points.launchX,
@@ -448,11 +831,36 @@ function directTransition(from, to, options) {
         vx: 0,
         vy: 0,
         flightTime: 0,
-        cost: Math.abs(points.dx) + Math.abs(landingY - launchY) * 0.5 + 4
+        fromObstacleId: from.sourcePolygonId,
+        toObstacleId: to.sourcePolygonId,
+        cost: Math.abs(points.dx) + Math.abs(landingY - launchY) * 0.5 + 4,
+        blockerIds: []
     };
 }
 
+function addBestEdge(edgeList, edge) {
+    if (!edge) {
+        return;
+    }
+    const existingIndex = edgeList.findIndex((item) => (
+        item.type === edge.type && item.to === edge.to && item.direction === edge.direction &&
+        Math.abs(item.launchX - edge.launchX) < 0.05 && Math.abs(item.landingX - edge.landingX) < 0.05
+    ));
+    if (existingIndex < 0) {
+        edgeList.push(edge);
+        return;
+    }
+    if (edge.cost < edgeList[existingIndex].cost) {
+        edgeList[existingIndex] = edge;
+    }
+}
+
 export function buildEnemyNavigationEdges(supports, options = {}) {
+    const normalizedOptions = { ...normalizeEnemyNavigationProfile(options), ...options };
+    const obstacles = Array.isArray(options.obstacles)
+        ? options.obstacles
+        : navigationBlockingObstacles(options.world || {});
+    normalizedOptions.obstacles = obstacles;
     const edges = new Map();
     for (const support of supports || []) {
         edges.set(support.id, []);
@@ -462,20 +870,115 @@ export function buildEnemyNavigationEdges(supports, options = {}) {
             if (from.id === to.id) {
                 continue;
             }
-            const direct = directTransition(from, to, options);
+            const edgeList = edges.get(from.id);
+            const direct = directTransition(from, to, normalizedOptions);
             if (direct) {
-                edges.get(from.id).push(direct);
+                addBestEdge(edgeList, direct);
                 continue;
             }
-            for (const candidate of overlappingTransitionCandidates(from, to, options)) {
-                const edge = solveJumpTransitionCandidate(from, to, candidate, options);
-                if (edge) {
-                    edges.get(from.id).push(edge);
+            for (const candidate of directionalTransitionCandidates(from, to, normalizedOptions)) {
+                const drop = solveDropTransitionCandidate(from, to, candidate, normalizedOptions);
+                if (drop) {
+                    const validation = transitionTrajectoryClear(drop, { ...normalizedOptions, fromSupport: from, toSupport: to });
+                    if (validation.clear) {
+                        drop.blockerIds = validation.blockerIds;
+                        addBestEdge(edgeList, drop);
+                    }
+                }
+                const jump = solveJumpTransitionCandidate(from, to, candidate, normalizedOptions);
+                if (jump) {
+                    const validation = transitionTrajectoryClear(jump, { ...normalizedOptions, fromSupport: from, toSupport: to });
+                    if (validation.clear) {
+                        jump.blockerIds = validation.blockerIds;
+                        addBestEdge(edgeList, jump);
+                    }
                 }
             }
         }
     }
     return edges;
+}
+
+export function enemyNavigationSupportsSignature(supports = []) {
+    return (supports || [])
+        .map((support) => [
+            String(support.id || ""),
+            rounded(support.x1),
+            rounded(support.y1),
+            rounded(support.x2),
+            rounded(support.y2),
+            String(support.sourcePolygonId || "")
+        ].join(":"))
+        .sort()
+        .join("|");
+}
+
+export function flattenEnemyNavigationEdges(edgeMap) {
+    const flat = [];
+    for (const edgeList of edgeMap?.values?.() || []) {
+        for (const edge of edgeList || []) {
+            flat.push({ ...edge });
+        }
+    }
+    return flat;
+}
+
+export function enemyNavigationEdgeMapFromFlat(edges = [], supports = []) {
+    const map = new Map((supports || []).map((support) => [support.id, []]));
+    for (const raw of edges || []) {
+        if (!raw?.from || !raw?.to) {
+            continue;
+        }
+        if (!map.has(raw.from)) {
+            map.set(raw.from, []);
+        }
+        map.get(raw.from).push({ ...raw });
+    }
+    return map;
+}
+
+export function bakeEnemyNavigationGraph(world, rawProfile = {}, metadata = {}) {
+    const profile = normalizeEnemyNavigationProfile(rawProfile);
+    const supports = buildEnemyNavigationSupports(world, profile);
+    const edgeMap = buildEnemyNavigationEdges(supports, { ...profile, world });
+    const edges = flattenEnemyNavigationEdges(edgeMap).map((edge, index) => ({
+        id: edge.id || `nav_edge_${index + 1}`,
+        ...edge,
+        launchX: rounded(edge.launchX),
+        launchY: rounded(edge.launchY),
+        landingX: rounded(edge.landingX),
+        landingY: rounded(edge.landingY),
+        vx: rounded(edge.vx),
+        vy: rounded(edge.vy),
+        flightTime: rounded(edge.flightTime, 6),
+        cost: rounded(edge.cost)
+    }));
+    return {
+        version: 1,
+        id: String(metadata.id || enemyNavigationProfileKey(profile)),
+        label: String(metadata.label || `Run ${profile.runSpeed}, jump ${profile.jumpHeight}`),
+        profile,
+        supports: supports.map((support) => ({ ...support })),
+        supportSignature: enemyNavigationSupportsSignature(supports),
+        edges,
+        dynamicCostRules: Array.isArray(metadata.dynamicCostRules) ? metadata.dynamicCostRules.map((rule) => ({ ...rule })) : [],
+        build: {
+            method: "sampled_ballistic_graph",
+            samplesPerSecond: 30,
+            generatedBy: String(metadata.generatedBy || "Ignatius Rocketfrock Level Editor")
+        }
+    };
+}
+
+export function findBakedEnemyNavigationGraph(graphCollection, rawProfile = {}) {
+    if (graphCollection?.stale === true) {
+        return null;
+    }
+    const graphs = Array.isArray(graphCollection)
+        ? graphCollection
+        : (Array.isArray(graphCollection?.profiles) ? graphCollection.profiles : []);
+    const key = enemyNavigationProfileKey(rawProfile);
+    return graphs.find((graph) => graph?.id === key || enemyNavigationProfileKey(graph?.profile || {}) === key) || null;
 }
 
 function routeStateKey(supportId, arrivalX) {
