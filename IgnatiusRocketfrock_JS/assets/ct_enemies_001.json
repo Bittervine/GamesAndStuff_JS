@@ -1,7 +1,7 @@
 {
     "meta": {
-        "version": 10,
-        "note": "Revision 134 preserves controlled walk-off drops and makes grounded monster body-clearance probes slope-aware so hunters can traverse connected downhill blockable surfaces."
+        "version": 11,
+        "note": "Revision 135 removes redundant behavior/chaseSpeed aliases and unused vertical-awareness data; current enemy archetypes author strategy, runSpeed, radial range, and facing cone only."
     },
     "catalogId": "ct_enemies_001",
     "enemies": {
@@ -14,7 +14,6 @@
                 "h": 150
             },
             "defaults": {
-                "behavior": "patrol",
                 "facing": -1,
                 "patrolDistance": 260,
                 "walkSpeed": 56,
@@ -39,9 +38,7 @@
                 "attackCooldown": 0.12,
                 "attackKnockbackX": 330,
                 "attackKnockbackY": -250,
-                "chaseSpeed": 150,
                 "awarenessRange": 800,
-                "awarenessVerticalRange": 512,
                 "awarenessHoldDuration": 1.2,
                 "attackLungeDistance": 20,
                 "attackLungeSpeed": 180,
@@ -61,7 +58,6 @@
                 "h": 105
             },
             "defaults": {
-                "behavior": "patrol",
                 "facing": -1,
                 "patrolDistance": 240,
                 "walkSpeed": 54,
@@ -97,9 +93,7 @@
                 "projectileKnockbackY": -110,
                 "preferredAttackRange": 220,
                 "preferredAttackMinRange": 110,
-                "chaseSpeed": 300,
                 "awarenessRange": 800,
-                "awarenessVerticalRange": 512,
                 "awarenessHoldDuration": 1.5,
                 "attackLungeDistance": 0,
                 "attackLungeSpeed": 0,
@@ -125,7 +119,6 @@
                 "h": 105
             },
             "defaults": {
-                "behavior": "patrol",
                 "facing": -1,
                 "patrolDistance": 260,
                 "walkSpeed": 52,
@@ -161,9 +154,7 @@
                 "projectileKnockbackY": -150,
                 "preferredAttackRange": 250,
                 "preferredAttackMinRange": 125,
-                "chaseSpeed": 300,
                 "awarenessRange": 800,
-                "awarenessVerticalRange": 512,
                 "awarenessHoldDuration": 1.6,
                 "attackLungeDistance": 0,
                 "attackLungeSpeed": 0,

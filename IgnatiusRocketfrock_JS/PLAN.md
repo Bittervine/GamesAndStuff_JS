@@ -22,10 +22,11 @@ IgnatiusRocketfrock_JS/
 │   ├── presentation/
 │   │   ├── canvas-renderer.js
 │   │   ├── character-runtime.js
-│   │   └── level-color-map.js
+│   │   └── level-color-map-cache.js
 │   ├── shared/
 │   │   ├── actor-geometry.js
 │   │   ├── animation-data.js
+│   │   ├── level-color-map-data.js
 │   │   └── level-transform.js
 │   └── tools/
 │       └── character-editor/
@@ -46,6 +47,24 @@ IgnatiusRocketfrock_JS/
 ```
 
 `package.json` declares the browser-style ES-module format and provides the dependency-free `npm test` command. `ARCHITECTURE.md` is the authoritative directory, dependency, classification, and JavaScript-to-C++ parity map. The root HTML pages remain stable browser entry points. Their large inline editor applications should be extracted one editor at a time into uniquely named modules such as `level-editor-app.js`; do not use several ambiguous files all named `app.js`.
+
+
+## Near-Term Cave-Window Authoring Track
+
+The immediate development track is a cave-perimeter and foreground presentation system that can be built from existing atlas art before any new falling-tree asset is required. The visual premise is a window cut through a much larger black rock mass. A closed spline describes the opening, perimeter decorations feather outward into black, and selected stalagmites or other formations may be drawn in front of Ignatius to create depth.
+
+The perimeter is completely inert. It is not a collision boundary, not a platform generator, not a navigation surface, and not a substitute for the playing-area layer. Floors, walls, ceilings, hazards, and platforms remain explicitly authored gameplay geometry. A platform can sit just behind the lower perimeter so Ignatius is partly occluded by foreground stalagmites, but gameplay geometry placed far outside the visible opening should be flagged as confusing authoring.
+
+The foreground perimeter and its decorations should scroll with a subtle, configurable parallax offset relative to the playing area. Foreground placements are automatically non-colliding regardless of their atlas manifest. They are rendered darker and may be slightly desaturated, while the outward side of perimeter artwork fades to opaque black so sprite edges disappear into the implied unseen cavern.
+
+Implementation order:
+
+1. Complete a cleanup-only audit and remove obsolete aliases and source-boundary debt.
+2. Add whole-level zoom/fit controls and closed spline editing in the Level Editor.
+3. Store and validate the visual cave perimeter without deriving gameplay collision from it.
+4. Render the black exterior, feathered cave opening, and subtle foreground parallax.
+5. Add deterministic floor/wall/ceiling decoration placement from tagged atlas assets.
+6. Add manually and automatically placed dark foreground formations with collision forcibly disabled.
 
 ## Intro
 
@@ -486,7 +505,7 @@ Revision 070 introduced the interactive/story-item atlas `it_atlas_001`. Its com
 
 Revision 071 implemented the first scripted story-item behaviour: a portal marked with `portalRole: "entrance"` can own the level-start sequence. The runtime begins with the portal closed and Ignatius hidden, switches the entity to its open visual state, walks Ignatius from inside the doorway to the authored `playerStart` while normal input is locked, draws the portal's `actorFront` half-door after the player, then closes the portal and releases control. Portal timing and walk speed live on the entity, and runtime visual-state changes go through the shared entity-state helper rather than hardcoded renderer sprite swaps. The same portal/state foundation should later support mirrored exits.
 
-The generic runtime character loader and Canvas 2D draw-command renderer arrived in revision 085. Revision 093 completed the first real enemy integration: `enemy_001` is catalogued and placeable in the Level Editor, previews through the generic rig renderer, snaps to authored ground, and uses simulation-owned idle/patrol behaviour. Revision 094 made placed enemies combat-active: rockets use swept body collision, terrain can intercept the shot first, health drives hurt/death states, defeated enemies stop moving and leave the homing pool, and short hit/health feedback is renderer-presented from simulation timers. Revision 096 added terrain-shielded melee attacks, player damage, knockback, invulnerability, and damaging/killable collision. Revision 097 makes the Skeleton Guard react as an aggressive close-range enemy: entering its patrol span alerts it, pursuit uses a separate faster chase speed, the attack wind-up lunges to visible sword-contact distance, and the shortened animation/cooldown produces repeated chops. Revision 100 establishes the first reactive-world slice with an editor-placeable breakable crate. The crate owns serializable health and intact/damaged/destroyed state, contributes dynamic blocking collision while active, intercepts swept rockets before terrain behind it, refreshes its state-authored visual, removes collision and artwork when destroyed, and emits destruction smoke plus authoritative events. Revision 126 generalizes the same foundation into a tall destructible iron barrier. The next Phase 4 milestone is multi-stage moving geometry, beginning with the falling-tree bridge. Revision 106 improves Puppet Forge's daily editing ergonomics with canvas toolbars, a bottom timeline dock, right-drag panning, bounded ghost opacity, grouped transform-key dragging, and persistent collapsible inspector panels. Remaining rig polish includes part deletion, frame reassignment, role/tag authoring, and direct pivot editing; those improvements should continue without delaying gameplay integration.
+The generic runtime character loader and Canvas 2D draw-command renderer arrived in revision 085. Revision 093 completed the first real enemy integration: `enemy_001` is catalogued and placeable in the Level Editor, previews through the generic rig renderer, snaps to authored ground, and uses simulation-owned idle/patrol behaviour. Revision 094 made placed enemies combat-active: rockets use swept body collision, terrain can intercept the shot first, health drives hurt/death states, defeated enemies stop moving and leave the homing pool, and short hit/health feedback is renderer-presented from simulation timers. Revision 096 added terrain-shielded melee attacks, player damage, knockback, invulnerability, and damaging/killable collision. Revision 097 makes the Skeleton Guard react as an aggressive close-range enemy: entering its patrol span alerts it, pursuit uses a separate faster run speed, the attack wind-up lunges to visible sword-contact distance, and the shortened animation/cooldown produces repeated chops. Revision 100 establishes the first reactive-world slice with an editor-placeable breakable crate. The crate owns serializable health and intact/damaged/destroyed state, contributes dynamic blocking collision while active, intercepts swept rockets before terrain behind it, refreshes its state-authored visual, removes collision and artwork when destroyed, and emits destruction smoke plus authoritative events. Revision 126 generalizes the same foundation into a tall destructible iron barrier. The falling-tree bridge remains a planned Phase 4 milestone, but it is deliberately postponed until suitable authored tree artwork is ready. The immediate implementation track is cave-window authoring and foreground presentation, which can use existing atlas material. Revision 106 improves Puppet Forge's daily editing ergonomics with canvas toolbars, a bottom timeline dock, right-drag panning, bounded ghost opacity, grouped transform-key dragging, and persistent collapsible inspector panels. Remaining rig polish includes part deletion, frame reassignment, role/tag authoring, and direct pivot editing; those improvements should continue without delaying gameplay integration.
 
 ## Character Tool
 
@@ -1544,7 +1563,7 @@ The Level Editor's Play command now rebuilds all placed hunter mobility graphs i
 
 ### Revision 120 distance-and-facing monster awareness
 
-Monster awareness no longer performs a terrain line-of-sight query. Walkable lines, blockable areas, pillars, doors, and other collision geometry may still prevent movement and block a real melee or projectile attack, but they do not make Ignatius invisible. Initial notice requires the player to be inside the authored radial awareness range and inside a configurable facing cone. The legacy vertical-awareness field is retained for old data but no longer blocks perception. The default half-angle is 60 degrees, producing a 120-degree total cone.
+Monster awareness no longer performs a terrain line-of-sight query. Walkable lines, blockable areas, pillars, doors, and other collision geometry may still prevent movement and block a real melee or projectile attack, but they do not make Ignatius invisible. Initial notice requires the player to be inside the authored radial awareness range and inside a configurable facing cone. Legacy vertical-awareness input is ignored and discarded; it is not retained in current catalog, level, editor, or runtime data. The default half-angle is 60 degrees, producing a 120-degree total cone.
 
 The Level Editor exposes the view half-angle beside the other enemy AI fields. Existing `awarenessRequiresLineOfSight` data is no longer consulted by simulation, avoiding strategy-specific perception rules.
 
@@ -1575,7 +1594,7 @@ This prevents ranged hunters from slipping into last-seen investigation or unrea
 
 The game view now has a separate `Puppet guide` button, disabled by default. When enabled, every non-visualized enemy receives diagnostic overlays for its baseline-anchored movement body, exact projectile hurtbox, awareness cone, attack reach/window, target anchor, patrol span, route, AI state, and last genuinely seen player position. Shared actor geometry moved into `src/shared/actor-geometry.js` so the renderer and portable simulation use the same projectile-hit and melee-reach rectangles.
 
-The next Phase 4 reactive-object step is also complete: the interactive catalog includes a placeable destructible iron barrier using existing atlas art. It has authoritative health, intact/bent/destroyed visuals, dynamic player/projectile collision, rocket interception, smoke feedback, and destruction cleanup through the generic reactive-object pipeline. The next reactive-world target is moving geometry, beginning with the falling-tree bridge prototype.
+The next Phase 4 reactive-object step is also complete: the interactive catalog includes a placeable destructible iron barrier using existing atlas art. It has authoritative health, intact/bent/destroyed visuals, dynamic player/projectile collision, rocket interception, smoke feedback, and destruction cleanup through the generic reactive-object pipeline. The falling-tree bridge remains the next reactive-world target, but it is postponed until its graphical asset can be authored and reviewed. The current near-term target is cave-window authoring and a dark parallax foreground layer.
 ### Revision 128 authoritative rig files and legacy-link compatibility
 
 Character definitions no longer have a path for replacing rig parts or pivots. The browser runtime and Puppet Forge load the referenced rig as the sole geometry source, and Enemy 002/003 keep their differing right-arm pivots in `ct_rig_enemy_002.json` and `ct_rig_enemy_003.json`. Regression coverage rejects the removed patch fields and verifies both dedicated pivots. The legacy `IgnatiusRocketfrock_JS.html` entry remains as a compatibility redirect to `index.html`, preserving query strings and fragments for old links.
@@ -1620,3 +1639,11 @@ The latest arch screenshot exposed a runtime traversal mismatch rather than a mi
 Ground support queries now retain the selected segment slope. Body-occupancy checks use that slope only to lift the bottom of their clearance probe by the terrain rise across half the probe width. This does not move or shrink the actor, alter the navigation graph, ignore a complete polygon, or weaken airborne swept collision. It simply prevents the support immediately beneath an upright actor from masquerading as an obstacle when the support is sloped. Pursuit, patrol, attack-position validation, remembered-position validation, and step landings all use the same rule.
 
 A deterministic regression places the musket goblin on the actual downhill section of the `level_001` arch with Ignatius on the floor to the right. It requires the route to cross the connected slope segment, preserve the preferred walk-off drop, land on the right-hand floor, accumulate no navigation failures, and never enter glare. The baked graph is unchanged because the defect was entirely in grounded runtime occupancy validation.
+
+### Revision 135 cleanup audit and cave-window boundary
+
+Revision 135 removes three obsolete enemy-data paths from current authored and runtime data. `strategy` is now the sole current behaviour field, `runSpeed` is the sole current pursuit-speed field, and the unused `awarenessVerticalRange` field is discarded. Older levels may still provide `behavior` and `chaseSpeed`; import normalization converts them once and runtime state retains only the canonical fields. The enemy catalog, `level_001`, Level Editor inspector, tests, and documentation now emit only canonical data.
+
+The former core-to-presentation colour-map dependency is also removed. Engine-neutral colour-map normalization, cache keys, and colour mathematics now live in `src/shared/level-color-map-data.js`. Offscreen Canvas generation remains in `src/presentation/level-color-map-cache.js`. Source-boundary regression coverage now rejects future core imports from browser, presentation, or editor code. Two unused public helpers were removed after repository-wide reference checks.
+
+This revision also records the cave-window architecture before implementation: the perimeter is an inert, parallaxed foreground mask and decoration layer, never gameplay collision. Authoritative platforms remain in the playing-area layer, foreground placements force collision off, and perimeter artwork fades outward into black. The next revision begins whole-level zoom/fit and closed spline authoring.

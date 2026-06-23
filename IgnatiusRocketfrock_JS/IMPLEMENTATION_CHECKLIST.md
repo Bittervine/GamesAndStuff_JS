@@ -4,7 +4,7 @@ This document augments `PLAN.md`.
 
 `PLAN.md` describes the game design. This document describes the implementation order and provides checkable development tasks.
 
-The old Phase 1 physics arena is complete enough to serve as the mechanical foundation. Character tooling and the first enemy pipeline are operational, so the active gameplay target is now **Phase 4: Combat, Destructibles, and Reactive Objects**, while unfinished Phase 2 animation-authoring work remains on the backlog.
+The old Phase 1 physics arena is complete enough to serve as the mechanical foundation. Character tooling, the first enemy pipeline, and a reasonable navigation baseline are operational. The falling-tree bridge remains in Phase 4 but is postponed until suitable art is ready. The active near-term track is **cave-window authoring and foreground presentation**, while unfinished Phase 2 animation-authoring work remains on the backlog.
 
 ## Always Remember: Responsive Viewport Scaling
 
@@ -37,13 +37,33 @@ The HTML and JavaScript game remains the reference implementation, but new gamep
 * [ ] Use lowercase kebab-case and unique descriptive filenames; do not create several ambiguous `app.js`, `view.js`, or `model.js` files.
 * [ ] Keep root HTML files as stable entry points and move reusable implementation into modules rather than adding more loose root JavaScript files.
 * [ ] Update imports, HTML links, tests, `ARCHITECTURE.md`, `PLAN.md`, `IMPLEMENTATION_CHECKLIST.md`, and `AGENTS.md` whenever a module moves or changes architectural classification.
-* [ ] Do not let `src/core/` import browser, presentation, or editor modules. The existing colour-map import is documented temporary debt to remove at the runtime-level checkpoint.
+* [x] Do not let `src/core/` import browser, presentation, or editor modules. Revision 135 moved colour-map data normalization into `src/shared/` and added a boundary regression.
 
 ## Current Status
 
 The project now has a working browser game loop, deterministic simulation layer, asset-atlas based level construction, atlas and level editor tools, atlas-derived collision lines and filled collision loops, detached rocket terrain impacts, health/fuel HUD, and headless tests. Revision 099 also places implementation modules under explicit core, shared, browser, presentation, and tool directories, with `ARCHITECTURE.md` serving as the dependency and future C++ parity map.
 
-Revision 100 provides the first destructible/reactive-world slice: an editor-placeable breakable crate with authoritative health/state, dynamic collision, rocket interception, state-authored visuals, destruction smoke, events, and serialization. Revision 126 adds the second shape class, a tall destructible iron barrier, and an off-by-default Puppet Guide that exposes exact enemy hitboxes, awareness, attack windows, routes, target anchors, patrol spans, and last-seen state. Exact projectile and melee rectangles now live in shared actor geometry used by both core and renderer. The immediate reactive-world target is moving geometry, beginning with a falling-tree bridge. In parallel, portability preparation should remove renderer-owned gameplay data and establish language-neutral schemas and parity fixtures before Phase 8 procedural generation expands the simulation surface.
+Revision 100 provides the first destructible/reactive-world slice: an editor-placeable breakable crate with authoritative health/state, dynamic collision, rocket interception, state-authored visuals, destruction smoke, events, and serialization. Revision 126 adds the second shape class, a tall destructible iron barrier, and an off-by-default Puppet Guide that exposes exact enemy hitboxes, awareness, attack windows, routes, target anchors, patrol spans, and last-seen state. Exact projectile and melee rectangles now live in shared actor geometry used by both core and renderer. The falling-tree bridge remains the next reactive-world target, but it is postponed until its artwork can be authored and reviewed. The immediate track is a presentation-only cave perimeter, whole-level spline editing, black exterior mask, and dark non-colliding foreground formations using existing atlas material. In parallel, portability preparation should continue establishing language-neutral schemas and parity fixtures before Phase 8 procedural generation expands the simulation surface.
+
+
+## Near-Term Cave-Window Authoring Track
+
+Goal: make each level read as a window into a larger cavern without coupling presentation framing to gameplay collision.
+
+* [ ] Add whole-level zoom-out and fit controls to the Level Editor.
+* [ ] Add closed spline authoring with selectable smooth/corner control points.
+* [ ] Store the cave perimeter as visual authoring data only.
+* [ ] Never derive solids, walkable supports, hazards, navigation edges, or projectile collision from the perimeter.
+* [ ] Keep all authoritative platforms and collision in the playing-area layer.
+* [ ] Warn when gameplay geometry sits far outside the visible cave opening.
+* [ ] Render a black exterior with a feathered opening whose outer rock artwork fades into opaque black.
+* [ ] Give the perimeter and foreground formations a subtle configurable foreground parallax offset.
+* [ ] Add deterministic perimeter decoration using tagged floor, wall, ceiling, stalagmite, and stalactite atlas assets.
+* [ ] Add a foreground placement layer drawn after actors.
+* [ ] Force manifest collision and gameplay attributes off for every foreground placement.
+* [ ] Darken and slightly desaturate foreground artwork so occlusion reads as depth rather than a gameplay obstacle.
+
+The first implementation revision should establish editor zoom/fit and spline data editing before runtime masking or automatic decoration.
 
 ## Phase 1: Completed Physics, Level, and Atlas Foundation
 
@@ -1109,3 +1129,18 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Preserve the actor foot position, rendered pose, navigation graph, and shared airborne collision geometry.
 - [x] Apply the same slope-aware occupancy check to pursuit, patrol, attack-position sampling, last-seen sampling, and step landings.
 - [x] Add a regression using the actual `level_001` arch geometry that crosses the downhill segments, walks off, lands on the lower floor, and never enters glare.
+
+## Revision 135 cleanup audit and cave-window boundary
+
+- [x] Audit current source, catalog, level, editor, and tests for obsolete enemy-data aliases.
+- [x] Make `strategy` the only current authored/runtime behaviour field.
+- [x] Make `runSpeed` the only current authored/runtime pursuit-speed field.
+- [x] Remove unused `awarenessVerticalRange` from current data and runtime state.
+- [x] Preserve one-way import compatibility for older `behavior` and `chaseSpeed` values.
+- [x] Normalize old aliases once and omit them from current runtime state and editor exports.
+- [x] Split engine-neutral colour-map data/math into `src/shared/level-color-map-data.js`.
+- [x] Keep offscreen Canvas recolouring in `src/presentation/level-color-map-cache.js`.
+- [x] Remove the documented core-to-presentation dependency and enforce the boundary in tests.
+- [x] Remove two repository-wide unreferenced public helpers.
+- [x] Record the cave perimeter as an inert, parallaxed foreground mask with collision forcibly disabled.
+- [x] Keep the falling-tree bridge planned but postponed until its graphical asset is ready.

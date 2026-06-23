@@ -1,5 +1,3 @@
-const TAU = Math.PI * 2;
-
 export const LEVEL_BACKGROUND_COLOR = "rgb(6, 6, 12)";
 
 export function normalizeRotationRadians(value, fallbackDegrees = 0) {
@@ -9,14 +7,6 @@ export function normalizeRotationRadians(value, fallbackDegrees = 0) {
     }
     const degrees = Number(fallbackDegrees);
     return Number.isFinite(degrees) ? degrees * Math.PI / 180 : 0;
-}
-
-export function wrapRotationRadians(value) {
-    const rotation = normalizeRotationRadians(value);
-    let wrapped = rotation % TAU;
-    if (wrapped <= -Math.PI) wrapped += TAU;
-    if (wrapped > Math.PI) wrapped -= TAU;
-    return wrapped;
 }
 
 export function placementCenter(placement) {

@@ -1,7 +1,4 @@
-import {
-    normalizeAnimationClip,
-    sampleAnimationClip
-} from "../../shared/animation-data.js";
+import { normalizeAnimationClip } from "../../shared/animation-data.js";
 
 export const ANIMATION_TRANSFORM_PROPERTIES = Object.freeze(["x", "y", "rotation", "scale", "alpha"]);
 export const ANIMATION_EASINGS = Object.freeze(["step", "linear", "easeIn", "easeOut", "easeInOut"]);
@@ -116,10 +113,6 @@ export function duplicateEditableAnimationClip(rawClip, newAnimationId) {
         note: [sourceNote, `Duplicated from ${sourceId} in Puppet Forge.`].filter(Boolean).join("\n")
     };
     return createEditableAnimationClip(duplicate, `animation duplicate ${animationId}`);
-}
-
-export function sampleEditableAnimationClip(rawClip, timeSeconds, label = "animation clip") {
-    return sampleAnimationClip(normalizeAnimationClip(rawClip, label), timeSeconds);
 }
 
 export function getAnimationTrack(rawClip, partName, property, create = false) {

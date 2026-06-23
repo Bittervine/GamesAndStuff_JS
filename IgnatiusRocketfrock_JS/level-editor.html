@@ -594,7 +594,7 @@
                     <label>Patrol speed<input id="inspect-enemy-walk-speed" type="number" min="0" step="1"></label>
                 </div>
                 <div class="row">
-                    <label>Run speed<input id="inspect-enemy-chase-speed" type="number" min="0" step="1"></label>
+                    <label>Run speed<input id="inspect-enemy-run-speed" type="number" min="0" step="1"></label>
                     <label>Awareness range<input id="inspect-enemy-awareness-range" type="number" min="0" step="8"></label>
                 </div>
                 <div class="row">
@@ -660,11 +660,11 @@ import {
 } from "./src/shared/level-transform.js";
 import {
     colorMapCacheKey,
-    createColorMappedCanvas,
     DEFAULT_LEVEL_COLOR_MAP,
     normalizeHueDegrees,
     normalizeLevelColorMap
-} from "./src/presentation/level-color-map.js";
+} from "./src/shared/level-color-map-data.js";
+import { createColorMappedCanvas } from "./src/presentation/level-color-map-cache.js";
 import {
     animationPoseToRuntimeTransforms,
     buildRuntimeCharacterDrawCommands,
@@ -796,7 +796,7 @@ import {
         inspectEnemyFacing: document.getElementById("inspect-enemy-facing"),
         inspectEnemyPatrolDistance: document.getElementById("inspect-enemy-patrol-distance"),
         inspectEnemyWalkSpeed: document.getElementById("inspect-enemy-walk-speed"),
-        inspectEnemyChaseSpeed: document.getElementById("inspect-enemy-chase-speed"),
+        inspectEnemyRunSpeed: document.getElementById("inspect-enemy-run-speed"),
         inspectEnemyAwarenessRange: document.getElementById("inspect-enemy-awareness-range"),
         inspectEnemyViewHalfAngle: document.getElementById("inspect-enemy-view-half-angle"),
         inspectEnemyJumpHeight: document.getElementById("inspect-enemy-jump-height"),
@@ -956,6 +956,14 @@ import {
         return record?.type === "characterEnemy" ||
             record?.kind === "characterEnemy" ||
             (record?.type === "enemy" && Boolean(record.characterId || record.characterProject));
+    }
+
+    function characterEnemyStrategy(record) {
+        const requested = String(record?.strategy || "").trim().toLowerCase();
+        if (["simple_patrol", "hunter", "sentry"].includes(requested)) {
+            return requested;
+        }
+        return String(record?.behavior || "guard") === "patrol" ? "simple_patrol" : "sentry";
     }
 
     function isReactiveObject(record) {
@@ -1365,6 +1373,14 @@ import {
                 };
                 if (entity.radius !== undefined) normalizedEntity.radius = Number(entity.radius) || 14;
                 if (entity.amount !== undefined) normalizedEntity.amount = Number(entity.amount) || 40;
+                if (isCharacterEnemy(normalizedEntity)) {
+                    normalizedEntity.type = "characterEnemy";
+                    normalizedEntity.strategy = characterEnemyStrategy(entity);
+                    normalizedEntity.runSpeed = Math.max(0, finiteEditorNumber(entity.runSpeed ?? entity.chaseSpeed, 150));
+                    delete normalizedEntity.behavior;
+                    delete normalizedEntity.chaseSpeed;
+                    delete normalizedEntity.awarenessVerticalRange;
+                }
                 for (const visual of entityVisuals(normalizedEntity)) {
                     if (visual.atlasId) referencedAtlases.add(visual.atlasId);
                 }
@@ -2668,7 +2684,7 @@ import {
     }
 
     function drawCharacterEnemyPatrolGuide(entity) {
-        if (!isCharacterEnemy(entity) || entity.behavior !== "patrol") return;
+        if (!isCharacterEnemy(entity) || characterEnemyStrategy(entity) !== "simple_patrol") return;
         const distance = Math.max(0, Number(entity.patrolDistance) || 0);
         if (distance <= 0) return;
         const left = worldToScreen(entity.x - distance * 0.5, entity.y);
@@ -2809,13 +2825,11 @@ import {
             els.inspectDoorDistance.value = isEntryDoor ? (Number(rec.emergeDistance) || 180) : (Number(rec.triggerDistance) || 96);
             els.inspectDoorWalkSpeed.value = Number(rec.walkSpeed) || 105;
             els.inspectEnemyCharacter.value = rec.characterId || rec.characterProject || "ct_char_enemy_001";
-            els.inspectEnemyStrategy.value = ["simple_patrol", "hunter", "sentry"].includes(rec.strategy)
-                ? rec.strategy
-                : (rec.behavior === "patrol" ? "simple_patrol" : "sentry");
+            els.inspectEnemyStrategy.value = characterEnemyStrategy(rec);
             els.inspectEnemyFacing.value = Number(rec.facing) < 0 ? "-1" : "1";
             els.inspectEnemyPatrolDistance.value = Math.max(0, finiteEditorNumber(rec.patrolDistance, 0));
             els.inspectEnemyWalkSpeed.value = Math.max(0, finiteEditorNumber(rec.walkSpeed, 56));
-            els.inspectEnemyChaseSpeed.value = Math.max(0, finiteEditorNumber(rec.chaseSpeed, 150));
+            els.inspectEnemyRunSpeed.value = Math.max(0, finiteEditorNumber(rec.runSpeed ?? rec.chaseSpeed, 150));
             els.inspectEnemyAwarenessRange.value = Math.max(0, finiteEditorNumber(rec.awarenessRange, 300));
             els.inspectEnemyViewHalfAngle.value = Math.max(0, Math.min(180, finiteEditorNumber(rec.awarenessViewHalfAngle, 60)));
             els.inspectEnemyJumpHeight.value = Math.max(0, finiteEditorNumber(rec.jumpHeight, 118));
@@ -2924,17 +2938,17 @@ import {
                 rec.strategy = ["simple_patrol", "hunter", "sentry"].includes(els.inspectEnemyStrategy.value)
                     ? els.inspectEnemyStrategy.value
                     : "simple_patrol";
-                rec.behavior = rec.strategy === "sentry" ? "guard" : "patrol";
                 rec.facing = Number(els.inspectEnemyFacing.value) < 0 ? -1 : 1;
                 rec.patrolDistance = Math.max(0, Number(els.inspectEnemyPatrolDistance.value) || 0);
                 rec.walkSpeed = Math.max(0, Number(els.inspectEnemyWalkSpeed.value) || 0);
-                rec.chaseSpeed = Math.max(0, Number(els.inspectEnemyChaseSpeed.value) || 0);
-                rec.runSpeed = rec.chaseSpeed;
+                rec.runSpeed = Math.max(0, Number(els.inspectEnemyRunSpeed.value) || 0);
+                delete rec.behavior;
+                delete rec.chaseSpeed;
+                delete rec.awarenessVerticalRange;
                 rec.awarenessRange = Math.max(0, Number(els.inspectEnemyAwarenessRange.value) || 0);
                 rec.awarenessViewHalfAngle = Math.max(0, Math.min(180, Number(els.inspectEnemyViewHalfAngle.value) || 0));
                 rec.jumpHeight = Math.max(0, Number(els.inspectEnemyJumpHeight.value) || 0);
                 rec.unreachableGlareDuration = Math.max(0, Number(els.inspectEnemyGlareDuration.value) || 0);
-                rec.awarenessVerticalRange = Math.max(0, finiteEditorNumber(rec.awarenessVerticalRange, 190));
                 rec.awarenessHoldDuration = Math.max(0, finiteEditorNumber(rec.awarenessHoldDuration, 1.2));
                 rec.idleDuration = Math.max(0, Number(els.inspectEnemyIdleDuration.value) || 0);
                 rec.turnPause = Math.max(0, Number(els.inspectEnemyTurnPause.value) || 0);

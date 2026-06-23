@@ -33,10 +33,11 @@ IgnatiusRocketfrock_JS/
 │   ├── presentation/
 │   │   ├── canvas-renderer.js
 │   │   ├── character-runtime.js
-│   │   └── level-color-map.js
+│   │   └── level-color-map-cache.js
 │   ├── shared/
 │   │   ├── actor-geometry.js
 │   │   ├── animation-data.js
+│   │   ├── level-color-map-data.js
 │   │   └── level-transform.js
 │   └── tools/
 │       └── character-editor/
@@ -79,9 +80,9 @@ More precisely:
 * `src/tools/` may import shared and presentation helpers, but gameplay code must not import editor code.
 * `tests/` may import any layer for verification.
 
-### Known temporary boundary violation
+### Boundary status
 
-`src/core/simulation.js` currently imports `normalizeLevelColorMap` from `src/presentation/level-color-map.js` while applying editor-authored levels. This is intentionally documented as technical debt, not as an approved dependency. The normalized `LevelDefinition` work must remove this import and keep colour mapping entirely in authoring or presentation data.
+Revision 135 removed the last documented core-to-presentation dependency. Colour-map normalization and colour mathematics now live in shared code, while browser canvas generation remains presentation-only. Source-boundary tests reject any future `src/core/` import from browser, presentation, or editor modules.
 
 ## Current module responsibilities
 
@@ -92,15 +93,23 @@ More precisely:
 | `src/shared/actor-geometry.js` | SHARED DATA / MATH | Shared baseline-anchored actor rectangles, enemy projectile hurtboxes, and melee reach rectangles used by simulation and debug presentation. |
 | `src/shared/animation-data.js` | SHARED DATA / MATH | Animation schema normalization, sampling, interpolation, and pose blending. |
 | `src/shared/level-transform.js` | SHARED DATA / MATH | Mirroring, rotation, placement geometry, hit testing, and atlas-node conversion shared by runtime and editor. |
+| `src/shared/level-color-map-data.js` | SHARED DATA / MATH | Level colour-map normalization, cache keys, hue-selection mathematics, and RGB/HSL conversion without browser objects. |
 | `src/browser/browser-input.js` | BROWSER ADAPTER | Keyboard, gamepad, mouse, and touch state converted into `InputFrame`. |
 | `src/browser/game-bootstrap.js` | BROWSER ADAPTER | Asset and level loading, fixed-step loop, connection of input/simulation/renderer, and hydration of plain character combat profiles from loaded character projects. |
 | `src/presentation/canvas-renderer.js` | PRESENTATION ONLY | Canvas rendering, camera presentation, HUD, rig drawing, visual effects, and debug overlays. |
 | `src/presentation/character-runtime.js` | PRESENTATION ONLY | Browser-side character project loading, rig normalization, animation selection, projectile-release transform compilation, and ordered draw commands. |
-| `src/presentation/level-color-map.js` | PRESENTATION ONLY | Normalization and cached selective hue remapping for environment atlases. |
+| `src/presentation/level-color-map-cache.js` | PRESENTATION ONLY | Offscreen Canvas generation and image-pixel application for cached environment-atlas recolouring. |
 | `src/tools/character-editor/*` | EDITOR ONLY | Reusable Puppet Forge project, animation, atlas, dirty-state, and view operations. |
 | `tests/testbench.mjs` | TEST ONLY | Headless simulation tests, data tests, source-boundary checks, and browser-entry integration checks. |
 
 
+
+
+## Cave-window presentation boundary
+
+The planned cave perimeter is deliberately not gameplay geometry. A closed editor spline will describe a visual opening through a foreground rock mass, plus decoration sampling and a feathered alpha/black mask. It may scroll with a subtle foreground parallax offset and may occlude actors, but it must not create solids, walkable supports, hazards, navigation edges, or projectile collision. Authoritative collision and platforms remain ordinary playing-area data in the portable level definition.
+
+Foreground cave placements are presentation records. Their manifest collision and gameplay attributes are disabled when authored into that layer. Perimeter artwork may extend outside the opening and fade into opaque black, giving the frame the appearance of continuing rock rather than exposing sprite rectangles. The editor should warn when authoritative platforms are placed so far outside the visible opening that their gameplay purpose would be hidden.
 
 ## Enemy strategy and navigation boundary
 
@@ -110,7 +119,7 @@ Navigation is deliberately platform-oriented rather than a generic polygon navme
 
 Hunters remember their original support and patrol interval. Planning first tries to reach the wizard's step-connected support region. Ranged hunters only fall back to another support when that region is genuinely unreachable; the fallback search validates the actual authored projectile origin and either the direct fireball path or solved ballistic musket-ball arc. Once an engaged hunter loses current cone contact, it records no new hidden information: it keeps the last genuinely seen player foot position and immediately continues an already selected route or begins routing to the reachable support point with the smallest remaining world-space distance to that position. The awareness-hold timer keeps the engagement alive and delays glare/give-up, but does not impose an idle pause. Glare begins only after the remembered point is reached, no closer route exists, and the hold has expired. If the original support cannot then be reached, the enemy adopts the reachable support as a bounded temporary patrol and periodically retries the home route. This fallback is deterministic and visible; no enemy despawns merely because it made an unfortunate jump.
 
-Movement capability and behaviour flavour are enemy-archetype/runtime data, not character-art data. The enemy catalog and level entity may author `strategy`, `walkSpeed`, `runSpeed`, `jumpHeight`, `jumpGravity`, `maxFallDistance`, `awarenessRange`, `awarenessViewHalfAngle`, `unreachableGlareDuration`, `routeRepathInterval`, and `homeRetryInterval`. Awareness is independent of collision geometry: blockable and walkable level shapes may obstruct movement or an actual attack, but they do not hide Ignatius. First notice is controlled only by radial distance and the monster's facing cone, which currently defaults to ±60 degrees in the enemy catalog. The legacy `awarenessVerticalRange` field remains loadable for old levels but is not a perception gate. Character JSON remains concerned with rig, animation, and projectile handoff, preserving the presentation/gameplay boundary.
+Movement capability and behaviour flavour are enemy-archetype/runtime data, not character-art data. The enemy catalog and level entity may author `strategy`, `walkSpeed`, `runSpeed`, `jumpHeight`, `jumpGravity`, `maxFallDistance`, `awarenessRange`, `awarenessViewHalfAngle`, `unreachableGlareDuration`, `routeRepathInterval`, and `homeRetryInterval`. Awareness is independent of collision geometry: blockable and walkable level shapes may obstruct movement or an actual attack, but they do not hide Ignatius. First notice is controlled only by radial distance and the monster's facing cone, which currently defaults to ±60 degrees in the enemy catalog. Older `behavior` and `chaseSpeed` inputs are normalized once into `strategy` and `runSpeed`; current authored data and runtime state do not retain them. Legacy `awarenessVerticalRange` is ignored and discarded. Character JSON remains concerned with rig, animation, and projectile handoff, preserving the presentation/gameplay boundary.
 
 ## Enemy Puppet Guide boundary
 

@@ -8,7 +8,7 @@ import {
     normalizeLevelColorMap,
     remapRgb,
     selectiveHueWeight
-} from "../src/presentation/level-color-map.js";
+} from "../src/shared/level-color-map-data.js";
 import {
     atlasNodeToPlacementWorld,
     duplicateLevelPlacement,
@@ -136,7 +136,8 @@ function testSourceOrganization() {
         "../src/browser/game-bootstrap.js",
         "../src/presentation/canvas-renderer.js",
         "../src/presentation/character-runtime.js",
-        "../src/presentation/level-color-map.js",
+        "../src/presentation/level-color-map-cache.js",
+        "../src/shared/level-color-map-data.js",
         "../src/shared/animation-data.js",
         "../src/shared/actor-geometry.js",
         "../src/shared/level-transform.js",
@@ -158,7 +159,8 @@ function testSourceOrganization() {
         "../asset_tool.html",
         "../level_editor.html",
         "../character_tool.html",
-        "../renderer_smoke.html"
+        "../renderer_smoke.html",
+        "../src/presentation/level-color-map.js"
     ];
     for (const relativePath of retiredFiles) {
         assert.equal(existsSync(new URL(relativePath, import.meta.url)), false, `${relativePath} should remain retired`);
@@ -176,7 +178,12 @@ function testSourceOrganization() {
     const architecture = readFileSync(new URL("../ARCHITECTURE.md", import.meta.url), "utf8");
     assert.ok(architecture.includes("PORTABLE CORE"), "architecture map should classify portable core modules");
     assert.ok(architecture.includes("RocketfrockCore/Simulation.h/.cpp"), "architecture map should preserve the future C++ correspondence");
-    assert.ok(architecture.includes("Known temporary boundary violation"), "architecture map should record current boundary debt explicitly");
+    assert.ok(architecture.includes("Boundary status") && architecture.includes("removed the last documented core-to-presentation dependency"), "architecture map should record the clean source boundary");
+    const coreSources = ["simulation.js", "enemy-navigation.js"]
+        .map((filename) => readFileSync(new URL(`../src/core/${filename}`, import.meta.url), "utf8"));
+    for (const source of coreSources) {
+        assert.equal(/from\s+["'][^"']*(?:browser|presentation|tools)\//.test(source), false, "portable core should not import browser, presentation, or editor modules");
+    }
 
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     assert.ok(gameHtml.includes('./src/browser/game-bootstrap.js'), "game page should load the reorganized browser bootstrap");
@@ -427,7 +434,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const skeleton = catalog.enemies?.enemy_001;
     assert.ok(skeleton, "enemy catalog should register enemy_001");
     assert.equal(skeleton.characterId, "ct_char_enemy_001", "enemy_001 should reference its generic character project");
-    assert.equal(skeleton.defaults.behavior, "patrol", "Skeleton Guard should default to patrol behaviour");
+    assert.equal(skeleton.defaults.behavior, undefined, "enemy catalog should not duplicate strategy with legacy behavior");
     assert.equal(skeleton.defaults.strategy, "simple_patrol", "Skeleton Guard should preserve the original simple-minded local strategy");
     assert.equal(catalog.enemies.enemy_002.defaults.strategy, "hunter", "Fireball Goblin should use the hunter strategy");
     assert.equal(catalog.enemies.enemy_003.defaults.strategy, "hunter", "Musket Goblin should use the hunter strategy");
@@ -442,7 +449,9 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(skeleton.defaults.patrolDistance > 0, "Skeleton Guard should have a visible default patrol span");
     assert.ok(skeleton.defaults.attackDamage > 0, "Skeleton Guard should have authored melee damage");
     assert.ok(skeleton.defaults.attackRange > 0, "Skeleton Guard should have authored melee reach");
-    assert.ok(skeleton.defaults.chaseSpeed > skeleton.defaults.walkSpeed, "alert Skeleton Guard should rush faster than it patrols");
+    assert.ok(skeleton.defaults.runSpeed > skeleton.defaults.walkSpeed, "alert Skeleton Guard should run faster than it patrols");
+    assert.equal(skeleton.defaults.chaseSpeed, undefined, "enemy catalog should not duplicate runSpeed with legacy chaseSpeed");
+    assert.equal(skeleton.defaults.awarenessVerticalRange, undefined, "unused vertical-awareness data should stay removed from the catalog");
     assert.ok(skeleton.defaults.attackCooldown < 0.25, "Skeleton Guard should chain rapid sword chops");
     const levelOne = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
     assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_002"), "level_001 should contain a Fireball Goblin");
@@ -453,6 +462,28 @@ function testEnemyCatalogAndLevelEditorIntegration() {
         assert.equal(goblin.awarenessViewHalfAngle, 60, `${goblin.id} should use the authored ±60 degree awareness cone`);
     }
 
+    const legacyState = createInitialGameState();
+    applyEditorLevelToWorld(legacyState, {
+        levelId: "legacy_enemy_alias_test",
+        playerStart: { x: 0, y: 100 },
+        entities: [{
+            id: "legacy_patroller",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 50,
+            y: 100,
+            behavior: "patrol",
+            chaseSpeed: 177,
+            awarenessVerticalRange: 12
+        }]
+    });
+    const migratedEnemy = legacyState.enemies.find((enemy) => enemy.id === "legacy_patroller");
+    assert.equal(migratedEnemy.strategy, "simple_patrol", "legacy behavior should still migrate to the canonical strategy");
+    assert.equal(migratedEnemy.runSpeed, 177, "legacy chaseSpeed should still migrate to canonical runSpeed");
+    assert.equal(migratedEnemy.behavior, undefined, "runtime state should not retain the legacy behavior alias");
+    assert.equal(migratedEnemy.chaseSpeed, undefined, "runtime state should not retain the legacy speed alias");
+    assert.equal(migratedEnemy.awarenessVerticalRange, undefined, "runtime state should discard the unused vertical-awareness field");
+
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(editorHtml.includes("ENEMY_CATALOG_URL"), "level editor should load the explicit enemy catalog");
     assert.ok(editorHtml.includes('value="enemy_001"'), "level editor palette should expose the Skeleton Guard");
@@ -462,7 +493,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(editorHtml.includes('id="inspect-enemy-health"'), "level editor should expose enemy health authoring");
     assert.ok(editorHtml.includes('id="inspect-enemy-attack-damage"'), "level editor should expose enemy melee damage");
     assert.ok(editorHtml.includes('id="inspect-enemy-attack-range"'), "level editor should expose enemy melee reach");
-    assert.ok(editorHtml.includes('id="inspect-enemy-chase-speed"'), "level editor should expose alerted chase speed");
+    assert.ok(editorHtml.includes('id="inspect-enemy-run-speed"'), "level editor should expose canonical run speed");
     assert.ok(editorHtml.includes('id="inspect-enemy-awareness-range"'), "level editor should expose enemy awareness range");
     assert.ok(editorHtml.includes('id="inspect-enemy-view-half-angle"'), "level editor should expose enemy awareness view half-angle");
     assert.ok(editorHtml.includes("finiteEditorNumber(rec.awarenessViewHalfAngle, 60)"), "level editor should default missing awareness cones to the authored ±60 degree value");
@@ -477,7 +508,10 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const placed = level.entities.find((entity) => entity.id === "enemy_001_001");
     assert.ok(placed, "level_001 should include the first placed Skeleton Guard");
     assert.equal(placed.type, "characterEnemy", "placed Skeleton Guard should use the generic runtime entity type");
-    assert.equal(placed.behavior, "patrol", "placed Skeleton Guard should use simulation-owned patrol behaviour");
+    assert.equal(placed.strategy, "simple_patrol", "placed Skeleton Guard should use the canonical patrol strategy");
+    assert.equal(placed.behavior, undefined, "current level data should not retain the legacy behavior alias");
+    assert.equal(placed.chaseSpeed, undefined, "current level data should not retain the legacy chaseSpeed alias");
+    assert.equal(placed.awarenessVerticalRange, undefined, "current level data should not retain unused vertical awareness");
     assert.ok(editorHtml.includes('buildPlacedHunterNavigationGraphs({ silent: true, refreshUi: false })'), "Play should automatically rebuild hunter navigation graphs before serializing the browser copy");
 }
 
@@ -583,7 +617,6 @@ function testHunterEnemyJumpAndAttackPositioning() {
             w: 72,
             h: 148,
             facing: 1,
-            behavior: "patrol",
             strategy: "hunter",
             patrolDistance: 100,
             walkSpeed: 40,
@@ -592,7 +625,6 @@ function testHunterEnemyJumpAndAttackPositioning() {
             jumpGravity: 1200,
             maxFallDistance: 280,
             awarenessRange: 500,
-            awarenessVerticalRange: 300,
             attackMode: "melee",
             attackRange: 60,
             attackVerticalRange: 100,
@@ -642,7 +674,6 @@ function testHunterUsesDeliberateDropTraversal() {
             w: 72,
             h: 148,
             facing: 1,
-            behavior: "patrol",
             strategy: "hunter",
             patrolDistance: 80,
             walkSpeed: 40,
@@ -652,7 +683,6 @@ function testHunterUsesDeliberateDropTraversal() {
             maxFallDistance: 300,
             maxStepHeight: 26,
             awarenessRange: 800,
-            awarenessVerticalRange: 400,
             attackMode: "melee",
             attackRange: 58,
             attackVerticalRange: 120,
@@ -700,7 +730,6 @@ function testHunterRangedAttackPositionSelection() {
             w: 72,
             h: 148,
             facing: 1,
-            behavior: "patrol",
             strategy: "hunter",
             patrolDistance: 100,
             walkSpeed: 40,
@@ -709,7 +738,6 @@ function testHunterRangedAttackPositionSelection() {
             jumpGravity: 1200,
             maxFallDistance: 240,
             awarenessRange: 500,
-            awarenessVerticalRange: 200,
             attackMode: "projectile",
             attackRange: 320,
             attackVerticalRange: 160,
@@ -823,7 +851,6 @@ function testHunterCrossesLevelOneCentralPillarAndJumpsDown() {
     const enemy = state.enemies.find((item) => item.id === "enemy_002_001");
     assert.ok(enemy, "level_001 should instantiate the fireball goblin used by the central-pillar regression test");
     enemy.awarenessRange = 2000;
-    enemy.awarenessVerticalRange = 1000;
     enemy.facing = -1;
 
     let landedOnPillarTop = false;
@@ -878,7 +905,6 @@ function testEngagedHunterImmediatelyLeavesPillarForLastSeenPlayer() {
     enemy.homeSupportId = "object_036_001_blockable_1";
     enemy.facing = 1;
     enemy.awarenessRange = 2000;
-    enemy.awarenessVerticalRange = 1000;
     enemy.awarenessViewHalfAngle = 45;
     enemy.awarenessTimer = 1.5;
     enemy.lastSeenPlayerX = state.player.x;
@@ -940,7 +966,6 @@ function testHunterWalksOffLevelOneLeftLedge() {
     enemy.currentSupportId = "left_step_blockable_1";
     enemy.facing = 1;
     enemy.awarenessRange = 2000;
-    enemy.awarenessVerticalRange = 1000;
     enemy.engaged = true;
     enemy.alerted = true;
     enemy.aiState = "pursue";
@@ -998,7 +1023,6 @@ function testHunterClimbsLevelOnePillarFromLeftWithoutWallClipping() {
     enemy.homeY = 844.24;
     enemy.facing = 1;
     enemy.awarenessRange = 2000;
-    enemy.awarenessVerticalRange = 1000;
     enemy.engaged = true;
     enemy.alerted = true;
     enemy.aiState = "pursue";
@@ -1037,7 +1061,6 @@ function testHunterJumpsOntoLevelOneArchWithLargeAuthoredJump() {
     musketGoblin.jumpHeight = 555;
     musketGoblin.facing = 1;
     musketGoblin.awarenessRange = 800;
-    musketGoblin.awarenessVerticalRange = 500;
     musketGoblin.attackDamage = 0;
     musketGoblin.projectileDamage = 0;
 
@@ -1091,7 +1114,6 @@ function testHunterFindsReachableFiringFallbackBeforeGlare() {
             w: 72,
             h: 148,
             facing: 1,
-            behavior: "patrol",
             strategy: "hunter",
             patrolDistance: 100,
             walkSpeed: 40,
@@ -1100,7 +1122,6 @@ function testHunterFindsReachableFiringFallbackBeforeGlare() {
             jumpGravity: 1200,
             maxFallDistance: 300,
             awarenessRange: 1200,
-            awarenessVerticalRange: 500,
             unreachableGlareDuration: 1,
             attackMode: "projectile",
             attackRange: 700,
@@ -1178,7 +1199,6 @@ function testHunterJumpUsesObstacleClearRunUp() {
             w: 76,
             h: 148,
             facing: 1,
-            behavior: "patrol",
             strategy: "hunter",
             patrolDistance: 80,
             walkSpeed: 52,
@@ -1188,7 +1208,6 @@ function testHunterJumpUsesObstacleClearRunUp() {
             maxFallDistance: 300,
             maxStepHeight: 26,
             awarenessRange: 1200,
-            awarenessVerticalRange: 500,
             attackMode: "melee",
             attackRange: 58,
             attackVerticalRange: 110,
@@ -1260,7 +1279,6 @@ function testHunterJumpBacksAwayForReverseRunUp() {
             w: 72,
             h: 148,
             facing: -1,
-            behavior: "patrol",
             strategy: "hunter",
             patrolDistance: 80,
             walkSpeed: 52,
@@ -1345,7 +1363,6 @@ function testHunterDropLandsOnOrdinaryCollisionGeometry() {
             w: 72,
             h: 148,
             facing: 1,
-            behavior: "patrol",
             strategy: "hunter",
             patrolDistance: 80,
             walkSpeed: 54,
@@ -1355,7 +1372,6 @@ function testHunterDropLandsOnOrdinaryCollisionGeometry() {
             maxFallDistance: 400,
             maxStepHeight: 26,
             awarenessRange: 1000,
-            awarenessVerticalRange: 500,
             attackMode: "projectile",
             attackRange: 340,
             attackVerticalRange: 220,
@@ -1423,7 +1439,6 @@ function testHunterWalkOffDropClearsSourcePillar() {
             w: 72,
             h: 148,
             facing: -1,
-            behavior: "patrol",
             strategy: "hunter",
             patrolDistance: 80,
             walkSpeed: 54,
@@ -1433,7 +1448,6 @@ function testHunterWalkOffDropClearsSourcePillar() {
             maxFallDistance: 400,
             maxStepHeight: 26,
             awarenessRange: 1000,
-            awarenessVerticalRange: 500,
             attackMode: "melee",
             attackRange: 55,
             attackVerticalRange: 120,
@@ -1551,7 +1565,6 @@ function testHunterWalksAcrossSlopedBlockableArchAndDrops() {
     enemy.currentSupportId = null;
     enemy.facing = 1;
     enemy.awarenessRange = 2000;
-    enemy.awarenessVerticalRange = 1000;
     enemy.engaged = true;
     enemy.alerted = true;
     enemy.aiState = "pursue";
@@ -1601,12 +1614,10 @@ function testHunterAwarenessIsConsistentBehindOccluder() {
                 w: 72,
                 h: 148,
                 facing: -1,
-                behavior: "patrol",
                 strategy: "hunter",
                 runSpeed: 300,
                 jumpHeight: 200,
                 awarenessRange: 5000,
-                awarenessVerticalRange: 500,
                 attackMode: "projectile",
                 attackRange: 340,
                 attackVerticalRange: 220,
@@ -1621,12 +1632,10 @@ function testHunterAwarenessIsConsistentBehindOccluder() {
                 w: 76,
                 h: 148,
                 facing: -1,
-                behavior: "patrol",
                 strategy: "hunter",
                 runSpeed: 300,
                 jumpHeight: 200,
                 awarenessRange: 5000,
-                awarenessVerticalRange: 500,
                 attackMode: "projectile",
                 attackRange: 420,
                 attackVerticalRange: 240,
@@ -1671,11 +1680,9 @@ function testMonsterAwarenessUsesDistanceAndFacingCone() {
                 w: 72,
                 h: 148,
                 facing,
-                behavior: strategy === "sentry" ? "guard" : "patrol",
                 strategy,
                 patrolDistance: 500,
                 awarenessRange: 240,
-                awarenessVerticalRange: verticalRange,
                 awarenessViewHalfAngle: 90,
                 attackDamage: 0,
                 attackRange: 50
@@ -1740,7 +1747,6 @@ function testHunterInvestigatesClosestReachableLastSeenPositionBeforeGlare() {
             w: 72,
             h: 148,
             facing: 1,
-            behavior: "patrol",
             strategy: "hunter",
             patrolDistance: 80,
             walkSpeed: 40,
@@ -1825,7 +1831,6 @@ function testHunterRemainsEngagedAfterPlayerHealthReachesZero() {
             w: 76,
             h: 148,
             facing: -1,
-            behavior: "guard",
             strategy: "hunter",
             health: 90,
             attackMode: "projectile",
@@ -1913,7 +1918,6 @@ function testHunterEnemyStrandedFallback() {
             w: 72,
             h: 148,
             facing: 1,
-            behavior: "patrol",
             strategy: "hunter",
             patrolDistance: 120,
             walkSpeed: 50,
@@ -1922,7 +1926,6 @@ function testHunterEnemyStrandedFallback() {
             jumpGravity: 1200,
             maxFallDistance: 280,
             awarenessRange: 600,
-            awarenessVerticalRange: 400,
             unreachableGlareDuration: 0.1,
             homeRetryInterval: 0.2,
             attackRange: 60,
@@ -1972,7 +1975,7 @@ function testCharacterEnemyPatrolBehavior() {
             w: 72,
             h: 150,
             facing: 1,
-            behavior: "patrol",
+            strategy: "simple_patrol",
             patrolDistance: 80,
             walkSpeed: 60,
             idleDuration: 0,
@@ -2019,7 +2022,7 @@ function testCharacterEnemyPatrolBehavior() {
             characterId: "ct_char_enemy_001",
             x: 100,
             y: 600,
-            behavior: "guard",
+            strategy: "sentry",
             patrolDistance: 200,
             walkSpeed: 60
         }]
@@ -2051,11 +2054,10 @@ function testCharacterEnemyAggressiveChaseAndCombo() {
             w: 72,
             h: 150,
             facing: -1,
-            behavior: "patrol",
+            strategy: "simple_patrol",
             patrolDistance: 300,
             walkSpeed: 40,
-            chaseSpeed: 180,
-            awarenessVerticalRange: 180,
+            runSpeed: 180,
             awarenessHoldDuration: 1,
             attackDamage: 0,
             attackRange: 66,
@@ -2104,10 +2106,10 @@ function testCharacterEnemyAggressiveChaseAndCombo() {
             x: 100,
             y: 600,
             facing: -1,
-            behavior: "patrol",
+            strategy: "simple_patrol",
             patrolDistance: 300,
             walkSpeed: 40,
-            chaseSpeed: 180,
+            runSpeed: 180,
             attackRange: 50,
             attackDamage: 0
         }]
@@ -2165,7 +2167,7 @@ function testCharacterEnemyRocketCombat() {
             w: 72,
             h: 150,
             health: 100,
-            behavior: "guard",
+            strategy: "sentry",
             facing: -1,
             hurtDuration: 0.48,
             deathDuration: 1.18
@@ -2178,7 +2180,7 @@ function testCharacterEnemyRocketCombat() {
             w: 72,
             h: 150,
             health: 100,
-            behavior: "guard",
+            strategy: "sentry",
             facing: -1
         }]
     }), true, "enemy combat test level should apply");
@@ -2266,7 +2268,7 @@ function testCharacterEnemyMeleeAttack() {
             w: 72,
             h: 150,
             facing: -1,
-            behavior: "guard",
+            strategy: "sentry",
             health: 100,
             attackDamage: 25,
             attackRange: 92,
@@ -2336,7 +2338,7 @@ function testEnemyMeleeBlockedByTerrain() {
             w: 72,
             h: 150,
             facing: -1,
-            behavior: "guard",
+            strategy: "sentry",
             attackRange: 110,
             attackVerticalRange: 120,
             attackDamage: 25
@@ -2383,7 +2385,7 @@ function testFireballGoblinProjectileAttack() {
             w: 72,
             h: 148,
             facing: -1,
-            behavior: "guard",
+            strategy: "sentry",
             health: 80,
             attackMode: "projectile",
             attackRange: 340,
@@ -2402,7 +2404,6 @@ function testFireballGoblinProjectileAttack() {
             preferredAttackRange: 220,
             preferredAttackMinRange: 90,
             awarenessRange: 360,
-            awarenessVerticalRange: 200
         }]
     });
     applyCharacterCombatProfiles(state, new Map([["ct_char_enemy_002", {
@@ -2467,7 +2468,7 @@ function testMusketGoblinProjectileAttack() {
             w: 76,
             h: 148,
             facing: -1,
-            behavior: "guard",
+            strategy: "sentry",
             health: 90,
             attackMode: "projectile",
             attackRange: 420,
@@ -2486,7 +2487,6 @@ function testMusketGoblinProjectileAttack() {
             preferredAttackRange: 250,
             preferredAttackMinRange: 120,
             awarenessRange: 430,
-            awarenessVerticalRange: 220
         }]
     });
     applyCharacterCombatProfiles(state, new Map([["ct_char_enemy_003", {
@@ -2596,7 +2596,7 @@ function testTerrainInterceptsRocketBeforeEnemy() {
             w: 72,
             h: 150,
             health: 100,
-            behavior: "guard"
+            strategy: "sentry"
         }]
     });
     state.world.solids = [{ id: "cover_wall", kind: "wall", x: 90, y: -20, w: 20, h: 150 }];

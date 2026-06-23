@@ -1,6 +1,6 @@
 import { atlasNodeToPlacementWorld, normalizeRotationRadians } from "../shared/level-transform.js";
 import { characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../shared/actor-geometry.js";
-import { normalizeLevelColorMap } from "../presentation/level-color-map.js";
+import { normalizeLevelColorMap } from "../shared/level-color-map-data.js";
 import {
     buildEnemyNavigationEdges,
     ENEMY_DROP_SOURCE_CLEARANCE_HEIGHT_FACTOR,
@@ -87,7 +87,7 @@ export const DEFAULT_TUNING = Object.freeze({
     enemyDefaultDeathSeconds: 1.18,
     enemyCorpseHoldSeconds: 2,
     enemyCorpseFadeSeconds: 3,
-    enemyDefaultChaseSpeed: 150,
+    enemyDefaultRunSpeed: 150,
     enemyDefaultJumpHeight: 118,
     enemyDefaultJumpGravity: 1250,
     enemyDefaultMaxFallDistance: 280,
@@ -95,7 +95,6 @@ export const DEFAULT_TUNING = Object.freeze({
     enemyDefaultRepathSeconds: 0.3,
     enemyDefaultHomeRetrySeconds: 4,
     enemyDefaultAwarenessRange: 300,
-    enemyDefaultAwarenessVerticalRange: 190,
     enemyDefaultAwarenessViewHalfAngle: 60,
     enemyDefaultAwarenessHoldSeconds: 1.2,
     enemyDefaultAttackDamage: 24,
@@ -1572,7 +1571,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         const anchorX = clamp(Number(anchor?.x ?? 0.5), 0, 1);
         const anchorY = clamp(Number(anchor?.y ?? 0.42), 0, 1);
         const facing = Number(entity.facing) < 0 ? -1 : 1;
-        const behavior = String(entity.behavior || "guard") === "patrol" ? "patrol" : "guard";
+        const legacyBehavior = String(entity.behavior || "guard") === "patrol" ? "patrol" : "guard";
         const requestedStrategy = String(entity.strategy || "").trim().toLowerCase();
         const strategy = requestedStrategy === "hunter"
             ? "hunter"
@@ -1580,7 +1579,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
                 ? "sentry"
                 : requestedStrategy === "simple_patrol"
                     ? "simple_patrol"
-                    : (behavior === "patrol" ? "simple_patrol" : "sentry");
+                    : (legacyBehavior === "patrol" ? "simple_patrol" : "sentry");
+        const isSimplePatrol = strategy === "simple_patrol";
         const patrolDistance = Math.max(0, finiteNumberOr(entity.patrolDistance, 0));
         const idleDuration = Math.max(0, finiteNumberOr(entity.idleDuration, 1.1));
         const health = Math.max(0, finiteNumberOr(entity.health, 100));
@@ -1602,7 +1602,6 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             animationTime: Number.isFinite(Number(entity.animationTime)) ? Number(entity.animationTime) : 0,
             animationTimeOffset: Number(entity.animationTimeOffset) || 0,
             facing,
-            behavior,
             strategy,
             aiState: health <= 0 ? "dead" : (strategy === "hunter" ? "patrol" : strategy),
             engaged: false,
@@ -1633,8 +1632,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             airSourceObstacleId: null,
             airTargetSupportId: null,
             walkSpeed: Math.max(0, finiteNumberOr(entity.walkSpeed, 56)),
-            chaseSpeed: Math.max(0, finiteNumberOr(entity.runSpeed, finiteNumberOr(entity.chaseSpeed, state.tuning.enemyDefaultChaseSpeed))),
-            runSpeed: Math.max(0, finiteNumberOr(entity.runSpeed, finiteNumberOr(entity.chaseSpeed, state.tuning.enemyDefaultChaseSpeed))),
+            runSpeed: Math.max(0, finiteNumberOr(entity.runSpeed, finiteNumberOr(entity.chaseSpeed, state.tuning.enemyDefaultRunSpeed))),
             runAcceleration: Math.max(1, finiteNumberOr(entity.runAcceleration, state.tuning.groundAcceleration)),
             jumpHeight: Math.max(0, finiteNumberOr(entity.jumpHeight, state.tuning.enemyDefaultJumpHeight)),
             jumpGravity: Math.max(1, finiteNumberOr(entity.jumpGravity, state.tuning.enemyDefaultJumpGravity)),
@@ -1645,7 +1643,6 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             homeRetryInterval: Math.max(FIXED_DT, finiteNumberOr(entity.homeRetryInterval, state.tuning.enemyDefaultHomeRetrySeconds)),
             homeRetryTimer: 0,
             awarenessRange: Math.max(0, finiteNumberOr(entity.awarenessRange, state.tuning.enemyDefaultAwarenessRange)),
-            awarenessVerticalRange: Math.max(0, finiteNumberOr(entity.awarenessVerticalRange, state.tuning.enemyDefaultAwarenessVerticalRange)),
             awarenessHoldDuration: Math.max(0, finiteNumberOr(entity.awarenessHoldDuration, state.tuning.enemyDefaultAwarenessHoldSeconds)),
             awarenessViewHalfAngle: clamp(finiteNumberOr(entity.awarenessViewHalfAngle, state.tuning.enemyDefaultAwarenessViewHalfAngle), 0, 180),
             awarenessTimer: 0,
@@ -1661,8 +1658,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             maxStepHeight: Math.max(0, finiteNumberOr(entity.maxStepHeight, 26)),
             maxDropDistance: Math.max(0, finiteNumberOr(entity.maxDropDistance, 34)),
             groundSnapDistance: Math.max(0, finiteNumberOr(entity.groundSnapDistance, 96)),
-            movementPhase: health <= 0 ? "dead" : (behavior === "patrol" && patrolDistance > 0 ? "idle" : "guard"),
-            phaseTimer: behavior === "patrol" && patrolDistance > 0 ? idleDuration : 0,
+            movementPhase: health <= 0 ? "dead" : (isSimplePatrol && patrolDistance > 0 ? "idle" : "guard"),
+            phaseTimer: isSimplePatrol && patrolDistance > 0 ? idleDuration : 0,
             hurtDuration: Math.max(FIXED_DT, finiteNumberOr(entity.hurtDuration, state.tuning.enemyDefaultHurtSeconds)),
             deathDuration: Math.max(FIXED_DT, finiteNumberOr(entity.deathDuration, state.tuning.enemyDefaultDeathSeconds)),
             attackDamage: Math.max(0, finiteNumberOr(entity.attackDamage, state.tuning.enemyDefaultAttackDamage)),
@@ -2359,6 +2356,13 @@ function launchCharacterEnemyProjectile(state, enemy) {
     return projectile;
 }
 
+function characterEnemyRunSpeed(enemy, tuning = DEFAULT_TUNING) {
+    return Math.max(0, finiteNumberOr(
+        enemy?.runSpeed,
+        finiteNumberOr(enemy?.chaseSpeed, tuning?.enemyDefaultRunSpeed)
+    ));
+}
+
 function characterEnemyCanNoticePlayer(state, enemy) {
     const player = state.player;
     if (!playerIsAvailableCombatTarget(state)) {
@@ -2421,7 +2425,7 @@ function moveCharacterEnemyToward(state, enemy, targetX, speed, dt, stopDistance
 
     const direction = dx < 0 ? -1 : 1;
     let candidateX = enemy.x + direction * Math.min(remainingDistance, speed * dt);
-    if (enemy.strategy === "simple_patrol" && enemy.behavior === "patrol" && enemy.patrolDistance > 0) {
+    if (enemy.strategy === "simple_patrol" && enemy.patrolDistance > 0) {
         candidateX = clamp(candidateX, enemy.patrolMinX, enemy.patrolMaxX);
     }
     if (Math.abs(candidateX - enemy.x) <= 0.0001) {
@@ -2617,7 +2621,7 @@ function characterEnemyNavigationOptions(enemy, state = null) {
         maxStepGap: Math.max(10, Math.min(28, Number(enemy.width) * 0.32 || 18)),
         jumpHeight: Math.max(0, Number(enemy.jumpHeight) || 0),
         gravity: Math.max(1, Number(enemy.jumpGravity) || 1),
-        runSpeed: Math.max(1, Number(enemy.runSpeed) || Number(enemy.chaseSpeed) || 1),
+        runSpeed: Math.max(1, characterEnemyRunSpeed(enemy, state?.tuning) || 1),
         groundAcceleration: Math.max(1, Number(enemy.runAcceleration) || state?.tuning?.groundAcceleration || 950),
         maxFallDistance: Math.max(0, Number(enemy.maxFallDistance) || 0),
         edgeInset: Math.max(6, Number(enemy.width) * 0.22 || 10),
@@ -3390,7 +3394,7 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
         enemy.routeIndex += 1;
     }
     const edge = enemy.route?.[enemy.routeIndex];
-    const speed = Math.max(0, Number(enemy.runSpeed) || Number(enemy.chaseSpeed) || 0);
+    const speed = characterEnemyRunSpeed(enemy, state.tuning);
     if (edge) {
         if (edge.from !== current.id) {
             enemy.routeTraversalPhase = null;
@@ -3875,7 +3879,7 @@ function updateCharacterEnemies(state, dt) {
                         state,
                         enemy,
                         state.player.x,
-                        Math.max(0, Number(enemy.chaseSpeed) || state.tuning.enemyDefaultChaseSpeed || 0),
+                        characterEnemyRunSpeed(enemy, state.tuning),
                         dt,
                         Math.max(0, preferredRange)
                     );
@@ -3885,7 +3889,7 @@ function updateCharacterEnemies(state, dt) {
                         state,
                         enemy,
                         desiredX,
-                        Math.max(0, Number(enemy.chaseSpeed) || state.tuning.enemyDefaultChaseSpeed || 0),
+                        characterEnemyRunSpeed(enemy, state.tuning),
                         dt,
                         0
                     );
@@ -3915,7 +3919,7 @@ function updateCharacterEnemies(state, dt) {
                 state,
                 enemy,
                 state.player.x,
-                Math.max(0, Number(enemy.chaseSpeed) || state.tuning.enemyDefaultChaseSpeed || 0),
+                characterEnemyRunSpeed(enemy, state.tuning),
                 dt,
                 stopDistance
             );
@@ -3930,7 +3934,7 @@ function updateCharacterEnemies(state, dt) {
             continue;
         }
 
-        if (enemy.behavior !== "patrol" || enemy.patrolDistance <= 0 || enemy.walkSpeed <= 0) {
+        if (enemy.strategy !== "simple_patrol" || enemy.patrolDistance <= 0 || enemy.walkSpeed <= 0) {
             enemy.movementPhase = "guard";
             setCharacterEnemyAnimation(enemy, "idle");
             syncCharacterEnemyTarget(state, enemy);

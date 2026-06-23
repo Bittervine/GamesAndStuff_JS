@@ -16,9 +16,9 @@ import {
 } from "../shared/actor-geometry.js";
 import {
     colorMapCacheKey,
-    createColorMappedCanvas,
     normalizeLevelColorMap
-} from "./level-color-map.js";
+} from "../shared/level-color-map-data.js";
+import { createColorMappedCanvas } from "./level-color-map-cache.js";
 import {
     animationPoseToRuntimeTransforms,
     applyRuntimeProjectileHandoffVisibility,
