@@ -122,6 +122,9 @@ function matchingPolygonEdge(edgesByVisualId, segment) {
 function polygonTopEdgeMetadata(world) {
     const metadata = new Map();
     for (const polygon of world?.collisionPolygons || []) {
+        if (polygon.movingPlatformId) {
+            continue;
+        }
         const points = Array.isArray(polygon.points) ? polygon.points : [];
         if (points.length < 3) {
             continue;
@@ -164,6 +167,9 @@ function polygonTopEdgeMetadata(world) {
 function navigationBlockingObstacles(world) {
     const obstacles = [];
     for (const polygon of world?.collisionPolygons || []) {
+        if (polygon.movingPlatformId) {
+            continue;
+        }
         if (polygon.kind !== "blockable" && polygon.kind !== "damaging" && polygon.kind !== "killable") {
             continue;
         }
@@ -366,6 +372,9 @@ export function buildEnemyNavigationSupports(world, options = {}) {
     const rawSupports = [];
     const polygonEdges = polygonTopEdgeMetadata(world);
     for (const segment of world?.segments || []) {
+        if (segment.movingPlatformId) {
+            continue;
+        }
         if (segment.kind !== "walkable" && segment.kind !== "blockable") {
             continue;
         }

@@ -1,6 +1,7 @@
 import { atlasNodeToPlacementWorld, normalizeRotationRadians } from "../shared/level-transform.js";
 import { characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../shared/actor-geometry.js";
 import { normalizeLevelColorMap } from "../shared/level-color-map-data.js";
+import { normalizeMovingPlatform } from "../shared/moving-platform-data.js";
 import {
     buildEnemyNavigationEdges,
     ENEMY_DROP_SOURCE_CLEARANCE_HEIGHT_FACTOR,
@@ -208,7 +209,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "100-reactive-breakable-crate",
+            build: "148-moving-platforms",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -244,7 +245,8 @@ export function createInitialGameState(overrides = {}) {
             airBoostArmed: false,
             lowHealthPulse: 0,
             visible: true,
-            renderScale: 1
+            renderScale: 1,
+            supportId: null
         },
         fuel: {
             amount: tuning.initialFuel,
@@ -381,6 +383,7 @@ function createTestArena(tuning) {
             "assets/at_atlas_001.json"
         ],
         visuals,
+        movingPlatforms: [],
         solids,
         segments: [],
         collisionMode: "fallbackRectangles",
@@ -445,6 +448,7 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
                 x2: p2.x,
                 y2: p2.y,
                 visualId: visual.id,
+                movingPlatformId: visual.movement ? visual.id : undefined,
                 assetId,
                 lineId: line.id,
                 tags: Array.isArray(line.tags) ? line.tags.slice() : []
@@ -464,6 +468,7 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
                 kind: loop.kind,
                 points,
                 visualId: visual.id,
+                movingPlatformId: visual.movement ? visual.id : undefined,
                 assetId,
                 lineIds: loop.lineIds.slice()
             });
@@ -480,6 +485,7 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
 
     state.world.segments = segments;
     state.world.collisionPolygons = polygons;
+    bindMovingPlatformCollision(state, segments, polygons);
     state.world.solids = (state.world.solids || []).filter((solid) => solid.kind === "wall" || solid.reactiveObjectId);
     state.world.collisionMode = polygons.length ? "atlasSegmentsAndAreas" : "atlasSegments";
     state.world.collisionSegmentCount = segments.length;
@@ -1395,6 +1401,349 @@ function updateMailboxStory(state, input, dt) {
     return true;
 }
 
+
+function createMovingPlatformRuntimes(visuals = []) {
+    return visuals
+        .filter((visual) => visual?.kind === "atlasSprite" && visual.movement)
+        .map((visual, index) => {
+            const movement = normalizeMovingPlatform(visual.movement);
+            const initialDelay = movement?.initialDelay || 0;
+            const phase = initialDelay > 0
+                ? "initialDelay"
+                : movement?.activation === "rider"
+                    ? "waitForTrigger"
+                    : "startPause";
+            return {
+                id: visual.id || `movingPlatform_${index + 1}`,
+                visualId: visual.id || `movingPlatform_${index + 1}`,
+                movement,
+                startX: Number(visual.x) || 0,
+                startY: Number(visual.y) || 0,
+                endX: (Number(visual.x) || 0) + (movement?.endOffsetX || 0),
+                endY: (Number(visual.y) || 0) + (movement?.endOffsetY || 0),
+                phase,
+                phaseTimer: phase === "initialDelay"
+                    ? initialDelay
+                    : phase === "startPause"
+                        ? movement?.startPause || 0
+                        : 0,
+                cycleCount: 0,
+                opacity: 1,
+                baseAlpha: Number.isFinite(Number(visual.alpha)) ? Number(visual.alpha) : 1,
+                collisionAttached: true,
+                segments: [],
+                polygons: []
+            };
+        });
+}
+
+function movingPlatformVisual(state, platform) {
+    return (state.world?.visuals || []).find((visual) => visual.id === platform.visualId) || null;
+}
+
+function movingPlatformOwnsCollisionId(platform, collisionId) {
+    if (!collisionId) {
+        return false;
+    }
+    return (platform.segments || []).some((segment) => segment.id === collisionId) ||
+        (platform.polygons || []).some((polygon) => polygon.id === collisionId);
+}
+
+function syncMovingPlatformCollisionCounts(state) {
+    if (!state.world) {
+        return;
+    }
+    state.world.collisionSegmentCount = (state.world.segments || []).length;
+    state.world.collisionPolygonCount = (state.world.collisionPolygons || []).length;
+}
+
+function setMovingPlatformCollisionAttached(state, platform, attached) {
+    const shouldAttach = Boolean(attached);
+    if (platform.collisionAttached === shouldAttach) {
+        return;
+    }
+    const segmentIds = new Set((platform.segments || []).map((segment) => segment.id));
+    const polygonIds = new Set((platform.polygons || []).map((polygon) => polygon.id));
+    if (shouldAttach) {
+        const currentSegmentIds = new Set((state.world.segments || []).map((segment) => segment.id));
+        const currentPolygonIds = new Set((state.world.collisionPolygons || []).map((polygon) => polygon.id));
+        for (const segment of platform.segments || []) {
+            if (!currentSegmentIds.has(segment.id)) {
+                state.world.segments.push(segment);
+            }
+        }
+        for (const polygon of platform.polygons || []) {
+            if (!currentPolygonIds.has(polygon.id)) {
+                state.world.collisionPolygons.push(polygon);
+            }
+        }
+    } else {
+        state.world.segments = (state.world.segments || []).filter((segment) => !segmentIds.has(segment.id));
+        state.world.collisionPolygons = (state.world.collisionPolygons || []).filter((polygon) => !polygonIds.has(polygon.id));
+        if (movingPlatformOwnsCollisionId(platform, state.player?.supportId)) {
+            state.player.supportId = null;
+            state.player.onGround = false;
+        }
+    }
+    platform.collisionAttached = shouldAttach;
+    syncMovingPlatformCollisionCounts(state);
+}
+
+function bindMovingPlatformCollision(state, allSegments, allPolygons) {
+    const platforms = state.world?.movingPlatforms || [];
+    for (const platform of platforms) {
+        platform.segments = allSegments.filter((segment) => segment.movingPlatformId === platform.id || segment.visualId === platform.visualId);
+        platform.polygons = allPolygons.filter((polygon) => polygon.movingPlatformId === platform.id || polygon.visualId === platform.visualId);
+        platform.collisionAttached = true;
+    }
+}
+
+function translateMovingPlatformGeometry(platform, dx, dy) {
+    for (const segment of platform.segments || []) {
+        segment.x1 += dx;
+        segment.y1 += dy;
+        segment.x2 += dx;
+        segment.y2 += dy;
+    }
+    for (const polygon of platform.polygons || []) {
+        for (const point of polygon.points || []) {
+            point.x += dx;
+            point.y += dy;
+        }
+    }
+}
+
+function setMovingPlatformPosition(state, platform, x, y) {
+    const visual = movingPlatformVisual(state, platform);
+    if (!visual) {
+        return { dx: 0, dy: 0 };
+    }
+    const previousX = Number(visual.x) || 0;
+    const previousY = Number(visual.y) || 0;
+    const nextX = Number(x) || 0;
+    const nextY = Number(y) || 0;
+    const dx = nextX - previousX;
+    const dy = nextY - previousY;
+    if (Math.abs(dx) <= 0.0000001 && Math.abs(dy) <= 0.0000001) {
+        return { dx: 0, dy: 0 };
+    }
+
+    const carryingPlayer = platform.collisionAttached &&
+        state.player?.onGround === true &&
+        movingPlatformOwnsCollisionId(platform, state.player.supportId);
+    visual.x = nextX;
+    visual.y = nextY;
+    translateMovingPlatformGeometry(platform, dx, dy);
+    if (carryingPlayer) {
+        state.player.x += dx;
+        state.player.y += dy;
+    }
+    return { dx, dy };
+}
+
+function setMovingPlatformOpacity(state, platform, opacity) {
+    const visual = movingPlatformVisual(state, platform);
+    platform.opacity = clamp(Number(opacity) || 0, 0, 1);
+    if (visual) {
+        visual.alpha = platform.baseAlpha * platform.opacity;
+    }
+}
+
+function enterMovingPlatformPhase(state, platform, phase, duration = 0) {
+    platform.phase = phase;
+    platform.phaseTimer = Math.max(0, Number(duration) || 0);
+    if (phase === "fadeOutEnd" || phase === "fadeOutStart") {
+        setMovingPlatformCollisionAttached(state, platform, false);
+    }
+    if (phase === "hiddenEnd") {
+        setMovingPlatformPosition(state, platform, platform.startX, platform.startY);
+        setMovingPlatformOpacity(state, platform, 0);
+    }
+    if (phase === "hiddenStart") {
+        setMovingPlatformOpacity(state, platform, 0);
+    }
+}
+
+function resetMovingPlatformAtStart(state, platform) {
+    setMovingPlatformPosition(state, platform, platform.startX, platform.startY);
+    setMovingPlatformOpacity(state, platform, 1);
+    setMovingPlatformCollisionAttached(state, platform, true);
+    platform.cycleCount += 1;
+    if (platform.movement.activation === "rider") {
+        enterMovingPlatformPhase(state, platform, "waitForTrigger", 0);
+    } else {
+        enterMovingPlatformPhase(state, platform, "startPause", platform.movement.startPause);
+    }
+}
+
+function beginMovingPlatformAction(state, platform) {
+    if (platform.movement.pattern === "vanishRespawn") {
+        enterMovingPlatformPhase(state, platform, "fadeOutStart", platform.movement.fadeDuration);
+    } else {
+        enterMovingPlatformPhase(state, platform, "moveToEnd", 0);
+    }
+}
+
+function platformTriggeredByRider(state, platform) {
+    return platform.collisionAttached &&
+        state.player?.onGround === true &&
+        movingPlatformOwnsCollisionId(platform, state.player.supportId);
+}
+
+function consumeMovingPlatformTimer(platform, dt) {
+    const consumed = Math.min(Math.max(0, platform.phaseTimer), Math.max(0, dt));
+    platform.phaseTimer = Math.max(0, platform.phaseTimer - consumed);
+    if (platform.phaseTimer <= 0.000000001) {
+        platform.phaseTimer = 0;
+    }
+    return consumed;
+}
+
+function movePlatformToward(state, platform, targetX, targetY, dt) {
+    const visual = movingPlatformVisual(state, platform);
+    if (!visual) {
+        return true;
+    }
+    const dx = targetX - visual.x;
+    const dy = targetY - visual.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance <= 0.0001) {
+        setMovingPlatformPosition(state, platform, targetX, targetY);
+        return true;
+    }
+    const travel = Math.min(distance, platform.movement.speed * Math.max(0, dt));
+    const scale = travel / distance;
+    setMovingPlatformPosition(state, platform, visual.x + dx * scale, visual.y + dy * scale);
+    return travel >= distance - 0.0001;
+}
+
+function updateMovingPlatform(state, platform, dt) {
+    let remaining = Math.max(0, dt);
+    for (let guard = 0; guard < 12; guard += 1) {
+        const movement = platform.movement;
+        if (!movement) {
+            return;
+        }
+
+        if (platform.phase === "waitForTrigger") {
+            if (platformTriggeredByRider(state, platform)) {
+                if (movement.triggerDelay > 0) {
+                    enterMovingPlatformPhase(state, platform, "triggerDelay", movement.triggerDelay);
+                } else {
+                    beginMovingPlatformAction(state, platform);
+                }
+                continue;
+            }
+            return;
+        }
+
+        if (["initialDelay", "triggerDelay", "startPause", "endPause", "hiddenEnd", "hiddenStart"].includes(platform.phase)) {
+            const consumed = consumeMovingPlatformTimer(platform, remaining);
+            remaining -= consumed;
+            if (platform.phaseTimer > 0) {
+                return;
+            }
+            const completedPhase = platform.phase;
+            if (completedPhase === "initialDelay") {
+                if (movement.activation === "rider") {
+                    enterMovingPlatformPhase(state, platform, "waitForTrigger", 0);
+                } else {
+                    enterMovingPlatformPhase(state, platform, "startPause", movement.startPause);
+                }
+            } else if (completedPhase === "triggerDelay" || completedPhase === "startPause") {
+                beginMovingPlatformAction(state, platform);
+            } else if (completedPhase === "endPause") {
+                if (movement.pattern === "shuttle") {
+                    enterMovingPlatformPhase(state, platform, "moveToStart", 0);
+                } else {
+                    enterMovingPlatformPhase(state, platform, "fadeOutEnd", movement.fadeDuration);
+                }
+            } else if (completedPhase === "hiddenEnd" || completedPhase === "hiddenStart") {
+                enterMovingPlatformPhase(state, platform, "fadeInStart", movement.fadeDuration);
+            }
+            continue;
+        }
+
+        if (platform.phase === "moveToEnd") {
+            const arrived = movePlatformToward(state, platform, platform.endX, platform.endY, remaining);
+            if (!arrived) {
+                return;
+            }
+            enterMovingPlatformPhase(state, platform, "endPause", movement.endPause);
+            remaining = 0;
+            continue;
+        }
+
+        if (platform.phase === "moveToStart") {
+            const arrived = movePlatformToward(state, platform, platform.startX, platform.startY, remaining);
+            if (!arrived) {
+                return;
+            }
+            resetMovingPlatformAtStart(state, platform);
+            remaining = 0;
+            continue;
+        }
+
+        if (platform.phase === "fadeOutEnd" || platform.phase === "fadeOutStart") {
+            const duration = Math.max(0, movement.fadeDuration);
+            if (duration <= 0) {
+                setMovingPlatformOpacity(state, platform, 0);
+                enterMovingPlatformPhase(
+                    state,
+                    platform,
+                    platform.phase === "fadeOutEnd" ? "hiddenEnd" : "hiddenStart",
+                    movement.hiddenDuration
+                );
+                continue;
+            }
+            const consumed = Math.min(remaining, platform.phaseTimer);
+            platform.phaseTimer = Math.max(0, platform.phaseTimer - consumed);
+            if (platform.phaseTimer <= 0.000000001) platform.phaseTimer = 0;
+            remaining -= consumed;
+            setMovingPlatformOpacity(state, platform, platform.phaseTimer / duration);
+            if (platform.phaseTimer > 0) {
+                return;
+            }
+            enterMovingPlatformPhase(
+                state,
+                platform,
+                platform.phase === "fadeOutEnd" ? "hiddenEnd" : "hiddenStart",
+                movement.hiddenDuration
+            );
+            continue;
+        }
+
+        if (platform.phase === "fadeInStart") {
+            const duration = Math.max(0, movement.fadeDuration);
+            if (duration <= 0) {
+                resetMovingPlatformAtStart(state, platform);
+                continue;
+            }
+            const consumed = Math.min(remaining, platform.phaseTimer);
+            platform.phaseTimer = Math.max(0, platform.phaseTimer - consumed);
+            if (platform.phaseTimer <= 0.000000001) platform.phaseTimer = 0;
+            remaining -= consumed;
+            setMovingPlatformOpacity(state, platform, 1 - platform.phaseTimer / duration);
+            if (platform.phaseTimer > 0) {
+                return;
+            }
+            resetMovingPlatformAtStart(state, platform);
+            continue;
+        }
+
+        resetMovingPlatformAtStart(state, platform);
+        if (remaining <= 0) {
+            return;
+        }
+    }
+}
+
+function updateMovingPlatforms(state, dt) {
+    for (const platform of state.world?.movingPlatforms || []) {
+        updateMovingPlatform(state, platform, dt);
+    }
+}
+
 export function applyEditorLevelToWorld(state, editorLevel) {
     if (!state?.world || !editorLevel || typeof editorLevel !== "object") {
         return false;
@@ -1441,6 +1790,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             continue;
         }
         const layer = placement.layer || "terrain";
+        const movement = layer === "caveForeground" ? null : normalizeMovingPlatform(placement.movement);
         visuals.push({
             id: placement.id || `${assetId}_${visuals.length}`,
             kind: "atlasSprite",
@@ -1465,6 +1815,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             alpha: Number.isFinite(Number(placement.alpha)) ? Number(placement.alpha) : undefined,
             generatedBy: placement.generatedBy || undefined,
             caveCategory: placement.caveCategory || undefined,
+            movement: movement || undefined,
+            dynamicPosition: Boolean(movement),
             order: Number.isFinite(Number(placement.order)) ? Number(placement.order) : visuals.length
         });
     }
@@ -1494,6 +1846,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         atlasManifests,
         colorMap: normalizeLevelColorMap(source.colorMap),
         visuals,
+        movingPlatforms: createMovingPlatformRuntimes(visuals),
         entities: runtimeEntities,
         entityStates: Object.fromEntries(runtimeEntities.filter((entity) => entity.id).map((entity) => [entity.id, entity.state || ""])),
         solids: [
@@ -4017,6 +4370,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         return;
     }
 
+    updateMovingPlatforms(state, dt);
     updateCharacterEnemies(state, dt);
 
     const wasOnGround = p.onGround;
@@ -4047,6 +4401,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     if (input.jumpPressed && wasOnGround) {
         p.vy = t.jumpVelocity;
         p.onGround = false;
+        p.supportId = null;
         p.airborneTime = 0;
         p.airBoostArmed = false;
         addEvent(state, "PLAYER_JUMPED", { x: round(p.x), y: round(p.y), vx: round(p.vx), vy: round(p.vy) });
@@ -5394,6 +5749,7 @@ function moveAndCollideY(state, dy, wasOnGround) {
     const previousY = p.y;
     const nextY = previousY + dy;
     p.onGround = false;
+    p.supportId = null;
     const collision = findActorVerticalSweepCollision(state, p, previousY, nextY);
     p.y = collision ? collision.y : nextY;
     if (!collision) {
@@ -5938,6 +6294,7 @@ function landPlayerOn(state, y, wasOnGround, id, kind = "blockable") {
     p.y = y;
     p.vy = 0;
     p.onGround = true;
+    p.supportId = id || null;
     p.airBoostArmed = false;
     state.collisions.playerTouching.down = true;
     if (state.equipment.rocket.attachedBoosting) {
@@ -6280,6 +6637,7 @@ export function resetPlayer(state, reason = "manualReset") {
     p.vx = 0;
     p.vy = 0;
     p.onGround = false;
+    p.supportId = null;
     p.wasOnGround = false;
     p.airBoostArmed = false;
     p.facing = 1;

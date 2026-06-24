@@ -429,7 +429,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 145</small></h1>
+        <h1>Level Editor <small>rev 148</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -610,6 +610,50 @@
                     <label class="inline"><input id="inspect-collision" type="checkbox"> Atlas collision</label>
                 </div>
             </div>
+            <div id="moving-platform-row" style="display:none">
+                <h3>Moving platform</h3>
+                <label class="inline"><input id="inspect-moving-enabled" type="checkbox"> Enable movement</label>
+                <div id="moving-platform-fields" style="display:none">
+                    <div class="row">
+                        <label>Pattern
+                            <select id="inspect-moving-pattern">
+                                <option value="shuttle">Shuttle loop</option>
+                                <option value="loopRespawn">Move, vanish, respawn</option>
+                                <option value="vanishRespawn">Vanish trap, respawn</option>
+                            </select>
+                        </label>
+                        <label>Activation
+                            <select id="inspect-moving-activation">
+                                <option value="automatic">Automatic</option>
+                                <option value="rider">Wizard steps on it</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div id="moving-platform-end-fields">
+                        <div class="row">
+                            <label>End offset X<input id="inspect-moving-end-x" type="number" step="8"></label>
+                            <label>End offset Y<input id="inspect-moving-end-y" type="number" step="8"></label>
+                        </div>
+                        <div class="row">
+                            <label>Speed px/s<input id="inspect-moving-speed" type="number" min="1" step="10"></label>
+                            <button id="inspect-moving-swap" type="button">Swap start and end</button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <label id="moving-initial-delay-label">Initial delay s<input id="inspect-moving-initial-delay" type="number" min="0" step="0.05"></label>
+                        <label id="moving-trigger-delay-label">Trigger delay s<input id="inspect-moving-trigger-delay" type="number" min="0" step="0.05"></label>
+                    </div>
+                    <div class="row">
+                        <label id="moving-start-pause-label">Pause at start s<input id="inspect-moving-start-pause" type="number" min="0" step="0.05"></label>
+                        <label id="moving-end-pause-label">Pause at end s<input id="inspect-moving-end-pause" type="number" min="0" step="0.05"></label>
+                    </div>
+                    <div class="row" id="moving-platform-fade-fields">
+                        <label>Fade duration s<input id="inspect-moving-fade" type="number" min="0" step="0.05"></label>
+                        <label>Hidden reset time s<input id="inspect-moving-hidden" type="number" min="0.05" step="0.05"></label>
+                    </div>
+                </div>
+                <p class="small">Shuttle loop is the safe default and pauses at both endpoints. Every vanishing pattern always restores the platform automatically after its hidden reset time, so the player never has to die merely to recover it. Drag the circular END handle on the canvas to edit the route.</p>
+            </div>
             <label id="entity-type-row">Entity type
                 <select id="inspect-entity-type">
                     <option value="wizard_entry_door">wizard_entry_door</option>
@@ -775,6 +819,13 @@ import {
     enemyNavigationProfileKey,
     normalizeEnemyNavigationProfile
 } from "./src/core/enemy-navigation.js";
+import {
+    createDefaultMovingPlatform,
+    movingPlatformEndPosition,
+    movingPlatformHasEndpoint,
+    movingPlatformUsesFade,
+    normalizeMovingPlatform
+} from "./src/shared/moving-platform-data.js";
 
 (() => {
     "use strict";
@@ -964,6 +1015,27 @@ import {
         inspectMirrorX: document.getElementById("inspect-mirror-x"),
         inspectMirrorY: document.getElementById("inspect-mirror-y"),
         inspectCollision: document.getElementById("inspect-collision"),
+        movingPlatformRow: document.getElementById("moving-platform-row"),
+        movingPlatformFields: document.getElementById("moving-platform-fields"),
+        movingPlatformEndFields: document.getElementById("moving-platform-end-fields"),
+        movingPlatformFadeFields: document.getElementById("moving-platform-fade-fields"),
+        movingInitialDelayLabel: document.getElementById("moving-initial-delay-label"),
+        movingTriggerDelayLabel: document.getElementById("moving-trigger-delay-label"),
+        movingStartPauseLabel: document.getElementById("moving-start-pause-label"),
+        movingEndPauseLabel: document.getElementById("moving-end-pause-label"),
+        inspectMovingEnabled: document.getElementById("inspect-moving-enabled"),
+        inspectMovingPattern: document.getElementById("inspect-moving-pattern"),
+        inspectMovingActivation: document.getElementById("inspect-moving-activation"),
+        inspectMovingEndX: document.getElementById("inspect-moving-end-x"),
+        inspectMovingEndY: document.getElementById("inspect-moving-end-y"),
+        inspectMovingSpeed: document.getElementById("inspect-moving-speed"),
+        inspectMovingSwap: document.getElementById("inspect-moving-swap"),
+        inspectMovingInitialDelay: document.getElementById("inspect-moving-initial-delay"),
+        inspectMovingTriggerDelay: document.getElementById("inspect-moving-trigger-delay"),
+        inspectMovingStartPause: document.getElementById("inspect-moving-start-pause"),
+        inspectMovingEndPause: document.getElementById("inspect-moving-end-pause"),
+        inspectMovingFade: document.getElementById("inspect-moving-fade"),
+        inspectMovingHidden: document.getElementById("inspect-moving-hidden"),
         inspectEntityType: document.getElementById("inspect-entity-type"),
         inspectEntityState: document.getElementById("inspect-entity-state"),
         mailboxStoryRow: document.getElementById("mailbox-story-row"),
@@ -1787,6 +1859,7 @@ import {
                     generatedBy: placement.generatedBy || undefined,
                     caveCategory: placement.caveCategory || undefined,
                     alpha: Number.isFinite(Number(placement.alpha)) ? Number(placement.alpha) : undefined,
+                    movement: foreground ? undefined : (normalizeMovingPlatform(placement.movement) || undefined),
                     notes: placement.notes || "",
                     order: Number.isFinite(Number(placement.order)) ? Number(placement.order) : index
                 };
@@ -2870,6 +2943,15 @@ import {
             canvas.classList.add("panning");
             return;
         }
+        const movingHandle = movingPlatformEndHandleHit(point);
+        if (movingHandle) {
+            state.drag = {
+                kind: "movingPlatformEnd",
+                id: movingHandle.placement.id,
+                pointerId: event.pointerId
+            };
+            return;
+        }
         const hit = hitTest(point);
         if (!hit) return;
         state.selectedId = hit.id;
@@ -2899,6 +2981,19 @@ import {
             draw();
             return;
         }
+        if (state.drag.kind === "movingPlatformEnd") {
+            const placement = placementById(state.drag.id);
+            const movement = placement ? normalizeMovingPlatform(placement.movement) : null;
+            if (!placement || !movement || !movingPlatformHasEndpoint(movement)) return;
+            const startCenter = placementCenter(placement);
+            movement.endOffsetX = snapped(point.x - startCenter.x);
+            movement.endOffsetY = snapped(point.y - startCenter.y);
+            placement.movement = movement;
+            els.inspectMovingEndX.value = String(Math.round(movement.endOffsetX));
+            els.inspectMovingEndY.value = String(Math.round(movement.endOffsetY));
+            draw();
+            return;
+        }
         if (state.drag.kind === "move") {
             const selected = selectedRecord();
             if (!selected) return;
@@ -2921,6 +3016,8 @@ import {
             const moved = entityById(completedDrag.id);
             if (isWizardDoor(moved)) snapWizardDoorToNearbyGround(moved, { announce: true });
             if (isCharacterEnemy(moved)) snapCharacterEnemyToNearbyGround(moved, { announce: true });
+            persistUi();
+        } else if (completedDrag.kind === "movingPlatformEnd") {
             persistUi();
         } else if (completedDrag.kind === "cavePoint") {
             persistUi();
@@ -3451,10 +3548,135 @@ import {
         ctx.restore();
     }
 
+
+    function refreshMovingPlatformControlVisibility() {
+        const enabled = Boolean(els.inspectMovingEnabled.checked);
+        const pattern = els.inspectMovingPattern.value || "shuttle";
+        const activation = els.inspectMovingActivation.value || "automatic";
+        els.movingPlatformFields.style.display = enabled ? "block" : "none";
+        els.movingPlatformEndFields.style.display = enabled && movingPlatformHasEndpoint(pattern) ? "block" : "none";
+        els.movingPlatformFadeFields.style.display = enabled && movingPlatformUsesFade(pattern) ? "grid" : "none";
+        els.movingInitialDelayLabel.style.display = enabled && activation === "automatic" ? "grid" : "none";
+        els.movingTriggerDelayLabel.style.display = enabled && activation === "rider" ? "grid" : "none";
+        els.movingStartPauseLabel.style.display = enabled && activation === "automatic" ? "grid" : "none";
+        els.movingEndPauseLabel.style.display = enabled && movingPlatformHasEndpoint(pattern) ? "grid" : "none";
+    }
+
+    function swapSelectedMovingPlatformEndpoints() {
+        const placement = selectedMovingPlatformPlacement();
+        const movement = placement ? normalizeMovingPlatform(placement.movement) : null;
+        if (!placement || !movement || !movingPlatformHasEndpoint(movement)) return;
+        const endpoint = movingPlatformEndPosition(placement, movement);
+        placement.x = endpoint.x;
+        placement.y = endpoint.y;
+        movement.endOffsetX *= -1;
+        movement.endOffsetY *= -1;
+        placement.movement = movement;
+        persistUi();
+        setStatus(`Swapped the start and end of ${placement.id}.`);
+    }
+
+    function selectedMovingPlatformPlacement() {
+        const selected = selectedRecord();
+        if (!selected || selected.kind !== "asset" || !normalizeMovingPlatform(selected.record.movement)) {
+            return null;
+        }
+        return selected.record;
+    }
+
+    function movingPlatformEndHandleHit(point) {
+        const placement = selectedMovingPlatformPlacement();
+        const movement = placement ? normalizeMovingPlatform(placement.movement) : null;
+        if (!placement || !movement || !movingPlatformHasEndpoint(movement)) {
+            return null;
+        }
+        const endpoint = movingPlatformEndPosition(placement, movement);
+        const center = {
+            x: endpoint.x + placement.w * 0.5,
+            y: endpoint.y + placement.h * 0.5
+        };
+        const radius = Math.max(10 / state.camera.zoom, 5);
+        return Math.hypot(point.x - center.x, point.y - center.y) <= radius
+            ? { placement, movement, center }
+            : null;
+    }
+
+    function drawMovingPlatformGuide(placement) {
+        const movement = normalizeMovingPlatform(placement?.movement);
+        if (!movement) return;
+        const startCenterWorld = placementCenter(placement);
+        const start = worldToScreen(startCenterWorld.x, startCenterWorld.y);
+
+        if (!movingPlatformHasEndpoint(movement)) {
+            ctx.save();
+            ctx.fillStyle = "rgba(255,159,67,0.96)";
+            ctx.font = "bold 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+            ctx.fillText("VANISH + SAFE RESPAWN", start.x + 12, start.y - 12);
+            ctx.restore();
+            return;
+        }
+
+        const endpoint = movingPlatformEndPosition(placement, movement);
+        const ghost = { ...placement, x: endpoint.x, y: endpoint.y };
+        const endCenterWorld = placementCenter(ghost);
+        const end = worldToScreen(endCenterWorld.x, endCenterWorld.y);
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const length = Math.hypot(dx, dy);
+        const ux = length > 0.001 ? dx / length : 1;
+        const uy = length > 0.001 ? dy / length : 0;
+
+        ctx.save();
+        ctx.strokeStyle = "rgba(255,159,67,0.94)";
+        ctx.fillStyle = "rgba(255,159,67,0.96)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([9, 6]);
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(end.x, end.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        if (length > 20) {
+            const arrowX = end.x - ux * 16;
+            const arrowY = end.y - uy * 16;
+            ctx.beginPath();
+            ctx.moveTo(end.x, end.y);
+            ctx.lineTo(arrowX - uy * 7, arrowY + ux * 7);
+            ctx.lineTo(arrowX + uy * 7, arrowY - ux * 7);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        const ghostCenter = worldToScreen(endCenterWorld.x, endCenterWorld.y);
+        ctx.translate(ghostCenter.x, ghostCenter.y);
+        ctx.rotate(normalizeRotationRadians(placement.rotation, placement.angle));
+        ctx.strokeStyle = "rgba(255,159,67,0.72)";
+        ctx.fillStyle = "rgba(255,159,67,0.08)";
+        ctx.setLineDash([6, 5]);
+        ctx.fillRect(-placement.w * state.camera.zoom * 0.5, -placement.h * state.camera.zoom * 0.5, placement.w * state.camera.zoom, placement.h * state.camera.zoom);
+        ctx.strokeRect(-placement.w * state.camera.zoom * 0.5, -placement.h * state.camera.zoom * 0.5, placement.w * state.camera.zoom, placement.h * state.camera.zoom);
+        ctx.restore();
+
+        ctx.save();
+        ctx.fillStyle = "rgba(17,16,25,0.95)";
+        ctx.strokeStyle = "rgba(255,159,67,1)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(end.x, end.y, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.font = "bold 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+        ctx.fillStyle = "rgba(255,199,132,1)";
+        ctx.fillText("START", start.x + 10, start.y - 10);
+        ctx.fillText("END", end.x + 12, end.y - 10);
+        ctx.restore();
+    }
+
     function drawSelection() {
         const selected = selectedRecord();
         if (!selected) return;
         if (selected.kind === "asset" && !generatedCavePlacementVisible(selected.record)) return;
+        if (selected.kind === "asset") drawMovingPlatformGuide(selected.record);
         ctx.save();
         ctx.strokeStyle = COLORS.selected;
         ctx.lineWidth = 2;
@@ -3493,6 +3715,7 @@ import {
         }
         if (!selected) {
             els.selectionSummary.textContent = "Nothing selected.";
+            els.movingPlatformRow.style.display = "none";
             return;
         }
         const rec = selected.record;
@@ -3511,6 +3734,20 @@ import {
             const inertForeground = selected.kind === "asset" && els.inspectLayer.value === CAVE_FOREGROUND_LAYER;
             els.inspectCollision.checked = inertForeground ? false : rec.collisionFromManifest !== false;
             els.inspectCollision.disabled = inertForeground;
+            const authoredMovement = normalizeMovingPlatform(rec.movement);
+            const movingDraft = authoredMovement || createDefaultMovingPlatform();
+            els.inspectMovingEnabled.checked = Boolean(authoredMovement);
+            els.inspectMovingPattern.value = movingDraft.pattern;
+            els.inspectMovingActivation.value = movingDraft.activation;
+            els.inspectMovingEndX.value = String(Math.round(movingDraft.endOffsetX * 1000) / 1000);
+            els.inspectMovingEndY.value = String(Math.round(movingDraft.endOffsetY * 1000) / 1000);
+            els.inspectMovingSpeed.value = String(Math.round(movingDraft.speed * 1000) / 1000);
+            els.inspectMovingInitialDelay.value = String(movingDraft.initialDelay);
+            els.inspectMovingTriggerDelay.value = String(movingDraft.triggerDelay);
+            els.inspectMovingStartPause.value = String(movingDraft.startPause);
+            els.inspectMovingEndPause.value = String(movingDraft.endPause);
+            els.inspectMovingFade.value = String(movingDraft.fadeDuration);
+            els.inspectMovingHidden.value = String(movingDraft.hiddenDuration);
             els.inspectEntityType.value = rec.type || "targetDummy";
             els.inspectEntityState.innerHTML = "";
             const stateIds = Object.keys(rec.visualStates || {});
@@ -3570,6 +3807,9 @@ import {
         els.reactiveSettingsRow.style.display = isReactive ? "block" : "none";
         els.assetSizeRow.style.display = selected.kind === "asset" || selected.kind === "cutoutMask" || selected.kind === "entity" ? "grid" : "none";
         els.assetExtraRow.style.display = selected.kind === "asset" ? "grid" : "none";
+        const movingPlatformAvailable = selected.kind === "asset" && (rec.layer || "terrain") !== CAVE_FOREGROUND_LAYER;
+        els.movingPlatformRow.style.display = movingPlatformAvailable ? "block" : "none";
+        if (movingPlatformAvailable) refreshMovingPlatformControlVisibility();
         els.entityTypeRow.style.display = selected.kind === "entity" ? "grid" : "none";
         els.entityStateRow.style.display = selected.kind === "entity" && Object.keys(rec.visualStates || {}).length ? "grid" : "none";
         renderPlacementList();
@@ -3596,9 +3836,29 @@ import {
             rec.mirrorX = els.inspectMirrorX.checked;
             rec.mirrorY = els.inspectMirrorY.checked;
             rec.atlasId = rec.atlasId || DEFAULT_ATLAS_ID;
+            if (rec.layer !== CAVE_FOREGROUND_LAYER && els.inspectMovingEnabled.checked) {
+                rec.movement = normalizeMovingPlatform({
+                    pattern: els.inspectMovingPattern.value,
+                    activation: els.inspectMovingActivation.value,
+                    endOffsetX: Number(els.inspectMovingEndX.value),
+                    endOffsetY: Number(els.inspectMovingEndY.value),
+                    speed: Number(els.inspectMovingSpeed.value),
+                    initialDelay: Number(els.inspectMovingInitialDelay.value),
+                    triggerDelay: Number(els.inspectMovingTriggerDelay.value),
+                    startPause: Number(els.inspectMovingStartPause.value),
+                    endPause: Number(els.inspectMovingEndPause.value),
+                    fadeDuration: Number(els.inspectMovingFade.value),
+                    hiddenDuration: Number(els.inspectMovingHidden.value)
+                });
+                rec.collisionFromManifest = true;
+                els.inspectCollision.checked = true;
+            } else {
+                delete rec.movement;
+            }
             if (rec.layer === CAVE_FOREGROUND_LAYER) {
                 const decoration = normalizeCaveDecoration(caveWindowRecord().decoration);
                 rec.collisionFromManifest = false;
+                delete rec.movement;
                 rec.foregroundBrightness = finiteEditorNumber(rec.foregroundBrightness, decoration.brightness);
                 rec.foregroundSaturation = finiteEditorNumber(rec.foregroundSaturation, decoration.saturation);
                 rec.foregroundFadeStart = Math.max(0, Math.min(0.95, finiteEditorNumber(rec.foregroundFadeStart, 0.05)));
@@ -3836,6 +4096,7 @@ import {
             if (placement.layer === CAVE_FOREGROUND_LAYER) {
                 const decoration = normalizeCaveDecoration(state.level.caveWindow?.decoration);
                 placement.collisionFromManifest = false;
+                delete placement.movement;
                 placement.foregroundBrightness = finiteEditorNumber(placement.foregroundBrightness, decoration.brightness);
                 placement.foregroundSaturation = finiteEditorNumber(placement.foregroundSaturation, decoration.saturation);
                 placement.foregroundFadeStart = Math.max(0, Math.min(0.95, finiteEditorNumber(placement.foregroundFadeStart, 0.05)));
@@ -3847,8 +4108,17 @@ import {
                         placement.foregroundOutwardY = outward.y;
                     }
                 }
-            } else if (placement.collisionFromManifest === undefined) {
-                placement.collisionFromManifest = hasRuntimeLines(objectFor(placement.assetId, placement.atlasId));
+            } else {
+                const movement = normalizeMovingPlatform(placement.movement);
+                if (movement) {
+                    placement.movement = movement;
+                    placement.collisionFromManifest = true;
+                } else {
+                    delete placement.movement;
+                    if (placement.collisionFromManifest === undefined) {
+                        placement.collisionFromManifest = hasRuntimeLines(objectFor(placement.assetId, placement.atlasId));
+                    }
+                }
             }
         }
     }
@@ -3912,6 +4182,11 @@ import {
                 );
             } else {
                 points.push(...placementCorners(placement));
+                const movement = normalizeMovingPlatform(placement.movement);
+                if (movement && movingPlatformHasEndpoint(movement)) {
+                    const endpoint = movingPlatformEndPosition(placement, movement);
+                    points.push(...placementCorners({ ...placement, x: endpoint.x, y: endpoint.y }));
+                }
             }
         }
         for (const entity of state.level.entities) {
@@ -4010,6 +4285,10 @@ import {
             return;
         }
         if (state.tool === "select") {
+            if (movingPlatformEndHandleHit(point)) {
+                startDrag(point, event);
+                return;
+            }
             const hit = hitTest(point);
             if (hit) {
                 state.selectedId = hit.id;
@@ -4084,10 +4363,21 @@ import {
     document.getElementById("load-level").addEventListener("click", loadSelectedLevel);
     document.getElementById("reload-atlas-library").addEventListener("click", loadDefaultManifest);
     document.getElementById("apply-inspector").addEventListener("click", applyInspector);
+    els.inspectMovingEnabled.addEventListener("change", () => {
+        refreshMovingPlatformControlVisibility();
+        draw();
+    });
+    els.inspectMovingPattern.addEventListener("change", () => {
+        refreshMovingPlatformControlVisibility();
+        draw();
+    });
+    els.inspectMovingActivation.addEventListener("change", refreshMovingPlatformControlVisibility);
+    els.inspectMovingSwap.addEventListener("click", swapSelectedMovingPlatformEndpoints);
     els.inspectLayer.addEventListener("change", () => {
         const inertForeground = els.inspectLayer.value === CAVE_FOREGROUND_LAYER;
         if (inertForeground) els.inspectCollision.checked = false;
         els.inspectCollision.disabled = inertForeground;
+        els.movingPlatformRow.style.display = inertForeground ? "none" : "block";
     });
     document.getElementById("to-front").addEventListener("click", raiseSelectedToTop);
     document.getElementById("to-back").addEventListener("click", lowerSelectedToBottom);

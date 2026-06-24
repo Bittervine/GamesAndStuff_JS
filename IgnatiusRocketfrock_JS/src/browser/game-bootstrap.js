@@ -43,7 +43,7 @@ const loadingTrack = document.getElementById("loading-track");
 const loadingBarFill = document.getElementById("loading-bar-fill");
 const loadingDetail = document.getElementById("loading-detail");
 
-const GAME_REVISION = "139";
+const GAME_REVISION = "148";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);

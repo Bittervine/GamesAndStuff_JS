@@ -1732,3 +1732,14 @@ The Level Editor now identifies collision-bearing atlas placements that are comp
 The cave-opening spline now has a derived, non-editable outset used as an authoring guide. The existing serialized `caveWindow.feather` value remains backward compatible, but the Level Editor presents it more concretely as **Full black distance px**. `src/shared/cave-window-data.js` samples the smooth opening and offsets that sampled loop outward by the requested world-space distance, handling either spline winding and mitering corners with a bounded spike length.
 
 The Level Editor draws this boundary as a dashed magenta loop, optionally labelled **FULL BLACK**, so foreground rocks can be positioned with the final occlusion boundary visible. Runtime uses the same sampled outset after building the soft mask and explicitly fills everything beyond it with opaque black. The visual transition can therefore never leak past the editor guide because of browser-specific Canvas shadow kernels.
+
+### Revision 148 safe moving-platform foundation
+
+Moving platforms are introduced as an optional component on ordinary atlas placements rather than as a growing list of unrelated entity types. The compact authoring model separates movement pattern from activation. This first slice supports `shuttle`, `loopRespawn`, and `vanishRespawn`, with either automatic or wizard-rider activation. The common case is the default: an automatic shuttle travelling at 120 pixels per second and pausing for 0.75 seconds at both endpoints before reversing.
+
+The placement itself is the start position and the destination is stored as a relative offset. The Level Editor presents a conditional inspector, a START/END route, endpoint ghost, draggable endpoint handle, start/end swap, and timing fields only when relevant. A platform moved in the level carries its route with it.
+
+Simulation updates platforms kinematically before actors. Their atlas-derived collision geometry follows the visual exactly, and a standing wizard is carried by the same frame delta through his authoritative support ID. Fading immediately removes collision; fade-in restores collision only once the platform is fully present. `loopRespawn` travels to the endpoint before disappearing and returning to start, while `vanishRespawn` disappears in place as a trap. Both always restore after a positive timed hidden interval. A moving-platform configuration must never make death or manual level reset the only way to recover required traversal.
+
+Dynamic platforms are currently excluded from baked enemy navigation, so enemies do not deliberately plan routes across them. Named signal channels, switches and keyholes, enemy carrying, crushing rules, and a lethal gameplay boundary derived from the cave's full-black guide remain the next staged additions.
+

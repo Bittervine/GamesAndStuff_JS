@@ -178,8 +178,103 @@ export function createEncounterEntityState(state, options = {}) {
   return entity;
 }
 
+function aliasStateProperty(target, key, source, sourceKey) {
+  Object.defineProperty(target, key, {
+    enumerable: true,
+    configurable: true,
+    get() {
+      return source[sourceKey];
+    },
+    set(value) {
+      source[sourceKey] = value;
+    }
+  });
+}
+
+export function attachNestedStateAliases(state) {
+  const game = {};
+  const world = {};
+  const player = {};
+  const enemies = {};
+  const motherships = {};
+  const encounters = {};
+  const projectiles = {};
+  const pickups = {};
+  const spatial = {};
+  const events = {};
+
+  for (const key of ['seed', 'rng', 'time', 'frameIndex', 'loaded']) {
+    aliasStateProperty(game, key, state, key);
+  }
+
+  aliasStateProperty(world, 'planets', state, 'planets');
+  aliasStateProperty(world, 'fuelMotes', state, 'fuelMotes');
+  aliasStateProperty(world, 'nearestPlanet', state, 'nearestPlanet');
+  aliasStateProperty(world, 'nearestAltitude', state, 'nearestAltitude');
+  aliasStateProperty(world, 'nearestDistance', state, 'nearestDistance');
+
+  aliasStateProperty(player, 'ship', state, 'ship');
+  aliasStateProperty(player, 'fuel', state, 'fuel');
+  aliasStateProperty(player, 'maxFuel', state, 'maxFuel');
+  aliasStateProperty(player, 'score', state, 'score');
+  aliasStateProperty(player, 'crashed', state, 'crashed');
+  aliasStateProperty(player, 'crashTimer', state, 'crashTimer');
+  aliasStateProperty(player, 'crashRespawnReady', state, 'crashRespawnReady');
+  aliasStateProperty(player, 'respawnPlanetIndex', state, 'respawnPlanetIndex');
+  aliasStateProperty(player, 'gamepadRespawnHeld', state, 'gamepadRespawnHeld');
+
+  aliasStateProperty(enemies, 'nextId', state, 'nextEnemyId');
+  aliasStateProperty(enemies, 'nextSquadId', state, 'nextEnemySquadId');
+  aliasStateProperty(enemies, 'items', state, 'enemies');
+  aliasStateProperty(enemies, 'squads', state, 'enemySquads');
+  aliasStateProperty(enemies, 'activeSquad', state, 'enemySquad');
+  aliasStateProperty(enemies, 'explosions', state, 'enemyExplosions');
+  aliasStateProperty(enemies, 'nextExplosionId', state, 'nextEnemyExplosionId');
+
+  aliasStateProperty(motherships, 'squads', state, 'mothershipSquads');
+  aliasStateProperty(motherships, 'activeSquad', state, 'mothershipSquad');
+  aliasStateProperty(motherships, 'spawnTimer', state, 'mothershipSpawnTimer');
+  aliasStateProperty(motherships, 'rng', state, 'mothershipRng');
+
+  aliasStateProperty(encounters, 'director', state, 'encounterDirector');
+  aliasStateProperty(encounters, 'entities', state, 'encounterEntities');
+
+  aliasStateProperty(projectiles, 'nextId', state, 'nextProjectileId');
+  aliasStateProperty(projectiles, 'items', state, 'projectiles');
+
+  aliasStateProperty(pickups, 'nextId', state, 'nextPickupId');
+  aliasStateProperty(pickups, 'items', state, 'pickups');
+
+  spatial.enemyHash = null;
+  aliasStateProperty(events, 'log', state, 'eventLog');
+
+  game.world = world;
+  game.player = player;
+  game.enemies = enemies;
+  game.motherships = motherships;
+  game.encounters = encounters;
+  game.projectiles = projectiles;
+  game.pickups = pickups;
+  game.spatial = spatial;
+  game.events = events;
+  state.game = game;
+  return state;
+}
+
+export function getEnemyItems(state) {
+  return state?.game?.enemies?.items || state?.enemies?.items || state?.enemies || [];
+}
+
+export function getProjectileItems(state) {
+  return state?.game?.projectiles?.items || state?.projectiles?.items || state?.projectiles || [];
+}
+
+export function getWorldPlanets(state) {
+  return state?.game?.world?.planets || state?.world?.planets || state?.planets || [];
+}
+
 export function createGameState(seed) {
-  return {
+  const state = {
     seed,
     rng: mulberry32(seed >>> 0),
     planets: [],
@@ -188,10 +283,12 @@ export function createGameState(seed) {
     encounterEntities: [],
     projectiles: [],
     enemyExplosions: [],
+    pickups: [],
     nextProjectileId: 1,
     nextEnemyExplosionId: 1,
     nextEnemyId: 1,
     nextEnemySquadId: 1,
+    nextPickupId: 1,
     frameIndex: 0,
     eventLog: [],
     ship: null,
@@ -217,6 +314,7 @@ export function createGameState(seed) {
     crashRespawnReady: false,
     respawnPlanetIndex: 0
   };
+  return attachNestedStateAliases(state);
 }
 
 export function resetGameState(state) {
@@ -226,6 +324,11 @@ export function resetGameState(state) {
   state.encounterEntities.length = 0;
   state.projectiles.length = 0;
   state.enemyExplosions.length = 0;
+  if (!Array.isArray(state.pickups)) {
+    state.pickups = [];
+  } else {
+    state.pickups.length = 0;
+  }
   state.frameIndex = 0;
   state.eventLog.length = 0;
   state.ship = createShipState();
@@ -243,8 +346,10 @@ export function resetGameState(state) {
   state.nextEnemyExplosionId = 1;
   state.nextEnemyId = 1;
   state.nextEnemySquadId = 1;
+  state.nextPickupId = 1;
   state.mothershipRng = mulberry32(((state.seed >>> 0) ^ 0x9e3779b9) >>> 0);
   state.mothershipSpawnTimer = config.mothershipSpawnDelayMin + state.mothershipRng() * (config.mothershipSpawnDelayMax - config.mothershipSpawnDelayMin);
   resetEncounterDirectorState(state);
+  attachNestedStateAliases(state);
   return state;
 }

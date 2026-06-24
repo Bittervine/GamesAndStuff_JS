@@ -715,16 +715,17 @@ class RocketfrockRenderer {
         let hasRenderableVisuals = false;
         for (const entry of entries) {
             const { visual, bounds } = entry;
+            const currentBounds = visual.dynamicPosition ? visualWorldBounds(visual) : bounds;
             if (visual.kind === "atlasSprite") {
                 if (this.atlasVisualAvailable(visual)) {
                     hasRenderableVisuals = true;
                 }
-                if (this.drawAtlasSpriteVisual(visual, view, state, bounds)) {
+                if (this.drawAtlasSpriteVisual(visual, view, state, currentBounds)) {
                     drewAny = true;
                 }
             } else if (visual.kind === "cutoutMask") {
                 hasRenderableVisuals = true;
-                if (this.drawCutoutMaskVisual(visual, view, bounds)) {
+                if (this.drawCutoutMaskVisual(visual, view, currentBounds)) {
                     drewAny = true;
                 }
             }

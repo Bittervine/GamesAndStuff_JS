@@ -9,7 +9,7 @@
 - `world.js`: planet creation and motion, separation, nearest-planet queries, and fuel motes.
 - `projectiles.js`: projectile spawning, guidance, movement, and hit checks.
 - `effects.js`: simulation-side explosion records and lifetime cleanup.
-- `state.js`: gameplay-state factories and reset helpers.
+- `state.js`: gameplay-state factories, reset helpers, and transitional nested-state aliases.
 - `spatial_hash.js`: broad-phase cell lookup used by dense fighter patrol queries.
 
 ## Active Phase D modules

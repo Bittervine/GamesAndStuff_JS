@@ -1279,3 +1279,25 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Rename the editor control from `Feather px` to `Full black distance px` without breaking existing level JSON.
 - [x] Clamp the runtime cave mask to opaque black outside the same sampled outset, eliminating browser-dependent ambiguity in the blur extent.
 - [x] Add regression coverage for corner offsets, reversed spline winding, editor controls, and runtime mask clamping.
+
+### Revision 148 safe moving-platform foundation
+
+- [x] Add `src/shared/moving-platform-data.js` with versioned normalization and a safe automatic shuttle default.
+- [x] Store the endpoint as a relative X/Y offset so repositioning the platform carries its route with it.
+- [x] Support automatic and wizard-rider activation.
+- [x] Implement shuttle, move/fade/respawn, and vanish/fade/respawn patterns as portable-core kinematic state machines.
+- [x] Default shuttle platforms to 120 px/s with 0.75-second pauses at both endpoints.
+- [x] Guarantee every vanishing pattern a positive timed hidden interval and automatic restoration at the start.
+- [x] Translate authored segment/polygon collision with the platform visual.
+- [x] Detach collision when fading begins and restore it only after fade-in completes.
+- [x] Track the player's authoritative support ID and carry a standing rider by exact platform delta.
+- [x] Exclude moving-platform supports and obstacles from baked enemy navigation graphs.
+- [x] Add Level Editor enable/pattern/activation/timing controls with irrelevant fields hidden by mode.
+- [x] Draw START/END route guides, a ghost endpoint, and a draggable endpoint handle.
+- [x] Include endpoints in editor fit-to-content bounds and provide a start/end swap command.
+- [x] Add regression coverage for defaults, rider triggering/carrying, shuttling, collision detachment, and automatic recovery.
+- [ ] Add named signal-channel activation and reusable switch/keyhole emitters.
+- [ ] Add enemy riding and deliberate moving-platform navigation semantics.
+- [ ] Add crushing/depenetration rules for actors trapped by kinematic platforms.
+- [ ] Derive a gameplay kill boundary from the cave full-black guide and defeat Ignatius after crossing it.
+

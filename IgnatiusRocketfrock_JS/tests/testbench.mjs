@@ -45,6 +45,14 @@ import {
     normalizeForegroundTreatment
 } from "../src/presentation/foreground-sprite-treatment.js";
 import {
+    DEFAULT_MOVING_PLATFORM,
+    createDefaultMovingPlatform,
+    movingPlatformEndPosition,
+    movingPlatformHasEndpoint,
+    movingPlatformUsesFade,
+    normalizeMovingPlatform
+} from "../src/shared/moving-platform-data.js";
+import {
     atlasNodeToPlacementWorld,
     duplicateLevelPlacement,
     LEVEL_BACKGROUND_COLOR,
@@ -182,6 +190,7 @@ function testSourceOrganization() {
         "../src/shared/animation-data.js",
         "../src/shared/actor-geometry.js",
         "../src/shared/level-transform.js",
+        "../src/shared/moving-platform-data.js",
         "../src/tools/character-editor/animation-editor.js",
         "../src/tools/character-editor/atlas-editor.js",
         "../src/tools/character-editor/character-dirty-state.js",
@@ -4951,6 +4960,185 @@ function testAttachedSmokeDownSpeedTuning() {
     assert.ok(maxVy >= 210, `expected smoke down speed tuning to affect vy, got ${maxVy}`);
 }
 
+
+function createMovingPlatformTestState(movement) {
+    const level = {
+        levelId: "moving_platform_test",
+        world: { bounds: { x: 0, y: 0, w: 1000, h: 800 }, resetY: 1000 },
+        placements: [{
+            id: "moving_platform",
+            kind: "atlasAsset",
+            atlasId: "at_atlas_001",
+            assetId: "test_platform",
+            x: 100,
+            y: 300,
+            w: 100,
+            h: 20,
+            collisionFromManifest: true,
+            movement
+        }],
+        entities: []
+    };
+    const manifest = {
+        frames: {
+            test_platform: { x: 0, y: 0, w: 100, h: 20 }
+        },
+        objects: {
+            test_platform: {
+                nodes: [
+                    { id: "left", x: 0, y: 0 },
+                    { id: "right", x: 100, y: 0 }
+                ],
+                lines: [
+                    { id: "top", kind: "walkable", from: "left", to: "right", tags: [] }
+                ]
+            }
+        }
+    };
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, level), true, "moving-platform test level should apply");
+    assert.equal(
+        applyAtlasManifestsToWorld(state, new Map([["at_atlas_001", { manifest }]])),
+        true,
+        "moving-platform test manifest should create collision"
+    );
+    return state;
+}
+
+function placePlayerOnMovingPlatform(state) {
+    const platform = state.world.movingPlatforms[0];
+    const supportId = platform.segments[0]?.id;
+    assert.ok(supportId, "moving platform should own a walkable support");
+    state.player.x = 150;
+    state.player.y = 300;
+    state.player.spawnX = 150;
+    state.player.spawnY = 300;
+    state.player.vx = 0;
+    state.player.vy = 0;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.supportId = supportId;
+    return platform;
+}
+
+function testMovingPlatformSchemaAndEditor() {
+    assert.equal(DEFAULT_MOVING_PLATFORM.pattern, "shuttle", "the ordinary shuttle should be the default pattern");
+    assert.equal(DEFAULT_MOVING_PLATFORM.activation, "automatic", "ordinary moving platforms should start automatically");
+    assert.ok(DEFAULT_MOVING_PLATFORM.startPause > 0, "default shuttles should pause at the start");
+    assert.ok(DEFAULT_MOVING_PLATFORM.endPause > 0, "default shuttles should pause at the end");
+    assert.ok(DEFAULT_MOVING_PLATFORM.hiddenDuration > 0, "vanishing platforms should always have a recovery time");
+
+    const normalized = normalizeMovingPlatform({
+        pattern: "loopRespawn",
+        activation: { type: "rider" },
+        endOffset: { x: 48, y: -96 },
+        hiddenDuration: 0
+    });
+    assert.equal(normalized.activation, "rider", "legacy/object activation form should normalize");
+    assert.deepEqual(
+        movingPlatformEndPosition({ x: 10, y: 20, movement: normalized }),
+        { x: 58, y: -76 },
+        "end positions should remain relative to the authored start"
+    );
+    assert.equal(movingPlatformHasEndpoint(normalized), true, "move-and-respawn platforms should expose an endpoint");
+    assert.equal(movingPlatformUsesFade(normalized), true, "move-and-respawn platforms should expose fade timing");
+    assert.ok(normalized.hiddenDuration >= 0.05, "normalization should not permit an unrecoverable zero-length reset state");
+    assert.equal(movingPlatformHasEndpoint(createDefaultMovingPlatform({ pattern: "vanishRespawn" })), false, "vanish traps should not require a fake endpoint");
+
+    const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.match(editorSource, /Enable movement/, "Level Editor should expose the moving-platform component");
+    assert.match(editorSource, /Shuttle loop/, "Level Editor should present the safe default shuttle preset");
+    assert.match(editorSource, /Hidden reset time/, "Level Editor should expose the automatic recovery timing");
+    assert.match(editorSource, /Drag the circular END handle/, "Level Editor should explain direct route editing");
+    assert.match(editorSource, /movingPlatformEndHandleHit/, "Level Editor should provide an interactive endpoint handle");
+}
+
+function testAutomaticShuttleMovingPlatform() {
+    const state = createMovingPlatformTestState({
+        pattern: "shuttle",
+        activation: "automatic",
+        endOffsetX: 120,
+        endOffsetY: 0,
+        speed: 120,
+        startPause: 0.1,
+        endPause: 0.1
+    });
+    const platform = placePlayerOnMovingPlatform(state);
+    const visual = state.world.visuals.find((item) => item.id === platform.visualId);
+
+    stepMany(state, 5, () => createInputFrame());
+    approx(visual.x, 100, 0.001, "automatic shuttle should honor its start pause");
+    approx(state.player.x, 150, 0.001, "the rider should remain still during the start pause");
+
+    stepMany(state, 20, () => createInputFrame());
+    assert.ok(visual.x > 110, `shuttle should move after its start pause, got ${visual.x}`);
+    approx(state.player.x - 150, visual.x - 100, 0.01, "a grounded rider should receive the platform's exact movement delta");
+    assert.equal(platform.collisionAttached, true, "ordinary shuttles should keep collision throughout the cycle");
+
+    stepMany(state, 160, () => createInputFrame());
+    assert.ok(platform.cycleCount >= 1, "the shuttle should return to its start and restart automatically");
+    assert.equal(state.world.segments.some((segment) => segment.movingPlatformId === platform.id), true, "shuttle collision should remain in the world");
+}
+
+function testRiderTriggeredMovingPlatform() {
+    const state = createMovingPlatformTestState({
+        pattern: "shuttle",
+        activation: "rider",
+        endOffsetX: 60,
+        endOffsetY: 0,
+        speed: 60,
+        triggerDelay: 0,
+        endPause: 0
+    });
+    const platform = state.world.movingPlatforms[0];
+    const visual = state.world.visuals.find((item) => item.id === platform.visualId);
+    stepMany(state, 30, () => createInputFrame());
+    assert.equal(platform.phase, "waitForTrigger", "rider platforms should wait indefinitely without a rider");
+    approx(visual.x, 100, 0.001, "waiting rider platforms should not drift");
+
+    placePlayerOnMovingPlatform(state);
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.notEqual(platform.phase, "waitForTrigger", "standing on the platform should latch its rider trigger");
+    assert.ok(visual.x > 100, "a zero-delay rider trigger should begin movement immediately");
+    assert.ok(state.player.x > 150, "the triggering rider should be carried with the platform");
+}
+
+function testVanishingMovingPlatformsAlwaysRecover() {
+    for (const pattern of ["loopRespawn", "vanishRespawn"]) {
+        const state = createMovingPlatformTestState({
+            pattern,
+            activation: "automatic",
+            endOffsetX: 12,
+            endOffsetY: 0,
+            speed: 720,
+            startPause: 0.1,
+            endPause: 0,
+            fadeDuration: 0.05,
+            hiddenDuration: 0.1
+        });
+        const platform = state.world.movingPlatforms[0];
+        const visual = state.world.visuals.find((item) => item.id === platform.visualId);
+        let sawDetachedCollision = false;
+        for (let i = 0; i < 90 && platform.cycleCount < 1; i += 1) {
+            stepSimulation(state, createInputFrame(), FIXED_DT);
+            if (!platform.collisionAttached) {
+                sawDetachedCollision = true;
+                assert.equal(
+                    state.world.segments.some((segment) => segment.movingPlatformId === platform.id),
+                    false,
+                    `${pattern} collision should be absent while fading or hidden`
+                );
+            }
+        }
+        assert.equal(sawDetachedCollision, true, `${pattern} should actually enter its non-colliding hidden sequence`);
+        assert.ok(platform.cycleCount >= 1, `${pattern} should restore itself without requiring a player death or level reset`);
+        approx(visual.x, 100, 0.001, `${pattern} should respawn at its authored start X`);
+        approx(visual.y, 300, 0.001, `${pattern} should respawn at its authored start Y`);
+        approx(visual.alpha, 1, 0.001, `${pattern} should finish fully visible`);
+        assert.equal(platform.collisionAttached, true, `${pattern} should restore collision after fading in`);
+    }
+}
+
 const tests = [
     ["source organization and architecture map", testSourceOrganization],
     ["left and right Ctrl weapon binding", testControlKeysLaunchWeapon],
@@ -4959,6 +5147,10 @@ const tests = [
     ["Puppet Guide debug overlay", testPuppetGuideDebugOverlay],
     ["selective level colour map", testSelectiveLevelColorMap],
     ["closed cave-window spline authoring", testCaveWindowSplineAuthoring],
+    ["moving-platform schema and Level Editor", testMovingPlatformSchemaAndEditor],
+    ["automatic shuttle moving platform", testAutomaticShuttleMovingPlatform],
+    ["rider-triggered moving platform", testRiderTriggeredMovingPlatform],
+    ["vanishing moving platforms always recover", testVanishingMovingPlatformsAlwaysRecover],
     ["Canvas world-visual performance infrastructure", testCanvasWorldVisualPerformanceInfrastructure],
     ["level placement copy and cutout backing", testLevelPlacementCopy],
     ["level placement transforms", testLevelPlacementTransforms],

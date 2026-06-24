@@ -42,7 +42,8 @@ IgnatiusRocketfrock_JS/
 │   │   ├── cave-window-data.js
 │   │   ├── cave-window-decoration.js
 │   │   ├── level-color-map-data.js
-│   │   └── level-transform.js
+│   │   ├── level-transform.js
+│   │   └── moving-platform-data.js
 │   └── tools/
 │       └── character-editor/
 │           ├── animation-editor.js
@@ -106,6 +107,7 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 | `src/shared/animation-data.js` | SHARED DATA / MATH | Animation schema normalization, sampling, interpolation, and pose blending. |
 | `src/shared/level-transform.js` | SHARED DATA / MATH | Mirroring, rotation, placement geometry, hit testing, and atlas-node conversion shared by runtime and editor. |
 | `src/shared/level-color-map-data.js` | SHARED DATA / MATH | Level colour-map normalization, cache keys, hue-selection mathematics, and RGB/HSL conversion without browser objects. |
+| `src/shared/moving-platform-data.js` | SHARED DATA / MATH | Versioned moving-platform defaults, normalization, pattern/activation classification, and relative endpoint calculation shared by runtime and Level Editor. |
 | `src/shared/cave-window-data.js` | SHARED DATA / MATH | Inert cave-window schema normalization, decoration settings, closed smooth/corner spline sampling, point-insertion lookup, and authoring bounds. It contains no collision or navigation generation. |
 | `src/shared/cave-window-decoration.js` | SHARED DATA / MATH | Deterministic arc-length sampling and tagged atlas-asset selection for explicit non-colliding `caveForeground` placement records. |
 | `src/browser/browser-input.js` | BROWSER ADAPTER | Keyboard, gamepad, mouse, and touch state converted into `InputFrame`. |
@@ -173,6 +175,14 @@ The explicit release time is authoritative. The editor displays the selected pro
 ## Player homing-target selection boundary
 
 Homing-target priority is simulation-owned. At rocket launch, the core partitions active enemy targets by Ignatius's facing half-plane, chooses the nearest target on the forward side, and consults targets behind him only when the forward set is empty. Distance is measured from the rocket launch point rather than level-authoring order. A live projectile retains its current active target; the same priority function is used only when a replacement target is required.
+
+## Moving-platform runtime boundary
+
+Revision 148 adds optional `movement` data to ordinary collision-bearing atlas placements. `src/shared/moving-platform-data.js` owns the versioned schema, safe defaults, normalization, and relative endpoint calculation. The authored placement remains the start position; `endOffsetX` and `endOffsetY` move with it, preventing routes from being accidentally left behind when a platform is repositioned. The default is an automatic `shuttle` at 120 pixels per second with a 0.75-second pause at both start and end.
+
+`src/core/simulation.js` converts these records into deterministic kinematic state machines and updates them before actors. The first slice supports automatic or rider activation and three patterns: `shuttle`, `loopRespawn`, and `vanishRespawn`. A rider standing on a moving platform is carried by the platform's exact frame delta through an authoritative support ID. Collision geometry moves with the visual, detaches as soon as fading begins, and is restored only after fade-in completes. Every vanishing pattern has a normalized positive `hiddenDuration` and automatically returns to its start position; authored levels must never require the player to die merely to restore a platform.
+
+Dynamic platform geometry is deliberately excluded from the baked enemy navigation graph. Enemies may collide with it, but the current planner does not intentionally route across changing supports. Signal-channel activation, switch/keyhole emitters, enemy carrying, crushing rules, and the gameplay death boundary beyond the cave's full-black guide remain later phases rather than hidden presentation behavior.
 
 ## Reactive-object runtime boundary
 
@@ -271,3 +281,9 @@ Player health is a resource value, not the authoritative player lifecycle state.
 Revision 147 gives `caveWindow.feather` a precise authoring interpretation while preserving the existing level schema. It is the world-space distance from the authored cave-opening spline to the boundary at which the exterior must be completely opaque black. `src/shared/cave-window-data.js` owns `sampleCaveWindowOutset`, which samples the closed Bezier perimeter and constructs a winding-independent, bounded-miter offset loop. The outset is derived data and is never stored as a second editable spline.
 
 `level-editor.html` draws the derived loop as an optional dashed guide. `src/presentation/cave-window-mask.js` consumes the same helper and restores solid black outside that loop after applying the reduced-resolution feather blur. This shared geometry prevents the editor preview and runtime mask from disagreeing about where full black begins. The outset remains presentation-only and must never contribute collision or navigation geometry.
+
+### Revision 148 safe moving-platform foundation
+
+Ordinary atlas placements may now opt into a normalized moving-platform component. New platforms default to the common automatic shuttle loop, moving between a start placement and relative endpoint and pausing for 0.75 seconds before each reversal. The Level Editor exposes only controls relevant to the chosen pattern, draws an interactive START-to-END route with a draggable endpoint, and keeps the endpoint relative when the start placement moves.
+
+Portable simulation owns the kinematic state machine, translated collision geometry, rider support identity, exact player carrying, fades, despawn timing, and timed restoration. `loopRespawn` moves to its endpoint before fading and returning to the start; `vanishRespawn` fades in place as a trap. Both always restore after `hiddenDuration`, which is normalized to a positive minimum, so a vanished platform cannot permanently strand the level. Automatic and rider activation are included in this first slice. Signal channels, switches, keyholes, enemy riding, crushing, and lethal full-black traversal remain explicit follow-up work.

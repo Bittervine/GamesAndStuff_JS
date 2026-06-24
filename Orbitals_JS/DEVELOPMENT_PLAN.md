@@ -797,6 +797,14 @@ Revision 012 progress evidence:
 - The complete active regression suite passes after the spatial hash slice.
 - `pickups.js` and `weapons.js` remain reserved for later gameplay phases.
 
+Revision 013 progress evidence:
+
+- `sim/state.js` now attaches a transitional `state.game.*` nested subsystem view while preserving the stable top-level facade fields.
+- Nested state aliases are accessor-backed, so replacement fields such as `encounterDirector` and `encounterEntities` stay linked after reset.
+- Compatibility helpers now exist for enemy, projectile, and world collection access.
+- Testbench smoke coverage verifies the state helpers, and a focused alias regression checks two-way aliasing through reset.
+- The complete active regression suite passes after the first Phase E slice.
+
 ## 17. Phase E: Nested subsystem state migration
 
 Goal: move from flat `state` arrays to a nested `GAME` object.

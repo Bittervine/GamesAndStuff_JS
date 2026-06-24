@@ -6,7 +6,7 @@
 
 ## Planned simulation subsystem map
 - `sim/main.js`: future compatibility facade and explicit update order.
-- `sim/state.js`: game-state shape, creation, and reset helpers.
+- `sim/state.js`: game-state shape, creation, reset helpers, and transitional nested-state aliases.
 - `sim/math.js`: shared math, RNG, basis, and vector helpers.
 - `sim/world.js`: planets, fuel motes, and world motion.
 - `sim/physics.js`: shared flight, atmosphere, capture, and terrain helpers.

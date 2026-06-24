@@ -24,7 +24,14 @@ const {
   steerProjectileTowardsTarget,
   updateProjectiles
 } = await import('./sim/projectiles.js');
-const { createEnemyState } = await import('./sim/state.js');
+const {
+  createEnemyState,
+  createGameState,
+  getEnemyItems,
+  getProjectileItems,
+  getWorldPlanets,
+  resetGameState
+} = await import('./sim/state.js');
 
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
 const NEUTRAL_CONTROLS = {
@@ -135,6 +142,7 @@ async function runLowRiskSimulationModuleSmokeTest() {
     ['./sim/math.js', ['parseSeed', 'mulberry32', 'clamp01', 'smoothstep', 'easeExp', 'buildBasisFromNormal']],
     ['./sim/events.js', ['pushEvent', 'formatCombatLog']],
     ['./sim/world.js', ['createPlanetConfig', 'createFuelMote', 'pickRandomPlanetIndex', 'updateFuelMotes', 'updatePlanets']],
+    ['./sim/state.js', ['createGameState', 'resetGameState', 'attachNestedStateAliases', 'getEnemyItems', 'getProjectileItems', 'getWorldPlanets']],
     ['./sim/projectiles.js', ['segmentIntersectsSphere', 'findProjectileHomingTarget', 'steerProjectileTowardsTarget', 'spawnProjectileBurst', 'computeShipFireDirection', 'updateProjectiles']],
     ['./sim/effects.js', ['createEnemyExplosionState', 'spawnEnemyExplosion', 'updateEnemyExplosions']],
     ['./sim/spatial_hash.js', ['createSpatialHash', 'querySpatialHash']]
@@ -166,6 +174,31 @@ function runSpatialHashNeighborTest() {
 
   assert.deepEqual(candidates, ['adjacent', 'near']);
   console.log(`PASS spatial-hash-neighbor-query: candidates=${candidates.join(',')}`);
+}
+
+function runNestedStateAliasTest() {
+  const state = createGameState(0xC0FFEE);
+  assert.strictEqual(state.game.world.planets, state.planets, 'expected nested world planets to alias top-level planets');
+  assert.strictEqual(state.game.player.ship, state.ship, 'expected nested player ship to alias top-level ship');
+  assert.strictEqual(state.game.enemies.items, state.enemies, 'expected nested enemies to alias top-level enemies');
+  assert.strictEqual(state.game.projectiles.items, state.projectiles, 'expected nested projectiles to alias top-level projectiles');
+  assert.strictEqual(state.game.events.log, state.eventLog, 'expected nested event log to alias top-level event log');
+  assert.strictEqual(getWorldPlanets(state), state.planets, 'expected world accessor to return top-level planets during transition');
+  assert.strictEqual(getEnemyItems(state), state.enemies, 'expected enemy accessor to return top-level enemies during transition');
+  assert.strictEqual(getProjectileItems(state), state.projectiles, 'expected projectile accessor to return top-level projectiles during transition');
+
+  state.game.player.score = 42;
+  assert.strictEqual(state.score, 42, 'expected nested player score writes to update the top-level score');
+  state.nextEnemyId = 7;
+  assert.strictEqual(state.game.enemies.nextId, 7, 'expected top-level enemy id writes to update nested state');
+
+  resetGameState(state);
+  assert.strictEqual(state.game.world.planets, state.planets, 'expected reset to preserve nested world aliases');
+  assert.strictEqual(state.game.encounters.director, state.encounterDirector, 'expected reset to preserve nested encounter director alias');
+  assert.strictEqual(state.game.pickups.items, state.pickups, 'expected reset to preserve nested pickup aliases');
+  assert.strictEqual(state.game.player.score, state.score, 'expected reset to preserve nested score alias');
+
+  console.log('PASS nested-state-aliases');
 }
 
 async function runPhaseDModuleSmokeTest() {
@@ -4414,6 +4447,7 @@ runSimulationArchitectureGuardTest();
 await runLowRiskSimulationModuleSmokeTest();
 await runPhaseDModuleSmokeTest();
 runSpatialHashNeighborTest();
+runNestedStateAliasTest();
 runStableAltitudeTest();
 runPublicSimApiSmokeTest();
 runPitchResponseTest();
