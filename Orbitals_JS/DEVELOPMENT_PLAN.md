@@ -805,6 +805,12 @@ Revision 013 progress evidence:
 - Testbench smoke coverage verifies the state helpers, and a focused alias regression checks two-way aliasing through reset.
 - The complete active regression suite passes after the first Phase E slice.
 
+Revision 014 progress evidence:
+
+- `sim/projectiles.js` now reads enemy, projectile, and world collections through transitional state accessors.
+- Existing projectile homing, collision, inherited-velocity, and facade/module comparison regressions cover the migrated access path.
+- The complete active regression suite passes after the projectile accessor migration.
+
 ## 17. Phase E: Nested subsystem state migration
 
 Goal: move from flat `state` arrays to a nested `GAME` object.

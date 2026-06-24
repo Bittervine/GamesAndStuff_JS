@@ -1,6 +1,11 @@
 import * as THREE from '../lib/three.module.js';
 import { config } from '../orbitals_config.js';
 import { WORLD_UP as worldUp } from './math.js';
+import {
+  getEnemyItems,
+  getProjectileItems,
+  getWorldPlanets
+} from './state.js';
 
 const tempVecA = new THREE.Vector3();
 const tempVecB = new THREE.Vector3();
@@ -130,12 +135,13 @@ export function segmentIntersectsSphere(start, end, center, radius) {
 }
 
 export function findProjectileHomingTarget(state, projectile) {
+  const enemies = getEnemyItems(state);
   if (projectile.homingDisabled) {
     return null;
   }
 
   const currentTarget = projectile.targetEnemyId != null
-    ? state.enemies.find((enemy) => enemy.id === projectile.targetEnemyId)
+    ? enemies.find((enemy) => enemy.id === projectile.targetEnemyId)
     : null;
   if (currentTarget) {
     return canRetainProjectileTarget(projectile, currentTarget) ? currentTarget : null;
@@ -147,7 +153,7 @@ export function findProjectileHomingTarget(state, projectile) {
 
   const acquireAngle = THREE.MathUtils.degToRad(config.projectileHomingAcquireAngleDeg);
   const launchDirection = getProjectileLaunchDirection(projectile, tempVecA);
-  if (!state.enemies.length || launchDirection.lengthSq() < 1e-10) {
+  if (!enemies.length || launchDirection.lengthSq() < 1e-10) {
     return null;
   }
 
@@ -155,7 +161,7 @@ export function findProjectileHomingTarget(state, projectile) {
   let bestAngle = Infinity;
   let bestDistance = Infinity;
 
-  for (const enemy of state.enemies) {
+  for (const enemy of enemies) {
     if (!enemy || enemy.health <= 0) {
       continue;
     }
@@ -279,7 +285,7 @@ export function spawnProjectileBurst(state, ship, fireDirection) {
   const homingTarget = findProjectileHomingTarget(state, projectile);
   projectile.targetEnemyId = homingTarget ? homingTarget.id : null;
   projectile.homingAcquisitionComplete = true;
-  state.projectiles.push(projectile);
+  getProjectileItems(state).push(projectile);
   state.nextProjectileId += 1;
 }
 
@@ -300,8 +306,11 @@ export function computeShipFireDirection(ship, camera, aimX, aimY, viewportWidth
 
 export function updateProjectiles(state, dt, options = {}) {
   const applyEnemyDamage = options.applyEnemyDamage || (() => {});
-  for (let i = state.projectiles.length - 1; i >= 0; i -= 1) {
-    const projectile = state.projectiles[i];
+  const enemies = getEnemyItems(state);
+  const projectiles = getProjectileItems(state);
+  const planets = getWorldPlanets(state);
+  for (let i = projectiles.length - 1; i >= 0; i -= 1) {
+    const projectile = projectiles[i];
     if (projectile.spawnFrame === state.frameIndex) {
       continue;
     }
@@ -323,7 +332,7 @@ export function updateProjectiles(state, dt, options = {}) {
 
     let dead = projectile.age >= projectile.lifetime;
     if (!dead && projectile.age >= (projectile.planetCollisionGrace ?? 0)) {
-      for (const planet of state.planets) {
+      for (const planet of planets) {
         if (projectile.position.distanceTo(planet.position) <= planet.radius) {
           dead = true;
           break;
@@ -331,9 +340,9 @@ export function updateProjectiles(state, dt, options = {}) {
       }
     }
 
-    if (!dead && state.enemies.length > 0) {
-      for (let j = state.enemies.length - 1; j >= 0; j -= 1) {
-        const enemy = state.enemies[j];
+    if (!dead && enemies.length > 0) {
+      for (let j = enemies.length - 1; j >= 0; j -= 1) {
+        const enemy = enemies[j];
         if (!enemy || enemy.health <= 0) {
           continue;
         }
@@ -347,7 +356,7 @@ export function updateProjectiles(state, dt, options = {}) {
     }
 
     if (dead) {
-      state.projectiles.splice(i, 1);
+      projectiles.splice(i, 1);
     }
   }
 }
