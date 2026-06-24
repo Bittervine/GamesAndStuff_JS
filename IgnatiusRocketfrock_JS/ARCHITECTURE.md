@@ -49,7 +49,8 @@ IgnatiusRocketfrock_JS/
 │           ├── atlas-editor.js
 │           ├── character-dirty-state.js
 │           ├── character-editor-view.js
-│           └── character-project.js
+│           ├── character-project.js
+│           └── dopesheet-data.js
 ├── tests/
 │   └── testbench.mjs
 ├── assets/
@@ -65,6 +66,8 @@ The root HTML files are thin browser entry points. Their larger inline editor ap
 
 
 Revision 143 aligns editor inspector ergonomics across all three authoring tools. Puppet Forge, the Level Editor, and the Asset Tool attach an accessible expand/collapse control to each right-side panel heading and remember each tool's state under its own local-storage key. This is UI-only state: collapsing a panel never removes controls, mutates project data, or affects exported JSON.
+
+Revision 146 adds a left-side full dopesheet to Puppet Forge. Dopesheet row discovery and ordering live in the editor-only `src/tools/character-editor/dopesheet-data.js`; DOM construction, selection, and scrubbing remain in `character-editor.html`. The helper reads animation authoring data but does not participate in runtime sampling, simulation, exported schemas, or future C++ parity.
 
 Revision 145 adds an editor-only authoring diagnostic without moving cave semantics into gameplay. `src/shared/cave-window-data.js` can classify a placement polygon against the sampled closed cave spline and report exterior separation distance. The Level Editor applies that neutral geometry helper only to collision-bearing atlas placements, warns when they are completely exterior beyond a conservative margin, and draws the warning above the preview shade. The diagnostic does not alter level data, collision, navigation, rendering order, or runtime simulation.
 
@@ -113,7 +116,7 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 | `src/presentation/character-runtime.js` | PRESENTATION ONLY | Browser-side character project loading, rig normalization, animation selection, projectile-release transform compilation, and ordered draw commands. |
 | `src/presentation/level-color-map-cache.js` | PRESENTATION ONLY | Offscreen Canvas generation and image-pixel application for cached environment-atlas recolouring. |
 | `src/presentation/world-visual-cache.js` | PRESENTATION ONLY | Cached static-layer partitioning/sort keys, conservative rotated world bounds, parallax-aware viewport bounds, and Canvas draw rejection helpers. |
-| `src/tools/character-editor/*` | EDITOR ONLY | Reusable Puppet Forge project, animation, atlas, dirty-state, and view operations. |
+| `src/tools/character-editor/*` | EDITOR ONLY | Reusable Puppet Forge project, animation, atlas, dirty-state, view, and dopesheet operations. |
 | `tests/testbench.mjs` | TEST ONLY | Headless simulation tests, data tests, source-boundary checks, and browser-entry integration checks. |
 
 
@@ -262,3 +265,9 @@ Player health is a resource value, not the authoritative player lifecycle state.
 
 `src/presentation/canvas-renderer.js` coordinates concurrent character-project and environment-atlas loading and reports normalized progress, while `src/presentation/character-runtime.js` reports the internal character definition, rig, atlas manifest, decoded image, and animation stages. The renderer owns loaded presentation resources and exposes `ensureEnvironmentAtlases` for later levels. Portable simulation remains unaware of browser progress UI and receives only the completed manifest map through `applyAtlasManifestsToWorld`.
 
+
+## Cave full-black outset boundary
+
+Revision 147 gives `caveWindow.feather` a precise authoring interpretation while preserving the existing level schema. It is the world-space distance from the authored cave-opening spline to the boundary at which the exterior must be completely opaque black. `src/shared/cave-window-data.js` owns `sampleCaveWindowOutset`, which samples the closed Bezier perimeter and constructs a winding-independent, bounded-miter offset loop. The outset is derived data and is never stored as a second editable spline.
+
+`level-editor.html` draws the derived loop as an optional dashed guide. `src/presentation/cave-window-mask.js` consumes the same helper and restores solid black outside that loop after applying the reduced-resolution feather blur. This shared geometry prevents the editor preview and runtime mask from disagreeing about where full black begins. The outset remains presentation-only and must never contribute collision or navigation geometry.

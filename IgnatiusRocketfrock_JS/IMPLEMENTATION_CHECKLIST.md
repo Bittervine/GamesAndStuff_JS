@@ -308,6 +308,8 @@ Goal: create a tool where rigs and animations can be created, duplicated, edited
 * [x] Edit animation ID, duration, loop flag, mirrorability, idle threshold, playback cadence, and maximum speed ratio.
 * [x] Provide a timeline with keyframes.
 * [x] Allow adding, moving, deleting, copying, and pasting keyframes.
+* [x] Add an optional full dopesheet with one row per rig-part property that has at least two authored keys. Revision 146.
+* [x] Make the playback button toggle visibly between PLAY and PAUSE, and place Cykle animation plus Show full dopesheet beneath the timeline. Revision 146.
 * [x] Allow duplicating an animation.
 * [ ] Allow copying a pose and pasting it mirrored.
 * [ ] Allow paired-limb phase offset helpers.
@@ -897,6 +899,19 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Replace the goblin rig, atlas manifest, character definitions, and Enemy 002/003 animation clips from the user-supplied ZIP without rewriting them.
 * [x] Preserve the Fireball Goblin attack's animated fireball part and the Musket Goblin attack's animated cannonball part.
 * [x] Verify every supplied JSON file remains byte-identical inside the packaged revision.
+
+### Revision 146 Puppet Forge full dopesheet
+
+* [x] Replace the static PLAY/PAUSE caption with a stateful PLAY or PAUSE label.
+* [x] Remove the redundant Playhead text beside the time range control.
+* [x] Move the existing loop/export flag beneath the timeline as Cykle animation.
+* [x] Add a Show full dopesheet checkbox beneath the timeline.
+* [x] Open the dopesheet as a left-side panel in animation mode.
+* [x] Include only supported rig-part properties with at least two finite keyframe times.
+* [x] Show a shared playhead and clickable key diamonds for every included track.
+* [x] Let row labels select a part/property and let empty row space scrub the shared animation time.
+* [x] Add headless regression coverage for row filtering, ordering, controls, and panel wiring.
+
 ### Revision 112 explicit projectile handoff and level placement
 
 * [x] Add projectile tagging, launch-type selection, animation-slot selection, explicit release-time editing, and per-character active-projectile selection to Puppet Forge.
@@ -1255,3 +1270,12 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Draw orange dashed warning outlines above the editor cave shade and list affected placement IDs in the cave panel.
 - [x] Preserve intentional near-edge and edge-crossing gameplay platforms without warnings.
 - [x] Add regression coverage for inside, crossing, and fully exterior placement geometry plus Level Editor warning integration.
+
+### Revision 147 visible full-black cave boundary
+
+- [x] Reuse the existing `caveWindow.feather` world-space value as the configurable distance from the cave-opening spline to full opaque black.
+- [x] Add winding-independent sampled outset generation to `src/shared/cave-window-data.js`.
+- [x] Draw the derived outset as an optional dashed magenta guide in the Level Editor and label it `FULL BLACK`.
+- [x] Rename the editor control from `Feather px` to `Full black distance px` without breaking existing level JSON.
+- [x] Clamp the runtime cave mask to opaque black outside the same sampled outset, eliminating browser-dependent ambiguity in the blur extent.
+- [x] Add regression coverage for corner offsets, reversed spline winding, editor controls, and runtime mask clamping.

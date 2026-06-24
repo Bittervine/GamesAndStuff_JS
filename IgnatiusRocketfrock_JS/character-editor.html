@@ -37,6 +37,10 @@
             height: 100vh;
         }
 
+        main.dopesheet-open {
+            grid-template-columns: minmax(300px, 370px) minmax(0, 1fr) 460px;
+        }
+
         #stage-wrap {
             min-width: 0;
             min-height: 0;
@@ -67,6 +71,119 @@
             background: var(--panel);
             padding: 18px;
             overflow: auto;
+        }
+
+        #dopesheet-panel {
+            min-width: 0;
+            border-right: 1px solid var(--line);
+            background: var(--panel);
+            padding: 14px 12px;
+            overflow: auto;
+        }
+
+        #dopesheet-panel[hidden] {
+            display: none;
+        }
+
+        .dopesheet-heading {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .dopesheet-heading h2 {
+            margin: 0;
+        }
+
+        #dopesheet-summary {
+            color: var(--muted);
+            font-size: 11px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #dopesheet-rows {
+            display: grid;
+            gap: 5px;
+        }
+
+        .dopesheet-row {
+            display: grid;
+            grid-template-columns: minmax(102px, 0.8fr) minmax(150px, 1.4fr);
+            min-height: 34px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+        }
+
+        .dopesheet-row.active {
+            border-color: rgba(201, 167, 255, 0.55);
+            background: rgba(201, 167, 255, 0.08);
+        }
+
+        .dopesheet-track-label {
+            width: auto;
+            min-width: 0;
+            margin: 0;
+            padding: 5px 7px;
+            border: 0;
+            border-radius: 7px 0 0 7px;
+            background: transparent;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .dopesheet-track {
+            position: relative;
+            min-width: 0;
+            border-left: 1px solid var(--line);
+            border-radius: 0 7px 7px 0;
+            background:
+                linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px) 0 0 / 10% 100%,
+                rgba(0, 0, 0, 0.22);
+            overflow: hidden;
+            cursor: crosshair;
+            touch-action: none;
+        }
+
+        .dopesheet-playhead {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--warn);
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .dopesheet-key {
+            position: absolute;
+            top: 10px;
+            width: 12px;
+            height: 12px;
+            min-width: 0;
+            margin: 0;
+            padding: 0;
+            border-radius: 2px;
+            border: 1px solid rgba(255, 255, 255, 0.75);
+            background: var(--accent);
+            transform: translateX(-50%) rotate(45deg);
+            z-index: 3;
+        }
+
+        .dopesheet-key.selected {
+            background: var(--warn);
+            box-shadow: 0 0 0 2px rgba(255, 207, 134, 0.25);
+        }
+
+        .dopesheet-empty {
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.4;
         }
 
         h1 {
@@ -409,12 +526,22 @@
 
         .dock-playhead {
             display: grid;
-            grid-template-columns: auto minmax(140px, 1fr);
+            grid-template-columns: minmax(140px, 1fr);
             align-items: center;
-            gap: 8px;
             color: var(--muted);
             font-size: 12px;
             font-variant-numeric: tabular-nums;
+        }
+
+        .dock-options {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 18px;
+        }
+
+        .dock-options .check-row {
+            margin: 0;
         }
 
         #animation-dock #timeline {
@@ -457,9 +584,16 @@
                 overflow: auto;
             }
 
-            main {
+            main,
+            main.dopesheet-open {
                 grid-template-columns: 1fr;
                 height: auto;
+            }
+
+            #dopesheet-panel {
+                border-right: 0;
+                border-bottom: 1px solid var(--line);
+                max-height: 52vh;
             }
 
             #stage-wrap {
@@ -488,6 +622,13 @@
 </head>
 <body>
 <main>
+    <section id="dopesheet-panel" aria-label="Full animation dopesheet" hidden>
+        <div class="dopesheet-heading">
+            <h2>Full dopesheet</h2>
+            <span id="dopesheet-summary"></span>
+        </div>
+        <div id="dopesheet-rows"></div>
+    </section>
     <div id="stage-wrap">
         <nav id="quick-toolbar" class="stage-toolbar" aria-label="Rig editing shortcuts">
             <button id="quick-select" type="button">Select</button>
@@ -501,11 +642,10 @@
             <div class="dock-controls">
                 <button id="track-step-back" type="button" title="Previous keyframe for this rig item and value">&lt;--</button>
                 <button id="step-back" type="button" title="Previous keyframe (any)">&lt;-</button>
-                <button id="pause" type="button" title="Play or pause preview">PLAY/PAUSE</button>
+                <button id="pause" type="button" title="Pause preview" aria-pressed="true">PAUSE</button>
                 <button id="step-forward" type="button" title="Next keyframe (any)">-&gt;</button>
                 <button id="track-step-forward" type="button" title="Next keyframe for this rig item and value">--&gt;</button>
-                <label class="dock-playhead">
-                    <span>Playhead</span>
+                <label class="dock-playhead" aria-label="Animation time">
                     <input id="time" type="range" min="0" max="1" step="0.001" value="0">
                 </label>
                 <span id="time-value" class="dock-time-readout">0.000 / 0.000 s</span>
@@ -513,10 +653,14 @@
             <div id="timeline" aria-label="Animation keyframe timeline">
                 <div id="timeline-playhead"></div>
             </div>
+            <div class="dock-options">
+                <label class="check-row"><input id="loop" type="checkbox" checked> Cykle animation</label>
+                <label class="check-row"><input id="show-full-dopesheet" type="checkbox"> Show full dopesheet</label>
+            </div>
         </section>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 113</small></h1>
+        <h1>Puppet Forge <small>rev 146</small></h1>
         <p><a href="index.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -653,7 +797,6 @@
                 <button id="mirror" type="button">Facing: right</button>
                 <button id="reload" type="button">Reload files</button>
             </div>
-            <label class="check-row"><input id="loop" type="checkbox" checked> Loop preview and exported clip</label>
             <label class="check-row"><input id="apply-preview-alpha" type="checkbox"> Apply alpha values in preview</label>
             <label class="check-row"><input id="animation-mirrorable" type="checkbox" checked> Animation may be mirrored</label>
             <p>With alpha preview on, parts use their in-game opacity. With it off, the selected part is fully opaque while other parts are ghosted between 10% and 50%, making rear and hidden parts easier to position and select.</p>
@@ -833,6 +976,7 @@ import {
     updateAnimationKeyframe,
     upsertAnimationKeyframe
 } from "./src/tools/character-editor/animation-editor.js";
+import { animationDopesheetRows } from "./src/tools/character-editor/dopesheet-data.js";
 import {
     TRANSFORM_EDIT_PROPERTY,
     canvasPointFromClient,
@@ -894,6 +1038,10 @@ const PART_LABELS = {
 const canvas = document.getElementById("stage");
 const ctx = canvas.getContext("2d", { alpha: false });
 const els = {
+    main: document.querySelector("main"),
+    dopesheetPanel: document.getElementById("dopesheet-panel"),
+    dopesheetRows: document.getElementById("dopesheet-rows"),
+    dopesheetSummary: document.getElementById("dopesheet-summary"),
     quickToolbar: document.getElementById("quick-toolbar"),
     quickSelect: document.getElementById("quick-select"),
     quickAdjust: document.getElementById("quick-adjust"),
@@ -960,6 +1108,7 @@ const els = {
     zoomValue: document.getElementById("zoom-value"),
     resetView: document.getElementById("reset-view"),
     loop: document.getElementById("loop"),
+    showFullDopesheet: document.getElementById("show-full-dopesheet"),
     applyPreviewAlpha: document.getElementById("apply-preview-alpha"),
     partSelect: document.getElementById("part-select"),
     propertySelect: document.getElementById("property-select"),
@@ -1047,6 +1196,7 @@ const state = {
     animationSlot: null,
     normalizedAnimation: null,
     paused: false,
+    showFullDopesheet: false,
     facing: 1,
     lastTime: performance.now(),
     time: 0,
@@ -1113,6 +1263,7 @@ function setEditorMode(mode) {
     }
     els.quickToolbar.hidden = state.editorMode !== "animation";
     els.animationDock.hidden = state.editorMode !== "animation";
+    updateDopesheetVisibility();
     state.partDrag = null;
     state.atlasDrag = null;
     state.previewPanDrag = null;
@@ -2318,8 +2469,20 @@ function clientPointOnCanvas(clientX, clientY) {
 }
 
 function updatePlayPauseButton() {
-    els.pause.setAttribute("aria-pressed", state.paused ? "false" : "true");
-    els.pause.title = state.paused ? "Play preview" : "Pause preview";
+    const playing = !state.paused;
+    els.pause.textContent = playing ? "PAUSE" : "PLAY";
+    els.pause.setAttribute("aria-pressed", playing ? "true" : "false");
+    els.pause.title = playing ? "Pause preview" : "Play preview";
+}
+
+function updateDopesheetVisibility() {
+    const visible = state.editorMode === "animation" && els.showFullDopesheet.checked;
+    state.showFullDopesheet = els.showFullDopesheet.checked;
+    els.dopesheetPanel.hidden = !visible;
+    els.main.classList.toggle("dopesheet-open", visible);
+    if (visible) {
+        rebuildDopesheet();
+    }
 }
 
 function pauseForDirectEditing() {
@@ -2690,7 +2853,11 @@ function updateReadouts() {
     els.timeValue.textContent = `${state.time.toFixed(3)} / ${duration.toFixed(3)} s`;
     const activeZoom = state.editorMode === "atlas" ? state.atlasViewZoom : state.viewZoom;
     els.zoomValue.textContent = `${Math.round(activeZoom * 100)}%`;
-    els.timelinePlayhead.style.left = `${duration > 0 ? state.time / duration * 100 : 0}%`;
+    const playheadPercent = duration > 0 ? state.time / duration * 100 : 0;
+    els.timelinePlayhead.style.left = `${playheadPercent}%`;
+    for (const playhead of els.dopesheetRows.querySelectorAll(".dopesheet-playhead")) {
+        playhead.style.left = `${playheadPercent}%`;
+    }
     if (state.editorMode === "atlas") {
         return;
     }
@@ -2748,6 +2915,110 @@ function createTimelineMarker(time, title, selected, onClick, onPointerDown = nu
     els.timeline.appendChild(marker);
 }
 
+function selectDopesheetTrack(partName, property) {
+    pauseForDirectEditing();
+    if (selectedPartName() !== partName) {
+        selectPart(partName);
+    }
+    els.propertySelect.value = property;
+    state.selectedKeyIndex = -1;
+    state.selectedTransformTime = null;
+}
+
+function selectDopesheetKey(partName, property, index) {
+    selectDopesheetTrack(partName, property);
+    selectKey(index);
+}
+
+function scrubDopesheetTrack(event, partName, property, trackElement) {
+    if (event.button !== 0 || event.target.classList.contains("dopesheet-key")) {
+        return;
+    }
+    event.preventDefault();
+    selectDopesheetTrack(partName, property);
+    const rect = trackElement.getBoundingClientRect();
+    const ratio = clamp((event.clientX - rect.left) / Math.max(1, rect.width), 0, 1);
+    state.time = ratio * Number(state.animation?.duration || 0);
+    state.syncing = true;
+    els.time.value = state.time;
+    state.syncing = false;
+    rebuildTimeline();
+}
+
+function rebuildDopesheet() {
+    els.dopesheetRows.innerHTML = "";
+    if (!state.animation) {
+        els.dopesheetSummary.textContent = "";
+        const empty = document.createElement("div");
+        empty.className = "dopesheet-empty";
+        empty.textContent = "No animation loaded.";
+        els.dopesheetRows.appendChild(empty);
+        return;
+    }
+
+    const duration = Number(state.animation.duration || 0);
+    const rows = animationDopesheetRows(state.animation, 2);
+    const totalKeys = rows.reduce((sum, row) => sum + row.keyCount, 0);
+    els.dopesheetSummary.textContent = `${rows.length} tracks · ${totalKeys} keys`;
+
+    if (!rows.length) {
+        const empty = document.createElement("div");
+        empty.className = "dopesheet-empty";
+        empty.textContent = "No object variables have at least two keyframes.";
+        els.dopesheetRows.appendChild(empty);
+        return;
+    }
+
+    for (const row of rows) {
+        const rowElement = document.createElement("div");
+        const active = selectedPartName() === row.partName && selectedProperty() === row.property;
+        rowElement.className = `dopesheet-row${active ? " active" : ""}`;
+
+        const label = document.createElement("button");
+        label.type = "button";
+        label.className = "dopesheet-track-label";
+        label.textContent = `${PART_LABELS[row.partName] || row.partName}.${row.property}`;
+        label.title = `${row.partName}.${row.property} · ${row.keyCount} keyframes`;
+        label.addEventListener("click", () => {
+            selectDopesheetTrack(row.partName, row.property);
+            rebuildTimeline();
+        });
+
+        const track = document.createElement("div");
+        track.className = "dopesheet-track";
+        track.setAttribute("aria-label", `${row.partName}.${row.property} keyframe timeline`);
+        track.addEventListener("pointerdown", (event) => {
+            scrubDopesheetTrack(event, row.partName, row.property, track);
+        });
+
+        const playhead = document.createElement("div");
+        playhead.className = "dopesheet-playhead";
+        playhead.style.left = `${duration > 0 ? state.time / duration * 100 : 0}%`;
+        track.appendChild(playhead);
+
+        for (const key of row.keys) {
+            const markerElement = document.createElement("button");
+            markerElement.type = "button";
+            markerElement.className = `dopesheet-key${active && state.selectedKeyIndex === key.index ? " selected" : ""}`;
+            markerElement.style.left = `${duration > 0 ? key.time / duration * 100 : 0}%`;
+            markerElement.title = `${row.partName}.${row.property} · ${key.time.toFixed(3)} s · ${formatValue(key.value)} · ${key.easing}`;
+            markerElement.setAttribute("aria-label", markerElement.title);
+            markerElement.addEventListener("pointerdown", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+            });
+            markerElement.addEventListener("click", (event) => {
+                event.stopPropagation();
+                selectDopesheetKey(row.partName, row.property, key.index);
+            });
+            track.appendChild(markerElement);
+        }
+
+        rowElement.append(label, track);
+        els.dopesheetRows.appendChild(rowElement);
+    }
+}
+
 function rebuildTimeline() {
     for (const marker of [...els.timeline.querySelectorAll(".key-marker")]) {
         marker.remove();
@@ -2755,6 +3026,7 @@ function rebuildTimeline() {
     if (!state.animation) {
         els.trackSummary.textContent = "No animation loaded.";
         els.sampleValue.textContent = "";
+        rebuildDopesheet();
         updateKeyButtons();
         updateReadouts();
         return;
@@ -2773,6 +3045,7 @@ function rebuildTimeline() {
                 (event) => beginTransformKeyDrag(event, time)
             );
         }
+        rebuildDopesheet();
         updateKeyButtons();
         updateReadouts();
         return;
@@ -2789,6 +3062,7 @@ function rebuildTimeline() {
             (event) => beginKeyDrag(event, index)
         );
     });
+    rebuildDopesheet();
     updateKeyButtons();
     updateReadouts();
 }
@@ -4015,6 +4289,7 @@ els.pause.addEventListener("click", () => {
     state.paused = !state.paused;
     updatePlayPauseButton();
 });
+els.showFullDopesheet.addEventListener("change", updateDopesheetVisibility);
 els.trackStepBack.addEventListener("click", () => stepPlayheadOnSelectedTrack(-1));
 els.stepBack.addEventListener("click", () => stepPlayhead(-1));
 els.stepForward.addEventListener("click", () => stepPlayhead(1));

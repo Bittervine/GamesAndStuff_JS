@@ -1,6 +1,7 @@
 import {
     caveSplineSegmentControls,
-    normalizeCaveWindow
+    normalizeCaveWindow,
+    sampleCaveWindowOutset
 } from "../shared/cave-window-data.js";
 
 const OPAQUE_BLACK = "rgb(0, 0, 0)";
@@ -57,6 +58,19 @@ function traceCaveWindowPath(context, points, view, parallaxOffset) {
         const controlB = screenPoint(view, parallaxOffset, controls.controlB);
         const end = screenPoint(view, parallaxOffset, controls.end);
         context.bezierCurveTo(controlA.x, controlA.y, controlB.x, controlB.y, end.x, end.y);
+    }
+    context.closePath();
+    return true;
+}
+
+function traceCaveWindowOutsetPath(context, points, distance, view, parallaxOffset) {
+    const outset = sampleCaveWindowOutset(points, distance, 20);
+    if (outset.length < 3) return false;
+    const first = screenPoint(view, parallaxOffset, outset[0]);
+    context.moveTo(first.x, first.y);
+    for (let index = 1; index < outset.length; index += 1) {
+        const point = screenPoint(view, parallaxOffset, outset[index]);
+        context.lineTo(point.x, point.y);
     }
     context.closePath();
     return true;
@@ -178,6 +192,17 @@ export function drawCaveWindowMask({
         maskContext.shadowColor = "rgba(0, 0, 0, 0)";
         traceCaveWindowPath(maskContext, cave.points, maskView, parallaxOffset);
         maskContext.fill();
+
+        // Clamp the blurred handover to the authored full-black distance. This
+        // makes the Level Editor's outer guide an exact promise: every pixel
+        // beyond that sampled outset is opaque black, regardless of browser
+        // shadow-kernel differences.
+        maskContext.globalCompositeOperation = "source-over";
+        maskContext.fillStyle = OPAQUE_BLACK;
+        maskContext.beginPath();
+        maskContext.rect(0, 0, width, height);
+        traceCaveWindowOutsetPath(maskContext, cave.points, cave.feather, maskView, parallaxOffset);
+        maskContext.fill("evenodd");
         maskContext.restore();
     }
 

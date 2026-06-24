@@ -28,6 +28,7 @@ import {
     nearestCaveSplineSegment,
     normalizeCaveDecoration,
     normalizeCaveWindow,
+    sampleCaveWindowOutset,
     sampleClosedCaveSpline
 } from "../src/shared/cave-window-data.js";
 import {
@@ -84,6 +85,7 @@ import {
     updateAnimationKeyframe,
     upsertAnimationKeyframe
 } from "../src/tools/character-editor/animation-editor.js";
+import { animationDopesheetRows } from "../src/tools/character-editor/dopesheet-data.js";
 import {
     atlasFrameFromDrag,
     atlasToCanvasPoint,
@@ -184,6 +186,7 @@ function testSourceOrganization() {
         "../src/tools/character-editor/atlas-editor.js",
         "../src/tools/character-editor/character-dirty-state.js",
         "../src/tools/character-editor/character-editor-view.js",
+        "../src/tools/character-editor/dopesheet-data.js",
         "../src/tools/character-editor/character-project.js"
     ];
     for (const relativePath of expectedFiles) {
@@ -2911,7 +2914,7 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes('id="quick-toolbar"') && toolHtml.includes('id="quick-select"') && toolHtml.includes('id="quick-adjust"'), "character tool should expose Select and Adjust shortcuts above the canvas");
     assert.ok(toolHtml.includes('id="quick-visibility"') && toolHtml.includes('id="quick-to-back"') && toolHtml.includes('id="quick-to-front"'), "character toolbar should expose visibility and draw-order shortcuts");
     assert.ok(toolHtml.includes('id="animation-dock"') && toolHtml.includes('class="dock-playhead"'), "character tool should expose the wide bottom animation dock");
-    assert.ok(toolHtml.includes('id="track-step-back"') && toolHtml.includes('&lt;--') && toolHtml.includes('&lt;-') && toolHtml.includes('PLAY/PAUSE') && toolHtml.includes('-&gt;') && toolHtml.includes('--&gt;'), "animation dock should expose global and track-specific keyframe navigation buttons");
+    assert.ok(toolHtml.includes('id="track-step-back"') && toolHtml.includes('&lt;--') && toolHtml.includes('&lt;-') && toolHtml.includes('>PAUSE</button>') && toolHtml.includes('playing ? "PAUSE" : "PLAY"') && toolHtml.includes('-&gt;') && toolHtml.includes('--&gt;'), "animation dock should expose global and track-specific keyframe navigation plus a toggling play/pause button");
     assert.ok(toolHtml.includes("beginTransformKeyDrag") && toolHtml.includes("dragTransformKey"), "bottom timeline should support dragging grouped transform key times");
     assert.ok(toolHtml.includes("event.button !== 2") && toolHtml.includes('contextmenu'), "right-button dragging should pan the character and atlas preview without opening a context menu");
     assert.ok(toolHtml.includes("GROUND · y = 0 · drag label") && toolHtml.includes("beginGroundGuideDrag") && toolHtml.includes("drawGroundGuide"), "character tool should show a draggable view-only runtime-ground guide");
@@ -3109,6 +3112,25 @@ function testCaveWindowSplineAuthoring() {
     assert.deepEqual(straightControls.controlA, straightControls.start, "corner outgoing control should stay on the corner");
     assert.deepEqual(straightControls.controlB, straightControls.end, "corner incoming control should stay on the corner");
 
+    const squareOutset = sampleCaveWindowOutset(cornerSquare, 40, 1);
+    assert.deepEqual(squareOutset, [
+        { x: -40, y: -40 },
+        { x: 140, y: -40 },
+        { x: 140, y: 140 },
+        { x: -40, y: 140 }
+    ], "the full-black guide should offset a corner perimeter by the authored world-space distance");
+    const reversedOutset = sampleCaveWindowOutset([...cornerSquare].reverse(), 40, 1);
+    assert.deepEqual(
+        {
+            minX: Math.min(...reversedOutset.map((point) => point.x)),
+            minY: Math.min(...reversedOutset.map((point) => point.y)),
+            maxX: Math.max(...reversedOutset.map((point) => point.x)),
+            maxY: Math.max(...reversedOutset.map((point) => point.y))
+        },
+        { minX: -40, minY: -40, maxX: 140, maxY: 140 },
+        "the outset should expand outward regardless of perimeter winding"
+    );
+
     const levelEditorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(levelEditorHtml.includes('data-tool="caveSelect"') && levelEditorHtml.includes('data-tool="caveAdd"'), "Level Editor should expose cave-point edit and insertion tools in the cave panel");
     const topbarMarkup = levelEditorHtml.slice(levelEditorHtml.indexOf('<div id="topbar">'), levelEditorHtml.indexOf('</div>', levelEditorHtml.indexOf('<div id="topbar">')));
@@ -3145,11 +3167,14 @@ function testCaveWindowSplineAuthoring() {
     assert.ok(actorFrontIndex >= 0 && caveForegroundIndex > actorFrontIndex && caveMaskIndex > caveForegroundIndex, "dark cave foreground assets should render after actors and before the feathered black mask");
     assert.ok(storyOverlayIndex > caveMaskIndex, "story overlays should remain readable above the cave foreground mask");
     assert.ok(rendererSource.includes("drawCaveWindowMask") && rendererSource.includes("caveWindowMaskCanvas"), "runtime should render the cave opening through a reusable offscreen black mask");
+    const caveMaskSource = readFileSync(new URL("../src/presentation/cave-window-mask.js", import.meta.url), "utf8");
+    assert.ok(caveMaskSource.includes("sampleCaveWindowOutset") && caveMaskSource.includes('maskContext.fill("evenodd")'), "runtime should clamp the feathered handover to opaque black at the same derived outset shown by the editor");
     const foregroundTreatmentSource = readFileSync(new URL("../src/presentation/foreground-sprite-treatment.js", import.meta.url), "utf8");
     assert.ok(foregroundTreatmentSource.includes("brightness(${treatment.brightness}) saturate(${treatment.saturation})"), "cave foreground artwork should be darkened and desaturated in a cached sprite treatment");
     assert.ok(foregroundTreatmentSource.includes('globalCompositeOperation = "source-atop"') && foregroundTreatmentSource.includes("foregroundFadeEnd"), "foreground sprites should fade their outward side all the way into black before the cave mask takes over");
     assert.ok(levelEditorHtml.includes('data-tool="placeCaveForeground"') && levelEditorHtml.includes('id="cave-auto-populate"'), "Level Editor should expose manual foreground placement and deterministic perimeter population");
     assert.ok(levelEditorHtml.includes('id="cave-show-generated"'), "Level Editor should let authors hide generated perimeter assets without deleting them");
+    assert.ok(levelEditorHtml.includes('id="cave-show-black-boundary"') && levelEditorHtml.includes("Full black distance px"), "Level Editor should expose the derived full-black outset and its world-space distance");
     assert.ok(levelEditorHtml.includes("editorViewportWorldBounds") && levelEditorHtml.includes("placementWorldBounds"), "Level Editor should cull off-screen placements before drawing them");
     assert.ok(levelEditorHtml.includes("editorForegroundSpriteCache") && levelEditorHtml.includes("createForegroundSpriteCanvas"), "Level Editor should cache darkened and faded foreground sprite variants");
     assert.ok(levelEditorHtml.includes("scheduleJsonUpdate") && !levelEditorHtml.includes("drawSelection();\n        updateJson();"), "Level Editor should not stringify the full level on every drag-frame redraw");
@@ -4129,6 +4154,45 @@ function testAnimationEditorOperations() {
     assert.ok(toolHtml.includes('id="animation-mirrorable"'), "character tool should expose animation mirroring metadata");
     assert.ok(toolHtml.includes('id="duplicate-animation"'), "character tool should expose animation duplication");
     assert.ok(toolHtml.includes("duplicateCurrentAnimation"), "character tool should wire animation duplication into the current project");
+    assert.ok(toolHtml.includes('id="pause"') && toolHtml.includes('playing ? "PAUSE" : "PLAY"'), "character tool play button should toggle between PLAY and PAUSE");
+    assert.equal(toolHtml.includes("<span>Playhead</span>"), false, "character tool should not retain the redundant Playhead label");
+    assert.ok(toolHtml.includes('id="loop"') && toolHtml.includes("Cykle animation"), "cycle control should sit with the timeline controls");
+    assert.ok(toolHtml.includes('id="show-full-dopesheet"'), "character tool should expose the full dopesheet toggle");
+    assert.ok(toolHtml.includes('id="dopesheet-panel"'), "character tool should provide a left-side dopesheet panel");
+
+    const dopesheetRows = animationDopesheetRows({
+        duration: 1,
+        tracks: {
+            head: {
+                x: [
+                    { time: 1, value: 10, easing: "linear" },
+                    { time: 0, value: 0, easing: "linear" }
+                ],
+                alpha: [{ time: 0, value: 1, easing: "linear" }]
+            },
+            rightArm: {
+                rotation: [
+                    { time: 0, value: 0, easing: "linear" },
+                    { time: 0.5, value: 1, easing: "easeInOut" },
+                    { time: 1, value: 0, easing: "linear" }
+                ],
+                unsupportedVariable: [
+                    { time: 0, value: 0, easing: "linear" },
+                    { time: 1, value: 1, easing: "linear" }
+                ]
+            }
+        }
+    });
+    assert.deepStrictEqual(
+        dopesheetRows.map((row) => `${row.partName}.${row.property}`),
+        ["head.x", "rightArm.rotation"],
+        "full dopesheet should include only supported object variables with at least two keys"
+    );
+    assert.deepStrictEqual(
+        dopesheetRows[0].keys.map((key) => key.time),
+        [0, 1],
+        "dopesheet key times should be presented in chronological order"
+    );
 }
 
 function testAnimationEasingModes() {

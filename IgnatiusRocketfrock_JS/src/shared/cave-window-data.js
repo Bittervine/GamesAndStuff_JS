@@ -168,6 +168,60 @@ export function sampleClosedCaveSpline(points, stepsPerSegment = 16) {
     return sampled;
 }
 
+function polygonSignedArea(points) {
+    let twiceArea = 0;
+    for (let index = 0; index < points.length; index += 1) {
+        const current = points[index];
+        const next = points[(index + 1) % points.length];
+        twiceArea += current.x * next.y - next.x * current.y;
+    }
+    return twiceArea * 0.5;
+}
+
+function normalizedVector(x, y) {
+    const length = Math.hypot(x, y);
+    if (length <= 0.000001) return { x: 0, y: 0 };
+    return { x: x / length, y: y / length };
+}
+
+function outwardNormal(tangent, orientationSign) {
+    return orientationSign >= 0
+        ? { x: tangent.y, y: -tangent.x }
+        : { x: -tangent.y, y: tangent.x };
+}
+
+export function sampleCaveWindowOutset(points, distance, stepsPerSegment = 16) {
+    const sampled = sampleClosedCaveSpline(points, stepsPerSegment).slice(0, -1);
+    const safeDistance = Math.max(0, finiteNumber(distance, 0));
+    if (sampled.length < 3 || safeDistance <= 0) {
+        return sampled.map((point) => ({ x: point.x, y: point.y }));
+    }
+
+    const orientationSign = polygonSignedArea(sampled) >= 0 ? 1 : -1;
+    const outset = [];
+    for (let index = 0; index < sampled.length; index += 1) {
+        const previous = sampled[(index - 1 + sampled.length) % sampled.length];
+        const current = sampled[index];
+        const next = sampled[(index + 1) % sampled.length];
+        const incoming = normalizedVector(current.x - previous.x, current.y - previous.y);
+        const outgoing = normalizedVector(next.x - current.x, next.y - current.y);
+        const incomingNormal = outwardNormal(incoming, orientationSign);
+        const outgoingNormal = outwardNormal(outgoing, orientationSign);
+        const miter = normalizedVector(
+            incomingNormal.x + outgoingNormal.x,
+            incomingNormal.y + outgoingNormal.y
+        );
+        const referenceNormal = Math.hypot(miter.x, miter.y) > 0.000001 ? miter : outgoingNormal;
+        const projection = Math.abs(referenceNormal.x * outgoingNormal.x + referenceNormal.y * outgoingNormal.y);
+        const miterLength = Math.min(safeDistance * 4, safeDistance / Math.max(0.25, projection));
+        outset.push({
+            x: current.x + referenceNormal.x * miterLength,
+            y: current.y + referenceNormal.y * miterLength
+        });
+    }
+    return outset;
+}
+
 function pointSegmentDistanceSquared(point, a, b) {
     const dx = b.x - a.x;
     const dy = b.y - a.y;

@@ -499,9 +499,10 @@
                 <label>Parallax<input id="cave-parallax" type="number" min="1" max="1.25" step="0.005"></label>
             </div>
             <div class="row">
-                <label>Feather px<input id="cave-feather" type="number" min="0" step="10"></label>
+                <label>Full black distance px<input id="cave-feather" type="number" min="0" step="10"></label>
                 <div class="inline"><input id="cave-preview-shade" type="checkbox" checked><span class="small">Shade exterior in editor</span></div>
             </div>
+            <div class="inline"><input id="cave-show-black-boundary" type="checkbox" checked><span class="small">Show where fully opaque black begins</span></div>
             <div class="inline"><input id="cave-show-generated" type="checkbox" checked><span class="small">Show generated perimeter assets in editor</span></div>
             <h2>Automatic perimeter decoration</h2>
             <div class="row">
@@ -518,7 +519,7 @@
             </div>
             <p id="cave-status" class="small">No cave perimeter points.</p>
             <p id="cave-geometry-warning" class="small cave-geometry-warning" hidden></p>
-            <p class="small">The perimeter and foreground are completely inert presentation layers. Foreground placements render after actors with cave parallax, are darkened for depth, overlap slightly into the cave, fade smoothly outward into black, and always have atlas collision disabled. Auto-population treats Max spacing as an upper limit and overlaps smaller top/bottom assets to prevent visible gaps.</p>
+            <p class="small">The cyan perimeter is the cave opening. The dashed magenta outset is derived from Full black distance and marks the exact boundary beyond which the runtime mask is fully opaque black. Both curves and all foreground art are completely inert presentation layers. Foreground placements render after actors with cave parallax, are darkened for depth, overlap slightly into the cave, fade smoothly outward into black, and always have atlas collision disabled. Auto-population treats Max spacing as an upper limit and overlaps smaller top/bottom assets to prevent visible gaps.</p>
         </div>
 
         <div class="box">
@@ -754,7 +755,8 @@ import {
     createCaveWindowPointsFromBounds,
     nearestCaveSplineSegment,
     normalizeCaveDecoration,
-    normalizeCaveWindow
+    normalizeCaveWindow,
+    sampleCaveWindowOutset
 } from "./src/shared/cave-window-data.js";
 import {
     buildCaveDecorationCatalog,
@@ -889,6 +891,7 @@ import {
         grid: "rgba(255,255,255,0.075)",
         gridMajor: "rgba(255,255,255,0.14)",
         caveSpline: "rgba(95,242,255,0.96)",
+        caveBlackBoundary: "rgba(255,112,214,0.96)",
         cavePoint: "rgba(255,226,116,0.98)",
         caveSelectedPoint: "rgba(255,255,255,1)",
         caveGeometryWarning: "rgba(255,159,67,0.98)"
@@ -924,6 +927,7 @@ import {
         caveDeletePoint: document.getElementById("cave-delete-point"),
         caveCreateFromBounds: document.getElementById("cave-create-from-bounds"),
         cavePreviewShade: document.getElementById("cave-preview-shade"),
+        caveShowBlackBoundary: document.getElementById("cave-show-black-boundary"),
         caveShowGenerated: document.getElementById("cave-show-generated"),
         caveDecorSeed: document.getElementById("cave-decor-seed"),
         caveDecorSpacing: document.getElementById("cave-decor-spacing"),
@@ -1194,7 +1198,8 @@ import {
         const closure = cave.points.length >= 3 ? "closed spline ready" : "needs at least 3 points";
         const selectedText = selectedPoint ? ` Selected ${selectedPoint.id} (${selectedPoint.mode}).` : "";
         const generatedText = generatedCount ? ` ${generatedCount} generated foreground asset${generatedCount === 1 ? "" : "s"}.` : "";
-        els.caveStatus.textContent = `${cave.points.length} perimeter point${cave.points.length === 1 ? "" : "s"}; ${closure}.${generatedText}${selectedText}`;
+        const blackBoundaryText = cave.points.length >= 3 ? ` Full black begins ${Math.round(cave.feather)} px outside the perimeter.` : "";
+        els.caveStatus.textContent = `${cave.points.length} perimeter point${cave.points.length === 1 ? "" : "s"}; ${closure}.${blackBoundaryText}${generatedText}${selectedText}`;
     }
 
     function caveGeometryWarningDistance(cave) {
@@ -3012,6 +3017,10 @@ import {
         const editing = state.tool === "caveSelect" || state.tool === "caveAdd";
         if (!cave.enabled && !editing && cave.points.length === 0) return;
 
+        const fullBlackBoundary = cave.points.length >= 3
+            ? sampleCaveWindowOutset(cave.points, cave.feather, 20)
+            : [];
+
         if (cave.enabled && cave.points.length >= 3 && els.cavePreviewShade.checked) {
             ctx.save();
             ctx.beginPath();
@@ -3019,6 +3028,31 @@ import {
             traceCaveWindowPath();
             ctx.fillStyle = "rgba(0,0,0,0.70)";
             ctx.fill("evenodd");
+            ctx.restore();
+        }
+
+        if (fullBlackBoundary.length >= 3 && els.caveShowBlackBoundary.checked) {
+            ctx.save();
+            const first = worldToScreen(fullBlackBoundary[0].x, fullBlackBoundary[0].y);
+            ctx.beginPath();
+            ctx.moveTo(first.x, first.y);
+            for (let index = 1; index < fullBlackBoundary.length; index += 1) {
+                const point = worldToScreen(fullBlackBoundary[index].x, fullBlackBoundary[index].y);
+                ctx.lineTo(point.x, point.y);
+            }
+            ctx.closePath();
+            ctx.strokeStyle = COLORS.caveBlackBoundary;
+            ctx.lineWidth = 1.75;
+            ctx.setLineDash([12, 7]);
+            ctx.stroke();
+            if (els.showLabels.checked) {
+                const labelPoint = fullBlackBoundary.reduce((best, point) => point.y < best.y ? point : best, fullBlackBoundary[0]);
+                const screen = worldToScreen(labelPoint.x, labelPoint.y);
+                ctx.setLineDash([]);
+                ctx.font = "bold 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+                ctx.fillStyle = COLORS.caveBlackBoundary;
+                ctx.fillText("FULL BLACK", screen.x + 8, screen.y - 7);
+            }
             ctx.restore();
         }
 
@@ -4088,6 +4122,7 @@ import {
         });
     });
     els.cavePreviewShade.addEventListener("change", draw);
+    els.caveShowBlackBoundary.addEventListener("change", draw);
     els.caveShowGenerated.addEventListener("change", () => {
         draw();
         setStatus(els.caveShowGenerated.checked
