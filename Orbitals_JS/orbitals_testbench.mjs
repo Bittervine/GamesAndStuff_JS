@@ -33,6 +33,8 @@ const NEUTRAL_CONTROLS = {
 
 const SHALLOW_DIVE_PITCH_INPUT = 0.5;
 
+config.startWithInitialInvasion = false;
+
 
 const LEGACY_SIM_NUMERIC_CONSTANTS = new Set();
 
@@ -3641,6 +3643,44 @@ function runEnemySquadMovementTest() {
   );
 }
 
+function runStartupInvasionArrivalTest() {
+  const previousStartSetting = config.startWithInitialInvasion;
+  config.startWithInitialInvasion = true;
+  try {
+    const sim = createOrbitalsSim(0xC0FFEE);
+    sim.bootstrapWorld();
+
+    const { state } = sim;
+    const mothershipSquad = state.mothershipSquads[0];
+    assert.ok(mothershipSquad, 'expected bootstrap to create the initial mothership squad');
+    const mothership = state.enemies.find((enemy) => enemy.squadId === mothershipSquad.id && enemy.kind === 'mothership');
+    assert.ok(mothership, 'expected bootstrap to create the initial mothership enemy');
+
+    const targetPlanet = state.planets[mothershipSquad.targetPlanetIndex];
+    assert.strictEqual(targetPlanet, state.ship.boundPlanet, 'expected the initial invasion to target the player start planet');
+    const expectedAltitude = targetPlanet.radius * (config.mothershipHoldRadiusFactor - 1);
+    const startupAltitude = mothership.position.distanceTo(targetPlanet.position) - targetPlanet.radius;
+    assert.ok(
+      Math.abs(startupAltitude - expectedAltitude) <= 1e-6,
+      `expected the initial mothership at arrival altitude: altitude=${startupAltitude.toFixed(6)} expected=${expectedAltitude.toFixed(6)}`
+    );
+
+    sim.step(1 / 60, NEUTRAL_CONTROLS);
+
+    const arrivalEvent = state.eventLog.find((event) => event.type === 'mothership-arrived' && event.mothershipId === mothership.id);
+    const encounter = state.encounterDirector.encounters.find((candidate) => candidate.mothershipSquadId === mothershipSquad.id);
+    assert.ok(arrivalEvent, 'expected the initial mothership to record arrival immediately');
+    assert.ok(arrivalEvent.frame <= 1, `expected immediate arrival: frame=${arrivalEvent.frame}`);
+    assert.ok(encounter, 'expected the initial mothership to create an invasion encounter');
+    assert.strictEqual(encounter.status, 'active', 'expected the initial invasion mission to activate immediately');
+    assert.strictEqual(mothershipSquad.mode, 'hold', 'expected the initial mothership to enter hold after arrival');
+
+    console.log(`PASS startup-invasion-arrival: arrivalFrame=${arrivalEvent.frame} planet=${targetPlanet.name}`);
+  } finally {
+    config.startWithInitialInvasion = previousStartSetting;
+  }
+}
+
 function runMothershipArrivalTest() {
   const sim = createOrbitalsSim(0xC0FFEE);
   sim.bootstrapWorld();
@@ -4417,6 +4457,7 @@ runTransportDefenseSuccessTest();
 runTransportDefenseAbortTest();
 runConvoyEscortSuccessTest();
 runBossSupportWaveSuccessTest();
+runStartupInvasionArrivalTest();
 runMothershipArrivalTest();
 runMothershipHoldReorientSmoothnessTest();
 runDeepSpaceEnemyDistanceTest();

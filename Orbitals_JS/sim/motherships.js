@@ -382,7 +382,7 @@ export function spawnFighterSquadFromMothership(state, mothershipSquad, mothersh
   return squad;
 }
 
-export function spawnMothershipSquad(state, targetPlanetIndex = -1, services = {}) {
+export function spawnMothershipSquad(state, targetPlanetIndex = -1, services = {}, options = {}) {
   if (!state.planets.length) {
     return null;
   }
@@ -406,9 +406,9 @@ export function spawnMothershipSquad(state, targetPlanetIndex = -1, services = {
     rng()
   );
   const outwardSpawn = tempVecF.copy(planet.position).addScaledVector(radial, spawnDistance);
-  const spawnCenter = outwardSpawn;
+  const spawnCenter = options.spawnAtArrival ? holdPoint.clone() : outwardSpawn;
   const spawnSide = 1;
-  const travelDirection = tempVecC.copy(holdPoint).sub(spawnCenter).normalize();
+  const travelDirection = tempVecC.copy(holdPoint).sub(outwardSpawn).normalize();
   const edgeUp = tempVecD.copy(basis.bitangent);
   if (Math.abs(edgeUp.dot(travelDirection)) > 0.85) {
     edgeUp.copy(basis.tangent);
@@ -514,7 +514,7 @@ export function spawnMothershipSquad(state, targetPlanetIndex = -1, services = {
       targetPlanetName: planet.name,
       spawnFrame: mothership.spawnFrame,
       spawnTime: mothership.spawnTime,
-      spawnDistance,
+      spawnDistance: mothership.position.distanceTo(planet.position),
       spawnSide,
       position: {
         x: mothership.position.x,

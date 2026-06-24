@@ -11,7 +11,7 @@
 - `sim/world.js`: planets, fuel motes, and world motion.
 - `sim/physics.js`: shared flight, atmosphere, capture, and terrain helpers.
 - `sim/player.js`: player ship state, movement, fuel, firing, crash, and respawn.
-- `sim/enemies.js`: enemy state, squads, AI, swarm behavior, and enemy damage.
+- `sim/enemies.js`: enemy state, squads, AI, swarm behavior, presentation/objective flight, and enemy damage.
 - `sim/motherships.js`: mothership arrival, hold, release, exit, and squad helpers.
 - `sim/encounters.js`: encounter director, presenters, objectives, and missions.
 - `sim/projectiles.js`: projectile spawning, homing, collisions, and lifetime.
@@ -26,8 +26,8 @@
 ## Current extraction status
 - `sim/main.js` owns the deterministic update order through `stepGame()`.
 - `sim/physics.js` is the sole shared ship-flight implementation. Do not duplicate flight integration in `player.js` or `enemies.js`.
-- `sim/player.js` owns player lifecycle hooks; `sim/enemies.js` owns enemy family data and its flight wrapper.
-- `sim/encounters.js` owns encounter creation, route entities, activation, presenter/objective budgets, mission outcomes, and encounter bookkeeping. Detailed presenter flight geometry remains behind its explicit service interface.
+- `sim/player.js` owns player lifecycle hooks; `sim/enemies.js` owns enemy family data, enemy damage, squad transitions, patrol steering, and presentation/objective flight.
+- `sim/encounters.js` owns encounter creation, route entities, activation, presenter/objective budgets, mission outcomes, and encounter bookkeeping. Detailed presenter flight remains behind its explicit service interface.
 - `sim/motherships.js` owns mothership squad construction, deterministic spawning, approach, hold reorientation, fighter release, and exit behavior through `updateMothershipSquads()`.
-- The next Phase D ownership boundary is the remaining enemy squad, patrol, and presentation-flight implementation still in `Orbitals_Sim.js`; move it into `sim/enemies.js` without changing the encounter service boundary.
+- The next Phase D ownership boundaries are the reserved `pickups.js`, `weapons.js`, and `spatial_hash.js` phases; keep the encounter service boundary explicit.
 - Projectile homing is a bounded launch assist: preserve `inheritedVelocity`, never rewrite the firing ray, acquire at launch only, and keep `guidanceDirection` inside the configured cone around immutable `launchDirection`.

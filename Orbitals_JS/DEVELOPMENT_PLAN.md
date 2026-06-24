@@ -779,7 +779,15 @@ Revision 010 progress evidence:
 - The generic random-planet selector moved to `sim/world.js` so both ordinary enemy departure and mothership route selection share one implementation.
 - `Orbitals_Sim.js` dropped from 2,533 lines to 1,716 lines without numerical gameplay changes.
 - Phase D module smoke tests now verify the mothership exports, and the complete active regression output is identical to revision 009 apart from the module count.
-- The next Phase D boundary is the remaining enemy squad, patrol, and presenter-flight implementation still in `Orbitals_Sim.js`; `pickups.js`, `weapons.js`, and `spatial_hash.js` remain reserved for their later gameplay phases.
+- At revision 010, the pending Phase D boundary was the remaining enemy squad, patrol, and presenter-flight implementation still in `Orbitals_Sim.js`; revision 011 below completes it.
+
+Revision 011 progress evidence:
+
+- `sim/enemies.js` now owns generic enemy damage, target selection, squad transitions, patrol steering, enemy control inputs, and detailed presenter/objective-attacker flight geometry.
+- `Orbitals_Sim.js` remains the stable facade and now wires the enemy subsystem exports into encounter, mothership, projectile, and collision services.
+- The explicit encounter service boundary is preserved: `encounters.js` still assigns presenters/objective attackers while enemy flight geometry stays in `enemies.js`.
+- The complete active regression suite passes after the extraction.
+- `pickups.js`, `weapons.js`, and `spatial_hash.js` remain reserved for later gameplay phases.
 
 ## 17. Phase E: Nested subsystem state migration
 

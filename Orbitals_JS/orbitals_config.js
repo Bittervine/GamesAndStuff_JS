@@ -32,6 +32,7 @@ export const config = {
   clusterRadius: 1.0,
   clusterWobble: 0.08,
   mothershipScaleFactor: 0.3,
+  startWithInitialInvasion: true,
   mothershipSpawnDelayMin: 28,
   mothershipSpawnDelayMax: 54,
   mothershipMaxCount: 2,

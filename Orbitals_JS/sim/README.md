@@ -15,7 +15,7 @@
 
 - `physics.js`: the single shared implementation for atmosphere lift, free-space gravity, capture transitions, speed limits, terrain guards, steering, and ship integration.
 - `player.js`: player lifecycle, respawn, crash handling, and the player-facing flight wrapper.
-- `enemies.js`: enemy model-family data and the enemy-facing flight wrapper.
+- `enemies.js`: enemy model-family data, enemy damage, squad transitions, patrol steering, and presentation/objective flight.
 - `collisions.js`: active ship-collision rules.
 - `encounters.js`: encounter creation, route entities, activation, missions, presenter/objective budgets, outcomes, and encounter bookkeeping.
 - `motherships.js`: mothership squad construction, deterministic spawning, approach, hold reorientation, fighter release, exit, and mothership-specific event records.
@@ -23,7 +23,6 @@
 
 ## Remaining Phase D extractions
 
-- Remaining enemy squad transitions, patrol steering, and detailed presenter flight geometry still live in the facade/enemy layer. They should move into `enemies.js` while preserving the explicit service interface used by `encounters.js`.
 - `pickups.js`, `weapons.js`, and `spatial_hash.js` remain reserved for their gameplay phases.
 
 Keep gameplay tuning in `../orbitals_config.js`. Do not add renderer-owned objects, Three.js groups, DOM nodes, audio nodes, or other presentation handles to simulation state. Use stable gameplay IDs and renderer-side maps instead.
