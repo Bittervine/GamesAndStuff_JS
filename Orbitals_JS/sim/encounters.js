@@ -12,6 +12,7 @@ import { pushEvent } from './events.js';
 import {
     createEncounterEntityState,
     createEncounterState,
+    getEncounterState,
     resetEncounterDirectorState
 } from './state.js';
 
@@ -24,7 +25,7 @@ export function createEncounterEntity(state, options = {}) {
 }
 
 export function damageEncounterEntity(state, entityId, damage) {
-    const entity = (state.encounterEntities || []).find((candidate) => candidate.id === entityId);
+    const entity = getEncounterState(state).entities.find((candidate) => candidate.id === entityId);
     if (!entity || entity.destroyed) {
         return false;
     }
@@ -40,10 +41,11 @@ export function damageEncounterEntity(state, entityId, damage) {
 }
 
 export function getEncounterById(state, encounterId) {
-    if (!state || !state.encounterDirector || encounterId == null || encounterId < 0) {
+    const director = getEncounterState(state).director;
+    if (!state || !director || encounterId == null || encounterId < 0) {
         return null;
     }
-    return state.encounterDirector.encounters.find((encounter) => encounter.id === encounterId) || null;
+    return director.encounters.find((encounter) => encounter.id === encounterId) || null;
 }
 
 export function getEncounterAnchorPosition(state, encounter) {
@@ -55,7 +57,7 @@ export function getEncounterAnchorPosition(state, encounter) {
         return planet ? planet.position.clone() : null;
     }
     if (encounter.anchorKind === 'entity') {
-        const entity = (state.encounterEntities || []).find((candidate) => candidate.id === encounter.anchorEntityId);
+        const entity = getEncounterState(state).entities.find((candidate) => candidate.id === encounter.anchorEntityId);
         return entity ? entity.position.clone() : null;
     }
     if (encounter.anchorKind === 'point') {
@@ -76,7 +78,7 @@ export function getEncounterAnchorVelocity(state, encounter) {
         return planet ? planet.velocity.clone() : new THREE.Vector3();
     }
     if (encounter.anchorKind === 'entity') {
-        const entity = (state.encounterEntities || []).find((candidate) => candidate.id === encounter.anchorEntityId);
+        const entity = getEncounterState(state).entities.find((candidate) => candidate.id === encounter.anchorEntityId);
         return entity ? entity.velocity.clone() : new THREE.Vector3();
     }
     return new THREE.Vector3();
@@ -101,16 +103,17 @@ export function getEncounterProtectedEntity(state, encounter) {
     if (!state || !encounter) {
         return null;
     }
-    return (state.encounterEntities || []).find((entity) => entity.id === encounter.protectedEntityId) || null;
+    return getEncounterState(state).entities.find((entity) => entity.id === encounter.protectedEntityId) || null;
 }
 
 function setMissionMessage(state, message, kind = 'active') {
-    if (!state || !state.encounterDirector || !message) {
+    const director = getEncounterState(state).director;
+    if (!state || !director || !message) {
         return;
     }
-    state.encounterDirector.missionMessage = message;
-    state.encounterDirector.missionMessageKind = kind;
-    state.encounterDirector.missionMessageUntil = kind === 'active'
+    director.missionMessage = message;
+    director.missionMessageKind = kind;
+    director.missionMessageUntil = kind === 'active'
         ? Infinity
         : state.time + 6;
 }
@@ -173,12 +176,14 @@ export function ensurePlanetInvasionEncounterForMothership(state, mothershipSqua
     if (!state || !mothershipSquad) {
         return null;
     }
-    if (!state.encounterDirector) {
+    let encounterState = getEncounterState(state);
+    if (!encounterState.director) {
         resetEncounterDirectorState(state);
+        encounterState = getEncounterState(state);
     }
     let encounter = getEncounterById(state, mothershipSquad.encounterId);
     if (!encounter) {
-        encounter = state.encounterDirector.encounters.find((candidate) => (
+        encounter = encounterState.director.encounters.find((candidate) => (
             candidate.type === 'planetInvasion'
             && candidate.mothershipSquadId === mothershipSquad.id
         )) || null;
@@ -229,17 +234,19 @@ export function registerEncounterEnemyDestroyed(state, enemy) {
         encounter.activeObjectiveAttackerEnemyIds = encounter.activeObjectiveAttackerEnemyIds.filter((id) => id !== enemy.id);
         encounter.reserveEnemyIds = encounter.reserveEnemyIds.filter((id) => id !== enemy.id);
     }
-    if (state.encounterDirector) {
-        state.encounterDirector.activePresenterEnemyIds = state.encounterDirector.activePresenterEnemyIds.filter((id) => id !== enemy.id);
-        state.encounterDirector.activeObjectiveAttackerEnemyIds = state.encounterDirector.activeObjectiveAttackerEnemyIds.filter((id) => id !== enemy.id);
+    const director = getEncounterState(state).director;
+    if (director) {
+        director.activePresenterEnemyIds = director.activePresenterEnemyIds.filter((id) => id !== enemy.id);
+        director.activeObjectiveAttackerEnemyIds = director.activeObjectiveAttackerEnemyIds.filter((id) => id !== enemy.id);
     }
 }
 
 export function updateEncounterEntities(state, dt) {
-    if (!Array.isArray(state.encounterEntities)) {
+    const entities = getEncounterState(state).entities;
+    if (!Array.isArray(entities)) {
         return;
     }
-    for (const entity of state.encounterEntities) {
+    for (const entity of entities) {
         if (!entity || entity.destroyed || entity.health <= 0) {
             continue;
         }
@@ -309,7 +316,7 @@ function isEnemyEligibleForObjectiveAttackInEncounter(state, enemy, encounter, s
 }
 
 function chooseActiveEncounterForPlayer(state) {
-    const director = state.encounterDirector;
+    const director = getEncounterState(state).director;
     if (!director || director.encounters.length === 0) {
         return null;
     }
@@ -374,7 +381,7 @@ function refreshEncounterEnemyRoles(state, encounter) {
 }
 
 function pickPresentationKind(state, encounter, enemy, services) {
-    const director = state.encounterDirector;
+    const director = getEncounterState(state).director;
     const metrics = services.measureEnemyInPlayerFrame(state, enemy);
     const sideCrossLooksReadable = metrics
         && metrics.forward > 0
@@ -445,8 +452,9 @@ function beginEnemyObjectiveAttack(state, enemy, encounter) {
     };
     encounter.activeObjectiveAttackerEnemyIds = encounter.activeObjectiveAttackerEnemyIds.filter((id) => id !== enemy.id);
     encounter.activeObjectiveAttackerEnemyIds.push(enemy.id);
-    state.encounterDirector.activeObjectiveAttackerEnemyIds = state.encounterDirector.activeObjectiveAttackerEnemyIds.filter((id) => id !== enemy.id);
-    state.encounterDirector.activeObjectiveAttackerEnemyIds.push(enemy.id);
+    const director = getEncounterState(state).director;
+    director.activeObjectiveAttackerEnemyIds = director.activeObjectiveAttackerEnemyIds.filter((id) => id !== enemy.id);
+    director.activeObjectiveAttackerEnemyIds.push(enemy.id);
     pushEvent(state, 'objective-attacker-selected', {
         enemyId: enemy.id,
         encounterId: encounter.id,
@@ -542,10 +550,12 @@ export function updateEncounterDirector(state, dt, time, services) {
     if (!config.encounterDirectorEnabled) {
         return;
     }
-    if (!state.encounterDirector) {
+    let encounterState = getEncounterState(state);
+    if (!encounterState.director) {
         resetEncounterDirectorState(state);
+        encounterState = getEncounterState(state);
     }
-    const director = state.encounterDirector;
+    const director = encounterState.director;
     updateEncounterEntities(state, dt);
 
     for (const encounter of director.encounters) {

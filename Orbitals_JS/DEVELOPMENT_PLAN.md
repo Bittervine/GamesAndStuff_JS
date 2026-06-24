@@ -832,6 +832,13 @@ Revision 017 progress evidence:
 - `sim/events.js` now reads and writes the combat event log through the event-log accessor.
 - Nested-state alias coverage now verifies projectile and event subsystem accessors, including next-projectile ID and event-log writes.
 
+Revision 018 progress evidence:
+
+- `sim/state.js` now exposes a transitional encounter subsystem accessor for director and entity storage.
+- Encounter state creation/reset helpers now write through the encounter subsystem accessor.
+- `sim/encounters.js` now reads and writes encounter director and encounter entity storage through the transitional accessor.
+- Nested-state alias coverage now verifies encounter subsystem access, including director writes.
+
 ## 17. Phase E: Nested subsystem state migration
 
 Goal: move from flat `state` arrays to a nested `GAME` object.

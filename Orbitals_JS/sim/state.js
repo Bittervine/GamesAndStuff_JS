@@ -105,13 +105,15 @@ export function createEncounterDirectorState() {
 }
 
 export function resetEncounterDirectorState(state) {
-  state.encounterDirector = createEncounterDirectorState();
-  state.encounterEntities = [];
+  const encounters = getEncounterState(state);
+  encounters.director = createEncounterDirectorState();
+  encounters.entities = [];
 }
 
 export function createEncounterState(state, options = {}) {
-  const director = state.encounterDirector || createEncounterDirectorState();
-  state.encounterDirector = director;
+  const encounters = getEncounterState(state);
+  const director = encounters.director || createEncounterDirectorState();
+  encounters.director = director;
   const id = options.id ?? director.nextEncounterId++;
   const encounter = {
     id,
@@ -150,8 +152,9 @@ export function createEncounterState(state, options = {}) {
 }
 
 export function createEncounterEntityState(state, options = {}) {
-  const director = state.encounterDirector || createEncounterDirectorState();
-  state.encounterDirector = director;
+  const encounters = getEncounterState(state);
+  const director = encounters.director || createEncounterDirectorState();
+  encounters.director = director;
   const entity = {
     id: options.id ?? director.nextEncounterEntityId++,
     kind: options.kind || 'transport',
@@ -171,10 +174,10 @@ export function createEncounterEntityState(state, options = {}) {
     destroyed: false,
     visualScale: options.visualScale ?? 2.4
   };
-  if (!Array.isArray(state.encounterEntities)) {
-    state.encounterEntities = [];
+  if (!Array.isArray(encounters.entities)) {
+    encounters.entities = [];
   }
-  state.encounterEntities.push(entity);
+  encounters.entities.push(entity);
   return entity;
 }
 
@@ -393,6 +396,29 @@ export function getWorldPlanets(state) {
 
 export function getPlayerState(state) {
   return state?.game?.player || state?.player || state || {};
+}
+
+export function getEncounterState(state) {
+  const nested = state?.game?.encounters || state?.encounters;
+  if (nested) {
+    return nested;
+  }
+
+  const fallbackState = state || {};
+  return {
+    get director() {
+      return fallbackState.encounterDirector || null;
+    },
+    set director(value) {
+      fallbackState.encounterDirector = value;
+    },
+    get entities() {
+      return fallbackState.encounterEntities || [];
+    },
+    set entities(value) {
+      fallbackState.encounterEntities = value;
+    }
+  };
 }
 
 export function getEventsState(state) {
