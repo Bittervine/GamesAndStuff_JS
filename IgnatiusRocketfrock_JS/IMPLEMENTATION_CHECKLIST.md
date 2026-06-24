@@ -55,7 +55,7 @@ Goal: make each level read as a window into a larger cavern without coupling pre
 * [x] Store the cave perimeter as visual authoring data only. Revision 136 adds normalized `caveWindow` data and shared spline math.
 * [x] Never derive solids, walkable supports, hazards, navigation edges, or projectile collision from the perimeter. Revision 137 passes cave data directly from the browser adapter to presentation and keeps portable core unaware of the mask.
 * [x] Keep all authoritative platforms and collision in the playing-area layer.
-* [ ] Warn when gameplay geometry sits far outside the visible cave opening.
+* [x] Warn when gameplay geometry sits far outside the visible cave opening. Revision 145 flags collision-bearing atlas placements only when they are completely exterior and beyond a safe edge margin, and outlines them in the editor.
 * [x] Render a black exterior with a feathered opening. Revision 137 uses a reusable offscreen destination-out mask; future perimeter artwork will share its opaque-black outward fade.
 * [x] Give the perimeter a subtle configurable foreground parallax offset. Revision 137 anchors the extra scroll around the technical world centre; generated foreground formations will use the same setting.
 * [x] Add deterministic perimeter decoration using tagged floor, wall, ceiling, stalagmite, and stalactite atlas assets. Revision 138 samples the spline by arc length and selects assets deterministically from an authored seed.
@@ -68,7 +68,7 @@ Goal: make each level read as a window into a larger cavern without coupling pre
 * [x] Shift generated perimeter decorations inward across the spline and use a broad eased fade with a fully black outward cap. Revision 141.
 * [x] Clamp smooth spline handles and regress the wide world-bounds starter loop against self-intersection. Revision 141.
 
-Revision 137 completes runtime masking and perimeter parallax without touching collision. The next implementation revision should add deterministic, presentation-only perimeter decoration from tagged atlas assets.
+Revisions 137–145 complete runtime masking, deterministic inert decoration, performance work, tuning, editor ergonomics, and hidden-gameplay-geometry warnings. The remaining cave-track gate is representative target-browser validation before any WebGL2 decision.
 
 ## Phase 1: Completed Physics, Level, and Atlas Foundation
 
@@ -1245,3 +1245,13 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Keep only the primary heading and accessible expand button visible while collapsed.
 - [x] Preserve all authored data and exported JSON regardless of inspector visibility.
 - [x] Add regression coverage for all three editors' collapse controls and persistence hooks.
+
+
+### Revision 145 hidden gameplay-geometry warnings and archive cleanup
+
+- [x] Remove the accidentally packaged retired `src/presentation/level-color-map.js` duplicate so the source-organization regression passes again.
+- [x] Add engine-neutral polygon-versus-cave separation math to `src/shared/cave-window-data.js`.
+- [x] Warn only for collision-bearing atlas placements that are completely outside the cave opening and farther away than the conservative edge margin.
+- [x] Draw orange dashed warning outlines above the editor cave shade and list affected placement IDs in the cave panel.
+- [x] Preserve intentional near-edge and edge-crossing gameplay platforms without warnings.
+- [x] Add regression coverage for inside, crossing, and fully exterior placement geometry plus Level Editor warning integration.

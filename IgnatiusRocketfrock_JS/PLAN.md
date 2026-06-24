@@ -69,7 +69,8 @@ Implementation order:
 7. **Complete in revision 139:** Canvas 2D performance pass for dense cave decoration: cached layer partitioning, conservative viewport culling, cached foreground treatment, reduced-resolution mask rendering, and renderer diagnostics.
 8. **Complete in revision 140:** Level Editor performance parity, optional generated-art visibility, adaptive overlap for top/bottom perimeter coverage, and cached outward-to-black sprite fades shared with runtime.
 9. **Complete in revision 141:** tune the default foreground scale/parallax, broaden and ease the black handover, overlap generated art farther into the opening, and prevent starter-spline corner loops.
-10. Validate representative decorated caves on target browsers before deciding whether WebGL2 is necessary. If it is, reuse the same cached visual records, bounds, and draw-order partitions as the backend input model.
+10. **Complete in revision 145:** warn when collision-bearing gameplay placements are completely hidden far outside the authored cave opening.
+11. Validate representative decorated caves on target browsers before deciding whether WebGL2 is necessary. If it is, reuse the same cached visual records, bounds, and draw-order partitions as the backend input model.
 
 ## Intro
 
@@ -1715,3 +1716,8 @@ The automatic cave-perimeter asset-scale default returns to 2× after playtestin
 ### Revision 143 collapsible Level Editor and Asset Tool inspectors
 
 The Level Editor and Asset Tool now match Puppet Forge's right-side inspector ergonomics. Every inspector box has a compact plus/minus control in its primary heading, collapses without changing authored data, and remembers its state independently in local storage. The implementation keeps secondary headings inside a collapsed box hidden, leaving only the primary heading and its accessible expand control visible.
+
+
+### Revision 145 hidden gameplay-geometry warnings
+
+The Level Editor now identifies collision-bearing atlas placements that are completely outside an enabled cave opening and separated from its sampled spline by more than a conservative margin. Those placements receive an orange dashed outline above the exterior preview shade, and the cave panel lists the affected IDs. Geometry that remains inside, overlaps the opening, or deliberately sits close behind the perimeter is not warned, preserving the intended foreground-occlusion workflow. The classification math lives in `src/shared/cave-window-data.js` as engine-neutral polygon-versus-spline separation logic. Revision 145 also removes an accidentally repackaged retired colour-map module that the architecture regression correctly rejected.

@@ -278,6 +278,10 @@
             color: var(--orange);
         }
 
+        .cave-geometry-warning {
+            color: var(--orange);
+        }
+
         .entity-palette {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -425,7 +429,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 143</small></h1>
+        <h1>Level Editor <small>rev 145</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -513,6 +517,7 @@
                 <button id="cave-clear-generated" type="button">Clear generated</button>
             </div>
             <p id="cave-status" class="small">No cave perimeter points.</p>
+            <p id="cave-geometry-warning" class="small cave-geometry-warning" hidden></p>
             <p class="small">The perimeter and foreground are completely inert presentation layers. Foreground placements render after actors with cave parallax, are darkened for depth, overlap slightly into the cave, fade smoothly outward into black, and always have atlas collision disabled. Auto-population treats Max spacing as an upper limit and overlaps smaller top/bottom assets to prevent visible gaps.</p>
         </div>
 
@@ -745,6 +750,7 @@ import {
 import {
     caveSplineSegmentControls,
     caveWindowBounds,
+    caveWindowPolygonSeparation,
     createCaveWindowPointsFromBounds,
     nearestCaveSplineSegment,
     normalizeCaveDecoration,
@@ -884,7 +890,8 @@ import {
         gridMajor: "rgba(255,255,255,0.14)",
         caveSpline: "rgba(95,242,255,0.96)",
         cavePoint: "rgba(255,226,116,0.98)",
-        caveSelectedPoint: "rgba(255,255,255,1)"
+        caveSelectedPoint: "rgba(255,255,255,1)",
+        caveGeometryWarning: "rgba(255,159,67,0.98)"
     };
 
     const canvas = document.getElementById("stage");
@@ -925,6 +932,7 @@ import {
         caveAutoPopulate: document.getElementById("cave-auto-populate"),
         caveClearGenerated: document.getElementById("cave-clear-generated"),
         caveStatus: document.getElementById("cave-status"),
+        caveGeometryWarning: document.getElementById("cave-geometry-warning"),
         colorMapEnabled: document.getElementById("color-map-enabled"),
         colorMapSource: document.getElementById("color-map-source"),
         colorMapRange: document.getElementById("color-map-range"),
@@ -1023,7 +1031,8 @@ import {
         navigationPreviewGraphId: "",
         placementDrawCache: null,
         placementBoundsCache: new WeakMap(),
-        editorForegroundSpriteCache: new Map()
+        editorForegroundSpriteCache: new Map(),
+        caveGeometryWarningText: ""
     };
     let colorMapRefreshTimer = null;
     let jsonUpdateTimer = null;
@@ -1186,6 +1195,42 @@ import {
         const selectedText = selectedPoint ? ` Selected ${selectedPoint.id} (${selectedPoint.mode}).` : "";
         const generatedText = generatedCount ? ` ${generatedCount} generated foreground asset${generatedCount === 1 ? "" : "s"}.` : "";
         els.caveStatus.textContent = `${cave.points.length} perimeter point${cave.points.length === 1 ? "" : "s"}; ${closure}.${generatedText}${selectedText}`;
+    }
+
+    function caveGeometryWarningDistance(cave) {
+        return Math.max(96, Math.min(240, finiteEditorNumber(cave?.feather, 0) * 0.5));
+    }
+
+    function gameplayGeometryCaveWarnings() {
+        const cave = caveWindowRecord();
+        if (!cave.enabled || cave.points.length < 3) return [];
+        const warningDistance = caveGeometryWarningDistance(cave);
+        const warnings = [];
+        for (const placement of state.level.placements || []) {
+            if (!placement || placement.kind !== "atlasAsset" || placement.layer === CAVE_FOREGROUND_LAYER) continue;
+            if (placement.collisionFromManifest === false) continue;
+            const object = objectFor(placement.assetId, placement.atlasId || DEFAULT_ATLAS_ID);
+            if (object && !hasRuntimeLines(object)) continue;
+            const separation = caveWindowPolygonSeparation(cave.points, placementCorners(placement));
+            if (!separation.outside || separation.distance <= warningDistance) continue;
+            warnings.push({
+                placement,
+                distance: separation.distance,
+                warningDistance
+            });
+        }
+        return warnings;
+    }
+
+    function refreshCaveGeometryWarningUi(warnings) {
+        const items = Array.isArray(warnings) ? warnings : gameplayGeometryCaveWarnings();
+        const text = items.length
+            ? `${items.length} collision-bearing placement${items.length === 1 ? " is" : "s are"} far outside the visible cave opening: ${items.slice(0, 4).map((item) => item.placement.id).join(", ")}${items.length > 4 ? ", …" : ""}. Move gameplay geometry inward or reshape the perimeter.`
+            : "";
+        if (state.caveGeometryWarningText === text) return;
+        state.caveGeometryWarningText = text;
+        els.caveGeometryWarning.hidden = !text;
+        els.caveGeometryWarning.textContent = text;
     }
 
     function createCaveWindowFromWorldBounds() {
@@ -2889,7 +2934,10 @@ import {
         for (const entity of state.level.entities) drawEntity(entity);
         for (const placement of placementGroups.caveForeground) drawPlacement(placement, viewportBounds);
         drawNavigationGraph();
+        const caveGeometryWarnings = gameplayGeometryCaveWarnings();
         drawCaveWindowOverlay(rect);
+        drawCaveGeometryWarnings(caveGeometryWarnings);
+        refreshCaveGeometryWarningUi(caveGeometryWarnings);
         drawSelection();
         scheduleJsonUpdate();
     }
@@ -3008,6 +3056,28 @@ import {
                 ctx.fillStyle = selected ? COLORS.caveSelectedPoint : COLORS.cavePoint;
                 ctx.fillText(point.id, screen.x + 8, screen.y - 8);
             }
+            ctx.restore();
+        }
+    }
+
+    function drawCaveGeometryWarnings(warnings) {
+        if (!Array.isArray(warnings) || warnings.length === 0) return;
+        for (const warning of warnings) {
+            const corners = placementCorners(warning.placement).map((point) => worldToScreen(point.x, point.y));
+            ctx.save();
+            ctx.strokeStyle = COLORS.caveGeometryWarning;
+            ctx.fillStyle = COLORS.caveGeometryWarning;
+            ctx.lineWidth = 3;
+            ctx.setLineDash([10, 6]);
+            ctx.beginPath();
+            ctx.moveTo(corners[0].x, corners[0].y);
+            for (let index = 1; index < corners.length; index += 1) ctx.lineTo(corners[index].x, corners[index].y);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.setLineDash([]);
+            const labelPoint = corners.reduce((best, point) => point.y < best.y ? point : best, corners[0]);
+            ctx.font = "bold 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+            ctx.fillText(`Hidden gameplay geometry: ${Math.round(warning.distance)} px outside`, labelPoint.x + 6, labelPoint.y - 8);
             ctx.restore();
         }
     }

@@ -182,6 +182,91 @@ function pointSegmentDistanceSquared(point, a, b) {
     return { distanceSquared: offsetX * offsetX + offsetY * offsetY, x, y, t };
 }
 
+function pointInPolygon(point, polygon) {
+    if (!Array.isArray(polygon) || polygon.length < 3) return false;
+    let inside = false;
+    for (let index = 0, previousIndex = polygon.length - 1; index < polygon.length; previousIndex = index, index += 1) {
+        const a = polygon[previousIndex];
+        const b = polygon[index];
+        if (pointSegmentDistanceSquared(point, a, b).distanceSquared <= 0.000001) return true;
+        const crosses = (a.y > point.y) !== (b.y > point.y);
+        if (!crosses) continue;
+        const crossingX = a.x + ((point.y - a.y) * (b.x - a.x)) / (b.y - a.y);
+        if (point.x < crossingX) inside = !inside;
+    }
+    return inside;
+}
+
+function orientation(a, b, c) {
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+function pointOnSegment(point, a, b) {
+    return pointSegmentDistanceSquared(point, a, b).distanceSquared <= 0.000001;
+}
+
+function segmentsIntersect(a, b, c, d) {
+    const abC = orientation(a, b, c);
+    const abD = orientation(a, b, d);
+    const cdA = orientation(c, d, a);
+    const cdB = orientation(c, d, b);
+    if (((abC > 0 && abD < 0) || (abC < 0 && abD > 0))
+        && ((cdA > 0 && cdB < 0) || (cdA < 0 && cdB > 0))) {
+        return true;
+    }
+    return (Math.abs(abC) <= 0.000001 && pointOnSegment(c, a, b))
+        || (Math.abs(abD) <= 0.000001 && pointOnSegment(d, a, b))
+        || (Math.abs(cdA) <= 0.000001 && pointOnSegment(a, c, d))
+        || (Math.abs(cdB) <= 0.000001 && pointOnSegment(b, c, d));
+}
+
+function segmentSegmentDistanceSquared(a, b, c, d) {
+    if (segmentsIntersect(a, b, c, d)) return 0;
+    return Math.min(
+        pointSegmentDistanceSquared(a, c, d).distanceSquared,
+        pointSegmentDistanceSquared(b, c, d).distanceSquared,
+        pointSegmentDistanceSquared(c, a, b).distanceSquared,
+        pointSegmentDistanceSquared(d, a, b).distanceSquared
+    );
+}
+
+export function caveWindowPolygonSeparation(points, polygon, stepsPerSegment = 20) {
+    const cavePolygon = sampleClosedCaveSpline(points, stepsPerSegment).slice(0, -1);
+    const shape = Array.isArray(polygon)
+        ? polygon
+            .filter((point) => point && Number.isFinite(Number(point.x)) && Number.isFinite(Number(point.y)))
+            .map((point) => ({ x: Number(point.x), y: Number(point.y) }))
+        : [];
+    if (cavePolygon.length < 3 || shape.length < 3) {
+        return { outside: false, distance: 0 };
+    }
+    if (shape.some((point) => pointInPolygon(point, cavePolygon))
+        || cavePolygon.some((point) => pointInPolygon(point, shape))) {
+        return { outside: false, distance: 0 };
+    }
+
+    let minimumDistanceSquared = Infinity;
+    for (let shapeIndex = 0; shapeIndex < shape.length; shapeIndex += 1) {
+        const shapeA = shape[shapeIndex];
+        const shapeB = shape[(shapeIndex + 1) % shape.length];
+        for (let caveIndex = 0; caveIndex < cavePolygon.length; caveIndex += 1) {
+            const caveA = cavePolygon[caveIndex];
+            const caveB = cavePolygon[(caveIndex + 1) % cavePolygon.length];
+            minimumDistanceSquared = Math.min(
+                minimumDistanceSquared,
+                segmentSegmentDistanceSquared(shapeA, shapeB, caveA, caveB)
+            );
+            if (minimumDistanceSquared <= 0.000001) {
+                return { outside: false, distance: 0 };
+            }
+        }
+    }
+    return {
+        outside: true,
+        distance: Math.sqrt(minimumDistanceSquared)
+    };
+}
+
 export function nearestCaveSplineSegment(points, point, stepsPerSegment = 20) {
     const sampled = sampleClosedCaveSpline(points, stepsPerSegment);
     if (sampled.length < 2) return null;

@@ -23,6 +23,7 @@ import {
 import {
     caveSplineSegmentControls,
     caveWindowBounds,
+    caveWindowPolygonSeparation,
     createCaveWindowPointsFromBounds,
     nearestCaveSplineSegment,
     normalizeCaveDecoration,
@@ -3077,6 +3078,26 @@ function testCaveWindowSplineAuthoring() {
     assert.ok(generatedBounds.w > worldBounds.w && generatedBounds.h > worldBounds.h, "cave-window fit bounds should cover the outside perimeter plus padding");
     const nearest = nearestCaveSplineSegment(generated, { x: 2480, y: -350 });
     assert.ok(nearest && Number.isInteger(nearest.segmentIndex), "point insertion should locate the nearest closed spline segment");
+
+    const warningCave = [
+        { id: "a", x: 0, y: 0, mode: "corner" },
+        { id: "b", x: 400, y: 0, mode: "corner" },
+        { id: "c", x: 400, y: 300, mode: "corner" },
+        { id: "d", x: 0, y: 300, mode: "corner" }
+    ];
+    const insideSeparation = caveWindowPolygonSeparation(warningCave, [
+        { x: 100, y: 100 }, { x: 200, y: 100 }, { x: 200, y: 160 }, { x: 100, y: 160 }
+    ]);
+    assert.equal(insideSeparation.outside, false, "gameplay geometry inside the cave opening should not be classified as hidden");
+    const crossingSeparation = caveWindowPolygonSeparation(warningCave, [
+        { x: 350, y: 120 }, { x: 450, y: 120 }, { x: 450, y: 180 }, { x: 350, y: 180 }
+    ]);
+    assert.equal(crossingSeparation.outside, false, "geometry crossing the cave edge should remain intentionally placeable");
+    const outsideSeparation = caveWindowPolygonSeparation(warningCave, [
+        { x: 540, y: 120 }, { x: 640, y: 120 }, { x: 640, y: 180 }, { x: 540, y: 180 }
+    ]);
+    assert.equal(outsideSeparation.outside, true, "fully exterior gameplay geometry should be classified outside the opening");
+    approx(outsideSeparation.distance, 140, 0.0001, "fully exterior geometry should report its nearest cave-edge distance");
 
     const cornerSquare = [
         { id: "p1", x: 0, y: 0, mode: "corner" },
