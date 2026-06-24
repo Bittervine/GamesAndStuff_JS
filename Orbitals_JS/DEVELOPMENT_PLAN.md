@@ -818,6 +818,13 @@ Revision 015 progress evidence:
 - `sim/collisions.js` now reads player and enemy collections through transitional state accessors before applying ship-collision rules.
 - Nested-state alias coverage now verifies the player accessor and speed alias.
 
+Revision 016 progress evidence:
+
+- `sim/state.js` now exposes transitional world and enemy subsystem accessors in addition to item-level collection helpers.
+- `sim/world.js` now reads planet, fuel-mote, and player state through transitional accessors.
+- `sim/effects.js` now reads explosion storage and next explosion IDs through the enemy subsystem accessor.
+- Nested-state alias coverage now verifies world and enemy subsystem accessors, including fuel-mote and explosion aliases.
+
 ## 17. Phase E: Nested subsystem state migration
 
 Goal: move from flat `state` arrays to a nested `GAME` object.

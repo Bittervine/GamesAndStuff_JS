@@ -1,6 +1,11 @@
 import * as THREE from '../lib/three.module.js';
 import { PLANET_FILES, config } from '../orbitals_config.js';
 import { buildBasisFromNormal, randomUnitVector, shuffleFiles } from './math.js';
+import {
+  getPlayerState,
+  getWorldState,
+  getWorldPlanets
+} from './state.js';
 
 const tempVecA = new THREE.Vector3();
 const tempVecB = new THREE.Vector3();
@@ -76,6 +81,7 @@ export function createFuelMote(rng, planet, moteIndex) {
 
 export function updateFuelMoteState(mote, dt, time, state) {
   const { planet } = mote;
+  const player = getPlayerState(state);
   mote.angle += mote.orbitSpeed * dt;
   mote.pulse += dt * 3.2;
   const basis = planet.orbitPlane;
@@ -88,10 +94,10 @@ export function updateFuelMoteState(mote, dt, time, state) {
   mote.position.copy(offset);
   mote.scale = 0.65 + 0.25 * Math.sin(mote.pulse);
 
-  if (state.ship && !state.crashed) {
+  if (player.ship && !player.crashed) {
     const moteWorldPos = tempVecB.copy(planet.position).add(mote.position);
-    if (moteWorldPos.distanceTo(state.ship.position) < 0.9) {
-      state.fuel = Math.min(state.maxFuel, state.fuel + 4);
+    if (moteWorldPos.distanceTo(player.ship.position) < 0.9) {
+      player.fuel = Math.min(player.maxFuel, player.fuel + 4);
       mote.angle += Math.PI * 0.6;
       mote.pulse += Math.PI * 0.8;
     }
@@ -171,15 +177,16 @@ export function relaxStarSeparation(planets) {
 }
 
 export function pickRandomPlanetIndex(state, excludeIndex = -1, rng = state.rng) {
-  if (state.planets.length === 0) {
+  const planets = getWorldPlanets(state);
+  if (planets.length === 0) {
     return -1;
   }
-  if (state.planets.length === 1) {
+  if (planets.length === 1) {
     return 0;
   }
-  let index = Math.floor(rng() * state.planets.length);
+  let index = Math.floor(rng() * planets.length);
   if (index === excludeIndex) {
-    index = (index + 1 + Math.floor(rng() * (state.planets.length - 1))) % state.planets.length;
+    index = (index + 1 + Math.floor(rng() * (planets.length - 1))) % planets.length;
   }
   return index;
 }
@@ -198,7 +205,8 @@ export function pickNearestPlanet(planets, position) {
 }
 
 export function updateFuelMotes(state, dt, time) {
-  for (const mote of state.fuelMotes) {
+  const fuelMotes = getWorldState(state).fuelMotes;
+  for (const mote of fuelMotes) {
     updateFuelMoteState(mote, dt, time, state);
   }
 }
@@ -208,13 +216,14 @@ export function shufflePlanetFiles(rng) {
 }
 
 export function updatePlanets(state, dt, time) {
-  for (const planet of state.planets) {
+  const planets = getWorldPlanets(state);
+  for (const planet of planets) {
     updatePlanetState(planet, dt, time);
   }
-  relaxPlanetSeparation(state.planets);
-  relaxStarSeparation(state.planets);
+  relaxPlanetSeparation(planets);
+  relaxStarSeparation(planets);
   const velocityDt = Math.max(dt, 1 / 240);
-  for (const planet of state.planets) {
+  for (const planet of planets) {
     planet.velocity.copy(planet.position).sub(planet.previousPosition).divideScalar(velocityDt);
   }
 }

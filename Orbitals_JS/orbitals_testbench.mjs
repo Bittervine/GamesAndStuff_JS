@@ -28,8 +28,10 @@ const {
   createEnemyState,
   createGameState,
   getEnemyItems,
+  getEnemyState,
   getPlayerState,
   getProjectileItems,
+  getWorldState,
   getWorldPlanets,
   resetGameState
 } = await import('./sim/state.js');
@@ -143,7 +145,7 @@ async function runLowRiskSimulationModuleSmokeTest() {
     ['./sim/math.js', ['parseSeed', 'mulberry32', 'clamp01', 'smoothstep', 'easeExp', 'buildBasisFromNormal']],
     ['./sim/events.js', ['pushEvent', 'formatCombatLog']],
     ['./sim/world.js', ['createPlanetConfig', 'createFuelMote', 'pickRandomPlanetIndex', 'updateFuelMotes', 'updatePlanets']],
-    ['./sim/state.js', ['createGameState', 'resetGameState', 'attachNestedStateAliases', 'getEnemyItems', 'getProjectileItems', 'getWorldPlanets']],
+    ['./sim/state.js', ['createGameState', 'resetGameState', 'attachNestedStateAliases', 'getEnemyState', 'getEnemyItems', 'getPlayerState', 'getProjectileItems', 'getWorldState', 'getWorldPlanets']],
     ['./sim/projectiles.js', ['segmentIntersectsSphere', 'findProjectileHomingTarget', 'steerProjectileTowardsTarget', 'spawnProjectileBurst', 'computeShipFireDirection', 'updateProjectiles']],
     ['./sim/effects.js', ['createEnemyExplosionState', 'spawnEnemyExplosion', 'updateEnemyExplosions']],
     ['./sim/spatial_hash.js', ['createSpatialHash', 'querySpatialHash']]
@@ -185,7 +187,11 @@ function runNestedStateAliasTest() {
   assert.strictEqual(state.game.projectiles.items, state.projectiles, 'expected nested projectiles to alias top-level projectiles');
   assert.strictEqual(state.game.events.log, state.eventLog, 'expected nested event log to alias top-level event log');
   assert.strictEqual(getWorldPlanets(state), state.planets, 'expected world accessor to return top-level planets during transition');
+  assert.strictEqual(getWorldState(state), state.game.world, 'expected world-state accessor to return nested world state during transition');
+  assert.strictEqual(getWorldState(state).fuelMotes, state.fuelMotes, 'expected world-state fuel motes to alias top-level fuel motes');
+  assert.strictEqual(getEnemyState(state), state.game.enemies, 'expected enemy-state accessor to return nested enemy state during transition');
   assert.strictEqual(getEnemyItems(state), state.enemies, 'expected enemy accessor to return top-level enemies during transition');
+  assert.strictEqual(getEnemyState(state).explosions, state.enemyExplosions, 'expected enemy-state explosions to alias top-level enemy explosions');
   assert.strictEqual(getPlayerState(state), state.game.player, 'expected player accessor to return nested player state during transition');
   assert.strictEqual(getProjectileItems(state), state.projectiles, 'expected projectile accessor to return top-level projectiles during transition');
 

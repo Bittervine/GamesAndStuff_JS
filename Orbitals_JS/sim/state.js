@@ -262,16 +262,110 @@ export function attachNestedStateAliases(state) {
   return state;
 }
 
+export function getEnemyState(state) {
+  const nested = state?.game?.enemies || (state?.enemies && !Array.isArray(state.enemies) ? state.enemies : null);
+  if (nested) {
+    return nested;
+  }
+
+  const fallbackState = state || {};
+  return {
+    get nextId() {
+      return fallbackState.nextEnemyId ?? 1;
+    },
+    set nextId(value) {
+      fallbackState.nextEnemyId = value;
+    },
+    get nextSquadId() {
+      return fallbackState.nextEnemySquadId ?? 1;
+    },
+    set nextSquadId(value) {
+      fallbackState.nextEnemySquadId = value;
+    },
+    get items() {
+      return fallbackState.enemies || [];
+    },
+    set items(value) {
+      fallbackState.enemies = value;
+    },
+    get squads() {
+      return fallbackState.enemySquads || [];
+    },
+    set squads(value) {
+      fallbackState.enemySquads = value;
+    },
+    get activeSquad() {
+      return fallbackState.enemySquad || null;
+    },
+    set activeSquad(value) {
+      fallbackState.enemySquad = value;
+    },
+    get explosions() {
+      return fallbackState.enemyExplosions || [];
+    },
+    set explosions(value) {
+      fallbackState.enemyExplosions = value;
+    },
+    get nextExplosionId() {
+      return fallbackState.nextEnemyExplosionId ?? 1;
+    },
+    set nextExplosionId(value) {
+      fallbackState.nextEnemyExplosionId = value;
+    }
+  };
+}
+
 export function getEnemyItems(state) {
-  return state?.game?.enemies?.items || state?.enemies?.items || state?.enemies || [];
+  return getEnemyState(state).items || [];
 }
 
 export function getProjectileItems(state) {
   return state?.game?.projectiles?.items || state?.projectiles?.items || state?.projectiles || [];
 }
 
+export function getWorldState(state) {
+  const nested = state?.game?.world || state?.world;
+  if (nested) {
+    return nested;
+  }
+
+  const fallbackState = state || {};
+  return {
+    get planets() {
+      return fallbackState.planets || [];
+    },
+    set planets(value) {
+      fallbackState.planets = value;
+    },
+    get fuelMotes() {
+      return fallbackState.fuelMotes || [];
+    },
+    set fuelMotes(value) {
+      fallbackState.fuelMotes = value;
+    },
+    get nearestPlanet() {
+      return fallbackState.nearestPlanet || null;
+    },
+    set nearestPlanet(value) {
+      fallbackState.nearestPlanet = value;
+    },
+    get nearestAltitude() {
+      return fallbackState.nearestAltitude ?? 0;
+    },
+    set nearestAltitude(value) {
+      fallbackState.nearestAltitude = value;
+    },
+    get nearestDistance() {
+      return fallbackState.nearestDistance ?? 0;
+    },
+    set nearestDistance(value) {
+      fallbackState.nearestDistance = value;
+    }
+  };
+}
+
 export function getWorldPlanets(state) {
-  return state?.game?.world?.planets || state?.world?.planets || state?.planets || [];
+  return getWorldState(state).planets || [];
 }
 
 export function getPlayerState(state) {
