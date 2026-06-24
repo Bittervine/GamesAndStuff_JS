@@ -28,6 +28,7 @@ const {
   createEnemyState,
   createGameState,
   getEnemyItems,
+  getPlayerState,
   getProjectileItems,
   getWorldPlanets,
   resetGameState
@@ -185,10 +186,13 @@ function runNestedStateAliasTest() {
   assert.strictEqual(state.game.events.log, state.eventLog, 'expected nested event log to alias top-level event log');
   assert.strictEqual(getWorldPlanets(state), state.planets, 'expected world accessor to return top-level planets during transition');
   assert.strictEqual(getEnemyItems(state), state.enemies, 'expected enemy accessor to return top-level enemies during transition');
+  assert.strictEqual(getPlayerState(state), state.game.player, 'expected player accessor to return nested player state during transition');
   assert.strictEqual(getProjectileItems(state), state.projectiles, 'expected projectile accessor to return top-level projectiles during transition');
 
   state.game.player.score = 42;
   assert.strictEqual(state.score, 42, 'expected nested player score writes to update the top-level score');
+  getPlayerState(state).speed = 24;
+  assert.strictEqual(state.speed, 24, 'expected player accessor speed writes to update top-level speed');
   state.nextEnemyId = 7;
   assert.strictEqual(state.game.enemies.nextId, 7, 'expected top-level enemy id writes to update nested state');
 

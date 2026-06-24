@@ -6,18 +6,27 @@ import {
   syncShipWorldState,
   updateFlightState
 } from './physics.js';
+import {
+  getPlayerState,
+  getProjectileItems,
+  getWorldPlanets
+} from './state.js';
 
 const tempVecA = new THREE.Vector3();
 const tempVecB = new THREE.Vector3();
 
 export function respawnShip(state) {
-  if (!state.ship || state.planets.length === 0) {
+  const player = getPlayerState(state);
+  const planets = getWorldPlanets(state);
+  const projectiles = getProjectileItems(state);
+  const ship = player.ship;
+  if (!ship || planets.length === 0) {
     return null;
   }
-  state.crashed = false;
-  state.fuel = state.maxFuel;
-  state.projectiles.length = 0;
-  const planet = state.planets[state.respawnPlanetIndex % state.planets.length];
+  player.crashed = false;
+  player.fuel = player.maxFuel;
+  projectiles.length = 0;
+  const planet = planets[player.respawnPlanetIndex % planets.length];
   const normal = planet.position.lengthSq() > 1e-6 ? planet.position.clone().normalize() : new THREE.Vector3(0, 1, 0);
   const tangent = Math.abs(normal.dot(worldUp)) > 0.85
     ? new THREE.Vector3(1, 0, 0).cross(normal).normalize()
@@ -31,31 +40,32 @@ export function respawnShip(state) {
   const flightSpeed = clampShipSpeed(cruiseSpeed * (0.92 + state.rng() * 0.08));
   const spawnOffset = normal.clone().multiplyScalar(desiredRadius)
     .addScaledVector(side, -1.0 + state.rng() * 2.0);
-  state.ship.boundPlanet = planet;
-  state.ship.relativePosition.copy(spawnOffset);
-  state.ship.relativeVelocity.copy(tangent).multiplyScalar(flightSpeed);
-  syncShipWorldState(state.ship);
-  state.ship.forward.copy(tangent).normalize();
-  state.ship.up.copy(normal).normalize();
-  state.ship.bank = 0;
-  state.ship.boostTimer = 0;
-  state.ship.fireCooldown = 0;
-  state.ship.pitchIdleTime = 0;
-  state.ship.recaptureLock = 0;
-  state.ship.captureTimer = config.shipCaptureBlendTime;
-  state.ship.flightMode = 'bound';
-  state.ship.muzzleOffset = config.shipMuzzleOffset;
-  state.ship.speed = flightSpeed;
+  ship.boundPlanet = planet;
+  ship.relativePosition.copy(spawnOffset);
+  ship.relativeVelocity.copy(tangent).multiplyScalar(flightSpeed);
+  syncShipWorldState(ship);
+  ship.forward.copy(tangent).normalize();
+  ship.up.copy(normal).normalize();
+  ship.bank = 0;
+  ship.boostTimer = 0;
+  ship.fireCooldown = 0;
+  ship.pitchIdleTime = 0;
+  ship.recaptureLock = 0;
+  ship.captureTimer = config.shipCaptureBlendTime;
+  ship.flightMode = 'bound';
+  ship.muzzleOffset = config.shipMuzzleOffset;
+  ship.speed = flightSpeed;
   state.nearestPlanet = planet;
-  state.nearestDistance = state.ship.position.distanceTo(planet.position);
+  state.nearestDistance = ship.position.distanceTo(planet.position);
   state.nearestAltitude = state.nearestDistance - planet.radius;
-  state.speed = state.ship.relativeVelocity.length();
+  player.speed = ship.relativeVelocity.length();
   return planet;
 }
 
 export function crashPlayerShip(state, planet, crashNormal, impactPosition = null, options = {}) {
-  const ship = state.ship;
-  if (!ship || state.crashed) {
+  const player = getPlayerState(state);
+  const ship = player.ship;
+  if (!ship || player.crashed) {
     return;
   }
 
@@ -64,10 +74,10 @@ export function crashPlayerShip(state, planet, crashNormal, impactPosition = nul
     ? tempVecA.copy(crashNormal).normalize()
     : tempVecA.copy(ship.position).sub(planet.position).normalize();
   const crashAltitude = Math.max(0.25, config.atmosphereTerrainCrashAltitude);
-  state.crashed = true;
-  state.crashTimer = 0;
-  state.crashRespawnReady = false;
-  state.speed = 0;
+  player.crashed = true;
+  player.crashTimer = 0;
+  player.crashRespawnReady = false;
+  player.speed = 0;
   ship.speed = 0;
   ship.boostTimer = 0;
   ship.fireCooldown = 0;
@@ -83,20 +93,21 @@ export function crashPlayerShip(state, planet, crashNormal, impactPosition = nul
       : tempVecB.copy(worldUp).cross(safeNormal).normalize());
   }
   ship.forward.normalize();
-  state.projectiles.length = 0;
+  getProjectileItems(state).length = 0;
   spawnEnemyExplosion(state, impactPosition || ship.position, 'crash');
 }
 
 export function crashPlayerShipIntoSun(state, impactPosition = null, options = {}) {
-  const ship = state.ship;
-  if (!ship || state.crashed) {
+  const player = getPlayerState(state);
+  const ship = player.ship;
+  if (!ship || player.crashed) {
     return;
   }
   const spawnEnemyExplosion = typeof options.spawnEnemyExplosion === 'function' ? options.spawnEnemyExplosion : () => {};
-  state.crashed = true;
-  state.crashTimer = 0;
-  state.crashRespawnReady = false;
-  state.speed = 0;
+  player.crashed = true;
+  player.crashTimer = 0;
+  player.crashRespawnReady = false;
+  player.speed = 0;
   ship.speed = 0;
   ship.boostTimer = 0;
   ship.fireCooldown = 0;

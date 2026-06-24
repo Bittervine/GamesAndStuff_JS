@@ -811,6 +811,13 @@ Revision 014 progress evidence:
 - Existing projectile homing, collision, inherited-velocity, and facade/module comparison regressions cover the migrated access path.
 - The complete active regression suite passes after the projectile accessor migration.
 
+Revision 015 progress evidence:
+
+- `sim/state.js` now exposes a player-state accessor and includes the current player speed in the transitional nested player view.
+- `sim/player.js` now reads player, projectile, and world collections through transitional state accessors for respawn and crash cleanup paths.
+- `sim/collisions.js` now reads player and enemy collections through transitional state accessors before applying ship-collision rules.
+- Nested-state alias coverage now verifies the player accessor and speed alias.
+
 ## 17. Phase E: Nested subsystem state migration
 
 Goal: move from flat `state` arrays to a nested `GAME` object.

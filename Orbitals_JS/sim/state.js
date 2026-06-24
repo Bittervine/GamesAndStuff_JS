@@ -217,6 +217,7 @@ export function attachNestedStateAliases(state) {
   aliasStateProperty(player, 'fuel', state, 'fuel');
   aliasStateProperty(player, 'maxFuel', state, 'maxFuel');
   aliasStateProperty(player, 'score', state, 'score');
+  aliasStateProperty(player, 'speed', state, 'speed');
   aliasStateProperty(player, 'crashed', state, 'crashed');
   aliasStateProperty(player, 'crashTimer', state, 'crashTimer');
   aliasStateProperty(player, 'crashRespawnReady', state, 'crashRespawnReady');
@@ -271,6 +272,10 @@ export function getProjectileItems(state) {
 
 export function getWorldPlanets(state) {
   return state?.game?.world?.planets || state?.world?.planets || state?.planets || [];
+}
+
+export function getPlayerState(state) {
+  return state?.game?.player || state?.player || state || {};
 }
 
 export function createGameState(seed) {

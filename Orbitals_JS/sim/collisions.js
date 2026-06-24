@@ -1,6 +1,10 @@
 import * as THREE from '../lib/three.module.js';
 import { config } from '../orbitals_config.js';
-import { ENEMY_HIT_RADIUS } from './state.js';
+import {
+  ENEMY_HIT_RADIUS,
+  getEnemyItems,
+  getPlayerState
+} from './state.js';
 
 const tempVecA = new THREE.Vector3();
 const tempVecB = new THREE.Vector3();
@@ -29,10 +33,11 @@ export function canShipsCollide(first, second) {
 
 export function getAllActiveShips(state) {
   const ships = [];
-  if (state.ship && !state.crashed) {
-    ships.push({ ship: state.ship, isPlayer: true });
+  const player = getPlayerState(state);
+  if (player.ship && !player.crashed) {
+    ships.push({ ship: player.ship, isPlayer: true });
   }
-  for (const enemy of state.enemies) {
+  for (const enemy of getEnemyItems(state)) {
     if (enemy && enemy.health > 0) {
       ships.push({ ship: enemy, isPlayer: false });
     }
@@ -43,6 +48,7 @@ export function getAllActiveShips(state) {
 export function updateShipShipCollisions(state, options = {}) {
   const handleShipCollision = options.handleShipCollision || (() => {});
   const ships = getAllActiveShips(state);
+  const playerShip = getPlayerState(state).ship;
   const sunRadius = config.starScale * 0.5;
   for (let i = 0; i < ships.length; i += 1) {
     const a = ships[i].ship;
@@ -57,8 +63,8 @@ export function updateShipShipCollisions(state, options = {}) {
       if (!canShipsCollide(a, b)) {
         continue;
       }
-      const radiusA = a === state.ship ? Math.max(1.5, sunRadius * 0.006) : Math.max(ENEMY_HIT_RADIUS, a.radius || ENEMY_HIT_RADIUS);
-      const radiusB = b === state.ship ? Math.max(1.5, sunRadius * 0.006) : Math.max(ENEMY_HIT_RADIUS, b.radius || ENEMY_HIT_RADIUS);
+      const radiusA = a === playerShip ? Math.max(1.5, sunRadius * 0.006) : Math.max(ENEMY_HIT_RADIUS, a.radius || ENEMY_HIT_RADIUS);
+      const radiusB = b === playerShip ? Math.max(1.5, sunRadius * 0.006) : Math.max(ENEMY_HIT_RADIUS, b.radius || ENEMY_HIT_RADIUS);
       const delta = tempVecA.copy(b.position).sub(a.position);
       const distance = delta.length();
       const overlap = radiusA + radiusB;
