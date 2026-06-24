@@ -1,8 +1,8 @@
 {
     "meta": {
-        "version": 12,
+        "version": 13,
         "editor": "Ignatius Rocketfrock Level Editor",
-        "note": "Revision 135 keeps the revision-134 navigation graph while removing redundant enemy behavior/chaseSpeed aliases and unused vertical-awareness data from current level entities."
+        "note": "Revision 136 adds inert cave-window authoring data. The perimeter is visual-only and does not affect the existing revision-134 navigation graph or gameplay collision."
     },
     "levelId": "level_001",
     "title": "Ignatius Rocketfrock and the Level That Was Edited On Purpose",
@@ -33,6 +33,20 @@
         "range": 80,
         "feather": 24,
         "rotation": 0
+    },
+    "caveWindow": {
+        "version": 1,
+        "enabled": false,
+        "feather": 180,
+        "parallax": 1.035,
+        "decoration": {
+            "seed": 138,
+            "spacing": 250,
+            "scale": 2,
+            "brightness": 0.36,
+            "saturation": 0.62
+        },
+        "points": []
     },
     "placements": [
         {

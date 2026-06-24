@@ -401,7 +401,7 @@ export function applyAtlasManifestsToWorld(state, environmentManifests) {
     const visuals = Array.isArray(state.world.visuals) ? state.world.visuals : [];
 
     for (const visual of visuals) {
-        if (visual.kind !== "atlasSprite" || visual.collisionFromManifest === false) {
+        if (visual.kind !== "atlasSprite" || visual.collisionFromManifest === false || visual.layer === "caveForeground") {
             continue;
         }
 
@@ -1440,6 +1440,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         if (!assetId) {
             continue;
         }
+        const layer = placement.layer || "terrain";
         visuals.push({
             id: placement.id || `${assetId}_${visuals.length}`,
             kind: "atlasSprite",
@@ -1453,8 +1454,13 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             mirrorX: Boolean(placement.mirrorX),
             mirrorY: Boolean(placement.mirrorY),
             rotation: normalizeRotationRadians(placement.rotation, placement.angle),
-            layer: placement.layer || "terrain",
-            collisionFromManifest: placement.collisionFromManifest !== false,
+            layer,
+            collisionFromManifest: layer === "caveForeground" ? false : placement.collisionFromManifest !== false,
+            foregroundBrightness: Number.isFinite(Number(placement.foregroundBrightness)) ? Number(placement.foregroundBrightness) : undefined,
+            foregroundSaturation: Number.isFinite(Number(placement.foregroundSaturation)) ? Number(placement.foregroundSaturation) : undefined,
+            alpha: Number.isFinite(Number(placement.alpha)) ? Number(placement.alpha) : undefined,
+            generatedBy: placement.generatedBy || undefined,
+            caveCategory: placement.caveCategory || undefined,
             order: Number.isFinite(Number(placement.order)) ? Number(placement.order) : visuals.length
         });
     }

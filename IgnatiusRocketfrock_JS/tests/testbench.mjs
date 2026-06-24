@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { computeResponsiveViewportMetrics, computeTimedTextViewportLayout } from "../src/presentation/canvas-renderer.js";
+import { computeCaveWindowParallaxOffset } from "../src/presentation/cave-window-mask.js";
 import { actorBodyRect, characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../src/shared/actor-geometry.js";
 import { RocketfrockInput } from "../src/browser/browser-input.js";
 import {
@@ -9,6 +10,21 @@ import {
     remapRgb,
     selectiveHueWeight
 } from "../src/shared/level-color-map-data.js";
+import {
+    caveSplineSegmentControls,
+    caveWindowBounds,
+    createCaveWindowPointsFromBounds,
+    nearestCaveSplineSegment,
+    normalizeCaveDecoration,
+    normalizeCaveWindow,
+    sampleClosedCaveSpline
+} from "../src/shared/cave-window-data.js";
+import {
+    buildCaveDecorationCatalog,
+    CAVE_FOREGROUND_LAYER,
+    CAVE_PERIMETER_GENERATOR,
+    generateCavePerimeterPlacements
+} from "../src/shared/cave-window-decoration.js";
 import {
     atlasNodeToPlacementWorld,
     duplicateLevelPlacement,
@@ -135,9 +151,12 @@ function testSourceOrganization() {
         "../src/browser/browser-input.js",
         "../src/browser/game-bootstrap.js",
         "../src/presentation/canvas-renderer.js",
+        "../src/presentation/cave-window-mask.js",
         "../src/presentation/character-runtime.js",
         "../src/presentation/level-color-map-cache.js",
         "../src/shared/level-color-map-data.js",
+        "../src/shared/cave-window-data.js",
+        "../src/shared/cave-window-decoration.js",
         "../src/shared/animation-data.js",
         "../src/shared/actor-geometry.js",
         "../src/shared/level-transform.js",
@@ -2848,7 +2867,7 @@ function testCharacterProjectWorkspace() {
     assert.ok(toolHtml.includes("part-to-front"), "character tool should expose a selected-part To Front control");
 
     const levelEditorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
-    assert.ok(levelEditorHtml.includes("const placement = placeAsset(point);"), "level editor should inspect whether asset placement succeeded");
+    assert.ok(levelEditorHtml.includes("const placement = placeAsset(point, { foreground });"), "level editor should inspect whether normal or foreground asset placement succeeded");
     assert.ok(levelEditorHtml.includes('setTool("select");'), "successful asset placement should return the level editor to Select mode");
     assert.ok(levelEditorHtml.includes("Select tool active for fine-tuning"), "level editor should explain the automatic tool switch");
     assert.ok(levelEditorHtml.includes('id="copy-asset"'), "level editor should expose Copy asset beside placement tools");
@@ -2938,6 +2957,117 @@ function testSelectiveLevelColorMap() {
     const gameSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     assert.ok(gameSource.includes("renderer.syncEnvironmentColorMap(gameState.world.colorMap)"), "runtime should build the colour cache during level startup");
     assert.ok(!rendererSource.includes("this.syncEnvironmentColorMap(state.world?.colorMap)"), "normal render frames should not rebuild or rescan colour caches");
+}
+
+function testCaveWindowSplineAuthoring() {
+    const normalized = normalizeCaveWindow({
+        enabled: true,
+        feather: 220,
+        parallax: 1.06,
+        points: [
+            { id: "a", x: 10, y: 20, mode: "corner" },
+            { id: "b", x: 110, y: 20, mode: "smooth" },
+            { id: "c", x: 110, y: 120, mode: "unexpected" }
+        ]
+    });
+    assert.equal(normalized.enabled, true, "cave window normalization should preserve the visual enable flag");
+    assert.equal(normalized.feather, 220, "cave window normalization should preserve future feather width");
+    assert.equal(normalized.parallax, 1.06, "cave window normalization should preserve subtle foreground parallax");
+    assert.deepEqual(normalized.points.map((point) => point.mode), ["corner", "smooth", "smooth"], "unknown point modes should normalize to smooth");
+
+    const generated = createCaveWindowPointsFromBounds({ x: -320, y: -420, w: 5600, h: 1500 });
+    assert.equal(generated.length, 8, "world-bounds initialization should create an editable rounded eight-point loop");
+    const sampled = sampleClosedCaveSpline(generated, 8);
+    assert.ok(sampled.length > generated.length, "closed cave splines should sample smooth curve points between controls");
+    approx(sampled[0].x, sampled.at(-1).x, 0.0001, "closed cave spline x closure");
+    approx(sampled[0].y, sampled.at(-1).y, 0.0001, "closed cave spline y closure");
+    const generatedBounds = caveWindowBounds(generated, 40);
+    assert.ok(generatedBounds.w > 5000 && generatedBounds.h > 1200, "cave-window fit bounds should cover the authored perimeter plus padding");
+    const nearest = nearestCaveSplineSegment(generated, { x: 2480, y: -350 });
+    assert.ok(nearest && Number.isInteger(nearest.segmentIndex), "point insertion should locate the nearest closed spline segment");
+
+    const cornerSquare = [
+        { id: "p1", x: 0, y: 0, mode: "corner" },
+        { id: "p2", x: 100, y: 0, mode: "corner" },
+        { id: "p3", x: 100, y: 100, mode: "corner" },
+        { id: "p4", x: 0, y: 100, mode: "corner" }
+    ];
+    const straightControls = caveSplineSegmentControls(cornerSquare, 0);
+    assert.deepEqual(straightControls.controlA, straightControls.start, "corner outgoing control should stay on the corner");
+    assert.deepEqual(straightControls.controlB, straightControls.end, "corner incoming control should stay on the corner");
+
+    const levelEditorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.ok(levelEditorHtml.includes('data-tool="caveSelect"') && levelEditorHtml.includes('data-tool="caveAdd"'), "Level Editor should expose cave-point edit and insertion tools in the cave panel");
+    const topbarMarkup = levelEditorHtml.slice(levelEditorHtml.indexOf('<div id="topbar">'), levelEditorHtml.indexOf('</div>', levelEditorHtml.indexOf('<div id="topbar">')));
+    assert.equal(topbarMarkup.includes('data-tool="caveSelect"') || topbarMarkup.includes('data-tool="caveAdd"'), false, "cave editing controls should not clutter the top toolbar");
+    assert.ok(levelEditorHtml.includes('id="fit-content-view"') && levelEditorHtml.includes('id="fit-cave-view"'), "Level Editor should provide whole-content and cave-perimeter fit controls");
+    assert.ok(levelEditorHtml.includes('min="0.02"') && levelEditorHtml.includes("MIN_EDITOR_ZOOM = 0.02"), "Level Editor should zoom out far enough to author a whole cave");
+    assert.ok(levelEditorHtml.includes("completely inert presentation layers") && levelEditorHtml.includes("always have atlas collision disabled"), "Level Editor should state the cave perimeter and foreground non-gameplay contract beside the controls");
+
+    const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
+    assert.equal(levelOne.caveWindow.enabled, false, "level_001 should adopt the visual cave-window schema without changing gameplay yet");
+    assert.deepEqual(levelOne.caveWindow.points, [], "level_001 should wait for an authored perimeter rather than inventing collision-like geometry");
+    const parallaxView = {
+        x: 100,
+        y: 200,
+        w: 800,
+        h: 600,
+        zoom: 1,
+        virtualW: 800,
+        virtualH: 600
+    };
+    const zeroOffset = computeCaveWindowParallaxOffset(parallaxView, { x: 100, y: 136, w: 800, h: 800 }, 1);
+    assert.deepEqual(zeroOffset, { x: 0, y: 0 }, "parallax factor 1 should keep the cave opening aligned with the playing layer");
+    const movingOffset = computeCaveWindowParallaxOffset(parallaxView, { x: 0, y: 0, w: 400, h: 400 }, 1.05);
+    approx(movingOffset.x, 15, 0.0001, "foreground cave window horizontal parallax offset");
+    approx(movingOffset.y, 16.8, 0.0001, "foreground cave window vertical parallax offset");
+
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    const actorFrontIndex = rendererSource.indexOf("this.drawOrderedWorldVisuals(state, view, true)");
+    const caveForegroundIndex = rendererSource.indexOf("this.drawCaveForegroundVisuals(state, view)");
+    const caveMaskIndex = rendererSource.indexOf("this.drawCaveWindow(state, view)");
+    const storyOverlayIndex = rendererSource.indexOf("this.drawMailboxStoryOverlay(state, view)");
+    assert.ok(actorFrontIndex >= 0 && caveForegroundIndex > actorFrontIndex && caveMaskIndex > caveForegroundIndex, "dark cave foreground assets should render after actors and before the feathered black mask");
+    assert.ok(storyOverlayIndex > caveMaskIndex, "story overlays should remain readable above the cave foreground mask");
+    assert.ok(rendererSource.includes("drawCaveWindowMask") && rendererSource.includes("caveWindowMaskCanvas"), "runtime should render the cave opening through a reusable offscreen black mask");
+    assert.ok(rendererSource.includes("brightness(${brightness}) saturate(${saturation})"), "cave foreground artwork should be darkened and desaturated at draw time");
+    assert.ok(levelEditorHtml.includes('data-tool="placeCaveForeground"') && levelEditorHtml.includes('id="cave-auto-populate"'), "Level Editor should expose manual foreground placement and deterministic perimeter population");
+
+    const decoration = normalizeCaveDecoration({ seed: 77, spacing: 150, scale: 2, brightness: 0.3, saturation: 0.5 });
+    const decorationCatalog = buildCaveDecorationCatalog([
+        { atlasId: "at_atlas_002", assetId: "floor_rock", frame: { w: 90, h: 130 }, tags: ["stalagmite"] },
+        { atlasId: "at_atlas_002", assetId: "ceiling_rock", frame: { w: 90, h: 150 }, tags: ["stalactite"] },
+        { atlasId: "at_atlas_002", assetId: "wall_rock", frame: { w: 150, h: 220 }, tags: ["wall"] }
+    ]);
+    const decoratedCave = {
+        points: [
+            { id: "a", x: 0, y: 0, mode: "corner" },
+            { id: "b", x: 600, y: 0, mode: "corner" },
+            { id: "c", x: 600, y: 400, mode: "corner" },
+            { id: "d", x: 0, y: 400, mode: "corner" }
+        ],
+        decoration
+    };
+    const generatedDecor = generateCavePerimeterPlacements({ caveWindow: decoratedCave, catalog: decorationCatalog, decoration });
+    const generatedAgain = generateCavePerimeterPlacements({ caveWindow: decoratedCave, catalog: decorationCatalog, decoration });
+    assert.deepEqual(generatedDecor, generatedAgain, "cave perimeter decoration should be deterministic for the same seed and spline");
+    assert.ok(generatedDecor.length >= 8, "a complete cave loop should receive multiple perimeter decorations");
+    assert.deepEqual(new Set(generatedDecor.map((placement) => placement.caveCategory)), new Set(["ceiling", "wall", "floor"]), "perimeter orientation should choose ceiling, wall, and floor asset families");
+    for (const placement of generatedDecor) {
+        assert.equal(placement.layer, CAVE_FOREGROUND_LAYER, "generated perimeter art should use the dedicated foreground layer");
+        assert.equal(placement.collisionFromManifest, false, "generated perimeter art should always disable atlas collision");
+        assert.equal(placement.generatedBy, CAVE_PERIMETER_GENERATOR, "generated perimeter art should remain identifiable for deterministic replacement");
+        assert.equal(placement.foregroundBrightness, decoration.brightness, "generated perimeter art should preserve the authored darkening");
+    }
+
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    assert.ok(bootstrapSource.includes("syncPresentationLevelData(level)") && bootstrapSource.includes("renderer.syncCaveWindow(activeCaveWindow)"), "browser startup and level transitions should pass inert cave-window data directly to presentation");
+
+    const simulationSource = readFileSync(new URL("../src/core/simulation.js", import.meta.url), "utf8");
+    assert.equal(simulationSource.includes("cave-window-data"), false, "portable gameplay must not import or derive collision from cave-window presentation data");
+    assert.equal(simulationSource.includes("drawCaveWindowMask"), false, "portable gameplay must remain unaware of cave-window Canvas masking");
+    assert.ok(simulationSource.includes('visual.layer === "caveForeground"'), "atlas collision hydration should explicitly reject cave-foreground visuals");
+    assert.ok(simulationSource.includes('layer === "caveForeground" ? false'), "level conversion should force cave-foreground placements to remain non-colliding even when imported data is malformed");
 }
 
 function testLevelPlacementCopy() {
@@ -4537,6 +4667,7 @@ const tests = [
     ["responsive viewport scaling", testResponsiveViewportScaling],
     ["Puppet Guide debug overlay", testPuppetGuideDebugOverlay],
     ["selective level colour map", testSelectiveLevelColorMap],
+    ["closed cave-window spline authoring", testCaveWindowSplineAuthoring],
     ["level placement copy and cutout backing", testLevelPlacementCopy],
     ["level placement transforms", testLevelPlacementTransforms],
     ["editor level transform runtime", testEditorLevelTransformRuntime],

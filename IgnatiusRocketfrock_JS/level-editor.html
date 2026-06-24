@@ -70,7 +70,7 @@
             white-space: nowrap;
         }
 
-        #topbar button.active {
+        #topbar button.active, .box button.active {
             border-color: rgba(201,167,255,0.86);
             background: rgba(201,167,255,0.22);
         }
@@ -382,7 +382,9 @@
             <button id="play-browser-copy" type="button">▶ Play</button>
             <button id="zoom-out">−</button>
             <button id="zoom-in">+</button>
-            <button id="fit-view">Fit</button>
+            <button id="fit-view">Fit world</button>
+            <button id="fit-content-view">Fit content</button>
+            <button id="fit-cave-view">Fit cave</button>
 
         </div>
         <div id="canvas-wrap">
@@ -396,7 +398,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 117</small></h1>
+        <h1>Level Editor <small>rev 138</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -413,14 +415,14 @@
         <div class="box">
             <h2>View</h2>
             <div class="row">
-                <label>Zoom<input id="zoom" type="number" step="0.05" min="0.1" max="5"></label>
+                <label>Zoom<input id="zoom" type="number" step="0.05" min="0.02" max="5"></label>
                 <label>Snap<input id="snap" type="number" step="1" min="1"></label>
             </div>
             <div class="inline"><input id="show-grid" type="checkbox" checked><span class="small">Show grid</span></div>
             <div class="inline"><input id="snap-enabled" type="checkbox" checked><span class="small">Snap while placing/moving</span></div>
             <div class="inline"><input id="show-asset-guides" type="checkbox" checked><span class="small">Show manifest boxes and line features</span></div>
             <div class="inline"><input id="show-labels" type="checkbox" checked><span class="small">Show labels</span></div>
-            <p class="small">Hold the right mouse button and drag anywhere on the canvas to pan, regardless of the active tool.</p>
+            <p class="small">Hold the right mouse button and drag anywhere on the canvas to pan, regardless of the active tool. Fit world uses the cyan technical bounds; Fit content frames authored objects; Fit cave frames the visual perimeter.</p>
         </div>
 
         <div class="box">
@@ -445,6 +447,46 @@
             </div>
         </div>
 
+
+        <div class="box">
+            <h2>Cave window and foreground</h2>
+            <div class="inline"><input id="cave-enabled" type="checkbox"><span class="small">Use this closed visual perimeter</span></div>
+            <div class="row">
+                <button data-tool="caveSelect" type="button">◇ Edit perimeter</button>
+                <button data-tool="caveAdd" type="button">＋ Add perimeter point</button>
+            </div>
+            <button data-tool="placeCaveForeground" type="button">Place selected asset in foreground</button>
+            <div class="row">
+                <button id="cave-create-from-bounds" type="button">Create from world bounds</button>
+                <button id="cave-delete-point" type="button" disabled>Delete selected point</button>
+            </div>
+            <div class="row">
+                <label>Point shape<select id="cave-point-mode" disabled>
+                    <option value="smooth">Smooth</option>
+                    <option value="corner">Corner</option>
+                </select></label>
+                <label>Parallax<input id="cave-parallax" type="number" min="1" max="1.25" step="0.005"></label>
+            </div>
+            <div class="row">
+                <label>Feather px<input id="cave-feather" type="number" min="0" step="10"></label>
+                <div class="inline"><input id="cave-preview-shade" type="checkbox" checked><span class="small">Shade exterior in editor</span></div>
+            </div>
+            <h2>Automatic perimeter decoration</h2>
+            <div class="row">
+                <label>Seed<input id="cave-decor-seed" type="number" step="1"></label>
+                <label>Spacing px<input id="cave-decor-spacing" type="number" min="80" max="1200" step="10"></label>
+            </div>
+            <div class="row">
+                <label>Asset scale<input id="cave-decor-scale" type="number" min="0.5" max="5" step="0.1"></label>
+                <label>Brightness<input id="cave-decor-brightness" type="number" min="0.08" max="1" step="0.02"></label>
+            </div>
+            <div class="row">
+                <button id="cave-auto-populate" type="button">Populate perimeter</button>
+                <button id="cave-clear-generated" type="button">Clear generated</button>
+            </div>
+            <p id="cave-status" class="small">No cave perimeter points.</p>
+            <p class="small">The perimeter and foreground are completely inert presentation layers. Foreground placements render after actors with the cave parallax, are darkened for depth, and always have atlas collision disabled. Auto-population uses tagged wall, ceiling, floor, stalagmite, and stalactite assets from the loaded atlases.</p>
+        </div>
 
         <div class="box">
             <h2>Level colour map</h2>
@@ -523,6 +565,7 @@
                             <option value="decorBack">decorBack</option>
                             <option value="terrain">terrain</option>
                             <option value="decorFront">decorFront</option>
+                            <option value="caveForeground">caveForeground (inert)</option>
                         </select>
                     </label>
                     <label>Angle (degrees)<input id="inspect-angle" type="number" step="1"></label>
@@ -666,6 +709,20 @@ import {
 } from "./src/shared/level-color-map-data.js";
 import { createColorMappedCanvas } from "./src/presentation/level-color-map-cache.js";
 import {
+    caveSplineSegmentControls,
+    caveWindowBounds,
+    createCaveWindowPointsFromBounds,
+    nearestCaveSplineSegment,
+    normalizeCaveDecoration,
+    normalizeCaveWindow
+} from "./src/shared/cave-window-data.js";
+import {
+    buildCaveDecorationCatalog,
+    CAVE_FOREGROUND_LAYER,
+    CAVE_PERIMETER_GENERATOR,
+    generateCavePerimeterPlacements
+} from "./src/shared/cave-window-decoration.js";
+import {
     animationPoseToRuntimeTransforms,
     buildRuntimeCharacterDrawCommands,
     loadRuntimeCharacterProject,
@@ -691,6 +748,8 @@ import {
     const WIZARD_EDITOR_WIDTH = 36;
     const WIZARD_EDITOR_HEIGHT = 104;
     const WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR = 239 / 263;
+    const MIN_EDITOR_ZOOM = 0.02;
+    const MAX_EDITOR_ZOOM = 5;
 
     function atlasIdForIndex(index) {
         return `at_atlas_${String(index).padStart(3, "0")}`;
@@ -722,7 +781,10 @@ import {
         cutout: "rgba(255,255,255,0.82)",
         cutoutFill: "rgba(255,255,255,0.13)",
         grid: "rgba(255,255,255,0.075)",
-        gridMajor: "rgba(255,255,255,0.14)"
+        gridMajor: "rgba(255,255,255,0.14)",
+        caveSpline: "rgba(95,242,255,0.96)",
+        cavePoint: "rgba(255,226,116,0.98)",
+        caveSelectedPoint: "rgba(255,255,255,1)"
     };
 
     const canvas = document.getElementById("stage");
@@ -748,6 +810,20 @@ import {
         levelSelect: document.getElementById("level-select"),
         worldW: document.getElementById("world-w"),
         worldH: document.getElementById("world-h"),
+        caveEnabled: document.getElementById("cave-enabled"),
+        caveParallax: document.getElementById("cave-parallax"),
+        caveFeather: document.getElementById("cave-feather"),
+        cavePointMode: document.getElementById("cave-point-mode"),
+        caveDeletePoint: document.getElementById("cave-delete-point"),
+        caveCreateFromBounds: document.getElementById("cave-create-from-bounds"),
+        cavePreviewShade: document.getElementById("cave-preview-shade"),
+        caveDecorSeed: document.getElementById("cave-decor-seed"),
+        caveDecorSpacing: document.getElementById("cave-decor-spacing"),
+        caveDecorScale: document.getElementById("cave-decor-scale"),
+        caveDecorBrightness: document.getElementById("cave-decor-brightness"),
+        caveAutoPopulate: document.getElementById("cave-auto-populate"),
+        caveClearGenerated: document.getElementById("cave-clear-generated"),
+        caveStatus: document.getElementById("cave-status"),
         colorMapEnabled: document.getElementById("color-map-enabled"),
         colorMapSource: document.getElementById("color-map-source"),
         colorMapRange: document.getElementById("color-map-range"),
@@ -829,6 +905,7 @@ import {
         tool: "select",
         selectedAssetId: "",
         selectedId: "",
+        selectedCavePointId: "",
         drag: null,
         camera: { x: -160, y: -80, zoom: 0.55 },
         atlases: new Map(),
@@ -882,6 +959,7 @@ import {
             },
             atlasRefs: [],
             colorMap: normalizeLevelColorMap(DEFAULT_LEVEL_COLOR_MAP),
+            caveWindow: normalizeCaveWindow(null),
             placements: [],
             entities: [],
             navigationGraphs: { version: 1, profiles: [] },
@@ -936,6 +1014,201 @@ import {
 
     function snapPoint(point) {
         return { x: snapped(point.x), y: snapped(point.y) };
+    }
+
+    function caveWindowRecord() {
+        if (!state.level.caveWindow) state.level.caveWindow = normalizeCaveWindow(null);
+        return state.level.caveWindow;
+    }
+
+    function cavePointById(id) {
+        return caveWindowRecord().points.find((point) => point.id === id) || null;
+    }
+
+    function nextCavePointId() {
+        const used = new Set(caveWindowRecord().points.map((point) => point.id));
+        let index = 1;
+        while (used.has(`cave_point_${String(index).padStart(3, "0")}`)) index += 1;
+        return `cave_point_${String(index).padStart(3, "0")}`;
+    }
+
+    function hitTestCavePoint(point) {
+        const tolerance = Math.max(6 / state.camera.zoom, 4);
+        let best = null;
+        for (const candidate of caveWindowRecord().points) {
+            const dx = candidate.x - point.x;
+            const dy = candidate.y - point.y;
+            const distance = Math.hypot(dx, dy);
+            if (distance <= tolerance && (!best || distance < best.distance)) {
+                best = { point: candidate, distance };
+            }
+        }
+        return best?.point || null;
+    }
+
+    function syncCaveWindowFromUi() {
+        const cave = caveWindowRecord();
+        cave.enabled = Boolean(els.caveEnabled.checked);
+        cave.parallax = Math.max(1, Math.min(1.25, finiteEditorNumber(els.caveParallax.value, cave.parallax)));
+        cave.feather = Math.max(0, finiteEditorNumber(els.caveFeather.value, cave.feather));
+        cave.decoration = normalizeCaveDecoration({
+            ...cave.decoration,
+            seed: els.caveDecorSeed.value,
+            spacing: els.caveDecorSpacing.value,
+            scale: els.caveDecorScale.value,
+            brightness: els.caveDecorBrightness.value
+        });
+    }
+
+    function refreshCaveWindowUi() {
+        const cave = caveWindowRecord();
+        cave.decoration = normalizeCaveDecoration(cave.decoration);
+        const selectedPoint = cavePointById(state.selectedCavePointId);
+        const generatedCount = (state.level.placements || []).filter((placement) => placement?.generatedBy === CAVE_PERIMETER_GENERATOR).length;
+        els.caveEnabled.checked = cave.enabled;
+        els.caveParallax.value = Number(cave.parallax).toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+        els.caveFeather.value = Math.round(cave.feather);
+        els.caveDecorSeed.value = cave.decoration.seed;
+        els.caveDecorSpacing.value = Math.round(cave.decoration.spacing);
+        els.caveDecorScale.value = Number(cave.decoration.scale).toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+        els.caveDecorBrightness.value = Number(cave.decoration.brightness).toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+        els.cavePointMode.disabled = !selectedPoint;
+        els.caveDeletePoint.disabled = !selectedPoint;
+        els.caveAutoPopulate.disabled = cave.points.length < 3;
+        els.caveClearGenerated.disabled = generatedCount === 0;
+        if (selectedPoint) els.cavePointMode.value = selectedPoint.mode;
+        const closure = cave.points.length >= 3 ? "closed spline ready" : "needs at least 3 points";
+        const selectedText = selectedPoint ? ` Selected ${selectedPoint.id} (${selectedPoint.mode}).` : "";
+        const generatedText = generatedCount ? ` ${generatedCount} generated foreground asset${generatedCount === 1 ? "" : "s"}.` : "";
+        els.caveStatus.textContent = `${cave.points.length} perimeter point${cave.points.length === 1 ? "" : "s"}; ${closure}.${generatedText}${selectedText}`;
+    }
+
+    function createCaveWindowFromWorldBounds() {
+        const cave = caveWindowRecord();
+        cave.points = createCaveWindowPointsFromBounds(state.level.world.bounds);
+        cave.enabled = true;
+        state.selectedCavePointId = cave.points[0]?.id || "";
+        setTool("caveSelect");
+        persistUi();
+        setStatus("Created an eight-point closed cave perimeter inside the technical world bounds.");
+    }
+
+    function addCavePoint(point) {
+        const cave = caveWindowRecord();
+        const snappedPoint = snapPoint(point);
+        const newPoint = {
+            id: nextCavePointId(),
+            x: snappedPoint.x,
+            y: snappedPoint.y,
+            mode: "smooth"
+        };
+        if (cave.points.length >= 2) {
+            const nearest = nearestCaveSplineSegment(cave.points, snappedPoint);
+            const insertAt = nearest ? nearest.segmentIndex + 1 : cave.points.length;
+            cave.points.splice(insertAt, 0, newPoint);
+        } else {
+            cave.points.push(newPoint);
+        }
+        cave.enabled = true;
+        state.selectedCavePointId = newPoint.id;
+        setTool("caveSelect");
+        persistUi();
+        setStatus(`Added ${newPoint.id} to the closed cave perimeter.`);
+        return newPoint;
+    }
+
+    function deleteSelectedCavePoint() {
+        if (!state.selectedCavePointId) return;
+        const cave = caveWindowRecord();
+        const oldCount = cave.points.length;
+        cave.points = cave.points.filter((point) => point.id !== state.selectedCavePointId);
+        if (cave.points.length === oldCount) return;
+        state.selectedCavePointId = "";
+        persistUi();
+        setStatus("Deleted the selected cave perimeter point.");
+    }
+
+    function setSelectedCavePointMode(mode) {
+        const point = cavePointById(state.selectedCavePointId);
+        if (!point) return;
+        point.mode = mode === "corner" ? "corner" : "smooth";
+        persistUi();
+        setStatus(`${point.id} is now a ${point.mode} point.`);
+    }
+
+    function caveDecorationCatalog() {
+        const entries = [];
+        for (const [atlasId, record] of state.atlases.entries()) {
+            const manifest = record?.manifest || {};
+            for (const [assetId, object] of Object.entries(manifest.objects || {})) {
+                const frame = manifest.frames?.[object?.frame || assetId];
+                if (!frame) continue;
+                entries.push({
+                    atlasId,
+                    assetId,
+                    frame,
+                    tags: object?.tags || [],
+                    defaultScale: object?.defaultScale || 1
+                });
+            }
+        }
+        return buildCaveDecorationCatalog(entries);
+    }
+
+    function clearGeneratedCaveForeground({ announce = true, persist = true } = {}) {
+        const before = state.level.placements.length;
+        state.level.placements = state.level.placements.filter((placement) => placement?.generatedBy !== CAVE_PERIMETER_GENERATOR);
+        const removed = before - state.level.placements.length;
+        if (state.selectedId && !placementById(state.selectedId) && !entityById(state.selectedId)) {
+            state.selectedId = state.level.placements[0]?.id || state.level.entities[0]?.id || "";
+        }
+        if (persist) persistUi();
+        else refreshCaveWindowUi();
+        if (announce) setStatus(removed ? `Removed ${removed} generated cave foreground asset${removed === 1 ? "" : "s"}.` : "There were no generated cave foreground assets to remove.");
+        return removed;
+    }
+
+    function populateCavePerimeter() {
+        syncCaveWindowFromUi();
+        const cave = caveWindowRecord();
+        if (cave.points.length < 3) {
+            setStatus("Create at least three perimeter points before populating cave decoration.", false);
+            return [];
+        }
+        clearGeneratedCaveForeground({ announce: false, persist: false });
+        const maxOrder = Math.max(0, ...state.level.placements.map((placement) => finiteEditorNumber(placement.order, 0)));
+        const generated = generateCavePerimeterPlacements({
+            caveWindow: cave,
+            catalog: caveDecorationCatalog(),
+            decoration: cave.decoration,
+            firstOrder: maxOrder + 1000
+        });
+        if (!generated.length) {
+            setStatus("No suitable tagged cave assets were found in the loaded atlases.", false);
+            persistUi();
+            return [];
+        }
+        const usedIds = new Set([
+            ...state.level.placements.map((placement) => placement.id),
+            ...state.level.entities.map((entity) => entity.id)
+        ]);
+        for (const placement of generated) {
+            let id = placement.id;
+            let suffix = 2;
+            while (usedIds.has(id)) {
+                id = `${placement.id}_${suffix}`;
+                suffix += 1;
+            }
+            placement.id = id;
+            usedIds.add(id);
+        }
+        state.level.placements.push(...generated);
+        cave.enabled = true;
+        state.selectedId = generated[0].id;
+        setTool("select");
+        persistUi();
+        setStatus(`Populated the cave perimeter with ${generated.length} dark, parallaxed, non-colliding foreground assets.`);
+        return generated;
     }
 
     function supportYAtX(a, b, x) {
@@ -1095,7 +1368,7 @@ import {
 
     function setTool(tool) {
         state.tool = tool;
-        document.querySelectorAll("#topbar button[data-tool]").forEach((button) => {
+        document.querySelectorAll("button[data-tool]").forEach((button) => {
             button.classList.toggle("active", button.dataset.tool === tool);
         });
         draw();
@@ -1283,6 +1556,7 @@ import {
             },
             atlasRefs: Array.isArray(source.atlasRefs) ? cloneData(source.atlasRefs) : [],
             colorMap: normalizeLevelColorMap(source.colorMap),
+            caveWindow: normalizeCaveWindow(source.caveWindow || source.visuals?.caveWindow),
             placements: Array.isArray(source.placements) ? cloneData(source.placements) : [],
             entities: Array.isArray(source.entities) ? cloneData(source.entities) : [],
             navigationGraphs: source.navigationGraphs && typeof source.navigationGraphs === "object"
@@ -1327,6 +1601,8 @@ import {
                 }
 
                 const atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
+                const layer = placement.layer || "terrain";
+                const foreground = layer === CAVE_FOREGROUND_LAYER;
                 referencedAtlases.add(atlasId);
                 return {
                     id: placement.id || `${placement.assetId || "asset"}_${String(index + 1).padStart(3, "0")}`,
@@ -1340,8 +1616,13 @@ import {
                     mirrorX: Boolean(placement.mirrorX),
                     mirrorY: Boolean(placement.mirrorY),
                     rotation: normalizeRotationRadians(placement.rotation, placement.angle),
-                    layer: placement.layer || "terrain",
-                    collisionFromManifest: placement.collisionFromManifest !== undefined ? Boolean(placement.collisionFromManifest) : true,
+                    layer,
+                    collisionFromManifest: foreground ? false : (placement.collisionFromManifest !== undefined ? Boolean(placement.collisionFromManifest) : true),
+                    foregroundBrightness: foreground ? Math.max(0.08, Math.min(1, finiteEditorNumber(placement.foregroundBrightness, 0.36))) : undefined,
+                    foregroundSaturation: foreground ? Math.max(0, Math.min(1.5, finiteEditorNumber(placement.foregroundSaturation, 0.62))) : undefined,
+                    generatedBy: placement.generatedBy || undefined,
+                    caveCategory: placement.caveCategory || undefined,
+                    alpha: Number.isFinite(Number(placement.alpha)) ? Number(placement.alpha) : undefined,
                     notes: placement.notes || "",
                     order: Number.isFinite(Number(placement.order)) ? Number(placement.order) : index
                 };
@@ -1414,6 +1695,7 @@ import {
         const level = normalizeLevelDefaults(await loadJsonUrl(DEFAULT_LEVEL_URL));
         if (applyToEditor) {
             state.level = level;
+            state.selectedCavePointId = "";
             state.selectedId = level.entities[0]?.id || level.placements[0]?.id || "";
             await ensureAtlasesForLevel(level);
             normalizeLoadedLevelPlacements();
@@ -1464,6 +1746,7 @@ import {
     async function loadLevelFromUrl(url) {
         const level = normalizeLevelDefaults(await loadJsonUrl(url));
         state.level = level;
+        state.selectedCavePointId = "";
         state.selectedId = state.level.entities[0]?.id || state.level.placements[0]?.id || "";
         await ensureAtlasesForLevel(level);
         normalizeLoadedLevelPlacements();
@@ -2269,7 +2552,7 @@ import {
         return `${prefix}_${String(index).padStart(3, "0")}`;
     }
 
-    function placeAsset(point) {
+    function placeAsset(point, { foreground = false } = {}) {
         const atlasId = state.activeAtlasId;
         if (!state.selectedAssetId || !frameFor(state.selectedAssetId, atlasId)) {
             setStatus("Select an asset in the palette first.", false);
@@ -2277,7 +2560,8 @@ import {
         }
         const frame = frameFor(state.selectedAssetId, atlasId);
         const object = objectFor(state.selectedAssetId, atlasId);
-        const scale = Number(object?.defaultScale) || 1.65;
+        const caveDecoration = normalizeCaveDecoration(caveWindowRecord().decoration);
+        const scale = foreground ? caveDecoration.scale : (Number(object?.defaultScale) || 1.65);
         const w = Math.round(frame.w * scale);
         const h = Math.round(frame.h * scale);
         const p = snapPoint(point);
@@ -2293,9 +2577,11 @@ import {
             mirrorX: false,
             mirrorY: false,
             rotation: 0,
-            layer: object?.layer || "terrain",
-            collisionFromManifest: hasRuntimeLines(object),
-            notes: ""
+            layer: foreground ? CAVE_FOREGROUND_LAYER : (object?.layer || "terrain"),
+            collisionFromManifest: foreground ? false : hasRuntimeLines(object),
+            foregroundBrightness: foreground ? caveDecoration.brightness : undefined,
+            foregroundSaturation: foreground ? caveDecoration.saturation : undefined,
+            notes: foreground ? "Inert manually placed cave foreground artwork." : ""
         };
         state.level.placements.push(placement);
         state.selectedId = placement.id;
@@ -2434,6 +2720,17 @@ import {
             draw();
             return;
         }
+        if (state.drag.kind === "cavePoint") {
+            const cavePoint = cavePointById(state.drag.id);
+            if (!cavePoint) return;
+            const dx = point.x - state.drag.start.x;
+            const dy = point.y - state.drag.start.y;
+            cavePoint.x = snapped(state.drag.original.x + dx);
+            cavePoint.y = snapped(state.drag.original.y + dy);
+            refreshCaveWindowUi();
+            draw();
+            return;
+        }
         if (state.drag.kind === "move") {
             const selected = selectedRecord();
             if (!selected) return;
@@ -2457,6 +2754,8 @@ import {
             if (isWizardDoor(moved)) snapWizardDoorToNearbyGround(moved, { announce: true });
             if (isCharacterEnemy(moved)) snapCharacterEnemyToNearbyGround(moved, { announce: true });
             persistUi();
+        } else if (completedDrag.kind === "cavePoint") {
+            persistUi();
         } else draw();
     }
 
@@ -2466,9 +2765,16 @@ import {
         drawBackground(rect);
         if (els.showGrid.checked) drawGrid(rect);
         drawWorldBounds();
-        for (const placement of sortedPlacements()) drawPlacement(placement);
+        const orderedPlacements = sortedPlacements();
+        for (const placement of orderedPlacements) {
+            if (placement.layer !== CAVE_FOREGROUND_LAYER) drawPlacement(placement);
+        }
         for (const entity of state.level.entities) drawEntity(entity);
+        for (const placement of orderedPlacements) {
+            if (placement.layer === CAVE_FOREGROUND_LAYER) drawPlacement(placement);
+        }
         drawNavigationGraph();
+        drawCaveWindowOverlay(rect);
         drawSelection();
         updateJson();
     }
@@ -2517,6 +2823,80 @@ import {
         ctx.restore();
     }
 
+    function traceCaveWindowPath() {
+        const points = caveWindowRecord().points;
+        if (points.length < 2) return false;
+        const first = worldToScreen(points[0].x, points[0].y);
+        ctx.moveTo(first.x, first.y);
+        if (points.length === 2) {
+            const second = worldToScreen(points[1].x, points[1].y);
+            ctx.lineTo(second.x, second.y);
+            return true;
+        }
+        for (let index = 0; index < points.length; index += 1) {
+            const controls = caveSplineSegmentControls(points, index);
+            const controlA = worldToScreen(controls.controlA.x, controls.controlA.y);
+            const controlB = worldToScreen(controls.controlB.x, controls.controlB.y);
+            const end = worldToScreen(controls.end.x, controls.end.y);
+            ctx.bezierCurveTo(controlA.x, controlA.y, controlB.x, controlB.y, end.x, end.y);
+        }
+        ctx.closePath();
+        return true;
+    }
+
+    function drawCaveWindowOverlay(rect) {
+        const cave = caveWindowRecord();
+        const editing = state.tool === "caveSelect" || state.tool === "caveAdd";
+        if (!cave.enabled && !editing && cave.points.length === 0) return;
+
+        if (cave.enabled && cave.points.length >= 3 && els.cavePreviewShade.checked) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, rect.width, rect.height);
+            traceCaveWindowPath();
+            ctx.fillStyle = "rgba(0,0,0,0.70)";
+            ctx.fill("evenodd");
+            ctx.restore();
+        }
+
+        if (cave.points.length >= 2) {
+            ctx.save();
+            ctx.beginPath();
+            traceCaveWindowPath();
+            ctx.strokeStyle = COLORS.caveSpline;
+            ctx.lineWidth = editing ? 2.5 : 1.5;
+            ctx.setLineDash(cave.enabled ? [] : [8, 6]);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        if (!editing) return;
+        for (const point of cave.points) {
+            const screen = worldToScreen(point.x, point.y);
+            const selected = point.id === state.selectedCavePointId;
+            ctx.save();
+            ctx.fillStyle = selected ? COLORS.caveSelectedPoint : COLORS.cavePoint;
+            ctx.strokeStyle = "rgba(0,0,0,0.88)";
+            ctx.lineWidth = 2;
+            if (point.mode === "corner") {
+                const size = selected ? 12 : 10;
+                ctx.fillRect(screen.x - size * 0.5, screen.y - size * 0.5, size, size);
+                ctx.strokeRect(screen.x - size * 0.5, screen.y - size * 0.5, size, size);
+            } else {
+                ctx.beginPath();
+                ctx.arc(screen.x, screen.y, selected ? 6 : 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+            if (els.showLabels.checked) {
+                ctx.font = "11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+                ctx.fillStyle = selected ? COLORS.caveSelectedPoint : COLORS.cavePoint;
+                ctx.fillText(point.id, screen.x + 8, screen.y - 8);
+            }
+            ctx.restore();
+        }
+    }
+
     function normalizeStackOrder() {
         state.level.placements.forEach((placement, index) => {
             if (!Number.isFinite(Number(placement.order))) {
@@ -2545,6 +2925,12 @@ import {
         const rotation = normalizeRotationRadians(placement.rotation, placement.angle);
         const atlasImage = imageForAtlas(atlasId);
         ctx.save();
+        if (placement.layer === CAVE_FOREGROUND_LAYER) {
+            const brightness = Math.max(0.08, Math.min(1, finiteEditorNumber(placement.foregroundBrightness, 0.36)));
+            const saturation = Math.max(0, Math.min(1.5, finiteEditorNumber(placement.foregroundSaturation, 0.62)));
+            ctx.filter = `brightness(${brightness}) saturate(${saturation})`;
+        }
+        ctx.globalAlpha *= Number.isFinite(Number(placement.alpha)) ? Number(placement.alpha) : 1;
         ctx.translate(center.x, center.y);
         ctx.rotate(rotation);
         ctx.scale(placement.mirrorX ? -1 : 1, placement.mirrorY ? -1 : 1);
@@ -2609,7 +2995,7 @@ import {
         ctx.strokeRect(-w * 0.5, -h * 0.5, w, h);
         ctx.setLineDash([]);
         ctx.restore();
-        if (!frame || !object) return;
+        if (!frame || !object || placement.collisionFromManifest === false) return;
         for (const loop of findClosedCollisionLoops(object)) {
             const worldPoints = loop.points.map((point) => assetNodeToWorld(placement, frame, point));
             drawWorldCollisionArea(worldPoints, collisionAreaColor(loop.kind));
@@ -2799,7 +3185,9 @@ import {
             els.inspectAngle.value = ((normalizeRotationRadians(rec.rotation, rec.angle) * 180 / Math.PI) || 0).toFixed(1).replace(/\.0$/, "");
             els.inspectMirrorX.checked = Boolean(rec.mirrorX);
             els.inspectMirrorY.checked = Boolean(rec.mirrorY);
-            els.inspectCollision.checked = rec.collisionFromManifest !== false;
+            const inertForeground = selected.kind === "asset" && els.inspectLayer.value === CAVE_FOREGROUND_LAYER;
+            els.inspectCollision.checked = inertForeground ? false : rec.collisionFromManifest !== false;
+            els.inspectCollision.disabled = inertForeground;
             els.inspectEntityType.value = rec.type || "targetDummy";
             els.inspectEntityState.innerHTML = "";
             const stateIds = Object.keys(rec.visualStates || {});
@@ -2885,7 +3273,18 @@ import {
             rec.mirrorX = els.inspectMirrorX.checked;
             rec.mirrorY = els.inspectMirrorY.checked;
             rec.atlasId = rec.atlasId || DEFAULT_ATLAS_ID;
-            rec.collisionFromManifest = els.inspectCollision.checked;
+            if (rec.layer === CAVE_FOREGROUND_LAYER) {
+                const decoration = normalizeCaveDecoration(caveWindowRecord().decoration);
+                rec.collisionFromManifest = false;
+                rec.foregroundBrightness = finiteEditorNumber(rec.foregroundBrightness, decoration.brightness);
+                rec.foregroundSaturation = finiteEditorNumber(rec.foregroundSaturation, decoration.saturation);
+            } else {
+                rec.collisionFromManifest = els.inspectCollision.checked;
+                delete rec.foregroundBrightness;
+                delete rec.foregroundSaturation;
+                delete rec.generatedBy;
+                delete rec.caveCategory;
+            }
         } else if (selected.kind === "cutoutMask") {
             rec.kind = "cutoutMask";
             rec.layer = "mask";
@@ -3028,6 +3427,7 @@ import {
 
     function syncMetadataFromUi() {
         state.level.colorMap = readColorMapControls();
+        syncCaveWindowFromUi();
         state.level.levelId = els.levelId.value.trim() || state.level.levelId;
         state.level.title = els.levelTitle.value.trim() || state.level.title;
         state.level.world.bounds.w = Number(els.worldW.value) || state.level.world.bounds.w;
@@ -3040,6 +3440,7 @@ import {
         els.worldW.value = state.level.world.bounds.w;
         els.worldH.value = state.level.world.bounds.h;
         syncColorMapToUi();
+        refreshCaveWindowUi();
         refreshNavigationGraphUi();
     }
 
@@ -3087,9 +3488,16 @@ import {
     function normalizeLoadedLevelPlacements() {
         if (!Array.isArray(state.level.placements)) return;
         for (const placement of state.level.placements) {
-            if (!placement || placement.kind !== "atlasAsset" || placement.collisionFromManifest !== undefined) continue;
+            if (!placement || placement.kind !== "atlasAsset") continue;
             placement.atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
-            placement.collisionFromManifest = hasRuntimeLines(objectFor(placement.assetId, placement.atlasId));
+            if (placement.layer === CAVE_FOREGROUND_LAYER) {
+                const decoration = normalizeCaveDecoration(state.level.caveWindow?.decoration);
+                placement.collisionFromManifest = false;
+                placement.foregroundBrightness = finiteEditorNumber(placement.foregroundBrightness, decoration.brightness);
+                placement.foregroundSaturation = finiteEditorNumber(placement.foregroundSaturation, decoration.saturation);
+            } else if (placement.collisionFromManifest === undefined) {
+                placement.collisionFromManifest = hasRuntimeLines(objectFor(placement.assetId, placement.atlasId));
+            }
         }
     }
 
@@ -3125,12 +3533,73 @@ import {
         window.open(url.href, "_blank");
     }
 
-    function fitView() {
+    function fitEditorBounds(bounds, maxZoom = 1.4) {
+        if (!bounds || bounds.w <= 0 || bounds.h <= 0) return false;
         const rect = screenSize();
-        const bounds = state.level.world.bounds;
-        state.camera.zoom = Math.max(0.1, Math.min(1.4, Math.min(rect.width / bounds.w, rect.height / bounds.h) * 0.92));
+        state.camera.zoom = Math.max(
+            MIN_EDITOR_ZOOM,
+            Math.min(maxZoom, Math.min(rect.width / bounds.w, rect.height / bounds.h) * 0.90)
+        );
         state.camera.x = bounds.x - (rect.width / state.camera.zoom - bounds.w) * 0.5;
         state.camera.y = bounds.y - (rect.height / state.camera.zoom - bounds.h) * 0.5;
+        draw();
+        return true;
+    }
+
+    function fitView() {
+        fitEditorBounds(state.level.world.bounds);
+    }
+
+    function authoredContentBounds() {
+        const points = [];
+        for (const placement of state.level.placements) {
+            if (placement.kind === "cutoutMask") {
+                points.push(
+                    { x: placement.x, y: placement.y },
+                    { x: placement.x + placement.w, y: placement.y + placement.h }
+                );
+            } else {
+                points.push(...placementCorners(placement));
+            }
+        }
+        for (const entity of state.level.entities) {
+            const rect = objectRect(entity, "entity");
+            points.push(
+                { x: rect.x, y: rect.y },
+                { x: rect.x + rect.w, y: rect.y + rect.h }
+            );
+        }
+        if (!points.length) return null;
+        const minX = Math.min(...points.map((point) => point.x));
+        const minY = Math.min(...points.map((point) => point.y));
+        const maxX = Math.max(...points.map((point) => point.x));
+        const maxY = Math.max(...points.map((point) => point.y));
+        const padding = Math.max(80, Math.min(maxX - minX, maxY - minY) * 0.05);
+        return { x: minX - padding, y: minY - padding, w: maxX - minX + padding * 2, h: maxY - minY + padding * 2 };
+    }
+
+    function fitContentView() {
+        if (!fitEditorBounds(authoredContentBounds() || state.level.world.bounds)) {
+            setStatus("There is no authored content to frame yet.", false);
+        }
+    }
+
+    function fitCaveView() {
+        const bounds = caveWindowBounds(caveWindowRecord().points, 80);
+        if (!bounds) {
+            setStatus("Create at least one cave perimeter point before fitting the cave view.", false);
+            return;
+        }
+        fitEditorBounds(bounds);
+    }
+
+    function zoomEditorAtCenter(factor) {
+        const rect = screenSize();
+        const before = screenToWorld(rect.width * 0.5, rect.height * 0.5);
+        state.camera.zoom = Math.max(MIN_EDITOR_ZOOM, Math.min(MAX_EDITOR_ZOOM, state.camera.zoom * factor));
+        const after = screenToWorld(rect.width * 0.5, rect.height * 0.5);
+        state.camera.x += before.x - after.x;
+        state.camera.y += before.y - after.y;
         draw();
     }
 
@@ -3145,11 +3614,34 @@ import {
         }
         if (event.button !== 0) return;
         canvas.setPointerCapture?.(event.pointerId);
-        if (state.tool === "placeAsset") {
-            const placement = placeAsset(point);
+        if (state.tool === "caveAdd") {
+            addCavePoint(point);
+            return;
+        }
+        if (state.tool === "caveSelect") {
+            const cavePoint = hitTestCavePoint(point);
+            state.selectedCavePointId = cavePoint?.id || "";
+            if (cavePoint) {
+                state.drag = {
+                    kind: "cavePoint",
+                    id: cavePoint.id,
+                    start: point,
+                    original: { x: cavePoint.x, y: cavePoint.y },
+                    pointerId: event.pointerId
+                };
+            }
+            refreshCaveWindowUi();
+            draw();
+            return;
+        }
+        if (state.tool === "placeAsset" || state.tool === "placeCaveForeground") {
+            const foreground = state.tool === "placeCaveForeground";
+            const placement = placeAsset(point, { foreground });
             if (placement) {
                 setTool("select");
-                setStatus(`Placed ${placement.id}. Select tool active for fine-tuning.`);
+                setStatus(foreground
+                    ? `Placed ${placement.id} in the inert cave foreground. Atlas collision is disabled.`
+                    : `Placed ${placement.id}. Select tool active for fine-tuning.`);
             }
             return;
         }
@@ -3197,19 +3689,24 @@ import {
         const rect = canvas.getBoundingClientRect();
         const before = screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
         const factor = event.deltaY < 0 ? 1.12 : 0.89;
-        state.camera.zoom = Math.max(0.1, Math.min(5, state.camera.zoom * factor));
+        state.camera.zoom = Math.max(MIN_EDITOR_ZOOM, Math.min(MAX_EDITOR_ZOOM, state.camera.zoom * factor));
         const after = screenToWorld(event.clientX - rect.left, event.clientY - rect.top);
         state.camera.x += before.x - after.x;
         state.camera.y += before.y - after.y;
         draw();
     }, { passive: false });
 
-    document.querySelectorAll("#topbar button[data-tool]").forEach((button) => button.addEventListener("click", () => setTool(button.dataset.tool)));
-    document.getElementById("zoom-in").addEventListener("click", () => { state.camera.zoom = Math.min(5, state.camera.zoom * 1.15); draw(); });
-    document.getElementById("zoom-out").addEventListener("click", () => { state.camera.zoom = Math.max(0.1, state.camera.zoom / 1.15); draw(); });
+    document.querySelectorAll("button[data-tool]").forEach((button) => button.addEventListener("click", () => setTool(button.dataset.tool)));
+    document.getElementById("zoom-in").addEventListener("click", () => zoomEditorAtCenter(1.15));
+    document.getElementById("zoom-out").addEventListener("click", () => zoomEditorAtCenter(1 / 1.15));
     document.getElementById("fit-view").addEventListener("click", fitView);
+    document.getElementById("fit-content-view").addEventListener("click", fitContentView);
+    document.getElementById("fit-cave-view").addEventListener("click", fitCaveView);
     els.copyAsset.addEventListener("click", copySelectedAsset);
-    els.zoom.addEventListener("change", () => { state.camera.zoom = Math.max(0.1, Math.min(5, Number(els.zoom.value) || state.camera.zoom)); draw(); });
+    els.zoom.addEventListener("change", () => {
+        state.camera.zoom = Math.max(MIN_EDITOR_ZOOM, Math.min(MAX_EDITOR_ZOOM, Number(els.zoom.value) || state.camera.zoom));
+        draw();
+    });
     if (els.entityPalette) {
         for (const button of els.entityPalette.querySelectorAll("button[data-entity]")) {
             button.addEventListener("click", () => {
@@ -3225,6 +3722,7 @@ import {
     els.assetAtlas?.addEventListener("change", () => setActiveAtlas(els.assetAtlas.value));
     document.getElementById("new-level").addEventListener("click", () => {
         state.level = makeEmptyLevel();
+        state.selectedCavePointId = "";
         state.selectedId = state.level.entities[0]?.id || state.level.placements[0]?.id || "";
         refreshColorMappedAtlases({ redraw: false });
         syncMetadataToUi();
@@ -3234,6 +3732,11 @@ import {
     document.getElementById("load-level").addEventListener("click", loadSelectedLevel);
     document.getElementById("reload-atlas-library").addEventListener("click", loadDefaultManifest);
     document.getElementById("apply-inspector").addEventListener("click", applyInspector);
+    els.inspectLayer.addEventListener("change", () => {
+        const inertForeground = els.inspectLayer.value === CAVE_FOREGROUND_LAYER;
+        if (inertForeground) els.inspectCollision.checked = false;
+        els.inspectCollision.disabled = inertForeground;
+    });
     document.getElementById("to-front").addEventListener("click", raiseSelectedToTop);
     document.getElementById("to-back").addEventListener("click", lowerSelectedToBottom);
     document.getElementById("play-browser-copy").addEventListener("click", playBrowserCopy);
@@ -3251,6 +3754,30 @@ import {
     });
     els.showNavigationGraph.addEventListener("change", draw);
     [els.showGrid, els.showAssetGuides, els.showLabels, els.snapEnabled, els.snap, els.worldW, els.worldH, els.levelId, els.levelTitle].forEach((el) => el.addEventListener("change", () => { syncMetadataFromUi(); draw(); }));
+
+    els.caveCreateFromBounds.addEventListener("click", createCaveWindowFromWorldBounds);
+    els.caveDeletePoint.addEventListener("click", deleteSelectedCavePoint);
+    els.cavePointMode.addEventListener("change", () => setSelectedCavePointMode(els.cavePointMode.value));
+    els.caveEnabled.addEventListener("change", () => {
+        syncCaveWindowFromUi();
+        persistUi();
+        setStatus(els.caveEnabled.checked ? "Enabled the inert cave-window perimeter." : "Disabled the cave-window preview without deleting its points.");
+    });
+    [els.caveParallax, els.caveFeather].forEach((element) => {
+        element.addEventListener("change", () => {
+            syncCaveWindowFromUi();
+            persistUi();
+        });
+    });
+    els.cavePreviewShade.addEventListener("change", draw);
+    [els.caveDecorSeed, els.caveDecorSpacing, els.caveDecorScale, els.caveDecorBrightness].forEach((element) => {
+        element.addEventListener("change", () => {
+            syncCaveWindowFromUi();
+            persistUi();
+        });
+    });
+    els.caveAutoPopulate.addEventListener("click", populateCavePerimeter);
+    els.caveClearGenerated.addEventListener("click", () => clearGeneratedCaveForeground());
 
     [els.colorMapSource, els.colorMapRange, els.colorMapFeather, els.colorMapRotation].forEach((el) => {
         el.addEventListener("input", scheduleColorMapRefresh);
@@ -3270,6 +3797,7 @@ import {
         if (!file) return;
         try {
             state.level = normalizeLevelDefaults(JSON.parse(await file.text()));
+            state.selectedCavePointId = "";
             await ensureAtlasesForLevel(state.level);
             normalizeLoadedLevelPlacements();
             snapAllWizardDoorsToNearbyGround();
@@ -3314,6 +3842,7 @@ import {
             return;
         }
         state.level = normalizeLevelDefaults(JSON.parse(saved));
+        state.selectedCavePointId = "";
         ensureAtlasesForLevel(state.level).finally(() => {
             normalizeLoadedLevelPlacements();
             snapAllWizardDoorsToNearbyGround();

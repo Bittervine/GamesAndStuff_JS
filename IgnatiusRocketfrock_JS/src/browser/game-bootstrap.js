@@ -15,6 +15,7 @@ import {
 } from "../core/simulation.js";
 import { RocketfrockInput } from "./browser-input.js";
 import { createRenderer } from "../presentation/canvas-renderer.js";
+import { normalizeCaveWindow } from "../shared/cave-window-data.js";
 
 const canvas = document.getElementById("stage");
 const fuelText = document.getElementById("fuel-text");
@@ -42,9 +43,11 @@ const loadingTrack = document.getElementById("loading-track");
 const loadingBarFill = document.getElementById("loading-bar-fill");
 const loadingDetail = document.getElementById("loading-detail");
 
-const GAME_REVISION = "131";
+const GAME_REVISION = "137";
 
 let displayedLoadingProgress = 0;
+let activeCaveWindow = normalizeCaveWindow(null);
+let renderer;
 let gameState = createInitialGameState();
 gameState.debug.revision = GAME_REVISION;
 addEvent(gameState, `BUILD_REVISION_${GAME_REVISION}`);
@@ -55,7 +58,6 @@ if (!loadedBrowserCopy) {
     await applyRequiredDefaultLevel();
 }
 setLoadingProgress(0.1, "Level data ready");
-let renderer;
 try {
     renderer = await createRenderer(canvas, {
         environmentAtlasManifestUrls: gameState.world.atlasManifests,
@@ -66,6 +68,7 @@ try {
 } catch (error) {
     failStartup(`Game assets could not be loaded: ${error.message}`, error);
 }
+renderer.syncCaveWindow(activeCaveWindow);
 syncLoadedCharacterCombatProfiles();
 if (!applyLoadedAtlasCollisions()) {
     failStartup("Required atlas collision data could not be applied. Check assets/at_atlas_001.json and the level atlasRefs.");
@@ -161,6 +164,8 @@ function maybeApplyBrowserCopyLevel() {
         const applied = applyEditorLevelToWorld(gameState, level);
         if (!applied) {
             console.warn("Playtest requested, but the browser-saved level could not be applied.");
+        } else {
+            syncPresentationLevelData(level);
         }
         return applied;
     } catch (error) {
@@ -192,8 +197,13 @@ async function applyRequiredDefaultLevel() {
     if (!applyEditorLevelToWorld(gameState, level)) {
         failStartup(`Required level file could not be applied: ${url}.`);
     }
+    syncPresentationLevelData(level);
 }
 
+function syncPresentationLevelData(level) {
+    activeCaveWindow = normalizeCaveWindow(level?.caveWindow || level?.visuals?.caveWindow);
+    renderer?.syncCaveWindow(activeCaveWindow);
+}
 
 function normalizedLevelId(value, fallback = "level_001") {
     const match = /^level_(\d+)$/i.exec(String(value || "").trim());
@@ -246,6 +256,7 @@ async function loadRequestedLevel(request) {
             gameState.player.visible = true;
             return false;
         }
+        syncPresentationLevelData(level);
         await renderer.ensureEnvironmentAtlases(gameState.world.atlasManifests, {
             onProgress: ({ progress, label }) => {
                 setLoadingProgress(0.22 + clamp01(progress) * 0.66, label);

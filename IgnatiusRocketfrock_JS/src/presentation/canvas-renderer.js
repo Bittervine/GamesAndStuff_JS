@@ -19,6 +19,7 @@ import {
     normalizeLevelColorMap
 } from "../shared/level-color-map-data.js";
 import { createColorMappedCanvas } from "./level-color-map-cache.js";
+import { computeCaveWindowParallaxOffset, drawCaveWindowMask } from "./cave-window-mask.js";
 import {
     animationPoseToRuntimeTransforms,
     applyRuntimeProjectileHandoffVisibility,
@@ -230,6 +231,8 @@ class RocketfrockRenderer {
         this.environmentManifestUrls = new Set((environmentManifestUrls || []).map(String));
         this.environmentColorMap = normalizeLevelColorMap(null);
         this.environmentColorMapKey = "";
+        this.caveWindow = null;
+        this.caveWindowMaskCanvas = null;
         this.phase = 0;
         this.forcePhase = null;
         this.visualPose = null;
@@ -243,6 +246,11 @@ class RocketfrockRenderer {
 
     getEnvironmentManifests() {
         return this.environmentAtlases;
+    }
+
+    syncCaveWindow(caveWindow) {
+        this.caveWindow = caveWindow && typeof caveWindow === "object" ? caveWindow : null;
+        return this.caveWindow;
     }
 
     async ensureEnvironmentAtlases(manifestUrls = [], options = {}) {
@@ -362,6 +370,8 @@ class RocketfrockRenderer {
         this.drawProjectiles(state, view);
         this.drawPlayer(state, view);
         this.drawOrderedWorldVisuals(state, view, true);
+        this.drawCaveForegroundVisuals(state, view);
+        this.drawCaveWindow(state, view);
         this.drawMailboxStoryOverlay(state, view);
         this.drawDebug(state, view, inputFrame);
     }
@@ -409,6 +419,18 @@ class RocketfrockRenderer {
     drawBackdrop(view) {
         // Intentionally empty for the cave theme. Outdoor themes can replace this
         // later with a theme-specific sky renderer.
+    }
+
+    drawCaveWindow(state, view) {
+        const result = drawCaveWindowMask({
+            targetContext: this.ctx,
+            maskCanvas: this.caveWindowMaskCanvas,
+            caveWindow: this.caveWindow,
+            view,
+            worldBounds: state.world?.bounds
+        });
+        this.caveWindowMaskCanvas = result.maskCanvas;
+        return result.drawn;
     }
 
     drawWorld(state, view) {
@@ -498,7 +520,9 @@ class RocketfrockRenderer {
     drawOrderedWorldVisuals(state, view, actorFrontOnly = false) {
         const visuals = (state.world.visuals || [])
             .map((visual, index) => ({ visual, index }))
-            .filter(({ visual }) => actorFrontOnly ? visual.layer === "actorFront" : visual.layer !== "actorFront")
+            .filter(({ visual }) => actorFrontOnly
+                ? visual.layer === "actorFront"
+                : visual.layer !== "actorFront" && visual.layer !== "caveForeground")
             .sort((a, b) => this.visualSortKey(a.visual, a.index) - this.visualSortKey(b.visual, b.index));
         let drewAny = false;
         for (const { visual } of visuals) {
@@ -508,6 +532,20 @@ class RocketfrockRenderer {
                 }
             } else if (visual.kind === "cutoutMask") {
                 this.drawCutoutMaskVisual(visual, view);
+                drewAny = true;
+            }
+        }
+        return drewAny;
+    }
+
+    drawCaveForegroundVisuals(state, view) {
+        const visuals = (state.world.visuals || [])
+            .map((visual, index) => ({ visual, index }))
+            .filter(({ visual }) => visual.layer === "caveForeground")
+            .sort((a, b) => this.visualSortKey(a.visual, a.index) - this.visualSortKey(b.visual, b.index));
+        let drewAny = false;
+        for (const { visual } of visuals) {
+            if (visual.kind === "atlasSprite" && this.drawAtlasSpriteVisual(visual, view, state)) {
                 drewAny = true;
             }
         }
@@ -576,11 +614,20 @@ class RocketfrockRenderer {
         }
         const ctx = this.ctx;
         const centerWorld = placementCenter(visual);
-        const center = this.worldToScreen(view, centerWorld.x, centerWorld.y);
+        const caveForeground = visual.layer === "caveForeground";
+        const foregroundOffset = caveForeground
+            ? computeCaveWindowParallaxOffset(view, state?.world?.bounds, this.caveWindow?.parallax)
+            : { x: 0, y: 0 };
+        const center = this.worldToScreen(view, centerWorld.x - foregroundOffset.x, centerWorld.y - foregroundOffset.y);
         const w = visual.w * view.zoom;
         const h = visual.h * view.zoom;
         ctx.save();
         ctx.globalAlpha *= visual.alpha ?? 1;
+        if (caveForeground) {
+            const brightness = Math.max(0.08, Math.min(1, Number(visual.foregroundBrightness) || 0.36));
+            const saturation = Math.max(0, Math.min(1.5, Number(visual.foregroundSaturation) || 0.62));
+            ctx.filter = `brightness(${brightness}) saturate(${saturation})`;
+        }
         ctx.translate(center.x, center.y);
         ctx.rotate(normalizeRotationRadians(visual.rotation, visual.angle));
         ctx.scale(visual.mirrorX ? -1 : 1, visual.mirrorY ? -1 : 1);
@@ -644,6 +691,9 @@ class RocketfrockRenderer {
             ctx.fillText(visual.assetId || frameName, center.x - visualW * 0.5 + 4 * view.zoom, center.y - visualH * 0.5 - 5 * view.zoom);
             ctx.restore();
 
+            if (visual.collisionFromManifest === false) {
+                continue;
+            }
             if (!object || !Array.isArray(object.nodes) || !Array.isArray(object.lines)) {
                 continue;
             }

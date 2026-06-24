@@ -50,20 +50,20 @@ Revision 100 provides the first destructible/reactive-world slice: an editor-pla
 
 Goal: make each level read as a window into a larger cavern without coupling presentation framing to gameplay collision.
 
-* [ ] Add whole-level zoom-out and fit controls to the Level Editor.
-* [ ] Add closed spline authoring with selectable smooth/corner control points.
-* [ ] Store the cave perimeter as visual authoring data only.
-* [ ] Never derive solids, walkable supports, hazards, navigation edges, or projectile collision from the perimeter.
-* [ ] Keep all authoritative platforms and collision in the playing-area layer.
+* [x] Add whole-level zoom-out and fit controls to the Level Editor. Revision 136 adds 0.02× zoom plus Fit world/content/cave.
+* [x] Add closed spline authoring with selectable smooth/corner control points. Revision 136 adds insertion, dragging, mode changes, deletion, and bounds initialization.
+* [x] Store the cave perimeter as visual authoring data only. Revision 136 adds normalized `caveWindow` data and shared spline math.
+* [x] Never derive solids, walkable supports, hazards, navigation edges, or projectile collision from the perimeter. Revision 137 passes cave data directly from the browser adapter to presentation and keeps portable core unaware of the mask.
+* [x] Keep all authoritative platforms and collision in the playing-area layer.
 * [ ] Warn when gameplay geometry sits far outside the visible cave opening.
-* [ ] Render a black exterior with a feathered opening whose outer rock artwork fades into opaque black.
-* [ ] Give the perimeter and foreground formations a subtle configurable foreground parallax offset.
-* [ ] Add deterministic perimeter decoration using tagged floor, wall, ceiling, stalagmite, and stalactite atlas assets.
-* [ ] Add a foreground placement layer drawn after actors.
-* [ ] Force manifest collision and gameplay attributes off for every foreground placement.
-* [ ] Darken and slightly desaturate foreground artwork so occlusion reads as depth rather than a gameplay obstacle.
+* [x] Render a black exterior with a feathered opening. Revision 137 uses a reusable offscreen destination-out mask; future perimeter artwork will share its opaque-black outward fade.
+* [x] Give the perimeter a subtle configurable foreground parallax offset. Revision 137 anchors the extra scroll around the technical world centre; generated foreground formations will use the same setting.
+* [x] Add deterministic perimeter decoration using tagged floor, wall, ceiling, stalagmite, and stalactite atlas assets. Revision 138 samples the spline by arc length and selects assets deterministically from an authored seed.
+* [x] Add a foreground placement layer drawn after actors. Revision 138 adds manual and generated `caveForeground` placements before the cave mask.
+* [x] Force manifest collision and gameplay attributes off for every foreground placement. Revision 138 enforces this in editor normalization, inspector edits, runtime conversion, and atlas collision hydration.
+* [x] Darken and slightly desaturate foreground artwork so occlusion reads as depth rather than a gameplay obstacle. Revision 138 applies authored brightness and saturation filters with shared cave parallax.
 
-The first implementation revision should establish editor zoom/fit and spline data editing before runtime masking or automatic decoration.
+Revision 137 completes runtime masking and perimeter parallax without touching collision. The next implementation revision should add deterministic, presentation-only perimeter decoration from tagged atlas assets.
 
 ## Phase 1: Completed Physics, Level, and Atlas Foundation
 
@@ -1144,3 +1144,37 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Remove two repository-wide unreferenced public helpers.
 - [x] Record the cave perimeter as an inert, parallaxed foreground mask with collision forcibly disabled.
 - [x] Keep the falling-tree bridge planned but postponed until its graphical asset is ready.
+
+
+### Revision 136 cave-window authoring foundation
+
+- [x] Add `src/shared/cave-window-data.js` for normalized inert perimeter data, closed cubic sampling, nearest-segment insertion, and fit bounds.
+- [x] Lower the Level Editor minimum zoom to 0.02×.
+- [x] Add separate Fit world, Fit content, and Fit cave commands.
+- [x] Add smooth/corner cave control points with selection, snapped dragging, insertion, deletion, and world-bounds initialization.
+- [x] Add an editor-only flat exterior shade preview without changing runtime presentation.
+- [x] Add the disabled `caveWindow` schema to `level_001` without changing collision or navigation.
+- [x] Add regression coverage for curve closure, corner semantics, insertion lookup, editor controls, schema adoption, and the core/presentation boundary.
+- [x] Render the runtime black exterior with a feathered opening and subtle foreground parallax. Revision 137 adds `src/presentation/cave-window-mask.js` and browser-to-presentation cave-data synchronization.
+
+### Revision 137 runtime cave-window mask
+
+- [x] Add a reusable offscreen black mask that clears the authored spline opening and feathers outward into opaque black.
+- [x] Render the mask after actors and actor-front scenery, while leaving story overlays and debug information readable above it.
+- [x] Apply camera-relative foreground parallax from the authored `caveWindow.parallax` value.
+- [x] Keep cave-window data out of portable gameplay and synchronize it in `src/browser/game-bootstrap.js`.
+- [x] Reuse one resized mask canvas instead of allocating a new surface every frame.
+- [x] Add regression coverage for parallax math, render order, startup/transition synchronization, and the core/presentation boundary.
+- [x] Add deterministic perimeter decoration using tagged atlas assets. Revision 138 adds seed/spacing/scale/brightness controls, replaceable generated records, and manual foreground placement.
+
+### Revision 138 deterministic perimeter decoration and inert foreground
+
+- [x] Move Edit perimeter and Add perimeter point controls from the global toolbar into the cave panel.
+- [x] Add a dedicated manual foreground-placement tool using the currently selected atlas asset.
+- [x] Add `src/shared/cave-window-decoration.js` for deterministic arc-length sampling, orientation classification, and tagged asset selection.
+- [x] Store seed, spacing, scale, brightness, and saturation under `caveWindow.decoration`.
+- [x] Add Populate perimeter and Clear generated commands; regeneration removes only records marked `generatedBy: "cavePerimeter"`.
+- [x] Render `caveForeground` after actors with the same cave parallax and dark/desaturated treatment, then apply the feathered black mask.
+- [x] Force foreground collision off in editor output, inspector conversion, runtime level conversion, and manifest collision hydration.
+- [x] Add deterministic generator, render-order, toolbar-placement, and collision-boundary regression coverage.
+

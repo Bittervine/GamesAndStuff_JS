@@ -32,11 +32,14 @@ IgnatiusRocketfrock_JS/
 │   │   └── game-bootstrap.js
 │   ├── presentation/
 │   │   ├── canvas-renderer.js
+│   │   ├── cave-window-mask.js
 │   │   ├── character-runtime.js
 │   │   └── level-color-map-cache.js
 │   ├── shared/
 │   │   ├── actor-geometry.js
 │   │   ├── animation-data.js
+│   │   ├── cave-window-data.js
+│   │   ├── cave-window-decoration.js
 │   │   ├── level-color-map-data.js
 │   │   └── level-transform.js
 │   └── tools/
@@ -94,9 +97,12 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 | `src/shared/animation-data.js` | SHARED DATA / MATH | Animation schema normalization, sampling, interpolation, and pose blending. |
 | `src/shared/level-transform.js` | SHARED DATA / MATH | Mirroring, rotation, placement geometry, hit testing, and atlas-node conversion shared by runtime and editor. |
 | `src/shared/level-color-map-data.js` | SHARED DATA / MATH | Level colour-map normalization, cache keys, hue-selection mathematics, and RGB/HSL conversion without browser objects. |
+| `src/shared/cave-window-data.js` | SHARED DATA / MATH | Inert cave-window schema normalization, decoration settings, closed smooth/corner spline sampling, point-insertion lookup, and authoring bounds. It contains no collision or navigation generation. |
+| `src/shared/cave-window-decoration.js` | SHARED DATA / MATH | Deterministic arc-length sampling and tagged atlas-asset selection for explicit non-colliding `caveForeground` placement records. |
 | `src/browser/browser-input.js` | BROWSER ADAPTER | Keyboard, gamepad, mouse, and touch state converted into `InputFrame`. |
 | `src/browser/game-bootstrap.js` | BROWSER ADAPTER | Asset and level loading, fixed-step loop, connection of input/simulation/renderer, and hydration of plain character combat profiles from loaded character projects. |
-| `src/presentation/canvas-renderer.js` | PRESENTATION ONLY | Canvas rendering, camera presentation, HUD, rig drawing, visual effects, and debug overlays. |
+| `src/presentation/canvas-renderer.js` | PRESENTATION ONLY | Canvas rendering, camera presentation, HUD, rig drawing, visual effects, cave-mask composition, and debug overlays. |
+| `src/presentation/cave-window-mask.js` | PRESENTATION ONLY | Reusable offscreen black cave mask, spline-to-screen tracing, outward feathering, and camera-relative foreground parallax. |
 | `src/presentation/character-runtime.js` | PRESENTATION ONLY | Browser-side character project loading, rig normalization, animation selection, projectile-release transform compilation, and ordered draw commands. |
 | `src/presentation/level-color-map-cache.js` | PRESENTATION ONLY | Offscreen Canvas generation and image-pixel application for cached environment-atlas recolouring. |
 | `src/tools/character-editor/*` | EDITOR ONLY | Reusable Puppet Forge project, animation, atlas, dirty-state, and view operations. |
@@ -107,9 +113,11 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 
 ## Cave-window presentation boundary
 
-The planned cave perimeter is deliberately not gameplay geometry. A closed editor spline will describe a visual opening through a foreground rock mass, plus decoration sampling and a feathered alpha/black mask. It may scroll with a subtle foreground parallax offset and may occlude actors, but it must not create solids, walkable supports, hazards, navigation edges, or projectile collision. Authoritative collision and platforms remain ordinary playing-area data in the portable level definition.
+The cave perimeter is deliberately not gameplay geometry. Revision 136 adds a closed editor spline in top-level `level.caveWindow`; revision 137 turns that data into a visual opening through a foreground rock mass using a reusable offscreen black mask. It may scroll with a subtle foreground parallax offset and may occlude actors, but it must not create solids, walkable supports, hazards, navigation edges, or projectile collision. Authoritative collision and platforms remain ordinary playing-area data in the portable level definition.
 
-Foreground cave placements are presentation records. Their manifest collision and gameplay attributes are disabled when authored into that layer. Perimeter artwork may extend outside the opening and fade into opaque black, giving the frame the appearance of continuing rock rather than exposing sprite rectangles. The editor should warn when authoritative platforms are placed so far outside the visible opening that their gameplay purpose would be hidden.
+`src/shared/cave-window-data.js` owns schema, decoration settings, and curve mathematics so the Level Editor and renderer share deterministic points. `src/shared/cave-window-decoration.js` samples that spline by arc length, classifies inward normals as floor, wall, or ceiling, and selects tagged atlas assets deterministically from the authored seed. It returns ordinary explicit placement records on the `caveForeground` layer; it does not mutate gameplay geometry. `src/presentation/cave-window-mask.js` owns Canvas composition, outward feathering, and camera-relative parallax anchored around the technical world bounds. Portable core does not import cave-window curve or generator modules and must never interpret the perimeter as physics.
+
+Foreground cave placements are presentation records drawn after actors and before the black cave mask. Runtime and editor both force manifest collision off for this layer, even when a malformed level requests collision. The renderer applies the same cave parallax plus a dark brightness/saturation filter. Generated records are marked `generatedBy: "cavePerimeter"`; regeneration replaces only those records, leaving manual foreground formations untouched. The black mask then hides and feathers their outward portions, so the rock frame appears to continue into unseen darkness rather than exposing sprite rectangles. The editor should warn when authoritative platforms are placed so far outside the visible opening that their gameplay purpose would be hidden.
 
 ## Enemy strategy and navigation boundary
 

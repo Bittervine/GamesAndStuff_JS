@@ -26,6 +26,7 @@ IgnatiusRocketfrock_JS/
 │   ├── shared/
 │   │   ├── actor-geometry.js
 │   │   ├── animation-data.js
+│   │   ├── cave-window-data.js
 │   │   ├── level-color-map-data.js
 │   │   └── level-transform.js
 │   └── tools/
@@ -59,12 +60,12 @@ The foreground perimeter and its decorations should scroll with a subtle, config
 
 Implementation order:
 
-1. Complete a cleanup-only audit and remove obsolete aliases and source-boundary debt.
-2. Add whole-level zoom/fit controls and closed spline editing in the Level Editor.
-3. Store and validate the visual cave perimeter without deriving gameplay collision from it.
-4. Render the black exterior, feathered cave opening, and subtle foreground parallax.
-5. Add deterministic floor/wall/ceiling decoration placement from tagged atlas assets.
-6. Add manually and automatically placed dark foreground formations with collision forcibly disabled.
+1. **Complete in revision 135:** cleanup-only audit, obsolete aliases, and source-boundary debt.
+2. **Complete in revision 136:** whole-level zoom/fit controls and closed spline editing in the Level Editor.
+3. **Complete in revision 136:** normalized visual perimeter data with no derived gameplay collision.
+4. Render the black exterior, feathered cave opening, and subtle foreground parallax. Completed in revision 137.
+5. **Complete in revision 138:** deterministic floor/wall/ceiling decoration placement from tagged atlas assets.
+6. **Complete in revision 138:** manually and automatically placed dark foreground formations with collision forcibly disabled.
 
 ## Intro
 
@@ -1647,3 +1648,29 @@ Revision 135 removes three obsolete enemy-data paths from current authored and r
 The former core-to-presentation colour-map dependency is also removed. Engine-neutral colour-map normalization, cache keys, and colour mathematics now live in `src/shared/level-color-map-data.js`. Offscreen Canvas generation remains in `src/presentation/level-color-map-cache.js`. Source-boundary regression coverage now rejects future core imports from browser, presentation, or editor code. Two unused public helpers were removed after repository-wide reference checks.
 
 This revision also records the cave-window architecture before implementation: the perimeter is an inert, parallaxed foreground mask and decoration layer, never gameplay collision. Authoritative platforms remain in the playing-area layer, foreground placements force collision off, and perimeter artwork fades outward into black. The next revision begins whole-level zoom/fit and closed spline authoring.
+
+### Revision 136 closed cave-window spline authoring
+
+The Level Editor now zooms out to 0.02× and provides separate **Fit world**, **Fit content**, and **Fit cave** controls. The cyan technical world envelope remains distinct from authored content and from the visual cave opening.
+
+A new `caveWindow` level record stores `enabled`, future feather width, subtle foreground parallax, and an ordered closed loop of control points. Each point has a stable ID, world-space position, and either `smooth` or `corner` mode. The editor can initialize an eight-point rounded loop from the world bounds, insert a point on the nearest spline segment, drag points with normal snapping, change point mode, delete points, and preview the exterior as a flat dark editor shade. Curve normalization and sampling live in `src/shared/cave-window-data.js` so later runtime masking and deterministic decoration can use exactly the same spline mathematics.
+
+This is authoring and presentation data only. Revision 136 does not add cave collision, navigation, hazards, projectile blocking, runtime masking, or automatic rock placement. `level_001` adopts the disabled schema with no invented perimeter points. Revision 137 completes the runtime black exterior, feathered opening, and subtle foreground parallax. The next cave-window step is deterministic presentation-only perimeter decoration from tagged atlas assets.
+
+
+### Revision 137 runtime cave-window masking and parallax
+
+The browser adapter now normalizes `level.caveWindow` separately from portable gameplay and synchronizes it directly into presentation during initial loading, browser-copy playtesting, and level transitions. `src/core/simulation.js` remains unaware of the cave mask and derives no collision, navigation, hazards, or projectile behavior from it.
+
+`src/presentation/cave-window-mask.js` renders the opening through a reusable offscreen canvas. The surface begins as opaque black, the closed authored spline is removed with `destination-out`, and a blurred removal around the outside of the curve creates the configurable feather into unseen rock. The result is composited after actors and actor-front scenery, so the cave edge can occlude them, but before story overlays and debug text.
+
+The authored parallax factor is applied as a small extra camera-relative offset around the technical world centre. A factor of `1` keeps the mask locked to the playing layer; values above `1` make it move slightly faster as foreground scenery without allowing the absolute world coordinate origin to create an arbitrary large displacement. Revision 137 does not place rock sprites or foreground formations. Revision 138 completes that slice with explicit deterministic perimeter decoration and manual foreground placement.
+
+### Revision 138 deterministic cave decoration and foreground placement
+
+Cave editing controls now live in the Level Editor's right-side **Cave window and foreground** panel instead of occupying the global toolbar. The same panel provides a dedicated **Place selected asset in foreground** tool. Manual foreground placements use the selected atlas frame at the authored cave scale, render after actors, inherit the cave parallax, and have manifest collision forcibly disabled. Moving an existing asset into `caveForeground` through the inspector applies the same safety rule.
+
+`src/shared/cave-window-decoration.js` adds deterministic arc-length placement around the closed spline. The generator classifies each sample from the cave's inward normal, choosing tagged stalagmites/rocks/floor pieces for lower edges, stalactites/ceiling pieces for upper edges, and wall/pillar pieces for sides. Seed, spacing, scale, and brightness are stored under `caveWindow.decoration`. Generated objects are explicit level placements marked `generatedBy: "cavePerimeter"`, so **Populate perimeter** safely replaces only prior generated art while **Clear generated** leaves manual foreground work intact.
+
+The runtime draws `caveForeground` after actors and actor-front entity pieces but before the feathered black mask. It applies the same camera-relative parallax as the mask and a dark, slightly desaturated Canvas filter. Both runtime level conversion and atlas-collision hydration reject collision from this layer even if imported data incorrectly enables it. No cave perimeter or foreground placement creates solids, supports, hazards, navigation, or projectile blocking.
+
