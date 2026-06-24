@@ -144,6 +144,41 @@ export function computeResponsiveViewportMetrics(clientWidth, clientHeight, dpr 
     };
 }
 
+export function computeThoughtBubblePlacement({
+    speakerX,
+    speakerY,
+    bubbleWidth,
+    bubbleHeight,
+    viewportWidth,
+    viewportHeight,
+    zoom = 1,
+    dpr = 1
+}) {
+    const safeZoom = Math.max(0.01, Number(zoom) || 1);
+    const safeDpr = Math.max(1, Number(dpr) || 1);
+    const w = Math.max(1, Number(bubbleWidth) || 1);
+    const h = Math.max(1, Number(bubbleHeight) || 1);
+    // The painted circles trail diagonally down-left. The speaker belongs at the
+    // extrapolated end of that trail, not on top of the lowest painted puff.
+    // Using the puff itself as the anchor made the trail visually point past
+    // Ignatius toward the lower-left corner.
+    const tailLocalX = w * -0.035;
+    const tailLocalY = h * 1.020;
+    const marginX = 14 * safeDpr;
+    const marginTop = 12 * safeDpr;
+    const marginBottom = 42 * safeDpr;
+    const maxX = Math.max(marginX, (Number(viewportWidth) || w) - w - marginX);
+    const maxY = Math.max(marginTop, (Number(viewportHeight) || h) - h - marginBottom);
+    const x = clamp((Number(speakerX) || 0) - tailLocalX, marginX, maxX);
+    const y = clamp((Number(speakerY) || 0) - tailLocalY - 5 * safeZoom, marginTop, maxY);
+    return {
+        x,
+        y,
+        tailX: x + tailLocalX,
+        tailY: y + tailLocalY
+    };
+}
+
 export async function createRenderer(canvas, options = {}) {
     const ctx = canvas.getContext("2d", { alpha: false });
     const onProgress = typeof options.onProgress === "function" ? options.onProgress : () => {};
@@ -1819,49 +1854,59 @@ class RocketfrockRenderer {
         const frame = atlas?.frames?.[story.thoughtAssetId || "thought_bubble_large"];
         if (!atlas?.image || !frame) return;
 
-        const virtualW = Math.min(460, view.virtualW * 0.78);
+        const virtualW = Math.min(440, view.virtualW * 0.74);
         const virtualH = virtualW * frame.h / Math.max(1, frame.w);
         const w = virtualW * view.zoom;
         const h = virtualH * view.zoom;
-        const playerScreen = this.worldToScreen(view, state.player.x, state.player.y - state.player.height * 0.7);
-        const preferredX = playerScreen.x + state.player.facing * 90 * view.zoom - (state.player.facing < 0 ? w : 0);
-        const x = clamp(preferredX, 16 * (view.dpr || 1), view.w - w - 16 * (view.dpr || 1));
-        const preferredY = playerScreen.y - h - 34 * view.zoom;
-        const y = clamp(preferredY, 14 * (view.dpr || 1), view.h - h - 50 * (view.dpr || 1));
+        const speaker = this.worldToScreen(view, state.player.x, state.player.y - state.player.height * 0.88);
+        const placement = computeThoughtBubblePlacement({
+            speakerX: speaker.x,
+            speakerY: speaker.y,
+            bubbleWidth: w,
+            bubbleHeight: h,
+            viewportWidth: view.w,
+            viewportHeight: view.h,
+            zoom: view.zoom,
+            dpr: view.dpr
+        });
+        const { x, y } = placement;
         const ctx = this.ctx;
         ctx.save();
         ctx.drawImage(atlas.renderImage || atlas.image, frame.x, frame.y, frame.w, frame.h, x, y, w, h);
 
-        const fontScale = view.dpr || 1;
+        const fontScale = view.zoom || 1;
         const textX = x + w * 0.15;
         const textW = w * 0.70;
-        const bodyTop = y + h * 0.20;
-        const bodyBottom = y + h * 0.68;
+        const bodyTop = y + h * 0.19;
+        const bodyBottom = y + h * 0.675;
         const bodyHeight = Math.max(1, bodyBottom - bodyTop);
-        const lineHeight = 23 * fontScale;
         ctx.fillStyle = "rgba(53, 35, 67, 0.96)";
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
-        ctx.font = `600 ${17 * fontScale}px Georgia, 'Times New Roman', serif`;
 
         const thoughtText = story.thoughtText || "";
-        const lines = this.wrapTextLines(thoughtText, textW);
-        const contentHeight = this.wrappedLinesHeight(lines, lineHeight);
-        const layout = computeTimedTextViewportLayout(contentHeight, bodyHeight, story.phaseTime, story.thoughtDuration);
+        const fitted = this.fitWrappedText(thoughtText, textW, bodyHeight, {
+            maxFontSize: 15.8 * fontScale,
+            minFontSize: 9 * fontScale,
+            lineHeightRatio: 1.31,
+            font: "Georgia, 'Times New Roman', serif",
+            weight: 600
+        });
+        const layout = computeTimedTextViewportLayout(fitted.contentHeight, bodyHeight, story.phaseTime, story.thoughtDuration);
 
         ctx.save();
         ctx.beginPath();
         ctx.rect(textX, bodyTop, textW, bodyHeight);
         ctx.clip();
-        this.drawWrappedLines(lines, textX, bodyTop + layout.contentOffset, textW, lineHeight, true);
+        this.drawWrappedLines(fitted.lines, textX, bodyTop + layout.contentOffset, textW, fitted.lineHeight, true);
         ctx.restore();
 
         if (layout.maxScroll > 0) {
-            this.drawStoryScrollbar(textX + textW + 4 * fontScale, bodyTop, bodyHeight, contentHeight, layout.scrollOffset, fontScale,
+            this.drawStoryScrollbar(textX + textW + 4 * fontScale, bodyTop, bodyHeight, fitted.contentHeight, layout.scrollOffset, fontScale,
                 "rgba(76, 48, 90, 0.16)", "rgba(76, 48, 90, 0.48)");
         }
 
-        ctx.font = `600 ${12 * fontScale}px system-ui, sans-serif`;
+        ctx.font = `600 ${10.8 * fontScale}px system-ui, sans-serif`;
         ctx.fillStyle = "rgba(76, 48, 90, 0.72)";
         ctx.fillText(layout.maxScroll > 0 ? "Jump to continue · Thought scrolls automatically" : "Jump to continue", x + w * 0.5, y + h * 0.74);
         ctx.restore();
@@ -1902,6 +1947,29 @@ class RocketfrockRenderer {
             if (line) lines.push({ text: line, spacing: 1 });
         }
         return lines;
+    }
+
+    fitWrappedText(text, maxWidth, maxHeight, options = {}) {
+        const maxFontSize = Math.max(1, Number(options.maxFontSize) || 16);
+        const minFontSize = Math.min(maxFontSize, Math.max(1, Number(options.minFontSize) || 9));
+        const lineHeightRatio = Math.max(1, Number(options.lineHeightRatio) || 1.3);
+        const font = String(options.font || "Georgia, 'Times New Roman', serif");
+        const weight = Number(options.weight) || 600;
+        let fontSize = maxFontSize;
+        let lines = [];
+        let lineHeight = fontSize * lineHeightRatio;
+        let contentHeight = 0;
+        while (true) {
+            this.ctx.font = `${weight} ${fontSize}px ${font}`;
+            lines = this.wrapTextLines(text, maxWidth);
+            lineHeight = fontSize * lineHeightRatio;
+            contentHeight = this.wrappedLinesHeight(lines, lineHeight);
+            if (contentHeight <= maxHeight + 0.5 || fontSize <= minFontSize + 0.01) {
+                break;
+            }
+            fontSize = Math.max(minFontSize, fontSize - Math.max(0.35, maxFontSize * 0.035));
+        }
+        return { lines, lineHeight, contentHeight, fontSize };
     }
 
     wrappedLinesHeight(lines, lineHeight) {

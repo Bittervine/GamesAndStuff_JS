@@ -358,3 +358,15 @@ Named channels are plain portable data, not DOM events. `src/shared/signal-chann
 Collectible item state belongs to `state.pickups` plus the serializable `state.inventory.items` count map. Presentation hides an item after the core marks its pickup record collected; it does not decide collection or key ownership. The current inventory is intentionally minimal and has no HUD yet. Future inventory presentation must read this state rather than create a second browser-owned key list.
 
 The Level Editor authors channels on both listeners and emitters and may visualize their relationship. It does not execute signal logic. During navigation baking, moving geometry remains present long enough to preserve the same segment and polygon IDs as runtime, but carries `movingPlatformId`; the shared navigation builder excludes those records. This keeps baked signatures stable while preventing hunters from planning across kinematic supports.
+
+## Revision 158 responsive thought presentation, early music attempt, and runtime lift navigation
+
+Thought-bubble placement remains presentation-only. `src/presentation/canvas-renderer.js` anchors the artwork's known lower-left tail to Ignatius's screen-space head point, uses the shared viewport `zoom` for both artwork and typography, and reduces wrapped font size until authored text fits the usable interior. `src/core/simulation.js` only supplies story phase and a temporary camera target that leaves screen room for the bubble; it does not know atlas-frame dimensions or typography.
+
+`src/browser/game-bootstrap.js` asks `src/browser/music-director.js` to unlock immediately after the first level frame is visible and after transition frames become visible. A rejected autoplay attempt is harmless and the existing pointer/keyboard listeners retry from a qualifying gesture. AudioContext creation, scheduling, and autoplay policy remain browser-adapter concerns.
+
+Enemy-platform interaction is portable core state. Character enemies now retain a physical collision `supportId` separately from navigation `currentSupportId`; this lets kinematic translation carry them by the exact platform delta and lets rider activation treat player and enemy riders uniformly. Runtime navigation leaves the editor-baked static graph untouched, then adds virtual start/end supports only for predictable automatic or rider-activated shuttle platforms. Static-to-platform and platform-to-static links are deliberate `step` edges, while endpoint travel is an explicit `ride` edge. During a ride, the platform collision ID is authoritative and the hunter may reposition toward its next disembark edge. Signal platforms, disappearing patterns, crushing response, and lethal cave-boundary rules are not inferred by this graph augmentation.
+
+## Revision 159 thought-tail visual anchor
+
+`computeThoughtBubblePlacement()` treats the speaker anchor as a point just outside the bubble frame, extrapolated beyond the lower-left puff sequence. The renderer still owns this artwork-specific geometry; simulation state remains independent of atlas composition.

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { computeResponsiveViewportMetrics, computeTimedTextViewportLayout } from "../src/presentation/canvas-renderer.js";
+import {
+    computeResponsiveViewportMetrics,
+    computeThoughtBubblePlacement,
+    computeTimedTextViewportLayout
+} from "../src/presentation/canvas-renderer.js";
 import {
     caveWindowMaskRenderKey,
     computeCaveWindowParallaxOffset,
@@ -348,6 +352,37 @@ function testResponsiveViewportScaling() {
     approx(desktop.cssScale, 1, 0.001, "desktop scale should not shrink");
     approx(desktop.virtualWidth, 1280, 0.001, "wide screens should keep their real CSS width");
     approx(desktop.zoom, 1.5, 0.001, "desktop zoom should remain DPR-only");
+}
+
+function testThoughtBubbleTailAndResponsiveTypography() {
+    const placement = computeThoughtBubblePlacement({
+        speakerX: 420,
+        speakerY: 520,
+        bubbleWidth: 440,
+        bubbleHeight: 278,
+        viewportWidth: 1200,
+        viewportHeight: 800,
+        zoom: 1,
+        dpr: 1
+    });
+    approx(placement.tailX, 420, 0.001, "the bubble tail should point horizontally at Ignatius");
+    approx(placement.tailY, 515, 0.001, "the bubble tail should terminate just above Ignatius's head");
+
+    const phone = computeResponsiveViewportMetrics(390, 844, 2, 600);
+    const narrowPlacement = computeThoughtBubblePlacement({
+        speakerX: 260,
+        speakerY: 1180,
+        bubbleWidth: 440 * phone.zoom,
+        bubbleHeight: 278 * phone.zoom,
+        viewportWidth: phone.backingWidth,
+        viewportHeight: phone.backingHeight,
+        zoom: phone.zoom,
+        dpr: phone.dpr
+    });
+    assert.ok(narrowPlacement.x >= 0 && narrowPlacement.x + 440 * phone.zoom <= phone.backingWidth, "the thought bubble should remain inside a narrow backing canvas");
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    assert.match(rendererSource, /const fontScale = view\.zoom \|\| 1;/, "thought typography should inherit the same narrow-screen scale as its bubble");
+    assert.match(rendererSource, /fitWrappedText\(thoughtText, textW, bodyHeight/, "thought text should shrink to fit the painted bubble before scrolling");
 }
 
 
@@ -5151,6 +5186,108 @@ function testRiderTriggeredMovingPlatform() {
     assert.ok(state.player.x > 150, "the triggering rider should be carried with the platform");
 }
 
+function testEnemyRiderTriggersAndFollowsMovingPlatform() {
+    const state = createMovingPlatformTestState({
+        pattern: "shuttle",
+        activation: "rider",
+        endOffsetX: 90,
+        endOffsetY: 0,
+        speed: 90,
+        triggerDelay: 0,
+        startPause: 0,
+        endPause: 0.1
+    }, [{
+        id: "platform_guard",
+        type: "characterEnemy",
+        characterId: "ct_char_enemy_001",
+        x: 150,
+        y: 300,
+        w: 36,
+        h: 80,
+        strategy: "sentry",
+        awarenessRange: 0,
+        attackDamage: 0
+    }]);
+    const platform = state.world.movingPlatforms[0];
+    const enemy = state.enemies.find((item) => item.id === "platform_guard");
+    const visual = state.world.visuals.find((item) => item.id === platform.visualId);
+    assert.equal(enemy.supportId, platform.segments[0].id, "enemy ground snapping should retain the moving collision support ID");
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.notEqual(platform.phase, "waitForTrigger", "a living enemy rider should trigger a rider-activated platform");
+    assert.ok(visual.x > 100, "the enemy-triggered platform should start moving immediately");
+    approx(enemy.x - 150, visual.x - 100, 0.01, "the platform should apply its exact movement delta to an enemy rider");
+    assert.equal(enemy.ridingPlatformId, platform.id, "the enemy should retain explicit rider identity while carried");
+}
+
+function testHunterPlansMovingPlatformRide() {
+    const state = createMovingPlatformTestState({
+        pattern: "shuttle",
+        activation: "rider",
+        endOffsetX: 100,
+        endOffsetY: 0,
+        speed: 120,
+        triggerDelay: 0,
+        startPause: 0,
+        endPause: 0.2
+    }, [{
+        id: "lift_hunter",
+        type: "characterEnemy",
+        characterId: "ct_char_enemy_001",
+        x: 50,
+        y: 300,
+        w: 36,
+        h: 80,
+        facing: 1,
+        strategy: "hunter",
+        patrolDistance: 20,
+        walkSpeed: 50,
+        runSpeed: 120,
+        jumpHeight: 0,
+        maxStepHeight: 20,
+        maxFallDistance: 40,
+        awarenessRange: 1000,
+        awarenessViewHalfAngle: 180,
+        attackMode: "melee",
+        attackRange: 24,
+        attackVerticalRange: 120,
+        attackDamage: 0
+    }]);
+    state.world.segments.push(
+        { id: "left_dock", kind: "walkable", x1: 0, y1: 300, x2: 100, y2: 300 },
+        { id: "right_dock", kind: "walkable", x1: 300, y1: 300, x2: 500, y2: 300 }
+    );
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 370;
+    state.player.y = 300;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    const enemy = state.enemies.find((item) => item.id === "lift_hunter");
+    enemy.x = 50;
+    enemy.y = 300;
+    enemy.spawnX = 50;
+    enemy.spawnY = 300;
+    enemy.currentSupportId = null;
+    enemy.supportId = "left_dock";
+
+    let sawRideEdge = false;
+    let sawRiding = false;
+    let sawDisembarked = false;
+    stepMany(state, 420, () => {
+        sawRideEdge ||= (enemy.route || []).some((edge) => edge.type === "ride");
+        sawRiding ||= enemy.movementPhase === "ride_platform" || enemy.ridingPlatformId === "moving_platform";
+        sawDisembarked ||= enemy.supportId === "right_dock" && enemy.ridingPlatformId === null;
+        return createInputFrame();
+    });
+    assert.equal(sawRideEdge, true, "the hunter route should include an explicit endpoint-to-endpoint ride edge");
+    assert.equal(sawRiding, true, "the hunter should board and remain attached while the platform travels");
+    assert.equal(sawDisembarked, true, `the hunter should disembark onto the far dock; final x=${enemy.x} support=${enemy.supportId}`);
+}
+
 function testVanishingMovingPlatformsAlwaysRecover() {
     for (const pattern of ["loopRespawn", "vanishRespawn"]) {
         const state = createMovingPlatformTestState({
@@ -5486,6 +5623,8 @@ function testSynthesizedLevelMusicSystem() {
     assert.match(bootstrapSource, /musicDirector\.setTune\(activeLevelMusic\.tuneId\)/, "level loading should switch the synthesized tune");
     assert.match(bootstrapSource, /musicDirector\.setVolume\(settings\.musicVolume\)/, "the existing music slider should control the live master gain");
     assert.match(bootstrapSource, /unlockMusicFromGesture/, "music should unlock from a player gesture to satisfy browser autoplay rules");
+    assert.match(bootstrapSource, /hideLoadingScreen\(\);\s*void attemptVisibleLevelMusicStart\(\);/, "the first visible level frame should immediately attempt music playback");
+    assert.match(bootstrapSource, /await nextPaint\(\);\s*void attemptVisibleLevelMusicStart\(\);\s*return true;/, "level transitions should attempt playback as soon as their first frame is visible");
     assert.match(musicDirectorSource, /createOscillator\(/, "music should be synthesized with Web Audio oscillators");
     assert.match(musicDirectorSource, /case "doubleBass":[\s\S]*harmonicRatio: 0\.5[\s\S]*cutoff: 520/, "the Mountain King lead should emphasize a dark fundamental and subharmonic rather than a bright upper octave");
     assert.match(musicDirectorSource, /function setMuted\(nextMuted\)/, "the music director should expose a transient pause mute separate from persisted volume");
@@ -5615,12 +5754,15 @@ const tests = [
     ["keyboard interaction binding", testInteractKeyBinding],
     ["timed story text layout", testTimedTextViewportLayout],
     ["responsive viewport scaling", testResponsiveViewportScaling],
+    ["thought bubble tail and responsive typography", testThoughtBubbleTailAndResponsiveTypography],
     ["Puppet Guide debug overlay", testPuppetGuideDebugOverlay],
     ["selective level colour map", testSelectiveLevelColorMap],
     ["closed cave-window spline authoring", testCaveWindowSplineAuthoring],
     ["moving-platform schema and Level Editor", testMovingPlatformSchemaAndEditor],
     ["automatic shuttle moving platform", testAutomaticShuttleMovingPlatform],
     ["rider-triggered moving platform", testRiderTriggeredMovingPlatform],
+    ["enemy rider triggers and follows moving platform", testEnemyRiderTriggersAndFollowsMovingPlatform],
+    ["hunter plans moving-platform ride", testHunterPlansMovingPlatformRide],
     ["signal-triggered moving platform", testSignalTriggeredMovingPlatform],
     ["keyhole consumes key and triggers platform", testKeyholeConsumesKeyAndTriggersPlatform],
     ["vanishing moving platforms always recover", testVanishingMovingPlatformsAlwaysRecover],

@@ -78,7 +78,7 @@ const renderingQualityButtons = [...document.querySelectorAll("[data-rendering-q
 const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 
-const GAME_REVISION = "155";
+const GAME_REVISION = "159";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -136,6 +136,7 @@ setupGameMenuAndSettings();
 setLoadingProgress(1, "Ready");
 await nextPaint();
 hideLoadingScreen();
+void attemptVisibleLevelMusicStart();
 
 function clamp01(value) {
     return Math.max(0, Math.min(1, Number(value) || 0));
@@ -323,6 +324,7 @@ async function loadRequestedLevel(request) {
         });
         setLoadingProgress(1, "Level ready");
         await nextPaint();
+        void attemptVisibleLevelMusicStart();
         return true;
     } finally {
         hideLoadingScreen();
@@ -822,6 +824,15 @@ function maybeApplyAutoFullscreenFromGameplayGesture(event) {
 
 function unlockMusicFromGesture() {
     void musicDirector.unlock();
+}
+
+function attemptVisibleLevelMusicStart() {
+    if (isGameAudioMuted()) {
+        return Promise.resolve(false);
+    }
+    // Attempt as soon as the first level frame is visible. Browsers that still
+    // require a fresh user gesture fall back to unlockMusicFromGesture below.
+    return musicDirector.unlock();
 }
 
 function syncFullscreenUi() {

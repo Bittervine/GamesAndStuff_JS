@@ -1297,9 +1297,26 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Include endpoints in editor fit-to-content bounds and provide a start/end swap command.
 - [x] Add regression coverage for defaults, rider triggering/carrying, shuttling, collision detachment, and automatic recovery.
 - [x] Add named signal-channel activation and reusable switch/keyhole emitters.
-- [ ] Add enemy riding and deliberate moving-platform navigation semantics.
+- [x] Add enemy riding and deliberate moving-platform navigation semantics.
 - [ ] Add crushing/depenetration rules for actors trapped by kinematic platforms.
 - [ ] Derive a gameplay kill boundary from the cave full-black guide and defeat Ignatius after crossing it.
+
+
+## Revision 158 thought bubble, visible-level music, and enemy lift navigation
+
+- [x] Anchor the thought-bubble artwork's lower-left tail to Ignatius rather than offsetting the cloud from his facing.
+- [x] Recenter the thought-phase camera so the tail can remain attached without making the mailbox appear to speak.
+- [x] Make the thought bubble slightly smaller and scale its typography with the shared responsive viewport transform.
+- [x] Fit wrapped thought text to the bubble interior before falling back to timed scrolling.
+- [x] Attempt soundtrack playback immediately after the first visible frame of startup and every level transition.
+- [x] Preserve pointer/keyboard AudioContext unlocking as the browser-autoplay fallback.
+- [x] Give character enemies authoritative physical support and moving-platform rider identity.
+- [x] Carry living grounded enemies by the platform's exact kinematic delta.
+- [x] Allow enemies to trigger rider-activated platforms.
+- [x] Add runtime-only endpoint supports and explicit ride edges for predictable automatic/rider shuttle platforms.
+- [x] Restrict boarding and disembarking to deliberate step transfers and position riders for their planned exit while travelling.
+- [x] Keep signal-triggered and disappearing platforms outside autonomous hunter route planning.
+- [x] Add regressions for tail anchoring, narrow-screen text scaling, visible-frame music attempts, enemy carrying/activation, and hunter boarding/ride/disembark behaviour.
 
 
 ### Revision 149 earthy game menu, settings, Electron shell, and sharper rockets
@@ -1401,3 +1418,8 @@ Goal: grow the game beyond isolated prototype levels.
 - [ ] Add enemy riding and deliberate moving-platform navigation semantics.
 - [ ] Add crushing/depenetration rules for actors trapped by kinematic platforms.
 - [ ] Derive a gameplay kill boundary from the cave full-black guide and defeat Ignatius after crossing it.
+
+## Revision 159 thought-tail direction correction
+
+- [x] Anchor Ignatius at the extrapolated end of the painted thought-puff trail.
+- [x] Preserve responsive clamping and text fitting while correcting the bubble's visual direction.

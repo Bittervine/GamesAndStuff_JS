@@ -18,6 +18,7 @@ import {
     ENEMY_DROP_SOURCE_CLEARANCE_HEIGHT_FACTOR,
     buildEnemyNavigationSupports,
     enemyNavigationEdgeMapFromFlat,
+    enemyNavigationProfileKey,
     enemyNavigationSupportsSignature,
     findBakedEnemyNavigationGraph,
     findEnemyNavigationSupport,
@@ -27,6 +28,8 @@ import {
 } from "./enemy-navigation.js";
 
 export const FIXED_DT = 1 / 60;
+
+const MOVING_PLATFORM_NAVIGATION_CACHE = new WeakMap();
 
 const WIZARD_DOOR_FLOOR_ANCHOR_Y_FACTOR = 239 / 263;
 const DEFAULT_WIZARD_DOOR_INSIDE_SCALE = 0.84;
@@ -225,7 +228,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "150-auto-fullscreen-keyboard-purple-menu",
+            build: "159-thought-tail-alignment",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -1417,7 +1420,9 @@ function updateMailboxStory(state, input, dt) {
         advanceMailboxStory(state, story, "complete", skipped ? "jump" : "timeout");
     }
 
-    const focusX = (p.x + (Number(mailbox.x) || p.x)) * 0.5;
+    const focusX = story.phase === "thought"
+        ? p.x + 165
+        : (p.x + (Number(mailbox.x) || p.x)) * 0.5;
     state.camera.x += (focusX - state.camera.x) * Math.min(1, dt * 5);
     state.camera.y += (p.y - 170 - state.camera.y) * Math.min(1, dt * 5);
     return true;
@@ -1684,6 +1689,14 @@ function setMovingPlatformCollisionAttached(state, platform, attached) {
             state.player.supportId = null;
             state.player.onGround = false;
         }
+        for (const enemy of state.enemies || []) {
+            if (enemy?.kind !== "characterEnemy" || !movingPlatformOwnsCollisionId(platform, enemy.supportId)) {
+                continue;
+            }
+            enemy.supportId = null;
+            enemy.ridingPlatformId = null;
+            enemy.currentSupportId = null;
+        }
     }
     platform.collisionAttached = shouldAttach;
     syncMovingPlatformCollisionCounts(state);
@@ -1731,12 +1744,26 @@ function setMovingPlatformPosition(state, platform, x, y) {
     const carryingPlayer = platform.collisionAttached &&
         state.player?.onGround === true &&
         movingPlatformOwnsCollisionId(platform, state.player.supportId);
+    const carryingEnemies = platform.collisionAttached
+        ? (state.enemies || []).filter((enemy) => (
+            enemy?.kind === "characterEnemy" &&
+            enemy.combatState !== ENEMY_COMBAT_STATE.DEAD &&
+            enemy.airborne !== true &&
+            movingPlatformOwnsCollisionId(platform, enemy.supportId)
+        ))
+        : [];
     visual.x = nextX;
     visual.y = nextY;
     translateMovingPlatformGeometry(platform, dx, dy);
     if (carryingPlayer) {
         state.player.x += dx;
         state.player.y += dy;
+    }
+    for (const enemy of carryingEnemies) {
+        enemy.x += dx;
+        enemy.y += dy;
+        enemy.ridingPlatformId = platform.id;
+        syncCharacterEnemyTarget(state, enemy);
     }
     return { dx, dy };
 }
@@ -1785,9 +1812,18 @@ function beginMovingPlatformAction(state, platform) {
 }
 
 function platformTriggeredByRider(state, platform) {
-    return platform.collisionAttached &&
-        state.player?.onGround === true &&
-        movingPlatformOwnsCollisionId(platform, state.player.supportId);
+    if (!platform.collisionAttached) {
+        return false;
+    }
+    if (state.player?.onGround === true && movingPlatformOwnsCollisionId(platform, state.player.supportId)) {
+        return true;
+    }
+    return (state.enemies || []).some((enemy) => (
+        enemy?.kind === "characterEnemy" &&
+        enemy.combatState !== ENEMY_COMBAT_STATE.DEAD &&
+        enemy.airborne !== true &&
+        movingPlatformOwnsCollisionId(platform, enemy.supportId)
+    ));
 }
 
 function platformTriggeredBySignal(state, platform) {
@@ -2197,6 +2233,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             temporaryPatrolMaxX: null,
             homeSupportId: null,
             currentSupportId: null,
+            supportId: null,
+            ridingPlatformId: null,
             route: [],
             routeIndex: 0,
             routeTargetSupportId: null,
@@ -2561,6 +2599,7 @@ function snapCharacterEnemiesToNearbyGround(state) {
         const fromY = enemy.y;
         enemy.y = support.y;
         enemy.spawnY = support.y;
+        setCharacterEnemyGroundSupportIdentity(state, enemy, support);
         syncCharacterEnemyTarget(state, enemy);
         const source = sourceEntities.find((entity) => entity.id === enemy.id);
         if (source) {
@@ -2575,6 +2614,16 @@ function snapCharacterEnemiesToNearbyGround(state) {
         });
     }
     return snapped;
+}
+
+function movingPlatformForCollisionId(state, collisionId) {
+    if (!collisionId) return null;
+    return (state.world?.movingPlatforms || []).find((platform) => movingPlatformOwnsCollisionId(platform, collisionId)) || null;
+}
+
+function setCharacterEnemyGroundSupportIdentity(state, enemy, support) {
+    enemy.supportId = support?.id || null;
+    enemy.ridingPlatformId = movingPlatformForCollisionId(state, enemy.supportId)?.id || null;
 }
 
 function findCharacterEnemyGroundSupport(state, x, referenceY, maxStepUp, maxDrop, width = 1) {
@@ -3057,6 +3106,7 @@ function moveCharacterEnemyToward(state, enemy, targetX, speed, dt, stopDistance
     enemy.facing = direction;
     enemy.x = candidateX;
     enemy.y = support.y;
+    setCharacterEnemyGroundSupportIdentity(state, enemy, support);
     return moved;
 }
 
@@ -3270,6 +3320,233 @@ function characterEnemyNavigationAdjustedEdge(state, edge, graph = null) {
     return adjustedCost === Number(edge.cost) ? edge : { ...edge, cost: adjustedCost };
 }
 
+function movingPlatformAtEndpoint(state, platform, endpoint, tolerance = 1.5) {
+    const visual = movingPlatformVisual(state, platform);
+    if (!visual) return false;
+    const targetX = endpoint === "end" ? platform.endX : platform.startX;
+    const targetY = endpoint === "end" ? platform.endY : platform.startY;
+    return Math.hypot((Number(visual.x) || 0) - targetX, (Number(visual.y) || 0) - targetY) <= tolerance;
+}
+
+function movingPlatformNavigationSupports(state) {
+    const supports = [];
+    for (const platform of state.world?.movingPlatforms || []) {
+        if (platform.movement?.pattern !== "shuttle" || !["automatic", "rider"].includes(platform.movement?.activation)) {
+            continue;
+        }
+        const visual = movingPlatformVisual(state, platform);
+        if (!visual) continue;
+        const currentOffsetX = (Number(visual.x) || 0) - platform.startX;
+        const currentOffsetY = (Number(visual.y) || 0) - platform.startY;
+        const candidates = (platform.segments || [])
+            .filter((segment) => ["walkable", "blockable"].includes(segment.kind))
+            .map((segment) => {
+                const x1 = Number(segment.x1) || 0;
+                const y1 = Number(segment.y1) || 0;
+                const x2 = Number(segment.x2) || 0;
+                const y2 = Number(segment.y2) || 0;
+                const dx = x2 - x1;
+                return {
+                    segment,
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    length: Math.hypot(dx, y2 - y1),
+                    midpointY: (y1 + y2) * 0.5,
+                    horizontalShare: Math.abs(dx) / Math.max(0.001, Math.hypot(dx, y2 - y1))
+                };
+            })
+            .filter((candidate) => candidate.length >= 12 && candidate.horizontalShare >= 0.78);
+        if (!candidates.length) continue;
+        const topY = Math.min(...candidates.map((candidate) => candidate.midpointY));
+        const topCandidates = candidates.filter((candidate) => candidate.midpointY <= topY + 8);
+        for (const candidate of topCandidates) {
+            const base = {
+                kind: "movingPlatform",
+                x1: candidate.x1 - currentOffsetX,
+                y1: candidate.y1 - currentOffsetY,
+                x2: candidate.x2 - currentOffsetX,
+                y2: candidate.y2 - currentOffsetY,
+                movingPlatformId: platform.id,
+                collisionId: candidate.segment.id,
+                sourcePolygonId: `movingPlatform:${platform.id}`,
+                obstacleXMin: null,
+                obstacleXMax: null
+            };
+            const pairId = `${platform.id}:${candidate.segment.id}`;
+            for (const endpoint of ["start", "end"]) {
+                const offsetX = endpoint === "end" ? platform.endX - platform.startX : 0;
+                const offsetY = endpoint === "end" ? platform.endY - platform.startY : 0;
+                const x1 = base.x1 + offsetX;
+                const y1 = base.y1 + offsetY;
+                const x2 = base.x2 + offsetX;
+                const y2 = base.y2 + offsetY;
+                supports.push({
+                    ...base,
+                    id: `moving:${pairId}:${endpoint}`,
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    xMin: Math.min(x1, x2),
+                    xMax: Math.max(x1, x2),
+                    platformEndpoint: endpoint,
+                    platformPairId: pairId
+                });
+            }
+        }
+    }
+    return supports;
+}
+
+function movingPlatformNavigationBundle(state, options, staticSupports, staticEdgeMap) {
+    const world = state.world;
+    if (!world || !(staticEdgeMap instanceof Map)) {
+        return { supports: staticSupports, edgeMap: staticEdgeMap };
+    }
+    const platformSupports = movingPlatformNavigationSupports(state);
+    if (!platformSupports.length) {
+        return { supports: staticSupports, edgeMap: staticEdgeMap };
+    }
+    const platformSignature = platformSupports.map((support) => [
+        support.id,
+        support.x1,
+        support.y1,
+        support.x2,
+        support.y2
+    ].join(":")).join("|");
+    const cacheKey = `${enemyNavigationProfileKey(options)}::${enemyNavigationSupportsSignature(staticSupports)}::${platformSignature}`;
+    let worldCache = MOVING_PLATFORM_NAVIGATION_CACHE.get(world);
+    if (!worldCache) {
+        worldCache = new Map();
+        MOVING_PLATFORM_NAVIGATION_CACHE.set(world, worldCache);
+    }
+    const cached = worldCache.get(cacheKey);
+    if (cached) {
+        const edgeMap = new Map();
+        for (const support of cached.supports) {
+            const staticEdges = staticEdgeMap.get(support.id);
+            edgeMap.set(support.id, staticEdges ? [...staticEdges, ...(cached.extraEdges.get(support.id) || [])] : [...(cached.extraEdges.get(support.id) || [])]);
+        }
+        return { supports: cached.supports, edgeMap };
+    }
+
+    const supports = [...staticSupports, ...platformSupports];
+    const generated = buildEnemyNavigationEdges(supports, { ...options, world });
+    const extraEdges = new Map(supports.map((support) => [support.id, []]));
+    const supportById = new Map(supports.map((support) => [support.id, support]));
+    for (const [fromId, edges] of generated) {
+        const from = supportById.get(fromId);
+        for (const edge of edges || []) {
+            const to = supportById.get(edge.to);
+            const involvesPlatform = Boolean(from?.movingPlatformId || to?.movingPlatformId);
+            if (!involvesPlatform) continue;
+            if (from?.movingPlatformId && to?.movingPlatformId) continue;
+            // Boarding and disembarking are deliberate ground-level transfers.
+            // Hunters never guess ballistic jumps toward a platform that may move.
+            if (edge.type === "step") {
+                extraEdges.get(fromId).push({ ...edge, movingPlatformTransfer: true });
+            }
+        }
+    }
+
+    const pairs = new Map();
+    for (const support of platformSupports) {
+        const pair = pairs.get(support.platformPairId) || {};
+        pair[support.platformEndpoint] = support;
+        pairs.set(support.platformPairId, pair);
+    }
+    for (const pair of pairs.values()) {
+        if (!pair.start || !pair.end) continue;
+        const platform = (world.movingPlatforms || []).find((item) => item.id === pair.start.movingPlatformId);
+        if (!platform) continue;
+        const startCenterX = (pair.start.xMin + pair.start.xMax) * 0.5;
+        const endCenterX = (pair.end.xMin + pair.end.xMax) * 0.5;
+        const startY = (pair.start.y1 + pair.start.y2) * 0.5;
+        const endY = (pair.end.y1 + pair.end.y2) * 0.5;
+        const travelDistance = Math.hypot(endCenterX - startCenterX, endY - startY);
+        const pauseCost = (Math.max(0, platform.movement.startPause) + Math.max(0, platform.movement.endPause)) * options.runSpeed;
+        const cost = travelDistance + pauseCost;
+        extraEdges.get(pair.start.id).push({
+            id: `ride:${platform.id}:start:end`,
+            type: "ride",
+            from: pair.start.id,
+            to: pair.end.id,
+            launchX: startCenterX,
+            launchY: startY,
+            landingX: endCenterX,
+            landingY: endY,
+            direction: endCenterX < startCenterX ? -1 : 1,
+            cost,
+            platformId: platform.id,
+            collisionId: pair.start.collisionId,
+            fromEndpoint: "start",
+            toEndpoint: "end",
+            blockerIds: []
+        });
+        extraEdges.get(pair.end.id).push({
+            id: `ride:${platform.id}:end:start`,
+            type: "ride",
+            from: pair.end.id,
+            to: pair.start.id,
+            launchX: endCenterX,
+            launchY: endY,
+            landingX: startCenterX,
+            landingY: startY,
+            direction: startCenterX < endCenterX ? -1 : 1,
+            cost,
+            platformId: platform.id,
+            collisionId: pair.end.collisionId,
+            fromEndpoint: "end",
+            toEndpoint: "start",
+            blockerIds: []
+        });
+    }
+    worldCache.set(cacheKey, { supports, extraEdges });
+    const edgeMap = new Map();
+    for (const support of supports) {
+        const staticEdges = staticEdgeMap.get(support.id);
+        edgeMap.set(support.id, staticEdges ? [...staticEdges, ...(extraEdges.get(support.id) || [])] : [...(extraEdges.get(support.id) || [])]);
+    }
+    return { supports, edgeMap };
+}
+
+function movingPlatformSupportAvailable(state, support) {
+    if (!support?.movingPlatformId) return true;
+    const platform = (state.world?.movingPlatforms || []).find((item) => item.id === support.movingPlatformId);
+    return Boolean(platform?.collisionAttached && movingPlatformAtEndpoint(state, platform, support.platformEndpoint));
+}
+
+function translatedRiderNavigationSupport(state, enemy, supports) {
+    const platform = movingPlatformForCollisionId(state, enemy.supportId);
+    if (!platform) return null;
+    const routeEdge = enemy.route?.[enemy.routeIndex];
+    const preferredId = routeEdge?.type === "ride" && routeEdge.platformId === platform.id
+        ? routeEdge.from
+        : enemy.currentSupportId;
+    const fixed = navigationSupportById(supports, preferredId) || supports.find((support) => (
+        support.movingPlatformId === platform.id && support.collisionId === enemy.supportId && support.platformEndpoint === "start"
+    ));
+    if (!fixed) return null;
+    const visual = movingPlatformVisual(state, platform);
+    if (!visual) return null;
+    const endpointX = fixed.platformEndpoint === "end" ? platform.endX : platform.startX;
+    const endpointY = fixed.platformEndpoint === "end" ? platform.endY : platform.startY;
+    const dx = (Number(visual.x) || 0) - endpointX;
+    const dy = (Number(visual.y) || 0) - endpointY;
+    const support = {
+        ...fixed,
+        x1: fixed.x1 + dx,
+        y1: fixed.y1 + dy,
+        x2: fixed.x2 + dx,
+        y2: fixed.y2 + dy,
+        xMin: fixed.xMin + dx,
+        xMax: fixed.xMax + dx
+    };
+    return { support, x: enemy.x, y: enemy.y, delta: 0, score: -1 };
+}
+
 function characterEnemyNavigationContext(state, enemy) {
     const options = characterEnemyNavigationOptions(enemy, state);
     const liveSupports = buildEnemyNavigationSupports(state.world, options);
@@ -3277,17 +3554,21 @@ function characterEnemyNavigationContext(state, enemy) {
     const bakedGraph = candidateGraph?.supportSignature === enemyNavigationSupportsSignature(liveSupports)
         ? candidateGraph
         : null;
-    const supports = bakedGraph?.supports?.length ? bakedGraph.supports : liveSupports;
-    const rawEdgeMap = bakedGraph?.edges?.length
-        ? enemyNavigationEdgeMapFromFlat(bakedGraph.edges, supports)
-        : buildEnemyNavigationEdges(supports, { ...options, world: state.world });
+    const staticSupports = bakedGraph?.supports?.length ? bakedGraph.supports : liveSupports;
+    const staticEdgeMap = bakedGraph?.edges?.length
+        ? enemyNavigationEdgeMapFromFlat(bakedGraph.edges, staticSupports)
+        : buildEnemyNavigationEdges(staticSupports, { ...options, world: state.world });
+    const movingBundle = movingPlatformNavigationBundle(state, options, staticSupports, staticEdgeMap);
+    const supports = movingBundle.supports;
+    const rawEdgeMap = movingBundle.edgeMap;
     const edgeMap = new Map();
     for (const support of supports) {
         edgeMap.set(support.id, (rawEdgeMap.get(support.id) || [])
             .map((edge) => characterEnemyNavigationAdjustedEdge(state, edge, bakedGraph))
             .filter(Boolean));
     }
-    const current = findEnemyNavigationSupport(supports, enemy.x, enemy.y, {
+    const riderCurrent = translatedRiderNavigationSupport(state, enemy, supports);
+    const current = riderCurrent || findEnemyNavigationSupport(supports.filter((support) => movingPlatformSupportAvailable(state, support)), enemy.x, enemy.y, {
         maxRise: Math.max(8, Number(enemy.maxStepHeight) || 0),
         maxDrop: Math.max(12, Number(enemy.maxDropDistance) || 0),
         width: enemy.width,
@@ -3307,7 +3588,7 @@ function characterEnemyNavigationContext(state, enemy) {
 }
 
 function characterEnemyPlayerSupport(state, enemy, supports) {
-    return findEnemyNavigationSupport(supports, state.player.x, state.player.y, {
+    return findEnemyNavigationSupport(supports.filter((support) => movingPlatformSupportAvailable(state, support)), state.player.x, state.player.y, {
         maxRise: Math.max(40, Number(enemy.jumpHeight) || 0) + 80,
         maxDrop: Math.max(160, Number(enemy.maxFallDistance) || 0) + 160,
         width: state.player.width
@@ -3731,6 +4012,8 @@ function beginCharacterEnemyAirTraversal(enemy, edge) {
     enemy.routeTraversalEdgeIndex = -1;
     enemy.groundVelocityX = 0;
     enemy.airborne = true;
+    enemy.supportId = null;
+    enemy.ridingPlatformId = null;
     enemy.airTimer = 0;
     enemy.airTraversalType = edge.type || null;
     enemy.airSourceSupportId = edge.from || enemy.currentSupportId || null;
@@ -3851,6 +4134,15 @@ function updateCharacterEnemyAirTraversal(state, enemy, dt, supports) {
             preferredSupportId: intendedSupportId
         });
         enemy.currentSupportId = landedSupport?.support?.id || null;
+        const physicalSupport = findCharacterEnemyGroundSupport(
+            state,
+            enemy.x,
+            enemy.y,
+            Math.max(5, enemy.maxStepHeight),
+            Math.max(5, enemy.maxDropDistance),
+            enemy.width
+        );
+        setCharacterEnemyGroundSupportIdentity(state, enemy, physicalSupport);
         enemy.airSourceSupportId = null;
         enemy.airSourceObstacleId = null;
         enemy.airTargetSupportId = null;
@@ -4011,8 +4303,51 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
             enemy.groundVelocityX = 0;
             return false;
         }
+        if (edge.type === "ride") {
+            const platform = (state.world?.movingPlatforms || []).find((item) => item.id === edge.platformId);
+            if (!platform || !platform.collisionAttached || !movingPlatformOwnsCollisionId(platform, enemy.supportId)) {
+                return false;
+            }
+            enemy.ridingPlatformId = platform.id;
+            enemy.groundVelocityX = 0;
+            enemy.movementPhase = "ride_platform";
+            const nextEdge = enemy.route?.[enemy.routeIndex + 1];
+            const visual = movingPlatformVisual(state, platform);
+            let positionedForExit = false;
+            if (visual && nextEdge?.from === edge.to && Number.isFinite(Number(nextEdge.launchX))) {
+                const destinationX = edge.toEndpoint === "end" ? platform.endX : platform.startX;
+                const localExitX = Number(nextEdge.launchX) - destinationX;
+                const movingExitX = (Number(visual.x) || 0) + localExitX;
+                const moved = moveCharacterEnemyToward(state, enemy, movingExitX, speed, dt, 0);
+                positionedForExit = moved > 0;
+            }
+            setCharacterEnemyAnimation(enemy, positionedForExit ? "walk" : "idle");
+            if (!movingPlatformAtEndpoint(state, platform, edge.toEndpoint)) {
+                return true;
+            }
+            enemy.currentSupportId = edge.to;
+            enemy.routeIndex += 1;
+            enemy.routeTraversalPhase = null;
+            enemy.routeTraversalEdgeIndex = -1;
+            return true;
+        }
         if (edge.type === "jump" && Number.isFinite(Number(edge.runUpX)) && Math.abs(Number(edge.vx) || 0) > 0.001) {
             return followCharacterEnemyJumpRunUp(state, enemy, edge, speed, dt);
+        }
+        const launchSupport = navigationSupportById(navigation.supports, edge.from);
+        const landingSupport = navigationSupportById(navigation.supports, edge.to);
+        const platformSupport = launchSupport?.movingPlatformId ? launchSupport : landingSupport?.movingPlatformId ? landingSupport : null;
+        if (platformSupport) {
+            const platform = (state.world?.movingPlatforms || []).find((item) => item.id === platformSupport.movingPlatformId);
+            const requiredEndpoint = launchSupport?.movingPlatformId
+                ? launchSupport.platformEndpoint
+                : landingSupport.platformEndpoint;
+            if (!platform || !platform.collisionAttached || !movingPlatformAtEndpoint(state, platform, requiredEndpoint)) {
+                enemy.groundVelocityX = 0;
+                enemy.movementPhase = "wait_for_platform";
+                setCharacterEnemyAnimation(enemy, "idle");
+                return true;
+            }
         }
         const distanceToLaunch = Math.abs(enemy.x - edge.launchX);
         if (distanceToLaunch > Math.max(2, speed * dt * 1.25)) {
@@ -4025,7 +4360,6 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
             return true;
         }
         if (edge.type === "step") {
-            const landingSupport = navigationSupportById(navigation.supports, edge.to);
             if (characterEnemyBodyBlockedAt(state, enemy, edge.landingX, edge.landingY, {
                 groundSlope: characterEnemySupportSlope(landingSupport)
             })) {
@@ -4034,6 +4368,20 @@ function followCharacterEnemyNavigationPlan(state, enemy, navigation, dt) {
             enemy.x = edge.landingX;
             enemy.y = edge.landingY;
             enemy.currentSupportId = edge.to;
+            if (landingSupport?.movingPlatformId) {
+                enemy.supportId = landingSupport.collisionId;
+                enemy.ridingPlatformId = landingSupport.movingPlatformId;
+            } else {
+                const physicalSupport = findCharacterEnemyGroundSupport(
+                    state,
+                    enemy.x,
+                    enemy.y,
+                    Math.max(4, enemy.maxStepHeight),
+                    Math.max(4, enemy.maxDropDistance),
+                    enemy.width
+                );
+                setCharacterEnemyGroundSupportIdentity(state, enemy, physicalSupport);
+            }
             enemy.routeIndex += 1;
             enemy.routeTraversalPhase = null;
             enemy.routeTraversalEdgeIndex = -1;
@@ -4144,6 +4492,7 @@ function updateCharacterEnemyPatrolRange(state, enemy, dt, minX, maxX, phase = "
     }
     enemy.x = candidateX;
     enemy.y = support.y;
+    setCharacterEnemyGroundSupportIdentity(state, enemy, support);
     enemy.movementPhase = phase;
     if (reachedBoundary) {
         pauseAndTurnCharacterEnemy(enemy);
@@ -4584,6 +4933,7 @@ function updateCharacterEnemies(state, dt) {
 
         enemy.x = candidateX;
         enemy.y = support.y;
+        setCharacterEnemyGroundSupportIdentity(state, enemy, support);
         if (reachedBoundary) {
             pauseAndTurnCharacterEnemy(enemy);
         }
