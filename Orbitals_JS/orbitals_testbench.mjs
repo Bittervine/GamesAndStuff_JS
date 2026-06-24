@@ -27,10 +27,13 @@ const {
 const {
   createEnemyState,
   createGameState,
+  getEventLog,
+  getEventsState,
   getEnemyItems,
   getEnemyState,
   getPlayerState,
   getProjectileItems,
+  getProjectileState,
   getWorldState,
   getWorldPlanets,
   resetGameState
@@ -145,7 +148,7 @@ async function runLowRiskSimulationModuleSmokeTest() {
     ['./sim/math.js', ['parseSeed', 'mulberry32', 'clamp01', 'smoothstep', 'easeExp', 'buildBasisFromNormal']],
     ['./sim/events.js', ['pushEvent', 'formatCombatLog']],
     ['./sim/world.js', ['createPlanetConfig', 'createFuelMote', 'pickRandomPlanetIndex', 'updateFuelMotes', 'updatePlanets']],
-    ['./sim/state.js', ['createGameState', 'resetGameState', 'attachNestedStateAliases', 'getEnemyState', 'getEnemyItems', 'getPlayerState', 'getProjectileItems', 'getWorldState', 'getWorldPlanets']],
+    ['./sim/state.js', ['createGameState', 'resetGameState', 'attachNestedStateAliases', 'getEventLog', 'getEventsState', 'getEnemyState', 'getEnemyItems', 'getPlayerState', 'getProjectileState', 'getProjectileItems', 'getWorldState', 'getWorldPlanets']],
     ['./sim/projectiles.js', ['segmentIntersectsSphere', 'findProjectileHomingTarget', 'steerProjectileTowardsTarget', 'spawnProjectileBurst', 'computeShipFireDirection', 'updateProjectiles']],
     ['./sim/effects.js', ['createEnemyExplosionState', 'spawnEnemyExplosion', 'updateEnemyExplosions']],
     ['./sim/spatial_hash.js', ['createSpatialHash', 'querySpatialHash']]
@@ -193,12 +196,19 @@ function runNestedStateAliasTest() {
   assert.strictEqual(getEnemyItems(state), state.enemies, 'expected enemy accessor to return top-level enemies during transition');
   assert.strictEqual(getEnemyState(state).explosions, state.enemyExplosions, 'expected enemy-state explosions to alias top-level enemy explosions');
   assert.strictEqual(getPlayerState(state), state.game.player, 'expected player accessor to return nested player state during transition');
+  assert.strictEqual(getProjectileState(state), state.game.projectiles, 'expected projectile-state accessor to return nested projectile state during transition');
   assert.strictEqual(getProjectileItems(state), state.projectiles, 'expected projectile accessor to return top-level projectiles during transition');
+  assert.strictEqual(getEventsState(state), state.game.events, 'expected events-state accessor to return nested event state during transition');
+  assert.strictEqual(getEventLog(state), state.eventLog, 'expected event-log accessor to return top-level event log during transition');
 
   state.game.player.score = 42;
   assert.strictEqual(state.score, 42, 'expected nested player score writes to update the top-level score');
   getPlayerState(state).speed = 24;
   assert.strictEqual(state.speed, 24, 'expected player accessor speed writes to update top-level speed');
+  getProjectileState(state).nextId = 13;
+  assert.strictEqual(state.nextProjectileId, 13, 'expected projectile-state id writes to update top-level projectile id');
+  getEventLog(state).push({ type: 'alias-probe' });
+  assert.strictEqual(state.eventLog.length, 1, 'expected event-log accessor writes to update top-level event log');
   state.nextEnemyId = 7;
   assert.strictEqual(state.game.enemies.nextId, 7, 'expected top-level enemy id writes to update nested state');
 

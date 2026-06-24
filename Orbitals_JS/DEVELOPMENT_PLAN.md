@@ -825,6 +825,13 @@ Revision 016 progress evidence:
 - `sim/effects.js` now reads explosion storage and next explosion IDs through the enemy subsystem accessor.
 - Nested-state alias coverage now verifies world and enemy subsystem accessors, including fuel-mote and explosion aliases.
 
+Revision 017 progress evidence:
+
+- `sim/state.js` now exposes transitional projectile and event subsystem accessors.
+- `sim/projectiles.js` now reads projectile storage and next projectile IDs through the projectile subsystem accessor.
+- `sim/events.js` now reads and writes the combat event log through the event-log accessor.
+- Nested-state alias coverage now verifies projectile and event subsystem accessors, including next-projectile ID and event-log writes.
+
 ## 17. Phase E: Nested subsystem state migration
 
 Goal: move from flat `state` arrays to a nested `GAME` object.

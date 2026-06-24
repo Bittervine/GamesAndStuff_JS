@@ -319,8 +319,31 @@ export function getEnemyItems(state) {
   return getEnemyState(state).items || [];
 }
 
+export function getProjectileState(state) {
+  const nested = state?.game?.projectiles || (state?.projectiles && !Array.isArray(state.projectiles) ? state.projectiles : null);
+  if (nested) {
+    return nested;
+  }
+
+  const fallbackState = state || {};
+  return {
+    get nextId() {
+      return fallbackState.nextProjectileId ?? 1;
+    },
+    set nextId(value) {
+      fallbackState.nextProjectileId = value;
+    },
+    get items() {
+      return fallbackState.projectiles || [];
+    },
+    set items(value) {
+      fallbackState.projectiles = value;
+    }
+  };
+}
+
 export function getProjectileItems(state) {
-  return state?.game?.projectiles?.items || state?.projectiles?.items || state?.projectiles || [];
+  return getProjectileState(state).items || [];
 }
 
 export function getWorldState(state) {
@@ -370,6 +393,27 @@ export function getWorldPlanets(state) {
 
 export function getPlayerState(state) {
   return state?.game?.player || state?.player || state || {};
+}
+
+export function getEventsState(state) {
+  const nested = state?.game?.events || state?.events;
+  if (nested) {
+    return nested;
+  }
+
+  const fallbackState = state || {};
+  return {
+    get log() {
+      return fallbackState.eventLog || [];
+    },
+    set log(value) {
+      fallbackState.eventLog = value;
+    }
+  };
+}
+
+export function getEventLog(state) {
+  return getEventsState(state).log || [];
 }
 
 export function createGameState(seed) {

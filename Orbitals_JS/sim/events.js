@@ -1,10 +1,12 @@
 import { config } from '../orbitals_config.js';
+import { getEventLog } from './state.js';
 
 export function pushEvent(state, type, payload = {}) {
-  if (!config.debug || !state || !Array.isArray(state.eventLog)) {
+  const eventLog = getEventLog(state);
+  if (!config.debug || !state || !Array.isArray(eventLog)) {
     return;
   }
-  state.eventLog.push({
+  eventLog.push({
     frame: state.frameIndex,
     time: state.time,
     type,
@@ -24,7 +26,7 @@ export function formatCombatLog(state) {
     return '';
   }
   const lines = [];
-  const events = Array.isArray(state?.eventLog) ? state.eventLog : [];
+  const events = getEventLog(state);
   for (const event of events) {
     const stamp = `f${event.frame} t=${Number(event.time).toFixed(2)}`;
     if (event.type === 'mothership-spawn') {

@@ -3,6 +3,7 @@ import { config } from '../orbitals_config.js';
 import { WORLD_UP as worldUp } from './math.js';
 import {
   getEnemyItems,
+  getProjectileState,
   getProjectileItems,
   getWorldPlanets
 } from './state.js';
@@ -262,8 +263,9 @@ export function spawnProjectileBurst(state, ship, fireDirection) {
   const baseSpeed = config.shipProjectileSpeed + ship.speed * config.shipProjectileShipVelocityScale;
   const direction = tempVecD.copy(forward).normalize();
   const inheritedVelocity = ship.velocity.clone();
+  const projectiles = getProjectileState(state);
   const projectile = {
-    id: state.nextProjectileId,
+    id: projectiles.nextId,
     position: origin.clone(),
     previousPosition: origin.clone(),
     velocity: inheritedVelocity.clone().addScaledVector(direction, baseSpeed),
@@ -285,8 +287,8 @@ export function spawnProjectileBurst(state, ship, fireDirection) {
   const homingTarget = findProjectileHomingTarget(state, projectile);
   projectile.targetEnemyId = homingTarget ? homingTarget.id : null;
   projectile.homingAcquisitionComplete = true;
-  getProjectileItems(state).push(projectile);
-  state.nextProjectileId += 1;
+  projectiles.items.push(projectile);
+  projectiles.nextId += 1;
 }
 
 export function computeShipFireDirection(ship, camera, aimX, aimY, viewportWidth, viewportHeight) {
