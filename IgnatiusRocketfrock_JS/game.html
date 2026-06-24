@@ -7,23 +7,18 @@
     <style>
         :root {
             color-scheme: dark;
-            --ink: #f3ead7;
-            --muted: #c9bda6;
-            --panel: rgba(24, 20, 15, 0.78);
-            --panel-strong: rgba(20, 17, 13, 0.94);
-            --line: rgba(218, 191, 143, 0.22);
-            --accent: #c59a58;
-            --good: #859d62;
-            --warn: #d8a95e;
-            --earth-deep: #0d0b08;
-            --earth-panel: #1b1711;
-            --earth-panel-raised: #2a2117;
-            --earth-brass: #b98a48;
-            --earth-moss: #71805a;
-            --earth-cream: #f1e3c8;
+            --ink: #f2edf8;
+            --muted: #cdbfdc;
+            --panel: rgba(23, 17, 32, 0.86);
+            --panel-strong: #171120;
+            --panel-raised: #21182d;
+            --line: rgba(201, 167, 255, 0.24);
+            --accent: #c9a7ff;
+            --good: #90c99a;
+            --warn: #d8b9ff;
             --menu-deep: #0d0b12;
-            --menu-panel: #17141f;
-            --menu-panel-raised: #211b2d;
+            --menu-panel: #171120;
+            --menu-panel-raised: #21182d;
             --menu-accent: #c9a7ff;
             --menu-accent-strong: #e1d1ff;
             --menu-muted: #cdbfdc;
@@ -105,7 +100,7 @@
         #loading-bar-fill {
             width: 0%;
             height: 100%;
-            background: linear-gradient(90deg, #6d754f, #b98a48, #ead3a7);
+            background: linear-gradient(90deg, #5e3f86, #a579dc, #e1d1ff);
             transition: width 100ms linear;
         }
 
@@ -285,7 +280,7 @@
 
         input[type="range"] {
             width: 100%;
-            accent-color: var(--earth-brass);
+            accent-color: var(--accent);
         }
 
         button {
@@ -417,11 +412,7 @@
             border: 2px solid rgba(201, 167, 255, 0.55);
             border-radius: 22px;
             padding: 20px;
-            background:
-                radial-gradient(circle at 12% 0%, rgba(114, 85, 160, 0.34), transparent 35%),
-                radial-gradient(circle at 96% 4%, rgba(201, 167, 255, 0.15), transparent 36%),
-                repeating-linear-gradient(93deg, rgba(255,255,255,0.011) 0 2px, transparent 2px 11px),
-                linear-gradient(180deg, rgba(29, 24, 40, 0.995), rgba(13, 11, 18, 0.998));
+            background: var(--menu-panel);
             box-shadow:
                 0 0 0 1px rgba(229, 211, 255, 0.1),
                 0 30px 90px rgba(0, 0, 0, 0.66),
@@ -526,7 +517,7 @@
             padding: 10px;
             border: 1px solid var(--menu-line);
             border-radius: 14px;
-            background: rgba(13, 11, 18, 0.36);
+            background: var(--menu-panel-raised);
         }
 
         .settings-label {
@@ -585,7 +576,7 @@
             padding: 10px;
             border: 1px solid var(--menu-line);
             border-radius: 14px;
-            background: rgba(13, 11, 18, 0.36);
+            background: var(--menu-panel-raised);
             cursor: pointer;
         }
 
@@ -712,9 +703,9 @@
                 <div class="settings-group">
                     <div class="settings-label">
                         <span>Music volume</span>
-                        <span id="music-volume-value" class="settings-value">60%</span>
+                        <span id="music-volume-value" class="settings-value">10%</span>
                     </div>
-                    <input id="music-volume" type="range" min="0" max="1" step="0.01" value="0.6">
+                    <input id="music-volume" type="range" min="0" max="1" step="0.01" value="0.1">
                 </div>
 
                 <div class="settings-group">

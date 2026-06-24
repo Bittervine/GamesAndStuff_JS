@@ -11,9 +11,9 @@ export const GAME_RENDERING_QUALITY_PRESETS = Object.freeze([
 ]);
 
 export const DEFAULT_GAME_SETTINGS = Object.freeze({
-    version: 2,
+    version: 3,
     sfxVolume: 0.8,
-    musicVolume: 0.6,
+    musicVolume: 0.1,
     difficulty: "normal",
     renderingQuality: "medium",
     autoFullscreen: true

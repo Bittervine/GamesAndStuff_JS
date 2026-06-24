@@ -36,7 +36,7 @@ import {
     pitchToMidi,
     transposePitch
 } from "../src/shared/music-data.js";
-import { noteFrequency } from "../src/browser/music-director.js";
+import { createMusicDirector, noteFrequency } from "../src/browser/music-director.js";
 import {
     detectElectronWindowBridge,
     readFullscreenState,
@@ -5178,7 +5178,8 @@ function testVanishingMovingPlatformsAlwaysRecover() {
 
 
 function testGameSettingsSchemaPersistenceAndMenuShell() {
-    assert.equal(DEFAULT_GAME_SETTINGS.musicVolume, 0.6, "music should default to 60 percent");
+    assert.equal(DEFAULT_GAME_SETTINGS.sfxVolume, 0.8, "effects should default to 80 percent");
+    assert.equal(DEFAULT_GAME_SETTINGS.musicVolume, 0.1, "music should default to 10 percent");
     assert.equal(DEFAULT_GAME_SETTINGS.difficulty, "normal", "normal damage should remain the default");
     assert.equal(DEFAULT_GAME_SETTINGS.renderingQuality, "medium", "medium particle quality should remain the default");
     assert.equal(DEFAULT_GAME_SETTINGS.autoFullscreen, true, "browser play should default to automatic fullscreen transitions");
@@ -5218,6 +5219,24 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal(loadStoredGameSettings(storage).difficulty, "hard", "stored difficulty should round-trip");
     assert.equal(loadStoredGameSettings(storage).autoFullscreen, false, "the fullscreen policy should round-trip through storage");
 
+    const legacyValues = new Map([[GAME_SETTINGS_STORAGE_KEY, JSON.stringify({
+        version: 2,
+        sfxVolume: 0.8,
+        musicVolume: 0.6,
+        difficulty: "normal",
+        renderingQuality: "medium",
+        autoFullscreen: true
+    })]]);
+    const legacyStorage = {
+        getItem(key) {
+            return legacyValues.has(key) ? legacyValues.get(key) : null;
+        },
+        setItem(key, value) {
+            legacyValues.set(key, String(value));
+        }
+    };
+    assert.equal(loadStoredGameSettings(legacyStorage).musicVolume, 0.1, "the former untouched 60 percent default should migrate to the new 10 percent default");
+
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
@@ -5225,7 +5244,8 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     const electronMainSource = readFileSync(new URL("../electron/main.cjs", import.meta.url), "utf8");
     assert.match(gameHtml, /id="game-menu-dialog"/, "the game should contain a modal pause menu");
     assert.match(gameHtml, /id="game-menu-exit-desktop"[^>]*hidden/, "desktop exit should start hidden in ordinary browsers");
-    assert.match(gameHtml, /id="music-volume"[^>]*value="0\.6"/, "the music slider should visibly default to 60 percent");
+    assert.match(gameHtml, /id="sfx-volume"[^>]*value="0\.8"/, "the effects slider should visibly default to 80 percent");
+    assert.match(gameHtml, /id="music-volume"[^>]*value="0\.1"/, "the music slider should visibly default to 10 percent");
     assert.match(gameHtml, /data-difficulty="easy"/, "the settings dialog should expose difficulty choices");
     assert.match(gameHtml, /data-rendering-quality="high"/, "the settings dialog should expose particle quality choices");
     assert.match(gameHtml, /id="fullscreen-toggle"/, "a direct fullscreen toggle should remain available outside the menu");
@@ -5239,10 +5259,22 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.doesNotMatch(gameHtml, /Enter fullscreen while playing/, "the compact settings dialog should omit the fullscreen explanation");
     assert.match(gameHtml, /#game-settings-panel\s*\{[^}]*grid-template-columns:\s*repeat\(2,/s, "settings should use a compact two-column layout on wide screens");
     assert.match(gameHtml, /--menu-accent:\s*#c9a7ff/, "the menu should share the main index's deep-purple accent");
-    assert.match(bootstrapSource, /gameState\.debug\.paused = true;/, "opening the menu should pause portable simulation stepping");
+    assert.match(gameHtml, /--panel-strong:\s*#171120/, "loading and tuning should use the shared solid dark-purple surface");
+    assert.match(gameHtml, /--menu-panel:\s*#171120/, "the menu should use the same solid dark-purple surface as other strong panels");
+    assert.match(gameHtml, /--menu-panel-raised:\s*#21182d/, "settings should use a solid raised shade from the shared purple family");
+    assert.match(gameHtml, /#loading-bar-fill\s*\{[^}]*#a579dc/s, "the loading progress fill should use purple rather than earth or brass tones");
+    assert.match(gameHtml, /\.game-menu-card\s*\{[^}]*background:\s*var\(--menu-panel\)/s, "the menu card should use a solid shared surface");
+    assert.doesNotMatch(gameHtml, /repeating-linear-gradient/, "game-facing menus must not restore the near-vertical stripe texture");
+    assert.doesNotMatch(gameHtml, /--earth-|#b98a48|#c59a58|#f3ead7|#c9bda6/, "the retired brown game-overlay palette should not remain in the game page");
+    assert.match(bootstrapSource, /setGamePaused\(true, \{ clearInput: true \}\)/, "opening the menu should pause portable simulation stepping through the central pause path");
     assert.match(bootstrapSource, /function handleGameMenuNavigationKey/, "menu and settings should have explicit keyboard navigation");
     assert.match(bootstrapSource, /event\.code === "ArrowDown"/, "arrow keys should traverse visible dialog controls");
     assert.match(bootstrapSource, /function applyAutoFullscreenPolicy/, "fullscreen should follow play and pause state through a policy function");
+    assert.match(bootstrapSource, /window\.addEventListener\("blur", pauseForPageFocusLoss\)/, "losing page focus should invoke the central pause path");
+    assert.match(bootstrapSource, /document\.addEventListener\("visibilitychange", handlePageVisibilityChange\)/, "hidden tabs should pause even when blur delivery differs by browser");
+    assert.match(bootstrapSource, /function syncGameAudioState\(\)/, "pause state should centrally control browser audio muting");
+    assert.match(bootstrapSource, /effectiveSfxVolume = muted \? 0/, "the sound-effects bus should have zero effective volume while paused");
+    assert.match(bootstrapSource, /musicDirector\.setMuted\(muted\)/, "music should be silenced by the same pause policy");
     assert.match(bootstrapSource, /autoFullscreenRow\.hidden = Boolean\(electronWindowBridge\)/, "the browser-only fullscreen policy should be hidden in Electron");
     assert.match(bootstrapSource, /electronWindowBridge\.quit/, "Electron-only exit should call the narrow preload bridge");
     assert.doesNotMatch(packageSource, /"main": "electron\/main\.cjs"/, "root package metadata should not own Electron-specific entrypoints");
@@ -5277,6 +5309,16 @@ function testSynthesizedLevelMusicSystem() {
     assert.equal(transposePitch("B3", 12), "B4", "authored phrases should support octave transposition");
     assert.ok(Math.abs(noteFrequency("A4") - 440) < 0.000001, "the Web Audio synthesizer should tune A4 to 440 Hz");
 
+    const muteProbe = createMusicDirector({ audioContextFactory: () => null, volume: 0.1 });
+    assert.equal(muteProbe.getEffectiveVolume(), 0.1, "configured music volume should be audible while unmuted");
+    muteProbe.setMuted(true);
+    assert.equal(muteProbe.getEffectiveVolume(), 0, "pause muting should reduce the effective music gain to zero");
+    muteProbe.setVolume(0.4);
+    assert.equal(muteProbe.getEffectiveVolume(), 0, "changing the slider while paused must not leak music through the mute");
+    muteProbe.setMuted(false);
+    assert.equal(muteProbe.getEffectiveVolume(), 0.4, "resuming should restore the latest configured music volume");
+    muteProbe.dispose();
+
     const mountainKing = getMusicTune("grieg_mountain_king");
     const mountainMelody = mountainKing.voices.find((voice) => voice.instrument === "doubleBass");
     const mountainTuba = mountainKing.voices.find((voice) => voice.instrument === "tuba");
@@ -5286,19 +5328,19 @@ function testSynthesizedLevelMusicSystem() {
     assert.deepEqual(
         openingStatement.map((musicalNote) => musicalNote.pitch),
         [
-            "B2", "C#3", "D3", "E3", "F#3", "D3", "F#3",
-            "E#3", "C#3", "E#3", "E3", "C3", "E3",
-            "B2", "C#3", "D3", "E3", "F#3", "D3", "F#3", "B3",
-            "A3", "F#3", "D3", "F#3", "A3"
+            "B1", "C#2", "D2", "E2", "F#2", "D2", "F#2",
+            "F2", "C#2", "F2", "E2", "C2", "E2",
+            "B1", "C#2", "D2", "E2", "F#2", "D2", "F#2", "B2",
+            "A2", "F#2", "D2", "F#2", "A2"
         ],
-        "Mountain King's opening statement should match the verified four-measure score melody"
+        "Mountain King's verified four-measure melody should retain its intervals one octave lower"
     );
     assert.deepEqual(
         openingStatement.map((musicalNote) => musicalNote.beat),
         [0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 4.5, 5, 6, 6.5, 7, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14],
         "Mountain King's quarter- and half-note holds should no longer be flattened into equal eighth notes"
     );
-    assert.equal(mountainMelody.notes.find((musicalNote) => musicalNote.beat === 16)?.pitch, "F#3", "the second statement should enter a perfect fifth above the first");
+    assert.equal(mountainMelody.notes.find((musicalNote) => musicalNote.beat === 16)?.pitch, "F#2", "the second statement should enter a perfect fifth above the lowered first statement");
 
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
@@ -5310,6 +5352,8 @@ function testSynthesizedLevelMusicSystem() {
     assert.match(bootstrapSource, /musicDirector\.setVolume\(settings\.musicVolume\)/, "the existing music slider should control the live master gain");
     assert.match(bootstrapSource, /unlockMusicFromGesture/, "music should unlock from a player gesture to satisfy browser autoplay rules");
     assert.match(musicDirectorSource, /createOscillator\(/, "music should be synthesized with Web Audio oscillators");
+    assert.match(musicDirectorSource, /case "doubleBass":[\s\S]*harmonicRatio: 0\.5[\s\S]*cutoff: 520/, "the Mountain King lead should emphasize a dark fundamental and subharmonic rather than a bright upper octave");
+    assert.match(musicDirectorSource, /function setMuted\(nextMuted\)/, "the music director should expose a transient pause mute separate from persisted volume");
     assert.doesNotMatch(musicDirectorSource, /\.mp3|\.ogg|\.wav|\.mid/i, "the engine should not package recordings or MIDI files");
     assert.match(gameHtml, /id="music-volume"/, "the compact settings dialog should retain live music volume control");
     assert.match(levelEditorSource, /id="level-music"/, "the Level Editor should expose a level soundtrack selector");

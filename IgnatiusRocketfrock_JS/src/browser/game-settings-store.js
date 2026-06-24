@@ -2,13 +2,28 @@ import { DEFAULT_GAME_SETTINGS, normalizeGameSettings } from "../shared/game-set
 
 export const GAME_SETTINGS_STORAGE_KEY = "ignatius_rocketfrock_game_settings_v1";
 
+function migrateStoredGameSettings(value) {
+    const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    const version = Number(source.version) || 1;
+    if (version < 3 && Number(source.musicVolume) === 0.6) {
+        return {
+            ...source,
+            version: 3,
+            musicVolume: DEFAULT_GAME_SETTINGS.musicVolume
+        };
+    }
+    return source;
+}
+
 export function loadStoredGameSettings(storage = globalThis.localStorage) {
     if (!storage || typeof storage.getItem !== "function") {
         return normalizeGameSettings(DEFAULT_GAME_SETTINGS);
     }
     try {
         const raw = storage.getItem(GAME_SETTINGS_STORAGE_KEY);
-        return raw ? normalizeGameSettings(JSON.parse(raw)) : normalizeGameSettings(DEFAULT_GAME_SETTINGS);
+        return raw
+            ? normalizeGameSettings(migrateStoredGameSettings(JSON.parse(raw)))
+            : normalizeGameSettings(DEFAULT_GAME_SETTINGS);
     } catch (error) {
         console.warn("Could not load Ignatius Rocketfrock settings; defaults will be used.", error);
         return normalizeGameSettings(DEFAULT_GAME_SETTINGS);

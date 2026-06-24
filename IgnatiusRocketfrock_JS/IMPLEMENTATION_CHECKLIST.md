@@ -1304,7 +1304,7 @@ Goal: grow the game beyond isolated prototype levels.
 
 ### Revision 149 earthy game menu, settings, Electron shell, and sharper rockets
 
-- [x] Add persistent versioned game settings with effects volume 80%, music volume 60%, Normal difficulty, and Medium rendering quality defaults.
+- [x] Add persistent versioned game settings with effects volume 80%, music volume 10%, Normal difficulty, and Medium rendering quality defaults.
 - [x] Add an earthy pause-menu presentation with direct MENU and FULLSCREEN controls.
 - [x] Add Resume, Settings, Restart level, Exit to main menu, and Electron-only Exit to desktop actions.
 - [x] Pause simulation while the menu is open and restore the previous pause state on close.
@@ -1338,7 +1338,7 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Remove the duplicate top-level Resume/Back menu action and retain the header BACK control.
 - [x] Remove explanatory paragraphs from Settings.
 - [x] Use a compact two-column settings layout with a one-column narrow-screen fallback.
-- [x] Keep music volume defaulted to 60% and apply it live to a master Web Audio gain.
+- [x] Keep music volume defaulted to 10% and apply it live to a master Web Audio gain.
 - [x] Add a shared, stable tune catalog and level-music schema.
 - [x] Synthesize music from authored pitch/duration events; package no recording or MIDI files.
 - [x] Unlock AudioContext only from a valid player gesture.
@@ -1358,3 +1358,27 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Add source-faithful `E#` pitch parsing and regression-lock the opening pitch/beat sequence.
 - [x] Replace the bright lead with low double-bass and tuba oscillator profiles.
 - [x] Continue packaging no recordings, samples, MIDI, LilyPond, MusicXML, or score PDFs.
+
+### Revision 154 unified dark-purple overlays
+
+- [x] Remove the remaining brown/earth root palette from the game page.
+- [x] Share one deep-purple surface family across loading, HUD, help, debug, tuning, menu controls, pause menu, and Settings.
+- [x] Replace the loading progress fill's earth/brass colours with a lavender-purple progression.
+- [x] Remove the pause-menu card's radial glow and repeating near-vertical stripe texture.
+- [x] Use solid dark-purple menu and solid raised-purple Settings backgrounds.
+- [x] Add regression coverage preventing the brown palette and repeating stripe texture from returning.
+
+
+
+## Revision 155 focus and audio safety
+
+- [x] Keep the effects default at 80% and change the music default to 10% in both schema and Settings UI.
+- [x] Migrate version-2 settings that still contain the former exact 60% music default while preserving other saved values.
+- [x] Pause and clear held input when the page loses focus or becomes hidden.
+- [x] Leave gameplay paused after focus returns until the player explicitly resumes.
+- [x] Mute scheduled music and master gain during every paused state without overwriting persisted volume.
+- [x] Expose zero effective sound-effects volume while paused for current diagnostics and future SFX emitters.
+- [x] Restore the latest configured music/effects levels after resuming.
+- [x] Lower the Mountain King lead by one octave while preserving verified melody intervals and rhythm.
+- [x] Darken the double-bass oscillator profile with a low-pass cutoff and subharmonic reinforcement.
+- [x] Add regressions for defaults, focus/visibility pause wiring, transient mute behavior, and low-register note data.

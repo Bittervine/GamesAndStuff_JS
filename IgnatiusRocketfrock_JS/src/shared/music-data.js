@@ -85,8 +85,11 @@ const mountainKingTheme = Object.freeze([
 ]);
 
 const mountainKingMelody = [
-    ...sequencedPhrase(0, mountainKingTheme, 0.88),
-    ...sequencedPhrase(16, mountainKingTheme, 0.96, 7)
+    // Preserve Grieg's intervals while placing the lead one octave lower. The
+    // second statement remains a perfect fifth above the first, but now stays
+    // in a contrabass/tuba register instead of climbing into a bright tenor.
+    ...sequencedPhrase(0, mountainKingTheme, 0.88, -12),
+    ...sequencedPhrase(16, mountainKingTheme, 0.96, -5)
 ];
 
 const dwarfMarchMotifA = [

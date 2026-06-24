@@ -30,7 +30,7 @@ function instrumentProfile(name) {
         case "bassoon":
             return { type: "square", harmonic: "sine", harmonicRatio: 2, cutoff: 1300, attack: 0.025, release: 0.09, level: 0.095, harmonicLevel: 0.12 };
         case "doubleBass":
-            return { type: "triangle", harmonic: "sine", harmonicRatio: 2, cutoff: 820, attack: 0.009, release: 0.13, level: 0.12, harmonicLevel: 0.08 };
+            return { type: "triangle", harmonic: "sine", harmonicRatio: 0.5, cutoff: 520, attack: 0.018, release: 0.17, level: 0.14, harmonicLevel: 0.22 };
         case "tuba":
             return { type: "sine", harmonic: "square", harmonicRatio: 2, cutoff: 680, attack: 0.035, release: 0.16, level: 0.125, harmonicLevel: 0.065 };
         case "pizzicato":
@@ -44,11 +44,12 @@ function instrumentProfile(name) {
     }
 }
 
-export function createMusicDirector({ audioContextFactory = defaultAudioContextFactory, volume = 0.6 } = {}) {
+export function createMusicDirector({ audioContextFactory = defaultAudioContextFactory, volume = 0.1 } = {}) {
     let context = null;
     let masterGain = null;
     let tuneId = "grieg_mountain_king";
     let currentVolume = clamp01(volume);
+    let muted = false;
     let schedulerTimer = null;
     let nextCycleIndex = 0;
     let cycleZeroTime = 0;
@@ -59,7 +60,7 @@ export function createMusicDirector({ audioContextFactory = defaultAudioContextF
         context = audioContextFactory?.() || null;
         if (!context) return null;
         masterGain = context.createGain();
-        masterGain.gain.value = currentVolume;
+        masterGain.gain.value = muted ? 0 : currentVolume;
         masterGain.connect(context.destination);
         return context;
     }
@@ -148,7 +149,7 @@ export function createMusicDirector({ audioContextFactory = defaultAudioContextF
     function schedulerTick() {
         if (!context || context.state !== "running") return;
         const tune = getMusicTune(tuneId);
-        if (!tune || tune.id === "none" || !tune.voices?.length || currentVolume <= 0) return;
+        if (muted || !tune || tune.id === "none" || !tune.voices?.length || currentVolume <= 0) return;
         const loopDuration = musicLoopDurationSeconds(tune);
         while (cycleZeroTime + nextCycleIndex * loopDuration < context.currentTime + SCHEDULE_AHEAD_SECONDS) {
             scheduleCycle(cycleZeroTime + nextCycleIndex * loopDuration, tune);
@@ -158,7 +159,7 @@ export function createMusicDirector({ audioContextFactory = defaultAudioContextF
 
     function restartScheduler() {
         clearScheduler();
-        if (!context || context.state !== "running") return;
+        if (muted || !context || context.state !== "running") return;
         cycleZeroTime = context.currentTime + 0.07;
         nextCycleIndex = 0;
         schedulerTick();
@@ -176,7 +177,7 @@ export function createMusicDirector({ audioContextFactory = defaultAudioContextF
             }
         }
         if (audioContext.state !== "running") return false;
-        if (schedulerTimer === null) restartScheduler();
+        if (!muted && schedulerTimer === null) restartScheduler();
         return true;
     }
 
@@ -193,12 +194,30 @@ export function createMusicDirector({ audioContextFactory = defaultAudioContextF
         currentVolume = clamp01(nextVolume);
         if (masterGain && context) {
             masterGain.gain.cancelScheduledValues(context.currentTime);
-            masterGain.gain.setTargetAtTime(currentVolume, context.currentTime, 0.03);
+            masterGain.gain.setTargetAtTime(muted ? 0 : currentVolume, context.currentTime, 0.03);
         }
-        if (context?.state === "running" && currentVolume > 0 && (schedulerTimer === null || wasMuted)) {
+        if (!muted && context?.state === "running" && currentVolume > 0 && (schedulerTimer === null || wasMuted)) {
             restartScheduler();
         }
         return currentVolume;
+    }
+
+    function setMuted(nextMuted) {
+        const normalized = Boolean(nextMuted);
+        if (normalized === muted) {
+            return muted;
+        }
+        muted = normalized;
+        if (masterGain && context) {
+            masterGain.gain.cancelScheduledValues(context.currentTime);
+            masterGain.gain.setTargetAtTime(muted ? 0 : currentVolume, context.currentTime, 0.02);
+        }
+        if (muted) {
+            clearScheduler();
+        } else if (context?.state === "running" && currentVolume > 0) {
+            restartScheduler();
+        }
+        return muted;
     }
 
     function dispose() {
@@ -214,9 +233,12 @@ export function createMusicDirector({ audioContextFactory = defaultAudioContextF
         unlock,
         setTune,
         setVolume,
+        setMuted,
         dispose,
         getTuneId: () => tuneId,
         getVolume: () => currentVolume,
+        getEffectiveVolume: () => muted ? 0 : currentVolume,
+        isMuted: () => muted,
         isUnlocked: () => context?.state === "running"
     });
 }

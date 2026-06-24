@@ -78,7 +78,7 @@ const renderingQualityButtons = [...document.querySelectorAll("[data-rendering-q
 const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 
-const GAME_REVISION = "151";
+const GAME_REVISION = "155";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -89,6 +89,8 @@ const musicDirector = createMusicDirector({ volume: gameState.settings.musicVolu
 let activeLevelMusic = normalizeLevelMusic(null);
 let gameMenuView = "menu";
 let gameMenuPreviousPause = false;
+let pageFocusLost = document.hidden;
+let effectiveSfxVolume = pageFocusLost ? 0 : gameState.settings.sfxVolume;
 let fullscreenActive = false;
 let fullscreenRequestPending = false;
 let stopElectronFullscreenListener = null;
@@ -414,6 +416,9 @@ function setupGameMenuAndSettings() {
     window.addEventListener("pointerdown", maybeApplyAutoFullscreenFromGameplayGesture, { capture: true, passive: true });
     window.addEventListener("pointerdown", unlockMusicFromGesture, { capture: true, passive: true });
     window.addEventListener("keydown", unlockMusicFromGesture, { capture: true, passive: true });
+    window.addEventListener("blur", pauseForPageFocusLoss);
+    window.addEventListener("focus", restorePageFocusAudioState);
+    document.addEventListener("visibilitychange", handlePageVisibilityChange);
 
     sfxVolumeInput?.addEventListener("input", () => updatePersistentGameSettings({
         sfxVolume: Number(sfxVolumeInput.value)
@@ -626,8 +631,7 @@ function openGameMenu() {
         return;
     }
     gameMenuPreviousPause = Boolean(gameState.debug.paused);
-    gameState.debug.paused = true;
-    input.clear();
+    setGamePaused(true, { clearInput: true });
     setGameMenuView("menu");
     document.body.classList.add("game-menu-open");
     openGameMenuButton?.setAttribute("aria-pressed", "true");
@@ -646,7 +650,7 @@ function closeGameMenu() {
     }
     // Restore the intended play state before requesting fullscreen. This keeps
     // requestFullscreen inside the resume click/key gesture required by browsers.
-    gameState.debug.paused = gameMenuPreviousPause;
+    setGamePaused(gameMenuPreviousPause);
     if (typeof gameMenuDialog.close === "function") {
         gameMenuDialog.close();
     } else {
@@ -659,8 +663,51 @@ function closeGameMenu() {
 function restorePauseAfterMenu() {
     document.body.classList.remove("game-menu-open");
     openGameMenuButton?.setAttribute("aria-pressed", "false");
-    gameState.debug.paused = gameMenuPreviousPause;
-    input.clear();
+    setGamePaused(gameMenuPreviousPause, { clearInput: true });
+}
+
+function isGameAudioMuted() {
+    return Boolean(gameState.debug.paused || pageFocusLost);
+}
+
+function syncGameAudioState() {
+    const muted = isGameAudioMuted();
+    effectiveSfxVolume = muted ? 0 : clamp01(gameState.settings?.sfxVolume);
+    musicDirector.setMuted(muted);
+    return muted;
+}
+
+function setGamePaused(paused, { clearInput = false } = {}) {
+    gameState.debug.paused = Boolean(paused);
+    if (clearInput) {
+        input.clear();
+    }
+    syncGameAudioState();
+    return gameState.debug.paused;
+}
+
+function pauseForPageFocusLoss() {
+    pageFocusLost = true;
+    syncGameAudioState();
+    if (!isGameMenuOpen()) {
+        openGameMenu();
+    } else {
+        setGamePaused(true, { clearInput: true });
+    }
+    void applyAutoFullscreenPolicy();
+}
+
+function restorePageFocusAudioState() {
+    pageFocusLost = Boolean(document.hidden);
+    syncGameAudioState();
+}
+
+function handlePageVisibilityChange() {
+    if (document.hidden) {
+        pauseForPageFocusLoss();
+    } else {
+        restorePageFocusAudioState();
+    }
 }
 
 function setGameMenuView(view) {
@@ -700,6 +747,7 @@ function syncGameSettingsUi() {
     if (sfxVolumeValue) sfxVolumeValue.textContent = `${Math.round(settings.sfxVolume * 100)}%`;
     if (musicVolumeValue) musicVolumeValue.textContent = `${Math.round(settings.musicVolume * 100)}%`;
     musicDirector.setVolume(settings.musicVolume);
+    syncGameAudioState();
     if (difficultyValue) difficultyValue.textContent = difficulty.label;
     if (renderingQualityValue) renderingQualityValue.textContent = quality.label;
     for (const button of difficultyButtons) {
@@ -885,6 +933,7 @@ function frame(now) {
     if (!isGameMenuOpen()) {
         handleDebugInput(inputFrame);
     }
+    syncGameAudioState();
 
     if (!gameState.debug.paused) {
         accumulator += realDt;
@@ -911,10 +960,10 @@ function frame(now) {
 
 function handleDebugInput(inputFrame) {
     if (inputFrame.pausePressed) {
-        gameState.debug.paused = !gameState.debug.paused;
+        setGamePaused(!gameState.debug.paused);
     }
     if (inputFrame.stepPressed) {
-        gameState.debug.paused = true;
+        setGamePaused(true);
         devSingleStepArmed = true;
     }
     if (inputFrame.resetPressed) {
@@ -1003,7 +1052,7 @@ function updateDebugText() {
 
     debugEl.textContent = [
         `rev:${GAME_REVISION}  ${gameState.debug.paused ? "PAUSED" : "RUNNING"}  tick:${gameState.clock.tick}  t:${gameState.clock.time.toFixed(2)}`,
-        `difficulty:${gameState.settings?.difficulty || "normal"} damageScale:${gameDifficultyPreset(gameState.settings).damageScale.toFixed(2)} quality:${gameState.settings?.renderingQuality || "medium"} particleScale:${gameRenderingQualityPreset(gameState.settings).particleScale.toFixed(2)} music:${Math.round((gameState.settings?.musicVolume ?? 0.6) * 100)}% tune:${activeLevelMusic.tuneId} audio:${musicDirector.isUnlocked() ? "on" : "locked"}`,
+        `difficulty:${gameState.settings?.difficulty || "normal"} damageScale:${gameDifficultyPreset(gameState.settings).damageScale.toFixed(2)} quality:${gameState.settings?.renderingQuality || "medium"} particleScale:${gameRenderingQualityPreset(gameState.settings).particleScale.toFixed(2)} music:${Math.round((gameState.settings?.musicVolume ?? 0.1) * 100)}% sfx:${Math.round(effectiveSfxVolume * 100)}% tune:${activeLevelMusic.tuneId} audio:${isGameAudioMuted() ? "muted" : (musicDirector.isUnlocked() ? "on" : "locked")}`,
         viewText,
         performanceText,
         visualPerformanceText,
@@ -1209,6 +1258,7 @@ window.setRocketfrockState = (nextState) => {
     gameState = cloneGameState(nextState);
     gameState.settings = normalizeGameSettings(gameState.settings);
     syncGameSettingsUi();
+    syncGameAudioState();
 };
 window.getRocketfrockPose = () => ({
     player: cloneGameState(gameState.player),
@@ -1217,16 +1267,17 @@ window.getRocketfrockPose = () => ({
 });
 window.__rocketfrockDev = {
     pause() {
-        gameState.debug.paused = true;
+        setGamePaused(true);
     },
     resume() {
-        gameState.debug.paused = false;
+        setGamePaused(false);
     },
     reset() {
         gameState = createInitialGameState({ settings: gameState.settings });
         gameState.debug.revision = GAME_REVISION;
         applyLoadedAtlasCollisions();
         syncGameSettingsUi();
+        syncGameAudioState();
     },
     setPhase(phase) {
         renderer.forcePhase = phase;
@@ -1253,6 +1304,13 @@ window.__rocketfrockDev = {
     setInputConsoleLogging(enabled) {
         input.setConsoleLogging(enabled);
         gameState.debug.inputConsoleLogging = input.isConsoleLoggingEnabled();
+    },
+    getAudioState() {
+        return {
+            muted: isGameAudioMuted(),
+            musicVolume: musicDirector.getEffectiveVolume(),
+            sfxVolume: effectiveSfxVolume
+        };
     }
 };
 

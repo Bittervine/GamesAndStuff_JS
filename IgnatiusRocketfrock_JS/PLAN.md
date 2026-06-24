@@ -1749,7 +1749,7 @@ Dynamic platforms are currently excluded from baked enemy navigation, so enemies
 - Add a compact top-right MENU and FULLSCREEN control inspired by Thoriumgap's clear two-level navigation, but restyle it in darker earth, soot, brass, timber, and moss tones suitable for Ignatius.
 - Pause fixed-step simulation whenever the game menu is open and restore the prior debug-pause state when it closes.
 - Add Menu and Settings views with Resume, Restart level, Exit to main menu, and Electron-only Exit to desktop.
-- Persist effects volume, music volume, difficulty, and rendering quality through a versioned browser settings schema. Default music volume to 60% in preparation for the later music system.
+- Persist effects volume, music volume, difficulty, and rendering quality through a versioned browser settings schema. Default effects volume to 80% and music volume to 10%.
 - Keep the initial difficulty implementation deliberately narrow: Easy/Normal/Hard scale only incoming player damage to 75%/100%/150% through `damagePlayer`.
 - Keep the initial rendering-quality implementation deliberately narrow: Low/Medium/High scale homing-rocket trail and impact smoke-particle density to 50%/100%/150%.
 - Add a browser/Electron fullscreen toggle that updates its label between FULLSCREEN and WINDOWED.
@@ -1779,3 +1779,17 @@ A level stores its choice as `music: { version: 1, tuneId }`. The Level Editor e
 ### Revision 152 score-verified Mountain King theme and low orchestration
 
 The compact *In the Hall of the Mountain King* loop now uses a score-verified four-measure opening phrase rather than an equal-duration approximation. Its chromatic E-sharp turn, quarter-note holds, half-note cadence, and perfect-fifth restatement are represented explicitly in authored note events. The lead has moved down to a dedicated double-bass oscillator profile with a low tuba pulse underneath. `MUSIC_SOURCES.md` records both the Mutopia engraving and an independent Edition Peters scan from IMSLP used for verification. No notation source, MIDI, sample, or recording is shipped.
+
+### Revision 154 unified dark-purple game UI surfaces
+
+The temporary brown overlay palette is removed from `game.html`. Loading progress, HUD meters, help/debug panels, the tuning pane, menu controls, pause menu, and Settings now use one near-black purple family with lavender text and borders. The pause-menu card no longer layers radial glows and a repeating near-vertical stripe texture; it uses a solid dark-purple background, with Settings groups using a solid raised shade from the same palette. Preserve these shared variables so later HUD polish cannot quietly fork the menu and developer panels into unrelated colour schemes again.
+
+
+
+### Revision 155 focus-loss pause, transient audio mute, and deeper Mountain King lead
+
+- Default effects volume remains 80%; default music volume changes to 10%. Version-2 settings still carrying the former exact 60% default migrate to 10%; any other authored music volume is preserved.
+- Treat browser-window blur and a hidden document as pause requests. Open the existing pause menu where possible, clear held input, and never auto-resume when focus returns.
+- Derive audio silence from the pause/focus state. Music scheduling and gain are muted transiently, while the effective sound-effects volume becomes zero without modifying persisted sliders.
+- Keep the verified Mountain King rhythm and intervals, but voice both statements one octave lower. Darken the double-bass synthesis with a lower filter cutoff and subharmonic reinforcement while retaining the tuba foundation.
+- Add regression coverage for defaults, focus-loss wiring, pause muting, volume restoration, and the lowered melody register.
