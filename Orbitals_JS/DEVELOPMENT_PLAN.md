@@ -839,6 +839,12 @@ Revision 018 progress evidence:
 - `sim/encounters.js` now reads and writes encounter director and encounter entity storage through the transitional accessor.
 - Nested-state alias coverage now verifies encounter subsystem access, including director writes.
 
+Revision 019 progress evidence:
+
+- `Orbitals_Sim.js` now uses transitional player, world, and enemy accessors in facade-owned collision, bootstrap, and public helper paths.
+- World bootstrap now fills planet and fuel-mote collections through the world subsystem accessor.
+- Public force/destroy enemy helpers now query enemies through the enemy collection accessor.
+
 ## 17. Phase E: Nested subsystem state migration
 
 Goal: move from flat `state` arrays to a nested `GAME` object.

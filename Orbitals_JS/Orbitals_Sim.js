@@ -63,6 +63,10 @@ import {
 export { parseSeed } from './sim/math.js';
 import {
   createGameState,
+  getEnemyItems,
+  getPlayerState,
+  getWorldPlanets,
+  getWorldState,
   resetGameState
 } from './sim/state.js';
 import {
@@ -89,8 +93,10 @@ function applyShipCollisionDamage(state, ship, damage, cause, impactPosition = n
   if (!ship || damage <= 0) {
     return false;
   }
-  if (ship === state.ship) {
-    const planet = state.nearestPlanet || state.planets[0] || null;
+  const player = getPlayerState(state);
+  const world = getWorldState(state);
+  if (ship === player.ship) {
+    const planet = world.nearestPlanet || world.planets[0] || null;
     if (!planet) {
       return false;
     }
@@ -110,14 +116,15 @@ function handleShipCollision(state, first, second, impactPosition, impactSpeed) 
   if (!canShipsCollide(first, second)) {
     return false;
   }
+  const playerShip = getPlayerState(state).ship;
   const collisionDamage = Math.max(1, Math.round(Math.max(impactSpeed, 0.5) * config.shipCollisionDamage * 0.5));
   applyShipCollisionDamage(state, first, collisionDamage, 'collision', impactPosition);
   applyShipCollisionDamage(state, second, collisionDamage, 'collision', impactPosition);
   pushEvent(state, 'ship-collision', {
-    shipAId: first === state.ship ? 'player' : first.id,
-    shipBId: second === state.ship ? 'player' : second.id,
-    shipAKind: first === state.ship ? 'player' : first.kind,
-    shipBKind: second === state.ship ? 'player' : second.kind,
+    shipAId: first === playerShip ? 'player' : first.id,
+    shipBId: second === playerShip ? 'player' : second.id,
+    shipAKind: first === playerShip ? 'player' : first.kind,
+    shipBKind: second === playerShip ? 'player' : second.kind,
     damage: collisionDamage,
     impactSpeed,
     position: impactPosition ? {
@@ -135,25 +142,26 @@ export function createOrbitalsSim(seed) {
   function bootstrapWorld() {
     resetGameState(state);
 
+    const world = getWorldState(state);
     const planetCount = Math.floor(state.rng() * (config.planetCountMax - config.planetCountMin + 1)) + config.planetCountMin;
     const chosenFiles = shufflePlanetFiles(state.rng).slice(0, planetCount);
     chosenFiles.forEach((file, index) => {
       const planet = createPlanetConfig(state.rng, index, file);
-      state.planets.push(planet);
+      world.planets.push(planet);
     });
 
-    for (const planet of state.planets) {
+    for (const planet of world.planets) {
       for (let i = 0; i < config.fuelMoteCountPerPlanet; i += 1) {
         const mote = createFuelMote(state.rng, planet, i);
         planet.fuelMotes.push(mote);
-        state.fuelMotes.push(mote);
+        world.fuelMotes.push(mote);
       }
     }
 
     updatePlanets(state, 0, state.time);
     const spawnPlanet = respawnShip(state);
     if (config.startWithInitialInvasion) {
-      const targetPlanetIndex = spawnPlanet ? state.planets.indexOf(spawnPlanet) : -1;
+      const targetPlanetIndex = spawnPlanet ? getWorldPlanets(state).indexOf(spawnPlanet) : -1;
       spawnMothershipSquad(state, targetPlanetIndex, mothershipServices, { spawnAtArrival: true });
     }
     state.loaded = true;
@@ -208,7 +216,7 @@ export function createOrbitalsSim(seed) {
     createEncounter: (options = {}) => createEncounter(state, options),
     createEncounterEntity: (options = {}) => createEncounterEntity(state, options),
     forceEnemyPresentation: (enemyId, kind, options = {}) => {
-      const enemy = state.enemies.find((candidate) => candidate.id === enemyId);
+      const enemy = getEnemyItems(state).find((candidate) => candidate.id === enemyId);
       if (!enemy) {
         return false;
       }
@@ -229,7 +237,7 @@ export function createOrbitalsSim(seed) {
       return beginEnemyPresentation(state, enemy, encounter, kind, { ...options, forced: true });
     },
     destroyEnemy: (enemyId, cause = 'projectile') => {
-      const enemy = state.enemies.find((candidate) => candidate.id === enemyId);
+      const enemy = getEnemyItems(state).find((candidate) => candidate.id === enemyId);
       return destroyEnemy(state, enemy, cause);
     },
     damageEncounterEntity: (entityId, damage) => damageEncounterEntity(state, entityId, damage)
