@@ -5221,6 +5221,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
+    const electronPackageSource = readFileSync(new URL("../electron/package.json", import.meta.url), "utf8");
     const electronMainSource = readFileSync(new URL("../electron/main.cjs", import.meta.url), "utf8");
     assert.match(gameHtml, /id="game-menu-dialog"/, "the game should contain a modal pause menu");
     assert.match(gameHtml, /id="game-menu-exit-desktop"[^>]*hidden/, "desktop exit should start hidden in ordinary browsers");
@@ -5244,7 +5245,10 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(bootstrapSource, /function applyAutoFullscreenPolicy/, "fullscreen should follow play and pause state through a policy function");
     assert.match(bootstrapSource, /autoFullscreenRow\.hidden = Boolean\(electronWindowBridge\)/, "the browser-only fullscreen policy should be hidden in Electron");
     assert.match(bootstrapSource, /electronWindowBridge\.quit/, "Electron-only exit should call the narrow preload bridge");
-    assert.match(packageSource, /"main": "electron\/main\.cjs"/, "package metadata should point at the prepared Electron shell");
+    assert.doesNotMatch(packageSource, /"main": "electron\/main\.cjs"/, "root package metadata should not own Electron-specific entrypoints");
+    assert.match(electronPackageSource, /"main": "main\.cjs"/, "Electron-local package metadata should point at the prepared shell");
+    assert.match(electronPackageSource, /"build:win-portable"/, "Electron-local package metadata should expose a portable Windows build script");
+    assert.match(electronPackageSource, /"electron-builder"/, "Electron-local package metadata should own its packaging dependency");
     assert.match(electronMainSource, /registerSchemesAsPrivileged/, "Electron should serve dynamic modules and fetches through a privileged local scheme");
     assert.match(electronMainSource, /supportFetchAPI:\s*true/, "the local Electron scheme should support the game's JSON and module fetches");
     assert.match(electronMainSource, /fullscreen:\s*true/, "the Electron host should launch in its fullscreen-only mode");

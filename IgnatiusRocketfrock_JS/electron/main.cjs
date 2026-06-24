@@ -3,7 +3,6 @@ const path = require("node:path");
 
 const APP_SCHEME = "ignatius";
 const APP_HOST = "app";
-const APP_ROOT = path.resolve(__dirname, "..");
 
 protocol.registerSchemesAsPrivileged([{
     scheme: APP_SCHEME,
@@ -37,10 +36,11 @@ function resolveAppRequest(requestUrl) {
     if (url.hostname !== APP_HOST) {
         return null;
     }
+    const appRoot = app.isPackaged ? app.getAppPath() : path.resolve(__dirname, "..");
     const relativePath = decodeURIComponent(url.pathname).replace(/^\/+/, "") || "game.html";
-    const resolvedPath = path.resolve(APP_ROOT, relativePath);
-    const rootPrefix = `${APP_ROOT}${path.sep}`;
-    if (resolvedPath !== APP_ROOT && !resolvedPath.startsWith(rootPrefix)) {
+    const resolvedPath = path.resolve(appRoot, relativePath);
+    const rootPrefix = `${appRoot}${path.sep}`;
+    if (resolvedPath !== appRoot && !resolvedPath.startsWith(rootPrefix)) {
         return null;
     }
     return resolvedPath;
