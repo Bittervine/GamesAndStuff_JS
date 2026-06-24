@@ -2,6 +2,11 @@ import { atlasNodeToPlacementWorld, normalizeRotationRadians } from "../shared/l
 import { characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../shared/actor-geometry.js";
 import { normalizeLevelColorMap } from "../shared/level-color-map-data.js";
 import { normalizeMovingPlatform } from "../shared/moving-platform-data.js";
+import {
+    isSignalEmitterEntity,
+    normalizeSignalChannel,
+    normalizeSignalEmitter
+} from "../shared/signal-channel-data.js";
 import { normalizeLevelMusic } from "../shared/music-data.js";
 import {
     difficultyDamageScale,
@@ -167,6 +172,9 @@ export function createInputFrame(overrides = {}) {
         weaponPressed: false,
         weaponHeld: false,
         weaponReleased: false,
+        interactPressed: false,
+        interactHeld: false,
+        interactReleased: false,
         aimVector: { x: 1, y: 0 },
         aimTarget: null,
         pausePressed: false,
@@ -198,6 +206,7 @@ export function createSubstepInputFrame(inputFrame, substepIndex = 0) {
         jumpHeld: input.jumpHeld,
         boostHeld: input.boostHeld,
         weaponHeld: input.weaponHeld,
+        interactHeld: input.interactHeld,
         aimVector: input.aimVector,
         aimTarget: input.aimTarget
     });
@@ -316,9 +325,12 @@ export function createInitialGameState(overrides = {}) {
             { id: "dummy_002", kind: "targetDummy", x: 3660, y: 580, width: 42, height: 80, health: 100, state: "idle" }
         ],
         pickups: [
-            { id: "fuel_001", kind: "fuel", x: 835, y: 315, radius: 14, amount: 40, collected: false },
-            { id: "fuel_002", kind: "fuel", x: 3070, y: 115, radius: 14, amount: 40, collected: false }
+            { id: "fuel_001", entityId: "fuel_001", kind: "fuel", pickupKind: "fuel", x: 835, y: 315, radius: 14, amount: 40, collected: false },
+            { id: "fuel_002", entityId: "fuel_002", kind: "fuel", pickupKind: "fuel", x: 3070, y: 115, radius: 14, amount: 40, collected: false }
         ],
+        inventory: {
+            items: {}
+        },
         collisions: {
             playerTouching: { left: false, right: false, up: false, down: false },
             lastResolution: null
@@ -392,6 +404,8 @@ function createTestArena(tuning) {
         ],
         visuals,
         movingPlatforms: [],
+        signalChannels: {},
+        signalEmitters: [],
         solids,
         segments: [],
         collisionMode: "fallbackRectangles",
@@ -1410,6 +1424,183 @@ function updateMailboxStory(state, input, dt) {
 }
 
 
+function signalChannelRecord(state, channel, create = false) {
+    if (!state?.world) return null;
+    const normalizedChannel = normalizeSignalChannel(channel);
+    if (!state.world.signalChannels || typeof state.world.signalChannels !== "object") {
+        if (!create) return null;
+        state.world.signalChannels = {};
+    }
+    if (!state.world.signalChannels[normalizedChannel] && create) {
+        state.world.signalChannels[normalizedChannel] = {
+            channel: normalizedChannel,
+            active: false,
+            revision: 0,
+            lastSourceId: null,
+            lastEmittedAt: null
+        };
+    }
+    return state.world.signalChannels[normalizedChannel] || null;
+}
+
+export function emitSignalChannel(state, channel, options = {}) {
+    const record = signalChannelRecord(state, channel, true);
+    if (!record) return null;
+    const nextActive = options.toggle === true
+        ? !record.active
+        : options.active === undefined
+            ? record.active
+            : Boolean(options.active);
+    record.active = nextActive;
+    record.revision += 1;
+    record.lastSourceId = options.sourceId ? String(options.sourceId) : null;
+    record.lastEmittedAt = state.clock?.time ?? 0;
+    addEvent(state, "SIGNAL_CHANNEL_EMITTED", {
+        channel: record.channel,
+        active: record.active,
+        revision: record.revision,
+        sourceId: record.lastSourceId
+    });
+    return record;
+}
+
+function configureSignalSystem(state, entities = []) {
+    if (!state?.world) return;
+    state.world.signalChannels = {};
+    state.world.signalEmitters = entities
+        .filter(isSignalEmitterEntity)
+        .map((entity) => normalizeSignalEmitter(entity))
+        .filter(Boolean);
+    for (const emitter of state.world.signalEmitters) {
+        signalChannelRecord(state, emitter.channel, true);
+    }
+    for (const platform of state.world.movingPlatforms || []) {
+        if (platform.movement?.activation === "signal") {
+            signalChannelRecord(state, platform.movement.signalChannel, true);
+        }
+    }
+}
+
+function inventoryItemCount(state, itemId) {
+    return Math.max(0, Number(state.inventory?.items?.[String(itemId || "")]) || 0);
+}
+
+function addInventoryItem(state, itemId, amount = 1) {
+    const id = String(itemId || "").trim();
+    if (!id) return 0;
+    if (!state.inventory || typeof state.inventory !== "object") state.inventory = { items: {} };
+    if (!state.inventory.items || typeof state.inventory.items !== "object") state.inventory.items = {};
+    const next = inventoryItemCount(state, id) + Math.max(0, Math.floor(Number(amount) || 0));
+    state.inventory.items[id] = next;
+    return next;
+}
+
+function consumeInventoryItem(state, itemId, amount = 1) {
+    const id = String(itemId || "").trim();
+    const requested = Math.max(0, Math.floor(Number(amount) || 0));
+    const current = inventoryItemCount(state, id);
+    if (!id || requested <= 0 || current < requested) return false;
+    const next = current - requested;
+    if (next > 0) state.inventory.items[id] = next;
+    else delete state.inventory.items[id];
+    return true;
+}
+
+function updatePickups(state) {
+    const playerCenterY = state.player.y - state.player.height * 0.5;
+    for (const pickup of state.pickups || []) {
+        if (pickup.collected) continue;
+        const pickupCenterY = Number.isFinite(Number(pickup.centerY))
+            ? Number(pickup.centerY)
+            : (Number(pickup.y) || 0) - (Number(pickup.height) || 0) * 0.5;
+        const reach = Math.max(1, Number(pickup.radius) || 14) + state.player.width * 0.45;
+        if (Math.hypot(state.player.x - pickup.x, playerCenterY - pickupCenterY) > reach) continue;
+
+        pickup.collected = true;
+        if (pickup.kind === "fuel" || pickup.pickupKind === "fuel") {
+            const before = state.fuel.amount;
+            state.fuel.amount = clamp(state.fuel.amount + Math.max(0, Number(pickup.amount) || 0), 0, state.fuel.max);
+            addEvent(state, "FUEL_PICKUP_COLLECTED", {
+                pickupId: pickup.id,
+                amount: round(state.fuel.amount - before),
+                fuel: round(state.fuel.amount)
+            });
+        } else {
+            const itemId = String(pickup.pickupKind || pickup.kind || "item");
+            const count = addInventoryItem(state, itemId, pickup.amount);
+            addEvent(state, "ITEM_PICKUP_COLLECTED", {
+                pickupId: pickup.id,
+                itemId,
+                amount: Math.max(1, Math.floor(Number(pickup.amount) || 1)),
+                count
+            });
+        }
+    }
+}
+
+function nearestSignalEmitter(state) {
+    let nearest = null;
+    const playerCenterY = state.player.y - state.player.height * 0.5;
+    for (const emitter of state.world?.signalEmitters || []) {
+        const entity = worldEntityById(state, emitter.id);
+        if (!entity) continue;
+        const entityCenterY = (Number(entity.y) || 0) - (Number(entity.h) || 80) * 0.5;
+        const distance = Math.hypot(state.player.x - (Number(entity.x) || 0), playerCenterY - entityCenterY);
+        if (distance > emitter.triggerDistance) continue;
+        if (!nearest || distance < nearest.distance) nearest = { emitter, entity, distance };
+    }
+    return nearest;
+}
+
+function updateSignalEmitters(state, input) {
+    if (!input.interactPressed) return false;
+    const match = nearestSignalEmitter(state);
+    if (!match) return false;
+    const { emitter, entity } = match;
+
+    if (emitter.interaction === "keyhole") {
+        if (emitter.oneShot && entity.state === "unlocked") {
+            addEvent(state, "KEYHOLE_ALREADY_UNLOCKED", { keyholeId: emitter.id, channel: emitter.channel });
+            return true;
+        }
+        if (inventoryItemCount(state, emitter.requiredKey) <= 0) {
+            addEvent(state, "KEYHOLE_MISSING_KEY", {
+                keyholeId: emitter.id,
+                channel: emitter.channel,
+                requiredKey: emitter.requiredKey
+            });
+            return true;
+        }
+        if (emitter.consumeKey) consumeInventoryItem(state, emitter.requiredKey, 1);
+        if (!setWorldEntityState(state, emitter.id, "unlocked")) {
+            entity.state = "unlocked";
+            state.world.entityStates[emitter.id] = "unlocked";
+        }
+        emitSignalChannel(state, emitter.channel, { sourceId: emitter.id, active: true });
+        addEvent(state, "KEYHOLE_UNLOCKED", {
+            keyholeId: emitter.id,
+            channel: emitter.channel,
+            requiredKey: emitter.requiredKey,
+            consumed: emitter.consumeKey
+        });
+        return true;
+    }
+
+    const nextOn = entity.state !== "on";
+    if (!setWorldEntityState(state, emitter.id, nextOn ? "on" : "off")) {
+        entity.state = nextOn ? "on" : "off";
+        state.world.entityStates[emitter.id] = entity.state;
+    }
+    emitSignalChannel(state, emitter.channel, { sourceId: emitter.id, active: nextOn });
+    addEvent(state, "LEVER_SWITCH_TOGGLED", {
+        switchId: emitter.id,
+        channel: emitter.channel,
+        active: nextOn
+    });
+    return true;
+}
+
+
 function createMovingPlatformRuntimes(visuals = []) {
     return visuals
         .filter((visual) => visual?.kind === "atlasSprite" && visual.movement)
@@ -1418,7 +1609,7 @@ function createMovingPlatformRuntimes(visuals = []) {
             const initialDelay = movement?.initialDelay || 0;
             const phase = initialDelay > 0
                 ? "initialDelay"
-                : movement?.activation === "rider"
+                : movement?.activation !== "automatic"
                     ? "waitForTrigger"
                     : "startPause";
             return {
@@ -1436,6 +1627,7 @@ function createMovingPlatformRuntimes(visuals = []) {
                         ? movement?.startPause || 0
                         : 0,
                 cycleCount: 0,
+                lastSignalRevision: 0,
                 opacity: 1,
                 baseAlpha: Number.isFinite(Number(visual.alpha)) ? Number(visual.alpha) : 1,
                 collisionAttached: true,
@@ -1577,7 +1769,7 @@ function resetMovingPlatformAtStart(state, platform) {
     setMovingPlatformOpacity(state, platform, 1);
     setMovingPlatformCollisionAttached(state, platform, true);
     platform.cycleCount += 1;
-    if (platform.movement.activation === "rider") {
+    if (platform.movement.activation !== "automatic") {
         enterMovingPlatformPhase(state, platform, "waitForTrigger", 0);
     } else {
         enterMovingPlatformPhase(state, platform, "startPause", platform.movement.startPause);
@@ -1596,6 +1788,19 @@ function platformTriggeredByRider(state, platform) {
     return platform.collisionAttached &&
         state.player?.onGround === true &&
         movingPlatformOwnsCollisionId(platform, state.player.supportId);
+}
+
+function platformTriggeredBySignal(state, platform) {
+    const channel = signalChannelRecord(state, platform.movement?.signalChannel, false);
+    const revision = Math.max(0, Number(channel?.revision) || 0);
+    if (revision <= Math.max(0, Number(platform.lastSignalRevision) || 0)) return false;
+    platform.lastSignalRevision = revision;
+    addEvent(state, "MOVING_PLATFORM_SIGNAL_TRIGGERED", {
+        platformId: platform.id,
+        channel: channel.channel,
+        revision
+    });
+    return true;
 }
 
 function consumeMovingPlatformTimer(platform, dt) {
@@ -1634,7 +1839,10 @@ function updateMovingPlatform(state, platform, dt) {
         }
 
         if (platform.phase === "waitForTrigger") {
-            if (platformTriggeredByRider(state, platform)) {
+            const triggered = movement.activation === "signal"
+                ? platformTriggeredBySignal(state, platform)
+                : platformTriggeredByRider(state, platform);
+            if (triggered) {
                 if (movement.triggerDelay > 0) {
                     enterMovingPlatformPhase(state, platform, "triggerDelay", movement.triggerDelay);
                 } else {
@@ -1653,7 +1861,7 @@ function updateMovingPlatform(state, platform, dt) {
             }
             const completedPhase = platform.phase;
             if (completedPhase === "initialDelay") {
-                if (movement.activation === "rider") {
+                if (movement.activation !== "automatic") {
                     enterMovingPlatformPhase(state, platform, "waitForTrigger", 0);
                 } else {
                     enterMovingPlatformPhase(state, platform, "startPause", movement.startPause);
@@ -1856,6 +2064,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         music: normalizeLevelMusic(source.music),
         visuals,
         movingPlatforms: createMovingPlatformRuntimes(visuals),
+        signalChannels: {},
+        signalEmitters: [],
         entities: runtimeEntities,
         entityStates: Object.fromEntries(runtimeEntities.filter((entity) => entity.id).map((entity) => [entity.id, entity.state || ""])),
         solids: [
@@ -1896,6 +2106,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     configurePortalIntro(state, runtimeEntities);
     configurePortalExit(state, runtimeEntities);
     configureMailboxStory(state, runtimeEntities);
+    configureSignalSystem(state, runtimeEntities);
 
     const targetLike = (entity) => entity.type === "targetDummy" || entity.kind === "targetDummy";
     const targetDummies = runtimeEntities.filter(targetLike).map((entity, index) => {
@@ -2091,17 +2302,43 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     });
     state.enemies = [...targetDummies, ...characterEnemies];
 
-    const fuelLike = (entity) => entity.type === "fuel" || entity.kind === "fuel" || entity.type === "fuelPickup" || entity.kind === "fuelPickup";
-    state.pickups = runtimeEntities.filter(fuelLike).map((entity, index) => ({
-        id: entity.id || `fuel_${index + 1}`,
-        kind: "fuel",
-        x: Number(entity.x) || 0,
-        y: Number(entity.y) || 0,
-        radius: Number(entity.radius) || 14,
-        amount: Number(entity.amount) || 40,
-        collected: false,
-        visualized: editorEntityVisuals(entity).length > 0
-    }));
+    const pickupLike = (entity) => {
+        const type = String(entity.type || entity.kind || "");
+        return Boolean(entity.pickupKind) || [
+            "fuel",
+            "fuelPickup",
+            "ornateKeyPickup",
+            "ironKeyPickup",
+            "magicRingPickup",
+            "herbPickupBlue",
+            "herbPickupPurple",
+            "herbPickupYellow",
+            "mushroomPickup"
+        ].includes(type);
+    };
+    state.pickups = runtimeEntities.filter(pickupLike).map((entity, index) => {
+        const pickupKind = String(entity.pickupKind || (entity.type === "fuel" ? "fuel" : entity.kind || entity.type || "item"));
+        const kind = pickupKind === "fuel" ? "fuel" : "item";
+        const width = Math.max(1, Number(entity.w) || Number(entity.width) || 42);
+        const height = Math.max(1, Number(entity.h) || Number(entity.height) || 80);
+        return {
+            id: entity.id || `${pickupKind}_${index + 1}`,
+            entityId: entity.id || `${pickupKind}_${index + 1}`,
+            kind,
+            pickupKind,
+            x: Number(entity.x) || 0,
+            y: Number(entity.y) || 0,
+            centerY: (Number(entity.y) || 0) - height * 0.5,
+            width,
+            height,
+            radius: Math.max(4, Number(entity.radius) || Math.min(width, height) * 0.42),
+            amount: Math.max(1, Number(entity.amount) || (kind === "fuel" ? 40 : 1)),
+            collected: entity.state === "collected",
+            visualized: editorEntityVisuals(entity).length > 0
+        };
+    });
+    if (!state.inventory || typeof state.inventory !== "object") state.inventory = { items: {} };
+    if (!state.inventory.items || typeof state.inventory.items !== "object") state.inventory.items = {};
 
     state.reactiveObjects = runtimeEntities.filter(isReactiveWorldEntity).map((entity, index) => {
         const authoredHealth = finiteNumberOr(entity.health, 60);
@@ -4379,6 +4616,8 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         return;
     }
 
+    updatePickups(state);
+    updateSignalEmitters(state, input);
     updateMovingPlatforms(state, dt);
     updateCharacterEnemies(state, dt);
 
@@ -4460,6 +4699,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     moveAndCollideY(state, p.vy * dt, wasOnGround);
     resolvePlayerPenetrations(state, wasOnGround);
     applyPlayerSurfaceHazards(state);
+    updatePickups(state);
 
     if (!p.onGround) {
         p.airborneTime += dt;

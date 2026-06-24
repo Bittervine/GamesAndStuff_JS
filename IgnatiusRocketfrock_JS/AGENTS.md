@@ -123,3 +123,12 @@ The pause menu owns ordinary pause/resume navigation and settings presentation. 
 Game-facing overlays share one deep-purple surface family. The loading card, HUD/help/debug panels, tuning pane, pause menu, and Settings must derive their backgrounds, text, borders, and accents from the shared purple variables in `game.html`, rather than carrying a separate brown/earth palette. Keep the main menu card and Settings surfaces solid dark purple; do not restore repeating stripe, noise, timber, or fabric-like CSS textures.
 
 Electron remains a thin browser host. Browser/game modules may detect only the narrow `window.electronWindow` preload contract from `src/browser/electron-window-bridge.js`; they must not import Electron or Node APIs. Keep `contextIsolation` and sandboxing enabled, Node integration disabled, external window creation denied, and desktop-only actions such as Exit to desktop hidden when the preload bridge is absent.
+
+
+## SIGNAL CHANNEL, INTERACTION, AND INVENTORY RULE ##
+
+Signals are portable named-channel events, not direct object references or browser callbacks. Normalize channel IDs through `src/shared/signal-channel-data.js`. Emitters such as levers and keyholes update their own authoritative entity state and then increment the matching channel revision in `src/core/simulation.js`. Listeners remember the last revision they consumed. Do not make a platform poll a lever's visual state, and do not retrigger listeners every fixed step merely because a channel remains active.
+
+The interaction action is ordinary sampled input and must be ignored by gameplay while browser menus own the keyboard. Proximity tests, key requirements, key consumption, one-shot unlocking, and event emission belong in portable simulation. Key and item ownership belongs in `state.inventory.items`; collected presentation records must disappear only after core marks their pickup state. Editor link lines and missing-emitter warnings are diagnostics only and must never synthesize runtime connections.
+
+Moving-platform segments and polygons must retain `movingPlatformId` in both runtime manifest hydration and Level Editor navigation baking. The navigation builder excludes those dynamic records. Do not simply omit them early in the editor baker, because doing so renumbers later collision polygons and invalidates baked support signatures.

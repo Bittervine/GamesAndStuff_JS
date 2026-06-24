@@ -1,3 +1,5 @@
+import { DEFAULT_SIGNAL_CHANNEL, normalizeSignalChannel } from "./signal-channel-data.js";
+
 export const MOVING_PLATFORM_PATTERNS = Object.freeze([
     "shuttle",
     "loopRespawn",
@@ -6,13 +8,15 @@ export const MOVING_PLATFORM_PATTERNS = Object.freeze([
 
 export const MOVING_PLATFORM_ACTIVATIONS = Object.freeze([
     "automatic",
-    "rider"
+    "rider",
+    "signal"
 ]);
 
 export const DEFAULT_MOVING_PLATFORM = Object.freeze({
     version: 1,
     pattern: "shuttle",
     activation: "automatic",
+    signalChannel: DEFAULT_SIGNAL_CHANNEL,
     endOffsetX: 0,
     endOffsetY: -240,
     speed: 120,
@@ -67,6 +71,10 @@ export function normalizeMovingPlatform(value, options = {}) {
         version: 1,
         pattern,
         activation,
+        signalChannel: normalizeSignalChannel(
+            value.signalChannel ?? (typeof value.activation === "object" ? value.activation.channel : undefined),
+            defaults.signalChannel
+        ),
         endOffsetX: finiteNumber(value.endOffsetX ?? value.endOffset?.x, defaults.endOffsetX),
         endOffsetY: finiteNumber(value.endOffsetY ?? value.endOffset?.y, defaults.endOffsetY),
         speed: Math.max(1, finiteNumber(value.speed, defaults.speed)),

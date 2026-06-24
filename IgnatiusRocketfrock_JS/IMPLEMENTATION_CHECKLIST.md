@@ -1296,7 +1296,7 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Draw START/END route guides, a ghost endpoint, and a draggable endpoint handle.
 - [x] Include endpoints in editor fit-to-content bounds and provide a start/end swap command.
 - [x] Add regression coverage for defaults, rider triggering/carrying, shuttling, collision detachment, and automatic recovery.
-- [ ] Add named signal-channel activation and reusable switch/keyhole emitters.
+- [x] Add named signal-channel activation and reusable switch/keyhole emitters.
 - [ ] Add enemy riding and deliberate moving-platform navigation semantics.
 - [ ] Add crushing/depenetration rules for actors trapped by kinematic platforms.
 - [ ] Derive a gameplay kill boundary from the cave full-black guide and defeat Ignatius after crossing it.
@@ -1382,3 +1382,22 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Lower the Mountain King lead by one octave while preserving verified melody intervals and rhythm.
 - [x] Darken the double-bass oscillator profile with a low-pass cutoff and subharmonic reinforcement.
 - [x] Add regressions for defaults, focus/visibility pause wiring, transient mute behavior, and low-register note data.
+
+
+## Revision 156 named signal activation
+
+- [x] Merge the user-authored revision of `assets/level_001.json` without replacing its placements, entities, cave perimeter, music, or moving-platform settings.
+- [x] Add a shared, version-independent named-channel normalizer and reusable lever/keyhole emitter schema.
+- [x] Add `signal` as a moving-platform activation mode with an authored channel.
+- [x] Emit discrete channel revisions from nearby lever interaction and one-shot keyhole unlocking.
+- [x] Add a serializable item inventory and collectible key handling, including optional key consumption.
+- [x] Hide collected key visuals through the generic pickup presentation path.
+- [x] Add keyboard and gamepad interaction input without leaking browser or editor state into portable simulation.
+- [x] Add Level Editor controls for signal-platform channels, lever/keyhole channels, key requirements, consumption, and interaction distance.
+- [x] Draw selected signal links and flag channels with no matching emitter.
+- [x] Keep moving-platform geometry out of editor-baked enemy navigation while preserving runtime collision IDs.
+- [x] Rebuild `level_001` hunter navigation against the updated static-support contract.
+- [x] Add regressions for signal-triggered platforms, lever toggling, key collection/consumption, one-shot keyholes, interaction bindings, and editor wiring.
+- [ ] Add enemy riding and deliberate moving-platform navigation semantics.
+- [ ] Add crushing/depenetration rules for actors trapped by kinematic platforms.
+- [ ] Derive a gameplay kill boundary from the cave full-black guide and defeat Ignatius after crossing it.

@@ -1021,7 +1021,7 @@ function updateDebugText() {
     const p = gameState.player;
     const fuel = gameState.fuel;
     const inputText = gameState.debug.showInput
-        ? `input L:${Number(lastInputFrame.moveLeft)} R:${Number(lastInputFrame.moveRight)} jump:${Number(lastInputFrame.jumpHeld)} weapon:${Number(lastInputFrame.weaponHeld)}`
+        ? `input L:${Number(lastInputFrame.moveLeft)} R:${Number(lastInputFrame.moveRight)} jump:${Number(lastInputFrame.jumpHeld)} interact:${Number(lastInputFrame.interactHeld)} weapon:${Number(lastInputFrame.weaponHeld)}`
         : "input hidden";
     const events = filteredDebugEvents(gameState.debug.lastEvents, gameState.debug.eventFilterText)
         .slice(-8)

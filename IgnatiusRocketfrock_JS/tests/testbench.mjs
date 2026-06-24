@@ -80,6 +80,7 @@ import {
     movingPlatformUsesFade,
     normalizeMovingPlatform
 } from "../src/shared/moving-platform-data.js";
+import { normalizeSignalChannel, normalizeSignalEmitter } from "../src/shared/signal-channel-data.js";
 import {
     atlasNodeToPlacementWorld,
     duplicateLevelPlacement,
@@ -223,6 +224,7 @@ function testSourceOrganization() {
         "../src/shared/actor-geometry.js",
         "../src/shared/level-transform.js",
         "../src/shared/moving-platform-data.js",
+        "../src/shared/signal-channel-data.js",
         "../src/shared/game-settings-data.js",
         "../src/shared/music-data.js",
         "../electron/main.cjs",
@@ -3186,10 +3188,10 @@ function testCaveWindowSplineAuthoring() {
     assert.ok(levelEditorHtml.includes("completely inert presentation layers") && levelEditorHtml.includes("always have atlas collision disabled"), "Level Editor should state the cave perimeter and foreground non-gameplay contract beside the controls");
 
     const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
-    assert.equal(levelOne.caveWindow.enabled, false, "level_001 should adopt the visual cave-window schema without changing gameplay yet");
-    assert.equal(levelOne.caveWindow.parallax, 1.1, "the authored starter schema should use the new cave foreground parallax default");
-    assert.equal(levelOne.caveWindow.decoration.scale, 2, "the authored starter schema should use the current perimeter asset scale default");
-    assert.deepEqual(levelOne.caveWindow.points, [], "level_001 should wait for an authored perimeter rather than inventing collision-like geometry");
+    assert.equal(levelOne.caveWindow.enabled, true, "level_001 should preserve the user's authored cave window");
+    assert.equal(levelOne.caveWindow.parallax, 1.1, "the authored cave window should preserve its foreground parallax");
+    assert.equal(levelOne.caveWindow.decoration.scale, 2, "the authored cave perimeter should preserve its asset scale");
+    assert.ok(levelOne.caveWindow.points.length >= 3, "level_001 should retain the user's authored closed perimeter");
     const parallaxView = {
         x: 100,
         y: 200,
@@ -4998,7 +5000,7 @@ function testAttachedSmokeDownSpeedTuning() {
 }
 
 
-function createMovingPlatformTestState(movement) {
+function createMovingPlatformTestState(movement, entities = []) {
     const level = {
         levelId: "moving_platform_test",
         world: { bounds: { x: 0, y: 0, w: 1000, h: 800 }, resetY: 1000 },
@@ -5014,7 +5016,7 @@ function createMovingPlatformTestState(movement) {
             collisionFromManifest: true,
             movement
         }],
-        entities: []
+        entities
     };
     const manifest = {
         frames: {
@@ -5072,6 +5074,11 @@ function testMovingPlatformSchemaAndEditor() {
         hiddenDuration: 0
     });
     assert.equal(normalized.activation, "rider", "legacy/object activation form should normalize");
+    const signalMovement = normalizeMovingPlatform({ activation: { type: "signal", channel: " crypt_lift " } });
+    assert.equal(signalMovement.activation, "signal", "signal activation should normalize as a first-class mode");
+    assert.equal(signalMovement.signalChannel, "crypt_lift", "signal channels should be trimmed and preserved");
+    assert.equal(normalizeSignalChannel("  west_gate  "), "west_gate", "shared signal normalization should trim authoring whitespace");
+    assert.equal(normalizeSignalEmitter({ id: "lever", type: "leverSwitch", channel: "west_gate" }).channel, "west_gate", "lever emitters should share the channel schema");
     assert.deepEqual(
         movingPlatformEndPosition({ x: 10, y: 20, movement: normalized }),
         { x: 58, y: -76 },
@@ -5088,6 +5095,10 @@ function testMovingPlatformSchemaAndEditor() {
     assert.match(editorSource, /Hidden reset time/, "Level Editor should expose the automatic recovery timing");
     assert.match(editorSource, /Drag the circular END handle/, "Level Editor should explain direct route editing");
     assert.match(editorSource, /movingPlatformEndHandleHit/, "Level Editor should provide an interactive endpoint handle");
+    assert.match(editorSource, /Named signal channel/, "Level Editor should expose signal-triggered platforms");
+    assert.match(editorSource, /Signal emitter/, "Level Editor should expose reusable lever and keyhole channels");
+    assert.match(editorSource, /NO EMITTER/, "Level Editor should warn visually when a signal platform has no matching emitter");
+    assert.match(editorSource, /movingPlatformId: placement\.movement \? placement\.id : undefined/, "Level Editor navigation baking should tag dynamic geometry instead of renumbering later collision polygons");
 }
 
 function testAutomaticShuttleMovingPlatform() {
@@ -5174,6 +5185,130 @@ function testVanishingMovingPlatformsAlwaysRecover() {
         approx(visual.alpha, 1, 0.001, `${pattern} should finish fully visible`);
         assert.equal(platform.collisionAttached, true, `${pattern} should restore collision after fading in`);
     }
+}
+
+
+function testSignalTriggeredMovingPlatform() {
+    const lever = {
+        id: "lever_lift",
+        type: "leverSwitch",
+        x: 150,
+        y: 300,
+        w: 60,
+        h: 80,
+        state: "off",
+        interaction: "toggle",
+        channel: "lift_a",
+        triggerDistance: 100,
+        visualStates: { off: [], on: [] }
+    };
+    const state = createMovingPlatformTestState({
+        pattern: "shuttle",
+        activation: "signal",
+        signalChannel: "lift_a",
+        endOffsetX: 60,
+        endOffsetY: 0,
+        speed: 60,
+        triggerDelay: 0,
+        endPause: 0
+    }, [lever]);
+    const platform = state.world.movingPlatforms[0];
+    const visual = state.world.visuals.find((item) => item.id === platform.visualId);
+    state.player.x = 150;
+    state.player.y = 300;
+    state.player.vx = 0;
+    state.player.vy = 0;
+
+    stepMany(state, 15, () => createInputFrame());
+    assert.equal(platform.phase, "waitForTrigger", "signal platforms should wait without a channel emission");
+    approx(visual.x, 100, 0.001, "waiting signal platforms should remain at the start");
+
+    stepSimulation(state, createInputFrame({ interactPressed: true }), FIXED_DT);
+    assert.equal(state.world.entityStates.lever_lift, "on", "nearby interaction should toggle the lever visual state");
+    assert.equal(state.world.signalChannels.lift_a.revision, 1, "lever interaction should emit one named-channel revision");
+    assert.equal(state.world.signalChannels.lift_a.active, true, "lever on state should be reflected by the channel");
+    assert.notEqual(platform.phase, "waitForTrigger", "the matching channel should latch the platform trigger");
+    assert.ok(visual.x > 100, "a zero-delay signal should begin moving the platform immediately");
+}
+
+function testKeyholeConsumesKeyAndTriggersPlatform() {
+    const key = {
+        id: "iron_key_1",
+        type: "ironKeyPickup",
+        x: 150,
+        y: 300,
+        w: 45,
+        h: 69,
+        state: "available",
+        pickupKind: "ironKey",
+        amount: 1,
+        visualStates: { available: [], collected: [] }
+    };
+    const keyhole = {
+        id: "keyhole_lift",
+        type: "keyholeSwitch",
+        x: 165,
+        y: 300,
+        w: 72,
+        h: 88,
+        state: "locked",
+        interaction: "keyhole",
+        channel: "vault_lift",
+        triggerDistance: 100,
+        requiredKey: "ironKey",
+        consumeKey: true,
+        oneShot: true,
+        visualStates: { locked: [], unlocked: [] }
+    };
+    const state = createMovingPlatformTestState({
+        pattern: "loopRespawn",
+        activation: "signal",
+        signalChannel: "vault_lift",
+        endOffsetX: 30,
+        endOffsetY: 0,
+        speed: 120,
+        triggerDelay: 0,
+        endPause: 0,
+        fadeDuration: 0.05,
+        hiddenDuration: 0.1
+    }, [key, keyhole]);
+    state.player.x = 150;
+    state.player.y = 300;
+    state.player.vx = 0;
+    state.player.vy = 0;
+
+    stepSimulation(state, createInputFrame({ interactPressed: true }), FIXED_DT);
+    assert.equal(state.pickups[0].collected, true, "touching the authored key should collect it before the interaction resolves");
+    assert.equal(state.inventory.items.ironKey, undefined, "the configured keyhole should consume the key after collection");
+    assert.equal(state.world.entityStates.keyhole_lift, "unlocked", "the keyhole should remain visibly unlocked");
+    assert.equal(state.world.signalChannels.vault_lift.revision, 1, "unlocking should emit the configured signal once");
+    assert.notEqual(state.world.movingPlatforms[0].phase, "waitForTrigger", "the keyhole signal should trigger its moving platform");
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    stepSimulation(state, createInputFrame({ interactPressed: true }), FIXED_DT);
+    assert.equal(state.world.signalChannels.vault_lift.revision, 1, "a one-shot unlocked keyhole should not emit repeatedly");
+}
+
+function testInteractKeyBinding() {
+    const target = { addEventListener() {} };
+    const input = new RocketfrockInput(target);
+    let prevented = false;
+    input.onKeyDown({
+        code: "KeyS",
+        repeat: false,
+        preventDefault() { prevented = true; }
+    });
+    const pressed = input.sample();
+    assert.equal(prevented, true, "the interaction key should suppress browser defaults");
+    assert.equal(pressed.interactHeld, true, "S should hold interaction");
+    assert.equal(pressed.interactPressed, true, "S should produce a fresh interaction press");
+    assert.equal(pressed.moveLeft, false, "interaction should not move left");
+    assert.equal(pressed.moveRight, false, "interaction should not move right");
+
+    input.onKeyUp({ code: "KeyS", repeat: false, preventDefault() {} });
+    const released = input.sample();
+    assert.equal(released.interactHeld, false, "releasing S should clear interaction");
+    assert.equal(released.interactReleased, true, "releasing S should produce an interaction release");
 }
 
 
@@ -5477,6 +5612,7 @@ const tests = [
     ["rendering quality scales rocket particles", testRenderingQualityScalesRocketParticles],
     ["rocket turns fifty percent sharper", testRocketTurnsFiftyPercentSharper],
     ["left and right Ctrl weapon binding", testControlKeysLaunchWeapon],
+    ["keyboard interaction binding", testInteractKeyBinding],
     ["timed story text layout", testTimedTextViewportLayout],
     ["responsive viewport scaling", testResponsiveViewportScaling],
     ["Puppet Guide debug overlay", testPuppetGuideDebugOverlay],
@@ -5485,6 +5621,8 @@ const tests = [
     ["moving-platform schema and Level Editor", testMovingPlatformSchemaAndEditor],
     ["automatic shuttle moving platform", testAutomaticShuttleMovingPlatform],
     ["rider-triggered moving platform", testRiderTriggeredMovingPlatform],
+    ["signal-triggered moving platform", testSignalTriggeredMovingPlatform],
+    ["keyhole consumes key and triggers platform", testKeyholeConsumesKeyAndTriggersPlatform],
     ["vanishing moving platforms always recover", testVanishingMovingPlatformsAlwaysRecover],
     ["Canvas world-visual performance infrastructure", testCanvasWorldVisualPerformanceInfrastructure],
     ["level placement copy and cutout backing", testLevelPlacementCopy],

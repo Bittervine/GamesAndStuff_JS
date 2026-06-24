@@ -29,11 +29,15 @@ IgnatiusRocketfrock_JS/
 │   │   └── simulation.js
 │   ├── browser/
 │   │   ├── browser-input.js
-│   │   └── game-bootstrap.js
+│   │   ├── electron-window-bridge.js
+│   │   ├── game-bootstrap.js
+│   │   ├── game-settings-store.js
+│   │   └── music-director.js
 │   ├── presentation/
 │   │   ├── canvas-renderer.js
 │   │   ├── cave-window-mask.js
 │   │   ├── character-runtime.js
+│   │   ├── foreground-sprite-treatment.js
 │   │   ├── level-color-map-cache.js
 │   │   └── world-visual-cache.js
 │   ├── shared/
@@ -41,9 +45,12 @@ IgnatiusRocketfrock_JS/
 │   │   ├── animation-data.js
 │   │   ├── cave-window-data.js
 │   │   ├── cave-window-decoration.js
+│   │   ├── game-settings-data.js
 │   │   ├── level-color-map-data.js
 │   │   ├── level-transform.js
-│   │   └── moving-platform-data.js
+│   │   ├── moving-platform-data.js
+│   │   ├── music-data.js
+│   │   └── signal-channel-data.js
 │   └── tools/
 │       └── character-editor/
 │           ├── animation-editor.js
@@ -107,11 +114,12 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 |---|---|---|
 | `src/core/enemy-navigation.js` | PORTABLE CORE | Deterministic support extraction, directed step/jump/drop edges, jump-feasibility calculation, and lowest-cost platform routing for character enemies. |
 | `src/core/simulation.js` | PORTABLE CORE | Authoritative fixed-step state, player physics, collisions, weapons, enemy strategy state machines, reactive objects, story state, level runtime conversion, serialization, and update order. |
+| `src/shared/signal-channel-data.js` | SHARED DATA / MATH | Named-channel normalization and reusable lever/keyhole emitter normalization shared by editor and portable core. |
+| `src/shared/moving-platform-data.js` | SHARED DATA / MATH | Versioned moving-platform patterns, activations, safe defaults, and relative endpoint calculations. |
 | `src/shared/actor-geometry.js` | SHARED DATA / MATH | Shared baseline-anchored actor rectangles, enemy projectile hurtboxes, and melee reach rectangles used by simulation and debug presentation. |
 | `src/shared/animation-data.js` | SHARED DATA / MATH | Animation schema normalization, sampling, interpolation, and pose blending. |
 | `src/shared/level-transform.js` | SHARED DATA / MATH | Mirroring, rotation, placement geometry, hit testing, and atlas-node conversion shared by runtime and editor. |
 | `src/shared/level-color-map-data.js` | SHARED DATA / MATH | Level colour-map normalization, cache keys, hue-selection mathematics, and RGB/HSL conversion without browser objects. |
-| `src/shared/moving-platform-data.js` | SHARED DATA / MATH | Versioned moving-platform defaults, normalization, pattern/activation classification, and relative endpoint calculation shared by runtime and Level Editor. |
 | `src/shared/game-settings-data.js` | SHARED DATA / MATH | Versioned game-facing settings defaults, preset normalization, incoming-damage scale, and visual particle-density scale without browser storage or DOM objects. |
 | `src/shared/cave-window-data.js` | SHARED DATA / MATH | Inert cave-window schema normalization, decoration settings, closed smooth/corner spline sampling, point-insertion lookup, and authoring bounds. It contains no collision or navigation generation. |
 | `src/shared/cave-window-decoration.js` | SHARED DATA / MATH | Deterministic arc-length sampling and tagged atlas-asset selection for explicit non-colliding `caveForeground` placement records. |
@@ -341,3 +349,12 @@ The browser adapter now treats window blur and `document.visibilitychange` as pa
 Audio muting is derived from pause/focus state rather than persisted settings. `src/browser/music-director.js` exposes a transient `setMuted` control that stops scheduled oscillators and drives its master gain to zero while preserving the configured music volume. Browser bootstrap also computes an effective sound-effects volume of zero during pause so future effect emitters share the same rule. Resuming restores the latest configured volumes. Defaults are now 80% effects and 10% music. Storage migration changes only version-2 records that still carry the former exact 60% default; other user-authored values survive normalization.
 
 The verified Mountain King melody retains the same pitch classes and rhythm but is voiced one octave lower. The double-bass oscillator profile uses a lower cutoff and a subharmonic reinforcement, keeping the foreground line in the intended subterranean register while the tuba pulse remains underneath.
+
+
+## Revision 156 signal-channel and inventory boundary
+
+Named channels are plain portable data, not DOM events. `src/shared/signal-channel-data.js` normalizes stable channel names and lever/keyhole emitter records. `src/shared/moving-platform-data.js` stores only the selected activation mode and channel on a platform. `src/core/simulation.js` owns the channel revision counter, nearest-emitter interaction, entity-state transition, inventory mutation, optional key consumption, and listener trigger. A listener responds once per newer channel revision, so a held switch input or permanently active lever cannot retrigger every fixed step.
+
+Collectible item state belongs to `state.pickups` plus the serializable `state.inventory.items` count map. Presentation hides an item after the core marks its pickup record collected; it does not decide collection or key ownership. The current inventory is intentionally minimal and has no HUD yet. Future inventory presentation must read this state rather than create a second browser-owned key list.
+
+The Level Editor authors channels on both listeners and emitters and may visualize their relationship. It does not execute signal logic. During navigation baking, moving geometry remains present long enough to preserve the same segment and polygon IDs as runtime, but carries `movingPlatformId`; the shared navigation builder excludes those records. This keeps baked signatures stable while preventing hunters from planning across kinematic supports.

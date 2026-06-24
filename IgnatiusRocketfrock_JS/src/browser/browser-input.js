@@ -4,6 +4,7 @@ const KEY_BINDINGS = {
     moveLeft: ["ArrowLeft", "KeyA"],
     moveRight: ["ArrowRight", "KeyD"],
     jump: ["ArrowUp", "KeyW", "KeyZ"],
+    interact: ["ArrowDown", "KeyS", "Enter", "NumpadEnter"],
     weapon: ["Space", "KeyX", "KeyK", "ControlLeft", "ControlRight"]
 };
 
@@ -396,6 +397,7 @@ export class RocketfrockInput {
             jumpHeld: anyKey(this.keys, KEY_BINDINGS.jump) || gamepad.jumpHeld || this.pointer.jumpHeld,
             boostHeld: false,
             weaponHeld: anyKey(this.keys, KEY_BINDINGS.weapon) || gamepad.weaponHeld || pointerWeaponPulse,
+            interactHeld: anyKey(this.keys, KEY_BINDINGS.interact) || gamepad.interactHeld,
             aimVector: gamepad.aimVector || pointerAimVector(this.pointer) || { x: 1, y: 0 }
         });
 
@@ -406,6 +408,8 @@ export class RocketfrockInput {
         current.boostReleased = !current.boostHeld && this.previous.boostHeld;
         current.weaponPressed = current.weaponHeld && !this.previous.weaponHeld;
         current.weaponReleased = !current.weaponHeld && this.previous.weaponHeld;
+        current.interactPressed = current.interactHeld && !this.previous.interactHeld;
+        current.interactReleased = !current.interactHeld && this.previous.interactHeld;
         current.pausePressed = take(this.debugPressed, "pause");
         current.stepPressed = take(this.debugPressed, "step");
         current.resetPressed = take(this.debugPressed, "reset");
@@ -497,6 +501,7 @@ function readGamepad() {
         moveAxis: 0,
         jumpHeld: false,
         weaponHeld: false,
+        interactHeld: false,
         aimVector: null
     };
 
@@ -519,6 +524,7 @@ function readGamepad() {
         moveAxis,
         jumpHeld: Boolean(pad.buttons[0]?.pressed || pad.buttons[12]?.pressed || ly < -0.55),
         weaponHeld: Boolean(pad.buttons[1]?.pressed),
+        interactHeld: Boolean(pad.buttons[2]?.pressed || pad.buttons[13]?.pressed || ly > 0.55),
         aimVector: Math.hypot(lx, ly) > 0.25 ? normalize({ x: lx, y: ly }) : null
     };
 }

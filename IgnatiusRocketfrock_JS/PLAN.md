@@ -1741,7 +1741,7 @@ The placement itself is the start position and the destination is stored as a re
 
 Simulation updates platforms kinematically before actors. Their atlas-derived collision geometry follows the visual exactly, and a standing wizard is carried by the same frame delta through his authoritative support ID. Fading immediately removes collision; fade-in restores collision only once the platform is fully present. `loopRespawn` travels to the endpoint before disappearing and returning to start, while `vanishRespawn` disappears in place as a trap. Both always restore after a positive timed hidden interval. A moving-platform configuration must never make death or manual level reset the only way to recover required traversal.
 
-Dynamic platforms are currently excluded from baked enemy navigation, so enemies do not deliberately plan routes across them. Named signal channels, switches and keyholes, enemy carrying, crushing rules, and a lethal gameplay boundary derived from the cave's full-black guide remain the next staged additions.
+Dynamic platforms are currently excluded from baked enemy navigation, so enemies do not deliberately plan routes across them. Revision 156 adds named signal activation, reusable levers and keyholes, and collectible keys. Enemy carrying, crushing rules, and a lethal gameplay boundary derived from the cave's full-black guide remain the next staged additions.
 
 
 ### Revision 149 earthy game menu, persistent settings, and Electron preparation
@@ -1793,3 +1793,12 @@ The temporary brown overlay palette is removed from `game.html`. Loading progres
 - Derive audio silence from the pause/focus state. Music scheduling and gain are muted transiently, while the effective sound-effects volume becomes zero without modifying persisted sliders.
 - Keep the verified Mountain King rhythm and intervals, but voice both statements one octave lower. Darken the double-bass synthesis with a lower filter cutoff and subharmonic reinforcement while retaining the tuba foundation.
 - Add regression coverage for defaults, focus-loss wiring, pause muting, volume restoration, and the lowered melody register.
+
+
+### Revision 156 named signals, switches, keyholes, and updated first level
+
+Moving-platform activation now supports a third mode, `signal`, with a normalized named channel. Portable simulation owns channel revisions and emitter interaction so a platform reacts to a discrete operation rather than polling browser UI or hardwiring itself to a particular prop. A lever toggles its visible state and emits on its channel; a keyhole requires an authored inventory key, may consume it, remains unlocked, and can be configured as a one-shot emitter. The same channel contract is reusable by later doors, traps, scripted sequences, and other listeners.
+
+The interaction action is mapped to Down, S, Enter, a gamepad face button, D-pad down, or downward stick input. Collectible key entities feed a small serializable inventory map, and collected item visuals disappear through the same presentation path as fuel pickups. `src/shared/signal-channel-data.js` owns channel and emitter normalization, while `src/core/simulation.js` remains authoritative for proximity, inventory consumption, state changes, channel emission, and moving-platform triggering.
+
+The Level Editor exposes signal activation only when relevant, adds channel and keyhole fields to reusable emitter entities, and draws links from a selected signal platform to matching emitters. It warns visually when no emitter exists on the selected channel. Navigation baking now tags moving-platform geometry in the editor exactly as runtime does, ensuring dynamic supports remain excluded without changing later collision-polygon IDs. The user's revised `level_001.json` is retained and its hunter graph is rebaked against the updated static geometry contract.

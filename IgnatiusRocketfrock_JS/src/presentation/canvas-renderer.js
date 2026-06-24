@@ -777,7 +777,7 @@ class RocketfrockRenderer {
 
     drawAtlasSpriteVisual(visual, view, state = null, cachedBounds = null) {
         if (visual.entityId && state) {
-            if (visual.entityType === "fuel" && this.frameEntityVisibility.collectedPickups.has(visual.entityId)) {
+            if (this.frameEntityVisibility.collectedPickups.has(visual.entityId)) {
                 return false;
             }
             if (visual.entityType === "targetDummy" && this.frameEntityVisibility.defeatedEnemies.has(visual.entityId)) {
