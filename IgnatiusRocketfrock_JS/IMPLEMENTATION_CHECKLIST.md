@@ -1301,3 +1301,60 @@ Goal: grow the game beyond isolated prototype levels.
 - [ ] Add crushing/depenetration rules for actors trapped by kinematic platforms.
 - [ ] Derive a gameplay kill boundary from the cave full-black guide and defeat Ignatius after crossing it.
 
+
+### Revision 149 earthy game menu, settings, Electron shell, and sharper rockets
+
+- [x] Add persistent versioned game settings with effects volume 80%, music volume 60%, Normal difficulty, and Medium rendering quality defaults.
+- [x] Add an earthy pause-menu presentation with direct MENU and FULLSCREEN controls.
+- [x] Add Resume, Settings, Restart level, Exit to main menu, and Electron-only Exit to desktop actions.
+- [x] Pause simulation while the menu is open and restore the previous pause state on close.
+- [x] Add Easy/Normal/Hard difficulty presets that scale only incoming player damage to 75%/100%/150%.
+- [x] Preserve explicitly lethal hazards through a difficulty-bypass option.
+- [x] Add Low/Medium/High rendering-quality presets that scale rocket-trail and explosion particle density to 50%/100%/150%.
+- [x] Add a FULLSCREEN/WINDOWED toggle for browsers and the Electron bridge.
+- [x] Add `electron/main.cjs` and `electron/preload.cjs` with a narrow quit/fullscreen API, context isolation, sandboxing, and Node integration disabled.
+- [x] Hide desktop exit outside Electron.
+- [x] Reserve and persist music volume without pretending the music system has already been implemented.
+- [x] Record *In the Hall of the Mountain King* as the first planned newly synthesized background piece.
+- [x] Increase homing-rocket steering strength from 3.2 to 4.8.
+- [x] Add regression coverage for settings, menu integration, Electron bridge operations, damage scaling, particle scaling, and sharper homing.
+- [x] Implement the music engine and an original synthesized arrangement of *In the Hall of the Mountain King*.
+- [ ] Select an Electron packaging tool, add icons/metadata, and produce signed platform installers when distribution work begins.
+
+### Revision 150 automatic fullscreen and keyboard-accessible purple menu
+
+- [x] Add `autoFullscreen` to the versioned persisted settings schema with migration for revision 149 settings.
+- [x] Replace the Settings fullscreen action button with **Automatically switch to fullscreen**.
+- [x] Exit fullscreen whenever the menu or debug pause is active and request it again when play resumes.
+- [x] Request initial browser fullscreen from the first eligible gameplay gesture, respecting browser security requirements.
+- [x] Hide the automatic fullscreen preference in Electron and launch the Electron host fullscreen-only.
+- [x] Change the Electron top-right fullscreen control to EXIT rather than offering a nonexistent windowed mode.
+- [x] Add wrapped keyboard navigation and activation for menu buttons, sliders, option groups, and checkbox controls.
+- [x] Restyle the menu and settings with the deep-purple palette used by `index.html`.
+- [x] Add regression coverage for settings migration, checkbox semantics, keyboard navigation wiring, purple styling, and Electron fullscreen-only startup.
+
+### Revision 151 compact menu and synthesized music
+
+- [x] Remove the duplicate top-level Resume/Back menu action and retain the header BACK control.
+- [x] Remove explanatory paragraphs from Settings.
+- [x] Use a compact two-column settings layout with a one-column narrow-screen fallback.
+- [x] Keep music volume defaulted to 60% and apply it live to a master Web Audio gain.
+- [x] Add a shared, stable tune catalog and level-music schema.
+- [x] Synthesize music from authored pitch/duration events; package no recording or MIDI files.
+- [x] Unlock AudioContext only from a valid player gesture.
+- [x] Switch tunes when default, browser-copy, or portal-transition levels load.
+- [x] Add a Level Editor soundtrack selector.
+- [x] Assign *In the Hall of the Mountain King* to `level_001`.
+- [x] Add *March of the Dwarfs*, *Anitra's Dance*, and *Night on Bald Mountain* as additional selectable public-domain compositions.
+- [x] Add schema, source-wiring, menu-compaction, and level-round-trip regressions.
+- [ ] Add musical crossfades and scene-specific layers only after the base looping arrangements are playtested.
+
+
+### Revision 152 Mountain King correction
+
+- [x] Verify the opening theme against Mutopia and an independent Edition Peters score scan hosted by IMSLP.
+- [x] Correct the chromatic pitches and preserve the score's quarter- and half-note rhythm.
+- [x] Restate the compact loop a perfect fifth above rather than using the previous incorrect transposition.
+- [x] Add source-faithful `E#` pitch parsing and regression-lock the opening pitch/beat sequence.
+- [x] Replace the bright lead with low double-bass and tuba oscillator profiles.
+- [x] Continue packaging no recordings, samples, MIDI, LilyPond, MusicXML, or score PDFs.

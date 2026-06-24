@@ -2,6 +2,12 @@ import { atlasNodeToPlacementWorld, normalizeRotationRadians } from "../shared/l
 import { characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../shared/actor-geometry.js";
 import { normalizeLevelColorMap } from "../shared/level-color-map-data.js";
 import { normalizeMovingPlatform } from "../shared/moving-platform-data.js";
+import { normalizeLevelMusic } from "../shared/music-data.js";
+import {
+    difficultyDamageScale,
+    normalizeGameSettings,
+    renderingParticleScale
+} from "../shared/game-settings-data.js";
 import {
     buildEnemyNavigationEdges,
     ENEMY_DROP_SOURCE_CLEARANCE_HEIGHT_FACTOR,
@@ -77,7 +83,7 @@ export const DEFAULT_TUNING = Object.freeze({
     rocketLaunchCooldown: 0.35,
     rocketProjectileSpeed: 520,
     rocketProjectileUpLaunchSeconds: 0.32,
-    rocketProjectileHomingStrength: 3.2,
+    rocketProjectileHomingStrength: 4.8,
     rocketProjectileLifetime: 4.6,
     rocketProjectileExplosionSeconds: 0.42,
     rocketProjectileImpactRadius: 24,
@@ -205,11 +211,12 @@ export function createInitialGameState(overrides = {}) {
 
     const world = createTestArena(tuning);
     const spawn = overrides.spawn || world.start || { x: 120, y: 600 };
+    const settings = normalizeGameSettings(overrides.settings);
 
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "148-moving-platforms",
+            build: "150-auto-fullscreen-keyboard-purple-menu",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -218,6 +225,7 @@ export function createInitialGameState(overrides = {}) {
             fixedDt: tuning.timestep
         },
         tuning,
+        settings,
         world,
         camera: {
             x: spawn.x,
@@ -1845,6 +1853,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         start: playerStart ? { x: Number(playerStart.x) || 120, y: Number(playerStart.y) || 360 } : state.world.start,
         atlasManifests,
         colorMap: normalizeLevelColorMap(source.colorMap),
+        music: normalizeLevelMusic(source.music),
         visuals,
         movingPlatforms: createMovingPlatformRuntimes(visuals),
         entities: runtimeEntities,
@@ -4817,7 +4826,8 @@ function recordProjectileTrail(state, projectile) {
         });
     }
 
-    const puffSpacing = Math.max(1, state.tuning.rocketSmokePuffSpacing ?? 13);
+    const particleScale = renderingParticleScale(state.settings);
+    const puffSpacing = Math.max(1, (state.tuning.rocketSmokePuffSpacing ?? 13) / particleScale);
     const previousPuff = projectile.lastSmokePuff || null;
     if (!previousPuff || Math.hypot(projectile.x - previousPuff.x, projectile.y - previousPuff.y) >= puffSpacing) {
         addRocketSmokePuff(state, projectile);
@@ -4924,7 +4934,8 @@ function attachedRocketNozzlePoint(state) {
 
 function emitAttachedBoostSmoke(state, dt) {
     const rocket = state.equipment.rocket;
-    const interval = Math.max(0.025, state.tuning.attachedBoostSmokePuffInterval ?? 0.065);
+    const particleScale = renderingParticleScale(state.settings);
+    const interval = Math.max(0.015, (state.tuning.attachedBoostSmokePuffInterval ?? 0.065) / particleScale);
     rocket.attachedSmokeTimer = (rocket.attachedSmokeTimer ?? 0) - dt;
     while (rocket.attachedSmokeTimer <= 0) {
         emitAttachedBoostSmokeBurst(state, 1);
@@ -4938,7 +4949,11 @@ function emitAttachedBoostSmokeBurst(state, count) {
     const t = state.tuning;
     const nozzle = attachedRocketNozzlePoint(state);
     const power = clamp(rocket.boostVisualPowerNow || attachedBoostVisualPower(state), 0.18, 1.25);
-    const total = Math.max(0, Math.floor(count));
+    const particleScale = renderingParticleScale(state.settings);
+    const authoredCount = Math.max(0, Number(count) || 0);
+    const total = authoredCount <= 1
+        ? Math.floor(authoredCount)
+        : Math.max(1, Math.round(authoredCount * particleScale));
     const downSpeed = Math.max(0, t.attachedBoostSmokePuffDownSpeed ?? 170);
     const sideSpeed = Math.max(0, t.attachedBoostSmokePuffSideSpeed ?? 42);
     const speedJitter = Math.max(0, t.attachedBoostSmokePuffSpeedJitter ?? 36);
@@ -4993,7 +5008,8 @@ function explodeProjectile(state, projectile, reason, detail = {}) {
 
 function emitProjectileImpactSmoke(state, projectile) {
     const t = state.tuning;
-    const count = Math.max(0, Math.floor(t.rocketImpactSmokePuffs ?? 24));
+    const particleScale = renderingParticleScale(state.settings);
+    const count = Math.max(0, Math.round((t.rocketImpactSmokePuffs ?? 24) * particleScale));
     const incomingSpeed = Math.hypot(projectile.vx || 0, projectile.vy || 0);
     const incomingAngle = Math.atan2(projectile.vy || 0, projectile.vx || 1);
 
@@ -6446,6 +6462,7 @@ function applyPlayerSurfaceHazards(state) {
         hazard.id,
         {
             bypassInvulnerability: lethal,
+            bypassDifficulty: lethal,
             knockbackY: lethal ? 0 : -180
         }
     );
@@ -6576,7 +6593,9 @@ function updateCameraHint(state, dt) {
 
 export function damagePlayer(state, amount = 34, sourceId = "debug", options = {}) {
     const health = state.health;
-    const requestedDamage = Math.max(0, Number(amount) || 0);
+    const baseDamage = Math.max(0, Number(amount) || 0);
+    const damageScale = options.bypassDifficulty === true ? 1 : difficultyDamageScale(state.settings);
+    const requestedDamage = baseDamage * damageScale;
     const before = clamp(Number(health.amount) || 0, 0, health.max);
     const blocked = options.bypassInvulnerability !== true && (Number(health.invulnerabilityTimer) || 0) > 0;
     if (requestedDamage <= 0 || before <= 0 || blocked) {
@@ -6614,6 +6633,8 @@ export function damagePlayer(state, amount = 34, sourceId = "debug", options = {
     const defeated = health.amount <= 0;
     addEvent(state, "PLAYER_DAMAGED", {
         amount: round(damage),
+        baseAmount: round(baseDamage),
+        difficultyScale: round(damageScale),
         sourceId,
         health: round(health.amount),
         defeated

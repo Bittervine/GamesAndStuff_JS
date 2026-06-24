@@ -15,6 +15,34 @@ import {
 import { actorBodyRect, characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../src/shared/actor-geometry.js";
 import { RocketfrockInput } from "../src/browser/browser-input.js";
 import {
+    DEFAULT_GAME_SETTINGS,
+    GAME_DIFFICULTY_PRESETS,
+    GAME_RENDERING_QUALITY_PRESETS,
+    difficultyDamageScale,
+    normalizeGameSettings,
+    renderingParticleScale
+} from "../src/shared/game-settings-data.js";
+import {
+    GAME_SETTINGS_STORAGE_KEY,
+    loadStoredGameSettings,
+    saveStoredGameSettings
+} from "../src/browser/game-settings-store.js";
+import {
+    DEFAULT_LEVEL_MUSIC,
+    MUSIC_TUNES,
+    getMusicTune,
+    musicLoopDurationSeconds,
+    normalizeLevelMusic,
+    pitchToMidi,
+    transposePitch
+} from "../src/shared/music-data.js";
+import { noteFrequency } from "../src/browser/music-director.js";
+import {
+    detectElectronWindowBridge,
+    readFullscreenState,
+    setFullscreenState
+} from "../src/browser/electron-window-bridge.js";
+import {
     colorMapCacheKey,
     normalizeLevelColorMap,
     remapRgb,
@@ -173,11 +201,15 @@ function testSourceOrganization() {
         "../renderer-smoke.html",
         "../IgnatiusRocketfrock_JS.html",
         "../ARCHITECTURE.md",
+        "../MUSIC_SOURCES.md",
         "../package.json",
         "../src/core/simulation.js",
         "../src/core/enemy-navigation.js",
         "../src/browser/browser-input.js",
         "../src/browser/game-bootstrap.js",
+        "../src/browser/game-settings-store.js",
+        "../src/browser/music-director.js",
+        "../src/browser/electron-window-bridge.js",
         "../src/presentation/canvas-renderer.js",
         "../src/presentation/cave-window-mask.js",
         "../src/presentation/foreground-sprite-treatment.js",
@@ -191,6 +223,11 @@ function testSourceOrganization() {
         "../src/shared/actor-geometry.js",
         "../src/shared/level-transform.js",
         "../src/shared/moving-platform-data.js",
+        "../src/shared/game-settings-data.js",
+        "../src/shared/music-data.js",
+        "../electron/main.cjs",
+        "../electron/preload.cjs",
+        "../electron/README.md",
         "../src/tools/character-editor/animation-editor.js",
         "../src/tools/character-editor/atlas-editor.js",
         "../src/tools/character-editor/character-dirty-state.js",
@@ -5139,8 +5176,258 @@ function testVanishingMovingPlatformsAlwaysRecover() {
     }
 }
 
+
+function testGameSettingsSchemaPersistenceAndMenuShell() {
+    assert.equal(DEFAULT_GAME_SETTINGS.musicVolume, 0.6, "music should default to 60 percent");
+    assert.equal(DEFAULT_GAME_SETTINGS.difficulty, "normal", "normal damage should remain the default");
+    assert.equal(DEFAULT_GAME_SETTINGS.renderingQuality, "medium", "medium particle quality should remain the default");
+    assert.equal(DEFAULT_GAME_SETTINGS.autoFullscreen, true, "browser play should default to automatic fullscreen transitions");
+    assert.equal(GAME_DIFFICULTY_PRESETS.length, 3, "the initial settings UI should expose three damage presets");
+    assert.equal(GAME_RENDERING_QUALITY_PRESETS.length, 3, "the initial settings UI should expose three particle presets");
+    assert.equal(difficultyDamageScale("easy"), 0.75, "easy should reduce incoming damage");
+    assert.equal(difficultyDamageScale("hard"), 1.5, "hard should increase incoming damage");
+    assert.equal(renderingParticleScale("low"), 0.5, "low quality should halve particle density");
+    assert.equal(renderingParticleScale("high"), 1.5, "high quality should increase particle density");
+
+    const normalized = normalizeGameSettings({
+        sfxVolume: 4,
+        musicVolume: -3,
+        difficulty: "unknown",
+        renderingQuality: "HIGH",
+        autoFullscreen: false
+    });
+    assert.equal(normalized.sfxVolume, 1, "effects volume should clamp to one");
+    assert.equal(normalized.musicVolume, 0, "music volume should clamp to zero");
+    assert.equal(normalized.difficulty, "normal", "unknown difficulties should fall back safely");
+    assert.equal(normalized.renderingQuality, "high", "quality ids should normalize case-insensitively");
+    assert.equal(normalized.autoFullscreen, false, "the automatic fullscreen preference should normalize as a boolean");
+    assert.equal(normalizeGameSettings({}).autoFullscreen, true, "older stored settings should migrate to the safe default");
+
+    const values = new Map();
+    const storage = {
+        getItem(key) {
+            return values.has(key) ? values.get(key) : null;
+        },
+        setItem(key, value) {
+            values.set(key, String(value));
+        }
+    };
+    const saved = saveStoredGameSettings({ musicVolume: 0.33, difficulty: "hard", autoFullscreen: false }, storage);
+    assert.equal(values.has(GAME_SETTINGS_STORAGE_KEY), true, "settings should use a stable namespaced storage key");
+    assert.equal(saved.musicVolume, 0.33, "saved settings should retain authored volume");
+    assert.equal(loadStoredGameSettings(storage).difficulty, "hard", "stored difficulty should round-trip");
+    assert.equal(loadStoredGameSettings(storage).autoFullscreen, false, "the fullscreen policy should round-trip through storage");
+
+    const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const packageSource = readFileSync(new URL("../package.json", import.meta.url), "utf8");
+    const electronMainSource = readFileSync(new URL("../electron/main.cjs", import.meta.url), "utf8");
+    assert.match(gameHtml, /id="game-menu-dialog"/, "the game should contain a modal pause menu");
+    assert.match(gameHtml, /id="game-menu-exit-desktop"[^>]*hidden/, "desktop exit should start hidden in ordinary browsers");
+    assert.match(gameHtml, /id="music-volume"[^>]*value="0\.6"/, "the music slider should visibly default to 60 percent");
+    assert.match(gameHtml, /data-difficulty="easy"/, "the settings dialog should expose difficulty choices");
+    assert.match(gameHtml, /data-rendering-quality="high"/, "the settings dialog should expose particle quality choices");
+    assert.match(gameHtml, /id="fullscreen-toggle"/, "a direct fullscreen toggle should remain available outside the menu");
+    assert.match(gameHtml, /id="auto-fullscreen"[^>]*type="checkbox"/, "settings should expose automatic fullscreen as a checkbox rather than an immediate action");
+    assert.match(gameHtml, /Automatically switch to fullscreen/, "the automatic fullscreen preference should use the requested wording");
+    assert.doesNotMatch(gameHtml, /id="settings-fullscreen-toggle"/, "settings must not contain the obsolete live fullscreen button");
+    assert.doesNotMatch(gameHtml, /id="game-menu-resume"/, "the top-level menu should rely on the header Back button instead of duplicating Resume");
+    assert.doesNotMatch(gameHtml, /Reserved for the forthcoming music system/, "the compact settings dialog should not contain the obsolete music explanation");
+    assert.doesNotMatch(gameHtml, /For now difficulty changes only/, "the compact settings dialog should omit the difficulty explanation");
+    assert.doesNotMatch(gameHtml, /Controls the particle density/, "the compact settings dialog should omit the rendering explanation");
+    assert.doesNotMatch(gameHtml, /Enter fullscreen while playing/, "the compact settings dialog should omit the fullscreen explanation");
+    assert.match(gameHtml, /#game-settings-panel\s*\{[^}]*grid-template-columns:\s*repeat\(2,/s, "settings should use a compact two-column layout on wide screens");
+    assert.match(gameHtml, /--menu-accent:\s*#c9a7ff/, "the menu should share the main index's deep-purple accent");
+    assert.match(bootstrapSource, /gameState\.debug\.paused = true;/, "opening the menu should pause portable simulation stepping");
+    assert.match(bootstrapSource, /function handleGameMenuNavigationKey/, "menu and settings should have explicit keyboard navigation");
+    assert.match(bootstrapSource, /event\.code === "ArrowDown"/, "arrow keys should traverse visible dialog controls");
+    assert.match(bootstrapSource, /function applyAutoFullscreenPolicy/, "fullscreen should follow play and pause state through a policy function");
+    assert.match(bootstrapSource, /autoFullscreenRow\.hidden = Boolean\(electronWindowBridge\)/, "the browser-only fullscreen policy should be hidden in Electron");
+    assert.match(bootstrapSource, /electronWindowBridge\.quit/, "Electron-only exit should call the narrow preload bridge");
+    assert.match(packageSource, /"main": "electron\/main\.cjs"/, "package metadata should point at the prepared Electron shell");
+    assert.match(electronMainSource, /registerSchemesAsPrivileged/, "Electron should serve dynamic modules and fetches through a privileged local scheme");
+    assert.match(electronMainSource, /supportFetchAPI:\s*true/, "the local Electron scheme should support the game's JSON and module fetches");
+    assert.match(electronMainSource, /fullscreen:\s*true/, "the Electron host should launch in its fullscreen-only mode");
+    assert.doesNotMatch(electronMainSource, /webSecurity:\s*false/, "Electron preparation must not disable web security");
+}
+
+function testSynthesizedLevelMusicSystem() {
+    assert.equal(DEFAULT_LEVEL_MUSIC.tuneId, "grieg_mountain_king", "Mountain King should be the default level tune");
+    assert.equal(MUSIC_TUNES.length, 5, "the first music library should include silence and four public-domain compositions");
+    assert.deepEqual(
+        MUSIC_TUNES.map((tune) => tune.id),
+        ["none", "grieg_mountain_king", "grieg_march_dwarfs", "grieg_anitra_dance", "mussorgsky_bald_mountain"],
+        "the editor-facing tune ids should remain stable"
+    );
+    for (const tune of MUSIC_TUNES.filter((candidate) => candidate.id !== "none")) {
+        assert.equal(tune.publicDomain, true, `${tune.id} should be marked as a public-domain composition`);
+        assert.ok(tune.voices.length >= 2, `${tune.id} should have a multi-voice synthesized arrangement`);
+        assert.ok(musicLoopDurationSeconds(tune) > 5, `${tune.id} should have a useful looping duration`);
+        assert.ok(tune.voices.flatMap((voice) => voice.notes).length >= 20, `${tune.id} should contain authored note events rather than an audio-file placeholder`);
+    }
+    assert.equal(normalizeLevelMusic({ tuneId: "grieg_anitra_dance" }).tuneId, "grieg_anitra_dance", "valid level tune ids should survive normalization");
+    assert.equal(normalizeLevelMusic({ tuneId: "unknown" }).tuneId, DEFAULT_LEVEL_MUSIC.tuneId, "unknown tune ids should fall back safely");
+    assert.equal(getMusicTune("none").voices.length, 0, "the no-music choice should schedule no voices");
+    assert.equal(pitchToMidi("A4"), 69, "pitch parsing should use standard MIDI note numbering");
+    assert.equal(pitchToMidi("E#3"), pitchToMidi("F3"), "source-faithful enharmonic spellings should schedule the correct frequency");
+    assert.equal(transposePitch("B3", 12), "B4", "authored phrases should support octave transposition");
+    assert.ok(Math.abs(noteFrequency("A4") - 440) < 0.000001, "the Web Audio synthesizer should tune A4 to 440 Hz");
+
+    const mountainKing = getMusicTune("grieg_mountain_king");
+    const mountainMelody = mountainKing.voices.find((voice) => voice.instrument === "doubleBass");
+    const mountainTuba = mountainKing.voices.find((voice) => voice.instrument === "tuba");
+    assert.ok(mountainMelody, "Mountain King should use the requested deep double-bass lead");
+    assert.ok(mountainTuba, "Mountain King should retain a low tuba foundation");
+    const openingStatement = mountainMelody.notes.filter((musicalNote) => musicalNote.beat < 16);
+    assert.deepEqual(
+        openingStatement.map((musicalNote) => musicalNote.pitch),
+        [
+            "B2", "C#3", "D3", "E3", "F#3", "D3", "F#3",
+            "E#3", "C#3", "E#3", "E3", "C3", "E3",
+            "B2", "C#3", "D3", "E3", "F#3", "D3", "F#3", "B3",
+            "A3", "F#3", "D3", "F#3", "A3"
+        ],
+        "Mountain King's opening statement should match the verified four-measure score melody"
+    );
+    assert.deepEqual(
+        openingStatement.map((musicalNote) => musicalNote.beat),
+        [0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 4.5, 5, 6, 6.5, 7, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5, 13, 13.5, 14],
+        "Mountain King's quarter- and half-note holds should no longer be flattened into equal eighth notes"
+    );
+    assert.equal(mountainMelody.notes.find((musicalNote) => musicalNote.beat === 16)?.pitch, "F#3", "the second statement should enter a perfect fifth above the first");
+
+    const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const musicDirectorSource = readFileSync(new URL("../src/browser/music-director.js", import.meta.url), "utf8");
+    const levelEditorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
+    assert.match(bootstrapSource, /createMusicDirector/, "browser bootstrap should own a music director");
+    assert.match(bootstrapSource, /musicDirector\.setTune\(activeLevelMusic\.tuneId\)/, "level loading should switch the synthesized tune");
+    assert.match(bootstrapSource, /musicDirector\.setVolume\(settings\.musicVolume\)/, "the existing music slider should control the live master gain");
+    assert.match(bootstrapSource, /unlockMusicFromGesture/, "music should unlock from a player gesture to satisfy browser autoplay rules");
+    assert.match(musicDirectorSource, /createOscillator\(/, "music should be synthesized with Web Audio oscillators");
+    assert.doesNotMatch(musicDirectorSource, /\.mp3|\.ogg|\.wav|\.mid/i, "the engine should not package recordings or MIDI files");
+    assert.match(gameHtml, /id="music-volume"/, "the compact settings dialog should retain live music volume control");
+    assert.match(levelEditorSource, /id="level-music"/, "the Level Editor should expose a level soundtrack selector");
+    assert.match(levelEditorSource, /MUSIC_TUNES/, "the Level Editor should populate its soundtrack choices from the shared catalog");
+    assert.equal(levelOne.music.tuneId, "grieg_mountain_king", "level_001 should explicitly select Mountain King");
+
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "music_test",
+        title: "Music Test",
+        music: { tuneId: "grieg_march_dwarfs" },
+        world: { bounds: { x: 0, y: 0, w: 800, h: 600 }, resetY: 700 },
+        playerStart: { x: 100, y: 300 },
+        placements: [],
+        entities: []
+    }), true, "a level with music metadata should still apply normally");
+    assert.equal(state.world.music.tuneId, "grieg_march_dwarfs", "portable level loading should retain normalized music metadata");
+}
+
+async function testFullscreenBridgeContract() {
+    const calls = [];
+    const bridge = {
+        isAvailable: true,
+        async getFullscreen() {
+            calls.push("get");
+            return true;
+        },
+        async setFullscreen(enabled) {
+            calls.push(`set:${enabled}`);
+            return enabled;
+        }
+    };
+    assert.equal(detectElectronWindowBridge({ electronWindow: bridge }), bridge, "an explicitly available preload bridge should be detected");
+    assert.equal(detectElectronWindowBridge({ electronWindow: { isAvailable: false } }), null, "ordinary pages should not be mistaken for Electron");
+    assert.equal(await readFullscreenState(bridge, null), true, "Electron should be authoritative for its fullscreen state");
+    assert.equal(await setFullscreenState(false, bridge, null), false, "fullscreen requests should route through the preload bridge");
+    assert.deepEqual(calls, ["get", "set:false"], "the bridge should expose only the expected fullscreen operations");
+}
+
+function testDifficultyScalesOnlyIncomingDamage() {
+    const easy = createInitialGameState({ settings: { difficulty: "easy" } });
+    const easyResult = damagePlayer(easy, 40, "test");
+    approx(easyResult.damage, 30, 0.0001, "easy should apply 75 percent incoming damage");
+    approx(easy.health.amount, 70, 0.0001, "easy health loss should match the scaled damage");
+
+    const hard = createInitialGameState({ settings: { difficulty: "hard" } });
+    const hardResult = damagePlayer(hard, 40, "test");
+    approx(hardResult.damage, 60, 0.0001, "hard should apply 150 percent incoming damage");
+    approx(hard.health.amount, 40, 0.0001, "hard health loss should match the scaled damage");
+    assert.equal(hard.tuning.rocketProjectileDamage, DEFAULT_TUNING.rocketProjectileDamage, "difficulty must not change Ignatius's outgoing rocket damage");
+    assert.equal(hard.tuning.enemyDefaultRunSpeed, DEFAULT_TUNING.enemyDefaultRunSpeed, "difficulty must not change enemy movement yet");
+
+    const lethal = createInitialGameState({ settings: { difficulty: "easy" } });
+    const lethalResult = damagePlayer(lethal, lethal.health.max, "killBoundary", {
+        bypassInvulnerability: true,
+        bypassDifficulty: true
+    });
+    assert.equal(lethalResult.defeated, true, "explicitly lethal world rules should remain lethal on easy");
+}
+
+function rocketEffectParticleCount(quality, mode) {
+    const state = createInitialGameState({ settings: { renderingQuality: quality } });
+    state.targets = [];
+    state.enemies = [];
+    state.tuning.rocketLaunchCost = 0;
+    state.tuning.rocketSmokeMaxPuffs = 1000;
+    if (mode === "impact") {
+        state.tuning.rocketProjectileLifetime = 0.01;
+        state.tuning.rocketSmokePuffSpacing = 10000;
+        state.tuning.rocketImpactSmokePuffs = 20;
+    } else {
+        state.tuning.rocketProjectileLifetime = 5;
+        state.tuning.rocketSmokePuffSpacing = 12;
+        state.tuning.rocketImpactSmokePuffs = 0;
+    }
+    stepSimulation(state, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    const frames = mode === "impact" ? 2 : 36;
+    for (let i = 0; i < frames; i += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+    }
+    const kind = mode === "impact" ? "rocketImpactSmokePuff" : "rocketSmokePuff";
+    return state.effects.smokePuffs.filter((puff) => puff.kind === kind).length;
+}
+
+function attachedRocketParticleCount(quality) {
+    const state = createInitialGameState({ settings: { renderingQuality: quality } });
+    settleOnGround(state);
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    releaseJumpAfterTakeoff(state);
+    stepMany(state, 7, () => createInputFrame({ jumpHeld: false }));
+    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
+    stepMany(state, 24, () => createInputFrame({ jumpHeld: true }));
+    return state.effects.smokePuffs.filter((puff) => puff.kind === "attachedRocketSmokePuff").length;
+}
+
+function testRenderingQualityScalesRocketParticles() {
+    const lowTrail = rocketEffectParticleCount("low", "trail");
+    const highTrail = rocketEffectParticleCount("high", "trail");
+    assert.ok(highTrail > lowTrail, `high quality should emit more fired-rocket trail particles (${highTrail} > ${lowTrail})`);
+
+    const lowAttachedTrail = attachedRocketParticleCount("low");
+    const highAttachedTrail = attachedRocketParticleCount("high");
+    assert.ok(highAttachedTrail > lowAttachedTrail, `high quality should emit more backpack-rocket trail particles (${highAttachedTrail} > ${lowAttachedTrail})`);
+
+    const lowImpact = rocketEffectParticleCount("low", "impact");
+    const highImpact = rocketEffectParticleCount("high", "impact");
+    assert.equal(lowImpact, 10, "low quality should halve the authored explosion particle count");
+    assert.equal(highImpact, 30, "high quality should increase the authored explosion particle count by 50 percent");
+}
+
+function testRocketTurnsFiftyPercentSharper() {
+    assert.equal(DEFAULT_TUNING.rocketProjectileHomingStrength, 4.8, "rocket homing should be 50 percent sharper than the former 3.2 default");
+}
+
 const tests = [
     ["source organization and architecture map", testSourceOrganization],
+    ["game settings persistence and menu shell", testGameSettingsSchemaPersistenceAndMenuShell],
+    ["synthesized level music system", testSynthesizedLevelMusicSystem],
+    ["fullscreen Electron bridge contract", testFullscreenBridgeContract],
+    ["difficulty scales only incoming damage", testDifficultyScalesOnlyIncomingDamage],
+    ["rendering quality scales rocket particles", testRenderingQualityScalesRocketParticles],
+    ["rocket turns fifty percent sharper", testRocketTurnsFiftyPercentSharper],
     ["left and right Ctrl weapon binding", testControlKeysLaunchWeapon],
     ["timed story text layout", testTimedTextViewportLayout],
     ["responsive viewport scaling", testResponsiveViewportScaling],

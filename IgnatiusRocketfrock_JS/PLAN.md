@@ -1743,3 +1743,39 @@ Simulation updates platforms kinematically before actors. Their atlas-derived co
 
 Dynamic platforms are currently excluded from baked enemy navigation, so enemies do not deliberately plan routes across them. Named signal channels, switches and keyholes, enemy carrying, crushing rules, and a lethal gameplay boundary derived from the cave's full-black guide remain the next staged additions.
 
+
+### Revision 149 earthy game menu, persistent settings, and Electron preparation
+
+- Add a compact top-right MENU and FULLSCREEN control inspired by Thoriumgap's clear two-level navigation, but restyle it in darker earth, soot, brass, timber, and moss tones suitable for Ignatius.
+- Pause fixed-step simulation whenever the game menu is open and restore the prior debug-pause state when it closes.
+- Add Menu and Settings views with Resume, Restart level, Exit to main menu, and Electron-only Exit to desktop.
+- Persist effects volume, music volume, difficulty, and rendering quality through a versioned browser settings schema. Default music volume to 60% in preparation for the later music system.
+- Keep the initial difficulty implementation deliberately narrow: Easy/Normal/Hard scale only incoming player damage to 75%/100%/150% through `damagePlayer`.
+- Keep the initial rendering-quality implementation deliberately narrow: Low/Medium/High scale homing-rocket trail and impact smoke-particle density to 50%/100%/150%.
+- Add a browser/Electron fullscreen toggle that updates its label between FULLSCREEN and WINDOWED.
+- Add a secure optional Electron main/preload shell with context isolation, sandboxing, no Node integration, desktop quit, and fullscreen IPC.
+- Do not bundle music yet. The first planned piece is a newly synthesized arrangement of *In the Hall of the Mountain King*, avoiding dependence on a potentially copyrighted recording.
+- Increase the default homing strength of Ignatius's fired rocket from 3.2 to 4.8, making its turn response 50% sharper.
+- Add regression coverage for settings normalization/persistence, menu and Electron source integration, fullscreen bridge routing, damage scaling, particle scaling, and the rocket homing default.
+
+### Revision 150 automatic fullscreen policy, keyboard menu navigation, and purple presentation
+
+- Replace the Settings dialog's immediate fullscreen action with a persisted **Automatically switch to fullscreen** checkbox.
+- In ordinary browsers, enter fullscreen while gameplay is active and return to windowed mode whenever the pause menu or debug pause is active. Because browsers require a user gesture, the initial transition may occur on the player's first gameplay input.
+- Keep the direct top-level FULLSCREEN/WINDOWED control for manual browser override. In Electron, hide the automatic policy and use the same compact control as EXIT because the packaged host is fullscreen-only.
+- Add complete keyboard traversal for the menu and settings: Up/Down and Tab move through visible controls, Left/Right adjust sliders and option groups, Enter/Space activate, Home/End jump to boundaries, and Escape moves back or resumes.
+- Retheme the menu and settings from the experimental earthy palette to the main index's deep-purple, lavender, and charcoal palette while retaining strong focus indication.
+- Keep fullscreen transitions in the browser adapter. Portable simulation sees only the existing pause flag and normalized serializable settings.
+
+### Revision 151 compact menu and synthesized level music
+
+The pause menu now has one top-level return control: the persistent header **BACK** button. The duplicate Resume item is removed. Settings use a compact two-column layout on wider screens, collapsing to one column on narrow screens, and retain only the controls and their current values.
+
+Music is now a browser-owned presentation service. `src/shared/music-data.js` contains a stable tune catalog, level-music normalization, pitch helpers, tempo mapping, and original compact note-event arrangements of public-domain compositions. `src/browser/music-director.js` turns those events into looping Web Audio oscillator voices after the first valid player gesture, applies the persisted music volume through one master gain, and switches tracks when a level is loaded. No recording, sampled audio, or MIDI file is packaged.
+
+A level stores its choice as `music: { version: 1, tuneId }`. The Level Editor exposes the catalog in **Level music**, including silence, Grieg's *In the Hall of the Mountain King*, *March of the Dwarfs*, and *Anitra's Dance*, plus Mussorgsky's *Night on Bald Mountain*. `level_001` selects Mountain King. Future work may deepen the arrangements, add combat/scene layers, and introduce crossfades, but must preserve deterministic simulation and keep AudioContext ownership outside `src/core/`.
+
+
+### Revision 152 score-verified Mountain King theme and low orchestration
+
+The compact *In the Hall of the Mountain King* loop now uses a score-verified four-measure opening phrase rather than an equal-duration approximation. Its chromatic E-sharp turn, quarter-note holds, half-note cadence, and perfect-fifth restatement are represented explicitly in authored note events. The lead has moved down to a dedicated double-bass oscillator profile with a low tuba pulse underneath. `MUSIC_SOURCES.md` records both the Mutopia engraving and an independent Edition Peters scan from IMSLP used for verification. No notation source, MIDI, sample, or recording is shipped.

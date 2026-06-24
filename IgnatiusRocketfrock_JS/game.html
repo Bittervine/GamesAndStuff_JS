@@ -7,14 +7,27 @@
     <style>
         :root {
             color-scheme: dark;
-            --ink: #f5eefc;
-            --muted: #c9bfd7;
-            --panel: rgba(15, 13, 22, 0.76);
-            --panel-strong: rgba(15, 13, 22, 0.92);
-            --line: rgba(255, 255, 255, 0.16);
-            --accent: #c7a3ff;
-            --good: #74d680;
-            --warn: #f2c36b;
+            --ink: #f3ead7;
+            --muted: #c9bda6;
+            --panel: rgba(24, 20, 15, 0.78);
+            --panel-strong: rgba(20, 17, 13, 0.94);
+            --line: rgba(218, 191, 143, 0.22);
+            --accent: #c59a58;
+            --good: #859d62;
+            --warn: #d8a95e;
+            --earth-deep: #0d0b08;
+            --earth-panel: #1b1711;
+            --earth-panel-raised: #2a2117;
+            --earth-brass: #b98a48;
+            --earth-moss: #71805a;
+            --earth-cream: #f1e3c8;
+            --menu-deep: #0d0b12;
+            --menu-panel: #17141f;
+            --menu-panel-raised: #211b2d;
+            --menu-accent: #c9a7ff;
+            --menu-accent-strong: #e1d1ff;
+            --menu-muted: #cdbfdc;
+            --menu-line: rgba(229, 211, 255, 0.24);
         }
 
         * {
@@ -92,7 +105,7 @@
         #loading-bar-fill {
             width: 0%;
             height: 100%;
-            background: linear-gradient(90deg, #8f72cc, #c7a3ff, #efe5ff);
+            background: linear-gradient(90deg, #6d754f, #b98a48, #ead3a7);
             transition: width 100ms linear;
         }
 
@@ -227,11 +240,11 @@
 
         #tuning {
             position: fixed;
-            top: 16px;
+            top: 70px;
             right: 16px;
             width: 330px;
             max-width: calc(100vw - 32px);
-            max-height: calc(100vh - 32px);
+            max-height: calc(100vh - 86px);
             border: 1px solid var(--line);
             border-radius: 16px;
             padding: 12px 14px;
@@ -272,7 +285,7 @@
 
         input[type="range"] {
             width: 100%;
-            accent-color: #b98cff;
+            accent-color: var(--earth-brass);
         }
 
         button {
@@ -347,9 +360,290 @@
             font: 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         }
 
+
+        #game-menu-controls {
+            position: fixed;
+            top: 14px;
+            right: 14px;
+            z-index: 90;
+            display: flex;
+            gap: 7px;
+            padding: 6px;
+            border: 1px solid rgba(201, 167, 255, 0.42);
+            border-radius: 15px;
+            background: rgba(18, 15, 24, 0.82);
+            box-shadow: 0 12px 34px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(242, 237, 248, 0.08);
+            backdrop-filter: blur(9px);
+        }
+
+        .game-menu-button {
+            min-width: 92px;
+            min-height: 36px;
+            border-color: rgba(201, 167, 255, 0.42);
+            border-radius: 10px;
+            color: var(--ink);
+            background: linear-gradient(180deg, rgba(114, 85, 160, 0.44), rgba(38, 30, 52, 0.9));
+            box-shadow: inset 0 1px 0 rgba(242, 237, 248, 0.12), 0 5px 14px rgba(0, 0, 0, 0.26);
+            letter-spacing: 0.055em;
+            font-size: 11px;
+            font-weight: 850;
+        }
+
+        .game-menu-button:hover,
+        .game-menu-button[aria-pressed="true"] {
+            border-color: rgba(225, 209, 255, 0.82);
+            background: linear-gradient(180deg, rgba(139, 104, 194, 0.62), rgba(53, 40, 73, 0.94));
+        }
+
+        #game-menu-dialog {
+            width: min(92vw, 590px);
+            max-width: 590px;
+            max-height: min(90vh, 760px);
+            overflow: auto;
+            border: 0;
+            padding: 0;
+            color: var(--ink);
+            background: transparent;
+        }
+
+        #game-menu-dialog::backdrop {
+            background: rgba(7, 5, 11, 0.78);
+            backdrop-filter: blur(6px) saturate(0.72);
+        }
+
+        .game-menu-card {
+            width: 100%;
+            overflow: hidden;
+            border: 2px solid rgba(201, 167, 255, 0.55);
+            border-radius: 22px;
+            padding: 20px;
+            background:
+                radial-gradient(circle at 12% 0%, rgba(114, 85, 160, 0.34), transparent 35%),
+                radial-gradient(circle at 96% 4%, rgba(201, 167, 255, 0.15), transparent 36%),
+                repeating-linear-gradient(93deg, rgba(255,255,255,0.011) 0 2px, transparent 2px 11px),
+                linear-gradient(180deg, rgba(29, 24, 40, 0.995), rgba(13, 11, 18, 0.998));
+            box-shadow:
+                0 0 0 1px rgba(229, 211, 255, 0.1),
+                0 30px 90px rgba(0, 0, 0, 0.66),
+                inset 0 1px 0 rgba(242, 237, 248, 0.08);
+        }
+
+        .game-menu-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 18px;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(201, 167, 255, 0.24);
+        }
+
+        .game-menu-head h2 {
+            margin: 0;
+            color: var(--ink);
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: clamp(28px, 5vw, 42px);
+            line-height: 0.95;
+            letter-spacing: 0.015em;
+            text-shadow: 0 3px 18px rgba(0, 0, 0, 0.62);
+        }
+
+        .game-menu-head p {
+            margin: 9px 0 0;
+            color: var(--menu-muted);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .game-menu-back {
+            flex: 0 0 auto;
+            min-height: 42px;
+            padding-inline: 14px;
+            border-color: rgba(201, 167, 255, 0.5);
+            background: rgba(35, 28, 48, 0.92);
+        }
+
+        .game-menu-view {
+            display: grid;
+            gap: 8px;
+        }
+
+        #game-settings-panel {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        #auto-fullscreen-row {
+            grid-column: 1 / -1;
+        }
+
+        .game-menu-view[hidden] {
+            display: none !important;
+        }
+
+        .game-menu-actions {
+            display: grid;
+            gap: 9px;
+        }
+
+        .game-menu-action {
+            min-height: 50px;
+            border: 1px solid rgba(201, 167, 255, 0.4);
+            border-radius: 13px;
+            padding: 10px 15px;
+            color: var(--ink);
+            background: linear-gradient(180deg, rgba(93, 69, 128, 0.42), rgba(35, 28, 48, 0.82));
+            box-shadow: inset 0 1px 0 rgba(242, 237, 248, 0.09), 0 8px 18px rgba(0, 0, 0, 0.22);
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: 0.035em;
+        }
+
+        .game-menu-action:hover,
+        .game-menu-action:focus-visible,
+        .game-menu-back:focus-visible,
+        .game-menu-button:focus-visible,
+        .settings-choice-grid button:focus-visible,
+        .settings-toggle:focus-within,
+        .settings-group input[type="range"]:focus-visible {
+            border-color: rgba(225, 209, 255, 0.94);
+            outline: 2px solid rgba(201, 167, 255, 0.78);
+            outline-offset: 2px;
+        }
+
+        .game-menu-action:hover,
+        .game-menu-action:focus-visible {
+            background: linear-gradient(180deg, rgba(122, 90, 169, 0.6), rgba(49, 37, 67, 0.94));
+        }
+
+        .game-menu-action.danger {
+            border-color: rgba(187, 105, 151, 0.56);
+            background: linear-gradient(180deg, rgba(112, 57, 89, 0.44), rgba(48, 25, 39, 0.84));
+        }
+
+        .settings-group {
+            display: grid;
+            gap: 6px;
+            padding: 10px;
+            border: 1px solid var(--menu-line);
+            border-radius: 14px;
+            background: rgba(13, 11, 18, 0.36);
+        }
+
+        .settings-label {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: baseline;
+            color: var(--ink);
+            font-size: 13px;
+            font-weight: 760;
+        }
+
+        .settings-value {
+            color: var(--menu-muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .settings-group input[type="range"] {
+            width: 100%;
+            accent-color: var(--menu-accent);
+        }
+
+        .settings-choice-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .settings-choice-grid button {
+            min-height: 36px;
+            border-color: rgba(201, 167, 255, 0.38);
+            color: rgba(242, 237, 248, 0.86);
+            background: rgba(35, 28, 48, 0.7);
+        }
+
+        .settings-choice-grid button[aria-pressed="true"] {
+            border-color: rgba(225, 209, 255, 0.94);
+            color: #fbf8ff;
+            background: linear-gradient(180deg, rgba(139, 104, 194, 0.76), rgba(68, 50, 94, 0.9));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 0 18px rgba(201, 167, 255, 0.22);
+        }
+
+        .settings-note {
+            margin: 0;
+            color: rgba(205, 191, 220, 0.72);
+            font-size: 12px;
+            line-height: 1.45;
+        }
+
+        .settings-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            min-height: 48px;
+            padding: 10px;
+            border: 1px solid var(--menu-line);
+            border-radius: 14px;
+            background: rgba(13, 11, 18, 0.36);
+            cursor: pointer;
+        }
+
+        .settings-toggle-copy {
+            display: grid;
+            gap: 5px;
+        }
+
+        .settings-toggle-title {
+            color: var(--ink);
+            font-size: 13px;
+            font-weight: 760;
+        }
+
+        .settings-toggle input[type="checkbox"] {
+            flex: 0 0 auto;
+            width: 22px;
+            height: 22px;
+            accent-color: var(--menu-accent);
+        }
+
+        body.game-menu-open #game-menu-controls {
+            opacity: 0.45;
+        }
+
+        body.electron #fullscreen-toggle {
+            min-width: 74px;
+        }
+
         @media (max-width: 860px) {
             #tuning {
                 display: none;
+            }
+
+            #game-menu-controls {
+                top: 8px;
+                right: 8px;
+                gap: 4px;
+                padding: 4px;
+            }
+
+            .game-menu-button {
+                min-width: 76px;
+                min-height: 32px;
+                padding: 6px 8px;
+                font-size: 10px;
+            }
+
+            .game-menu-card {
+                padding: 16px;
+            }
+
+            #game-settings-panel {
+                grid-template-columns: 1fr;
+            }
+
+            #auto-fullscreen-row {
+                grid-column: auto;
             }
         }
     </style>
@@ -381,6 +675,81 @@
     <div id="game-shell">
         <canvas id="stage" aria-label="Ignatius Rocketfrock Phase 1 Physics Arena"></canvas>
     </div>
+
+    <div id="game-menu-controls" aria-label="Game controls">
+        <button id="fullscreen-toggle" class="game-menu-button" type="button" aria-pressed="false">FULLSCREEN</button>
+        <button id="open-game-menu" class="game-menu-button" type="button" aria-haspopup="dialog" aria-pressed="false">MENU</button>
+    </div>
+
+    <dialog id="game-menu-dialog" data-ignore-game-pointer aria-labelledby="game-menu-title" aria-modal="true">
+        <div class="game-menu-card">
+            <header class="game-menu-head">
+                <div>
+                    <h2 id="game-menu-title">Paused</h2>
+                    <p id="game-menu-subtitle">The cave can wait. Probably.</p>
+                </div>
+                <button id="game-menu-back" class="game-menu-back" type="button">BACK</button>
+            </header>
+
+            <section id="game-menu-main" class="game-menu-view">
+                <div class="game-menu-actions">
+                    <button id="game-menu-settings" class="game-menu-action" type="button">Settings</button>
+                    <button id="game-menu-restart" class="game-menu-action" type="button">Restart level</button>
+                    <button id="game-menu-exit-title" class="game-menu-action" type="button">Exit to main menu</button>
+                    <button id="game-menu-exit-desktop" class="game-menu-action danger" type="button" hidden>Exit to desktop</button>
+                </div>
+            </section>
+
+            <section id="game-settings-panel" class="game-menu-view" hidden>
+                <div class="settings-group">
+                    <div class="settings-label">
+                        <span>Effects volume</span>
+                        <span id="sfx-volume-value" class="settings-value">80%</span>
+                    </div>
+                    <input id="sfx-volume" type="range" min="0" max="1" step="0.01" value="0.8">
+                </div>
+
+                <div class="settings-group">
+                    <div class="settings-label">
+                        <span>Music volume</span>
+                        <span id="music-volume-value" class="settings-value">60%</span>
+                    </div>
+                    <input id="music-volume" type="range" min="0" max="1" step="0.01" value="0.6">
+                </div>
+
+                <div class="settings-group">
+                    <div class="settings-label">
+                        <span>Difficulty</span>
+                        <span id="difficulty-value" class="settings-value">Normal</span>
+                    </div>
+                    <div id="difficulty-buttons" class="settings-choice-grid" aria-label="Difficulty">
+                        <button type="button" data-difficulty="easy" aria-pressed="false">Easy</button>
+                        <button type="button" data-difficulty="normal" aria-pressed="true">Normal</button>
+                        <button type="button" data-difficulty="hard" aria-pressed="false">Hard</button>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <div class="settings-label">
+                        <span>Rendering quality</span>
+                        <span id="rendering-quality-value" class="settings-value">Medium</span>
+                    </div>
+                    <div id="rendering-quality-buttons" class="settings-choice-grid" aria-label="Rendering quality">
+                        <button type="button" data-rendering-quality="low" aria-pressed="false">Low</button>
+                        <button type="button" data-rendering-quality="medium" aria-pressed="true">Medium</button>
+                        <button type="button" data-rendering-quality="high" aria-pressed="false">High</button>
+                    </div>
+                </div>
+
+                <label id="auto-fullscreen-row" class="settings-toggle" for="auto-fullscreen">
+                    <span class="settings-toggle-copy">
+                        <span class="settings-toggle-title">Automatically switch to fullscreen</span>
+                    </span>
+                    <input id="auto-fullscreen" type="checkbox" checked>
+                </label>
+            </section>
+        </div>
+    </dialog>
 
     <section id="hud">
         <div id="meters" class="panel">

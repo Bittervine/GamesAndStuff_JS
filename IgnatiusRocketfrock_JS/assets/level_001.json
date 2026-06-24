@@ -1,11 +1,15 @@
 {
     "meta": {
-        "version": 13,
+        "version": 14,
         "editor": "Ignatius Rocketfrock Level Editor",
-        "note": "Revision 136 adds inert cave-window authoring data. The perimeter is visual-only and does not affect the existing revision-134 navigation graph or gameplay collision."
+        "note": "Revision 152 uses the score-verified low double-bass and tuba arrangement of In the Hall of the Mountain King."
     },
     "levelId": "level_001",
     "title": "Ignatius Rocketfrock and the Level That Was Edited On Purpose",
+    "music": {
+        "version": 1,
+        "tuneId": "grieg_mountain_king"
+    },
     "world": {
         "bounds": {
             "x": -320,
@@ -671,7 +675,6 @@
             "wizardInsideScale": 0.84
         }
     ],
-    "note": "Level placements are data. Revision 097 makes the Skeleton Guard rush intruders inside its patrol area and chain rapid close-range sword attacks.",
     "navigationGraphs": {
         "version": 2,
         "stale": false,
@@ -3564,5 +3567,6 @@
             }
         ]
     },
-    "navigationBlockers": []
+    "navigationBlockers": [],
+    "note": "Level placements are data. Revision 097 makes the Skeleton Guard rush intruders inside its patrol area and chain rapid close-range sword attacks."
 }

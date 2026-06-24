@@ -72,6 +72,10 @@ Revision 146 adds a left-side full dopesheet to Puppet Forge. Dopesheet row disc
 
 Revision 145 adds an editor-only authoring diagnostic without moving cave semantics into gameplay. `src/shared/cave-window-data.js` can classify a placement polygon against the sampled closed cave spline and report exterior separation distance. The Level Editor applies that neutral geometry helper only to collision-bearing atlas placements, warns when they are completely exterior beyond a conservative margin, and draws the warning above the preview shade. The diagnostic does not alter level data, collision, navigation, rendering order, or runtime simulation.
 
+Revision 149 adds a browser-owned pause menu and persistent settings shell without moving browser APIs into portable core. `src/shared/game-settings-data.js` owns normalized volume, difficulty, and rendering-quality presets. `src/browser/game-settings-store.js` owns local-storage persistence, while `src/browser/electron-window-bridge.js` normalizes the optional preload contract. Core reads the normalized difficulty damage multiplier only inside `damagePlayer`, and uses the normalized rendering-quality particle multiplier only for visual smoke emission. The default music volume is stored at 60%; no music engine or recording is bundled yet.
+
+The prepared Electron host lives under `electron/`. Its main process loads the same `game.html`; the sandboxed preload exposes only quit and fullscreen operations. Browser, presentation, shared, and core modules never import Electron. Ordinary browsers retain the same menu and fullscreen controls but hide Exit to desktop.
+
 ## Dependency direction
 
 The intended dependency direction is:
@@ -108,10 +112,14 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 | `src/shared/level-transform.js` | SHARED DATA / MATH | Mirroring, rotation, placement geometry, hit testing, and atlas-node conversion shared by runtime and editor. |
 | `src/shared/level-color-map-data.js` | SHARED DATA / MATH | Level colour-map normalization, cache keys, hue-selection mathematics, and RGB/HSL conversion without browser objects. |
 | `src/shared/moving-platform-data.js` | SHARED DATA / MATH | Versioned moving-platform defaults, normalization, pattern/activation classification, and relative endpoint calculation shared by runtime and Level Editor. |
+| `src/shared/game-settings-data.js` | SHARED DATA / MATH | Versioned game-facing settings defaults, preset normalization, incoming-damage scale, and visual particle-density scale without browser storage or DOM objects. |
 | `src/shared/cave-window-data.js` | SHARED DATA / MATH | Inert cave-window schema normalization, decoration settings, closed smooth/corner spline sampling, point-insertion lookup, and authoring bounds. It contains no collision or navigation generation. |
 | `src/shared/cave-window-decoration.js` | SHARED DATA / MATH | Deterministic arc-length sampling and tagged atlas-asset selection for explicit non-colliding `caveForeground` placement records. |
 | `src/browser/browser-input.js` | BROWSER ADAPTER | Keyboard, gamepad, mouse, and touch state converted into `InputFrame`. |
-| `src/browser/game-bootstrap.js` | BROWSER ADAPTER | Asset and level loading, fixed-step loop, connection of input/simulation/renderer, and hydration of plain character combat profiles from loaded character projects. |
+| `src/browser/game-bootstrap.js` | BROWSER ADAPTER | Asset and level loading, fixed-step loop, menu/settings coordination, fullscreen control, connection of input/simulation/renderer, and hydration of plain character combat profiles from loaded character projects. |
+| `src/browser/game-settings-store.js` | BROWSER ADAPTER | Safe local-storage load/save for normalized game-facing settings. |
+| `src/browser/electron-window-bridge.js` | BROWSER ADAPTER | Detection and normalization of the optional sandboxed Electron preload API for quit/fullscreen operations. |
+| `electron/main.cjs` / `electron/preload.cjs` | DESKTOP HOST | Optional native window, secure preload boundary, desktop quit, and fullscreen IPC. No gameplay ownership. |
 | `src/presentation/canvas-renderer.js` | PRESENTATION ONLY | Canvas rendering, camera presentation, HUD, rig drawing, visual effects, cave-mask composition, and debug overlays. |
 | `src/presentation/cave-window-mask.js` | PRESENTATION ONLY | Reduced-resolution reusable offscreen black cave mask, stable render keys, spline-to-screen tracing, outward feathering, and camera-relative foreground parallax. |
 | `src/presentation/foreground-sprite-treatment.js` | PRESENTATION ONLY | Cached Canvas preparation for dark/desaturated cave foreground frames, world-to-local outward vectors, and a linear handover to opaque black at the sprite's exterior edge. |
@@ -287,3 +295,35 @@ Revision 147 gives `caveWindow.feather` a precise authoring interpretation while
 Ordinary atlas placements may now opt into a normalized moving-platform component. New platforms default to the common automatic shuttle loop, moving between a start placement and relative endpoint and pausing for 0.75 seconds before each reversal. The Level Editor exposes only controls relevant to the chosen pattern, draws an interactive START-to-END route with a draggable endpoint, and keeps the endpoint relative when the start placement moves.
 
 Portable simulation owns the kinematic state machine, translated collision geometry, rider support identity, exact player carrying, fades, despawn timing, and timed restoration. `loopRespawn` moves to its endpoint before fading and returning to the start; `vanishRespawn` fades in place as a trap. Both always restore after `hiddenDuration`, which is normalized to a positive minimum, so a vanished platform cannot permanently strand the level. Automatic and rider activation are included in this first slice. Signal channels, switches, keyholes, enemy riding, crushing, and lethal full-black traversal remain explicit follow-up work.
+
+
+## Revision 149 menu, settings, and desktop-host boundary
+
+The menu is browser UI, not gameplay state. Opening it sets the existing simulation pause flag and records the prior pause state; closing it restores that prior state. Settings data itself is plain and serializable so the portable simulation can consume the two values that currently matter: incoming damage scale and visual particle-density scale. Difficulty is intentionally centralized in `damagePlayer`; outgoing weapon damage and enemy behaviour remain unchanged. Explicit kill semantics can opt out of scaling with `bypassDifficulty`.
+
+Rendering quality currently changes smoke-particle generation for homing-rocket trails and impact explosions. It must not alter fixed-step timing or collision. Volume sliders are persisted browser preferences; the 60% music default is future-facing and does not imply an active audio graph. A future classical-music system should use a newly synthesized arrangement or otherwise cleared audio, since a public-domain composition does not automatically make every recording public domain.
+
+The Electron shell is optional. `game.html` runs unchanged in normal browsers. In Electron, `preload.cjs` exposes an immutable `electronWindow` object through `contextBridge`; the game reveals Exit to desktop and routes fullscreen through IPC. The renderer process has no Node integration and cannot access Electron directly.
+
+## Revision 150 fullscreen policy and menu input boundary
+
+`autoFullscreen` is a persisted browser preference, not a simulation rule. `src/browser/game-bootstrap.js` applies it at transitions between active play and pause-menu/debug-pause states. Browser Fullscreen API entry is requested only from an eligible user gesture; leaving fullscreen does not require one. Opening the menu always requests windowed mode, while resuming requests fullscreen when the preference is enabled. A manual browser FULLSCREEN/WINDOWED control remains available.
+
+The Electron host is fullscreen-only and therefore does not expose this preference in the Settings view. Its top-right display control becomes EXIT, while the menu retains the explicit Exit to desktop action. The compatibility fullscreen IPC endpoint may report or restore fullscreen but must never create an Electron windowed gameplay mode.
+
+Keyboard menu handling remains browser-owned. The adapter enumerates only visible, enabled controls in the active dialog view and provides wrapped traversal, slider and option adjustment, activation, and back navigation. It clears gameplay input when opening and closing the dialog so menu keystrokes cannot leak into the next simulation frame.
+
+## Revision 151 synthesized music boundary
+
+Level soundtrack choice is ordinary authored data: `music.version` and `music.tuneId`. `src/shared/music-data.js` owns normalization and the immutable catalog, so the Level Editor and browser runtime present the same IDs and labels. Portable simulation retains normalized music metadata in `state.world.music` but never creates audio nodes or advances musical time.
+
+`src/browser/music-director.js` is the sole Web Audio owner. It converts note names to frequencies, maps beats through fixed or accelerating tempo, schedules short oscillator voices ahead of the audio clock, loops the selected arrangement, and routes every voice through one master gain controlled by persisted settings. Browser bootstrap selects the active tune whenever presentation-level data is synchronized and unlocks the AudioContext from pointer or keyboard gestures to comply with autoplay restrictions. Level transitions therefore change music without introducing browser APIs into `src/core/`.
+
+The initial catalog contains original compact oscillator arrangements of public-domain compositions rather than imported performances, samples, or MIDI files. Score-source research is recorded in `MUSIC_SOURCES.md`; source notation files are not runtime dependencies.
+
+
+## Revision 152 score verification and instrument profiles
+
+Authored music events may preserve source spellings such as `E#` when they are meaningful to score review; pitch parsing maps those spellings to equal-tempered oscillator frequencies. Variable rhythmic steps and sounding durations are represented separately so a staccato quarter note advances one beat without sustaining for the entire beat. Regression coverage locks the verified opening pitch order and beat positions for Mountain King.
+
+Browser synthesis now includes dedicated `doubleBass` and `tuba` profiles with lower filter cutoffs, slower brass attack where appropriate, and profile-specific harmonic levels. These remain presentation-only oscillator recipes. Portable simulation and level data continue to know only the stable tune ID.

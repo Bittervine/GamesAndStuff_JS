@@ -429,7 +429,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 148</small></h1>
+        <h1>Level Editor <small>rev 151</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -472,6 +472,7 @@
             <h2>Level metadata</h2>
             <label>Level ID<input id="level-id"></label>
             <label>Title<input id="level-title"></label>
+            <label>Level music<select id="level-music"></select></label>
             <div class="row">
                 <label>World width<input id="world-w" type="number"></label>
                 <label>World height<input id="world-h" type="number"></label>
@@ -826,6 +827,7 @@ import {
     movingPlatformUsesFade,
     normalizeMovingPlatform
 } from "./src/shared/moving-platform-data.js";
+import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
 
 (() => {
     "use strict";
@@ -968,6 +970,7 @@ import {
         navigationGraphStatus: document.getElementById("navigation-graph-status"),
         levelId: document.getElementById("level-id"),
         levelTitle: document.getElementById("level-title"),
+        levelMusic: document.getElementById("level-music"),
         levelSelect: document.getElementById("level-select"),
         worldW: document.getElementById("world-w"),
         worldH: document.getElementById("world-h"),
@@ -1149,6 +1152,7 @@ import {
             },
             atlasRefs: [],
             colorMap: normalizeLevelColorMap(DEFAULT_LEVEL_COLOR_MAP),
+            music: normalizeLevelMusic(null),
             caveWindow: normalizeCaveWindow(null),
             placements: [],
             entities: [],
@@ -1788,6 +1792,7 @@ import {
             },
             atlasRefs: Array.isArray(source.atlasRefs) ? cloneData(source.atlasRefs) : [],
             colorMap: normalizeLevelColorMap(source.colorMap),
+            music: normalizeLevelMusic(source.music),
             caveWindow: normalizeCaveWindow(source.caveWindow || source.visuals?.caveWindow),
             placements: Array.isArray(source.placements) ? cloneData(source.placements) : [],
             entities: Array.isArray(source.entities) ? cloneData(source.entities) : [],
@@ -4014,11 +4019,22 @@ import {
         }, 140);
     }
 
+    function populateLevelMusicOptions() {
+        els.levelMusic.innerHTML = "";
+        for (const tune of MUSIC_TUNES) {
+            const option = document.createElement("option");
+            option.value = tune.id;
+            option.textContent = tune.composer ? `${tune.title} — ${tune.composer}` : tune.title;
+            els.levelMusic.appendChild(option);
+        }
+    }
+
     function syncMetadataFromUi() {
         state.level.colorMap = readColorMapControls();
         syncCaveWindowFromUi();
         state.level.levelId = els.levelId.value.trim() || state.level.levelId;
         state.level.title = els.levelTitle.value.trim() || state.level.title;
+        state.level.music = normalizeLevelMusic({ tuneId: els.levelMusic.value });
         state.level.world.bounds.w = Number(els.worldW.value) || state.level.world.bounds.w;
         state.level.world.bounds.h = Number(els.worldH.value) || state.level.world.bounds.h;
     }
@@ -4026,6 +4042,7 @@ import {
     function syncMetadataToUi() {
         els.levelId.value = state.level.levelId;
         els.levelTitle.value = state.level.title;
+        els.levelMusic.value = normalizeLevelMusic(state.level.music).tuneId;
         els.worldW.value = state.level.world.bounds.w;
         els.worldH.value = state.level.world.bounds.h;
         syncColorMapToUi();
@@ -4395,7 +4412,7 @@ import {
         draw();
     });
     els.showNavigationGraph.addEventListener("change", draw);
-    [els.showGrid, els.showAssetGuides, els.showLabels, els.snapEnabled, els.snap, els.worldW, els.worldH, els.levelId, els.levelTitle].forEach((el) => el.addEventListener("change", () => { syncMetadataFromUi(); draw(); }));
+    [els.showGrid, els.showAssetGuides, els.showLabels, els.snapEnabled, els.snap, els.worldW, els.worldH, els.levelId, els.levelTitle, els.levelMusic].forEach((el) => el.addEventListener("change", () => { syncMetadataFromUi(); draw(); }));
 
     els.caveCreateFromBounds.addEventListener("click", createCaveWindowFromWorldBounds);
     els.caveDeletePoint.addEventListener("click", deleteSelectedCavePoint);
@@ -4507,6 +4524,7 @@ import {
     window.addEventListener("resize", resizeCanvas);
 
     async function initializeEditor() {
+        populateLevelMusicOptions();
         state.level = makeEmptyLevel();
         els.snap.value = "32";
         setTool("select");
