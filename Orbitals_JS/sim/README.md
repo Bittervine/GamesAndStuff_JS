@@ -10,6 +10,7 @@
 - `projectiles.js`: projectile spawning, guidance, movement, and hit checks.
 - `effects.js`: simulation-side explosion records and lifetime cleanup.
 - `state.js`: gameplay-state factories and reset helpers.
+- `spatial_hash.js`: broad-phase cell lookup used by dense fighter patrol queries.
 
 ## Active Phase D modules
 
@@ -23,6 +24,6 @@
 
 ## Remaining Phase D extractions
 
-- `pickups.js`, `weapons.js`, and `spatial_hash.js` remain reserved for their gameplay phases.
+- `pickups.js` and `weapons.js` remain reserved for their gameplay phases.
 
 Keep gameplay tuning in `../orbitals_config.js`. Do not add renderer-owned objects, Three.js groups, DOM nodes, audio nodes, or other presentation handles to simulation state. Use stable gameplay IDs and renderer-side maps instead.

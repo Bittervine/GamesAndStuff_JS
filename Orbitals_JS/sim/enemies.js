@@ -26,6 +26,10 @@ import {
   beginPlanetCapture,
   computeAtmosphereLiftState
 } from './physics.js';
+import {
+  createSpatialHash,
+  querySpatialHash
+} from './spatial_hash.js';
 
 export const ENEMY_MODEL_FILES_BY_FAMILY = {
   Standard: [
@@ -453,6 +457,26 @@ function computeEntityRelativeSlot(entity, forwardDistance, rightDistance, upDis
     .addScaledVector(frame.forward, forwardDistance)
     .addScaledVector(frame.right, rightDistance)
     .addScaledVector(frame.up, upDistance);
+}
+
+function forEachNearbyEnemy(state, neighborHash, enemy, radius, visit) {
+  if (neighborHash) {
+    querySpatialHash(neighborHash, enemy.position, radius, (other) => {
+      if (!other || other === enemy) {
+        return true;
+      }
+      return visit(other);
+    });
+    return;
+  }
+  for (const other of state.enemies) {
+    if (!other || other === enemy) {
+      continue;
+    }
+    if (visit(other) === false) {
+      return;
+    }
+  }
 }
 
 function presentationRequiredFrames(kind) {
@@ -928,7 +952,7 @@ function computeEnemyObjectiveAttackTargetPoint(state, enemy, squad, planet, tim
   return null;
 }
 
-function computeEnemyTargetPoint(state, enemy, squad, planet, time) {
+function computeEnemyTargetPoint(state, enemy, squad, planet, time, neighborHash = null) {
   const objectiveAttackTarget = computeEnemyObjectiveAttackTargetPoint(state, enemy, squad, planet, time);
   if (objectiveAttackTarget) {
     return objectiveAttackTarget;
@@ -982,21 +1006,23 @@ function computeEnemyTargetPoint(state, enemy, squad, planet, time) {
   const altitudeOffset = fighterPatrolMode
     ? Math.sin(formationAngle * 1.7 + time * 0.05 + enemy.phase) * atmosphereThickness * 0.09
     : 0;
-  const fighterSeparationOffset = fighterPatrolMode
-    ? state.enemies.reduce((accumulator, other) => {
-      if (!other || other === enemy || other.health <= 0 || other.kind !== 'fighter' || other.parentMothershipId !== squad.parentMothershipId) {
-        return accumulator;
+  const fighterSeparationOffset = tempVecG.set(0, 0, 0);
+  if (fighterPatrolMode) {
+    const pushRadius = atmosphereThickness * 0.22;
+    forEachNearbyEnemy(state, neighborHash, enemy, pushRadius, (other) => {
+      if (other.health <= 0 || other.kind !== 'fighter' || other.parentMothershipId !== squad.parentMothershipId) {
+        return true;
       }
       const delta = tempVecF.copy(enemy.position).sub(other.position);
       const distance = delta.length();
-      const pushRadius = atmosphereThickness * 0.22;
       if (distance < 1e-6 || distance >= pushRadius) {
-        return accumulator;
+        return true;
       }
       const push = (pushRadius - distance) / pushRadius;
-      return accumulator.add(delta.normalize().multiplyScalar(push * push * atmosphereThickness * 0.16));
-    }, tempVecG.set(0, 0, 0))
-    : tempVecG.set(0, 0, 0);
+      fighterSeparationOffset.add(delta.normalize().multiplyScalar(push * push * atmosphereThickness * 0.16));
+      return true;
+    });
+  }
 
   if (squad.mode === 'depart') {
     const departPlanet = state.planets[Math.max(0, Math.min(state.planets.length - 1, squad.departPlanetIndex))] || planet;
@@ -1133,8 +1159,8 @@ export function computeEnemyControlTargetSpeed(state, targetPlanet, enemy, squad
 }
 
 
-function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) {
-  const rawTargetPoint = computeEnemyTargetPoint(state, enemy, squad, targetPlanet, time);
+function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt, neighborHash = null) {
+  const rawTargetPoint = computeEnemyTargetPoint(state, enemy, squad, targetPlanet, time, neighborHash);
   const presentationMode = enemy.combatRole === 'presenter' && enemy.presentation && enemy.presentation.phase !== 'cooldown';
   const objectiveAttackMode = enemy.combatRole === 'objectiveAttacker' && enemy.objectiveAttack && enemy.objectiveAttack.phase !== 'cooldown';
   const directedEncounterMode = presentationMode || objectiveAttackMode;
@@ -1246,20 +1272,21 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
     const hardSeparationRadius = atmosphereThickness * Math.max(0.1, config.fighterPatrolHardSeparationFactor || 0.42);
     let avoidanceTurn = 0;
     let avoidancePitch = 0;
-    for (const other of state.enemies) {
-      if (!other || other === enemy || other.health <= 0 || other.kind !== 'fighter' || other.parentMothershipId !== squad.parentMothershipId) {
-        continue;
+    forEachNearbyEnemy(state, neighborHash, enemy, avoidRadius, (other) => {
+      if (other.health <= 0 || other.kind !== 'fighter' || other.parentMothershipId !== squad.parentMothershipId) {
+        return true;
       }
       const offset = tempVecG.copy(enemy.position).sub(other.position);
       const distance = offset.length();
       if (distance < 1e-6 || distance >= avoidRadius) {
-        continue;
+        return true;
       }
       const away = offset.multiplyScalar(1 / distance);
       const closeness = 1 - distance / avoidRadius;
       avoidanceTurn += away.dot(rightAxis) * closeness * 0.95;
       avoidancePitch += away.dot(radialUp) * closeness * 0.65;
-    }
+      return true;
+    });
     rawTurnInput += THREE.MathUtils.clamp(avoidanceTurn, -0.85, 0.85);
     rawPitchInput += THREE.MathUtils.clamp(avoidancePitch, -0.6, 0.6);
     if (currentAltitude < patrolAltitudeMin || currentAltitude > patrolAltitudeMax) {
@@ -1269,20 +1296,21 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
         0.9
       );
     }
-    for (const other of state.enemies) {
-      if (!other || other === enemy || other.health <= 0 || other.kind !== 'fighter' || other.parentMothershipId !== squad.parentMothershipId) {
-        continue;
+    forEachNearbyEnemy(state, neighborHash, enemy, hardSeparationRadius, (other) => {
+      if (other.health <= 0 || other.kind !== 'fighter' || other.parentMothershipId !== squad.parentMothershipId) {
+        return true;
       }
       const delta = tempVecD.copy(enemy.position).sub(other.position);
       const distance = delta.length();
       if (distance < 1e-6 || distance >= hardSeparationRadius) {
-        continue;
+        return true;
       }
       const push = (hardSeparationRadius - distance) / hardSeparationRadius;
       const away = delta.multiplyScalar(1 / distance);
       rawTurnInput += THREE.MathUtils.clamp(away.dot(rightAxis) * push * 1.2, -0.9, 0.9);
       rawPitchInput += THREE.MathUtils.clamp(away.dot(radialUp) * push * 0.9, -0.7, 0.7);
-    }
+      return true;
+    });
   }
 
   if (fighterPatrolMode && currentAltitude >= patrolAltitudeMin && currentAltitude <= patrolAltitudeMax) {
@@ -1376,30 +1404,32 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
 
   if (fighterPatrolMode) {
     let collisionCourseTurn = 0;
-    for (const other of state.enemies) {
-      if (!other || other === enemy || other.health <= 0) {
-        continue;
+    const collisionCourseRadius = atmosphereThickness * 0.85;
+    forEachNearbyEnemy(state, neighborHash, enemy, collisionCourseRadius, (other) => {
+      if (other.health <= 0) {
+        return true;
       }
       const offset = tempVecG.copy(other.position).sub(enemy.position);
       const distance = offset.length();
-      if (distance < 1e-6 || distance > atmosphereThickness * 0.85) {
-        continue;
+      if (distance < 1e-6 || distance > collisionCourseRadius) {
+        return true;
       }
       const forwardDot = offset.dot(desiredForward);
       if (forwardDot <= 0) {
-        continue;
+        return true;
       }
       const coneAngle = Math.atan2(Math.sqrt(Math.max(0, distance * distance - forwardDot * forwardDot)), forwardDot);
       if (coneAngle > 0.9) {
-        continue;
+        return true;
       }
       const side = offset.dot(rightAxis);
       if (side >= 0) {
-        continue;
+        return true;
       }
-      const closeness = 1 - distance / (atmosphereThickness * 0.85);
+      const closeness = 1 - distance / collisionCourseRadius;
       collisionCourseTurn += closeness * (1.4 + Math.abs(side) / Math.max(distance, 1)) * 2.0;
-    }
+      return true;
+    });
     if (collisionCourseTurn > 0) {
       rawTurnInput = Math.max(rawTurnInput, 0.75);
       rawTurnInput += THREE.MathUtils.clamp(collisionCourseTurn * 1.4, 0, 2.0);
@@ -1444,7 +1474,7 @@ function computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt) 
   };
 }
 
-function updateEnemyShip(state, enemy, squad, dt, time) {
+function updateEnemyShip(state, enemy, squad, dt, time, neighborHash = null) {
   if (!enemy || enemy.health <= 0) {
     return;
   }
@@ -1485,7 +1515,7 @@ function updateEnemyShip(state, enemy, squad, dt, time) {
     targetPlanet = nearestPlanetInfo.planet;
   }
 
-  const controls = computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt);
+  const controls = computeEnemyControlInputs(state, enemy, squad, targetPlanet, time, dt, neighborHash);
 
   // Enemies use the shared ship physics, but they should stay planet-aware while transiting.
   enemy.recaptureLock = enemy.kind === 'mothership'
@@ -1552,15 +1582,23 @@ export function updateEnemySquads(state, dt, time) {
       continue;
     }
 
+    const targetAtmosphereThickness = Math.max(targetPlanet.atmosphereRadius - targetPlanet.radius, 1.0);
+    const isMothershipFighterSquad = squad.parentMothershipId >= 0 && squad.kind === 'fighter';
+    const neighborHash = isMothershipFighterSquad && squad.mode === 'swarm'
+      ? createSpatialHash(
+        state.enemies.filter((enemy) => enemy && enemy.health > 0),
+        targetAtmosphereThickness * Math.max(0.85, config.fighterPatrolHardSeparationFactor || 0.42)
+      )
+      : null;
+
     let sumAltitude = 0;
     for (const enemy of squadEnemies) {
       sumAltitude += enemy.position.distanceTo(targetPlanet.position) - targetPlanet.radius;
     }
     const avgAltitude = sumAltitude / squadEnemies.length;
 
-    const isMothershipFighterSquad = squad.parentMothershipId >= 0 && squad.kind === 'fighter';
     if (isMothershipFighterSquad && squad.mode === 'approach') {
-      const atmosphereThickness = Math.max(targetPlanet.atmosphereRadius - targetPlanet.radius, 1.0);
+      const atmosphereThickness = targetAtmosphereThickness;
       const desiredSettleAltitude = atmosphereThickness * config.fighterSettleAltitudeFactor;
       const tolerance = atmosphereThickness * config.fighterSettleAltitudeToleranceFactor;
       const safeAltitude = config.atmosphereTerrainCrashAltitude + 5;
@@ -1633,7 +1671,7 @@ export function updateEnemySquads(state, dt, time) {
       }
       enemy.targetPlanetIndex = squad.targetPlanetIndex;
       enemy.nextPlanetIndex = squad.nextPlanetIndex;
-      updateEnemyShip(state, enemy, squad, dt, time);
+      updateEnemyShip(state, enemy, squad, dt, time, neighborHash);
     }
 
     const livingSquadEnemies = squadEnemies.filter((enemy) => enemy && enemy.health > 0);

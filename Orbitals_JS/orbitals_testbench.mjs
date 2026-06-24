@@ -14,6 +14,10 @@ const {
   parseSeed
 } = await import('./Orbitals_Sim.js');
 const {
+  createSpatialHash,
+  querySpatialHash
+} = await import('./sim/spatial_hash.js');
+const {
   computeShipFireDirection,
   findProjectileHomingTarget,
   spawnProjectileBurst,
@@ -132,7 +136,8 @@ async function runLowRiskSimulationModuleSmokeTest() {
     ['./sim/events.js', ['pushEvent', 'formatCombatLog']],
     ['./sim/world.js', ['createPlanetConfig', 'createFuelMote', 'pickRandomPlanetIndex', 'updateFuelMotes', 'updatePlanets']],
     ['./sim/projectiles.js', ['segmentIntersectsSphere', 'findProjectileHomingTarget', 'steerProjectileTowardsTarget', 'spawnProjectileBurst', 'computeShipFireDirection', 'updateProjectiles']],
-    ['./sim/effects.js', ['createEnemyExplosionState', 'spawnEnemyExplosion', 'updateEnemyExplosions']]
+    ['./sim/effects.js', ['createEnemyExplosionState', 'spawnEnemyExplosion', 'updateEnemyExplosions']],
+    ['./sim/spatial_hash.js', ['createSpatialHash', 'querySpatialHash']]
   ]);
 
   for (const [specifier, names] of expectedExports) {
@@ -143,6 +148,24 @@ async function runLowRiskSimulationModuleSmokeTest() {
   }
 
   console.log(`PASS low-risk-module-imports: modules=${expectedExports.size}`);
+}
+
+function runSpatialHashNeighborTest() {
+  const items = [
+    { id: 'near', position: new THREE.Vector3(2, 0, 0) },
+    { id: 'adjacent', position: new THREE.Vector3(11, 0, 0) },
+    { id: 'far', position: new THREE.Vector3(80, 0, 0) }
+  ];
+  const hash = createSpatialHash(items, 10);
+  const candidates = [];
+  querySpatialHash(hash, new THREE.Vector3(0, 0, 0), 12, (item) => {
+    candidates.push(item.id);
+    return true;
+  });
+  candidates.sort();
+
+  assert.deepEqual(candidates, ['adjacent', 'near']);
+  console.log(`PASS spatial-hash-neighbor-query: candidates=${candidates.join(',')}`);
 }
 
 async function runPhaseDModuleSmokeTest() {
@@ -4390,6 +4413,7 @@ function runEnemyFamilyIndexTest() {
 runSimulationArchitectureGuardTest();
 await runLowRiskSimulationModuleSmokeTest();
 await runPhaseDModuleSmokeTest();
+runSpatialHashNeighborTest();
 runStableAltitudeTest();
 runPublicSimApiSmokeTest();
 runPitchResponseTest();

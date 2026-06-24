@@ -789,6 +789,14 @@ Revision 011 progress evidence:
 - The complete active regression suite passes after the extraction.
 - `pickups.js`, `weapons.js`, and `spatial_hash.js` remain reserved for later gameplay phases.
 
+Revision 012 progress evidence:
+
+- `sim/spatial_hash.js` now exports reusable broad-phase cell lookup helpers.
+- Dense mothership-fighter patrol separation and collision-course scans now query nearby enemy candidates through the spatial hash instead of scanning every enemy for each local avoidance pass.
+- Low-risk module smoke tests now verify the spatial hash exports, with a focused neighbor-query regression.
+- The complete active regression suite passes after the spatial hash slice.
+- `pickups.js` and `weapons.js` remain reserved for later gameplay phases.
+
 ## 17. Phase E: Nested subsystem state migration
 
 Goal: move from flat `state` arrays to a nested `GAME` object.
