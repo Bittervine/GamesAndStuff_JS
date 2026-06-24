@@ -21,6 +21,16 @@ import {
 import { createColorMappedCanvas } from "./level-color-map-cache.js";
 import { computeCaveWindowParallaxOffset, drawCaveWindowMask } from "./cave-window-mask.js";
 import {
+    caveWindowCenter,
+    createForegroundSpriteCanvas,
+    foregroundTreatmentCacheKey
+} from "./foreground-sprite-treatment.js";
+import {
+    buildWorldVisualCache,
+    visualIntersectsViewport,
+    visualWorldBounds
+} from "./world-visual-cache.js";
+import {
     animationPoseToRuntimeTransforms,
     applyRuntimeProjectileHandoffVisibility,
     buildRuntimeCharacterDrawCommands,
@@ -72,6 +82,14 @@ const REQUIRED_RIG_SECTIONS = ["global", "animation", "anchors", "legMotion", "p
 // separate per-sprite mobile scaling. Pointer/touch/mouse coordinates must be
 // converted through this same viewport transform before gameplay sees them.
 const MIN_TOUCH_VIEWPORT_WIDTH = 600;
+const VISUAL_CULL_MARGIN_PX = 128;
+
+function rendererNowMs() {
+    if (typeof performance !== "undefined" && typeof performance.now === "function") {
+        return performance.now();
+    }
+    return Date.now();
+}
 
 export function computeTimedTextViewportLayout(contentHeight, viewportHeight, phaseTime = 0, duration = 1) {
     const safeContentHeight = Math.max(0, Number(contentHeight) || 0);
@@ -232,13 +250,41 @@ class RocketfrockRenderer {
         this.environmentColorMap = normalizeLevelColorMap(null);
         this.environmentColorMapKey = "";
         this.caveWindow = null;
+        this.caveWindowCenter = null;
         this.caveWindowMaskCanvas = null;
+        this.caveWindowMaskKey = "";
+        this.worldVisualCache = buildWorldVisualCache([]);
+        this.foregroundSpriteCache = new Map();
+        this.frameForegroundOffset = { x: 0, y: 0 };
+        this.frameEntityVisibility = { collectedPickups: new Set(), defeatedEnemies: new Set() };
+        this.frameVisualCounters = this.createVisualCounters();
+        this.performanceDiagnostics = {
+            frameMs: 0,
+            averageFrameMs: 0,
+            worldMs: 0,
+            actorsMs: 0,
+            foregroundMs: 0,
+            maskMs: 0,
+            overlayMs: 0,
+            observedFps: 0,
+            visualsConsidered: 0,
+            visualsDrawn: 0,
+            visualsCulled: 0,
+            foregroundCacheHits: 0,
+            foregroundCacheMisses: 0,
+            dynamicConsidered: 0,
+            dynamicDrawn: 0,
+            dynamicCulled: 0,
+            maskReused: false
+        };
         this.phase = 0;
         this.forcePhase = null;
         this.visualPose = null;
         this.lastAnimationDiagnostics = null;
         this.lastVisualPoseMode = null;
         this.lastRenderDt = 1 / 60;
+        this.lastObservedFrameDt = 1 / 60;
+        this.lastRenderStartedAtMs = 0;
         this.viewport = { w: canvas.width, h: canvas.height, dpr: 1 };
         this.lastBounds = null;
         this.lastCharacterDraws = [];
@@ -248,8 +294,37 @@ class RocketfrockRenderer {
         return this.environmentAtlases;
     }
 
+    createVisualCounters() {
+        return {
+            considered: 0,
+            drawn: 0,
+            culled: 0,
+            foregroundCacheHits: 0,
+            foregroundCacheMisses: 0,
+            dynamicConsidered: 0,
+            dynamicDrawn: 0,
+            dynamicCulled: 0,
+            maskReused: false
+        };
+    }
+
+    getPerformanceDiagnostics() {
+        return { ...this.performanceDiagnostics };
+    }
+
+    getWorldVisualCache(state) {
+        const visuals = Array.isArray(state?.world?.visuals) ? state.world.visuals : [];
+        if (this.worldVisualCache.source !== visuals || this.worldVisualCache.sourceLength !== visuals.length) {
+            this.worldVisualCache = buildWorldVisualCache(visuals);
+        }
+        return this.worldVisualCache;
+    }
+
     syncCaveWindow(caveWindow) {
         this.caveWindow = caveWindow && typeof caveWindow === "object" ? caveWindow : null;
+        this.caveWindowCenter = caveWindowCenter(this.caveWindow);
+        this.caveWindowMaskKey = "";
+        this.foregroundSpriteCache.clear();
         return this.caveWindow;
     }
 
@@ -273,6 +348,7 @@ class RocketfrockRenderer {
             }
         }
         this.environmentColorMapKey = "";
+        this.foregroundSpriteCache.clear();
         this.syncEnvironmentColorMap(this.environmentColorMap);
         return loaded.size > 0;
     }
@@ -289,6 +365,7 @@ class RocketfrockRenderer {
         }
         this.environmentColorMap = colorMap;
         this.environmentColorMapKey = cacheKey;
+        this.foregroundSpriteCache.clear();
         for (const atlas of this.environmentAtlases.values()) {
             if (!atlas?.image) {
                 continue;
@@ -353,27 +430,87 @@ class RocketfrockRenderer {
     }
 
     render(state, inputFrame, dt) {
+        const frameStart = rendererNowMs();
+        if (this.lastRenderStartedAtMs > 0) {
+            this.lastObservedFrameDt = Math.max(0.0001, Math.min(5, (frameStart - this.lastRenderStartedAtMs) / 1000));
+        }
+        this.lastRenderStartedAtMs = frameStart;
         this.lastRenderDt = Math.max(0, Math.min(0.08, Number(dt) || 1 / 60));
         this.resize();
         this.updatePhase(state, dt);
-        const ctx = this.ctx;
         const view = this.computeView(state);
         this.lastCharacterDraws = [];
+        this.frameVisualCounters = this.createVisualCounters();
+        this.frameEntityVisibility = {
+            collectedPickups: new Set((state.pickups || []).filter((item) => item?.collected).map((item) => item.id)),
+            defeatedEnemies: new Set((state.enemies || []).filter((item) => Number(item?.health) <= 0).map((item) => item.id))
+        };
+        this.frameForegroundOffset = computeCaveWindowParallaxOffset(
+            view,
+            state.world?.bounds,
+            this.caveWindow?.parallax
+        );
+        this.getWorldVisualCache(state);
+
         this.clear(view);
         this.drawBackdrop(view);
         this.drawWorld(state, view);
         this.drawPortalIntroGlow(state, view);
+        const worldEnd = rendererNowMs();
+
         this.drawTargets(state, view);
         this.drawPickups(state, view);
         this.drawEnemies(state, view);
         this.drawWorldEffects(state, view);
         this.drawProjectiles(state, view);
         this.drawPlayer(state, view);
+        const actorsEnd = rendererNowMs();
+
         this.drawOrderedWorldVisuals(state, view, true);
         this.drawCaveForegroundVisuals(state, view);
+        const foregroundEnd = rendererNowMs();
+
         this.drawCaveWindow(state, view);
+        const maskEnd = rendererNowMs();
+
         this.drawMailboxStoryOverlay(state, view);
         this.drawDebug(state, view, inputFrame);
+        const frameEnd = rendererNowMs();
+        this.updatePerformanceDiagnostics({
+            frameMs: frameEnd - frameStart,
+            worldMs: worldEnd - frameStart,
+            actorsMs: actorsEnd - worldEnd,
+            foregroundMs: foregroundEnd - actorsEnd,
+            maskMs: maskEnd - foregroundEnd,
+            overlayMs: frameEnd - maskEnd
+        });
+    }
+
+    updatePerformanceDiagnostics(timings) {
+        const previousAverage = Number(this.performanceDiagnostics.averageFrameMs) || 0;
+        const frameMs = Math.max(0, Number(timings.frameMs) || 0);
+        const averageFrameMs = previousAverage > 0
+            ? previousAverage * 0.9 + frameMs * 0.1
+            : frameMs;
+        this.performanceDiagnostics = {
+            frameMs,
+            averageFrameMs,
+            worldMs: Math.max(0, Number(timings.worldMs) || 0),
+            actorsMs: Math.max(0, Number(timings.actorsMs) || 0),
+            foregroundMs: Math.max(0, Number(timings.foregroundMs) || 0),
+            maskMs: Math.max(0, Number(timings.maskMs) || 0),
+            overlayMs: Math.max(0, Number(timings.overlayMs) || 0),
+            observedFps: this.lastObservedFrameDt > 0 ? 1 / this.lastObservedFrameDt : 0,
+            visualsConsidered: this.frameVisualCounters.considered,
+            visualsDrawn: this.frameVisualCounters.drawn,
+            visualsCulled: this.frameVisualCounters.culled,
+            foregroundCacheHits: this.frameVisualCounters.foregroundCacheHits,
+            foregroundCacheMisses: this.frameVisualCounters.foregroundCacheMisses,
+            dynamicConsidered: this.frameVisualCounters.dynamicConsidered,
+            dynamicDrawn: this.frameVisualCounters.dynamicDrawn,
+            dynamicCulled: this.frameVisualCounters.dynamicCulled,
+            maskReused: this.frameVisualCounters.maskReused
+        };
     }
 
     computeView(state) {
@@ -408,6 +545,39 @@ class RocketfrockRenderer {
         };
     }
 
+    dynamicBoundsVisible(bounds, view, marginPixels = 96) {
+        this.frameVisualCounters.dynamicConsidered += 1;
+        const visible = visualIntersectsViewport(bounds, view, null, marginPixels);
+        if (!visible) {
+            this.frameVisualCounters.dynamicCulled += 1;
+        }
+        return visible;
+    }
+
+    markDynamicDrawn() {
+        this.frameVisualCounters.dynamicDrawn += 1;
+    }
+
+    projectileRenderBounds(projectile) {
+        const extent = Math.max(36, Number(projectile?.radius) || 0);
+        let minX = (Number(projectile?.x) || 0) - extent;
+        let minY = (Number(projectile?.y) || 0) - extent;
+        let maxX = (Number(projectile?.x) || 0) + extent;
+        let maxY = (Number(projectile?.y) || 0) + extent;
+        for (const point of projectile?.trail || []) {
+            const x = Number(point?.x);
+            const y = Number(point?.y);
+            if (!Number.isFinite(x) || !Number.isFinite(y)) {
+                continue;
+            }
+            minX = Math.min(minX, x - extent);
+            minY = Math.min(minY, y - extent);
+            maxX = Math.max(maxX, x + extent);
+            maxY = Math.max(maxY, y + extent);
+        }
+        return { minX, minY, maxX, maxY };
+    }
+
     clear(view) {
         const ctx = this.ctx;
         // Flat cave backing. Theme art should define the scene, and ultra-faint
@@ -425,21 +595,33 @@ class RocketfrockRenderer {
         const result = drawCaveWindowMask({
             targetContext: this.ctx,
             maskCanvas: this.caveWindowMaskCanvas,
+            previousRenderKey: this.caveWindowMaskKey,
             caveWindow: this.caveWindow,
             view,
             worldBounds: state.world?.bounds
         });
         this.caveWindowMaskCanvas = result.maskCanvas;
+        this.caveWindowMaskKey = result.renderKey || "";
+        this.frameVisualCounters.maskReused = Boolean(result.reused);
         return result.drawn;
     }
 
     drawWorld(state, view) {
         const ctx = this.ctx;
-        const drewVisuals = this.drawOrderedWorldVisuals(state, view, false);
+        const visualResult = this.drawOrderedWorldVisuals(state, view, false);
 
-        const shouldDrawCollision = Boolean(state.debug.showCollision) || !drewVisuals;
+        const shouldDrawCollision = Boolean(state.debug.showCollision) || !visualResult.hasRenderableVisuals;
         if (shouldDrawCollision) {
             for (const solid of state.world.solids) {
+                const solidBounds = {
+                    minX: Number(solid.x) || 0,
+                    minY: Number(solid.y) || 0,
+                    maxX: (Number(solid.x) || 0) + Math.max(0, Number(solid.w) || 0),
+                    maxY: (Number(solid.y) || 0) + Math.max(0, Number(solid.h) || 0)
+                };
+                if (!visualIntersectsViewport(solidBounds, view, null, VISUAL_CULL_MARGIN_PX)) {
+                    continue;
+                }
                 const p = this.worldToScreen(view, solid.x, solid.y);
                 const w = solid.w * view.zoom;
                 const h = solid.h * view.zoom;
@@ -473,6 +655,15 @@ class RocketfrockRenderer {
             ctx.font = `${12 * view.zoom}px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
             ctx.fillStyle = "rgba(255, 255, 255, 0.64)";
             for (const label of state.world.labels) {
+                const labelBounds = {
+                    minX: Number(label.x) || 0,
+                    minY: (Number(label.y) || 0) - 24,
+                    maxX: (Number(label.x) || 0) + 360,
+                    maxY: (Number(label.y) || 0) + 12
+                };
+                if (!visualIntersectsViewport(labelBounds, view, null, VISUAL_CULL_MARGIN_PX)) {
+                    continue;
+                }
                 const p = this.worldToScreen(view, label.x, label.y);
                 ctx.fillText(label.text, p.x, p.y);
             }
@@ -518,50 +709,56 @@ class RocketfrockRenderer {
     }
 
     drawOrderedWorldVisuals(state, view, actorFrontOnly = false) {
-        const visuals = (state.world.visuals || [])
-            .map((visual, index) => ({ visual, index }))
-            .filter(({ visual }) => actorFrontOnly
-                ? visual.layer === "actorFront"
-                : visual.layer !== "actorFront" && visual.layer !== "caveForeground")
-            .sort((a, b) => this.visualSortKey(a.visual, a.index) - this.visualSortKey(b.visual, b.index));
+        const cache = this.getWorldVisualCache(state);
+        const entries = actorFrontOnly ? cache.actorFront : cache.main;
         let drewAny = false;
-        for (const { visual } of visuals) {
+        let hasRenderableVisuals = false;
+        for (const entry of entries) {
+            const { visual, bounds } = entry;
             if (visual.kind === "atlasSprite") {
-                if (this.drawAtlasSpriteVisual(visual, view, state)) {
+                if (this.atlasVisualAvailable(visual)) {
+                    hasRenderableVisuals = true;
+                }
+                if (this.drawAtlasSpriteVisual(visual, view, state, bounds)) {
                     drewAny = true;
                 }
             } else if (visual.kind === "cutoutMask") {
-                this.drawCutoutMaskVisual(visual, view);
-                drewAny = true;
+                hasRenderableVisuals = true;
+                if (this.drawCutoutMaskVisual(visual, view, bounds)) {
+                    drewAny = true;
+                }
             }
         }
-        return drewAny;
+        return { drewAny, hasRenderableVisuals };
     }
 
     drawCaveForegroundVisuals(state, view) {
-        const visuals = (state.world.visuals || [])
-            .map((visual, index) => ({ visual, index }))
-            .filter(({ visual }) => visual.layer === "caveForeground")
-            .sort((a, b) => this.visualSortKey(a.visual, a.index) - this.visualSortKey(b.visual, b.index));
+        const entries = this.getWorldVisualCache(state).caveForeground;
         let drewAny = false;
-        for (const { visual } of visuals) {
-            if (visual.kind === "atlasSprite" && this.drawAtlasSpriteVisual(visual, view, state)) {
+        for (const { visual, bounds } of entries) {
+            if (visual.kind === "atlasSprite" && this.drawAtlasSpriteVisual(visual, view, state, bounds)) {
                 drewAny = true;
             }
         }
         return drewAny;
     }
 
-    visualSortKey(visual, index) {
-        if (Number.isFinite(Number(visual.order))) {
-            return Number(visual.order);
+    atlasVisualAvailable(visual) {
+        const atlas = this.environmentAtlases.get(visual?.atlasId);
+        if (!atlas || atlas.missing || !atlas.image) {
+            return false;
         }
-        const layer = visual.layer || "terrain";
-        const layerOrder = layer === "decorBack" ? 0 : layer === "terrain" ? 10000 : layer === "mask" ? 20000 : 30000;
-        return layerOrder + index;
+        const frameName = visual.frame || visual.assetId;
+        return Boolean(atlas.frames?.[frameName]);
     }
 
-    drawCutoutMaskVisual(mask, view) {
+    drawCutoutMaskVisual(mask, view, cachedBounds = null) {
+        this.frameVisualCounters.considered += 1;
+        const bounds = cachedBounds || visualWorldBounds(mask);
+        if (!visualIntersectsViewport(bounds, view, null, VISUAL_CULL_MARGIN_PX)) {
+            this.frameVisualCounters.culled += 1;
+            return false;
+        }
         const ctx = this.ctx;
         const p = this.worldToScreen(view, mask.x, mask.y);
         const w = mask.w * view.zoom;
@@ -573,36 +770,29 @@ class RocketfrockRenderer {
         ctx.fillStyle = LEVEL_BACKGROUND_COLOR;
         ctx.fillRect(p.x, p.y, w, h);
         ctx.restore();
+        this.frameVisualCounters.drawn += 1;
+        return true;
     }
 
-    drawAtlasVisuals(state, view, layer) {
-        const visuals = state.world.visuals || [];
-        let drewAny = false;
-        for (const visual of visuals) {
-            if ((visual.layer || "terrain") !== layer) {
-                continue;
-            }
-            if (visual.kind !== "atlasSprite") {
-                continue;
-            }
-            if (this.drawAtlasSpriteVisual(visual, view)) {
-                drewAny = true;
-            }
-        }
-        return drewAny;
-    }
-
-    drawAtlasSpriteVisual(visual, view, state = null) {
+    drawAtlasSpriteVisual(visual, view, state = null, cachedBounds = null) {
         if (visual.entityId && state) {
-            if (visual.entityType === "fuel") {
-                const pickup = (state.pickups || []).find((item) => item.id === visual.entityId);
-                if (pickup?.collected) return false;
+            if (visual.entityType === "fuel" && this.frameEntityVisibility.collectedPickups.has(visual.entityId)) {
+                return false;
             }
-            if (visual.entityType === "targetDummy") {
-                const enemy = (state.enemies || []).find((item) => item.id === visual.entityId);
-                if (enemy && enemy.health <= 0) return false;
+            if (visual.entityType === "targetDummy" && this.frameEntityVisibility.defeatedEnemies.has(visual.entityId)) {
+                return false;
             }
         }
+
+        this.frameVisualCounters.considered += 1;
+        const caveForeground = visual.layer === "caveForeground";
+        const foregroundOffset = caveForeground ? this.frameForegroundOffset : null;
+        const bounds = cachedBounds || visualWorldBounds(visual);
+        if (!visualIntersectsViewport(bounds, view, foregroundOffset, VISUAL_CULL_MARGIN_PX)) {
+            this.frameVisualCounters.culled += 1;
+            return false;
+        }
+
         const atlas = this.environmentAtlases.get(visual.atlasId);
         if (!atlas || atlas.missing || !atlas.image) {
             return false;
@@ -614,27 +804,55 @@ class RocketfrockRenderer {
         }
         const ctx = this.ctx;
         const centerWorld = placementCenter(visual);
-        const caveForeground = visual.layer === "caveForeground";
-        const foregroundOffset = caveForeground
-            ? computeCaveWindowParallaxOffset(view, state?.world?.bounds, this.caveWindow?.parallax)
-            : { x: 0, y: 0 };
-        const center = this.worldToScreen(view, centerWorld.x - foregroundOffset.x, centerWorld.y - foregroundOffset.y);
+        const center = this.worldToScreen(
+            view,
+            centerWorld.x - (foregroundOffset?.x || 0),
+            centerWorld.y - (foregroundOffset?.y || 0)
+        );
         const w = visual.w * view.zoom;
         const h = visual.h * view.zoom;
         ctx.save();
         ctx.globalAlpha *= visual.alpha ?? 1;
-        if (caveForeground) {
-            const brightness = Math.max(0.08, Math.min(1, Number(visual.foregroundBrightness) || 0.36));
-            const saturation = Math.max(0, Math.min(1.5, Number(visual.foregroundSaturation) || 0.62));
-            ctx.filter = `brightness(${brightness}) saturate(${saturation})`;
-        }
         ctx.translate(center.x, center.y);
         ctx.rotate(normalizeRotationRadians(visual.rotation, visual.angle));
         ctx.scale(visual.mirrorX ? -1 : 1, visual.mirrorY ? -1 : 1);
-        const renderImage = atlas.renderImage || atlas.image;
-        ctx.drawImage(renderImage, frame.x, frame.y, frame.w, frame.h, -w * 0.5, -h * 0.5, w, h);
+        if (caveForeground) {
+            const cachedSprite = this.getForegroundSpriteCanvas(atlas, frameName, frame, visual);
+            ctx.drawImage(cachedSprite, -w * 0.5, -h * 0.5, w, h);
+        } else {
+            const renderImage = atlas.renderImage || atlas.image;
+            ctx.drawImage(renderImage, frame.x, frame.y, frame.w, frame.h, -w * 0.5, -h * 0.5, w, h);
+        }
         ctx.restore();
+        this.frameVisualCounters.drawn += 1;
         return true;
+    }
+
+    getForegroundSpriteCanvas(atlas, frameName, frame, visual) {
+        const cacheKey = foregroundTreatmentCacheKey({
+            atlasId: atlas.atlasId || visual.atlasId || "atlas",
+            frameName,
+            colorMapKey: this.environmentColorMapKey,
+            visual,
+            fallbackCenter: this.caveWindowCenter
+        });
+        const cached = this.foregroundSpriteCache.get(cacheKey);
+        if (cached) {
+            this.frameVisualCounters.foregroundCacheHits += 1;
+            return cached;
+        }
+
+        const ownerDocument = this.canvas?.ownerDocument || (typeof document !== "undefined" ? document : null);
+        const surface = createForegroundSpriteCanvas({
+            ownerDocument,
+            sourceImage: atlas.renderImage || atlas.image,
+            frame,
+            visual,
+            fallbackCenter: this.caveWindowCenter
+        });
+        this.foregroundSpriteCache.set(cacheKey, surface);
+        this.frameVisualCounters.foregroundCacheMisses += 1;
+        return surface;
     }
 
     drawAssetGuides(state, view) {
@@ -761,6 +979,15 @@ class RocketfrockRenderer {
         const ctx = this.ctx;
         for (const target of state.targets || []) {
             if (target.state !== "active" || target.showMarker === false) continue;
+            const targetExtent = Math.max(1, Number(target.radius) || 1) + 16;
+            if (!this.dynamicBoundsVisible({
+                minX: target.x - targetExtent,
+                minY: target.y - targetExtent,
+                maxX: target.x + targetExtent,
+                maxY: target.y + targetExtent
+            }, view, 48)) {
+                continue;
+            }
             const p = this.worldToScreen(view, target.x, target.y);
             const pulse = 0.5 + 0.5 * Math.sin(state.clock.time * 5.5);
             ctx.save();
@@ -776,6 +1003,7 @@ class RocketfrockRenderer {
             ctx.arc(p.x, p.y, (target.radius + 9 + pulse * 4) * view.zoom, 0, Math.PI * 2);
             ctx.stroke();
             ctx.restore();
+            this.markDynamicDrawn();
         }
     }
 
@@ -783,6 +1011,15 @@ class RocketfrockRenderer {
         const ctx = this.ctx;
         for (const pickup of state.pickups) {
             if (pickup.collected || pickup.visualized) continue;
+            const pickupExtent = Math.max(1, Number(pickup.radius) || 1);
+            if (!this.dynamicBoundsVisible({
+                minX: pickup.x - pickupExtent,
+                minY: pickup.y - pickupExtent,
+                maxX: pickup.x + pickupExtent,
+                maxY: pickup.y + pickupExtent
+            }, view, 48)) {
+                continue;
+            }
             const p = this.worldToScreen(view, pickup.x, pickup.y);
             const r = pickup.radius * view.zoom;
             ctx.save();
@@ -795,6 +1032,7 @@ class RocketfrockRenderer {
             ctx.fill();
             ctx.stroke();
             ctx.restore();
+            this.markDynamicDrawn();
         }
     }
 
@@ -802,9 +1040,21 @@ class RocketfrockRenderer {
         const ctx = this.ctx;
         for (const enemy of state.enemies) {
             if (enemy.visualized) continue;
+            const enemyWidth = Math.max(1, Number(enemy.width) || 1);
+            const enemyHeight = Math.max(1, Number(enemy.height) || 1);
+            const enemyBounds = {
+                minX: (Number(enemy.x) || 0) - enemyWidth * 0.5,
+                minY: (Number(enemy.y) || 0) - enemyHeight - 36,
+                maxX: (Number(enemy.x) || 0) + enemyWidth * 0.5,
+                maxY: (Number(enemy.y) || 0) + 12
+            };
+            if (!this.dynamicBoundsVisible(enemyBounds, view, 96)) {
+                continue;
+            }
             const characterProject = this.getCharacterProject(enemy.characterId || enemy.characterProject);
             if (characterProject) {
                 this.drawRuntimeCharacterEnemy(characterProject, enemy, state, view);
+                this.markDynamicDrawn();
                 continue;
             }
             if (enemy.health <= 0) {
@@ -827,11 +1077,23 @@ class RocketfrockRenderer {
             ctx.fill();
             ctx.restore();
             this.drawEnemyHealthBar(enemy, view, 1);
+            this.markDynamicDrawn();
         }
 
         if (state.debug.showPuppetGuide) {
             for (const enemy of state.enemies) {
-                if (!enemy.visualized) {
+                if (enemy.visualized) {
+                    continue;
+                }
+                const width = Math.max(1, Number(enemy.width) || 1);
+                const height = Math.max(1, Number(enemy.height) || 1);
+                const guideBounds = {
+                    minX: (Number(enemy.x) || 0) - Math.max(width, Number(enemy.awarenessRange) || 0),
+                    minY: (Number(enemy.y) || 0) - Math.max(height, Number(enemy.awarenessRange) || 0),
+                    maxX: (Number(enemy.x) || 0) + Math.max(width, Number(enemy.awarenessRange) || 0),
+                    maxY: (Number(enemy.y) || 0) + Math.max(height, Number(enemy.awarenessRange) || 0)
+                };
+                if (visualIntersectsViewport(guideBounds, view, null, 48)) {
                     this.drawEnemyPuppetGuide(enemy, state, view);
                 }
             }
@@ -1129,8 +1391,17 @@ class RocketfrockRenderer {
         ctx.globalCompositeOperation = "source-over";
         for (const puff of puffs) {
             const ageRatio = clamp(puff.age / Math.max(0.001, puff.lifetime), 0, 1);
+            const radiusWorld = Math.max(1, Number(puff.radius) || 1) * (0.75 + ageRatio * 1.65);
+            if (!this.dynamicBoundsVisible({
+                minX: puff.x - radiusWorld,
+                minY: puff.y - radiusWorld,
+                maxX: puff.x + radiusWorld,
+                maxY: puff.y + radiusWorld
+            }, view, 64)) {
+                continue;
+            }
             const p = this.worldToScreen(view, puff.x, puff.y);
-            const radius = (puff.radius * (0.75 + ageRatio * 1.65)) * view.zoom;
+            const radius = radiusWorld * view.zoom;
             const smokeAlpha = 0.30 * Math.pow(1 - ageRatio, 1.25);
 
             const g = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, Math.max(1, radius));
@@ -1161,6 +1432,7 @@ class RocketfrockRenderer {
                 }
                 ctx.restore();
             }
+            this.markDynamicDrawn();
         }
         ctx.restore();
     }
@@ -1168,18 +1440,22 @@ class RocketfrockRenderer {
     drawProjectiles(state, view) {
         const ctx = this.ctx;
         for (const projectile of state.projectiles || []) {
+            if (projectile.state !== "exploding" && projectile.state !== "launched") {
+                continue;
+            }
+            if (!this.dynamicBoundsVisible(this.projectileRenderBounds(projectile), view, 96)) {
+                continue;
+            }
             if (projectile.state === "exploding") {
                 const p = this.worldToScreen(view, projectile.x, projectile.y);
                 ctx.save();
                 const sparkRadius = projectile.owner === "enemy" ? 22 * view.zoom : 32 * view.zoom;
                 this.drawSparkBurst(p.x, p.y, view, projectile.age + projectile.x, projectile.owner === "enemy" ? 10 : 14, sparkRadius);
                 ctx.restore();
+                this.markDynamicDrawn();
                 continue;
             }
 
-            if (projectile.state !== "launched") {
-                continue;
-            }
             if (projectile.kind === "enemyFireball") {
                 this.drawProjectileFireball(projectile, state, view);
             } else if (projectile.kind === "enemyMusketBall") {
@@ -1187,6 +1463,7 @@ class RocketfrockRenderer {
             } else {
                 this.drawProjectileRocket(projectile, state, view);
             }
+            this.markDynamicDrawn();
         }
     }
 

@@ -1,7 +1,17 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { computeResponsiveViewportMetrics, computeTimedTextViewportLayout } from "../src/presentation/canvas-renderer.js";
-import { computeCaveWindowParallaxOffset } from "../src/presentation/cave-window-mask.js";
+import {
+    caveWindowMaskRenderKey,
+    computeCaveWindowParallaxOffset,
+    DEFAULT_CAVE_MASK_RENDER_SCALE
+} from "../src/presentation/cave-window-mask.js";
+import {
+    buildWorldVisualCache,
+    expandedViewportWorldBounds,
+    visualIntersectsViewport,
+    visualWorldBounds
+} from "../src/presentation/world-visual-cache.js";
 import { actorBodyRect, characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../src/shared/actor-geometry.js";
 import { RocketfrockInput } from "../src/browser/browser-input.js";
 import {
@@ -21,10 +31,17 @@ import {
 } from "../src/shared/cave-window-data.js";
 import {
     buildCaveDecorationCatalog,
+    caveDecorationStep,
     CAVE_FOREGROUND_LAYER,
     CAVE_PERIMETER_GENERATOR,
     generateCavePerimeterPlacements
 } from "../src/shared/cave-window-decoration.js";
+import {
+    caveWindowCenter,
+    foregroundLocalOutwardVector,
+    foregroundTreatmentCacheKey,
+    normalizeForegroundTreatment
+} from "../src/presentation/foreground-sprite-treatment.js";
 import {
     atlasNodeToPlacementWorld,
     duplicateLevelPlacement,
@@ -152,6 +169,8 @@ function testSourceOrganization() {
         "../src/browser/game-bootstrap.js",
         "../src/presentation/canvas-renderer.js",
         "../src/presentation/cave-window-mask.js",
+        "../src/presentation/foreground-sprite-treatment.js",
+        "../src/presentation/world-visual-cache.js",
         "../src/presentation/character-runtime.js",
         "../src/presentation/level-color-map-cache.js",
         "../src/shared/level-color-map-data.js",
@@ -2782,6 +2801,42 @@ function testEditorDropdownContrast() {
     }
 }
 
+
+function testEditorCollapsiblePanels() {
+    const editors = [
+        {
+            filename: "../character-editor.html",
+            storageKey: "ignatiusRocketfrock.characterEditor.collapsedPanels.v1",
+            selector: "aside section.box"
+        },
+        {
+            filename: "../level-editor.html",
+            storageKey: "ignatiusRocketfrock.levelEditor.collapsedPanels.v1",
+            selector: "aside .box"
+        },
+        {
+            filename: "../asset-editor.html",
+            storageKey: "ignatiusRocketfrock.assetTool.collapsedPanels.v1",
+            selector: "aside .box"
+        }
+    ];
+    for (const editor of editors) {
+        const html = readFileSync(new URL(editor.filename, import.meta.url), "utf8");
+        assert.ok(html.includes(editor.storageKey), `${editor.filename} should keep its own remembered collapse state`);
+        assert.ok(html.includes(`document.querySelectorAll("${editor.selector}")`), `${editor.filename} should discover its right-side inspector panels`);
+        assert.ok(html.includes("panel-collapse-toggle"), `${editor.filename} should add a visible collapse button to panel headings`);
+        assert.ok(html.includes('panel.classList.toggle("collapsed"'), `${editor.filename} should toggle collapsed panel state`);
+        assert.ok(html.includes("localStorage.setItem(PANEL_STORAGE_KEY"), `${editor.filename} should persist collapsed panel state`);
+        assert.ok(html.includes("setupCollapsiblePanels();"), `${editor.filename} should initialize collapsible panels on startup`);
+    }
+
+    for (const filename of ["../level-editor.html", "../asset-editor.html"]) {
+        const html = readFileSync(new URL(filename, import.meta.url), "utf8");
+        assert.ok(html.includes("panel-collapse-heading"), `${filename} should hide all panel content except the primary heading when collapsed`);
+        assert.ok(html.includes("aria-expanded"), `${filename} should expose collapse state to assistive technology`);
+    }
+}
+
 function testCharacterProjectWorkspace() {
     assert.equal(normalizeCharacterSlug("  Brass Bat!  "), "brass_bat", "character names should become stable file slugs");
     const project = createBlankCharacterProject("Brass Bat");
@@ -2975,14 +3030,51 @@ function testCaveWindowSplineAuthoring() {
     assert.equal(normalized.parallax, 1.06, "cave window normalization should preserve subtle foreground parallax");
     assert.deepEqual(normalized.points.map((point) => point.mode), ["corner", "smooth", "smooth"], "unknown point modes should normalize to smooth");
 
+    const defaults = normalizeCaveWindow(null);
+    assert.equal(defaults.parallax, 1.1, "new cave windows should default to pronounced foreground parallax");
+    assert.equal(defaults.decoration.scale, 2, "new cave perimeter decoration should default to two-times asset scale");
+
     const generated = createCaveWindowPointsFromBounds({ x: -320, y: -420, w: 5600, h: 1500 });
     assert.equal(generated.length, 8, "world-bounds initialization should create an editable rounded eight-point loop");
-    const sampled = sampleClosedCaveSpline(generated, 8);
+    const sampled = sampleClosedCaveSpline(generated, 32);
     assert.ok(sampled.length > generated.length, "closed cave splines should sample smooth curve points between controls");
     approx(sampled[0].x, sampled.at(-1).x, 0.0001, "closed cave spline x closure");
     approx(sampled[0].y, sampled.at(-1).y, 0.0001, "closed cave spline y closure");
+    const orientation = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+    const properlyIntersects = (a, b, c, d) => {
+        const abC = orientation(a, b, c);
+        const abD = orientation(a, b, d);
+        const cdA = orientation(c, d, a);
+        const cdB = orientation(c, d, b);
+        return abC * abD < 0 && cdA * cdB < 0;
+    };
+    let selfIntersections = 0;
+    for (let first = 0; first < sampled.length - 1; first += 1) {
+        for (let second = first + 2; second < sampled.length - 1; second += 1) {
+            if (first === 0 && second === sampled.length - 2) continue;
+            if (properlyIntersects(sampled[first], sampled[first + 1], sampled[second], sampled[second + 1])) selfIntersections += 1;
+        }
+    }
+    assert.equal(selfIntersections, 0, "the default rounded perimeter must not loop across or intersect itself at wide world-bound corners");
+    const worldBounds = { x: -320, y: -420, w: 5600, h: 1500 };
+    const worldRight = worldBounds.x + worldBounds.w;
+    const worldBottom = worldBounds.y + worldBounds.h;
+    const sampledInsideWorld = sampled.some((point) => (
+        point.x > worldBounds.x
+        && point.x < worldRight
+        && point.y > worldBounds.y
+        && point.y < worldBottom
+    ));
+    assert.equal(sampledInsideWorld, false, "the starter cave perimeter should remain outside the technical world bounds along every sampled segment");
+    assert.ok(
+        generated.some((point) => point.y < worldBounds.y)
+        && generated.some((point) => point.x > worldRight)
+        && generated.some((point) => point.y > worldBottom)
+        && generated.some((point) => point.x < worldBounds.x),
+        "the starter cave perimeter should add a margin on all four sides of the world bounds"
+    );
     const generatedBounds = caveWindowBounds(generated, 40);
-    assert.ok(generatedBounds.w > 5000 && generatedBounds.h > 1200, "cave-window fit bounds should cover the authored perimeter plus padding");
+    assert.ok(generatedBounds.w > worldBounds.w && generatedBounds.h > worldBounds.h, "cave-window fit bounds should cover the outside perimeter plus padding");
     const nearest = nearestCaveSplineSegment(generated, { x: 2480, y: -350 });
     assert.ok(nearest && Number.isInteger(nearest.segmentIndex), "point insertion should locate the nearest closed spline segment");
 
@@ -3006,6 +3098,8 @@ function testCaveWindowSplineAuthoring() {
 
     const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
     assert.equal(levelOne.caveWindow.enabled, false, "level_001 should adopt the visual cave-window schema without changing gameplay yet");
+    assert.equal(levelOne.caveWindow.parallax, 1.1, "the authored starter schema should use the new cave foreground parallax default");
+    assert.equal(levelOne.caveWindow.decoration.scale, 2, "the authored starter schema should use the current perimeter asset scale default");
     assert.deepEqual(levelOne.caveWindow.points, [], "level_001 should wait for an authored perimeter rather than inventing collision-like geometry");
     const parallaxView = {
         x: 100,
@@ -3030,8 +3124,14 @@ function testCaveWindowSplineAuthoring() {
     assert.ok(actorFrontIndex >= 0 && caveForegroundIndex > actorFrontIndex && caveMaskIndex > caveForegroundIndex, "dark cave foreground assets should render after actors and before the feathered black mask");
     assert.ok(storyOverlayIndex > caveMaskIndex, "story overlays should remain readable above the cave foreground mask");
     assert.ok(rendererSource.includes("drawCaveWindowMask") && rendererSource.includes("caveWindowMaskCanvas"), "runtime should render the cave opening through a reusable offscreen black mask");
-    assert.ok(rendererSource.includes("brightness(${brightness}) saturate(${saturation})"), "cave foreground artwork should be darkened and desaturated at draw time");
+    const foregroundTreatmentSource = readFileSync(new URL("../src/presentation/foreground-sprite-treatment.js", import.meta.url), "utf8");
+    assert.ok(foregroundTreatmentSource.includes("brightness(${treatment.brightness}) saturate(${treatment.saturation})"), "cave foreground artwork should be darkened and desaturated in a cached sprite treatment");
+    assert.ok(foregroundTreatmentSource.includes('globalCompositeOperation = "source-atop"') && foregroundTreatmentSource.includes("foregroundFadeEnd"), "foreground sprites should fade their outward side all the way into black before the cave mask takes over");
     assert.ok(levelEditorHtml.includes('data-tool="placeCaveForeground"') && levelEditorHtml.includes('id="cave-auto-populate"'), "Level Editor should expose manual foreground placement and deterministic perimeter population");
+    assert.ok(levelEditorHtml.includes('id="cave-show-generated"'), "Level Editor should let authors hide generated perimeter assets without deleting them");
+    assert.ok(levelEditorHtml.includes("editorViewportWorldBounds") && levelEditorHtml.includes("placementWorldBounds"), "Level Editor should cull off-screen placements before drawing them");
+    assert.ok(levelEditorHtml.includes("editorForegroundSpriteCache") && levelEditorHtml.includes("createForegroundSpriteCanvas"), "Level Editor should cache darkened and faded foreground sprite variants");
+    assert.ok(levelEditorHtml.includes("scheduleJsonUpdate") && !levelEditorHtml.includes("drawSelection();\n        updateJson();"), "Level Editor should not stringify the full level on every drag-frame redraw");
 
     const decoration = normalizeCaveDecoration({ seed: 77, spacing: 150, scale: 2, brightness: 0.3, saturation: 0.5 });
     const decorationCatalog = buildCaveDecorationCatalog([
@@ -3051,14 +3151,36 @@ function testCaveWindowSplineAuthoring() {
     const generatedDecor = generateCavePerimeterPlacements({ caveWindow: decoratedCave, catalog: decorationCatalog, decoration });
     const generatedAgain = generateCavePerimeterPlacements({ caveWindow: decoratedCave, catalog: decorationCatalog, decoration });
     assert.deepEqual(generatedDecor, generatedAgain, "cave perimeter decoration should be deterministic for the same seed and spline");
-    assert.ok(generatedDecor.length >= 8, "a complete cave loop should receive multiple perimeter decorations");
+    assert.ok(generatedDecor.length >= 16, "adaptive overlap should populate a complete cave loop densely enough to avoid exposed top and bottom gaps");
     assert.deepEqual(new Set(generatedDecor.map((placement) => placement.caveCategory)), new Set(["ceiling", "wall", "floor"]), "perimeter orientation should choose ceiling, wall, and floor asset families");
+    const categoryCounts = generatedDecor.reduce((counts, placement) => {
+        counts[placement.caveCategory] = (counts[placement.caveCategory] || 0) + 1;
+        return counts;
+    }, {});
+    assert.ok(categoryCounts.floor >= 5 && categoryCounts.ceiling >= 5, "horizontal cave edges should receive denser overlapping floor and ceiling coverage");
+    assert.ok(caveDecorationStep("floor", 180, 250) < 180, "horizontal decoration spacing should overlap smaller assets rather than leave gaps");
     for (const placement of generatedDecor) {
         assert.equal(placement.layer, CAVE_FOREGROUND_LAYER, "generated perimeter art should use the dedicated foreground layer");
         assert.equal(placement.collisionFromManifest, false, "generated perimeter art should always disable atlas collision");
         assert.equal(placement.generatedBy, CAVE_PERIMETER_GENERATOR, "generated perimeter art should remain identifiable for deterministic replacement");
         assert.equal(placement.foregroundBrightness, decoration.brightness, "generated perimeter art should preserve the authored darkening");
+        assert.ok(Number.isFinite(placement.foregroundOutwardX) && Number.isFinite(placement.foregroundOutwardY), "generated perimeter art should record its outward fade direction");
+        assert.equal(placement.foregroundFadeStart, 0.05, "generated perimeter art should begin its outward handover near the inward edge");
+        assert.equal(placement.foregroundFadeEnd, 0.92, "generated perimeter art should reach full black before its outward edge");
     }
+
+    const caveCenter = caveWindowCenter(decoratedCave);
+    assert.deepEqual(caveCenter, { x: 300, y: 200 }, "foreground treatment should derive a stable cave-centre fallback for older placements");
+    const floorVisual = generatedDecor.find((placement) => placement.caveCategory === "floor");
+    assert.ok(floorVisual.y + floorVisual.h * 0.5 < 400, "floor perimeter assets should overlap inward past the authored perimeter rather than sit outside it");
+    const ceilingVisual = generatedDecor.find((placement) => placement.caveCategory === "ceiling");
+    assert.ok(ceilingVisual.y + ceilingVisual.h * 0.5 > 0, "ceiling perimeter assets should overlap inward past the authored perimeter rather than sit outside it");
+    const floorLocalOutward = foregroundLocalOutwardVector(floorVisual, caveCenter);
+    assert.ok(floorLocalOutward && floorLocalOutward.y > 0.9, "floor decorations should fade toward their local outward edge after rotation and mirroring");
+    const treatment = normalizeForegroundTreatment(floorVisual, caveCenter);
+    assert.equal(treatment.fadeEnd, 0.92, "foreground treatment should preserve the authored full-black handover point");
+    assert.ok(foregroundTreatmentCacheKey({ atlasId: floorVisual.atlasId, frameName: floorVisual.assetId, visual: floorVisual, fallbackCenter: caveCenter }).includes("0.920"), "foreground cache keys should include fade treatment so stale variants cannot be reused");
+    assert.ok(foregroundTreatmentSource.includes("smootherStep") && foregroundTreatmentSource.includes("0.875"), "foreground fades should use a broad eased multi-stop gradient rather than a harsh two-stop linear handover");
 
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     assert.ok(bootstrapSource.includes("syncPresentationLevelData(level)") && bootstrapSource.includes("renderer.syncCaveWindow(activeCaveWindow)"), "browser startup and level transitions should pass inert cave-window data directly to presentation");
@@ -3068,6 +3190,90 @@ function testCaveWindowSplineAuthoring() {
     assert.equal(simulationSource.includes("drawCaveWindowMask"), false, "portable gameplay must remain unaware of cave-window Canvas masking");
     assert.ok(simulationSource.includes('visual.layer === "caveForeground"'), "atlas collision hydration should explicitly reject cave-foreground visuals");
     assert.ok(simulationSource.includes('layer === "caveForeground" ? false'), "level conversion should force cave-foreground placements to remain non-colliding even when imported data is malformed");
+}
+
+
+function testCanvasWorldVisualPerformanceInfrastructure() {
+    const visuals = [
+        {
+            id: "terrain_visible",
+            kind: "atlasSprite",
+            atlasId: "at_atlas_002",
+            assetId: "rock",
+            x: 120,
+            y: 120,
+            w: 100,
+            h: 80,
+            layer: "terrain"
+        },
+        {
+            id: "foreground_offscreen",
+            kind: "atlasSprite",
+            atlasId: "at_atlas_002",
+            assetId: "stalagmite",
+            x: 4200,
+            y: 100,
+            w: 500,
+            h: 900,
+            layer: "caveForeground",
+            rotation: Math.PI / 5
+        },
+        {
+            id: "portal_front",
+            kind: "atlasSprite",
+            atlasId: "it_atlas_001",
+            assetId: "portal_foreground",
+            x: 300,
+            y: 200,
+            w: 100,
+            h: 220,
+            layer: "actorFront"
+        }
+    ];
+    const cache = buildWorldVisualCache(visuals);
+    assert.equal(cache.source, visuals, "world visual cache should retain the source-array identity for cheap invalidation");
+    assert.equal(cache.main.length, 1, "static world cache should partition ordinary scenery once");
+    assert.equal(cache.actorFront.length, 1, "static world cache should partition actor-front scenery once");
+    assert.equal(cache.caveForeground.length, 1, "static world cache should partition cave foreground scenery once");
+
+    const view = { x: 0, y: 0, w: 800, h: 600, zoom: 1, virtualW: 800, virtualH: 600 };
+    const viewportBounds = expandedViewportWorldBounds(view, null, 0);
+    assert.deepEqual(viewportBounds, { minX: 0, minY: 0, maxX: 800, maxY: 600 }, "viewport culling bounds should match virtual world coordinates");
+    assert.equal(visualIntersectsViewport(cache.main[0].bounds, view, null, 0), true, "visible scenery should survive viewport culling");
+    assert.equal(visualIntersectsViewport(cache.caveForeground[0].bounds, view, null, 0), false, "far-away cave foreground should be rejected before Canvas work");
+    assert.equal(visualIntersectsViewport(cache.caveForeground[0].bounds, view, { x: 3500, y: 0 }, 0), true, "foreground culling should account for the cave parallax offset");
+
+    const rotatedBounds = visualWorldBounds({ x: 780, y: 260, w: 80, h: 300, rotation: Math.PI / 4 });
+    assert.ok(rotatedBounds.maxX > 800, "rotated visual bounds should conservatively include transformed corners");
+    assert.equal(visualIntersectsViewport(rotatedBounds, view, null, 0), true, "rotated art touching the viewport should not pop out early");
+
+    const cave = normalizeCaveWindow({
+        enabled: true,
+        feather: 180,
+        parallax: 1.04,
+        points: [
+            { id: "a", x: 0, y: 0, mode: "corner" },
+            { id: "b", x: 800, y: 0, mode: "corner" },
+            { id: "c", x: 800, y: 600, mode: "corner" },
+            { id: "d", x: 0, y: 600, mode: "corner" }
+        ]
+    });
+    const worldBounds = { x: 0, y: 0, w: 800, h: 600 };
+    const maskKey = caveWindowMaskRenderKey(cave, view, worldBounds, DEFAULT_CAVE_MASK_RENDER_SCALE);
+    assert.equal(maskKey, caveWindowMaskRenderKey(cave, { ...view }, { ...worldBounds }, DEFAULT_CAVE_MASK_RENDER_SCALE), "stationary cave masks should have a reusable render key");
+    assert.notEqual(maskKey, caveWindowMaskRenderKey(cave, { ...view, x: 5 }, worldBounds, DEFAULT_CAVE_MASK_RENDER_SCALE), "camera movement should invalidate the cave mask cache");
+    assert.ok(DEFAULT_CAVE_MASK_RENDER_SCALE < 0.5, "soft cave masks should render on a reduced-resolution surface");
+
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    const maskSource = readFileSync(new URL("../src/presentation/cave-window-mask.js", import.meta.url), "utf8");
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    assert.ok(rendererSource.includes("buildWorldVisualCache") && rendererSource.includes("visualIntersectsViewport"), "Canvas renderer should cache layer organization and cull static scenery before drawing");
+    assert.ok(rendererSource.includes("foregroundSpriteCache") && rendererSource.includes("getForegroundSpriteCanvas"), "dark foreground variants should be cached instead of filtered on every draw");
+    assert.equal(rendererSource.includes("ctx.filter = `brightness(${brightness})"), false, "the main render context should not apply an expensive filter per foreground placement");
+    assert.ok(maskSource.includes("previousRenderKey") && maskSource.includes("DEFAULT_CAVE_MASK_RENDER_SCALE"), "cave mask should reuse stationary frames and render its blur at reduced resolution");
+    assert.ok(rendererSource.includes("dynamicBoundsVisible") && rendererSource.includes("projectileRenderBounds"), "targets, enemies, effects, and projectile trails should have conservative dynamic culling");
+    assert.ok(rendererSource.includes("lastObservedFrameDt") && rendererSource.includes("lastRenderStartedAtMs"), "observed FPS should use real render-to-render time rather than the simulation dt clamp");
+    assert.ok(bootstrapSource.includes("getPerformanceDiagnostics") && bootstrapSource.includes("dynamic considered:"), "debug panel should expose renderer timings and static/dynamic culling counters");
 }
 
 function testLevelPlacementCopy() {
@@ -4668,6 +4874,7 @@ const tests = [
     ["Puppet Guide debug overlay", testPuppetGuideDebugOverlay],
     ["selective level colour map", testSelectiveLevelColorMap],
     ["closed cave-window spline authoring", testCaveWindowSplineAuthoring],
+    ["Canvas world-visual performance infrastructure", testCanvasWorldVisualPerformanceInfrastructure],
     ["level placement copy and cutout backing", testLevelPlacementCopy],
     ["level placement transforms", testLevelPlacementTransforms],
     ["editor level transform runtime", testEditorLevelTransformRuntime],
@@ -4677,6 +4884,7 @@ const tests = [
     ["scripted portal entrance", testPortalEntranceSequence],
     ["scripted portal exit", testPortalExitSequence],
     ["editor dropdown contrast", testEditorDropdownContrast],
+    ["editor collapsible inspector panels", testEditorCollapsiblePanels],
     ["generic runtime character project", testGenericRuntimeCharacterProject],
     ["goblin runtime character projects", testGoblinRuntimeCharacterProjects],
     ["enemy catalog and Level Editor integration", testEnemyCatalogAndLevelEditorIntegration],

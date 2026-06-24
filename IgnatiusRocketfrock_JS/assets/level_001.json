@@ -38,7 +38,7 @@
         "version": 1,
         "enabled": false,
         "feather": 180,
-        "parallax": 1.035,
+        "parallax": 1.1,
         "decoration": {
             "seed": 138,
             "spacing": 250,
@@ -418,8 +418,8 @@
             "thoughtAtlasId": "it_atlas_001",
             "thoughtAssetId": "thought_bubble_large",
             "letterTitle": "A Letter from Your Humble Editor",
-            "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: “Ignatius Rocketfrock and the Introductory Cave of Training.” Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
-            "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn’t look quite like it did in the brochures, but I’m sure it will be fine."
+            "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: \u201cIgnatius Rocketfrock and the Introductory Cave of Training.\u201d Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
+            "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn\u2019t look quite like it did in the brochures, but I\u2019m sure it will be fine."
         },
         {
             "id": "enemy_002_001",
@@ -679,7 +679,7 @@
             {
                 "version": 2,
                 "id": "w70_h105_r200_a950_j200_g1250_f600_s26_q22.4",
-                "label": "Run 200, jump 200, body 70×105",
+                "label": "Run 200, jump 200, body 70\u00d7105",
                 "profile": {
                     "bodyWidth": 70,
                     "bodyHeight": 105,

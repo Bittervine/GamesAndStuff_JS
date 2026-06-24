@@ -336,6 +336,33 @@
             border-radius: 8px;
         }
 
+
+        .box > h2.panel-collapse-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .panel-collapse-toggle {
+            width: 28px;
+            min-width: 28px;
+            height: 28px;
+            margin: -5px -4px -5px 0;
+            padding: 0;
+            border-radius: 8px;
+            font-size: 15px;
+            line-height: 1;
+        }
+
+        .box.collapsed > :not(.panel-collapse-heading) {
+            display: none !important;
+        }
+
+        .box.collapsed {
+            padding-bottom: 8px;
+        }
+
         @media (max-width: 1050px) {
             html, body {
                 overflow: auto;
@@ -398,7 +425,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 138</small></h1>
+        <h1>Level Editor <small>rev 143</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -471,10 +498,11 @@
                 <label>Feather px<input id="cave-feather" type="number" min="0" step="10"></label>
                 <div class="inline"><input id="cave-preview-shade" type="checkbox" checked><span class="small">Shade exterior in editor</span></div>
             </div>
+            <div class="inline"><input id="cave-show-generated" type="checkbox" checked><span class="small">Show generated perimeter assets in editor</span></div>
             <h2>Automatic perimeter decoration</h2>
             <div class="row">
                 <label>Seed<input id="cave-decor-seed" type="number" step="1"></label>
-                <label>Spacing px<input id="cave-decor-spacing" type="number" min="80" max="1200" step="10"></label>
+                <label>Max spacing px<input id="cave-decor-spacing" type="number" min="80" max="1200" step="10"></label>
             </div>
             <div class="row">
                 <label>Asset scale<input id="cave-decor-scale" type="number" min="0.5" max="5" step="0.1"></label>
@@ -485,7 +513,7 @@
                 <button id="cave-clear-generated" type="button">Clear generated</button>
             </div>
             <p id="cave-status" class="small">No cave perimeter points.</p>
-            <p class="small">The perimeter and foreground are completely inert presentation layers. Foreground placements render after actors with the cave parallax, are darkened for depth, and always have atlas collision disabled. Auto-population uses tagged wall, ceiling, floor, stalagmite, and stalactite assets from the loaded atlases.</p>
+            <p class="small">The perimeter and foreground are completely inert presentation layers. Foreground placements render after actors with cave parallax, are darkened for depth, overlap slightly into the cave, fade smoothly outward into black, and always have atlas collision disabled. Auto-population treats Max spacing as an upper limit and overlaps smaller top/bottom assets to prevent visible gaps.</p>
         </div>
 
         <div class="box">
@@ -709,6 +737,12 @@ import {
 } from "./src/shared/level-color-map-data.js";
 import { createColorMappedCanvas } from "./src/presentation/level-color-map-cache.js";
 import {
+    caveWindowCenter,
+    createForegroundSpriteCanvas,
+    foregroundTreatmentCacheKey,
+    foregroundWorldOutwardVector
+} from "./src/presentation/foreground-sprite-treatment.js";
+import {
     caveSplineSegmentControls,
     caveWindowBounds,
     createCaveWindowPointsFromBounds,
@@ -738,6 +772,72 @@ import {
     "use strict";
 
     const STORAGE_KEY = "ignatius_level_editor_v2";
+
+    const PANEL_STORAGE_KEY = "ignatiusRocketfrock.levelEditor.collapsedPanels.v1";
+
+    function panelKeyFromHeading(heading, index) {
+        const slug = String(heading || `panel-${index + 1}`)
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+        return slug || `panel-${index + 1}`;
+    }
+
+    function readCollapsedPanels() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(PANEL_STORAGE_KEY) || "{}");
+            return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+        } catch {
+            return {};
+        }
+    }
+
+    function writeCollapsedPanels(value) {
+        try {
+            localStorage.setItem(PANEL_STORAGE_KEY, JSON.stringify(value));
+        } catch {
+            // Storage may be unavailable in private or locked-down browser contexts.
+        }
+    }
+
+    function setupCollapsiblePanels() {
+        const remembered = readCollapsedPanels();
+        const panels = [...document.querySelectorAll("aside .box")];
+        panels.forEach((panel, index) => {
+            const heading = panel.querySelector(":scope > h2");
+            if (!heading) {
+                return;
+            }
+            heading.classList.add("panel-collapse-heading");
+            const headingText = heading.textContent.trim();
+            const key = panel.dataset.panelKey || panelKeyFromHeading(headingText, index);
+            panel.dataset.panelKey = key;
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "panel-collapse-toggle";
+            button.setAttribute("aria-label", `Collapse or expand ${headingText}`);
+            heading.appendChild(button);
+
+            const apply = (collapsed) => {
+                panel.classList.toggle("collapsed", collapsed);
+                button.textContent = collapsed ? "+" : "−";
+                button.title = collapsed ? "Expand panel" : "Collapse panel";
+                button.setAttribute("aria-expanded", collapsed ? "false" : "true");
+            };
+            apply(remembered[key] === true);
+            button.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const collapsed = !panel.classList.contains("collapsed");
+                apply(collapsed);
+                const next = readCollapsedPanels();
+                next[key] = collapsed;
+                writeCollapsedPanels(next);
+            });
+        });
+    }
+
     const DEFAULT_ATLAS_ID = "at_atlas_001";
     const DEFAULT_LEVEL_URL = "assets/level_001.json";
     const ATLAS_AUTOLOAD_LIMIT = 20;
@@ -817,6 +917,7 @@ import {
         caveDeletePoint: document.getElementById("cave-delete-point"),
         caveCreateFromBounds: document.getElementById("cave-create-from-bounds"),
         cavePreviewShade: document.getElementById("cave-preview-shade"),
+        caveShowGenerated: document.getElementById("cave-show-generated"),
         caveDecorSeed: document.getElementById("cave-decor-seed"),
         caveDecorSpacing: document.getElementById("cave-decor-spacing"),
         caveDecorScale: document.getElementById("cave-decor-scale"),
@@ -919,9 +1020,13 @@ import {
         entityCatalog: new Map(),
         enemyCatalog: new Map(),
         characterProjects: new Map(),
-        navigationPreviewGraphId: ""
+        navigationPreviewGraphId: "",
+        placementDrawCache: null,
+        placementBoundsCache: new WeakMap(),
+        editorForegroundSpriteCache: new Map()
     };
     let colorMapRefreshTimer = null;
+    let jsonUpdateTimer = null;
 
     function cloneData(value) {
         return JSON.parse(JSON.stringify(value));
@@ -1090,7 +1195,7 @@ import {
         state.selectedCavePointId = cave.points[0]?.id || "";
         setTool("caveSelect");
         persistUi();
-        setStatus("Created an eight-point closed cave perimeter inside the technical world bounds.");
+        setStatus("Created an eight-point closed cave perimeter just outside the technical world bounds.");
     }
 
     function addCavePoint(point) {
@@ -1207,7 +1312,11 @@ import {
         state.selectedId = generated[0].id;
         setTool("select");
         persistUi();
-        setStatus(`Populated the cave perimeter with ${generated.length} dark, parallaxed, non-colliding foreground assets.`);
+        const counts = generated.reduce((result, placement) => {
+            result[placement.caveCategory] = (result[placement.caveCategory] || 0) + 1;
+            return result;
+        }, {});
+        setStatus(`Populated the cave perimeter with ${generated.length} overlapping foreground assets (${counts.floor || 0} floor, ${counts.ceiling || 0} ceiling, ${counts.wall || 0} wall).`);
         return generated;
     }
 
@@ -1436,6 +1545,7 @@ import {
             state.manifest = record.manifest;
             state.atlasImage = record.renderImage || record.image;
         }
+        state.editorForegroundSpriteCache.clear();
         renderAtlasSelect();
         return record;
     }
@@ -1620,6 +1730,10 @@ import {
                     collisionFromManifest: foreground ? false : (placement.collisionFromManifest !== undefined ? Boolean(placement.collisionFromManifest) : true),
                     foregroundBrightness: foreground ? Math.max(0.08, Math.min(1, finiteEditorNumber(placement.foregroundBrightness, 0.36))) : undefined,
                     foregroundSaturation: foreground ? Math.max(0, Math.min(1.5, finiteEditorNumber(placement.foregroundSaturation, 0.62))) : undefined,
+                    foregroundOutwardX: foreground && Number.isFinite(Number(placement.foregroundOutwardX)) ? Number(placement.foregroundOutwardX) : undefined,
+                    foregroundOutwardY: foreground && Number.isFinite(Number(placement.foregroundOutwardY)) ? Number(placement.foregroundOutwardY) : undefined,
+                    foregroundFadeStart: foreground ? Math.max(0, Math.min(0.95, finiteEditorNumber(placement.foregroundFadeStart, 0.05))) : undefined,
+                    foregroundFadeEnd: foreground ? Math.max(0.01, Math.min(1, finiteEditorNumber(placement.foregroundFadeEnd, 0.92))) : undefined,
                     generatedBy: placement.generatedBy || undefined,
                     caveCategory: placement.caveCategory || undefined,
                     alpha: Number.isFinite(Number(placement.alpha)) ? Number(placement.alpha) : undefined,
@@ -1829,6 +1943,7 @@ import {
             }
         }
         state.colorMapCacheKey = cacheKey;
+        state.editorForegroundSpriteCache.clear();
         const active = atlasRecord();
         state.atlasImage = active?.renderImage || active?.image || null;
         updateColorMapPreview();
@@ -2581,6 +2696,8 @@ import {
             collisionFromManifest: foreground ? false : hasRuntimeLines(object),
             foregroundBrightness: foreground ? caveDecoration.brightness : undefined,
             foregroundSaturation: foreground ? caveDecoration.saturation : undefined,
+            foregroundFadeStart: foreground ? 0.05 : undefined,
+            foregroundFadeEnd: foreground ? 0.92 : undefined,
             notes: foreground ? "Inert manually placed cave foreground artwork." : ""
         };
         state.level.placements.push(placement);
@@ -2684,6 +2801,7 @@ import {
         const placements = sortedPlacements();
         for (let i = placements.length - 1; i >= 0; i -= 1) {
             const placement = placements[i];
+            if (!generatedCavePlacementVisible(placement)) continue;
             const hit = placement.kind === "cutoutMask"
                 ? pointInRect(point, objectRect(placement, "asset"))
                 : pointInPlacement(point, placement);
@@ -2761,22 +2879,19 @@ import {
 
     function draw() {
         const rect = screenSize();
+        const viewportBounds = editorViewportWorldBounds();
         ctx.clearRect(0, 0, rect.width, rect.height);
         drawBackground(rect);
         if (els.showGrid.checked) drawGrid(rect);
         drawWorldBounds();
-        const orderedPlacements = sortedPlacements();
-        for (const placement of orderedPlacements) {
-            if (placement.layer !== CAVE_FOREGROUND_LAYER) drawPlacement(placement);
-        }
+        const placementGroups = sortedPlacementGroups();
+        for (const placement of placementGroups.main) drawPlacement(placement, viewportBounds);
         for (const entity of state.level.entities) drawEntity(entity);
-        for (const placement of orderedPlacements) {
-            if (placement.layer === CAVE_FOREGROUND_LAYER) drawPlacement(placement);
-        }
+        for (const placement of placementGroups.caveForeground) drawPlacement(placement, viewportBounds);
         drawNavigationGraph();
         drawCaveWindowOverlay(rect);
         drawSelection();
-        updateJson();
+        scheduleJsonUpdate();
     }
 
     function drawBackground(rect) {
@@ -2897,6 +3012,11 @@ import {
         }
     }
 
+    function invalidateEditorPlacementCaches({ sprites = false } = {}) {
+        state.placementDrawCache = null;
+        if (sprites) state.editorForegroundSpriteCache.clear();
+    }
+
     function normalizeStackOrder() {
         state.level.placements.forEach((placement, index) => {
             if (!Number.isFinite(Number(placement.order))) {
@@ -2905,15 +3025,108 @@ import {
         });
     }
 
-    function sortedPlacements() {
+    function sortedPlacementGroups() {
+        const source = state.level.placements;
+        if (state.placementDrawCache?.source === source && state.placementDrawCache?.sourceLength === source.length) {
+            return state.placementDrawCache;
+        }
         normalizeStackOrder();
-        return state.level.placements.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        const all = source.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        state.placementDrawCache = {
+            source,
+            sourceLength: source.length,
+            all,
+            main: all.filter((placement) => placement.layer !== CAVE_FOREGROUND_LAYER),
+            caveForeground: all.filter((placement) => placement.layer === CAVE_FOREGROUND_LAYER)
+        };
+        return state.placementDrawCache;
     }
 
-    function drawPlacement(placement) {
+    function sortedPlacements() {
+        return sortedPlacementGroups().all;
+    }
+
+    function placementWorldBounds(placement) {
+        const signature = [
+            finiteEditorNumber(placement?.x, 0),
+            finiteEditorNumber(placement?.y, 0),
+            finiteEditorNumber(placement?.w, 0),
+            finiteEditorNumber(placement?.h, 0),
+            normalizeRotationRadians(placement?.rotation, placement?.angle)
+        ].join("|");
+        const cached = state.placementBoundsCache.get(placement);
+        if (cached?.signature === signature) return cached.bounds;
+        let bounds;
+        if (placement?.kind === "cutoutMask") {
+            bounds = {
+                minX: finiteEditorNumber(placement.x, 0),
+                minY: finiteEditorNumber(placement.y, 0),
+                maxX: finiteEditorNumber(placement.x, 0) + Math.max(0, finiteEditorNumber(placement.w, 0)),
+                maxY: finiteEditorNumber(placement.y, 0) + Math.max(0, finiteEditorNumber(placement.h, 0))
+            };
+        } else {
+            const corners = placementCorners(placement);
+            bounds = {
+                minX: Math.min(...corners.map((point) => point.x)),
+                minY: Math.min(...corners.map((point) => point.y)),
+                maxX: Math.max(...corners.map((point) => point.x)),
+                maxY: Math.max(...corners.map((point) => point.y))
+            };
+        }
+        state.placementBoundsCache.set(placement, { signature, bounds });
+        return bounds;
+    }
+
+    function editorViewportWorldBounds(marginPixels = 96) {
+        const rect = screenSize();
+        const margin = Math.max(0, finiteEditorNumber(marginPixels, 0)) / Math.max(MIN_EDITOR_ZOOM, state.camera.zoom);
+        return {
+            minX: state.camera.x - margin,
+            minY: state.camera.y - margin,
+            maxX: state.camera.x + rect.width / state.camera.zoom + margin,
+            maxY: state.camera.y + rect.height / state.camera.zoom + margin
+        };
+    }
+
+    function boundsIntersect(a, b) {
+        return a.maxX >= b.minX && a.minX <= b.maxX && a.maxY >= b.minY && a.minY <= b.maxY;
+    }
+
+    function generatedCavePlacementVisible(placement) {
+        return placement?.generatedBy !== CAVE_PERIMETER_GENERATOR || els.caveShowGenerated.checked;
+    }
+
+    function getEditorForegroundSprite(atlasId, assetId, frame, placement) {
+        const atlas = atlasRecord(atlasId);
+        const sourceImage = atlas?.renderImage || atlas?.image;
+        if (!sourceImage) return null;
+        const fallbackCenter = caveWindowCenter(caveWindowRecord());
+        const cacheKey = foregroundTreatmentCacheKey({
+            atlasId,
+            frameName: assetId,
+            colorMapKey: state.colorMapCacheKey,
+            visual: placement,
+            fallbackCenter
+        });
+        const cached = state.editorForegroundSpriteCache.get(cacheKey);
+        if (cached) return cached;
+        const surface = createForegroundSpriteCanvas({
+            ownerDocument: document,
+            sourceImage,
+            frame,
+            visual: placement,
+            fallbackCenter
+        });
+        state.editorForegroundSpriteCache.set(cacheKey, surface);
+        return surface;
+    }
+
+    function drawPlacement(placement, viewportBounds = null) {
+        if (!generatedCavePlacementVisible(placement)) return false;
+        if (viewportBounds && !boundsIntersect(placementWorldBounds(placement), viewportBounds)) return false;
         if (placement.kind === "cutoutMask") {
             drawCutoutMask(placement);
-            return;
+            return true;
         }
 
         const atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
@@ -2923,29 +3136,34 @@ import {
         const w = placement.w * state.camera.zoom;
         const h = placement.h * state.camera.zoom;
         const rotation = normalizeRotationRadians(placement.rotation, placement.angle);
-        const atlasImage = imageForAtlas(atlasId);
+        const caveForeground = placement.layer === CAVE_FOREGROUND_LAYER;
+        const atlasImage = caveForeground && frame
+            ? getEditorForegroundSprite(atlasId, placement.assetId, frame, placement)
+            : imageForAtlas(atlasId);
         ctx.save();
-        if (placement.layer === CAVE_FOREGROUND_LAYER) {
-            const brightness = Math.max(0.08, Math.min(1, finiteEditorNumber(placement.foregroundBrightness, 0.36)));
-            const saturation = Math.max(0, Math.min(1.5, finiteEditorNumber(placement.foregroundSaturation, 0.62)));
-            ctx.filter = `brightness(${brightness}) saturate(${saturation})`;
-        }
         ctx.globalAlpha *= Number.isFinite(Number(placement.alpha)) ? Number(placement.alpha) : 1;
         ctx.translate(center.x, center.y);
         ctx.rotate(rotation);
         ctx.scale(placement.mirrorX ? -1 : 1, placement.mirrorY ? -1 : 1);
         if (atlasImage && frame) {
-            ctx.drawImage(atlasImage, frame.x, frame.y, frame.w, frame.h, -w * 0.5, -h * 0.5, w, h);
+            if (caveForeground) {
+                ctx.drawImage(atlasImage, -w * 0.5, -h * 0.5, w, h);
+            } else {
+                ctx.drawImage(atlasImage, frame.x, frame.y, frame.w, frame.h, -w * 0.5, -h * 0.5, w, h);
+            }
         } else {
             ctx.fillStyle = "rgba(86,230,255,0.12)";
             ctx.fillRect(-w * 0.5, -h * 0.5, w, h);
         }
         ctx.restore();
-        if (els.showAssetGuides.checked) drawPlacementGuides(placement);
-        if (els.showLabels.checked) {
+        const generated = placement.generatedBy === CAVE_PERIMETER_GENERATOR;
+        const showDetails = !generated || state.selectedId === placement.id;
+        if (showDetails && els.showAssetGuides.checked) drawPlacementGuides(placement);
+        if (showDetails && els.showLabels.checked) {
             const topLeft = placementCorners(placement)[0];
             drawLabel(`${atlasId}:${placement.assetId}`, topLeft.x, topLeft.y - 8, COLORS.frame);
         }
+        return true;
     }
 
     function drawCutoutMask(mask) {
@@ -3132,6 +3350,7 @@ import {
     function drawSelection() {
         const selected = selectedRecord();
         if (!selected) return;
+        if (selected.kind === "asset" && !generatedCavePlacementVisible(selected.record)) return;
         ctx.save();
         ctx.strokeStyle = COLORS.selected;
         ctx.lineWidth = 2;
@@ -3278,10 +3497,16 @@ import {
                 rec.collisionFromManifest = false;
                 rec.foregroundBrightness = finiteEditorNumber(rec.foregroundBrightness, decoration.brightness);
                 rec.foregroundSaturation = finiteEditorNumber(rec.foregroundSaturation, decoration.saturation);
+                rec.foregroundFadeStart = Math.max(0, Math.min(0.95, finiteEditorNumber(rec.foregroundFadeStart, 0.05)));
+                rec.foregroundFadeEnd = Math.max(rec.foregroundFadeStart + 0.01, Math.min(1, finiteEditorNumber(rec.foregroundFadeEnd, 0.92)));
             } else {
                 rec.collisionFromManifest = els.inspectCollision.checked;
                 delete rec.foregroundBrightness;
                 delete rec.foregroundSaturation;
+                delete rec.foregroundOutwardX;
+                delete rec.foregroundOutwardY;
+                delete rec.foregroundFadeStart;
+                delete rec.foregroundFadeEnd;
                 delete rec.generatedBy;
                 delete rec.caveCategory;
             }
@@ -3472,13 +3697,26 @@ import {
     }
 
     function updateJson() {
+        if (jsonUpdateTimer !== null) {
+            clearTimeout(jsonUpdateTimer);
+            jsonUpdateTimer = null;
+        }
         syncMetadataFromUi();
         refreshLevelAtlasRefs();
         els.zoom.value = state.camera.zoom.toFixed(2);
         els.levelJson.value = JSON.stringify(state.level, null, 4);
     }
 
+    function scheduleJsonUpdate(delay = 140) {
+        if (jsonUpdateTimer !== null) clearTimeout(jsonUpdateTimer);
+        jsonUpdateTimer = window.setTimeout(() => {
+            jsonUpdateTimer = null;
+            updateJson();
+        }, delay);
+    }
+
     function persistUi() {
+        invalidateEditorPlacementCaches();
         syncMetadataToUi();
         syncInspector();
         renderPlacementList();
@@ -3487,6 +3725,7 @@ import {
 
     function normalizeLoadedLevelPlacements() {
         if (!Array.isArray(state.level.placements)) return;
+        const fallbackCenter = caveWindowCenter(state.level.caveWindow);
         for (const placement of state.level.placements) {
             if (!placement || placement.kind !== "atlasAsset") continue;
             placement.atlasId = placement.atlasId || DEFAULT_ATLAS_ID;
@@ -3495,6 +3734,15 @@ import {
                 placement.collisionFromManifest = false;
                 placement.foregroundBrightness = finiteEditorNumber(placement.foregroundBrightness, decoration.brightness);
                 placement.foregroundSaturation = finiteEditorNumber(placement.foregroundSaturation, decoration.saturation);
+                placement.foregroundFadeStart = Math.max(0, Math.min(0.95, finiteEditorNumber(placement.foregroundFadeStart, 0.05)));
+                placement.foregroundFadeEnd = Math.max(placement.foregroundFadeStart + 0.01, Math.min(1, finiteEditorNumber(placement.foregroundFadeEnd, 0.92)));
+                if (!Number.isFinite(Number(placement.foregroundOutwardX)) || !Number.isFinite(Number(placement.foregroundOutwardY))) {
+                    const outward = foregroundWorldOutwardVector(placement, fallbackCenter);
+                    if (outward) {
+                        placement.foregroundOutwardX = outward.x;
+                        placement.foregroundOutwardY = outward.y;
+                    }
+                }
             } else if (placement.collisionFromManifest === undefined) {
                 placement.collisionFromManifest = hasRuntimeLines(objectFor(placement.assetId, placement.atlasId));
             }
@@ -3770,6 +4018,12 @@ import {
         });
     });
     els.cavePreviewShade.addEventListener("change", draw);
+    els.caveShowGenerated.addEventListener("change", () => {
+        draw();
+        setStatus(els.caveShowGenerated.checked
+            ? "Showing generated cave-perimeter assets in the editor."
+            : "Generated cave-perimeter assets are hidden in the editor only; they remain in the level and game.");
+    });
     [els.caveDecorSeed, els.caveDecorSpacing, els.caveDecorScale, els.caveDecorBrightness].forEach((element) => {
         element.addEventListener("change", () => {
             syncCaveWindowFromUi();
@@ -3883,6 +4137,7 @@ import {
         fitView();
     }
 
+    setupCollapsiblePanels();
     initializeEditor();
 })();
 </script>

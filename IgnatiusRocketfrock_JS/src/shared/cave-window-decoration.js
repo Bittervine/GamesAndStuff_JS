@@ -85,13 +85,13 @@ function scoreCandidate(entry, category) {
     const tags = new Set(Array.isArray(entry.tags) ? entry.tags : []);
     if (category === "floor") {
         if (tags.has("stalagmite")) return 8;
+        if (tags.has("floor")) return entry.frame.w >= 420 ? 2 : 3;
         if (tags.has("rock") || tags.has("rubble")) return 4;
-        if (tags.has("floor") && entry.frame.w <= 420) return 2;
         return 0;
     }
     if (category === "ceiling") {
         if (tags.has("stalactite")) return 8;
-        if (tags.has("ceiling") && entry.frame.w <= 460) return 2;
+        if (tags.has("ceiling")) return entry.frame.w >= 460 ? 2 : 3;
         return 0;
     }
     if (tags.has("wall")) return 8;
@@ -146,6 +146,14 @@ function rotationForCategory(category, tangent) {
     return normalizedAngle(Math.atan2(rightTangent.y, rightTangent.x));
 }
 
+
+export function caveDecorationStep(category, tangentSpan, requestedSpacing) {
+    const spacing = Math.max(80, finiteNumber(requestedSpacing, 250));
+    const categoryFactor = category === "wall" ? 0.86 : 0.68;
+    const coverage = Math.max(48, finiteNumber(tangentSpan, spacing) * 0.76);
+    return clamp(Math.min(spacing * categoryFactor, coverage), 48, spacing);
+}
+
 function uniqueGeneratedId(index) {
     return `cave_fg_auto_${String(index + 1).padStart(3, "0")}`;
 }
@@ -159,34 +167,62 @@ export function generateCavePerimeterPlacements({
     const points = Array.isArray(caveWindow?.points) ? caveWindow.points : [];
     if (points.length < 3) return [];
     const settings = normalizeCaveDecoration(decoration || caveWindow?.decoration);
-    const sampled = sampleClosedCaveSpline(points, 28);
+    const sampled = sampleClosedCaveSpline(points, 40);
     const arc = buildArcSegments(sampled);
     if (arc.totalLength < 1) return [];
     const clockwiseInScreenSpace = signedArea(sampled) >= 0;
-    const count = Math.max(3, Math.round(arc.totalLength / settings.spacing));
-    const actualSpacing = arc.totalLength / count;
     const placements = [];
+    let cursor = 0;
+    let index = 0;
+    const maximumPlacements = Math.max(32, Math.ceil(arc.totalLength / 36));
 
-    for (let index = 0; index < count; index += 1) {
-        const jitter = (randomUnit(settings.seed, index, 1) - 0.5) * actualSpacing * 0.34;
-        const sample = sampleArc(arc, (index + 0.5) * actualSpacing + jitter);
-        if (!sample) continue;
+    while (cursor < arc.totalLength && index < maximumPlacements) {
+        const probe = sampleArc(arc, cursor);
+        if (!probe) break;
+        const probeInward = clockwiseInScreenSpace
+            ? { x: -probe.tangent.y, y: probe.tangent.x }
+            : { x: probe.tangent.y, y: -probe.tangent.x };
+        const probeCategory = categoryForNormal(probeInward);
+        let candidate = chooseCandidate(catalog, probeCategory, settings.seed, index);
+        if (!candidate) {
+            cursor += Math.max(48, settings.spacing * 0.5);
+            index += 1;
+            continue;
+        }
+
+        let scaleVariation = 0.86 + randomUnit(settings.seed, index, 2) * 0.28;
+        let scale = settings.scale * candidate.defaultScale * scaleVariation;
+        let w = candidate.frame.w * scale;
+        let h = candidate.frame.h * scale;
+        let tangentSpan = probeCategory === "wall" ? h : w;
+        let step = caveDecorationStep(probeCategory, tangentSpan, settings.spacing);
+        const jitter = (randomUnit(settings.seed, index, 1) - 0.5) * step * 0.16;
+        const sample = sampleArc(arc, cursor + step * 0.5 + jitter) || probe;
         const inward = clockwiseInScreenSpace
             ? { x: -sample.tangent.y, y: sample.tangent.x }
             : { x: sample.tangent.y, y: -sample.tangent.x };
         const category = categoryForNormal(inward);
-        const candidate = chooseCandidate(catalog, category, settings.seed, index);
-        if (!candidate) continue;
 
-        const scaleVariation = 0.86 + randomUnit(settings.seed, index, 2) * 0.28;
-        const scale = settings.scale * candidate.defaultScale * scaleVariation;
-        const w = candidate.frame.w * scale;
-        const h = candidate.frame.h * scale;
+        if (category !== probeCategory) {
+            candidate = chooseCandidate(catalog, category, settings.seed, index);
+            if (!candidate) {
+                cursor += step;
+                index += 1;
+                continue;
+            }
+            scaleVariation = 0.86 + randomUnit(settings.seed, index, 2) * 0.28;
+            scale = settings.scale * candidate.defaultScale * scaleVariation;
+            w = candidate.frame.w * scale;
+            h = candidate.frame.h * scale;
+            tangentSpan = category === "wall" ? h : w;
+            step = caveDecorationStep(category, tangentSpan, settings.spacing);
+        }
+
         const normalDepth = category === "wall" ? w : h;
         const outward = { x: -inward.x, y: -inward.y };
-        const outwardShift = normalDepth * (0.10 + randomUnit(settings.seed, index, 3) * 0.08);
-        const centerX = sample.x + outward.x * outwardShift;
-        const centerY = sample.y + outward.y * outwardShift;
+        const inwardShift = normalDepth * (0.08 + randomUnit(settings.seed, index, 3) * 0.06);
+        const centerX = sample.x + inward.x * inwardShift;
+        const centerY = sample.y + inward.y * inwardShift;
 
         placements.push({
             id: uniqueGeneratedId(index),
@@ -204,11 +240,18 @@ export function generateCavePerimeterPlacements({
             collisionFromManifest: false,
             foregroundBrightness: settings.brightness,
             foregroundSaturation: settings.saturation,
+            foregroundOutwardX: outward.x,
+            foregroundOutwardY: outward.y,
+            foregroundFadeStart: 0.05,
+            foregroundFadeEnd: 0.92,
             generatedBy: CAVE_PERIMETER_GENERATOR,
             caveCategory: category,
-            order: firstOrder + index,
+            order: firstOrder + placements.length,
             notes: `Automatically generated inert cave-${category} foreground decoration.`
         });
+        cursor += step;
+        index += 1;
     }
     return placements;
 }
+

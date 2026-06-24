@@ -66,6 +66,10 @@ Implementation order:
 4. Render the black exterior, feathered cave opening, and subtle foreground parallax. Completed in revision 137.
 5. **Complete in revision 138:** deterministic floor/wall/ceiling decoration placement from tagged atlas assets.
 6. **Complete in revision 138:** manually and automatically placed dark foreground formations with collision forcibly disabled.
+7. **Complete in revision 139:** Canvas 2D performance pass for dense cave decoration: cached layer partitioning, conservative viewport culling, cached foreground treatment, reduced-resolution mask rendering, and renderer diagnostics.
+8. **Complete in revision 140:** Level Editor performance parity, optional generated-art visibility, adaptive overlap for top/bottom perimeter coverage, and cached outward-to-black sprite fades shared with runtime.
+9. **Complete in revision 141:** tune the default foreground scale/parallax, broaden and ease the black handover, overlap generated art farther into the opening, and prevent starter-spline corner loops.
+10. Validate representative decorated caves on target browsers before deciding whether WebGL2 is necessary. If it is, reuse the same cached visual records, bounds, and draw-order partitions as the backend input model.
 
 ## Intro
 
@@ -1674,3 +1678,40 @@ Cave editing controls now live in the Level Editor's right-side **Cave window an
 
 The runtime draws `caveForeground` after actors and actor-front entity pieces but before the feathered black mask. It applies the same camera-relative parallax as the mask and a dark, slightly desaturated Canvas filter. Both runtime level conversion and atlas-collision hydration reject collision from this layer even if imported data incorrectly enables it. No cave perimeter or foreground placement creates solids, supports, hazards, navigation, or projectile blocking.
 
+### Revision 139 Canvas 2D cave-scene performance pass
+
+Dense perimeter population exposed several avoidable costs in the Canvas renderer. Revision 138 rebuilt three filtered/sorted visual arrays every frame, submitted every environment placement even when it was far outside the viewport, applied a CSS-style Canvas filter separately for every visible foreground object, and rebuilt a full-resolution blurred cave mask every frame. A populated cave therefore magnified presentation overhead without increasing simulation work.
+
+`src/presentation/world-visual-cache.js` now owns presentation-only static visual organization. It partitions and sorts ordinary, actor-front, and cave-foreground records only when the `world.visuals` array identity changes, and precomputes conservative axis-aligned bounds from each placement's rotated rectangle. Terrain, cutout masks, actor-front pieces, and cave-foreground sprites are rejected against an expanded world-space viewport before any Canvas save/translate/rotate/filter/draw work. Foreground culling uses the same parallax offset as drawing, so objects do not pop at the edge when the cave frame moves faster than the playing layer. Targets, pickups, enemies, smoke puffs, and projectiles are also rejected conservatively when outside the expanded viewport; projectile bounds include their visible trails. Fallback collision rectangles and debug labels receive simple viewport rejection as well.
+
+Foreground brightness and saturation are now baked once per atlas frame/treatment/colour-map combination into a small cached canvas. Normal frames draw that cached image without changing the main context's filter state. The cache is invalidated when new atlases arrive or the level colour map changes.
+
+The feathered cave mask now renders at 35% linear resolution, approximately one eighth of the former pixel area, and is upscaled during composition. A stable render key reuses the existing mask while viewport, camera, perimeter, world bounds, feather, parallax, and resolution inputs remain unchanged. Camera movement still invalidates it, preserving correct parallax.
+
+The game debug panel now reports rolling render time, stage timings, real render-to-render frame rate, static and dynamic visuals considered/drawn/culled, foreground-cache hits/misses, and whether the cave mask was reused. This makes the next optimization decision measurable. WebGL2 remains available if representative decorated caves still miss the target after this pass, but it is no longer the first response to work that Canvas should never have been asked to do.
+
+
+### Revision 140 editor performance, adaptive coverage, and black handover
+
+The Level Editor now treats dense generated cave art as a static visual set rather than rebuilding every expensive operation during interaction. It caches the sorted layer split, retains transformed placement bounds, rejects off-screen placements before Canvas work, caches treated foreground frame canvases, suppresses generated-object collision guides and labels unless selected, and defers full pretty-printed JSON serialization until the user pauses. A UI-only **Show generated perimeter assets in editor** checkbox can remove the whole generated frame from the editor canvas without deleting any placement or affecting playtest/export data.
+
+Perimeter spacing is now a maximum instead of an unconditional centre-to-centre distance. Each chosen asset contributes its projected tangent coverage; smaller stalagmites and stalactites therefore receive closer, overlapping placement, while larger floor and ceiling panels remain eligible. Horizontal runs use a denser factor than side walls. Generated records also carry an outward unit vector and fade interval. `src/presentation/foreground-sprite-treatment.js` converts that world vector into local sprite space after rotation/mirroring, darkens/desaturates the atlas frame once, and overlays a linear transparent-to-opaque-black gradient. Both game and editor reuse those cached canvases, while older/manual foreground records fall back to a vector from the cave centre.
+
+
+### Revision 141 cave-window tuning and loop-free starter perimeter
+
+New cave-window records now default to 1.1 foreground parallax and 4× automatic perimeter asset scale. Generated floor, ceiling, and wall decorations are moved slightly inward across the authored spline rather than being centred outside it, giving their readable side more overlap with the cave opening. Their local black handover now spans almost the full sprite depth with a smootherstep-style multi-stop gradient, reaches opaque black at 92%, and leaves a fully black outer cap for a seamless transition into the exterior mask. Re-populating an existing perimeter replaces only generated records and applies the new placement and fade profile.
+
+The world-bounds starter perimeter retains eight editable smooth points, but its rounded-corner radius is larger and its Bezier handles are locally clamped. A very long horizontal or vertical run can no longer pull the neighbouring short corner segment past itself, so the generated spline remains smooth and non-self-intersecting on the wide, shallow bounds used by `level_001`.
+
+
+### Revision 142 practical scale and outside-bounds starter perimeter
+
+The automatic cave-perimeter asset-scale default returns to 2× after playtesting showed that 4× was too large as a general starting value. The 1.1 foreground parallax, inward overlap, broad eased black fade, and fully black outer cap remain unchanged. Existing explicitly authored scale values are preserved; new cave-window records and the disabled `level_001` starter schema use 2×.
+
+**Create from world bounds** now constructs its rounded eight-point spline around the technical bounds instead of inset within them. Its top, right, bottom, and left runs sit 96 world pixels outside the corresponding boundary. Corner segments join tangent points around the original corners, and regression sampling verifies that the closed curve neither enters the declared world area nor intersects itself.
+
+
+### Revision 143 collapsible Level Editor and Asset Tool inspectors
+
+The Level Editor and Asset Tool now match Puppet Forge's right-side inspector ergonomics. Every inspector box has a compact plus/minus control in its primary heading, collapses without changing authored data, and remembers its state independently in local storage. The implementation keeps secondary headings inside a collapsed box hidden, leaving only the primary heading and its accessible expand control visible.

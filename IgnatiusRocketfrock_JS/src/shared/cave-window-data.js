@@ -1,5 +1,5 @@
 const DEFAULT_FEATHER = 180;
-const DEFAULT_PARALLAX = 1.035;
+const DEFAULT_PARALLAX = 1.1;
 const DEFAULT_POINT_MODE = "smooth";
 const DEFAULT_DECORATION = Object.freeze({
     seed: 138,
@@ -74,28 +74,30 @@ export function normalizeCaveWindow(rawWindow) {
     };
 }
 
-export function createCaveWindowPointsFromBounds(bounds, { inset = 96 } = {}) {
+export function createCaveWindowPointsFromBounds(bounds, { margin = 96 } = {}) {
     const x = finiteNumber(bounds?.x, 0);
     const y = finiteNumber(bounds?.y, 0);
     const w = Math.max(1, finiteNumber(bounds?.w, 1));
     const h = Math.max(1, finiteNumber(bounds?.h, 1));
-    const safeInset = Math.max(0, Math.min(finiteNumber(inset, 96), w * 0.24, h * 0.24));
-    const left = x + safeInset;
-    const top = y + safeInset;
-    const right = x + w - safeInset;
-    const bottom = y + h - safeInset;
-    const cornerX = Math.min(Math.max(48, safeInset * 0.55), Math.max(0, (right - left) * 0.25));
-    const cornerY = Math.min(Math.max(48, safeInset * 0.55), Math.max(0, (bottom - top) * 0.25));
+    const safeMargin = Math.max(0, finiteNumber(margin, 96));
+    const left = x;
+    const top = y;
+    const right = x + w;
+    const bottom = y + h;
 
+    // These eight tangent points form a rounded loop around the declared world
+    // bounds. The top/bottom runs sit beyond the bounds by safeMargin, as do
+    // the left/right runs. Corner curves connect those runs around the original
+    // corners, so the starter perimeter never cuts through the playable area.
     return [
-        { id: "cave_point_001", x: left + cornerX, y: top, mode: "smooth" },
-        { id: "cave_point_002", x: right - cornerX, y: top, mode: "smooth" },
-        { id: "cave_point_003", x: right, y: top + cornerY, mode: "smooth" },
-        { id: "cave_point_004", x: right, y: bottom - cornerY, mode: "smooth" },
-        { id: "cave_point_005", x: right - cornerX, y: bottom, mode: "smooth" },
-        { id: "cave_point_006", x: left + cornerX, y: bottom, mode: "smooth" },
-        { id: "cave_point_007", x: left, y: bottom - cornerY, mode: "smooth" },
-        { id: "cave_point_008", x: left, y: top + cornerY, mode: "smooth" }
+        { id: "cave_point_001", x: left, y: top - safeMargin, mode: "smooth" },
+        { id: "cave_point_002", x: right, y: top - safeMargin, mode: "smooth" },
+        { id: "cave_point_003", x: right + safeMargin, y: top, mode: "smooth" },
+        { id: "cave_point_004", x: right + safeMargin, y: bottom, mode: "smooth" },
+        { id: "cave_point_005", x: right, y: bottom + safeMargin, mode: "smooth" },
+        { id: "cave_point_006", x: left, y: bottom + safeMargin, mode: "smooth" },
+        { id: "cave_point_007", x: left - safeMargin, y: bottom, mode: "smooth" },
+        { id: "cave_point_008", x: left - safeMargin, y: top, mode: "smooth" }
     ];
 }
 
@@ -109,6 +111,24 @@ function cubicPoint(a, b, c, d, t) {
     };
 }
 
+function pointDistance(a, b) {
+    return Math.hypot(finiteNumber(b?.x, 0) - finiteNumber(a?.x, 0), finiteNumber(b?.y, 0) - finiteNumber(a?.y, 0));
+}
+
+function smoothSplineControl(point, previous, next, directionSign) {
+    const chordX = finiteNumber(next?.x, 0) - finiteNumber(previous?.x, 0);
+    const chordY = finiteNumber(next?.y, 0) - finiteNumber(previous?.y, 0);
+    const chordLength = Math.hypot(chordX, chordY);
+    if (chordLength <= 0.000001) return { x: point.x, y: point.y };
+
+    const localLimit = Math.min(pointDistance(previous, point), pointDistance(point, next)) * 0.45;
+    const handleLength = Math.min(chordLength / 6, localLimit);
+    return {
+        x: point.x + (chordX / chordLength) * handleLength * directionSign,
+        y: point.y + (chordY / chordLength) * handleLength * directionSign
+    };
+}
+
 export function caveSplineSegmentControls(points, segmentIndex) {
     const count = Array.isArray(points) ? points.length : 0;
     if (count < 2) return null;
@@ -119,10 +139,10 @@ export function caveSplineSegmentControls(points, segmentIndex) {
     const next = points[(index + 2) % count];
     const controlA = start.mode === "corner"
         ? { x: start.x, y: start.y }
-        : { x: start.x + (end.x - previous.x) / 6, y: start.y + (end.y - previous.y) / 6 };
+        : smoothSplineControl(start, previous, end, 1);
     const controlB = end.mode === "corner"
         ? { x: end.x, y: end.y }
-        : { x: end.x - (next.x - start.x) / 6, y: end.y - (next.y - start.y) / 6 };
+        : smoothSplineControl(end, start, next, -1);
     return {
         start: { x: start.x, y: start.y },
         controlA,

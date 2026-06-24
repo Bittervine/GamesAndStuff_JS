@@ -256,6 +256,33 @@
             border-color: rgba(255, 79, 97, 0.38);
         }
 
+
+        .box > h2.panel-collapse-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .panel-collapse-toggle {
+            width: 28px;
+            min-width: 28px;
+            height: 28px;
+            margin: -5px -4px -5px 0;
+            padding: 0;
+            border-radius: 8px;
+            font-size: 15px;
+            line-height: 1;
+        }
+
+        .box.collapsed > :not(.panel-collapse-heading) {
+            display: none !important;
+        }
+
+        .box.collapsed {
+            padding-bottom: 8px;
+        }
+
         @media (max-width: 1050px) {
             main {
                 grid-template-columns: 1fr;
@@ -295,7 +322,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Asset Tool <small>rev 086</small></h1>
+        <h1>Asset Tool <small>rev 143</small></h1>
         <p>
             Cyan boxes are visual islands/assets. Feature lines use shared nodes: green walkable, yellow blockable, orange damaging, red killable.
         </p>
@@ -463,6 +490,72 @@
     };
 
     const STORAGE_KEY = "ignatius_asset_tool_manifest_v1";
+
+    const PANEL_STORAGE_KEY = "ignatiusRocketfrock.assetTool.collapsedPanels.v1";
+
+    function panelKeyFromHeading(heading, index) {
+        const slug = String(heading || `panel-${index + 1}`)
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+        return slug || `panel-${index + 1}`;
+    }
+
+    function readCollapsedPanels() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(PANEL_STORAGE_KEY) || "{}");
+            return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+        } catch {
+            return {};
+        }
+    }
+
+    function writeCollapsedPanels(value) {
+        try {
+            localStorage.setItem(PANEL_STORAGE_KEY, JSON.stringify(value));
+        } catch {
+            // Storage may be unavailable in private or locked-down browser contexts.
+        }
+    }
+
+    function setupCollapsiblePanels() {
+        const remembered = readCollapsedPanels();
+        const panels = [...document.querySelectorAll("aside .box")];
+        panels.forEach((panel, index) => {
+            const heading = panel.querySelector(":scope > h2");
+            if (!heading) {
+                return;
+            }
+            heading.classList.add("panel-collapse-heading");
+            const headingText = heading.textContent.trim();
+            const key = panel.dataset.panelKey || panelKeyFromHeading(headingText, index);
+            panel.dataset.panelKey = key;
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "panel-collapse-toggle";
+            button.setAttribute("aria-label", `Collapse or expand ${headingText}`);
+            heading.appendChild(button);
+
+            const apply = (collapsed) => {
+                panel.classList.toggle("collapsed", collapsed);
+                button.textContent = collapsed ? "+" : "−";
+                button.title = collapsed ? "Expand panel" : "Collapse panel";
+                button.setAttribute("aria-expanded", collapsed ? "false" : "true");
+            };
+            apply(remembered[key] === true);
+            button.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const collapsed = !panel.classList.contains("collapsed");
+                apply(collapsed);
+                const next = readCollapsedPanels();
+                next[key] = collapsed;
+                writeCollapsedPanels(next);
+            });
+        });
+    }
+
     const COLOR = {
         frame: "#56e6ff",
         walkable: "#58ff9e",
@@ -1551,6 +1644,7 @@
     window.getIgnatiusAssetManifest = () => JSON.parse(JSON.stringify(manifest));
     window.getIgnatiusAtlasManifest = window.getIgnatiusAssetManifest;
 
+    setupCollapsiblePanels();
     initialize();
 })();
 </script>

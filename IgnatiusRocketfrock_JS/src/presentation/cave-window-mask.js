@@ -4,6 +4,7 @@ import {
 } from "../shared/cave-window-data.js";
 
 const OPAQUE_BLACK = "rgb(0, 0, 0)";
+export const DEFAULT_CAVE_MASK_RENDER_SCALE = 0.35;
 
 function finiteNumber(value, fallback = 0) {
     const number = Number(value);
@@ -78,63 +79,119 @@ function prepareMaskCanvas(maskCanvas, targetCanvas, width, height) {
     return surface;
 }
 
+function rounded(value, digits = 3) {
+    return finiteNumber(value, 0).toFixed(digits);
+}
+
+export function caveWindowMaskRenderKey(caveWindow, view, worldBounds, renderScale = DEFAULT_CAVE_MASK_RENDER_SCALE) {
+    const cave = normalizeCaveWindow(caveWindow);
+    const bounds = normalizedWorldBounds(worldBounds);
+    const points = cave.points
+        .map((point) => `${point.id || ""}:${rounded(point.x, 2)},${rounded(point.y, 2)},${point.mode || "smooth"}`)
+        .join(";");
+    return [
+        cave.enabled ? 1 : 0,
+        rounded(cave.feather, 2),
+        rounded(cave.parallax, 4),
+        points,
+        Math.max(1, Math.round(finiteNumber(view?.w, 1))),
+        Math.max(1, Math.round(finiteNumber(view?.h, 1))),
+        rounded(view?.x, 3),
+        rounded(view?.y, 3),
+        rounded(view?.zoom, 5),
+        rounded(bounds.x, 2),
+        rounded(bounds.y, 2),
+        rounded(bounds.w, 2),
+        rounded(bounds.h, 2),
+        rounded(renderScale, 3)
+    ].join("|");
+}
+
 export function drawCaveWindowMask({
     targetContext,
     maskCanvas = null,
+    previousRenderKey = "",
     caveWindow,
     view,
-    worldBounds
+    worldBounds,
+    renderScale = DEFAULT_CAVE_MASK_RENDER_SCALE
 }) {
     const cave = normalizeCaveWindow(caveWindow);
     if (!cave.enabled || cave.points.length < 3) {
-        return { drawn: false, maskCanvas, caveWindow: cave, parallaxOffset: { x: 0, y: 0 } };
+        return {
+            drawn: false,
+            reused: false,
+            renderKey: "",
+            maskCanvas,
+            caveWindow: cave,
+            parallaxOffset: { x: 0, y: 0 }
+        };
     }
 
-    const width = Math.max(1, Math.round(finiteNumber(view?.w, targetContext?.canvas?.width || 1)));
-    const height = Math.max(1, Math.round(finiteNumber(view?.h, targetContext?.canvas?.height || 1)));
+    const targetWidth = Math.max(1, Math.round(finiteNumber(view?.w, targetContext?.canvas?.width || 1)));
+    const targetHeight = Math.max(1, Math.round(finiteNumber(view?.h, targetContext?.canvas?.height || 1)));
+    const scale = Math.max(0.2, Math.min(1, finiteNumber(renderScale, DEFAULT_CAVE_MASK_RENDER_SCALE)));
+    const width = Math.max(1, Math.ceil(targetWidth * scale));
+    const height = Math.max(1, Math.ceil(targetHeight * scale));
     const surface = prepareMaskCanvas(maskCanvas, targetContext?.canvas, width, height);
-    const maskContext = surface.getContext("2d");
-    if (!maskContext) {
-        throw new Error("Could not create the cave-window mask context.");
-    }
-
+    const renderKey = caveWindowMaskRenderKey(cave, view, worldBounds, scale);
+    const reused = renderKey === previousRenderKey && surface.width === width && surface.height === height;
     const parallaxOffset = computeCaveWindowParallaxOffset(view, worldBounds, cave.parallax);
-    const featherPixels = Math.max(0, Math.min(Math.max(width, height), cave.feather * Math.max(0.0001, finiteNumber(view?.zoom, 1))));
 
-    maskContext.save();
-    maskContext.setTransform(1, 0, 0, 1, 0, 0);
-    maskContext.globalCompositeOperation = "source-over";
-    maskContext.globalAlpha = 1;
-    maskContext.shadowBlur = 0;
-    maskContext.clearRect(0, 0, width, height);
-    maskContext.fillStyle = OPAQUE_BLACK;
-    maskContext.fillRect(0, 0, width, height);
+    if (!reused) {
+        const maskContext = surface.getContext("2d");
+        if (!maskContext) {
+            throw new Error("Could not create the cave-window mask context.");
+        }
+        const maskView = {
+            ...view,
+            w: width,
+            h: height,
+            zoom: Math.max(0.0001, finiteNumber(view?.zoom, 1)) * scale
+        };
+        const featherPixels = Math.max(
+            0,
+            Math.min(Math.max(width, height), cave.feather * maskView.zoom)
+        );
 
-    maskContext.globalCompositeOperation = "destination-out";
-    maskContext.fillStyle = OPAQUE_BLACK;
-    if (featherPixels > 0.5) {
-        maskContext.shadowColor = "rgba(0, 0, 0, 1)";
-        maskContext.shadowBlur = featherPixels;
-        maskContext.shadowOffsetX = 0;
-        maskContext.shadowOffsetY = 0;
-        traceCaveWindowPath(maskContext, cave.points, view, parallaxOffset);
+        maskContext.save();
+        maskContext.setTransform(1, 0, 0, 1, 0, 0);
+        maskContext.globalCompositeOperation = "source-over";
+        maskContext.globalAlpha = 1;
+        maskContext.shadowBlur = 0;
+        maskContext.clearRect(0, 0, width, height);
+        maskContext.fillStyle = OPAQUE_BLACK;
+        maskContext.fillRect(0, 0, width, height);
+
+        maskContext.globalCompositeOperation = "destination-out";
+        maskContext.fillStyle = OPAQUE_BLACK;
+        if (featherPixels > 0.5) {
+            maskContext.shadowColor = "rgba(0, 0, 0, 1)";
+            maskContext.shadowBlur = featherPixels;
+            maskContext.shadowOffsetX = 0;
+            maskContext.shadowOffsetY = 0;
+            traceCaveWindowPath(maskContext, cave.points, maskView, parallaxOffset);
+            maskContext.fill();
+        }
+
+        maskContext.shadowBlur = 0;
+        maskContext.shadowColor = "rgba(0, 0, 0, 0)";
+        traceCaveWindowPath(maskContext, cave.points, maskView, parallaxOffset);
         maskContext.fill();
+        maskContext.restore();
     }
-
-    maskContext.shadowBlur = 0;
-    maskContext.shadowColor = "rgba(0, 0, 0, 0)";
-    traceCaveWindowPath(maskContext, cave.points, view, parallaxOffset);
-    maskContext.fill();
-    maskContext.restore();
 
     targetContext.save();
     targetContext.globalCompositeOperation = "source-over";
     targetContext.globalAlpha = 1;
-    targetContext.drawImage(surface, 0, 0);
+    targetContext.imageSmoothingEnabled = true;
+    targetContext.drawImage(surface, 0, 0, width, height, 0, 0, targetWidth, targetHeight);
     targetContext.restore();
 
     return {
         drawn: true,
+        reused,
+        renderKey,
         maskCanvas: surface,
         caveWindow: cave,
         parallaxOffset

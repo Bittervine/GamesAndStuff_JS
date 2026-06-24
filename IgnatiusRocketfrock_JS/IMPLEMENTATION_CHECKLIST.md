@@ -61,7 +61,12 @@ Goal: make each level read as a window into a larger cavern without coupling pre
 * [x] Add deterministic perimeter decoration using tagged floor, wall, ceiling, stalagmite, and stalactite atlas assets. Revision 138 samples the spline by arc length and selects assets deterministically from an authored seed.
 * [x] Add a foreground placement layer drawn after actors. Revision 138 adds manual and generated `caveForeground` placements before the cave mask.
 * [x] Force manifest collision and gameplay attributes off for every foreground placement. Revision 138 enforces this in editor normalization, inspector edits, runtime conversion, and atlas collision hydration.
-* [x] Darken and slightly desaturate foreground artwork so occlusion reads as depth rather than a gameplay obstacle. Revision 138 applies authored brightness and saturation filters with shared cave parallax.
+* [x] Darken and slightly desaturate foreground artwork so occlusion reads as depth rather than a gameplay obstacle. Revision 138 applies authored brightness and saturation with shared cave parallax; revision 140 caches the treatment and adds an outward fade to opaque black.
+* [x] Let the Level Editor hide generated perimeter art without deleting it, while keeping shown art responsive through culling, frame caches, cached ordering/bounds, and deferred JSON serialization. Revision 140.
+* [x] Treat perimeter spacing as a maximum and adapt it to sprite coverage so floor and ceiling decorations overlap instead of leaving visible gaps. Revision 140.
+* [x] Default new cave windows to 1.1 parallax and 2× generated asset scale. Parallax was tuned in revision 141; scale returned to 2× in revision 142.
+* [x] Shift generated perimeter decorations inward across the spline and use a broad eased fade with a fully black outward cap. Revision 141.
+* [x] Clamp smooth spline handles and regress the wide world-bounds starter loop against self-intersection. Revision 141.
 
 Revision 137 completes runtime masking and perimeter parallax without touching collision. The next implementation revision should add deterministic, presentation-only perimeter decoration from tagged atlas assets.
 
@@ -1178,3 +1183,65 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Force foreground collision off in editor output, inspector conversion, runtime level conversion, and manifest collision hydration.
 - [x] Add deterministic generator, render-order, toolbar-placement, and collision-boundary regression coverage.
 
+
+### Revision 139 Canvas 2D cave-scene performance
+
+- [x] Add `src/presentation/world-visual-cache.js` for one-time layer partitioning/sorting and conservative rotated placement bounds.
+- [x] Cull terrain, cutout masks, actor-front visuals, and cave-foreground visuals against an expanded viewport before Canvas transforms and image submission.
+- [x] Include the cave parallax offset when culling foreground records.
+- [x] Cull off-screen targets, pickups, enemies, smoke puffs, and projectiles; include projectile trails in conservative bounds.
+- [x] Stop allocating and sorting ordinary, actor-front, and cave-foreground visual arrays every frame.
+- [x] Cache darkened/desaturated foreground atlas frames by frame, treatment, and colour-map key instead of applying a filter per placement per frame.
+- [x] Invalidate foreground frame caches when environment atlases or the level colour map change.
+- [x] Render the blurred cave mask at 35% linear resolution and upscale during composition.
+- [x] Reuse the cave mask while camera, viewport, world bounds, perimeter, feather, parallax, and render scale are unchanged.
+- [x] Add renderer stage timings, real render-to-render FPS, static/dynamic cull/draw counts, foreground-cache counts, and mask reuse status to the debug panel.
+- [x] Add regression coverage for layer partitioning, rotated bounds, parallax-aware culling, mask render-key invalidation, reduced mask resolution, and diagnostic integration.
+- [ ] Validate a representative populated cave on the user's target browsers and record the achieved frame rate before beginning WebGL2 work.
+- [ ] If Canvas 2D still misses the target, design the WebGL2 backend around the same cached visual records, bounds, and layer partitions rather than duplicating scene organization.
+
+### Revision 140 Level Editor cave-performance and visual handover
+
+- [x] Add a UI-only checkbox that hides generated `cavePerimeter` placements in the Level Editor without mutating level data.
+- [x] Cache Level Editor placement ordering and layer partitioning between structural edits.
+- [x] Cache conservative rotated placement bounds and reject off-screen assets before Canvas transforms or image submission.
+- [x] Stop applying `ctx.filter` per foreground placement in the Level Editor; reuse cached treated frame canvases.
+- [x] Suppress guides and labels for generated perimeter objects unless the object is selected.
+- [x] Defer full pretty-printed level JSON serialization until interaction pauses.
+- [x] Reinterpret authored perimeter spacing as a maximum and reduce actual spacing according to chosen sprite coverage.
+- [x] Use denser overlap on floor and ceiling runs than on walls.
+- [x] Allow large tagged floor and ceiling panels to participate in deterministic generation.
+- [x] Store an outward fade vector and fade interval on generated foreground placements.
+- [x] Add `src/presentation/foreground-sprite-treatment.js` and share cached brightness, saturation, and outward-to-black treatment between game and editor.
+- [x] Preserve backward compatibility for earlier/manual foreground placements through a cave-centre outward-vector fallback.
+- [x] Add regressions for dense horizontal coverage, deterministic output, fade metadata, editor visibility controls, viewport culling, frame caching, and deferred serialization.
+
+
+### Revision 141 cave-window tuning and starter-spline safety
+
+- [x] Change the normalized cave-window parallax default from 1.035 to 1.1.
+- [x] Tune automatic perimeter decoration scale, then restore the practical default to 2× after playtesting. Revision 142.
+- [x] Update the disabled `level_001` cave schema to carry the new defaults without enabling or inventing a perimeter.
+- [x] Place generated foreground art 8–14% of its normal depth inside the spline rather than outside it.
+- [x] Broaden generated/manual foreground fade defaults to 5–92% of sprite depth.
+- [x] Replace the two-stop linear black overlay with a smootherstep-style multi-stop gradient and retain a fully black outer cap.
+- [x] Increase the starter rounded-corner radius and clamp smooth Bezier handles to the shorter adjacent segment.
+- [x] Add regression coverage proving the wide default starter spline does not cross itself.
+- [x] Preserve deterministic generation and the non-colliding cave-foreground contract.
+
+### Revision 142 outside-bounds starter perimeter
+
+- [x] Restore the automatic cave-perimeter asset-scale default to 2×.
+- [x] Create the starter cave spline outside the technical world bounds with a 96-pixel margin on every side.
+- [x] Keep the rounded starter loop smooth, non-self-intersecting, and entirely outside the declared world area.
+- [x] Update `level_001`, editor status text, architecture notes, and regression coverage.
+
+
+### Revision 143 collapsible editor inspectors
+
+- [x] Add per-panel collapse controls to the Level Editor right-side inspector.
+- [x] Add per-panel collapse controls to the Asset Tool right-side inspector.
+- [x] Remember collapse state independently for each editor through local storage.
+- [x] Keep only the primary heading and accessible expand button visible while collapsed.
+- [x] Preserve all authored data and exported JSON regardless of inspector visibility.
+- [x] Add regression coverage for all three editors' collapse controls and persistence hooks.
