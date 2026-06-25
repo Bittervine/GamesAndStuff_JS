@@ -228,7 +228,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "159-thought-tail-alignment",
+            build: "168-rigged-bat-puppet",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -2193,11 +2193,16 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         const requestedStrategy = String(entity.strategy || "").trim().toLowerCase();
         const strategy = requestedStrategy === "hunter"
             ? "hunter"
-            : requestedStrategy === "sentry"
+            : requestedStrategy === "bomber"
+                ? "bomber"
+                : requestedStrategy === "sentry"
                 ? "sentry"
                 : requestedStrategy === "simple_patrol"
                     ? "simple_patrol"
                     : (legacyBehavior === "patrol" ? "simple_patrol" : "sentry");
+        const locomotion = String(entity.locomotion || "").trim().toLowerCase() === "flying"
+            ? "flying"
+            : "ground";
         const isSimplePatrol = strategy === "simple_patrol";
         const patrolDistance = Math.max(0, finiteNumberOr(entity.patrolDistance, 0));
         const idleDuration = Math.max(0, finiteNumberOr(entity.idleDuration, 1.1));
@@ -2221,7 +2226,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             animationTimeOffset: Number(entity.animationTimeOffset) || 0,
             facing,
             strategy,
-            aiState: health <= 0 ? "dead" : (strategy === "hunter" ? "patrol" : strategy),
+            locomotion,
+            aiState: health <= 0 ? "dead" : (locomotion === "flying" ? "fly" : (strategy === "hunter" ? "patrol" : strategy)),
             engaged: false,
             patrolDistance,
             patrolMinX: x - patrolDistance * 0.5,
@@ -2240,7 +2246,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             routeTargetX: null,
             routeRepathTimer: 0,
             navigationFailureCount: 0,
-            airborne: false,
+            airborne: locomotion === "flying",
             velocityX: 0,
             velocityY: 0,
             groundVelocityX: 0,
@@ -2278,8 +2284,29 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             maxStepHeight: Math.max(0, finiteNumberOr(entity.maxStepHeight, 26)),
             maxDropDistance: Math.max(0, finiteNumberOr(entity.maxDropDistance, 34)),
             groundSnapDistance: Math.max(0, finiteNumberOr(entity.groundSnapDistance, 96)),
-            movementPhase: health <= 0 ? "dead" : (isSimplePatrol && patrolDistance > 0 ? "idle" : "guard"),
-            phaseTimer: isSimplePatrol && patrolDistance > 0 ? idleDuration : 0,
+            movementPhase: health <= 0 ? "dead" : (locomotion === "flying" ? "fly" : (isSimplePatrol && patrolDistance > 0 ? "idle" : "guard")),
+            phaseTimer: locomotion === "flying" ? 0 : (isSimplePatrol && patrolDistance > 0 ? idleDuration : 0),
+            flightBaseY: y,
+            flightTime: Math.max(0, finiteNumberOr(entity.flightTime, 0)),
+            flightPhaseOffset: finiteNumberOr(entity.flightPhaseOffset, 0),
+            flightAmplitude: Math.max(0, finiteNumberOr(entity.flightAmplitude, 16)),
+            flightCyclesPerSecond: Math.max(0, finiteNumberOr(entity.flightCyclesPerSecond, 0.58)),
+            bomberHorizontalSpeed: Math.max(0, finiteNumberOr(entity.bomberHorizontalSpeed, finiteNumberOr(entity.runSpeed, 150))),
+            bomberHoverHeight: Math.max(16, finiteNumberOr(entity.bomberHoverHeight, 180)),
+            bomberDropTolerance: Math.max(1, finiteNumberOr(entity.bomberDropTolerance, 34)),
+            bomberRetreatDistance: Math.max(0, finiteNumberOr(entity.bomberRetreatDistance, 120)),
+            bomberDropTimer: Math.max(0, finiteNumberOr(entity.bomberInitialDelay, 0.4)),
+            bomberState: strategy === "bomber" ? "perched" : null,
+            bomberPerchX: x,
+            bomberPerchY: y,
+            deathFlightSpeed: Math.max(1, finiteNumberOr(entity.deathFlightSpeed, 520)),
+            deathFlightLift: Math.max(0, finiteNumberOr(entity.deathFlightLift, 210)),
+            deathFlightGravity: finiteNumberOr(entity.deathFlightGravity, 90),
+            deathFlyOffDistance: Math.max(1, finiteNumberOr(entity.deathFlyOffDistance, 720)),
+            deathFlightStarted: false,
+            deathFlightStartX: x,
+            deathFlightStartY: y,
+            deathFlightDirection: facing,
             hurtDuration: Math.max(FIXED_DT, finiteNumberOr(entity.hurtDuration, state.tuning.enemyDefaultHurtSeconds)),
             deathDuration: Math.max(FIXED_DT, finiteNumberOr(entity.deathDuration, state.tuning.enemyDefaultDeathSeconds)),
             attackDamage: Math.max(0, finiteNumberOr(entity.attackDamage, state.tuning.enemyDefaultAttackDamage)),
@@ -2328,6 +2355,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             lastDamagedAt: null,
             lastHitBy: null,
             renderScale: Math.max(0.05, Number(entity.renderScale) || 1),
+            renderOffsetX: Number(entity.renderOffsetX) || 0,
+            renderOffsetY: Number(entity.renderOffsetY) || 0,
             visualized: false,
             targetAnchorX: anchorX,
             targetAnchorY: anchorY,
@@ -2581,7 +2610,7 @@ function snapCharacterEnemiesToNearbyGround(state) {
     const snapped = [];
     const sourceEntities = state.world?.entities || [];
     for (const enemy of state.enemies || []) {
-        if (!isCharacterEnemyState(enemy)) {
+        if (!isCharacterEnemyState(enemy) || enemy.locomotion === "flying") {
             continue;
         }
         const support = findCharacterEnemyGroundSupport(
@@ -2952,7 +2981,13 @@ function launchCharacterEnemyProjectile(state, enemy) {
     let lifetime = Math.max(FIXED_DT, Number(enemy.projectileLifetime) || 1);
     let trail = [];
 
-    if (launchType === "ballistic") {
+    if (launchType === "drop") {
+        vx = finiteNumberOr(enemy.velocityX, 0) * 0.18;
+        vy = Math.max(0, Number(enemy.projectileSpeed) || 40);
+        gravity = Math.max(1, Number(enemy.projectileGravity) || 900);
+        homingStrength = 0;
+        radius = Math.max(5, radius);
+    } else if (launchType === "ballistic") {
         const ballistic = solveCharacterEnemyBallisticVelocity(enemy, origin, target);
         gravity = ballistic?.gravity || gravity || 980;
         const launchSpeed = ballistic?.launchSpeed || Math.max(1, Number(enemy.projectileSpeed) || 1);
@@ -2989,7 +3024,11 @@ function launchCharacterEnemyProjectile(state, enemy) {
         frameId: enemy.projectileFrameId,
         projectilePartName: enemy.projectilePartName,
         launchType,
-        kind: projectileKind === "musketBall" || launchType === "ballistic" ? "enemyMusketBall" : "enemyFireball",
+        kind: projectileKind === "musketBall" || launchType === "ballistic"
+            ? "enemyMusketBall"
+            : projectileKind === "rock" || projectileKind === "bomb"
+                ? "enemyRock"
+                : "enemyFireball",
         state: "launched",
         x: origin.x,
         y: origin.y,
@@ -4776,6 +4815,194 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
     syncCharacterEnemyTarget(state, enemy);
 }
 
+function updateFlyingCharacterEnemy(state, enemy, dt) {
+    enemy.supportId = null;
+    enemy.ridingPlatformId = null;
+    enemy.currentSupportId = null;
+    enemy.airborne = true;
+    enemy.flightTime = Math.max(0, Number(enemy.flightTime) || 0) + Math.max(0, Number(dt) || 0);
+
+    if ((Number(enemy.hurtTimer) || 0) > 0) {
+        enemy.hurtTimer = Math.max(0, enemy.hurtTimer - dt);
+        enemy.combatState = ENEMY_COMBAT_STATE.HURT;
+    } else if (enemy.combatState === ENEMY_COMBAT_STATE.HURT) {
+        enemy.combatState = ENEMY_COMBAT_STATE.ALIVE;
+    }
+
+    const amplitude = Math.max(0, Number(enemy.flightAmplitude) || 0);
+    const cycles = Math.max(0, Number(enemy.flightCyclesPerSecond) || 0);
+    const phase = (enemy.flightTime * cycles + (Number(enemy.flightPhaseOffset) || 0)) * Math.PI * 2;
+
+    if (enemy.strategy === "bomber") {
+        const player = state.player;
+        const seesPlayer = characterEnemyCanNoticePlayer(state, enemy);
+        if (seesPlayer) {
+            enemy.awarenessTimer = Math.max(
+                FIXED_DT,
+                Number(enemy.awarenessHoldDuration) || state.tuning.enemyDefaultAwarenessHoldSeconds || 1.2
+            );
+        } else {
+            enemy.awarenessTimer = Math.max(0, (Number(enemy.awarenessTimer) || 0) - dt);
+        }
+
+        const active = seesPlayer || enemy.awarenessTimer > 0;
+        const horizontalSpeed = Math.max(0, Number(enemy.bomberHorizontalSpeed) || Number(enemy.walkSpeed) || 0);
+        const tolerance = Math.max(1, Number(enemy.bomberDropTolerance) || 34);
+        const perchX = finiteNumberOr(enemy.bomberPerchX, enemy.spawnX);
+        const perchY = finiteNumberOr(enemy.bomberPerchY, enemy.spawnY);
+
+        if (!active) {
+            const patrolDistance = Math.max(0, Number(enemy.patrolDistance) || 0);
+            const patrolHalf = patrolDistance * 0.5;
+            const patrolMinX = perchX - patrolHalf;
+            const patrolMaxX = perchX + patrolHalf;
+            const outsidePerchArea = enemy.x < patrolMinX - 4 || enemy.x > patrolMaxX + 4 || Math.abs(enemy.y - perchY) > 12;
+            if (outsidePerchArea) {
+                const dxHome = perchX - enemy.x;
+                const dyHome = perchY - enemy.y;
+                const distanceHome = Math.hypot(dxHome, dyHome);
+                const step = Math.min(distanceHome, horizontalSpeed * dt);
+                const nx = distanceHome > 0 ? dxHome / distanceHome : 0;
+                const ny = distanceHome > 0 ? dyHome / distanceHome : 0;
+                enemy.x += nx * step;
+                enemy.y += ny * step;
+                enemy.velocityX = nx * horizontalSpeed;
+                enemy.velocityY = ny * horizontalSpeed;
+                if (Math.abs(dxHome) > 0.001) enemy.facing = dxHome < 0 ? -1 : 1;
+                enemy.bomberState = "returning";
+                enemy.movementPhase = "return_to_perch";
+                enemy.aiState = "return_to_perch";
+            } else if (patrolDistance > 0) {
+                const patrolSpeed = Math.max(0, Number(enemy.walkSpeed) || horizontalSpeed * 0.5);
+                const direction = Number(enemy.facing) < 0 ? -1 : 1;
+                let nextX = enemy.x + direction * patrolSpeed * dt;
+                if (nextX <= patrolMinX) {
+                    nextX = patrolMinX;
+                    enemy.facing = 1;
+                } else if (nextX >= patrolMaxX) {
+                    nextX = patrolMaxX;
+                    enemy.facing = -1;
+                }
+                enemy.x = nextX;
+                enemy.y = perchY + Math.sin(phase) * amplitude;
+                enemy.velocityX = (Number(enemy.facing) < 0 ? -1 : 1) * patrolSpeed;
+                enemy.velocityY = 0;
+                enemy.bomberState = "perch_patrol";
+                enemy.movementPhase = "perch_patrol";
+                enemy.aiState = "perch_patrol";
+            } else {
+                enemy.x = perchX;
+                enemy.y = perchY;
+                enemy.velocityX = 0;
+                enemy.velocityY = 0;
+                enemy.bomberState = "perched";
+                enemy.movementPhase = "perched";
+                enemy.aiState = "perched";
+            }
+            enemy.alerted = false;
+        } else {
+            const targetX = Number(player?.x) || enemy.x;
+            const targetY = (Number(player?.y) || perchY) - Math.max(16, Number(enemy.bomberHoverHeight) || 180);
+            const dx = targetX - enemy.x;
+            const dy = targetY - enemy.y;
+            const distance = Math.hypot(dx, dy);
+            const step = Math.min(distance, horizontalSpeed * dt);
+            const nx = distance > 0 ? dx / distance : 0;
+            const ny = distance > 0 ? dy / distance : 0;
+            enemy.x += nx * step;
+            enemy.y += ny * step;
+            enemy.velocityX = nx * horizontalSpeed;
+            enemy.velocityY = ny * horizontalSpeed;
+            if (Math.abs(dx) > 0.001) enemy.facing = dx < 0 ? -1 : 1;
+            enemy.bomberDropTimer = Math.max(0, (Number(enemy.bomberDropTimer) || 0) - dt);
+            const verticallyAbove = enemy.y < (Number(player?.y) || enemy.y) - 24;
+            if (Math.abs(dx) <= tolerance && verticallyAbove && enemy.bomberDropTimer <= 0) {
+                enemy.projectileLaunchType = "drop";
+                enemy.attackMode = "projectile";
+                const projectile = launchCharacterEnemyProjectile(state, enemy);
+                if (projectile) {
+                    addEvent(state, "ENEMY_PROJECTILE_FIRED", {
+                        enemyId: enemy.id,
+                        projectileId: projectile.id,
+                        projectileKind: projectile.kind,
+                        projectilePartName: projectile.projectilePartName,
+                        launchType: projectile.launchType,
+                        x: round(projectile.x),
+                        y: round(projectile.y)
+                    });
+                }
+                enemy.bomberDropTimer = Math.max(0.1, Number(enemy.projectileCooldown) || 1.4);
+            }
+            enemy.bomberState = "attacking";
+            enemy.movementPhase = "bombing_run";
+            enemy.aiState = "bomber";
+            enemy.alerted = true;
+        }
+    } else {
+        const speed = Math.max(0, Number(enemy.walkSpeed) || 0);
+        const patrolDistance = Math.max(0, Number(enemy.patrolDistance) || 0);
+        if (speed > 0 && patrolDistance > 0) {
+            const direction = Number(enemy.facing) < 0 ? -1 : 1;
+            const patrolMinX = finiteNumberOr(enemy.patrolMinX, enemy.spawnX - patrolDistance * 0.5);
+            const patrolMaxX = finiteNumberOr(enemy.patrolMaxX, enemy.spawnX + patrolDistance * 0.5);
+            let nextX = enemy.x + direction * speed * dt;
+            if (nextX <= patrolMinX) {
+                nextX = patrolMinX;
+                enemy.facing = 1;
+            } else if (nextX >= patrolMaxX) {
+                nextX = patrolMaxX;
+                enemy.facing = -1;
+            }
+            enemy.x = nextX;
+        }
+        enemy.y = finiteNumberOr(enemy.flightBaseY, enemy.spawnY) + Math.sin(phase) * amplitude;
+        enemy.velocityX = (Number(enemy.facing) < 0 ? -1 : 1) * speed;
+        enemy.velocityY = Math.cos(phase) * amplitude * cycles * Math.PI * 2;
+        enemy.movementPhase = "fly";
+        enemy.aiState = "fly";
+        enemy.alerted = false;
+    }
+    setCharacterEnemyAnimation(enemy, "fly");
+    syncCharacterEnemyTarget(state, enemy);
+}
+
+function beginDeadFlyingCharacterEnemy(state, enemy) {
+    if (enemy.deathFlightStarted) {
+        return;
+    }
+    const playerDx = (Number(enemy.x) || 0) - (Number(state.player?.x) || 0);
+    const direction = Math.abs(playerDx) > 1
+        ? (playerDx < 0 ? -1 : 1)
+        : (Number(enemy.facing) < 0 ? -1 : 1);
+    enemy.deathFlightStarted = true;
+    enemy.deathFlightStartX = Number(enemy.x) || 0;
+    enemy.deathFlightStartY = Number(enemy.y) || 0;
+    enemy.deathFlightDirection = direction;
+    enemy.facing = direction;
+    enemy.velocityX = direction * Math.max(1, Number(enemy.deathFlightSpeed) || 520);
+    enemy.velocityY = -Math.max(0, Number(enemy.deathFlightLift) || 210);
+    enemy.renderOpacity = 1;
+}
+
+function updateDeadFlyingCharacterEnemy(state, enemy, dt) {
+    beginDeadFlyingCharacterEnemy(state, enemy);
+    enemy.deathElapsed = Math.max(0, Number(enemy.deathElapsed) || 0) + Math.max(0, Number(dt) || 0);
+    enemy.x += (Number(enemy.velocityX) || 0) * dt;
+    enemy.y += (Number(enemy.velocityY) || 0) * dt;
+    enemy.velocityY = (Number(enemy.velocityY) || 0) + (Number(enemy.deathFlightGravity) || 0) * dt;
+    enemy.movementPhase = "death_fly_off";
+    enemy.aiState = "dead";
+    enemy.airborne = true;
+    setCharacterEnemyAnimation(enemy, "fly");
+
+    const distance = Math.hypot(
+        enemy.x - finiteNumberOr(enemy.deathFlightStartX, enemy.spawnX),
+        enemy.y - finiteNumberOr(enemy.deathFlightStartY, enemy.spawnY)
+    );
+    enemy.renderOpacity = distance >= Math.max(1, Number(enemy.deathFlyOffDistance) || 720) ? 0 : 1;
+    syncCharacterEnemyTarget(state, enemy);
+}
+
 function updateDeadCharacterEnemyPhysics(state, enemy, dt) {
     if ((Number(enemy.deathTimer) || 0) > 0) {
         return;
@@ -4877,6 +5104,10 @@ function updateCharacterEnemies(state, dt) {
             enemy.attackLungeRemaining = 0;
             enemy.attackHitApplied = false;
             enemy.deathTimer = Math.max(0, (Number(enemy.deathTimer) || 0) - dt);
+            if (enemy.locomotion === "flying") {
+                updateDeadFlyingCharacterEnemy(state, enemy, dt);
+                continue;
+            }
             updateDeadCharacterEnemyPhysics(state, enemy, dt);
             updateDeadEnemyPresentation(state, enemy, dt);
             setCharacterEnemyAnimation(enemy, "death");
@@ -4886,6 +5117,11 @@ function updateCharacterEnemies(state, dt) {
 
         enemy.deathElapsed = 0;
         enemy.renderOpacity = 1;
+
+        if (enemy.locomotion === "flying") {
+            updateFlyingCharacterEnemy(state, enemy, dt);
+            continue;
+        }
 
         if (enemy.combatState === ENEMY_COMBAT_STATE.ATTACKING || (Number(enemy.attackTimer) || 0) > 0) {
             updateCharacterEnemyAttack(state, enemy, dt);

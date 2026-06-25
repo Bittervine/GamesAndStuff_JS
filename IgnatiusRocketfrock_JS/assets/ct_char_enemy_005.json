@@ -1,0 +1,14 @@
+{
+    "meta": {
+        "version": 3,
+        "note": "Revision 172 retained bombing bat with 22-frame flight animation and atlas-authored rock projectile."
+    },
+    "characterId": "ct_char_enemy_005",
+    "displayName": "Bombing Bat",
+    "rig": "ct_rig_enemy_005.json",
+    "defaultFacing": "right",
+    "mirrorable": true,
+    "animationMap": {
+        "fly": "ct_anim_enemy_005_fly.json"
+    }
+}

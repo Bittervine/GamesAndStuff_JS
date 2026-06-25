@@ -53,7 +53,8 @@ const DEFAULT_CHARACTER_URL = "assets/ct_char_wizard_1.json";
 const KNOWN_ENEMY_CHARACTER_URLS = [
     "assets/ct_char_enemy_001.json",
     "assets/ct_char_enemy_002.json",
-    "assets/ct_char_enemy_003.json"
+    "assets/ct_char_enemy_003.json",
+    "assets/ct_char_enemy_005.json"
 ];
 
 const ENVIRONMENT_ATLAS_MANIFEST_CANDIDATES = [
@@ -1170,9 +1171,11 @@ class RocketfrockRenderer {
         if (renderOpacity <= 0) {
             return;
         }
-        const screen = this.worldToScreen(view, enemy.x, enemy.y);
         const actorScale = Math.max(0.05, Number(enemy.renderScale) || 1);
         const facing = Number(enemy.facing) < 0 ? -1 : 1;
+        const renderOffsetX = (Number(enemy.renderOffsetX) || 0) * facing;
+        const renderOffsetY = Number(enemy.renderOffsetY) || 0;
+        const screen = this.worldToScreen(view, enemy.x + renderOffsetX, enemy.y + renderOffsetY);
         const requestedSlot = enemy.animationSlot || enemy.state || "idle";
         const time = Number.isFinite(Number(enemy.animationTime))
             ? Number(enemy.animationTime)
@@ -1186,7 +1189,9 @@ class RocketfrockRenderer {
         const flash = clamp((Number(enemy.hitFlashTimer) || 0) / flashDuration, 0, 1);
         this.ctx.save();
         this.ctx.globalAlpha *= renderOpacity;
-        this.drawShadow(screen.x, screen.y, view.zoom * actorScale * 0.72);
+        if (enemy.locomotion !== "flying") {
+            this.drawShadow(screen.x, screen.y, view.zoom * actorScale * 0.72);
+        }
         if (flash > 0) {
             this.ctx.filter = `brightness(${1 + flash * 1.9}) saturate(${1 - flash * 0.72})`;
         }
@@ -1496,12 +1501,15 @@ class RocketfrockRenderer {
                 this.drawProjectileFireball(projectile, state, view);
             } else if (projectile.kind === "enemyMusketBall") {
                 this.drawProjectileMusketBall(projectile, state, view);
+            } else if (projectile.kind === "enemyRock") {
+                this.drawProjectileRock(projectile, state, view);
             } else {
                 this.drawProjectileRocket(projectile, state, view);
             }
             this.markDynamicDrawn();
         }
     }
+
 
     drawProjectileRocket(projectile, state, view) {
         const asset = this.assets.get("rocket");
@@ -1523,6 +1531,45 @@ class RocketfrockRenderer {
         ctx.scale(spriteScale, spriteScale);
         ctx.drawImage(asset.canvas, -pivot.x * asset.width, -pivot.y * asset.height);
         drawRocketFlameLocal(ctx, asset, pivot, state.clock.time + projectile.age * 11, 0.55, projectile.id.length * 13);
+        ctx.restore();
+    }
+
+
+    drawProjectileRock(projectile, state, view) {
+        const ctx = this.ctx;
+        const p = this.worldToScreen(view, projectile.x, projectile.y);
+        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_005", projectile.frameId || "rock") ||
+            this.getCharacterAtlasFrame("ct_char_enemy_005", "rock");
+        if (asset && !asset.missing) {
+            const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2.35 * view.zoom;
+            const spriteScale = targetHeight / Math.max(1, asset.height);
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate((Number(projectile.age) || 0) * 5 + projectile.x * 0.01);
+            ctx.scale(spriteScale, spriteScale);
+            ctx.drawImage(asset.canvas, -asset.width * 0.5, -asset.height * 0.5);
+            ctx.restore();
+            return;
+        }
+
+        const radius = Math.max(4, Number(projectile.radius) || 10) * view.zoom;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate((Number(projectile.age) || 0) * 5 + projectile.x * 0.01);
+        ctx.beginPath();
+        for (let i = 0; i < 8; i += 1) {
+            const angle = i / 8 * Math.PI * 2;
+            const wobble = i % 2 === 0 ? 1 : 0.78;
+            const x = Math.cos(angle) * radius * wobble;
+            const y = Math.sin(angle) * radius * wobble;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = "#5b5360";
+        ctx.strokeStyle = "#241f27";
+        ctx.lineWidth = Math.max(1, 2 * view.zoom);
+        ctx.fill();
+        ctx.stroke();
         ctx.restore();
     }
 

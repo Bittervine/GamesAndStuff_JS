@@ -166,6 +166,8 @@ Hunters remember their original support and patrol interval. Planning first trie
 
 Movement capability and behaviour flavour are enemy-archetype/runtime data, not character-art data. The enemy catalog and level entity may author `strategy`, `walkSpeed`, `runSpeed`, `jumpHeight`, `jumpGravity`, `maxFallDistance`, `awarenessRange`, `awarenessViewHalfAngle`, `unreachableGlareDuration`, `routeRepathInterval`, and `homeRetryInterval`. Awareness is independent of collision geometry: blockable and walkable level shapes may obstruct movement or an actual attack, but they do not hide Ignatius. First notice is controlled only by radial distance and the monster's facing cone, which currently defaults to ±60 degrees in the enemy catalog. Older `behavior` and `chaseSpeed` inputs are normalized once into `strategy` and `runSpeed`; current authored data and runtime state do not retain them. Legacy `awarenessVerticalRange` is ignored and discarded. Character JSON remains concerned with rig, animation, and projectile handoff, preserving the presentation/gameplay boundary.
 
+Revision 167 adds `locomotion: "flying"` as an orthogonal movement qualifier rather than a new strategy. Portable simulation owns the deterministic horizontal patrol, vertical bobbing, target synchronization, and death fly-off distance. Flying enemies do not ground-snap, acquire moving-platform support IDs, use terrain sweeps for voluntary patrol motion, or enter the support-graph navigation system. The Level Editor preserves the authored field and exempts these records from its automatic ground snap. Rendering only suppresses the ordinary ground shadow and presents the same character-project draw commands as every other enemy.
+
 ## Enemy Puppet Guide boundary
 
 Revision 126 adds an off-by-default game-view Puppet Guide for enemies. It is presentation-only and may visualize the movement body, projectile hurtbox, awareness cone, melee or ranged attack window, target anchor, patrol span, remembered last-seen position, route, and current AI state. The toggle lives in `gameState.debug.showPuppetGuide`; it must not alter simulation decisions.
@@ -175,6 +177,8 @@ Exact collision rectangles shared with gameplay come from `src/shared/actor-geom
 ## Character rig ownership boundary
 
 A rig JSON file is the sole authority for its parts, pivots, anchors, draw order, setup offsets, scale, and tags. Character definitions reference one rig and may map animation slots or select an active projectile part, but they do not patch rig geometry. Variants that require different pivots or setup data use distinct numbered rig files, even when they reuse the same atlas. Puppet Forge and the browser runtime both load the referenced rig directly, so saved pivot values cannot be silently replaced by character data.
+
+The retained Atlas 004 and Atlas 005 bats use still-frame animation inside this existing boundary. Each isolated atlas frame is an ordinary rig part, all parts share a stable eye registration point, and a looping clip uses step-keyed alpha tracks so one part is visible at a time. Atlas 005 preserves all 22 supplied frames in authored row order. No renderer special case or second animation format is involved.
 
 ## Character ground and editor-guide boundary
 
@@ -383,3 +387,13 @@ The cave decoration generator treats the band between the editable opening and t
 Revision 164 varies primary cave-perimeter penetration deterministically between 50% and 75% of each formation's normal depth. The variation is derived from the existing decoration seed and arc index, so regeneration remains stable. Radial coverage geometry and painter ordering are unchanged.
 
 - Enemy combat awareness: player-owned projectile damage immediately alerts and engages surviving character enemies, records Ignatius's impact-time position, and forces hunter AI back into pursuit.
+
+## Revision 168 articulated bat data
+
+The wing parts use explicit `leftWing` and `rightWing` names but carry arm-like roles and tags so Puppet Forge can treat them as manipulable limb controls without imposing humanoid animation inheritance. Flying movement and death escape remain portable state in `src/core/simulation.js`; the character files contain only visual identity and animation mapping. The renderer's known-project list merely ensures the character is decoded before first use.
+
+## Revision 170 enemy type defaults and bomber strategy
+`character-editor.html` loads `assets/ct_enemies_001.json` alongside known enemy character projects and exposes both common type fields and the complete defaults object. Browser security means saving is an explicit JSON download rather than silent source-tree mutation. Portable bomber movement and projectile release live in `src/core/simulation.js`; catalogs select the behavior with `defaults.strategy = "bomber"` and `defaults.locomotion = "flying"`.
+
+## Revision 171 perched bomber lifecycle
+Flying enemies using `strategy: "bomber"` store their spawn point as `bomberPerchX/Y`. Their runtime state cycles between `perched`, `bomber`, and `return_to_perch`, using the same authored awareness range and view cone as grounded enemies. Dropped rocks use the normal projectile collision pipeline with the dedicated `enemyRock` kind and a procedural renderer, so no additional image asset is required.

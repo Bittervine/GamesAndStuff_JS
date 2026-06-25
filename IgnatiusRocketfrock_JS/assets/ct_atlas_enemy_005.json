@@ -1,0 +1,429 @@
+{
+    "meta": {
+        "version": 4,
+        "note": "Revision 172 preserves the 22 authored bat animation frames and adds the rock projectile embedded in the supplied atlas."
+    },
+    "atlasId": "ct_atlas_enemy_005",
+    "image": "ct_atlas_enemy_005.png",
+    "frames": {
+        "frame_01": {
+            "x": 51,
+            "y": 0,
+            "w": 212,
+            "h": 147
+        },
+        "frame_02": {
+            "x": 398,
+            "y": 0,
+            "w": 212,
+            "h": 147
+        },
+        "frame_03": {
+            "x": 735,
+            "y": 6,
+            "w": 231,
+            "h": 141
+        },
+        "frame_04": {
+            "x": 1067,
+            "y": 19,
+            "w": 260,
+            "h": 126
+        },
+        "frame_05": {
+            "x": 1400,
+            "y": 38,
+            "w": 289,
+            "h": 106
+        },
+        "frame_06": {
+            "x": 1736,
+            "y": 55,
+            "w": 311,
+            "h": 88
+        },
+        "frame_07": {
+            "x": 0,
+            "y": 362,
+            "w": 319,
+            "h": 88
+        },
+        "frame_08": {
+            "x": 357,
+            "y": 359,
+            "w": 308,
+            "h": 107
+        },
+        "frame_09": {
+            "x": 727,
+            "y": 358,
+            "w": 268,
+            "h": 139
+        },
+        "frame_10": {
+            "x": 1106,
+            "y": 357,
+            "w": 206,
+            "h": 167
+        },
+        "frame_11": {
+            "x": 1483,
+            "y": 356,
+            "w": 146,
+            "h": 178
+        },
+        "frame_12": {
+            "x": 1840,
+            "y": 354,
+            "w": 123,
+            "h": 182
+        },
+        "frame_13": {
+            "x": 105,
+            "y": 663,
+            "w": 122,
+            "h": 174
+        },
+        "frame_14": {
+            "x": 447,
+            "y": 663,
+            "w": 132,
+            "h": 164
+        },
+        "frame_15": {
+            "x": 786,
+            "y": 663,
+            "w": 146,
+            "h": 160
+        },
+        "frame_16": {
+            "x": 1123,
+            "y": 664,
+            "w": 163,
+            "h": 159
+        },
+        "frame_17": {
+            "x": 1457,
+            "y": 665,
+            "w": 191,
+            "h": 150
+        },
+        "frame_18": {
+            "x": 1788,
+            "y": 666,
+            "w": 225,
+            "h": 132
+        },
+        "frame_19": {
+            "x": 32,
+            "y": 977,
+            "w": 265,
+            "h": 101
+        },
+        "frame_20": {
+            "x": 365,
+            "y": 976,
+            "w": 287,
+            "h": 91
+        },
+        "frame_21": {
+            "x": 708,
+            "y": 968,
+            "w": 291,
+            "h": 101
+        },
+        "frame_22": {
+            "x": 1060,
+            "y": 956,
+            "w": 277,
+            "h": 114
+        },
+        "rock": {
+            "x": 1833,
+            "y": 962,
+            "w": 60,
+            "h": 56
+        }
+    },
+    "objects": {
+        "frame_01": {
+            "id": "frame_01",
+            "frame": "frame_01",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_02": {
+            "id": "frame_02",
+            "frame": "frame_02",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_03": {
+            "id": "frame_03",
+            "frame": "frame_03",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_04": {
+            "id": "frame_04",
+            "frame": "frame_04",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_05": {
+            "id": "frame_05",
+            "frame": "frame_05",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_06": {
+            "id": "frame_06",
+            "frame": "frame_06",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_07": {
+            "id": "frame_07",
+            "frame": "frame_07",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_08": {
+            "id": "frame_08",
+            "frame": "frame_08",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_09": {
+            "id": "frame_09",
+            "frame": "frame_09",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_10": {
+            "id": "frame_10",
+            "frame": "frame_10",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_11": {
+            "id": "frame_11",
+            "frame": "frame_11",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_12": {
+            "id": "frame_12",
+            "frame": "frame_12",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_13": {
+            "id": "frame_13",
+            "frame": "frame_13",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_14": {
+            "id": "frame_14",
+            "frame": "frame_14",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_15": {
+            "id": "frame_15",
+            "frame": "frame_15",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_16": {
+            "id": "frame_16",
+            "frame": "frame_16",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_17": {
+            "id": "frame_17",
+            "frame": "frame_17",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_18": {
+            "id": "frame_18",
+            "frame": "frame_18",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_19": {
+            "id": "frame_19",
+            "frame": "frame_19",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_20": {
+            "id": "frame_20",
+            "frame": "frame_20",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_21": {
+            "id": "frame_21",
+            "frame": "frame_21",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        },
+        "frame_22": {
+            "id": "frame_22",
+            "frame": "frame_22",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas005"
+            ]
+        }
+    },
+    "assets": {
+        "rock": {
+            "id": "rock",
+            "frame": "rock",
+            "type": "projectile",
+            "layer": "projectile",
+            "mirrorable": false,
+            "tags": [
+                "bat",
+                "projectile",
+                "rock",
+                "atlas005"
+            ]
+        }
+    }
+}

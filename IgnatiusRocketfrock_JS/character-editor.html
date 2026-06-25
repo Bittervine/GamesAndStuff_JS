@@ -656,11 +656,12 @@
             <div class="dock-options">
                 <label class="check-row"><input id="loop" type="checkbox" checked> Cykle animation</label>
                 <label class="check-row"><input id="show-full-dopesheet" type="checkbox"> Show full dopesheet</label>
+                <label class="check-row"><input id="apply-preview-alpha" type="checkbox"> Apply alpha values in preview</label>
             </div>
         </section>
     </div>
     <aside>
-        <h1>Puppet Forge <small>rev 146</small></h1>
+        <h1>Puppet Forge <small>rev 177</small></h1>
         <p><a href="index.html">Back to tools</a></p>
         <p>
             Atlas-backed rig and keyframe editor. The preview now samples the same animation JSON module as the game, so edits are made in rig-space values rather than a second procedural imitation.
@@ -681,6 +682,7 @@
                 <div class="dirty-item"><span>Atlas</span><strong id="dirty-atlas">saved</strong></div>
                 <div class="dirty-item"><span>Rig</span><strong id="dirty-rig">saved</strong></div>
                 <div class="dirty-item"><span>Animations</span><strong id="dirty-animations">saved</strong></div>
+                <div class="dirty-item"><span>Enemy catalog</span><strong id="dirty-enemy-catalog">saved</strong></div>
             </div>
             <div class="inline-readout">
                 <span>View zoom: <strong id="zoom-value">100%</strong></span>
@@ -698,6 +700,7 @@
                     <option value="enemy_001">Enemy 001: Skeleton Guard</option>
                     <option value="enemy_002">Enemy 002: Fireball Goblin</option>
                     <option value="enemy_003">Enemy 003: Musket Goblin</option>
+                    <option value="enemy_005">Enemy 005: Bombing Bat</option>
                 </select>
             </label>
             <div class="row">
@@ -710,6 +713,41 @@
             </label>
             <button id="load-character-url" type="button">Load character URL</button>
             <p id="project-source" class="project-source">URL project: assets/ct_char_wizard_1.json</p>
+        </section>
+
+
+
+        <section class="box" id="enemy-type-panel">
+            <h2>Enemy type defaults</h2>
+            <p id="enemy-type-help">Load a known enemy project to edit its entry in <code>ct_enemies_001.json</code>. These are type-wide defaults, not one placed level instance.</p>
+            <div class="row">
+                <label><span>Label</span><input id="enemy-label" type="text"></label>
+                <label><span>Icon</span><input id="enemy-icon" type="text" maxlength="4"></label>
+            </div>
+            <label><span>Description</span><textarea id="enemy-description" rows="3"></textarea></label>
+            <div class="row">
+                <label><span>Default hitbox width</span><input id="enemy-default-width" type="number" min="1" step="1"></label>
+                <label><span>Default hitbox height</span><input id="enemy-default-height" type="number" min="1" step="1"></label>
+            </div>
+            <div class="row">
+                <label><span>Default render scale</span><input id="enemy-render-scale" type="number" min="0.01" step="0.01"></label>
+                <label><span>Health</span><input id="enemy-health" type="number" min="0" step="1"></label>
+            </div>
+            <div class="row">
+                <label><span>Artwork offset X</span><input id="enemy-render-offset-x" type="number" step="1"></label>
+                <label><span>Artwork offset Y</span><input id="enemy-render-offset-y" type="number" step="1"></label>
+            </div>
+            <p>The cyan rectangle in the preview is the default gameplay hitbox. Artwork offset X/Y moves the rendered puppet relative to that box without changing animation keys. Positive X moves it toward its facing direction; positive Y moves it downward.</p>
+            <div class="row">
+                <label><span>Locomotion</span><select id="enemy-locomotion"><option value="ground">Ground</option><option value="flying">Flying</option></select></label>
+                <label><span>AI strategy</span><select id="enemy-strategy"><option value="simple_patrol">Simple patrol</option><option value="sentry">Sentry</option><option value="hunter">Hunter</option><option value="bomber">Bomber</option></select></label>
+            </div>
+            <label><span>All defaults JSON</span><textarea id="enemy-defaults-json" rows="16" spellcheck="false"></textarea></label>
+            <div class="row">
+                <button id="apply-enemy-defaults" type="button">Apply enemy defaults</button>
+                <button id="refresh-enemy-defaults" type="button">Refresh fields</button>
+            </div>
+            <p>Bomber enemies wait at their placed perch until Ignatius enters their awareness cone, then fly overhead, drop a rock, and return after losing him. Useful fields include <code>bomberHorizontalSpeed</code>, <code>bomberHoverHeight</code>, <code>bomberDropTolerance</code>, <code>projectileCooldown</code>, <code>projectileSpeed</code>, <code>projectileGravity</code>, <code>projectileDamage</code>, and <code>projectileRadius</code>.</p>
         </section>
 
         <section class="box">
@@ -797,7 +835,6 @@
                 <button id="mirror" type="button">Facing: right</button>
                 <button id="reload" type="button">Reload files</button>
             </div>
-            <label class="check-row"><input id="apply-preview-alpha" type="checkbox"> Apply alpha values in preview</label>
             <label class="check-row"><input id="animation-mirrorable" type="checkbox" checked> Animation may be mirrored</label>
             <p>With alpha preview on, parts use their in-game opacity. With it off, the selected part is fully opaque while other parts are ghosted between 10% and 50%, making rear and hidden parts easier to position and select.</p>
             <div class="row">
@@ -899,6 +936,17 @@
             <p>Pivot and target height define shared sprite geometry. Setup offsets and base scale are still used by the current procedural airborne poses and as rig defaults, but a data-driven clip such as Run supplies its own absolute X, Y, and scale values while that clip is playing.</p>
         </section>
 
+
+        <section class="box" id="enemy-catalog-json-panel">
+            <h2>Enemy Catalog JSON</h2>
+            <p>This is the complete <code>ct_enemies_001.json</code> document. The visual enemy-default controls above edit the selected entry in this JSON.</p>
+            <textarea id="enemy-catalog-json" spellcheck="false"></textarea>
+            <div class="row three">
+                <button id="apply-enemy-catalog-json" type="button">Apply JSON</button>
+                <button id="refresh-enemy-catalog-json" type="button">Reset</button>
+                <button id="download-enemy-catalog" type="button">Download</button>
+            </div>
+        </section>
 
         <section class="box">
             <h2>Character JSON</h2>
@@ -1057,9 +1105,30 @@ const els = {
     projectSource: document.getElementById("project-source"),
     editorMode: document.getElementById("editor-mode"),
     dirtyCharacter: document.getElementById("dirty-character"),
+    enemyTypePanel: document.getElementById("enemy-type-panel"),
+    enemyLabel: document.getElementById("enemy-label"),
+    enemyIcon: document.getElementById("enemy-icon"),
+    enemyDescription: document.getElementById("enemy-description"),
+    enemyDefaultWidth: document.getElementById("enemy-default-width"),
+    enemyDefaultHeight: document.getElementById("enemy-default-height"),
+    enemyRenderScale: document.getElementById("enemy-render-scale"),
+    enemyRenderOffsetX: document.getElementById("enemy-render-offset-x"),
+    enemyRenderOffsetY: document.getElementById("enemy-render-offset-y"),
+    enemyHealth: document.getElementById("enemy-health"),
+    enemyLocomotion: document.getElementById("enemy-locomotion"),
+    enemyStrategy: document.getElementById("enemy-strategy"),
+    enemyDefaultsJson: document.getElementById("enemy-defaults-json"),
+    applyEnemyDefaults: document.getElementById("apply-enemy-defaults"),
+    refreshEnemyDefaults: document.getElementById("refresh-enemy-defaults"),
+    enemyCatalogJsonPanel: document.getElementById("enemy-catalog-json-panel"),
+    enemyCatalogJson: document.getElementById("enemy-catalog-json"),
+    applyEnemyCatalogJson: document.getElementById("apply-enemy-catalog-json"),
+    refreshEnemyCatalogJson: document.getElementById("refresh-enemy-catalog-json"),
+    downloadEnemyCatalog: document.getElementById("download-enemy-catalog"),
     dirtyAtlas: document.getElementById("dirty-atlas"),
     dirtyRig: document.getElementById("dirty-rig"),
     dirtyAnimations: document.getElementById("dirty-animations"),
+    dirtyEnemyCatalog: document.getElementById("dirty-enemy-catalog"),
     projectFiles: document.getElementById("project-files"),
     projectDirectory: document.getElementById("project-directory"),
     characterFile: document.getElementById("character-file"),
@@ -1163,12 +1232,16 @@ const KNOWN_PROJECTS = Object.freeze({
     wizard: "assets/ct_char_wizard_1.json",
     enemy_001: "assets/ct_char_enemy_001.json",
     enemy_002: "assets/ct_char_enemy_002.json",
-    enemy_003: "assets/ct_char_enemy_003.json"
+    enemy_003: "assets/ct_char_enemy_003.json",
+    enemy_005: "assets/ct_char_enemy_005.json"
 });
 const PANEL_STORAGE_KEY = "ignatiusRocketfrock.characterEditor.collapsedPanels.v1";
 
 const state = {
     character: null,
+    enemyCatalog: null,
+    enemyCatalogUrl: "assets/ct_enemies_001.json",
+    selectedEnemyId: null,
     characterUrl: "assets/ct_char_wizard_1.json",
     projectMode: "url",
     projectLabel: "Ignatius Rocketfrock",
@@ -1228,6 +1301,7 @@ function updateDirtySummary() {
     set(els.dirtyCharacter, summary.character);
     set(els.dirtyAtlas, summary.atlas);
     set(els.dirtyRig, summary.rig);
+    set(els.dirtyEnemyCatalog, summary.enemyCatalog);
     set(
         els.dirtyAnimations,
         summary.animations.length > 0,
@@ -1467,6 +1541,122 @@ function drawOrder() {
     return state.rig?.parts ? Object.keys(state.rig.parts) : [];
 }
 
+async function ensureEnemyCatalog() {
+    if (!state.enemyCatalog) {
+        state.enemyCatalog = await loadJson(state.enemyCatalogUrl);
+    }
+    return state.enemyCatalog;
+}
+
+function currentEnemyDefinition() {
+    return state.selectedEnemyId && state.enemyCatalog?.enemies
+        ? state.enemyCatalog.enemies[state.selectedEnemyId] || null
+        : null;
+}
+
+function refreshEnemyCatalogJson() {
+    if (!els.enemyCatalogJson) return;
+    els.enemyCatalogJson.value = state.enemyCatalog ? JSON.stringify(state.enemyCatalog, null, 4) : "";
+}
+
+async function applyEnemyCatalogJson() {
+    let catalog;
+    try {
+        catalog = JSON.parse(els.enemyCatalogJson.value || "{}");
+    } catch (error) {
+        throw new Error(`Enemy catalog JSON is invalid: ${error.message}`);
+    }
+    if (!catalog || typeof catalog !== "object" || Array.isArray(catalog) || !catalog.enemies || typeof catalog.enemies !== "object") {
+        throw new Error("Enemy catalog JSON must be an object with an enemies object.");
+    }
+    state.enemyCatalog = catalog;
+    markDirty("enemyCatalog");
+    await selectEnemyDefinitionForCharacter();
+    refreshEnemyCatalogJson();
+    setStatus("Applied ct_enemies_001.json. Download it to save the edited catalog.");
+}
+
+function refreshEnemyTypeFields() {
+    const definition = currentEnemyDefinition();
+    const enabled = Boolean(definition);
+    for (const control of [els.enemyLabel, els.enemyIcon, els.enemyDescription, els.enemyDefaultWidth, els.enemyDefaultHeight, els.enemyRenderScale, els.enemyRenderOffsetX, els.enemyRenderOffsetY, els.enemyHealth, els.enemyLocomotion, els.enemyStrategy, els.enemyDefaultsJson, els.applyEnemyDefaults, els.refreshEnemyDefaults]) {
+        if (control) control.disabled = !enabled;
+    }
+    if (els.enemyCatalogJsonPanel) els.enemyCatalogJsonPanel.hidden = !state.enemyCatalog;
+    if (els.enemyCatalogJson) els.enemyCatalogJson.disabled = !state.enemyCatalog;
+    if (els.applyEnemyCatalogJson) els.applyEnemyCatalogJson.disabled = !state.enemyCatalog;
+    if (els.refreshEnemyCatalogJson) els.refreshEnemyCatalogJson.disabled = !state.enemyCatalog;
+    if (els.downloadEnemyCatalog) els.downloadEnemyCatalog.disabled = !state.enemyCatalog;
+    refreshEnemyCatalogJson();
+    if (!definition) {
+        els.enemyDefaultsJson.value = "";
+        return;
+    }
+    const defaults = definition.defaults && typeof definition.defaults === "object" ? definition.defaults : {};
+    els.enemyLabel.value = String(definition.label || "");
+    els.enemyIcon.value = String(definition.icon || "");
+    els.enemyDescription.value = String(definition.description || "");
+    els.enemyDefaultWidth.value = Number(definition.defaultSize?.w) || 1;
+    els.enemyDefaultHeight.value = Number(definition.defaultSize?.h) || 1;
+    els.enemyRenderScale.value = Number(defaults.renderScale) || 1;
+    els.enemyRenderOffsetX.value = Number(defaults.renderOffsetX) || 0;
+    els.enemyRenderOffsetY.value = Number(defaults.renderOffsetY) || 0;
+    els.enemyHealth.value = Number(defaults.health) || 0;
+    els.enemyLocomotion.value = String(defaults.locomotion || "ground");
+    els.enemyStrategy.value = String(defaults.strategy || "simple_patrol");
+    els.enemyDefaultsJson.value = JSON.stringify(defaults, null, 4);
+}
+
+function applyEnemyTypeFields() {
+    const definition = currentEnemyDefinition();
+    if (!definition) return;
+    let defaults;
+    try {
+        defaults = JSON.parse(els.enemyDefaultsJson.value || "{}");
+    } catch (error) {
+        throw new Error(`Enemy defaults JSON is invalid: ${error.message}`);
+    }
+    if (!defaults || typeof defaults !== "object" || Array.isArray(defaults)) {
+        throw new Error("Enemy defaults JSON must be an object.");
+    }
+    definition.label = String(els.enemyLabel.value || state.selectedEnemyId);
+    definition.icon = String(els.enemyIcon.value || "");
+    definition.description = String(els.enemyDescription.value || "");
+    definition.defaultSize = {
+        w: Math.max(1, Number(els.enemyDefaultWidth.value) || 1),
+        h: Math.max(1, Number(els.enemyDefaultHeight.value) || 1)
+    };
+    defaults.renderScale = Math.max(0.01, Number(els.enemyRenderScale.value) || 1);
+    defaults.renderOffsetX = Number(els.enemyRenderOffsetX.value) || 0;
+    defaults.renderOffsetY = Number(els.enemyRenderOffsetY.value) || 0;
+    defaults.health = Math.max(0, Number(els.enemyHealth.value) || 0);
+    defaults.locomotion = String(els.enemyLocomotion.value || "ground");
+    defaults.strategy = String(els.enemyStrategy.value || "simple_patrol");
+    definition.defaults = defaults;
+    state.enemyCatalog.meta = state.enemyCatalog.meta || {};
+    state.enemyCatalog.meta.version = Math.max(1, Number(state.enemyCatalog.meta.version) || 1) + 1;
+    refreshEnemyTypeFields();
+    refreshEnemyCatalogJson();
+    markDirty("enemyCatalog");
+    setStatus(`Applied type-wide defaults for ${state.selectedEnemyId}. Download ct_enemies_001.json to save them.`);
+}
+
+async function selectEnemyDefinitionForCharacter() {
+    state.selectedEnemyId = null;
+    if (!state.character?.characterId || state.character.characterId === "ct_char_wizard_1") {
+        refreshEnemyTypeFields();
+        return;
+    }
+    const catalog = await ensureEnemyCatalog();
+    for (const [enemyId, definition] of Object.entries(catalog.enemies || {})) {
+        if (String(definition.characterId || "") === String(state.character.characterId)) {
+            state.selectedEnemyId = enemyId;
+            break;
+        }
+    }
+    refreshEnemyTypeFields();
+}
+
 async function loadCharacter() {
     state.generatedAnimations.clear();
     state.animationCache.clear();
@@ -1497,6 +1687,7 @@ async function loadCharacter() {
         clearAnimationState();
     }
     refreshAllJsonEditors();
+    await selectEnemyDefinitionForCharacter();
     updateProjectSource();
     setStatus(`Loaded ${state.character.characterId}\nRig: ${state.rigUrl}\nAtlas: ${state.atlasUrl}\nImage: ${state.imageUrl}${imageWarning}`);
 }
@@ -2450,7 +2641,11 @@ function isTransformEditMode() {
 }
 
 function animationPreviewScale() {
-    return Number(state.rig?.global?.scale ?? 1) * 1.9;
+    const definition = currentEnemyDefinition();
+    const authoredScale = definition
+        ? Math.max(0.01, Number(els.enemyRenderScale?.value) || Number(definition.defaults?.renderScale) || 1)
+        : 1;
+    return Number(state.rig?.global?.scale ?? 1) * 1.9 * authoredScale;
 }
 
 function currentViewTransform() {
@@ -3758,6 +3953,10 @@ function renderedPose() {
         return null;
     }
     const globalScale = animationPreviewScale();
+    const definition = currentEnemyDefinition();
+    const defaults = definition?.defaults || {};
+    const renderOffsetX = definition ? (Number(els.enemyRenderOffsetX?.value) || 0) : (Number(defaults.renderOffsetX) || 0);
+    const renderOffsetY = definition ? (Number(els.enemyRenderOffsetY?.value) || 0) : (Number(defaults.renderOffsetY) || 0);
     const result = {};
     for (const name of drawOrder()) {
         const local = pose[name] || { x: 0, y: 0, rotation: 0, scale: 1, alpha: 1 };
@@ -3766,8 +3965,8 @@ function renderedPose() {
             continue;
         }
         result[name] = {
-            x: Number(local.x || 0) * globalScale,
-            y: Number(local.y || 0) * globalScale,
+            x: Number(local.x || 0) * globalScale + renderOffsetX * state.facing,
+            y: Number(local.y || 0) * globalScale + renderOffsetY,
             angle: Number(local.rotation || 0),
             targetHeight: Number(part.targetHeight || 100) * globalScale * Number(local.scale ?? 1),
             alpha: Number(local.alpha ?? 1)
@@ -4106,6 +4305,30 @@ function resetStageView() {
     updateReadouts();
 }
 
+function drawEnemyHitboxGuide() {
+    const definition = currentEnemyDefinition();
+    if (!definition || state.editorMode !== "animation") {
+        return;
+    }
+    const width = Math.max(1, Number(els.enemyDefaultWidth?.value) || Number(definition.defaultSize?.w) || 1);
+    const height = Math.max(1, Number(els.enemyDefaultHeight?.value) || Number(definition.defaultSize?.h) || 1);
+    const view = currentViewTransform();
+    const left = view.originX - width * view.zoom * 0.5;
+    const top = view.originY - height * view.zoom;
+    ctx.save();
+    ctx.fillStyle = "rgba(70, 220, 255, 0.08)";
+    ctx.strokeStyle = "rgba(70, 220, 255, 0.95)";
+    ctx.lineWidth = 2 * stagePixelScale();
+    ctx.setLineDash([8 * stagePixelScale(), 5 * stagePixelScale()]);
+    ctx.fillRect(left, top, width * view.zoom, height * view.zoom);
+    ctx.strokeRect(left, top, width * view.zoom, height * view.zoom);
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(130, 235, 255, 0.95)";
+    ctx.font = `${12 * stagePixelScale()}px system-ui, sans-serif`;
+    ctx.fillText(`${Math.round(width)} × ${Math.round(height)} hitbox`, left + 6 * stagePixelScale(), top + 16 * stagePixelScale());
+    ctx.restore();
+}
+
 function render(now) {
     const dt = Math.min(0.05, Math.max(0, (now - state.lastTime) / 1000));
     state.lastTime = now;
@@ -4143,6 +4366,7 @@ function render(now) {
             }
         }
         ctx.restore();
+        drawEnemyHitboxGuide();
         if (pose) {
             drawSelectionOverlay(pose);
         }
@@ -4157,6 +4381,57 @@ function formatValue(value) {
 
 function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
+}
+
+els.applyEnemyDefaults.addEventListener("click", () => {
+    try { applyEnemyTypeFields(); } catch (error) { setStatus(error.stack || error.message); }
+});
+els.refreshEnemyDefaults.addEventListener("click", refreshEnemyTypeFields);
+els.applyEnemyCatalogJson.addEventListener("click", () => {
+    applyEnemyCatalogJson().catch(error => setStatus(error.stack || error.message));
+});
+els.refreshEnemyCatalogJson.addEventListener("click", () => {
+    refreshEnemyCatalogJson();
+    setStatus("Reset the Enemy Catalog JSON editor to the currently applied catalog.");
+});
+els.downloadEnemyCatalog.addEventListener("click", () => {
+    if (!state.enemyCatalog) return;
+    try {
+        if (currentEnemyDefinition()) {
+            applyEnemyTypeFields();
+        }
+        downloadJson("ct_enemies_001.json", state.enemyCatalog);
+        markClean("enemyCatalog");
+        setStatus("Downloaded ct_enemies_001.json with the current enemy-type fields and JSON edits.");
+    } catch (error) {
+        setStatus(error.stack || error.message);
+    }
+});
+for (const input of [els.enemyLabel, els.enemyIcon, els.enemyDescription, els.enemyDefaultWidth, els.enemyDefaultHeight, els.enemyRenderScale, els.enemyRenderOffsetX, els.enemyRenderOffsetY, els.enemyHealth, els.enemyLocomotion, els.enemyStrategy]) {
+    input.addEventListener("input", () => {
+        const definition = currentEnemyDefinition();
+        if (!definition) return;
+        try {
+            const defaults = JSON.parse(els.enemyDefaultsJson.value || "{}");
+            definition.label = String(els.enemyLabel.value || state.selectedEnemyId);
+            definition.icon = String(els.enemyIcon.value || "");
+            definition.description = String(els.enemyDescription.value || "");
+            definition.defaultSize = {
+                w: Math.max(1, Number(els.enemyDefaultWidth.value) || 1),
+                h: Math.max(1, Number(els.enemyDefaultHeight.value) || 1)
+            };
+            defaults.renderScale = Math.max(0.01, Number(els.enemyRenderScale.value) || 1);
+            defaults.renderOffsetX = Number(els.enemyRenderOffsetX.value) || 0;
+            defaults.renderOffsetY = Number(els.enemyRenderOffsetY.value) || 0;
+            defaults.health = Math.max(0, Number(els.enemyHealth.value) || 0);
+            defaults.locomotion = String(els.enemyLocomotion.value || "ground");
+            defaults.strategy = String(els.enemyStrategy.value || "simple_patrol");
+            definition.defaults = defaults;
+            els.enemyDefaultsJson.value = JSON.stringify(defaults, null, 4);
+            refreshEnemyCatalogJson();
+            markDirty("enemyCatalog");
+        } catch (_) {}
+    });
 }
 
 els.loadKnownProject.addEventListener("click", () => {

@@ -1415,7 +1415,7 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Keep moving-platform geometry out of editor-baked enemy navigation while preserving runtime collision IDs.
 - [x] Rebuild `level_001` hunter navigation against the updated static-support contract.
 - [x] Add regressions for signal-triggered platforms, lever toggling, key collection/consumption, one-shot keyholes, interaction bindings, and editor wiring.
-- [ ] Add enemy riding and deliberate moving-platform navigation semantics.
+- [x] Add enemy riding and deliberate moving-platform navigation semantics.
 - [ ] Add crushing/depenetration rules for actors trapped by kinematic platforms.
 - [ ] Derive a gameplay kill boundary from the cave full-black guide and defeat Ignatius after crossing it.
 
@@ -1448,4 +1448,93 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 
 - [x] Randomize each innermost generated perimeter formation to place 50-75% of its normal depth inside the opening, deterministically from the existing seed. Revision 164.
 
+## Revision 166 damage-triggered awareness
+
 - [x] Damage from Ignatius immediately alerts the damaged enemy, even outside its normal awareness cone or range.
+
+## Revision 167 experimental frame-swapped flying bats
+
+- [x] Isolate every substantial transparent component in candidate atlases 004-007, remove neighboring-frame bleed, and repack the cleaned images as numbered atlas frames.
+- [x] Register each candidate frame on the visible eye so wing motion does not drag the bat's head around the screen.
+- [x] Build numbered rig projects that stack atlas frames as ordinary parts.
+- [x] Build looping `fly` clips with step-keyed alpha tracks and exactly one visible frame at a time.
+- [x] Reorder candidate sequences and omit obvious duplicates/disruptive frames where atlas order is unsuitable.
+- [x] Add `enemy_004` through `enemy_007` to the explicit enemy catalog and Puppet Forge known-project selector.
+- [x] Add portable `locomotion: "flying"` patrol and bobbing without ground snapping or support-graph navigation.
+- [x] Add flying-enemy death escape that continues flapping, travels away from Ignatius, and hides after an authored fly-off distance.
+- [x] Suppress the grounded character shadow for flying enemies.
+- [x] Add regression coverage for all four runtime projects, single-frame visibility, flying patrol, no support identity, and death fly-off.
+- [x] Narrow the original four-candidate trial by retaining Atlas 004 and removing discarded Atlas 006 and Atlas 007 projects.
+- [ ] Add a dedicated still-frame animation authoring mode only if the retained result proves the workflow will be reused.
+
+## Revision 168 four-part rigged bat puppet
+
+- [x] Crop `ct_atlas_enemy_008.png` into transparent head, body, left-wing, and right-wing atlas frames without altering the supplied pixels.
+- [x] Build `ct_rig_enemy_008.json` with a deliberate rear-to-front draw order and shoulder-claw wing pivots.
+- [x] Classify the two wings as wing parts and arm-like puppet controls while retaining explicit left/right wing names.
+- [x] Author a looping `ct_anim_enemy_008_fly.json` clip with opposing wing rotations plus small head/body recoil.
+- [x] Register `enemy_008` in Puppet Forge, the runtime character preload list, and the enemy catalog.
+- [x] Reuse portable flying patrol, bobbing, one-hit health, and death fly-off behaviour rather than adding bat-specific simulation code.
+- [x] Add regression coverage for four-part loading, authored pivots, opposing flap rotations, recoil, draw order, and non-alpha-swapped rendering.
+- [ ] Playtest the rigged bat beside the frame-swapped candidates and decide which animation approach to retain.
+- [ ] Refine the retained bat's pivots, timing, scale, and silhouette before authoring any attack animation.
+
+## Revision 169 replacement Atlas 005 frame animation
+
+- [x] Replace the previous `ct_atlas_enemy_005.png` with the supplied 22-frame source atlas.
+- [x] Extract every substantial frame directly in left-to-right, top-to-bottom source order.
+- [x] Register all 22 rig parts on the visible orange eye.
+- [x] Build a 20 FPS looping fly clip using ordinary step-keyed alpha tracks with exactly one visible frame.
+- [x] Remove enemy projects 006, 007, and 008 from assets, preload lists, Puppet Forge, and the enemy catalog.
+- [x] Replace obsolete four-candidate and articulated-bat regression coverage with retained-project and 22-frame-order coverage.
+- [ ] Playtest Atlas 004 beside the replacement Atlas 005 and choose the better gameplay-scale result.
+
+## Revision 170
+- [x] Puppet Forge loads the matching `ct_enemies_001.json` entry for known enemy projects and edits label, description, default hitbox, render scale, health, locomotion, AI strategy, and the complete defaults object.
+- [x] Puppet Forge downloads the updated enemy catalog as `ct_enemies_001.json`.
+- [x] Added the `bomber` flying strategy: move above Ignatius, maintain an authored hover height, and drop gravity-driven enemy projectiles on a cooldown.
+- [x] Enemy 005 now demonstrates the bomber strategy with a falling bomb projectile.
+
+## Revision 171
+- [x] Bomber enemies now treat their placed position as a perch and remain there until Ignatius enters their awareness cone.
+- [x] Active bombers fly toward a point above Ignatius, drop a gravity-driven rock when aligned, and return to their perch after awareness expires.
+- [x] Added a dedicated procedural rock projectile rendering path, without introducing a new PNG dependency.
+
+
+## Revision 172
+
+- [x] Promote `enemy_005` from candidate to retained bombing bat.
+- [x] Remove `enemy_004` project and catalog references.
+- [x] Use the rock embedded in Atlas 005 for dropped projectiles.
+- [x] Give inactive bombers a small perch patrol and normal visual awareness.
+
+## Revision 173
+
+- [x] Show the selected enemy type's default gameplay hitbox directly in Puppet Forge's animation preview.
+- [x] Make default hitbox width, height, and render scale update the preview live while editing.
+- [x] Add type-wide artwork X/Y offsets so a puppet can be centered relative to its gameplay hitbox without rewriting animation keys.
+- [x] Apply artwork offsets in the runtime renderer and initialize the Bombing Bat with a better-centered visual offset.
+
+## Revision 174
+
+- [x] Move `ct_enemies_001.json` saving into a full JSON editor directly above Character JSON.
+- [x] Give the enemy catalog the same Apply JSON, Reset, and Download workflow as the character, atlas, animation, and rig documents.
+- [x] Keep the visual Enemy type defaults controls synchronized with the applied full catalog JSON.
+- [x] Remove the separate catalog-download button from the defaults form.
+
+## Revision 175
+
+- [x] Keep hitbox dimensions, labels, scale, offsets, health, locomotion, and strategy synchronized into the in-memory enemy catalog as soon as their form fields change.
+- [x] Refresh the full Enemy Catalog JSON editor immediately after type-default field edits.
+- [x] Make Download apply the current type-default form before generating `ct_enemies_001.json`, preventing unapplied hitbox values from reverting after reload.
+
+## Revision 178
+
+- [x] Restore the player rocket projectile renderer accidentally removed while adding the enemy rock renderer.
+- [x] Add a regression test ensuring the rocket draw method and dispatch call remain paired.
+
+
+## Revision 179
+
+- [x] Remove stale discarded enemy 006, 007, and 008 JSON assets that were accidentally reintroduced into the update archive.
+- [x] Verify no runtime or editor references remain outside historical planning notes and regression assertions.

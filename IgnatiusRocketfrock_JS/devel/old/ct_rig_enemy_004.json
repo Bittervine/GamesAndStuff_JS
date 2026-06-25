@@ -1,0 +1,360 @@
+{
+    "meta": {
+        "version": 2,
+        "note": "Revision 167 cleaned frame-swapped trial rig for Bat Candidate A (Atlas 004). All isolated frames are stacked and registered on the visible eye; the fly clip selects one frame at a time through step-keyed alpha."
+    },
+    "rigId": "ct_rig_enemy_004",
+    "atlasId": "ct_atlas_enemy_004",
+    "atlasManifest": "ct_atlas_enemy_004.json",
+    "drawOrder": [
+        "frame_01",
+        "frame_02",
+        "frame_03",
+        "frame_04",
+        "frame_05",
+        "frame_06",
+        "frame_07",
+        "frame_08",
+        "frame_09",
+        "frame_10",
+        "frame_11",
+        "frame_12",
+        "frame_13",
+        "frame_14",
+        "frame_15",
+        "frame_16"
+    ],
+    "global": {
+        "scale": 0.42,
+        "lean": 0,
+        "rootX": 0,
+        "rootYOffsetFromGround": 0,
+        "groundOffset": 0,
+        "debugPivots": false
+    },
+    "anchors": {},
+    "pivots": {
+        "frame_01": {
+            "x": 0.76086048,
+            "y": 0.75328084
+        },
+        "frame_02": {
+            "x": 0.72222494,
+            "y": 0.73360114
+        },
+        "frame_03": {
+            "x": 0.70070497,
+            "y": 0.71139144
+        },
+        "frame_04": {
+            "x": 0.73538969,
+            "y": 0.64177304
+        },
+        "frame_05": {
+            "x": 0.70766969,
+            "y": 0.62632135
+        },
+        "frame_06": {
+            "x": 0.70661988,
+            "y": 0.58335456
+        },
+        "frame_07": {
+            "x": 0.72229624,
+            "y": 0.54046763
+        },
+        "frame_08": {
+            "x": 0.77361129,
+            "y": 0.52278177
+        },
+        "frame_09": {
+            "x": 0.80925341,
+            "y": 0.38600052
+        },
+        "frame_10": {
+            "x": 0.7910831,
+            "y": 0.4500562
+        },
+        "frame_11": {
+            "x": 0.75309428,
+            "y": 0.40652716
+        },
+        "frame_12": {
+            "x": 0.81179564,
+            "y": 0.37689679
+        },
+        "frame_13": {
+            "x": 0.80211864,
+            "y": 0.35527916
+        },
+        "frame_14": {
+            "x": 0.78513212,
+            "y": 0.67809699
+        },
+        "frame_15": {
+            "x": 0.79651613,
+            "y": 0.69942025
+        },
+        "frame_16": {
+            "x": 0.77683253,
+            "y": 0.73754755
+        }
+    },
+    "parts": {
+        "frame_01": {
+            "frame": "frame_01",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas004"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 254,
+            "alpha": 1
+        },
+        "frame_02": {
+            "frame": "frame_02",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas004"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 236,
+            "alpha": 0
+        },
+        "frame_03": {
+            "frame": "frame_03",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas004"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 218,
+            "alpha": 0
+        },
+        "frame_04": {
+            "frame": "frame_04",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas004"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 181,
+            "alpha": 0
+        },
+        "frame_05": {
+            "frame": "frame_05",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas004"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 172,
+            "alpha": 0
+        },
+        "frame_06": {
+            "frame": "frame_06",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas004"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 157,
+            "alpha": 0
+        },
+        "frame_07": {
+            "frame": "frame_07",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas004"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 139,
+            "alpha": 0
+        },
+        "frame_08": {
+            "frame": "frame_08",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas004"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 139,
+            "alpha": 0
+        },
+        "frame_09": {
+            "frame": "frame_09",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas004"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 184,
+            "alpha": 0
+        },
+        "frame_10": {
+            "frame": "frame_10",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas004"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 157,
+            "alpha": 0
+        },
+        "frame_11": {
+            "frame": "frame_11",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas004"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 176,
+            "alpha": 0
+        },
+        "frame_12": {
+            "frame": "frame_12",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas004"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 190,
+            "alpha": 0
+        },
+        "frame_13": {
+            "frame": "frame_13",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas004"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 201,
+            "alpha": 0
+        },
+        "frame_14": {
+            "frame": "frame_14",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas004"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 197,
+            "alpha": 0
+        },
+        "frame_15": {
+            "frame": "frame_15",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas004"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 217,
+            "alpha": 0
+        },
+        "frame_16": {
+            "frame": "frame_16",
+            "role": "animationFrame",
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "atlas004"
+            ],
+            "offset": {
+                "x": 42.857143,
+                "y": -102.380952
+            },
+            "scale": 1,
+            "targetHeight": 254,
+            "alpha": 0
+        }
+    }
+}

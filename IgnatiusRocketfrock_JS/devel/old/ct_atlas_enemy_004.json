@@ -1,0 +1,316 @@
+{
+    "meta": {
+        "version": 2,
+        "note": "Revision 167 cleaned and repacked frame rectangles for Bat Candidate A (Atlas 004). Each connected bat image was isolated before packing so neighboring atlas frames cannot bleed into a crop."
+    },
+    "atlasId": "ct_atlas_enemy_004",
+    "image": "ct_atlas_enemy_004.png",
+    "frames": {
+        "frame_01": {
+            "x": 31,
+            "y": 0,
+            "w": 228,
+            "h": 254
+        },
+        "frame_02": {
+            "x": 310,
+            "y": 9,
+            "w": 265,
+            "h": 236
+        },
+        "frame_03": {
+            "x": 609,
+            "y": 18,
+            "w": 264,
+            "h": 218
+        },
+        "frame_04": {
+            "x": 920,
+            "y": 36,
+            "w": 237,
+            "h": 181
+        },
+        "frame_05": {
+            "x": 12,
+            "y": 303,
+            "w": 265,
+            "h": 172
+        },
+        "frame_06": {
+            "x": 300,
+            "y": 310,
+            "w": 285,
+            "h": 157
+        },
+        "frame_07": {
+            "x": 596,
+            "y": 319,
+            "w": 290,
+            "h": 139
+        },
+        "frame_08": {
+            "x": 907,
+            "y": 319,
+            "w": 263,
+            "h": 139
+        },
+        "frame_09": {
+            "x": 23,
+            "y": 559,
+            "w": 244,
+            "h": 184
+        },
+        "frame_10": {
+            "x": 317,
+            "y": 572,
+            "w": 252,
+            "h": 157
+        },
+        "frame_11": {
+            "x": 607,
+            "y": 563,
+            "w": 268,
+            "h": 176
+        },
+        "frame_12": {
+            "x": 918,
+            "y": 556,
+            "w": 242,
+            "h": 190
+        },
+        "frame_13": {
+            "x": 27,
+            "y": 812,
+            "w": 236,
+            "h": 201
+        },
+        "frame_14": {
+            "x": 319,
+            "y": 814,
+            "w": 248,
+            "h": 197
+        },
+        "frame_15": {
+            "x": 616,
+            "y": 804,
+            "w": 250,
+            "h": 217
+        },
+        "frame_16": {
+            "x": 934,
+            "y": 786,
+            "w": 210,
+            "h": 254
+        }
+    },
+    "objects": {
+        "frame_01": {
+            "id": "frame_01",
+            "frame": "frame_01",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "candidate",
+                "atlas004"
+            ]
+        },
+        "frame_02": {
+            "id": "frame_02",
+            "frame": "frame_02",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "candidate",
+                "atlas004"
+            ]
+        },
+        "frame_03": {
+            "id": "frame_03",
+            "frame": "frame_03",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "candidate",
+                "atlas004"
+            ]
+        },
+        "frame_04": {
+            "id": "frame_04",
+            "frame": "frame_04",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "candidate",
+                "atlas004"
+            ]
+        },
+        "frame_05": {
+            "id": "frame_05",
+            "frame": "frame_05",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "candidate",
+                "atlas004"
+            ]
+        },
+        "frame_06": {
+            "id": "frame_06",
+            "frame": "frame_06",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "candidate",
+                "atlas004"
+            ]
+        },
+        "frame_07": {
+            "id": "frame_07",
+            "frame": "frame_07",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "candidate",
+                "atlas004"
+            ]
+        },
+        "frame_08": {
+            "id": "frame_08",
+            "frame": "frame_08",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "candidate",
+                "atlas004"
+            ]
+        },
+        "frame_09": {
+            "id": "frame_09",
+            "frame": "frame_09",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "candidate",
+                "atlas004"
+            ]
+        },
+        "frame_10": {
+            "id": "frame_10",
+            "frame": "frame_10",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "candidate",
+                "atlas004"
+            ]
+        },
+        "frame_11": {
+            "id": "frame_11",
+            "frame": "frame_11",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "candidate",
+                "atlas004"
+            ]
+        },
+        "frame_12": {
+            "id": "frame_12",
+            "frame": "frame_12",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "candidate",
+                "atlas004"
+            ]
+        },
+        "frame_13": {
+            "id": "frame_13",
+            "frame": "frame_13",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "candidate",
+                "atlas004"
+            ]
+        },
+        "frame_14": {
+            "id": "frame_14",
+            "frame": "frame_14",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "candidate",
+                "atlas004"
+            ]
+        },
+        "frame_15": {
+            "id": "frame_15",
+            "frame": "frame_15",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "candidate",
+                "atlas004"
+            ]
+        },
+        "frame_16": {
+            "id": "frame_16",
+            "frame": "frame_16",
+            "type": "characterPart",
+            "layer": "character",
+            "mirrorable": true,
+            "tags": [
+                "bat",
+                "frameAnimation",
+                "candidate",
+                "atlas004"
+            ]
+        }
+    }
+}

@@ -1,7 +1,8 @@
 {
     "meta": {
-        "version": 11,
-        "note": "Revision 135 removes redundant behavior/chaseSpeed aliases and unused vertical-awareness data; current enemy archetypes author strategy, runSpeed, radial range, and facing cone only."
+        "version": 19,
+        "note": "Revision 172 promotes enemy_005 to the retained bat, removes enemy_004, uses the atlas-authored rock projectile, and gives bombers a small perch patrol before visual activation.",
+        "revision": 172
     },
     "catalogId": "ct_enemies_001",
     "enemies": {
@@ -81,7 +82,7 @@
                 "attackDuration": 0.62,
                 "attackHitTime": 0.372,
                 "attackCooldown": 0.16,
-                "projectileCooldown": 1.0,
+                "projectileCooldown": 1,
                 "projectileKind": "fireball",
                 "projectileSpeed": 285,
                 "projectileGravity": 0,
@@ -122,7 +123,7 @@
                 "facing": -1,
                 "patrolDistance": 260,
                 "walkSpeed": 52,
-                "idleDuration": 1.0,
+                "idleDuration": 1,
                 "turnPause": 0.42,
                 "groundSnapDistance": 96,
                 "maxStepHeight": 26,
@@ -169,6 +170,77 @@
                 "routeRepathInterval": 0.3,
                 "homeRetryInterval": 4,
                 "awarenessViewHalfAngle": 60
+            }
+        },
+        "enemy_005": {
+            "label": "Bombing Bat",
+            "icon": "🦇",
+            "description": "The retained bat enemy. It patrols a small area around its authored perch, activates only when Ignatius enters its normal awareness view, flies overhead, and drops atlas-authored rocks.",
+            "characterId": "ct_char_enemy_005",
+            "defaultSize": {
+                "w": 150,
+                "h": 100
+            },
+            "defaults": {
+                "facing": -1,
+                "locomotion": "flying",
+                "patrolDistance": 120,
+                "walkSpeed": 70,
+                "idleDuration": 0,
+                "turnPause": 0,
+                "groundSnapDistance": 0,
+                "maxStepHeight": 0,
+                "maxDropDistance": 0,
+                "renderScale": 1,
+                "health": 1,
+                "animationSlot": "fly",
+                "targetAnchor": {
+                    "x": 0.62,
+                    "y": 0.48
+                },
+                "showTargetMarker": false,
+                "attackDamage": 0,
+                "attackRange": 1,
+                "attackVerticalRange": 1,
+                "attackDuration": 0.1,
+                "attackHitTime": 0,
+                "attackCooldown": 0,
+                "awarenessRange": 800,
+                "awarenessHoldDuration": 1.2,
+                "attackLungeDistance": 0,
+                "attackLungeSpeed": 0,
+                "strategy": "bomber",
+                "runSpeed": 180,
+                "jumpHeight": 0,
+                "unreachableGlareDuration": 0,
+                "awarenessViewHalfAngle": 60,
+                "flightAmplitude": 16,
+                "flightCyclesPerSecond": 0.58,
+                "deathFlightSpeed": 520,
+                "deathFlightLift": 210,
+                "deathFlightGravity": 90,
+                "deathFlyOffDistance": 720,
+                "corpseHoldDuration": 0,
+                "corpseFadeDuration": 0,
+                "bomberHorizontalSpeed": 180,
+                "bomberHoverHeight": 190,
+                "bomberDropTolerance": 38,
+                "bomberInitialDelay": 0.5,
+                "attackMode": "projectile",
+                "projectileKind": "rock",
+                "projectileLaunchType": "drop",
+                "projectileSpeed": 35,
+                "projectileGravity": 900,
+                "projectileLifetime": 4,
+                "projectileRadius": 12,
+                "projectileDamage": 16,
+                "projectileCooldown": 1.5,
+                "projectileHomingStrength": 0,
+                "projectileKnockbackX": 100,
+                "projectileKnockbackY": -120,
+                "projectileFrameId": "rock",
+                "renderOffsetX": -20,
+                "renderOffsetY": 35
             }
         }
     }

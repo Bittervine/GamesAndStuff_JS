@@ -1578,6 +1578,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
 
     function snapCharacterEnemyToNearbyGround(enemy, { announce = false } = {}) {
         if (!isCharacterEnemy(enemy)) return null;
+        if (String(enemy.locomotion || "").trim().toLowerCase() === "flying") return null;
         const enemyX = Number(enemy.x);
         const enemyY = Number(enemy.y);
         if (!Number.isFinite(enemyX) || !Number.isFinite(enemyY)) return null;

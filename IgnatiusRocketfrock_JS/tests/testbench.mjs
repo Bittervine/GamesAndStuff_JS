@@ -554,6 +554,176 @@ async function testGoblinRuntimeCharacterProjects() {
     assert.equal(releasedTransforms.fireball.alpha, 0, "released fireball should no longer remain attached to the character pose");
 }
 
+async function testBatFrameSwapProjectsAndFlight() {
+    const retainedSuffixes = ["005"];
+    const jsonByUrl = new Map();
+    for (const suffix of retainedSuffixes) {
+        for (const filename of [
+            `ct_char_enemy_${suffix}.json`,
+            `ct_rig_enemy_${suffix}.json`,
+            `ct_atlas_enemy_${suffix}.json`,
+            `ct_anim_enemy_${suffix}_fly.json`
+        ]) {
+            jsonByUrl.set(`assets/${filename}`, JSON.parse(readFileSync(`./assets/${filename}`, "utf8")));
+        }
+    }
+    const loader = {
+        loadJson: async (url) => {
+            assert.ok(jsonByUrl.has(url), `bat runtime loader should resolve ${url}`);
+            return JSON.parse(JSON.stringify(jsonByUrl.get(url)));
+        },
+        loadImage: async (url) => ({ width: 2047, height: 1078, naturalWidth: 2047, naturalHeight: 1078, url }),
+        createCanvas: (width, height) => ({
+            width,
+            height,
+            getContext: () => ({ drawImage: () => {} })
+        })
+    };
+
+    for (const suffix of retainedSuffixes) {
+        const project = await loadRuntimeCharacterProject(`assets/ct_char_enemy_${suffix}.json`, loader);
+        assert.equal(project.characterId, `ct_char_enemy_${suffix}`, `retained bat ${suffix} should keep its numbered character ID`);
+        assert.equal(project.animations.size, 1, `retained bat ${suffix} should use one deliberately minimal fly clip`);
+        assert.ok(project.rig.drawOrder.length >= 16, `retained bat ${suffix} should stack its atlas frames as ordinary rig parts`);
+        for (const sampleTime of [0.01, 0.21, 0.43, 0.67]) {
+            const sampled = sampleRuntimeCharacterPose(project, "fly", sampleTime);
+            const visibleParts = Object.values(sampled.pose).filter((transform) => Number(transform.alpha) > 0.5);
+            assert.equal(visibleParts.length, 1, `retained bat ${suffix} should show exactly one atlas frame at ${sampleTime}s`);
+        }
+    }
+
+    const atlas005 = jsonByUrl.get("assets/ct_atlas_enemy_005.json");
+    const rig005 = jsonByUrl.get("assets/ct_rig_enemy_005.json");
+    const animation005 = jsonByUrl.get("assets/ct_anim_enemy_005_fly.json");
+    const orderedFrameNames = Array.from({ length: 22 }, (_, index) => `frame_${String(index + 1).padStart(2, "0")}`);
+    assert.deepEqual(Object.keys(atlas005.frames).slice(0, 22), orderedFrameNames, "Atlas 005 should expose all 22 animation frames in authored order");
+    assert.deepEqual(atlas005.frames.rock, { x: 1833, y: 962, w: 60, h: 56 }, "Atlas 005 should expose the supplied rock projectile frame");
+    assert.deepEqual(rig005.drawOrder, orderedFrameNames, "replacement Atlas 005 rig should preserve source order exactly");
+    assert.equal(animation005.duration, 1.1, "22 Atlas 005 frames should play at 20 FPS");
+    assert.equal(Object.keys(animation005.tracks).length, 22, "replacement Atlas 005 should key every supplied frame");
+
+    const project005 = await loadRuntimeCharacterProject("assets/ct_char_enemy_005.json", loader);
+    for (let index = 0; index < orderedFrameNames.length; index += 1) {
+        const sampled = sampleRuntimeCharacterPose(project005, "fly", index * 0.05 + 0.001);
+        const visibleNames = Object.entries(sampled.pose)
+            .filter(([, transform]) => Number(transform.alpha) > 0.5)
+            .map(([partName]) => partName);
+        assert.deepEqual(visibleNames, [orderedFrameNames[index]], `Atlas 005 sample ${index + 1} should select its matching source frame`);
+    }
+
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "bat_flight_test",
+        playerStart: { x: 100, y: 600 },
+        bounds: { x: 0, y: 0, w: 1400, h: 800 },
+        entities: [{
+            id: "bat_candidate_test",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_005",
+            x: 520,
+            y: 280,
+            w: 84,
+            h: 66,
+            facing: -1,
+            strategy: "simple_patrol",
+            locomotion: "flying",
+            patrolDistance: 420,
+            walkSpeed: 105,
+            flightAmplitude: 16,
+            flightCyclesPerSecond: 0.58,
+            deathFlightSpeed: 520,
+            deathFlightLift: 210,
+            deathFlightGravity: 90,
+            deathFlyOffDistance: 720,
+            health: 1,
+            animationSlot: "fly"
+        }]
+    });
+    const bat = state.enemies.find((enemy) => enemy.id === "bat_candidate_test");
+    assert.ok(bat, "flying bat should enter portable simulation state");
+    assert.equal(bat.locomotion, "flying", "bat should retain its flying locomotion mode");
+    const startX = bat.x;
+    const startY = bat.y;
+    for (let step = 0; step < 60; step += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+    }
+    assert.ok(bat.x < startX - 80, "living bat should patrol horizontally through open air");
+    assert.ok(Math.abs(bat.y - startY) > 2, "living bat should bob around its authored flight height");
+    assert.equal(bat.animationSlot, "fly", "living bat should keep the frame-swapped fly loop selected");
+    assert.equal(bat.supportId, null, "flying bat should never acquire a ground support");
+
+    bat.health = 0;
+    bat.combatState = "dead";
+    const deathStartX = bat.x;
+    for (let step = 0; step < 180 && bat.renderOpacity > 0; step += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+    }
+    assert.ok(bat.x > deathStartX + 600, "defeated bat should flee away from Ignatius instead of dropping as a corpse");
+    assert.equal(bat.renderOpacity, 0, "defeated bat should disappear only after completing its fly-off distance");
+    assert.equal(bat.movementPhase, "death_fly_off", "defeated bat should expose its dedicated fly-off state");
+    assert.equal(bat.animationSlot, "fly", "death fly-off should keep flapping rather than requiring a fabricated corpse clip");
+}
+
+
+function testFlyingBomberDropsProjectile() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "bomber_test",
+        playerStart: { x: 500, y: 620 },
+        bounds: { x: 0, y: 0, w: 1200, h: 800 },
+        entities: [{
+            id: "bomber",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_005",
+            x: 220,
+            y: 300,
+            w: 84,
+            h: 66,
+            locomotion: "flying",
+            strategy: "bomber",
+            bomberHorizontalSpeed: 240,
+            bomberHoverHeight: 180,
+            bomberDropTolerance: 24,
+            bomberInitialDelay: 0,
+            awarenessRange: 0,
+            awarenessViewHalfAngle: 180,
+            projectileLaunchType: "drop",
+            projectileKind: "rock",
+            projectileSpeed: 20,
+            projectileGravity: 900,
+            projectileCooldown: 1.5,
+            projectileDamage: 12,
+            projectileRadius: 10,
+            health: 1,
+            animationSlot: "fly"
+        }]
+    });
+    const bomber = state.enemies.find((enemy) => enemy.id === "bomber");
+    assert.equal(bomber.strategy, "bomber", "portable enemy state should preserve bomber strategy");
+    const perchX = bomber.x;
+    const perchY = bomber.y;
+    state.player.visible = false;
+    for (let step = 0; step < 60; step += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+    }
+    assert.equal(bomber.aiState, "perched", "bomber should wait at its authored perch while Ignatius is outside awareness");
+    assert.ok(Math.abs(bomber.x - perchX) < 0.01 && Math.abs(bomber.y - perchY) < 0.01, "perched bomber should remain at its authored position");
+    state.player.visible = true;
+    bomber.awarenessRange = 800;
+    state.player.x = 500;
+    for (let step = 0; step < 240 && state.projectiles.length === 0; step += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+    }
+    assert.ok(Math.abs(bomber.x - state.player.x) <= 30, "bomber should fly over Ignatius before releasing");
+    assert.ok(state.projectiles.length > 0, "bomber should drop a projectile when horizontally aligned");
+    const bomb = state.projectiles[0];
+    assert.equal(bomb.launchType, "drop", "bomber projectile should use the drop launch type");
+    assert.equal(bomb.kind, "enemyRock", "bomber should drop a dedicated rock projectile");
+    assert.ok(bomb.gravity > 0, "dropped projectile should accelerate downward");
+    assert.ok(bomb.vy >= 0, "dropped projectile should begin moving downward");
+}
+
+
 function testEnemyCatalogAndLevelEditorIntegration() {
     const catalog = JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"));
     const skeleton = catalog.enemies?.enemy_001;
@@ -563,6 +733,29 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(skeleton.defaults.strategy, "simple_patrol", "Skeleton Guard should preserve the original simple-minded local strategy");
     assert.equal(catalog.enemies.enemy_002.defaults.strategy, "hunter", "Fireball Goblin should use the hunter strategy");
     assert.equal(catalog.enemies.enemy_003.defaults.strategy, "hunter", "Musket Goblin should use the hunter strategy");
+    for (const enemyId of ["enemy_005"]) {
+        const bat = catalog.enemies[enemyId];
+        assert.ok(bat, `${enemyId} should register a retained bat candidate`);
+        assert.equal(bat.defaults.locomotion, "flying", `${enemyId} should opt into flying locomotion`);
+        assert.equal(bat.defaults.health, 1, `${enemyId} should leave after one successful hit during the comparison trial`);
+        assert.equal(bat.defaults.animationSlot, "fly", `${enemyId} should request its authored fly clip`);
+    }
+    assert.equal(catalog.enemies.enemy_005.defaults.strategy, "bomber", "Enemy 005 should demonstrate the bomber strategy");
+    assert.equal(catalog.enemies.enemy_005.defaults.projectileLaunchType, "drop", "Enemy 005 should release gravity-driven drops");
+    assert.equal(catalog.enemies.enemy_005.defaults.projectileKind, "rock", "Enemy 005 should drop rocks from its perch attack");
+    const characterEditorDefaultsHtml = readFileSync("./character-editor.html", "utf8");
+    assert.ok(characterEditorDefaultsHtml.includes("Enemy type defaults"), "Puppet Forge should expose enemy type defaults");
+    assert.ok(characterEditorDefaultsHtml.includes("enemy-catalog-json"), "Puppet Forge should expose the full enemy catalog JSON beside the other JSON editors");
+    assert.ok(characterEditorDefaultsHtml.includes("apply-enemy-catalog-json"), "Puppet Forge should apply edited enemy catalog JSON");
+    assert.ok(characterEditorDefaultsHtml.includes("refresh-enemy-catalog-json"), "Puppet Forge should reset the enemy catalog JSON editor");
+    assert.ok(characterEditorDefaultsHtml.includes("download-enemy-catalog"), "Puppet Forge should download the edited enemy catalog");
+    assert.ok(characterEditorDefaultsHtml.includes("definition.defaultSize = {"), "Puppet Forge should synchronize edited hitbox dimensions into the enemy catalog");
+    assert.ok(characterEditorDefaultsHtml.includes("refreshEnemyCatalogJson();"), "Puppet Forge should refresh the full catalog JSON after type-default edits");
+    assert.ok(characterEditorDefaultsHtml.includes("applyEnemyTypeFields();"), "Puppet Forge should apply current type-default fields before downloading the catalog");
+    assert.ok(characterEditorDefaultsHtml.includes('option value="bomber"'), "Puppet Forge should offer the bomber strategy");
+    for (const discardedId of ["enemy_004", "enemy_006", "enemy_007", "enemy_008"]) {
+        assert.equal(catalog.enemies[discardedId], undefined, `${discardedId} should be removed from the active enemy catalog`);
+    }
     assert.equal(catalog.enemies.enemy_002.defaults.runSpeed, 200, "Fireball Goblin should default to the authored 200 px/s run speed");
     assert.equal(catalog.enemies.enemy_003.defaults.runSpeed, 200, "Musket Goblin should default to the authored 200 px/s run speed");
     assert.equal(catalog.enemies.enemy_002.defaults.jumpHeight, 200, "Fireball Goblin should default to the playtested 200 px jump height");
@@ -615,6 +808,7 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(editorHtml.includes('id="enemy-settings-row"'), "level editor should expose character-enemy behaviour controls");
     assert.ok(editorHtml.includes("drawCharacterEnemyPreview"), "level editor should preview enemies through the generic character renderer");
     assert.ok(editorHtml.includes("snapCharacterEnemyToNearbyGround"), "placed enemies should snap their feet to authored support lines");
+    assert.ok(editorHtml.includes('enemy.locomotion || ""'), "level editor ground snapping should explicitly exempt flying enemies");
     assert.ok(editorHtml.includes('id="inspect-enemy-health"'), "level editor should expose enemy health authoring");
     assert.ok(editorHtml.includes('id="inspect-enemy-attack-damage"'), "level editor should expose enemy melee damage");
     assert.ok(editorHtml.includes('id="inspect-enemy-attack-range"'), "level editor should expose enemy melee reach");
@@ -638,6 +832,19 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(placed.chaseSpeed, undefined, "current level data should not retain the legacy chaseSpeed alias");
     assert.equal(placed.awarenessVerticalRange, undefined, "current level data should not retain unused vertical awareness");
     assert.ok(editorHtml.includes('buildPlacedHunterNavigationGraphs({ silent: true, refreshUi: false })'), "Play should automatically rebuild hunter navigation graphs before serializing the browser copy");
+
+    const characterEditorHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
+    assert.ok(characterEditorHtml.includes('enemy_005: "assets/ct_char_enemy_005.json"'), "Puppet Forge should expose replacement Atlas 005");
+    for (const discardedSuffix of ["006", "007", "008"]) {
+        assert.ok(!characterEditorHtml.includes(`ct_char_enemy_${discardedSuffix}.json`), `Puppet Forge should not expose discarded enemy ${discardedSuffix}`);
+    }
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    for (const retainedSuffix of ["005"]) {
+        assert.ok(rendererSource.includes(`assets/ct_char_enemy_${retainedSuffix}.json`), `renderer should preload retained enemy ${retainedSuffix}`);
+    }
+    for (const discardedSuffix of ["006", "007", "008"]) {
+        assert.ok(!rendererSource.includes(`assets/ct_char_enemy_${discardedSuffix}.json`), `renderer should not preload discarded enemy ${discardedSuffix}`);
+    }
 }
 
 
@@ -4146,12 +4353,16 @@ function testCharacterDirtyTracking() {
     markCharacterProjectDirty(tracker, "atlas");
     markCharacterProjectDirty(tracker, "animation", "run");
     markCharacterProjectDirty(tracker, "animation", "idle");
+    markCharacterProjectDirty(tracker, "enemyCatalog");
     let summary = characterProjectDirtySummary(tracker);
     assert.equal(summary.atlas, true, "atlas dirty state should be independent");
+    assert.equal(summary.enemyCatalog, true, "enemy catalog dirty state should be independent");
     assert.deepEqual(summary.animations, ["idle", "run"], "animation dirty states should be tracked per clip");
     markCharacterProjectClean(tracker, "animation", "run");
+    markCharacterProjectClean(tracker, "enemyCatalog");
     summary = characterProjectDirtySummary(tracker);
     assert.deepEqual(summary.animations, ["idle"], "saving one animation should not clean another");
+    assert.equal(summary.enemyCatalog, false, "saving the enemy catalog should clean only that document");
     markCharacterProjectClean(tracker);
     assert.equal(characterProjectHasUnsavedChanges(tracker), false, "cleaning the project should clear every document");
 }
@@ -5872,6 +6083,13 @@ function testRocketTurnsFiftyPercentSharper() {
     assert.equal(DEFAULT_TUNING.rocketProjectileHomingStrength, 4.8, "rocket homing should be 50 percent sharper than the former 3.2 default");
 }
 
+
+function testRocketProjectileRendererExists() {
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    assert.match(rendererSource, /drawProjectileRocket\s*\(projectile, state, view\)\s*\{/);
+    assert.match(rendererSource, /this\.drawProjectileRocket\(projectile, state, view\)/);
+}
+
 const tests = [
     ["source organization and architecture map", testSourceOrganization],
     ["game settings persistence and menu shell", testGameSettingsSchemaPersistenceAndMenuShell],
@@ -5909,6 +6127,8 @@ const tests = [
     ["editor collapsible inspector panels", testEditorCollapsiblePanels],
     ["generic runtime character project", testGenericRuntimeCharacterProject],
     ["goblin runtime character projects", testGoblinRuntimeCharacterProjects],
+    ["bat frame-swap projects and flying locomotion", testBatFrameSwapProjectsAndFlight],
+    ["flying bomber drops projectile", testFlyingBomberDropsProjectile],
     ["enemy catalog and Level Editor integration", testEnemyCatalogAndLevelEditorIntegration],
     ["enemy navigation graph and jump reachability", testEnemyNavigationGraphAndJumpReachability],
     ["baked navigation graph directional transitions", testBakedNavigationGraphDirectionalTransitions],
@@ -5962,6 +6182,7 @@ const tests = [
     ["double-jump kick and hover governor", testDoubleJumpKickAndHoverGovernor],
     ["boost kick cannot be tap exploited", testBoostKickCannotBeTapExploited],
     ["boost kick costs fuel and recharges on landing", testBoostKickCostsFuelAndRechargesOnLanding],
+    ["rocket projectile renderer exists", testRocketProjectileRendererExists],
     ["homing rocket launch", testHomingRocketLaunch],
     ["rocket target prioritizes facing direction", testRocketTargetPrefersClosestEnemyInFacingDirection],
     ["rocket trail tracks curved path and persists", testRocketTrailTracksCurvedPathAndPersistsAfterExplosion],

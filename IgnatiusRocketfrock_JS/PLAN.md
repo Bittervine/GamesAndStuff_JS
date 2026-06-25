@@ -1834,4 +1834,48 @@ Revision 163 tightens automatic cave-perimeter coverage in both directions. Tang
 
 Automatic cave-perimeter population now varies the innermost row's penetration into the cave opening deterministically per arc placement. Each primary formation places between 50% and 75% of its normal depth inside the authored perimeter, replacing the previous narrow near-two-thirds band while preserving repeatable output for the same seed. Every outward coverage row in a radial stack inherits its primary formation's offset, so continuous coverage to the Full black line and outward-over-inward painter ordering remain unchanged.
 
-- Completed: player damage now acts as an unconditional enemy awareness trigger and refreshes pursuit memory.
+## Revision 166 damage-triggered awareness
+
+Player damage now acts as an unconditional enemy awareness trigger and refreshes pursuit memory.
+
+## Revision 167 experimental frame-swapped flying bats
+
+Four supplied candidate atlases are now available as numbered character projects `enemy_004` through `enemy_007`. The experiment deliberately stays inside the existing Puppet Forge/runtime contract: each isolated atlas frame is represented by a stacked rig part, every frame is registered on the visible eye, and one looping `fly` clip uses step-keyed alpha tracks to display exactly one frame at a time. Candidates 004-006 use their cleaned visual row order; candidate 007 omits the duplicated second high-wing mini-sequence while keeping its coherent downstroke and recovery frames. No still-frame-specific renderer or editor mode has been added.
+
+The enemy catalog exposes all four candidates for side-by-side placement. Their shared portable locomotion mode flies a horizontal patrol with authored vertical bobbing, bypasses ground snapping and support navigation, and keeps flapping when defeated. A defeated bat accelerates away from Ignatius and disappears after an authored fly-off distance instead of entering the grounded corpse-gravity lifecycle. Puppet Forge exposes all four numbered projects, while the Level Editor preserves flying locomotion and does not snap these enemies to floors.
+
+The next decision is visual rather than architectural: place the four candidates together, compare registration stability, silhouette continuity, apparent scale, and wing-cycle rhythm, then keep one or discard the entire experiment. Only after a candidate survives that playtest should the project consider a dedicated still-frame animation mode, atlas-order tooling, or a more elaborate flying combat behaviour. The existing cave-performance validation and moving-platform crushing tasks remain the next unrelated plan items.
+
+## Revision 168 four-part rigged bat puppet
+
+A fifth bat trial, `enemy_008`, now uses the ordinary articulated character pipeline rather than atlas-frame substitution. `ct_atlas_enemy_008` exposes four transparent parts: head, body, left wing, and right wing. `ct_rig_enemy_008` layers the rear wing behind the body, the front wing above it, and the head last. Each wing pivots at the shoulder claw and is classified as an arm-like control without pretending the character is humanoid.
+
+The initial `fly` clip rotates the two wing sprites in opposite directions through a high pose, power stroke, and recovery. The body and head add a small recoil bob so the silhouette does not feel mechanically pinned. The project is registered in Puppet Forge, the renderer's known character set, and the enemy catalog. It reuses the portable flying patrol and death fly-off behaviour introduced in revision 167, so this revision changes presentation data rather than adding another locomotion path.
+
+The next decision remains a visual playtest. Compare the rigged puppet against the frame-swapped candidates for silhouette, joint credibility, flap rhythm, and readability at gameplay scale. If the four-part puppet survives, refine its pivots and fly clip in Puppet Forge before adding attack behaviour. If the wing rotation remains too cardboard-like, discard or replace the artwork rather than building more animation infrastructure around an unsuitable source atlas.
+
+## Revision 169 retained frame-swapped bats
+
+The bat experiment is narrowed to two data-only frame-swapped projects. The previous `enemy_005` candidate is replaced by the newly supplied `ct_atlas_enemy_005.png`; all 22 source frames are extracted directly, retained in left-to-right and top-to-bottom order, registered on the orange eye, and played at 20 frames per second through ordinary step-keyed alpha tracks.
+
+Discarded candidates `enemy_006`, `enemy_007`, and the articulated `enemy_008` puppet are removed from the enemy catalog, renderer preload list, Puppet Forge selector, project assets, and regression suite. The portable flying patrol and death fly-off remain shared simulation behaviour. The next bat step is visual playtesting of Atlas 004 against the replacement Atlas 005, followed only by timing or registration refinement of the chosen result.
+
+### Revision 170: Enemy type authoring and bomber flight
+Puppet Forge now owns a type-default editing surface for the matching entry in `ct_enemies_001.json`, including a full JSON escape hatch so newly introduced tuning values do not require a bespoke control before they can be authored. The first new airborne combat strategy is `bomber`: a flying enemy tracks Ignatius horizontally, holds an authored height above him, and releases gravity-driven projectiles when aligned.
+
+### Revision 171: Perched bomber attack
+The bomber strategy now begins at an authored perch rather than patrolling continuously. Once Ignatius enters the enemy's normal awareness range and facing cone, the bomber launches, moves toward a point above him, and drops a rock when aligned. If Ignatius escapes long enough for awareness to expire, the bomber returns to its original placed position and waits for another opportunity.
+
+
+### Revision 172: retained bombing bat
+
+`enemy_005` is now the sole retained bat rather than a candidate. Its 22 authored frames remain in order, the new rock image in `ct_atlas_enemy_005.png` is exposed as the `rock` projectile asset, and `enemy_004` has been removed. The bomber idly patrols a small area around its authored perch, uses the same 800-unit awareness range and 60-degree half-angle as the grounded enemies, and only begins its bombing run after Ignatius enters view.
+
+
+### Puppet Forge hitbox preview
+
+Enemy projects now show their type-wide gameplay hitbox in the animation workspace. Default dimensions, render scale, and artwork offsets can be tuned visually before downloading the updated enemy catalog.
+
+### Revision 174: unified enemy catalog JSON workflow
+
+Puppet Forge now presents the complete `ct_enemies_001.json` document directly above Character JSON, using the same inspect, apply, reset, and download pattern as the other project JSON documents. The higher-level Enemy type defaults controls remain the convenient visual editor for the selected enemy entry, while the full catalog panel is the authoritative save surface and advanced-editing escape hatch.
