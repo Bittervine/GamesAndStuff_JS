@@ -46,6 +46,7 @@ const debugPanelButton = document.getElementById("toggle-debug-panel");
 const gameTuningButton = document.getElementById("toggle-game-tuning");
 const helpPanelButton = document.getElementById("toggle-help-panel");
 const helpPanel = document.getElementById("help-panel");
+const toolLinks = document.getElementById("tool-links");
 const applyTuningJsonButton = document.getElementById("apply-tuning-json");
 const copyTuningJsonButton = document.getElementById("copy-tuning-json");
 const refreshTuningJsonButton = document.getElementById("refresh-tuning-json");
@@ -55,6 +56,8 @@ const loadingPercent = document.getElementById("loading-percent");
 const loadingTrack = document.getElementById("loading-track");
 const loadingBarFill = document.getElementById("loading-bar-fill");
 const loadingDetail = document.getElementById("loading-detail");
+const titleScreen = document.getElementById("title-screen");
+const titleStartButton = document.getElementById("title-start-button");
 const openGameMenuButton = document.getElementById("open-game-menu");
 const fullscreenToggleButton = document.getElementById("fullscreen-toggle");
 const gameMenuDialog = document.getElementById("game-menu-dialog");
@@ -94,6 +97,9 @@ let effectiveSfxVolume = pageFocusLost ? 0 : gameState.settings.sfxVolume;
 let fullscreenActive = false;
 let fullscreenRequestPending = false;
 let stopElectronFullscreenListener = null;
+let titleScreenActive = true;
+let gameHasStarted = false;
+let suppressPostTitleStartInputUntil = 0;
 gameState.debug.revision = GAME_REVISION;
 addEvent(gameState, `BUILD_REVISION_${GAME_REVISION}`);
 const input = new RocketfrockInput(window);
@@ -132,11 +138,12 @@ const tuningSliders = new Map();
 setupTuningControls();
 setupTuningJsonControls();
 setupPanelToggleButtons();
+setupTitleScreen();
 setupGameMenuAndSettings();
 setLoadingProgress(1, "Ready");
+showTitleScreen();
 await nextPaint();
 hideLoadingScreen();
-void attemptVisibleLevelMusicStart();
 
 function clamp01(value) {
     return Math.max(0, Math.min(1, Number(value) || 0));
@@ -353,12 +360,120 @@ function failStartup(message, error) {
     throw new Error(message);
 }
 
+function setupTitleScreen() {
+    titleStartButton?.addEventListener("click", (event) => {
+        event.preventDefault();
+        startGameFromTitle();
+    });
+
+    window.addEventListener("keydown", handleTitleStartKeydown, { capture: true, passive: false });
+    window.addEventListener("pointerdown", handleTitleStartPointer, { capture: true, passive: false });
+    window.addEventListener("mousedown", handleTitleStartPointer, { capture: true, passive: false });
+    window.addEventListener("touchstart", handleTitleStartPointer, { capture: true, passive: false });
+}
+
+function handleTitleStartKeydown(event) {
+    if (!titleScreenActive && shouldSuppressPostTitleStartInput()) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+    }
+    if (!titleScreenActive || isGameMenuOpen() || event.repeat || shouldIgnoreTitleStartTarget(event.target)) {
+        return;
+    }
+    if (["Escape", "Tab", "F11"].includes(event.code) || event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    startGameFromTitle();
+}
+
+function handleTitleStartPointer(event) {
+    if (!titleScreenActive && shouldSuppressPostTitleStartInput()) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+    }
+    if (!titleScreenActive || isGameMenuOpen() || shouldIgnoreTitleStartTarget(event.target)) {
+        return;
+    }
+    if (event.button !== undefined && event.button !== 0) {
+        return;
+    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    startGameFromTitle();
+}
+
+function shouldSuppressPostTitleStartInput() {
+    return performance.now() < suppressPostTitleStartInputUntil;
+}
+
+function shouldIgnoreTitleStartTarget(target) {
+    return Boolean(target instanceof Element && target.closest([
+        "#title-manual-link",
+        "#game-menu-controls",
+        "#game-menu-dialog",
+        "input",
+        "select",
+        "textarea",
+        "label",
+        "[data-ignore-game-pointer]"
+    ].join(",")));
+}
+
+function showTitleScreen() {
+    titleScreenActive = true;
+    gameHasStarted = false;
+    setGamePaused(true, { clearInput: true });
+    syncTitleScreenUi();
+}
+
+function startGameFromTitle() {
+    if (!titleScreenActive) {
+        return;
+    }
+    titleScreenActive = false;
+    gameHasStarted = true;
+    suppressPostTitleStartInputUntil = performance.now() + 360;
+    input.clear();
+    setGamePaused(false, { clearInput: true });
+    syncTitleScreenUi();
+    void musicDirector.unlock();
+    void applyAutoFullscreenPolicy();
+}
+
+function syncTitleScreenUi() {
+    if (titleScreen) {
+        titleScreen.hidden = !titleScreenActive;
+    }
+    document.body.classList.toggle("title-screen-active", titleScreenActive);
+    document.body.classList.toggle("game-running", gameHasStarted && !titleScreenActive);
+    if (gameMenuExitTitleButton) {
+        gameMenuExitTitleButton.hidden = titleScreenActive;
+    }
+    syncGameAudioState();
+}
+
 function setupGameMenuAndSettings() {
     if (!gameMenuDialog || !openGameMenuButton) {
         return;
     }
 
-    document.body.classList.toggle("electron", Boolean(electronWindowBridge));
+    const isElectron = Boolean(electronWindowBridge);
+    document.body.classList.toggle("electron", isElectron);
+    if (fullscreenToggleButton) {
+        fullscreenToggleButton.hidden = isElectron;
+    }
+    if (toolLinks) {
+        toolLinks.hidden = isElectron;
+    }
+    if (gameMenuExitTitleButton) {
+        gameMenuExitTitleButton.textContent = "Exit to Title";
+        gameMenuExitTitleButton.setAttribute("aria-label", "Exit to Title");
+        gameMenuExitTitleButton.hidden = titleScreenActive;
+    }
     if (gameMenuExitDesktopButton) {
         gameMenuExitDesktopButton.hidden = !electronWindowBridge;
     }
@@ -374,8 +489,7 @@ function setupGameMenuAndSettings() {
         }
     });
     fullscreenToggleButton?.addEventListener("click", () => {
-        if (electronWindowBridge && typeof electronWindowBridge.quit === "function") {
-            void electronWindowBridge.quit();
+        if (electronWindowBridge) {
             return;
         }
         void toggleFullscreen();
@@ -388,9 +502,11 @@ function setupGameMenuAndSettings() {
             closeGameMenu();
         }
     });
-    gameMenuRestartButton?.addEventListener("click", () => window.location.reload());
+    gameMenuRestartButton?.addEventListener("click", () => {
+        void restartLevelFromMenu();
+    });
     gameMenuExitTitleButton?.addEventListener("click", () => {
-        window.location.href = "index.html";
+        void exitToTitleFromMenu();
     });
     gameMenuExitDesktopButton?.addEventListener("click", () => {
         if (electronWindowBridge && typeof electronWindowBridge.quit === "function") {
@@ -662,6 +778,76 @@ function closeGameMenu() {
     void applyAutoFullscreenPolicy();
 }
 
+async function restartLevelFromMenu() {
+    const returnToTitle = titleScreenActive;
+    if (isGameMenuOpen()) {
+        closeGameMenu();
+    }
+    await restartCurrentLevel();
+    if (returnToTitle) {
+        showTitleScreen();
+    } else {
+        titleScreenActive = false;
+        gameHasStarted = true;
+        setGamePaused(false, { clearInput: true });
+        syncTitleScreenUi();
+        void applyAutoFullscreenPolicy();
+    }
+}
+
+async function exitToTitleFromMenu() {
+    if (isGameMenuOpen()) {
+        closeGameMenu();
+    }
+    await restartCurrentLevel();
+    showTitleScreen();
+}
+
+async function restartCurrentLevel() {
+    showLoadingScreen("Restarting level", 0.04);
+    setGamePaused(true, { clearInput: true });
+    try {
+        const preservedSettings = normalizeGameSettings(gameState.settings);
+        gameState = createInitialGameState({ settings: preservedSettings });
+        gameState.debug.revision = GAME_REVISION;
+        addEvent(gameState, `BUILD_REVISION_${GAME_REVISION}`);
+        activeCaveWindow = normalizeCaveWindow(null);
+        activeLevelMusic = normalizeLevelMusic(null);
+        setLoadingProgress(0.12, "Resetting level data");
+        const loadedBrowserCopy = maybeApplyBrowserCopyLevel();
+        if (!loadedBrowserCopy) {
+            await applyRequiredDefaultLevel();
+        }
+        setLoadingProgress(0.24, "Level data ready");
+        renderer.syncCaveWindow(activeCaveWindow);
+        await renderer.ensureEnvironmentAtlases(gameState.world.atlasManifests, {
+            onProgress: ({ progress, label }) => {
+                setLoadingProgress(0.24 + clamp01(progress) * 0.64, label);
+            }
+        });
+        syncLoadedCharacterCombatProfiles();
+        if (!applyLoadedAtlasCollisions()) {
+            console.error("Restarted level, but its atlas collision data could not be applied.");
+        }
+        renderer.syncEnvironmentColorMap(gameState.world.colorMap);
+        accumulator = 0;
+        lastNow = performance.now();
+        lastInputFrame = createInputFrame();
+        devSingleStepArmed = false;
+        levelTransitionLoading = false;
+        input.clear();
+        syncGameSettingsUi();
+        syncSlidersFromTuning();
+        syncTuningJson();
+        updateHud();
+        updateDebugText();
+        setLoadingProgress(1, "Level ready");
+        await nextPaint();
+    } finally {
+        hideLoadingScreen();
+    }
+}
+
 function restorePauseAfterMenu() {
     document.body.classList.remove("game-menu-open");
     openGameMenuButton?.setAttribute("aria-pressed", "false");
@@ -669,7 +855,7 @@ function restorePauseAfterMenu() {
 }
 
 function isGameAudioMuted() {
-    return Boolean(gameState.debug.paused || pageFocusLost);
+    return Boolean(titleScreenActive || gameState.debug.paused || pageFocusLost);
 }
 
 function syncGameAudioState() {
@@ -691,6 +877,10 @@ function setGamePaused(paused, { clearInput = false } = {}) {
 function pauseForPageFocusLoss() {
     pageFocusLost = true;
     syncGameAudioState();
+    if (titleScreenActive) {
+        setGamePaused(true, { clearInput: true });
+        return;
+    }
     if (!isGameMenuOpen()) {
         openGameMenu();
     } else {
@@ -717,13 +907,14 @@ function setGameMenuView(view) {
     const inSettings = gameMenuView === "settings";
     if (gameMenuMain) gameMenuMain.hidden = inSettings;
     if (gameSettingsPanel) gameSettingsPanel.hidden = !inSettings;
-    if (gameMenuTitle) gameMenuTitle.textContent = inSettings ? "Settings" : "Paused";
+    if (gameMenuTitle) gameMenuTitle.textContent = inSettings ? "Settings" : (titleScreenActive ? "Menu" : "Paused");
     if (gameMenuSubtitle) {
         gameMenuSubtitle.textContent = inSettings
             ? "Tune the machinery without disturbing the cave dust."
-            : "The cave can wait. Probably.";
+            : (titleScreenActive ? "Choose where to go next." : "The cave can wait. Probably.");
     }
     if (gameMenuBackButton) gameMenuBackButton.textContent = "BACK";
+    if (gameMenuExitTitleButton) gameMenuExitTitleButton.hidden = titleScreenActive;
     if (isGameMenuOpen()) {
         (inSettings ? sfxVolumeInput : gameMenuSettingsButton)?.focus();
     }
@@ -796,6 +987,7 @@ async function toggleFullscreen() {
 function shouldAutomaticallyUseFullscreen() {
     return !electronWindowBridge &&
         Boolean(gameState.settings?.autoFullscreen) &&
+        !titleScreenActive &&
         !isGameMenuOpen() &&
         !gameState.debug.paused;
 }
@@ -827,7 +1019,7 @@ function unlockMusicFromGesture() {
 }
 
 function attemptVisibleLevelMusicStart() {
-    if (isGameAudioMuted()) {
+    if (titleScreenActive || isGameAudioMuted()) {
         return Promise.resolve(false);
     }
     // Attempt as soon as the first level frame is visible. Browsers that still
@@ -840,9 +1032,8 @@ function syncFullscreenUi() {
         return;
     }
     if (electronWindowBridge) {
-        fullscreenToggleButton.textContent = "EXIT";
+        fullscreenToggleButton.hidden = true;
         fullscreenToggleButton.setAttribute("aria-pressed", "false");
-        fullscreenToggleButton.setAttribute("aria-label", "Exit to desktop");
         return;
     }
     fullscreenToggleButton.textContent = fullscreenActive ? "WINDOWED" : "FULLSCREEN";
@@ -896,7 +1087,7 @@ function setupPanelToggleButtons() {
 
     debugEl.hidden = true;
     tuningPanel.hidden = true;
-    helpPanel.hidden = false;
+    helpPanel.hidden = true;
 
     assetGuidesButton?.addEventListener("click", () => {
         gameState.debug.showAssetGuides = !gameState.debug.showAssetGuides;
@@ -941,7 +1132,7 @@ function frame(now) {
     const realDt = Math.min(0.08, (now - lastNow) / 1000);
     lastNow = now;
     const inputFrame = input.sample();
-    if (!isGameMenuOpen()) {
+    if (!isGameMenuOpen() && !titleScreenActive) {
         handleDebugInput(inputFrame);
     }
     syncGameAudioState();

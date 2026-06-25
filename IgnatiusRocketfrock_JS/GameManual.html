@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ignatius Rocketfrock Manual</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #0d0b12;
+            --panel: #171120;
+            --panel-raised: #21182d;
+            --line: rgba(201, 167, 255, 0.34);
+            --ink: #f2edf8;
+            --muted: #cdbfdc;
+            --accent: #c9a7ff;
+            --green: #90c99a;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            min-height: 100%;
+            background:
+                radial-gradient(circle at 22% 0%, rgba(144, 201, 154, 0.12), transparent 28rem),
+                radial-gradient(circle at 78% 8%, rgba(201, 167, 255, 0.18), transparent 30rem),
+                linear-gradient(180deg, #15121c 0%, var(--bg) 100%);
+            color: var(--ink);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        body {
+            padding: 22px;
+        }
+
+        main {
+            width: min(980px, 100%);
+            margin: 0 auto;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: clamp(18px, 3vw, 30px);
+            background: rgba(23, 17, 32, 0.94);
+            box-shadow: 0 28px 80px rgba(0, 0, 0, 0.48);
+        }
+
+        h1, h2, h3 {
+            margin: 0 0 10px;
+            line-height: 1.12;
+        }
+
+        h1 {
+            font-family: Georgia, "Times New Roman", serif;
+            font-size: clamp(34px, 6vw, 64px);
+        }
+
+        h2 {
+            margin-top: 28px;
+            color: #fbf8ff;
+            font-size: 22px;
+        }
+
+        h3 {
+            margin-top: 18px;
+            font-size: 17px;
+        }
+
+        p, li {
+            color: var(--muted);
+            line-height: 1.55;
+        }
+
+        ul {
+            margin: 8px 0 16px 22px;
+            padding: 0;
+        }
+
+        a {
+            color: var(--accent);
+            font-weight: 800;
+        }
+
+        code {
+            padding: 1px 5px;
+            border: 1px solid rgba(201, 167, 255, 0.22);
+            border-radius: 5px;
+            background: rgba(0, 0, 0, 0.24);
+            color: #fff;
+            font-family: Consolas, "Courier New", monospace;
+            font-size: 0.95em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0 18px;
+            background: var(--panel-raised);
+        }
+
+        th, td {
+            border: 1px solid rgba(201, 167, 255, 0.2);
+            padding: 9px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            color: #fff;
+            background: rgba(201, 167, 255, 0.14);
+        }
+
+        td {
+            color: var(--muted);
+        }
+
+        .nav {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 14px 0 24px;
+        }
+
+        .nav a {
+            min-height: 40px;
+            border: 1px solid rgba(225, 209, 255, 0.7);
+            border-radius: 10px;
+            padding: 9px 13px;
+            color: #fbf8ff;
+            background: linear-gradient(180deg, rgba(139, 104, 194, 0.58), rgba(35, 28, 48, 0.94));
+            text-decoration: none;
+        }
+
+        .note {
+            border-left: 4px solid var(--green);
+            padding: 10px 12px;
+            background: rgba(144, 201, 154, 0.08);
+            color: #e7f5ea;
+        }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>Ignatius Rocketfrock Manual</h1>
+        <p>Quick reference for starting, moving, fighting, and using the in-game menu.</p>
+        <nav class="nav" aria-label="Manual navigation">
+            <a href="game.html">Back to game</a>
+            <a href="index.html">Project hub</a>
+        </nav>
+
+        <h2>Start</h2>
+        <p>The game opens on the title card. Press a key, click, tap, or use the Start button to begin. That first interaction also unlocks the browser audio system.</p>
+        <p class="note">The Manual link is available from the title card before the game starts.</p>
+
+        <h2>Goal</h2>
+        <p>Guide Ignatius through the cave, survive hostile creatures and hazards, operate useful devices, and reach the exit door.</p>
+
+        <h2>Controls</h2>
+        <table>
+            <thead>
+                <tr><th>Action</th><th>Keyboard</th><th>Pointer or Touch</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Move</td><td><code>Left</code>/<code>Right</code> or <code>A</code>/<code>D</code></td><td>Press the playfield and drag left or right.</td></tr>
+                <tr><td>Jump</td><td><code>Up</code>, <code>W</code>, or <code>Z</code></td><td>Drag upward from the touch point.</td></tr>
+                <tr><td>Double-jump kick and hover</td><td>Press jump again in the air, then hold jump.</td><td>Drag upward again, then keep holding upward.</td></tr>
+                <tr><td>Launch rocket</td><td><code>Space</code>, <code>X</code>, <code>K</code>, or either <code>Ctrl</code></td><td>Quick double-tap the playfield.</td></tr>
+                <tr><td>Interact</td><td><code>Down</code>, <code>S</code>, <code>Enter</code>, or <code>Numpad Enter</code></td><td>Use keyboard input when near levers, keyholes, or story objects.</td></tr>
+                <tr><td>Menu</td><td><code>Escape</code></td><td>Use the MENU button in the upper right.</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Rocketfrock</h2>
+        <ul>
+            <li>The rocket pack can boost, slow falls, and fire homing rockets.</li>
+            <li>Fuel only recharges after Ignatius returns to the ground.</li>
+            <li>Homing rockets prefer active targets in the direction Ignatius is facing.</li>
+        </ul>
+
+        <h2>Health</h2>
+        <ul>
+            <li>Damage briefly grants invulnerability, shown by the health meter feedback.</li>
+            <li>Health regenerates after a delay if Ignatius avoids further damage.</li>
+            <li>Some hazards are damaging; explicitly lethal hazards may defeat Ignatius immediately.</li>
+        </ul>
+
+        <h2>Menu</h2>
+        <ul>
+            <li><strong>Settings</strong> adjusts effects volume, music volume, difficulty, rendering quality, and browser fullscreen policy.</li>
+            <li><strong>Restart level</strong> restarts the current level and resumes play.</li>
+            <li><strong>Exit to Title</strong> appears while the game is running and returns to the title card.</li>
+            <li><strong>Exit to desktop</strong> appears only in the Electron build.</li>
+        </ul>
+
+        <h2>Settings</h2>
+        <ul>
+            <li>Effects volume controls sound effects.</li>
+            <li>Music volume controls the synthesized level music.</li>
+            <li>Difficulty currently changes only incoming damage to Ignatius.</li>
+            <li>Rendering quality changes visual particle density without changing gameplay timing or collision.</li>
+        </ul>
+    </main>
+</body>
+</html>

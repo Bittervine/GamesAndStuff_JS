@@ -11,6 +11,7 @@ const buildDirOnly = process.argv.includes("--dir");
 
 const runtimeEntries = [
     "game.html",
+    "GameManual.html",
     "assets",
     "src"
 ];
@@ -59,7 +60,20 @@ function findElectronBuilder() {
     throw new Error("electron-builder was not found. Run npm install in the electron directory first.");
 }
 
+function readInstalledElectronVersion() {
+    const packagePath = path.join(electronDir, "node_modules", "electron", "package.json");
+    if (!fs.existsSync(packagePath)) {
+        throw new Error("Electron was not found. Run npm install in the electron directory first.");
+    }
+    const electronPackage = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+    if (!/^\d+\.\d+\.\d+/.test(electronPackage.version)) {
+        throw new Error(`Electron version must be exact, got: ${electronPackage.version}`);
+    }
+    return electronPackage.version;
+}
+
 const builder = findElectronBuilder();
+const electronVersion = readInstalledElectronVersion();
 
 removePath(buildRoot);
 removePath(distDir);
@@ -79,6 +93,7 @@ const stagedPackage = {
     build: {
         appId: "com.bittervine.ignatiusrocketfrock",
         productName: "Ignatius Rocketfrock",
+        electronVersion,
         directories: {
             output: "../../dist"
         },
@@ -87,6 +102,7 @@ const stagedPackage = {
             "main.cjs",
             "preload.cjs",
             "game.html",
+            "GameManual.html",
             "assets/**/*",
             "src/**/*",
             "package.json"
@@ -107,6 +123,7 @@ writeJson(path.join(appDir, "package.json"), stagedPackage);
 const result = spawnSync(builder, ["--win", buildDirOnly ? "dir" : "portable"], {
     cwd: appDir,
     stdio: "inherit",
+    shell: process.platform === "win32",
     env: {
         ...process.env,
         CSC_IDENTITY_AUTO_DISCOVERY: "false"
