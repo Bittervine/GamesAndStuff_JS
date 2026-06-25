@@ -149,9 +149,11 @@ function rotationForCategory(category, tangent) {
 
 export function caveDecorationStep(category, tangentSpan, requestedSpacing) {
     const spacing = Math.max(80, finiteNumber(requestedSpacing, 250));
-    const categoryFactor = category === "wall" ? 0.86 : 0.68;
-    const coverage = Math.max(48, finiteNumber(tangentSpan, spacing) * 0.76);
-    return clamp(Math.min(spacing * categoryFactor, coverage), 48, spacing);
+    const categoryFactor = category === "wall" ? 0.72 : 0.58;
+    // Use generous tangential overlap. Rotated rectangular sprites otherwise leave
+    // tiny wedges exposed on curved sections even when their raw bounds touch.
+    const coverage = Math.max(40, finiteNumber(tangentSpan, spacing) * 0.58);
+    return clamp(Math.min(spacing * categoryFactor, coverage), 40, spacing);
 }
 
 function uniqueGeneratedId(index) {
@@ -171,7 +173,8 @@ export function generateCavePerimeterPlacements({
     const arc = buildArcSegments(sampled);
     if (arc.totalLength < 1) return [];
     const clockwiseInScreenSpace = signedArea(sampled) >= 0;
-    const placements = [];
+    const featherDistance = Math.max(0, finiteNumber(caveWindow?.feather, 0));
+    const records = [];
     let cursor = 0;
     let index = 0;
     const maximumPlacements = Math.max(32, Math.ceil(arc.totalLength / 36));
@@ -220,38 +223,69 @@ export function generateCavePerimeterPlacements({
 
         const normalDepth = category === "wall" ? w : h;
         const outward = { x: -inward.x, y: -inward.y };
-        const inwardShift = normalDepth * (0.08 + randomUnit(settings.seed, index, 3) * 0.06);
-        const centerX = sample.x + inward.x * inwardShift;
-        const centerY = sample.y + inward.y * inwardShift;
+        // Vary the readable bite into the cave from one formation to the next.
+        // A centred sprite has 50% of its normal depth inside the perimeter;
+        // shifting its centre inward by up to 25% produces a deterministic
+        // 50-75% inside range without changing the authored seed contract.
+        const insideFraction = 0.5 + randomUnit(settings.seed, index, 3) * 0.25;
+        const inwardShift = normalDepth * (insideFraction - 0.5);
+        // Radial rows overlap by sixty percent. This is deliberately denser than
+        // a simple half-depth tiling because curvature and sprite rotation can
+        // otherwise expose narrow holes between the cave edge and full black.
+        const radialStep = Math.max(18, normalDepth * 0.4);
+        const primaryOutwardReach = normalDepth * 0.5 - inwardShift;
+        const safetyReach = normalDepth * 0.18;
+        const outwardLayerCount = Math.max(0, Math.ceil((featherDistance + safetyReach - primaryOutwardReach) / radialStep));
 
-        placements.push({
-            id: uniqueGeneratedId(index),
-            kind: "atlasAsset",
-            atlasId: candidate.atlasId,
-            assetId: candidate.assetId,
-            x: centerX - w * 0.5,
-            y: centerY - h * 0.5,
-            w,
-            h,
-            mirrorX: randomUnit(settings.seed, index, 4) > 0.5,
-            mirrorY: false,
-            rotation: rotationForCategory(category, sample.tangent),
-            layer: CAVE_FOREGROUND_LAYER,
-            collisionFromManifest: false,
-            foregroundBrightness: settings.brightness,
-            foregroundSaturation: settings.saturation,
-            foregroundOutwardX: outward.x,
-            foregroundOutwardY: outward.y,
-            foregroundFadeStart: 0.05,
-            foregroundFadeEnd: 0.92,
-            generatedBy: CAVE_PERIMETER_GENERATOR,
-            caveCategory: category,
-            order: firstOrder + placements.length,
-            notes: `Automatically generated inert cave-${category} foreground decoration.`
-        });
+        for (let layerIndex = 0; layerIndex <= outwardLayerCount; layerIndex += 1) {
+            const radialOffset = layerIndex * radialStep;
+            const centerX = sample.x + inward.x * inwardShift + outward.x * radialOffset;
+            const centerY = sample.y + inward.y * inwardShift + outward.y * radialOffset;
+            records.push({
+                arcIndex: index,
+                layerIndex,
+                placement: {
+                    kind: "atlasAsset",
+                    atlasId: candidate.atlasId,
+                    assetId: candidate.assetId,
+                    x: centerX - w * 0.5,
+                    y: centerY - h * 0.5,
+                    w,
+                    h,
+                    mirrorX: randomUnit(settings.seed, index, 4 + layerIndex) > 0.5,
+                    mirrorY: false,
+                    rotation: rotationForCategory(category, sample.tangent),
+                    layer: CAVE_FOREGROUND_LAYER,
+                    collisionFromManifest: false,
+                    foregroundBrightness: settings.brightness,
+                    foregroundSaturation: settings.saturation,
+                    foregroundOutwardX: outward.x,
+                    foregroundOutwardY: outward.y,
+                    foregroundFadeStart: 0.05,
+                    foregroundFadeEnd: 0.92,
+                    generatedBy: CAVE_PERIMETER_GENERATOR,
+                    caveCategory: category,
+                    caveArcIndex: index,
+                    caveLayerIndex: layerIndex,
+                    caveRadialOffset: radialOffset,
+                    caveNormalDepth: normalDepth,
+                    caveInsideFraction: insideFraction,
+                    notes: layerIndex === 0
+                        ? `Automatically generated inert cave-${category} foreground decoration.`
+                        : `Automatically generated inert cave-${category} outer coverage layer ${layerIndex}.`
+                }
+            });
+        }
         cursor += step;
         index += 1;
     }
-    return placements;
-}
 
+    // Paint the inward row first. Farther-out rows then cover the broad bases of
+    // inward stalactites/stalagmites instead of letting those bases cover tips.
+    records.sort((a, b) => a.layerIndex - b.layerIndex || a.arcIndex - b.arcIndex);
+    return records.map((record, placementIndex) => ({
+        ...record.placement,
+        id: uniqueGeneratedId(placementIndex),
+        order: firstOrder + placementIndex
+    }));
+}

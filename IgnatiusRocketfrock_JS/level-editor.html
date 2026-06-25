@@ -520,7 +520,7 @@
             </div>
             <p id="cave-status" class="small">No cave perimeter points.</p>
             <p id="cave-geometry-warning" class="small cave-geometry-warning" hidden></p>
-            <p class="small">The cyan perimeter is the cave opening. The dashed magenta outset is derived from Full black distance and marks the exact boundary beyond which the runtime mask is fully opaque black. Both curves and all foreground art are completely inert presentation layers. Foreground placements render after actors with cave parallax, are darkened for depth, overlap slightly into the cave, fade smoothly outward into black, and always have atlas collision disabled. Auto-population treats Max spacing as an upper limit and overlaps smaller top/bottom assets to prevent visible gaps.</p>
+            <p class="small">The cyan perimeter is the cave opening. The dashed magenta outset is derived from Full black distance and marks the exact boundary beyond which the runtime mask is fully opaque black. Both curves and all foreground art are completely inert presentation layers. Foreground placements render after actors with cave parallax, are darkened for depth, overlap slightly into the cave, fade smoothly outward into black, and always have atlas collision disabled. Auto-population treats Max spacing as an upper limit, densely overlaps assets from the opening through the Full black line, and draws farther-out rows over inward rows so broad asset bases do not cover inward tips.</p>
         </div>
 
         <div class="box">
@@ -1351,7 +1351,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         state.selectedCavePointId = cave.points[0]?.id || "";
         setTool("caveSelect");
         persistUi();
-        setStatus("Created an eight-point closed cave perimeter just outside the technical world bounds.");
+        setStatus("Created an organic closed cave perimeter just outside the technical world bounds.");
     }
 
     function addCavePoint(point) {

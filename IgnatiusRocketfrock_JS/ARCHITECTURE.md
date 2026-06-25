@@ -370,3 +370,14 @@ Enemy-platform interaction is portable core state. Character enemies now retain 
 ## Revision 159 thought-tail visual anchor
 
 `computeThoughtBubblePlacement()` treats the speaker anchor as a point just outside the bubble frame, extrapolated beyond the lower-left puff sequence. The renderer still owns this artwork-specific geometry; simulation state remains independent of atlas composition.
+
+
+## Revision 162 cave perimeter coverage and entry routing
+
+Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-window creation from world bounds now produces a denser, gently irregular outside loop rather than a flat rounded rectangle. New cave points are inserted on the nearest edge between authored control points, including the closing last-to-first edge. Automatic perimeter decoration places roughly two thirds of the primary rock row inside the cave opening, then emits half-overlapped radial rows outward until artwork reaches beyond the derived full-black boundary. All generated rows remain presentation-only, collisionless, deterministic, and replaceable through the existing `generatedBy: "cavePerimeter"` contract.
+
+## Revision 163 perimeter coverage ordering
+
+The cave decoration generator treats the band between the editable opening and the derived Full black outset as a continuously tiled presentation region. Tangential placement and radial rows deliberately overlap rather than merely touch, and every radial stack extends past the full-opacity boundary by a safety fraction of the selected sprite depth. Placement order increases from the opening outward. Since `caveForeground` is painter-ordered, farther-out rows cover the broad bases of inward formations while leaving their inward-pointing tips visually exposed.
+
+Revision 164 varies primary cave-perimeter penetration deterministically between 50% and 75% of each formation's normal depth. The variation is derived from the existing decoration seed and arc index, so regeneration remains stable. Radial coverage geometry and painter ordering are unchanged.

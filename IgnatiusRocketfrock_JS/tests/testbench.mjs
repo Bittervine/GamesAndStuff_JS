@@ -295,9 +295,9 @@ function testSourceOrganization() {
         assert.equal("rigPivotOverrides" in character, false, `${characterFile} should not contain pivot replacement data`);
     }
     const indexHtml = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-    assert.ok(indexHtml.includes('asset-editor.html') && indexHtml.includes('level-editor.html') && indexHtml.includes('character-editor.html'), "landing page should link to the renamed tools");
+    assert.ok(indexHtml.includes('window.location.replace("game.html" + window.location.search + window.location.hash)'), "root index should redirect directly to the game while preserving query and hash values");
     const compatibilityHtml = readFileSync(new URL("../IgnatiusRocketfrock_JS.html", import.meta.url), "utf8");
-    assert.ok(compatibilityHtml.includes("window.location.replace('index.html' + window.location.search + window.location.hash)"), "legacy project links should redirect to index.html while preserving query and hash values");
+    assert.ok(compatibilityHtml.includes('window.location.replace("game.html" + window.location.search + window.location.hash)'), "legacy project links should redirect directly to the game while preserving query and hash values");
 }
 
 function approx(actual, expected, tolerance, label) {
@@ -3187,7 +3187,7 @@ function testCaveWindowSplineAuthoring() {
     assert.equal(defaults.decoration.scale, 2, "new cave perimeter decoration should default to two-times asset scale");
 
     const generated = createCaveWindowPointsFromBounds({ x: -320, y: -420, w: 5600, h: 1500 });
-    assert.equal(generated.length, 8, "world-bounds initialization should create an editable rounded eight-point loop");
+    assert.ok(generated.length >= 18, "world-bounds initialization should create a denser editable organic loop");
     const sampled = sampleClosedCaveSpline(generated, 32);
     assert.ok(sampled.length > generated.length, "closed cave splines should sample smooth curve points between controls");
     approx(sampled[0].x, sampled.at(-1).x, 0.0001, "closed cave spline x closure");
@@ -3228,8 +3228,7 @@ function testCaveWindowSplineAuthoring() {
     const generatedBounds = caveWindowBounds(generated, 40);
     assert.ok(generatedBounds.w > worldBounds.w && generatedBounds.h > worldBounds.h, "cave-window fit bounds should cover the outside perimeter plus padding");
     const nearest = nearestCaveSplineSegment(generated, { x: 2480, y: -350 });
-    assert.ok(nearest && Number.isInteger(nearest.segmentIndex), "point insertion should locate the nearest closed spline segment");
-
+    assert.ok(nearest && Number.isInteger(nearest.segmentIndex), "point insertion should locate the nearest closed control edge");
     const warningCave = [
         { id: "a", x: 0, y: 0, mode: "corner" },
         { id: "b", x: 400, y: 0, mode: "corner" },
@@ -3256,6 +3255,8 @@ function testCaveWindowSplineAuthoring() {
         { id: "p3", x: 100, y: 100, mode: "corner" },
         { id: "p4", x: 0, y: 100, mode: "corner" }
     ];
+    const closureNearest = nearestCaveSplineSegment(cornerSquare, { x: -20, y: 50 });
+    assert.equal(closureNearest.segmentIndex, 3, "point insertion near the loop closure should insert between the last and first authored points");
     const straightControls = caveSplineSegmentControls(cornerSquare, 0);
     assert.deepEqual(straightControls.controlA, straightControls.start, "corner outgoing control should stay on the corner");
     assert.deepEqual(straightControls.controlB, straightControls.end, "corner incoming control should stay on the corner");
@@ -3340,6 +3341,7 @@ function testCaveWindowSplineAuthoring() {
             { id: "c", x: 600, y: 400, mode: "corner" },
             { id: "d", x: 0, y: 400, mode: "corner" }
         ],
+        feather: 300,
         decoration
     };
     const generatedDecor = generateCavePerimeterPlacements({ caveWindow: decoratedCave, catalog: decorationCatalog, decoration });
@@ -3352,6 +3354,32 @@ function testCaveWindowSplineAuthoring() {
         return counts;
     }, {});
     assert.ok(categoryCounts.floor >= 5 && categoryCounts.ceiling >= 5, "horizontal cave edges should receive denser overlapping floor and ceiling coverage");
+    assert.ok(generatedDecor.some((placement) => placement.caveLayerIndex > 0), "perimeter generation should add outward overlapping rows when one row cannot reach the full-black boundary");
+    const rowsByArc = new Map();
+    for (const placement of generatedDecor) {
+        const rows = rowsByArc.get(placement.caveArcIndex) || [];
+        rows.push(placement);
+        rowsByArc.set(placement.caveArcIndex, rows);
+    }
+    for (const rows of rowsByArc.values()) {
+        rows.sort((a, b) => a.caveLayerIndex - b.caveLayerIndex);
+        for (let rowIndex = 1; rowIndex < rows.length; rowIndex += 1) {
+            const previous = rows[rowIndex - 1];
+            const current = rows[rowIndex];
+            assert.ok(current.order > previous.order, "farther-out perimeter rows should paint above inward rows");
+            assert.ok(current.caveRadialOffset - previous.caveRadialOffset <= current.caveNormalDepth * 0.41, "radial perimeter rows should overlap substantially without exposed bands");
+        }
+        const outermost = rows[rows.length - 1];
+        const outerReach = outermost.caveRadialOffset + outermost.caveNormalDepth * 0.5;
+        assert.ok(outerReach >= decoratedCave.feather + outermost.caveNormalDepth * 0.17, "every generated radial stack should cover beyond the full-black line with a safety overlap");
+    }
+    const primaryRows = generatedDecor.filter((placement) => placement.caveLayerIndex === 0);
+    assert.ok(primaryRows.length > 0, "perimeter generation should retain a primary row along the authored opening");
+    for (const placement of primaryRows) {
+        assert.ok(placement.caveInsideFraction >= 0.5 && placement.caveInsideFraction <= 0.75, "primary perimeter assets should extend between 50% and 75% inside the authored opening");
+    }
+    const roundedInsideFractions = new Set(primaryRows.map((placement) => placement.caveInsideFraction.toFixed(4)));
+    assert.ok(roundedInsideFractions.size > 1, "primary perimeter inward depth should vary deterministically from asset to asset");
     assert.ok(caveDecorationStep("floor", 180, 250) < 180, "horizontal decoration spacing should overlap smaller assets rather than leave gaps");
     for (const placement of generatedDecor) {
         assert.equal(placement.layer, CAVE_FOREGROUND_LAYER, "generated perimeter art should use the dedicated foreground layer");
@@ -3365,9 +3393,9 @@ function testCaveWindowSplineAuthoring() {
 
     const caveCenter = caveWindowCenter(decoratedCave);
     assert.deepEqual(caveCenter, { x: 300, y: 200 }, "foreground treatment should derive a stable cave-centre fallback for older placements");
-    const floorVisual = generatedDecor.find((placement) => placement.caveCategory === "floor");
+    const floorVisual = generatedDecor.find((placement) => placement.caveCategory === "floor" && placement.caveLayerIndex === 0);
     assert.ok(floorVisual.y + floorVisual.h * 0.5 < 400, "floor perimeter assets should overlap inward past the authored perimeter rather than sit outside it");
-    const ceilingVisual = generatedDecor.find((placement) => placement.caveCategory === "ceiling");
+    const ceilingVisual = generatedDecor.find((placement) => placement.caveCategory === "ceiling" && placement.caveLayerIndex === 0);
     assert.ok(ceilingVisual.y + ceilingVisual.h * 0.5 > 0, "ceiling perimeter assets should overlap inward past the authored perimeter rather than sit outside it");
     const floorLocalOutward = foregroundLocalOutwardVector(floorVisual, caveCenter);
     assert.ok(floorLocalOutward && floorLocalOutward.y > 0.9, "floor decorations should fade toward their local outward edge after rotation and mirroring");

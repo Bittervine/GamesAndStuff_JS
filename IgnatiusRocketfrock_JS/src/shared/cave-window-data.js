@@ -84,21 +84,47 @@ export function createCaveWindowPointsFromBounds(bounds, { margin = 96 } = {}) {
     const top = y;
     const right = x + w;
     const bottom = y + h;
+    const points = [];
 
-    // These eight tangent points form a rounded loop around the declared world
-    // bounds. The top/bottom runs sit beyond the bounds by safeMargin, as do
-    // the left/right runs. Corner curves connect those runs around the original
-    // corners, so the starter perimeter never cuts through the playable area.
-    return [
-        { id: "cave_point_001", x: left, y: top - safeMargin, mode: "smooth" },
-        { id: "cave_point_002", x: right, y: top - safeMargin, mode: "smooth" },
-        { id: "cave_point_003", x: right + safeMargin, y: top, mode: "smooth" },
-        { id: "cave_point_004", x: right + safeMargin, y: bottom, mode: "smooth" },
-        { id: "cave_point_005", x: right, y: bottom + safeMargin, mode: "smooth" },
-        { id: "cave_point_006", x: left, y: bottom + safeMargin, mode: "smooth" },
-        { id: "cave_point_007", x: left - safeMargin, y: bottom, mode: "smooth" },
-        { id: "cave_point_008", x: left - safeMargin, y: top, mode: "smooth" }
-    ];
+    const addPoint = (pointX, pointY) => {
+        points.push({
+            id: `cave_point_${String(points.length + 1).padStart(3, "0")}`,
+            x: pointX,
+            y: pointY,
+            mode: "smooth"
+        });
+    };
+    const wave = (index, count, phase = 0) => {
+        const t = count <= 1 ? 0 : index / (count - 1);
+        return 1 + Math.sin(t * Math.PI * 3 + phase) * 0.22 + Math.sin(t * Math.PI * 7 + phase * 0.7) * 0.08;
+    };
+
+    // Create a denser, gently irregular loop. Every control point remains on
+    // or outside the technical bounds, while the changing outset keeps the
+    // generated opening from looking like a rounded rectangle.
+    const topCount = 7;
+    for (let index = 0; index < topCount; index += 1) {
+        const t = index / (topCount - 1);
+        addPoint(left + w * t, top - safeMargin * wave(index, topCount, 0.35));
+    }
+    const rightCount = 4;
+    for (let index = 1; index < rightCount; index += 1) {
+        const t = index / rightCount;
+        addPoint(right + safeMargin * wave(index, rightCount + 1, 1.2), top + h * t);
+    }
+    addPoint(right + safeMargin * wave(rightCount, rightCount + 1, 1.2), bottom);
+    const bottomCount = 7;
+    for (let index = 1; index < bottomCount; index += 1) {
+        const t = index / (bottomCount - 1);
+        addPoint(right - w * t, bottom + safeMargin * wave(index, bottomCount, 2.1));
+    }
+    const leftCount = 4;
+    for (let index = 1; index < leftCount; index += 1) {
+        const t = index / leftCount;
+        addPoint(left - safeMargin * wave(index, leftCount + 1, 2.8), bottom - h * t);
+    }
+    addPoint(left - safeMargin * wave(leftCount, leftCount + 1, 2.8), top);
+    return points;
 }
 
 function cubicPoint(a, b, c, d, t) {
@@ -321,19 +347,20 @@ export function caveWindowPolygonSeparation(points, polygon, stepsPerSegment = 2
     };
 }
 
-export function nearestCaveSplineSegment(points, point, stepsPerSegment = 20) {
-    const sampled = sampleClosedCaveSpline(points, stepsPerSegment);
-    if (sampled.length < 2) return null;
+export function nearestCaveSplineSegment(points, point) {
+    const controls = Array.isArray(points) ? points : [];
+    if (controls.length < 2) return null;
     let best = null;
-    for (let index = 0; index < sampled.length - 1; index += 1) {
-        const a = sampled[index];
-        const b = sampled[index + 1];
+    for (let index = 0; index < controls.length; index += 1) {
+        const a = controls[index];
+        const b = controls[(index + 1) % controls.length];
         const candidate = pointSegmentDistanceSquared(point, a, b);
         if (!best || candidate.distanceSquared < best.distanceSquared) {
             best = {
-                segmentIndex: a.segmentIndex,
+                segmentIndex: index,
                 x: candidate.x,
                 y: candidate.y,
+                distanceSquared: candidate.distanceSquared,
                 distance: Math.sqrt(candidate.distanceSquared)
             };
         }

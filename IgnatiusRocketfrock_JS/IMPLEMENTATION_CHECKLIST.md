@@ -1433,3 +1433,17 @@ Goal: grow the game beyond isolated prototype levels.
 * [x] Carry grounded corpses with moving platforms without allowing them to trigger rider activation.
 * [x] Preserve existing corpse hold, fade, target removal, and despawn presentation timing.
 * [x] Add a headless regression test for mid-air defeat, delayed gravity, landing, and support identity.
+
+
+## Revision 162 cave perimeter coverage and entry routing
+
+Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-window creation from world bounds now produces a denser, gently irregular outside loop rather than a flat rounded rectangle. New cave points are inserted on the nearest edge between authored control points, including the closing last-to-first edge. Automatic perimeter decoration places roughly two thirds of the primary rock row inside the cave opening, then emits half-overlapped radial rows outward until artwork reaches beyond the derived full-black boundary. All generated rows remain presentation-only, collisionless, deterministic, and replaceable through the existing `generatedBy: "cavePerimeter"` contract.
+
+## Revision 163 gapless radial perimeter stacking
+
+- [x] Densely overlap generated assets tangentially around curved perimeter sections.
+- [x] Overlap radial rows by roughly sixty percent and extend each stack safely beyond the Full black boundary.
+- [x] Draw inward rows first and farther-out rows afterward so outer bases cover inner bases without covering inward tips.
+- [x] Add deterministic regression checks for radial overlap, full-black reach, and draw order.
+
+- [x] Randomize each innermost generated perimeter formation to place 50-75% of its normal depth inside the opening, deterministically from the existing seed. Revision 164.

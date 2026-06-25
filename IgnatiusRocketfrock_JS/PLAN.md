@@ -1820,3 +1820,16 @@ The thought bubble now anchors Ignatius at the extrapolated end of the painted p
 ### Revision 161 enemy corpse gravity and moving support
 
 Character enemies no longer remain suspended when defeated during a jump or drop. The authored non-looping death animation first completes without AI movement; afterward the corpse resumes portable collision physics under gravity, preserves only its existing ballistic momentum, lands on ordinary walkable/blockable geometry, and retains physical support identity. Grounded corpses are carried by moving platforms when their support moves, but dead enemies never trigger rider-activated platforms and never resume navigation, patrol, attacks, or voluntary movement. Corpse hold/fade timing remains unchanged.
+
+
+## Revision 162 cave perimeter coverage and entry routing
+
+Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-window creation from world bounds now produces a denser, gently irregular outside loop rather than a flat rounded rectangle. New cave points are inserted on the nearest edge between authored control points, including the closing last-to-first edge. Automatic perimeter decoration places roughly two thirds of the primary rock row inside the cave opening, then emits half-overlapped radial rows outward until artwork reaches beyond the derived full-black boundary. All generated rows remain presentation-only, collisionless, deterministic, and replaceable through the existing `generatedBy: "cavePerimeter"` contract.
+
+## Revision 163 gapless radial perimeter stacking
+
+Revision 163 tightens automatic cave-perimeter coverage in both directions. Tangential spacing now uses a larger overlap reserve so curved and rotated sprite bounds do not expose narrow wedges. Radial rows overlap by roughly sixty percent and continue beyond the derived Full black line with an additional safety reach, ensuring the complete band from the authored opening to opaque black is covered. Generated draw order now runs from the inward row outward, so farther-out stalactite, stalagmite, wall, and rock bases are painted over inward rows rather than obscuring their tips.
+
+### Revision 164: Varied primary perimeter depth
+
+Automatic cave-perimeter population now varies the innermost row's penetration into the cave opening deterministically per arc placement. Each primary formation places between 50% and 75% of its normal depth inside the authored perimeter, replacing the previous narrow near-two-thirds band while preserving repeatable output for the same seed. Every outward coverage row in a radial stack inherits its primary formation's offset, so continuous coverage to the Full black line and outward-over-inward painter ordering remain unchanged.
