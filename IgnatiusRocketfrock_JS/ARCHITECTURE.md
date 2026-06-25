@@ -381,3 +381,5 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 The cave decoration generator treats the band between the editable opening and the derived Full black outset as a continuously tiled presentation region. Tangential placement and radial rows deliberately overlap rather than merely touch, and every radial stack extends past the full-opacity boundary by a safety fraction of the selected sprite depth. Placement order increases from the opening outward. Since `caveForeground` is painter-ordered, farther-out rows cover the broad bases of inward formations while leaving their inward-pointing tips visually exposed.
 
 Revision 164 varies primary cave-perimeter penetration deterministically between 50% and 75% of each formation's normal depth. The variation is derived from the existing decoration seed and arc index, so regeneration remains stable. Radial coverage geometry and painter ordering are unchanged.
+
+- Enemy combat awareness: player-owned projectile damage immediately alerts and engages surviving character enemies, records Ignatius's impact-time position, and forces hunter AI back into pursuit.

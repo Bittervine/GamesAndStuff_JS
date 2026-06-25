@@ -1833,3 +1833,5 @@ Revision 163 tightens automatic cave-perimeter coverage in both directions. Tang
 ### Revision 164: Varied primary perimeter depth
 
 Automatic cave-perimeter population now varies the innermost row's penetration into the cave opening deterministically per arc placement. Each primary formation places between 50% and 75% of its normal depth inside the authored perimeter, replacing the previous narrow near-two-thirds band while preserving repeatable output for the same seed. Every outward coverage row in a radial stack inherits its primary formation's offset, so continuous coverage to the Full black line and outward-over-inward painter ordering remain unchanged.
+
+- Completed: player damage now acts as an unconditional enemy awareness trigger and refreshes pursuit memory.

@@ -1447,3 +1447,5 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Add deterministic regression checks for radial overlap, full-black reach, and draw order.
 
 - [x] Randomize each innermost generated perimeter formation to place 50-75% of its normal depth inside the opening, deterministically from the existing seed. Revision 164.
+
+- [x] Damage from Ignatius immediately alerts the damaged enemy, even outside its normal awareness cone or range.

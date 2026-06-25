@@ -3806,6 +3806,47 @@ function chooseCharacterEnemyAttackPlan(state, enemy, navigation) {
     return fallback;
 }
 
+function alertCharacterEnemyFromPlayerDamage(state, enemy) {
+    if (!isCharacterEnemyState(enemy)) {
+        return;
+    }
+
+    const wasAlerted = enemy.alerted === true;
+    enemy.awarenessTimer = Math.max(
+        FIXED_DT,
+        Number(enemy.awarenessHoldDuration) || state.tuning.enemyDefaultAwarenessHoldSeconds || 1.2
+    );
+    enemy.alerted = true;
+    enemy.engaged = true;
+
+    const navigation = enemy.strategy === "hunter"
+        ? characterEnemyNavigationContext(state, enemy)
+        : null;
+    rememberCharacterEnemyPlayerPosition(state, enemy, navigation);
+
+    const dx = (Number(state.player.x) || 0) - (Number(enemy.x) || 0);
+    if (Math.abs(dx) > 0.001) {
+        enemy.facing = dx < 0 ? -1 : 1;
+    }
+
+    if (enemy.strategy === "hunter") {
+        enemy.glareFocusX = null;
+        enemy.glareFocusY = null;
+        if (enemy.aiState !== "pursue") {
+            clearCharacterEnemyNavigationPlan(enemy);
+            enemy.aiState = "pursue";
+            enemy.routeRepathTimer = 0;
+        }
+    }
+
+    if (!wasAlerted) {
+        addEvent(state, "ENEMY_ALERTED", {
+            enemyId: enemy.id,
+            reason: "player_damage"
+        });
+    }
+}
+
 function rememberCharacterEnemyPlayerPosition(state, enemy, navigation) {
     enemy.lastSeenPlayerX = Number(state.player.x) || 0;
     enemy.lastSeenPlayerY = Number(state.player.y) || 0;
@@ -5860,6 +5901,9 @@ function applyProjectileDamageToEnemy(state, projectile, enemy) {
     enemy.hitFlashDuration = Math.max(FIXED_DT, Number(enemy.hitFlashDuration) || state.tuning.enemyHitFlashSeconds || 0.16);
     enemy.hitFlashTimer = enemy.hitFlashDuration;
     enemy.healthBarTimer = Math.max(0, state.tuning.enemyHealthBarSeconds ?? 1.4);
+    if (damage > 0) {
+        alertCharacterEnemyFromPlayerDamage(state, enemy);
+    }
 
     const defeated = enemy.health <= 0;
     if (defeated) {

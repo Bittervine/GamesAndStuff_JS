@@ -2324,6 +2324,13 @@ function testCharacterEnemyRocketCombat() {
     enemy.animationSlot = "attack";
     enemy.attackTimer = 0.3;
     enemy.attackHitApplied = false;
+    enemy.awarenessRange = 1;
+    enemy.awarenessTimer = 0;
+    enemy.alerted = false;
+    enemy.engaged = false;
+    enemy.facing = 1;
+    const impactPlayerX = state.player.x;
+    const impactPlayerY = state.player.y;
     const first = addTestRocket(state, { id: "combat_hit_1" });
     stepSimulation(state, createInputFrame(), FIXED_DT);
 
@@ -2335,8 +2342,15 @@ function testCharacterEnemyRocketCombat() {
     assert.equal(enemy.attackTimer, 0, "rocket hurt should interrupt an in-progress melee attack");
     assert.ok(enemy.hitFlashTimer > 0, "enemy hit should start a renderer-facing flash timer");
     assert.ok(enemy.healthBarTimer > 0, "enemy hit should temporarily reveal its health bar");
+    assert.equal(enemy.alerted, true, "damage from Ignatius should alert an enemy even outside its awareness range");
+    assert.equal(enemy.engaged, true, "damage from Ignatius should engage the enemy");
+    assert.ok(enemy.awarenessTimer > 0, "damage awareness should persist beyond the impact frame");
+    assert.equal(enemy.lastSeenPlayerX, impactPlayerX, "damage awareness should remember Ignatius's horizontal position at impact");
+    assert.equal(enemy.lastSeenPlayerY, impactPlayerY, "damage awareness should remember Ignatius's vertical position at impact");
+    assert.equal(enemy.facing, -1, "the damaged enemy should turn toward Ignatius");
     assert.equal(target.state, "active", "surviving enemy should remain a homing target");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_DAMAGED" && event.enemyId === enemy.id), "damage should emit an enemy event");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_ALERTED" && event.enemyId === enemy.id && event.reason === "player_damage"), "damage should emit an explicit player-damage alert event");
 
     state.projectiles = [];
     stepMany(state, Math.ceil(enemy.hurtDuration / FIXED_DT) + 2);
