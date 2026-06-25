@@ -1747,7 +1747,6 @@ function setMovingPlatformPosition(state, platform, x, y) {
     const carryingEnemies = platform.collisionAttached
         ? (state.enemies || []).filter((enemy) => (
             enemy?.kind === "characterEnemy" &&
-            enemy.combatState !== ENEMY_COMBAT_STATE.DEAD &&
             enemy.airborne !== true &&
             movingPlatformOwnsCollisionId(platform, enemy.supportId)
         ))
@@ -4736,6 +4735,66 @@ function updateHunterCharacterEnemy(state, enemy, dt) {
     syncCharacterEnemyTarget(state, enemy);
 }
 
+function updateDeadCharacterEnemyPhysics(state, enemy, dt) {
+    if ((Number(enemy.deathTimer) || 0) > 0) {
+        return;
+    }
+
+    if (enemy.airborne !== true) {
+        const support = findCharacterEnemyGroundSupport(
+            state,
+            enemy.x,
+            enemy.y,
+            Math.max(2, Number(enemy.maxStepHeight) || 0),
+            Math.max(4, Number(enemy.maxDropDistance) || 0),
+            enemy.width
+        );
+        if (support && Math.abs(support.y - enemy.y) <= Math.max(4, Number(enemy.maxDropDistance) || 0)) {
+            enemy.y = support.y;
+            enemy.velocityX = 0;
+            enemy.velocityY = 0;
+            setCharacterEnemyGroundSupportIdentity(state, enemy, support);
+            return;
+        }
+        enemy.airborne = true;
+        enemy.supportId = null;
+        enemy.ridingPlatformId = null;
+    }
+
+    enemy.airTimer = Math.max(0, Number(enemy.airTimer) || 0) + dt;
+    enemy.velocityY = (Number(enemy.velocityY) || 0) + Math.max(1, Number(enemy.jumpGravity) || 1) * dt;
+
+    const previousX = enemy.x;
+    const previousY = enemy.y;
+    const nextX = previousX + (Number(enemy.velocityX) || 0) * dt;
+    const horizontalCollision = findActorHorizontalSweepCollision(state, enemy, previousX, nextX);
+    enemy.x = horizontalCollision ? horizontalCollision.x : nextX;
+    if (horizontalCollision) {
+        enemy.velocityX = 0;
+    }
+
+    const nextY = previousY + (Number(enemy.velocityY) || 0) * dt;
+    const verticalCollision = findActorVerticalSweepCollision(state, enemy, previousY, nextY);
+    enemy.y = verticalCollision ? verticalCollision.y : nextY;
+    if (verticalCollision?.ceiling) {
+        enemy.velocityY = 0;
+    } else if (verticalCollision) {
+        enemy.velocityX = 0;
+        enemy.velocityY = 0;
+        enemy.airborne = false;
+        enemy.airTimer = 0;
+        const support = findCharacterEnemyGroundSupport(
+            state,
+            enemy.x,
+            enemy.y,
+            Math.max(5, Number(enemy.maxStepHeight) || 0),
+            Math.max(5, Number(enemy.maxDropDistance) || 0),
+            enemy.width
+        );
+        setCharacterEnemyGroundSupportIdentity(state, enemy, support);
+    }
+}
+
 function updateDeadEnemyPresentation(state, enemy, dt) {
     const holdDuration = Math.max(0, finiteNumberOr(enemy.corpseHoldDuration, state.tuning.enemyCorpseHoldSeconds));
     const fadeDuration = Math.max(0, finiteNumberOr(enemy.corpseFadeDuration, state.tuning.enemyCorpseFadeSeconds));
@@ -4777,6 +4836,7 @@ function updateCharacterEnemies(state, dt) {
             enemy.attackLungeRemaining = 0;
             enemy.attackHitApplied = false;
             enemy.deathTimer = Math.max(0, (Number(enemy.deathTimer) || 0) - dt);
+            updateDeadCharacterEnemyPhysics(state, enemy, dt);
             updateDeadEnemyPresentation(state, enemy, dt);
             setCharacterEnemyAnimation(enemy, "death");
             syncCharacterEnemyTarget(state, enemy);

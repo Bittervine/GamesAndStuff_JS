@@ -1423,3 +1423,13 @@ Goal: grow the game beyond isolated prototype levels.
 
 - [x] Anchor Ignatius at the extrapolated end of the painted thought-puff trail.
 - [x] Preserve responsive clamping and text fitting while correcting the bubble's visual direction.
+
+## Revision 161 enemy corpse gravity and moving support
+
+* [x] Keep a newly defeated airborne character enemy fixed while its authored death clip plays.
+* [x] After the death clip, apply gravity and ordinary actor sweep collision to the corpse.
+* [x] Preserve ballistic momentum without allowing dead-enemy AI, navigation, attacks, or voluntary movement.
+* [x] Settle landed corpses on walkable/blockable geometry and retain authoritative support identity.
+* [x] Carry grounded corpses with moving platforms without allowing them to trigger rider activation.
+* [x] Preserve existing corpse hold, fade, target removal, and despawn presentation timing.
+* [x] Add a headless regression test for mid-air defeat, delayed gravity, landing, and support identity.

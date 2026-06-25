@@ -2373,6 +2373,71 @@ function testCharacterEnemyRocketCombat() {
     assert.equal(enemy.renderOpacity, 0, "defeated enemy should be fully transparent after the three-second fade");
 }
 
+function testDeadAirborneEnemyFallsAfterDeathAnimation() {
+    const state = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(state, {
+        levelId: "dead_airborne_enemy_test",
+        playerStart: { x: -300, y: 400 },
+        entities: [{
+            id: "falling_corpse",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 120,
+            y: 170,
+            w: 72,
+            h: 150,
+            health: 100,
+            strategy: "hunter",
+            facing: 1
+        }]
+    }), true, "airborne corpse test level should apply");
+    state.world.solids = [];
+    state.world.collisionPolygons = [];
+    state.world.segments = [{
+        id: "corpse_floor",
+        kind: "walkable",
+        x1: -500,
+        y1: 400,
+        x2: 500,
+        y2: 400
+    }];
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+
+    const enemy = state.enemies.find((item) => item.id === "falling_corpse");
+    enemy.health = 0;
+    enemy.combatState = "dead";
+    enemy.state = "death";
+    enemy.movementPhase = "dead";
+    enemy.animationSlot = "death";
+    enemy.deathTimer = 0.2;
+    enemy.deathElapsed = 0;
+    enemy.airborne = true;
+    enemy.supportId = null;
+    enemy.ridingPlatformId = null;
+    enemy.velocityX = 45;
+    enemy.velocityY = -120;
+
+    const frozenX = enemy.x;
+    const frozenY = enemy.y;
+    stepMany(state, 6);
+    assert.equal(enemy.x, frozenX, "airborne corpse should remain posed while the death clip is still playing");
+    assert.equal(enemy.y, frozenY, "death animation should finish before corpse gravity begins");
+
+    stepMany(state, 12);
+    assert.ok(enemy.x > frozenX, "corpse should retain ballistic horizontal momentum after the death clip");
+    assert.notEqual(enemy.y, frozenY, "corpse should begin falling after the death clip finishes");
+    assert.equal(enemy.animationSlot, "death", "corpse physics must not replace the authored death presentation");
+
+    stepMany(state, 180);
+    assert.equal(enemy.airborne, false, "corpse should land instead of floating until despawn");
+    assert.ok(Math.abs(enemy.y - 400) < 0.01, `corpse should settle on collision geometry (${enemy.y})`);
+    assert.equal(enemy.velocityX, 0, "landed corpse should have no self-propelled horizontal movement");
+    assert.equal(enemy.velocityY, 0, "landed corpse should stop accumulating downward velocity");
+    assert.equal(enemy.supportId, "corpse_floor", "landed corpse should retain physical support identity");
+}
+
 function testCharacterEnemyMeleeAttack() {
     const state = createInitialGameState({
         tuning: {
@@ -5829,6 +5894,7 @@ const tests = [
     ["simulation-owned character enemy patrol", testCharacterEnemyPatrolBehavior],
     ["character enemy aggressive chase and combo", testCharacterEnemyAggressiveChaseAndCombo],
     ["character enemy rocket combat", testCharacterEnemyRocketCombat],
+    ["dead airborne enemy falls after death animation", testDeadAirborneEnemyFallsAfterDeathAnimation],
     ["character enemy melee attack", testCharacterEnemyMeleeAttack],
     ["terrain shields player from enemy melee", testEnemyMeleeBlockedByTerrain],
     ["fireball goblin projectile attack", testFireballGoblinProjectileAttack],

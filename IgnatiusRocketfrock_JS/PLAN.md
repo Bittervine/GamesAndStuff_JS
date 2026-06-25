@@ -1816,3 +1816,7 @@ Crushing/depenetration and the cave full-black kill boundary remain the next unc
 ### Revision 159 thought-tail direction correction
 
 The thought bubble now anchors Ignatius at the extrapolated end of the painted puff trail rather than at the centre of the lowest puff. This follows the artwork's actual down-left direction, so the trail points back toward Ignatius's head instead of visually continuing toward the lower-left corner beside him.
+
+### Revision 161 enemy corpse gravity and moving support
+
+Character enemies no longer remain suspended when defeated during a jump or drop. The authored non-looping death animation first completes without AI movement; afterward the corpse resumes portable collision physics under gravity, preserves only its existing ballistic momentum, lands on ordinary walkable/blockable geometry, and retains physical support identity. Grounded corpses are carried by moving platforms when their support moves, but dead enemies never trigger rider-activated platforms and never resume navigation, patrol, attacks, or voluntary movement. Corpse hold/fade timing remains unchanged.
