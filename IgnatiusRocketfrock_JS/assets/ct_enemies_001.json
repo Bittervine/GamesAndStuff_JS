@@ -1,8 +1,8 @@
 {
     "meta": {
         "version": 19,
-        "note": "Revision 172 promotes enemy_005 to the retained bat, removes enemy_004, uses the atlas-authored rock projectile, and gives bombers a small perch patrol before visual activation.",
-        "revision": 172
+        "note": "Revision 181 improves the retained bombing bat with foot-origin rock drops, sustained pursuit, high on-screen hovering, curved steering, and obstacle clearance.",
+        "revision": 181
     },
     "catalogId": "ct_enemies_001",
     "enemies": {
@@ -223,7 +223,7 @@
                 "corpseHoldDuration": 0,
                 "corpseFadeDuration": 0,
                 "bomberHorizontalSpeed": 180,
-                "bomberHoverHeight": 190,
+                "bomberHoverHeight": 280,
                 "bomberDropTolerance": 38,
                 "bomberInitialDelay": 0.5,
                 "attackMode": "projectile",
@@ -234,13 +234,17 @@
                 "projectileLifetime": 4,
                 "projectileRadius": 12,
                 "projectileDamage": 16,
-                "projectileCooldown": 1.5,
+                "projectileCooldown": 1.35,
                 "projectileHomingStrength": 0,
                 "projectileKnockbackX": 100,
                 "projectileKnockbackY": -120,
                 "projectileFrameId": "rock",
                 "renderOffsetX": -20,
-                "renderOffsetY": 35
+                "renderOffsetY": 35,
+                "bomberObstacleClearance": 64,
+                "bomberScreenTopMargin": 72,
+                "bomberSteeringResponse": 4.2,
+                "bomberWanderAmplitude": 34
             }
         }
     }

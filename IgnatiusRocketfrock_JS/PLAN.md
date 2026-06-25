@@ -1879,3 +1879,7 @@ Enemy projects now show their type-wide gameplay hitbox in the animation workspa
 ### Revision 174: unified enemy catalog JSON workflow
 
 Puppet Forge now presents the complete `ct_enemies_001.json` document directly above Character JSON, using the same inspect, apply, reset, and download pattern as the other project JSON documents. The higher-level Enemy type defaults controls remain the convenient visual editor for the selected enemy entry, while the full catalog panel is the authoritative save surface and advanced-editing escape hatch.
+
+### Revision 181: sustained organic bomber pursuit
+
+The retained bombing bat now releases rocks from beneath its body, climbs toward a high but still visible attack altitude, and remains engaged for repeated bombing passes while awareness is active. Flight pursuit uses velocity steering and a restrained curved offset instead of direct point-to-point translation. Forward clearance probes divert the bat around nearby terrain with a configurable safety margin. The supplied enemy catalog and level are included; the level's baked hunter navigation graph was regenerated after the level edit so it remains valid.

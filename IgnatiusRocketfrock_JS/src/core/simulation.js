@@ -2295,6 +2295,10 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             bomberHoverHeight: Math.max(16, finiteNumberOr(entity.bomberHoverHeight, 180)),
             bomberDropTolerance: Math.max(1, finiteNumberOr(entity.bomberDropTolerance, 34)),
             bomberRetreatDistance: Math.max(0, finiteNumberOr(entity.bomberRetreatDistance, 120)),
+            bomberObstacleClearance: Math.max(8, finiteNumberOr(entity.bomberObstacleClearance, 56)),
+            bomberScreenTopMargin: Math.max(20, finiteNumberOr(entity.bomberScreenTopMargin, 72)),
+            bomberSteeringResponse: Math.max(0.5, finiteNumberOr(entity.bomberSteeringResponse, 4.5)),
+            bomberWanderAmplitude: Math.max(0, finiteNumberOr(entity.bomberWanderAmplitude, 28)),
             bomberDropTimer: Math.max(0, finiteNumberOr(entity.bomberInitialDelay, 0.4)),
             bomberState: strategy === "bomber" ? "perched" : null,
             bomberPerchX: x,
@@ -2962,7 +2966,12 @@ function characterEnemyProjectilePathClearFromPoint(state, enemy, point) {
 
 function launchCharacterEnemyProjectile(state, enemy) {
     const player = state.player;
-    const origin = enemyProjectileSpawnPoint(enemy);
+    const origin = String(enemy.projectileLaunchType || "") === "drop"
+        ? {
+            x: enemy.x,
+            y: enemy.y + Math.max(4, enemy.height * 0.48)
+        }
+        : enemyProjectileSpawnPoint(enemy);
     const target = {
         x: player.x,
         y: player.y - player.height * 0.56
@@ -3085,7 +3094,13 @@ function characterEnemyCanNoticePlayer(state, enemy) {
         180
     );
     const minimumForwardDot = Math.cos(halfAngleDegrees * Math.PI / 180);
-    const forwardDot = dx * facing / distance;
+    // Flying bombers judge their facing cone in the horizontal plane. Using the full
+    // two-dimensional direction made a wizard standing below a bat appear outside a
+    // narrow cone even when he was plainly in front of it. The range check above still
+    // uses the real two-dimensional distance.
+    const forwardDot = enemy.strategy === "bomber" && enemy.locomotion === "flying"
+        ? (Math.abs(dx) <= 0.0001 ? 1 : Math.sign(dx) * facing)
+        : dx * facing / distance;
 
     // Awareness is intentionally independent of collision geometry. Pillars, doors,
     // walkable lines, and blockable areas may obstruct movement or an actual attack,
@@ -4902,21 +4917,79 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
             enemy.alerted = false;
         } else {
             const targetX = Number(player?.x) || enemy.x;
-            const targetY = (Number(player?.y) || perchY) - Math.max(16, Number(enemy.bomberHoverHeight) || 180);
-            const dx = targetX - enemy.x;
-            const dy = targetY - enemy.y;
+            const desiredHoverY = (Number(player?.y) || perchY) - Math.max(16, Number(enemy.bomberHoverHeight) || 180);
+            const approximateViewportHalfHeight = 270 / Math.max(0.5, Number(state.camera?.zoom) || 1);
+            const screenTop = (Number(state.camera?.y) || desiredHoverY) - approximateViewportHalfHeight;
+            const topMargin = Math.max(20, Number(enemy.bomberScreenTopMargin) || 72);
+            const targetY = Math.max(screenTop + topMargin + enemy.height * 0.5, desiredHoverY);
+            const wander = Math.sin(phase * 0.57 + (Number(enemy.flightPhaseOffset) || 0) * 3.1) *
+                Math.max(0, Number(enemy.bomberWanderAmplitude) || 0);
+            const playerDxBeforeSteering = targetX - enemy.x;
+            const wanderBlend = Math.min(1, Math.abs(playerDxBeforeSteering) / 160);
+            let desiredX = targetX + wander * wanderBlend;
+            let desiredY = targetY + Math.sin(phase * 0.83) * Math.min(18, amplitude);
+            const obstacleMargin = Math.max(8, Number(enemy.bomberObstacleClearance) || 56);
+            const clearance = Math.max(enemy.width, enemy.height) * 0.5 + obstacleMargin;
+            // Use a compact body probe while retaining the larger clearance value for
+            // steering offsets. A clearance-sized circle around the whole sprite extends
+            // through the floor whenever the bat is perched and prevents take-off.
+            const flightProbeRadius = Math.max(
+                8,
+                Math.min(
+                    Math.min(enemy.width, enemy.height) * 0.28 + obstacleMargin * 0.35,
+                    Math.max(8, enemy.height * 0.5 - 4)
+                )
+            );
+            // Enemy x/y uses a feet-position convention. Terrain probes, however, expect
+            // a center point. Probing from the feet made a perched bomber permanently
+            // overlap the platform beneath it, so every attempted take-off was rejected.
+            const enemyCenterY = enemy.y - enemy.height * 0.5;
+            const desiredCenterY = desiredY - enemy.height * 0.5;
+            const directProbe = {
+                x: desiredX,
+                y: desiredCenterY,
+                radius: flightProbeRadius
+            };
+            const directHit = findProjectileTerrainImpact(state, directProbe, enemy.x, enemyCenterY);
+            if (directHit) {
+                const sidestep = enemy.x <= directHit.x ? -1 : 1;
+                desiredX += sidestep * clearance * 1.4;
+                desiredY = Math.min(desiredY, directHit.y - clearance);
+            }
+            const dx = desiredX - enemy.x;
+            const dy = desiredY - enemy.y;
             const distance = Math.hypot(dx, dy);
-            const step = Math.min(distance, horizontalSpeed * dt);
             const nx = distance > 0 ? dx / distance : 0;
             const ny = distance > 0 ? dy / distance : 0;
-            enemy.x += nx * step;
-            enemy.y += ny * step;
-            enemy.velocityX = nx * horizontalSpeed;
-            enemy.velocityY = ny * horizontalSpeed;
+            const steering = Math.min(1, Math.max(0.5, Number(enemy.bomberSteeringResponse) || 4.5) * dt);
+            const targetVx = nx * horizontalSpeed;
+            const targetVy = ny * horizontalSpeed;
+            enemy.velocityX += (targetVx - (Number(enemy.velocityX) || 0)) * steering;
+            enemy.velocityY += (targetVy - (Number(enemy.velocityY) || 0)) * steering;
+            const speedNow = Math.hypot(enemy.velocityX, enemy.velocityY);
+            if (speedNow > horizontalSpeed && speedNow > 0) {
+                enemy.velocityX = enemy.velocityX / speedNow * horizontalSpeed;
+                enemy.velocityY = enemy.velocityY / speedNow * horizontalSpeed;
+            }
+            const nextX = enemy.x + enemy.velocityX * dt;
+            const nextY = enemy.y + enemy.velocityY * dt;
+            const movementProbe = {
+                x: nextX,
+                y: nextY - enemy.height * 0.5,
+                radius: flightProbeRadius
+            };
+            if (!findProjectileTerrainImpact(state, movementProbe, enemy.x, enemyCenterY)) {
+                enemy.x = nextX;
+                enemy.y = nextY;
+            } else {
+                enemy.velocityX *= -0.35;
+                enemy.velocityY = -Math.abs(enemy.velocityY || horizontalSpeed * 0.35);
+            }
             if (Math.abs(dx) > 0.001) enemy.facing = dx < 0 ? -1 : 1;
             enemy.bomberDropTimer = Math.max(0, (Number(enemy.bomberDropTimer) || 0) - dt);
             const verticallyAbove = enemy.y < (Number(player?.y) || enemy.y) - 24;
-            if (Math.abs(dx) <= tolerance && verticallyAbove && enemy.bomberDropTimer <= 0) {
+            const dropDx = targetX - enemy.x;
+            if (Math.abs(dropDx) <= tolerance && verticallyAbove && enemy.bomberDropTimer <= 0) {
                 enemy.projectileLaunchType = "drop";
                 enemy.attackMode = "projectile";
                 const projectile = launchCharacterEnemyProjectile(state, enemy);

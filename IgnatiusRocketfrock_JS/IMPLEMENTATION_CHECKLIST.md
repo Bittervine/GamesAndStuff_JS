@@ -1538,3 +1538,17 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 
 - [x] Remove stale discarded enemy 006, 007, and 008 JSON assets that were accidentally reintroduced into the update archive.
 - [x] Verify no runtime or editor references remain outside historical planning notes and regression assertions.
+
+## Revision 181
+
+- [x] Drop bomber projectiles from the bat's feet rather than the generic ranged-weapon origin.
+- [x] Keep an alerted bomber hunting and repeatedly dropping rocks until awareness expires.
+- [x] Raise the bomber's preferred hover height while clamping it below the visible top edge.
+- [x] Replace straight-line pursuit with eased curved steering and subtle authored wander.
+- [x] Probe terrain ahead and steer away with an authored clearance margin.
+- [x] Include the supplied enemy catalog and level, rebaking the edited level's hunter navigation graph.
+
+## Revision 182
+
+- Fixed perched bomber take-off: obstacle probes now use the flying enemy body centre and a compact collision radius, preventing the platform under a bat from blocking every upward movement.
+- Added a regression test for a bomber leaving a platform directly beneath its perch.

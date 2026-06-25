@@ -723,6 +723,81 @@ function testFlyingBomberDropsProjectile() {
     assert.ok(bomb.vy >= 0, "dropped projectile should begin moving downward");
 }
 
+function testFlyingBomberNoticesWizardBelowAndAhead() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "bomber_vertical_awareness_test",
+        playerStart: { x: 540, y: 650 },
+        bounds: { x: 0, y: 0, w: 1200, h: 800 },
+        entities: [{
+            id: "bomber",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_005",
+            x: 420,
+            y: 330,
+            w: 150,
+            h: 100,
+            facing: 1,
+            locomotion: "flying",
+            strategy: "bomber",
+            bomberHorizontalSpeed: 180,
+            bomberHoverHeight: 280,
+            awarenessRange: 800,
+            awarenessViewHalfAngle: 60,
+            projectileLaunchType: "drop",
+            projectileKind: "rock",
+            health: 1,
+            animationSlot: "fly"
+        }]
+    });
+    const bomber = state.enemies.find((enemy) => enemy.id === "bomber");
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(bomber.alerted, true, "a flying bomber should notice a wizard below and in front of it");
+    assert.equal(bomber.aiState, "bomber", "noticed bomber should immediately begin its bombing run");
+    assert.ok(bomber.velocityX > 0 || bomber.velocityY < 0, "noticed bomber should begin moving toward its attack position");
+}
+
+
+function testFlyingBomberCanLeavePerchPlatform() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "bomber_perch_takeoff_test",
+        playerStart: { x: 500, y: 620 },
+        bounds: { x: 0, y: 0, w: 1200, h: 800 },
+        entities: [{
+            id: "perched_bomber",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_005",
+            x: 220,
+            y: 500,
+            w: 84,
+            h: 66,
+            facing: 1,
+            locomotion: "flying",
+            strategy: "bomber",
+            bomberHorizontalSpeed: 240,
+            bomberHoverHeight: 180,
+            bomberDropTolerance: 24,
+            bomberInitialDelay: 2,
+            awarenessRange: 800,
+            awarenessViewHalfAngle: 180,
+            projectileLaunchType: "drop",
+            projectileKind: "rock",
+            projectileCooldown: 1.5,
+            health: 1,
+            animationSlot: "fly"
+        }]
+    });
+    const bomber = state.enemies.find((enemy) => enemy.id === "perched_bomber");
+    state.world.solids.push({ id: "perch_floor", kind: "floor", x: 80, y: 500, w: 360, h: 90 });
+    const startY = bomber.y;
+    for (let step = 0; step < 60; step += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+    }
+    assert.equal(bomber.aiState, "bomber", "aware bomber should enter its bombing run");
+    assert.ok(bomber.y < startY - 30, "bomber should lift away from a platform directly beneath its perch");
+}
+
 
 function testEnemyCatalogAndLevelEditorIntegration() {
     const catalog = JSON.parse(readFileSync("./assets/ct_enemies_001.json", "utf8"));
@@ -6129,6 +6204,8 @@ const tests = [
     ["goblin runtime character projects", testGoblinRuntimeCharacterProjects],
     ["bat frame-swap projects and flying locomotion", testBatFrameSwapProjectsAndFlight],
     ["flying bomber drops projectile", testFlyingBomberDropsProjectile],
+    ["flying bomber leaves perch platform", testFlyingBomberCanLeavePerchPlatform],
+    ["flying bomber notices wizard below and ahead", testFlyingBomberNoticesWizardBelowAndAhead],
     ["enemy catalog and Level Editor integration", testEnemyCatalogAndLevelEditorIntegration],
     ["enemy navigation graph and jump reachability", testEnemyNavigationGraphAndJumpReachability],
     ["baked navigation graph directional transitions", testBakedNavigationGraphDirectionalTransitions],
