@@ -1,4 +1,9 @@
 import {
+    STORY_READING_CHARACTERS_PER_SECOND,
+    STORY_READING_START_DELAY_SECONDS,
+    storyCharacterCount
+} from "../shared/story-reading.js";
+import {
     animationTimeFromPhase,
     blendAnimationPoses,
     sampleAnimationClip
@@ -93,7 +98,14 @@ function rendererNowMs() {
     return Date.now();
 }
 
-export function computeTimedTextViewportLayout(contentHeight, viewportHeight, phaseTime = 0, duration = 1) {
+export function computeTimedTextViewportLayout(
+    contentHeight,
+    viewportHeight,
+    phaseTime = 0,
+    duration = 1,
+    characterCount = 0,
+    charactersPerSecond = STORY_READING_CHARACTERS_PER_SECOND
+) {
     const safeContentHeight = Math.max(0, Number(contentHeight) || 0);
     const safeViewportHeight = Math.max(1, Number(viewportHeight) || 1);
     const maxScroll = Math.max(0, safeContentHeight - safeViewportHeight);
@@ -103,21 +115,37 @@ export function computeTimedTextViewportLayout(contentHeight, viewportHeight, ph
             contentOffset: Math.max(0, (safeViewportHeight - safeContentHeight) * 0.5),
             maxScroll: 0,
             progress: 0,
-            scrollOffset: 0
+            scrollOffset: 0,
+            scrollStartTime: 0,
+            scrollEndTime: 0
         };
     }
 
     const safeDuration = Math.max(0.25, Number(duration) || 1);
-    const rawProgress = clamp((Number(phaseTime) || 0) / safeDuration, 0, 1);
-    const progress = clamp((rawProgress - 0.16) / 0.68, 0, 1);
-    const easedProgress = progress * progress * (3 - 2 * progress);
-    const scrollOffset = maxScroll * easedProgress;
+    const safeCharacterCount = Math.max(1, Number(characterCount) || 1);
+    const safeRate = Math.max(0.1, Number(charactersPerSecond) || STORY_READING_CHARACTERS_PER_SECOND);
+    const readingSeconds = safeCharacterCount / safeRate;
+    const initialMidpointFraction = clamp((safeViewportHeight * 0.5) / safeContentHeight, 0, 1);
+    const finalMidpointFraction = clamp((maxScroll + safeViewportHeight * 0.5) / safeContentHeight, 0, 1);
+    const scrollStartTime = STORY_READING_START_DELAY_SECONDS + readingSeconds * initialMidpointFraction;
+    const scrollEndTime = Math.min(
+        safeDuration,
+        STORY_READING_START_DELAY_SECONDS + readingSeconds * finalMidpointFraction
+    );
+    const progress = clamp(
+        ((Number(phaseTime) || 0) - scrollStartTime) / Math.max(0.001, scrollEndTime - scrollStartTime),
+        0,
+        1
+    );
+    const scrollOffset = maxScroll * progress;
     return {
         centered: false,
         contentOffset: -scrollOffset,
         maxScroll,
-        progress: easedProgress,
-        scrollOffset
+        progress,
+        scrollOffset,
+        scrollStartTime,
+        scrollEndTime
     };
 }
 
@@ -501,6 +529,7 @@ class RocketfrockRenderer {
         this.drawWorldEffects(state, view);
         this.drawProjectiles(state, view);
         this.drawPlayer(state, view);
+        this.drawPlayerDeathCover(state, view);
         const actorsEnd = rendererNowMs();
 
         this.drawOrderedWorldVisuals(state, view, true);
@@ -1431,6 +1460,9 @@ class RocketfrockRenderer {
         ctx.save();
         ctx.globalCompositeOperation = "source-over";
         for (const puff of puffs) {
+            if (puff.kind === "wizardDeathCoverSpark") {
+                continue;
+            }
             const ageRatio = clamp(puff.age / Math.max(0.001, puff.lifetime), 0, 1);
             const radiusWorld = Math.max(1, Number(puff.radius) || 1) * (0.75 + ageRatio * 1.65);
             if (!this.dynamicBoundsVisible({
@@ -1443,6 +1475,52 @@ class RocketfrockRenderer {
             }
             const p = this.worldToScreen(view, puff.x, puff.y);
             const radius = radiusWorld * view.zoom;
+
+            if (puff.kind === "wizardDeathBurstParticle" || puff.kind === "wizardCrushParticle") {
+                const fade = Math.pow(1 - ageRatio, 1.35);
+                const shardRadius = Math.max(1, Number(puff.radius) || 1) * view.zoom * (0.9 + (1 - ageRatio) * 0.1);
+                const paletteIndex = (Number(puff.colorIndex) || 0) % 3;
+                const color = paletteIndex === 0
+                    ? `rgba(161, 72, 255, ${0.94 * fade})`
+                    : paletteIndex === 1
+                        ? `rgba(255, 220, 65, ${0.97 * fade})`
+                        : `rgba(255, 255, 246, ${0.98 * fade})`;
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(Number(puff.rotation) || 0);
+                ctx.globalCompositeOperation = "lighter";
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.moveTo(0, -shardRadius * 1.45);
+                ctx.lineTo(shardRadius * 0.76, 0);
+                ctx.lineTo(0, shardRadius * 1.45);
+                ctx.lineTo(-shardRadius * 0.76, 0);
+                ctx.closePath();
+                ctx.fill();
+                ctx.globalAlpha = 0.58 * fade;
+                ctx.beginPath();
+                ctx.arc(0, 0, shardRadius * 1.8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+                this.markDynamicDrawn();
+                continue;
+            }
+
+            if (puff.kind === "enemyProjectileImpactPuff") {
+                const fade = Math.pow(1 - ageRatio, 1.35);
+                const darkRadius = radius * (0.82 + ageRatio * 0.28);
+                const g = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, Math.max(1, darkRadius));
+                g.addColorStop(0, `rgba(82, 51, 58, ${0.50 * fade})`);
+                g.addColorStop(0.48, `rgba(48, 37, 45, ${0.42 * fade})`);
+                g.addColorStop(1, "rgba(20, 17, 24, 0)");
+                ctx.fillStyle = g;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, darkRadius, 0, Math.PI * 2);
+                ctx.fill();
+                this.markDynamicDrawn();
+                continue;
+            }
+
             const smokeAlpha = 0.30 * Math.pow(1 - ageRatio, 1.25);
 
             const g = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, Math.max(1, radius));
@@ -1490,8 +1568,13 @@ class RocketfrockRenderer {
             if (projectile.state === "exploding") {
                 const p = this.worldToScreen(view, projectile.x, projectile.y);
                 ctx.save();
-                const sparkRadius = projectile.owner === "enemy" ? 22 * view.zoom : 32 * view.zoom;
-                this.drawSparkBurst(p.x, p.y, view, projectile.age + projectile.x, projectile.owner === "enemy" ? 10 : 14, sparkRadius);
+                if (projectile.owner !== "enemy") {
+                    this.drawSparkBurst(p.x, p.y, view, projectile.age + projectile.x, 9, 22 * view.zoom, "rocket");
+                } else if (projectile.impactKind === "player") {
+                    // Contact with Ignatius may shake loose a small trace of his own
+                    // yellow-purple rocket magic, but ordinary mob impacts stay dark.
+                    this.drawSparkBurst(p.x, p.y, view, projectile.age + projectile.x, 3, 9 * view.zoom, "wizardAccent");
+                }
                 ctx.restore();
                 this.markDynamicDrawn();
                 continue;
@@ -1512,7 +1595,9 @@ class RocketfrockRenderer {
 
 
     drawProjectileRocket(projectile, state, view) {
-        const asset = this.assets.get("rocket");
+        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_wizard_1", projectile.frameId || "rocket_projectile") ||
+            this.assets.get(projectile.frameId || "rocket_projectile") ||
+            this.assets.get("rocket");
         if (!asset || asset.missing) {
             return;
         }
@@ -1521,8 +1606,10 @@ class RocketfrockRenderer {
         const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
         const dir = { x: projectile.vx / speed, y: projectile.vy / speed };
         const angle = Math.atan2(dir.x, -dir.y);
-        const pivot = this.rigConfig.pivots.rocket;
-        const targetHeight = 72 * view.zoom;
+        const pivot = projectile.frameId === "rocket_projectile"
+            ? { x: 0.5, y: 0.78 }
+            : this.rigConfig.pivots.rocket;
+        const targetHeight = projectile.frameId === "rocket_projectile" ? 58 * view.zoom : 72 * view.zoom;
         const spriteScale = targetHeight / Math.max(1, asset.height);
 
         ctx.save();
@@ -1573,70 +1660,130 @@ class RocketfrockRenderer {
         ctx.restore();
     }
 
+    fireballStableSeed(projectile) {
+        const id = String(projectile?.id || projectile?.enemyId || "enemy_fireball");
+        let seed = 0;
+        for (let i = 0; i < id.length; i += 1) {
+            seed = (seed * 131 + id.charCodeAt(i)) % 1000003;
+        }
+        seed += Math.round((Number(projectile?.radius) || 0) * 97);
+        return seed;
+    }
+
+    fireballHeatPalette(heat) {
+        if (heat > 0.78) {
+            return [
+                "rgba(255, 255, 245, 1)",
+                "rgba(255, 240, 165, 0.98)",
+                "rgba(255, 180, 45, 0.65)",
+                "rgba(255, 90, 12, 0)"
+            ];
+        }
+        if (heat > 0.50) {
+            return [
+                "rgba(255, 240, 130, 0.98)",
+                "rgba(255, 188, 55, 0.95)",
+                "rgba(255, 96, 18, 0.7)",
+                "rgba(160, 20, 12, 0)"
+            ];
+        }
+        if (heat > 0.25) {
+            return [
+                "rgba(255, 176, 58, 0.96)",
+                "rgba(255, 110, 24, 0.86)",
+                "rgba(210, 40, 14, 0.6)",
+                "rgba(120, 10, 8, 0)"
+            ];
+        }
+        return [
+            "rgba(255, 100, 28, 0.9)",
+            "rgba(220, 44, 18, 0.8)",
+            "rgba(150, 16, 12, 0.55)",
+            "rgba(100, 0, 0, 0)"
+        ];
+    }
+
+    drawFireballGlowCircle(ctx, x, y, radius, palette, alpha = 1) {
+        const r = Math.max(0.1, radius);
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, r);
+        gradient.addColorStop(0, palette[0]);
+        gradient.addColorStop(0.38, palette[1]);
+        gradient.addColorStop(0.75, palette[2]);
+        gradient.addColorStop(1, palette[3]);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+
+    drawEnemyFireballParticles(projectile, state, view) {
+        const ctx = this.ctx;
+        const particles = Array.isArray(projectile.trail) ? projectile.trail : [];
+        if (!particles.length) {
+            return;
+        }
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        for (const particle of particles) {
+            const age = state.clock.time - Number(particle.birth || 0);
+            const lifetime = Math.max(0.0001, Number(particle.lifetime) || 0.2);
+            if (age < 0 || age > lifetime) {
+                continue;
+            }
+            const fade = 1 - age / lifetime;
+            const worldX = Number(particle.x || 0) + Number(particle.vx || 0) * age;
+            const worldY = Number(particle.y || 0) + Number(particle.vy || 0) * age;
+            const screen = this.worldToScreen(view, worldX, worldY);
+            const radius = Math.max(0.15 * view.zoom, Number(particle.radius || 2) * fade * view.zoom);
+            const heatBase = Number(particle.heat ?? 0.5);
+            const cooledHeat = clamp(heatBase * (0.45 + fade * 0.55), 0, 1);
+            const palette = this.fireballHeatPalette(cooledHeat);
+            this.drawFireballGlowCircle(ctx, screen.x, screen.y, radius, palette, fade * 0.92);
+        }
+        ctx.restore();
+    }
+
     drawProjectileFireball(projectile, state, view) {
         const ctx = this.ctx;
         const p = this.worldToScreen(view, projectile.x, projectile.y);
-        const trail = Array.isArray(projectile.trail) ? projectile.trail : [];
-        if (trail.length >= 2) {
-            ctx.save();
-            ctx.lineCap = "round";
-            for (let i = 1; i < trail.length; i += 1) {
-                const a = this.worldToScreen(view, trail[i - 1].x, trail[i - 1].y);
-                const b = this.worldToScreen(view, trail[i].x, trail[i].y);
-                const alpha = i / trail.length;
-                ctx.strokeStyle = `rgba(255, 132, 32, ${0.10 + alpha * 0.28})`;
-                ctx.lineWidth = (projectile.radius * 0.58 * alpha + 2) * view.zoom;
-                ctx.beginPath();
-                ctx.moveTo(a.x, a.y);
-                ctx.lineTo(b.x, b.y);
-                ctx.stroke();
-            }
-            ctx.restore();
+        const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
+        const angle = Math.atan2(projectile.vy / speed, projectile.vx / speed);
+        const trailEnabled = state.settings?.renderingQuality !== "low";
+
+        if (trailEnabled) {
+            this.drawEnemyFireballParticles(projectile, state, view);
         }
 
         const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_enemy_002", projectile.frameId || "fireball") ||
             this.getCharacterAtlasFrame("ct_char_enemy_002", "fireball");
-        const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
-        const angle = Math.atan2(projectile.vy / speed, projectile.vx / speed);
-        const pulse = 0.94 + 0.06 * Math.sin(state.clock.time * 16 + projectile.x * 0.03);
         if (asset && !asset.missing) {
-            const targetHeight = projectile.radius * 2.35 * view.zoom * pulse;
+            const targetHeight = Math.max(8, Number(projectile.radius) || 10) * 2 * view.zoom;
             const spriteScale = targetHeight / Math.max(1, asset.height);
             ctx.save();
             ctx.translate(p.x, p.y);
             ctx.rotate(angle);
-            ctx.globalCompositeOperation = "lighter";
-            ctx.globalAlpha = 0.35;
-            ctx.fillStyle = "rgba(255, 112, 16, 0.78)";
-            ctx.beginPath();
-            ctx.arc(0, 0, projectile.radius * 1.35 * view.zoom, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.globalCompositeOperation = "source-over";
-            ctx.globalAlpha = 1;
             ctx.scale(spriteScale, spriteScale);
-            ctx.drawImage(asset.canvas, -asset.width * 0.82, -asset.height * 0.5);
+            ctx.drawImage(asset.canvas, -asset.width * 0.5, -asset.height * 0.5);
             ctx.restore();
             return;
         }
 
+        const fallbackRadius = Math.max(2, Number(projectile.radius) || 10) * view.zoom;
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
-        const outer = projectile.radius * 1.8 * view.zoom * pulse;
-        const mid = projectile.radius * 1.15 * view.zoom;
-        const inner = projectile.radius * 0.62 * view.zoom;
-        ctx.fillStyle = "rgba(255, 120, 18, 0.22)";
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, outer, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "rgba(255, 170, 64, 0.55)";
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, mid, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "rgba(255, 241, 184, 0.9)";
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, inner, 0, Math.PI * 2);
-        ctx.fill();
+        this.drawFireballGlowCircle(ctx, p.x, p.y, fallbackRadius, this.fireballHeatPalette(0.72), 0.96);
         ctx.restore();
+    }
+
+    drawFireballTrailOverlay(projectile, state, view, fireballCoreRadius = 0) {
+        // Enemy fireballs now animate as live emitted particles rather than a pre-shaped trail overlay.
+        void projectile;
+        void state;
+        void view;
+        void fireballCoreRadius;
     }
 
     drawProjectileMusketBall(projectile, state, view) {
@@ -1685,7 +1832,7 @@ class RocketfrockRenderer {
             time: point.time ?? state.clock.time
         }));
 
-        const maxScreenLength = this.canvas.width * 0.34;
+        const maxScreenLength = this.canvas.width * 0.22;
         const visible = [screenTrail[screenTrail.length - 1]];
         let distanceSoFar = 0;
         for (let i = screenTrail.length - 2; i >= 0; i -= 1) {
@@ -1720,9 +1867,9 @@ class RocketfrockRenderer {
             const a = visible[i];
             const b = visible[i + 1];
             const u = i / Math.max(1, visible.length - 2);
-            const age = clamp((state.clock.time - (a.time ?? state.clock.time)) / 2.15, 0, 1);
-            const smokeAlpha = (0.06 + 0.24 * u) * (1 - age * 0.45);
-            const smokeWidth = (28 - u * 16) * view.zoom;
+            const age = clamp((state.clock.time - (a.time ?? state.clock.time)) / 1.25, 0, 1);
+            const smokeAlpha = (0.05 + 0.16 * u) * (1 - age * 0.55);
+            const smokeWidth = (18 - u * 9) * view.zoom;
             ctx.globalCompositeOperation = "source-over";
             ctx.globalAlpha = smokeAlpha;
             ctx.strokeStyle = "rgba(184, 172, 198, 1)";
@@ -1735,7 +1882,7 @@ class RocketfrockRenderer {
 
         // Second pass: hot magical sparkle crumbs pinned to the same bent path.
         ctx.globalCompositeOperation = "lighter";
-        const sparkCount = Math.min(110, Math.max(18, visible.length * 5));
+        const sparkCount = Math.min(42, Math.max(8, visible.length * 2));
         const seed = projectile.id.length * 97 + Math.floor(projectile.x * 0.11) + Math.floor(projectile.y * 0.07);
         for (let i = 0; i < sparkCount; i += 1) {
             const segmentIndex = Math.min(visible.length - 2, Math.floor(hashNoise(seed + 13, i) * (visible.length - 1)));
@@ -1750,13 +1897,13 @@ class RocketfrockRenderer {
             const nx = -dy / length;
             const ny = dx / length;
             const u = (segmentIndex + t) / Math.max(1, visible.length - 1);
-            const spread = (8 + (1 - u) * 24) * view.zoom;
+            const spread = (5 + (1 - u) * 11) * view.zoom;
             const jitter = (hashNoise(seed + 71, i) - 0.5) * spread;
-            const age = clamp((state.clock.time - (a.time ?? state.clock.time)) / 2.15, 0, 1);
+            const age = clamp((state.clock.time - (a.time ?? state.clock.time)) / 1.25, 0, 1);
             const twinkle = 0.72 + 0.28 * Math.sin(state.clock.time * 19 + i * 1.7);
             const fade = Math.pow(u, 0.38) * (1 - age * 0.55) * twinkle;
-            const size = (1.0 + hashNoise(seed + 101, i) * 3.6) * view.zoom * (0.55 + fade);
-            ctx.globalAlpha = clamp(0.05 + fade * 0.72, 0, 0.86);
+            const size = (0.8 + hashNoise(seed + 101, i) * 2.1) * view.zoom * (0.45 + fade);
+            ctx.globalAlpha = clamp(0.04 + fade * 0.52, 0, 0.68);
             ctx.fillStyle = i % 7 === 0 ? "rgba(197, 151, 255, 0.95)" : (i % 2 === 0 ? "rgba(255, 239, 126, 0.94)" : "rgba(255, 133, 82, 0.9)");
             ctx.beginPath();
             ctx.arc(x + nx * jitter, y + ny * jitter, size, 0, Math.PI * 2);
@@ -1771,19 +1918,19 @@ class RocketfrockRenderer {
         const length = Math.hypot(vx, vy) || 1;
         const tailX = -vx / length;
         const tailY = -vy / length;
-        const core = ctx.createRadialGradient(newest.x + tailX * 18 * view.zoom, newest.y + tailY * 18 * view.zoom, 1, newest.x + tailX * 28 * view.zoom, newest.y + tailY * 28 * view.zoom, 34 * view.zoom);
-        core.addColorStop(0, "rgba(255, 235, 126, 0.46)");
+        const core = ctx.createRadialGradient(newest.x + tailX * 12 * view.zoom, newest.y + tailY * 12 * view.zoom, 1, newest.x + tailX * 18 * view.zoom, newest.y + tailY * 18 * view.zoom, 20 * view.zoom);
+        core.addColorStop(0, "rgba(255, 235, 126, 0.34)");
         core.addColorStop(1, "rgba(255, 116, 70, 0)");
         ctx.globalAlpha = 1;
         ctx.fillStyle = core;
         ctx.beginPath();
-        ctx.arc(newest.x + tailX * 24 * view.zoom, newest.y + tailY * 24 * view.zoom, 34 * view.zoom, 0, Math.PI * 2);
+        ctx.arc(newest.x + tailX * 16 * view.zoom, newest.y + tailY * 16 * view.zoom, 20 * view.zoom, 0, Math.PI * 2);
         ctx.fill();
 
         ctx.restore();
     }
 
-    drawSparkBurst(x, y, view, seed, count, radius) {
+    drawSparkBurst(x, y, view, seed, count, radius, palette = "rocket") {
         const ctx = this.ctx;
         ctx.save();
         for (let i = 0; i < count; i += 1) {
@@ -1791,9 +1938,13 @@ class RocketfrockRenderer {
             const r = (0.25 + hashNoise(seed + 31, i) * 0.75) * radius;
             const px = x + Math.cos(a) * r;
             const py = y + Math.sin(a) * r;
-            const size = (1.2 + hashNoise(seed + 71, i) * 2.7) * view.zoom;
-            ctx.globalAlpha = 0.35 + hashNoise(seed + 109, i) * 0.5;
-            ctx.fillStyle = i % 3 === 0 ? "rgba(255, 246, 166, 0.9)" : "rgba(255, 137, 82, 0.86)";
+            const size = (palette === "enemy" ? 0.9 : 1.1) * (1 + hashNoise(seed + 71, i) * (palette === "enemy" ? 1.7 : 2.3)) * view.zoom;
+            ctx.globalAlpha = (palette === "enemy" ? 0.22 : 0.28) + hashNoise(seed + 109, i) * (palette === "enemy" ? 0.28 : 0.38);
+            ctx.fillStyle = palette === "enemy"
+                ? (i % 2 === 0 ? "rgba(255, 92, 68, 0.78)" : "rgba(255, 155, 84, 0.64)")
+                : palette === "wizardAccent"
+                    ? (i % 2 === 0 ? "rgba(255, 238, 114, 0.82)" : "rgba(184, 112, 255, 0.78)")
+                    : (i % 3 === 0 ? "rgba(255, 246, 166, 0.9)" : "rgba(255, 137, 82, 0.86)");
             ctx.beginPath();
             ctx.arc(px, py, size, 0, Math.PI * 2);
             ctx.fill();
@@ -1867,7 +2018,9 @@ class RocketfrockRenderer {
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
         ctx.font = `700 ${20 * fontScale}px Georgia, 'Times New Roman', serif`;
-        ctx.fillText(story.letterTitle || "A Letter", x + w * 0.5, titleY, textW);
+        // Keep the title band deliberately blank. Its reserved vertical space remains,
+        // so the letter body retains exactly the same placement as before.
+        void titleY;
 
         // Use the same heavier, rounded story type as Ignatius's thought bubble.
         ctx.textAlign = "left";
@@ -1875,7 +2028,14 @@ class RocketfrockRenderer {
         const lineHeight = 23 * fontScale;
         const lines = this.wrapTextLines(story.letterText || "", textW);
         const contentHeight = this.wrappedLinesHeight(lines, lineHeight);
-        const layout = computeTimedTextViewportLayout(contentHeight, bodyHeight, story.phaseTime, story.letterDuration);
+        const layout = computeTimedTextViewportLayout(
+            contentHeight,
+            bodyHeight,
+            story.phaseTime,
+            story.letterDuration,
+            story.letterCharacterCount || storyCharacterCount(story.letterText),
+            story.readingCharactersPerSecond
+        );
 
         ctx.save();
         ctx.beginPath();
@@ -1888,11 +2048,6 @@ class RocketfrockRenderer {
             this.drawStoryScrollbar(textX + textW + 6 * fontScale, bodyTop, bodyHeight, contentHeight, layout.scrollOffset, fontScale,
                 "rgba(91, 54, 37, 0.18)", "rgba(91, 54, 37, 0.52)");
         }
-
-        ctx.textAlign = "center";
-        ctx.font = `600 ${13 * fontScale}px system-ui, sans-serif`;
-        ctx.fillStyle = "rgba(74, 44, 34, 0.78)";
-        ctx.fillText(layout.maxScroll > 0 ? "Jump to continue · Letter scrolls automatically" : "Jump to continue", x + w * 0.5, y + h * 0.80, textW * 1.2);
         ctx.restore();
     }
 
@@ -1939,7 +2094,14 @@ class RocketfrockRenderer {
             font: "Georgia, 'Times New Roman', serif",
             weight: 600
         });
-        const layout = computeTimedTextViewportLayout(fitted.contentHeight, bodyHeight, story.phaseTime, story.thoughtDuration);
+        const layout = computeTimedTextViewportLayout(
+            fitted.contentHeight,
+            bodyHeight,
+            story.phaseTime,
+            story.thoughtDuration,
+            story.thoughtCharacterCount || storyCharacterCount(thoughtText),
+            story.readingCharactersPerSecond
+        );
 
         ctx.save();
         ctx.beginPath();
@@ -1952,10 +2114,6 @@ class RocketfrockRenderer {
             this.drawStoryScrollbar(textX + textW + 4 * fontScale, bodyTop, bodyHeight, fitted.contentHeight, layout.scrollOffset, fontScale,
                 "rgba(76, 48, 90, 0.16)", "rgba(76, 48, 90, 0.48)");
         }
-
-        ctx.font = `600 ${10.8 * fontScale}px system-ui, sans-serif`;
-        ctx.fillStyle = "rgba(76, 48, 90, 0.72)";
-        ctx.fillText(layout.maxScroll > 0 ? "Jump to continue · Thought scrolls automatically" : "Jump to continue", x + w * 0.5, y + h * 0.74);
         ctx.restore();
     }
 
@@ -2068,6 +2226,71 @@ class RocketfrockRenderer {
             }
         }
         return cursorY;
+    }
+
+    drawPlayerDeathCover(state, view) {
+        if (state.player?.deathPhase !== "cover") {
+            return;
+        }
+        const sparks = (state.effects?.smokePuffs || []).filter((puff) => puff.kind === "wizardDeathCoverSpark");
+        if (!sparks.length) {
+            return;
+        }
+
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        for (const spark of sparks) {
+            const delay = Math.max(0, Number(spark.delay) || 0);
+            if ((Number(spark.age) || 0) < delay) {
+                continue;
+            }
+            const localAge = Math.max(0, (Number(spark.age) || 0) - delay);
+            const ramp = clamp(localAge / 0.075, 0, 1);
+            const twinkle = 0.7 + 0.3 * Math.sin(localAge * 36 + (Number(spark.sparkleSeed) || 0) * 0.17);
+            const alpha = ramp * twinkle;
+            const radiusWorld = Math.max(1, Number(spark.radius) || 1) * 2.1;
+            if (!this.dynamicBoundsVisible({
+                minX: spark.x - radiusWorld,
+                minY: spark.y - radiusWorld,
+                maxX: spark.x + radiusWorld,
+                maxY: spark.y + radiusWorld
+            }, view, 48)) {
+                continue;
+            }
+
+            const point = this.worldToScreen(view, spark.x, spark.y);
+            const radius = Math.max(1, Number(spark.radius) || 1) * view.zoom;
+            const paletteIndex = (Number(spark.colorIndex) || 0) % 3;
+            const color = paletteIndex === 0
+                ? `rgba(168, 78, 255, ${0.96 * alpha})`
+                : paletteIndex === 1
+                    ? `rgba(255, 222, 70, ${0.98 * alpha})`
+                    : `rgba(255, 255, 250, ${alpha})`;
+
+            ctx.save();
+            ctx.translate(point.x, point.y);
+            ctx.rotate(Number(spark.rotation) || 0);
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = Math.max(1, radius * 0.42);
+            ctx.beginPath();
+            ctx.moveTo(-radius * 1.55, 0);
+            ctx.lineTo(radius * 1.55, 0);
+            ctx.moveTo(0, -radius * 1.55);
+            ctx.lineTo(0, radius * 1.55);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(0, 0, radius * 0.68, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 0.34 * alpha;
+            ctx.beginPath();
+            ctx.arc(0, 0, radius * 2.15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+            this.markDynamicDrawn();
+        }
+        ctx.restore();
     }
 
     drawPlayer(state, view) {

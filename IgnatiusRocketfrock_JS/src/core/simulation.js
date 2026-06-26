@@ -1,3 +1,8 @@
+import {
+    STORY_READING_CHARACTERS_PER_SECOND,
+    storyCharacterCount,
+    storyReadingDuration
+} from "../shared/story-reading.js";
 import { atlasNodeToPlacementWorld, normalizeRotationRadians } from "../shared/level-transform.js";
 import { characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../shared/actor-geometry.js";
 import { normalizeLevelColorMap } from "../shared/level-color-map-data.js";
@@ -136,6 +141,13 @@ export const DEFAULT_TUNING = Object.freeze({
     enemyDefaultProjectileKnockbackY: -120,
     playerDamageInvulnerabilitySeconds: 0.45,
     playerHitFlashSeconds: 0.24,
+    playerCrushConfirmTicks: 3,
+    playerCrushClosingDistanceEpsilon: 0.0001,
+    playerDeathCoverSeconds: 0.42,
+    playerDeathBurstSeconds: 0.72,
+    playerDeathAfterglowSeconds: 3,
+    playerDeathCoverParticleCount: 102,
+    playerDeathBurstParticleCount: 72,
     hazardContactDamage: 20,
     rocketImpactSmokePuffs: 24,
     reactiveObjectDestructionSmokePuffs: 18,
@@ -228,7 +240,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "184-explicit-frame-sequence-contract",
+            build: "209-reading-speed-18-cps-blank-letter-heading",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -266,7 +278,17 @@ export function createInitialGameState(overrides = {}) {
             lowHealthPulse: 0,
             visible: true,
             renderScale: 1,
-            supportId: null
+            supportId: null,
+            crushCandidateTicks: 0,
+            crushCandidateKey: null,
+            crushCandidateDetail: null,
+            combatState: "alive",
+            targetable: true,
+            deathPhase: "none",
+            deathPhaseTimer: 0,
+            deathElapsed: 0,
+            deathSourceId: null,
+            deathResetReason: null
         },
         fuel: {
             amount: tuning.initialFuel,
@@ -1317,6 +1339,8 @@ function normalizeMailboxThoughtText(mailbox) {
 
 function mailboxStoryRecord(state, mailbox) {
     const initialState = mailbox.state || "letterAvailable";
+    const letterText = mailbox.letterText || "Dear Ignatius,\n\nPlease proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine";
+    const thoughtText = normalizeMailboxThoughtText(mailbox);
     return {
         active: false,
         completed: initialState === "empty",
@@ -1325,15 +1349,18 @@ function mailboxStoryRecord(state, mailbox) {
         phaseTime: 0,
         triggerDistance: Math.max(8, Number(mailbox.triggerDistance) || 72),
         verticalTolerance: Math.max(24, Number(mailbox.verticalTolerance) || Math.max(state.player.height * 0.75, Number(mailbox.h) || 80)),
-        letterDuration: Math.max(0.25, Number(mailbox.letterDuration) || 14),
-        thoughtDuration: Math.max(0.25, Number(mailbox.thoughtDuration) || 9),
+        readingCharactersPerSecond: STORY_READING_CHARACTERS_PER_SECOND,
+        letterCharacterCount: storyCharacterCount(letterText),
+        thoughtCharacterCount: storyCharacterCount(thoughtText),
+        letterDuration: storyReadingDuration(letterText),
+        thoughtDuration: storyReadingDuration(thoughtText),
         letterAtlasId: mailbox.letterAtlasId || "it_atlas_001",
         letterAssetId: mailbox.letterAssetId || "letter_scroll",
         thoughtAtlasId: mailbox.thoughtAtlasId || "it_atlas_001",
         thoughtAssetId: mailbox.thoughtAssetId || "thought_bubble_large",
         letterTitle: mailbox.letterTitle || "A Letter from Your Humble Editor",
-        letterText: mailbox.letterText || "Dear Ignatius,\n\nPlease proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
-        thoughtText: normalizeMailboxThoughtText(mailbox),
+        letterText,
+        thoughtText,
         startedAt: null,
         completedAt: null
     };
@@ -1412,7 +1439,7 @@ function updateMailboxStory(state, input, dt) {
     p.onGround = true;
     p.wasOnGround = true;
 
-    const skipped = !startedThisFrame && Boolean(input.jumpPressed);
+    const skipped = !startedThisFrame && Boolean(input.jumpPressed || input.weaponPressed);
     if (story.phase === "letter" && (skipped || story.phaseTime >= story.letterDuration)) {
         if (story.thoughtText.trim()) advanceMailboxStory(state, story, "thought", skipped ? "jump" : "timeout");
         else advanceMailboxStory(state, story, "complete", skipped ? "jump" : "timeout");
@@ -1636,6 +1663,8 @@ function createMovingPlatformRuntimes(visuals = []) {
                 opacity: 1,
                 baseAlpha: Number.isFinite(Number(visual.alpha)) ? Number(visual.alpha) : 1,
                 collisionAttached: true,
+                lastDeltaX: 0,
+                lastDeltaY: 0,
                 segments: [],
                 polygons: []
             };
@@ -1753,6 +1782,8 @@ function setMovingPlatformPosition(state, platform, x, y) {
         : [];
     visual.x = nextX;
     visual.y = nextY;
+    platform.lastDeltaX = (Number(platform.lastDeltaX) || 0) + dx;
+    platform.lastDeltaY = (Number(platform.lastDeltaY) || 0) + dy;
     translateMovingPlatformGeometry(platform, dx, dy);
     if (carryingPlayer) {
         state.player.x += dx;
@@ -1990,6 +2021,10 @@ function updateMovingPlatform(state, platform, dt) {
 }
 
 function updateMovingPlatforms(state, dt) {
+    for (const platform of state.world?.movingPlatforms || []) {
+        platform.lastDeltaX = 0;
+        platform.lastDeltaY = 0;
+    }
     for (const platform of state.world?.movingPlatforms || []) {
         updateMovingPlatform(state, platform, dt);
     }
@@ -2830,13 +2865,12 @@ function characterEnemyAttackBlockedByTerrain(state, enemy) {
 
 function playerIsAvailableCombatTarget(state) {
     const player = state.player;
-    if (!player || player.visible === false) {
-        return false;
-    }
-    // Health reaching zero is not yet a complete player-death lifecycle. Until a
-    // dedicated defeated state hides or disables Ignatius, enemies and projectiles
-    // must continue treating the visible player as a live combat target.
-    return player.combatState !== "dead" && player.targetable !== false;
+    return Boolean(
+        player &&
+        player.visible !== false &&
+        player.combatState !== "dead" &&
+        player.targetable !== false
+    );
 }
 
 function characterEnemyCanReachPlayer(state, enemy) {
@@ -5366,6 +5400,48 @@ function updateCharacterEnemies(state, dt) {
     }
 }
 
+function playerDeathActive(state) {
+    const phase = state.player?.deathPhase;
+    return phase === "cover" || phase === "burst" || phase === "afterglow";
+}
+
+function updatePlayerDeath(state, dt) {
+    const player = state.player;
+    if (!playerDeathActive(state)) {
+        return false;
+    }
+
+    updateMovingPlatforms(state, dt);
+    updateProjectiles(state, dt);
+    updateWorldEffects(state, dt);
+    player.deathElapsed = Math.max(0, Number(player.deathElapsed) || 0) + dt;
+    player.deathPhaseTimer = Math.max(0, (Number(player.deathPhaseTimer) || 0) - dt);
+
+    if (player.deathPhase === "cover" && player.deathPhaseTimer <= 0) {
+        removePlayerDeathCoverSparks(state);
+        player.visible = false;
+        player.deathPhase = "burst";
+        player.deathPhaseTimer = Math.max(FIXED_DT, Number(state.tuning.playerDeathBurstSeconds) || 0.72);
+        emitPlayerDeathBurst(state);
+        addEvent(state, "PLAYER_DEATH_BURST", {
+            sourceId: player.deathSourceId || "unknown",
+            x: round(player.x),
+            y: round(player.y)
+        });
+    } else if (player.deathPhase === "burst" && player.deathPhaseTimer <= 0) {
+        player.deathPhase = "afterglow";
+        player.deathPhaseTimer = Math.max(FIXED_DT, Number(state.tuning.playerDeathAfterglowSeconds) || 3);
+        addEvent(state, "PLAYER_DEATH_AFTERGLOW", {
+            sourceId: player.deathSourceId || "unknown",
+            x: round(player.x),
+            y: round(player.y)
+        });
+    } else if (player.deathPhase === "afterglow" && player.deathPhaseTimer <= 0) {
+        resetPlayer(state, player.deathResetReason || "defeated");
+    }
+    return true;
+}
+
 export function stepSimulation(state, inputFrame = createInputFrame(), dt = state.clock.fixedDt || FIXED_DT) {
     const input = sanitizeInput(inputFrame);
     const p = state.player;
@@ -5381,6 +5457,17 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     state.collisions.playerTouching = { left: false, right: false, up: false, down: false };
     state.collisions.lastResolution = null;
 
+    if (!playerDeathActive(state) && state.health.amount <= 0) {
+        triggerPlayerDeath(state, {
+            sourceId: "healthZero",
+            resetReason: "healthDepleted",
+            cause: "healthDepleted"
+        });
+    }
+    if (updatePlayerDeath(state, dt)) {
+        return state;
+    }
+
     if (updatePortalIntro(state, dt)) {
         return;
     }
@@ -5395,6 +5482,9 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     updateSignalEmitters(state, input);
     updateMovingPlatforms(state, dt);
     updateCharacterEnemies(state, dt);
+    if (playerDeathActive(state)) {
+        return state;
+    }
 
     const wasOnGround = p.onGround;
     p.wasOnGround = wasOnGround;
@@ -5465,6 +5555,9 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     }
     updateProjectiles(state, dt);
     updateWorldEffects(state, dt);
+    if (playerDeathActive(state)) {
+        return state;
+    }
 
     p.vy += t.gravity * dt;
     p.vy = Math.min(p.vy, t.terminalVelocity);
@@ -5472,8 +5565,16 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
 
     moveAndCollideX(state, p.vx * dt);
     moveAndCollideY(state, p.vy * dt, wasOnGround);
-    resolvePlayerPenetrations(state, wasOnGround);
+    if (playerDeathActive(state)) {
+        return state;
+    }
+    if (resolvePlayerPenetrations(state, wasOnGround)) {
+        return state;
+    }
     applyPlayerSurfaceHazards(state);
+    if (playerDeathActive(state)) {
+        return state;
+    }
     updatePickups(state);
 
     if (!p.onGround) {
@@ -5646,6 +5747,8 @@ function launchHomingRocket(state, input) {
         explosionTimer: 0,
         radius: 15,
         damage: Math.max(0, t.rocketProjectileDamage ?? 55),
+        frameId: "rocket_projectile",
+        characterId: "ct_char_wizard_1",
         trail: [
             { x: p.x, y: p.y - p.height * 0.72, time: state.clock.time }
         ]
@@ -5723,7 +5826,11 @@ function updateProjectiles(state, dt) {
         if (projectile.kind === "homingRocket") {
             recordProjectileTrail(state, projectile);
         } else if (projectile.kind === "enemyFireball") {
-            recordEnemyFireballTrail(state, projectile);
+            if (state.settings?.renderingQuality !== "low") {
+                recordEnemyFireballTrail(state, projectile);
+            } else if (Array.isArray(projectile.trail) && projectile.trail.length) {
+                projectile.trail.length = 0;
+            }
         }
 
         if (projectile.owner === "enemy") {
@@ -5832,7 +5939,7 @@ function recordProjectileTrail(state, projectile) {
     }
 
     const previous = projectile.trail[projectile.trail.length - 1];
-    const spacing = 8;
+    const spacing = 12;
     if (!previous || Math.hypot(projectile.x - previous.x, projectile.y - previous.y) >= spacing) {
         projectile.trail.push({
             x: round(projectile.x),
@@ -5842,19 +5949,19 @@ function recordProjectileTrail(state, projectile) {
     }
 
     const particleScale = renderingParticleScale(state.settings);
-    const puffSpacing = Math.max(1, (state.tuning.rocketSmokePuffSpacing ?? 13) / particleScale);
+    const puffSpacing = Math.max(1, (state.tuning.rocketSmokePuffSpacing ?? 16) / particleScale);
     const previousPuff = projectile.lastSmokePuff || null;
     if (!previousPuff || Math.hypot(projectile.x - previousPuff.x, projectile.y - previousPuff.y) >= puffSpacing) {
         addRocketSmokePuff(state, projectile);
         projectile.lastSmokePuff = { x: projectile.x, y: projectile.y };
     }
 
-    const maxTrailAge = 2.15;
+    const maxTrailAge = 1.25;
     const cutoff = state.clock.time - maxTrailAge;
     while (projectile.trail.length > 2 && projectile.trail[0].time < cutoff) {
         projectile.trail.shift();
     }
-    while (projectile.trail.length > 180) {
+    while (projectile.trail.length > 64) {
         projectile.trail.shift();
     }
 }
@@ -5863,13 +5970,47 @@ function recordEnemyFireballTrail(state, projectile) {
     if (!Array.isArray(projectile.trail)) {
         projectile.trail = [];
     }
-    const previous = projectile.trail[projectile.trail.length - 1];
-    const spacing = Math.max(4, (projectile.radius || 10) * 0.55);
-    if (!previous || Math.hypot(projectile.x - previous.x, projectile.y - previous.y) >= spacing) {
-        projectile.trail.push({ x: round(projectile.x), y: round(projectile.y), time: Number(state.clock.time.toFixed(4)) });
+    const speed = Math.hypot(projectile.vx || 0, projectile.vy || 0) || 1;
+    const tailX = -(projectile.vx || 0) / speed;
+    const tailY = -(projectile.vy || 0) / speed;
+    const lateralX = -tailY;
+    const lateralY = tailX;
+    const radius = Math.max(2, Number(projectile.radius) || 10);
+    const emitCount = 3;
+    const idSeed = String(projectile.id || projectile.enemyId || "enemy_fireball")
+        .split("")
+        .reduce((acc, ch, index) => (acc + ch.charCodeAt(0) * (index + 17)) % 1000003, 0);
+
+    for (let i = 0; i < emitCount; i += 1) {
+        const seed = idSeed + state.clock.tick * 101 + i * 977;
+        const lateralNoise = hash01(seed + 13) * 2 - 1;
+        const backwardNoise = hash01(seed + 29);
+        const heat = hash01(seed + 47);
+        const spawnBack = radius * (0.18 + backwardNoise * 0.4);
+        const spawnSide = lateralNoise * radius * (0.12 + heat * 0.48);
+        const colorBand = heat > 0.82 ? "yellow" : heat > 0.4 ? "orange" : "red";
+        projectile.trail.push({
+            x: round(projectile.x + tailX * spawnBack + lateralX * spawnSide),
+            y: round(projectile.y + tailY * spawnBack + lateralY * spawnSide),
+            vx: round(tailX * (18 + hash01(seed + 61) * 36) + lateralX * lateralNoise * (8 + hash01(seed + 79) * 20)),
+            vy: round(tailY * (18 + hash01(seed + 97) * 36) + lateralY * lateralNoise * (8 + hash01(seed + 131) * 20)),
+            birth: Number(state.clock.time.toFixed(4)),
+            lifetime: Number((0.14 + heat * 0.18 + hash01(seed + 173) * 0.06).toFixed(4)),
+            radius: Number(Math.min(
+                radius * 0.18,
+                radius * (0.055 + heat * 0.085) + hash01(seed + 211) * 0.35
+            ).toFixed(3)),
+            heat: Number(heat.toFixed(4)),
+            colorBand
+        });
     }
-    const cutoff = state.clock.time - 0.9;
-    while (projectile.trail.length > 2 && projectile.trail[0].time < cutoff) {
+
+    const cutoff = state.clock.time - 0.42;
+    while (projectile.trail.length > 0) {
+        const age = state.clock.time - (projectile.trail[0].birth ?? state.clock.time);
+        if (projectile.trail[0].birth >= cutoff && age <= (projectile.trail[0].lifetime ?? 0.3)) {
+            break;
+        }
         projectile.trail.shift();
     }
     while (projectile.trail.length > 48) {
@@ -5899,12 +6040,12 @@ function addRocketSmokePuff(state, projectile) {
         vx: round(tailX * 8),
         vy: round(tailY * 8 - 10),
         age: 0,
-        lifetime: state.tuning.rocketSmokePuffLifetime ?? 1.5,
-        radius: (10 + (seed % 9)) * (state.tuning.rocketSmokePuffScale ?? 1.5),
+        lifetime: Math.max(0.45, (state.tuning.rocketSmokePuffLifetime ?? 1.5) * 0.68),
+        radius: (7 + (seed % 6)) * Math.max(0.6, (state.tuning.rocketSmokePuffScale ?? 1.5) * 0.72),
         sparkleSeed: seed
     });
 
-    while (state.effects.smokePuffs.length > (state.tuning.rocketSmokeMaxPuffs ?? 260)) {
+    while (state.effects.smokePuffs.length > (state.tuning.rocketSmokeMaxPuffs ?? 180)) {
         state.effects.smokePuffs.shift();
     }
 }
@@ -5930,11 +6071,19 @@ function addSmokePuff(state, spec) {
         vy: round(spec.vy || 0),
         age: 0,
         lifetime: spec.lifetime ?? state.tuning.rocketSmokePuffLifetime ?? 1.5,
-        radius: (spec.radius ?? 12) * (state.tuning.rocketSmokePuffScale ?? 1.5),
-        sparkleSeed: spec.sparkleSeed ?? seed
+        radius: ["wizardDeathCoverSpark", "wizardDeathBurstParticle", "wizardCrushParticle", "enemyProjectileImpactPuff"].includes(spec.kind)
+            ? (spec.radius ?? 4)
+            : (spec.radius ?? 12) * (state.tuning.rocketSmokePuffScale ?? 1.5),
+        sparkleSeed: spec.sparkleSeed ?? seed,
+        gravity: Number(spec.gravity) || 0,
+        colorIndex: Math.max(0, Math.round(Number(spec.colorIndex) || 0)),
+        rotation: Number(spec.rotation) || 0,
+        spin: Number(spec.spin) || 0,
+        delay: Math.max(0, Number(spec.delay) || 0),
+        impactWizardAccent: spec.impactWizardAccent === true
     });
 
-    while (state.effects.smokePuffs.length > (state.tuning.rocketSmokeMaxPuffs ?? 260)) {
+    while (state.effects.smokePuffs.length > (state.tuning.rocketSmokeMaxPuffs ?? 180)) {
         state.effects.smokePuffs.shift();
     }
 }
@@ -5994,8 +6143,10 @@ function updateWorldEffects(state, dt) {
     }
     for (const puff of state.effects.smokePuffs) {
         puff.age += dt;
+        puff.vy = (puff.vy || 0) + (Number(puff.gravity) || 0) * dt;
         puff.x += (puff.vx || 0) * dt;
         puff.y += (puff.vy || 0) * dt;
+        puff.rotation = (Number(puff.rotation) || 0) + (Number(puff.spin) || 0) * dt;
         puff.vx *= Math.max(0, 1 - 0.45 * dt);
         puff.vy *= Math.max(0, 1 - 0.25 * dt);
     }
@@ -6006,7 +6157,9 @@ function explodeProjectile(state, projectile, reason, detail = {}) {
     if (projectile.state === "exploding" || projectile.state === "spent") {
         return;
     }
-    emitProjectileImpactSmoke(state, projectile);
+    projectile.impactKind = detail.impactKind || "unknown";
+    projectile.impactReason = reason;
+    emitProjectileImpactSmoke(state, projectile, detail);
     projectile.state = "exploding";
     projectile.vx = 0;
     projectile.vy = 0;
@@ -6021,10 +6174,13 @@ function explodeProjectile(state, projectile, reason, detail = {}) {
     });
 }
 
-function emitProjectileImpactSmoke(state, projectile) {
+function emitProjectileImpactSmoke(state, projectile, detail = {}) {
     const t = state.tuning;
     const particleScale = renderingParticleScale(state.settings);
-    const count = Math.max(0, Math.round((t.rocketImpactSmokePuffs ?? 24) * particleScale));
+    const authoredBase = projectile.owner === "enemy"
+        ? (t.enemyProjectileImpactSmokePuffs ?? Math.max(0, Math.round((t.rocketImpactSmokePuffs ?? 24) * 0.25)))
+        : (t.rocketImpactSmokePuffs ?? 12);
+    const count = Math.max(0, Math.round(authoredBase * particleScale));
     const incomingSpeed = Math.hypot(projectile.vx || 0, projectile.vy || 0);
     const incomingAngle = Math.atan2(projectile.vy || 0, projectile.vx || 1);
 
@@ -6034,14 +6190,22 @@ function emitProjectileImpactSmoke(state, projectile) {
         const angle = incomingAngle + Math.PI + (u - 0.5) * Math.PI * 1.55 + (hash01(seed) - 0.5) * 0.65;
         const speed = 60 + incomingSpeed * (0.08 + hash01(seed + 19) * 0.13) + i * 2.2;
         const offset = 5 + hash01(seed + 41) * 16;
+        const enemyProjectile = projectile.owner === "enemy";
+        const hitWizard = enemyProjectile && detail.impactKind === "player";
         addSmokePuff(state, {
-            kind: "rocketImpactSmokePuff",
+            kind: enemyProjectile ? "enemyProjectileImpactPuff" : "rocketImpactSmokePuff",
             x: projectile.x + Math.cos(angle) * offset,
             y: projectile.y + Math.sin(angle) * offset,
             vx: Math.cos(angle) * speed,
             vy: Math.sin(angle) * speed - 18 + hash01(seed + 73) * 42,
-            lifetime: (t.rocketSmokePuffLifetime ?? 1.5) * (0.75 + hash01(seed + 101) * 0.65),
-            radius: 8 + hash01(seed + 157) * 10
+            lifetime: enemyProjectile
+                ? Math.max(0.18, (t.enemyProjectileImpactLifetime ?? 0.28) * (0.88 + hash01(seed + 101) * 0.32))
+                : (t.rocketSmokePuffLifetime ?? 1.5) * (0.6 + hash01(seed + 101) * 0.4),
+            radius: enemyProjectile
+                ? 3 + hash01(seed + 157) * 4
+                : 6 + hash01(seed + 157) * 7,
+            colorIndex: enemyProjectile ? 0 : null,
+            impactWizardAccent: hitWizard
         });
     }
 }
@@ -6810,27 +6974,11 @@ function resolvePlayerPenetrations(state, wasOnGround) {
 
     for (let pass = 0; pass < maxPasses; pass += 1) {
         const rect = getPlayerRect(state);
-        const candidates = [];
-
-        for (const solid of state.world.solids || []) {
-            if (!rectsOverlap(rect, solid)) {
-                continue;
-            }
-            candidates.push(...rectDepenetrationCandidates(rect, solid, {
-                id: solid.id,
-                kind: solid.kind || "solid",
-                source: "solid"
-            }));
-        }
-
-        for (const polygon of state.world.collisionPolygons || []) {
-            if (!isAreaBlockingSegmentKind(polygon.kind) || !polygonOverlapsRect(polygon, rect)) {
-                continue;
-            }
-            candidates.push(...polygonDepenetrationCandidates(rect, polygon));
-        }
+        const blockers = playerPenetrationBlockers(state, rect);
+        const candidates = blockers.flatMap((blocker) => blocker.candidates);
 
         if (!candidates.length) {
+            clearPlayerCrushCandidate(state, "noPenetration");
             break;
         }
 
@@ -6843,7 +6991,30 @@ function resolvePlayerPenetrations(state, wasOnGround) {
                 depenetrationDirectionPriority(state.player, b.direction);
         });
 
-        const best = candidates[0];
+        const nearestDistance = candidates[0].distance;
+        const nearestCandidates = candidates.filter((candidate) => (
+            Math.abs(candidate.distance - nearestDistance) <= 0.000001
+        ));
+        let best = nearestCandidates[0];
+        let crushProbe = playerCrushProbeForCandidate(state, rect, best);
+        for (const candidate of nearestCandidates) {
+            const candidateProbe = playerCrushProbeForCandidate(state, rect, candidate);
+            if (!candidateProbe) {
+                best = candidate;
+                crushProbe = null;
+                break;
+            }
+            if (!crushProbe) {
+                best = candidate;
+                crushProbe = candidateProbe;
+            }
+        }
+
+        if (crushProbe) {
+            return advancePlayerCrushCandidate(state, crushProbe);
+        }
+
+        clearPlayerCrushCandidate(state, "safeDepenetration");
         applyPlayerDepenetration(state, best, wasOnGround);
         corrections.push(best);
     }
@@ -6859,6 +7030,308 @@ function resolvePlayerPenetrations(state, wasOnGround) {
             kind: last.kind
         });
     }
+    return false;
+}
+
+function playerPenetrationBlockers(state, rect) {
+    const blockers = [];
+
+    for (const solid of state.world.solids || []) {
+        if (!rectsOverlap(rect, solid)) {
+            continue;
+        }
+        const detail = collisionBodyDetail(solid, "solid");
+        blockers.push({
+            ...detail,
+            candidates: rectDepenetrationCandidates(rect, solid, detail)
+        });
+    }
+
+    for (const polygon of state.world.collisionPolygons || []) {
+        if (!isAreaBlockingSegmentKind(polygon.kind) || !polygonOverlapsRect(polygon, rect)) {
+            continue;
+        }
+        const detail = collisionBodyDetail(polygon, "polygon");
+        blockers.push({
+            ...detail,
+            candidates: polygonDepenetrationCandidates(rect, polygon, detail)
+        });
+    }
+
+    return blockers;
+}
+
+function collisionBodyDetail(collider, source) {
+    const movingPlatformId = collider?.movingPlatformId || null;
+    const id = collider?.id || `${source}_collision`;
+    return {
+        id,
+        kind: collider?.kind || (source === "solid" ? "solid" : "blockable"),
+        source,
+        movingPlatformId,
+        bodyKey: movingPlatformId ? `platform:${movingPlatformId}` : `${source}:${id}`
+    };
+}
+
+function playerCrushProbeForCandidate(state, rect, candidate) {
+    const translatedRect = translateRect(rect, candidate.dx, candidate.dy);
+    const direction = {
+        x: candidate.dx === 0 ? 0 : Math.sign(candidate.dx),
+        y: candidate.dy === 0 ? 0 : Math.sign(candidate.dy)
+    };
+    const obstructions = playerBlockingBodiesAtRect(state, translatedRect, direction);
+    const sourceBody = {
+        bodyKey: candidate.bodyKey,
+        id: candidate.id,
+        source: candidate.source,
+        movingPlatformId: candidate.movingPlatformId || null
+    };
+
+    for (const obstruction of obstructions) {
+        if (obstruction.bodyKey === sourceBody.bodyKey) {
+            continue;
+        }
+        const sourceDelta = collisionBodyMovementDelta(state, sourceBody);
+        const obstructionDelta = collisionBodyMovementDelta(state, obstruction);
+        const closingDistance =
+            (sourceDelta.x - obstructionDelta.x) * direction.x +
+            (sourceDelta.y - obstructionDelta.y) * direction.y;
+        const epsilon = Math.max(0, Number(state.tuning.playerCrushClosingDistanceEpsilon) || 0);
+        if (closingDistance <= epsilon) {
+            continue;
+        }
+
+        const bodyKeys = [sourceBody.bodyKey, obstruction.bodyKey].sort();
+        const axis = direction.x !== 0 ? "x" : "y";
+        return {
+            key: `${bodyKeys[0]}|${bodyKeys[1]}|${axis}`,
+            axis,
+            direction: candidate.direction,
+            distance: candidate.distance,
+            closingDistance,
+            sourceId: sourceBody.id,
+            sourceType: sourceBody.source,
+            sourcePlatformId: sourceBody.movingPlatformId,
+            obstructionId: obstruction.id,
+            obstructionType: obstruction.source,
+            obstructionPlatformId: obstruction.movingPlatformId || null
+        };
+    }
+    return null;
+}
+
+function playerBlockingBodiesAtRect(state, rect, direction) {
+    const bodies = [];
+    const seen = new Set();
+    const add = (detail) => {
+        if (!detail?.bodyKey || seen.has(detail.bodyKey)) {
+            return;
+        }
+        seen.add(detail.bodyKey);
+        bodies.push(detail);
+    };
+
+    for (const solid of state.world.solids || []) {
+        if (rectsOverlap(rect, solid)) {
+            add(collisionBodyDetail(solid, "solid"));
+        }
+    }
+    for (const polygon of state.world.collisionPolygons || []) {
+        if (isAreaBlockingSegmentKind(polygon.kind) && polygonOverlapsRect(polygon, rect)) {
+            add(collisionBodyDetail(polygon, "polygon"));
+        }
+    }
+    for (const segment of state.world.segments || []) {
+        if (!isSolidSegmentKind(segment.kind)) {
+            continue;
+        }
+        const intersects = Boolean(segmentRectIntersection(
+            { x: segment.x1, y: segment.y1 },
+            { x: segment.x2, y: segment.y2 },
+            rect
+        ));
+        const isSupport = direction.y > 0 && segment.id === state.player.supportId;
+        if (intersects || isSupport) {
+            add(collisionBodyDetail(segment, "segment"));
+        }
+    }
+    return bodies;
+}
+
+function collisionBodyMovementDelta(state, body) {
+    if (!body?.movingPlatformId) {
+        return { x: 0, y: 0 };
+    }
+    const platform = (state.world.movingPlatforms || []).find((item) => item.id === body.movingPlatformId);
+    if (!platform || platform.collisionAttached === false) {
+        return { x: 0, y: 0 };
+    }
+    return {
+        x: Number(platform.lastDeltaX) || 0,
+        y: Number(platform.lastDeltaY) || 0
+    };
+}
+
+function advancePlayerCrushCandidate(state, probe) {
+    const player = state.player;
+    const sameCandidate = player.crushCandidateKey === probe.key;
+    player.crushCandidateTicks = sameCandidate
+        ? Math.max(0, Number(player.crushCandidateTicks) || 0) + 1
+        : 1;
+    player.crushCandidateKey = probe.key;
+    player.crushCandidateDetail = deepClone(probe);
+
+    if (player.crushCandidateTicks === 2) {
+        addEvent(state, "PLAYER_CRUSH_WARNING", {
+            consecutiveTicks: player.crushCandidateTicks,
+            ...probe
+        });
+    }
+
+    const confirmTicks = Math.max(1, Math.round(Number(state.tuning.playerCrushConfirmTicks) || 3));
+    if (player.crushCandidateTicks < confirmTicks) {
+        return false;
+    }
+
+    triggerPlayerCrushDeath(state, probe);
+    return true;
+}
+
+function clearPlayerCrushCandidate(state, reason) {
+    const player = state.player;
+    const previousTicks = Math.max(0, Number(player.crushCandidateTicks) || 0);
+    if (previousTicks >= 2) {
+        addEvent(state, "PLAYER_CRUSH_NEAR_MISS", {
+            consecutiveTicks: previousTicks,
+            reason,
+            ...(player.crushCandidateDetail || {})
+        });
+    }
+    player.crushCandidateTicks = 0;
+    player.crushCandidateKey = null;
+    player.crushCandidateDetail = null;
+}
+
+function triggerPlayerCrushDeath(state, probe) {
+    const player = state.player;
+    if (playerDeathActive(state)) {
+        return;
+    }
+
+    addEvent(state, "PLAYER_CRUSHED", {
+        consecutiveTicks: player.crushCandidateTicks,
+        x: round(player.x),
+        y: round(player.y),
+        ...probe
+    });
+    triggerPlayerDeath(state, {
+        sourceId: "crushingPlatform",
+        resetReason: "crushed",
+        cause: "crushed"
+    });
+}
+
+function triggerPlayerDeath(state, options = {}) {
+    const player = state.player;
+    if (!player || playerDeathActive(state)) {
+        return false;
+    }
+
+    const sourceId = options.sourceId || "unknown";
+    const resetReason = options.resetReason || "defeated";
+    const cause = options.cause || "healthDepleted";
+    stopAttachedBoost(state, cause);
+    state.health.amount = 0;
+    state.health.regenerating = false;
+    state.health.invulnerabilityTimer = 0;
+    player.vx = 0;
+    player.vy = 0;
+    player.ax = 0;
+    player.ay = 0;
+    player.visible = true;
+    player.combatState = "dead";
+    player.targetable = false;
+    player.deathPhase = "cover";
+    player.deathPhaseTimer = Math.max(FIXED_DT, Number(state.tuning.playerDeathCoverSeconds) || 0.42);
+    player.deathElapsed = 0;
+    player.deathSourceId = sourceId;
+    player.deathResetReason = resetReason;
+    removePlayerDeathCoverSparks(state);
+    emitPlayerDeathCoverSparks(state);
+
+    addEvent(state, "PLAYER_DEATH_ANIMATION_STARTED", {
+        sourceId,
+        cause,
+        phase: "cover",
+        x: round(player.x),
+        y: round(player.y)
+    });
+    addEvent(state, "PLAYER_DEFEATED", { sourceId, cause });
+    return true;
+}
+
+function removePlayerDeathCoverSparks(state) {
+    if (!Array.isArray(state.effects?.smokePuffs)) {
+        return;
+    }
+    state.effects.smokePuffs = state.effects.smokePuffs.filter((puff) => puff.kind !== "wizardDeathCoverSpark");
+}
+
+function emitPlayerDeathCoverSparks(state) {
+    const player = state.player;
+    const particleScale = renderingParticleScale(state.settings);
+    const authoredCount = Math.max(1, Math.round(Number(state.tuning.playerDeathCoverParticleCount) || 72));
+    const count = Math.max(30, Math.round(authoredCount * particleScale));
+    const centerX = player.x;
+    const centerY = player.y - player.height * 0.52;
+    const coverSeconds = Math.max(FIXED_DT, Number(state.tuning.playerDeathCoverSeconds) || 0.42);
+
+    for (let i = 0; i < count; i += 1) {
+        const seed = state.clock.tick * 211 + i * 151 + Math.floor(centerX * 7 + centerY * 11);
+        addSmokePuff(state, {
+            kind: "wizardDeathCoverSpark",
+            x: centerX + (hash01(seed + 17) - 0.5) * player.width * 1.05,
+            y: centerY + (hash01(seed + 37) - 0.5) * player.height * 0.98,
+            lifetime: coverSeconds + 0.08,
+            radius: 2.8 + hash01(seed + 59) * 4.8,
+            colorIndex: i % 3,
+            rotation: hash01(seed + 79) * Math.PI * 2,
+            spin: (hash01(seed + 97) - 0.5) * 8,
+            delay: hash01(seed + 113) * coverSeconds * 0.68
+        });
+    }
+}
+
+function emitPlayerDeathBurst(state) {
+    const player = state.player;
+    const particleScale = renderingParticleScale(state.settings);
+    const authoredCount = Math.max(1, Math.round(Number(state.tuning.playerDeathBurstParticleCount) || 64));
+    const count = Math.max(28, Math.round(authoredCount * particleScale));
+    const centerX = player.x;
+    const centerY = player.y - player.height * 0.52;
+
+    for (let i = 0; i < count; i += 1) {
+        const seed = state.clock.tick * 193 + i * 137 + Math.floor(centerX * 7 + centerY * 11);
+        const offsetX = (hash01(seed + 61) - 0.5) * player.width * 0.9;
+        const offsetY = (hash01(seed + 83) - 0.5) * player.height * 0.9;
+        const outwardAngle = Math.atan2(offsetY, offsetX || 0.001);
+        const angle = outwardAngle + (hash01(seed + 19) - 0.5) * 1.1;
+        const speed = (180 + hash01(seed + 29) * 470) * 0.75;
+        const radialScale = 0.72 + hash01(seed + 47) * 0.55;
+        addSmokePuff(state, {
+            kind: "wizardDeathBurstParticle",
+            x: centerX + offsetX,
+            y: centerY + offsetY,
+            vx: Math.cos(angle) * speed * radialScale,
+            vy: Math.sin(angle) * speed - 75,
+            gravity: 720 + hash01(seed + 101) * 300,
+            lifetime: (0.54 + hash01(seed + 127) * 0.58) * 0.5,
+            radius: 2.5 + hash01(seed + 149) * 5.1,
+            colorIndex: i % 3,
+            rotation: hash01(seed + 173) * Math.PI * 2,
+            spin: (hash01(seed + 197) - 0.5) * 20
+        });
+    }
 }
 
 function rectDepenetrationCandidates(rect, solid, detail) {
@@ -6871,17 +7344,13 @@ function rectDepenetrationCandidates(rect, solid, detail) {
     ];
 }
 
-function polygonDepenetrationCandidates(rect, polygon) {
+function polygonDepenetrationCandidates(rect, polygon, detail = null) {
     const bounds = polygonBounds(polygon);
     if (!bounds) {
         return [];
     }
 
-    const detail = {
-        id: polygon.id,
-        kind: polygon.kind || "blockable",
-        source: "polygon"
-    };
+    const collisionDetail = detail || collisionBodyDetail(polygon, "polygon");
     const separation = 0.02;
     const limits = {
         left: Math.max(0, rect.x + rect.w - bounds.minX) + 2,
@@ -6891,10 +7360,10 @@ function polygonDepenetrationCandidates(rect, polygon) {
     };
 
     return [
-        depenetrationCandidate("left", -findPolygonExitDistance(polygon, rect, -1, 0, limits.left) - separation, 0, detail),
-        depenetrationCandidate("right", findPolygonExitDistance(polygon, rect, 1, 0, limits.right) + separation, 0, detail),
-        depenetrationCandidate("up", 0, -findPolygonExitDistance(polygon, rect, 0, -1, limits.up) - separation, detail),
-        depenetrationCandidate("down", 0, findPolygonExitDistance(polygon, rect, 0, 1, limits.down) + separation, detail)
+        depenetrationCandidate("left", -findPolygonExitDistance(polygon, rect, -1, 0, limits.left) - separation, 0, collisionDetail),
+        depenetrationCandidate("right", findPolygonExitDistance(polygon, rect, 1, 0, limits.right) + separation, 0, collisionDetail),
+        depenetrationCandidate("up", 0, -findPolygonExitDistance(polygon, rect, 0, -1, limits.up) - separation, collisionDetail),
+        depenetrationCandidate("down", 0, findPolygonExitDistance(polygon, rect, 0, 1, limits.down) + separation, collisionDetail)
     ];
 }
 
@@ -7658,7 +8127,11 @@ export function damagePlayer(state, amount = 34, sourceId = "debug", options = {
         defeated
     });
     if (defeated) {
-        addEvent(state, "PLAYER_DEFEATED", { sourceId });
+        triggerPlayerDeath(state, {
+            sourceId,
+            resetReason: "healthDepleted",
+            cause: options.cause || "healthDepleted"
+        });
     }
     return {
         damage,
@@ -7682,6 +8155,16 @@ export function resetPlayer(state, reason = "manualReset") {
     p.facing = 1;
     p.visible = true;
     p.renderScale = 1;
+    p.crushCandidateTicks = 0;
+    p.crushCandidateKey = null;
+    p.crushCandidateDetail = null;
+    p.combatState = "alive";
+    p.targetable = true;
+    p.deathPhase = "none";
+    p.deathPhaseTimer = 0;
+    p.deathElapsed = 0;
+    p.deathSourceId = null;
+    p.deathResetReason = null;
     state.fuel.amount = state.tuning.initialFuel;
     state.fuel.rechargeDelayTimer = 0;
     state.fuel.rechargeLatched = false;

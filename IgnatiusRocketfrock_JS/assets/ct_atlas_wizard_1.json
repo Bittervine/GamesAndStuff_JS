@@ -53,6 +53,12 @@
             "y": 795,
             "w": 161,
             "h": 196
+        },
+        "rocket_projectile": {
+            "x": 1235,
+            "y": 563,
+            "w": 196,
+            "h": 509
         }
     },
     "objects": {
@@ -142,6 +148,18 @@
             "tags": [
                 "wizard",
                 "bodyPart"
+            ]
+        },
+        "rocket_projectile": {
+            "id": "rocket_projectile",
+            "frame": "rocket_projectile",
+            "type": "projectile",
+            "layer": "character",
+            "mirrorable": false,
+            "tags": [
+                "wizard",
+                "projectile",
+                "rocket"
             ]
         }
     }

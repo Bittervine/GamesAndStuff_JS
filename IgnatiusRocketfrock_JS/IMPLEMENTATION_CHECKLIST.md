@@ -1298,7 +1298,7 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Add regression coverage for defaults, rider triggering/carrying, shuttling, collision detachment, and automatic recovery.
 - [x] Add named signal-channel activation and reusable switch/keyhole emitters.
 - [x] Add enemy riding and deliberate moving-platform navigation semantics.
-- [ ] Add crushing/depenetration rules for actors trapped by kinematic platforms.
+- [x] Add conservative nearest-exit crushing/depenetration rules for actors trapped by kinematic platforms.
 - [ ] Derive a gameplay kill boundary from the cave full-black guide and defeat Ignatius after crossing it.
 
 
@@ -1416,7 +1416,7 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Rebuild `level_001` hunter navigation against the updated static-support contract.
 - [x] Add regressions for signal-triggered platforms, lever toggling, key collection/consumption, one-shot keyholes, interaction bindings, and editor wiring.
 - [x] Add enemy riding and deliberate moving-platform navigation semantics.
-- [ ] Add crushing/depenetration rules for actors trapped by kinematic platforms.
+- [x] Add conservative nearest-exit crushing/depenetration rules for actors trapped by kinematic platforms.
 - [ ] Derive a gameplay kill boundary from the cave full-black guide and defeat Ignatius after crossing it.
 
 ## Revision 159 thought-tail direction correction
@@ -1594,3 +1594,150 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Add regression coverage for curved approach motion, release altitude, catalog defaults, and the placed first-level bat.
 - [x] Update the browser debug build label to revision 194.
 - [ ] Keep watch for the rare green awareness-cone non-alert state and capture a repeatable save/state snapshot before changing perception logic.
+
+
+## Revision 195 conservative moving-platform crushing
+
+- [x] Preserve nearest-distance depenetration as the authoritative recovery rule.
+- [x] Treat a crush as valid only when that nearest correction enters a distinct blocker and relative kinematic motion is closing the gap on the same axis.
+- [x] Refuse farther sideways ejection when the nearest top/bottom or left/right exit is blocked.
+- [x] Require three consecutive fixed-step crush candidates before defeat.
+- [x] Emit `PLAYER_CRUSH_WARNING` on tick two and `PLAYER_CRUSH_NEAR_MISS` when a two-or-more-tick candidate resets.
+- [x] Assert that ordinary moving-platform riding produces no crush warnings or near-miss diagnostics.
+- [x] Route confirmed crushing into the shared player-death presentation instead of deforming the rig.
+- [x] Respawn through the ordinary reset path after the shared death presentation completes.
+- [x] Add deterministic regression coverage for three-tick confirmation, nearest-exit behavior, warning recovery, particles, and clean respawn.
+- [x] Update the browser debug build label and portable game-state build label to revision 195.
+- [ ] Derive a gameplay kill boundary from the cave Full black guide and defeat Ignatius after crossing it.
+
+
+## Revision 196 unified Ignatius spark death
+
+- [x] Add one authoritative `cover` → `burst` → reset lifecycle for Ignatius.
+- [x] Start the lifecycle whenever `damagePlayer` reduces HP to zero.
+- [x] Detect externally assigned or restored zero HP at the fixed-step boundary.
+- [x] Keep the frozen rig visible while progressively delayed purple, yellow, and white sparks cover the body.
+- [x] Draw cover sparks after the player rig so they obscure rather than sit behind it.
+- [x] Hide the rig only when the spark field explodes outward.
+- [x] Use the same lifecycle for confirmed moving-platform crushing.
+- [x] Disable enemy and projectile targeting through `combatState` and `targetable` during death.
+- [x] Restore visibility, targeting, health, and spawn state together through `resetPlayer`.
+- [x] Add regression coverage for HP-zero entry, three-colour cover/burst particles, outward movement, renderer order, crush integration, targeting, and respawn.
+- [x] Update browser and portable build labels to revision 196.
+- [ ] Derive the gameplay kill boundary from the cave Full black guide and route it through the shared death lifecycle.
+
+
+## Revision 197 separated projectile rocket and lightened FX
+
+- [x] Increase Ignatius death-cover spark density and keep the camera on the death site for three additional seconds before respawn.
+- [x] Register the separate wizard projectile rocket frame from the updated atlas and use it when firing rockets as weapons while retaining the backpack rocket on the character rig.
+- [x] Reduce the everyday cost of rocket trails and impact bursts.
+- [x] Use much more economical enemy projectile trails and explosions, including a short red fading trail for goblin fireballs.
+- [x] Update browser and portable build labels to revision 197.
+
+
+## Revision 198 enemy projectile visual language
+
+- [x] Render the goblin fireball tail over the projectile bitmap so its broad root masks part of the authored rear flame.
+- [x] Taper the short red trail from a broad fireball root to a thin fading tail and cap it to roughly two or three sprite lengths.
+- [x] Keep non-player enemy projectile impacts visually separate from Ignatius rocket technology by using dark economical puffs without magical spark bursts.
+- [x] Allow only a tiny yellow-purple magical accent when an enemy projectile actually hits Ignatius.
+- [x] Update browser and portable build labels to revision 198.
+
+
+## Revision 199 circular fireball tail and gamepad title start
+
+- [x] Replace goblin fireball trail strokes with a compact chain of overlapping circles.
+- [x] Keep circles opaque and near core width while they cover the authored rear flame, then progressively shrink and fade.
+- [x] Continue drawing the procedural tail after the fireball bitmap.
+- [x] Start the game from the title screen when the sampled gamepad jump action produces a press edge.
+- [x] Consume the title-start edge so it does not also make Ignatius jump immediately.
+- [x] Add regression coverage for gamepad jump edge handling and the circular trail renderer contract.
+- [x] Update browser and portable build labels to revision 199.
+
+
+## Revision 200 procedural goblin fireball
+
+- [x] Replace the gameplay fireball sprite render with a procedural glowing fireball that visually matches the authored art more closely.
+- [x] Rework the fireball trail so it tapers immediately and is composed of fiery circles rather than a hard red bar.
+- [x] Preserve gamepad start support on the title screen.
+- [x] Update browser and portable build labels to revision 200.
+
+
+## Revision 201 implemented the chosen E1 procedural fireball
+
+- [x] Replace the gameplay goblin fireball with the E1-style circle-based procedural fireball.
+- [x] Keep the fireball fully procedural rather than returning to the static sprite.
+- [x] Update browser and portable build labels to revision 201.
+
+
+## Revision 202 animated enemy fireball emitter
+
+- [x] Replace the static procedural goblin fireball body with a live emitter-style particle trail.
+- [x] Emit small red, orange, and yellow circles from the projectile core over time.
+- [x] Let emitted circles drift, shrink, and fade as the projectile moves onward.
+- [x] Keep a compact bright core so the projectile remains readable.
+- [x] Update browser and portable build labels to revision 202.
+
+
+## Revision 203 tightened animated fireball particles
+
+- [x] Cap newly emitted fireball circles so none visually rival the full authored fireball sprite.
+- [x] Make emitted-circle radius decrease linearly from its initial size to zero.
+- [x] Preserve the existing trail length and live-emitter behavior.
+- [x] Update browser and portable build labels to revision 203.
+
+
+## Revision 204 final fireball fallback strategy
+
+- [x] Always render the authored fireball sprite as the projectile body.
+- [x] Show animated circle particles only on High graphics quality.
+- [x] Show only the sprite on Low and Medium quality.
+- [x] Reduce newly emitted particle size to at most 18% of projectile radius.
+- [x] Preserve linear particle shrink and the established trail length.
+- [x] Update build labels to revision 204.
+
+
+## Revision 205 polished fireball, story pacing, and death burst
+
+- [x] Show the animated fireball trail on Medium and High graphics quality.
+- [x] Keep Low graphics quality sprite-only.
+- [x] Halve automatic letter and thought-bubble scrolling speed.
+- [x] Remove visible skip-control instructions from story overlays.
+- [x] Let either jump or fire advance story text.
+- [x] Slow Ignatius death-burst particle launch speed by 25%.
+- [x] Halve death-burst particle lifetime.
+- [x] Update build labels to revision 205.
+
+
+## Revision 206 story text pacing adjustment
+
+- [x] Increase mailbox-letter scrolling speed by 25% relative to revision 205.
+- [x] Increase thought-bubble scrolling speed by 25% relative to revision 205.
+- [x] Preserve jump and fire as skip controls.
+- [x] Update build labels to revision 206.
+
+
+## Revision 207 character-paced story reading
+
+- [x] Derive a shared reading speed from 482 characters over 36.9 seconds.
+- [x] Calculate letter and thought duration from their actual character counts.
+- [x] Add the 0.5-second assumed reading-start delay to each overlay.
+- [x] Delay scrolling until the reader reaches the midpoint of the initial viewport.
+- [x] End scrolling at the midpoint of the final viewport and hold until reading completes.
+- [x] Update browser and portable build labels to revision 207.
+
+
+## Revision 208 reading speed calibration
+
+- [x] Set the shared story reading speed to 16 characters per second.
+- [x] Preserve the 0.5-second start delay and midpoint-based scroll timing.
+- [x] Update browser and portable build labels to revision 208.
+
+
+## Revision 209 reading speed and blank letter heading
+
+- [x] Change the shared letter and thought-bubble reading speed to 18 characters per second.
+- [x] Remove the visible letter heading.
+- [x] Preserve the existing blank title band so body-text spacing remains unchanged.
+- [x] Update browser and portable build labels to revision 209.

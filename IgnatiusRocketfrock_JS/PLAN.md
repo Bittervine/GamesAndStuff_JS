@@ -1904,4 +1904,87 @@ The retained Bombing Bat now climbs to the intended high attack station before r
 
 The approach is less ruler-straight. Deterministic arc lift bends the first part of the route upward, restrained lateral wander remains present even near the bombing station, and arrival-speed easing lets the bat settle rather than snap into place. Existing compact obstacle probes and clearance steering remain authoritative. The rare green-cone non-alert case was not reproducible in this revision, so no speculative awareness rewrite was introduced; retain it as a watch item if a repeatable state appears.
 
-The next planned gameplay-safety work remains crushing and depenetration for actors trapped by moving platforms, followed by the cave full-black lethal boundary. The portable power-up/effect schema remains after those two safety tasks.
+The next planned gameplay-safety work is the cave full-black lethal boundary. The portable power-up/effect schema remains after that safety task.
+
+
+## Revision 195 conservative moving-platform crushing
+
+Ignatius is now crushed only by a genuinely closing kinematic sandwich. Ordinary collision recovery still chooses the globally nearest cardinal depenetration distance. Before applying it, the core checks whether that exact correction would enter a distinct blocking body and whether at least one involved moving platform is closing the gap along the correction axis. A farther horizontal escape is not substituted for a nearer blocked vertical exit, preventing the wizard from being fired sideways out of a crusher.
+
+The condition must persist for three consecutive fixed steps. The second step emits an explicit warning event, and a two-step candidate that returns to zero emits `PLAYER_CRUSH_NEAR_MISS`. Normal moving-platform regression cases assert that neither diagnostic occurs, so the grace period cannot quietly conceal an almost-broken collision path.
+
+A confirmed crush enters the common player-death lifecycle. Revision 196 supersedes the original immediate-hide presentation with a visible body-cover phase followed by the particle-only burst, while preserving the same conservative three-tick crush decision. Revision 197 extends that shared death presentation with denser cover sparks and a three-second post-burst hold before respawn. It also separates the projectile rocket from the worn backpack rocket in the wizard atlas and makes everyday rocket/enemy projectile trails and explosions more CPU-economical. The next gameplay-safety task is deriving the lethal player boundary from the cave window's Full black outset. After that, the prepared power-up artwork can enter the portable effect-schema and pickup-composition pass.
+
+
+## Revision 196 unified Ignatius death sparks
+
+Ignatius now has a complete defeated-state lifecycle. Any damage that reduces HP to zero, including enemy attacks, projectiles, damaging falls, and killable surfaces, starts a short cover phase in which the frozen rig remains visible while progressively delayed purple, yellow, and white sparks accumulate over his body. The cover then detonates into an outward spark burst, the rig disappears, and the ordinary reset path restores health and the authored spawn after the burst interval. Confirmed crushing uses exactly the same presentation rather than maintaining a separate death effect.
+
+The lifecycle is explicit rather than inferred repeatedly from health. `player.combatState = "dead"` and `player.targetable = false` prevent enemies and projectiles from treating the death presentation as a live target. A fixed-step HP-zero guard also catches loaded or externally assigned states that did not pass through `damagePlayer`. Regression coverage checks the cover-to-burst transition, all three colours, outward velocity, non-targetability, crush integration, renderer draw order, and clean respawn.
+
+The next planned revision remains the cave Full black lethal boundary. It should call this same lifecycle rather than inventing another death path.
+
+
+## Revision 197 separated the fired rocket and lightened projectile effects
+
+Ignatius now keeps wearing the backpack rocket while firing a dedicated projectile rocket frame from the lower-right of the updated wizard atlas. The shared death lifecycle also gained a denser cover phase and a three-second camera hold before respawn. Rocket trails and impact bursts were simplified, while enemy projectile trails and explosions were reduced much more aggressively for performance.
+
+
+## Revision 198 enemy projectile visual language
+
+Goblin fireballs now render a short procedural red tail over the rear of the authored bitmap. The tail is broad at the fireball and narrows behind it, with a maximum rendered length of roughly two to three projectile sprites. Enemy projectiles now use dark, economical impact puffs for terrain, lifetime, and object impacts. Only impacts on Ignatius receive a tiny yellow-purple accent, clearly separating ordinary mob weapon effects from Ignatius's rocket technology.
+
+
+## Revision 199 circular fireball tail and gamepad title start
+
+The goblin fireball tail is now a short chain of overlapping circles rather than stroked bars. Circles that still overlap the authored fireball bitmap remain opaque and approximately core-sized so they mask the static rear flame; after leaving the sprite footprint, they progressively shrink and fade. The title screen also samples the ordinary gamepad jump edge, allowing the same A-button/D-pad-up jump action used in play to start the game without a keyboard. The starting edge is consumed so Ignatius does not immediately jump on the first gameplay step.
+
+
+## Revision 200 procedural goblin fireball
+
+The goblin fireball no longer relies on its static atlas sprite during gameplay rendering. Instead it is reconstructed procedurally from layered glows and flame circles, with a matching short tapering circle-trail. Revision 199's title-screen gamepad start remains in place.
+
+
+## Revision 201 implemented the selected E1-style goblin fireball
+
+The goblin fireball now uses the E1 direction from the procedural preview set: a compact fiery head with a deterministic random mix of small yellow, orange, and red circles inside a narrowing tail envelope. The effect remains fully procedural and avoids the earlier solid-bar mismatch.
+
+
+## Revision 202 animated enemy fireball emitter
+
+The goblin fireball now behaves as a live emitter rather than a precomposed procedural stamp. Small red, orange, and yellow circles are spawned at the moving core, then drift, shrink, and fade over time while the compact head remains readable. This better matches the intended sense of living fire.
+
+
+## Revision 203 tightened animated fireball particles
+
+The live goblin-fireball emitter now starts with smaller circles capped well below the original sprite-scale fireball body, and every emitted circle shrinks linearly to zero over its lifetime. Trail length and emission timing remain unchanged.
+
+
+## Revision 204 final fireball fallback strategy
+
+The goblin fireball now always uses its authored sprite as the projectile body. The animated circle emitter is restricted to High graphics quality, where it appears only as a small supplementary trail. Low and Medium quality show only the sprite. Emitted circles are capped smaller and continue to shrink linearly over their lifetime.
+
+
+## Revision 205 polished fireball, story pacing, and death burst
+
+The animated fireball trail now appears on Medium and High graphics quality while Low remains sprite-only. Mailbox letters and thought bubbles now scroll at half their previous speed, no longer display skip instructions, and accept either jump or fire to advance. Ignatius's death burst launches particles 25% slower while those particles fade in half the prior lifetime.
+
+
+## Revision 206 story text pacing adjustment
+
+Mailbox letters and thought bubbles now scroll 25% faster than revision 205, settling between the original speed and the slower revision 205 pacing.
+
+
+## Revision 207 character-paced story reading
+
+Letter and thought-bubble timing now derives from a shared reading speed of 482 characters over 36.9 seconds. Each overlay waits 0.5 seconds before the assumed reading begins, scrolls linearly only while the reader is estimated to move between the middle of the first and final visible text windows, and holds the final view until the final character is expected to have been read.
+
+
+## Revision 208 reading speed calibration
+
+The shared letter and thought-bubble reading model now assumes 16 characters per second while preserving the existing 0.5-second reading-start delay, midpoint-based scrolling window, and final hold.
+
+
+## Revision 209 reading speed and blank letter heading
+
+Story overlays now use an assumed reading speed of 18 characters per second. The former visible letter heading is no longer drawn, while its reserved title band remains untouched so the body text keeps the same vertical spacing.

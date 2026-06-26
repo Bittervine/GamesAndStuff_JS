@@ -39,6 +39,7 @@ export class RocketfrockInput {
         this.pointer = createPointerState();
         this.eventLog = [];
         this.consoleLogging = false;
+        this.jumpSuppressedUntilRelease = false;
 
         target.addEventListener("keydown", (event) => this.onKeyDown(event), { passive: false });
         target.addEventListener("keyup", (event) => this.onKeyUp(event), { passive: false });
@@ -322,6 +323,10 @@ export class RocketfrockInput {
         this.pointer.jumpHeld = dy < -POINTER_CONTROL.jumpThreshold;
     }
 
+    suppressJumpUntilRelease() {
+        this.jumpSuppressedUntilRelease = true;
+    }
+
     clear() {
         this.keys.clear();
         this.pointer.active = false;
@@ -419,6 +424,16 @@ export class RocketfrockInput {
         current.exportStatePressed = take(this.debugPressed, "exportState");
         current.toggleInputConsoleLogPressed = take(this.debugPressed, "inputConsoleLog");
         current.toggleDebugPanelPressed = take(this.debugPressed, "debugPanel");
+
+        if (this.jumpSuppressedUntilRelease) {
+            const stillHeld = current.jumpHeld;
+            current.jumpHeld = false;
+            current.jumpPressed = false;
+            current.jumpReleased = false;
+            if (!stillHeld) {
+                this.jumpSuppressedUntilRelease = false;
+            }
+        }
 
         this.previous = current;
         return current;

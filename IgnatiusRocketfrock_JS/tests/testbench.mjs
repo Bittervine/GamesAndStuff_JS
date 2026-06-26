@@ -1,4 +1,10 @@
 import assert from "node:assert/strict";
+import {
+    STORY_READING_CHARACTERS_PER_SECOND,
+    STORY_READING_START_DELAY_SECONDS,
+    storyCharacterCount,
+    storyReadingDuration
+} from "../src/shared/story-reading.js";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import {
     computeResponsiveViewportMetrics,
@@ -332,19 +338,34 @@ function releaseJumpAfterTakeoff(state) {
 }
 
 function testTimedTextViewportLayout() {
-    const centered = computeTimedTextViewportLayout(80, 200, 0, 5);
+    assert.equal(STORY_READING_CHARACTERS_PER_SECOND, 18, "story reading speed should be calibrated to 18 characters per second");
+    const rendererSource = readFileSync("./src/presentation/canvas-renderer.js", "utf8");
+    const letterStart = rendererSource.indexOf("    drawLetterOverlay(story, view) {");
+    const letterEnd = rendererSource.indexOf("    drawThoughtOverlay(state, story, view) {", letterStart);
+    const letterSource = rendererSource.slice(letterStart, letterEnd);
+    assert.doesNotMatch(letterSource, /fillText\(story\.letterTitle/, "the letter title band should remain blank while preserving its spacing");
+    const centered = computeTimedTextViewportLayout(80, 200, 0, 5, 40);
     assert.equal(centered.centered, true, "short story text should be vertically centered");
     approx(centered.contentOffset, 60, 0.000001, "short story text should receive a centered top offset");
     assert.equal(centered.maxScroll, 0, "short story text should not create a scrollbar");
 
-    const starting = computeTimedTextViewportLayout(320, 200, 0, 5);
+    const characterCount = 200;
+    const duration = STORY_READING_START_DELAY_SECONDS + characterCount / STORY_READING_CHARACTERS_PER_SECOND;
+    const starting = computeTimedTextViewportLayout(320, 200, 0, duration, characterCount);
     assert.equal(starting.centered, false, "long story text should use scrolling");
     approx(starting.scrollOffset, 0, 0.000001, "long story text should begin at the top");
     approx(starting.maxScroll, 120, 0.000001, "scroll distance should equal content overflow");
+    const expectedStart = STORY_READING_START_DELAY_SECONDS + (characterCount / STORY_READING_CHARACTERS_PER_SECOND) * (100 / 320);
+    const expectedEnd = STORY_READING_START_DELAY_SECONDS + (characterCount / STORY_READING_CHARACTERS_PER_SECOND) * (220 / 320);
+    approx(starting.scrollStartTime, expectedStart, 0.000001, "scrolling should wait until the reader reaches the middle of the initial viewport");
+    approx(starting.scrollEndTime, expectedEnd, 0.000001, "scrolling should finish when the reader reaches the middle of the final viewport");
 
-    const finished = computeTimedTextViewportLayout(320, 200, 5, 5);
-    approx(finished.scrollOffset, 120, 0.000001, "long story text should reach the final line before timeout");
-    approx(finished.contentOffset, -120, 0.000001, "scrolling should move content upward by its overflow");
+    const midway = computeTimedTextViewportLayout(320, 200, (expectedStart + expectedEnd) * 0.5, duration, characterCount);
+    approx(midway.scrollOffset, 60, 0.000001, "scrolling should advance linearly with estimated reading position");
+    const finished = computeTimedTextViewportLayout(320, 200, expectedEnd, duration, characterCount);
+    approx(finished.scrollOffset, 120, 0.000001, "long story text should reach the final lines at the final midpoint milestone");
+    const held = computeTimedTextViewportLayout(320, 200, duration, duration, characterCount);
+    approx(held.scrollOffset, 120, 0.000001, "the final viewport should remain held until the last character is read");
 }
 
 function testResponsiveViewportScaling() {
@@ -2306,7 +2327,7 @@ function testHunterInvestigatesClosestReachableLastSeenPositionBeforeGlare() {
     );
 }
 
-function testHunterRemainsEngagedAfterPlayerHealthReachesZero() {
+function testZeroHealthStartsDeathLifecycleAndDisablesTargeting() {
     const state = createInitialGameState({
         tuning: {
             maxHealth: 30,
@@ -2364,40 +2385,37 @@ function testHunterRemainsEngagedAfterPlayerHealthReachesZero() {
     state.player.onGround = true;
     state.player.wasOnGround = true;
 
-    const enemy = state.enemies.find((item) => item.id === "persistent_hunter");
     let safety = 240;
     while (state.health.amount > 0 && safety > 0) {
         stepSimulation(state, createInputFrame(), FIXED_DT);
         safety -= 1;
     }
     assert.equal(state.health.amount, 0, "the first projectile should reduce the temporary player health pool to zero");
+    assert.equal(state.player.deathPhase, "cover", "zero health should immediately start the spark-cover phase");
+    assert.equal(state.player.combatState, "dead", "the authoritative player lifecycle should mark Ignatius dead");
+    assert.equal(state.player.targetable, false, "enemies and projectiles should stop targeting Ignatius during death presentation");
+    assert.equal(state.player.visible, true, "the body should remain visible while sparks cover it");
 
     state.debug.lastEvents = [];
-    let enteredGiveUpState = false;
-    for (let frame = 0; frame < 240; frame += 1) {
-        if (frame === 90) {
-            state.player.x = 18;
-        }
-        stepSimulation(state, createInputFrame(), FIXED_DT);
-        enteredGiveUpState ||= [
-            "investigate_last_seen",
-            "unreachable_glare",
-            "return_home",
-            "stranded_patrol"
-        ].includes(enemy.aiState);
-    }
-
-    assert.equal(enteredGiveUpState, false, "zero health alone should not make a visible player disappear from the hunter state machine");
-    assert.equal(enemy.engaged, true, "hunter should remain engaged with the still-visible player");
-    assert.equal(enemy.alerted, true, "hunter should remain alerted after the health display reaches zero");
-    assert.ok(
-        state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED" && event.enemyId === enemy.id),
-        "hunter should keep starting attacks after zero health until an actual player-death lifecycle disables targeting"
+    stepMany(state, 10, () => createInputFrame());
+    assert.equal(
+        state.debug.lastEvents.some((event) => event.type === "ENEMY_ATTACK_STARTED"),
+        false,
+        "enemy AI should not start fresh attacks during the death lifecycle"
     );
-    assert.ok(
+    assert.equal(
         state.debug.lastEvents.some((event) => event.type === "ENEMY_PROJECTILE_IMPACTED" && event.impactKind === "player"),
-        "enemy projectiles should continue colliding with the visible player after zero health"
+        false,
+        "enemy projectiles should not collide with the non-targetable death presentation"
     );
+
+    for (let frame = 0; frame < 320 && state.player.deathPhase !== "none"; frame += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+    }
+    assert.equal(state.player.deathPhase, "none", "the ordinary reset should finish the death lifecycle");
+    assert.equal(state.player.combatState, "alive", "respawn should restore the live lifecycle state");
+    assert.equal(state.player.targetable, true, "respawn should restore enemy targeting");
+    assert.equal(state.health.amount, state.health.max, "respawn should restore full health");
 }
 
 function testHunterEnemyStrandedFallback() {
@@ -3014,7 +3032,12 @@ function testFireballGoblinProjectileAttack() {
     const projectile = state.projectiles.find((item) => item.owner === "enemy" && item.enemyId === enemy.id);
     assert.ok(projectile, "fireball goblin should spawn an enemy projectile");
     assert.equal(projectile.kind, "enemyFireball", "fireball goblin should launch the fireball projectile kind");
+    state.settings.renderingQuality = "high";
     assert.equal(projectile.launchType, "homing_lo", "released fireball should retain the tagged launch type");
+    stepMany(state, 4);
+    assert.ok(Array.isArray(projectile.trail) && projectile.trail.length >= 6, "fireball projectile should emit multiple live trail circles over time");
+    assert.ok(projectile.trail.every((particle) => Number.isFinite(particle.birth) && Number.isFinite(particle.lifetime) && Number.isFinite(particle.vx) && Number.isFinite(particle.vy)), "fireball trail entries should behave like emitted particles rather than static points");
+    assert.ok(projectile.trail.every((particle) => particle.radius <= projectile.radius * 0.18 + 0.001), "new fireball circles should remain much smaller than the authored fireball sprite");
     const firedEvent = state.debug.lastEvents.find((event) => event.type === "ENEMY_PROJECTILE_FIRED" && event.enemyId === enemy.id);
     approx(firedEvent.x, 92.474, 0.01, "fireball should transfer from the sampled animated world X");
     approx(firedEvent.y, 477.85, 0.01, "fireball should transfer from the sampled animated world Y");
@@ -3103,6 +3126,64 @@ function testMusketGoblinProjectileAttack() {
     assert.ok(state.debug.lastEvents.some((event) => event.type === "ENEMY_PROJECTILE_FIRED" && event.projectileKind === "enemyMusketBall"), "musket shot should emit a firing event");
 }
 
+function testPlayerDeathSparkAnimationAtZeroHealth() {
+    const state = createInitialGameState({
+        tuning: {
+            playerDeathCoverSeconds: 0.12,
+            playerDeathBurstSeconds: 0.18,
+            playerDeathCoverParticleCount: 60,
+            playerDeathBurstParticleCount: 54,
+            maxDebugEvents: 100
+        }
+    });
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+
+    const result = damagePlayer(state, state.health.max, "zero_hp_test", { bypassInvulnerability: true });
+    assert.equal(result.defeated, true, "lethal damage should report defeat");
+    assert.equal(state.player.deathPhase, "cover", "HP reaching zero should start with sparks covering the body");
+    assert.equal(state.player.visible, true, "the rig should remain visible during the cover phase");
+    assert.equal(state.player.targetable, false, "death presentation should be non-targetable");
+    const cover = state.effects.smokePuffs.filter((puff) => puff.kind === "wizardDeathCoverSpark");
+    assert.ok(cover.length >= 60, "the cover phase should create a dense spark field");
+    assert.deepEqual(new Set(cover.map((puff) => puff.colorIndex)), new Set([0, 1, 2]), "cover sparks should include purple, yellow, and white");
+    assert.ok(cover.some((puff) => puff.delay > 0), "cover sparks should appear progressively instead of all at once");
+
+    stepMany(state, Math.ceil(state.tuning.playerDeathCoverSeconds / FIXED_DT) + 1, () => createInputFrame());
+    assert.equal(state.player.deathPhase, "burst", "the cover phase should transition into an explosion");
+    assert.equal(state.player.visible, false, "the body should disappear at the burst transition");
+    const burst = state.effects.smokePuffs.filter((puff) => puff.kind === "wizardDeathBurstParticle");
+    assert.ok(burst.every((puff) => puff.lifetime <= 0.56), "death burst particles should disappear twice as fast");
+    assert.ok(burst.every((puff) => Math.hypot(puff.vx, puff.vy + 75) <= 625), "death burst particles should launch about twenty-five percent slower");
+    assert.ok(burst.length >= 40, "the burst should emit many outward-moving sparks");
+    assert.deepEqual(new Set(burst.map((puff) => puff.colorIndex)), new Set([0, 1, 2]), "burst sparks should include purple, yellow, and white");
+    assert.ok(burst.every((puff) => Math.hypot(puff.vx, puff.vy) > 80), "burst sparks should move decisively away from the body");
+
+    stepMany(state, Math.ceil(state.tuning.playerDeathBurstSeconds / FIXED_DT) + 2, () => createInputFrame());
+    assert.equal(state.player.deathPhase, "afterglow", "after the burst the camera should remain on the death site before respawn");
+    stepMany(state, Math.ceil(state.tuning.playerDeathAfterglowSeconds / FIXED_DT) + 2, () => createInputFrame());
+    assert.equal(state.player.deathPhase, "none", "the spark explosion hold should end in the ordinary respawn state");
+    assert.equal(state.player.visible, true, "respawn should restore the rig");
+    assert.equal(state.health.amount, state.health.max, "respawn should restore health");
+
+    const externallyZeroed = createInitialGameState({ tuning: { playerDeathCoverSeconds: 0.12 } });
+    externallyZeroed.story.portalIntro = null;
+    externallyZeroed.story.portalExit = null;
+    externallyZeroed.story.mailboxEvent = null;
+    externallyZeroed.health.amount = 0;
+    stepSimulation(externallyZeroed, createInputFrame(), FIXED_DT);
+    assert.equal(externallyZeroed.player.deathPhase, "cover", "a loaded or externally assigned HP value of zero should enter the same lifecycle");
+    assert.ok(
+        externallyZeroed.debug.lastEvents.some((event) => event.type === "PLAYER_DEATH_ANIMATION_STARTED" && event.sourceId === "healthZero"),
+        "external HP-zero detection should remain visible in authoritative events"
+    );
+
+    const rendererSource = readFileSync("./src/presentation/canvas-renderer.js", "utf8");
+    assert.match(rendererSource, /this\.drawPlayer\(state, view\);\s*this\.drawPlayerDeathCover\(state, view\);/, "cover sparks must render after the player rig");
+    assert.match(rendererSource, /wizardDeathBurstParticle/, "renderer should own the three-colour burst presentation");
+}
+
 function testPlayerDamageInvulnerability() {
     const state = createInitialGameState({
         tuning: {
@@ -3155,6 +3236,7 @@ function testDamagingAndKillableSurfaceHazards() {
     stepSimulation(state, createInputFrame(), FIXED_DT);
     approx(state.health.amount, 0, 0.001, "killable collision line should defeat Ignatius even during ordinary invulnerability");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "PLAYER_DEFEATED"), "lethal hazard should emit player defeat");
+    assert.equal(state.player.deathPhase, "cover", "killable hazards should use the same spark-cover death animation");
 }
 
 function testTerrainInterceptsRocketBeforeEnemy() {
@@ -4169,8 +4251,13 @@ function testMailboxLetterSequence() {
     assert.equal(state.story.mailboxEvent, null, "no mailbox should be active before proximity");
     assert.equal(state.story.mailboxEvents.length, 1, "each mailbox should receive its own runtime story record");
     assert.equal(state.story.mailboxEvents[0].phase, "armed", "mailbox story should wait for proximity");
-    assert.equal(state.story.mailboxEvents[0].letterDuration, 14, "mailbox letters should use the slower readable default duration");
-    assert.equal(state.story.mailboxEvents[0].thoughtDuration, 9, "mailbox thoughts should use the slower readable default duration");
+    const expectedLetterCharacters = storyCharacterCount(state.story.mailboxEvents[0].letterText);
+    const expectedThoughtCharacters = storyCharacterCount(state.story.mailboxEvents[0].thoughtText);
+    assert.equal(state.story.mailboxEvents[0].letterCharacterCount, expectedLetterCharacters, "mailbox should retain the measured letter character count");
+    assert.equal(state.story.mailboxEvents[0].thoughtCharacterCount, expectedThoughtCharacters, "mailbox should retain the measured thought character count");
+    approx(state.story.mailboxEvents[0].readingCharactersPerSecond, 18, 0.000001, "story timing should use the configured 18 characters per second reading speed");
+    approx(state.story.mailboxEvents[0].letterDuration, storyReadingDuration(state.story.mailboxEvents[0].letterText), 0.0001, "letter duration should include reading delay plus character-paced reading time");
+    approx(state.story.mailboxEvents[0].thoughtDuration, storyReadingDuration(state.story.mailboxEvents[0].thoughtText), 0.0001, "thought duration should include reading delay plus character-paced reading time");
     assert.ok(state.world.visuals.some((visual) => visual.entityId === "mailbox_story" && visual.assetId === "mailbox_with_letter"), "mailbox should initially show the letter state");
 
     stepSimulation(state, createInputFrame({ moveRight: true, weaponPressed: true }), FIXED_DT);
@@ -4187,8 +4274,8 @@ function testMailboxLetterSequence() {
     assert.equal(state.story.mailboxEvent.phase, "thought", "jump should advance from the letter to the thought");
     stepSimulation(state, createInputFrame({ jumpHeld: false }), FIXED_DT);
     assert.equal(state.story.mailboxEvent.phase, "thought", "releasing jump should not close the thought automatically");
-    stepSimulation(state, createInputFrame({ jumpPressed: true, jumpHeld: true }), FIXED_DT);
-    assert.equal(state.story.mailboxEvent, null, "closing the thought should clear the active mailbox pointer");
+    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    assert.equal(state.story.mailboxEvent, null, "fire should also close the thought and clear the active mailbox pointer");
     assert.equal(state.story.mailboxEvents[0].completed, true, "mailbox event should complete only once");
     assert.ok(state.debug.lastEvents.some((event) => event.type === "MAILBOX_EVENT_COMPLETE"), "mailbox sequence should emit a completion event");
 
@@ -5463,6 +5550,116 @@ function testRocketImpactsAtlasCollisionLinesAndAreas() {
 }
 
 
+function testWizardAtlasIncludesDedicatedProjectileRocket() {
+    const wizardAtlas = JSON.parse(readFileSync("./assets/ct_atlas_wizard_1.json", "utf8"));
+    const projectileFrame = wizardAtlas.frames.rocket_projectile;
+    assert.ok(projectileFrame, "wizard atlas should expose a separate projectile rocket frame");
+    assert.deepEqual(projectileFrame, { x: 1235, y: 563, w: 196, h: 509 }, "projectile rocket frame should match the authored lower-right atlas rocket");
+    assert.equal(wizardAtlas.objects.rocket_projectile?.type, "projectile", "the separate rocket should be registered as a projectile asset");
+    assert.equal(wizardAtlas.objects.rocket?.type, "characterPart", "the worn backpack rocket should remain the character part");
+}
+
+function testWeaponLaunchUsesDedicatedProjectileRocketFrame() {
+    const state = createInitialGameState();
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.targets = [];
+    stepSimulation(state, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    assert.equal(state.projectiles.length, 1, "pressing the weapon button should launch one rocket projectile");
+    assert.equal(state.projectiles[0].frameId, "rocket_projectile", "the launched rocket should use the dedicated projectile-only frame");
+    assert.equal(state.projectiles[0].characterId, "ct_char_wizard_1", "the launched rocket should source the projectile frame from Ignatius's atlas");
+}
+
+function testEnemyProjectileImpactFxRemainEconomical() {
+    const state = createInitialGameState();
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.world.solids = [];
+    state.world.segments = [];
+    state.world.collisionPolygons = [];
+    state.projectiles.push({
+        id: "enemy_fireball_test",
+        owner: "enemy",
+        enemyId: "enemy_fx_test",
+        kind: "enemyFireball",
+        state: "launched",
+        x: 0,
+        y: 0,
+        vx: 180,
+        vy: 0,
+        radius: 12,
+        age: 0,
+        lifetime: 0,
+        explosionTimer: 0,
+        trail: []
+    });
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    const puffs = state.effects.smokePuffs.filter((puff) => puff.kind === "enemyProjectileImpactPuff");
+    assert.equal(state.projectiles[0].state, "exploding", "the fixture projectile should impact and explode");
+    assert.equal(state.projectiles[0].impactKind, "unknown", "non-contact expiry should remain an ordinary enemy impact rather than a wizard hit");
+    assert.ok(puffs.length <= 8, "enemy projectile impacts should stay intentionally lightweight");
+    assert.ok(puffs.every((puff) => puff.radius <= 7.1), "enemy projectile impact puffs should stay compact");
+    assert.ok(puffs.every((puff) => puff.impactWizardAccent === false), "ordinary enemy impacts must not request wizard-technology accents");
+}
+
+function testEnemyProjectilePlayerHitCarriesSmallWizardAccentFlag() {
+    const state = createInitialGameState();
+    state.story.portalIntro = null;
+    state.story.portalExit = null;
+    state.story.mailboxEvent = null;
+    state.player.x = 20;
+    state.player.y = 0;
+    state.player.width = 40;
+    state.player.height = 80;
+    state.health.invulnerabilityTimer = 0;
+    state.world.solids = [];
+    state.world.segments = [];
+    state.world.collisionPolygons = [];
+    state.projectiles.push({
+        id: "enemy_player_hit_fx",
+        owner: "enemy",
+        enemyId: "enemy_fx_test",
+        kind: "enemyFireball",
+        state: "launched",
+        x: 0,
+        y: -40,
+        vx: 180,
+        vy: 0,
+        radius: 12,
+        damage: 1,
+        knockbackX: 0,
+        knockbackY: 0,
+        age: 0,
+        lifetime: 2,
+        explosionTimer: 0,
+        trail: []
+    });
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.projectiles[0].impactKind, "player", "player collision should be recorded on the exploding enemy projectile");
+    const puffs = state.effects.smokePuffs.filter((puff) => puff.kind === "enemyProjectileImpactPuff");
+    assert.ok(puffs.length > 0, "player hit should still emit the economical dark puff");
+    assert.ok(puffs.every((puff) => puff.impactWizardAccent === true), "player hits should carry the small wizard-accent marker");
+}
+
+function testEnemyProjectileVisualLanguageRendererContract() {
+    const rendererSource = readFileSync("./src/presentation/canvas-renderer.js", "utf8");
+    const fireballStart = rendererSource.indexOf("    drawProjectileFireball(projectile, state, view) {");
+    const fireballEnd = rendererSource.indexOf("    drawFireballTrailOverlay(projectile, state, view, fireballCoreRadius = 0) {", fireballStart);
+    const fireballSource = rendererSource.slice(fireballStart, fireballEnd);
+    assert.match(fireballSource, /const trailEnabled = state\.settings\?\.renderingQuality !== "low";/, "the animated fireball trail should be enabled on Medium and High graphics quality");
+    assert.match(fireballSource, /if \(trailEnabled\) \{\s*this\.drawEnemyFireballParticles\(projectile, state, view\);\s*\}/, "Medium and High quality should draw emitted fire particles");
+    assert.match(fireballSource, /this\.getCharacterAtlasFrame\(projectile\.characterId \|\| "ct_char_enemy_002", projectile\.frameId \|\| "fireball"\)/, "the authored fireball sprite should remain the projectile body at every quality");
+    assert.doesNotMatch(rendererSource, /Jump to continue|scrolls automatically/, "story overlays should no longer explain skip controls");
+    assert.match(fireballSource, /ctx\.drawImage\(asset\.canvas/, "the fireball renderer should draw the authored sprite");
+    assert.match(rendererSource, /const radius = Math\.max\(0\.15 \* view\.zoom, Number\(particle\.radius \|\| 2\) \* fade \* view\.zoom\);/, "emitted circles should shrink linearly with remaining lifetime");
+    assert.ok(rendererSource.includes('projectile.impactKind === "player"'), "only enemy projectile impacts on Ignatius should receive a magical accent");
+    assert.ok(rendererSource.includes('puff.kind === "enemyProjectileImpactPuff"'), "enemy impact smoke should have a dedicated dark renderer branch");
+}
+
+
+
 function testRocketLaunchDoesNotFalseHitUnrelatedAtlasArea() {
     const level = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
     const atlas = JSON.parse(readFileSync("./assets/at_atlas_001.json", "utf8"));
@@ -5615,6 +5812,177 @@ function placePlayerOnMovingPlatform(state) {
     return platform;
 }
 
+
+function createCrushTestState() {
+    const level = {
+        levelId: "moving_platform_crush_test",
+        world: { bounds: { x: 0, y: 0, w: 800, h: 600 }, resetY: 900 },
+        placements: [{
+            id: "crusher_ceiling",
+            kind: "atlasAsset",
+            atlasId: "at_atlas_001",
+            assetId: "crusher_block",
+            x: 100,
+            y: 190,
+            w: 160,
+            h: 30,
+            collisionFromManifest: true,
+            movement: {
+                pattern: "shuttle",
+                activation: "automatic",
+                endOffsetX: 0,
+                endOffsetY: 90,
+                speed: 60,
+                initialDelay: 0,
+                startPause: 0,
+                endPause: 0
+            }
+        }],
+        entities: []
+    };
+    const manifest = {
+        frames: {
+            crusher_block: { x: 0, y: 0, w: 160, h: 30 }
+        },
+        objects: {
+            crusher_block: {
+                nodes: [
+                    { id: "tl", x: 0, y: 0 },
+                    { id: "tr", x: 160, y: 0 },
+                    { id: "br", x: 160, y: 30 },
+                    { id: "bl", x: 0, y: 30 }
+                ],
+                lines: [
+                    { id: "top", kind: "blockable", from: "tl", to: "tr", tags: [] },
+                    { id: "right", kind: "blockable", from: "tr", to: "br", tags: [] },
+                    { id: "bottom", kind: "blockable", from: "br", to: "bl", tags: [] },
+                    { id: "left", kind: "blockable", from: "bl", to: "tl", tags: [] }
+                ]
+            }
+        }
+    };
+
+    const state = createInitialGameState({
+        tuning: {
+            fallDamageEnabled: false,
+            playerCrushConfirmTicks: 3,
+            playerDeathCoverSeconds: 0.2,
+            playerDeathBurstSeconds: 0.3,
+            playerDeathCoverParticleCount: 72,
+            playerDeathBurstParticleCount: 64
+        }
+    });
+    assert.equal(applyEditorLevelToWorld(state, level), true, "crush test level should apply");
+    assert.equal(
+        applyAtlasManifestsToWorld(state, new Map([["at_atlas_001", { manifest }]])),
+        true,
+        "crush test manifest should create moving blockable collision"
+    );
+    state.world.solids.push(
+        {
+            id: "crusher_floor",
+            kind: "floor",
+            x: 60,
+            y: 320,
+            w: 240,
+            h: 50
+        },
+        {
+            id: "safe_spawn_floor",
+            kind: "floor",
+            x: 420,
+            y: 320,
+            w: 180,
+            h: 50
+        }
+    );
+    state.player.x = 180;
+    state.player.y = 320;
+    state.player.spawnX = 500;
+    state.player.spawnY = 320;
+    state.player.vx = 0;
+    state.player.vy = 0;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    state.player.supportId = "crusher_floor";
+    return state;
+}
+
+function crushEvents(state, type) {
+    return state.debug.lastEvents.filter((event) => event.type === type);
+}
+
+function testMovingPlatformCrushRequiresThreeTicksAndNearestExit() {
+    const state = createCrushTestState();
+    const startX = state.player.x;
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.player.crushCandidateTicks, 1, "the first trapped tick should arm, not kill");
+    assert.equal(state.player.visible, true, "the first trapped tick should keep Ignatius visible");
+    approx(state.player.x, startX, 0.000001, "the first trapped tick must not eject Ignatius sideways");
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.player.crushCandidateTicks, 2, "the second trapped tick should remain a warning");
+    assert.equal(state.player.visible, true, "the second trapped tick should still not kill");
+    assert.equal(crushEvents(state, "PLAYER_CRUSH_WARNING").length, 1, "tick two should emit an explicit crush warning");
+    approx(state.player.x, startX, 0.000001, "the warning tick must not turn Ignatius into a sideways projectile");
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.player.deathPhase, "cover", "the third consecutive trapped tick should start the common spark-cover death phase");
+    assert.equal(state.player.visible, true, "Ignatius should remain visible while death sparks cover his body");
+    assert.equal(state.player.targetable, false, "confirmed crushing should disable combat targeting immediately");
+    assert.equal(state.health.amount, 0, "crushing should be lethal");
+    assert.equal(crushEvents(state, "PLAYER_CRUSHED").length, 1, "confirmed crushing should emit one authoritative event");
+    assert.ok(
+        state.effects.smokePuffs.filter((puff) => puff.kind === "wizardDeathCoverSpark").length >= 50,
+        "crushing should use the shared yellow/white/purple body-cover spark field"
+    );
+    approx(state.player.x, startX, 0.000001, "confirmed crushing must not use a farther horizontal depenetration");
+}
+
+function testCrushWarningReportsTwoTickRecovery() {
+    const state = createCrushTestState();
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.player.crushCandidateTicks, 2, "fixture should reach the last-ditch warning threshold");
+
+    state.world.solids = state.world.solids.filter((solid) => solid.id !== "crusher_floor");
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+
+    assert.equal(state.player.crushCandidateTicks, 0, "a cleared trap should reset the consecutive counter");
+    assert.equal(state.player.visible, true, "a recovered two-tick squeeze must not kill the player");
+    assert.equal(
+        crushEvents(state, "PLAYER_CRUSH_NEAR_MISS").length,
+        1,
+        "a two-tick crush candidate that resets must remain visible to tests and diagnostics"
+    );
+}
+
+function testMovingPlatformCrushParticlesRespawnCleanly() {
+    const state = createCrushTestState();
+    stepMany(state, 3, () => createInputFrame());
+    assert.equal(state.player.deathPhase, "cover", "fixture should begin with sparks accumulating over the visible body");
+
+    state.world.solids = state.world.solids.filter((solid) => solid.id !== "crusher_floor");
+    stepMany(state, Math.ceil(state.tuning.playerDeathCoverSeconds / FIXED_DT) + 2, () => createInputFrame());
+    assert.equal(state.player.deathPhase, "burst", "cover sparks should transition into the outward explosion");
+    assert.equal(state.player.visible, false, "the rig should disappear only when the sparks explode away");
+    assert.ok(
+        state.effects.smokePuffs.filter((puff) => puff.kind === "wizardDeathBurstParticle").length >= 45,
+        "the burst phase should contain a dense three-colour spark explosion"
+    );
+
+    stepMany(state, Math.ceil(state.tuning.playerDeathBurstSeconds / FIXED_DT) + 3, () => createInputFrame());
+    assert.equal(state.player.deathPhase, "afterglow", "crush deaths should also pause on the death site before respawn");
+    stepMany(state, Math.ceil(state.tuning.playerDeathAfterglowSeconds / FIXED_DT) + 3, () => createInputFrame());
+    assert.equal(state.player.visible, true, "the ordinary reset should restore the wizard after the post-burst hold");
+    assert.equal(state.player.deathPhase, "none", "respawn should clear the death phase");
+    approx(state.player.x, state.player.spawnX, 0.000001, "crush respawn should use the authored spawn X");
+    approx(state.player.y, state.player.spawnY, 0.000001, "crush respawn should use the authored spawn Y");
+    assert.equal(state.health.amount, state.health.max, "crush respawn should restore health");
+    assert.equal(state.player.crushCandidateTicks, 0, "crush diagnostics should reset with the player");
+}
+
 function testMovingPlatformSchemaAndEditor() {
     assert.equal(DEFAULT_MOVING_PLATFORM.pattern, "shuttle", "the ordinary shuttle should be the default pattern");
     assert.equal(DEFAULT_MOVING_PLATFORM.activation, "automatic", "ordinary moving platforms should start automatically");
@@ -5681,6 +6049,8 @@ function testAutomaticShuttleMovingPlatform() {
     stepMany(state, 160, () => createInputFrame());
     assert.ok(platform.cycleCount >= 1, "the shuttle should return to its start and restart automatically");
     assert.equal(state.world.segments.some((segment) => segment.movingPlatformId === platform.id), true, "shuttle collision should remain in the world");
+    assert.equal(crushEvents(state, "PLAYER_CRUSH_WARNING").length, 0, "ordinary platform riding should not lean on the crush grace period");
+    assert.equal(crushEvents(state, "PLAYER_CRUSH_NEAR_MISS").length, 0, "ordinary platform riding should not produce near-crush diagnostics");
 }
 
 function testRiderTriggeredMovingPlatform() {
@@ -5969,6 +6339,53 @@ function testInteractKeyBinding() {
 }
 
 
+function testGamepadJumpProducesTitleStartEdge() {
+    const originalNavigator = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+    let jumpPressed = true;
+    const buttons = Array.from({ length: 16 }, () => ({ pressed: false }));
+    Object.defineProperty(globalThis, "navigator", {
+        configurable: true,
+        value: {
+            getGamepads() {
+                buttons[0] = { pressed: jumpPressed };
+                return [{ axes: [0, 0], buttons }];
+            }
+        }
+    });
+
+    try {
+        const input = new RocketfrockInput({ addEventListener() {} });
+        const first = input.sample();
+        assert.equal(first.jumpHeld, true, "gamepad A should map to the held jump action");
+        assert.equal(first.jumpPressed, true, "gamepad A should create a fresh jump edge suitable for starting the title screen");
+        const held = input.sample();
+        assert.equal(held.jumpPressed, false, "holding gamepad A should not repeatedly start or jump");
+
+        input.clear();
+        input.suppressJumpUntilRelease();
+        const heldAfterTitle = input.sample();
+        assert.equal(heldAfterTitle.jumpHeld, false, "a title-start A button should remain consumed while physically held");
+        assert.equal(heldAfterTitle.jumpPressed, false, "clearing title input must not manufacture a second jump edge");
+        jumpPressed = false;
+        const released = input.sample();
+        assert.equal(released.jumpReleased, false, "the release that ends title suppression should also be consumed");
+        jumpPressed = true;
+        const nextPress = input.sample();
+        assert.equal(nextPress.jumpPressed, true, "a fresh A-button press after release should jump normally");
+    } finally {
+        if (originalNavigator) {
+            Object.defineProperty(globalThis, "navigator", originalNavigator);
+        } else {
+            delete globalThis.navigator;
+        }
+    }
+
+    const bootstrapSource = readFileSync("./src/browser/game-bootstrap.js", "utf8");
+    assert.match(bootstrapSource, /titleScreenActive && !isGameMenuOpen\(\) && titleStartRequested\(inputFrame\)/, "the animation frame should inspect gamepad-derived jump input while the title screen is active");
+    assert.match(bootstrapSource, /input\.suppressJumpUntilRelease\(\)/, "the title-start jump should remain consumed until the physical gamepad control is released");
+    assert.match(bootstrapSource, /inputFrame = createInputFrame\(\)/, "the title-start jump edge should be consumed instead of leaking into the first gameplay step");
+}
+
 function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.equal(DEFAULT_GAME_SETTINGS.sfxVolume, 0.8, "effects should default to 80 percent");
     assert.equal(DEFAULT_GAME_SETTINGS.musicVolume, 0.1, "music should default to 10 percent");
@@ -6075,6 +6492,7 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(bootstrapSource, /titleScreenActive \|\| gameState\.debug\.paused \|\| pageFocusLost/, "title mode should mute audio until the first start interaction");
     assert.match(bootstrapSource, /function setupTitleScreen\(\)/, "the browser bootstrap should own title-screen interaction wiring");
     assert.match(bootstrapSource, /window\.addEventListener\("keydown", handleTitleStartKeydown, \{ capture: true, passive: false \}\)/, "title key start should capture before gameplay input consumes the gesture");
+    assert.match(bootstrapSource, /function titleStartRequested\(inputFrame\)/, "the title screen should accept sampled gameplay input as well as DOM keyboard and pointer gestures");
     assert.match(bootstrapSource, /function startGameFromTitle\(\)/, "the title screen should have a central start transition");
     assert.match(bootstrapSource, /void musicDirector\.unlock\(\)/, "starting from the title screen should unlock the music director from that gesture");
     assert.match(bootstrapSource, /function restartCurrentLevel\(\)/, "Restart level should reset the level in-place instead of navigating away");
@@ -6302,6 +6720,7 @@ const tests = [
     ["rocket turns fifty percent sharper", testRocketTurnsFiftyPercentSharper],
     ["left and right Ctrl weapon binding", testControlKeysLaunchWeapon],
     ["keyboard interaction binding", testInteractKeyBinding],
+    ["gamepad jump starts title screen", testGamepadJumpProducesTitleStartEdge],
     ["timed story text layout", testTimedTextViewportLayout],
     ["responsive viewport scaling", testResponsiveViewportScaling],
     ["thought bubble tail and responsive typography", testThoughtBubbleTailAndResponsiveTypography],
@@ -6310,6 +6729,9 @@ const tests = [
     ["closed cave-window spline authoring", testCaveWindowSplineAuthoring],
     ["moving-platform schema and Level Editor", testMovingPlatformSchemaAndEditor],
     ["automatic shuttle moving platform", testAutomaticShuttleMovingPlatform],
+    ["moving-platform crush requires nearest blocked exit for three ticks", testMovingPlatformCrushRequiresThreeTicksAndNearestExit],
+    ["two-tick crush recovery emits diagnostics", testCrushWarningReportsTwoTickRecovery],
+    ["moving-platform crush particles respawn cleanly", testMovingPlatformCrushParticlesRespawnCleanly],
     ["rider-triggered moving platform", testRiderTriggeredMovingPlatform],
     ["enemy rider triggers and follows moving platform", testEnemyRiderTriggersAndFollowsMovingPlatform],
     ["hunter plans moving-platform ride", testHunterPlansMovingPlatformRide],
@@ -6355,7 +6777,7 @@ const tests = [
     ["hunter awareness is consistent behind occluders", testHunterAwarenessIsConsistentBehindOccluder],
     ["monster awareness uses distance and facing cone", testMonsterAwarenessUsesDistanceAndFacingCone],
     ["hunter investigates last seen position before glare", testHunterInvestigatesClosestReachableLastSeenPositionBeforeGlare],
-    ["hunter remains engaged after player health reaches zero", testHunterRemainsEngagedAfterPlayerHealthReachesZero],
+    ["zero health starts death lifecycle and disables targeting", testZeroHealthStartsDeathLifecycleAndDisablesTargeting],
     ["hunter reachable firing fallback", testHunterFindsReachableFiringFallbackBeforeGlare],
     ["hunter enemy stranded fallback", testHunterEnemyStrandedFallback],
     ["simulation-owned character enemy patrol", testCharacterEnemyPatrolBehavior],
@@ -6366,6 +6788,7 @@ const tests = [
     ["terrain shields player from enemy melee", testEnemyMeleeBlockedByTerrain],
     ["fireball goblin projectile attack", testFireballGoblinProjectileAttack],
     ["musket goblin projectile attack", testMusketGoblinProjectileAttack],
+    ["player zero-health spark death animation", testPlayerDeathSparkAnimationAtZeroHealth],
     ["player damage invulnerability", testPlayerDamageInvulnerability],
     ["damaging and killable surface hazards", testDamagingAndKillableSurfaceHazards],
     ["terrain intercepts rocket before enemy", testTerrainInterceptsRocketBeforeEnemy],
@@ -6406,6 +6829,11 @@ const tests = [
     ["collision area rejects shallow corner entry", testCollisionAreaRejectsShallowCornerEntry],
     ["collision area pushes embedded player to nearest side", testCollisionAreaPushesEmbeddedPlayerToNearestSide],
     ["rocket impacts atlas collision lines and areas", testRocketImpactsAtlasCollisionLinesAndAreas],
+    ["wizard atlas includes dedicated projectile rocket", testWizardAtlasIncludesDedicatedProjectileRocket],
+    ["weapon launch uses dedicated projectile rocket frame", testWeaponLaunchUsesDedicatedProjectileRocketFrame],
+    ["enemy projectile impact fx remain economical", testEnemyProjectileImpactFxRemainEconomical],
+    ["enemy projectile player hit carries small wizard accent flag", testEnemyProjectilePlayerHitCarriesSmallWizardAccentFlag],
+    ["enemy projectile visual language renderer contract", testEnemyProjectileVisualLanguageRendererContract],
     ["rocket launch ignores unrelated atlas areas", testRocketLaunchDoesNotFalseHitUnrelatedAtlasArea],
     ["manual reset", testReset]
 ];

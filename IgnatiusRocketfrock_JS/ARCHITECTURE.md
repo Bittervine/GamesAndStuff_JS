@@ -202,7 +202,7 @@ Revision 148 adds optional `movement` data to ordinary collision-bearing atlas p
 
 `src/core/simulation.js` converts these records into deterministic kinematic state machines and updates them before actors. The first slice supports automatic or rider activation and three patterns: `shuttle`, `loopRespawn`, and `vanishRespawn`. A rider standing on a moving platform is carried by the platform's exact frame delta through an authoritative support ID. Collision geometry moves with the visual, detaches as soon as fading begins, and is restored only after fade-in completes. Every vanishing pattern has a normalized positive `hiddenDuration` and automatically returns to its start position; authored levels must never require the player to die merely to restore a platform.
 
-Dynamic platform geometry is deliberately excluded from the baked enemy navigation graph. Enemies may collide with it, but the current planner does not intentionally route across changing supports. Signal-channel activation, switch/keyhole emitters, enemy carrying, crushing rules, and the gameplay death boundary beyond the cave's full-black guide remain later phases rather than hidden presentation behavior.
+Dynamic platform geometry is deliberately excluded from the baked enemy navigation graph. Enemies may collide with it, while predictable shuttle endpoints are added only as runtime navigation supports. Signal-channel activation, switch/keyhole emitters, enemy carrying, and conservative player crushing are portable-core behavior. The gameplay death boundary beyond the cave's full-black guide remains a separate follow-up rather than hidden presentation behavior.
 
 ## Reactive-object runtime boundary
 
@@ -285,9 +285,9 @@ The graph format is version 2. Mobility identity includes ground acceleration be
 
 Presentation elements mounted on a rig part must use the same final draw-command transform as that part. They must not sample the pre-presentation pose directly, because transient presentation transforms such as doorway scaling are applied after pose sampling. Revision 122 applies this rule to the rocket fuel indicator.
 
-## Player combat-target lifecycle
+## Player combat-target and death lifecycle
 
-Player health is a resource value, not the authoritative player lifecycle state. Simulation systems that decide whether Ignatius can be noticed, attacked, or struck must use explicit presentation/lifecycle fields such as `player.visible`, `player.combatState`, and `player.targetable`. Revision 124 deliberately keeps a visible zero-health player targetable because the project does not yet implement the complete player-death transition. When death is added, one authoritative lifecycle transition should disable targeting rather than duplicating `health <= 0` checks across AI and projectile code.
+Player health is a resource value, not the authoritative player lifecycle state. Simulation systems that decide whether Ignatius can be noticed, attacked, or struck must use `player.combatState` and `player.targetable`; `player.visible` remains a presentation gate. Revision 196 implements the authoritative transition that revision 124 reserved: any HP-zero condition enters `cover`, then `burst`, then the ordinary reset path. The transition freezes player control, disables targeting once, and prevents scattered `health <= 0` checks from leaking into AI or projectile code. During `cover` the rig remains visible beneath simulation-owned sparks. During `burst` the rig is hidden while particles continue, and reset restores `alive`, targetability, visibility, and health together.
 
 ## Browser startup loading boundary
 
@@ -369,7 +369,7 @@ Thought-bubble placement remains presentation-only. `src/presentation/canvas-ren
 
 `src/browser/game-bootstrap.js` asks `src/browser/music-director.js` to unlock immediately after the first level frame is visible and after transition frames become visible. A rejected autoplay attempt is harmless and the existing pointer/keyboard listeners retry from a qualifying gesture. AudioContext creation, scheduling, and autoplay policy remain browser-adapter concerns.
 
-Enemy-platform interaction is portable core state. Character enemies now retain a physical collision `supportId` separately from navigation `currentSupportId`; this lets kinematic translation carry them by the exact platform delta and lets rider activation treat player and enemy riders uniformly. Runtime navigation leaves the editor-baked static graph untouched, then adds virtual start/end supports only for predictable automatic or rider-activated shuttle platforms. Static-to-platform and platform-to-static links are deliberate `step` edges, while endpoint travel is an explicit `ride` edge. During a ride, the platform collision ID is authoritative and the hunter may reposition toward its next disembark edge. Signal platforms, disappearing patterns, crushing response, and lethal cave-boundary rules are not inferred by this graph augmentation.
+Enemy-platform interaction is portable core state. Character enemies now retain a physical collision `supportId` separately from navigation `currentSupportId`; this lets kinematic translation carry them by the exact platform delta and lets rider activation treat player and enemy riders uniformly. Runtime navigation leaves the editor-baked static graph untouched, then adds virtual start/end supports only for predictable automatic or rider-activated shuttle platforms. Static-to-platform and platform-to-static links are deliberate `step` edges, while endpoint travel is an explicit `ride` edge. During a ride, the platform collision ID is authoritative and the hunter may reposition toward its next disembark edge. Signal platforms and disappearing patterns are not inferred by this graph augmentation. Crushing response is handled independently by portable collision recovery, and lethal cave-boundary rules remain separate.
 
 ## Revision 159 thought-tail visual anchor
 
@@ -411,3 +411,16 @@ Character-enemy `renderOffsetX` is a character-local offset from the gameplay hi
 ## Revision 194 bomber approach and release altitude
 
 The retained bomber still lives entirely in portable `src/core/simulation.js`. Its attack target is the authored `bomberHoverHeight` above the player, with a small screen-edge clamp, a deterministic `bomberApproachArcHeight`, persistent low-amplitude lateral wander, and arrival-speed easing. `bomberDropHeightTolerance` forms an explicit vertical release band, so horizontal alignment alone cannot trigger a rock while the bat is still climbing. The first level bakes the revised 280-unit station and matching steering values directly into its placed bat, while `ct_enemies_001.json` supplies the same defaults for newly placed bats.
+
+
+## Revision 195 conservative crush-detection boundary
+
+Moving-platform crushing is a portable collision-recovery decision, not a renderer deformation effect. `src/core/simulation.js` records each kinematic platform's exact fixed-step delta, then runs the ordinary nearest-distance depenetration rule first. A crush candidate exists only when that nearest correction would enter a distinct blocking body and the relative platform motion is closing the gap along the same axis. Farther exits, including sideways ejection, are deliberately ignored once the nearest exit is blocked.
+
+The candidate must remain stable for three consecutive physics ticks. Tick two emits `PLAYER_CRUSH_WARNING`; if the condition clears after reaching that threshold, `PLAYER_CRUSH_NEAR_MISS` remains in the authoritative debug-event stream so regression tests can expose a last-ditch recovery instead of silently treating it as healthy behavior. A confirmed crush hides the wizard sprite, emits simulation-owned purple/yellow burst particles, pauses briefly, and then uses the ordinary player reset path. Rendering owns only the shard appearance.
+
+## Revision 196 unified Ignatius spark-death lifecycle
+
+All lethal player outcomes now use one portable lifecycle in `src/core/simulation.js`. `damagePlayer` enters it when HP reaches zero, the fixed-step loop also catches externally restored or assigned zero-HP states, and confirmed moving-platform crushing calls the same transition with a different cause and reset reason. The cover phase keeps the frozen rig visible and emits progressively delayed purple, yellow, and white spark records over the body. The burst transition removes those cover records, hides the rig, and emits outward-moving three-colour particles before the ordinary reset restores the player.
+
+Presentation remains renderer-owned. `src/presentation/canvas-renderer.js` draws body-cover sparks after the player rig so they actually obscure it, while burst particles stay in the ordinary world-effects pass. Enemy awareness, attacks, and projectiles respect `player.combatState` and `player.targetable`, so zero health no longer leaves a visually dying wizard available as a combat target.
