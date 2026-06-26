@@ -435,7 +435,7 @@ Goal: make the prototype readable and pleasant during fast movement.
 * [ ] Add vertical anticipation.
 * [ ] Add camera bounds.
 * [ ] Add camera debug mode.
-* [ ] Polish fuel and health HUD.
+* [x] Polish fuel and health HUD.
 * [ ] Add weapon indicator.
 * [ ] Add aiming reticle.
 * [ ] Add landing, boost, launch, damage, and impact feedback.
@@ -1299,7 +1299,7 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Add named signal-channel activation and reusable switch/keyhole emitters.
 - [x] Add enemy riding and deliberate moving-platform navigation semantics.
 - [x] Add conservative nearest-exit crushing/depenetration rules for actors trapped by kinematic platforms.
-- [ ] Derive a gameplay kill boundary from the cave full-black guide and defeat Ignatius after crossing it.
+- [x] Derive a gameplay kill boundary from the cave full-black guide and defeat Ignatius after crossing it.
 
 
 ## Revision 158 thought bubble, visible-level music, and enemy lift navigation
@@ -1417,7 +1417,7 @@ Goal: grow the game beyond isolated prototype levels.
 - [x] Add regressions for signal-triggered platforms, lever toggling, key collection/consumption, one-shot keyholes, interaction bindings, and editor wiring.
 - [x] Add enemy riding and deliberate moving-platform navigation semantics.
 - [x] Add conservative nearest-exit crushing/depenetration rules for actors trapped by kinematic platforms.
-- [ ] Derive a gameplay kill boundary from the cave full-black guide and defeat Ignatius after crossing it.
+- [x] Derive a gameplay kill boundary from the cave full-black guide and defeat Ignatius after crossing it.
 
 ## Revision 159 thought-tail direction correction
 
@@ -1579,8 +1579,8 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Reserve the lightning emblem for a yellow-orange overdrive effect that later permits rockets twice as often for half the fuel.
 - [x] Keep this revision data-only: do not add entity-catalog entries, collection logic, effect timers, HUD state, or save serialization yet.
 - [x] Add regression coverage for all nine frame rectangles and the two reserved rocket-power-up meanings.
-- [ ] Define the portable power-up/effect schema after the current crushing/depenetration and full-black kill-boundary safety work.
-- [ ] Add atlas-backed pickup entities, renderer tint/composition, HUD feedback, serialization, and rocket tuning effects in a later gameplay revision.
+- [x] Define the portable power-up/effect schema after the crushing/depenetration and full-black kill-boundary safety work.
+- [x] Add the first atlas-backed Rocket Overdrive pickup with renderer tint/composition, HUD feedback, serialization, and rocket tuning effects.
 
 
 ## Revision 194 higher, more organic bomber runs
@@ -1608,7 +1608,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Respawn through the ordinary reset path after the shared death presentation completes.
 - [x] Add deterministic regression coverage for three-tick confirmation, nearest-exit behavior, warning recovery, particles, and clean respawn.
 - [x] Update the browser debug build label and portable game-state build label to revision 195.
-- [ ] Derive a gameplay kill boundary from the cave Full black guide and defeat Ignatius after crossing it.
+- [x] Derive a gameplay kill boundary from the cave Full black guide and defeat Ignatius after crossing it.
 
 
 ## Revision 196 unified Ignatius spark death
@@ -1624,7 +1624,7 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Restore visibility, targeting, health, and spawn state together through `resetPlayer`.
 - [x] Add regression coverage for HP-zero entry, three-colour cover/burst particles, outward movement, renderer order, crush integration, targeting, and respawn.
 - [x] Update browser and portable build labels to revision 196.
-- [ ] Derive the gameplay kill boundary from the cave Full black guide and route it through the shared death lifecycle.
+- [x] Derive the gameplay kill boundary from the cave Full black guide and route it through the shared death lifecycle.
 
 
 ## Revision 197 separated projectile rocket and lightened FX
@@ -1741,3 +1741,41 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Remove the visible letter heading.
 - [x] Preserve the existing blank title band so body-text spacing remains unchanged.
 - [x] Update browser and portable build labels to revision 209.
+
+
+## Revision 210 archive handoff checkpoint
+
+- [x] Verify the supplied revision-210 ZIP is structurally readable and contains the expected project files.
+- [x] Record that embedded build labels and planning history still ended at revision 209 rather than inventing an unverifiable revision-210 behavior.
+
+
+## Revision 211 full-black death boundary and Rocket Overdrive
+
+- [x] Add `src/shared/cave-kill-boundary-data.js` and derive a portable lethal loop from the exact sampled Full black outset.
+- [x] Store normalized `caveWindow` and derived `caveKillBoundary` records in the runtime world during editor-level conversion.
+- [x] Keep near-boundary and partial-body crossings safe; defeat Ignatius only when his complete body no longer intersects the lethal loop.
+- [x] Make the decision fixed-step and camera-independent.
+- [x] Emit a dedicated boundary-crossing event and route the outcome through the shared spark-death lifecycle and ordinary respawn.
+- [x] Add deterministic coverage for shared outset identity, near-boundary survival, camera independence, death phases, and respawn.
+- [x] Add `src/shared/power-up-data.js` with duration/permanence, refresh/extend/ignore stacking, serialization, HUD metadata, and rocket multipliers.
+- [x] Implement the original 12-second refreshable Rocket Overdrive effect.
+- [x] Halve projectile-rocket launch cooldown and fuel cost while Overdrive is active without changing backpack boost drain.
+- [x] Add the Rocket Overdrive entity to the interactive catalog and preview its composite in the Level Editor.
+- [x] Tint `powerup_glow_white`, draw `powerup_icon_lightning` above it, animate the pickup, and show remaining effect time in the HUD.
+- [x] Place one Overdrive pickup on level 1's early main floor for immediate playtesting.
+- [x] Preserve active effect state through serialization and expire it deterministically at the fixed-step boundary.
+- [x] Clear the effect on death/reset according to its schema.
+- [x] Update browser and portable build labels to revision 211.
+- [x] Pass the complete aggregate headless test suite.
+
+## Revision 212 eight-second Overdrive and three-bar HUD
+
+- [x] Reduce Rocket Overdrive from 12 seconds to 8 seconds in shared defaults, catalog data, and the level-1 playtest pickup.
+- [x] Put Health first and Rocket fuel second in the top-left HUD.
+- [x] Round health and fuel labels to whole values and remove recharge/regeneration developer annotations.
+- [x] Add a third Power bar with `Powerup: None` when inactive and remaining/total seconds when active.
+- [x] Add deterministic shared HUD priority selection for future simultaneous effects.
+- [x] Remove the overlapping top-right Canvas power-up badge.
+- [x] Update browser and portable build labels to revision 212.
+- [x] Pass the complete aggregate headless test suite.
+

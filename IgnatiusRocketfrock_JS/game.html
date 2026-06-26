@@ -285,6 +285,11 @@
             background: linear-gradient(90deg, #e05a58, #f3d16c, #73d37c);
         }
 
+        #power-fill {
+            background: linear-gradient(90deg, #7546b8, #d27ae8, #ffbd4a);
+            transition: width 90ms linear;
+        }
+
         #health-fill {
             background: linear-gradient(90deg, #e05a58, #f3d16c, #73d37c);
             transition: width 90ms linear, filter 120ms ease, box-shadow 120ms ease;
@@ -843,12 +848,16 @@
     <section id="hud">
         <div id="meters" class="panel">
             <div>
-                <div class="meter-label"><span>Rocket fuel</span><span id="fuel-text"></span></div>
-                <div class="meter"><div id="fuel-fill"></div></div>
+                <div class="meter-label"><span>Health</span><span id="health-text">100 / 100 HP</span></div>
+                <div class="meter"><div id="health-fill"></div></div>
             </div>
             <div>
-                <div class="meter-label"><span>Health</span><span id="health-text"></span></div>
-                <div class="meter"><div id="health-fill"></div></div>
+                <div class="meter-label"><span>Rocket fuel</span><span id="fuel-text">100 / 100 %</span></div>
+                <div class="meter"><div id="fuel-fill"></div></div>
+            </div>
+            <div aria-label="Power">
+                <div class="meter-label"><span id="power-text">Powerup: None</span><span id="power-time"></span></div>
+                <div class="meter"><div id="power-fill"></div></div>
             </div>
         </div>
         <div id="help-panel" class="panel">

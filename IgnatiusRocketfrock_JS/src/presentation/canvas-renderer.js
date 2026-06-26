@@ -320,6 +320,7 @@ class RocketfrockRenderer {
         this.caveWindowMaskKey = "";
         this.worldVisualCache = buildWorldVisualCache([]);
         this.foregroundSpriteCache = new Map();
+        this.powerUpTintCache = new Map();
         this.frameForegroundOffset = { x: 0, y: 0 };
         this.frameEntityVisibility = { collectedPickups: new Set(), defeatedEnemies: new Set() };
         this.frameVisualCounters = this.createVisualCounters();
@@ -922,6 +923,91 @@ class RocketfrockRenderer {
         return surface;
     }
 
+
+    getTintedAtlasFrameCanvas(atlas, frameName, frame, tint) {
+        const cacheKey = `${atlas.atlasId || "atlas"}|${frameName}|${this.environmentColorMapKey}|${tint}`;
+        const cached = this.powerUpTintCache.get(cacheKey);
+        if (cached) return cached;
+        const ownerDocument = this.canvas?.ownerDocument || (typeof document !== "undefined" ? document : null);
+        if (!ownerDocument?.createElement) return null;
+        const surface = ownerDocument.createElement("canvas");
+        surface.width = Math.max(1, Math.round(frame.w));
+        surface.height = Math.max(1, Math.round(frame.h));
+        const context = surface.getContext("2d");
+        if (!context) return null;
+        context.drawImage(
+            atlas.renderImage || atlas.image,
+            frame.x,
+            frame.y,
+            frame.w,
+            frame.h,
+            0,
+            0,
+            surface.width,
+            surface.height
+        );
+        context.globalCompositeOperation = "source-in";
+        context.fillStyle = tint;
+        context.fillRect(0, 0, surface.width, surface.height);
+        context.globalCompositeOperation = "source-over";
+        this.powerUpTintCache.set(cacheKey, surface);
+        return surface;
+    }
+
+    drawPowerUpComposite(powerUp, centerX, centerY, size, time, alpha = 1) {
+        const atlas = this.environmentAtlases.get(powerUp?.atlasId || "it_atlas_001");
+        const glowFrameName = powerUp?.glowFrame || "powerup_glow_white";
+        const iconFrameName = powerUp?.iconFrame || "powerup_icon_lightning";
+        const glowFrame = atlas?.frames?.[glowFrameName];
+        const iconFrame = atlas?.frames?.[iconFrameName];
+        const ctx = this.ctx;
+        const pulse = 0.92 + Math.sin(time * 5.4) * 0.08;
+        ctx.save();
+        ctx.globalAlpha *= alpha;
+        ctx.translate(centerX, centerY);
+        ctx.scale(pulse, pulse);
+        if (atlas?.image && glowFrame && iconFrame) {
+            const glow = this.getTintedAtlasFrameCanvas(atlas, glowFrameName, glowFrame, powerUp?.glowTint || "#ffb52f");
+            if (glow) {
+                ctx.save();
+                ctx.globalCompositeOperation = "lighter";
+                ctx.globalAlpha *= 0.92;
+                ctx.drawImage(glow, -size * 0.58, -size * 0.58, size * 1.16, size * 1.16);
+                ctx.restore();
+            }
+            const iconSize = size * 0.47;
+            const iconAspect = iconFrame.w / Math.max(1, iconFrame.h);
+            const iconW = iconAspect >= 1 ? iconSize : iconSize * iconAspect;
+            const iconH = iconAspect >= 1 ? iconSize / iconAspect : iconSize;
+            ctx.drawImage(
+                atlas.renderImage || atlas.image,
+                iconFrame.x,
+                iconFrame.y,
+                iconFrame.w,
+                iconFrame.h,
+                -iconW * 0.5,
+                -iconH * 0.5,
+                iconW,
+                iconH
+            );
+        } else {
+            const gradient = ctx.createRadialGradient(0, 0, size * 0.08, 0, 0, size * 0.56);
+            gradient.addColorStop(0, "rgba(255, 244, 158, 0.95)");
+            gradient.addColorStop(0.5, powerUp?.glowTint || "#ffb52f");
+            gradient.addColorStop(1, "rgba(255, 181, 47, 0)");
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(0, 0, size * 0.56, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "rgba(255,255,255,0.96)";
+            ctx.font = `bold ${Math.max(12, size * 0.48)}px sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("⚡", 0, 1);
+        }
+        ctx.restore();
+    }
+
     drawAssetGuides(state, view) {
         const visuals = state.world.visuals || [];
         const ctx = this.ctx;
@@ -1079,26 +1165,32 @@ class RocketfrockRenderer {
         for (const pickup of state.pickups) {
             if (pickup.collected || pickup.visualized) continue;
             const pickupExtent = Math.max(1, Number(pickup.radius) || 1);
+            const centerY = Number.isFinite(Number(pickup.centerY)) ? Number(pickup.centerY) : Number(pickup.y) || 0;
             if (!this.dynamicBoundsVisible({
                 minX: pickup.x - pickupExtent,
-                minY: pickup.y - pickupExtent,
+                minY: centerY - pickupExtent,
                 maxX: pickup.x + pickupExtent,
-                maxY: pickup.y + pickupExtent
+                maxY: centerY + pickupExtent
             }, view, 48)) {
                 continue;
             }
-            const p = this.worldToScreen(view, pickup.x, pickup.y);
+            const bob = pickup.kind === "powerUp" ? Math.sin(state.clock.time * 2.8 + pickup.x * 0.01) * 7 : 0;
+            const p = this.worldToScreen(view, pickup.x, centerY + bob);
             const r = pickup.radius * view.zoom;
-            ctx.save();
-            ctx.globalAlpha = 0.82 + 0.18 * Math.sin(state.clock.time * 5 + pickup.x);
-            ctx.fillStyle = "rgba(113, 224, 126, 0.82)";
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
-            ctx.lineWidth = 2 * view.zoom;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            ctx.restore();
+            if (pickup.kind === "powerUp" && pickup.powerUp) {
+                this.drawPowerUpComposite(pickup.powerUp, p.x, p.y, Math.max(44 * view.zoom, r * 2.25), state.clock.time);
+            } else {
+                ctx.save();
+                ctx.globalAlpha = 0.82 + 0.18 * Math.sin(state.clock.time * 5 + pickup.x);
+                ctx.fillStyle = "rgba(113, 224, 126, 0.82)";
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.65)";
+                ctx.lineWidth = 2 * view.zoom;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
             this.markDynamicDrawn();
         }
     }

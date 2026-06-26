@@ -70,6 +70,13 @@ import {
     sampleClosedCaveSpline
 } from "../src/shared/cave-window-data.js";
 import {
+    CAVE_FULL_BLACK_BOUNDARY_SOURCE,
+    closedPolygonIntersectsRect,
+    deriveCaveFullBlackKillBoundary,
+    pointInClosedPolygon,
+    rectFullyOutsideCaveKillBoundary
+} from "../src/shared/cave-kill-boundary-data.js";
+import {
     buildCaveDecorationCatalog,
     caveDecorationStep,
     CAVE_FOREGROUND_LAYER,
@@ -91,6 +98,15 @@ import {
     normalizeMovingPlatform
 } from "../src/shared/moving-platform-data.js";
 import { normalizeSignalChannel, normalizeSignalEmitter } from "../src/shared/signal-channel-data.js";
+import {
+    POWER_UP_EFFECT_IDS,
+    POWER_UP_STACKING_RULES,
+    activePowerUpEffect,
+    normalizePowerUpPickup,
+    powerUpEffectDefinition,
+    prioritizedActivePowerUpEffect,
+    rocketPowerUpMultipliers
+} from "../src/shared/power-up-data.js";
 import {
     atlasNodeToPlacementWorld,
     duplicateLevelPlacement,
@@ -235,6 +251,7 @@ function testSourceOrganization() {
         "../src/presentation/level-color-map-cache.js",
         "../src/shared/level-color-map-data.js",
         "../src/shared/cave-window-data.js",
+        "../src/shared/cave-kill-boundary-data.js",
         "../src/shared/cave-window-decoration.js",
         "../src/shared/animation-data.js",
         "../src/shared/actor-geometry.js",
@@ -243,6 +260,7 @@ function testSourceOrganization() {
         "../src/shared/signal-channel-data.js",
         "../src/shared/game-settings-data.js",
         "../src/shared/music-data.js",
+        "../src/shared/power-up-data.js",
         "../electron/main.cjs",
         "../electron/preload.cjs",
         "../electron/README.md",
@@ -3875,10 +3893,85 @@ function testCaveWindowSplineAuthoring() {
     assert.ok(bootstrapSource.includes("syncPresentationLevelData(level)") && bootstrapSource.includes("renderer.syncCaveWindow(activeCaveWindow)"), "browser startup and level transitions should pass inert cave-window data directly to presentation");
 
     const simulationSource = readFileSync(new URL("../src/core/simulation.js", import.meta.url), "utf8");
-    assert.equal(simulationSource.includes("cave-window-data"), false, "portable gameplay must not import or derive collision from cave-window presentation data");
+    assert.ok(simulationSource.includes("deriveCaveFullBlackKillBoundary"), "portable gameplay should derive its lethal boundary from the shared full-black outset data");
     assert.equal(simulationSource.includes("drawCaveWindowMask"), false, "portable gameplay must remain unaware of cave-window Canvas masking");
     assert.ok(simulationSource.includes('visual.layer === "caveForeground"'), "atlas collision hydration should explicitly reject cave-foreground visuals");
     assert.ok(simulationSource.includes('layer === "caveForeground" ? false'), "level conversion should force cave-foreground placements to remain non-colliding even when imported data is malformed");
+}
+
+
+function testCaveFullBlackKillBoundary() {
+    const caveWindow = {
+        enabled: true,
+        feather: 100,
+        parallax: 1.1,
+        points: [
+            { id: "a", x: 100, y: 100, mode: "corner" },
+            { id: "b", x: 900, y: 100, mode: "corner" },
+            { id: "c", x: 900, y: 700, mode: "corner" },
+            { id: "d", x: 100, y: 700, mode: "corner" }
+        ]
+    };
+    const boundary = deriveCaveFullBlackKillBoundary(caveWindow, { stepsPerSegment: 1 });
+    assert.equal(boundary.enabled, true, "enabled cave windows should create a portable lethal boundary");
+    assert.equal(boundary.source, CAVE_FULL_BLACK_BOUNDARY_SOURCE, "the boundary should identify the shared full-black outset as its source");
+    assert.deepEqual(boundary.points, sampleCaveWindowOutset(caveWindow.points, caveWindow.feather, 1), "gameplay should consume the same sampled outset promised by the editor and renderer");
+    assert.equal(pointInClosedPolygon({ x: 500, y: 400 }, boundary.points), true, "the opening and feather region should remain inside the safe boundary");
+    assert.equal(closedPolygonIntersectsRect(boundary.points, { x: 980, y: 300, w: 34, h: 104 }), true, "a wizard still touching the full-black line should survive");
+    assert.equal(rectFullyOutsideCaveKillBoundary(boundary, { x: 1001, y: 300, w: 34, h: 104 }), true, "the wizard should be lethal only after the complete body has crossed outside");
+
+    const level = {
+        levelId: "kill_boundary_test",
+        world: { bounds: { x: 0, y: 0, w: 1000, h: 800 }, resetY: 1400 },
+        playerStart: { x: 500, y: 600 },
+        caveWindow,
+        placements: [],
+        entities: []
+    };
+    const createBoundaryState = () => {
+        const state = createInitialGameState({
+            tuning: {
+                playerDeathCoverSeconds: FIXED_DT,
+                playerDeathBurstSeconds: FIXED_DT,
+                playerDeathAfterglowSeconds: FIXED_DT
+            }
+        });
+        assert.equal(applyEditorLevelToWorld(state, level), true, "editor level conversion should accept a cave-window-only playtest level with a player start");
+        return state;
+    };
+
+    const safe = createBoundaryState();
+    safe.player.x = 982;
+    safe.player.y = 500;
+    safe.player.vx = 0;
+    safe.player.vy = 0;
+    stepSimulation(safe, createInputFrame(), FIXED_DT);
+    assert.equal(safe.player.deathPhase, "none", "near-boundary overlap should not kill Ignatius");
+    assert.equal(safe.health.amount, safe.health.max, "near-boundary survival should preserve health");
+
+    const cameraA = createBoundaryState();
+    const cameraB = createBoundaryState();
+    cameraA.camera = { x: -5000, y: 7000, zoom: 0.4, mode: "follow" };
+    cameraB.camera = { x: 9000, y: -3000, zoom: 3, mode: "follow" };
+    for (const state of [cameraA, cameraB]) {
+        state.player.x = 1030;
+        state.player.y = 500;
+        state.player.vx = 0;
+        state.player.vy = 0;
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        assert.equal(state.player.deathPhase, "cover", "a fully exterior wizard should enter the shared spark-death cover phase");
+        assert.equal(state.player.deathSourceId, CAVE_FULL_BLACK_BOUNDARY_SOURCE, "full-black death should preserve its portable source identity");
+        assert.ok(state.debug.lastEvents.some((event) => event.type === "PLAYER_CAVE_BLACK_BOUNDARY_CROSSED"), "boundary crossing should emit a deterministic gameplay event");
+    }
+    assert.equal(cameraA.player.deathPhase, cameraB.player.deathPhase, "camera position and zoom must not affect lethal-boundary decisions");
+
+    for (let index = 0; index < 3; index += 1) {
+        stepSimulation(cameraA, createInputFrame(), FIXED_DT);
+    }
+    assert.equal(cameraA.player.combatState, "alive", "full-black death should respawn through the ordinary reset path");
+    assert.equal(cameraA.player.x, cameraA.player.spawnX, "respawn should restore the authored spawn x");
+    assert.equal(cameraA.player.y, cameraA.player.spawnY, "respawn should restore the authored spawn y");
+    assert.ok(cameraA.debug.lastEvents.some((event) => event.type === "PLAYER_RESET" && event.reason === "crossedCaveFullBlackBoundary"), "respawn should record the full-black reset reason");
 }
 
 
@@ -4136,6 +4229,7 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.ok(atlas.objects.powerup_icon_wrench.tags.includes("upgrade"), "the wrench should be identified as the generic rocket-upgrade emblem");
     assert.ok(atlas.objects.powerup_icon_lightning.tags.includes("rapid-fire") && atlas.objects.powerup_icon_lightning.tags.includes("fuel-efficiency"), "the lightning icon should reserve its intended rocket-overdrive meaning");
     assert.ok(catalog.entities.mailbox && catalog.entities.treasureChest && catalog.entities.wizard_entry_door && catalog.entities.wizard_exit_door, "catalog should define mailboxes plus dedicated wizard entry/exit doors");
+    assert.ok(catalog.entities.rocketOverdrivePickup, "interactive catalog should expose the first composite power-up pickup");
     assert.ok(catalog.entities.breakableCrate, "interactive catalog should expose the first reactive destructible object");
     assert.ok(catalog.entities.destructibleBarrier, "interactive catalog should expose the destructible iron barrier");
     assert.deepEqual(Object.keys(catalog.entities.breakableCrate.states), ["intact", "damaged", "destroyed"], "breakable crate should author explicit intact, damaged, and destroyed visuals");
@@ -4223,6 +4317,129 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.equal(state.targets[0].showMarker, false, "artwork-backed target dummy should suppress the old dot and pulse marker");
 }
 
+
+
+function testRocketOverdrivePowerUp() {
+    const definition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.ROCKET_OVERDRIVE);
+    assert.equal(definition.stacking, POWER_UP_STACKING_RULES.REFRESH, "Rocket Overdrive should refresh rather than stack multiplicatively");
+    assert.equal(definition.durationSeconds, 8, "Rocket Overdrive should have a bounded eight-second duration");
+    assert.equal(definition.rocket.launchCooldownMultiplier, 0.5, "Rocket Overdrive should double allowed firing cadence");
+    assert.equal(definition.rocket.launchFuelCostMultiplier, 0.5, "Rocket Overdrive should halve projectile-rocket fuel cost");
+    const normalizedPickup = normalizePowerUpPickup({ effectId: POWER_UP_EFFECT_IDS.ROCKET_OVERDRIVE });
+    assert.equal(normalizedPickup.iconFrame, "powerup_icon_lightning", "the overdrive pickup should use the reserved lightning emblem");
+    assert.equal(normalizedPickup.glowFrame, "powerup_glow_white", "the overdrive pickup should tint the prepared white glow");
+
+    const state = createInitialGameState();
+    const level = {
+        levelId: "power_up_test",
+        world: { bounds: { x: -200, y: -200, w: 1200, h: 900 }, resetY: 1200 },
+        playerStart: { x: 300, y: 500 },
+        atlasRefs: [{ atlasId: "it_atlas_001", manifest: "assets/it_atlas_001.json", image: "assets/it_atlas_001.png" }],
+        placements: [],
+        entities: [
+            {
+                id: "overdrive_a",
+                type: "rocketOverdrivePickup",
+                state: "available",
+                x: 300,
+                y: 500,
+                w: 96,
+                h: 96,
+                effectId: "rocketOverdrive",
+                radius: 30,
+                atlasId: "it_atlas_001",
+                glowFrame: "powerup_glow_white",
+                iconFrame: "powerup_icon_lightning",
+                glowTint: "#ffb52f",
+                visualStates: { available: { visuals: [] }, collected: { visuals: [] } }
+            },
+            {
+                id: "overdrive_b",
+                type: "rocketOverdrivePickup",
+                state: "available",
+                x: 620,
+                y: 500,
+                w: 96,
+                h: 96,
+                effectId: "rocketOverdrive",
+                radius: 30,
+                visualStates: { available: { visuals: [] }, collected: { visuals: [] } }
+            }
+        ]
+    };
+    assert.equal(applyEditorLevelToWorld(state, level), true, "power-up playtest level should load through ordinary editor-level conversion");
+    const pickup = state.pickups.find((item) => item.id === "overdrive_a");
+    assert.equal(pickup.kind, "powerUp", "effect-bearing entities should become portable power-up pickups");
+    assert.equal(pickup.visualized, false, "composite pickups should remain renderer-owned rather than static world visuals");
+
+    const fuelBefore = state.fuel.amount;
+    stepSimulation(state, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    const active = activePowerUpEffect(state, POWER_UP_EFFECT_IDS.ROCKET_OVERDRIVE);
+    assert.ok(active && active.remainingSeconds > 7.9, "collecting the pickup should activate its timed effect immediately");
+    const multipliers = rocketPowerUpMultipliers(state);
+    assert.deepEqual(multipliers, { launchCooldownMultiplier: 0.5, launchFuelCostMultiplier: 0.5 }, "active effect state should expose deterministic rocket tuning multipliers");
+    approx(fuelBefore - state.fuel.amount, DEFAULT_TUNING.rocketLaunchCost * 0.5, 0.0001, "the first overdriven rocket should spend half fuel");
+    approx(state.weapons.launchCooldownTimer, DEFAULT_TUNING.rocketLaunchCooldown * 0.5, FIXED_DT + 0.0001, "the overdriven launch cooldown should be half the ordinary value");
+    const launchEvent = [...state.debug.lastEvents].reverse().find((event) => event.type === "ROCKET_LAUNCHED");
+    approx(launchEvent.fuelCost, DEFAULT_TUNING.rocketLaunchCost * 0.5, 0.0001, "launch diagnostics should expose effective overdrive fuel cost");
+
+    state.statusEffects.active.rocketOverdrive.remainingSeconds = 0.25;
+    state.player.x = 620;
+    state.player.y = 500;
+    state.player.vx = 0;
+    state.player.vy = 0;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    const refreshed = activePowerUpEffect(state, POWER_UP_EFFECT_IDS.ROCKET_OVERDRIVE);
+    assert.ok(refreshed.remainingSeconds > 7.9, "collecting a second overdrive should refresh the full duration");
+    assert.equal(refreshed.refreshCount, 1, "refreshes should be serialized explicitly");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "POWER_UP_EFFECT_REFRESHED"), "refreshing should emit a deterministic effect event");
+
+    const serialized = restoreGameState(serializeGameState(state));
+    assert.ok(activePowerUpEffect(serialized, POWER_UP_EFFECT_IDS.ROCKET_OVERDRIVE), "active effects should survive ordinary state serialization");
+    state.statusEffects.active.rocketOverdrive.remainingSeconds = FIXED_DT * 0.5;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.ROCKET_OVERDRIVE), null, "timed effects should expire at the fixed-step boundary");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "POWER_UP_EFFECT_EXPIRED"), "effect expiry should be visible in deterministic diagnostics");
+
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    assert.ok(rendererSource.includes("getTintedAtlasFrameCanvas") && rendererSource.includes("drawPowerUpComposite"), "renderer should tint the prepared white glow and compose the icon above it");
+    assert.ok(!rendererSource.includes("drawPowerUpHud"), "the obsolete top-right canvas badge should be removed");
+    const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    assert.ok(gameHtml.includes('id="power-text"') && gameHtml.includes('id="power-time"') && gameHtml.includes('id="power-fill"'), "the top-left HUD should include a dedicated Power bar");
+    assert.ok(gameHtml.indexOf('id="health-text"') < gameHtml.indexOf('id="fuel-text"') && gameHtml.indexOf('id="fuel-text"') < gameHtml.indexOf('id="power-text"'), "HUD bars should be ordered health, rocket fuel, then Power");
+    assert.ok(bootstrapSource.includes('Powerup: None') && bootstrapSource.includes('prioritizedActivePowerUpEffect'), "the Power bar should show an empty state and use shared effect priority");
+    assert.ok(!bootstrapSource.includes('grounded recharge') && !bootstrapSource.includes('regen in'), "main HUD labels should omit developer recharge and regeneration annotations");
+    const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
+    const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
+    const placedOverdrive = levelOne.entities.find((entity) => entity.id === "rocket_overdrive_001");
+    assert.ok(placedOverdrive && placedOverdrive.effectId === "rocketOverdrive", "level_001 should include one reachable Rocket Overdrive pickup for immediate playtesting");
+    assert.equal(placedOverdrive.x, 800, "the playtest overdrive should sit on the early main floor");
+    assert.equal(placedOverdrive.durationSeconds, 8, "the authored playtest pickup should match the eight-second effect duration");
+
+    const priorityState = {
+        statusEffects: {
+            active: {
+                lesser: {
+                    id: "lesser",
+                    definition: { id: "lesser", label: "Lesser", durationSeconds: 20, hud: { priority: 10 } },
+                    remainingSeconds: 20,
+                    activatedAt: 5
+                },
+                stronger: {
+                    id: "stronger",
+                    definition: { id: "stronger", label: "Stronger", durationSeconds: 5, hud: { priority: 50 } },
+                    remainingSeconds: 4,
+                    activatedAt: 1
+                }
+            }
+        }
+    };
+    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, "stronger", "the Power bar selector should prefer explicit HUD priority over recency or duration");
+    priorityState.statusEffects.active.stronger.remainingSeconds = 0;
+    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, "lesser", "expired effects should not occupy the Power bar");
+}
 
 function testMailboxLetterSequence() {
     const catalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
@@ -6727,6 +6944,7 @@ const tests = [
     ["Puppet Guide debug overlay", testPuppetGuideDebugOverlay],
     ["selective level colour map", testSelectiveLevelColorMap],
     ["closed cave-window spline authoring", testCaveWindowSplineAuthoring],
+    ["cave full-black lethal boundary", testCaveFullBlackKillBoundary],
     ["moving-platform schema and Level Editor", testMovingPlatformSchemaAndEditor],
     ["automatic shuttle moving platform", testAutomaticShuttleMovingPlatform],
     ["moving-platform crush requires nearest blocked exit for three ticks", testMovingPlatformCrushRequiresThreeTicksAndNearestExit],
@@ -6744,6 +6962,7 @@ const tests = [
     ["editor level transform runtime", testEditorLevelTransformRuntime],
     ["player start snaps to nearby ground", testPlayerStartSnapsToNearbyGround],
     ["interactive item atlas and entity visuals", testInteractiveItemAtlasAndEntityVisuals],
+    ["Rocket Overdrive power-up schema and runtime", testRocketOverdrivePowerUp],
     ["scripted mailbox letter", testMailboxLetterSequence],
     ["scripted portal entrance", testPortalEntranceSequence],
     ["scripted portal exit", testPortalExitSequence],

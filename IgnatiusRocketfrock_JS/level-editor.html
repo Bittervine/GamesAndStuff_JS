@@ -3552,13 +3552,49 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         ctx.restore();
     }
 
+
+    function drawPowerUpEntityPreview(entity) {
+        if (!entity?.effectId) return false;
+        const atlasId = entity.atlasId || "it_atlas_001";
+        const image = imageForAtlas(atlasId);
+        const glowFrame = frameFor(entity.glowFrame || "powerup_glow_white", atlasId);
+        const iconFrame = frameFor(entity.iconFrame || "powerup_icon_lightning", atlasId);
+        const center = worldToScreen(entity.x, entity.y - (Number(entity.h) || 96) * 0.5);
+        const size = Math.max(36, Math.min(Number(entity.w) || 96, Number(entity.h) || 96)) * state.camera.zoom;
+        ctx.save();
+        const gradient = ctx.createRadialGradient(center.x, center.y, size * 0.08, center.x, center.y, size * 0.56);
+        gradient.addColorStop(0, "rgba(255, 245, 174, 0.92)");
+        gradient.addColorStop(0.5, entity.glowTint || "#ffb52f");
+        gradient.addColorStop(1, "rgba(255, 181, 47, 0)");
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, size * 0.56, 0, Math.PI * 2);
+        ctx.fill();
+        if (image && glowFrame) {
+            ctx.save();
+            ctx.globalAlpha = 0.42;
+            ctx.globalCompositeOperation = "screen";
+            ctx.drawImage(image, glowFrame.x, glowFrame.y, glowFrame.w, glowFrame.h, center.x - size * 0.58, center.y - size * 0.58, size * 1.16, size * 1.16);
+            ctx.restore();
+        }
+        if (image && iconFrame) {
+            const iconSize = size * 0.46;
+            const aspect = iconFrame.w / Math.max(1, iconFrame.h);
+            const iconW = aspect >= 1 ? iconSize : iconSize * aspect;
+            const iconH = aspect >= 1 ? iconSize / aspect : iconSize;
+            ctx.drawImage(image, iconFrame.x, iconFrame.y, iconFrame.w, iconFrame.h, center.x - iconW * 0.5, center.y - iconH * 0.5, iconW, iconH);
+        }
+        ctx.restore();
+        return true;
+    }
+
     function drawEntity(entity) {
         if (els.showAssetGuides.checked) drawCharacterEnemyPatrolGuide(entity);
         const visuals = entityVisuals(entity).slice().sort((a, b) => {
             const rank = (layer) => layer === "decorBack" ? 0 : layer === "decorFront" ? 1 : layer === "actorFront" ? 2 : 1;
             return rank(a.layer) - rank(b.layer);
         });
-        let drewVisual = drawCharacterEnemyPreview(entity);
+        let drewVisual = drawCharacterEnemyPreview(entity) || drawPowerUpEntityPreview(entity);
         for (const visual of visuals) {
             const frame = frameFor(visual.assetId, visual.atlasId);
             const image = imageForAtlas(visual.atlasId);

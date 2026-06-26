@@ -43,6 +43,7 @@ IgnatiusRocketfrock_JS/
 │   ├── shared/
 │   │   ├── actor-geometry.js
 │   │   ├── animation-data.js
+│   │   ├── cave-kill-boundary-data.js
 │   │   ├── cave-window-data.js
 │   │   ├── cave-window-decoration.js
 │   │   ├── game-settings-data.js
@@ -50,7 +51,9 @@ IgnatiusRocketfrock_JS/
 │   │   ├── level-transform.js
 │   │   ├── moving-platform-data.js
 │   │   ├── music-data.js
-│   │   └── signal-channel-data.js
+│   │   ├── power-up-data.js
+│   │   ├── signal-channel-data.js
+│   │   └── story-reading.js
 │   └── tools/
 │       └── character-editor/
 │           ├── animation-editor.js
@@ -122,13 +125,16 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 | `src/shared/level-color-map-data.js` | SHARED DATA / MATH | Level colour-map normalization, cache keys, hue-selection mathematics, and RGB/HSL conversion without browser objects. |
 | `src/shared/game-settings-data.js` | SHARED DATA / MATH | Versioned game-facing settings defaults, preset normalization, incoming-damage scale, and visual particle-density scale without browser storage or DOM objects. |
 | `src/shared/cave-window-data.js` | SHARED DATA / MATH | Inert cave-window schema normalization, decoration settings, closed smooth/corner spline sampling, point-insertion lookup, and authoring bounds. It contains no collision or navigation generation. |
+| `src/shared/cave-kill-boundary-data.js` | SHARED DATA / MATH | Portable derivation of the player lethal loop from the same sampled cave full-black outset, plus camera-independent polygon/actor overlap tests. It creates no collision or navigation geometry. |
+| `src/shared/power-up-data.js` | SHARED DATA / MATH | Versioned power-up definitions, duration/permanence, refresh/extend/ignore stacking rules, active-effect normalization, HUD composition metadata, and deterministic rocket multipliers. |
+| `src/shared/story-reading.js` | SHARED DATA / MATH | Shared character-count reading speed, start delay, and duration helpers for letters and thought bubbles. |
 | `src/shared/cave-window-decoration.js` | SHARED DATA / MATH | Deterministic arc-length sampling and tagged atlas-asset selection for explicit non-colliding `caveForeground` placement records. |
 | `src/browser/browser-input.js` | BROWSER ADAPTER | Keyboard, gamepad, mouse, and touch state converted into `InputFrame`. |
-| `src/browser/game-bootstrap.js` | BROWSER ADAPTER | Asset and level loading, fixed-step loop, menu/settings coordination, fullscreen control, connection of input/simulation/renderer, and hydration of plain character combat profiles from loaded character projects. |
+| `src/browser/game-bootstrap.js` | BROWSER ADAPTER | Asset and level loading, fixed-step loop, menu/settings coordination, fullscreen control, top-left DOM HUD binding, connection of input/simulation/renderer, and hydration of plain character combat profiles from loaded character projects. |
 | `src/browser/game-settings-store.js` | BROWSER ADAPTER | Safe local-storage load/save for normalized game-facing settings. |
 | `src/browser/electron-window-bridge.js` | BROWSER ADAPTER | Detection and normalization of the optional sandboxed Electron preload API for quit/fullscreen operations. |
 | `electron/main.cjs` / `electron/preload.cjs` | DESKTOP HOST | Optional native window, secure preload boundary, desktop quit, and fullscreen IPC. No gameplay ownership. |
-| `src/presentation/canvas-renderer.js` | PRESENTATION ONLY | Canvas rendering, camera presentation, HUD, rig drawing, visual effects, cave-mask composition, and debug overlays. |
+| `src/presentation/canvas-renderer.js` | PRESENTATION ONLY | Canvas world rendering, camera presentation, rig drawing, visual effects, cave-mask composition, story overlays, and debug overlays. |
 | `src/presentation/cave-window-mask.js` | PRESENTATION ONLY | Reduced-resolution reusable offscreen black cave mask, stable render keys, spline-to-screen tracing, outward feathering, and camera-relative foreground parallax. |
 | `src/presentation/foreground-sprite-treatment.js` | PRESENTATION ONLY | Cached Canvas preparation for dark/desaturated cave foreground frames, world-to-local outward vectors, and a linear handover to opaque black at the sprite's exterior edge. |
 | `src/presentation/character-runtime.js` | PRESENTATION ONLY | Browser-side character project loading, rig normalization, animation selection, projectile-release transform compilation, and ordered draw commands. |
@@ -144,7 +150,7 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 
 The cave perimeter is deliberately not gameplay geometry. Revision 136 adds a closed editor spline in top-level `level.caveWindow`; revision 137 turns that data into a visual opening through a foreground rock mass using a reusable offscreen black mask. It may scroll with a subtle foreground parallax offset and may occlude actors, but it must not create solids, walkable supports, hazards, navigation edges, or projectile collision. Authoritative collision and platforms remain ordinary playing-area data in the portable level definition.
 
-`src/shared/cave-window-data.js` owns schema, decoration settings, and curve mathematics so the Level Editor and renderer share deterministic points. `src/shared/cave-window-decoration.js` samples that spline by arc length, classifies inward normals as floor, wall, or ceiling, and selects tagged atlas assets deterministically from the authored seed. It returns ordinary explicit placement records on the `caveForeground` layer; it does not mutate gameplay geometry. `src/presentation/cave-window-mask.js` owns Canvas composition, outward feathering, and camera-relative parallax anchored around the technical world bounds. Portable core does not import cave-window curve or generator modules and must never interpret the perimeter as physics.
+`src/shared/cave-window-data.js` owns schema, decoration settings, and curve mathematics so the Level Editor and renderer share deterministic points. `src/shared/cave-window-decoration.js` samples that spline by arc length, classifies inward normals as floor, wall, or ceiling, and selects tagged atlas assets deterministically from the authored seed. It returns ordinary explicit placement records on the `caveForeground` layer; it does not mutate gameplay geometry. `src/presentation/cave-window-mask.js` owns Canvas composition, outward feathering, and camera-relative parallax anchored around the technical world bounds. Revision 211 adds one deliberately narrow gameplay use through `src/shared/cave-kill-boundary-data.js`: portable core derives a lethal player loop from the same full-black outset. That loop is a defeat threshold only. It never becomes collision, a support, navigation, projectile geometry, or an editable second spline.
 
 Foreground cave placements are presentation records drawn after actors and before the black cave mask. Runtime and editor both force manifest collision off for this layer, even when a malformed level requests collision. The renderer applies the same cave parallax and uses cached darkened/desaturated frame canvases, avoiding an expensive Canvas filter for every placement on every frame. Revision 140 moves that preparation into `src/presentation/foreground-sprite-treatment.js`, which rotates each authored world-outward vector back into sprite-local space and bakes a transparent-to-black eased multi-stop overlay into the cached frame. Generated records are marked `generatedBy: "cavePerimeter"`; regeneration replaces only those records, leaving manual foreground formations untouched. The per-sprite fade reaches black before the reduced-resolution cave mask becomes fully opaque, so the rock frame hands over continuously to unseen darkness rather than exposing sprite rectangles. The editor should warn when authoritative platforms are placed so far outside the visible opening that their gameplay purpose would be hidden.
 
@@ -300,7 +306,7 @@ Player health is a resource value, not the authoritative player lifecycle state.
 
 Revision 147 gives `caveWindow.feather` a precise authoring interpretation while preserving the existing level schema. It is the world-space distance from the authored cave-opening spline to the boundary at which the exterior must be completely opaque black. `src/shared/cave-window-data.js` owns `sampleCaveWindowOutset`, which samples the closed Bezier perimeter and constructs a winding-independent, bounded-miter offset loop. The outset is derived data and is never stored as a second editable spline.
 
-`level-editor.html` draws the derived loop as an optional dashed guide. `src/presentation/cave-window-mask.js` consumes the same helper and restores solid black outside that loop after applying the reduced-resolution feather blur. This shared geometry prevents the editor preview and runtime mask from disagreeing about where full black begins. The outset remains presentation-only and must never contribute collision or navigation geometry.
+`level-editor.html` draws the derived loop as an optional dashed guide. `src/presentation/cave-window-mask.js` consumes the same helper and restores solid black outside that loop after applying the reduced-resolution feather blur. This shared geometry prevents the editor preview and runtime mask from disagreeing about where full black begins. Revision 211 also derives `world.caveKillBoundary` from that exact loop. Ignatius is defeated only once his complete authoritative body rectangle no longer intersects the loop. The test is fixed-step and camera-independent, and it routes into the shared spark-death/reset lifecycle. The outset still never contributes collision or navigation geometry.
 
 ### Revision 148 safe moving-platform foundation
 
@@ -424,3 +430,17 @@ The candidate must remain stable for three consecutive physics ticks. Tick two e
 All lethal player outcomes now use one portable lifecycle in `src/core/simulation.js`. `damagePlayer` enters it when HP reaches zero, the fixed-step loop also catches externally restored or assigned zero-HP states, and confirmed moving-platform crushing calls the same transition with a different cause and reset reason. The cover phase keeps the frozen rig visible and emits progressively delayed purple, yellow, and white spark records over the body. The burst transition removes those cover records, hides the rig, and emits outward-moving three-colour particles before the ordinary reset restores the player.
 
 Presentation remains renderer-owned. `src/presentation/canvas-renderer.js` draws body-cover sparks after the player rig so they actually obscure it, while burst particles stay in the ordinary world-effects pass. Enemy awareness, attacks, and projectiles respect `player.combatState` and `player.targetable`, so zero health no longer leaves a visually dying wizard available as a combat target.
+
+
+## Revision 211 portable power-up and effect boundary
+
+`src/shared/power-up-data.js` owns effect identity, labels, timed versus permanent lifetime, refresh/extend/ignore stacking semantics, clear-on-death policy, HUD icon/glow metadata, explicit HUD display priority, and multiplicative rocket tuning. Portable state stores normalized active records under `statusEffects.active`, including remaining time, source, activation time, and refresh count, so ordinary cloning and serialization preserve effects without browser objects.
+
+The first concrete effect is `rocketOverdrive`. It was introduced at 12 seconds in revision 211 and shortened to 8 seconds in revision 212. It refreshes to a full duration when collected again, clears on player reset after death, halves projectile-rocket fuel cost, and halves launch cooldown. It does not alter backpack boost drain or physics. `src/core/simulation.js` alone activates, advances, expires, and applies those multipliers. `src/presentation/canvas-renderer.js` reads effect metadata to tint `powerup_glow_white`, place `powerup_icon_lightning` above it, and animate the world pickup. `game.html` and `src/browser/game-bootstrap.js` present one prioritized active effect in the top-left Power bar. The Level Editor previews the same composite metadata but owns no effect behavior.
+
+## Revision 212 power-up HUD presentation
+
+Portable effect definitions now include a numeric `hud.priority`. `prioritizedActivePowerUpEffect` ignores expired records and selects by descending priority, then descending activation time, then stable ID. This is shared deterministic policy, not a DOM heuristic, so later browser or native HUDs can make the same choice when several effects coexist.
+
+World pickup composition remains Canvas-owned. The active-effect timer is now part of the existing DOM HUD in `game.html`, bound from `src/browser/game-bootstrap.js`; the renderer no longer draws a second screen-space badge. Health, fuel, and Power bars are presentation-only projections of portable state and never feed values back into simulation.
+

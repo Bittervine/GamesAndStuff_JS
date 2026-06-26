@@ -1988,3 +1988,24 @@ The shared letter and thought-bubble reading model now assumes 16 characters per
 ## Revision 209 reading speed and blank letter heading
 
 Story overlays now use an assumed reading speed of 18 characters per second. The former visible letter heading is no longer drawn, while its reserved title band remains untouched so the body text keeps the same vertical spacing.
+
+
+## Revision 210 archive handoff checkpoint
+
+The supplied revision-210 archive contained a complete, readable project, but its embedded build labels and planning history still ended at revision 209. No separate revision-210 behavior could be identified reliably from the archive itself, so revision 211 records that handoff explicitly rather than inventing a code change that cannot be verified.
+
+
+## Revision 211 full-black death boundary and Rocket Overdrive
+
+The cave mask's Full black guide now has a matching portable lethal threshold. Editor-level conversion normalizes the authored cave window and derives `world.caveKillBoundary` from the exact same sampled outset used by the Level Editor and runtime mask. The fixed-step simulation checks Ignatius's complete body rectangle against that loop before story processing and after movement. Merely touching or crossing the line with part of the body remains safe; once the entire body is outside, the core emits `PLAYER_CAVE_BLACK_BOUNDARY_CROSSED` and enters the existing cover, burst, afterglow, and ordinary respawn lifecycle. Camera position, zoom, Canvas pixels, and foreground parallax do not participate in the decision.
+
+This revision also completes the first portable power-up slice. `src/shared/power-up-data.js` defines normalized effect identity, bounded duration or permanence, refresh/extend/ignore stacking, death-reset policy, serialization fields, HUD composition metadata, and rocket multipliers. The first catalog entity is Rocket Overdrive: a 12-second refreshable lightning pickup that halves projectile-rocket fuel cost and launch cooldown without changing backpack-boost drain. Runtime composites the reserved lightning icon over a yellow-orange tint of the white glow, bobs the pickup in the world, and shows a timed HUD badge. The Level Editor previews the composite, and level 1 contains one early pickup at x=800 for immediate playtesting.
+
+The next planned power-up work is to add additional effect definitions only when their exact gameplay meanings are chosen, rather than assigning speculative behavior to the remaining prepared icons. Other open gameplay work should now be selected from the older deferred items rather than the completed cave-boundary prerequisite.
+
+## Revision 212 eight-second Overdrive and three-bar HUD
+
+Rocket Overdrive now lasts 8 seconds. The shared effect schema also owns a numeric HUD priority, and `prioritizedActivePowerUpEffect` deterministically selects the one active effect shown when several eventually coexist. Higher priority wins, then the most recently activated effect, then stable effect-ID order. Gameplay stacking and multipliers remain unchanged.
+
+The old Canvas-drawn top-right effect badge is removed. The permanent top-left HUD now contains three bars in this order: Health, Rocket fuel, and Power. Health and fuel labels use rounded whole values (`100 / 100 HP` and `100 / 100 %`) without regeneration, cap, or grounded-recharge annotations. The Power bar is empty and reads `Powerup: None` when inactive; while an effect is active, it displays the selected effect name, remaining/total seconds, and a proportional duration fill.
+

@@ -23,6 +23,7 @@ import {
 } from "../shared/game-settings-data.js";
 import { loadStoredGameSettings, saveStoredGameSettings } from "./game-settings-store.js";
 import { normalizeLevelMusic } from "../shared/music-data.js";
+import { prioritizedActivePowerUpEffect } from "../shared/power-up-data.js";
 import { createMusicDirector } from "./music-director.js";
 import {
     detectElectronWindowBridge,
@@ -35,6 +36,9 @@ const fuelText = document.getElementById("fuel-text");
 const fuelFill = document.getElementById("fuel-fill");
 const healthText = document.getElementById("health-text");
 const healthFill = document.getElementById("health-fill");
+const powerText = document.getElementById("power-text");
+const powerTime = document.getElementById("power-time");
+const powerFill = document.getElementById("power-fill");
 const debugEl = document.getElementById("debug");
 const tuningControlsEl = document.getElementById("tuning-controls");
 const tuningJsonEl = document.getElementById("tuning-json");
@@ -81,7 +85,7 @@ const renderingQualityButtons = [...document.querySelectorAll("[data-rendering-q
 const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 
-const GAME_REVISION = "209";
+const GAME_REVISION = "212";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -1213,22 +1217,36 @@ function handleDebugInput(inputFrame) {
 
 
 function updateHud() {
-    const fuelPercent = gameState.fuel.amount / gameState.fuel.max * 100;
-    const healthPercent = gameState.health.amount / gameState.health.max * 100;
+    const fuelPercent = Math.max(0, Math.min(100, gameState.fuel.amount / Math.max(1, gameState.fuel.max) * 100));
+    const healthPercent = Math.max(0, Math.min(100, gameState.health.amount / Math.max(1, gameState.health.max) * 100));
     fuelFill.style.width = `${fuelPercent.toFixed(1)}%`;
     healthFill.style.width = `${healthPercent.toFixed(1)}%`;
     healthFill.classList.toggle("regenerating", gameState.health.regenerating === true);
     healthFill.classList.toggle("recently-damaged", (Number(gameState.health.invulnerabilityTimer) || 0) > 0);
-    fuelText.textContent = `${gameState.fuel.amount.toFixed(1)} / ${gameState.fuel.max}  cap ${gameState.fuel.rechargeCap}${gameState.tuning.fuelRechargeRequiresGround !== false ? "  grounded recharge" : ""}`;
-    const rawLastDamagedAt = gameState.health.lastDamagedAt;
-    const lastDamagedAt = Number(rawLastDamagedAt);
-    const regenWait = rawLastDamagedAt !== null && rawLastDamagedAt !== undefined && Number.isFinite(lastDamagedAt)
-        ? Math.max(0, gameState.tuning.healthRegenDelay - (gameState.clock.time - lastDamagedAt))
-        : 0;
-    const healthStatus = gameState.health.regenerating
-        ? "  regenerating"
-        : (gameState.health.amount < gameState.health.max && regenWait > 0 ? `  regen in ${regenWait.toFixed(1)}s` : "");
-    healthText.textContent = `${gameState.health.amount.toFixed(1)} / ${gameState.health.max}${healthStatus}`;
+    fuelText.textContent = `${Math.round(gameState.fuel.amount)} / ${Math.round(gameState.fuel.max)} %`;
+    healthText.textContent = `${Math.round(gameState.health.amount)} / ${Math.round(gameState.health.max)} HP`;
+
+    const displayedEffect = prioritizedActivePowerUpEffect(gameState);
+    if (!displayedEffect) {
+        powerText.textContent = "Powerup: None";
+        powerTime.textContent = "";
+        powerFill.style.width = "0%";
+        return;
+    }
+
+    powerText.textContent = `Powerup: ${displayedEffect.definition.label}`;
+    if (displayedEffect.definition.permanent) {
+        powerTime.textContent = "∞";
+        powerFill.style.width = "100%";
+        return;
+    }
+
+    const totalSeconds = Math.max(0.1, Number(displayedEffect.definition.durationSeconds) || 0.1);
+    const remainingSeconds = Math.max(0, Math.min(totalSeconds, Number(displayedEffect.remainingSeconds) || 0));
+    const displayedRemaining = remainingSeconds.toFixed(1);
+    const displayedTotal = Number.isInteger(totalSeconds) ? totalSeconds.toFixed(0) : totalSeconds.toFixed(1);
+    powerTime.textContent = `${displayedRemaining} / ${displayedTotal} s`;
+    powerFill.style.width = `${(remainingSeconds / totalSeconds * 100).toFixed(1)}%`;
 }
 
 function updateDebugText() {

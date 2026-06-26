@@ -6,6 +6,11 @@ import {
 import { atlasNodeToPlacementWorld, normalizeRotationRadians } from "../shared/level-transform.js";
 import { characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../shared/actor-geometry.js";
 import { normalizeLevelColorMap } from "../shared/level-color-map-data.js";
+import { normalizeCaveWindow } from "../shared/cave-window-data.js";
+import {
+    deriveCaveFullBlackKillBoundary,
+    rectFullyOutsideCaveKillBoundary
+} from "../shared/cave-kill-boundary-data.js";
 import { normalizeMovingPlatform } from "../shared/moving-platform-data.js";
 import {
     isSignalEmitterEntity,
@@ -13,6 +18,12 @@ import {
     normalizeSignalEmitter
 } from "../shared/signal-channel-data.js";
 import { normalizeLevelMusic } from "../shared/music-data.js";
+import {
+    normalizeActivePowerUpEffect,
+    normalizePowerUpPickup,
+    powerUpEffectDefinition,
+    rocketPowerUpMultipliers
+} from "../shared/power-up-data.js";
 import {
     difficultyDamageScale,
     normalizeGameSettings,
@@ -240,7 +251,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "209-reading-speed-18-cps-blank-letter-heading",
+            build: "212-eight-second-overdrive-three-bar-hud",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -356,6 +367,9 @@ export function createInitialGameState(overrides = {}) {
         inventory: {
             items: {}
         },
+        statusEffects: {
+            active: {}
+        },
         collisions: {
             playerTouching: { left: false, right: false, up: false, down: false },
             lastResolution: null
@@ -431,6 +445,8 @@ function createTestArena(tuning) {
         movingPlatforms: [],
         signalChannels: {},
         signalEmitters: [],
+        caveWindow: normalizeCaveWindow(null),
+        caveKillBoundary: deriveCaveFullBlackKillBoundary(null),
         solids,
         segments: [],
         collisionMode: "fallbackRectangles",
@@ -1538,6 +1554,92 @@ function consumeInventoryItem(state, itemId, amount = 1) {
     return true;
 }
 
+function ensureStatusEffects(state) {
+    if (!state.statusEffects || typeof state.statusEffects !== "object") {
+        state.statusEffects = { active: {} };
+    }
+    if (!state.statusEffects.active || typeof state.statusEffects.active !== "object") {
+        state.statusEffects.active = {};
+    }
+    return state.statusEffects.active;
+}
+
+function activatePowerUpEffect(state, pickup) {
+    const powerUp = normalizePowerUpPickup(pickup?.powerUp || pickup);
+    const definition = powerUp?.effect || powerUpEffectDefinition(powerUp?.effectId);
+    if (!definition) return false;
+
+    const activeEffects = ensureStatusEffects(state);
+    const existing = normalizeActivePowerUpEffect(activeEffects[definition.id]);
+    let next = existing;
+    let eventType = "POWER_UP_EFFECT_ACTIVATED";
+    if (!existing) {
+        next = normalizeActivePowerUpEffect({
+            id: definition.id,
+            definition,
+            remainingSeconds: definition.durationSeconds,
+            sourceId: pickup?.id || null,
+            activatedAt: state.clock.time,
+            refreshCount: 0
+        });
+    } else if (definition.stacking === "extend" && !definition.permanent) {
+        next.remainingSeconds += definition.durationSeconds;
+        next.refreshCount += 1;
+        next.sourceId = pickup?.id || next.sourceId;
+        eventType = "POWER_UP_EFFECT_EXTENDED";
+    } else if (definition.stacking === "refresh" && !definition.permanent) {
+        next.remainingSeconds = definition.durationSeconds;
+        next.refreshCount += 1;
+        next.sourceId = pickup?.id || next.sourceId;
+        next.activatedAt = state.clock.time;
+        eventType = "POWER_UP_EFFECT_REFRESHED";
+    } else {
+        eventType = "POWER_UP_EFFECT_IGNORED";
+    }
+
+    activeEffects[definition.id] = next;
+    addEvent(state, eventType, {
+        effectId: definition.id,
+        pickupId: pickup?.id || null,
+        remainingSeconds: next?.remainingSeconds,
+        permanent: definition.permanent,
+        refreshCount: next?.refreshCount || 0
+    });
+    return true;
+}
+
+function updateStatusEffects(state, dt) {
+    const activeEffects = ensureStatusEffects(state);
+    for (const [effectId, raw] of Object.entries(activeEffects)) {
+        const active = normalizeActivePowerUpEffect(raw);
+        if (!active) {
+            delete activeEffects[effectId];
+            continue;
+        }
+        if (active.definition.permanent) {
+            activeEffects[effectId] = active;
+            continue;
+        }
+        active.remainingSeconds = Math.max(0, active.remainingSeconds - Math.max(0, dt));
+        if (active.remainingSeconds <= 0) {
+            delete activeEffects[effectId];
+            addEvent(state, "POWER_UP_EFFECT_EXPIRED", { effectId });
+        } else {
+            activeEffects[effectId] = active;
+        }
+    }
+}
+
+function clearDeathResetPowerUps(state) {
+    const activeEffects = ensureStatusEffects(state);
+    for (const [effectId, raw] of Object.entries(activeEffects)) {
+        const active = normalizeActivePowerUpEffect(raw);
+        if (!active || active.definition.clearOnDeath) {
+            delete activeEffects[effectId];
+        }
+    }
+}
+
 function updatePickups(state) {
     const playerCenterY = state.player.y - state.player.height * 0.5;
     for (const pickup of state.pickups || []) {
@@ -1556,6 +1658,12 @@ function updatePickups(state) {
                 pickupId: pickup.id,
                 amount: round(state.fuel.amount - before),
                 fuel: round(state.fuel.amount)
+            });
+        } else if (pickup.kind === "powerUp" || pickup.powerUp) {
+            activatePowerUpEffect(state, pickup);
+            addEvent(state, "POWER_UP_PICKUP_COLLECTED", {
+                pickupId: pickup.id,
+                effectId: pickup.powerUp?.effectId || null
             });
         } else {
             const itemId = String(pickup.pickupKind || pickup.kind || "item");
@@ -2036,6 +2144,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     }
 
     const source = editorLevel.level || editorLevel;
+    const caveWindow = normalizeCaveWindow(source.caveWindow || source.visuals?.caveWindow);
+    const caveKillBoundary = deriveCaveFullBlackKillBoundary(caveWindow);
     const placements = Array.isArray(source.placements) ? source.placements : [];
     const entities = Array.isArray(source.entities) ? source.entities : [];
     const entryDoorSource = wizardEntryDoorEntity(entities);
@@ -2132,6 +2242,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         atlasManifests,
         colorMap: normalizeLevelColorMap(source.colorMap),
         music: normalizeLevelMusic(source.music),
+        caveWindow,
+        caveKillBoundary,
         visuals,
         movingPlatforms: createMovingPlatformRuntimes(visuals),
         signalChannels: {},
@@ -2411,9 +2523,10 @@ export function applyEditorLevelToWorld(state, editorLevel) {
 
     const pickupLike = (entity) => {
         const type = String(entity.type || entity.kind || "");
-        return Boolean(entity.pickupKind) || [
+        return Boolean(entity.pickupKind) || Boolean(entity.effectId) || [
             "fuel",
             "fuelPickup",
+            "rocketOverdrivePickup",
             "ornateKeyPickup",
             "ironKeyPickup",
             "magicRingPickup",
@@ -2424,21 +2537,25 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         ].includes(type);
     };
     state.pickups = runtimeEntities.filter(pickupLike).map((entity, index) => {
+        const powerUp = entity.effectId || entity.type === "rocketOverdrivePickup"
+            ? normalizePowerUpPickup(entity)
+            : null;
         const pickupKind = String(entity.pickupKind || (entity.type === "fuel" ? "fuel" : entity.kind || entity.type || "item"));
-        const kind = pickupKind === "fuel" ? "fuel" : "item";
-        const width = Math.max(1, Number(entity.w) || Number(entity.width) || 42);
-        const height = Math.max(1, Number(entity.h) || Number(entity.height) || 80);
+        const kind = powerUp ? "powerUp" : (pickupKind === "fuel" ? "fuel" : "item");
+        const width = Math.max(1, Number(entity.w) || Number(entity.width) || (powerUp ? 96 : 42));
+        const height = Math.max(1, Number(entity.h) || Number(entity.height) || (powerUp ? 96 : 80));
         return {
             id: entity.id || `${pickupKind}_${index + 1}`,
             entityId: entity.id || `${pickupKind}_${index + 1}`,
             kind,
-            pickupKind,
+            pickupKind: powerUp ? powerUp.effectId : pickupKind,
+            powerUp,
             x: Number(entity.x) || 0,
             y: Number(entity.y) || 0,
             centerY: (Number(entity.y) || 0) - height * 0.5,
             width,
             height,
-            radius: Math.max(4, Number(entity.radius) || Math.min(width, height) * 0.42),
+            radius: Math.max(4, Number(entity.radius) || powerUp?.radius || Math.min(width, height) * 0.42),
             amount: Math.max(1, Number(entity.amount) || (kind === "fuel" ? 40 : 1)),
             collected: entity.state === "collected",
             visualized: editorEntityVisuals(entity).length > 0
@@ -5400,6 +5517,35 @@ function updateCharacterEnemies(state, dt) {
     }
 }
 
+function applyPlayerCaveKillBoundary(state) {
+    const player = state.player;
+    const boundary = state.world?.caveKillBoundary;
+    if (!player || playerDeathActive(state) || player.combatState === "dead" || !player.targetable) {
+        return false;
+    }
+    const rect = getPlayerRect(state);
+    if (!rectFullyOutsideCaveKillBoundary(boundary, rect)) {
+        return false;
+    }
+
+    addEvent(state, "PLAYER_CAVE_BLACK_BOUNDARY_CROSSED", {
+        boundarySource: boundary.source || "caveFullBlackOutset",
+        x: round(player.x),
+        y: round(player.y),
+        rect: {
+            x: round(rect.x),
+            y: round(rect.y),
+            w: round(rect.w),
+            h: round(rect.h)
+        }
+    });
+    return triggerPlayerDeath(state, {
+        sourceId: boundary.source || "caveFullBlackOutset",
+        resetReason: "crossedCaveFullBlackBoundary",
+        cause: "caveFullBlackBoundary"
+    });
+}
+
 function playerDeathActive(state) {
     const phase = state.player?.deathPhase;
     return phase === "cover" || phase === "burst" || phase === "afterglow";
@@ -5453,6 +5599,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
 
     state.clock.tick += 1;
     state.clock.time += dt;
+    updateStatusEffects(state, dt);
     state.debug.lastInputFrame = deepClone(input);
     state.collisions.playerTouching = { left: false, right: false, up: false, down: false };
     state.collisions.lastResolution = null;
@@ -5465,6 +5612,9 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         });
     }
     if (updatePlayerDeath(state, dt)) {
+        return state;
+    }
+    if (applyPlayerCaveKillBoundary(state)) {
         return state;
     }
 
@@ -5569,6 +5719,9 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         return state;
     }
     if (resolvePlayerPenetrations(state, wasOnGround)) {
+        return state;
+    }
+    if (applyPlayerCaveKillBoundary(state)) {
         return state;
     }
     applyPlayerSurfaceHazards(state);
@@ -5719,12 +5872,15 @@ function stopAttachedBoost(state, reason) {
 function launchHomingRocket(state, input) {
     const t = state.tuning;
     const weapons = state.weapons;
+    const powerUpMultipliers = rocketPowerUpMultipliers(state);
+    const launchCost = Math.max(0, t.rocketLaunchCost * powerUpMultipliers.launchFuelCostMultiplier);
+    const launchCooldown = Math.max(FIXED_DT, t.rocketLaunchCooldown * powerUpMultipliers.launchCooldownMultiplier);
     if (weapons.launchCooldownTimer > 0) {
         addEvent(state, "ROCKET_LAUNCH_BLOCKED", { reason: "cooldown" });
         return false;
     }
-    if (state.fuel.amount < t.rocketLaunchCost) {
-        addEvent(state, "ROCKET_LAUNCH_BLOCKED", { reason: "fuel", fuel: round(state.fuel.amount) });
+    if (state.fuel.amount < launchCost) {
+        addEvent(state, "ROCKET_LAUNCH_BLOCKED", { reason: "fuel", fuel: round(state.fuel.amount), requiredFuel: round(launchCost) });
         return false;
     }
 
@@ -5755,12 +5911,12 @@ function launchHomingRocket(state, input) {
     };
 
     weapons.nextProjectileId += 1;
-    weapons.launchCooldownTimer = t.rocketLaunchCooldown;
+    weapons.launchCooldownTimer = launchCooldown;
     weapons.launchedThisPhase = true;
     state.projectiles.push(projectile);
-    state.fuel.amount = clamp(state.fuel.amount - t.rocketLaunchCost, 0, state.fuel.max);
+    state.fuel.amount = clamp(state.fuel.amount - launchCost, 0, state.fuel.max);
     markRocketUse(state);
-    addEvent(state, "ROCKET_LAUNCHED", { id: projectile.id, targetId: projectile.targetId, fuel: round(state.fuel.amount) });
+    addEvent(state, "ROCKET_LAUNCHED", { id: projectile.id, targetId: projectile.targetId, fuel: round(state.fuel.amount), fuelCost: round(launchCost), cooldown: round(launchCooldown) });
     return true;
 }
 
@@ -8144,6 +8300,7 @@ export function damagePlayer(state, amount = 34, sourceId = "debug", options = {
 export function resetPlayer(state, reason = "manualReset") {
     const p = state.player;
     stopAttachedBoost(state, "reset");
+    clearDeathResetPowerUps(state);
     p.x = p.spawnX;
     p.y = p.spawnY;
     p.vx = 0;
