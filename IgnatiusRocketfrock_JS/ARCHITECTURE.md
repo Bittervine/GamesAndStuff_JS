@@ -450,7 +450,7 @@ World pickup composition remains Canvas-owned. The active-effect timer is now pa
 
 The former `rocketOverdrive` effect is now canonically `speedShot`; the shared normalizer still accepts the old ID for revision-211/212 snapshots. Speed Shot remains an independent eight-second effect with HUD priority 100, half projectile fuel cost, and half launch cooldown. The inactive Power label is now simply `Powerup:`.
 
-Five fifteen-second wrench effects share the exclusive `wrench` group and HUD priority 50. Collecting Triple, Dart, Twin, Bigbomb, or Boomerang removes any other active wrench but leaves Speed Shot untouched. Triple launches three one-third-damage, small homing rockets with distinct initial fan angles and separate target assignment when possible. Twin launches two half-damage medium rockets. Dart launches one normal-sized, non-homing rocket straight along Ignatius's facing direction, deals double damage, and costs two-thirds standard fuel. Bigbomb costs triple fuel, travels at half speed, turns with half homing response, renders at 1.7× scale, deals triple damage, and applies full damage in a radius of 1.5 wizard heights. Boomerang uses standard rocket damage and cost; a miss or a destroyed target sends it back toward Ignatius, and a successful catch refunds half the launch fuel.
+Five fifteen-second wrench effects share the exclusive `wrench` group and HUD priority 50. Collecting Triple, Dart, Twin, Bigbomb, or Boomerang removes any other active wrench but leaves Speed Shot untouched. Triple launches three half-standard-damage, small homing rockets with distinct initial fan angles and separate target assignment when possible, for 45 total damage if all hit. Twin launches two two-thirds-standard-damage medium rockets, for 40 total damage if both hit. Dart launches one normal-sized, non-homing rocket straight along Ignatius's facing direction, deals standard rocket damage, and costs two-thirds standard fuel. Bigbomb costs triple fuel, travels at half speed, turns with half homing response, renders at 1.7× scale, deals triple damage, and applies full damage in a radius of 1.5 wizard heights. Boomerang uses standard rocket damage and cost; a miss or a destroyed target sends it back toward Ignatius, and a successful catch refunds half the launch fuel.
 
 Power-up pickup runtime records now carry `respawnSeconds`, `respawnTimer`, and optional `randomEffectIds` plus `randomRollCount`. Browser startup supplies a fresh session seed, while portable core derives deterministic per-level and per-respawn rolls from that seed, pickup identity, level-load count, and roll count. All power-up pickups default to a sixty-second respawn. A random wrench rerolls before becoming available again. Level 1 keeps Speed Shot at x=800 and adds a random wrench at x=1400.
 
@@ -479,3 +479,18 @@ Wrench effect metadata now owns exact pure RGB tint values, copied into pickup p
 ## Revision 218 Boomerang return collision contract
 
 The Boomerang return phase remains part of the ordinary portable projectile simulation. Its steering target changes to the player, but collision is never disabled. Each fixed step compares the swept player-catch impact with swept enemy, reactive-object, and terrain impacts, resolves the earliest contact, and only grants the fuel refund when the player catch occurs first. Return-path obstacle impacts use the normal explosion lifecycle and carry `boomerangReturning: true` in deterministic diagnostics.
+
+
+## Revision 219 rocket damage balance contract
+
+`DEFAULT_TUNING.rocketProjectileDamage` is now 30 and remains the single base value used when a player rocket is created. Wrench modes continue to derive projectile damage through their shared multipliers rather than duplicated absolute constants: Triple `1/3`, Twin `1/2`, Dart `2`, Bigbomb `3`, and Boomerang `1`. Enemy damage resolution clamps health to zero and marks an enemy defeated whenever `health <= 0`, so exact-zero hits are lethal without requiring negative health.
+
+
+## Revision 220 canonical monster-health fallback
+
+Sixty HP is the canonical fallback for a newly authored `characterEnemy`. Catalog defaults should normally store an explicit value, but `level-editor.html`, `character-editor.html`, and `src/core/simulation.js` all use 60 when health is omitted so tool-created and externally supplied monsters agree. Enemy-specific exceptions remain plain authored data in `ct_enemies_001.json` and are copied into level placements; no character artwork file owns combat durability. The current explicit balance is Skeleton Guard 90, Fireball Goblin 60, Musket Goblin 60, and Bombing Bat 1.
+
+
+## Revision 221 multiplier-derived wrench damage rebalance
+
+Wrench projectile damage continues to use multipliers against `DEFAULT_TUNING.rocketProjectileDamage`, currently 30. Triple uses `0.5` per projectile for three 15-damage rockets and a 45-damage maximum volley. Twin uses `2 / 3` per projectile for two 20-damage rockets and a 40-damage maximum volley. Dart uses `1.0`, so its advantage is its straight, fast, inexpensive and predictable flight rather than extra impact damage. Bigbomb remains `3.0`, and Boomerang remains `1.0`.

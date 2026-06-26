@@ -2637,6 +2637,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
             y: p.y,
             w: Math.max(1, Number(definition.defaultSize?.w) || 72),
             h: Math.max(1, Number(definition.defaultSize?.h) || 150),
+            health: 60,
             ...cloneData(definition.defaults || {}),
             notes: definition.description || definition.label || enemyId
         };
@@ -3890,7 +3891,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
             els.inspectEnemyGlareDuration.value = Math.max(0, finiteEditorNumber(rec.unreachableGlareDuration, 5));
             els.inspectEnemyIdleDuration.value = Math.max(0, finiteEditorNumber(rec.idleDuration, 1.1));
             els.inspectEnemyTurnPause.value = Math.max(0, finiteEditorNumber(rec.turnPause, 0.5));
-            els.inspectEnemyHealth.value = Math.max(1, finiteEditorNumber(rec.health, 100));
+            els.inspectEnemyHealth.value = Math.max(1, finiteEditorNumber(rec.health, 60));
             els.inspectEnemyRenderScale.value = Math.max(0.05, finiteEditorNumber(rec.renderScale, 0.8));
             els.inspectEnemyAttackDamage.value = Math.max(0, finiteEditorNumber(rec.attackDamage, 24));
             els.inspectEnemyAttackRange.value = Math.max(1, finiteEditorNumber(rec.attackRange, 66));
@@ -4066,7 +4067,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
                 rec.awarenessHoldDuration = Math.max(0, finiteEditorNumber(rec.awarenessHoldDuration, 1.2));
                 rec.idleDuration = Math.max(0, Number(els.inspectEnemyIdleDuration.value) || 0);
                 rec.turnPause = Math.max(0, Number(els.inspectEnemyTurnPause.value) || 0);
-                rec.health = Math.max(1, Number(els.inspectEnemyHealth.value) || 100);
+                rec.health = Math.max(1, Number(els.inspectEnemyHealth.value) || 60);
                 rec.renderScale = Math.max(0.05, Number(els.inspectEnemyRenderScale.value) || 0.8);
                 rec.attackDamage = Math.max(0, Number(els.inspectEnemyAttackDamage.value) || 0);
                 rec.attackRange = Math.max(1, Number(els.inspectEnemyAttackRange.value) || 66);

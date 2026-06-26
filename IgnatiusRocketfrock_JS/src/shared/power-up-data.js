@@ -96,7 +96,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
         glowTint: "#ffff00",
         rocket: {
             projectileCount: 3,
-            damageMultiplier: 1 / 3,
+            damageMultiplier: 1 / 2,
             radiusMultiplier: 0.6,
             visualScale: 0.62,
             initialAnglesDegrees: Object.freeze([-12, 0, 12]),
@@ -109,7 +109,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
         glowTint: "#00ffff",
         rocket: {
             launchFuelCostMultiplier: 2 / 3,
-            damageMultiplier: 2,
+            damageMultiplier: 1,
             homing: false,
             launchMode: "forward",
             piercesEnemies: false
@@ -121,7 +121,7 @@ const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
         glowTint: "#00ff00",
         rocket: {
             projectileCount: 2,
-            damageMultiplier: 0.5,
+            damageMultiplier: 2 / 3,
             radiusMultiplier: 0.8,
             visualScale: 0.8,
             initialAnglesDegrees: Object.freeze([-7, 7]),

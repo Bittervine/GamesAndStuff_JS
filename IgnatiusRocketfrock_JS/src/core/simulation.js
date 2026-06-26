@@ -113,7 +113,7 @@ export const DEFAULT_TUNING = Object.freeze({
     rocketProjectileLifetime: 4.6,
     rocketProjectileExplosionSeconds: 0.42,
     rocketProjectileImpactRadius: 24,
-    rocketProjectileDamage: 55,
+    rocketProjectileDamage: 30,
     enemyHitFlashSeconds: 0.16,
     enemyHealthBarSeconds: 1.4,
     enemyDefaultHurtSeconds: 0.48,
@@ -253,7 +253,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "217-pure-wrench-glows-dart-impact",
+            build: "221-rebalanced-wrench-damage",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -2422,7 +2422,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         const isSimplePatrol = strategy === "simple_patrol";
         const patrolDistance = Math.max(0, finiteNumberOr(entity.patrolDistance, 0));
         const idleDuration = Math.max(0, finiteNumberOr(entity.idleDuration, 1.1));
-        const health = Math.max(0, finiteNumberOr(entity.health, 100));
+        const health = Math.max(0, finiteNumberOr(entity.health, 60));
         return {
             id: entity.id || `characterEnemy_${index + 1}`,
             kind: "characterEnemy",
@@ -6087,7 +6087,7 @@ function launchHomingRocket(state, input) {
         ? rocketProfile.initialAnglesDegrees
         : [0];
     const projectileSpeed = t.rocketProjectileSpeed * Math.max(0.05, Number(rocketProfile.speedMultiplier) || 1);
-    const projectileDamage = Math.max(0, (t.rocketProjectileDamage ?? 55) * Math.max(0, Number(rocketProfile.damageMultiplier) || 0));
+    const projectileDamage = Math.max(0, (t.rocketProjectileDamage ?? 30) * Math.max(0, Number(rocketProfile.damageMultiplier) || 0));
     const projectileRadius = 15 * Math.max(0.1, Number(rocketProfile.radiusMultiplier) || 1);
     const areaDamageRadius = Math.max(0, Number(rocketProfile.areaDamageRadiusWizardHeights) || 0) * Math.max(1, Number(t.wizardHeight) || Number(p.height) || 104);
     const volleyId = `rocket_volley_${state.clock.tick}_${weapons.nextProjectileId}`;

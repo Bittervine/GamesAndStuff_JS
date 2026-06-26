@@ -527,7 +527,7 @@ async function testGenericRuntimeCharacterProject() {
     assert.equal(enemy.characterId, "ct_char_enemy_001", "character enemy should retain its project ID");
     assert.equal(enemy.facing, -1, "character enemy should retain authored facing");
     assert.equal(enemy.animationSlot, "idle", "character enemy should retain authored animation slot");
-    assert.equal(enemy.maxHealth, 100, "character enemy should retain serializable maximum health");
+    assert.equal(enemy.maxHealth, 60, "character enemy without authored health should use the serializable 60 HP default");
     assert.equal(enemy.combatState, "alive", "fresh character enemy should begin alive");
 }
 
@@ -924,6 +924,9 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(skeleton.defaults.strategy, "simple_patrol", "Skeleton Guard should preserve the original simple-minded local strategy");
     assert.equal(catalog.enemies.enemy_002.defaults.strategy, "hunter", "Fireball Goblin should use the hunter strategy");
     assert.equal(catalog.enemies.enemy_003.defaults.strategy, "hunter", "Musket Goblin should use the hunter strategy");
+    assert.equal(skeleton.defaults.health, 90, "Skeleton Guard should default to 90 HP");
+    assert.equal(catalog.enemies.enemy_002.defaults.health, 60, "Fireball Goblin should default to 60 HP");
+    assert.equal(catalog.enemies.enemy_003.defaults.health, 60, "Musket Goblin should default to 60 HP");
     for (const enemyId of ["enemy_005"]) {
         const bat = catalog.enemies[enemyId];
         assert.ok(bat, `${enemyId} should register a retained bat candidate`);
@@ -2693,6 +2696,87 @@ function addTestRocket(state, overrides = {}) {
     return projectile;
 }
 
+function testRebalancedEnemyHealthAndRocketHits() {
+    const catalog = JSON.parse(readFileSync(new URL("../assets/ct_enemies_001.json", import.meta.url), "utf8"));
+    const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
+    const profiles = [
+        { id: "enemy_001", characterId: "ct_char_enemy_001", expectedHealth: 90, expectedHits: 3 },
+        { id: "enemy_002", characterId: "ct_char_enemy_002", expectedHealth: 60, expectedHits: 2 },
+        { id: "enemy_003", characterId: "ct_char_enemy_003", expectedHealth: 60, expectedHits: 2 },
+        { id: "enemy_005", characterId: "ct_char_enemy_005", expectedHealth: 1, expectedHits: 1 }
+    ];
+
+    for (const profile of profiles) {
+        const catalogHealth = catalog.enemies[profile.id].defaults.health;
+        assert.equal(catalogHealth, profile.expectedHealth, `${profile.id} catalog health should match the revision-220 balance`);
+        const placed = levelOne.entities.find((entity) => entity.characterId === profile.characterId);
+        assert.ok(placed, `level_001 should contain ${profile.characterId}`);
+        assert.equal(placed.health, profile.expectedHealth, `${placed.id} should bake the same health as its catalog default`);
+    }
+
+    for (const profile of profiles.filter((entry) => entry.id !== "enemy_005")) {
+        const state = createInitialGameState();
+        assert.equal(applyEditorLevelToWorld(state, {
+            levelId: `balanced_health_${profile.id}`,
+            playerStart: { x: -200, y: 600 },
+            entities: [{
+                id: `target_${profile.id}`,
+                type: "characterEnemy",
+                characterId: profile.characterId,
+                x: 180,
+                y: 100,
+                w: profile.id === "enemy_001" ? 72 : 70,
+                h: profile.id === "enemy_001" ? 164 : 105,
+                health: profile.expectedHealth,
+                strategy: "sentry",
+                facing: -1
+            }]
+        }), true, "balanced enemy-health test level should apply");
+        state.world.solids = [];
+        state.world.segments = [];
+        state.world.collisionPolygons = [];
+        state.story.portalIntro = null;
+        state.story.portalExit = null;
+        state.story.mailboxEvent = null;
+        const enemy = state.enemies[0];
+
+        for (let hit = 1; hit <= profile.expectedHits; hit += 1) {
+            state.projectiles = [];
+            addTestRocket(state, { id: `${profile.id}_standard_hit_${hit}`, damage: DEFAULT_TUNING.rocketProjectileDamage });
+            stepSimulation(state, createInputFrame(), FIXED_DT);
+            if (hit < profile.expectedHits) {
+                assert.ok(enemy.health > 0, `${profile.id} should survive standard rocket hit ${hit}`);
+                assert.notEqual(enemy.combatState, "dead", `${profile.id} should remain alive before hit ${profile.expectedHits}`);
+            }
+        }
+        assert.equal(enemy.health, 0, `${profile.id} should reach zero HP on standard rocket hit ${profile.expectedHits}`);
+        assert.equal(enemy.combatState, "dead", `${profile.id} should die exactly on standard rocket hit ${profile.expectedHits}`);
+    }
+
+    const fallbackState = createInitialGameState();
+    assert.equal(applyEditorLevelToWorld(fallbackState, {
+        levelId: "default_enemy_health_60",
+        playerStart: { x: 0, y: 600 },
+        entities: [{
+            id: "new_monster_without_authored_health",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_001",
+            x: 100,
+            y: 600,
+            strategy: "sentry"
+        }]
+    }), true, "missing-health enemy test level should apply");
+    assert.equal(fallbackState.enemies[0].health, 60, "new monsters without authored health should default to 60 HP at runtime");
+    assert.equal(fallbackState.enemies[0].maxHealth, 60, "new monsters without authored health should default to 60 maximum HP");
+
+    const levelEditorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    const characterEditorHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
+    assert.ok(levelEditorHtml.includes("health: 60,"), "new Level Editor enemy placements should start from the 60 HP fallback");
+    assert.ok(levelEditorHtml.includes("finiteEditorNumber(rec.health, 60)"), "Level Editor enemy health inspector should fall back to 60 HP");
+    assert.ok(characterEditorHtml.includes("Number(defaults.health) : 60"), "Puppet Forge should show 60 HP when a catalog entry has no authored health");
+    assert.ok(characterEditorHtml.includes('els.enemyHealth.value.trim() === "" ? 60'), "Puppet Forge should save 60 HP when a new enemy health field is blank");
+}
+
 function testCharacterEnemyRocketCombat() {
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, {
@@ -4339,9 +4423,9 @@ function testRocketPowerUpArsenal() {
     assert.equal(normalizedPickup.iconFrame, "powerup_icon_lightning", "Speed Shot should use the reserved lightning emblem");
 
     const expectedWrenches = new Map([
-        [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, { count: 3, damage: 1 / 3, cost: 1, tint: "#ffff00" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_DART, { count: 1, damage: 2, cost: 2 / 3, tint: "#00ffff" }],
-        [POWER_UP_EFFECT_IDS.WRENCH_TWIN, { count: 2, damage: 0.5, cost: 1, tint: "#00ff00" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, { count: 3, damage: 0.5, cost: 1, tint: "#ffff00" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_DART, { count: 1, damage: 1, cost: 2 / 3, tint: "#00ffff" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_TWIN, { count: 2, damage: 2 / 3, cost: 1, tint: "#00ff00" }],
         [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB, { count: 1, damage: 3, cost: 3, tint: "#ff0000" }],
         [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, { count: 1, damage: 1, cost: 1, tint: "#ff00ff" }]
     ]);
@@ -4487,7 +4571,9 @@ function testRocketPowerUpArsenal() {
     assert.equal(tripleState.projectiles.length, 3, "Triple should launch three rockets in one volley");
     assert.deepEqual(new Set(tripleState.projectiles.map((projectile) => projectile.targetId)).size, 3, "Triple should prefer separate targets when enough are available");
     assert.ok(new Set(tripleState.projectiles.map((projectile) => `${projectile.vx.toFixed(3)}:${projectile.vy.toFixed(3)}`)).size === 3, "Triple rockets should begin on distinct fan-out paths");
-    approx(tripleState.projectiles[0].damage, DEFAULT_TUNING.rocketProjectileDamage / 3, 0.0001, "Triple rockets should deal one-third damage each");
+    approx(tripleState.projectiles[0].damage, DEFAULT_TUNING.rocketProjectileDamage * 0.5, 0.0001, "Triple rockets should deal one-half standard damage each");
+    approx(tripleState.projectiles[0].damage, 15, 0.0001, "Triple rockets should deal 15 damage each");
+    approx(tripleState.projectiles.reduce((sum, projectile) => sum + projectile.damage, 0), 45, 0.0001, "Triple should deliver 45 total damage when all three rockets hit");
     approx(100 - tripleState.fuel.amount, DEFAULT_TUNING.rocketLaunchCost, 0.0001, "Triple should cost the same fuel as a standard rocket");
     assert.ok(tripleState.projectiles.every((projectile) => projectile.wrenchEffectId === POWER_UP_EFFECT_IDS.WRENCH_TRIPLE), "Triple projectiles should retain their launch-time wrench identity");
     assert.ok(tripleState.projectiles.every((projectile) => projectile.wrenchGlowTint === "#ffff00"), "Triple projectiles should retain the yellow glow tint after the player changes effects");
@@ -4495,7 +4581,9 @@ function testRocketPowerUpArsenal() {
     const twinState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_TWIN, { targets: targetSet });
     stepSimulation(twinState, createInputFrame({ weaponPressed: true }), FIXED_DT);
     assert.equal(twinState.projectiles.length, 2, "Twin should launch two rockets");
-    approx(twinState.projectiles[0].damage, DEFAULT_TUNING.rocketProjectileDamage * 0.5, 0.0001, "Twin rockets should deal half damage each");
+    approx(twinState.projectiles[0].damage, DEFAULT_TUNING.rocketProjectileDamage * (2 / 3), 0.0001, "Twin rockets should deal two-thirds standard damage each");
+    approx(twinState.projectiles[0].damage, 20, 0.0001, "Twin rockets should deal 20 damage each");
+    approx(twinState.projectiles.reduce((sum, projectile) => sum + projectile.damage, 0), 40, 0.0001, "Twin should deliver 40 total damage when both rockets hit");
     assert.ok(twinState.projectiles.every((projectile) => projectile.visualScale > 0.62 && projectile.visualScale < 1), "Twin rockets should be larger than Triple but smaller than standard");
 
     const dartState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_DART);
@@ -4503,7 +4591,8 @@ function testRocketPowerUpArsenal() {
     assert.equal(dartState.projectiles.length, 1, "Dart should launch one rocket");
     assert.equal(dartState.projectiles[0].homing, false, "Dart should not home");
     assert.ok(dartState.projectiles[0].vx > 0 && Math.abs(dartState.projectiles[0].vy) < 0.001, "Dart should launch straight forward from Ignatius");
-    approx(dartState.projectiles[0].damage, DEFAULT_TUNING.rocketProjectileDamage * 2, 0.0001, "Dart should deal double damage");
+    approx(dartState.projectiles[0].damage, DEFAULT_TUNING.rocketProjectileDamage, 0.0001, "Dart should deal standard rocket damage");
+    approx(dartState.projectiles[0].damage, 30, 0.0001, "Dart should deal 30 damage");
     approx(100 - dartState.fuel.amount, DEFAULT_TUNING.rocketLaunchCost * 2 / 3, 0.0001, "Dart should cost two-thirds standard fuel");
     assert.equal(dartState.projectiles[0].wrenchGlowTint, "#00ffff", "Dart should carry the cyan wrench glow tint");
     assert.equal(dartState.projectiles[0].piercesEnemies, false, "Dart should explicitly stop on its first enemy impact");
@@ -4538,6 +4627,7 @@ function testRocketPowerUpArsenal() {
     const bomb = bigbombState.projectiles[0];
     approx(100 - bigbombState.fuel.amount, DEFAULT_TUNING.rocketLaunchCost * 3, 0.0001, "Bigbomb should cost triple fuel");
     approx(bomb.damage, DEFAULT_TUNING.rocketProjectileDamage * 3, 0.0001, "Bigbomb should deal triple damage");
+    approx(bomb.damage, 90, 0.0001, "Bigbomb should now deal 90 damage");
     approx(Math.hypot(bomb.vx, bomb.vy), DEFAULT_TUNING.rocketProjectileSpeed * 0.5, 0.01, "Bigbomb should move at half standard speed");
     approx(bomb.areaDamageRadius, DEFAULT_TUNING.wizardHeight * 1.5, 0.0001, "Bigbomb diameter should span about three wizard heights");
     assert.equal(bomb.visualScale, 1.7, "Bigbomb should render larger than a standard rocket");
@@ -4551,6 +4641,7 @@ function testRocketPowerUpArsenal() {
     stepSimulation(boomerangState, createInputFrame({ weaponPressed: true }), FIXED_DT);
     assert.equal(boomerangState.projectiles[0].boomerang, true, "Boomerang should mark its returning projectile behavior");
     assert.equal(boomerangState.projectiles[0].wrenchGlowTint, "#ff00ff", "Boomerang should keep its purple glow during the return flight");
+    assert.equal(boomerangState.projectiles[0].damage, 30, "Boomerang should retain standard rocket damage");
     for (let index = 0; index < 240 && !boomerangState.debug.lastEvents.some((event) => event.type === "BOOMERANG_ROCKET_CAUGHT"); index += 1) {
         stepSimulation(boomerangState, createInputFrame(), FIXED_DT);
     }
@@ -5552,6 +5643,7 @@ function testHomingRocketLaunch() {
     assert.equal(state.projectiles[0].vx, 0, "test rocket should launch straight up before homing");
     assert.ok(state.projectiles[0].vy < -400, "test rocket should launch upward before turning");
     assert.ok(state.projectiles[0].upLaunchTimer > 0, "test rocket should have a straight-up launch timer");
+    assert.equal(state.projectiles[0].damage, 30, "a standard rocket should carry 30 damage");
     assert.ok(state.fuel.amount <= state.tuning.initialFuel - state.tuning.rocketLaunchCost, "rocket launch should spend fuel");
     stepMany(state, 95, () => createInputFrame());
     assert.ok(state.projectiles.length >= 1, "rocket should still be inspectable after a short flight");
@@ -5711,7 +5803,7 @@ function testPhase1013TuningDefaultsDebugPoseAndFuelBulbFlash() {
     assert.equal(DEFAULT_TUNING.rechargeDelayAfterUse, 1, "Phase 1.015 should bake in the current recharge delay");
     assert.equal(DEFAULT_TUNING.rechargeRate, 52, "Phase 1.015 should bake in the current recharge rate");
     assert.equal(DEFAULT_TUNING.rocketLaunchCost, 30, "Phase 1.015 should bake in the current rocket launch cost");
-    assert.equal(DEFAULT_TUNING.rocketProjectileDamage, 55, "enemy combat should use the current two-hit Skeleton Guard damage");
+    assert.equal(DEFAULT_TUNING.rocketProjectileDamage, 30, "standard rockets should use the three-hit goblin damage value");
     assert.equal(DEFAULT_TUNING.groundAcceleration, 950, "Phase 1.015 should bake in the softer ground acceleration");
     assert.equal(DEFAULT_TUNING.groundFriction, 900, "Phase 1.015 should bake in the softer ground friction");
     assert.equal(DEFAULT_TUNING.attachedBoostSmokePuffInterval, 0.035);
@@ -7235,6 +7327,7 @@ const tests = [
     ["hunter enemy stranded fallback", testHunterEnemyStrandedFallback],
     ["simulation-owned character enemy patrol", testCharacterEnemyPatrolBehavior],
     ["character enemy aggressive chase and combo", testCharacterEnemyAggressiveChaseAndCombo],
+    ["rebalanced enemy health and standard rocket hit counts", testRebalancedEnemyHealthAndRocketHits],
     ["character enemy rocket combat", testCharacterEnemyRocketCombat],
     ["dead airborne enemy falls after death animation", testDeadAirborneEnemyFallsAfterDeathAnimation],
     ["character enemy melee attack", testCharacterEnemyMeleeAttack],

@@ -1855,3 +1855,36 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Add a deterministic blocked-return regression test.
 - [x] Update the game manual and build labels to revision 218.
 - [x] Pass the complete aggregate headless test suite.
+
+
+## Revision 219 thirty-damage standard rocket balance
+
+- [x] Reduce the standard Ignatius rocket from 55 damage to 30 damage.
+- [x] Preserve multiplier-derived wrench damage: Triple 10 each, Twin 15 each, Dart 60, Bigbomb 90, and Boomerang 30.
+- [x] Verify both 80-HP and 90-HP goblins survive two standard rockets and die on the third.
+- [x] Verify exact zero HP is lethal.
+- [x] Update the game manual and build labels to revision 219.
+- [x] Pass the complete aggregate headless test suite.
+
+
+## Revision 220 enemy-health defaults and rebalance
+
+- [x] Establish 60 HP as the fallback for newly authored character enemies in runtime, Level Editor, and Puppet Forge catalog editing.
+- [x] Set Skeleton Guard catalog and level health to 90 HP.
+- [x] Set Fireball Goblin catalog and level health to 60 HP.
+- [x] Set Musket Goblin catalog and level health to 60 HP.
+- [x] Preserve Bombing Bat catalog and level health at 1 HP.
+- [x] Add regressions for catalog values, baked level values, runtime fallback, and exact standard-rocket hit counts.
+- [x] Update browser and portable build labels to revision 220.
+- [x] Pass the complete aggregate headless test suite.
+
+
+## Revision 221 wrench volley damage rebalance
+
+- [x] Set Triple projectile damage to one-half standard damage: 15 each, 45 total.
+- [x] Set Twin projectile damage to two-thirds standard damage: 20 each, 40 total.
+- [x] Reduce Dart to standard rocket damage: 30.
+- [x] Keep Bigbomb at 90 and Boomerang at 30.
+- [x] Update the game manual and architecture documentation.
+- [x] Update browser and portable build labels to revision 221.
+- [x] Pass the complete aggregate headless test suite.

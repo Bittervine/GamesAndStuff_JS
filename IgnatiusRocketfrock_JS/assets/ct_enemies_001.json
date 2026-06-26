@@ -1,14 +1,14 @@
 {
     "meta": {
-        "version": 29,
-        "note": "Revision 194 makes the retained bomber climb to its authored high bombing station, follow a curved eased approach, and release only after reaching the intended altitude.",
-        "revision": 194
+        "version": 30,
+        "note": "Revision 220 establishes 60 HP as the default for newly authored monsters and rebalances existing enemy durability.",
+        "revision": 220
     },
     "catalogId": "ct_enemies_001",
     "enemies": {
         "enemy_001": {
             "label": "Skeleton Guard",
-            "icon": "☠",
+            "icon": "\u2620",
             "characterId": "ct_char_enemy_001",
             "defaultSize": {
                 "w": 72,
@@ -24,7 +24,7 @@
                 "maxStepHeight": 26,
                 "maxDropDistance": 34,
                 "renderScale": 0.8,
-                "health": 100,
+                "health": 90,
                 "animationSlot": "idle",
                 "targetAnchor": {
                     "x": 0.5,
@@ -56,7 +56,7 @@
         },
         "enemy_002": {
             "label": "Fireball Goblin",
-            "icon": "🔥",
+            "icon": "\ud83d\udd25",
             "characterId": "ct_char_enemy_002",
             "defaultSize": {
                 "w": 70,
@@ -72,7 +72,7 @@
                 "maxStepHeight": 26,
                 "maxDropDistance": 34,
                 "renderScale": 0.55,
-                "health": 80,
+                "health": 60,
                 "animationSlot": "idle",
                 "targetAnchor": {
                     "x": 0.55,
@@ -117,7 +117,7 @@
         },
         "enemy_003": {
             "label": "Musket Goblin",
-            "icon": "🔫",
+            "icon": "\ud83d\udd2b",
             "characterId": "ct_char_enemy_003",
             "defaultSize": {
                 "w": 70,
@@ -133,7 +133,7 @@
                 "maxStepHeight": 26,
                 "maxDropDistance": 34,
                 "renderScale": 0.55,
-                "health": 90,
+                "health": 60,
                 "animationSlot": "idle",
                 "targetAnchor": {
                     "x": 0.58,
@@ -178,7 +178,7 @@
         },
         "enemy_005": {
             "label": "Bombing Bat",
-            "icon": "🦇",
+            "icon": "\ud83e\udd87",
             "description": "The retained bat enemy. It patrols a small area around its authored perch, activates only when Ignatius enters its normal awareness view, flies overhead, and drops atlas-authored rocks.",
             "characterId": "ct_char_enemy_005",
             "defaultSize": {

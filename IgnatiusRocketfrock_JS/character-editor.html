@@ -1626,7 +1626,7 @@ function refreshEnemyTypeFields() {
     els.enemyRenderScale.value = Number(defaults.renderScale) || 1;
     els.enemyRenderOffsetX.value = Number(defaults.renderOffsetX) || 0;
     els.enemyRenderOffsetY.value = Number(defaults.renderOffsetY) || 0;
-    els.enemyHealth.value = Number(defaults.health) || 0;
+    els.enemyHealth.value = Number.isFinite(Number(defaults.health)) ? Number(defaults.health) : 60;
     els.enemyLocomotion.value = String(defaults.locomotion || "ground");
     els.enemyStrategy.value = String(defaults.strategy || "simple_patrol");
     els.enemyDefaultsJson.value = JSON.stringify(defaults, null, 4);
@@ -1654,7 +1654,7 @@ function applyEnemyTypeFields() {
     defaults.renderScale = Math.max(0.01, Number(els.enemyRenderScale.value) || 1);
     defaults.renderOffsetX = Number(els.enemyRenderOffsetX.value) || 0;
     defaults.renderOffsetY = Number(els.enemyRenderOffsetY.value) || 0;
-    defaults.health = Math.max(0, Number(els.enemyHealth.value) || 0);
+    defaults.health = els.enemyHealth.value.trim() === "" ? 60 : Math.max(0, Number(els.enemyHealth.value) || 0);
     defaults.locomotion = String(els.enemyLocomotion.value || "ground");
     defaults.strategy = String(els.enemyStrategy.value || "simple_patrol");
     definition.defaults = defaults;
@@ -4580,7 +4580,7 @@ for (const input of [els.enemyLabel, els.enemyIcon, els.enemyDescription, els.en
             defaults.renderScale = Math.max(0.01, Number(els.enemyRenderScale.value) || 1);
             defaults.renderOffsetX = Number(els.enemyRenderOffsetX.value) || 0;
             defaults.renderOffsetY = Number(els.enemyRenderOffsetY.value) || 0;
-            defaults.health = Math.max(0, Number(els.enemyHealth.value) || 0);
+            defaults.health = els.enemyHealth.value.trim() === "" ? 60 : Math.max(0, Number(els.enemyHealth.value) || 0);
             defaults.locomotion = String(els.enemyLocomotion.value || "ground");
             defaults.strategy = String(els.enemyStrategy.value || "simple_patrol");
             definition.defaults = defaults;

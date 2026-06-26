@@ -2046,3 +2046,20 @@ The cached wrench-rocket halo now uses a blur radius of roughly 25% of the sourc
 ## Revision 218 physical Boomerang return path
 
 Boomerang rockets no longer become collision-free while returning to Ignatius. When no valid target remains, or after destroying a target, the projectile homes toward the wizard using its existing return steering. The return flight now performs the same swept collision checks as an ordinary player rocket. Reaching Ignatius completes the catch and refunds half the launch fuel; striking an enemy, reactive blocker, solid, platform, or cave collision first makes the rocket explode without a refund. An outbound Boomerang that directly strikes terrain also explodes immediately rather than using the terrain hit as a trigger to phase back through the level.
+
+
+## Revision 219 thirty-damage standard rocket balance
+
+Ignatius's standard projectile rocket now deals 30 damage instead of 55. Enemy defeat already uses a `health <= 0` threshold, so the 80-HP Fireball Goblin survives at 50 HP and 20 HP before dying on the third hit, while the 90-HP Musket Goblin reaches exactly 0 HP on the third hit and dies immediately. Wrench damage remains multiplier-based and therefore scales automatically: Triple deals 10 per rocket, Twin 15 per rocket, Dart 60, Bigbomb 90, and Boomerang 30. Speed Shot changes cadence and fuel cost only, so it continues to use the active rocket mode's damage unchanged.
+
+
+## Revision 220 enemy-health baseline and existing-enemy rebalance
+
+New monsters now default to 60 HP whenever their catalog or level placement does not explicitly author health. The Level Editor seeds new catalog-enemy placements with 60 HP and uses 60 as the health inspector fallback. Puppet Forge also presents and saves 60 HP when a catalog entry has no explicit health, while the portable simulation uses the same fallback when loading external or older level data. Explicit enemy-specific durability remains authoritative.
+
+The active catalog and every matching placement in `level_001.json` are rebalanced to Skeleton Guard 90 HP, Fireball Goblin 60 HP, Musket Goblin 60 HP, and Bombing Bat 1 HP. With the 30-damage standard rocket, those correspond to three, two, two, and one successful hits respectively. Enemy defeat continues to occur at `health <= 0`.
+
+
+## Revision 221 wrench volley damage rebalance
+
+Wrench damage remains derived from the shared 30-damage standard rocket. Triple now uses a one-half multiplier per projectile, producing three 15-damage rockets and 45 total volley damage when all three connect. Twin now uses a two-thirds multiplier per projectile, producing two 20-damage rockets and 40 total volley damage. Dart now deals standard 30-damage rocket damage while retaining its straight, faster, non-homing flight, first-impact explosion, and two-thirds fuel cost. Bigbomb remains at triple damage, 90, and Boomerang remains at 30.
