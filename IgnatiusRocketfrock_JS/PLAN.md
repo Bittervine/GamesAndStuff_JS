@@ -2009,3 +2009,40 @@ Rocket Overdrive now lasts 8 seconds. The shared effect schema also owns a numer
 
 The old Canvas-drawn top-right effect badge is removed. The permanent top-left HUD now contains three bars in this order: Health, Rocket fuel, and Power. Health and fuel labels use rounded whole values (`100 / 100 HP` and `100 / 100 %`) without regeneration, cap, or grounded-recharge annotations. The Power bar is empty and reads `Powerup: None` when inactive; while an effect is active, it displays the selected effect name, remaining/total seconds, and a proportional duration fill.
 
+## Revision 213 Speed Shot and randomized wrench arsenal
+
+The first lightning effect is renamed Speed Shot and retains its eight-second half-cost, double-cadence behavior. Its HUD priority remains above the wrench family, and the inactive Power label now reads only `Powerup:`.
+
+The first complete wrench milestone adds Triple, Dart, Twin, Bigbomb, and Boomerang as fifteen-second mutually exclusive rocket modes. Triple and Twin produce distinct multi-projectile fans with best-effort separate targeting. Dart is a forward non-homing double-damage shot at two-thirds fuel cost. Bigbomb is a large slow-turning, half-speed, triple-cost and triple-damage projectile with an AoE diameter of roughly three wizard heights. Boomerang returns after a miss or destroyed target and refunds half its launch fuel when caught. Speed Shot can coexist with any wrench and remains the effect shown in the HUD while active.
+
+All power-up pickups now respawn after sixty seconds. Random-wrench placements select one wrench type from a portable deterministic pool at level start, disappear on collection, and reroll when they respawn. Browser starts and menu restarts supply a fresh random seed, while saved simulation state preserves the selected type, respawn timer, and roll count. Level 1 adds a random wrench at x=1400 while retaining Speed Shot at x=800. The game manual documents the two-slot stacking rule, pickup respawns, random rerolls, HUD priority, and all five wrench behaviors.
+
+The next milestone should begin with hands-on balance and visual playtesting of the five rocket modes. In particular, verify Triple/Twin target distribution in crowded combat, Dart aiming feel, Bigbomb AoE readability and cost, Boomerang catch reliability, and whether the sixty-second tactical return window suits level pacing before adding another power-up family.
+
+
+
+## Revision 214 cached coloured wrench-rocket outlines
+
+Every rocket launched under a wrench effect now preserves that wrench's ID and colour in the projectile record. This is launch-time identity, not a live lookup of Ignatius's current wrench, so replacing a wrench cannot recolour a projectile already in flight. Triple is yellow, Dart cyan, Twin green, Bigbomb red, and Boomerang purple. Standard rockets and rockets modified only by Speed Shot remain visually unchanged.
+
+The new presentation-only `src/presentation/rocket-glow-cache.js` builds one padded offscreen sprite for each source-rocket/tint pair. It extracts the authored rocket alpha, expands the silhouette with separable horizontal and vertical sliding-window maximum filters, applies a separable Gaussian blur, writes the tinted alpha surface, and retains it in a source-keyed cache. Runtime drawing then performs only an additive cached `drawImage` behind the ordinary rocket sprite before drawing the rocket and nozzle flame. The expensive image processing is therefore paid only on first use of a wrench colour, never once per rocket per frame.
+
+
+## Revision 215 larger cached wrench-rocket outlines
+
+The cached coloured outline around every wrench-modified rocket is now three times larger than in revision 214. The same cached separable-dilation and separable-Gaussian pipeline is still used, but the default expansion and blur radii are multiplied by three before the offscreen glow sprite is generated. Runtime draw cost is unchanged because the larger glow remains precomposited and reused.
+
+
+## Revision 216 softer wider cached wrench-rocket glow blur
+
+The cached coloured wrench-rocket halo now uses a larger blur kernel, with the soft blur extending roughly 20% of the source rocket width beyond the rocket silhouette. Revision 215 already enlarged the overall glow; revision 216 specifically makes the outer edge softer and broader by enforcing a minimum blur radius derived from rocket width and by using a correspondingly wider Gaussian sigma. The glow remains fully precomposited and cached, so runtime draw cost remains unchanged.
+
+
+## Revision 217 pure wrench colours, softer halo, and non-piercing Dart
+
+The cached wrench-rocket halo now uses a blur radius of roughly 25% of the source rocket width and a broader Gaussian sigma, producing a softer outer falloff than revision 216. All wrench glows now use exact pure RGB colours: Triple yellow `#ffff00`, Dart cyan `#00ffff`, Twin green `#00ff00`, Bigbomb red `#ff0000`, and Boomerang magenta `#ff00ff`. Runtime pickup and projectile glows no longer use additive blending, and the Level Editor no longer overlays an untinted white glow, avoiding pastel or white-shifted highlights. Dart remains double damage and two-thirds fuel cost but explicitly stops and explodes on the first enemy it hits.
+
+
+## Revision 218 physical Boomerang return path
+
+Boomerang rockets no longer become collision-free while returning to Ignatius. When no valid target remains, or after destroying a target, the projectile homes toward the wizard using its existing return steering. The return flight now performs the same swept collision checks as an ordinary player rocket. Reaching Ignatius completes the catch and refunds half the launch fuel; striking an enemy, reactive blocker, solid, platform, or cave collision first makes the rocket explode without a refund. An outbound Boomerang that directly strikes terrain also explodes immediately rather than using the terrain hit as a trigger to phase back through the level.

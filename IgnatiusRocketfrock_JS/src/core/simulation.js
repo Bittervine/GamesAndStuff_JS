@@ -19,6 +19,8 @@ import {
 } from "../shared/signal-channel-data.js";
 import { normalizeLevelMusic } from "../shared/music-data.js";
 import {
+    WRENCH_POWER_UP_EFFECT_IDS,
+    activeWrenchPowerUpEffect,
     normalizeActivePowerUpEffect,
     normalizePowerUpPickup,
     powerUpEffectDefinition,
@@ -251,13 +253,17 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "212-eight-second-overdrive-three-bar-hud",
+            build: "217-pure-wrench-glows-dart-impact",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
             tick: 0,
             time: 0,
             fixedDt: tuning.timestep
+        },
+        random: {
+            seed: (Math.floor(Number(overrides.randomSeed)) >>> 0) || 0x1a2b3c4d,
+            levelLoadCount: 0
         },
         tuning,
         settings,
@@ -1570,9 +1576,26 @@ function activatePowerUpEffect(state, pickup) {
     if (!definition) return false;
 
     const activeEffects = ensureStatusEffects(state);
+    const replacedEffectIds = [];
+    if (definition.exclusiveGroup && definition.groupId) {
+        for (const [effectId, raw] of Object.entries(activeEffects)) {
+            const active = normalizeActivePowerUpEffect(raw);
+            if (!active || active.id === definition.id) continue;
+            if (active.definition.groupId !== definition.groupId) continue;
+            replacedEffectIds.push(active.id);
+            delete activeEffects[effectId];
+            addEvent(state, "POWER_UP_EFFECT_CANCELLED", {
+                effectId: active.id,
+                replacementEffectId: definition.id,
+                groupId: definition.groupId,
+                pickupId: pickup?.id || null
+            });
+        }
+    }
+
     const existing = normalizeActivePowerUpEffect(activeEffects[definition.id]);
     let next = existing;
-    let eventType = "POWER_UP_EFFECT_ACTIVATED";
+    let eventType = replacedEffectIds.length ? "POWER_UP_EFFECT_REPLACED" : "POWER_UP_EFFECT_ACTIVATED";
     if (!existing) {
         next = normalizeActivePowerUpEffect({
             id: definition.id,
@@ -1603,7 +1626,9 @@ function activatePowerUpEffect(state, pickup) {
         pickupId: pickup?.id || null,
         remainingSeconds: next?.remainingSeconds,
         permanent: definition.permanent,
-        refreshCount: next?.refreshCount || 0
+        refreshCount: next?.refreshCount || 0,
+        groupId: definition.groupId || null,
+        replacedEffectIds
     });
     return true;
 }
@@ -1617,15 +1642,17 @@ function updateStatusEffects(state, dt) {
             continue;
         }
         if (active.definition.permanent) {
-            activeEffects[effectId] = active;
+            activeEffects[active.id] = active;
+            if (effectId !== active.id) delete activeEffects[effectId];
             continue;
         }
         active.remainingSeconds = Math.max(0, active.remainingSeconds - Math.max(0, dt));
         if (active.remainingSeconds <= 0) {
             delete activeEffects[effectId];
-            addEvent(state, "POWER_UP_EFFECT_EXPIRED", { effectId });
+            addEvent(state, "POWER_UP_EFFECT_EXPIRED", { effectId: active.id });
         } else {
-            activeEffects[effectId] = active;
+            activeEffects[active.id] = active;
+            if (effectId !== active.id) delete activeEffects[effectId];
         }
     }
 }
@@ -1640,6 +1667,44 @@ function clearDeathResetPowerUps(state) {
     }
 }
 
+function rerollRandomPowerUpPickup(state, pickup) {
+    if (!pickup || !Array.isArray(pickup.randomEffectIds) || !pickup.randomEffectIds.length) return false;
+    pickup.randomRollCount = Math.max(0, Math.floor(Number(pickup.randomRollCount) || 0)) + 1;
+    const effectId = randomPowerUpEffectId(state, pickup.id, pickup.randomEffectIds, pickup.randomRollCount);
+    const nextPowerUp = normalizePowerUpPickup({
+        effectId,
+        radius: pickup.radius,
+        atlasId: pickup.powerUp?.atlasId || "it_atlas_001",
+        glowFrame: pickup.powerUp?.glowFrame || "powerup_glow_white"
+    });
+    if (!nextPowerUp) return false;
+    pickup.powerUp = nextPowerUp;
+    pickup.pickupKind = nextPowerUp.effectId;
+    addEvent(state, "POWER_UP_PICKUP_REROLLED", {
+        pickupId: pickup.id,
+        effectId: nextPowerUp.effectId,
+        rollCount: pickup.randomRollCount
+    });
+    return true;
+}
+
+function updatePickupRespawns(state, dt) {
+    for (const pickup of state.pickups || []) {
+        if (!pickup.collected || !(Number(pickup.respawnSeconds) > 0)) continue;
+        pickup.respawnTimer = Math.max(0, (Number(pickup.respawnTimer) || 0) - Math.max(0, dt));
+        if (pickup.respawnTimer > 0) continue;
+        if (Array.isArray(pickup.randomEffectIds) && pickup.randomEffectIds.length) {
+            rerollRandomPowerUpPickup(state, pickup);
+        }
+        pickup.collected = false;
+        addEvent(state, "POWER_UP_PICKUP_RESPAWNED", {
+            pickupId: pickup.id,
+            effectId: pickup.powerUp?.effectId || null,
+            respawnSeconds: pickup.respawnSeconds
+        });
+    }
+}
+
 function updatePickups(state) {
     const playerCenterY = state.player.y - state.player.height * 0.5;
     for (const pickup of state.pickups || []) {
@@ -1651,6 +1716,7 @@ function updatePickups(state) {
         if (Math.hypot(state.player.x - pickup.x, playerCenterY - pickupCenterY) > reach) continue;
 
         pickup.collected = true;
+        pickup.respawnTimer = Math.max(0, Number(pickup.respawnSeconds) || 0);
         if (pickup.kind === "fuel" || pickup.pickupKind === "fuel") {
             const before = state.fuel.amount;
             state.fuel.amount = clamp(state.fuel.amount + Math.max(0, Number(pickup.amount) || 0), 0, state.fuel.max);
@@ -1663,7 +1729,8 @@ function updatePickups(state) {
             activatePowerUpEffect(state, pickup);
             addEvent(state, "POWER_UP_PICKUP_COLLECTED", {
                 pickupId: pickup.id,
-                effectId: pickup.powerUp?.effectId || null
+                effectId: pickup.powerUp?.effectId || null,
+                respawnSeconds: pickup.respawnSeconds
             });
         } else {
             const itemId = String(pickup.pickupKind || pickup.kind || "item");
@@ -2143,6 +2210,8 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         return false;
     }
 
+    const random = ensureRandomState(state);
+    random.levelLoadCount += 1;
     const source = editorLevel.level || editorLevel;
     const caveWindow = normalizeCaveWindow(source.caveWindow || source.visuals?.caveWindow);
     const caveKillBoundary = deriveCaveFullBlackKillBoundary(caveWindow);
@@ -2523,10 +2592,12 @@ export function applyEditorLevelToWorld(state, editorLevel) {
 
     const pickupLike = (entity) => {
         const type = String(entity.type || entity.kind || "");
-        return Boolean(entity.pickupKind) || Boolean(entity.effectId) || [
+        return Boolean(entity.pickupKind) || Boolean(entity.effectId) || Array.isArray(entity.randomEffectIds) || [
             "fuel",
             "fuelPickup",
             "rocketOverdrivePickup",
+            "speedShotPickup",
+            "randomWrenchPickup",
             "ornateKeyPickup",
             "ironKeyPickup",
             "magicRingPickup",
@@ -2537,13 +2608,32 @@ export function applyEditorLevelToWorld(state, editorLevel) {
         ].includes(type);
     };
     state.pickups = runtimeEntities.filter(pickupLike).map((entity, index) => {
-        const powerUp = entity.effectId || entity.type === "rocketOverdrivePickup"
-            ? normalizePowerUpPickup(entity)
+        const type = String(entity.type || entity.kind || "");
+        const randomEffectIds = type === "randomWrenchPickup" || Array.isArray(entity.randomEffectIds)
+            ? normalizedRandomEffectPool(entity.randomEffectIds)
+            : [];
+        const randomRollCount = Math.max(0, Math.floor(Number(entity.randomRollCount) || 0));
+        const selectedRandomEffectId = randomEffectIds.length
+            ? randomPowerUpEffectId(state, entity.id || `random_powerup_${index + 1}`, randomEffectIds, randomRollCount)
             : null;
-        const pickupKind = String(entity.pickupKind || (entity.type === "fuel" ? "fuel" : entity.kind || entity.type || "item"));
+        const authoredEffectId = selectedRandomEffectId || entity.effectId ||
+            (type === "rocketOverdrivePickup" || type === "speedShotPickup" ? "speedShot" : null);
+        const powerUp = authoredEffectId
+            ? normalizePowerUpPickup({
+                ...entity,
+                effectId: authoredEffectId,
+                iconFrame: randomEffectIds.length ? undefined : entity.iconFrame,
+                glowTint: randomEffectIds.length ? undefined : entity.glowTint
+            })
+            : null;
+        const pickupKind = String(entity.pickupKind || (type === "fuel" ? "fuel" : entity.kind || type || "item"));
         const kind = powerUp ? "powerUp" : (pickupKind === "fuel" ? "fuel" : "item");
         const width = Math.max(1, Number(entity.w) || Number(entity.width) || (powerUp ? 96 : 42));
         const height = Math.max(1, Number(entity.h) || Number(entity.height) || (powerUp ? 96 : 80));
+        const respawnSeconds = powerUp
+            ? Math.max(0, finiteNumberOr(entity.respawnSeconds, 60))
+            : Math.max(0, finiteNumberOr(entity.respawnSeconds, 0));
+        const collected = entity.state === "collected";
         return {
             id: entity.id || `${pickupKind}_${index + 1}`,
             entityId: entity.id || `${pickupKind}_${index + 1}`,
@@ -2557,7 +2647,11 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             height,
             radius: Math.max(4, Number(entity.radius) || powerUp?.radius || Math.min(width, height) * 0.42),
             amount: Math.max(1, Number(entity.amount) || (kind === "fuel" ? 40 : 1)),
-            collected: entity.state === "collected",
+            collected,
+            respawnSeconds,
+            respawnTimer: collected ? respawnSeconds : 0,
+            randomEffectIds,
+            randomRollCount,
             visualized: editorEntityVisuals(entity).length > 0
         };
     });
@@ -2754,6 +2848,53 @@ function clamp(value, min, max) {
 function finiteNumberOr(value, fallback) {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
+}
+
+function stableStringHash(value) {
+    let hash = 2166136261 >>> 0;
+    for (const character of String(value || "")) {
+        hash ^= character.charCodeAt(0);
+        hash = Math.imul(hash, 16777619) >>> 0;
+    }
+    return hash >>> 0;
+}
+
+function mixedUint32(value) {
+    let x = value >>> 0;
+    x ^= x >>> 16;
+    x = Math.imul(x, 0x7feb352d) >>> 0;
+    x ^= x >>> 15;
+    x = Math.imul(x, 0x846ca68b) >>> 0;
+    x ^= x >>> 16;
+    return x >>> 0;
+}
+
+function ensureRandomState(state) {
+    if (!state.random || typeof state.random !== "object") {
+        state.random = { seed: 0x1a2b3c4d, levelLoadCount: 0 };
+    }
+    state.random.seed = (Math.floor(Number(state.random.seed)) >>> 0) || 0x1a2b3c4d;
+    state.random.levelLoadCount = Math.max(0, Math.floor(Number(state.random.levelLoadCount) || 0));
+    return state.random;
+}
+
+function deterministicPowerUpIndex(state, pickupId, rollCount, poolLength) {
+    const random = ensureRandomState(state);
+    const salt = stableStringHash(`${pickupId}:${random.levelLoadCount}:${Math.max(0, Math.floor(Number(rollCount) || 0))}`);
+    return mixedUint32(random.seed ^ salt) % Math.max(1, poolLength);
+}
+
+function normalizedRandomEffectPool(effectIds) {
+    const source = Array.isArray(effectIds) && effectIds.length ? effectIds : WRENCH_POWER_UP_EFFECT_IDS;
+    return source
+        .map((effectId) => powerUpEffectDefinition(effectId)?.id)
+        .filter((effectId, index, all) => effectId && all.indexOf(effectId) === index);
+}
+
+function randomPowerUpEffectId(state, pickupId, effectIds, rollCount = 0) {
+    const pool = normalizedRandomEffectPool(effectIds);
+    if (!pool.length) return null;
+    return pool[deterministicPowerUpIndex(state, pickupId, rollCount, pool.length)];
 }
 
 function sanitizeInput(inputFrame) {
@@ -5600,6 +5741,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
     state.clock.tick += 1;
     state.clock.time += dt;
     updateStatusEffects(state, dt);
+    updatePickupRespawns(state, dt);
     state.debug.lastInputFrame = deepClone(input);
     state.collisions.playerTouching = { left: false, right: false, up: false, down: false };
     state.collisions.lastResolution = null;
@@ -5869,10 +6011,61 @@ function stopAttachedBoost(state, reason) {
     addEvent(state, "PLAYER_BOOST_ENDED", { reason, fuel: round(state.fuel.amount) });
 }
 
+function rotateVector(vector, radians) {
+    const cos = Math.cos(radians);
+    const sin = Math.sin(radians);
+    return {
+        x: vector.x * cos - vector.y * sin,
+        y: vector.x * sin + vector.y * cos
+    };
+}
+
+function orderedHomingTargets(state) {
+    const activeTargets = (state.targets || []).filter((target) => target.state === "active");
+    if (!activeTargets.length) return [];
+    const player = state.player || { x: 0, y: 0, height: 0, facing: 1 };
+    const facing = player.facing < 0 ? -1 : 1;
+    const originX = Number(player.x) || 0;
+    const originY = (Number(player.y) || 0) - (Number(player.height) || 0) * 0.72;
+    const forwardTargets = activeTargets.filter((target) => (Number(target.x) - originX) * facing >= -0.001);
+    const candidates = forwardTargets.length ? forwardTargets : activeTargets;
+    return candidates.slice().sort((left, right) => {
+        const leftDx = Number(left.x) - originX;
+        const leftDy = Number(left.y) - originY;
+        const rightDx = Number(right.x) - originX;
+        const rightDy = Number(right.y) - originY;
+        const distanceDifference = (leftDx * leftDx + leftDy * leftDy) - (rightDx * rightDx + rightDy * rightDy);
+        if (Math.abs(distanceDifference) > 0.0001) return distanceDifference;
+        return String(left.id).localeCompare(String(right.id));
+    });
+}
+
+function activeRocketProfile(state) {
+    return activeWrenchPowerUpEffect(state)?.definition?.rocket || {
+        projectileCount: 1,
+        damageMultiplier: 1,
+        radiusMultiplier: 1,
+        visualScale: 1,
+        glowTint: null,
+        speedMultiplier: 1,
+        homingStrengthMultiplier: 1,
+        homing: true,
+        launchMode: "up",
+        initialAnglesDegrees: [0],
+        separateTargets: false,
+        areaDamageRadiusWizardHeights: 0,
+        boomerang: false
+    };
+}
+
 function launchHomingRocket(state, input) {
     const t = state.tuning;
     const weapons = state.weapons;
     const powerUpMultipliers = rocketPowerUpMultipliers(state);
+    const activeWrenchEffect = activeWrenchPowerUpEffect(state);
+    const rocketProfile = activeWrenchEffect?.definition?.rocket || activeRocketProfile(state);
+    const wrenchEffectId = activeWrenchEffect?.id || null;
+    const wrenchGlowTint = String(rocketProfile.glowTint || activeWrenchEffect?.definition?.hud?.glowTint || "").trim() || null;
     const launchCost = Math.max(0, t.rocketLaunchCost * powerUpMultipliers.launchFuelCostMultiplier);
     const launchCooldown = Math.max(FIXED_DT, t.rocketLaunchCooldown * powerUpMultipliers.launchCooldownMultiplier);
     if (weapons.launchCooldownTimer > 0) {
@@ -5885,39 +6078,162 @@ function launchHomingRocket(state, input) {
     }
 
     const p = state.player;
-    const target = findHomingTarget(state);
-    const launchDir = { x: 0, y: -1 };
-    const projectile = {
-        id: `rocket_${String(weapons.nextProjectileId).padStart(3, "0")}`,
-        kind: "homingRocket",
-        state: "launched",
-        x: p.x,
-        y: p.y - p.height * 0.72,
-        vx: launchDir.x * t.rocketProjectileSpeed,
-        vy: launchDir.y * t.rocketProjectileSpeed,
-        facing: p.facing,
-        targetId: target ? target.id : null,
-        upLaunchTimer: Math.max(0, t.rocketProjectileUpLaunchSeconds ?? 0.32),
-        age: 0,
-        lifetime: t.rocketProjectileLifetime,
-        explosionTimer: 0,
-        radius: 15,
-        damage: Math.max(0, t.rocketProjectileDamage ?? 55),
-        frameId: "rocket_projectile",
-        characterId: "ct_char_wizard_1",
-        trail: [
-            { x: p.x, y: p.y - p.height * 0.72, time: state.clock.time }
-        ]
-    };
+    const projectileCount = Math.max(1, Math.floor(Number(rocketProfile.projectileCount) || 1));
+    const targets = orderedHomingTargets(state);
+    const baseDirection = rocketProfile.launchMode === "forward"
+        ? { x: p.facing < 0 ? -1 : 1, y: 0 }
+        : { x: 0, y: -1 };
+    const angles = Array.isArray(rocketProfile.initialAnglesDegrees) && rocketProfile.initialAnglesDegrees.length
+        ? rocketProfile.initialAnglesDegrees
+        : [0];
+    const projectileSpeed = t.rocketProjectileSpeed * Math.max(0.05, Number(rocketProfile.speedMultiplier) || 1);
+    const projectileDamage = Math.max(0, (t.rocketProjectileDamage ?? 55) * Math.max(0, Number(rocketProfile.damageMultiplier) || 0));
+    const projectileRadius = 15 * Math.max(0.1, Number(rocketProfile.radiusMultiplier) || 1);
+    const areaDamageRadius = Math.max(0, Number(rocketProfile.areaDamageRadiusWizardHeights) || 0) * Math.max(1, Number(t.wizardHeight) || Number(p.height) || 104);
+    const volleyId = `rocket_volley_${state.clock.tick}_${weapons.nextProjectileId}`;
+    const spawnedIds = [];
 
-    weapons.nextProjectileId += 1;
+    for (let index = 0; index < projectileCount; index += 1) {
+        const angleDegrees = Number(angles[index % angles.length]) || 0;
+        const launchDir = rotateVector(baseDirection, angleDegrees * Math.PI / 180);
+        const target = rocketProfile.homing && targets.length
+            ? targets[rocketProfile.separateTargets ? index % targets.length : 0]
+            : null;
+        const lateral = index - (projectileCount - 1) * 0.5;
+        const spawnX = p.x + (rocketProfile.launchMode === "forward" ? 0 : lateral * 7);
+        const spawnY = p.y - p.height * 0.72 + (rocketProfile.launchMode === "forward" ? lateral * 6 : 0);
+        const projectile = {
+            id: `rocket_${String(weapons.nextProjectileId).padStart(3, "0")}`,
+            volleyId,
+            kind: rocketProfile.boomerang ? "boomerangRocket" : (rocketProfile.homing ? "homingRocket" : "dartRocket"),
+            owner: "player",
+            isRocket: true,
+            state: "launched",
+            x: spawnX,
+            y: spawnY,
+            vx: launchDir.x * projectileSpeed,
+            vy: launchDir.y * projectileSpeed,
+            facing: p.facing,
+            targetId: target ? target.id : null,
+            homing: Boolean(rocketProfile.homing),
+            homingStrength: Math.max(0, t.rocketProjectileHomingStrength * (Number(rocketProfile.homingStrengthMultiplier) || 0)),
+            projectileSpeed,
+            upLaunchTimer: rocketProfile.launchMode === "up" ? Math.max(0, t.rocketProjectileUpLaunchSeconds ?? 0.32) : 0,
+            age: 0,
+            lifetime: t.rocketProjectileLifetime,
+            explosionTimer: 0,
+            radius: projectileRadius,
+            visualScale: Math.max(0.1, Number(rocketProfile.visualScale) || 1),
+            wrenchEffectId,
+            wrenchGlowTint,
+            explosionVisualScale: Math.max(1, Number(rocketProfile.visualScale) || 1),
+            damage: projectileDamage,
+            areaDamageRadius,
+            boomerang: Boolean(rocketProfile.boomerang),
+            piercesEnemies: Boolean(rocketProfile.piercesEnemies),
+            boomerangMode: rocketProfile.boomerang ? "outbound" : null,
+            boomerangReturnStartedAt: null,
+            boomerangRefundFuel: rocketProfile.boomerang ? launchCost * 0.5 : 0,
+            frameId: "rocket_projectile",
+            characterId: "ct_char_wizard_1",
+            trail: [
+                { x: spawnX, y: spawnY, time: state.clock.time }
+            ]
+        };
+        weapons.nextProjectileId += 1;
+        state.projectiles.push(projectile);
+        spawnedIds.push(projectile.id);
+    }
+
     weapons.launchCooldownTimer = launchCooldown;
     weapons.launchedThisPhase = true;
-    state.projectiles.push(projectile);
     state.fuel.amount = clamp(state.fuel.amount - launchCost, 0, state.fuel.max);
     markRocketUse(state);
-    addEvent(state, "ROCKET_LAUNCHED", { id: projectile.id, targetId: projectile.targetId, fuel: round(state.fuel.amount), fuelCost: round(launchCost), cooldown: round(launchCooldown) });
+    addEvent(state, "ROCKET_LAUNCHED", {
+        id: spawnedIds[0],
+        projectileIds: spawnedIds,
+        projectileCount,
+        targetIds: spawnedIds.map((_, index) => targets.length ? targets[rocketProfile.separateTargets ? index % targets.length : 0]?.id || null : null),
+        fuel: round(state.fuel.amount),
+        fuelCost: round(launchCost),
+        cooldown: round(launchCooldown),
+        wrenchEffectId
+    });
     return true;
+}
+
+function beginBoomerangReturn(state, projectile, reason) {
+    if (!projectile?.boomerang || projectile.boomerangMode === "returning") return false;
+    projectile.boomerangMode = "returning";
+    projectile.boomerangReturnStartedAt = state.clock.time;
+    projectile.targetId = null;
+    projectile.upLaunchTimer = 0;
+    const target = {
+        x: state.player.x,
+        y: state.player.y - state.player.height * 0.55
+    };
+    const desired = normalizeVector({ x: target.x - projectile.x, y: target.y - projectile.y });
+    const speed = Math.max(1, Number(projectile.projectileSpeed) || state.tuning.rocketProjectileSpeed);
+    projectile.vx = desired.x * speed;
+    projectile.vy = desired.y * speed;
+    addEvent(state, "BOOMERANG_ROCKET_RETURNING", {
+        id: projectile.id,
+        reason,
+        refundFuel: round(projectile.boomerangRefundFuel || 0)
+    });
+    return true;
+}
+
+function completeBoomerangReturn(state, projectile) {
+    const before = state.fuel.amount;
+    state.fuel.amount = clamp(
+        state.fuel.amount + Math.max(0, Number(projectile.boomerangRefundFuel) || 0),
+        0,
+        state.fuel.max
+    );
+    projectile.state = "spent";
+    addEvent(state, "BOOMERANG_ROCKET_CAUGHT", {
+        id: projectile.id,
+        refundedFuel: round(state.fuel.amount - before),
+        fuel: round(state.fuel.amount)
+    });
+}
+
+function applyPlayerProjectileAreaDamage(state, projectile) {
+    const radius = Math.max(0, Number(projectile.areaDamageRadius) || 0);
+    if (radius <= 0) return { enemyIds: [], objectIds: [], damageEvents: 0 };
+    const enemyIds = [];
+    const objectIds = [];
+    for (const enemy of state.enemies || []) {
+        if (!enemy || enemy.health <= 0 || enemy.combatState === "dead") continue;
+        if (!circleRectOverlap(projectile.x, projectile.y, radius, enemyProjectileHitbox(enemy))) continue;
+        applyProjectileDamageToEnemy(state, projectile, enemy);
+        enemyIds.push(enemy.id);
+    }
+    for (const object of state.reactiveObjects || []) {
+        if (!reactiveObjectBlocksProjectiles(object)) continue;
+        if (!circleRectOverlap(projectile.x, projectile.y, radius, reactiveObjectCollisionRect(object))) continue;
+        applyProjectileDamageToReactiveObject(state, projectile, object);
+        objectIds.push(object.id);
+    }
+    addEvent(state, "ROCKET_AREA_DAMAGE_APPLIED", {
+        id: projectile.id,
+        radius: round(radius),
+        enemyIds,
+        objectIds
+    });
+    return { enemyIds, objectIds, damageEvents: enemyIds.length + objectIds.length };
+}
+
+function detonatePlayerProjectile(state, projectile, reason, detail = {}) {
+    const area = applyPlayerProjectileAreaDamage(state, projectile);
+    explodeProjectile(state, projectile, reason, {
+        ...detail,
+        areaDamageRadius: Math.max(0, Number(projectile.areaDamageRadius) || 0),
+        areaEnemyIds: area.enemyIds,
+        areaObjectIds: area.objectIds,
+        areaHitCount: area.damageEvents
+    });
 }
 
 function updateProjectiles(state, dt) {
@@ -5939,20 +6255,43 @@ function updateProjectiles(state, dt) {
             continue;
         }
 
-        if (projectile.kind === "homingRocket") {
+        if (projectile.isRocket) {
             projectile.upLaunchTimer = Math.max(0, (projectile.upLaunchTimer ?? 0) - dt);
-            const target = findTargetById(state, projectile.targetId) || findHomingTarget(state);
-            if (target && projectile.upLaunchTimer <= 0) {
-                projectile.targetId = target.id;
-                const desired = normalizeVector({ x: target.x - projectile.x, y: target.y - projectile.y });
-                const desiredVx = desired.x * t.rocketProjectileSpeed;
-                const desiredVy = desired.y * t.rocketProjectileSpeed;
-                const blend = clamp(t.rocketProjectileHomingStrength * dt, 0, 1);
+            if (projectile.boomerangMode === "returning") {
+                const returnTarget = {
+                    x: state.player.x,
+                    y: state.player.y - state.player.height * 0.55
+                };
+                const desired = normalizeVector({ x: returnTarget.x - projectile.x, y: returnTarget.y - projectile.y });
+                const speed = Math.max(1, Number(projectile.projectileSpeed) || t.rocketProjectileSpeed);
+                const desiredVx = desired.x * speed;
+                const desiredVy = desired.y * speed;
+                const blend = clamp(Math.max(7.2, Number(projectile.homingStrength) || 0) * 1.5 * dt, 0, 1);
                 projectile.vx += (desiredVx - projectile.vx) * blend;
                 projectile.vy += (desiredVy - projectile.vy) * blend;
-                const speed = Math.hypot(projectile.vx, projectile.vy) || 1;
-                projectile.vx = projectile.vx / speed * t.rocketProjectileSpeed;
-                projectile.vy = projectile.vy / speed * t.rocketProjectileSpeed;
+                const nextSpeed = Math.hypot(projectile.vx, projectile.vy) || 1;
+                projectile.vx = projectile.vx / nextSpeed * speed;
+                projectile.vy = projectile.vy / nextSpeed * speed;
+            } else if (projectile.homing) {
+                let target = findTargetById(state, projectile.targetId);
+                if (!target && projectile.boomerang && projectile.upLaunchTimer <= 0) {
+                    beginBoomerangReturn(state, projectile, "targetUnavailable");
+                } else {
+                    target = target || findHomingTarget(state);
+                    if (target && projectile.upLaunchTimer <= 0) {
+                        projectile.targetId = target.id;
+                        const desired = normalizeVector({ x: target.x - projectile.x, y: target.y - projectile.y });
+                        const speed = Math.max(1, Number(projectile.projectileSpeed) || t.rocketProjectileSpeed);
+                        const desiredVx = desired.x * speed;
+                        const desiredVy = desired.y * speed;
+                        const blend = clamp((Number(projectile.homingStrength) || t.rocketProjectileHomingStrength) * dt, 0, 1);
+                        projectile.vx += (desiredVx - projectile.vx) * blend;
+                        projectile.vy += (desiredVy - projectile.vy) * blend;
+                        const nextSpeed = Math.hypot(projectile.vx, projectile.vy) || 1;
+                        projectile.vx = projectile.vx / nextSpeed * speed;
+                        projectile.vy = projectile.vy / nextSpeed * speed;
+                    }
+                }
             }
         } else if (projectile.kind === "enemyFireball") {
             const playerTarget = state.player.visible === false ? null : { x: state.player.x, y: state.player.y - state.player.height * 0.56 };
@@ -5970,7 +6309,7 @@ function updateProjectiles(state, dt) {
             }
         }
 
-        if (projectile.kind !== "homingRocket") {
+        if (!projectile.isRocket) {
             projectile.vy += (Number(projectile.gravity) || 0) * dt;
         }
 
@@ -5979,7 +6318,7 @@ function updateProjectiles(state, dt) {
         projectile.x += projectile.vx * dt;
         projectile.y += projectile.vy * dt;
 
-        if (projectile.kind === "homingRocket") {
+        if (projectile.isRocket) {
             recordProjectileTrail(state, projectile);
         } else if (projectile.kind === "enemyFireball") {
             if (state.settings?.renderingQuality !== "low") {
@@ -5987,6 +6326,65 @@ function updateProjectiles(state, dt) {
             } else if (Array.isArray(projectile.trail) && projectile.trail.length) {
                 projectile.trail.length = 0;
             }
+        }
+
+        if (projectile.boomerangMode === "returning") {
+            const start = { x: previousX, y: previousY };
+            const end = { x: projectile.x, y: projectile.y };
+            const radius = Math.max(0, Number(projectile.radius) || 0);
+            const catchImpact = sweptCircleRectImpact(start, end, radius, getPlayerRect(state));
+            const enemyImpact = findProjectileEnemyImpact(state, projectile, previousX, previousY);
+            const reactiveImpact = findProjectileReactiveObjectImpact(state, projectile, previousX, previousY);
+            const terrainImpact = findProjectileTerrainImpact(state, projectile, previousX, previousY);
+            const impacts = [
+                catchImpact ? { ...catchImpact, impactKind: "playerCatch", priority: 0 } : null,
+                enemyImpact ? { ...enemyImpact, impactKind: "enemy", priority: 1 } : null,
+                reactiveImpact ? { ...reactiveImpact, impactKind: "reactiveObject", priority: 2 } : null,
+                terrainImpact ? { ...terrainImpact, impactKind: "terrain", priority: 3 } : null
+            ].filter(Boolean).sort((a, b) => (a.t - b.t) || (a.priority - b.priority));
+            const impact = impacts[0] || null;
+
+            if (impact?.impactKind === "playerCatch") {
+                projectile.x = impact.x;
+                projectile.y = impact.y;
+                completeBoomerangReturn(state, projectile);
+            } else if (impact?.impactKind === "enemy") {
+                projectile.x = impact.x;
+                projectile.y = impact.y;
+                const damageResult = applyProjectileDamageToEnemy(state, projectile, impact.enemy);
+                explodeProjectile(state, projectile, impact.enemy.id, {
+                    impactKind: "enemy",
+                    enemyId: impact.enemy.id,
+                    damage: damageResult.damage,
+                    health: damageResult.health,
+                    defeated: damageResult.defeated,
+                    boomerangReturning: true
+                });
+            } else if (impact?.impactKind === "reactiveObject") {
+                projectile.x = impact.x;
+                projectile.y = impact.y;
+                const damageResult = applyProjectileDamageToReactiveObject(state, projectile, impact.object);
+                explodeProjectile(state, projectile, impact.object.id, {
+                    impactKind: "reactiveObject",
+                    objectId: impact.object.id,
+                    damage: damageResult.damage,
+                    health: damageResult.health,
+                    state: damageResult.state,
+                    destroyed: damageResult.destroyed,
+                    boomerangReturning: true
+                });
+            } else if (impact?.impactKind === "terrain") {
+                projectile.x = impact.x;
+                projectile.y = impact.y;
+                explodeProjectile(state, projectile, impact.id, {
+                    impactKind: "terrain",
+                    boomerangReturning: true
+                });
+            } else if (state.clock.time - (Number(projectile.boomerangReturnStartedAt) || state.clock.time) >= 4) {
+                projectile.state = "spent";
+                addEvent(state, "BOOMERANG_ROCKET_RETURN_FAILED", { id: projectile.id });
+            }
+            continue;
         }
 
         if (projectile.owner === "enemy") {
@@ -6050,39 +6448,78 @@ function updateProjectiles(state, dt) {
         if (impact?.impactKind === "enemy") {
             projectile.x = impact.x;
             projectile.y = impact.y;
-            const damageResult = applyProjectileDamageToEnemy(state, projectile, impact.enemy);
-            explodeProjectile(state, projectile, impact.enemy.id, {
-                impactKind: "enemy",
-                enemyId: impact.enemy.id,
-                damage: damageResult.damage,
-                health: damageResult.health,
-                defeated: damageResult.defeated
-            });
+            if (projectile.areaDamageRadius > 0) {
+                detonatePlayerProjectile(state, projectile, impact.enemy.id, {
+                    impactKind: "enemy",
+                    enemyId: impact.enemy.id
+                });
+            } else {
+                const damageResult = applyProjectileDamageToEnemy(state, projectile, impact.enemy);
+                if (projectile.boomerang && damageResult.defeated) {
+                    emitProjectileImpactSmoke(state, projectile, { impactKind: "enemy" });
+                    addEvent(state, "BOOMERANG_ROCKET_TARGET_DESTROYED", {
+                        id: projectile.id,
+                        enemyId: impact.enemy.id,
+                        damage: damageResult.damage
+                    });
+                    beginBoomerangReturn(state, projectile, "targetDestroyed");
+                } else {
+                    explodeProjectile(state, projectile, impact.enemy.id, {
+                        impactKind: "enemy",
+                        enemyId: impact.enemy.id,
+                        damage: damageResult.damage,
+                        health: damageResult.health,
+                        defeated: damageResult.defeated
+                    });
+                }
+            }
             continue;
         }
         if (impact?.impactKind === "reactiveObject") {
             projectile.x = impact.x;
             projectile.y = impact.y;
-            const damageResult = applyProjectileDamageToReactiveObject(state, projectile, impact.object);
-            explodeProjectile(state, projectile, impact.object.id, {
-                impactKind: "reactiveObject",
-                objectId: impact.object.id,
-                damage: damageResult.damage,
-                health: damageResult.health,
-                state: damageResult.state,
-                destroyed: damageResult.destroyed
-            });
+            if (projectile.areaDamageRadius > 0) {
+                detonatePlayerProjectile(state, projectile, impact.object.id, {
+                    impactKind: "reactiveObject",
+                    objectId: impact.object.id
+                });
+            } else {
+                const damageResult = applyProjectileDamageToReactiveObject(state, projectile, impact.object);
+                if (projectile.boomerang && damageResult.destroyed) {
+                    emitProjectileImpactSmoke(state, projectile, { impactKind: "reactiveObject" });
+                    beginBoomerangReturn(state, projectile, "objectDestroyed");
+                } else {
+                    explodeProjectile(state, projectile, impact.object.id, {
+                        impactKind: "reactiveObject",
+                        objectId: impact.object.id,
+                        damage: damageResult.damage,
+                        health: damageResult.health,
+                        state: damageResult.state,
+                        destroyed: damageResult.destroyed
+                    });
+                }
+            }
             continue;
         }
         if (impact?.impactKind === "terrain") {
             projectile.x = impact.x;
             projectile.y = impact.y;
-            explodeProjectile(state, projectile, impact.id, { impactKind: "terrain" });
+            if (projectile.areaDamageRadius > 0) {
+                detonatePlayerProjectile(state, projectile, impact.id, { impactKind: "terrain" });
+            } else {
+                explodeProjectile(state, projectile, impact.id, { impactKind: "terrain" });
+            }
             continue;
         }
 
         if (projectile.age >= projectile.lifetime) {
-            explodeProjectile(state, projectile, "lifetime");
+            if (projectile.boomerang) {
+                beginBoomerangReturn(state, projectile, "lifetimeMiss");
+            } else if (projectile.areaDamageRadius > 0) {
+                detonatePlayerProjectile(state, projectile, "lifetime");
+            } else {
+                explodeProjectile(state, projectile, "lifetime");
+            }
         }
     }
 

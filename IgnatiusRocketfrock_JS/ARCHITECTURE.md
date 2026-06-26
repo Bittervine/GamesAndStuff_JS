@@ -39,6 +39,7 @@ IgnatiusRocketfrock_JS/
 │   │   ├── character-runtime.js
 │   │   ├── foreground-sprite-treatment.js
 │   │   ├── level-color-map-cache.js
+│   │   ├── rocket-glow-cache.js
 │   │   └── world-visual-cache.js
 │   ├── shared/
 │   │   ├── actor-geometry.js
@@ -134,6 +135,7 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 | `src/browser/game-settings-store.js` | BROWSER ADAPTER | Safe local-storage load/save for normalized game-facing settings. |
 | `src/browser/electron-window-bridge.js` | BROWSER ADAPTER | Detection and normalization of the optional sandboxed Electron preload API for quit/fullscreen operations. |
 | `electron/main.cjs` / `electron/preload.cjs` | DESKTOP HOST | Optional native window, secure preload boundary, desktop quit, and fullscreen IPC. No gameplay ownership. |
+| `src/presentation/rocket-glow-cache.js` | PRESENTATION ONLY | One-time separable alpha dilation and Gaussian blur for wrench-coloured rocket silhouettes, cached by source sprite and tint for ordinary per-frame `drawImage` composition. |
 | `src/presentation/canvas-renderer.js` | PRESENTATION ONLY | Canvas world rendering, camera presentation, rig drawing, visual effects, cave-mask composition, story overlays, and debug overlays. |
 | `src/presentation/cave-window-mask.js` | PRESENTATION ONLY | Reduced-resolution reusable offscreen black cave mask, stable render keys, spline-to-screen tracing, outward feathering, and camera-relative foreground parallax. |
 | `src/presentation/foreground-sprite-treatment.js` | PRESENTATION ONLY | Cached Canvas preparation for dark/desaturated cave foreground frames, world-to-local outward vectors, and a linear handover to opaque black at the sprite's exterior edge. |
@@ -444,3 +446,36 @@ Portable effect definitions now include a numeric `hud.priority`. `prioritizedAc
 
 World pickup composition remains Canvas-owned. The active-effect timer is now part of the existing DOM HUD in `game.html`, bound from `src/browser/game-bootstrap.js`; the renderer no longer draws a second screen-space badge. Health, fuel, and Power bars are presentation-only projections of portable state and never feed values back into simulation.
 
+## Revision 213 Speed Shot and randomized wrench arsenal
+
+The former `rocketOverdrive` effect is now canonically `speedShot`; the shared normalizer still accepts the old ID for revision-211/212 snapshots. Speed Shot remains an independent eight-second effect with HUD priority 100, half projectile fuel cost, and half launch cooldown. The inactive Power label is now simply `Powerup:`.
+
+Five fifteen-second wrench effects share the exclusive `wrench` group and HUD priority 50. Collecting Triple, Dart, Twin, Bigbomb, or Boomerang removes any other active wrench but leaves Speed Shot untouched. Triple launches three one-third-damage, small homing rockets with distinct initial fan angles and separate target assignment when possible. Twin launches two half-damage medium rockets. Dart launches one normal-sized, non-homing rocket straight along Ignatius's facing direction, deals double damage, and costs two-thirds standard fuel. Bigbomb costs triple fuel, travels at half speed, turns with half homing response, renders at 1.7× scale, deals triple damage, and applies full damage in a radius of 1.5 wizard heights. Boomerang uses standard rocket damage and cost; a miss or a destroyed target sends it back toward Ignatius, and a successful catch refunds half the launch fuel.
+
+Power-up pickup runtime records now carry `respawnSeconds`, `respawnTimer`, and optional `randomEffectIds` plus `randomRollCount`. Browser startup supplies a fresh session seed, while portable core derives deterministic per-level and per-respawn rolls from that seed, pickup identity, level-load count, and roll count. All power-up pickups default to a sixty-second respawn. A random wrench rerolls before becoming available again. Level 1 keeps Speed Shot at x=800 and adds a random wrench at x=1400.
+
+
+
+## Revision 214 cached wrench-rocket glow sprites
+
+Wrench identity and tint are copied onto each projectile at launch so an in-flight rocket keeps the visual language of the payload that created it, even if Ignatius collects another wrench before impact. `src/presentation/rocket-glow-cache.js` reads the projectile rocket frame's alpha once per source-sprite/tint pair, expands the silhouette with horizontal and vertical sliding-window maximum passes, softens it with horizontal and vertical Gaussian passes, and writes a padded tinted offscreen surface. `canvas-renderer.js` draws that cached surface additively behind the ordinary rocket sprite. No pixel loop, blur, hue operation, or temporary surface allocation occurs during later draws of the same wrench colour. Standard and Speed Shot-only rockets do not request a glow.
+
+
+## Revision 215 larger cached wrench-rocket glow sprites
+
+`src/presentation/rocket-glow-cache.js` now applies a default `glowSizeMultiplier` of 3 when generating wrench-rocket glow sprites. This scales both the silhouette expansion radius and the blur radius before caching, producing a much broader halo without changing the per-frame renderer path. The multiplier is included in the cache key so alternate future glow scales can coexist safely.
+
+
+## Revision 216 softer cached wrench-rocket halo blur
+
+`src/presentation/rocket-glow-cache.js` now guarantees a minimum blur radius based on `sourceWidth * 0.2`, in addition to the existing scaled silhouette expansion. A wider default Gaussian sigma is derived from that blur radius so the coloured halo extends outward as a softer fuzzy aura rather than a relatively sharp rim. The cache key now includes the blur-outset fraction so future tuning variants remain isolated.
+
+
+## Revision 217 exact wrench-glow colour contract
+
+Wrench effect metadata now owns exact pure RGB tint values, copied into pickup presentation and projectile launch-time state. Canvas presentation uses normal alpha compositing for these coloured glow surfaces instead of additive blending, preventing the cached tint from being driven toward white. The rocket glow generator uses a default width-relative blur outset of 0.25 with a broader sigma. Dart carries an explicit `piercesEnemies: false` projectile contract and the ordinary first-impact explosion path remains authoritative.
+
+
+## Revision 218 Boomerang return collision contract
+
+The Boomerang return phase remains part of the ordinary portable projectile simulation. Its steering target changes to the player, but collision is never disabled. Each fixed step compares the swept player-catch impact with swept enemy, reactive-object, and terrain impacts, resolves the earliest contact, and only grants the fuel refund when the player catch occurs first. Return-path obstacle impacts use the normal explosion lifecycle and carry `boomerangReturning: true` in deterministic diagnostics.

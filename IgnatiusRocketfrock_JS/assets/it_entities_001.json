@@ -1,7 +1,7 @@
 {
   "meta": {
-    "version": 4,
-    "note": "Revision 211 adds the Rocket Overdrive pickup while retaining named signal channels, interactive lever switches, keys, and keyholes."
+    "version": 5,
+    "note": "Revision 213 defines Speed Shot plus a randomized, respawning five-mode wrench power-up family."
   },
   "catalogId": "it_entities_001",
   "atlasRefs": [
@@ -545,36 +545,6 @@
         }
       }
     },
-    "rocketOverdrivePickup": {
-      "type": "rocketOverdrivePickup",
-      "label": "Rocket Overdrive",
-      "icon": "⚡",
-      "description": "Timed rocket overdrive: rockets may be fired twice as often and cost half as much fuel.",
-      "defaultState": "available",
-      "defaultSize": {
-        "w": 96,
-        "h": 96
-      },
-      "defaults": {
-        "effectId": "rocketOverdrive",
-        "durationSeconds": 8,
-        "radius": 30,
-        "atlasId": "it_atlas_001",
-        "glowFrame": "powerup_glow_white",
-        "iconFrame": "powerup_icon_lightning",
-        "glowTint": "#ffb52f"
-      },
-      "states": {
-        "available": {
-          "label": "Available",
-          "visuals": []
-        },
-        "collected": {
-          "label": "Collected",
-          "visuals": []
-        }
-      }
-    },
     "fuel": {
       "type": "fuel",
       "label": "Rocket fuel",
@@ -859,6 +829,75 @@
               "layer": "decorFront"
             }
           ]
+        }
+      }
+    },
+    "speedShotPickup": {
+      "type": "speedShotPickup",
+      "label": "Speed Shot",
+      "icon": "⚡",
+      "description": "Timed firing boost: rockets may be fired twice as often and cost half as much fuel.",
+      "defaultState": "available",
+      "defaultSize": {
+        "w": 96,
+        "h": 96
+      },
+      "defaults": {
+        "effectId": "speedShot",
+        "durationSeconds": 8,
+        "respawnSeconds": 60,
+        "radius": 30,
+        "atlasId": "it_atlas_001",
+        "glowFrame": "powerup_glow_white",
+        "iconFrame": "powerup_icon_lightning",
+        "glowTint": "#ffb52f"
+      },
+      "states": {
+        "available": {
+          "label": "Available",
+          "visuals": []
+        },
+        "collected": {
+          "label": "Collected",
+          "visuals": []
+        }
+      }
+    },
+    "randomWrenchPickup": {
+      "type": "randomWrenchPickup",
+      "label": "Random wrench powerup",
+      "icon": "🔧",
+      "description": "Rolls a random 15-second wrench rocket mode when the level starts and every time it respawns.",
+      "defaultState": "available",
+      "defaultSize": {
+        "w": 96,
+        "h": 96
+      },
+      "defaults": {
+        "effectId": "wrenchTriple",
+        "randomEffectIds": [
+          "wrenchTriple",
+          "wrenchDart",
+          "wrenchTwin",
+          "wrenchBigbomb",
+          "wrenchBoomerang"
+        ],
+        "durationSeconds": 15,
+        "respawnSeconds": 60,
+        "radius": 30,
+        "atlasId": "it_atlas_001",
+        "glowFrame": "powerup_glow_white",
+        "iconFrame": "powerup_icon_wrench",
+        "glowTint": "#ffff00"
+      },
+      "states": {
+        "available": {
+          "label": "Available",
+          "visuals": []
+        },
+        "collected": {
+          "label": "Collected",
+          "visuals": []
         }
       }
     }

@@ -23,6 +23,7 @@ import {
     colorMapCacheKey,
     normalizeLevelColorMap
 } from "../shared/level-color-map-data.js";
+import { powerUpEffectDefinition } from "../shared/power-up-data.js";
 import { createColorMappedCanvas } from "./level-color-map-cache.js";
 import { computeCaveWindowParallaxOffset, drawCaveWindowMask } from "./cave-window-mask.js";
 import {
@@ -35,6 +36,7 @@ import {
     visualIntersectsViewport,
     visualWorldBounds
 } from "./world-visual-cache.js";
+import { RocketGlowCache } from "./rocket-glow-cache.js";
 import {
     animationPoseToRuntimeTransforms,
     applyRuntimeProjectileHandoffVisibility,
@@ -321,6 +323,7 @@ class RocketfrockRenderer {
         this.worldVisualCache = buildWorldVisualCache([]);
         this.foregroundSpriteCache = new Map();
         this.powerUpTintCache = new Map();
+        this.rocketGlowCache = new RocketGlowCache();
         this.frameForegroundOffset = { x: 0, y: 0 };
         this.frameEntityVisibility = { collectedPickups: new Set(), defeatedEnemies: new Set() };
         this.frameVisualCounters = this.createVisualCounters();
@@ -626,7 +629,7 @@ class RocketfrockRenderer {
     }
 
     projectileRenderBounds(projectile) {
-        const extent = Math.max(36, Number(projectile?.radius) || 0);
+        const extent = Math.max(36, Number(projectile?.radius) || 0, Number(projectile?.areaDamageRadius) || 0);
         let minX = (Number(projectile?.x) || 0) - extent;
         let minY = (Number(projectile?.y) || 0) - extent;
         let maxX = (Number(projectile?.x) || 0) + extent;
@@ -970,7 +973,7 @@ class RocketfrockRenderer {
             const glow = this.getTintedAtlasFrameCanvas(atlas, glowFrameName, glowFrame, powerUp?.glowTint || "#ffb52f");
             if (glow) {
                 ctx.save();
-                ctx.globalCompositeOperation = "lighter";
+                ctx.globalCompositeOperation = "source-over";
                 ctx.globalAlpha *= 0.92;
                 ctx.drawImage(glow, -size * 0.58, -size * 0.58, size * 1.16, size * 1.16);
                 ctx.restore();
@@ -991,10 +994,11 @@ class RocketfrockRenderer {
                 iconH
             );
         } else {
+            const fallbackTint = powerUp?.glowTint || "#ffb52f";
             const gradient = ctx.createRadialGradient(0, 0, size * 0.08, 0, 0, size * 0.56);
-            gradient.addColorStop(0, "rgba(255, 244, 158, 0.95)");
-            gradient.addColorStop(0.5, powerUp?.glowTint || "#ffb52f");
-            gradient.addColorStop(1, "rgba(255, 181, 47, 0)");
+            gradient.addColorStop(0, fallbackTint);
+            gradient.addColorStop(0.5, fallbackTint);
+            gradient.addColorStop(1, `${fallbackTint}00`);
             ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.arc(0, 0, size * 0.56, 0, Math.PI * 2);
@@ -1661,7 +1665,28 @@ class RocketfrockRenderer {
                 const p = this.worldToScreen(view, projectile.x, projectile.y);
                 ctx.save();
                 if (projectile.owner !== "enemy") {
-                    this.drawSparkBurst(p.x, p.y, view, projectile.age + projectile.x, 9, 22 * view.zoom, "rocket");
+                    const explosionScale = Math.max(1, Number(projectile.explosionVisualScale) || 1);
+                    this.drawSparkBurst(
+                        p.x,
+                        p.y,
+                        view,
+                        projectile.age + projectile.x,
+                        Math.max(9, Math.round(9 * explosionScale)),
+                        22 * explosionScale * view.zoom,
+                        "rocket"
+                    );
+                    const areaRadius = Math.max(0, Number(projectile.areaDamageRadius) || 0);
+                    if (areaRadius > 0) {
+                        const total = Math.max(0.001, Number(state.tuning?.rocketProjectileExplosionSeconds) || 0.42);
+                        const remaining = Math.max(0, Number(projectile.explosionTimer) || 0);
+                        const progress = Math.max(0, Math.min(1, 1 - remaining / total));
+                        ctx.globalAlpha = (1 - progress) * 0.58;
+                        ctx.strokeStyle = "rgba(255, 208, 89, 0.92)";
+                        ctx.lineWidth = Math.max(2, 7 * (1 - progress * 0.65) * view.zoom);
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, areaRadius * view.zoom * (0.18 + progress * 0.82), 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
                 } else if (projectile.impactKind === "player") {
                     // Contact with Ignatius may shake loose a small trace of his own
                     // yellow-purple rocket magic, but ordinary mob impacts stay dark.
@@ -1701,13 +1726,38 @@ class RocketfrockRenderer {
         const pivot = projectile.frameId === "rocket_projectile"
             ? { x: 0.5, y: 0.78 }
             : this.rigConfig.pivots.rocket;
-        const targetHeight = projectile.frameId === "rocket_projectile" ? 58 * view.zoom : 72 * view.zoom;
+        const visualScale = Math.max(0.1, Number(projectile.visualScale) || 1);
+        const targetHeight = (projectile.frameId === "rocket_projectile" ? 58 : 72) * visualScale * view.zoom;
         const spriteScale = targetHeight / Math.max(1, asset.height);
+
+        const fallbackEffect = projectile.wrenchEffectId
+            ? powerUpEffectDefinition(projectile.wrenchEffectId)
+            : null;
+        const glowTint = String(
+            projectile.wrenchGlowTint ||
+            fallbackEffect?.rocket?.glowTint ||
+            fallbackEffect?.hud?.glowTint ||
+            ""
+        ).trim();
+        const glowSurface = glowTint
+            ? this.rocketGlowCache.get(asset.canvas, glowTint)
+            : null;
 
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(angle);
         ctx.scale(spriteScale, spriteScale);
+        if (glowSurface?.canvas) {
+            ctx.save();
+            ctx.globalCompositeOperation = "source-over";
+            ctx.globalAlpha = 0.94;
+            ctx.drawImage(
+                glowSurface.canvas,
+                -pivot.x * asset.width - glowSurface.paddingX,
+                -pivot.y * asset.height - glowSurface.paddingY
+            );
+            ctx.restore();
+        }
         ctx.drawImage(asset.canvas, -pivot.x * asset.width, -pivot.y * asset.height);
         drawRocketFlameLocal(ctx, asset, pivot, state.clock.time + projectile.age * 11, 0.55, projectile.id.length * 13);
         ctx.restore();

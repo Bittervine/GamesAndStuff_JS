@@ -3562,21 +3562,15 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         const center = worldToScreen(entity.x, entity.y - (Number(entity.h) || 96) * 0.5);
         const size = Math.max(36, Math.min(Number(entity.w) || 96, Number(entity.h) || 96)) * state.camera.zoom;
         ctx.save();
+        const previewTint = entity.glowTint || "#ffb52f";
         const gradient = ctx.createRadialGradient(center.x, center.y, size * 0.08, center.x, center.y, size * 0.56);
-        gradient.addColorStop(0, "rgba(255, 245, 174, 0.92)");
-        gradient.addColorStop(0.5, entity.glowTint || "#ffb52f");
-        gradient.addColorStop(1, "rgba(255, 181, 47, 0)");
+        gradient.addColorStop(0, previewTint);
+        gradient.addColorStop(0.5, previewTint);
+        gradient.addColorStop(1, `${previewTint}00`);
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(center.x, center.y, size * 0.56, 0, Math.PI * 2);
         ctx.fill();
-        if (image && glowFrame) {
-            ctx.save();
-            ctx.globalAlpha = 0.42;
-            ctx.globalCompositeOperation = "screen";
-            ctx.drawImage(image, glowFrame.x, glowFrame.y, glowFrame.w, glowFrame.h, center.x - size * 0.58, center.y - size * 0.58, size * 1.16, size * 1.16);
-            ctx.restore();
-        }
         if (image && iconFrame) {
             const iconSize = size * 0.46;
             const aspect = iconFrame.w / Math.max(1, iconFrame.h);

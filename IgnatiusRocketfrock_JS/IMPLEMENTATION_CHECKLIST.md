@@ -1779,3 +1779,79 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Update browser and portable build labels to revision 212.
 - [x] Pass the complete aggregate headless test suite.
 
+## Revision 213 Speed Shot and randomized wrench arsenal
+
+- [x] Change the empty HUD label from `Powerup: None` to `Powerup:`.
+- [x] Rename the lightning effect and catalog pickup to Speed Shot while normalizing legacy `rocketOverdrive` IDs.
+- [x] Keep Speed Shot at eight seconds, half rocket fuel cost, double firing cadence, and higher HUD priority than wrenches.
+- [x] Add a shared mutually exclusive `wrench` effect group with fifteen-second durations.
+- [x] Implement Triple as three small one-third-damage homing rockets with distinct fan angles and separate target selection when possible.
+- [x] Implement Dart as one normal-sized, forward, non-homing, double-damage rocket costing two-thirds standard fuel.
+- [x] Implement Twin as two medium half-damage homing rockets with distinct launch angles.
+- [x] Implement Bigbomb as a 1.7× rocket with triple fuel cost, triple damage, half speed, half homing response, and AoE radius of 1.5 wizard heights.
+- [x] Implement Boomerang return after misses or destroyed targets and refund half launch fuel when caught.
+- [x] Ensure collecting a wrench replaces only the active wrench and never cancels Speed Shot.
+- [x] Add deterministic shared HUD priority when Speed Shot and a wrench coexist.
+- [x] Add sixty-second respawn timers to all power-up pickups.
+- [x] Add deterministic session-seeded random wrench selection at level start and reroll on respawn.
+- [x] Preserve selected effect, respawn timer, and reroll count through state serialization.
+- [x] Add Speed Shot and random-wrench catalog entities and Level Editor composite previews.
+- [x] Keep Speed Shot at x=800 and add a random wrench at x=1400 in level 1.
+- [x] Render per-mode projectile scale and a visible Bigbomb AoE pulse.
+- [x] Update the game manual with durations, stacking, respawns, random wrench behavior, HUD priority, and all five wrench modes.
+- [x] Update browser and portable build labels to revision 213.
+- [x] Pass the complete aggregate headless test suite.
+
+
+
+## Revision 214 cached wrench-rocket glow sprites
+
+- [x] Store the launch-time wrench effect ID and glow tint on every wrench-modified projectile.
+- [x] Keep standard and Speed Shot-only rockets free of wrench glow metadata.
+- [x] Add a presentation-only source-sprite/tint cache for precomposited rocket glows.
+- [x] Expand the alpha silhouette with separable horizontal and vertical maximum-filter passes.
+- [x] Blur the expanded silhouette with separable horizontal and vertical Gaussian passes.
+- [x] Draw the cached tinted surface additively behind the authored rocket before the nozzle flame.
+- [x] Preserve the correct tint for Triple, Dart, Twin, Bigbomb, and Boomerang rockets after launch.
+- [x] Update the manual with the wrench-colour projectile cue.
+- [x] Update browser and portable build labels to revision 214.
+- [x] Add deterministic kernel, colour, projectile-metadata, cache-contract, and full-suite regression coverage.
+
+
+## Revision 215 larger cached wrench-rocket outlines
+
+- [x] Increase cached wrench-rocket glow size to three times the revision-214 default.
+- [x] Include the glow-size multiplier in the rocket glow cache key.
+- [x] Update browser and portable build labels to revision 215.
+- [x] Pass the complete aggregate headless test suite.
+
+
+## Revision 216 softer cached wrench-rocket glow blur
+
+- [x] Increase the cached wrench-rocket blur kernel so the soft halo extends roughly 20% of rocket width beyond the sprite.
+- [x] Use a correspondingly broader default Gaussian sigma for the halo blur.
+- [x] Include the blur-outset fraction in the rocket glow cache key.
+- [x] Update browser and portable build labels to revision 216.
+- [x] Pass the complete aggregate headless test suite.
+
+
+## Revision 217 pure wrench glows and Dart impact balance
+
+- [x] Increase the cached wrench-rocket blur outset from 20% to about 25% of rocket width.
+- [x] Broaden the Gaussian sigma for a softer fuzzy falloff.
+- [x] Use exact pure yellow, cyan, green, red, and magenta for wrench pickup and rocket glows.
+- [x] Remove additive and untinted-white glow paths that could wash wrench hues toward white.
+- [x] Make Dart explicitly non-piercing and verify that it damages only the first enemy in line.
+- [x] Update the game manual, browser revision, and portable build label to revision 217.
+- [x] Pass the complete aggregate headless test suite.
+
+
+## Revision 218 physical Boomerang return path
+
+- [x] Keep Boomerang homing toward Ignatius when no valid enemy target remains.
+- [x] Apply swept enemy, reactive-object, and terrain collision checks during the return phase.
+- [x] Explode without refund when a return-path obstacle is encountered before Ignatius.
+- [x] Make outbound terrain impacts explode rather than trigger a terrain-phasing return.
+- [x] Add a deterministic blocked-return regression test.
+- [x] Update the game manual and build labels to revision 218.
+- [x] Pass the complete aggregate headless test suite.

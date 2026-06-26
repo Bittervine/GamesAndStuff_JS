@@ -178,6 +178,27 @@
             <li>Homing rockets prefer active targets in the direction Ignatius is facing.</li>
         </ul>
 
+        <h2>Power-ups</h2>
+        <ul>
+            <li>Collected power-ups disappear and return after 60 seconds, so it can be worthwhile to revisit an earlier part of a level.</li>
+            <li>The top-left Power bar shows the highest-priority active effect and its remaining duration. Speed Shot is shown ahead of wrench effects, but both remain active at the same time.</li>
+            <li><strong>Speed Shot</strong> lasts 8 seconds. It doubles the rocket firing rate and halves the fuel cost of each launch.</li>
+            <li>Wrench power-ups last 15 seconds and replace any other active wrench. A random wrench pickup chooses its type when the level starts and rolls a new type whenever it respawns.</li>
+            <li>Rockets modified by a wrench carry a fuzzy outline in that wrench's colour, so the current payload remains visible even after launch.</li>
+        </ul>
+        <table>
+            <thead>
+                <tr><th>Wrench</th><th>Rocket mode</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><strong>Triple</strong> (yellow)</td><td>Fires three small homing rockets in a fan. Each deals one-third normal damage, and they seek separate targets when possible.</td></tr>
+                <tr><td><strong>Dart</strong> (cyan)</td><td>Fires one normal-sized rocket straight ahead with no homing. It deals double damage, costs two-thirds of the normal fuel, and stops and explodes on the first enemy it hits.</td></tr>
+                <tr><td><strong>Twin</strong> (green)</td><td>Fires two medium homing rockets in a shallow fan. Each deals half normal damage.</td></tr>
+                <tr><td><strong>Bigbomb</strong> (red)</td><td>Fires one large, slow-turning rocket at half speed. It costs three times the fuel, deals triple damage, and damages an area about three wizard heights wide.</td></tr>
+                <tr><td><strong>Boomerang</strong> (magenta)</td><td>Fires a normal homing rocket. If no target remains, or after it destroys its target, it homes back toward Ignatius. Catching it refunds half the launch fuel, but hitting an enemy or obstacle on the return trip makes it explode with no refund.</td></tr>
+            </tbody>
+        </table>
+
         <h2>Health</h2>
         <ul>
             <li>Damage briefly grants invulnerability, shown by the health meter feedback.</li>

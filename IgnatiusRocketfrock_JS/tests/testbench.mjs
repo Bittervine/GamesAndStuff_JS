@@ -90,6 +90,11 @@ import {
     normalizeForegroundTreatment
 } from "../src/presentation/foreground-sprite-treatment.js";
 import {
+    dilateAlphaSeparable,
+    gaussianBlurAlphaSeparable,
+    gaussianKernel
+} from "../src/presentation/rocket-glow-cache.js";
+import {
     DEFAULT_MOVING_PLATFORM,
     createDefaultMovingPlatform,
     movingPlatformEndPosition,
@@ -100,8 +105,11 @@ import {
 import { normalizeSignalChannel, normalizeSignalEmitter } from "../src/shared/signal-channel-data.js";
 import {
     POWER_UP_EFFECT_IDS,
+    POWER_UP_GROUP_IDS,
     POWER_UP_STACKING_RULES,
+    WRENCH_POWER_UP_EFFECT_IDS,
     activePowerUpEffect,
+    activeWrenchPowerUpEffect,
     normalizePowerUpPickup,
     powerUpEffectDefinition,
     prioritizedActivePowerUpEffect,
@@ -4229,7 +4237,7 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.ok(atlas.objects.powerup_icon_wrench.tags.includes("upgrade"), "the wrench should be identified as the generic rocket-upgrade emblem");
     assert.ok(atlas.objects.powerup_icon_lightning.tags.includes("rapid-fire") && atlas.objects.powerup_icon_lightning.tags.includes("fuel-efficiency"), "the lightning icon should reserve its intended rocket-overdrive meaning");
     assert.ok(catalog.entities.mailbox && catalog.entities.treasureChest && catalog.entities.wizard_entry_door && catalog.entities.wizard_exit_door, "catalog should define mailboxes plus dedicated wizard entry/exit doors");
-    assert.ok(catalog.entities.rocketOverdrivePickup, "interactive catalog should expose the first composite power-up pickup");
+    assert.ok(catalog.entities.speedShotPickup && catalog.entities.randomWrenchPickup, "interactive catalog should expose Speed Shot and the randomized wrench pickup family");
     assert.ok(catalog.entities.breakableCrate, "interactive catalog should expose the first reactive destructible object");
     assert.ok(catalog.entities.destructibleBarrier, "interactive catalog should expose the destructible iron barrier");
     assert.deepEqual(Object.keys(catalog.entities.breakableCrate.states), ["intact", "damaged", "destroyed"], "breakable crate should author explicit intact, damaged, and destroyed visuals");
@@ -4319,126 +4327,351 @@ function testInteractiveItemAtlasAndEntityVisuals() {
 
 
 
-function testRocketOverdrivePowerUp() {
-    const definition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.ROCKET_OVERDRIVE);
-    assert.equal(definition.stacking, POWER_UP_STACKING_RULES.REFRESH, "Rocket Overdrive should refresh rather than stack multiplicatively");
-    assert.equal(definition.durationSeconds, 8, "Rocket Overdrive should have a bounded eight-second duration");
-    assert.equal(definition.rocket.launchCooldownMultiplier, 0.5, "Rocket Overdrive should double allowed firing cadence");
-    assert.equal(definition.rocket.launchFuelCostMultiplier, 0.5, "Rocket Overdrive should halve projectile-rocket fuel cost");
-    const normalizedPickup = normalizePowerUpPickup({ effectId: POWER_UP_EFFECT_IDS.ROCKET_OVERDRIVE });
-    assert.equal(normalizedPickup.iconFrame, "powerup_icon_lightning", "the overdrive pickup should use the reserved lightning emblem");
-    assert.equal(normalizedPickup.glowFrame, "powerup_glow_white", "the overdrive pickup should tint the prepared white glow");
+function testRocketPowerUpArsenal() {
+    const speedShot = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.SPEED_SHOT);
+    assert.equal(speedShot.stacking, POWER_UP_STACKING_RULES.REFRESH, "Speed Shot should refresh rather than stack multiplicatively");
+    assert.equal(speedShot.durationSeconds, 8, "Speed Shot should last eight seconds");
+    assert.equal(speedShot.rocket.launchCooldownMultiplier, 0.5, "Speed Shot should double allowed firing cadence");
+    assert.equal(speedShot.rocket.launchFuelCostMultiplier, 0.5, "Speed Shot should halve projectile-rocket fuel cost");
+    assert.equal(speedShot.hud.priority, 100, "Speed Shot should outrank wrench effects in the Power HUD");
+    const normalizedPickup = normalizePowerUpPickup({ effectId: "rocketOverdrive" });
+    assert.equal(normalizedPickup.effectId, POWER_UP_EFFECT_IDS.SPEED_SHOT, "legacy Rocket Overdrive data should normalize to Speed Shot");
+    assert.equal(normalizedPickup.iconFrame, "powerup_icon_lightning", "Speed Shot should use the reserved lightning emblem");
 
-    const state = createInitialGameState();
+    const expectedWrenches = new Map([
+        [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, { count: 3, damage: 1 / 3, cost: 1, tint: "#ffff00" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_DART, { count: 1, damage: 2, cost: 2 / 3, tint: "#00ffff" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_TWIN, { count: 2, damage: 0.5, cost: 1, tint: "#00ff00" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB, { count: 1, damage: 3, cost: 3, tint: "#ff0000" }],
+        [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, { count: 1, damage: 1, cost: 1, tint: "#ff00ff" }]
+    ]);
+    assert.deepEqual(WRENCH_POWER_UP_EFFECT_IDS, [...expectedWrenches.keys()], "the random wrench pool should include the complete five-mode arsenal");
+    for (const [effectId, expected] of expectedWrenches) {
+        const definition = powerUpEffectDefinition(effectId);
+        assert.equal(definition.durationSeconds, 15, `${definition.label} should last fifteen seconds`);
+        assert.equal(definition.groupId, POWER_UP_GROUP_IDS.WRENCH, `${definition.label} should occupy the exclusive wrench slot`);
+        assert.equal(definition.exclusiveGroup, true, `${definition.label} should replace another wrench`);
+        assert.equal(definition.hud.priority, 50, `${definition.label} should rank below Speed Shot in the Power HUD`);
+        assert.equal(definition.hud.iconFrame, "powerup_icon_wrench", `${definition.label} should use the wrench emblem`);
+        assert.equal(definition.hud.glowTint, expected.tint, `${definition.label} should use its authored pickup colour`);
+        assert.equal(definition.rocket.projectileCount, expected.count, `${definition.label} should launch the authored projectile count`);
+        approx(definition.rocket.damageMultiplier, expected.damage, 0.000001, `${definition.label} should use the authored damage multiplier`);
+        approx(definition.rocket.launchFuelCostMultiplier, expected.cost, 0.000001, `${definition.label} should use the authored fuel multiplier`);
+    }
+
+    const state = createInitialGameState({ randomSeed: 0x12345678 });
     const level = {
         levelId: "power_up_test",
-        world: { bounds: { x: -200, y: -200, w: 1200, h: 900 }, resetY: 1200 },
-        playerStart: { x: 300, y: 500 },
+        world: { bounds: { x: -200, y: -200, w: 1600, h: 1000 }, resetY: 1400 },
+        playerStart: { x: 300, y: 600 },
         atlasRefs: [{ atlasId: "it_atlas_001", manifest: "assets/it_atlas_001.json", image: "assets/it_atlas_001.png" }],
         placements: [],
         entities: [
             {
-                id: "overdrive_a",
-                type: "rocketOverdrivePickup",
+                id: "speed_a",
+                type: "speedShotPickup",
                 state: "available",
                 x: 300,
-                y: 500,
+                y: 600,
                 w: 96,
                 h: 96,
-                effectId: "rocketOverdrive",
+                effectId: "speedShot",
+                respawnSeconds: 60,
                 radius: 30,
-                atlasId: "it_atlas_001",
-                glowFrame: "powerup_glow_white",
-                iconFrame: "powerup_icon_lightning",
-                glowTint: "#ffb52f",
                 visualStates: { available: { visuals: [] }, collected: { visuals: [] } }
             },
             {
-                id: "overdrive_b",
-                type: "rocketOverdrivePickup",
+                id: "random_wrench",
+                type: "randomWrenchPickup",
                 state: "available",
                 x: 620,
-                y: 500,
+                y: 600,
                 w: 96,
                 h: 96,
-                effectId: "rocketOverdrive",
+                randomEffectIds: [...WRENCH_POWER_UP_EFFECT_IDS],
+                respawnSeconds: 60,
                 radius: 30,
                 visualStates: { available: { visuals: [] }, collected: { visuals: [] } }
             }
         ]
     };
     assert.equal(applyEditorLevelToWorld(state, level), true, "power-up playtest level should load through ordinary editor-level conversion");
-    const pickup = state.pickups.find((item) => item.id === "overdrive_a");
-    assert.equal(pickup.kind, "powerUp", "effect-bearing entities should become portable power-up pickups");
-    assert.equal(pickup.visualized, false, "composite pickups should remain renderer-owned rather than static world visuals");
+    const speedPickup = state.pickups.find((item) => item.id === "speed_a");
+    const wrenchPickup = state.pickups.find((item) => item.id === "random_wrench");
+    assert.equal(speedPickup.kind, "powerUp", "effect-bearing entities should become portable power-up pickups");
+    assert.equal(speedPickup.respawnSeconds, 60, "Speed Shot should respawn after sixty seconds");
+    assert.equal(wrenchPickup.respawnSeconds, 60, "random wrenches should respawn after sixty seconds");
+    assert.ok(WRENCH_POWER_UP_EFFECT_IDS.includes(wrenchPickup.powerUp.effectId), "the wrench should roll a valid mode at level start");
+    assert.equal(wrenchPickup.powerUp.iconFrame, "powerup_icon_wrench", "the randomized pickup should render the wrench emblem");
+
+    const initialWrenchRoll = wrenchPickup.powerUp.effectId;
+    const repeatState = createInitialGameState({ randomSeed: 0x12345678 });
+    assert.equal(applyEditorLevelToWorld(repeatState, level), true);
+    assert.equal(repeatState.pickups.find((item) => item.id === "random_wrench").powerUp.effectId, initialWrenchRoll, "the portable random roll should be deterministic for a given session seed and level load");
 
     const fuelBefore = state.fuel.amount;
     stepSimulation(state, createInputFrame({ weaponPressed: true }), FIXED_DT);
-    const active = activePowerUpEffect(state, POWER_UP_EFFECT_IDS.ROCKET_OVERDRIVE);
-    assert.ok(active && active.remainingSeconds > 7.9, "collecting the pickup should activate its timed effect immediately");
-    const multipliers = rocketPowerUpMultipliers(state);
-    assert.deepEqual(multipliers, { launchCooldownMultiplier: 0.5, launchFuelCostMultiplier: 0.5 }, "active effect state should expose deterministic rocket tuning multipliers");
-    approx(fuelBefore - state.fuel.amount, DEFAULT_TUNING.rocketLaunchCost * 0.5, 0.0001, "the first overdriven rocket should spend half fuel");
-    approx(state.weapons.launchCooldownTimer, DEFAULT_TUNING.rocketLaunchCooldown * 0.5, FIXED_DT + 0.0001, "the overdriven launch cooldown should be half the ordinary value");
-    const launchEvent = [...state.debug.lastEvents].reverse().find((event) => event.type === "ROCKET_LAUNCHED");
-    approx(launchEvent.fuelCost, DEFAULT_TUNING.rocketLaunchCost * 0.5, 0.0001, "launch diagnostics should expose effective overdrive fuel cost");
+    const activeSpeed = activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SPEED_SHOT);
+    assert.ok(activeSpeed && activeSpeed.remainingSeconds > 7.9, "collecting Speed Shot should activate its timed effect immediately");
+    assert.deepEqual(rocketPowerUpMultipliers(state), { launchCooldownMultiplier: 0.5, launchFuelCostMultiplier: 0.5 }, "Speed Shot should expose deterministic rocket multipliers");
+    approx(fuelBefore - state.fuel.amount, DEFAULT_TUNING.rocketLaunchCost * 0.5, 0.0001, "a Speed Shot rocket should spend half fuel");
 
-    state.statusEffects.active.rocketOverdrive.remainingSeconds = 0.25;
     state.player.x = 620;
-    state.player.y = 500;
+    state.player.y = 600;
     state.player.vx = 0;
     state.player.vy = 0;
+    state.weapons.launchCooldownTimer = 0;
     stepSimulation(state, createInputFrame(), FIXED_DT);
-    const refreshed = activePowerUpEffect(state, POWER_UP_EFFECT_IDS.ROCKET_OVERDRIVE);
-    assert.ok(refreshed.remainingSeconds > 7.9, "collecting a second overdrive should refresh the full duration");
-    assert.equal(refreshed.refreshCount, 1, "refreshes should be serialized explicitly");
-    assert.ok(state.debug.lastEvents.some((event) => event.type === "POWER_UP_EFFECT_REFRESHED"), "refreshing should emit a deterministic effect event");
+    const activeWrench = activeWrenchPowerUpEffect(state);
+    assert.ok(activeWrench && WRENCH_POWER_UP_EFFECT_IDS.includes(activeWrench.id), "collecting the random wrench should activate exactly one wrench effect");
+    assert.equal(prioritizedActivePowerUpEffect(state)?.id, POWER_UP_EFFECT_IDS.SPEED_SHOT, "Speed Shot should remain the displayed effect while a wrench is also active");
+
+    const replacementPickup = {
+        id: "replacement_wrench",
+        kind: "powerUp",
+        pickupKind: POWER_UP_EFFECT_IDS.WRENCH_DART,
+        powerUp: normalizePowerUpPickup({ effectId: POWER_UP_EFFECT_IDS.WRENCH_DART }),
+        x: state.player.x,
+        y: state.player.y,
+        centerY: state.player.y - state.player.height * 0.5,
+        width: 96,
+        height: 96,
+        radius: 30,
+        collected: false,
+        respawnSeconds: 60,
+        respawnTimer: 0,
+        randomEffectIds: [],
+        randomRollCount: 0,
+        visualized: false
+    };
+    state.pickups.push(replacementPickup);
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(activeWrenchPowerUpEffect(state)?.id, POWER_UP_EFFECT_IDS.WRENCH_DART, "a newly collected wrench should replace the old wrench");
+    assert.equal(Object.values(state.statusEffects.active).filter((effect) => effect.definition.groupId === POWER_UP_GROUP_IDS.WRENCH).length, 1, "only one wrench effect may remain active");
+    assert.ok(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SPEED_SHOT), "replacing a wrench must not cancel Speed Shot");
+
+    wrenchPickup.respawnTimer = FIXED_DT * 0.5;
+    state.player.x = 1000;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(wrenchPickup.collected, false, "a collected wrench should reappear after its respawn timer");
+    assert.equal(wrenchPickup.randomRollCount, 1, "each wrench respawn should advance its random roll counter");
+    assert.ok(WRENCH_POWER_UP_EFFECT_IDS.includes(wrenchPickup.powerUp.effectId), "the respawned wrench should reroll to a valid mode");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "POWER_UP_PICKUP_RESPAWNED" && event.pickupId === wrenchPickup.id), "power-up respawn should be visible in deterministic diagnostics");
+
+    function stateWithWrench(effectId, { fuel = 100, targets = [] } = {}) {
+        const testState = createInitialGameState();
+        testState.player.x = 300;
+        testState.player.y = 600;
+        testState.player.facing = 1;
+        testState.fuel.amount = fuel;
+        testState.targets = targets;
+        const definition = powerUpEffectDefinition(effectId);
+        testState.statusEffects.active[effectId] = {
+            id: effectId,
+            definition,
+            remainingSeconds: definition.durationSeconds,
+            sourceId: "test",
+            activatedAt: 0,
+            refreshCount: 0
+        };
+        return testState;
+    }
+
+    const targetSet = [
+        { id: "target_a", x: 600, y: 480, state: "active" },
+        { id: "target_b", x: 700, y: 500, state: "active" },
+        { id: "target_c", x: 800, y: 520, state: "active" }
+    ];
+    const tripleState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, { targets: targetSet });
+    stepSimulation(tripleState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    assert.equal(tripleState.projectiles.length, 3, "Triple should launch three rockets in one volley");
+    assert.deepEqual(new Set(tripleState.projectiles.map((projectile) => projectile.targetId)).size, 3, "Triple should prefer separate targets when enough are available");
+    assert.ok(new Set(tripleState.projectiles.map((projectile) => `${projectile.vx.toFixed(3)}:${projectile.vy.toFixed(3)}`)).size === 3, "Triple rockets should begin on distinct fan-out paths");
+    approx(tripleState.projectiles[0].damage, DEFAULT_TUNING.rocketProjectileDamage / 3, 0.0001, "Triple rockets should deal one-third damage each");
+    approx(100 - tripleState.fuel.amount, DEFAULT_TUNING.rocketLaunchCost, 0.0001, "Triple should cost the same fuel as a standard rocket");
+    assert.ok(tripleState.projectiles.every((projectile) => projectile.wrenchEffectId === POWER_UP_EFFECT_IDS.WRENCH_TRIPLE), "Triple projectiles should retain their launch-time wrench identity");
+    assert.ok(tripleState.projectiles.every((projectile) => projectile.wrenchGlowTint === "#ffff00"), "Triple projectiles should retain the yellow glow tint after the player changes effects");
+
+    const twinState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_TWIN, { targets: targetSet });
+    stepSimulation(twinState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    assert.equal(twinState.projectiles.length, 2, "Twin should launch two rockets");
+    approx(twinState.projectiles[0].damage, DEFAULT_TUNING.rocketProjectileDamage * 0.5, 0.0001, "Twin rockets should deal half damage each");
+    assert.ok(twinState.projectiles.every((projectile) => projectile.visualScale > 0.62 && projectile.visualScale < 1), "Twin rockets should be larger than Triple but smaller than standard");
+
+    const dartState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_DART);
+    stepSimulation(dartState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    assert.equal(dartState.projectiles.length, 1, "Dart should launch one rocket");
+    assert.equal(dartState.projectiles[0].homing, false, "Dart should not home");
+    assert.ok(dartState.projectiles[0].vx > 0 && Math.abs(dartState.projectiles[0].vy) < 0.001, "Dart should launch straight forward from Ignatius");
+    approx(dartState.projectiles[0].damage, DEFAULT_TUNING.rocketProjectileDamage * 2, 0.0001, "Dart should deal double damage");
+    approx(100 - dartState.fuel.amount, DEFAULT_TUNING.rocketLaunchCost * 2 / 3, 0.0001, "Dart should cost two-thirds standard fuel");
+    assert.equal(dartState.projectiles[0].wrenchGlowTint, "#00ffff", "Dart should carry the cyan wrench glow tint");
+    assert.equal(dartState.projectiles[0].piercesEnemies, false, "Dart should explicitly stop on its first enemy impact");
+
+    const dartImpactState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_DART);
+    dartImpactState.enemies = [
+        { ...dartImpactState.enemies[0], id: "dart_front", x: 430, y: 600, health: 500, maxHealth: 500, combatState: "alive", state: "idle" },
+        { ...dartImpactState.enemies[0], id: "dart_back", x: 500, y: 600, health: 500, maxHealth: 500, combatState: "alive", state: "idle" }
+    ];
+    stepSimulation(dartImpactState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    for (let index = 0; index < 120 && dartImpactState.projectiles.some((projectile) => projectile.state === "launched"); index += 1) {
+        stepSimulation(dartImpactState, createInputFrame(), FIXED_DT);
+    }
+    assert.ok(dartImpactState.enemies[0].health < 500, "Dart should damage the first enemy in its path");
+    assert.equal(dartImpactState.enemies[1].health, 500, "Dart should not penetrate through the first enemy into a second enemy");
+
+    const bigbombState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB, {
+        targets: [
+            { id: "dummy_001_target", enemyId: "dummy_001", x: 480, y: 530, state: "active" },
+            { id: "dummy_002_target", enemyId: "dummy_002", x: 560, y: 530, state: "active" }
+        ]
+    });
+    bigbombState.enemies[0].x = 480;
+    bigbombState.enemies[0].y = 580;
+    bigbombState.enemies[0].health = 500;
+    bigbombState.enemies[0].maxHealth = 500;
+    bigbombState.enemies[1].x = 560;
+    bigbombState.enemies[1].y = 580;
+    bigbombState.enemies[1].health = 500;
+    bigbombState.enemies[1].maxHealth = 500;
+    stepSimulation(bigbombState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    const bomb = bigbombState.projectiles[0];
+    approx(100 - bigbombState.fuel.amount, DEFAULT_TUNING.rocketLaunchCost * 3, 0.0001, "Bigbomb should cost triple fuel");
+    approx(bomb.damage, DEFAULT_TUNING.rocketProjectileDamage * 3, 0.0001, "Bigbomb should deal triple damage");
+    approx(Math.hypot(bomb.vx, bomb.vy), DEFAULT_TUNING.rocketProjectileSpeed * 0.5, 0.01, "Bigbomb should move at half standard speed");
+    approx(bomb.areaDamageRadius, DEFAULT_TUNING.wizardHeight * 1.5, 0.0001, "Bigbomb diameter should span about three wizard heights");
+    assert.equal(bomb.visualScale, 1.7, "Bigbomb should render larger than a standard rocket");
+    assert.equal(bomb.wrenchGlowTint, "#ff0000", "Bigbomb should carry the red wrench glow tint");
+    for (let index = 0; index < 240 && !bigbombState.debug.lastEvents.some((event) => event.type === "ROCKET_AREA_DAMAGE_APPLIED"); index += 1) {
+        stepSimulation(bigbombState, createInputFrame(), FIXED_DT);
+    }
+    assert.ok(bigbombState.enemies[0].health < 500 && bigbombState.enemies[1].health < 500, "Bigbomb AoE should damage multiple nearby enemies");
+
+    const boomerangState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, { targets: [] });
+    stepSimulation(boomerangState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    assert.equal(boomerangState.projectiles[0].boomerang, true, "Boomerang should mark its returning projectile behavior");
+    assert.equal(boomerangState.projectiles[0].wrenchGlowTint, "#ff00ff", "Boomerang should keep its purple glow during the return flight");
+    for (let index = 0; index < 240 && !boomerangState.debug.lastEvents.some((event) => event.type === "BOOMERANG_ROCKET_CAUGHT"); index += 1) {
+        stepSimulation(boomerangState, createInputFrame(), FIXED_DT);
+    }
+    assert.ok(boomerangState.debug.lastEvents.some((event) => event.type === "BOOMERANG_ROCKET_RETURNING"), "a Boomerang miss should attempt to return");
+    assert.ok(boomerangState.debug.lastEvents.some((event) => event.type === "BOOMERANG_ROCKET_CAUGHT"), "Ignatius should be able to catch a returning Boomerang");
+    approx(boomerangState.fuel.amount, 85, 0.0001, "catching a Boomerang should refund half of its standard fuel cost");
+
+    const blockedBoomerangState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, { targets: [] });
+    stepSimulation(blockedBoomerangState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    for (let index = 0; index < 120 && !blockedBoomerangState.debug.lastEvents.some((event) => event.type === "BOOMERANG_ROCKET_RETURNING"); index += 1) {
+        stepSimulation(blockedBoomerangState, createInputFrame(), FIXED_DT);
+    }
+    const returningBoomerang = blockedBoomerangState.projectiles.find((projectile) => projectile.boomerangMode === "returning");
+    assert.ok(returningBoomerang, "a targetless Boomerang should enter its return-to-Ignatius phase");
+    const playerCenterY = blockedBoomerangState.player.y - blockedBoomerangState.player.height * 0.55;
+    const barrierCenterX = (returningBoomerang.x + blockedBoomerangState.player.x) * 0.5;
+    const barrierCenterY = (returningBoomerang.y + playerCenterY) * 0.5;
+    blockedBoomerangState.world.solids.push({
+        id: "boomerang_return_barrier",
+        kind: "blockable",
+        x: barrierCenterX - 30,
+        y: barrierCenterY - 30,
+        w: 60,
+        h: 60
+    });
+    for (let index = 0; index < 240 && !blockedBoomerangState.debug.lastEvents.some((event) => event.type === "ROCKET_IMPACTED" && event.boomerangReturning); index += 1) {
+        stepSimulation(blockedBoomerangState, createInputFrame(), FIXED_DT);
+    }
+    const blockedReturnImpact = blockedBoomerangState.debug.lastEvents.find((event) => event.type === "ROCKET_IMPACTED" && event.boomerangReturning);
+    assert.ok(blockedReturnImpact, "a returning Boomerang should explode when an obstacle blocks its route");
+    assert.equal(blockedReturnImpact.reason, "boomerang_return_barrier", "the returning Boomerang should report the blocking obstacle");
+    assert.ok(!blockedBoomerangState.debug.lastEvents.some((event) => event.type === "BOOMERANG_ROCKET_CAUGHT"), "a blocked return must not pass through terrain and refund fuel");
+    approx(blockedBoomerangState.fuel.amount, 70, 0.0001, "an obstructed Boomerang return should not refund launch fuel");
 
     const serialized = restoreGameState(serializeGameState(state));
-    assert.ok(activePowerUpEffect(serialized, POWER_UP_EFFECT_IDS.ROCKET_OVERDRIVE), "active effects should survive ordinary state serialization");
-    state.statusEffects.active.rocketOverdrive.remainingSeconds = FIXED_DT * 0.5;
-    stepSimulation(state, createInputFrame(), FIXED_DT);
-    assert.equal(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.ROCKET_OVERDRIVE), null, "timed effects should expire at the fixed-step boundary");
-    assert.ok(state.debug.lastEvents.some((event) => event.type === "POWER_UP_EFFECT_EXPIRED"), "effect expiry should be visible in deterministic diagnostics");
+    assert.ok(activePowerUpEffect(serialized, POWER_UP_EFFECT_IDS.SPEED_SHOT), "active effects should survive ordinary state serialization");
+    assert.equal(serialized.pickups.find((pickup) => pickup.id === wrenchPickup.id).randomRollCount, 1, "pickup reroll state should survive serialization");
 
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("getTintedAtlasFrameCanvas") && rendererSource.includes("drawPowerUpComposite"), "renderer should tint the prepared white glow and compose the icon above it");
-    assert.ok(!rendererSource.includes("drawPowerUpHud"), "the obsolete top-right canvas badge should be removed");
+    assert.ok(rendererSource.includes("areaDamageRadius") && rendererSource.includes("visualScale"), "renderer should visualize Bigbomb AoE and per-mode rocket scale");
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
     assert.ok(gameHtml.includes('id="power-text"') && gameHtml.includes('id="power-time"') && gameHtml.includes('id="power-fill"'), "the top-left HUD should include a dedicated Power bar");
     assert.ok(gameHtml.indexOf('id="health-text"') < gameHtml.indexOf('id="fuel-text"') && gameHtml.indexOf('id="fuel-text"') < gameHtml.indexOf('id="power-text"'), "HUD bars should be ordered health, rocket fuel, then Power");
-    assert.ok(bootstrapSource.includes('Powerup: None') && bootstrapSource.includes('prioritizedActivePowerUpEffect'), "the Power bar should show an empty state and use shared effect priority");
-    assert.ok(!bootstrapSource.includes('grounded recharge') && !bootstrapSource.includes('regen in'), "main HUD labels should omit developer recharge and regeneration annotations");
+    assert.ok(bootstrapSource.includes('powerText.textContent = "Powerup:"') && bootstrapSource.includes("prioritizedActivePowerUpEffect"), "the empty Power bar should omit the word None and use shared effect priority");
+    assert.ok(bootstrapSource.includes("browserRandomSeed"), "browser level starts should supply a fresh random seed to portable pickup rolls");
+    assert.ok(!bootstrapSource.includes("grounded recharge") && !bootstrapSource.includes("regen in"), "main HUD labels should omit developer recharge and regeneration annotations");
     const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(editorSource.includes("drawPowerUpEntityPreview") && editorSource.includes("powerup_icon_lightning"), "Level Editor should preview composite power-ups instead of an empty generic box");
     const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
-    const placedOverdrive = levelOne.entities.find((entity) => entity.id === "rocket_overdrive_001");
-    assert.ok(placedOverdrive && placedOverdrive.effectId === "rocketOverdrive", "level_001 should include one reachable Rocket Overdrive pickup for immediate playtesting");
-    assert.equal(placedOverdrive.x, 800, "the playtest overdrive should sit on the early main floor");
-    assert.equal(placedOverdrive.durationSeconds, 8, "the authored playtest pickup should match the eight-second effect duration");
+    const placedSpeedShot = levelOne.entities.find((entity) => entity.id === "speed_shot_001");
+    const placedWrench = levelOne.entities.find((entity) => entity.id === "random_wrench_001");
+    assert.ok(placedSpeedShot && placedSpeedShot.effectId === "speedShot", "level_001 should include the renamed Speed Shot pickup");
+    assert.equal(placedSpeedShot.x, 800, "Speed Shot should remain on the early main floor");
+    assert.equal(placedSpeedShot.respawnSeconds, 60, "the authored Speed Shot should respawn after sixty seconds");
+    assert.ok(placedWrench && placedWrench.type === "randomWrenchPickup", "level_001 should include one randomized wrench pickup");
+    assert.deepEqual(placedWrench.randomEffectIds, [...WRENCH_POWER_UP_EFFECT_IDS], "the level wrench should roll across the complete wrench family");
+    assert.equal(placedWrench.x, 1400, "the playtest wrench should sit farther along the early main floor");
 
     const priorityState = {
         statusEffects: {
             active: {
-                lesser: {
-                    id: "lesser",
-                    definition: { id: "lesser", label: "Lesser", durationSeconds: 20, hud: { priority: 10 } },
-                    remainingSeconds: 20,
-                    activatedAt: 5
-                },
-                stronger: {
-                    id: "stronger",
-                    definition: { id: "stronger", label: "Stronger", durationSeconds: 5, hud: { priority: 50 } },
+                speedShot: {
+                    id: POWER_UP_EFFECT_IDS.SPEED_SHOT,
+                    definition: speedShot,
                     remainingSeconds: 4,
                     activatedAt: 1
+                },
+                wrenchTriple: {
+                    id: POWER_UP_EFFECT_IDS.WRENCH_TRIPLE,
+                    definition: powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_TRIPLE),
+                    remainingSeconds: 14,
+                    activatedAt: 5
                 }
             }
         }
     };
-    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, "stronger", "the Power bar selector should prefer explicit HUD priority over recency or duration");
-    priorityState.statusEffects.active.stronger.remainingSeconds = 0;
-    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, "lesser", "expired effects should not occupy the Power bar");
+    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.SPEED_SHOT, "Speed Shot should display ahead of a more recently collected wrench");
+    priorityState.statusEffects.active.speedShot.remainingSeconds = 0;
+    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, "the active wrench should display after Speed Shot expires");
+}
+
+function testCachedWrenchRocketGlowKernels() {
+    const source = new Uint8ClampedArray(25);
+    source[12] = 255;
+    const dilated = dilateAlphaSeparable(source, 5, 5, 1);
+    const litIndices = [];
+    for (let index = 0; index < dilated.length; index += 1) {
+        if (dilated[index] === 255) litIndices.push(index);
+    }
+    assert.deepEqual(
+        litIndices,
+        [6, 7, 8, 11, 12, 13, 16, 17, 18],
+        "separable alpha dilation should expand one opaque pixel to a 3x3 silhouette"
+    );
+
+    const kernel = gaussianKernel(3, 1.5);
+    approx([...kernel].reduce((sum, value) => sum + value, 0), 1, 0.000001, "Gaussian glow kernel should remain normalized");
+    approx(kernel[0], kernel[kernel.length - 1], 0.000001, "Gaussian glow kernel should be symmetric");
+    const blurred = gaussianBlurAlphaSeparable(source, 5, 5, 2, 1.1);
+    assert.ok(blurred[12] > blurred[7] && blurred[7] > blurred[2], "blurred silhouette should fade outward from its source alpha");
+    assert.equal(blurred[7], blurred[11], "separable blur should remain axis-symmetric around the silhouette");
+
+    const expectedTints = new Map([
+        [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, "#ffff00"],
+        [POWER_UP_EFFECT_IDS.WRENCH_DART, "#00ffff"],
+        [POWER_UP_EFFECT_IDS.WRENCH_TWIN, "#00ff00"],
+        [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB, "#ff0000"],
+        [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG, "#ff00ff"]
+    ]);
+    for (const [effectId, tint] of expectedTints) {
+        assert.equal(powerUpEffectDefinition(effectId)?.rocket?.glowTint, tint, `${effectId} should define its projectile glow colour separately from HUD rendering`);
+    }
+
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    const cacheSource = readFileSync(new URL("../src/presentation/rocket-glow-cache.js", import.meta.url), "utf8");
+    assert.ok(rendererSource.includes("this.rocketGlowCache.get(asset.canvas, glowTint)"), "rocket rendering should reuse a cached precomposited glow surface");
+    assert.ok(rendererSource.includes('globalCompositeOperation = "lighter"'), "cached wrench glows should be composited additively behind the rocket");
+    assert.ok(cacheSource.includes("dilateAlphaSeparable") && cacheSource.includes("gaussianBlurAlphaSeparable"), "the cache should build its silhouette with separable expansion and blur passes");
+    assert.ok(cacheSource.includes("WeakMap"), "rocket glow surfaces should be cached by source sprite without retaining obsolete atlases");
 }
 
 function testMailboxLetterSequence() {
@@ -6962,7 +7195,8 @@ const tests = [
     ["editor level transform runtime", testEditorLevelTransformRuntime],
     ["player start snaps to nearby ground", testPlayerStartSnapsToNearbyGround],
     ["interactive item atlas and entity visuals", testInteractiveItemAtlasAndEntityVisuals],
-    ["Rocket Overdrive power-up schema and runtime", testRocketOverdrivePowerUp],
+    ["Speed Shot and wrench power-up arsenal", testRocketPowerUpArsenal],
+    ["cached wrench rocket glow kernels", testCachedWrenchRocketGlowKernels],
     ["scripted mailbox letter", testMailboxLetterSequence],
     ["scripted portal entrance", testPortalEntranceSequence],
     ["scripted portal exit", testPortalExitSequence],

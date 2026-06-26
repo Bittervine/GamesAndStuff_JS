@@ -85,13 +85,13 @@ const renderingQualityButtons = [...document.querySelectorAll("[data-rendering-q
 const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 
-const GAME_REVISION = "212";
+const GAME_REVISION = "218";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
 let renderer;
 const electronWindowBridge = detectElectronWindowBridge(window);
-let gameState = createInitialGameState({ settings: loadStoredGameSettings() });
+let gameState = createInitialGameState({ settings: loadStoredGameSettings(), randomSeed: browserRandomSeed() });
 const musicDirector = createMusicDirector({ volume: gameState.settings.musicVolume });
 let activeLevelMusic = normalizeLevelMusic(null);
 let gameMenuView = "menu";
@@ -148,6 +148,15 @@ setLoadingProgress(1, "Ready");
 showTitleScreen();
 await nextPaint();
 hideLoadingScreen();
+
+function browserRandomSeed() {
+    if (globalThis.crypto?.getRandomValues) {
+        const seed = new Uint32Array(1);
+        globalThis.crypto.getRandomValues(seed);
+        if (seed[0]) return seed[0];
+    }
+    return (Math.floor(Date.now() ^ performance.now() * 1000) >>> 0) || 0x1a2b3c4d;
+}
 
 function clamp01(value) {
     return Math.max(0, Math.min(1, Number(value) || 0));
@@ -816,7 +825,7 @@ async function restartCurrentLevel() {
     setGamePaused(true, { clearInput: true });
     try {
         const preservedSettings = normalizeGameSettings(gameState.settings);
-        gameState = createInitialGameState({ settings: preservedSettings });
+        gameState = createInitialGameState({ settings: preservedSettings, randomSeed: browserRandomSeed() });
         gameState.debug.revision = GAME_REVISION;
         addEvent(gameState, `BUILD_REVISION_${GAME_REVISION}`);
         activeCaveWindow = normalizeCaveWindow(null);
@@ -1228,7 +1237,7 @@ function updateHud() {
 
     const displayedEffect = prioritizedActivePowerUpEffect(gameState);
     if (!displayedEffect) {
-        powerText.textContent = "Powerup: None";
+        powerText.textContent = "Powerup:";
         powerTime.textContent = "";
         powerFill.style.width = "0%";
         return;
