@@ -2078,3 +2078,11 @@ Portable incoming-damage handling checks the active Shield before applying ordin
 
 The current power-up set is now complete: Shield, Speed Shot, and the five-mode wrench family. The bomb, magnet, and spark emblems remain intentionally unused until a later design decision explicitly reopens power-up work. The next milestone should be selected from the remaining non-power-up gameplay or content work after a focused Shield playtest confirms pickup placement, five-second readability, damage blocking, and blue-flash visibility.
 
+
+## Revision 224 grounded mobs finish airborne movement before dying
+
+Lethal damage no longer starts a ground mob's death animation while the mob is jumping or dropping. The hit still records zero health immediately and removes the mob from projectile targeting, but portable simulation enters a landing-pending state and continues the already committed airborne trajectory through the normal enemy collision path. No new route or attack is selected during this interval.
+
+When the feet reach valid collision geometry, the pending state converts to the ordinary grounded death state and the authored death clip begins from time zero. Residual jump velocity is cleared and the landed support remains attached, eliminating the former death-pose freeze followed by a visible corpse jerk and fall. Grounded hits still start death immediately, while true flying enemies retain their separate fly-off behavior.
+
+The next step is a focused in-browser playtest against hunter enemies killed during upward, apex, and downward portions of jumps, including landings on flat floors, neighbouring ledges, and moving platforms.

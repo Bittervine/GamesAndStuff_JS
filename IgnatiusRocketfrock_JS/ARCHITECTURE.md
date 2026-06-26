@@ -509,3 +509,9 @@ Damage authority remains in `src/core/simulation.js`. `damagePlayer` checks the 
 
 The blue flash is presentation-only. `src/presentation/canvas-renderer.js` prepares reusable blue-tinted wizard-part canvases at character load, selects them while Shield is active, and varies only overlay alpha per frame. It must not create temporary tint surfaces or process pixels in the draw loop. The Shield tint applies to all wizard parts, including the backpack rocket, and takes precedence over the low-health red tint. Neither tint affects simulation or authored character assets.
 
+
+## Revision 224 grounded enemy death-on-landing contract
+
+Ground-locomotion character enemies now separate a lethal combat result from the start of their death presentation when the hit occurs during a jump or drop. `src/core/simulation.js` records zero health immediately, removes the enemy from the homing-target pool, and marks `deathPendingLanding`, but preserves the current airborne velocity, traversal metadata, collision sweep, and non-death animation. Ordinary portable enemy air traversal remains authoritative until collision reports a landing.
+
+On the landing tick, core clears the pending flag, zeroes residual velocity, preserves the physical support identity, and starts the full authored death duration from its beginning. The corpse therefore never freezes in a death pose in midair and never performs a second gravity-driven drop after the clip. Grounded lethal hits retain the immediate death path. Flying-locomotion enemies retain their separate fly-loop and fly-off death contract. The renderer owns no death timing or landing decision.

@@ -57,6 +57,7 @@ const ENEMY_COMBAT_STATE = Object.freeze({
     ALIVE: "alive",
     HURT: "hurt",
     ATTACKING: "attacking",
+    DEATH_PENDING_LANDING: "death_pending_landing",
     DEAD: "dead"
 });
 
@@ -255,7 +256,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "223-shield-power-up",
+            build: "224-airborne-death-landing",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -2569,6 +2570,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             attackHitApplied: false,
             hurtTimer: 0,
             deathTimer: health <= 0 ? Math.max(FIXED_DT, finiteNumberOr(entity.deathDuration, state.tuning.enemyDefaultDeathSeconds)) : 0,
+            deathPendingLanding: false,
             deathElapsed: 0,
             corpseHoldDuration: Math.max(0, finiteNumberOr(entity.corpseHoldDuration, state.tuning.enemyCorpseHoldSeconds)),
             corpseFadeDuration: Math.max(0, finiteNumberOr(entity.corpseFadeDuration, state.tuning.enemyCorpseFadeSeconds)),
@@ -5388,6 +5390,40 @@ function updateDeadFlyingCharacterEnemy(state, enemy, dt) {
     syncCharacterEnemyTarget(state, enemy);
 }
 
+function beginCharacterEnemyDeath(state, enemy) {
+    enemy.health = 0;
+    enemy.deathPendingLanding = false;
+    enemy.combatState = ENEMY_COMBAT_STATE.DEAD;
+    enemy.state = "death";
+    enemy.movementPhase = "dead";
+    enemy.attackTimer = 0;
+    enemy.attackLungeRemaining = 0;
+    enemy.attackHitApplied = false;
+    enemy.hurtTimer = 0;
+    enemy.velocityX = 0;
+    enemy.velocityY = 0;
+    enemy.deathTimer = Math.max(
+        FIXED_DT,
+        Number(enemy.deathDuration) || state.tuning.enemyDefaultDeathSeconds || 1.18
+    );
+    enemy.deathElapsed = 0;
+    enemy.renderOpacity = 1;
+    setCharacterEnemyAnimation(enemy, "death");
+}
+
+function deferCharacterEnemyDeathUntilLanding(enemy) {
+    enemy.health = 0;
+    enemy.deathPendingLanding = true;
+    enemy.combatState = ENEMY_COMBAT_STATE.DEATH_PENDING_LANDING;
+    enemy.attackTimer = 0;
+    enemy.attackLungeRemaining = 0;
+    enemy.attackHitApplied = false;
+    enemy.hurtTimer = 0;
+    enemy.deathTimer = 0;
+    enemy.deathElapsed = 0;
+    enemy.renderOpacity = 1;
+}
+
 function updateDeadCharacterEnemyPhysics(state, enemy, dt) {
     if ((Number(enemy.deathTimer) || 0) > 0) {
         return;
@@ -5481,6 +5517,43 @@ function updateCharacterEnemies(state, dt) {
 
         enemy.animationTime = Math.max(0, Number(enemy.animationTime) || 0) + dt;
         enemy.attackCooldownTimer = Math.max(0, (Number(enemy.attackCooldownTimer) || 0) - dt);
+
+        if (
+            enemy.health <= 0 &&
+            enemy.locomotion !== "flying" &&
+            enemy.airborne === true &&
+            enemy.combatState !== ENEMY_COMBAT_STATE.DEAD &&
+            enemy.deathPendingLanding !== true
+        ) {
+            deferCharacterEnemyDeathUntilLanding(enemy);
+        }
+
+        if (enemy.deathPendingLanding === true) {
+            enemy.health = 0;
+            enemy.combatState = ENEMY_COMBAT_STATE.DEATH_PENDING_LANDING;
+            enemy.attackTimer = 0;
+            enemy.attackLungeRemaining = 0;
+            enemy.attackHitApplied = false;
+            enemy.hurtTimer = 0;
+            enemy.deathElapsed = 0;
+            enemy.renderOpacity = 1;
+
+            if (enemy.airborne === true) {
+                const navigation = characterEnemyNavigationContext(state, enemy);
+                updateCharacterEnemyAirTraversal(state, enemy, dt, navigation.supports);
+            }
+
+            if (enemy.airborne === true) {
+                enemy.combatState = ENEMY_COMBAT_STATE.DEATH_PENDING_LANDING;
+                syncCharacterEnemyTarget(state, enemy);
+                continue;
+            }
+
+            beginCharacterEnemyDeath(state, enemy);
+            syncCharacterEnemyTarget(state, enemy);
+            continue;
+        }
+
         if (enemy.health <= 0 || enemy.combatState === ENEMY_COMBAT_STATE.DEAD) {
             enemy.health = 0;
             enemy.combatState = ENEMY_COMBAT_STATE.DEAD;
@@ -6994,17 +7067,24 @@ function applyProjectileDamageToEnemy(state, projectile, enemy) {
     const defeated = enemy.health <= 0;
     if (defeated) {
         enemy.health = 0;
-        enemy.combatState = "dead";
-        enemy.state = isCharacterEnemyState(enemy) ? "death" : "destroyed";
-        enemy.movementPhase = "dead";
-        enemy.attackTimer = 0;
-        enemy.attackHitApplied = false;
-        enemy.hurtTimer = 0;
-        enemy.deathTimer = Math.max(FIXED_DT, Number(enemy.deathDuration) || state.tuning.enemyDefaultDeathSeconds || 1.18);
-        enemy.deathElapsed = 0;
-        enemy.renderOpacity = 1;
-        if (isCharacterEnemyState(enemy)) {
-            setCharacterEnemyAnimation(enemy, "death");
+        if (
+            isCharacterEnemyState(enemy) &&
+            enemy.locomotion !== "flying" &&
+            enemy.airborne === true
+        ) {
+            deferCharacterEnemyDeathUntilLanding(enemy);
+        } else if (isCharacterEnemyState(enemy)) {
+            beginCharacterEnemyDeath(state, enemy);
+        } else {
+            enemy.combatState = ENEMY_COMBAT_STATE.DEAD;
+            enemy.state = "destroyed";
+            enemy.movementPhase = "dead";
+            enemy.attackTimer = 0;
+            enemy.attackHitApplied = false;
+            enemy.hurtTimer = 0;
+            enemy.deathTimer = Math.max(FIXED_DT, Number(enemy.deathDuration) || state.tuning.enemyDefaultDeathSeconds || 1.18);
+            enemy.deathElapsed = 0;
+            enemy.renderOpacity = 1;
         }
     } else {
         enemy.combatState = ENEMY_COMBAT_STATE.HURT;
@@ -7032,9 +7112,15 @@ function applyProjectileDamageToEnemy(state, projectile, enemy) {
         projectileId: projectile.id,
         damage: round(damage),
         health: round(enemy.health),
-        maxHealth: round(enemy.maxHealth)
+        maxHealth: round(enemy.maxHealth),
+        deferredUntilLanding: enemy.deathPendingLanding === true
     });
-    return { damage, health: enemy.health, defeated };
+    return {
+        damage,
+        health: enemy.health,
+        defeated,
+        deferredUntilLanding: enemy.deathPendingLanding === true
+    };
 }
 
 function findProjectileTerrainImpact(state, projectile, previousX, previousY) {

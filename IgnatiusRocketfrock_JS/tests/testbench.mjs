@@ -2886,28 +2886,29 @@ function testCharacterEnemyRocketCombat() {
     assert.equal(enemy.renderOpacity, 0, "defeated enemy should be fully transparent after the three-second fade");
 }
 
-function testDeadAirborneEnemyFallsAfterDeathAnimation() {
+function testAirborneEnemyDefersDeathUntilLanding() {
     const state = createInitialGameState();
     assert.equal(applyEditorLevelToWorld(state, {
-        levelId: "dead_airborne_enemy_test",
+        levelId: "airborne_death_deferred_until_landing",
         playerStart: { x: -300, y: 400 },
         entities: [{
-            id: "falling_corpse",
+            id: "jumping_guard",
             type: "characterEnemy",
             characterId: "ct_char_enemy_001",
             x: 120,
             y: 170,
             w: 72,
             h: 150,
-            health: 100,
+            health: 30,
             strategy: "hunter",
-            facing: 1
+            facing: 1,
+            deathDuration: 1.18
         }]
-    }), true, "airborne corpse test level should apply");
+    }), true, "airborne death-defer test level should apply");
     state.world.solids = [];
     state.world.collisionPolygons = [];
     state.world.segments = [{
-        id: "corpse_floor",
+        id: "landing_floor",
         kind: "walkable",
         x1: -500,
         y1: 400,
@@ -2918,37 +2919,78 @@ function testDeadAirborneEnemyFallsAfterDeathAnimation() {
     state.story.portalExit = null;
     state.story.mailboxEvent = null;
 
-    const enemy = state.enemies.find((item) => item.id === "falling_corpse");
-    enemy.health = 0;
-    enemy.combatState = "dead";
-    enemy.state = "death";
-    enemy.movementPhase = "dead";
-    enemy.animationSlot = "death";
-    enemy.deathTimer = 0.2;
-    enemy.deathElapsed = 0;
+    const enemy = state.enemies.find((item) => item.id === "jumping_guard");
+    const target = state.targets.find((item) => item.enemyId === enemy.id);
     enemy.airborne = true;
     enemy.supportId = null;
     enemy.ridingPlatformId = null;
+    enemy.currentSupportId = null;
+    enemy.airTraversalType = "jump";
+    enemy.airSourceSupportId = null;
+    enemy.airSourceObstacleId = null;
+    enemy.airTargetSupportId = null;
+    enemy.airTimer = 0;
     enemy.velocityX = 45;
     enemy.velocityY = -120;
+    enemy.combatState = "alive";
+    enemy.state = "idle";
+    enemy.movementPhase = "jump";
+    enemy.animationSlot = "walk";
 
-    const frozenX = enemy.x;
-    const frozenY = enemy.y;
-    stepMany(state, 6);
-    assert.equal(enemy.x, frozenX, "airborne corpse should remain posed while the death clip is still playing");
-    assert.equal(enemy.y, frozenY, "death animation should finish before corpse gravity begins");
+    const impactX = enemy.x;
+    const impactY = enemy.y;
+    const rocket = addTestRocket(state, {
+        id: "airborne_lethal_hit",
+        x: 0,
+        y: 50,
+        vx: 12000,
+        damage: 30
+    });
+    stepSimulation(state, createInputFrame(), FIXED_DT);
 
-    stepMany(state, 12);
-    assert.ok(enemy.x > frozenX, "corpse should retain ballistic horizontal momentum after the death clip");
-    assert.notEqual(enemy.y, frozenY, "corpse should begin falling after the death clip finishes");
-    assert.equal(enemy.animationSlot, "death", "corpse physics must not replace the authored death presentation");
+    assert.equal(rocket.state, "exploding", "lethal rocket should still resolve against an airborne mob");
+    assert.equal(enemy.health, 0, "airborne lethal damage should be recorded immediately");
+    assert.equal(enemy.deathPendingLanding, true, "ground mob death should be deferred while it is airborne");
+    assert.equal(enemy.combatState, "death_pending_landing", "airborne mob should enter the explicit landing-pending state");
+    assert.notEqual(enemy.animationSlot, "death", "death animation must not start in mid-jump");
+    assert.equal(enemy.deathTimer, 0, "death animation time must not be consumed before landing");
+    assert.equal(target.state, "inactive", "a mortally hit airborne mob should leave the homing target pool");
+    assert.ok(state.debug.lastEvents.some((event) => (
+        event.type === "ENEMY_DEFEATED" &&
+        event.enemyId === enemy.id &&
+        event.deferredUntilLanding === true
+    )), "defeat diagnostics should record that presentation is deferred until landing");
 
-    stepMany(state, 180);
-    assert.equal(enemy.airborne, false, "corpse should land instead of floating until despawn");
-    assert.ok(Math.abs(enemy.y - 400) < 0.01, `corpse should settle on collision geometry (${enemy.y})`);
-    assert.equal(enemy.velocityX, 0, "landed corpse should have no self-propelled horizontal movement");
-    assert.equal(enemy.velocityY, 0, "landed corpse should stop accumulating downward velocity");
-    assert.equal(enemy.supportId, "corpse_floor", "landed corpse should retain physical support identity");
+    stepMany(state, 8);
+    assert.equal(enemy.airborne, true, "the test mob should still be completing its jump shortly after the lethal hit");
+    assert.equal(enemy.deathPendingLanding, true, "death should remain pending throughout the airborne arc");
+    assert.notEqual(enemy.animationSlot, "death", "the normal locomotion pose should continue through the airborne arc");
+    assert.ok(enemy.x > impactX, "the mob should preserve its horizontal jump momentum after the lethal hit");
+    assert.notEqual(enemy.y, impactY, "the mob should continue its vertical jump trajectory after the lethal hit");
+
+    let landed = false;
+    for (let tick = 0; tick < 240; tick += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        if (enemy.airborne) {
+            assert.notEqual(enemy.animationSlot, "death", "death animation must remain suppressed until the landing tick");
+            continue;
+        }
+        landed = true;
+        break;
+    }
+
+    assert.equal(landed, true, "the mortally hit mob should complete the jump and land on ordinary collision geometry");
+    assert.ok(Math.abs(enemy.y - 400) < 0.01, `the mob should land cleanly on the floor before dying (${enemy.y})`);
+    assert.equal(enemy.deathPendingLanding, false, "landing should consume the deferred-death state");
+    assert.equal(enemy.combatState, "dead", "the mob should become dead only after landing");
+    assert.equal(enemy.animationSlot, "death", "landing should start the authored death animation");
+    assert.ok(enemy.deathTimer > 1.1, "the death animation should begin with its full duration after landing");
+    assert.equal(enemy.velocityX, 0, "landing death should not retain airborne horizontal momentum");
+    assert.equal(enemy.velocityY, 0, "landing death should not retain airborne vertical momentum");
+    assert.equal(enemy.supportId, "landing_floor", "the dying mob should retain its landing support identity");
+
+    stepMany(state, 100);
+    assert.ok(Math.abs(enemy.y - 400) < 0.01, "the grounded death animation should not be followed by a second corpse drop");
 }
 
 function testCharacterEnemyMeleeAttack() {
@@ -7395,7 +7437,7 @@ const tests = [
     ["character enemy aggressive chase and combo", testCharacterEnemyAggressiveChaseAndCombo],
     ["rebalanced enemy health and standard rocket hit counts", testRebalancedEnemyHealthAndRocketHits],
     ["character enemy rocket combat", testCharacterEnemyRocketCombat],
-    ["dead airborne enemy falls after death animation", testDeadAirborneEnemyFallsAfterDeathAnimation],
+    ["airborne enemy defers death until landing", testAirborneEnemyDefersDeathUntilLanding],
     ["character enemy melee attack", testCharacterEnemyMeleeAttack],
     ["terrain shields player from enemy melee", testEnemyMeleeBlockedByTerrain],
     ["fireball goblin projectile attack", testFireballGoblinProjectileAttack],

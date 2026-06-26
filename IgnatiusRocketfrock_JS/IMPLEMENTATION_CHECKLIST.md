@@ -1909,3 +1909,13 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Update the game manual, architecture contract, plan, tests, and build labels to revision 223.
 - [x] Pass the complete aggregate headless test suite.
 
+
+## Revision 224 defer grounded mob death until landing
+
+- [x] Add an explicit portable `death_pending_landing` combat state and serialized `deathPendingLanding` flag for ground-locomotion character enemies.
+- [x] Record lethal health and remove the enemy from targeting immediately without selecting the death animation in midair.
+- [x] Preserve the existing jump/drop velocity, traversal metadata, and ordinary swept collision until the enemy lands.
+- [x] Start the complete authored death animation only on the landing tick, with zero residual velocity and retained support identity.
+- [x] Keep immediate grounded deaths and flying-enemy fly-off deaths unchanged.
+- [x] Replace the obsolete airborne-corpse regression with a lethal-hit test that proves continued jump motion, no midair death clip, grounded death start, and no second corpse drop.
+- [x] Update architecture guidance, plan history, tests, and build labels to revision 224.
