@@ -2672,5 +2672,32 @@
                 }
             ]
         }
+    },
+    "presentation": {
+        "mode": "exclusive_frame_parts",
+        "parts": [
+            "frame_01",
+            "frame_02",
+            "frame_03",
+            "frame_04",
+            "frame_05",
+            "frame_06",
+            "frame_07",
+            "frame_08",
+            "frame_09",
+            "frame_10",
+            "frame_11",
+            "frame_12",
+            "frame_13",
+            "frame_14",
+            "frame_15",
+            "frame_16",
+            "frame_17",
+            "frame_18",
+            "frame_19",
+            "frame_20",
+            "frame_21",
+            "frame_22"
+        ]
     }
 }

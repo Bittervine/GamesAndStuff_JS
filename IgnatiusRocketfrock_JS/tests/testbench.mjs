@@ -119,9 +119,13 @@ import {
 import {
     createEditableAnimationClip,
     deleteAnimationKeyframe,
+    disableExclusiveFramePresentation,
     duplicateEditableAnimationClip,
+    enableExclusiveFramePresentation,
+    exclusiveFrameParts,
     getAnimationTrack,
     serializeEditableAnimationClip,
+    setExclusiveFrameAtTime,
     updateAnimationClipMetadata,
     updateAnimationKeyframe,
     upsertAnimationKeyframe
@@ -164,6 +168,8 @@ import {
     animationPoseToRuntimeTransforms,
     applyRuntimeProjectileHandoffVisibility,
     buildRuntimeCharacterDrawCommands,
+    characterArtworkOffset,
+    characterArtworkOrigin,
     createRuntimeCharacterSetupPose,
     loadRuntimeCharacterProject,
     normalizeRuntimeCharacterRig,
@@ -601,8 +607,11 @@ async function testBatFrameSwapProjectsAndFlight() {
     assert.deepEqual(rig005.drawOrder, orderedFrameNames, "replacement Atlas 005 rig should preserve source order exactly");
     assert.equal(animation005.duration, 1.1, "22 Atlas 005 frames should play at 20 FPS");
     assert.equal(Object.keys(animation005.tracks).length, 22, "replacement Atlas 005 should key every supplied frame");
+    assert.equal(animation005.presentation?.mode, "exclusive_frame_parts", "frame-swapped bat should declare its animation presentation contract");
+    assert.deepEqual(animation005.presentation?.parts, orderedFrameNames, "frame-swapped bat should declare every exclusive frame part in source order");
 
     const project005 = await loadRuntimeCharacterProject("assets/ct_char_enemy_005.json", loader);
+    assert.equal(project005.animations.get("fly").presentation.mode, "exclusive_frame_parts", "runtime should retain the validated frame-sequence contract");
     for (let index = 0; index < orderedFrameNames.length; index += 1) {
         const sampled = sampleRuntimeCharacterPose(project005, "fly", index * 0.05 + 0.001);
         const visibleNames = Object.entries(sampled.pose)
@@ -878,10 +887,20 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(migratedEnemy.awarenessVerticalRange, undefined, "runtime state should discard the unused vertical-awareness field");
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     assert.ok(editorHtml.includes("ENEMY_CATALOG_URL"), "level editor should load the explicit enemy catalog");
     assert.ok(editorHtml.includes('value="enemy_001"'), "level editor palette should expose the Skeleton Guard");
     assert.ok(editorHtml.includes('id="enemy-settings-row"'), "level editor should expose character-enemy behaviour controls");
     assert.ok(editorHtml.includes("drawCharacterEnemyPreview"), "level editor should preview enemies through the generic character renderer");
+    assert.ok(editorHtml.includes("const artworkOrigin = characterArtworkOrigin(entity);"), "level editor character previews should use the shared character-local artwork origin");
+    assert.ok(rendererSource.includes("const artworkOrigin = characterArtworkOrigin(enemy);"), "runtime enemy rendering should use the shared character-local artwork origin");
+    const rightOrigin = characterArtworkOrigin({ x: 100, y: 200, facing: 1, renderOffsetX: -11, renderOffsetY: 35 });
+    const leftOrigin = characterArtworkOrigin({ x: 100, y: 200, facing: -1, renderOffsetX: -11, renderOffsetY: 35 });
+    assert.deepEqual(rightOrigin, { x: 89, y: 235 }, "right-facing artwork should apply the local X offset before drawing");
+    assert.deepEqual(leftOrigin, { x: 111, y: 235 }, "left-facing artwork should mirror the local X offset around the hitbox anchor");
+    const previewOffset = characterArtworkOffset(-11, 35, 1.9);
+    assert.equal(previewOffset.x, -20.9, "Puppet Forge should scale artwork offsets by the same preview-world factor as artwork and hitboxes");
+    assert.equal(previewOffset.y, 66.5, "Puppet Forge should scale vertical artwork offsets by the same preview-world factor as artwork and hitboxes");
     assert.ok(editorHtml.includes("snapCharacterEnemyToNearbyGround"), "placed enemies should snap their feet to authored support lines");
     assert.ok(editorHtml.includes('enemy.locomotion || ""'), "level editor ground snapping should explicitly exempt flying enemies");
     assert.ok(editorHtml.includes('id="inspect-enemy-health"'), "level editor should expose enemy health authoring");
@@ -909,11 +928,13 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.ok(editorHtml.includes('buildPlacedHunterNavigationGraphs({ silent: true, refreshUi: false })'), "Play should automatically rebuild hunter navigation graphs before serializing the browser copy");
 
     const characterEditorHtml = readFileSync(new URL("../character-editor.html", import.meta.url), "utf8");
+    assert.ok(characterEditorHtml.includes("characterArtworkOffset(renderOffsetX, renderOffsetY, CHARACTER_EDITOR_WORLD_SCALE)"), "Puppet Forge should scale character-local artwork offsets with its preview-world transform");
+    assert.ok(characterEditorHtml.includes("animationPoseToRuntimeTransforms("), "Puppet Forge should use the same pose-to-transform path as the runtime and Level Editor");
+    assert.ok(characterEditorHtml.includes("transform.x += artworkOffset.x"), "Puppet Forge should apply the local X offset before its facing mirror");
     assert.ok(characterEditorHtml.includes('enemy_005: "assets/ct_char_enemy_005.json"'), "Puppet Forge should expose replacement Atlas 005");
     for (const discardedSuffix of ["006", "007", "008"]) {
         assert.ok(!characterEditorHtml.includes(`ct_char_enemy_${discardedSuffix}.json`), `Puppet Forge should not expose discarded enemy ${discardedSuffix}`);
     }
-    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     for (const retainedSuffix of ["005"]) {
         assert.ok(rendererSource.includes(`assets/ct_char_enemy_${retainedSuffix}.json`), `renderer should preload retained enemy ${retainedSuffix}`);
     }
@@ -4671,6 +4692,32 @@ function testAnimationEditorOperations() {
     );
 }
 
+function testFrameBasedAnimationEditorWorkflow() {
+    const clip = {
+        animationId: "frames",
+        duration: 1,
+        loop: true,
+        referencePose: {
+            frame_01: { x: 0, y: 0, rotation: 0, scale: 1, alpha: 1 },
+            frame_02: { x: 0, y: 0, rotation: 0, scale: 1, alpha: 1 }
+        },
+        tracks: {
+            frame_01: { alpha: [{ time: 0, value: 1, easing: "step" }] },
+            frame_02: { alpha: [{ time: 0, value: 1, easing: "step" }] }
+        }
+    };
+    const result = enableExclusiveFramePresentation(clip, ["frame_01", "frame_02"]);
+    assert.equal(result.repairedMoments, 1);
+    assert.deepEqual(exclusiveFrameParts(clip), ["frame_01", "frame_02"]);
+    setExclusiveFrameAtTime(clip, "frame_02", 0.5);
+    const normalized = normalizeAnimationClip(clip, "frame editor test");
+    assert.equal(sampleAnimationClipAtPlayhead(normalized, 0.25).frame_01.alpha, 1);
+    assert.equal(sampleAnimationClipAtPlayhead(normalized, 0.75).frame_02.alpha, 1);
+    assert.equal(clip.tracks.frame_01.alpha.at(-1).easing, "step");
+    disableExclusiveFramePresentation(clip);
+    assert.deepEqual(exclusiveFrameParts(clip), []);
+}
+
 function testAnimationEasingModes() {
     const track = [
         { time: 0, value: 0, easing: "linear" },
@@ -6250,6 +6297,7 @@ const tests = [
     ["character tool direct transform geometry", testCharacterToolDirectTransformGeometry],
     ["data-driven wizard run animation", testDataDrivenRunAnimation],
     ["animation editor keyframe operations", testAnimationEditorOperations],
+    ["frame-based animation editor workflow", testFrameBasedAnimationEditorWorkflow],
     ["animation easing modes", testAnimationEasingModes],
     ["state serialization and cloning", testStateSerialization],
     ["headless stepping and floor collision", testHeadlessSteppingAndFloorCollision],

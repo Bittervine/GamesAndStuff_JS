@@ -115,6 +115,105 @@ export function duplicateEditableAnimationClip(rawClip, newAnimationId) {
     return createEditableAnimationClip(duplicate, `animation duplicate ${animationId}`);
 }
 
+
+export function exclusiveFrameParts(rawClip) {
+    return rawClip?.presentation?.mode === "exclusive_frame_parts"
+        && Array.isArray(rawClip.presentation.parts)
+        ? [...rawClip.presentation.parts]
+        : [];
+}
+
+export function enableExclusiveFramePresentation(rawClip, partNames) {
+    const duration = positiveDuration(rawClip);
+    const parts = [...new Set((partNames || []).map(String).filter(Boolean))];
+    if (parts.length < 2) {
+        throw new Error("Frame-based animation needs at least two rig parts.");
+    }
+    for (const partName of parts) {
+        if (!rawClip.referencePose?.[partName]) {
+            throw new Error(`Frame part "${partName}" is missing from the animation pose.`);
+        }
+    }
+
+    const times = new Set([0]);
+    for (const partName of parts) {
+        for (const key of getAnimationTrack(rawClip, partName, "alpha", false) || []) {
+            times.add(Number(key.time));
+        }
+    }
+    const orderedTimes = [...times].filter(Number.isFinite).sort((a, b) => a - b);
+    let previousFrame = parts[0];
+    let repairedMoments = 0;
+    const chosenFrames = orderedTimes.map((time) => {
+        let bestPart = previousFrame;
+        let bestAlpha = -Infinity;
+        let visibleCount = 0;
+        for (const partName of parts) {
+            const track = getAnimationTrack(rawClip, partName, "alpha", false);
+            const alpha = track?.length
+                ? sampleStepTrack(track, time)
+                : Number(rawClip.referencePose?.[partName]?.alpha ?? 1);
+            if (alpha > 0.5) {
+                visibleCount += 1;
+            }
+            if (alpha > bestAlpha) {
+                bestAlpha = alpha;
+                bestPart = partName;
+            }
+        }
+        if (visibleCount !== 1) {
+            repairedMoments += 1;
+            if (bestAlpha <= 0.5) {
+                bestPart = previousFrame;
+            }
+        }
+        previousFrame = bestPart;
+        return bestPart;
+    });
+
+    for (const partName of parts) {
+        rawClip.tracks = rawClip.tracks || {};
+        rawClip.tracks[partName] = rawClip.tracks[partName] || {};
+        rawClip.tracks[partName].alpha = orderedTimes.map((time, index) => ({
+            time,
+            value: chosenFrames[index] === partName ? 1 : 0,
+            easing: "step"
+        }));
+    }
+    rawClip.presentation = { mode: "exclusive_frame_parts", parts };
+    return { repairedMoments, frameCount: parts.length };
+}
+
+export function disableExclusiveFramePresentation(rawClip) {
+    rawClip.presentation = { mode: "rig", parts: [] };
+}
+
+export function setExclusiveFrameAtTime(rawClip, partName, timeSeconds) {
+    const parts = exclusiveFrameParts(rawClip);
+    if (!parts.includes(partName)) {
+        throw new Error(`"${partName}" is not part of this frame-based animation.`);
+    }
+    const time = clamp(Number(timeSeconds), 0, positiveDuration(rawClip));
+    for (const framePart of parts) {
+        upsertAnimationKeyframe(rawClip, framePart, "alpha", {
+            time,
+            value: framePart === partName ? 1 : 0,
+            easing: "step"
+        });
+    }
+}
+
+function sampleStepTrack(track, time) {
+    let value = Number(track[0]?.value ?? 0);
+    for (const key of track) {
+        if (Number(key.time) > time + 0.0000001) {
+            break;
+        }
+        value = Number(key.value);
+    }
+    return value;
+}
+
 export function getAnimationTrack(rawClip, partName, property, create = false) {
     assertProperty(property);
     if (!rawClip.tracks || typeof rawClip.tracks !== "object" || Array.isArray(rawClip.tracks)) {

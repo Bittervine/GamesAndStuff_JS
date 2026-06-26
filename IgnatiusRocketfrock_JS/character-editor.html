@@ -737,7 +737,7 @@
                 <label><span>Artwork offset X</span><input id="enemy-render-offset-x" type="number" step="1"></label>
                 <label><span>Artwork offset Y</span><input id="enemy-render-offset-y" type="number" step="1"></label>
             </div>
-            <p>The cyan rectangle in the preview is the default gameplay hitbox. Artwork offset X/Y moves the rendered puppet relative to that box without changing animation keys. Positive X moves it toward its facing direction; positive Y moves it downward.</p>
+            <p>The cyan rectangle in the preview is the default gameplay hitbox. Artwork offset X/Y moves the rendered puppet relative to that box without changing animation keys. Artwork offset X is measured in character-local space and mirrors with facing; positive Y moves the artwork downward.</p>
             <div class="row">
                 <label><span>Locomotion</span><select id="enemy-locomotion"><option value="ground">Ground</option><option value="flying">Flying</option></select></label>
                 <label><span>AI strategy</span><select id="enemy-strategy"><option value="simple_patrol">Simple patrol</option><option value="sentry">Sentry</option><option value="hunter">Hunter</option><option value="bomber">Bomber</option></select></label>
@@ -836,6 +836,16 @@
                 <button id="reload" type="button">Reload files</button>
             </div>
             <label class="check-row"><input id="animation-mirrorable" type="checkbox" checked> Animation may be mirrored</label>
+            <label class="check-row"><input id="frame-based-animation" type="checkbox"> Frame-based animation: exactly one frame is visible at a time</label>
+            <div id="frame-animation-controls" hidden>
+                <label><span>Visible frame at playhead</span><select id="visible-frame-select"></select></label>
+                <div class="row">
+                    <button id="set-visible-frame" type="button">Set frame at playhead</button>
+                    <button id="edit-frame-order" type="button">Edit frame order</button>
+                </div>
+                <div id="frame-parts-summary" class="muted-line"></div>
+                <p>The editor owns the alpha tracks for these frame parts. Selecting a frame creates exclusive step keys for every frame at the playhead.</p>
+            </div>
             <p>With alpha preview on, parts use their in-game opacity. With it off, the selected part is fully opaque while other parts are ghosted between 10% and 50%, making rear and hidden parts easier to position and select.</p>
             <div class="row">
                 <label><span>New animation slot</span><input id="duplicate-animation-slot" type="text" placeholder="for example: block"></label>
@@ -1016,15 +1026,23 @@ import {
     animationTrackSummary,
     createEditableAnimationClip,
     deleteAnimationKeyframe,
+    disableExclusiveFramePresentation,
+    enableExclusiveFramePresentation,
+    exclusiveFrameParts,
     duplicateEditableAnimationClip,
     findKeyframeIndex,
     getAnimationTrack,
     serializeEditableAnimationClip,
+    setExclusiveFrameAtTime,
     updateAnimationClipMetadata,
     updateAnimationKeyframe,
     upsertAnimationKeyframe
 } from "./src/tools/character-editor/animation-editor.js";
 import { animationDopesheetRows } from "./src/tools/character-editor/dopesheet-data.js";
+import {
+    animationPoseToRuntimeTransforms,
+    characterArtworkOffset
+} from "./src/presentation/character-runtime.js";
 import {
     TRANSFORM_EDIT_PROPERTY,
     canvasPointFromClient,
@@ -1161,6 +1179,12 @@ const els = {
     maxSpeedRatio: document.getElementById("max-speed-ratio"),
     idleThreshold: document.getElementById("idle-threshold"),
     animationMirrorable: document.getElementById("animation-mirrorable"),
+    frameBasedAnimation: document.getElementById("frame-based-animation"),
+    frameAnimationControls: document.getElementById("frame-animation-controls"),
+    visibleFrameSelect: document.getElementById("visible-frame-select"),
+    setVisibleFrame: document.getElementById("set-visible-frame"),
+    editFrameOrder: document.getElementById("edit-frame-order"),
+    framePartsSummary: document.getElementById("frame-parts-summary"),
     duplicateAnimationSlot: document.getElementById("duplicate-animation-slot"),
     duplicateAnimation: document.getElementById("duplicate-animation"),
     speed: document.getElementById("speed"),
@@ -1353,6 +1377,7 @@ function setAnimationTool(tool) {
         els.propertySelect.value = TRANSFORM_EDIT_PROPERTY;
         state.selectedKeyIndex = -1;
         state.selectedTransformTime = null;
+        syncFrameAnimationControls();
         rebuildTimeline();
     }
     updateQuickToolbar();
@@ -2640,12 +2665,14 @@ function isTransformEditMode() {
     return selectedProperty() === TRANSFORM_EDIT_PROPERTY;
 }
 
+const CHARACTER_EDITOR_WORLD_SCALE = 1.9;
+
 function animationPreviewScale() {
     const definition = currentEnemyDefinition();
     const authoredScale = definition
         ? Math.max(0.01, Number(els.enemyRenderScale?.value) || Number(definition.defaults?.renderScale) || 1)
         : 1;
-    return Number(state.rig?.global?.scale ?? 1) * 1.9 * authoredScale;
+    return Number(state.rig?.global?.scale ?? 1) * CHARACTER_EDITOR_WORLD_SCALE * authoredScale;
 }
 
 function currentViewTransform() {
@@ -2933,6 +2960,7 @@ function syncAnimationControls() {
         els.maxSpeedRatio,
         els.idleThreshold,
         els.animationMirrorable,
+        els.frameBasedAnimation,
         els.duplicateAnimationSlot,
         els.duplicateAnimation
     ];
@@ -2942,6 +2970,8 @@ function syncAnimationControls() {
         els.time.value = 0;
         els.loop.checked = false;
         els.animationMirrorable.checked = false;
+        els.frameBasedAnimation.checked = false;
+        els.frameAnimationControls.hidden = true;
         els.animationId.value = "";
         els.animationDuration.value = "";
         els.baseCyclesPerSecond.value = "";
@@ -2969,6 +2999,7 @@ function syncAnimationControls() {
     els.time.value = clamp(state.time, 0, duration);
     els.loop.checked = state.animation.loop !== false;
     els.animationMirrorable.checked = state.animation.mirrorable !== false;
+    syncFrameAnimationControls();
     els.animationId.value = String(state.animation.animationId || "");
     els.animationDuration.value = duration.toFixed(3);
     els.baseCyclesPerSecond.value = Number(playback.baseCyclesPerSecond).toFixed(3);
@@ -2981,6 +3012,133 @@ function syncAnimationControls() {
     state.syncing = false;
     updateReadouts();
     syncProjectilePartControls();
+}
+
+function framePartCandidates() {
+    const current = exclusiveFrameParts(state.animation);
+    if (current.length) {
+        return current;
+    }
+    const ordered = drawOrder().filter((partName) => state.animation?.referencePose?.[partName]);
+    const namedFrames = ordered.filter((partName) => /^frame[_-]?\d+/i.test(partName));
+    return namedFrames.length >= 2 ? namedFrames : ordered;
+}
+
+function visibleFrameAtPlayhead() {
+    const parts = exclusiveFrameParts(state.animation);
+    if (!parts.length) {
+        return "";
+    }
+    const pose = sampleAnimationClipAtPlayhead(normalizedAnimation(), state.time);
+    return parts.find((partName) => Number(pose?.[partName]?.alpha) > 0.5) || parts[0];
+}
+
+function syncFrameAnimationControls() {
+    const parts = exclusiveFrameParts(state.animation);
+    const enabled = parts.length > 0;
+    els.frameBasedAnimation.checked = enabled;
+    els.frameAnimationControls.hidden = !enabled;
+    els.visibleFrameSelect.replaceChildren();
+    for (const partName of parts) {
+        const option = document.createElement("option");
+        option.value = partName;
+        option.textContent = partName;
+        els.visibleFrameSelect.appendChild(option);
+    }
+    if (enabled) {
+        els.visibleFrameSelect.value = visibleFrameAtPlayhead();
+        els.framePartsSummary.textContent = `${parts.length} ordered frame parts: ${parts.join(", ")}`;
+    } else {
+        els.framePartsSummary.textContent = "";
+    }
+    const frameAlphaLocked = enabled && parts.includes(selectedPartName());
+    const alphaOption = [...els.propertySelect.options].find((option) => option.value === "alpha");
+    if (alphaOption) {
+        alphaOption.disabled = frameAlphaLocked;
+    }
+    if (frameAlphaLocked && els.propertySelect.value === "alpha") {
+        els.propertySelect.value = TRANSFORM_EDIT_PROPERTY;
+    }
+}
+
+function toggleFrameBasedAnimation() {
+    if (state.syncing || !state.animation) {
+        return;
+    }
+    try {
+        if (els.frameBasedAnimation.checked) {
+            const parts = framePartCandidates();
+            if (parts.length < 2) {
+                throw new Error("Frame-based animation needs at least two rig parts.");
+            }
+            const before = JSON.parse(JSON.stringify(state.animation));
+            const result = enableExclusiveFramePresentation(state.animation, parts);
+            if (result.repairedMoments && !confirm(
+                `This animation has ${result.repairedMoments} time point(s) where multiple frames or no frames are visible.\n\n`
+                + "Enable frame-based animation and repair them by keeping the strongest or most recently visible frame?"
+            )) {
+                state.animation = before;
+                state.animationCache.set(currentAnimationDirtyKey(), state.animation);
+                state.syncing = true;
+                els.frameBasedAnimation.checked = false;
+                state.syncing = false;
+                return;
+            }
+            invalidateAnimation();
+            syncFrameAnimationControls();
+            rebuildTimeline();
+            setStatus(result.repairedMoments
+                ? `Enabled frame-based animation and repaired ${result.repairedMoments} ambiguous frame change(s).`
+                : `Enabled frame-based animation for ${result.frameCount} frames.`);
+        } else {
+            disableExclusiveFramePresentation(state.animation);
+            invalidateAnimation();
+            syncFrameAnimationControls();
+            rebuildTimeline();
+            setStatus("Disabled frame-based editing. Existing alpha keys were preserved.");
+        }
+    } catch (error) {
+        state.syncing = true;
+        els.frameBasedAnimation.checked = exclusiveFrameParts(state.animation).length > 0;
+        state.syncing = false;
+        setStatus(error.message);
+    }
+}
+
+function editFrameOrder() {
+    const parts = exclusiveFrameParts(state.animation);
+    if (!parts.length) {
+        return;
+    }
+    const entered = prompt("Frame parts in playback order, separated by commas:", parts.join(", "));
+    if (entered === null) {
+        return;
+    }
+    try {
+        const requested = entered.split(",").map((value) => value.trim()).filter(Boolean);
+        const result = enableExclusiveFramePresentation(state.animation, requested);
+        invalidateAnimation();
+        syncFrameAnimationControls();
+        rebuildTimeline();
+        setStatus(`Updated frame order for ${result.frameCount} frames.`);
+    } catch (error) {
+        setStatus(error.message);
+    }
+}
+
+function setVisibleFrameFromUi() {
+    if (!state.animation || !els.visibleFrameSelect.value) {
+        return;
+    }
+    try {
+        setExclusiveFrameAtTime(state.animation, els.visibleFrameSelect.value, state.time);
+        invalidateAnimation();
+        syncFrameAnimationControls();
+        rebuildTimeline();
+        setStatus(`Set ${els.visibleFrameSelect.value} at ${state.time.toFixed(3)} seconds.`);
+    } catch (error) {
+        setStatus(error.message);
+    }
 }
 
 function applyAnimationMetadataFromUi() {
@@ -3952,25 +4110,23 @@ function renderedPose() {
     if (!pose || !state.rig) {
         return null;
     }
-    const globalScale = animationPreviewScale();
     const definition = currentEnemyDefinition();
     const defaults = definition?.defaults || {};
     const renderOffsetX = definition ? (Number(els.enemyRenderOffsetX?.value) || 0) : (Number(defaults.renderOffsetX) || 0);
     const renderOffsetY = definition ? (Number(els.enemyRenderOffsetY?.value) || 0) : (Number(defaults.renderOffsetY) || 0);
-    const result = {};
-    for (const name of drawOrder()) {
-        const local = pose[name] || { x: 0, y: 0, rotation: 0, scale: 1, alpha: 1 };
-        const part = state.rig.parts?.[name];
-        if (!part) {
-            continue;
-        }
-        result[name] = {
-            x: Number(local.x || 0) * globalScale + renderOffsetX * state.facing,
-            y: Number(local.y || 0) * globalScale + renderOffsetY,
-            angle: Number(local.rotation || 0),
-            targetHeight: Number(part.targetHeight || 100) * globalScale * Number(local.scale ?? 1),
-            alpha: Number(local.alpha ?? 1)
-        };
+    const artworkOffset = characterArtworkOffset(renderOffsetX, renderOffsetY, CHARACTER_EDITOR_WORLD_SCALE);
+    const authoredScale = definition
+        ? Math.max(0.01, Number(els.enemyRenderScale?.value) || Number(definition.defaults?.renderScale) || 1)
+        : 1;
+    const result = animationPoseToRuntimeTransforms(
+        pose,
+        state.rig,
+        CHARACTER_EDITOR_WORLD_SCALE,
+        authoredScale
+    );
+    for (const transform of Object.values(result)) {
+        transform.x += artworkOffset.x;
+        transform.y += artworkOffset.y;
     }
     return result;
 }
@@ -4313,15 +4469,16 @@ function drawEnemyHitboxGuide() {
     const width = Math.max(1, Number(els.enemyDefaultWidth?.value) || Number(definition.defaultSize?.w) || 1);
     const height = Math.max(1, Number(els.enemyDefaultHeight?.value) || Number(definition.defaultSize?.h) || 1);
     const view = currentViewTransform();
-    const left = view.originX - width * view.zoom * 0.5;
-    const top = view.originY - height * view.zoom;
+    const hitboxScale = view.zoom * CHARACTER_EDITOR_WORLD_SCALE;
+    const left = view.originX - width * hitboxScale * 0.5;
+    const top = view.originY - height * hitboxScale;
     ctx.save();
     ctx.fillStyle = "rgba(70, 220, 255, 0.08)";
     ctx.strokeStyle = "rgba(70, 220, 255, 0.95)";
     ctx.lineWidth = 2 * stagePixelScale();
     ctx.setLineDash([8 * stagePixelScale(), 5 * stagePixelScale()]);
-    ctx.fillRect(left, top, width * view.zoom, height * view.zoom);
-    ctx.strokeRect(left, top, width * view.zoom, height * view.zoom);
+    ctx.fillRect(left, top, width * hitboxScale, height * hitboxScale);
+    ctx.strokeRect(left, top, width * hitboxScale, height * hitboxScale);
     ctx.setLineDash([]);
     ctx.fillStyle = "rgba(130, 235, 255, 0.95)";
     ctx.font = `${12 * stagePixelScale()}px system-ui, sans-serif`;
@@ -4530,7 +4687,10 @@ els.applyRigJson.addEventListener("click", applyRigJson);
 els.animationSelect.addEventListener("change", () => {
     loadAnimationSlot(els.animationSelect.value).catch((error) => setStatus(error.stack || error.message));
 });
-els.partSelect.addEventListener("change", () => selectPart(selectedPartName()));
+els.partSelect.addEventListener("change", () => {
+    selectPart(selectedPartName());
+    syncFrameAnimationControls();
+});
 els.partToBack.addEventListener("click", () => moveSelectedPartInDrawOrder("back"));
 els.partToFront.addEventListener("click", () => moveSelectedPartInDrawOrder("front"));
 els.propertySelect.addEventListener("change", () => {
@@ -4557,6 +4717,7 @@ els.time.addEventListener("input", () => {
         state.time = Number(els.time.value);
         state.selectedKeyIndex = -1;
         state.selectedTransformTime = null;
+        syncFrameAnimationControls();
         rebuildTimeline();
     }
 });
@@ -4603,6 +4764,12 @@ els.animationId.addEventListener("keydown", (event) => {
         applyAnimationMetadataFromUi();
         els.animationId.blur();
     }
+});
+els.frameBasedAnimation.addEventListener("change", toggleFrameBasedAnimation);
+els.setVisibleFrame.addEventListener("click", setVisibleFrameFromUi);
+els.editFrameOrder.addEventListener("click", editFrameOrder);
+els.visibleFrameSelect.addEventListener("change", () => {
+    setStatus(`Selected ${els.visibleFrameSelect.value}. Press Set frame at playhead to author it.`);
 });
 els.duplicateAnimation.addEventListener("click", () => {
     duplicateCurrentAnimation().catch((error) => setStatus(error.stack || error.message));

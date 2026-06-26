@@ -4876,7 +4876,7 @@
             "projectileKnockbackX": 100,
             "projectileKnockbackY": -120,
             "projectileFrameId": "rock",
-            "renderOffsetX": -20,
+            "renderOffsetX": -11,
             "renderOffsetY": 35,
             "notes": "The retained bat enemy. It patrols a small area around its authored perch, activates only when Ignatius enters its normal awareness view, flies overhead, and drops atlas-authored rocks."
         }

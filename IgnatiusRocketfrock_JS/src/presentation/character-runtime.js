@@ -4,6 +4,23 @@ import {
     sampleAnimationClip
 } from "../shared/animation-data.js";
 
+export function characterArtworkOffset(renderOffsetX = 0, renderOffsetY = 0, scale = 1) {
+    const safeScale = finitePositive(scale, 1);
+    return {
+        x: finiteOr(renderOffsetX, 0) * safeScale,
+        y: finiteOr(renderOffsetY, 0) * safeScale
+    };
+}
+
+export function characterArtworkOrigin(actor = {}) {
+    const facing = Number(actor.facing) < 0 ? -1 : 1;
+    const offset = characterArtworkOffset(actor.renderOffsetX, actor.renderOffsetY);
+    return {
+        x: finiteOr(actor.x, 0) + facing * offset.x,
+        y: finiteOr(actor.y, 0) + offset.y
+    };
+}
+
 export const CHARACTER_PROJECTILE_LAUNCH_TYPES = Object.freeze([
     "ballistic",
     "straight",

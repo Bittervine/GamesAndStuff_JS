@@ -51,7 +51,14 @@ export function normalizeAnimationClip(rawClip, label = "animation clip") {
         referencePose,
         tracks,
         playback: normalizePlayback(rawClip.playback),
-        rootMotion: normalizeRootMotion(rawClip.rootMotion)
+        rootMotion: normalizeRootMotion(rawClip.rootMotion),
+        presentation: normalizeAnimationPresentation(
+            rawClip.presentation,
+            referencePose,
+            tracks,
+            duration,
+            `${label} presentation`
+        )
     };
 }
 
@@ -209,6 +216,59 @@ function normalizeTrack(rawKeys, duration, label) {
         }
     }
     return keys;
+}
+
+function normalizeAnimationPresentation(rawPresentation, referencePose, tracks, duration, label) {
+    const source = rawPresentation && typeof rawPresentation === "object" && !Array.isArray(rawPresentation)
+        ? rawPresentation
+        : {};
+    const mode = String(source.mode || "rig").trim() || "rig";
+    if (mode === "rig") {
+        return { mode: "rig", parts: [] };
+    }
+    if (mode !== "exclusive_frame_parts") {
+        throw new Error(`${label} uses unsupported mode "${mode}".`);
+    }
+
+    const parts = Array.isArray(source.parts) ? source.parts.map(String) : [];
+    if (parts.length < 2 || new Set(parts).size !== parts.length) {
+        throw new Error(`${label} exclusive_frame_parts mode requires at least two unique parts.`);
+    }
+    for (const partName of parts) {
+        if (!referencePose[partName]) {
+            throw new Error(`${label} references missing pose part "${partName}".`);
+        }
+        const alphaTrack = tracks[partName]?.alpha;
+        if (!Array.isArray(alphaTrack) || alphaTrack.length === 0) {
+            throw new Error(`${label} part "${partName}" requires an alpha track.`);
+        }
+        if (alphaTrack.some((key) => key.easing !== "step")) {
+            throw new Error(`${label} part "${partName}" must use step alpha keys.`);
+        }
+    }
+
+    const keyTimes = new Set([0, duration]);
+    for (const partName of parts) {
+        for (const key of tracks[partName].alpha) {
+            keyTimes.add(key.time);
+        }
+    }
+    const orderedTimes = [...keyTimes].sort((a, b) => a - b);
+    const sampleTimes = new Set(orderedTimes);
+    for (let index = 1; index < orderedTimes.length; index += 1) {
+        sampleTimes.add((orderedTimes[index - 1] + orderedTimes[index]) * 0.5);
+    }
+    for (const time of sampleTimes) {
+        const visibleCount = parts.reduce((count, partName) => {
+            const alpha = sampleAnimationTrack(tracks[partName].alpha, time, duration, false, false);
+            return count + (alpha > 0.5 ? 1 : 0);
+        }, 0);
+        if (visibleCount !== 1) {
+            throw new Error(`${label} must show exactly one frame part at ${time.toFixed(6)}s; found ${visibleCount}.`);
+        }
+    }
+
+    return { mode, parts };
 }
 
 function normalizeRootMotion(rawRootMotion) {

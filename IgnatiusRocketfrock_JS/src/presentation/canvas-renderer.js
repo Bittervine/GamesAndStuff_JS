@@ -34,6 +34,7 @@ import {
     animationPoseToRuntimeTransforms,
     applyRuntimeProjectileHandoffVisibility,
     buildRuntimeCharacterDrawCommands,
+    characterArtworkOrigin,
     loadRuntimeCharacterProject,
     sampleRuntimeCharacterPose
 } from "./character-runtime.js";
@@ -1173,9 +1174,8 @@ class RocketfrockRenderer {
         }
         const actorScale = Math.max(0.05, Number(enemy.renderScale) || 1);
         const facing = Number(enemy.facing) < 0 ? -1 : 1;
-        const renderOffsetX = (Number(enemy.renderOffsetX) || 0) * facing;
-        const renderOffsetY = Number(enemy.renderOffsetY) || 0;
-        const screen = this.worldToScreen(view, enemy.x + renderOffsetX, enemy.y + renderOffsetY);
+        const artworkOrigin = characterArtworkOrigin(enemy);
+        const screen = this.worldToScreen(view, artworkOrigin.x, artworkOrigin.y);
         const requestedSlot = enemy.animationSlot || enemy.state || "idle";
         const time = Number.isFinite(Number(enemy.animationTime))
             ? Number(enemy.animationTime)

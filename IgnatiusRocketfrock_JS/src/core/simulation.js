@@ -228,7 +228,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "168-rigged-bat-puppet",
+            build: "184-explicit-frame-sequence-contract",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {

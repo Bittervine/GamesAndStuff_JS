@@ -1552,3 +1552,20 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 
 - Fixed perched bomber take-off: obstacle probes now use the flying enemy body centre and a compact collision radius, preventing the platform under a bat from blocking every upward movement.
 - Added a regression test for a bomber leaving a platform directly beneath its perch.
+
+## Revision 184 bat architecture kindness pass
+
+- [x] Keep the retained bat on the ordinary character-project and renderer path rather than adding a bat-only drawing system.
+- [x] Add an explicit `exclusive_frame_parts` animation presentation contract for still-frame atlas sequences.
+- [x] Validate that every declared frame part exists, uses step-keyed alpha, and leaves exactly one frame visible across the complete clip.
+- [x] Mark the retained 22-frame bat clip with the new contract and preserve its authored source order.
+- [x] Update the portable game-state build label and regression coverage.
+- [ ] Consider extracting flying/bomber strategy updates from `simulation.js` into a dedicated portable enemy-flight module when a second flying enemy or a second aerial strategy is introduced. Do not split it merely to reduce line count before a reusable interface is clear.
+- [x] Expose frame-based animation in Puppet Forge with conversion repair, ordered frames, and exclusive playhead authoring.
+
+## Revision 190 unified character artwork placement
+
+- [x] Define horizontal character artwork offsets in character-local space so facing mirrors the offset and artwork together.
+- [x] Share runtime artwork-origin calculation between gameplay and Level Editor previews.
+- [x] Make Puppet Forge use the runtime pose-to-transform path and scale artwork offsets with its display-only world scale.
+- [x] Verify the retained bat in both facings in Puppet Forge, Level Editor, and gameplay using browser screenshots.

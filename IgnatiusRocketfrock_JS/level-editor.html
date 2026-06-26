@@ -833,6 +833,7 @@ import {
 import {
     animationPoseToRuntimeTransforms,
     buildRuntimeCharacterDrawCommands,
+    characterArtworkOrigin,
     loadRuntimeCharacterProject,
     sampleRuntimeCharacterPose
 } from "./src/presentation/character-runtime.js";
@@ -3506,8 +3507,9 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
             Math.max(0.05, Number(entity.renderScale) || 0.8)
         );
         const commands = buildRuntimeCharacterDrawCommands(project, transforms);
-        const origin = worldToScreen(entity.x, entity.y);
         const facing = Number(entity.facing) < 0 ? -1 : 1;
+        const artworkOrigin = characterArtworkOrigin(entity);
+        const origin = worldToScreen(artworkOrigin.x, artworkOrigin.y);
         ctx.save();
         ctx.translate(origin.x, origin.y);
         ctx.scale(facing, 1);

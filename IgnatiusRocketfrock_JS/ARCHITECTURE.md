@@ -397,3 +397,13 @@ The wing parts use explicit `leftWing` and `rightWing` names but carry arm-like 
 
 ## Revision 171 perched bomber lifecycle
 Flying enemies using `strategy: "bomber"` store their spawn point as `bomberPerchX/Y`. Their runtime state cycles between `perched`, `bomber`, and `return_to_perch`, using the same authored awareness range and view cone as grounded enemies. Dropped rocks use the normal projectile collision pipeline with the dedicated `enemyRock` kind and a procedural renderer, so no additional image asset is required.
+
+## Revision 184 exclusive frame-part animation contract
+
+Frame-swapped characters remain ordinary rigged character projects. A still-frame atlas sequence may stack each source frame as a rig part and animate only alpha, which preserves the shared renderer, mirroring, scaling, projectile handoff, editor loading, and future engine-port boundary. Such clips now declare `presentation.mode: "exclusive_frame_parts"` and list the participating parts in authored order. `src/shared/animation-data.js` validates that every listed part exists, has step-keyed alpha, and that exactly one listed part is visible throughout the clip. This is an animation-data invariant, not a bat renderer special case. Ordinary articulated clips continue to normalize as `presentation.mode: "rig"`. Character Editor support is operational rather than descriptive: a frame-based checkbox enables an exclusive-frame workflow, derives or edits the ordered frame-part list, owns the participating alpha tracks, and authors one-hot step keys at the playhead. Direct alpha editing is disabled for managed frame parts so the invariant cannot be broken through the ordinary track UI.
+
+Flying locomotion and bomber strategy remain separate portable gameplay qualifiers. The visual frame-sequence contract must not contain flight AI, collision, awareness, or projectile decisions, and character-art files must not become enemy-behaviour catalogs.
+
+## Revision 190 unified character artwork placement
+
+Character-enemy `renderOffsetX` is a character-local offset from the gameplay hitbox anchor, so it mirrors with facing; `renderOffsetY` remains downward-positive. The hitbox itself always remains at the authoritative entity position. `src/presentation/character-runtime.js` owns the offset and render-origin calculations. Runtime and Level Editor use the same `characterArtworkOrigin()` helper, while Puppet Forge uses the same local offset helper and the same `animationPoseToRuntimeTransforms()` path as runtime. Preview zoom and Puppet Forge's display-only world scale multiply artwork, offsets, and hitbox dimensions together, preserving both aspect ratio and artwork-to-hitbox alignment in either facing direction.

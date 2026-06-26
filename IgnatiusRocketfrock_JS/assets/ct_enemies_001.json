@@ -1,8 +1,8 @@
 {
     "meta": {
-        "version": 19,
-        "note": "Revision 181 improves the retained bombing bat with foot-origin rock drops, sustained pursuit, high on-screen hovering, curved steering, and obstacle clearance.",
-        "revision": 181
+        "version": 28,
+        "note": "Revision 190 unifies character-local artwork offsets across Puppet Forge, Level Editor, and runtime rendering.",
+        "revision": 190
     },
     "catalogId": "ct_enemies_001",
     "enemies": {
@@ -12,7 +12,7 @@
             "characterId": "ct_char_enemy_001",
             "defaultSize": {
                 "w": 72,
-                "h": 150
+                "h": 164
             },
             "defaults": {
                 "facing": -1,
@@ -47,8 +47,12 @@
                 "runSpeed": 150,
                 "jumpHeight": 0,
                 "unreachableGlareDuration": 5,
-                "awarenessViewHalfAngle": 60
-            }
+                "awarenessViewHalfAngle": 60,
+                "renderOffsetX": 0,
+                "renderOffsetY": 0,
+                "locomotion": "ground"
+            },
+            "description": ""
         },
         "enemy_002": {
             "label": "Fireball Goblin",
@@ -178,8 +182,8 @@
             "description": "The retained bat enemy. It patrols a small area around its authored perch, activates only when Ignatius enters its normal awareness view, flies overhead, and drops atlas-authored rocks.",
             "characterId": "ct_char_enemy_005",
             "defaultSize": {
-                "w": 150,
-                "h": 100
+                "w": 55,
+                "h": 44
             },
             "defaults": {
                 "facing": -1,
@@ -239,8 +243,8 @@
                 "projectileKnockbackX": 100,
                 "projectileKnockbackY": -120,
                 "projectileFrameId": "rock",
-                "renderOffsetX": -20,
-                "renderOffsetY": 35,
+                "renderOffsetX": -11,
+                "renderOffsetY": 16,
                 "bomberObstacleClearance": 64,
                 "bomberScreenTopMargin": 72,
                 "bomberSteeringResponse": 4.2,
