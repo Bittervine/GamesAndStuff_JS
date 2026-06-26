@@ -407,3 +407,7 @@ Flying locomotion and bomber strategy remain separate portable gameplay qualifie
 ## Revision 190 unified character artwork placement
 
 Character-enemy `renderOffsetX` is a character-local offset from the gameplay hitbox anchor, so it mirrors with facing; `renderOffsetY` remains downward-positive. The hitbox itself always remains at the authoritative entity position. `src/presentation/character-runtime.js` owns the offset and render-origin calculations. Runtime and Level Editor use the same `characterArtworkOrigin()` helper, while Puppet Forge uses the same local offset helper and the same `animationPoseToRuntimeTransforms()` path as runtime. Preview zoom and Puppet Forge's display-only world scale multiply artwork, offsets, and hitbox dimensions together, preserving both aspect ratio and artwork-to-hitbox alignment in either facing direction.
+
+## Revision 194 bomber approach and release altitude
+
+The retained bomber still lives entirely in portable `src/core/simulation.js`. Its attack target is the authored `bomberHoverHeight` above the player, with a small screen-edge clamp, a deterministic `bomberApproachArcHeight`, persistent low-amplitude lateral wander, and arrival-speed easing. `bomberDropHeightTolerance` forms an explicit vertical release band, so horizontal alignment alone cannot trigger a rock while the bat is still climbing. The first level bakes the revised 280-unit station and matching steering values directly into its placed bat, while `ct_enemies_001.json` supplies the same defaults for newly placed bats.

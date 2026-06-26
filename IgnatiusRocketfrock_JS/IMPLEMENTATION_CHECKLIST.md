@@ -1569,3 +1569,28 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Share runtime artwork-origin calculation between gameplay and Level Editor previews.
 - [x] Make Puppet Forge use the runtime pose-to-transform path and scale artwork offsets with its display-only world scale.
 - [x] Verify the retained bat in both facings in Puppet Forge, Level Editor, and gameplay using browser screenshots.
+
+## Revision 193 prepared composite power-up artwork
+
+- [x] Isolate the eight newly supplied icon sprites in `it_atlas_001.json`: coin, star, bomb, magnet, lightning, spark, wrench, and shield.
+- [x] Isolate the full soft-alpha extent of the white glow sprite as `powerup_glow_white`.
+- [x] Register centred, non-mirrored presentation objects and tags for later composite pickup/HUD use.
+- [x] Reserve the wrench as the generic rocket-upgrade emblem over blue, green, yellow, red, or cyan glow tints.
+- [x] Reserve the lightning emblem for a yellow-orange overdrive effect that later permits rockets twice as often for half the fuel.
+- [x] Keep this revision data-only: do not add entity-catalog entries, collection logic, effect timers, HUD state, or save serialization yet.
+- [x] Add regression coverage for all nine frame rectangles and the two reserved rocket-power-up meanings.
+- [ ] Define the portable power-up/effect schema after the current crushing/depenetration and full-black kill-boundary safety work.
+- [ ] Add atlas-backed pickup entities, renderer tint/composition, HUD feedback, serialization, and rocket tuning effects in a later gameplay revision.
+
+
+## Revision 194 higher, more organic bomber runs
+
+- [x] Replace the first level's stale 190-unit bat hover override with the revised 280-unit attack station.
+- [x] Add an explicit `bomberDropHeightTolerance` and require the bat to enter that vertical band before releasing a rock.
+- [x] Add deterministic approach-arc lift so a bombing run bends upward instead of following a direct line.
+- [x] Preserve restrained lateral wander near the final station instead of fading it to zero directly above Ignatius.
+- [x] Ease maximum speed near the station so the bat settles into position rather than snapping or overshooting at full speed.
+- [x] Update the retained bat catalog defaults and bake matching values into `level_001.json`.
+- [x] Add regression coverage for curved approach motion, release altitude, catalog defaults, and the placed first-level bat.
+- [x] Update the browser debug build label to revision 194.
+- [ ] Keep watch for the rare green awareness-cone non-alert state and capture a repeatable save/state snapshot before changing perception logic.

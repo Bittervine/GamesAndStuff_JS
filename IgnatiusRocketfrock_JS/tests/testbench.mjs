@@ -708,6 +708,9 @@ function testFlyingBomberDropsProjectile() {
         }]
     });
     const bomber = state.enemies.find((enemy) => enemy.id === "bomber");
+    state.world.solids.push({ id: "bomber_test_floor", kind: "floor", x: 0, y: 620, w: 1200, h: 180 });
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
     assert.equal(bomber.strategy, "bomber", "portable enemy state should preserve bomber strategy");
     const perchX = bomber.x;
     const perchY = bomber.y;
@@ -725,11 +728,68 @@ function testFlyingBomberDropsProjectile() {
     }
     assert.ok(Math.abs(bomber.x - state.player.x) <= 30, "bomber should fly over Ignatius before releasing");
     assert.ok(state.projectiles.length > 0, "bomber should drop a projectile when horizontally aligned");
+    const releaseHeight = state.player.y - bomber.y;
+    assert.ok(
+        Math.abs(releaseHeight - bomber.bomberHoverHeight) <= bomber.bomberDropHeightTolerance + 8,
+        `bomber should reach its authored bombing altitude before releasing, got ${releaseHeight.toFixed(1)} for target ${bomber.bomberHoverHeight}`
+    );
     const bomb = state.projectiles[0];
     assert.equal(bomb.launchType, "drop", "bomber projectile should use the drop launch type");
     assert.equal(bomb.kind, "enemyRock", "bomber should drop a dedicated rock projectile");
     assert.ok(bomb.gravity > 0, "dropped projectile should accelerate downward");
     assert.ok(bomb.vy >= 0, "dropped projectile should begin moving downward");
+}
+
+function testFlyingBomberUsesCurvedApproach() {
+    const state = createInitialGameState();
+    applyEditorLevelToWorld(state, {
+        levelId: "bomber_curved_approach_test",
+        playerStart: { x: 620, y: 700 },
+        bounds: { x: 0, y: 0, w: 1400, h: 900 },
+        entities: [{
+            id: "curved_bomber",
+            type: "characterEnemy",
+            characterId: "ct_char_enemy_005",
+            x: 180,
+            y: 500,
+            w: 84,
+            h: 66,
+            facing: 1,
+            locomotion: "flying",
+            strategy: "bomber",
+            bomberHorizontalSpeed: 220,
+            bomberHoverHeight: 200,
+            bomberDropTolerance: 24,
+            bomberDropHeightTolerance: 28,
+            bomberApproachArcHeight: 84,
+            bomberWanderAmplitude: 0,
+            bomberInitialDelay: 20,
+            bomberSteeringResponse: 3.2,
+            flightAmplitude: 0,
+            awarenessRange: 1200,
+            awarenessViewHalfAngle: 180,
+            projectileLaunchType: "drop",
+            projectileKind: "rock",
+            projectileCooldown: 20,
+            health: 1,
+            animationSlot: "fly"
+        }]
+    });
+    const bomber = state.enemies.find((enemy) => enemy.id === "curved_bomber");
+    state.world.solids.push({ id: "curved_bomber_test_floor", kind: "floor", x: 0, y: 700, w: 1400, h: 200 });
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+    const startY = bomber.y;
+    let minimumY = bomber.y;
+    let reachedFinalThird = false;
+    for (let step = 0; step < 240; step += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+        minimumY = Math.min(minimumY, bomber.y);
+        reachedFinalThird ||= bomber.x >= 500;
+    }
+    assert.ok(minimumY < startY - 28, `bomber should arc upward during its approach, minimum y was ${minimumY.toFixed(1)}`);
+    assert.equal(reachedFinalThird, true, "curved bomber should still make decisive horizontal progress toward Ignatius");
+    assert.ok(Math.abs(bomber.y - (state.player.y - bomber.bomberHoverHeight)) < 48, "bomber should settle back near its authored bombing height after the approach arc");
 }
 
 function testFlyingBomberNoticesWizardBelowAndAhead() {
@@ -827,6 +887,9 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     assert.equal(catalog.enemies.enemy_005.defaults.strategy, "bomber", "Enemy 005 should demonstrate the bomber strategy");
     assert.equal(catalog.enemies.enemy_005.defaults.projectileLaunchType, "drop", "Enemy 005 should release gravity-driven drops");
     assert.equal(catalog.enemies.enemy_005.defaults.projectileKind, "rock", "Enemy 005 should drop rocks from its perch attack");
+    assert.equal(catalog.enemies.enemy_005.defaults.bomberHoverHeight, 280, "Bombing Bat should aim for the revised high bombing station");
+    assert.ok(catalog.enemies.enemy_005.defaults.bomberApproachArcHeight > 0, "Bombing Bat should author a curved approach arc");
+    assert.ok(catalog.enemies.enemy_005.defaults.bomberDropHeightTolerance > 0, "Bombing Bat should author a release-height tolerance");
     const characterEditorDefaultsHtml = readFileSync("./character-editor.html", "utf8");
     assert.ok(characterEditorDefaultsHtml.includes("Enemy type defaults"), "Puppet Forge should expose enemy type defaults");
     assert.ok(characterEditorDefaultsHtml.includes("enemy-catalog-json"), "Puppet Forge should expose the full enemy catalog JSON beside the other JSON editors");
@@ -858,6 +921,11 @@ function testEnemyCatalogAndLevelEditorIntegration() {
     const levelOne = JSON.parse(readFileSync("./assets/level_001.json", "utf8"));
     assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_002"), "level_001 should contain a Fireball Goblin");
     assert.ok(levelOne.entities.some((entity) => entity.characterId === "ct_char_enemy_003"), "level_001 should contain a Musket Goblin");
+    const levelOneBat = levelOne.entities.find((entity) => entity.characterId === "ct_char_enemy_005");
+    assert.ok(levelOneBat, "level_001 should retain the Bombing Bat");
+    assert.equal(levelOneBat.bomberHoverHeight, 280, "level_001 Bombing Bat should use the revised high attack altitude");
+    assert.equal(levelOneBat.bomberDropHeightTolerance, 20, "level_001 Bombing Bat should wait until it reaches the high release band");
+    assert.equal(levelOneBat.bomberApproachArcHeight, 72, "level_001 Bombing Bat should use the authored curved approach");
     for (const goblin of levelOne.entities.filter((entity) => entity.characterId === "ct_char_enemy_002" || entity.characterId === "ct_char_enemy_003")) {
         assert.equal(goblin.runSpeed, 200, `${goblin.id} should use the baked 200 px/s run profile`);
         assert.equal(goblin.jumpHeight, 200, `${goblin.id} should use the baked 200 px jump profile`);
@@ -3971,8 +4039,20 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     const catalog = JSON.parse(readFileSync(new URL("../assets/it_entities_001.json", import.meta.url), "utf8"));
     assert.equal(atlas.atlasId, "it_atlas_001", "interactive atlas should use its dedicated atlas id");
     assert.equal(atlas.image, "it_atlas_001.png", "interactive atlas should reference the user-supplied PNG name");
-    assert.equal(Object.keys(atlas.frames).length, 42, "interactive atlas should expose all authored item frames");
+    assert.equal(Object.keys(atlas.frames).length, 51, "interactive atlas should expose all authored item frames");
     assert.ok(atlas.frames.mailbox_with_letter && atlas.frames.portal_foreground && atlas.frames.letter_scroll, "story-item frames should be present");
+    assert.deepEqual(atlas.frames.powerup_icon_coin, { x: 7, y: 570, w: 99, h: 100 }, "coin icon should be tightly isolated from the revised atlas");
+    assert.deepEqual(atlas.frames.powerup_icon_star, { x: 120, y: 570, w: 93, h: 94 }, "star icon should be tightly isolated from the revised atlas");
+    assert.deepEqual(atlas.frames.powerup_icon_bomb, { x: 232, y: 572, w: 87, h: 91 }, "bomb icon should be tightly isolated from the revised atlas");
+    assert.deepEqual(atlas.frames.powerup_icon_magnet, { x: 336, y: 572, w: 88, h: 93 }, "magnet icon should be tightly isolated from the revised atlas");
+    assert.deepEqual(atlas.frames.powerup_glow_white, { x: 434, y: 566, w: 204, h: 204 }, "white power-up glow should retain its full soft alpha falloff");
+    assert.deepEqual(atlas.frames.powerup_icon_lightning, { x: 26, y: 679, w: 60, h: 97 }, "lightning icon should be tightly isolated from the revised atlas");
+    assert.deepEqual(atlas.frames.powerup_icon_spark, { x: 119, y: 684, w: 66, h: 75 }, "spark icon should be tightly isolated from the revised atlas");
+    assert.deepEqual(atlas.frames.powerup_icon_wrench, { x: 219, y: 676, w: 89, h: 90 }, "wrench icon should be tightly isolated from the revised atlas");
+    assert.deepEqual(atlas.frames.powerup_icon_shield, { x: 339, y: 674, w: 80, h: 94 }, "shield icon should be tightly isolated from the revised atlas");
+    assert.equal(atlas.objects.powerup_glow_white.type, "effect", "the glow should remain a tintable composite visual rather than a gameplay pickup");
+    assert.ok(atlas.objects.powerup_icon_wrench.tags.includes("upgrade"), "the wrench should be identified as the generic rocket-upgrade emblem");
+    assert.ok(atlas.objects.powerup_icon_lightning.tags.includes("rapid-fire") && atlas.objects.powerup_icon_lightning.tags.includes("fuel-efficiency"), "the lightning icon should reserve its intended rocket-overdrive meaning");
     assert.ok(catalog.entities.mailbox && catalog.entities.treasureChest && catalog.entities.wizard_entry_door && catalog.entities.wizard_exit_door, "catalog should define mailboxes plus dedicated wizard entry/exit doors");
     assert.ok(catalog.entities.breakableCrate, "interactive catalog should expose the first reactive destructible object");
     assert.ok(catalog.entities.destructibleBarrier, "interactive catalog should expose the destructible iron barrier");
@@ -6251,6 +6331,7 @@ const tests = [
     ["goblin runtime character projects", testGoblinRuntimeCharacterProjects],
     ["bat frame-swap projects and flying locomotion", testBatFrameSwapProjectsAndFlight],
     ["flying bomber drops projectile", testFlyingBomberDropsProjectile],
+    ["flying bomber uses curved approach", testFlyingBomberUsesCurvedApproach],
     ["flying bomber leaves perch platform", testFlyingBomberCanLeavePerchPlatform],
     ["flying bomber notices wizard below and ahead", testFlyingBomberNoticesWizardBelowAndAhead],
     ["enemy catalog and Level Editor integration", testEnemyCatalogAndLevelEditorIntegration],

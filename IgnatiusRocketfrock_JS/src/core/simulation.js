@@ -2294,11 +2294,13 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             bomberHorizontalSpeed: Math.max(0, finiteNumberOr(entity.bomberHorizontalSpeed, finiteNumberOr(entity.runSpeed, 150))),
             bomberHoverHeight: Math.max(16, finiteNumberOr(entity.bomberHoverHeight, 180)),
             bomberDropTolerance: Math.max(1, finiteNumberOr(entity.bomberDropTolerance, 34)),
+            bomberDropHeightTolerance: Math.max(4, finiteNumberOr(entity.bomberDropHeightTolerance, 36)),
             bomberRetreatDistance: Math.max(0, finiteNumberOr(entity.bomberRetreatDistance, 120)),
             bomberObstacleClearance: Math.max(8, finiteNumberOr(entity.bomberObstacleClearance, 56)),
             bomberScreenTopMargin: Math.max(20, finiteNumberOr(entity.bomberScreenTopMargin, 72)),
             bomberSteeringResponse: Math.max(0.5, finiteNumberOr(entity.bomberSteeringResponse, 4.5)),
             bomberWanderAmplitude: Math.max(0, finiteNumberOr(entity.bomberWanderAmplitude, 28)),
+            bomberApproachArcHeight: Math.max(0, finiteNumberOr(entity.bomberApproachArcHeight, 64)),
             bomberDropTimer: Math.max(0, finiteNumberOr(entity.bomberInitialDelay, 0.4)),
             bomberState: strategy === "bomber" ? "perched" : null,
             bomberPerchX: x,
@@ -4917,7 +4919,9 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
             enemy.alerted = false;
         } else {
             const targetX = Number(player?.x) || enemy.x;
-            const desiredHoverY = (Number(player?.y) || perchY) - Math.max(16, Number(enemy.bomberHoverHeight) || 180);
+            const playerY = Number(player?.y) || perchY;
+            const hoverHeight = Math.max(16, Number(enemy.bomberHoverHeight) || 180);
+            const desiredHoverY = playerY - hoverHeight;
             const approximateViewportHalfHeight = 270 / Math.max(0.5, Number(state.camera?.zoom) || 1);
             const screenTop = (Number(state.camera?.y) || desiredHoverY) - approximateViewportHalfHeight;
             const topMargin = Math.max(20, Number(enemy.bomberScreenTopMargin) || 72);
@@ -4925,9 +4929,16 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
             const wander = Math.sin(phase * 0.57 + (Number(enemy.flightPhaseOffset) || 0) * 3.1) *
                 Math.max(0, Number(enemy.bomberWanderAmplitude) || 0);
             const playerDxBeforeSteering = targetX - enemy.x;
-            const wanderBlend = Math.min(1, Math.abs(playerDxBeforeSteering) / 160);
+            const approachDistance = Math.max(140, hoverHeight * 1.35);
+            const approachBlend = Math.min(1, Math.abs(playerDxBeforeSteering) / approachDistance);
+            // Keep a little lateral life even after the bat reaches its bombing station.
+            // The previous curve faded to exactly zero over Ignatius, which made the last
+            // part of every run look like a ruler-straight homing line.
+            const wanderBlend = 0.32 + approachBlend * 0.68;
+            const approachArcHeight = Math.max(0, Number(enemy.bomberApproachArcHeight) || 0);
+            const approachArc = Math.sin(approachBlend * Math.PI * 0.5) * approachArcHeight;
             let desiredX = targetX + wander * wanderBlend;
-            let desiredY = targetY + Math.sin(phase * 0.83) * Math.min(18, amplitude);
+            let desiredY = targetY + Math.sin(phase * 0.83) * Math.min(18, amplitude) - approachArc;
             const obstacleMargin = Math.max(8, Number(enemy.bomberObstacleClearance) || 56);
             const clearance = Math.max(enemy.width, enemy.height) * 0.5 + obstacleMargin;
             // Use a compact body probe while retaining the larger clearance value for
@@ -4962,8 +4973,10 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
             const nx = distance > 0 ? dx / distance : 0;
             const ny = distance > 0 ? dy / distance : 0;
             const steering = Math.min(1, Math.max(0.5, Number(enemy.bomberSteeringResponse) || 4.5) * dt);
-            const targetVx = nx * horizontalSpeed;
-            const targetVy = ny * horizontalSpeed;
+            const arrivalRadius = Math.max(tolerance * 2.4, hoverHeight * 0.42, 72);
+            const arrivalScale = Math.max(0.22, Math.min(1, distance / arrivalRadius));
+            const targetVx = nx * horizontalSpeed * arrivalScale;
+            const targetVy = ny * horizontalSpeed * arrivalScale;
             enemy.velocityX += (targetVx - (Number(enemy.velocityX) || 0)) * steering;
             enemy.velocityY += (targetVy - (Number(enemy.velocityY) || 0)) * steering;
             const speedNow = Math.hypot(enemy.velocityX, enemy.velocityY);
@@ -4987,9 +5000,11 @@ function updateFlyingCharacterEnemy(state, enemy, dt) {
             }
             if (Math.abs(dx) > 0.001) enemy.facing = dx < 0 ? -1 : 1;
             enemy.bomberDropTimer = Math.max(0, (Number(enemy.bomberDropTimer) || 0) - dt);
-            const verticallyAbove = enemy.y < (Number(player?.y) || enemy.y) - 24;
+            const dropHeightTolerance = Math.max(4, Number(enemy.bomberDropHeightTolerance) || 36);
+            const nearBombingHeight = Math.abs(enemy.y - targetY) <= dropHeightTolerance;
+            const verticallyAbove = enemy.y < playerY - 24;
             const dropDx = targetX - enemy.x;
-            if (Math.abs(dropDx) <= tolerance && verticallyAbove && enemy.bomberDropTimer <= 0) {
+            if (Math.abs(dropDx) <= tolerance && nearBombingHeight && verticallyAbove && enemy.bomberDropTimer <= 0) {
                 enemy.projectileLaunchType = "drop";
                 enemy.attackMode = "projectile";
                 const projectile = launchCharacterEnemyProjectile(state, enemy);

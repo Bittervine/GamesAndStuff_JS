@@ -1890,4 +1890,18 @@ The retained bat does not require a separate sprite-animation renderer. Its atla
 
 Revision 190 removes the last duplicated character-placement interpretation. Horizontal artwork offsets are character-local and mirror with facing, vertical offsets are downward-positive, and the gameplay hitbox remains anchored at the entity position. Puppet Forge, Level Editor, and runtime now share the runtime transform and artwork-origin helpers, so zoom changes scale the artwork, offset, and hitbox together without changing their relationship.
 
-The next gameplay-safety work remains crushing/depenetration for actors trapped by kinematic platforms, followed by deriving Ignatius's lethal out-of-bounds rule from the cave full-black guide. Flying/bomber code should stay in the portable core for now; extract a dedicated enemy-flight module only when another aerial archetype proves the interface reusable.
+## Revision 193 prepared composite power-up artwork
+
+The revised `it_atlas_001.png` now has manifest rectangles for eight small icon sprites plus the complete soft-alpha extent of a white glow sprite. The registered icons are coin, star, bomb, magnet, lightning, spark, wrench, and shield. These are presentation components only: they are not yet entity-catalog entries and do not introduce collection, duration, stacking, save-state, or tuning semantics.
+
+The intended composite convention is to tint `powerup_glow_white` at render time and draw an icon centred above it. The wrench is reserved as the generic rocket-upgrade emblem, with blue, green, yellow, red, or cyan glow colours distinguishing later upgrade types. The lightning emblem is reserved for a yellow-orange rocket-overdrive pickup that will later double the allowed rocket firing cadence while halving fuel cost. Before runtime implementation, portable core data must define effect identity, duration or permanence, stacking/refresh rules, serialization, HUD exposure, and exact interaction with existing rocket cooldown and fuel accounting.
+
+The next gameplay-safety work remains crushing/depenetration for actors trapped by kinematic platforms, followed by deriving Ignatius's lethal out-of-bounds rule from the cave full-black guide. After those safety items, the prepared power-up visuals can move into a dedicated pickup/effect schema and renderer composition pass. Flying/bomber code should stay in the portable core for now; extract a dedicated enemy-flight module only when another aerial archetype proves the interface reusable.
+
+## Revision 194 higher, more organic bomber runs
+
+The retained Bombing Bat now climbs to the intended high attack station before releasing a rock. The placed bat in `level_001.json` no longer carries the stale 190-unit hover override; it now uses the catalog's 280-unit station, which is roughly two painted wizard heights in the current presentation. A new vertical release tolerance prevents the bat from dropping as soon as it merely crosses Ignatius horizontally while still close above him.
+
+The approach is less ruler-straight. Deterministic arc lift bends the first part of the route upward, restrained lateral wander remains present even near the bombing station, and arrival-speed easing lets the bat settle rather than snap into place. Existing compact obstacle probes and clearance steering remain authoritative. The rare green-cone non-alert case was not reproducible in this revision, so no speculative awareness rewrite was introduced; retain it as a watch item if a repeatable state appears.
+
+The next planned gameplay-safety work remains crushing and depenetration for actors trapped by moving platforms, followed by the cave full-black lethal boundary. The portable power-up/effect schema remains after those two safety tasks.

@@ -1,7 +1,7 @@
 {
     "meta": {
         "version": 1,
-        "note": "Interactive and story-item atlas. Cyan frame rectangles identify each reusable visual. Stateful gameplay is described by assets/it_entities_001.json; atlas collision is supplied only for props that are sensible as solid scenery."
+        "note": "Interactive and story-item atlas. Cyan frame rectangles identify each reusable visual. Stateful gameplay is described by assets/it_entities_001.json; atlas collision is supplied only for props that are sensible as solid scenery. Revision 193 also isolates eight small icon frames and one tintable white glow frame for later composite power-up visuals; no runtime power-up behaviour is introduced."
     },
     "atlasId": "it_atlas_001",
     "image": "it_atlas_001.png",
@@ -95,6 +95,60 @@
             "y": 320,
             "w": 90,
             "h": 169
+        },
+        "powerup_icon_coin": {
+            "x": 7,
+            "y": 570,
+            "w": 99,
+            "h": 100
+        },
+        "powerup_icon_star": {
+            "x": 120,
+            "y": 570,
+            "w": 93,
+            "h": 94
+        },
+        "powerup_icon_bomb": {
+            "x": 232,
+            "y": 572,
+            "w": 87,
+            "h": 91
+        },
+        "powerup_icon_magnet": {
+            "x": 336,
+            "y": 572,
+            "w": 88,
+            "h": 93
+        },
+        "powerup_glow_white": {
+            "x": 434,
+            "y": 566,
+            "w": 204,
+            "h": 204
+        },
+        "powerup_icon_lightning": {
+            "x": 26,
+            "y": 679,
+            "w": 60,
+            "h": 97
+        },
+        "powerup_icon_spark": {
+            "x": 119,
+            "y": 684,
+            "w": 66,
+            "h": 75
+        },
+        "powerup_icon_wrench": {
+            "x": 219,
+            "y": 676,
+            "w": 89,
+            "h": 90
+        },
+        "powerup_icon_shield": {
+            "x": 339,
+            "y": 674,
+            "w": 80,
+            "h": 94
         },
         "herb_blue": {
             "x": 649,
@@ -1061,6 +1115,220 @@
                 "decor"
             ],
             "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+            "nodes": [],
+            "lines": []
+        },
+        "powerup_icon_coin": {
+            "id": "powerup_icon_coin",
+            "frame": "powerup_icon_coin",
+            "type": "pickup",
+            "layer": "decorFront",
+            "mirrorable": false,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "tags": [
+                "pickup",
+                "powerup",
+                "icon",
+                "coin"
+            ],
+            "notes": "Reusable gold coin-style icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
+            "nodes": [],
+            "lines": []
+        },
+        "powerup_icon_star": {
+            "id": "powerup_icon_star",
+            "frame": "powerup_icon_star",
+            "type": "pickup",
+            "layer": "decorFront",
+            "mirrorable": false,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "tags": [
+                "pickup",
+                "powerup",
+                "icon",
+                "star"
+            ],
+            "notes": "Reusable gold star icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
+            "nodes": [],
+            "lines": []
+        },
+        "powerup_icon_bomb": {
+            "id": "powerup_icon_bomb",
+            "frame": "powerup_icon_bomb",
+            "type": "pickup",
+            "layer": "decorFront",
+            "mirrorable": false,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "tags": [
+                "pickup",
+                "powerup",
+                "icon",
+                "bomb"
+            ],
+            "notes": "Reusable bomb icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
+            "nodes": [],
+            "lines": []
+        },
+        "powerup_icon_magnet": {
+            "id": "powerup_icon_magnet",
+            "frame": "powerup_icon_magnet",
+            "type": "pickup",
+            "layer": "decorFront",
+            "mirrorable": false,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "tags": [
+                "pickup",
+                "powerup",
+                "icon",
+                "magnet"
+            ],
+            "notes": "Reusable magnet icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
+            "nodes": [],
+            "lines": []
+        },
+        "powerup_glow_white": {
+            "id": "powerup_glow_white",
+            "frame": "powerup_glow_white",
+            "type": "effect",
+            "layer": "decorFront",
+            "mirrorable": false,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "tags": [
+                "pickup",
+                "powerup",
+                "effect",
+                "glow",
+                "tintable",
+                "composite-base"
+            ],
+            "notes": "White glow base for composite power-up visuals. Tint this frame at render time and draw the chosen icon centred above it.",
+            "nodes": [],
+            "lines": []
+        },
+        "powerup_icon_lightning": {
+            "id": "powerup_icon_lightning",
+            "frame": "powerup_icon_lightning",
+            "type": "pickup",
+            "layer": "decorFront",
+            "mirrorable": false,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "tags": [
+                "pickup",
+                "powerup",
+                "icon",
+                "lightning",
+                "rocket",
+                "rapid-fire",
+                "fuel-efficiency"
+            ],
+            "notes": "Rocket overdrive emblem. Intended above a yellow-orange tinted powerup_glow_white; the later gameplay effect should allow rockets twice as often for half the fuel cost.",
+            "nodes": [],
+            "lines": []
+        },
+        "powerup_icon_spark": {
+            "id": "powerup_icon_spark",
+            "frame": "powerup_icon_spark",
+            "type": "pickup",
+            "layer": "decorFront",
+            "mirrorable": false,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "tags": [
+                "pickup",
+                "powerup",
+                "icon",
+                "spark"
+            ],
+            "notes": "Reusable white spark icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
+            "nodes": [],
+            "lines": []
+        },
+        "powerup_icon_wrench": {
+            "id": "powerup_icon_wrench",
+            "frame": "powerup_icon_wrench",
+            "type": "pickup",
+            "layer": "decorFront",
+            "mirrorable": false,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "tags": [
+                "pickup",
+                "powerup",
+                "icon",
+                "wrench",
+                "rocket",
+                "upgrade"
+            ],
+            "notes": "Generic rocket-upgrade emblem. Draw it centred above powerup_glow_white tinted blue, green, yellow, red, or cyan to distinguish later power-up types.",
+            "nodes": [],
+            "lines": []
+        },
+        "powerup_icon_shield": {
+            "id": "powerup_icon_shield",
+            "frame": "powerup_icon_shield",
+            "type": "pickup",
+            "layer": "decorFront",
+            "mirrorable": false,
+            "defaultScale": 1,
+            "pivot": {
+                "x": 0.5,
+                "y": 0.5
+            },
+            "destroyable": false,
+            "targetableByRocket": false,
+            "tags": [
+                "pickup",
+                "powerup",
+                "icon",
+                "shield"
+            ],
+            "notes": "Reusable shield icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
             "nodes": [],
             "lines": []
         },

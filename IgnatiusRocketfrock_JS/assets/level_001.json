@@ -1,8 +1,8 @@
 {
     "meta": {
-        "version": 14,
+        "version": 15,
         "editor": "Ignatius Rocketfrock Level Editor",
-        "note": "Revision 152 uses the score-verified low double-bass and tuba arrangement of In the Hall of the Mountain King."
+        "note": "Revision 194 raises the Bombing Bat to its intended high attack station and gives its approach a broader curved flight path before each drop."
     },
     "levelId": "level_001",
     "title": "Ignatius Rocketfrock and the Level That Was Edited On Purpose",
@@ -4860,7 +4860,7 @@
             "corpseHoldDuration": 0,
             "corpseFadeDuration": 0,
             "bomberHorizontalSpeed": 180,
-            "bomberHoverHeight": 190,
+            "bomberHoverHeight": 280,
             "bomberDropTolerance": 38,
             "bomberInitialDelay": 0.5,
             "attackMode": "projectile",
@@ -4878,7 +4878,11 @@
             "projectileFrameId": "rock",
             "renderOffsetX": -11,
             "renderOffsetY": 35,
-            "notes": "The retained bat enemy. It patrols a small area around its authored perch, activates only when Ignatius enters its normal awareness view, flies overhead, and drops atlas-authored rocks."
+            "notes": "The retained bat enemy. It patrols a small area around its authored perch, activates only when Ignatius enters its normal awareness view, flies overhead, and drops atlas-authored rocks.",
+            "bomberDropHeightTolerance": 20,
+            "bomberApproachArcHeight": 72,
+            "bomberSteeringResponse": 3.4,
+            "bomberWanderAmplitude": 44
         }
     ],
     "navigationGraphs": {
