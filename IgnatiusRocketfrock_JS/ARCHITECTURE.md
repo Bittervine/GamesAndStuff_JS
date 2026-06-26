@@ -494,3 +494,18 @@ Sixty HP is the canonical fallback for a newly authored `characterEnemy`. Catalo
 ## Revision 221 multiplier-derived wrench damage rebalance
 
 Wrench projectile damage continues to use multipliers against `DEFAULT_TUNING.rocketProjectileDamage`, currently 30. Triple uses `0.5` per projectile for three 15-damage rockets and a 45-damage maximum volley. Twin uses `2 / 3` per projectile for two 20-damage rockets and a 40-damage maximum volley. Dart uses `1.0`, so its advantage is its straight, fast, inexpensive and predictable flight rather than extra impact damage. Bigbomb remains `3.0`, and Boomerang remains `1.0`.
+
+
+## Revision 222 archive repack boundary
+
+Revision 222 is a packaging-only handoff of revision 221 and does not alter any source, runtime, data, editor, or presentation contract.
+
+
+## Revision 223 Shield invulnerability contract
+
+Shield is an ordinary normalized timed effect owned by `src/shared/power-up-data.js`, with canonical ID `shield`, five-second duration, refresh stacking, clear-on-death behavior, no exclusive group, and HUD priority above Speed Shot and wrench effects. The Shield effect must not alter rocket multipliers, movement, fuel, collision, or enemy behavior. Catalog and level entities author only normalized pickup metadata: the shield icon, shared white glow, blue tint, duration, and respawn time.
+
+Damage authority remains in `src/core/simulation.js`. `damagePlayer` checks the active Shield through the shared effect API and blocks ordinary incoming damage before health, regeneration interruption, knockback, or post-hit invulnerability are changed. Callers that explicitly request `bypassInvulnerability` bypass both the short post-hit timer and Shield; this preserves intentionally lethal rules without adding hazard-specific Shield exceptions. Shield lifetime continues to advance through the generic status-effect update path and is serialized with the rest of portable state.
+
+The blue flash is presentation-only. `src/presentation/canvas-renderer.js` prepares reusable blue-tinted wizard-part canvases at character load, selects them while Shield is active, and varies only overlay alpha per frame. It must not create temporary tint surfaces or process pixels in the draw loop. The Shield tint applies to all wizard parts, including the backpack rocket, and takes precedence over the low-health red tint. Neither tint affects simulation or authored character assets.
+

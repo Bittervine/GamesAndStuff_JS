@@ -4321,7 +4321,9 @@ function testInteractiveItemAtlasAndEntityVisuals() {
     assert.ok(atlas.objects.powerup_icon_wrench.tags.includes("upgrade"), "the wrench should be identified as the generic rocket-upgrade emblem");
     assert.ok(atlas.objects.powerup_icon_lightning.tags.includes("rapid-fire") && atlas.objects.powerup_icon_lightning.tags.includes("fuel-efficiency"), "the lightning icon should reserve its intended rocket-overdrive meaning");
     assert.ok(catalog.entities.mailbox && catalog.entities.treasureChest && catalog.entities.wizard_entry_door && catalog.entities.wizard_exit_door, "catalog should define mailboxes plus dedicated wizard entry/exit doors");
-    assert.ok(catalog.entities.speedShotPickup && catalog.entities.randomWrenchPickup, "interactive catalog should expose Speed Shot and the randomized wrench pickup family");
+    assert.ok(catalog.entities.speedShotPickup && catalog.entities.shieldPickup && catalog.entities.randomWrenchPickup, "interactive catalog should expose Speed Shot, Shield, and the randomized wrench pickup family");
+    assert.equal(catalog.entities.shieldPickup.defaults.glowTint, "#008cff", "Shield pickups should use the authored blue glow");
+    assert.equal(catalog.entities.shieldPickup.defaults.iconFrame, "powerup_icon_shield", "Shield pickups should use the reserved shield emblem");
     assert.ok(catalog.entities.breakableCrate, "interactive catalog should expose the first reactive destructible object");
     assert.ok(catalog.entities.destructibleBarrier, "interactive catalog should expose the destructible iron barrier");
     assert.deepEqual(Object.keys(catalog.entities.breakableCrate.states), ["intact", "damaged", "destroyed"], "breakable crate should author explicit intact, damaged, and destroyed visuals");
@@ -4422,6 +4424,14 @@ function testRocketPowerUpArsenal() {
     assert.equal(normalizedPickup.effectId, POWER_UP_EFFECT_IDS.SPEED_SHOT, "legacy Rocket Overdrive data should normalize to Speed Shot");
     assert.equal(normalizedPickup.iconFrame, "powerup_icon_lightning", "Speed Shot should use the reserved lightning emblem");
 
+    const shield = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.SHIELD);
+    assert.equal(shield.durationSeconds, 5, "Shield should last exactly five seconds");
+    assert.equal(shield.stacking, POWER_UP_STACKING_RULES.REFRESH, "collecting another Shield should refresh its duration");
+    assert.equal(shield.hud.iconFrame, "powerup_icon_shield", "Shield should use the reserved shield emblem");
+    assert.equal(shield.hud.glowTint, "#008cff", "Shield should use a blue pickup glow");
+    assert.equal(shield.hud.priority, 150, "Shield should take HUD priority while its short defensive window is active");
+    assert.deepEqual(rocketPowerUpMultipliers({ statusEffects: { active: { shield: { id: shield.id, definition: shield, remainingSeconds: 5 } } } }), { launchCooldownMultiplier: 1, launchFuelCostMultiplier: 1 }, "Shield should not alter rocket cadence or fuel cost");
+
     const expectedWrenches = new Map([
         [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, { count: 3, damage: 0.5, cost: 1, tint: "#ffff00" }],
         [POWER_UP_EFFECT_IDS.WRENCH_DART, { count: 1, damage: 1, cost: 2 / 3, tint: "#00ffff" }],
@@ -4476,17 +4486,36 @@ function testRocketPowerUpArsenal() {
                 respawnSeconds: 60,
                 radius: 30,
                 visualStates: { available: { visuals: [] }, collected: { visuals: [] } }
+            },
+            {
+                id: "shield_a",
+                type: "shieldPickup",
+                state: "available",
+                x: 900,
+                y: 600,
+                w: 96,
+                h: 96,
+                effectId: "shield",
+                durationSeconds: 5,
+                respawnSeconds: 60,
+                radius: 30,
+                iconFrame: "powerup_icon_shield",
+                glowTint: "#008cff",
+                visualStates: { available: { visuals: [] }, collected: { visuals: [] } }
             }
         ]
     };
     assert.equal(applyEditorLevelToWorld(state, level), true, "power-up playtest level should load through ordinary editor-level conversion");
     const speedPickup = state.pickups.find((item) => item.id === "speed_a");
     const wrenchPickup = state.pickups.find((item) => item.id === "random_wrench");
+    const shieldPickup = state.pickups.find((item) => item.id === "shield_a");
     assert.equal(speedPickup.kind, "powerUp", "effect-bearing entities should become portable power-up pickups");
     assert.equal(speedPickup.respawnSeconds, 60, "Speed Shot should respawn after sixty seconds");
     assert.equal(wrenchPickup.respawnSeconds, 60, "random wrenches should respawn after sixty seconds");
     assert.ok(WRENCH_POWER_UP_EFFECT_IDS.includes(wrenchPickup.powerUp.effectId), "the wrench should roll a valid mode at level start");
     assert.equal(wrenchPickup.powerUp.iconFrame, "powerup_icon_wrench", "the randomized pickup should render the wrench emblem");
+    assert.equal(shieldPickup.powerUp.iconFrame, "powerup_icon_shield", "the Shield pickup should retain its shield emblem");
+    assert.equal(shieldPickup.powerUp.glowTint, "#008cff", "the Shield pickup should retain its blue glow");
 
     const initialWrenchRoll = wrenchPickup.powerUp.effectId;
     const repeatState = createInitialGameState({ randomSeed: 0x12345678 });
@@ -4533,6 +4562,29 @@ function testRocketPowerUpArsenal() {
     assert.equal(activeWrenchPowerUpEffect(state)?.id, POWER_UP_EFFECT_IDS.WRENCH_DART, "a newly collected wrench should replace the old wrench");
     assert.equal(Object.values(state.statusEffects.active).filter((effect) => effect.definition.groupId === POWER_UP_GROUP_IDS.WRENCH).length, 1, "only one wrench effect may remain active");
     assert.ok(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SPEED_SHOT), "replacing a wrench must not cancel Speed Shot");
+
+    state.player.x = 900;
+    state.player.y = 600;
+    state.player.vx = 0;
+    state.player.vy = 0;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    const activeShield = activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SHIELD);
+    assert.ok(activeShield && activeShield.remainingSeconds > 4.9, "collecting Shield should begin a five-second protection window");
+    assert.equal(prioritizedActivePowerUpEffect(state)?.id, POWER_UP_EFFECT_IDS.SHIELD, "Shield should occupy the Power HUD while active");
+    const healthBeforeShieldHit = state.health.amount;
+    const blockedHit = damagePlayer(state, 25, "shield_test");
+    assert.equal(blockedHit.blocked, true, "Shield should block ordinary incoming damage");
+    assert.equal(blockedHit.blockedBy, "shield", "blocked damage should identify Shield as the reason");
+    assert.equal(state.health.amount, healthBeforeShieldHit, "Shielded hits should not reduce health");
+    const bypassedHit = damagePlayer(state, 5, "explicit_lethal_rule", { bypassInvulnerability: true });
+    assert.equal(bypassedHit.damage, 5, "explicit invulnerability bypasses should remain authoritative");
+    state.statusEffects.active[POWER_UP_EFFECT_IDS.SHIELD].remainingSeconds = FIXED_DT * 0.5;
+    state.player.x = 1000;
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SHIELD), null, "Shield protection should end when its five-second effect timer expires");
+    state.health.invulnerabilityTimer = 0;
+    const unshieldedHit = damagePlayer(state, 1, "shield_expired_test");
+    assert.equal(unshieldedHit.damage, 1, "ordinary damage should resume after Shield expires");
 
     wrenchPickup.respawnTimer = FIXED_DT * 0.5;
     state.player.x = 1000;
@@ -4682,6 +4734,7 @@ function testRocketPowerUpArsenal() {
 
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
     assert.ok(rendererSource.includes("getTintedAtlasFrameCanvas") && rendererSource.includes("drawPowerUpComposite"), "renderer should tint the prepared white glow and compose the icon above it");
+    assert.ok(rendererSource.includes("getPlayerShieldTintAlpha") && rendererSource.includes('tintCanvasKey: shieldTint > 0 ? "shieldCanvas" : "lowHealthCanvas"'), "renderer should flash the wizard blue and suppress the red low-health tint while Shield is active");
     assert.ok(rendererSource.includes("areaDamageRadius") && rendererSource.includes("visualScale"), "renderer should visualize Bigbomb AoE and per-mode rocket scale");
     const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
     const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
@@ -4695,12 +4748,17 @@ function testRocketPowerUpArsenal() {
     const levelOne = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
     const placedSpeedShot = levelOne.entities.find((entity) => entity.id === "speed_shot_001");
     const placedWrench = levelOne.entities.find((entity) => entity.id === "random_wrench_001");
+    const placedShield = levelOne.entities.find((entity) => entity.id === "shield_001");
     assert.ok(placedSpeedShot && placedSpeedShot.effectId === "speedShot", "level_001 should include the renamed Speed Shot pickup");
     assert.equal(placedSpeedShot.x, 800, "Speed Shot should remain on the early main floor");
     assert.equal(placedSpeedShot.respawnSeconds, 60, "the authored Speed Shot should respawn after sixty seconds");
     assert.ok(placedWrench && placedWrench.type === "randomWrenchPickup", "level_001 should include one randomized wrench pickup");
     assert.deepEqual(placedWrench.randomEffectIds, [...WRENCH_POWER_UP_EFFECT_IDS], "the level wrench should roll across the complete wrench family");
     assert.equal(placedWrench.x, 1400, "the playtest wrench should sit farther along the early main floor");
+    assert.ok(placedShield && placedShield.type === "shieldPickup", "level_001 should include the blue Shield pickup");
+    assert.equal(placedShield.effectId, POWER_UP_EFFECT_IDS.SHIELD, "the placed Shield should activate the shared Shield effect");
+    assert.equal(placedShield.durationSeconds, 5, "the placed Shield should last five seconds");
+    assert.equal(placedShield.glowTint, "#008cff", "the placed Shield should glow blue");
 
     const priorityState = {
         statusEffects: {
@@ -4716,13 +4774,21 @@ function testRocketPowerUpArsenal() {
                     definition: powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_TRIPLE),
                     remainingSeconds: 14,
                     activatedAt: 5
+                },
+                shield: {
+                    id: POWER_UP_EFFECT_IDS.SHIELD,
+                    definition: shield,
+                    remainingSeconds: 3,
+                    activatedAt: 6
                 }
             }
         }
     };
-    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.SPEED_SHOT, "Speed Shot should display ahead of a more recently collected wrench");
+    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.SHIELD, "Shield should display ahead of offensive power-ups");
+    priorityState.statusEffects.active.shield.remainingSeconds = 0;
+    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.SPEED_SHOT, "Speed Shot should display after Shield expires and ahead of a more recently collected wrench");
     priorityState.statusEffects.active.speedShot.remainingSeconds = 0;
-    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, "the active wrench should display after Speed Shot expires");
+    assert.equal(prioritizedActivePowerUpEffect(priorityState)?.id, POWER_UP_EFFECT_IDS.WRENCH_TRIPLE, "the active wrench should display after Shield and Speed Shot expire");
 }
 
 function testCachedWrenchRocketGlowKernels() {
@@ -7287,7 +7353,7 @@ const tests = [
     ["editor level transform runtime", testEditorLevelTransformRuntime],
     ["player start snaps to nearby ground", testPlayerStartSnapsToNearbyGround],
     ["interactive item atlas and entity visuals", testInteractiveItemAtlasAndEntityVisuals],
-    ["Speed Shot and wrench power-up arsenal", testRocketPowerUpArsenal],
+    ["Speed Shot, Shield, and wrench power-up arsenal", testRocketPowerUpArsenal],
     ["cached wrench rocket glow kernels", testCachedWrenchRocketGlowKernels],
     ["scripted mailbox letter", testMailboxLetterSequence],
     ["scripted portal entrance", testPortalEntranceSequence],

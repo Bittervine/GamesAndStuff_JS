@@ -1,8 +1,8 @@
 {
   "meta": {
-    "version": 16,
+    "version": 17,
     "editor": "Ignatius Rocketfrock Level Editor",
-    "note": "Revision 220 rebalances placed enemy durability to Skeleton 90 HP, both goblins 60 HP, and Bombing Bat 1 HP."
+    "note": "Revision 223 adds the five-second blue Shield pickup and completes the current power-up set."
   },
   "levelId": "level_001",
   "title": "Ignatius Rocketfrock and the Level That Was Edited On Purpose",
@@ -4556,8 +4556,8 @@
       "thoughtAtlasId": "it_atlas_001",
       "thoughtAssetId": "thought_bubble_large",
       "letterTitle": "A Letter from Your Humble Editor",
-      "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: \u201cIgnatius Rocketfrock and the Introductory Cave of Training.\u201d Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
-      "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn\u2019t look quite like it did in the brochures, but I\u2019m sure it will be fine."
+      "letterText": "Dear Ignatius,\n\nI hope this letter finds you well, and with most of your limbs still attached. I look forward to receiving the first chapter of your travel book shortly. I have even come up with a great title: “Ignatius Rocketfrock and the Introductory Cave of Training.” Please proceed boldly!\n\nSincerely,\nYour humble editor,\nWilfred of Bittervine",
+      "thoughtText": "How kind of him! I hope I can make him proud. This cave doesn’t look quite like it did in the brochures, but I’m sure it will be fine."
     },
     {
       "id": "enemy_002_001",
@@ -4952,6 +4952,37 @@
       "iconFrame": "powerup_icon_wrench",
       "glowTint": "#ffff00",
       "notes": "Random wrench pickup. Rolls Triple, Dart, Twin, Bigbomb, or Boomerang at level start and on every sixty-second respawn."
+    },
+    {
+      "id": "shield_001",
+      "type": "shieldPickup",
+      "catalogId": "it_entities_001",
+      "x": 1900,
+      "y": 844,
+      "w": 96,
+      "h": 96,
+      "state": "available",
+      "visualStates": {
+        "available": {
+          "visuals": []
+        },
+        "collected": {
+          "visuals": []
+        }
+      },
+      "stateLabels": {
+        "available": "Available",
+        "collected": "Collected"
+      },
+      "effectId": "shield",
+      "durationSeconds": 5,
+      "respawnSeconds": 60,
+      "radius": 30,
+      "atlasId": "it_atlas_001",
+      "glowFrame": "powerup_glow_white",
+      "iconFrame": "powerup_icon_shield",
+      "glowTint": "#008cff",
+      "notes": "Shield: five seconds of complete damage invulnerability. Ignatius flashes blue while protected. Respawns after sixty seconds."
     }
   ],
   "navigationGraphs": {
@@ -4960,7 +4991,7 @@
       {
         "version": 2,
         "id": "w70_h105_r200_a950_j200_g1250_f600_s26_q22.4",
-        "label": "Run 200, jump 200, body 70\u00d7105",
+        "label": "Run 200, jump 200, body 70×105",
         "profile": {
           "bodyWidth": 70,
           "bodyHeight": 105,

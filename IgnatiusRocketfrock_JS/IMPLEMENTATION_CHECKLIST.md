@@ -1888,3 +1888,24 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Update the game manual and architecture documentation.
 - [x] Update browser and portable build labels to revision 221.
 - [x] Pass the complete aggregate headless test suite.
+
+
+## Revision 222 archive repack
+
+- [x] Record revision 222 as an unchanged repack of revision 221 with no invented feature delta.
+
+
+## Revision 223 Shield power-up
+
+- [x] Define a five-second refreshable Shield effect with the reserved shield icon and a blue pickup glow.
+- [x] Let Shield coexist with Speed Shot and one active wrench while taking highest priority in the Power HUD.
+- [x] Block ordinary incoming damage in portable simulation while Shield is active.
+- [x] Preserve explicit `bypassInvulnerability` rules for intentionally lethal damage.
+- [x] Flash all wizard artwork blue while protected, including the backpack rocket.
+- [x] Suppress the red critical-health tint whenever the blue Shield flash is active.
+- [x] Add the Shield pickup to the interactive entity catalog and place it in level 1 at x=1900.
+- [x] Keep Shield pickup respawn at sixty seconds.
+- [x] Document that bomb, magnet, and spark remain intentionally unused and the current power-up milestone is complete.
+- [x] Update the game manual, architecture contract, plan, tests, and build labels to revision 223.
+- [x] Pass the complete aggregate headless test suite.
+

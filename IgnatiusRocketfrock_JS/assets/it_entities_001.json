@@ -1,7 +1,7 @@
 {
   "meta": {
-    "version": 5,
-    "note": "Revision 213 defines Speed Shot plus a randomized, respawning five-mode wrench power-up family."
+    "version": 6,
+    "note": "Revision 223 adds the five-second blue Shield power-up and closes the current power-up set."
   },
   "catalogId": "it_entities_001",
   "atlasRefs": [
@@ -851,6 +851,37 @@
         "glowFrame": "powerup_glow_white",
         "iconFrame": "powerup_icon_lightning",
         "glowTint": "#ffb52f"
+      },
+      "states": {
+        "available": {
+          "label": "Available",
+          "visuals": []
+        },
+        "collected": {
+          "label": "Collected",
+          "visuals": []
+        }
+      }
+    },
+    "shieldPickup": {
+      "type": "shieldPickup",
+      "label": "Shield",
+      "icon": "🛡",
+      "description": "Grants five seconds of complete damage invulnerability and makes Ignatius flash blue.",
+      "defaultState": "available",
+      "defaultSize": {
+        "w": 96,
+        "h": 96
+      },
+      "defaults": {
+        "effectId": "shield",
+        "durationSeconds": 5,
+        "respawnSeconds": 60,
+        "radius": 30,
+        "atlasId": "it_atlas_001",
+        "glowFrame": "powerup_glow_white",
+        "iconFrame": "powerup_icon_shield",
+        "glowTint": "#008cff"
       },
       "states": {
         "available": {

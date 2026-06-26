@@ -23,7 +23,11 @@ import {
     colorMapCacheKey,
     normalizeLevelColorMap
 } from "../shared/level-color-map-data.js";
-import { powerUpEffectDefinition } from "../shared/power-up-data.js";
+import {
+    POWER_UP_EFFECT_IDS,
+    activePowerUpEffect,
+    powerUpEffectDefinition
+} from "../shared/power-up-data.js";
 import { createColorMappedCanvas } from "./level-color-map-cache.js";
 import { computeCaveWindowParallaxOffset, drawCaveWindowMask } from "./cave-window-mask.js";
 import {
@@ -283,6 +287,7 @@ export async function createRenderer(canvas, options = {}) {
     playerProject.rig = normalizeRigConfig(playerProject.rig);
     for (const asset of playerProject.assets.values()) {
         asset.lowHealthCanvas = makeTintedSpriteCanvas(asset.canvas, "#f04b45");
+        asset.shieldCanvas = makeTintedSpriteCanvas(asset.canvas, "#008cff");
     }
 
     const characterProjects = new Map();
@@ -2480,11 +2485,13 @@ class RocketfrockRenderer {
     }
 
     drawRigPose(screenX, screenGroundY, facing, pose, state, zoom, bounds, options = {}) {
-        const lowHealthTint = Number(options.alpha ?? 1) >= 0.99 ? getLowHealthTintAlpha(state) : 0;
+        const shieldTint = Number(options.alpha ?? 1) >= 0.99 ? getPlayerShieldTintAlpha(state) : 0;
+        const lowHealthTint = shieldTint > 0 || Number(options.alpha ?? 1) < 0.99 ? 0 : getLowHealthTintAlpha(state);
         const renderedTransforms = scalePoseTransforms(pose.transforms, options.renderScale);
         this.drawCharacterProjectPose(this.playerProject, screenX, screenGroundY, facing, renderedTransforms, bounds, {
             ...options,
-            tintAlpha: lowHealthTint,
+            tintAlpha: shieldTint > 0 ? shieldTint : lowHealthTint,
+            tintCanvasKey: shieldTint > 0 ? "shieldCanvas" : "lowHealthCanvas",
             afterPart: (partName, command) => {
                 if (partName === "rocket" && options.drawFuelBulb !== false) {
                     // Phase 1.011: attached boost exhaust is represented by world-managed smoke/spark puffs,
@@ -2507,8 +2514,8 @@ class RocketfrockRenderer {
         ctx.translate(screenX, screenGroundY);
         ctx.scale(facing, 1);
         for (const command of commands) {
-            const partTint = command.partName === "rocket" ? 0 : tintAlpha;
-            const spriteBounds = this.drawCharacterCommand(project, command, partTint);
+            const partTint = command.partName === "rocket" && options.tintCanvasKey !== "shieldCanvas" ? 0 : tintAlpha;
+            const spriteBounds = this.drawCharacterCommand(project, command, partTint, options.tintCanvasKey);
             mergeBounds(bounds, spriteBounds, screenX, screenGroundY, facing);
             options.afterPart?.(command.partName, command);
         }
@@ -2516,7 +2523,7 @@ class RocketfrockRenderer {
         return commands;
     }
 
-    drawCharacterCommand(project, command, tintAlpha = 0) {
+    drawCharacterCommand(project, command, tintAlpha = 0, tintCanvasKey = "lowHealthCanvas") {
         const { asset, transform, pivot, spriteScale, drawX, drawY, partName } = command;
         if (!asset || asset.missing || !transform) {
             return null;
@@ -2528,10 +2535,11 @@ class RocketfrockRenderer {
         ctx.rotate(transform.angle);
         ctx.scale(spriteScale, spriteScale);
         ctx.drawImage(asset.canvas, drawX, drawY);
-        if (tintAlpha > 0 && asset.lowHealthCanvas) {
+        const tintCanvas = asset[tintCanvasKey] || asset.lowHealthCanvas;
+        if (tintAlpha > 0 && tintCanvas) {
             const baseAlpha = ctx.globalAlpha;
             ctx.globalAlpha = baseAlpha * tintAlpha;
-            ctx.drawImage(asset.lowHealthCanvas, drawX, drawY);
+            ctx.drawImage(tintCanvas, drawX, drawY);
             ctx.globalAlpha = baseAlpha;
         }
         if (project.rig.global.debugPivots) {
@@ -2908,6 +2916,14 @@ function getPlayerHitFlash(state) {
     const envelope = 1 - age / duration;
     const flicker = Math.sin(age * 92) > -0.15 ? 1 : 0.28;
     return clamp(envelope * flicker, 0, 1);
+}
+
+function getPlayerShieldTintAlpha(state) {
+    if (!activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SHIELD)) {
+        return 0;
+    }
+    const pulse = 0.5 + 0.5 * Math.sin((Number(state?.clock?.time) || 0) * 22);
+    return 0.22 + pulse * 0.58;
 }
 
 function getLowHealthTintAlpha(state) {

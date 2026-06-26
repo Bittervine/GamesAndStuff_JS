@@ -19,7 +19,9 @@ import {
 } from "../shared/signal-channel-data.js";
 import { normalizeLevelMusic } from "../shared/music-data.js";
 import {
+    POWER_UP_EFFECT_IDS,
     WRENCH_POWER_UP_EFFECT_IDS,
+    activePowerUpEffect,
     activeWrenchPowerUpEffect,
     normalizeActivePowerUpEffect,
     normalizePowerUpPickup,
@@ -253,7 +255,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "221-rebalanced-wrench-damage",
+            build: "223-shield-power-up",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -2597,6 +2599,7 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             "fuelPickup",
             "rocketOverdrivePickup",
             "speedShotPickup",
+            "shieldPickup",
             "randomWrenchPickup",
             "ornateKeyPickup",
             "ironKeyPickup",
@@ -2617,7 +2620,9 @@ export function applyEditorLevelToWorld(state, editorLevel) {
             ? randomPowerUpEffectId(state, entity.id || `random_powerup_${index + 1}`, randomEffectIds, randomRollCount)
             : null;
         const authoredEffectId = selectedRandomEffectId || entity.effectId ||
-            (type === "rocketOverdrivePickup" || type === "speedShotPickup" ? "speedShot" : null);
+            (type === "rocketOverdrivePickup" || type === "speedShotPickup"
+                ? POWER_UP_EFFECT_IDS.SPEED_SHOT
+                : (type === "shieldPickup" ? POWER_UP_EFFECT_IDS.SHIELD : null));
         const powerUp = authoredEffectId
             ? normalizePowerUpPickup({
                 ...entity,
@@ -8677,13 +8682,18 @@ export function damagePlayer(state, amount = 34, sourceId = "debug", options = {
     const damageScale = options.bypassDifficulty === true ? 1 : difficultyDamageScale(state.settings);
     const requestedDamage = baseDamage * damageScale;
     const before = clamp(Number(health.amount) || 0, 0, health.max);
-    const blocked = options.bypassInvulnerability !== true && (Number(health.invulnerabilityTimer) || 0) > 0;
+    const shielded = options.bypassInvulnerability !== true && Boolean(
+        activePowerUpEffect(state, POWER_UP_EFFECT_IDS.SHIELD)
+    );
+    const damageInvulnerable = options.bypassInvulnerability !== true && (Number(health.invulnerabilityTimer) || 0) > 0;
+    const blocked = shielded || damageInvulnerable;
     if (requestedDamage <= 0 || before <= 0 || blocked) {
         return {
             damage: 0,
             health: before,
             defeated: before <= 0,
-            blocked
+            blocked,
+            blockedBy: shielded ? "shield" : (damageInvulnerable ? "damageInvulnerability" : null)
         };
     }
 

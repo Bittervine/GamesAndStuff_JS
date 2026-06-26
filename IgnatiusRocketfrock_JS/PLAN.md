@@ -2063,3 +2063,18 @@ The active catalog and every matching placement in `level_001.json` are rebalanc
 ## Revision 221 wrench volley damage rebalance
 
 Wrench damage remains derived from the shared 30-damage standard rocket. Triple now uses a one-half multiplier per projectile, producing three 15-damage rockets and 45 total volley damage when all three connect. Twin now uses a two-thirds multiplier per projectile, producing two 20-damage rockets and 40 total volley damage. Dart now deals standard 30-damage rocket damage while retaining its straight, faster, non-homing flight, first-impact explosion, and two-thirds fuel cost. Bigbomb remains at triple damage, 90, and Boomerang remains at 30.
+
+
+## Revision 222 archive repack
+
+Revision 222 is an unchanged repack of revision 221. It introduces no gameplay, data, presentation, or tool behavior and exists only as the supplied handoff archive.
+
+
+## Revision 223 Shield power-up and completion of the current power-up set
+
+The reserved shield emblem now defines a standalone five-second `shield` effect in `src/shared/power-up-data.js`. Shield refreshes rather than stacks, clears on death, coexists with Speed Shot and the current wrench, and has the highest Power HUD priority while active. Its pickup uses `powerup_icon_shield` over the shared white glow tinted blue (`#008cff`) and respawns after sixty seconds. Level 1 places the first Shield at x=1900 on the early main floor.
+
+Portable incoming-damage handling checks the active Shield before applying ordinary damage. Shielded hits leave health and damage-recovery state unchanged. Existing calls that explicitly set `bypassInvulnerability` remain authoritative for rules intended to be lethal regardless of temporary protection. Presentation precomputes a blue-tinted copy of each wizard part and pulses that overlay while Shield is active. The Shield overlay includes the backpack rocket and suppresses the ordinary red critical-health tint, so blue always wins when both conditions apply.
+
+The current power-up set is now complete: Shield, Speed Shot, and the five-mode wrench family. The bomb, magnet, and spark emblems remain intentionally unused until a later design decision explicitly reopens power-up work. The next milestone should be selected from the remaining non-power-up gameplay or content work after a focused Shield playtest confirms pickup placement, five-second readability, damage blocking, and blue-flash visibility.
+

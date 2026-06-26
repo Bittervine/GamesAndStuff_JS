@@ -1,5 +1,6 @@
 export const POWER_UP_EFFECT_IDS = Object.freeze({
     SPEED_SHOT: "speedShot",
+    SHIELD: "shield",
     // Compatibility alias for revision-211/212 data and saved snapshots.
     ROCKET_OVERDRIVE: "speedShot",
     WRENCH_TRIPLE: "wrenchTriple",
@@ -68,6 +69,24 @@ function wrenchEffect({ id, label, glowTint, rocket }) {
 }
 
 const BUILTIN_POWER_UP_EFFECTS = Object.freeze({
+    [POWER_UP_EFFECT_IDS.SHIELD]: Object.freeze({
+        version: 1,
+        id: POWER_UP_EFFECT_IDS.SHIELD,
+        label: "Shield",
+        durationSeconds: 5,
+        permanent: false,
+        stacking: POWER_UP_STACKING_RULES.REFRESH,
+        clearOnDeath: true,
+        groupId: null,
+        exclusiveGroup: false,
+        hud: Object.freeze({
+            iconFrame: "powerup_icon_shield",
+            glowFrame: "powerup_glow_white",
+            glowTint: "#008cff",
+            priority: 150
+        }),
+        rocket: DEFAULT_ROCKET_PROFILE
+    }),
     [POWER_UP_EFFECT_IDS.SPEED_SHOT]: Object.freeze({
         version: 1,
         id: POWER_UP_EFFECT_IDS.SPEED_SHOT,
