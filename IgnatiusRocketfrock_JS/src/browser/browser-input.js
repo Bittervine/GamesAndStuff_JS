@@ -20,6 +20,8 @@ const POINTER_CONTROL = Object.freeze({
 
 const POINTER_IGNORED_SELECTOR = "a, button, input, textarea, select, label, [role='button'], [data-ignore-game-pointer]";
 
+export const GAMEPAD_ACTIVITY_TIMEOUT_SECONDS = 3;
+
 export class RocketfrockInput {
     constructor(target = window) {
         this.target = target;
@@ -40,6 +42,9 @@ export class RocketfrockInput {
         this.eventLog = [];
         this.consoleLogging = false;
         this.jumpSuppressedUntilRelease = false;
+        this.lastInputDevice = "none";
+        this.activeGamepadIndex = null;
+        this.lastGamepadActivityAt = Number.NEGATIVE_INFINITY;
 
         target.addEventListener("keydown", (event) => this.onKeyDown(event), { passive: false });
         target.addEventListener("keyup", (event) => this.onKeyUp(event), { passive: false });
@@ -338,6 +343,9 @@ export class RocketfrockInput {
         this.pointer.moveAxis = 0;
         this.pointer.jumpHeld = false;
         this.previous = createInputFrame();
+        this.lastInputDevice = "none";
+        this.activeGamepadIndex = null;
+        this.lastGamepadActivityAt = Number.NEGATIVE_INFINITY;
         this.recordKeyEvent("clear", { code: "WindowBlur", repeat: false });
     }
 
@@ -391,10 +399,36 @@ export class RocketfrockInput {
 
     sample() {
         this.expireDeferredPointerCancel();
-        const gamepad = readGamepad();
+        const sampleTime = inputNowSeconds();
+        const gamepad = readGamepad(this.activeGamepadIndex);
         const keyboardMoveAxis = (anyKey(this.keys, KEY_BINDINGS.moveRight) ? 1 : 0) - (anyKey(this.keys, KEY_BINDINGS.moveLeft) ? 1 : 0);
         const moveAxis = clamp(keyboardMoveAxis + gamepad.moveAxis + this.pointer.moveAxis, -1, 1);
         const pointerWeaponPulse = this.pointer.weaponPulse;
+        const keyboardActive = Object.values(KEY_BINDINGS).some((bindings) => anyKey(this.keys, bindings));
+        const pointerActive = Boolean(
+            pointerWeaponPulse ||
+            (this.pointer.active && (
+                Math.abs(this.pointer.moveAxis) > 0.001 ||
+                this.pointer.jumpHeld
+            ))
+        );
+
+        if (gamepad.active) {
+            this.lastInputDevice = "gamepad";
+            this.activeGamepadIndex = gamepad.index;
+            this.lastGamepadActivityAt = sampleTime;
+        } else if (keyboardActive) {
+            this.lastInputDevice = "keyboard";
+        } else if (pointerActive) {
+            this.lastInputDevice = "pointer";
+        }
+
+        const gamepadActive = Boolean(
+            this.lastInputDevice === "gamepad" &&
+            gamepad.connected &&
+            gamepad.index === this.activeGamepadIndex &&
+            sampleTime - this.lastGamepadActivityAt <= GAMEPAD_ACTIVITY_TIMEOUT_SECONDS
+        );
         const current = createInputFrame({
             moveLeft: anyKey(this.keys, KEY_BINDINGS.moveLeft) || gamepad.moveLeft || moveAxis < -0.35,
             moveRight: anyKey(this.keys, KEY_BINDINGS.moveRight) || gamepad.moveRight || moveAxis > 0.35,
@@ -403,7 +437,10 @@ export class RocketfrockInput {
             boostHeld: false,
             weaponHeld: anyKey(this.keys, KEY_BINDINGS.weapon) || gamepad.weaponHeld || pointerWeaponPulse,
             interactHeld: anyKey(this.keys, KEY_BINDINGS.interact) || gamepad.interactHeld,
-            aimVector: gamepad.aimVector || pointerAimVector(this.pointer) || { x: 1, y: 0 }
+            aimVector: gamepad.aimVector || pointerAimVector(this.pointer) || { x: 1, y: 0 },
+            inputDevice: this.lastInputDevice,
+            gamepadActive,
+            gamepadIndex: gamepadActive ? gamepad.index : null
         });
 
         this.pointer.weaponPulse = false;
@@ -509,8 +546,11 @@ function take(object, key) {
     return value;
 }
 
-function readGamepad() {
+function readGamepad(preferredIndex = null) {
     const empty = {
+        connected: false,
+        index: null,
+        active: false,
         moveLeft: false,
         moveRight: false,
         moveAxis: 0,
@@ -524,24 +564,57 @@ function readGamepad() {
         return empty;
     }
 
-    const pads = navigator.getGamepads();
-    const pad = Array.from(pads).find(Boolean);
-    if (!pad) {
+    const pads = Array.from(navigator.getGamepads() || []);
+    const candidates = pads
+        .map((pad, index) => ({ pad, index }))
+        .filter((entry) => Boolean(entry.pad));
+    if (!candidates.length) {
         return empty;
     }
 
-    const lx = pad.axes[0] || 0;
-    const ly = pad.axes[1] || 0;
-    const moveAxis = Math.abs(lx) > 0.16 ? lx : 0;
-    return {
-        moveLeft: lx < -0.35 || Boolean(pad.buttons[14]?.pressed),
-        moveRight: lx > 0.35 || Boolean(pad.buttons[15]?.pressed),
-        moveAxis,
-        jumpHeld: Boolean(pad.buttons[0]?.pressed || pad.buttons[12]?.pressed || ly < -0.55),
-        weaponHeld: Boolean(pad.buttons[1]?.pressed),
-        interactHeld: Boolean(pad.buttons[2]?.pressed || pad.buttons[13]?.pressed || ly > 0.55),
-        aimVector: Math.hypot(lx, ly) > 0.25 ? normalize({ x: lx, y: ly }) : null
-    };
+    const inspected = candidates.map(({ pad, index }) => {
+        const lx = Number(pad.axes?.[0]) || 0;
+        const ly = Number(pad.axes?.[1]) || 0;
+        const moveAxis = Math.abs(lx) > 0.16 ? lx : 0;
+        const jumpHeld = Boolean(pad.buttons?.[0]?.pressed || pad.buttons?.[12]?.pressed || ly < -0.55);
+        const weaponHeld = Boolean(pad.buttons?.[1]?.pressed);
+        const interactHeld = Boolean(pad.buttons?.[2]?.pressed || pad.buttons?.[13]?.pressed || ly > 0.55);
+        const moveLeft = lx < -0.35 || Boolean(pad.buttons?.[14]?.pressed);
+        const moveRight = lx > 0.35 || Boolean(pad.buttons?.[15]?.pressed);
+        const aimVector = Math.hypot(lx, ly) > 0.25 ? normalize({ x: lx, y: ly }) : null;
+        const active = Boolean(
+            Math.abs(moveAxis) > 0 ||
+            jumpHeld ||
+            weaponHeld ||
+            interactHeld ||
+            moveLeft ||
+            moveRight ||
+            Math.hypot(lx, ly) > 0.25
+        );
+        return {
+            connected: true,
+            index: Number.isInteger(pad.index) ? pad.index : index,
+            active,
+            moveLeft,
+            moveRight,
+            moveAxis,
+            jumpHeld,
+            weaponHeld,
+            interactHeld,
+            aimVector
+        };
+    });
+
+    return inspected.find((entry) => entry.active) ||
+        inspected.find((entry) => entry.index === preferredIndex) ||
+        inspected[0];
+}
+
+function inputNowSeconds() {
+    if (typeof performance !== "undefined" && typeof performance.now === "function") {
+        return performance.now() / 1000;
+    }
+    return Date.now() / 1000;
 }
 
 function pointerAimVector(pointer) {

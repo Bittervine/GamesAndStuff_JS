@@ -1919,3 +1919,203 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Keep immediate grounded deaths and flying-enemy fly-off deaths unchanged.
 - [x] Replace the obsolete airborne-corpse regression with a lethal-hit test that proves continued jump motion, no midair death clip, grounded death start, and no second corpse drop.
 - [x] Update architecture guidance, plan history, tests, and build labels to revision 224.
+
+
+## Revision 225 roadmap definition
+
+- [x] Record Score and treasure chests as the first new gameplay milestone.
+- [x] Keep Score explicitly separate from any future Gold currency or upgrade economy.
+- [x] Define the weak standard-rocket splash as a pre-generator crowd-control milestone.
+- [x] Record location-triggered thoughts, basic boss support, and water volumes as ordinary authored systems before richer generator use.
+- [x] Define Earth Cavern and Ice Cavern as JSON theme presets with Level Editor overrides and no Theme Editor requirement.
+- [x] Define registered Route Planner, Cavern Envelope Builder, Traversal Builder, Endpoint Placer, Encounter Populator, Reward/Prop Populator, Decorator, and Validator stages.
+- [x] Record deterministic named seed streams, generated-object provenance, undo/clear safeguards, and validation reporting.
+- [x] Record that generated entrance and exit doors must use whitelisted visually substantial `doorSupport` platforms.
+- [x] Split automatic generation into infrastructure/preview, playable empty cavern, encounters, rewards, and richer-world refinement slices.
+- [x] Update portable and browser build labels to revision 225 without changing gameplay behavior.
+
+
+# Upcoming implementation checklist
+
+## Milestone A: Score and treasure chests
+
+- [x] Add authoritative non-negative integer Score to portable game state.
+- [x] Preserve Score across ordinary death/respawn, level transitions, and save/restore; reset it only for a genuinely new game/full-session reset.
+- [x] Add Score to the HUD as a read-only projection of portable state.
+- [x] Emit deterministic score-change events for temporary presentation feedback.
+- [x] Add editable `scoreValue` and collection-distance fields to treasure-chest level data and the Level Editor inspector.
+- [x] Use the matched `chest_open_loot` and `chest_open_empty` visuals for automatic proximity collection; keep the differently angled closed artwork out of the normal state flow.
+- [x] Award each chest exactly once and serialize its collected/open state.
+- [x] Show brief `+N` and restrained collection effects without introducing a Gold counter.
+- [x] Add headless and browser regressions for duplicate prevention, save/restore, death/respawn, HUD projection, and chest-state transitions.
+- [x] Update the manual, architecture contract, plan history, and build labels for the implementation revision.
+
+## Milestone B: weak standard-rocket splash
+
+- [ ] Add a one-damage secondary-enemy splash to the standard projectile mode.
+- [ ] Keep direct-hit damage at 30 with no extra splash point on the directly struck enemy.
+- [ ] Use an initial splash diameter of approximately two wizard heights, subject to playtest.
+- [ ] Trigger the splash on standard-rocket impacts with enemies, blockers, and terrain.
+- [ ] Affect enemies only and leave Ignatius, chests, doors, switches, and reactive scenery untouched.
+- [ ] Preserve the splash under Speed Shot and Shield, but exclude all wrench projectile modes.
+- [ ] Add a restrained visual pulse distinct from Bigbomb.
+- [ ] Add deterministic regressions for range, direct-hit exclusion, multiple secondaries, Speed Shot, Shield, and wrench exclusion.
+- [ ] Playtest clustered Bombing Bats and tune diameter/line-of-effect behavior if necessary.
+
+## Milestone C: location-triggered thought bubbles
+
+- [ ] Add an editor-placeable rectangular thought trigger with text, bounds, one-shot policy, and stable ID.
+- [ ] Trigger only on entry and serialize consumed state.
+- [ ] Reuse the existing 18-characters-per-second reader, scrolling, final hold, input lock, and Jump/Fire advance behavior.
+- [ ] Refactor mailbox and location triggers through a shared generic thought-sequence entry point.
+- [ ] Render trigger bounds in the Level Editor while keeping them invisible in gameplay.
+- [ ] Add deterministic and browser-assisted trigger/serialization regressions.
+
+## Milestone D: basic boss encounters
+
+- [ ] Add `isBoss` and `bossName` to enemy placements and Level Editor controls.
+- [ ] Show one current/max-health boss bar for the actively engaged boss.
+- [ ] Activate the bar through awareness, damage, or explicit encounter activation and hide it after defeat/reset.
+- [ ] Emit a deterministic boss-defeated event.
+- [ ] Preserve ordinary enemy scale, health, movement, and attack overrides as the boss implementation foundation.
+- [ ] Add regressions for activation, health projection, defeat, serialization, and ordinary non-boss enemies.
+
+## Milestone E: rectangular water volumes
+
+- [ ] Add editor-placeable rectangular water-volume data and preview.
+- [ ] Detect body overlap and nose/breathing-point submersion deterministically.
+- [ ] Slow movement in water and tune reduced jump/backpack-rocket effectiveness.
+- [ ] Apply deterministic continuous health loss while the nose is submerged.
+- [ ] Let Shield block ordinary water damage unless later design explicitly changes that rule.
+- [ ] Preserve ordinary submerged terrain collision so Ignatius walks on the bottom.
+- [ ] Add entry/exit ripple presentation without simulation ownership.
+- [ ] Serialize any water-damage accumulator and add movement/damage/save regressions.
+
+## Automatic Level Generator 0: infrastructure and route preview
+
+- [ ] Add data-driven Earth Cavern and Ice Cavern theme preset JSON.
+- [ ] Add environment-atlas allowlisting to colour-map data so Ice does not recolour doors, chests, mailboxes, or power-up icons.
+- [ ] Add registries for route, cavern, traversal, endpoints, encounters, rewards, decoration, and validation implementations.
+- [ ] Add a dedicated Automatic Level Generator panel with theme, seed, size, verticality, winding, branching, difficulty, safety, density, and enemy-filter controls.
+- [ ] Add advanced generator-implementation dropdowns populated from the registries.
+- [ ] Add deterministic named random streams for each generation stage.
+- [ ] Add enemy-selection range/exclusion parsing and resolved-enemy preview.
+- [ ] Generate and display a progression-ordered abstract route beginning right and ending right at a right-side exit.
+- [ ] Support optional branches and merges while retaining one identifiable mandatory route.
+- [ ] Add generation-run provenance and a visible route overlay.
+- [ ] Make a generation run one undoable operation and support clearing generated content without deleting manual content.
+
+## Automatic Level Generator 1: playable empty cavern
+
+- [ ] Add an overlapping-ellipse/capsule occupancy-mask cavern envelope builder.
+- [ ] Trace, simplify, smooth, and convert the connected envelope into existing cave-window data.
+- [ ] Add generation-role metadata/catalog data for floors, landings, recovery platforms, walls, ceilings, bridges, decoration, and `doorSupport`.
+- [ ] Add a forgiving traversal builder using conservative measured Ignatius movement envelopes.
+- [ ] Build wide landings, generous headroom, selected double-jump/hover transitions, and recovery platforms.
+- [ ] Reserve safe entrance and exit chambers on the left and right.
+- [ ] Place doors only on whitelisted visually substantial `doorSupport` assets or validated support assemblies.
+- [ ] Derive world bounds and reset boundary from generated envelope and traversal.
+- [ ] Validate every mandatory transition, endpoint support, spawn, landing, and world-bound condition.
+
+## Automatic Level Generator 2: encounters
+
+- [ ] Add enemy-generation metadata for placement class, group range, difficulty cost, clearance, patrol room, and other hints.
+- [ ] Add difficulty-budgeted, locomotion-aware encounter placement with calm entrance/exit zones.
+- [ ] Place Bombing Bats in groups of two or three.
+- [ ] Build or refresh navigation data required by generated hunter enemies.
+- [ ] Validate that ground, ranged, and flying enemies have appropriate space and cannot create unavoidable spawn damage.
+- [ ] Require the weak standard-rocket splash milestone before considering clustered bats balanced enough for routine generation.
+
+## Automatic Level Generator 3: rewards and props
+
+- [ ] Require completed Score/treasure behavior before chest generation.
+- [ ] Prefer treasure at optional branch destinations and meaningful detours.
+- [ ] Place contextual, restrained power-ups rather than uniform random pickups.
+- [ ] Add optional location-triggered thought placement through explicit theme/settings rules.
+- [ ] Keep beginning/end doors under Endpoint Placer ownership rather than treating them as generic props.
+- [ ] Validate reward accessibility and avoid overcrowding endpoint chambers.
+
+## Automatic Level Generator 4: richer world features and editing refinement
+
+- [ ] Add water basins only after rectangular water behavior is stable.
+- [ ] Add boss-arena landmarks only after boss support is stable.
+- [ ] Add stage-specific regeneration without perturbing unrelated named random streams.
+- [ ] Add locking and converting generated objects to manual ownership.
+- [ ] Improve route diagnostics and validation visualization.
+- [ ] Later evaluate moving platforms, signal mechanisms, required rocket sections, reactive-world solutions, and additional route/cavern/traversal implementations.
+
+## Content production and renderer decision
+
+- [ ] Use generated drafts plus new enemy assets to begin real level production and manual refinement.
+- [ ] Profile representative densely decorated real levels in target browsers and Electron.
+- [ ] Add WebGL2 only if measurements identify Canvas presentation as the material bottleneck.
+- [ ] Preserve engine-neutral level, generation, validation, and portable-state contracts so Electron and a possible Unreal Engine 5 port remain viable options.
+
+
+## Revision 226 Score HUD and treasure-chest implementation
+
+- [x] Add authoritative portable Score state with deterministic `SCORE_CHANGED` events.
+- [x] Preserve Score through ordinary death/respawn, level transitions, and save/restore.
+- [x] Project `Level N: <title>` and `Score: N` above the Health bar.
+- [x] Rename level 1 to `The Introductory Cave of Training`.
+- [x] Implement proximity-opened treasure chests with editable Score value and collection distance.
+- [x] Begin chests open with visible loot, swap to the matched empty-open visual, and prevent duplicate awards.
+- [x] Keep chest collision disabled while preserving it as an ordinary editor entity.
+- [x] Add the first 100-point chest and later move it onto the substantial exit-door platform.
+- [x] Add presentation-only `+N` feedback and deterministic regression coverage.
+- [x] Advance portable and browser build labels to revision 226.
+
+
+## Revision 227 treasure-chest presentation refinement
+
+- [x] Reduce the default chest footprint to 72 by 84 world units for broad ledge compatibility.
+- [x] Normalize open-loot and open-empty atlas cutouts to matched dimensions and alignment.
+- [x] Start uncollected chests visibly open with loot and remove the mismatched closed artwork from the normal flow.
+
+## Revision 228 Level Editor snap and demonstration placement
+
+- [x] Change the Level Editor default and fallback Snap grid from 32 to 16 world units.
+- [x] Move the level-1 demonstration chest to `(4768, 512)` on `exit_ground`, beside the exit door.
+- [x] Verify the compact chest footprint is fully over the platform's drawn walkable top and does not float or hang past an edge.
+- [x] Add regressions for the 16-pixel Snap default and authored chest support placement.
+
+## Revision 229 wrench-glow preload and gamepad haptics
+
+- [x] Pre-generate all registered wrench rocket glow surfaces during renderer startup.
+- [x] Keep the first powered projectile draw on the same cached glow path used by later shots.
+- [x] Show wrench-glow preparation through the existing loading progress callback.
+- [x] Track meaningful gamepad input using mapped buttons and analog movement beyond deadzones.
+- [x] Give gamepad ownership a short idle grace period and revoke it immediately when keyboard or pointer gameplay input takes over.
+- [x] Rumble strongly on actual player damage and more gently on successful rocket launch, double-jump boost start, and sustained hover.
+- [x] Consume events received while gamepad haptics are inactive so they are never replayed later.
+- [x] Rate-limit hover pulses and fail silently when vibration APIs are unavailable.
+- [x] Add regression coverage for preload wiring, input-device ownership, haptic strengths, event deduplication, and hover rate limiting.
+
+
+## Revisions 230-232 powered projectile presentation
+
+- [x] Load a supplemental wizard atlas through the runtime character project.
+- [x] Store one authored powered-rocket frame for every wrench effect.
+- [x] Precompose the base projectile and coloured halo so powered rockets require one sprite draw.
+- [x] Preserve the ordinary rocket frame and the separate procedural flame path.
+- [x] Carry the launch-time wrench colour into persistent rocket trail puffs.
+- [x] Use the colour as a restrained smoke/sparkle accent without recolouring ordinary trails.
+- [x] Add regression coverage for supplemental atlas loading, one-draw powered sprites, and tinted-versus-neutral trail records.
+
+## Immediate readiness before Automatic Level Generator 0
+
+- [x] Complete the weak standard-rocket secondary splash before Generator 0.
+- [x] Treat deterministic RNG, theme JSON, generator registries, generation provenance, undo grouping, and route overlay as Generator 0 work rather than a separate prerequisite refactor.
+- [x] Keep boss support, water, and location-triggered thoughts non-blocking for Generator 0 and Generator 1; integrate them only in the later slices already named in the plan.
+
+## Revision 233 standard-rocket secondary splash
+
+- [x] Give standard rockets exactly 1 damage against nearby secondary enemies.
+- [x] Use a one-wizard-height radius, equivalent to a diameter of roughly two wizard heights.
+- [x] Exclude the directly struck enemy so normal direct damage remains exactly 30.
+- [x] Trigger the enemy-only splash on enemy, terrain, and reactive-object impacts.
+- [x] Keep reactive scenery immune to the weak secondary splash.
+- [x] Preserve the splash for Speed Shot while disabling it for every wrench mode.
+- [x] Add deterministic diagnostics and regression coverage for direct, nearby, distant, Speed Shot, and wrench cases.
+- [x] Mark the pre-generator prerequisite list complete.
+

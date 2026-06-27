@@ -1,2639 +1,2639 @@
 {
-    "meta": {
-        "version": 1,
-        "note": "Interactive and story-item atlas. Cyan frame rectangles identify each reusable visual. Stateful gameplay is described by assets/it_entities_001.json; atlas collision is supplied only for props that are sensible as solid scenery. Revision 193 also isolates eight small icon frames and one tintable white glow frame for later composite power-up visuals; no runtime power-up behaviour is introduced."
+  "meta": {
+    "version": 1,
+    "note": "Interactive and story-item atlas. Cyan frame rectangles identify each reusable visual. Stateful gameplay is described by assets/it_entities_001.json; atlas collision is supplied only for props that are sensible as solid scenery. Revision 227 normalizes the open treasure-chest frames so the loot and empty variants swap without visual jumping."
+  },
+  "atlasId": "it_atlas_001",
+  "image": "it_atlas_001.png",
+  "frames": {
+    "mailbox_with_letter": {
+      "x": 24,
+      "y": 0,
+      "w": 185,
+      "h": 265
     },
-    "atlasId": "it_atlas_001",
-    "image": "it_atlas_001.png",
-    "frames": {
-        "mailbox_with_letter": {
-            "x": 24,
-            "y": 0,
-            "w": 185,
-            "h": 265
-        },
-        "mailbox_empty": {
-            "x": 269,
-            "y": 0,
-            "w": 185,
-            "h": 265
-        },
-        "chest_open_loot": {
-            "x": 531,
-            "y": 24,
-            "w": 207,
-            "h": 237
-        },
-        "chest_open_empty": {
-            "x": 753,
-            "y": 22,
-            "w": 193,
-            "h": 239
-        },
-        "chest_closed": {
-            "x": 973,
-            "y": 52,
-            "w": 178,
-            "h": 177
-        },
-        "target_dummy": {
-            "x": 1206,
-            "y": 6,
-            "w": 187,
-            "h": 275
-        },
-        "portal_closed": {
-            "x": 28,
-            "y": 289,
-            "w": 183,
-            "h": 263
-        },
-        "portal_foreground": {
-            "x": 223,
-            "y": 291,
-            "w": 114,
-            "h": 263
-        },
-        "portal_open": {
-            "x": 352,
-            "y": 290,
-            "w": 208,
-            "h": 263
-        },
-        "gate_spiked": {
-            "x": 610,
-            "y": 291,
-            "w": 117,
-            "h": 245
-        },
-        "magic_ring_blue": {
-            "x": 802,
-            "y": 365,
-            "w": 70,
-            "h": 69
-        },
-        "spiked_ball": {
-            "x": 926,
-            "y": 288,
-            "w": 144,
-            "h": 191
-        },
-        "wall_torch": {
-            "x": 1114,
-            "y": 279,
-            "w": 65,
-            "h": 213
-        },
-        "hanging_lantern": {
-            "x": 1206,
-            "y": 306,
-            "w": 80,
-            "h": 208
-        },
-        "candle_cluster": {
-            "x": 1313,
-            "y": 320,
-            "w": 90,
-            "h": 169
-        },
-        "powerup_icon_coin": {
-            "x": 7,
-            "y": 570,
-            "w": 99,
-            "h": 100
-        },
-        "powerup_icon_star": {
-            "x": 120,
-            "y": 570,
-            "w": 93,
-            "h": 94
-        },
-        "powerup_icon_bomb": {
-            "x": 232,
-            "y": 572,
-            "w": 87,
-            "h": 91
-        },
-        "powerup_icon_magnet": {
-            "x": 336,
-            "y": 572,
-            "w": 88,
-            "h": 93
-        },
-        "powerup_glow_white": {
-            "x": 434,
-            "y": 566,
-            "w": 204,
-            "h": 204
-        },
-        "powerup_icon_lightning": {
-            "x": 26,
-            "y": 679,
-            "w": 60,
-            "h": 97
-        },
-        "powerup_icon_spark": {
-            "x": 119,
-            "y": 684,
-            "w": 66,
-            "h": 75
-        },
-        "powerup_icon_wrench": {
-            "x": 219,
-            "y": 676,
-            "w": 89,
-            "h": 90
-        },
-        "powerup_icon_shield": {
-            "x": 339,
-            "y": 674,
-            "w": 80,
-            "h": 94
-        },
-        "herb_blue": {
-            "x": 649,
-            "y": 566,
-            "w": 144,
-            "h": 173
-        },
-        "mushroom_red": {
-            "x": 813,
-            "y": 571,
-            "w": 117,
-            "h": 174
-        },
-        "herb_purple": {
-            "x": 959,
-            "y": 564,
-            "w": 122,
-            "h": 177
-        },
-        "herb_yellow": {
-            "x": 1101,
-            "y": 582,
-            "w": 123,
-            "h": 160
-        },
-        "rocket_fuel_canister": {
-            "x": 1267,
-            "y": 557,
-            "w": 112,
-            "h": 188
-        },
-        "ornate_key": {
-            "x": 37,
-            "y": 792,
-            "w": 53,
-            "h": 103
-        },
-        "rune_marker": {
-            "x": 109,
-            "y": 778,
-            "w": 98,
-            "h": 123
-        },
-        "signpost_multi": {
-            "x": 234,
-            "y": 775,
-            "w": 89,
-            "h": 131
-        },
-        "signpost_right": {
-            "x": 348,
-            "y": 816,
-            "w": 77,
-            "h": 85
-        },
-        "lever_off": {
-            "x": 472,
-            "y": 834,
-            "w": 132,
-            "h": 88
-        },
-        "lever_on": {
-            "x": 676,
-            "y": 808,
-            "w": 128,
-            "h": 116
-        },
-        "barrel": {
-            "x": 858,
-            "y": 809,
-            "w": 85,
-            "h": 106
-        },
-        "crate": {
-            "x": 981,
-            "y": 803,
-            "w": 103,
-            "h": 112
-        },
-        "gate_hanging": {
-            "x": 1148,
-            "y": 832,
-            "w": 144,
-            "h": 191
-        },
-        "iron_ring": {
-            "x": 1346,
-            "y": 900,
-            "w": 54,
-            "h": 98
-        },
-        "stone_totem": {
-            "x": 0,
-            "y": 921,
-            "w": 104,
-            "h": 133
-        },
-        "brazier": {
-            "x": 130,
-            "y": 911,
-            "w": 99,
-            "h": 148
-        },
-        "rope_post": {
-            "x": 265,
-            "y": 937,
-            "w": 86,
-            "h": 119
-        },
-        "banner": {
-            "x": 377,
-            "y": 924,
-            "w": 93,
-            "h": 129
-        },
-        "skull": {
-            "x": 494,
-            "y": 964,
-            "w": 81,
-            "h": 82
-        },
-        "bone_pile": {
-            "x": 608,
-            "y": 963,
-            "w": 120,
-            "h": 79
-        },
-        "keyhole_plate": {
-            "x": 848,
-            "y": 943,
-            "w": 74,
-            "h": 102
-        },
-        "iron_key": {
-            "x": 975,
-            "y": 942,
-            "w": 67,
-            "h": 102
-        },
-        "thought_bubble_large": {
-            "x": 59,
-            "y": 1125,
-            "w": 382,
-            "h": 241
-        },
-        "thought_bubble_question": {
-            "x": 549,
-            "y": 1121,
-            "w": 125,
-            "h": 140
-        },
-        "thought_bubble_exclamation": {
-            "x": 754,
-            "y": 1121,
-            "w": 122,
-            "h": 134
-        },
-        "letter_scroll": {
-            "x": 932,
-            "y": 1094,
-            "w": 311,
-            "h": 272
-        }
+    "mailbox_empty": {
+      "x": 269,
+      "y": 0,
+      "w": 185,
+      "h": 265
     },
-    "objects": {
-        "mailbox_with_letter": {
-            "id": "mailbox_with_letter",
-            "frame": "mailbox_with_letter",
-            "type": "mailboxState",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "mailbox",
-                "letter",
-                "editor"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "mailbox_empty": {
-            "id": "mailbox_empty",
-            "frame": "mailbox_empty",
-            "type": "mailboxState",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "mailbox",
-                "editor"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "chest_open_loot": {
-            "id": "chest_open_loot",
-            "frame": "chest_open_loot",
-            "type": "chestState",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "chest",
-                "open",
-                "loot"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [
-                {
-                    "id": "n1",
-                    "x": 150,
-                    "y": 0
-                },
-                {
-                    "id": "n2",
-                    "x": 29,
-                    "y": 22
-                },
-                {
-                    "id": "n3",
-                    "x": 0,
-                    "y": 70
-                },
-                {
-                    "id": "n4",
-                    "x": 6,
-                    "y": 197
-                },
-                {
-                    "id": "n5",
-                    "x": 81,
-                    "y": 236
-                },
-                {
-                    "id": "n6",
-                    "x": 206,
-                    "y": 199
-                },
-                {
-                    "id": "n7",
-                    "x": 187,
-                    "y": 142
-                },
-                {
-                    "id": "n8",
-                    "x": 203,
-                    "y": 119
-                },
-                {
-                    "id": "n9",
-                    "x": 137,
-                    "y": 93
-                },
-                {
-                    "id": "n10",
-                    "x": 171,
-                    "y": 28
-                }
-            ],
-            "lines": [
-                {
-                    "id": "blockable_1",
-                    "kind": "blockable",
-                    "from": "n1",
-                    "to": "n2",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_2",
-                    "kind": "blockable",
-                    "from": "n2",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_3",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_4",
-                    "kind": "blockable",
-                    "from": "n4",
-                    "to": "n5",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_5",
-                    "kind": "blockable",
-                    "from": "n5",
-                    "to": "n6",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_6",
-                    "kind": "blockable",
-                    "from": "n6",
-                    "to": "n7",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_7",
-                    "kind": "blockable",
-                    "from": "n7",
-                    "to": "n8",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_8",
-                    "kind": "blockable",
-                    "from": "n8",
-                    "to": "n9",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_9",
-                    "kind": "blockable",
-                    "from": "n9",
-                    "to": "n10",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_10",
-                    "kind": "blockable",
-                    "from": "n10",
-                    "to": "n1",
-                    "tags": []
-                }
-            ]
-        },
-        "chest_open_empty": {
-            "id": "chest_open_empty",
-            "frame": "chest_open_empty",
-            "type": "chestState",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "chest",
-                "open",
-                "empty"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [
-                {
-                    "id": "n1",
-                    "x": 145,
-                    "y": 0
-                },
-                {
-                    "id": "n2",
-                    "x": 35,
-                    "y": 19
-                },
-                {
-                    "id": "n3",
-                    "x": 0,
-                    "y": 66
-                },
-                {
-                    "id": "n4",
-                    "x": 11,
-                    "y": 200
-                },
-                {
-                    "id": "n5",
-                    "x": 74,
-                    "y": 238
-                },
-                {
-                    "id": "n6",
-                    "x": 192,
-                    "y": 205
-                },
-                {
-                    "id": "n7",
-                    "x": 188,
-                    "y": 126
-                },
-                {
-                    "id": "n8",
-                    "x": 132,
-                    "y": 100
-                },
-                {
-                    "id": "n9",
-                    "x": 165,
-                    "y": 27
-                }
-            ],
-            "lines": [
-                {
-                    "id": "blockable_1",
-                    "kind": "blockable",
-                    "from": "n1",
-                    "to": "n2",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_2",
-                    "kind": "blockable",
-                    "from": "n2",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_3",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_4",
-                    "kind": "blockable",
-                    "from": "n4",
-                    "to": "n5",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_5",
-                    "kind": "blockable",
-                    "from": "n5",
-                    "to": "n6",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_6",
-                    "kind": "blockable",
-                    "from": "n6",
-                    "to": "n7",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_7",
-                    "kind": "blockable",
-                    "from": "n7",
-                    "to": "n8",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_8",
-                    "kind": "blockable",
-                    "from": "n8",
-                    "to": "n9",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_9",
-                    "kind": "blockable",
-                    "from": "n9",
-                    "to": "n1",
-                    "tags": []
-                }
-            ]
-        },
-        "chest_closed": {
-            "id": "chest_closed",
-            "frame": "chest_closed",
-            "type": "chestState",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "chest",
-                "closed"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [
-                {
-                    "id": "n1",
-                    "x": 156,
-                    "y": 16
-                },
-                {
-                    "id": "n2",
-                    "x": 122,
-                    "y": 0
-                },
-                {
-                    "id": "n3",
-                    "x": 18,
-                    "y": 27
-                },
-                {
-                    "id": "n4",
-                    "x": 0,
-                    "y": 143
-                },
-                {
-                    "id": "n5",
-                    "x": 71,
-                    "y": 176
-                },
-                {
-                    "id": "n6",
-                    "x": 177,
-                    "y": 140
-                }
-            ],
-            "lines": [
-                {
-                    "id": "blockable_1",
-                    "kind": "blockable",
-                    "from": "n1",
-                    "to": "n2",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_2",
-                    "kind": "blockable",
-                    "from": "n2",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_3",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_4",
-                    "kind": "blockable",
-                    "from": "n4",
-                    "to": "n5",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_5",
-                    "kind": "blockable",
-                    "from": "n5",
-                    "to": "n6",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_6",
-                    "kind": "blockable",
-                    "from": "n6",
-                    "to": "n1",
-                    "tags": []
-                }
-            ]
-        },
-        "target_dummy": {
-            "id": "target_dummy",
-            "frame": "target_dummy",
-            "type": "target",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": true,
-            "tags": [
-                "target",
-                "training"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "portal_closed": {
-            "id": "portal_closed",
-            "frame": "portal_closed",
-            "type": "portalState",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "portal",
-                "closed",
-                "entrance",
-                "exit"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "portal_foreground": {
-            "id": "portal_foreground",
-            "frame": "portal_foreground",
-            "type": "portalLayer",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "portal",
-                "foreground",
-                "layer"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "portal_open": {
-            "id": "portal_open",
-            "frame": "portal_open",
-            "type": "portalState",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "portal",
-                "open",
-                "entrance",
-                "exit"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "gate_spiked": {
-            "id": "gate_spiked",
-            "frame": "gate_spiked",
-            "type": "gate",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "gate",
-                "spikes",
-                "switchable"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [
-                {
-                    "id": "n1",
-                    "x": 93,
-                    "y": 0
-                },
-                {
-                    "id": "n2",
-                    "x": 79,
-                    "y": 26
-                },
-                {
-                    "id": "n3",
-                    "x": 64,
-                    "y": 4
-                },
-                {
-                    "id": "n4",
-                    "x": 52,
-                    "y": 31
-                },
-                {
-                    "id": "n5",
-                    "x": 15,
-                    "y": 18
-                },
-                {
-                    "id": "n6",
-                    "x": 0,
-                    "y": 61
-                },
-                {
-                    "id": "n7",
-                    "x": 14,
-                    "y": 208
-                },
-                {
-                    "id": "n8",
-                    "x": 25,
-                    "y": 182
-                },
-                {
-                    "id": "n9",
-                    "x": 37,
-                    "y": 219
-                },
-                {
-                    "id": "n10",
-                    "x": 55,
-                    "y": 192
-                },
-                {
-                    "id": "n11",
-                    "x": 63,
-                    "y": 232
-                },
-                {
-                    "id": "n12",
-                    "x": 79,
-                    "y": 201
-                },
-                {
-                    "id": "n13",
-                    "x": 92,
-                    "y": 244
-                },
-                {
-                    "id": "n14",
-                    "x": 116,
-                    "y": 201
-                }
-            ],
-            "lines": [
-                {
-                    "id": "blockable_1",
-                    "kind": "blockable",
-                    "from": "n1",
-                    "to": "n2",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_2",
-                    "kind": "blockable",
-                    "from": "n2",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_3",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_4",
-                    "kind": "blockable",
-                    "from": "n4",
-                    "to": "n5",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_5",
-                    "kind": "blockable",
-                    "from": "n5",
-                    "to": "n6",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_6",
-                    "kind": "blockable",
-                    "from": "n6",
-                    "to": "n7",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_7",
-                    "kind": "blockable",
-                    "from": "n7",
-                    "to": "n8",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_8",
-                    "kind": "blockable",
-                    "from": "n8",
-                    "to": "n9",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_9",
-                    "kind": "blockable",
-                    "from": "n9",
-                    "to": "n10",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_10",
-                    "kind": "blockable",
-                    "from": "n10",
-                    "to": "n11",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_11",
-                    "kind": "blockable",
-                    "from": "n11",
-                    "to": "n12",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_12",
-                    "kind": "blockable",
-                    "from": "n12",
-                    "to": "n13",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_13",
-                    "kind": "blockable",
-                    "from": "n13",
-                    "to": "n14",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_14",
-                    "kind": "blockable",
-                    "from": "n14",
-                    "to": "n1",
-                    "tags": []
-                }
-            ]
-        },
-        "magic_ring_blue": {
-            "id": "magic_ring_blue",
-            "frame": "magic_ring_blue",
-            "type": "pickup",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "ring",
-                "magic"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "spiked_ball": {
-            "id": "spiked_ball",
-            "frame": "spiked_ball",
-            "type": "hazard",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": true,
-            "tags": [
-                "hazard",
-                "spikes"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "wall_torch": {
-            "id": "wall_torch",
-            "frame": "wall_torch",
-            "type": "light",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "light",
-                "torch",
-                "decor"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "hanging_lantern": {
-            "id": "hanging_lantern",
-            "frame": "hanging_lantern",
-            "type": "light",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "light",
-                "lantern",
-                "decor"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "candle_cluster": {
-            "id": "candle_cluster",
-            "frame": "candle_cluster",
-            "type": "light",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "light",
-                "candles",
-                "decor"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "powerup_icon_coin": {
-            "id": "powerup_icon_coin",
-            "frame": "powerup_icon_coin",
-            "type": "pickup",
-            "layer": "decorFront",
-            "mirrorable": false,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 0.5
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "powerup",
-                "icon",
-                "coin"
-            ],
-            "notes": "Reusable gold coin-style icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
-            "nodes": [],
-            "lines": []
-        },
-        "powerup_icon_star": {
-            "id": "powerup_icon_star",
-            "frame": "powerup_icon_star",
-            "type": "pickup",
-            "layer": "decorFront",
-            "mirrorable": false,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 0.5
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "powerup",
-                "icon",
-                "star"
-            ],
-            "notes": "Reusable gold star icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
-            "nodes": [],
-            "lines": []
-        },
-        "powerup_icon_bomb": {
-            "id": "powerup_icon_bomb",
-            "frame": "powerup_icon_bomb",
-            "type": "pickup",
-            "layer": "decorFront",
-            "mirrorable": false,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 0.5
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "powerup",
-                "icon",
-                "bomb"
-            ],
-            "notes": "Reusable bomb icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
-            "nodes": [],
-            "lines": []
-        },
-        "powerup_icon_magnet": {
-            "id": "powerup_icon_magnet",
-            "frame": "powerup_icon_magnet",
-            "type": "pickup",
-            "layer": "decorFront",
-            "mirrorable": false,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 0.5
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "powerup",
-                "icon",
-                "magnet"
-            ],
-            "notes": "Reusable magnet icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
-            "nodes": [],
-            "lines": []
-        },
-        "powerup_glow_white": {
-            "id": "powerup_glow_white",
-            "frame": "powerup_glow_white",
-            "type": "effect",
-            "layer": "decorFront",
-            "mirrorable": false,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 0.5
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "powerup",
-                "effect",
-                "glow",
-                "tintable",
-                "composite-base"
-            ],
-            "notes": "White glow base for composite power-up visuals. Tint this frame at render time and draw the chosen icon centred above it.",
-            "nodes": [],
-            "lines": []
-        },
-        "powerup_icon_lightning": {
-            "id": "powerup_icon_lightning",
-            "frame": "powerup_icon_lightning",
-            "type": "pickup",
-            "layer": "decorFront",
-            "mirrorable": false,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 0.5
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "powerup",
-                "icon",
-                "lightning",
-                "rocket",
-                "rapid-fire",
-                "fuel-efficiency"
-            ],
-            "notes": "Rocket overdrive emblem. Intended above a yellow-orange tinted powerup_glow_white; the later gameplay effect should allow rockets twice as often for half the fuel cost.",
-            "nodes": [],
-            "lines": []
-        },
-        "powerup_icon_spark": {
-            "id": "powerup_icon_spark",
-            "frame": "powerup_icon_spark",
-            "type": "pickup",
-            "layer": "decorFront",
-            "mirrorable": false,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 0.5
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "powerup",
-                "icon",
-                "spark"
-            ],
-            "notes": "Reusable white spark icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
-            "nodes": [],
-            "lines": []
-        },
-        "powerup_icon_wrench": {
-            "id": "powerup_icon_wrench",
-            "frame": "powerup_icon_wrench",
-            "type": "pickup",
-            "layer": "decorFront",
-            "mirrorable": false,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 0.5
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "powerup",
-                "icon",
-                "wrench",
-                "rocket",
-                "upgrade"
-            ],
-            "notes": "Generic rocket-upgrade emblem. Draw it centred above powerup_glow_white tinted blue, green, yellow, red, or cyan to distinguish later power-up types.",
-            "nodes": [],
-            "lines": []
-        },
-        "powerup_icon_shield": {
-            "id": "powerup_icon_shield",
-            "frame": "powerup_icon_shield",
-            "type": "pickup",
-            "layer": "decorFront",
-            "mirrorable": false,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 0.5
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "powerup",
-                "icon",
-                "shield"
-            ],
-            "notes": "Reusable shield icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
-            "nodes": [],
-            "lines": []
-        },
-        "herb_blue": {
-            "id": "herb_blue",
-            "frame": "herb_blue",
-            "type": "pickup",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "herb",
-                "blue"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "mushroom_red": {
-            "id": "mushroom_red",
-            "frame": "mushroom_red",
-            "type": "pickup",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "mushroom",
-                "red"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "herb_purple": {
-            "id": "herb_purple",
-            "frame": "herb_purple",
-            "type": "pickup",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "herb",
-                "purple"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "herb_yellow": {
-            "id": "herb_yellow",
-            "frame": "herb_yellow",
-            "type": "pickup",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "herb",
-                "yellow"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "rocket_fuel_canister": {
-            "id": "rocket_fuel_canister",
-            "frame": "rocket_fuel_canister",
-            "type": "pickup",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "fuel",
-                "rocket"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "ornate_key": {
-            "id": "ornate_key",
-            "frame": "ornate_key",
-            "type": "pickup",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "key",
-                "ornate"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "rune_marker": {
-            "id": "rune_marker",
-            "frame": "rune_marker",
-            "type": "checkpoint",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "checkpoint",
-                "rune"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "signpost_multi": {
-            "id": "signpost_multi",
-            "frame": "signpost_multi",
-            "type": "sign",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "sign",
-                "direction"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "signpost_right": {
-            "id": "signpost_right",
-            "frame": "signpost_right",
-            "type": "sign",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "sign",
-                "direction"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "lever_off": {
-            "id": "lever_off",
-            "frame": "lever_off",
-            "type": "switchState",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "switch",
-                "off"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "lever_on": {
-            "id": "lever_on",
-            "frame": "lever_on",
-            "type": "switchState",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "switch",
-                "on"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "barrel": {
-            "id": "barrel",
-            "frame": "barrel",
-            "type": "destructibleProp",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": true,
-            "targetableByRocket": true,
-            "tags": [
-                "prop",
-                "barrel",
-                "destructible"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [
-                {
-                    "id": "n1",
-                    "x": 37,
-                    "y": 0
-                },
-                {
-                    "id": "n2",
-                    "x": 11,
-                    "y": 11
-                },
-                {
-                    "id": "n3",
-                    "x": 0,
-                    "y": 68
-                },
-                {
-                    "id": "n4",
-                    "x": 11,
-                    "y": 96
-                },
-                {
-                    "id": "n5",
-                    "x": 55,
-                    "y": 105
-                },
-                {
-                    "id": "n6",
-                    "x": 78,
-                    "y": 91
-                },
-                {
-                    "id": "n7",
-                    "x": 84,
-                    "y": 34
-                },
-                {
-                    "id": "n8",
-                    "x": 73,
-                    "y": 9
-                }
-            ],
-            "lines": [
-                {
-                    "id": "blockable_1",
-                    "kind": "blockable",
-                    "from": "n1",
-                    "to": "n2",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_2",
-                    "kind": "blockable",
-                    "from": "n2",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_3",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_4",
-                    "kind": "blockable",
-                    "from": "n4",
-                    "to": "n5",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_5",
-                    "kind": "blockable",
-                    "from": "n5",
-                    "to": "n6",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_6",
-                    "kind": "blockable",
-                    "from": "n6",
-                    "to": "n7",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_7",
-                    "kind": "blockable",
-                    "from": "n7",
-                    "to": "n8",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_8",
-                    "kind": "blockable",
-                    "from": "n8",
-                    "to": "n1",
-                    "tags": []
-                }
-            ],
-            "destroy": {
-                "hp": 1,
-                "explosionRadius": 64,
-                "fadeToBlackSeconds": 0.18,
-                "removeAfterSeconds": 0.22
-            }
-        },
-        "crate": {
-            "id": "crate",
-            "frame": "crate",
-            "type": "destructibleProp",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": true,
-            "targetableByRocket": true,
-            "tags": [
-                "prop",
-                "crate",
-                "destructible"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [
-                {
-                    "id": "n1",
-                    "x": 39,
-                    "y": 0
-                },
-                {
-                    "id": "n2",
-                    "x": 0,
-                    "y": 19
-                },
-                {
-                    "id": "n3",
-                    "x": 0,
-                    "y": 99
-                },
-                {
-                    "id": "n4",
-                    "x": 68,
-                    "y": 111
-                },
-                {
-                    "id": "n5",
-                    "x": 102,
-                    "y": 91
-                },
-                {
-                    "id": "n6",
-                    "x": 102,
-                    "y": 11
-                }
-            ],
-            "lines": [
-                {
-                    "id": "blockable_1",
-                    "kind": "blockable",
-                    "from": "n1",
-                    "to": "n2",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_2",
-                    "kind": "blockable",
-                    "from": "n2",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_3",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_4",
-                    "kind": "blockable",
-                    "from": "n4",
-                    "to": "n5",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_5",
-                    "kind": "blockable",
-                    "from": "n5",
-                    "to": "n6",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_6",
-                    "kind": "blockable",
-                    "from": "n6",
-                    "to": "n1",
-                    "tags": []
-                }
-            ],
-            "destroy": {
-                "hp": 1,
-                "explosionRadius": 64,
-                "fadeToBlackSeconds": 0.18,
-                "removeAfterSeconds": 0.22
-            }
-        },
-        "gate_hanging": {
-            "id": "gate_hanging",
-            "frame": "gate_hanging",
-            "type": "gate",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "gate",
-                "bars",
-                "switchable"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [
-                {
-                    "id": "n1",
-                    "x": 134,
-                    "y": 0
-                },
-                {
-                    "id": "n2",
-                    "x": 0,
-                    "y": 20
-                },
-                {
-                    "id": "n3",
-                    "x": 6,
-                    "y": 190
-                },
-                {
-                    "id": "n4",
-                    "x": 18,
-                    "y": 142
-                },
-                {
-                    "id": "n5",
-                    "x": 35,
-                    "y": 190
-                },
-                {
-                    "id": "n6",
-                    "x": 47,
-                    "y": 140
-                },
-                {
-                    "id": "n7",
-                    "x": 63,
-                    "y": 187
-                },
-                {
-                    "id": "n8",
-                    "x": 69,
-                    "y": 142
-                },
-                {
-                    "id": "n9",
-                    "x": 94,
-                    "y": 186
-                },
-                {
-                    "id": "n10",
-                    "x": 118,
-                    "y": 139
-                },
-                {
-                    "id": "n11",
-                    "x": 125,
-                    "y": 187
-                }
-            ],
-            "lines": [
-                {
-                    "id": "blockable_1",
-                    "kind": "blockable",
-                    "from": "n1",
-                    "to": "n2",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_2",
-                    "kind": "blockable",
-                    "from": "n2",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_3",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_4",
-                    "kind": "blockable",
-                    "from": "n4",
-                    "to": "n5",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_5",
-                    "kind": "blockable",
-                    "from": "n5",
-                    "to": "n6",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_6",
-                    "kind": "blockable",
-                    "from": "n6",
-                    "to": "n7",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_7",
-                    "kind": "blockable",
-                    "from": "n7",
-                    "to": "n8",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_8",
-                    "kind": "blockable",
-                    "from": "n8",
-                    "to": "n9",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_9",
-                    "kind": "blockable",
-                    "from": "n9",
-                    "to": "n10",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_10",
-                    "kind": "blockable",
-                    "from": "n10",
-                    "to": "n11",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_11",
-                    "kind": "blockable",
-                    "from": "n11",
-                    "to": "n1",
-                    "tags": []
-                }
-            ]
-        },
-        "iron_ring": {
-            "id": "iron_ring",
-            "frame": "iron_ring",
-            "type": "decor",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "decor",
-                "ring"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "stone_totem": {
-            "id": "stone_totem",
-            "frame": "stone_totem",
-            "type": "prop",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "prop",
-                "totem"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [
-                {
-                    "id": "n1",
-                    "x": 44,
-                    "y": 0
-                },
-                {
-                    "id": "n2",
-                    "x": 14,
-                    "y": 14
-                },
-                {
-                    "id": "n3",
-                    "x": 39,
-                    "y": 33
-                },
-                {
-                    "id": "n4",
-                    "x": 8,
-                    "y": 45
-                },
-                {
-                    "id": "n5",
-                    "x": 18,
-                    "y": 81
-                },
-                {
-                    "id": "n6",
-                    "x": 0,
-                    "y": 123
-                },
-                {
-                    "id": "n7",
-                    "x": 20,
-                    "y": 114
-                },
-                {
-                    "id": "n8",
-                    "x": 39,
-                    "y": 129
-                },
-                {
-                    "id": "n9",
-                    "x": 45,
-                    "y": 115
-                },
-                {
-                    "id": "n10",
-                    "x": 47,
-                    "y": 130
-                },
-                {
-                    "id": "n11",
-                    "x": 68,
-                    "y": 132
-                },
-                {
-                    "id": "n12",
-                    "x": 103,
-                    "y": 115
-                },
-                {
-                    "id": "n13",
-                    "x": 84,
-                    "y": 75
-                },
-                {
-                    "id": "n14",
-                    "x": 87,
-                    "y": 13
-                }
-            ],
-            "lines": [
-                {
-                    "id": "blockable_1",
-                    "kind": "blockable",
-                    "from": "n1",
-                    "to": "n2",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_2",
-                    "kind": "blockable",
-                    "from": "n2",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_3",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_4",
-                    "kind": "blockable",
-                    "from": "n4",
-                    "to": "n5",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_5",
-                    "kind": "blockable",
-                    "from": "n5",
-                    "to": "n6",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_6",
-                    "kind": "blockable",
-                    "from": "n6",
-                    "to": "n7",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_7",
-                    "kind": "blockable",
-                    "from": "n7",
-                    "to": "n8",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_8",
-                    "kind": "blockable",
-                    "from": "n8",
-                    "to": "n9",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_9",
-                    "kind": "blockable",
-                    "from": "n9",
-                    "to": "n10",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_10",
-                    "kind": "blockable",
-                    "from": "n10",
-                    "to": "n11",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_11",
-                    "kind": "blockable",
-                    "from": "n11",
-                    "to": "n12",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_12",
-                    "kind": "blockable",
-                    "from": "n12",
-                    "to": "n13",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_13",
-                    "kind": "blockable",
-                    "from": "n13",
-                    "to": "n14",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_14",
-                    "kind": "blockable",
-                    "from": "n14",
-                    "to": "n1",
-                    "tags": []
-                }
-            ]
-        },
-        "brazier": {
-            "id": "brazier",
-            "frame": "brazier",
-            "type": "prop",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "prop",
-                "fire",
-                "light"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [
-                {
-                    "id": "n1",
-                    "x": 45,
-                    "y": 0
-                },
-                {
-                    "id": "n2",
-                    "x": 0,
-                    "y": 75
-                },
-                {
-                    "id": "n3",
-                    "x": 47,
-                    "y": 115
-                },
-                {
-                    "id": "n4",
-                    "x": 7,
-                    "y": 136
-                },
-                {
-                    "id": "n5",
-                    "x": 63,
-                    "y": 147
-                },
-                {
-                    "id": "n6",
-                    "x": 90,
-                    "y": 134
-                },
-                {
-                    "id": "n7",
-                    "x": 66,
-                    "y": 107
-                },
-                {
-                    "id": "n8",
-                    "x": 98,
-                    "y": 63
-                }
-            ],
-            "lines": [
-                {
-                    "id": "blockable_1",
-                    "kind": "blockable",
-                    "from": "n1",
-                    "to": "n2",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_2",
-                    "kind": "blockable",
-                    "from": "n2",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_3",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_4",
-                    "kind": "blockable",
-                    "from": "n4",
-                    "to": "n5",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_5",
-                    "kind": "blockable",
-                    "from": "n5",
-                    "to": "n6",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_6",
-                    "kind": "blockable",
-                    "from": "n6",
-                    "to": "n7",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_7",
-                    "kind": "blockable",
-                    "from": "n7",
-                    "to": "n8",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_8",
-                    "kind": "blockable",
-                    "from": "n8",
-                    "to": "n1",
-                    "tags": []
-                }
-            ]
-        },
-        "rope_post": {
-            "id": "rope_post",
-            "frame": "rope_post",
-            "type": "prop",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "prop",
-                "rope"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [
-                {
-                    "id": "n1",
-                    "x": 26,
-                    "y": 0
-                },
-                {
-                    "id": "n2",
-                    "x": 11,
-                    "y": 28
-                },
-                {
-                    "id": "n3",
-                    "x": 19,
-                    "y": 78
-                },
-                {
-                    "id": "n4",
-                    "x": 0,
-                    "y": 108
-                },
-                {
-                    "id": "n5",
-                    "x": 48,
-                    "y": 118
-                },
-                {
-                    "id": "n6",
-                    "x": 79,
-                    "y": 104
-                },
-                {
-                    "id": "n7",
-                    "x": 59,
-                    "y": 75
-                },
-                {
-                    "id": "n8",
-                    "x": 81,
-                    "y": 77
-                },
-                {
-                    "id": "n9",
-                    "x": 85,
-                    "y": 61
-                },
-                {
-                    "id": "n10",
-                    "x": 67,
-                    "y": 52
-                },
-                {
-                    "id": "n11",
-                    "x": 65,
-                    "y": 6
-                }
-            ],
-            "lines": [
-                {
-                    "id": "blockable_1",
-                    "kind": "blockable",
-                    "from": "n1",
-                    "to": "n2",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_2",
-                    "kind": "blockable",
-                    "from": "n2",
-                    "to": "n3",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_3",
-                    "kind": "blockable",
-                    "from": "n3",
-                    "to": "n4",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_4",
-                    "kind": "blockable",
-                    "from": "n4",
-                    "to": "n5",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_5",
-                    "kind": "blockable",
-                    "from": "n5",
-                    "to": "n6",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_6",
-                    "kind": "blockable",
-                    "from": "n6",
-                    "to": "n7",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_7",
-                    "kind": "blockable",
-                    "from": "n7",
-                    "to": "n8",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_8",
-                    "kind": "blockable",
-                    "from": "n8",
-                    "to": "n9",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_9",
-                    "kind": "blockable",
-                    "from": "n9",
-                    "to": "n10",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_10",
-                    "kind": "blockable",
-                    "from": "n10",
-                    "to": "n11",
-                    "tags": []
-                },
-                {
-                    "id": "blockable_11",
-                    "kind": "blockable",
-                    "from": "n11",
-                    "to": "n1",
-                    "tags": []
-                }
-            ]
-        },
-        "banner": {
-            "id": "banner",
-            "frame": "banner",
-            "type": "decor",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "decor",
-                "banner"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "skull": {
-            "id": "skull",
-            "frame": "skull",
-            "type": "decor",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "decor",
-                "skull"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "bone_pile": {
-            "id": "bone_pile",
-            "frame": "bone_pile",
-            "type": "decor",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "decor",
-                "bones"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "keyhole_plate": {
-            "id": "keyhole_plate",
-            "frame": "keyhole_plate",
-            "type": "lock",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "lock",
-                "keyhole"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "iron_key": {
-            "id": "iron_key",
-            "frame": "iron_key",
-            "type": "pickup",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "pickup",
-                "key",
-                "iron"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "thought_bubble_large": {
-            "id": "thought_bubble_large",
-            "frame": "thought_bubble_large",
-            "type": "ui",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "ui",
-                "thought",
-                "dialogue"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "thought_bubble_question": {
-            "id": "thought_bubble_question",
-            "frame": "thought_bubble_question",
-            "type": "ui",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "ui",
-                "thought",
-                "question"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "thought_bubble_exclamation": {
-            "id": "thought_bubble_exclamation",
-            "frame": "thought_bubble_exclamation",
-            "type": "ui",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "ui",
-                "thought",
-                "exclamation"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        },
-        "letter_scroll": {
-            "id": "letter_scroll",
-            "frame": "letter_scroll",
-            "type": "ui",
-            "layer": "decorFront",
-            "mirrorable": true,
-            "defaultScale": 1,
-            "pivot": {
-                "x": 0.5,
-                "y": 1
-            },
-            "destroyable": false,
-            "targetableByRocket": false,
-            "tags": [
-                "ui",
-                "letter",
-                "dialogue",
-                "scroll"
-            ],
-            "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
-            "nodes": [],
-            "lines": []
-        }
+    "chest_open_loot": {
+      "x": 531,
+      "y": 22,
+      "w": 193,
+      "h": 239
+    },
+    "chest_open_empty": {
+      "x": 753,
+      "y": 22,
+      "w": 193,
+      "h": 239
+    },
+    "chest_closed": {
+      "x": 973,
+      "y": 52,
+      "w": 178,
+      "h": 177
+    },
+    "target_dummy": {
+      "x": 1206,
+      "y": 6,
+      "w": 187,
+      "h": 275
+    },
+    "portal_closed": {
+      "x": 28,
+      "y": 289,
+      "w": 183,
+      "h": 263
+    },
+    "portal_foreground": {
+      "x": 223,
+      "y": 291,
+      "w": 114,
+      "h": 263
+    },
+    "portal_open": {
+      "x": 352,
+      "y": 290,
+      "w": 208,
+      "h": 263
+    },
+    "gate_spiked": {
+      "x": 610,
+      "y": 291,
+      "w": 117,
+      "h": 245
+    },
+    "magic_ring_blue": {
+      "x": 802,
+      "y": 365,
+      "w": 70,
+      "h": 69
+    },
+    "spiked_ball": {
+      "x": 926,
+      "y": 288,
+      "w": 144,
+      "h": 191
+    },
+    "wall_torch": {
+      "x": 1114,
+      "y": 279,
+      "w": 65,
+      "h": 213
+    },
+    "hanging_lantern": {
+      "x": 1206,
+      "y": 306,
+      "w": 80,
+      "h": 208
+    },
+    "candle_cluster": {
+      "x": 1313,
+      "y": 320,
+      "w": 90,
+      "h": 169
+    },
+    "powerup_icon_coin": {
+      "x": 7,
+      "y": 570,
+      "w": 99,
+      "h": 100
+    },
+    "powerup_icon_star": {
+      "x": 120,
+      "y": 570,
+      "w": 93,
+      "h": 94
+    },
+    "powerup_icon_bomb": {
+      "x": 232,
+      "y": 572,
+      "w": 87,
+      "h": 91
+    },
+    "powerup_icon_magnet": {
+      "x": 336,
+      "y": 572,
+      "w": 88,
+      "h": 93
+    },
+    "powerup_glow_white": {
+      "x": 434,
+      "y": 566,
+      "w": 204,
+      "h": 204
+    },
+    "powerup_icon_lightning": {
+      "x": 26,
+      "y": 679,
+      "w": 60,
+      "h": 97
+    },
+    "powerup_icon_spark": {
+      "x": 119,
+      "y": 684,
+      "w": 66,
+      "h": 75
+    },
+    "powerup_icon_wrench": {
+      "x": 219,
+      "y": 676,
+      "w": 89,
+      "h": 90
+    },
+    "powerup_icon_shield": {
+      "x": 339,
+      "y": 674,
+      "w": 80,
+      "h": 94
+    },
+    "herb_blue": {
+      "x": 649,
+      "y": 566,
+      "w": 144,
+      "h": 173
+    },
+    "mushroom_red": {
+      "x": 813,
+      "y": 571,
+      "w": 117,
+      "h": 174
+    },
+    "herb_purple": {
+      "x": 959,
+      "y": 564,
+      "w": 122,
+      "h": 177
+    },
+    "herb_yellow": {
+      "x": 1101,
+      "y": 582,
+      "w": 123,
+      "h": 160
+    },
+    "rocket_fuel_canister": {
+      "x": 1267,
+      "y": 557,
+      "w": 112,
+      "h": 188
+    },
+    "ornate_key": {
+      "x": 37,
+      "y": 792,
+      "w": 53,
+      "h": 103
+    },
+    "rune_marker": {
+      "x": 109,
+      "y": 778,
+      "w": 98,
+      "h": 123
+    },
+    "signpost_multi": {
+      "x": 234,
+      "y": 775,
+      "w": 89,
+      "h": 131
+    },
+    "signpost_right": {
+      "x": 348,
+      "y": 816,
+      "w": 77,
+      "h": 85
+    },
+    "lever_off": {
+      "x": 472,
+      "y": 834,
+      "w": 132,
+      "h": 88
+    },
+    "lever_on": {
+      "x": 676,
+      "y": 808,
+      "w": 128,
+      "h": 116
+    },
+    "barrel": {
+      "x": 858,
+      "y": 809,
+      "w": 85,
+      "h": 106
+    },
+    "crate": {
+      "x": 981,
+      "y": 803,
+      "w": 103,
+      "h": 112
+    },
+    "gate_hanging": {
+      "x": 1148,
+      "y": 832,
+      "w": 144,
+      "h": 191
+    },
+    "iron_ring": {
+      "x": 1346,
+      "y": 900,
+      "w": 54,
+      "h": 98
+    },
+    "stone_totem": {
+      "x": 0,
+      "y": 921,
+      "w": 104,
+      "h": 133
+    },
+    "brazier": {
+      "x": 130,
+      "y": 911,
+      "w": 99,
+      "h": 148
+    },
+    "rope_post": {
+      "x": 265,
+      "y": 937,
+      "w": 86,
+      "h": 119
+    },
+    "banner": {
+      "x": 377,
+      "y": 924,
+      "w": 93,
+      "h": 129
+    },
+    "skull": {
+      "x": 494,
+      "y": 964,
+      "w": 81,
+      "h": 82
+    },
+    "bone_pile": {
+      "x": 608,
+      "y": 963,
+      "w": 120,
+      "h": 79
+    },
+    "keyhole_plate": {
+      "x": 848,
+      "y": 943,
+      "w": 74,
+      "h": 102
+    },
+    "iron_key": {
+      "x": 975,
+      "y": 942,
+      "w": 67,
+      "h": 102
+    },
+    "thought_bubble_large": {
+      "x": 59,
+      "y": 1125,
+      "w": 382,
+      "h": 241
+    },
+    "thought_bubble_question": {
+      "x": 549,
+      "y": 1121,
+      "w": 125,
+      "h": 140
+    },
+    "thought_bubble_exclamation": {
+      "x": 754,
+      "y": 1121,
+      "w": 122,
+      "h": 134
+    },
+    "letter_scroll": {
+      "x": 932,
+      "y": 1094,
+      "w": 311,
+      "h": 272
     }
+  },
+  "objects": {
+    "mailbox_with_letter": {
+      "id": "mailbox_with_letter",
+      "frame": "mailbox_with_letter",
+      "type": "mailboxState",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "mailbox",
+        "letter",
+        "editor"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "mailbox_empty": {
+      "id": "mailbox_empty",
+      "frame": "mailbox_empty",
+      "type": "mailboxState",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "mailbox",
+        "editor"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "chest_open_loot": {
+      "id": "chest_open_loot",
+      "frame": "chest_open_loot",
+      "type": "chestState",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "chest",
+        "open",
+        "loot"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [
+        {
+          "id": "n1",
+          "x": 150,
+          "y": 0
+        },
+        {
+          "id": "n2",
+          "x": 29,
+          "y": 22
+        },
+        {
+          "id": "n3",
+          "x": 0,
+          "y": 70
+        },
+        {
+          "id": "n4",
+          "x": 6,
+          "y": 197
+        },
+        {
+          "id": "n5",
+          "x": 81,
+          "y": 236
+        },
+        {
+          "id": "n6",
+          "x": 206,
+          "y": 199
+        },
+        {
+          "id": "n7",
+          "x": 187,
+          "y": 142
+        },
+        {
+          "id": "n8",
+          "x": 203,
+          "y": 119
+        },
+        {
+          "id": "n9",
+          "x": 137,
+          "y": 93
+        },
+        {
+          "id": "n10",
+          "x": 171,
+          "y": 28
+        }
+      ],
+      "lines": [
+        {
+          "id": "blockable_1",
+          "kind": "blockable",
+          "from": "n1",
+          "to": "n2",
+          "tags": []
+        },
+        {
+          "id": "blockable_2",
+          "kind": "blockable",
+          "from": "n2",
+          "to": "n3",
+          "tags": []
+        },
+        {
+          "id": "blockable_3",
+          "kind": "blockable",
+          "from": "n3",
+          "to": "n4",
+          "tags": []
+        },
+        {
+          "id": "blockable_4",
+          "kind": "blockable",
+          "from": "n4",
+          "to": "n5",
+          "tags": []
+        },
+        {
+          "id": "blockable_5",
+          "kind": "blockable",
+          "from": "n5",
+          "to": "n6",
+          "tags": []
+        },
+        {
+          "id": "blockable_6",
+          "kind": "blockable",
+          "from": "n6",
+          "to": "n7",
+          "tags": []
+        },
+        {
+          "id": "blockable_7",
+          "kind": "blockable",
+          "from": "n7",
+          "to": "n8",
+          "tags": []
+        },
+        {
+          "id": "blockable_8",
+          "kind": "blockable",
+          "from": "n8",
+          "to": "n9",
+          "tags": []
+        },
+        {
+          "id": "blockable_9",
+          "kind": "blockable",
+          "from": "n9",
+          "to": "n10",
+          "tags": []
+        },
+        {
+          "id": "blockable_10",
+          "kind": "blockable",
+          "from": "n10",
+          "to": "n1",
+          "tags": []
+        }
+      ]
+    },
+    "chest_open_empty": {
+      "id": "chest_open_empty",
+      "frame": "chest_open_empty",
+      "type": "chestState",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "chest",
+        "open",
+        "empty"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [
+        {
+          "id": "n1",
+          "x": 145,
+          "y": 0
+        },
+        {
+          "id": "n2",
+          "x": 35,
+          "y": 19
+        },
+        {
+          "id": "n3",
+          "x": 0,
+          "y": 66
+        },
+        {
+          "id": "n4",
+          "x": 11,
+          "y": 200
+        },
+        {
+          "id": "n5",
+          "x": 74,
+          "y": 238
+        },
+        {
+          "id": "n6",
+          "x": 192,
+          "y": 205
+        },
+        {
+          "id": "n7",
+          "x": 188,
+          "y": 126
+        },
+        {
+          "id": "n8",
+          "x": 132,
+          "y": 100
+        },
+        {
+          "id": "n9",
+          "x": 165,
+          "y": 27
+        }
+      ],
+      "lines": [
+        {
+          "id": "blockable_1",
+          "kind": "blockable",
+          "from": "n1",
+          "to": "n2",
+          "tags": []
+        },
+        {
+          "id": "blockable_2",
+          "kind": "blockable",
+          "from": "n2",
+          "to": "n3",
+          "tags": []
+        },
+        {
+          "id": "blockable_3",
+          "kind": "blockable",
+          "from": "n3",
+          "to": "n4",
+          "tags": []
+        },
+        {
+          "id": "blockable_4",
+          "kind": "blockable",
+          "from": "n4",
+          "to": "n5",
+          "tags": []
+        },
+        {
+          "id": "blockable_5",
+          "kind": "blockable",
+          "from": "n5",
+          "to": "n6",
+          "tags": []
+        },
+        {
+          "id": "blockable_6",
+          "kind": "blockable",
+          "from": "n6",
+          "to": "n7",
+          "tags": []
+        },
+        {
+          "id": "blockable_7",
+          "kind": "blockable",
+          "from": "n7",
+          "to": "n8",
+          "tags": []
+        },
+        {
+          "id": "blockable_8",
+          "kind": "blockable",
+          "from": "n8",
+          "to": "n9",
+          "tags": []
+        },
+        {
+          "id": "blockable_9",
+          "kind": "blockable",
+          "from": "n9",
+          "to": "n1",
+          "tags": []
+        }
+      ]
+    },
+    "chest_closed": {
+      "id": "chest_closed",
+      "frame": "chest_closed",
+      "type": "chestState",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "chest",
+        "closed"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [
+        {
+          "id": "n1",
+          "x": 156,
+          "y": 16
+        },
+        {
+          "id": "n2",
+          "x": 122,
+          "y": 0
+        },
+        {
+          "id": "n3",
+          "x": 18,
+          "y": 27
+        },
+        {
+          "id": "n4",
+          "x": 0,
+          "y": 143
+        },
+        {
+          "id": "n5",
+          "x": 71,
+          "y": 176
+        },
+        {
+          "id": "n6",
+          "x": 177,
+          "y": 140
+        }
+      ],
+      "lines": [
+        {
+          "id": "blockable_1",
+          "kind": "blockable",
+          "from": "n1",
+          "to": "n2",
+          "tags": []
+        },
+        {
+          "id": "blockable_2",
+          "kind": "blockable",
+          "from": "n2",
+          "to": "n3",
+          "tags": []
+        },
+        {
+          "id": "blockable_3",
+          "kind": "blockable",
+          "from": "n3",
+          "to": "n4",
+          "tags": []
+        },
+        {
+          "id": "blockable_4",
+          "kind": "blockable",
+          "from": "n4",
+          "to": "n5",
+          "tags": []
+        },
+        {
+          "id": "blockable_5",
+          "kind": "blockable",
+          "from": "n5",
+          "to": "n6",
+          "tags": []
+        },
+        {
+          "id": "blockable_6",
+          "kind": "blockable",
+          "from": "n6",
+          "to": "n1",
+          "tags": []
+        }
+      ]
+    },
+    "target_dummy": {
+      "id": "target_dummy",
+      "frame": "target_dummy",
+      "type": "target",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": true,
+      "tags": [
+        "target",
+        "training"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "portal_closed": {
+      "id": "portal_closed",
+      "frame": "portal_closed",
+      "type": "portalState",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "portal",
+        "closed",
+        "entrance",
+        "exit"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "portal_foreground": {
+      "id": "portal_foreground",
+      "frame": "portal_foreground",
+      "type": "portalLayer",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "portal",
+        "foreground",
+        "layer"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "portal_open": {
+      "id": "portal_open",
+      "frame": "portal_open",
+      "type": "portalState",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "portal",
+        "open",
+        "entrance",
+        "exit"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "gate_spiked": {
+      "id": "gate_spiked",
+      "frame": "gate_spiked",
+      "type": "gate",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "gate",
+        "spikes",
+        "switchable"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [
+        {
+          "id": "n1",
+          "x": 93,
+          "y": 0
+        },
+        {
+          "id": "n2",
+          "x": 79,
+          "y": 26
+        },
+        {
+          "id": "n3",
+          "x": 64,
+          "y": 4
+        },
+        {
+          "id": "n4",
+          "x": 52,
+          "y": 31
+        },
+        {
+          "id": "n5",
+          "x": 15,
+          "y": 18
+        },
+        {
+          "id": "n6",
+          "x": 0,
+          "y": 61
+        },
+        {
+          "id": "n7",
+          "x": 14,
+          "y": 208
+        },
+        {
+          "id": "n8",
+          "x": 25,
+          "y": 182
+        },
+        {
+          "id": "n9",
+          "x": 37,
+          "y": 219
+        },
+        {
+          "id": "n10",
+          "x": 55,
+          "y": 192
+        },
+        {
+          "id": "n11",
+          "x": 63,
+          "y": 232
+        },
+        {
+          "id": "n12",
+          "x": 79,
+          "y": 201
+        },
+        {
+          "id": "n13",
+          "x": 92,
+          "y": 244
+        },
+        {
+          "id": "n14",
+          "x": 116,
+          "y": 201
+        }
+      ],
+      "lines": [
+        {
+          "id": "blockable_1",
+          "kind": "blockable",
+          "from": "n1",
+          "to": "n2",
+          "tags": []
+        },
+        {
+          "id": "blockable_2",
+          "kind": "blockable",
+          "from": "n2",
+          "to": "n3",
+          "tags": []
+        },
+        {
+          "id": "blockable_3",
+          "kind": "blockable",
+          "from": "n3",
+          "to": "n4",
+          "tags": []
+        },
+        {
+          "id": "blockable_4",
+          "kind": "blockable",
+          "from": "n4",
+          "to": "n5",
+          "tags": []
+        },
+        {
+          "id": "blockable_5",
+          "kind": "blockable",
+          "from": "n5",
+          "to": "n6",
+          "tags": []
+        },
+        {
+          "id": "blockable_6",
+          "kind": "blockable",
+          "from": "n6",
+          "to": "n7",
+          "tags": []
+        },
+        {
+          "id": "blockable_7",
+          "kind": "blockable",
+          "from": "n7",
+          "to": "n8",
+          "tags": []
+        },
+        {
+          "id": "blockable_8",
+          "kind": "blockable",
+          "from": "n8",
+          "to": "n9",
+          "tags": []
+        },
+        {
+          "id": "blockable_9",
+          "kind": "blockable",
+          "from": "n9",
+          "to": "n10",
+          "tags": []
+        },
+        {
+          "id": "blockable_10",
+          "kind": "blockable",
+          "from": "n10",
+          "to": "n11",
+          "tags": []
+        },
+        {
+          "id": "blockable_11",
+          "kind": "blockable",
+          "from": "n11",
+          "to": "n12",
+          "tags": []
+        },
+        {
+          "id": "blockable_12",
+          "kind": "blockable",
+          "from": "n12",
+          "to": "n13",
+          "tags": []
+        },
+        {
+          "id": "blockable_13",
+          "kind": "blockable",
+          "from": "n13",
+          "to": "n14",
+          "tags": []
+        },
+        {
+          "id": "blockable_14",
+          "kind": "blockable",
+          "from": "n14",
+          "to": "n1",
+          "tags": []
+        }
+      ]
+    },
+    "magic_ring_blue": {
+      "id": "magic_ring_blue",
+      "frame": "magic_ring_blue",
+      "type": "pickup",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "ring",
+        "magic"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "spiked_ball": {
+      "id": "spiked_ball",
+      "frame": "spiked_ball",
+      "type": "hazard",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": true,
+      "tags": [
+        "hazard",
+        "spikes"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "wall_torch": {
+      "id": "wall_torch",
+      "frame": "wall_torch",
+      "type": "light",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "light",
+        "torch",
+        "decor"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "hanging_lantern": {
+      "id": "hanging_lantern",
+      "frame": "hanging_lantern",
+      "type": "light",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "light",
+        "lantern",
+        "decor"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "candle_cluster": {
+      "id": "candle_cluster",
+      "frame": "candle_cluster",
+      "type": "light",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "light",
+        "candles",
+        "decor"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "powerup_icon_coin": {
+      "id": "powerup_icon_coin",
+      "frame": "powerup_icon_coin",
+      "type": "pickup",
+      "layer": "decorFront",
+      "mirrorable": false,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "powerup",
+        "icon",
+        "coin"
+      ],
+      "notes": "Reusable gold coin-style icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
+      "nodes": [],
+      "lines": []
+    },
+    "powerup_icon_star": {
+      "id": "powerup_icon_star",
+      "frame": "powerup_icon_star",
+      "type": "pickup",
+      "layer": "decorFront",
+      "mirrorable": false,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "powerup",
+        "icon",
+        "star"
+      ],
+      "notes": "Reusable gold star icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
+      "nodes": [],
+      "lines": []
+    },
+    "powerup_icon_bomb": {
+      "id": "powerup_icon_bomb",
+      "frame": "powerup_icon_bomb",
+      "type": "pickup",
+      "layer": "decorFront",
+      "mirrorable": false,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "powerup",
+        "icon",
+        "bomb"
+      ],
+      "notes": "Reusable bomb icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
+      "nodes": [],
+      "lines": []
+    },
+    "powerup_icon_magnet": {
+      "id": "powerup_icon_magnet",
+      "frame": "powerup_icon_magnet",
+      "type": "pickup",
+      "layer": "decorFront",
+      "mirrorable": false,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "powerup",
+        "icon",
+        "magnet"
+      ],
+      "notes": "Reusable magnet icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
+      "nodes": [],
+      "lines": []
+    },
+    "powerup_glow_white": {
+      "id": "powerup_glow_white",
+      "frame": "powerup_glow_white",
+      "type": "effect",
+      "layer": "decorFront",
+      "mirrorable": false,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "powerup",
+        "effect",
+        "glow",
+        "tintable",
+        "composite-base"
+      ],
+      "notes": "White glow base for composite power-up visuals. Tint this frame at render time and draw the chosen icon centred above it.",
+      "nodes": [],
+      "lines": []
+    },
+    "powerup_icon_lightning": {
+      "id": "powerup_icon_lightning",
+      "frame": "powerup_icon_lightning",
+      "type": "pickup",
+      "layer": "decorFront",
+      "mirrorable": false,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "powerup",
+        "icon",
+        "lightning",
+        "rocket",
+        "rapid-fire",
+        "fuel-efficiency"
+      ],
+      "notes": "Rocket overdrive emblem. Intended above a yellow-orange tinted powerup_glow_white; the later gameplay effect should allow rockets twice as often for half the fuel cost.",
+      "nodes": [],
+      "lines": []
+    },
+    "powerup_icon_spark": {
+      "id": "powerup_icon_spark",
+      "frame": "powerup_icon_spark",
+      "type": "pickup",
+      "layer": "decorFront",
+      "mirrorable": false,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "powerup",
+        "icon",
+        "spark"
+      ],
+      "notes": "Reusable white spark icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
+      "nodes": [],
+      "lines": []
+    },
+    "powerup_icon_wrench": {
+      "id": "powerup_icon_wrench",
+      "frame": "powerup_icon_wrench",
+      "type": "pickup",
+      "layer": "decorFront",
+      "mirrorable": false,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "powerup",
+        "icon",
+        "wrench",
+        "rocket",
+        "upgrade"
+      ],
+      "notes": "Generic rocket-upgrade emblem. Draw it centred above powerup_glow_white tinted blue, green, yellow, red, or cyan to distinguish later power-up types.",
+      "nodes": [],
+      "lines": []
+    },
+    "powerup_icon_shield": {
+      "id": "powerup_icon_shield",
+      "frame": "powerup_icon_shield",
+      "type": "pickup",
+      "layer": "decorFront",
+      "mirrorable": false,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "powerup",
+        "icon",
+        "shield"
+      ],
+      "notes": "Reusable shield icon prepared for later pickup or HUD composition. No gameplay behaviour is assigned yet.",
+      "nodes": [],
+      "lines": []
+    },
+    "herb_blue": {
+      "id": "herb_blue",
+      "frame": "herb_blue",
+      "type": "pickup",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "herb",
+        "blue"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "mushroom_red": {
+      "id": "mushroom_red",
+      "frame": "mushroom_red",
+      "type": "pickup",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "mushroom",
+        "red"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "herb_purple": {
+      "id": "herb_purple",
+      "frame": "herb_purple",
+      "type": "pickup",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "herb",
+        "purple"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "herb_yellow": {
+      "id": "herb_yellow",
+      "frame": "herb_yellow",
+      "type": "pickup",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "herb",
+        "yellow"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "rocket_fuel_canister": {
+      "id": "rocket_fuel_canister",
+      "frame": "rocket_fuel_canister",
+      "type": "pickup",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "fuel",
+        "rocket"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "ornate_key": {
+      "id": "ornate_key",
+      "frame": "ornate_key",
+      "type": "pickup",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "key",
+        "ornate"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "rune_marker": {
+      "id": "rune_marker",
+      "frame": "rune_marker",
+      "type": "checkpoint",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "checkpoint",
+        "rune"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "signpost_multi": {
+      "id": "signpost_multi",
+      "frame": "signpost_multi",
+      "type": "sign",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "sign",
+        "direction"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "signpost_right": {
+      "id": "signpost_right",
+      "frame": "signpost_right",
+      "type": "sign",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "sign",
+        "direction"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "lever_off": {
+      "id": "lever_off",
+      "frame": "lever_off",
+      "type": "switchState",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "switch",
+        "off"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "lever_on": {
+      "id": "lever_on",
+      "frame": "lever_on",
+      "type": "switchState",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "switch",
+        "on"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "barrel": {
+      "id": "barrel",
+      "frame": "barrel",
+      "type": "destructibleProp",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": true,
+      "targetableByRocket": true,
+      "tags": [
+        "prop",
+        "barrel",
+        "destructible"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [
+        {
+          "id": "n1",
+          "x": 37,
+          "y": 0
+        },
+        {
+          "id": "n2",
+          "x": 11,
+          "y": 11
+        },
+        {
+          "id": "n3",
+          "x": 0,
+          "y": 68
+        },
+        {
+          "id": "n4",
+          "x": 11,
+          "y": 96
+        },
+        {
+          "id": "n5",
+          "x": 55,
+          "y": 105
+        },
+        {
+          "id": "n6",
+          "x": 78,
+          "y": 91
+        },
+        {
+          "id": "n7",
+          "x": 84,
+          "y": 34
+        },
+        {
+          "id": "n8",
+          "x": 73,
+          "y": 9
+        }
+      ],
+      "lines": [
+        {
+          "id": "blockable_1",
+          "kind": "blockable",
+          "from": "n1",
+          "to": "n2",
+          "tags": []
+        },
+        {
+          "id": "blockable_2",
+          "kind": "blockable",
+          "from": "n2",
+          "to": "n3",
+          "tags": []
+        },
+        {
+          "id": "blockable_3",
+          "kind": "blockable",
+          "from": "n3",
+          "to": "n4",
+          "tags": []
+        },
+        {
+          "id": "blockable_4",
+          "kind": "blockable",
+          "from": "n4",
+          "to": "n5",
+          "tags": []
+        },
+        {
+          "id": "blockable_5",
+          "kind": "blockable",
+          "from": "n5",
+          "to": "n6",
+          "tags": []
+        },
+        {
+          "id": "blockable_6",
+          "kind": "blockable",
+          "from": "n6",
+          "to": "n7",
+          "tags": []
+        },
+        {
+          "id": "blockable_7",
+          "kind": "blockable",
+          "from": "n7",
+          "to": "n8",
+          "tags": []
+        },
+        {
+          "id": "blockable_8",
+          "kind": "blockable",
+          "from": "n8",
+          "to": "n1",
+          "tags": []
+        }
+      ],
+      "destroy": {
+        "hp": 1,
+        "explosionRadius": 64,
+        "fadeToBlackSeconds": 0.18,
+        "removeAfterSeconds": 0.22
+      }
+    },
+    "crate": {
+      "id": "crate",
+      "frame": "crate",
+      "type": "destructibleProp",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": true,
+      "targetableByRocket": true,
+      "tags": [
+        "prop",
+        "crate",
+        "destructible"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [
+        {
+          "id": "n1",
+          "x": 39,
+          "y": 0
+        },
+        {
+          "id": "n2",
+          "x": 0,
+          "y": 19
+        },
+        {
+          "id": "n3",
+          "x": 0,
+          "y": 99
+        },
+        {
+          "id": "n4",
+          "x": 68,
+          "y": 111
+        },
+        {
+          "id": "n5",
+          "x": 102,
+          "y": 91
+        },
+        {
+          "id": "n6",
+          "x": 102,
+          "y": 11
+        }
+      ],
+      "lines": [
+        {
+          "id": "blockable_1",
+          "kind": "blockable",
+          "from": "n1",
+          "to": "n2",
+          "tags": []
+        },
+        {
+          "id": "blockable_2",
+          "kind": "blockable",
+          "from": "n2",
+          "to": "n3",
+          "tags": []
+        },
+        {
+          "id": "blockable_3",
+          "kind": "blockable",
+          "from": "n3",
+          "to": "n4",
+          "tags": []
+        },
+        {
+          "id": "blockable_4",
+          "kind": "blockable",
+          "from": "n4",
+          "to": "n5",
+          "tags": []
+        },
+        {
+          "id": "blockable_5",
+          "kind": "blockable",
+          "from": "n5",
+          "to": "n6",
+          "tags": []
+        },
+        {
+          "id": "blockable_6",
+          "kind": "blockable",
+          "from": "n6",
+          "to": "n1",
+          "tags": []
+        }
+      ],
+      "destroy": {
+        "hp": 1,
+        "explosionRadius": 64,
+        "fadeToBlackSeconds": 0.18,
+        "removeAfterSeconds": 0.22
+      }
+    },
+    "gate_hanging": {
+      "id": "gate_hanging",
+      "frame": "gate_hanging",
+      "type": "gate",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "gate",
+        "bars",
+        "switchable"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [
+        {
+          "id": "n1",
+          "x": 134,
+          "y": 0
+        },
+        {
+          "id": "n2",
+          "x": 0,
+          "y": 20
+        },
+        {
+          "id": "n3",
+          "x": 6,
+          "y": 190
+        },
+        {
+          "id": "n4",
+          "x": 18,
+          "y": 142
+        },
+        {
+          "id": "n5",
+          "x": 35,
+          "y": 190
+        },
+        {
+          "id": "n6",
+          "x": 47,
+          "y": 140
+        },
+        {
+          "id": "n7",
+          "x": 63,
+          "y": 187
+        },
+        {
+          "id": "n8",
+          "x": 69,
+          "y": 142
+        },
+        {
+          "id": "n9",
+          "x": 94,
+          "y": 186
+        },
+        {
+          "id": "n10",
+          "x": 118,
+          "y": 139
+        },
+        {
+          "id": "n11",
+          "x": 125,
+          "y": 187
+        }
+      ],
+      "lines": [
+        {
+          "id": "blockable_1",
+          "kind": "blockable",
+          "from": "n1",
+          "to": "n2",
+          "tags": []
+        },
+        {
+          "id": "blockable_2",
+          "kind": "blockable",
+          "from": "n2",
+          "to": "n3",
+          "tags": []
+        },
+        {
+          "id": "blockable_3",
+          "kind": "blockable",
+          "from": "n3",
+          "to": "n4",
+          "tags": []
+        },
+        {
+          "id": "blockable_4",
+          "kind": "blockable",
+          "from": "n4",
+          "to": "n5",
+          "tags": []
+        },
+        {
+          "id": "blockable_5",
+          "kind": "blockable",
+          "from": "n5",
+          "to": "n6",
+          "tags": []
+        },
+        {
+          "id": "blockable_6",
+          "kind": "blockable",
+          "from": "n6",
+          "to": "n7",
+          "tags": []
+        },
+        {
+          "id": "blockable_7",
+          "kind": "blockable",
+          "from": "n7",
+          "to": "n8",
+          "tags": []
+        },
+        {
+          "id": "blockable_8",
+          "kind": "blockable",
+          "from": "n8",
+          "to": "n9",
+          "tags": []
+        },
+        {
+          "id": "blockable_9",
+          "kind": "blockable",
+          "from": "n9",
+          "to": "n10",
+          "tags": []
+        },
+        {
+          "id": "blockable_10",
+          "kind": "blockable",
+          "from": "n10",
+          "to": "n11",
+          "tags": []
+        },
+        {
+          "id": "blockable_11",
+          "kind": "blockable",
+          "from": "n11",
+          "to": "n1",
+          "tags": []
+        }
+      ]
+    },
+    "iron_ring": {
+      "id": "iron_ring",
+      "frame": "iron_ring",
+      "type": "decor",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "decor",
+        "ring"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "stone_totem": {
+      "id": "stone_totem",
+      "frame": "stone_totem",
+      "type": "prop",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "prop",
+        "totem"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [
+        {
+          "id": "n1",
+          "x": 44,
+          "y": 0
+        },
+        {
+          "id": "n2",
+          "x": 14,
+          "y": 14
+        },
+        {
+          "id": "n3",
+          "x": 39,
+          "y": 33
+        },
+        {
+          "id": "n4",
+          "x": 8,
+          "y": 45
+        },
+        {
+          "id": "n5",
+          "x": 18,
+          "y": 81
+        },
+        {
+          "id": "n6",
+          "x": 0,
+          "y": 123
+        },
+        {
+          "id": "n7",
+          "x": 20,
+          "y": 114
+        },
+        {
+          "id": "n8",
+          "x": 39,
+          "y": 129
+        },
+        {
+          "id": "n9",
+          "x": 45,
+          "y": 115
+        },
+        {
+          "id": "n10",
+          "x": 47,
+          "y": 130
+        },
+        {
+          "id": "n11",
+          "x": 68,
+          "y": 132
+        },
+        {
+          "id": "n12",
+          "x": 103,
+          "y": 115
+        },
+        {
+          "id": "n13",
+          "x": 84,
+          "y": 75
+        },
+        {
+          "id": "n14",
+          "x": 87,
+          "y": 13
+        }
+      ],
+      "lines": [
+        {
+          "id": "blockable_1",
+          "kind": "blockable",
+          "from": "n1",
+          "to": "n2",
+          "tags": []
+        },
+        {
+          "id": "blockable_2",
+          "kind": "blockable",
+          "from": "n2",
+          "to": "n3",
+          "tags": []
+        },
+        {
+          "id": "blockable_3",
+          "kind": "blockable",
+          "from": "n3",
+          "to": "n4",
+          "tags": []
+        },
+        {
+          "id": "blockable_4",
+          "kind": "blockable",
+          "from": "n4",
+          "to": "n5",
+          "tags": []
+        },
+        {
+          "id": "blockable_5",
+          "kind": "blockable",
+          "from": "n5",
+          "to": "n6",
+          "tags": []
+        },
+        {
+          "id": "blockable_6",
+          "kind": "blockable",
+          "from": "n6",
+          "to": "n7",
+          "tags": []
+        },
+        {
+          "id": "blockable_7",
+          "kind": "blockable",
+          "from": "n7",
+          "to": "n8",
+          "tags": []
+        },
+        {
+          "id": "blockable_8",
+          "kind": "blockable",
+          "from": "n8",
+          "to": "n9",
+          "tags": []
+        },
+        {
+          "id": "blockable_9",
+          "kind": "blockable",
+          "from": "n9",
+          "to": "n10",
+          "tags": []
+        },
+        {
+          "id": "blockable_10",
+          "kind": "blockable",
+          "from": "n10",
+          "to": "n11",
+          "tags": []
+        },
+        {
+          "id": "blockable_11",
+          "kind": "blockable",
+          "from": "n11",
+          "to": "n12",
+          "tags": []
+        },
+        {
+          "id": "blockable_12",
+          "kind": "blockable",
+          "from": "n12",
+          "to": "n13",
+          "tags": []
+        },
+        {
+          "id": "blockable_13",
+          "kind": "blockable",
+          "from": "n13",
+          "to": "n14",
+          "tags": []
+        },
+        {
+          "id": "blockable_14",
+          "kind": "blockable",
+          "from": "n14",
+          "to": "n1",
+          "tags": []
+        }
+      ]
+    },
+    "brazier": {
+      "id": "brazier",
+      "frame": "brazier",
+      "type": "prop",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "prop",
+        "fire",
+        "light"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [
+        {
+          "id": "n1",
+          "x": 45,
+          "y": 0
+        },
+        {
+          "id": "n2",
+          "x": 0,
+          "y": 75
+        },
+        {
+          "id": "n3",
+          "x": 47,
+          "y": 115
+        },
+        {
+          "id": "n4",
+          "x": 7,
+          "y": 136
+        },
+        {
+          "id": "n5",
+          "x": 63,
+          "y": 147
+        },
+        {
+          "id": "n6",
+          "x": 90,
+          "y": 134
+        },
+        {
+          "id": "n7",
+          "x": 66,
+          "y": 107
+        },
+        {
+          "id": "n8",
+          "x": 98,
+          "y": 63
+        }
+      ],
+      "lines": [
+        {
+          "id": "blockable_1",
+          "kind": "blockable",
+          "from": "n1",
+          "to": "n2",
+          "tags": []
+        },
+        {
+          "id": "blockable_2",
+          "kind": "blockable",
+          "from": "n2",
+          "to": "n3",
+          "tags": []
+        },
+        {
+          "id": "blockable_3",
+          "kind": "blockable",
+          "from": "n3",
+          "to": "n4",
+          "tags": []
+        },
+        {
+          "id": "blockable_4",
+          "kind": "blockable",
+          "from": "n4",
+          "to": "n5",
+          "tags": []
+        },
+        {
+          "id": "blockable_5",
+          "kind": "blockable",
+          "from": "n5",
+          "to": "n6",
+          "tags": []
+        },
+        {
+          "id": "blockable_6",
+          "kind": "blockable",
+          "from": "n6",
+          "to": "n7",
+          "tags": []
+        },
+        {
+          "id": "blockable_7",
+          "kind": "blockable",
+          "from": "n7",
+          "to": "n8",
+          "tags": []
+        },
+        {
+          "id": "blockable_8",
+          "kind": "blockable",
+          "from": "n8",
+          "to": "n1",
+          "tags": []
+        }
+      ]
+    },
+    "rope_post": {
+      "id": "rope_post",
+      "frame": "rope_post",
+      "type": "prop",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "prop",
+        "rope"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [
+        {
+          "id": "n1",
+          "x": 26,
+          "y": 0
+        },
+        {
+          "id": "n2",
+          "x": 11,
+          "y": 28
+        },
+        {
+          "id": "n3",
+          "x": 19,
+          "y": 78
+        },
+        {
+          "id": "n4",
+          "x": 0,
+          "y": 108
+        },
+        {
+          "id": "n5",
+          "x": 48,
+          "y": 118
+        },
+        {
+          "id": "n6",
+          "x": 79,
+          "y": 104
+        },
+        {
+          "id": "n7",
+          "x": 59,
+          "y": 75
+        },
+        {
+          "id": "n8",
+          "x": 81,
+          "y": 77
+        },
+        {
+          "id": "n9",
+          "x": 85,
+          "y": 61
+        },
+        {
+          "id": "n10",
+          "x": 67,
+          "y": 52
+        },
+        {
+          "id": "n11",
+          "x": 65,
+          "y": 6
+        }
+      ],
+      "lines": [
+        {
+          "id": "blockable_1",
+          "kind": "blockable",
+          "from": "n1",
+          "to": "n2",
+          "tags": []
+        },
+        {
+          "id": "blockable_2",
+          "kind": "blockable",
+          "from": "n2",
+          "to": "n3",
+          "tags": []
+        },
+        {
+          "id": "blockable_3",
+          "kind": "blockable",
+          "from": "n3",
+          "to": "n4",
+          "tags": []
+        },
+        {
+          "id": "blockable_4",
+          "kind": "blockable",
+          "from": "n4",
+          "to": "n5",
+          "tags": []
+        },
+        {
+          "id": "blockable_5",
+          "kind": "blockable",
+          "from": "n5",
+          "to": "n6",
+          "tags": []
+        },
+        {
+          "id": "blockable_6",
+          "kind": "blockable",
+          "from": "n6",
+          "to": "n7",
+          "tags": []
+        },
+        {
+          "id": "blockable_7",
+          "kind": "blockable",
+          "from": "n7",
+          "to": "n8",
+          "tags": []
+        },
+        {
+          "id": "blockable_8",
+          "kind": "blockable",
+          "from": "n8",
+          "to": "n9",
+          "tags": []
+        },
+        {
+          "id": "blockable_9",
+          "kind": "blockable",
+          "from": "n9",
+          "to": "n10",
+          "tags": []
+        },
+        {
+          "id": "blockable_10",
+          "kind": "blockable",
+          "from": "n10",
+          "to": "n11",
+          "tags": []
+        },
+        {
+          "id": "blockable_11",
+          "kind": "blockable",
+          "from": "n11",
+          "to": "n1",
+          "tags": []
+        }
+      ]
+    },
+    "banner": {
+      "id": "banner",
+      "frame": "banner",
+      "type": "decor",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "decor",
+        "banner"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "skull": {
+      "id": "skull",
+      "frame": "skull",
+      "type": "decor",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "decor",
+        "skull"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "bone_pile": {
+      "id": "bone_pile",
+      "frame": "bone_pile",
+      "type": "decor",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "decor",
+        "bones"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "keyhole_plate": {
+      "id": "keyhole_plate",
+      "frame": "keyhole_plate",
+      "type": "lock",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "lock",
+        "keyhole"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "iron_key": {
+      "id": "iron_key",
+      "frame": "iron_key",
+      "type": "pickup",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "pickup",
+        "key",
+        "iron"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "thought_bubble_large": {
+      "id": "thought_bubble_large",
+      "frame": "thought_bubble_large",
+      "type": "ui",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "ui",
+        "thought",
+        "dialogue"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "thought_bubble_question": {
+      "id": "thought_bubble_question",
+      "frame": "thought_bubble_question",
+      "type": "ui",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "ui",
+        "thought",
+        "question"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "thought_bubble_exclamation": {
+      "id": "thought_bubble_exclamation",
+      "frame": "thought_bubble_exclamation",
+      "type": "ui",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "ui",
+        "thought",
+        "exclamation"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    },
+    "letter_scroll": {
+      "id": "letter_scroll",
+      "frame": "letter_scroll",
+      "type": "ui",
+      "layer": "decorFront",
+      "mirrorable": true,
+      "defaultScale": 1,
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "destroyable": false,
+      "targetableByRocket": false,
+      "tags": [
+        "ui",
+        "letter",
+        "dialogue",
+        "scroll"
+      ],
+      "notes": "Interactive-items atlas asset. Most stateful gameplay should be placed through the entity palette rather than as a bare atlas placement.",
+      "nodes": [],
+      "lines": []
+    }
+  }
 }

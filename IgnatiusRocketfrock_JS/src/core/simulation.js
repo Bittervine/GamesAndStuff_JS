@@ -26,7 +26,8 @@ import {
     normalizeActivePowerUpEffect,
     normalizePowerUpPickup,
     powerUpEffectDefinition,
-    rocketPowerUpMultipliers
+    rocketPowerUpMultipliers,
+    wrenchRocketGlowAtlasFrameId
 } from "../shared/power-up-data.js";
 import {
     difficultyDamageScale,
@@ -117,6 +118,8 @@ export const DEFAULT_TUNING = Object.freeze({
     rocketProjectileExplosionSeconds: 0.42,
     rocketProjectileImpactRadius: 24,
     rocketProjectileDamage: 30,
+    standardRocketSecondarySplashDamage: 1,
+    standardRocketSecondarySplashRadiusWizardHeights: 1,
     enemyHitFlashSeconds: 0.16,
     enemyHealthBarSeconds: 1.4,
     enemyDefaultHurtSeconds: 0.48,
@@ -256,7 +259,7 @@ export function createInitialGameState(overrides = {}) {
     const state = {
         meta: {
             schemaVersion: 1,
-            build: "224-airborne-death-landing",
+            build: "233-standard-rocket-secondary-splash",
             note: "Gameplay state only. Browser, canvas, image and renderer resources are deliberately outside gameState."
         },
         clock: {
@@ -326,6 +329,7 @@ export function createInitialGameState(overrides = {}) {
             regenerating: false,
             low: false
         },
+        score: 0,
         equipment: {
             mounted: "rocket",
             rocket: {
@@ -358,6 +362,7 @@ export function createInitialGameState(overrides = {}) {
         },
         projectiles: [],
         reactiveObjects: [],
+        treasureChests: [],
         effects: {
             nextPuffId: 1,
             smokePuffs: []
@@ -863,6 +868,7 @@ function editorEntityVisualToWorld(entity, visual, index, stateName = entity.sta
         rotation: normalizeRotationRadians(visual.rotation, visual.angle) + normalizeRotationRadians(entity.rotation, entity.angle),
         alpha: Number(visual.alpha ?? 1),
         layer: visual.layer || "decorFront",
+        collisionFromManifest: entity.collisionFromManifest !== false && visual.collisionFromManifest !== false,
         entityId: entity.id || "",
         entityType: entity.type || entity.kind || "",
         entityState: stateName || ""
@@ -1745,6 +1751,105 @@ function updatePickups(state) {
                 count
             });
         }
+    }
+}
+
+function treasureChestLike(entity) {
+    const type = String(entity?.type || entity?.kind || "");
+    return type === "treasureChest" || entity?.interaction === "openChest";
+}
+
+function normalizedScoreValue(value, fallback = 100) {
+    const numeric = Number(value);
+    return Math.max(1, Math.floor(Number.isFinite(numeric) ? numeric : fallback));
+}
+
+function normalizedScore(state) {
+    const numeric = Number(state?.score);
+    return Math.max(0, Math.floor(Number.isFinite(numeric) ? numeric : 0));
+}
+
+export function addScore(state, amount, detail = {}) {
+    if (!state || typeof state !== "object") return 0;
+    const requested = Math.max(0, Math.floor(Number(amount) || 0));
+    const previousScore = normalizedScore(state);
+    const score = Math.max(0, previousScore + requested);
+    state.score = score;
+    if (score !== previousScore) {
+        addEvent(state, "SCORE_CHANGED", {
+            amount: score - previousScore,
+            previousScore,
+            score,
+            sourceId: detail.sourceId || null,
+            x: Number.isFinite(Number(detail.x)) ? Number(detail.x) : null,
+            y: Number.isFinite(Number(detail.y)) ? Number(detail.y) : null
+        });
+    }
+    return score;
+}
+
+function treasureChestCollectionRect(chest) {
+    const width = Math.max(1, Number(chest?.width) || 130);
+    const height = Math.max(1, Number(chest?.height) || 150);
+    const distance = Math.max(8, Number(chest?.collectionDistance) || 88);
+    return {
+        x: (Number(chest?.x) || 0) - width * 0.5 - distance,
+        y: (Number(chest?.y) || 0) - height - distance * 0.55,
+        w: width + distance * 2,
+        h: height + distance * 1.1
+    };
+}
+
+function setTreasureChestState(state, chest, nextState) {
+    if (!chest || chest.state === nextState) return false;
+    const previousState = chest.state;
+    chest.state = nextState;
+    const entity = worldEntityById(state, chest.entityId || chest.id);
+    if (entity) {
+        entity.state = nextState;
+        entity.collected = chest.collected === true;
+        entity.scoreValue = chest.scoreValue;
+        entity.collectionDistance = chest.collectionDistance;
+        if (!setWorldEntityState(state, entity.id, nextState)) {
+            if (!state.world.entityStates) state.world.entityStates = {};
+            state.world.entityStates[entity.id] = nextState;
+        }
+    }
+    addEvent(state, "TREASURE_CHEST_STATE_CHANGED", {
+        chestId: chest.id,
+        previousState,
+        state: nextState
+    });
+    return true;
+}
+
+function updateTreasureChests(state, dt) {
+    for (const chest of state.treasureChests || []) {
+        if (chest.collected) {
+            if (chest.state === "openLoot") {
+                chest.lootDisplayTimer = Math.max(0, (Number(chest.lootDisplayTimer) || 0) - Math.max(0, dt));
+                if (chest.lootDisplayTimer <= 0) {
+                    setTreasureChestState(state, chest, "openEmpty");
+                }
+            }
+            continue;
+        }
+        if (state.player?.targetable === false || state.player?.visible === false) continue;
+        if (!rectsOverlap(getPlayerRect(state), treasureChestCollectionRect(chest))) continue;
+
+        chest.collected = true;
+        chest.lootDisplayTimer = Math.max(FIXED_DT, Number(chest.lootDisplaySeconds) || 0.8);
+        setTreasureChestState(state, chest, "openLoot");
+        const score = addScore(state, chest.scoreValue, {
+            sourceId: chest.id,
+            x: chest.x,
+            y: chest.y - chest.height * 0.82
+        });
+        addEvent(state, "TREASURE_CHEST_COLLECTED", {
+            chestId: chest.id,
+            scoreValue: chest.scoreValue,
+            score
+        });
     }
 }
 
@@ -2664,6 +2769,30 @@ export function applyEditorLevelToWorld(state, editorLevel) {
     });
     if (!state.inventory || typeof state.inventory !== "object") state.inventory = { items: {} };
     if (!state.inventory.items || typeof state.inventory.items !== "object") state.inventory.items = {};
+
+    state.score = normalizedScore(state);
+    state.treasureChests = runtimeEntities.filter(treasureChestLike).map((entity, index) => {
+        const width = Math.max(1, Number(entity.w) || Number(entity.width) || 130);
+        const height = Math.max(1, Number(entity.h) || Number(entity.height) || 150);
+        const authoredState = String(entity.state || "openLoot");
+        const collected = entity.collected === true || authoredState === "openEmpty";
+        return {
+            id: entity.id || `treasureChest_${index + 1}`,
+            entityId: entity.id || `treasureChest_${index + 1}`,
+            x: Number(entity.x) || 0,
+            y: Number(entity.y) || 0,
+            width,
+            height,
+            scoreValue: normalizedScoreValue(entity.scoreValue, 100),
+            collectionDistance: Math.max(8, finiteNumberOr(entity.collectionDistance, 88)),
+            lootDisplaySeconds: Math.max(FIXED_DT, finiteNumberOr(entity.lootDisplaySeconds, 0.8)),
+            lootDisplayTimer: collected && authoredState === "openLoot"
+                ? Math.max(FIXED_DT, finiteNumberOr(entity.lootDisplaySeconds, 0.8))
+                : 0,
+            collected,
+            state: collected ? "openEmpty" : (authoredState === "openEmpty" ? "openEmpty" : "openLoot")
+        };
+    });
 
     state.reactiveObjects = runtimeEntities.filter(isReactiveWorldEntity).map((entity, index) => {
         const authoredHealth = finiteNumberOr(entity.health, 60);
@@ -5848,6 +5977,7 @@ export function stepSimulation(state, inputFrame = createInputFrame(), dt = stat
         return;
     }
 
+    updateTreasureChests(state, dt);
     updatePickups(state);
     updateSignalEmitters(state, input);
     updateMovingPlatforms(state, dt);
@@ -6144,6 +6274,7 @@ function launchHomingRocket(state, input) {
     const rocketProfile = activeWrenchEffect?.definition?.rocket || activeRocketProfile(state);
     const wrenchEffectId = activeWrenchEffect?.id || null;
     const wrenchGlowTint = String(rocketProfile.glowTint || activeWrenchEffect?.definition?.hud?.glowTint || "").trim() || null;
+    const wrenchGlowFrameId = wrenchRocketGlowAtlasFrameId(wrenchEffectId);
     const launchCost = Math.max(0, t.rocketLaunchCost * powerUpMultipliers.launchFuelCostMultiplier);
     const launchCooldown = Math.max(FIXED_DT, t.rocketLaunchCooldown * powerUpMultipliers.launchCooldownMultiplier);
     if (weapons.launchCooldownTimer > 0) {
@@ -6168,6 +6299,12 @@ function launchHomingRocket(state, input) {
     const projectileDamage = Math.max(0, (t.rocketProjectileDamage ?? 30) * Math.max(0, Number(rocketProfile.damageMultiplier) || 0));
     const projectileRadius = 15 * Math.max(0.1, Number(rocketProfile.radiusMultiplier) || 1);
     const areaDamageRadius = Math.max(0, Number(rocketProfile.areaDamageRadiusWizardHeights) || 0) * Math.max(1, Number(t.wizardHeight) || Number(p.height) || 104);
+    const standardRocketSecondarySplashDamage = wrenchEffectId
+        ? 0
+        : Math.max(0, Number(t.standardRocketSecondarySplashDamage) || 0);
+    const standardRocketSecondarySplashRadius = standardRocketSecondarySplashDamage > 0
+        ? Math.max(0, Number(t.standardRocketSecondarySplashRadiusWizardHeights) || 0) * Math.max(1, Number(t.wizardHeight) || Number(p.height) || 104)
+        : 0;
     const volleyId = `rocket_volley_${state.clock.tick}_${weapons.nextProjectileId}`;
     const spawnedIds = [];
 
@@ -6204,9 +6341,12 @@ function launchHomingRocket(state, input) {
             visualScale: Math.max(0.1, Number(rocketProfile.visualScale) || 1),
             wrenchEffectId,
             wrenchGlowTint,
+            wrenchGlowFrameId,
             explosionVisualScale: Math.max(1, Number(rocketProfile.visualScale) || 1),
             damage: projectileDamage,
             areaDamageRadius,
+            secondaryEnemySplashDamage: standardRocketSecondarySplashDamage,
+            secondaryEnemySplashRadius: standardRocketSecondarySplashRadius,
             boomerang: Boolean(rocketProfile.boomerang),
             piercesEnemies: Boolean(rocketProfile.piercesEnemies),
             boomerangMode: rocketProfile.boomerang ? "outbound" : null,
@@ -6275,6 +6415,33 @@ function completeBoomerangReturn(state, projectile) {
         refundedFuel: round(state.fuel.amount - before),
         fuel: round(state.fuel.amount)
     });
+}
+
+function applyStandardRocketSecondarySplash(state, projectile, excludedEnemyId = null) {
+    const damage = Math.max(0, Number(projectile?.secondaryEnemySplashDamage) || 0);
+    const radius = Math.max(0, Number(projectile?.secondaryEnemySplashRadius) || 0);
+    if (damage <= 0 || radius <= 0) {
+        return { enemyIds: [], damageEvents: 0 };
+    }
+
+    const enemyIds = [];
+    const splashProjectile = { ...projectile, damage };
+    for (const enemy of state.enemies || []) {
+        if (!enemy || enemy.id === excludedEnemyId || enemy.health <= 0 || enemy.combatState === "dead") continue;
+        if (!circleRectOverlap(projectile.x, projectile.y, radius, enemyProjectileHitbox(enemy))) continue;
+        const result = applyProjectileDamageToEnemy(state, splashProjectile, enemy);
+        if (result.damage <= 0) continue;
+        enemyIds.push(enemy.id);
+    }
+
+    addEvent(state, "STANDARD_ROCKET_SECONDARY_SPLASH_APPLIED", {
+        id: projectile.id,
+        radius: round(radius),
+        damage: round(damage),
+        excludedEnemyId,
+        enemyIds
+    });
+    return { enemyIds, damageEvents: enemyIds.length };
 }
 
 function applyPlayerProjectileAreaDamage(state, projectile) {
@@ -6533,6 +6700,7 @@ function updateProjectiles(state, dt) {
                 });
             } else {
                 const damageResult = applyProjectileDamageToEnemy(state, projectile, impact.enemy);
+                const secondarySplash = applyStandardRocketSecondarySplash(state, projectile, impact.enemy.id);
                 if (projectile.boomerang && damageResult.defeated) {
                     emitProjectileImpactSmoke(state, projectile, { impactKind: "enemy" });
                     addEvent(state, "BOOMERANG_ROCKET_TARGET_DESTROYED", {
@@ -6547,7 +6715,8 @@ function updateProjectiles(state, dt) {
                         enemyId: impact.enemy.id,
                         damage: damageResult.damage,
                         health: damageResult.health,
-                        defeated: damageResult.defeated
+                        defeated: damageResult.defeated,
+                        secondarySplashEnemyIds: secondarySplash.enemyIds
                     });
                 }
             }
@@ -6563,6 +6732,7 @@ function updateProjectiles(state, dt) {
                 });
             } else {
                 const damageResult = applyProjectileDamageToReactiveObject(state, projectile, impact.object);
+                const secondarySplash = applyStandardRocketSecondarySplash(state, projectile);
                 if (projectile.boomerang && damageResult.destroyed) {
                     emitProjectileImpactSmoke(state, projectile, { impactKind: "reactiveObject" });
                     beginBoomerangReturn(state, projectile, "objectDestroyed");
@@ -6573,7 +6743,8 @@ function updateProjectiles(state, dt) {
                         damage: damageResult.damage,
                         health: damageResult.health,
                         state: damageResult.state,
-                        destroyed: damageResult.destroyed
+                        destroyed: damageResult.destroyed,
+                        secondarySplashEnemyIds: secondarySplash.enemyIds
                     });
                 }
             }
@@ -6585,7 +6756,11 @@ function updateProjectiles(state, dt) {
             if (projectile.areaDamageRadius > 0) {
                 detonatePlayerProjectile(state, projectile, impact.id, { impactKind: "terrain" });
             } else {
-                explodeProjectile(state, projectile, impact.id, { impactKind: "terrain" });
+                const secondarySplash = applyStandardRocketSecondarySplash(state, projectile);
+                explodeProjectile(state, projectile, impact.id, {
+                    impactKind: "terrain",
+                    secondarySplashEnemyIds: secondarySplash.enemyIds
+                });
             }
             continue;
         }
@@ -6713,7 +6888,8 @@ function addRocketSmokePuff(state, projectile) {
         age: 0,
         lifetime: Math.max(0.45, (state.tuning.rocketSmokePuffLifetime ?? 1.5) * 0.68),
         radius: (7 + (seed % 6)) * Math.max(0.6, (state.tuning.rocketSmokePuffScale ?? 1.5) * 0.72),
-        sparkleSeed: seed
+        sparkleSeed: seed,
+        trailTint: String(projectile.wrenchGlowTint || "").trim() || null
     });
 
     while (state.effects.smokePuffs.length > (state.tuning.rocketSmokeMaxPuffs ?? 180)) {

@@ -22,6 +22,14 @@ export const WRENCH_POWER_UP_EFFECT_IDS = Object.freeze([
     POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG
 ]);
 
+export const WRENCH_ROCKET_GLOW_ATLAS_FRAMES = Object.freeze({
+    [POWER_UP_EFFECT_IDS.WRENCH_TRIPLE]: "rocket_projectile_glow_wrench_triple",
+    [POWER_UP_EFFECT_IDS.WRENCH_DART]: "rocket_projectile_glow_wrench_dart",
+    [POWER_UP_EFFECT_IDS.WRENCH_TWIN]: "rocket_projectile_glow_wrench_twin",
+    [POWER_UP_EFFECT_IDS.WRENCH_BIGBOMB]: "rocket_projectile_glow_wrench_bigbomb",
+    [POWER_UP_EFFECT_IDS.WRENCH_BOOMERANG]: "rocket_projectile_glow_wrench_boomerang"
+});
+
 export const POWER_UP_STACKING_RULES = Object.freeze({
     REFRESH: "refresh",
     EXTEND: "extend",
@@ -198,6 +206,10 @@ export function powerUpEffectDefinition(effectId) {
 
 export function isWrenchPowerUpEffectId(effectId) {
     return WRENCH_POWER_UP_EFFECT_IDS.includes(canonicalEffectId(effectId));
+}
+
+export function wrenchRocketGlowAtlasFrameId(effectId) {
+    return WRENCH_ROCKET_GLOW_ATLAS_FRAMES[canonicalEffectId(effectId)] || null;
 }
 
 export function normalizePowerUpEffectDefinition(rawDefinition, fallbackId = "") {

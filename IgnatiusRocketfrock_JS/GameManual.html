@@ -174,9 +174,10 @@
         <h2>Rocketfrock</h2>
         <ul>
             <li>The rocket pack can boost, slow falls, and fire homing rockets.</li>
+            <li>When a gamepad is the active control device, supported controllers rumble strongly when Ignatius is hurt and more gently for rocket fire, the double-jump kick, and sustained hover. Keyboard or touch control keeps controller vibration silent.</li>
             <li>Fuel only recharges after Ignatius returns to the ground.</li>
             <li>Homing rockets prefer active targets in the direction Ignatius is facing.</li>
-            <li>A standard rocket deals 30 damage. Enemies are defeated when their health reaches exactly 0 or below.</li>
+            <li>A standard rocket deals 30 damage to the enemy it directly hits. Its small impact splash deals exactly 1 damage to other nearby enemies within a diameter of about two wizard heights. Speed Shot retains this splash; wrench rockets use only their own behavior.</li>
         </ul>
 
         <h2>Power-ups</h2>
@@ -186,7 +187,7 @@
             <li><strong>Shield</strong> lasts 5 seconds and blocks all ordinary incoming damage. The pickup glows blue, and Ignatius flashes blue while protected. The blue flash takes priority over the red critical-health flash.</li>
             <li><strong>Speed Shot</strong> lasts 8 seconds. It doubles the rocket firing rate and halves the fuel cost of each launch.</li>
             <li>Wrench power-ups last 15 seconds and replace any other active wrench. A random wrench pickup chooses its type when the level starts and rolls a new type whenever it respawns.</li>
-            <li>Rockets modified by a wrench carry a fuzzy outline in that wrench's colour, so the current payload remains visible even after launch.</li>
+            <li>Rockets modified by a wrench carry a fuzzy outline in that wrench's colour, so the current payload remains visible even after launch. All wrench outlines are prepared on the loading screen to avoid first-shot stutter.</li>
         </ul>
         <table>
             <thead>
@@ -200,6 +201,15 @@
                 <tr><td><strong>Boomerang</strong> (magenta)</td><td>Fires a normal 30-damage homing rocket. If no target remains, or after it destroys its target, it homes back toward Ignatius. Catching it refunds half the launch fuel, but hitting an enemy or obstacle on the return trip makes it explode with no refund.</td></tr>
             </tbody>
         </table>
+
+        <h2>Score and treasure chests</h2>
+        <ul>
+            <li>The line above the Health bar shows the current level number, level title, and Score.</li>
+            <li>Treasure chests begin open with their riches visible. Walking close awards the authored Score value exactly once.</li>
+            <li>After collection, the treasure disappears and the matching open-empty chest remains behind. A small <strong>+N</strong> popup confirms the award.</li>
+            <li>Score survives ordinary death and respawn, level transitions, and save/restore. Starting a genuinely new game or restarting the level resets it.</li>
+            <li>Score is not a Gold currency. A future upgrade economy may introduce Gold separately.</li>
+        </ul>
 
         <h2>Health</h2>
         <ul>

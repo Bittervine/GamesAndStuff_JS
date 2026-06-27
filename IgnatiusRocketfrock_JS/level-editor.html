@@ -705,6 +705,14 @@
                 </label>
                 <p class="small">Each mailbox owns its own letter, thought, trigger distance, and timings. A level may contain several tutorial mailboxes. Long text scrolls automatically; Jump advances or closes it.</p>
             </div>
+            <div id="treasure-settings-row" style="display:none">
+                <h3>Treasure chest</h3>
+                <div class="row">
+                    <label>Score value<input id="inspect-treasure-score" type="number" min="1" step="10"></label>
+                    <label>Collection distance<input id="inspect-treasure-distance" type="number" min="8" step="4"></label>
+                </div>
+                <p class="small">The chest opens automatically when Ignatius comes close, awards Score once, briefly shows its loot, and then remains open and empty.</p>
+            </div>
             <div id="door-settings-row" style="display:none">
                 <h3>Wizard doorway</h3>
                 <label id="door-destination-label">Destination level<input id="inspect-door-destination" placeholder="level_002"></label>
@@ -1079,6 +1087,9 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         inspectMailboxTitle: document.getElementById("inspect-mailbox-title"),
         inspectMailboxLetter: document.getElementById("inspect-mailbox-letter"),
         inspectMailboxThought: document.getElementById("inspect-mailbox-thought"),
+        treasureSettingsRow: document.getElementById("treasure-settings-row"),
+        inspectTreasureScore: document.getElementById("inspect-treasure-score"),
+        inspectTreasureDistance: document.getElementById("inspect-treasure-distance"),
         doorSettingsRow: document.getElementById("door-settings-row"),
         doorDestinationLabel: document.getElementById("door-destination-label"),
         doorDistanceLabel: document.getElementById("door-distance-label"),
@@ -1489,6 +1500,10 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
 
     function isWizardDoor(record) {
         return record?.type === "wizard_entry_door" || record?.type === "wizard_exit_door";
+    }
+
+    function isTreasureChest(record) {
+        return record?.type === "treasureChest" || record?.interaction === "openChest";
     }
 
     function isCharacterEnemy(record) {
@@ -3093,7 +3108,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
     }
 
     function drawGrid(rect) {
-        const grid = Math.max(8, Number(els.snap.value) || 32);
+        const grid = Math.max(8, Number(els.snap.value) || 16);
         const startX = Math.floor(state.camera.x / grid) * grid;
         const endX = state.camera.x + rect.width / state.camera.zoom;
         const startY = Math.floor(state.camera.y / grid) * grid;
@@ -3871,6 +3886,8 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
             els.inspectMailboxTitle.value = rec.letterTitle || "A Letter from Your Humble Editor";
             els.inspectMailboxLetter.value = rec.letterText || "";
             els.inspectMailboxThought.value = formatMailboxThoughtText(rec);
+            els.inspectTreasureScore.value = Math.max(1, Math.floor(finiteEditorNumber(rec.scoreValue, 100)));
+            els.inspectTreasureDistance.value = Math.max(8, finiteEditorNumber(rec.collectionDistance, 88));
             const isEntryDoor = rec.type === "wizard_entry_door";
             const isExitDoor = rec.type === "wizard_exit_door";
             els.inspectDoorDestination.value = rec.destinationLevel || (isExitDoor ? defaultNextLevelId(state.level.levelId) : "");
@@ -3905,6 +3922,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
             els.inspectNotes.value = rec.notes || "";
         }
         const isMailboxStory = selected.kind === "entity" && (rec.type === "mailbox" || rec.interaction === "editorLetter");
+        const isTreasure = selected.kind === "entity" && isTreasureChest(rec);
         const isDoor = selected.kind === "entity" && isWizardDoor(rec);
         const isEnemy = selected.kind === "entity" && isCharacterEnemy(rec);
         const isReactive = selected.kind === "entity" && isReactiveObject(rec);
@@ -3913,6 +3931,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
         els.signalSettingsRow.style.display = isSignalEmitter ? "block" : "none";
         els.keyholeSettingsRow.style.display = isKeyhole ? "block" : "none";
         els.mailboxStoryRow.style.display = isMailboxStory ? "block" : "none";
+        els.treasureSettingsRow.style.display = isTreasure ? "block" : "none";
         els.doorSettingsRow.style.display = isDoor ? "block" : "none";
         els.enemySettingsRow.style.display = isEnemy ? "block" : "none";
         els.reactiveSettingsRow.style.display = isReactive ? "block" : "none";
@@ -4020,6 +4039,13 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
                 rec.letterAssetId = rec.letterAssetId || "letter_scroll";
                 rec.thoughtAtlasId = rec.thoughtAtlasId || "it_atlas_001";
                 rec.thoughtAssetId = rec.thoughtAssetId || "thought_bubble_large";
+            }
+            if (isTreasureChest(rec)) {
+                rec.type = "treasureChest";
+                rec.interaction = "openChest";
+                rec.scoreValue = Math.max(1, Math.floor(Number(els.inspectTreasureScore.value) || 100));
+                rec.collectionDistance = Math.max(8, Number(els.inspectTreasureDistance.value) || 88);
+                rec.lootDisplaySeconds = Math.max(0.05, Number(rec.lootDisplaySeconds) || 0.8);
             }
             if (isWizardDoor(rec)) {
                 rec.interaction = "levelPortal";
@@ -4652,7 +4678,7 @@ import { MUSIC_TUNES, normalizeLevelMusic } from "./src/shared/music-data.js";
     async function initializeEditor() {
         populateLevelMusicOptions();
         state.level = makeEmptyLevel();
-        els.snap.value = "32";
+        els.snap.value = "16";
         setTool("select");
         resizeCanvas();
         await loadAtlasLibrary();

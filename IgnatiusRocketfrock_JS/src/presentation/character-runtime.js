@@ -339,20 +339,57 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
         throw new Error(`Character atlas ${atlasManifestUrl} must specify image and frames.`);
     }
 
+    const supplementalAtlasEntries = Array.isArray(character.supplementalAtlases)
+        ? character.supplementalAtlases.filter(Boolean).map((relativeUrl) => String(relativeUrl))
+        : [];
+    const supplementalAtlases = [];
+    for (const relativeUrl of supplementalAtlasEntries) {
+        const supplementalManifestUrl = resolveRelativeUrl(characterSourceUrl, relativeUrl);
+        const supplementalAtlas = await loadJson(supplementalManifestUrl, "supplemental character atlas manifest");
+        if (!supplementalAtlas?.image || !supplementalAtlas?.frames) {
+            throw new Error(`Supplemental character atlas ${supplementalManifestUrl} must specify image and frames.`);
+        }
+        supplementalAtlases.push({ ...supplementalAtlas, sourceUrl: supplementalManifestUrl });
+        reportProgress(`Loaded supplemental character atlas manifest ${supplementalManifestUrl}`);
+    }
+
     const imageUrl = resolveRelativeUrl(atlasManifestUrl, atlas.image);
-    const imageJob = loadImage(imageUrl).then((image) => {
-        progressParts.image = 1;
-        reportProgress(`Decoded character atlas ${atlas.image}`);
-        return image;
-    });
-    const [image, loadedAnimations] = await Promise.all([
-        imageJob,
-        Promise.all(animationJobs)
+    const primaryImageJob = loadImage(imageUrl);
+    const supplementalImageJobs = supplementalAtlases.map((supplementalAtlas) =>
+        loadImage(resolveRelativeUrl(supplementalAtlas.sourceUrl, supplementalAtlas.image))
+    );
+    const [image, loadedAnimations, ...supplementalImages] = await Promise.all([
+        primaryImageJob,
+        Promise.all(animationJobs),
+        ...supplementalImageJobs
     ]);
+    progressParts.image = 1;
+    reportProgress(`Decoded character atlas set for ${character.displayName || character.characterId || "character"}`);
 
     const atlasAssets = new Map();
-    for (const [frameId, frame] of Object.entries(atlas.frames)) {
-        atlasAssets.set(frameId, makeRuntimeAtlasFrameAsset(image, frame, frameId, frameId, imageUrl, atlas.atlasId, createCanvas));
+    const atlasSet = [
+        { manifest: atlas, manifestUrl: atlasManifestUrl, imageUrl, image },
+        ...supplementalAtlases.map((manifest, index) => ({
+            manifest,
+            manifestUrl: manifest.sourceUrl,
+            imageUrl: resolveRelativeUrl(manifest.sourceUrl, manifest.image),
+            image: supplementalImages[index]
+        }))
+    ];
+    for (const atlasEntry of atlasSet) {
+        for (const [frameId, frame] of Object.entries(atlasEntry.manifest.frames)) {
+            const objectMeta = atlasEntry.manifest.objects?.[frameId] || null;
+            atlasAssets.set(frameId, makeRuntimeAtlasFrameAsset(
+                atlasEntry.image,
+                frame,
+                frameId,
+                frameId,
+                atlasEntry.imageUrl,
+                atlasEntry.manifest.atlasId,
+                createCanvas,
+                objectMeta
+            ));
+        }
     }
 
     const assets = new Map();
@@ -393,6 +430,11 @@ export async function loadRuntimeCharacterProject(characterUrl, options = {}) {
         rig,
         rigUrl,
         atlas: { ...atlas, sourceUrl: atlasManifestUrl, imageUrl },
+        supplementalAtlases: supplementalAtlases.map((manifest, index) => ({
+            ...manifest,
+            imageUrl: resolveRelativeUrl(manifest.sourceUrl, manifest.image),
+            image: supplementalImages[index] || null
+        })),
         image,
         assets,
         atlasAssets,
@@ -412,7 +454,7 @@ export function resolveRelativeUrl(baseUrl, relativeUrl) {
     return slash >= 0 ? `${base.slice(0, slash + 1)}${relative}` : relative;
 }
 
-function makeRuntimeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, atlasId, createCanvas) {
+function makeRuntimeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, atlasId, createCanvas, objectMeta = null) {
     const x = finiteOr(frame.x, 0);
     const y = finiteOr(frame.y, 0);
     const width = Math.max(1, finiteOr(frame.w, 1));
@@ -434,7 +476,12 @@ function makeRuntimeAtlasFrameAsset(image, frame, partName, frameId, imageUrl, a
         frameId,
         atlasId,
         source: `${imageUrl}#${frameId}`,
-        missing: false
+        missing: false,
+        kind: objectMeta?.type ? String(objectMeta.type) : null,
+        effectId: objectMeta?.effectId ? String(objectMeta.effectId) : null,
+        paddingX: finiteOr(objectMeta?.paddingX, 0),
+        paddingY: finiteOr(objectMeta?.paddingY, 0),
+        tags: Array.isArray(objectMeta?.tags) ? objectMeta.tags.map(String) : []
     };
 }
 

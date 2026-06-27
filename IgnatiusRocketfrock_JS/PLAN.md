@@ -2086,3 +2086,420 @@ Lethal damage no longer starts a ground mob's death animation while the mob is j
 When the feet reach valid collision geometry, the pending state converts to the ordinary grounded death state and the authored death clip begins from time zero. Residual jump velocity is cleared and the landed support remains attached, eliminating the former death-pose freeze followed by a visible corpse jerk and fall. Grounded hits still start death immediately, while true flying enemies retain their separate fly-off behavior.
 
 The next step is a focused in-browser playtest against hunter enemies killed during upward, apex, and downward portions of jumps, including landings on flat floors, neighbouring ledges, and moving platforms.
+
+
+# Upcoming Milestone Roadmap: Score, Treasure, World Systems, and Automatic Level Drafting
+
+Revision 225 turns the next development direction into an explicit ordered roadmap. Revision 224's airborne-death change still needs its focused browser playtest, but it no longer leaves the project without a defined next feature sequence.
+
+The immediate implementation work should begin with small gameplay systems that the later generator can consume. Automatic generation should not invent substitute behavior for treasure, scoring, thoughts, bosses, or water; those systems should exist as ordinary authored level features first.
+
+## Milestone A: Score and treasure chests
+
+The first new gameplay milestone is a portable Score system plus functional treasure chests.
+
+Score and any future Gold currency must remain separate concepts. Revision A introduces Score only. It must not silently become spendable currency, and no `gold` field or upgrade economy should be added until that design is explicitly chosen.
+
+Planned Score contract:
+
+* Add an authoritative non-negative integer score to portable game state.
+* Preserve Score through ordinary death/respawn, level transitions, and save/restore.
+* Reset Score only when beginning a genuinely new game or otherwise performing the existing full-session reset.
+* Display Score in the HUD without making the renderer or DOM authoritative.
+* Emit deterministic score-change events so presentation can show temporary `+N` feedback without owning the value.
+* Initially award Score from treasure chests only. Enemy-kill scoring, time bonuses, and level-completion bonuses remain separate future decisions.
+
+Planned treasure-chest contract:
+
+* Use the pixel-aligned `chest_open_loot` and `chest_open_empty` states from `it_atlas_001`; retain `chest_closed` only as a separate unused artwork option because its perspective does not match the open pair.
+* Give each placed chest an editable positive `scoreValue`.
+* Open and collect automatically when Ignatius moves within a small authored or normalized proximity range; no new interaction button is required.
+* Begin visibly open with loot, award on proximity, then leave the open-empty artwork behind permanently for that game state.
+* Award the chest's Score exactly once.
+* Serialize collected/open state so save/restore and ordinary death/respawn cannot duplicate the reward.
+* Add Level Editor inspector fields for Score value and collection distance, using safe defaults.
+* Provide restrained collection feedback such as a brief `+100` presentation and a small sparkle or coin-like burst without introducing a separate Gold counter.
+
+The later reward populator may place treasure chests only after this milestone is complete.
+
+## Milestone B: Weak standard-rocket splash
+
+The ordinary rocket needs a tiny crowd-control edge before generator-created groups of 1-HP bats become common.
+
+Planned first-pass behavior:
+
+* The directly struck enemy keeps the normal standard-rocket damage, currently 30, and does not receive an additional splash point.
+* Other enemies inside the weak splash receive exactly 1 damage.
+* The effect belongs to the standard projectile mode. Speed Shot and Shield do not replace that projectile mode, so they retain the weak splash; an active wrench replaces the projectile mode and therefore uses only its own authored behavior.
+* Trigger the weak splash when the standard rocket explodes against an enemy, blocking reactive object, or terrain, allowing a near miss against a clustered bat group to be useful.
+* Affect enemies only. Do not damage treasure chests, doors, switches, other reactive scenery, or Ignatius.
+* Begin with a splash **diameter** of approximately two wizard heights, equivalent to a radius of one wizard height. Treat this as a playtest value rather than an immutable rule.
+* Use a small restrained impact pulse clearly weaker than Bigbomb.
+* Add deterministic tests for direct-hit exclusion, secondary 1-damage hits, range limits, standard/Speed Shot behavior, and wrench exclusion.
+
+If terrain shielding proves visually necessary during playtesting, add a shared line-of-effect rule rather than special-casing bats.
+
+## Milestone C: Location-triggered thought bubbles
+
+Add an editor-placeable rectangular trigger whose authored text is shown through the existing thought-bubble reader when Ignatius enters it.
+
+The trigger should:
+
+* Fire on entry rather than on every overlapping frame.
+* Default to one-shot behavior for the current level state.
+* Store text, bounds, one-shot policy, and optional identifier in level data.
+* Reuse the existing 18-characters-per-second reading model, scrolling, final hold, Jump/Fire advance behavior, and movement/combat lock.
+* Serialize consumed state.
+* Render its bounds and label in the Level Editor but remain invisible in gameplay.
+* Use a generic thought-sequence entry point so mailboxes and location triggers share presentation machinery without pretending every thought came from a letter.
+
+## Milestone D: Basic boss encounters
+
+Bosses initially remain ordinary character enemies with per-placement scale, health, and tuning overrides. Add only the missing boss identity and presentation contract:
+
+* A Level Editor **Boss** checkbox and editable boss name.
+* Portable `isBoss` and `bossName` placement/state fields.
+* One prominent current/max-health bar for the actively engaged boss.
+* Show the bar when the boss becomes aware of Ignatius, is damaged, or is otherwise explicitly activated; hide it after defeat or encounter reset.
+* Emit a deterministic boss-defeated event for future gates, music, rewards, and story logic.
+* Support one displayed boss bar initially. Multi-boss aggregation and formal boss-arena controllers are later features.
+
+## Milestone E: Water volumes
+
+Implement rectangular authored water volumes before asking the generator to create water basins.
+
+The first portable water contract should:
+
+* Let Ignatius pass through the surface and continue using ordinary terrain collision beneath it.
+* Reduce movement while any relevant body portion is in water.
+* Apply deterministic health loss only while an authored breathing point near Ignatius's nose is below the surface.
+* Let Ignatius walk on submerged floors rather than adding a swimming state.
+* Define deliberately reduced jump and backpack-rocket effectiveness, with exact values selected by playtest.
+* Treat Shield as blocking ordinary drowning/water damage unless a later design explicitly classifies it as unavoidable.
+* Provide entry/exit ripple or splash presentation without making those particles authoritative.
+* Expose movement multiplier and damage-per-second values in the Level Editor.
+* Serialize any timing accumulator required for deterministic continuous damage.
+
+Version one should use rectangles. Polygonal water, currents, buoyancy, and swimming remain out of scope.
+
+# Automatic Level Generator
+
+The Automatic Level Generator is an editor-side first-draft system. It generates normal explicit level JSON that can be edited, saved, tested, and later loaded by any runtime. The game runtime must never need to know whether a level began as generated content.
+
+Its target is a useful, traversable base containing the majority of routine geometry and population, not a finished replacement for human level design. Hand-authored story staging, bespoke puzzles, memorable boss arenas, and final composition remain manual work.
+
+## Theme presets with panel overrides
+
+Themes remain data-driven JSON presets, even though a full Theme Editor is out of scope. The Level Editor's dedicated **Automatic Level Generator** panel loads a selected theme into visible controls and permits one-off overrides.
+
+Initial themes:
+
+* **Earth Cavern:** existing environment assets and ordinary colour treatment.
+* **Ice Cavern:** the same initial generator implementations and asset families, with environment-atlas colour-map rotation producing a blue/icy treatment.
+
+Both initial themes use the same Random Route Planner, Overlapping Ellipse Cavern Builder, Forgiving Traversal Builder, Basic Encounter Populator, and Basic Reward/Prop Populator. Creating both immediately verifies that themes are genuine data rather than a hardcoded Earth mode.
+
+The Ice theme should colour-map only whitelisted environment atlases. Interactive/story artwork such as doors, mailboxes, chests, and power-up icons must not be recoloured merely because it shares a level.
+
+Selecting a theme populates the panel's controls. Editing a control produces a custom generation based on that theme; revision one does not save those overrides as a new theme.
+
+## Generator pipeline and vocabulary
+
+Use registered implementation IDs so each step can later gain alternatives without changing the theme schema:
+
+1. **Route Planner**: creates the abstract intended navigation graph.
+2. **Cavern Envelope Builder**: creates the visible cave opening and world envelope.
+3. **Traversal Builder**: places collision-bearing floors, ledges, and platforms that realize the route.
+4. **Endpoint Placer**: places safe entrance and exit chambers plus their doors.
+5. **Encounter Populator**: places monsters in locomotion-appropriate encounter regions.
+6. **Reward and Prop Populator**: places chests, power-ups, and later other non-hostile entities.
+7. **Cave Decorator**: applies deterministic perimeter and environmental decoration.
+8. **Level Validator**: checks schema, geometry, traversal, population, and endpoint safety.
+
+Initial registered IDs may be:
+
+```text
+random_route_v1
+ellipse_cavern_v1
+forgiving_traversal_v1
+safe_endpoints_v1
+basic_encounters_v1
+basic_rewards_v1
+cave_decorator_v1
+level_validator_v1
+```
+
+## Route Planner
+
+Every generated level begins at a left-side entrance, starts by progressing right, ends at a right-side exit, and approaches that exit from the left. The route between them may move right, left, up, or down.
+
+The planner outputs a progression-ordered graph of abstract chambers and connections rather than platform placements. It should support:
+
+* A clearly identified mandatory main route.
+* Purely horizontal layouts when selected by the seed and tuning.
+* Winding layouts such as right, down, left, down, right, up, right.
+* Optional branches that may terminate or merge into a later main-route node.
+* Tunable length, verticality, backtracking, branching, branch length, chamber variation, and winding.
+* Route edges annotated with intended traversal classes such as walk, easy jump, double jump, hover, controlled drop, and later moving platform or water.
+
+Progression order must remain unambiguous even when world-space movement goes left. Branches should normally justify themselves with rewards, safer alternatives, or encounters rather than existing as empty cave appendages.
+
+## Cavern Envelope Builder
+
+The first cavern builder combines overlapping ellipses:
+
+* Larger ellipses surround route chambers.
+* Smaller ellipses or capsule-like runs connect chambers.
+* Extra clearance is reserved around jumps, hover sections, doors, bosses, and tall enemies.
+* Shapes are stamped into a low-resolution occupancy mask.
+* The connected outer boundary is traced, simplified, smoothed, and converted into the existing cave-window perimeter data.
+* Version one creates one connected opening with no internal holes.
+* World bounds and the lower reset boundary are derived from the resulting envelope and traversable content.
+
+The cave perimeter remains visual only. The Traversal Builder owns all gameplay collision.
+
+## Traversal Builder
+
+The first traversal implementation must prioritize reliability over difficulty:
+
+* Construct route connections from conservative tested movement envelopes for Ignatius's actual body, acceleration, ordinary jump, double jump, hover, and rocket boost.
+* Use substantially less than theoretical maximum range for mandatory jumps.
+* Provide wide landing surfaces and generous headroom.
+* Include some required double jumps and hover/boost use, but no precision-jump focus.
+* Place recovery platforms beneath many risky transitions.
+* Allow only occasional route sections where one failed jump causes death.
+* Keep optional branches free to be slightly more demanding than the main route.
+* Validate every mandatory transition independently after construction.
+
+### Generation asset metadata
+
+Automatic construction must not guess platform function only from filenames or image dimensions. Add a separate data-driven generation catalog, or equivalent normalized metadata, that assigns assets roles such as:
+
+```text
+routeFloor
+landingPlatform
+recoveryPlatform
+bridge
+wall
+ceiling
+doorSupport
+decorationOnly
+```
+
+Metadata may also define weight, scale range, mirroring, rotation policy, collision expectations, and theme membership.
+
+### Door-support constraint
+
+Only a small subset of current platforms has enough visible Y-size for a door to look convincingly supported. The Endpoint Placer must therefore use a whitelist or `doorSupport` role rather than selecting an arbitrary platform.
+
+Entrance and exit validation must confirm:
+
+* The door stands on a collision-bearing support whose authored generation metadata permits doors.
+* The support is visually thick/tall enough beneath the door.
+* The chamber has sufficient horizontal floor, headroom, and camera space.
+* Door animation and Ignatius spawn/exit positions do not intersect cave decoration or other entities.
+
+If no valid door-support asset is available for a generated endpoint, generation must fail with a clear report or construct a known valid support assembly. It must not balance a large door on a wafer-thin ledge.
+
+## Encounter Populator
+
+Populate encounter regions using difficulty budgets and locomotion-aware rules rather than uniform random scattering.
+
+The first implementation should:
+
+* Give the entrance and exit short calm zones.
+* Place ground enemies only on valid floors with clearance and useful patrol room.
+* Build or refresh navigation data required by hunter enemies.
+* Place ranged enemies where firing lanes are meaningful but not immediate spawn traps.
+* Place flying enemies only where adequate airspace exists.
+* Place Bombing Bats in authored groups of two or three.
+* Read group range, placement class, difficulty cost, clearance, and other generation hints from enemy-generation metadata rather than hardcoding every enemy ID into the populator.
+* Use a theme-configured enemy selection expression.
+
+The enemy-selection field should support inclusive ranges and exclusions, for example:
+
+```text
+1-999
+1,3,5-999
+1-999,!2,!4
+```
+
+Only catalog enemies that actually exist are resolved. The panel should show the resolved enemy names and report invalid syntax visibly.
+
+## Reward and Prop Populator
+
+This stage becomes active only after Score and treasure chests exist.
+
+It should:
+
+* Prefer treasure chests on optional branches and at the ends of worthwhile detours.
+* Place power-ups with context, such as before a larger encounter or demanding movement section.
+* Avoid excessive pickup density and preserve readable spacing.
+* Reserve endpoint areas from random rewards unless the theme requests them.
+* Place beginning and end doors through the dedicated Endpoint Placer rather than as generic props.
+
+Future Gold currency, shops, paid upgrades, and economy balancing are not implied by chest placement.
+
+## Determinism and provenance
+
+A user-visible seed must reproduce the same draft under the same generator version and settings. Split that seed into named deterministic streams so changing one population category does not redesign unrelated stages:
+
+```text
+route
+cavern
+traversal
+endpoints
+encounters
+rewards
+decoration
+```
+
+Store generator version, selected theme, seed, implementation IDs, effective settings, and attempt number in level metadata.
+
+Every generated placement/entity should carry provenance such as generation run ID, stage, route node, and generator ID. The generated result itself remains fully baked into ordinary level records.
+
+## Automatic Level Generator panel
+
+Create a dedicated panel with a prominent **Generate Level** button.
+
+Basic controls should include:
+
+* Theme.
+* Seed and randomize-seed action.
+* Approximate level length.
+* Verticality.
+* Winding/backtracking.
+* Branching.
+* Difficulty.
+* Safety/recovery generosity.
+* Enemy density.
+* Reward density.
+* Allowed-enemy expression.
+
+An expandable advanced area should expose the implementation dropdown for each generator stage and selected lower-level tuning values.
+
+Essential editor safeguards:
+
+* Generate the full draft as one undoable operation.
+* Warn before replacing existing generated content.
+* Preserve manually authored content unless the user explicitly requests a clean level.
+* Mark generated content visibly and provide a route-overlay toggle.
+* Clear generated content without deleting manual content.
+* Later support stage-specific regeneration, locking generated objects, and converting generated objects to manual ownership.
+
+## Validation
+
+A generated level is successful only if validation passes. The initial report should check at least:
+
+* Exactly one usable entrance and exit.
+* Correct left-entry/right-exit orientation and safe calm zones.
+* Valid visually substantial door supports.
+* A traversable mandatory route independent of optional branches.
+* Adequate landing width and headroom for every required transition.
+* No required spawn or landing inside collision.
+* Recovery platforms do not block the intended route.
+* Enemies are not embedded in terrain and have locomotion-appropriate space.
+* Ignatius does not begin under immediate unavoidable attack.
+* Flying groups have sufficient airspace.
+* Generated content and cave envelope remain within sensible world bounds.
+* Later, water routes have valid entry and exit geometry and required boost sections have adequate fuel access.
+
+Generation may retry using deterministic attempt-specific sub-seeds. The panel must report how many attempts were made and why failed attempts were rejected rather than silently changing the user's base seed.
+
+## Automatic-generation implementation slices
+
+### Generator 0: infrastructure and route preview
+
+* Add theme JSON, generator registries, deterministic named random streams, and generation metadata.
+* Add the dedicated panel, theme selector, seed controls, enemy-expression parser, and advanced generator dropdowns.
+* Load Earth and Ice presets and verify atlas-whitelisted Ice colour mapping.
+* Generate and display only the abstract route graph and route-direction overlay.
+* Support one-operation undo and clear-generated behavior.
+
+### Generator 1: playable empty cavern
+
+* Build the overlapping-ellipse envelope.
+* Build forgiving collision-bearing traversal geometry from the route graph.
+* Add generation-role metadata for platform assets, especially `doorSupport`.
+* Place safe entrance/exit chambers and doors on valid substantial supports.
+* Derive bounds and cave-window data.
+* Validate the mandatory route without enemies or rewards.
+
+### Generator 2: encounters
+
+* Add basic encounter budgeting and locomotion-aware placement.
+* Add enemy generation metadata and bat groups of two or three.
+* Generate or refresh required navigation information.
+* Depend on the completed weak standard-rocket splash for clustered 1-HP bats.
+
+### Generator 3: rewards and props
+
+* Depend on the completed Score/treasure milestone.
+* Place treasure on branches, contextual power-ups, and restrained props.
+* Add location-triggered thoughts where explicitly enabled by settings or theme rules.
+
+### Generator 4: richer world features and editing refinement
+
+* Add optional water basins after water volumes are stable.
+* Add boss-arena landmarks after boss support is stable.
+* Add stage-specific regeneration, object locking/manualization, improved route diagnostics, and further theme tuning.
+* Later consider moving platforms, signal mechanisms, required rocket puzzles, and reactive-world solutions.
+
+## Content and platform sequence after generation
+
+After the generator produces useful editable drafts, begin real level production and new enemy integration. Profile those representative dense levels in target browsers and Electron before committing to WebGL2. Add WebGL2 only if measurements identify Canvas presentation as the material bottleneck.
+
+Keep the portable state, level schema, generation metadata, and deterministic validation engine-neutral so an eventual Unreal Engine 5 port remains possible. Electron remains a valid shipping route unless product requirements or measured platform needs justify the rewrite.
+
+
+## Revision 225 roadmap definition
+
+Revision 225 is a planning and build-label update only. It adds no gameplay or editor behavior. It records the ordered pre-generator milestones, separates Score from any future Gold economy, defines treasure-chest behavior, specifies the weak standard-rocket splash, and establishes the staged Automatic Level Generator architecture including theme presets, route/cavern/traversal/population stages, deterministic seed streams, validation, editor safeguards, and the explicit requirement that generated doors use visually substantial `doorSupport` platforms.
+
+
+## Revision 226 Score and treasure implementation
+
+Revision 226 completes Milestone A. Portable game state now owns a non-negative integer Score, ordinary death/respawn and level transitions preserve it, and snapshot serialization restores it. Browser presentation projects the current level number/title and Score on a line above the Health bar and consumes deterministic score events for a brief `+N` popup without feeding presentation state back into simulation.
+
+Treasure chests are ordinary editor entities with authored `scoreValue`, `collectionDistance`, and loot-display duration. A chest begins visibly open with loot, proximity awards Score once, and the open-empty visual remains permanently. Chest collision is explicitly disabled. Level 1 is titled **The Introductory Cave of Training** and includes a 100-point test chest.
+
+Milestone A is complete. The next planned implementation milestone is Milestone B: the weak one-damage secondary-enemy splash for standard rockets.
+
+
+## Revision 227 treasure-chest presentation refinement
+
+Revision 227 scales treasure chests to a compact 72 by 84 world-unit default intended to fit most plausible ledges. The open-with-loot and open-empty atlas frames use matched 193 by 239 cutouts so the state change does not jump. Uncollected chests begin in `openLoot`; collection changes them to `openEmpty`. The mismatched closed artwork is not part of the normal chest flow.
+
+
+## Revision 228 editor snap and chest placement
+
+Revision 228 changes the Level Editor's default Snap grid from 32 to 16 world units, including its fallback grid spacing. The level-1 demonstration chest moves to `(4768, 512)` on the same thick `exit_ground` platform as the exit door. Its compact footprint is fully supported by the visibly walkable top surface rather than balancing on the thinner lower ledge.
+
+
+## Revision 229 prewarmed wrench effects and active-gamepad haptics
+
+Revision 229 removes the first-shot wrench stutter by generating all five coloured projectile-glow surfaces during renderer startup, after the projectile texture is available but before the level begins. Loading progress explicitly reports each prepared wrench glow. The ordinary draw path still performs only cached `drawImage` composition.
+
+Browser input now records which device most recently supplied meaningful gameplay input. A gamepad becomes active only after a mapped button or movement beyond its deadzone, remains eligible for a short three-second idle grace period, and loses ownership immediately when keyboard or pointer gameplay input takes over. Optional haptics are therefore presentation/browser-adapter feedback rather than portable simulation state. Player damage uses the strongest pulse; successful rocket launch, double-jump boost start, and sustained hover use progressively gentler pulses. Unsupported controllers or browsers remain silent without affecting gameplay.
+
+
+## Revision 230 authored powered-rocket atlas loading
+
+Revision 230 replaces startup-time wrench-glow baking with a supplemental wizard atlas declared by `ct_char_wizard_1.json`. Runtime character loading now accepts supplemental atlas manifests and merges their frames into the character project's atlas-frame map. The initial revision of `ct_atlas_wizard_2` stored the five coloured halos separately from the base projectile.
+
+## Revision 231 precomposited powered rockets
+
+Revision 231 rebakes `ct_atlas_wizard_2` so each wrench frame contains the projectile and coloured halo already composited. Powered rockets therefore use one sprite draw per projectile, followed only by the existing procedural flame and world-managed trail effects. The ordinary rocket continues to use `ct_atlas_wizard_1`.
+
+## Revision 232 powered trail accents and generator readiness
+
+Revision 232 carries each powered projectile's launch-time wrench colour into its persistent smoke-puff records. Presentation uses that colour only as a restrained inner smoke tint and on a minority of sparkle crumbs; ordinary rocket trails remain unchanged.
+
+No additional standalone engine refactor is required before Automatic Level Generator 0. The generator foundation itself should introduce deterministic named random streams, theme presets, implementation registries, generation provenance, undo grouping, and route-preview validation. The one remaining small gameplay prerequisite from the pre-generator roadmap is the standard rocket's weak one-damage secondary-enemy splash. It may be completed immediately before Generator 0 or deferred until just before Generator 2, which is the first slice that depends on clustered bat encounters.
+
+## Revision 233 standard-rocket secondary splash
+
+Revision 233 completes the last small pre-generator gameplay prerequisite. Standard rockets now carry a one-damage enemy-only secondary splash with a radius of one wizard height, giving a diameter of roughly two wizard heights. The directly struck enemy is explicitly excluded from the splash and therefore still receives exactly the normal 30 direct damage rather than 31. The splash also occurs when a standard rocket impacts terrain or a reactive object, but it never damages reactive scenery itself.
+
+Speed Shot retains the standard splash because it modifies cadence and fuel cost without replacing the projectile profile. All wrench modes carry zero standard-splash damage and continue to use only their individually authored mechanics, including Bigbomb's separate full-damage area explosion. Generator 0 may now begin with no remaining pre-generator gameplay dependency.
+

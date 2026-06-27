@@ -1,11 +1,11 @@
 {
   "meta": {
-    "version": 17,
+    "version": 18,
     "editor": "Ignatius Rocketfrock Level Editor",
-    "note": "Revision 223 adds the five-second blue Shield pickup and completes the current power-up set."
+    "note": "Revision 228 moves the demonstration treasure chest onto the substantial exit-door platform and changes the Level Editor default snap grid from 32 to 16 pixels."
   },
   "levelId": "level_001",
-  "title": "Ignatius Rocketfrock and the Level That Was Edited On Purpose",
+  "title": "The Introductory Cave of Training",
   "world": {
     "bounds": {
       "x": -320,
@@ -4809,6 +4809,50 @@
       "destinationLevel": "level_002",
       "floorAnchorYFactor": 0.908745247148289,
       "wizardInsideScale": 0.84
+    },
+    {
+      "id": "treasure_chest_001",
+      "type": "treasureChest",
+      "catalogId": "it_entities_001",
+      "x": 4768,
+      "y": 512,
+      "w": 72,
+      "h": 84,
+      "state": "openLoot",
+      "visualStates": {
+        "closed": [
+          {
+            "atlasId": "it_atlas_001",
+            "assetId": "chest_closed",
+            "layer": "decorFront"
+          }
+        ],
+        "openLoot": [
+          {
+            "atlasId": "it_atlas_001",
+            "assetId": "chest_open_loot",
+            "layer": "decorFront"
+          }
+        ],
+        "openEmpty": [
+          {
+            "atlasId": "it_atlas_001",
+            "assetId": "chest_open_empty",
+            "layer": "decorFront"
+          }
+        ]
+      },
+      "stateLabels": {
+        "closed": "Closed",
+        "openLoot": "Open with loot",
+        "openEmpty": "Open and empty"
+      },
+      "interaction": "openChest",
+      "scoreValue": 100,
+      "collectionDistance": 88,
+      "lootDisplaySeconds": 0.8,
+      "notes": "Test treasure chest on the same substantial platform as the exit door. Starts open with visible treasure, awards 100 Score once, then becomes the empty chest.",
+      "collisionFromManifest": false
     },
     {
       "id": "enemy_005_001",

@@ -1,7 +1,7 @@
 {
   "meta": {
-    "version": 6,
-    "note": "Revision 223 adds the five-second blue Shield power-up and closes the current power-up set."
+    "version": 7,
+    "note": "Revision 227 refines treasure chests: compact open-loot presentation, pixel-aligned open states, and a Score-first collection flow."
   },
   "catalogId": "it_entities_001",
   "atlasRefs": [
@@ -215,15 +215,18 @@
       "type": "treasureChest",
       "label": "Treasure chest",
       "icon": "🧰",
-      "description": "Stateful chest: closed, discovered loot, then emptied.",
-      "defaultState": "closed",
+      "description": "Automatic proximity treasure chest: begins open with loot, awards Score once, then remains open and empty.",
+      "defaultState": "openLoot",
       "defaultSize": {
-        "w": 130,
-        "h": 150
+        "w": 72,
+        "h": 84
       },
       "defaults": {
         "interaction": "openChest",
-        "lootId": ""
+        "scoreValue": 100,
+        "collectionDistance": 88,
+        "lootDisplaySeconds": 0.8,
+        "collisionFromManifest": false
       },
       "states": {
         "closed": {

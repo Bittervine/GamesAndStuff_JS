@@ -14,6 +14,7 @@ import {
     addEvent
 } from "../core/simulation.js";
 import { RocketfrockInput } from "./browser-input.js";
+import { GamepadHaptics } from "./gamepad-haptics.js";
 import { createRenderer } from "../presentation/canvas-renderer.js";
 import { normalizeCaveWindow } from "../shared/cave-window-data.js";
 import {
@@ -36,6 +37,8 @@ const fuelText = document.getElementById("fuel-text");
 const fuelFill = document.getElementById("fuel-fill");
 const healthText = document.getElementById("health-text");
 const healthFill = document.getElementById("health-fill");
+const levelTitleText = document.getElementById("level-title-text");
+const scoreText = document.getElementById("score-text");
 const powerText = document.getElementById("power-text");
 const powerTime = document.getElementById("power-time");
 const powerFill = document.getElementById("power-fill");
@@ -85,7 +88,7 @@ const renderingQualityButtons = [...document.querySelectorAll("[data-rendering-q
 const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 
-const GAME_REVISION = "224";
+const GAME_REVISION = "229";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -107,6 +110,8 @@ let suppressPostTitleStartInputUntil = 0;
 gameState.debug.revision = GAME_REVISION;
 addEvent(gameState, `BUILD_REVISION_${GAME_REVISION}`);
 const input = new RocketfrockInput(window);
+const gamepadHaptics = new GamepadHaptics();
+gamepadHaptics.prime(gameState.debug.lastEvents);
 showLoadingScreen("Loading level data", 0.02);
 const loadedBrowserCopy = maybeApplyBrowserCopyLevel();
 if (!loadedBrowserCopy) {
@@ -1178,6 +1183,7 @@ function frame(now) {
     }
 
     lastInputFrame = inputFrame;
+    gamepadHaptics.update(gameState, inputFrame);
     processLevelTransitionRequest();
     renderer.render(gameState, inputFrame, realDt);
     updateHud();
@@ -1225,7 +1231,22 @@ function handleDebugInput(inputFrame) {
 }
 
 
+function displayedLevelNumber(levelId) {
+    const match = /^level_(\d+)$/i.exec(String(levelId || ""));
+    return match ? Math.max(1, Number(match[1]) || 1) : null;
+}
+
 function updateHud() {
+    const levelNumber = displayedLevelNumber(gameState.world?.levelId);
+    const levelTitle = String(gameState.story?.levelTitle || "Untitled Cave").trim() || "Untitled Cave";
+    if (levelTitleText) {
+        levelTitleText.textContent = levelNumber === null ? levelTitle : `Level ${levelNumber}: ${levelTitle}`;
+        levelTitleText.title = levelTitleText.textContent;
+    }
+    if (scoreText) {
+        scoreText.textContent = `Score: ${Math.max(0, Math.floor(Number(gameState.score) || 0))}`;
+    }
+
     const fuelPercent = Math.max(0, Math.min(100, gameState.fuel.amount / Math.max(1, gameState.fuel.max) * 100));
     const healthPercent = Math.max(0, Math.min(100, gameState.health.amount / Math.max(1, gameState.health.max) * 100));
     fuelFill.style.width = `${fuelPercent.toFixed(1)}%`;
@@ -1497,6 +1518,7 @@ async function exportState() {
 window.getRocketfrockState = () => cloneGameState(gameState);
 window.setRocketfrockState = (nextState) => {
     gameState = cloneGameState(nextState);
+    gamepadHaptics.reset(gameState.debug?.lastEvents || []);
     gameState.settings = normalizeGameSettings(gameState.settings);
     syncGameSettingsUi();
     syncGameAudioState();
@@ -1516,6 +1538,7 @@ window.__rocketfrockDev = {
     reset() {
         gameState = createInitialGameState({ settings: gameState.settings });
         gameState.debug.revision = GAME_REVISION;
+        gamepadHaptics.reset(gameState.debug.lastEvents);
         applyLoadedAtlasCollisions();
         syncGameSettingsUi();
         syncGameAudioState();

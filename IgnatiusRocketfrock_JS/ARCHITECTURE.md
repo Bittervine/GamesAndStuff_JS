@@ -31,6 +31,7 @@ IgnatiusRocketfrock_JS/
 │   │   ├── browser-input.js
 │   │   ├── electron-window-bridge.js
 │   │   ├── game-bootstrap.js
+│   │   ├── gamepad-haptics.js
 │   │   ├── game-settings-store.js
 │   │   └── music-director.js
 │   ├── presentation/
@@ -131,7 +132,8 @@ Revision 135 removed the last documented core-to-presentation dependency. Colour
 | `src/shared/story-reading.js` | SHARED DATA / MATH | Shared character-count reading speed, start delay, and duration helpers for letters and thought bubbles. |
 | `src/shared/cave-window-decoration.js` | SHARED DATA / MATH | Deterministic arc-length sampling and tagged atlas-asset selection for explicit non-colliding `caveForeground` placement records. |
 | `src/browser/browser-input.js` | BROWSER ADAPTER | Keyboard, gamepad, mouse, and touch state converted into `InputFrame`. |
-| `src/browser/game-bootstrap.js` | BROWSER ADAPTER | Asset and level loading, fixed-step loop, menu/settings coordination, fullscreen control, top-left DOM HUD binding, connection of input/simulation/renderer, and hydration of plain character combat profiles from loaded character projects. |
+| `src/browser/game-bootstrap.js` | BROWSER ADAPTER | Asset and level loading, fixed-step loop, menu/settings coordination, fullscreen control, top-left DOM HUD binding, connection of input/simulation/renderer, optional haptic projection, and hydration of plain character combat profiles from loaded character projects. |
+| `src/browser/gamepad-haptics.js` | BROWSER ADAPTER | Optional active-controller vibration driven from portable simulation events and current boost state. It owns no gameplay decisions and silently degrades when haptics are unavailable. |
 | `src/browser/game-settings-store.js` | BROWSER ADAPTER | Safe local-storage load/save for normalized game-facing settings. |
 | `src/browser/electron-window-bridge.js` | BROWSER ADAPTER | Detection and normalization of the optional sandboxed Electron preload API for quit/fullscreen operations. |
 | `electron/main.cjs` / `electron/preload.cjs` | DESKTOP HOST | Optional native window, secure preload boundary, desktop quit, and fullscreen IPC. No gameplay ownership. |
@@ -515,3 +517,38 @@ The blue flash is presentation-only. `src/presentation/canvas-renderer.js` prepa
 Ground-locomotion character enemies now separate a lethal combat result from the start of their death presentation when the hit occurs during a jump or drop. `src/core/simulation.js` records zero health immediately, removes the enemy from the homing-target pool, and marks `deathPendingLanding`, but preserves the current airborne velocity, traversal metadata, collision sweep, and non-death animation. Ordinary portable enemy air traversal remains authoritative until collision reports a landing.
 
 On the landing tick, core clears the pending flag, zeroes residual velocity, preserves the physical support identity, and starts the full authored death duration from its beginning. The corpse therefore never freezes in a death pose in midair and never performs a second gravity-driven drop after the clip. Grounded lethal hits retain the immediate death path. Flying-locomotion enemies retain their separate fly-loop and fly-off death contract. The renderer owns no death timing or landing decision.
+
+
+## Revision 225 planning boundary
+
+Revision 225 changes no runtime, simulation, renderer, data-normalization, or editor behavior. It advances the visible build label and records the next architecture sequence in `PLAN.md` and `IMPLEMENTATION_CHECKLIST.md`: portable Score and treasure first, weak standard-projectile splash, authored thought/boss/water systems, then an editor-only deterministic Automatic Level Generator whose output is baked into ordinary level records. Generated endpoints must use explicit `doorSupport` asset metadata because arbitrary thin platforms are not visually valid door foundations.
+
+
+## Revision 226 Score and treasure-chest contract
+
+`src/core/simulation.js` owns authoritative non-negative integer `score` state. `addScore` is the only ordinary award path and emits deterministic `SCORE_CHANGED` diagnostics containing the previous value, new value, and delta. Score remains part of the portable snapshot, survives ordinary player reset and level application, and is never derived from browser DOM or renderer state. A genuinely new simulation state or explicit full-level restart begins at zero.
+
+Treasure chests remain ordinary level-editor entities. Runtime normalization identifies chest-like records, copies their authored `scoreValue`, `collectionDistance`, and loot-display duration into portable chest state, and explicitly excludes their visual bounds from collision. The fixed-step proximity test treats uncollected `openLoot` as the authored starting state, awards its Score exactly once, then advances it to `openEmpty`. The corresponding world entity visual state is updated from portable state so save/restore and deterministic replay preserve the opened chest.
+
+Browser HUD presentation reads `story.levelTitle` and portable `score` to render `Level N: <title>` and `Score: N` above the Health bar. The renderer may consume `SCORE_CHANGED` to create a temporary floating `+N`, but that animation is presentation-only. Level 1's authored title is `The Introductory Cave of Training`, and its initial test chest awards 100 Score.
+
+
+## Revision 227-228 chest presentation and editor grid contract
+
+The normal chest state pair is `openLoot` to `openEmpty`. Both atlas frames use identical cutout dimensions and the entity defaults to a compact 72 by 84 world-unit footprint. The separate closed artwork remains catalogued but is deliberately excluded from normal state progression because its perspective is not pixel-compatible with the open pair.
+
+The Level Editor initializes Snap to 16 world units and uses 16 as the grid fallback. Level 1 places the demonstration chest on `exit_ground` at a 16-unit-aligned coordinate, providing a thick, visibly supported foundation beside the exit door.
+
+
+## Revision 229 preload and haptic projection contract
+
+Wrench projectile glows remain presentation-only cached surfaces. `createRenderer` reserves the final portion of startup progress for `RocketfrockRenderer.prewarmWrenchRocketGlows`, which enumerates the shared wrench effect registry, resolves the already-loaded projectile frame, and populates `RocketGlowCache` before gameplay begins. Rendering still calls the same cache lookup, so startup and draw-time keys cannot drift.
+
+Input-device ownership belongs to `src/browser/browser-input.js`. Meaningful mapped gamepad button or deadzone-cleared axis activity records the active pad index. A three-second grace window supports damage feedback between control presses, while fresh keyboard or pointer gameplay input revokes gamepad ownership immediately. The portable simulation neither queries controllers nor requests vibration.
+
+`src/browser/gamepad-haptics.js` consumes deterministic `PLAYER_DAMAGED`, `ROCKET_LAUNCHED`, and `PLAYER_BOOST_STARTED` events plus the portable `attachedBoosting` state. Events are marked consumed even while haptics are inactive, preventing stale pulses when the player later picks up a controller. Hover feedback is rate-limited. Browser `playEffect("dual-rumble")` is preferred with a `pulse` fallback; all failures are ignored so haptic support can never interrupt the fixed-step loop.
+
+### Revision 233: standard projectile secondary splash
+
+The portable projectile state now stores `secondaryEnemySplashDamage` and `secondaryEnemySplashRadius` at launch time. Standard rockets and Speed Shot populate these values from tuning; wrench projectiles store zero. Impact handling applies the splash only to enemy hitboxes, excludes the direct enemy, and emits `STANDARD_ROCKET_SECONDARY_SPLASH_APPLIED`. Presentation does not own or reconstruct this damage rule.
+

@@ -1,0 +1,127 @@
+{
+    "meta": {
+        "version": 1,
+        "note": "Supplemental wizard atlas containing precomposited rocket-plus-glow sprites for wrench power-ups. Each frame already includes the base projectile and its coloured halo, so powered shots render with a single atlas draw before procedural flame effects."
+    },
+    "atlasId": "ct_atlas_wizard_2",
+    "image": "ct_atlas_wizard_2.png",
+    "frames": {
+        "rocket_projectile_glow_wrench_triple": {
+            "x": 0,
+            "y": 0,
+            "w": 436,
+            "h": 749
+        },
+        "rocket_projectile_glow_wrench_dart": {
+            "x": 0,
+            "y": 749,
+            "w": 436,
+            "h": 749
+        },
+        "rocket_projectile_glow_wrench_twin": {
+            "x": 0,
+            "y": 1498,
+            "w": 436,
+            "h": 749
+        },
+        "rocket_projectile_glow_wrench_bigbomb": {
+            "x": 0,
+            "y": 2247,
+            "w": 436,
+            "h": 749
+        },
+        "rocket_projectile_glow_wrench_boomerang": {
+            "x": 0,
+            "y": 2996,
+            "w": 436,
+            "h": 749
+        }
+    },
+    "objects": {
+        "rocket_projectile_glow_wrench_triple": {
+            "id": "rocket_projectile_glow_wrench_triple",
+            "frame": "rocket_projectile_glow_wrench_triple",
+            "type": "projectileVariant",
+            "layer": "character",
+            "mirrorable": false,
+            "effectId": "wrenchTriple",
+            "paddingX": 120,
+            "paddingY": 120,
+            "tags": [
+                "wizard",
+                "projectile",
+                "rocket",
+                "glow",
+                "wrenchTriple"
+            ]
+        },
+        "rocket_projectile_glow_wrench_dart": {
+            "id": "rocket_projectile_glow_wrench_dart",
+            "frame": "rocket_projectile_glow_wrench_dart",
+            "type": "projectileVariant",
+            "layer": "character",
+            "mirrorable": false,
+            "effectId": "wrenchDart",
+            "paddingX": 120,
+            "paddingY": 120,
+            "tags": [
+                "wizard",
+                "projectile",
+                "rocket",
+                "glow",
+                "wrenchDart"
+            ]
+        },
+        "rocket_projectile_glow_wrench_twin": {
+            "id": "rocket_projectile_glow_wrench_twin",
+            "frame": "rocket_projectile_glow_wrench_twin",
+            "type": "projectileVariant",
+            "layer": "character",
+            "mirrorable": false,
+            "effectId": "wrenchTwin",
+            "paddingX": 120,
+            "paddingY": 120,
+            "tags": [
+                "wizard",
+                "projectile",
+                "rocket",
+                "glow",
+                "wrenchTwin"
+            ]
+        },
+        "rocket_projectile_glow_wrench_bigbomb": {
+            "id": "rocket_projectile_glow_wrench_bigbomb",
+            "frame": "rocket_projectile_glow_wrench_bigbomb",
+            "type": "projectileVariant",
+            "layer": "character",
+            "mirrorable": false,
+            "effectId": "wrenchBigbomb",
+            "paddingX": 120,
+            "paddingY": 120,
+            "tags": [
+                "wizard",
+                "projectile",
+                "rocket",
+                "glow",
+                "wrenchBigbomb"
+            ]
+        },
+        "rocket_projectile_glow_wrench_boomerang": {
+            "id": "rocket_projectile_glow_wrench_boomerang",
+            "frame": "rocket_projectile_glow_wrench_boomerang",
+            "type": "projectileVariant",
+            "layer": "character",
+            "mirrorable": false,
+            "effectId": "wrenchBoomerang",
+            "paddingX": 120,
+            "paddingY": 120,
+            "tags": [
+                "wizard",
+                "projectile",
+                "rocket",
+                "glow",
+                "wrenchBoomerang"
+            ]
+        }
+    }
+}

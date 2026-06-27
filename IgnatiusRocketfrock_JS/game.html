@@ -260,6 +260,32 @@
             gap: 7px;
         }
 
+        #level-score-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 14px;
+            padding-bottom: 2px;
+            color: var(--ink);
+            font-size: 12px;
+            font-weight: 760;
+            letter-spacing: 0.01em;
+        }
+
+        #level-title-text {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #score-text {
+            flex: 0 0 auto;
+            color: var(--accent);
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
         .meter-label {
             display: flex;
             justify-content: space-between;
@@ -847,6 +873,10 @@
 
     <section id="hud">
         <div id="meters" class="panel">
+            <div id="level-score-row" aria-label="Level and score">
+                <span id="level-title-text">Level 1: The Introductory Cave of Training</span>
+                <span id="score-text">Score: 0</span>
+            </div>
             <div>
                 <div class="meter-label"><span>Health</span><span id="health-text">100 / 100 HP</span></div>
                 <div class="meter"><div id="health-fill"></div></div>

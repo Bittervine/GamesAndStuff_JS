@@ -25,8 +25,10 @@ import {
 } from "../shared/level-color-map-data.js";
 import {
     POWER_UP_EFFECT_IDS,
+    WRENCH_POWER_UP_EFFECT_IDS,
     activePowerUpEffect,
-    powerUpEffectDefinition
+    powerUpEffectDefinition,
+    wrenchRocketGlowAtlasFrameId
 } from "../shared/power-up-data.js";
 import { createColorMappedCanvas } from "./level-color-map-cache.js";
 import { computeCaveWindowParallaxOffset, drawCaveWindowMask } from "./cave-window-mask.js";
@@ -40,7 +42,6 @@ import {
     visualIntersectsViewport,
     visualWorldBounds
 } from "./world-visual-cache.js";
-import { RocketGlowCache } from "./rocket-glow-cache.js";
 import {
     animationPoseToRuntimeTransforms,
     applyRuntimeProjectileHandoffVisibility,
@@ -102,6 +103,31 @@ function rendererNowMs() {
         return performance.now();
     }
     return Date.now();
+}
+
+function yieldRendererPreparationFrame() {
+    return new Promise((resolve) => {
+        let settled = false;
+        const finish = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+        };
+        setTimeout(finish, 16);
+        if (typeof requestAnimationFrame === "function") {
+            requestAnimationFrame(finish);
+        }
+    });
+}
+
+function hexColorRgb(value) {
+    const match = /^#([0-9a-f]{6})$/i.exec(String(value || "").trim());
+    if (!match) return null;
+    return {
+        r: parseInt(match[1].slice(0, 2), 16),
+        g: parseInt(match[1].slice(2, 4), 16),
+        b: parseInt(match[1].slice(4, 6), 16)
+    };
 }
 
 export function computeTimedTextViewportLayout(
@@ -250,7 +276,7 @@ export async function createRenderer(canvas, options = {}) {
             0
         );
         onProgress({
-            progress: clamp(weightedProgress / totalWeight, 0, 1),
+            progress: clamp((weightedProgress / totalWeight) * 0.92, 0, 0.92),
             label: String(label || "Loading game assets")
         });
     };
@@ -296,8 +322,7 @@ export async function createRenderer(canvas, options = {}) {
             characterProjects.set(result.project.characterId, result.project);
         }
     }
-    onProgress({ progress: 1, label: "Game assets ready" });
-    return new RocketfrockRenderer(
+    const renderer = new RocketfrockRenderer(
         canvas,
         ctx,
         playerProject,
@@ -305,6 +330,16 @@ export async function createRenderer(canvas, options = {}) {
         characterProjects,
         [...environmentAtlases.values()].map((atlas) => atlas.manifestUrl).filter(Boolean)
     );
+    onProgress({ progress: 0.93, label: "Loading wizard powered-rocket atlas" });
+    await renderer.prewarmWrenchRocketGlows(({ completed, total, label }) => {
+        const fraction = total > 0 ? completed / total : 1;
+        onProgress({
+            progress: 0.93 + fraction * 0.06,
+            label
+        });
+    });
+    onProgress({ progress: 1, label: "Game assets ready" });
+    return renderer;
 }
 
 class RocketfrockRenderer {
@@ -328,7 +363,6 @@ class RocketfrockRenderer {
         this.worldVisualCache = buildWorldVisualCache([]);
         this.foregroundSpriteCache = new Map();
         this.powerUpTintCache = new Map();
-        this.rocketGlowCache = new RocketGlowCache();
         this.frameForegroundOffset = { x: 0, y: 0 };
         this.frameEntityVisibility = { collectedPickups: new Set(), defeatedEnemies: new Set() };
         this.frameVisualCounters = this.createVisualCounters();
@@ -362,10 +396,38 @@ class RocketfrockRenderer {
         this.viewport = { w: canvas.width, h: canvas.height, dpr: 1 };
         this.lastBounds = null;
         this.lastCharacterDraws = [];
+        this.scorePopupState = null;
+        this.scorePopups = [];
+        this.processedScoreEventKeys = new Set();
+        this.processedScoreEventOrder = [];
     }
 
     getEnvironmentManifests() {
         return this.environmentAtlases;
+    }
+
+    async prewarmWrenchRocketGlows(onProgress = () => {}) {
+        const frameIds = WRENCH_POWER_UP_EFFECT_IDS
+            .map((effectId) => wrenchRocketGlowAtlasFrameId(effectId))
+            .filter(Boolean);
+        if (!frameIds.length) {
+            onProgress({ completed: 0, total: 0, label: "No wrench rocket glows required" });
+            return 0;
+        }
+        for (let index = 0; index < frameIds.length; index += 1) {
+            await yieldRendererPreparationFrame();
+            const frameId = frameIds[index];
+            const asset = this.getCharacterAtlasFrame("ct_char_wizard_1", frameId);
+            if (!asset?.canvas) {
+                throw new Error(`Required wizard projectile glow frame is missing: ${frameId}.`);
+            }
+            onProgress({
+                completed: index + 1,
+                total: frameIds.length,
+                label: `Checking wrench powered-rocket atlas ${index + 1} / ${frameIds.length}`
+            });
+        }
+        return frameIds.length;
     }
 
     createVisualCounters() {
@@ -503,6 +565,67 @@ class RocketfrockRenderer {
         this.phase = (this.phase + dt * cyclesPerSecond * Math.PI * 2) % (Math.PI * 2);
     }
 
+    syncScorePopups(state) {
+        if (this.scorePopupState !== state) {
+            this.scorePopupState = state;
+            this.scorePopups.length = 0;
+            this.processedScoreEventKeys.clear();
+            this.processedScoreEventOrder.length = 0;
+        }
+        for (const event of state?.debug?.lastEvents || []) {
+            if (event?.type !== "SCORE_CHANGED" || !(Number(event.amount) > 0)) continue;
+            if (!Number.isFinite(Number(event.x)) || !Number.isFinite(Number(event.y))) continue;
+            const key = `${event.tick}:${event.sourceId || "score"}:${event.score}`;
+            if (this.processedScoreEventKeys.has(key)) continue;
+            this.processedScoreEventKeys.add(key);
+            this.processedScoreEventOrder.push(key);
+            this.scorePopups.push({
+                x: Number(event.x),
+                y: Number(event.y),
+                text: `+${Math.floor(Number(event.amount) || 0)}`,
+                age: 0,
+                duration: 1.35
+            });
+        }
+        while (this.processedScoreEventOrder.length > 96) {
+            this.processedScoreEventKeys.delete(this.processedScoreEventOrder.shift());
+        }
+        const elapsed = Math.max(0, this.lastRenderDt);
+        for (const popup of this.scorePopups) popup.age += elapsed;
+        this.scorePopups = this.scorePopups.filter((popup) => popup.age < popup.duration);
+    }
+
+    drawScorePopups(state, view) {
+        this.syncScorePopups(state);
+        if (!this.scorePopups.length) return;
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `${Math.max(16, 22 * view.zoom)}px ui-sans-serif, system-ui, sans-serif`;
+        ctx.lineJoin = "round";
+        for (const popup of this.scorePopups) {
+            const ratio = clamp(popup.age / Math.max(0.001, popup.duration), 0, 1);
+            const worldY = popup.y - 46 * ratio;
+            if (!this.dynamicBoundsVisible({
+                minX: popup.x - 60,
+                minY: worldY - 24,
+                maxX: popup.x + 60,
+                maxY: worldY + 24
+            }, view, 48)) continue;
+            const point = this.worldToScreen(view, popup.x, worldY);
+            const fade = ratio < 0.68 ? 1 : 1 - (ratio - 0.68) / 0.32;
+            ctx.globalAlpha = clamp(fade, 0, 1);
+            ctx.lineWidth = Math.max(2, 4 * view.zoom);
+            ctx.strokeStyle = "rgba(24, 12, 34, 0.92)";
+            ctx.fillStyle = "rgba(255, 220, 92, 0.98)";
+            ctx.strokeText(popup.text, point.x, point.y);
+            ctx.fillText(popup.text, point.x, point.y);
+            this.markDynamicDrawn();
+        }
+        ctx.restore();
+    }
+
     render(state, inputFrame, dt) {
         const frameStart = rendererNowMs();
         if (this.lastRenderStartedAtMs > 0) {
@@ -539,6 +662,7 @@ class RocketfrockRenderer {
         this.drawProjectiles(state, view);
         this.drawPlayer(state, view);
         this.drawPlayerDeathCover(state, view);
+        this.drawScorePopups(state, view);
         const actorsEnd = rendererNowMs();
 
         this.drawOrderedWorldVisuals(state, view, true);
@@ -1623,9 +1747,15 @@ class RocketfrockRenderer {
             }
 
             const smokeAlpha = 0.30 * Math.pow(1 - ageRatio, 1.25);
+            const trailTint = puff.kind === "rocketSmokePuff" ? hexColorRgb(puff.trailTint) : null;
 
             const g = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, Math.max(1, radius));
-            g.addColorStop(0, `rgba(207, 198, 218, ${smokeAlpha})`);
+            if (trailTint) {
+                g.addColorStop(0, `rgba(${trailTint.r}, ${trailTint.g}, ${trailTint.b}, ${smokeAlpha * 0.34})`);
+                g.addColorStop(0.34, `rgba(207, 198, 218, ${smokeAlpha * 0.88})`);
+            } else {
+                g.addColorStop(0, `rgba(207, 198, 218, ${smokeAlpha})`);
+            }
             g.addColorStop(0.56, `rgba(155, 145, 170, ${smokeAlpha * 0.48})`);
             g.addColorStop(1, "rgba(92, 84, 112, 0)");
             ctx.fillStyle = g;
@@ -1645,7 +1775,9 @@ class RocketfrockRenderer {
                     const twinkle = 0.72 + 0.28 * Math.sin((state.clock.time + puff.age) * 18 + i * 1.4);
                     const size = (0.9 + hashNoise(seed + 79, i) * 2.6) * view.zoom;
                     ctx.globalAlpha = clamp(0.12 + sparkFade * twinkle * 0.72, 0, 0.82);
-                    ctx.fillStyle = i % 3 === 0 ? "rgba(204, 157, 255, 0.92)" : "rgba(255, 238, 129, 0.94)";
+                    ctx.fillStyle = trailTint && i % 3 === 0
+                        ? `rgba(${trailTint.r}, ${trailTint.g}, ${trailTint.b}, 0.92)`
+                        : (i % 3 === 0 ? "rgba(204, 157, 255, 0.92)" : "rgba(255, 238, 129, 0.94)");
                     ctx.beginPath();
                     ctx.arc(p.x + Math.cos(angle) * r, p.y + Math.sin(angle) * r, size, 0, Math.PI * 2);
                     ctx.fill();
@@ -1717,10 +1849,10 @@ class RocketfrockRenderer {
 
 
     drawProjectileRocket(projectile, state, view) {
-        const asset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_wizard_1", projectile.frameId || "rocket_projectile") ||
+        const baseAsset = this.getCharacterAtlasFrame(projectile.characterId || "ct_char_wizard_1", projectile.frameId || "rocket_projectile") ||
             this.assets.get(projectile.frameId || "rocket_projectile") ||
             this.assets.get("rocket");
-        if (!asset || asset.missing) {
+        if (!baseAsset || baseAsset.missing) {
             return;
         }
         const ctx = this.ctx;
@@ -1733,38 +1865,23 @@ class RocketfrockRenderer {
             : this.rigConfig.pivots.rocket;
         const visualScale = Math.max(0.1, Number(projectile.visualScale) || 1);
         const targetHeight = (projectile.frameId === "rocket_projectile" ? 58 : 72) * visualScale * view.zoom;
-        const spriteScale = targetHeight / Math.max(1, asset.height);
 
-        const fallbackEffect = projectile.wrenchEffectId
-            ? powerUpEffectDefinition(projectile.wrenchEffectId)
+        const glowFrameId = projectile.wrenchGlowFrameId || wrenchRocketGlowAtlasFrameId(projectile.wrenchEffectId);
+        const poweredAsset = glowFrameId
+            ? this.getCharacterAtlasFrame(projectile.characterId || "ct_char_wizard_1", glowFrameId) ||
+                this.getCharacterAtlasFrame("ct_char_wizard_1", glowFrameId)
             : null;
-        const glowTint = String(
-            projectile.wrenchGlowTint ||
-            fallbackEffect?.rocket?.glowTint ||
-            fallbackEffect?.hud?.glowTint ||
-            ""
-        ).trim();
-        const glowSurface = glowTint
-            ? this.rocketGlowCache.get(asset.canvas, glowTint)
-            : null;
+        const drawAsset = poweredAsset?.canvas ? poweredAsset : baseAsset;
+        const spriteScale = targetHeight / Math.max(1, baseAsset.height);
+        const drawOffsetX = -pivot.x * baseAsset.width - (drawAsset === poweredAsset ? (Number(drawAsset.paddingX) || 0) : 0);
+        const drawOffsetY = -pivot.y * baseAsset.height - (drawAsset === poweredAsset ? (Number(drawAsset.paddingY) || 0) : 0);
 
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(angle);
         ctx.scale(spriteScale, spriteScale);
-        if (glowSurface?.canvas) {
-            ctx.save();
-            ctx.globalCompositeOperation = "source-over";
-            ctx.globalAlpha = 0.94;
-            ctx.drawImage(
-                glowSurface.canvas,
-                -pivot.x * asset.width - glowSurface.paddingX,
-                -pivot.y * asset.height - glowSurface.paddingY
-            );
-            ctx.restore();
-        }
-        ctx.drawImage(asset.canvas, -pivot.x * asset.width, -pivot.y * asset.height);
-        drawRocketFlameLocal(ctx, asset, pivot, state.clock.time + projectile.age * 11, 0.55, projectile.id.length * 13);
+        ctx.drawImage(drawAsset.canvas, drawOffsetX, drawOffsetY);
+        drawRocketFlameLocal(ctx, baseAsset, pivot, state.clock.time + projectile.age * 11, 0.55, projectile.id.length * 13);
         ctx.restore();
     }
 

@@ -23,7 +23,8 @@ import {
     visualWorldBounds
 } from "../src/presentation/world-visual-cache.js";
 import { actorBodyRect, characterEnemyMeleeAttackRect, enemyProjectileHitbox } from "../src/shared/actor-geometry.js";
-import { RocketfrockInput } from "../src/browser/browser-input.js";
+import { GAMEPAD_ACTIVITY_TIMEOUT_SECONDS, RocketfrockInput } from "../src/browser/browser-input.js";
+import { GamepadHaptics, GAMEPAD_HAPTIC_PATTERNS } from "../src/browser/gamepad-haptics.js";
 import {
     DEFAULT_GAME_SETTINGS,
     GAME_DIFFICULTY_PRESETS,
@@ -4455,6 +4456,95 @@ function testInteractiveItemAtlasAndEntityVisuals() {
 
 
 
+
+function testScoreHudAndTreasureChestCollection() {
+    const level = {
+        levelId: "level_001",
+        title: "The Introductory Cave of Training",
+        world: { bounds: { x: -200, y: -200, w: 900, h: 1000 }, resetY: 1000 },
+        playerStart: { x: 120, y: 600 },
+        atlasRefs: [],
+        placements: [],
+        entities: [{
+            id: "treasure_test",
+            type: "treasureChest",
+            interaction: "openChest",
+            x: 120,
+            y: 600,
+            w: 72,
+            h: 84,
+            state: "openLoot",
+            scoreValue: 100,
+            collectionDistance: 88,
+            lootDisplaySeconds: 0.1,
+            collisionFromManifest: false,
+            visualStates: {
+                closed: [{ atlasId: "it_atlas_001", assetId: "chest_closed", layer: "decorFront" }],
+                openLoot: [{ atlasId: "it_atlas_001", assetId: "chest_open_loot", layer: "decorFront" }],
+                openEmpty: [{ atlasId: "it_atlas_001", assetId: "chest_open_empty", layer: "decorFront" }]
+            }
+        }]
+    };
+    const state = createInitialGameState();
+    state.score = 25;
+    assert.equal(applyEditorLevelToWorld(state, level), true, "score test level should apply");
+    assert.equal(state.score, 25, "loading a level should preserve session Score");
+    assert.equal(state.story.levelTitle, "The Introductory Cave of Training", "the shortened level title should enter portable story state");
+    assert.equal(state.treasureChests.length, 1, "treasure chest entities should create portable chest state");
+    assert.equal(state.treasureChests[0].state, "openLoot", "a new chest should begin visibly open with its treasure");
+    assert.equal(state.treasureChests[0].collected, false, "an authored open-loot chest should still be collectible");
+
+    stepSimulation(state, createInputFrame(), FIXED_DT);
+    assert.equal(state.score, 125, "walking close to the chest should award its Score once");
+    assert.equal(state.treasureChests[0].collected, true, "the collected flag should become authoritative immediately");
+    assert.equal(state.treasureChests[0].state, "openLoot", "the chest should briefly reveal its loot");
+    assert.equal(state.world.entityStates.treasure_test, "openLoot", "the world entity visual state should follow portable chest state");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "SCORE_CHANGED" && event.amount === 100), "collection should emit a deterministic Score change event");
+    assert.ok(state.debug.lastEvents.some((event) => event.type === "TREASURE_CHEST_COLLECTED"), "collection should emit a chest event");
+
+    stepMany(state, 20);
+    assert.equal(state.treasureChests[0].state, "openEmpty", "the loot reveal should settle on the empty chest state");
+    assert.equal(state.world.entityStates.treasure_test, "openEmpty", "empty artwork should remain after collection");
+    const scoreAfterCollection = state.score;
+    stepMany(state, 10);
+    assert.equal(state.score, scoreAfterCollection, "remaining near an empty chest must never duplicate its reward");
+
+    resetPlayer(state, "scorePersistenceTest");
+    assert.equal(state.score, scoreAfterCollection, "ordinary death/reset should preserve Score");
+    assert.equal(state.treasureChests[0].state, "openEmpty", "ordinary death/reset should preserve collected chest state");
+    const restored = restoreGameState(serializeGameState(state));
+    assert.equal(restored.score, scoreAfterCollection, "save/restore should preserve Score");
+    assert.equal(restored.treasureChests[0].state, "openEmpty", "save/restore should preserve empty chest state");
+
+    const gameHtml = readFileSync(new URL("../game.html", import.meta.url), "utf8");
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    const editorSource = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.match(gameHtml, /id="level-title-text"[\s\S]*id="score-text"/, "the HUD should show level title and Score above the meters");
+    assert.match(bootstrapSource, /Level \$\{levelNumber\}: \$\{levelTitle\}/, "the HUD should derive its level label from portable level state");
+    assert.match(bootstrapSource, /Score: \$\{Math\.max\(0, Math\.floor\(Number\(gameState\.score\)/, "the DOM should project portable Score without owning it");
+    assert.match(rendererSource, /event\?\.type !== "SCORE_CHANGED"/, "the renderer should derive temporary +N feedback from Score events");
+    assert.match(editorSource, /id="inspect-treasure-score"[\s\S]*id="inspect-treasure-distance"/, "the Level Editor should expose Score value and collection distance");
+    assert.match(editorSource, /els\.snap\.value = "16"/, "the Level Editor should initialize its Snap grid to 16 pixels");
+    assert.match(editorSource, /Number\(els\.snap\.value\) \|\| 16/, "the grid renderer should use 16 pixels as its fallback Snap size");
+
+    const authored = JSON.parse(readFileSync(new URL("../assets/level_001.json", import.meta.url), "utf8"));
+    const authoredChest = authored.entities.find((entity) => entity.id === "treasure_chest_001");
+    assert.equal(authored.title, "The Introductory Cave of Training", "level 1 should use the shorter authored title");
+    assert.ok(authoredChest, "level 1 should contain the requested demonstration treasure chest");
+    assert.equal(authoredChest.state, "openLoot", "the demonstration chest should begin open with visible treasure");
+    assert.equal(authoredChest.w, 72, "the demonstration chest should use the compact ledge-friendly width");
+    assert.equal(authoredChest.h, 84, "the demonstration chest should use the compact ledge-friendly height");
+    assert.equal(authoredChest.scoreValue, 100, "the demonstration chest should award 100 Score");
+    assert.equal(authoredChest.x, 4768, "the demonstration chest should use the requested 16-pixel-grid X position");
+    assert.equal(authoredChest.y, 512, "the demonstration chest should rest on the exit-platform surface at a 16-pixel-grid Y position");
+    const exitGround = authored.placements.find((placement) => placement.id === "exit_ground");
+    assert.ok(exitGround, "level 1 should retain the substantial exit-door support platform");
+    assert.ok(authoredChest.x - authoredChest.w * 0.5 >= exitGround.x, "the chest left foot should remain over the exit platform artwork");
+    assert.ok(authoredChest.x + authoredChest.w * 0.5 <= exitGround.x + exitGround.w, "the chest right foot should remain over the exit platform artwork");
+    assert.ok(authoredChest.y >= exitGround.y && authoredChest.y <= exitGround.y + exitGround.h * 0.2, "the chest base should sit near the drawn top of the exit platform rather than float above or sink into it");
+}
+
 function testRocketPowerUpArsenal() {
     const speedShot = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.SPEED_SHOT);
     assert.equal(speedShot.stacking, POWER_UP_STACKING_RULES.REFRESH, "Speed Shot should refresh rather than stack multiplicatively");
@@ -4671,6 +4761,10 @@ function testRocketPowerUpArsenal() {
     approx(100 - tripleState.fuel.amount, DEFAULT_TUNING.rocketLaunchCost, 0.0001, "Triple should cost the same fuel as a standard rocket");
     assert.ok(tripleState.projectiles.every((projectile) => projectile.wrenchEffectId === POWER_UP_EFFECT_IDS.WRENCH_TRIPLE), "Triple projectiles should retain their launch-time wrench identity");
     assert.ok(tripleState.projectiles.every((projectile) => projectile.wrenchGlowTint === "#ffff00"), "Triple projectiles should retain the yellow glow tint after the player changes effects");
+    stepMany(tripleState, 8, () => createInputFrame());
+    const tripleTrailPuffs = tripleState.effects.smokePuffs.filter((puff) => puff.kind === "rocketSmokePuff");
+    assert.ok(tripleTrailPuffs.length > 0, "powered rockets should emit persistent world-managed trail puffs");
+    assert.ok(tripleTrailPuffs.every((puff) => puff.trailTint === "#ffff00"), "Triple rocket trail puffs should retain a restrained yellow power-up tint");
 
     const twinState = stateWithWrench(POWER_UP_EFFECT_IDS.WRENCH_TWIN, { targets: targetSet });
     stepSimulation(twinState, createInputFrame({ weaponPressed: true }), FIXED_DT);
@@ -4866,11 +4960,25 @@ function testCachedWrenchRocketGlowKernels() {
     }
 
     const rendererSource = readFileSync(new URL("../src/presentation/canvas-renderer.js", import.meta.url), "utf8");
+    const runtimeSource = readFileSync(new URL("../src/presentation/character-runtime.js", import.meta.url), "utf8");
     const cacheSource = readFileSync(new URL("../src/presentation/rocket-glow-cache.js", import.meta.url), "utf8");
-    assert.ok(rendererSource.includes("this.rocketGlowCache.get(asset.canvas, glowTint)"), "rocket rendering should reuse a cached precomposited glow surface");
-    assert.ok(rendererSource.includes('globalCompositeOperation = "lighter"'), "cached wrench glows should be composited additively behind the rocket");
-    assert.ok(cacheSource.includes("dilateAlphaSeparable") && cacheSource.includes("gaussianBlurAlphaSeparable"), "the cache should build its silhouette with separable expansion and blur passes");
-    assert.ok(cacheSource.includes("WeakMap"), "rocket glow surfaces should be cached by source sprite without retaining obsolete atlases");
+    const wizardCharacter = JSON.parse(readFileSync(new URL("../assets/ct_char_wizard_1.json", import.meta.url), "utf8"));
+    const wizardGlowAtlas = JSON.parse(readFileSync(new URL("../assets/ct_atlas_wizard_2.json", import.meta.url), "utf8"));
+    assert.deepEqual(
+        wizardCharacter.supplementalAtlases,
+        ["ct_atlas_wizard_2.json"],
+        "the wizard character should declare its supplemental powered-rocket atlas"
+    );
+    assert.equal(Object.keys(wizardGlowAtlas.frames).length, WRENCH_POWER_UP_EFFECT_IDS.length, "the supplemental wizard atlas should provide one prebuilt powered-rocket sprite per wrench effect");
+    assert.ok(rendererSource.includes("wrenchRocketGlowAtlasFrameId"), "rocket rendering should resolve powered projectile glow frames from authored data");
+    assert.ok(rendererSource.includes(`getCharacterAtlasFrame("ct_char_wizard_1", frameId)`), "startup preflight should verify the authored wizard powered-rocket frames instead of generating them lazily");
+    assert.ok(rendererSource.includes("Checking wrench powered-rocket atlas"), "loading feedback should mention authored glow-atlas checks rather than runtime glow baking");
+    assert.ok(rendererSource.includes("const drawAsset = poweredAsset?.canvas ? poweredAsset : baseAsset"), "powered rockets should switch to the authored combined atlas frame when one exists");
+    assert.ok(rendererSource.includes("ctx.drawImage(drawAsset.canvas, drawOffsetX, drawOffsetY);"), "powered rockets should render from the combined atlas in a single sprite draw");
+    assert.ok(!rendererSource.includes("glowAsset?.canvas"), "combined powered-rocket frames should no longer branch into a separate glow draw path each frame");
+    assert.ok(runtimeSource.includes("character.supplementalAtlases") && runtimeSource.includes("supplemental character atlas manifest"), "runtime character loading should support supplemental atlas manifests");
+    assert.ok(cacheSource.includes("dilateAlphaSeparable") && cacheSource.includes("gaussianBlurAlphaSeparable"), "the glow-generator utility should remain available for offline atlas baking and tests");
+    assert.ok(rendererSource.includes("puff.trailTint") && rendererSource.includes("hexColorRgb"), "powered rocket trail smoke and sparkle crumbs should reuse the launch-time wrench colour without recolouring ordinary trails");
 }
 
 function testMailboxLetterSequence() {
@@ -5760,6 +5868,83 @@ function testHomingRocketLaunch() {
     assert.ok(flightDistance < startDistance - 430, `homing rocket should close distance to dot after its upward launch, start ${startDistance}, now ${flightDistance}`);
 }
 
+function testStandardRocketSecondarySplash() {
+    const state = createInitialGameState();
+    settleOnGround(state);
+    state.player.x = 300;
+    state.player.y = 600;
+    state.player.facing = 1;
+    state.player.vx = 0;
+    state.player.vy = 0;
+    state.player.onGround = true;
+    state.player.wasOnGround = true;
+
+    const prototype = state.enemies[0];
+    state.enemies = [
+        { ...prototype, id: "splash_direct", x: 500, y: 600, health: 90, maxHealth: 90, state: "idle", combatState: "alive" },
+        { ...prototype, id: "splash_near", x: 550, y: 600, health: 1, maxHealth: 1, state: "idle", combatState: "alive" },
+        { ...prototype, id: "splash_far", x: 750, y: 600, health: 1, maxHealth: 1, state: "idle", combatState: "alive" }
+    ];
+    state.targets = [{
+        id: "splash_direct_target",
+        enemyId: "splash_direct",
+        x: 500,
+        y: 550,
+        radius: 12,
+        state: "active"
+    }];
+
+    stepSimulation(state, createInputFrame({ weaponPressed: true, weaponHeld: true }), FIXED_DT);
+    assert.equal(state.projectiles.length, 1, "a standard launch should create one rocket for splash testing");
+    assert.equal(state.projectiles[0].secondaryEnemySplashDamage, 1, "standard rockets should carry exactly one point of secondary-enemy splash damage");
+    approx(
+        state.projectiles[0].secondaryEnemySplashRadius,
+        DEFAULT_TUNING.wizardHeight,
+        0.0001,
+        "the splash radius should be one wizard height, giving a diameter of two wizard heights"
+    );
+
+    for (let index = 0; index < 180 && state.projectiles.some((projectile) => projectile.state === "launched"); index += 1) {
+        stepSimulation(state, createInputFrame(), FIXED_DT);
+    }
+
+    assert.equal(state.enemies.find((enemy) => enemy.id === "splash_direct").health, 60, "the direct enemy should receive the normal 30 damage, not 31");
+    assert.equal(state.enemies.find((enemy) => enemy.id === "splash_near").health, 0, "a nearby one-HP secondary enemy should be defeated by the splash");
+    assert.equal(state.enemies.find((enemy) => enemy.id === "splash_far").health, 1, "enemies outside the splash radius should remain untouched");
+    const splashEvent = state.debug.lastEvents.find((event) => event.type === "STANDARD_ROCKET_SECONDARY_SPLASH_APPLIED");
+    assert.ok(splashEvent, "standard rocket impacts should emit deterministic secondary-splash diagnostics");
+    assert.deepEqual(splashEvent.enemyIds, ["splash_near"], "the direct target must be excluded from the secondary splash list");
+
+    const speedState = createInitialGameState();
+    settleOnGround(speedState);
+    const speedDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.SPEED_SHOT);
+    speedState.statusEffects.active[POWER_UP_EFFECT_IDS.SPEED_SHOT] = {
+        id: POWER_UP_EFFECT_IDS.SPEED_SHOT,
+        definition: speedDefinition,
+        remainingSeconds: speedDefinition.durationSeconds,
+        sourceId: "test",
+        activatedAt: 0,
+        refreshCount: 0
+    };
+    stepSimulation(speedState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    assert.equal(speedState.projectiles[0].secondaryEnemySplashDamage, 1, "Speed Shot should retain the standard rocket splash");
+
+    const wrenchState = createInitialGameState();
+    settleOnGround(wrenchState);
+    const wrenchDefinition = powerUpEffectDefinition(POWER_UP_EFFECT_IDS.WRENCH_DART);
+    wrenchState.statusEffects.active[POWER_UP_EFFECT_IDS.WRENCH_DART] = {
+        id: POWER_UP_EFFECT_IDS.WRENCH_DART,
+        definition: wrenchDefinition,
+        remainingSeconds: wrenchDefinition.durationSeconds,
+        sourceId: "test",
+        activatedAt: 0,
+        refreshCount: 0
+    };
+    stepSimulation(wrenchState, createInputFrame({ weaponPressed: true }), FIXED_DT);
+    assert.equal(wrenchState.projectiles[0].secondaryEnemySplashDamage, 0, "wrench rockets should use only their authored behavior and receive no standard splash");
+    assert.equal(wrenchState.projectiles[0].secondaryEnemySplashRadius, 0, "wrench rockets should carry no standard splash radius");
+}
+
 function testRocketTargetPrefersClosestEnemyInFacingDirection() {
     const state = createInitialGameState();
     settleOnGround(state);
@@ -5800,6 +5985,7 @@ function testRocketTrailTracksCurvedPathAndPersistsAfterExplosion() {
 
     const smokeCountDuringFlight = state.effects.smokePuffs.length;
     assert.ok(smokeCountDuringFlight > 8, `world-managed smoke puffs should be emitted during flight, got ${smokeCountDuringFlight}`);
+    assert.ok(state.effects.smokePuffs.filter((puff) => puff.kind === "rocketSmokePuff").every((puff) => puff.trailTint === null), "ordinary rocket trail puffs should remain untinted");
     state.projectiles[0].age = state.projectiles[0].lifetime;
     stepSimulation(state, createInputFrame(), FIXED_DT);
     assert.ok(state.effects.smokePuffs.length > smokeCountDuringFlight, "rocket impact should add smoke puffs instead of depending on a rendered explosion ring");
@@ -7008,6 +7194,8 @@ function testGamepadJumpProducesTitleStartEdge() {
         const first = input.sample();
         assert.equal(first.jumpHeld, true, "gamepad A should map to the held jump action");
         assert.equal(first.jumpPressed, true, "gamepad A should create a fresh jump edge suitable for starting the title screen");
+        assert.equal(first.gamepadActive, true, "a pressed gamepad control should mark the gamepad as the active input device");
+        assert.equal(first.gamepadIndex, 0, "the active gamepad index should travel with the sampled input frame");
         const held = input.sample();
         assert.equal(held.jumpPressed, false, "holding gamepad A should not repeatedly start or jump");
 
@@ -7019,6 +7207,11 @@ function testGamepadJumpProducesTitleStartEdge() {
         jumpPressed = false;
         const released = input.sample();
         assert.equal(released.jumpReleased, false, "the release that ends title suppression should also be consumed");
+        input.onKeyDown({ code: "KeyA", repeat: false, preventDefault() {} });
+        const keyboardFrame = input.sample();
+        assert.equal(keyboardFrame.inputDevice, "keyboard", "fresh keyboard activity should take control from an idle gamepad");
+        assert.equal(keyboardFrame.gamepadActive, false, "keyboard control should suppress gamepad haptics immediately");
+        input.onKeyUp({ code: "KeyA", repeat: false, preventDefault() {} });
         jumpPressed = true;
         const nextPress = input.sample();
         assert.equal(nextPress.jumpPressed, true, "a fresh A-button press after release should jump normally");
@@ -7034,6 +7227,71 @@ function testGamepadJumpProducesTitleStartEdge() {
     assert.match(bootstrapSource, /titleScreenActive && !isGameMenuOpen\(\) && titleStartRequested\(inputFrame\)/, "the animation frame should inspect gamepad-derived jump input while the title screen is active");
     assert.match(bootstrapSource, /input\.suppressJumpUntilRelease\(\)/, "the title-start jump should remain consumed until the physical gamepad control is released");
     assert.match(bootstrapSource, /inputFrame = createInputFrame\(\)/, "the title-start jump edge should be consumed instead of leaking into the first gameplay step");
+}
+
+function testGamepadHapticsRespectActiveInputDevice() {
+    let now = 0;
+    const effects = [];
+    const actuator = {
+        playEffect(type, options) {
+            effects.push({ type, ...options });
+            return Promise.resolve("complete");
+        }
+    };
+    const pad = { index: 0, vibrationActuator: actuator };
+    const navigatorRef = { getGamepads: () => [pad] };
+    const haptics = new GamepadHaptics({ navigatorRef, now: () => now });
+    const state = {
+        debug: { lastEvents: [] },
+        equipment: { rocket: { attachedBoosting: false } }
+    };
+    const keyboardFrame = { inputDevice: "keyboard", gamepadActive: false, gamepadIndex: null };
+    const gamepadFrame = { inputDevice: "gamepad", gamepadActive: true, gamepadIndex: 0 };
+
+    state.debug.lastEvents.push({ tick: 1, time: 0.1, type: "ROCKET_LAUNCHED", id: "rocket_1" });
+    assert.equal(haptics.update(state, keyboardFrame), false, "rocket fire should not rumble while keyboard input owns gameplay");
+    assert.equal(effects.length, 0, "inactive-gamepad events should remain silent");
+    assert.equal(haptics.update(state, gamepadFrame), false, "old keyboard-era events must not replay when a gamepad becomes active later");
+
+    state.debug.lastEvents.push({ tick: 2, time: 0.2, type: "PLAYER_DAMAGED", sourceId: "enemy_1" });
+    now = 100;
+    assert.equal(haptics.update(state, gamepadFrame), true, "player damage should trigger haptics for the active gamepad");
+    assert.equal(effects.at(-1).type, "dual-rumble", "supported pads should use the dual-rumble effect");
+    assert.equal(effects.at(-1).strongMagnitude, GAMEPAD_HAPTIC_PATTERNS.hurt.strongMagnitude, "damage should use the strongest authored rumble");
+
+    state.debug.lastEvents.push({ tick: 3, time: 0.3, type: "ROCKET_LAUNCHED", id: "rocket_2" });
+    now = 400;
+    haptics.update(state, gamepadFrame);
+    assert.equal(effects.at(-1).weakMagnitude, GAMEPAD_HAPTIC_PATTERNS.rocketFire.weakMagnitude, "rocket launch should use a brief weak pulse");
+
+    state.debug.lastEvents.push({ tick: 4, time: 0.4, type: "PLAYER_BOOST_STARTED" });
+    now = 700;
+    haptics.update(state, gamepadFrame);
+    assert.equal(effects.at(-1).weakMagnitude, GAMEPAD_HAPTIC_PATTERNS.doubleJump.weakMagnitude, "double-jump boost start should use its medium-light pulse");
+
+    state.equipment.rocket.attachedBoosting = true;
+    now = 900;
+    haptics.update(state, gamepadFrame);
+    const hoverCount = effects.length;
+    assert.equal(effects.at(-1).weakMagnitude, GAMEPAD_HAPTIC_PATTERNS.hover.weakMagnitude, "sustained hover should use the gentlest rumble");
+    now = 930;
+    haptics.update(state, gamepadFrame);
+    assert.equal(effects.length, hoverCount, "hover haptics should be rate-limited rather than requested every frame");
+    now = 1100;
+    haptics.update(state, gamepadFrame);
+    assert.equal(effects.length, hoverCount + 1, "hover haptics should continue as spaced low pulses");
+
+    state.equipment.rocket.attachedBoosting = false;
+    state.debug.lastEvents.push({ tick: 5, time: 0.5, type: "PLAYER_DAMAGED", sourceId: "enemy_2" });
+    now = 1400;
+    haptics.update(state, keyboardFrame);
+    assert.equal(effects.length, hoverCount + 1, "switching back to keyboard should silence even strong damage rumble");
+    haptics.update(state, gamepadFrame);
+    assert.equal(effects.length, hoverCount + 1, "damage received while keyboard-active must not be replayed later");
+
+    assert.equal(GAMEPAD_ACTIVITY_TIMEOUT_SECONDS, 3, "idle gamepad ownership should expire after a short grace period");
+    const bootstrapSource = readFileSync(new URL("../src/browser/game-bootstrap.js", import.meta.url), "utf8");
+    assert.match(bootstrapSource, /gamepadHaptics\.update\(gameState, inputFrame\)/, "the browser frame loop should project portable events into optional haptics");
 }
 
 function testGameSettingsSchemaPersistenceAndMenuShell() {
@@ -7371,6 +7629,7 @@ const tests = [
     ["left and right Ctrl weapon binding", testControlKeysLaunchWeapon],
     ["keyboard interaction binding", testInteractKeyBinding],
     ["gamepad jump starts title screen", testGamepadJumpProducesTitleStartEdge],
+    ["gamepad haptics follow active input device", testGamepadHapticsRespectActiveInputDevice],
     ["timed story text layout", testTimedTextViewportLayout],
     ["responsive viewport scaling", testResponsiveViewportScaling],
     ["thought bubble tail and responsive typography", testThoughtBubbleTailAndResponsiveTypography],
@@ -7395,6 +7654,7 @@ const tests = [
     ["editor level transform runtime", testEditorLevelTransformRuntime],
     ["player start snaps to nearby ground", testPlayerStartSnapsToNearbyGround],
     ["interactive item atlas and entity visuals", testInteractiveItemAtlasAndEntityVisuals],
+    ["Score HUD and treasure chest collection", testScoreHudAndTreasureChestCollection],
     ["Speed Shot, Shield, and wrench power-up arsenal", testRocketPowerUpArsenal],
     ["cached wrench rocket glow kernels", testCachedWrenchRocketGlowKernels],
     ["scripted mailbox letter", testMailboxLetterSequence],
@@ -7467,6 +7727,7 @@ const tests = [
     ["boost kick costs fuel and recharges on landing", testBoostKickCostsFuelAndRechargesOnLanding],
     ["rocket projectile renderer exists", testRocketProjectileRendererExists],
     ["homing rocket launch", testHomingRocketLaunch],
+    ["standard rocket one-HP secondary splash", testStandardRocketSecondarySplash],
     ["rocket target prioritizes facing direction", testRocketTargetPrefersClosestEnemyInFacingDirection],
     ["rocket trail tracks curved path and persists", testRocketTrailTracksCurvedPathAndPersistsAfterExplosion],
     ["attached boost smoke and visual power", testAttachedRocketSmokeAndVisualPower],
