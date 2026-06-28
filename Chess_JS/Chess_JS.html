@@ -641,6 +641,10 @@
             }
         }
 
+        function enginePawnScoreForWhite(score) {
+            return AI_COLOR === 'b' ? -score : score;
+        }
+
         function finishEngineTurn(bestMove, bestScore, reachedDepth, startMs) {
             if (!bestMove) {
                 engine.thinking = false;
@@ -657,7 +661,8 @@
             if (infoLabel) infoLabel.style.display = '';
             if (infoText) {
                 var usedSec = (Date.now() - startMs) / 1000;
-                infoText.textContent = (bestScore >= 0 ? '+' : '') + bestScore.toFixed(1) +
+                var displayScore = enginePawnScoreForWhite(bestScore);
+                infoText.textContent = (displayScore >= 0 ? '+' : '') + displayScore.toFixed(1) +
                     ' for depth ' + reachedDepth + ' after ' + usedSec.toFixed(1) + ' s';
             }
 
@@ -3481,9 +3486,10 @@ var domUpdate_nodes;
 var domUpdate_ordering;
 
 function UpdateDOMStats() {
-		var scoreText = "Score: " + (domUpdate_score/100).toFixed(2);
-		if(Math.abs(domUpdate_score) > MATE-MAXDEPTH) {
-			scoreText = "Score: " + "Mate In " + (MATE - Math.abs(domUpdate_score)) + " moves";
+		var displayScore = (brd_side == COLOURS.BLACK) ? -domUpdate_score : domUpdate_score;
+		var scoreText = "Score: " + (displayScore/100).toFixed(2);
+		if(Math.abs(displayScore) > MATE-MAXDEPTH) {
+			scoreText = "Score: " + "Mate In " + (MATE - Math.abs(displayScore)) + " moves";
 		}
 		
 		//console.log("UpdateDOMStats depth:" + domUpdate_depth + " score:" + domUpdate_score + " nodes:" + domUpdate_nodes);

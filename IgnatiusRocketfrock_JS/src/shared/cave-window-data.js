@@ -157,7 +157,11 @@ function smoothSplineControl(point, previous, next, directionSign) {
     const chordLength = Math.hypot(chordX, chordY);
     if (chordLength <= 0.000001) return { x: point.x, y: point.y };
 
-    const localLimit = Math.min(pointDistance(previous, point), pointDistance(point, next)) * 0.45;
+    const incoming = normalizedVector(finiteNumber(point?.x, 0) - finiteNumber(previous?.x, 0), finiteNumber(point?.y, 0) - finiteNumber(previous?.y, 0));
+    const outgoing = normalizedVector(finiteNumber(next?.x, 0) - finiteNumber(point?.x, 0), finiteNumber(next?.y, 0) - finiteNumber(point?.y, 0));
+    const turnAlignment = Math.max(0, Math.min(1, (incoming.x * outgoing.x + incoming.y * outgoing.y + 1) * 0.5));
+    const curvatureFactor = 0.2 + turnAlignment * 0.8;
+    const localLimit = Math.min(pointDistance(previous, point), pointDistance(point, next)) * 0.45 * curvatureFactor;
     const handleLength = Math.min(chordLength / 6, localLimit);
     return {
         x: point.x + (chordX / chordLength) * handleLength * directionSign,

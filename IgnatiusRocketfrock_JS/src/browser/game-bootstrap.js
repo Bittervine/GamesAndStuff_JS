@@ -92,7 +92,7 @@ const renderingQualityButtons = [...document.querySelectorAll("[data-rendering-q
 const autoFullscreenRow = document.getElementById("auto-fullscreen-row");
 const autoFullscreenInput = document.getElementById("auto-fullscreen");
 
-const GAME_REVISION = "252";
+const GAME_REVISION = "256";
 
 let displayedLoadingProgress = 0;
 let activeCaveWindow = normalizeCaveWindow(null);
@@ -613,29 +613,6 @@ function drawMinimap(force = false) {
         ctx.stroke();
     }
 
-    ctx.lineCap = "round";
-    ctx.strokeStyle = "rgba(214,188,121,0.76)";
-    ctx.lineWidth = Math.max(1, Math.min(3, scale * 18));
-    for (const segment of gameState.world?.segments || []) {
-        if (segment?.kind && segment.kind !== "blockable") continue;
-        const a = point(Number(segment.x1) || 0, Number(segment.y1) || 0);
-        const b = point(Number(segment.x2) || 0, Number(segment.y2) || 0);
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.stroke();
-    }
-    ctx.fillStyle = "rgba(214,188,121,0.28)";
-    for (const solid of gameState.world?.solids || []) {
-        const topLeft = point(Number(solid.x) || 0, Number(solid.y) || 0);
-        ctx.fillRect(
-            topLeft.x,
-            topLeft.y,
-            Math.max(1, (Number(solid.w) || 0) * scale),
-            Math.max(1, (Number(solid.h) || 0) * scale)
-        );
-    }
-
     const viewport = renderer?.getViewportMetrics?.();
     if (viewport) {
         const virtualW = Number(viewport.virtualW) || 0;
@@ -668,11 +645,6 @@ function drawMinimap(force = false) {
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = "rgba(242,237,248,0.75)";
-    ctx.font = "10px ui-sans-serif, system-ui, sans-serif";
-    ctx.textAlign = "right";
-    ctx.textBaseline = "bottom";
-    ctx.fillText("CLICK FOR MENU", cssWidth - 8, cssHeight - 6);
     ctx.restore();
 }
 

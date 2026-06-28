@@ -164,10 +164,11 @@ export function formationRotationForInward(entry, inward) {
 
 export function caveDecorationStep(category, tangentSpan, requestedSpacing) {
     const spacing = Math.max(80, finiteNumber(requestedSpacing, 250));
-    const categoryFactor = category === "wall" ? 0.72 : 0.58;
-    // Use generous tangential overlap. Rotated rectangular sprites otherwise leave
-    // tiny wedges exposed on curved sections even when their raw bounds touch.
-    const coverage = Math.max(40, finiteNumber(tangentSpan, spacing) * 0.58);
+    const categoryFactor = category === "wall" ? 0.66 : 0.52;
+    // Use generous tangential overlap. Curved cave sections and narrow tapered
+    // formations can otherwise leave visible slivers of the full-black guide
+    // between neighbouring placements even when their raw bounds almost touch.
+    const coverage = Math.max(40, finiteNumber(tangentSpan, spacing) * 0.5);
     return clamp(Math.min(spacing * categoryFactor, coverage), 40, spacing);
 }
 

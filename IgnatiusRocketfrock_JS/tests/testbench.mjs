@@ -88,6 +88,7 @@ import {
     normalizeEnemyGenerationCatalog,
     normalizeRewardGenerationCatalog,
     normalizeGeneratorStageRevisions,
+    normalizeGeneratorImplementations,
     normalizeGeneratorTheme,
     normalizeLevelGeneration,
     parseEnemySelection,
@@ -4102,7 +4103,8 @@ function testAutomaticLevelGeneratorMacroRoomsGroundedDoorsAndPerimeterContract(
             patternIds.add(draft.generation.cavern.macroPatternId);
             assert.equal(draft.generation.cavern.generatorId, "the-path74-contour-cavern-v4", "accepted drafts should preserve the ThePath74 contour cavern implementation ID");
             assert.ok(draft.generation.cavern.contour?.occupiedCellCount > 0, "contour caverns should record occupancy-mask diagnostics");
-            assert.ok(draft.caveWindow.points.every((point) => point.mode === "corner"), "occupancy contours should remain explicit editable corner points");
+            assert.ok(draft.caveWindow.points.every((point) => point.mode === "smooth"), "occupancy contours should convert the traced cell loop into a smooth editable perimeter");
+            assert.ok(draft.caveWindow.points.length < draft.generation.cavern.contour.rawPointCount * 0.45, "occupancy contours should heavily simplify the raw stepped cell loop before exposing the cave perimeter");
             sawMultiIntervalContour ||= maximumVerticalInteriorIntervals(draft.caveWindow.points, draft.generation.cavern.bounds) >= 2;
             if (length !== "compact") {
                 assert.ok(routeMetrics.backtrackEdges >= 1, `${theme.themeId} ${length} should contain a real mandatory leftward phase`);
@@ -4252,6 +4254,10 @@ function testLongPlatformAtlas004ManifestAndGeneration() {
     assert.equal(atlasAssets.length, 16, "the platform generation catalog should register every Atlas 004 platform");
     assert.ok(atlasAssets.some((entry) => entry.nativeWidth >= 1400 && entry.roles.includes("landingPlatform")), "very long Atlas 004 platforms should be eligible for horizontal traversal");
     assert.ok(atlasAssets.every((entry) => entry.roles.includes("recoveryPlatform")), "all Atlas 004 platforms should be available to layered recovery floors");
+    assert.equal(atlasAssets.filter((entry) => entry.roles.includes("runAndGunGround")).length, 1, "only the thick blockable Atlas 004 platform should form the overlap-safe run-and-gun ground family");
+    assert.equal(atlasAssets.find((entry) => entry.assetId === "earth_long_platform_r1_a")?.roles.includes("runAndGunGround"), true, "the thick blockable Atlas 004 platform should be available to the continuous run-and-gun ground path");
+    assert.equal(atlasAssets.find((entry) => entry.assetId === "earth_long_platform_r1_a")?.collisionMode, "blockable", "the run-and-gun ground platform should carry blockable collision metadata");
+    assert.ok(atlasAssets.filter((entry) => entry.assetId !== "earth_long_platform_r1_a").every((entry) => entry.collisionMode === "oneWay" && !entry.roles.includes("runAndGunGround")), "thin green Atlas 004 platforms should remain one-way and must not enter the overlapping ground family");
 
     const enemyGenerationCatalog = normalizeEnemyGenerationCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-enemies.json", import.meta.url), "utf8")));
     const rewardGenerationCatalog = normalizeRewardGenerationCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-rewards.json", import.meta.url), "utf8")));
@@ -4289,13 +4295,30 @@ function testAutomaticLevelGeneratorRouteFoundation() {
     assert.equal(iceTheme.themeId, "ice-cavern", "Ice Cavern should remain a data-driven generator theme");
     assert.deepEqual(iceTheme.colorMap.atlasIds, ["at_atlas_001", "at_atlas_002", "at_atlas_003", "at_atlas_004"], "Ice Cavern should recolour only environment atlases");
     assert.ok(!iceTheme.colorMap.atlasIds.includes("it_atlas_001"), "Ice Cavern must not recolour doors, chests, mailboxes, or power-up icons");
-    assert.ok(LEVEL_GENERATOR_REGISTRIES.route.some((entry) => entry.id === "the-path74-route-v4"), "ThePath74 should be registered by stable ID");
-    assert.ok(LEVEL_GENERATOR_REGISTRIES.traversal.some((entry) => entry.id === "layered-safety-network-traversal-v6"), "the layered safety-network traversal should be registered by stable ID");
-    assert.ok(LEVEL_GENERATOR_REGISTRIES.traversal.some((entry) => entry.id === "longform-organic-traversal-v5"), "the previous longform organic traversal should remain registered as a legacy ID");
-    assert.ok(LEVEL_GENERATOR_REGISTRIES.traversal.some((entry) => entry.id === "organic-layered-traversal-v4"), "the previous organic layered traversal should remain registered as a legacy ID");
-    assert.ok(LEVEL_GENERATOR_REGISTRIES.traversal.some((entry) => entry.id === "layered-recovery-traversal-v3"), "the previous layered recovery traversal should remain registered as a legacy ID");
-    assert.ok(LEVEL_GENERATOR_REGISTRIES.traversal.some((entry) => entry.id === "spaced-platform-traversal-v2"), "the previous spaced-platform traversal should remain registered as a legacy ID");
-    assert.ok(LEVEL_GENERATOR_REGISTRIES.route.some((entry) => entry.id === "progression-route-v1"), "the legacy route implementation should remain registered by stable ID");
+    assert.deepEqual(LEVEL_GENERATOR_REGISTRIES.route, [
+        { id: "the-path74-route-v4", label: "Standard" },
+        { id: "mostly-horizontal-route-v1", label: "Mostly horizontal" }
+    ], "the route selector should expose only the current standard and compatible mostly-horizontal planners");
+    assert.deepEqual(LEVEL_GENERATOR_REGISTRIES.cavern, [
+        { id: "the-path74-contour-cavern-v4", label: "Standard" },
+        { id: "wide-upper-contour-cavern-v1", label: "Wide, upward-expanding" }
+    ], "the cavern selector should expose only the current standard and wide upward variants");
+    for (const stage of ["traversal", "endpoints", "encounters", "rewards", "decoration", "validation"]) {
+        assert.equal(LEVEL_GENERATOR_REGISTRIES[stage].length, 1, `${stage} should expose only its current compatible implementation`);
+        assert.equal(LEVEL_GENERATOR_REGISTRIES[stage][0].label, "Standard", `${stage} should use a simple Standard label`);
+    }
+    const migratedLegacy = normalizeGeneratorImplementations({
+        route: "progression-route-v1",
+        cavern: "ellipse-cavern-v1",
+        traversal: "spaced-platform-traversal-v2",
+        endpoints: "safe-endpoints-v1",
+        validation: "playable-empty-cavern-validation-v1"
+    });
+    assert.equal(migratedLegacy.route, "mostly-horizontal-route-v1", "old progression-route records should migrate to the new compatible horizontal planner");
+    assert.equal(migratedLegacy.cavern, "the-path74-contour-cavern-v4", "old cavern IDs should migrate to the current standard contour builder");
+    assert.equal(migratedLegacy.traversal, "layered-safety-network-traversal-v6", "old traversal IDs should migrate to the current standard traversal");
+    assert.equal(migratedLegacy.endpoints, "grounded-chamber-endpoints-v2", "old endpoint IDs should migrate to grounded standard endpoints");
+    assert.equal(migratedLegacy.validation, "the-path74-cavern-validation-v4", "old validation IDs should migrate to the current standard validator");
 
     const firstStream = createNamedRandomStream("seed-17", "route", 3);
     const secondStream = createNamedRandomStream("seed-17", "route", 3);
@@ -4376,6 +4399,118 @@ function testAutomaticLevelGeneratorRouteFoundation() {
     assert.ok(editorHtml.includes("drawAutomaticRouteOverlay"), "Level Editor should draw the progression route and direction overlay");
     assert.ok(editorHtml.includes("undoAutomaticGeneration") && editorHtml.includes("redoAutomaticGeneration"), "generation should be one guarded undoable operation");
     assert.ok(editorHtml.includes("automaticGeneratedRecord") && editorHtml.includes("manual content and the previous level shell were preserved"), "clear-generated behavior should distinguish generated records from manual content");
+}
+
+function testAutomaticLevelGeneratorVariantCompatibility() {
+    const rawThemes = ["earth-cavern", "ice-cavern"].map((themeId) =>
+        JSON.parse(readFileSync(new URL(`../assets/level-generator-themes/${themeId}.json`, import.meta.url), "utf8"))
+    );
+    const themes = rawThemes.map(normalizeGeneratorTheme);
+    const assetCatalog = normalizeGenerationAssetCatalog(JSON.parse(readFileSync(new URL("../assets/level-generator-platforms.json", import.meta.url), "utf8")));
+    const routeIds = ["the-path74-route-v4", "mostly-horizontal-route-v1"];
+    const cavernIds = ["the-path74-contour-cavern-v4", "wide-upper-contour-cavern-v1"];
+    const lengths = ["standard", "grand"];
+    const draftsByVariant = new Map();
+
+    const runAndGunAssets = assetCatalog.assets.filter((asset) => asset.roles.includes("runAndGunGround"));
+    assert.equal(runAndGunAssets.length, 1, "the overlap-safe run-and-gun ground family should contain only the thick blockable Atlas 004 platform");
+    assert.ok(runAndGunAssets.every((asset) => asset.atlasId === "at_atlas_004" && asset.assetId === "earth_long_platform_r1_a" && asset.collisionMode === "blockable"), "run-and-gun ground should use the solid blockable Atlas 004 platform");
+
+    for (const theme of themes) {
+        for (const length of lengths) {
+            for (const routeId of routeIds) {
+                for (const cavernId of cavernIds) {
+                    const draft = generateAutomaticLevelDraft({
+                        theme,
+                        assetCatalog,
+                        seed: `variant-contract-${theme.themeId}-${length}-${routeId}`,
+                        settings: {
+                            ...theme.defaults,
+                            length,
+                            verticality: 0.72,
+                            winding: 0.55,
+                            branching: 0.45,
+                            enemyDensity: 0,
+                            rewardDensity: 0
+                        },
+                        implementations: {
+                            ...theme.implementations,
+                            route: routeId,
+                            cavern: cavernId,
+                            encounters: "not-generated-yet",
+                            rewards: "not-generated-yet",
+                            decoration: "suppressed-by-theme"
+                        },
+                        availableEnemyIds: []
+                    });
+                    const key = `${theme.themeId}:${length}:${routeId}:${cavernId}`;
+                    draftsByVariant.set(key, draft);
+                    assert.equal(draft.generation.validation.valid, true, `${key} should be a compatible, fully validated generator combination`);
+                    assert.equal(draft.generation.route.generatorId, routeId, `${key} should preserve the selected route implementation`);
+                    assert.equal(draft.generation.cavern.generatorId, cavernId, `${key} should preserve the selected cavern implementation`);
+
+                    if (routeId === "mostly-horizontal-route-v1") {
+                        const routeMetrics = draft.generation.route.validation.metrics;
+                        const traversalMetrics = draft.generation.validation.metrics;
+                        const verticalSegments = draft.generation.route.macro.segments.filter((segment) => segment.direction === "up" || segment.direction === "down");
+                        const maximumVerticalSegments = length === "grand" ? 4 : 3;
+                        assert.ok(verticalSegments.length >= 1 && verticalSegments.length <= maximumVerticalSegments, `${key} should interrupt the ground run only occasionally`);
+                        assert.ok(verticalSegments.every((segment) => segment.length === 1 || segment.length === 2), `${key} should use only one- or two-cell vertical adjustments`);
+                        assert.equal(routeMetrics.backtrackEdges, 0, `${key} should advance steadily to the right`);
+                        assert.ok(routeMetrics.horizontalTravel >= routeMetrics.verticalTravel * 5, `${key} should remain strongly horizontally oriented`);
+                        assert.equal(traversalMetrics.horizontalJumpGapCount, 0, `${key} should not turn the main ground path into a jumping puzzle`);
+                        assert.equal(traversalMetrics.recoveryLaneCount, 0, `${key} should not build a redundant lower recovery route beneath an already continuous ground path`);
+                        const groundSupports = draft.generation.traversal.supports.filter((support) => support.role === "runAndGunGround");
+                        assert.ok(groundSupports.length >= 8, `${key} should materialize a substantial continuous lower path`);
+                        assert.ok(groundSupports.every((support) => support.atlasId === "at_atlas_004" && support.assetId === "earth_long_platform_r1_a" && support.collisionMode === "blockable"), `${key} should use only overlap-safe solid ground platforms`);
+                        const groundTransitions = draft.generation.traversal.transitions.filter((transition) => transition.spacingStyle === "runAndGunGround");
+                        assert.ok(groundTransitions.length >= 4 && groundTransitions.every((transition) => transition.gap === 0), `${key} should overlap neighbouring solid platforms instead of placing same-height platforms edge to edge`);
+                        assert.equal(traversalMetrics.oneWayPlatformOverlapCount, 0, `${key} should never overlap a thin green one-way platform with another generated platform`);
+                        const oneWaySupports = draft.generation.traversal.supports.filter((support) => support.collisionMode === "oneWay");
+                        for (const oneWay of oneWaySupports) {
+                            const oneWayTop = oneWay.surfaceY - oneWay.height * oneWay.surfaceYRatio;
+                            const oneWayBottom = oneWayTop + oneWay.height;
+                            for (const other of draft.generation.traversal.supports) {
+                                if (other.id === oneWay.id) continue;
+                                const overlapX = Math.min(oneWay.centerX + oneWay.width * 0.5, other.centerX + other.width * 0.5)
+                                    - Math.max(oneWay.centerX - oneWay.width * 0.5, other.centerX - other.width * 0.5);
+                                const otherTop = other.surfaceY - other.height * other.surfaceYRatio;
+                                const otherBottom = otherTop + other.height;
+                                const overlapY = Math.min(oneWayBottom, otherBottom) - Math.max(oneWayTop, otherTop);
+                                assert.ok(overlapX <= 1 || overlapY <= 1, `${key} should keep one-way platform ${oneWay.id} visually separate from ${other.id}`);
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (const routeId of routeIds) {
+                const standard = draftsByVariant.get(`${theme.themeId}:${length}:${routeId}:the-path74-contour-cavern-v4`);
+                const wide = draftsByVariant.get(`${theme.themeId}:${length}:${routeId}:wide-upper-contour-cavern-v1`);
+                const mean = (values) => values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length);
+                const averageRoomWidth = (draft) => mean(draft.generation.cavern.rooms.map((room) => room.widthScreens));
+                const averageRoomHeight = (draft) => mean(draft.generation.cavern.rooms.map((room) => room.heightScreens));
+                assert.ok(wide.generation.cavern.rooms.length >= standard.generation.cavern.rooms.length + 2, `${theme.themeId} ${length} ${routeId} wide caverns should add several extra rooms`);
+                assert.ok(wide.generation.cavern.rooms.filter((room) => room.auxiliary).length >= 2, `${theme.themeId} ${length} ${routeId} wide caverns should include auxiliary upward room stamps`);
+                assert.ok(averageRoomWidth(wide) > averageRoomWidth(standard), `${theme.themeId} ${length} ${routeId} wide caverns should have broader rooms`);
+                assert.ok(averageRoomHeight(wide) < averageRoomHeight(standard), `${theme.themeId} ${length} ${routeId} wide caverns should have shallower rooms`);
+                assert.ok(wide.generation.validation.metrics.secondaryPlatformCount >= 1, `${theme.themeId} ${length} ${routeId} wide caverns should retain raised combat or reward platforms inside the enlarged rooms`);
+                assert.ok(wide.generation.validation.metrics.presentation.minimumPlatformFloorClearance >= theme.cavern.platformFloorClearance - 42, `${theme.themeId} ${length} ${routeId} wide caverns should preserve a stable near-ground lower boundary`);
+                for (const room of wide.generation.cavern.rooms) {
+                    const routeRoom = wide.generation.route.macro.rooms.find((candidate) => candidate.id === room.id);
+                    if (!routeRoom) continue;
+                    const belowRoute = room.y + room.ry - routeRoom.centerY;
+                    const aboveRoute = routeRoom.centerY - (room.y - room.ry);
+                    assert.ok(aboveRoute > belowRoute * 1.6, `${theme.themeId} ${length} ${routeId} wide rooms should expand primarily upward`);
+                }
+            }
+        }
+    }
+
+    const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
+    assert.ok(editorHtml.includes("Generator variants") && editorHtml.includes('data-generator-stage="route"') && editorHtml.includes('data-generator-stage="cavern"'), "the editor should expose only meaningful route and cavern variants");
+    assert.equal(editorHtml.includes('data-generator-stage="traversal"'), false, "single-choice implementation stages should not clutter the generator panel");
+    assert.ok(editorHtml.includes("Mostly horizontal") && editorHtml.includes("run-and-gun"), "the generator panel should explain the continuous horizontal combat-path option");
 }
 
 function testAutomaticLevelGeneratorPlayableEmptyCavern() {
@@ -4469,7 +4604,7 @@ function testAutomaticLevelGeneratorPlayableEmptyCavern() {
     assert.ok(editorHtml.includes("generateAutomaticLevelDraft") && editorHtml.includes("level-generator-platforms.json"), "Level Editor should load the generation catalog and create complete cavern drafts");
     assert.ok(editorHtml.includes("replacedLevelShell") && editorHtml.includes("previous level shell were preserved"), "generated-shell replacement should remain reversible without consuming manual content");
     assert.ok(editorHtml.includes("Playable rewarded cavern valid"), "Level Editor should report combined route, traversal, endpoint, encounter, reward, cave, and world validation");
-    assert.ok(editorHtml.includes("Materialized treasure detour") && editorHtml.includes("Generator 9"), "the editor should distinguish reserved branches from materialized treasure detours");
+    assert.ok(editorHtml.includes("materialized of") && editorHtml.includes("optional branch"), "the editor should distinguish reserved branches from materialized treasure detours");
 }
 
 function testAutomaticLevelGeneratorEncounters() {
@@ -4573,7 +4708,7 @@ function testAutomaticLevelGeneratorEncounters() {
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     const generatorSource = readFileSync(new URL("../src/shared/level-generator-data.js", import.meta.url), "utf8");
-    assert.ok(editorHtml.includes("level-generator-enemies.json") && editorHtml.includes('data-generator-stage="encounters"') && generatorSource.includes("difficulty-budgeted-encounters-v1"), "Level Editor should load the versioned enemy-generation catalog and selected encounter implementation");
+    assert.ok(editorHtml.includes("level-generator-enemies.json") && editorHtml.includes("current compatible Standard implementations") && generatorSource.includes("difficulty-budgeted-encounters-v1"), "Level Editor should load the versioned enemy-generation catalog while keeping encounters on the current Standard implementation");
     assert.ok(editorHtml.includes("buildPlacedHunterNavigationGraphs({ silent: true"), "generation should refresh navigation graphs after placing hunter enemies");
     assert.ok(editorHtml.includes("navigationGraphs") && editorHtml.includes("replacedLevelShell"), "generation undo and clear should preserve the previous navigation graph shell");
 }
@@ -4715,7 +4850,7 @@ function testAutomaticLevelGeneratorRewards() {
 
     const editorHtml = readFileSync(new URL("../level-editor.html", import.meta.url), "utf8");
     assert.ok(editorHtml.includes("level-generator-rewards.json") && editorHtml.includes('id="generator-allow-thoughts"'), "Level Editor should load reward metadata and expose explicit narrative opt-in");
-    assert.ok(editorHtml.includes("Materialized treasure detour") && editorHtml.includes("previewOnlyMergeEdgeIds"), "route preview should distinguish real treasure paths from abstract merge hints");
+    assert.ok(editorHtml.includes("materialized of") && editorHtml.includes("previewOnlyMergeEdgeIds"), "route preview should distinguish real treasure paths from abstract merge hints");
 }
 
 
@@ -5117,6 +5252,41 @@ function testCaveWindowSplineAuthoring() {
     const roundedInsideFractions = new Set(primaryRows.map((placement) => placement.caveInsideFraction.toFixed(4)));
     assert.ok(roundedInsideFractions.size > 1, "primary perimeter inward depth should vary deterministically from asset to asset");
     assert.ok(caveDecorationStep("floor", 180, 250) < 180, "horizontal decoration spacing should overlap smaller assets rather than leave gaps");
+    const curvedCoverageCave = {
+        points: [
+            { id: "ca", x: 0, y: 320, mode: "smooth" },
+            { id: "cb", x: 120, y: 90, mode: "smooth" },
+            { id: "cc", x: 300, y: 20, mode: "smooth" },
+            { id: "cd", x: 520, y: 90, mode: "smooth" },
+            { id: "ce", x: 650, y: 330, mode: "smooth" },
+            { id: "cf", x: 620, y: 520, mode: "smooth" },
+            { id: "cg", x: 320, y: 620, mode: "smooth" },
+            { id: "ch", x: 20, y: 520, mode: "smooth" }
+        ],
+        feather: 180,
+        decoration
+    };
+    const curvedCoverage = generateCavePerimeterPlacements({ caveWindow: curvedCoverageCave, catalog: decorationCatalog, decoration });
+    const curvedOutset = sampleCaveWindowOutset(curvedCoverageCave.points, curvedCoverageCave.feather, 40)
+        .filter((point) => point.y < 220);
+    const rotatedPlacementBounds = (placement) => {
+        const cosine = Math.abs(Math.cos(placement.rotation || 0));
+        const sine = Math.abs(Math.sin(placement.rotation || 0));
+        const centerX = placement.x + placement.w * 0.5;
+        const centerY = placement.y + placement.h * 0.5;
+        const extentX = cosine * placement.w * 0.5 + sine * placement.h * 0.5;
+        const extentY = sine * placement.w * 0.5 + cosine * placement.h * 0.5;
+        return {
+            minX: centerX - extentX,
+            maxX: centerX + extentX,
+            minY: centerY - extentY,
+            maxY: centerY + extentY
+        };
+    };
+    assert.ok(curvedOutset.every((point) => curvedCoverage.some((placement) => {
+        const bounds = rotatedPlacementBounds(placement);
+        return point.x >= bounds.minX && point.x <= bounds.maxX && point.y >= bounds.minY && point.y <= bounds.maxY;
+    })), "dense perimeter coverage should hide the full-black guide even along smooth curved ceilings");
     for (const placement of generatedDecor) {
         assert.equal(placement.layer, CAVE_FOREGROUND_LAYER, "generated perimeter art should use the dedicated foreground layer");
         assert.equal(placement.collisionFromManifest, false, "generated perimeter art should always disable atlas collision");
@@ -8591,6 +8761,8 @@ function testGameSettingsSchemaPersistenceAndMenuShell() {
     assert.match(bootstrapSource, /function resizeMinimapToLevel\(bounds = minimapBounds\(\)\)/, "the minimap should derive its horizontal size from the current level bounds");
     assert.match(bootstrapSource, /panelHeight - inset \* 2[\s\S]*drawableHeight \* worldWidth \/ worldHeight/, "the minimap width should tightly preserve the level aspect ratio at the shared panel height");
     assert.match(bootstrapSource, /function drawMinimap\(force = false\)/, "the browser bootstrap should render the current level and player into the minimap");
+    assert.doesNotMatch(bootstrapSource, /CLICK FOR MENU/, "the minimap should no longer render the click-for-menu caption");
+    assert.doesNotMatch(bootstrapSource, /rgba\(214,188,121,0\.76\)/, "the minimap should no longer draw internal yellow world-geometry guides");
     assert.match(bootstrapSource, /gameMenuExitTitleButton\.textContent = "Exit to Title"/, "the menu should expose an in-game Exit to Title action");
     assert.doesNotMatch(bootstrapSource, /window\.location\.href = "index\.html"/, "game menu actions should not navigate to the browser landing page");
     assert.match(bootstrapSource, /electronWindowBridge\.quit/, "Electron-only exit should call the narrow preload bridge");
@@ -8817,6 +8989,7 @@ const tests = [
     ["selective level colour map", testSelectiveLevelColorMap],
     ["Atlas 004 long platforms and collision manifest", testLongPlatformAtlas004ManifestAndGeneration],
     ["automatic level generator route foundation", testAutomaticLevelGeneratorRouteFoundation],
+    ["automatic level generator variant compatibility", testAutomaticLevelGeneratorVariantCompatibility],
     ["automatic level generator playable empty cavern", testAutomaticLevelGeneratorPlayableEmptyCavern],
     ["automatic level generator encounters", testAutomaticLevelGeneratorEncounters],
     ["automatic level generator rewards and branch detours", testAutomaticLevelGeneratorRewards],

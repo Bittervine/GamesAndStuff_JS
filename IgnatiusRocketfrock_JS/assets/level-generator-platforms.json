@@ -172,7 +172,8 @@
         "bridge",
         "recoveryPlatform",
         "landingPlatform",
-        "routeFloor"
+        "routeFloor",
+        "runAndGunGround"
       ],
       "weight": 7,
       "nativeWidth": 1897,
@@ -182,7 +183,8 @@
       "scaleMax": 1.05,
       "mirror": true,
       "walkableLeftInsetRatio": 0.003163,
-      "walkableRightInsetRatio": 0.00738
+      "walkableRightInsetRatio": 0.00738,
+      "collisionMode": "blockable"
     },
     {
       "atlasId": "at_atlas_004",
@@ -201,7 +203,8 @@
       "scaleMax": 1.05,
       "mirror": true,
       "walkableLeftInsetRatio": 0.0029,
-      "walkableRightInsetRatio": 0.006381
+      "walkableRightInsetRatio": 0.006381,
+      "collisionMode": "oneWay"
     },
     {
       "atlasId": "at_atlas_004",
@@ -218,7 +221,8 @@
       "scaleMax": 1.32,
       "mirror": true,
       "walkableLeftInsetRatio": 0.025253,
-      "walkableRightInsetRatio": 0.035354
+      "walkableRightInsetRatio": 0.035354,
+      "collisionMode": "oneWay"
     },
     {
       "atlasId": "at_atlas_004",
@@ -237,7 +241,8 @@
       "scaleMax": 1.05,
       "mirror": true,
       "walkableLeftInsetRatio": 0.003349,
-      "walkableRightInsetRatio": 0.007368
+      "walkableRightInsetRatio": 0.007368,
+      "collisionMode": "oneWay"
     },
     {
       "atlasId": "at_atlas_004",
@@ -256,7 +261,8 @@
       "scaleMax": 1.28,
       "mirror": true,
       "walkableLeftInsetRatio": 0.013699,
-      "walkableRightInsetRatio": 0.016438
+      "walkableRightInsetRatio": 0.016438,
+      "collisionMode": "oneWay"
     },
     {
       "atlasId": "at_atlas_004",
@@ -275,7 +281,8 @@
       "scaleMax": 1.12,
       "mirror": true,
       "walkableLeftInsetRatio": 0.004598,
-      "walkableRightInsetRatio": 0.005364
+      "walkableRightInsetRatio": 0.005364,
+      "collisionMode": "oneWay"
     },
     {
       "atlasId": "at_atlas_004",
@@ -292,7 +299,8 @@
       "scaleMax": 1.32,
       "mirror": true,
       "walkableLeftInsetRatio": 0.022523,
-      "walkableRightInsetRatio": 0.031532
+      "walkableRightInsetRatio": 0.031532,
+      "collisionMode": "oneWay"
     },
     {
       "atlasId": "at_atlas_004",
@@ -309,7 +317,8 @@
       "scaleMax": 1.32,
       "mirror": true,
       "walkableLeftInsetRatio": 0.027273,
-      "walkableRightInsetRatio": 0.027273
+      "walkableRightInsetRatio": 0.027273,
+      "collisionMode": "oneWay"
     },
     {
       "atlasId": "at_atlas_004",
@@ -328,7 +337,8 @@
       "scaleMax": 1.12,
       "mirror": true,
       "walkableLeftInsetRatio": 0.004468,
-      "walkableRightInsetRatio": 0.012511
+      "walkableRightInsetRatio": 0.012511,
+      "collisionMode": "oneWay"
     },
     {
       "atlasId": "at_atlas_004",
@@ -347,7 +357,8 @@
       "scaleMax": 1.22,
       "mirror": true,
       "walkableLeftInsetRatio": 0.009597,
-      "walkableRightInsetRatio": 0.011516
+      "walkableRightInsetRatio": 0.011516,
+      "collisionMode": "oneWay"
     },
     {
       "atlasId": "at_atlas_004",
@@ -366,7 +377,8 @@
       "scaleMax": 1.12,
       "mirror": true,
       "walkableLeftInsetRatio": 0.00528,
-      "walkableRightInsetRatio": 0.013728
+      "walkableRightInsetRatio": 0.013728,
+      "collisionMode": "oneWay"
     },
     {
       "atlasId": "at_atlas_004",
@@ -385,7 +397,8 @@
       "scaleMax": 1.28,
       "mirror": true,
       "walkableLeftInsetRatio": 0.011161,
-      "walkableRightInsetRatio": 0.013393
+      "walkableRightInsetRatio": 0.013393,
+      "collisionMode": "oneWay"
     },
     {
       "atlasId": "at_atlas_004",
@@ -403,7 +416,8 @@
       "scaleMax": 1.32,
       "mirror": true,
       "walkableLeftInsetRatio": 0.021127,
-      "walkableRightInsetRatio": 0.021127
+      "walkableRightInsetRatio": 0.021127,
+      "collisionMode": "oneWay"
     },
     {
       "atlasId": "at_atlas_004",
@@ -422,7 +436,8 @@
       "scaleMax": 1.22,
       "mirror": true,
       "walkableLeftInsetRatio": 0.008097,
-      "walkableRightInsetRatio": 0.013495
+      "walkableRightInsetRatio": 0.013495,
+      "collisionMode": "oneWay"
     },
     {
       "atlasId": "at_atlas_004",
@@ -441,7 +456,8 @@
       "scaleMax": 1.22,
       "mirror": true,
       "walkableLeftInsetRatio": 0.008418,
-      "walkableRightInsetRatio": 0.015152
+      "walkableRightInsetRatio": 0.015152,
+      "collisionMode": "oneWay"
     },
     {
       "atlasId": "at_atlas_004",
@@ -460,7 +476,8 @@
       "scaleMax": 1.28,
       "mirror": true,
       "walkableLeftInsetRatio": 0.010684,
-      "walkableRightInsetRatio": 0.014957
+      "walkableRightInsetRatio": 0.014957,
+      "collisionMode": "oneWay"
     }
   ]
 }

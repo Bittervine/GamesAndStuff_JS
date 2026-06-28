@@ -604,7 +604,7 @@
 
         <div class="box" data-panel-key="automatic-level-generator">
             <h2>Automatic Level Generator</h2>
-            <p class="small">Generator 9 uses the locked ThePath74 route: protected cardinal segments on an unbounded cell grid, with horizontal walks of 1–7 cells, vertical walks of 1–4 cells, a forced-right final approach, and a one-cell diagonal safety margin against older route sections. It adds two to four ellipse rooms with 2–4-cell semi-axes, then treats that route only as a loose spatial guide. Horizontal legs are packed with as few broad Atlas 004 landings as the available span permits; every neighbouring landing changes height, every jump gap owns a lower recovery platform with a validated backtracking return, and long main landings may receive smaller upper reward perches. Every mandatory climb and drop uses the reserved thin automatic vertical-platform style instead of a static staircase. The occupancy contour wraps the finished traversal and grounded endpoint chambers; automatic cave foreground uses only stalactites and stalagmites and must still leave doors, platforms, recovery geometry, secondary perches, and lift shafts readable.</p>
+            <p class="small">The Standard route creates a folded ThePath74 cavern with broad upper traversal, a nearly continuous lower recovery path, and occasional upper reward or combat perches. The Mostly horizontal route is a run-and-gun alternative: it advances steadily to the right, uses only occasional one- or two-cell height changes, and overlaps only solid blockable platforms into an easy ground path with no ordinary jump gaps. Thin green one-way platforms stay separate and are reserved for raised combat or reward positions. Both cavern variants build smooth occupancy contours from ellipse rooms around the finished traversal. The Standard cavern uses balanced rooms; the Wide, upward-expanding cavern adds more and larger broad rooms whose ceilings grow upward while the lower boundary stays close to the ground path, leaving space for several raised combat platforms. All other generator stages use one compatible Standard implementation. Automatic cave foreground remains presentation-only and must leave doors, platforms, rewards, and lift shafts readable.</p>
             <label>Theme<select id="generator-theme"></select></label>
             <div class="row">
                 <label>Seed<input id="generator-seed" value="rocketfrock"></label>
@@ -631,15 +631,10 @@
             <label>Allowed enemies<input id="generator-enemy-filter" value="1-999" placeholder="1-999,!2,!4"></label>
             <p id="generator-enemy-preview" class="small generator-enemies">Enemy catalog not loaded yet.</p>
             <details class="generator-advanced">
-                <summary>Advanced implementations</summary>
+                <summary>Generator variants</summary>
                 <label>Route<select id="generator-impl-route" data-generator-stage="route"></select></label>
                 <label>Cavern<select id="generator-impl-cavern" data-generator-stage="cavern"></select></label>
-                <label>Traversal<select id="generator-impl-traversal" data-generator-stage="traversal"></select></label>
-                <label>Endpoints<select id="generator-impl-endpoints" data-generator-stage="endpoints"></select></label>
-                <label>Encounters<select id="generator-impl-encounters" data-generator-stage="encounters"></select></label>
-                <label>Rewards<select id="generator-impl-rewards" data-generator-stage="rewards"></select></label>
-                <label>Decoration<select id="generator-impl-decoration" data-generator-stage="decoration"></select></label>
-                <label>Validation<select id="generator-impl-validation" data-generator-stage="validation"></select></label>
+                <p class="small">Traversal, endpoints, encounters, rewards, decoration, and validation use the current compatible Standard implementations.</p>
             </details>
             <button id="generator-generate" class="generator-primary" type="button">Generate cavern + encounters + rewards</button>
             <div class="generator-stage-tools">

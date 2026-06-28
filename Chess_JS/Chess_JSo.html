@@ -529,6 +529,10 @@
             }
         }
 
+        function enginePawnScoreForWhite(score) {
+            return score;
+        }
+
         function finishEngineTurn(bestMove, bestScore, reachedDepth, startMs) {
             if (!bestMove) {
                 engine.thinking = false;
@@ -545,7 +549,8 @@
             if (infoLabel) infoLabel.style.display = '';
             if (infoText) {
                 var usedSec = (Date.now() - startMs) / 1000;
-                infoText.textContent = (bestScore >= 0 ? '+' : '') + bestScore.toFixed(1) +
+                var displayScore = enginePawnScoreForWhite(bestScore);
+                infoText.textContent = (displayScore >= 0 ? '+' : '') + displayScore.toFixed(1) +
                     ' for depth ' + reachedDepth + ' after ' + usedSec.toFixed(1) + ' s';
             }
 

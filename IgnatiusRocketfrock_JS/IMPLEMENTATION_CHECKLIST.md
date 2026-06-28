@@ -2445,3 +2445,49 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Retain closed blockable collision only on `earth_long_platform_r1_a`.
 - [x] Convert the other fifteen Atlas 004 objects to one horizontal `walkable` edge each.
 - [x] Extend headless regressions for 20-degree snapping, aspect-fit minimap sizing, mirrored endpoints, and mixed Atlas 004 collision.
+
+## Revision 253 smoothed contour perimeter coverage
+
+- [x] Simplify traced occupancy contours more aggressively before exposing them as cave-window control points.
+- [x] Serialize traced automatic cave perimeters as smooth editable points instead of raw corner-only stair steps.
+- [x] Keep folded multi-interval cavern shapes while removing most grid-step artifacts from the visible perimeter.
+- [x] Increase tangential overlap density for automatic stalactite/stalagmite perimeter decoration.
+- [x] Add regressions for smoothed contour-point output and curved full-black coverage.
+
+## Revision 254 contour smoothing and simplified minimap
+
+- [x] Heavily simplify traced automatic cave contours before serializing the editable perimeter.
+- [x] Shorten smooth-spline handles automatically around sharp turns to reduce loopback risk in the full-black outset.
+- [x] Remove the minimap's click-for-menu caption.
+- [x] Remove the minimap's internal yellow world-geometry lines and blocks.
+- [x] Extend regressions for heavier contour simplification and the simplified minimap rendering contract.
+
+## Revision 255 compatible generator variants and run-and-gun ground paths
+
+- [x] Remove retired route, cavern, traversal, endpoint, encounter, reward, decoration, and validation choices from the editor-facing registries.
+- [x] Rename every single current implementation to `Standard`.
+- [x] Keep only `Standard` and `Mostly horizontal` as selectable route variants.
+- [x] Keep only `Standard` and `Wide, upward-expanding` as selectable cavern variants.
+- [x] Migrate old saved implementation IDs to compatible current IDs without re-exposing them in the UI.
+- [x] Add a monotonic mostly-horizontal route planner with long rightward runs and only occasional one- or two-cell vertical changes.
+- [x] Realize horizontal run-and-gun legs with overlapping solid blockable Atlas 004 platforms and zero ordinary jump gaps.
+- [x] Reserve the fifteen thin one-way Atlas 004 platforms from the overlapping run-and-gun ground family.
+- [x] Make the Standard lower recovery route continuous by filling wide lower gaps with overlapping bridge platforms.
+- [x] Add a wide cavern variant with broader, shallower ellipse rooms whose extra volume expands predominantly upward.
+- [x] Keep the wide cavern floor boundary within the normal platform-clearance tolerance.
+- [x] Simplify the Level Editor variant panel to Route and Cavern only.
+- [x] Add compatibility, migration, continuous-ground, room-proportion, and upward-expansion regressions.
+- [x] Pass a 96-draft Earth/Ice matrix across both routes, both caverns, all four lengths, and three deterministic seeds.
+
+## Revision 256 collision-aware platform placement and wider upper rooms
+
+- [x] Add normalized `blockable` versus `oneWay` collision metadata to generation assets and supports.
+- [x] Make the thick blockable Atlas 004 platform the only overlapping run-and-gun ground asset.
+- [x] Remove all fifteen thin green one-way Atlas 004 platforms from the overlapping ground role.
+- [x] Require blockable assets for overlapping Standard lower-route bridge construction.
+- [x] Reject any generated platform pair where a one-way platform overlaps another platform body in both X and Y.
+- [x] Keep intentional blockable lower-ground overlap exempt from vertical-sandwich validation.
+- [x] Add two to four broad auxiliary upper-room ellipses to every Wide, upward-expanding cavern.
+- [x] Keep auxiliary room bottoms near the ground while expanding most room volume upward.
+- [x] Update editor guidance and generator regressions for collision-aware overlap and enlarged wide caverns.
+- [x] Pass the 133-test fast suite, all nine generator regressions, and a 96-draft route/cavern compatibility matrix.
