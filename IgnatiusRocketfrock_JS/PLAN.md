@@ -2197,7 +2197,7 @@ Initial themes:
 * **Earth Cavern:** existing environment assets and ordinary colour treatment.
 * **Ice Cavern:** the same initial generator implementations and asset families, with environment-atlas colour-map rotation producing a blue/icy treatment.
 
-Both initial themes use the same Random Route Planner, Overlapping Ellipse Cavern Builder, Forgiving Traversal Builder, Basic Encounter Populator, and Basic Reward/Prop Populator. Creating both immediately verifies that themes are genuine data rather than a hardcoded Earth mode.
+Both initial themes use the same ThePath74 protected orthogonal route planner, spaced-platform traversal builder, grounded endpoint placer, ellipse-room occupancy-contour cavern builder, encounter populator, reward populator, and protected perimeter decorator. Creating both immediately verifies that themes are genuine data rather than a hardcoded Earth mode.
 
 The Ice theme should colour-map only whitelisted environment atlases. Interactive/story artwork such as doors, mailboxes, chests, and power-up icons must not be recoloured merely because it shares a level.
 
@@ -2205,71 +2205,69 @@ Selecting a theme populates the panel's controls. Editing a control produces a c
 
 ## Generator pipeline and vocabulary
 
-Use registered implementation IDs so each step can later gain alternatives without changing the theme schema:
+Use registered implementation IDs so each step can later gain alternatives without changing the theme schema. The build order must match the actual dependency graph rather than the old presentation-only list:
 
-1. **Route Planner**: creates the abstract intended navigation graph.
-2. **Cavern Envelope Builder**: creates the visible cave opening and world envelope.
-3. **Traversal Builder**: places collision-bearing floors, ledges, and platforms that realize the route.
-4. **Endpoint Placer**: places safe entrance and exit chambers plus their doors.
-5. **Encounter Populator**: places monsters in locomotion-appropriate encounter regions.
-6. **Reward and Prop Populator**: places chests, power-ups, and later other non-hostile entities.
-7. **Cave Decorator**: applies deterministic perimeter and environmental decoration.
-8. **Level Validator**: checks schema, geometry, traversal, population, and endpoint safety.
+1. **Route Planner**: generates ThePath74 on an unbounded integer cell grid. It begins at the origin facing right, requests horizontal legs of 1–7 cells and vertical legs of 1–4 cells, turns left or right without reversing, checks both the next cell and a one-cell look-ahead, preserves an eight-neighbour margin from older non-local route cells, and forces a final rightward approach.
+2. **Room Planner**: numbers the protected route cells, labels its immediate boundary by nearest route index, selects two to four well-separated anchors on the path or labelled boundary, and reserves ellipse rooms with horizontal and vertical semi-axes of 2–4 cells.
+3. **Traversal Builder**: realizes horizontal route legs as separated jump platforms that may rise and fall around the abstract line, and realizes every mandatory vertical route leg with one automatic vertical shuttle platform. Static staircases and shaft zigzags are not used on the current mandatory route.
+4. **Endpoint Placer**: places grounded entrance and exit chambers and their doors on validated supports.
+5. **Cavern Envelope Builder**: combines traversal-clearance stamps with the selected ellipse-room stamps, rasterizes them into an occupancy mask, traces the connected outer contour, simplifies it, and emits ordinary cave-window points.
+6. **Encounter Populator**: places monsters in locomotion-appropriate encounter regions.
+7. **Reward and Prop Populator**: places chests, power-ups, and later other non-hostile entities.
+8. **Cave Decorator**: applies deterministic perimeter and environmental decoration.
+9. **Level Validator**: checks protected cardinal path geometry, leg-length contracts, room ranges, local traversal, population, endpoint safety, contour geometry, and presentation readability.
 
-Initial registered IDs may be:
-
-```text
-random_route_v1
-ellipse_cavern_v1
-forgiving_traversal_v1
-safe_endpoints_v1
-basic_encounters_v1
-basic_rewards_v1
-cave_decorator_v1
-level_validator_v1
-```
+Current registered IDs are `the-path74-route-v4`, `spaced-platform-traversal-v2`, `grounded-chamber-endpoints-v2`, `the-path74-contour-cavern-v4`, `difficulty-budgeted-encounters-v1`, `basic-rewards-v1`, `perimeter-decoration-v1`, and `the-path74-cavern-validation-v4`. The revision-242 spatial-lane and contour IDs remain readable as legacy alternatives.
 
 ## Route Planner
 
-Every generated level begins at a left-side entrance, starts by progressing right, ends at a right-side exit, and approaches that exit from the left. The route between them may move right, left, up, or down.
+The current route algorithm is **ThePath74**. It deliberately avoids a bounded maze and instead grows a protected orthogonal polyline on an unbounded cell grid.
 
-The planner outputs a progression-ordered graph of abstract chambers and connections rather than platform placements. It should support:
+ThePath74 contract:
 
-* A clearly identified mandatory main route.
-* Purely horizontal layouts when selected by the seed and tuning.
-* Winding layouts such as right, down, left, down, right, up, right.
-* Optional branches that may terminate or merge into a later main-route node.
-* Tunable length, verticality, backtracking, branching, branch length, chamber variation, and winding.
-* Route edges annotated with intended traversal classes such as walk, easy jump, double jump, hover, controlled drop, and later moving platform or water.
+* Start at grid cell `(0, 0)` with initial direction Right.
+* For each horizontal leg, request a random length from 1 through 7 cells.
+* For each vertical leg, request a random length from 1 through 4 cells.
+* Move only Right, Left, Up, or Down. Never create a diagonal route edge.
+* Before every step, require both the next cell and the one-cell look-ahead to be empty.
+* Also require those cells to remain outside the eight-neighbour margin of every non-local older route cell. The current and immediately previous cells are exempt so ordinary corners remain possible.
+* After a successful leg, turn left or right relative to the current heading; do not reverse directly.
+* Finish with a forced-right leg of 1–7 cells and accept only candidates whose exit is the rightmost route point.
+* Retain the complete numbered cell path and leg list in generation provenance. Abstract route nodes are placed at turns, endpoints, and selected room anchors, while the Traversal Builder may insert as many local supports as required.
 
-Progression order must remain unambiguous even when world-space movement goes left. Branches should normally justify themselves with rewards, safer alternatives, or encounters rather than existing as empty cave appendages.
+Candidate ranking still measures backtracking, horizontal and vertical direction changes, occupied vertical span, edge crossings, travel expansion, longest eastward run, and overall aspect ratio. ThePath74 is allowed more horizontal breathing room than the revision-242 folded templates, but extreme shallow ribbons remain rejectable.
+
+After the path is accepted, number its cells from `1..N`. Label each immediate boundary cell by the nearest numbered route cell. Select two to four well-separated route labels, then place each room centre either on that route cell or on a boundary cell carrying the same label. Each room is an ellipse with independently random horizontal and vertical semi-axes of 2–4 cells. These reservations are geometry metadata, not runtime objects.
 
 ## Cavern Envelope Builder
 
-The first cavern builder combines overlapping ellipses:
+The current cavern builder is contour-based:
 
-* Larger ellipses surround route chambers.
-* Smaller ellipses or capsule-like runs connect chambers.
-* Extra clearance is reserved around jumps, hover sections, doors, bosses, and tall enemies.
-* Shapes are stamped into a low-resolution occupancy mask.
-* The connected outer boundary is traced, simplified, smoothed, and converted into the existing cave-window perimeter data.
-* Version one creates one connected opening with no internal holes.
-* World bounds and the lower reset boundary are derived from the resulting envelope and traversable content.
+* ThePath74's two to four selected ellipse rooms are converted from 2–4-cell semi-axes into theme-scaled world-space stamps.
+* Tunnel, chamber, endpoint, platform-clearance, and selected room stamps are combined around the completed traversal.
+* Those stamps are rasterized into a low-resolution occupancy mask.
+* Disconnected raster noise is discarded and the primary connected component is retained.
+* The component boundary is traced, simplified without introducing self-intersections, and converted into ordinary editable cave-window corner points.
+* One connected opening with no internal holes remains the current contract.
+* A vertical world line may intersect the opening in several separate ranges, preserving solid rock between nearby folded passages.
+* World bounds and the lower reset boundary are derived from the resulting contour and traversable content.
+
+The old top-profile plus bottom-profile union was X-monotone and could represent only one uninterrupted vertical opening at each X coordinate. It is retained only as legacy metadata and fallback support. It must not be used to flatten a folded route into one giant chamber.
 
 The cave perimeter remains visual only. The Traversal Builder owns all gameplay collision.
 
 ## Traversal Builder
 
-The first traversal implementation must prioritize reliability over difficulty:
+The current traversal implementation must prioritize readability, movement variety, and reliability:
 
 * Construct route connections from conservative tested movement envelopes for Ignatius's actual body, acceleration, ordinary jump, double jump, hover, and rocket boost.
-* Use substantially less than theoretical maximum range for mandatory jumps.
-* Provide wide landing surfaces and generous headroom.
-* Include some required double jumps and hover/boost use, but no precision-jump focus.
-* Place recovery platforms beneath many risky transitions.
-* Allow only occasional route sections where one failed jump causes death.
+* Horizontal legs must be a sequence of distinct platforms with visible air gaps. Platforms may sit above or below the abstract route line so movement feels like jumping through a cavern rather than walking along a drawn polyline.
+* Use substantially less than theoretical maximum range for mandatory jumps and preserve broad landings at encounter-capable chamber nodes.
+* Every mandatory climb or drop must use exactly one automatic vertically shuttling platform spanning the route-node height difference. Do not insert static stair steps or alternating shaft ledges for those edges.
+* Reserve the moving platform's complete travel shaft in the cavern envelope and validate boarding at both endpoints.
+* Recovery platforms remain exceptional safety aids rather than a second continuous floor beneath the route.
 * Keep optional branches free to be slightly more demanding than the main route.
-* Validate every mandatory transition independently after construction.
+* Validate every mandatory transition independently after construction, including minimum visible horizontal gap, route-height deviation, moving-shaft count, and the absence of static vertical intermediates.
 
 ### Generation asset metadata
 
@@ -2602,3 +2600,44 @@ Revision 239's static visual and collision broadphases remain the performance fo
 - Replace shallow macro modulation with deliberate climbs, descents, terraces, valleys, and strong Z/L vertical phases.
 - Generate a small deterministic moving-platform rhythm in Standard and larger levels without making the initial mandatory route unavailable.
 - Keep true multi-lane mandatory backtracking conservative until the collision planner has a dedicated lane-separation contract; optional detours still provide local reverse travel.
+
+## Revision 242 folded spatial layout and arbitrary cavern contours
+
+Revision 242 corrects the generator at the two stages that caused ribbon-shaped levels.
+
+The Route stage now performs a genuine two-dimensional spatial-layout pass. Z, L, valley, terrace, and rolling families contain mandatory leftward phases, horizontal reversals, separated vertical lanes, and both climbing and descending phases where appropriate. Compact levels with deliberately minimal winding may use a monotonic arc, but Standard through Grand folded candidates are rejected when they contain no backtracking, occupy too few lanes, or exceed the configured wide-and-shallow aspect-ratio ceiling. Macro plans are generated independently for each deterministic candidate attempt, allowing ranking to compare different route families rather than forty jittered copies of one plan. Route quality now measures horizontal and vertical direction changes, backtrack count, longest eastward run, route aspect ratio, lane count, and travel expansion without saturating every candidate at 100.
+
+Macro room-to-room movement is no longer clamped to one platform rise or drop. `forgiving-traversal-v1` realizes steep edges as conservative staircases or shaft zigzags, uses shallower landing assets around major vertical connections, keeps a calm horizontal exit approach, and validates local transitions independently. Encounter placement now accepts safe mandatory node landings as well as broad route-floor supports so spatially vertical levels do not accidentally erase encounter capacity.
+
+`contour-cavern-v3` replaces the X-monotone top/bottom cave profile as the authoritative envelope. It rasterizes expanded room and corridor stamps, traces the connected occupancy boundary, simplifies it, and emits editable corner points. Vertical cave queries now return the interval containing the relevant support or entity, so stacked passages at the same X retain solid rock between them. Presentation and traversal validation use the arbitrary polygon rather than assuming one opening per X.
+
+The generator's documented dependency order is now Route topology and spatial layout, Traversal, Endpoints, Cavern contour, Encounters, Rewards, Decoration, and Validation. The Route implementation keeps topology and spatial embedding as internal subpasses for now, avoiding a registry split with no independent reroll use case.
+
+## Revision 243 ThePath74 cavern-shape integration
+
+Revision 243 replaces the revision-242 route families as the default generator path with the experimentally selected ThePath74 contract. The route now grows on an unbounded integer grid from a right-facing start, uses horizontal legs of 1–7 cells and vertical legs of 1–4 cells, checks both the candidate and one-cell look-ahead, and preserves an eight-neighbour one-cell margin from older non-local route sections. It stores the complete numbered cell path and leg provenance, creates world-space route nodes only at turns, endpoints, and room anchors, and leaves local platform count to `spaced-platform-traversal-v2`.
+
+After route acceptance, the generator selects two to four well-separated numbered positions. Each room centre is placed either on the selected path cell or on a nearest-labelled boundary cell. Horizontal and vertical room semi-axes are independently sampled from 2–4 cells. These room stamps are merged with traversal, support-clearance, and endpoint stamps before `the-path74-contour-cavern-v4` traces the ordinary editable cave window.
+
+The current Earth and Ice themes use `the-path74-route-v4`, `the-path74-contour-cavern-v4`, and `the-path74-cavern-validation-v4`. The revision-242 spatial-lane route and contour implementations remain registered for old generation records and future comparison. Vertical shaft realization uses a wider alternating landing offset so pure vertical ThePath74 legs retain enough exposed landing width for conservative validation.
+
+## Revision 244 spaced platforms and moving vertical shafts
+
+Revision 244 replaces `forgiving-traversal-v1` as the default traversal implementation with `spaced-platform-traversal-v2`. ThePath74 remains the macroscopic guide, not a floor trace. Horizontal route edges are divided into separated authored platforms with explicit jump gaps. Intermediate platforms receive bounded vertical offsets around the abstract route line, so the player is expected to jump both up and down while generally following the planned direction. Endpoint and chamber landings remain broad enough for doors, recovery, and encounter placement, but ordinary route supports no longer form an almost continuous walkway.
+
+Every mandatory route edge classified as a climb or descent is realized by exactly one automatic shuttle platform moving only on the vertical axis. The platform spans the full difference between the two route-node support surfaces, exposes a safe boarding transition at each endpoint, and owns a reserved shaft stamp in the cavern contour. The current implementation does not create static staircase, ladder, or zigzag intermediate supports on mandatory vertical edges. `forgiving-traversal-v1` remains registered only as a legacy implementation for old records and comparison.
+
+Validation records the number of mandatory vertical moving platforms, any forbidden static vertical intermediates, horizontal jump-gap count and minimum gap, and maximum vertical deviation from the abstract horizontal route. A current draft is invalid when a mandatory vertical edge lacks its single shuttle, gains static intermediate supports, cannot be boarded at both ends, or when an ordinary horizontal edge collapses into a continuous floor.
+
+
+## Revision 245 layered upper traversal, staggered recovery floors, and formation-only perimeter
+
+Revision 245 uses the manually authored `assets/level_001.json` as the traversal-shape reference without replacing its authored placements. The important lesson is that the main route is a sequence of distinct jump targets, not a collision line drawn over the macro route. Horizontal traversal therefore permits substantially larger deterministic vertical departures from ThePath74 while preserving conservative local rise, drop, and collision-edge gap limits.
+
+The new default Traversal implementation is `layered-recovery-traversal-v3`. Its upper route uses separated static landing assets with deliberately varied elevations. Beneath suitable horizontal sequences it builds a broad, level recovery lane from multiple recovery supports. Each upper jump gap has solid recovery geometry below it, while the recovery lane's own gaps are placed between those landing zones so upper and lower gaps never overlap. The lower path is therefore forgiving without becoming an effortless uninterrupted floor.
+
+Mandatory vertical climbs and drops still use exactly one automatic vertical shuttle and no static staircase. The thin `rubble_long` family is now reserved exclusively for generated moving platforms through the `movingPlatform` catalog role. Static route, recovery, branch, and shaft-bridge roles use other authored platform families.
+
+Cave foreground population is also narrowed. Automatic perimeter catalogs now admit only assets tagged `stalactite` or `stalagmite`. Ceiling directions use stalactites, floor directions use stalagmites, and vertical wall directions rotate either formation family. Generic wall, ceiling, floor, pillar, alcove, rock, and rubble assets are excluded from perimeter population. The authored perimeter in `level_001` is regenerated under the same rule.
+
+Validation records recovery-lane count, lower-lane gap count, upper-gap coverage, upper/lower gap overlap violations, and moving-platform style violations in addition to the revision-244 metrics. Current themes are invalid when a recovery gap lies under an upper gap, an upper jump gap lacks a landing below it, or a mandatory lift uses an ordinary static-platform visual family.

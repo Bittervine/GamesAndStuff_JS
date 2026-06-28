@@ -136,7 +136,8 @@
       "assetId": "ledge_small_flat",
       "roles": [
         "branchStep",
-        "recoveryPlatform"
+        "recoveryPlatform",
+        "shaftBridge"
       ],
       "weight": 7,
       "nativeWidth": 156,
@@ -152,14 +153,14 @@
       "atlasId": "at_atlas_001",
       "assetId": "rubble_long",
       "roles": [
-        "shaftBridge"
+        "movingPlatform"
       ],
-      "weight": 8,
+      "weight": 10,
       "nativeWidth": 278,
       "nativeHeight": 41,
       "surfaceYRatio": 0.5,
-      "scaleMin": 0.74,
-      "scaleMax": 1.05,
+      "scaleMin": 0.78,
+      "scaleMax": 1.0,
       "mirror": true,
       "walkableLeftInsetRatio": 0.071942,
       "walkableRightInsetRatio": 0.05036

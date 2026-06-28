@@ -552,7 +552,7 @@
 
     <aside>
         <a class="toplink" href="index.html">Back to main</a>
-        <h1>Level Editor <small>rev 241</small></h1>
+        <h1>Level Editor <small>rev 245</small></h1>
         <p>Place atlas assets, entry/exit doors, mailboxes, enemies, and triggers, then export a level JSON. The wizard entry door is the effective start of the level.</p>
 
         <div class="box">
@@ -604,7 +604,7 @@
 
         <div class="box" data-panel-key="automatic-level-generator">
             <h2>Automatic Level Generator</h2>
-            <p class="small">Generator 5 plans the cavern as a sequence of tunnels and large rooms before it places gameplay surfaces. It creates grounded entrance and exit chambers, stronger Z-, L-, valley-, terrace-, and rolling-shaped routes, and a populated foreground perimeter that must leave the doors and traversal platforms readable. Stage rerolls, locking, manual ownership, and validation overlays remain available.</p>
+            <p class="small">Generator 7 uses the locked ThePath74 route: protected cardinal segments on an unbounded cell grid, with horizontal walks of 1–7 cells, vertical walks of 1–4 cells, a forced-right final approach, and a one-cell diagonal safety margin against older route sections. It adds two to four ellipse rooms with 2–4-cell semi-axes, then realizes horizontal legs as strongly staggered upper jump platforms plus level recovery lanes whose gaps are offset from the upper gaps. Every mandatory climb and drop uses the reserved thin automatic vertical-platform style instead of a static staircase. The occupancy contour wraps the finished traversal and grounded endpoint chambers; automatic cave foreground uses only stalactites and stalagmites and must still leave doors, platforms, recovery lanes, and lift shafts readable.</p>
             <label>Theme<select id="generator-theme"></select></label>
             <div class="row">
                 <label>Seed<input id="generator-seed" value="rocketfrock"></label>

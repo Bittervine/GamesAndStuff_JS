@@ -3,8 +3,8 @@ import {
     generateCavePerimeterPlacements
 } from "./cave-window-decoration.js";
 
-export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 7;
-export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-4";
+export const AUTOMATIC_LEVEL_GENERATOR_VERSION = 11;
+export const AUTOMATIC_LEVEL_GENERATOR_ID = "automatic-level-generator-7";
 
 const GENERATED_PLAYER_BODY_WIDTH = 34;
 const BRANCH_SHAFT_SIDE_CLEARANCE = 8;
@@ -13,9 +13,9 @@ const BRANCH_STAIR_LATERAL_OFFSET = 23;
 
 export const LEVEL_GENERATOR_STAGE_ORDER = Object.freeze([
     "route",
-    "cavern",
     "traversal",
     "endpoints",
+    "cavern",
     "encounters",
     "rewards",
     "decoration",
@@ -24,16 +24,22 @@ export const LEVEL_GENERATOR_STAGE_ORDER = Object.freeze([
 
 export const LEVEL_GENERATOR_REGISTRIES = Object.freeze({
     route: Object.freeze([
-        Object.freeze({ id: "macro-room-route-v2", label: "Macro room-and-tunnel route v2" }),
+        Object.freeze({ id: "the-path74-route-v4", label: "ThePath74 orthogonal segment route v4" }),
+        Object.freeze({ id: "spatial-lane-route-v3", label: "Folded spatial lane route v3 (legacy)" }),
+        Object.freeze({ id: "macro-room-route-v2", label: "Macro room-and-tunnel route v2 (legacy)" }),
         Object.freeze({ id: "progression-route-v1", label: "Progression route v1 (legacy)" })
     ]),
     cavern: Object.freeze([
-        Object.freeze({ id: "room-and-tunnel-cavern-v2", label: "Room-and-tunnel cavern v2" }),
+        Object.freeze({ id: "the-path74-contour-cavern-v4", label: "ThePath74 ellipse-room contour cavern v4" }),
+        Object.freeze({ id: "contour-cavern-v3", label: "Occupancy contour cavern v3 (legacy)" }),
+        Object.freeze({ id: "room-and-tunnel-cavern-v2", label: "Room-and-tunnel cavern v2 (legacy)" }),
         Object.freeze({ id: "ellipse-cavern-v1", label: "Overlapping ellipse cavern v1 (legacy)" }),
         Object.freeze({ id: "route-preview-only", label: "Route preview only (legacy)" })
     ]),
     traversal: Object.freeze([
-        Object.freeze({ id: "forgiving-traversal-v1", label: "Forgiving traversal v1" }),
+        Object.freeze({ id: "layered-recovery-traversal-v3", label: "Staggered upper route and recovery floor v3" }),
+        Object.freeze({ id: "spaced-platform-traversal-v2", label: "Spaced platforms and moving shafts v2 (legacy)" }),
+        Object.freeze({ id: "forgiving-traversal-v1", label: "Forgiving traversal v1 (legacy)" }),
         Object.freeze({ id: "not-generated-yet", label: "Not generated (legacy)" })
     ]),
     endpoints: Object.freeze([
@@ -55,7 +61,9 @@ export const LEVEL_GENERATOR_REGISTRIES = Object.freeze({
         Object.freeze({ id: "not-generated-yet", label: "No decoration (legacy)" })
     ]),
     validation: Object.freeze([
-        Object.freeze({ id: "room-and-tunnel-validation-v2", label: "Room-and-tunnel cavern validation v2" }),
+        Object.freeze({ id: "the-path74-cavern-validation-v4", label: "ThePath74 cavern validation v4" }),
+        Object.freeze({ id: "folded-cavern-validation-v3", label: "Folded cavern validation v3 (legacy)" }),
+        Object.freeze({ id: "room-and-tunnel-validation-v2", label: "Room-and-tunnel cavern validation v2 (legacy)" }),
         Object.freeze({ id: "playable-reward-cavern-validation-v1", label: "Playable reward cavern validation v1 (legacy)" }),
         Object.freeze({ id: "playable-encounter-cavern-validation-v1", label: "Playable encounter cavern validation v1 (legacy)" }),
         Object.freeze({ id: "playable-empty-cavern-validation-v1", label: "Playable empty cavern validation v1 (legacy)" }),
@@ -183,14 +191,14 @@ const DEFAULT_THEME = Object.freeze({
         atlasIds: ["at_atlas_001", "at_atlas_002", "at_atlas_003"]
     }),
     implementations: Object.freeze({
-        route: "macro-room-route-v2",
-        cavern: "room-and-tunnel-cavern-v2",
-        traversal: "forgiving-traversal-v1",
+        route: "the-path74-route-v4",
+        cavern: "the-path74-contour-cavern-v4",
+        traversal: "layered-recovery-traversal-v3",
         endpoints: "grounded-chamber-endpoints-v2",
         encounters: "difficulty-budgeted-encounters-v1",
         rewards: "basic-rewards-v1",
         decoration: "perimeter-decoration-v1",
-        validation: "room-and-tunnel-validation-v2"
+        validation: "the-path74-cavern-validation-v4"
     })
 });
 
@@ -474,7 +482,7 @@ function collectAutomaticLevelRouteCandidates(options = {}) {
     const theme = normalizeGeneratorTheme(options.theme);
     const settings = normalizeGeneratorSettings(options.settings, theme.defaults);
     const implementations = normalizeGeneratorImplementations(options.implementations || theme.implementations);
-    if (!["macro-room-route-v2", "progression-route-v1"].includes(implementations.route)) {
+    if (!["the-path74-route-v4", "spatial-lane-route-v3", "macro-room-route-v2", "progression-route-v1"].includes(implementations.route)) {
         throw new Error(`Unsupported route generator “${implementations.route}”.`);
     }
     const seed = String(options.seed ?? "0").trim() || "0";
@@ -489,20 +497,26 @@ function collectAutomaticLevelRouteCandidates(options = {}) {
     const attemptNumbers = preferredRouteAttempt >= 1 && preferredRouteAttempt <= attempts
         ? [preferredRouteAttempt]
         : Array.from({ length: attempts }, (_, index) => index + 1);
-    const macroPlan = implementations.route === "macro-room-route-v2"
-        ? buildMacroRoutePlan({
-            theme,
-            settings,
-            rng: createNamedRandomStream(seed, `${generatorStageStreamName("route", stageRevisions)}:macro-layout`, 0)
-        })
-        : null;
+    let representativeMacroPlan = null;
     const candidates = [];
     const rejected = [];
     for (const attempt of attemptNumbers) {
         const rng = createNamedRandomStream(seed, generatorStageStreamName("route", stageRevisions), attempt);
-        const graph = implementations.route === "macro-room-route-v2"
-            ? buildMacroRoomRouteCandidate({ theme, settings, rng, attempt, macroPlan })
-            : buildLegacyProgressionRouteCandidate({ theme, settings, rng, attempt });
+        const macroPlan = ["spatial-lane-route-v3", "macro-room-route-v2"].includes(implementations.route)
+            ? buildMacroRoutePlan({ theme, settings, rng })
+            : null;
+        if (!representativeMacroPlan && macroPlan) representativeMacroPlan = macroPlan;
+        let graph;
+        try {
+            graph = implementations.route === "the-path74-route-v4"
+                ? buildThePath74RouteCandidate({ theme, settings, rng, attempt })
+                : ["spatial-lane-route-v3", "macro-room-route-v2"].includes(implementations.route)
+                    ? buildMacroRoomRouteCandidate({ theme, settings, rng, attempt, macroPlan })
+                    : buildLegacyProgressionRouteCandidate({ theme, settings, rng, attempt });
+        } catch (error) {
+            if (rejected.length < 10) rejected.push({ attempt, reasons: [String(error?.message || error)] });
+            continue;
+        }
         const validation = validateRouteGraph(graph, { settings, theme });
         if (validation.valid) {
             candidates.push({ graph, validation, attempt });
@@ -521,7 +535,7 @@ function collectAutomaticLevelRouteCandidates(options = {}) {
         attempts,
         attemptsInspected: attemptNumbers.length,
         preferredRouteAttempt: preferredRouteAttempt >= 1 && preferredRouteAttempt <= attempts ? preferredRouteAttempt : 0,
-        macroPlan,
+        macroPlan: representativeMacroPlan,
         candidates,
         rejected
     };
@@ -538,7 +552,7 @@ function buildAutomaticLevelRouteResult(context, selected) {
         routeRevision: stageRevisions.route,
         attempt: selected.attempt
     });
-    const runId = `alg3_${hashGeneratorSeed(identity).toString(16).padStart(8, "0")}`;
+    const runId = `alg7_${hashGeneratorSeed(identity).toString(16).padStart(8, "0")}`;
     const graph = {
         ...selected.graph,
         runId,
@@ -901,7 +915,12 @@ function buildBasicRewards({
         const normalizedProgress = supportProgress(support, routeNodeById, routeEdgeById) / maximumRouteProgress;
         if (normalizedProgress < metadata.minimumProgress || normalizedProgress > metadata.maximumProgress) return null;
         if (support.walkableWidth < metadata.minimumSupportWidth) return null;
-        const halfWidth = definition.defaultSize.w * 0.5;
+        // Narrative thought triggers are invisible activation regions, not physical
+        // pickups that must fit completely on top of a support. Their authored
+        // minimum support width and edge clearance are sufficient; applying the
+        // trigger rectangle half-width here would reject otherwise quiet route
+        // supports produced by ThePath74.
+        const halfWidth = type === "thoughtTrigger" ? 0 : definition.defaultSize.w * 0.5;
         const left = support.walkableLeftX + metadata.edgeClearance + halfWidth;
         const right = support.walkableRightX - metadata.edgeClearance - halfWidth;
         if (left > right) return null;
@@ -957,7 +976,9 @@ function buildBasicRewards({
     }
 
     const mainSupportCandidates = supports.filter((support) =>
-        support.mandatory && support.role === "routeFloor" && support.routeNodeId
+        support.mandatory
+        && ["routeFloor", "landingPlatform"].includes(support.role)
+        && support.routeNodeId
     ).map((support) => ({
         support,
         progress: supportProgress(support, routeNodeById, routeEdgeById)
@@ -1014,21 +1035,30 @@ function buildBasicRewards({
 
     if (rewardPlan.allowThoughts && rng.chance(theme.rewards.thoughtChance)) {
         const encounterSupportIds = new Set((encounters?.encounters || []).map((encounter) => encounter.supportId));
-        const candidates = mainSupportCandidates.filter((candidate) =>
-            !occupiedSupportIds.has(candidate.support.id)
-            && !encounterSupportIds.has(candidate.support.id)
-            && candidate.progress >= 2.5
-        );
-        const selected = candidates.length ? rng.pick(candidates) : null;
+        const thoughtMetadata = metadataByType.get("thoughtTrigger");
         const text = theme.rewards.thoughts.length ? rng.pick(theme.rewards.thoughts) : "";
-        if (selected && text) {
-            addReward({
-                type: "thoughtTrigger",
-                support: selected.support,
-                context: "quietRoute",
-                routeNodeId: selected.support.routeNodeId,
-                overrides: { thoughtText: text }
-            });
+        const candidates = rng.shuffle(supports
+            .filter((support) => support.mandatory && ["routeFloor", "landingPlatform"].includes(support.role))
+            .map((support) => ({ support, progress: supportProgress(support, routeNodeById, routeEdgeById) }))
+            .filter((candidate) => {
+                const normalizedProgress = candidate.progress / maximumRouteProgress;
+                return !occupiedSupportIds.has(candidate.support.id)
+                    && !encounterSupportIds.has(candidate.support.id)
+                    && candidate.support.walkableWidth >= finiteNumber(thoughtMetadata?.minimumSupportWidth, 0)
+                    && normalizedProgress >= finiteNumber(thoughtMetadata?.minimumProgress, 0)
+                    && normalizedProgress <= finiteNumber(thoughtMetadata?.maximumProgress, 1);
+            }));
+        if (text) {
+            for (const selected of candidates) {
+                const entity = addReward({
+                    type: "thoughtTrigger",
+                    support: selected.support,
+                    context: "quietRoute",
+                    routeNodeId: selected.support.routeNodeId,
+                    overrides: { thoughtText: text }
+                });
+                if (entity) break;
+            }
         }
     }
 
@@ -1269,7 +1299,7 @@ export function validateGeneratedCavernPresentation(value = {}) {
         const sampleXs = [support.walkableLeftX, support.centerX, support.walkableRightX]
             .filter(Number.isFinite);
         for (const x of sampleXs) {
-            const vertical = cavernVerticalRangeAt(cavern.profile, x);
+            const vertical = cavernVerticalRangeAt(cavern, x, support.surfaceY);
             if (!vertical) {
                 errors.push(`Platform “${support.id}” has no cave opening at x=${roundCoordinate(x)}.`);
                 continue;
@@ -1282,7 +1312,7 @@ export function validateGeneratedCavernPresentation(value = {}) {
         }
     }
 
-    const v2 = cavern.generatorId === "room-and-tunnel-cavern-v2";
+    const v2 = ["the-path74-contour-cavern-v4", "contour-cavern-v3", "room-and-tunnel-cavern-v2"].includes(cavern.generatorId);
     if (v2) {
         const tolerance = 42;
         if (metrics.minimumPlatformWallClearance < theme.cavern.platformWallClearanceX - 1) {
@@ -1330,17 +1360,23 @@ export function validateGeneratedCavernPresentation(value = {}) {
 export function generateAutomaticLevelDraft(options = {}) {
     const theme = normalizeGeneratorTheme(options.theme);
     const implementations = normalizeGeneratorImplementations(options.implementations || theme.implementations);
-    if (!["room-and-tunnel-cavern-v2", "ellipse-cavern-v1"].includes(implementations.cavern)) throw new Error(`Unsupported cavern builder “${implementations.cavern}”.`);
-    if (implementations.traversal !== "forgiving-traversal-v1") throw new Error(`Unsupported traversal builder “${implementations.traversal}”.`);
+    if (!["the-path74-contour-cavern-v4", "contour-cavern-v3", "room-and-tunnel-cavern-v2", "ellipse-cavern-v1"].includes(implementations.cavern)) throw new Error(`Unsupported cavern builder “${implementations.cavern}”.`);
+    if (!["layered-recovery-traversal-v3", "spaced-platform-traversal-v2", "forgiving-traversal-v1"].includes(implementations.traversal)) throw new Error(`Unsupported traversal builder “${implementations.traversal}”.`);
     if (!["grounded-chamber-endpoints-v2", "safe-endpoints-v1"].includes(implementations.endpoints)) throw new Error(`Unsupported endpoint placer “${implementations.endpoints}”.`);
     if (!["difficulty-budgeted-encounters-v1", "not-generated-yet"].includes(implementations.encounters)) throw new Error(`Unsupported encounter populator “${implementations.encounters}”.`);
     if (!["basic-rewards-v1", "not-generated-yet"].includes(implementations.rewards)) throw new Error(`Unsupported reward populator “${implementations.rewards}”.`);
     if (!["perimeter-decoration-v1", "suppressed-by-theme", "not-generated-yet"].includes(implementations.decoration)) throw new Error(`Unsupported decoration populator “${implementations.decoration}”.`);
-    if (!["room-and-tunnel-validation-v2", "playable-reward-cavern-validation-v1", "playable-encounter-cavern-validation-v1", "playable-empty-cavern-validation-v1"].includes(implementations.validation)) throw new Error(`Unsupported level validator “${implementations.validation}”.`);
+    if (!["the-path74-cavern-validation-v4", "folded-cavern-validation-v3", "room-and-tunnel-validation-v2", "playable-reward-cavern-validation-v1", "playable-encounter-cavern-validation-v1", "playable-empty-cavern-validation-v1"].includes(implementations.validation)) throw new Error(`Unsupported level validator “${implementations.validation}”.`);
 
     const assetCatalog = normalizeGenerationAssetCatalog(options.assetCatalog);
     if (!assetCatalog.assets.length) throw new Error("The generation platform catalog is empty.");
-    for (const requiredRole of ["routeFloor", "landingPlatform", "doorSupport", ...(implementations.rewards === "basic-rewards-v1" ? ["branchStep", "shaftBridge"] : [])]) {
+    for (const requiredRole of [
+        "routeFloor",
+        "landingPlatform",
+        "doorSupport",
+        ...(implementations.traversal === "layered-recovery-traversal-v3" ? ["movingPlatform", "recoveryPlatform"] : []),
+        ...(implementations.rewards === "basic-rewards-v1" ? ["branchStep", "shaftBridge"] : [])
+    ]) {
         if (!assetCatalog.assets.some((entry) => entry.roles.includes(requiredRole))) {
             throw new Error(`The generation platform catalog has no “${requiredRole}” asset.`);
         }
@@ -1409,7 +1445,7 @@ export function generateAutomaticLevelDraft(options = {}) {
                 runId: routeGeneration.runId,
                 destinationLevel: String(options.destinationLevel || "")
             });
-            const cavern = implementations.cavern === "room-and-tunnel-cavern-v2"
+            const cavern = ["the-path74-contour-cavern-v4", "contour-cavern-v3", "room-and-tunnel-cavern-v2"].includes(implementations.cavern)
                 ? buildRoomAndTunnelCavern({
                     route: routeGeneration.route,
                     traversal,
@@ -1548,7 +1584,7 @@ export function generateAutomaticLevelDraft(options = {}) {
         seed: routeGeneration.seed,
         stageRevisions: routeGeneration.stageRevisions,
         runId: routeGeneration.runId,
-        requirePerimeter: Boolean(options.requirePopulatedPerimeter) && implementations.validation === "room-and-tunnel-validation-v2"
+        requirePerimeter: Boolean(options.requirePopulatedPerimeter) && ["the-path74-cavern-validation-v4", "folded-cavern-validation-v3", "room-and-tunnel-validation-v2"].includes(implementations.validation)
     });
     const presentationValidation = validateGeneratedCavernPresentation({
         cavern,
@@ -1557,7 +1593,7 @@ export function generateAutomaticLevelDraft(options = {}) {
         rewards,
         decoration,
         theme,
-        requirePerimeter: Boolean(options.requirePopulatedPerimeter) && implementations.validation === "room-and-tunnel-validation-v2"
+        requirePerimeter: Boolean(options.requirePopulatedPerimeter) && ["the-path74-cavern-validation-v4", "folded-cavern-validation-v3", "room-and-tunnel-validation-v2"].includes(implementations.validation)
     });
     if (!presentationValidation.valid) {
         throw new Error(`Generated cavern presentation failed validation: ${presentationValidation.errors.join(" ")}`);
@@ -1693,17 +1729,19 @@ function buildDifficultyBudgetedEncounters({
     const maximumAwareness = Math.max(0, ...allowed.map((enemyId) => finiteNumber(enemyCatalog.get(enemyId)?.defaults?.awarenessRange, 0)));
     const calmDistance = Math.max(theme.encounters.calmDistance, maximumAwareness + theme.encounters.spawnSafetyBuffer);
     const spacing = theme.encounters.minimumEncounterSpacing * (0.9 + settings.safety * 0.18);
-    const routeFloorSupports = (traversal?.supports || []).filter((support) => (
-        support?.mandatory && support.role === "routeFloor" && support.routeNodeId
+    const encounterSupports = (traversal?.supports || []).filter((support) => (
+        support?.mandatory
+        && support.routeNodeId
+        && ["routeFloor", "landingPlatform", "recoveryPlatform"].includes(support.role)
     ));
     const budget = settings.enemyDensity <= 0.001 ? 0 : Math.max(1, Math.round(
-        routeFloorSupports.length
+        encounterSupports.length
         * settings.enemyDensity
         * (2.15 + settings.difficulty * 1.55)
         * (0.88 + (1 - settings.safety) * 0.12)
     ));
     const maximumEncounters = settings.enemyDensity <= 0.001 ? 0 : Math.max(1, Math.round(
-        routeFloorSupports.length
+        encounterSupports.length
         * theme.encounters.maximumEncounterShare
         * settings.enemyDensity
         * (0.78 + settings.difficulty * 0.34)
@@ -1718,10 +1756,10 @@ function buildDifficultyBudgetedEncounters({
         };
     }
 
-    const candidates = rng.shuffle(routeFloorSupports).map((support) => {
+    const candidates = rng.shuffle(encounterSupports).map((support) => {
         const node = routeNodes.get(support.routeNodeId);
         const progress = clamp01(finiteNumber(node?.progress, 0) / maxProgress);
-        const vertical = cavernVerticalRangeAt(cavern?.profile, support.centerX);
+        const vertical = cavernVerticalRangeAt(cavern, support.centerX, support.surfaceY);
         const headroom = vertical ? support.surfaceY - vertical.top : 0;
         const endpointDistance = Math.min(...endpointX.map((x) => Math.abs(support.centerX - x)));
         return {
@@ -1956,9 +1994,41 @@ function instantiateFlyingEnemyGroup({ encounterId, support, headroom, enemyId, 
     return entities;
 }
 
-function cavernVerticalRangeAt(profile, x) {
-    const samples = Array.isArray(profile) ? profile : [];
-    if (!samples.length) return null;
+function cavernPolygonVerticalRanges(points, x) {
+    if (!Array.isArray(points) || points.length < 3) return [];
+    const intersections = [];
+    for (let index = 0; index < points.length; index += 1) {
+        const a = points[index];
+        const b = points[(index + 1) % points.length];
+        if (Math.abs(b.x - a.x) <= 0.000001) continue;
+        const minimumX = Math.min(a.x, b.x);
+        const maximumX = Math.max(a.x, b.x);
+        if (x < minimumX || x >= maximumX) continue;
+        const t = (x - a.x) / (b.x - a.x);
+        intersections.push(lerp(a.y, b.y, t));
+    }
+    intersections.sort((a, b) => a - b);
+    const ranges = [];
+    for (let index = 1; index < intersections.length; index += 2) {
+        ranges.push({ top: intersections[index - 1], bottom: intersections[index] });
+    }
+    return ranges;
+}
+
+function cavernVerticalRangeAt(cavernOrProfile, x, preferredY = NaN) {
+    const cavern = cavernOrProfile && !Array.isArray(cavernOrProfile) ? cavernOrProfile : null;
+    if (["the-path74-contour-cavern-v4", "contour-cavern-v3"].includes(cavern?.generatorId)) {
+        const ranges = cavernPolygonVerticalRanges(cavern?.caveWindow?.points, x);
+        if (!ranges.length) return null;
+        if (Number.isFinite(preferredY)) {
+            const containing = ranges.find((range) => preferredY >= range.top - 0.001 && preferredY <= range.bottom + 0.001);
+            if (containing) return containing;
+            return [...ranges].sort((a, b) => Math.min(Math.abs(preferredY - a.top), Math.abs(preferredY - a.bottom)) - Math.min(Math.abs(preferredY - b.top), Math.abs(preferredY - b.bottom)))[0];
+        }
+        return [...ranges].sort((a, b) => (b.bottom - b.top) - (a.bottom - a.top))[0];
+    }
+    const samples = Array.isArray(cavernOrProfile) ? cavernOrProfile : cavern?.profile;
+    if (!Array.isArray(samples) || !samples.length) return null;
     if (x <= samples[0].x) return { top: samples[0].top, bottom: samples[0].bottom };
     if (x >= samples.at(-1).x) return { top: samples.at(-1).top, bottom: samples.at(-1).bottom };
     for (let index = 1; index < samples.length; index += 1) {
@@ -1970,6 +2040,7 @@ function cavernVerticalRangeAt(profile, x) {
     }
     return null;
 }
+
 
 export function validateGeneratedEncounters(value = {}) {
     const encounters = value.encounters && typeof value.encounters === "object" ? value.encounters : emptyEncounterPopulation("", "not-generated-yet");
@@ -2022,7 +2093,7 @@ export function validateGeneratedEncounters(value = {}) {
         const endpointDistance = Math.min(Math.abs(entity.x - entranceX), Math.abs(entity.x - exitX));
         metrics.minimumEndpointDistance = Math.min(metrics.minimumEndpointDistance, endpointDistance);
         if (endpointDistance < calmDistance - 0.01) errors.push(`Enemy “${entity.id}” violates the ${roundCoordinate(calmDistance)}-unit calm endpoint zone.`);
-        const vertical = cavernVerticalRangeAt(cavern.profile, entity.x);
+        const vertical = cavernVerticalRangeAt(cavern, entity.x, entity.y);
         const top = entity.y - definition.defaultSize.h;
         if (!vertical || top < vertical.top + 20 || entity.y > vertical.bottom + 1) {
             metrics.invalidSpawnCount += 1;
@@ -2145,13 +2216,13 @@ export function validateGeneratedRewards(value = {}) {
             metrics.endpointCrowdingCount += 1;
             errors.push(`Reward “${entity.id}” violates the ${roundCoordinate(theme.rewards.endpointExclusionDistance)}-unit endpoint exclusion zone.`);
         }
-        const halfWidth = definition.defaultSize.w * 0.5;
+        const halfWidth = entity.type === "thoughtTrigger" ? 0 : definition.defaultSize.w * 0.5;
         if (support.walkableWidth < metadata.minimumSupportWidth - 0.01) errors.push(`Reward “${entity.id}” is on a support narrower than its metadata permits.`);
         if (entity.x - halfWidth < support.walkableLeftX + metadata.edgeClearance - 0.01 || entity.x + halfWidth > support.walkableRightX - metadata.edgeClearance + 0.01) {
             metrics.inaccessibleRewardCount += 1;
             errors.push(`Reward “${entity.id}” lacks safe authored walkable-edge clearance.`);
         }
-        const vertical = cavernVerticalRangeAt(cavern.profile, entity.x);
+        const vertical = cavernVerticalRangeAt(cavern, entity.x, entity.y);
         const top = entity.y - definition.defaultSize.h;
         if (!vertical || top < vertical.top + 10 || entity.y > vertical.bottom + 1) {
             metrics.inaccessibleRewardCount += 1;
@@ -2511,6 +2582,16 @@ export function validatePlayableEmptyCavern(value = {}) {
         placementSupportMismatchCount: 0,
         manualizedPlacementMismatchCount: 0,
         recoveryPlatformCount: supports.filter((support) => support.role === "recoveryPlatform").length,
+        recoveryLaneCount: 0,
+        recoveryLaneGapCount: 0,
+        recoveryGapOverlapViolationCount: 0,
+        recoveryUpperGapCoverageCount: 0,
+        movingThinAssetViolationCount: 0,
+        verticalMovingPlatformCount: 0,
+        staticVerticalIntermediateCount: 0,
+        horizontalJumpGapCount: 0,
+        minimumHorizontalJumpGap: Infinity,
+        maximumHorizontalRouteOffset: 0,
         maxMandatoryGap: 0,
         maxMandatoryRise: 0,
         maxMandatoryDrop: 0,
@@ -2580,11 +2661,114 @@ export function validatePlayableEmptyCavern(value = {}) {
 
     if (!Number.isFinite(metrics.minimumTransitionGap)) metrics.minimumTransitionGap = 0;
 
+    if (["layered-recovery-traversal-v3", "spaced-platform-traversal-v2"].includes(traversal.generatorId)) {
+        const layeredRecovery = traversal.generatorId === "layered-recovery-traversal-v3";
+        const routeNodeById = new Map((route?.nodes || []).map((node) => [node.id, node]));
+        const routeEdges = (route?.edges || []).filter((edge) => edge.mandatory !== false);
+        for (const edge of routeEdges) {
+            const edgeSupports = supports.filter((support) => support.routeEdgeId === edge.id);
+            const edgeTransitions = transitions.filter((transition) => transition.routeEdgeId === edge.id && transition.mandatory);
+            const vertical = edge.intendedDirection === "climb" || edge.intendedDirection === "descend";
+            if (vertical) {
+                const movingSupports = edgeSupports.filter((support) => support.moving && support.movementAxis === "vertical");
+                const staticSupports = edgeSupports.filter((support) => !support.moving);
+                metrics.verticalMovingPlatformCount += movingSupports.length;
+                metrics.staticVerticalIntermediateCount += staticSupports.length;
+                if (movingSupports.length !== 1 || staticSupports.length) {
+                    errors.push(`Vertical route edge “${edge.id}” must use exactly one moving platform and no static staircase supports.`);
+                }
+                const movingSupport = movingSupports[0];
+                const placement = movingSupport ? placementById.get(movingSupport.placementId) : null;
+                const fromNode = routeNodeById.get(edge.from);
+                const toNode = routeNodeById.get(edge.to);
+                const expectedOffsetY = finiteNumber(toNode?.y, 0) - finiteNumber(fromNode?.y, 0);
+                if (layeredRecovery) {
+                    const movingAsset = movingSupport ? catalogByAsset.get(`${movingSupport.atlasId}:${movingSupport.assetId}`) : null;
+                    if (!movingAsset?.roles.includes("movingPlatform")) {
+                        metrics.movingThinAssetViolationCount += 1;
+                        errors.push(`Vertical route edge “${edge.id}” does not use the reserved thin moving-platform style.`);
+                    }
+                }
+                if (!placement?.movement || placement.movement.pattern !== "shuttle") {
+                    errors.push(`Vertical route edge “${edge.id}” is missing its automatic shuttle movement.`);
+                } else {
+                    if (Math.abs(finiteNumber(placement.movement.endOffsetX, 0)) > 0.5) errors.push(`Vertical route edge “${edge.id}” moves sideways instead of remaining a vertical lift.`);
+                    if (Math.abs(finiteNumber(placement.movement.endOffsetY, 0) - expectedOffsetY) > 1) errors.push(`Vertical route edge “${edge.id}” does not span the complete planned climb or drop.`);
+                }
+                if (edgeTransitions.length !== 2 || edgeTransitions.some((transition) => !transition.movingPlatformTransfer)) {
+                    errors.push(`Vertical route edge “${edge.id}” must expose start and end moving-platform transfers.`);
+                }
+                continue;
+            }
+
+            if (edge.intendedDirection === "left" || edge.intendedDirection === "right") {
+                const fromNode = routeNodeById.get(edge.from);
+                const toNode = routeNodeById.get(edge.to);
+                const endpointPair = fromNode?.kind === "entrance" || fromNode?.kind === "exit" || toNode?.kind === "entrance" || toNode?.kind === "exit";
+                const jumpTransitions = edgeTransitions.filter((transition) => ["openJumpSequence", "staggeredUpperRoute"].includes(transition.spacingStyle));
+                for (const transition of jumpTransitions) {
+                    metrics.horizontalJumpGapCount += 1;
+                    metrics.minimumHorizontalJumpGap = Math.min(metrics.minimumHorizontalJumpGap, finiteNumber(transition.gap, 0));
+                    if (finiteNumber(transition.gap, 0) < 34) errors.push(`Horizontal route edge “${edge.id}” contains a platform gap smaller than the intended jump rhythm.`);
+                }
+                if (!endpointPair && edgeTransitions.some((transition) => transition.spacingStyle === "shortAnchorPair")) {
+                    errors.push(`Horizontal route edge “${edge.id}” collapsed into touching anchor platforms away from an endpoint chamber.`);
+                }
+                for (const support of edgeSupports) {
+                    metrics.maximumHorizontalRouteOffset = Math.max(metrics.maximumHorizontalRouteOffset, Math.abs(finiteNumber(support.routeOffsetY, 0)));
+                }
+            }
+        }
+        if (layeredRecovery) {
+            const recoveryLanes = Array.isArray(traversal.recoveryLanes) ? traversal.recoveryLanes : [];
+            metrics.recoveryLaneCount = recoveryLanes.length;
+            for (const lane of recoveryLanes) {
+                const laneSupports = normalizeStringArray(lane.supportIds).map((id) => bySupportId.get(id)).filter(Boolean);
+                const upperGaps = Array.isArray(lane.upperGaps) ? lane.upperGaps : [];
+                const lowerGaps = Array.isArray(lane.lowerGaps) ? lane.lowerGaps : [];
+                metrics.recoveryLaneGapCount += lowerGaps.length;
+                for (const upperGap of upperGaps) {
+                    const covered = laneSupports.some((support) => {
+                        const left = finiteNumber(support.walkableLeftX, support.centerX - support.width * 0.5);
+                        const right = finiteNumber(support.walkableRightX, support.centerX + support.width * 0.5);
+                        return left <= finiteNumber(upperGap.centerX, 0) && right >= finiteNumber(upperGap.centerX, 0);
+                    });
+                    if (covered) metrics.recoveryUpperGapCoverageCount += 1;
+                    else errors.push(`Recovery lane “${lane.id}” leaves upper jump gap ${roundCoordinate(finiteNumber(upperGap.centerX, 0))} without a landing below it.`);
+                }
+                for (const lowerGap of lowerGaps) {
+                    const overlap = upperGaps.some((upperGap) => Math.min(
+                        finiteNumber(lowerGap.rightX, 0),
+                        finiteNumber(upperGap.rightX, 0)
+                    ) - Math.max(
+                        finiteNumber(lowerGap.leftX, 0),
+                        finiteNumber(upperGap.leftX, 0)
+                    ) > 1);
+                    if (overlap) {
+                        metrics.recoveryGapOverlapViolationCount += 1;
+                        errors.push(`Recovery lane “${lane.id}” places a lower-floor gap underneath an upper-route gap.`);
+                    }
+                    if (finiteNumber(lowerGap.width, 0) < 34) errors.push(`Recovery lane “${lane.id}” contains an indistinct lower-floor gap.`);
+                    if (finiteNumber(lowerGap.width, 0) > theme.traversal.mandatoryGap + 8) errors.push(`Recovery lane “${lane.id}” contains an unsafe lower-floor gap.`);
+                }
+            }
+            if (!recoveryLanes.length && settings.safety >= 0.5) warnings.push("The layered traversal produced no staggered recovery floor.");
+            if (metrics.movingThinAssetViolationCount > 0) errors.push("One or more vertical lifts use ordinary static-platform artwork.");
+        }
+        if (!Number.isFinite(metrics.minimumHorizontalJumpGap)) metrics.minimumHorizontalJumpGap = 0;
+        if (metrics.staticVerticalIntermediateCount > 0) errors.push("ThePath74 vertical traversal still contains static staircase supports.");
+        if (metrics.horizontalJumpGapCount > 0 && metrics.maximumHorizontalRouteOffset < (layeredRecovery ? 48 : 18)) warnings.push("Horizontal platform sequences remained unusually close to the abstract route height.");
+    } else if (!Number.isFinite(metrics.minimumHorizontalJumpGap)) {
+        metrics.minimumHorizontalJumpGap = 0;
+    }
+
     const connectedSupportPairs = new Set();
     for (const transition of transitions) {
         connectedSupportPairs.add(`${transition.fromSupportId}|${transition.toSupportId}`);
         connectedSupportPairs.add(`${transition.toSupportId}|${transition.fromSupportId}`);
     }
+    const mandatoryPathIndex = new Map((Array.isArray(traversal.mandatorySupportPath) ? traversal.mandatorySupportPath : [])
+        .map((supportId, index) => [supportId, index]));
     for (let firstIndex = 0; firstIndex < supports.length; firstIndex += 1) {
         const first = supports[firstIndex];
         for (let secondIndex = firstIndex + 1; secondIndex < supports.length; secondIndex += 1) {
@@ -2603,7 +2787,14 @@ export function validatePlayableEmptyCavern(value = {}) {
             const upperBottom = upper.surfaceY + upper.height * (1 - upper.surfaceYRatio);
             const bodyClearance = lower.surfaceY - upperBottom;
             const includesRecoveryPlatform = first.role === "recoveryPlatform" || second.role === "recoveryPlatform";
-            if (!includesRecoveryPlatform && first.mandatory && second.mandatory && bodyClearance < 96) {
+            const firstPathIndex = mandatoryPathIndex.get(first.id);
+            const secondPathIndex = mandatoryPathIndex.get(second.id);
+            const localPathNeighbours = Number.isInteger(firstPathIndex)
+                && Number.isInteger(secondPathIndex)
+                && Math.abs(firstPathIndex - secondPathIndex) <= 2;
+            const requiredBodyClearance = localPathNeighbours ? 72 : 96;
+            const includesMovingPlatform = Boolean(first.moving || second.moving);
+            if (!includesRecoveryPlatform && !includesMovingPlatform && first.mandatory && second.mandatory && bodyClearance < requiredBodyClearance) {
                 metrics.blockedSupportPairs += 1;
                 errors.push(`Supports “${upper.id}” and “${lower.id}” form a blocked vertical sandwich with only ${roundCoordinate(bodyClearance)} units of clear space.`);
             }
@@ -2719,8 +2910,15 @@ export function validatePlayableEmptyCavern(value = {}) {
         errors.push("Generated world bounds do not contain the complete cave envelope.");
     }
     for (const support of supports) {
-        if (!pointInsideCavernProfile(cavern.profile, support.centerX, support.surfaceY - 4)) {
+        if (!pointInsideGeneratedCavern(cavern, support.centerX, support.surfaceY - 4)) {
             errors.push(`Support “${support.id}” lies outside the generated cave opening.`);
+        }
+        if (support.moving && support.movementAxis === "vertical") {
+            const placement = placementById.get(support.placementId);
+            const endSurfaceY = support.surfaceY + finiteNumber(placement?.movement?.endOffsetY, 0);
+            if (!pointInsideGeneratedCavern(cavern, support.centerX, endSurfaceY - 4)) {
+                errors.push(`Moving support “${support.id}” leaves the generated cave opening at its far endpoint.`);
+            }
         }
     }
 
@@ -2760,12 +2958,16 @@ function buildForgivingTraversal({
     const materializedBranches = new Set();
     const branchRejections = [];
     const branchShafts = [];
+    const recoveryLanes = [];
     const supports = [];
     const placements = [];
     const nodeSupport = new Map();
     const edgeSupportIds = new Map();
     const mandatoryEdgeChains = new Map();
     let order = 1000;
+    const useLayeredRecoveryTraversal = implementations.traversal === "layered-recovery-traversal-v3";
+    const useSpacedPlatformTraversal = useLayeredRecoveryTraversal || implementations.traversal === "spaced-platform-traversal-v2";
+    let movingVerticalEdgeCount = 0;
 
     const addSupport = (spec) => {
         const selection = spec.selection || selectGenerationAsset(assetCatalog, spec.role, spec.targetWidth, rng, spec.role === "doorSupport", spec.maximumWidth);
@@ -2850,10 +3052,28 @@ function buildForgivingTraversal({
         return true;
     };
 
+    const verticalLandingNodeIds = new Set();
+    for (const edge of edges.filter((candidate) => candidate.mandatory !== false)) {
+        const fromNode = nodeById.get(edge.from);
+        const toNode = nodeById.get(edge.to);
+        if (!fromNode || !toNode) continue;
+        const verticalDistance = Math.abs(toNode.y - fromNode.y);
+        const verticalRouteEdge = edge.intendedDirection === "climb" || edge.intendedDirection === "descend";
+        if (!verticalRouteEdge && verticalDistance <= theme.traversal.mandatoryDrop * 0.9) continue;
+        if (fromNode.kind !== "entrance" && fromNode.kind !== "exit") verticalLandingNodeIds.add(fromNode.id);
+        if (toNode.kind !== "entrance" && toNode.kind !== "exit") verticalLandingNodeIds.add(toNode.id);
+    }
+
     const supportRoleForNode = (node) => node.kind === "entrance" || node.kind === "exit"
         ? "doorSupport"
         : node.mandatory
-            ? "routeFloor"
+            ? (verticalLandingNodeIds.has(node.id)
+                ? "landingPlatform"
+                : node.kind === "chamber" || node.kind === "recovery"
+                    ? "routeFloor"
+                    : useSpacedPlatformTraversal
+                        ? "landingPlatform"
+                        : "routeFloor")
             : node.kind === "optionalReward"
                 ? "landingPlatform"
                 : "branchStep";
@@ -2864,9 +3084,19 @@ function buildForgivingTraversal({
             ? theme.traversal.intermediateWidth * 0.88
             : !node.mandatory
                 ? 64
-                : node.kind === "chamber" || node.kind === "recovery"
-                    ? theme.traversal.chamberWidth
-                    : theme.traversal.traversalWidth;
+                : useSpacedPlatformTraversal
+                    ? (verticalLandingNodeIds.has(node.id)
+                        ? (node.kind === "chamber" || node.kind === "recovery"
+                            ? theme.traversal.chamberWidth * 0.78
+                            : theme.traversal.intermediateWidth * (useLayeredRecoveryTraversal ? 1.06 : 0.82))
+                        : node.kind === "chamber" || node.kind === "recovery"
+                            ? theme.traversal.chamberWidth
+                            : theme.traversal.intermediateWidth * (useLayeredRecoveryTraversal ? 1.08 : 0.82))
+                    : role === "landingPlatform"
+                        ? theme.traversal.intermediateWidth * 1.08
+                        : node.kind === "chamber" || node.kind === "recovery"
+                            ? theme.traversal.chamberWidth
+                            : theme.traversal.traversalWidth;
 
     for (const node of nodes.filter((candidate) => candidate.mandatory)) {
         const role = supportRoleForNode(node);
@@ -2876,7 +3106,7 @@ function buildForgivingTraversal({
             targetWidth: supportTargetWidthForNode(node, role),
             maximumWidth: role === "doorSupport"
                 ? Infinity
-                : supportTargetWidthForNode(node, role) * (node.kind === "chamber" || node.kind === "recovery" ? 1.12 : 1.18),
+                : supportTargetWidthForNode(node, role) * (node.kind === "chamber" || node.kind === "recovery" ? 1.12 : useSpacedPlatformTraversal ? 1.08 : 1.18),
             centerX: node.x,
             surfaceY: node.y,
             mandatory: true,
@@ -2894,7 +3124,299 @@ function buildForgivingTraversal({
         .map((edge) => edge.id));
     const transitions = [];
 
+    const distributedHorizontalGaps = (totalFree, gapCount, minimumGap, maximumGap) => {
+        if (gapCount <= 0 || totalFree < minimumGap * gapCount - 0.01 || totalFree > maximumGap * gapCount + 0.01) return null;
+        const gaps = Array.from({ length: gapCount }, () => totalFree / gapCount);
+        for (let index = 0; index < gapCount - 1; index += 1) {
+            const roomBelow = gaps[index] - minimumGap;
+            const roomAbove = maximumGap - gaps[index];
+            const nextRoomBelow = gaps[index + 1] - minimumGap;
+            const nextRoomAbove = maximumGap - gaps[index + 1];
+            const shiftLimit = Math.min(22, roomBelow, roomAbove, nextRoomBelow, nextRoomAbove);
+            if (shiftLimit <= 0.5) continue;
+            const shift = rng.range(-shiftLimit, shiftLimit);
+            gaps[index] += shift;
+            gaps[index + 1] -= shift;
+        }
+        return gaps.map(roundCoordinate);
+    };
+
+    const buildSpacedHorizontalEdge = (edge) => {
+        const startSupport = nodeSupport.get(edge.from);
+        const endSupport = nodeSupport.get(edge.to);
+        if (!startSupport || !endSupport) return null;
+        const distanceX = Math.abs(endSupport.centerX - startSupport.centerX);
+        const direction = Math.sign(endSupport.centerX - startSupport.centerX) || 1;
+        const minimumGap = roundCoordinate((useLayeredRecoveryTraversal ? 64 : 44) + settings.safety * (useLayeredRecoveryTraversal ? 14 : 12));
+        const maximumGap = roundCoordinate(Math.min(
+            theme.traversal.mandatoryGap * (useLayeredRecoveryTraversal ? 0.84 : 0.58),
+            useLayeredRecoveryTraversal ? 126 : 88
+        ));
+        const targetWidth = theme.traversal.intermediateWidth * rng.range(
+            useLayeredRecoveryTraversal ? 0.68 : 0.72,
+            useLayeredRecoveryTraversal ? 0.98 : 0.88
+        );
+        let selectedIntermediateAssets = null;
+        let selectedGaps = null;
+
+        for (let count = 0; count <= 14; count += 1) {
+            const maximumIntermediateWidth = count > 0
+                ? (distanceX - startSupport.width * 0.5 - endSupport.width * 0.5 - minimumGap * (count + 1)) / count
+                : Infinity;
+            if (count > 0 && maximumIntermediateWidth < 92) continue;
+            const selections = Array.from({ length: count }, () => selectGenerationAsset(
+                assetCatalog,
+                "landingPlatform",
+                Math.min(targetWidth, maximumIntermediateWidth),
+                rng,
+                false,
+                maximumIntermediateWidth
+            ));
+            if (selections.some((selection) => !selection)) continue;
+            const occupiedWidth = startSupport.width * 0.5
+                + endSupport.width * 0.5
+                + selections.reduce((sum, selection) => sum + selection.width, 0);
+            const totalFree = distanceX - occupiedWidth;
+            const gaps = distributedHorizontalGaps(totalFree, count + 1, minimumGap, maximumGap);
+            if (!gaps) continue;
+            const widthEntries = [
+                { width: startSupport.width, left: startSupport.walkableLeftInset, right: startSupport.walkableRightInset },
+                ...selections.map((selection) => ({
+                    width: selection.width,
+                    left: selection.width * Math.max(selection.asset.walkableLeftInsetRatio, selection.asset.walkableRightInsetRatio),
+                    right: selection.width * Math.max(selection.asset.walkableLeftInsetRatio, selection.asset.walkableRightInsetRatio)
+                })),
+                { width: endSupport.width, left: endSupport.walkableLeftInset, right: endSupport.walkableRightInset }
+            ];
+            const walkableGapsValid = gaps.every((gap, index) => (
+                gap + widthEntries[index].right + widthEntries[index + 1].left
+            ) <= theme.traversal.mandatoryGap * 0.96);
+            if (!walkableGapsValid) continue;
+            selectedIntermediateAssets = selections;
+            selectedGaps = gaps;
+            break;
+        }
+
+        if (!selectedIntermediateAssets || !selectedGaps) return null;
+
+        const variedSurfaces = (() => {
+            const count = selectedIntermediateAssets.length;
+            if (!useLayeredRecoveryTraversal || count <= 0) return null;
+            const riseLimit = theme.traversal.mandatoryRise * 0.92;
+            const dropLimit = Math.min(theme.traversal.mandatoryDrop * 0.72, 194);
+            let best = null;
+            let bestScore = -Infinity;
+            for (let attempt = 0; attempt < 56; attempt += 1) {
+                const surfaces = [];
+                let previous = startSupport.surfaceY;
+                let sign = rng.chance(0.5) ? -1 : 1;
+                let valid = true;
+                for (let index = 1; index <= count; index += 1) {
+                    const t = index / (count + 1);
+                    const baseline = lerp(startSupport.surfaceY, endSupport.surfaceY, t);
+                    const remaining = count + 1 - index;
+                    if (rng.chance(0.72)) sign *= -1;
+                    const desiredAmplitude = rng.range(58, Math.min(148, theme.traversal.mandatoryDrop * 0.62));
+                    const desired = baseline + sign * desiredAmplitude + rng.range(-24, 24);
+                    const minimum = Math.max(
+                        previous - riseLimit,
+                        endSupport.surfaceY - remaining * dropLimit
+                    );
+                    const maximum = Math.min(
+                        previous + dropLimit,
+                        endSupport.surfaceY + remaining * riseLimit
+                    );
+                    if (minimum > maximum) {
+                        valid = false;
+                        break;
+                    }
+                    const surface = clamp(desired, minimum, maximum);
+                    surfaces.push(roundCoordinate(surface));
+                    previous = surface;
+                }
+                if (!valid) continue;
+                const complete = [startSupport.surfaceY, ...surfaces, endSupport.surfaceY];
+                for (let index = 1; index < complete.length; index += 1) {
+                    const rise = Math.max(0, complete[index - 1] - complete[index]);
+                    const drop = Math.max(0, complete[index] - complete[index - 1]);
+                    if (rise > theme.traversal.mandatoryRise || drop > theme.traversal.mandatoryDrop) valid = false;
+                }
+                if (!valid) continue;
+                const offsets = surfaces.map((surface, index) => Math.abs(surface - lerp(
+                    startSupport.surfaceY,
+                    endSupport.surfaceY,
+                    (index + 1) / (count + 1)
+                )));
+                const verticalRange = Math.max(...complete) - Math.min(...complete);
+                let verticalDirectionChanges = 0;
+                let previousSign = 0;
+                for (let index = 1; index < complete.length; index += 1) {
+                    const currentSign = Math.sign(complete[index] - complete[index - 1]);
+                    if (currentSign && previousSign && currentSign !== previousSign) verticalDirectionChanges += 1;
+                    if (currentSign) previousSign = currentSign;
+                }
+                const score = verticalRange * 1.5
+                    + offsets.reduce((sum, value) => sum + value, 0)
+                    + verticalDirectionChanges * 34;
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = surfaces;
+                }
+            }
+            return best;
+        })();
+
+        const intermediate = [];
+        const amplitude = Math.min(68, theme.traversal.mandatoryRise * 0.58) * rng.range(0.72, 1);
+        const arcDirection = rng.chance(0.5) ? -1 : 1;
+        for (let index = 1; index <= selectedIntermediateAssets.length; index += 1) {
+            const t = index / (selectedIntermediateAssets.length + 1);
+            const primaryWave = Math.sin(Math.PI * t) * amplitude * arcDirection;
+            const secondaryWave = Math.sin(Math.PI * 2 * t) * amplitude * rng.range(-0.18, 0.18);
+            const routeSurfaceY = lerp(startSupport.surfaceY, endSupport.surfaceY, t);
+            const surfaceY = variedSurfaces?.[index - 1] ?? routeSurfaceY + primaryWave + secondaryWave;
+            const support = addSupport({
+                id: `support_${edge.id}_spaced_${String(index).padStart(2, "0")}`,
+                role: "landingPlatform",
+                targetWidth,
+                selection: selectedIntermediateAssets[index - 1],
+                centerX: lerp(startSupport.centerX, endSupport.centerX, t),
+                surfaceY,
+                mandatory: true,
+                routeEdgeId: edge.id
+            });
+            support.routeOffsetY = roundCoordinate(support.surfaceY - routeSurfaceY);
+            support.platformSpacingStyle = useLayeredRecoveryTraversal ? "staggeredUpperRoute" : "openJumpSequence";
+            intermediate.push(support);
+        }
+
+        let cursor = startSupport.centerX + direction * startSupport.width * 0.5;
+        for (let index = 0; index < intermediate.length; index += 1) {
+            const support = intermediate[index];
+            cursor += direction * (selectedGaps[index] + support.width * 0.5);
+            moveSupportCenter(support, cursor);
+            cursor += direction * support.width * 0.5;
+        }
+        const chain = [startSupport, ...intermediate, endSupport];
+        const edgeTransitions = [];
+        for (let index = 1; index < chain.length; index += 1) {
+            const transition = classifyTraversalTransition(chain[index - 1], chain[index], edge, theme);
+            transition.routeEdgeDirection = edge.intendedDirection;
+            transition.spacingStyle = useLayeredRecoveryTraversal ? "staggeredUpperRoute" : "openJumpSequence";
+            if (!transition.valid) throw new Error(`Horizontal edge “${edge.id}” failed its spaced jump sequence between ${chain[index - 1].id} and ${chain[index].id}: gap ${transition.gap}, rise ${transition.rise}, drop ${transition.drop}, exposed ${transition.exposedLandingWidth}.`);
+            edgeTransitions.push(transition);
+        }
+        edgeSupportIds.set(edge.id, intermediate.map((support) => support.id));
+        transitions.push(...edgeTransitions);
+        mandatoryEdgeChains.set(edge.id, chain);
+        return chain;
+    };
+
+    const buildMovingVerticalEdge = (edge) => {
+        const startSupport = nodeSupport.get(edge.from);
+        const endSupport = nodeSupport.get(edge.to);
+        if (!startSupport || !endSupport) throw new Error(`Vertical edge “${edge.id}” is missing a landing support.`);
+        const selection = selectGenerationAsset(
+            assetCatalog,
+            useLayeredRecoveryTraversal ? "movingPlatform" : "landingPlatform",
+            theme.traversal.intermediateWidth * (useLayeredRecoveryTraversal ? 0.86 : 0.78),
+            rng,
+            false,
+            theme.traversal.intermediateWidth * (useLayeredRecoveryTraversal ? 1.02 : 0.98)
+        );
+        if (!selection) throw new Error(`Vertical edge “${edge.id}” cannot find a moving-platform asset.`);
+        const side = movingVerticalEdgeCount % 2 === 0 ? 1 : -1;
+        movingVerticalEdgeCount += 1;
+        const support = addSupport({
+            id: `support_${edge.id}_moving`,
+            role: "landingPlatform",
+            targetWidth: theme.traversal.intermediateWidth * (useLayeredRecoveryTraversal ? 0.86 : 0.78),
+            selection,
+            centerX: startSupport.centerX,
+            surfaceY: startSupport.surfaceY,
+            mandatory: true,
+            routeEdgeId: edge.id
+        });
+        const boardingGap = roundCoordinate(rng.range(38, 62));
+        const centerX = side > 0
+            ? Math.min(startSupport.walkableRightX, endSupport.walkableRightX) + boardingGap + support.width * 0.5 - support.walkableLeftInset
+            : Math.max(startSupport.walkableLeftX, endSupport.walkableLeftX) - boardingGap - (support.width * 0.5 - support.walkableRightInset);
+        moveSupportCenter(support, centerX);
+        support.moving = true;
+        support.movementAxis = "vertical";
+        support.movementStartSupportId = startSupport.id;
+        support.movementEndSupportId = endSupport.id;
+        support.movementDistance = roundCoordinate(endSupport.surfaceY - startSupport.surfaceY);
+        support.platformSpacingStyle = "movingShaft";
+        support.movingVisualStyle = useLayeredRecoveryTraversal ? "thinOnly" : "legacyLanding";
+
+        const placement = placements.find((candidate) => candidate.id === support.placementId);
+        if (!placement) throw new Error(`Vertical edge “${edge.id}” lost its moving-platform placement.`);
+        placement.movement = {
+            version: 1,
+            pattern: "shuttle",
+            activation: "automatic",
+            endOffsetX: 0,
+            endOffsetY: roundCoordinate(endSupport.surfaceY - startSupport.surfaceY),
+            speed: roundCoordinate(clamp(Math.abs(endSupport.surfaceY - startSupport.surfaceY) * 0.34, 126, 215)),
+            initialDelay: roundCoordinate(rng.range(0, 0.5)),
+            triggerDelay: 0,
+            startPause: roundCoordinate(rng.range(0.55, 0.9)),
+            endPause: roundCoordinate(rng.range(0.55, 0.9)),
+            fadeDuration: 0.2,
+            hiddenDuration: 1.25
+        };
+        placement.generationRole = "verticalMovingPlatform";
+        placement.routeEdgeDirection = edge.intendedDirection;
+
+        const platformAtEnd = {
+            ...support,
+            centerX: support.centerX,
+            surfaceY: endSupport.surfaceY,
+            walkableLeftX: support.walkableLeftX,
+            walkableRightX: support.walkableRightX
+        };
+        const boardTransition = classifyTraversalTransition(startSupport, support, edge, theme);
+        const exitTransition = classifyTraversalTransition(platformAtEnd, endSupport, edge, theme);
+        for (const [transition, endpoint] of [[boardTransition, "start"], [exitTransition, "end"]]) {
+            transition.routeEdgeDirection = edge.intendedDirection;
+            transition.movingPlatformTransfer = true;
+            transition.movingPlatformId = support.id;
+            transition.platformEndpoint = endpoint;
+            transition.traversalClass = "movingPlatformBoard";
+            if (!transition.valid) throw new Error(`Vertical edge “${edge.id}” moving platform cannot be boarded safely at its ${endpoint} endpoint.`);
+        }
+        edgeSupportIds.set(edge.id, [support.id]);
+        transitions.push(boardTransition, exitTransition);
+        const chain = [startSupport, support, endSupport];
+        mandatoryEdgeChains.set(edge.id, chain);
+        return chain;
+    };
+
     const processEdge = (edge, disableShaftReservation = false) => {
+        if (useSpacedPlatformTraversal && edge.mandatory !== false) {
+            if (edge.intendedDirection === "climb" || edge.intendedDirection === "descend") {
+                return buildMovingVerticalEdge(edge);
+            }
+            if ((edge.intendedDirection === "left" || edge.intendedDirection === "right") && !disableShaftReservation) {
+                const spacedChain = buildSpacedHorizontalEdge(edge);
+                if (spacedChain) return spacedChain;
+                const startSupport = nodeSupport.get(edge.from);
+                const endSupport = nodeSupport.get(edge.to);
+                const shortTransition = startSupport && endSupport
+                    ? classifyTraversalTransition(startSupport, endSupport, edge, theme)
+                    : null;
+                if (shortTransition?.valid) {
+                    shortTransition.routeEdgeDirection = edge.intendedDirection;
+                    shortTransition.spacingStyle = "shortAnchorPair";
+                    edgeSupportIds.set(edge.id, []);
+                    transitions.push(shortTransition);
+                    const shortChain = [startSupport, endSupport];
+                    mandatoryEdgeChains.set(edge.id, shortChain);
+                    return shortChain;
+                }
+            }
+        }
         const startSupport = nodeSupport.get(edge.from);
         const endSupport = nodeSupport.get(edge.to);
         if (!startSupport || !endSupport) throw new Error(`Route edge “${edge.id}” is missing one of its supports.`);
@@ -2922,6 +3444,15 @@ function buildForgivingTraversal({
         let intermediateCount = -1;
         let selectedIntermediateAssets = [];
         let selectedGaps = [];
+
+        const directTransition = classifyTraversalTransition(startSupport, endSupport, edge, theme);
+        if (directTransition.valid && !reserveBranchShaft) {
+            edgeSupportIds.set(edge.id, []);
+            transitions.push(directTransition);
+            const directChain = [startSupport, endSupport];
+            if (mandatory) mandatoryEdgeChains.set(edge.id, directChain);
+            return directChain;
+        }
 
         for (let count = 0; count <= 10; count += 1) {
             const maximumIntermediateWidth = count > 0
@@ -3018,7 +3549,58 @@ function buildForgivingTraversal({
 
         if (intermediateCount < 0) {
             if (reserveBranchShaft) return processEdge(edge, true);
-            throw new Error(`Route edge “${edge.id}” cannot fit collision-safe platforms across ${roundCoordinate(distanceX)} horizontal and ${roundCoordinate(distanceY)} vertical units.`);
+            const climbing = endSupport.surfaceY < startSupport.surfaceY;
+            const verticalLimit = climbing
+                ? theme.traversal.mandatoryRise * 0.9
+                : theme.traversal.mandatoryDrop * 0.72;
+            const transitionCount = Math.max(
+                2,
+                Math.ceil(distanceY / Math.max(40, verticalLimit)),
+                Math.ceil(distanceX / Math.max(180, theme.traversal.intermediateWidth * 0.72))
+            );
+            const stairCount = transitionCount - 1;
+            if (distanceY < 42 || stairCount > 18) {
+                throw new Error(`Route edge “${edge.id}” cannot fit collision-safe platforms across ${roundCoordinate(distanceX)} horizontal and ${roundCoordinate(distanceY)} vertical units.`);
+            }
+            const stairSelections = Array.from({ length: stairCount }, () =>
+                selectGenerationAsset(assetCatalog, mandatory ? "landingPlatform" : "branchStep", theme.traversal.intermediateWidth * 0.82, rng, false, Infinity)
+            );
+            if (stairSelections.some((selection) => !selection)) {
+                throw new Error(`Route edge “${edge.id}” cannot find staircase platform assets.`);
+            }
+            const stairSupports = [];
+            const horizontalStep = (endSupport.centerX - startSupport.centerX) / transitionCount;
+            const useShaftZigzag = Math.abs(horizontalStep) < 64;
+            const shaftZigzagAmplitude = useShaftZigzag ? 118 : 0;
+            for (let index = 1; index <= stairCount; index += 1) {
+                const t = index / transitionCount;
+                const shaftOffset = useShaftZigzag ? (index % 2 === 0 ? -shaftZigzagAmplitude : shaftZigzagAmplitude) : 0;
+                const centerX = lerp(startSupport.centerX, endSupport.centerX, t) + shaftOffset;
+                stairSupports.push(addSupport({
+                    id: `support_${edge.id}_stair_${String(index).padStart(2, "0")}`,
+                    role: mandatory ? "landingPlatform" : "branchStep",
+                    targetWidth: theme.traversal.intermediateWidth * 0.82,
+                    selection: stairSelections[index - 1],
+                    centerX,
+                    surfaceY: edgeSurfaceAt(t),
+                    mandatory,
+                    routeEdgeId: edge.id,
+                    branchId: edge.branchId
+                }));
+            }
+            const stairChain = [startSupport, ...stairSupports, endSupport];
+            const stairTransitions = [];
+            for (let index = 1; index < stairChain.length; index += 1) {
+                const transition = classifyTraversalTransition(stairChain[index - 1], stairChain[index], edge, theme);
+                if (!transition.valid) {
+                    throw new Error(`Route edge “${edge.id}” staircase failed between ${stairChain[index - 1].id} and ${stairChain[index].id}: gap ${transition.gap}, rise ${transition.rise}, drop ${transition.drop}, exposed landing ${transition.exposedLandingWidth}.`);
+                }
+                stairTransitions.push(transition);
+            }
+            edgeSupportIds.set(edge.id, stairSupports.map((support) => support.id));
+            transitions.push(...stairTransitions);
+            if (mandatory) mandatoryEdgeChains.set(edge.id, stairChain);
+            return stairChain;
         }
 
         const intermediate = [];
@@ -3313,50 +3895,189 @@ function buildForgivingTraversal({
     }
 
     const existing = [...supports];
-    for (const transition of [...transitions]) {
-        if (!transition.mandatory || settings.safety < 0.5) continue;
-        const from = supports.find((support) => support.id === transition.fromSupportId);
-        const to = supports.find((support) => support.id === transition.toSupportId);
-        if (!from || !to) continue;
-        const deservesRecovery = transition.gap > 82 || transition.drop > 150;
-        if (!deservesRecovery || !rng.chance(0.35 + settings.safety * 0.45)) continue;
-        const centerX = (from.centerX + to.centerX) * 0.5;
-        const surfaceY = Math.max(from.surfaceY, to.surfaceY) + 165;
-        if (existing.some((support) => Math.abs(support.centerX - centerX) < 170 && Math.abs(support.surfaceY - surfaceY) < 115)) continue;
-        const support = addSupport({
-            id: `support_recovery_${String(supports.length + 1).padStart(3, "0")}`,
-            role: "recoveryPlatform",
-            targetWidth: theme.traversal.intermediateWidth * 0.88,
-            centerX,
-            surfaceY,
-            mandatory: false,
-            routeEdgeId: transition.routeEdgeId
-        });
-        existing.push(support);
+    if (useLayeredRecoveryTraversal) {
+        const recoveryLaneLimit = settings.length === "grand" ? 3 : settings.length === "extended" ? 2 : 1;
+        const horizontalEdgeCandidates = edges.filter((edge) => edge.mandatory !== false
+            && (edge.intendedDirection === "left" || edge.intendedDirection === "right"))
+            .map((edge) => {
+                const chain = mandatoryEdgeChains.get(edge.id) || [];
+                const span = chain.length
+                    ? Math.max(...chain.map((support) => support.centerX + support.width * 0.5))
+                        - Math.min(...chain.map((support) => support.centerX - support.width * 0.5))
+                    : 0;
+                return { edge, span, chainLength: chain.length };
+            })
+            .filter((entry) => entry.span >= 560 && entry.chainLength >= 3)
+            .sort((left, right) => right.span - left.span || String(left.edge.id).localeCompare(String(right.edge.id)));
+        for (const candidate of horizontalEdgeCandidates) {
+            if (recoveryLanes.length >= recoveryLaneLimit) break;
+            const edge = candidate.edge;
+            const chain = mandatoryEdgeChains.get(edge.id);
+            if (!Array.isArray(chain) || chain.length < 3) continue;
+            const ordered = [...chain].sort((left, right) => left.centerX - right.centerX);
+            const upperGaps = [];
+            for (let index = 1; index < ordered.length; index += 1) {
+                const left = ordered[index - 1];
+                const right = ordered[index];
+                const gapLeft = finiteNumber(left.walkableRightX, left.centerX + left.width * 0.5);
+                const gapRight = finiteNumber(right.walkableLeftX, right.centerX - right.width * 0.5);
+                if (gapRight - gapLeft < 28) continue;
+                upperGaps.push({
+                    leftX: roundCoordinate(gapLeft),
+                    rightX: roundCoordinate(gapRight),
+                    centerX: roundCoordinate((gapLeft + gapRight) * 0.5),
+                    width: roundCoordinate(gapRight - gapLeft)
+                });
+            }
+            if (!upperGaps.length) continue;
+
+            const edgeLeft = Math.min(...ordered.map((support) => finiteNumber(support.walkableLeftX, support.centerX - support.width * 0.5)));
+            const edgeRight = Math.max(...ordered.map((support) => finiteNumber(support.walkableRightX, support.centerX + support.width * 0.5)));
+            const chainIds = new Set(chain.map((support) => support.id));
+            const baseSurfaceY = Math.max(...chain.map((support) => support.surfaceY));
+            let recoverySurfaceY = null;
+            for (const offset of [188, 220, 252, 286, 322]) {
+                const candidateY = baseSurfaceY + offset;
+                const conflicts = supports.some((support) => {
+                    if (chainIds.has(support.id) || support.role === "recoveryPlatform") return false;
+                    const overlap = Math.min(edgeRight, support.centerX + support.width * 0.5)
+                        - Math.max(edgeLeft, support.centerX - support.width * 0.5);
+                    return overlap > 72 && Math.abs(support.surfaceY - candidateY) < 145;
+                });
+                if (!conflicts) {
+                    recoverySurfaceY = roundCoordinate(candidateY);
+                    break;
+                }
+            }
+            if (!Number.isFinite(recoverySurfaceY)) continue;
+
+            const laneSupports = [];
+            for (let index = 0; index < upperGaps.length; index += 1) {
+                const gap = upperGaps[index];
+                const leftBoundary = index === 0
+                    ? edgeLeft
+                    : (upperGaps[index - 1].centerX + gap.centerX) * 0.5;
+                const rightBoundary = index === upperGaps.length - 1
+                    ? edgeRight
+                    : (gap.centerX + upperGaps[index + 1].centerX) * 0.5;
+                const cellWidth = Math.max(0, rightBoundary - leftBoundary);
+                const desiredLowerGap = roundCoordinate(rng.range(68, 102));
+                const maximumWidth = Math.max(118, cellWidth - desiredLowerGap);
+                const targetWidth = Math.min(
+                    maximumWidth,
+                    Math.max(gap.width + 128, theme.traversal.intermediateWidth * rng.range(1.0, 1.5))
+                );
+                const selection = selectGenerationAsset(
+                    assetCatalog,
+                    "recoveryPlatform",
+                    targetWidth,
+                    rng,
+                    false,
+                    maximumWidth
+                );
+                if (!selection) continue;
+                const support = addSupport({
+                    id: `support_${edge.id}_recovery_${String(index + 1).padStart(2, "0")}`,
+                    role: "recoveryPlatform",
+                    targetWidth,
+                    selection,
+                    centerX: gap.centerX,
+                    surfaceY: recoverySurfaceY,
+                    mandatory: false,
+                    routeEdgeId: edge.id
+                });
+                support.platformSpacingStyle = "staggeredRecoveryLane";
+                support.recoveryLaneId = `recovery_lane_${edge.id}`;
+                support.protectsUpperGapIndex = index;
+                laneSupports.push(support);
+                existing.push(support);
+            }
+            if (!laneSupports.length) continue;
+
+            laneSupports.sort((left, right) => left.centerX - right.centerX);
+            const lowerGaps = [];
+            for (let index = 1; index < laneSupports.length; index += 1) {
+                const left = laneSupports[index - 1];
+                const right = laneSupports[index];
+                const gapLeft = finiteNumber(left.walkableRightX, left.centerX + left.width * 0.5);
+                const gapRight = finiteNumber(right.walkableLeftX, right.centerX - right.width * 0.5);
+                if (gapRight - gapLeft < 34) continue;
+                lowerGaps.push({
+                    leftX: roundCoordinate(gapLeft),
+                    rightX: roundCoordinate(gapRight),
+                    centerX: roundCoordinate((gapLeft + gapRight) * 0.5),
+                    width: roundCoordinate(gapRight - gapLeft)
+                });
+            }
+            recoveryLanes.push({
+                id: `recovery_lane_${edge.id}`,
+                routeEdgeId: edge.id,
+                surfaceY: recoverySurfaceY,
+                supportIds: laneSupports.map((support) => support.id),
+                upperGaps,
+                lowerGaps,
+                staggered: true
+            });
+        }
+    } else {
+        const recoveryLimit = useSpacedPlatformTraversal
+            ? (settings.length === "grand" ? 4 : settings.length === "extended" ? 3 : settings.length === "standard" ? 2 : 1)
+            : Infinity;
+        let generatedRecoveryCount = 0;
+        for (const transition of [...transitions]) {
+            if (!transition.mandatory || settings.safety < 0.5 || transition.movingPlatformTransfer) continue;
+            if (generatedRecoveryCount >= recoveryLimit) break;
+            const from = supports.find((support) => support.id === transition.fromSupportId);
+            const to = supports.find((support) => support.id === transition.toSupportId);
+            if (!from || !to) continue;
+            const deservesRecovery = useSpacedPlatformTraversal
+                ? transition.gap > 122 || transition.drop > 180
+                : transition.gap > 82 || transition.drop > 150;
+            const recoveryChance = useSpacedPlatformTraversal
+                ? 0.08 + settings.safety * 0.18
+                : 0.35 + settings.safety * 0.45;
+            if (!deservesRecovery || !rng.chance(recoveryChance)) continue;
+            const centerX = (from.centerX + to.centerX) * 0.5;
+            const surfaceY = Math.max(from.surfaceY, to.surfaceY) + (useSpacedPlatformTraversal ? 190 : 165);
+            if (existing.some((support) => Math.abs(support.centerX - centerX) < 170 && Math.abs(support.surfaceY - surfaceY) < 115)) continue;
+            const support = addSupport({
+                id: `support_recovery_${String(supports.length + 1).padStart(3, "0")}`,
+                role: "recoveryPlatform",
+                targetWidth: theme.traversal.intermediateWidth * 0.88,
+                centerX,
+                surfaceY,
+                mandatory: false,
+                routeEdgeId: transition.routeEdgeId
+            });
+            existing.push(support);
+            generatedRecoveryCount += 1;
+        }
     }
 
-    const desiredMovingCount = settings.length === "grand" ? 3 : settings.length === "extended" ? 2 : settings.length === "standard" ? 1 : 0;
-    const movingCandidates = rng.shuffle(supports.filter((support) => support.role === "landingPlatform" && support.mandatory && support.routeEdgeId));
-    for (let index = 0; index < Math.min(desiredMovingCount, movingCandidates.length); index += 1) {
-        const support = movingCandidates[index];
-        const placement = placements.find((candidate) => candidate.id === support.placementId);
-        if (!placement) continue;
-        placement.movement = {
-            version: 1,
-            pattern: "shuttle",
-            activation: "automatic",
-            endOffsetX: roundCoordinate(rng.range(-28, 28)),
-            endOffsetY: roundCoordinate((index % 2 === 0 ? -1 : 1) * rng.range(72, 118)),
-            speed: roundCoordinate(rng.range(76, 104)),
-            initialDelay: roundCoordinate(rng.range(0, 0.75)),
-            triggerDelay: 0,
-            startPause: roundCoordinate(rng.range(0.65, 1.1)),
-            endPause: roundCoordinate(rng.range(0.65, 1.1)),
-            fadeDuration: 0.2,
-            hiddenDuration: 1.25
-        };
-        placement.generationRole = "movingLandingPlatform";
-        support.moving = true;
+    if (!useSpacedPlatformTraversal) {
+        const desiredMovingCount = settings.length === "grand" ? 3 : settings.length === "extended" ? 2 : settings.length === "standard" ? 1 : 0;
+        const movingCandidates = rng.shuffle(supports.filter((support) => support.role === "landingPlatform" && support.mandatory && support.routeEdgeId));
+        for (let index = 0; index < Math.min(desiredMovingCount, movingCandidates.length); index += 1) {
+            const support = movingCandidates[index];
+            const placement = placements.find((candidate) => candidate.id === support.placementId);
+            if (!placement) continue;
+            placement.movement = {
+                version: 1,
+                pattern: "shuttle",
+                activation: "automatic",
+                endOffsetX: roundCoordinate(rng.range(-28, 28)),
+                endOffsetY: roundCoordinate((index % 2 === 0 ? -1 : 1) * rng.range(72, 118)),
+                speed: roundCoordinate(rng.range(76, 104)),
+                initialDelay: roundCoordinate(rng.range(0, 0.75)),
+                triggerDelay: 0,
+                startPause: roundCoordinate(rng.range(0.65, 1.1)),
+                endPause: roundCoordinate(rng.range(0.65, 1.1)),
+                fadeDuration: 0.2,
+                hiddenDuration: 1.25
+            };
+            placement.generationRole = "movingLandingPlatform";
+            support.moving = true;
+        }
     }
 
     const materializedOptionalEdges = edges.filter((edge) => edge.mandatory === false
@@ -3374,6 +4095,7 @@ function buildForgivingTraversal({
         requestedBranchCount: desiredBranchCount,
         branchRejections,
         branchShafts,
+        recoveryLanes,
         materializedBranchIds: [...materializedBranches].sort(),
         materializedOptionalRouteNodeIds: nodes.filter((node) => !node.mandatory && materializedBranches.has(node.branchId)).map((node) => node.id),
         materializedOptionalRouteEdgeIds: materializedOptionalEdges.map((edge) => edge.id),
@@ -3539,6 +4261,222 @@ function buildSafeEndpoints({ route, traversal, theme, implementations, rng, run
     };
 }
 
+function polygonSignedAreaSimple(points) {
+    let twiceArea = 0;
+    for (let index = 0; index < points.length; index += 1) {
+        const current = points[index];
+        const next = points[(index + 1) % points.length];
+        twiceArea += current.x * next.y - next.x * current.y;
+    }
+    return twiceArea * 0.5;
+}
+
+function simplifyCollinearLoop(points) {
+    const result = [];
+    for (const point of points) {
+        while (result.length >= 2) {
+            const a = result.at(-2);
+            const b = result.at(-1);
+            const cross = (b.x - a.x) * (point.y - b.y) - (b.y - a.y) * (point.x - b.x);
+            if (Math.abs(cross) > 0.0001) break;
+            result.pop();
+        }
+        result.push(point);
+    }
+    let changed = true;
+    while (changed && result.length > 3) {
+        changed = false;
+        for (let index = 0; index < result.length; index += 1) {
+            const a = result[(index - 1 + result.length) % result.length];
+            const b = result[index];
+            const c = result[(index + 1) % result.length];
+            const cross = (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+            if (Math.abs(cross) > 0.0001) continue;
+            result.splice(index, 1);
+            changed = true;
+            break;
+        }
+    }
+    return result;
+}
+
+function pointLineDistance(point, a, b) {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lengthSquared = dx * dx + dy * dy;
+    if (lengthSquared <= 0.000001) return Math.hypot(point.x - a.x, point.y - a.y);
+    const t = clamp(((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared, 0, 1);
+    return Math.hypot(point.x - (a.x + dx * t), point.y - (a.y + dy * t));
+}
+
+function simplifyOpenPolyline(points, tolerance) {
+    if (points.length <= 2) return [...points];
+    let maximumDistance = 0;
+    let splitIndex = -1;
+    for (let index = 1; index < points.length - 1; index += 1) {
+        const distanceValue = pointLineDistance(points[index], points[0], points.at(-1));
+        if (distanceValue <= maximumDistance) continue;
+        maximumDistance = distanceValue;
+        splitIndex = index;
+    }
+    if (maximumDistance <= tolerance || splitIndex < 0) return [points[0], points.at(-1)];
+    const left = simplifyOpenPolyline(points.slice(0, splitIndex + 1), tolerance);
+    const right = simplifyOpenPolyline(points.slice(splitIndex), tolerance);
+    return [...left.slice(0, -1), ...right];
+}
+
+function polygonSelfIntersects(points) {
+    for (let first = 0; first < points.length; first += 1) {
+        const a = points[first];
+        const b = points[(first + 1) % points.length];
+        for (let second = first + 1; second < points.length; second += 1) {
+            if (second === first || second === (first + 1) % points.length || (second + 1) % points.length === first) continue;
+            const c = points[second];
+            const d = points[(second + 1) % points.length];
+            if (segmentsIntersect(a, b, c, d)) return true;
+        }
+    }
+    return false;
+}
+
+function simplifyClosedContour(points, tolerance) {
+    const collinear = simplifyCollinearLoop(points);
+    if (collinear.length <= 12) return collinear;
+    let firstIndex = 0;
+    for (let index = 1; index < collinear.length; index += 1) {
+        if (collinear[index].x < collinear[firstIndex].x || (collinear[index].x === collinear[firstIndex].x && collinear[index].y < collinear[firstIndex].y)) firstIndex = index;
+    }
+    const rotated = [...collinear.slice(firstIndex), ...collinear.slice(0, firstIndex)];
+    let splitIndex = 1;
+    let farthest = 0;
+    for (let index = 1; index < rotated.length; index += 1) {
+        const distanceValue = distance(rotated[0], rotated[index]);
+        if (distanceValue <= farthest) continue;
+        farthest = distanceValue;
+        splitIndex = index;
+    }
+    const firstChain = simplifyOpenPolyline(rotated.slice(0, splitIndex + 1), tolerance);
+    const secondChain = simplifyOpenPolyline([...rotated.slice(splitIndex), rotated[0]], tolerance);
+    const simplified = simplifyCollinearLoop([...firstChain.slice(0, -1), ...secondChain.slice(0, -1)]);
+    if (simplified.length < 8 || polygonSelfIntersects(simplified)) return collinear;
+    return simplified;
+}
+
+function traceCavernOccupancyContour(stamps, theme) {
+    const cellSize = clamp(theme.cavern.sampleStep * 0.72, 82, 112);
+    const rawMinX = Math.min(...stamps.map((stamp) => stamp.x - stamp.rx)) - cellSize * 2;
+    const rawMinY = Math.min(...stamps.map((stamp) => stamp.y - stamp.ry)) - cellSize * 2;
+    const rawMaxX = Math.max(...stamps.map((stamp) => stamp.x + stamp.rx)) + cellSize * 2;
+    const rawMaxY = Math.max(...stamps.map((stamp) => stamp.y + stamp.ry)) + cellSize * 2;
+    const originX = Math.floor(rawMinX / cellSize) * cellSize;
+    const originY = Math.floor(rawMinY / cellSize) * cellSize;
+    const columns = Math.ceil((rawMaxX - originX) / cellSize);
+    const rows = Math.ceil((rawMaxY - originY) / cellSize);
+    const occupied = new Set();
+    const key = (column, row) => `${column},${row}`;
+    const expansion = cellSize * 0.9;
+    for (const stamp of stamps) {
+        const expandedRx = stamp.rx + expansion;
+        const expandedRy = stamp.ry + expansion;
+        const minimumColumn = Math.max(0, Math.floor((stamp.x - expandedRx - originX) / cellSize));
+        const maximumColumn = Math.min(columns - 1, Math.ceil((stamp.x + expandedRx - originX) / cellSize));
+        const minimumRow = Math.max(0, Math.floor((stamp.y - expandedRy - originY) / cellSize));
+        const maximumRow = Math.min(rows - 1, Math.ceil((stamp.y + expandedRy - originY) / cellSize));
+        for (let row = minimumRow; row <= maximumRow; row += 1) {
+            const centerY = originY + (row + 0.5) * cellSize;
+            const dy = (centerY - stamp.y) / expandedRy;
+            if (Math.abs(dy) > 1) continue;
+            for (let column = minimumColumn; column <= maximumColumn; column += 1) {
+                const centerX = originX + (column + 0.5) * cellSize;
+                const dx = (centerX - stamp.x) / expandedRx;
+                if (dx * dx + dy * dy <= 1) occupied.add(key(column, row));
+            }
+        }
+    }
+    if (!occupied.size) throw new Error("Contour cavern occupancy mask is empty.");
+
+    const remaining = new Set(occupied);
+    const components = [];
+    const neighbours = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    while (remaining.size) {
+        const startKey = remaining.values().next().value;
+        const queue = [startKey];
+        const component = new Set([startKey]);
+        remaining.delete(startKey);
+        for (let cursor = 0; cursor < queue.length; cursor += 1) {
+            const [column, row] = queue[cursor].split(",").map(Number);
+            for (const [dx, dy] of neighbours) {
+                const neighbourKey = key(column + dx, row + dy);
+                if (!remaining.has(neighbourKey)) continue;
+                remaining.delete(neighbourKey);
+                component.add(neighbourKey);
+                queue.push(neighbourKey);
+            }
+        }
+        components.push(component);
+    }
+    components.sort((a, b) => b.size - a.size);
+    if (components.length > 1 && components[1].size > 2) throw new Error(`Contour cavern occupancy split into ${components.length} disconnected regions.`);
+    const primary = components[0];
+
+    const edges = [];
+    const addEdge = (sx, sy, ex, ey, direction) => edges.push({ sx, sy, ex, ey, direction, used: false });
+    for (const cellKey of primary) {
+        const [column, row] = cellKey.split(",").map(Number);
+        if (!primary.has(key(column, row - 1))) addEdge(column, row, column + 1, row, 0);
+        if (!primary.has(key(column + 1, row))) addEdge(column + 1, row, column + 1, row + 1, 1);
+        if (!primary.has(key(column, row + 1))) addEdge(column + 1, row + 1, column, row + 1, 2);
+        if (!primary.has(key(column - 1, row))) addEdge(column, row + 1, column, row, 3);
+    }
+    const outgoing = new Map();
+    for (const edge of edges) {
+        const vertexKey = key(edge.sx, edge.sy);
+        if (!outgoing.has(vertexKey)) outgoing.set(vertexKey, []);
+        outgoing.get(vertexKey).push(edge);
+    }
+    const turnPriority = new Map([[1, 0], [0, 1], [3, 2], [2, 3]]);
+    const loops = [];
+    for (const initialEdge of edges) {
+        if (initialEdge.used) continue;
+        const loop = [];
+        let edge = initialEdge;
+        const startVertex = key(edge.sx, edge.sy);
+        let guard = edges.length + 8;
+        while (edge && guard-- > 0) {
+            edge.used = true;
+            loop.push({ x: edge.sx, y: edge.sy });
+            const nextVertex = key(edge.ex, edge.ey);
+            if (nextVertex === startVertex) break;
+            const candidates = (outgoing.get(nextVertex) || []).filter((candidate) => !candidate.used);
+            candidates.sort((a, b) => {
+                const aTurn = (a.direction - edge.direction + 4) % 4;
+                const bTurn = (b.direction - edge.direction + 4) % 4;
+                return (turnPriority.get(aTurn) ?? 9) - (turnPriority.get(bTurn) ?? 9);
+            });
+            edge = candidates[0];
+        }
+        if (loop.length >= 4) loops.push(loop);
+    }
+    if (!loops.length) throw new Error("Contour cavern could not trace an outer boundary.");
+    loops.sort((a, b) => Math.abs(polygonSignedAreaSimple(b)) - Math.abs(polygonSignedAreaSimple(a)));
+    let gridLoop = loops[0];
+    if (polygonSignedAreaSimple(gridLoop) < 0) gridLoop = [...gridLoop].reverse();
+    const worldLoop = gridLoop.map((point) => ({ x: originX + point.x * cellSize, y: originY + point.y * cellSize }));
+    const simplified = simplifyClosedContour(worldLoop, cellSize * 0.44);
+    return {
+        points: simplified.map((point) => ({ x: roundCoordinate(point.x), y: roundCoordinate(point.y) })),
+        metadata: {
+            cellSize: roundCoordinate(cellSize),
+            columns,
+            rows,
+            occupiedCellCount: primary.size,
+            componentCount: components.length,
+            rawPointCount: worldLoop.length,
+            simplifiedPointCount: simplified.length
+        }
+    };
+}
+
 function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, runId, generatorId }) {
     const nodeById = new Map((route?.nodes || []).map((node) => [node.id, node]));
     const endpointSupportIds = new Set([traversal.startSupportId, traversal.exitSupportId]);
@@ -3574,8 +4512,6 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
         const supportHalfWidth = support.width * 0.5;
         const supportEdgeRatio = clamp(supportHalfWidth / Math.max(1, rx), 0, 0.92);
         const supportEdgeFactor = Math.sqrt(Math.max(0.15, 1 - supportEdgeRatio * supportEdgeRatio));
-        // The ellipse must provide the requested top and bottom clearance across the
-        // whole collision-bearing support, not merely at its centre point.
         ry = Math.max(ry, (minimumHalfHeight + 18) / supportEdgeFactor);
         const centerY = (desiredTop + desiredBottom) * 0.5;
         const stamp = {
@@ -3591,6 +4527,46 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
         if (room) rooms.push({ ...room, nodeId: node.id, supportId: support.id, x: support.centerX, y: centerY, rx, ry });
         return stamp;
     });
+    const placementBySupportId = new Map((traversal.placements || []).map((placement) => [placement.id, placement]));
+    for (const support of traversal.supports || []) {
+        if (!support.moving || support.movementAxis !== "vertical") continue;
+        const placement = placementBySupportId.get(support.placementId);
+        const offsetY = finiteNumber(placement?.movement?.endOffsetY, 0);
+        if (Math.abs(offsetY) < 1) continue;
+        const baseStamp = stamps.find((stamp) => stamp.sourceSupportId === support.id);
+        if (!baseStamp) continue;
+        stamps.push({
+            id: `cavern_stamp_${support.id}_shaft`,
+            x: support.centerX,
+            y: baseStamp.y + offsetY * 0.5,
+            rx: Math.max(baseStamp.rx * 0.72, support.width * 0.5 + theme.cavern.platformWallClearanceX),
+            ry: Math.abs(offsetY) * 0.5 + Math.max(theme.cavern.platformCeilingClearance, theme.cavern.platformFloorClearance) + support.height * 0.35,
+            sourceSupportId: support.id,
+            routeEdgeId: support.routeEdgeId || undefined,
+            kind: "movingPlatformShaft"
+        });
+    }
+    if (route?.macro?.patternId === "the-path74") {
+        const pathCellSizeX = finiteNumber(route.macro.cellSizeX, theme.route.nodeSpacing * 0.42);
+        const pathCellSizeY = finiteNumber(route.macro.cellSizeY, theme.route.verticalStep * 1.35);
+        for (const room of route.macro.rooms || []) {
+            const rx = clamp(finiteNumber(room.semiAxisX, 3) * pathCellSizeX, theme.cavern.roomRadiusXMin, theme.cavern.roomRadiusXMax);
+            const ry = clamp(finiteNumber(room.semiAxisY, 3) * pathCellSizeY, theme.cavern.roomRadiusYMin, theme.cavern.roomRadiusYMax);
+            const centerX = finiteNumber(room.centerX, theme.route.startX);
+            const centerY = finiteNumber(room.centerY, theme.route.baselineY) - theme.cavern.floorOffsetY;
+            const stamp = {
+                id: `cavern_stamp_${room.id}`,
+                x: centerX,
+                y: centerY,
+                rx,
+                ry,
+                routeNodeId: room.nodeId || undefined,
+                kind: "thePathRoom"
+            };
+            stamps.push(stamp);
+            rooms.push({ ...room, x: centerX, y: centerY, rx, ry });
+        }
+    }
     if (!stamps.length) throw new Error("Room-and-tunnel cavern builder received no traversal supports.");
 
     const minX = Math.min(...stamps.map((stamp) => stamp.x - stamp.rx * 0.96));
@@ -3599,9 +4575,7 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
     const step = Math.max(theme.cavern.sampleStep, span / 52);
     const samplePositions = [minX, maxX, ...stamps.map((stamp) => stamp.x)];
     for (const stamp of stamps) {
-        if (stamp.kind === "macroRoom" || stamp.kind === "endpointChamber") {
-            samplePositions.push(stamp.x - stamp.rx * 0.58, stamp.x + stamp.rx * 0.58);
-        }
+        if (["macroRoom", "thePathRoom", "endpointChamber"].includes(stamp.kind)) samplePositions.push(stamp.x - stamp.rx * 0.58, stamp.x + stamp.rx * 0.58);
     }
     for (let x = minX; x < maxX + step * 0.25; x += step) samplePositions.push(Math.min(maxX, x));
     const uniqueSamplePositions = [...new Set(samplePositions.map((x) => roundCoordinate(x)))].sort((a, b) => a - b);
@@ -3620,10 +4594,19 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
     }
     smoothCavernProfile(profile, "top", 2);
     smoothCavernProfile(profile, "bottom", 2);
-    const points = [
-        ...profile.map((sample, index) => ({ id: `generated_cave_top_${String(index + 1).padStart(3, "0")}`, x: sample.x, y: roundCoordinate(sample.top), mode: "smooth" })),
-        ...[...profile].reverse().map((sample, index) => ({ id: `generated_cave_bottom_${String(index + 1).padStart(3, "0")}`, x: sample.x, y: roundCoordinate(sample.bottom), mode: "smooth" }))
+
+    const contourResult = ["the-path74-contour-cavern-v4", "contour-cavern-v3"].includes(generatorId) ? traceCavernOccupancyContour(stamps, theme) : null;
+    const rawPoints = contourResult?.points || [
+        ...profile.map((sample) => ({ x: sample.x, y: roundCoordinate(sample.top) })),
+        ...[...profile].reverse().map((sample) => ({ x: sample.x, y: roundCoordinate(sample.bottom) }))
     ];
+    const pointMode = contourResult ? "corner" : "smooth";
+    const points = rawPoints.map((point, index) => ({
+        id: `generated_cave_${String(index + 1).padStart(3, "0")}`,
+        x: point.x,
+        y: point.y,
+        mode: pointMode
+    }));
     const xs = points.map((point) => point.x);
     const ys = points.map((point) => point.y);
     const bounds = {
@@ -3634,7 +4617,7 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
     };
     const endpointEntities = endpoints?.entities || [];
     return {
-        version: 2,
+        version: generatorId === "the-path74-contour-cavern-v4" ? 4 : contourResult ? 3 : 2,
         generatorId,
         runId,
         macroPatternId: route?.macro?.patternId || "",
@@ -3642,6 +4625,7 @@ function buildRoomAndTunnelCavern({ route, traversal, endpoints, theme, seed, ru
         rooms: rooms.map((room) => Object.fromEntries(Object.entries(room).map(([key, value]) => [key, typeof value === "number" ? roundCoordinate(value) : value]))),
         stamps: stamps.map((stamp) => Object.fromEntries(Object.entries(stamp).map(([key, value]) => [key, typeof value === "number" ? roundCoordinate(value) : value]))),
         profile: profile.map((sample) => ({ x: roundCoordinate(sample.x), top: roundCoordinate(sample.top), bottom: roundCoordinate(sample.bottom) })),
+        contour: contourResult?.metadata,
         bounds: Object.fromEntries(Object.entries(bounds).map(([key, value]) => [key, roundCoordinate(value)])),
         endpointPositions: endpointEntities.map((entity) => ({ id: entity.id, role: entity.portalRole, x: entity.x, y: entity.y })),
         caveWindow: {
@@ -3761,19 +4745,9 @@ function deriveGeneratedWorld(cavern, traversal, theme) {
     };
 }
 
-function pointInsideCavernProfile(profile, x, y) {
-    if (!Array.isArray(profile) || profile.length < 2) return false;
-    if (x < profile[0].x || x > profile.at(-1).x) return false;
-    for (let index = 1; index < profile.length; index += 1) {
-        const a = profile[index - 1];
-        const b = profile[index];
-        if (x < a.x || x > b.x) continue;
-        const t = Math.abs(b.x - a.x) < 0.001 ? 0 : (x - a.x) / (b.x - a.x);
-        const top = lerp(a.top, b.top, t);
-        const bottom = lerp(a.bottom, b.bottom, t);
-        return y >= top && y <= bottom;
-    }
-    return false;
+function pointInsideGeneratedCavern(cavern, x, y) {
+    const range = cavernVerticalRangeAt(cavern, x, y);
+    return Boolean(range && y >= range.top - 0.001 && y <= range.bottom + 0.001);
 }
 
 export function validateRouteGraph(graph, context = {}) {
@@ -3792,6 +4766,15 @@ export function validateRouteGraph(graph, context = {}) {
         minNodeDistance: Infinity,
         edgeCrossings: 0,
         backtrackEdges: 0,
+        horizontalDirectionChanges: 0,
+        verticalDirectionChanges: 0,
+        longestEastwardRun: 0,
+        horizontalTravel: 0,
+        verticalTravel: 0,
+        routeWidth: 0,
+        routeHeight: 0,
+        aspectRatio: 0,
+        occupiedLaneCount: 0,
         verticalSpan: 0,
         averageMainSpacing: 0,
         maxEdgeLength: 0,
@@ -3893,19 +4876,82 @@ export function validateRouteGraph(graph, context = {}) {
 
     if (mainNodes.length > 1) {
         const spacings = [];
-        for (let index = 1; index < mainNodes.length; index += 1) spacings.push(distance(mainNodes[index - 1], mainNodes[index]));
+        const horizontalSigns = [];
+        const verticalSigns = [];
+        let eastwardRun = 0;
+        for (let index = 1; index < mainNodes.length; index += 1) {
+            const previous = mainNodes[index - 1];
+            const current = mainNodes[index];
+            const dx = current.x - previous.x;
+            const dy = current.y - previous.y;
+            spacings.push(distance(previous, current));
+            metrics.horizontalTravel += Math.abs(dx);
+            metrics.verticalTravel += Math.abs(dy);
+            const horizontalSign = Math.abs(dx) >= theme.route.nodeSpacing * 0.08 ? Math.sign(dx) : 0;
+            const verticalSign = Math.abs(dy) >= theme.route.verticalStep * 0.22 ? Math.sign(dy) : 0;
+            if (horizontalSign) horizontalSigns.push(horizontalSign);
+            if (verticalSign) verticalSigns.push(verticalSign);
+            if (horizontalSign > 0) {
+                eastwardRun += 1;
+                metrics.longestEastwardRun = Math.max(metrics.longestEastwardRun, eastwardRun);
+            } else if (horizontalSign < 0) {
+                eastwardRun = 0;
+            }
+        }
+        for (let index = 1; index < horizontalSigns.length; index += 1) {
+            if (horizontalSigns[index] !== horizontalSigns[index - 1]) metrics.horizontalDirectionChanges += 1;
+        }
+        for (let index = 1; index < verticalSigns.length; index += 1) {
+            if (verticalSigns[index] !== verticalSigns[index - 1]) metrics.verticalDirectionChanges += 1;
+        }
         metrics.averageMainSpacing = average(spacings);
+        const xs = mainNodes.map((node) => node.x);
         const ys = mainNodes.map((node) => node.y);
-        metrics.verticalSpan = Math.max(...ys) - Math.min(...ys);
+        metrics.routeWidth = Math.max(...xs) - Math.min(...xs);
+        metrics.routeHeight = Math.max(...ys) - Math.min(...ys);
+        metrics.verticalSpan = metrics.routeHeight;
+        metrics.aspectRatio = metrics.routeWidth / Math.max(1, metrics.routeHeight);
+        const laneThreshold = Math.max(480, theme.cavern.corridorRadiusY * 1.05);
+        const sortedYs = [...ys].sort((a, b) => a - b);
+        let laneCount = sortedYs.length ? 1 : 0;
+        let laneMean = sortedYs[0] || 0;
+        let laneMembers = 1;
+        for (const y of sortedYs.slice(1)) {
+            if (y - laneMean > laneThreshold) {
+                laneCount += 1;
+                laneMean = y;
+                laneMembers = 1;
+            } else {
+                laneMean = (laneMean * laneMembers + y) / (laneMembers + 1);
+                laneMembers += 1;
+            }
+        }
+        metrics.occupiedLaneCount = laneCount;
     }
-    const maximumRouteEdgeLength = graph?.generatorId === "macro-room-route-v2" || graph?.macro?.patternId
-        ? theme.route.nodeSpacing * 5
-        : theme.route.nodeSpacing * 2.25;
+    const thePath74Route = graph?.generatorId === "the-path74-route-v4" || graph?.macro?.patternId === "the-path74";
+    const maximumRouteEdgeLength = thePath74Route
+        ? finiteNumber(graph?.macro?.maximumEdgeLength, theme.route.nodeSpacing * 3.2)
+        : graph?.generatorId === "macro-room-route-v2" || graph?.macro?.patternId
+            ? theme.route.nodeSpacing * 5
+            : theme.route.nodeSpacing * 2.25;
     if (metrics.maxEdgeLength > maximumRouteEdgeLength) errors.push("A route connection is too long for a useful chamber-to-chamber plan.");
-    const maxBacktracks = graph?.generatorId === "macro-room-route-v2" || graph?.macro?.patternId
-        ? Math.max(2, Math.ceil((mainNodes.length - 1) * 0.55))
-        : Math.max(1, Math.ceil((mainNodes.length - 1) * (0.05 + settings.winding * 0.16)));
+    const maxBacktracks = thePath74Route
+        ? Math.max(2, Math.ceil((mainNodes.length - 1) * 0.62))
+        : graph?.generatorId === "macro-room-route-v2" || graph?.macro?.patternId
+            ? Math.max(2, Math.ceil((mainNodes.length - 1) * 0.55))
+            : Math.max(1, Math.ceil((mainNodes.length - 1) * (0.05 + settings.winding * 0.16)));
     if (metrics.backtrackEdges > maxBacktracks) errors.push("The route backtracks too often for the selected macro pattern.");
+    const foldedRoute = graph?.version >= 3 || Array.isArray(graph?.macro?.spatialAnchors);
+    if (foldedRoute && settings.length !== "compact" && settings.winding >= 0.2 && metrics.backtrackEdges === 0) {
+        errors.push("The folded route contains no mandatory leftward phase.");
+    }
+    const maximumAspectRatio = thePath74Route
+        ? (settings.length === "compact" ? 12 : 10)
+        : settings.length === "compact" ? 8.5 : settings.length === "grand" ? 4.8 : 5.2;
+    if (foldedRoute && metrics.aspectRatio > maximumAspectRatio) errors.push(`The route is still too wide and shallow (${roundCoordinate(metrics.aspectRatio)}:1).`);
+    else if (foldedRoute && settings.length !== "compact" && metrics.aspectRatio > maximumAspectRatio * 0.86) warnings.push("The route remains close to the maximum wide-corridor aspect ratio.");
+    if (foldedRoute && settings.length !== "compact" && metrics.horizontalDirectionChanges < 2) warnings.push("The route has too little horizontal rhythm for a folded cavern.");
+    if (foldedRoute && settings.verticality >= 0.45 && metrics.occupiedLaneCount < 2) errors.push("The route does not occupy multiple vertically separated lanes.");
 
     const branches = groupBy(optionalNodes, (node) => node.branchId || "");
     for (const [branchId, branchNodes] of branches) {
@@ -3932,19 +4978,36 @@ export function validateRouteGraph(graph, context = {}) {
     const macroAnchorValues = Array.isArray(graph?.macro?.anchors)
         ? graph.macro.anchors.map((entry) => finiteNumber(entry?.value, 0))
         : [];
-    const targetSpan = macroAnchorValues.length > 1
-        ? (Math.max(...macroAnchorValues) - Math.min(...macroAnchorValues)) * finiteNumber(graph?.macro?.halfSpan, theme.route.macroVerticalSpan * 0.55)
-        : theme.route.verticalStep * (0.55 + settings.verticality * 4.2);
-    qualityScore -= Math.min(12, Math.abs(metrics.verticalSpan - targetSpan) / Math.max(100, targetSpan) * 18);
+    const targetSpan = thePath74Route
+        ? finiteNumber(graph?.macro?.targetVerticalSpan, metrics.verticalSpan)
+        : macroAnchorValues.length > 1
+            ? (Math.max(...macroAnchorValues) - Math.min(...macroAnchorValues)) * finiteNumber(graph?.macro?.halfSpan, theme.route.macroVerticalSpan * 0.55)
+            : theme.route.verticalStep * (0.55 + settings.verticality * 4.2);
+    qualityScore -= Math.min(18, Math.abs(metrics.verticalSpan - targetSpan) / Math.max(100, targetSpan) * 22);
     const targetBranches = desiredBranchCount(mainNodes.length, settings.branching);
     qualityScore -= Math.abs(metrics.branchCount - targetBranches) * 6;
-    const targetSpacing = theme.route.nodeSpacing * Math.sqrt(1 + settings.verticality * 0.22);
-    qualityScore -= Math.min(12, Math.abs(metrics.averageMainSpacing - targetSpacing) / Math.max(1, theme.route.nodeSpacing) * 18);
-    if (settings.winding > 0.7 && metrics.backtrackEdges === 0) qualityScore -= 4;
-    if (graph?.generatorId === "macro-room-route-v2" || graph?.macro?.patternId) qualityScore += 15;
+    const lengthSpacingScale = settings.length === "compact" ? 1.22 : settings.length === "standard" ? 0.96 : settings.length === "extended" ? 1.02 : 1.15;
+    const targetSpacing = thePath74Route
+        ? finiteNumber(graph?.macro?.targetAverageNodeSpacing, metrics.averageMainSpacing)
+        : theme.route.nodeSpacing * lengthSpacingScale * Math.sqrt(1 + settings.verticality * 0.08);
+    qualityScore -= Math.min(12, Math.abs(metrics.averageMainSpacing - targetSpacing) / Math.max(1, theme.route.nodeSpacing) * 16);
+    const targetAspect = finiteNumber(graph?.macro?.targetAspectRatio, settings.length === "compact" ? 6.8 : 3.3);
+    qualityScore -= Math.min(22, Math.abs(metrics.aspectRatio - targetAspect) * 5.5);
+    if (foldedRoute) {
+        if (settings.length !== "compact") {
+            qualityScore -= Math.max(0, 2 - metrics.horizontalDirectionChanges) * 7;
+            qualityScore -= Math.max(0, metrics.longestEastwardRun - Math.ceil((mainNodes.length - 1) * 0.48)) * 2.5;
+            const travelExpansion = metrics.horizontalTravel / Math.max(1, metrics.routeWidth);
+            if (settings.winding > 0.35 && travelExpansion < 1.22) qualityScore -= 10;
+        }
+        qualityScore -= Math.max(0, 1 - metrics.verticalDirectionChanges) * 5;
+        qualityScore -= Math.max(0, 2 - metrics.occupiedLaneCount) * 8;
+    } else if (settings.winding > 0.7 && metrics.backtrackEdges === 0) {
+        qualityScore -= 4;
+    }
     if (settings.verticality > 0.55 && longestFlatRun(mainNodes, theme.route.verticalStep * 0.22) > 4 && !graph?.macro?.patternId?.startsWith("l-")) qualityScore -= 7;
-    if (graph?.generatorId === "macro-room-route-v2" || graph?.macro?.patternId) {
-        const expectedRooms = desiredMacroRoomCount(settings.length);
+    if (graph?.macro?.patternId) {
+        const expectedRooms = thePath74Route ? 3 : desiredMacroRoomCount(settings.length);
         qualityScore -= Math.abs(metrics.macroRoomCount - expectedRooms) * 4;
         if (metrics.macroRoomCount === 0) errors.push("The macro route did not reserve any large cavern room.");
         if (metrics.largestRoomWidthScreens < 1.1 || metrics.largestRoomHeightScreens < 1.05) warnings.push("The largest reserved room is barely larger than one screen.");
@@ -3986,10 +5049,12 @@ export function normalizeLevelGeneration(value) {
         branchId: node?.branchId ? String(node.branchId) : undefined,
         label: node?.label ? String(node.label) : undefined,
         macroPatternId: node?.macroPatternId ? String(node.macroPatternId) : undefined,
+        spatialLane: Number.isFinite(Number(node?.spatialLane)) ? Number(node.spatialLane) : undefined,
         macroRoomId: node?.macroRoomId ? String(node.macroRoomId) : undefined,
         roomWidthScreens: Number.isFinite(Number(node?.roomWidthScreens)) ? Number(node.roomWidthScreens) : undefined,
         roomHeightScreens: Number.isFinite(Number(node?.roomHeightScreens)) ? Number(node.roomHeightScreens) : undefined,
-        rareLargeRoom: node?.rareLargeRoom ? true : undefined
+        rareLargeRoom: node?.rareLargeRoom ? true : undefined,
+        pathCellIndex: Number.isFinite(Number(node?.pathCellIndex)) ? Number(node.pathCellIndex) : undefined
     })) : [];
     const ids = new Set(nodes.map((node) => node.id));
     const edges = Array.isArray(route.edges) ? route.edges
@@ -3999,7 +5064,8 @@ export function normalizeLevelGeneration(value) {
             from: String(edge.from),
             to: String(edge.to),
             mandatory: Boolean(edge.mandatory),
-            branchId: edge.branchId ? String(edge.branchId) : undefined
+            branchId: edge.branchId ? String(edge.branchId) : undefined,
+            intendedDirection: edge.intendedDirection ? String(edge.intendedDirection) : undefined
         })) : [];
     return {
         version: Math.max(1, Math.floor(Number(value.version) || AUTOMATIC_LEVEL_GENERATOR_VERSION)),
@@ -4039,55 +5105,71 @@ export function normalizeLevelGeneration(value) {
 }
 
 const MACRO_ROUTE_PATTERN_LABELS = Object.freeze({
-    rolling: "Rolling chambers",
-    "z-down": "Descending Z",
-    "z-up": "Ascending Z",
-    "l-down": "Descending L",
-    "l-up": "Ascending L",
-    valley: "Deep valley",
-    terraces: "Stepped terraces"
+    "compact-arc": "Compact vertical arc",
+    rolling: "Folded rolling route",
+    "z-down": "Descending switchback",
+    "z-up": "Ascending switchback",
+    "l-down": "Descending hook",
+    "l-up": "Ascending hook",
+    valley: "Folded valley",
+    terraces: "Stacked terraces"
 });
 
 function chooseMacroPattern(settings, rng) {
+    if (settings.length === "compact" && clamp01(settings.verticality) < 0.2 && clamp01(settings.winding) < 0.2) return "compact-arc";
     const verticality = clamp01(settings.verticality);
+    const winding = clamp01(settings.winding);
     const values = [
-        { value: "rolling", weight: Math.max(0.08, 0.48 - verticality * 0.35) },
-        { value: "z-down", weight: 0.12 + verticality * 0.22 },
-        { value: "z-up", weight: 0.12 + verticality * 0.22 },
-        { value: "l-down", weight: 0.1 + verticality * 0.18 },
-        { value: "l-up", weight: 0.1 + verticality * 0.18 },
-        { value: "valley", weight: 0.16 + verticality * 0.14 },
-        { value: "terraces", weight: 0.18 + verticality * 0.16 }
+        { value: "rolling", weight: Math.max(0.06, 0.32 - verticality * 0.12) },
+        { value: "z-down", weight: 0.16 + verticality * 0.2 + winding * 0.12 },
+        { value: "z-up", weight: 0.16 + verticality * 0.2 + winding * 0.12 },
+        { value: "l-down", weight: 0.1 + verticality * 0.12 },
+        { value: "l-up", weight: 0.1 + verticality * 0.12 },
+        { value: "valley", weight: 0.14 + verticality * 0.12 + winding * 0.08 },
+        { value: "terraces", weight: 0.18 + verticality * 0.18 + winding * 0.1 }
     ];
-    return weightedRandomChoice(values, rng)?.value || "rolling";
+    return weightedRandomChoice(values, rng)?.value || "terraces";
 }
 
-function macroPatternAnchors(patternId, rng) {
-    if (patternId === "z-down") return [[0, -0.7], [0.28, -0.7], [0.72, 0.7], [1, 0.7]];
-    if (patternId === "z-up") return [[0, 0.7], [0.28, 0.7], [0.72, -0.7], [1, -0.7]];
-    if (patternId === "l-down") return [[0, -0.62], [0.58, -0.62], [1, 0.72]];
-    if (patternId === "l-up") return [[0, 0.62], [0.58, 0.62], [1, -0.72]];
-    if (patternId === "valley") return [[0, -0.28], [0.22, -0.18], [0.52, 0.78], [0.8, -0.08], [1, -0.24]];
-    if (patternId === "terraces") {
-        const direction = rng.chance(0.5) ? 1 : -1;
-        return [[0, -0.62 * direction], [0.27, -0.62 * direction], [0.4, 0], [0.68, 0], [0.81, 0.62 * direction], [1, 0.62 * direction]];
+function spatialPatternControlPoints(patternId) {
+    if (patternId === "compact-arc") return [[0, -0.92], [1.05, -0.92], [2.2, 0.92], [3.2, 0.92], [4.35, -0.88], [5.45, -0.88], [6.35, 0.08], [7.2, 0.08]];
+    if (patternId === "z-down") return [[0, -0.92], [3.7, -0.92], [2.2, -0.05], [0.85, -0.05], [2.45, 0.92], [5.3, 0.92], [6.05, 0.34], [7.2, 0.34]];
+    if (patternId === "z-up") return [[0, 0.92], [3.7, 0.92], [2.2, 0.05], [0.85, 0.05], [2.45, -0.92], [5.3, -0.92], [6.05, -0.34], [7.2, -0.34]];
+    if (patternId === "l-down") return [[0, -0.82], [3.9, -0.82], [2.15, 0.72], [5.45, 0.72], [6.05, 0.14], [7.2, 0.14]];
+    if (patternId === "l-up") return [[0, 0.82], [3.9, 0.82], [2.15, -0.72], [5.45, -0.72], [6.05, -0.14], [7.2, -0.14]];
+    if (patternId === "valley") return [[0, -0.68], [3.05, 0.86], [1.25, 0.86], [4.25, -0.58], [7.2, -0.58]];
+    if (patternId === "terraces") return [[0, -0.92], [3.05, -0.92], [1.45, 0], [4.35, 0], [2.65, 0.92], [5.35, 0.92], [6.0, 0.34], [7.2, 0.34]];
+    return [[0, -0.12], [2.7, -0.72], [1.25, 0.18], [4.55, 0.68], [3.25, 0.08], [7.2, 0.08]];
+}
+
+function spatialAnchorsForPattern(patternId, spacing, halfSpan) {
+    const controls = spatialPatternControlPoints(patternId);
+    const lengths = [];
+    let total = 0;
+    for (let index = 1; index < controls.length; index += 1) {
+        const [ax, ay] = controls[index - 1];
+        const [bx, by] = controls[index];
+        total += Math.hypot((bx - ax) * spacing, (by - ay) * halfSpan);
+        lengths.push(total);
     }
-    const direction = rng.chance(0.5) ? 1 : -1;
-    return [[0, -0.2 * direction], [0.22, 0.52 * direction], [0.48, -0.58 * direction], [0.74, 0.42 * direction], [1, -0.12 * direction]];
+    return controls.map(([gx, gy], index) => ({
+        progress: index === 0 ? 0 : lengths[index - 1] / Math.max(1, total),
+        gx,
+        gy
+    }));
 }
 
-function interpolateMacroAnchors(anchors, progress) {
+function sampleSpatialAnchors(anchors, progress) {
     const p = clamp01(progress);
     for (let index = 1; index < anchors.length; index += 1) {
         const left = anchors[index - 1];
         const right = anchors[index];
-        if (p > right[0]) continue;
-        const span = Math.max(0.0001, right[0] - left[0]);
-        const t = clamp01((p - left[0]) / span);
-        const eased = t * t * (3 - 2 * t);
-        return lerp(left[1], right[1], eased);
+        if (p > right.progress) continue;
+        const t = clamp01((p - left.progress) / Math.max(0.0001, right.progress - left.progress));
+        return { gx: lerp(left.gx, right.gx, t), gy: lerp(left.gy, right.gy, t) };
     }
-    return anchors.at(-1)?.[1] || 0;
+    const last = anchors.at(-1) || { gx: 0, gy: 0 };
+    return { gx: last.gx, gy: last.gy };
 }
 
 function desiredMacroRoomCount(length) {
@@ -4097,20 +5179,301 @@ function desiredMacroRoomCount(length) {
     return 4;
 }
 
+
+const THE_PATH74_DIRECTIONS = Object.freeze({
+    right: Object.freeze({ dx: 1, dy: 0 }),
+    left: Object.freeze({ dx: -1, dy: 0 }),
+    up: Object.freeze({ dx: 0, dy: -1 }),
+    down: Object.freeze({ dx: 0, dy: 1 })
+});
+
+const THE_PATH74_LEFT_TURN = Object.freeze({ right: "up", up: "left", left: "down", down: "right" });
+const THE_PATH74_RIGHT_TURN = Object.freeze({ right: "down", down: "left", left: "up", up: "right" });
+const THE_PATH74_LENGTHS = Object.freeze({ compact: 8, standard: 12, extended: 17, grand: 23 });
+const THE_PATH74_MINIMUM_CELLS = Object.freeze({ compact: 16, standard: 24, extended: 34, grand: 44 });
+
+function thePath74CellKey(cell) {
+    return `${cell.gx},${cell.gy}`;
+}
+
+function thePath74ChebyshevDistance(a, b) {
+    return Math.max(Math.abs(a.gx - b.gx), Math.abs(a.gy - b.gy));
+}
+
+function thePath74MovedCell(cell, direction) {
+    const vector = THE_PATH74_DIRECTIONS[direction];
+    return { gx: cell.gx + vector.dx, gy: cell.gy + vector.dy };
+}
+
+function thePath74RequestedLength(rng, direction) {
+    return direction === "up" || direction === "down" ? rng.int(1, 4) : rng.int(1, 7);
+}
+
+function thePath74StepIsSafe(path, occupied, direction) {
+    const current = path.at(-1);
+    const candidate = thePath74MovedCell(current, direction);
+    const lookahead = thePath74MovedCell(candidate, direction);
+    if (occupied.has(thePath74CellKey(candidate)) || occupied.has(thePath74CellKey(lookahead))) return false;
+    const localKeys = new Set(path.slice(-2).map(thePath74CellKey));
+    for (const oldCell of path) {
+        if (localKeys.has(thePath74CellKey(oldCell))) continue;
+        if (thePath74ChebyshevDistance(candidate, oldCell) <= 1) return false;
+        if (thePath74ChebyshevDistance(lookahead, oldCell) <= 1) return false;
+    }
+    return true;
+}
+
+function buildThePath74GridPlan({ settings, rng }) {
+    const totalSegments = THE_PATH74_LENGTHS[settings.length] || THE_PATH74_LENGTHS.standard;
+    const middleSegments = Math.max(3, totalSegments - 1);
+    const minimumCells = THE_PATH74_MINIMUM_CELLS[settings.length] || THE_PATH74_MINIMUM_CELLS.standard;
+    const minimumRows = settings.length === "compact" ? 3 : 5;
+    for (let reroll = 0; reroll < 1200; reroll += 1) {
+        const path = [{ gx: 0, gy: 0 }];
+        const occupied = new Set([thePath74CellKey(path[0])]);
+        const segments = [];
+        let direction = "right";
+        let failed = false;
+        for (let segmentIndex = 0; segmentIndex < middleSegments; segmentIndex += 1) {
+            const requestedLength = thePath74RequestedLength(rng, direction);
+            const startPathIndex = path.length - 1;
+            let taken = 0;
+            while (taken < requestedLength && thePath74StepIsSafe(path, occupied, direction)) {
+                const next = thePath74MovedCell(path.at(-1), direction);
+                path.push(next);
+                occupied.add(thePath74CellKey(next));
+                taken += 1;
+            }
+            if (!taken) {
+                failed = true;
+                break;
+            }
+            segments.push({ direction, requestedLength, length: taken, startPathIndex, endPathIndex: path.length - 1 });
+            direction = rng.chance(0.5) ? THE_PATH74_LEFT_TURN[direction] : THE_PATH74_RIGHT_TURN[direction];
+        }
+        if (failed) continue;
+        const finalDirection = "right";
+        const requestedLength = thePath74RequestedLength(rng, finalDirection);
+        const startPathIndex = path.length - 1;
+        let taken = 0;
+        while (taken < requestedLength && thePath74StepIsSafe(path, occupied, finalDirection)) {
+            const next = thePath74MovedCell(path.at(-1), finalDirection);
+            path.push(next);
+            occupied.add(thePath74CellKey(next));
+            taken += 1;
+        }
+        if (!taken) continue;
+        segments.push({ direction: finalDirection, requestedLength, length: taken, startPathIndex, endPathIndex: path.length - 1 });
+
+        const xs = path.map((cell) => cell.gx);
+        const ys = path.map((cell) => cell.gy);
+        const horizontalDirections = segments.filter((segment) => segment.direction === "left" || segment.direction === "right").map((segment) => segment.direction);
+        const leftwardSegments = horizontalDirections.filter((value) => value === "left").length;
+        let horizontalDirectionChanges = 0;
+        for (let index = 1; index < horizontalDirections.length; index += 1) {
+            if (horizontalDirections[index] !== horizontalDirections[index - 1]) horizontalDirectionChanges += 1;
+        }
+        if (path.length < minimumCells) continue;
+        if (new Set(ys).size < minimumRows) continue;
+        if (path.at(-1).gx <= 0 || path.at(-1).gx !== Math.max(...xs)) continue;
+        if (settings.length !== "compact" && settings.winding >= 0.2 && leftwardSegments < 1) continue;
+        if (settings.length !== "compact" && settings.winding >= 0.45 && horizontalDirectionChanges < 2) continue;
+        return {
+            version: 1,
+            path,
+            segments,
+            leftwardSegments,
+            horizontalDirectionChanges,
+            bounds: {
+                minGX: Math.min(...xs),
+                maxGX: Math.max(...xs),
+                minGY: Math.min(...ys),
+                maxGY: Math.max(...ys)
+            }
+        };
+    }
+    throw new Error("ThePath74 could not find a protected orthogonal route.");
+}
+
+function buildThePath74BoundaryLabels(path) {
+    const pathKeys = new Set(path.map(thePath74CellKey));
+    const boundary = new Map();
+    for (const cell of path) {
+        for (let dy = -1; dy <= 1; dy += 1) {
+            for (let dx = -1; dx <= 1; dx += 1) {
+                if (!dx && !dy) continue;
+                const candidate = { gx: cell.gx + dx, gy: cell.gy + dy };
+                const key = thePath74CellKey(candidate);
+                if (!pathKeys.has(key)) boundary.set(key, candidate);
+            }
+        }
+    }
+    const labels = new Map();
+    for (const [key, boundaryCell] of boundary) {
+        let bestIndex = 0;
+        let bestDistance = Infinity;
+        for (let index = 0; index < path.length; index += 1) {
+            const dx = boundaryCell.gx - path[index].gx;
+            const dy = boundaryCell.gy - path[index].gy;
+            const distanceSquared = dx * dx + dy * dy;
+            if (distanceSquared < bestDistance) {
+                bestDistance = distanceSquared;
+                bestIndex = index;
+            }
+        }
+        labels.set(key, bestIndex);
+    }
+    return { boundary, labels };
+}
+
+function chooseThePath74Rooms(path, rng) {
+    const roomCount = rng.int(2, 4);
+    const { boundary, labels } = buildThePath74BoundaryLabels(path);
+    const allowedIndices = Array.from({ length: Math.max(0, path.length - 8) }, (_, index) => index + 4);
+    const minimumGap = Math.max(4, Math.floor(path.length / Math.max(1, roomCount * 3)));
+    const chosen = [];
+    for (const index of rng.shuffle(allowedIndices)) {
+        if (chosen.some((other) => Math.abs(other - index) < minimumGap)) continue;
+        chosen.push(index);
+        if (chosen.length >= roomCount) break;
+    }
+    while (chosen.length < roomCount && allowedIndices.length) {
+        const fallback = allowedIndices[rng.int(0, allowedIndices.length - 1)];
+        if (!chosen.includes(fallback)) chosen.push(fallback);
+    }
+    chosen.sort((a, b) => a - b);
+    const boundaryByPathIndex = new Map();
+    for (const [key, pathIndex] of labels) {
+        if (!boundaryByPathIndex.has(pathIndex)) boundaryByPathIndex.set(pathIndex, []);
+        boundaryByPathIndex.get(pathIndex).push(boundary.get(key));
+    }
+    return chosen.map((pathIndex, roomIndex) => {
+        const boundaryCandidates = boundaryByPathIndex.get(pathIndex) || [];
+        const useBoundary = boundaryCandidates.length > 0 && rng.chance(0.6);
+        const anchor = useBoundary ? boundaryCandidates[rng.int(0, boundaryCandidates.length - 1)] : path[pathIndex];
+        return {
+            id: `macro_room_${String(roomIndex + 1).padStart(2, "0")}`,
+            pathIndex,
+            label: pathIndex + 1,
+            anchorSource: useBoundary ? "boundary" : "path",
+            gx: anchor.gx,
+            gy: anchor.gy,
+            semiAxisX: rng.int(2, 4),
+            semiAxisY: rng.int(2, 4)
+        };
+    });
+}
+
+function buildThePath74RouteCandidate({ theme, settings, rng, attempt }) {
+    const gridPlan = buildThePath74GridPlan({ settings, rng });
+    const cellSizeX = clamp(theme.route.nodeSpacing * 0.42, 360, 420);
+    const cellSizeY = clamp(theme.route.verticalStep * 1.35, 240, 300);
+    const rooms = chooseThePath74Rooms(gridPlan.path, rng);
+    const roomByPathIndex = new Map(rooms.map((room) => [room.pathIndex, room]));
+    const anchorIndices = new Set([0, gridPlan.path.length - 1, ...gridPlan.segments.map((segment) => segment.endPathIndex), ...rooms.map((room) => room.pathIndex)]);
+    const orderedAnchorIndices = [...anchorIndices].sort((a, b) => a - b);
+    const mainNodes = orderedAnchorIndices.map((pathIndex, index) => {
+        const cell = gridPlan.path[pathIndex];
+        const room = roomByPathIndex.get(pathIndex);
+        const endpoint = index === 0 || index === orderedAnchorIndices.length - 1;
+        return {
+            id: `route_main_${String(index).padStart(3, "0")}`,
+            kind: index === 0 ? "entrance" : index === orderedAnchorIndices.length - 1 ? "exit" : room ? "chamber" : (index % 5 === 0 && settings.safety > 0.58 ? "recovery" : "traversal"),
+            x: roundCoordinate(theme.route.startX + cell.gx * cellSizeX),
+            y: roundCoordinate(theme.route.baselineY + cell.gy * cellSizeY),
+            progress: index,
+            mandatory: true,
+            label: index === 0 ? "Entrance" : index === orderedAnchorIndices.length - 1 ? "Exit" : room ? `Room ${room.id.split("_").at(-1)}` : `Turn ${index}`,
+            macroPatternId: "the-path74",
+            spatialLane: cell.gy,
+            pathCellIndex: pathIndex
+        };
+    });
+    const nodeByPathIndex = new Map(mainNodes.map((node) => [node.pathCellIndex, node]));
+    const enrichedRooms = rooms.map((room) => {
+        const widthScreens = clamp((room.semiAxisX * cellSizeX * 2) / 1280, 1.1, 4);
+        const heightScreens = clamp((room.semiAxisY * cellSizeY * 2) / 720, 1.05, 3);
+        return {
+            ...room,
+            nodeId: nodeByPathIndex.get(room.pathIndex)?.id,
+            centerX: roundCoordinate(theme.route.startX + room.gx * cellSizeX),
+            centerY: roundCoordinate(theme.route.baselineY + room.gy * cellSizeY),
+            widthScreens: roundCoordinate(widthScreens),
+            heightScreens: roundCoordinate(heightScreens),
+            rareLargeRoom: false
+        };
+    });
+    const nodes = [...mainNodes];
+    const edges = [];
+    for (let index = 0; index < mainNodes.length - 1; index += 1) {
+        const from = mainNodes[index];
+        const to = mainNodes[index + 1];
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const intendedDirection = Math.abs(dx) >= Math.abs(dy)
+            ? (dx < 0 ? "left" : "right")
+            : (dy < 0 ? "climb" : "descend");
+        edges.push({
+            id: `route_main_edge_${String(index).padStart(3, "0")}`,
+            from: from.id,
+            to: to.id,
+            mandatory: true,
+            intendedDirection
+        });
+    }
+    appendOptionalBranches({ nodes, edges, mainNodes, theme, settings, rng });
+    const spacings = mainNodes.slice(1).map((node, index) => distance(mainNodes[index], node));
+    const worldCellPath = gridPlan.path.map((cell, pathIndex) => ({
+        pathIndex,
+        gx: cell.gx,
+        gy: cell.gy,
+        x: roundCoordinate(theme.route.startX + cell.gx * cellSizeX),
+        y: roundCoordinate(theme.route.baselineY + cell.gy * cellSizeY)
+    }));
+    return {
+        version: 4,
+        attempt,
+        startNodeId: mainNodes[0].id,
+        exitNodeId: mainNodes.at(-1).id,
+        macro: {
+            version: 4,
+            patternId: "the-path74",
+            patternLabel: "ThePath74 protected orthogonal segment route",
+            cellSizeX: roundCoordinate(cellSizeX),
+            cellSizeY: roundCoordinate(cellSizeY),
+            cellPath: worldCellPath,
+            segments: gridPlan.segments.map((segment, segmentIndex) => ({ ...segment, id: `the_path74_segment_${String(segmentIndex + 1).padStart(2, "0")}` })),
+            rooms: enrichedRooms,
+            bounds: gridPlan.bounds,
+            leftwardSegments: gridPlan.leftwardSegments,
+            horizontalDirectionChanges: gridPlan.horizontalDirectionChanges,
+            targetVerticalSpan: roundCoordinate((gridPlan.bounds.maxGY - gridPlan.bounds.minGY) * cellSizeY),
+            targetAspectRatio: settings.length === "compact" ? 5.8 : 3.8,
+            targetAverageNodeSpacing: roundCoordinate(average(spacings)),
+            maximumEdgeLength: roundCoordinate(Math.max(cellSizeX * 7, cellSizeY * 4) + 1)
+        },
+        nodes,
+        edges
+    };
+}
+
 function buildMacroRoutePlan({ theme, settings, rng }) {
     const mainCount = LEVEL_LENGTH_PRESETS[settings.length]?.mainNodes || LEVEL_LENGTH_PRESETS.standard.mainNodes;
     const patternId = chooseMacroPattern(settings, rng);
-    const anchors = macroPatternAnchors(patternId, rng);
-    const lengthScale = settings.length === "compact" ? 0.8 : settings.length === "extended" ? 1.13 : settings.length === "grand" ? 1.28 : 1;
-    const halfSpan = theme.route.macroVerticalSpan * (0.35 + clamp01(settings.verticality) * 0.65) * lengthScale;
+    const lengthScale = settings.length === "compact" ? 0.78 : settings.length === "extended" ? 1.36 : settings.length === "grand" ? 1.72 : 1;
+    const horizontalScale = settings.length === "compact" ? 1 : settings.length === "standard" ? 1.16 : settings.length === "extended" ? 1.55 : 2;
+    const halfSpan = theme.route.macroVerticalSpan * (0.48 + clamp01(settings.verticality) * 0.52) * lengthScale;
+    const spatialAnchors = spatialAnchorsForPattern(patternId, theme.route.nodeSpacing, halfSpan).map((anchor) => ({ ...anchor, gx: anchor.gx * horizontalScale }));
     const targetRoomCount = desiredMacroRoomCount(settings.length);
     const candidateIndices = Array.from({ length: Math.max(0, mainCount - 4) }, (_, index) => index + 2);
-    const turnIndices = anchors.slice(1, -1).map(([progress]) => Math.round(progress * (mainCount - 1))).filter((index) => index >= 2 && index <= mainCount - 3);
+    const turnIndices = spatialAnchors.slice(1, -1)
+        .map((anchor) => Math.round(anchor.progress * (mainCount - 1)))
+        .filter((index) => index >= 2 && index <= mainCount - 3);
     const preferred = [...new Set([
         ...turnIndices,
-        Math.round((mainCount - 1) * 0.25),
-        Math.round((mainCount - 1) * 0.52),
-        Math.round((mainCount - 1) * 0.76),
+        Math.round((mainCount - 1) * 0.26),
+        Math.round((mainCount - 1) * 0.53),
+        Math.round((mainCount - 1) * 0.78),
         ...rng.shuffle(candidateIndices)
     ])].filter((index) => index >= 2 && index <= mainCount - 3);
     const roomIndices = [];
@@ -4137,59 +5500,57 @@ function buildMacroRoutePlan({ theme, settings, rng }) {
         };
     });
     return {
-        version: 1,
+        version: 2,
         patternId,
         patternLabel: MACRO_ROUTE_PATTERN_LABELS[patternId] || patternId,
-        anchors: anchors.map(([progress, value]) => ({ progress, value })),
+        anchors: spatialAnchors.map(({ progress, gy }) => ({ progress, value: gy })),
+        spatialAnchors: spatialAnchors.map((anchor) => ({
+            progress: roundCoordinate(anchor.progress),
+            gx: roundCoordinate(anchor.gx),
+            gy: roundCoordinate(anchor.gy)
+        })),
         halfSpan: roundCoordinate(halfSpan),
+        targetAspectRatio: settings.length === "compact" ? 6.8 : settings.length === "grand" ? 3.6 : settings.length === "extended" ? 3.5 : 3.35,
+        horizontalScale: roundCoordinate(horizontalScale),
         rooms
     };
 }
 
-function macroRouteGridPosition(patternId, index, count) {
-    const last = Math.max(1, count - 1);
-    const progress = index / last;
-    const local = (value, from, to) => clamp01((value - from) / Math.max(1, to - from));
-
-    if (patternId === "z-down" || patternId === "z-up") {
-        const down = patternId === "z-down";
-        const gy = progress < 0.3
-            ? (down ? -0.82 : 0.82)
-            : progress < 0.68
-                ? lerp(down ? -0.82 : 0.82, down ? 0.72 : -0.72, local(progress, 0.3, 0.68))
-                : (down ? 0.72 : -0.72);
-        return { gx: index, gy };
-    }
-
-    if (patternId === "l-down" || patternId === "l-up") {
-        const down = patternId === "l-down";
-        const turnStart = Math.max(3, Math.floor(last * 0.3));
-        const turnEnd = Math.max(turnStart + 3, Math.floor(last * 0.56));
-        if (index <= turnStart) return { gx: index, gy: down ? -0.78 : 0.78 };
-        if (index <= turnEnd) {
-            const t = local(index, turnStart, turnEnd);
-            const turnAdvance = (turnEnd - turnStart) * 0.82;
-            return { gx: turnStart + t * turnAdvance, gy: lerp(down ? -0.78 : 0.78, down ? 0.72 : -0.72, t) };
+function spatialNodeProgresses(anchors, count) {
+    const progressValues = [...new Set((anchors || []).map((anchor) => clamp01(anchor.progress)))].sort((a, b) => a - b);
+    if (!progressValues.length || progressValues[0] > 0) progressValues.unshift(0);
+    if (progressValues.at(-1) < 1) progressValues.push(1);
+    while (progressValues.length < count) {
+        let largestIndex = 0;
+        let largestSpan = -1;
+        for (let index = 1; index < progressValues.length; index += 1) {
+            const span = progressValues[index] - progressValues[index - 1];
+            if (span > largestSpan) {
+                largestSpan = span;
+                largestIndex = index;
+            }
         }
-        const turnAdvance = (turnEnd - turnStart) * 0.82;
-        const t = local(index, turnEnd, last);
-        return { gx: turnStart + turnAdvance + t * (last - turnEnd + 2), gy: down ? 0.72 : -0.72 };
+        progressValues.splice(largestIndex, 0, (progressValues[largestIndex - 1] + progressValues[largestIndex]) * 0.5);
     }
-
-    if (patternId === "valley") {
-        const gy = progress < 0.5
-            ? lerp(-0.55, 0.88, progress * 2)
-            : lerp(0.88, -0.48, (progress - 0.5) * 2);
-        return { gx: index, gy };
+    while (progressValues.length > count && progressValues.length > 2) {
+        let removeIndex = 1;
+        let smallestCost = Infinity;
+        for (let index = 1; index < progressValues.length - 1; index += 1) {
+            const isAnchor = (anchors || []).some((anchor) => Math.abs(anchor.progress - progressValues[index]) < 0.000001);
+            if (isAnchor) continue;
+            const cost = progressValues[index + 1] - progressValues[index - 1];
+            if (cost < smallestCost) {
+                smallestCost = cost;
+                removeIndex = index;
+            }
+        }
+        progressValues.splice(removeIndex, 1);
     }
+    return progressValues;
+}
 
-    if (patternId === "terraces") {
-        const level = progress < 0.34 ? -0.65 : progress < 0.67 ? 0 : 0.65;
-        return { gx: index, gy: level };
-    }
-
-    const wave = Math.sin(progress * Math.PI * 2.25) * 0.62;
-    return { gx: index, gy: wave };
+function macroRouteGridPosition(macroPlan, progress) {
+    return sampleSpatialAnchors(macroPlan?.spatialAnchors || spatialAnchorsForPattern(macroPlan?.patternId || "terraces", 1, 1), progress);
 }
 
 function buildMacroRoomRouteCandidate({ theme, settings, rng, attempt, macroPlan }) {
@@ -4197,22 +5558,22 @@ function buildMacroRoomRouteCandidate({ theme, settings, rng, attempt, macroPlan
     const spacing = theme.route.nodeSpacing;
     const startX = theme.route.startX;
     const baselineY = theme.route.baselineY;
+    const halfSpan = macroPlan?.halfSpan || theme.route.macroVerticalSpan * 0.72;
     const roomByNode = new Map((macroPlan?.rooms || []).map((room) => [room.nodeIndex, room]));
+    const nodeProgresses = spatialNodeProgresses(macroPlan?.spatialAnchors || [], mainCount);
+    const sampled = nodeProgresses.map((progress) => macroRouteGridPosition(macroPlan, progress));
+    const exitGridX = sampled.at(-1)?.gx || 7.2;
     const mainNodes = [];
     for (let index = 0; index < mainCount; index += 1) {
         const progress = index / Math.max(1, mainCount - 1);
-        const grid = macroRouteGridPosition(macroPlan?.patternId || "rolling", index, mainCount);
-        const jitterX = index === 0 || index === mainCount - 1 ? 0 : rng.range(-1, 1) * spacing * settings.winding * 0.035;
-        const jitterY = index === 0 || index === mainCount - 1 ? 0 : rng.range(-0.06, 0.06) * theme.route.verticalStep * settings.winding;
-        const x = startX + grid.gx * spacing + jitterX;
-        const rawY = baselineY + grid.gy * (macroPlan?.halfSpan || theme.route.macroVerticalSpan * 0.55) + jitterY;
-        const y = index === 0
-            ? rawY
-            : clamp(
-                rawY,
-                mainNodes.at(-1).y - theme.traversal.mandatoryRise * 0.9,
-                mainNodes.at(-1).y + theme.traversal.mandatoryDrop * 0.68
-            );
+        const grid = sampled[index];
+        const endpoint = index === 0 || index === mainCount - 1;
+        const jitterX = endpoint ? 0 : rng.range(-1, 1) * spacing * settings.winding * 0.045;
+        const jitterY = endpoint ? 0 : rng.range(-0.055, 0.055) * theme.route.verticalStep * settings.winding;
+        const x = endpoint
+            ? startX + grid.gx * spacing
+            : clamp(startX + grid.gx * spacing + jitterX, startX + spacing * 0.36, startX + (exitGridX - 0.28) * spacing);
+        const y = baselineY + grid.gy * halfSpan + jitterY;
         const room = roomByNode.get(index);
         const kind = index === 0
             ? "entrance"
@@ -4229,7 +5590,8 @@ function buildMacroRoomRouteCandidate({ theme, settings, rng, attempt, macroPlan
             progress: index,
             mandatory: true,
             label: index === 0 ? "Entrance" : index === mainCount - 1 ? "Exit" : room ? `Room ${room.id.split("_").at(-1)}` : `Main ${index}`,
-            macroPatternId: macroPlan?.patternId || "rolling",
+            macroPatternId: macroPlan?.patternId || "terraces",
+            spatialLane: Math.round(grid.gy * 2) / 2,
             macroRoomId: room?.id,
             roomWidthScreens: room?.widthScreens,
             roomHeightScreens: room?.heightScreens,
@@ -4240,17 +5602,22 @@ function buildMacroRoomRouteCandidate({ theme, settings, rng, attempt, macroPlan
     const nodes = [...mainNodes];
     const edges = [];
     for (let index = 0; index < mainNodes.length - 1; index += 1) {
+        const from = mainNodes[index];
+        const to = mainNodes[index + 1];
+        const deltaX = to.x - from.x;
+        const deltaY = to.y - from.y;
         edges.push({
             id: `route_main_edge_${String(index).padStart(3, "0")}`,
-            from: mainNodes[index].id,
-            to: mainNodes[index + 1].id,
-            mandatory: true
+            from: from.id,
+            to: to.id,
+            mandatory: true,
+            intendedDirection: Math.abs(deltaY) > Math.abs(deltaX) * 0.65 ? (deltaY > 0 ? "descend" : "climb") : (deltaX < 0 ? "left" : "right")
         });
     }
 
     appendOptionalBranches({ nodes, edges, mainNodes, theme, settings, rng });
     return {
-        version: 2,
+        version: 3,
         attempt,
         startNodeId: mainNodes[0].id,
         exitNodeId: mainNodes.at(-1).id,

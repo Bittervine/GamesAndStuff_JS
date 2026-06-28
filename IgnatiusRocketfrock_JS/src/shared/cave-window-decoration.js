@@ -83,25 +83,20 @@ function categoryForNormal(inward) {
 
 function scoreCandidate(entry, category) {
     const tags = new Set(Array.isArray(entry.tags) ? entry.tags : []);
-    if (category === "floor") {
-        if (tags.has("stalagmite")) return 8;
-        if (tags.has("floor")) return entry.frame.w >= 420 ? 2 : 3;
-        if (tags.has("rock") || tags.has("rubble")) return 4;
-        return 0;
-    }
-    if (category === "ceiling") {
-        if (tags.has("stalactite")) return 8;
-        if (tags.has("ceiling")) return entry.frame.w >= 460 ? 2 : 3;
-        return 0;
-    }
-    if (tags.has("wall")) return 8;
-    if (tags.has("pillar") || tags.has("alcove")) return 3;
-    return 0;
+    const stalactite = tags.has("stalactite");
+    const stalagmite = tags.has("stalagmite");
+    if (category === "floor") return stalagmite ? 8 : 0;
+    if (category === "ceiling") return stalactite ? 8 : 0;
+    return stalactite || stalagmite ? 8 : 0;
 }
 
 export function buildCaveDecorationCatalog(entries) {
     const stableEntries = (Array.isArray(entries) ? entries : [])
         .filter((entry) => entry && entry.atlasId && entry.assetId && entry.frame && Number(entry.frame.w) > 0 && Number(entry.frame.h) > 0)
+        .filter((entry) => {
+            const tags = new Set(Array.isArray(entry.tags) ? entry.tags.map(String) : []);
+            return tags.has("stalactite") || tags.has("stalagmite");
+        })
         .map((entry) => ({
             atlasId: String(entry.atlasId),
             assetId: String(entry.assetId),

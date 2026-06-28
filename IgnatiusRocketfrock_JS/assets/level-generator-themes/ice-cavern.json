@@ -36,14 +36,14 @@
     ]
   },
   "implementations": {
-    "route": "macro-room-route-v2",
-    "cavern": "room-and-tunnel-cavern-v2",
-    "traversal": "forgiving-traversal-v1",
+    "route": "the-path74-route-v4",
+    "cavern": "the-path74-contour-cavern-v4",
+    "traversal": "layered-recovery-traversal-v3",
     "endpoints": "grounded-chamber-endpoints-v2",
     "encounters": "difficulty-budgeted-encounters-v1",
     "rewards": "basic-rewards-v1",
     "decoration": "perimeter-decoration-v1",
-    "validation": "room-and-tunnel-validation-v2"
+    "validation": "the-path74-cavern-validation-v4"
   },
   "cavern": {
     "chamberRadiusX": 760,

@@ -2262,3 +2262,75 @@ Revision 162 makes both root entry pages redirect directly to `game.html`. Cave-
 - [x] Add deterministic automatic shuttle platforms: one in Standard, two in Extended, and three in Grand when suitable intermediate supports exist.
 - [x] Add regression assertions for exact portal anchoring, moving-platform counts, and substantial Grand-route vertical span.
 - [x] Run the complete regression suite after the correction.
+
+## Revision 242 folded spatial routes and occupancy contours
+
+- [x] Split the Route implementation conceptually into topology planning and two-dimensional spatial embedding.
+- [x] Generate a fresh macro spatial plan for every deterministic candidate attempt rather than jittering one shared plan.
+- [x] Add genuine mandatory leftward phases and horizontal reversals to Z, L, valley, terrace, and rolling route families.
+- [x] Preserve a deliberately simpler compact low-winding arc while requiring folded Standard through Grand routes to backtrack.
+- [x] Add route metrics and ranking for backtracks, horizontal and vertical direction changes, longest eastward run, travel expansion, occupied lanes, and bounding-box aspect ratio.
+- [x] Reject folded routes that remain too wide and shallow or fail to occupy the requested vertical lanes.
+- [x] Remove one-jump rise/drop clamps from macro route-node placement and leave local movement limits to Traversal Realization.
+- [x] Add conservative staircase realization for steep macro edges and alternating shaft landings for near-vertical edges.
+- [x] Use shallower landing supports around major vertical connections and retain a calm horizontal final approach to the exit.
+- [x] Allow encounter placement on safe mandatory node landings as well as broad route-floor supports.
+- [x] Add `contour-cavern-v3`, rasterizing expanded room and corridor stamps into an occupancy mask and tracing its connected boundary.
+- [x] Simplify arbitrary closed contours without accepting self-intersections.
+- [x] Replace single top/bottom vertical-range assumptions with interval selection inside the arbitrary cave polygon.
+- [x] Preserve separated upper and lower tunnels at the same X instead of filling the rock between them.
+- [x] Reorder the documented generator dependency sequence to Route, Traversal, Endpoints, Cavern, Encounters, Rewards, Decoration, Validation.
+- [x] Preserve spatial-lane and intended-direction provenance through generation normalization.
+- [x] Update Earth and Ice themes to `spatial-lane-route-v3`, `contour-cavern-v3`, and `folded-cavern-validation-v3`.
+- [x] Add regression coverage for implementation IDs, real backtracking, direction changes, lane count, aspect-ratio ceilings, occupancy diagnostics, and multi-interval cave contours.
+
+## Revision 243 ThePath74 route and ellipse-room cavern integration
+
+- [x] Preserve the experimentally selected ThePath algorithm as the legacy `ThePath` backup and adopt the horizontal-7/vertical-4 variant as `the-path74-route-v4`.
+- [x] Generate the protected route on an unbounded integer grid with cardinal-only movement.
+- [x] Request horizontal leg lengths from 1–7 and vertical leg lengths from 1–4.
+- [x] Check both the next cell and one-cell look-ahead before every committed route step.
+- [x] Preserve a complete eight-neighbour one-cell margin from older non-local route cells while allowing ordinary corners near the current and previous cells.
+- [x] Force the final leg Right and accept only candidates whose exit is the rightmost route point.
+- [x] Store the complete numbered cell path, segment directions, requested/actual leg lengths, cell scale, bounds, and room reservations in generation provenance.
+- [x] Emit abstract route nodes only at endpoints, turns, and selected room anchors.
+- [x] Select two to four well-separated room anchors on the route or its nearest-labelled boundary.
+- [x] Use independent horizontal and vertical room semi-axes of 2–4 cells.
+- [x] Add the selected ellipse rooms to traversal and endpoint stamps before occupancy-contour tracing.
+- [x] Register and make current `the-path74-route-v4`, `the-path74-contour-cavern-v4`, and `the-path74-cavern-validation-v4` while retaining revision-242 IDs as legacy alternatives.
+- [x] Increase the deterministic near-vertical shaft-zigzag offset so pure vertical legs expose valid landing width.
+- [x] Update Earth and Ice themes, Level Editor copy, build labels, architecture, plan, and regression expectations.
+- [ ] Continue playtesting room placement and add shortcut-aware room rejection only after the desired visual shape is confirmed in the integrated editor/runtime.
+
+## Revision 244 spaced platforms and moving vertical shafts
+
+- [x] Register `spaced-platform-traversal-v2` and make it the Earth and Ice default while retaining `forgiving-traversal-v1` as a legacy alternative.
+- [x] Treat ThePath74 as a macroscopic guide rather than placing one continuous floor directly on the route.
+- [x] Split horizontal route edges into authored landing platforms separated by visible air gaps measured from real walkable collision edges.
+- [x] Apply bounded vertical offsets to horizontal intermediate platforms so mandatory play includes local jumps both above and below the planned route line.
+- [x] Preserve broad, shallow landings at chamber and recovery nodes so doors and encounter groups still have usable space.
+- [x] Realize every mandatory climb and descent with exactly one automatic vertically shuttling platform.
+- [x] Remove static staircase and shaft-zigzag intermediate supports from mandatory vertical route edges.
+- [x] Validate safe boarding at both moving-platform endpoints and require pure vertical movement over the complete route-node height difference.
+- [x] Add moving-platform travel-shaft stamps to the cavern occupancy contour so rock cannot close through the lift path or destination.
+- [x] Reduce recovery-platform generation so it does not recreate a continuous secondary floor beneath the spaced route.
+- [x] Add traversal metrics and regression checks for moving vertical platform count, forbidden static vertical supports, horizontal jump-gap count, minimum gap, and maximum vertical route offset.
+- [x] Update generator IDs, theme selections, Level Editor copy, build revision, plan, and architecture documentation.
+
+## Revision 245 layered recovery traversal and stalactite/stalagmite perimeter
+
+- [x] Inspect the manually authored `assets/level_001.json` platform structure as the reference for a vertically varied upper route and a broad lower recovery path.
+- [x] Register `layered-recovery-traversal-v3` and make it the Earth and Ice default while retaining `spaced-platform-traversal-v2` and `forgiving-traversal-v1` as legacy alternatives.
+- [x] Increase deterministic vertical variation among horizontal upper-route platforms while keeping every local transition inside the conservative movement envelope.
+- [x] Keep explicit collision-edge jump gaps between upper-route platforms.
+- [x] Generate level lower recovery lanes beneath suitable horizontal route edges.
+- [x] Place recovery supports under every upper jump gap so a missed upper jump has a landing below it.
+- [x] Add deliberate gaps to the recovery lane and guarantee that those gaps do not overlap upper-route gaps.
+- [x] Reserve the thin `rubble_long` asset exclusively for the new `movingPlatform` generation role.
+- [x] Move `shaftBridge` responsibility to a non-moving static platform family.
+- [x] Continue realizing every mandatory climb and descent with exactly one vertical shuttle and no static intermediate staircase.
+- [x] Restrict automatic cave-perimeter population to stalactite- and stalagmite-tagged assets only.
+- [x] Allow rotated stalactites/stalagmites to cover vertical wall directions without admitting generic wall or pillar art.
+- [x] Regenerate the authored `level_001` cave foreground under the formation-only perimeter rule.
+- [x] Add validation metrics and regressions for recovery lanes, staggered gaps, upper-gap coverage, thin moving-platform style, and formation-only foreground assets.
+- [ ] Continue playtesting recovery-lane density and vertical separation in the real runtime before changing the conservative jump envelope.
